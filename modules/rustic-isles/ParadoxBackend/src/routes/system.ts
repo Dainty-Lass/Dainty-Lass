@@ -21,9 +21,9 @@ import { ACTIVE_HUNTPASS_PROGRESSION_ID } from "../controllers/progression";
 import { MonitorBountyLoad, MonitorBountySave, MonitorCooldownLoad, MonitorCooldownSave, MonitorSourceOf } from "../diagnostics/economyMonitor";
 import { CooldownSaveValidationError, IsAuthorizedCooldownReader, IsAuthorizedCooldownWriter, IsHostCooldownWriter } from "../cooldownState";
 import { GetCooldownState, SaveCooldowns, StartCooldownHandlers } from "../controllers/cooldowns";
-import { BountyGroupCounts, BountySaveValidationError, BountyStatePayload, HostBountyWriteSummary, IsAuthorizedBountyReader, IsAuthorizedBountyWriter, IsHostBountyWriter, MergeHostBountyState, NewlyClaimedBountyIds } from "../bountyState";
+import { BountyDeleteNamesNothing, BountyGroupCounts, BountySaveValidationError, BountyStatePayload, HostBountyWriteSummary, IsAuthorizedBountyReader, IsAuthorizedBountyWriter, IsHostBountyWriter, MergeHostBountyState, NewlyClaimedBountyIds } from "../bountyState";
 import { RecordChallengeClaimsActivity } from "../activity/activityMonitor";
-import { GetBountyState, SaveBountyState } from "../controllers/bounty";
+import { DeleteBountyState, GetBountyState, SaveBountyState } from "../controllers/bounty";
 import { EscalationSeasonProgressUpdate, EscalationTuning, GetEscalationTuning, IsAuthorizedEscalationReader, IsAuthorizedEscalationWriter, IsHostEscalationSeasonAllowed, IsHostEscalationWriter, MergeHostEscalationProgress, RecordToEscalationPayload } from "../escalationProgress";
 import { GetRepositories } from "../persistence";
 import { GetP2PExtension } from "../extensions/p2p";
@@ -817,18 +817,18 @@ systemRouter.post("/bounty/:userId", HasParadoxBackendAuth, async (req: any, res
 	}
 });
 
-// [2026-10-15] POST /bounty/delete/:userId (progression-prod). In the 1.14.7 binary this is UBountyComponent::ResetBounties'
-// DeleteBountiesEndpoint: a POST with the account id in the path and no body, sent when the game resets the player's bounties
-// ("resetting N bounties for player"). Whether a reset should wipe the stored bounty state is an owner decision: that state also
-// holds the claim records that stop a season challenge being paid twice (controllers/challengeRewards.ts), so until the decision is
-// made this changes nothing and answers the usual envelope. The auth and target checks are the bounty save's (a gameserver, or a
-// host whose hostWrites hook allows BOUNTY for this player). The next save merges as before (an empty list never deletes anything,
-// src/bountyState.ts).
-systemRouter.post("/bounty/delete/:userId", HasParadoxBackendAuth, async (req: any, res) => {
+// [Dauntless Reforged Revival] Claiming a completed bounty deletes it here first; the game grants the reward only after a
+// 200 (bountyState.ts, DeleteBounties). Registered for DELETE too, the verb the game's own log line names. Mystic Paradox
+// answers this route with 200 and changes nothing (it reads it as ResetBounties); here the bounties the body names are
+// removed, season challenges never, and a body that names none is refused. Authority is the bounty save's: a game server,
+// or a host whose hostWrites hook allows BOUNTY for this player. A call that names no bounty (the reset, with no body) changes
+// nothing and answers like Mystic Paradox's.
+async function HandleBountyDelete(req: any, res: any) {
 	const UserId = String(req.params.userId);
+	const Raw = JSON.stringify(req.body ?? null).slice(0, 2000);
 	const IsHostWrite = !IsAuthorizedBountyWriter(req.AuthData) && IsHostBountyWriter(req.AuthData);
 	if (!IsAuthorizedBountyWriter(req.AuthData) && !IsHostWrite) {
-		logger.warn("Rejected bounty reset without gameserver authority");
+		logger.warn(`Rejected bounty delete without gameserver authority actor=${req.AuthData?.userId ?? "unknown"} target=${UserId}`);
 		res.status(403).send();
 		return;
 	}
@@ -839,9 +839,35 @@ systemRouter.post("/bounty/delete/:userId", HasParadoxBackendAuth, async (req: a
 			return;
 		}
 	}
-	logger.info(`Bounty reset request acknowledged, nothing changed (source=${MonitorSourceOf(req.AuthData)})`);
-	res.status(200).json({ code: null, message: "OK", payload: {} });
-});
+	if (BountyDeleteNamesNothing(req.body)) {
+		logger.info(`Bounty reset request acknowledged, nothing changed (source=${MonitorSourceOf(req.AuthData)})`);
+		res.status(200).json({ code: null, message: "OK", payload: {} });
+		return;
+	}
+	if (!BOUNTY_PERSISTENCE || UserId === BOUNTY_NO_PLAYER) {
+		logger.info(`[DraftMon] BOUNTY-DELETE user=${UserId} ${BOUNTY_PERSISTENCE ? "no-player sentinel" : "persistence off (stub)"}, not stored body=${Raw}`);
+		res.status(200).json({ code: null, message: "OK", payload: BountyStatePayload(undefined) });
+		return;
+	}
+
+	try {
+		const { payload, record, summary } = await DeleteBountyState(UserId, req.body);
+		logger.info(`[DraftMon] BOUNTY-DELETE user=${UserId} deleted=[${summary.deleted.join(", ")}] kept=[${summary.kept.join(", ")}]`
+			+ ` -> ${JSON.stringify(BountyGroupCounts(record))} version=${record.updateVersion} body=${Raw}`);
+		res.status(200).json({ code: null, message: "OK", payload });
+	}
+	catch (Err) {
+		if (Err instanceof BountySaveValidationError) {
+			logger.warn(`[DraftMon] BOUNTY-DELETE user=${UserId} REJECTED ${Err.message} body=${Raw}`);
+			res.status(400).json({ code: null, message: "Bad Request", payload: {} });
+			return;
+		}
+		throw Err;
+	}
+}
+
+systemRouter.post("/bounty/delete/:userId", HasParadoxBackendAuth, HandleBountyDelete);
+systemRouter.delete("/bounty/delete/:userId", HasParadoxBackendAuth, HandleBountyDelete);
 
 systemRouter.get("/all/", HasParadoxBackendAuth, (req: any, res) => {
 	logger.info("Mailbox (stubbed)");
