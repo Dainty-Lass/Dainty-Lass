@@ -45,6 +45,7 @@ import { ReadAdminApiPolicy } from "./config/adminApi";
 import { MountRealmsModule } from "./realms";
 import { TRUST_PROXY_SETTING } from "./config/proxyTrust";
 import { CaptureAdminRawBody } from "./security/managerOperator";
+import { reforgedApiRouter } from "./routes/reforgedApi";
 
 // Optional player-hosted hunt module (dedicated-only defaults when it is absent).
 const Extension = GetP2PExtension();
@@ -258,6 +259,8 @@ app.use("/", progressionRouter);
 app.use("/", loadoutRouter);
 app.use("/", friendsRouter);
 app.use("/", launcherAuthRouter);
+// [Dauntless Reforged Revival] Invites, account keys and the live server status for the launcher.
+app.use("/", reforgedApiRouter);
 app.use("/", launcherUpdatesRouter);
 app.use("/", launcherLogsRouter);
 // [2026-10-15] With the admin API off, every /admin path answers 404 here, before the admin routers and before the optional

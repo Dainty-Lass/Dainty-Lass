@@ -38,6 +38,7 @@ import { ResolveListenerPlan } from "./config/listenerPlan";
 
 const PORT = process.env.PORT?.trim() || "3000";
 
+
 // HTTPS listener for the game client. The injected DLL rewrites the official backend
 // hosts (*.steelyard.ca, *.steelyard.online, ...) to https://paradox.mysticfox.dev/__origin/...
 // via the in-process SetURL redirect, so the game connects DIRECTLY here and Metagame

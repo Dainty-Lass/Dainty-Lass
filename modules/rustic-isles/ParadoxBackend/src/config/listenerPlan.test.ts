@@ -61,7 +61,7 @@ test("QOS_PORT: unset is 80, off starts none, a port number is that port; anythi
     assert.deepEqual(ReadQosPort("  "), { port: 80, problem: undefined });
     assert.deepEqual(ReadQosPort("OFF"), { port: undefined, problem: undefined });
     assert.deepEqual(ReadQosPort("8080"), { port: 8080, problem: undefined });
-    assert.deepEqual(ReadQosPort("0"), { port: undefined, problem: "QOS_PORT='0' is not a port number or 'off'" });
+    assert.deepEqual(ReadQosPort("0"), { port: undefined, problem: undefined }, "0 is Reforged's spelling of off");
     assert.deepEqual(ReadQosPort("70000"), { port: undefined, problem: "QOS_PORT='70000' is not a port number or 'off'" });
     assert.deepEqual(ReadQosPort("http"), { port: undefined, problem: "QOS_PORT='http' is not a port number or 'off'" });
 });
@@ -73,4 +73,10 @@ test("production needs a certificate and an HTTPS port only when the HTTPS liste
     assert.throws(() => AssertRuntimeSafety({ ...PRODUCTION, HTTPS_PORT: "99999" }), /HTTPS_PORT must be a valid production port/);
     assert.throws(() => AssertRuntimeSafety({ ...PRODUCTION, MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "maybe" }),
         /MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off/);
+});
+
+test("[Dauntless Reforged Revival] REFORGED_HTTP_ONLY is read as the proxy switch when it is not set itself", () => {
+    assert.equal(ReadTlsTerminatedByProxy({ REFORGED_HTTP_ONLY: "1" }), true);
+    assert.equal(ReadTlsTerminatedByProxy({ REFORGED_HTTP_ONLY: "0" }), false);
+    assert.equal(ReadTlsTerminatedByProxy({ REFORGED_HTTP_ONLY: "1", MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "off" }), false);
 });
