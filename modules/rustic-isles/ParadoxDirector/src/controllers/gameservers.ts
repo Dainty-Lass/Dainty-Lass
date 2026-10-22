@@ -121,8 +121,23 @@ const STANDARD_GAMESERVER_ARGS = [
     // "WorldContext requested with invalid context object" (the client build's UI/world-lookup noise,
     // see Progress/34 section AA) until the runtime log reaches 500+ MB, which makes the log useless for
     // diagnosis and expensive to read. LogOnline/LogPhoenixCharacter verbosity is unchanged.
-    "-LogCmds=\"LogPhoenixCharacter VeryVerbose, LogOnline Verbose, LogLoad Off\""
+    GameserverLogCmdsArg()
 ];
+
+// [Dauntless Reforged Revival] GAMESERVER_LOG_CMDS replaces the -LogCmds value above (same UE4 format:
+// "Category Verbosity" pairs separated by commas; letters, digits, underscores, spaces and commas only).
+// The default keeps the diagnostic levels above. A host that does not chase those bugs can lower them
+// (for example "LogPhoenixCharacter Warning, LogOnline Warning, LogLoad Off"): every VeryVerbose line is
+// formatted and written by the game thread of each game server, for every player.
+function GameserverLogCmdsArg(): string {
+    const Default = "LogPhoenixCharacter VeryVerbose, LogOnline Verbose, LogLoad Off";
+    const Raw = (process.env.GAMESERVER_LOG_CMDS ?? "").trim();
+    if (Raw.length > 0 && !/^[A-Za-z0-9_, ]{1,512}$/.test(Raw)) {
+        logger.warn(`GAMESERVER_LOG_CMDS must be "Category Verbosity" pairs separated by commas; using the default (${Default})`);
+    }
+    const Value = Raw.length > 0 && /^[A-Za-z0-9_, ]{1,512}$/.test(Raw) ? Raw : Default;
+    return `-LogCmds="${Value}"`;
+}
 const METAGAME_API_KEY = process.env.METAGAME_API_KEY!;
 const MY_IP = process.env.MY_IP!;
 const SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP = Number(process.env.SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP!);
@@ -175,7 +190,10 @@ const TrainingHub = new HubSupervisor<Gameserver>({
 //                              That request waits for the start (up to GAMESERVER_READY_TIMEOUT_MS) instead of
 //                              failing, and from then on the hub is supervised like Ramsgate.
 //                              0, false, no and off (any case) all mean off.
-const TRAINING_HUB_AT_BOOT = HubSwitchOn(process.env.TRAINING_HUB, true);
+// [Dauntless Reforged Revival] The Reforged host kit writes TRAINING_ON_DEMAND=1 for the same thing: 1, true, yes or on make
+// TRAINING_HUB default to off when TRAINING_HUB itself is not set.
+const TRAINING_ON_DEMAND = /^(1|true|yes|on)$/i.test((process.env.TRAINING_ON_DEMAND ?? "").trim());
+const TRAINING_HUB_AT_BOOT = HubSwitchOn(process.env.TRAINING_HUB, !TRAINING_ON_DEMAND);
 
 // [2026-10-14 Paradox realms] A realm's Ramsgate runs on its host's PC, so the dedicated Ramsgate hub can be switched off:
 //   RAMSGATE_HUB=on (default)  booted and supervised as before - nothing changes.
