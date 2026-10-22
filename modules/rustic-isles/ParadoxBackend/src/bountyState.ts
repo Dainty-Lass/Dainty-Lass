@@ -30,7 +30,8 @@ import { ACTIVE_SEASON_LENGTH_MS, ActiveSeasonWindowMs } from "./seasonWindow";
  *
  * Merge rules (MergeBountyState):
  *   - A save that carries exactly ONE draft-data key is that component's full list: its draft data replaces the
- *     stored one, and its bounties replace the stored bounties of that group. An EMPTY list never deletes anything
+ *     stored one, and its bounties replace the stored bounties of that group (daily and weekly only; the base group,
+ *     the bounty tokens, is upserted, see ReplacesGroupOnSave). An EMPTY list never deletes anything
  *     (the server sends `bounties: []` with draft data while it is still initialising; deleting there would wipe
  *     the season challenges' progress). A save with no (or several) draft-data keys upserts the bounties it names.
  *   - The same bounty instance (same bounty_id and drafted_timestamp) is merged monotonically: each objective's
@@ -296,6 +297,16 @@ export function DeleteBounties(
     };
 }
 
+// [Dauntless Reforged Revival] Several bounty tokens can be active at once (one board slot each). Drafting one makes
+// the server save { bounties: [only the bounty just drafted], draft_data }, and the old replace rule then deleted every
+// other active token bounty, so after the next map change (entering a hunt) only the last drafted one was loaded back.
+// Dauntless Revived's metagame treats every bounty save as a partial upsert for the same reason. The daily group has a
+// single bounty (a new draft replaces the previous one) and the weekly group is the season's full challenge list, so
+// those two keep the replace rule.
+export function ReplacesGroupOnSave(group: Exclude<BountyGroup, "unassigned">): boolean {
+    return group !== "base";
+}
+
 export interface BountyMergeSummary {
     mode: "replace" | "upsert";
     group?: Exclude<BountyGroup, "unassigned">;
@@ -334,7 +345,10 @@ function ApplyBountySave(
         const { key, group } = draftKeys[0];
         DraftData[group] = body[key] as Record<string, unknown>;
         let Removed = 0;
-        if (SentCount > 0) {
+        // [Dauntless Reforged Revival] Drafting a bounty token sends only the new bounty with draft_data, so the base
+        // group (token bounties) is never replaced: absent bounties are kept, and claim/abandon delete them through
+        // POST /bounty/delete (see ReplacesGroupOnSave).
+        if (SentCount > 0 && ReplacesGroupOnSave(group)) {
             const Before = List.length;
             List = List.filter((Entry) => {
                 const EntryGroup = Entry.group === "unassigned" ? InferBountyGroup(String(Entry.bounty.bounty_id)) : Entry.group;
@@ -348,10 +362,10 @@ function ApplyBountySave(
                 return false;
             });
             Removed = Before - List.length;
-            // A host's entry is filed by its id (a Challenge_Daily_* id sent under the weekly key must not become a fundable weekly claim).
-            for (const Bounty of bounties) List = Upsert(List, Bounty, host ? InferBountyGroup(String(Bounty.bounty_id)) : group, now);
         }
-        Summary = { mode: "replace", group, incoming: SentCount, removed: Removed };
+        // A host's entry is filed by its id (a Challenge_Daily_* id sent under the weekly key must not become a fundable weekly claim).
+        for (const Bounty of bounties) List = Upsert(List, Bounty, host ? InferBountyGroup(String(Bounty.bounty_id)) : group, now);
+        Summary = { mode: ReplacesGroupOnSave(group) ? "replace" : "upsert", group, incoming: SentCount, removed: Removed };
     }
     else {
         for (const Key of draftKeys) DraftData[Key.group] = body[Key.key] as Record<string, unknown>;
