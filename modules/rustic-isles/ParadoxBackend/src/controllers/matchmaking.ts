@@ -79,6 +79,12 @@ let PartyInstanceCreatedAtMap: Map<string, number> = new Map<string, number>(); 
 const HuntRefOfInstance: Map<string, string> = new Map<string, string>();
 const HubGameSessionIds: Map<string, string> = new Map<string, string>();
 
+// [Reforged 0025] True for a hub's game session id (the City-<id> chat room), false for a hunt's.
+export function IsHubGameSessionId(Id: string): boolean {
+    for (const HubId of HubGameSessionIds.values()) if (HubId === Id) return true;
+    return false;
+}
+
 // [2026-10-11] Exported for the P2P module's recovery to Ramsgate, which used a random id and so put returning players
 // in a different XMPP city room than everyone already in the hub (plan 39_ §13.1 B6).
 export function GetHubGameSessionId(Host: string, Port: number): string {

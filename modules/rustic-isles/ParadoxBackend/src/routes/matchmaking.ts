@@ -14,7 +14,8 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { HasParadoxBackendAuth } from "../middleware/HasParadoxBackendAuth";
 import { logger } from "../logger";
-import { CancelMatchmakingForLeave, CheckAndUpdateQueueStatus, FetchLiveHubStatus, GetCandidateStatusPeriodMillis, HandlePlayerMatchmaking } from "../controllers/matchmaking";
+import { CancelMatchmakingForLeave, CheckAndUpdateQueueStatus, FetchLiveHubStatus, GetCandidateStatusPeriodMillis, HandlePlayerMatchmaking, IsHubGameSessionId } from "../controllers/matchmaking";
+import { RecordHubSessionServed } from "../realtime/cityRooms";
 import { CandidateStatusAnswerFor } from "../controllers/candidateStatus";
 import { GetPartyForPlayer } from "../controllers/party";
 import { sessionRegistry } from "../realtime/SessionRegistry";
@@ -203,6 +204,11 @@ matchmakingRouter.get("/candidate/status", HasParadoxBackendAuth, async (req: an
         clientIp: req.ip,
         fetchLiveHub: FetchLiveHubStatus
     });
+    // [Reforged 0025] The client joins City-<gameSessionId> for a dedicated hub; remember which one.
+    const ServedSessionId = (Answer.body as any)?.serverInfo?.gameSessionId;
+    if (typeof ServedSessionId === "string" && IsHubGameSessionId(ServedSessionId)) {
+        RecordHubSessionServed(UserId, ServedSessionId);
+    }
     res.status(Answer.status);
     if (Answer.body === undefined) {
         res.send();

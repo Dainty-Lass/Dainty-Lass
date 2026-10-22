@@ -13,6 +13,7 @@ import { GetPartyForPlayer } from "../controllers/party";
 import { logger } from "../logger";
 import { RegisteredConnection } from "./SessionRegistry";
 import { escapeXml, sanitizeName } from "./xml";
+import { MayJoinCityRoom } from "./cityRooms";
 
 /**
  * WP8 (task #7) — secure Party MUC. Captured room JID (plan §27):
@@ -241,6 +242,8 @@ export class RoomService {
                 if (!(await this.realmHubs.isMember(realmId, accountId))) return { ok: false, reason: "not a realm member" };
                 return { ok: true, reason: "" };
             }
+            // [Reforged 0025] A dedicated hub's room: the hub this account was sent to by matchmaking decides it.
+            if (MayJoinCityRoom(accountId, roomLocal)) return { ok: true, reason: "" };
             if (!this.devCityMuc) return { ok: false, reason: "city muc disabled" };
             if (!this.cityWarned) {
                 this.cityWarned = true;
