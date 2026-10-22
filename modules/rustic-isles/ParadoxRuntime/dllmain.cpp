@@ -35,7 +35,15 @@
 #include "Networking.h"
 #include "RuntimeShared.h"
 #include "P2PHooks.h"
+// [Dauntless Reforged Revival] The deployment header is optional: the backend address normally comes from the
+// environment at run time (MYSTICPARADOX_BACKEND_URL or REFORGED_BACKEND_URL, see MpResolveBackendAddress), so one
+// runtime build serves every server. A build without the header fails closed on an address that never resolves.
+#if __has_include("deployment_config.generated.h")
 #include "deployment_config.generated.h"
+#endif
+#ifndef MP_PUBLIC_HOST
+#define MP_PUBLIC_HOST L"reforged.invalid"
+#endif
 #include "BackendUrl.h"
 #include "resource.h"
 
@@ -8534,7 +8542,12 @@ static void MpResolveBackendAddress() {
     uint16_t EnvPort = kMpBuiltInXmppPort;
     try {
         char Raw[512] = {};
-        const DWORD Length = GetEnvironmentVariableA("MYSTICPARADOX_BACKEND_URL", Raw, static_cast<DWORD>(sizeof(Raw)));
+        DWORD Length = GetEnvironmentVariableA("MYSTICPARADOX_BACKEND_URL", Raw, static_cast<DWORD>(sizeof(Raw)));
+        // [Dauntless Reforged Revival] The Reforged launcher and the Director's game servers set REFORGED_BACKEND_URL;
+        // it is read the same way when MYSTICPARADOX_BACKEND_URL is not set.
+        if (Length == 0) {
+            Length = GetEnvironmentVariableA("REFORGED_BACKEND_URL", Raw, static_cast<DWORD>(sizeof(Raw)));
+        }
         if (Length >= sizeof(Raw)) {
             EnvLength = Length;                         // buffer too small: Length is the size it would need
             Ignored = "value too long";
@@ -9210,6 +9223,11 @@ static bool MpIsXmppServerPort(const std::wstring& Section, const std::wstring& 
         && (MpWContainsCI(Section, L"xmpp") || MpWContainsCI(Key, L"xmpp"));
 }
 
+static bool MpIsXmppUseSsl(const std::wstring& Section, const std::wstring& Key) {
+    return _wcsicmp(Key.c_str(), L"bUseSSL") == 0
+        && (MpWContainsCI(Section, L"xmpp") || MpWContainsCI(Key, L"xmpp"));
+}
+
 // Overwrites the OUTPUT FString (Value), which the client reads AFTER the hook returns, using the proven
 // engine-allocating pattern (see EngineRealloc / GetGameDefaultMap). A shallow FString(wchar_t*) would alias freed CRT
 // storage and dangle here. False (Value untouched) when the engine allocation fails.
@@ -9267,6 +9285,17 @@ bool GetConfigStringHook(void* This, const wchar_t* Section, const wchar_t* Key,
         if (MpWriteEngineFString(Value, Port)) {
             static int LoggedPortOnce = 0;
             if (!LoggedPortOnce) { LoggedPortOnce = 1; MpLog(std::string("[XmppConfig] ServerPort -> ") + MpNarrow(Port)); }
+            return true;
+        }
+    }
+
+    // [Dauntless Reforged Revival] ...and the TLS switch, so a ws:// address (the Reforged launcher's local relay) is
+    // not opened with TLS because the game's config says bUseSSL=True.
+    if (Redirect && Value != nullptr && MpBackendFromEnvironment() && MpIsXmppUseSsl(Sec, K)) {
+        const std::wstring UseSsl = wcsncmp(MpXmppWsUrl(), L"wss://", 6) == 0 ? L"True" : L"False";
+        if (MpWriteEngineFString(Value, UseSsl)) {
+            static int LoggedSslOnce = 0;
+            if (!LoggedSslOnce) { LoggedSslOnce = 1; MpLog(std::string("[XmppConfig] bUseSSL -> ") + MpNarrow(UseSsl)); }
             return true;
         }
     }
