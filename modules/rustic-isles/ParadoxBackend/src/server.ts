@@ -35,9 +35,9 @@ import { ReadMetagameServiceRole } from "./config/serviceRole";
 import { SetServiceReadiness } from "./observability/serviceReadiness";
 import { GetP2PExtension } from "./extensions/p2p";
 import { ResolveListenerPlan } from "./config/listenerPlan";
+import { GetTestMultipliers } from "./testMultipliers";
 
 const PORT = process.env.PORT?.trim() || "3000";
-
 
 // HTTPS listener for the game client. The injected DLL rewrites the official backend
 // hosts (*.steelyard.ca, *.steelyard.online, ...) to https://paradox.mysticfox.dev/__origin/...
@@ -136,6 +136,11 @@ async function Main(): Promise<void> {
     GetP2PExtension().server.start(serviceRole);
     // [2026-10-15] One pass about a minute after start, then every six hours. Each pass logs counts only.
     UploadedLogRetention = StartUploadedLogRetention({ root: LOG_STORAGE_ROOT, log: (line) => logger.info(line) });
+
+    // [Dauntless Reforged Revival] Say whether this private test server multiplies XP and rewards (testMultipliers.ts).
+    const Multipliers = GetTestMultipliers();
+    if (Multipliers.xp !== 1 || Multipliers.rewards !== 1) logger.warn(`[TestMultiplier] ON: XP x${Multipliers.xp}, rewards x${Multipliers.rewards} (private Tailscale server)`);
+    else logger.info(`[TestMultiplier] off (${Multipliers.reason ?? "x1"})`);
 
     // [2026-10-14 M2] BIND_HOST (unset = every interface, as before). Behind a proxy the listener is ready as soon as it listens.
     const ListenHttp = (listening: () => void) => (Listeners.httpBindHost != undefined
