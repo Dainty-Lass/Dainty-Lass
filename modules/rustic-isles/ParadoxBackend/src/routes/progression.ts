@@ -11,6 +11,7 @@
 
 import { RecordSlayersPathUnlocksActivity } from "../activity/activityMonitor";
 import { Router } from "express";
+import crypto from "node:crypto";
 import { loadGameData } from "../gameData/loader";
 import { WidenHuntPassWindows } from "./system";
 import { HasParadoxBackendAuth } from "../middleware/HasParadoxBackendAuth";
@@ -398,6 +399,20 @@ progressionRouter.post("/breadcrumbs/:characterId", HasParadoxBackendAuth, async
 const MAX_XP_GRANT_AMOUNT = MAX_PROGRESSION_GRANT_AMOUNT; // Rule 5: conservative bound, configurable later if too low.
 const PROGRESSION_ID_MAX_LENGTH = 128;
 
+// [Dauntless Reforged Revival] The 1.14.7 game server sends its XP grants (POST
+// /progression/<user>/<track>/<amount>, after a kill, a hunt, a collectible) with neither of these:
+// every grant was refused ("missing or invalid authoritative grant id") and no XP was ever stored.
+// For an authenticated game server that sent no id at all, one is minted for the grant, so it is
+// applied once. An id that is present but invalid, or that differs between header and body, is still
+// refused.
+function GrantIdFor(req: any): string | undefined {
+    const Sent = req.get?.("x-mysticparadox-grant-id") ?? req.get?.("idempotency-key") ?? req.body?.grant_id ?? req.body?.grantId;
+    if(Sent === undefined && req.AuthData?.IsGameserver === true){
+        return `gs-${crypto.randomUUID()}`;
+    }
+    return ReadAuthoritativeGrantId(req);
+}
+
 function ReadAuthoritativeGrantId(req: any): string | undefined {
     const HeaderValue = req.get?.("x-mysticparadox-grant-id") ?? req.get?.("idempotency-key");
     const BodyValue = req.body?.grant_id ?? req.body?.grantId;
@@ -419,7 +434,7 @@ function LogSafe(value: unknown): string {
 }
 
 progressionRouter.post("/progression/:userId/:progressionId/:amount", HasParadoxBackendAuth, async (req: any, res) => {
-    const GrantId = ReadAuthoritativeGrantId(req);
+    const GrantId = GrantIdFor(req);
     const IsHost = IsHostRuntimeAuth(req.AuthData);
 
     // [2026-10-10] One line per request before any gate, so each refusal below is attributable. Every 1.14.7 XP source
@@ -649,7 +664,7 @@ progressionRouter.post("/progression/:userId", HasParadoxBackendAuth, async (req
         // silently discard the body entirely, which is why mastery/hunt-pass XP never
         // accumulated even though the server returned 200 OK for these calls.
         try{
-            await CaptureProgressionObjectiveEvent(RequestorAccountId, req.body);
+            await CaptureProgressionObjectiveEvent(RequestorAccountId, req.body, undefined, req.AuthData?.IsGameserver === true);
         }
         catch(error){
             if(error instanceof Error && error.name === "ProgressionEventValidationError"){
