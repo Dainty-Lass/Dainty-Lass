@@ -22,6 +22,7 @@ import { ResolveProgressionGrant } from "../skuProgression";
 import { GetInventoryStoragePolicy, InventoryStoragePolicyEntry } from "../inventoryStoragePolicy";
 import { logger } from "../logger";
 import { loadGameData, tryLoadGameData } from "../gameData/loader";
+import { EffectivePrice } from "../platinumStoreFree";
 
 // [2026-07-24] Lady Luck's Store (the Trials/Arena reward shop). Confirmed real endpoint contract:
 // GET /product/skus/public?requiredTags=ladyluckstore returns exactly this shape
@@ -506,9 +507,10 @@ export async function PurchaseStoreSku(userId: string, characterId: string, stor
         logger.error(`[Store:${storeTag}] ${skuId} has an invalid price ${JSON.stringify(Sku.prices)} - purchase refused`);
         return { ok: false, reason: "transaction_failed" };
     }
-    const StackedItemsToRemove = Sku.prices.filter((p) => p.price > 0).map((p) => ({
+    // [Dauntless Reforged Revival] Platinum prices are 0 unless PLATINUM_STORE_FREE=0 (platinumStoreFree.ts).
+    const StackedItemsToRemove = Sku.prices.filter((p) => EffectivePrice(p) > 0).map((p) => ({
         catalogId: CURRENCY_ID_MAP[p.currencyId] ?? p.currencyId.toUpperCase(),
-        quantity: p.price,
+        quantity: EffectivePrice(p),
     }));
 
     const InstancedItemsToAdd: any[] = [];

@@ -13,6 +13,7 @@ import { Router } from "express";
 import { logger } from "../logger";
 import { HasParadoxBackendAuth } from "../middleware/HasParadoxBackendAuth";
 import { GetNotesForUser, GetStoreSkusForPlayer, IsDailyClaimSection, PurchaseStoreSku, FindStoreSkuByIdOrCatalogId } from "../controllers/store";
+import { EffectivePrice } from "../platinumStoreFree";
 import { GetWallet, BuildBalanceDict } from "../controllers/wallet";
 import { ProjectBalances } from "../platinumWallet";
 import { GetCharactersForUid } from "../controllers/character";
@@ -151,7 +152,7 @@ storeRouter.get("/product/skus/public", HasParadoxBackendAuth, async (req: any, 
         displayName: Sku.displayName,
         displayDescription: Sku.displayDescription,
         displayPriority: Sku.displayPriority,
-        prices: Sku.prices.map((p) => ({ currencyId: p.currencyId, price: p.price, salesPrice: null, multiPrice: null })),
+        prices: Sku.prices.map((p) => ({ currencyId: p.currencyId, price: EffectivePrice(p), salesPrice: null, multiPrice: null })),
         maxAllowed: Sku.maxAllowed,
         remaining: Sku.maxAllowed ?? 999,
         duplicateInstancedItems: Sku.duplicateInstancedItems,
