@@ -25,6 +25,7 @@ import { CreateHuntResolver, LoadHuntTables, ParseTrialsRotationMinutes, Transfo
 import { PortPool } from "./portPool";
 import { CreateSerialGate, HubSupervisor, HubLogLevel, HubSwitchOn } from "./hubSupervisor";
 import { HuntMemoryUnavailableError, MemoryAdmissionFromEnv } from "./memoryAdmission";
+import { IdleStopPolicy, RuntimeLogOccupancy } from "./hubOccupancy";
 
 // [2026-10-14 M1] Hunt tables from ParadoxDirector/game-data (exported from the client by CatalogExporter). Trials/Arena
 // rows sit in their own matchmaker tables and are reached only through tag routing (shared/hunt-manifest).
@@ -177,6 +178,9 @@ const TrainingHub = new HubSupervisor<Gameserver>({
     label: "training_dojo",
     start: (Reason) => StartHubSerialized(async () => {
         if (Reason !== "boot") await WaitForHuntLaunchQueue("training_dojo");
+        // [Dauntless Reforged Revival, patch 0033] Only what this process writes to the runtime log counts.
+        TrainingOccupancy?.begin();
+        TrainingIdle.reset();
         return StartServer(TRAINING_DOJO_MAP_PATH, undefined, undefined, undefined, false, true);
     }),
     isAlive: (Server) => IsProcessAlive(Server.processId),
@@ -204,6 +208,32 @@ const TRAINING_HUB_AT_BOOT = HubSwitchOn(process.env.TRAINING_HUB, !TRAINING_ON_
 //                              0, false, no and off (any case) all mean off.
 const RAMSGATE_HUB_ENABLED = HubSwitchOn(process.env.RAMSGATE_HUB, true);
 let TrainingHubWanted = TRAINING_HUB_AT_BOOT;
+
+// [Dauntless Reforged Revival, patch 0033] With the Training hub on demand (TRAINING_HUB=off or TRAINING_ON_DEMAND=1), TRAINING_IDLE_STOP_MINUTES (1-1440; unset or
+// 0 keeps them running, as before) stops the Training Grounds once no player has been in them for that long, and
+// the next request starts them again. Who is in them comes from the runtime's own log in
+// GAMESERVER_RUNTIME_LOG_DIR (the game executable's folder; hubOccupancy.ts); without it nothing is stopped.
+const TRAINING_IDLE_STOP_MS = (() => {
+    const Raw = (process.env.TRAINING_IDLE_STOP_MINUTES ?? "").trim();
+    if (Raw === "") return 0;
+    const Minutes = Number(Raw);
+    if (!/^\d+$/.test(Raw) || Minutes > 1440) {
+        logger.warn(`[TrainingOnDemand] TRAINING_IDLE_STOP_MINUTES='${Raw}' is not a whole number from 0 to 1440; the Training Grounds keep running`);
+        return 0;
+    }
+    return Minutes * 60_000;
+})();
+const RUNTIME_LOG_DIR = (process.env.GAMESERVER_RUNTIME_LOG_DIR ?? "").trim();
+const TrainingOccupancy = !TRAINING_HUB_AT_BOOT && TRAINING_IDLE_STOP_MS > 0 && RUNTIME_LOG_DIR
+    ? new RuntimeLogOccupancy(path.join(RUNTIME_LOG_DIR, `mysticparadox_dll_port${TRAINING_DOJO_PORT}.log`))
+    : undefined;
+const TrainingIdle = new IdleStopPolicy(TrainingOccupancy ? TRAINING_IDLE_STOP_MS : 0);
+let TrainingLastRequestAt = 0;
+// The Training Grounds process being stopped for idleness, and when the stop was sent.
+let TrainingIdleStopping: { server: Gameserver; at: number } | undefined;
+if (!TRAINING_HUB_AT_BOOT && TRAINING_IDLE_STOP_MS > 0 && !TrainingOccupancy) {
+    logger.warn("[TrainingOnDemand] TRAINING_IDLE_STOP_MINUTES is set but GAMESERVER_RUNTIME_LOG_DIR is not: the Training Grounds keep running");
+}
 
 // Trials uses 181 real numbered arena rows. Keep the live default at one week, but permit short,
 // deterministic UTC buckets for end-to-end rotation testing (for example, 30 minutes). The injected
@@ -357,6 +387,18 @@ export async function CleanupServer(ServerToShutdown: Gameserver, Reason: string
     const Listed = Gameservers.includes(ServerToShutdown);
     if (Listed) Gameservers = Gameservers.filter(Server => Server !== ServerToShutdown);
 
+    // [Dauntless Reforged Revival, patch 0033] The Training Grounds were stopped because nobody was in them: no
+    // restart; the next request starts them again.
+    if (ServerToShutdown.isTrainingDojo && TrainingIdleStopping?.server === ServerToShutdown) {
+        TrainingIdleStopping = undefined;
+        TrainingIdle.reset();
+        if (TrainingHub.release(ServerToShutdown, Reason)) {
+            TrainingHubWanted = false;
+            logger.info(`[TrainingOnDemand] the Training Grounds stopped (no player for ${TRAINING_IDLE_STOP_MS / 60_000} min); they start again on the next request`);
+        }
+        return;
+    }
+
     if(ServerToShutdown.isRamsgate || ServerToShutdown.isTrainingDojo){
         const Hub = ServerToShutdown.isRamsgate ? RamsgateHub : TrainingHub;
         if (ServerToShutdown === Hub.current) {
@@ -395,6 +437,44 @@ export function TickPersistentHubs(): void {
     if (RAMSGATE_HUB_ENABLED) RamsgateHub.tick();
     // An on-demand Training hub (TRAINING_HUB=off) is left alone until someone asked for it.
     if (TrainingHubWanted) TrainingHub.tick();
+    TickTrainingIdleStop();
+}
+
+// [Dauntless Reforged Revival, patch 0033] Stops the on-demand Training Grounds once nobody has been in them for
+// TRAINING_IDLE_STOP_MINUTES (watchdog pass, once a minute). The process gets the same SIGTERM a readiness timeout
+// gives it (on Linux the game-server launcher passes it to Wine, the game and Xvfb); its exit then releases the hub.
+function TickTrainingIdleStop(): void {
+    if (!TrainingOccupancy) return;
+    const Now = Date.now();
+    if (TrainingIdleStopping) {
+        if (!IsProcessAlive(TrainingIdleStopping.server.processId)) return;   // the exit event is on its way
+        if (Now - TrainingIdleStopping.at < 120_000) return;
+        logger.warn(`[TrainingOnDemand] the Training Grounds (pid=${TrainingIdleStopping.server.processId}) did not stop within 2 min; leaving them running`);
+        TrainingIdleStopping = undefined;
+        TrainingIdle.reset();
+        return;
+    }
+    const Server = TrainingHub.current;
+    if (!TrainingHubWanted || !Server || Server.state !== "ready" || !Server.readyTime || !IsProcessAlive(Server.processId)) {
+        TrainingIdle.reset();
+        return;
+    }
+    const Count = TrainingOccupancy.poll();
+    if (!TrainingIdle.shouldStop(Now, Count, Server.readyTime.getTime(), TrainingLastRequestAt)) return;
+    TrainingIdleStopping = { server: Server, at: Now };
+    logger.info(`[TrainingOnDemand] no player in the Training Grounds for ${TRAINING_IDLE_STOP_MS / 60_000} min - stopping them (pid=${Server.processId})`);
+    try {
+        kill(Server.processId, "SIGTERM");
+    } catch (Error) {
+        logger.warn({ error: Error }, "[TrainingOnDemand] could not stop the Training Grounds");
+        TrainingIdleStopping = undefined;
+    }
+}
+
+// Resolves once fn() is true, or after timeoutMs.
+async function WaitUntil(fn: () => boolean, timeoutMs: number): Promise<void> {
+    const Until = Date.now() + timeoutMs;
+    while (!fn() && Date.now() < Until) await setTimeout(500);
 }
 
 let ServerLaunchQueue: Promise<void> = Promise.resolve();
@@ -693,6 +773,10 @@ export function GetTrainingDojoConnectionDetails(){
 // rejects); a failed start still answers the usual "not ready".
 export async function GetTrainingDojoConnectionDetailsForRequest(){
     if (TRAINING_HUB_AT_BOOT) return GetTrainingDojoConnectionDetails();
+    TrainingLastRequestAt = Date.now();
+    // [Dauntless Reforged Revival, patch 0033] A request while an idle stop is under way waits for that process
+    // to go, then starts a fresh one (never hands out the address of a server that is shutting down).
+    if (TrainingIdleStopping) await WaitUntil(() => TrainingIdleStopping === undefined, 30_000);
     if (!TrainingHubWanted) logger.info("[TrainingHub] on-demand Training hub requested for the first time (TRAINING_HUB=off) - starting it");
     TrainingHubWanted = true;
     const Server = TrainingHub.current;
