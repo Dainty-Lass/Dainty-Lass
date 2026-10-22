@@ -21930,10 +21930,20 @@ static bool ProgConfigLoadedHook(void* GameInstance) {
     // progression load waited for it ("ReadFromBackend will WAIT for the config event", then "still not loaded after 90 s"), the
     // game's player-data timeout fired twice and the hub sent the player back to the menu 120 s after Ramsgate loaded (fresh
     // installs). A hub with the flag issued the query at boot and loaded.
+    //
+    // [Dauntless Reforged Revival] On the server the query is issued at the FIRST readiness check. A hub
+    // reaches its second check at boot (two checks a millisecond apart), so its configuration is cached
+    // before anyone joins. A hunt or the Training Grounds checks only once at boot, so the second check was
+    // the first real player's own ReadFromBackend: that component took the WAIT branch, the configuration
+    // arrived milliseconds later, and nothing asked the predicate again (where stranded components resume)
+    // until the 60-second player-data timeout fired LoadFailed and its retry. Every player stood on the
+    // loading screen for that minute ("[HuntPassQuery] calling" at the join, "[LoadFailedDiag] fire #1"
+    // exactly 60 s later). The game instance is captured just above, on the same game thread. The client
+    // role keeps the original two-check timing.
     static std::atomic<int> s_huntPassQueryState{ 0 };
     {
         const int QState = s_huntPassQueryState.load();
-        if (QState == 1) {
+        if (QState == 1 || (QState == 0 && Globals::AmServer && g_archonGameInstanceForHuntPass != nullptr)) {
             s_huntPassQueryState.store(2);
             CallHuntPassSeasonQuery();
         } else if (QState == 0) {
