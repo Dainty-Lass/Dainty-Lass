@@ -7450,6 +7450,52 @@ static void MpPerfSampleGraphCounts() {
     g_perfGraphSampleMs.store(Now, std::memory_order_relaxed);
 }
 
+// [Reforged 0038] A headless game server has no viewport, so UWidgetLayoutLibrary::GetViewportSize answers (0,0).
+// The War Pike's projectile special (mspear_special_projectile_bpc -> player_aiming_bpc.StartAiming ->
+// camera_helper_function_library.ConvertFovHorzToVert) divides by that size on the server ("Divide by zero detected:
+// 0.000000 / 0", VPS 2026-10-23), so the server-side shot gets a broken aim and passes through Behemoths without a hit.
+// On the server, a (0,0) answer becomes 1920x1080: only the aspect ratio matters there, and the aim is the centre of
+// the screen whatever its size. DISABLE_SERVER_VIEWPORT_SIZE.flag beside the game executable turns it off.
+static SDK::UFunction::FNativeFuncPtr g_origGetViewportSizeExec = nullptr;
+
+static void ServerGetViewportSizeExec(void* Context, void* Stack, void* Result) {
+    g_origGetViewportSizeExec(Context, Stack, Result);
+    if (!Result) return;
+    auto* Size = reinterpret_cast<float*>(Result);   // FVector2D {X, Y}
+    if (!(Size[0] > 1.0f) || !(Size[1] > 1.0f)) {
+        Size[0] = 1920.0f;
+        Size[1] = 1080.0f;
+        static std::atomic<int> s_logged{ 0 };
+        if (s_logged.fetch_add(1, std::memory_order_relaxed) < 3) {
+            MpLog("[ServerViewportSize] GetViewportSize answered 0 on the server; returned 1920x1080");
+        }
+    }
+}
+
+static void MpInstallServerViewportSizeFix() {
+    static bool s_done = false;
+    static uint64_t s_nextTryMs = 0;
+    if (s_done) return;
+    const uint64_t Now = GetTickCount64();
+    if (Now < s_nextTryMs) return;
+    s_nextTryMs = Now + 1000;
+    if (MpExeRelativeFlagPresent(L"DISABLE_SERVER_VIEWPORT_SIZE.flag")) {
+        s_done = true;
+        MpLog("[ServerViewportSize] DISABLE_SERVER_VIEWPORT_SIZE.flag present - left as it is");
+        return;
+    }
+    SDK::UClass* Library = SDK::UWidgetLayoutLibrary::StaticClass();
+    if (!Library || !IsRegisteredLiveObject(Library)) return;
+    SDK::UFunction* Fn = Library->GetFunction("WidgetLayoutLibrary", "GetViewportSize");
+    if (!Fn || !IsReadablePointer(Fn, sizeof(SDK::UFunction)) || !Fn->ExecFunction) return;
+    if (Fn->ExecFunction != &ServerGetViewportSizeExec) {
+        g_origGetViewportSizeExec = Fn->ExecFunction;
+        Fn->ExecFunction = &ServerGetViewportSizeExec;
+    }
+    s_done = true;
+    MpLog("[ServerViewportSize] WidgetLayoutLibrary.GetViewportSize answers 1920x1080 instead of 0 on the server");
+}
+
 void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender) {
     // [2026-10-10 1.14.7 Perf] Frame interval for the [Perf] line (entry to entry, so it includes the engine's own frame
     // wait). One QPC read and a few relaxed atomics; no logging, allocation or lock on the game thread.
@@ -7496,6 +7542,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // [Reforged 0020] Pace the server's game thread (see MpPaceServerFrame) before this frame's work.
     if (Globals::AmServer) {
         MpPaceServerFrame();
+        MpInstallServerViewportSizeFix();   // [Reforged 0038]
     }
 
     // [1.14.7 client replication membership 2026-10-05] Bounded, read-only server probe: does the
