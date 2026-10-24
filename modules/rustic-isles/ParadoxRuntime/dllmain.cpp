@@ -7608,11 +7608,11 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     if (Globals::AmServer) {
         DropStalePlayerControllerChannelQuarantine();
     }
+    MpLogServerWeaponGap();      // [Dauntless Reforged Revival] 0014
+    MpWakeUnsentPawnWeapons();   // [Dauntless Reforged Revival] 0015
     // [2026-10-11 1.14.7 O0] Timed for [PerfDetail]; the call itself is unchanged.
     const bool PerfDetail = Globals::AmServer && MpPerfDetailEnabled();
     const int64_t PerfGraph0 = PerfDetail ? MpQpcNow() : 0;
-    MpLogServerWeaponGap();
-    MpWakeUnsentPawnWeapons();
     MpDriveReplicationGraph(DeltaTime);
     if (PerfDetail) {
         MpPerfPhaseAdd(g_perfPhaseGraph, PerfGraph0, MpQpcNow());
