@@ -15454,7 +15454,19 @@ static void RepairClientLoadoutItemSlots() {
         alignas(8) uint8_t Parms[0x40] = {};   // OldItemInstanceId: an empty FItemInstanceIdRepl
         SlotObject->ProcessEvent(Fn, Parms);
         const bool Resolved = LoadoutItemSlotHasItemId(Slots[i].Slot);
-        if (Resolved) ++Repaired;
+        if (Resolved) {
+            ++Repaired;
+            // [Reforged 0037] The slot's other replicated fields (cells, weapon parts, dye, transmog) also arrived
+            // while the item was unknown, so their OnRep ran against no item and the cells vanish from the UI
+            // after a hunt. Run those OnReps again now that the item resolves. The data itself was never lost.
+            static const char* const kSlotDataOnReps[] = {
+                "OnRep_CellsChanged", "OnRep_ItemPartsChanged", "OnRep_DyeChanged", "OnRep_TransmogChanged" };
+            for (const char* OnRep : kSlotDataOnReps) {
+                if (SDK::UFunction* DataFn = SlotObject->Class->GetFunction("ArchonLoadoutItemSlot", OnRep)) {
+                    SlotObject->ProcessEvent(DataFn, nullptr);
+                }
+            }
+        }
         MpLog("[LoadoutSlotRepair] loadout slot " + std::to_string(Slots[i].LoadoutSlotIndex)
             + " " + kLoadoutItemSlotNames[Slots[i].ItemSlot]
             + " crc=" + MpHex(Slots[i].Crc)
