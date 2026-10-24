@@ -671,7 +671,7 @@ progressionRouter.post("/progression/:userId", HasParadoxBackendAuth, async (req
         // silently discard the body entirely, which is why mastery/hunt-pass XP never
         // accumulated even though the server returned 200 OK for these calls.
         try{
-            await CaptureProgressionObjectiveEvent(RequestorAccountId, req.body, undefined, req.AuthData?.IsGameserver === true);
+            await CaptureProgressionObjectiveEvent(RequestorAccountId, req.body);
         }
         catch(error){
             if(error instanceof Error && error.name === "ProgressionEventValidationError"){
