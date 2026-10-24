@@ -11279,6 +11279,19 @@ static void DropStalePlayerControllerChannelQuarantine() {
     }
 }
 
+// [2026-10-22 A/B] DISABLE_PC_CHANNEL_GUARD.flag (next to the game .exe, read once) bypasses the
+// PlayerController channel guards so a 2-player Escalation can be compared with and without them.
+// Diagnostic only: without the guards a remote controller may be adopted (see the 2026-07-26 notes).
+static bool PcChannelGuardDisabled() {
+    static int s_v = -1;
+    if (s_v < 0) {
+        s_v = MpExeRelativeFlagPresent(L"DISABLE_PC_CHANNEL_GUARD.flag") ? 1 : 0;
+        MpLog(std::string("[PCChannelGuard] DISABLE_PC_CHANNEL_GUARD.flag ")
+            + (s_v ? "PRESENT -> guards BYPASSED (A/B)" : "absent -> guards active"));
+    }
+    return s_v == 1;
+}
+
 // [2026-07-26 ESCALATION CONTROLLER-ADOPTION ROOT FIX]
 //
 // Repro 16 proved that the ReplicateActor boundary below is not early enough: it logged BLOCK for
@@ -11308,6 +11321,13 @@ void* OrigRepGraphReplicateSingleActor = nullptr;
 uint64_t __fastcall RepGraphReplicateSingleActorGuardHook(
     void* Graph, void* Actor, void* ConnActorInfo, void* GlobalInfo,
     void* ActorInfoMap, void* ConnManager, uint32_t Frame) {
+    if (PcChannelGuardDisabled()) {
+        return reinterpret_cast<uint64_t(__fastcall*)(
+            void*, void*, void*, void*, void*, void*, uint32_t)>(
+                OrigRepGraphReplicateSingleActor)(
+                    Graph, Actor, ConnActorInfo, GlobalInfo,
+                    ActorInfoMap, ConnManager, Frame);
+    }
     if (Actor && IsRegisteredLiveObject(Actor)
         && reinterpret_cast<UObject*>(Actor)->IsA(SDK::APlayerController::StaticClass())
         && IsLivePlayerController112(Actor)) {
@@ -11469,6 +11489,11 @@ uint64_t __fastcall RepGraphReplicateSingleActorGuardHook(
 void* OrigPlayerControllerSetChannelActor = nullptr;
 void __fastcall PlayerControllerSetChannelActorGuardHook(
     UActorChannel* Channel, AActor* Actor, uint64_t Flags) {
+    if (PcChannelGuardDisabled()) {
+        reinterpret_cast<void(__fastcall*)(UActorChannel*, AActor*, uint64_t)>(
+            OrigPlayerControllerSetChannelActor)(Channel, Actor, Flags);
+        return;
+    }
     const uintptr_t Caller = reinterpret_cast<uintptr_t>(_ReturnAddress());
     const uintptr_t CallerRva = Caller >= Globals::BaseAddress
         ? Caller - Globals::BaseAddress : 0;
