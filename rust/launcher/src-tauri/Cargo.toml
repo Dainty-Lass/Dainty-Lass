@@ -13,8 +13,12 @@ publish.workspace = true
 [lib]
 name = "launcher"
 
+# One binary, as `tauri build` packages one and names it from the config's mainBinaryName (RD26):
+#   tauri build                                    reforged-client: the players' launcher, no server crate in it
+#   tauri build --config src-tauri/tauri.server-gui.conf.json --features server-gui
+#                                                  reforged-server-gui: the launcher with the server inside
 [[bin]]
-name = "reforged-revival-launcher"
+name = "reforged-launcher"
 path = "src/main.rs"
 
 [build-dependencies]

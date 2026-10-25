@@ -3878,14 +3878,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
-name = "online-client"
-version = "0.0.0"
-dependencies = [
- "launcher",
- "protocol",
-]
-
-[[package]]
 name = "opaque-debug"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5119,14 +5111,6 @@ name = "server-console"
 version = "0.0.0"
 dependencies = [
  "host",
- "protocol",
-]
-
-[[package]]
-name = "server-gui"
-version = "0.0.0"
-dependencies = [
- "launcher",
  "protocol",
 ]
 

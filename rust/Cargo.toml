@@ -21,11 +21,10 @@ members = [
     "services/deploy",
     "launcher/src-tauri",
     # What ships (RD26): the server in one binary (reforged-server-console, with reforged-host as its old
-    # name), the same without a console, the launcher with the server inside, and the player-only launcher
+    # name) and the same without a console. The launcher's two (reforged-client, reforged-server-gui) are
+    # launcher/src-tauri's own, as `tauri build` needs
     "bins/server-console",
     "bins/server-minimal",
-    "bins/server-gui",
-    "bins/online-client",
 ]
 # The fuzz targets (cargo fuzz, nightly) are a workspace of their own
 exclude = ["fuzz"]

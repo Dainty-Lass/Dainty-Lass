@@ -2,8 +2,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() -> std::process::ExitCode {
-    if let Err(error) = launcher::run() {
-        eprintln!("Dauntless Reforged Revival Launcher could not start: {error}");
+    let editions = protocol::edition::EditionSelection::Both;
+    // reforged-server-gui, or reforged-client: the feature decides, the config names the file
+    #[cfg(feature = "server-gui")]
+    let started = launcher::run_server_gui(editions);
+    #[cfg(not(feature = "server-gui"))]
+    let started = launcher::run_client(editions);
+    if let Err(error) = started {
+        eprintln!("Dauntless Reforged Revival could not start: {error}");
         return std::process::ExitCode::FAILURE;
     }
     std::process::ExitCode::SUCCESS
