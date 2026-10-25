@@ -13,6 +13,10 @@ publish.workspace = true
 [lib]
 name = "launcher"
 
+[[bin]]
+name = "reforged-revival-launcher"
+path = "src/main.rs"
+
 [build-dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
 # The 1.4.4 manifest's fingerprint (`legacy` feature)
