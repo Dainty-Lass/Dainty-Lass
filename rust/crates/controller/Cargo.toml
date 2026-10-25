@@ -33,7 +33,7 @@ edition-both = [
 
 [dependencies]
 admin.workspace = true
-aws-lc-rs = "1.18"
+aws-lc-rs.workspace = true
 backend.workspace = true
 base64.workspace = true
 content.workspace = true
@@ -46,7 +46,7 @@ service-kit.workspace = true
 sha2.workspace = true
 store.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", "sync", "signal"] }
-toml = "0.9"
+toml.workspace = true
 tracing.workspace = true
 url.workspace = true
 

@@ -88,20 +88,31 @@ async fn handle_health(State(state): State<AppState>) -> impl IntoResponse {
     )
 }
 
+/// The launcher's contract (`protocol::status::parse_server_status`): an answer without
+/// `online: true` is an offline server. This stub lists nobody.
+fn server_status_json(config: &BackendConfig) -> serde_json::Value {
+    let registration = match config.registration_mode.to_ascii_lowercase().as_str() {
+        "open" => "OPEN",
+        "invitecode" | "invite" => "INVITECODE",
+        _ => "NONE",
+    };
+    json!({
+        "name": config.server_name,
+        "online": true,
+        "version": env!("CARGO_PKG_VERSION"),
+        "commit": "",
+        "registration": registration,
+        "playersOnline": 0,
+        "players": [],
+        "instances": [],
+        "uptimeSeconds": 0,
+        "chat": false,
+        "edition": config.edition.as_str(),
+    })
+}
+
 async fn handle_server_status(State(state): State<AppState>) -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        axum::Json(json!({
-            "status": "online",
-            "edition": state.config.edition.as_str(),
-            "serverName": state.config.server_name,
-            "serverMode": state.config.server_mode,
-            "registrationMode": state.config.registration_mode,
-            "onlinePlayers": 0,
-            "activeHuntCount": 0,
-            "maxHuntServers": state.config.max_hunt_servers,
-        })),
-    )
+    (StatusCode::OK, axum::Json(server_status_json(&state.config)))
 }
 
 pub async fn run(config: BackendConfig) -> Result<(), String> {
@@ -140,4 +151,19 @@ pub async fn run_with_context(config: BackendConfig, ctx: ServiceContext) -> Res
         .map_err(|e| format!("backend serve error: {e}"));
     ctx.status().report_stopped("stopped");
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn server_status_is_online_to_the_launcher() {
+        let config = BackendConfig::for_edition(Edition::Reforged);
+        let status = protocol::status::parse_server_status(&server_status_json(&config)).unwrap();
+        assert!(status.online);
+        assert_eq!(status.name, config.server_name);
+        assert_eq!(status.registration, Some(protocol::status::RegistrationMode::Open));
+        assert_eq!(status.players_online, 0);
+    }
 }

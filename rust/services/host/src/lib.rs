@@ -61,19 +61,16 @@ pub fn run(cli: &cli::Cli) -> Outcome {
     commands::dispatch(&cli.command, &paths::Paths::new(root))
 }
 
-/// Shared entry point for `server-console`, `server-console-refined`, and `server-console-reforged`.
-///
-/// Supports both:
-/// - Direct in-process server launch with interactive REPL (`default`) or `ratatui` dashboard (`--tui`),
-///   accepting `--config <path>`, `--workspace <dir>`, `--tui`, and `--log-level <filter>`.
-/// - Existing `reforged-host` subcommands (`setup`, `start`, `invite`, `doctor`, `gamedata`,
-///   `publish-runtime`, `preset`, `multipliers`, `update`, `backup`, `gameserver`).
+/// Entry point of the `server-console*` binaries. Every `reforged-host` command, `start` included,
+/// goes to [`run`] unchanged (RD23: `start` is the Node kit's process contract). `serve`, or no
+/// command, runs the in-process controller with the REPL, or the `ratatui` dashboard with `--tui`.
 pub fn console_main(compiled_editions: EditionSelection) -> ExitCode {
     let raw_args: Vec<String> = std::env::args().collect();
     if let Some(first) = raw_args.get(1).map(String::as_str)
         && matches!(
             first,
             "setup"
+                | "start"
                 | "invite"
                 | "doctor"
                 | "gamedata"
@@ -102,7 +99,7 @@ pub fn console_main(compiled_editions: EditionSelection) -> ExitCode {
     let mut idx = 1;
     while idx < raw_args.len() {
         match raw_args[idx].as_str() {
-            "start" => {}
+            "serve" => {}
             "--tui" => use_tui = true,
             "--config" | "-c" => {
                 idx += 1;
@@ -130,7 +127,7 @@ pub fn console_main(compiled_editions: EditionSelection) -> ExitCode {
             }
             "--help" | "-h" => {
                 println!(
-                    "Usage: [COMMAND] [OPTIONS]\n\nOptions:\n  -c, --config <FILE>      Path to .toml, .yaml, .yml, or .json config\n  -w, --workspace <DIR>    Workspace directory (default: .workspace)\n      --tui                Launch interactive ratatui split-view dashboard\n      --log-level <FILTER> Tracing filter (default: info)\n\nSubcommands:\n  setup, start, invite, doctor, gamedata, publish-runtime, preset, multipliers, update, backup"
+                    "Usage: [serve] [OPTIONS]\n\nOptions:\n  -c, --config <FILE>      Path to .toml, .yaml, .yml, or .json config\n  -w, --workspace <DIR>    Workspace directory (default: .workspace)\n      --tui                Launch interactive ratatui split-view dashboard\n      --log-level <FILTER> Tracing filter (default: info)\n\nreforged-host commands, unchanged:\n  setup, start, invite, doctor, gamedata, publish-runtime, preset, multipliers, update, backup, gameserver"
                 );
                 return ExitCode::SUCCESS;
             }

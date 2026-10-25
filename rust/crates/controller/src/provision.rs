@@ -61,6 +61,10 @@ fn generate_rsa_token_keys_b64() -> Result<(String, String), String> {
     Ok((BASE64.encode(pub_pem.as_bytes()), BASE64.encode(priv_pem.as_bytes())))
 }
 
+fn json_text(s: &str) -> String {
+    serde_json::Value::String(s.to_owned()).to_string()
+}
+
 fn pem_block(label: &str, der: &[u8]) -> String {
     let b64 = BASE64.encode(der);
     let mut out = format!("-----BEGIN {label}-----\n");
@@ -173,15 +177,13 @@ pub fn ensure_tls_certificate(
     let (loaded, _created) = gateway::cert::load_or_generate(&cert_file, &key_file, &hosts)?;
     let fp = loaded.info.fingerprint;
 
-    let invite = if config.server_mode.eq_ignore_ascii_case("public") {
-        let host = if config.public_host == "127.0.0.1" || config.public_host == "localhost" {
-            "play.example.org".to_string()
-        } else {
-            config.public_host.clone()
-        };
+    // The invite names the host as configured; a host that no invite can carry is the host's
+    // mistake to fix, not one to paper over with a made-up name
+    let public = config.server_mode.eq_ignore_ascii_case("public");
+    let invite = if public {
         Invite {
             mode: ServerMode::Public,
-            host,
+            host: config.public_host.clone(),
             port: config.gateway_port,
             code: "open".into(),
             name: config.server_name.clone(),
@@ -190,14 +192,9 @@ pub fn ensure_tls_certificate(
             game: protocol::game::Game::Reborn,
         }
     } else {
-        let host = if protocol::invite::is_private_mode_host(&config.public_host) {
-            config.public_host.clone()
-        } else {
-            "127.0.0.1".to_string()
-        };
         Invite {
             mode: ServerMode::Private,
-            host,
+            host: config.public_host.clone(),
             port: config.editions.reforged.backend_port,
             code: "open".into(),
             name: config.server_name.clone(),
@@ -206,12 +203,16 @@ pub fn ensure_tls_certificate(
             game: protocol::game::Game::Reborn,
         }
     };
-    let invite_url = format_invite(&invite).unwrap_or_else(|_| {
+    let invite_url = format_invite(&invite).map_err(|e| e.to_string())?;
+    // Checked as the launcher checks it, so the host learns now, not from a player's refusal
+    protocol::invite::parse_invite(&invite_url).map_err(|e| {
         format!(
-            "reforged-revival://join?v=2&mode=public&host={}&port={}&fp={fp}&code=open&name=Server",
-            config.public_host, config.gateway_port
+            "no invite can name public_host {} in {} mode ({}); set public_host to the address players reach",
+            json_text(&config.public_host),
+            if public { "public" } else { "private" },
+            e.as_str()
         )
-    });
+    })?;
     tracing::info!(
         fingerprint = %fp,
         invite = %invite_url,

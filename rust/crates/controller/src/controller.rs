@@ -24,6 +24,11 @@ use tracing::Instrument as _;
 use crate::config::{EditionConfig, ServerConfig};
 use crate::provision::{ProvisionedWorkspace, provision_workspace};
 
+/// How long a component may take to report `Ready` before its start is an error.
+const START_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a component may take to stop before it is aborted.
+const STOP_GRACE: Duration = Duration::from_secs(10);
+
 struct RunningComponent {
     stop_tx: watch::Sender<bool>,
     handle: JoinHandle<Result<(), String>>,
@@ -139,11 +144,15 @@ impl ServerController {
 
     /// Stops a single named component gracefully.
     pub async fn stop_component(&mut self, name: &str) -> Result<(), String> {
-        let Some(running) = self.running.remove(name) else {
+        let Some(mut running) = self.running.remove(name) else {
             return Err(format!("component {name} is not running"));
         };
         let _ = running.stop_tx.send(true);
-        let _ = tokio::time::timeout(Duration::from_secs(10), running.handle).await;
+        // A component that ignores its stop signal must not keep its port and threads
+        if tokio::time::timeout(STOP_GRACE, &mut running.handle).await.is_err() {
+            tracing::warn!(target: "host", "component {name} did not stop within {}s; aborting it", STOP_GRACE.as_secs());
+            running.handle.abort();
+        }
         self.startup_order.retain(|n| n != name);
         Ok(())
     }
@@ -286,8 +295,20 @@ impl ServerController {
             FirewallKind::Nftables
         };
         let udp_ports = self.config.all_udp_ports(self.compiled_editions);
+        // The helper takes one range (ALLOWLIST_PORTS, RD20). Two editions' ranges are not
+        // contiguous, so the span between them opens ports no edition uses: said, not hidden.
         let ports = match (udp_ports.first(), udp_ports.last()) {
-            (Some(&first), Some(&last)) if first <= last => format!("{first}-{last}"),
+            (Some(&first), Some(&last)) if first <= last => {
+                let span = usize::from(last - first) + 1;
+                if span != udp_ports.len() {
+                    let extra: Vec<u16> = (first..=last).filter(|p| !udp_ports.contains(p)).collect();
+                    tracing::warn!(
+                        target: "host",
+                        "allowlist opens {first}-{last}, which includes {extra:?} that no edition uses"
+                    );
+                }
+                format!("{first}-{last}")
+            }
             _ => "8770-8777".into(),
         };
         let secret = self
@@ -389,7 +410,7 @@ impl ServerController {
         handle: JoinHandle<Result<(), String>>,
     ) -> Result<(), String> {
         let mut rx = self.status_registry.subscribe();
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        let deadline = tokio::time::Instant::now() + START_TIMEOUT;
         loop {
             let phase = rx.borrow_and_update().get(name).map(|c| c.phase);
             if matches!(phase, Some(ComponentPhase::Ready)) {
@@ -407,7 +428,11 @@ impl ServerController {
                 };
             }
             if tokio::time::Instant::now() >= deadline {
-                break;
+                handle.abort();
+                return Err(format!(
+                    "component {name} was not ready after {}s",
+                    START_TIMEOUT.as_secs()
+                ));
             }
             let _ = tokio::time::timeout(Duration::from_millis(50), rx.changed()).await;
         }
