@@ -2,7 +2,7 @@
 
 # Security checklist: allowlist helper and its IPC (RX3)
 
-The checklist for the allowlist helper, the `allowlist` binary of `rust/services/gateway` (MIGRATION_PLAN.md RS4,
+The checklist for the allowlist helper of `rust/services/gateway`, run as `reforged-host allowlist` (MIGRATION_PLAN.md RS4,
 RD10, RD20). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the helper's cutover, copy this list into the cutover PR, check each item in the code (not
@@ -26,7 +26,7 @@ ports to everyone defeats the allowlist.
   and the state file (written by the helper, read back at start).
 
 Code: `rust/services/gateway/src/allowlist/` (`config.rs`, `ports.rs`, `nft.rs`, `firewall.rs`, `windows.rs`,
-`helper.rs`, `state.rs`, `sync.rs`), `src/ip.rs` (`check_allowlist_ip`) and `src/bin/allowlist.rs`.
+`helper.rs`, `state.rs`, `sync.rs`), `src/ip.rs` (`check_allowlist_ip`) and `src/allowlist/cli.rs`.
 
 Fuzz target: `allowlist_input` in `rust/fuzz` (the `/allow` body and its `Content-Length`, the state file, and the
 ports, table and interface that reach a script). It also checks that nothing the checks accept changes the shape of

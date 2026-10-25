@@ -2,6 +2,8 @@
 //! `gateway make-cert ...` makes a certificate for a new install (`npm run make-cert`). Without
 //! `--env-file`, a `.env` in the working folder is read if there is one, as
 //! `node --env-file-if-exists=.env` did.
+//!
+//! The command line, run by `reforged-host <service>` (RD26: one binary runs every service).
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -33,11 +35,15 @@ enum Command {
     },
 }
 
-fn main() -> ExitCode {
-    let cli = Cli::parse();
+pub fn main_from<I, T>(args: I) -> ExitCode
+where
+    I: IntoIterator<Item = T>,
+    T: Into<std::ffi::OsString> + Clone,
+{
+    let cli = Cli::parse_from(args);
     match cli.command.unwrap_or(Command::Serve { env_file: None }) {
         Command::Serve { env_file } => serve(env_file.or_else(|| Some(PathBuf::from(".env")).filter(|p| p.is_file()))),
-        Command::MakeCert { args } => ExitCode::from(gateway::cert::make_cert_main(&args) as u8),
+        Command::MakeCert { args } => ExitCode::from(crate::cert::make_cert_main(&args) as u8),
     }
 }
 
@@ -51,11 +57,11 @@ fn serve(env_file: Option<PathBuf>) -> ExitCode {
         Ok(env) => env,
         Err(error) => return fatal(&format!("Configuration: {error}")),
     };
-    let config = match gateway::config::Config::from_env(&env) {
+    let config = match crate::config::Config::from_env(&env) {
         Ok(config) => config,
         Err(error) => return fatal(&format!("Configuration: {error}")),
     };
-    let capture = match gateway::server::load_capture(&env) {
+    let capture = match crate::server::load_capture(&env) {
         Ok(capture) => capture,
         Err(error) => return fatal(&error),
     };
@@ -63,7 +69,7 @@ fn serve(env_file: Option<PathBuf>) -> ExitCode {
         Ok(runtime) => runtime,
         Err(error) => return fatal(&error.to_string()),
     };
-    match runtime.block_on(gateway::server::run(config, capture)) {
+    match runtime.block_on(crate::server::run(config, capture)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => fatal(&error),
     }

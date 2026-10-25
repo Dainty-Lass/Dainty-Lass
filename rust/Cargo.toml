@@ -20,18 +20,12 @@ members = [
     # Dauntless Revived's deploy server, which starts the 1.4.4 game servers for the metagame
     "services/deploy",
     "launcher/src-tauri",
-    "bins/server-minimal",
-    "bins/server-minimal-refined",
-    "bins/server-minimal-reforged",
+    # What ships (RD26): the server in one binary (reforged-server-console, with reforged-host as its old
+    # name), the same without a console, the launcher with the server inside, and the player-only launcher
     "bins/server-console",
-    "bins/server-console-refined",
-    "bins/server-console-reforged",
+    "bins/server-minimal",
     "bins/server-gui",
-    "bins/server-gui-refined",
-    "bins/server-gui-reforged",
     "bins/online-client",
-    "bins/online-client-refined",
-    "bins/online-client-reforged",
 ]
 # The fuzz targets (cargo fuzz, nightly) are a workspace of their own
 exclude = ["fuzz"]

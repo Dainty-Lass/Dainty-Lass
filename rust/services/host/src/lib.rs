@@ -55,10 +55,67 @@ use protocol::edition::EditionSelection;
 /// What a command returns: its exit code, or the error `main` prints.
 pub type Outcome = Result<ExitCode, HostError>;
 
-/// Runs the parsed command line: finds the checkout, then the command.
+/// Runs the parsed command line: finds the checkout, then the command. A service run alone needs
+/// no checkout (a container holds the binary and the workspace only).
 pub fn run(cli: &cli::Cli) -> Outcome {
+    use cli::Command;
+    if let Command::Gateway { args }
+    | Command::Allowlist { args }
+    | Command::Content { args }
+    | Command::Admin { args } = &cli.command
+    {
+        return Ok(service_main(cli.command.name(), args));
+    }
     let root = paths::locate_repo_root()?;
     commands::dispatch(&cli.command, &paths::Paths::new(root))
+}
+
+/// Which services this binary runs on its own (`reforged-host <service>`).
+pub const BUILT_IN_SERVICES: &[&str] = &[
+    #[cfg(feature = "gateway")]
+    "gateway",
+    #[cfg(feature = "allowlist")]
+    "allowlist",
+    #[cfg(feature = "content")]
+    "content",
+    #[cfg(feature = "admin")]
+    "admin",
+];
+
+/// One service with the command line its own binary had: `name` is its argv[0].
+pub fn service_main(name: &str, args: &[String]) -> ExitCode {
+    let argv = std::iter::once(name.to_owned()).chain(args.iter().cloned());
+    match name {
+        #[cfg(feature = "gateway")]
+        "gateway" => gateway::cli::main_from(argv),
+        #[cfg(feature = "allowlist")]
+        "allowlist" => gateway::allowlist::cli::main_from(argv),
+        #[cfg(feature = "content")]
+        "content" => content::cli::main_from(argv),
+        #[cfg(feature = "admin")]
+        "admin" => admin::cli::main_from(argv),
+        _ => {
+            drop(argv);
+            eprintln!(
+                "\nError: this binary was built without the {name} service (built in: {})",
+                BUILT_IN_SERVICES.join(", ")
+            );
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// `reforged-host`: the command line as the Node kit had it (help when no command is given).
+pub fn host_main() -> ExitCode {
+    let cli = cli::Cli::parse();
+    match run(&cli) {
+        Ok(code) => code,
+        Err(error) => {
+            // As the Node kit's fail().
+            eprint!("\nError: {error}\n");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// Entry point of the `server-console*` binaries: `reforged-host`'s commands, with `serve` when no

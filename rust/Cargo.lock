@@ -2408,6 +2408,7 @@ dependencies = [
  "bytes",
  "chrono",
  "clap",
+ "content",
  "controller",
  "crossterm",
  "flate2",
@@ -3885,22 +3886,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "online-client-refined"
-version = "0.0.0"
-dependencies = [
- "launcher",
- "protocol",
-]
-
-[[package]]
-name = "online-client-reforged"
-version = "0.0.0"
-dependencies = [
- "launcher",
- "protocol",
-]
-
-[[package]]
 name = "opaque-debug"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5138,22 +5123,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "server-console-refined"
-version = "0.0.0"
-dependencies = [
- "host",
- "protocol",
-]
-
-[[package]]
-name = "server-console-reforged"
-version = "0.0.0"
-dependencies = [
- "host",
- "protocol",
-]
-
-[[package]]
 name = "server-gui"
 version = "0.0.0"
 dependencies = [
@@ -5162,39 +5131,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "server-gui-refined"
-version = "0.0.0"
-dependencies = [
- "launcher",
- "protocol",
-]
-
-[[package]]
-name = "server-gui-reforged"
-version = "0.0.0"
-dependencies = [
- "launcher",
- "protocol",
-]
-
-[[package]]
 name = "server-minimal"
-version = "0.0.0"
-dependencies = [
- "host",
- "protocol",
-]
-
-[[package]]
-name = "server-minimal-refined"
-version = "0.0.0"
-dependencies = [
- "host",
- "protocol",
-]
-
-[[package]]
-name = "server-minimal-reforged"
 version = "0.0.0"
 dependencies = [
  "host",

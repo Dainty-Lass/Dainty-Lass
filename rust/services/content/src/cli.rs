@@ -1,6 +1,8 @@
 //! The `content` binary: `content serve [--env-file <file>]` runs the server (`npm start`); `serve` is
 //! the default. Without `--env-file`, a `.env` in the working folder is read if there is one, as
 //! `node --env-file-if-exists=.env` did. A legacy build also has DR's `content verify`.
+//!
+//! The command line, run by `reforged-host <service>` (RD26: one binary runs every service).
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -41,8 +43,12 @@ fn env_file(given: Option<PathBuf>) -> Option<PathBuf> {
     given.or_else(|| Some(PathBuf::from(".env")).filter(|p| p.is_file()))
 }
 
-fn main() -> ExitCode {
-    let cli = Cli::parse();
+pub fn main_from<I, T>(args: I) -> ExitCode
+where
+    I: IntoIterator<Item = T>,
+    T: Into<std::ffi::OsString> + Clone,
+{
+    let cli = Cli::parse_from(args);
     match cli.command.unwrap_or(Command::Serve { env_file: None }) {
         Command::Serve { env_file: file } => serve(env_file(file)),
         #[cfg(feature = "legacy")]
@@ -59,7 +65,7 @@ fn main() -> ExitCode {
                     return ExitCode::from(2);
                 }
             };
-            ExitCode::from(content::legacy::verify::run(&env, game_dir, manifest, quick) as u8)
+            ExitCode::from(crate::legacy::verify::run(&env, game_dir, manifest, quick) as u8)
         }
     }
 }
@@ -68,28 +74,28 @@ fn serve(env_file: Option<PathBuf>) -> ExitCode {
     let env = match Env::load(env_file.as_deref()) {
         Ok(env) => env,
         Err(error) => {
-            content::log::error(&format!("Configuration: {error}"), serde_json::json!({}));
+            crate::log::error(&format!("Configuration: {error}"), serde_json::json!({}));
             return ExitCode::FAILURE;
         }
     };
-    let config = match content::config::Config::from_env(&env) {
+    let config = match crate::config::Config::from_env(&env) {
         Ok(config) => config,
         Err(error) => {
-            content::log::error(&format!("Configuration: {error}"), serde_json::json!({}));
+            crate::log::error(&format!("Configuration: {error}"), serde_json::json!({}));
             return ExitCode::FAILURE;
         }
     };
     let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
         Ok(runtime) => runtime,
         Err(error) => {
-            content::log::error(&error.to_string(), serde_json::json!({}));
+            crate::log::error(&error.to_string(), serde_json::json!({}));
             return ExitCode::FAILURE;
         }
     };
-    match runtime.block_on(content::server::run(config)) {
+    match runtime.block_on(crate::server::run(config)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            content::log::error(&error, serde_json::json!({}));
+            crate::log::error(&error, serde_json::json!({}));
             ExitCode::FAILURE
         }
     }

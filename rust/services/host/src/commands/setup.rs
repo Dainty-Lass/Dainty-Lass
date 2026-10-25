@@ -132,12 +132,13 @@ impl SetupEnv for System {
     }
 
     fn gateway_program(&self) -> String {
-        // The gateway binary next to this one (a build, or the server release, RD8).
-        let name = if cfg!(windows) { "gateway.exe" } else { "gateway" };
+        // The Rust gateway runs inside the server's binary (RD26), from the release's bin/reforged-host;
+        // until RS3 flips it, Node's does, which this rule never named either (as before)
+        let name = format!("reforged-host{}", std::env::consts::EXE_SUFFIX);
         std::env::current_exe()
             .ok()
-            .and_then(|exe| exe.parent().map(|dir| dir.join(name)))
-            .map_or_else(|| name.to_owned(), |p| p.to_string_lossy().into_owned())
+            .and_then(|exe| exe.parent().map(|dir| dir.join(&name)))
+            .map_or(name, |p| p.to_string_lossy().into_owned())
     }
 }
 

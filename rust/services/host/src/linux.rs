@@ -144,14 +144,6 @@ pub(crate) fn host_binary(paths: &Paths) -> PathBuf {
     std::env::current_exe().unwrap_or_else(|_| PathBuf::from(name))
 }
 
-/// The allowlist helper next to `reforged-host`.
-fn allowlist_binary(paths: &Paths) -> PathBuf {
-    let name = format!("allowlist{}", std::env::consts::EXE_SUFFIX);
-    host_binary(paths)
-        .parent()
-        .map_or_else(|| PathBuf::from(&name), |dir| dir.join(&name))
-}
-
 #[cfg(unix)]
 pub(crate) fn set_mode(file: &Path, mode: u32) -> Result<(), HostError> {
     use std::os::unix::fs::PermissionsExt;
@@ -300,7 +292,6 @@ pub fn unit_path(s: &str) -> Result<String, HostError> {
 pub struct UnitContext {
     pub user: String,
     pub host_bin: PathBuf,
-    pub allowlist_bin: PathBuf,
 }
 
 fn user_name() -> Result<String, HostError> {
@@ -319,7 +310,6 @@ pub fn unit_context(paths: &Paths) -> Result<UnitContext, HostError> {
     Ok(UnitContext {
         user: user_name()?,
         host_bin: host_binary(paths),
-        allowlist_bin: allowlist_binary(paths),
     })
 }
 
@@ -338,7 +328,8 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
     let mut files = Vec::new();
     let allowlist_env = p.config.join("allowlist.env");
     let workspace = unit_path(&p.workspace.to_string_lossy())?;
-    let allowlist = unit_word(&ctx.allowlist_bin.to_string_lossy())?;
+    // The allowlist runs from the same binary, in a unit of its own with CAP_NET_ADMIN only (RD26)
+    let allowlist = format!("{} \"allowlist\"", unit_word(&ctx.host_bin.to_string_lossy())?);
     let env_file = unit_word(&allowlist_env.to_string_lossy())?;
     if public {
         files.push((

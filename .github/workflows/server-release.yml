@@ -2,7 +2,10 @@
 # One archive per server platform, which `reforged-host setup` and `reforged-host update` download and check (RH5):
 #  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/:
 #    the source of the commit (git archive, the corresponding source under the AGPL), with
-#      bin/              reforged-host, gateway, allowlist and content, built here for that platform
+#      bin/              the server in one binary (RD26), built here for that platform: reforged-server-console,
+#                        the same as reforged-host (the name update, the systemd units and the Director's
+#                        game-server wrapper run), and reforged-server-minimal. The gateway, allowlist,
+#                        content server and admin API are inside it (`reforged-host <service>` runs one alone)
 #      paradox/backend   and paradox/director built with their node_modules (Node until RB14; hosts keep Node.js)
 #                        still runs them (until RS2 and RS3 flip start's switch; RS5 removes them) and setup makes
 #                        the gateway's certificate with their make-cert tool
@@ -149,7 +152,7 @@ jobs:
         working-directory: rust
         env:
           REFORGED_RELEASE_REPOSITORY: ${{ github.repository }}
-        run: cargo build --release --locked --target "$TARGET" -p host -p gateway -p content --bins
+        run: cargo build --release --locked --target "$TARGET" -p server-console -p server-minimal --bins
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -176,7 +179,7 @@ jobs:
           # The commit's source, as git has it (no .workspace, nothing git ignores)
           git archive --format=tar "$COMMIT" | tar -x -C "$out"
           mkdir -p "$out/bin"
-          for bin in reforged-host gateway allowlist content; do
+          for bin in reforged-host reforged-server-console reforged-server-minimal; do
             cp "rust/target/$TARGET/release/$bin$ext" "$out/bin/"
           done
           # backend and director: cp "rust/target/$TARGET/release/backend$ext" ... once they are real (RD8)
@@ -211,7 +214,10 @@ jobs:
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
           bin="$WORK/assemble/reforged-revival-server-$VERSION/bin"
-          for b in reforged-host gateway allowlist content; do "$bin/$b$ext" --help > /dev/null; done
+          for b in reforged-host reforged-server-console reforged-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
+          # Each service the binary runs alone, as the systemd units and the containers run it
+          for service in gateway allowlist content; do "$bin/reforged-host$ext" "$service" --help > /dev/null; done
+          "$bin/reforged-host$ext" admin schema > /dev/null
           "$bin/reforged-host$ext" --help
 
       - name: Make the archive
@@ -366,8 +372,8 @@ jobs:
             note="This is a test version (a prerelease) of the servers, for the canary."
           fi
           cat > notes.md <<EOF
-          Dauntless Reforged Revival servers ${VERSION}: reforged-host, the gateway, the allowlist helper and the content
-          server, with the Node backend and Director, built from ${COMMIT}. ${note}
+          Dauntless Reforged Revival servers ${VERSION}: the server in one binary (reforged-server-console, also as
+          reforged-host, and reforged-server-minimal), with the Node backend and Director, built from ${COMMIT}. ${note}
 
           - Windows x64: \`ReforgedRevivalServer-${VERSION}-windows-x64.zip\`
           - Linux x86_64: \`ReforgedRevivalServer-${VERSION}-linux-x64.tar.gz\`

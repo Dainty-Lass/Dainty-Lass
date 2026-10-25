@@ -287,7 +287,7 @@ fn metagame(programs: &Programs, paths: &Paths, args: &[&str]) -> Result<(), Hos
 
 fn missing_bin(name: &str) -> HostError {
     HostError::message(format!(
-        "a legacy server needs the {name} bin built with the legacy feature, next to reforged-host or in rust/target (cargo build --release -p host -p gateway -p content -p metagame --features host/legacy,gateway/legacy,content/legacy)"
+        "a legacy server needs the {name} service built with the legacy feature: the gateway, content server and allowlist inside this binary, the metagame next to it or in rust/target (cargo build --release -p server-console -p metagame --features host/legacy)"
     ))
 }
 
@@ -461,15 +461,30 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
         ),
     )];
     let programs = Programs::find_rust(p);
-    for name in ["metagame", "gateway", "content", "allowlist"] {
-        checks.push(match programs.rust_bin(name) {
-            Some(bin) => check("services", Level::Ok, format!("{name}: {}", bin.display())),
-            None => fix(
+    checks.push(match programs.rust_bin("metagame") {
+        Some(bin) => check("services", Level::Ok, format!("metagame: {}", bin.display())),
+        None => fix(
+            "services",
+            Level::Fail,
+            "no metagame bin",
+            "build it with the legacy feature (docs/hosting.md, Legacy servers), or use a server release that has it",
+        ),
+    });
+    for service in [FrontService::Gateway, FrontService::Content, FrontService::Allowlist] {
+        let name = service.bin_name();
+        checks.push(if service.built_in() {
+            check(
+                "services",
+                Level::Ok,
+                format!("{name}: built into {}", programs.host.display()),
+            )
+        } else {
+            fix(
                 "services",
                 Level::Fail,
-                format!("no {name} bin"),
-                "build it with the legacy feature (docs/hosting.md, Legacy servers), or use a server release that has it",
-            ),
+                format!("this binary has no {name} service"),
+                "use a server release, or build it with its default features (docs/hosting.md, Legacy servers)",
+            )
         });
     }
     checks.push(match programs.rust_bin("deploy") {
@@ -601,6 +616,7 @@ mod tests {
         }
         Programs {
             node: PathBuf::from("node"),
+            host: bin_dir.join("reforged-host"),
             rust_dirs: vec![bin_dir],
         }
     }
