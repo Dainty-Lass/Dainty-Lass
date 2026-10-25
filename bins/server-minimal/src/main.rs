@@ -1,7 +1,5 @@
-use std::process::ExitCode;
+//! `reforged-server-minimal`: `serve` with no console and no dashboard (RD26).
 
-use protocol::edition::EditionSelection;
-
-fn main() -> ExitCode {
-    host::serve::minimal_main(EditionSelection::Both)
+fn main() -> std::process::ExitCode {
+    host::serve::minimal_main()
 }
