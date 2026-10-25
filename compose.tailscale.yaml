@@ -2,12 +2,11 @@
 # (or COMPOSE_FILE=compose.yaml:compose.tailscale.yaml in .env; on Windows the separator is ;).
 #
 # The shared network namespace (compose.yaml's net service) becomes a Tailscale node of its own, so the server's
-# Tailscale address is inside it: the gateway and the game servers listen on it as setup's env files say, and
-# nothing is published on the host at all. Give that address to setup:
+# Tailscale address is inside it: the gateway and the game servers listen on it, and nothing is published on the
+# host at all. Give that address to the server (.workspace/config/server.toml: bind_host and public_host):
 #   docker compose up -d net
 #   docker compose exec net tailscale ip -4
-#   docker compose run --rm host setup --mode private --host <that address> --name "Friday Hunts"
-# The node is a machine of its own in your tailnet: share that one with your friends (setup --share <link>).
+# The node is a machine of its own in your tailnet: share that one with your friends.
 
 services:
   net:

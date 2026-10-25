@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Dauntless Reforged Revival: the Docker images' smoke test (CI's docker job, and by hand from the repository root:
-# bash docker/smoke-test.sh). A public server set up in throwaway volumes on example game data, without a game:
-# every service comes up healthy, the gateway serves the certificate setup made, the allowlist's table is in the
-# shared namespace, the backend makes an invite, and everything stops. Builds the images unless SMOKE_NO_BUILD=1.
+# Dauntless Reforged Revival: the Docker image's smoke test (CI's docker job, and by hand from the repository root:
+# bash docker/smoke-test.sh). A public server in throwaway volumes, without a game: the server comes up healthy from
+# a server.toml, the gateway serves the certificate the server made, the allowlist's table is in the shared
+# namespace, the invite link with its code comes from the file the server wrote, the host kit's commands run in the
+# image, and the server exits cleanly on stop. Builds the image unless SMOKE_NO_BUILD=1.
 set -euo pipefail
 
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-reforged-smoke}"
-export COMPOSE_PROFILES=public
 export COMPOSE_FILE=compose.yaml
 export REFORGED_GATEWAY_PORT=443
 export REFORGED_GATEWAY_PUBLISH="127.0.0.1:${SMOKE_PORT:-18443}"
 export REFORGED_GAME_PUBLISH_ADDRESS=127.0.0.1
 smoke_dir="$(mktemp -d)"
-export REFORGED_GAME_DIR="$smoke_dir/game" REFORGED_IMPORT_DIR="$smoke_dir/import" REFORGED_CONFIG_DIR="$smoke_dir/config"
-mkdir -p "$REFORGED_GAME_DIR" "$REFORGED_IMPORT_DIR" "$REFORGED_CONFIG_DIR"
+export REFORGED_GAME_DIR="$smoke_dir/game" REFORGED_IMPORT_DIR="$smoke_dir/import"
+mkdir -p "$REFORGED_GAME_DIR" "$REFORGED_IMPORT_DIR"
 
 compose() { docker compose "$@"; }
 step() { printf '\n== %s\n' "$*"; }
@@ -34,39 +34,57 @@ if [ "${SMOKE_NO_BUILD:-0}" != 1 ]; then
 	compose build
 fi
 
-step setup
-compose run --rm host setup --mode public --host smoke.example.org --game-address 203.0.113.7 --name "Smoke Test"
-compose run --rm host gamedata --examples
+step "the server's settings: a public server on 443, one edition, the allowlist for real"
+compose run --rm -T --entrypoint sh host -c 'mkdir -p .workspace/config && cat >.workspace/config/server.toml' <<'TOML'
+# docker/smoke-test.sh's server
+server_name = "Smoke Test"
+server_mode = "public"
+bind_host = "0.0.0.0"
+public_host = "smoke.example.org"
+game_address = "203.0.113.7"
+gateway_port = 443
+firewall_mode = "nftables"
+admin_enabled = true
 
-step "the toml profile applies host.toml alone"
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$REFORGED_CONFIG_DIR/host.toml"
-COMPOSE_PROFILES=public,toml compose run --rm configure
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/backend.env' | grep -q 'Smoke Toml'
+[editions.refined]
+enabled = false
+TOML
 
-step "up, configure first"
-COMPOSE_PROFILES=public,toml compose up -d --wait --wait-timeout 300
+step up
+compose up -d --wait --wait-timeout 300
 compose ps
 
-step "the gateway serves setup's certificate"
-fp_file="$(compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/tls/gateway-cert.pem')"
-served="$(echo | openssl s_client -connect "$REFORGED_GATEWAY_PUBLISH" -servername smoke.example.org 2>/dev/null | openssl x509 -noout -fingerprint -sha256)"
-expected="$(printf '%s\n' "$fp_file" | openssl x509 -noout -fingerprint -sha256)"
+step "the gateway serves the server's certificate"
+expected="$(compose run --rm -T --entrypoint sh host -c 'cat /opt/reforged/.workspace/certs/gateway.crt' \
+	| openssl x509 -noout -fingerprint -sha256)"
+served="$(echo | openssl s_client -connect "$REFORGED_GATEWAY_PUBLISH" -servername smoke.example.org 2>/dev/null \
+	| openssl x509 -noout -fingerprint -sha256)"
 echo "served:   $served"
 echo "expected: $expected"
 [ "$served" = "$expected" ]
 
 step "the allowlist's table closes the game ports"
-compose exec -T allowlist nft list table inet reforged_revival | tee "$smoke_dir/nft.txt"
+compose exec -T server nft list table inet reforged_revival | tee "$smoke_dir/nft.txt"
 grep -q 'udp dport 8770-8777 drop' "$smoke_dir/nft.txt"
 
-step invite
-compose run --rm host invite --for "Smoke" | tee "$smoke_dir/invite.txt"
-grep -q 'reforged-revival://' "$smoke_dir/invite.txt"
+step "the invite link, with its code"
+compose run --rm host invite | tee "$smoke_dir/invite.txt"
+grep -q 'reforged-revival://join?.*mode=public' "$smoke_dir/invite.txt"
+grep -q 'host=smoke.example.org' "$smoke_dir/invite.txt"
+grep -q 'code=open' "$smoke_dir/invite.txt"
 
-step doctor
-compose run --rm host doctor --no-hash || true
+step "the host kit's commands run in the image; setup is answered, not run"
+compose run --rm host gamedata --help >/dev/null
+if compose run --rm host setup --mode public --host smoke.example.org; then
+	echo "setup should be refused in Docker (docker/host-entrypoint.sh)" >&2
+	exit 1
+fi
 
 step "clean stop"
 compose stop
 [ -z "$(compose ps --status running --quiet)" ]
+# 0 only when the server took the SIGTERM and shut its components down; a kill after the grace period is 137 or 143
+exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$(compose ps -aq server)")"
+echo "server exit code: $exit_code"
+[ "$exit_code" = 0 ]
 echo "smoke test passed"

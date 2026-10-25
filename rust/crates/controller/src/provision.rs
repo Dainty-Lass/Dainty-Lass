@@ -40,6 +40,7 @@ pub struct ProvisionedWorkspace {
     pub key_file: PathBuf,
     pub cert_fingerprint: String,
     pub invite_url: String,
+    pub invite_file: PathBuf,
     pub db_dir: PathBuf,
     pub runtime_dir: PathBuf,
     pub branding_dir: PathBuf,
@@ -198,7 +199,8 @@ pub fn ensure_tls_certificate(
         Invite {
             mode: ServerMode::Private,
             host,
-            port: config.editions.reforged.backend_port,
+            // The launcher joins the gateway, which listens on gateway_port in private mode too
+            port: config.gateway_port,
             code: "open".into(),
             name: config.server_name.clone(),
             share: None,
@@ -260,6 +262,9 @@ pub fn provision_workspace(config: &ServerConfig) -> Result<ProvisionedWorkspace
     let (secrets_file, secrets) = ensure_secrets(ws)?;
     let (cert_file, key_file, cert_fingerprint, invite_url) = ensure_tls_certificate(ws, config)?;
     let db_dir = ensure_database_and_preset(ws, config.preset_dir.as_deref())?;
+    // The log redacts the invite's code (service-kit's redaction), so the host's tools read it from here.
+    let invite_file = ws.join("invite.txt");
+    write_secret_file(&invite_file, &format!("{invite_url}\n"))?;
     let admin_timeouts_file = admin_dir.join("timeouts.json");
     Ok(ProvisionedWorkspace {
         workspace_dir: ws.clone(),
@@ -269,6 +274,7 @@ pub fn provision_workspace(config: &ServerConfig) -> Result<ProvisionedWorkspace
         key_file,
         cert_fingerprint,
         invite_url,
+        invite_file,
         db_dir,
         runtime_dir,
         branding_dir,
@@ -296,6 +302,10 @@ mod tests {
         assert!(provisioned.key_file.is_file());
         assert_eq!(provisioned.cert_fingerprint.len(), 64);
         assert!(provisioned.invite_url.starts_with("reforged-revival://join?"));
+        assert_eq!(
+            std::fs::read_to_string(&provisioned.invite_file).unwrap().trim_end(),
+            provisioned.invite_url
+        );
         assert!(provisioned.db_dir.join("preset-seeded.json").is_file());
     }
 }

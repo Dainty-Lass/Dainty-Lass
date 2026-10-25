@@ -1,32 +1,28 @@
 #!/bin/bash
-# Dauntless Reforged Revival: compose.yaml's health check for a service, `reforged-healthcheck <name>`.
-# Healthy once its port takes a connection, the port and address read as the service reads them: the
-# process environment first, then its env file (written by reforged-host setup). The host kit's `start`
-# waits the same way (rust/services/host/src/services.rs, Ready).
+# Dauntless Reforged Revival: compose.yaml's health check for the server container, `reforged-healthcheck`. Healthy
+# once the gateway takes a connection, on the address and port the server's settings give (.workspace/config/server.*,
+# as docker/server-entrypoint.sh picks it), or reforged-server-minimal's defaults without them: 127.0.0.1:8443.
 set -u
-name="${1:?usage: reforged-healthcheck gateway|content|admin|allowlist|backend|director|metagame|deploy}"
-file="/opt/reforged/.workspace/config/$name.env"
+config=/opt/reforged/.workspace/config
+file=""
+for ext in toml yaml yml json; do
+	if [ -f "$config/server.$ext" ]; then
+		file="$config/server.$ext"
+		break
+	fi
+done
 
+# The first `key = value`, `key: value` or `"key": value` line, unquoted; the two keys are top-level in every format
 setting() {
-	local value="${!1-}"
-	if [ -z "$value" ] && [ -f "$file" ]; then
-		value="$(sed -n "s/^$1=//p" "$file" | tail -n 1)"
-		value="${value#\"}"
-		value="${value%\"}"
+	local value="" line
+	if [ -n "$file" ]; then
+		line="^[[:space:]]*\"?$1\"?[[:space:]]*[=:][[:space:]]*\"?([^\",[:space:]]+)\"?.*"
+		value="$(sed -nE "s/$line/\1/p" "$file" | head -n 1)"
 	fi
 	printf '%s' "${value:-$2}"
 }
 
-case "$name" in
-	gateway) host="$(setting GATEWAY_BIND 0.0.0.0)" port="$(setting GATEWAY_PORT 443)" ;;
-	allowlist) host="$(setting ALLOWLIST_BIND 127.0.0.1)" port="$(setting ALLOWLIST_PORT 61005)" ;;
-	content) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61002)" ;;
-	admin) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61003)" ;;
-	backend) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61000)" ;;
-	director) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61001)" ;;
-	metagame) host="$(setting METAGAME_BIND_HOST 127.0.0.1)" port="$(setting METAGAME_PORT 61000)" ;;
-	deploy) host="$(setting DEPLOY_BIND_HOST 127.0.0.1)" port="$(setting DEPLOY_PORT 61001)" ;;
-	*) echo "unknown service $name" >&2; exit 2 ;;
-esac
+host="$(setting bind_host 127.0.0.1)"
+port="$(setting gateway_port 8443)"
 [ "$host" = 0.0.0.0 ] && host=127.0.0.1
 exec 3<>"/dev/tcp/$host/$port"
