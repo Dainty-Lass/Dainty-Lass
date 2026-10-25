@@ -9,7 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["edition-both", "modules"]
+default = ["modules"]
 # The server's modules (`serve`): the Rust services in this process, and Mystic Paradox's backend and
 # Director as supervised Node processes (`paradox`, until the RB rows). None: a controller that serves nothing
 modules = ["gateway", "allowlist", "content", "admin", "paradox"]
@@ -20,14 +20,6 @@ admin = ["controller/admin", "dep:admin"]
 # The Node processes: Mystic Paradox's backend and Director, MongoDB, and the Node gateway and content
 # server until RS5 flips them (`commands::start::binaries::rust_ported`)
 paradox = []
-edition-refined = ["protocol/edition-refined", "controller/edition-refined"]
-edition-reforged = ["protocol/edition-reforged", "controller/edition-reforged"]
-edition-both = [
-    "edition-refined",
-    "edition-reforged",
-    "protocol/edition-both",
-    "controller/edition-both",
-]
 # Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
 legacy = ["protocol/legacy", "gateway?/legacy", "content?/legacy"]
 

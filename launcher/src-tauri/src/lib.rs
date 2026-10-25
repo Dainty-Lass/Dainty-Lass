@@ -337,15 +337,15 @@ fn make_controller(
 /// Entry point of the `online-client*` binaries: the launcher as [`run`] builds it. The command list
 /// is the one the isolation hook allows; without the `host` feature the host commands answer with
 /// `host_off.rs`'s refusals, as `cargo build -p launcher --no-default-features` always did.
-pub fn run_client(_compiled_editions: protocol::edition::EditionSelection) -> tauri::Result<()> {
+pub fn run_client() -> tauri::Result<()> {
     run()
 }
 
 /// Entry point for the 3 desktop server-GUI binaries (`reforged-server-gui`, `refined-server-gui`,
 /// `reforged-only-server-gui`), embedding `ServerController` and `LauncherGuiLayer` in-process.
 #[cfg(feature = "server-gui")]
-pub fn run_server_gui(compiled_editions: protocol::edition::EditionSelection) -> tauri::Result<()> {
+pub fn run_server_gui() -> tauri::Result<()> {
     let (layer, _rx, handle) = server_gui::init_gui_telemetry();
-    let _embedded = server_gui::EmbeddedServerState::new(compiled_editions, layer, handle);
+    let _embedded = server_gui::EmbeddedServerState::new(layer, handle);
     run()
 }

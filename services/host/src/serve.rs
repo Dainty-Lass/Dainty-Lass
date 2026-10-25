@@ -539,7 +539,7 @@ pub async fn start_embedded(paths: &Paths) -> Result<ServerController, String> {
 
 /// `server-minimal`: `serve` without a console. `--config <file>`, `--root <dir>` (the folder that
 /// holds `.workspace/`; `--workspace` means the same), `--log-level <filter>`.
-pub fn minimal_main(_compiled_editions: protocol::edition::EditionSelection) -> ExitCode {
+pub fn minimal_main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut options = ServeOptions::start();
     let mut root: Option<PathBuf> = None;
