@@ -96,7 +96,7 @@ dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
 [features]
 # The Host tools page (RA12). Without it, a player-only launcher: join, connect and play on a server
 # someone else hosts (`cargo build -p launcher --no-default-features`)
-default = ["host", "edition-both", "server-gui"]
+default = ["host", "edition-both"]
 host = ["dep:toml_edit"]
 edition-refined = ["protocol/edition-refined"]
 edition-reforged = ["protocol/edition-reforged"]

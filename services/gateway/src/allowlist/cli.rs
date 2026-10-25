@@ -2,16 +2,18 @@
 //! ports open to players who logged in, through the firewall `ALLOWLIST_FIREWALL` names. `--close-ports` closes them once and exits, for stop
 //! scripts (a supervisor that ends the helper with TerminateProcess never lets it close them
 //! itself). Without `--env-file`, a `.env` in the working folder is read if there is one.
+//!
+//! The command line, run by `reforged-host <service>` (RD26: one binary runs every service).
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::allowlist::config::AllowlistConfig;
+use crate::allowlist::firewall::{Backend, plan};
+use crate::allowlist::helper::{AuditLog, Helper, applier};
 use clap::Parser;
-use gateway::allowlist::config::AllowlistConfig;
-use gateway::allowlist::firewall::{Backend, plan};
-use gateway::allowlist::helper::{AuditLog, Helper, applier};
 use serde_json::json;
 use service_kit::env::Env;
 use service_kit::linelog;
@@ -31,8 +33,12 @@ fn fatal(message: &str) -> ExitCode {
     ExitCode::FAILURE
 }
 
-fn main() -> ExitCode {
-    let cli = Cli::parse();
+pub fn main_from<I, T>(args: I) -> ExitCode
+where
+    I: IntoIterator<Item = T>,
+    T: Into<std::ffi::OsString> + Clone,
+{
+    let cli = Cli::parse_from(args);
     let env_file = cli
         .env_file
         .or_else(|| Some(PathBuf::from(".env")).filter(|p| p.is_file()));
@@ -80,7 +86,7 @@ async fn run(config: AllowlistConfig, close_ports: bool) -> ExitCode {
         };
     }
 
-    let helper = Helper::new(config.clone(), backend, audit, Arc::new(gateway::now_ms));
+    let helper = Helper::new(config.clone(), backend, audit, Arc::new(crate::now_ms));
     let running = match helper.start().await {
         Ok(running) => running,
         Err(error) => {

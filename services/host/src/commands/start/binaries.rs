@@ -1,7 +1,7 @@
 //! Which program runs each service. The backend and the Director are Node until RB14. The gateway,
-//! the content server and the allowlist helper move to their Rust bins one row at a time:
-//! [`rust_ported`] is the one switch each row flips, and a ported service still falls back to its
-//! Node build when no Rust bin is found next to `reforged-host` or in the workspace's `target/`.
+//! the content server and the allowlist helper move to Rust one row at a time: [`rust_ported`] is the
+//! one switch each row flips. A ported service runs inside this binary (RD26): in-process under `start`,
+//! or as `<this binary> <service>` where it needs a process of its own (the legacy plan, `--close-ports`).
 
 use std::path::{Path, PathBuf};
 
@@ -15,7 +15,8 @@ pub enum FrontService {
     Allowlist,
 }
 
-/// Whether the service's Rust bin replaces its Node build (MIGRATION_PLAN.md section 4.3).
+/// Whether the service's Rust build replaces its Node build (MIGRATION_PLAN.md section 4.3). Flipping
+/// the gateway or the content server is the front-door cutover (RS5), the maintainer's step.
 pub fn rust_ported(service: FrontService) -> bool {
     match service {
         // RS3 flips this.
@@ -36,13 +37,20 @@ impl FrontService {
         }
     }
 
-    /// The Rust bin's arguments: its env file with `--env-file` (DR X7).
+    /// Whether this binary was built with the service's Rust code.
+    pub fn built_in(self) -> bool {
+        crate::BUILT_IN_SERVICES.contains(&self.bin_name())
+    }
+
+    /// The service's arguments after `<this binary>`: its name, then its env file (DR X7).
     fn rust_args(self, env_file: &Path) -> Vec<String> {
         let env_file = env_file.display().to_string();
         match self {
-            // The content bin takes the file on its serve command too (`content --env-file` is refused).
-            Self::Gateway | Self::Content => vec!["serve".into(), "--env-file".into(), env_file],
-            Self::Allowlist => vec!["--env-file".into(), env_file],
+            // The content service takes the file on its serve command (`content --env-file` is refused).
+            Self::Gateway | Self::Content => {
+                vec![self.bin_name().into(), "serve".into(), "--env-file".into(), env_file]
+            }
+            Self::Allowlist => vec![self.bin_name().into(), "--env-file".into(), env_file],
         }
     }
 
@@ -67,20 +75,21 @@ pub struct Launch {
     pub command: PathBuf,
     pub args: Vec<String>,
     pub cwd: PathBuf,
-    /// The env file is in `args` (a Rust bin); otherwise it is read into the environment.
+    /// The env file is in `args` (a Rust service); otherwise it is read into the environment.
     pub env_file_in_args: bool,
 }
 
-/// Where the programs are: Node, and the folders searched for Rust bins in order.
+/// Where the programs are: Node, this binary (which runs the Rust services) and the folders searched
+/// for the Rust binaries that are not part of it yet (a legacy server's metagame and deploy server).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Programs {
     pub node: PathBuf,
+    pub host: PathBuf,
     pub rust_dirs: Vec<PathBuf>,
 }
 
 impl Programs {
-    /// Node from PATH (or where its Windows installer and nvm-windows put it); Rust bins next to
-    /// this binary (the server release), then in the workspace's `rust/target/release` and `debug`.
+    /// Node from PATH (or where its Windows installer and nvm-windows put it); the rest as [`Self::find_rust`].
     pub fn find(paths: &Paths) -> Result<Self, HostError> {
         let node = find_node(&std::env::vars().collect::<Vec<_>>(), Path::exists).ok_or_else(|| {
             HostError::message(
@@ -93,14 +102,13 @@ impl Programs {
         })
     }
 
-    /// The Rust bins only (a legacy server runs no Node service); `node` is left as the bare name.
+    /// This binary, and the folders with other Rust binaries: next to it (the server release), then the
+    /// workspace's `rust/target/release` and `debug`. `node` is left as the bare name.
     pub fn find_rust(paths: &Paths) -> Self {
+        let host = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("reforged-host"));
         let mut rust_dirs = Vec::new();
-        if let Some(dir) = std::env::current_exe()
-            .ok()
-            .and_then(|e| e.parent().map(Path::to_path_buf))
-        {
-            rust_dirs.push(dir);
+        if let Some(dir) = host.parent() {
+            rust_dirs.push(dir.to_path_buf());
         }
         for profile in ["release", "debug"] {
             let dir = paths.repo.join("rust").join("target").join(profile);
@@ -110,6 +118,7 @@ impl Programs {
         }
         Self {
             node: PathBuf::from("node"),
+            host,
             rust_dirs,
         }
     }
@@ -119,11 +128,11 @@ impl Programs {
         self.rust_dirs.iter().map(|d| d.join(&file)).find(|f| f.is_file())
     }
 
-    /// The service's Rust bin whether or not [`rust_ported`] says so yet: what a legacy server runs, since
-    /// only the Rust services carry the `legacy` features. `None` when it is not built.
+    /// The service's Rust build whether or not [`rust_ported`] says so yet: what a legacy server runs,
+    /// since only the Rust services carry the `legacy` features. `None` when this binary lacks it.
     pub fn launch_rust(&self, service: FrontService, paths: &Paths, env_file: &Path) -> Option<Launch> {
-        self.rust_bin(service.bin_name()).map(|bin| Launch {
-            command: bin,
+        service.built_in().then(|| Launch {
+            command: self.host.clone(),
             args: service.rust_args(env_file),
             cwd: paths.workspace.clone(),
             env_file_in_args: true,
@@ -133,20 +142,14 @@ impl Programs {
     /// The program for `service`, given its env file.
     pub fn launch(&self, service: FrontService, paths: &Paths, env_file: &Path) -> Launch {
         if rust_ported(service)
-            && let Some(bin) = self.rust_bin(service.bin_name())
+            && let Some(launch) = self.launch_rust(service, paths, env_file)
         {
-            return Launch {
-                command: bin,
-                args: service.rust_args(env_file),
-                cwd: paths.workspace.clone(),
-                env_file_in_args: true,
-            };
+            return launch;
         }
-        let dir = service.node_dir(paths);
         Launch {
             command: self.node.clone(),
             args: vec![service.node_script().display().to_string()],
-            cwd: dir,
+            cwd: service.node_dir(paths),
             env_file_in_args: false,
         }
     }
@@ -202,60 +205,40 @@ mod tests {
     fn programs(dir: &Path) -> Programs {
         Programs {
             node: PathBuf::from("node"),
+            host: dir.join("reforged-host"),
             rust_dirs: vec![dir.join("release"), dir.join("debug")],
         }
     }
 
     #[test]
-    fn uses_a_ported_services_rust_bin_when_there_is_one_and_node_otherwise() {
+    fn runs_a_ported_service_from_this_binary_when_it_is_built_in_and_node_otherwise() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
         let env_file = paths.config.join("allowlist.env");
         let p = programs(dir.path());
-        let node = p.launch(FrontService::Allowlist, &paths, &env_file);
-        assert_eq!(node.command, PathBuf::from("node"));
-        assert_eq!(
-            node.args,
-            vec![
-                Path::new("dist")
-                    .join("allowlist")
-                    .join("server.js")
-                    .display()
-                    .to_string()
-            ]
-        );
-        assert_eq!(node.cwd, paths.gateway_dir);
-        assert!(!node.env_file_in_args);
-
-        std::fs::create_dir_all(dir.path().join("debug")).unwrap();
-        let bin = dir
-            .path()
-            .join("debug")
-            .join(format!("allowlist{}", std::env::consts::EXE_SUFFIX));
-        std::fs::write(&bin, "").unwrap();
-        let rust = p.launch(FrontService::Allowlist, &paths, &env_file);
-        assert_eq!(rust.command, bin);
-        assert_eq!(
-            rust.args,
-            vec!["--env-file".to_string(), env_file.display().to_string()]
-        );
-        assert!(rust.env_file_in_args);
+        let launch = p.launch(FrontService::Allowlist, &paths, &env_file);
+        if FrontService::Allowlist.built_in() {
+            assert_eq!(launch.command, dir.path().join("reforged-host"));
+            assert_eq!(
+                launch.args,
+                [
+                    "allowlist".to_string(),
+                    "--env-file".into(),
+                    env_file.display().to_string()
+                ]
+            );
+            assert!(launch.env_file_in_args);
+        } else {
+            assert_eq!(launch.command, PathBuf::from("node"));
+            assert_eq!(launch.cwd, paths.gateway_dir);
+            assert!(!launch.env_file_in_args);
+        }
     }
 
     #[test]
-    fn keeps_a_service_that_is_not_ported_yet_on_node_even_with_a_rust_bin_there() {
+    fn keeps_a_service_that_is_not_ported_yet_on_node_even_when_it_is_built_in() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
-        std::fs::create_dir_all(dir.path().join("release")).unwrap();
-        for name in ["gateway", "content"] {
-            std::fs::write(
-                dir.path()
-                    .join("release")
-                    .join(format!("{name}{}", std::env::consts::EXE_SUFFIX)),
-                "",
-            )
-            .unwrap();
-        }
         let p = programs(dir.path());
         assert!(!rust_ported(FrontService::Gateway) && !rust_ported(FrontService::Content));
         let gateway = p.launch(FrontService::Gateway, &paths, &paths.config.join("gateway.env"));
@@ -272,9 +255,9 @@ mod tests {
     #[test]
     fn gives_the_rust_gateway_and_content_their_serve_command() {
         let args = FrontService::Gateway.rust_args(Path::new("g.env"));
-        assert_eq!(args, ["serve", "--env-file", "g.env"]);
+        assert_eq!(args, ["gateway", "serve", "--env-file", "g.env"]);
         let args = FrontService::Content.rust_args(Path::new("c.env"));
-        assert_eq!(args, ["serve", "--env-file", "c.env"]);
+        assert_eq!(args, ["content", "serve", "--env-file", "c.env"]);
     }
 
     #[test]

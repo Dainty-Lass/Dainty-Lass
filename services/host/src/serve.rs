@@ -205,33 +205,65 @@ fn mongod_module(paths: &Paths, config: &HostConfig, printer: Printer) -> Module
 
 /// The server's modules in start order: the database, the allowlist (its table closes the game
 /// ports before any game server listens), the backend, the Director, the content server, the admin
-/// API, the gateway last. What this binary was not built with is left out.
+/// API, the gateway last. A front service runs in this process once [`rust_ported`] says so and this
+/// binary has it; until then its Node build runs as a supervised process, as `start` always ran it
+/// (flipping the switch is the front-door cutover, RS5). The Node processes come with `paradox`.
 pub fn compose(
     paths: &Paths,
     config: &HostConfig,
     external_allowlist: bool,
     printer: Printer,
 ) -> Result<ServerController, HostError> {
-    let public = config.mode == ServerMode::Public;
-    let mut controller = ServerController::new(config.mode.as_str(), vec!["reforged".into()]);
-    #[cfg(feature = "paradox")]
-    let programs = start_cmd::binaries::Programs::find(paths)?;
-    #[cfg(feature = "paradox")]
-    controller.add(mongod_module(paths, config, printer.clone()));
+    use crate::paths::PORTS;
+    use crate::services::Ready;
+    use start_cmd::binaries::{FrontService, Programs, rust_ported};
 
-    #[cfg(feature = "allowlist")]
-    let slot = if public && !external_allowlist {
-        let slot = modules::allowlist_slot();
-        controller.add(modules::allowlist(&module_env(paths, "allowlist")?, slot.clone()).map_err(HostError::message)?);
-        Some(slot)
+    let public = config.mode == ServerMode::Public;
+    let node_runs = cfg!(feature = "paradox");
+    let mut controller = ServerController::new(config.mode.as_str(), vec!["reforged".into()]);
+    let programs = if node_runs {
+        Programs::find(paths)?
     } else {
-        None
+        Programs::find_rust(paths)
+    };
+    let in_process = |service: FrontService| rust_ported(service) && service.built_in();
+    let front_process = |service: FrontService, ready: Ready| {
+        let file = start_cmd::env_file(paths, service.bin_name());
+        let launch = programs.launch(service, paths, &file);
+        process_module(
+            start_cmd::spec_from(service.bin_name(), launch, file, ready),
+            Duration::from_secs(60),
+            printer.clone(),
+            paths.logs.clone(),
+        )
     };
 
     #[cfg(feature = "paradox")]
+    controller.add(mongod_module(paths, config, printer.clone()));
+
+    #[cfg(any(feature = "gateway", feature = "allowlist"))]
+    #[cfg_attr(not(feature = "allowlist"), allow(unused_mut))]
+    let mut slot: Option<modules::AllowlistSlot> = None;
+    if public && !external_allowlist {
+        if in_process(FrontService::Allowlist) {
+            #[cfg(feature = "allowlist")]
+            {
+                let helper = modules::allowlist_slot();
+                controller.add(
+                    modules::allowlist(&module_env(paths, "allowlist")?, helper.clone()).map_err(HostError::message)?,
+                );
+                slot = Some(helper);
+            }
+        } else if node_runs {
+            controller.add(front_process(
+                FrontService::Allowlist,
+                Ready::http(PORTS.allowlist, "/status"),
+            ));
+        }
+    }
+
+    #[cfg(feature = "paradox")]
     {
-        use crate::paths::PORTS;
-        use crate::services::Ready;
         let node = |name: &str, dir: &Path, script: &[&str], ready: Ready| ServiceSpec {
             name: name.into(),
             cwd: dir.to_path_buf(),
@@ -268,23 +300,32 @@ pub fn compose(
         );
     }
 
-    #[cfg(feature = "content")]
-    controller.add(modules::content(&module_env(paths, "content")?).map_err(HostError::message)?);
+    if in_process(FrontService::Content) {
+        #[cfg(feature = "content")]
+        controller.add(modules::content(&module_env(paths, "content")?).map_err(HostError::message)?);
+    } else if node_runs {
+        controller.add(front_process(FrontService::Content, Ready::http(PORTS.content, "/content/v1/news")).optional());
+    }
 
-    // The admin API runs when setup wrote its env file (an older setup did not)
+    // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
     #[cfg(feature = "admin")]
     if start_cmd::env_file(paths, "admin").is_file() {
         controller.add(modules::admin(&module_env(paths, "admin")?).map_err(HostError::message)?);
     }
 
-    #[cfg(feature = "gateway")]
-    {
-        #[cfg(not(feature = "allowlist"))]
-        let slot: Option<modules::AllowlistSlot> = None;
-        controller.add(modules::gateway(&module_env(paths, "gateway")?, slot).map_err(HostError::message)?);
+    if in_process(FrontService::Gateway) {
+        #[cfg(feature = "gateway")]
+        controller.add(modules::gateway(&module_env(paths, "gateway")?, slot.clone()).map_err(HostError::message)?);
+    } else if node_runs {
+        let ready = match config.mode {
+            ServerMode::Public => Ready::tcp("127.0.0.1", hostconfig::gateway_port(config)),
+            ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
+        };
+        controller.add(front_process(FrontService::Gateway, ready));
     }
 
-    let _ = (paths, &printer, public, external_allowlist, &mut controller);
+    #[cfg(any(feature = "gateway", feature = "allowlist"))]
+    let _ = &slot;
     Ok(controller)
 }
 

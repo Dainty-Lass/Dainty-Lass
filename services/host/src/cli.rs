@@ -55,6 +55,29 @@ pub enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// One service alone, as its own binary ran it: `gateway serve --env-file <file>`, `gateway make-cert`,
+    /// `allowlist --env-file <file> [--close-ports]`, `content serve`, `admin serve|schema`. For the
+    /// systemd units and the containers, which run each service with its own privileges (RD26).
+    #[command(hide = true, disable_help_flag = true)]
+    Gateway {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    #[command(hide = true, disable_help_flag = true)]
+    Allowlist {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    #[command(hide = true, disable_help_flag = true)]
+    Content {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    #[command(hide = true, disable_help_flag = true)]
+    Admin {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 impl Command {
@@ -73,6 +96,10 @@ impl Command {
             Self::Update(_) => "update",
             Self::Backup => "backup",
             Self::Gameserver { .. } => "gameserver",
+            Self::Gateway { .. } => "gateway",
+            Self::Allowlist { .. } => "allowlist",
+            Self::Content { .. } => "content",
+            Self::Admin { .. } => "admin",
         }
     }
 }

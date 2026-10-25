@@ -8,10 +8,6 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
-[[bin]]
-name = "reforged-host"
-path = "src/main.rs"
-
 [features]
 default = ["edition-both", "modules"]
 # The server's modules (`serve`): the Rust services in this process, and Mystic Paradox's backend and
@@ -19,8 +15,10 @@ default = ["edition-both", "modules"]
 modules = ["gateway", "allowlist", "content", "admin", "paradox"]
 gateway = ["controller/gateway", "dep:gateway"]
 allowlist = ["controller/allowlist", "dep:gateway"]
-content = ["controller/content"]
-admin = ["controller/admin"]
+content = ["controller/content", "dep:content"]
+admin = ["controller/admin", "dep:admin"]
+# The Node processes: Mystic Paradox's backend and Director, MongoDB, and the Node gateway and content
+# server until RS5 flips them (`commands::start::binaries::rust_ported`)
 paradox = []
 edition-refined = ["protocol/edition-refined", "controller/edition-refined"]
 edition-reforged = ["protocol/edition-reforged", "controller/edition-reforged"]
@@ -31,7 +29,7 @@ edition-both = [
     "controller/edition-both",
 ]
 # Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
-legacy = ["protocol/legacy"]
+legacy = ["protocol/legacy", "gateway?/legacy", "content?/legacy"]
 
 [dependencies]
 # The backend's token keys, RSA 4096 (D10: aws-lc-rs; already in the tree through rustls and rcgen).
@@ -46,7 +44,10 @@ controller = { workspace = true, default-features = false }
 crossterm.workspace = true
 # RH4: game data packs are gzip-compressed JSON.
 flate2.workspace = true
-# The public gateway's certificate on a first `serve` (`cert::load_or_generate`)
+# The services built into this binary (`reforged-host gateway|allowlist|content|admin`, RD26), and the
+# public gateway's certificate on a first `serve`
+admin = { workspace = true, optional = true }
+content = { workspace = true, optional = true }
 gateway = { workspace = true, optional = true }
 http-body-util.workspace = true
 hyper.workspace = true
