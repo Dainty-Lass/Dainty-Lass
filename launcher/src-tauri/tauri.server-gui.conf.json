@@ -1,0 +1,9 @@
+{
+  "productName": "Dauntless Reforged Revival Server",
+  "mainBinaryName": "reforged-server-gui",
+  "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival.server",
+  "bundle": {
+    "shortDescription": "The Dauntless Reforged Revival launcher with a community server inside",
+    "longDescription": "Everything the launcher does, and the server itself in the same program: set it up, start and stop it, and see its services and logs."
+  }
+}
