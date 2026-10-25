@@ -475,16 +475,6 @@ dependencies = [
 [[package]]
 name = "backend"
 version = "0.0.0"
-dependencies = [
- "axum",
- "protocol",
- "serde",
- "serde_json",
- "service-kit",
- "store",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "base64"
@@ -974,23 +964,12 @@ name = "controller"
 version = "0.0.0"
 dependencies = [
  "admin",
- "aws-lc-rs",
- "backend",
- "base64 0.23.1",
  "content",
- "director",
  "gateway",
  "protocol",
- "serde",
- "serde_json",
  "service-kit",
- "sha2 0.11.1",
- "store",
- "tempfile",
  "tokio",
- "toml 0.9.12+spec-1.1.0",
  "tracing",
- "url",
 ]
 
 [[package]]
@@ -1537,15 +1516,6 @@ dependencies = [
 [[package]]
 name = "director"
 version = "0.0.0"
-dependencies = [
- "axum",
- "protocol",
- "serde",
- "serde_json",
- "service-kit",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "dirs"
@@ -2441,6 +2411,7 @@ dependencies = [
  "controller",
  "crossterm",
  "flate2",
+ "gateway",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -5210,7 +5181,7 @@ dependencies = [
 name = "server-minimal"
 version = "0.0.0"
 dependencies = [
- "controller",
+ "host",
  "protocol",
 ]
 
@@ -5218,7 +5189,7 @@ dependencies = [
 name = "server-minimal-refined"
 version = "0.0.0"
 dependencies = [
- "controller",
+ "host",
  "protocol",
 ]
 
@@ -5226,7 +5197,7 @@ dependencies = [
 name = "server-minimal-reforged"
 version = "0.0.0"
 dependencies = [
- "controller",
+ "host",
  "protocol",
 ]
 
@@ -6341,12 +6312,10 @@ version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
- "indexmap 2.14.2",
  "serde_core",
  "serde_spanned 1.1.2",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
- "toml_writer",
  "winnow 0.7.15",
 ]
 

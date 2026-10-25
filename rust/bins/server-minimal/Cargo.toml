@@ -13,7 +13,7 @@ name = "reforged-server-minimal"
 path = "src/main.rs"
 
 [dependencies]
-controller = { workspace = true, default-features = false, features = ["edition-both"] }
+host = { workspace = true, default-features = false, features = ["edition-both", "modules"] }
 protocol = { workspace = true, default-features = false, features = ["edition-both"] }
 
 [lints]

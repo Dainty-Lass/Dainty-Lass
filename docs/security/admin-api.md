@@ -68,6 +68,8 @@ Fuzz target in `rust/fuzz`:
       caps them at 500 and the timeout prefix fits inside that.
 - [ ] A timeout ends in the future and within a year. `minutes` overflow is refused (`timeout_end`).
 - [ ] Accounts with the backend's `admin` role can't be kicked, timed out or banned (`schema.rs`, `target`).
+- [ ] `activeTimeouts` reads the API's own `timeouts.json` and asks the backend nothing; it needs the same
+      bearer token as every query.
 - [ ] A timeout is refused for an account that is banned for good or disabled, so lifting it never undoes someone
       else's ban. When it runs out, it is lifted only if the account still carries its exact reason (`sweep`;
       `a_timeout_never_lifts_a_ban_made_since_or_one_it_did_not_make`).

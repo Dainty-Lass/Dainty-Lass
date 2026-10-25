@@ -13,7 +13,7 @@ name = "refined-server-minimal"
 path = "src/main.rs"
 
 [dependencies]
-controller = { workspace = true, default-features = false, features = ["edition-refined"] }
+host = { workspace = true, default-features = false, features = ["edition-refined", "modules"] }
 protocol = { workspace = true, default-features = false, features = ["edition-refined"] }
 
 [lints]

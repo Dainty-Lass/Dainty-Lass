@@ -8,6 +8,26 @@ enum AccountStatus {
 	UNKNOWN
 }
 
+"""
+A timeout the admin API will lift: what `timeouts.json` holds, not the backend's view of the account.
+"""
+type ActiveTimeout {
+	username: String!
+	"""
+	When it ends (RFC 3339).
+	"""
+	until: String!
+	reason: String!
+	"""
+	`manager:<operator id>`.
+	"""
+	by: String!
+	"""
+	When it was set (RFC 3339).
+	"""
+	at: String!
+}
+
 type Hunt {
 	id: String!
 	title: String!
@@ -134,6 +154,11 @@ type Query {
 	The running hunt servers, who is in each, and how many more can start.
 	"""
 	huntStatus: HuntStatus!
+	"""
+	The timeouts this API will lift when they end, soonest first. Read from its own file: the
+	backend is not asked, so a ban someone replaced since still shows until the sweep sees it.
+	"""
+	activeTimeouts: [ActiveTimeout!]!
 }
 
 """

@@ -30,6 +30,8 @@ pub enum Command {
     Setup(SetupArgs),
     /// Run every service until Ctrl+C (or a "stop" line with REFORGED_CONTROL=stdin)
     Start,
+    /// Run the server in this process with a console (--tui for the dashboard)
+    Serve(ServeArgs),
     /// Make an invite link for a player
     Invite(InviteArgs),
     /// Check what is still missing or wrong
@@ -61,6 +63,7 @@ impl Command {
         match self {
             Self::Setup(_) => "setup",
             Self::Start => "start",
+            Self::Serve(_) => "serve",
             Self::Invite(_) => "invite",
             Self::Doctor(_) => "doctor",
             Self::Gamedata(_) => "gamedata",
@@ -416,4 +419,18 @@ mod tests {
         // Removed with `npm run upstream` (RH5, section 6): Mystic Paradox is in paradox/ since RP4.
         assert!(Cli::try_parse_from(["reforged-host", "upstream"]).is_err());
     }
+}
+
+/// `serve`: `start` with a console (RD26).
+#[derive(Debug, Args)]
+pub struct ServeArgs {
+    /// host.toml, host.yaml or host.json to run from (the workspace's otherwise)
+    #[arg(long, short = 'c', value_name = "FILE")]
+    pub config: Option<std::path::PathBuf>,
+    /// The dashboard instead of the line console
+    #[arg(long)]
+    pub tui: bool,
+    /// error, warn, info, debug or trace
+    #[arg(long, value_name = "LEVEL", default_value = "info")]
+    pub log_level: String,
 }

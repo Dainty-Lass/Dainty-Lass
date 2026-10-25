@@ -40,6 +40,7 @@ type Query {
   player(username: String!): Player            # null when there is no such account
   serverStatus: ServerStatus!                  # name, mode, registration, version, commit, uptimeSeconds, onlineCount
   huntStatus: HuntStatus!                      # maxHuntServers, running, free, hunts { title, players { username } }
+  activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
 }
 
 type Mutation {

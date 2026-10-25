@@ -13,7 +13,7 @@ name = "reforged-only-server-console"
 path = "src/main.rs"
 
 [dependencies]
-host = { workspace = true, default-features = false, features = ["edition-reforged"] }
+host = { workspace = true, default-features = false, features = ["edition-reforged", "modules"] }
 protocol = { workspace = true, default-features = false, features = ["edition-reforged"] }
 
 [lints]
