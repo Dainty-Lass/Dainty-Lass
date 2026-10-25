@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use protocol::edition::EditionSelection;
-use server_controller::{ServerConfig, ServerController};
+use server_controller::ServerController;
 use service_kit::context::ServerSnapshot;
 use service_kit::telemetry::{ChannelLogLayer, HostLogEntry, LogFilterReloadHandle};
 use tokio::sync::{Mutex, mpsc, watch};
@@ -46,15 +46,13 @@ impl EmbeddedServerState {
         self.filter_handle.as_ref()
     }
 
-    /// Starts the in-process `ServerController` inside `workspace_dir`.
-    pub async fn start(&self, workspace_dir: PathBuf) -> Result<watch::Receiver<ServerSnapshot>, String> {
+    /// Starts the server of the checkout at `root` (the folder holding `.workspace/`) in this process.
+    pub async fn start(&self, root: PathBuf) -> Result<watch::Receiver<ServerSnapshot>, String> {
         let mut guard = self.controller.lock().await;
         if let Some(existing) = guard.as_ref() {
             return Ok(existing.subscribe_status());
         }
-        let cfg = ServerConfig::load_or_default(None, self.compiled_editions, workspace_dir)?;
-        let mut controller = ServerController::new(cfg, self.compiled_editions)?;
-        controller.start_all().await?;
+        let controller = host::serve::start_embedded(&host::paths::Paths::new(root)).await?;
         let rx = controller.subscribe_status();
         *guard = Some(controller);
         Ok(rx)

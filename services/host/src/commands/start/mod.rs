@@ -20,11 +20,11 @@ use std::time::Duration;
 
 use crate::Outcome;
 use crate::error::HostError;
-use crate::hostconfig::{Edition, HostConfig, ServerMode, gateway_port, load_host_config, read_env_file};
+use crate::hostconfig::{HostConfig, ServerMode, gateway_port, load_host_config, read_env_file};
 use crate::paths::{PORTS, Paths, game_exe_relative};
 use crate::services::{Printer, Ready, ServiceSpec, Supervisor, wait_until_ready};
 use binaries::{FrontService, Launch, Programs};
-use control::{Control, SERVER_READY_LINE, controlled_by_stdin};
+use control::{Control, SERVER_READY_LINE};
 
 pub(crate) fn say(line: &str) {
     println!("{line}");
@@ -335,11 +335,10 @@ pub(crate) fn host_checks(paths: &Paths, config: &HostConfig, external_allowlist
     Ok(())
 }
 
-/// The checks before anything starts, as the Node kit's; returns the server's settings (host.toml).
-fn preflight(paths: &Paths, external_allowlist: bool) -> Result<HostConfig, HostError> {
-    let config = load_config(paths)?;
+/// The checks before anything starts, as the Node kit's, for `config`.
+pub(crate) fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
     require_env_files(paths, &["backend", "director", "content", "gateway"])?;
-    host_checks(paths, &config, external_allowlist)?;
+    host_checks(paths, config, external_allowlist)?;
     use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GameDataKind, game_data_state};
     let game_data = [
         game_data_state(&paths.backend_game_data, &BACKEND_GAME_DATA)?,
@@ -373,20 +372,20 @@ fn preflight(paths: &Paths, external_allowlist: bool) -> Result<HostConfig, Host
             ));
         }
     }
-    Ok(config)
+    Ok(())
 }
 
-pub(crate) fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
+pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
     crate::doctor::port_in_use(ready.port(), Some(ready.host()))
 }
 
 /// The managed MongoDB (until RB14): started unless one with a replica set already runs, then the
 /// replica set checked and initiated when new. `Ok(false)`: a stop was asked for meanwhile.
-fn start_database(
+pub fn prepare_database(
     paths: &Paths,
     config: &HostConfig,
     supervisor: &Supervisor,
-    control: &Control,
+    cancelled: &dyn Fn() -> bool,
 ) -> Result<bool, HostError> {
     use crate::mongo::{MongoCheck, MongoProblem, ReplicaSetOptions, ensure_replica_set, find_mongod, mongod_args};
     if config.mongo.manage {
@@ -440,7 +439,7 @@ fn start_database(
                 },
                 Duration::from_secs(60),
             )?;
-            if control.asked() {
+            if cancelled() {
                 return Ok(false);
             }
         }
@@ -467,7 +466,7 @@ fn start_database(
 
 /// Runs the allowlist helper's `--close-ports` once: a hard stop never lets the helper close the game
 /// ports itself, and Linux has no firewall closing them before the first start.
-pub(crate) fn close_game_ports(paths: &Paths, programs: &Programs) -> crate::run::RunResult {
+pub fn close_game_ports(paths: &Paths, programs: &Programs) -> crate::run::RunResult {
     let file = env_file(paths, "allowlist");
     let launch = programs.launch(FrontService::Allowlist, paths, &file);
     let mut env: Vec<(String, String)> = std::env::vars().collect();
@@ -497,16 +496,9 @@ pub(crate) fn close_game_ports(paths: &Paths, programs: &Programs) -> crate::run
     })
 }
 
-/// Linux: the Wine prefix, and in public mode the game ports closed before any game server starts.
-/// `Ok(false)`: a stop was asked for meanwhile.
-pub(crate) fn linux_steps(
-    paths: &Paths,
-    config: &HostConfig,
-    programs: &Programs,
-    external_allowlist: bool,
-    control: &Control,
-) -> Result<bool, HostError> {
-    use crate::linux::{RuntimeKind, UNIT_ALLOWLIST, ensure_wine_prefix, game_runtime};
+/// Linux: the Wine prefix the game servers run in.
+pub(crate) fn linux_wine(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
+    use crate::linux::{RuntimeKind, ensure_wine_prefix, game_runtime};
     let options = crate::hostconfig::linux_options(config);
     match game_runtime(&options)? {
         Some(runtime) if runtime.kind == RuntimeKind::Wine => {
@@ -521,25 +513,48 @@ pub(crate) fn linux_steps(
         Some(_) => {}
         None => say("wine     | ! Wine was not found: the game servers cannot start (sudo apt install wine wine64)"),
     }
+    Ok(())
+}
+
+/// Linux, public, the allowlist as a systemd unit: its table must be in place (game ports closed)
+/// before the Director starts any game server. `Ok(false)`: a stop was asked for meanwhile.
+pub(crate) fn linux_external_allowlist(control: &Control) -> Result<bool, HostError> {
+    use crate::linux::UNIT_ALLOWLIST;
+    let flag = control.flag();
+    let cancelled = move || flag.load(std::sync::atomic::Ordering::SeqCst);
+    if !wait_until_ready(
+        &Ready::http(PORTS.allowlist, "/status"),
+        Duration::from_secs(30),
+        &cancelled,
+    ) {
+        if control.asked() {
+            return Ok(false);
+        }
+        return Err(HostError::message(format!(
+            "the allowlist ({UNIT_ALLOWLIST}) is not answering on port {}: systemctl status {UNIT_ALLOWLIST}",
+            PORTS.allowlist
+        )));
+    }
+    say("allowlist| the reforged-allowlist service is running");
+    Ok(true)
+}
+
+/// Linux: the Wine prefix, and in public mode the game ports closed before any game server starts.
+/// `Ok(false)`: a stop was asked for meanwhile. (The legacy stack; `serve` closes the ports with its
+/// in-process allowlist module.)
+pub fn linux_steps(
+    paths: &Paths,
+    config: &HostConfig,
+    programs: &Programs,
+    external_allowlist: bool,
+    control: &Control,
+) -> Result<bool, HostError> {
+    linux_wine(paths, config)?;
     if config.mode == ServerMode::Public {
         if external_allowlist {
-            // Its table must be in place (game ports closed) before the Director starts any game server.
-            let flag = control.flag();
-            let cancelled = move || flag.load(std::sync::atomic::Ordering::SeqCst);
-            if !wait_until_ready(
-                &Ready::http(PORTS.allowlist, "/status"),
-                Duration::from_secs(30),
-                &cancelled,
-            ) {
-                if control.asked() {
-                    return Ok(false);
-                }
-                return Err(HostError::message(format!(
-                    "the allowlist ({UNIT_ALLOWLIST}) is not answering on port {}: systemctl status {UNIT_ALLOWLIST}",
-                    PORTS.allowlist
-                )));
+            if !linux_external_allowlist(control)? {
+                return Ok(false);
             }
-            say("allowlist| the reforged-allowlist service is running");
         } else {
             let closed = close_game_ports(paths, programs);
             if closed.code != 0 {
@@ -568,46 +583,10 @@ pub(crate) fn up_line(config: &HostConfig) -> String {
     }
 }
 
+/// `start`: the server through the controller (`serve` without a console), as the Node kit's
+/// contract (RD23). A legacy server still runs its own process plan.
 pub fn run(paths: &Paths) -> Outcome {
-    let external_allowlist =
-        cfg!(target_os = "linux") && std::env::var("REFORGED_ALLOWLIST").is_ok_and(|v| v == "external");
-    if let Some(config) = load_host_config(paths)?
-        && config.edition == Edition::Legacy
-    {
-        return crate::legacy::start(paths, &config, external_allowlist);
-    }
-    let config = preflight(paths, external_allowlist)?;
-    let external_allowlist = external_allowlist && config.mode == ServerMode::Public;
-    let programs = Programs::find(paths)?;
-    let controlled = controlled_by_stdin();
-    let control = Control::begin(controlled)?;
-    let supervisor = Supervisor::new(&paths.logs, console_printer()).with_cancel(control.flag());
-
-    // MongoDB may be running by now: stop it before giving up (the supervisor stops what it
-    // started when it is dropped, and each tree goes with this process in any case).
-    let started = (|| {
-        if !start_database(paths, &config, &supervisor, &control)? {
-            return Ok(Started::Stopped);
-        }
-        if cfg!(target_os = "linux") && !linux_steps(paths, &config, &programs, external_allowlist, &control)? {
-            return Ok(Started::Stopped);
-        }
-        let plan = service_plan(paths, &config, external_allowlist, &programs);
-        start_services(&supervisor, &control, plan, Some(&config), &port_in_use)
-    })();
-    let started = match started {
-        Ok(started) => started,
-        Err(error) => {
-            supervisor.stop_all();
-            return Err(error);
-        }
-    };
-    let close_ports = config.mode == ServerMode::Public && !external_allowlist;
-    finish(started, &supervisor, &control, controlled, &up_line(&config), || {
-        if close_ports {
-            close_game_ports(paths, &programs);
-        }
-    })
+    crate::serve::run(paths, &crate::serve::ServeOptions::start())
 }
 
 #[cfg(test)]

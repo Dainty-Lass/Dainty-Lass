@@ -1,12 +1,11 @@
-//! Interactive stdin REPL for `server-console*` binaries (`docs/app-structure-plan.md`).
-//!
-//! Runs alongside the unified `TableStdoutLayer` (`{service:<14} | {line}`) so an operator can
-//! inspect status, restart individual in-process components, generate invite links, adjust per-service
-//! log levels via `LogFilterReloadHandle`, trigger backups, or shut down cleanly.
+//! The console of `serve` (`docs/app-structure-plan.md`): the server's modules looked at, started,
+//! stopped and restarted one by one, log levels changed while it runs, and a clean stop. Its lines go
+//! through `tracing`, so they sit in the same table as the services' (`{service:<14} | {line}`).
 
 use controller::ServerController;
 use service_kit::telemetry::LogFilterReloadHandle;
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::watch;
 
 /// Executes a single operator command against `controller` and returns `(output_lines, should_quit)`.
 pub async fn execute_command(
@@ -68,13 +67,14 @@ pub async fn execute_command(
                 Err(e) => (vec![format!("error: {e}")], false),
             }
         }
-        "invite" => (
-            vec![
-                format!("Invite URL: {}", controller.invite_url()),
-                format!("Cert SHA-256 (fp): {}", controller.cert_fingerprint()),
-            ],
-            false,
-        ),
+        "invite" => {
+            let snap = controller.snapshot();
+            let mut out = vec!["An invite is made for one player: reforged-host invite --for \"Alex\"".to_string()];
+            if let Some(fp) = &snap.cert_fingerprint {
+                out.push(format!("Certificate SHA-256 (every invite's fp): {fp}"));
+            }
+            (out, false)
+        }
         "players" => {
             let snap = controller.snapshot();
             (vec![format!("Connected players: {}", snap.online_players)], false)
@@ -104,23 +104,10 @@ pub async fn execute_command(
             }
             (out, false)
         }
-        "backup" => {
-            let db_dir = &controller.provisioned().db_dir;
-            let backup_dir = controller.config().workspace_dir.join("backups");
-            if let Err(e) = std::fs::create_dir_all(&backup_dir) {
-                return (vec![format!("backup failed: {e}")], false);
-            }
-            let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-            let marker = backup_dir.join(format!("backup-{stamp}.json"));
-            let meta = serde_json::json!({
-                "timestamp": stamp.to_string(),
-                "dbDir": db_dir.display().to_string(),
-            });
-            match std::fs::write(&marker, meta.to_string()) {
-                Ok(()) => (vec![format!("backup recorded at {}", marker.display())], false),
-                Err(e) => (vec![format!("backup failed: {e}")], false),
-            }
-        }
+        "backup" => (
+            vec!["The database is backed up from another terminal: reforged-host backup".into()],
+            false,
+        ),
         "log" => {
             let (Some(&svc), Some(&level)) = (parts.get(1), parts.get(2)) else {
                 return (vec!["Usage: log <service> <trace|debug|info|warn|error>".into()], false);
@@ -147,17 +134,21 @@ pub async fn execute_command(
     }
 }
 
-/// Runs the interactive stdin loop alongside Ctrl+C signal handling until shutdown is requested.
-pub async fn run_repl(controller: &mut ServerController, filter_handle: Option<LogFilterReloadHandle>) {
+/// Reads commands from stdin until `stop`, the end of stdin, or `stop` (Ctrl+C and the other stop
+/// signals, which `serve` turns into it).
+pub async fn run_repl(
+    controller: &mut ServerController,
+    filter_handle: Option<LogFilterReloadHandle>,
+    mut stop: watch::Receiver<bool>,
+) {
     let stdin = tokio::io::stdin();
     let mut lines = BufReader::new(stdin).lines();
-    let ctrl_c = tokio::signal::ctrl_c();
-    tokio::pin!(ctrl_c);
+    let mut stdin_closed = false;
 
     loop {
         tokio::select! {
-            _ = &mut ctrl_c => {
-                tracing::info!(target: "host", "received Ctrl+C; stopping server");
+            _ = stop.wait_for(|stopped| *stopped) => {
+                tracing::info!(target: "host", "stop asked for; stopping the server");
                 break;
             }
             next = lines.next_line() => {
@@ -172,12 +163,15 @@ pub async fn run_repl(controller: &mut ServerController, filter_handle: Option<L
                         }
                     }
                     Ok(None) | Err(_) => {
-                        // Stdin closed (detached mode): wait on Ctrl+C / stop signal.
-                        service_kit::serve::stop_requested().await;
+                        stdin_closed = true;
                         break;
                     }
                 }
             }
         }
+    }
+    // Stdin closed: the server runs on until a stop signal
+    if stdin_closed {
+        let _ = stop.wait_for(|stopped| *stopped).await;
     }
 }

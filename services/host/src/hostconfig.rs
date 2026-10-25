@@ -823,12 +823,19 @@ fn write_pretty(out: &mut String, value: &Value, depth: usize) {
     }
 }
 
+pub mod yaml;
+
 fn is_toml(file: &Path) -> bool {
     file.extension().is_some_and(|e| e.eq_ignore_ascii_case("toml"))
 }
 
-/// The file at `file`, as TOML when it ends in `.toml` and as host.json otherwise. `None` when it
-/// does not exist.
+fn is_yaml(file: &Path) -> bool {
+    file.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("yaml") || e.eq_ignore_ascii_case("yml"))
+}
+
+/// The file at `file`: TOML when it ends in `.toml`, host.json's document in YAML when it ends in
+/// `.yaml` or `.yml` (RD26: one schema, three forms), host.json otherwise. `None` when it does not exist.
 pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
     let text = match std::fs::read_to_string(file) {
         Ok(text) => text,
@@ -840,17 +847,24 @@ pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
             .map(Some)
             .map_err(|e| bad(format!("{}: {e}", file.display())));
     }
-    let document = jsjson::parse(&text).map_err(|e| bad(format!("{}: {e}", file.display())))?;
+    let document = if is_yaml(file) {
+        yaml::parse_yaml_to_json(&text).map_err(|e| bad(format!("{}: {e}", file.display())))?
+    } else {
+        jsjson::parse(&text).map_err(|e| bad(format!("{}: {e}", file.display())))?
+    };
     HostConfig::from_json(&document).map(Some)
 }
 
-/// The server's settings: host.toml, or a Node kit's host.json while there is no host.toml yet.
-/// `None` when there is neither. Never writes anything.
+/// The server's settings: host.toml, else host.yaml or host.yml, else a Node kit's host.json while
+/// there is no host.toml yet. `None` when there is none. Never writes anything.
 pub fn load_host_config(p: &Paths) -> Result<Option<HostConfig>, HostError> {
-    match read_host_config(&p.host_toml)? {
-        Some(c) => Ok(Some(c)),
-        None => read_host_config(&p.host_json),
+    let yaml = [p.config.join("host.yaml"), p.config.join("host.yml")];
+    for file in [&p.host_toml, &yaml[0], &yaml[1], &p.host_json] {
+        if let Some(c) = read_host_config(file)? {
+            return Ok(Some(c));
+        }
     }
+    Ok(None)
 }
 
 /// Whether the server has its settings yet (host.toml, or a Node kit's host.json).

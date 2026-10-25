@@ -37,6 +37,15 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
     match command {
         Command::Setup(args) => setup::run(paths, args),
         Command::Start => start::run(paths),
+        Command::Serve(args) => crate::serve::run(
+            paths,
+            &crate::serve::ServeOptions {
+                config_file: args.config.clone(),
+                interactive: true,
+                tui: args.tui,
+                log_filter: args.log_level.clone(),
+            },
+        ),
         Command::Invite(args) => invite::run(paths, args),
         Command::Doctor(args) => doctor::run(paths, args),
         Command::Gamedata(args) => gamedata::run(paths, args),

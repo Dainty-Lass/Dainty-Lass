@@ -39,16 +39,16 @@ pub mod legacy;
 pub mod legacy;
 // RH5
 pub mod linux;
-pub mod repl;
 pub mod selfupdate;
-pub mod tui;
 pub mod wine;
+// The server as one process (RD26): the controller's modules, the console and the dashboard
+pub mod repl;
+pub mod serve;
+pub mod tui;
 
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Parser as _;
-use controller::{ServerConfig, ServerController};
 pub use error::HostError;
 use protocol::edition::EditionSelection;
 
@@ -61,137 +61,19 @@ pub fn run(cli: &cli::Cli) -> Outcome {
     commands::dispatch(&cli.command, &paths::Paths::new(root))
 }
 
-/// Entry point of the `server-console*` binaries. Every `reforged-host` command, `start` included,
-/// goes to [`run`] unchanged (RD23: `start` is the Node kit's process contract). `serve`, or no
-/// command, runs the in-process controller with the REPL, or the `ratatui` dashboard with `--tui`.
-pub fn console_main(compiled_editions: EditionSelection) -> ExitCode {
-    let raw_args: Vec<String> = std::env::args().collect();
-    if let Some(first) = raw_args.get(1).map(String::as_str)
-        && matches!(
-            first,
-            "setup"
-                | "start"
-                | "invite"
-                | "doctor"
-                | "gamedata"
-                | "publish-runtime"
-                | "preset"
-                | "multipliers"
-                | "update"
-                | "backup"
-                | "gameserver"
-        )
-    {
-        let cli = cli::Cli::parse();
-        return match run(&cli) {
-            Ok(code) => code,
-            Err(error) => {
-                eprintln!("\nError: {error}");
-                ExitCode::FAILURE
-            }
-        };
+/// Entry point of the `server-console*` binaries: `reforged-host`'s commands, with `serve` when no
+/// command is given (a bare console serves).
+pub fn console_main(_compiled_editions: EditionSelection) -> ExitCode {
+    let mut args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    if args.len() == 1 || args.get(1).is_some_and(|a| a.to_string_lossy().starts_with('-')) {
+        args.insert(1, "serve".into());
     }
-
-    let mut config_path: Option<PathBuf> = None;
-    let mut workspace_dir = PathBuf::from(".workspace");
-    let mut use_tui = false;
-    let mut log_filter = "info".to_string();
-    let mut idx = 1;
-    while idx < raw_args.len() {
-        match raw_args[idx].as_str() {
-            "serve" => {}
-            "--tui" => use_tui = true,
-            "--config" | "-c" => {
-                idx += 1;
-                if let Some(p) = raw_args.get(idx) {
-                    config_path = Some(PathBuf::from(p));
-                } else {
-                    eprintln!("--config requires a file path");
-                    return ExitCode::from(2);
-                }
-            }
-            "--workspace" | "-w" => {
-                idx += 1;
-                if let Some(p) = raw_args.get(idx) {
-                    workspace_dir = PathBuf::from(p);
-                } else {
-                    eprintln!("--workspace requires a directory path");
-                    return ExitCode::from(2);
-                }
-            }
-            "--log-level" => {
-                idx += 1;
-                if let Some(l) = raw_args.get(idx) {
-                    log_filter.clone_from(l);
-                }
-            }
-            "--help" | "-h" => {
-                println!(
-                    "Usage: [serve] [OPTIONS]\n\nOptions:\n  -c, --config <FILE>      Path to .toml, .yaml, .yml, or .json config\n  -w, --workspace <DIR>    Workspace directory (default: .workspace)\n      --tui                Launch interactive ratatui split-view dashboard\n      --log-level <FILTER> Tracing filter (default: info)\n\nreforged-host commands, unchanged:\n  setup, start, invite, doctor, gamedata, publish-runtime, preset, multipliers, update, backup, gameserver"
-                );
-                return ExitCode::SUCCESS;
-            }
-            other => {
-                eprintln!("Unknown option or command: {other}");
-                return ExitCode::from(2);
-            }
+    let cli = cli::Cli::parse_from(args);
+    match run(&cli) {
+        Ok(code) => code,
+        Err(error) => {
+            eprintln!("\nError: {error}");
+            ExitCode::FAILURE
         }
-        idx += 1;
     }
-
-    let config = match ServerConfig::load_or_default(config_path.as_deref(), compiled_editions, workspace_dir) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("{e}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let log_file = config.workspace_dir.join("logs").join("server.log");
-    let level =
-        service_kit::telemetry::parse_level_filter(&log_filter).unwrap_or(tracing::level_filters::LevelFilter::INFO);
-    let (tui_ring, reload_handle) = if use_tui {
-        let (ring, handle) = service_kit::telemetry::init_tui_subscriber(level, 2000, Some(log_file));
-        (Some(ring), Some(handle))
-    } else {
-        let handle = service_kit::telemetry::init_table_stdout_subscriber(level);
-        (None, Some(handle))
-    };
-
-    let rt = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
-        Ok(rt) => rt,
-        Err(e) => {
-            eprintln!("failed to create tokio runtime: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    rt.block_on(async move {
-        let mut controller = match ServerController::new(config, compiled_editions) {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!(target: "host", "failed to initialize controller: {e}");
-                return ExitCode::FAILURE;
-            }
-        };
-        if let Err(e) = controller.start_all().await {
-            tracing::error!(target: "host", "failed to start server components: {e}");
-            controller.shutdown().await;
-            return ExitCode::FAILURE;
-        }
-        tracing::info!(
-            target: "host",
-            invite = %controller.invite_url(),
-            "server console ready (type `help` for REPL commands)"
-        );
-        if let Some(ring) = tui_ring {
-            if let Err(e) = tui::run_tui(&mut controller, ring, reload_handle).await {
-                tracing::error!(target: "host", "TUI error: {e}");
-            }
-        } else {
-            repl::run_repl(&mut controller, reload_handle).await;
-        }
-        controller.shutdown().await;
-        ExitCode::SUCCESS
-    })
 }

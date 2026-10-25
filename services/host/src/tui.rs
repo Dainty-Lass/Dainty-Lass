@@ -18,6 +18,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 use service_kit::context::ComponentPhase;
 use service_kit::telemetry::{LogFilterReloadHandle, TuiRingBufferLayer};
+use tokio::sync::watch;
 
 use crate::repl::execute_command;
 
@@ -28,10 +29,9 @@ const SERVICE_FILTERS: &[Option<&str>] = &[
     Some("allowlist"),
     Some("content"),
     Some("admin"),
-    Some("backend-reforged"),
-    Some("director-reforged"),
-    Some("backend-refined"),
-    Some("director-refined"),
+    Some("mongod"),
+    Some("backend"),
+    Some("director"),
 ];
 
 struct TuiGuard;
@@ -48,6 +48,7 @@ pub async fn run_tui(
     controller: &mut ServerController,
     ring_layer: TuiRingBufferLayer,
     filter_handle: Option<LogFilterReloadHandle>,
+    stop: watch::Receiver<bool>,
 ) -> Result<(), String> {
     enable_raw_mode().map_err(|e| format!("failed to enable terminal raw mode: {e}"))?;
     let mut stdout = io::stdout();
@@ -63,6 +64,9 @@ pub async fn run_tui(
     let mut status_note = String::from("Type `help` for commands | Tab: cycle service filter | Up/Down: scroll logs");
 
     loop {
+        if *stop.borrow() {
+            break;
+        }
         let snap = controller.snapshot();
         let active_filter = SERVICE_FILTERS.get(filter_idx).copied().flatten();
         let entries = ring_layer.entries(active_filter);
@@ -110,11 +114,12 @@ pub async fn run_tui(
                     .collect();
 
                 let title = format!(
-                    " Reforged Revival Server | Players: {} | Hunts: {}/{} | Invite: {} ",
+                    " Reforged Revival Server | {} | Players: {} | Hunts: {}/{} | fp: {} ",
+                    snap.mode,
                     snap.online_players,
                     snap.active_hunts,
                     snap.max_hunts,
-                    controller.invite_url()
+                    snap.cert_fingerprint.as_deref().unwrap_or("-")
                 );
                 let table = Table::new(
                     rows,
