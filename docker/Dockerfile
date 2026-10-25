@@ -1,25 +1,19 @@
 # syntax=docker/dockerfile:1
 #
-# DaintyLass server images (docs/hosting-docker.md). Built from the repository root:
+# DaintyLass server image (docs/hosting-docker.md). Built from the repository root:
 #   docker compose build            (compose.yaml), or
 #   docker build -f docker/Dockerfile --target server .
 #
-# Two images, both laid out as the server release is (RD8, .github/workflows/server-release.yml), under
-# /opt/reforged, so every path reforged-host writes into the env files is the same in every container:
-#   front   the internet-facing Rust services on Debian slim: gateway, allowlist (with nftables), content
-#   server  reforged-host, the Node backend and Director (until RB14), Wine for the game servers, and
-#           MongoDB's dump tools for `reforged-host backup`; also the image the host kit's commands run in
-#
-# REFORGED_EDITION=legacy builds them for a Dauntless Revived 1.4.4 server (compose.legacy.yaml): the server image
-# also holds DR's metagame and, once it is a workspace member, DR's deploy server.
-#
-# When RB14 ships, backend and director become Rust bins built in rust-build, the Node stage goes, and the
-# backend and Director move to a slim image like front; Wine stays with the Director.
+# One deployable image, laid out as the server release is (RD8, .github/workflows/server-release.yml), under
+# /opt/reforged, so every path the server writes is the same in every container:
+#   server  reforged-server-minimal, the whole server as one process (docs/app-structure-plan.md: the gateway, the
+#           allowlist with nftables, the content server, the admin API and the in-process game stack), with
+#           reforged-server-console for the host kit's commands, Wine for the game servers, and the Node backend and
+#           Director sources the host kit's gamedata and the test image still use
+#   test    the server image with the Rust toolchain and the server crates' tests compiled in; never deployed
 
 ARG RUST_IMAGE=rust:1-slim-trixie
 ARG NODE_IMAGE=node:22-trixie-slim
-ARG DEBIAN_IMAGE=debian:trixie-slim
-ARG MONGO_IMAGE=mongo:8.0
 
 # ------------------------------------------------------------------ the Rust binaries
 FROM ${RUST_IMAGE} AS rust-build
@@ -31,25 +25,16 @@ WORKDIR /src/rust
 COPY rust/rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
 COPY rust/ ./
-# The release workflow's build: the host kit, gateway (and allowlist), content server and admin API. The launcher is a
-# workspace member but is not built (only the lock file is read). backend and director join once they are real.
-# REFORGED_EDITION=legacy: the same bins with their `legacy` features, DR's metagame and its deploy server.
-ARG REFORGED_EDITION=reborn
+# The two server binaries (docs/app-structure-plan.md): the headless runner the server container runs, and the
+# console one with the host kit's commands. The launcher, the GUI and client bins and the single-edition bins are
+# not built.
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-target,target=/src/rust/target \
-    case "$REFORGED_EDITION" in \
-      reborn) set -- ;; \
-      legacy) set -- -p metagame --features host/legacy,gateway/legacy,content/legacy; \
-        if [ -d services/deploy ]; then set -- "$@" -p deploy; fi ;; \
-      *) echo "REFORGED_EDITION must be reborn or legacy, not $REFORGED_EDITION" >&2; exit 1 ;; \
-    esac \
- && cargo build --release --locked -p host -p gateway -p content -p admin "$@" --bins \
+    cargo build --release --locked -p server-minimal -p server-console \
  && mkdir -p /out/bin \
- && for bin in reforged-host gateway allowlist content admin; do cp "target/release/$bin" /out/bin/; done \
- && if [ "$REFORGED_EDITION" = legacy ]; then cp target/release/metagame /out/bin/; fi \
- && if [ "$REFORGED_EDITION" = legacy ] && [ -f target/release/deploy ]; then cp target/release/deploy /out/bin/; fi
+ && cp target/release/reforged-server-minimal target/release/reforged-server-console /out/bin/
 
-# ------------------------------------------------------------------ the Node services (until RB14)
+# ------------------------------------------------------------------ the Node sources: gamedata, the test suites
 FROM ${NODE_IMAGE} AS node-build
 WORKDIR /src
 # Every dependency, dev ones included, as the server release has them: gamedata runs Mystic Paradox's
@@ -64,59 +49,38 @@ RUN (cd paradox/backend && npm run build) \
  && (cd paradox/director && npm run build) \
  && find . -type d -name .bin -path '*/node_modules/*' -prune -exec rm -rf {} +
 
-# ------------------------------------------------------------------ front: gateway, allowlist, content, admin API
-FROM ${DEBIAN_IMAGE} AS front
-# nftables for the allowlist (ALLOWLIST_NFT is /usr/sbin/nft). The helper runs as the reforged user with
-# CAP_NET_ADMIN in its bounding set (compose.yaml); nft gets it from its file capability, nothing else does.
+# ------------------------------------------------------------------ server: the one process, the host kit's commands
+FROM ${NODE_IMAGE} AS server
+# Wine and a virtual display for the Windows game servers (docs/hosting-linux.md); tini reaps them. nftables for the
+# allowlist: the server runs as the node user with CAP_NET_ADMIN only in its bounding set (compose.yaml), and nft gets
+# it from its file capability, nothing else does. That capability needs privilege gain allowed in the container, so
+# no setuid binary stays in the image: none may hand a compromised gateway root, and root the bounding set's NET_ADMIN.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates nftables libcap2-bin \
+ && apt-get install -y --no-install-recommends ca-certificates wine wine64 xvfb xauth tini nftables libcap2-bin \
  && setcap cap_net_admin+ep /usr/sbin/nft \
  && apt-get purge -y libcap2-bin && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/* \
- && groupadd --gid 1000 reforged \
- && useradd --uid 1000 --gid 1000 --home-dir /opt/reforged --no-create-home --shell /usr/sbin/nologin reforged \
- && mkdir -p /opt/reforged/.workspace && chown reforged:reforged /opt/reforged/.workspace
-COPY --from=rust-build /out/bin/gateway /out/bin/allowlist /out/bin/content /out/bin/admin /opt/reforged/bin/
-COPY --chmod=0755 docker/healthcheck.sh /opt/reforged/bin/reforged-healthcheck
-ENV PATH=/opt/reforged/bin:$PATH
-WORKDIR /opt/reforged/.workspace
-USER reforged
-LABEL org.opencontainers.image.title="Dauntless Reforged Revival front door" \
-      org.opencontainers.image.licenses="AGPL-3.0-only" \
-      org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
-
-# ------------------------------------------------------------------ server: host kit, backend, Director
-FROM ${MONGO_IMAGE} AS mongo-tools
-
-FROM ${NODE_IMAGE} AS server
-# Wine and a virtual display for the Windows game servers (docs/hosting-linux.md); tini reaps them.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates wine wine64 xvfb xauth tini \
- && rm -rf /var/lib/apt/lists/*
-# `reforged-host backup` runs mongodump; the MongoDB image's tools are static binaries
-COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/bin/
-# The node user (uid 1000) owns everything a host writes: the workspace and the game-data folders, which
+ && find / -xdev -perm /6000 -type f -exec chmod a-s {} +
+# The node user (uid 1000) owns everything the server writes: the workspace and the game-data folders, which
 # compose.yaml mounts as volumes (a new volume takes this ownership and these files).
 WORKDIR /opt/reforged
 COPY --chown=node:node LICENSE.txt NOTICE.md ADDITIONAL_TERMS.md README.md ./
 COPY --chown=node:node native/ native/
 COPY --chown=node:node --from=node-build /src/paradox/ paradox/
 COPY --from=rust-build /out/bin/ bin/
-COPY --chmod=0755 docker/director-entrypoint.sh bin/reforged-director
-COPY --chmod=0755 docker/legacy-entrypoint.sh bin/reforged-legacy
+COPY --chmod=0755 docker/server-entrypoint.sh bin/reforged-server
 COPY --chmod=0755 docker/host-entrypoint.sh bin/reforged-host-docker
 COPY --chmod=0755 docker/healthcheck.sh bin/reforged-healthcheck
 RUN mkdir -p .workspace paradox/Items_Analysis paradox/DauntlessEndpointDocumentation \
  && chown node:node .workspace paradox/Items_Analysis paradox/DauntlessEndpointDocumentation
-# The commit the backend names to players (REFORGED_SOURCE_COMMIT, the AGPL source offer). setup reads it from
-# git or release.json, neither of which is in the image; the process environment wins over the env file.
+# The commit the server names to players (REFORGED_SOURCE_COMMIT, the AGPL source offer): neither git nor
+# release.json is in the image, and the process environment wins over any file.
 ARG REFORGED_COMMIT=""
 ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
-    METAGAME_GIT_COMMIT=${REFORGED_COMMIT} \
     PATH=/opt/reforged/bin:$PATH
 USER node
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["reforged-host", "--help"]
+CMD ["reforged-server"]
 LABEL org.opencontainers.image.title="DaintyLass server" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
@@ -129,8 +93,7 @@ FROM server AS test
 USER root
 # procps: the host kit's start tests send Ctrl+C with kill(1), which the slim base images leave out
 RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential pkg-config git nftables libcap2-bin procps \
- && setcap cap_net_admin+ep /usr/sbin/nft \
+ && apt-get install -y --no-install-recommends build-essential pkg-config git procps \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=rust-build /usr/local/cargo /usr/local/cargo
 COPY --from=rust-build /usr/local/rustup /usr/local/rustup
@@ -145,6 +108,7 @@ USER node
 # rebuilds nothing and needs no network). The launcher (Tauri, WebKitGTK) is not a server crate and is not
 # built; the fuzz targets are a workspace of their own.
 RUN cd rust && cargo test --locked --no-run \
-      -p protocol -p proxy -p service-kit -p store -p gateway -p content -p admin -p host
+      -p protocol -p proxy -p service-kit -p store -p gateway -p content -p admin -p host \
+      -p controller -p backend -p director
 ENTRYPOINT ["/usr/bin/tini", "--", "reforged-test"]
 CMD []
