@@ -24,8 +24,7 @@ default = []
 legacy = ["host/legacy"]
 
 [dependencies]
-host = { workspace = true, default-features = false, features = ["edition-both", "modules"] }
-protocol = { workspace = true, default-features = false, features = ["edition-both"] }
+host = { workspace = true, default-features = false, features = ["modules"] }
 
 [lints]
 workspace = true

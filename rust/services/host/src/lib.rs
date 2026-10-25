@@ -50,7 +50,6 @@ use std::process::ExitCode;
 
 use clap::Parser as _;
 pub use error::HostError;
-use protocol::edition::EditionSelection;
 
 /// What a command returns: its exit code, or the error `main` prints.
 pub type Outcome = Result<ExitCode, HostError>;
@@ -120,7 +119,7 @@ pub fn host_main() -> ExitCode {
 
 /// Entry point of the `server-console*` binaries: `reforged-host`'s commands, with `serve` when no
 /// command is given (a bare console serves).
-pub fn console_main(_compiled_editions: EditionSelection) -> ExitCode {
+pub fn console_main() -> ExitCode {
     let mut args: Vec<std::ffi::OsString> = std::env::args_os().collect();
     if args.len() == 1 || args.get(1).is_some_and(|a| a.to_string_lossy().starts_with('-')) {
         args.insert(1, "serve".into());

@@ -10,14 +10,11 @@ publish.workspace = true
 
 [features]
 # Each module is the Rust service built into the binary; none makes a controller that runs and serves nothing
-default = ["gateway", "allowlist", "content", "admin", "edition-both"]
+default = ["gateway", "allowlist", "content", "admin"]
 gateway = ["dep:gateway"]
 allowlist = ["dep:gateway"]
 content = ["dep:content"]
 admin = ["dep:admin"]
-edition-refined = ["protocol/edition-refined", "content?/edition-refined"]
-edition-reforged = ["protocol/edition-reforged", "content?/edition-reforged"]
-edition-both = ["edition-refined", "edition-reforged", "protocol/edition-both", "content?/edition-both"]
 
 [dependencies]
 admin = { workspace = true, optional = true }

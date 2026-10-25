@@ -5111,7 +5111,6 @@ name = "server-console"
 version = "0.0.0"
 dependencies = [
  "host",
- "protocol",
 ]
 
 [[package]]
@@ -5119,7 +5118,6 @@ name = "server-minimal"
 version = "0.0.0"
 dependencies = [
  "host",
- "protocol",
 ]
 
 [[package]]

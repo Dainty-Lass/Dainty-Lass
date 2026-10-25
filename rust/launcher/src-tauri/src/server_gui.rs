@@ -6,7 +6,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use protocol::edition::EditionSelection;
 use server_controller::ServerController;
 use service_kit::context::ServerSnapshot;
 use service_kit::telemetry::{ChannelLogLayer, HostLogEntry, LogFilterReloadHandle};
@@ -14,28 +13,18 @@ use tokio::sync::{Mutex, mpsc, watch};
 
 /// Holds the in-process `ServerController` and `LauncherGuiLayer` log channel for `server-gui*`.
 pub struct EmbeddedServerState {
-    compiled_editions: EditionSelection,
     controller: Arc<Mutex<Option<ServerController>>>,
     log_layer: ChannelLogLayer,
     filter_handle: Option<LogFilterReloadHandle>,
 }
 
 impl EmbeddedServerState {
-    pub fn new(
-        compiled_editions: EditionSelection,
-        log_layer: ChannelLogLayer,
-        filter_handle: Option<LogFilterReloadHandle>,
-    ) -> Self {
+    pub fn new(log_layer: ChannelLogLayer, filter_handle: Option<LogFilterReloadHandle>) -> Self {
         Self {
-            compiled_editions,
             controller: Arc::new(Mutex::new(None)),
             log_layer,
             filter_handle,
         }
-    }
-
-    pub fn compiled_editions(&self) -> EditionSelection {
-        self.compiled_editions
     }
 
     pub fn log_layer(&self) -> &ChannelLogLayer {
