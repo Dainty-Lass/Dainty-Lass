@@ -1,0 +1,31 @@
+# Fuzz targets for untrusted input (DaintyLass plan DX2, RX3), with cargo-fuzz on nightly, from fuzz/:
+#   cargo +nightly fuzz run <target> -- -max_total_time=86400
+# One target per parser of untrusted input, named after its component (each file in fuzz_targets/ says what it
+# feeds); each row adds its own target and a [[bin]] here, and the integration pass keeps this file merged. The
+# components' security pages (docs/security/) list their targets. A workspace of its own: cargo fuzz needs nightly
+# and its own build flags.
+[package]
+name = "rustic-rifts-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+# guard_evidence: Hunt Guard evidence batches and completions (RF6)
+rifts-guard = { path = "../crates/rifts-guard" }
+rifts-seam = { path = "../crates/rifts-seam" }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "guard_evidence"
+path = "fuzz_targets/guard_evidence.rs"
+test = false
+doc = false
+bench = false
