@@ -1,0 +1,1713 @@
+[
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/health/live",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/health/ready",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/health/release-gates",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both (admin API on only)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/internal/v1/metrics",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/features/platform/win",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/account/link/epic/:AccId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/login",
+    "class": "same",
+    "note": "Reforged session supplies refilled (REFORGED_SESSION_SUPPLIES_FILE); the file names catalog ids of the module's version"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/accountinfo",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/tags",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "PUT",
+    "path": "/gamesession/epic",
+    "class": "hook",
+    "hook": "game_session_payload",
+    "note": "1.12.0 {error_code:null, sessionid:'SESSION_ID_LOL', sessionToken}; 1.14.7 sessionid=token, adds sessiontoken (captured epiceos contract)"
+  },
+  {
+    "group": "auth",
+    "method": "PUT",
+    "path": "/gamesession/epiceos",
+    "class": "1.14.7-only",
+    "hook": "game_session_payload",
+    "note": "alias registered for the 1.14.7 client; 1.12 answers 404"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/accountinfo/public",
+    "class": "same",
+    "note": "DEV_USER_ID default 'mysticparadox' -> 'mystpax' (the alias the 1.12 client sends)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/migration/trigger",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/migration/status",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/isbanned",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/account/api/oauth/token",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "LAUNCHER mode checks code build against it; adds runtime channel/hash re-check, APIKEY client_credentials, eligibility 403, realm bind (no-op without realms)"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/account/api/oauth/verify",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/account/api/public/account/:AccId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/account/api/public/account/:AccId/externalAuths",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/account/api/public/account/displayName/:displayName",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "DELETE",
+    "path": "/account/api/oauth/sessions/kill",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "DELETE",
+    "path": "/account/api/oauth/sessions/kill/:AuthToken",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/account/api/public/account",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/dauntless-status",
+    "class": "same",
+    "note": "welcome text lost 'v0.0.3' (operator text)"
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/heartbeat",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/event",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/crash/CrashReporter/Ping",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/crash/CrashReporter/CheckReport",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/survey/config",
+    "class": "hook",
+    "hook": "survey_config",
+    "note": "1.12.0 400 empty; 1.14.7 200 {code:null, message:'OK', payload:{Triggers:[]}}"
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/account/migrate",
+    "class": "same",
+    "note": "RU3a: game-data, RU3b: auth"
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/profile/update",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/trials/leaderboards/all",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/trials/leaderboards/solo/individual",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/vivox/login",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "POST",
+    "path": "/motd/",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/motd/trigger",
+    "class": "1.14.7-only",
+    "note": "explicit 404 (same status as 1.12's fallback)"
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/entitlementsv2",
+    "class": "hook",
+    "hook": "entitlements_payload",
+    "note": "1.12.0 {code:null, message:'OK', payload:[]}; 1.14.7 {entitlements:[{activatedDate, duration, name}]} from storage"
+  },
+  {
+    "group": "bounties-store",
+    "method": "POST",
+    "path": "/entitlementv2/:userId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/playertreatments",
+    "class": "same",
+    "note": "COHORT_TREATMENT_LEGACY default keeps CohortTreatment.Dojo.B"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/playertreatments/",
+    "class": "same",
+    "note": "as above"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/playertreatments/:userId",
+    "class": "same",
+    "note": "as above"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/escalation/:escalationSeason/:userId",
+    "class": "same",
+    "note": "persisted instead of zeros; same five fields (1.12 serializer)"
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/escalation/:escalationSeason/:userId",
+    "class": "same",
+    "note": "absent from 1.12.0 (404 there); serve on both: 1.12 hunt servers post here (404 retries in the 2026-07-25 repro)"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/eventstats/",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/progression/config",
+    "class": "hook",
+    "hook": "progression_config",
+    "table": "ACTIVE_HUNTPASS_ID,RECENT_HUNTPASS_SEASONS,GAME_DATA",
+    "note": "1.14.7 rewrites hunt-pass windows (active pass rolling 12 weeks, others ended 2024-12-03, season43..50 added with 2099 windows); 1.12.0 serves the file as is"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/config",
+    "class": "1.14.7-only",
+    "note": "gauntlet-prod only (next() otherwise)"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/^\\/progression\\/([^/]*)\\/([^/]+)$/i",
+    "class": "1.14.7-only",
+    "note": "gauntlet-prod only; next() for other origins, so it never shadows 1.12 routes"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/^\\/rewards\\/personal\\/([^/]*)\\/([^/]+)$/i",
+    "class": "1.14.7-only",
+    "note": "gauntlet-prod only"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/^\\/rewards\\/guild\\/([^/]*)\\/([^/]+)$/i",
+    "class": "1.14.7-only",
+    "note": "gauntlet-prod only"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/^\\/leaderboard\\/get_leaderboard\\//i",
+    "class": "1.14.7-only",
+    "note": "gauntlet-prod only"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/huntpass/:userId",
+    "class": "hook",
+    "hook": "huntpass_payload",
+    "table": "ACTIVE_HUNTPASS_ID",
+    "note": "1.12.0 payload 'season19' (scalar); 1.14.7 {huntpass_id, season} = season43"
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/cooldown/:userId",
+    "class": "same",
+    "note": "persisted id->date map; MYSTICPARADOX_COOLDOWN_PERSISTENCE=off is 1.12.0's {} byte for byte"
+  },
+  {
+    "group": "bounties-store",
+    "method": "PUT",
+    "path": "/cooldown/batch/:userId",
+    "class": "same",
+    "note": "persisted; 403 without gameserver authority; off switch as above"
+  },
+  {
+    "group": "bounties-store",
+    "method": "PUT",
+    "path": "/cooldown/:userId/:cooldownId",
+    "class": "1.14.7-only",
+    "note": "1.14.7 hub sprout harvest (StartCooldownEndpoint)"
+  },
+  {
+    "group": "bounties-store",
+    "method": "POST",
+    "path": "/cooldown/:userId/:cooldownId",
+    "class": "1.14.7-only",
+    "note": "as above"
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/bounty/game-data",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/bounty/:userId",
+    "class": "same",
+    "note": "persisted; empty payload identical to the 1.12.0 stub (season dates 2020-08-23..2099)"
+  },
+  {
+    "group": "bounties-store",
+    "method": "POST",
+    "path": "/bounty/:userId",
+    "class": "same",
+    "note": "persisted and merged; a claim later funds the season-challenge coin grant at POST /inventory"
+  },
+  {
+    "group": "bounties-store",
+    "method": "POST",
+    "path": "/bounty/delete/:userId",
+    "class": "1.14.7-only",
+    "note": "claim deletes the bounty first (Reforged)"
+  },
+  {
+    "group": "bounties-store",
+    "method": "DELETE",
+    "path": "/bounty/delete/:userId",
+    "class": "1.14.7-only",
+    "note": "as above"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/all/",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/patchnotes/:language/:gameversion",
+    "class": "table",
+    "table": "PATCHNOTES_RELEASE_VERSION",
+    "note": "release_version '1.12.0' vs '' (the 1.14.7 runtime collapses the line); date/description/notes are operator text"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/maintenance/status",
+    "class": "1.14.7-only",
+    "note": "login-queue-prod: the 1.14.7 client asks it before login (Reforged 0018); 1.12 answers 404"
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "GET",
+    "path": "/character",
+    "class": "hook",
+    "hook": "no_player_policy",
+    "table": "TARGET_CHANGELIST",
+    "note": "1.14.7 resolves a bearer-less gameserver read to GAMESERVER_NO_PLAYER_USER_ID ?? DEV_USER_ID; 1.12.0 answers []. LastChangelist stamped from the table. Dojo series reconcile is same (written for 1.12). GAMESERVER_CHARACTER_* experiment switches are default-off diagnostics: drop"
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "PUT",
+    "path": "/character",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "POST",
+    "path": "/character",
+    "class": "hook",
+    "hook": "no_player_policy",
+    "table": "TARGET_CHANGELIST",
+    "note": "1.14.7 resolves an empty characterId from a gameserver to the account's first character; missing record now 409 not 500 (same). 409 Jetty HTML identical in both"
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "POST",
+    "path": "/^\\/inventory\\/([^/]*)\\/(.+)$/",
+    "class": "1.14.7-only",
+    "note": "regex for the 1.14.7 empty-characterId form /inventory//dauntlessrel-1.14.7:647472; same stub answer as the named route, which 1.12 keeps"
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "POST",
+    "path": "/inventory/:characterId/:changeList",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "GET",
+    "path": "/inventory/:userId/:characterId",
+    "class": "hook",
+    "hook": "weapons_at_base_level",
+    "note": "1.14.7 serves weapon CurrentLevel 0 (Reforged 0036, KEEP_WEAPON_ITEM_LEVELS=true off); 1.12.0 serves stored levels"
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "GET",
+    "path": "/inventory/:userId/",
+    "class": "hook",
+    "hook": "no_player_policy,weapons_at_base_level",
+    "note": "1.14.7 resolves a gameserver read with no characterId to the account's character; 1.12.0 400"
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "POST",
+    "path": "/inventory",
+    "class": "hook",
+    "hook": "no_player_policy,weapons_at_base_level",
+    "table": "SEASONAL_COIN,GAME_DATA",
+    "note": "1.14.7 fills empty accountId/characterId for gameservers. Same: grant/spend authority, minted instance ids, stacked-item 409s, storage normalisation (inventory_storage_policy.json from the version's catalog)"
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "POST",
+    "path": "/inventory/instanceditem",
+    "class": "hook",
+    "hook": "weapons_at_base_level",
+    "note": "response through the base-level filter"
+  },
+  {
+    "group": "bounties-store",
+    "method": "POST",
+    "path": "/reconcile",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/creator",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/balance",
+    "class": "same",
+    "note": "fixed currency list identical in both; platinum buckets collapsed to CURRENCY_PLATINUM"
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/product/skus/public",
+    "class": "table",
+    "table": "STORE_SECTIONS,GAME_DATA",
+    "note": "1.12.0 serves ladyluckstore only; entitlements/skuProgression/images now from data"
+  },
+  {
+    "group": "bounties-store",
+    "method": "GET",
+    "path": "/token/:currency/:catalogId",
+    "class": "table",
+    "table": "STORE_SECTIONS",
+    "note": "SKU looked up across the version's sections; token carries storeTag"
+  },
+  {
+    "group": "bounties-store",
+    "method": "POST",
+    "path": "/notification/:currency",
+    "class": "table",
+    "table": "STORE_SECTIONS,SEASONAL_COIN",
+    "note": "purchase across sections; daily claim window; Platinum free unless PLATINUM_STORE_FREE=0"
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/guild/invite/player",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/guild",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/game_tuning/seasonal_event_schedule",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/game_tuning/huntpass_xp_config",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/game_tuning/island_content_config",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/game_tuning/bounty_game_data",
+    "class": "table",
+    "table": "BOUNTY_ITEM_GRANT_DATA",
+    "note": "item_grant_data [] vs two windows covering now"
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/game_tuning/bounty_game_data_daily",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "game-data",
+    "method": "GET",
+    "path": "/game_tuning/bounty_game_data_weekly",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "POST",
+    "path": "/candidate/player/register",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "POST",
+    "path": "/candidate/player/alive",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "GET",
+    "path": "/candidate/regions",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/key/generate",
+    "class": "hook",
+    "hook": "network_encryption_keys",
+    "note": "1.12.0 400 empty (client connects unencrypted); 1.14.7 {key, nonce, token} kept per token for /key/consume"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/key/consume",
+    "class": "1.14.7-only",
+    "hook": "network_encryption_keys",
+    "note": "the 1.14.7 hub's key fetch; 1.12 answers 404"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "GET",
+    "path": "/candidate/status",
+    "class": "hook",
+    "hook": "candidate_destination",
+    "table": "TARGET_CHANGELIST,GAME_VERSION",
+    "note": "buildId `<CL>_<version>_shipping`; 1.12.0 gameMode 'ISLAND' with the real huntId for Ramsgate, 1.14.7 'CITY' with huntId null. Same: CANCELED status, loopback for local clients, live hub revalidation"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "POST",
+    "path": "/candidate/join",
+    "class": "same",
+    "note": "adds candidateStatusPeriodMillis; forwards buildId; party online = XMPP or recent activity"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "DELETE",
+    "path": "/candidate/leave",
+    "class": "1.14.7-only",
+    "note": "1.14.7 Cancel (FUN_140db6dd0)"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "POST",
+    "path": "/candidate/leave",
+    "class": "1.14.7-only",
+    "note": "alias"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "PUT",
+    "path": "/candidate/leave",
+    "class": "1.14.7-only",
+    "note": "alias"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "DELETE",
+    "path": "/candidate",
+    "class": "1.14.7-only",
+    "note": "alias"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "DELETE",
+    "path": "/candidate/:candidateId",
+    "class": "1.14.7-only",
+    "note": "alias"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "GET",
+    "path": "/QoS",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "POST",
+    "path": "/party",
+    "class": "same",
+    "note": "parties in storage; X-Mystic-Party-Revision header; size 4, invite TTL 10 min"
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "PUT",
+    "path": "/party/invite",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "GET",
+    "path": "/party/invites",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "PUT",
+    "path": "/party/invite/accept/:inviterId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "DELETE",
+    "path": "/party/member",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "DELETE",
+    "path": "/party/member/:targetId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "matchmaking-parties",
+    "method": "PUT",
+    "path": "/party/member/promote/:targetId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/encountered-content/:characterId/:contentType",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/encountered-content/query/:characterId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/encountered-content/query",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/encountered-content/:characterId/query",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/encountered-content/:characterId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/encountered-content",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/encountered-content/",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/progression/objectives/:userId",
+    "class": "hook",
+    "hook": "objective_row",
+    "note": "1.12.0 rows {objective_id, value, completed_count}; 1.14.7 {phx_account_id, objective_id, progress, completed_count, created_date, last_modified_date}. GAMESERVER_OBJECTIVES_AS_CONFIG A/B: drop"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/breadcrumbs/",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/breadcrumbs/:characterId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/breadcrumbs/:characterId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/progression/:userId/:progressionId/:amount",
+    "class": "hook",
+    "hook": "reforge_rules",
+    "table": "ACTIVE_HUNTPASS_ID",
+    "note": "approved track list includes the active pass; reforge classification of PrestigeTrack_/ExperienceTrack_ grants (refuses prestige without an open reforge); minted gs- grant id, adds grant_id/replayed (same)"
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/progression/:userId",
+    "class": "hook",
+    "hook": "mastery_persistence",
+    "table": "GAME_DATA",
+    "note": "1.14.7 applies a gameserver's report to mastery (mastery_objectives.json) and answers the mastery payload; 1.12.0 captures and answers {}"
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/progression/:userId/:progressionId/:rank/confirm/public",
+    "class": "same",
+    "note": "bounded mastery sync"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/progression/:userId",
+    "class": "hook",
+    "hook": "reforge_rules",
+    "table": "ACTIVE_HUNTPASS_ID",
+    "note": "default track list ends with the active pass; 1.14.7 finishes stale reforges on a gameserver load"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/pjm/:userId",
+    "class": "table",
+    "table": "MASKED_JOURNEY_NODES",
+    "note": "1.14.7 serves Gauntlet_Unlock Locked while MYSTICPARADOX_GAUNTLET is off"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/weapon_tracker/:userId/:itemId",
+    "class": "1.14.7-only",
+    "note": "1.14.7 weapon-tracker loader; 1.12 answers 404"
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/pjm/:userId",
+    "class": "table",
+    "table": "MASKED_JOURNEY_NODES",
+    "note": "masked nodes restored before save"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/pjm",
+    "class": "table",
+    "table": "MASKED_JOURNEY_NODES,GAME_DATA",
+    "note": "slayers_path.json fallback"
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/progression/tracked_objectives/:phxAccountId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "POST",
+    "path": "/progression/tracked_objectives/:phxAccountId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "progression",
+    "method": "GET",
+    "path": "/progression/:userId/:progressionId",
+    "class": "1.14.7-only",
+    "hook": "reforge_rules",
+    "note": "single-track read the 1.14.7 reforge uses"
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "DELETE",
+    "path": "/progression/:userId/:progressionId",
+    "class": "1.14.7-only",
+    "hook": "reforge_rules",
+    "note": "weapon reforge reset (1.14.7 DeleteProgressionEndpoint)"
+  },
+  {
+    "group": "inventory-reforge",
+    "method": "POST",
+    "path": "/progression/purchase/:userId/:progressionId/:amount",
+    "class": "1.14.7-only",
+    "hook": "reforge_rules",
+    "note": "reforge banked re-grant (1.14.7)"
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "GET",
+    "path": "/loadout/:userId//all",
+    "class": "same",
+    "note": "wire slot split as unlock"
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "GET",
+    "path": "/loadout/:userId/:characterId/all",
+    "class": "same",
+    "note": "wire slot split as unlock; active_index persisted"
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "POST",
+    "path": "/loadout/:userId/:characterId/unlock/:numSlots",
+    "class": "same",
+    "note": "path value is a delta, slots from LoadoutSlot_01..05; wire counts 0/0 account + N/6 character; loadoutSlots.ts says 1.12 shares the contract (1.12 RVA 0x01A6D4F0)"
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "POST",
+    "path": "/loadout/:userId/:characterId/active/:index",
+    "class": "same",
+    "note": "absent from 1.12.0 (404 there); serve on both: captured 1.12 traffic uses UpdateLoadoutSlotSetActiveEndpoint"
+  },
+  {
+    "group": "characters-loadouts",
+    "method": "POST",
+    "path": "/loadout/:userId/:characterId/:index",
+    "class": "same",
+    "note": "wire slot split as unlock"
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/friends/api/public/friends/:accountId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "POST",
+    "path": "/friends/api/public/friends/:accountId/:friendId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "DELETE",
+    "path": "/friends/api/public/friends/:accountId/:friendId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/friends/api/public/blocklist/:accountId",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/friends/api/public/list/:namespace/:accountId/recentPlayers",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/friends/api/v1/:accountId/settings",
+    "class": "same",
+    "note": ""
+  },
+  {
+    "group": "chat",
+    "method": "POST",
+    "path": "/slayerlink/availability",
+    "class": "1.14.7-only",
+    "note": "social-prod Slayer Link"
+  },
+  {
+    "group": "chat",
+    "method": "GET",
+    "path": "/slayerlink/status_good",
+    "class": "1.14.7-only",
+    "note": "social-prod Slayer Link"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/register",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/login",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/refresh",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/logout",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/logout-all",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/discord/start",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/auth/discord/callback",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/discord/complete",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/email/verify",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/email/resend",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/password/forgot",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/auth/password/reset",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/account/discord/link/start",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/account/discord/unlink/start",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/account/discord/unlink",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/me",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/username",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/username",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/game-sessions",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); buildChangelist must equal it; runtime artifact set checked"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/policy",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/status",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); supportedBuildChangelist"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/legal",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/notices",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/account/consent",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/account/consent",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "GET",
+    "path": "/launcher/v1/account/deletion",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "POST",
+    "path": "/launcher/v1/account/deletion",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "auth",
+    "method": "DELETE",
+    "path": "/launcher/v1/account/deletion",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/reforged/api/Register",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/reforged/api/GetUserInfo",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/reforged/api/ServerStatus",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/reforged/api/RegistrationStatus",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/reforged/api/CreateInvite",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/reforged/api/InviteCodes",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "DELETE",
+    "path": "/reforged/api/InviteCode/:code",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/reforged/api/SetAccountStatus",
+    "class": "1.14.7-only",
+    "note": "Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:target/:channel/:platform",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); manifests checked against the changelist (1.12.0 hard-codes 392819)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:channel/:platform",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:target/:channel/:platform/download",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:channel/:platform/download",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/launcher/v1/admin/updates/runtime/:target/:channel/:platform",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); x-update-changelist must equal it; artifact ParadoxRuntime-<ver>-<target>-<CL>.dll"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/launcher/v1/admin/updates/runtime/:target/:channel/:platform/extra",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); extra files beyond winmm.dll from RUNTIME_EXTRA_FILES"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:target/:channel/:platform/extra/:filename",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/admin/updates/serving",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/launcher/v1/admin/updates/serving",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/updates/:target/:arch/download",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/updates/:target/:arch/files/:version/:file",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/launcher/v1/updates/:target/:arch/:currentVersion",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "PUT",
+    "path": "/launcher/v1/logs/sessions/:launchSessionId/:fileName",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/launcher-logs",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/launcher-logs/:userId/:launchSessionId/:fileName",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/admin/v1/auth/login",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/admin/v1/auth/logout",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/auth/discord/start",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/auth/discord/callback",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/me",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/online-players",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/players",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "PATCH",
+    "path": "/admin/v1/players/:userId/access",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "PATCH",
+    "path": "/admin/v1/players/:userId/roles",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "DELETE",
+    "path": "/admin/v1/players/:userId",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/audit",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client)"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/operations/overview",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "PATCH",
+    "path": "/admin/v1/operations/policy",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/launcher-notices",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "PUT",
+    "path": "/admin/v1/launcher-notices",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/activity/players/:userId",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/activity/overview",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/activity/flags",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "PATCH",
+    "path": "/admin/v1/activity/flags/:id",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "POST",
+    "path": "/admin/v1/players/:userId/tester-max",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/player-logs",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "GET",
+    "path": "/admin/v1/player-logs/:userId/:launchSessionId/:fileName",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "reforged-api",
+    "method": "DELETE",
+    "path": "/admin/v1/player-logs/:userId/:launchSessionId",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both"
+  },
+  {
+    "group": "director",
+    "method": "GET",
+    "path": "/health/ready",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both",
+    "service": "director"
+  },
+  {
+    "group": "director",
+    "method": "GET",
+    "path": "/api/hub-status",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both (backend revalidates hub candidates)",
+    "service": "director"
+  },
+  {
+    "group": "director",
+    "method": "GET",
+    "path": "/api/instances",
+    "class": "same",
+    "note": "version-independent (launcher, operator or backend-facing API, not the game client); absent from 1.12.0 (404 there); serve on both",
+    "service": "director"
+  },
+  {
+    "group": "director",
+    "method": "POST",
+    "path": "/api/matchmaker/handle-matchmaking-for-player",
+    "class": "table",
+    "table": "GAME_DATA",
+    "note": "hunt tables per version; on-demand Training hub; errors no longer fall back to Ramsgate",
+    "service": "director"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "pipeline:rate-limit",
+    "class": "same",
+    "note": "per-address 429 budget (600/6000 gameserver per minute) ahead of every router but /, health and release gates"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "pipeline:admin-gate",
+    "class": "same",
+    "note": "1.12.0 always mounts /admin/v1; 1.14.7 answers 404 for /admin unless MYSTICPARADOX_ADMIN_API (or the manager bridge) is on"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "auth:gameserver-no-player",
+    "class": "hook",
+    "hook": "no_player_policy",
+    "note": "HasParadoxBackendAuth: 1.14.7 rewrites INVALID path segments of gameserver GET/HEAD to the no-player account and gives bearer-less gameserver calls that userId; 1.12.0 neither"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "auth:modes",
+    "class": "same",
+    "note": "AUTH_MODE NONE/APIKEY/LAUNCHER in both; APIKEY gains client_credentials and the eligibility 403"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "config:TARGET_CHANGELIST",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "392819 (hard-coded in 1.12.0's launcherUpdates and Director) vs 647472 (env, Director constant)"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "config:listeners",
+    "class": "table",
+    "table": "CONFIG_DEFAULTS",
+    "note": "QoS pong listener on :80 (1.14.7 QOS FIX; 1.12.0 none); PORT default 3000 (1.12.0 unset); BIND_HOST, TLS-by-proxy new"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "config:switches",
+    "class": "same",
+    "note": "MYSTICPARADOX_GAUNTLET, REFORGE, MASTERY/BOUNTY/COOLDOWN_PERSISTENCE, CONSENT, EMAIL_VERIFICATION, REGISTRATION_APPROVAL, GUARD_MODE: their 1.12 defaults come from the hooks and CONFIG_DEFAULTS"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "db:collections",
+    "class": "same",
+    "note": "added: schemaMigrations, progressionTransactions, escalationProgress, bountyStates, cooldownStates, economyDaily, playerActivityDaily, activityHunts, slayersPathUnlocks, activityFlags, emailCodes, accountDeletions, entitlements, launcherGuardSessions, guardFindings, operationsPolicy, launcherNotices, parties, partyMemberships, partyInvites, partyOutbox; SQLite provider (PERSISTENCE_PROVIDER)"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "db:starter-manifest",
+    "class": "table",
+    "table": "STARTER_MANIFEST",
+    "note": "BOOTSTRAP_VERSION starter-1.12-v2 -> v5; 1.14.7 adds TOKEN_DAILY_CHALLENGE_DRAFT and nine EJ_* emojis (1.14.7 catalog) with default quick-emoji wheel"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "game-data",
+    "class": "table",
+    "table": "GAME_DATA",
+    "note": "per-version exports: progression_config, slayers_path, ladyluck/reward_cache/platinum stores, inventory_storage_policy, mastery_objectives, escalation_tuning, fountain_daily_bundle; Director player/matchmaker hunt tables"
+  },
+  {
+    "group": "cross-cutting",
+    "method": "-",
+    "path": "xmpp",
+    "class": "same",
+    "note": "party outbox headlines (party-events@), offline presence leaves the party, City-<gameSessionId> rooms from /candidate/status (works on 1.12: gameSessionId is served there too), REALTIME_XMPP_DEV_CITY_MUC default false"
+  },
+  {
+    "group": "director",
+    "method": "-",
+    "path": "launch:args",
+    "class": "table",
+    "table": "GAMESERVER_ARGS",
+    "note": "1.12.0: -EpicPortal -server -nullrhi -warp -RepDriverEnable -LogCmds=\"LogPhoenixCharacter VeryVerbose, LogOnline Verbose\"; 1.14.7 adds -nosound, LogLoad Off, GAMESERVER_LOG_CMDS, windowsHide"
+  },
+  {
+    "group": "director",
+    "method": "-",
+    "path": "runtime-updater",
+    "class": "table",
+    "table": "TARGET_CHANGELIST",
+    "note": "server runtime manifest targetChangelist 392819 vs 647472; component name MystPaxInternalServer accepted too"
+  },
+  {
+    "group": "director",
+    "method": "-",
+    "path": "hubs",
+    "class": "same",
+    "note": "hub supervisor with backoff, TRAINING_HUB/RAMSGATE_HUB, port pool, memory admission; same maps in both"
+  }
+]
