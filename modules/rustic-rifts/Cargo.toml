@@ -26,6 +26,13 @@ rifts-host = { path = "crates/rifts-host", version = "0.1.0", registry = "silent
 # Same versions as DaintyLass's workspace, so one copy of each lands in its tree
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = "2"
+# Admission and relay crypto (RF4): RustCrypto, no OpenSSL; sha2, hmac, sha1 and base64 at DaintyLass's versions
+base64 = "0.23"
+getrandom = "0.4"
+hmac = "0.13"
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "pem", "pkcs8", "std"] }
+sha1 = "0.11"
+sha2 = "0.11"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
