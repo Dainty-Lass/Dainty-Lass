@@ -7,7 +7,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { CommandName } from "./generated/types.ts";
-import type { ActionResult, HostKit, HostServerView, LauncherApi, Settings, Snapshot, TaskProgress } from "./types.ts";
+import type { ActionResult, HostKit, HostServerView, LauncherApi, RevertSelection, Settings, Snapshot, TaskProgress } from "./types.ts";
 
 // A call that waits on the player (a file dialog) or on a long task (the executable check, the runtime
 // download, a host kit build) gets an hour; any other a minute.
@@ -60,6 +60,15 @@ async function tell(command: CommandName, args?: Record<string, unknown>): Promi
   } catch (error) {
     console.error(error);
   }
+}
+
+// An optional text field: absent, or text
+function optionalText(value: string | null | undefined): string | null {
+  return value === undefined || value === null ? null : String(value);
+}
+
+function selection(value: RevertSelection): RevertSelection {
+  return { account: optionalText(value.account), actor: optionalText(value.actor), since: optionalText(value.since), until: optionalText(value.until) };
 }
 
 function on<T>(event: string, fn: (payload: T) => void): void {
@@ -168,4 +177,35 @@ export const api: LauncherApi = {
   onHostServer: (fn) => on<HostServerView>("host-server", fn),
   onInviteLink: (fn) => on<unknown>("invite-link", () => fn()),
   onWindowState: (fn) => on<unknown>("window-state", (maximized) => fn(maximized === true)),
+  // The sign-in window waits on the player
+  epicSignInStart: () => act("epic_sign_in_start", {}, LONG_TIMEOUT_MS),
+  epicSignInCode: (code) => act("epic_sign_in_code", { code: String(code) }),
+  epicGet: () => act("epic_get"),
+  epicSignOut: () => act("epic_sign_out"),
+  epicLibraryCheck: () => act("epic_library_check"),
+  gameVersionList: () => act("game_version_list"),
+  gameInstallStart: (version) => act("game_install_start", { version: String(version) }),
+  gameInstallPause: (version) => act("game_install_pause", { version: String(version) }),
+  gameInstallResume: (version) => act("game_install_resume", { version: String(version) }),
+  gameInstallCancel: (version) => act("game_install_cancel", { version: String(version) }),
+  gameInstallGet: (version) => act("game_install_get", { version: String(version) }),
+  regionPing: () => act("region_ping"),
+  moduleList: () => act("module_list"),
+  moduleGet: (module) => act("module_get", { module: String(module) }),
+  // The input's shape is the module manifest's, so it crosses as JSON text the backend checks
+  moduleRunCommand: (module, command, input) =>
+    act("module_run_command", { module: String(module), command: String(command), input: JSON.stringify(input ?? null) }, LONG_TIMEOUT_MS),
+  moduleSetSettings: (module, values) => act("module_set_settings", { module: String(module), values: JSON.stringify(values ?? {}) }),
+  moduleLoad: (module) => act("module_load", { module: String(module) }, LONG_TIMEOUT_MS),
+  moduleUnload: (module) => act("module_unload", { module: String(module) }, LONG_TIMEOUT_MS),
+  realmHost: (kind) => act("realm_host", { kind: kind === "hunt" ? "hunt" : "hub" }, LONG_TIMEOUT_MS),
+  realmJoin: (realm) => act("realm_join", { realm: String(realm) }, LONG_TIMEOUT_MS),
+  realmStop: () => act("realm_stop", {}, LONG_TIMEOUT_MS),
+  realmGet: () => act("realm_get"),
+  historyQuery: (filter) => act("history_query", { filter: { ...selection(filter), cursor: optionalText(filter.cursor) } }),
+  historyRevertDryRun: (value) => act("history_revert_dry_run", { selection: selection(value) }, LONG_TIMEOUT_MS),
+  historyRevertApply: (plan) => act("history_revert_apply", { plan: String(plan) }, LONG_TIMEOUT_MS),
+  guardedList: () => act("guarded_list"),
+  guardedApprove: (id) => act("guarded_approve", { id: String(id) }),
+  guardedCancel: (id) => act("guarded_cancel", { id: String(id) }),
 };

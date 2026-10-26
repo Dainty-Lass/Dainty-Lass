@@ -2,7 +2,8 @@
 //! channel without `rr:` (in snake_case). Each checks its arguments again, whatever the isolation hook let
 //! through: the hook guards the page, these guard the backend (`ipc-validate.ts` and the handlers in
 //! `main.ts`, with the same refusals). Then it hands over to the controller (RA13, RA12), whose stubs
-//! answer until those rows land; this file does not change when they do.
+//! answer until those rows land; this file does not change when they do. The DaintyLass commands at the
+//! end (DF8) are refused by `planned` until their rows replace them.
 
 use std::sync::LazyLock;
 
@@ -13,8 +14,8 @@ use tauri::{AppHandle, Manager, State};
 
 use super::backend::Backend;
 use super::spec::{
-    COPY_TEXT_MAX, DETECTED_GAME_MAX, GAME_PATH_MAX, INVITE_FOR_MAX, INVITE_MAX, KEY_TEXT_MAX, PUBLIC_HOST_MAX,
-    SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id,
+    Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, GAME_PATH_MAX, INVITE_FOR_MAX, INVITE_MAX, KEY_TEXT_MAX,
+    PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
 };
 use super::types::{
     ActionResult, Branding, ErrorCode, ExternalTarget, HostAction, HostFolder, HostKit, HostMultipliers,
@@ -457,6 +458,196 @@ pub fn subscribe_progress(on_progress: Channel<TaskProgress>, backend: Backed<'_
     backend.subscribe_progress(on_progress);
 }
 
+/// An argument against its shape in the spec, as the hook checks it (`fits` in `isolation/hook.js`): the
+/// planned commands' check until the rows that fill them bring their own.
+fn arg_accepts(arg: &Arg, value: Option<&Value>) -> bool {
+    match (arg, value) {
+        (Arg::Text { max }, Some(Value::String(text))) => fits(text, *max),
+        (Arg::OptionalText { .. }, None | Some(Value::Null)) => true,
+        (Arg::OptionalText { max }, Some(Value::String(text))) => fits(text, *max),
+        (Arg::Flag, Some(Value::Bool(_))) => true,
+        (Arg::Index { max }, Some(value)) => value
+            .as_f64()
+            .is_some_and(|index| index.fract() == 0.0 && (0.0..=f64::from(*max)).contains(&index)),
+        (Arg::Name { names }, Some(Value::String(name))) => names.contains(&name.as_str()),
+        (Arg::Number { min, max }, Some(value)) => value
+            .as_f64()
+            .is_some_and(|number| number.is_finite() && (*min..=*max).contains(&number)),
+        (Arg::Object { nullable, .. }, Some(Value::Null)) => *nullable,
+        (Arg::Object { fields, .. }, Some(Value::Object(object))) => {
+            object.keys().all(|key| fields.iter().any(|(name, _)| name == key))
+                && fields.iter().all(|(name, arg)| arg_accepts(arg, object.get(*name)))
+        }
+        _ => false,
+    }
+}
+
+/// A command registered ahead of the row that fills it (DF8, `spec::PLANNED`): arguments of the wrong
+/// shape are refused as `unknown`, as the other commands refuse them, then the call is refused as
+/// `not_in_this_build` or `not_implemented` with the command's name as the detail. The page shows the code.
+fn planned(command: &str, args: &[&Value]) -> ActionResult {
+    let shapes = COMMANDS
+        .iter()
+        .find(|listed| listed.name == command)
+        .map(|listed| listed.args);
+    let fit = shapes.is_some_and(|shapes| {
+        shapes.len() == args.len()
+            && shapes
+                .iter()
+                .zip(args)
+                .all(|((_, arg), value)| arg_accepts(arg, Some(value)))
+    });
+    if !fit {
+        return ActionResult::err(ErrorCode::Unknown);
+    }
+    let code = if serves(command) {
+        ErrorCode::NotImplemented
+    } else {
+        ErrorCode::NotInThisBuild
+    };
+    ActionResult::Err(LauncherError::with_detail(code, command))
+}
+
+#[tauri::command]
+pub fn epic_sign_in_start() -> ActionResult {
+    planned("epic_sign_in_start", &[])
+}
+
+#[tauri::command]
+pub fn epic_sign_in_code(code: Value) -> ActionResult {
+    planned("epic_sign_in_code", &[&code])
+}
+
+#[tauri::command]
+pub fn epic_get() -> ActionResult {
+    planned("epic_get", &[])
+}
+
+#[tauri::command]
+pub fn epic_sign_out() -> ActionResult {
+    planned("epic_sign_out", &[])
+}
+
+#[tauri::command]
+pub fn epic_library_check() -> ActionResult {
+    planned("epic_library_check", &[])
+}
+
+#[tauri::command]
+pub fn game_version_list() -> ActionResult {
+    planned("game_version_list", &[])
+}
+
+#[tauri::command]
+pub fn game_install_start(version: Value) -> ActionResult {
+    planned("game_install_start", &[&version])
+}
+
+#[tauri::command]
+pub fn game_install_pause(version: Value) -> ActionResult {
+    planned("game_install_pause", &[&version])
+}
+
+#[tauri::command]
+pub fn game_install_resume(version: Value) -> ActionResult {
+    planned("game_install_resume", &[&version])
+}
+
+#[tauri::command]
+pub fn game_install_cancel(version: Value) -> ActionResult {
+    planned("game_install_cancel", &[&version])
+}
+
+#[tauri::command]
+pub fn game_install_get(version: Value) -> ActionResult {
+    planned("game_install_get", &[&version])
+}
+
+#[tauri::command]
+pub fn region_ping() -> ActionResult {
+    planned("region_ping", &[])
+}
+
+#[tauri::command]
+pub fn module_list() -> ActionResult {
+    planned("module_list", &[])
+}
+
+#[tauri::command]
+pub fn module_get(module: Value) -> ActionResult {
+    planned("module_get", &[&module])
+}
+
+#[tauri::command]
+pub fn module_run_command(module: Value, command: Value, input: Value) -> ActionResult {
+    planned("module_run_command", &[&module, &command, &input])
+}
+
+#[tauri::command]
+pub fn module_set_settings(module: Value, values: Value) -> ActionResult {
+    planned("module_set_settings", &[&module, &values])
+}
+
+#[tauri::command]
+pub fn module_load(module: Value) -> ActionResult {
+    planned("module_load", &[&module])
+}
+
+#[tauri::command]
+pub fn module_unload(module: Value) -> ActionResult {
+    planned("module_unload", &[&module])
+}
+
+#[tauri::command]
+pub fn realm_host(kind: Value) -> ActionResult {
+    planned("realm_host", &[&kind])
+}
+
+#[tauri::command]
+pub fn realm_join(realm: Value) -> ActionResult {
+    planned("realm_join", &[&realm])
+}
+
+#[tauri::command]
+pub fn realm_stop() -> ActionResult {
+    planned("realm_stop", &[])
+}
+
+#[tauri::command]
+pub fn realm_get() -> ActionResult {
+    planned("realm_get", &[])
+}
+
+#[tauri::command]
+pub fn history_query(filter: Value) -> ActionResult {
+    planned("history_query", &[&filter])
+}
+
+#[tauri::command]
+pub fn history_revert_dry_run(selection: Value) -> ActionResult {
+    planned("history_revert_dry_run", &[&selection])
+}
+
+#[tauri::command]
+pub fn history_revert_apply(plan: Value) -> ActionResult {
+    planned("history_revert_apply", &[&plan])
+}
+
+#[tauri::command]
+pub fn guarded_list() -> ActionResult {
+    planned("guarded_list", &[])
+}
+
+#[tauri::command]
+pub fn guarded_approve(id: Value) -> ActionResult {
+    planned("guarded_approve", &[&id])
+}
+
+#[tauri::command]
+pub fn guarded_cancel(id: Value) -> ActionResult {
+    planned("guarded_cancel", &[&id])
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -567,5 +758,63 @@ mod tests {
     #[test]
     fn copying_keeps_the_4096_limit() {
         assert!(!copy_text("x".repeat(COPY_TEXT_MAX + 1)));
+    }
+
+    /// A value of the right shape for each argument, as the page would send it.
+    fn good(arg: &Arg) -> Value {
+        match arg {
+            Arg::Text { .. } | Arg::OptionalText { .. } => json!("a"),
+            Arg::Flag => json!(true),
+            Arg::Index { max } => json!(max),
+            Arg::Name { names } => json!(names[0]),
+            Arg::Number { min, .. } => json!(min),
+            Arg::Object { fields, .. } => Value::Object(
+                fields
+                    .iter()
+                    .map(|(name, arg)| ((*name).to_owned(), good(arg)))
+                    .collect(),
+            ),
+            Arg::SettingsPatch | Arg::Channel => json!(null),
+        }
+    }
+
+    #[test]
+    fn planned_commands_are_refused_with_a_code() {
+        for name in crate::bridge::spec::PLANNED {
+            let shapes = COMMANDS.iter().find(|command| command.name == *name).unwrap().args;
+            let values: Vec<Value> = shapes.iter().map(|(_, arg)| good(arg)).collect();
+            let args: Vec<&Value> = values.iter().collect();
+            let code = if serves(name) {
+                ErrorCode::NotImplemented
+            } else {
+                ErrorCode::NotInThisBuild
+            };
+            assert_eq!(
+                serde_json::to_value(planned(name, &args)).unwrap(),
+                json!({ "ok": false, "error": { "code": serde_json::to_value(code).unwrap(), "detail": name } }),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn planned_commands_check_their_arguments() {
+        let unknown = ActionResult::err(ErrorCode::Unknown);
+        let long = json!("a".repeat(crate::bridge::spec::EPIC_CODE_MAX + 1));
+        assert_eq!(planned("epic_sign_in_code", &[&long]), unknown);
+        assert_eq!(planned("epic_sign_in_code", &[&json!(7)]), unknown);
+        assert_eq!(planned("epic_sign_in_code", &[]), unknown);
+        assert_eq!(planned("realm_host", &[&json!("raid")]), unknown);
+        assert_eq!(planned("no_such_command", &[]), unknown);
+        let filter = json!({ "actor": "key_01", "since": "2026-10-01T00:00:00Z" });
+        assert_ne!(planned("history_query", &[&filter]), unknown);
+        for bad in [
+            json!({ "actor": "key_01", "table": "accounts" }),
+            json!({ "actor": 7 }),
+            json!(null),
+            json!([]),
+        ] {
+            assert_eq!(planned("history_query", &[&bad]), unknown, "{bad}");
+        }
     }
 }
