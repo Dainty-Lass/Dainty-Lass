@@ -1,0 +1,20 @@
+[package]
+name = "online-client-reforged"
+description = "Pure online player client binary for the Reforged edition only (zero server crates linked)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "reforged-only-client"
+path = "src/main.rs"
+
+[dependencies]
+launcher = { workspace = true, default-features = false, features = ["edition-reforged"] }
+protocol = { workspace = true, default-features = false, features = ["edition-reforged"] }
+
+[lints]
+workspace = true

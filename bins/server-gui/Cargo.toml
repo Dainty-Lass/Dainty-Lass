@@ -1,0 +1,20 @@
+[package]
+name = "server-gui"
+description = "Tauri desktop server-GUI binary supporting both Refined and Reforged editions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "reforged-server-gui"
+path = "src/main.rs"
+
+[dependencies]
+launcher = { workspace = true, default-features = false, features = ["edition-both", "server-gui"] }
+protocol = { workspace = true, default-features = false, features = ["edition-both"] }
+
+[lints]
+workspace = true

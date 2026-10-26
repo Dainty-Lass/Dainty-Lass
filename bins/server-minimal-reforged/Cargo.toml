@@ -1,0 +1,20 @@
+[package]
+name = "server-minimal-reforged"
+description = "Headless zero-UI server binary for the Reforged edition only"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "reforged-only-server-minimal"
+path = "src/main.rs"
+
+[dependencies]
+controller = { workspace = true, default-features = false, features = ["edition-reforged"] }
+protocol = { workspace = true, default-features = false, features = ["edition-reforged"] }
+
+[lints]
+workspace = true
