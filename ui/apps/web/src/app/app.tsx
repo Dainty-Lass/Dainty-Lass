@@ -1,84 +1,71 @@
-// DU1's shell: one bridge call and its answer. The player screens and their catalogs are DU2's.
-import { useCallback, useEffect, useState } from "react"
-import { XIcon } from "lucide-react"
+// The launcher's page: the frame, the rail and one screen at a time, over the bridge's snapshot
+import { useEffect } from "react"
 
-import { call, closeWindow, inLauncher, type Snapshot } from "@workspace/bridge"
-import { Button } from "@workspace/ui/components/button"
+import { inLauncher } from "@workspace/bridge"
 
-type Check =
-  | { state: "waiting" }
-  | { state: "ok"; snapshot: Snapshot }
-  | { state: "failed"; reason: string }
-  | { state: "outside" }
+import { useI18n, I18nProvider } from "@/app/i18n"
+import { LauncherProvider, useLauncher } from "@/app/launcher"
+import { ActionBar } from "@/components/action-bar"
+import { Banners } from "@/components/banners"
+import { Rail, TitleBar } from "@/components/chrome"
+import { Dialogs } from "@/components/dialogs"
+import { PlayScreen } from "@/screens/play"
+import { ServerScreen } from "@/screens/servers"
+import { SettingsScreen } from "@/screens/settings"
 
-export function App() {
-  const [check, setCheck] = useState<Check>(() =>
-    inLauncher() ? { state: "waiting" } : { state: "outside" }
-  )
-
-  const fetchSnapshot = useCallback(() => {
-    if (!inLauncher()) return
-    call<Snapshot>("get_snapshot").then(
-      (snapshot) => setCheck({ state: "ok", snapshot }),
-      (error: unknown) => setCheck({ state: "failed", reason: String(error) })
-    )
-  }, [])
-
-  useEffect(fetchSnapshot, [fetchSnapshot])
-
-  const run = () => {
-    if (!inLauncher()) return
-    setCheck({ state: "waiting" })
-    fetchSnapshot()
-  }
-
+function Shell() {
+  const { t, lang } = useI18n()
+  const { view } = useLauncher()
+  useEffect(() => {
+    document.documentElement.lang = lang
+    document.title = t("app_title")
+  }, [lang, t])
   return (
-    <div className="flex min-h-svh flex-col">
-      <header
-        data-tauri-drag-region
-        className="flex h-10 items-center justify-between border-b pl-4 text-sm font-medium select-none"
-      >
-        <span data-tauri-drag-region>DaintyLass</span>
-        {inLauncher() && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Close"
-            onClick={() => void closeWindow()}
-          >
-            <XIcon />
-          </Button>
-        )}
-      </header>
-      <main className="flex flex-1 flex-col items-start gap-4 p-6 text-sm">
-        <p id="bridge" data-state={check.state}>
-          {describe(check)}
-        </p>
-        <Button
-          onClick={run}
-          disabled={check.state === "waiting" || check.state === "outside"}
-        >
-          get_snapshot
-        </Button>
-        {check.state === "ok" && (
-          <pre className="max-w-full overflow-auto rounded-md border p-3 text-xs">
-            {JSON.stringify(check.snapshot, null, 2)}
-          </pre>
-        )}
-      </main>
+    <div className="flex h-svh flex-col bg-background text-foreground">
+      <TitleBar />
+      <div className="flex min-h-0 flex-1">
+        <Rail />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex flex-col gap-4 p-6" data-view={view}>
+              <Banners />
+              {view === "play" && <PlayScreen />}
+              {view === "server" && <ServerScreen />}
+              {view === "settings" && <SettingsScreen />}
+            </div>
+          </div>
+          <ActionBar />
+        </main>
+      </div>
+      <Dialogs />
     </div>
   )
 }
 
-function describe(check: Check): string {
-  switch (check.state) {
-    case "waiting":
-      return "bridge: calling get_snapshot…"
-    case "ok":
-      return `bridge: ok (phase ${check.snapshot.phase})`
-    case "failed":
-      return `bridge: ${check.reason}`
-    case "outside":
-      return "bridge: not in the launcher"
-  }
+function Localized() {
+  const { snap } = useLauncher()
+  return (
+    <I18nProvider language={snap?.settings.language ?? null}>
+      <Shell />
+    </I18nProvider>
+  )
+}
+
+export function App() {
+  // No browser context menu, as in the Electron launcher, except Paste in a text field (debug builds still
+  // open devtools with F12)
+  useEffect(() => {
+    if (!inLauncher()) return
+    const block = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target?.closest("input, textarea")) event.preventDefault()
+    }
+    document.addEventListener("contextmenu", block)
+    return () => document.removeEventListener("contextmenu", block)
+  }, [])
+  return (
+    <LauncherProvider>
+      <Localized />
+    </LauncherProvider>
+  )
 }
