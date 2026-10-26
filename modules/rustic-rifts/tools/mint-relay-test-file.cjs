@@ -6,17 +6,14 @@
  * Additional terms under AGPLv3 Section 7 apply. See ADDITIONAL_TERMS.md.
  */
 
-// Mints 10-minute Cloudflare TURN credentials with the key in ParadoxBackend/.env (P2P_CLOUDFLARE_TURN_KEY_ID,
+// Mints 10-minute Cloudflare TURN credentials with the key in the backend's env file (P2P_CLOUDFLARE_TURN_KEY_ID,
 // P2P_CLOUDFLARE_TURN_API_TOKEN) and writes them for `ParadoxTransportTest ice --relay-file <file>`. It also reports
 // whether Cloudflare accepts the customIdentifier tag on generate-ice-servers, which the backend's relay quota needs.
-// Prints no secret. Usage: node tools/mint-relay-test-file.cjs <output file>
+// Prints no secret. Usage: node tools/mint-relay-test-file.cjs <output file> <backend env file>
 "use strict";
 
 const fs = require("fs");
-const path = require("path");
 
-const ROOT = path.resolve(__dirname, "..", "..");
-const ENV_FILE = path.join(ROOT, "ParadoxBackend", ".env");
 const API = "https://rtc.live.cloudflare.com/v1/turn/keys";
 
 function ReadEnv(file, keys) {
@@ -52,15 +49,17 @@ async function Generate(keyId, token, body) {
 
 async function Main() {
     const output = process.argv[2];
-    if (!output) {
-        console.error("usage: node tools/mint-relay-test-file.cjs <output file>");
+    // The backend lives in another repository since the split (DD14), so its env file is named, not found.
+    const envFile = process.argv[3];
+    if (!output || !envFile) {
+        console.error("usage: node tools/mint-relay-test-file.cjs <output file> <backend env file>");
         process.exit(2);
     }
-    const env = ReadEnv(ENV_FILE, ["P2P_CLOUDFLARE_TURN_KEY_ID", "P2P_CLOUDFLARE_TURN_API_TOKEN"]);
+    const env = ReadEnv(envFile, ["P2P_CLOUDFLARE_TURN_KEY_ID", "P2P_CLOUDFLARE_TURN_API_TOKEN"]);
     const keyId = env.P2P_CLOUDFLARE_TURN_KEY_ID;
     const token = env.P2P_CLOUDFLARE_TURN_API_TOKEN;
     if (!keyId || !token) {
-        console.error("P2P_CLOUDFLARE_TURN_KEY_ID and P2P_CLOUDFLARE_TURN_API_TOKEN are not set in ParadoxBackend/.env " +
+        console.error("P2P_CLOUDFLARE_TURN_KEY_ID and P2P_CLOUDFLARE_TURN_API_TOKEN are not set in " + envFile + " " +
             "(Cloudflare dashboard -> Realtime -> TURN).");
         process.exit(2);
     }

@@ -4,15 +4,15 @@
 direct when hole punching works (ICE with STUN), otherwise through a TURN relay: Mystic Relay on the official
 servers, or a self-hosted backend's own relay (Cloudflare TURN by default). It is the
 public default transport; the Steam transport (`SteamBridge/`) stays private and experimental behind the admin
-dashboard's "Co-op transport" switch. Plan: [SteamDocs/HOSTING_TIERS_AND_REALMS_PLAN_2026_10_13.md](../SteamDocs/HOSTING_TIERS_AND_REALMS_PLAN_2026_10_13.md)
+dashboard's "Co-op transport" switch. Plan: `SteamDocs/HOSTING_TIERS_AND_REALMS_PLAN_2026_10_13.md` (not in this repository)
 §5.5 and §6.1 (step 2).
 
 ## Build and test
 
 ```powershell
-.\ParadoxTransport\build.ps1                      # libjuice + ParadoxTransport.dll + ParadoxTransportTest.exe
-.\ParadoxTransport\build\Release\ParadoxTransportTest.exe all --relay-local
-.\ParadoxTransport\run-relay-selftest.ps1         # step 3: relay only, through Mystic Relay (needs the .env relay keys)
+.\build.ps1                      # libjuice + ParadoxTransport.dll + ParadoxTransportTest.exe
+.\build\Release\ParadoxTransportTest.exe all --relay-local
+.\run-relay-selftest.ps1 -EnvFile <backend .env>  # step 3: relay only, through Mystic Relay (needs the backend's relay keys)
 ```
 
 `prepare-dependencies.ps1` restores libjuice v1.7.4 (ICE, STUN and TURN client, MPL-2.0) from its GitHub tag,
@@ -23,11 +23,16 @@ our code; libjuice is a separate static library at its own warning level.
 has the MSBuild component, Build Tools included), falls back to `MSBuild.exe` on `PATH`, builds both projects for x64, and prints
 the SHA-256 of `build\<Configuration>\ParadoxTransport.dll`. Exit code 0 only when every step succeeded.
 
-### CI (GitHub-hosted Windows runner): what it needs
+### CI: what it needs
+
+`.forgejo/workflows/transport.yml` builds on a Forgejo runner labelled `windows-msvc`, runs `all --relay-local` and keeps
+the DLL as an artifact. The runner is the maintainer's (Visual Studio 2026 or its Build Tools with v145, PowerShell 7, Node).
+The checks below were made on GitHub's hosted runner before the move to Forgejo.
 
 - **Toolset v145** in both `.vcxproj` files (`ParadoxTransport.vcxproj`, `libjuice.vcxproj`) and a Windows 10/11 SDK
   (`WindowsTargetPlatformVersion` 10.0). **Checked 15 October 2026:** GitHub's `windows-latest` image carries Visual Studio
   Enterprise 2026 with toolsets v142, v143 and v145; the module builds as is and `all --relay-local` passes there.
+  **26 October 2026:** the same with Visual Studio Community 2026 18.11 (v145 = MSVC 14.51.36231, SDK 10.0.26100.0).
 - **Fallback, not needed:** `build.ps1 -PlatformToolset v143` builds with Visual Studio 2022's toolset without editing the
   projects (the MSBuild override also reaches libjuice); it also built and passed the self-test on that runner.
 - **Network** to github.com for the pinned libjuice archive (`prepare-dependencies.ps1` checks its SHA-256 `02CCA696…78FD`). The
@@ -211,3 +216,11 @@ check use it. **Step 5 prep, 13 October (local):** the module is a signed client
 exercised in a real hunt yet.
 - `[PerfNet]` on a real hunt should still confirm Dauntless's largest datagram; up to 2048 bytes (the bridge cap) now
   travels in two pieces.
+
+## Licence
+
+AGPL-3.0-only ([LICENSE](LICENSE)), with Mystic Paradox's additional terms ([ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)).
+This is a modified, unofficial version of Mystic Paradox's co-op transport, not an official Mystic Paradox release.
+"Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related modifications were developed by MysticFox / Pranav
+Karande. See NOTICE.md for contribution and provenance information." libjuice (MPL-2.0) is fetched at build time;
+[NOTICE.md](NOTICE.md) has its notice.
