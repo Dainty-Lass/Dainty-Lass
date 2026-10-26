@@ -6,7 +6,7 @@ import react from "@astrojs/react"
 
 // The launcher serves dist/ under a CSP of script-src 'self' and style-src 'self' (DaintyLass's
 // tauri.conf.json). So: no inline stylesheet or script in the built HTML, and no client:* islands, whose
-// loader Astro writes inline; React mounts from a bundled script instead (src/app/mount.tsx).
+// loader Astro writes inline; React mounts from a bundled script instead (src/app/start.ts).
 // https://astro.build/config
 export default defineConfig({
   output: "static",
