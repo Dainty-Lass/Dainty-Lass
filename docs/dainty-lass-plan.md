@@ -126,12 +126,13 @@ silentspud/dainty-lass-ui         Astro + shadcn monorepo from the preset
 | # | What | Verify |
 | --- | --- | --- |
 | DF1 | **Spike**: the cargo layout of DD2. A module workspace under `exclude`, used as a path dependency; a crate on Forgejo's Cargo registry `[patch]`ed to a path; `workspace = true` inheritance inside the submodule; on Windows and Linux. Kill criterion: if the registry or the `[patch]` fails, modules take `module-api` as a git dependency on a tag | A toy module builds both alone and inside DaintyLass |
-| DF2 | `crates/module-api`, the seam: `GameVersion`, `ModuleManifest` (capabilities, the unverified mark), the `GameModule` and `CorePlugin` traits, `Registrar` (routes, ports, commands, events, admin actions, config sections), `ModuleContext`; the frame protocol and its adapters for both sides; every capability registered as a stub (RD18's seam rule) | A stub module runs compiled in and out of process and gives the same answers; fuzz target `module_frame` |
+| DF2 | `crates/module-api`, the one seam every other repository builds on: `GameVersion`, `ModuleManifest` (capabilities, the unverified mark), the `GameModule` and `CorePlugin` traits, `Registrar` (routes, ports, commands, events, admin actions, config sections), `ModuleContext`; the frame protocol and its adapters for both sides; the client profile with its Epic build fields (DE4); the network seams (DN2: node identity and region, global ids, the home API trait); the chat plugin's room and JID hooks (DN10); the actor context the change log records (DH1). Every capability is a stub that compiles and is tested as one (RD18's seam rule) | A stub module runs compiled in and out of process and gives the same answers; fuzz target `module_frame` |
 | DF3 | Controller: the registry keyed by game version with the duplicate refusal (DD4), load and unload, the `[modules]` section of `host.toml` (compiled-in list, external modules by path and SHA-256), commands into the console, TUI, server GUI and admin API, the event bus, port assignment, logs and status from out-of-process modules into the tracing layers. `Edition`, `EditionSelection` and `Game` removed | Two modules for one version refused in either order; a module killed mid-run shows as failed and restarts on command; nothing left running after stop |
-| DF4 | Core plugins on the registry: the gateway routes by game version to the module's upstream (the invite's `version`, then the route), the allowlist guards the union of the modules' UDP ranges, content keys runtime manifests and client profiles by version (`edition=` still accepted, a request without one still gets 1.14.7), the admin API sends kick, ban and lookup to the module of the player's game, the host kit's commands gain `module list`, `load`, `unload` | The gateway and content parity tests pass unchanged; RD25's admin API cases pass against every game |
+| DF4 | Core plugins on the registry, **four agents**, one per plugin: **DF4a** the gateway routes by game version to the module's upstream (the invite's `version`, then the route) and registers the node-link route group as a stub for DN3; **DF4b** content keys runtime manifests, client profiles and Epic manifests by version (`edition=` still accepted, a request without one still gets 1.14.7); **DF4c** the admin API sends kick, ban and lookup to the module of the player's game; **DF4d** the host kit's commands gain `module list`, `load`, `unload`, and the allowlist guards the union of the modules' UDP ranges | The gateway and content parity tests pass unchanged; RD25's admin API cases pass against every game |
 | DF5 | Bins: four crates with one feature per module and one for realms (DD12); the release workflow builds them (`server-release.yml` owner) | Each bin starts with zero, one and every module |
-| DF6 | Rename sweep (DD1): crate and binary names, window titles, docs, both languages' strings; the contract names DD1 keeps are left as they are | No `Reforged Revival` or `dauntless-eternal` left outside history, the catch-up lists and the contract names |
+| DF6 | Rename sweep (DD1), **first, while nothing else writes to this repository**: crate and binary names, window titles, docs, both languages' strings; the folders DS6 will delete are skipped, and the contract names DD1 keeps are left as they are. Every later row is then written under the new names | No `Reforged Revival` or `dauntless-eternal` left outside history, the folders DS6 deletes, the catch-up lists and the contract names |
 | DF7 | `store` on two engines (DD15): `MultiConnection` over SQLite (as today) and Postgres, RB3's `pq-sys` `bundled` spike on MSVC and Linux, migrations in both dialects, `store db move` between them, the engine choice in `host.toml`; the host kit's managed Postgres (RH3) and Docker's Postgres container for hosts that pick it; CI runs every repository's tests on both | `cargo test -p store` on both OSes against both engines; a database moved to Postgres and back compares equal |
+| DF8 | Launcher bridge seam: every new bridge command the plan needs (Epic sign-in, library, versions and downloads; region ping; module panels, load and unload; realm hosting; history and revert in the server GUI) registered in `spec.rs` as a stub, the generated types and isolation hook regenerated (AGENTS.md) | Every planned command is in the spec and refused cleanly as a stub; the staleness tests pass |
 
 ### 4.3 UI (DU)
 
@@ -152,7 +153,7 @@ RF rows: an area that touches them calls through rustic-rifts' crates.
 | --- | --- | --- | --- |
 | RU1 | Lay out the monorepo with `git mv`: the Node services to `reference/1.14.7/`, `ParadoxRuntime` to `native/runtime/`, `catalog-exporter` and `preset/` brought from DaintyLass; `ParadoxLauncher` deleted, `ParadoxTransport` deleted once DS7 holds it; `ADDITIONAL_TERMS.md`, `NOTICE.md` and the licence kept at the top; DS5's isles list applied | RP3 | The Node tests pass from the new paths |
 | RU2 | 1.12.0's Node services and runtime from the tag into `reference/1.12.0/` | — | The tag's own tests pass there |
-| RU3 | Route inventory of both versions and their diff (DD8), each route marked isles or rifts | RB1 | Every Express route in each inventory; CI fails on a new route without an entry |
+| RU3 | Route inventories, **three agents**: **RU3a** 1.14.7 from `replay`, **RU3b** 1.12.0 from the tag, **RU3c** their diff (DD8) once both land; each route marked isles or rifts | RB1 | Every Express route in each inventory; CI fails on a new route without an entry |
 | RU4 | Cargo workspace and seams: `isles-core` (one trait per repository, on `store`'s two engines through its change log), `isles-chat`, `isles-director`, the two module crates with their manifests and hooks; every route answering 501 | RB5 | Both modules load into DaintyLass and answer 501 |
 | RU5 | Areas, one agent each, both versions: auth, the Reforged API, game areas (five agents, as RB8), chat (as rules for `plugins/chat`, DD21), game data and scripts; account writes go through the home API's trait (DN2) | RB4, RB6–RB9, RB11 | Each area's Node tests ported, for both versions where 1.12.0 has the area |
 | RU6 | Director in Rust, starting from `cdc0a87` | RB10 | Ramsgate, the Training Grounds and a hunt start and stop, on both versions (maintainer) |
@@ -190,7 +191,7 @@ Built alongside the RU rows (DD16), on the Rust backend; nothing here touches th
 | # | What | Verify |
 | --- | --- | --- |
 | DN1 | **Spike** (maintainer, a 1.14.7 client): the launcher's relay re-pointed to another gateway mid-session, in Ramsgate and between hunts; and a hunt on one server's game server while the player's backend is another's. Kill criterion: if the client drops the session on a switch, wrong-node joins are refused with a message instead of moved | Ramsgate, a hunt and chat keep working across a switch |
-| DN2 | Seams: the network capability in `module-api`, node identity and region, global account and instance ids (DD18) in RU4's seams, the internal home API as a trait with stubs, `[network]` in `host.toml` | RU4's modules build against the seams; ids are network-wide from the first row |
+| DN2 | The network's seams, landed inside DF2 so the network and the port start together: the network capability, node identity and region, global account and instance ids (DD18), the home API trait with stubs; `[network]` in `host.toml` with DF3 | RU4's modules build against the seams; ids are network-wide from the first row |
 | DN3 | Node links: the cluster CA and node certificates (a `network` command to issue them), mutual TLS on host-only gateway routes, peer health, clock skew checks | A node with a foreign certificate is refused; links survive a peer restart |
 | DN4 | Directory: account to home, username claims, the leader and its replicas, registration through the leader | A name taken in one region is refused in every other; a replica catches up after a partition |
 | DN5 | Home API and session tickets: the account operations other nodes need (session check, character load, progression, inventory and bounty writes), tickets signed by the home | A hunt hosted in another region saves loot and XP at the player's home |
@@ -198,7 +199,7 @@ Built alongside the RU rows (DD16), on the Rust backend; nothing here touches th
 | DN7 | Region ping: the launcher's round-trip measurement to every node, reported to the home in order | The order matches measured latency on the canary |
 | DN8 | Matchmaking ring (DD19): home-owned tickets, the widening schedule, the claim protocol, placement on the hosting node's Director, the allowlist feed, XP and objective forwarding | Simulated players in four regions: nobody double-booked, wait time bounded by the ring delays |
 | DN9 | Regional Ramsgate (DD20): one shared hub per region, sharding, assignment by lowest ping | Players with different homes meet in one region's hub |
-| DN10 | Chat plugin and federation (DD21): rooms, direct messages across nodes, offline delivery, history stores, network-wide mutes | A DM between players on two continents arrives once, both histories hold it |
+| DN10 | Chat (DD21), **two agents**: **DN10a** the chat core plugin from DR's XMPP code on one node (rooms, direct messages, offline delivery, history stores, mutes), which RU5's chat rules plug into; **DN10b** federation between nodes over DN3's links | A DM between players on two continents arrives once, both histories hold it |
 | DN11 | Admin API across the network: kick, timeout and ban sent through the player's home and applied on every node | A ban on one node refuses the player everywhere |
 | DN12 | Test harness: four nodes in Docker with injected latency between them (`netem`), a `network` Compose profile | Runs in CI with the region latencies of the canary |
 | DN13 | Joining an existing server to the network: its accounts get it as their home, existing invites and keys keep working. Username clashes: the account registered first keeps the name; every other one gets a temporary name with a suffix (`Fox_2`, shortened to fit 16 characters) and is asked at its next login to pick a new name, with that rename free. Friends, chat and bans reference account ids, so a rename breaks none of them; the login reply carries the new name so the launcher updates the one it stores (RD22) | A Reforged host's database joins; only players whose name clashed see the rename prompt |
@@ -208,7 +209,7 @@ Built alongside the RU rows (DD16), on the Rust backend; nothing here touches th
 
 | # | What | Verify |
 | --- | --- | --- |
-| DE1 | **Spike** (maintainer's Epic account): `egs-api` signs in, finds `Jackal` in the library, parses the archived 1.14.7 manifest and fetches a few chunks from each CDN host. Kill criterion: if its parser or chunk handling falls short, `egs-api` keeps sign-in and the library and the manifest parser and chunk fetch are written here, from the format Legendary documents | The fetched chunks hash as the manifest says |
+| DE1 | **Spike** (maintainer's Epic account): `egs-api` signs in, finds `Jackal` in the library, parses the archived 1.14.7 manifest and fetches a few chunks from each CDN host. Kill criterion: if its parser or chunk handling falls short, `egs-api` keeps sign-in and the library and the manifest parser and chunk fetch are written here, from the format Legendary documents. Either way it ends by laying down `crates/epic` with sign-in, library, manifest and download as stub modules, which the launcher and the host kit both use | The fetched chunks hash as the manifest says |
 | DE2 | Epic sign-in in the launcher: the login webview that captures the authorization code, the paste fallback, the session in the keystore, sign out; new bridge commands (a seam change, through the integration pass), strings appended in both languages | Sign in, restart, still signed in; sign out clears the keystore entry; no token in any log |
 | DE3 | Ownership: `Jackal` in the library, cached for a while; a clear refusal when it isn't | An account without Dauntless can't start a download |
 | DE4 | Versions: the Epic build fields in the client profile (`module-api`), filled by the 1.14.7 and 1.12 modules; the launcher's list (compiled-in profiles plus those the joined servers' content serves), with each version's download and install size from its manifest; 1.4.4 listed as "locate your folder" | The list matches the profiles; sizes match the manifests |
@@ -222,7 +223,7 @@ Built alongside the RU rows (DD16), on the Rust backend; nothing here touches th
 | --- | --- | --- |
 | DH1 | The change log in `store` (DD23), a seam landing with DF7: written in the same transaction as each change, the actor from the request context, soft deletes and the retention purge for player-facing tables; modules get only `store`'s write path | A change made through any repository appears in the log with its before and after; a test fails a repository that writes around `store` |
 | DH2 | Per-person admin keys and roles: keys issued and revoked by command (the owner's stays in `secrets.env`), the role checked on every admin route, the key's id recorded as the actor | A moderator's key can't delete; every change names the key that made it |
-| DH3 | `history` and `revert` in the host kit, the console and the admin API: by account, actor or time range, a dry run first, compensating changes, conflicts reported | A partner's mass delete is reverted in one command; a row changed since stays as it is and is reported |
+| DH3 | `history` and `revert`, **two agents**: **DH3a** the engine in `store` (by account, actor or time range, a dry run, compensating changes, conflicts reported); **DH3b** the commands in the host kit, the console and the admin API | A partner's mass delete is reverted in one command; a row changed since stays as it is and is reported |
 | DH4 | Off-server shipping and restore: the log streamed and snapshots taken on a schedule (SQLite's online backup, `pg_dump` or a base backup), written to an object-locked S3-compatible bucket with write-only credentials (`secrets.env`), the bucket in `host.toml`; `restore --to <time>` on either engine; a lag alert on the status page and the admin API | Restore to a minute before a delete on a copy; with shipping stopped, the alert fires |
 | DH5 | The hash chain: each entry hashes the one before, the head ships with the log, `history verify` | An entry edited or removed locally is found and named |
 | DH6 | Guarded actions: the destructive and bulk admin actions listed, each with a delay or a second operator's approval, cancelable while it waits | A bulk delete waits; a second operator cancels it |
@@ -240,27 +241,44 @@ Built alongside the RU rows (DD16), on the Rust backend; nothing here touches th
 
 ## 5. Order
 
-| Wave | Rows | Needs | Hands-on |
-| --- | --- | --- | --- |
-| 0 | DS5 lists; DF1 spike; DF7's `pq-sys` spike | — | — |
-| 0 | DN1 spike | — | A 1.14.7 client, two servers |
-| 0 | DE1 spike | — | An Epic account with Dauntless |
-| 0 | DS1–DS4 | — | Forgejo: rename, create the repositories, push |
-| 1 | DF2 seam; RU1, RU2; DS7; RV1's history work; DU1 | DS2–DS4, DF1 | — |
-| 2 | DS6 submodule swap | RU1, RV1, DS7 | — |
-| 2 | DF3 controller, DF4 core plugins, DF7 store with DH1; RU3 inventories, RF1 | DF2 | — |
-| 3 | RU4 and RF2 seams with DN2; RV1's module crate; DF5 bins; DU2, DU3 | DF3, DF4, DF7 | — |
-| 3 | DE2–DE6, then DE7 with DU2 | DF2 (client profile fields), DE1 | An Epic account with Dauntless |
-| 3 | DF6 rename sweep, by itself, between integration passes | DS6 | — |
-| 4 | RU5 (about nine agents), RU6, RU7; RF3–RF6; RV2, RV3 | RU4, RF2 | Game servers, the 1.4.4 client |
-| 4 | DN3, DN4, DN5, DN12 | DN2 | — |
-| 4 | DH2–DH6 | DH1 | An object-locked bucket |
-| 5 | DN6–DN11, DH7 | DN3–DN5, RU5's chat and auth areas, RU6 | — |
-| 5 | RF7, DU5, RF8 | RF3–RF6 | Two PCs, turn-rs on the canary |
-| 6 | RU8 replay, then RU9 | RU5–RU7, RF5–RF6 | Canary, 1.14.7 captures |
-| 7 | DN13, then DN14 | RU9 on single nodes, DN6–DN12 | Four regional servers |
-| any | RU10 spike; RU11 when 1.12.0 traffic exists; DX rows with the rows they cover | — | Host SDKs for both versions |
-| last | DX5 GitHub publication | The launcher and server confirmed working | Maintainer |
+Sorted for the most agents at once (RD18: one row, one agent, its own worktree and branch). Three things set it.
+**Seams first**: DF2 (`module-api`), DF7 with DH1 (`store` and its change log), DF8 (the launcher bridge), RU4 and
+RF2 register everything as stubs, so the rows after them only fill their own files. **Big rows split** where their
+parts touch different files: DF4, RU3, RU5, DN10 and DH3 above. **Five repositories integrate apart**: each has its
+own integration pass merging its rows into its own `plan` branch, so the review limit RD18 set (about eight rows in
+flight) applies per repository, not to the whole plan.
+
+### 5.1 Waves
+
+A row starts the moment the rows in its "Needs" are merged, not when its wave starts; the waves are only the earliest
+each can begin. "Agents" counts the ones that can run at once.
+
+| Wave | Agents | Rows (one agent each) | Needs | Hands-on |
+| --- | --- | --- | --- | --- |
+| 0 | 7 | DS1–DS3 with DS7 (Forgejo: rename, create, push, the transport's `subtree split` from `replay`); DS4 (the UI repository from the shadcn command); DS5's isles list; DS5's revived list; DF1 spike; DF7's `pq-sys` spike; DF6 rename sweep | — | Approving the Forgejo changes |
+| 0 | — | DN1 spike; DE1 spike | — | A 1.14.7 client and two servers; an Epic account with Dauntless |
+| 1 | 13 | DF2 seam (with DN2); DF7 with DH1 (the `store` seam); DF8 bridge seam; RU1; RU2; RU3a; RU3b; RU10 spike; RV1's history work; RF1; RF3; DU1; DX3 (CI workflows in all five repositories) | DF1 for DF2; the `pq-sys` spike for DF7; DS2 for RU1–RU3 and RU10; DS3 and DS5 for RV1; DS7 for RF1 and RF3; DS4 for DU1; DE1 for `crates/epic` | A Forgejo runner with MSVC (DX3) |
+| 2 | 21 | DS6 submodule swap; DF3 controller; DF4a; DF4b; DF4c; RU3c; RU4 seams; RF2 seams; RV1's module crate; RV2; DN4 directory; DN7 region ping; DN10a chat plugin; DH3a; DH4 shipping and restore; DH5 hash chain; DE2; DE3; DE4; DE5; DU2 | DF2 for every module and plugin row; DF7 with DH1 for DN4 and DH3a–DH5; DF8 for DN7, DE2 and DU2; RU1 and RU3a for RU4; RF1 for RF2; RU1, RV1 and DS7 for DS6; RU3a and RU3b for RU3c | An object-locked bucket (DH4) |
+| 3 | 27 | RU5 in nine agents (auth; the Reforged API; characters and loadouts; inventory, storage policy and reforge; progression, mastery, escalation and session supplies; bounties, store, Lady Luck and platinum; multipliers, matchmaking, parties and the game servers' posts; chat rules on DN10a; game data and scripts), each with its 1.12 hooks from RU3c; RU6 Director; RU7 `db migrate`; RF4; RF5; RF6; RF7; RV3; DF4d; DF5 bins; DN3 node links; DN5 home API; DN12 harness; DH2 admin keys; DU3; DU4; DE6; DE7 | RU4 (and RU3c for the 1.12 hooks) for RU5–RU7; RF2 for RF4–RF7; RV1's module crate for RV3; DS6 for DF4d, DF5 and DN12; DF3 for DF5 and DU3; DF4a for DN3; DF4c for DH2; DE5 for DE6; DU2 for DU4 and DE7 | Game servers to start (RU6); the 1.4.4 client (RV2) |
+| 4 | 8 | DH3b; DH6 guarded actions; DH7; DN6 registry and redirects; DN10b federation; DN11 admin across the network; DU5 realm screens; DX2's checklists for the rows merged so far | DH3a and DF4d for DH3b; DH2 for DH6 and DN11; DH4 and DN3 for DH7; DN3 and DN1's result for DN6; DN3 and DN10a for DN10b; DN5 for DN11; RF7 for DU5 | — |
+| 5 | 4 | DN8 matchmaking ring; DN9 regional Ramsgate; RU8's harness and normalizer (proven Node against Node first); RF8 | RU5's matchmaking group, RU6, DN5 and DN6 for DN8; RU6 and DN6 for DN9; RU5–RU7 for RU8; RF4–RF7 and DU5 for RF8 | Two PCs and turn-rs on the canary (RF8) |
+| 6 | about 12 | RU8's replay, its diffs handed back one agent per RU5 group, RU6 and RF5–RF6; then RU9's rollback rehearsal and cutover | The harness, captures from the canary | Canary, 1.14.7 captures, every cutover |
+| 7 | 2 | DN13 joining existing servers; then DN14 canary network | RU9 on single servers, DN6–DN12 | Four regional servers |
+| any | — | RU11 when 1.12.0 traffic exists; DX1 docs and DX4 licensing with the rows they describe | — | Host SDKs for both versions |
+| last | — | DX5 GitHub publication | The launcher and server confirmed working | Maintainer |
+
+### 5.2 What stays serial
+
+- **The critical path** is DF1 → DF2 → RU4 → RU5 → RU8 → RU9 → DN13 → DN14. Everything else fits around it, so a
+  delay anywhere else costs nothing until it reaches one of these rows.
+- **DF6 runs alone** in wave 0, before anything else writes to this repository, so no row ever conflicts with the
+  rename.
+- **DS6 runs alone in `services/host`, `docker/` and CI** in wave 2; DF4d, DF5 and DN12, which touch the same files,
+  wait for it in wave 3.
+- **Seam changes after their seam row** (a new capability in `module-api`, a bridge command, a `store` migration)
+  go through the integration pass, as AGENTS.md has it, never through a filling row.
+- **Hands-on rows set their own pace**: DN1 and DE1 decide DN6 and DE2–DE5's shape, so their results are wanted
+  before wave 2 starts; RF8, RU9 and DN14 wait for the maintainer and the canary.
 
 Today's `main` keeps shipping until DS6. After DS6, hosts update to a DaintyLass build that still runs Node Paradox
 from the rustic-isles submodule; the Rust 1.14.7 module replaces it at RU9's cutover. The network is built
@@ -287,9 +305,10 @@ For the integration pass: RD1 (Paradox becomes a submodule, no longer a subtree 
 4.1 (the layout in section 2 here), RD15 (SQLite by default and Postgres where concurrency pays, DD15), RD17 (no
 gate for the Paradox port, DD6), RD22 (DR's downloader comes back for installing from Epic, DD22), RD25 (one admin
 key per person with a role, the existing key becoming the owner's, DD23), section 4.5 (the RB rows move to RU and
-RF), RP rows (their results move to rustic-isles), RR5 (the page moves to `ui/`, not `rust/launcher/ui`), section
-5.1's ownership table (the module repositories and `ui/` own their own files; `crates/module-api` is a seam owned
-by DF2).
+RF), RP rows (their results move to rustic-isles), RR5 (the page moves to `ui/`, not `rust/launcher/ui`), RD18
+(the review limit applies per repository, each with its own integration pass, section 5), section 5.1's ownership
+table (the module repositories and `ui/` own their own files; `crates/module-api` is a seam owned by DF2, the
+bridge by DF8, `store` by DF7).
 
 ## 8. Open questions
 
