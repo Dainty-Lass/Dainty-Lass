@@ -20,6 +20,7 @@
 //   GET    /reforged/api/InviteCodes                                    -> {InviteCodes: [...]}
 //   DELETE /reforged/api/InviteCode/:code
 //   POST   /reforged/api/SetAccountStatus     {Username, Status: active|banned|disabled, Reason?}
+//   POST   /reforged/api/Kick                 {Username}                -> {UserId, Username, Closed}
 //
 // The key is the game's login: with AUTH_MODE=APIKEY the client trades it for a session token at
 // /account/api/oauth/token (routes/eos.ts). Only its HMAC is stored (security/apiKeyHash.ts). An account made here
@@ -44,6 +45,7 @@ import {
     type PlayerWhere,
     type RegistrationMode,
     ClassifyGameData,
+    DisconnectAccount,
     InviteNoteFrom,
     IsInviteCode,
     IsLocalAdminCall,
@@ -444,4 +446,27 @@ reforgedApiRouter.post("/reforged/api/SetAccountStatus", HostOnly, async (req, r
     ForgetStatus();
     logger.info(`[launcher-api] ${Account.displayName} (${Account.userId}) set ${Status}`);
     res.status(200).json({ UserId: Account.userId, Username: Account.displayName, Status: Changed?.status ?? Status });
+});
+
+// The admin service's kick (rust/services/admin, MIGRATION_PLAN.md RD25; docs/security/admin-api.md). The player is
+// dropped, not banned, and logs in again with their key.
+reforgedApiRouter.post("/reforged/api/Kick", HostOnly, async (req, res) => {
+    const Account = await AccountNamed(Body(req).Username);
+    if (Account === null) {
+        res.status(400).json({ error: "bad_request", message: "Username is required." });
+        return;
+    }
+    if (Account === undefined) {
+        res.status(404).json(Refusal("not_found"));
+        return;
+    }
+    const Repos = GetRepositories();
+    const Closed = await DisconnectAccount(Account.userId, {
+        connectionsFor: (Id) => sessionRegistry.connectionsFor(Id),
+        revokeRefreshSessions: (Id) => Repos.refreshSessions.revokeAllForUser(Id),
+        revokeExchangeCodes: (Id) => Repos.gameExchangeCodes.revokeUnusedForUser(Id)
+    });
+    ForgetStatus();
+    logger.info(`[launcher-api] ${Account.displayName} (${Account.userId}) kicked, ${Closed} chat connection(s) closed`);
+    res.status(200).json({ UserId: Account.userId, Username: Account.displayName, Closed });
 });

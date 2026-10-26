@@ -12,6 +12,7 @@ import {
     ADMIN_KEY_HEADER,
     AssetLeaf,
     ClassifyGameData,
+    DisconnectAccount,
     GAME_DATA_FILES,
     GATEWAY_HEADER,
     InstanceTitle,
@@ -128,4 +129,24 @@ test("game data is real, synthetic or missing", () => {
     } finally {
         fs.rmSync(Dir, { recursive: true, force: true });
     }
+});
+
+test("a kick revokes tokens first, then closes every chat connection", async () => {
+    const Order: string[] = [];
+    const Closed: [number, string][] = [];
+    const Count = await DisconnectAccount("acct", {
+        connectionsFor: (Id) => {
+            Order.push(`connections:${Id}`);
+            return [
+                { close: (Code, Reason) => Closed.push([Code, Reason]) },
+                { close: (Code, Reason) => Closed.push([Code, Reason]) }
+            ];
+        },
+        revokeRefreshSessions: async (Id) => { Order.push(`refresh:${Id}`); },
+        revokeExchangeCodes: async (Id) => { Order.push(`exchange:${Id}`); }
+    });
+    assert.equal(Count, 2);
+    assert.deepEqual(Order.slice(0, 2).sort(), ["exchange:acct", "refresh:acct"]);
+    assert.equal(Order[2], "connections:acct");
+    assert.deepEqual(Closed, [[1008, "kicked by the host"], [1008, "kicked by the host"]]);
 });

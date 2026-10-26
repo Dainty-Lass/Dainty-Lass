@@ -255,3 +255,21 @@ export function ClassifyGameData(dir: string, files: readonly string[] = GAME_DA
     }
     return AnyExample ? "synthetic" : "real";
 }
+
+// ------------------------------------------------------------------ kick
+
+export type KickHooks = {
+    connectionsFor(accountId: string): { close(code: number, reason: string): void }[];
+    revokeRefreshSessions(accountId: string): Promise<void>;
+    revokeExchangeCodes(accountId: string): Promise<void>;
+};
+
+/** Drops a player without banning them: their tokens are revoked first, so the game cannot sign straight back in
+ *  with what it holds, then every chat connection is closed. They log in again with their key. Returns how many
+ *  connections were closed. */
+export async function DisconnectAccount(accountId: string, hooks: KickHooks): Promise<number> {
+    await Promise.all([hooks.revokeRefreshSessions(accountId), hooks.revokeExchangeCodes(accountId)]);
+    const Connections = hooks.connectionsFor(accountId);
+    for (const Connection of Connections) Connection.close(1008, "kicked by the host");
+    return Connections.length;
+}

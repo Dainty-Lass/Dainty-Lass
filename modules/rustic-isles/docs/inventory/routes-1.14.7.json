@@ -1441,6 +1441,14 @@
   },
   {
     "service": "backend",
+    "method": "POST",
+    "path": "/reforged/api/Kick",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
     "method": "GET",
     "path": "/launcher/v1/runtime/:target/:channel/:platform",
     "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
