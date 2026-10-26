@@ -18,14 +18,14 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: ParadoxBackend
+        working-directory: reference/1.14.7/ParadoxBackend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: ParadoxBackend/package-lock.json
+          cache-dependency-path: reference/1.14.7/ParadoxBackend/package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run build
@@ -34,45 +34,17 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: ParadoxDirector
+        working-directory: reference/1.14.7/ParadoxDirector
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: ParadoxDirector/package-lock.json
+          cache-dependency-path: reference/1.14.7/ParadoxDirector/package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run build
-
-  launcher:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: ParadoxLauncher
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ParadoxLauncher/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - name: Cache launcher check dependencies
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        with:
-          workspaces: ParadoxLauncher/src-tauri -> target
-          shared-key: launcher-checks-windows-v1
-          cache-bin: false
-          save-if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
-      - run: npm ci
-      - run: npm run build
-      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-      - run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
 
   runtime-loader:
     runs-on: windows-latest

@@ -10,13 +10,13 @@
 # Re-runnable: reads source and docs only, never touches a running process.
 
 param(
-    # Repository root: two levels above this script (ParadoxRuntime\tools).
-    [string]$Root = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)),
+    # Repository root: three levels above this script (native\runtime\tools).
+    [string]$Root = (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))),
     [string]$Out  = 'Progress\37_DAUNTLESS_1_14_7_COMPATIBILITY_INVENTORY.md'
 )
 
 $bt = [char]96
-$srcDir = Join-Path $Root 'ParadoxRuntime'
+$srcDir = Join-Path $Root 'native\runtime'
 # The optional player-hosted module (p2p\*.cpp) and its anti-cheat module (anticheat\*.cpp, the Hunt Guard evidence
 # producer since 9 October) hold RVAs too when they are present.
 $files  = @((Join-Path $srcDir 'dllmain.cpp'), (Join-Path $srcDir 'Networking.cpp')) +

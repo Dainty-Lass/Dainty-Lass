@@ -16,7 +16,7 @@ This repository contains **source code only**. For legal reasons it does not shi
 
 The Node.js services (`ParadoxBackend`, `ParadoxDirector`) compile and test without any of the above:
 synthetic `*.example.json` placeholders let them build and smoke-test. The C++ projects
-(`ParadoxRuntime`, `tools/CatalogExporter`) need a locally generated Dumper-7 SDK from your own
+(`native/runtime`, `native/catalog-exporter`) need a locally generated Dumper-7 SDK from your own
 installation and do not build from a fresh clone alone. Real game data must be generated locally in
 all cases — see [Generating the SDK](GENERATING_SDK.md) and [Generating game data](GENERATING_GAME_DATA.md).
 

@@ -21,7 +21,7 @@
  * SkinsExporter.cpp's file header for the full explanation. ***
  *
  * Search order for the flags file (first match wins; see ExportPaths.hpp):
- *   <root>\tools\CatalogExporter\export_flags.txt   (when ExportPaths.local.h names a root)
+ *   <root>\native\catalog-exporter\export_flags.txt   (when ExportPaths.local.h names a root)
  *   .\export_flags.txt   (relative to the injected process CWD)
  *
  * If the file is missing entirely, defaults to EXPORT_CATALOG=1 and

@@ -11,7 +11,7 @@ This extends the original catalog-only `CatalogExporter` DLL with three more exp
 without recompiling. All modes still run inside the **same DLL** — per project decision this pass
 does not split into separate `ProgressionDataExporter`/`CombatDataExporter` binaries the way
 `Plans/PROGRESSION_XP_COMBAT_DATA_IMPLEMENTATION_PLAN.md` section 8.1 originally sketched;
-everything lives in `tools/CatalogExporter/` and is gated by flags instead.
+everything lives in `native/catalog-exporter/` and is gated by flags instead.
 
 ## Why flags instead of argv
 
@@ -21,7 +21,7 @@ pattern as the original one-shot catalog dump).
 
 ## The flags file
 
-`tools/CatalogExporter/export_flags.txt`, one `KEY=VALUE` per line, `VALUE` is `0` or `1`:
+`native/catalog-exporter/export_flags.txt`, one `KEY=VALUE` per line, `VALUE` is `0` or `1`:
 
 ```
 EXPORT_CATALOG=1
@@ -31,7 +31,7 @@ EXPORT_SKINS=0
 ```
 
 Search order (first match wins):
-1. `<root>\tools\CatalogExporter\export_flags.txt` when the optional, git-ignored `ExportPaths.local.h`
+1. `<root>\native\catalog-exporter\export_flags.txt` when the optional, git-ignored `ExportPaths.local.h`
    defines `MYSTICPARADOX_EXPORT_ROOT` (normally your repository root; works whatever the injected process's
    CWD is - see `ExportPaths.hpp`)
 2. `.\export_flags.txt` (relative to the injected process's CWD)

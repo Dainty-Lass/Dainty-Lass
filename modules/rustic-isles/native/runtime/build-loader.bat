@@ -2,7 +2,7 @@
 setlocal
 REM Builds the winmm.dll proxy that loads MysticParadox.dll (tools\RuntimeLoader). The crate's
 REM library is named winmm, so cargo writes target\release\winmm.dll directly.
-pushd "%~dp0..\tools\RuntimeLoader"
+pushd "%~dp0..\..\tools\RuntimeLoader"
 if errorlevel 1 exit /b 1
 cargo build --release
 if errorlevel 1 (

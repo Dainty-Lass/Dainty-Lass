@@ -11,7 +11,7 @@ Synthetic *.example.json files only allow build and startup smoke tests. They ar
 
 ## Final required files
 
-Backend reads these files from ParadoxBackend/game-data:
+Backend reads these files from reference/1.14.7/ParadoxBackend/game-data:
 
 | File | Generated from |
 |---|---|
@@ -23,7 +23,7 @@ Backend reads these files from ParadoxBackend/game-data:
 | progression_config.json | A progression-config response you supply |
 | ladyluck_store.json | A Lady Luck store response you supply |
 
-Director reads these files from ParadoxDirector/game-data, all generated from CatalogExporter
+Director reads these files from reference/1.14.7/ParadoxDirector/game-data, all generated from CatalogExporter
 `EXPORT_HUNTS`:
 
 - player_hunts_table.json
@@ -35,16 +35,16 @@ Director reads these files from ParadoxDirector/game-data, all generated from Ca
 - arena_elite_matchmaker_hunts_new.json
 
 Override either final directory with PARADOX_GAME_DATA_DIR. The two supplied sources go in
-ParadoxBackend/game-data/raw (override with PARADOX_GAME_DATA_RAW_DIR). A missing file stops the service
+reference/1.14.7/ParadoxBackend/game-data/raw (override with PARADOX_GAME_DATA_RAW_DIR). A missing file stops the service
 at startup or fails the first request that needs it (the storage policy is read on first use, and
 missing Slayer's Path definitions only log an error and grant no node rewards).
 
 ## 1. Build and run CatalogExporter
 
-Build tools/CatalogExporter against the complete SDK described in
-[GENERATING_SDK.md](GENERATING_SDK.md). The generators read `Items_Analysis` at the repository root,
-so either set `MYSTICPARADOX_EXPORT_ROOT` in tools/CatalogExporter/ExportPaths.local.h before building
-(see the SDK guide), or copy the exporter's `Items_Analysis` folder to the repository root afterwards.
+Build native/catalog-exporter against the complete SDK described in
+[GENERATING_SDK.md](GENERATING_SDK.md). The generators read `Items_Analysis` in `reference/1.14.7`,
+so copy the exporter's `Items_Analysis` folder there afterwards (`MYSTICPARADOX_EXPORT_ROOT` in
+native/catalog-exporter/ExportPaths.local.h, see the SDK guide, gathers the exports in one folder first).
 
 Copy export_flags.example.txt to export_flags.txt and enable these modes:
 
@@ -59,15 +59,15 @@ Inject the exporter into your own local client only. Flags are read once at inje
 after changing them. The exporter waits up to two minutes for the catalog to load; open the listed
 screen while it runs. Each run writes export_manifest_1_14_7.json and appends to
 catalog_export_status.txt: check them instead of assuming an injection produced every table. The other
-modes in [ExportFlags.md](../tools/CatalogExporter/ExportFlags.md) are research exports that the services
+modes in [ExportFlags.md](../native/catalog-exporter/ExportFlags.md) are research exports that the services
 do not read.
 
 ## 2. Director hunt tables
 
-From ParadoxDirector, on a fresh checkout (do not copy the hunt examples first; the importer would keep
+From reference/1.14.7/ParadoxDirector, on a fresh checkout (do not copy the hunt examples first; the importer would keep
 their rows):
 
-    Set-Location ParadoxDirector
+    Set-Location reference\1.14.7\ParadoxDirector
     npm run generate:hunt-tables
     npm run generate:hunt-tables -- --apply
 
@@ -104,7 +104,7 @@ a catalog from another location.
 
 These two files cannot be generated from CatalogExporter output: the client does not hold the hunt-pass
 reward tables or the Lady Luck store offers. Supply a compatible response for each in
-ParadoxBackend/game-data/raw:
+reference/1.14.7/ParadoxBackend/game-data/raw:
 
 | Source file | Shape |
 |---|---|
@@ -146,13 +146,13 @@ From the repository root:
       'arena_elite_matchmaker_hunts.json', 'arena_hard_matchmaker_hunts_new.json',
       'arena_elite_matchmaker_hunts_new.json'
     )
-    $backendRequired | ForEach-Object { Test-Path (Join-Path 'ParadoxBackend\game-data' $_) }
-    $directorRequired | ForEach-Object { Test-Path (Join-Path 'ParadoxDirector\game-data' $_) }
+    $backendRequired | ForEach-Object { Test-Path (Join-Path 'reference\1.14.7\ParadoxBackend\game-data' $_) }
+    $directorRequired | ForEach-Object { Test-Path (Join-Path 'reference\1.14.7\ParadoxDirector\game-data' $_) }
 
 Every result must be True. Then run both test suites: once every real file is present they include
 the `*.gamedata.test.ts` checks of the data.
 
-    Set-Location ParadoxBackend
+    Set-Location reference\1.14.7\ParadoxBackend
     npm test
     Set-Location ..\ParadoxDirector
     npm test

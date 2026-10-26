@@ -15,7 +15,7 @@
  *     #define MYSTICPARADOX_EXPORT_ROOT L"D:\\MysticParadox"
  *
  * Exports then land in <root>\Items_Analysis and the flags file is read from
- * <root>\tools\CatalogExporter\export_flags.txt, whatever the injected game's working directory is.
+ * <root>\native\catalog-exporter\export_flags.txt, whatever the injected game's working directory is.
  * Without it, both are relative to that working directory (.\Items_Analysis, .\export_flags.txt).
  */
 
@@ -48,7 +48,7 @@ inline std::wstring ExportOutDir() {
 inline std::vector<std::wstring> ExportFlagsFileCandidates() {
     std::vector<std::wstring> candidates;
 #ifdef MYSTICPARADOX_EXPORT_ROOT
-    candidates.push_back(std::wstring(MYSTICPARADOX_EXPORT_ROOT) + L"\\tools\\CatalogExporter\\export_flags.txt");
+    candidates.push_back(std::wstring(MYSTICPARADOX_EXPORT_ROOT) + L"\\native\\catalog-exporter\\export_flags.txt");
 #endif
     candidates.push_back(L".\\export_flags.txt");
     return candidates;

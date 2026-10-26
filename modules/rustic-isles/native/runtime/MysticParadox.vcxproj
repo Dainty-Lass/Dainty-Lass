@@ -165,7 +165,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="..\tools\CatalogExporter\StoreRuntimeExporter.cpp">
+    <ClCompile Include="..\catalog-exporter\StoreRuntimeExporter.cpp">
       <ObjectFileName>$(IntDir)StoreRuntimeExporter.obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="MinHook\buffer.c" />

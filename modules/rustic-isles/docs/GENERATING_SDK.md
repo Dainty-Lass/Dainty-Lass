@@ -1,6 +1,6 @@
 # Generating the SDK
 
-ParadoxRuntime and tools/CatalogExporter build against a C++ SDK generated from your own compatible
+native/runtime and native/catalog-exporter build against a C++ SDK generated from your own compatible
 game installation. No game-derived SDK is distributed in this repository.
 
 > [!NOTE]
@@ -28,11 +28,11 @@ change.
 1. Build [Dumper-7](https://github.com/Encryqed/Dumper-7).
 2. Start your own 1.14.7 game installation.
 3. Inject Dumper-7 into that process and wait for the complete CppSDK output.
-4. Copy the entire CppSDK output into ParadoxRuntime.
+4. Copy the entire CppSDK output into native/runtime.
 
 Expected layout:
 
-    ParadoxRuntime\
+    native\runtime\
       SDK\
         ...per-package headers...
         ...generated *_functions.cpp files...
@@ -48,9 +48,9 @@ by the runtime project and must be present.
 
 Quick checks from the repository root:
 
-    Test-Path ParadoxRuntime\SDK.hpp
-    Test-Path ParadoxRuntime\SDK
-    (Get-ChildItem ParadoxRuntime\SDK -Filter '*_functions.cpp').Count
+    Test-Path native\runtime\SDK.hpp
+    Test-Path native\runtime\SDK
+    (Get-ChildItem native\runtime\SDK -Filter '*_functions.cpp').Count
 
 The final count must be greater than zero.
 
@@ -59,11 +59,11 @@ source.
 
 ## Configure the deployment hostname
 
-The self-host configurator writes ParadoxRuntime/deployment_config.generated.h. If configuring
+The self-host configurator writes native/runtime/deployment_config.generated.h. If configuring
 manually, copy deployment_config.generated.h.example and set MP_PUBLIC_HOST to the exact hostname
 used by DNS and the TLS certificate:
 
-    Copy-Item ParadoxRuntime\deployment_config.generated.h.example ParadoxRuntime\deployment_config.generated.h
+    Copy-Item native\runtime\deployment_config.generated.h.example native\runtime\deployment_config.generated.h
 
 Never point a public build at localhost or a hostname that is absent from the certificate SAN.
 Changing the hostname requires rebuilding the runtime.
@@ -71,11 +71,11 @@ Changing the hostname requires rebuilding the runtime.
 ## Build ParadoxRuntime
 
 The projects select platform toolset v145 (Visual Studio with the Desktop development with C++
-workload). Visual Studio 2022 users can retarget ParadoxRuntime/MysticParadox.vcxproj to v143 locally.
+workload). Visual Studio 2022 users can retarget native/runtime/MysticParadox.vcxproj to v143 locally.
 
 From a normal PowerShell or Developer Command Prompt:
 
-    Set-Location ParadoxRuntime
+    Set-Location native\runtime
     .\_build.bat
 
 The helper finds MSBuild with vswhere, builds Release x64 and returns the real build exit code. The
@@ -85,36 +85,37 @@ equivalent command is:
 
 Expected output:
 
-    ParadoxRuntime\x64\Release\MysticParadox.dll
+    native\runtime\x64\Release\MysticParadox.dll
 
 One DLL serves both the player client and the dedicated servers: it detects `-server` at startup. It
 links the C/C++ runtime statically (/MT), because the game folder ships an older msvcp140.dll that the
-loader would otherwise prefer. See [ParadoxRuntime/BUILD.md](../ParadoxRuntime/BUILD.md) for the
+loader would otherwise prefer. See [native/runtime/BUILD.md](../native/runtime/BUILD.md) for the
 details and the loader build.
 
 ## Build CatalogExporter
 
 CatalogExporter uses the same generated SDK. Confirm its include paths resolve to the complete
-ParadoxRuntime SDK, then build:
+native/runtime SDK, then build:
 
-    Set-Location tools\CatalogExporter
+    Set-Location native\catalog-exporter
     .\_build.bat
 
 Visual Studio 2022 users must also retarget CatalogExporter.vcxproj to v143.
 
 By default the exporter writes to `Items_Analysis` in the injected game's working directory and reads
 `export_flags.txt` from there. To send every export to your repository instead, create the ignored
-file tools/CatalogExporter/ExportPaths.local.h before building:
+file native/catalog-exporter/ExportPaths.local.h before building:
 
     #define MYSTICPARADOX_EXPORT_ROOT L"D:\\MysticParadox"
 
-Exports then land in `D:\MysticParadox\Items_Analysis`, which is where the game-data generators look,
-and the flags file is read from `D:\MysticParadox\tools\CatalogExporter\export_flags.txt`.
+Exports then land in `D:\MysticParadox\Items_Analysis` and the flags file is read from
+`D:\MysticParadox\native\catalog-exporter\export_flags.txt`. The game-data generators read
+`reference\1.14.7\Items_Analysis`, so move the exports there before running them.
 
 Copy export_flags.example.txt to export_flags.txt, enable only the required modes, and inject the
 resulting DLL into your own game process. The modes and what each one needs are listed in
 [GENERATING_GAME_DATA.md](GENERATING_GAME_DATA.md) and
-[ExportFlags.md](../tools/CatalogExporter/ExportFlags.md).
+[ExportFlags.md](../native/catalog-exporter/ExportFlags.md).
 
 Some exports depend on tables that the client streams only after opening a menu or reaching a world.
 Review the exporter status output and manifest instead of assuming a successful injection produced
