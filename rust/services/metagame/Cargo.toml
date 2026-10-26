@@ -1,0 +1,56 @@
+[package]
+name = "metagame"
+description = "Dauntless Revived's metagame server for Dauntless 1.4.4: accounts, characters, inventory, progression, matchmaking, chat (legacy servers; RD5 reversed)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "metagame"
+path = "src/main.rs"
+
+[dependencies]
+aes-gcm.workspace = true
+axum.workspace = true
+base64.workspace = true
+chrono.workspace = true
+clap.workspace = true
+diesel.workspace = true
+diesel_migrations.workspace = true
+futures-util.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+if-addrs.workspace = true
+jsonwebtoken.workspace = true
+memory-stats.workspace = true
+protocol.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+service-kit.workspace = true
+sha2.workspace = true
+store.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "rt-multi-thread", "net"] }
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+regex.workspace = true
+rusqlite.workspace = true
+tracing-subscriber.workspace = true
+http-body-util.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-tungstenite.workspace = true
+
+[lints]
+workspace = true

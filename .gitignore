@@ -1,0 +1,41 @@
+# Build output and dependencies
+node_modules/
+dist/
+dist-page/
+target/
+build/
+*.tsbuildinfo
+
+# A host's working area: the SDK generated from their game, exported game data, built runtimes, certificates,
+# keys, logs and databases. Never committed.
+.workspace/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+secrets/
+
+# Game files and generated SDKs (Phoenix Labs' material)
+*.pak
+*.ucas
+*.utoc
+CppSDK/
+SDK.hpp
+Items_Analysis/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+
+# The host kit's test fixtures hold fake secrets on purpose (rust/services/host/tests/fixtures)
+!rust/services/host/tests/fixtures/node/*/secrets/
+
+# Session folders the desktop app makes
+.claude/

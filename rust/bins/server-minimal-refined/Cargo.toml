@@ -1,0 +1,20 @@
+[package]
+name = "server-minimal-refined"
+description = "Headless zero-UI server binary for the Refined edition only"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "refined-server-minimal"
+path = "src/main.rs"
+
+[dependencies]
+controller = { workspace = true, default-features = false, features = ["edition-refined"] }
+protocol = { workspace = true, default-features = false, features = ["edition-refined"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,94 @@
+// The bridge's surface as the page sees it: one method per command in src-tauri/src/bridge/spec.rs, plus the
+// window calls and the events. The value types come from generated/types.ts (ts-rs, RR_UPDATE_GENERATED=1).
+
+import type {
+  ActionResult,
+  Branding,
+  HostAction,
+  HostFolder,
+  HostKit,
+  HostMultipliers,
+  HostServerView,
+  HostSetupRequest,
+  InstallMode,
+  InviteCheck,
+  NewsItem,
+  RegisterOutcome,
+  Settings,
+  Snapshot,
+  TaskProgress,
+} from "./generated/types.ts";
+
+export type { ActionResult, HostKit, HostServerView, Settings, Snapshot, TaskProgress };
+
+export interface LauncherApi {
+  getSnapshot(): Promise<Snapshot>;
+  checkInvite(text: string): Promise<InviteCheck>;
+  submitInvite(text: string, acceptNewCertificate?: boolean, carryAccount?: boolean): Promise<ActionResult>;
+  retryConnect(): Promise<ActionResult>;
+  forgetServer(): Promise<ActionResult>;
+  switchServer(id: string): Promise<ActionResult>;
+  removeSavedServer(id: string): Promise<ActionResult>;
+  register(username: string): Promise<RegisterOutcome>;
+  useExistingKey(text: string): Promise<ActionResult>;
+  importKeyFile(): Promise<ActionResult>;
+  saveKeyBackup(): Promise<ActionResult>;
+  dismissBackupOffer(): Promise<void>;
+  chooseGameFolder(): Promise<ActionResult>;
+  useGamePath(gamePath: string): Promise<ActionResult>;
+  useDetectedGame(index: number): Promise<ActionResult>;
+  verifyGame(): Promise<ActionResult>;
+  revivedInstall(mode: InstallMode): Promise<ActionResult>;
+  revivedChooseFolder(): Promise<ActionResult>;
+  revivedUseDetected(index: number): Promise<ActionResult>;
+  trustRuntime(): Promise<ActionResult>;
+  installRuntime(): Promise<ActionResult>;
+  chooseLocalRuntime(): Promise<ActionResult>;
+  clearLocalRuntime(): Promise<ActionResult>;
+  cancelTask(): Promise<void>;
+  play(): Promise<ActionResult>;
+  setSettings(patch: Partial<Settings>): Promise<Settings>;
+  setStatusPolling(on: boolean): Promise<void>;
+  refreshStatus(): Promise<void>;
+  getNews(): Promise<NewsItem[]>;
+  getBranding(): Promise<Branding>;
+  openExternal(target: string): Promise<ActionResult>;
+  openGameFolder(): Promise<void>;
+  openLogsFolder(): Promise<void>;
+  logout(): Promise<ActionResult>;
+  installUpdate(): Promise<void>;
+  hostGet(): Promise<HostKit>;
+  hostChooseWorkspace(): Promise<ActionResult>;
+  hostChooseDumper(): Promise<ActionResult>;
+  hostImportGameData(): Promise<ActionResult>;
+  hostImportSdkFolder(): Promise<ActionResult>;
+  hostDownloadProject(): Promise<ActionResult>;
+  hostAction(action: HostAction): Promise<ActionResult>;
+  hostOpen(folder: HostFolder): Promise<ActionResult>;
+  hostServerGet(): Promise<HostServerView>;
+  hostServerStart(): Promise<ActionResult>;
+  hostServerStop(): Promise<ActionResult>;
+  hostSetup(request: HostSetupRequest): Promise<ActionResult>;
+  hostCreateInvite(forName: string | null): Promise<ActionResult>;
+  hostUpdate(): Promise<ActionResult>;
+  hostSetMultipliers(multipliers: HostMultipliers | null): Promise<ActionResult>;
+  copyText(text: string): Promise<boolean>;
+  dismissNotice(): Promise<void>;
+  dismissError(): Promise<void>;
+  minimize(): Promise<void>;
+  toggleMaximize(): Promise<boolean>;
+  close(): Promise<void>;
+  takeInviteLink(): Promise<string | null>;
+  onSnapshot(fn: (snapshot: Snapshot) => void): void;
+  onProgress(fn: (progress: TaskProgress) => void): void;
+  onHostKit(fn: (kit: HostKit) => void): void;
+  onHostServer(fn: (view: HostServerView) => void): void;
+  onInviteLink(fn: () => void): void;
+  onWindowState(fn: (maximized: boolean) => void): void;
+}
+
+declare global {
+  interface Window {
+    launcher?: LauncherApi;
+  }
+}

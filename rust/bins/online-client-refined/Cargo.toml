@@ -1,0 +1,20 @@
+[package]
+name = "online-client-refined"
+description = "Pure online player client binary for the Refined edition only (zero server crates linked)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "refined-client"
+path = "src/main.rs"
+
+[dependencies]
+launcher = { workspace = true, default-features = false, features = ["edition-refined"] }
+protocol = { workspace = true, default-features = false, features = ["edition-refined"] }
+
+[lints]
+workspace = true

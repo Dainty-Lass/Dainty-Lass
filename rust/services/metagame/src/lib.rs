@@ -1,0 +1,55 @@
+//! The Rust metagame (MIGRATION_PLAN.md Part B). So far: its database schema and the store setup
+//! that adopts the Node metagame's `undaunted.db` (M13, M14, M18).
+
+pub mod accounts;
+pub mod activity;
+pub mod app;
+pub mod auth;
+pub mod bodylog;
+pub mod bounties;
+pub mod characterprogress;
+pub mod characters;
+pub mod chat;
+pub mod config;
+pub mod cooldowns;
+pub mod creator;
+pub mod crypto;
+pub mod db;
+pub mod dbtools;
+pub mod discordstats;
+pub mod drizzle_frozen;
+pub mod entitlements;
+pub mod escalation;
+pub mod friends;
+pub mod guild;
+pub mod health;
+pub mod inventory;
+pub mod js;
+pub mod keyrotation;
+pub mod kitinvite;
+pub mod limits;
+pub mod loadouts;
+pub mod matchmaking;
+pub mod middleman;
+pub mod moderation;
+pub mod offline_save;
+pub mod origin;
+pub mod party;
+pub mod progression;
+pub mod progression_config;
+pub mod realprogression;
+pub mod redact;
+pub mod routes;
+#[allow(non_snake_case)]
+pub mod schema;
+pub mod server;
+pub mod serverstatus;
+pub mod service;
+pub mod slayerlinks;
+pub mod store;
+pub mod store_revocation;
+pub mod storeimages;
+pub mod time;
+pub mod trials;
+pub mod unlocker;
+pub mod vendor;

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DaintyLass</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101418; color: #d8dde3; font: 15px/1.5 system-ui, sans-serif; }
+      main { max-width: 36rem; padding: 2rem; text-align: center; }
+      code { color: #9ec5ff; }
+    </style>
+  </head>
+  <body>
+    <!-- The page is being rebuilt in dainty-lass-ui (docs/dainty-lass-plan.md, DU1 and DU2). Until it lands,
+         the Tauri shell serves this stand-in: the bridge in page/api.ts is the whole contract. -->
+    <main>
+      <h1>DaintyLass</h1>
+      <p>The launcher page lives in <code>dainty-lass-ui</code> and is not built into this checkout yet.</p>
+      <p id="bridge">bridge: checking…</p>
+    </main>
+    <script type="module" src="/bridge.ts"></script>
+    <script type="module">
+      const line = document.getElementById("bridge");
+      const api = window.launcher;
+      if (!api) line.textContent = "bridge: not in Tauri";
+      else api.getSnapshot().then((s) => (line.textContent = `bridge: ok (phase ${s.phase})`), (e) => (line.textContent = `bridge: ${e}`));
+    </script>
+  </body>
+</html>

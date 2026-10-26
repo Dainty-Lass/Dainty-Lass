@@ -1,0 +1,281 @@
+# Checks every push, by code family (MIGRATION_PLAN.md RR3): a push to a work branch runs only the jobs of the
+# families it changes, and the "CI ok" job sums them up for branch protection. It is the one required check. A
+# push to main or plan, a manual run and any change to the workflows run every family.
+#  - Rust (rust/): fmt, clippy and tests on Linux and Windows, cargo-deny, a short run of every fuzz target
+#  - Paradox (paradox/backend, paradox/director): npm ci and tests
+#  - Docker (docker/, compose*.yaml and everything the images copy): the images, the suites inside them, the smoke test
+#
+# Actions are pinned by commit. The workflow is read by Forgejo Actions and by GitHub Actions alike (DX3).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run at a time per branch; a newer push to a work branch cancels the older run. Every run on main gets its own
+# group, so none of them is ever cancelled or replaced.
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Which code families a change touches. The filters are generous: a family's jobs also run when a folder they
+  # read from changes.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rust: ${{ steps.pick.outputs.rust }}
+      rust-tauri: ${{ steps.pick.outputs.rust-tauri }}
+      paradox: ${{ steps.pick.outputs.paradox }}
+      docker: ${{ steps.pick.outputs.docker }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # A pull request is compared with its base. A push to another branch is compared with the commit before the
+      # push; a new branch, or a forced push whose old commit is gone, with the default branch.
+      - name: What a push is compared with
+        id: base
+        env:
+          BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          base="$DEFAULT_BRANCH"
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ -n "${BEFORE//0/}" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            base="$BEFORE"
+          fi
+          echo "base=$base" | tee -a "$GITHUB_OUTPUT"
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          base: ${{ steps.base.outputs.base }}
+          filters: |
+            workflow:
+              - .github/workflows/**
+            rust:
+              - rust/**
+            paradox:
+              - paradox/**
+            # The images build the Rust services, the Paradox backend and Director, and copy native/
+            docker:
+              - docker/**
+              - compose*.yaml
+              - .dockerignore
+              - .env.example
+              - rust/**
+              - paradox/**
+              - native/**
+
+      - name: Pick the families, run everything on main, plan, manual runs and workflow changes
+        id: pick
+        env:
+          ALL: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/plan')) || github.event_name == 'workflow_dispatch' || steps.filter.outputs.workflow == 'true' }}
+          RUST: ${{ steps.filter.outputs.rust }}
+          PARADOX: ${{ steps.filter.outputs.paradox }}
+          DOCKER: ${{ steps.filter.outputs.docker }}
+        run: |
+          set -euo pipefail
+          for family in rust paradox docker; do
+            var="${family^^}"
+            value="${!var}"
+            [ "$ALL" = true ] && value=true
+            echo "$family=$value" | tee -a "$GITHUB_OUTPUT"
+          done
+          # Tauri needs WebKitGTK and GTK3 to build on Linux
+          tauri=false
+          if grep -qE '^tauri[[:space:]]*=' rust/launcher/src-tauri/Cargo.toml 2>/dev/null; then tauri=true; fi
+          echo "rust-tauri=$tauri" | tee -a "$GITHUB_OUTPUT"
+
+  rust:
+    # GitHub appends the OS (see the paradox job)
+    name: Rust workspace
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # rustup reads rust/rust-toolchain.toml and installs the pinned toolchain.
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      # The cargo registry and the target folder
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+
+      - name: Install the launcher's Linux build dependencies
+        if: runner.os == 'Linux' && needs.changes.outputs.rust-tauri == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace --locked --no-fail-fast
+
+  rust-deny:
+    name: Rust licences and advisories
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The action's image ships an older cargo that rejects manifests the pinned toolchain accepts.
+      - id: toolchain
+        run: echo "channel=$(grep '^channel' rust/rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
+
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: rust/Cargo.toml
+          command: check
+          arguments: --all-features
+          rust-version: ${{ steps.toolchain.outputs.channel }}
+
+  # Every parser of untrusted input, fuzzed for a short time on every change (MIGRATION_PLAN.md RD10, RX3). The
+  # 24-hour run before a cutover is the one in rust/fuzz/Cargo.toml. A crash keeps its input as an artifact.
+  fuzz:
+    name: Fuzz the untrusted-input parsers
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NIGHTLY: nightly-2026-10-20
+    defaults:
+      run:
+        working-directory: rust/fuzz
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust/fuzz
+          key: fuzz
+
+      - name: Install the pinned nightly and cargo-fuzz
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal
+          cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
+
+      - name: Run every target for 45 seconds
+        run: |
+          set -euo pipefail
+          for target in $(cargo "+$NIGHTLY" fuzz list); do
+            echo "::group::$target"
+            mkdir -p "corpus/$target"
+            cargo "+$NIGHTLY" fuzz run "$target" "corpus/$target" -- -max_total_time=45 -max_len=4096
+            echo "::endgroup::"
+          done
+
+      - name: Keep the inputs that crashed
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-crashes
+          path: rust/fuzz/artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The Node backend and Director in this repository (RP3), until the Rust port replaces them.
+  paradox:
+    # No matrix value in the name: GitHub appends it, and a skipped job would show the expression unexpanded.
+    name: Paradox tests
+    needs: changes
+    if: needs.changes.outputs.paradox == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [backend, director]
+    defaults:
+      run:
+        working-directory: paradox/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  # The server's images (docs/hosting-docker.md), the full test run (docker/run-tests.sh): every server suite
+  # inside the test image (the server image plus the Rust toolchain; the allowlist's nftables test for real), then
+  # a public server set up on example game data in throwaway volumes, every service healthy, an invite made and a
+  # clean stop (docker/smoke-test.sh).
+  docker:
+    name: Docker images (build, tests in the image, smoke test)
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    # Not ubuntu-latest: that is Ubuntu 26.04 on Linux 6.19, where MongoDB 8.0 refuses to start (its tcmalloc
+    # and the kernel's rseq disagree; mongodb.org SERVER-121912). The compose mongo service is what the smoke
+    # test needs; 24.04's kernel is older. Lift once the mongo:8.0 image starts on 6.19.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the images and run the full test run
+        env:
+          REFORGED_COMMIT: ${{ github.sha }}
+        run: bash docker/run-tests.sh
+
+  # The one check branch protection requires. Jobs skipped because their family didn't change count as passed; a
+  # failed or cancelled job, or a failed change detection, fails it.
+  ci-ok:
+    name: CI ok
+    needs: [changes, rust, rust-deny, fuzz, paradox, docker]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every selected job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          bad="$(echo "$RESULTS" | jq -r '[to_entries[] | select(.value.result != "success" and .value.result != "skipped") | .key] | join(", ")')"
+          if [ -n "$bad" ]; then
+            echo "::error::failed or cancelled: $bad"
+            exit 1
+          fi
