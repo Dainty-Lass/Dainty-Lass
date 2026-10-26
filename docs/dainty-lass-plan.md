@@ -37,6 +37,7 @@ Measured 2026-10-26.
 | Realms on `replay` | Players host hubs and hunts on their own PCs; joiners connect through `ParadoxTransport.dll` (ICE on libjuice: direct, or through a TURN relay). A self-hosted backend brings its own relay (Cloudflare TURN or a `turn-rest` server such as coturn) and an admission key pair. Mystic's anti-cheat and Steam transport are private, so Guard runs on stubs in observe mode. In the backend, `p2p/`, `realms/` and Guard are about 2.0 of its 5.1 MiB of source (210 files mention realms). A "local realm" is something else: the whole backend on one PC with no database server (`PERSISTENCE_PROVIDER=sqlite`, every repository on `node:sqlite`, a file under `realm-data/`, daily `VACUUM INTO` backups); player-hosted hubs keep their state on the central backend |
 | Dauntless Revived | `SilentSpud/dauntless-revived` on GitHub: `plan` at `24b7624` is upstream `main` (`5eb74ff`, `mixutin/dauntless-revived`) plus 468 commits, DR's Rust migration among them. This repository carries pieces of it with Reforged's changes: merge `54e271a` (commits `c1be7f7`…`18ac587`) |
 | Rust Director | `feat/rb10-director-single-binary` (`cdc0a87`): RB10, the Director in Rust, never merged; based on the old `plan` layout |
+| Getting the game | Epic still lists Dauntless (app name `Jackal`) for accounts that added it before it left the store in May 2025, but serves only 2.1.1's manifest. Older builds install from an archived manifest plus Epic's chunk CDN (`.../Builds/Org/o-krlzxj88qrtb69fredeuaf887bl5az/Jackal/default` on three hosts), which asks for no login. The community [Dauntless Manifest Archive](https://github.com/addison2k/DauntlessManifestArchive) holds 1.5.4, 1.6.2, 1.10.5, 1.12.0, 1.14.1, 1.14.5, 1.14.6, 1.14.7 and 2.1.1 with SHA-1 sums; **1.4.4 is not archived**, so it can't come from Epic. Mystic's guide pins 1.14.7's manifest by SHA-1 (`aa70748e…31476`) and its executable by SHA-256, through Legendary. Epic can delete an old build's chunks at any time. [`egs-api`](https://docs.rs/egs-api/) 0.14.0 (MIT, September 2026) signs in with an authorization code, lists the library and parses download manifests; whether it downloads chunks itself is not documented |
 
 ## 2. End state
 
@@ -102,6 +103,7 @@ silentspud/dainty-lass-ui         Astro + shadcn monorepo from the preset
 | DD19 | Matchmaking | **One pool that widens by ping.** The launcher measures round-trip time to every node's gateway and reports the regions in order. A ticket is owned by the player's home node and published to the nearest region first, then the next after a delay, and so on until every region sees it. A region that forms a match claims each ticket from its home (compare-and-set), so a ticket lands in one match only. The hosting node's Director starts the game server, its allowlist admits the matched players' addresses, and the game server's XP and objective posts are forwarded to each player's home | Ring delays are settings. A match forms where most of its players have the lowest ping, and nobody waits forever for their own region |
 | DD20 | Ramsgate | **One shared Ramsgate per region**, hosted by that region's node, split into shards when an instance is full. A player goes to the Ramsgate of their lowest-ping region, whichever node is their home | Players from every server meet in their region's hub; the hub's game server talks to many homes through the network |
 | DD21 | Chat | **A chat core plugin** (`plugins/chat`) from DR's XMPP-over-WebSocket code, with each game module giving its JID and room rules, and nodes federated server-to-server as XMPP does. A network-wide room, one room per region, and party and hunt rooms owned by the instance's node. Direct messages route to the recipient's current node and are stored at both players' homes, delivered at login when the recipient was offline. Room history lives with the room's owner and is replicated to the nodes that read it. Mutes and bans apply network-wide through the home | RU5's chat area becomes this plugin's 1.14.7 rules instead of a chat of its own. Paradox's City rooms (patch 0025) become per-region rooms |
+| DD22 | Getting the game from Epic | **The launcher installs the game from the player's own Epic library.** It signs in to Epic (`egs-api`, the authorization-code flow Legendary uses, in a webview with a paste-the-code fallback), checks that `Jackal` is in the library, and lists the versions it can install: those whose game module's client profile names an Epic build (version, manifest SHA-1, manifest sources, the executable's SHA-256). It downloads the chosen one from Epic's CDN, checks every file against the manifest and the executable's hash, and installs each version in a folder of its own, so several sit side by side. Nothing is downloaded for an account without Dauntless, even though the CDN would serve it. DaintyLass never hosts or mirrors game files; manifests are metadata pinned by SHA-1. The Epic session is kept like the account key: in the keystore, never across the bridge, never in a log. The host kit gets the same install as a command, with the pasted-code sign-in, for the game servers the Director starts | Players stop needing Legendary. 1.12.0 and 1.14.7 can be installed; **1.4.4 cannot** (no archived manifest), so "Dauntless Revived" keeps locating an existing folder only. A version whose chunks Epic has deleted shows as unavailable. Signing in with Epic's own launcher client id is what Legendary and Heroic do, not something Epic sanctions. DR's resumable downloader (`net/downloader.rs`, which RD22 left out) comes back for this |
 
 ## 4. Work
 
@@ -200,12 +202,24 @@ Built alongside the RU rows (DD16), on the Rust backend; nothing here touches th
 | DN13 | Joining an existing server to the network: its accounts get it as their home, username clashes resolved by a rule the maintainer picks, existing invites and keys keep working | A Reforged host's database joins without any player redoing anything |
 | DN14 | Canary network: four nodes in the four regions (maintainer) | The smoke list (section 6) across regions, then a week of play |
 
-### 4.8 Cross-cutting (DX)
+### 4.8 Installing from Epic (DE)
+
+| # | What | Verify |
+| --- | --- | --- |
+| DE1 | **Spike** (maintainer's Epic account): `egs-api` signs in, finds `Jackal` in the library, parses the archived 1.14.7 manifest and fetches a few chunks from each CDN host. Kill criterion: if its parser or chunk handling falls short, `egs-api` keeps sign-in and the library and the manifest parser and chunk fetch are written here, from the format Legendary documents | The fetched chunks hash as the manifest says |
+| DE2 | Epic sign-in in the launcher: the login webview that captures the authorization code, the paste fallback, the session in the keystore, sign out; new bridge commands (a seam change, through the integration pass), strings appended in both languages | Sign in, restart, still signed in; sign out clears the keystore entry; no token in any log |
+| DE3 | Ownership: `Jackal` in the library, cached for a while; a clear refusal when it isn't | An account without Dauntless can't start a download |
+| DE4 | Versions: the Epic build fields in the client profile (`module-api`), filled by the 1.14.7 and 1.12 modules; the launcher's list (compiled-in profiles plus those the joined servers' content serves), with each version's download and install size from its manifest; 1.4.4 listed as "locate your folder" | The list matches the profiles; sizes match the manifests |
+| DE5 | Download and install: the manifest fetched from its sources and checked against its SHA-1 before it is parsed, chunks from the three CDN hosts with failover, decompressed and assembled, every file checked, then the executable's SHA-256; resume, pause, parallel chunks, a free-space check, one folder per version; DR's `net/downloader.rs` brought back for it (amends RD22) | 1.14.7 installs and passes Mystic's checks (611 files, `Version.txt`, the executable's hash); a download killed halfway resumes; a corrupted chunk is fetched again |
+| DE6 | The host kit's install command with the pasted-code sign-in, and the Docker image's use of it | A fresh Linux host installs 1.14.7 for its game servers |
+| DE7 | UI: sign in, the library check, the version list, download progress (with DU2) | Each screen in both languages |
+
+### 4.9 Cross-cutting (DX)
 
 | # | What |
 | --- | --- |
 | DX1 | Docs: `architecture.md` for modules and core plugins, the hosting guides (Postgres for every host, realms and their relay), the migration guide's paths, a "writing a game module" page |
-| DX2 | Security (RX3): `docs/security/module-host.md` for the frame protocol, external module loading and the SHA-256 list; fuzz target `module_frame`. Each module repository keeps the checklists for what it carries (`metagame.md`, `deploy.md` move to dauntless-revived; rustic-rifts gets admission tickets, the pair cipher and relay credentials, with fuzz targets for the ticket and control-message parsers). The network gets `docs/security/network.md`: node certificates and the cluster CA, session tickets, the directory, the claim protocol and chat federation, with fuzz targets for node-link messages and federated stanzas |
+| DX2 | Security (RX3): `docs/security/module-host.md` for the frame protocol, external module loading and the SHA-256 list; fuzz target `module_frame`. Each module repository keeps the checklists for what it carries (`metagame.md`, `deploy.md` move to dauntless-revived; rustic-rifts gets admission tickets, the pair cipher and relay credentials, with fuzz targets for the ticket and control-message parsers). The network gets `docs/security/network.md`: node certificates and the cluster CA, session tickets, the directory, the claim protocol and chat federation, with fuzz targets for node-link messages and federated stanzas. Installing from Epic gets `docs/security/epic.md`: the Epic session in the keystore, manifests pinned before parsing, file names in a manifest kept inside the install folder, CDN TLS with no redirects; fuzz target `epic_manifest` |
 | DX3 | CI on Forgejo Actions: a runner with MSVC for the native builds (maintainer), submodule checkout, Bun; `.github/workflows` read as Forgejo reads them, or moved to `.forgejo/workflows`. GitHub stays a read-only source (`upstream`, `mystic`) until DX5 |
 | DX4 | Licensing: AGPL-3.0-only in every repository; Mystic's `ADDITIONAL_TERMS.md` and its section 1 notice in rustic-isles' and rustic-rifts' README and `NOTICE.md`, which also say they are modified, unofficial versions (its section 2); DR's attribution in dauntless-revived; libjuice's MPL-2.0 notice in rustic-rifts; `NOTICE.md` here points to all four |
 | DX5 | Publishing to GitHub, once the launcher and the server are confirmed working (maintainer): each repository pushed public, submodule URLs and the Cargo registry switched or mirrored, release workflows pointed at it |
@@ -216,11 +230,13 @@ Built alongside the RU rows (DD16), on the Rust backend; nothing here touches th
 | --- | --- | --- | --- |
 | 0 | DS5 lists; DF1 spike; DF7's `pq-sys` spike | — | — |
 | 0 | DN1 spike | — | A 1.14.7 client, two servers |
+| 0 | DE1 spike | — | An Epic account with Dauntless |
 | 0 | DS1–DS4 | — | Forgejo: rename, create the repositories, push |
 | 1 | DF2 seam; RU1, RU2; DS7; RV1's history work; DU1 | DS2–DS4, DF1 | — |
 | 2 | DS6 submodule swap | RU1, RV1, DS7 | — |
 | 2 | DF3 controller, DF4 core plugins, DF7 store; RU3 inventories, RF1 | DF2 | — |
 | 3 | RU4 and RF2 seams with DN2; RV1's module crate; DF5 bins; DU2, DU3 | DF3, DF4, DF7 | — |
+| 3 | DE2–DE6, then DE7 with DU2 | DF2 (client profile fields), DE1 | An Epic account with Dauntless |
 | 3 | DF6 rename sweep, by itself, between integration passes | DS6 | — |
 | 4 | RU5 (about nine agents), RU6, RU7; RF3–RF6; RV2, RV3 | RU4, RF2 | Game servers, the 1.4.4 client |
 | 4 | DN3, DN4, DN5, DN12 | DN2 | — |
@@ -252,9 +268,10 @@ both languages are not; and "the host-only routes and headers stay refused" now 
 
 For the integration pass: RD1 (Paradox becomes a submodule, no longer a subtree at `paradox/`), RD11 and section
 4.1 (the layout in section 2 here), RD15 (Postgres for every module, not only the Paradox port, DD15), RD17 (no gate
-for the Paradox port, DD6), section 4.5 (the RB rows move to RU and RF), RP rows (their results move to
-rustic-isles), RR5 (the page moves to `ui/`, not `rust/launcher/ui`), section 5.1's ownership table (the module
-repositories and `ui/` own their own files; `crates/module-api` is a seam owned by DF2).
+for the Paradox port, DD6), RD22 (DR's downloader comes back for installing from Epic, DD22), section 4.5 (the RB
+rows move to RU and RF), RP rows (their results move to rustic-isles), RR5 (the page moves to `ui/`, not
+`rust/launcher/ui`), section 5.1's ownership table (the module repositories and `ui/` own their own files;
+`crates/module-api` is a seam owned by DF2).
 
 ## 8. Open questions
 
@@ -283,3 +300,7 @@ no database server, not storage on a realm host's PC (section 1).
    or Cloudflare TURN.
 3. **Username clashes when servers join a network (DN13).** Two existing servers can both have a "Fox": first
    registered keeps it, the other gets a suffix, or the player picks a new name at next login.
+4. **Where the manifests come from (DE5).** Commit each pinned manifest (about 1 MB of Epic's metadata) into its
+   game module's repository and serve it from content, with the archive as a fallback; or fetch it from the
+   archive (and Mystic's `api.mysticfox.dev` for 1.14.7) and check the SHA-1. Committing removes a dependency on
+   both sites; it also means the repositories carry Epic's manifest files.
