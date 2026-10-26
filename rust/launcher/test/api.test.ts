@@ -86,6 +86,34 @@ async function callEverything(): Promise<void> {
   await api.dismissNotice();
   await api.dismissError();
   api.onProgress(() => undefined);
+  await api.epicSignInStart();
+  await api.epicSignInCode("0123456789abcdef0123456789abcdef");
+  await api.epicGet();
+  await api.epicSignOut();
+  await api.epicLibraryCheck();
+  await api.gameVersionList();
+  await api.gameInstallStart("1.14.7");
+  await api.gameInstallPause("1.14.7");
+  await api.gameInstallResume("1.14.7");
+  await api.gameInstallCancel("1.14.7");
+  await api.gameInstallGet("1.14.7");
+  await api.regionPing();
+  await api.moduleList();
+  await api.moduleGet("isles-1-14-7");
+  await api.moduleRunCommand("isles-1-14-7", "reload_catalog", { force: true });
+  await api.moduleSetSettings("isles-1-14-7", { maxPlayers: 4 });
+  await api.moduleLoad("isles-1-14-7");
+  await api.moduleUnload("isles-1-14-7");
+  await api.realmHost("hunt");
+  await api.realmJoin("realm-01");
+  await api.realmStop();
+  await api.realmGet();
+  await api.historyQuery({ actor: "key_01", since: "2026-10-01T00:00:00Z" });
+  await api.historyRevertDryRun({ actor: "key_01", since: "2026-10-01T00:00:00Z" });
+  await api.historyRevertApply("plan_01");
+  await api.guardedList();
+  await api.guardedApprove("guard_01");
+  await api.guardedCancel("guard_01");
 }
 
 test("each call reaches its command with the preload's arguments", async () => {
@@ -162,6 +190,27 @@ test("1.4.4 calls reach their commands, the mode one of two names (the legacy ed
         ["revived_choose_folder", {}],
         ["revived_use_detected", { index: 1 }],
         ["set_settings", { patch: { gameEdition: "legacy" } }],
+      ],
+    );
+  } finally {
+    clearMocks();
+  }
+});
+
+test("planned calls send their arguments in the shapes the hook checks", async () => {
+  const calls = record();
+  try {
+    await api.moduleRunCommand("isles-1-14-7", "reload_catalog", { force: true });
+    await api.realmHost("raid" as never);
+    await api.historyQuery({ actor: "key_01" });
+    await api.historyRevertDryRun({ since: "2026-10-01T00:00:00Z", cursor: "x" } as never);
+    assert.deepEqual(
+      calls.map((c) => [c.cmd, c.args]),
+      [
+        ["module_run_command", { module: "isles-1-14-7", command: "reload_catalog", input: '{"force":true}' }],
+        ["realm_host", { kind: "hub" }],
+        ["history_query", { filter: { account: null, actor: "key_01", since: null, until: null, cursor: null } }],
+        ["history_revert_dry_run", { selection: { account: null, actor: null, since: "2026-10-01T00:00:00Z", until: null } }],
       ],
     );
   } finally {

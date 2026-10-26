@@ -37,8 +37,19 @@ test("every listed command passes with arguments of the right shape", () => {
     onProgress: "__CHANNEL__:123",
     mode: "repair",
     name: "content",
+    code: "0123456789abcdef0123456789abcdef",
+    version: "1.14.7",
+    module: "isles-1-14-7",
+    command: "reload_catalog",
+    input: "{}",
+    values: "{}",
+    kind: "hunt",
+    realm: "realm-01",
+    filter: { actor: "key_01", since: "2026-10-01T00:00:00Z", cursor: null },
+    selection: { actor: "key_01", since: "2026-10-01T00:00:00Z" },
+    plan: "plan_01",
   };
-  assert.equal(Object.keys(commands).length, 56);
+  assert.equal(Object.keys(commands).length, 84);
   for (const [cmd, spec] of Object.entries(commands)) {
     const args: Record<string, unknown> = {};
     for (const name of Object.keys(spec)) {
@@ -145,6 +156,16 @@ test("who an invite is for is optional text", () => {
   assert.equal(passes("host_create_invite", { forName: "a".repeat(40) }), true);
   assert.equal(passes("host_create_invite", { forName: "a".repeat(41) }), false);
   assert.equal(passes("host_create_invite", { forName: 7 }), false);
+});
+
+test("planned calls keep their limits", () => {
+  assert.equal(passes("epic_sign_in_code", { code: "a".repeat(1024) }), true);
+  assert.equal(passes("epic_sign_in_code", { code: "a".repeat(1025) }), false);
+  assert.equal(passes("realm_host", { kind: "raid" }), false);
+  assert.equal(passes("module_load", { module: "a".repeat(65) }), false);
+  assert.equal(passes("history_query", { filter: { actor: "key_01", table: "accounts" } }), false, "an unknown field");
+  assert.equal(passes("history_revert_dry_run", { selection: { actor: "key_01", cursor: "x" } }), false, "no cursor");
+  assert.equal(passes("history_revert_dry_run", { selection: null }), false);
 });
 
 test("a dropped call stays pending", async () => {

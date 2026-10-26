@@ -233,6 +233,11 @@ pub enum ErrorCode {
     FolderNotEmpty,
     /// The server plays the other edition (detail: `reborn` or `legacy`): the page offers to switch
     EditionOther,
+    /// A command registered ahead of the row that fills it (DF8; detail: the command's name)
+    NotImplemented,
+    /// A command this build does not serve, such as a server GUI one in the player launcher (detail: the
+    /// command's name)
+    NotInThisBuild,
     Unknown,
 }
 
@@ -1023,6 +1028,16 @@ pub struct HostSetupRequest {
     pub mode: HostServerMode,
     /// Public mode: the server's public IPv4 or DNS name
     pub public_host: Option<String>,
+}
+
+/// What `realm_host` hosts (DU5)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(not(test), allow(dead_code, reason = "RF7's realm_host reads it"))]
+pub enum RealmKind {
+    Hub,
+    Hunt,
 }
 
 #[cfg(test)]
