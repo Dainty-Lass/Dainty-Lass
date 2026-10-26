@@ -9,12 +9,21 @@
 //!
 //! [`Store::open`] switches the file to WAL (D17), then brings the schema up to date: existing
 //! Drizzle databases are adopted (D11, [`adopt`]), new ones get every migration.
+//!
+//! [`Database`] is the same on two engines, SQLite or Postgres (DD15), with the change log on every
+//! write (DD23, [`history`]). [`Store`] stays SQLite-only for DR's metagame until RV3 moves it over.
 
 pub mod adopt;
 pub mod backup;
+mod connection;
+mod database;
 pub mod drizzle;
+mod engine;
+pub mod history;
+pub mod portable;
 pub mod readonly;
 mod snapshot;
+pub mod transfer;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -26,11 +35,14 @@ use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool, PooledConnectio
 use diesel::sql_types::Text;
 
 pub use adopt::{DrizzleBaseline, Schema};
+pub use connection::{AnyConnection, MultiBackend};
+pub use database::{Database, DatabaseOptions, DatabaseSchema, KeyValue, Tx};
+pub use engine::{DatabaseConfig, Engine, PostgresConfig, is_local_address};
+pub use history::{Actor, ChangeEntry};
 pub use readonly::{open_read_only, schema_version};
 pub use snapshot::schema_snapshot;
 
-/// The connection type every service queries through. A Postgres port would make this a
-/// `MultiConnection` enum (D21); nothing outside this crate names `SqliteConnection`.
+/// The connection [`Store`]'s closures get. [`Database`]'s get an [`AnyConnection`].
 pub type Connection = SqliteConnection;
 
 type Manager = ConnectionManager<Connection>;
@@ -49,6 +61,14 @@ pub enum Error {
     Adoption(String),
     #[error("backup: {0}")]
     Backup(String),
+    #[error("database settings: {0}")]
+    Config(String),
+    #[error("schema: {0}")]
+    Schema(String),
+    #[error("not an actor the change log can record: {0:?}")]
+    Actor(String),
+    #[error("db move: {0}")]
+    Move(String),
     #[error("the database task panicked")]
     Panicked,
 }
