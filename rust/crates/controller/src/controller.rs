@@ -27,6 +27,8 @@ pub struct Module {
     pub name: String,
     pub edition: Option<String>,
     pub ready_timeout: Duration,
+    /// How long it may take to stop before it is aborted.
+    pub stop_grace: Duration,
     /// The server does not run without it: a start that fails stops `start_all`.
     pub required: bool,
     pub start: ModuleStart,
@@ -38,6 +40,7 @@ impl Module {
             name: name.into(),
             edition: None,
             ready_timeout: START_TIMEOUT,
+            stop_grace: STOP_GRACE,
             required: true,
             start,
         }
@@ -50,6 +53,11 @@ impl Module {
 
     pub fn ready_within(mut self, timeout: Duration) -> Self {
         self.ready_timeout = timeout;
+        self
+    }
+
+    pub fn stop_within(mut self, grace: Duration) -> Self {
+        self.stop_grace = grace;
         self
     }
 
@@ -157,11 +165,25 @@ impl ServerController {
         let Some(mut running) = self.running.remove(name) else {
             return Err(format!("component {name} is not running"));
         };
+        let grace = self
+            .modules
+            .iter()
+            .find(|m| m.name == name)
+            .map_or(STOP_GRACE, |m| m.stop_grace);
         let _ = running.stop_tx.send(true);
+        let status = self.status_registry.register_component(name, None);
         // A component that ignores its stop signal must not keep its port and threads
-        if tokio::time::timeout(STOP_GRACE, &mut running.handle).await.is_err() {
-            tracing::warn!(target: "host", "component {name} did not stop within {}s; aborting it", STOP_GRACE.as_secs());
+        if tokio::time::timeout(grace, &mut running.handle).await.is_err() {
+            tracing::warn!(target: "host", "component {name} did not stop within {grace:?}; aborting it");
             running.handle.abort();
+            let _ = (&mut running.handle).await;
+            status.report_stopped(format!("aborted: did not stop within {grace:?}"));
+        } else if !matches!(
+            self.snapshot().get(name).map(|c| c.phase),
+            Some(ComponentPhase::Stopped | ComponentPhase::Failed)
+        ) {
+            // Its task ended: what the views show must not stay `Ready`
+            status.stopped();
         }
         self.startup_order.retain(|n| n != name);
         Ok(())
@@ -211,10 +233,11 @@ impl ServerController {
             }
             if tokio::time::Instant::now() >= deadline {
                 handle.abort();
-                return Err(format!(
-                    "component {name} was not ready after {}s",
-                    ready_timeout.as_secs()
-                ));
+                let error = format!("component {name} was not ready after {ready_timeout:?}");
+                self.status_registry
+                    .register_component(name, None)
+                    .failed(error.clone());
+                return Err(error);
             }
             let _ = tokio::time::timeout(Duration::from_millis(50), rx.changed()).await;
         }
@@ -348,5 +371,123 @@ mod tests {
         assert!(controller.start_component("slow").await.is_err());
         assert!(controller.stop_component("slow").await.is_err(), "it never ran");
         assert!(controller.start_component("nobody").await.is_err());
+        assert_eq!(
+            controller.snapshot().get("slow").map(|c| c.phase),
+            Some(ComponentPhase::Failed),
+            "the views show it failed, not starting"
+        );
+    }
+
+    /// Binds `addr` as a service does and reports what happened.
+    fn binding_module(name: &str, addr: std::net::SocketAddr) -> Module {
+        Module::new(
+            name,
+            Arc::new(move |mut ctx: ServiceContext| {
+                Box::pin(async move {
+                    match tokio::net::TcpListener::bind(addr).await {
+                        Ok(listener) => {
+                            let port = listener.local_addr().ok().map(|a| a.port());
+                            ctx.status().report_ready(port, "listening");
+                            ctx.wait_stop().await;
+                            ctx.status().report_stopped("stopped");
+                            Ok(())
+                        }
+                        Err(e) => {
+                            ctx.status().failed(format!("cannot listen on {addr}: {e}"));
+                            Err(e.to_string())
+                        }
+                    }
+                })
+            }),
+        )
+    }
+
+    #[tokio::test]
+    async fn a_port_already_taken_fails_the_start_with_the_reason() {
+        let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = taken.local_addr().unwrap();
+        let mut controller = ServerController::new("private", Vec::new());
+        controller.add(binding_module("gateway", addr));
+        let error = controller.start_all().await.unwrap_err();
+        assert!(error.contains("cannot listen on"), "{error}");
+        let snap = controller.snapshot();
+        assert_eq!(snap.get("gateway").map(|c| c.phase), Some(ComponentPhase::Failed));
+        assert!(snap.get("gateway").unwrap().detail.contains(&addr.to_string()));
+        // Once the port is free, a start from the console takes it
+        drop(taken);
+        controller.start_component("gateway").await.unwrap();
+        assert_eq!(controller.snapshot().get("gateway").unwrap().port, Some(addr.port()));
+        controller.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn a_module_that_ignores_stop_is_aborted_after_its_grace() {
+        struct Dropped(Arc<Mutex<bool>>);
+        impl Drop for Dropped {
+            fn drop(&mut self) {
+                *self.0.lock().unwrap() = true;
+            }
+        }
+        let dropped = Arc::new(Mutex::new(false));
+        let flag = dropped.clone();
+        let stubborn = Module::new(
+            "stubborn",
+            Arc::new(move |ctx: ServiceContext| {
+                let guard = Dropped(flag.clone());
+                Box::pin(async move {
+                    let _guard = guard;
+                    ctx.status().report_ready(None, "up");
+                    std::future::pending::<()>().await;
+                    Ok(())
+                })
+            }),
+        )
+        .stop_within(Duration::from_millis(100));
+        let mut controller = ServerController::new("private", Vec::new());
+        controller.add(stubborn);
+        controller.start_all().await.unwrap();
+        let begun = tokio::time::Instant::now();
+        controller.stop_component("stubborn").await.unwrap();
+        assert!(begun.elapsed() < Duration::from_secs(5));
+        assert!(*dropped.lock().unwrap(), "its task is gone, with whatever it held");
+        let snap = controller.snapshot();
+        let status = snap.get("stubborn").unwrap();
+        assert_eq!(status.phase, ComponentPhase::Stopped);
+        assert!(status.detail.contains("aborted"), "{}", status.detail);
+        // It can be started again
+        controller.start_component("stubborn").await.unwrap();
+        controller.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn a_restart_leaves_a_stopped_neighbour_stopped() {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let mut controller = ServerController::new("private", Vec::new());
+        controller
+            .add(ready_module("backend", log.clone()))
+            .add(ready_module("content", log.clone()))
+            .add(ready_module("gateway", log.clone()));
+        controller.start_all().await.unwrap();
+        controller.stop_component("content").await.unwrap();
+        assert!(controller.stop_component("content").await.is_err(), "not running");
+        controller.restart_component("gateway").await.unwrap();
+        let phase = |c: &ServerController, name: &str| c.snapshot().get(name).map(|s| s.phase);
+        assert_eq!(phase(&controller, "content"), Some(ComponentPhase::Stopped));
+        assert_eq!(phase(&controller, "gateway"), Some(ComponentPhase::Ready));
+        // A restart of a stopped module starts it
+        controller.restart_component("content").await.unwrap();
+        assert_eq!(phase(&controller, "content"), Some(ComponentPhase::Ready));
+        // The last started stops first: content, then the restarted gateway
+        controller.shutdown().await;
+        assert_eq!(
+            *log.lock().unwrap(),
+            [
+                "stop content",
+                "stop gateway",
+                "stop content",
+                "stop gateway",
+                "stop backend"
+            ]
+        );
     }
 }

@@ -965,6 +965,9 @@ fn write_pretty(out: &mut String, value: &Value, depth: usize) {
 
 pub mod yaml;
 
+/// host.toml, host.yaml or host.json: far more than any needs.
+pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
+
 fn is_toml(file: &Path) -> bool {
     file.extension().is_some_and(|e| e.eq_ignore_ascii_case("toml"))
 }
@@ -977,6 +980,14 @@ fn is_yaml(file: &Path) -> bool {
 /// The file at `file`: TOML when it ends in `.toml`, host.json's document in YAML when it ends in
 /// `.yaml` or `.yml` (RD26: one schema, three forms), host.json otherwise. `None` when it does not exist.
 pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
+    // Settings are a few hundred bytes; a huge file is refused before it is read
+    if std::fs::metadata(file).is_ok_and(|m| m.len() > MAX_HOST_CONFIG_BYTES) {
+        return Err(bad(format!(
+            "{} is larger than {} KiB: not a settings file",
+            file.display(),
+            MAX_HOST_CONFIG_BYTES / 1024
+        )));
+    }
     let text = match std::fs::read_to_string(file) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
