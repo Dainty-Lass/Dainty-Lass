@@ -63,6 +63,7 @@ How to read the tables:
 | [`crates/proxy`](../../rust/crates/proxy) | DR X5: hop-by-hop headers, idle cut, WebSocket tunnel | Nothing | — |
 | [`crates/service-kit`](../../rust/crates/service-kit) | DR B1: Express-compatible routing, `JSON.stringify` output, pino logs, `--env-file` config, the X7 listen and stop cycle | `context.rs` and `telemetry.rs` are new (RD26, section 2.10); the rest is DR's | — |
 | [`crates/controller`](../../rust/crates/controller) | none | New (RD26, section 2.10) | — |
+| [`crates/module-api`](../../rust/crates/module-api) | none | New (DF2; DD3–DD5, MIT per DD26): GameVersion, manifests, the GameModule and CorePlugin traits, Registrar, the out-of-process frame protocol and both adapters, and the DN2, DN10, DH1 and DD25 seams as stubs | — |
 | [`crates/store`](../../rust/crates/store) | DR D10, D11, D21: synchronous Diesel on a blocking pool, embedded migrations | Nothing yet. RB3 moves it to `PgConnection` (RD15) | The SQLite parts (PRAGMAs, online backup, Drizzle adoption, offline saves) go with RB3 |
 | [`fuzz/`](../../rust/fuzz) | DR X9: `http_body`, `proxy_headers`, `gateway_policy`, `launcher_input` | Twenty-one Reforged targets added, one per untrusted-input parser (RX3), the 1.4.4 ones and `host_config`, `host_console` (RD26) included | DR's `auth_token`, `bot_input`, `chat_frame`, `content_range` (metagame, bot and ranges) |
 
@@ -216,6 +217,9 @@ module only calls the service's `Config::from_env` and `run_with_context`.
 
 The DaintyLass plan adds [`rust/crates/epic`](../../rust/crates/epic) (DE1, DD22): Epic sign-in, library, manifest
 and chunk reading, and the download for installing from the player's Epic library.
+`store`'s `connection`, `database`, `engine`, `history`, `portable` and `transfer` modules (DF7, DD15) and its
+change log (`history.rs`, DH1 and DD23) are new here too; `tests/db/{sqlite,postgres}` are the two-dialect test
+migrations. The SQLite-only `Store` beside them is still DR's.
 
 ## 3. Rename dictionary
 

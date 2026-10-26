@@ -68,8 +68,8 @@ Undaunted or any other project named here, and none of them endorses it.
 By the DaintyLass contributors, in two groups.
 
 - **MIT** ([LICENSE-MIT.txt](LICENSE-MIT.txt)), each crate's `Cargo.toml` says so: `rust/crates/controller`,
-  `rust/services/admin`, `rust/bins`, the `rust/services/backend` and `director` stubs, and `rust/crates/epic`
-  (DE1, written from Epic's manifest and chunk formats as Legendary documents them). Written here against the
+  `rust/services/admin`, `rust/bins`, the `rust/services/backend` and `director` stubs, `rust/crates/module-api`
+  (DF2, the module framework and frame protocol) and `rust/crates/epic` (DE1, written from Epic's manifest and chunk formats as Legendary documents them). Written here against the
   services' contracts, from none of the projects above. A binary that links them to the AGPL
   crates is distributed under the AGPL as a whole; the MIT grant is on these crates' own source.
 - **AGPL-3.0-only**: `rust/services/host`, a port of the Dauntless Reforged Revival line's Node host kit
@@ -93,6 +93,18 @@ By the DaintyLass contributors, in two groups.
 
 - The services' npm dependencies are listed in each `package-lock.json`, and the Rust crates' in
   `rust/Cargo.lock`; each keeps its own licence (`cargo deny` checks the Rust ones).
+- libpq, built from source by `pq-src` and linked into every binary that links `store` (DF7): PostgreSQL
+  Licence. Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group; Portions Copyright (c) 1994,
+  The Regents of the University of California. Permission to use, copy, modify, and distribute this software
+  and its documentation for any purpose, without fee, and without a written agreement is hereby granted,
+  provided that the above copyright notice and this paragraph and the following two paragraphs appear in all
+  copies. IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL,
+  INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS
+  DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. THE
+  UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS ON AN
+  "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+  ENHANCEMENTS, OR MODIFICATIONS.
 
 ## What this repository does not contain
 

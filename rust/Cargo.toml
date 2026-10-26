@@ -7,6 +7,7 @@ members = [
     "crates/controller",
     # Installing the game from the player's Epic library (DD22)
     "crates/epic",
+    "crates/module-api",
     "crates/protocol",
     "crates/proxy",
     "crates/service-kit",
@@ -42,6 +43,9 @@ publish = false
 [workspace.dependencies]
 controller = { path = "crates/controller" }
 server-controller = { path = "crates/controller", package = "controller" }
+# Published for the module repositories: registry = "silentspud" keeps cargo package from writing a crates.io
+# dependency (spike DF1)
+module-api = { path = "crates/module-api", version = "0.1.0", registry = "silentspud" }
 protocol = { path = "crates/protocol" }
 store = { path = "crates/store" }
 service-kit = { path = "crates/service-kit" }
@@ -112,6 +116,8 @@ subtle = "2"
 tower-http = { version = "0.7", features = ["fs", "catch-panic"] }
 # Also game-server ids (services/deploy)
 uuid = { version = "1", features = ["v4"] }
+# Network-wide ids, tagged with the owning node (DD18, crates/module-api)
+ulid = "3"
 # The metagame's chat parity test's WebSocket clients (the version axum's ws uses)
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake"] }
 
