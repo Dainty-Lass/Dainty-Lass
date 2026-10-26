@@ -7,7 +7,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { CommandName } from "./generated/types.ts";
-import type { ActionResult, HostKit, HostServerView, LauncherApi, RevertSelection, Settings, Snapshot, TaskProgress } from "./types.ts";
+import type { ActionResult, HostKit, HostServerView, LauncherApi, RegionPing, RevertSelection, Settings, Snapshot, TaskProgress } from "./types.ts";
 
 // A call that waits on the player (a file dialog) or on a long task (the executable check, the runtime
 // download, a host kit build) gets an hour; any other a minute.
@@ -189,7 +189,7 @@ export const api: LauncherApi = {
   gameInstallResume: (version) => act("game_install_resume", { version: String(version) }),
   gameInstallCancel: (version) => act("game_install_cancel", { version: String(version) }),
   gameInstallGet: (version) => act("game_install_get", { version: String(version) }),
-  regionPing: () => act("region_ping"),
+  regionPing: () => act<RegionPing>("region_ping"),
   moduleList: () => act("module_list"),
   moduleGet: (module) => act("module_get", { module: String(module) }),
   // The input's shape is the module manifest's, so it crosses as JSON text the backend checks

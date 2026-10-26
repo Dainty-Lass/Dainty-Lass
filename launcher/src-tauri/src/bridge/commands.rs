@@ -20,7 +20,7 @@ use super::spec::{
 use super::types::{
     ActionResult, Branding, ErrorCode, ExternalTarget, HostAction, HostFolder, HostKit, HostMultipliers,
     HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck, LauncherError, MAX_MULTIPLIER,
-    NewsItem, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
+    NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::core::text::{js_length, js_trim};
@@ -563,9 +563,10 @@ pub fn game_install_get(version: Value) -> ActionResult {
     planned("game_install_get", &[&version])
 }
 
+/// The joined server's regions, nearest first, reported to it as well (DN7).
 #[tauri::command]
-pub fn region_ping() -> ActionResult {
-    planned("region_ping", &[])
+pub async fn region_ping(app: AppHandle) -> RegionPing {
+    controller(&app).region_ping().await
 }
 
 #[tauri::command]

@@ -14,13 +14,14 @@ import type {
   InviteCheck,
   NewsItem,
   RealmKind,
+  RegionPing,
   RegisterOutcome,
   Settings,
   Snapshot,
   TaskProgress,
 } from "./generated/types.ts";
 
-export type { ActionResult, HostKit, HostServerView, Settings, Snapshot, TaskProgress };
+export type { ActionResult, HostKit, HostServerView, RegionPing, Settings, Snapshot, TaskProgress };
 
 export interface LauncherApi {
   getSnapshot(): Promise<Snapshot>;
@@ -99,7 +100,8 @@ export interface LauncherApi {
   gameInstallResume(version: string): Promise<ActionResult>;
   gameInstallCancel(version: string): Promise<ActionResult>;
   gameInstallGet(version: string): Promise<ActionResult>;
-  regionPing(): Promise<ActionResult>;
+  // DN7's, filled: the joined server's regions, nearest first
+  regionPing(): Promise<RegionPing>;
   moduleList(): Promise<ActionResult>;
   moduleGet(module: string): Promise<ActionResult>;
   moduleRunCommand(module: string, command: string, input: unknown): Promise<ActionResult>;
