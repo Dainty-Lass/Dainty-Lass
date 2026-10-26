@@ -9,10 +9,6 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["edition-both"]
-edition-refined = ["protocol/edition-refined"]
-edition-reforged = ["protocol/edition-reforged"]
-edition-both = ["edition-refined", "edition-reforged", "protocol/edition-both"]
 # Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
 legacy = ["protocol/legacy"]
 

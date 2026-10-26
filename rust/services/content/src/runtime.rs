@@ -17,6 +17,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use protocol::game::Game;
 use protocol::manifest::{RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest};
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -163,11 +164,11 @@ impl RuntimeStore {
         state.current.clone()
     }
 
-    /// Edition-scoped runtime status (`?edition=refined|reforged`). Reads `<dir>/<edition>` when
-    /// that subfolder exists, falling back to `<dir>` so single-edition hosts work unchanged.
-    pub fn get_for_edition(&self, edition: Option<protocol::edition::Edition>) -> RuntimeStatus {
-        if let (Some(ed), Some(base)) = (edition, &self.dir) {
-            let sub = base.join(ed.as_str());
+    /// A game's runtime (`?game=`): `<dir>/<alias>` (`reforged`, `revived`) when that folder exists,
+    /// `<dir>` otherwise, so a server with one runtime answers as it always did.
+    pub fn get_for_game(&self, game: Option<Game>) -> RuntimeStatus {
+        if let (Some(game), Some(base)) = (game, &self.dir) {
+            let sub = base.join(game.version_alias());
             if sub.is_dir() {
                 return load(&sub);
             }
@@ -186,14 +187,10 @@ impl RuntimeStore {
         Some((file, full))
     }
 
-    /// Edition-scoped runtime file (`GET /content/v1/runtime/files/:edition/:name`).
-    pub fn file_for_edition(
-        &self,
-        edition: Option<protocol::edition::Edition>,
-        name: &str,
-    ) -> Option<(RuntimeFile, PathBuf)> {
-        if let (Some(ed), Some(base)) = (edition, &self.dir) {
-            let sub = base.join(ed.as_str());
+    /// A game's runtime file (`files/<game>/<name>`), from the folder [`Self::get_for_game`] reads.
+    pub fn file_for_game(&self, game: Option<Game>, name: &str) -> Option<(RuntimeFile, PathBuf)> {
+        if let (Some(game), Some(base)) = (game, &self.dir) {
+            let sub = base.join(game.version_alias());
             if sub.is_dir() {
                 let RuntimeStatus::Ok { index, .. } = load(&sub) else {
                     return None;

@@ -392,3 +392,63 @@ async fn a_file_changed_under_the_list_is_refused_and_picked_up_again() {
     assert_eq!(manifest.json()["version"], "v2");
     assert_eq!(request(server.port, "GET", DLL, &key).await.body, vec![4; 6000]);
 }
+
+/// A game's own runtime (RD26): `?game=` on the manifest and `files/<game>/<name>` read `<dir>/<alias>`
+/// when the host published one there, the server's runtime otherwise. Node has neither: it ignores the
+/// query, which the fallback matches, and answers the two-part path 404.
+#[tokio::test]
+async fn serves_a_game_s_own_runtime_from_its_folder_and_the_server_s_otherwise() {
+    let dir = tempfile::tempdir().unwrap();
+    publish(dir.path(), vec![1; 300], vec![2; 30], "own");
+    let revived = dir.path().join("revived");
+    std::fs::create_dir_all(&revived).unwrap();
+    let (_, revived_loader) = publish(&revived, vec![3; 200], vec![4; 20], "revived");
+    let s = start(dir.path(), None, 2, 8).await;
+
+    for query in [
+        "",
+        "?game=reforged",
+        "?game=1.14.7",
+        "?game=nonsense",
+        "?edition=revived",
+    ] {
+        let reply = request(s.port, "GET", &format!("/content/v1/runtime/manifest{query}"), &[]).await;
+        assert_eq!(
+            (reply.status, reply.json()["version"].clone()),
+            (200, json!("own")),
+            "{query}"
+        );
+    }
+    for query in ["?game=revived", "?game=1.4.4", "?game=revived&game=reforged"] {
+        let reply = request(s.port, "GET", &format!("/content/v1/runtime/manifest{query}"), &[]).await;
+        assert_eq!(
+            (reply.status, reply.json()["version"].clone()),
+            (200, json!("revived")),
+            "{query}"
+        );
+    }
+
+    let key = [("x-reforged-user-api-key", KEY)];
+    let file = request(s.port, "GET", "/content/v1/runtime/files/revived/winmm.dll", &key).await;
+    assert_eq!((file.status, file.body), (200, revived_loader));
+    let own = request(s.port, "GET", "/content/v1/runtime/files/reforged/winmm.dll", &key).await;
+    assert_eq!(
+        (own.status, own.body),
+        (200, vec![2; 30]),
+        "no reforged folder: the server's runtime"
+    );
+    for path in [
+        "/content/v1/runtime/files/nonsense/winmm.dll",
+        "/content/v1/runtime/files/revived/runtime.json",
+        "/content/v1/runtime/files/revived/../winmm.dll",
+    ] {
+        assert_eq!(request(s.port, "GET", path, &key).await.status, 404, "{path}");
+    }
+    assert_eq!(
+        request(s.port, "GET", "/content/v1/runtime/files/revived/winmm.dll", &[])
+            .await
+            .status,
+        401,
+        "a key, as for the server's own files"
+    );
+}

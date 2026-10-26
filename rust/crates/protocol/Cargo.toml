@@ -20,10 +20,6 @@ ts-rs = { workspace = true, optional = true }
 workspace = true
 
 [features]
-default = ["edition-both"]
-edition-refined = []
-edition-reforged = []
-edition-both = ["edition-refined", "edition-reforged"]
 # TypeScript declarations of the types the launcher page shows (L6)
 ts = ["dep:ts-rs"]
 # Dauntless Revived's 1.4.4 servers: dauntless-revived:// invites are read instead of refused (RD5 reversed)

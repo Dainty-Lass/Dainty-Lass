@@ -127,6 +127,19 @@ pub struct Restriction {
     pub until: Option<String>,
 }
 
+/// A timeout the admin API will lift: what `timeouts.json` holds, not the backend's view of the account.
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct ActiveTimeout {
+    pub username: String,
+    /// When it ends (RFC 3339).
+    pub until: String,
+    pub reason: String,
+    /// `manager:<operator id>`.
+    pub by: String,
+    /// When it was set (RFC 3339).
+    pub at: String,
+}
+
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LocationKind {
     /// Ramsgate
@@ -635,6 +648,25 @@ impl Query {
     async fn hunt_status(&self, ctx: &Context<'_>) -> async_graphql::Result<HuntStatus> {
         let (admin, operator) = parts(ctx)?;
         admin.hunt_status(operator).await
+    }
+
+    /// The timeouts this API will lift when they end, soonest first. Read from its own file: the
+    /// backend is not asked, so a ban someone replaced since still shows until the sweep sees it.
+    async fn active_timeouts(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<ActiveTimeout>> {
+        let (admin, _operator) = parts(ctx)?;
+        Ok(admin
+            .timeouts
+            .all()
+            .await
+            .into_iter()
+            .map(|t| ActiveTimeout {
+                username: t.username,
+                until: input::iso(t.until),
+                reason: t.reason,
+                by: t.by,
+                at: input::iso(t.at),
+            })
+            .collect())
     }
 }
 

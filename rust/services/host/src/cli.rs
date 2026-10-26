@@ -30,6 +30,8 @@ pub enum Command {
     Setup(SetupArgs),
     /// Run every service until Ctrl+C (or a "stop" line with REFORGED_CONTROL=stdin)
     Start,
+    /// Run the server in this process with a console (--tui for the dashboard)
+    Serve(ServeArgs),
     /// Make an invite link for a player
     Invite(InviteArgs),
     /// Check what is still missing or wrong
@@ -53,6 +55,29 @@ pub enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// One service alone, as its own binary ran it: `gateway serve --env-file <file>`, `gateway make-cert`,
+    /// `allowlist --env-file <file> [--close-ports]`, `content serve`, `admin serve|schema`. For the
+    /// systemd units and the containers, which run each service with its own privileges (RD26).
+    #[command(hide = true, disable_help_flag = true)]
+    Gateway {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    #[command(hide = true, disable_help_flag = true)]
+    Allowlist {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    #[command(hide = true, disable_help_flag = true)]
+    Content {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    #[command(hide = true, disable_help_flag = true)]
+    Admin {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 impl Command {
@@ -61,6 +86,7 @@ impl Command {
         match self {
             Self::Setup(_) => "setup",
             Self::Start => "start",
+            Self::Serve(_) => "serve",
             Self::Invite(_) => "invite",
             Self::Doctor(_) => "doctor",
             Self::Gamedata(_) => "gamedata",
@@ -70,6 +96,10 @@ impl Command {
             Self::Update(_) => "update",
             Self::Backup => "backup",
             Self::Gameserver { .. } => "gameserver",
+            Self::Gateway { .. } => "gateway",
+            Self::Allowlist { .. } => "allowlist",
+            Self::Content { .. } => "content",
+            Self::Admin { .. } => "admin",
         }
     }
 }
@@ -79,8 +109,8 @@ pub struct SetupArgs {
     /// private (friends over Tailscale) or public (a server on the internet)
     #[arg(long, value_name = "private|public")]
     pub mode: Option<String>,
-    /// reborn (Dauntless 1.14.7 on Mystic Paradox, the default) or legacy (Dauntless Revived's 1.4.4)
-    #[arg(long, value_name = "reborn|legacy")]
+    /// reborn (Dauntless 1.14.7 on Mystic Paradox, the default), legacy (Dauntless Revived's 1.4.4), or both
+    #[arg(long, value_name = "reborn|legacy|both")]
     pub edition: Option<String>,
     /// Private: this PC's Tailscale IP (found when Tailscale runs). Public: the public IPv4 or DNS name
     #[arg(long, value_name = "address")]
@@ -91,6 +121,9 @@ pub struct SetupArgs {
     /// The Dauntless folder (the one with Archon), as a full path: 1.14.7, or 1.4.4 for --edition legacy
     #[arg(long, value_name = "Dauntless folder")]
     pub game: Option<String>,
+    /// --edition both: the Dauntless 1.4.4 folder (--game is the 1.14.7 one)
+    #[arg(long, value_name = "Dauntless 1.4.4 folder")]
+    pub legacy_game: Option<String>,
     /// The IPv4 the game servers announce (a public server on a DNS name needs it)
     #[arg(long, value_name = "IPv4")]
     pub game_address: Option<String>,
@@ -124,6 +157,9 @@ pub struct SetupArgs {
     /// The gateway's port when 443 is taken (a hosting panel, for example); 443 goes back
     #[arg(long, value_name = "port", help_heading = "Public servers")]
     pub public_port: Option<String>,
+    /// --edition both: the 1.4.4 gateway's port (4443 unless given)
+    #[arg(long, value_name = "port", help_heading = "Public servers")]
+    pub legacy_public_port: Option<String>,
     /// The wine program (a path, or a name on PATH)
     #[arg(long, value_name = "path", help_heading = "Linux")]
     pub wine: Option<String>,
@@ -210,6 +246,9 @@ pub struct InviteArgs {
     /// List the invite codes instead
     #[arg(long)]
     pub list: bool,
+    /// A server running both games: which one the invite is for (reforged or 1.14.7, revived or 1.4.4)
+    #[arg(long, value_name = "game")]
+    pub game: Option<String>,
     /// One JSON line, for the launcher's Host page
     #[arg(long)]
     pub json: bool,
@@ -416,4 +455,18 @@ mod tests {
         // Removed with `npm run upstream` (RH5, section 6): Mystic Paradox is in paradox/ since RP4.
         assert!(Cli::try_parse_from(["reforged-host", "upstream"]).is_err());
     }
+}
+
+/// `serve`: `start` with a console (RD26).
+#[derive(Debug, Args)]
+pub struct ServeArgs {
+    /// host.toml, host.yaml or host.json to run from (the workspace's otherwise)
+    #[arg(long, short = 'c', value_name = "FILE")]
+    pub config: Option<std::path::PathBuf>,
+    /// The dashboard instead of the line console
+    #[arg(long)]
+    pub tui: bool,
+    /// error, warn, info, debug or trace
+    #[arg(long, value_name = "LEVEL", default_value = "info")]
+    pub log_level: String,
 }

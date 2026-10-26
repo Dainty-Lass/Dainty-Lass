@@ -128,6 +128,7 @@ export const api: LauncherApi = {
   hostServerGet: () => call<HostServerView>("host_server_get"),
   hostServerStart: () => act("host_server_start", {}, LONG_TIMEOUT_MS),
   hostServerStop: () => act("host_server_stop", {}, LONG_TIMEOUT_MS),
+  hostServerRestart: (name: string) => act("host_server_restart", { name }, LONG_TIMEOUT_MS),
   hostSetup: (req) =>
     act(
       "host_setup",

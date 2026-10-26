@@ -911,7 +911,10 @@ fn multipliers_args_default_is_nothing_asked() {
 #[test]
 fn a_build_without_the_legacy_feature_refuses_a_legacy_server() {
     let error = from_args(&["--mode", "private", "--edition", "legacy"], None, &Mock::new()).unwrap_err();
-    assert!(error.starts_with("this is a legacy server"), "{error}");
+    assert!(
+        error.starts_with("this server runs Dauntless Revived's 1.4.4"),
+        "{error}"
+    );
     assert!(error.contains("--features legacy"), "{error}");
 }
 
@@ -937,7 +940,7 @@ fn the_edition_is_reborn_unless_host_toml_or_the_option_says_legacy() {
         1,
     );
     let error = HostConfig::from_toml(&toml).unwrap_err().to_string();
-    assert!(error.contains("edition must be reborn or legacy"), "{error}");
+    assert!(error.contains("edition must be reborn, legacy or both"), "{error}");
     let explicit = toml.replacen("edition = \"classic\"", "edition = \"reborn\"", 1);
     assert_eq!(HostConfig::from_toml(&explicit).unwrap().edition, Edition::Reborn);
 }
@@ -951,7 +954,7 @@ fn edition_legacy_goes_into_host_toml_and_is_kept_until_setup_says_reborn() {
     let toml = legacy.to_toml().unwrap();
     assert!(toml.contains("\nedition = \"legacy\"\n"), "{toml}");
     assert!(
-        toml.contains("# \"reborn\" (Dauntless 1.14.7 on Mystic Paradox) or \"legacy\""),
+        toml.contains("# \"reborn\" (Dauntless 1.14.7 on Mystic Paradox), \"legacy\""),
         "{toml}"
     );
     let read = HostConfig::from_toml(&toml).unwrap();
@@ -1175,5 +1178,132 @@ fn a_public_legacy_server_on_linux_runs_its_game_servers_through_drs_run_game() 
     assert!(
         link.starts_with("dauntless-revived://join?v=2&mode=public&host=old.example.net&port=443&fp="),
         "{link}"
+    );
+}
+
+// ------------------------------------------------------------------ both games (RD26)
+
+#[cfg(feature = "legacy")]
+const BOTH: [&str; 10] = [
+    "--mode",
+    "public",
+    "--host",
+    "two.example.net",
+    "--game-address",
+    "203.0.113.7",
+    "--edition",
+    "both",
+    "--legacy-game",
+    "/games/1.4.4",
+];
+
+#[cfg(feature = "legacy")]
+#[test]
+fn edition_both_holds_the_1_4_4_folder_and_port_and_checks_them() {
+    let env = Mock::new();
+    let both = from_args(&BOTH, None, &env).unwrap();
+    assert_eq!(both.edition, Edition::Both);
+    assert!(both.legacy_game_dir.as_deref().is_some_and(|d| d.contains("1.4.4")));
+    assert_eq!(both.legacy_public_port, None, "4443 unless given");
+    let toml = both.to_toml().unwrap();
+    assert!(toml.contains("\nedition = \"both\"\n"), "{toml}");
+    assert!(toml.contains("\nlegacy_game_dir = "), "{toml}");
+    let read = HostConfig::from_toml(&toml).unwrap();
+    assert_eq!(
+        (read.edition, read.legacy_game_dir.clone()),
+        (Edition::Both, both.legacy_game_dir.clone())
+    );
+    assert_eq!(
+        round_trip(&read).legacy_game_dir,
+        both.legacy_game_dir,
+        "and in host.json"
+    );
+    let kept = from_args(&["--name", "Thursday"], Some(&read), &env).unwrap();
+    assert_eq!(kept.legacy_game_dir, both.legacy_game_dir, "kept when not given");
+
+    let with_port = [&BOTH[..], &["--legacy-public-port", "4444"]].concat();
+    assert_eq!(
+        from_args(&with_port, None, &env).unwrap().legacy_public_port,
+        Some(4444)
+    );
+    let errors = [
+        (
+            vec!["--mode", "private", "--legacy-game", "/games/1.4.4"],
+            "--legacy-game and --legacy-public-port are for --edition both",
+        ),
+        (
+            [&BOTH[..], &["--legacy-public-port", "61010"]].concat(),
+            "legacyPublicPort 61010 is one the server uses itself",
+        ),
+        (
+            [&BOTH[..], &["--legacy-public-port", "8781"]].concat(),
+            "legacyPublicPort 8781 is one the server uses itself",
+        ),
+        (
+            [&BOTH[..], &["--public-port", "4443"]].concat(),
+            "both gateways would listen on 4443",
+        ),
+        (
+            [&BOTH[..], &["--public-port", "61012"]].concat(),
+            "is one the 1.4.4 stack uses",
+        ),
+        (
+            [&BOTH[..8], &["--legacy-game", "games"]].concat(),
+            "--legacy-game needs the full path",
+        ),
+    ];
+    for (args, wanted) in errors {
+        let error = from_args(&args, None, &env).unwrap_err();
+        assert!(error.contains(wanted), "{args:?}: {error}");
+    }
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn a_setup_for_both_games_writes_both_stacks_env_files_and_firewall_rules() {
+    let (_dir, p, _game) = checkout();
+    let env = Mock {
+        mongod: None,
+        ..Mock::new()
+    };
+    let (r, lines) = setup(&p, &BOTH, &env);
+    assert!(r.is_ok(), "{r:?}\n{}", lines.join("\n"));
+    for name in [
+        "backend",
+        "director",
+        "content",
+        "gateway",
+        "allowlist",
+        "metagame",
+        "deploy",
+        "legacy-content",
+        "legacy-gateway",
+        "legacy-allowlist",
+    ] {
+        assert!(p.config.join(format!("{name}.env")).is_file(), "{name}.env");
+    }
+    let gateway = read_env_file(&p.config.join("gateway.env")).unwrap();
+    let legacy_gateway = read_env_file(&p.config.join("legacy-gateway.env")).unwrap();
+    assert_eq!(gateway.get("GATEWAY_PORT"), Some("443"));
+    assert_eq!(legacy_gateway.get("GATEWAY_PORT"), Some("4443"));
+    assert_eq!(legacy_gateway.get("GATEWAY_GAME"), Some("legacy"));
+    assert_eq!(
+        gateway.get("GATEWAY_CERT"),
+        legacy_gateway.get("GATEWAY_CERT"),
+        "one certificate: one fp for both games' invites"
+    );
+    let allowlist = read_env_file(&p.config.join("legacy-allowlist.env")).unwrap();
+    assert_eq!(allowlist.get("ALLOWLIST_PORTS"), Some("8780-8787"));
+    assert_eq!(
+        allowlist.get("ALLOWLIST_RULE_NAME"),
+        Some(host::hostconfig::LEGACY_RULE_NAME)
+    );
+    let firewall = read(&p.config.join("firewall.ps1"));
+    assert!(firewall.contains("'ReforgedRevival-Gateway-Legacy'"), "{firewall}");
+    assert!(firewall.contains("'8780-8787'"), "{firewall}");
+    assert!(
+        lines.iter().any(|l| l.starts_with("Both games:")),
+        "{}",
+        lines.join("\n")
     );
 }

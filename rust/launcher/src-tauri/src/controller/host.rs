@@ -643,6 +643,22 @@ impl Controller {
         }
     }
 
+    /// One service of the server inside the launcher, stopped and started again.
+    pub async fn host_server_restart(&self, name: &str) -> ActionResult {
+        match self.host.server.restart(name).await {
+            Ok(()) => {
+                log::info(&format!("host: {name} restarted from the Host page"));
+                ActionResult::Ok
+            }
+            Err(why) => self.host_fail(&why),
+        }
+    }
+
+    /// The server GUI's in-process server, driven in place of `reforged-host start`.
+    pub fn set_embedded_server(&self, server: Arc<dyn crate::platform::hostserver::EmbeddedServer>) {
+        self.host.server.set_embedded(server);
+    }
+
     pub async fn host_server_stop(&self) -> ActionResult {
         self.host.server.stop().await;
         log::info("host: server stopped from the Host page");

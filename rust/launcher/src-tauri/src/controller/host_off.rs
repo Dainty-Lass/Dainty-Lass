@@ -121,6 +121,8 @@ impl Controller {
             message: None,
             lines: Vec::new(),
             invite: None,
+            embedded: false,
+            components: Vec::new(),
         }
     }
 
@@ -129,6 +131,10 @@ impl Controller {
     }
 
     pub async fn host_server_stop(&self) -> ActionResult {
+        self.host_off()
+    }
+
+    pub async fn host_server_restart(&self, _name: &str) -> ActionResult {
         self.host_off()
     }
 

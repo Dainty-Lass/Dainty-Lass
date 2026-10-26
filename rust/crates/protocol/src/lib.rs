@@ -6,7 +6,6 @@
 //! Revived's 1.4.4 servers ([`game::Game::Legacy`]) are read only with the `legacy` feature.
 
 pub mod account;
-pub mod edition;
 pub mod game;
 pub mod invite;
 pub mod manifest;
