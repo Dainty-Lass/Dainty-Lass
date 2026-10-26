@@ -51,6 +51,7 @@ permissions = [
   "allow-host-server-get",
   "allow-host-server-start",
   "allow-host-server-stop",
+  "allow-host-server-restart",
   "allow-host-setup",
   "allow-host-create-invite",
   "allow-host-update",

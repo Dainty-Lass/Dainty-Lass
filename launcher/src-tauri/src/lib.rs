@@ -50,6 +50,17 @@ fn on_second_launcher(args: Vec<String>) {
 
 /// Builds and runs the app until the last window closes; hands over to the launcher already running.
 pub fn run() -> tauri::Result<()> {
+    run_app(None)
+}
+
+/// The server the Host page drives inside the launcher (the server GUI); a player-only build has no Host page.
+#[cfg(feature = "host")]
+type Embedded = Option<Arc<dyn platform::hostserver::EmbeddedServer>>;
+#[cfg(not(feature = "host"))]
+type Embedded = Option<std::convert::Infallible>;
+
+/// The launcher; with `embedded`, its Host page drives the server inside it (the server GUI).
+fn run_app(embedded: Embedded) -> tauri::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     #[cfg(target_os = "linux")]
     secure_storage::wait_for_parent();
@@ -136,6 +147,7 @@ pub fn run() -> tauri::Result<()> {
             commands::host_server_get,
             commands::host_server_start,
             commands::host_server_stop,
+            commands::host_server_restart,
             commands::host_setup,
             commands::host_create_invite,
             commands::host_update,
@@ -164,6 +176,12 @@ pub fn run() -> tauri::Result<()> {
                     }
                 },
             );
+            #[cfg(feature = "host")]
+            if let Some(server) = embedded.clone() {
+                controller.set_embedded_server(server);
+            }
+            #[cfg(not(feature = "host"))]
+            let _ = &embedded;
             app.manage(controller.clone());
             window::create(app.handle())?;
             // Packaged builds only: a development build has no release to update to
@@ -341,11 +359,10 @@ pub fn run_client() -> tauri::Result<()> {
     run()
 }
 
-/// Entry point for the 3 desktop server-GUI binaries (`reforged-server-gui`, `refined-server-gui`,
-/// `reforged-only-server-gui`), embedding `ServerController` and `LauncherGuiLayer` in-process.
+/// `reforged-server-gui`: the launcher with the server inside it, which the Host page's server panel
+/// starts, stops and restarts service by service (RD26).
 #[cfg(feature = "server-gui")]
 pub fn run_server_gui() -> tauri::Result<()> {
-    let (layer, _rx, handle) = server_gui::init_gui_telemetry();
-    let _embedded = server_gui::EmbeddedServerState::new(layer, handle);
-    run()
+    let logs = server_gui::init_telemetry();
+    run_app(Some(Arc::new(server_gui::EmbeddedServerState::new(logs))))
 }

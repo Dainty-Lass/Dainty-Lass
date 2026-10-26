@@ -73,6 +73,7 @@ async function callEverything(): Promise<void> {
   await api.hostServerGet();
   await api.hostServerStart();
   await api.hostServerStop();
+  await api.hostServerRestart("content");
   await api.hostSetup({ name: "Friends", mode: "private", publicHost: null });
   await api.hostSetup({ name: "Hunts", mode: "public", publicHost: "play.example.org" });
   await api.hostCreateInvite(null);
