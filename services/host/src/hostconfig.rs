@@ -92,6 +92,71 @@ pub struct LinuxOptions {
     pub firewall_interface: Option<String>,
 }
 
+/// host.toml `[database]`: the engine of the Rust services' database (DD15, `store`). Absent: SQLite, as
+/// before it existed. Each field is kept as read, so writing the file back changes nothing unasked.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DatabaseSettings {
+    /// `sqlite` or `postgres`; absent: sqlite.
+    pub engine: Option<String>,
+    pub postgres_host: Option<String>,
+    pub postgres_port: Option<u16>,
+    pub postgres_user: Option<String>,
+    pub postgres_database: Option<String>,
+    /// A Postgres server off this machine: refused unless true, since libpq is built without TLS (DF7).
+    pub allow_remote: Option<bool>,
+}
+
+/// The SQLite database's file, in the config folder: kept with secrets.env in the host's backups.
+pub const DATABASE_FILE: &str = "dainty-lass.db";
+
+impl DatabaseSettings {
+    pub fn postgres(&self) -> bool {
+        self.engine.as_deref() == Some("postgres")
+    }
+
+    fn from_json(d: &Map<String, Value>) -> Self {
+        let text = |key: &str| d.get(key).and_then(Value::as_str).map(str::to_owned);
+        Self {
+            engine: text("engine"),
+            postgres_host: text("postgresHost"),
+            postgres_port: d.get("postgresPort").and_then(Value::as_u64).map(|p| p as u16),
+            postgres_user: text("postgresUser"),
+            postgres_database: text("postgresDatabase"),
+            allow_remote: d.get("allowRemote").and_then(Value::as_bool),
+        }
+    }
+
+    /// host.json's form: the keys that were set, in host.toml's order.
+    pub fn to_json(&self) -> Value {
+        let text = |value: &Option<String>| value.clone().map(Value::String);
+        let fields = [
+            ("engine", text(&self.engine)),
+            ("postgresHost", text(&self.postgres_host)),
+            ("postgresPort", self.postgres_port.map(Value::from)),
+            ("postgresUser", text(&self.postgres_user)),
+            ("postgresDatabase", text(&self.postgres_database)),
+            ("allowRemote", self.allow_remote.map(Value::from)),
+        ];
+        Value::Object(
+            fields
+                .into_iter()
+                .filter_map(|(key, value)| value.map(|v| (key.to_owned(), v)))
+                .collect(),
+        )
+    }
+}
+
+/// `localhost`, a loopback address or a Unix socket folder, as `store::is_local_address` says.
+pub fn is_local_database_host(host: &str) -> bool {
+    host == "localhost"
+        || host.starts_with('/')
+        || host
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+}
+
 pub const DEFAULT_LINUX: LinuxOptions = LinuxOptions {
     wine: None,
     proton: None,
@@ -238,6 +303,8 @@ pub struct HostConfig {
     pub performance: Option<PerformanceOptions>,
     /// Linux only: how the Windows game servers run and what the allowlist filters.
     pub linux: Option<LinuxOptions>,
+    /// Absent: SQLite in the config folder.
+    pub database: Option<DatabaseSettings>,
     /// The file this config was read from; `FileForm::default()` for a new one.
     pub file: FileForm,
 }
@@ -727,10 +794,55 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             }
         }
     }
+    if let Some(database) = c.get("database") {
+        validate_database(database)?;
+    }
     let mut out = c.clone();
     out.insert("host".into(), Value::String(host));
     out.insert("name".into(), Value::String(name));
     Ok(Value::Object(out))
+}
+
+fn validate_database(database: &Value) -> Result<(), HostError> {
+    let d = database.as_object().ok_or_else(|| bad("database must be an object"))?;
+    let engine = match d.get("engine") {
+        None => "sqlite",
+        Some(Value::String(e)) if e == "sqlite" || e == "postgres" => e.as_str(),
+        other => {
+            return Err(bad(format!(
+                "database.engine must be sqlite or postgres, not {}",
+                shown(other)
+            )));
+        }
+    };
+    for key in ["postgresHost", "postgresUser", "postgresDatabase"] {
+        match d.get(key) {
+            None => {}
+            Some(Value::String(v)) if !js::trim(v).is_empty() && !v.chars().any(char::is_control) => {}
+            other => return Err(bad(format!("database.{key} must be a name, not {}", shown(other)))),
+        }
+    }
+    if let Some(port) = d.get("postgresPort")
+        && !integer(Some(port)).is_some_and(|n| (1.0..=65535.0).contains(&n))
+    {
+        return Err(bad(format!(
+            "database.postgresPort must be a TCP port from 1 to 65535, not {}",
+            shown(Some(port))
+        )));
+    }
+    if !d.get("allowRemote").is_none_or(Value::is_boolean) {
+        return Err(bad("database.allowRemote must be true or false"));
+    }
+    let host = d.get("postgresHost").and_then(Value::as_str).unwrap_or("127.0.0.1");
+    let allow_remote = d.get("allowRemote").and_then(Value::as_bool) == Some(true);
+    // libpq is built without TLS (DF7 spike): a password and every query would cross the network in clear.
+    if engine == "postgres" && !allow_remote && !is_local_database_host(host) {
+        return Err(bad(format!(
+            "database.postgresHost {host} is not on this machine, and connections to Postgres are not encrypted: \
+             use 127.0.0.1, or set database.allowRemote = true if the network between them is private"
+        )));
+    }
+    Ok(())
 }
 
 impl HostConfig {
@@ -770,6 +882,10 @@ impl HostConfig {
                 firewall_interface: nullable_string(lx, "firewallInterface", "linux.firewallInterface")?,
             }),
         };
+        let database = c
+            .get("database")
+            .and_then(Value::as_object)
+            .map(DatabaseSettings::from_json);
         let multipliers = c.get("multipliers").and_then(Value::as_object).map(|m| Multipliers {
             xp: num(m, "xp").unwrap_or(1.0),
             rewards: num(m, "rewards").unwrap_or(1.0),
@@ -808,6 +924,7 @@ impl HostConfig {
             legacy_public_port: num(&c, "legacyPublicPort").map(|v| v as u16),
             performance,
             linux,
+            database,
             file: FileForm::default(),
         };
         config.file = FileForm {
@@ -901,6 +1018,9 @@ impl HostConfig {
             lm.insert("xvfb".into(), lx.xvfb.into());
             lm.insert("firewallInterface".into(), opt(&lx.firewall_interface));
             m.insert("linux".into(), Value::Object(lm));
+        }
+        if let Some(database) = &self.database {
+            m.insert("database".into(), database.to_json());
         }
         m
     }
@@ -1069,12 +1189,15 @@ pub struct Secrets {
     pub admin_api_key: String,
     /// Signs the admin API's calls to the backend's `/admin/v1` (Paradox's manager-operator credential).
     pub operator_secret: String,
+    /// The Postgres role's password when `[database]` picks Postgres (DF7); made for every server, so a
+    /// later switch finds it there.
+    pub database_password: String,
 }
 
 pub const SECRET_FILE: &str = "secrets.env";
 
 /// The variable names in `secrets.env`, in the order they are written.
-pub const SECRET_KEYS: [&str; 10] = [
+pub const SECRET_KEYS: [&str; 11] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
     "REFORGED_ADMIN_KEY",
@@ -1085,6 +1208,7 @@ pub const SECRET_KEYS: [&str; 10] = [
     "AUTH_SIGNING_PUBKEY_B64",
     "REFORGED_ADMIN_API_KEY",
     "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
+    "REFORGED_DB_PASSWORD",
 ];
 
 impl Secrets {
@@ -1100,7 +1224,8 @@ impl Secrets {
             6 => &mut self.jwt_private_key_b64,
             7 => &mut self.jwt_public_key_b64,
             8 => &mut self.admin_api_key,
-            _ => &mut self.operator_secret,
+            9 => &mut self.operator_secret,
+            _ => &mut self.database_password,
         }
     }
 }
@@ -1423,6 +1548,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         ("REFORGED_MAX_HUNT_SERVERS", c.max_hunt_servers.to_string()),
         ("REFORGED_SERVER_MODE", c.mode.as_str().into()),
     ];
+    let admin = [admin, database_env(c, s, p)].concat();
     let common: [(&str, String); 4] = [
         ("GATEWAY_SECRET", s.gateway_secret.clone()),
         ("GATEWAY_BACKEND_URL", format!("http://127.0.0.1:{}", PORTS.backend)),
@@ -1492,6 +1618,36 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         admin: owned(admin),
         allowlist: allowlist.map(owned),
     }
+}
+
+/// The database settings `store::DatabaseConfig::from_lookup` reads, for a service that keeps the node's
+/// database (DD15).
+fn database_env(c: &HostConfig, s: &Secrets, p: &Paths) -> Vec<(&'static str, String)> {
+    let d = c.database.clone().unwrap_or_default();
+    if !d.postgres() {
+        return vec![
+            ("REFORGED_DB_ENGINE", "sqlite".into()),
+            ("REFORGED_DB_FILE", path_text(&p.config.join(DATABASE_FILE))),
+        ];
+    }
+    let mut out = vec![
+        ("REFORGED_DB_ENGINE", "postgres".into()),
+        (
+            "REFORGED_DB_HOST",
+            d.postgres_host.unwrap_or_else(|| "127.0.0.1".into()),
+        ),
+        ("REFORGED_DB_PORT", d.postgres_port.unwrap_or(5432).to_string()),
+        ("REFORGED_DB_USER", d.postgres_user.unwrap_or_else(|| "dainty".into())),
+        (
+            "REFORGED_DB_NAME",
+            d.postgres_database.unwrap_or_else(|| "dainty".into()),
+        ),
+        ("REFORGED_DB_PASSWORD", s.database_password.clone()),
+    ];
+    if d.allow_remote == Some(true) {
+        out.push(("REFORGED_DB_ALLOW_REMOTE", "1".into()));
+    }
+    out
 }
 
 pub const ENV_FILE_HEADER: [&str; 2] = [

@@ -115,20 +115,23 @@ fn a_new_host_json_has_setups_key_order() {
     }
 }
 
-/// The secrets the Rust kit adds to a Node kit's file: the admin API's two (docs/admin-api.md).
+/// The secrets the Rust kit adds to a Node kit's file: the admin API's two (docs/admin-api.md) and the
+/// Postgres password (DF7).
 fn with_admin_api_secrets() -> Result<Secrets, host::error::HostError> {
     Ok(Secrets {
         admin_api_key: "g".repeat(64),
         operator_secret: "h".repeat(64),
+        database_password: "p".repeat(64),
         ..Secrets::default()
     })
 }
 
 /// The lines the Rust kit writes that the Node kit never did, which the comparisons leave out.
-const ADMIN_API_LINES: [&str; 3] = [
+const ADMIN_API_LINES: [&str; 4] = [
     "REFORGED_ADMIN_API_KEY=",
     "MYSTICPARADOX_MANAGER_ADMIN=",
     "MYSTICPARADOX_MANAGER_OPERATOR_SECRET=",
+    "REFORGED_DB_PASSWORD=",
 ];
 
 fn without_admin_api_lines(text: &str) -> String {
@@ -149,7 +152,11 @@ fn secrets_env_written_by_the_node_kit_is_kept_byte_for_byte() {
     assert_eq!(secrets.admin_api_key, "g".repeat(64));
     let rewritten = text(&copy.path().join("secrets.env"));
     assert_eq!(without_admin_api_lines(&rewritten), text(&file));
-    assert!(rewritten.ends_with(&format!("MYSTICPARADOX_MANAGER_OPERATOR_SECRET={}\n", "h".repeat(64))));
+    assert!(rewritten.ends_with(&format!(
+        "MYSTICPARADOX_MANAGER_OPERATOR_SECRET={}\nREFORGED_DB_PASSWORD={}\n",
+        "h".repeat(64),
+        "p".repeat(64)
+    )));
     // Made by the Rust kit from the same values: the same file.
     let out = tempfile::tempdir().unwrap();
     let (made, created) = load_or_create_secrets(out.path(), || Ok(secrets.clone())).unwrap();
