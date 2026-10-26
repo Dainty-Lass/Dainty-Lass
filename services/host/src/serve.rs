@@ -52,7 +52,12 @@ impl ServeOptions {
 
 /// The console's `name           | line`, as the stdout layer prints the in-process services.
 pub fn table_printer() -> Printer {
-    Arc::new(|name: &str, line: &str| println!("{name:<14} | {line}"))
+    Arc::new(|name: &str, line: &str| println!("{name:<14} | {}", crate::repl::plain(line)))
+}
+
+/// The dashboard's: a process's lines into its log pane as that service's, never printed over it.
+fn ring_printer() -> Printer {
+    Arc::new(|name: &str, line: &str| tracing::info!(target: "host", service = name, "{}", crate::repl::plain(line)))
 }
 
 /// The env file as the service would see it as a process: the system's variables, then the file.
@@ -497,7 +502,12 @@ pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
             return Ok(ExitCode::SUCCESS);
         }
     }
-    let mut controller = prepare(paths, &config, external, table_printer())?;
+    let printer = if tui_ring.is_some() {
+        ring_printer()
+    } else {
+        table_printer()
+    };
+    let mut controller = prepare(paths, &config, external, printer)?;
     controller.set_invite_info(None, fingerprint(paths, &config));
     if controller.is_empty() {
         say(&empty_build_message());
