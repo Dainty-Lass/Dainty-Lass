@@ -15,7 +15,7 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 | Path | What it is |
 | --- | --- |
-| `rust/` | One cargo workspace: `crates/` (`protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the `allowlist` bin, `content`, `host` = `reforged-host`, `backend`, `director`), `launcher/src-tauri` (the Tauri launcher backend) and `launcher/page`, `isolation/` |
+| `rust/` | One cargo workspace: `crates/` (`controller`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host` = the host kit and `serve`, `backend`, `director`, and DR's `metagame` and `deploy` for 1.4.4 servers), `bins/` (`server-console`, which builds `reforged-server-console` and `reforged-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `reforged-client`, and `reforged-server-gui` with the `server-gui` feature) and `launcher/page`, `isolation/` |
 | `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
 | `paradox/` | Mystic Paradox's Node backend and Director, forked with their history, until the Rust port replaces them. Any change is allowed; fixes are the baseline (RD2) |
 | `native/` | The C++ game runtime (`paradox-runtime`, `MysticParadox.dll`), its loader (`runtime-loader`, `winmm.dll`, Rust, not in the workspace) and the CatalogExporter. Built by each host from their own SDK |
@@ -23,7 +23,14 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 | `docs/` | Player and host guides, `architecture.md`, `paradox-patches.md`, `port/` (the migration guide, delta and catch-up lists), `security/` (one checklist per trust-boundary component) |
 
 `backend` and `director` in `rust/services/` are still stubs: nothing in the RB rows starts before the gate
-(RD17). Don't fill them in ahead of it.
+(RD17). Don't fill them in ahead of it; the controller runs Mystic Paradox's Node backend and Director as
+supervised modules in their place.
+
+The server is one executable (RD26). Every service is a module of `crates/controller`, behind its own Cargo
+feature (`modules.rs`), composed by `host::serve` from the files `setup` writes, and still runnable alone as a
+hidden `reforged-host <service>` subcommand (`services/host/src/cli.rs`), which Docker and `start` use. A new
+service is all three, not a binary of its own. DR's `metagame` and `deploy` are the exception still: the 1.4.4
+`start` runs their own binaries, which the server release doesn't build yet.
 
 `docs/architecture.md` is the reference for how the parts talk and what each trusts. Section 6 of the plan,
 "Things that must not change", lists what every port keeps byte for byte: read it before touching anything a
@@ -94,8 +101,9 @@ Rules that read like overcaution:
   certificate's SHA-256 from the invite is checked before any byte is sent. The gateway loads its existing
   certificate and never regenerates it, because every invite's `fp` depends on it.
 - **Secrets and keys are never logged.** Keep the redaction in the gateway, the launcher and the content server.
-- **The invite parser accepts nothing it doesn't recognise.** `dauntless-revived://` is a typed refusal
-  (RD5), not a second path.
+- **The invite parser accepts nothing it doesn't recognise.** Without the `legacy` feature,
+  `dauntless-revived://` is a typed refusal (RD5); with it, the same v1/v2 rules read it as a 1.4.4 invite, never
+  looser ones.
 - **The launcher never injects** (RD9). DLLs reach the game only through the runtime loader's
   `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or unknown DLL sits next to the loader.
 
