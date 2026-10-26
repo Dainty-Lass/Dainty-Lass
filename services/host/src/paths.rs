@@ -118,7 +118,7 @@ pub struct Paths {
 }
 
 impl Paths {
-    /// `root`: the Dauntless Reforged Revival checkout (the folder with `legacy/ReforgedHost/` and `paradox/`).
+    /// `root`: the checkout or server release (the folder with `rust/` and `paradox/`).
     pub fn new(root: impl Into<PathBuf>) -> Self {
         let root = root.into();
         let workspace = root.join(".workspace");
@@ -132,9 +132,9 @@ impl Paths {
         let logs = workspace.join("logs");
         Self {
             preset: root.join("preset"),
-            host_kit: root.join("legacy").join("ReforgedHost"),
-            gateway_dir: root.join("legacy").join("ReforgedGateway"),
-            content_dir: root.join("legacy").join("ReforgedContent"),
+            host_kit: root.join("rust").join("services").join("host"),
+            gateway_dir: root.join("rust").join("services").join("gateway"),
+            content_dir: root.join("rust").join("services").join("content"),
             old_upstream: workspace.join("Mystic-Paradox"),
             backend_dir: paradox.join("backend"),
             director_dir: paradox.join("director"),
@@ -182,12 +182,12 @@ fn join(base: &Path, parts: &[&str]) -> PathBuf {
 }
 
 /// The repository root: the first folder at or above `start` (at most 8 levels) that holds
-/// `paradox/backend/package.json` and `legacy/ReforgedHost/`.
+/// `paradox/backend/package.json` and `rust/Cargo.toml` (a checkout and a server release both do).
 pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError> {
     let mut dir = start;
     for _ in 0..8 {
         if dir.join("paradox").join("backend").join("package.json").exists()
-            && dir.join("legacy").join("ReforgedHost").exists()
+            && dir.join("rust").join("Cargo.toml").exists()
         {
             return Ok(dir.to_path_buf());
         }
@@ -197,7 +197,7 @@ pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError> {
         }
     }
     Err(HostError::message(format!(
-        "Could not find the Dauntless Reforged Revival folder (with paradox/ and legacy/ReforgedHost/) above {}",
+        "Could not find the server folder (with paradox/ and rust/) above {}",
         start.display()
     )))
 }
@@ -260,7 +260,7 @@ mod tests {
         assert_eq!(p.old_upstream, ws.join("Mystic-Paradox"));
         assert_eq!(p.gameserver_wrapper, ws.join("bin").join("reforged-gameserver"));
         assert_eq!(p.systemd, ws.join("config").join("systemd"));
-        assert_eq!(p.host_kit, root.join("legacy").join("ReforgedHost"));
+        assert_eq!(p.host_kit, join(&root, &["rust", "services", "host"]));
         assert!(game_exe_relative().ends_with("Dauntless-Win64-Shipping.exe"));
         assert!(game_exe_relative().starts_with("Archon"));
     }
@@ -270,16 +270,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("Reforged");
         std::fs::create_dir_all(root.join("paradox").join("backend")).unwrap();
-        std::fs::create_dir_all(root.join("legacy").join("ReforgedHost").join("dist")).unwrap();
+        std::fs::create_dir_all(root.join("rust").join("services").join("host")).unwrap();
         std::fs::write(root.join("paradox").join("backend").join("package.json"), "{}").unwrap();
-        let deep = root.join("legacy").join("ReforgedHost").join("dist");
+        std::fs::write(root.join("rust").join("Cargo.toml"), "[workspace]").unwrap();
+        let deep = root.join("rust").join("services").join("host");
         assert_eq!(find_repo_root(&deep).unwrap(), root);
         let elsewhere = dir.path().join("elsewhere");
         std::fs::create_dir_all(&elsewhere).unwrap();
         let error = find_repo_root(&elsewhere).unwrap_err().to_string();
-        assert!(
-            error.starts_with("Could not find the Dauntless Reforged Revival folder"),
-            "{error}"
-        );
+        assert!(error.starts_with("Could not find the server folder"), "{error}");
     }
 }

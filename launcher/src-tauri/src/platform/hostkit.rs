@@ -713,7 +713,7 @@ mod tests {
         );
         assert!(is_workspace(root));
         assert!(!is_workspace(&root.join("paradox")));
-        write(&root.join("legacy").join("ReforgedHost").join("package.json"), b"{}");
+        write(&root.join("paradox").join("backend").join("package.json"), b"{}");
         std::fs::remove_file(root.join(HOST_BINARY)).unwrap();
         std::fs::remove_dir_all(root.join("rust")).unwrap();
         assert!(
