@@ -1,5 +1,5 @@
 //! The Windows Firewall rule through COM (`INetFwPolicy2`), instead of the Node helper's PowerShell.
-//! Only the rule named [`RULE_DISPLAY_NAME`] is ever touched: the first one is set to the plan, any
+//! Only the rule named [`RULE_DISPLAY_NAME`] (or `ALLOWLIST_RULE_NAME`) is ever touched: the first one is set to the plan, any
 //! other with the same name is disabled, so exactly one is in effect. An empty plan disables them
 //! all (Windows then drops the game ports' traffic by default). A rule the Node helper made has the
 //! same display name and is taken over as it is.
@@ -200,7 +200,7 @@ mod tests {
         let strings = |list: &[&str]| list.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
         let result = (|| {
             let login = plan(&strings(&["203.0.113.7", "2001:db8::1"]), "64770-64771")?;
-            apply_rule(NAME, &windows_change(&login))?;
+            apply_rule(NAME, &windows_change(&login, NAME))?;
             let rules = read_rules(NAME)?;
             assert_eq!(rules.len(), 1, "{rules:?}");
             let (enabled, ports, remote, protocol, direction, action) = &rules[0];
@@ -218,13 +218,13 @@ mod tests {
 
             // Another login updates the same rule instead of adding one
             let again = plan(&strings(&["198.51.100.9"]), "64770-64771")?;
-            apply_rule(NAME, &windows_change(&again))?;
+            apply_rule(NAME, &windows_change(&again, NAME))?;
             let rules = read_rules(NAME)?;
             assert_eq!(rules.len(), 1);
             assert!(rules[0].2.contains("198.51.100.9") && !rules[0].2.contains("203.0.113.7"));
 
             let logout = plan(&[], "64770-64771")?;
-            apply_rule(NAME, &windows_change(&logout))?;
+            apply_rule(NAME, &windows_change(&logout, NAME))?;
             let rules = read_rules(NAME)?;
             assert_eq!(rules.len(), 1);
             assert!(!rules[0].0, "the logout disables the rule");

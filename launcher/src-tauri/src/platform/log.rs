@@ -121,7 +121,7 @@ pub fn describe_error(error: &dyn std::error::Error) -> String {
 }
 
 /// Library events (`tracing`) at INFO and above, into the same masked log.
-struct Layer;
+pub(crate) struct Layer;
 
 impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for Layer {
     fn on_event(&self, event: &tracing::Event<'_>, _: tracing_subscriber::layer::Context<'_, S>) {

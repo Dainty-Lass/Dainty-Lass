@@ -36,8 +36,9 @@ test("every listed command passes with arguments of the right shape", () => {
     multipliers: { xp: 1, rewards: 100 },
     onProgress: "__CHANNEL__:123",
     mode: "repair",
+    name: "content",
   };
-  assert.equal(Object.keys(commands).length, 55);
+  assert.equal(Object.keys(commands).length, 56);
   for (const [cmd, spec] of Object.entries(commands)) {
     const args: Record<string, unknown> = {};
     for (const name of Object.keys(spec)) {

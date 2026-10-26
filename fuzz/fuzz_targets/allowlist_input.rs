@@ -5,7 +5,8 @@
 //! port range, table or interface name is one token.
 #![no_main]
 
-use gateway::allowlist::firewall::{RulePlan, WindowsChange, plan, windows_change};
+use gateway::allowlist::config::check_rule_name;
+use gateway::allowlist::firewall::{RULE_DISPLAY_NAME, RulePlan, WindowsChange, plan, windows_change};
 use gateway::allowlist::helper::{allow_body, declared_length};
 use gateway::allowlist::nft::{NftSettings, check_interface, check_nft_table, nft_script};
 use gateway::allowlist::ports::check_ports;
@@ -41,7 +42,7 @@ fn script_holds(ips: &[String], ports: &str, settings: &NftSettings) {
             "{line}"
         );
     }
-    if let WindowsChange::Open(rule) = windows_change(&rule) {
+    if let WindowsChange::Open(rule) = windows_change(&rule, RULE_DISPLAY_NAME) {
         assert_eq!(rule.remote_addresses.split(',').count(), ips.len());
     }
 }
@@ -75,6 +76,13 @@ fuzz_target!(|data: &[u8]| {
         for ip in state.list() {
             assert!(plan(std::slice::from_ref(&ip), "8777").is_ok(), "{ip}");
         }
+    }
+
+    // ALLOWLIST_RULE_NAME: an accepted one is one of the server's own rules, in the characters COM and
+    // PowerShell read as written
+    if let Ok(name) = check_rule_name(&text) {
+        assert!(name.starts_with("Dauntless Reforged Revival ") && name.len() <= 80);
+        assert!(name.bytes().all(|b| b.is_ascii_alphanumeric() || b" ()-._".contains(&b)));
     }
 
     // Settings that reach a script: each accepted one is a single token

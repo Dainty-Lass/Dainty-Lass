@@ -50,6 +50,17 @@ fn on_second_launcher(args: Vec<String>) {
 
 /// Builds and runs the app until the last window closes; hands over to the launcher already running.
 pub fn run() -> tauri::Result<()> {
+    run_app(None)
+}
+
+/// The server the Host page drives inside the launcher (the server GUI); a player-only build has no Host page.
+#[cfg(feature = "host")]
+type Embedded = Option<Arc<dyn platform::hostserver::EmbeddedServer>>;
+#[cfg(not(feature = "host"))]
+type Embedded = Option<std::convert::Infallible>;
+
+/// The launcher; with `embedded`, its Host page drives the server inside it (the server GUI).
+fn run_app(embedded: Embedded) -> tauri::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     #[cfg(target_os = "linux")]
     secure_storage::wait_for_parent();
@@ -136,6 +147,7 @@ pub fn run() -> tauri::Result<()> {
             commands::host_server_get,
             commands::host_server_start,
             commands::host_server_stop,
+            commands::host_server_restart,
             commands::host_setup,
             commands::host_create_invite,
             commands::host_update,
@@ -164,6 +176,12 @@ pub fn run() -> tauri::Result<()> {
                     }
                 },
             );
+            #[cfg(feature = "host")]
+            if let Some(server) = embedded.clone() {
+                controller.set_embedded_server(server);
+            }
+            #[cfg(not(feature = "host"))]
+            let _ = &embedded;
             app.manage(controller.clone());
             window::create(app.handle())?;
             // Packaged builds only: a development build has no release to update to
@@ -334,136 +352,17 @@ fn make_controller(
     Ok(Controller::new(Arc::new(platform), config))
 }
 
-/// Entry point for the 3 pure online-client binaries (`reforged-client`, `refined-client`,
-/// `reforged-only-client`), registering only the 34 player/client Tauri commands and zero server
-/// crates (`docs/app-structure-plan.md`).
-pub fn run_client(_compiled_editions: protocol::edition::EditionSelection) -> tauri::Result<()> {
-    let args: Vec<String> = std::env::args().collect();
-    #[cfg(target_os = "linux")]
-    secure_storage::wait_for_parent();
-    let on_args: invite_link::OnArgs = Arc::new(|args| Box::pin(async move { on_second_launcher(args) }));
-    if tauri::async_runtime::block_on(invite_link::claim(&invite_link::channel_name(), &args, on_args)) == Claim::Handed
-    {
-        return Ok(());
-    }
-    platform::log::install();
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-    let paths = Paths::from_system().ok_or_else(|| tauri::Error::UnknownPath)?;
-    platform::log::log_to_file(paths.logs_dir());
-    let context = tauri::generate_context!();
-    let version = context.package_info().version.to_string();
-    platform::log::info(&format!("Dauntless Reforged Revival Client {version} starting"));
-    let encryptors = tauri::async_runtime::block_on(platform::keystore::os::encryptors(&paths.user_data));
-    #[cfg(target_os = "linux")]
-    if !encryptors.0.is_available() && secure_storage::bootstrap(&args, &paths.home) {
-        return Ok(());
-    }
-    let backend = Backend::default();
-    backend.deliver_invite_link(None, invite_link::invite_from_args(&args));
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(Arc::new(platform::updater::Updates::default()))
-        .manage(window::CloseGuard::default())
-        .manage(platform::art::ArtStore::default())
-        .register_asynchronous_uri_scheme_protocol(platform::art::SCHEME, |context, request, responder| {
-            let response = context
-                .app_handle()
-                .state::<platform::art::ArtStore>()
-                .respond(request.uri());
-            responder.respond(response);
-        })
-        .manage(backend)
-        .invoke_handler(tauri::generate_handler![
-            commands::get_snapshot,
-            commands::check_invite,
-            commands::submit_invite,
-            commands::retry_connect,
-            commands::forget_server,
-            commands::switch_server,
-            commands::remove_saved_server,
-            commands::register,
-            commands::use_existing_key,
-            commands::import_key_file,
-            commands::save_key_backup,
-            commands::dismiss_backup_offer,
-            commands::choose_game_folder,
-            commands::use_game_path,
-            commands::use_detected_game,
-            commands::verify_game,
-            commands::revived_install,
-            commands::revived_choose_folder,
-            commands::revived_use_detected,
-            commands::trust_runtime,
-            commands::install_runtime,
-            commands::choose_local_runtime,
-            commands::clear_local_runtime,
-            commands::cancel_task,
-            commands::play,
-            commands::set_settings,
-            commands::set_status_polling,
-            commands::refresh_status,
-            commands::get_news,
-            commands::get_branding,
-            commands::open_external,
-            commands::open_game_folder,
-            commands::open_logs_folder,
-            commands::logout,
-            commands::install_update,
-            commands::copy_text,
-            commands::take_invite_link,
-            commands::dismiss_notice,
-            commands::dismiss_error,
-            commands::subscribe_progress,
-        ])
-        .setup(move |app| {
-            let _ = APP.set(app.handle().clone());
-            if !cfg!(dev)
-                && let Ok(exe) = std::env::current_exe()
-            {
-                invite_link::register_scheme(&exe);
-            }
-            let controller = make_controller(app.handle(), paths, version, encryptors)?;
-            let guard = app.state::<window::CloseGuard>();
-            let (reason, kept) = (Arc::downgrade(&controller), Arc::downgrade(&controller));
-            guard.set(
-                move || reason.upgrade().and_then(|controller| controller.keep_open()),
-                move || {
-                    if let Some(controller) = kept.upgrade() {
-                        controller.set_notice(Some(bridge::types::NoticeCode::KeepOpen));
-                    }
-                },
-            );
-            app.manage(controller.clone());
-            window::create(app.handle())?;
-            if !cfg!(dev) {
-                platform::updater::start(app.handle().clone(), controller.clone());
-            }
-            tauri::async_runtime::spawn(async move { controller.init().await });
-            Ok(())
-        })
-        .build(context)?
-        .run(|app, event| {
-            static STOPPED: AtomicBool = AtomicBool::new(false);
-            if let RunEvent::ExitRequested { api, .. } = event
-                && !STOPPED.swap(true, Ordering::SeqCst)
-            {
-                api.prevent_exit();
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    app.state::<ControllerHandle>().inner().clone().shutdown().await;
-                    app.exit(0);
-                });
-            }
-        });
-    Ok(())
+/// Entry point of the `online-client*` binaries: the launcher as [`run`] builds it. The command list
+/// is the one the isolation hook allows; without the `host` feature the host commands answer with
+/// `host_off.rs`'s refusals, as `cargo build -p launcher --no-default-features` always did.
+pub fn run_client() -> tauri::Result<()> {
+    run()
 }
 
-/// Entry point for the 3 desktop server-GUI binaries (`reforged-server-gui`, `refined-server-gui`,
-/// `reforged-only-server-gui`), embedding `ServerController` and `LauncherGuiLayer` in-process.
+/// `reforged-server-gui`: the launcher with the server inside it, which the Host page's server panel
+/// starts, stops and restarts service by service (RD26).
 #[cfg(feature = "server-gui")]
-pub fn run_server_gui(compiled_editions: protocol::edition::EditionSelection) -> tauri::Result<()> {
-    let (layer, _rx, handle) = server_gui::init_gui_telemetry();
-    let _embedded = server_gui::EmbeddedServerState::new(compiled_editions, layer, handle);
-    run()
+pub fn run_server_gui() -> tauri::Result<()> {
+    let logs = server_gui::init_telemetry();
+    run_app(Some(Arc::new(server_gui::EmbeddedServerState::new(logs))))
 }

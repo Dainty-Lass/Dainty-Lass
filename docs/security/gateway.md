@@ -3,7 +3,7 @@
 # Security checklist: gateway policy and TLS (RX3)
 
 The checklist for the gateway, the `gateway` binary of `rust/services/gateway` (MIGRATION_PLAN.md RS3, RD10, RD19,
-RD20). `SECURITY_REVIEW.md` indexes it. The allowlist helper, the crate's other binary, has its own list in
+RD20). `SECURITY_REVIEW.md` indexes it. The allowlist helper, the crate's other service, has its own list in
 [allowlist.md](allowlist.md).
 
 How to use it: before the gateway's cutover, copy this list into the cutover PR, check each item in the code (not
