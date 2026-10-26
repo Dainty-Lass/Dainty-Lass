@@ -598,5 +598,9 @@ pub fn host_config_from_args(
             }),
         );
     }
+    // Chosen in host.toml only, for now: no setup option sets it (the clap tree is RH1's seam).
+    if let Some(database) = existing.and_then(|c| c.database.as_ref()) {
+        doc.insert("database".into(), database.to_json());
+    }
     HostConfig::from_json(&Value::Object(doc))
 }

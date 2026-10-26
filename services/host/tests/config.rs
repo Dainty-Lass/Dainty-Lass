@@ -86,6 +86,7 @@ fn fast_secrets() -> Secrets {
         jwt_public_key_b64: hex(8),
         admin_api_key: hex(9),
         operator_secret: hex(10),
+        database_password: hex(11),
     }
 }
 
@@ -306,6 +307,90 @@ fn the_admin_api_gets_its_keys_on_loopback_and_the_backend_accepts_its_signed_ca
     assert_eq!(
         get(&f.admin, "REFORGED_ADMIN_API_TIMEOUTS_FILE"),
         p.config.join("admin-timeouts.json").to_str()
+    );
+}
+
+#[test]
+fn the_database_engine_goes_into_admin_env_and_reads_back_as_store_reads_it() {
+    let s = fast_secrets();
+    let p = win_paths();
+    let read = |doc: Value| {
+        let f = build_env_files(&config(doc), &s, &p, "", Platform::Windows);
+        assert!(
+            f.backend.iter().all(|(k, _)| !k.starts_with("REFORGED_DB_")),
+            "the Node backend keeps Mongo"
+        );
+        let env = service_kit::env::Env::from_pairs(f.admin.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        admin::config::Config::from_env(&env).unwrap().database
+    };
+    // No [database], as in every file before DF7: SQLite in the config folder.
+    assert_eq!(
+        read(private()),
+        store::DatabaseConfig::Sqlite {
+            file: p.config.join("dainty-lass.db")
+        }
+    );
+    let postgres = read(with(
+        private(),
+        json!({"database": {"engine": "postgres", "postgresPort": 5433, "postgresUser": "hunts"}}),
+    ));
+    let store::DatabaseConfig::Postgres(pg) = postgres else {
+        panic!("postgres: {postgres:?}")
+    };
+    assert_eq!(
+        (pg.host.as_str(), pg.port, pg.user.as_str(), pg.database.as_str()),
+        ("127.0.0.1", 5433, "hunts", "dainty")
+    );
+    assert_eq!(pg.password, s.database_password, "the secret from secrets.env");
+    assert!(!pg.allow_remote);
+    let remote = read(with(
+        private(),
+        json!({"database": {"engine": "postgres", "postgresHost": "10.0.0.5", "allowRemote": true}}),
+    ));
+    assert!(matches!(remote, store::DatabaseConfig::Postgres(ref pg) if pg.allow_remote && pg.host == "10.0.0.5"));
+}
+
+#[test]
+fn a_postgres_server_off_this_machine_needs_allow_remote() {
+    let far = with(
+        private(),
+        json!({"database": {"engine": "postgres", "postgresHost": "db.example.org"}}),
+    );
+    let e = HostConfig::from_json(&far).unwrap_err().to_string();
+    assert!(e.contains("not encrypted"), "{e}");
+    let allowed = with(
+        private(),
+        json!({"database": {"engine": "postgres", "postgresHost": "db.example.org", "allowRemote": true}}),
+    );
+    assert!(HostConfig::from_json(&allowed).is_ok());
+    let sqlite_with_a_host = with(private(), json!({"database": {"postgresHost": "db.example.org"}}));
+    assert!(
+        HostConfig::from_json(&sqlite_with_a_host).is_ok(),
+        "only Postgres connects"
+    );
+    for bad in [
+        json!({"engine": "mysql"}),
+        json!({"postgresPort": 0}),
+        json!({"postgresUser": ""}),
+        json!({"allowRemote": "yes"}),
+        json!("postgres"),
+    ] {
+        assert!(
+            HostConfig::from_json(&with(private(), json!({ "database": bad }))).is_err(),
+            "{bad}"
+        );
+    }
+    let e = HostConfig::from_toml(
+        "version = 1\nmode = \"private\"\nhost = \"100.101.102.103\"\ngame_address = \"100.101.102.103\"\n\
+         name = \"x\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n\
+         [mongo]\nuri = \"mongodb://127.0.0.1:27017/\"\nmanage = false\n\
+         [database]\nengine = \"postgres\"\npostgres_host = \"203.0.113.4\"\n",
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        e.contains("database.postgres_host") && e.contains("database.allow_remote"),
+        "{e}"
     );
 }
 

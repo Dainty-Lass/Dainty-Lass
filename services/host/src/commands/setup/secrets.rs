@@ -53,6 +53,7 @@ pub fn new_secrets() -> Result<Secrets, HostError> {
         jwt_public_key_b64: STANDARD.encode(pem("PUBLIC KEY", public.as_ref())),
         admin_api_key: hex(&rng)?,
         operator_secret: hex(&rng)?,
+        database_password: hex(&rng)?,
     })
 }
 

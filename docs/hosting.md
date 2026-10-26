@@ -93,6 +93,23 @@ servers' key) lives only in `secrets.env`.
 | `--public-port` | `public_port` | Another port than 443 |
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
+| (edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below) |
+
+### The database engine
+
+Left out, `[database]` means SQLite: one file, nothing to install. A dedicated host can pick Postgres:
+
+```toml
+[database]
+engine = "postgres"
+# postgres_host = "127.0.0.1"   # 5432, role dainty, database dainty when left out
+```
+
+Postgres is yours to run: make a role and a database for it, with the role's password set to
+`REFORGED_DB_PASSWORD` from `secrets.env` (setup makes it once), then run `setup` again. The connection is not
+encrypted, so `setup` refuses a Postgres server on another machine unless `allow_remote = true`, which is only for a
+network you trust. Nothing stores its data there yet: the backend is still Mystic Paradox's on MongoDB, and the
+setting is for the Rust services as they move over. `reforged-host` does not start a Postgres of its own yet.
 
 Each service reads one env file `setup` writes into `.workspace\config` (`gateway.env`, `content.env`,
 `backend.env`, `director.env`, `allowlist.env`, `admin.env`), and nothing else. Don't edit them: `setup`
