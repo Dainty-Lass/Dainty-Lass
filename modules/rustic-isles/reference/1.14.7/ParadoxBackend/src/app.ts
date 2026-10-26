@@ -261,7 +261,7 @@ app.use("/", progressionRouter);
 app.use("/", loadoutRouter);
 app.use("/", friendsRouter);
 app.use("/", launcherAuthRouter);
-// [Dauntless Reforged Revival] Invites, account keys and the live server status for the launcher.
+// [DaintyLass] The launcher API: invites, account keys and the live server status.
 app.use("/", reforgedApiRouter);
 app.use("/", launcherUpdatesRouter);
 app.use("/", launcherLogsRouter);

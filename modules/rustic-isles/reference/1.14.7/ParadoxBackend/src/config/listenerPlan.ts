@@ -16,9 +16,8 @@
 // BIND_HOST: the HTTP listener's address (default: every interface, as before).
 // QOS_PORT: the region-ping listener's port (default 80); "off" starts none, for a proxy that answers the pings itself.
 //
-// [Dauntless Reforged Revival] The Reforged host kit writes REFORGED_HTTP_ONLY=1 (its gateway terminates TLS with a pinned
-// certificate) and QOS_PORT=0 (the launcher's relay answers the region pings). They are read as
-// MYSTICPARADOX_TLS_TERMINATED_BY_PROXY=on and QOS_PORT=off.
+// [DaintyLass] The host kit's env file says REFORGED_HTTP_ONLY=1 (the gateway terminates TLS, on a pinned certificate) and
+// QOS_PORT=0 (the launcher's relay answers the region pings). Each is one more spelling of the switch above it.
 
 export const DEFAULT_QOS_PORT = 80;
 
@@ -38,8 +37,8 @@ export interface ListenerPlan {
 
 /** MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: on/off (1, true, yes / 0, false, no). Anything else stops startup. */
 export function ReadTlsTerminatedByProxy(environment: NodeJS.ProcessEnv = process.env): boolean {
-    const Raw = (environment.MYSTICPARADOX_TLS_TERMINATED_BY_PROXY ?? "").trim().toLowerCase()
-        || (/^(1|true|yes|on)$/i.test(environment.REFORGED_HTTP_ONLY?.trim() ?? "") ? "on" : "");
+    let Raw = (environment.MYSTICPARADOX_TLS_TERMINATED_BY_PROXY ?? "").trim().toLowerCase();
+    if (Raw === "" && /^(1|true|yes|on)$/i.test((environment.REFORGED_HTTP_ONLY ?? "").trim())) Raw = "on";
     if (Raw === "" || /^(0|off|false|no)$/.test(Raw)) return false;
     if (/^(1|on|true|yes)$/.test(Raw)) return true;
     throw new Error(`MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off (got '${Raw}')`);
@@ -49,7 +48,7 @@ export function ReadTlsTerminatedByProxy(environment: NodeJS.ProcessEnv = proces
 export function ReadQosPort(raw: string | undefined): { port: number | undefined; problem: string | undefined } {
     const Value = (raw ?? "").trim();
     if (Value === "") return { port: DEFAULT_QOS_PORT, problem: undefined };
-    if (Value.toLowerCase() === "off" || Value === "0") return { port: undefined, problem: undefined };
+    if (/^(off|0)$/i.test(Value)) return { port: undefined, problem: undefined };
     const Port = Number(Value);
     if (Number.isInteger(Port) && Port >= 1 && Port <= 65535) return { port: Port, problem: undefined };
     return { port: undefined, problem: `QOS_PORT='${Value}' is not a port number or 'off'` };

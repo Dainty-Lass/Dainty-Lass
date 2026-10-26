@@ -77,7 +77,7 @@ server's `x-mysticparadox-gameserver-apikey`, 401/403), `HasLauncherAuth` (the l
 `RequireActiveAccount` (an account that isn't deactivated; `(consent)` also needs the current consent),
 `RequireHostCapability(...)` (a player host's capability token for that operation, p2p), `HasAdminAuth` (the admin
 dashboard's cookie session with its CSRF token, or the manager's signed operator headers when that bridge is on),
-`HasAdminKey` (`reforgedApi.ts`: `REFORGED_ADMIN_KEY` from a loopback peer, 403), `requireSyncToken`
+`HostOnly` (`reforgedApi.ts`: `REFORGED_ADMIN_KEY` from a loopback peer, nothing forwarded, 403), `requireSyncToken`
 (`LAUNCHER_LOG_SYNC_TOKEN` in `x-sync-token`, 401). Routes with no auth middleware answer anyone who reaches the listener;
 several check a header inside the handler (`/reforged/api/*` reads the account key, the update publisher routes
 `UPDATE_PUBLISHER_API_KEY`, `/internal/v1/metrics` `MYSTICPARADOX_METRICS_TOKEN`, or a loopback peer outside
@@ -261,14 +261,14 @@ production).
 | 170 | GET | `/launcher/v1/account/deletion` | isles | auth |  | launcher CORS (router), HasLauncherAuth | reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts:312 | launcherAccount.ts:GetDeletionState | 200 LE dyn |
 | 171 | POST | `/launcher/v1/account/deletion` | isles | auth |  | launcher CORS (router), HasLauncherAuth | reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts:316 | launcherAccount.ts:RequestAccountDeletion | 200 LE dyn |
 | 172 | DELETE | `/launcher/v1/account/deletion` | isles | auth |  | launcher CORS (router), HasLauncherAuth | reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts:320 | launcherAccount.ts:CancelAccountDeletion | 200 LE dyn |
-| 173 | POST | `/reforged/api/Register` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:206 | reforgedApiRules.ts:ReadRegistrationMode, reforgedApiRules.ts:ErrorBody, reforgedApiRules.ts:CleanUsername, reforgedApiRules.ts:IsValidInviteCode | 200 400 401 500 dyn |
-| 174 | GET | `/reforged/api/GetUserInfo` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:284 | accountEligibility.ts:IsAccountEligible | 200 401 403 LE |
-| 175 | GET | `/reforged/api/ServerStatus` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:300 | accountEligibility.ts:IsAccountEligible | 200 500 LE |
-| 176 | GET | `/reforged/api/RegistrationStatus` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:315 | reforgedApiRules.ts:ReadRegistrationMode | 200 |
-| 177 | POST | `/reforged/api/CreateInvite` | isles | reforged-api |  | HasAdminKey | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:324 | reforgedApiRules.ts:GenerateInviteCode, reforgedApiRules.ts:CleanInviteNote | 200 400 403 500 |
-| 178 | GET | `/reforged/api/InviteCodes` | isles | reforged-api |  | HasAdminKey | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:347 |  | 200 403 |
-| 179 | DELETE | `/reforged/api/InviteCode/:code` | isles | reforged-api |  | HasAdminKey | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:355 | reforgedApiRules.ts:IsValidInviteCode | 200 400 403 dyn |
-| 180 | POST | `/reforged/api/SetAccountStatus` | isles | reforged-api |  | HasAdminKey | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:366 | reforgedApiRules.ts:CleanUsername, index.ts:GetRepositories, reforgedApiRules.ts:ErrorBody | 200 400 403 404 |
+| 173 | POST | `/reforged/api/Register` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:235 | launcherApiRules.ts:Refusal, launcherApiRules.ts:NormalizeUsername, launcherApiRules.ts:IsInviteCode, launcherApiRules.ts:MakeAccountKey | 200 400 401 500 dyn |
+| 174 | GET | `/reforged/api/GetUserInfo` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:312 |  | 200 401 403 |
+| 175 | GET | `/reforged/api/ServerStatus` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:329 |  | 200 500 |
+| 176 | GET | `/reforged/api/RegistrationStatus` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:344 |  | 200 |
+| 177 | POST | `/reforged/api/CreateInvite` | isles | reforged-api |  | HostOnly | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:373 | launcherApiRules.ts:InviteNoteFrom, launcherApiRules.ts:MakeInviteCode | 200 400 403 500 |
+| 178 | GET | `/reforged/api/InviteCodes` | isles | reforged-api |  | HostOnly | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:400 |  | 200 403 |
+| 179 | DELETE | `/reforged/api/InviteCode/:code` | isles | reforged-api |  | HostOnly | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:414 | launcherApiRules.ts:IsInviteCode | 200 400 403 dyn |
+| 180 | POST | `/reforged/api/SetAccountStatus` | isles | reforged-api |  | HostOnly | reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:426 | launcherApiRules.ts:Refusal | 200 400 403 404 |
 | 181 | GET | `/launcher/v1/runtime/:target/:channel/:platform` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts:394 |  | 200 204 400 404 LE dyn |
 | 182 | GET | `/launcher/v1/runtime/:channel/:platform` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts:401 |  | 200 204 400 404 LE dyn |
 | 183 | GET | `/launcher/v1/runtime/:target/:channel/:platform/download` | isles | reforged-api |  |  | reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts:406 |  | 200 400 404 429 LE dyn |
@@ -384,7 +384,7 @@ mounted before the request context and the body parsers; an unmatched path gets 
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | GET | `/health/ready` | isles | director |  |  | reference/1.14.7/ParadoxDirector/src/app.ts:26 |  | 200 dyn |
 | 2 | GET | `/api/hub-status` | isles | director |  |  | reference/1.14.7/ParadoxDirector/src/app.ts:33 | gameservers.ts:GetPersistentHubStatus | 200 |
-| 3 | GET | `/api/instances` | isles | director |  |  | reference/1.14.7/ParadoxDirector/src/app.ts:38 | gameservers.ts:ListInstancesForStatus | 200 |
+| 3 | GET | `/api/instances` | isles | director |  |  | reference/1.14.7/ParadoxDirector/src/app.ts:38 | gameservers.ts:InstanceSummaries | 200 |
 | 4 | POST | `/api/matchmaker/handle-matchmaking-for-player` | isles | director |  | express.json() | reference/1.14.7/ParadoxDirector/src/routes/matchmaker.ts:20 | matchmaker.ts:HandleMatchmakingRequest | 200 500 |
 | 5 | POST | `/api/matchmaker/resolve-hunt-launch-manifest` | rifts | p2p | p2p | express.json() | reference/1.14.7/ParadoxDirector/src/p2p/index.ts:23 | huntLaunchManifest.ts:ResolvePlayerHostedLaunchManifest | 200 400 |
 
@@ -448,7 +448,7 @@ are listed in the tables like any other, because RU5 must match what the client 
 
 | Registration | Taken by |
 | --- | --- |
-| `GET /dauntless-status`, `reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:320` | `system.ts:35`, mounted first: the client gets Paradox's welcome text, never the Reforged name, version and source URL |
+| `GET /dauntless-status`, `reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts:348` | `system.ts:35`, mounted first: the client gets Paradox's welcome text, never the Reforged name, version and source URL |
 | `POST /inventory/:characterId/:changeList`, `inventory.ts:51` | The regex route at `inventory.ts:41`, registered first on purpose (the empty character id); the same answer |
 | `GET /launcher/v1/runtime/:channel/:platform/download`, `launcherUpdates.ts:413` | `GET /launcher/v1/runtime/:target/:channel/:platform` (`:394`): 400, since the channel isn't a target, or the manifest when the channel is `client` or `server`. The legacy download URL doesn't work |
 | `GET /playertreatments/`, `system.ts:218` | `/playertreatments` in the same array: one handler |

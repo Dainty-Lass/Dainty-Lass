@@ -1,41 +1,38 @@
 /*
- * Copyright (C) 2026 Dauntless Reforged Revival contributors
- *
- * Licensed under the GNU Affero General Public License v3.0.
- * You may obtain a copy of the License at the root of this repository.
- *
+ * Copyright (C) 2026 DaintyLass contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  *
- * Part of the Dauntless Reforged Revival patch set for Mystic Paradox (see upstream/README.md in
- * the Dauntless Reforged Revival repository). This file is new; it carries no Mystic Paradox code.
+ * New to this backend: nothing in this file comes from Mystic Paradox.
  */
 
-// The launcher API of a Dauntless Reforged Revival server, modelled on Dauntless Revived's
-// /undaunted/api: invite codes, one account key per player, and a live server status.
+// The launcher API: how the DaintyLass launcher, the content server, the admin service and the host kit talk to
+// this backend. Modelled on Dauntless Revived's /undaunted/api: invite codes, one account key per player and a
+// live server status. The paths and names are ones installs depend on (docs/dainty-lass-plan.md, DD1).
 //
-//   POST /reforged/api/Register            {Username, InviteCode} -> 200 {UUK}
-//   GET  /reforged/api/GetUserInfo         x-reforged-user-api-key -> {UserId, Username, IsAdmin}
-//   GET  /reforged/api/ServerStatus        name, registration, players, instances, game build, game data
-//   GET  /reforged/api/RegistrationStatus  {mode}
-//   GET  /dauntless-status                 {"show-status": true, name, version, sourceUrl}
+//   POST   /reforged/api/Register             {Username, InviteCode?}   -> 200 {UUK}
+//   GET    /reforged/api/GetUserInfo          x-reforged-user-api-key   -> {UserId, Username, IsAdmin}
+//   GET    /reforged/api/ServerStatus         the full view with an accepted key, the limited one without
+//   GET    /reforged/api/RegistrationStatus                             -> {mode}
+//   GET    /dauntless-status                  the probe older launchers send to tell a server from anything else
 //
-// Admin routes (only from this machine, never through the gateway, with x-reforged-admin-key):
-//   POST   /reforged/api/CreateInvite      {uses?, name?} -> {code}
-//   GET    /reforged/api/InviteCodes
+// For the host kit only (this machine, never through the gateway, x-reforged-admin-key):
+//   POST   /reforged/api/CreateInvite         {uses?, infinite?, name?} -> {code}
+//   GET    /reforged/api/InviteCodes                                    -> {InviteCodes: [...]}
 //   DELETE /reforged/api/InviteCode/:code
-//   POST   /reforged/api/SetAccountStatus  {Username, Status: active|banned|disabled, Reason?}
+//   POST   /reforged/api/SetAccountStatus     {Username, Status: active|banned|disabled, Reason?}
 //
-// The account key is the game's AUTH_PASSWORD: with AUTH_MODE=APIKEY the game trades it for its
-// session token at /account/api/oauth/token (routes/eos.ts). Keys are stored only as HMACs
-// (security/apiKeyHash.ts). Accounts are ordinary launcher accounts (displayName, status), so the
-// existing eligibility checks, ban handling and name lookups apply to them unchanged.
+// The key is the game's login: with AUTH_MODE=APIKEY the client trades it for a session token at
+// /account/api/oauth/token (routes/eos.ts). Only its HMAC is stored (security/apiKeyHash.ts). An account made here
+// is a launcher account like any other, so eligibility, bans and name lookups need nothing of their own.
+//
+// The gateway's tests read this file: every route is registered as `reforgedApiRouter.<method>("<path>", ...)`.
 
 import crypto from "node:crypto";
 import path from "node:path";
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { MongoServerError } from "mongodb";
 import { logger } from "../logger";
-import { GetRepositories, LauncherAccountRecord, AccountOperationalStatus } from "../persistence";
+import { GetRepositories, type AccountOperationalStatus, type LauncherAccountRecord } from "../persistence";
 import { GetMongoClient, GetMongoDb } from "../persistence/mongo/client";
 import { Collections } from "../persistence/mongo/collections";
 import { GetUserIDForAPIKey } from "../controllers/auth";
@@ -43,48 +40,36 @@ import { HashApiKey } from "../security/apiKeyHash";
 import { IsAccountEligible } from "../security/accountEligibility";
 import { sessionRegistry } from "../realtime/SessionRegistry";
 import {
-    CleanInviteNote,
-    CleanUsername,
-    DetectGameData,
-    ErrorBody,
-    GameDataKind,
-    GenerateAccountKey,
-    GenerateInviteCode,
-    IsLocalAdminRequest,
-    IsPlausibleAccountKey,
-    IsValidInviteCode,
+    type GameDataKind,
+    type PlayerWhere,
+    type RegistrationMode,
+    ClassifyGameData,
+    InviteNoteFrom,
+    IsInviteCode,
+    IsLocalAdminCall,
+    LooksLikeAccountKey,
+    MakeAccountKey,
+    MakeInviteCode,
     MAX_INVITE_USES,
-    ParseDirectorInstances,
-    PlayerWhere,
-    ReadRegistrationMode,
+    NormalizeUsername,
+    Refusal,
+    RegistrationModeFrom,
+    StatusInstancesFrom,
     USER_KEY_HEADER
-} from "../reforgedApiRules";
+} from "../launcherApiRules";
 
-const INVITES_COLLECTION = "reforgedInvites";
-const STARTED_AT = Date.now();
+export const reforgedApiRouter = Router();
 
-function HasAdminKey(Req: Request, Res: Response, Next: NextFunction) {
-    if (!IsLocalAdminRequest(Req, process.env.REFORGED_ADMIN_KEY)) {
-        Res.status(403).json({ error: "forbidden" });
-        return;
-    }
-    Next();
-}
+// The collection existing servers already hold their invites in.
+const INVITES = "reforgedInvites";
+const STATUS_CACHE_MS = 5_000;
+const GAME_DATA_CACHE_MS = 60_000;
+const DIRECTOR_TIMEOUT_MS = 2_000;
+const MAX_PLAYERS_LISTED = 500;
+const MAX_INVITES_LISTED = 500;
+const BOOTED_AT = Date.now();
 
-type KeyOwner = { UserId: string; Username: string; IsAdmin: boolean; Account: LauncherAccountRecord | undefined };
-
-async function LookUpKey(Key: unknown): Promise<KeyOwner | undefined> {
-    if (!IsPlausibleAccountKey(Key)) return undefined;
-    const UserId = await GetUserIDForAPIKey(Key);
-    if (UserId == undefined) return undefined;
-    const Account = await GetRepositories().launcherAccounts.findByUserId(UserId);
-    const Username = Account?.displayName ?? (await GetRepositories().accounts.findByUserId(UserId))?.name ?? UserId;
-    return { UserId, Username, IsAdmin: Account?.roles.includes("admin") === true, Account };
-}
-
-// ------------------------------------------------------------------ invites
-
-type InviteDoc = {
+type InviteRecord = {
     _id: string;
     usesRemaining: number;
     infiniteUses: boolean;
@@ -92,49 +77,84 @@ type InviteDoc = {
     createdAt: string;
 };
 
-async function Invites() {
-    const Db = await GetMongoDb();
-    return Db.collection<InviteDoc>(INVITES_COLLECTION);
+async function InviteCollection() {
+    return (await GetMongoDb()).collection<InviteRecord>(INVITES);
 }
 
-let GameDataCache: { at: number; kind: GameDataKind } | undefined;
-
-function GameDataKindNow(): GameDataKind {
-    if (GameDataCache && Date.now() - GameDataCache.at < 60_000) return GameDataCache.kind;
-    const Dir = process.env.PARADOX_GAME_DATA_DIR
-        ? path.resolve(process.env.PARADOX_GAME_DATA_DIR)
-        : path.join(__dirname, "..", "..", "game-data");
-    const Kind = DetectGameData(Dir);
-    GameDataCache = { at: Date.now(), kind: Kind };
-    return Kind;
+function Body(req: Request): Record<string, unknown> {
+    return req.body !== null && typeof req.body === "object" ? (req.body as Record<string, unknown>) : {};
 }
 
-function CleanHttpsUrl(Value: string | undefined): string | null {
-    if (!Value) return null;
-    try {
-        const Url = new URL(Value.trim());
-        return Url.protocol === "https:" && Url.username === "" && Url.password === "" ? Url.toString() : null;
-    } catch {
-        return null;
-    }
+function Mode(): RegistrationMode {
+    return RegistrationModeFrom(process.env.REGISTRATION_MODE);
 }
+
+function Problem(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
+// ------------------------------------------------------------------ who holds a key
+
+type KeyHolder = {
+    userId: string;
+    username: string;
+    isAdmin: boolean;
+    account: LauncherAccountRecord | undefined;
+};
+
+async function HolderOf(key: unknown): Promise<KeyHolder | undefined> {
+    if (!LooksLikeAccountKey(key)) return undefined;
+    const UserId = await GetUserIDForAPIKey(key);
+    if (UserId === undefined) return undefined;
+    const Repos = GetRepositories();
+    const Account = await Repos.launcherAccounts.findByUserId(UserId);
+    const Username = Account?.displayName ?? (await Repos.accounts.findByUserId(UserId))?.name ?? UserId;
+    return { userId: UserId, username: Username, isAdmin: Account?.roles.includes("admin") === true, account: Account };
+}
+
+function Eligible(holder: KeyHolder): boolean {
+    return holder.account === undefined || IsAccountEligible(holder.account);
+}
+
+// ------------------------------------------------------------------ the status
 
 function ServerName(): string {
     const Name = (process.env.REFORGED_SERVER_NAME ?? "").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").trim();
-    return Name.length > 0 ? Name.slice(0, 64) : "Dauntless Reforged Revival server";
+    return Name === "" ? "DaintyLass server" : Name.slice(0, 64);
 }
 
 function ServerVersion(): string {
     return (process.env.REFORGED_SERVER_VERSION ?? "").trim().slice(0, 48) || "0.1.0";
 }
 
-async function FetchDirectorInstances(): Promise<unknown> {
-    const Director = (process.env.DEPLOYSERVER_URL ?? "").trim();
-    if (!Director) return [];
-    const Controller = new AbortController();
-    const Timer = setTimeout(() => Controller.abort(), 2000);
+function HttpsUrlOrNull(raw: string | undefined): string | null {
+    if (!raw) return null;
     try {
-        const Answer = await fetch(`http://${Director}/api/instances`, { signal: Controller.signal });
+        const Url = new URL(raw.trim());
+        return Url.protocol === "https:" && Url.username === "" && Url.password === "" ? Url.toString() : null;
+    } catch {
+        return null;
+    }
+}
+
+let GameDataSeen: { at: number; kind: GameDataKind } | undefined;
+
+function GameData(): GameDataKind {
+    if (GameDataSeen && Date.now() - GameDataSeen.at < GAME_DATA_CACHE_MS) return GameDataSeen.kind;
+    const Dir = process.env.PARADOX_GAME_DATA_DIR
+        ? path.resolve(process.env.PARADOX_GAME_DATA_DIR)
+        : path.join(__dirname, "..", "..", "game-data");
+    GameDataSeen = { at: Date.now(), kind: ClassifyGameData(Dir) };
+    return GameDataSeen.kind;
+}
+
+async function DirectorInstances(): Promise<unknown> {
+    const Director = (process.env.DEPLOYSERVER_URL ?? "").trim();
+    if (Director === "") return [];
+    const Abort = new AbortController();
+    const Timer = setTimeout(() => Abort.abort(), DIRECTOR_TIMEOUT_MS);
+    try {
+        const Answer = await fetch(`http://${Director}/api/instances`, { signal: Abort.signal });
         return Answer.ok ? await Answer.json() : [];
     } catch {
         return [];
@@ -143,90 +163,99 @@ async function FetchDirectorInstances(): Promise<unknown> {
     }
 }
 
-type StatusView = "full" | "limited";
-const StatusCache = new Map<StatusView, { at: number; body: unknown }>();
+type Player = { name: string; where: PlayerWhere; instance: string | null };
 
-export async function BuildServerStatus(View: StatusView) {
-    const Cached = StatusCache.get(View);
-    if (Cached && Date.now() - Cached.at < 5000) return Cached.body;
+async function PlayersOnline(huntOf: Map<string, string>): Promise<Player[]> {
+    const Repos = GetRepositories();
+    const Players: Player[] = [];
+    for (const UserId of sessionRegistry.onlineAccountIds().slice(0, MAX_PLAYERS_LISTED)) {
+        const Account = await Repos.launcherAccounts.findByUserId(UserId).catch(() => undefined);
+        const Name = Account?.displayName ?? (await Repos.accounts.findByUserId(UserId).catch(() => undefined))?.name;
+        if (!Name) continue;
+        const Hunt = huntOf.get(UserId) ?? null;
+        Players.push({ name: Name.slice(0, 32), where: Hunt === null ? "unknown" : "hunt", instance: Hunt });
+    }
+    Players.sort((A, B) => A.name.localeCompare(B.name, undefined, { sensitivity: "base" }));
+    return Players;
+}
 
-    const Base = {
+type View = "full" | "limited";
+const StatusSeen = new Map<View, { at: number; body: unknown }>();
+
+function ForgetStatus(): void {
+    StatusSeen.clear();
+}
+
+/** The status body (crates/protocol status.rs, field for field). The limited view hides who is online. */
+export async function ServerStatusBody(view: View): Promise<unknown> {
+    const Seen = StatusSeen.get(view);
+    if (Seen && Date.now() - Seen.at < STATUS_CACHE_MS) return Seen.body;
+
+    const Changelist = Number(process.env.TARGET_CHANGELIST ?? "647472") || 647472;
+    const ExecutableHash = (process.env.APPROVED_EXECUTABLE_SHA256 ?? "").toLowerCase();
+    const Common = {
         name: ServerName(),
         online: true,
         version: ServerVersion(),
         commit: (process.env.REFORGED_SOURCE_COMMIT ?? "").trim().slice(0, 64),
-        sourceUrl: CleanHttpsUrl(process.env.REFORGED_SOURCE_URL),
-        registration: ReadRegistrationMode(process.env.REGISTRATION_MODE),
-        uptimeSeconds: Math.floor((Date.now() - STARTED_AT) / 1000),
+        sourceUrl: HttpsUrlOrNull(process.env.REFORGED_SOURCE_URL),
+        registration: Mode(),
+        uptimeSeconds: Math.floor((Date.now() - BOOTED_AT) / 1000),
         contentPort: null,
         game: {
             build: "rel-1.14.7-Archon",
-            changelist: Number(process.env.TARGET_CHANGELIST ?? "647472") || 647472,
-            executableSha256: /^[0-9a-f]{64}$/i.test(process.env.APPROVED_EXECUTABLE_SHA256 ?? "")
-                ? (process.env.APPROVED_EXECUTABLE_SHA256 as string).toLowerCase()
-                : null
+            changelist: Changelist,
+            executableSha256: /^[0-9a-f]{64}$/.test(ExecutableHash) ? ExecutableHash : null
         },
-        gameData: GameDataKindNow(),
+        gameData: GameData(),
         chat: process.env.REALTIME_XMPP_ENABLED === "true"
     };
 
-    let Body: unknown;
-    if (View === "limited") {
-        Body = { ...Base, playersOnline: 0, players: [], instances: [], limited: true };
+    let BodyOut: unknown;
+    if (view === "limited") {
+        BodyOut = { ...Common, playersOnline: 0, players: [], instances: [], limited: true };
     } else {
-        const { instances, huntPlayers } = ParseDirectorInstances(await FetchDirectorInstances());
-        const Online = sessionRegistry.onlineAccountIds().slice(0, 500);
-        const Repos = GetRepositories();
-        const Players: { name: string; where: PlayerWhere; instance: string | null }[] = [];
-        for (const UserId of Online) {
-            const Account = await Repos.launcherAccounts.findByUserId(UserId).catch(() => undefined);
-            const Name = Account?.displayName ?? (await Repos.accounts.findByUserId(UserId).catch(() => undefined))?.name;
-            if (!Name) continue;
-            const Hunt = huntPlayers.get(UserId);
-            Players.push({ name: Name.slice(0, 32), where: Hunt ? "hunt" : "unknown", instance: Hunt ?? null });
-        }
-        Players.sort((A, B) => A.name.localeCompare(B.name, undefined, { sensitivity: "base" }));
-        Body = { ...Base, playersOnline: Players.length, players: Players, instances, limited: false };
+        const { instances, huntOf } = StatusInstancesFrom(await DirectorInstances());
+        const Players = await PlayersOnline(huntOf);
+        BodyOut = { ...Common, playersOnline: Players.length, players: Players, instances, limited: false };
     }
-    StatusCache.set(View, { at: Date.now(), body: Body });
-    return Body;
+    StatusSeen.set(view, { at: Date.now(), body: BodyOut });
+    return BodyOut;
 }
 
-// ------------------------------------------------------------------ routes
+// ------------------------------------------------------------------ players
 
-export const reforgedApiRouter = Router();
-
-class RegisterRefusal extends Error {
-    constructor(public readonly code: "invite_invalid" | "username_taken") {
+class Refused extends Error {
+    constructor(readonly code: "invite_invalid" | "username_taken") {
         super(code);
-        this.name = "RegisterRefusal";
+        this.name = "Refused";
     }
 }
 
 reforgedApiRouter.post("/reforged/api/Register", async (req, res) => {
-    const Mode = ReadRegistrationMode(process.env.REGISTRATION_MODE);
-    if (Mode === "NONE") {
-        res.status(400).json(ErrorBody("registration_closed"));
+    const RegistrationMode = Mode();
+    if (RegistrationMode === "NONE") {
+        res.status(400).json(Refusal("registration_closed"));
         return;
     }
-    const Body = req.body != null && typeof req.body === "object" ? req.body : {};
-    if (typeof Body.Username !== "string" || (Body.InviteCode !== undefined && typeof Body.InviteCode !== "string")) {
-        res.status(400).json(ErrorBody("bad_request"));
+    const Fields = Body(req);
+    if (typeof Fields.Username !== "string" || (Fields.InviteCode !== undefined && typeof Fields.InviteCode !== "string")) {
+        res.status(400).json(Refusal("bad_request"));
         return;
     }
-    const Username = CleanUsername(Body.Username);
+    const Username = NormalizeUsername(Fields.Username);
     if (Username === undefined) {
-        res.status(400).json(ErrorBody("username_invalid"));
+        res.status(400).json(Refusal("username_invalid"));
         return;
     }
-    const InviteCode = typeof Body.InviteCode === "string" ? Body.InviteCode.trim() : "";
-    if (Mode === "INVITECODE" && !IsValidInviteCode(InviteCode)) {
-        res.status(401).json(ErrorBody("invite_invalid"));
+    const Code = typeof Fields.InviteCode === "string" ? Fields.InviteCode.trim() : "";
+    if (RegistrationMode === "INVITECODE" && !IsInviteCode(Code)) {
+        res.status(401).json(Refusal("invite_invalid"));
         return;
     }
 
     const UserId = crypto.randomUUID();
-    const Key = GenerateAccountKey();
+    const Key = MakeAccountKey();
     const Account: LauncherAccountRecord = {
         userId: UserId,
         displayName: Username,
@@ -238,152 +267,181 @@ reforgedApiRouter.post("/reforged/api/Register", async (req, res) => {
         usernameSet: true
     };
 
-    // One transaction: a taken name never costs the friend a use of their code, and an account is
-    // never written without its key. A refusal is thrown, which rolls the transaction back.
-    const Client = await GetMongoClient();
-    const Session = Client.startSession();
+    // One transaction for the code, the account and the key: a taken name costs no invite use, and no account is
+    // ever written without its key. A refusal thrown inside rolls everything back.
+    const Session = (await GetMongoClient()).startSession();
     try {
         await Session.withTransaction(async () => {
             const Db = await GetMongoDb();
-            if (Mode === "INVITECODE") {
-                const Used = await Db.collection<InviteDoc>(INVITES_COLLECTION).findOneAndUpdate(
-                    { _id: InviteCode, $or: [{ infiniteUses: true }, { usesRemaining: { $gt: 0 } }] },
+            if (RegistrationMode === "INVITECODE") {
+                const Spent = await Db.collection<InviteRecord>(INVITES).findOneAndUpdate(
+                    { _id: Code, $or: [{ infiniteUses: true }, { usesRemaining: { $gt: 0 } }] },
                     [{ $set: { usesRemaining: { $cond: ["$infiniteUses", "$usesRemaining", { $subtract: ["$usesRemaining", 1] }] } } }],
                     { session: Session }
                 );
-                if (Used == undefined) throw new RegisterRefusal("invite_invalid");
+                if (Spent === null || Spent === undefined) throw new Refused("invite_invalid");
             }
             try {
                 await GetRepositories().launcherAccounts.create(Account, Session);
-            } catch (Problem) {
-                if (Problem instanceof MongoServerError && Problem.code === 11000) throw new RegisterRefusal("username_taken");
-                throw Problem;
+            } catch (error) {
+                if (error instanceof MongoServerError && error.code === 11000) throw new Refused("username_taken");
+                throw error;
             }
             await Db.collection(Collections.UserApiKeys).insertOne(
-                { _id: UserId as any, userId: UserId, keyHash: HashApiKey(Key, "user") },
+                { _id: UserId as never, userId: UserId, keyHash: HashApiKey(Key, "user") },
                 { session: Session }
             );
         });
-    } catch (Problem) {
-        if (Problem instanceof RegisterRefusal) {
-            res.status(Problem.code === "invite_invalid" ? 401 : 409).json(ErrorBody(Problem.code));
+    } catch (error) {
+        if (error instanceof Refused) {
+            res.status(error.code === "invite_invalid" ? 401 : 409).json(Refusal(error.code));
             return;
         }
-        logger.error(`[reforged] registration failed: ${Problem instanceof Error ? Problem.message : String(Problem)}`);
+        logger.error(`[launcher-api] registration failed: ${Problem(error)}`);
         res.status(500).send();
         return;
     } finally {
         await Session.endSession();
     }
 
-    logger.info(`[reforged] registered ${UserId} as ${Username}`);
-    StatusCache.clear();
+    logger.info(`[launcher-api] ${Username} registered as ${UserId}`);
+    ForgetStatus();
     res.status(200).json({ UUK: Key });
 });
 
 reforgedApiRouter.get("/reforged/api/GetUserInfo", async (req, res) => {
-    const Owner = await LookUpKey(req.headers[USER_KEY_HEADER]).catch(() => undefined);
-    if (Owner === undefined) {
+    const Holder = await HolderOf(req.headers[USER_KEY_HEADER]).catch(() => undefined);
+    if (Holder === undefined) {
         res.status(401).json({ error: "unauthorized" });
         return;
     }
-    if (Owner.Account && !IsAccountEligible(Owner.Account)) {
+    if (!Eligible(Holder)) {
+        const Account = Holder.account as LauncherAccountRecord;
         res.status(403).json({
-            error: Owner.Account.status === "banned" ? "account_banned" : "account_disabled",
-            reason: (Owner.Account.approvalReason ?? "").slice(0, 500) || "Contact the server's host for details."
+            error: Account.status === "banned" ? "account_banned" : "account_disabled",
+            reason: (Account.approvalReason ?? "").slice(0, 500) || "Ask the server's host."
         });
         return;
     }
-    res.status(200).json({ UserId: Owner.UserId, Username: Owner.Username, IsAdmin: Owner.IsAdmin });
+    res.status(200).json({ UserId: Holder.userId, Username: Holder.username, IsAdmin: Holder.isAdmin });
 });
 
 reforgedApiRouter.get("/reforged/api/ServerStatus", async (req, res) => {
-    const Owner = await LookUpKey(req.headers[USER_KEY_HEADER]).catch(() => undefined);
-    const Registered = Owner !== undefined && (Owner.Account === undefined || IsAccountEligible(Owner.Account));
+    const Holder = await HolderOf(req.headers[USER_KEY_HEADER]).catch(() => undefined);
+    const View: View = Holder !== undefined && Eligible(Holder) ? "full" : "limited";
     try {
-        const Body = await BuildServerStatus(Registered ? "full" : "limited");
+        const Answer = await ServerStatusBody(View);
         res.status(200);
         res.set("Cache-Control", "no-store");
         res.vary(USER_KEY_HEADER);
-        res.json(Body);
-    } catch (Problem) {
-        logger.error(`[reforged] status failed: ${Problem instanceof Error ? Problem.message : String(Problem)}`);
+        res.json(Answer);
+    } catch (error) {
+        logger.error(`[launcher-api] status failed: ${Problem(error)}`);
         res.status(500).send();
     }
 });
 
 reforgedApiRouter.get("/reforged/api/RegistrationStatus", (_req, res) => {
-    res.status(200).json({ mode: ReadRegistrationMode(process.env.REGISTRATION_MODE) });
+    res.status(200).json({ mode: Mode() });
 });
 
-// The legacy probe older launchers use to tell "a server of this kind" from "something else".
 reforgedApiRouter.get("/dauntless-status", (_req, res) => {
-    res.status(200).json({ "show-status": true, name: ServerName(), version: ServerVersion(), sourceUrl: CleanHttpsUrl(process.env.REFORGED_SOURCE_URL) });
+    res.status(200).json({
+        "show-status": true,
+        name: ServerName(),
+        version: ServerVersion(),
+        sourceUrl: HttpsUrlOrNull(process.env.REFORGED_SOURCE_URL)
+    });
 });
 
-reforgedApiRouter.post("/reforged/api/CreateInvite", HasAdminKey, async (req, res) => {
-    const Body = req.body != null && typeof req.body === "object" ? req.body : {};
-    const Uses = Body.uses ?? 1;
-    const Infinite = Body.infinite === true;
-    if (!Number.isSafeInteger(Uses) || Uses < 1 || Uses > MAX_INVITE_USES || (Body.name !== undefined && typeof Body.name !== "string")) {
-        res.status(400).json({ error: "bad_request", message: `uses must be a whole number from 1 to ${MAX_INVITE_USES}, and name a string` });
+// ------------------------------------------------------------------ the host
+
+function HostOnly(req: Request, res: Response, next: NextFunction): void {
+    if (!IsLocalAdminCall(req, process.env.REFORGED_ADMIN_KEY)) {
+        res.status(403).json({ error: "forbidden" });
         return;
     }
-    const Collection = await Invites();
+    next();
+}
+
+async function AccountNamed(raw: unknown): Promise<LauncherAccountRecord | undefined | null> {
+    const Username = NormalizeUsername(raw);
+    if (Username === undefined) return null;
+    return GetRepositories().launcherAccounts.findByDisplayNameNormalized(Username.toLowerCase());
+}
+
+reforgedApiRouter.post("/reforged/api/CreateInvite", HostOnly, async (req, res) => {
+    const Fields = Body(req);
+    const Uses = Fields.uses ?? 1;
+    const Infinite = Fields.infinite === true;
+    const UsesOk = Number.isSafeInteger(Uses) && (Uses as number) >= 1 && (Uses as number) <= MAX_INVITE_USES;
+    if (!UsesOk || (Fields.name !== undefined && typeof Fields.name !== "string")) {
+        res.status(400).json({ error: "bad_request", message: `uses is a whole number from 1 to ${MAX_INVITE_USES}; name is text` });
+        return;
+    }
+    const Note = InviteNoteFrom(Fields.name);
+    const Invites = await InviteCollection();
+    // A code is 60 random bits: a clash is a curiosity, but it is retried rather than reported.
     for (let Attempt = 0; Attempt < 5; Attempt++) {
-        const Code = GenerateInviteCode();
+        const Code = MakeInviteCode();
         try {
-            await Collection.insertOne({ _id: Code, usesRemaining: Uses, infiniteUses: Infinite, note: CleanInviteNote(Body.name), createdAt: new Date().toISOString() });
-            logger.info(`[reforged] invite created (${Infinite ? "unlimited" : `${Uses} use(s)`})${Body.name ? ` for ${CleanInviteNote(Body.name)}` : ""}`);
-            res.status(200).json({ code: Code });
-            return;
-        } catch (Problem) {
-            if (!(Problem instanceof MongoServerError && Problem.code === 11000)) throw Problem;
+            await Invites.insertOne({ _id: Code, usesRemaining: Uses as number, infiniteUses: Infinite, note: Note, createdAt: new Date().toISOString() });
+        } catch (error) {
+            if (error instanceof MongoServerError && error.code === 11000) continue;
+            throw error;
         }
+        logger.info(`[launcher-api] invite made: ${Infinite ? "unlimited" : `${Uses} use(s)`}${Note ? ` for ${Note}` : ""}`);
+        res.status(200).json({ code: Code });
+        return;
     }
     res.status(500).send();
 });
 
-reforgedApiRouter.get("/reforged/api/InviteCodes", HasAdminKey, async (_req, res) => {
-    const Collection = await Invites();
-    const Docs = await Collection.find({}).sort({ createdAt: -1 }).limit(500).toArray();
+reforgedApiRouter.get("/reforged/api/InviteCodes", HostOnly, async (_req, res) => {
+    const Invites = await InviteCollection();
+    const Records = await Invites.find({}).sort({ createdAt: -1 }).limit(MAX_INVITES_LISTED).toArray();
     res.status(200).json({
-        InviteCodes: Docs.map((Doc) => ({ code: Doc._id, usesRemaining: Doc.usesRemaining, infiniteUses: Doc.infiniteUses, note: Doc.note ?? null, createdAt: Doc.createdAt }))
+        InviteCodes: Records.map((Record) => ({
+            code: Record._id,
+            usesRemaining: Record.usesRemaining,
+            infiniteUses: Record.infiniteUses,
+            note: Record.note ?? null,
+            createdAt: Record.createdAt
+        }))
     });
 });
 
-reforgedApiRouter.delete("/reforged/api/InviteCode/:code", HasAdminKey, async (req, res) => {
+reforgedApiRouter.delete("/reforged/api/InviteCode/:code", HostOnly, async (req, res) => {
     const Code = String(req.params.code ?? "");
-    if (!IsValidInviteCode(Code)) {
+    if (!IsInviteCode(Code)) {
         res.status(400).json({ error: "bad_request" });
         return;
     }
-    const Collection = await Invites();
-    const Result = await Collection.deleteOne({ _id: Code });
-    res.status(Result.deletedCount === 1 ? 200 : 404).send();
+    const Gone = await (await InviteCollection()).deleteOne({ _id: Code });
+    res.status(Gone.deletedCount === 1 ? 200 : 404).send();
 });
 
-reforgedApiRouter.post("/reforged/api/SetAccountStatus", HasAdminKey, async (req, res) => {
-    const Body = req.body != null && typeof req.body === "object" ? req.body : {};
-    const Username = CleanUsername(Body.Username);
-    const Status = Body.Status as AccountOperationalStatus;
-    if (Username === undefined || !["active", "banned", "disabled"].includes(Status)) {
+const ACCOUNT_STATUSES: readonly AccountOperationalStatus[] = ["active", "banned", "disabled"];
+
+reforgedApiRouter.post("/reforged/api/SetAccountStatus", HostOnly, async (req, res) => {
+    const Fields = Body(req);
+    const Status = ACCOUNT_STATUSES.find((Known) => Known === Fields.Status);
+    const Account = Status === undefined ? null : await AccountNamed(Fields.Username);
+    if (Account === null) {
         res.status(400).json({ error: "bad_request", message: "Username and Status (active, banned or disabled) are required." });
         return;
     }
-    const Repos = GetRepositories();
-    const Account = await Repos.launcherAccounts.findByDisplayNameNormalized(Username.toLowerCase());
     if (Account === undefined) {
-        res.status(404).json(ErrorBody("not_found"));
+        res.status(404).json(Refusal("not_found"));
         return;
     }
-    const Updated = await Repos.launcherAccounts.setAccessState(Account.userId, {
+    const Changed = await GetRepositories().launcherAccounts.setAccessState(Account.userId, {
         status: Status,
         approvalUpdatedAt: new Date().toISOString(),
-        approvalUpdatedBy: "reforged-admin",
-        approvalReason: typeof Body.Reason === "string" ? Body.Reason.slice(0, 500) : undefined
+        approvalUpdatedBy: "host",
+        approvalReason: typeof Fields.Reason === "string" ? Fields.Reason.slice(0, 500) : undefined
     });
-    StatusCache.clear();
-    logger.info(`[reforged] ${Account.userId} (${Account.displayName}) is now ${Status}`);
-    res.status(200).json({ UserId: Account.userId, Username: Account.displayName, Status: Updated?.status ?? Status });
+    ForgetStatus();
+    logger.info(`[launcher-api] ${Account.displayName} (${Account.userId}) set ${Status}`);
+    res.status(200).json({ UserId: Account.userId, Username: Account.displayName, Status: Changed?.status ?? Status });
 });

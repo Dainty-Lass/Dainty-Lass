@@ -36,14 +36,14 @@
 #include "Networking.h"
 #include "RuntimeShared.h"
 #include "P2PHooks.h"
-// [Dauntless Reforged Revival] The deployment header is optional: the backend address normally comes from the
-// environment at run time (MYSTICPARADOX_BACKEND_URL or REFORGED_BACKEND_URL, see MpResolveBackendAddress), so one
-// runtime build serves every server. A build without the header fails closed on an address that never resolves.
+// [DaintyLass] One runtime build for every server: the backend address is read from the environment at run time
+// (MpResolveBackendAddress), so the generated deployment header is optional. Without it the built-in host is a
+// reserved name that never resolves, so a game started with no address fails closed instead of reaching a stranger.
 #if __has_include("deployment_config.generated.h")
 #include "deployment_config.generated.h"
 #endif
 #ifndef MP_PUBLIC_HOST
-#define MP_PUBLIC_HOST L"reforged.invalid"
+#define MP_PUBLIC_HOST L"backend.invalid"
 #endif
 #include "BackendUrl.h"
 #include "resource.h"
@@ -8768,11 +8768,13 @@ static void MpResolveBackendAddress() {
     uint16_t EnvPort = kMpBuiltInXmppPort;
     try {
         char Raw[512] = {};
-        DWORD Length = GetEnvironmentVariableA("MYSTICPARADOX_BACKEND_URL", Raw, static_cast<DWORD>(sizeof(Raw)));
-        // [Dauntless Reforged Revival] The Reforged launcher and the Director's game servers set REFORGED_BACKEND_URL;
-        // it is read the same way when MYSTICPARADOX_BACKEND_URL is not set.
-        if (Length == 0) {
-            Length = GetEnvironmentVariableA("REFORGED_BACKEND_URL", Raw, static_cast<DWORD>(sizeof(Raw)));
+        // [DaintyLass] The first of these that is set wins: Mystic's own name, then the one the DaintyLass launcher
+        // and Director export (REFORGED_BACKEND_URL, a name installs depend on).
+        static const char* const kBackendUrlVariables[] = { "MYSTICPARADOX_BACKEND_URL", "REFORGED_BACKEND_URL" };
+        DWORD Length = 0;
+        for (const char* Name : kBackendUrlVariables) {
+            Length = GetEnvironmentVariableA(Name, Raw, static_cast<DWORD>(sizeof(Raw)));
+            if (Length != 0) break;
         }
         if (Length >= sizeof(Raw)) {
             EnvLength = Length;                         // buffer too small: Length is the size it would need
@@ -9449,7 +9451,9 @@ static bool MpIsXmppServerPort(const std::wstring& Section, const std::wstring& 
         && (MpWContainsCI(Section, L"xmpp") || MpWContainsCI(Key, L"xmpp"));
 }
 
-static bool MpIsXmppUseSsl(const std::wstring& Section, const std::wstring& Key) {
+// [DaintyLass] The XMPP TLS switch (bUseSSL): rewritten along with ServerAddr when the address came from the
+// environment, since a ws:// address (the launcher's loopback relay) must not be opened with TLS.
+static bool MpIsXmppSslSwitch(const std::wstring& Section, const std::wstring& Key) {
     return _wcsicmp(Key.c_str(), L"bUseSSL") == 0
         && (MpWContainsCI(Section, L"xmpp") || MpWContainsCI(Key, L"xmpp"));
 }
@@ -9515,13 +9519,13 @@ bool GetConfigStringHook(void* This, const wchar_t* Section, const wchar_t* Key,
         }
     }
 
-    // [Dauntless Reforged Revival] ...and the TLS switch, so a ws:// address (the Reforged launcher's local relay) is
-    // not opened with TLS because the game's config says bUseSSL=True.
-    if (Redirect && Value != nullptr && MpBackendFromEnvironment() && MpIsXmppUseSsl(Sec, K)) {
-        const std::wstring UseSsl = wcsncmp(MpXmppWsUrl(), L"wss://", 6) == 0 ? L"True" : L"False";
-        if (MpWriteEngineFString(Value, UseSsl)) {
-            static int LoggedSslOnce = 0;
-            if (!LoggedSslOnce) { LoggedSslOnce = 1; MpLog(std::string("[XmppConfig] bUseSSL -> ") + MpNarrow(UseSsl)); }
+    // [DaintyLass] bUseSSL follows the scheme of the address the environment gave (MpIsXmppSslSwitch).
+    if (Redirect && Value != nullptr && MpBackendFromEnvironment() && MpIsXmppSslSwitch(Sec, K)) {
+        const bool Secure = wcsncmp(MpXmppWsUrl(), L"wss://", 6) == 0;
+        const std::wstring Switch = Secure ? L"True" : L"False";
+        if (MpWriteEngineFString(Value, Switch)) {
+            static int LoggedSwitchOnce = 0;
+            if (!LoggedSwitchOnce) { LoggedSwitchOnce = 1; MpLog(std::string("[XmppConfig] bUseSSL -> ") + (Secure ? "True" : "False")); }
             return true;
         }
     }

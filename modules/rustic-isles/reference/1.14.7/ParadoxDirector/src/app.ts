@@ -12,7 +12,7 @@
 
 import express from "express";
 import { matchmakingRouter } from "./routes/matchmaker.js";
-import { GetPersistentHubStatus, ListInstancesForStatus } from "./controllers/gameservers.js";
+import { GetPersistentHubStatus, InstanceSummaries } from "./controllers/gameservers.js";
 import { logger } from "./logger.js";
 import { GetRequestId, RequestContextMiddleware } from "./observability/requestContext.js";
 
@@ -34,9 +34,9 @@ app.get('/api/hub-status', (_req, res) => {
     res.status(200).json(GetPersistentHubStatus());
 });
 
-// [Dauntless Reforged Revival] Running game servers, for the backend's launcher status. Read-only.
+// [DaintyLass] The game servers that are up, for the backend's ServerStatus. Reads state, changes none.
 app.get('/api/instances', (_req, res) => {
-    res.status(200).json(ListInstancesForStatus());
+    res.status(200).json(InstanceSummaries());
 });
 
 app.use(RequestContextMiddleware);

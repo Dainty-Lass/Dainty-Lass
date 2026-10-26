@@ -16,8 +16,8 @@ import { logger } from "./logger";
 import { EnsureServerRuntimeUpdated } from "./runtimeUpdater";
 
 const PORT = process.env.PORT;
-// [Dauntless Reforged Revival] The deploy server has no authentication, so it binds 127.0.0.1 unless
-// BIND_HOST says otherwise (as Dauntless Revived's deploy server does). Only the backend calls it.
+// [DaintyLass] Nothing authenticates to the deploy server, so it listens on loopback; BIND_HOST widens that
+// only for a host that means to.
 const BIND_HOST = process.env.BIND_HOST?.trim() || "127.0.0.1";
 
 async function Main(): Promise<void> {

@@ -728,22 +728,37 @@ export function GetPersistentHubStatus(){
     };
 }
 
-// [Dauntless Reforged Revival] The running game servers for the launcher's server panel (through the
-// backend's /reforged/api/ServerStatus, which shows them to registered players only). Ready and live
-// processes only; no process ids, addresses or launch ids leave this function.
-export function ListInstancesForStatus(){
-    return Gameservers
-        .filter((Server) => Server.state === "ready" && IsProcessAlive(Server.processId))
-        .map((Server) => ({
-            id: `${Server.isRamsgate ? "city" : Server.isTrainingDojo ? "dojo" : "hunt"}-${Server.port}`,
-            kind: Server.isRamsgate ? "city" : Server.isTrainingDojo ? "dojo" : "hunt",
+// [DaintyLass] What the backend's ServerStatus shows of the game servers: live, ready processes only, and
+// nothing a player could connect to on their own (no pid, address or launch id).
+export type InstanceSummary = {
+    id: string;
+    kind: "city" | "dojo" | "hunt";
+    map: string;
+    behemoth: string | null;
+    players: number;
+    maxPlayers: number;
+    playerIds: string[];
+    startedAt: string;
+};
+
+export function InstanceSummaries(): InstanceSummary[] {
+    const Summaries: InstanceSummary[] = [];
+    for (const Server of Gameservers) {
+        if (Server.state !== "ready" || !IsProcessAlive(Server.processId)) continue;
+        const Kind: InstanceSummary["kind"] = Server.isRamsgate ? "city" : Server.isTrainingDojo ? "dojo" : "hunt";
+        const Players = Server.expectedPlayers ?? [];
+        Summaries.push({
+            id: `${Kind}-${Server.port}`,
+            kind: Kind,
             map: Server.map,
             behemoth: Server.behemoth ?? null,
-            players: Server.expectedPlayers?.length ?? 0,
-            maxPlayers: Server.isRamsgate || Server.isTrainingDojo ? 0 : PUBLIC_HUNT_MAX_PLAYERS,
-            playerIds: (Server.expectedPlayers ?? []).map((Player) => Player.playerUid),
+            players: Players.length,
+            maxPlayers: Kind === "hunt" ? PUBLIC_HUNT_MAX_PLAYERS : 0,
+            playerIds: Players.map((Player) => Player.playerUid),
             startedAt: (Server.readyTime ?? Server.startTime).toISOString()
-        }));
+        });
+    }
+    return Summaries;
 }
 
 // [2026-10-10 1.14.7] Both getters check ready AND alive (the Training getter used to hand out a dead dojo's

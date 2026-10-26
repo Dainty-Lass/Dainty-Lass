@@ -125,11 +125,11 @@ eosRouter.post("/account/api/oauth/token", async (req, res) => {
     else if(process.env.AUTH_MODE === "APIKEY"){
         const ApiKey = req.body.exchange_code;
 
-        // [Dauntless Reforged Revival] As in LAUNCHER mode below: the client's second OAuth request
-        // (grant_type=client_credentials, no exchange_code) authenticates the game app, not a
-        // player, and gets the separate service token instead of a 500 from hashing nothing.
+        // [DaintyLass] The client asks twice: once for the player (exchange_code = the account key) and once for the
+        // game itself (grant_type=client_credentials, no code). The second gets the service token, as LAUNCHER mode
+        // gives it, rather than a 500 from hashing an empty key.
         if((typeof ApiKey !== "string" || ApiKey.length === 0) && req.body?.grant_type === "client_credentials"){
-            logger.info("APIKEY auth: issuing client-credentials token");
+            logger.info("APIKEY auth: client-credentials token for the game app");
 
             res.json({
                 "access_token": SignMetagameJWTForUid(LAUNCHER_CLIENT_CREDENTIALS_USER_ID),
@@ -149,11 +149,11 @@ eosRouter.post("/account/api/oauth/token", async (req, res) => {
             ? await GetUserIDForAPIKey(ApiKey)
             : undefined;
 
-        // [Dauntless Reforged Revival] A banned or disabled launcher account cannot start a session.
+        // [DaintyLass] A key whose launcher account is banned or disabled opens no session.
         if(UserId != undefined){
             const Account = await GetRepositories().launcherAccounts.findByUserId(UserId);
             if(Account !== undefined && !IsAccountEligible(Account)){
-                logger.warn(`APIKEY auth: account ${UserId} is not eligible`);
+                logger.warn(`APIKEY auth: ${UserId} is ${Account.status}, refused`);
                 res.status(403);
                 res.send();
                 return;
