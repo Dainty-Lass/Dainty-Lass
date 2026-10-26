@@ -36,7 +36,8 @@ use crate::config::{Config, Endpoint};
 use crate::feed::AllowlistFeed;
 use crate::guard::{Guard, Phases};
 use crate::ip::{peer_address, rate_limit_key};
-use crate::policy::{Decision, FeedKind, LimitClass, Upstream, classify_for, has_bearer};
+use crate::network::{self, MAX_REPORT_BYTES, parse_region_report};
+use crate::policy::{Decision, FeedKind, LimitClass, NetworkRoute, Upstream, classify_for, has_bearer};
 use crate::ratelimit::{RateLimiter, Take};
 use crate::redact::{redact_target, redact_user_agent};
 
@@ -58,6 +59,9 @@ const CLIENT_CLAIMS: [&str; 12] = [
     // The gateway already answered any 100-continue itself
     "expect",
 ];
+
+/// The launcher's account key header, which a region report carries (DN7)
+const ACCOUNT_KEY_HEADER: &str = "x-reforged-user-api-key";
 
 const RESPONSE_DROP: [&str; 2] = ["x-powered-by", "x-reforged-gateway"];
 
@@ -919,6 +923,7 @@ impl Gateway {
             Decision::Reject {
                 status, error, reason, ..
             } => return self.refuse(request.headers(), access, phases, status, error, reason.into(), &[]),
+            Decision::Network { route, .. } => return self.network(request, access, phases, route).await,
             Decision::Proxy { upstream, feed, .. } => (upstream, feed),
         };
         let max_body = self.config.limits.max_body_bytes;
@@ -939,6 +944,67 @@ impl Gateway {
             );
         }
         self.proxy(request, ip, access, phases, upstream, feed).await
+    }
+
+    /// The network's routes (DN7, `network.rs`), answered here. A region report is read up to its cap,
+    /// checked and dropped: the account key is only checked for its shape, since nothing is stored until
+    /// DN8 moves the route to the player's home, behind its account check.
+    async fn network(
+        &self,
+        request: Request<Incoming>,
+        mut access: Access,
+        phases: Phases,
+        route: NetworkRoute,
+    ) -> Reply {
+        access.route = "network";
+        let body = match route {
+            NetworkRoute::Nodes => Some(network::nodes_body(&self.config.network)),
+            NetworkRoute::Ping => None,
+            NetworkRoute::Regions => {
+                let key = request.headers().get(ACCOUNT_KEY_HEADER).and_then(|v| v.to_str().ok());
+                if !key.is_some_and(protocol::account::is_plausible_account_key) {
+                    let reason = "no_account_key".into();
+                    return self.refuse_on(request.headers(), access, phases, 401, "unauthorized", reason, &[]);
+                }
+                let headers = request.headers().clone();
+                let limited = http_body_util::Limited::new(request.into_body(), MAX_REPORT_BYTES);
+                let refused = match tokio::time::timeout(self.config.timeouts.request, limited.collect()).await {
+                    Ok(Ok(collected)) => {
+                        let report = collected.to_bytes();
+                        access.bytes_in = report.len() as u64;
+                        parse_region_report(&report)
+                            .is_none()
+                            .then_some((400, "bad_request", "bad_region_report"))
+                    }
+                    Ok(Err(error)) if error.is::<http_body_util::LengthLimitError>() => {
+                        Some((413, "body_too_large", "body_too_large"))
+                    }
+                    Ok(Err(_)) => Some((400, "bad_request", "body_error")),
+                    Err(_) => Some((408, "request_timeout", "ERR_HTTP_REQUEST_TIMEOUT")),
+                };
+                if let Some((status, error, reason)) = refused {
+                    return self.refuse_on(&headers, access, phases, status, error, reason.into(), &[]);
+                }
+                None
+            }
+        };
+        access.status = if body.is_some() { 200 } else { 204 };
+        let mut response = Response::builder()
+            .status(access.status)
+            .header("cache-control", "no-store");
+        if body.is_some() {
+            response = response.header("content-type", "application/json");
+        }
+        if self.closing() {
+            response = response.header(CONNECTION, "close");
+        }
+        let response = response
+            .body(ResponseBody::full(Bytes::from(body.unwrap_or_default())))
+            .unwrap_or_else(|_| Response::new(ResponseBody::full(Bytes::new())));
+        if let Some(record) = access.capture.as_deref_mut() {
+            record.res_headers = response.headers().clone();
+        }
+        response.map(|body| body.logged(access, None, phases))
     }
 
     async fn proxy(
@@ -1085,6 +1151,10 @@ impl Gateway {
             Decision::Reject {
                 status, error, reason, ..
             } => return raw_refuse(access, status, error, reason.into(), &[]),
+            // The policy refuses an upgrade to a network route before this
+            Decision::Network { .. } => {
+                return raw_refuse(access, 400, "bad_request", "unsupported_upgrade".into(), &[]);
+            }
             Decision::Proxy { upstream, .. } => upstream,
         };
         access.route = upstream.as_str();

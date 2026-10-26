@@ -129,21 +129,21 @@ mod tests {
     fn status(decision: &Decision) -> Option<u16> {
         match decision {
             Decision::Reject { status, .. } => Some(*status),
-            Decision::Proxy { .. } => None,
+            Decision::Proxy { .. } | Decision::Network { .. } => None,
         }
     }
 
     fn reason(decision: &Decision) -> Option<&'static str> {
         match decision {
             Decision::Reject { reason, .. } => Some(reason),
-            Decision::Proxy { .. } => None,
+            Decision::Proxy { .. } | Decision::Network { .. } => None,
         }
     }
 
     fn feed(decision: &Decision) -> Option<FeedKind> {
         match decision {
             Decision::Proxy { feed, .. } => *feed,
-            Decision::Reject { .. } => None,
+            Decision::Reject { .. } | Decision::Network { .. } => None,
         }
     }
 

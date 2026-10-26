@@ -14,6 +14,7 @@ pub mod feed;
 pub mod gateway;
 pub mod guard;
 pub mod ip;
+pub mod network;
 pub mod policy;
 pub mod ratelimit;
 pub mod redact;

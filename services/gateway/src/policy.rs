@@ -65,6 +65,32 @@ pub enum FeedKind {
     Token,
 }
 
+/// The network's routes the gateway answers itself (DN7, `network.rs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NetworkRoute {
+    Nodes,
+    Ping,
+    Regions,
+}
+
+impl NetworkRoute {
+    fn find(canonical: &str) -> Option<Self> {
+        match canonical {
+            crate::network::NODES_PATH => Some(Self::Nodes),
+            crate::network::PING_PATH => Some(Self::Ping),
+            crate::network::REGIONS_PATH => Some(Self::Regions),
+            _ => None,
+        }
+    }
+
+    fn method(self) -> &'static str {
+        match self {
+            Self::Nodes | Self::Ping => "GET",
+            Self::Regions => "POST",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Decision {
     Reject {
@@ -78,12 +104,19 @@ pub enum Decision {
         limit_class: LimitClass,
         feed: Option<FeedKind>,
     },
+    /// Answered by the gateway, never proxied
+    Network {
+        route: NetworkRoute,
+        limit_class: LimitClass,
+    },
 }
 
 impl Decision {
     pub fn limit_class(&self) -> LimitClass {
         match self {
-            Self::Reject { limit_class, .. } | Self::Proxy { limit_class, .. } => *limit_class,
+            Self::Reject { limit_class, .. } | Self::Proxy { limit_class, .. } | Self::Network { limit_class, .. } => {
+                *limit_class
+            }
         }
     }
 }
@@ -304,6 +337,17 @@ pub fn classify(method: &str, raw_url: &str, headers: &HeaderMap, is_upgrade: bo
         }
     }
 
+    // The launcher's, never behind an /__origin prefix; only reborn joins a network (DD16)
+    if let Some(route) = NetworkRoute::find(&canonical).filter(|_| unwrapped.origin.is_none()) {
+        if is_upgrade {
+            return reject(400, "bad_request", "unsupported_upgrade", limit_class);
+        }
+        if verb != route.method() {
+            return reject(405, "method_not_allowed", "method", limit_class);
+        }
+        return Decision::Network { route, limit_class };
+    }
+
     if under(&canonical, "/reforged") {
         let methods = canonical
             .strip_prefix("/reforged/api/")
@@ -387,21 +431,21 @@ mod tests {
     fn status(decision: &Decision) -> Option<u16> {
         match decision {
             Decision::Reject { status, .. } => Some(*status),
-            Decision::Proxy { .. } => None,
+            Decision::Proxy { .. } | Decision::Network { .. } => None,
         }
     }
 
     fn reason(decision: &Decision) -> Option<&'static str> {
         match decision {
             Decision::Reject { reason, .. } => Some(reason),
-            Decision::Proxy { .. } => None,
+            Decision::Proxy { .. } | Decision::Network { .. } => None,
         }
     }
 
     fn feed(decision: &Decision) -> Option<FeedKind> {
         match decision {
             Decision::Proxy { feed, .. } => *feed,
-            Decision::Reject { .. } => None,
+            Decision::Reject { .. } | Decision::Network { .. } => None,
         }
     }
 
@@ -875,5 +919,63 @@ mod tests {
         assert!(!has_bearer(&headers(&[("authorization", "Bearerabc")])));
         assert!(!has_bearer(&headers(&[("authorization", "Basic abc")])));
         assert!(!has_bearer(&none()));
+    }
+
+    #[test]
+    fn the_network_routes_are_answered_here_and_only_for_the_launcher() {
+        let network = |method: &str, path: &str| match classify(method, path, &none(), false) {
+            Decision::Network { route, limit_class } => {
+                assert_eq!(limit_class, LimitClass::General);
+                Some(route)
+            }
+            _ => None,
+        };
+        assert_eq!(network("GET", "/network/v1/nodes"), Some(NetworkRoute::Nodes));
+        assert_eq!(network("get", "/Network/V1/Nodes/"), Some(NetworkRoute::Nodes));
+        assert_eq!(network("GET", "/network/v1/ping?n=3"), Some(NetworkRoute::Ping));
+        assert_eq!(network("POST", "/network/v1/regions"), Some(NetworkRoute::Regions));
+        for (method, path) in [
+            ("POST", "/network/v1/nodes"),
+            ("HEAD", "/network/v1/ping"),
+            ("GET", "/network/v1/regions"),
+        ] {
+            assert_eq!(
+                status(&classify(method, path, &none(), false)),
+                Some(405),
+                "{method} {path}"
+            );
+        }
+        // The game's wrapped calls and other paths go where they went before
+        assert_eq!(
+            classify(
+                "GET",
+                "/__origin/gamedev-prod.steelyard.ca/network/v1/nodes",
+                &none(),
+                false
+            ),
+            proxied(Upstream::Backend, LimitClass::General, None)
+        );
+        assert_eq!(
+            classify("GET", "/network/v1/nodes/x", &none(), false),
+            proxied(Upstream::Backend, LimitClass::General, None)
+        );
+        assert_eq!(
+            reason(&classify(
+                "GET",
+                "/network/v1/nodes",
+                &headers(&[("upgrade", "websocket")]),
+                true
+            )),
+            Some("unsupported_upgrade")
+        );
+        assert_eq!(
+            reason(&classify(
+                "GET",
+                "/network/v1/nodes",
+                &headers(&[("x-reforged-admin-key", "k")]),
+                false
+            )),
+            Some("host_only_header")
+        );
     }
 }
