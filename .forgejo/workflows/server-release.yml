@@ -10,22 +10,16 @@
 #                        still runs them (until RS2 and RS3 flip start's switch; RS5 removes them) and setup makes
 #                        the gateway's certificate with their make-cert tool
 #      release.json      the version, commit, platform and repository, and every file of the release with its SHA-256
-#  - SHA256SUMS.txt for the archives, covered by a signed build provenance attestation on a published release
-#    (gh attestation verify <file> --repo <owner>/<repo>; reforged-host update runs it when gh is there)
+#  - SHA256SUMS.txt for the archives
 #
-# Two ways to run it:
-#  - Pushing a tag server-v<version> (x.y.z or x.y.z-prerelease) publishes: the tagged commit must be on the default
-#    branch, the version must be new, and the release is a prerelease unless the repository variable
-#    SERVER_RELEASE_STABLE is true. It is never marked latest (that stays the launcher, which players download).
-#  - Run workflow (workflow_dispatch) is a dry run on any branch: it builds, smoke-tests and keeps the release files as
-#    a 7-day artifact (server-release) and publishes nothing, attests nothing and makes no tag.
-# Actions are pinned by commit.
+# On Forgejo (DX3) it is the dry run only: Run workflow on any branch builds, smoke-tests and keeps the release files
+# as a 7-day artifact (server-release). Publishing stays out until DX5: reforged-host update reads GitHub's releases
+# API and checks GitHub attestations, which Forgejo has neither of. The tag trigger, the version checks and the
+# publish job are in b28fd27:.github/workflows/server-release.yml.
+# Runner labels docker and windows-msvc (docs/ci-runners.md). Actions are pinned by commit.
 name: Server release
 
 on:
-  push:
-    tags:
-      - "server-v*"
   workflow_dispatch:
     inputs:
       version:
@@ -37,70 +31,27 @@ permissions: {}
 
 jobs:
   prepare:
-    name: Version and release state
-    runs-on: ubuntu-latest
+    name: Version
+    runs-on: docker
     timeout-minutes: 5
     permissions:
       contents: read
     outputs:
       version: ${{ steps.plan.outputs.version }}
-      tag: ${{ steps.plan.outputs.tag }}
-      prerelease: ${{ steps.plan.outputs.prerelease }}
-      publish: ${{ steps.plan.outputs.publish }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Work out the version and whether it is published
+      - name: Work out the version
         id: plan
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          REF: ${{ github.ref }}
-          REF_NAME: ${{ github.ref_name }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          STABLE_ALLOWED: ${{ vars.SERVER_RELEASE_STABLE }}
           INPUT_VERSION: ${{ inputs.version }}
           RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
-          fail() { echo "::error::$1"; exit 1; }
           # A semantic version without build metadata: x.y.z or x.y.z-prerelease
           semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
-          if [ "$GITHUB_EVENT_NAME" = push ] && [[ "$REF" == refs/tags/* ]]; then
-            publish=true
-            version="${REF_NAME#server-v}"
-          else
-            publish=false
-            version="${INPUT_VERSION:-0.0.0-dryrun.$RUN_NUMBER}"
-          fi
-          [[ "$version" =~ $semver ]] || fail "$version is not a version (x.y.z or x.y.z-prerelease)"
-          prerelease=false
-          case "$version" in *-*) prerelease=true ;; esac
-          tag="server-v$version"
-          if [ "$publish" = true ]; then
-            [ "$REF" = "refs/tags/$tag" ] || fail "a release is published from a tag server-v<version>, not $REF"
-            git fetch --quiet origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
-            git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH" ||
-              fail "$tag is on ${GITHUB_SHA:0:12}, which is not on $DEFAULT_BRANCH: server releases are made from $DEFAULT_BRANCH only"
-            if [ "$prerelease" != true ] && [ "$STABLE_ALLOWED" != true ]; then
-              fail "$version is a full release: the Rust servers publish prereleases until the front-door cutover (set SERVER_RELEASE_STABLE=true then)"
-            fi
-            if out="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq .html_url 2>&1)"; then
-              fail "$tag is published already ($out): a release is never replaced, raise the version"
-            elif ! grep -q 'HTTP 404' <<<"$out"; then
-              fail "could not look up the release $tag: $out"
-            fi
-          fi
-          {
-            echo "version=$version"
-            echo "tag=$tag"
-            echo "prerelease=$prerelease"
-            echo "publish=$publish"
-          } >> "$GITHUB_OUTPUT"
-          echo "servers $version, tag $tag, prerelease $prerelease, publish $publish"
+          version="${INPUT_VERSION:-0.0.0-dryrun.$RUN_NUMBER}"
+          [[ "$version" =~ $semver ]] || { echo "::error::$version is not a version (x.y.z or x.y.z-prerelease)"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "servers $version, dry run"
 
   build:
     name: Build (${{ matrix.target }})
@@ -112,10 +63,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-msvc
             target: x86_64-pc-windows-msvc
             platform: windows-x64
-          - os: ubuntu-latest
+          - os: docker
             target: x86_64-unknown-linux-gnu
             platform: linux-x64
     defaults:
@@ -127,9 +78,17 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       COMMIT: ${{ github.sha }}
     steps:
+      # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
+      - name: Long paths for git
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+
+      # CI_READ_TOKEN: a read-only token, for when the job's own token can't read the submodules' repositories
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          submodules: recursive
+          token: ${{ secrets.CI_READ_TOKEN || github.token }}
 
       # The runner's temporary folder as bash and GNU tar take it on every runner (tar reads D: as a remote host)
       - name: Work folder
@@ -137,6 +96,15 @@ jobs:
           work="$RUNNER_TEMP"
           if [ "$RUNNER_OS" = Windows ]; then work="$(cygpath -u "$RUNNER_TEMP")"; fi
           echo "WORK=$work" >> "$GITHUB_ENV"
+
+      # The docker label's image has Node for the actions but no Rust
+      - name: Install rustup
+        if: runner.os == 'Linux'
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
 
       - name: Install the pinned toolchain
         working-directory: rust
@@ -147,11 +115,9 @@ jobs:
       # No build cache in a release: every file is built from this commit alone.
       # backend and director join this list once they are real (RB rows; RD8). Until RB14 the archive carries
       # the Node backend and Director instead (the Node build step below).
-      # REFORGED_RELEASE_REPOSITORY: where reforged-host looks for newer releases (this repository)
+      # REFORGED_RELEASE_REPOSITORY stays rust/.cargo/config.toml's: the releases are on GitHub until DX5
       - name: Build the release binaries
         working-directory: rust
-        env:
-          REFORGED_RELEASE_REPOSITORY: ${{ github.repository }}
         run: cargo build --release --locked --target "$TARGET" -p server-console -p server-minimal --bins
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -235,7 +201,8 @@ jobs:
           fi
           ls -l "$WORK/release"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      # Stock upload-artifact v4+ refuses any host but github.com; Forgejo's fork drops that check
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
         with:
           name: server-archive-${{ matrix.platform }}
           path: ${{ runner.temp }}/release/
@@ -245,14 +212,14 @@ jobs:
   package:
     name: Release files
     needs: [prepare, build]
-    runs-on: ubuntu-latest
+    runs-on: docker
     timeout-minutes: 10
     permissions:
       contents: read
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: https://code.forgejo.org/forgejo/download-artifact@d8d0a99033603453ad2255e58720b460a0555e1e # v4 (v4.1.4, GHES check disabled)
         with:
           pattern: server-archive-*
           path: release
@@ -272,7 +239,7 @@ jobs:
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
         with:
           name: server-release
           path: release/
@@ -290,9 +257,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-msvc
             platform: windows-x64
-          - os: ubuntu-latest
+          - os: docker
             platform: linux-x64
     defaults:
       run:
@@ -301,7 +268,7 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       PLATFORM: ${{ matrix.platform }}
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: https://code.forgejo.org/forgejo/download-artifact@d8d0a99033603453ad2255e58720b460a0555e1e # v4 (v4.1.4, GHES check disabled)
         with:
           name: server-release
           path: ${{ runner.temp }}/release
@@ -322,70 +289,3 @@ jobs:
           root="$RUNNER_TEMP/host/reforged-revival-server-$VERSION"
           "$root/bin/reforged-host$ext" update --check | tee check.txt
           grep -q "Up to date" check.txt
-
-  publish:
-    name: Publish the release
-    needs: [prepare, package, try]
-    if: needs.prepare.outputs.publish == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    concurrency:
-      group: server-release
-      cancel-in-progress: false
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      TAG: ${{ needs.prepare.outputs.tag }}
-      VERSION: ${{ needs.prepare.outputs.version }}
-      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
-      COMMIT: ${{ github.sha }}
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: server-release
-          path: release
-
-      - name: Check the release files
-        run: |
-          set -euo pipefail
-          cd release
-          expected="$(printf '%s\n' "ReforgedRevivalServer-$VERSION-linux-x64.tar.gz" "ReforgedRevivalServer-$VERSION-windows-x64.zip" SHA256SUMS.txt | sort)"
-          [ "$(ls -A | sort)" = "$expected" ] || { echo "::error::these are not the release files of servers $VERSION"; ls -A; exit 1; }
-          sha256sum --check --strict SHA256SUMS.txt
-
-      # Signed statements that the archives were built by this workflow from this commit:
-      # gh attestation verify <file> --repo <owner>/<repo>
-      - name: Attest the build provenance of the archives
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-checksums: release/SHA256SUMS.txt
-
-      - name: Create the release
-        run: |
-          set -euo pipefail
-          note=""
-          if [ "$PRERELEASE" = true ]; then
-            note="This is a test version (a prerelease) of the servers, for the canary."
-          fi
-          cat > notes.md <<EOF
-          DaintyLass servers ${VERSION}: the server in one binary (dainty-lass-server-console, also as
-          reforged-host, and dainty-lass-server-minimal), with the Node backend and Director, built from ${COMMIT}. ${note}
-
-          - Windows x64: \`ReforgedRevivalServer-${VERSION}-windows-x64.zip\`
-          - Linux x86_64: \`ReforgedRevivalServer-${VERSION}-linux-x64.tar.gz\`
-
-          A server set up from a release moves to this one with \`reforged-host update\`, which downloads it, checks it
-          against \`SHA256SUMS.txt\` (and its attestation, when the GitHub CLI is there) and runs setup again. A new
-          server: see docs/hosting.md and docs/hosting-linux.md. Check a download by hand with
-          \`sha256sum --check --ignore-missing SHA256SUMS.txt\` or \`gh attestation verify <file> --repo ${GH_REPO}\`.
-          The Windows binaries are not code-signed. Node.js 22 or newer is still needed for the backend and Director.
-
-          Free software under the GNU AGPL-3.0; each archive holds the corresponding source. No game files are included.
-          EOF
-          # Never marked latest: the repository's latest release stays the launcher, which players download
-          gh release create "$TAG" release/* --verify-tag --title "Servers ${VERSION}" --notes-file notes.md \
-            --prerelease="$PRERELEASE" --latest=false
