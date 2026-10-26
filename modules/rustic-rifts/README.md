@@ -216,3 +216,11 @@ check use it. **Step 5 prep, 13 October (local):** the module is a signed client
 exercised in a real hunt yet.
 - `[PerfNet]` on a real hunt should still confirm Dauntless's largest datagram; up to 2048 bytes (the bridge cap) now
   travels in two pieces.
+
+## Licence
+
+AGPL-3.0-only ([LICENSE](LICENSE)), with Mystic Paradox's additional terms ([ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)).
+This is a modified, unofficial version of Mystic Paradox's co-op transport, not an official Mystic Paradox release.
+"Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related modifications were developed by MysticFox / Pranav
+Karande. See NOTICE.md for contribution and provenance information." libjuice (MPL-2.0) is fetched at build time;
+[NOTICE.md](NOTICE.md) has its notice.
