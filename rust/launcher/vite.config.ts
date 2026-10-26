@@ -1,4 +1,5 @@
-// Builds the stand-in page in page/ for the Tauri launcher (tauri.conf.json: frontendDist ../dist-page).
+// Builds the stand-in page in page/. Tauri serves dainty-lass-ui's build instead (DU1); page/api.ts and its
+// tests stay until DU2.
 // The page's Content-Security-Policy comes from tauri.conf.json, so index.html carries none (DR's L10:
 // a meta tag with default-src 'none' would block the isolation frame and the IPC endpoint).
 
