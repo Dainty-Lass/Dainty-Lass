@@ -669,6 +669,7 @@ mod tests {
             legacy_public_port: None,
             performance: None,
             linux: None,
+            database: None,
             file: FileForm::default(),
         }
     }

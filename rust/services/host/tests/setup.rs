@@ -770,6 +770,26 @@ fn setup_keeps_the_hosts_own_comments_and_edits_in_host_toml() {
     assert_eq!(load_host_config(&p).unwrap().unwrap().max_hunt_servers, 2);
 }
 
+// DF7: [database] is chosen in host.toml; setup keeps it and writes it into admin.env.
+#[test]
+fn setup_keeps_the_database_the_host_chose_in_host_toml() {
+    let (_dir, p, _game) = checkout();
+    let env = Mock::new();
+    setup(&p, &["--mode", "private", "--skip-install"], &env).0.unwrap();
+    let admin = read_env_file(&p.config.join("admin.env")).unwrap();
+    assert_eq!(admin.get("REFORGED_DB_ENGINE"), Some("sqlite"));
+    let edited = read(&p.host_toml) + "\n# Postgres in Docker\n[database]\nengine = \"postgres\" # was sqlite\n";
+    std::fs::write(&p.host_toml, &edited).unwrap();
+    setup(&p, &["--skip-install"], &env).0.unwrap();
+    assert_eq!(read(&p.host_toml), edited, "kept as written");
+    let admin = read_env_file(&p.config.join("admin.env")).unwrap();
+    let secrets = read_env_file(&p.config.join("secrets.env")).unwrap();
+    assert_eq!(admin.get("REFORGED_DB_ENGINE"), Some("postgres"));
+    assert_eq!(admin.get("REFORGED_DB_HOST"), Some("127.0.0.1"));
+    assert_eq!(admin.get("REFORGED_DB_PASSWORD"), secrets.get("REFORGED_DB_PASSWORD"));
+    assert_eq!(secrets.get("REFORGED_DB_PASSWORD").map(str::len), Some(64));
+}
+
 #[test]
 fn a_fresh_public_setup_makes_the_certificate_once() {
     let (_dir, p, _game) = checkout();

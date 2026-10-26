@@ -264,6 +264,9 @@ async fn world_with(options: Options) -> World {
         timeouts_file: timeouts_file.clone(),
         max_hunt_servers: 3,
         server_mode: ServerMode::Public,
+        database: store::DatabaseConfig::Sqlite {
+            file: timeouts_file.with_file_name("dainty-lass.db"),
+        },
     };
     let clock = Arc::new(AtomicI64::new(START));
     let reading = clock.clone();

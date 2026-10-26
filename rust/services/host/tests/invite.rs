@@ -178,6 +178,7 @@ fn fast_secrets() -> Result<Secrets, host::HostError> {
         jwt_public_key_b64: "h".repeat(64),
         admin_api_key: "i".repeat(64),
         operator_secret: "j".repeat(64),
+        database_password: "l".repeat(64),
     })
 }
 

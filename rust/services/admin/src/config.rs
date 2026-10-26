@@ -32,6 +32,9 @@ pub struct Config {
     pub timeouts_file: PathBuf,
     pub max_hunt_servers: u32,
     pub server_mode: ServerMode,
+    /// The node's database (DD15), checked at start; not opened yet. Nothing set (an env file from before
+    /// DF7): SQLite beside the timeouts file.
+    pub database: store::DatabaseConfig,
 }
 
 fn optional(env: &Env, name: &str) -> Option<String> {
@@ -116,6 +119,9 @@ impl Config {
         };
         let timeouts_file = optional(env, "REFORGED_ADMIN_API_TIMEOUTS_FILE")
             .ok_or("REFORGED_ADMIN_API_TIMEOUTS_FILE is not set: run reforged-host setup")?;
+        let timeouts_file = std::path::absolute(Path::new(&timeouts_file)).unwrap_or_else(|_| timeouts_file.into());
+        let beside = timeouts_file.with_file_name("dainty-lass.db");
+        let database = store::DatabaseConfig::from_lookup(|name| optional(env, name), beside)?;
         Ok(Self {
             port,
             bind_hosts,
@@ -124,9 +130,10 @@ impl Config {
             api_key: secret(env, "REFORGED_ADMIN_API_KEY")?,
             admin_key: secret(env, "REFORGED_ADMIN_KEY")?,
             operator_secret: secret(env, "MYSTICPARADOX_MANAGER_OPERATOR_SECRET")?,
-            timeouts_file: std::path::absolute(Path::new(&timeouts_file)).unwrap_or_else(|_| timeouts_file.into()),
+            timeouts_file,
             max_hunt_servers,
             server_mode,
+            database,
         })
     }
 
@@ -175,6 +182,25 @@ mod tests {
             assert!(load(&[(name, " ")]).unwrap_err().contains(name), "{name}");
         }
         assert!(load(&[("REFORGED_ADMIN_API_KEY", "short")]).unwrap_err().contains("32"));
+    }
+
+    #[test]
+    fn the_database_is_sqlite_beside_the_timeouts_unless_setup_says_otherwise() {
+        let c = load(&[]).unwrap();
+        assert_eq!(
+            c.database,
+            store::DatabaseConfig::Sqlite {
+                file: c.timeouts_file.with_file_name("dainty-lass.db")
+            }
+        );
+        let postgres = [("REFORGED_DB_ENGINE", "postgres")];
+        assert!(load(&postgres).unwrap_err().contains("REFORGED_DB_PASSWORD"));
+        let far = [
+            ("REFORGED_DB_ENGINE", "postgres"),
+            ("REFORGED_DB_PASSWORD", "pw"),
+            ("REFORGED_DB_HOST", "10.0.0.1"),
+        ];
+        assert!(load(&far).unwrap_err().contains("not encrypted"));
     }
 
     #[test]

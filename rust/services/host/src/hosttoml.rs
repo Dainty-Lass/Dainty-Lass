@@ -34,6 +34,7 @@ const TOP: &[Field] = &[
     ("legacyPublicPort", "legacy_public_port", false),
     ("performance", "performance", false),
     ("linux", "linux", false),
+    ("database", "database", false),
 ];
 
 const MONGO: &[Field] = &[
@@ -62,6 +63,15 @@ const LINUX: &[Field] = &[
     ("firewallInterface", "firewall_interface", true),
 ];
 
+const DATABASE: &[Field] = &[
+    ("engine", "engine", false),
+    ("postgresHost", "postgres_host", false),
+    ("postgresPort", "postgres_port", false),
+    ("postgresUser", "postgres_user", false),
+    ("postgresDatabase", "postgres_database", false),
+    ("allowRemote", "allow_remote", false),
+];
+
 /// The keys of a table at the top of the file; `None` for a single value.
 fn table_fields(json_key: &str) -> Option<&'static [Field]> {
     match json_key {
@@ -69,6 +79,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "multipliers" => Some(MULTIPLIERS),
         "performance" => Some(PERFORMANCE),
         "linux" => Some(LINUX),
+        "database" => Some(DATABASE),
         _ => None,
     }
 }
@@ -164,7 +175,7 @@ fn value(item: &Item, sub: Option<&[Field]>, path: &str) -> Result<Value, HostEr
 /// host.toml's (`performance.serverFps` → `performance.server_fps`).
 pub fn message(text: &str) -> String {
     let mut out = text.to_owned();
-    for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX] {
+    for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE] {
         for &(json, toml, _) in fields {
             if json != toml {
                 out = out.replace(json, toml);
@@ -311,6 +322,22 @@ fn comment(path: &str) -> &'static str {
         "linux.firewall_interface" => {
             "Public: the network interface the allowlist filters, like eth0. Left out: every interface."
         }
+        "database" => "The database of the Rust services (the 1.4.4 metagame keeps its own SQLite file).",
+        "database.engine" => {
+            "\"sqlite\" (one file in this folder, nothing to install) or \"postgres\" (a server you run). Left out: sqlite."
+        }
+        "database.postgres_host" => {
+            "Postgres: the server's address (127.0.0.1 when left out). Connections are not encrypted, so it must\n\
+             be this machine unless allow_remote is true."
+        }
+        "database.postgres_port" => "Postgres: its TCP port (5432 when left out).",
+        "database.postgres_user" => {
+            "Postgres: the role to log in as (dainty when left out). Its password is REFORGED_DB_PASSWORD in secrets.env."
+        }
+        "database.postgres_database" => "Postgres: the database (dainty when left out).",
+        "database.allow_remote" => {
+            "true: accept a Postgres server on another machine, over a network you trust (private, not the internet)."
+        }
         _ => "",
     }
 }
@@ -371,7 +398,7 @@ mod tests {
     fn snake_case_of_the_host_json_keys() {
         assert_eq!(snake_case("maxHuntServers"), "max_hunt_servers");
         assert_eq!(snake_case("version"), "version");
-        for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX] {
+        for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE] {
             for &(json, toml, _) in fields {
                 assert_eq!(snake_case(json), toml);
             }
