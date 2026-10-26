@@ -1,0 +1,23 @@
+[package]
+name = "rifts-realms"
+description = "The realm directory, hunt and hub lifecycle, host capabilities, leases and host selection"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+rifts-seam.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+# tests/stubbed.rs assembles every server crate as isles-1-14-7 will
+rifts-admission.workspace = true
+rifts-guard.workspace = true
+rifts-relay.workspace = true
+
+[lints]
+workspace = true
