@@ -4,7 +4,7 @@
 #   docker compose build            (compose.yaml), or
 #   docker build -f docker/Dockerfile --target server .
 #
-# Two images, both laid out as the server release is (RD8, .github/workflows/server-release.yml), under
+# Two images, both laid out as the server release is (RD8, .forgejo/workflows/server-release.yml), under
 # /opt/reforged, so every path reforged-host writes into the env files is the same in every container:
 #   front   the internet-facing Rust services on Debian slim: gateway, allowlist (with nftables), content,
 #           admin API, each a container running `reforged-host <service>` from the one server binary (RD26)

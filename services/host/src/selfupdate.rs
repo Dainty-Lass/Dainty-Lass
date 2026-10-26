@@ -1,6 +1,6 @@
 //! Updating the server (`legacy/ReforgedHost/src/selfupdate.ts`): from a `git` fast-forward of the
 //! checkout to downloading and checking the server release (RD8, RH5), which
-//! `.github/workflows/server-release.yml` builds.
+//! `.forgejo/workflows/server-release.yml` builds.
 //!
 //! A release is two files per platform on a GitHub release `server-v<version>`: the archive
 //! (`ReforgedRevivalServer-<version>-<platform>.zip` or `.tar.gz`) and `SHA256SUMS.txt` for the
