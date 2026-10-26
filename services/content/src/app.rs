@@ -28,6 +28,7 @@ use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode};
 use axum::response::Response;
 use bytes::Bytes;
 use futures_util::StreamExt;
+use protocol::game::Game;
 use serde_json::{Map, Value, json};
 use tokio::io::AsyncReadExt;
 
@@ -94,9 +95,9 @@ impl App {
     }
 
     /// The runtime's status, read off the async threads (a check may hash both files).
-    async fn runtime(&self, edition: Option<protocol::edition::Edition>) -> RuntimeStatus {
+    async fn runtime(&self, game: Option<Game>) -> RuntimeStatus {
         let store = self.deps.runtime.clone();
-        tokio::task::spawn_blocking(move || store.get_for_edition(edition))
+        tokio::task::spawn_blocking(move || store.get_for_game(game))
             .await
             .unwrap_or_else(|_| RuntimeStatus::Invalid("runtime check failed".into()))
     }
@@ -345,16 +346,13 @@ async fn handle(State(app): State<AppState>, ConnectInfo(peer): ConnectInfo<Sock
     response
 }
 
-fn parse_edition_query(query: Option<&str>) -> Option<protocol::edition::Edition> {
-    let q = query?;
-    for pair in q.split('&') {
-        if let Some((k, v)) = pair.split_once('=')
-            && k == "edition"
-        {
-            return protocol::edition::Edition::parse(v);
-        }
-    }
-    None
+/// `?game=<version or its alias>` (`1.14.7`, `reforged`, `1.4.4`, `revived`), the first one given.
+/// Anything else is ignored, as Node ignores every query here.
+fn parse_game_query(query: Option<&str>) -> Option<Game> {
+    let query = query?;
+    url::form_urlencoded::parse(query.as_bytes())
+        .find(|(key, _)| key == "game")
+        .and_then(|(_, value)| Game::from_version(&value))
 }
 
 async fn runtime_manifest(
@@ -365,8 +363,7 @@ async fn runtime_manifest(
     reply: &mut Reply,
     info: &mut Info,
 ) {
-    let edition = parse_edition_query(query);
-    let (body, etag) = match app.runtime(edition).await {
+    let (body, etag) = match app.runtime(parse_game_query(query)).await {
         RuntimeStatus::Ok { body, etag, .. } => (body, etag),
         // 404: nothing published yet (the launcher shows "waiting for the host").
         // 503: something is published but does not check out; the host has to fix it.
@@ -452,9 +449,10 @@ async fn runtime_file(
     info: &mut Info,
 ) -> Option<Slot> {
     let deps = &app.deps;
-    let (edition, name) = match raw_name.split_once('/') {
-        Some((ed_str, file_name)) => match protocol::edition::Edition::parse(ed_str) {
-            Some(ed) => (Some(ed), file_name),
+    // `files/<game>/<name>` names the game's runtime (`?game=` on the manifest)
+    let (game, name) = match raw_name.split_once('/') {
+        Some((game, file_name)) => match Game::from_version(game) {
+            Some(game) => (Some(game), file_name),
             None => (None, raw_name),
         },
         None => (None, raw_name),
@@ -487,7 +485,7 @@ async fn runtime_file(
     info.user = Some(account.username.clone());
     let store = deps.runtime.clone();
     let wanted = name.to_owned();
-    let found = tokio::task::spawn_blocking(move || store.file_for_edition(edition, &wanted))
+    let found = tokio::task::spawn_blocking(move || store.file_for_game(game, &wanted))
         .await
         .ok()
         .flatten();

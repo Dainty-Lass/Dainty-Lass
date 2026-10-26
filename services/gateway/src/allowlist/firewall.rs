@@ -14,6 +14,7 @@ use crate::ip::{AllowlistCheck, check_allowlist_ip};
 /// The one Windows Firewall rule this helper owns. `RULE_NAME` is the id the Node helper gave it;
 /// COM knows rules by their display name, which is what the host sees in "Windows Defender Firewall
 /// with Advanced Security". A rule the Node helper made has the same display name and is taken over.
+/// `ALLOWLIST_RULE_NAME` gives a second helper its own (`config::check_rule_name`); this is the default.
 pub const RULE_NAME: &str = "ReforgedRevival-GamePorts-Allowlist";
 pub const RULE_DISPLAY_NAME: &str = "Dauntless Reforged Revival game ports (allowlist)";
 pub const RULE_GROUPING: &str = "Dauntless Reforged Revival";
@@ -54,7 +55,7 @@ pub fn plan(ips: &[String], ports: &str) -> Result<RulePlan, String> {
 /// the plan's addresses, every profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WindowsRule {
-    pub display_name: &'static str,
+    pub display_name: String,
     pub description: &'static str,
     pub grouping: &'static str,
     pub direction: &'static str,
@@ -76,12 +77,12 @@ pub enum WindowsChange {
     Close,
 }
 
-pub fn windows_change(rule: &RulePlan) -> WindowsChange {
+pub fn windows_change(rule: &RulePlan, display_name: &str) -> WindowsChange {
     if !rule.enabled() {
         return WindowsChange::Close;
     }
     WindowsChange::Open(WindowsRule {
-        display_name: RULE_DISPLAY_NAME,
+        display_name: display_name.to_owned(),
         description: RULE_DESCRIPTION,
         grouping: RULE_GROUPING,
         direction: "in",
@@ -118,9 +119,12 @@ pub enum Backend {
     DryRun {
         firewall: FirewallKind,
         nft: NftSettings,
+        rule_name: String,
     },
     #[cfg(windows)]
-    WindowsFirewall,
+    WindowsFirewall {
+        rule_name: String,
+    },
     Nftables(Nft),
 }
 
@@ -149,7 +153,9 @@ impl Backend {
                     if !super::windows::is_elevated() {
                         return Err("ALLOWLIST_DRY_RUN=0 needs administrator rights: run it as a scheduled task with \"Run with highest privileges\"".into());
                     }
-                    Ok(Self::WindowsFirewall)
+                    Ok(Self::WindowsFirewall {
+                        rule_name: config.rule_name.clone(),
+                    })
                 }
                 #[cfg(not(windows))]
                 {
@@ -164,6 +170,7 @@ impl Backend {
         Self::DryRun {
             firewall: config.firewall,
             nft: config.nft.clone(),
+            rule_name: config.rule_name.clone(),
         }
     }
 
@@ -171,8 +178,18 @@ impl Backend {
         match self {
             Self::DryRun { firewall, .. } => *firewall,
             #[cfg(windows)]
-            Self::WindowsFirewall => FirewallKind::Windows,
+            Self::WindowsFirewall { .. } => FirewallKind::Windows,
             Self::Nftables(_) => FirewallKind::Nftables,
+        }
+    }
+
+    /// The Windows Firewall rule's display name (a dry run's too, for the audit log).
+    pub fn rule_name(&self) -> &str {
+        match self {
+            Self::DryRun { rule_name, .. } => rule_name,
+            #[cfg(windows)]
+            Self::WindowsFirewall { rule_name } => rule_name,
+            Self::Nftables(_) => RULE_DISPLAY_NAME,
         }
     }
 
@@ -189,7 +206,7 @@ impl Backend {
         let mut out = json!({
             "firewall": self.firewall().as_str(),
             "rule": match self.firewall() {
-                FirewallKind::Windows => RULE_DISPLAY_NAME,
+                FirewallKind::Windows => self.rule_name(),
                 FirewallKind::Nftables => "",
             },
             "enabled": rule.enabled(),
@@ -200,6 +217,7 @@ impl Backend {
             Self::DryRun {
                 firewall: FirewallKind::Nftables,
                 nft,
+                ..
             } => {
                 out["rule"] = json!(format!("table inet {}", nft.table));
                 out["script"] = json!(nft_script(rule, nft)?);
@@ -208,7 +226,7 @@ impl Backend {
                 out["rule"] = json!(format!("table inet {}", nft.settings().table));
                 out["script"] = json!(nft_script(rule, nft.settings())?);
             }
-            _ => out["windows"] = windows_change(rule).to_json(),
+            _ => out["windows"] = windows_change(rule, self.rule_name()).to_json(),
         }
         Ok(out)
     }
@@ -218,9 +236,10 @@ impl Backend {
         match self {
             Self::DryRun { .. } => Ok(()),
             #[cfg(windows)]
-            Self::WindowsFirewall => {
-                let change = windows_change(rule);
-                tokio::task::spawn_blocking(move || super::windows::apply_rule(RULE_DISPLAY_NAME, &change))
+            Self::WindowsFirewall { rule_name } => {
+                let change = windows_change(rule, rule_name);
+                let rule_name = rule_name.clone();
+                tokio::task::spawn_blocking(move || super::windows::apply_rule(&rule_name, &change))
                     .await
                     .map_err(|e| e.to_string())?
             }
@@ -275,9 +294,9 @@ mod tests {
         // A player logs in: one inbound UDP allow rule for the game ports, only from them
         let login = plan(&strings(&["203.0.113.7", "2001:db8::1"]), "8770-8777").unwrap();
         assert_eq!(
-            windows_change(&login),
+            windows_change(&login, RULE_DISPLAY_NAME),
             WindowsChange::Open(WindowsRule {
-                display_name: "Dauntless Reforged Revival game ports (allowlist)",
+                display_name: "Dauntless Reforged Revival game ports (allowlist)".into(),
                 description: RULE_DESCRIPTION,
                 grouping: "Dauntless Reforged Revival",
                 direction: "in",
@@ -290,8 +309,11 @@ mod tests {
         );
         // The last one's address expires: the rule is disabled, nothing else changes
         let logout = plan(&[], "8770-8777").unwrap();
-        assert_eq!(windows_change(&logout), WindowsChange::Close);
-        assert_eq!(windows_change(&logout).to_json(), json!({ "enabled": false }));
+        assert_eq!(windows_change(&logout, RULE_DISPLAY_NAME), WindowsChange::Close);
+        assert_eq!(
+            windows_change(&logout, RULE_DISPLAY_NAME).to_json(),
+            json!({ "enabled": false })
+        );
     }
 
     fn config(firewall: FirewallKind) -> AllowlistConfig {
@@ -326,6 +348,11 @@ mod tests {
         assert_eq!(windows.name(), "windows-firewall");
         let described = windows.describe(&rule).unwrap();
         assert_eq!(described["rule"], RULE_DISPLAY_NAME);
+        let mut second = config(FirewallKind::Windows);
+        second.rule_name = "Dauntless Reforged Revival 1.4.4 game ports (allowlist)".into();
+        let described = Backend::dry_run(&second).describe(&rule).unwrap();
+        assert_eq!(described["rule"], second.rule_name);
+        assert_eq!(described["windows"]["displayName"], second.rule_name);
         assert_eq!(described["windows"]["remoteAddresses"], "203.0.113.7");
         assert!(described.get("script").is_none());
     }

@@ -1,0 +1,9 @@
+{
+  "productName": "DaintyLass Server",
+  "mainBinaryName": "dainty-lass-server-gui",
+  "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival.server",
+  "bundle": {
+    "shortDescription": "The DaintyLass launcher with a community server inside",
+    "longDescription": "Everything the launcher does, and the server itself in the same program: set it up, start and stop it, and see its services and logs."
+  }
+}

@@ -749,7 +749,7 @@ pub struct HostServerConfig {
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct HostKit {
-    /// A Dauntless Reforged Revival checkout
+    /// A DaintyLass checkout
     pub workspace: Option<String>,
     pub workspace_ok: bool,
     pub upstream: HostUpstream,
@@ -871,6 +871,34 @@ pub struct HostServerView {
     /// The newest output of the server and of the host kit commands started here
     pub lines: Vec<String>,
     pub invite: Option<HostInvite>,
+    /// The server runs inside this launcher (the server GUI, RD26), not as `reforged-host start`
+    pub embedded: bool,
+    /// Its services while it runs inside the launcher; empty otherwise
+    pub components: Vec<HostServerComponent>,
+}
+
+/// One service of the server inside the launcher.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct HostServerComponent {
+    /// One of `spec::HOST_SERVER_COMPONENTS`
+    pub name: String,
+    pub phase: HostComponentPhase,
+    pub port: Option<u16>,
+    /// What it last said about itself (an error, for a failed one)
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum HostComponentPhase {
+    Stopped,
+    Starting,
+    Ready,
+    Stopping,
+    Failed,
+    Disabled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

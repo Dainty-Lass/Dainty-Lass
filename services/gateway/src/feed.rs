@@ -66,17 +66,24 @@ impl AllowlistFeed {
         Self::with_clock(options, Arc::new(crate::now_ms))
     }
 
+    /// A feed that only calls `sink`: no helper URL, no secret, nothing sent over HTTP.
     pub fn from_in_process(sink: InProcessSink) -> Self {
-        let dummy = Allowlist {
-            url: "http://127.0.0.1:61005".into(),
-            additional_urls: Vec::new(),
-            secret: "in-process-allowlist-sink".into(),
-            refresh: Duration::from_secs(60),
-            timeout: Duration::from_secs(2),
-        };
-        let mut feed = Self::new(&dummy);
-        feed.in_process = Some(sink);
-        feed
+        Self {
+            inner: Arc::new(Inner {
+                target: String::new(),
+                secret: String::new(),
+                refresh_ms: 0,
+                timeout: Duration::ZERO,
+                client: Client::builder(TokioExecutor::new()).build_http(),
+                warnings: Throttle::new(60_000),
+                state: Mutex::default(),
+                idle: tokio::sync::Notify::new(),
+                sent: AtomicU64::new(0),
+                now: Arc::new(crate::now_ms),
+            }),
+            others: Vec::new(),
+            in_process: Some(sink),
+        }
     }
 
     pub fn with_in_process(mut self, sink: Option<InProcessSink>) -> Self {

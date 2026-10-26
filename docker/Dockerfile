@@ -6,7 +6,8 @@
 #
 # Two images, both laid out as the server release is (RD8, .github/workflows/server-release.yml), under
 # /opt/reforged, so every path reforged-host writes into the env files is the same in every container:
-#   front   the internet-facing Rust services on Debian slim: gateway, allowlist (with nftables), content
+#   front   the internet-facing Rust services on Debian slim: gateway, allowlist (with nftables), content,
+#           admin API, each a container running `reforged-host <service>` from the one server binary (RD26)
 #   server  reforged-host, the Node backend and Director (until RB14), Wine for the game servers, and
 #           MongoDB's dump tools for `reforged-host backup`; also the image the host kit's commands run in
 #
@@ -31,21 +32,21 @@ WORKDIR /src/rust
 COPY rust/rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
 COPY rust/ ./
-# The release workflow's build: the host kit, gateway (and allowlist), content server and admin API. The launcher is a
-# workspace member but is not built (only the lock file is read). backend and director join once they are real.
-# REFORGED_EDITION=legacy: the same bins with their `legacy` features, DR's metagame and its deploy server.
+# The release workflow's build: the server in one binary, reforged-host, with the gateway, allowlist, content server
+# and admin API inside it. The launcher is a workspace member but is not built (only the lock file is read).
+# REFORGED_EDITION=legacy: the same binary with its `legacy` feature, DR's metagame and its deploy server.
 ARG REFORGED_EDITION=reborn
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-target,target=/src/rust/target \
     case "$REFORGED_EDITION" in \
       reborn) set -- ;; \
-      legacy) set -- -p metagame --features host/legacy,gateway/legacy,content/legacy; \
+      legacy) set -- -p metagame --features server-console/legacy; \
         if [ -d services/deploy ]; then set -- "$@" -p deploy; fi ;; \
       *) echo "REFORGED_EDITION must be reborn or legacy, not $REFORGED_EDITION" >&2; exit 1 ;; \
     esac \
- && cargo build --release --locked -p host -p gateway -p content -p admin "$@" --bins \
+ && cargo build --release --locked -p server-console "$@" --bins \
  && mkdir -p /out/bin \
- && for bin in reforged-host gateway allowlist content admin; do cp "target/release/$bin" /out/bin/; done \
+ && cp target/release/reforged-host /out/bin/ \
  && if [ "$REFORGED_EDITION" = legacy ]; then cp target/release/metagame /out/bin/; fi \
  && if [ "$REFORGED_EDITION" = legacy ] && [ -f target/release/deploy ]; then cp target/release/deploy /out/bin/; fi
 
@@ -76,12 +77,12 @@ RUN apt-get update \
  && groupadd --gid 1000 reforged \
  && useradd --uid 1000 --gid 1000 --home-dir /opt/reforged --no-create-home --shell /usr/sbin/nologin reforged \
  && mkdir -p /opt/reforged/.workspace && chown reforged:reforged /opt/reforged/.workspace
-COPY --from=rust-build /out/bin/gateway /out/bin/allowlist /out/bin/content /out/bin/admin /opt/reforged/bin/
+COPY --from=rust-build /out/bin/reforged-host /opt/reforged/bin/
 COPY --chmod=0755 docker/healthcheck.sh /opt/reforged/bin/reforged-healthcheck
 ENV PATH=/opt/reforged/bin:$PATH
 WORKDIR /opt/reforged/.workspace
 USER reforged
-LABEL org.opencontainers.image.title="Dauntless Reforged Revival front door" \
+LABEL org.opencontainers.image.title="DaintyLass front door" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
 

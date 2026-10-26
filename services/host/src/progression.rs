@@ -45,7 +45,7 @@ pub const HUNT_PASS_EXPORT: &str = "huntpass-season-table.jsonl";
 pub const ACTIVE_HUNT_PASS: &str = "season43";
 /// Marks a source this module wrote, so the next export replaces it (a captured response is never
 /// touched).
-pub const GENERATED_BY: &str = "Dauntless Reforged Revival host kit, from the CatalogExporter progression export";
+pub const GENERATED_BY: &str = "DaintyLass host kit, from the CatalogExporter progression export";
 
 const TRACK_START: &str = "2019-01-01T14:00:00+00:00";
 const TRACK_END: &str = "2099-01-01T14:00:00+00:00";

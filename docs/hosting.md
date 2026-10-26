@@ -10,7 +10,7 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 ## What you need
 
 - Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it).
-- The **server release** (`DaintyLassServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\reforged-host.exe`
+- The **server release** (`ReforgedRevivalServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\reforged-host.exe`
   is the kit. Or a checkout of this repository built from source.
 - **Node.js 22** and **MongoDB** (`mongod`): the backend and the Director are still Node, and the kit runs
   `mongod` for you unless you point it at your own (`--mongo-uri`, `--no-manage-mongo`).

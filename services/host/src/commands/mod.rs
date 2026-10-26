@@ -37,6 +37,15 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
     match command {
         Command::Setup(args) => setup::run(paths, args),
         Command::Start => start::run(paths),
+        Command::Serve(args) => crate::serve::run(
+            paths,
+            &crate::serve::ServeOptions {
+                config_file: args.config.clone(),
+                interactive: true,
+                tui: args.tui,
+                log_filter: args.log_level.clone(),
+            },
+        ),
         Command::Invite(args) => invite::run(paths, args),
         Command::Doctor(args) => doctor::run(paths, args),
         Command::Gamedata(args) => gamedata::run(paths, args),
@@ -45,6 +54,10 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Multipliers(args) => multipliers::run(paths, args),
         Command::Update(args) => update::run(paths, args),
         Command::Backup => backup::run(paths),
+        Command::Gateway { args }
+        | Command::Allowlist { args }
+        | Command::Content { args }
+        | Command::Admin { args } => Ok(crate::service_main(command.name(), args)),
         Command::Gameserver { args } => {
             let code = crate::wine::run_game_server(args)?;
             Ok(ExitCode::from(u8::try_from(code).unwrap_or(1)))

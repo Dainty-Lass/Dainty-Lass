@@ -17,7 +17,7 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 - The **runtime** (`MysticParadox.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
   game ([sdk-and-game-data.md](sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
   a pack (`reforged-host gamedata --export`).
-- The **server release** (`DaintyLassServer-<version>-linux-x64.tar.gz`).
+- The **server release** (`ReforgedRevivalServer-<version>-linux-x64.tar.gz`).
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
 
 ## Setting up

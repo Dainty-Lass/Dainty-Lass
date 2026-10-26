@@ -560,7 +560,7 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
 
 async fn write_marker(win64_dir: &Path, manifest: &RuntimeManifest) {
     let marker = serde_json::json!({
-        "note": "Written by the Dauntless Reforged Revival launcher: the game runtime installed next to the game.",
+        "note": "Written by the DaintyLass launcher: the game runtime installed next to the game.",
         "version": manifest.version,
         "files": manifest.files,
         "installedAt": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),

@@ -68,6 +68,7 @@ export interface LauncherApi {
   hostServerGet(): Promise<HostServerView>;
   hostServerStart(): Promise<ActionResult>;
   hostServerStop(): Promise<ActionResult>;
+  hostServerRestart(name: string): Promise<ActionResult>;
   hostSetup(request: HostSetupRequest): Promise<ActionResult>;
   hostCreateInvite(forName: string | null): Promise<ActionResult>;
   hostUpdate(): Promise<ActionResult>;

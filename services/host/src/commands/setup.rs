@@ -132,12 +132,13 @@ impl SetupEnv for System {
     }
 
     fn gateway_program(&self) -> String {
-        // The gateway binary next to this one (a build, or the server release, RD8).
-        let name = if cfg!(windows) { "gateway.exe" } else { "gateway" };
+        // The Rust gateway runs inside the server's binary (RD26), from the release's bin/reforged-host;
+        // until RS3 flips it, Node's does, which this rule never named either (as before)
+        let name = format!("reforged-host{}", std::env::consts::EXE_SUFFIX);
         std::env::current_exe()
             .ok()
-            .and_then(|exe| exe.parent().map(|dir| dir.join(name)))
-            .map_or_else(|| name.to_owned(), |p| p.to_string_lossy().into_owned())
+            .and_then(|exe| exe.parent().map(|dir| dir.join(&name)))
+            .map_or(name, |p| p.to_string_lossy().into_owned())
     }
 }
 
@@ -209,7 +210,17 @@ pub fn run_with(paths: &Paths, args: &SetupArgs, env: &dyn SetupEnv, out: &mut d
             number_text(m.rewards)
         ));
     }
+    // Only 1.4.4: none of Mystic Paradox. Both: Mystic Paradox and the 1.4.4 stack on its own ports
     let legacy = config.edition == Edition::Legacy;
+    let both = config.edition == Edition::Both;
+    if both {
+        out(&format!(
+            "Both games: Dauntless 1.14.7 as below, and Dauntless Revived's 1.4.4 beside it (gateway port {}, game servers on UDP {}-{})",
+            crate::hostconfig::legacy_gateway_port(&config),
+            crate::hostconfig::legacy_game_ports(&config).0,
+            crate::hostconfig::legacy_game_ports(&config).1
+        ));
+    }
     if legacy {
         out(&format!(
             "Legacy server: Dauntless Revived's 1.4.4 (metagame and deploy server); game servers on UDP {}",
@@ -250,10 +261,20 @@ pub fn run_with(paths: &Paths, args: &SetupArgs, env: &dyn SetupEnv, out: &mut d
         ] {
             mkdir(dir)?;
         }
-        write_env_files(
+        let mut written = write_env_files(
             p,
             &build_env_files(&config, &secrets, p, &source_commit, env.platform()),
-        )?
+        )?;
+        if both {
+            written.extend(crate::legacy::write_env_files(
+                &config,
+                &secrets,
+                p,
+                &source_commit,
+                env.platform(),
+            )?);
+        }
+        written
     };
     if !p.news_file.exists() {
         write(&p.news_file, "{\n  \"items\": []\n}\n")?;
@@ -320,6 +341,11 @@ pub fn run_with(paths: &Paths, args: &SetupArgs, env: &dyn SetupEnv, out: &mut d
         for note in database::database_notes(&config, env.platform()) {
             out(&note);
         }
+    }
+    if both && config.legacy_game_dir.is_none() {
+        out(
+            "\n! No 1.4.4 game folder yet: pass --legacy-game \"<your Dauntless 1.4.4 folder>\" (its game servers run from it, and players download it).",
+        );
     }
     match config.game_dir.as_deref() {
         None if legacy => out(

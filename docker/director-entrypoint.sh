@@ -1,5 +1,5 @@
 #!/bin/sh
-# Dauntless Reforged Revival: the Director's container (compose.yaml). Does what `reforged-host start` does
+# DaintyLass: the Director's container (compose.yaml). Does what `reforged-host start` does
 # before the Director on Linux (rust/services/host/src/commands/start/mod.rs: preflight, linux_steps), then
 # runs the Node Director with its env file. The Director starts each game server through
 # .workspace/bin/reforged-gameserver (`reforged-host gameserver`, Wine on a virtual display), in this

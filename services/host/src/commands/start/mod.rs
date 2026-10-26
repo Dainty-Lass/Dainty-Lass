@@ -20,11 +20,11 @@ use std::time::Duration;
 
 use crate::Outcome;
 use crate::error::HostError;
-use crate::hostconfig::{Edition, HostConfig, ServerMode, gateway_port, load_host_config, read_env_file};
+use crate::hostconfig::{HostConfig, ServerMode, gateway_port, load_host_config, read_env_file};
 use crate::paths::{PORTS, Paths, game_exe_relative};
 use crate::services::{Printer, Ready, ServiceSpec, Supervisor, wait_until_ready};
 use binaries::{FrontService, Launch, Programs};
-use control::{Control, SERVER_READY_LINE, controlled_by_stdin};
+use control::{Control, SERVER_READY_LINE};
 
 pub(crate) fn say(line: &str) {
     println!("{line}");
@@ -106,15 +106,20 @@ pub fn service_plan(paths: &Paths, config: &HostConfig, external_allowlist: bool
             required: false,
         },
     ];
-    // The admin API has no Node build: it runs when its bin is there and setup wrote its env file.
+    // The admin API has no Node build: it runs when this binary has it and setup wrote its env file.
     let admin_env = env_file(paths, "admin");
-    if let Some(bin) = programs.rust_bin("admin").filter(|_| admin_env.is_file()) {
+    if crate::BUILT_IN_SERVICES.contains(&"admin") && admin_env.is_file() {
         plan.push(Planned {
             spec: spec_from(
                 "admin",
                 Launch {
-                    command: bin,
-                    args: vec!["serve".into(), "--env-file".into(), admin_env.display().to_string()],
+                    command: programs.host.clone(),
+                    args: vec![
+                        "admin".into(),
+                        "serve".into(),
+                        "--env-file".into(),
+                        admin_env.display().to_string(),
+                    ],
                     cwd: paths.workspace.clone(),
                     env_file_in_args: true,
                 },
@@ -335,11 +340,10 @@ pub(crate) fn host_checks(paths: &Paths, config: &HostConfig, external_allowlist
     Ok(())
 }
 
-/// The checks before anything starts, as the Node kit's; returns the server's settings (host.toml).
-fn preflight(paths: &Paths, external_allowlist: bool) -> Result<HostConfig, HostError> {
-    let config = load_config(paths)?;
+/// The checks before anything starts, as the Node kit's, for `config`.
+pub(crate) fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
     require_env_files(paths, &["backend", "director", "content", "gateway"])?;
-    host_checks(paths, &config, external_allowlist)?;
+    host_checks(paths, config, external_allowlist)?;
     use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GameDataKind, game_data_state};
     let game_data = [
         game_data_state(&paths.backend_game_data, &BACKEND_GAME_DATA)?,
@@ -373,20 +377,20 @@ fn preflight(paths: &Paths, external_allowlist: bool) -> Result<HostConfig, Host
             ));
         }
     }
-    Ok(config)
+    Ok(())
 }
 
-pub(crate) fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
+pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
     crate::doctor::port_in_use(ready.port(), Some(ready.host()))
 }
 
 /// The managed MongoDB (until RB14): started unless one with a replica set already runs, then the
 /// replica set checked and initiated when new. `Ok(false)`: a stop was asked for meanwhile.
-fn start_database(
+pub fn prepare_database(
     paths: &Paths,
     config: &HostConfig,
     supervisor: &Supervisor,
-    control: &Control,
+    cancelled: &dyn Fn() -> bool,
 ) -> Result<bool, HostError> {
     use crate::mongo::{MongoCheck, MongoProblem, ReplicaSetOptions, ensure_replica_set, find_mongod, mongod_args};
     if config.mongo.manage {
@@ -440,7 +444,7 @@ fn start_database(
                 },
                 Duration::from_secs(60),
             )?;
-            if control.asked() {
+            if cancelled() {
                 return Ok(false);
             }
         }
@@ -465,48 +469,9 @@ fn start_database(
     }
 }
 
-/// Runs the allowlist helper's `--close-ports` once: a hard stop never lets the helper close the game
-/// ports itself, and Linux has no firewall closing them before the first start.
-pub(crate) fn close_game_ports(paths: &Paths, programs: &Programs) -> crate::run::RunResult {
-    let file = env_file(paths, "allowlist");
-    let launch = programs.launch(FrontService::Allowlist, paths, &file);
-    let mut env: Vec<(String, String)> = std::env::vars().collect();
-    if !launch.env_file_in_args
-        && let Ok(from_file) = read_env_file(&file)
-    {
-        for (k, v) in from_file.iter() {
-            match env.iter_mut().find(|(key, _)| key == k) {
-                Some(slot) => slot.1 = v.to_string(),
-                None => env.push((k.to_string(), v.to_string())),
-            }
-        }
-    }
-    let mut args: Vec<&str> = launch.args.iter().map(String::as_str).collect();
-    args.push("--close-ports");
-    let options = crate::run::RunOptions {
-        cwd: launch.cwd.clone(),
-        env: Some(env),
-        log_file: Some(paths.logs.join("allowlist.log")),
-        quiet: true,
-    };
-    let command = launch.command.display().to_string();
-    crate::run::run(&command, &args, &options).unwrap_or_else(|e| crate::run::RunResult {
-        code: -1,
-        last_line: Some(e.to_string()),
-        output: String::new(),
-    })
-}
-
-/// Linux: the Wine prefix, and in public mode the game ports closed before any game server starts.
-/// `Ok(false)`: a stop was asked for meanwhile.
-pub(crate) fn linux_steps(
-    paths: &Paths,
-    config: &HostConfig,
-    programs: &Programs,
-    external_allowlist: bool,
-    control: &Control,
-) -> Result<bool, HostError> {
-    use crate::linux::{RuntimeKind, UNIT_ALLOWLIST, ensure_wine_prefix, game_runtime};
+/// Linux: the Wine prefix the game servers run in.
+pub(crate) fn linux_wine(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
+    use crate::linux::{RuntimeKind, ensure_wine_prefix, game_runtime};
     let options = crate::hostconfig::linux_options(config);
     match game_runtime(&options)? {
         Some(runtime) if runtime.kind == RuntimeKind::Wine => {
@@ -521,39 +486,53 @@ pub(crate) fn linux_steps(
         Some(_) => {}
         None => say("wine     | ! Wine was not found: the game servers cannot start (sudo apt install wine wine64)"),
     }
-    if config.mode == ServerMode::Public {
-        if external_allowlist {
-            // Its table must be in place (game ports closed) before the Director starts any game server.
-            let flag = control.flag();
-            let cancelled = move || flag.load(std::sync::atomic::Ordering::SeqCst);
-            if !wait_until_ready(
-                &Ready::http(PORTS.allowlist, "/status"),
-                Duration::from_secs(30),
-                &cancelled,
-            ) {
-                if control.asked() {
-                    return Ok(false);
-                }
-                return Err(HostError::message(format!(
-                    "the allowlist ({UNIT_ALLOWLIST}) is not answering on port {}: systemctl status {UNIT_ALLOWLIST}",
-                    PORTS.allowlist
-                )));
+    Ok(())
+}
+
+/// Linux, public, the allowlist as a systemd unit (two on a server running both games): its table must
+/// be in place (game ports closed) before any game server starts. `Ok(false)`: a stop was asked for meanwhile.
+pub(crate) fn linux_external_allowlist(control: &Control, config: &HostConfig) -> Result<bool, HostError> {
+    use crate::linux::{UNIT_ALLOWLIST, UNIT_ALLOWLIST_LEGACY};
+    let flag = control.flag();
+    let cancelled = move || flag.load(std::sync::atomic::Ordering::SeqCst);
+    let mut units = Vec::new();
+    if config.edition.runs(protocol::game::Game::Reborn) {
+        units.push((UNIT_ALLOWLIST, PORTS.allowlist));
+    }
+    if config.edition == crate::hostconfig::Edition::Both {
+        units.push((UNIT_ALLOWLIST_LEGACY, crate::paths::BOTH_LEGACY_PORTS.allowlist));
+    } else if config.edition == crate::hostconfig::Edition::Legacy {
+        units.push((UNIT_ALLOWLIST, PORTS.allowlist));
+    }
+    for (unit, port) in units {
+        if !wait_until_ready(&Ready::http(port, "/status"), Duration::from_secs(30), &cancelled) {
+            if control.asked() {
+                return Ok(false);
             }
-            say("allowlist| the reforged-allowlist service is running");
-        } else {
-            let closed = close_game_ports(paths, programs);
-            if closed.code != 0 {
-                return Err(HostError::message(format!(
-                    "could not close the game ports (nftables): {}",
-                    closed.last_line.unwrap_or_default()
-                )));
-            }
+            return Err(HostError::message(format!(
+                "the allowlist ({unit}) is not answering on port {port}: systemctl status {unit}"
+            )));
         }
+        say(&format!(
+            "allowlist| the {} service is running",
+            unit.trim_end_matches(".service")
+        ));
     }
     Ok(true)
 }
 
 pub(crate) fn up_line(config: &HostConfig) -> String {
+    let line = reborn_up_line(config);
+    if config.edition != crate::hostconfig::Edition::Both {
+        return line;
+    }
+    format!(
+        "{line}; Dauntless 1.4.4 on port {}",
+        crate::hostconfig::legacy_gateway_port(config)
+    )
+}
+
+fn reborn_up_line(config: &HostConfig) -> String {
     match config.mode {
         ServerMode::Public => format!(
             "Server \"{}\" is up: https://{}:{} (pinned TLS)",
@@ -568,46 +547,10 @@ pub(crate) fn up_line(config: &HostConfig) -> String {
     }
 }
 
+/// `start`: the server through the controller (`serve` without a console), as the Node kit's
+/// contract (RD23). A legacy server still runs its own process plan.
 pub fn run(paths: &Paths) -> Outcome {
-    let external_allowlist =
-        cfg!(target_os = "linux") && std::env::var("REFORGED_ALLOWLIST").is_ok_and(|v| v == "external");
-    if let Some(config) = load_host_config(paths)?
-        && config.edition == Edition::Legacy
-    {
-        return crate::legacy::start(paths, &config, external_allowlist);
-    }
-    let config = preflight(paths, external_allowlist)?;
-    let external_allowlist = external_allowlist && config.mode == ServerMode::Public;
-    let programs = Programs::find(paths)?;
-    let controlled = controlled_by_stdin();
-    let control = Control::begin(controlled)?;
-    let supervisor = Supervisor::new(&paths.logs, console_printer()).with_cancel(control.flag());
-
-    // MongoDB may be running by now: stop it before giving up (the supervisor stops what it
-    // started when it is dropped, and each tree goes with this process in any case).
-    let started = (|| {
-        if !start_database(paths, &config, &supervisor, &control)? {
-            return Ok(Started::Stopped);
-        }
-        if cfg!(target_os = "linux") && !linux_steps(paths, &config, &programs, external_allowlist, &control)? {
-            return Ok(Started::Stopped);
-        }
-        let plan = service_plan(paths, &config, external_allowlist, &programs);
-        start_services(&supervisor, &control, plan, Some(&config), &port_in_use)
-    })();
-    let started = match started {
-        Ok(started) => started,
-        Err(error) => {
-            supervisor.stop_all();
-            return Err(error);
-        }
-    };
-    let close_ports = config.mode == ServerMode::Public && !external_allowlist;
-    finish(started, &supervisor, &control, controlled, &up_line(&config), || {
-        if close_ports {
-            close_game_ports(paths, &programs);
-        }
-    })
+    crate::serve::run(paths, &crate::serve::ServeOptions::start())
 }
 
 #[cfg(test)]
@@ -636,6 +579,8 @@ mod tests {
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
+            legacy_game_dir: None,
+            legacy_public_port: None,
             performance: None,
             linux: None,
             file: FileForm::default(),
@@ -645,6 +590,7 @@ mod tests {
     fn programs(dir: &Path) -> Programs {
         Programs {
             node: PathBuf::from("node"),
+            host: dir.join("bin").join("reforged-host"),
             rust_dirs: vec![dir.join("bin")],
         }
     }
@@ -697,28 +643,27 @@ mod tests {
     }
 
     #[test]
-    fn runs_the_admin_api_after_content_when_its_bin_and_env_file_are_there() {
+    fn runs_the_admin_api_after_content_when_it_is_built_in_and_its_env_file_is_there() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
         let c = config(ServerMode::Private);
-        std::fs::create_dir_all(dir.path().join("bin")).unwrap();
-        let bin = dir
-            .path()
-            .join("bin")
-            .join(format!("admin{}", std::env::consts::EXE_SUFFIX));
-        std::fs::write(&bin, "").unwrap();
         // An older setup wrote no admin.env
         let plan = service_plan(&paths, &c, false, &programs(dir.path()));
         assert_eq!(names(&plan), ["backend", "director", "content", "gateway"]);
         std::fs::create_dir_all(&paths.config).unwrap();
         std::fs::write(paths.config.join("admin.env"), "").unwrap();
         let plan = service_plan(&paths, &c, false, &programs(dir.path()));
+        if !crate::BUILT_IN_SERVICES.contains(&"admin") {
+            assert_eq!(names(&plan), ["backend", "director", "content", "gateway"]);
+            return;
+        }
         assert_eq!(names(&plan), ["backend", "director", "content", "admin", "gateway"]);
         let admin = &plan[3];
-        assert_eq!(admin.spec.command, bin);
+        assert_eq!(admin.spec.command, dir.path().join("bin").join("reforged-host"));
         assert_eq!(
             admin.spec.args,
             [
+                "admin",
                 "serve",
                 "--env-file",
                 &paths.config.join("admin.env").display().to_string()
@@ -727,24 +672,6 @@ mod tests {
         assert_eq!(admin.spec.env_file, None);
         assert_eq!(admin.spec.ready, Some(Ready::http(61003, "/health")));
         assert!(!admin.required);
-    }
-
-    #[test]
-    fn gives_a_rust_allowlist_its_env_file_as_an_argument() {
-        let dir = tempfile::tempdir().unwrap();
-        let paths = Paths::new(dir.path());
-        std::fs::create_dir_all(dir.path().join("bin")).unwrap();
-        let bin = dir
-            .path()
-            .join("bin")
-            .join(format!("allowlist{}", std::env::consts::EXE_SUFFIX));
-        std::fs::write(&bin, "").unwrap();
-        let plan = service_plan(&paths, &config(ServerMode::Public), false, &programs(dir.path()));
-        let allowlist = &plan[3].spec;
-        assert_eq!(allowlist.command, bin);
-        let file = paths.config.join("allowlist.env").display().to_string();
-        assert_eq!(allowlist.args, ["--env-file".to_string(), file]);
-        assert_eq!(allowlist.env_file, None, "a Rust bin reads its file itself");
     }
 
     #[test]

@@ -134,6 +134,22 @@ pub const HOST_ACTIONS: &[&str] = &[
     "export_gamedata",
 ];
 
+/// The services of the server inside the launcher (`host_server_restart`): the host kit's module names.
+pub const HOST_SERVER_COMPONENTS: &[&str] = &[
+    "mongod",
+    "allowlist",
+    "backend",
+    "director",
+    "content",
+    "admin",
+    "gateway",
+    "metagame",
+    "legacy-allowlist",
+    "deploy",
+    "legacy-content",
+    "legacy-gateway",
+];
+
 /// `HostFolder`'s names.
 pub const HOST_FOLDERS: &[&str] = &[
     "workspace",
@@ -235,6 +251,15 @@ pub const COMMANDS: &[Command] = &[
     command("host_server_get", &[]),
     command("host_server_start", &[]),
     command("host_server_stop", &[]),
+    command(
+        "host_server_restart",
+        &[(
+            "name",
+            Arg::Name {
+                names: HOST_SERVER_COMPONENTS,
+            },
+        )],
+    ),
     command("host_setup", &[("request", HOST_SETUP)]),
     command(
         "host_create_invite",

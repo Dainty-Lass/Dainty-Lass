@@ -20,6 +20,8 @@ use crate::wine::{dll_overrides, find_on_path, find_wine, wine_prefix_ready};
 
 pub const UNIT_SERVER: &str = "reforged.service";
 pub const UNIT_ALLOWLIST: &str = "reforged-allowlist.service";
+/// The 1.4.4 stack's allowlist on a server running both games (its own table and ports, RD26).
+pub const UNIT_ALLOWLIST_LEGACY: &str = "reforged-allowlist-legacy.service";
 
 pub const CAP_NET_BIND_SERVICE: u32 = 10;
 pub const CAP_NET_ADMIN: u32 = 12;
@@ -126,7 +128,7 @@ pub fn sh_quote(s: &str) -> String {
 pub fn gameserver_wrapper_script(host_bin: &Path) -> String {
     [
         "#!/bin/sh".to_owned(),
-        "# Dauntless Reforged Revival: the Director starts this for each game server. Written by `reforged-host setup`.".to_owned(),
+        "# DaintyLass: the Director starts this for each game server. Written by `reforged-host setup`.".to_owned(),
         "# It runs Dauntless-Win64-Shipping.exe through Wine or Proton (rust/services/host/src/wine.rs).".to_owned(),
         format!("exec {} gameserver \"$@\"", sh_quote(&host_bin.to_string_lossy())),
         String::new(),
@@ -142,14 +144,6 @@ pub(crate) fn host_binary(paths: &Paths) -> PathBuf {
         return release;
     }
     std::env::current_exe().unwrap_or_else(|_| PathBuf::from(name))
-}
-
-/// The allowlist helper next to `reforged-host`.
-fn allowlist_binary(paths: &Paths) -> PathBuf {
-    let name = format!("allowlist{}", std::env::consts::EXE_SUFFIX);
-    host_binary(paths)
-        .parent()
-        .map_or_else(|| PathBuf::from(&name), |dir| dir.join(&name))
 }
 
 #[cfg(unix)]
@@ -300,7 +294,6 @@ pub fn unit_path(s: &str) -> Result<String, HostError> {
 pub struct UnitContext {
     pub user: String,
     pub host_bin: PathBuf,
-    pub allowlist_bin: PathBuf,
 }
 
 fn user_name() -> Result<String, HostError> {
@@ -319,7 +312,6 @@ pub fn unit_context(paths: &Paths) -> Result<UnitContext, HostError> {
     Ok(UnitContext {
         user: user_name()?,
         host_bin: host_binary(paths),
-        allowlist_bin: allowlist_binary(paths),
     })
 }
 
@@ -335,61 +327,71 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
         ));
     }
     let public = c.mode == ServerMode::Public;
+    let both = c.edition == crate::hostconfig::Edition::Both;
     let mut files = Vec::new();
-    let allowlist_env = p.config.join("allowlist.env");
     let workspace = unit_path(&p.workspace.to_string_lossy())?;
-    let allowlist = unit_word(&ctx.allowlist_bin.to_string_lossy())?;
-    let env_file = unit_word(&allowlist_env.to_string_lossy())?;
-    if public {
-        files.push((
-            UNIT_ALLOWLIST.to_owned(),
-            [
-                "# Dauntless Reforged Revival: the game-port allowlist (nftables). Written by `reforged-host setup`."
-                    .to_owned(),
-                "[Unit]".to_owned(),
-                "Description=Dauntless Reforged Revival game-port allowlist (nftables)".to_owned(),
-                "After=network-online.target".to_owned(),
-                "Wants=network-online.target".to_owned(),
-                format!("Before={UNIT_SERVER}"),
-                String::new(),
-                "[Service]".to_owned(),
-                "Type=simple".to_owned(),
-                format!("User={}", ctx.user),
-                format!("WorkingDirectory={workspace}"),
-                format!("ExecStart={allowlist} \"--env-file\" {env_file}"),
-                "# Whatever happened, the game ports end closed.".to_owned(),
-                format!("ExecStopPost={allowlist} \"--env-file\" {env_file} \"--close-ports\""),
-                "Restart=on-failure".to_owned(),
-                "RestartSec=3".to_owned(),
-                "TimeoutStopSec=30".to_owned(),
-                "AmbientCapabilities=CAP_NET_ADMIN".to_owned(),
-                "CapabilityBoundingSet=CAP_NET_ADMIN".to_owned(),
-                "NoNewPrivileges=true".to_owned(),
-                String::new(),
-                "[Install]".to_owned(),
-                "WantedBy=multi-user.target".to_owned(),
-                String::new(),
-            ]
-            .join("\n"),
+    // The allowlist runs from the same binary, in a unit of its own with CAP_NET_ADMIN only (RD26)
+    let allowlist = format!("{} \"allowlist\"", unit_word(&ctx.host_bin.to_string_lossy())?);
+    let mut allowlists = vec![(UNIT_ALLOWLIST, "allowlist.env", "game-port allowlist")];
+    if both {
+        allowlists.push((
+            UNIT_ALLOWLIST_LEGACY,
+            "legacy-allowlist.env",
+            "1.4.4 game-port allowlist",
         ));
     }
+    if public {
+        for (unit, env_name, what) in &allowlists {
+            let env_file = unit_word(&p.config.join(env_name).to_string_lossy())?;
+            files.push((
+                (*unit).to_owned(),
+                [
+                    format!("# DaintyLass: the {what} (nftables). Written by `reforged-host setup`."),
+                    "[Unit]".to_owned(),
+                    format!("Description=DaintyLass {what} (nftables)"),
+                    "After=network-online.target".to_owned(),
+                    "Wants=network-online.target".to_owned(),
+                    format!("Before={UNIT_SERVER}"),
+                    String::new(),
+                    "[Service]".to_owned(),
+                    "Type=simple".to_owned(),
+                    format!("User={}", ctx.user),
+                    format!("WorkingDirectory={workspace}"),
+                    format!("ExecStart={allowlist} \"--env-file\" {env_file}"),
+                    "# Whatever happened, the game ports end closed.".to_owned(),
+                    format!("ExecStopPost={allowlist} \"--env-file\" {env_file} \"--close-ports\""),
+                    "Restart=on-failure".to_owned(),
+                    "RestartSec=3".to_owned(),
+                    "TimeoutStopSec=30".to_owned(),
+                    "AmbientCapabilities=CAP_NET_ADMIN".to_owned(),
+                    "CapabilityBoundingSet=CAP_NET_ADMIN".to_owned(),
+                    "NoNewPrivileges=true".to_owned(),
+                    String::new(),
+                    "[Install]".to_owned(),
+                    "WantedBy=multi-user.target".to_owned(),
+                    String::new(),
+                ]
+                .join("\n"),
+            ));
+        }
+    }
+    let allowlist_units: Vec<&str> = if public {
+        allowlists.iter().map(|(u, _, _)| *u).collect()
+    } else {
+        Vec::new()
+    };
     let mut server = vec![
-        "# Dauntless Reforged Revival: the whole server (reforged-host start). Written by `reforged-host setup`."
-            .to_owned(),
+        "# DaintyLass: the whole server (reforged-host start). Written by `reforged-host setup`.".to_owned(),
         "[Unit]".to_owned(),
-        "Description=Dauntless Reforged Revival server".to_owned(),
+        "Description=DaintyLass server".to_owned(),
         format!(
             "After=network-online.target{}",
-            if public {
-                format!(" {UNIT_ALLOWLIST}")
-            } else {
-                String::new()
-            }
+            allowlist_units.iter().map(|u| format!(" {u}")).collect::<String>()
         ),
         "Wants=network-online.target".to_owned(),
     ];
     if public {
-        server.push(format!("Requires={UNIT_ALLOWLIST}"));
+        server.push(format!("Requires={}", allowlist_units.join(" ")));
     }
     server.extend([
         String::new(),
@@ -428,23 +430,28 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
     ]);
     files.push((UNIT_SERVER.to_owned(), server.join("\n")));
 
-    let units = if public {
-        format!("{UNIT_ALLOWLIST} {UNIT_SERVER}")
-    } else {
-        UNIT_SERVER.to_owned()
-    };
+    let units = allowlist_units
+        .iter()
+        .copied()
+        .chain([UNIT_SERVER])
+        .collect::<Vec<_>>()
+        .join(" ");
     let mut install = vec![
         "#!/bin/sh".to_owned(),
-        "# Dauntless Reforged Revival: installs this server's systemd units and starts them. Written by `reforged-host setup`.".to_owned(),
+        "# DaintyLass: installs this server's systemd units and starts them. Written by `reforged-host setup`."
+            .to_owned(),
         "# Run once (and again after setup changes them):  sudo sh install.sh".to_owned(),
         "set -eu".to_owned(),
         "[ \"$(id -u)\" -eq 0 ] || { echo \"run it with sudo: sudo sh $0\" >&2; exit 1; }".to_owned(),
         "here=$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)".to_owned(),
     ];
-    if !public {
-        install.push(format!(
-            "if [ -f /etc/systemd/system/{UNIT_ALLOWLIST} ]; then systemctl disable --now {UNIT_ALLOWLIST} || true; rm -f /etc/systemd/system/{UNIT_ALLOWLIST}; fi"
-        ));
+    // A unit this server no longer runs (it went private, or stopped running both games) goes
+    for unit in [UNIT_ALLOWLIST, UNIT_ALLOWLIST_LEGACY] {
+        if !allowlist_units.contains(&unit) {
+            install.push(format!(
+                "if [ -f /etc/systemd/system/{unit} ]; then systemctl disable --now {unit} || true; rm -f /etc/systemd/system/{unit}; fi"
+            ));
+        }
     }
     install.extend([
         format!("for unit in {units}; do"),
@@ -502,9 +509,14 @@ pub fn systemd_installed(unit: &str) -> bool {
 /// firewall (ufw), when one is active.
 pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     let game = game_ports_text(c, ":");
+    // A server running both games: the 1.4.4 gateway's port and game ports too
+    let legacy = (c.edition == crate::hostconfig::Edition::Both).then(|| {
+        let (first, last) = crate::hostconfig::legacy_game_ports(c);
+        (crate::hostconfig::legacy_gateway_port(c), format!("{first}:{last}"))
+    });
     let mut lines: Vec<String> = [
         "#!/bin/sh",
-        "# Dauntless Reforged Revival: lets a host firewall (ufw) pass this server's traffic. Written by `reforged-host setup`.",
+        "# DaintyLass: lets a host firewall (ufw) pass this server's traffic. Written by `reforged-host setup`.",
         "# Run once:  sudo sh firewall.sh",
         "set -eu",
         "[ \"$(id -u)\" -eq 0 ] || { echo \"run it with sudo: sudo sh $0\" >&2; exit 1; }",
@@ -515,9 +527,17 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     if c.mode == ServerMode::Public {
         let port = gateway_port(c);
         lines.extend([
-            format!("    ufw allow {port}/tcp comment 'Dauntless Reforged Revival gateway'"),
+            format!("    ufw allow {port}/tcp comment 'DaintyLass gateway'"),
             "    # The allowlist's nftables table (reforged_revival) still closes these to everyone who has not logged in.".to_owned(),
-            format!("    ufw allow {game}/udp comment 'Dauntless Reforged Revival game ports (allowlist)'"),
+            format!("    ufw allow {game}/udp comment 'DaintyLass game ports (allowlist)'"),
+        ]);
+        if let Some((port, game)) = &legacy {
+            lines.extend([
+                format!("    ufw allow {port}/tcp comment 'DaintyLass 1.4.4 gateway'"),
+                format!("    ufw allow {game}/udp comment 'DaintyLass 1.4.4 game ports (allowlist)'"),
+            ]);
+        }
+        lines.extend([
             "    echo 'ufw: added the rules'".to_owned(),
             "else".to_owned(),
             "    echo 'No active ufw: nothing to add here (the allowlist manages the game ports itself).'".to_owned(),
@@ -530,10 +550,18 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     } else {
         lines.extend([
             format!(
-                "    ufw allow in on tailscale0 to any port {} proto tcp comment 'Dauntless Reforged Revival gateway (Tailscale)'",
+                "    ufw allow in on tailscale0 to any port {} proto tcp comment 'DaintyLass gateway (Tailscale)'",
                 PORTS.private_gateway
             ),
-            format!("    ufw allow in on tailscale0 to any port {game} proto udp comment 'Dauntless Reforged Revival game ports (Tailscale)'"),
+            format!("    ufw allow in on tailscale0 to any port {game} proto udp comment 'DaintyLass game ports (Tailscale)'"),
+        ]);
+        if let Some((port, game)) = &legacy {
+            lines.extend([
+                format!("    ufw allow in on tailscale0 to any port {port} proto tcp comment 'DaintyLass 1.4.4 gateway (Tailscale)'"),
+                format!("    ufw allow in on tailscale0 to any port {game} proto udp comment 'DaintyLass 1.4.4 game ports (Tailscale)'"),
+            ]);
+        }
+        lines.extend([
             "    echo 'ufw: added the rules'".to_owned(),
             "else".to_owned(),
             format!(

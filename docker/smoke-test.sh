@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dauntless Reforged Revival: the Docker images' smoke test (CI's docker job, and by hand from the repository root:
+# DaintyLass: the Docker images' smoke test (CI's docker job, and by hand from the repository root:
 # bash docker/smoke-test.sh). A public server set up in throwaway volumes on example game data, without a game:
 # every service comes up healthy, the gateway serves the certificate setup made, the allowlist's table is in the
 # shared namespace, the backend makes an invite, and everything stops. Builds the images unless SMOKE_NO_BUILD=1.

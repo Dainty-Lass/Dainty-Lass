@@ -910,6 +910,12 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
             ),
         ));
     }
+    // A server running both games: the 1.4.4 stack's own checks after reborn's
+    if let Ok(Some(config)) = load_host_config(p)
+        && config.edition == crate::hostconfig::Edition::Both
+    {
+        checks.extend(crate::legacy::doctor_checks(p, &config, options.hash_exe)?);
+    }
     Ok(checks)
 }
 

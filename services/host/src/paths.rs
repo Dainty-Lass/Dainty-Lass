@@ -56,6 +56,37 @@ pub const PORTS: Ports = Ports {
     game_lowest: 8766,
 };
 
+/// The 1.4.4 stack's ports (a legacy server's, Dauntless Revived's metagame and deploy server).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LegacyPorts {
+    pub metagame: u16,
+    pub deploy: u16,
+    pub content: u16,
+    pub allowlist: u16,
+    /// A private server's 1.4.4 gateway, on the Tailscale address
+    pub private_gateway: u16,
+    /// The metagame's XMPP chat, behind the gateway
+    pub chat: u16,
+    pub game_first: u16,
+    pub game_last: u16,
+}
+
+/// A server running both games (`edition = \"both\"`, RD26): the 1.4.4 stack beside the reborn one, on ports
+/// of its own. Its UDP range holds 6 hunts, Ramsgate and the Training Dojo, above the reborn one.
+pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
+    metagame: 61010,
+    deploy: 61011,
+    content: 61012,
+    allowlist: 61015,
+    private_gateway: 61010,
+    chat: 61099,
+    game_first: 8780,
+    game_last: 8787,
+};
+
+/// The 1.4.4 gateway's public TCP port on a server running both games, unless `legacy_public_port` says.
+pub const DEFAULT_LEGACY_PUBLIC_PORT: u16 = 4443;
+
 /// Hunts at once: 1 to `MAX_HUNTS` (the ports from `game_lowest` to `game_last`).
 pub const MAX_HUNTS: u32 = (PORTS.game_last - PORTS.game_lowest - 1) as u32;
 
