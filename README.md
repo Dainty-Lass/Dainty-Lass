@@ -54,8 +54,8 @@ cd paradox/backend && npm ci && npm test
 cd paradox/director && npm ci && npm test
 ```
 
-The launcher is `rust/launcher` (`npm ci && npm run tauri build`; its page is a stand-in until
-`dainty-lass-ui` lands). The runtime and the CatalogExporter need a host's own SDK
+The launcher is `rust/launcher` (`git submodule update --init ui`, then `npm ci && npm run tauri build`, which
+needs Bun to build the page from `ui/`). The runtime and the CatalogExporter need a host's own SDK
 ([docs/sdk-and-game-data.md](docs/sdk-and-game-data.md)). `bash docker/run-tests.sh` builds the images and runs
 every server suite inside them.
 

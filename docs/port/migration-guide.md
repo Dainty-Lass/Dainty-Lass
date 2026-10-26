@@ -132,8 +132,8 @@ files one to one; its tests run against fixtures generated from the Node kit (`t
 
 The Rust backend is DR's Tauri launcher fitted to Reforged; the page is still Reforged's TypeScript page
 (`legacy/ReforgedLauncher/src/renderer`, built by `rust/launcher/vite.config.ts`, talking to Rust through
-`rust/launcher/page/bridge.ts` and the generated `page/generated/types.ts`). RR5 moves the page to
-`rust/launcher/ui`. The per-line detail is in [`delta-launcher-platform.md`](delta-launcher-platform.md) and
+`rust/launcher/page/bridge.ts` and the generated `page/generated/types.ts`). DU1 serves the Astro UI from the
+`ui/` submodule (dainty-lass-ui) instead, with the generated types also in `ui/packages/bridge`. The per-line detail is in [`delta-launcher-platform.md`](delta-launcher-platform.md) and
 [`delta-launcher-controller.md`](delta-launcher-controller.md).
 
 | Reforged Electron (`legacy/ReforgedLauncher/src/`) | DR Rust module (`src-tauri/src/`) | Here | Reforged's changes carried |

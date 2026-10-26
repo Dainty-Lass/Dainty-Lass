@@ -17,6 +17,7 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 | --- | --- |
 | `rust/` | One cargo workspace: `crates/` (`controller`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host` = the host kit and `serve`, `backend`, `director`, and DR's `metagame` and `deploy` for 1.4.4 servers), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `reforged-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-server-gui` with the `server-gui` feature) and `launcher/page`, `isolation/` |
 | `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
+| `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
 | `paradox/` | Mystic Paradox's Node backend and Director, forked with their history, until the Rust port replaces them. Any change is allowed; fixes are the baseline (RD2) |
 | `native/` | The C++ game runtime (`paradox-runtime`, `MysticParadox.dll`), its loader (`runtime-loader`, `winmm.dll`, Rust, not in the workspace) and the CatalogExporter. Built by each host from their own SDK |
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
