@@ -1,0 +1,27 @@
+[package]
+name = "epic"
+description = "Installing Dauntless from the player's Epic library: sign-in, library, manifests, chunks, download (docs/dainty-lass-plan.md DD22, DE1)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Born MIT (DD26): written from Epic's documented manifest and chunk formats, from none of DR, Paradox or Reforged
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+flate2.workspace = true
+sha1.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+bytes = "1"
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+rustls.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
+
+[lints]
+workspace = true
