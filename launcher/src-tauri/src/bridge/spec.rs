@@ -3,7 +3,8 @@
 //! it: the isolation hook in the page (`isolation/commands.js`, generated from this list), the capability
 //! that grants exactly these commands (`build.rs`), and the commands themselves, which check the same
 //! limits again. The `revived*` methods (1.4.4) are served in every build and answer only with the
-//! `legacy` feature; the window controls are Tauri's own.
+//! `legacy` feature; the window controls are Tauri's own. After `subscribe_progress` come DaintyLass's own
+//! commands (DF8), stubs until their rows fill them (`PLANNED`).
 #![cfg_attr(
     not(test),
     allow(
@@ -186,6 +187,136 @@ const HOST_MULTIPLIERS: Arg = Arg::Object {
     nullable: true,
 };
 
+/// `epic_sign_in_code`: the pasted authorization code, or the JSON page Epic shows it in (DD22).
+pub const EPIC_CODE_MAX: usize = 1024;
+/// A game version as a client profile names it (DE4)
+pub const GAME_VERSION_MAX: usize = 64;
+/// A game module's manifest id, and a command name from its manifest (DD5, DD11)
+pub const MODULE_ID_MAX: usize = 64;
+pub const MODULE_COMMAND_MAX: usize = 64;
+/// A module command's arguments or settings values, as JSON text: their shape is the manifest's, so the
+/// backend checks it, not the hook.
+pub const MODULE_JSON_MAX: usize = 8192;
+/// What `realm_join` joins (RF7)
+pub const REALM_ID_MAX: usize = 128;
+/// A history filter's fields: an account, an actor (an admin key's id, the console, the host kit), RFC 3339
+/// times and a page cursor (DD23)
+pub const HISTORY_WHO_MAX: usize = 64;
+pub const HISTORY_TIME_MAX: usize = 40;
+pub const HISTORY_CURSOR_MAX: usize = 128;
+/// A revert plan's id from `history_revert_dry_run`, or a guarded action's id (DH6)
+pub const CHANGE_ID_MAX: usize = 64;
+
+/// `RealmKind`'s names.
+pub const REALM_KINDS: &[&str] = &["hub", "hunt"];
+
+const HISTORY_FILTER: Arg = Arg::Object {
+    fields: &[
+        ("account", Arg::OptionalText { max: HISTORY_WHO_MAX }),
+        ("actor", Arg::OptionalText { max: HISTORY_WHO_MAX }),
+        ("since", Arg::OptionalText { max: HISTORY_TIME_MAX }),
+        ("until", Arg::OptionalText { max: HISTORY_TIME_MAX }),
+        (
+            "cursor",
+            Arg::OptionalText {
+                max: HISTORY_CURSOR_MAX,
+            },
+        ),
+    ],
+    nullable: false,
+};
+
+/// What a revert undoes: the history filter without the cursor (`revert --actor <who> --since <time>`).
+const REVERT_SELECTION: Arg = Arg::Object {
+    fields: &[
+        ("account", Arg::OptionalText { max: HISTORY_WHO_MAX }),
+        ("actor", Arg::OptionalText { max: HISTORY_WHO_MAX }),
+        ("since", Arg::OptionalText { max: HISTORY_TIME_MAX }),
+        ("until", Arg::OptionalText { max: HISTORY_TIME_MAX }),
+    ],
+    nullable: false,
+};
+
+/// Which builds serve a command. Every build lists every command, so the bridge and its generated files
+/// are the same in all; a build outside a command's own refuses it with a code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Build {
+    /// The player launcher and the server GUI
+    Every,
+    /// The Host page's `host_*` commands: builds with the `host` feature (`host_off.rs` refuses them)
+    Host,
+    /// The server GUI only (`server-gui` feature)
+    ServerGui,
+}
+
+/// The server GUI's own commands: module panels (DU3), history and revert (DH3b), guarded actions (DH6).
+pub const SERVER_GUI_COMMANDS: &[&str] = &[
+    "module_list",
+    "module_get",
+    "module_run_command",
+    "module_set_settings",
+    "module_load",
+    "module_unload",
+    "history_query",
+    "history_revert_dry_run",
+    "history_revert_apply",
+    "guarded_list",
+    "guarded_approve",
+    "guarded_cancel",
+];
+
+pub fn build(name: &str) -> Build {
+    if SERVER_GUI_COMMANDS.contains(&name) {
+        Build::ServerGui
+    } else if name.starts_with("host_") {
+        Build::Host
+    } else {
+        Build::Every
+    }
+}
+
+/// Whether this build serves a command.
+pub fn serves(name: &str) -> bool {
+    match build(name) {
+        Build::Every => true,
+        Build::Host => cfg!(feature = "host"),
+        Build::ServerGui => cfg!(feature = "server-gui"),
+    }
+}
+
+/// The commands registered ahead of the rows that fill them (DF8), each refused with `not_implemented`
+/// (`commands::planned`). A row that fills one takes it off this list.
+pub const PLANNED: &[&str] = &[
+    "epic_sign_in_start",
+    "epic_sign_in_code",
+    "epic_get",
+    "epic_sign_out",
+    "epic_library_check",
+    "game_version_list",
+    "game_install_start",
+    "game_install_pause",
+    "game_install_resume",
+    "game_install_cancel",
+    "game_install_get",
+    "region_ping",
+    "module_list",
+    "module_get",
+    "module_run_command",
+    "module_set_settings",
+    "module_load",
+    "module_unload",
+    "realm_host",
+    "realm_join",
+    "realm_stop",
+    "realm_get",
+    "history_query",
+    "history_revert_dry_run",
+    "history_revert_apply",
+    "guarded_list",
+    "guarded_approve",
+    "guarded_cancel",
+];
+
 pub const COMMANDS: &[Command] = &[
     command("get_snapshot", &[]),
     command("check_invite", &[("text", Arg::Text { max: INVITE_MAX })]),
@@ -272,6 +403,73 @@ pub const COMMANDS: &[Command] = &[
     command("dismiss_notice", &[]),
     command("dismiss_error", &[]),
     command("subscribe_progress", &[("onProgress", Arg::Channel)]),
+    // Epic sign-in and library (DE2, DE3; every build). The session stays in the keystore: no answer
+    // carries it, as none carries the account key (DD22)
+    command("epic_sign_in_start", &[]),
+    command("epic_sign_in_code", &[("code", Arg::Text { max: EPIC_CODE_MAX })]),
+    command("epic_get", &[]),
+    command("epic_sign_out", &[]),
+    command("epic_library_check", &[]),
+    // Installable versions and their download (DE4, DE5; every build)
+    command("game_version_list", &[]),
+    command(
+        "game_install_start",
+        &[("version", Arg::Text { max: GAME_VERSION_MAX })],
+    ),
+    command(
+        "game_install_pause",
+        &[("version", Arg::Text { max: GAME_VERSION_MAX })],
+    ),
+    command(
+        "game_install_resume",
+        &[("version", Arg::Text { max: GAME_VERSION_MAX })],
+    ),
+    command(
+        "game_install_cancel",
+        &[("version", Arg::Text { max: GAME_VERSION_MAX })],
+    ),
+    command("game_install_get", &[("version", Arg::Text { max: GAME_VERSION_MAX })]),
+    // Round trip to every node, in order (DN7; every build)
+    command("region_ping", &[]),
+    // Module panels drawn from manifests, load and unload (DU3, DF4d; server GUI): by manifest id, never
+    // a path (DD5)
+    command("module_list", &[]),
+    command("module_get", &[("module", Arg::Text { max: MODULE_ID_MAX })]),
+    command(
+        "module_run_command",
+        &[
+            ("module", Arg::Text { max: MODULE_ID_MAX }),
+            (
+                "command",
+                Arg::Text {
+                    max: MODULE_COMMAND_MAX,
+                },
+            ),
+            ("input", Arg::Text { max: MODULE_JSON_MAX }),
+        ],
+    ),
+    command(
+        "module_set_settings",
+        &[
+            ("module", Arg::Text { max: MODULE_ID_MAX }),
+            ("values", Arg::Text { max: MODULE_JSON_MAX }),
+        ],
+    ),
+    command("module_load", &[("module", Arg::Text { max: MODULE_ID_MAX })]),
+    command("module_unload", &[("module", Arg::Text { max: MODULE_ID_MAX })]),
+    // Realm hosting and joining (DU5, RF7; every build, behind the realms feature once RF7 adds it)
+    command("realm_host", &[("kind", Arg::Name { names: REALM_KINDS })]),
+    command("realm_join", &[("realm", Arg::Text { max: REALM_ID_MAX })]),
+    command("realm_stop", &[]),
+    command("realm_get", &[]),
+    // History and revert (DH3b; server GUI): apply takes the dry run's plan, so only what was shown runs
+    command("history_query", &[("filter", HISTORY_FILTER)]),
+    command("history_revert_dry_run", &[("selection", REVERT_SELECTION)]),
+    command("history_revert_apply", &[("plan", Arg::Text { max: CHANGE_ID_MAX })]),
+    // Guarded actions waiting out their delay or a second operator (DH6; server GUI)
+    command("guarded_list", &[]),
+    command("guarded_approve", &[("id", Arg::Text { max: CHANGE_ID_MAX })]),
+    command("guarded_cancel", &[("id", Arg::Text { max: CHANGE_ID_MAX })]),
 ];
 
 /// Whether a string fits a limit counted as JavaScript counts it, so the page, the hook and the
@@ -289,7 +487,7 @@ mod tests {
     use serde::de::DeserializeOwned;
     use ts_rs::TS;
 
-    use super::super::types::{ExternalTarget, HostAction, HostFolder, HostServerMode, InstallMode};
+    use super::super::types::{ExternalTarget, HostAction, HostFolder, HostServerMode, InstallMode, RealmKind};
     use super::*;
 
     #[test]
@@ -361,5 +559,33 @@ mod tests {
         same_names::<HostFolder>(HOST_FOLDERS);
         same_names::<HostServerMode>(SERVER_MODES);
         same_names::<InstallMode>(INSTALL_MODES);
+        same_names::<RealmKind>(REALM_KINDS);
+    }
+
+    fn listed(name: &str) -> bool {
+        COMMANDS.iter().any(|command| command.name == name)
+    }
+
+    #[test]
+    fn planned_and_server_gui_commands_are_listed() {
+        for name in PLANNED.iter().chain(SERVER_GUI_COMMANDS) {
+            assert!(listed(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn each_command_names_its_build() {
+        assert_eq!(build("host_get"), Build::Host);
+        assert_eq!(build("module_load"), Build::ServerGui);
+        assert_eq!(build("history_revert_apply"), Build::ServerGui);
+        assert_eq!(build("epic_sign_in_start"), Build::Every);
+        assert_eq!(build("realm_host"), Build::Every);
+        for command in COMMANDS {
+            if build(command.name) == Build::ServerGui {
+                assert!(!command.name.starts_with("host_"), "{}", command.name);
+            }
+        }
+        assert!(serves("play"));
+        assert_eq!(serves("module_list"), cfg!(feature = "server-gui"));
     }
 }
