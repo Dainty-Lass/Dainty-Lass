@@ -15,12 +15,13 @@
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 
-pub use protocol::game::Game as Edition;
+use protocol::game::Game;
 use serde_json::{Map, Value};
 use service_kit::{js, jsjson};
 
 use crate::envfile::{EnvMap, format_env, parse_env};
 use crate::error::HostError;
+use crate::paths::{BOTH_LEGACY_PORTS, DEFAULT_LEGACY_PUBLIC_PORT};
 use crate::paths::{GAME_CHANGELIST, MAX_HUNTS, PINNED_EXE_SHA256, PORTS, Paths, game_exe_relative, game_port_range};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,12 +155,59 @@ pub const RESERVED_PORTS: [u16; 8] = [
     61004,
 ];
 
+/// Which Dauntless the server runs (RD26): 1.14.7 on Mystic Paradox, Dauntless Revived's 1.4.4
+/// (`legacy` feature), or both side by side from one controller.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Edition {
+    #[default]
+    Reborn,
+    Legacy,
+    Both,
+}
+
+impl Edition {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Reborn => "reborn",
+            Self::Legacy => "legacy",
+            Self::Both => "both",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        [Self::Reborn, Self::Legacy, Self::Both]
+            .into_iter()
+            .find(|e| e.as_str() == text)
+    }
+
+    /// Whether the server runs `game`'s stack.
+    pub fn runs(self, game: Game) -> bool {
+        matches!(
+            (self, game),
+            (Self::Both, _) | (Self::Reborn, Game::Reborn) | (Self::Legacy, Game::Legacy)
+        )
+    }
+
+    /// Whether this build carries every game the server runs.
+    pub fn supported(self) -> bool {
+        !self.runs(Game::Legacy) || Game::Legacy.supported()
+    }
+
+    /// The game an invite names unless it asks for the other: the server's only one, or reborn.
+    pub fn primary(self) -> Game {
+        if self == Self::Legacy {
+            Game::Legacy
+        } else {
+            Game::Reborn
+        }
+    }
+}
+
 /// `host.json`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HostConfig {
     pub version: u32,
     pub mode: ServerMode,
-    /// Which Dauntless the server runs: 1.14.7 on Mystic Paradox, or DR's 1.4.4 (`legacy` feature only).
     /// Absent from the file: reborn, so every file written before it keeps today's server.
     pub edition: Edition,
     /// Private: this PC's Tailscale IPv4 (or MagicDNS name). Public: the public IPv4 or DNS name
@@ -181,6 +229,10 @@ pub struct HostConfig {
     pub multipliers: Option<Multipliers>,
     /// Public servers: the gateway's TCP port when 443 is taken. Absent: 443. It goes into every invite.
     pub public_port: Option<u16>,
+    /// Both games: the Dauntless 1.4.4 folder its game servers run from (`game_dir` is 1.14.7's).
+    pub legacy_game_dir: Option<String>,
+    /// Both games, public: the 1.4.4 gateway's TCP port. Absent: [`DEFAULT_LEGACY_PUBLIC_PORT`].
+    pub legacy_public_port: Option<u16>,
     /// Absent: [`DEFAULT_PERFORMANCE`]. A file from an older setup may hold only some fields; the
     /// defaults fill the rest here and the file keeps what it had.
     pub performance: Option<PerformanceOptions>,
@@ -203,7 +255,7 @@ pub struct FileForm {
 }
 
 /// What every command says to a legacy server in a build without the `legacy` feature.
-pub const LEGACY_UNSUPPORTED: &str = "this is a legacy server (edition = \"legacy\": Dauntless Revived's 1.4.4), and this reforged-host was built without legacy servers: use a build with the legacy feature (cargo build --release -p host --features legacy), or setup --edition reborn";
+pub const LEGACY_UNSUPPORTED: &str = "this server runs Dauntless Revived's 1.4.4 (edition = \"legacy\" or \"both\"), and this reforged-host was built without it: use a build with the legacy feature (cargo build --release -p server-console --features legacy), or setup --edition reborn";
 
 /// Refuses a legacy server in a build without the `legacy` feature.
 pub fn check_edition(c: &HostConfig) -> Result<(), HostError> {
@@ -247,6 +299,28 @@ pub fn gateway_port(c: &HostConfig) -> u16 {
         ServerMode::Private => PORTS.private_gateway,
     }
 }
+
+/// The 1.4.4 gateway's port: the server's own on a 1.4.4-only server, its second one on a server running
+/// both games (RD26).
+pub fn legacy_gateway_port(c: &HostConfig) -> u16 {
+    match (c.edition, c.mode) {
+        (Edition::Both, ServerMode::Public) => c.legacy_public_port.unwrap_or(DEFAULT_LEGACY_PUBLIC_PORT),
+        (Edition::Both, ServerMode::Private) => BOTH_LEGACY_PORTS.private_gateway,
+        _ => gateway_port(c),
+    }
+}
+
+/// The 1.4.4 game servers' UDP ports, `(first, last)`.
+pub fn legacy_game_ports(c: &HostConfig) -> (u16, u16) {
+    if c.edition == Edition::Both {
+        (BOTH_LEGACY_PORTS.game_first, BOTH_LEGACY_PORTS.game_last)
+    } else {
+        game_ports(c)
+    }
+}
+
+/// The 1.4.4 allowlist's Windows Firewall rule on a server running both games (`ALLOWLIST_RULE_NAME`).
+pub const LEGACY_RULE_NAME: &str = "Dauntless Reforged Revival 1.4.4 game ports (allowlist)";
 
 pub fn multipliers_on(c: &HostConfig) -> bool {
     c.mode == ServerMode::Private && c.multipliers.is_some_and(|m| m.xp != 1.0 || m.rewards != 1.0)
@@ -413,10 +487,11 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     };
     if !c
         .get("edition")
-        .is_none_or(|e| matches!(e.as_str(), Some("reborn" | "legacy")))
+        .is_none_or(|e| e.as_str().and_then(Edition::parse).is_some())
     {
-        return Err(bad("edition must be reborn or legacy"));
+        return Err(bad("edition must be reborn, legacy or both"));
     }
+    let both = c.get("edition").and_then(Value::as_str) == Some("both");
     let raw_host = string_field(c, "host", "host")?;
     let host = js::trim(raw_host).to_lowercase();
     match mode {
@@ -509,6 +584,63 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         if RESERVED_PORTS.contains(&n) || (PORTS.game_lowest..=PORTS.game_last).contains(&n) {
             return Err(bad(format!(
                 "publicPort {n} is one the server uses itself: pick another (4443, for example)"
+            )));
+        }
+    }
+    match c.get("legacyGameDir") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(_)) if both => {}
+        Some(Value::String(_)) => return Err(bad("legacyGameDir is for a server running both games (edition both)")),
+        Some(other) => {
+            return Err(bad(format!(
+                "legacyGameDir must be a folder, not {}",
+                shown(Some(other))
+            )));
+        }
+    }
+    let reborn_port = integer(c.get("publicPort")).map_or(PORTS.public_gateway, |n| n as u16);
+    let legacy_ports = [
+        BOTH_LEGACY_PORTS.metagame,
+        BOTH_LEGACY_PORTS.deploy,
+        BOTH_LEGACY_PORTS.content,
+        BOTH_LEGACY_PORTS.allowlist,
+        BOTH_LEGACY_PORTS.chat,
+    ];
+    let legacy_game = BOTH_LEGACY_PORTS.game_first..=BOTH_LEGACY_PORTS.game_last;
+    if both && mode == ServerMode::Public && (legacy_ports.contains(&reborn_port) || legacy_game.contains(&reborn_port))
+    {
+        return Err(bad(format!(
+            "publicPort {reborn_port} is one the 1.4.4 stack uses on a server running both games: pick another"
+        )));
+    }
+    if let Some(port) = c.get("legacyPublicPort") {
+        if !both || mode != ServerMode::Public {
+            return Err(bad(
+                "legacyPublicPort is for a public server running both games (edition both)",
+            ));
+        }
+        let Some(n) = integer(Some(port)).filter(|n| (1.0..=65535.0).contains(n)) else {
+            return Err(bad(format!(
+                "legacyPublicPort must be a TCP port from 1 to 65535, not {}",
+                shown(Some(port))
+            )));
+        };
+        let n = n as u16;
+        if RESERVED_PORTS.contains(&n)
+            || legacy_ports.contains(&n)
+            || (PORTS.game_lowest..=PORTS.game_last).contains(&n)
+            || legacy_game.contains(&n)
+        {
+            return Err(bad(format!(
+                "legacyPublicPort {n} is one the server uses itself: pick another (4443, for example)"
+            )));
+        }
+    }
+    if both && mode == ServerMode::Public {
+        let legacy_port = integer(c.get("legacyPublicPort")).map_or(DEFAULT_LEGACY_PUBLIC_PORT, |n| n as u16);
+        if legacy_port == reborn_port {
+            return Err(bad(format!(
+                "both gateways would listen on {reborn_port}: give the 1.4.4 one another port (legacyPublicPort)"
             )));
         }
     }
@@ -649,11 +781,11 @@ impl HostConfig {
             } else {
                 ServerMode::Private
             },
-            edition: if c.get("edition").and_then(Value::as_str) == Some("legacy") {
-                Edition::Legacy
-            } else {
-                Edition::Reborn
-            },
+            edition: c
+                .get("edition")
+                .and_then(Value::as_str)
+                .and_then(Edition::parse)
+                .unwrap_or_default(),
             host: string_field(&c, "host", "host")?.to_owned(),
             game_address: string_field(&c, "gameAddress", "gameAddress")?.to_owned(),
             name: string_field(&c, "name", "name")?.to_owned(),
@@ -672,6 +804,8 @@ impl HostConfig {
             max_hunt_servers: num(&c, "maxHuntServers").map_or(3, |v| v as u32),
             multipliers,
             public_port: num(&c, "publicPort").map(|v| v as u16),
+            legacy_game_dir: nullable_string(&c, "legacyGameDir", "legacyGameDir")?,
+            legacy_public_port: num(&c, "legacyPublicPort").map(|v| v as u16),
             performance,
             linux,
             file: FileForm::default(),
@@ -717,8 +851,8 @@ impl HostConfig {
         let mut m = Map::new();
         m.insert("version".into(), self.version.into());
         m.insert("mode".into(), text(self.mode.as_str()));
-        // Written only for legacy: a reborn server's file stays as the Node kit writes it.
-        if self.edition == Edition::Legacy {
+        // Left out for reborn: a reborn server's file stays as the Node kit writes it.
+        if self.edition != Edition::Reborn {
             m.insert("edition".into(), text(self.edition.as_str()));
         }
         m.insert("host".into(), text(&self.host));
@@ -741,6 +875,12 @@ impl HostConfig {
         }
         if let Some(port) = self.public_port {
             m.insert("publicPort".into(), port.into());
+        }
+        if let Some(dir) = &self.legacy_game_dir {
+            m.insert("legacyGameDir".into(), text(dir));
+        }
+        if let Some(port) = self.legacy_public_port {
+            m.insert("legacyPublicPort".into(), port.into());
         }
         if let Some(p) = self.performance {
             let mut pm = Map::new();

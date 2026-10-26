@@ -109,8 +109,8 @@ pub struct SetupArgs {
     /// private (friends over Tailscale) or public (a server on the internet)
     #[arg(long, value_name = "private|public")]
     pub mode: Option<String>,
-    /// reborn (Dauntless 1.14.7 on Mystic Paradox, the default) or legacy (Dauntless Revived's 1.4.4)
-    #[arg(long, value_name = "reborn|legacy")]
+    /// reborn (Dauntless 1.14.7 on Mystic Paradox, the default), legacy (Dauntless Revived's 1.4.4), or both
+    #[arg(long, value_name = "reborn|legacy|both")]
     pub edition: Option<String>,
     /// Private: this PC's Tailscale IP (found when Tailscale runs). Public: the public IPv4 or DNS name
     #[arg(long, value_name = "address")]
@@ -121,6 +121,9 @@ pub struct SetupArgs {
     /// The Dauntless folder (the one with Archon), as a full path: 1.14.7, or 1.4.4 for --edition legacy
     #[arg(long, value_name = "Dauntless folder")]
     pub game: Option<String>,
+    /// --edition both: the Dauntless 1.4.4 folder (--game is the 1.14.7 one)
+    #[arg(long, value_name = "Dauntless 1.4.4 folder")]
+    pub legacy_game: Option<String>,
     /// The IPv4 the game servers announce (a public server on a DNS name needs it)
     #[arg(long, value_name = "IPv4")]
     pub game_address: Option<String>,
@@ -154,6 +157,9 @@ pub struct SetupArgs {
     /// The gateway's port when 443 is taken (a hosting panel, for example); 443 goes back
     #[arg(long, value_name = "port", help_heading = "Public servers")]
     pub public_port: Option<String>,
+    /// --edition both: the 1.4.4 gateway's port (4443 unless given)
+    #[arg(long, value_name = "port", help_heading = "Public servers")]
+    pub legacy_public_port: Option<String>,
     /// The wine program (a path, or a name on PATH)
     #[arg(long, value_name = "path", help_heading = "Linux")]
     pub wine: Option<String>,
@@ -240,6 +246,9 @@ pub struct InviteArgs {
     /// List the invite codes instead
     #[arg(long)]
     pub list: bool,
+    /// A server running both games: which one the invite is for (reforged or 1.14.7, revived or 1.4.4)
+    #[arg(long, value_name = "game")]
+    pub game: Option<String>,
     /// One JSON line, for the launcher's Host page
     #[arg(long)]
     pub json: bool,

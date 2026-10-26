@@ -13,21 +13,16 @@ use std::time::Duration;
 
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 
-use crate::Outcome;
 use crate::commands::start::binaries::{FrontService, Programs};
-use crate::commands::start::control::{Control, controlled_by_stdin};
-use crate::commands::start::{
-    Planned, Started, close_game_ports, console_printer, env_file, finish, host_checks, linux_steps, port_in_use,
-    require_env_files, say, spec_from, start_services, up_line,
-};
+use crate::commands::start::{Planned, env_file, require_env_files, say, spec_from};
 use crate::doctor::{Check, GameBuild, Level, check, fix, game_exe_checks, port_in_use as port_taken, wait_for_http};
 use crate::error::HostError;
 use crate::hostconfig::{
-    EnvEntries, HostConfig, Platform, Secrets, ServerMode, build_env_files, game_ports, linux_options, path_text,
-    write_named_env_files, write_secret_file,
+    Edition, EnvEntries, HostConfig, LEGACY_RULE_NAME, Platform, Secrets, ServerMode, build_env_files,
+    legacy_game_ports, legacy_gateway_port, linux_options, path_text, write_named_env_files, write_secret_file,
 };
-use crate::paths::{PORTS, Paths, game_exe_relative};
-use crate::services::{Ready, Supervisor, service_environment};
+use crate::paths::{BOTH_LEGACY_PORTS, LegacyPorts, PORTS, Paths, game_exe_relative};
+use crate::services::{Ready, service_environment};
 
 /// The metagame answers where the backend does: the launcher probes 61000 (`start`'s control contract).
 pub const METAGAME_PORT: u16 = PORTS.backend;
@@ -79,7 +74,64 @@ fn write_run_game_wrapper(p: &Paths) -> Result<PathBuf, HostError> {
     Ok(target)
 }
 
-/// A legacy server's env files: metagame, deploy, content, gateway and (public) allowlist.
+/// Where the 1.4.4 stack runs: alone, on the reborn stack's ports and env file names as it always has, or
+/// beside the reborn stack (`edition = "both"`, RD26) on [`BOTH_LEGACY_PORTS`], its content server, gateway
+/// and allowlist under `legacy-` names, its game servers from `legacy_game_dir`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegacyLayout {
+    pub ports: LegacyPorts,
+    /// The 1.4.4 gateway's port, public or private
+    pub gateway_port: u16,
+    /// The Dauntless 1.4.4 folder
+    pub game_dir: Option<String>,
+    both: bool,
+}
+
+impl LegacyLayout {
+    pub fn of(c: &HostConfig) -> Self {
+        let both = c.edition == Edition::Both;
+        let (game_first, game_last) = legacy_game_ports(c);
+        let ports = if both {
+            BOTH_LEGACY_PORTS
+        } else {
+            LegacyPorts {
+                metagame: METAGAME_PORT,
+                deploy: DEPLOY_PORT,
+                content: PORTS.content,
+                allowlist: PORTS.allowlist,
+                private_gateway: PORTS.private_gateway,
+                chat: CHAT_PORT,
+                game_first,
+                game_last,
+            }
+        };
+        Self {
+            ports,
+            gateway_port: legacy_gateway_port(c),
+            game_dir: if both {
+                c.legacy_game_dir.clone()
+            } else {
+                c.game_dir.clone()
+            },
+            both,
+        }
+    }
+
+    /// A front service's name, for its env file and its module: `content`, or `legacy-content` beside reborn.
+    pub fn name(&self, service: &str) -> String {
+        if self.both {
+            format!("legacy-{service}")
+        } else {
+            service.to_owned()
+        }
+    }
+
+    fn game_ports_text(&self, separator: &str) -> String {
+        format!("{}{separator}{}", self.ports.game_first, self.ports.game_last)
+    }
+}
+
+/// The 1.4.4 stack's env files: metagame, deploy, content, gateway and (public) allowlist.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LegacyEnvFiles {
     pub metagame: EnvEntries,
@@ -87,21 +139,24 @@ pub struct LegacyEnvFiles {
     pub content: EnvEntries,
     pub gateway: EnvEntries,
     pub allowlist: Option<EnvEntries>,
+    layout: LegacyLayout,
 }
 
 impl LegacyEnvFiles {
-    /// `(name, entries)` in the order they are written; `None` removes a reborn server's file.
-    pub fn files(&self) -> [(&'static str, Option<&EnvEntries>); 8] {
-        [
-            ("metagame", Some(&self.metagame)),
-            ("deploy", Some(&self.deploy)),
-            ("content", Some(&self.content)),
-            ("gateway", Some(&self.gateway)),
-            ("allowlist", self.allowlist.as_ref()),
-            ("backend", None),
-            ("director", None),
-            ("admin", None),
-        ]
+    /// `(name, entries)` in the order they are written; `None` removes a file. A 1.4.4-only server removes
+    /// a reborn server's files; beside reborn nothing is removed.
+    pub fn files(&self) -> Vec<(String, Option<&EnvEntries>)> {
+        let mut files = vec![
+            ("metagame".to_owned(), Some(&self.metagame)),
+            ("deploy".to_owned(), Some(&self.deploy)),
+            (self.layout.name("content"), Some(&self.content)),
+            (self.layout.name("gateway"), Some(&self.gateway)),
+            (self.layout.name("allowlist"), self.allowlist.as_ref()),
+        ];
+        if !self.layout.both {
+            files.extend(["backend", "director", "admin"].map(|n| (n.to_owned(), None)));
+        }
+        files
     }
 }
 
@@ -121,12 +176,14 @@ pub fn build_legacy_env_files(
     platform: Platform,
 ) -> LegacyEnvFiles {
     let linux = platform == Platform::Linux;
-    // The gateway's and the allowlist's files are the reborn ones, with the game named and the metagame's
-    // chat in place of the backend's realtime listener.
+    let layout = LegacyLayout::of(c);
+    let ports = layout.ports;
+    // The gateway's and the allowlist's files are the reborn ones, with the game named, the metagame's
+    // chat in place of the backend's realtime listener, and (beside reborn) the 1.4.4 stack's own ports.
     let reborn = build_env_files(c, s, p, source_commit, platform);
 
     let metagame = vec![
-        ("METAGAME_PORT", METAGAME_PORT.to_string()),
+        ("METAGAME_PORT", ports.metagame.to_string()),
         // Plain HTTP on this machine only: the gateway is the front door in both modes.
         ("METAGAME_BIND_HOST", "127.0.0.1".into()),
         ("METAGAME_NODE_ENV", "production".into()),
@@ -136,35 +193,37 @@ pub fn build_legacy_env_files(
         ("METAGAME_REGISTRATION_MODE", c.registration.as_str().into()),
         ("METAGAME_DB_FILENAME", path_text(&database(p))),
         ("METAGAME_MATCHMAKING_MODE", "DEPLOYSERVER".into()),
-        ("METAGAME_DEPLOYSERVER_URL", format!("127.0.0.1:{DEPLOY_PORT}")),
+        ("METAGAME_DEPLOYSERVER_URL", format!("127.0.0.1:{}", ports.deploy)),
         // The launcher answers the game's QoS ping itself, on its relay, as for reborn.
         ("METAGAME_QOS_TARGET_URL", format!("{}/QoS", local(PORTS.relay))),
         ("METAGAME_TARGET_CHANGELIST", GAME_CHANGELIST.to_string()),
         ("METAGAME_SERVER_NAME", c.name.clone()),
         ("METAGAME_SOURCE_URL", SOURCE_URL.into()),
         ("METAGAME_GIT_COMMIT", source_commit.into()),
-        ("METAGAME_CONTENT_PORT", PORTS.content.to_string()),
+        ("METAGAME_CONTENT_PORT", ports.content.to_string()),
         ("METAGAME_BODY_LOG_FILE", path_text(&p.logs.join("metagame-bodies.log"))),
         ("METAGAME_LOG_BODIES", "0".into()),
         ("METAGAME_CHAT", "1".into()),
-        ("METAGAME_CHAT_PORT", CHAT_PORT.to_string()),
+        ("METAGAME_CHAT_PORT", ports.chat.to_string()),
         ("METAGAME_CHAT_BIND_HOST", "127.0.0.1".into()),
         // DR sent it in public mode only; Reforged's gateway proxies in both.
         ("METAGAME_GATEWAY_SECRET", s.gateway_secret.clone()),
     ];
 
     let lx = linux_options(c);
-    let exe = c.game_dir.as_ref().map(|dir| Path::new(dir).join(game_exe_relative()));
+    let exe = layout
+        .game_dir
+        .as_ref()
+        .map(|dir| Path::new(dir).join(game_exe_relative()));
     let exe_text = exe.as_deref().map(path_text).unwrap_or_default();
-    let (first, last) = game_ports(c);
     let mut deploy: Vec<(&str, String)> = vec![
         ("DEPLOY_NODE_ENV", "production".into()),
-        ("DEPLOY_PORT", DEPLOY_PORT.to_string()),
+        ("DEPLOY_PORT", ports.deploy.to_string()),
         ("DEPLOY_BIND_HOST", "127.0.0.1".into()),
         ("DEPLOY_MY_IP", c.game_address.clone()),
         // Ramsgate on the last port, the Training Dojo on the one before, hunts below (DR's layout).
-        ("DEPLOY_PORT_RANGE_BEGIN", first.to_string()),
-        ("DEPLOY_PORT_RANGE_END", last.to_string()),
+        ("DEPLOY_PORT_RANGE_BEGIN", ports.game_first.to_string()),
+        ("DEPLOY_PORT_RANGE_END", ports.game_last.to_string()),
         // Linux: DR's own launcher (`deploy run-game`), which runs the exe through Wine or Proton with winmm=n,b.
         (
             "DEPLOY_GAMESERVER_BINARY_PATH",
@@ -196,19 +255,19 @@ pub fn build_legacy_env_files(
         ("DEPLOY_RAMSGATE_POOL", "1".into()),
         ("DEPLOY_ENABLE_DOJO", "0".into()),
         ("DEPLOY_GAMESERVER_LOG_DIR", path_text(&p.gameserver_logs)),
-        ("DEPLOY_METAGAME_URL", local(METAGAME_PORT)),
+        ("DEPLOY_METAGAME_URL", local(ports.metagame)),
         // DR's default is relative to the working folder.
         ("DEPLOY_DRAIN_FILE", path_text(&p.config.join("drain.flag"))),
     ]);
 
     let mut content = vec![
-        ("PORT", PORTS.content.to_string()),
+        ("PORT", ports.content.to_string()),
         ("BIND_HOST", "127.0.0.1".into()),
-        ("BACKEND_URL", local(METAGAME_PORT)),
+        ("BACKEND_URL", local(ports.metagame)),
         ("CONTENT_GAME", "legacy".into()),
     ];
     // The 1.4.4 files players download (DR's content server).
-    if let Some(dir) = &c.game_dir {
+    if let Some(dir) = &layout.game_dir {
         content.push(("CONTENT_GAME_DIR", dir.clone()));
     }
     content.extend([
@@ -219,22 +278,46 @@ pub fn build_legacy_env_files(
     let mut gateway: EnvEntries = Vec::new();
     for (key, value) in reborn.gateway {
         match key.as_str() {
-            "GATEWAY_WS_URL" => gateway.push((key, local(CHAT_PORT))),
+            "GATEWAY_WS_URL" => gateway.push((key, local(ports.chat))),
             "GATEWAY_BACKEND_URL" => {
                 gateway.push(("GATEWAY_GAME".into(), "legacy".into()));
-                gateway.push(("GATEWAY_METAGAME_URL".into(), local(METAGAME_PORT)));
+                gateway.push(("GATEWAY_METAGAME_URL".into(), local(ports.metagame)));
                 gateway.push((key, value));
             }
+            "GATEWAY_PORT" => gateway.push((key, layout.gateway_port.to_string())),
+            "GATEWAY_CONTENT_URL" => gateway.push((key, local(ports.content))),
+            "ALLOWLIST_URL" => gateway.push((key, local(ports.allowlist))),
             _ => gateway.push((key, value)),
         }
     }
+
+    // Beside reborn the second helper owns its own table, rule, state and ports (D3)
+    let allowlist = reborn.allowlist.map(|entries| {
+        let mut out: EnvEntries = Vec::new();
+        for (key, value) in entries {
+            let value = match key.as_str() {
+                "ALLOWLIST_PORT" => ports.allowlist.to_string(),
+                "ALLOWLIST_PORTS" => layout.game_ports_text("-"),
+                "ALLOWLIST_NFT_TABLE" if layout.both => "reforged_revival_legacy".into(),
+                "ALLOWLIST_AUDIT_LOG" if layout.both => path_text(&p.logs.join("allowlist-legacy-audit.log")),
+                "ALLOWLIST_STATE_FILE" if layout.both => path_text(&p.config.join("allowlist-legacy-state.json")),
+                _ => value,
+            };
+            out.push((key, value));
+        }
+        if layout.both {
+            out.push(("ALLOWLIST_RULE_NAME".into(), LEGACY_RULE_NAME.into()));
+        }
+        out
+    });
 
     LegacyEnvFiles {
         metagame: owned(metagame),
         deploy: owned(deploy),
         content: owned(content),
         gateway,
-        allowlist: reborn.allowlist,
+        allowlist,
+        layout,
     }
 }
 
@@ -256,11 +339,28 @@ pub fn write_env_files(
         write_run_game_wrapper(p)?;
     }
     let files = build_legacy_env_files(c, s, p, source_commit, platform);
-    let mut written = write_named_env_files(p, &files.files())?;
+    let named = files.files();
+    let borrowed: Vec<(&str, Option<&EnvEntries>)> = named.iter().map(|(n, e)| (n.as_str(), *e)).collect();
+    let mut written = write_named_env_files(p, &borrowed)?;
     let key = gameserver_key_file(p);
     write_secret_file(&key, &format!("{}\n", s.gameserver_key))?;
     written.push(key);
     Ok(written)
+}
+
+/// The env files the 1.4.4 stack runs from, for `start`'s check and a first `serve`.
+pub fn env_file_names(c: &HostConfig) -> Vec<String> {
+    let layout = LegacyLayout::of(c);
+    let mut names = vec![
+        "metagame".to_owned(),
+        "deploy".to_owned(),
+        layout.name("content"),
+        layout.name("gateway"),
+    ];
+    if c.mode == ServerMode::Public {
+        names.push(layout.name("allowlist"));
+    }
+    names
 }
 
 // ------------------------------------------------------------------ start
@@ -291,14 +391,18 @@ fn missing_bin(name: &str) -> HostError {
     ))
 }
 
-/// The services after the metagame's database is ready, in the order they start: metagame, deploy
-/// server, content, the allowlist (public, unless systemd runs it), the gateway last. All Rust bins.
+/// The 1.4.4 stack after its database is ready, in the order it starts: the metagame, the allowlist
+/// (public, unless systemd runs it: its table closes the game ports before the deploy server starts any),
+/// the deploy server, the content server, the gateway last. Each its own process: the metagame and the
+/// deploy server are binaries of their own, the rest this binary's services (RD26).
 pub fn legacy_service_plan(
     paths: &Paths,
     config: &HostConfig,
     external_allowlist: bool,
     programs: &Programs,
 ) -> Result<Vec<Planned>, HostError> {
+    let layout = LegacyLayout::of(config);
+    let ports = layout.ports;
     let minute = Duration::from_secs(60);
     let bin = |name: &str| programs.rust_bin(name).ok_or_else(|| missing_bin(name));
     let serve = |name: &str, command: PathBuf| crate::commands::start::binaries::Launch {
@@ -312,20 +416,31 @@ pub fn legacy_service_plan(
         env_file_in_args: true,
     };
     let front = |service: FrontService| {
-        programs
-            .launch_rust(service, paths, &env_file(paths, service.bin_name()))
-            .ok_or_else(|| missing_bin(service.bin_name()))
+        let name = layout.name(service.bin_name());
+        let file = env_file(paths, &name);
+        let launch = programs
+            .launch_rust(service, paths, &file)
+            .ok_or_else(|| missing_bin(service.bin_name()))?;
+        Ok::<_, HostError>((name, launch, file))
     };
     let mut plan = vec![Planned {
         spec: spec_from(
             "metagame",
             serve("metagame", bin("metagame")?),
             env_file(paths, "metagame"),
-            Ready::http(METAGAME_PORT, "/dauntless-status"),
+            Ready::http(ports.metagame, "/dauntless-status"),
         ),
         ready_timeout: Duration::from_secs(120),
         required: true,
     }];
+    if config.mode == ServerMode::Public && !external_allowlist {
+        let (name, launch, file) = front(FrontService::Allowlist)?;
+        plan.push(Planned {
+            spec: spec_from(&name, launch, file, Ready::http(ports.allowlist, "/status")),
+            ready_timeout: minute,
+            required: true,
+        });
+    }
     // DR's deploy server is not in this repository yet: without it the server runs, but no game server starts.
     match programs.rust_bin("deploy") {
         Some(deploy) => plan.push(Planned {
@@ -333,69 +448,46 @@ pub fn legacy_service_plan(
                 "deploy",
                 serve("deploy", deploy),
                 env_file(paths, "deploy"),
-                Ready::http(DEPLOY_PORT, "/gameservers"),
+                Ready::http(ports.deploy, "/gameservers"),
             ),
             ready_timeout: minute,
             required: false,
         }),
-        None => {
-            say("! No deploy bin (DR's deploy server): the game servers cannot start. Players can sign in, not play.")
-        }
-    }
-    plan.push(Planned {
-        spec: spec_from(
-            "content",
-            front(FrontService::Content)?,
-            env_file(paths, "content"),
-            Ready::http(PORTS.content, "/content/v1/news"),
+        None => say(
+            "! No deploy bin (DR's deploy server): the 1.4.4 game servers cannot start. Players can sign in, not play.",
         ),
+    }
+    let (name, launch, file) = front(FrontService::Content)?;
+    plan.push(Planned {
+        spec: spec_from(&name, launch, file, Ready::http(ports.content, "/content/v1/news")),
         ready_timeout: minute,
         required: false,
     });
-    if config.mode == ServerMode::Public && !external_allowlist {
-        plan.push(Planned {
-            spec: spec_from(
-                "allowlist",
-                front(FrontService::Allowlist)?,
-                env_file(paths, "allowlist"),
-                Ready::http(PORTS.allowlist, "/status"),
-            ),
-            ready_timeout: minute,
-            required: false,
-        });
-    }
     let gateway_ready = match config.mode {
-        ServerMode::Public => Ready::tcp("127.0.0.1", crate::hostconfig::gateway_port(config)),
-        ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
+        ServerMode::Public => Ready::tcp("127.0.0.1", layout.gateway_port),
+        ServerMode::Private => Ready::tcp(&config.game_address, layout.gateway_port),
     };
+    let (name, launch, file) = front(FrontService::Gateway)?;
     plan.push(Planned {
-        spec: spec_from(
-            "gateway",
-            front(FrontService::Gateway)?,
-            env_file(paths, "gateway"),
-            gateway_ready,
-        ),
+        spec: spec_from(&name, launch, file, gateway_ready),
         ready_timeout: minute,
         required: true,
     });
     Ok(plan)
 }
 
-/// `start` for a legacy server: the reborn start's checks of this PC and its supervisor, with the
-/// metagame's database migrated and its game-server key registered first, as DR's install did.
-pub fn start(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Outcome {
-    let public = config.mode == ServerMode::Public;
-    let external_allowlist = external_allowlist && public;
-    let mut names = vec!["metagame", "deploy", "content", "gateway"];
-    if public {
-        names.push("allowlist");
-    }
+/// Before the 1.4.4 stack starts: its env files there, its database migrated and the game-server key
+/// registered (as DR's install did), and a missing game folder said.
+pub fn prepare(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
+    let names = env_file_names(config);
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
     require_env_files(paths, &names)?;
-    host_checks(paths, config, external_allowlist)?;
-    if config.game_dir.is_none() {
-        say(
-            "! No game folder: the game servers cannot start (reforged-host setup --game <your Dauntless 1.4.4 folder>).",
-        );
+    if LegacyLayout::of(config).game_dir.is_none() {
+        say(if config.edition == Edition::Both {
+            "! No 1.4.4 game folder: its game servers cannot start (reforged-host setup --legacy-game <your Dauntless 1.4.4 folder>)."
+        } else {
+            "! No game folder: the game servers cannot start (reforged-host setup --game <your Dauntless 1.4.4 folder>)."
+        });
     }
     let programs = Programs::find_rust(paths);
     let metagame_env = env_file(paths, "metagame").display().to_string();
@@ -403,30 +495,7 @@ pub fn start(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Ou
     let db = database(paths).display().to_string();
     let key = gameserver_key_file(paths).display().to_string();
     metagame(&programs, paths, &["db", "gs-key", &db, &key])?;
-    let plan = legacy_service_plan(paths, config, external_allowlist, &programs)?;
-
-    let controlled = controlled_by_stdin();
-    let control = Control::begin(controlled)?;
-    let supervisor = Supervisor::new(&paths.logs, console_printer()).with_cancel(control.flag());
-    let started = (|| {
-        if cfg!(target_os = "linux") && !linux_steps(paths, config, &programs, external_allowlist, &control)? {
-            return Ok(Started::Stopped);
-        }
-        start_services(&supervisor, &control, plan, Some(config), &port_in_use)
-    })();
-    let started = match started {
-        Ok(started) => started,
-        Err(error) => {
-            supervisor.stop_all();
-            return Err(error);
-        }
-    };
-    let close_ports = public && !external_allowlist;
-    finish(started, &supervisor, &control, controlled, &up_line(config), || {
-        if close_ports {
-            close_game_ports(paths, &programs);
-        }
-    })
+    Ok(())
 }
 
 // ------------------------------------------------------------------ invite
@@ -496,10 +565,8 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
             "DR's deploy server is not ported to this repository yet (docs/hosting.md, Legacy servers)",
         ),
     });
-    let mut names = vec!["metagame", "deploy", "content", "gateway"];
-    if config.mode == ServerMode::Public {
-        names.push("allowlist");
-    }
+    let layout = LegacyLayout::of(config);
+    let names = env_file_names(config);
     let mut missing: Vec<String> = names
         .iter()
         .filter(|n| !p.config.join(format!("{n}.env")).exists())
@@ -525,7 +592,7 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
         )
     });
     checks.extend(game_exe_checks(
-        config.game_dir.as_deref(),
+        layout.game_dir.as_deref(),
         hash_exe,
         &GameBuild {
             version_text: GAME_VERSION_TEXT,
@@ -534,7 +601,7 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
             get_it: "use the verified 1.4.4 build Dauntless Revived's kits check (DR's docs)",
         },
     )?);
-    if let Some(win64) = config
+    if let Some(win64) = layout
         .game_dir
         .as_deref()
         .and_then(|dir| Path::new(dir).join(game_exe_relative()).parent().map(Path::to_path_buf))
@@ -587,9 +654,9 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
         )
     });
     for (name, port, path) in [
-        ("metagame", METAGAME_PORT, "/dauntless-status"),
-        ("deploy server", DEPLOY_PORT, "/gameservers"),
-        ("content server", PORTS.content, "/content/v1/news"),
+        ("metagame", layout.ports.metagame, "/dauntless-status"),
+        ("deploy server", layout.ports.deploy, "/gameservers"),
+        ("1.4.4 content server", layout.ports.content, "/content/v1/news"),
     ] {
         let answering = port_taken(port, None)? && wait_for_http(port, path, Duration::from_millis(1500));
         checks.push(check(
@@ -644,7 +711,7 @@ mod tests {
         let all = ["metagame", "deploy", "content", "allowlist", "gateway"];
         let plan =
             legacy_service_plan(&paths, &config(ServerMode::Public), false, &programs(dir.path(), &all)).unwrap();
-        assert_eq!(names(&plan), all);
+        assert_eq!(names(&plan), ["metagame", "allowlist", "deploy", "content", "gateway"]);
         for p in &plan {
             let file = paths.config.join(format!("{}.env", p.spec.name)).display().to_string();
             assert_eq!(p.spec.args.last(), Some(&file), "{}", p.spec.name);
@@ -653,8 +720,9 @@ mod tests {
         assert_eq!(plan[0].spec.args[0], "serve");
         assert_eq!(plan[0].spec.ready, Some(Ready::http(61000, "/dauntless-status")));
         assert!(plan[0].required);
-        assert_eq!(plan[1].spec.ready, Some(Ready::http(61001, "/gameservers")));
-        assert!(!plan[1].required);
+        assert_eq!(plan[1].spec.ready, Some(Ready::http(61005, "/status")));
+        assert_eq!(plan[2].spec.ready, Some(Ready::http(61001, "/gameservers")));
+        assert!(!plan[2].required);
         assert_eq!(plan[4].spec.ready, Some(Ready::tcp("127.0.0.1", 443)));
 
         let private =
@@ -670,7 +738,9 @@ mod tests {
         let c = config(ServerMode::Private);
         let error = legacy_service_plan(&paths, &c, false, &programs(dir.path(), &["content", "gateway"])).unwrap_err();
         assert!(
-            error.to_string().starts_with("a legacy server needs the metagame bin"),
+            error
+                .to_string()
+                .starts_with("a legacy server needs the metagame service"),
             "{error}"
         );
         let plan = legacy_service_plan(
@@ -681,5 +751,114 @@ mod tests {
         )
         .unwrap();
         assert_eq!(names(&plan), ["metagame", "content", "gateway"]);
+    }
+
+    fn both(mode: ServerMode) -> HostConfig {
+        let mut toml = String::from("version = 1\nedition = \"both\"\nname = \"Two Hunts\"\n");
+        toml.push_str(match mode {
+            ServerMode::Private => {
+                "mode = \"private\"\nhost = \"100.101.102.103\"\ngame_address = \"100.101.102.103\"\n"
+            }
+            ServerMode::Public => "mode = \"public\"\nhost = \"two.example.net\"\ngame_address = \"203.0.113.7\"\n",
+        });
+        toml.push_str("game_dir = \"/games/1.14.7\"\nlegacy_game_dir = \"/games/1.4.4\"\n");
+        toml.push_str("registration = \"INVITECODE\"\nmax_hunt_servers = 3\n[mongo]\nuri = \"mongodb://127.0.0.1:27017\"\nmanage = false\n");
+        HostConfig::from_toml(&toml).unwrap()
+    }
+
+    #[test]
+    fn beside_reborn_the_1_4_4_stack_has_its_own_ports_files_and_firewall_rule() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let c = both(ServerMode::Public);
+        let files = build_legacy_env_files(&c, &Secrets::default(), &paths, "abc", Platform::Linux);
+        let names: Vec<String> = files.files().into_iter().map(|(n, _)| n).collect();
+        assert_eq!(
+            names,
+            [
+                "metagame",
+                "deploy",
+                "legacy-content",
+                "legacy-gateway",
+                "legacy-allowlist"
+            ],
+            "nothing of reborn's removed"
+        );
+        let get = |entries: &EnvEntries, key: &str| entries.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+        assert_eq!(get(&files.metagame, "METAGAME_PORT").as_deref(), Some("61010"));
+        assert_eq!(get(&files.deploy, "DEPLOY_PORT").as_deref(), Some("61011"));
+        assert_eq!(get(&files.deploy, "DEPLOY_PORT_RANGE_BEGIN").as_deref(), Some("8780"));
+        assert_eq!(get(&files.deploy, "DEPLOY_PORT_RANGE_END").as_deref(), Some("8787"));
+        assert!(get(&files.deploy, "DEPLOY_DR_GAME_EXE").is_some_and(|e| e.contains("1.4.4")));
+        assert_eq!(get(&files.content, "PORT").as_deref(), Some("61012"));
+        assert_eq!(get(&files.content, "CONTENT_GAME_DIR").as_deref(), Some("/games/1.4.4"));
+        assert_eq!(get(&files.gateway, "GATEWAY_PORT").as_deref(), Some("4443"));
+        assert_eq!(
+            get(&files.gateway, "GATEWAY_CONTENT_URL").as_deref(),
+            Some("http://127.0.0.1:61012")
+        );
+        assert_eq!(
+            get(&files.gateway, "GATEWAY_METAGAME_URL").as_deref(),
+            Some("http://127.0.0.1:61010")
+        );
+        assert_eq!(
+            get(&files.gateway, "ALLOWLIST_URL").as_deref(),
+            Some("http://127.0.0.1:61015")
+        );
+        let allowlist = files.allowlist.as_ref().unwrap();
+        assert_eq!(get(allowlist, "ALLOWLIST_PORT").as_deref(), Some("61015"));
+        assert_eq!(get(allowlist, "ALLOWLIST_PORTS").as_deref(), Some("8780-8787"));
+        assert_eq!(
+            get(allowlist, "ALLOWLIST_NFT_TABLE").as_deref(),
+            Some("reforged_revival_legacy")
+        );
+        assert_eq!(get(allowlist, "ALLOWLIST_RULE_NAME").as_deref(), Some(LEGACY_RULE_NAME));
+        assert!(get(allowlist, "ALLOWLIST_STATE_FILE").is_some_and(|f| f.contains("allowlist-legacy-state")));
+
+        let alone = build_legacy_env_files(
+            &config(ServerMode::Public),
+            &Secrets::default(),
+            &paths,
+            "abc",
+            Platform::Linux,
+        );
+        assert_eq!(
+            get(&alone.gateway, "GATEWAY_PORT").as_deref(),
+            Some("443"),
+            "a 1.4.4-only server as before"
+        );
+        assert_eq!(get(alone.allowlist.as_ref().unwrap(), "ALLOWLIST_RULE_NAME"), None);
+        assert_eq!(
+            get(alone.allowlist.as_ref().unwrap(), "ALLOWLIST_NFT_TABLE").as_deref(),
+            Some("reforged_revival")
+        );
+    }
+
+    #[test]
+    fn beside_reborn_the_plan_runs_the_legacy_named_services_on_their_ports() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let all = ["metagame", "deploy"];
+        let plan = legacy_service_plan(&paths, &both(ServerMode::Public), false, &programs(dir.path(), &all)).unwrap();
+        assert_eq!(
+            names(&plan),
+            [
+                "metagame",
+                "legacy-allowlist",
+                "deploy",
+                "legacy-content",
+                "legacy-gateway"
+            ]
+        );
+        assert_eq!(plan[0].spec.ready, Some(Ready::http(61010, "/dauntless-status")));
+        assert_eq!(plan[4].spec.ready, Some(Ready::tcp("127.0.0.1", 4443)));
+        let file = paths.config.join("legacy-gateway.env").display().to_string();
+        assert_eq!(plan[4].spec.args.last(), Some(&file));
+        let private =
+            legacy_service_plan(&paths, &both(ServerMode::Private), false, &programs(dir.path(), &all)).unwrap();
+        assert_eq!(
+            private.last().unwrap().spec.ready,
+            Some(Ready::tcp("100.101.102.103", 61010))
+        );
     }
 }

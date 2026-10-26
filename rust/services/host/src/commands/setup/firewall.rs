@@ -55,5 +55,31 @@ pub fn firewall_script(c: &HostConfig, program: &str) -> String {
             "Add-Rule 'ReforgedRevival-GamePorts-Tailnet' 'Dauntless Reforged Revival game ports (Tailscale)' 'UDP' '{ports}' {exe} '100.64.0.0/10' 'True'"
         ));
     }
+    // A server running both games: the 1.4.4 gateway, and its game ports for its own allowlist's rule (RD26)
+    if c.edition == crate::hostconfig::Edition::Both {
+        let port = crate::hostconfig::legacy_gateway_port(c);
+        let (first, last) = crate::hostconfig::legacy_game_ports(c);
+        let legacy_exe = c
+            .legacy_game_dir
+            .as_deref()
+            .map(|dir| quote(&Path::new(dir).join(game_exe_relative()).to_string_lossy()))
+            .unwrap_or_else(|| "$null".to_owned());
+        if c.mode == ServerMode::Public {
+            lines.push(format!(
+                "Add-Rule 'ReforgedRevival-Gateway-Legacy' 'Dauntless Reforged Revival 1.4.4 gateway (TCP {port})' 'TCP' '{port}' {program} $null 'True'"
+            ));
+            lines.push(format!(
+                "Add-Rule 'ReforgedRevival-GamePorts-Allowlist-Legacy' '{}' 'UDP' '{first}-{last}' {legacy_exe} $null 'False'",
+                crate::hostconfig::LEGACY_RULE_NAME
+            ));
+        } else {
+            lines.push(format!(
+                "Add-Rule 'ReforgedRevival-Gateway-Legacy-Tailnet' 'Dauntless Reforged Revival 1.4.4 gateway (TCP {port}, Tailscale)' 'TCP' '{port}' {program} '100.64.0.0/10' 'True'"
+            ));
+            lines.push(format!(
+                "Add-Rule 'ReforgedRevival-GamePorts-Legacy-Tailnet' 'Dauntless Reforged Revival 1.4.4 game ports (Tailscale)' 'UDP' '{first}-{last}' {legacy_exe} '100.64.0.0/10' 'True'"
+            ));
+        }
+    }
     lines.join("\r\n") + "\r\n"
 }

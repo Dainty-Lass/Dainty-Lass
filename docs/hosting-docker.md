@@ -154,6 +154,10 @@ in the `workspace` volume and keeps it. The runtime, the game data and invites a
 
 ## A legacy server (Dauntless 1.4.4)
 
+Docker runs one game per server: `--edition both` ([hosting.md](hosting.md#both-games-on-one-server)) is the host
+kit's for now, since Compose would need a second gateway, content server and allowlist container, a second
+published TCP port and UDP range.
+
 A Dauntless Revived 1.4.4 server ([hosting.md](hosting.md#legacy-servers-dauntless-144)) runs from the same
 files. In `.env`:
 
