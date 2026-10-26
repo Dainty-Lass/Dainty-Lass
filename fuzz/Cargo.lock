@@ -374,7 +374,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
- "sha1",
+ "sha1 0.10.7",
  "sync_wrapper",
  "tokio",
  "tokio-tungstenite",
@@ -790,6 +790,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "dainty-lass-fuzz"
+version = "0.0.0"
+dependencies = [
+ "admin",
+ "arbitrary",
+ "async-graphql",
+ "chrono",
+ "content",
+ "deploy",
+ "epic",
+ "flate2",
+ "gateway",
+ "host",
+ "http",
+ "libfuzzer-sys",
+ "metagame",
+ "protocol",
+ "proxy",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "toml_edit",
+ "url",
+]
+
+[[package]]
 name = "darling"
 version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1116,6 +1142,15 @@ dependencies = [
  "rustversion",
  "scopeguard",
  "simdutf8",
+]
+
+[[package]]
+name = "epic"
+version = "0.0.0"
+dependencies = [
+ "flate2",
+ "sha1 0.11.0",
+ "thiserror",
 ]
 
 [[package]]
@@ -2545,31 +2580,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dainty-lass-fuzz"
-version = "0.0.0"
-dependencies = [
- "admin",
- "arbitrary",
- "async-graphql",
- "chrono",
- "content",
- "deploy",
- "flate2",
- "gateway",
- "host",
- "http",
- "libfuzzer-sys",
- "metagame",
- "protocol",
- "proxy",
- "serde_json",
- "service-kit",
- "sha2",
- "toml_edit",
- "url",
-]
-
-[[package]]
 name = "regex"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2846,6 +2856,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.1",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -3471,7 +3492,7 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.5",
- "sha1",
+ "sha1 0.10.7",
  "thiserror",
 ]
 
