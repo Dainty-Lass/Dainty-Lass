@@ -298,7 +298,6 @@ pub const PLANNED: &[&str] = &[
     "game_install_resume",
     "game_install_cancel",
     "game_install_get",
-    "region_ping",
     "module_list",
     "module_get",
     "module_run_command",
