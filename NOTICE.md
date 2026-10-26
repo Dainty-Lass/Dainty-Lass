@@ -68,8 +68,9 @@ Undaunted or any other project named here, and none of them endorses it.
 By the DaintyLass contributors, in two groups.
 
 - **MIT** ([LICENSE-MIT.txt](LICENSE-MIT.txt)), each crate's `Cargo.toml` says so: `rust/crates/controller`,
-  `rust/services/admin`, `rust/bins`, and the `rust/services/backend` and `director` stubs. Written here
-  against the services' contracts, from none of the projects above. A binary that links them to the AGPL
+  `rust/services/admin`, `rust/bins`, the `rust/services/backend` and `director` stubs, and `rust/crates/epic`
+  (DE1, written from Epic's manifest and chunk formats as Legendary documents them). Written here against the
+  services' contracts, from none of the projects above. A binary that links them to the AGPL
   crates is distributed under the AGPL as a whole; the MIT grant is on these crates' own source.
 - **AGPL-3.0-only**: `rust/services/host`, a port of the Dauntless Reforged Revival line's Node host kit
   (`ReforgedHost`, AGPL-3.0-only, by Freeza and that project's contributors; each ported module names its

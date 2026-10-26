@@ -214,6 +214,9 @@ binaries in [`rust/bins`](../../rust/bins), and the launcher's `server_gui.rs`. 
 service lands in the service's own crate (sections 2.3 to 2.5) and reaches the controller unchanged, since a
 module only calls the service's `Config::from_env` and `run_with_context`.
 
+The DaintyLass plan adds [`rust/crates/epic`](../../rust/crates/epic) (DE1, DD22): Epic sign-in, library, manifest
+and chunk reading, and the download for installing from the player's Epic library.
+
 ## 3. Rename dictionary
 
 What a DR name became, so a DR commit or a DR Rust module reads straight across. The Node side of each pair is in
