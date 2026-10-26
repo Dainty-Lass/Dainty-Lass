@@ -105,9 +105,9 @@ impl Programs {
     /// This binary, and the folders with other Rust binaries: next to it (the server release), then the
     /// workspace's `rust/target/release` and `debug`. `node` is left as the bare name.
     pub fn find_rust(paths: &Paths) -> Self {
-        let host = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("reforged-host"));
+        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("reforged-host"));
         let mut rust_dirs = Vec::new();
-        if let Some(dir) = host.parent() {
+        if let Some(dir) = exe.parent() {
             rust_dirs.push(dir.to_path_buf());
         }
         for profile in ["release", "debug"] {
@@ -116,6 +116,7 @@ impl Programs {
                 rust_dirs.push(dir);
             }
         }
+        let host = host_cli(&exe, paths, &rust_dirs);
         Self {
             node: PathBuf::from("node"),
             host,
@@ -153,6 +154,24 @@ impl Programs {
             env_file_in_args: false,
         }
     }
+}
+
+/// The binary a service runs from on its own (`<it> gateway serve ...`): this one when it has the host
+/// kit's command line, else `reforged-host` (or `reforged-server-console`) in the release's `bin/` or a
+/// build. `reforged-server-minimal` and the server GUI have no such commands.
+fn host_cli(exe: &Path, paths: &Paths, rust_dirs: &[PathBuf]) -> PathBuf {
+    const CLIS: [&str; 2] = ["reforged-host", "reforged-server-console"];
+    let stem = exe
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if CLIS.contains(&stem.as_str()) {
+        return exe.to_path_buf();
+    }
+    let dirs = std::iter::once(paths.repo.join("bin")).chain(rust_dirs.iter().cloned());
+    dirs.flat_map(|dir| CLIS.map(|name| dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX))))
+        .find(|file| file.is_file())
+        .unwrap_or_else(|| exe.to_path_buf())
 }
 
 /// `node` on PATH, then in `%ProgramFiles%\nodejs` and nvm-windows' link (the launcher's `findNode`).

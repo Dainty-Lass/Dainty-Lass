@@ -554,14 +554,14 @@ pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
     })
 }
 
-/// The server inside another program (the launcher's server GUI): composed and started, nothing
-/// printed, no signals; the caller stops it with `shutdown`.
-pub async fn start_embedded(paths: &Paths) -> Result<ServerController, String> {
+/// The server inside another program (the launcher's server GUI): checked and composed, its processes'
+/// output through `printer`, no signals. It blocks (setup's files, the 1.4.4 migrations): call it off
+/// the async threads, then `start_all`; the caller stops it with `shutdown`.
+pub fn prepare_embedded(paths: &Paths, printer: Printer) -> Result<ServerController, String> {
     let config = start_cmd::load_config(paths).map_err(|e| e.to_string())?;
     let external = external_allowlist(&config);
-    let mut controller = prepare(paths, &config, external, table_printer()).map_err(|e| e.to_string())?;
+    let controller = prepare(paths, &config, external, printer).map_err(|e| e.to_string())?;
     controller.set_invite_info(None, fingerprint(paths, &config));
-    controller.start_all().await?;
     Ok(controller)
 }
 

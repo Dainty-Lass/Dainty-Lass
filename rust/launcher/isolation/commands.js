@@ -47,6 +47,7 @@ window.__RR_COMMANDS__ = {
   "host_server_get": {},
   "host_server_start": {},
   "host_server_stop": {},
+  "host_server_restart": { "name": { kind: "name", names: ["mongod", "allowlist", "backend", "director", "content", "admin", "gateway", "metagame", "legacy-allowlist", "deploy", "legacy-content", "legacy-gateway"] } },
   "host_setup": { "request": { kind: "object", nullable: false, fields: { "name": { kind: "text", max: 60 }, "mode": { kind: "name", names: ["private", "public"] }, "publicHost": { kind: "optionalText", max: 253 } } } },
   "host_create_invite": { "forName": { kind: "optionalText", max: 40 } },
   "host_update": {},

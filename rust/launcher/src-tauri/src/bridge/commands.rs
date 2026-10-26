@@ -392,6 +392,17 @@ pub async fn host_server_stop(app: AppHandle) -> ActionResult {
 }
 
 #[tauri::command]
+pub async fn host_server_restart(name: Value, app: AppHandle) -> ActionResult {
+    match name
+        .as_str()
+        .filter(|n| crate::bridge::spec::HOST_SERVER_COMPONENTS.contains(n))
+    {
+        Some(name) => controller(&app).host_server_restart(name).await,
+        None => ActionResult::err(ErrorCode::Unknown),
+    }
+}
+
+#[tauri::command]
 pub async fn host_setup(request: Value, app: AppHandle) -> ActionResult {
     match host_setup_request(&request) {
         Some(request) => controller(&app).host_setup(request).await,

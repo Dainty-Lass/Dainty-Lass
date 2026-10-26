@@ -100,6 +100,8 @@ fn declarations() -> String {
         HostServerState,
         HostInvite,
         HostServerView,
+        HostServerComponent,
+        HostComponentPhase,
         HostJobKind,
         HostJobState,
         HostJob,

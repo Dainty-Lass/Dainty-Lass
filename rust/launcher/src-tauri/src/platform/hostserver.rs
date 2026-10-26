@@ -8,6 +8,9 @@
 //! process tree ended. Its stdin closing (the launcher quit) stops it too. The line
 //! `REFORGED_SERVER_READY` means it runs (it is not shown), and something answering on 127.0.0.1:61000
 //! that the launcher did not start is a server started elsewhere (`external`).
+//!
+//! The server GUI (RD26) runs the server inside the launcher instead ([`EmbeddedServer`]): the same
+//! states, buttons and output, with its services listed and each one restartable.
 
 use std::collections::VecDeque;
 use std::ffi::OsString;
@@ -24,7 +27,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::{ChildStdin, Command};
 use tokio::sync::watch;
 
-use crate::bridge::types::{HostInvite, HostServerState, HostServerView};
+use crate::bridge::types::{HostInvite, HostServerComponent, HostServerState, HostServerView};
 use crate::platform::hostkit::parse::{clean_line, failure_line};
 use crate::platform::hostkit::{WorkspacePaths, find_host_binary, pump};
 
@@ -45,6 +48,20 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 type Boxed<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 pub type Probe = Arc<dyn Fn() -> Boxed<bool> + Send + Sync>;
 pub type Listener = Arc<dyn Fn(HostServerView) + Send + Sync>;
+/// Where the server inside the launcher writes its output, one line at a time.
+pub type LineSink = Arc<dyn Fn(String) + Send + Sync>;
+
+/// A server that runs inside this process (the server GUI's controller). The Host page drives it in
+/// place of `reforged-host start`; this file stays free of the server crates.
+pub trait EmbeddedServer: Send + Sync {
+    /// Starts the server of the checkout at `workspace`; resolves once every service is up.
+    fn start(&self, workspace: PathBuf, lines: LineSink) -> Boxed<Result<(), String>>;
+    /// Stops every service, the last started first.
+    fn stop(&self) -> Boxed<()>;
+    fn restart(&self, name: String) -> Boxed<Result<(), String>>;
+    /// The services as they are now.
+    fn components(&self) -> Vec<HostServerComponent>;
+}
 
 /// How the host kit runs: `reforged-host` in the workspace (tests: a stand-in, with arguments of its
 /// own first).
@@ -111,6 +128,8 @@ struct St {
     invite: Option<HostInvite>,
     child: Option<Running>,
     stop_requested: bool,
+    /// The server inside the launcher is up (or being stopped)
+    embedded_running: bool,
 }
 
 struct Inner {
@@ -119,6 +138,7 @@ struct Inner {
     listener: Mutex<Option<Listener>>,
     stop_timeout: Duration,
     change_pending: AtomicBool,
+    embedded: Mutex<Option<Arc<dyn EmbeddedServer>>>,
 }
 
 /// The server this launcher runs, and the host kit commands it starts.
@@ -191,11 +211,13 @@ impl HostServer {
                     invite: None,
                     child: None,
                     stop_requested: false,
+                    embedded_running: false,
                 }),
                 probe,
                 listener: Mutex::new(None),
                 stop_timeout,
                 change_pending: AtomicBool::new(false),
+                embedded: Mutex::new(None),
             }),
         }
     }
@@ -210,13 +232,28 @@ impl HostServer {
         lock(&self.inner.st)
     }
 
+    /// The server GUI: this server runs inside the launcher from now on.
+    pub fn set_embedded(&self, server: Arc<dyn EmbeddedServer>) {
+        *lock(&self.inner.embedded) = Some(server);
+    }
+
+    fn embedded(&self) -> Option<Arc<dyn EmbeddedServer>> {
+        lock(&self.inner.embedded).clone()
+    }
+
     pub fn view(&self) -> HostServerView {
+        let embedded = self.embedded();
         let st = self.st();
         HostServerView {
             state: st.state,
             message: st.message.clone(),
             lines: st.lines.iter().cloned().collect(),
             invite: st.invite.clone(),
+            embedded: embedded.is_some(),
+            components: match (&embedded, st.embedded_running) {
+                (Some(server), true) => server.components(),
+                _ => Vec::new(),
+            },
         }
     }
 
@@ -226,7 +263,8 @@ impl HostServer {
 
     /// The launcher started a server that has not exited.
     pub fn running(&self) -> bool {
-        self.st().child.is_some()
+        let st = self.st();
+        st.child.is_some() || st.embedded_running
     }
 
     pub fn set_invite(&self, invite: Option<HostInvite>) {
@@ -392,7 +430,10 @@ impl HostServer {
     pub async fn refresh(&self) {
         {
             let st = self.st();
-            if st.child.is_some() || matches!(st.state, HostServerState::Starting | HostServerState::Stopping) {
+            if st.child.is_some()
+                || st.embedded_running
+                || matches!(st.state, HostServerState::Starting | HostServerState::Stopping)
+            {
                 return;
             }
         }
@@ -423,6 +464,10 @@ impl HostServer {
         }
         self.st().stop_requested = false;
         self.changed(true);
+        if let Some(server) = self.embedded() {
+            self.start_embedded(server, workspace.to_path_buf());
+            return Ok(());
+        }
         let args = vec!["start".to_owned()];
         let mut cmd = command(tool, &args, workspace, &[(CONTROL_ENV, "stdin")]);
         cmd.stdin(Stdio::piped());
@@ -486,9 +531,64 @@ impl HostServer {
         Ok(())
     }
 
+    /// The server inside the launcher: started on its own task, its output into the page's lines, its
+    /// services' state sent on to the page while it runs.
+    fn start_embedded(&self, server: Arc<dyn EmbeddedServer>, workspace: PathBuf) {
+        self.note("> start (inside the launcher)");
+        let this = self.clone();
+        let sink: LineSink = Arc::new(move |line| this.note(&line));
+        let this = self.clone();
+        tokio::spawn(async move {
+            match server.start(workspace, sink).await {
+                Ok(()) => {
+                    this.st().embedded_running = true;
+                    this.set(HostServerState::Running, None);
+                    // Each service's phase reaches the page while the server runs
+                    let mut last = Vec::new();
+                    while this.st().embedded_running {
+                        let now = server.components();
+                        if now != last {
+                            last = now;
+                            this.changed(false);
+                        }
+                        tokio::time::sleep(CHANGE_EVERY).await;
+                    }
+                }
+                Err(why) => {
+                    this.note(&why);
+                    this.set(HostServerState::Failed, Some(why));
+                }
+            }
+        });
+    }
+
+    /// One service of the server inside the launcher, stopped and started again.
+    pub async fn restart(&self, name: &str) -> Result<(), String> {
+        let server = self.embedded().filter(|_| self.st().embedded_running);
+        let Some(server) = server else {
+            return Err("the server is not running inside this launcher".into());
+        };
+        self.note(&format!("> restart {name}"));
+        let result = server.restart(name.to_owned()).await;
+        if let Err(why) = &result {
+            self.note(why);
+        }
+        self.changed(true);
+        result
+    }
+
     /// Asks the server to stop with a `stop` line and closes its stdin; ends its process tree when it
-    /// has not exited within the stop timeout, and waits up to 5 s more.
+    /// has not exited within the stop timeout, and waits up to 5 s more. The server inside the
+    /// launcher stops its services in reverse order instead.
     pub async fn stop(&self) {
+        if let Some(server) = self.embedded().filter(|_| self.st().embedded_running) {
+            self.st().stop_requested = true;
+            self.set(HostServerState::Stopping, None);
+            server.stop().await;
+            self.st().embedded_running = false;
+            self.set(HostServerState::Stopped, None);
+            return;
+        }
         let (pid, stdin, mut exited) = {
             let mut st = self.st();
             let Some(running) = st.child.as_mut() else {
@@ -701,5 +801,76 @@ mod tests {
         assert!(port_answers(port).await);
         drop(listener);
         assert!(!port_answers(port).await);
+    }
+
+    /// A server inside the launcher that says one line, lists two services and restarts one.
+    struct Fake {
+        restarted: Mutex<Vec<String>>,
+        fail: bool,
+    }
+
+    impl EmbeddedServer for Fake {
+        fn start(&self, _workspace: PathBuf, lines: LineSink) -> Boxed<Result<(), String>> {
+            let fail = self.fail;
+            Box::pin(async move {
+                lines("gateway        | ready".into());
+                if fail { Err("port 443 is taken".into()) } else { Ok(()) }
+            })
+        }
+        fn stop(&self) -> Boxed<()> {
+            Box::pin(async {})
+        }
+        fn restart(&self, name: String) -> Boxed<Result<(), String>> {
+            lock(&self.restarted).push(name);
+            Box::pin(async { Ok(()) })
+        }
+        fn components(&self) -> Vec<HostServerComponent> {
+            use crate::bridge::types::HostComponentPhase;
+            ["content", "gateway"]
+                .map(|name| HostServerComponent {
+                    name: name.into(),
+                    phase: HostComponentPhase::Ready,
+                    port: None,
+                    detail: String::new(),
+                })
+                .to_vec()
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn the_server_inside_the_launcher_starts_lists_its_services_restarts_one_and_stops() {
+        let ws = tempfile::tempdir().unwrap();
+        let (s, _views) = server(false);
+        let fake = Arc::new(Fake {
+            restarted: Mutex::new(Vec::new()),
+            fail: false,
+        });
+        s.set_embedded(fake.clone());
+        assert!(s.view().embedded && s.view().components.is_empty());
+        assert!(s.restart("content").await.is_err(), "nothing runs yet");
+        s.start(&tool(None), ws.path()).await.unwrap();
+        until(|| s.state() == HostServerState::Running).await;
+        assert!(s.running());
+        let view = s.view();
+        assert!(
+            view.lines.iter().any(|l| l == "gateway        | ready"),
+            "{:?}",
+            view.lines
+        );
+        assert_eq!(view.components.len(), 2);
+        s.restart("content").await.unwrap();
+        assert_eq!(*lock(&fake.restarted), ["content"]);
+        s.stop().await;
+        assert_eq!(s.state(), HostServerState::Stopped);
+        assert!(!s.running() && s.view().components.is_empty());
+
+        let (failing, _) = server(false);
+        failing.set_embedded(Arc::new(Fake {
+            restarted: Mutex::new(Vec::new()),
+            fail: true,
+        }));
+        failing.start(&tool(None), ws.path()).await.unwrap();
+        until(|| failing.state() == HostServerState::Failed).await;
+        assert_eq!(failing.view().message.as_deref(), Some("port 443 is taken"));
     }
 }
