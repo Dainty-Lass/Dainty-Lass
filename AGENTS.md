@@ -44,7 +44,7 @@ dependency order, runs the checks and strikes the rows.
 
 - **Stay inside your row's files.** The ownership table in section 5.1 says who owns each shared file. If the
   row needs a change to a seam (the workspace `Cargo.toml`, `crates/protocol`, the bridge spec, `store`
-  migrations, the `clap` tree, `.github/`) or to a file another row owns, stop and report it. Don't make the
+  migrations, the `clap` tree, `.forgejo/`) or to a file another row owns, stop and report it. Don't make the
   change yourself.
 - **Never edit** `MIGRATION_PLAN.md`, `README.md`, `NOTICE.md`, `SECURITY_REVIEW.md` or the `docs/` index pages
   from a row. Those belong to the integration pass. A row writes only its own page under `docs/`.
@@ -206,7 +206,7 @@ don't cover it.
 
 ## CI
 
-`.github/workflows/ci.yml` runs only the families a change touches (Rust, the launcher, legacy services,
+`.forgejo/workflows/ci.yml` runs only the families a change touches (Rust, the launcher, legacy services,
 Paradox, Docker), and `CI ok` sums them up. It runs on every pushed branch. A push to `plan` or `main` runs
 every family. Workflows belong to RR3, and to RH6 and RA14 for the two release workflows; a row doesn't edit
 them.
