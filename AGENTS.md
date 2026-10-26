@@ -82,7 +82,8 @@ hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `car
 ### Launcher bridge
 
 The page talks to Rust only through the commands in `launcher/src-tauri/src/bridge/spec.rs`. The TS types
-(`page/generated/types.ts`), the isolation hook's command list (`isolation/commands.js`) and the permission set
+(`ui/packages/bridge/src/generated/types.ts` in the dainty-lass-ui submodule, and `page/generated/types.ts`
+until DU2), the isolation hook's command list (`isolation/commands.js`) and the permission set
 (`permissions/app-commands.toml`) are generated from it and checked by a test. Never edit them by hand:
 `RR_UPDATE_GENERATED=1 cargo test -p launcher generated` rewrites them. The account key never crosses the
 bridge.

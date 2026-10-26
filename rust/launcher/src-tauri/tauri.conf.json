@@ -5,10 +5,10 @@
   "version": "../package.json",
   "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival",
   "build": {
-    "devUrl": "http://localhost:5173",
-    "frontendDist": "../dist-page",
-    "beforeDevCommand": "npm run page:dev",
-    "beforeBuildCommand": "npm run page:build"
+    "devUrl": "http://localhost:4321",
+    "frontendDist": "../../../ui/apps/web/dist",
+    "beforeDevCommand": "bun run --cwd ../../ui/apps/web dev",
+    "beforeBuildCommand": "bun install --cwd ../../ui --frozen-lockfile && bun run --cwd ../../ui build"
   },
   "app": {
     "windows": [],
