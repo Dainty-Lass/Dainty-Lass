@@ -39,3 +39,6 @@ Thumbs.db
 
 # Session folders the desktop app makes
 .claude/
+
+# Local codebase analysis notes
+structure/
