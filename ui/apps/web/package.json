@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
@@ -16,6 +17,7 @@
     "@astrojs/react": "^7",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@workspace/bridge": "workspace:*",
     "@workspace/ui": "workspace:*",
     "astro": "^7.4.2",
     "lucide-react": "^1.61.0",
