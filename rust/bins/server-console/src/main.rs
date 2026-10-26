@@ -1,7 +1,5 @@
-use std::process::ExitCode;
+//! `dainty-lass-server-console`: the server in one binary, `serve` when no command is given (RD26).
 
-use protocol::edition::EditionSelection;
-
-fn main() -> ExitCode {
-    host::console_main(EditionSelection::Both)
+fn main() -> std::process::ExitCode {
+    host::console_main()
 }

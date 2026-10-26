@@ -1,5 +1,5 @@
 #!/bin/sh
-# Dauntless Reforged Revival: a legacy server's containers (compose.yaml's legacy profile, compose.legacy.yaml),
+# DaintyLass: a legacy server's containers (compose.yaml's legacy profile, compose.legacy.yaml),
 # `reforged-legacy metagame|deploy`. Does what `reforged-host start` does for a legacy server
 # (rust/services/host/src/legacy/mod.rs, start), then runs the service with its env file.
 #  - metagame: its database migrated and the game-server key registered, as DR's install did, then served

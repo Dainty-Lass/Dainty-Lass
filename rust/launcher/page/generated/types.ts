@@ -257,7 +257,7 @@ export type HostServerConfig = { configured: boolean, name: string | null, mode:
 multipliers: HostMultipliers | null, };
 export type HostKit = { 
 /**
- * A Dauntless Reforged Revival checkout
+ * A DaintyLass checkout
  */
 workspace: string | null, workspaceOk: boolean, upstream: HostUpstream, sdk: HostSdk, dumps: Array<HostDump>, 
 /**
@@ -309,7 +309,25 @@ message: string | null,
 /**
  * The newest output of the server and of the host kit commands started here
  */
-lines: Array<string>, invite: HostInvite | null, };
+lines: Array<string>, invite: HostInvite | null, 
+/**
+ * The server runs inside this launcher (the server GUI, RD26), not as `reforged-host start`
+ */
+embedded: boolean, 
+/**
+ * Its services while it runs inside the launcher; empty otherwise
+ */
+components: Array<HostServerComponent>, };
+export type HostServerComponent = { 
+/**
+ * One of `spec::HOST_SERVER_COMPONENTS`
+ */
+name: string, phase: HostComponentPhase, port: number | null, 
+/**
+ * What it last said about itself (an error, for a failed one)
+ */
+detail: string, };
+export type HostComponentPhase = "stopped" | "starting" | "ready" | "stopping" | "failed" | "disabled";
 export type HostJobKind = "inject" | "build_runtime" | "build_loader" | "build_exporter" | "import_sdk" | "copy_exports" | "synthetic_data" | "import_gamedata" | "publish_runtime" | "setup" | "generate_gamedata" | "export_gamedata" | "create_invite" | "update" | "multipliers" | "upstream" | "download_project";
 export type HostJobState = "running" | "done" | "failed";
 export type HostJob = { kind: HostJobKind, state: HostJobState, 
@@ -329,4 +347,4 @@ export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export type ActionResult = { ok: true } | { ok: false; error: LauncherError };
 export type InviteCheck = { ok: true; certificateChanged: boolean; previousFingerprint: string | null; movedFrom: string | null } | { ok: false; error: LauncherError };
 export type RegisterOutcome = { ok: true; username: string } | { ok: false; error: LauncherError };
-export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "dismiss_notice" | "dismiss_error" | "subscribe_progress";
+export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "dismiss_notice" | "dismiss_error" | "subscribe_progress";

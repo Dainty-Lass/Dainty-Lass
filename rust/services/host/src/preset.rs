@@ -213,7 +213,7 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
         sources: vec![
             "CatalogExporter (native/catalog-exporter, from Mystic Paradox)".into(),
             "Mystic Paradox game-data generators".into(),
-            "Dauntless Reforged Revival host kit".into(),
+            "DaintyLass host kit".into(),
         ],
         files,
     };

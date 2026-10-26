@@ -24,12 +24,14 @@ const TOP: &[Field] = &[
     ("gameAddress", "game_address", false),
     ("name", "name", false),
     ("gameDir", "game_dir", true),
+    ("legacyGameDir", "legacy_game_dir", true),
     ("registration", "registration", false),
     ("shareUrl", "share_url", true),
     ("mongo", "mongo", false),
     ("maxHuntServers", "max_hunt_servers", false),
     ("multipliers", "multipliers", false),
     ("publicPort", "public_port", false),
+    ("legacyPublicPort", "legacy_public_port", false),
     ("performance", "performance", false),
     ("linux", "linux", false),
 ];
@@ -257,8 +259,8 @@ fn comment(path: &str) -> &'static str {
         "version" => "The file's format: leave it at 1.",
         "mode" => "\"private\" (players reach it over Tailscale) or \"public\" (over the internet).",
         "edition" => {
-            "\"reborn\" (Dauntless 1.14.7 on Mystic Paradox) or \"legacy\" (Dauntless Revived's 1.4.4).
-             Left out: reborn."
+            "\"reborn\" (Dauntless 1.14.7 on Mystic Paradox), \"legacy\" (Dauntless Revived's 1.4.4) or \"both\"
+             (the two side by side, each on its own ports). Left out: reborn."
         }
         "host" => {
             "Private: this PC's Tailscale address or MagicDNS name. Public: the public IPv4 address or DNS name\n\
@@ -275,6 +277,10 @@ fn comment(path: &str) -> &'static str {
         "share_url" => "Private: the Tailscale share link that goes into invites.",
         "max_hunt_servers" => "How many hunts may run at once, 1 to 10: each one is a game server.",
         "public_port" => "Public: the gateway's TCP port when 443 is taken. It goes into every invite.",
+        "legacy_game_dir" => "Both games: the Dauntless 1.4.4 folder its game servers run from (game_dir is 1.14.7's).",
+        "legacy_public_port" => {
+            "Both games, public: the 1.4.4 gateway's TCP port (4443 when left out). It goes into 1.4.4 invites."
+        }
         "mongo" => "The database.",
         "mongo.manage" => "true: reforged-host starts mongod itself.",
         "mongo.mongod" => "The mongod program when reforged-host starts it.",

@@ -3,11 +3,25 @@
 //!
 //! Avoids pulling in the unmaintained `serde_yaml` crate (which is rejected by `cargo deny`) while
 //! supporting standard server configuration YAML files (nested maps, inline arrays/maps, scalars,
-//! quoted strings, booleans, numbers, and `#` comments).
+//! quoted strings, booleans, numbers, and `#` comments). The host writes the file, but a hostile or
+//! broken one must only ever be refused: nesting and size are capped, so nothing recurses without end
+//! (docs/security/controller.md; the `host_config` fuzz target).
 
 use serde_json::{Map, Number, Value};
 
+/// A settings file is a few hundred bytes; this is far more than any needs.
+pub const MAX_YAML_BYTES: usize = 256 * 1024;
+/// Blocks inside blocks, and brackets inside brackets: host.json's deepest is 2.
+pub const MAX_DEPTH: usize = 32;
+
+fn too_deep() -> String {
+    format!("nested more than {MAX_DEPTH} levels deep")
+}
+
 pub fn parse_yaml_to_json(input: &str) -> Result<Value, String> {
+    if input.len() > MAX_YAML_BYTES {
+        return Err(format!("larger than {} KiB", MAX_YAML_BYTES / 1024));
+    }
     let mut lines = Vec::new();
     for (idx, raw) in input.lines().enumerate() {
         let stripped = strip_comment(raw);
@@ -25,7 +39,7 @@ pub fn parse_yaml_to_json(input: &str) -> Result<Value, String> {
         return Ok(Value::Object(Map::new()));
     }
     let mut pos = 0;
-    parse_block(&lines, &mut pos, lines[0].1)
+    parse_block(&lines, &mut pos, lines[0].1, 0)
 }
 
 fn strip_comment(line: &str) -> &str {
@@ -50,12 +64,20 @@ fn strip_comment(line: &str) -> &str {
     line
 }
 
-fn parse_block(lines: &[(usize, usize, String)], pos: &mut usize, base_indent: usize) -> Result<Value, String> {
+fn parse_block(
+    lines: &[(usize, usize, String)],
+    pos: &mut usize,
+    base_indent: usize,
+    depth: usize,
+) -> Result<Value, String> {
+    if depth > MAX_DEPTH {
+        return Err(too_deep());
+    }
     if *pos >= lines.len() {
         return Ok(Value::Object(Map::new()));
     }
     if lines[*pos].2.starts_with("- ") || lines[*pos].2 == "-" {
-        return parse_seq(lines, pos, base_indent);
+        return parse_seq(lines, pos, base_indent, depth);
     }
     let mut map = Map::new();
     while *pos < lines.len() {
@@ -77,19 +99,24 @@ fn parse_block(lines: &[(usize, usize, String)], pos: &mut usize, base_indent: u
         if val_trimmed.is_empty() {
             if *pos < lines.len() && lines[*pos].1 > base_indent {
                 let child_indent = lines[*pos].1;
-                let child = parse_block(lines, pos, child_indent)?;
+                let child = parse_block(lines, pos, child_indent, depth + 1)?;
                 map.insert(key, child);
             } else {
                 map.insert(key, Value::Null);
             }
         } else {
-            map.insert(key, parse_scalar_or_inline(val_trimmed)?);
+            map.insert(key, parse_scalar_or_inline(val_trimmed, 0)?);
         }
     }
     Ok(Value::Object(map))
 }
 
-fn parse_seq(lines: &[(usize, usize, String)], pos: &mut usize, base_indent: usize) -> Result<Value, String> {
+fn parse_seq(
+    lines: &[(usize, usize, String)],
+    pos: &mut usize,
+    base_indent: usize,
+    depth: usize,
+) -> Result<Value, String> {
     let mut items = Vec::new();
     while *pos < lines.len() {
         let (line_no, indent, ref content) = lines[*pos];
@@ -107,12 +134,12 @@ fn parse_seq(lines: &[(usize, usize, String)], pos: &mut usize, base_indent: usi
         if rest.is_empty() {
             if *pos < lines.len() && lines[*pos].1 > base_indent {
                 let child_indent = lines[*pos].1;
-                items.push(parse_block(lines, pos, child_indent)?);
+                items.push(parse_block(lines, pos, child_indent, depth + 1)?);
             } else {
                 items.push(Value::Null);
             }
         } else {
-            items.push(parse_scalar_or_inline(rest)?);
+            items.push(parse_scalar_or_inline(rest, 0)?);
         }
     }
     Ok(Value::Array(items))
@@ -145,7 +172,10 @@ fn unquote(s: &str) -> String {
     }
 }
 
-fn parse_scalar_or_inline(s: &str) -> Result<Value, String> {
+fn parse_scalar_or_inline(s: &str, depth: usize) -> Result<Value, String> {
+    if depth > MAX_DEPTH {
+        return Err(too_deep());
+    }
     if (s.starts_with('[') && s.ends_with(']')) || (s.starts_with('{') && s.ends_with('}')) {
         if let Ok(v) = serde_json::from_str::<Value>(s) {
             return Ok(v);
@@ -157,7 +187,7 @@ fn parse_scalar_or_inline(s: &str) -> Result<Value, String> {
             }
             let mut arr = Vec::new();
             for part in inner.split(',') {
-                arr.push(parse_scalar_or_inline(part.trim())?);
+                arr.push(parse_scalar_or_inline(part.trim(), depth + 1)?);
             }
             return Ok(Value::Array(arr));
         }
@@ -210,5 +240,50 @@ editions:
         assert_eq!(val["admin_enabled"], true);
         assert_eq!(val["editions"]["reforged"]["enabled"], true);
         assert_eq!(val["editions"]["refined"]["enabled"], false);
+    }
+
+    #[test]
+    fn refuses_what_would_recurse_without_end_or_is_too_large() {
+        let deep: String = (0..200)
+            .map(|i| {
+                format!(
+                    "{}k{i}:
+",
+                    " ".repeat(i)
+                )
+            })
+            .collect();
+        assert!(parse_yaml_to_json(&deep).unwrap_err().contains("levels deep"));
+        let brackets = format!(
+            "k: {}a{}
+",
+            "[".repeat(5000),
+            "]".repeat(5000)
+        );
+        assert!(parse_yaml_to_json(&brackets).unwrap_err().contains("levels deep"));
+        let list: String = (0..200)
+            .map(|i| {
+                format!(
+                    "{}-
+",
+                    " ".repeat(i * 2)
+                )
+            })
+            .collect();
+        assert!(parse_yaml_to_json(&list).is_err());
+        assert!(
+            parse_yaml_to_json(
+                &"a: b
+"
+                .repeat(60_000)
+            )
+            .unwrap_err()
+            .contains("KiB")
+        );
+        let shallow = "a:
+  b:
+    c: [1, [2, 3]]
+";
+        assert_eq!(parse_yaml_to_json(shallow).unwrap()["a"]["b"]["c"][1][0], 2);
     }
 }

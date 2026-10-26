@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "Server preset \"Friday \"Hunts\" — Público\": the game data every server set up from this project starts from (legacy/ReforgedHost/src/preset.ts).",
+    "Server preset \"Friday \"Hunts\" — Público\": the game data every server set up from this project starts from (reforged-host preset).",
     "Read from an installed Dauntless 1.14.7 (647472) client for interoperability: identifiers and tuning values (item catalogue, store, progression and hunt tables), no game assets.",
     "Sources: CatalogExporter's export from the running game, converted by Mystic Paradox's game-data generators and the host kit (npm run gamedata).",
     "Game executable SHA-256 abababababababababababababababababababababababababababababababab.",
@@ -16,7 +16,7 @@
   "sources": [
     "CatalogExporter (native/catalog-exporter, from Mystic Paradox)",
     "Mystic Paradox game-data generators",
-    "Dauntless Reforged Revival host kit"
+    "DaintyLass host kit"
   ],
   "files": [
     {

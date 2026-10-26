@@ -1,8 +1,13 @@
 # Plan: Unified Server Controller, Pure Service Libraries, Concurrent Multi-Edition & 12 Dedicated Binary Crates
 
-Draft, 2026-10-24.
+Draft, 2026-10-24. **Superseded where it differs by RD26** in [MIGRATION_PLAN.md](../MIGRATION_PLAN.md)
+(2026-10-25): this is the design the `feat/app-structure` merge (`c57f157`) was built from, kept for its reasoning.
+What shipped differs: two server binaries and the launcher's two, not twelve crates; `protocol::Game` and the
+`legacy` feature, not Refined and Reforged editions; the host kit's `secrets.env` and env files, not secrets the
+controller makes; the backend and Director as Mystic Paradox's Node processes, not Rust listeners; and each service
+still runnable alone as a `reforged-host` subcommand.
 
-This document specifies the architectural conversion of the Reforged Revival Rust codebase into:
+This document specifies the architectural conversion of the DaintyLass Rust codebase into:
 1. **Pure Library Service Crates (`rust/services/*`)** — Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).
 2. **A Unified `ServerController` (`rust/crates/controller`)** — Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
 3. **A `tracing` + `tracing-subscriber` Logging Pipeline** — Unifying all components into a single span-attributed, secret-redacting logging bus with pluggable target layers (`TableStdoutLayer`, `LauncherGuiLayer`, `TuiRingBufferLayer`, `FileLogLayer`).

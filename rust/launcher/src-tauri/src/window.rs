@@ -61,7 +61,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         None
     };
     let window = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-        .title("Dauntless Reforged Revival Launcher")
+        .title("DaintyLass Launcher")
         .inner_size(width, height)
         .min_inner_size(min_width, min_height)
         .center()

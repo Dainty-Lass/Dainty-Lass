@@ -95,6 +95,13 @@ impl Timeouts {
         Ok(())
     }
 
+    /// Every timeout on file, soonest to end first.
+    pub async fn all(&self) -> Vec<Timeout> {
+        let mut all = self.entries.lock().await.clone();
+        all.sort_by_key(|t| t.until);
+        all
+    }
+
     /// The timeouts that have ended by `now`.
     pub async fn due(&self, now: i64) -> Vec<Timeout> {
         self.entries

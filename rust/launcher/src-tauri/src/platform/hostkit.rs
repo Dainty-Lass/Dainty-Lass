@@ -1,5 +1,5 @@
 //! The host kit's workspace as the Host page sees it (Reforged's `src/main/hostkit.ts`), for the planned
-//! layout only (RD23): a Dauntless Reforged Revival folder with `reforged-host` in it, Mystic Paradox
+//! layout only (RD23): a DaintyLass folder with `reforged-host` in it, Mystic Paradox
 //! in `paradox/` and `native/` (RD1), and the host's own files git-ignored beside the code:
 //!
 //! ```text
@@ -63,7 +63,7 @@ pub const DIRECTOR_GAME_DATA: [&str; 7] = [
 /// The flags file CatalogExporter reads from the game's working folder (Mystic Paradox's
 /// `docs/GENERATING_GAME_DATA.md`): the catalog, Slayer's Path, hunts, the store and the progression
 /// tracks, nothing client-only. CRLF, exactly as Reforged writes it.
-pub const EXPORT_FLAGS: &str = "# Written by the Dauntless Reforged Revival launcher (Host page). See docs/sdk-and-game-data.md.\r\n\
+pub const EXPORT_FLAGS: &str = "# Written by the DaintyLass launcher (Host page). See docs/sdk-and-game-data.md.\r\n\
 EXPORT_CATALOG=1\r\n\
 EXPORT_SLAYERS_PATH=1\r\n\
 EXPORT_HUNTS=1\r\n\

@@ -119,5 +119,5 @@ fn make_cert_reads_the_fingerprint_and_never_replaces_a_certificate_without_forc
     assert_ne!(made.info.fingerprint, cert.info.fingerprint);
     let (_, parsed) = x509_parser::parse_x509_certificate(made.chain[0].as_ref()).unwrap();
     let organization = parsed.subject().iter_organization().next().unwrap().as_str().unwrap();
-    assert_eq!(organization, "Dauntless Reforged Revival server");
+    assert_eq!(organization, "DaintyLass server");
 }

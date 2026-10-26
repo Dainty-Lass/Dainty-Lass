@@ -39,7 +39,8 @@ How to read the tables:
 | --- | --- | --- |
 | DR `rust/` (workspace files, `crates/`, `fuzz/`) | [`rust/`](../../rust) | Same layout (RD11). The workspace lists every planned member from the start, stubs included |
 | DR `rust/services/gateway`, `rust/services/content` | `rust/services/gateway`, `rust/services/content` | Fitted to Reforged; sections 2.3 and 2.4 |
-| DR `rust/services/metagame`, `deploy`, `discord-bot` | not copied | Reforged's equivalents are Mystic Paradox's backend and Director (`paradox/`) and the new admin service. The RB rows take pieces of `metagame` by hand; section 2.7 |
+| DR `rust/services/metagame`, `deploy` (at its tip, `24b7624`) | `rust/services/metagame`, `rust/services/deploy` | For 1.4.4 servers only, behind the `legacy` feature (RD5 reversed); controller modules when the server runs both games (RD26). The 1.14.7 backend is still Mystic Paradox's, and the RB rows still take pieces of `metagame` by hand; section 2.7 |
+| DR `rust/services/discord-bot` | not copied | The admin service (RD25) is Reforged's answer |
 | DR `legacy/UndauntedLauncher/src-tauri`, `isolation/` | [`rust/launcher/src-tauri`](../../rust/launcher/src-tauri), `rust/launcher/isolation` | Section 2.6 |
 | DR `legacy/Undaunted*/` (the Node services) | not copied | Reforged's Node code is DR's modified; it is under `legacy/` here instead |
 | DR `deploy/` (Windows, Linux and OpenBSD kits) | not copied | Replaced by the host kit (section 2.5). Ideas taken earlier into the Node kit: the nftables allowlist table (`deploy/unix-common/allowlist-core.mjs`), the Wine runner on `xvfb-run`, one systemd unit per capability |
@@ -60,9 +61,10 @@ How to read the tables:
 | --- | --- | --- | --- |
 | [`crates/protocol`](../../rust/crates/protocol) | DR X4: wire types the launcher and servers share | `reforged-revival://` is the only scheme, a `dauntless-revived://` invite parses to a typed refusal (RD5); `RRK_` keys (`account.rs`); the runtime manifest type (`manifest.rs`) serialising in the Node field order; `text.rs` new. Shared test tables in `tests/cases/*.json` | DR's 1.4.4 fields |
 | [`crates/proxy`](../../rust/crates/proxy) | DR X5: hop-by-hop headers, idle cut, WebSocket tunnel | Nothing | — |
-| [`crates/service-kit`](../../rust/crates/service-kit) | DR B1: Express-compatible routing, `JSON.stringify` output, pino logs, `--env-file` config, the X7 listen and stop cycle | Nothing | — |
+| [`crates/service-kit`](../../rust/crates/service-kit) | DR B1: Express-compatible routing, `JSON.stringify` output, pino logs, `--env-file` config, the X7 listen and stop cycle | `context.rs` and `telemetry.rs` are new (RD26, section 2.10); the rest is DR's | — |
+| [`crates/controller`](../../rust/crates/controller) | none | New (RD26, section 2.10) | — |
 | [`crates/store`](../../rust/crates/store) | DR D10, D11, D21: synchronous Diesel on a blocking pool, embedded migrations | Nothing yet. RB3 moves it to `PgConnection` (RD15) | The SQLite parts (PRAGMAs, online backup, Drizzle adoption, offline saves) go with RB3 |
-| [`fuzz/`](../../rust/fuzz) | DR X9: `http_body`, `proxy_headers`, `gateway_policy`, `launcher_input` | Fourteen Reforged targets added, one per untrusted-input parser (RX3) | DR's `auth_token`, `bot_input`, `chat_frame`, `content_range` (metagame, bot and ranges) |
+| [`fuzz/`](../../rust/fuzz) | DR X9: `http_body`, `proxy_headers`, `gateway_policy`, `launcher_input` | Twenty-one Reforged targets added, one per untrusted-input parser (RX3), the 1.4.4 ones and `host_config`, `host_console` (RD26) included | DR's `auth_token`, `bot_input`, `chat_frame`, `content_range` (metagame, bot and ranges) |
 
 ### 2.3 Gateway and allowlist helper (`rust/services/gateway`, rows RS3 and RS4)
 
@@ -123,6 +125,8 @@ files one to one; its tests run against fixtures generated from the Node kit (`t
 | `linux.ts`, `wine.ts`, `gameserver.ts` | `linux.rs`, `wine.rs`, `cli.rs` (`Gameserver`) | systemd units, Wine or Proton on `xvfb-run` |
 | `linux/setup-vps.sh`, `linux/Deploy-FromWindows.ps1` | still only in `legacy/ReforgedHost/linux/` | RH5 reduces them to fetching the release and calling `reforged-host`; [`docs/hosting-linux.md`](../hosting-linux.md) is the host's view |
 | — | `commands/setup/` (`database`, `firewall`, `install`, `options`, `paradox`, `secrets`), `commands/backup.rs`, `commands/multipliers.rs` | The Rust split of the Node `setup` and its helpers |
+| — | `serve.rs`, `repl.rs`, `tui.rs`, `hostconfig/yaml.rs` | New (RD26): the server as one process, its console and dashboard, and `host.yaml`. No Node counterpart, so an upstream host-kit change never lands here first |
+| — | `legacy/` (`off.rs` without the feature) | New (RD5 reversed): setting up and running DR's 1.4.4 stack |
 
 ### 2.6 Launcher (`rust/launcher`, rows RA1–RA13)
 
@@ -184,8 +188,9 @@ Each patch's current state (kept, reduced, dropped because upstream now does the
 
 ### 2.9 Not ported, on purpose
 
-- DR's `metagame`, `deploy` and `discord-bot` services, its `deploy/` kits, `tools/`, `friend-kit/` and documentation
-  site: Reforged's equivalents are Mystic Paradox, `reforged-host` and the admin service.
+- DR's `discord-bot` service, its `deploy/` kits, `tools/`, `friend-kit/` and documentation site: Reforged's
+  equivalents are `reforged-host` and the admin service. (DR's `metagame` and `deploy` came in for 1.4.4 servers;
+  section 2.1.)
 - DR's 1.4.4 launcher code (RD5): `legacy/ReforgedLauncher/src/main/revived/`, `net/autoregion.rs`,
   `platform/client_mods.rs`, the 1.4.4 manifest and DLL pins, `net/downloader.rs`, device signals, the DirectX check.
 - DR's offline mode (`offline/`, `controller/offline.rs`), the `DRK2` key format and the `DR_*` allowlist names.
@@ -197,8 +202,17 @@ Each patch's current state (kept, reduced, dropped because upstream now does the
 The admin service ([`rust/services/admin`](../../rust/services/admin), RD25); the whole host kit; the runtime manifest
 and download (`content/src/runtime.rs`, launcher `net/runtime_files.rs`); the Host page backend and the loader session
 (`platform/hostkit.rs`, `hostserver.rs`, `requirements.rs`, `loader_session.rs`); `protocol/src/text.rs`; the
-nftables backend as Reforged wrote it; fourteen fuzz targets and the `docs/security/` checklists; `host.toml`;
+nftables backend as Reforged wrote it; the fuzz targets and the `docs/security/` checklists; `host.toml`;
 `docker/` and `compose.yaml`.
+
+The server structure (RD26), from the `feat/app-structure` merge (`c57f157`) as its fix branches left it, has no
+upstream either: the controller ([`rust/crates/controller`](../../rust/crates/controller): `controller.rs`, the
+start and stop cycle; `modules.rs`, the Rust services as modules), `service-kit`'s `context.rs` (`ServiceContext`,
+`StatusRegistry`) and `telemetry.rs` (the `tracing` layers: the console's table, the dashboard's ring, the server
+GUI's channel, the log file), the host kit's `serve.rs`, `repl.rs`, `tui.rs` and `hostconfig/yaml.rs`, the
+binaries in [`rust/bins`](../../rust/bins), and the launcher's `server_gui.rs`. A DR or Reforged change to a
+service lands in the service's own crate (sections 2.3 to 2.5) and reaches the controller unchanged, since a
+module only calls the service's `Config::from_env` and `run_with_context`.
 
 ## 3. Rename dictionary
 
@@ -217,7 +231,7 @@ What a DR name became, so a DR commit or a DR Rust module reads straight across.
 | `DR_NFT_BINARY`, `DR_NFT_TABLE`, `DR_FIREWALL_INTERFACE` | `ALLOWLIST_NFT`, `ALLOWLIST_NFT_TABLE`, `ALLOWLIST_INTERFACE` | `allowlist/config.rs` |
 | nft table `dauntless_revived` | `reforged_revival` | `allowlist/nft.rs` |
 | Windows Firewall rule `Dauntless Revived game ports (allowlist)` | `Dauntless Reforged Revival game ports (allowlist)`, name `ReforgedRevival-GamePorts-Allowlist` | `allowlist/windows.rs` |
-| certificate organization `Dauntless Revived server` | `Dauntless Reforged Revival server` | gateway `cert.rs` |
+| certificate organization `Dauntless Revived server` | `DaintyLass server` (DD1; Reforged Node's was `Dauntless Reforged Revival server`) | gateway `cert.rs` |
 | `/content/v1/manifest`, `/content/v1/files/<path>` | `/content/v1/runtime/manifest`, `/content/v1/runtime/files/<name>` | content `app.rs` |
 | `CONTENT_GAME_DIR` (required) | `CONTENT_RUNTIME_DIR` (optional) | content `config.rs` |
 | `dauntless-revived://join` | `reforged-revival://join`; the old scheme parses to a typed refusal | `protocol/src/invite.rs`, launcher `platform/invite_link.rs` |

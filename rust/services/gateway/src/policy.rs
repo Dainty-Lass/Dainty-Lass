@@ -104,7 +104,7 @@ pub const PUBLIC_REFORGED_API: [(&str, &[&str]); 4] = [
 ///   update channel and guard); a Reforged server registers players through invites only
 /// - `/internal`: the metrics endpoint
 /// - `/health`: the readiness probes
-pub const HOST_ONLY_PREFIXES: [&str; 4] = ["/admin", "/launcher", "/internal", "/health"];
+pub const HOST_ONLY_PREFIXES: [&str; 5] = ["/admin", "/launcher", "/internal", "/health", "/metrics"];
 
 /// Headers only the host's own processes send: the dedicated game servers (they run on the server
 /// and talk to the backend directly), the admin tools and the metrics scraper.

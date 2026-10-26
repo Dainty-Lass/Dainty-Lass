@@ -66,9 +66,13 @@ Fuzz targets in `rust/fuzz` (each drives `content::input`):
       with another method 405. There is no directory listing.
 - [ ] A runtime file name must be exactly `MysticParadox.dll` or `winmm.dll`, letter case included, with no
       decoding; `..`, `%2e`, `/`, `\`, `runtime.json` and lookalikes are 404 (`is_runtime_file_name`;
-      `tests/app.rs`, the parity scripts).
+      `tests/app.rs`, the parity scripts). The one `/` allowed is `runtime/files/<game>/<name>`, where `<game>` is
+      exactly a game version or its alias (`1.14.7`, `reforged`, `1.4.4`, `revived`; `Game::from_version`) and
+      `<name>` passes the same check.
 - [ ] The file served is `CONTENT_RUNTIME_DIR` joined with a name from the checked list, never with the request's
-      text (`RuntimeStore::file`).
+      text (`RuntimeStore::file`). A game's file is `CONTENT_RUNTIME_DIR/<alias>` joined the same way, the alias
+      from `Game::version_alias`, not the request's text (`file_for_game`); `?game=` on the manifest picks the
+      same folder and is otherwise ignored, as Node ignores the query.
 - [ ] A branding image name must match `IMAGE_NAME` (no folder, no leading dot, jpg/png/webp), be listed by the
       current scan, be a regular file of 1 byte to 25 MB, and start with the signature of its extension
       (`branding.rs`).

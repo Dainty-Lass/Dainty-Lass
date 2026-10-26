@@ -1,6 +1,6 @@
 [package]
 name = "controller"
-description = "Unified in-process server controller orchestrating gateway, allowlist, content, admin, backend, and director across editions (docs/app-structure-plan.md)"
+description = "The server controller: runs named modules in one process with one status registry (docs/app-structure-plan.md)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,49 +9,24 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["edition-both"]
-edition-refined = [
-    "protocol/edition-refined",
-    "content/edition-refined",
-    "backend/edition-refined",
-    "director/edition-refined",
-]
-edition-reforged = [
-    "protocol/edition-reforged",
-    "content/edition-reforged",
-    "backend/edition-reforged",
-    "director/edition-reforged",
-]
-edition-both = [
-    "edition-refined",
-    "edition-reforged",
-    "protocol/edition-both",
-    "content/edition-both",
-    "backend/edition-both",
-    "director/edition-both",
-]
+# Each module is the Rust service built into the binary; none makes a controller that runs and serves nothing
+default = ["gateway", "allowlist", "content", "admin"]
+gateway = ["dep:gateway"]
+allowlist = ["dep:gateway"]
+content = ["dep:content"]
+admin = ["dep:admin"]
 
 [dependencies]
-admin.workspace = true
-aws-lc-rs = "1.18"
-backend.workspace = true
-base64.workspace = true
-content.workspace = true
-director.workspace = true
-gateway.workspace = true
+admin = { workspace = true, optional = true }
+content = { workspace = true, optional = true }
+gateway = { workspace = true, optional = true }
 protocol.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 service-kit.workspace = true
-sha2.workspace = true
-store.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", "sync", "signal"] }
-toml = "0.9"
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync"] }
 tracing.workspace = true
-url.workspace = true
 
 [dev-dependencies]
-tempfile.workspace = true
+tokio = { workspace = true, features = ["macros"] }
 
 [lints]
 workspace = true

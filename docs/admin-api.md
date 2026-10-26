@@ -9,9 +9,9 @@ it. What it trusts and why is in [security/admin-api.md](security/admin-api.md).
 
 ## Running it
 
-`reforged-host setup` makes its key and writes `.workspace/config/admin.env`. `reforged-host start` runs it after
-the content server when the `admin` binary is in the release (or in `rust/target/`). In Docker it is the `admin`
-service in `compose.yaml`. Nothing needs setting in `host.toml`.
+`reforged-host setup` makes its key and writes `.workspace/config/admin.env`. `reforged-host start` runs it in its
+own process after the content server (every release's binary has it; `reforged-host admin serve --env-file <file>`
+runs it alone). In Docker it is the `admin` service in `compose.yaml`. Nothing needs setting in `host.toml`.
 
 What it needs, all written by setup:
 
@@ -40,6 +40,7 @@ type Query {
   player(username: String!): Player            # null when there is no such account
   serverStatus: ServerStatus!                  # name, mode, registration, version, commit, uptimeSeconds, onlineCount
   huntStatus: HuntStatus!                      # maxHuntServers, running, free, hunts { title, players { username } }
+  activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
 }
 
 type Mutation {

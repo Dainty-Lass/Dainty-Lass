@@ -1457,8 +1457,8 @@ impl Controller {
         let id = sv.id();
         let username = self.s().usernames.get(&id).cloned();
         let name = match &username {
-            Some(username) => format!("Dauntless Reforged Revival key - {username}.txt"),
-            None => "Dauntless Reforged Revival key.txt".to_owned(),
+            Some(username) => format!("DaintyLass key - {username}.txt"),
+            None => "DaintyLass key.txt".to_owned(),
         };
         let Some(file) = self.p.choose_save_file(name).await else {
             return ActionResult::err(ErrorCode::Cancelled);

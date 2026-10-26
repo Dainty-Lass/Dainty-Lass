@@ -18,9 +18,9 @@ a private server over Tailscale works too.
 | `mongo` | `mongo:8.0` | MongoDB with the one-member replica set `rs0` the backend needs (until RB14) |
 | `backend` | server | The Node backend (`paradox/backend`), 127.0.0.1:61000 |
 | `director` | server | The Node Director, 127.0.0.1:61001; starts Ramsgate, the Training Grounds and hunts through Wine |
-| `content` | front | The content server, 127.0.0.1:61002 |
-| `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables) |
-| `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private) |
+| `content` | front | The content server, 127.0.0.1:61002 (`reforged-host content serve`) |
+| `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables; `reforged-host allowlist`) |
+| `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private; `reforged-host gateway serve`) |
 | `host` | server | Not a service: `docker compose run --rm host <command>` runs `reforged-host` |
 | `configure` | server | The `toml` profile only: runs setup from `host.toml` and exits, before the others start |
 | `metagame` | server | A legacy server only: DR's metagame, 127.0.0.1:61000, in place of `backend` and `mongo` |
@@ -102,7 +102,7 @@ docker compose run --rm host invite --for "Alex"
 logs are in the `workspace` volume, `logs/gameservers/`. `docker compose run --rm host doctor` checks the
 setup from inside the server's network. It checks for a plain Linux host, so in Docker a few of its lines
 are expected and harmless: git, nftables and the systemd units are not in the `host` container, and the
-gateway and content server count as "not built" because their Rust bins run in the `front` image instead.
+gateway and content server count as "not built" because they run from `reforged-host` in the `front` image instead.
 
 **Another port than 443** (`setup --public-port 4443`): set `REFORGED_GATEWAY_PORT=4443` and
 `REFORGED_GATEWAY_PUBLISH=4443` in `.env` too, and allow TCP 4443 in the provider's firewall. **More than six
@@ -153,6 +153,10 @@ The file setup writes says what each setting is. As in any container, `game_dir`
 in the `workspace` volume and keeps it. The runtime, the game data and invites are still `host` commands.
 
 ## A legacy server (Dauntless 1.4.4)
+
+Docker runs one game per server: `--edition both` ([hosting.md](hosting.md#both-games-on-one-server)) is the host
+kit's for now, since Compose would need a second gateway, content server and allowlist container, a second
+published TCP port and UDP range.
 
 A Dauntless Revived 1.4.4 server ([hosting.md](hosting.md#legacy-servers-dauntless-144)) runs from the same
 files. In `.env`:

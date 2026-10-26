@@ -278,7 +278,7 @@ pub struct BackupFile<'a> {
 /// which the import reads back, so they are not translated.
 pub fn backup_file_text(file: &BackupFile<'_>) -> String {
     let mut lines = vec![
-        "Dauntless Reforged Revival account key".to_owned(),
+        "DaintyLass account key".to_owned(),
         String::new(),
         format!("Server: {} ({}:{})", file.server_name, file.host, file.port),
     ];
@@ -291,8 +291,7 @@ pub fn backup_file_text(file: &BackupFile<'_>) -> String {
     lines.push(String::new());
     lines.push("Keep this file private: anyone who has this key can play as you on this server.".into());
     lines.push(
-        "To use it on another PC: Dauntless Reforged Revival Launcher > Register > I already have a key > Load a backup file."
-            .into(),
+        "To use it on another PC: DaintyLass Launcher > Register > I already have a key > Load a backup file.".into(),
     );
     lines.push(String::new());
     lines.join("\r\n")
@@ -668,7 +667,7 @@ mod tests {
         // backupFileText's output for the same values, from Node
         assert_eq!(
             text,
-            "Dauntless Reforged Revival account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: RRK_abababababababababababababababababababababababab\r\n\r\nKeep this file private: anyone who has this key can play as you on this server.\r\nTo use it on another PC: Dauntless Reforged Revival Launcher > Register > I already have a key > Load a backup file.\r\n"
+            "DaintyLass account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: RRK_abababababababababababababababababababababababab\r\n\r\nKeep this file private: anyone who has this key can play as you on this server.\r\nTo use it on another PC: DaintyLass Launcher > Register > I already have a key > Load a backup file.\r\n"
         );
         assert_eq!(protocol::account::extract_account_key(&text), Some(KEY));
     }

@@ -13,6 +13,14 @@ publish.workspace = true
 [lib]
 name = "launcher"
 
+# One binary, as `tauri build` packages one and names it from the config's mainBinaryName (RD26):
+#   tauri build                                    dainty-lass-client: the players' launcher, no server crate in it
+#   tauri build --config src-tauri/tauri.server-gui.conf.json --features server-gui
+#                                                  dainty-lass-server-gui: the launcher with the server inside
+[[bin]]
+name = "dainty-lass-launcher"
+path = "src/main.rs"
+
 [build-dependencies]
 serde_json = { version = "1", features = ["preserve_order"] }
 # The 1.4.4 manifest's fingerprint (`legacy` feature)
@@ -92,14 +100,11 @@ dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
 [features]
 # The Host tools page (RA12). Without it, a player-only launcher: join, connect and play on a server
 # someone else hosts (`cargo build -p launcher --no-default-features`)
-default = ["host", "edition-both", "server-gui"]
+default = ["host"]
 host = ["dep:toml_edit"]
-edition-refined = ["protocol/edition-refined"]
-edition-reforged = ["protocol/edition-reforged"]
-edition-both = ["edition-refined", "edition-reforged", "protocol/edition-both"]
 server-gui = ["host", "dep:server-controller", "dep:service-kit", "dep:host"]
 # Dauntless Revived's 1.4.4 servers next to 1.14.7 ones, chosen in the settings (legacy or reborn; RD5 reversed)
-legacy = ["protocol/legacy"]
+legacy = ["protocol/legacy", "host?/legacy"]
 # Set by `tauri build`: serve the built page from the binary instead of the Vite dev server
 custom-protocol = ["tauri/custom-protocol"]
 

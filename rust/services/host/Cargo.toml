@@ -9,31 +9,38 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["edition-both"]
-edition-refined = ["protocol/edition-refined", "controller/edition-refined"]
-edition-reforged = ["protocol/edition-reforged", "controller/edition-reforged"]
-edition-both = [
-    "edition-refined",
-    "edition-reforged",
-    "protocol/edition-both",
-    "controller/edition-both",
-]
+default = ["modules"]
+# The server's modules (`serve`): the Rust services in this process, and Mystic Paradox's backend and
+# Director as supervised Node processes (`paradox`, until the RB rows). None: a controller that serves nothing
+modules = ["gateway", "allowlist", "content", "admin", "paradox"]
+gateway = ["controller/gateway", "dep:gateway"]
+allowlist = ["controller/allowlist", "dep:gateway"]
+content = ["controller/content", "dep:content"]
+admin = ["controller/admin", "dep:admin"]
+# The Node processes: Mystic Paradox's backend and Director, MongoDB, and the Node gateway and content
+# server until RS5 flips them (`commands::start::binaries::rust_ported`)
+paradox = []
 # Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
-legacy = ["protocol/legacy"]
+legacy = ["protocol/legacy", "gateway?/legacy", "content?/legacy"]
 
 [dependencies]
 # The backend's token keys, RSA 4096 (D10: aws-lc-rs; already in the tree through rustls and rcgen).
-aws-lc-rs = "1.18"
+aws-lc-rs.workspace = true
 base64.workspace = true
 # `update` and setup's install step: the server release over HTTPS (D10: rustls with aws-lc-rs, as the content server)
 bytes = "1"
 # The supervisor's log lines (`===== <ISO time> starting ...`, as the Node kit's)
 chrono.workspace = true
 clap.workspace = true
-controller.workspace = true
+controller = { workspace = true, default-features = false }
 crossterm.workspace = true
 # RH4: game data packs are gzip-compressed JSON.
 flate2.workspace = true
+# The services built into this binary (`reforged-host gateway|allowlist|content|admin`, RD26), and the
+# public gateway's certificate on a first `serve`
+admin = { workspace = true, optional = true }
+content = { workspace = true, optional = true }
+gateway = { workspace = true, optional = true }
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true

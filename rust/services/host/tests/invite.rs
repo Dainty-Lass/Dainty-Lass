@@ -213,7 +213,7 @@ fn the_command_prints_the_link_and_the_launchers_json_line() {
         [
             "\nInvite for Alex (3 uses):\n".to_owned(),
             format!("  {link}\n"),
-            "Send the whole line. They paste it into the Dauntless Reforged Revival launcher (or click it once the launcher is installed).".into(),
+            "Send the whole line. They paste it into the DaintyLass launcher (or click it once the launcher is installed).".into(),
             "They also need Tailscale, and access to this PC: share it from https://login.tailscale.com/admin/machines.".into(),
         ]
     );

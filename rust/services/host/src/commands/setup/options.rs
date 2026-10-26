@@ -179,6 +179,50 @@ pub fn public_port_from_args(
     }
 }
 
+/// `--legacy-game` and `--legacy-public-port`, for a server running both games only; kept from the old
+/// settings while it still runs both.
+pub fn both_from_args(
+    args: &SetupArgs,
+    edition: Edition,
+    mode: ServerMode,
+    existing: Option<&HostConfig>,
+) -> Result<(Option<String>, Option<f64>), HostError> {
+    let both = edition == Edition::Both;
+    let game = text(&args.legacy_game);
+    let port = text(&args.legacy_public_port);
+    if !both && (game.is_some() || port.is_some()) {
+        return Err(bad("--legacy-game and --legacy-public-port are for --edition both"));
+    }
+    if let Some(dir) = game
+        && !is_absolute_any(dir)
+    {
+        return Err(bad(format!(
+            "--legacy-game needs the full path of the Dauntless 1.4.4 folder, like \"D:\\Games\\Dauntless 1.4.4\" (got {dir})"
+        )));
+    }
+    if port.is_some() && mode != ServerMode::Public {
+        return Err(bad("--legacy-public-port is for public servers only"));
+    }
+    let kept = existing.filter(|c| both && c.edition == Edition::Both);
+    let game = game
+        .map(str::to_owned)
+        .or_else(|| kept.and_then(|c| c.legacy_game_dir.clone()));
+    let port = match port {
+        Some(raw) => {
+            let n = number(raw);
+            if !n.is_finite() || n.fract() != 0.0 {
+                return Err(bad(format!(
+                    "--legacy-public-port must be a TCP port number (got {raw})"
+                )));
+            }
+            Some(n)
+        }
+        None if mode == ServerMode::Public => kept.and_then(|c| c.legacy_public_port).map(f64::from),
+        None => None,
+    };
+    Ok((game, port))
+}
+
 /// `--server-fps <0|10-240>`, `--idle-fps <0|1-240>`, `--training-on-demand` (`--training-at-boot`),
 /// `--verbose-game-logs` (`--quiet-game-logs`), `--memory-guard` (`--no-memory-guard`),
 /// `--min-free-ram <MB>`, `--hunt-ram <MB>`, `--training-idle-minutes <0-1440>`.
@@ -347,13 +391,14 @@ pub fn resolve_path(p: &str) -> String {
 pub fn edition_from_args(args: &SetupArgs, existing: Option<&HostConfig>) -> Result<Edition, HostError> {
     let edition = match text(&args.edition).map(str::to_ascii_lowercase).as_deref() {
         None => existing.map_or(Edition::Reborn, |c| c.edition),
-        Some("reborn") => Edition::Reborn,
-        Some("legacy") => Edition::Legacy,
-        Some(other) => {
-            return Err(bad(format!(
-                "--edition must be reborn (Dauntless 1.14.7) or legacy (Dauntless Revived's 1.4.4), not {other}"
-            )));
-        }
+        Some(given) => match Edition::parse(given) {
+            Some(edition) => edition,
+            None => {
+                return Err(bad(format!(
+                    "--edition must be reborn (Dauntless 1.14.7), legacy (Dauntless Revived's 1.4.4) or both, not {given}"
+                )));
+            }
+        },
     };
     if !edition.supported() {
         return Err(bad(crate::hostconfig::LEGACY_UNSUPPORTED));
@@ -483,7 +528,7 @@ pub fn host_config_from_args(
     let mut doc = Map::new();
     doc.insert("version".into(), 1.into());
     doc.insert("mode".into(), mode.as_str().into());
-    if edition == Edition::Legacy {
+    if edition != Edition::Reborn {
         doc.insert("edition".into(), edition.as_str().into());
     }
     doc.insert("host".into(), host.into());
@@ -493,7 +538,7 @@ pub fn host_config_from_args(
         text(&args.name)
             .map(str::to_owned)
             .or_else(|| existing.map(|c| c.name.clone()))
-            .unwrap_or_else(|| "Dauntless Reforged Revival server".into())
+            .unwrap_or_else(|| "DaintyLass server".into())
             .into(),
     );
     doc.insert("gameDir".into(), opt(game_dir.map(|d| resolve_path(&d))));
@@ -518,6 +563,13 @@ pub fn host_config_from_args(
             "multipliers".into(),
             json!({ "xp": number_value(m.xp), "rewards": number_value(m.rewards) }),
         );
+    }
+    let (legacy_game_dir, legacy_public_port) = both_from_args(args, edition, mode, existing)?;
+    if let Some(dir) = legacy_game_dir {
+        doc.insert("legacyGameDir".into(), resolve_path(&dir).into());
+    }
+    if let Some(port) = legacy_public_port {
+        doc.insert("legacyPublicPort".into(), number_value(port));
     }
     if let Some(port) = public_port {
         doc.insert("publicPort".into(), number_value(port));
