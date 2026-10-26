@@ -31,9 +31,12 @@ gateway = { path = "../services/gateway", features = ["legacy"] }
 host = { path = "../services/host" }
 # metagame_chat, metagame_token: Dauntless Revived's metagame (legacy servers)
 metagame = { path = "../services/metagame" }
+# module_frame: the module framework's frame protocol (DF2)
+module-api = { path = "../crates/module-api" }
 http = "1"
 protocol = { path = "../crates/protocol" }
 proxy = { path = "../crates/proxy" }
+serde = "1"
 serde_json = "1"
 # launcher_legacy: the 1.4.4 manifest's fingerprint
 sha2 = "0.11"
@@ -206,6 +209,13 @@ bench = false
 [[bin]]
 name = "relay_input"
 path = "fuzz_targets/relay_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "module_frame"
+path = "fuzz_targets/module_frame.rs"
 test = false
 doc = false
 bench = false
