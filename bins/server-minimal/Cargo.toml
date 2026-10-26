@@ -9,12 +9,16 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "reforged-server-minimal"
+name = "dainty-lass-server-minimal"
 path = "src/main.rs"
 
+[features]
+default = []
+# Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
+legacy = ["host/legacy"]
+
 [dependencies]
-controller = { workspace = true, default-features = false, features = ["edition-both"] }
-protocol = { workspace = true, default-features = false, features = ["edition-both"] }
+host = { workspace = true, default-features = false, features = ["modules"] }
 
 [lints]
 workspace = true

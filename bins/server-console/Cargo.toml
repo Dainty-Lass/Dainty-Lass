@@ -1,6 +1,6 @@
 [package]
 name = "server-console"
-description = "Interactive REPL and ratatui TUI server binary supporting both Refined and Reforged editions"
+description = "The server in one binary: every reforged-host command, `serve` with its console or dashboard, and each service alone"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,12 +9,22 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "reforged-server-console"
+name = "dainty-lass-server-console"
 path = "src/main.rs"
 
+# The same binary under the host kit's name, without `serve` as its default: `update`, the systemd units and
+# the Director's game-server wrapper run bin/reforged-host (RD23)
+[[bin]]
+name = "reforged-host"
+path = "src/bin/reforged-host.rs"
+
+[features]
+default = []
+# Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
+legacy = ["host/legacy"]
+
 [dependencies]
-host = { workspace = true, default-features = false, features = ["edition-both"] }
-protocol = { workspace = true, default-features = false, features = ["edition-both"] }
+host = { workspace = true, default-features = false, features = ["modules"] }
 
 [lints]
 workspace = true
