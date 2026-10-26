@@ -83,3 +83,5 @@ desktop.ini
 # --- Generated self-host configuration ---
 .selfhost/
 docs/LOCAL_RELEASE_READINESS.md
+# Store captures the host kit downloads (store-captures.json)
+DauntlessEndpointDocumentation/

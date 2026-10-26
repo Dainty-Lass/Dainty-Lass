@@ -603,16 +603,24 @@ async function StartServer(Map: string, Behemoth: string | undefined, Matchmaker
     }
     if (IsHunt) Ports.attachPid(LeasedPort, Id, Child.pid);
 
-    Child.stdout?.pipe(LogStream);
-    Child.stderr?.pipe(LogStream);
-    LogStream.write(`pid=${Child.pid ?? "unknown"}\n\n`);
+    // [2026-10-23] Both pipes would end the log when the child's output closes, which can be before its
+    // exit event: a game server that dies at once (a missing executable, Wine refusing it) then wrote its
+    // exit line after the end, and the unhandled 'write after end' took the whole Director down. The log
+    // ends on 'close', once the process and both pipes are done.
+    Child.stdout?.pipe(LogStream, { end: false });
+    Child.stderr?.pipe(LogStream, { end: false });
+    Child.on("close", () => LogStream.end());
+    const LogLine = (Line: string) => {
+        if (!LogStream.writableEnded) LogStream.write(Line);
+    };
+    LogLine(`pid=${Child.pid ?? "unknown"}\n\n`);
 
     logger.info(`${Label} spawned on port ${Port} (pid=${Child.pid ?? "unknown"}) -> ${LogPath}`);
 
     Child.on("exit", (code, signal) => {
         const ExitMessage = `Gameserver process exited port=${Port} label=${Label} pid=${Child.pid} code=${code ?? "null"} signal=${signal ?? "null"}`;
         logger.warn(ExitMessage);
-        LogStream.write(`\n=== ${ExitMessage} ===\n`);
+        LogLine(`\n=== ${ExitMessage} ===\n`);
 
         // [2026-07-17] Reclaim immediately instead of waiting up to 60s for the watchdog — this lag was
         // part of the port/RAM leak under churn. For a HUNT, drop it from the live list and return its
@@ -634,7 +642,7 @@ async function StartServer(Map: string, Behemoth: string | undefined, Matchmaker
     Child.on("error", (err) => {
         const ErrorMessage = `Gameserver process error port=${Port} label=${Label} pid=${Child.pid}: ${err.message}`;
         logger.error(ErrorMessage);
-        LogStream.write(`\n=== ${ErrorMessage} ===\n`);
+        LogLine(`\n=== ${ErrorMessage} ===\n`);
     });
 
     Child.unref();
