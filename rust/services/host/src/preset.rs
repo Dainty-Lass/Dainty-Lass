@@ -150,7 +150,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), HostError> {
 fn manifest_comment(name: &str, executable_sha256: Option<&str>) -> Vec<String> {
     vec![
         format!(
-            "Server preset \"{name}\": the game data every server set up from this project starts from (legacy/ReforgedHost/src/preset.ts)."
+            "Server preset \"{name}\": the game data every server set up from this project starts from (reforged-host preset)."
         ),
         format!(
             "Read from an installed Dauntless {} client for interoperability: identifiers and tuning values (item catalogue, store, progression and hunt tables), no game assets.",

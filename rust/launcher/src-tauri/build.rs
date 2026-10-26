@@ -29,12 +29,12 @@ mod manifest_check {
     include!("src/core/manifest_check.rs");
 }
 
-/// Row L17: the compiled-in manifest is valid, and its fingerprint is a constant. The Electron launcher's
-/// copy, which is DR's `UndauntedContent/data/dauntless-1.4.4.json` byte for byte.
+/// Row L17: the compiled-in manifest is valid, and its fingerprint is a constant. `gen/dauntless-1.4.4.json`
+/// is DR's `UndauntedContent/data/dauntless-1.4.4.json` byte for byte.
 fn manifest() -> String {
     let manifest_dir =
         std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|error| panic!("CARGO_MANIFEST_DIR: {error}"));
-    let path = Path::new(&manifest_dir).join("../../../legacy/ReforgedLauncher/src/main/revived/dauntless-1.4.4.json");
+    let path = Path::new(&manifest_dir).join("gen/dauntless-1.4.4.json");
     println!("cargo:rerun-if-changed={}", path.display());
     let bytes = fs::read(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     let raw: serde_json::Value =

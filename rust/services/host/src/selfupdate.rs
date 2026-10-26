@@ -38,15 +38,11 @@ pub const DEFAULT_REPOSITORY: &str = env!("REFORGED_RELEASE_REPOSITORY");
 
 /// The build outputs a release replaces as a whole on a server that never had a release (a Node-kit
 /// checkout built them with npm): whatever is in them now is not the release's.
-const RELEASE_OWNED_DIRS: [&str; 8] = [
+const RELEASE_OWNED_DIRS: [&str; 4] = [
     "paradox/backend/build",
     "paradox/backend/node_modules",
     "paradox/director/dist",
     "paradox/director/node_modules",
-    "legacy/ReforgedGateway/dist",
-    "legacy/ReforgedGateway/node_modules",
-    "legacy/ReforgedContent/dist",
-    "legacy/ReforgedContent/node_modules",
 ];
 
 /// This PC's platform in the release's file names; `None` where there is no release.
