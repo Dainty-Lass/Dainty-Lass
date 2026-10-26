@@ -244,3 +244,9 @@ AGPL-3.0-only, with additional terms for the Mystic Paradox material (`ADDITIONA
 `paradox/ADDITIONAL_TERMS.md`). Keep Paradox's top-level files under `paradox/` even after its code is gone.
 Code copied from DR or Paradox keeps its attribution, and the integration pass records each new source in
 `NOTICE.md`.
+
+The crates `NOTICE.md` lists as MIT (`controller`, `admin`, `bins`, the `backend` and `director` stubs) set
+`license = "MIT"` in their own `Cargo.toml`; everything else inherits the workspace's AGPL. A new crate is MIT
+only when nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from those trees,
+no function rewritten from one. Copying a DR or Paradox function into an MIT crate moves the crate back to
+`license.workspace = true` in the same commit, with the NOTICE line to match.

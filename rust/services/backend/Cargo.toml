@@ -4,7 +4,7 @@ description = "The game backend, Mystic Paradox's API in Rust (MIGRATION_PLAN.md
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license = "MIT"
 repository.workspace = true
 publish.workspace = true
 

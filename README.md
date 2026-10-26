@@ -67,7 +67,9 @@ Director and runtime are forked into `paradox/` and `native/`; on [Dauntless Rev
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on. [NOTICE.md](NOTICE.md) says what came from where.
 
-Free software under the GNU AGPL-3.0 (`AGPL-3.0-only`): [LICENSE.txt](LICENSE.txt). Additional terms apply to the
+Free software under the GNU AGPL-3.0 (`AGPL-3.0-only`): [LICENSE.txt](LICENSE.txt). The controller, the admin
+service and the binaries, written here from no other project, are also under the MIT License
+([LICENSE-MIT.txt](LICENSE-MIT.txt); NOTICE.md lists the crates). Additional terms apply to the
 Mystic Paradox material: [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md) and Mystic Paradox's own
 [paradox/ADDITIONAL_TERMS.md](paradox/ADDITIONAL_TERMS.md). Mystic Paradox's Dauntless 1.12.0 port and related
 modifications were developed by Pranav Karande. See NOTICE.md for contribution and provenance information.
