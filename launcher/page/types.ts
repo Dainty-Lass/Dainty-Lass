@@ -13,6 +13,7 @@ import type {
   InstallMode,
   InviteCheck,
   NewsItem,
+  RealmKind,
   RegisterOutcome,
   Settings,
   Snapshot,
@@ -86,6 +87,47 @@ export interface LauncherApi {
   onHostServer(fn: (view: HostServerView) => void): void;
   onInviteLink(fn: () => void): void;
   onWindowState(fn: (maximized: boolean) => void): void;
+  // Registered ahead of the rows that fill them (DF8): each answers not_implemented for now
+  epicSignInStart(): Promise<ActionResult>;
+  epicSignInCode(code: string): Promise<ActionResult>;
+  epicGet(): Promise<ActionResult>;
+  epicSignOut(): Promise<ActionResult>;
+  epicLibraryCheck(): Promise<ActionResult>;
+  gameVersionList(): Promise<ActionResult>;
+  gameInstallStart(version: string): Promise<ActionResult>;
+  gameInstallPause(version: string): Promise<ActionResult>;
+  gameInstallResume(version: string): Promise<ActionResult>;
+  gameInstallCancel(version: string): Promise<ActionResult>;
+  gameInstallGet(version: string): Promise<ActionResult>;
+  regionPing(): Promise<ActionResult>;
+  moduleList(): Promise<ActionResult>;
+  moduleGet(module: string): Promise<ActionResult>;
+  moduleRunCommand(module: string, command: string, input: unknown): Promise<ActionResult>;
+  moduleSetSettings(module: string, values: Record<string, unknown>): Promise<ActionResult>;
+  moduleLoad(module: string): Promise<ActionResult>;
+  moduleUnload(module: string): Promise<ActionResult>;
+  realmHost(kind: RealmKind): Promise<ActionResult>;
+  realmJoin(realm: string): Promise<ActionResult>;
+  realmStop(): Promise<ActionResult>;
+  realmGet(): Promise<ActionResult>;
+  historyQuery(filter: HistoryFilter): Promise<ActionResult>;
+  historyRevertDryRun(selection: RevertSelection): Promise<ActionResult>;
+  historyRevertApply(plan: string): Promise<ActionResult>;
+  guardedList(): Promise<ActionResult>;
+  guardedApprove(id: string): Promise<ActionResult>;
+  guardedCancel(id: string): Promise<ActionResult>;
+}
+
+// Who and when a history query or a revert covers (DD23): an account, an actor, RFC 3339 times
+export interface RevertSelection {
+  account?: string | null;
+  actor?: string | null;
+  since?: string | null;
+  until?: string | null;
+}
+
+export interface HistoryFilter extends RevertSelection {
+  cursor?: string | null;
 }
 
 declare global {

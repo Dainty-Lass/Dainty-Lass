@@ -109,6 +109,7 @@ fn declarations() -> String {
         HostAction,
         HostFolder,
         HostSetupRequest,
+        RealmKind,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
