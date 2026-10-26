@@ -1,0 +1,30 @@
+{
+  "en": {
+    "app_title": "DaintyLass Launcher",
+    "close_anyway": "Close anyway",
+    "close_keep": "Keep it open",
+    "close_text": "The game reaches the server through the launcher. Closing it now disconnects the game.",
+    "close_title": "Dauntless is still running",
+    "dialog_dumper_dll": "The Dumper-7 DLL",
+    "dialog_game_folder": "Your Dauntless 1.14.7 folder",
+    "dialog_gamedata_pack": "A game data pack",
+    "dialog_legacy_folder": "A folder for Dauntless 1.4.4 (with the game in it, or empty)",
+    "dialog_runtime_folder": "A folder holding MysticParadox.dll and winmm.dll",
+    "dialog_sdk_folder": "The CppSDK folder Dumper-7 wrote (with SDK.hpp in it)",
+    "dialog_workspace_folder": "Your server checkout (the folder with rust/ in it)"
+  },
+  "pt-BR": {
+    "app_title": "DaintyLass Launcher",
+    "close_anyway": "Fechar assim mesmo",
+    "close_keep": "Manter aberto",
+    "close_text": "O jogo chega ao servidor através do launcher. Fechá-lo agora desconecta o jogo.",
+    "close_title": "O Dauntless ainda está em execução",
+    "dialog_dumper_dll": "A DLL do Dumper-7",
+    "dialog_game_folder": "Sua pasta do Dauntless 1.14.7",
+    "dialog_gamedata_pack": "Um pacote de dados do jogo",
+    "dialog_legacy_folder": "Uma pasta para o Dauntless 1.4.4 (com o jogo dentro, ou vazia)",
+    "dialog_runtime_folder": "Uma pasta contendo MysticParadox.dll e winmm.dll",
+    "dialog_sdk_folder": "A pasta CppSDK gerada pelo Dumper-7 (com SDK.hpp dentro)",
+    "dialog_workspace_folder": "Seu checkout do servidor (a pasta que contém rust/)"
+  }
+}
