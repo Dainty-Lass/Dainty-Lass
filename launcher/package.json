@@ -2,7 +2,7 @@
   "name": "dainty-lass-launcher",
   "productName": "DaintyLass Launcher",
   "version": "2.0.0-alpha.0",
-  "description": "The Tauri launcher's stand-in page and its bridge to the Rust backend (MIGRATION_PLAN.md section 4.6). The real page is dainty-lass-ui (docs/dainty-lass-plan.md, DU1).",
+  "description": "The Tauri launcher's stand-in page and its bridge to the Rust backend (MIGRATION_PLAN.md section 4.6). Tauri serves dainty-lass-ui's build from ui/ instead (docs/dainty-lass-plan.md, DU1).",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",

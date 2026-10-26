@@ -1,7 +1,8 @@
 //! The files generated from the bridge (rows L6, L8, L9; RA2), kept in the repository and checked here:
 //!
-//! - `page/generated/types.ts`: the TypeScript declarations of every type in `types.rs` and the command
-//!   names, for the page's bridge (`page/api.ts`);
+//! - the TypeScript declarations of every type in `types.rs` and the command names, twice: for
+//!   dainty-lass-ui's bridge package (`ui/packages/bridge/src/generated/types.ts`, DD11) and for the
+//!   stand-in page's bridge (`page/generated/types.ts`, read by `page/api.ts` and its tests until DU2);
 //! - `isolation/commands.js`: the command list with each argument's shape, for the isolation hook;
 //! - `src-tauri/permissions/app-commands.toml`: the permission set that grants exactly those commands.
 //!
@@ -202,9 +203,21 @@ fn launcher_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
+/// The dainty-lass-ui submodule (DD11)
+fn ui_dir() -> PathBuf {
+    launcher_dir().join("../../ui")
+}
+
 #[test]
 fn generated_files_are_current() {
+    // Refused rather than skipped, and never written into an empty submodule folder
+    assert!(
+        ui_dir().join("package.json").is_file(),
+        "{} is not checked out: run `git submodule update --init ui`",
+        ui_dir().display()
+    );
     let files = [
+        (ui_dir().join("packages/bridge/src/generated/types.ts"), declarations()),
         (launcher_dir().join("page/generated/types.ts"), declarations()),
         (launcher_dir().join("isolation/commands.js"), hook_commands()),
         (
