@@ -49,6 +49,17 @@ Linux options of `setup`: `--wine <path>` or `--proton <script>` (a Proton or GE
 Wine; `--no-proton` goes back), `--xvfb` (the default) or `--no-xvfb`, and `--interface eth0` to make the
 allowlist filter one interface only.
 
+Postgres instead of SQLite for the Rust services' database is `[database]` in `host.toml`
+([hosting.md](hosting.md#the-database-engine)). On Debian or Ubuntu, with the role's password from `secrets.env`:
+
+```bash
+sudo apt install postgresql
+pw=$(sed -n 's/^REFORGED_DB_PASSWORD=//p' .workspace/config/secrets.env)
+sudo -u postgres psql -c "CREATE ROLE dainty LOGIN PASSWORD '$pw'" -c "CREATE DATABASE dainty OWNER dainty"
+```
+
+Debian's package listens on localhost only, which is what `setup` wants: the connection is not encrypted.
+
 ## Running it
 
 ```bash
