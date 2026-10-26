@@ -25,6 +25,7 @@
 //!   launcher shuts down. Without the `host` feature (a player-only build) `host_off.rs` stands in: the
 //!   same methods, the Host page refused;
 //! - `loader.rs`: the runtime loader's sessions, which PLAY checks first in every build (RD9);
+//! - `region.rs`: region ping, the joined server's nodes timed and the order reported to it (DN7);
 //! - `legacy.rs`: the legacy edition, Dauntless 1.4.4 for Dauntless Revived's servers (`legacy` feature;
 //!   `legacy_off.rs` stands in without it). It owns `State::legacy`, and this file asks it for the phase,
 //!   the snapshot's `revived` and PLAY whenever the current server is a Dauntless Revived one.
@@ -42,6 +43,7 @@ pub mod legacy;
 pub mod legacy;
 mod loader;
 pub mod platform;
+mod region;
 pub mod runtime;
 pub mod stored;
 

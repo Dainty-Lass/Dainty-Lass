@@ -91,6 +91,9 @@ pub struct Config {
     pub allowlist: Option<Allowlist>,
     pub limits: Limits,
     pub timeouts: Timeouts,
+    /// The network's nodes the launcher pings (DN7). Empty until DN2 and DF3 add `[network]` to
+    /// `host.toml`, which is how a server outside a network answers anyway
+    pub network: Vec<crate::network::NetworkNode>,
 }
 
 /// Dauntless Revived's limits, sized from real 1.4.4 sessions (its README has the numbers). The
@@ -369,6 +372,7 @@ impl Config {
             allowlist,
             limits,
             timeouts,
+            network: Vec::new(),
         })
     }
 }

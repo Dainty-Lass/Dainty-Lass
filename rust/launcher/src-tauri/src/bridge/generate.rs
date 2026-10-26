@@ -111,6 +111,8 @@ fn declarations() -> String {
         HostFolder,
         HostSetupRequest,
         RealmKind,
+        RegionProblem,
+        RegionRtt,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -120,6 +122,10 @@ fn declarations() -> String {
             .into(),
     );
     declare("type RegisterOutcome = { ok: true; username: string } | { ok: false; error: LauncherError };".into());
+    declare(
+        "type RegionPing = { ok: true; regions: Array<RegionRtt>; reported: boolean } | { ok: false; error: LauncherError };"
+            .into(),
+    );
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
     out

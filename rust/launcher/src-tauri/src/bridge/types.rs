@@ -1041,6 +1041,60 @@ pub enum RealmKind {
     Hunt,
 }
 
+/// Why a node has no round trip (DN7)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum RegionProblem {
+    Timeout,
+    Unreachable,
+    /// The node's certificate is not the one its home listed: nothing was sent to it
+    CertMismatch,
+    BadAnswer,
+}
+
+/// One region's round trip, as `region_ping` orders them: nearest first, the silent ones last (DN7).
+/// The region is an id (`oregon`); its name is the page's to show.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct RegionRtt {
+    pub region: String,
+    /// The median round trip in milliseconds, to a tenth; null when the node never answered
+    pub rtt_ms: Option<f64>,
+    /// How many answers the median was taken over
+    pub samples: u32,
+    pub problem: Option<RegionProblem>,
+}
+
+/// `region_ping`: `{ ok: true, regions, reported } | { ok: false, error }`. `reported`: the home took
+/// the order. A server outside a network answers no regions, and nothing is measured.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RegionPing {
+    Ok { regions: Vec<RegionRtt>, reported: bool },
+    Err(LauncherError),
+}
+
+impl Serialize for RegionPing {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Pinged<'a> {
+            ok: bool,
+            regions: &'a [RegionRtt],
+            reported: bool,
+        }
+        match self {
+            Self::Ok { regions, reported } => Pinged {
+                ok: true,
+                regions,
+                reported: *reported,
+            }
+            .serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1068,6 +1122,34 @@ mod tests {
         assert_eq!(
             serde_json::to_value(registered).unwrap(),
             json!({ "ok": true, "username": "Slayer" })
+        );
+        let pinged = RegionPing::Ok {
+            regions: vec![
+                RegionRtt {
+                    region: "uk".into(),
+                    rtt_ms: Some(18.4),
+                    samples: 5,
+                    problem: None,
+                },
+                RegionRtt {
+                    region: "oregon".into(),
+                    rtt_ms: None,
+                    samples: 0,
+                    problem: Some(RegionProblem::CertMismatch),
+                },
+            ],
+            reported: true,
+        };
+        assert_eq!(
+            serde_json::to_value(pinged).unwrap(),
+            json!({ "ok": true, "regions": [
+                { "region": "uk", "rttMs": 18.4, "samples": 5, "problem": null },
+                { "region": "oregon", "rttMs": null, "samples": 0, "problem": "cert_mismatch" },
+            ], "reported": true })
+        );
+        assert_eq!(
+            serde_json::to_value(RegionPing::Err(LauncherError::new(ErrorCode::ServerUnreachable))).unwrap(),
+            json!({ "ok": false, "error": { "code": "server_unreachable" } })
         );
         let error = LauncherError::with_detail(ErrorCode::HostFailed, "setup_form");
         assert_eq!(

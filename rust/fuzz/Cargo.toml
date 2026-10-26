@@ -236,5 +236,19 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "gateway_network"
+path = "fuzz_targets/gateway_network.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "launcher_region"
+path = "fuzz_targets/launcher_region.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]
 members = ["."]
