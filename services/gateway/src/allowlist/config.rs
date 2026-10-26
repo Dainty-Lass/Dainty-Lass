@@ -30,6 +30,9 @@ pub struct AllowlistConfig {
     pub audit_log: PathBuf,
     pub state_file: PathBuf,
     pub nft: NftSettings,
+    /// `ALLOWLIST_RULE_NAME`: the Windows Firewall rule's display name, which is how the helper finds
+    /// its rule; a second helper (a server running both games, RD26) names its own
+    pub rule_name: String,
 }
 
 fn int(env: &Env, name: &str, default: i64, min: i64, max: i64) -> Result<i64, String> {
@@ -123,8 +126,29 @@ impl AllowlistConfig {
                 &optional(env, "ALLOWLIST_STATE_FILE").unwrap_or_else(|| "allowlist-state.json".into()),
             ),
             nft,
+            rule_name: check_rule_name(
+                &optional(env, "ALLOWLIST_RULE_NAME").unwrap_or_else(|| super::firewall::RULE_DISPLAY_NAME.into()),
+            )?,
         })
     }
+}
+
+/// The rule this helper may change: only ever one of the server's own, so it starts with the name every
+/// rule of the server's starts with, and holds letters, digits, spaces and `()-._` only (no wildcard, no
+/// character PowerShell or COM would read differently), at most 80 of them.
+pub fn check_rule_name(name: &str) -> Result<String, String> {
+    let valid = name.starts_with("Dauntless Reforged Revival ")
+        && name.len() <= 80
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b' ' | b'(' | b')' | b'-' | b'.' | b'_'));
+    if !valid {
+        return Err(format!(
+            "ALLOWLIST_RULE_NAME must start with \"Dauntless Reforged Revival \" and hold only letters, digits, spaces and ()-._, at most 80 (got {})",
+            json!(name)
+        ));
+    }
+    Ok(name.to_owned())
 }
 
 #[cfg(test)]
@@ -137,6 +161,32 @@ mod tests {
         all.retain(|(k, _)| !pairs.iter().any(|(p, _)| p == k));
         all.extend(pairs.iter().filter(|(_, v)| !v.is_empty()).copied());
         AllowlistConfig::from_env(&Env::from_pairs(all))
+    }
+
+    #[test]
+    fn names_a_rule_of_the_server_s_own_only() {
+        assert_eq!(
+            load(&[]).unwrap().rule_name,
+            "Dauntless Reforged Revival game ports (allowlist)"
+        );
+        let legacy = "Dauntless Reforged Revival 1.4.4 game ports (allowlist)";
+        assert_eq!(load(&[("ALLOWLIST_RULE_NAME", legacy)]).unwrap().rule_name, legacy);
+        for bad in [
+            "Remote Desktop - User Mode (TCP-In)",
+            "Dauntless Reforged Revival",
+            "Dauntless Reforged Revival *",
+            "Dauntless Reforged Revival game ports'; Remove-NetFirewallRule -All; '",
+            "Dauntless Reforged Revival game\nports",
+            "Dauntless Reforged Revival game pörts",
+            &format!("Dauntless Reforged Revival {}", "x".repeat(60)),
+        ] {
+            assert!(
+                load(&[("ALLOWLIST_RULE_NAME", bad)])
+                    .unwrap_err()
+                    .contains("ALLOWLIST_RULE_NAME"),
+                "{bad}"
+            );
+        }
     }
 
     #[test]

@@ -62,10 +62,18 @@ pub fn format_game_invite(i: &InviteParts, game: Game) -> Result<String, HostErr
 }
 
 pub fn invite_for(c: &HostConfig, code: &str, fp: Option<&str>) -> Result<String, HostError> {
+    invite_for_game(c, code, fp, c.edition.primary())
+}
+
+/// The invite to `game`'s stack: its gateway's port, its scheme.
+pub fn invite_for_game(c: &HostConfig, code: &str, fp: Option<&str>, game: Game) -> Result<String, HostError> {
     let parts = InviteParts {
         mode: c.mode,
         host: c.host.clone(),
-        port: gateway_port(c),
+        port: match game {
+            Game::Reborn => gateway_port(c),
+            Game::Legacy => crate::hostconfig::legacy_gateway_port(c),
+        },
         code: code.to_owned(),
         name: c.name.clone(),
         fp: if c.mode == ServerMode::Public {
@@ -79,7 +87,7 @@ pub fn invite_for(c: &HostConfig, code: &str, fp: Option<&str>) -> Result<String
             None
         },
     };
-    format_game_invite(&parts, c.edition)
+    format_game_invite(&parts, game)
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

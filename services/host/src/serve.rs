@@ -21,9 +21,10 @@ use crate::Outcome;
 use crate::commands::start::control::{Control, SERVER_READY_LINE, controlled_by_stdin};
 use crate::commands::start::{self as start_cmd, say};
 use crate::error::HostError;
-use crate::hostconfig::{self, Edition, HostConfig, Platform, ServerMode};
+use crate::hostconfig::{self, HostConfig, Platform, ServerMode};
 use crate::paths::Paths;
 use crate::services::{Printer, ServiceSpec, Supervisor, service_environment};
+use protocol::game::Game;
 
 /// How `serve` runs.
 #[derive(Debug, Clone)]
@@ -219,8 +220,14 @@ pub fn compose(
     use start_cmd::binaries::{FrontService, Programs, rust_ported};
 
     let public = config.mode == ServerMode::Public;
-    let node_runs = cfg!(feature = "paradox");
-    let mut controller = ServerController::new(config.mode.as_str(), vec!["reforged".into()]);
+    let reborn = config.edition.runs(Game::Reborn);
+    let node_runs = cfg!(feature = "paradox") && reborn;
+    let games = Game::ALL
+        .into_iter()
+        .filter(|g| config.edition.runs(*g))
+        .map(|g| g.version_alias().to_owned())
+        .collect();
+    let mut controller = ServerController::new(config.mode.as_str(), games);
     let programs = if node_runs {
         Programs::find(paths)?
     } else {
@@ -239,12 +246,14 @@ pub fn compose(
     };
 
     #[cfg(feature = "paradox")]
-    controller.add(mongod_module(paths, config, printer.clone()));
+    if reborn {
+        controller.add(mongod_module(paths, config, printer.clone()));
+    }
 
     #[cfg(any(feature = "gateway", feature = "allowlist"))]
     #[cfg_attr(not(feature = "allowlist"), allow(unused_mut))]
     let mut slot: Option<modules::AllowlistSlot> = None;
-    if public && !external_allowlist {
+    if reborn && public && !external_allowlist {
         if in_process(FrontService::Allowlist) {
             #[cfg(feature = "allowlist")]
             {
@@ -263,7 +272,7 @@ pub fn compose(
     }
 
     #[cfg(feature = "paradox")]
-    {
+    if reborn {
         let node = |name: &str, dir: &Path, script: &[&str], ready: Ready| ServiceSpec {
             name: name.into(),
             cwd: dir.to_path_buf(),
@@ -300,7 +309,8 @@ pub fn compose(
         );
     }
 
-    if in_process(FrontService::Content) {
+    if !reborn {
+    } else if in_process(FrontService::Content) {
         #[cfg(feature = "content")]
         controller.add(modules::content(&module_env(paths, "content")?).map_err(HostError::message)?);
     } else if node_runs {
@@ -309,11 +319,12 @@ pub fn compose(
 
     // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
     #[cfg(feature = "admin")]
-    if start_cmd::env_file(paths, "admin").is_file() {
+    if reborn && start_cmd::env_file(paths, "admin").is_file() {
         controller.add(modules::admin(&module_env(paths, "admin")?).map_err(HostError::message)?);
     }
 
-    if in_process(FrontService::Gateway) {
+    if !reborn {
+    } else if in_process(FrontService::Gateway) {
         #[cfg(feature = "gateway")]
         controller.add(modules::gateway(&module_env(paths, "gateway")?, slot.clone()).map_err(HostError::message)?);
     } else if node_runs {
@@ -322,6 +333,16 @@ pub fn compose(
             ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
         };
         controller.add(front_process(FrontService::Gateway, ready));
+    }
+
+    // The 1.4.4 stack (alone, or beside reborn on its own ports, RD26): every service a supervised
+    // process, the metagame and the deploy server being binaries of their own
+    if config.edition.runs(Game::Legacy) {
+        for planned in crate::legacy::legacy_service_plan(paths, config, external_allowlist, &programs)? {
+            let module = process_module(planned.spec, planned.ready_timeout, printer.clone(), paths.logs.clone())
+                .for_edition(Game::Legacy.version_alias());
+            controller.add(if planned.required { module } else { module.optional() });
+        }
     }
 
     #[cfg(any(feature = "gateway", feature = "allowlist"))]
@@ -367,11 +388,10 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
             paths.config.join(hostconfig::SECRET_FILE).display()
         ));
     }
-    let missing = ["backend", "director", "content", "gateway"]
-        .iter()
-        .any(|name| !start_cmd::env_file(paths, name).is_file());
+    let missing = |names: &[String]| names.iter().any(|name| !start_cmd::env_file(paths, name).is_file());
+    let reborn_files = ["backend", "director", "content", "gateway"].map(str::to_owned);
     let mut written = Vec::new();
-    if missing {
+    if config.edition.runs(Game::Reborn) && missing(&reborn_files) {
         for dir in [
             &paths.runtime_publish,
             &paths.branding,
@@ -389,6 +409,16 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
         );
         written = hostconfig::write_env_files(paths, &files)?;
         say(&format!("- env files written in {}", paths.config.display()));
+    }
+    if config.edition.runs(Game::Legacy) && missing(&crate::legacy::env_file_names(config)) {
+        written.extend(crate::legacy::write_env_files(
+            config,
+            &secrets,
+            paths,
+            &source_commit(&paths.repo),
+            Platform::current(),
+        )?);
+        say(&format!("- 1.4.4 env files written in {}", paths.config.display()));
     }
     #[cfg(feature = "gateway")]
     if config.mode == ServerMode::Public && !paths.cert_file.exists() {
@@ -427,7 +457,14 @@ fn prepare(
 ) -> Result<ServerController, HostError> {
     hostconfig::check_edition(config)?;
     ensure_server_files(paths, config)?;
-    start_cmd::preflight_with(paths, config, external)?;
+    if config.edition.runs(Game::Reborn) {
+        start_cmd::preflight_with(paths, config, external)?;
+    } else {
+        start_cmd::host_checks(paths, config, external)?;
+    }
+    if config.edition.runs(Game::Legacy) {
+        crate::legacy::prepare(paths, config)?;
+    }
     compose(paths, config, external, printer)
 }
 
@@ -442,10 +479,6 @@ fn fingerprint(paths: &Paths, config: &HostConfig) -> Option<String> {
 pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
     let config = load_config(paths, options.config_file.as_deref())?;
     let external = external_allowlist(&config);
-    if config.edition == Edition::Legacy {
-        // Phase 4 brings the 1.4.4 stack into the controller
-        return crate::legacy::start(paths, &config, external);
-    }
     let controlled = controlled_by_stdin();
     let interactive = options.interactive && !controlled;
     let level = service_kit::telemetry::parse_level_filter(&options.log_filter)
@@ -460,7 +493,7 @@ pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
     let control = Control::begin(controlled)?;
     if cfg!(target_os = "linux") {
         start_cmd::linux_wine(paths, &config)?;
-        if external && !start_cmd::linux_external_allowlist(&control)? {
+        if external && !start_cmd::linux_external_allowlist(&control, &config)? {
             return Ok(ExitCode::SUCCESS);
         }
     }
@@ -525,11 +558,6 @@ pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
 /// printed, no signals; the caller stops it with `shutdown`.
 pub async fn start_embedded(paths: &Paths) -> Result<ServerController, String> {
     let config = start_cmd::load_config(paths).map_err(|e| e.to_string())?;
-    if config.edition == Edition::Legacy {
-        return Err(
-            "a legacy (1.4.4) server runs from reforged-host start until its stack joins the controller".into(),
-        );
-    }
     let external = external_allowlist(&config);
     let mut controller = prepare(paths, &config, external, table_printer()).map_err(|e| e.to_string())?;
     controller.set_invite_info(None, fingerprint(paths, &config));
@@ -612,7 +640,7 @@ mod tests {
         HostConfig {
             version: 1,
             mode,
-            edition: Edition::Reborn,
+            edition: hostconfig::Edition::Reborn,
             host: "100.101.102.103".into(),
             game_address: "100.101.102.103".into(),
             name: "Friday Hunts".into(),
@@ -627,6 +655,8 @@ mod tests {
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
+            legacy_game_dir: None,
+            legacy_public_port: None,
             performance: None,
             linux: None,
             file: FileForm::default(),

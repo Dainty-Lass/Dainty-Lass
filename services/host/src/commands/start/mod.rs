@@ -469,38 +469,6 @@ pub fn prepare_database(
     }
 }
 
-/// Runs the allowlist helper's `--close-ports` once: a hard stop never lets the helper close the game
-/// ports itself, and Linux has no firewall closing them before the first start.
-pub fn close_game_ports(paths: &Paths, programs: &Programs) -> crate::run::RunResult {
-    let file = env_file(paths, "allowlist");
-    let launch = programs.launch(FrontService::Allowlist, paths, &file);
-    let mut env: Vec<(String, String)> = std::env::vars().collect();
-    if !launch.env_file_in_args
-        && let Ok(from_file) = read_env_file(&file)
-    {
-        for (k, v) in from_file.iter() {
-            match env.iter_mut().find(|(key, _)| key == k) {
-                Some(slot) => slot.1 = v.to_string(),
-                None => env.push((k.to_string(), v.to_string())),
-            }
-        }
-    }
-    let mut args: Vec<&str> = launch.args.iter().map(String::as_str).collect();
-    args.push("--close-ports");
-    let options = crate::run::RunOptions {
-        cwd: launch.cwd.clone(),
-        env: Some(env),
-        log_file: Some(paths.logs.join("allowlist.log")),
-        quiet: true,
-    };
-    let command = launch.command.display().to_string();
-    crate::run::run(&command, &args, &options).unwrap_or_else(|e| crate::run::RunResult {
-        code: -1,
-        last_line: Some(e.to_string()),
-        output: String::new(),
-    })
-}
-
 /// Linux: the Wine prefix the game servers run in.
 pub(crate) fn linux_wine(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
     use crate::linux::{RuntimeKind, ensure_wine_prefix, game_runtime};
@@ -521,59 +489,50 @@ pub(crate) fn linux_wine(paths: &Paths, config: &HostConfig) -> Result<(), HostE
     Ok(())
 }
 
-/// Linux, public, the allowlist as a systemd unit: its table must be in place (game ports closed)
-/// before the Director starts any game server. `Ok(false)`: a stop was asked for meanwhile.
-pub(crate) fn linux_external_allowlist(control: &Control) -> Result<bool, HostError> {
-    use crate::linux::UNIT_ALLOWLIST;
+/// Linux, public, the allowlist as a systemd unit (two on a server running both games): its table must
+/// be in place (game ports closed) before any game server starts. `Ok(false)`: a stop was asked for meanwhile.
+pub(crate) fn linux_external_allowlist(control: &Control, config: &HostConfig) -> Result<bool, HostError> {
+    use crate::linux::{UNIT_ALLOWLIST, UNIT_ALLOWLIST_LEGACY};
     let flag = control.flag();
     let cancelled = move || flag.load(std::sync::atomic::Ordering::SeqCst);
-    if !wait_until_ready(
-        &Ready::http(PORTS.allowlist, "/status"),
-        Duration::from_secs(30),
-        &cancelled,
-    ) {
-        if control.asked() {
-            return Ok(false);
-        }
-        return Err(HostError::message(format!(
-            "the allowlist ({UNIT_ALLOWLIST}) is not answering on port {}: systemctl status {UNIT_ALLOWLIST}",
-            PORTS.allowlist
-        )));
+    let mut units = Vec::new();
+    if config.edition.runs(protocol::game::Game::Reborn) {
+        units.push((UNIT_ALLOWLIST, PORTS.allowlist));
     }
-    say("allowlist| the reforged-allowlist service is running");
-    Ok(true)
-}
-
-/// Linux: the Wine prefix, and in public mode the game ports closed before any game server starts.
-/// `Ok(false)`: a stop was asked for meanwhile. (The legacy stack; `serve` closes the ports with its
-/// in-process allowlist module.)
-pub fn linux_steps(
-    paths: &Paths,
-    config: &HostConfig,
-    programs: &Programs,
-    external_allowlist: bool,
-    control: &Control,
-) -> Result<bool, HostError> {
-    linux_wine(paths, config)?;
-    if config.mode == ServerMode::Public {
-        if external_allowlist {
-            if !linux_external_allowlist(control)? {
+    if config.edition == crate::hostconfig::Edition::Both {
+        units.push((UNIT_ALLOWLIST_LEGACY, crate::paths::BOTH_LEGACY_PORTS.allowlist));
+    } else if config.edition == crate::hostconfig::Edition::Legacy {
+        units.push((UNIT_ALLOWLIST, PORTS.allowlist));
+    }
+    for (unit, port) in units {
+        if !wait_until_ready(&Ready::http(port, "/status"), Duration::from_secs(30), &cancelled) {
+            if control.asked() {
                 return Ok(false);
             }
-        } else {
-            let closed = close_game_ports(paths, programs);
-            if closed.code != 0 {
-                return Err(HostError::message(format!(
-                    "could not close the game ports (nftables): {}",
-                    closed.last_line.unwrap_or_default()
-                )));
-            }
+            return Err(HostError::message(format!(
+                "the allowlist ({unit}) is not answering on port {port}: systemctl status {unit}"
+            )));
         }
+        say(&format!(
+            "allowlist| the {} service is running",
+            unit.trim_end_matches(".service")
+        ));
     }
     Ok(true)
 }
 
 pub(crate) fn up_line(config: &HostConfig) -> String {
+    let line = reborn_up_line(config);
+    if config.edition != crate::hostconfig::Edition::Both {
+        return line;
+    }
+    format!(
+        "{line}; Dauntless 1.4.4 on port {}",
+        crate::hostconfig::legacy_gateway_port(config)
+    )
+}
+
+fn reborn_up_line(config: &HostConfig) -> String {
     match config.mode {
         ServerMode::Public => format!(
             "Server \"{}\" is up: https://{}:{} (pinned TLS)",
@@ -620,6 +579,8 @@ mod tests {
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
+            legacy_game_dir: None,
+            legacy_public_port: None,
             performance: None,
             linux: None,
             file: FileForm::default(),

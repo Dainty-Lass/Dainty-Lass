@@ -62,6 +62,10 @@ the nftables script or the Windows rule.
 - [ ] `ALLOWLIST_NFT_TABLE` is a letter then up to 31 letters, digits or `_`; `ALLOWLIST_INTERFACE` is at most 15
       characters from `[A-Za-z0-9_.@-]`, starting with a letter or digit. Neither can close a quote or a brace in the
       script.
+- [ ] `ALLOWLIST_RULE_NAME` (the Windows Firewall rule the helper finds and changes; a second helper on a server
+      running both games names its own) starts with `Dauntless Reforged Revival `, holds only letters, digits,
+      spaces and `()-._`, and is at most 80 characters (`config.rs`, `check_rule_name`; the `allowlist_input` fuzz
+      target). The helper can never be pointed at a rule that is not the server's own.
 - [ ] At most `ALLOWLIST_MAX_ENTRIES` addresses (default 256, at most 1000); past that, `/allow` answers 503 and
       the rule does not grow. Each address expires `ALLOWLIST_TTL_SECONDS` after its last report (default 600).
 - [ ] Changes are debounced: at most one firewall change per `ALLOWLIST_MIN_INTERVAL_MS` (default 3000), however
