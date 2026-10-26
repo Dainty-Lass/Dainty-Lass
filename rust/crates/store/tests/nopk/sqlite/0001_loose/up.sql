@@ -1,0 +1,1 @@
+CREATE TABLE loose (x TEXT);

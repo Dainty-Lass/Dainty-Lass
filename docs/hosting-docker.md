@@ -25,6 +25,7 @@ a private server over Tailscale works too.
 | `configure` | server | The `toml` profile only: runs setup from `host.toml` and exits, before the others start |
 | `metagame` | server | A legacy server only: DR's metagame, 127.0.0.1:61000, in place of `backend` and `mongo` |
 | `deploy` | server | A legacy server only: DR's deploy server, 127.0.0.1:61001; starts the 1.4.4 game servers through Wine |
+| `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
 
 **One network namespace.** Every container joins `net`'s, so they reach each other on 127.0.0.1 exactly as
 the env files `reforged-host setup` writes say, and nothing but the gateway and the game ports is reachable
@@ -42,6 +43,7 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | `backend-game-data`, `director-game-data` | `/opt/reforged/paradox/*/game-data` | Your game data |
 | `exports`, `captures` | `/opt/reforged/paradox/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
 | `mongo-data`, `mongo-config` | MongoDB's | The database |
+| `postgres-data` | Postgres's | The `postgres` profile's database |
 | bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`) |
 | bind mount `REFORGED_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
 | bind mount `REFORGED_CONFIG_DIR` | `/config` (read-only, `configure` only) | The `toml` profile's `host.toml` |
@@ -151,6 +153,22 @@ docker compose up -d
 The file setup writes says what each setting is. As in any container, `game_dir` is always `/game` and
 `[mongo]` the `mongo` container, whatever the file says. Secrets are not in it: setup makes `secrets.env` once
 in the `workspace` volume and keeps it. The runtime, the game data and invites are still `host` commands.
+
+## Postgres
+
+The Rust services keep their database in SQLite unless `host.toml` says otherwise
+([hosting.md](hosting.md#the-database-engine)). For Postgres, add the `postgres` profile to `COMPOSE_PROFILES`
+(`public,postgres`) and put this in `host.toml`, then run setup (or `up`, with the `toml` profile):
+
+```toml
+[database]
+engine = "postgres"
+```
+
+Leave `postgres_host`, `postgres_port`, `postgres_user` and `postgres_database` out: the container is
+127.0.0.1:5432 with the role and database `dainty`. Its first start takes the role's password from `secrets.env`
+(`REFORGED_DB_PASSWORD`), so setup has to have run before; the container stops with a message otherwise.
+`POSTGRES_IMAGE` in `.env` picks another image.
 
 ## A legacy server (Dauntless 1.4.4)
 

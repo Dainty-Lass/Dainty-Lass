@@ -116,6 +116,40 @@ services:
       net:
         condition: service_started
 
+  # The postgres profile: for a server whose host.toml picks Postgres ([database] engine = "postgres",
+  # docs/hosting-docker.md). On 127.0.0.1 in the shared namespace, as setup's env files say: libpq is built
+  # without TLS (DF7). The role is dainty, its password setup's REFORGED_DB_PASSWORD, read from secrets.env
+  # when the data volume is first made
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17}
+    profiles: [postgres]
+    network_mode: service:net
+    restart: unless-stopped
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        secrets=/opt/reforged/.workspace/config/secrets.env
+        POSTGRES_PASSWORD=$$(sed -n 's/^REFORGED_DB_PASSWORD="\{0,1\}\([^"]*\)"\{0,1\}$$/\1/p' "$$secrets")
+        if [ -z "$$POSTGRES_PASSWORD" ]; then echo "no REFORGED_DB_PASSWORD in $$secrets: run setup first" >&2; exit 1; fi
+        # initdb trusts 127.0.0.1 by default, and every container shares this namespace: passwords there too
+        export POSTGRES_PASSWORD POSTGRES_USER=dainty POSTGRES_DB=dainty POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+        exec docker-entrypoint.sh postgres -c listen_addresses=127.0.0.1
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - workspace:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "dainty", "-d", "dainty"]
+      interval: 5s
+      start_period: 30s
+      retries: 6
+    depends_on:
+      net:
+        condition: service_started
+      configure:
+        condition: service_completed_successfully
+        required: false
+
   # The `toml` profile: a server managed by host.toml alone. Setup runs from it before every `up`, so editing
   # REFORGED_CONFIG_DIR/host.toml and `docker compose up -d` is the whole change (docs/hosting-docker.md)
   configure:
@@ -325,3 +359,4 @@ volumes:
   captures:
   mongo-data:
   mongo-config:
+  postgres-data:

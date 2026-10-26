@@ -79,6 +79,7 @@ tempfile.workspace = true
 # admin.env read back by the admin API itself
 admin.workspace = true
 service-kit.workspace = true
+store.workspace = true
 
 # Fake services in child processes: the test binary runs itself in their roles (RH2)
 [[test]]
