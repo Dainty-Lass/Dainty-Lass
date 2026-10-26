@@ -79,7 +79,7 @@ Official prerequisite references:
 - Let's Encrypt challenge types: https://letsencrypt.org/docs/challenge-types/
 
 The C++ projects currently select the Visual Studio v145 toolset. If you use Visual Studio 2022,
-retarget both ParadoxRuntime and tools/CatalogExporter to v143 locally before building.
+retarget both native/runtime and native/catalog-exporter to v143 locally before building.
 
 ## 1. Prepare DNS, TLS, and firewall rules
 
@@ -143,12 +143,12 @@ Follow [GENERATING_SDK.md](GENERATING_SDK.md). In summary:
 
 1. Build Dumper-7.
 2. Run your own 1.14.7 client and inject Dumper-7 into that process.
-3. Copy the complete CppSDK output into ParadoxRuntime.
+3. Copy the complete CppSDK output into native/runtime.
 4. Confirm generated headers and all *_functions.cpp files are present.
 
 Expected layout:
 
-    ParadoxRuntime\
+    native\runtime\
       SDK\
         ...generated headers...
         ...generated *_functions.cpp files...
@@ -159,13 +159,13 @@ Expected layout:
       UnrealContainers.hpp
       UtfN.hpp
 
-A header-only or partial copy is not enough. tools/CatalogExporter uses the same SDK.
+A header-only or partial copy is not enough. native/catalog-exporter uses the same SDK.
 
 ## 4. Generate the required game data
 
 Follow [GENERATING_GAME_DATA.md](GENERATING_GAME_DATA.md). The final files are:
 
-Backend, under ParadoxBackend/game-data:
+Backend, under reference/1.14.7/ParadoxBackend/game-data:
 
 - progression_config.json
 - slayers_path.json
@@ -175,7 +175,7 @@ Backend, under ParadoxBackend/game-data:
 - reward_cache_store.json
 - inventory_storage_policy.json
 
-Director, under ParadoxDirector/game-data:
+Director, under reference/1.14.7/ParadoxDirector/game-data:
 
 - player_hunts_table.json
 - matchmaker_hunts_table.json
@@ -222,10 +222,10 @@ From the repository root:
 
 The helper requires HTTPS port 443 and at least three game ports. It creates:
 
-- ParadoxBackend/.env
-- ParadoxDirector/.env
+- reference/1.14.7/ParadoxBackend/.env
+- reference/1.14.7/ParadoxDirector/.env
 - ParadoxLauncher/.env
-- ParadoxRuntime/deployment_config.generated.h
+- native/runtime/deployment_config.generated.h
 - a fresh RSA JWT signing pair;
 - a shared gameserver API key;
 - a backend-only API-key hashing secret;
@@ -312,7 +312,7 @@ script. Blank remote-publisher settings fail closed.
 
 Backend:
 
-    Set-Location ParadoxBackend
+    Set-Location reference\1.14.7\ParadoxBackend
     npm ci
     npm run build
     npm test
@@ -334,16 +334,16 @@ and requires a separate MONGODB_TEST_DB plus an explicit opt-in.
 
 Build the runtime:
 
-    Set-Location ..\ParadoxRuntime
+    Set-Location ..\..\..\native\runtime
     .\_build.bat
 
 Expected output:
 
-    ParadoxRuntime\x64\Release\MysticParadox.dll
+    native\runtime\x64\Release\MysticParadox.dll
 
 Build the loader:
 
-    Set-Location ..\tools\RuntimeLoader
+    Set-Location ..\..\tools\RuntimeLoader
     cargo build --release
 
 Expected output:
@@ -378,7 +378,7 @@ Runtime signing and Tauri launcher-update signing are separate systems.
 
 Start MongoDB, then:
 
-    Set-Location ParadoxBackend
+    Set-Location reference\1.14.7\ParadoxBackend
     npm start
 
 Check locally and publicly:
@@ -403,7 +403,7 @@ Do not move on while HTTPS or the runtime manifest fails.
 
 Confirm MysticParadox.dll and winmm.dll are beside GAMESERVER_BINARY_PATH, then:
 
-    Set-Location ParadoxDirector
+    Set-Location reference\1.14.7\ParadoxDirector
     npm start
 
 Director immediately starts Training Dojo and Ramsgate. Hunts use the lower portion of the range;

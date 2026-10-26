@@ -31,10 +31,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$BackendRoot = Join-Path $RepoRoot "ParadoxBackend"
-$DirectorRoot = Join-Path $RepoRoot "ParadoxDirector"
+$BackendRoot = Join-Path $RepoRoot "reference\1.14.7\ParadoxBackend"
+$DirectorRoot = Join-Path $RepoRoot "reference\1.14.7\ParadoxDirector"
 $LauncherRoot = Join-Path $RepoRoot "ParadoxLauncher"
-$RuntimeRoot = Join-Path $RepoRoot "ParadoxRuntime"
+$RuntimeRoot = Join-Path $RepoRoot "native\runtime"
 
 function Assert-File([string]$Path, [string]$Label) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {

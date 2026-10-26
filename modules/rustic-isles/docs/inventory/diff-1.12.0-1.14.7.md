@@ -7,7 +7,7 @@ code serves both), a **table** in the version module, or a **hook** on it. RU4 b
 each RU5 agent takes its group's section.
 
 [`diff-1.12.0-1.14.7.json`](diff-1.12.0-1.14.7.json) has one `{group, method, path, class, hook?, table?, note}` per
-1.14.7 isles route (222; 1.12.0's 146 are a strict subset by method and path), plus the non-route differences with
+1.14.7 isles route (223; 1.12.0's 146 are a strict subset by method and path), plus the non-route differences with
 `method: "-"`. Groups and order are RU3a's; RU3b put 26 routes in other groups, noted where it matters.
 
 ## How to read it
@@ -23,7 +23,7 @@ each RU5 agent takes its group's section.
   1.12 answer differs on the wire.
 - **New on both.** 43 routes absent from 1.12.0 are `same` with the note "serve on both": launcher, operator and
   backend-facing routes (their consumer is not a game version), plus two the 1.12 client calls and 1.12.0 404'd
-  (`POST /escalation/...`, `POST /loadout/.../active/:index`). The other 33 new routes are `1.14.7-only`.
+  (`POST /escalation/...`, `POST /loadout/.../active/:index`). The other 34 new routes are `1.14.7-only`.
 - **Unverified (DD9).** Every 1.12 value below is 1.12.0's answer or the 1.12 setting the code itself names. None has
   been played on 1.12 against the Rust port; a hook's 1.12 side is the place to flip if a 1.12 recording shows the
   1.14.7 behaviour is wanted there too.
@@ -33,7 +33,7 @@ each RU5 agent takes its group's section.
 | Group | same | table | hook | 1.14.7-only | Routes |
 | --- | --- | --- | --- | --- | --- |
 | auth | 42 | 3 | 2 | 2 | 49 |
-| reforged-api | 39 | 5 | 0 | 9 | 53 |
+| reforged-api | 39 | 5 | 0 | 10 | 54 |
 | characters-loadouts | 6 | 0 | 2 | 0 | 8 |
 | inventory-reforge | 1 | 0 | 4 | 3 | 8 |
 | progression | 15 | 3 | 5 | 2 | 25 |
@@ -42,7 +42,7 @@ each RU5 agent takes its group's section.
 | chat | 9 | 0 | 0 | 2 | 11 |
 | game-data | 19 | 2 | 2 | 6 | 29 |
 | director | 3 | 1 | 0 | 0 | 4 |
-| **all** | 155 | 17 | 17 | 33 | 222 |
+| **all** | 155 | 17 | 17 | 34 | 223 |
 
 ## Hooks
 
@@ -123,6 +123,7 @@ Nothing here is read by the game client except `/`, `/dauntless-status` and `/ma
 | `GET /reforged/api/InviteCodes` | 1.14.7-only |  | Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call |
 | `DELETE /reforged/api/InviteCode/:code` | 1.14.7-only |  | Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call |
 | `POST /reforged/api/SetAccountStatus` | 1.14.7-only |  | Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call |
+| `POST /reforged/api/Kick` | 1.14.7-only |  | Added after RU3c with DS5's catch-up (8c38219, RU1). Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call |
 | `GET /launcher/v1/runtime/:target/:channel/:platform` | table | TARGET_CHANGELIST | version-independent (launcher, operator or backend-facing API, not the game client); manifests checked against the changelist (1.12.0 hard-codes 392819) |
 | `GET /launcher/v1/runtime/:channel/:platform` | table | TARGET_CHANGELIST | version-independent (launcher, operator or backend-facing API, not the game client) |
 | `GET /launcher/v1/runtime/:target/:channel/:platform/download` | table | TARGET_CHANGELIST | version-independent (launcher, operator or backend-facing API, not the game client) |
@@ -321,7 +322,7 @@ backoff, `TRAINING_HUB`/`RAMSGATE_HUB`, port leases, memory admission, the hunt-
 
 ## What RU4's seams must expose
 
-1. **A per-version route set** in the manifest: the 33 `1.14.7-only` routes are absent from the 1.12 module, so they
+1. **A per-version route set** in the manifest: the 34 `1.14.7-only` routes are absent from the 1.12 module, so they
    fall to the shared unstubbed 404, in registration order as Express matches them.
 2. **The trait above**, reachable from the auth middleware (`no_player_policy` runs before any router) and from each
    area crate.

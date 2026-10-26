@@ -1303,6 +1303,13 @@
   },
   {
     "group": "reforged-api",
+    "method": "POST",
+    "path": "/reforged/api/Kick",
+    "class": "1.14.7-only",
+    "note": "Added after RU3c with DS5's catch-up (8c38219, RU1). Reforged API group: not diffed (brief). Launcher-facing, so whether the 1.12 module mounts it is RU4's call"
+  },
+  {
+    "group": "reforged-api",
     "method": "GET",
     "path": "/launcher/v1/runtime/:target/:channel/:platform",
     "class": "table",

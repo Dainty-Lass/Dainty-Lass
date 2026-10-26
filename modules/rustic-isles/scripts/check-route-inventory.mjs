@@ -16,9 +16,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INVENTORY = "docs/inventory/routes-1.14.7.json";
 const MARKDOWN = "docs/inventory/routes-1.14.7.md";
 
-// RU1 moves both services under reference/1.14.7/: change these two and the paths in the JSON with them.
-const BACKEND = "ParadoxBackend";
-const DIRECTOR = "ParadoxDirector";
+// Change these two and the paths in the JSON and the markdown together.
+const BACKEND = "reference/1.14.7/ParadoxBackend";
+const DIRECTOR = "reference/1.14.7/ParadoxDirector";
 
 const SERVICES = [
     { service: "backend", dir: BACKEND, root: `${BACKEND}/src/app.ts`, app: "app" },

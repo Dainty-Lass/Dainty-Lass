@@ -83,20 +83,17 @@ before you sign up (see the note at the top). The steps below are for running a 
 | ❓ [FAQ](docs/FAQ.md) | Common questions, support and contact |
 | ⚖️ [Scope and legal](docs/SCOPE_AND_LEGAL.md) | What isn't included, responsible use, license details |
 | 🔒 [Security](SECURITY.md) | Safe configuration and how to report a vulnerability |
-| 🖥️ [Launcher](ParadoxLauncher/README.md) · [Update channel](ParadoxLauncher/UPDATE_CHANNEL.md) | Building, signing and publishing the launcher and runtime |
 
 ## 🗂️ Repository layout
 
 | Folder | What it is |
 |---|---|
-| [`ParadoxBackend`](ParadoxBackend) | Account and metagame backend (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) — Node/TypeScript + MongoDB (or SQLite for a local realm) |
-| [`ParadoxDirector`](ParadoxDirector) | Starts and supervises the dedicated game servers for hubs and hunts |
-| [`ParadoxRuntime`](ParadoxRuntime) | C++ DLL injected into the client and servers to adapt them to the private backend (MSVC + MinHook) |
-| [`ParadoxLauncher`](ParadoxLauncher) | Windows launcher: sign-in, servers and realms, install checks, signed runtime updates, game sessions, realm hosting (Tauri) |
-| [`ParadoxTransport`](ParadoxTransport) | Co-op transport module: ICE connections with STUN/TURN relays (libjuice) for player-hosted hubs and hunts; Mystic Relay on the official servers |
-| [`shared/hunt-manifest`](shared/hunt-manifest) | Hunt manifest resolution shared by the backend and the Director |
+| [`reference/1.14.7/ParadoxBackend`](reference/1.14.7/ParadoxBackend) | Account and metagame backend (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) — Node/TypeScript + MongoDB (or SQLite for a local realm) |
+| [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | Starts and supervises the dedicated game servers for hubs and hunts |
+| [`native/runtime`](native/runtime) | C++ DLL injected into the client and servers to adapt them to the private backend (MSVC + MinHook) |
+| [`reference/1.14.7/shared/hunt-manifest`](reference/1.14.7/shared/hunt-manifest) | Hunt manifest resolution shared by the backend and the Director |
 | [`tools/RuntimeLoader`](tools/RuntimeLoader) | `winmm.dll` proxy that loads the runtime at startup |
-| [`tools/CatalogExporter`](tools/CatalogExporter) | Exports compatibility data from your own installation |
+| [`native/catalog-exporter`](native/catalog-exporter) | Exports compatibility data from your own installation |
 
 ## 💬 Community and help
 

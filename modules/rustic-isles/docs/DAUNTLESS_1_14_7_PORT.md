@@ -28,7 +28,7 @@ the main docs once the port is complete.
 3. **Re-check field offsets.** Struct and class offsets used by the runtime are compared between the
    1.12.0 and 1.14.7 SDKs instead of being assumed stable.
 4. **Backend data from the new client.** Catalog, progression, store and hunt tables are regenerated
-   from the 1.14.7 installation with `tools/CatalogExporter`; the 1.12.0 tables are not reused.
+   from the 1.14.7 installation with `native/catalog-exporter`; the 1.12.0 tables are not reused.
 
 ## Progress
 
