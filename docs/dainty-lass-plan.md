@@ -1,0 +1,368 @@
+<!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false } } -->
+
+# DaintyLass plan: one controller, game modules in their own repositories
+
+Status: draft, written 2026-10-26. The maintainer chose the decisions in section 3 the same day, over several
+rounds of questions; section 8 lists what is still open. Reviewed the same evening against `main` and Forgejo:
+done rows are ~~struck through~~ as in `MIGRATION_PLAN.md`, a row done in part says so in bold, and section 1
+records the state each was checked against.
+
+This plan renames the app and splits this repository. `dauntless-eternal` (this repository, Reforged Revival)
+becomes **DaintyLass**: the controller, the module framework, the core plugins and the admin API. The game code
+leaves for repositories of its own: **rustic-isles** (Mystic Paradox's 1.14.7 and 1.12.0, ported to Rust, as two
+game modules), **rustic-rifts** (Mystic Paradox's player-hosted realms, ported to Rust, as libraries) and
+**legacy-revived** (Dauntless Revived's 1.4.4, one game module, in maintenance mode) and **rustic-freeza** (a
+plugin forked from the Dauntless Reforged Revival line, carrying its gameplay patches and its launcher's look, as
+a thank-you to Freeza for the inspiration). The launcher page is replaced by an Astro and shadcn UI in
+**dainty-lass-ui**. DaintyLass mounts the other five as git submodules.
+
+On top of that, servers in several regions (Oregon, New York, the UK, Germany) join one **network**: global
+accounts owned by a home region, one matchmaking pool that widens from the lowest-ping region outwards, a shared
+Ramsgate per region, chat and direct messages across servers, and hunt ids that are the same on every server.
+
+It amends [`MIGRATION_PLAN.md`](../MIGRATION_PLAN.md) where section 7 says so and leaves the rest of it standing.
+The integration pass folds the amendments in; a row here never edits that file (AGENTS.md).
+
+Row ids: **DS** = repositories, split and rename, **DF** = module framework and controller, **DU** = UI,
+**RU** = rustic-isles, **RF** = rustic-rifts, **RV** = legacy-revived, **RZ** = rustic-freeza, **DN** = the network,
+**DL** = licensing, **DX** = cross-cutting, **DD** = decisions. "DR" still means Dauntless Revived at `e1c5fec`, and
+the RB, RA, RS, RH and RD ids point into `MIGRATION_PLAN.md`.
+
+## 1. Where things stand
+
+Measured 2026-10-26.
+
+| What | State |
+| --- | --- |
+| This repository | `main` at `f891d92`, a new root made on 2026-10-26 (`3a756cf`) plus the MIT split (DL1): one cargo workspace with the controller (`crates/controller`, MIT), service libraries (gateway with the allowlist, content, admin (MIT), host kit; backend and Director are MIT stubs), DR's 1.4.4 `metagame` and `deploy` behind the `legacy` feature, 12 edition binary crates (MIT; `Refined` = 1.4.4, `Reforged` = 1.14.7), the Tauri launcher with a stand-in page. Paradox's Node backend and Director at `paradox/` (Mystic `21b9ff5` + this project's launcher API, Director and runtime changes + the Reforged Revival line's gameplay patches 0004–0039, kept and attributed until RZ2). C++ in `native/`: `paradox-runtime`, `runtime-loader`, `catalog-exporter`, DR's `internal-server` and `client-mods` |
+| The Reforged Revival line | `FreezaMotoqueiro/Dauntless-Reforged-Revival`, `main` at `477a6ac` (2026-10-24, 92 commits): what this repository began as a fork of. Removed from it on 2026-10-26: its Node projects (`legacy/`), preset, brand, docs, workflows and root files are gone, its three infrastructure patches to Mystic Paradox were rewritten from the Rust side's contract, and `main` was given a new root. The old history is in `dainty-lass-pre-rewrite-2026-10-26.bundle` beside the repository. The line lives on as rustic-freeza (DD25) |
+| Forgejo | `git.silentspud.com`, Forgejo 15.0.10, with access to the instance restricted. Five repositories under `silentspud`, each reached as `origin` over SSH on port 222: `dainty-lass` (this one, renamed from `dauntless-eternal` on 2026-10-26; the old name is refused, not redirected, so every clone's `origin` was re-pointed by hand) and `rustic-isles`, `rustic-rifts`, `legacy-revived` and `dainty-lass-ui`, created the same day and still empty, each cloned beside this repository with no commit yet |
+| Mystic Paradox | Upstream `main` at `21b9ff5` (`mystic` remote, `pranav158/Mystic-Paradox`). The local `replay` branch is `21b9ff5` plus Reforged's patches 0001–0039 as one commit each and their follow-ups (`ce1c42e`, 41 commits). The 1.12.0 release is the tag `dauntless-1.12.0` (`4d5dfaa`), an ancestor of `main` 91 commits back |
+| Paradox's size (TS, JS and C++, tests included) | 1.12.0: backend 16.8k lines, Director 1.7k, runtime 11.4k. `replay`: backend 103.5k, Director 4.5k, runtime 29.5k, `ParadoxTransport` 8.8k |
+| Realms on `replay` | Players host hubs and hunts on their own PCs; joiners connect through `ParadoxTransport.dll` (ICE on libjuice: direct, or through a TURN relay). A self-hosted backend brings its own relay (Cloudflare TURN or a `turn-rest` server such as coturn) and an admission key pair. Mystic's anti-cheat and Steam transport are private, so Guard runs on stubs in observe mode. In the backend, `p2p/`, `realms/` and Guard are about 2.0 of its 5.1 MiB of source (210 files mention realms). A "local realm" is something else: the whole backend on one PC with no database server (`PERSISTENCE_PROVIDER=sqlite`, every repository on `node:sqlite`, a file under `realm-data/`, daily `VACUUM INTO` backups); player-hosted hubs keep their state on the central backend |
+| Dauntless Revived | `SilentSpud/dauntless-revived` on GitHub: `plan` at `24b7624` is upstream `main` (`5eb74ff`, `mixutin/dauntless-revived`) plus 468 commits, DR's Rust migration among them. This repository carries pieces of it with Reforged's changes: merge `54e271a` (commits `c1be7f7`…`18ac587`) |
+| Rust Director | `feat/rb10-director-single-binary` (`cdc0a87`): RB10, the Director in Rust, never merged; based on the old `plan` layout |
+| Unmerged branches on `main` | Rebased onto the new root on 2026-10-26: `docs/app-structure-rd26` (`723d249`, ten commits): the app-structure fixes, the server GUI's Host page running the server inside the launcher, RX3's controller checklist (`docs/security/controller.md`) and RD26 recorded in `MIGRATION_PLAN.md`, AGENTS.md and the guide (its additions to the hosting pages were dropped with the old pages and are to be written again); `feat/app-structure-docker` (`b7ea110`, the server as one container); `docs/dainty-lass-plan` (this file). The integration pass merges them before DF6, so the rename sweep runs over the final tree |
+| Getting the game | Epic still lists Dauntless (app name `Jackal`) for accounts that added it before it left the store in May 2025, but serves only 2.1.1's manifest. Older builds install from an archived manifest plus Epic's chunk CDN (`.../Builds/Org/o-krlzxj88qrtb69fredeuaf887bl5az/Jackal/default` on three hosts), which asks for no login. The community [Dauntless Manifest Archive](https://github.com/addison2k/DauntlessManifestArchive) holds 1.5.4, 1.6.2, 1.10.5, 1.12.0, 1.14.1, 1.14.5, 1.14.6, 1.14.7 and 2.1.1 with SHA-1 sums; **1.4.4 is not archived**, so it can't come from Epic. Mystic's guide pins 1.14.7's manifest by SHA-1 (`aa70748e…31476`) and its executable by SHA-256, through Legendary. Epic can delete an old build's chunks at any time. [`egs-api`](https://docs.rs/egs-api/) 0.14.0 (MIT, September 2026) signs in with an authorization code, lists the library and parses download manifests; whether it downloads chunks itself is not documented |
+
+## 2. End state
+
+```text
+silentspud/dainty-lass            (renamed from dauntless-eternal)
+  rust/
+    crates/module-api             the framework: GameVersion, manifests, traits, the out-of-process protocol
+    crates/controller             the registry, lifecycle, commands and events
+    crates/protocol, proxy, service-kit, store (SQLite or Postgres, change history)
+    plugins/gateway (allowlist), content, admin, host, launcher (Tauri shell)
+    plugins/network               node links, directory, instance registry, matchmaking ring
+    plugins/chat                  XMPP over WebSocket, federated between nodes
+    bins/server, server-console, server-gui, client
+  native/runtime-loader           winmm.dll, shared by every game's client payload
+  ui/                             submodule: silentspud/dainty-lass-ui
+  modules/rustic-isles/           submodule: silentspud/rustic-isles
+  modules/rustic-rifts/           submodule: silentspud/rustic-rifts
+  modules/legacy-revived/         submodule: silentspud/legacy-revived
+  modules/rustic-freeza/          submodule: silentspud/rustic-freeza
+  docs/ docker/ brand/
+
+silentspud/rustic-isles           Mystic Paradox's history, `replay` as main
+  crates/isles-*                  one Rust backend and Director for both versions
+  modules/isles-1-14-7            game module "Rustic Isles 1.14.7", links rustic-rifts' server libraries
+  modules/isles-1-12-0            game module "Rustic Isles 1.12"
+  native/runtime/                 MysticParadox.dll per version; catalog-exporter
+  reference/                      the Node services each version is ported from, until the replay passes
+  preset/                         1.14.7 game data (from dainty-lass)
+
+silentspud/rustic-rifts           realms, one library per component
+  crates/rifts-admission, rifts-relay, rifts-realms, rifts-guard   server side, used by isles-1-14-7
+  crates/rifts-host               client side, used by DaintyLass's launcher
+  native/transport/               ParadoxTransport.dll, with its history
+
+silentspud/legacy-revived         DR's history, SilentSpud's `plan` as main; maintenance mode
+  modules/revived-1-4-4           game module "Dauntless Revived": metagame, deploy
+  native/internal-server, client-mods
+
+silentspud/dainty-lass-ui         Astro + shadcn monorepo from the preset
+
+silentspud/rustic-freeza          Freeza's history (Dauntless-Reforged-Revival at 477a6ac as main); a plugin
+  crates/rustic-freeza            his gameplay patch set for the 1.14.7 game servers, and his launcher's look as a UI theme
+  reference/                      his Node projects, docs and workflows, as they were
+```
+
+## 3. Decisions
+
+| # | Topic | Decision | Consequence |
+| --- | --- | --- | --- |
+| DD1 | Name | The app is **DaintyLass**; the repository `dainty-lass`, renamed on Forgejo (done 2026-10-26; Forgejo refuses the old name instead of redirecting it, so every clone's `origin` was re-pointed by hand). Names people read change: README, docs, window titles, both languages' strings, crate and binary names. **Names an install depends on stay as they are**, with no migration planned: the `dauntless://` invite scheme and the `reforged-revival://` refusal, `RRK_` keys, the launcher's identifier and `userData` folder (the stored keys live there), env prefixes (`REFORGED_` and the rest), the `x-reforged-*` headers, the `/reforged/api` routes, the nftables table, the certificate and every invite's `fp`, and the file names the game loads (`MysticParadox.dll`, `ParadoxTransport.dll`, `winmm.dll`) | No host or player redoes anything on update. Players and hosts never read those names; renaming one would need a migration for no visible gain |
+| DD2 | Repositories | **Six**, on `git.silentspud.com` under `silentspud`, all public on the instance. DaintyLass pins the other five as submodules at `ui/` and `modules/<name>/`. Module repositories never depend on DaintyLass's git history: they depend on `module-api`, `protocol`, `service-kit` and `store` by version from Forgejo's Cargo registry, and DaintyLass's workspace `[patch]`es those to its own paths, so a checkout with submodules builds as one tree. The module repositories sit under `exclude` in DaintyLass's workspace and keep workspaces of their own. rustic-isles takes rustic-rifts the same way | No circular git dependency; a module builds alone against a released API, or inside DaintyLass against the working copy. DF1 proves the cargo layout before anything depends on it. Public repositories also let CI and clones fetch submodules without a token |
+| DD3 | Module kinds | **Core plugins** add capabilities other modules use: gateway with the allowlist, content, store, admin API, host kit commands, the Tauri shell, the console and TUI, chat and the network (DD16, DD21). They live in DaintyLass and are compiled in, picked by each binary's features. **Game modules** carry everything a server for one game version needs and use the core plugins only through `ModuleContext`: they register routes behind the gateway, UDP ranges with the allowlist, files with content, commands, events, admin actions (kick, ban, lookup) and config sections | One gateway, one allowlist and one content server per host, whatever games it runs. A game module never opens a public listener (AGENTS.md: the gateway is the only one off loopback) |
+| DD4 | Game module identity | Each game module declares an **exact game version** (`GameVersion`: dot-separated integers, compared exactly, no ranges), a display name, a module id, the invite `version` aliases it answers to (`revived`, `reforged`), its module API version, its default ports and its capabilities (realms, for one). The controller keys modules by game version and **refuses a second module for a version that is already loaded**, compiled in or not. The display names: **"Rustic Isles 1.14.7"**, **"Rustic Isles 1.12"** (Rustic Isles' names always carry the version) and **"Dauntless Revived"** | Replaces `Edition`, `EditionSelection` and `Game` (`protocol`): an invite's `version` already names a game version, so it maps straight to a module. Port defaults come from manifests, and the controller moves a clash instead of hard-coding 61000/61010 |
+| DD5 | Loading at runtime | **Out of process.** A game module crate is a library (compiled in) and, through `module-api`'s adapter, an executable the controller starts and talks to over the child's stdin and stdout: length-prefixed frames, a handshake carrying the manifest and API version, then calls both ways. The same `GameModule` trait backs both, so a module is written once. Unload: a stop request, a grace period, then the process tree is killed (job object on Windows, process group on Linux, as `start` already does). Only modules named in `host.toml` with their SHA-256 can be loaded; the admin API and the console can load and unload those, never an arbitrary path | A crashing module doesn't take the controller down, and no Rust ABI is involved. Every call crosses a pipe, which costs nothing next to the game's HTTP. The frame parser is a trust boundary with a fuzz target (DX2) |
+| DD6 | Paradox's backend and Director | **Ported to Rust now, inside rustic-isles** (realms in rustic-rifts, DD14). The RB rows move there as RU rows, and RD17's gate no longer holds for them. Until the port passes its replay, today's `main` keeps shipping and hosts keep running Node Paradox; the 1.14.7 module ships only once its Rust services pass | The largest part of this plan: about 108k lines of TS and JS for 1.14.7 against 18.5k for 1.12.0, of which realms are about 40% |
+| DD7 | rustic-isles' base and name | **The `replay` branch**: Mystic `main` at `21b9ff5` with Reforged's 39 patches, pushed with its history as rustic-isles' `main`; the `dauntless-1.12.0` tag comes with it. Upstream `main` is kept as a branch for later cherry-picks. Fixes made on this repository's `paradox/` since RP2 that `replay` lacks are listed (DS5) and applied first. **No new name borrows from "Mystic Paradox"** (its additional terms, sections 3 and 4): repositories, crates and display names are Rustic Isles' and Rustic Rifts'. Mystic Paradox is named only in truthful attribution (DX4) | The latest Mystic, nothing Reforged fixed lost, and no name that could read as affiliated with Mystic Paradox |
+| DD8 | One codebase for 1.14.7 and 1.12.0 | The Rust port is written once, from the 1.14.7 Node code. 1.12.0's differences come from diffing the tag's Node services against the same files on `replay`, and each becomes a version hook or a data table in the shared crates. The per-version module crates stay thin: manifest, hooks, tables, Director config. The C++ runtime is built per version from each host's SDK; folding the two runtime trees into one source is a spike (RU10), not a promise | 1.12.0 costs a route inventory, a diff and its hooks, not a second port |
+| DD9 | 1.12.0's verification | **Built, verified later.** "Rustic Isles 1.12" is ported against its Node tests and the route diff only, and its manifest marks it unverified until someone records 1.12.0 traffic for a replay. It never gates the 1.14.7 cutover | The UI shows it as unverified; hosts can still load it |
+| DD10 | legacy-revived | **In maintenance mode.** Its base is **SilentSpud's fork** (`plan`, `24b7624`) pushed with its history, upstream `main` kept as a branch. Then what this repository changed in its copy of DR (DS5) is brought across. The module is DR's `metagame`, `deploy`, `internal-server` and `client-mods`; DR's own gateway, content, launcher, `discord-bot` and `friend-kit` are dropped from the build, since DaintyLass's core plugins and admin API replace them | DR's 1.4.4 server keeps its history and its Reforged changes; one gateway serves every game. It takes fixes and whatever keeps it working with the framework (module API changes, `store`, the change log); **new features go to the Rustic Isles modules**, and the network, Epic installs and realms are not brought to it. Its README and repository description say so |
+| DD11 | The UI | **A new repository, `dainty-lass-ui`**, made by `bunx --bun shadcn@latest init --preset b1cYwfJGNu --template astro --monorepo` and mounted at `ui/`. Tauri stays the shell and serves Astro's static build. The bridge's generated TS types are written into the submodule (`RR_UPDATE_GENERATED=1`), and DaintyLass's staleness test reads them there. Both language catalogs move to the UI repository, and `gen/strings.json` is generated from them. Module-specific screens are data: the UI draws a game module's commands, status and settings from its manifest, so no module ships UI code. Realm hosting is the one UI that is code, shown for modules with the realms capability | Section 6's "the page's look word for word" no longer holds; both languages and every string do. Bun joins the build. The Electron launcher in `legacy/` is untouched until RA16 |
+| DD12 | Binaries | The 12 edition crates **collapse to four**: `server`, `server-console`, `server-gui`, `client`, each with one Cargo feature per compiled-in game module and one for realms. The release builds every module in. The player `client` links no game server code: what it needs per game (the executable hash, the command line, the ini edits, which files to fetch) comes from the module's client profile, served by content. With the realms feature it links `rifts-host` | Fewer crates and one feature list. The launcher's legacy 1.4.4 paths become a client profile from the revived module |
+| DD13 | Native code | **`runtime-loader` stays in DaintyLass** at `native/runtime-loader`, with Paradox's attribution: the launcher's PLAY check (RD9) and every game's client DLLs go through it, 1.4.4's included (`920a411`). `paradox-runtime`, `catalog-exporter` and `preset/` go to rustic-isles, `ParadoxTransport` to rustic-rifts, `internal-server` and `client-mods` to legacy-revived. The Reforged Revival line's gameplay patches (0004–0039) leave `paradox/` and `native/` for rustic-freeza (RZ2); after that rustic-isles carries Mystic's code and this project's changes only | No module depends on another game module's repository. The runtime patch method (`docs/paradox-runtime-patches.md`) moves with the runtime |
+| DD14 | Realms | **In scope, in their own repository, `rustic-rifts`**: a library monorepo, one crate per component, ported from `replay`'s `p2p/`, `realms/` and Guard code and its `ParadoxTransport`. Rifts is neither a core plugin nor a game module: realms exist only on 1.14.7 and share its accounts, sessions and hunt data, so `isles-1-14-7` links the server crates and declares the realms capability, and DaintyLass's launcher links `rifts-host` for hosting and joining. Admission, relay credentials and leases are admin actions and commands of the 1.14.7 module. Guard keeps observe mode on stubs, since Mystic's anti-cheat is private. The relay is DD24's | Realms ride the module framework without a third module kind. About 40% of the backend port moves here, and the UI gains a hosting flow. Hosts that turn realms on need a TURN relay; the rest need nothing new |
+| DD15 | Database | **SQLite by default, Postgres where concurrency pays.** A server on a PC and a dedicated community host run SQLite (WAL, one file, no service); a dedicated host may pick Postgres in `host.toml`; network region nodes (DD16) run Postgres, since a home database takes every account homed there plus writes forwarded from other regions. `store` offers both through Diesel's `MultiConnection`, so every repository is written once in SQL both accept, with migrations in both dialects and every repository's tests run on both in CI. `store db move` copies a database from one engine to the other, for a host that switches. Within a node, chat (DD21) keeps its own SQLite file or Postgres schema so its writes don't queue behind the game's; the network directory (DD17) and admin timeouts are tables in the node's database; matchmaking tickets, presence and the instance registry stay in memory. The launcher keeps no database (settings file, keystore, a resume file per download). libSQL is not needed; Turso's Rust engine is watched, and could take over the SQLite side without a file change once it leaves beta with concurrent writes | Nobody installs a database to run a server on a PC or a small host, and DR's metagame and `main`'s `store` stay on the SQLite they have. The cost is two dialects: portable queries, two migration sets and a doubled test matrix, far less than Mystic's separate implementation per database. Amends RD15, which put the whole Paradox port on Postgres |
+| DD16 | The network | **One operator's cluster** of regional nodes (Oregon, New York, the UK, Germany), trusted with each other. Each node is an ordinary DaintyLass server whose `host.toml` names its region and its peers. Nodes talk through each other's gateways on host-only routes with mutual TLS under a cluster CA, so the gateway stays the only public listener. The network is a core plugin (`plugins/network`) with game hooks; **1.14.7 only** at first, through a network capability in its manifest, and **built alongside the port**, on the Rust backend only | No federation with other people's servers yet; the protocol is versioned so it can come later. 1.12 and 1.4.4 can opt in later through the same capability |
+| DD17 | Accounts | **Global accounts, owned by a home region.** An account's data lives only in its home node's database; another node that needs it (a hunt it hosts, a hub the player is in) calls the home's internal API. A small directory, replicated to every node with one leader node for writes, maps account to home and holds username claims, so names are unique network-wide. **The account key never leaves its home** (AGENTS.md's rule holds): another node gets a short-lived session ticket the home signs | No distributed writes and no shared database, so the engine is a per-node choice (DD15). Registration (rare) round-trips to the directory leader. A far region pays a cross-region call per account write it makes, not per read the home makes |
+| DD18 | Global ids | **Every hunt, hub instance, party and matchmaking ticket gets a network-wide id** (a ULID tagged with the owning node), and every node can resolve one to its owner through the instance registry. A player whose join reaches the wrong node gets a redirect, and the launcher's relay (port 61100) re-points to the owner's gateway with a home-signed ticket; the game client only ever sees `127.0.0.1:61100`, so it doesn't notice. Accounts get global ids from the start (RU4's seams) | The Rust port uses these ids from its first commit, so no id migration later. Whether the 1.14.7 client survives the relay switching mid-session is DN1's spike |
+| DD19 | Matchmaking | **One pool that widens by ping.** The launcher measures round-trip time to every node's gateway and reports the regions in order. A ticket is owned by the player's home node and published to the nearest region first, then the next after a delay, and so on until every region sees it. A region that forms a match claims each ticket from its home (compare-and-set), so a ticket lands in one match only. The hosting node's Director starts the game server, its allowlist admits the matched players' addresses, and the game server's XP and objective posts are forwarded to each player's home | Ring delays are settings. A match forms where most of its players have the lowest ping, and nobody waits forever for their own region |
+| DD20 | Ramsgate | **One shared Ramsgate per region**, hosted by that region's node, split into shards when an instance is full. A player goes to the Ramsgate of their lowest-ping region, whichever node is their home | Players from every server meet in their region's hub; the hub's game server talks to many homes through the network |
+| DD21 | Chat | **A chat core plugin** (`plugins/chat`) from DR's XMPP-over-WebSocket code, with each game module giving its JID and room rules, and nodes federated server-to-server as XMPP does. A network-wide room, one room per region, and party and hunt rooms owned by the instance's node. Direct messages route to the recipient's current node and are stored at both players' homes, delivered at login when the recipient was offline. Room history lives with the room's owner and is replicated to the nodes that read it. Mutes and bans apply network-wide through the home | RU5's chat area becomes this plugin's 1.14.7 rules instead of a chat of its own. Paradox's City rooms (patch 0025) become per-region rooms |
+| DD22 | Getting the game from Epic | **The launcher installs the game from the player's own Epic library.** It signs in to Epic (`egs-api`, the authorization-code flow Legendary uses, in a webview with a paste-the-code fallback), checks that `Jackal` is in the library, and lists the versions it can install: those whose game module's client profile names an Epic build (version, manifest SHA-1, manifest sources, the executable's SHA-256). It downloads the chosen one from Epic's CDN, checks every file against the manifest and the executable's hash, and installs each version in a folder of its own, so several sit side by side. Nothing is downloaded for an account without Dauntless, even though the CDN would serve it. DaintyLass never hosts or mirrors game files. **Manifests are committed** into the repository of the game module that pins them (by SHA-1) and served by content; the launcher takes a joined server's copy first, then the module's own, then the archive, and checks the SHA-1 whichever it got. The Epic session is kept like the account key: in the keystore, never across the bridge, never in a log. The host kit gets the same install as a command, with the pasted-code sign-in, for the game servers the Director starts | Players stop needing Legendary. 1.12.0 and 1.14.7 can be installed; **1.4.4 cannot** (no archived manifest), so "Dauntless Revived" keeps locating an existing folder only. A version whose chunks Epic has deleted shows as unavailable. Signing in with Epic's own launcher client id is what Legendary and Heroic do, not something Epic sanctions. DR's resumable downloader (`net/downloader.rs`, which RD22 left out) comes back for this |
+| DD23 | Change history and rollback | **Every change is recorded and can be undone**, because maintainers have lost data to partners who turned on them. Four layers. (1) `store` writes an append-only change log in the same transaction as each change: time, actor, table, row key, operation, the row before and after. Player-facing records (accounts, characters, inventory, bans) are soft-deleted and purged only after a retention period. `history` and `revert --actor <who> --since <time>` write compensating changes, which can themselves be reverted, and report rows changed since instead of overwriting them. (2) The log and periodic snapshots ship continuously off the server to S3-compatible storage with object lock (S3, Backblaze B2, MinIO, Cloudflare R2), with write-only credentials on the server and the account held by the owner only; a restore replays a snapshot and the log up to a chosen moment, on either engine. (3) Each log entry carries the hash of the one before it and the head ships with the log, so an edited or truncated history shows where it breaks. (4) The admin API gets **one key per person** with a role (viewer, moderator, admin, owner); the existing `REFORGED_ADMIN_API_KEY` becomes the owner's key. Destructive and bulk actions wait out a delay or need a second operator's approval. In a network, each node can also ship its log to another region | A partner with access to the admin API or the host tools can't erase anything for good. One with root on the server can stop the shipping and then delete, and costs the owner only what changed since the last shipped entry, seconds to minutes; the status page and the admin API alert when shipping falls behind. Every write must go through `store`'s write path for the log to be whole, so modules get no raw connection |
+| DD24 | The TURN relay | **turn-rs, as its own process**, one per server (one per region in a network), started, stopped and configured by the host kit with `static-auth-secret` set to the backend's `turn-rest` secret (`secrets.env`), UDP and TCP on 3478, TLS on 5349 when the host has a certificate for it, and its relay `port-range` opened by the allowlist's firewall code. The backend's provider stays `turn-rest`, so coturn is a drop-in fallback and Cloudflare TURN stays a setting. A TURN relay can't sit behind the gateway, so it is the **one written exception** to "the gateway is the only listener off loopback" (AGENTS.md, through the integration pass) | Realms need nothing from a third party, and a relay crash doesn't touch the game server. turn-rs has no tagged releases and doesn't claim to be production-ready, so RF8 is also its trial; if it falls short, the host kit runs coturn instead with the same secret |
+| DD25 | rustic-freeza | **A plugin forked from the Dauntless Reforged Revival line**: `FreezaMotoqueiro/Dauntless-Reforged-Revival` at its latest commit (`477a6ac`, 2026-10-24), pushed with its history as rustic-freeza's `main`, as a thank-you to Freeza, whose line this project began as. A **plugin**, not a game module: loaded like one (DD5, out of process, named in `host.toml` with its SHA-256), it registers against the 1.14.7 module's **patch-set capability** to apply his gameplay patches to the game servers (the runtime built with them, the backend's rules switched on) and ships his launcher's look as a **theme** (palette, layout, logo) through a theme capability the UI draws when the plugin is loaded. Both are opt-in per host. His code stays his, AGPL-3.0-only, attributed in rustic-freeza's `NOTICE.md`, and nothing of it comes back into DaintyLass, rustic-isles or rustic-rifts | The patches 0004–0039 that `paradox/` and `native/` still carry move there (RZ2), and the runtime patch method goes with them. `module-api` gains the two capabilities (DF2). A host who wants his tuning loads one plugin; one who doesn't runs Mystic's game as Mystic ships it |
+| DD26 | Licensing | **Two licences, split by where the code came from, not by repository.** Every repository stays AGPL-3.0-only as a whole. A crate is **also MIT** when nothing in it is written from Undaunted, Dauntless Revived, Mystic Paradox or the Reforged Revival line: no file from those trees and no function rewritten from one. Its own `Cargo.toml` says `license = "MIT"`, `NOTICE.md` lists it and `LICENSE-MIT.txt` holds the text. Copyright follows the source a port was written from, not the git history: the new root removed Freeza's code, not the Rust ports of it. Three groups. **MIT now**: `controller`, `admin`, the 12 bins and the `backend` and `director` stubs (DL1). **MIT after a rewrite from behaviour, or with Freeza's written consent** (DL2): the host kit's 22 modules ported from `ReforgedHost` (about 15k lines) and the launcher's modules ported from his launcher's additions (`runtime_files`, `verify`, `hostkit`, `hostserver`, `requirements`, `dialogs`, `controller/host`, `controller/runtime`, about 5k), DL3 and DL4. **AGPL for good**: `protocol`, `proxy`, `service-kit`, `store` (DR verbatim), `gateway` and `content` (DR's services fitted to Reforged), the launcher's DR core (the controller, bridge types, relay, keystore, pinned TLS, launch, invite links, settings, game config), the fuzz crate (it holds DR's targets), everything behind `legacy`, all of `paradox/` and `native/`, and the chat plugin (DD21, from DR's XMPP code); `native/runtime-loader` stays Apache-2.0. **Born MIT**: `module-api`, the network plugin, `crates/epic` and the DE and DH crates, and `dainty-lass-ui`'s code. The UI's two catalogs keep their AGPL, since section 6 keeps their strings and those strings are DR's text changed for 1.14.7. A clean-room `gateway` and `content` (about 18k lines, from the parity fixtures) is not planned | Someone can take the controller, `module-api`, the network plugin and the UI for another game without the AGPL; a release that links MIT and AGPL crates is distributed under the AGPL as a whole, which MIT allows. Purely AI-generated code may hold no copyright at all, which weakens the MIT grant as much as the AGPL claim, so `NOTICE.md` licenses only what the contributors hold. A licensing lawyer reads `NOTICE.md` and the DD2 layout before DX5 publishes anything as MIT (DL5) |
+
+## 4. Work
+
+### 4.1 Repositories, split and rename (DS)
+
+| # | What | Verify |
+| --- | --- | --- |
+| ~~DS1~~ | ~~Rename `silentspud/dauntless-eternal` to `dainty-lass` on Forgejo; point every clone's `origin` at the new URL (maintainer)~~ Done 2026-10-26; the old name is refused rather than redirected, so the clones were re-pointed by hand | `git ls-remote` works on the new URL; the old one answers "Cannot find repository" |
+| DS2 | **Repository created 2026-10-26, empty.** Push `replay` as `main`, the `dauntless-1.12.0` and `v1.12-final` tags, Mystic's `main` as `upstream/main`; `mystic` stays a fetch-only remote | `git log` shows Mystic's history; the tag resolves to `4d5dfaa` |
+| DS3 | **Repository created and described as in maintenance mode 2026-10-26, empty.** Push SilentSpud's `plan` as `main`, `mixutin`'s `main` as `upstream/main` | `git log` shows DR's history to `24b7624` |
+| DS4 | **Repository created 2026-10-26, empty.** Run the shadcn command (DD11) and commit the generated tree untouched as the first commit | `bun install` and `bun run build` pass |
+| DS5 | Catch-up lists, read-only: this repository's commits touching `paradox/`, `native/paradox-runtime`, `native/catalog-exporter` and `preset/` that `replay` lacks (`docs/port/catchup-isles.md`); its DR-derived commits (`c1be7f7`…`18ac587` and later ones touching `metagame`, `deploy`, `native/internal-server`, `native/client-mods`) as `docs/port/catchup-revived.md` | Every commit is listed as needed or not applicable, with the reason |
+| DS6 | Swap the code for submodules: delete `paradox/`, `native/paradox-runtime`, `native/catalog-exporter`, `native/internal-server`, `native/client-mods`, `preset/`, `rust/services/metagame`, `rust/services/deploy`; add the module submodules; path sweep of the host kit, Docker, CI and docs. Lands once RU1 and RV1 hold that code, and before the Rust port, so hosts keep running what they run today | `cargo test`, `npm test` in the moved Node services, `bash docker/run-tests.sh` pass from a fresh `git clone --recurse-submodules` |
+| DS7 | **Repository created 2026-10-26, empty.** Fill it from rustic-isles with `git subtree split` of `ParadoxTransport`, so the transport keeps its history; the Rust crates start empty | `git log` in the new repository shows the transport's commits |
+| DS8 | Create `silentspud/rustic-freeza` (public): push `FreezaMotoqueiro/Dauntless-Reforged-Revival`'s `main` (`477a6ac`) as `main` with its history and as `upstream/main`; a README that says what the plugin is and why | `git log` shows the line's 92 commits to `477a6ac` |
+
+### 4.2 Module framework and controller (DF)
+
+| # | What | Verify |
+| --- | --- | --- |
+| DF1 | **Spike**: the cargo layout of DD2. A module workspace under `exclude`, used as a path dependency; a crate on Forgejo's Cargo registry `[patch]`ed to a path; `workspace = true` inheritance inside the submodule; on Windows and Linux. Kill criterion: if the registry or the `[patch]` fails, modules take `module-api` as a git dependency on a tag | A toy module builds both alone and inside DaintyLass |
+| DF2 | `crates/module-api`, the one seam every other repository builds on: `GameVersion`, `ModuleManifest` (capabilities, the unverified mark), the `GameModule` and `CorePlugin` traits, `Registrar` (routes, ports, commands, events, admin actions, config sections), `ModuleContext`; the frame protocol and its adapters for both sides; the client profile with its Epic build fields (DE4); the network seams (DN2: node identity and region, global ids, the home API trait); the chat plugin's room and JID hooks (DN10); the actor context the change log records (DH1); the patch-set and theme capabilities a plugin fills (DD25). Every capability is a stub that compiles and is tested as one (RD18's seam rule) | A stub module runs compiled in and out of process and gives the same answers; fuzz target `module_frame` |
+| DF3 | Controller: the registry keyed by game version with the duplicate refusal (DD4), load and unload, the `[modules]` section of `host.toml` (compiled-in list, external modules by path and SHA-256), commands into the console, TUI, server GUI and admin API, the event bus, port assignment, logs and status from out-of-process modules into the tracing layers. `Edition`, `EditionSelection` and `Game` removed | Two modules for one version refused in either order; a module killed mid-run shows as failed and restarts on command; nothing left running after stop |
+| DF4 | Core plugins on the registry, **four agents**, one per plugin: **DF4a** the gateway routes by game version to the module's upstream (the invite's `version`, then the route) and registers the node-link route group as a stub for DN3; **DF4b** content keys runtime manifests, client profiles and Epic manifests by version (`edition=` still accepted, a request without one still gets 1.14.7); **DF4c** the admin API sends kick, ban and lookup to the module of the player's game; **DF4d** the host kit's commands gain `module list`, `load`, `unload`, and the allowlist guards the union of the modules' UDP ranges | The gateway and content parity tests pass unchanged; RD25's admin API cases pass against every game |
+| DF5 | Bins: four crates with one feature per module and one for realms (DD12); the release workflow builds them (`server-release.yml` owner) | Each bin starts with zero, one and every module |
+| DF6 | Rename sweep (DD1), **first, while nothing else writes to this repository**: crate and binary names, window titles, docs, both languages' strings; the folders DS6 will delete are skipped, and the contract names DD1 keeps are left as they are. Every later row is then written under the new names | No `Reforged Revival` or `dauntless-eternal` left outside history, the folders DS6 deletes, the catch-up lists and the contract names |
+| DF7 | `store` on two engines (DD15): `MultiConnection` over SQLite (as today) and Postgres, RB3's `pq-sys` `bundled` spike on MSVC and Linux, migrations in both dialects, `store db move` between them, the engine choice in `host.toml`; the host kit's managed Postgres (RH3) and Docker's Postgres container for hosts that pick it; CI runs every repository's tests on both | `cargo test -p store` on both OSes against both engines; a database moved to Postgres and back compares equal |
+| DF8 | Launcher bridge seam: every new bridge command the plan needs (Epic sign-in, library, versions and downloads; region ping; module panels, load and unload; realm hosting; history and revert in the server GUI) registered in `spec.rs` as a stub, the generated types and isolation hook regenerated (AGENTS.md) | Every planned command is in the spec and refused cleanly as a stub; the staleness tests pass |
+
+### 4.3 UI (DU)
+
+| # | What | Verify |
+| --- | --- | --- |
+| DU1 | Tauri serves the UI: `frontendDist` at the Astro build, the CSP and the isolation hook checked against Astro's output (no inline script Tauri's policy refuses), bridge types generated into `ui/` | The empty UI opens in the Tauri debug build and a bridge call round-trips |
+| DU2 | Player screens: servers, invites, PLAY with the runtime acceptance, settings, the game folder; both languages moved over with every key, the catalogs marked AGPL-3.0-only in the UI's `NOTICE.md` and the screens MIT (DD26) | The launcher tests that drive the page pass; `i18n` checks pass on the new catalogs |
+| DU3 | Server screens: the Host page, the per-component status page, module panels drawn from manifests (DD11) with the unverified mark, module load and unload | A server GUI build with every module repository runs one of each game |
+| DU4 | Drop `rust/launcher/vite.config.ts`'s build of `legacy/ReforgedLauncher` | No Tauri build reads `legacy/` |
+| DU5 | Realm screens: host a hub or hunt, join one, the relay status; shown only for modules with the realms capability | Two launchers on two PCs host and join a realm (maintainer, RF8) |
+
+### 4.4 rustic-isles (RU)
+
+The RB rows of `MIGRATION_PLAN.md` section 4.5, moved here (DD6) and done for both versions. Realms are left to the
+RF rows: an area that touches them calls through rustic-rifts' crates.
+
+| # | What | From | Verify |
+| --- | --- | --- | --- |
+| RU1 | Lay out the monorepo with `git mv`: the Node services to `reference/1.14.7/`, `ParadoxRuntime` to `native/runtime/`, `catalog-exporter` and `preset/` brought from DaintyLass; `ParadoxLauncher` deleted, `ParadoxTransport` deleted once DS7 holds it; `ADDITIONAL_TERMS.md`, `NOTICE.md` and the licence kept at the top; DS5's isles list applied | RP3 | The Node tests pass from the new paths |
+| RU2 | 1.12.0's Node services and runtime from the tag into `reference/1.12.0/` | — | The tag's own tests pass there |
+| RU3 | Route inventories, **three agents**: **RU3a** 1.14.7 from `replay`, **RU3b** 1.12.0 from the tag, **RU3c** their diff (DD8) once both land; each route marked isles or rifts | RB1 | Every Express route in each inventory; CI fails on a new route without an entry |
+| RU4 | Cargo workspace and seams: `isles-core` (one trait per repository, on `store`'s two engines through its change log), `isles-chat`, `isles-director`, the two module crates with their manifests and hooks; every route answering 501 | RB5 | Both modules load into DaintyLass and answer 501 |
+| RU5 | Areas, one agent each, both versions: auth, the Reforged API, game areas (five agents, as RB8), chat (as rules for `plugins/chat`, DD21), game data and scripts; account writes go through the home API's trait (DN2) | RB4, RB6–RB9, RB11 | Each area's Node tests ported, for both versions where 1.12.0 has the area |
+| RU6 | Director in Rust, starting from `cdc0a87` | RB10 | Ramsgate, the Training Grounds and a hunt start and stop, on both versions (maintainer) |
+| RU7 | `db migrate` from MongoDB and `db verify` | RB4 | Copies of real databases migrate with no difference |
+| RU8 | Shadow replay for 1.14.7, realms included | RB2, RB12 | No unexplained diff |
+| RU9 | Rollback, cutover and Node removal | RB13–RB15 | As in those rows |
+| RU10 | **Spike**: one runtime source tree for both versions, SDK glue apart | — | Kill criterion: if the shared part is under half the code, the two trees stay apart |
+| RU11 | 1.12.0's replay, when someone records 1.12.0 traffic (DD9); clears the unverified mark | RB12 | No unexplained diff |
+
+### 4.5 rustic-rifts (RF)
+
+| # | What | Verify |
+| --- | --- | --- |
+| RF1 | Inventory of realms: the `p2p/`, `realms/` and Guard routes (RU3's rifts marks), the runtime's hosting hooks, the transport's ABI 2 and 3, the `P2P_*` settings, what the host's PC stores | Every route, setting and ABI export listed with its component |
+| RF2 | Cargo workspace and seams: `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, each a trait surface with stubs; `isles-1-14-7` calls them | The 1.14.7 module builds with rifts stubbed and without them |
+| RF3 | Transport build: `ParadoxTransport.dll` and its self-test in CI (MSVC v145, libjuice pinned by SHA-256) | `ParadoxTransportTest.exe all --relay-local` passes in CI |
+| RF4 | Admission (tickets, the key pair, its generator as a command) and relay credentials (`turn-rest` for turn-rs and coturn, Cloudflare TURN as a setting); the host kit runs turn-rs (DD24): its config, the shared secret, its ports through the allowlist's firewall code, start and stop with the server | The transport's self-test passes against Rust-minted tickets; credentials from both providers |
+| RF5 | Realms, leases and hosting tiers on `store` | `realms/` and `p2p/` Node tests ported |
+| RF6 | Guard in observe mode on stubs, with its evidence chain intake | The Guard tests that don't need the private module ported |
+| RF7 | `rifts-host`: the launcher's side of hosting and joining, behind DaintyLass's realms feature | A realm hosted from the debug launcher on one PC |
+| RF8 | Two-PC check across NAT, direct and relay-only through turn-rs (maintainer); the trial that keeps turn-rs or switches the host kit to coturn (DD24) | A hub and a hunt hosted and joined both ways, through turn-rs with `P2P_FORCE_SDR` on |
+
+### 4.6 legacy-revived (RV)
+
+Maintenance mode (DD10): these rows keep 1.4.4 running on the framework and add nothing new.
+
+| # | What | Verify |
+| --- | --- | --- |
+| RV1 | DS5's revived list applied; the README says the repository is in maintenance mode and points new features at Rustic Isles; `metagame` and `deploy` on `module-api`; module crate `revived-1-4-4` (display name "Dauntless Revived", game version 1.4.4, alias `revived`); DR's gateway, content, launcher, `discord-bot` and `friend-kit` out of the build | The metagame's tests pass; the module loads into DaintyLass |
+| RV2 | The 1.4.4 client profile (DD12): executable hash, command line, the DLL through the runtime loader | The launcher starts 1.4.4 against a DaintyLass server (maintainer) |
+| RV3 | The metagame on `store`'s two engines (DD15) and its change log (DD23): its queries made portable, its schema in both dialects; an existing 1.4.4 SQLite database opens as it is | The metagame's tests pass on both engines; a copy of a real 1.4.4 database opens unchanged and moves to Postgres with `store db move` |
+
+### 4.7 The network (DN)
+
+Built alongside the RU rows (DD16), on the Rust backend; nothing here touches the Node services.
+
+| # | What | Verify |
+| --- | --- | --- |
+| DN1 | **Spike** (maintainer, a 1.14.7 client): the launcher's relay re-pointed to another gateway mid-session, in Ramsgate and between hunts; and a hunt on one server's game server while the player's backend is another's. Kill criterion: if the client drops the session on a switch, wrong-node joins are refused with a message instead of moved | Ramsgate, a hunt and chat keep working across a switch |
+| DN2 | The network's seams, landed inside DF2 so the network and the port start together: the network capability, node identity and region, global account and instance ids (DD18), the home API trait with stubs; `[network]` in `host.toml` with DF3 | RU4's modules build against the seams; ids are network-wide from the first row |
+| DN3 | Node links: the cluster CA and node certificates (a `network` command to issue them), mutual TLS on host-only gateway routes, peer health, clock skew checks | A node with a foreign certificate is refused; links survive a peer restart |
+| DN4 | Directory: account to home, username claims, the leader and its replicas, registration through the leader | A name taken in one region is refused in every other; a replica catches up after a partition |
+| DN5 | Home API and session tickets: the account operations other nodes need (session check, character load, progression, inventory and bounty writes), tickets signed by the home | A hunt hosted in another region saves loot and XP at the player's home |
+| DN6 | Instance registry and redirects: global ids resolved to owners, the wrong-node answer, the launcher relay's re-point with a ticket (DD18) | A join that reaches the wrong node lands on the right one (or is refused, per DN1) |
+| DN7 | Region ping: the launcher's round-trip measurement to every node, reported to the home in order | The order matches measured latency on the canary |
+| DN8 | Matchmaking ring (DD19): home-owned tickets, the widening schedule, the claim protocol, placement on the hosting node's Director, the allowlist feed, XP and objective forwarding | Simulated players in four regions: nobody double-booked, wait time bounded by the ring delays |
+| DN9 | Regional Ramsgate (DD20): one shared hub per region, sharding, assignment by lowest ping | Players with different homes meet in one region's hub |
+| DN10 | Chat (DD21), **two agents**: **DN10a** the chat core plugin from DR's XMPP code on one node (rooms, direct messages, offline delivery, history stores, mutes), which RU5's chat rules plug into; **DN10b** federation between nodes over DN3's links | A DM between players on two continents arrives once, both histories hold it |
+| DN11 | Admin API across the network: kick, timeout and ban sent through the player's home and applied on every node | A ban on one node refuses the player everywhere |
+| DN12 | Test harness: four nodes in Docker with injected latency between them (`netem`), a `network` Compose profile | Runs in CI with the region latencies of the canary |
+| DN13 | Joining an existing server to the network: its accounts get it as their home, existing invites and keys keep working. Username clashes: the account registered first keeps the name; every other one gets a temporary name with a suffix (`Fox_2`, shortened to fit 16 characters) and is asked at its next login to pick a new name, with that rename free. Friends, chat and bans reference account ids, so a rename breaks none of them; the login reply carries the new name so the launcher updates the one it stores (RD22) | A Reforged host's database joins; only players whose name clashed see the rename prompt |
+| DN14 | Canary network: four nodes in the four regions (maintainer) | The smoke list (section 6) across regions, then a week of play |
+
+### 4.8 Installing from Epic (DE)
+
+| # | What | Verify |
+| --- | --- | --- |
+| DE1 | **Spike** (maintainer's Epic account): `egs-api` signs in, finds `Jackal` in the library, parses the archived 1.14.7 manifest and fetches a few chunks from each CDN host. Kill criterion: if its parser or chunk handling falls short, `egs-api` keeps sign-in and the library and the manifest parser and chunk fetch are written here, from the format Legendary documents. Either way it ends by laying down `crates/epic` with sign-in, library, manifest and download as stub modules, which the launcher and the host kit both use | The fetched chunks hash as the manifest says |
+| DE2 | Epic sign-in in the launcher: the login webview that captures the authorization code, the paste fallback, the session in the keystore, sign out; new bridge commands (a seam change, through the integration pass), strings appended in both languages | Sign in, restart, still signed in; sign out clears the keystore entry; no token in any log |
+| DE3 | Ownership: `Jackal` in the library, cached for a while; a clear refusal when it isn't | An account without Dauntless can't start a download |
+| DE4 | Versions: the Epic build fields in the client profile (`module-api`), filled by the 1.14.7 and 1.12 modules; the launcher's list (compiled-in profiles plus those the joined servers' content serves), with each version's download and install size from its manifest; 1.4.4 listed as "locate your folder" | The list matches the profiles; sizes match the manifests |
+| DE5 | Download and install: the manifest from content, the module or the archive (DD22) and checked against its SHA-1 before it is parsed; the 1.14.7 and 1.12.0 manifests committed to rustic-isles and served by content; chunks from the three CDN hosts with failover, decompressed and assembled, every file checked, then the executable's SHA-256; resume, pause, parallel chunks, a free-space check, one folder per version; DR's `net/downloader.rs` brought back for it (amends RD22) | 1.14.7 installs and passes Mystic's checks (611 files, `Version.txt`, the executable's hash); a download killed halfway resumes; a corrupted chunk is fetched again |
+| DE6 | The host kit's install command with the pasted-code sign-in, and the Docker image's use of it | A fresh Linux host installs 1.14.7 for its game servers |
+| DE7 | UI: sign in, the library check, the version list, download progress (with DU2) | Each screen in both languages |
+
+### 4.9 Change history and rollback (DH)
+
+| # | What | Verify |
+| --- | --- | --- |
+| DH1 | The change log in `store` (DD23), a seam landing with DF7: written in the same transaction as each change, the actor from the request context, soft deletes and the retention purge for player-facing tables; modules get only `store`'s write path | A change made through any repository appears in the log with its before and after; a test fails a repository that writes around `store` |
+| DH2 | Per-person admin keys and roles: keys issued and revoked by command (the owner's stays in `secrets.env`), the role checked on every admin route, the key's id recorded as the actor | A moderator's key can't delete; every change names the key that made it |
+| DH3 | `history` and `revert`, **two agents**: **DH3a** the engine in `store` (by account, actor or time range, a dry run, compensating changes, conflicts reported); **DH3b** the commands in the host kit, the console and the admin API | A partner's mass delete is reverted in one command; a row changed since stays as it is and is reported |
+| DH4 | Off-server shipping and restore: the log streamed and snapshots taken on a schedule (SQLite's online backup, `pg_dump` or a base backup), written to an object-locked S3-compatible bucket with write-only credentials (`secrets.env`), the bucket in `host.toml`; `restore --to <time>` on either engine; a lag alert on the status page and the admin API | Restore to a minute before a delete on a copy; with shipping stopped, the alert fires |
+| DH5 | The hash chain: each entry hashes the one before, the head ships with the log, `history verify` | An entry edited or removed locally is found and named |
+| DH6 | Guarded actions: the destructive and bulk admin actions listed, each with a delay or a second operator's approval, cancelable while it waits | A bulk delete waits; a second operator cancels it |
+| DH7 | In a network, each node's log also shipped to another region's node (with DN3) | A node's history survives the node |
+
+### 4.10 Cross-cutting (DX)
+
+| # | What |
+| --- | --- |
+| DX1 | Docs: `architecture.md` for modules and core plugins, the hosting guides (picking SQLite or Postgres, the history bucket and restores, realms and their relay), the migration guide's paths, a "writing a game module" page |
+| DX2 | Security (RX3): `docs/security/module-host.md` for the frame protocol, external module loading and the SHA-256 list; fuzz target `module_frame`. Each module repository keeps the checklists for what it carries (`metagame.md`, `deploy.md` move to legacy-revived; rustic-rifts gets admission tickets, the pair cipher and relay credentials, with fuzz targets for the ticket and control-message parsers). The network gets `docs/security/network.md`: node certificates and the cluster CA, session tickets, the directory, the claim protocol and chat federation, with fuzz targets for node-link messages and federated stanzas. Installing from Epic gets `docs/security/epic.md`: the Epic session in the keystore, manifests pinned before parsing, file names in a manifest kept inside the install folder, CDN TLS with no redirects; fuzz target `epic_manifest`. Change history gets `docs/security/history.md`: the log's completeness, admin keys and roles, the bucket's write-only credentials and object lock, the hash chain, guarded actions; fuzz target `history_record` for log entries read back during a restore. The relay gets `docs/security/turn-relay.md`: the listener exception, the shared secret, credential lifetimes, relay-only mode and the port range |
+| DX3 | CI on Forgejo Actions: a runner with MSVC for the native builds (maintainer), submodule checkout, Bun; `.github/workflows` read as Forgejo reads them, or moved to `.forgejo/workflows`. GitHub stays a read-only source (`mystic`, and `FreezaMotoqueiro/Dauntless-Reforged-Revival` for rustic-freeza's `upstream`) until DX5 |
+| DX4 | Licensing: AGPL-3.0-only in every repository, with the MIT crates DD26 names marked in each repository's `Cargo.toml` files and `NOTICE.md` (the DL rows do the work in this one); Mystic's `ADDITIONAL_TERMS.md` and its section 1 notice in rustic-isles' and rustic-rifts' README and `NOTICE.md`, which also say they are modified, unofficial versions (its section 2); DR's attribution in legacy-revived; libjuice's MPL-2.0 notice in rustic-rifts; Freeza's attribution in rustic-freeza, with the Reforged Revival name used only truthfully; `NOTICE.md` here points to all five |
+| DX5 | Publishing to GitHub, once the launcher and the server are confirmed working (maintainer): each repository pushed public, submodule URLs and the Cargo registry switched or mirrored, release workflows pointed at it |
+
+### 4.11 rustic-freeza (RZ)
+
+A plugin, not a game module (DD25): it fills two capabilities of the 1.14.7 module and ships a theme. His work
+stays in his repository's history and under his name.
+
+| # | What | Verify |
+| --- | --- | --- |
+| RZ1 | Lay out the plugin on the fork: his Node projects, docs and workflows moved to `reference/` with `git mv` (they are what the plugin re-creates), the plugin crate `rustic-freeza` on `module-api` with its manifest and the two capabilities as stubs; `NOTICE.md` and `README.md` with the attribution and the thank-you | The crate builds alone and inside DaintyLass; the plugin loads and does nothing |
+| RZ2 | The patch set: patches 0004–0039 as they sit in DaintyLass's `paradox/` and `native/` (and whatever he merges after `477a6ac`), carried by the plugin and applied to the 1.14.7 game servers through the patch-set capability: the runtime built with them, the backend's rules switched on; DaintyLass's `paradox/` and `native/` return to Mystic's code plus this project's own changes | A 1.14.7 server with the plugin plays as today's does; one without it plays Mystic `21b9ff5` (maintainer, a 1.14.7 client) |
+| RZ3 | The theme: his launcher's layout, palette and logo from `reference/` as a theme the UI draws through the theme capability when the plugin is loaded | The launcher with the plugin looks like his; without it, like DaintyLass |
+| RZ4 | Keeping up: a change on his `main` is a merge into `reference/`; a new patch of his is a row in the set. Written down in the plugin's README | The README says how |
+
+### 4.12 Licensing (DL)
+
+DD26's split, in this repository. The module repositories follow it in their own DX4 work: everything in
+rustic-isles, rustic-rifts, legacy-revived and rustic-freeza is AGPL.
+
+| # | What | Verify |
+| --- | --- | --- |
+| ~~DL1~~ | ~~`license = "MIT"` on `controller`, `admin`, the 12 bins and the two stubs; `LICENSE-MIT.txt`; `NOTICE.md`'s "This project" split into the two groups; README's licence paragraph; AGENTS.md's rule for new crates~~ **Done 2026-10-26** (`d7ef297`, merged as `f891d92`) | ~~`cargo deny check licenses` passes; `cargo metadata` lists the 16 crates as MIT~~ |
+| DL2 | Ask Freeza, in writing, to license his line's contributions under MIT as well as the AGPL (maintainer). His answer goes in `NOTICE.md`. A yes shrinks DL3 and DL4 to the split and the files that cite DR; a no or no answer leaves them as written | His reply is kept with the repository's records |
+| DL3 | The host kit, **two agents**, alone in `services/host` (after DH3b). **DL3a** writes a behaviour spec of the 22 ported modules (`hostconfig`, `services`, `cli`, `invite`, `doctor`, `envfile`, `gamedata`, `gamepack`, `linux`, `mongo`, `paths`, `preset`, `progression`, `publish`, `run`, `selfupdate`, `wine`, `captures`, `setup/paradox` and their tests) from the code, `docs/hosting.md`'s settings table and the tests, plus any tests the spec needs; **DL3b** writes them again from DL3a's spec and tests alone, never opening the old modules, then moves the host kit's own files and the new ones into an MIT crate and leaves `host` as a thin AGPL shell for what still cites DR | Every test from before passes unchanged; `host.toml`, `secrets.env`, every command and option and every env file setup writes are byte for byte as before (section 6); no file in the MIT crate names a `ReforgedHost` or DR source |
+| DL4 | The launcher, **two agents**, the same way (after DU3, DE6 and DE7): **DL4a** specs the eight modules DD26 names and the launcher's own files (`bridge/spec.rs`, `commands.rs`, `generate.rs`, `loader_session`, `linux_runtime`, `updater`, `i18n`, `window`, `log`, `system`); **DL4b** rewrites the eight from the spec alone and moves them and the own files into an MIT crate that `src-tauri` depends on, `src-tauri` keeping DR's core | The launcher's tests and the bridge's staleness tests pass; the bridge spec and the generated files are unchanged (AGENTS.md); no file in the MIT crate names a `ReforgedLauncher` or DR source |
+| DL5 | A licensing lawyer reads `NOTICE.md` in every repository and the DD2 layout before DX5 (maintainer) | The changes they ask for are made before the first public push |
+
+## 5. Order
+
+Sorted for the most agents at once (RD18: one row, one agent, its own worktree and branch). Three things set it.
+**Seams first**: DF2 (`module-api`), DF7 with DH1 (`store` and its change log), DF8 (the launcher bridge), RU4 and
+RF2 register everything as stubs, so the rows after them only fill their own files. **Big rows split** where their
+parts touch different files: DF4, RU3, RU5, DN10 and DH3 above. **Five repositories integrate apart**: each has its
+own integration pass merging its rows into its own `plan` branch, so the review limit RD18 set (about eight rows in
+flight) applies per repository, not to the whole plan.
+
+### 5.1 Waves
+
+A row starts the moment the rows in its "Needs" are merged, not when its wave starts; the waves are only the earliest
+each can begin. "Agents" counts the ones that can run at once.
+
+| Wave | Agents | Rows (one agent each) | Needs | Hands-on |
+| --- | --- | --- | --- | --- |
+| 0 | 7 | DS2, DS3, DS7 and DS8's pushes (the rename and five repositories are done: what's left is `replay`, DR's `plan`, the transport's `subtree split` from `replay`, and Freeza's `main` into a rustic-freeza repository still to be created); DS4 (the shadcn command into the empty repository); DS5's isles list; DS5's revived list; DF1 spike; DF7's `pq-sys` spike; DF6 rename sweep | — | Done: the rename and the four repositories (DS1) |
+| 0 | — | DN1 spike; DE1 spike | — | A 1.14.7 client and two servers; an Epic account with Dauntless |
+| 1 | 13 | DF2 seam (with DN2); DF7 with DH1 (the `store` seam); DF8 bridge seam; RU1; RU2; RU3a; RU3b; RU10 spike; RV1's history work; RF1; RF3; DU1; DX3 (CI workflows in all five repositories) | DF1 for DF2; the `pq-sys` spike for DF7; DS2 for RU1–RU3 and RU10; DS3 and DS5 for RV1; DS7 for RF1 and RF3; DS4 for DU1; DE1 for `crates/epic` | A Forgejo runner with MSVC (DX3) |
+| 2 | 22 | DS6 submodule swap; DF3 controller; DF4a; DF4b; DF4c; RU3c; RU4 seams; RF2 seams; RV1's module crate; RV2; DN4 directory; DN7 region ping; DN10a chat plugin; DH3a; DH4 shipping and restore; DH5 hash chain; DE2; DE3; DE4; DE5; DU2; RZ1 plugin layout | DF2 for every module and plugin row; DF7 with DH1 for DN4 and DH3a–DH5; DF8 for DN7, DE2 and DU2; RU1 and RU3a for RU4; RF1 for RF2; RU1, RV1 and DS7 for DS6; RU3a and RU3b for RU3c; DS8 and DF2 for RZ1 | An object-locked bucket (DH4) |
+| 3 | 29 | RU5 in nine agents (auth; the Reforged API; characters and loadouts; inventory, storage policy and reforge; progression, mastery, escalation and session supplies; bounties, store, Lady Luck and platinum; multipliers, matchmaking, parties and the game servers' posts; chat rules on DN10a; game data and scripts), each with its 1.12 hooks from RU3c; RU6 Director; RU7 `db migrate`; RF4; RF5; RF6; RF7; RV3; DF4d; DF5 bins; DN3 node links; DN5 home API; DN12 harness; DH2 admin keys; DU3; DU4; DE6; DE7; RZ2 patch set; RZ3 theme | RU4 (and RU3c for the 1.12 hooks) for RU5–RU7; RF2 for RF4–RF7; RV1's module crate for RV3; DS6 for DF4d, DF5 and DN12; DF3 for DF5 and DU3; DF4a for DN3; DF4c for DH2; DE5 for DE6; DU2 for DU4 and DE7; RU4 and RZ1 for RZ2; DU2 and RZ1 for RZ3 | Game servers to start (RU6); the 1.4.4 client (RV2) |
+| 4 | 8 | DH3b; DH6 guarded actions; DH7; DN6 registry and redirects; DN10b federation; DN11 admin across the network; DU5 realm screens; DX2's checklists for the rows merged so far | DH3a and DF4d for DH3b; DH2 for DH6 and DN11; DH4 and DN3 for DH7; DN3 and DN1's result for DN6; DN3 and DN10a for DN10b; DN5 for DN11; RF7 for DU5 | — |
+| 5 | 8 | DN8 matchmaking ring; DN9 regional Ramsgate; RU8's harness and normalizer (proven Node against Node first); RF8; DL3a and DL3b host kit; DL4a and DL4b launcher | RU5's matchmaking group, RU6, DN5 and DN6 for DN8; RU6 and DN6 for DN9; RU5–RU7 for RU8; RF4–RF7 and DU5 for RF8; DH3b and DF5 for DL3; DU3, DE6 and DE7 for DL4 | Two PCs and turn-rs on the canary (RF8) |
+| 6 | about 12 | RU8's replay, its diffs handed back one agent per RU5 group, RU6 and RF5–RF6; then RU9's rollback rehearsal and cutover | The harness, captures from the canary | Canary, 1.14.7 captures, every cutover |
+| 7 | 2 | DN13 joining existing servers; then DN14 canary network | RU9 on single servers, DN6–DN12 | Four regional servers |
+| any | — | RU11 when 1.12.0 traffic exists; DX1 docs and DX4 licensing with the rows they describe; DL2 | — | Host SDKs for both versions; Freeza's answer (DL2) |
+| last | — | DL5 legal read, then DX5 GitHub publication | The launcher and server confirmed working; DL5 for DX5 | Maintainer |
+
+### 5.2 What stays serial
+
+- **The critical path** is DF1 → DF2 → RU4 → RU5 → RU8 → RU9 → DN13 → DN14. Everything else fits around it, so a
+  delay anywhere else costs nothing until it reaches one of these rows.
+- **DF6 runs alone** in wave 0, before anything else writes to this repository, so no row ever conflicts with the
+  rename.
+- **DS6 runs alone in `services/host`, `docker/` and CI** in wave 2; DF4d, DF5 and DN12, which touch the same files,
+  wait for it in wave 3.
+- **DL3 runs alone in `services/host`** in wave 5, after DH3b and DF5, the last rows before it that write there; DL4
+  waits for the launcher rows (DU3, DE6, DE7) the same way. A rewrite beside a filling row would conflict in every
+  file.
+- **Seam changes after their seam row** (a new capability in `module-api`, a bridge command, a `store` migration)
+  go through the integration pass, as AGENTS.md has it, never through a filling row.
+- **Hands-on rows set their own pace**: DN1 and DE1 decide DN6 and DE2–DE5's shape, so their results are wanted
+  before wave 2 starts; RF8, RU9 and DN14 wait for the maintainer and the canary.
+
+Today's `main` keeps shipping until DS6. After DS6, hosts update to a DaintyLass build that still runs Node Paradox
+from the rustic-isles submodule; the Rust 1.14.7 module replaces it at RU9's cutover. The network is built
+alongside, but goes live only after RU9 has run on single servers: a node runs alone until DN13 joins it.
+
+## 6. Things that must not change
+
+`MIGRATION_PLAN.md` section 6 holds, with two changes: the launcher page's look is replaced (DD11), its strings in
+both languages are not; and "the host-only routes and headers stay refused" now covers every module's routes. Also:
+
+- An invite made before the split joins the same server after it: scheme, `version`, `fp`.
+- A host's `.env` files and `host.toml` read unchanged; the module section has defaults that reproduce today's
+  server.
+- Each game version's routes and JSON, matched as its Node service answers them.
+- Every name DD1 keeps.
+- A server that isn't in a network works exactly as one that is with no peers.
+- The account key goes only to its home server and certificate; other nodes see session tickets (DD17).
+- Every change made through a server can be found in its history and reverted, and a revert never overwrites a
+  newer change silently (DD23).
+
+## 7. Amendments to `MIGRATION_PLAN.md`
+
+For the integration pass: RD1 (Paradox becomes a submodule, no longer a subtree at `paradox/`), RD11 and section
+4.1 (the layout in section 2 here), RD15 (SQLite by default and Postgres where concurrency pays, DD15), RD17 (no
+gate for the Paradox port, DD6), RD22 (DR's downloader comes back for installing from Epic, DD22), RD25 (one admin
+key per person with a role, the existing key becoming the owner's, DD23), section 4.5 (the RB rows move to RU and
+RF), RP rows (their results move to rustic-isles), RR5 (the page moves to `ui/`, not `rust/launcher/ui`), RD18
+(the review limit applies per repository, each with its own integration pass, section 5), section 5.1's ownership
+table (the module repositories and `ui/` own their own files; `crates/module-api` is a seam owned by DF2, the
+bridge by DF8, `store` by DF7).
+
+## 8. Open questions
+
+Answered 2026-10-26: display names (DD4), Mystic's name clause (DD7), how deep the rename goes (DD1), the database
+engine (DD15), 1.12.0's verification (DD9), realms (DD14), visibility (DD2, DX5), the network (DD16–DD21), where
+manifests come from (DD22), change history (DD23), the TURN relay (DD24) and username clashes (DN13). Mystic's
+"local realm" turned out to be the whole backend on one PC with no database server, not storage on a realm host's
+PC (section 1).
+
+Added 2026-10-26: rustic-freeza (DD25, DS8, the RZ rows), after the Reforged Revival line was removed from
+this repository (section 1). Licensing (DD26, the DL rows), after the MIT split landed on `main` (DL1).
+
+Open: Freeza's answer (DL2), which decides how much of DL3 and DL4 is a rewrite.
