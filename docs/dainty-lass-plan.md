@@ -12,13 +12,17 @@ game modules), **rustic-rifts** (Mystic Paradox's player-hosted realms, ported t
 **dauntless-revived** (Dauntless Revived's 1.4.4, one game module). The launcher page is replaced by an Astro and
 shadcn UI in **dainty-lass-ui**. DaintyLass mounts the other four as git submodules.
 
+On top of that, servers in several regions (Oregon, New York, the UK, Germany) join one **network**: global
+accounts owned by a home region, one matchmaking pool that widens from the lowest-ping region outwards, a shared
+Ramsgate per region, chat and direct messages across servers, and hunt ids that are the same on every server.
+
 It amends [`MIGRATION_PLAN.md`](../MIGRATION_PLAN.md) where section 7 says so and leaves the rest of it standing.
 The integration pass folds the amendments in; a row here never edits that file (AGENTS.md).
 
 Row ids: **DS** = repositories, split and rename, **DF** = module framework and controller, **DU** = UI,
-**RU** = rustic-isles, **RF** = rustic-rifts, **RV** = dauntless-revived, **DX** = cross-cutting, **DD** =
-decisions. "DR" still means Dauntless Revived at `e1c5fec`, and the RB, RA, RS, RH and RD ids point into
-`MIGRATION_PLAN.md`.
+**RU** = rustic-isles, **RF** = rustic-rifts, **RV** = dauntless-revived, **DN** = the network, **DX** =
+cross-cutting, **DD** = decisions. "DR" still means Dauntless Revived at `e1c5fec`, and the RB, RA, RS, RH and
+RD ids point into `MIGRATION_PLAN.md`.
 
 ## 1. Where things stand
 
@@ -30,7 +34,7 @@ Measured 2026-10-26.
 | Forgejo | `git.silentspud.com`, Forgejo 15.0.10, with access to the instance restricted. One repository, `silentspud/dauntless-eternal` (public on the instance), reached as `origin` over SSH on port 222 |
 | Mystic Paradox | Upstream `main` at `21b9ff5` (`mystic` remote, `pranav158/Mystic-Paradox`). The local `replay` branch is `21b9ff5` plus Reforged's patches 0001–0039 as one commit each and their follow-ups (`ce1c42e`, 41 commits). The 1.12.0 release is the tag `dauntless-1.12.0` (`4d5dfaa`), an ancestor of `main` 91 commits back |
 | Paradox's size (TS, JS and C++, tests included) | 1.12.0: backend 16.8k lines, Director 1.7k, runtime 11.4k. `replay`: backend 103.5k, Director 4.5k, runtime 29.5k, `ParadoxTransport` 8.8k |
-| Realms on `replay` | Players host hubs and hunts on their own PCs; joiners connect through `ParadoxTransport.dll` (ICE on libjuice: direct, or through a TURN relay). A self-hosted backend brings its own relay (Cloudflare TURN or a `turn-rest` server such as coturn) and an admission key pair. Mystic's anti-cheat and Steam transport are private, so Guard runs on stubs in observe mode. In the backend, `p2p/`, `realms/` and Guard are about 2.0 of its 5.1 MiB of source (210 files mention realms) |
+| Realms on `replay` | Players host hubs and hunts on their own PCs; joiners connect through `ParadoxTransport.dll` (ICE on libjuice: direct, or through a TURN relay). A self-hosted backend brings its own relay (Cloudflare TURN or a `turn-rest` server such as coturn) and an admission key pair. Mystic's anti-cheat and Steam transport are private, so Guard runs on stubs in observe mode. In the backend, `p2p/`, `realms/` and Guard are about 2.0 of its 5.1 MiB of source (210 files mention realms). A "local realm" is something else: the whole backend on one PC with no database server (`PERSISTENCE_PROVIDER=sqlite`, every repository on `node:sqlite`, a file under `realm-data/`, daily `VACUUM INTO` backups); player-hosted hubs keep their state on the central backend |
 | Dauntless Revived | `SilentSpud/dauntless-revived` on GitHub: `plan` at `24b7624` is upstream `main` (`5eb74ff`, `mixutin/dauntless-revived`) plus 468 commits, DR's Rust migration among them. This repository carries pieces of it with Reforged's changes: merge `54e271a` (commits `c1be7f7`…`18ac587`) |
 | Rust Director | `feat/rb10-director-single-binary` (`cdc0a87`): RB10, the Director in Rust, never merged; based on the old `plan` layout |
 
@@ -43,6 +47,8 @@ silentspud/dainty-lass            (renamed from dauntless-eternal)
     crates/controller             the registry, lifecycle, commands and events
     crates/protocol, proxy, service-kit, store (Postgres)
     plugins/gateway (allowlist), content, admin, host, launcher (Tauri shell)
+    plugins/network               node links, directory, instance registry, matchmaking ring
+    plugins/chat                  XMPP over WebSocket, federated between nodes
     bins/server, server-console, server-gui, client
   native/runtime-loader           winmm.dll, shared by every game's client payload
   ui/                             submodule: silentspud/dainty-lass-ui
@@ -77,7 +83,7 @@ silentspud/dainty-lass-ui         Astro + shadcn monorepo from the preset
 | --- | --- | --- | --- |
 | DD1 | Name | The app is **DaintyLass**; the repository `dainty-lass`, renamed on Forgejo so the old URL redirects. Names people read change: README, docs, window titles, both languages' strings, crate and binary names. **Names an install depends on stay as they are**, with no migration planned: the `dauntless://` invite scheme and the `reforged-revival://` refusal, `RRK_` keys, the launcher's identifier and `userData` folder (the stored keys live there), env prefixes (`REFORGED_` and the rest), the `x-reforged-*` headers, the `/reforged/api` routes, the nftables table, the certificate and every invite's `fp`, and the file names the game loads (`MysticParadox.dll`, `ParadoxTransport.dll`, `winmm.dll`) | No host or player redoes anything on update. Players and hosts never read those names; renaming one would need a migration for no visible gain |
 | DD2 | Repositories | **Five**, on `git.silentspud.com` under `silentspud`, all public on the instance. DaintyLass pins the other four as submodules at `ui/` and `modules/<name>/`. Module repositories never depend on DaintyLass's git history: they depend on `module-api`, `protocol`, `service-kit` and `store` by version from Forgejo's Cargo registry, and DaintyLass's workspace `[patch]`es those to its own paths, so a checkout with submodules builds as one tree. The module repositories sit under `exclude` in DaintyLass's workspace and keep workspaces of their own. rustic-isles takes rustic-rifts the same way | No circular git dependency; a module builds alone against a released API, or inside DaintyLass against the working copy. DF1 proves the cargo layout before anything depends on it. Public repositories also let CI and clones fetch submodules without a token |
-| DD3 | Module kinds | **Core plugins** add capabilities other modules use: gateway with the allowlist, content, store, admin API, host kit commands, the Tauri shell, the console and TUI. They live in DaintyLass and are compiled in, picked by each binary's features. **Game modules** carry everything a server for one game version needs and use the core plugins only through `ModuleContext`: they register routes behind the gateway, UDP ranges with the allowlist, files with content, commands, events, admin actions (kick, ban, lookup) and config sections | One gateway, one allowlist and one content server per host, whatever games it runs. A game module never opens a public listener (AGENTS.md: the gateway is the only one off loopback) |
+| DD3 | Module kinds | **Core plugins** add capabilities other modules use: gateway with the allowlist, content, store, admin API, host kit commands, the Tauri shell, the console and TUI, chat and the network (DD16, DD21). They live in DaintyLass and are compiled in, picked by each binary's features. **Game modules** carry everything a server for one game version needs and use the core plugins only through `ModuleContext`: they register routes behind the gateway, UDP ranges with the allowlist, files with content, commands, events, admin actions (kick, ban, lookup) and config sections | One gateway, one allowlist and one content server per host, whatever games it runs. A game module never opens a public listener (AGENTS.md: the gateway is the only one off loopback) |
 | DD4 | Game module identity | Each game module declares an **exact game version** (`GameVersion`: dot-separated integers, compared exactly, no ranges), a display name, a module id, the invite `version` aliases it answers to (`revived`, `reforged`), its module API version, its default ports and its capabilities (realms, for one). The controller keys modules by game version and **refuses a second module for a version that is already loaded**, compiled in or not. The display names: **"Rustic Isles 1.14.7"**, **"Rustic Isles 1.12"** (Rustic Isles' names always carry the version) and **"Dauntless Revived"** | Replaces `Edition`, `EditionSelection` and `Game` (`protocol`): an invite's `version` already names a game version, so it maps straight to a module. Port defaults come from manifests, and the controller moves a clash instead of hard-coding 61000/61010 |
 | DD5 | Loading at runtime | **Out of process.** A game module crate is a library (compiled in) and, through `module-api`'s adapter, an executable the controller starts and talks to over the child's stdin and stdout: length-prefixed frames, a handshake carrying the manifest and API version, then calls both ways. The same `GameModule` trait backs both, so a module is written once. Unload: a stop request, a grace period, then the process tree is killed (job object on Windows, process group on Linux, as `start` already does). Only modules named in `host.toml` with their SHA-256 can be loaded; the admin API and the console can load and unload those, never an arbitrary path | A crashing module doesn't take the controller down, and no Rust ABI is involved. Every call crosses a pipe, which costs nothing next to the game's HTTP. The frame parser is a trust boundary with a fuzz target (DX2) |
 | DD6 | Paradox's backend and Director | **Ported to Rust now, inside rustic-isles** (realms in rustic-rifts, DD14). The RB rows move there as RU rows, and RD17's gate no longer holds for them. Until the port passes its replay, today's `main` keeps shipping and hosts keep running Node Paradox; the 1.14.7 module ships only once its Rust services pass | The largest part of this plan: about 108k lines of TS and JS for 1.14.7 against 18.5k for 1.12.0, of which realms are about 40% |
@@ -89,7 +95,13 @@ silentspud/dainty-lass-ui         Astro + shadcn monorepo from the preset
 | DD12 | Binaries | The 12 edition crates **collapse to four**: `server`, `server-console`, `server-gui`, `client`, each with one Cargo feature per compiled-in game module and one for realms. The release builds every module in. The player `client` links no game server code: what it needs per game (the executable hash, the command line, the ini edits, which files to fetch) comes from the module's client profile, served by content. With the realms feature it links `rifts-host` | Fewer crates and one feature list. The launcher's legacy 1.4.4 paths become a client profile from the revived module |
 | DD13 | Native code | **`runtime-loader` stays in DaintyLass** at `native/runtime-loader`, with Paradox's attribution: the launcher's PLAY check (RD9) and every game's client DLLs go through it, 1.4.4's included (`920a411`). `paradox-runtime`, `catalog-exporter` and `preset/` go to rustic-isles, `ParadoxTransport` to rustic-rifts, `internal-server` and `client-mods` to dauntless-revived. RD16 stands: until its cut-off Freeza's Paradox patches land in rustic-isles, after it only runtime patches, still there | No module depends on another game module's repository. The runtime patch method (`docs/paradox-runtime-patches.md`) moves with the runtime |
 | DD14 | Realms | **In scope, in their own repository, `rustic-rifts`**: a library monorepo, one crate per component, ported from `replay`'s `p2p/`, `realms/` and Guard code and its `ParadoxTransport`. Rifts is neither a core plugin nor a game module: realms exist only on 1.14.7 and share its accounts, sessions and hunt data, so `isles-1-14-7` links the server crates and declares the realms capability, and DaintyLass's launcher links `rifts-host` for hosting and joining. Admission, relay credentials and leases are admin actions and commands of the 1.14.7 module. Guard keeps observe mode on stubs, since Mystic's anti-cheat is private. A host chooses a TURN relay (Cloudflare TURN or a `turn-rest` server such as coturn) | Realms ride the module framework without a third module kind. About 40% of the backend port moves here, and the UI gains a hosting flow. Hosts that turn realms on need a TURN relay; the rest need nothing new |
-| DD15 | Database | **Postgres for every module.** `store` moves to `PgConnection` (RB3's spike for `pq-sys` `bundled` first) and is shared through `module-api`; the host kit manages a local Postgres or takes `--postgres-url` (RD15, RH3). DR's metagame leaves SQLite: its schema becomes Postgres migrations, and `revived db migrate --from-sqlite` moves an existing 1.4.4 database once | One engine to install, back up and support. Every host, 1.4.4-only ones included, runs Postgres. What the realm host's PC stores locally is section 8's question 1 |
+| DD15 | Database | **Reopened** (section 8, question 1); this is the answer it had. **Postgres for every module.** `store` moves to `PgConnection` (RB3's spike for `pq-sys` `bundled` first) and is shared through `module-api`; the host kit manages a local Postgres or takes `--postgres-url` (RD15, RH3). DR's metagame leaves SQLite: its schema becomes Postgres migrations, and `revived db migrate --from-sqlite` moves an existing 1.4.4 database once | One engine to install, back up and support. Every host, 1.4.4-only ones included, runs Postgres |
+| DD16 | The network | **One operator's cluster** of regional nodes (Oregon, New York, the UK, Germany), trusted with each other. Each node is an ordinary DaintyLass server whose `host.toml` names its region and its peers. Nodes talk through each other's gateways on host-only routes with mutual TLS under a cluster CA, so the gateway stays the only public listener. The network is a core plugin (`plugins/network`) with game hooks; **1.14.7 only** at first, through a network capability in its manifest, and **built alongside the port**, on the Rust backend only | No federation with other people's servers yet; the protocol is versioned so it can come later. 1.12 and 1.4.4 can opt in later through the same capability |
+| DD17 | Accounts | **Global accounts, owned by a home region.** An account's data lives only in its home node's database; another node that needs it (a hunt it hosts, a hub the player is in) calls the home's internal API. A small directory, replicated to every node with one leader node for writes, maps account to home and holds username claims, so names are unique network-wide. **The account key never leaves its home** (AGENTS.md's rule holds): another node gets a short-lived session ticket the home signs | No distributed writes and no shared database, so section 8's question 1 is a per-node choice. Registration (rare) round-trips to the directory leader. A far region pays a cross-region call per account write it makes, not per read the home makes |
+| DD18 | Global ids | **Every hunt, hub instance, party and matchmaking ticket gets a network-wide id** (a ULID tagged with the owning node), and every node can resolve one to its owner through the instance registry. A player whose join reaches the wrong node gets a redirect, and the launcher's relay (port 61100) re-points to the owner's gateway with a home-signed ticket; the game client only ever sees `127.0.0.1:61100`, so it doesn't notice. Accounts get global ids from the start (RU4's seams) | The Rust port uses these ids from its first commit, so no id migration later. Whether the 1.14.7 client survives the relay switching mid-session is DN1's spike |
+| DD19 | Matchmaking | **One pool that widens by ping.** The launcher measures round-trip time to every node's gateway and reports the regions in order. A ticket is owned by the player's home node and published to the nearest region first, then the next after a delay, and so on until every region sees it. A region that forms a match claims each ticket from its home (compare-and-set), so a ticket lands in one match only. The hosting node's Director starts the game server, its allowlist admits the matched players' addresses, and the game server's XP and objective posts are forwarded to each player's home | Ring delays are settings. A match forms where most of its players have the lowest ping, and nobody waits forever for their own region |
+| DD20 | Ramsgate | **One shared Ramsgate per region**, hosted by that region's node, split into shards when an instance is full. A player goes to the Ramsgate of their lowest-ping region, whichever node is their home | Players from every server meet in their region's hub; the hub's game server talks to many homes through the network |
+| DD21 | Chat | **A chat core plugin** (`plugins/chat`) from DR's XMPP-over-WebSocket code, with each game module giving its JID and room rules, and nodes federated server-to-server as XMPP does. A network-wide room, one room per region, and party and hunt rooms owned by the instance's node. Direct messages route to the recipient's current node and are stored at both players' homes, delivered at login when the recipient was offline. Room history lives with the room's owner and is replicated to the nodes that read it. Mutes and bans apply network-wide through the home | RU5's chat area becomes this plugin's 1.14.7 rules instead of a chat of its own. Paradox's City rooms (patch 0025) become per-region rooms |
 
 ## 4. Work
 
@@ -138,7 +150,7 @@ RF rows: an area that touches them calls through rustic-rifts' crates.
 | RU2 | 1.12.0's Node services and runtime from the tag into `reference/1.12.0/` | — | The tag's own tests pass there |
 | RU3 | Route inventory of both versions and their diff (DD8), each route marked isles or rifts | RB1 | Every Express route in each inventory; CI fails on a new route without an entry |
 | RU4 | Cargo workspace and seams: `isles-core` (one trait per repository, Postgres on `store`), `isles-chat`, `isles-director`, the two module crates with their manifests and hooks; every route answering 501 | RB5 | Both modules load into DaintyLass and answer 501 |
-| RU5 | Areas, one agent each, both versions: auth, the Reforged API, game areas (five agents, as RB8), chat, game data and scripts | RB4, RB6–RB9, RB11 | Each area's Node tests ported, for both versions where 1.12.0 has the area |
+| RU5 | Areas, one agent each, both versions: auth, the Reforged API, game areas (five agents, as RB8), chat (as rules for `plugins/chat`, DD21), game data and scripts; account writes go through the home API's trait (DN2) | RB4, RB6–RB9, RB11 | Each area's Node tests ported, for both versions where 1.12.0 has the area |
 | RU6 | Director in Rust, starting from `cdc0a87` | RB10 | Ramsgate, the Training Grounds and a hunt start and stop, on both versions (maintainer) |
 | RU7 | `db migrate` from MongoDB and `db verify` | RB4 | Copies of real databases migrate with no difference |
 | RU8 | Shadow replay for 1.14.7, realms included | RB2, RB12 | No unexplained diff |
@@ -167,12 +179,33 @@ RF rows: an area that touches them calls through rustic-rifts' crates.
 | RV2 | The 1.4.4 client profile (DD12): executable hash, command line, the DLL through the runtime loader | The launcher starts 1.4.4 against a DaintyLass server (maintainer) |
 | RV3 | The metagame on Postgres (DD15): its schema as Postgres migrations, `revived db migrate --from-sqlite` and a `verify` that compares the two | The metagame's tests pass on Postgres; a copy of a real 1.4.4 database migrates with no difference |
 
-### 4.7 Cross-cutting (DX)
+### 4.7 The network (DN)
+
+Built alongside the RU rows (DD16), on the Rust backend; nothing here touches the Node services.
+
+| # | What | Verify |
+| --- | --- | --- |
+| DN1 | **Spike** (maintainer, a 1.14.7 client): the launcher's relay re-pointed to another gateway mid-session, in Ramsgate and between hunts; and a hunt on one server's game server while the player's backend is another's. Kill criterion: if the client drops the session on a switch, wrong-node joins are refused with a message instead of moved | Ramsgate, a hunt and chat keep working across a switch |
+| DN2 | Seams: the network capability in `module-api`, node identity and region, global account and instance ids (DD18) in RU4's seams, the internal home API as a trait with stubs, `[network]` in `host.toml` | RU4's modules build against the seams; ids are network-wide from the first row |
+| DN3 | Node links: the cluster CA and node certificates (a `network` command to issue them), mutual TLS on host-only gateway routes, peer health, clock skew checks | A node with a foreign certificate is refused; links survive a peer restart |
+| DN4 | Directory: account to home, username claims, the leader and its replicas, registration through the leader | A name taken in one region is refused in every other; a replica catches up after a partition |
+| DN5 | Home API and session tickets: the account operations other nodes need (session check, character load, progression, inventory and bounty writes), tickets signed by the home | A hunt hosted in another region saves loot and XP at the player's home |
+| DN6 | Instance registry and redirects: global ids resolved to owners, the wrong-node answer, the launcher relay's re-point with a ticket (DD18) | A join that reaches the wrong node lands on the right one (or is refused, per DN1) |
+| DN7 | Region ping: the launcher's round-trip measurement to every node, reported to the home in order | The order matches measured latency on the canary |
+| DN8 | Matchmaking ring (DD19): home-owned tickets, the widening schedule, the claim protocol, placement on the hosting node's Director, the allowlist feed, XP and objective forwarding | Simulated players in four regions: nobody double-booked, wait time bounded by the ring delays |
+| DN9 | Regional Ramsgate (DD20): one shared hub per region, sharding, assignment by lowest ping | Players with different homes meet in one region's hub |
+| DN10 | Chat plugin and federation (DD21): rooms, direct messages across nodes, offline delivery, history stores, network-wide mutes | A DM between players on two continents arrives once, both histories hold it |
+| DN11 | Admin API across the network: kick, timeout and ban sent through the player's home and applied on every node | A ban on one node refuses the player everywhere |
+| DN12 | Test harness: four nodes in Docker with injected latency between them (`netem`), a `network` Compose profile | Runs in CI with the region latencies of the canary |
+| DN13 | Joining an existing server to the network: its accounts get it as their home, username clashes resolved by a rule the maintainer picks, existing invites and keys keep working | A Reforged host's database joins without any player redoing anything |
+| DN14 | Canary network: four nodes in the four regions (maintainer) | The smoke list (section 6) across regions, then a week of play |
+
+### 4.8 Cross-cutting (DX)
 
 | # | What |
 | --- | --- |
 | DX1 | Docs: `architecture.md` for modules and core plugins, the hosting guides (Postgres for every host, realms and their relay), the migration guide's paths, a "writing a game module" page |
-| DX2 | Security (RX3): `docs/security/module-host.md` for the frame protocol, external module loading and the SHA-256 list; fuzz target `module_frame`. Each module repository keeps the checklists for what it carries (`metagame.md`, `deploy.md` move to dauntless-revived; rustic-rifts gets admission tickets, the pair cipher and relay credentials, with fuzz targets for the ticket and control-message parsers) |
+| DX2 | Security (RX3): `docs/security/module-host.md` for the frame protocol, external module loading and the SHA-256 list; fuzz target `module_frame`. Each module repository keeps the checklists for what it carries (`metagame.md`, `deploy.md` move to dauntless-revived; rustic-rifts gets admission tickets, the pair cipher and relay credentials, with fuzz targets for the ticket and control-message parsers). The network gets `docs/security/network.md`: node certificates and the cluster CA, session tickets, the directory, the claim protocol and chat federation, with fuzz targets for node-link messages and federated stanzas |
 | DX3 | CI on Forgejo Actions: a runner with MSVC for the native builds (maintainer), submodule checkout, Bun; `.github/workflows` read as Forgejo reads them, or moved to `.forgejo/workflows`. GitHub stays a read-only source (`upstream`, `mystic`) until DX5 |
 | DX4 | Licensing: AGPL-3.0-only in every repository; Mystic's `ADDITIONAL_TERMS.md` and its section 1 notice in rustic-isles' and rustic-rifts' README and `NOTICE.md`, which also say they are modified, unofficial versions (its section 2); DR's attribution in dauntless-revived; libjuice's MPL-2.0 notice in rustic-rifts; `NOTICE.md` here points to all four |
 | DX5 | Publishing to GitHub, once the launcher and the server are confirmed working (maintainer): each repository pushed public, submodule URLs and the Cargo registry switched or mirrored, release workflows pointed at it |
@@ -182,20 +215,25 @@ RF rows: an area that touches them calls through rustic-rifts' crates.
 | Wave | Rows | Needs | Hands-on |
 | --- | --- | --- | --- |
 | 0 | DS5 lists; DF1 spike; DF7's `pq-sys` spike | — | — |
+| 0 | DN1 spike | — | A 1.14.7 client, two servers |
 | 0 | DS1–DS4 | — | Forgejo: rename, create the repositories, push |
 | 1 | DF2 seam; RU1, RU2; DS7; RV1's history work; DU1 | DS2–DS4, DF1 | — |
 | 2 | DS6 submodule swap | RU1, RV1, DS7 | — |
 | 2 | DF3 controller, DF4 core plugins, DF7 store; RU3 inventories, RF1 | DF2 | — |
-| 3 | RU4 and RF2 seams; RV1's module crate; DF5 bins; DU2, DU3 | DF3, DF4, DF7 | — |
+| 3 | RU4 and RF2 seams with DN2; RV1's module crate; DF5 bins; DU2, DU3 | DF3, DF4, DF7 | — |
 | 3 | DF6 rename sweep, by itself, between integration passes | DS6 | — |
 | 4 | RU5 (about nine agents), RU6, RU7; RF3–RF6; RV2, RV3 | RU4, RF2 | Game servers, the 1.4.4 client |
+| 4 | DN3, DN4, DN5, DN12 | DN2 | — |
+| 5 | DN6–DN11 | DN3–DN5, RU5's chat and auth areas, RU6 | — |
 | 5 | RF7, DU5, RF8 | RF3–RF6 | Two PCs, a TURN relay |
 | 6 | RU8 replay, then RU9 | RU5–RU7, RF5–RF6 | Canary, 1.14.7 captures |
+| 7 | DN13, then DN14 | RU9 on single nodes, DN6–DN12 | Four regional servers |
 | any | RU10 spike; RU11 when 1.12.0 traffic exists; DX rows with the rows they cover | — | Host SDKs for both versions |
 | last | DX5 GitHub publication | The launcher and server confirmed working | Maintainer |
 
 Today's `main` keeps shipping until DS6. After DS6, hosts update to a DaintyLass build that still runs Node Paradox
-from the rustic-isles submodule; the Rust 1.14.7 module replaces it at RU9's cutover.
+from the rustic-isles submodule; the Rust 1.14.7 module replaces it at RU9's cutover. The network is built
+alongside, but goes live only after RU9 has run on single servers: a node runs alone until DN13 joins it.
 
 ## 6. Things that must not change
 
@@ -207,6 +245,8 @@ both languages are not; and "the host-only routes and headers stay refused" now 
   server.
 - Each game version's routes and JSON, matched as its Node service answers them.
 - Every name DD1 keeps.
+- A server that isn't in a network works exactly as one that is with no peers.
+- The account key goes only to its home server and certificate; other nodes see session tickets (DD17).
 
 ## 7. Amendments to `MIGRATION_PLAN.md`
 
@@ -221,8 +261,25 @@ repositories and `ui/` own their own files; `crates/module-api` is a seam owned 
 Answered 2026-10-26: display names (DD4), Mystic's name clause (DD7), how deep the rename goes (DD1), the database
 (DD15), 1.12.0's verification (DD9), realms (DD14) and visibility (DD2, DX5).
 
-1. **The realm host's local data.** Mystic's guide says "local realms use the built-in `node:sqlite`". If that is a
-   player's PC hosting a realm, Postgres for every module (DD15) would put Postgres on players' PCs. RF1 finds out
-   what is stored there; the choice is then SQLite for that case only, or keeping the state on the server.
-2. **A relay for the canary.** Realm checks (RF8) need a TURN relay: a Cloudflare account, or a coturn the
-   maintainer runs.
+Also answered: the network (DD16–DD21). Mystic's "local realm" turned out to be the whole backend on one PC with
+no database server, not storage on a realm host's PC (section 1).
+
+1. **The database engine (DD15, reopened).** Postgres for every module would put a Postgres on a PC server. The
+   alternatives found:
+   - The SQLite family everywhere: Diesel on SQLite through `store`, as `main` has today, one file per node, no
+     database service; DF7 and RV3 go away. libSQL (production-ready, a Diesel backend in the third-party
+     `diesel-libsql`) adds server mode, replicas and encryption if wanted. Turso's Rust rewrite (MVCC concurrent
+     writes) is still beta with no Diesel backend, and could replace the engine later without a file change.
+   - Postgres on servers and SQLite on PCs, as Mystic splits it: two implementations of every repository.
+   - Postgres everywhere, managed or embedded on PCs.
+
+   With home-region accounts (DD17) each node keeps its own database, so this stays a per-node choice; a busy
+   regional node is the case for real write concurrency.
+2. **The TURN relay (RF8).** [turn-rs](https://github.com/mycrl/turn-rs) (Rust, MIT) supports what Mystic uses:
+   `static-auth-secret` for the TURN REST credentials the backend's `turn-rest` provider mints, UDP, TCP and TLS
+   listeners, TCP relaying (RFC 6062), IPv6 and a `port-range`, plus a gRPC API for sessions. It has no tagged
+   releases and calls itself lightweight. Run it standalone on the canary with coturn as the fallback, run it
+   inside DaintyLass as a relay plugin (a second public listener, against the gateway-only rule), or use coturn
+   or Cloudflare TURN.
+3. **Username clashes when servers join a network (DN13).** Two existing servers can both have a "Fox": first
+   registered keeps it, the other gets a suffix, or the player picks a new name at next login.
