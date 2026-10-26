@@ -13,7 +13,7 @@ use clap::{Args, Parser, Subcommand};
 #[derive(Debug, Parser)]
 #[command(
     name = "reforged-host",
-    about = "Dauntless Reforged Revival host kit: sets up the server, runs it and makes invites",
+    about = "DaintyLass host kit: sets up the server, runs it and makes invites",
     after_help = "See README.md and docs/hosting.md.",
     arg_required_else_help = true
 )]

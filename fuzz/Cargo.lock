@@ -2545,7 +2545,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "reforged-fuzz"
+name = "dainty-lass-fuzz"
 version = "0.0.0"
 dependencies = [
  "admin",

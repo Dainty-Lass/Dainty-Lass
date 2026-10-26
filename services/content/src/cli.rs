@@ -11,7 +11,7 @@ use clap::{Parser, Subcommand};
 use service_kit::env::Env;
 
 #[derive(Parser)]
-#[command(name = "content", version, about = "Dauntless Reforged Revival content server")]
+#[command(name = "content", version, about = "DaintyLass content server")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,

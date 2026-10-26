@@ -13,7 +13,7 @@ use service_kit::env::Env;
 use service_kit::linelog;
 
 #[derive(Parser)]
-#[command(name = "gateway", version, about = "Dauntless Reforged Revival gateway")]
+#[command(name = "gateway", version, about = "DaintyLass gateway")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,

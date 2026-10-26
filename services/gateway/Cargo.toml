@@ -1,6 +1,6 @@
 [package]
 name = "gateway"
-description = "Public front door of a Dauntless Reforged Revival server: one TLS port in front of the Mystic Paradox backend, the content server and chat (MIGRATION_PLAN.md RS3)"
+description = "Public front door of a DaintyLass server: one TLS port in front of the Mystic Paradox backend, the content server and chat (MIGRATION_PLAN.md RS3)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

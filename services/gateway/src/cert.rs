@@ -240,7 +240,7 @@ pub fn make_certificate(names: Vec<rcgen::SanType>) -> Result<(String, String), 
     params.distinguished_name.push(DnType::CommonName, first);
     params
         .distinguished_name
-        .push(DnType::OrganizationName, "Dauntless Reforged Revival server");
+        .push(DnType::OrganizationName, "DaintyLass server");
     params.is_ca = IsCa::ExplicitNoCa;
     params.key_usages = vec![KeyUsagePurpose::DigitalSignature, KeyUsagePurpose::KeyEncipherment];
     params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];

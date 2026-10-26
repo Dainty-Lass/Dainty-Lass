@@ -61,12 +61,15 @@ fn write_run_game_wrapper(p: &Paths) -> Result<PathBuf, HostError> {
     let deploy = host.with_file_name(format!("deploy{}", std::env::consts::EXE_SUFFIX));
     let script = [
         "#!/bin/sh".to_owned(),
-        "# Dauntless Reforged Revival: DR's deploy server starts this for each 1.4.4 game server. Written by `reforged-host setup`.".to_owned(),
-        format!("exec {} run-game \"$@\"", crate::linux::sh_quote(&deploy.to_string_lossy())),
+        "# DaintyLass: DR's deploy server starts this for each 1.4.4 game server. Written by `reforged-host setup`."
+            .to_owned(),
+        format!(
+            "exec {} run-game \"$@\"",
+            crate::linux::sh_quote(&deploy.to_string_lossy())
+        ),
         String::new(),
     ]
-    .join("
-");
+    .join("\n");
     let target = run_game_wrapper(p);
     std::fs::create_dir_all(&p.bin).map_err(|e| HostError::io(&p.bin, e))?;
     std::fs::write(&target, script).map_err(|e| HostError::io(&target, e))?;

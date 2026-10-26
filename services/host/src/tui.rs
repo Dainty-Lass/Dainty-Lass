@@ -212,7 +212,7 @@ pub async fn run_tui(
                     })
                     .collect();
                 let title = format!(
-                    " Reforged Revival Server | {} | Players: {} | Hunts: {}/{} | fp: {} ",
+                    " DaintyLass Server | {} | Players: {} | Hunts: {}/{} | fp: {} ",
                     snap.mode,
                     snap.online_players,
                     snap.active_hunts,

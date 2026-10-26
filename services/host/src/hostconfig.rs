@@ -1150,7 +1150,7 @@ pub fn load_or_create_secrets(
             &file,
             &format_env(
                 &[
-                    "Dauntless Reforged Revival server secrets. SECRET: never share or commit this file.",
+                    "DaintyLass server secrets. SECRET: never share or commit this file.",
                     "Made once by `npm run setup`; changing one logs everyone out or breaks the invites already sent.",
                 ],
                 &entries,

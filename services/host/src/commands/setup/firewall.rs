@@ -19,7 +19,7 @@ pub fn firewall_script(c: &HostConfig, program: &str) -> String {
     let exe = exe.as_deref().map_or_else(|| "$null".to_owned(), quote);
     let ports = game_ports_text(c, "-");
     let mut lines: Vec<String> = [
-        "# Dauntless Reforged Revival: Windows Firewall rules for this server. Written by `npm run setup`.",
+        "# DaintyLass: Windows Firewall rules for this server. Written by `npm run setup`.",
         "# Run once in PowerShell as administrator:  powershell -ExecutionPolicy Bypass -File firewall.ps1",
         "$ErrorActionPreference = 'Stop'",
         "function Add-Rule($Name, $Display, $Protocol, $Port, $Program, $Remote, $Enabled) {",

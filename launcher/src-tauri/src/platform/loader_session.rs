@@ -233,7 +233,7 @@ pub fn begin(
         }
         std::fs::copy(picked, dir.join(name))?;
         let text = format!(
-            "; Written by the Dauntless Reforged Revival launcher for one {} session; removed when the game exits.\r\n{name}\r\n",
+            "; Written by the DaintyLass launcher for one {} session; removed when the game exits.\r\n{name}\r\n",
             match kind {
                 SessionKind::Dump => "Dumper-7",
                 SessionKind::Export => "CatalogExporter",

@@ -82,7 +82,7 @@ COPY --chmod=0755 docker/healthcheck.sh /opt/reforged/bin/reforged-healthcheck
 ENV PATH=/opt/reforged/bin:$PATH
 WORKDIR /opt/reforged/.workspace
 USER reforged
-LABEL org.opencontainers.image.title="Dauntless Reforged Revival front door" \
+LABEL org.opencontainers.image.title="DaintyLass front door" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
 

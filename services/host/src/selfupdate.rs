@@ -325,7 +325,7 @@ impl Manifest {
         let v: Value = serde_json::from_str(text).map_err(|e| format!("not JSON: {e}"))?;
         let s = |name: &str| v.get(name).and_then(Value::as_str).map(str::to_owned);
         if v.get("name").and_then(Value::as_str) != Some("reforged-revival-server") {
-            return Err("not a Dauntless Reforged Revival server release".into());
+            return Err("not a DaintyLass server release".into());
         }
         let version = s("version").ok_or("no version")?;
         Version::parse(&version).ok_or_else(|| format!("{version} is not a version"))?;
@@ -1017,7 +1017,7 @@ pub mod http {
 
     type Https = hyper_rustls::HttpsConnector<HttpConnector>;
 
-    const USER_AGENT: &str = "reforged-host (Dauntless Reforged Revival host kit)";
+    const USER_AGENT: &str = "reforged-host (DaintyLass host kit)";
     /// Waiting for an answer, or for the next part of one.
     const IDLE: Duration = Duration::from_secs(60);
     const MAX_TEXT: usize = 8 << 20;

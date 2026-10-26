@@ -203,7 +203,7 @@ mod secret_service {
         let key: [u8; 32] = rand::random();
         collection
             .create_item(
-                "Dauntless Reforged Revival Launcher account keys",
+                "DaintyLass Launcher account keys",
                 attributes,
                 &key,
                 true,

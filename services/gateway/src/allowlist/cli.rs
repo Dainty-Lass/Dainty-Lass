@@ -19,7 +19,7 @@ use service_kit::env::Env;
 use service_kit::linelog;
 
 #[derive(Parser)]
-#[command(name = "allowlist", version, about = "Dauntless Reforged Revival allowlist helper")]
+#[command(name = "allowlist", version, about = "DaintyLass allowlist helper")]
 struct Cli {
     #[arg(long)]
     env_file: Option<PathBuf>,
