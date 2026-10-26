@@ -538,7 +538,7 @@ pub fn host_config_from_args(
         text(&args.name)
             .map(str::to_owned)
             .or_else(|| existing.map(|c| c.name.clone()))
-            .unwrap_or_else(|| "Dauntless Reforged Revival server".into())
+            .unwrap_or_else(|| "DaintyLass server".into())
             .into(),
     );
     doc.insert("gameDir".into(), opt(game_dir.map(|d| resolve_path(&d))));

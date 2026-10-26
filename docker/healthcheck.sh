@@ -1,5 +1,5 @@
 #!/bin/bash
-# Dauntless Reforged Revival: compose.yaml's health check for a service, `reforged-healthcheck <name>`.
+# DaintyLass: compose.yaml's health check for a service, `reforged-healthcheck <name>`.
 # Healthy once its port takes a connection, the port and address read as the service reads them: the
 # process environment first, then its env file (written by reforged-host setup). The host kit's `start`
 # waits the same way (rust/services/host/src/services.rs, Ready).

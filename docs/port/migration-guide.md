@@ -231,7 +231,7 @@ What a DR name became, so a DR commit or a DR Rust module reads straight across.
 | `DR_NFT_BINARY`, `DR_NFT_TABLE`, `DR_FIREWALL_INTERFACE` | `ALLOWLIST_NFT`, `ALLOWLIST_NFT_TABLE`, `ALLOWLIST_INTERFACE` | `allowlist/config.rs` |
 | nft table `dauntless_revived` | `reforged_revival` | `allowlist/nft.rs` |
 | Windows Firewall rule `Dauntless Revived game ports (allowlist)` | `Dauntless Reforged Revival game ports (allowlist)`, name `ReforgedRevival-GamePorts-Allowlist` | `allowlist/windows.rs` |
-| certificate organization `Dauntless Revived server` | `Dauntless Reforged Revival server` | gateway `cert.rs` |
+| certificate organization `Dauntless Revived server` | `DaintyLass server` (DD1; Reforged Node's was `Dauntless Reforged Revival server`) | gateway `cert.rs` |
 | `/content/v1/manifest`, `/content/v1/files/<path>` | `/content/v1/runtime/manifest`, `/content/v1/runtime/files/<name>` | content `app.rs` |
 | `CONTENT_GAME_DIR` (required) | `CONTENT_RUNTIME_DIR` (optional) | content `config.rs` |
 | `dauntless-revived://join` | `reforged-revival://join`; the old scheme parses to a typed refusal | `protocol/src/invite.rs`, launcher `platform/invite_link.rs` |

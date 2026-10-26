@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use service_kit::env::Env;
 
 #[derive(Parser)]
-#[command(name = "admin", version, about = "Dauntless Reforged Revival admin API")]
+#[command(name = "admin", version, about = "DaintyLass admin API")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,

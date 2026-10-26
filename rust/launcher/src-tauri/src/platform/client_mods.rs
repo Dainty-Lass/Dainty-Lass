@@ -174,7 +174,7 @@ pub fn https_get() -> FetchBytes {
     Arc::new(|url, max| {
         Box::pin(async move {
             let client = reqwest::Client::builder()
-                .user_agent("DauntlessReforgedRevivalLauncher")
+                .user_agent("DaintyLassLauncher")
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(30))
                 .build()

@@ -128,7 +128,7 @@ pub fn sh_quote(s: &str) -> String {
 pub fn gameserver_wrapper_script(host_bin: &Path) -> String {
     [
         "#!/bin/sh".to_owned(),
-        "# Dauntless Reforged Revival: the Director starts this for each game server. Written by `reforged-host setup`.".to_owned(),
+        "# DaintyLass: the Director starts this for each game server. Written by `reforged-host setup`.".to_owned(),
         "# It runs Dauntless-Win64-Shipping.exe through Wine or Proton (rust/services/host/src/wine.rs).".to_owned(),
         format!("exec {} gameserver \"$@\"", sh_quote(&host_bin.to_string_lossy())),
         String::new(),
@@ -346,9 +346,9 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
             files.push((
                 (*unit).to_owned(),
                 [
-                    format!("# Dauntless Reforged Revival: the {what} (nftables). Written by `reforged-host setup`."),
+                    format!("# DaintyLass: the {what} (nftables). Written by `reforged-host setup`."),
                     "[Unit]".to_owned(),
-                    format!("Description=Dauntless Reforged Revival {what} (nftables)"),
+                    format!("Description=DaintyLass {what} (nftables)"),
                     "After=network-online.target".to_owned(),
                     "Wants=network-online.target".to_owned(),
                     format!("Before={UNIT_SERVER}"),
@@ -381,10 +381,9 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
         Vec::new()
     };
     let mut server = vec![
-        "# Dauntless Reforged Revival: the whole server (reforged-host start). Written by `reforged-host setup`."
-            .to_owned(),
+        "# DaintyLass: the whole server (reforged-host start). Written by `reforged-host setup`.".to_owned(),
         "[Unit]".to_owned(),
-        "Description=Dauntless Reforged Revival server".to_owned(),
+        "Description=DaintyLass server".to_owned(),
         format!(
             "After=network-online.target{}",
             allowlist_units.iter().map(|u| format!(" {u}")).collect::<String>()
@@ -439,7 +438,8 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
         .join(" ");
     let mut install = vec![
         "#!/bin/sh".to_owned(),
-        "# Dauntless Reforged Revival: installs this server's systemd units and starts them. Written by `reforged-host setup`.".to_owned(),
+        "# DaintyLass: installs this server's systemd units and starts them. Written by `reforged-host setup`."
+            .to_owned(),
         "# Run once (and again after setup changes them):  sudo sh install.sh".to_owned(),
         "set -eu".to_owned(),
         "[ \"$(id -u)\" -eq 0 ] || { echo \"run it with sudo: sudo sh $0\" >&2; exit 1; }".to_owned(),
@@ -516,7 +516,7 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     });
     let mut lines: Vec<String> = [
         "#!/bin/sh",
-        "# Dauntless Reforged Revival: lets a host firewall (ufw) pass this server's traffic. Written by `reforged-host setup`.",
+        "# DaintyLass: lets a host firewall (ufw) pass this server's traffic. Written by `reforged-host setup`.",
         "# Run once:  sudo sh firewall.sh",
         "set -eu",
         "[ \"$(id -u)\" -eq 0 ] || { echo \"run it with sudo: sudo sh $0\" >&2; exit 1; }",
@@ -527,14 +527,14 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     if c.mode == ServerMode::Public {
         let port = gateway_port(c);
         lines.extend([
-            format!("    ufw allow {port}/tcp comment 'Dauntless Reforged Revival gateway'"),
+            format!("    ufw allow {port}/tcp comment 'DaintyLass gateway'"),
             "    # The allowlist's nftables table (reforged_revival) still closes these to everyone who has not logged in.".to_owned(),
-            format!("    ufw allow {game}/udp comment 'Dauntless Reforged Revival game ports (allowlist)'"),
+            format!("    ufw allow {game}/udp comment 'DaintyLass game ports (allowlist)'"),
         ]);
         if let Some((port, game)) = &legacy {
             lines.extend([
-                format!("    ufw allow {port}/tcp comment 'Dauntless Reforged Revival 1.4.4 gateway'"),
-                format!("    ufw allow {game}/udp comment 'Dauntless Reforged Revival 1.4.4 game ports (allowlist)'"),
+                format!("    ufw allow {port}/tcp comment 'DaintyLass 1.4.4 gateway'"),
+                format!("    ufw allow {game}/udp comment 'DaintyLass 1.4.4 game ports (allowlist)'"),
             ]);
         }
         lines.extend([
@@ -550,15 +550,15 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     } else {
         lines.extend([
             format!(
-                "    ufw allow in on tailscale0 to any port {} proto tcp comment 'Dauntless Reforged Revival gateway (Tailscale)'",
+                "    ufw allow in on tailscale0 to any port {} proto tcp comment 'DaintyLass gateway (Tailscale)'",
                 PORTS.private_gateway
             ),
-            format!("    ufw allow in on tailscale0 to any port {game} proto udp comment 'Dauntless Reforged Revival game ports (Tailscale)'"),
+            format!("    ufw allow in on tailscale0 to any port {game} proto udp comment 'DaintyLass game ports (Tailscale)'"),
         ]);
         if let Some((port, game)) = &legacy {
             lines.extend([
-                format!("    ufw allow in on tailscale0 to any port {port} proto tcp comment 'Dauntless Reforged Revival 1.4.4 gateway (Tailscale)'"),
-                format!("    ufw allow in on tailscale0 to any port {game} proto udp comment 'Dauntless Reforged Revival 1.4.4 game ports (Tailscale)'"),
+                format!("    ufw allow in on tailscale0 to any port {port} proto tcp comment 'DaintyLass 1.4.4 gateway (Tailscale)'"),
+                format!("    ufw allow in on tailscale0 to any port {game} proto udp comment 'DaintyLass 1.4.4 game ports (Tailscale)'"),
             ]);
         }
         lines.extend([

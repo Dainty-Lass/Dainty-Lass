@@ -257,7 +257,7 @@ export type HostServerConfig = { configured: boolean, name: string | null, mode:
 multipliers: HostMultipliers | null, };
 export type HostKit = { 
 /**
- * A Dauntless Reforged Revival checkout
+ * A DaintyLass checkout
  */
 workspace: string | null, workspaceOk: boolean, upstream: HostUpstream, sdk: HostSdk, dumps: Array<HostDump>, 
 /**

@@ -1,4 +1,4 @@
-//! The Dauntless Reforged Revival Launcher on Tauri 2 (MIGRATION_PLAN.md section 4.6), on Dauntless
+//! The DaintyLass Launcher on Tauri 2 (MIGRATION_PLAN.md section 4.6), on Dauntless
 //! Revived's launcher backend (e1c5fec). The page is the same TypeScript page the Electron launcher shows
 //! (`legacy/ReforgedLauncher`, built by `../vite.config.ts`); everything the Electron main process did
 //! moves here.
@@ -76,7 +76,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
     platform::log::log_to_file(paths.logs_dir());
     let context = tauri::generate_context!();
     let version = context.package_info().version.to_string();
-    platform::log::info(&format!("Dauntless Reforged Revival Launcher {version} starting"));
+    platform::log::info(&format!("DaintyLass Launcher {version} starting"));
     let encryptors = tauri::async_runtime::block_on(platform::keystore::os::encryptors(&paths.user_data));
     #[cfg(target_os = "linux")]
     if !encryptors.0.is_available() && secure_storage::bootstrap(&args, &paths.home) {
@@ -359,7 +359,7 @@ pub fn run_client() -> tauri::Result<()> {
     run()
 }
 
-/// `reforged-server-gui`: the launcher with the server inside it, which the Host page's server panel
+/// `dainty-lass-server-gui`: the launcher with the server inside it, which the Host page's server panel
 /// starts, stops and restarts service by service (RD26).
 #[cfg(feature = "server-gui")]
 pub fn run_server_gui() -> tauri::Result<()> {

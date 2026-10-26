@@ -40,7 +40,7 @@ pub const DLL_SOURCE: &str = "";
 
 /// The runtime loader's list beside the game: the 1.4.4 DLL and nothing else
 pub const LOADER_INI: &str = "mystic_loader.ini";
-pub const LOADER_INI_TEXT: &str = "; Written by the Dauntless Reforged Revival launcher for Dauntless 1.4.4.
+pub const LOADER_INI_TEXT: &str = "; Written by the DaintyLass launcher for Dauntless 1.4.4.
 UndauntedInternalServer.dll
 ";
 

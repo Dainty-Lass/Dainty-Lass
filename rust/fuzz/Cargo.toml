@@ -7,7 +7,7 @@
 # the Visual Studio install, VC/Tools/MSVC/<version>/bin/Hostx64/x64. A workspace of its own: cargo fuzz
 # needs nightly and its own build flags.
 [package]
-name = "reforged-fuzz"
+name = "dainty-lass-fuzz"
 version = "0.0.0"
 edition = "2024"
 publish = false

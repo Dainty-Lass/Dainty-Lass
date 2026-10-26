@@ -1,6 +1,6 @@
 # Plan: configuration in TOML
 
-Draft, 2026-10-24. Scope: Dauntless Reforged Revival first; Dauntless Revived at the end.
+Draft, 2026-10-24. Scope: DaintyLass first; Dauntless Revived at the end.
 
 **Target: the Rust host kit on `plan`** (`rust/services/host`, the launcher's `platform/hostkit`), not the Node
 projects in `legacy/`. The file and function names below come from the Node kit; the Rust port keeps the same
@@ -51,7 +51,7 @@ In the Rust port: `toml_edit` (already in the lockfile through Tauri). A new fil
 Sketch:
 
 ```toml
-# Dauntless Reforged Revival server. Written by `npm run setup`; safe to edit by hand,
+# DaintyLass server. Written by `npm run setup`; safe to edit by hand,
 # then run `npm run setup` again to apply. Your own comments are not kept.
 version = 1
 mode = "public"                 # "private" (Tailscale) or "public"

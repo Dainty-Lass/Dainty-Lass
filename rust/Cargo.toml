@@ -20,8 +20,8 @@ members = [
     # Dauntless Revived's deploy server, which starts the 1.4.4 game servers for the metagame
     "services/deploy",
     "launcher/src-tauri",
-    # What ships (RD26): the server in one binary (reforged-server-console, with reforged-host as its old
-    # name) and the same without a console. The launcher's two (reforged-client, reforged-server-gui) are
+    # What ships (RD26): the server in one binary (dainty-lass-server-console, and reforged-host, the name installs
+    # run, DD1) and the same without a console. The launcher's two (dainty-lass-client, dainty-lass-server-gui) are
     # launcher/src-tauri's own, as `tauri build` needs
     "bins/server-console",
     "bins/server-minimal",

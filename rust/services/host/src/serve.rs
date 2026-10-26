@@ -611,7 +611,7 @@ pub fn minimal_main() -> ExitCode {
             },
             "--help" | "-h" => {
                 println!(
-                    "Usage: reforged-server-minimal [OPTIONS]\n  -c, --config <FILE>      host.toml, .yaml, .yml or .json (the workspace's otherwise)\n      --root <DIR>         The server folder (holds .workspace/); found from this binary otherwise\n      --log-level <LEVEL>  error, warn, info, debug or trace (default: info)"
+                    "Usage: dainty-lass-server-minimal [OPTIONS]\n  -c, --config <FILE>      host.toml, .yaml, .yml or .json (the workspace's otherwise)\n      --root <DIR>         The server folder (holds .workspace/); found from this binary otherwise\n      --log-level <LEVEL>  error, warn, info, debug or trace (default: info)"
                 );
                 return ExitCode::SUCCESS;
             }

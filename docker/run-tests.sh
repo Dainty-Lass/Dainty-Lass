@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dauntless Reforged Revival: the full test run on the built images (CI's docker job, and by hand from the
+# DaintyLass: the full test run on the built images (CI's docker job, and by hand from the
 # repository root: bash docker/run-tests.sh). Builds the front, server and test images, then
 #  1. every server test suite inside the test image, which is the server image plus the Rust toolchain
 #     (docker/test-in-image.sh): the Rust server crates, with the allowlist's nftables test applied for real in

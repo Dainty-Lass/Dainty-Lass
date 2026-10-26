@@ -54,7 +54,7 @@ pub fn invite_text(config: &HostConfig, args: &InviteArgs, uses: f64, link: &str
     )];
     out.push(format!("  {link}\n"));
     out.push(
-        "Send the whole line. They paste it into the Dauntless Reforged Revival launcher (or click it once the launcher is installed)."
+        "Send the whole line. They paste it into the DaintyLass launcher (or click it once the launcher is installed)."
             .into(),
     );
     if config.mode == ServerMode::Private {

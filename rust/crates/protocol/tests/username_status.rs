@@ -43,7 +43,7 @@ fn account_keys() {
     assert_eq!(extract_account_key(&format!("  {key}\r\n")), Some(key.as_str()));
     assert_eq!(
         extract_account_key(&format!(
-            "Dauntless Reforged Revival account key\r\n\r\nServer: X\r\nKey: {key}\r\n\r\nKeep this file private."
+            "DaintyLass account key\r\n\r\nServer: X\r\nKey: {key}\r\n\r\nKeep this file private."
         )),
         Some(key.as_str())
     );

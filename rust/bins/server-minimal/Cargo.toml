@@ -9,7 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "reforged-server-minimal"
+name = "dainty-lass-server-minimal"
 path = "src/main.rs"
 
 [features]

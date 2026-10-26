@@ -16,7 +16,7 @@ use crate::hostconfig::load_host_config;
 use crate::paths::{Paths, game_exe_relative};
 use crate::preset::{CreateOptions, apply_preset, create_preset, read_preset_manifest};
 
-const DEFAULT_NAME: &str = "Dauntless Reforged Revival";
+const DEFAULT_NAME: &str = "DaintyLass";
 
 fn create(paths: &Paths, args: &PresetArgs) -> Outcome {
     not_set_up(paths)?;

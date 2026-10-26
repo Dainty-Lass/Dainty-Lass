@@ -749,7 +749,7 @@ pub struct HostServerConfig {
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct HostKit {
-    /// A Dauntless Reforged Revival checkout
+    /// A DaintyLass checkout
     pub workspace: Option<String>,
     pub workspace_ok: bool,
     pub upstream: HostUpstream,

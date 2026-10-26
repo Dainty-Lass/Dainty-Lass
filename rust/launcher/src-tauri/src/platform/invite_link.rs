@@ -194,7 +194,7 @@ pub async fn claim(name: &str, args: &[String], on_args: OnArgs) -> Claim {
 /// The name Windows shows for a scheme.
 fn scheme_label(scheme: &str) -> &'static str {
     match scheme {
-        INVITE_SCHEME => "URL:Dauntless Reforged Revival invite",
+        INVITE_SCHEME => "URL:DaintyLass invite",
         REVIVED_INVITE_SCHEME => "URL:Dauntless Revived invite",
         _ => "URL:Dauntless invite",
     }
@@ -289,7 +289,7 @@ pub fn desktop_entry(appimage: &Path) -> Option<String> {
         .map(|scheme| format!("x-scheme-handler/{scheme};"))
         .collect();
     Some(format!(
-        "[Desktop Entry]\nType=Application\nName=Dauntless Reforged Revival Launcher\nExec={} %u\nMimeType={mime}\nNoDisplay=true\nTerminal=false\n",
+        "[Desktop Entry]\nType=Application\nName=DaintyLass Launcher\nExec={} %u\nMimeType={mime}\nNoDisplay=true\nTerminal=false\n",
         exec_argument(path)
     ))
 }
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn windows_registers_the_scheme_for_the_current_user() {
         let mut registry = FakeRegistry::default();
-        let exe = Path::new(r"C:\Users\me\AppData\Local\Dauntless Reforged Revival Launcher\launcher.exe");
+        let exe = Path::new(r"C:\Users\me\AppData\Local\DaintyLass Launcher\launcher.exe");
         register_windows(&mut registry, exe).unwrap();
         assert_eq!(
             registry.values.len(),
@@ -452,7 +452,7 @@ mod tests {
         assert_eq!(
             registry.values[3..6],
             [
-                (key.to_owned(), None, "URL:Dauntless Reforged Revival invite".to_owned()),
+                (key.to_owned(), None, "URL:DaintyLass invite".to_owned()),
                 (key.to_owned(), Some("URL Protocol".to_owned()), String::new()),
                 (
                     format!(r"{key}\shell\open\command"),
@@ -498,7 +498,7 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(applications.join(DESKTOP_FILE)).unwrap(),
             format!(
-                "[Desktop Entry]\nType=Application\nName=Dauntless Reforged Revival Launcher\nExec=\"/home/me/Apps/Reforged Launcher.AppImage\" %u\nMimeType={}\nNoDisplay=true\nTerminal=false\n",
+                "[Desktop Entry]\nType=Application\nName=DaintyLass Launcher\nExec=\"/home/me/Apps/Reforged Launcher.AppImage\" %u\nMimeType={}\nNoDisplay=true\nTerminal=false\n",
                 mimes.iter().map(|mime| format!("{mime};")).collect::<String>()
             )
         );

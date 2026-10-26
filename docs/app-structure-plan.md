@@ -7,7 +7,7 @@ What shipped differs: two server binaries and the launcher's two, not twelve cra
 controller makes; the backend and Director as Mystic Paradox's Node processes, not Rust listeners; and each service
 still runnable alone as a `reforged-host` subcommand.
 
-This document specifies the architectural conversion of the Reforged Revival Rust codebase into:
+This document specifies the architectural conversion of the DaintyLass Rust codebase into:
 1. **Pure Library Service Crates (`rust/services/*`)** — Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).
 2. **A Unified `ServerController` (`rust/crates/controller`)** — Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
 3. **A `tracing` + `tracing-subscriber` Logging Pipeline** — Unifying all components into a single span-attributed, secret-redacting logging bus with pluggable target layers (`TableStdoutLayer`, `LauncherGuiLayer`, `TuiRingBufferLayer`, `FileLogLayer`).

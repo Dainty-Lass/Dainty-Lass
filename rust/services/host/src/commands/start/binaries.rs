@@ -157,10 +157,10 @@ impl Programs {
 }
 
 /// The binary a service runs from on its own (`<it> gateway serve ...`): this one when it has the host
-/// kit's command line, else `reforged-host` (or `reforged-server-console`) in the release's `bin/` or a
-/// build. `reforged-server-minimal` and the server GUI have no such commands.
+/// kit's command line, else `reforged-host` (or `dainty-lass-server-console`) in the release's `bin/` or a
+/// build. `dainty-lass-server-minimal` and the server GUI have no such commands.
 fn host_cli(exe: &Path, paths: &Paths, rust_dirs: &[PathBuf]) -> PathBuf {
-    const CLIS: [&str; 2] = ["reforged-host", "reforged-server-console"];
+    const CLIS: [&str; 2] = ["reforged-host", "dainty-lass-server-console"];
     let stem = exe
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
