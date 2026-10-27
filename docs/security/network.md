@@ -381,7 +381,49 @@ To be written with DN8.
 
 ## Chat federation (DN10b)
 
-To be written with DN10b.
+- **Trust boundary**: a chat federation message arrives over `/__node/chat` (`Service::Chat`) from an
+  mTLS-authenticated peer node in `[[network.nodes]]`. The caller identity (`from`) comes from the verified
+  client certificate's SAN/CN, never from the wire body. A standalone server outside a network keeps
+  `LocalOnly`: nothing leaves the node and `/__node/chat` is not attached.
+- **Wire protocol (`chat::federation`)**:
+  - [ ] Versioned JSON (`CHAT_FEDERATION_VERSION = 1`), `#[serde(deny_unknown_fields)]` on every request,
+        response, operation, reply, and wire envelope struct, bounded to `MAX_CHAT_WIRE = MAX_MESSAGE` (1 MiB).
+  - [ ] `decode_request` and `decode_response` validate every string and identifier before returning:
+        message `mid` and `stanza_id` are non-empty, <= 128 bytes, with no control characters; `from_local`
+        and `local` obey `is_authcid_shape` (no `@`, `/`, whitespace, or control characters, <= 128 bytes);
+        `nick` is non-empty, <= `MAX_NICK_BYTES` (256 bytes), with no control characters; `body` is bounded to
+        `BODY_LIMIT` (4 KiB); `PullWaiting` and `RoomSubscribe` history limits are capped at
+        `MAX_HISTORY_PULL = 100`, and `AckWaiting` mid lists are capped at 200 entries. Test:
+        `wire_round_trip_and_bounds`.
+  - [ ] Requests from a node not listed in `[[network.nodes]]` (`!is_peer(from)`) are refused before any
+        database or session state is touched.
+- **Direct messages, offline waiting queue, and deduplication (DD21)**:
+  - [ ] Every direct message carries a globally unique `mid` (`<node>-<seq>-<at>`) and is stored idempotently
+        (`History::add_direct_once`) at both `from.owner()` and `to.owner()`, and routed through `to.owner()`
+        to the node(s) where the recipient is currently bound (`RouteDirect` -> `DeliverDirect`). Tests:
+        `a_dm_across_two_nodes_arrives_once_and_both_histories_hold_it`,
+        `federation_works_end_to_end_over_mutual_tls_gateways`.
+  - [ ] When a recipient is offline across the network, the message waits at `to.owner()` (`delivered_at = None`).
+        When the recipient next binds on any node, that node pulls waiting messages from `to.owner()`
+        (`PullWaiting`), stores and delivers each once (`remember_mid`), and acknowledges delivery at
+        `to.owner()` (`AckWaiting`). Test:
+        `an_offline_dm_across_nodes_waits_at_the_recipients_home_and_delivers_once_at_login`.
+  - [ ] On delivery (`Event::RemoteDirect`), the recipient node checks both local mute state and
+        `ChatHost::blocked(recipient, sender)` before sending the stanza to any bound session.
+- **Room ownership, history, and mutes (DD21)**:
+  - [ ] Room ownership is deterministic (`ChatFederation::room_owner`): `RoomKind::Network` at the cluster's
+        designated leader node, `RoomKind::Region(r)` at the designated node for region `r`, and
+        `RoomKind::Party(id)` / `RoomKind::Hunt(id)` at `id.owner()`. Only a node with local occupants
+        subscribes (`RoomSubscribe`), receiving at most `MAX_HISTORY_PULL` historical messages when the room's
+        rules keep history, and unsubscribes (`RoomUnsubscribe`) when its last local occupant leaves. Test:
+        `rooms_and_room_history_federate_across_nodes`.
+  - [ ] Mutes and unmutes (`SetMute`, `ClearMute`, `GetMute`) are recorded at `account.owner()`, pushed to
+        peers so live sessions follow them immediately, and consulted at login when an account binds on
+        another node. Test: `a_mute_at_one_node_holds_at_another`.
+  - [ ] Calls to an unreachable peer (`PublishDirect`, `PublishRoom`, `StoreDirect`, `RouteDirect`,
+        `DeliverDirect`, `SetMute`, `ClearMute`) are queued in `chat_outbox` (bounded to 4,096 rows) and
+        replayed in batches on `tick` when the peer heals, deduplicated by `mid` so healed partitions do not
+        deliver twice. Test: `a_partitioned_node_catches_up_from_the_outbox_when_healed`.
 
 ## Admin actions across nodes (DN11)
 
@@ -419,6 +461,7 @@ cargo +nightly fuzz run network_home -- -max_total_time=86400
 cargo +nightly fuzz run network_ticket -- -max_total_time=86400
 cargo +nightly fuzz run network_admin -- -max_total_time=86400
 cargo +nightly fuzz run network_logship -- -max_total_time=86400
+cargo +nightly fuzz run chat_federation -- -max_total_time=86400
 ```
 
 Signed: ________ (date, commit)

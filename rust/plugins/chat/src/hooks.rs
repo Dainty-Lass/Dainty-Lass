@@ -67,6 +67,12 @@ pub trait ChatHost: Send + Sync {
     fn blocked<'a>(&'a self, _sender: &'a GlobalId, _recipient: &'a GlobalId) -> BoxFuture<'a, bool> {
         Box::pin(async { false })
     }
+
+    /// The account a JID local part belongs to when known to the host (for example from a directory or game
+    /// database before the player has logged into chat).
+    fn account_of<'a>(&'a self, _local: &'a str) -> BoxFuture<'a, Option<GlobalId>> {
+        Box::pin(async { None })
+    }
 }
 
 /// The JID of a module that doesn't answer: the name the client logged in with, on its own domain.

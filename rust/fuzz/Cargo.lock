@@ -514,6 +514,7 @@ dependencies = [
  "diesel_migrations",
  "futures-util",
  "module-api",
+ "network",
  "protocol",
  "rand 0.10.3",
  "serde",

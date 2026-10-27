@@ -220,6 +220,15 @@ pub enum Event {
         account: GlobalId,
         mute: Option<Mute>,
     },
+    /// A direct message delivered from another node (DN10b)
+    RemoteDirect {
+        message: crate::federation::DirectWire,
+        reply: oneshot::Sender<bool>,
+    },
+    /// A room message fanned out or replicated from another node (DN10b)
+    RemoteRoom {
+        message: crate::federation::RoomWire,
+    },
     Shutdown(oneshot::Sender<()>),
     /// One tick now, for a test that turned the timer off
     Tick(oneshot::Sender<()>),
@@ -309,6 +318,8 @@ pub struct Chat {
     offline_batch: i64,
     /// In creation order
     pub rooms: Vec<Room>,
+    seen_mids: HashSet<String>,
+    seen_mids_order: std::collections::VecDeque<String>,
     next_id: u64,
     next_ping: u64,
     last_sweep: i64,
@@ -377,6 +388,8 @@ impl Chat {
             history_on_join: settings.history_on_join,
             offline_batch: settings.offline_batch,
             rooms: Vec::new(),
+            seen_mids: HashSet::new(),
+            seen_mids_order: std::collections::VecDeque::new(),
             next_id: 1,
             next_ping: 1,
             last_sweep: 0,
@@ -388,6 +401,23 @@ impl Chat {
 
     pub fn now(&self) -> i64 {
         (self.clock)()
+    }
+
+    /// Records `mid` as seen on this node; returns `true` when `mid` is new.
+    pub(crate) fn remember_mid(&mut self, mid: &str) -> bool {
+        if mid.is_empty() {
+            return true;
+        }
+        if !self.seen_mids.insert(mid.to_owned()) {
+            return false;
+        }
+        self.seen_mids_order.push_back(mid.to_owned());
+        while self.seen_mids_order.len() > 4096 {
+            if let Some(old) = self.seen_mids_order.pop_front() {
+                self.seen_mids.remove(&old);
+            }
+        }
+        true
     }
 
     pub fn log_once(&mut self, key: &str, window_ms: Option<i64>) -> bool {
@@ -588,11 +618,19 @@ impl Chat {
         let Some(session) = self.sessions.get(&id) else {
             return;
         };
-        let (uid, resource, opened_at) = (session.uid.clone(), session.resource.clone(), session.opened_at);
+        let (uid, account, resource, opened_at) = (
+            session.uid.clone(),
+            session.account.clone(),
+            session.resource.clone(),
+            session.opened_at,
+        );
         if let (Some(uid), Some(_)) = (&uid, &resource) {
             let list: Vec<u64> = self.sessions_of(uid).into_iter().filter(|other| *other != id).collect();
             if list.is_empty() {
                 self.by_uid.remove(uid);
+                if let Some(account) = &account {
+                    self.backends.federation.presence(account, uid, false).await;
+                }
             } else {
                 self.by_uid.insert(uid.clone(), list);
             }
@@ -732,6 +770,7 @@ impl Chat {
             self.last_sweep = now;
             self.sweep_rooms().await;
         }
+        self.backends.federation.tick(now).await;
         self.prune(now);
     }
 
@@ -982,7 +1021,7 @@ impl Chat {
             return;
         }
         let account_text = player.account.to_string();
-        let mute = match self.backends.history.mute_of(&account_text).await {
+        let mut mute = match self.backends.history.mute_of(&account_text).await {
             Ok(mute) => mute,
             Err(error) => {
                 tracing::error!("chat: reading mutes failed ({error})");
@@ -990,6 +1029,9 @@ impl Chat {
                 return;
             }
         };
+        if mute.is_none() {
+            mute = self.backends.federation.mute_of(&player.account).await;
+        }
         if let Err(error) = self
             .backends
             .history
@@ -1132,6 +1174,7 @@ impl Chat {
             return;
         };
         session.resource = Some(resource.clone());
+        let account = session.account.clone();
         let domain = session.domain.clone();
         let jid = session.full_jid();
         self.by_uid.entry(uid.clone()).or_default().push(id);
@@ -1152,6 +1195,9 @@ impl Chat {
                 self.ping(other, GHOST_PING_MS);
             }
         }
+        if let Some(account) = &account {
+            self.backends.federation.presence(account, &uid, true).await;
+        }
         self.deliver_waiting(id).await;
     }
 
@@ -1160,7 +1206,12 @@ impl Chat {
         let Some(session) = self.sessions.get(&id) else {
             return;
         };
-        let (account, domain, to) = (session.account_text(), session.domain.clone(), session.full_jid());
+        let (account_id, account, domain, to) = (
+            session.account.clone(),
+            session.account_text(),
+            session.domain.clone(),
+            session.full_jid(),
+        );
         let waiting = match self.backends.history.pending_for(&account, self.offline_batch).await {
             Ok(waiting) => waiting,
             Err(error) => {
@@ -1168,11 +1219,14 @@ impl Chat {
                 return;
             }
         };
-        if waiting.is_empty() {
-            return;
-        }
         let mut delivered = Vec::new();
         for message in &waiting {
+            if let Some(mid) = &message.mid
+                && !self.remember_mid(mid)
+            {
+                delivered.push(message.id);
+                continue;
+            }
             let id_attr = message
                 .stanza_id
                 .as_deref()
@@ -1191,12 +1245,69 @@ impl Chat {
             );
             delivered.push(message.id);
         }
-        let count = delivered.len();
+        let mut count = delivered.len();
         let now = self.now();
-        if let Err(error) = self.backends.history.mark_delivered(&account, delivered, now).await {
+        if !delivered.is_empty()
+            && let Err(error) = self.backends.history.mark_delivered(&account, delivered, now).await
+        {
             tracing::error!("chat: marking messages delivered failed ({error})");
         }
-        tracing::info!("chat: offline messages c={id} delivered={count}");
+        if let Some(account_id) = account_id
+            && self.backends.federation.is_federated()
+            && account_id.owner() != &self.backends.node.node
+        {
+            let remote_waiting = self
+                .backends
+                .federation
+                .pull_waiting(&account_id, self.offline_batch)
+                .await;
+            let mut acked_mids = Vec::new();
+            let mut stanzas = Vec::new();
+            for message in remote_waiting {
+                if !self.remember_mid(&message.mid) {
+                    acked_mids.push(message.mid);
+                    continue;
+                }
+                let id_attr = message
+                    .stanza_id
+                    .as_deref()
+                    .map(|i| format!(" id=\"{}\"", escape(i)))
+                    .unwrap_or_default();
+                let _ = self
+                    .backends
+                    .history
+                    .add_direct_once(NewDirect {
+                        sender: message.from.to_string(),
+                        sender_local: message.from_local.clone(),
+                        recipient: message.to.to_string(),
+                        body: message.body.clone(),
+                        stanza_id: message.stanza_id.clone(),
+                        at: message.at,
+                        delivered_at: Some(now),
+                        mid: Some(message.mid.clone()),
+                    })
+                    .await;
+                stanzas.push(format!(
+                    "<message xmlns=\"{NS_CLIENT}\" type=\"chat\" from=\"{}\" to=\"{}\"{id_attr}><body>{}</body><delay xmlns=\"{NS_DELAY}\" from=\"{}\" stamp=\"{}\"/></message>",
+                    escape(&format!("{}@{domain}", message.from_local)),
+                    escape(&to),
+                    escape(&message.body),
+                    escape(&domain),
+                    stamp(message.at)
+                ));
+                acked_mids.push(message.mid);
+                count += 1;
+            }
+            if !acked_mids.is_empty() {
+                self.backends.federation.ack_waiting(&account_id, acked_mids, now).await;
+            }
+            for stanza in stanzas {
+                self.send(id, &stanza);
+            }
+        }
+        if count > 0 {
+            tracing::info!("chat: offline messages c={id} delivered={count}");
+        }
     }
 
     // ---- Presence and messages ----
@@ -1289,6 +1400,9 @@ impl Chat {
             Ok(None) => {}
             Err(error) => tracing::error!("chat: reading accounts failed ({error})"),
         }
+        if let Some(account) = self.backends.host.account_of(local).await {
+            return Some(account);
+        }
         self.backends.federation.resolve(local).await
     }
 
@@ -1364,17 +1478,29 @@ impl Chat {
             .map(|i| format!(" id=\"{}\"", escape(i)))
             .unwrap_or_default();
         let delivered = !recipients.is_empty();
+        let mid = format!("dm-{}", random_hex(16));
+        if delivered {
+            self.remember_mid(&mid);
+        }
+        let local_delivered_at = if delivered
+            || (self.backends.federation.is_federated() && recipient.owner() != &self.backends.node.node)
+        {
+            Some(now)
+        } else {
+            None
+        };
         let stored = self
             .backends
             .history
-            .add_direct(NewDirect {
+            .add_direct_once(NewDirect {
                 sender: sender.to_string(),
                 sender_local: uid.clone(),
                 recipient: recipient.to_string(),
                 body: body.clone(),
                 stanza_id: message_id.clone(),
                 at: now,
-                delivered_at: delivered.then_some(now),
+                delivered_at: local_delivered_at,
+                mid: Some(mid.clone()),
             })
             .await;
         if let Err(error) = stored {
@@ -1397,6 +1523,7 @@ impl Chat {
             recipients.len()
         );
         self.publish(Envelope::Direct {
+            mid,
             from: sender,
             from_local: uid,
             to: recipient,
@@ -1406,6 +1533,47 @@ impl Chat {
             delivered,
         })
         .await;
+    }
+
+    async fn remote_direct(&mut self, message: crate::federation::DirectWire) -> bool {
+        let recipients: Vec<u64> = self
+            .sessions
+            .values()
+            .filter(|s| !s.ended && s.resource.is_some() && s.account.as_ref() == Some(&message.to))
+            .map(|s| s.id)
+            .collect();
+        if recipients.is_empty() {
+            return false;
+        }
+        if !self.remember_mid(&message.mid) {
+            return true;
+        }
+        if self.backends.host.blocked(&message.from, &message.to).await {
+            return true;
+        }
+        let text = escape(&message.body);
+        let id_attr = message
+            .stanza_id
+            .as_deref()
+            .map(|i| format!(" id=\"{}\"", escape(i)))
+            .unwrap_or_default();
+        for sid in recipients {
+            let (domain, to) = self
+                .sessions
+                .get(&sid)
+                .map(|s| (s.domain.clone(), s.full_jid()))
+                .unwrap_or_default();
+            let from = format!("{}@{domain}", message.from_local);
+            self.send(
+                sid,
+                &format!(
+                    "<message xmlns=\"{NS_CLIENT}\" type=\"chat\" from=\"{}\" to=\"{}\"{id_attr}><body>{text}</body></message>",
+                    escape(&from),
+                    escape(&to)
+                ),
+            );
+        }
+        true
     }
 
     /// A mute set or lifted: the account's live sessions follow it at once.
@@ -1515,6 +1683,13 @@ pub async fn run(mut chat: Chat, mut events: mpsc::UnboundedReceiver<Event>) {
                     }
                 }
                 Some(Event::Muted { account, mute }) => chat.muted(&account, mute),
+                Some(Event::RemoteDirect { message, reply }) => {
+                    let delivered = chat.remote_direct(message).await;
+                    let _ = reply.send(delivered);
+                }
+                Some(Event::RemoteRoom { message }) => {
+                    chat.remote_room(message).await;
+                }
                 Some(Event::Shutdown(done)) => {
                     chat.shutdown().await;
                     let _ = done.send(());
