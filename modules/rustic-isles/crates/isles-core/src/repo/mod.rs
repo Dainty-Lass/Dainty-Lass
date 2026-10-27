@@ -164,11 +164,18 @@ impl Repositories {
 
     /// What runs on `store` today: the accounts table (RU4), the rest stubs until their areas port them.
     pub fn on_store() -> Self {
+        let progression = Arc::new(progression::SqlProgression);
         Self {
             accounts: Arc::new(auth::SqlAccounts),
             friendships: Arc::new(chat::SqlFriendships),
             characters: Arc::new(characters::SqlCharacters),
             loadouts: Arc::new(characters::SqlLoadouts),
+            progression_tracks: progression.clone(),
+            progression_grants: progression.clone(),
+            escalation_progress: progression.clone(),
+            player_journey: progression.clone(),
+            breadcrumbs: progression.clone(),
+            encountered_content: progression,
             ..Self::stubs()
         }
     }

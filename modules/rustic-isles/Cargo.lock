@@ -746,6 +746,7 @@ name = "isles-core"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "chrono",
  "diesel",
  "diesel_migrations",
  "dotenvy",
@@ -757,6 +758,7 @@ dependencies = [
  "serde",
  "serde_json",
  "service-kit",
+ "sha2",
  "store",
  "tempfile",
  "thiserror",
