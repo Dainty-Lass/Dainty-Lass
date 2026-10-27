@@ -87,6 +87,8 @@ fn runtime_manifest(files: &[(&'static str, Vec<u8>)]) -> Value {
 
 #[cfg(feature = "legacy")]
 mod legacy;
+#[cfg(feature = "realms")]
+mod realms;
 
 // ---------------------------------------------------------------- the fake server
 

@@ -3385,6 +3385,8 @@ dependencies = [
  "rcgen",
  "regex",
  "reqwest",
+ "rifts-host",
+ "rifts-seam",
  "rustls",
  "serde",
  "serde_json",
@@ -5101,11 +5103,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "rifts-host"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+ "libloading",
+ "rifts-seam",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "rifts-realms"
 version = "0.1.0"
 dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "module-api",
+ "rand 0.10.3",
  "rifts-seam",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "store",
  "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]

@@ -49,6 +49,7 @@ rifts-admission = { path = "../modules/rustic-rifts/crates/rifts-admission" }
 rifts-relay = { path = "../modules/rustic-rifts/crates/rifts-relay" }
 rifts-realms = { path = "../modules/rustic-rifts/crates/rifts-realms" }
 rifts-guard = { path = "../modules/rustic-rifts/crates/rifts-guard" }
+rifts-host = { path = "../modules/rustic-rifts/crates/rifts-host" }
 
 [workspace.package]
 version = "0.0.0"
@@ -75,6 +76,9 @@ epic = { path = "crates/epic" }
 # The game modules compiled into the server (DF5): Cargo features of the controller and the bins
 isles-1-12-0 = { path = "../modules/rustic-isles/modules/isles-1-12-0" }
 isles-1-14-7 = { path = "../modules/rustic-isles/modules/isles-1-14-7", default-features = false }
+# The launcher's side of realms (RF7, DD12): linked behind launcher's `realms` feature
+rifts-host = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "0ecf59ca67a480b4dcea956de9d1cd4fa61b0a76" }
+rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "0ecf59ca67a480b4dcea956de9d1cd4fa61b0a76" }
 gateway = { path = "services/gateway" }
 host = { path = "services/host" }
 launcher = { path = "launcher/src-tauri" }
