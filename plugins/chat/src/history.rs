@@ -34,6 +34,7 @@ diesel::table! {
         body -> Text,
         stanza_id -> Nullable<Text>,
         at -> BigInt,
+        mid -> Nullable<Text>,
     }
 }
 
@@ -47,6 +48,18 @@ diesel::table! {
         stanza_id -> Nullable<Text>,
         at -> BigInt,
         delivered_at -> Nullable<BigInt>,
+        mid -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    chat_outbox (id) {
+        id -> BigInt,
+        peer -> Text,
+        call -> Text,
+        tries -> BigInt,
+        next_at -> BigInt,
+        created_at -> BigInt,
     }
 }
 
@@ -82,6 +95,20 @@ pub struct RoomMessage {
     pub stanza_id: Option<String>,
     /// Unix milliseconds
     pub at: i64,
+    /// The id every node knows it by (DN10b); none for a message from before federation
+    pub mid: Option<String>,
+}
+
+/// A room message to store, before it has an id.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewRoom {
+    pub room: String,
+    pub sender: String,
+    pub nick: String,
+    pub body: String,
+    pub stanza_id: Option<String>,
+    pub mid: Option<String>,
+    pub at: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Queryable)]
@@ -95,6 +122,8 @@ pub struct DirectMessage {
     pub at: i64,
     /// When a session of the recipient took it; none while it waits for their next login
     pub delivered_at: Option<i64>,
+    /// The id every node knows it by (DN10b)
+    pub mid: Option<String>,
 }
 
 /// A direct message to store, before it has an id.
@@ -107,6 +136,19 @@ pub struct NewDirect {
     pub stanza_id: Option<String>,
     pub at: i64,
     pub delivered_at: Option<i64>,
+    pub mid: Option<String>,
+}
+
+/// A call to another node that is retried until it is answered (DN10b).
+#[derive(Debug, Clone, PartialEq, Eq, Queryable)]
+pub struct OutboxRow {
+    pub id: i64,
+    pub peer: String,
+    /// The call as JSON
+    pub call: String,
+    pub tries: i64,
+    pub next_at: i64,
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Queryable)]
@@ -214,20 +256,57 @@ impl History {
         stanza_id: Option<&str>,
         at: i64,
     ) -> Result<i64, Error> {
-        let values = (
-            chat_room_messages::room.eq(room.to_owned()),
-            chat_room_messages::sender.eq(sender.to_owned()),
-            chat_room_messages::nick.eq(nick.to_owned()),
-            chat_room_messages::body.eq(body.to_owned()),
-            chat_room_messages::stanza_id.eq(stanza_id.map(str::to_owned)),
-            chat_room_messages::at.eq(at),
-        );
+        self.add_room(NewRoom {
+            room: room.to_owned(),
+            sender: sender.to_owned(),
+            nick: nick.to_owned(),
+            body: body.to_owned(),
+            stanza_id: stanza_id.map(str::to_owned),
+            mid: None,
+            at,
+        })
+        .await
+    }
+
+    pub async fn add_room(&self, message: NewRoom) -> Result<i64, Error> {
+        let actor = Actor::Player(message.sender.clone());
         self.db
-            .write(Actor::Player(sender.to_owned()), move |tx| {
+            .write(actor, move |tx| {
                 Ok(diesel::insert_into(chat_room_messages::table)
-                    .values(values)
+                    .values((
+                        chat_room_messages::room.eq(message.room),
+                        chat_room_messages::sender.eq(message.sender),
+                        chat_room_messages::nick.eq(message.nick),
+                        chat_room_messages::body.eq(message.body),
+                        chat_room_messages::stanza_id.eq(message.stanza_id),
+                        chat_room_messages::at.eq(message.at),
+                        chat_room_messages::mid.eq(message.mid),
+                    ))
                     .returning(chat_room_messages::id)
                     .get_result(tx.conn())?)
+            })
+            .await
+    }
+
+    /// Stores a message another node sent unless this node already holds its `mid`: whether it was new (DN10b).
+    pub async fn add_room_once(&self, message: NewRoom) -> Result<bool, Error> {
+        let actor = Actor::System(String::from("chat-federation"));
+        self.db
+            .write(actor, move |tx| {
+                let sql = portable::insert_ignore(
+                    "chat_room_messages",
+                    &["room", "sender", "nick", "body", "stanza_id", "at", "mid"],
+                );
+                let rows = diesel::sql_query(sql)
+                    .bind::<Text, _>(message.room)
+                    .bind::<Text, _>(message.sender)
+                    .bind::<Text, _>(message.nick)
+                    .bind::<Text, _>(message.body)
+                    .bind::<diesel::sql_types::Nullable<Text>, _>(message.stanza_id)
+                    .bind::<BigInt, _>(message.at)
+                    .bind::<diesel::sql_types::Nullable<Text>, _>(message.mid)
+                    .execute(tx.conn())?;
+                Ok(rows > 0)
             })
             .await
     }
@@ -239,7 +318,7 @@ impl History {
             .read(move |conn: &mut AnyConnection| {
                 let mut rows: Vec<RoomMessage> = chat_room_messages::table
                     .filter(chat_room_messages::room.eq(room))
-                    .order(chat_room_messages::id.desc())
+                    .order((chat_room_messages::at.desc(), chat_room_messages::id.desc()))
                     .limit(limit)
                     .load(conn)?;
                 rows.reverse();
@@ -261,9 +340,76 @@ impl History {
                         chat_direct_messages::stanza_id.eq(message.stanza_id),
                         chat_direct_messages::at.eq(message.at),
                         chat_direct_messages::delivered_at.eq(message.delivered_at),
+                        chat_direct_messages::mid.eq(message.mid),
                     ))
                     .returning(chat_direct_messages::id)
                     .get_result(tx.conn())?)
+            })
+            .await
+    }
+
+    /// Stores a direct message unless this node already holds its `mid`: whether it was new (DN10b).
+    pub async fn add_direct_once(&self, message: NewDirect) -> Result<bool, Error> {
+        let actor = Actor::Player(message.sender.clone());
+        self.db
+            .write(actor, move |tx| {
+                let sql = portable::insert_ignore(
+                    "chat_direct_messages",
+                    &[
+                        "sender",
+                        "sender_local",
+                        "recipient",
+                        "body",
+                        "stanza_id",
+                        "at",
+                        "delivered_at",
+                        "mid",
+                    ],
+                );
+                let rows = diesel::sql_query(sql)
+                    .bind::<Text, _>(message.sender)
+                    .bind::<Text, _>(message.sender_local)
+                    .bind::<Text, _>(message.recipient)
+                    .bind::<Text, _>(message.body)
+                    .bind::<diesel::sql_types::Nullable<Text>, _>(message.stanza_id)
+                    .bind::<BigInt, _>(message.at)
+                    .bind::<diesel::sql_types::Nullable<BigInt>, _>(message.delivered_at)
+                    .bind::<diesel::sql_types::Nullable<Text>, _>(message.mid)
+                    .execute(tx.conn())?;
+                Ok(rows > 0)
+            })
+            .await
+    }
+
+    pub async fn direct_by_mid(&self, mid: &str) -> Result<Option<DirectMessage>, Error> {
+        let mid = mid.to_owned();
+        self.db
+            .read(move |conn: &mut AnyConnection| {
+                Ok(chat_direct_messages::table
+                    .filter(chat_direct_messages::mid.eq(mid))
+                    .first(conn)
+                    .optional()?)
+            })
+            .await
+    }
+
+    /// Marks the recipient's waiting messages with these ids delivered (DN10b).
+    pub async fn mark_delivered_mids(&self, recipient: &str, mids: Vec<String>, at: i64) -> Result<(), Error> {
+        if mids.is_empty() {
+            return Ok(());
+        }
+        let recipient_text = recipient.to_owned();
+        self.db
+            .write(Actor::Player(recipient.to_owned()), move |tx| {
+                diesel::update(
+                    chat_direct_messages::table
+                        .filter(chat_direct_messages::recipient.eq(recipient_text))
+                        .filter(chat_direct_messages::delivered_at.is_null())
+                        .filter(chat_direct_messages::mid.eq_any(mids)),
+                )
+                .set(chat_direct_messages::delivered_at.eq(Some(at)))
+                .execute(tx.conn())?;
+                Ok(())
             })
             .await
     }
@@ -354,6 +500,74 @@ impl History {
             .write(actor, move |tx| {
                 Ok(diesel::delete(chat_mutes::table.find(account)).execute(tx.conn())? > 0)
             })
+            .await
+    }
+
+    // ---- The outbox (DN10b) ----
+
+    pub async fn outbox_add(&self, peer: &str, call: &str, now: i64) -> Result<i64, Error> {
+        let values = (
+            chat_outbox::peer.eq(peer.to_owned()),
+            chat_outbox::call.eq(call.to_owned()),
+            chat_outbox::tries.eq(0_i64),
+            chat_outbox::next_at.eq(now),
+            chat_outbox::created_at.eq(now),
+        );
+        self.db
+            .write(Actor::System(String::from("chat-federation")), move |tx| {
+                Ok(diesel::insert_into(chat_outbox::table)
+                    .values(values)
+                    .returning(chat_outbox::id)
+                    .get_result(tx.conn())?)
+            })
+            .await
+    }
+
+    /// Calls whose time has come, oldest first.
+    pub async fn outbox_due(&self, now: i64, limit: i64) -> Result<Vec<OutboxRow>, Error> {
+        self.db
+            .read(move |conn: &mut AnyConnection| {
+                Ok(chat_outbox::table
+                    .filter(chat_outbox::next_at.le(now))
+                    .order(chat_outbox::id.asc())
+                    .limit(limit)
+                    .load(conn)?)
+            })
+            .await
+    }
+
+    pub async fn outbox_done(&self, id: i64) -> Result<(), Error> {
+        self.db
+            .write(Actor::System(String::from("chat-federation")), move |tx| {
+                diesel::delete(chat_outbox::table.find(id)).execute(tx.conn())?;
+                Ok(())
+            })
+            .await
+    }
+
+    pub async fn outbox_retry(&self, id: i64, tries: i64, next_at: i64) -> Result<(), Error> {
+        self.db
+            .write(Actor::System(String::from("chat-federation")), move |tx| {
+                diesel::update(chat_outbox::table.find(id))
+                    .set((chat_outbox::tries.eq(tries), chat_outbox::next_at.eq(next_at)))
+                    .execute(tx.conn())?;
+                Ok(())
+            })
+            .await
+    }
+
+    /// Drops calls created before `before` that nobody answered: the message they carry stays at this node.
+    pub async fn outbox_expire(&self, before: i64) -> Result<usize, Error> {
+        self.db
+            .write(Actor::System(String::from("chat-federation")), move |tx| {
+                Ok(diesel::delete(chat_outbox::table.filter(chat_outbox::created_at.lt(before))).execute(tx.conn())?)
+            })
+            .await
+    }
+
+    pub async fn outbox_len(&self) -> Result<i64, Error> {
+        self.db
+            .read(move |conn: &mut AnyConnection| Ok(chat_outbox::table.count().get_result(conn)?))
             .await
     }
 }
