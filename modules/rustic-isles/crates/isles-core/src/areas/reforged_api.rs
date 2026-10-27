@@ -6,6 +6,7 @@
 // `segment` and the feed locators fail with Node's one "Invalid ..." and nothing to say beyond it
 #![allow(clippy::result_unit_err)]
 
+pub mod guard;
 pub mod guard_manifest;
 pub mod host_routes;
 pub mod http_get;
@@ -31,4 +32,5 @@ pub fn register(handlers: &mut Handlers) {
     host_routes::register(handlers);
     updates::register(handlers);
     logs::register(handlers);
+    guard::register(handlers);
 }

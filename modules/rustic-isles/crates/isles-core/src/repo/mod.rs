@@ -187,6 +187,7 @@ impl Repositories {
             parties: Arc::new(parties::SqlParties),
             inventories: Arc::new(inventory::SqlInventories),
             inventory_transactions: Arc::new(inventory::SqlInventoryTransactions),
+            launcher_guard: Arc::new(reforged::SqlLauncherGuard),
             ..Self::stubs()
         }
     }

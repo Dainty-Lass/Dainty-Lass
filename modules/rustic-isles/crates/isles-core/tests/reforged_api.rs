@@ -601,7 +601,7 @@ async fn metrics_need_loopback_or_a_token() {
     assert_eq!(ok.status, 200);
     assert_eq!(
         ok.header("content-type"),
-        Some("text/plain; version=0.0.4; charset=utf-8")
+        Some("text/plain; charset=utf-8; version=0.0.4")
     );
     assert_eq!(ok.header("cache-control"), Some("no-store"));
     assert!(ok.text().contains("mysticparadox_service_ready 1\n"));

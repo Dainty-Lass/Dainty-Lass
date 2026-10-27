@@ -411,3 +411,504 @@ impl InviteRepository for SqlInvites {
         Ok(gone == 1)
     }
 }
+
+// ---------------------------------------------------------------- Launcher Guard on store
+
+/// The last heartbeats a session keeps, newest first.
+pub const GUARD_HISTORY_LIMIT: usize = 20;
+/// Distinct accounts a finding counts exactly.
+pub const GUARD_FINDING_ACCOUNT_LIMIT: usize = 1000;
+/// `GUARD_SESSION_RETENTION_DAYS` and `GUARD_FINDING_RETENTION_DAYS` (`legal/retentionPolicy.ts`).
+pub const GUARD_RETENTION_DAYS: i64 = 90;
+const DAY_MS: i64 = 86_400_000;
+
+diesel::table! {
+    launcher_guard_sessions (guard_session_id) {
+        guard_session_id -> Text,
+        account -> Text,
+        role -> Text,
+        public_key_base64 -> Text,
+        manifest_id -> Text,
+        manifest_sequence -> BigInt,
+        channel -> Text,
+        challenge -> Text,
+        last_sequence -> BigInt,
+        status -> Text,
+        risk_score -> Double,
+        created_at -> Text,
+        expires_at -> Text,
+        last_heartbeat_at -> Nullable<Text>,
+        detail -> Text,
+        ttl_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    guard_findings (id) {
+        id -> BigInt,
+        file_name -> Text,
+        sha256 -> Text,
+        signer -> Text,
+        size -> BigInt,
+        first_seen_at -> Text,
+        last_seen_at -> Text,
+        session_count -> BigInt,
+        account_count -> BigInt,
+        account_ids -> Text,
+        ttl_at -> BigInt,
+    }
+}
+
+diesel::define_sql_function!(fn lower(x: diesel::sql_types::Text) -> diesel::sql_types::Text);
+
+type SessionRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    i64,
+    String,
+    String,
+    i64,
+    String,
+    f64,
+    String,
+    String,
+    Option<String>,
+    String,
+    i64,
+);
+
+impl GuardRole {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Client => "client",
+            Self::Host => "host",
+        }
+    }
+}
+
+impl GuardStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Challenged => "CHALLENGED",
+            Self::Healthy => "HEALTHY",
+            Self::Degraded => "DEGRADED",
+            Self::Revoked => "REVOKED",
+            Self::Expired => "EXPIRED",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        Some(match text {
+            "CHALLENGED" => Self::Challenged,
+            "HEALTHY" => Self::Healthy,
+            "DEGRADED" => Self::Degraded,
+            "REVOKED" => Self::Revoked,
+            "EXPIRED" => Self::Expired,
+            _ => return None,
+        })
+    }
+}
+
+const LIVE: [&str; 3] = ["CHALLENGED", "HEALTHY", "DEGRADED"];
+
+fn data(what: &str, detail: impl std::fmt::Display) -> super::RepoError {
+    super::RepoError::Data(format!("{what}: {detail}"))
+}
+
+/// The JSON column: what Node kept as separate document fields.
+fn detail_json(record: &LauncherGuardSessionRecord) -> String {
+    serde_json::json!({
+        "launcherVersion": record.launcher_version,
+        "lastSignals": record.last_signals,
+        "reasons": record.reasons,
+        "history": record.history,
+    })
+    .to_string()
+}
+
+fn session(row: SessionRow) -> RepoResult<LauncherGuardSessionRecord> {
+    let (
+        guard_session_id,
+        account,
+        role,
+        public_key_base64,
+        manifest_id,
+        manifest_sequence,
+        channel,
+        challenge,
+        last_sequence,
+        status,
+        risk_score,
+        created_at,
+        expires_at,
+        last_heartbeat_at,
+        detail,
+        _ttl,
+    ) = row;
+    let detail = serde_json::from_str::<Json>(&detail).map_err(|e| data("launcher_guard_sessions.detail", e))?;
+    let list = |name: &str| match detail.get(name) {
+        Some(Json::Array(items)) => items.clone(),
+        _ => Vec::new(),
+    };
+    Ok(LauncherGuardSessionRecord {
+        guard_session_id,
+        account: account
+            .parse()
+            .map_err(|_| data("launcher_guard_sessions.account", &account))?,
+        role: if role == "host" {
+            GuardRole::Host
+        } else {
+            GuardRole::Client
+        },
+        public_key_base64,
+        manifest_id,
+        manifest_sequence: u64::try_from(manifest_sequence).unwrap_or(0),
+        channel,
+        launcher_version: detail
+            .get("launcherVersion")
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        challenge,
+        last_sequence: u64::try_from(last_sequence).unwrap_or(0),
+        status: GuardStatus::parse(&status).ok_or_else(|| data("launcher_guard_sessions.status", &status))?,
+        risk_score,
+        created_at,
+        expires_at,
+        last_heartbeat_at,
+        last_signals: detail.get("lastSignals").filter(|v| !v.is_null()).cloned(),
+        reasons: list("reasons")
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_owned))
+            .collect(),
+        history: list("history"),
+    })
+}
+
+fn ttl_after(iso: &str) -> i64 {
+    service_kit::js::date_parse(iso).unwrap_or(0) + GUARD_RETENTION_DAYS * DAY_MS
+}
+
+macro_rules! session_columns {
+    () => {{
+        use launcher_guard_sessions::*;
+        (
+            guard_session_id,
+            account,
+            role,
+            public_key_base64,
+            manifest_id,
+            manifest_sequence,
+            channel,
+            challenge,
+            last_sequence,
+            status,
+            risk_score,
+            created_at,
+            expires_at,
+            last_heartbeat_at,
+            detail,
+            ttl_at,
+        )
+    }};
+}
+
+/// [`LauncherGuardRepository`] on `store`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SqlLauncherGuard;
+
+impl LauncherGuardRepository for SqlLauncherGuard {
+    fn create(&self, tx: &mut Tx<'_>, record: &LauncherGuardSessionRecord) -> RepoResult<()> {
+        use launcher_guard_sessions as t;
+        diesel::insert_into(t::table)
+            .values((
+                t::guard_session_id.eq(&record.guard_session_id),
+                t::account.eq(record.account.to_string()),
+                t::role.eq(record.role.as_str()),
+                t::public_key_base64.eq(&record.public_key_base64),
+                t::manifest_id.eq(&record.manifest_id),
+                t::manifest_sequence.eq(i64::try_from(record.manifest_sequence).unwrap_or(i64::MAX)),
+                t::channel.eq(&record.channel),
+                t::challenge.eq(&record.challenge),
+                t::last_sequence.eq(i64::try_from(record.last_sequence).unwrap_or(i64::MAX)),
+                t::status.eq(record.status.as_str()),
+                t::risk_score.eq(record.risk_score),
+                t::created_at.eq(&record.created_at),
+                t::expires_at.eq(&record.expires_at),
+                t::last_heartbeat_at.eq(&record.last_heartbeat_at),
+                t::detail.eq(detail_json(record)),
+                t::ttl_at.eq(ttl_after(&record.created_at)),
+            ))
+            .execute(tx.conn())?;
+        Ok(())
+    }
+
+    fn find(&self, conn: &mut AnyConnection, guard_session_id: &str) -> RepoResult<Option<LauncherGuardSessionRecord>> {
+        use launcher_guard_sessions as t;
+        t::table
+            .filter(t::guard_session_id.eq(guard_session_id))
+            .select(session_columns!())
+            .first::<SessionRow>(conn)
+            .optional()?
+            .map(session)
+            .transpose()
+    }
+
+    fn find_healthy_for_account(
+        &self,
+        conn: &mut AnyConnection,
+        account: &AccountId,
+        guard_session_id: &str,
+        role: GuardRole,
+        now: &str,
+    ) -> RepoResult<Option<LauncherGuardSessionRecord>> {
+        use launcher_guard_sessions as t;
+        let now_ms = service_kit::js::date_parse(now).ok_or_else(|| data("now", now))?;
+        // The heartbeat must be within 45 seconds of `now`
+        let floor = crate::areas::reforged_api::util::iso(now_ms - 45_000);
+        t::table
+            .filter(t::guard_session_id.eq(guard_session_id))
+            .filter(t::account.eq(account.to_string()))
+            .filter(t::role.eq(role.as_str()))
+            .filter(t::status.eq("HEALTHY"))
+            .filter(t::expires_at.gt(now))
+            .filter(t::last_heartbeat_at.gt(floor))
+            .select(session_columns!())
+            .first::<SessionRow>(conn)
+            .optional()?
+            .map(session)
+            .transpose()
+    }
+
+    fn advance(&self, tx: &mut Tx<'_>, heartbeat: &GuardHeartbeat) -> RepoResult<Option<LauncherGuardSessionRecord>> {
+        use launcher_guard_sessions as t;
+        let sequence = i64::try_from(heartbeat.sequence).unwrap_or(i64::MAX);
+        let current = t::table
+            .filter(t::guard_session_id.eq(&heartbeat.guard_session_id))
+            .filter(t::account.eq(heartbeat.account.to_string()))
+            .filter(t::challenge.eq(&heartbeat.expected_challenge))
+            .filter(t::last_sequence.lt(sequence))
+            .filter(t::status.eq_any(LIVE))
+            .filter(t::expires_at.gt(&heartbeat.heartbeat_at))
+            .select(t::detail)
+            .first::<String>(tx.conn())
+            .optional()?;
+        let Some(detail) = current else {
+            return Ok(None);
+        };
+        let mut detail =
+            serde_json::from_str::<Json>(&detail).map_err(|e| data("launcher_guard_sessions.detail", e))?;
+        let mut entries = vec![heartbeat.history_entry.clone()];
+        if let Some(Json::Array(old)) = detail.get("history") {
+            entries.extend(old.iter().cloned());
+        }
+        entries.truncate(GUARD_HISTORY_LIMIT);
+        if let Json::Object(map) = &mut detail {
+            map.insert("lastSignals".into(), heartbeat.signals.clone());
+            map.insert("reasons".into(), serde_json::json!(heartbeat.reasons));
+            map.insert("history".into(), Json::Array(entries));
+        }
+        // The condition is repeated in the update, so a raced heartbeat changes nothing
+        let changed = diesel::update(
+            t::table
+                .filter(t::guard_session_id.eq(&heartbeat.guard_session_id))
+                .filter(t::challenge.eq(&heartbeat.expected_challenge))
+                .filter(t::last_sequence.lt(sequence)),
+        )
+        .set((
+            t::challenge.eq(&heartbeat.next_challenge),
+            t::last_sequence.eq(sequence),
+            t::status.eq(heartbeat.status.as_str()),
+            t::risk_score.eq(heartbeat.risk_score),
+            t::last_heartbeat_at.eq(Some(&heartbeat.heartbeat_at)),
+            t::expires_at.eq(&heartbeat.expires_at),
+            t::detail.eq(detail.to_string()),
+            t::ttl_at.eq(ttl_after(&heartbeat.heartbeat_at)),
+        ))
+        .execute(tx.conn())?;
+        if changed == 0 {
+            return Ok(None);
+        }
+        t::table
+            .filter(t::guard_session_id.eq(&heartbeat.guard_session_id))
+            .select(session_columns!())
+            .first::<SessionRow>(tx.conn())
+            .optional()?
+            .map(session)
+            .transpose()
+    }
+
+    fn revoke_for_account(
+        &self,
+        tx: &mut Tx<'_>,
+        account: &AccountId,
+        role: GuardRole,
+        revoked_at: &str,
+    ) -> RepoResult<()> {
+        use launcher_guard_sessions as t;
+        diesel::update(
+            t::table
+                .filter(t::account.eq(account.to_string()))
+                .filter(t::role.eq(role.as_str()))
+                .filter(t::status.eq_any(LIVE)),
+        )
+        .set((
+            t::status.eq("REVOKED"),
+            t::expires_at.eq(revoked_at),
+            t::ttl_at.eq(ttl_after(revoked_at)),
+        ))
+        .execute(tx.conn())?;
+        Ok(())
+    }
+
+    fn list_sessions(
+        &self,
+        conn: &mut AnyConnection,
+        status: Option<GuardStatus>,
+        min_risk: Option<f64>,
+        skip: u32,
+        limit: u32,
+    ) -> RepoResult<(Vec<LauncherGuardSessionRecord>, u64)> {
+        use launcher_guard_sessions as t;
+        let filtered = || {
+            let mut query = t::table.into_boxed();
+            if let Some(status) = status {
+                query = query.filter(t::status.eq(status.as_str()));
+            }
+            if let Some(min) = min_risk {
+                query = query.filter(t::risk_score.ge(min));
+            }
+            query
+        };
+        let total = filtered().count().get_result::<i64>(conn)?;
+        let rows = filtered()
+            .order(t::created_at.desc())
+            .limit(i64::from(limit))
+            .offset(i64::from(skip))
+            .select(session_columns!())
+            .load::<SessionRow>(conn)?;
+        // The list leaves the history out: it is read per session
+        let records = rows
+            .into_iter()
+            .map(|row| {
+                session(row).map(|mut record| {
+                    record.history.clear();
+                    record
+                })
+            })
+            .collect::<RepoResult<Vec<_>>>()?;
+        Ok((records, u64::try_from(total).unwrap_or(0)))
+    }
+
+    fn list_findings(
+        &self,
+        conn: &mut AnyConnection,
+        signer: Option<&str>,
+        skip: u32,
+        limit: u32,
+    ) -> RepoResult<(Vec<GuardFinding>, u64)> {
+        use guard_findings as t;
+        let pattern = signer.filter(|s| !s.is_empty()).map(|s| {
+            format!(
+                "%{}%",
+                s.to_lowercase()
+                    .replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_")
+            )
+        });
+        let filtered = || {
+            let mut query = t::table.into_boxed();
+            if let Some(pattern) = &pattern {
+                query = query.filter(lower(t::signer).like(pattern.clone()).escape('\\'));
+            }
+            query
+        };
+        let total = filtered().count().get_result::<i64>(conn)?;
+        let rows = filtered()
+            .order((t::session_count.desc(), t::last_seen_at.desc(), t::id.desc()))
+            .limit(i64::from(limit))
+            .offset(i64::from(skip))
+            .select((
+                t::file_name,
+                t::sha256,
+                t::signer,
+                t::size,
+                t::first_seen_at,
+                t::last_seen_at,
+                t::session_count,
+                t::account_count,
+            ))
+            .load::<(String, String, String, i64, String, String, i64, i64)>(conn)?;
+        let n = |v: i64| u64::try_from(v).unwrap_or(0);
+        Ok((
+            rows.into_iter()
+                .map(
+                    |(file_name, sha256, signer, size, first_seen_at, last_seen_at, session_count, account_count)| {
+                        GuardFinding {
+                            file_name,
+                            sha256,
+                            signer,
+                            size: n(size),
+                            first_seen_at,
+                            last_seen_at,
+                            session_count: n(session_count),
+                            account_count: n(account_count),
+                        }
+                    },
+                )
+                .collect(),
+            n(total),
+        ))
+    }
+
+    fn record_finding_sighting(&self, tx: &mut Tx<'_>, sighting: &GuardSighting) -> RepoResult<()> {
+        use guard_findings as t;
+        let ttl = ttl_after(&sighting.seen_at);
+        let account = sighting.account.to_string();
+        let size = i64::try_from(sighting.size).unwrap_or(i64::MAX);
+        let seen = i64::from(sighting.new_in_session);
+        let existing = t::table
+            .filter(t::sha256.eq(&sighting.sha256))
+            .filter(t::file_name.eq(&sighting.file_name))
+            .select((t::id, t::session_count, t::account_ids))
+            .first::<(i64, i64, String)>(tx.conn())
+            .optional()?;
+        let Some((id, sessions, accounts)) = existing else {
+            diesel::insert_into(t::table)
+                .values((
+                    t::file_name.eq(&sighting.file_name),
+                    t::sha256.eq(&sighting.sha256),
+                    t::signer.eq(&sighting.signer),
+                    t::size.eq(size),
+                    t::first_seen_at.eq(&sighting.seen_at),
+                    t::last_seen_at.eq(&sighting.seen_at),
+                    t::session_count.eq(seen),
+                    t::account_count.eq(1),
+                    t::account_ids.eq(serde_json::to_string(&[&account]).unwrap_or_else(|_| "[]".into())),
+                    t::ttl_at.eq(ttl),
+                ))
+                .execute(tx.conn())?;
+            return Ok(());
+        };
+        let mut accounts: Vec<String> = serde_json::from_str(&accounts).unwrap_or_default();
+        if !accounts.contains(&account) && accounts.len() < GUARD_FINDING_ACCOUNT_LIMIT {
+            accounts.push(account);
+        }
+        diesel::update(t::table.filter(t::id.eq(id)))
+            .set((
+                t::signer.eq(&sighting.signer),
+                t::size.eq(size),
+                t::last_seen_at.eq(&sighting.seen_at),
+                t::ttl_at.eq(ttl),
+                t::session_count.eq(sessions + seen),
+                t::account_count.eq(i64::try_from(accounts.len()).unwrap_or(i64::MAX)),
+                t::account_ids.eq(serde_json::to_string(&accounts).unwrap_or_else(|_| "[]".into())),
+            ))
+            .execute(tx.conn())?;
+        Ok(())
+    }
+}

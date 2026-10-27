@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::http::{HeaderMap, HeaderName, HeaderValue};
-use common::{Answer, get, send, serve, shared};
+use common::{Answer, Fakes, get, post_json, send, serve, shared, store};
 use ed25519_dalek::{Signer, SigningKey};
 use isles_core::AccountId;
 use isles_core::areas::reforged_api::guard_manifest::Trusted;
@@ -1019,3 +1019,62 @@ async fn testers_upload_launcher_logs_and_the_sync_script_reads_them() {
 
 #[allow(dead_code)]
 fn unused(_: Answer) {}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn launcher_guard_routes_need_a_launcher_session() {
+    let _turn = SERIAL.lock().await;
+    let env = env();
+    let dir = tempfile::tempdir().unwrap();
+    let pairs = settings(&env, &[]);
+    let borrowed: Vec<(&str, &str)> = pairs.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
+    let address = serve(shared(RouteSet::V1147, &borrowed, Some(store(&dir, &Fakes::default())))).await;
+    set_authenticator(None);
+    for (method, path) in [
+        ("POST", "/launcher/v1/guard/sessions"),
+        ("POST", "/launcher/v1/guard/heartbeat"),
+        ("GET", "/launcher/v1/guard/sessions/abc"),
+    ] {
+        let refused = send(address, method, path, &[], None).await;
+        assert_eq!(
+            (refused.status, refused.json()["error"]["message"].clone()),
+            (401, json!("Sign in required.")),
+            "{path}"
+        );
+    }
+    set_authenticator(Some(Arc::new(Accounts)));
+    let player = [("authorization", "Bearer player")];
+    // Node parses the body before it asks who is calling
+    let broken = send(
+        address,
+        "POST",
+        "/launcher/v1/guard/sessions",
+        &[],
+        Some(("application/json", b"{")),
+    )
+    .await;
+    assert_eq!(broken.status, 400);
+    assert!(broken.text().contains("<pre>"));
+    let unavailable = post_json(address, "/launcher/v1/guard/sessions", &player, "{}").await;
+    assert_eq!(unavailable.status, 503);
+    assert_eq!(unavailable.json()["error"]["code"], "GUARD_MANIFEST_UNAVAILABLE");
+    let role = post_json(address, "/launcher/v1/guard/sessions", &player, r#"{"role":"worker"}"#).await;
+    assert_eq!(
+        (role.status, role.json()["error"]["message"].clone()),
+        (400, json!("The Launcher Guard role is invalid."))
+    );
+    let beat = post_json(address, "/launcher/v1/guard/heartbeat", &player, "{}").await;
+    assert_eq!(
+        (beat.status, beat.json()["error"]["code"].clone()),
+        (400, json!("GUARD_REPORT_INVALID"))
+    );
+    assert_eq!(
+        beat.json()["error"]["message"],
+        "The Launcher Guard heartbeat is invalid."
+    );
+    let unknown = get(address, "/launcher/v1/guard/sessions/abc", &player).await;
+    assert_eq!(
+        (unknown.status, unknown.json()["error"]["code"].clone()),
+        (401, json!("GUARD_SESSION_INVALID"))
+    );
+    set_authenticator(None);
+}

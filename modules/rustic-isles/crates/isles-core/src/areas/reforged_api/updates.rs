@@ -33,6 +33,10 @@ const DEFAULT_RELEASE_PREFIX: &str = "https://github.com/pranav158/Mystic-Parado
 
 // ---------------------------------------------------------------- context
 
+/// The in-crate tests sign their own manifests: these keys stand in for the embedded ones.
+#[cfg(test)]
+pub(crate) static TEST_TRUSTED: std::sync::RwLock<Option<Trusted>> = std::sync::RwLock::new(None);
+
 /// The settings and paths one request of this area works with.
 pub struct Ctx {
     pub root: PathBuf,
@@ -55,6 +59,10 @@ pub fn normalize_ip(value: &str) -> String {
 
 impl Ctx {
     pub fn new(shared: &Shared) -> Option<Self> {
+        #[cfg(test)]
+        if let Some(trusted) = TEST_TRUSTED.read().unwrap_or_else(PoisonError::into_inner).clone() {
+            return Some(Self::with(shared, trusted));
+        }
         Some(Self::with(shared, Trusted::embedded()?))
     }
 
@@ -145,7 +153,7 @@ impl Ctx {
         let legacy = self.legacy_guard_dir(&channel, &platform);
         // A legacy manifest signed for another changelist is another module's, not this one's
         Ok(read_json(&legacy.join("latest.json"))
-            .filter(|envelope| self.verify_envelope(envelope).is_ok())
+            .filter(|envelope| !guard_manifest::signed_for_other_changelist(envelope, self.changelist, &self.trusted))
             .map(|envelope| (legacy, envelope)))
     }
 

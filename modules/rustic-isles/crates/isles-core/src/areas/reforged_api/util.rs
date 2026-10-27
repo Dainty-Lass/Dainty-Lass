@@ -186,6 +186,7 @@ pub fn redirect(status: u16, url: &str) -> Response {
         format!("Found. Redirecting to {url}"),
     );
     set_header(&mut response, "location", url);
+    set_header(&mut response, "vary", "Accept");
     response
 }
 

@@ -175,7 +175,7 @@ async fn metrics_route(call: Call) -> Response {
         state_ready,
         changed as f64 / 1000.0,
     );
-    let mut response = util::text(200, "text/plain; version=0.0.4; charset=utf-8", text);
+    let mut response = util::text(200, "text/plain; charset=utf-8; version=0.0.4", text);
     util::cache_control(&mut response, "no-store");
     response
 }

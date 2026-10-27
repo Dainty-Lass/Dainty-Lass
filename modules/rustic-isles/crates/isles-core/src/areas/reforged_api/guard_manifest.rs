@@ -287,6 +287,27 @@ pub fn parse_and_verify(
     ))
 }
 
+/// Whether a validly signed envelope belongs to another changelist's feed (so this module leaves it alone).
+pub fn signed_for_other_changelist(value: &Value, changelist: u32, trusted: &Trusted) -> bool {
+    let key = value
+        .get("keyId")
+        .and_then(Value::as_str)
+        .and_then(|id| trusted.key_for(id));
+    let (Some(key), Some(payload), Some(signature)) = (
+        key,
+        value.get("payloadBase64").and_then(Value::as_str).map(base64_decode),
+        value.get("signature").and_then(Value::as_str).map(base64_decode),
+    ) else {
+        return false;
+    };
+    if payload.is_empty() || !verify(key, &payload, &signature) {
+        return false;
+    }
+    serde_json::from_slice::<Value>(&payload)
+        .ok()
+        .is_some_and(|p| safe_int(p.get("targetChangelist")) != Some(i64::from(changelist)))
+}
+
 pub fn now() -> i64 {
     now_ms()
 }

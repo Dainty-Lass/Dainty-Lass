@@ -259,7 +259,8 @@ async fn players_online(store: &IslesStore, hunt_of: &HashMap<String, String>) -
 type StatusCache = HashMap<(u32, bool), (Instant, Value)>;
 static STATUS_SEEN: Mutex<Option<StatusCache>> = Mutex::new(None);
 
-pub(super) fn forget_status() {
+/// Forgets the cached status bodies (a registration or an access change makes them stale).
+pub fn forget_status() {
     STATUS_SEEN.lock().unwrap_or_else(PoisonError::into_inner).take();
 }
 
@@ -355,8 +356,9 @@ async fn register_account(call: Call) -> Response {
     if registration == RegistrationMode::None {
         return refusal(400, Refusal::RegistrationClosed);
     }
-    let Ok(req) = Req::read(call.request, BodyKind::Json(BODY_LIMIT)).await else {
-        return util::empty(400);
+    let req = match Req::read(call.request, BodyKind::Json(BODY_LIMIT)).await {
+        Ok(req) => req,
+        Err(response) => return response,
     };
     let fields = req.fields();
     let invite_field = fields.get("InviteCode");
@@ -457,8 +459,9 @@ async fn register_account(call: Call) -> Response {
 async fn get_user_info(call: Call) -> Response {
     let store = store_or_501!(call);
     let shared = call.shared.clone();
-    let Ok(req) = Req::read(call.request, BodyKind::None).await else {
-        return util::empty(400);
+    let req = match Req::read(call.request, BodyKind::None).await {
+        Ok(req) => req,
+        Err(response) => return response,
     };
     let Some(holder) = holder_of(&shared, &store, req.header(USER_KEY_HEADER)).await else {
         return util::json(401, &json!({ "error": "unauthorized" }));
@@ -487,8 +490,9 @@ async fn get_user_info(call: Call) -> Response {
 async fn server_status(call: Call) -> Response {
     let store = store_or_501!(call);
     let shared = call.shared.clone();
-    let Ok(req) = Req::read(call.request, BodyKind::None).await else {
-        return util::empty(400);
+    let req = match Req::read(call.request, BodyKind::None).await {
+        Ok(req) => req,
+        Err(response) => return response,
     };
     let holder = holder_of(&shared, &store, req.header(USER_KEY_HEADER)).await;
     let full = holder.as_ref().is_some_and(eligible);
