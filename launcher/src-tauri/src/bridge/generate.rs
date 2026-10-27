@@ -147,6 +147,9 @@ fn declarations() -> String {
         RevertPlanView,
         RevertedInView,
         RevertDoneView,
+        RealmState,
+        RealmSessionView,
+        RealmView,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -192,6 +195,7 @@ fn declarations() -> String {
     declare(
         "type RevertApplyOutcome = { ok: true; done: RevertDoneView } | { ok: false; error: LauncherError };".into(),
     );
+    declare("type RealmOutcome = { ok: true; realm: RealmView } | { ok: false; error: LauncherError };".into());
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
     out
