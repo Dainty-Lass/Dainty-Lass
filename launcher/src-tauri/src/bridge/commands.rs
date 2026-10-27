@@ -20,9 +20,10 @@ use super::spec::{
 };
 use super::types::{
     ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, GuardedList,
-    GuardedOutcome, HostAction, HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest,
-    InstallMode, InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, ModuleCommandOutcome, ModuleListOutcome,
-    ModuleOutcome, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
+    GuardedOutcome, HistoryOutcome, HostAction, HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView,
+    HostSetupRequest, InstallMode, InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, ModuleCommandOutcome,
+    ModuleListOutcome, ModuleOutcome, NewsItem, RegionPing, RegisterOutcome, RevertApplyOutcome, RevertPlanOutcome,
+    Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::controller::install::EpicGate;
@@ -710,19 +711,104 @@ pub fn realm_get() -> ActionResult {
     planned("realm_get", &[])
 }
 
-#[tauri::command]
-pub fn history_query(filter: Value) -> ActionResult {
-    planned("history_query", &[&filter])
+/// A history filter or a revert's selection once it fits its shape in the spec: the text fields, an empty
+/// one as none. The hook checked it for the page; this guards the backend.
+#[cfg(feature = "server-gui")]
+fn history_args(command: &str, value: &Value) -> Option<crate::server_history::HistoryArgs> {
+    let shape = COMMANDS.iter().find(|listed| listed.name == command)?.args.first()?;
+    if !arg_accepts(&shape.1, Some(value)) {
+        return None;
+    }
+    let field = |name: &str| {
+        value
+            .get(name)
+            .and_then(Value::as_str)
+            .map(js_trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_owned)
+    };
+    Some(crate::server_history::HistoryArgs {
+        account: field("account"),
+        actor: field("actor"),
+        since: field("since"),
+        until: field("until"),
+        cursor: field("cursor"),
+    })
+}
+
+/// The host kit's workspace the server GUI runs, or the refusal when none is chosen.
+#[cfg(feature = "server-gui")]
+fn history_workspace(app: &AppHandle) -> Result<std::path::PathBuf, LauncherError> {
+    controller(app)
+        .host_workspace()
+        .ok_or_else(|| LauncherError::with_detail(ErrorCode::HostFailed, "workspace"))
+}
+
+/// What the server GUI's history commands answer elsewhere, as every planned command did: the server GUI is
+/// the build that holds a server's data.
+#[cfg(not(feature = "server-gui"))]
+fn not_here(command: &str) -> LauncherError {
+    LauncherError::with_detail(ErrorCode::NotInThisBuild, command)
 }
 
 #[tauri::command]
-pub fn history_revert_dry_run(selection: Value) -> ActionResult {
-    planned("history_revert_dry_run", &[&selection])
+pub async fn history_query(filter: Value, app: AppHandle) -> HistoryOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        let Some(args) = history_args("history_query", &filter) else {
+            return HistoryOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+        };
+        match history_workspace(&app) {
+            Ok(workspace) => crate::server_history::query(&workspace, args).await,
+            Err(error) => HistoryOutcome::Err(error),
+        }
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (&filter, &app);
+        HistoryOutcome::Err(not_here("history_query"))
+    }
 }
 
 #[tauri::command]
-pub fn history_revert_apply(plan: Value) -> ActionResult {
-    planned("history_revert_apply", &[&plan])
+pub async fn history_revert_dry_run(selection: Value, app: AppHandle) -> RevertPlanOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        let Some(args) = history_args("history_revert_dry_run", &selection) else {
+            return RevertPlanOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+        };
+        match history_workspace(&app) {
+            Ok(workspace) => crate::server_history::dry_run(&workspace, args).await,
+            Err(error) => RevertPlanOutcome::Err(error),
+        }
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (&selection, &app);
+        RevertPlanOutcome::Err(not_here("history_revert_dry_run"))
+    }
+}
+
+#[tauri::command]
+pub async fn history_revert_apply(plan: Value, app: AppHandle) -> RevertApplyOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        let id = plan
+            .as_str()
+            .filter(|id| fits(id, crate::bridge::spec::CHANGE_ID_MAX) && !id.is_empty());
+        let Some(id) = id else {
+            return RevertApplyOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+        };
+        match history_workspace(&app) {
+            Ok(workspace) => crate::server_history::apply(&workspace, id).await,
+            Err(error) => RevertApplyOutcome::Err(error),
+        }
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (&plan, &app);
+        RevertApplyOutcome::Err(not_here("history_revert_apply"))
+    }
 }
 
 /// A guarded action's id as the admin API makes it: 16 lower-case hex digits (DH6).
@@ -937,15 +1023,40 @@ mod tests {
         assert_eq!(planned("realm_join", &[]), unknown);
         assert_eq!(planned("realm_host", &[&json!("raid")]), unknown);
         assert_eq!(planned("no_such_command", &[]), unknown);
-        let filter = json!({ "actor": "key_01", "since": "2026-10-01T00:00:00Z" });
-        assert_ne!(planned("history_query", &[&filter]), unknown);
+    }
+    #[test]
+    fn history_commands_check_their_arguments() {
+        let shape = |name: &str| COMMANDS.iter().find(|c| c.name == name).unwrap().args[0].1;
+        let filter = shape("history_query");
+        let selection = shape("history_revert_dry_run");
+        let good = json!({ "actor": "admin:ab12cd34", "since": "2026-10-01T00:00:00Z", "cursor": "node:5" });
+        assert!(arg_accepts(&filter, Some(&good)));
+        assert!(arg_accepts(&filter, Some(&json!({}))));
+        assert!(arg_accepts(
+            &selection,
+            Some(&json!({ "account": null, "until": "6h" }))
+        ));
         for bad in [
             json!({ "actor": "key_01", "table": "accounts" }),
             json!({ "actor": 7 }),
+            json!({ "actor": "a".repeat(crate::bridge::spec::HISTORY_WHO_MAX + 1) }),
+            json!({ "cursor": "9".repeat(crate::bridge::spec::HISTORY_CURSOR_MAX + 1) }),
             json!(null),
             json!([]),
         ] {
-            assert_eq!(planned("history_query", &[&bad]), unknown, "{bad}");
+            assert!(!arg_accepts(&filter, Some(&bad)), "{bad}");
         }
+        // A revert's selection has no cursor: a dry run of one page is not a thing
+        assert!(!arg_accepts(&selection, Some(&good)));
+    }
+
+    #[cfg(not(feature = "server-gui"))]
+    #[test]
+    fn the_player_launcher_refuses_history_as_not_in_this_build() {
+        let refused = serde_json::to_value(not_here("history_query")).unwrap();
+        assert_eq!(
+            refused,
+            json!({ "code": "not_in_this_build", "detail": "history_query" })
+        );
     }
 }

@@ -136,6 +136,7 @@ pub async fn run_tui(
     controller: &mut ServerController,
     ring_layer: TuiRingBufferLayer,
     filter_handle: Option<LogFilterReloadHandle>,
+    workspace: Option<&crate::paths::Paths>,
     stop: watch::Receiver<bool>,
 ) -> Result<(), String> {
     enable_raw_mode().map_err(|e| format!("failed to enable terminal raw mode: {e}"))?;
@@ -283,7 +284,7 @@ pub async fn run_tui(
                 KeyAction::None => {}
                 KeyAction::Quit => break,
                 KeyAction::Run(command) => {
-                    let (replies, quit) = run_command(command, controller, filter_handle.as_ref()).await;
+                    let (replies, quit) = run_command(command, controller, filter_handle.as_ref(), workspace).await;
                     if let Some(last) = replies.last() {
                         state.note.clone_from(last);
                     }

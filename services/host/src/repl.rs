@@ -12,6 +12,9 @@
 
 use controller::ServerController;
 use service_kit::telemetry::LogFilterReloadHandle;
+
+use crate::commands::history::{self, Job, Surface};
+use crate::paths::Paths;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::watch;
 
@@ -49,6 +52,8 @@ pub enum ConsoleCommand {
         command: String,
         args: Vec<String>,
     },
+    /// `history ...` and `revert ...` (DH3b)
+    History(Job),
     Help,
     Quit,
 }
@@ -153,6 +158,7 @@ pub fn parse_command(line: &str) -> Result<ConsoleCommand, String> {
         },
         "modules" => alone(ConsoleCommand::Modules),
         "module" => parse_module(&parts),
+        "history" | "revert" => history::parse_console(word, &parts[1..]).map(ConsoleCommand::History),
         "help" | "?" => alone(ConsoleCommand::Help),
         "quit" | "exit" | "shutdown" => alone(ConsoleCommand::Quit),
         other if is_service_name(other) => Err(format!("unknown command `{other}` (type `help` for the commands)")),
@@ -265,11 +271,28 @@ async fn run_module(
     }
 }
 
+/// The most lines the console prints for one command: a revert of a mass delete lists every row, and the
+/// terminal command (`reforged-host revert`) is where to read all of them.
+const MAX_REPLY_LINES: usize = 200;
+
+fn capped(lines: Vec<String>) -> Vec<String> {
+    let total = lines.len();
+    let mut out: Vec<String> = lines.iter().take(MAX_REPLY_LINES).map(|l| plain(l)).collect();
+    if total > MAX_REPLY_LINES {
+        out.push(format!(
+            "... {} more lines: run the same command from a terminal, `reforged-host <command>`, to read them all",
+            total - MAX_REPLY_LINES
+        ));
+    }
+    out
+}
+
 /// Runs one command against `controller`: `(lines to show, stop the server)`.
 pub async fn run_command(
     command: ConsoleCommand,
     controller: &mut ServerController,
     filter_handle: Option<&LogFilterReloadHandle>,
+    workspace: Option<&Paths>,
 ) -> (Vec<String>, bool) {
     let said = |line: String| (vec![line], false);
     match command {
@@ -409,8 +432,17 @@ pub async fn run_command(
                 Err(e) => said(format!("error: {}", plain(&e))),
             }
         }
+        ConsoleCommand::History(job) => {
+            let Some(paths) = workspace else {
+                return said("history is not available in this console".into());
+            };
+            match history::run(paths, &job, Surface::Console).await {
+                Ok(done) => (capped(done.lines), false),
+                Err(why) => said(format!("error: {}", plain(&why))),
+            }
+        }
         ConsoleCommand::Help => said(
-            "Commands: status | start <svc> | stop <svc> | restart <svc> | modules | module status|load|unload|restart <module> | module run <module> <command> [args] | invite | players | instances | doctor | backup | log <svc> <level> | stop"
+            "Commands: status | start <svc> | stop <svc> | restart <svc> | modules | module status|load|unload|restart <module> | module run <module> <command> [args] | history [--actor who] [--account id] [--since time] [--limit N] | history verify | revert --actor who [--dry-run | --apply <plan id>] | invite | players | instances | doctor | backup | log <svc> <level> | stop"
                 .into(),
         ),
         ConsoleCommand::Quit => (vec!["shutting down server...".into()], true),
@@ -422,9 +454,10 @@ pub async fn execute_command(
     line: &str,
     controller: &mut ServerController,
     filter_handle: Option<&LogFilterReloadHandle>,
+    workspace: Option<&Paths>,
 ) -> (Vec<String>, bool) {
     match parse_command(line) {
-        Ok(command) => run_command(command, controller, filter_handle).await,
+        Ok(command) => run_command(command, controller, filter_handle, workspace).await,
         Err(why) => (vec![why], false),
     }
 }
@@ -434,6 +467,7 @@ pub async fn execute_command(
 pub async fn run_repl(
     controller: &mut ServerController,
     filter_handle: Option<LogFilterReloadHandle>,
+    workspace: Option<&Paths>,
     mut stop: watch::Receiver<bool>,
 ) {
     let stdin = tokio::io::stdin();
@@ -449,7 +483,7 @@ pub async fn run_repl(
             next = lines.next_line() => {
                 match next {
                     Ok(Some(line)) => {
-                        let (replies, quit) = execute_command(&line, controller, filter_handle.as_ref()).await;
+                        let (replies, quit) = execute_command(&line, controller, filter_handle.as_ref(), workspace).await;
                         for reply in replies {
                             tracing::info!(target: "host", "{reply}");
                         }
@@ -494,7 +528,7 @@ mod tests {
             })
             .unwrap();
         controller.set_registry(registry);
-        let mut run = async |line: &str| execute_command(line, &mut controller, None).await.0.join("\n");
+        let mut run = async |line: &str| execute_command(line, &mut controller, None, None).await.0.join("\n");
         assert!(run("modules").await.contains("not_loaded"));
         assert_eq!(run("module load stub").await, "loaded stub");
         let table = run("modules").await;
@@ -546,6 +580,17 @@ mod tests {
                     args: vec!["a".into(), "b".into()],
                 },
             ),
+            ("history verify", History(Job::Verify)),
+            (
+                "revert --actor=admin:ab12cd34 --apply abc",
+                History(Job::Revert {
+                    select: history::Select {
+                        actor: Some("admin:ab12cd34".into()),
+                        ..history::Select::default()
+                    },
+                    apply: Some("abc".into()),
+                }),
+            ),
             (
                 "log content debug",
                 Log {
@@ -571,6 +616,9 @@ mod tests {
             ("module run stub Echo", "a-z, 0-9"),
             ("module run stub echo a\u{1b}[2J", "of text"),
             ("modules now", "takes nothing after it"),
+            ("revert --limit 5", "usage: revert"),
+            ("history --limit", "usage: history"),
+            ("history --actor x\u{1b}[2J", "text only"),
         ] {
             assert!(parse_command(line).unwrap_err().contains(said), "{line:?}");
         }

@@ -9,6 +9,7 @@
 //! | [`doctor`] | `doctor` | RH3 |
 //! | [`multipliers`] | `multipliers` | RH3 |
 //! | [`backup`] | `backup` (new) | RH3 |
+//! | [`history`] | `history`, `revert` (new) | DH3b |
 //! | [`gamedata`] | `gamedata` | RH4 |
 //! | [`preset`] | `preset` | RH4 |
 //! | [`publish_runtime`] | `publish-runtime` | RH4 |
@@ -19,6 +20,7 @@
 pub mod backup;
 pub mod doctor;
 pub mod gamedata;
+pub mod history;
 pub mod install_game;
 pub mod invite;
 pub mod multipliers;
@@ -59,6 +61,8 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Update(args) => update::run(paths, args),
         Command::Backup => backup::run(paths),
         Command::Network(args) => network::run(args, Some(paths)),
+        Command::History(args) => history::run_history(paths, args),
+        Command::Revert(args) => history::run_revert(paths, args),
         Command::Gateway { args }
         | Command::Allowlist { args }
         | Command::Content { args }

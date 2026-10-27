@@ -196,6 +196,15 @@ impl Controller {
         self.host_fail(&error.detail())
     }
 
+    /// The workspace the server GUI hosts, for the history commands (DH3b).
+    #[cfg_attr(
+        not(feature = "server-gui"),
+        allow(dead_code, reason = "the history commands read it")
+    )]
+    pub fn host_workspace(&self) -> Option<PathBuf> {
+        self.workspace()
+    }
+
     /// The workspace in the settings when it still is one.
     pub(super) fn workspace(&self) -> Option<PathBuf> {
         self.s().host_workspace.map(PathBuf::from).filter(|ws| is_workspace(ws))
