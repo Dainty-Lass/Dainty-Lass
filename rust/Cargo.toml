@@ -35,6 +35,21 @@ members = [
 # ../modules (DD2): that entry is a no-op while this workspace sits in rust/, needed if its root moves up (DF1)
 exclude = ["fuzz", "../modules"]
 
+# The module repositories take DaintyLass's crates and rustic-rifts' as git dependencies at fixed revs (DD2, spike
+# DF1's fallback). Inside this tree they must be these paths, or the module crates would build against a second
+# copy of module-api and the controller could not load them as GameModule
+[patch."ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git"]
+module-api = { path = "crates/module-api" }
+service-kit = { path = "crates/service-kit" }
+store = { path = "crates/store" }
+
+[patch."ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git"]
+rifts-seam = { path = "../modules/rustic-rifts/crates/rifts-seam" }
+rifts-admission = { path = "../modules/rustic-rifts/crates/rifts-admission" }
+rifts-relay = { path = "../modules/rustic-rifts/crates/rifts-relay" }
+rifts-realms = { path = "../modules/rustic-rifts/crates/rifts-realms" }
+rifts-guard = { path = "../modules/rustic-rifts/crates/rifts-guard" }
+
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
@@ -57,6 +72,9 @@ proxy = { path = "crates/proxy" }
 admin = { path = "services/admin" }
 content = { path = "services/content" }
 epic = { path = "crates/epic" }
+# The game modules compiled into the server (DF5): Cargo features of the controller and the bins
+isles-1-12-0 = { path = "../modules/rustic-isles/modules/isles-1-12-0" }
+isles-1-14-7 = { path = "../modules/rustic-isles/modules/isles-1-14-7", default-features = false }
 gateway = { path = "services/gateway" }
 host = { path = "services/host" }
 launcher = { path = "launcher/src-tauri" }

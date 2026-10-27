@@ -431,6 +431,11 @@ pub fn list_modules(
     registry: &ModuleRegistry,
     compiled: Vec<controller::ModuleFactory>,
 ) -> Result<(), HostError> {
+    for feature in controller::modules::UNLINKED {
+        say(&format!(
+            "- built with {feature}, whose module crate is not linked yet: it has nothing to load"
+        ));
+    }
     let modules = config.modules.clone().unwrap_or_default();
     let mut settings = modules.settings.clone();
     let mut entry = |id: module_api::ModuleId, source: ModuleSource, autoload: bool| {
