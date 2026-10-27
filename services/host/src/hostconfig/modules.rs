@@ -68,6 +68,9 @@ pub struct ModulesConfig {
 pub struct NetworkConfig {
     pub node: NodeId,
     pub region: Region,
+    /// Optional explicit directory leader; when `None`, [`Self::effective_leader`] picks the
+    /// lexicographically smallest node id across `node` and `nodes`.
+    pub leader: Option<NodeId>,
     /// The other nodes (`[[network.nodes]]`): the only ones this node answers, and the ones it calls
     pub nodes: Vec<Peer>,
 }
@@ -324,13 +327,50 @@ impl NetworkConfig {
                 .collect::<Result<Vec<_>, _>>()?,
         };
         check_peers(&node, &nodes).map_err(|e| bad(format!("network.nodes: {e}")))?;
-        Ok(Self { node, region, nodes })
+        let leader = match m.get("leader") {
+            None => None,
+            Some(v) => {
+                let s = v
+                    .as_str()
+                    .ok_or_else(|| bad("network.leader must be a node id (a-z, 0-9 and -)"))?;
+                let id: NodeId = s.parse().map_err(|e| bad(format!("network.leader: {e}")))?;
+                if id != node && !nodes.iter().any(|peer| peer.id == id) {
+                    return Err(bad(format!(
+                        "network.leader: {id} is neither network.node ({node}) nor in [[network.nodes]]"
+                    )));
+                }
+                Some(id)
+            }
+        };
+        Ok(Self {
+            node,
+            region,
+            leader,
+            nodes,
+        })
+    }
+
+    /// The directory leader for this network: `leader` when set in `[network]`, or the
+    /// lexicographically smallest node id across this node and `nodes` (so every node in the same
+    /// peer set agrees without an extra setting).
+    pub fn effective_leader(&self) -> NodeId {
+        if let Some(leader) = &self.leader {
+            return leader.clone();
+        }
+        std::iter::once(&self.node)
+            .chain(self.nodes.iter().map(|peer| &peer.id))
+            .min_by(|a, b| a.as_str().cmp(b.as_str()))
+            .cloned()
+            .unwrap_or_else(|| self.node.clone())
     }
 
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
         out.insert("node".into(), Value::String(self.node.to_string()));
         out.insert("region".into(), Value::String(self.region.to_string()));
+        if let Some(leader) = &self.leader {
+            out.insert("leader".into(), Value::String(leader.to_string()));
+        }
         if !self.nodes.is_empty() {
             let nodes = self.nodes.iter().filter_map(|peer| serde_json::to_value(peer).ok());
             out.insert("nodes".into(), Value::Array(nodes.collect()));
@@ -458,9 +498,39 @@ mod tests {
                 "network.node",
             ),
             ("[network]\nnode = \"oregon-1\"\n".to_string(), "network.region"),
+            (
+                "[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\nleader = \"uk-1\"\n".to_string(),
+                "network.leader",
+            ),
         ] {
             let error = HostConfig::from_toml(&format!("{BASE}{bad}")).unwrap_err().to_string();
             assert!(error.contains(said), "{bad:?}: {error}");
         }
+    }
+
+    #[test]
+    fn network_leader_defaults_to_smallest_node_id_and_round_trips_when_set() {
+        let public = BASE
+            .replace("mode = \"private\"", "mode = \"public\"")
+            .replace("100.101.102.103", "203.0.113.10");
+        let toml = format!(
+            "{public}\n[network]\nnode = \"uk-1\"\nregion = \"uk\"\n\n\
+             [[network.nodes]]\nid = \"oregon-1\"\nregion = \"oregon\"\nhost = \"198.51.100.1\"\nport = 443\n"
+        );
+        let config = HostConfig::from_toml(&toml).unwrap();
+        let net = config.network.as_ref().unwrap();
+        assert_eq!(net.leader, None);
+        assert_eq!(net.effective_leader().as_str(), "oregon-1");
+
+        let explicit = format!(
+            "{public}\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\nleader = \"uk-1\"\n\n\
+             [[network.nodes]]\nid = \"uk-1\"\nregion = \"uk\"\nhost = \"198.51.100.2\"\nport = 443\n"
+        );
+        let config = HostConfig::from_toml(&explicit).unwrap();
+        let net = config.network.as_ref().unwrap();
+        assert_eq!(net.leader, Some("uk-1".parse().unwrap()));
+        assert_eq!(net.effective_leader().as_str(), "uk-1");
+        let round_trip = HostConfig::from_toml(&config.to_toml().unwrap()).unwrap();
+        assert_eq!(round_trip.network, config.network);
     }
 }
