@@ -25,7 +25,6 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 service-kit.workspace = true
-sha2.workspace = true
 store.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "sync", "time"] }

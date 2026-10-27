@@ -47,7 +47,6 @@ percent-encoding = "2"
 regex = "1"
 sha2 = "0.11"
 serde = { version = "1", features = ["derive"] }
-sha2 = "0.11"
 # Keys in insertion order, as JavaScript objects keep them (service-kit turns this on in DaintyLass's tree anyway)
 serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
 tempfile = "3"
