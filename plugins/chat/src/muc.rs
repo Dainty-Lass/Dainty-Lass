@@ -634,6 +634,23 @@ impl Chat {
             .as_deref()
             .map(|i| format!(" id=\"{}\"", escape(i)))
             .unwrap_or_default();
+        // Stored before it is sent: a message nobody can read back from history is never on a screen
+        if own.rules.history
+            && let Err(error) = self
+                .backends
+                .history
+                .add_room_message(
+                    &room_key(&kind),
+                    &sender.to_string(),
+                    &own.nick,
+                    &body,
+                    message_id.as_deref(),
+                    now,
+                )
+                .await
+        {
+            tracing::error!("chat: storing a room message failed ({error})");
+        }
         let (mut delivered, mut blocked) = (0, 0);
         for recipient in recipients {
             if recipient.session != id {
@@ -652,22 +669,6 @@ impl Chat {
             );
             self.send(recipient.session, &stanza);
             delivered += 1;
-        }
-        if own.rules.history
-            && let Err(error) = self
-                .backends
-                .history
-                .add_room_message(
-                    &room_key(&kind),
-                    &sender.to_string(),
-                    &own.nick,
-                    &body,
-                    message_id.as_deref(),
-                    now,
-                )
-                .await
-        {
-            tracing::error!("chat: storing a room message failed ({error})");
         }
         tracing::info!(
             "chat: message room={} uid={uid} len={length} to={delivered}{}",
