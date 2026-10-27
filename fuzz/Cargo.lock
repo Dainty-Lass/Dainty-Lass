@@ -519,6 +519,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "chat"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "futures-util",
+ "module-api",
+ "protocol",
+ "rand 0.10.3",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "store",
+ "subtle",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -803,6 +827,7 @@ dependencies = [
  "admin",
  "arbitrary",
  "async-graphql",
+ "chat",
  "chrono",
  "content",
  "deploy",

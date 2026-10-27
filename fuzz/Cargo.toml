@@ -21,6 +21,8 @@ admin = { path = "../services/admin" }
 async-graphql = { version = "7", default-features = false }
 libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
+# chat_stanza: the chat plugin's stanza parser, JIDs and room names (DN10a)
+chat = { path = "../plugins/chat" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # The legacy (1.4.4) parsers as well: content_range, gateway_policy_legacy
 content = { path = "../services/content", features = ["legacy"] }
@@ -57,6 +59,13 @@ bench = false
 [[bin]]
 name = "allowlist_input"
 path = "fuzz_targets/allowlist_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "chat_stanza"
+path = "fuzz_targets/chat_stanza.rs"
 test = false
 doc = false
 bench = false
