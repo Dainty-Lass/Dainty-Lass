@@ -109,6 +109,7 @@ impl Mounts {
 /// mounted route 501 in the launcher envelope, any other 404 (or 501 when a mounted route takes its path).
 pub async fn sweep(service: Service, address: SocketAddr, mounts: Mounts) -> Vec<String> {
     let table = crate::routes::all();
+    let handlers = crate::areas::backend();
     let mut failures = Vec::new();
     // A route an area has ported answers its own way; its own tests check it
     let handlers = if service == Service::Backend {
@@ -148,7 +149,18 @@ pub async fn sweep(service: Service, address: SocketAddr, mounts: Mounts) -> Vec
             });
         let gated = !mounts.admin && service == Service::Backend && path.to_ascii_lowercase().starts_with("/admin");
         let (want, envelope) = if taken && !gated { (501, true) } else { (404, false) };
+        // An area that ported the route answers it itself, or the 501 envelope when no database is configured
+        let handled = service == Service::Backend && mounts.mounted(route) && handlers.get(route).is_some();
         match request(address, route.method.as_str(), &path).await {
+            Ok((status, headers, body)) if handled => {
+                let has_id = headers.iter().any(|(name, _)| name == crate::http::REQUEST_ID_HEADER);
+                if !has_id {
+                    failures.push(format!(
+                        "{} {path}: {status} {body} (no request id)",
+                        route.method.as_str()
+                    ));
+                }
+            }
             Ok((status, headers, body)) => {
                 let has_id = headers.iter().any(|(name, _)| name == crate::http::REQUEST_ID_HEADER);
                 let ok = status == want

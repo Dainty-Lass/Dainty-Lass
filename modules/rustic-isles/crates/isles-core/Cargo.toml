@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 axum.workspace = true
+base64.workspace = true
 chrono.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
@@ -21,11 +22,12 @@ regex.workspace = true
 rifts-seam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 service-kit.workspace = true
 sha2.workspace = true
 store.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["net", "rt-multi-thread", "sync", "time"] }
+tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "sync", "time"] }
 tracing.workspace = true
 uuid.workspace = true
 

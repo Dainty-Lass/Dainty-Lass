@@ -1,7 +1,9 @@
 //! RU5 Reforged API: the admin panel's sessions and audit, launcher notices, the activity monitor and Launcher Guard
 //! (isles' since RF1's decision 1).
 
-use super::{AccountId, AnyConnection, Json, Tx, repository};
+use diesel::prelude::*;
+
+use super::{AccountId, AnyConnection, Json, RepoResult, Tx, repository};
 
 /// `AdminSessionRecord`: the admin dashboard's cookie session.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -294,5 +296,118 @@ repository! {
         fn list_findings(&self, conn: &mut AnyConnection, signer: Option<&str>, skip: u32, limit: u32)
             -> (Vec<GuardFinding>, u64);
         fn record_finding_sighting(&self, tx: &mut Tx<'_>, sighting: &GuardSighting) -> ();
+    }
+}
+
+/// `InviteRecord` (`reforgedApi.ts`): a code a host made for registration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InviteRecord {
+    pub code: String,
+    pub uses_remaining: i64,
+    pub infinite_uses: bool,
+    pub note: Option<String>,
+    pub created_at: String,
+}
+
+repository! {
+    pub trait InviteRepository("reforgedInvites") {
+        /// `false` when the code exists (Mongo's duplicate key)
+        fn insert_if_absent(&self, tx: &mut Tx<'_>, record: &InviteRecord) -> bool;
+        /// Takes one use of a code that has one (an unlimited code stays as it is); `false` when it has none
+        fn spend(&self, tx: &mut Tx<'_>, code: &str) -> bool;
+        /// Newest first
+        fn list(&self, conn: &mut AnyConnection, limit: u32) -> Vec<InviteRecord>;
+        fn delete(&self, tx: &mut Tx<'_>, code: &str) -> bool;
+    }
+}
+
+diesel::table! {
+    reforged_invites (code) {
+        code -> Text,
+        uses_remaining -> BigInt,
+        infinite_uses -> Bool,
+        note -> Nullable<Text>,
+        created_at -> Text,
+    }
+}
+
+type InviteRow = (String, i64, bool, Option<String>, String);
+
+fn invite((code, uses_remaining, infinite_uses, note, created_at): InviteRow) -> InviteRecord {
+    InviteRecord {
+        code,
+        uses_remaining,
+        infinite_uses,
+        note,
+        created_at,
+    }
+}
+
+/// [`InviteRepository`] on `store`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SqlInvites;
+
+impl InviteRepository for SqlInvites {
+    fn insert_if_absent(&self, tx: &mut Tx<'_>, record: &InviteRecord) -> RepoResult<bool> {
+        let inserted = diesel::insert_into(reforged_invites::table)
+            .values((
+                reforged_invites::code.eq(&record.code),
+                reforged_invites::uses_remaining.eq(record.uses_remaining),
+                reforged_invites::infinite_uses.eq(record.infinite_uses),
+                reforged_invites::note.eq(&record.note),
+                reforged_invites::created_at.eq(&record.created_at),
+            ))
+            .execute(tx.conn());
+        match inserted {
+            Ok(_) => Ok(true),
+            // Mongo's duplicate key; a Postgres transaction is spoiled by it, so the caller retries in a new one
+            Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::UniqueViolation, _)) => {
+                Ok(false)
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    fn spend(&self, tx: &mut Tx<'_>, code: &str) -> RepoResult<bool> {
+        let unlimited = reforged_invites::table
+            .filter(reforged_invites::code.eq(code))
+            .filter(reforged_invites::infinite_uses.eq(true))
+            .count()
+            .get_result::<i64>(tx.conn())?;
+        if unlimited > 0 {
+            return Ok(true);
+        }
+        // One statement, so two registrations can't both take the last use
+        let taken = diesel::update(
+            reforged_invites::table
+                .filter(reforged_invites::code.eq(code))
+                .filter(reforged_invites::uses_remaining.gt(0)),
+        )
+        .set(reforged_invites::uses_remaining.eq(reforged_invites::uses_remaining - 1))
+        .execute(tx.conn())?;
+        Ok(taken == 1)
+    }
+
+    fn list(&self, conn: &mut AnyConnection, limit: u32) -> RepoResult<Vec<InviteRecord>> {
+        Ok(reforged_invites::table
+            .order((reforged_invites::created_at.desc(), reforged_invites::code.asc()))
+            .limit(i64::from(limit))
+            .select((
+                reforged_invites::code,
+                reforged_invites::uses_remaining,
+                reforged_invites::infinite_uses,
+                reforged_invites::note,
+                reforged_invites::created_at,
+            ))
+            .load::<InviteRow>(conn)?
+            .into_iter()
+            .map(invite)
+            .collect())
+    }
+
+    fn delete(&self, tx: &mut Tx<'_>, code: &str) -> RepoResult<bool> {
+        let gone =
+            diesel::delete(reforged_invites::table.filter(reforged_invites::code.eq(code))).execute(tx.conn())?;
+        Ok(gone == 1)
     }
 }
