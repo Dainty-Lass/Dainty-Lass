@@ -11,7 +11,8 @@ use crate::error::HostError;
 use crate::hostconfig::{HostConfig, ServerMode, load_host_config, load_or_create_secrets, stringify_pretty};
 use crate::invite::{CodeOptions, certificate_fingerprint, create_invite_code, invite_for_game, list_invite_codes};
 use crate::paths::{PORTS, Paths};
-use protocol::game::Game;
+use protocol::GameVersion;
+use protocol::invite::{named_version, reforged_version, revived_version};
 
 pub fn run(paths: &Paths, args: &InviteArgs) -> Outcome {
     run_with(paths, args, PORTS.backend, &mut |line| println!("{line}"))
@@ -74,7 +75,7 @@ pub fn invite_text(config: &HostConfig, args: &InviteArgs, uses: f64, link: &str
 pub fn run_with(paths: &Paths, args: &InviteArgs, backend_port: u16, out: &mut dyn FnMut(&str)) -> Outcome {
     let config =
         load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
-    if invite_game(&config, args)? == Game::Legacy {
+    if invite_game(&config, args)? == revived_version() {
         return legacy_invite(paths, &config, args, out);
     }
     let (secrets, _) = load_or_create_secrets(&paths.config, super::setup::secrets::new_secrets)?;
@@ -96,7 +97,7 @@ pub fn run_with(paths: &Paths, args: &InviteArgs, backend_port: u16, out: &mut d
         ServerMode::Public => Some(certificate_fingerprint(&paths.cert_file)?),
         ServerMode::Private => None,
     };
-    let link = invite_for_game(&config, &code, fp.as_deref(), Game::Reborn)?;
+    let link = invite_for_game(&config, &code, fp.as_deref(), &reforged_version())?;
     for line in invite_text(&config, args, uses, &link) {
         out(&line);
     }
@@ -104,21 +105,26 @@ pub fn run_with(paths: &Paths, args: &InviteArgs, backend_port: u16, out: &mut d
 }
 
 /// The game the invite is for: `--game`, or the server's own (reborn on a server running both).
-pub fn invite_game(config: &HostConfig, args: &InviteArgs) -> Result<Game, HostError> {
+pub fn invite_game(config: &HostConfig, args: &InviteArgs) -> Result<GameVersion, HostError> {
     let Some(given) = text(&args.game) else {
         return Ok(config.edition.primary());
     };
-    let game = Game::from_version(given)
-        .or_else(|| Game::ALL.into_iter().find(|g| g.as_str() == given))
-        .ok_or_else(|| {
-            HostError::message(format!(
-                "--game must be reforged (1.14.7) or revived (1.4.4), not {given}"
-            ))
-        })?;
-    if !config.edition.runs(game) {
+    // The edition's words name them too
+    let game = match given {
+        "reborn" => Some(reforged_version()),
+        "legacy" => Some(revived_version()),
+        other => named_version(other),
+    }
+    .filter(|game| *game == reforged_version() || *game == revived_version())
+    .ok_or_else(|| {
+        HostError::message(format!(
+            "--game must be reforged (1.14.7) or revived (1.4.4), not {given}"
+        ))
+    })?;
+    if !config.edition.runs(&game) {
         return Err(HostError::message(format!(
             "this server does not run Dauntless {} (edition = \"{}\")",
-            game.version(),
+            game,
             config.edition.as_str()
         )));
     }
@@ -137,7 +143,7 @@ fn legacy_invite(paths: &Paths, config: &HostConfig, args: &InviteArgs, out: &mu
         ServerMode::Public => Some(certificate_fingerprint(&paths.cert_file)?),
         ServerMode::Private => None,
     };
-    let link = invite_for_game(config, &code, fp.as_deref(), Game::Legacy)?;
+    let link = invite_for_game(config, &code, fp.as_deref(), &revived_version())?;
     for line in invite_text(config, args, 1.0, &link) {
         out(&line);
     }
@@ -189,7 +195,7 @@ manage = false
             ..Default::default()
         };
         let reborn = HostConfig::from_toml(&toml("reborn")).unwrap();
-        assert_eq!(invite_game(&reborn, &asked(None)).unwrap(), Game::Reborn);
+        assert_eq!(invite_game(&reborn, &asked(None)).unwrap(), reforged_version());
         assert!(
             invite_game(&reborn, &asked(Some("revived")))
                 .unwrap_err()
@@ -204,16 +210,16 @@ manage = false
         );
         let both = HostConfig::from_toml(&toml("both")).unwrap();
         for (given, game) in [
-            (None, Game::Reborn),
-            (Some("reforged"), Game::Reborn),
-            (Some("1.14.7"), Game::Reborn),
-            (Some("revived"), Game::Legacy),
-            (Some("1.4.4"), Game::Legacy),
-            (Some("legacy"), Game::Legacy),
+            (None, reforged_version()),
+            (Some("reforged"), reforged_version()),
+            (Some("1.14.7"), reforged_version()),
+            (Some("revived"), revived_version()),
+            (Some("1.4.4"), revived_version()),
+            (Some("legacy"), revived_version()),
         ] {
             assert_eq!(invite_game(&both, &asked(given)).unwrap(), game, "{given:?}");
         }
-        let link = crate::invite::invite_for_game(&both, "code", Some(&"a".repeat(64)), Game::Legacy).unwrap();
+        let link = crate::invite::invite_for_game(&both, "code", Some(&"a".repeat(64)), &revived_version()).unwrap();
         assert!(link.contains("port=4443"), "{link}");
     }
 }

@@ -16,7 +16,8 @@ use module_api::{
     API_VERSION, CoreCapability, CorePlugin, ErrorKind, ModuleError, ModuleId, ModuleKind, ModuleManifest, PortRange,
     Registrar, Registration,
 };
-use protocol::game::Game;
+use protocol::GameVersion;
+use protocol::invite::{revived_version, version_alias};
 
 use crate::config::{Config, Endpoint, is_loopback_host};
 use crate::policy::{
@@ -84,17 +85,18 @@ impl RegistryView for ConfigPorts {
 
 /// The module a gateway without a controller fronts, as the game's module will register itself (RU4,
 /// RV1): one TCP port and every path to it.
-pub fn stand_in(game: Game) -> Result<(ModuleManifest, Registration), String> {
-    let (id, display_name, port) = match game {
-        Game::Reborn => ("isles-1-14-7", "Rustic Isles 1.14.7", "backend"),
-        Game::Legacy => ("revived-1-4-4", "Dauntless Revived", "metagame"),
+pub fn stand_in(version: &GameVersion) -> Result<(ModuleManifest, Registration), String> {
+    let (id, display_name, port) = if *version == revived_version() {
+        ("revived-1-4-4", "Dauntless Revived", "metagame")
+    } else {
+        ("isles-1-14-7", "Rustic Isles 1.14.7", "backend")
     };
     let manifest = ModuleManifest {
         id: id.parse().map_err(|e| format!("{e}"))?,
         kind: ModuleKind::Game,
         display_name: display_name.into(),
-        game_version: game.version().parse().map_err(|e| format!("{e}"))?,
-        invite_aliases: vec![game.version_alias().into()],
+        game_version: version.clone(),
+        invite_aliases: version_alias(version).map(str::to_owned).into_iter().collect(),
         api: API_VERSION,
         ports: vec![PortDefault {
             name: port.into(),
@@ -186,10 +188,11 @@ impl ModuleRoutes {
 
     /// A gateway without a controller: the stand-in for `GATEWAY_GAME` at the configured backend.
     pub fn standalone(config: &Config) -> Result<Self, String> {
-        let (manifest, registration) = stand_in(config.game)?;
-        let port = match config.game {
-            Game::Reborn => "backend",
-            Game::Legacy => "metagame",
+        let (manifest, registration) = stand_in(&config.version)?;
+        let port = if config.version == revived_version() {
+            "metagame"
+        } else {
+            "backend"
         };
         let routes = Self::new(Arc::new(ConfigPorts {
             port,
@@ -209,11 +212,11 @@ impl ModuleRoutes {
     }
 
     /// Judges one request for the game `version` names: `game`'s policy first (which also picks the path
-    /// rules: only reborn unwraps `/__origin`), then the gateway's groups, then the module's routes.
+    /// rules: only 1.14.7 unwraps `/__origin`), then the gateway's groups, then the module's routes.
     pub fn route(
         &self,
         version: &str,
-        game: Game,
+        game: &GameVersion,
         method: &str,
         raw_url: &str,
         headers: &HeaderMap,
@@ -234,7 +237,7 @@ impl ModuleRoutes {
         let Some((path, _)) = split_target(raw_url).filter(|(path, _)| check_path(path)) else {
             return reject(400, "bad_path", "bad_path", limit_class);
         };
-        let inner = if game == Game::Reborn {
+        let inner = if *game != revived_version() {
             unwrap_origin(path).and_then(|unwrapped| canonical_path(&unwrapped.path))
         } else {
             canonical_path(path)
@@ -375,6 +378,7 @@ mod tests {
     use http::HeaderValue;
     use module_api::GameModule;
     use module_api::stub::StubModule;
+    use protocol::invite::reforged_version;
 
     use super::*;
 
@@ -408,10 +412,10 @@ mod tests {
     }
 
     fn get(routes: &ModuleRoutes, version: &str, target: &str) -> Routed {
-        routes.route(version, Game::Reborn, "GET", target, &none(), false)
+        routes.route(version, &reforged_version(), "GET", target, &none(), false)
     }
 
-    fn standalone(game: Game) -> ModuleRoutes {
+    fn standalone(game: &GameVersion) -> ModuleRoutes {
         let mut config = crate::config::Config::from_env(&service_kit::env::Env::from_pairs(vec![
             ("GATEWAY_TLS", "0"),
             ("GATEWAY_BIND", "127.0.0.1"),
@@ -420,23 +424,24 @@ mod tests {
             ("GATEWAY_BACKEND_URL", "http://127.0.0.1:7001"),
         ]))
         .unwrap();
-        config.game = game;
+        config.version = game.clone();
         ModuleRoutes::standalone(&config).unwrap()
     }
 
     #[test]
     fn the_stand_ins_are_what_the_modules_will_register() {
-        for game in [Game::Reborn, Game::Legacy] {
-            let (manifest, registration) = stand_in(game).unwrap();
+        for game in [reforged_version(), revived_version()] {
+            let (manifest, registration) = stand_in(&game).unwrap();
             manifest.validate().unwrap();
-            assert!(manifest.answers_invite(game.version()) && manifest.answers_invite(game.version_alias()));
+            let alias = version_alias(&game).unwrap();
+            assert!(manifest.answers_invite(&game.to_string()) && manifest.answers_invite(alias));
             assert_eq!(registration.routes.len(), 1);
         }
     }
 
     #[test]
     fn a_standalone_gateway_sends_the_game_to_its_backend_as_before() {
-        let routes = standalone(Game::Reborn);
+        let routes = standalone(&reforged_version());
         for target in [
             "/",
             "/party/invites",
@@ -463,7 +468,7 @@ mod tests {
             headers.insert("upgrade", HeaderValue::from_static("websocket"));
             headers
         };
-        let chat = routes.route("1.14.7", Game::Reborn, "GET", "//", &ws, true);
+        let chat = routes.route("1.14.7", &reforged_version(), "GET", "//", &ws, true);
         assert_eq!((reason(&chat), chat.endpoint), (None, None));
         // The policy's refusals come first and are unchanged
         assert_eq!(
@@ -482,8 +487,8 @@ mod tests {
     #[cfg(feature = "legacy")]
     #[test]
     fn a_standalone_legacy_gateway_sends_the_game_to_its_metagame() {
-        let routes = standalone(Game::Legacy);
-        let routed = routes.route("1.4.4", Game::Legacy, "POST", "/game/login", &none(), false);
+        let routes = standalone(&revived_version());
+        let routed = routes.route("1.4.4", &revived_version(), "POST", "/game/login", &none(), false);
         assert_eq!(port(&routed), Some(7001));
         assert!(matches!(
             routed.decision,
@@ -548,7 +553,7 @@ mod tests {
             "/__origin/gamedev-prod.steelyard.ca/__node/x",
         ] {
             assert_eq!(reason(&get(&routes, "0.0.1", target)), Some("node_link"), "{target}");
-            let upgrade = routes.route("0.0.1", Game::Reborn, "GET", target, &ws, true);
+            let upgrade = routes.route("0.0.1", &reforged_version(), "GET", target, &ws, true);
             assert_eq!(reason(&upgrade), Some("node_link"), "{target}");
         }
         assert_eq!(reason(&get(&routes, "0.0.1", "/__nodes")), Some("no_route"));

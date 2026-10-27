@@ -111,7 +111,7 @@ fn revived_invite(port: u16, fp: &str, code: &str, name: &str) -> String {
         name: name.into(),
         share: None,
         fp: Some(fp.into()),
-        game: Game::Legacy,
+        version: protocol::invite::revived_version(),
     })
     .unwrap()
 }

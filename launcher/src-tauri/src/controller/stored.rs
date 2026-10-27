@@ -35,7 +35,7 @@ pub struct StoredServer {
 impl StoredServer {
     pub fn from_invite(invite: &Invite, code: Option<String>) -> Self {
         Self {
-            game: if invite.game == Game::Legacy {
+            game: if Game::of(&invite.version) == Game::Legacy {
                 REVIVED.to_owned()
             } else {
                 reforged()

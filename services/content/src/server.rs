@@ -39,7 +39,7 @@ pub fn prepare_game(config: &Config) -> Result<AppState, String> {
 /// [`prepare_game`], serving what the controller attaches to `modules` (DF4b).
 pub fn prepare_game_with(config: &Config, modules: Arc<ContentModules>) -> Result<AppState, String> {
     #[cfg(feature = "legacy")]
-    if let (protocol::game::Game::Legacy, Some(game_dir)) = (config.game, &config.game_dir) {
+    if let (true, Some(game_dir)) = (config.version == protocol::invite::revived_version(), &config.game_dir) {
         let game = crate::legacy::LegacyGame::prepare(game_dir, config.manifest_path.as_deref())?;
         let clock: crate::auth::Clock = Arc::new(crate::now_ms);
         return Ok(App::legacy_with_modules(
@@ -232,12 +232,15 @@ pub async fn run_with_modules(
         "maxStreamsPerAccount": config.max_streams_per_account,
         "maxStreamsTotal": config.max_streams_total,
     });
-    if let (false, Some(fields)) = (config.game.is_reborn(), ready.as_object_mut()) {
+    if let (false, Some(fields)) = (
+        config.version == protocol::invite::reforged_version(),
+        ready.as_object_mut(),
+    ) {
         fields.remove("runtime");
         if let Some(metagame) = fields.remove("backend") {
             fields.insert("metagame".into(), metagame);
         }
-        fields.insert("game".into(), json!(config.game.as_str()));
+        fields.insert("game".into(), json!(config.version.to_string()));
         fields.insert(
             "gameDir".into(),
             json!(config.game_dir.as_ref().map(|d| d.display().to_string())),

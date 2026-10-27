@@ -5,8 +5,7 @@
 //! `ui/packages/bridge/src/generated/types.ts` are generated from these (`generate.rs`), so the page and the
 //! backend cannot drift apart.
 
-/// The game edition the launcher plays (`reborn` 1.14.7, `legacy` 1.4.4), the `gameEdition` setting
-pub use protocol::game::Game;
+use protocol::GameVersion;
 use protocol::invite::ServerMode;
 use protocol::status::ServerStatus;
 use serde::{Deserialize, Serialize, Serializer};
@@ -14,6 +13,42 @@ use serde::{Deserialize, Serialize, Serializer};
 /// The launcher's languages, made from the page's strings by build.rs (L14; RA3 makes them `en` and
 /// `pt-BR`).
 pub use crate::core::i18n::Language;
+
+/// The game the launcher plays, as settings.json's `gameEdition` and the page name it (`reborn` 1.14.7,
+/// `legacy` 1.4.4). The launcher's own setting, not the servers' vocabulary: invites and modules name a
+/// [`GameVersion`] (DD4), and DU3 moves the setting onto the client profiles' versions (DD12).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+pub enum Game {
+    #[default]
+    Reborn,
+    Legacy,
+}
+
+impl Game {
+    /// The edition that plays `version`: legacy for 1.4.4, reborn for every other.
+    pub fn of(version: &GameVersion) -> Self {
+        if *version == protocol::invite::revived_version() {
+            Self::Legacy
+        } else {
+            Self::Reborn
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Reborn => "reborn",
+            Self::Legacy => "legacy",
+        }
+    }
+}
+
+impl std::fmt::Display for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 /// -1 = leave graphics to the in-game menu, 0..4 = Low, Medium, High, Epic, Cinematic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

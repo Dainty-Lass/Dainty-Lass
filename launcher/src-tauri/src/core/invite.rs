@@ -15,7 +15,6 @@ pub use protocol::invite::{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use protocol::game::Game;
     use serde::Deserialize;
 
     #[derive(Deserialize)]
@@ -51,7 +50,9 @@ mod tests {
         for case in cases.reject {
             // The legacy edition reads them (protocol's table test checks how)
             if cfg!(feature = "legacy") && case.error == "revived" {
-                assert!(parse_invite(&case.input).is_ok_and(|invite| invite.game == Game::Legacy));
+                assert!(
+                    parse_invite(&case.input).is_ok_and(|invite| invite.version == protocol::invite::revived_version())
+                );
                 continue;
             }
             assert_eq!(
@@ -73,7 +74,7 @@ mod tests {
             name: "Aether & Ember".into(),
             share: None,
             fp: Some("3f".repeat(32)),
-            game: protocol::game::Game::Reborn,
+            version: protocol::invite::reforged_version(),
         };
         let link = format_invite(&invite).unwrap();
         assert!(link.starts_with("reforged-revival://join?v=2&"));

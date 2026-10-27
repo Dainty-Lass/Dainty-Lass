@@ -18,6 +18,16 @@ fuzz_target!(|data: &[u8]| {
         Ok(ConsoleCommand::Log { service, level }) => {
             assert!(is_service_name(&service) && LEVELS.contains(&level));
         }
+        Ok(
+            ConsoleCommand::ModuleStatus(name)
+            | ConsoleCommand::ModuleLoad(name)
+            | ConsoleCommand::ModuleUnload(name)
+            | ConsoleCommand::ModuleRestart(name),
+        ) => assert!(is_service_name(&name)),
+        Ok(ConsoleCommand::ModuleRun { module, command, args }) => {
+            assert!(is_service_name(&module) && is_service_name(&command));
+            assert!(args.iter().all(|arg| !arg.chars().any(char::is_control)));
+        }
         Ok(_) => assert!(line.len() <= MAX_LINE),
         Err(said) => assert!(!said.chars().any(char::is_control) && said.len() <= 200),
     }
