@@ -1,6 +1,6 @@
 [package]
 name = "network"
-description = "The network core plugin (DD16-DD18): node links over mutual TLS (DN3) and the directory of accounts, homes and usernames (DN4)"
+description = "The network core plugin (DD16-DD18): node links over mutual TLS (DN3), the directory of accounts, homes and usernames (DN4), and the home API with session tickets (DN5)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,6 +15,9 @@ default = ["directory"]
 directory = ["dep:diesel", "dep:diesel_migrations", "dep:protocol", "dep:store"]
 
 [dependencies]
+# Ed25519 for session tickets and the CSPRNG for their ids (DN5); aws-lc-rs is already the tree's crypto
+aws-lc-rs.workspace = true
+base64.workspace = true
 diesel = { workspace = true, optional = true }
 diesel_migrations = { workspace = true, optional = true }
 bytes = "1"

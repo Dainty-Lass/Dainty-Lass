@@ -24,16 +24,19 @@ pub const MAX_CLOCK_SKEW: std::time::Duration = std::time::Duration::from_secs(3
 pub enum Service {
     /// The directory: registrations through the leader, and the log replicas pull (DN4)
     Directory,
+    /// The home API: session tickets, and operations on an account at its home (DN5)
+    Home,
 }
 
 impl Service {
-    pub const ALL: [Service; 1] = [Self::Directory];
+    pub const ALL: [Service; 2] = [Self::Directory, Self::Home];
 }
 
 impl Service {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Directory => "directory",
+            Self::Home => "home",
         }
     }
 
@@ -122,5 +125,45 @@ impl Clock {
     /// From now on, the clock reads `ms` milliseconds ahead of the system's (behind, if negative).
     pub fn skew_by(&self, ms: i64) {
         self.offset_ms.store(ms, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// The services one node answers, by [`Service`]: the endpoint attaches one [`NodeService`], so a node with a
+/// directory and a home API puts both in a mux (DN5). A call for a service nobody was given is `NoService`.
+pub struct ServiceMux {
+    node: NodeId,
+    services: std::collections::BTreeMap<&'static str, std::sync::Arc<dyn NodeService>>,
+}
+
+impl ServiceMux {
+    pub fn new(node: NodeId) -> Self {
+        Self {
+            node,
+            services: std::collections::BTreeMap::new(),
+        }
+    }
+
+    pub fn with(mut self, service: Service, handler: std::sync::Arc<dyn NodeService>) -> Self {
+        self.services.insert(service.as_str(), handler);
+        self
+    }
+}
+
+impl NodeService for ServiceMux {
+    fn serve<'a>(
+        &'a self,
+        from: &'a NodeId,
+        service: Service,
+        body: Vec<u8>,
+    ) -> BoxFuture<'a, Result<Vec<u8>, LinkError>> {
+        Box::pin(async move {
+            match self.services.get(service.as_str()) {
+                Some(handler) => handler.serve(from, service, body).await,
+                None => Err(LinkError::NoService {
+                    node: self.node.clone(),
+                    service,
+                }),
+            }
+        })
     }
 }

@@ -11,6 +11,8 @@
 //! - [`directory`] (feature `directory`): account to home and username claims, one leader writing an
 //!   append-only log that every other node pulls ([`Directory`]), on `store`.
 //! - [`messages`]: what the directory's nodes send each other.
+//! - [`home`]: the home API (DD17): session tickets an account's home signs, and a game module's operations on an
+//!   account run at its home for another node ([`home::NetworkedHome`], [`home::HomeService`]).
 //!
 //! A server that isn't in a network runs the same directory with no peers (section 6): it is its own
 //! leader, and nothing leaves it.
@@ -19,6 +21,7 @@ pub mod cluster;
 #[cfg(feature = "directory")]
 pub mod directory;
 pub mod endpoint;
+pub mod home;
 pub mod inprocess;
 pub mod link;
 #[cfg(feature = "directory")]
@@ -31,7 +34,7 @@ pub mod wire;
 #[cfg(feature = "directory")]
 pub use directory::{AccountRecord, Directory, DirectoryConfig, DirectoryError, Role};
 pub use endpoint::NodeEndpoint;
-pub use link::{Clock, LinkError, NoPeers, NodeService, PeerLink, Service};
+pub use link::{Clock, LinkError, NoPeers, NodeService, PeerLink, Service, ServiceMux};
 #[cfg(feature = "directory")]
 pub use messages::{DirectoryChange, DirectoryEntry, Refusal};
 pub use tls::{PeerHealth, PeerState, TlsLinkConfig, TlsPeerLink};
