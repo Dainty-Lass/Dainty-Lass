@@ -13,6 +13,7 @@ use tokio::task::JoinSet;
 use crate::config;
 use crate::input::{self, InstanceKind};
 use crate::log;
+use crate::module_control::{self, Module, Modules};
 use crate::modules::{AdminModule, AdminPlugin, NODE_GAME};
 use crate::timeouts::{Timeout, Timeouts};
 use crate::upstream::{Account, Clock, Operator, Upstream, UpstreamError};
@@ -24,8 +25,14 @@ const MAX_DEPTH: usize = 6;
 const MAX_COMPLEXITY: usize = 200;
 
 pub fn build(admin: Arc<Admin>) -> AdminSchema {
+    build_with_control(admin, Modules::default())
+}
+
+/// [`build`] with the registry's list, load and unload behind `modules` (DF3).
+pub fn build_with_control(admin: Arc<Admin>, modules: Modules) -> AdminSchema {
     Schema::build(Query, Mutation, EmptySubscription)
         .data(admin)
+        .data(modules)
         .limit_depth(MAX_DEPTH)
         .limit_complexity(MAX_COMPLEXITY)
         .finish()
@@ -1013,6 +1020,16 @@ impl Query {
             })
             .collect())
     }
+
+    /// Every game module and plugin host.toml lists, loaded or not (DF3).
+    async fn modules(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<Module>> {
+        module_control::list(ctx)
+    }
+
+    /// One listed module; null when host.toml lists none by that id.
+    async fn module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Option<Module>> {
+        module_control::get(ctx, &id)
+    }
 }
 
 pub struct Mutation;
@@ -1084,5 +1101,20 @@ impl Mutation {
         admin
             .unban(operator, &username, reason.as_deref(), game.as_deref())
             .await
+    }
+
+    /// Loads a listed module (a failed one is restarted). Refused with MODULE_REFUSED and the reason: a
+    /// second module for a game version, a SHA-256 that doesn't match, a module that failed to start.
+    async fn load_module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Module> {
+        module_control::load(ctx, &id).await
+    }
+
+    /// Stops a module, its plugins first, and kills what it left running.
+    async fn unload_module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Module> {
+        module_control::unload(ctx, &id).await
+    }
+
+    async fn restart_module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Module> {
+        module_control::restart(ctx, &id).await
     }
 }

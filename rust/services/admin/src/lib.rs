@@ -10,6 +10,7 @@ pub mod config;
 pub mod hmac;
 pub mod input;
 pub mod log;
+pub mod module_control;
 pub mod modules;
 pub mod schema;
 pub mod server;

@@ -1363,17 +1363,6 @@ impl Chat {
             .as_deref()
             .map(|i| format!(" id=\"{}\"", escape(i)))
             .unwrap_or_default();
-        for recipient in &recipients {
-            let to = self.sessions.get(recipient).map(Session::full_jid).unwrap_or_default();
-            self.send(
-                *recipient,
-                &format!(
-                    "<message xmlns=\"{NS_CLIENT}\" type=\"chat\" from=\"{}\" to=\"{}\"{id_attr}><body>{text}</body></message>",
-                    escape(&from),
-                    escape(&to)
-                ),
-            );
-        }
         let delivered = !recipients.is_empty();
         let stored = self
             .backends
@@ -1390,6 +1379,18 @@ impl Chat {
             .await;
         if let Err(error) = stored {
             tracing::error!("chat: storing a whisper failed ({error})");
+        }
+        // Stored before it is sent: a message nobody can read back from history is never on a screen
+        for recipient in &recipients {
+            let to = self.sessions.get(recipient).map(Session::full_jid).unwrap_or_default();
+            self.send(
+                *recipient,
+                &format!(
+                    "<message xmlns=\"{NS_CLIENT}\" type=\"chat\" from=\"{}\" to=\"{}\"{id_attr}><body>{text}</body></message>",
+                    escape(&from),
+                    escape(&to)
+                ),
+            );
         }
         tracing::info!(
             "chat: whisper from={uid} to={target} len={length} delivered={}",

@@ -51,6 +51,17 @@ decodes writes back as the same message, and that every name has exactly one spe
       `Refusal::WrongModule`). Test: `the_child_is_refused_when_it_is_not_the_module_named`.
 - [ ] stdin, stdout and stderr are pipes, the child is killed if its handle is dropped (`kill_on_drop`), it runs in
       its own process group on Linux and with `CREATE_NO_WINDOW` on Windows.
+- [ ] The file is opened once (`open_pinned`) and the bytes hashed are the bytes started: on Windows the handle
+      shares reads only, so nobody can write, rename or delete the file until the child runs; on Linux the child is
+      started through the handle (`/proc/self/fd/<n>`), so a file renamed over it is not the one that runs.
+- [ ] The child gets only the environment the controller gives it (`ChildOptions::env`, `env_clear`): the host kit
+      passes the system's variables without any `SERVER_PREFIXES`/`SERVER_NAMES` setting, as `start` does, and the
+      registry's own default is an allowlist of the OS's variables (`system_environment`). Test:
+      `children_get_the_os_variables_and_no_server_setting`.
+- [ ] The child's whole tree is adopted at spawn (a job object with `KILL_ON_JOB_CLOSE` on Windows, its process
+      group on Linux, `tree.rs`) and killed on unload, on a broken pipe, when the child is seen to have exited, and
+      when the handle is dropped. Tests: `nothing_is_left_running_after_stop`,
+      `a_module_killed_mid_run_shows_failed_and_restarts_on_command` (controller).
 
 ### The handshake
 
@@ -114,13 +125,13 @@ decodes writes back as the same message, and that every name has exactly one spe
 
 These do not block DF2 but must be settled, or accepted in writing, before external modules ship:
 
-- **The file can change between the hash and the start.** `spawn` hashes the path, then starts the same path. A
-  process that can write the module's folder can swap the file in between. The folder must be writable only by the
-  host's account; copying the checked bytes to a private file and starting that would close it.
-- **The whole tree.** `unload` kills the child, not its children. DD5 asks for the process tree (a job object on
-  Windows, the process group on Linux, as `start` does); the group is set up here and DF3 owns killing it.
-- **The child's environment.** The child inherits the controller's environment unless DF3 clears it as `start`
-  does (`SERVER_PREFIXES`); until then a module sees every service's settings.
+- **A write into the file between the hash and the start, on Linux.** The handle closes a swap (rename), not a
+  write into the same file by a process allowed to write it; once the child runs, the kernel refuses writes to it
+  (`ETXTBSY`). The folder must be writable only by the host's account (hosting.md says so). Copying the checked
+  bytes to a private file and starting that would close it, at the cost of the module's own path. Without
+  `/proc` (some containers) the path is started, as before.
+- **A process the child starts before it is adopted** escapes the job on Windows: the window is between the spawn
+  and the next line, before the child's hello.
 - **Stdout discipline.** A module that prints to stdout breaks its own pipe and is killed. That is safe, but a
   module author will meet it as a crash; the module side's docs say so.
 - **Fuzzing depth.** `module_frame` starts from nothing; a seed corpus of real frames (the stub's hello and a

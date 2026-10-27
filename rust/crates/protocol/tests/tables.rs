@@ -47,7 +47,7 @@ fn invites() {
         if case.error == "revived" {
             let reborn = reborn_spelling(&case.input);
             let expected = parse_invite(&reborn).map(|invite| Invite {
-                game: protocol::game::Game::Legacy,
+                version: protocol::invite::revived_version(),
                 ..invite
             });
             assert_eq!(parse_invite(&case.input), expected, "{:?}", case.input);
@@ -75,7 +75,7 @@ fn with_version(input: &str, version: &str) -> String {
 
 #[test]
 fn reforged_revival_invites_are_dauntless_ones_with_version_1_14_7() {
-    use protocol::game::Game;
+    use protocol::invite::revived_version;
     let cases: Invites = table("invite.json");
     let mut checked = 0;
     for case in &cases.accept {
@@ -102,7 +102,7 @@ fn reforged_revival_invites_are_dauntless_ones_with_version_1_14_7() {
             assert_eq!(
                 legacy,
                 Ok(Invite {
-                    game: Game::Legacy,
+                    version: revived_version(),
                     ..case.invite.clone()
                 })
             );

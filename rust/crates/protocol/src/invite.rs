@@ -1,8 +1,8 @@
 //! Invite strings, as `legacy/ReforgedLauncher/src/shared/invite.ts` reads and writes them.
 //!
 //! One scheme, `dauntless://join?…&version=<game version>`, where `version` is one this build plays
-//! ([`crate::game::supported_versions`]: `1.14.7`, and `1.4.4` with the `legacy` feature) and defaults to
-//! `1.14.7`; `reforged` and `revived` name 1.14.7 and 1.4.4 too. A scheme per game is the same request with `version` given: `reforged-revival://` is
+//! ([`played_versions`]: `1.14.7`, and `1.4.4` with the `legacy` feature; [`parse_invite_for`] takes the
+//! list) and defaults to `1.14.7`; `reforged` and `revived` name 1.14.7 and 1.4.4 too. A scheme per game is the same request with `version` given: `reforged-revival://` is
 //! `version=1.14.7`, `dauntless-revived://` is `version=1.4.4`. Such an alias may repeat its own `version`,
 //! never another. Two invite formats (`v`):
 //!
@@ -15,7 +15,7 @@
 //! The host, port and fingerprint decide where the account key is sent later, so anything that is not
 //! exactly one of these shapes is refused. Dauntless Revived's `dauntless-revived://` invites name servers
 //! for Dauntless 1.4.4 in the same two shapes: with the `legacy` feature they are read by the same rules as
-//! a [`Game::Legacy`] invite; without it they are refused with [`InviteError::Revived`] (RD5), which the
+//! an invite for [`revived_version`]; without it they are refused with [`InviteError::Revived`] (RD5), which the
 //! page words.
 //!
 //! The string rules are JavaScript's, not Rust's: lengths in UTF-16 units, `trim` and `\s` with
@@ -24,7 +24,8 @@
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 
-use crate::game::Game;
+use module_api::GameVersion;
+
 use crate::text::{collapse_spaces, is_unsafe_char, js_length, js_trim};
 
 /// The one scheme every game's invites can use.
@@ -37,19 +38,88 @@ pub const REVIVED_INVITE_SCHEME: &str = "dauntless-revived";
 pub const DEFAULT_PUBLIC_PORT: u16 = 443;
 pub const MAX_INVITE_LENGTH: usize = 2048;
 
-/// Every scheme read as an invite, with the game it fixes (None: the `version` parameter says).
-const SCHEMES: &[(&str, Option<Game>)] = &[
-    (UNIFIED_INVITE_SCHEME, None),
-    (INVITE_SCHEME, Some(Game::Reborn)),
-    (REVIVED_INVITE_SCHEME, Some(Game::Legacy)),
+/// A game the invite format names itself (DD1 keeps the schemes): the scheme that fixes it and the alias
+/// `version` may give it. Every other game is named by its version alone (DD4).
+struct SchemeGame {
+    scheme: &'static str,
+    version: (u32, u32, u32),
+    alias: &'static str,
+    /// The answer in a build that doesn't play it: RD5's typed refusal for 1.4.4
+    unplayed: InviteError,
+}
+
+impl SchemeGame {
+    fn version(&self) -> GameVersion {
+        let (major, minor, patch) = self.version;
+        GameVersion::release(major, minor, patch)
+    }
+}
+
+const SCHEME_GAMES: [SchemeGame; 2] = [
+    SchemeGame {
+        scheme: INVITE_SCHEME,
+        version: (1, 14, 7),
+        alias: "reforged",
+        unplayed: InviteError::Params,
+    },
+    SchemeGame {
+        scheme: REVIVED_INVITE_SCHEME,
+        version: (1, 4, 4),
+        alias: "revived",
+        unplayed: InviteError::Revived,
+    },
 ];
+
+/// Dauntless 1.14.7: what an invite plays when it names no version.
+pub fn reforged_version() -> GameVersion {
+    SCHEME_GAMES[0].version()
+}
+
+/// Dauntless Revived's 1.4.4.
+pub fn revived_version() -> GameVersion {
+    SCHEME_GAMES[1].version()
+}
+
+fn is_reforged(version: &GameVersion) -> bool {
+    *version == reforged_version()
+}
+
+/// The versions this build's invites may name: 1.14.7, and 1.4.4 with the `legacy` feature.
+pub fn played_versions() -> Vec<GameVersion> {
+    let mut versions = vec![reforged_version()];
+    if cfg!(feature = "legacy") {
+        versions.push(revived_version());
+    }
+    versions
+}
+
+/// The game an invite's `version` names: a scheme game's alias, or an exact version.
+pub fn named_version(text: &str) -> Option<GameVersion> {
+    SCHEME_GAMES
+        .iter()
+        .find(|game| game.alias == text)
+        .map(SchemeGame::version)
+        .or_else(|| text.parse().ok())
+}
+
+/// The invite format's own name for a version (`reforged`, `revived`), if it has one.
+pub fn version_alias(version: &GameVersion) -> Option<&'static str> {
+    SCHEME_GAMES
+        .iter()
+        .find(|game| game.version() == *version)
+        .map(|game| game.alias)
+}
 
 /// The schemes this build opens: the ones a launcher registers with the OS.
 pub fn invite_schemes() -> Vec<&'static str> {
-    SCHEMES
-        .iter()
-        .filter(|(_, game)| game.is_none_or(Game::supported))
-        .map(|(scheme, _)| *scheme)
+    let played = played_versions();
+    std::iter::once(UNIFIED_INVITE_SCHEME)
+        .chain(
+            SCHEME_GAMES
+                .iter()
+                .filter(|game| played.contains(&game.version()))
+                .map(|game| game.scheme),
+        )
         .collect()
 }
 
@@ -101,10 +171,10 @@ pub struct Invite {
     pub share: Option<String>,
     /// Public mode only: SHA-256 of the server's TLS certificate (DER), 64 lower-case hex characters.
     pub fp: Option<String>,
-    /// Left out of the JSON for a reborn invite, so that JSON is the TypeScript's
-    #[serde(default, skip_serializing_if = "Game::is_reborn")]
-    #[cfg_attr(feature = "ts", ts(as = "Option<Game>", optional))]
-    pub game: Game,
+    /// The game the server plays (DD4). Left out of the JSON for 1.14.7, so that JSON is the TypeScript's
+    #[serde(default = "reforged_version", skip_serializing_if = "is_reforged")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<String>", optional))]
+    pub version: GameVersion,
 }
 
 /// Why an invite was refused. The JSON form is the TypeScript's `InviteError` name, plus `revived`.
@@ -319,6 +389,17 @@ fn strip_invite_prefix<'a>(text: &'a str, scheme: &str) -> Option<&'a str> {
 /// Reads an invite as `parseInvite` does. A `dauntless-revived://` one is a legacy server with the `legacy`
 /// feature and refused without it (RD5).
 pub fn parse_invite(input: &str) -> Result<Invite, InviteError> {
+    parse_invite_for(input, &played_versions())
+}
+
+/// [`parse_invite`] for a caller that knows which versions it plays (the launcher's client profiles).
+pub fn parse_invite_for(input: &str, played: &[GameVersion]) -> Result<Invite, InviteError> {
+    let unplayed = |version: &GameVersion| {
+        SCHEME_GAMES
+            .iter()
+            .find(|game| game.version() == *version)
+            .map_or(InviteError::Params, |game| game.unplayed)
+    };
     let text = js_trim(input);
     if text.is_empty() {
         return Err(InviteError::Empty);
@@ -326,13 +407,17 @@ pub fn parse_invite(input: &str) -> Result<Invite, InviteError> {
     if js_length(text) > MAX_INVITE_LENGTH {
         return Err(InviteError::TooLong);
     }
-    let (preset, query) = SCHEMES
-        .iter()
-        .find_map(|(scheme, game)| strip_invite_prefix(text, scheme).map(|query| (*game, query)))
+    let (preset, query) = strip_invite_prefix(text, UNIFIED_INVITE_SCHEME)
+        .map(|query| (None, query))
+        .or_else(|| {
+            SCHEME_GAMES
+                .iter()
+                .find_map(|game| strip_invite_prefix(text, game.scheme).map(|query| (Some(game.version()), query)))
+        })
         .ok_or(InviteError::NotInvite)?;
-    // Without the feature a legacy alias is refused unread, as RD5 had it
-    if preset.is_some_and(|game| !game.supported()) {
-        return Err(InviteError::Revived);
+    // A scheme game this build doesn't play is refused unread, as RD5 had it
+    if let Some(version) = preset.as_ref().filter(|version| !played.contains(version)) {
+        return Err(unplayed(version));
     }
     if query.contains('#') {
         return Err(InviteError::Params);
@@ -360,17 +445,17 @@ pub fn parse_invite(input: &str) -> Result<Invite, InviteError> {
     };
 
     let game = match (get("version"), preset) {
-        (None, preset) => preset.unwrap_or_default(),
+        (None, preset) => preset.unwrap_or_else(reforged_version),
         (Some(text), preset) => {
-            let game = Game::from_version(text).ok_or(InviteError::Params)?;
+            let game = named_version(text).ok_or(InviteError::Params)?;
             if preset.is_some_and(|fixed| fixed != game) {
                 return Err(InviteError::Params);
             }
             game
         }
     };
-    if !game.supported() {
-        return Err(InviteError::Revived);
+    if !played.contains(&game) {
+        return Err(unplayed(&game));
     }
 
     let version = get("v");
@@ -447,7 +532,7 @@ pub fn parse_invite(input: &str) -> Result<Invite, InviteError> {
         name,
         share,
         fp,
-        game,
+        version: game,
     })
 }
 
@@ -457,10 +542,8 @@ fn encode(text: &str) -> impl std::fmt::Display + '_ {
 
 /// Builds the invite string, byte for byte as `formatInvite` in the launcher does.
 pub fn format_invite(invite: &Invite) -> Result<String, FormatError> {
-    let scheme = match invite.game {
-        Game::Reborn => INVITE_SCHEME,
-        Game::Legacy => REVIVED_INVITE_SCHEME,
-    };
+    let named = SCHEME_GAMES.iter().find(|game| game.version() == invite.version);
+    let scheme = named.map_or(UNIFIED_INVITE_SCHEME, |game| game.scheme);
     let mut out = format!("{scheme}://join?");
     match invite.mode {
         ServerMode::Public => {
@@ -482,6 +565,10 @@ pub fn format_invite(invite: &Invite) -> Result<String, FormatError> {
     {
         out += &format!("&share={}", encode(share));
     }
+    // A game the schemes don't name goes by the unified one, its version said
+    if named.is_none() {
+        out += &format!("&version={}", invite.version);
+    }
     Ok(out)
 }
 
@@ -500,7 +587,7 @@ mod tests {
             name: "Ramsgate Hunters' (EU) ✓".into(),
             share: Some("https://login.tailscale.com/admin/invite/AbC?x=1&y=2".into()),
             fp: None,
-            game: Game::Reborn,
+            version: reforged_version(),
         }
     }
 
@@ -573,12 +660,12 @@ mod tests {
     #[test]
     fn legacy_invites_keep_their_scheme_and_say_so_in_json() {
         let invite = Invite {
-            game: Game::Legacy,
+            version: revived_version(),
             ..public()
         };
         let text = format_invite(&invite).unwrap();
         assert!(text.starts_with("dauntless-revived://join?v=2&mode=public"), "{text}");
-        assert_eq!(serde_json::to_value(&invite).unwrap()["game"], "legacy");
+        assert_eq!(serde_json::to_value(&invite).unwrap()["version"], "1.4.4");
         if cfg!(feature = "legacy") {
             assert_eq!(parse_invite(&text), Ok(invite));
         } else {
@@ -598,16 +685,35 @@ mod tests {
         let text = format_invite(&public())
             .unwrap()
             .replacen("reforged-revival", "dauntless", 1);
-        assert_eq!(parse_invite(&text).map(|invite| invite.game), Ok(Game::Reborn));
+        assert_eq!(parse_invite(&text).map(|invite| invite.version), Ok(reforged_version()));
         assert_eq!(
-            parse_invite(&format!("{text}&version=1.14.7")).map(|invite| invite.game),
-            Ok(Game::Reborn)
+            parse_invite(&format!("{text}&version=1.14.7")).map(|invite| invite.version),
+            Ok(reforged_version())
         );
         assert_eq!(parse_invite(&format!("{text}&game=reborn")), Err(InviteError::Params));
         assert_eq!(
             parse_invite(&text.replacen("dauntless:", "dauntless-:", 1)),
             Err(InviteError::NotInvite)
         );
+    }
+
+    #[test]
+    fn a_version_the_schemes_do_not_name_reads_where_it_is_played() {
+        let v12: GameVersion = "1.12.0".parse().unwrap();
+        let invite = Invite {
+            version: v12.clone(),
+            ..public()
+        };
+        let text = format_invite(&invite).unwrap();
+        assert!(
+            text.starts_with("dauntless://join?v=2") && text.ends_with("&version=1.12.0"),
+            "{text}"
+        );
+        assert_eq!(parse_invite(&text), Err(InviteError::Params), "not played by default");
+        assert_eq!(parse_invite_for(&text, &[reforged_version(), v12]), Ok(invite));
+        assert_eq!(named_version("revived"), Some(revived_version()));
+        assert_eq!(version_alias(&reforged_version()), Some("reforged"));
+        assert_eq!(named_version("reborn"), None);
     }
 
     #[test]

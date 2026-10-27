@@ -12,6 +12,8 @@ publish.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
 libsqlite3-sys.workspace = true
+# A module's actor into the change log (DH1)
+module-api.workspace = true
 # Only to pick libpq's build: bundled, without OpenSSL (DF7 spike). Diesel pulls it in itself.
 pq-sys.workspace = true
 # Only for the online backup, which Diesel has no API for (M17); the same libsqlite3-sys as Diesel.

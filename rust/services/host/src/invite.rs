@@ -13,8 +13,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use protocol::game::Game;
+use protocol::GameVersion;
 use protocol::invite::{FormatError, Invite, ServerMode as InviteMode, format_invite};
+use protocol::invite::{reforged_version, revived_version};
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use serde_json::{Map, Value, json};
@@ -38,11 +39,11 @@ pub struct InviteParts {
 }
 
 pub fn format_invite_parts(i: &InviteParts) -> Result<String, HostError> {
-    format_game_invite(i, Game::Reborn)
+    format_game_invite(i, &reforged_version())
 }
 
 /// The link for `game`: `dauntless-revived://` for a legacy server.
-pub fn format_game_invite(i: &InviteParts, game: Game) -> Result<String, HostError> {
+pub fn format_game_invite(i: &InviteParts, game: &GameVersion) -> Result<String, HostError> {
     let invite = Invite {
         mode: match i.mode {
             ServerMode::Private => InviteMode::Private,
@@ -54,7 +55,7 @@ pub fn format_game_invite(i: &InviteParts, game: Game) -> Result<String, HostErr
         name: i.name.clone(),
         share: i.share.clone(),
         fp: i.fp.clone(),
-        game,
+        version: game.clone(),
     };
     format_invite(&invite).map_err(|e| match e {
         FormatError::Fingerprint => HostError::message("public invites need the certificate fingerprint"),
@@ -62,17 +63,18 @@ pub fn format_game_invite(i: &InviteParts, game: Game) -> Result<String, HostErr
 }
 
 pub fn invite_for(c: &HostConfig, code: &str, fp: Option<&str>) -> Result<String, HostError> {
-    invite_for_game(c, code, fp, c.edition.primary())
+    invite_for_game(c, code, fp, &c.edition.primary())
 }
 
 /// The invite to `game`'s stack: its gateway's port, its scheme.
-pub fn invite_for_game(c: &HostConfig, code: &str, fp: Option<&str>, game: Game) -> Result<String, HostError> {
+pub fn invite_for_game(c: &HostConfig, code: &str, fp: Option<&str>, game: &GameVersion) -> Result<String, HostError> {
     let parts = InviteParts {
         mode: c.mode,
         host: c.host.clone(),
-        port: match game {
-            Game::Reborn => gateway_port(c),
-            Game::Legacy => crate::hostconfig::legacy_gateway_port(c),
+        port: if *game == revived_version() {
+            crate::hostconfig::legacy_gateway_port(c)
+        } else {
+            gateway_port(c)
         },
         code: code.to_owned(),
         name: c.name.clone(),

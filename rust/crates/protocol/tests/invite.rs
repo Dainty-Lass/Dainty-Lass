@@ -55,7 +55,7 @@ fn invite(
         name: name.into(),
         share: share.map(Into::into),
         fp: fp.map(Into::into),
-        game: protocol::game::Game::Reborn,
+        version: protocol::invite::reforged_version(),
     }
 }
 
@@ -418,20 +418,23 @@ fn dauntless_revived_invites_are_refused_as_1_4_4_servers() {
 #[cfg(feature = "legacy")]
 #[test]
 fn dauntless_revived_invites_are_legacy_servers_read_by_the_same_rules() {
-    use protocol::game::Game;
+    use protocol::invite::revived_version;
     let fp = "ab".repeat(32);
     let private =
         parse_invite("dauntless-revived://join?v=1&host=100.88.12.40&port=61000&code=ABCD-1234&name=Revived%20Fridays")
             .unwrap();
     assert_eq!(
-        (private.game, private.mode, private.port),
-        (Game::Legacy, ServerMode::Private, 61000)
+        (private.version, private.mode, private.port),
+        (revived_version(), ServerMode::Private, 61000)
     );
     let public = parse_invite(&format!(
         "dauntless-revived://join?v=2&mode=public&host=revived.example.net&port=443&fp={fp}&code=XYZ-99&name=Open"
     ))
     .unwrap();
-    assert_eq!((public.game, public.fp.as_deref()), (Game::Legacy, Some(fp.as_str())));
+    assert_eq!(
+        (&public.version, public.fp.as_deref()),
+        (&revived_version(), Some(fp.as_str()))
+    );
     // v1 still only reaches into the tailnet, and nothing unknown gets through
     assert_eq!(
         parse_invite("dauntless-revived://join?v=1&host=203.0.113.7&port=61000&code=ABCD-1234&name=X"),

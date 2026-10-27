@@ -602,5 +602,12 @@ pub fn host_config_from_args(
     if let Some(database) = existing.and_then(|c| c.database.as_ref()) {
         doc.insert("database".into(), database.to_json());
     }
+    // host.toml's own as well: modules are pinned by hand (DF3), a node is named by its operator (DN2)
+    if let Some(modules) = existing.and_then(|c| c.modules.as_ref()) {
+        doc.insert("modules".into(), modules.to_json());
+    }
+    if let Some(network) = existing.and_then(|c| c.network.as_ref()) {
+        doc.insert("network".into(), network.to_json());
+    }
     HostConfig::from_json(&Value::Object(doc))
 }

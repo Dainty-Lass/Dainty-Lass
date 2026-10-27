@@ -1,5 +1,7 @@
 //! The host side of the frame protocol (DD5): [`ChildModule`] starts an external module's executable,
-//! checked against the SHA-256 `host.toml` pins for it, and drives it as a [`ModuleDriver`].
+//! checked against the SHA-256 `host.toml` pins for it, and drives it as a [`ModuleDriver`]. The file is
+//! opened once and the bytes hashed are the bytes started ([`open_pinned`]); the child gets only the
+//! environment the controller gives it, and its whole process tree is killed on unload.
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -22,6 +24,7 @@ use crate::manifest::ModuleManifest;
 use crate::module::{BoxFuture, ErrorKind, HostCall, HostLink, LogRecord, ModuleError};
 use crate::network::NodeIdentity;
 use crate::peer::{self, MAX_IN_FLIGHT, MAX_LOG_LINE, Pending, Resolved, Writer, log_safe};
+use crate::tree::Tree;
 use crate::version::API_VERSION;
 
 /// An external module as `host.toml` names it (DF3): an executable, pinned by its SHA-256.
@@ -42,6 +45,11 @@ pub struct ChildOptions {
     /// How long `stop` may take, and how long the child has to exit after it before it is killed
     pub stop_grace: Duration,
     pub max_frame: usize,
+    /// The child's whole environment. `None` passes the host's on, every service's settings with it: the
+    /// controller always gives one, as `start` gives each service only its own (DF3)
+    pub env: Option<Vec<(String, String)>>,
+    /// Where the child runs; the host's working folder when `None`
+    pub current_dir: Option<PathBuf>,
 }
 
 impl Default for ChildOptions {
@@ -52,6 +60,8 @@ impl Default for ChildOptions {
             start_timeout: Duration::from_secs(120),
             stop_grace: Duration::from_secs(10),
             max_frame: MAX_FRAME,
+            env: None,
+            current_dir: None,
         }
     }
 }
@@ -78,25 +88,77 @@ pub enum LoadError {
     Frame(#[from] FrameError),
 }
 
-/// The SHA-256 of a file, read in full.
-pub async fn file_sha256(path: &Path) -> std::io::Result<Sha256Hex> {
-    let path = path.to_owned();
-    let digest = tokio::task::spawn_blocking(move || -> std::io::Result<[u8; 32]> {
-        use std::io::Read as _;
-        let mut file = std::fs::File::open(path)?;
-        let mut hasher = Sha256::new();
-        let mut buf = vec![0u8; 64 << 10];
-        loop {
-            match file.read(&mut buf)? {
-                0 => break,
-                n => hasher.update(&buf[..n]),
-            }
+/// Opens an executable to hash and then start from the same handle. On Windows nobody may write, rename
+/// or delete it while the handle is open (only reads are shared). On Linux the child is started through
+/// the handle (`/proc/self/fd`), so a file renamed over it in between is not the one that runs; a write
+/// into the same file in between still is, which is why its folder must be the host's alone
+/// (docs/security/module-host.md).
+pub fn open_pinned(path: &Path) -> std::io::Result<std::fs::File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        // FILE_SHARE_READ alone
+        options.share_mode(0x1);
+    }
+    options.open(path)
+}
+
+fn hash_file(file: &mut std::fs::File) -> std::io::Result<Sha256Hex> {
+    use std::io::Read as _;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 64 << 10];
+    loop {
+        match file.read(&mut buf)? {
+            0 => break,
+            n => hasher.update(&buf[..n]),
         }
-        Ok(hasher.finalize().into())
+    }
+    Ok(Sha256Hex::from_bytes(hasher.finalize().into()))
+}
+
+/// The file opened with [`open_pinned`], and its SHA-256 read in full from that handle.
+async fn open_and_hash(path: &Path) -> std::io::Result<(std::fs::File, Sha256Hex)> {
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        let mut file = open_pinned(&path)?;
+        let digest = hash_file(&mut file)?;
+        Ok((file, digest))
     })
     .await
-    .map_err(std::io::Error::other)??;
-    Ok(Sha256Hex::from_bytes(digest))
+    .map_err(std::io::Error::other)?
+}
+
+/// The SHA-256 of a file, read in full.
+pub async fn file_sha256(path: &Path) -> std::io::Result<Sha256Hex> {
+    Ok(open_and_hash(path).await?.1)
+}
+
+/// What to start: the open handle itself where the OS can run one, the path elsewhere.
+#[cfg(target_os = "linux")]
+fn program(path: &Path, file: &std::fs::File) -> PathBuf {
+    use std::os::fd::AsRawFd as _;
+    let by_handle = PathBuf::from(format!("/proc/self/fd/{}", file.as_raw_fd()));
+    if by_handle.exists() { by_handle } else { path.to_owned() }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn program(path: &Path, _file: &std::fs::File) -> PathBuf {
+    path.to_owned()
+}
+
+/// A started child and the tree it leads.
+struct Process {
+    child: Child,
+    tree: Tree,
+}
+
+impl Process {
+    fn kill(&mut self) {
+        self.tree.kill();
+        _ = self.child.start_kill();
+    }
 }
 
 /// A module running as a child process, or on any pair of streams ([`ChildModule::connect`]).
@@ -105,7 +167,7 @@ pub struct ChildModule {
     writer: Writer,
     pending: Arc<Pending<ModuleAnswer>>,
     options: ChildOptions,
-    process: Arc<Mutex<Option<Child>>>,
+    process: Arc<Mutex<Option<Process>>>,
     tasks: Vec<JoinHandle<()>>,
 }
 
@@ -127,7 +189,7 @@ impl ChildModule {
         options: ChildOptions,
     ) -> Result<Self, LoadError> {
         let path = &module.path;
-        let found = file_sha256(path).await.map_err(|error| LoadError::Read {
+        let (file, found) = open_and_hash(path).await.map_err(|error| LoadError::Read {
             path: path.clone(),
             error,
         })?;
@@ -138,28 +200,44 @@ impl ChildModule {
                 found,
             });
         }
-        let mut command = Command::new(path);
+        let mut command = Command::new(program(path, &file));
         command
             .args(&module.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        // Its own group, so the controller can stop the module's whole tree (DD5, DF3)
+        if let Some(env) = &options.env {
+            command.env_clear().envs(env.iter().map(|(k, v)| (k, v)));
+        }
+        if let Some(dir) = &options.current_dir {
+            command.current_dir(dir);
+        }
+        // Its own group, so the whole tree can be killed (DD5); its own name as it sees it
         #[cfg(unix)]
-        command.process_group(0);
+        command.process_group(0).arg0(path);
         // CREATE_NO_WINDOW: no console flashes up under the server GUI
         #[cfg(windows)]
         command.creation_flags(0x0800_0000);
-        let mut child = command.spawn().map_err(|error| LoadError::Spawn {
+        let spawned = |error| LoadError::Spawn {
             path: path.clone(),
             error,
-        })?;
+        };
+        let mut child = command.spawn().map_err(spawned)?;
+        let tree = match Tree::adopt(&child) {
+            Ok(tree) => tree,
+            Err(error) => {
+                _ = child.start_kill();
+                return Err(spawned(error));
+            }
+        };
+        // Held until the child runs: the bytes checked are the bytes started
+        drop(file);
         let (Some(stdin), Some(stdout), Some(stderr)) = (child.stdin.take(), child.stdout.take(), child.stderr.take())
         else {
             return Err(LoadError::Handshake(String::from("the child's stdio was not piped")));
         };
-        let process = Arc::new(Mutex::new(Some(child)));
+        let process = Arc::new(Mutex::new(Some(Process { child, tree })));
         let mut this = Self::handshake(stdout, stdin, node, link, options, module.expected.as_ref(), process).await?;
         let id = this.manifest.id.clone();
         this.tasks.push(tokio::spawn(forward_stderr(stderr, id)));
@@ -198,7 +276,7 @@ impl ChildModule {
         link: Arc<dyn HostLink>,
         options: ChildOptions,
         expected: Option<&ModuleId>,
-        process: Arc<Mutex<Option<Child>>>,
+        process: Arc<Mutex<Option<Process>>>,
     ) -> Result<Self, LoadError>
     where
         R: AsyncRead + Send + Unpin + 'static,
@@ -260,12 +338,23 @@ impl ChildModule {
 
     /// Whether the pipe still works; once it broke, every call fails and the controller restarts it (DF3).
     pub fn is_running(&self) -> bool {
-        self.pending.closed().is_none()
+        self.failure().is_none()
     }
 
-    /// Why the pipe broke, if it did.
+    /// Why the module is gone: its pipe broke, or its process exited. A process of its own can hold the
+    /// pipe open after it died (a handle it passed on), so the exit is checked as well, and what the
+    /// module left running is killed with it.
     pub fn failure(&self) -> Option<String> {
-        self.pending.closed()
+        if let Some(reason) = self.pending.closed() {
+            return Some(reason);
+        }
+        let mut guard = self.process.try_lock().ok()?;
+        let process = guard.as_mut()?;
+        let status = process.child.try_wait().ok()??;
+        process.tree.kill();
+        let reason = format!("the module exited ({status})");
+        self.pending.close(reason.clone());
+        Some(reason)
     }
 
     fn timeout_for(&self, call: &ModuleCall) -> Duration {
@@ -317,12 +406,11 @@ impl ModuleDriver for ChildModule {
                 Err(error) => Err(error),
             };
             peer::close(&self.writer).await;
-            if let Some(mut child) = self.process.lock().await.take()
-                && tokio::time::timeout(self.options.stop_grace, child.wait())
-                    .await
-                    .is_err()
-            {
-                _ = child.kill().await;
+            if let Some(mut process) = self.process.lock().await.take() {
+                _ = tokio::time::timeout(self.options.stop_grace, process.child.wait()).await;
+                // What the module started goes with it, whether or not it exited in time
+                process.kill();
+                _ = process.child.wait().await;
             }
             self.pending.close("the module was unloaded");
             stopped
@@ -341,7 +429,7 @@ async fn read_loop<R: AsyncRead + Send + Unpin>(
     link: Arc<dyn HostLink>,
     module: ModuleId,
     max_frame: usize,
-    process: Arc<Mutex<Option<Child>>>,
+    process: Arc<Mutex<Option<Process>>>,
 ) {
     let slots = Arc::new(Semaphore::new(MAX_IN_FLIGHT));
     loop {
@@ -374,8 +462,8 @@ async fn read_loop<R: AsyncRead + Send + Unpin>(
         }
     }
     // A child whose pipe is broken can't be driven; the controller sees it failed and restarts it (DF3)
-    if let Some(child) = process.lock().await.as_mut() {
-        _ = child.start_kill();
+    if let Some(process) = process.lock().await.as_mut() {
+        process.kill();
     }
 }
 
@@ -396,11 +484,11 @@ async fn forward_stderr<R: AsyncRead + Unpin>(stderr: R, module: ModuleId) {
         line.extend_from_slice(&buf[..taken.min(room)]);
         reader.consume(taken);
         if newline || line.len() >= MAX_LOG_LINE {
-            tracing::info!(target: "module", module = %module, "{}", log_safe(&String::from_utf8_lossy(&line)));
+            tracing::info!(target: "module", service = %module, "{}", log_safe(&String::from_utf8_lossy(&line)));
             line.clear();
         }
     }
     if !line.is_empty() {
-        tracing::info!(target: "module", module = %module, "{}", log_safe(&String::from_utf8_lossy(&line)));
+        tracing::info!(target: "module", service = %module, "{}", log_safe(&String::from_utf8_lossy(&line)));
     }
 }

@@ -7,6 +7,9 @@
 //! the file as read: only a value that changed is rewritten, so the host's comments, order and
 //! spacing stay. A new file (setup's first run, or a host.json being moved over) is written from a
 //! template that says what each key does.
+//!
+//! `[modules]` (DF3) is the one part with lists and tables of its own (`hostconfig/modules.rs`): it is
+//! read as it is and, when it changed, written back whole.
 
 use serde_json::{Map, Number, Value};
 use toml_edit::{DocumentMut, Item, Table, TableLike};
@@ -35,7 +38,14 @@ const TOP: &[Field] = &[
     ("performance", "performance", false),
     ("linux", "linux", false),
     ("database", "database", false),
+    ("network", "network", false),
+    ("modules", "modules", false),
 ];
+
+/// The top-level key whose tables and lists are read as they are (`hostconfig/modules.rs` checks them).
+const FREE_FORM: &str = "modules";
+
+const NETWORK: &[Field] = &[("node", "node", false), ("region", "region", false)];
 
 const MONGO: &[Field] = &[
     ("uri", "uri", false),
@@ -80,6 +90,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "performance" => Some(PERFORMANCE),
         "linux" => Some(LINUX),
         "database" => Some(DATABASE),
+        "network" => Some(NETWORK),
         _ => None,
     }
 }
@@ -123,6 +134,9 @@ fn object(table: &dyn TableLike, fields: &[Field], prefix: &str) -> Result<Map<S
     for &(json, toml, nullable) in fields {
         let path = format!("{prefix}{toml}");
         match table.get(toml) {
+            Some(item) if prefix.is_empty() && json == FREE_FORM => {
+                out.insert(json.into(), free_form(item, &path)?);
+            }
             Some(item) => {
                 let sub = if prefix.is_empty() { table_fields(json) } else { None };
                 out.insert(json.into(), value(item, sub, &path)?);
@@ -171,11 +185,83 @@ fn value(item: &Item, sub: Option<&[Field]>, path: &str) -> Result<Value, HostEr
     }
 }
 
+/// A part read as it is: tables, lists of tables and lists, with the scalars [`value`] takes.
+fn free_form(item: &Item, path: &str) -> Result<Value, HostError> {
+    match item {
+        Item::Table(table) => table_object(table, path),
+        Item::ArrayOfTables(tables) => tables
+            .iter()
+            .map(|table| table_object(table, path))
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+        Item::Value(value) => free_value(value, path),
+        Item::None => Ok(Value::Null),
+    }
+}
+
+fn table_object(table: &dyn TableLike, path: &str) -> Result<Value, HostError> {
+    let mut out = Map::new();
+    for (key, item) in table.iter() {
+        out.insert(key.to_owned(), free_form(item, &format!("{path}.{key}"))?);
+    }
+    Ok(Value::Object(out))
+}
+
+fn free_value(value: &toml_edit::Value, path: &str) -> Result<Value, HostError> {
+    match value {
+        toml_edit::Value::Array(items) => items
+            .iter()
+            .map(|item| free_value(item, path))
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+        toml_edit::Value::InlineTable(table) => table_object(table, path),
+        scalar => self::value(&Item::Value(scalar.clone()), None, path),
+    }
+}
+
+/// [`free_form`]'s part as TOML: an object of objects as `[a.b]` tables, a list of objects as `[[a.b]]`.
+fn free_item(value: &Value, path: &str) -> Result<Item, HostError> {
+    match value {
+        Value::Object(map) => {
+            let mut table = Table::new();
+            for (key, inner) in map {
+                table.insert(key, free_item(inner, &format!("{path}.{key}"))?);
+            }
+            // A table that holds only tables prints no header of its own
+            if !table.is_empty()
+                && table
+                    .iter()
+                    .all(|(_, item)| item.is_table() || item.is_array_of_tables())
+            {
+                table.set_implicit(true);
+            }
+            Ok(Item::Table(table))
+        }
+        Value::Array(items) if !items.is_empty() && items.iter().all(Value::is_object) => {
+            let mut tables = toml_edit::ArrayOfTables::new();
+            for item in items {
+                if let Item::Table(table) = free_item(item, path)? {
+                    tables.push(table);
+                }
+            }
+            Ok(Item::ArrayOfTables(tables))
+        }
+        Value::Array(items) => {
+            let mut array = toml_edit::Array::new();
+            for item in items {
+                array.push(scalar(item, path)?);
+            }
+            Ok(Item::Value(toml_edit::Value::Array(array)))
+        }
+        other => Ok(Item::Value(scalar(other, path)?)),
+    }
+}
+
 /// A message of [`validate`](crate::hostconfig::validate), with host.json's key names replaced by
 /// host.toml's (`performance.serverFps` → `performance.server_fps`).
 pub fn message(text: &str) -> String {
     let mut out = text.to_owned();
-    for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE] {
+    for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, NETWORK] {
         for &(json, toml, _) in fields {
             if json != toml {
                 out = out.replace(json, toml);
@@ -218,6 +304,10 @@ fn patch(
         match (n, sub) {
             (None | Some(Value::Null), _) => {
                 table.remove(toml);
+            }
+            (Some(v), None) if top && json == FREE_FORM => {
+                table.remove(toml);
+                table.insert(toml, free_item(v, toml)?);
             }
             (Some(Value::Object(values)), Some(sub)) => {
                 let old_values = o.and_then(Value::as_object).unwrap_or(&empty);
@@ -335,6 +425,14 @@ fn comment(path: &str) -> &'static str {
             "Postgres: the role to log in as (dainty when left out). Its password is REFORGED_DB_PASSWORD in secrets.env."
         }
         "database.postgres_database" => "Postgres: the database (dainty when left out).",
+        "network" => "The network this server is a node of (DD16). Left out: none.",
+        "network.node" => "This node's name in the network, such as oregon-1.",
+        "network.region" => "The region it serves, such as oregon.",
+        "modules" => {
+            "The game modules and plugins to load (DF3). compiled lists the compiled-in ones (left out: all of them);\n\
+             each [[modules.external]] is an executable with its SHA-256 (id, path, sha256, args, autoload); a\n\
+             module's own settings go in [modules.<id>.<section>]. Left out: every compiled-in module, no other."
+        }
         "database.allow_remote" => {
             "true: accept a Postgres server on another machine, over a network you trust (private, not the internet)."
         }
@@ -355,7 +453,7 @@ fn push_comment(out: &mut String, path: &str) {
 fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
     let mut out = String::from(HEADER);
     for &(json, toml, _) in TOP {
-        if table_fields(json).is_some() {
+        if table_fields(json).is_some() || json == FREE_FORM {
             continue;
         }
         match fields.get(json) {
@@ -384,6 +482,13 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
             }
         }
     }
+    if let Some(modules) = fields.get(FREE_FORM).filter(|v| !v.is_null()) {
+        let mut doc = DocumentMut::new();
+        doc.insert(FREE_FORM, free_item(modules, FREE_FORM)?);
+        out.push('\n');
+        push_comment(&mut out, FREE_FORM);
+        out.push_str(&doc.to_string());
+    }
     Ok(out)
 }
 
@@ -398,7 +503,7 @@ mod tests {
     fn snake_case_of_the_host_json_keys() {
         assert_eq!(snake_case("maxHuntServers"), "max_hunt_servers");
         assert_eq!(snake_case("version"), "version");
-        for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE] {
+        for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, NETWORK] {
             for &(json, toml, _) in fields {
                 assert_eq!(snake_case(json), toml);
             }

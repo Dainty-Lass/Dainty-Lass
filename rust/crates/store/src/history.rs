@@ -84,6 +84,27 @@ impl Actor {
     }
 }
 
+/// The actor a module's command or admin action came with (DH1), as the log names it: a module's actor
+/// reaches the change log through this.
+impl From<&module_api::actor::Actor> for Actor {
+    fn from(actor: &module_api::actor::Actor) -> Self {
+        use module_api::actor::Actor as Module;
+        match actor {
+            Module::System => Self::System("server".into()),
+            Module::Console => Self::Host("console".into()),
+            Module::Admin { key } => Self::Admin(key.clone()),
+            Module::Player { account } => Self::Player(account.to_string()),
+            Module::Module { module } => Self::System(format!("module:{module}")),
+        }
+    }
+}
+
+impl From<&module_api::actor::ActorContext> for Actor {
+    fn from(context: &module_api::actor::ActorContext) -> Self {
+        Self::from(&context.actor)
+    }
+}
+
 /// One entry of the log; DH4 ships it as [`record`] lines.
 #[derive(Debug, Clone, PartialEq, Eq, QueryableByName)]
 pub struct ChangeEntry {
@@ -599,5 +620,32 @@ mod tests {
             assert_eq!(Actor::parse(bad), None, "{bad:?}");
         }
         assert!(Actor::Player(String::new()).check().is_err());
+    }
+
+    #[test]
+    fn a_modules_actor_is_one_the_log_takes() {
+        use module_api::actor::{Actor as Module, ActorContext};
+        let account = module_api::GlobalId::new(module_api::IdKind::Account, &"oregon-1".parse().unwrap());
+        for (actor, text) in [
+            (Module::System, "system:server".to_string()),
+            (Module::Console, "host:console".to_string()),
+            (Module::Admin { key: "nick".into() }, "admin:nick".to_string()),
+            (
+                Module::Player {
+                    account: account.clone(),
+                },
+                format!("player:{account}"),
+            ),
+            (
+                Module::Module {
+                    module: "stub".parse().unwrap(),
+                },
+                "system:module:stub".to_string(),
+            ),
+        ] {
+            let logged = Actor::from(&ActorContext::new(actor).with_request("req-1"));
+            assert_eq!(logged.as_text(), text);
+            logged.check().unwrap();
+        }
     }
 }

@@ -1,5 +1,7 @@
 //! [`ServerController`]: starts modules in order, stops them in reverse, and keeps every one's
-//! phase in a [`StatusRegistry`] the REPL, the TUI and the GUI read.
+//! phase in a [`StatusRegistry`] the REPL, the TUI and the GUI read. The game modules and plugins
+//! (DF3) come after the services, from its [`ModuleRegistry`], and go before them; the console's start,
+//! stop and restart reach a module by its id as they reach a service by its name.
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -11,6 +13,8 @@ use service_kit::context::{ComponentPhase, ServerSnapshot, ServiceContext, Statu
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::Instrument as _;
+
+use crate::registry::ModuleRegistry;
 
 /// How long a module may take to report `Ready` unless it says otherwise.
 pub const START_TIMEOUT: Duration = Duration::from_secs(5);
@@ -77,6 +81,7 @@ pub struct ServerController {
     modules: Vec<Module>,
     running: BTreeMap<String, Running>,
     startup_order: Vec<String>,
+    registry: Option<ModuleRegistry>,
 }
 
 impl ServerController {
@@ -86,7 +91,28 @@ impl ServerController {
             modules: Vec::new(),
             running: BTreeMap::new(),
             startup_order: Vec::new(),
+            registry: None,
         }
+    }
+
+    /// The game modules and plugins `host.toml` lists, loaded after the services (DF3).
+    pub fn set_registry(&mut self, registry: ModuleRegistry) -> &mut Self {
+        self.registry = Some(registry);
+        self
+    }
+
+    pub fn registry(&self) -> Option<&ModuleRegistry> {
+        self.registry.as_ref()
+    }
+
+    /// The listed module a console name means, if it is one and no service has the name.
+    fn listed_module(&self, name: &str) -> Option<(ModuleRegistry, module_api::ModuleId)> {
+        if self.modules.iter().any(|m| m.name == name) {
+            return None;
+        }
+        let registry = self.registry.as_ref()?;
+        let id = name.parse().ok()?;
+        registry.is_listed(name).then(|| (registry.clone(), id))
     }
 
     /// Adds a module after the ones added before it; a second module of the same name replaces the first.
@@ -102,8 +128,9 @@ impl ServerController {
         self.modules.iter().map(|m| m.name.clone()).collect()
     }
 
+    /// Nothing to run: no service and no listed module.
     pub fn is_empty(&self) -> bool {
-        self.modules.is_empty()
+        self.modules.is_empty() && self.registry.as_ref().is_none_or(|r| r.list().is_empty())
     }
 
     pub fn status_registry(&self) -> &StatusRegistry {
@@ -138,11 +165,24 @@ impl ServerController {
                 tracing::warn!(target: "host", "{error}");
             }
         }
+        // A module that fails to load is shown failed with its reason; the server runs on without it
+        if let Some(registry) = &self.registry {
+            registry.load_autoload().await;
+            if let Ok(name) = module_api::EventName::new("server.ready") {
+                registry.emit(module_api::Event {
+                    name,
+                    payload: serde_json::Value::Null,
+                });
+            }
+        }
         self.status_registry.set_overall_phase(ComponentPhase::Ready);
         Ok(())
     }
 
     pub async fn start_component(&mut self, name: &str) -> Result<(), String> {
+        if let Some((registry, id)) = self.listed_module(name) {
+            return registry.load(&id).await.map(drop).map_err(|e| e.to_string());
+        }
         if self.running.contains_key(name) {
             return Err(format!("component {name} is already running"));
         }
@@ -162,6 +202,9 @@ impl ServerController {
     }
 
     pub async fn stop_component(&mut self, name: &str) -> Result<(), String> {
+        if let Some((registry, id)) = self.listed_module(name) {
+            return registry.unload(&id).await.map_err(|e| e.to_string());
+        }
         let Some(mut running) = self.running.remove(name) else {
             return Err(format!("component {name} is not running"));
         };
@@ -190,6 +233,9 @@ impl ServerController {
     }
 
     pub async fn restart_component(&mut self, name: &str) -> Result<(), String> {
+        if let Some((registry, id)) = self.listed_module(name) {
+            return registry.restart(&id).await.map(drop).map_err(|e| e.to_string());
+        }
         if self.running.contains_key(name) {
             self.stop_component(name).await?;
         }
@@ -199,6 +245,10 @@ impl ServerController {
     /// Stops what runs, the last started first.
     pub async fn shutdown(&mut self) {
         self.status_registry.set_overall_phase(ComponentPhase::Stopping);
+        // Loaded last, so stopped first: a module's routes and ports go before the services that serve them
+        if let Some(registry) = &self.registry {
+            registry.unload_all().await;
+        }
         let reverse: Vec<String> = self.startup_order.iter().rev().cloned().collect();
         for name in reverse {
             let _ = self.stop_component(&name).await;

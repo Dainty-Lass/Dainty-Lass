@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use controller::{Module, ServerController, modules};
+use controller::{Module, ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, modules};
 use service_kit::env::Env;
 use tokio::sync::watch;
 
@@ -24,7 +24,6 @@ use crate::error::HostError;
 use crate::hostconfig::{self, HostConfig, Platform, ServerMode};
 use crate::paths::Paths;
 use crate::services::{Printer, ServiceSpec, Supervisor, service_environment};
-use protocol::game::Game;
 
 /// How `serve` runs.
 #[derive(Debug, Clone)]
@@ -225,14 +224,12 @@ pub fn compose(
     use start_cmd::binaries::{FrontService, Programs, rust_ported};
 
     let public = config.mode == ServerMode::Public;
-    let reborn = config.edition.runs(Game::Reborn);
+    let reborn = config.edition.runs_reborn();
     let node_runs = cfg!(feature = "paradox") && reborn;
-    let games = Game::ALL
-        .into_iter()
-        .filter(|g| config.edition.runs(*g))
-        .map(|g| g.version_alias().to_owned())
-        .collect();
+    let games = config.edition.versions().iter().map(ToString::to_string).collect();
     let mut controller = ServerController::new(config.mode.as_str(), games);
+    // Made first, so the admin API can hold it; its modules are listed after the services
+    let registry = new_registry(config, &controller);
     let programs = if node_runs {
         Programs::find(paths)?
     } else {
@@ -317,7 +314,8 @@ pub fn compose(
     if !reborn {
     } else if in_process(FrontService::Content) {
         #[cfg(feature = "content")]
-        controller.add(modules::content(&module_env(paths, "content")?).map_err(HostError::message)?);
+        controller
+            .add(modules::content(&module_env(paths, "content")?, Some(registry.clone())).map_err(HostError::message)?);
     } else if node_runs {
         controller.add(front_process(FrontService::Content, Ready::http(PORTS.content, "/content/v1/news")).optional());
     }
@@ -325,13 +323,17 @@ pub fn compose(
     // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
     #[cfg(feature = "admin")]
     if reborn && start_cmd::env_file(paths, "admin").is_file() {
-        controller.add(modules::admin(&module_env(paths, "admin")?).map_err(HostError::message)?);
+        controller
+            .add(modules::admin(&module_env(paths, "admin")?, Some(registry.clone())).map_err(HostError::message)?);
     }
 
     if !reborn {
     } else if in_process(FrontService::Gateway) {
         #[cfg(feature = "gateway")]
-        controller.add(modules::gateway(&module_env(paths, "gateway")?, slot.clone()).map_err(HostError::message)?);
+        controller.add(
+            modules::gateway(&module_env(paths, "gateway")?, slot.clone(), Some(registry.clone()))
+                .map_err(HostError::message)?,
+        );
     } else if node_runs {
         let ready = match config.mode {
             ServerMode::Public => Ready::tcp("127.0.0.1", hostconfig::gateway_port(config)),
@@ -342,17 +344,133 @@ pub fn compose(
 
     // The 1.4.4 stack (alone, or beside reborn on its own ports, RD26): every service a supervised
     // process, the metagame and the deploy server being binaries of their own
-    if config.edition.runs(Game::Legacy) {
+    if config.edition.runs_legacy() {
         for planned in crate::legacy::legacy_service_plan(paths, config, external_allowlist, &programs)? {
             let module = process_module(planned.spec, planned.ready_timeout, printer.clone(), paths.logs.clone())
-                .for_edition(Game::Legacy.version_alias());
+                .for_edition(protocol::invite::revived_version().to_string());
             controller.add(if planned.required { module } else { module.optional() });
         }
     }
 
     #[cfg(any(feature = "gateway", feature = "allowlist"))]
     let _ = &slot;
+    list_modules(paths, config, &registry, controller::modules::game_modules())?;
+    controller.set_registry(registry);
     Ok(controller)
+}
+
+/// The module registry (DF3): the server's own ports and the versions its own stacks serve are taken, and
+/// every child gets only the system's variables, as `start` gives its services.
+pub fn new_registry(config: &HostConfig, controller: &ServerController) -> ModuleRegistry {
+    use module_api::manifest::Transport;
+    use module_api::{NodeIdentity, PortRange};
+
+    let identity = config
+        .network
+        .as_ref()
+        .map_or_else(NodeIdentity::standalone, |network| NodeIdentity {
+            node: network.node.clone(),
+            region: network.region.clone(),
+        });
+    let mut options = RegistryOptions::standalone();
+    options.home = Arc::new(module_api::network::StandaloneHome {
+        identity: identity.clone(),
+    });
+    options.node = identity;
+    options.child.env = Some(service_environment(
+        std::env::vars(),
+        std::iter::empty::<(&str, &str)>(),
+        &[],
+    ));
+    let mut tcp: Vec<u16> = hostconfig::RESERVED_PORTS.to_vec();
+    tcp.push(hostconfig::gateway_port(config));
+    let mut udp = vec![hostconfig::game_ports(config)];
+    if config.edition.runs_legacy() {
+        tcp.push(hostconfig::legacy_gateway_port(config));
+        udp.push(hostconfig::legacy_game_ports(config));
+    }
+    options.reserved_ports = tcp
+        .into_iter()
+        .map(|port| (Transport::Tcp, PortRange::single(port)))
+        .chain(
+            udp.into_iter()
+                .map(|(first, last)| (Transport::Udp, PortRange { first, last })),
+        )
+        .collect();
+    options.taken_versions = config
+        .edition
+        .versions()
+        .into_iter()
+        .map(|version| {
+            let by = format!(
+                "this server's own {version} stack (edition = \"{}\")",
+                config.edition.as_str()
+            );
+            (version, by)
+        })
+        .collect();
+    ModuleRegistry::new(options, controller.status_registry().clone())
+}
+
+/// The game modules and plugins `[modules]` lists: the compiled-in ones it names (all of them when it
+/// names none), and the external ones with their SHA-256, paths taken from the server folder.
+pub fn list_modules(
+    paths: &Paths,
+    config: &HostConfig,
+    registry: &ModuleRegistry,
+    compiled: Vec<controller::ModuleFactory>,
+) -> Result<(), HostError> {
+    let modules = config.modules.clone().unwrap_or_default();
+    let mut settings = modules.settings.clone();
+    let mut entry = |id: module_api::ModuleId, source: ModuleSource, autoload: bool| {
+        let settings = settings.remove(&id).unwrap_or_default();
+        registry
+            .add_entry(ModuleEntry {
+                id,
+                source,
+                autoload,
+                settings,
+            })
+            .map_err(|e| HostError::message(format!("[modules]: {e}")))
+    };
+    let mut built: Vec<(module_api::ModuleId, controller::ModuleFactory)> = compiled
+        .into_iter()
+        .map(|factory| (factory().manifest().id, factory))
+        .collect();
+    if let Some(wanted) = &modules.compiled {
+        for id in wanted {
+            if !built.iter().any(|(built_id, _)| built_id == id) {
+                say(&format!(
+                    "- [modules] names {id}, which this build was not compiled with: skipped"
+                ));
+            }
+        }
+        built.retain(|(id, _)| wanted.contains(id));
+    }
+    for (id, factory) in built {
+        entry(id, ModuleSource::CompiledIn(factory), true)?;
+    }
+    for external in &modules.external {
+        let path = PathBuf::from(&external.path);
+        let path = if path.is_absolute() {
+            path
+        } else {
+            paths.repo.join(path)
+        };
+        let source = ModuleSource::External(module_api::ExternalModule {
+            path,
+            sha256: external.sha256,
+            args: external.args.clone(),
+            expected: Some(external.id.clone()),
+        });
+        entry(external.id.clone(), source, external.autoload)?;
+    }
+    for id in settings.keys() {
+        say(&format!(
+            "- [modules.{id}] sets a module [modules] does not list: ignored"
+        ));
+    }
+    Ok(())
 }
 
 /// What an empty build says instead of serving.
@@ -396,7 +514,7 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
     let missing = |names: &[String]| names.iter().any(|name| !start_cmd::env_file(paths, name).is_file());
     let reborn_files = ["backend", "director", "content", "gateway"].map(str::to_owned);
     let mut written = Vec::new();
-    if config.edition.runs(Game::Reborn) && missing(&reborn_files) {
+    if config.edition.runs_reborn() && missing(&reborn_files) {
         for dir in [
             &paths.runtime_publish,
             &paths.branding,
@@ -415,7 +533,7 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
         written = hostconfig::write_env_files(paths, &files)?;
         say(&format!("- env files written in {}", paths.config.display()));
     }
-    if config.edition.runs(Game::Legacy) && missing(&crate::legacy::env_file_names(config)) {
+    if config.edition.runs_legacy() && missing(&crate::legacy::env_file_names(config)) {
         written.extend(crate::legacy::write_env_files(
             config,
             &secrets,
@@ -462,12 +580,12 @@ fn prepare(
 ) -> Result<ServerController, HostError> {
     hostconfig::check_edition(config)?;
     ensure_server_files(paths, config)?;
-    if config.edition.runs(Game::Reborn) {
+    if config.edition.runs_reborn() {
         start_cmd::preflight_with(paths, config, external)?;
     } else {
         start_cmd::host_checks(paths, config, external)?;
     }
-    if config.edition.runs(Game::Legacy) {
+    if config.edition.runs_legacy() {
         crate::legacy::prepare(paths, config)?;
     }
     compose(paths, config, external, printer)
@@ -670,6 +788,8 @@ mod tests {
             performance: None,
             linux: None,
             database: None,
+            modules: None,
+            network: None,
             file: FileForm::default(),
         }
     }
@@ -706,6 +826,89 @@ mod tests {
         assert!(env.get("GATEWAY_SECRET").is_some_and(|s| s.len() == 64));
         let content = module_env(&paths, "content").unwrap();
         assert_eq!(content.get("GATEWAY_SECRET"), None, "each module sees its own file");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn modules_come_from_host_toml_beside_the_servers_own_stack() {
+        use module_api::stub::StubModule;
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let mut c = config(ServerMode::Private);
+        let digest = "ab".repeat(32);
+        let toml = format!(
+            "[modules]\ncompiled = [\"stub\"]\n[[modules.external]]\nid = \"far\"\npath = \"modules/far.exe\"\n\
+             sha256 = \"{digest}\"\nautoload = false\n[modules.stub.stub]\ngreeting = \"hi\"\n"
+        );
+        let doc = crate::hosttoml::document(&toml).unwrap();
+        c.modules = Some(hostconfig::ModulesConfig::from_json(&doc["modules"]).unwrap());
+        let controller = ServerController::new("private", Vec::new());
+        let stub: controller::ModuleFactory =
+            Arc::new(|| Arc::new(StubModule::new()) as Arc<dyn module_api::GameModule>);
+        let registry = new_registry(&c, &controller);
+        list_modules(&paths, &c, &registry, vec![stub]).unwrap();
+        let listed: Vec<(String, bool)> = registry
+            .list()
+            .into_iter()
+            .map(|m| (m.id.to_string(), m.autoload))
+            .collect();
+        assert_eq!(listed, [("far".to_string(), false), ("stub".to_string(), true)]);
+        registry.load(&"stub".parse().unwrap()).await.unwrap();
+        let echo = module_api::CommandRequest {
+            actor: module_api::stub::console(),
+            name: "echo".into(),
+            args: Vec::new(),
+        };
+        assert_eq!(
+            registry.command(&"stub".parse().unwrap(), echo).await.unwrap().text,
+            "hi"
+        );
+        // An external module's path is the server folder's, and nothing runs that isn't there
+        let far = registry.load(&"far".parse().unwrap()).await.unwrap_err().to_string();
+        assert!(far.contains(&dir.path().join("modules").display().to_string()), "{far}");
+        registry.unload_all().await;
+        // The 1.14.7 stack this server runs takes its version: no module may claim it
+        let mut taken = config(ServerMode::Private);
+        taken.modules = None;
+        let isles: controller::ModuleFactory = Arc::new(|| {
+            struct Isles(StubModule);
+            impl module_api::GameModule for Isles {
+                fn manifest(&self) -> module_api::ModuleManifest {
+                    module_api::ModuleManifest {
+                        id: "isles-1-14-7".parse().unwrap(),
+                        game_version: protocol::invite::reforged_version(),
+                        ..self.0.manifest()
+                    }
+                }
+                fn register(&self, r: &mut module_api::Registrar) -> Result<(), module_api::ModuleError> {
+                    self.0.register(r)
+                }
+                fn start(
+                    &self,
+                    ctx: module_api::ModuleContext,
+                    config: module_api::ModuleConfig,
+                ) -> module_api::BoxFuture<'_, Result<(), module_api::ModuleError>> {
+                    self.0.start(ctx, config)
+                }
+                fn stop(
+                    &self,
+                    ctx: module_api::ModuleContext,
+                ) -> module_api::BoxFuture<'_, Result<(), module_api::ModuleError>> {
+                    self.0.stop(ctx)
+                }
+                fn status(&self) -> module_api::ModuleStatus {
+                    self.0.status()
+                }
+            }
+            Arc::new(Isles(StubModule::new())) as Arc<dyn module_api::GameModule>
+        });
+        let registry = new_registry(&taken, &controller);
+        list_modules(&paths, &taken, &registry, vec![isles]).unwrap();
+        let refused = registry
+            .load(&"isles-1-14-7".parse().unwrap())
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("this server's own 1.14.7 stack"), "{refused}");
     }
 
     #[test]

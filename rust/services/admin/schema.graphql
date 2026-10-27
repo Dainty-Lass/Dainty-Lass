@@ -98,6 +98,41 @@ enum LocationKind {
 	TUTORIAL
 }
 
+type Module {
+	id: String!
+	"""
+	not_loaded, starting, ready or failed
+	"""
+	state: String!
+	"""
+	compiled_in or external
+	"""
+	source: String!
+	autoload: Boolean!
+	"""
+	Known once it loaded, or at once for a compiled-in one
+	"""
+	displayName: String
+	gameVersion: String
+	"""
+	game or plugin
+	"""
+	kind: String
+	unverified: Boolean!
+	detail: String
+	ports: [ModulePort!]!
+	commands: [String!]!
+}
+
+"""
+A port a module was given: its default, or where the controller moved it.
+"""
+type ModulePort {
+	name: String!
+	first: Int!
+	last: Int!
+}
+
 type Mutation {
 	"""
 	Drops a connected player now: their chat connections close and their sign-in tokens are
@@ -122,6 +157,16 @@ type Mutation {
 	Lifts a ban or a timeout.
 	"""
 	unban(username: String!, reason: String, game: String): Player!
+	"""
+	Loads a listed module (a failed one is restarted). Refused with MODULE_REFUSED and the reason: a
+	second module for a game version, a SHA-256 that doesn't match, a module that failed to start.
+	"""
+	loadModule(id: String!): Module!
+	"""
+	Stops a module, its plugins first, and kills what it left running.
+	"""
+	unloadModule(id: String!): Module!
+	restartModule(id: String!): Module!
 }
 
 type Player {
@@ -170,6 +215,14 @@ type Query {
 	backend is not asked, so a ban someone replaced since still shows until the sweep sees it.
 	"""
 	activeTimeouts: [ActiveTimeout!]!
+	"""
+	Every game module and plugin host.toml lists, loaded or not (DF3).
+	"""
+	modules: [Module!]!
+	"""
+	One listed module; null when host.toml lists none by that id.
+	"""
+	module(id: String!): Module
 }
 
 """

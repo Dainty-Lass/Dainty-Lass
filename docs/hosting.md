@@ -94,6 +94,8 @@ servers' key) lives only in `secrets.env`.
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
 | (edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below) |
+| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one (this build has none yet) and no other |
+| (edit `host.toml`) | `[network]` `node`, `region` | This server's name and region in a network. Left out: a server on its own |
 
 ### The database engine
 
@@ -110,6 +112,33 @@ Postgres is yours to run: make a role and a database for it, with the role's pas
 encrypted, so `setup` refuses a Postgres server on another machine unless `allow_remote = true`, which is only for a
 network you trust. Nothing stores its data there yet: the backend is still Mystic Paradox's on MongoDB, and the
 setting is for the Rust services as they move over. `reforged-host` does not start a Postgres of its own yet.
+
+### Game modules and plugins
+
+A game module serves one exact game version; a plugin extends the module of its version. A module compiled into
+`reforged-host` is loaded unless `compiled` leaves it out; any other is an executable you list with its SHA-256,
+and nothing else is ever started. Its path is taken from the server folder (the one that holds `.workspace`), and
+that folder must be writable by the server's account only.
+
+```toml
+[modules]
+# compiled = ["isles-1-14-7"]   # left out: every compiled-in module
+
+[[modules.external]]
+id = "rustic-freeza"
+path = "modules/rustic-freeza.exe"
+sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
+# autoload = false              # listed, but loaded from the console only
+
+[modules.rustic-freeza.tuning]  # a module's own settings: the ones it says it reads
+```
+
+Two game modules for one version are refused, whichever loads first, and so is one for a version this server's
+own stack serves (`edition`). A port a module asks for that something already holds is moved up past it. In the
+console (`serve`), `modules` lists them; `module load|unload|restart|status <id>` and `module run <id> <command>`
+act on one, and `start`, `stop` and `restart` take a module's id too. The admin API has `modules`, `loadModule`,
+`unloadModule` and `restartModule`. A module whose process dies shows as failed until it is loaded again; an
+unload stops it and kills everything it started.
 
 Each service reads one env file `setup` writes into `.workspace\config` (`gateway.env`, `content.env`,
 `backend.env`, `director.env`, `allowlist.env`, `admin.env`), and nothing else. Don't edit them: `setup`
