@@ -1,15 +1,5 @@
-# Secrets written by a host's build
-paradox-runtime/deployment_config.generated.h
-
-# Generated SDK (dump it yourself with Dumper-7). The complete Dumper-7 CppSDK output is
-# game-derived and is not distributed; see docs/sdk-and-game-data.md.
-paradox-runtime/SDK/
-paradox-runtime/SDK.hpp
-paradox-runtime/Assertions.inl
-paradox-runtime/NameCollisions.inl
-paradox-runtime/PropertyFixup.hpp
-paradox-runtime/UnrealContainers.hpp
-paradox-runtime/UtfN.hpp
+# The runtime, its SDK, the CatalogExporter and DR's internal server are in the module submodules since DS6
+# (modules/rustic-isles, modules/legacy-revived), each with its own ignore rules.
 
 # Build output
 target/
@@ -25,16 +15,3 @@ x64/
 *.exp
 .vs/
 *.user
-
-# The legacy (1.4.4) server DLL's SDK: the host's own Dumper-7 dump of the 1.4.4 client
-internal-server/SDK/
-internal-server/SDK.hpp
-internal-server/Assertions.inl
-internal-server/NameCollisions.inl
-internal-server/PropertyFixup.hpp
-internal-server/UnrealContainers.hpp
-internal-server/UtfN.hpp
-
-# UE4SS 3.0.1's release DLLs, pinned by client-mods/manifest.json (client-mods/README.md)
-!client-mods/dwmapi.dll
-!client-mods/ue4ss/UE4SS.dll
