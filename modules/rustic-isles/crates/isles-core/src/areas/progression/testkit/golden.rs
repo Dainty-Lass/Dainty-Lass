@@ -98,8 +98,10 @@ pub async fn replay(
 ) -> Vec<String> {
     let guard = RecordingGuard::new(true);
     let characters = Arc::new(FakeCharacters::default());
-    let mut ports = Ports::default();
-    ports.characters = characters.clone();
+    let ports = Ports {
+        characters: characters.clone(),
+        ..Ports::default()
+    };
     let harness = match Harness::start(Options {
         version,
         game_data: Some(game_data.to_owned()),

@@ -240,15 +240,9 @@ pub fn active_huntpass_id(shared: &Shared) -> &'static str {
     shared.version.tables.active_huntpass_id
 }
 
-/// `ServedHuntPassProgressionId`: `GAMESERVER_HUNTPASS_ID` overrides the active pass (set but empty stays empty).
+/// `ServedHuntPassProgressionId`: game-data's (`GAMESERVER_HUNTPASS_ID` over the table).
 pub fn served_huntpass_id(shared: &Shared) -> String {
-    service_kit::js::trim(
-        shared
-            .settings
-            .raw("GAMESERVER_HUNTPASS_ID")
-            .unwrap_or_else(|| active_huntpass_id(shared)),
-    )
-    .to_owned()
+    crate::game_data::progression_config::served_huntpass_id(&shared.version.tables, &shared.settings)
 }
 
 /// `IsHuntPassXpTrack`.

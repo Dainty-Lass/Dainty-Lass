@@ -172,7 +172,7 @@ pub async fn auth_layer(mut request: Request, next: Next) -> Response {
 fn auth_data(request: &Request) -> Option<AuthData> {
     let header = |name: &str| header_of(request, name);
     let user = header("x-test-user");
-    let data = match header("x-test-role").as_deref() {
+    match header("x-test-role").as_deref() {
         Some("gs") => Some(AuthData {
             is_gameserver: true,
             user_id: user,
@@ -207,8 +207,7 @@ fn auth_data(request: &Request) -> Option<AuthData> {
             })
         }
         _ => None,
-    };
-    data
+    }
 }
 
 fn header_of(request: &Request, name: &str) -> Option<String> {
