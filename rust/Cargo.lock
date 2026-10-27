@@ -1993,6 +1993,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "indexmap 2.14.2",
+ "module-api",
  "protocol",
  "proxy",
  "rcgen",

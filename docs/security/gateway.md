@@ -23,11 +23,14 @@ listens on loopback and trusts that the gateway already refused what must not re
   (100.64.0.0/10) or loopback. Tailscale encrypts the traffic; the gateway refuses to start on any other address.
 - **Out:** plain HTTP to the backend (`GATEWAY_BACKEND_URL`), the content server (`GATEWAY_CONTENT_URL`) and the chat
   listener (`GATEWAY_WS_URL`), all on loopback only, each request carrying the shared secret `x-reforged-gateway`;
-  `POST /allow` to the allowlist helper (`ALLOWLIST_URL`, also loopback) with `x-allowlist-secret`.
+  `POST /allow` to the allowlist helper (`ALLOWLIST_URL`, also loopback) with `x-allowlist-secret`. The backend is
+  the game module's route (DF4a): a gateway started alone fronts a stand-in for `GATEWAY_GAME` at
+  `GATEWAY_BACKEND_URL`, one under the controller the modules it attaches, each at the loopback port the registry
+  gave it.
 - **Files:** the certificate and key (read only), the `.env` the host kit writes (trusted), and when the capture is
   on, the capture folder (`CAPTURE_DIR`, written).
 
-Code: `rust/services/gateway/src/` (`policy.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
+Code: `rust/services/gateway/src/` (`policy.rs`, `modules.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
 `feed.rs`, `capture.rs`, `cert.rs`, `config.rs`, `server.rs`, `main.rs`).
 
 Fuzz targets in `rust/fuzz`:
@@ -37,6 +40,8 @@ Fuzz targets in `rust/fuzz`:
   spelling or the `/__origin` wrapping.
 - `gateway_policy_legacy`: the same for legacy mode: nothing proxied carries a host-only header or reaches a
   host-only prefix or a non-public `/reforged` route of the metagame, and nothing goes to the reborn backend.
+- `gateway_modules`: a module's routes of any shape attach or are refused, never panic, and no request reaches a
+  module through one of its host-only routes, the node-link group or a host-only prefix, or anything off loopback.
 - `gateway_capture`: the capture's redaction of bodies, headers, targets and chat frames never panics and never
   writes an account key or a whole token from its input; the chat frame reader gives the same messages however the
   bytes are split.
@@ -89,6 +94,28 @@ Fuzz targets in `rust/fuzz`:
       secret never leaves the machine.
 - [ ] Parity: every reply in `tests/parity/gateway.requests.json` (status, headers, body, access log, allowlist feed)
       is the one Reforged's Node gateway gives (`tests/parity.rs`, recorded by `record.cjs`).
+
+### Module routes (DF4a)
+
+The gateway is the core plugin that serves module routes (`modules.rs`, `ModuleRoutes`, a `CorePlugin`). A request
+goes to the game module its game version names (`ModuleManifest::answers_invite`; today `GATEWAY_GAME`'s version),
+then to the loopback port of the longest public route that module registered. The policy above judges every request
+first, and content and chat stay the gateway's own upstreams, so a module's routes never widen what reaches loopback.
+
+- [ ] With the stand-in a gateway started alone attaches, every request goes where it went before, and the parity
+      tests pass unchanged (`tests/parity.rs`, `modules.rs` `a_standalone_gateway_*`).
+- [ ] A module's host-only route is 403 `host_only_route` from outside, under any spelling, and wins over a longer
+      public route below it (`host_only_wins_over_a_longer_public_route`, `tests/modules.rs`). The host's tools reach
+      the module on loopback, never through the gateway.
+- [ ] The node-link group `/__node` (DN3's mutual-TLS links between nodes) is host-only and a stub: every request
+      under it, wrapped in `/__origin` or not, upgrades included, is 403 `node_link` (`NODE_LINKS`).
+- [ ] `attach` reruns `Registration::check` (an external module's registration is untrusted) and refuses a plugin's
+      routes, a route under `/content`, `/__origin` or `/__node`, a public route under a host-only prefix, a prefix
+      given twice in any case, and a module whose version or alias another attached module already answers (DD4).
+- [ ] A path with no route is 404 `no_route`, a version with no module 503 `no_module`, a module the registry has no
+      port for 503 `module_unavailable`. An endpoint the registry gives off loopback is 502 `upstream_not_loopback`,
+      so the secret header never leaves the machine whatever the registry says.
+- [ ] The access log's `route` is still the policy's (`backend`, `metagame`, `content`, `ws`), not the module's.
 
 ### Limits
 

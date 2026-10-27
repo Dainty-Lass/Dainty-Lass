@@ -36,8 +36,9 @@ use crate::config::{Config, Endpoint};
 use crate::feed::AllowlistFeed;
 use crate::guard::{Guard, Phases};
 use crate::ip::{peer_address, rate_limit_key};
+use crate::modules::{ModuleRoutes, Routed};
 use crate::network::{self, MAX_REPORT_BYTES, parse_region_report};
-use crate::policy::{Decision, FeedKind, LimitClass, NetworkRoute, Upstream, classify_for, has_bearer};
+use crate::policy::{Decision, FeedKind, LimitClass, NetworkRoute, Upstream, has_bearer};
 use crate::ratelimit::{RateLimiter, Take};
 use crate::redact::{redact_target, redact_user_agent};
 
@@ -480,6 +481,8 @@ pub struct Tls {
 
 pub struct Gateway {
     config: Config,
+    /// The modules' routes (DF4a): the stand-in for `GATEWAY_GAME`, or the controller's registry
+    routes: Arc<ModuleRoutes>,
     /// `None` in private mode (plain HTTP inside the tailnet)
     certificate: Option<CertInfo>,
     tls: Option<tokio_rustls::TlsAcceptor>,
@@ -514,12 +517,25 @@ impl Drop for Admitted {
 }
 
 impl Gateway {
-    /// A TLS gateway needs its certificate, and a private one has none (`config.tls`).
+    /// A TLS gateway needs its certificate, and a private one has none (`config.tls`). Without a
+    /// controller, it fronts the stand-in module for `GATEWAY_GAME` (`ModuleRoutes::standalone`).
     pub fn new(
         config: Config,
         tls: Option<Tls>,
         feed: Option<AllowlistFeed>,
         capture: Option<CaptureWriter>,
+    ) -> Result<Arc<Self>, String> {
+        let routes = Arc::new(ModuleRoutes::standalone(&config)?);
+        Self::with_routes(config, tls, feed, capture, routes)
+    }
+
+    /// The same, routing to the modules the controller attaches to `routes` (DF3).
+    pub fn with_routes(
+        config: Config,
+        tls: Option<Tls>,
+        feed: Option<AllowlistFeed>,
+        capture: Option<CaptureWriter>,
+        routes: Arc<ModuleRoutes>,
     ) -> Result<Arc<Self>, String> {
         if config.tls != tls.is_some() {
             return Err(if config.tls {
@@ -555,6 +571,7 @@ impl Gateway {
             .build(connector);
         Ok(Arc::new(Self {
             config,
+            routes,
             certificate,
             tls,
             feed,
@@ -603,13 +620,30 @@ impl Gateway {
             .take(key, crate::now_ms())
     }
 
-    fn upstream(&self, name: Upstream) -> &Endpoint {
-        match name {
-            Upstream::Backend => &self.config.backend,
-            Upstream::Content => &self.config.content,
-            Upstream::Ws => &self.config.ws,
-            #[cfg(feature = "legacy")]
-            Upstream::Metagame => &self.config.backend,
+    pub fn routes(&self) -> &Arc<ModuleRoutes> {
+        &self.routes
+    }
+
+    /// The policy and the modules' routes, for the game this gateway fronts (an invite's `version`).
+    fn route(&self, request: &Request<Incoming>, is_upgrade: bool) -> Routed {
+        let game = self.config.game;
+        let target = request.uri().to_string();
+        self.routes.route(
+            game.version(),
+            game,
+            request.method().as_str(),
+            &target,
+            request.headers(),
+            is_upgrade,
+        )
+    }
+
+    /// Content and chat are the gateway's own upstreams; the rest is the module's, from its route.
+    fn endpoint(&self, upstream: Upstream, module: Option<Endpoint>) -> Option<Endpoint> {
+        match upstream {
+            Upstream::Content => Some(self.config.content.clone()),
+            Upstream::Ws => Some(self.config.ws.clone()),
+            _ => module,
         }
     }
 
@@ -899,14 +933,10 @@ impl Gateway {
             return self.upgrade(request, ip, conn, phases).await;
         }
         let access = self.access(&request, &ip, &conn);
-        let target = request.uri().to_string();
-        let choice = classify_for(
-            self.config.game,
-            request.method().as_str(),
-            &target,
-            request.headers(),
-            false,
-        );
+        let Routed {
+            decision: choice,
+            endpoint,
+        } = self.route(&request, false);
         let limit_class = choice.limit_class();
         if let Take::Refused { retry_after_seconds } = self.take(limit_class, &rate_limit_key(&ip)) {
             return self.refuse(
@@ -926,6 +956,17 @@ impl Gateway {
             Decision::Network { route, .. } => return self.network(request, access, phases, route).await,
             Decision::Proxy { upstream, feed, .. } => (upstream, feed),
         };
+        let Some(endpoint) = self.endpoint(upstream, endpoint) else {
+            return self.refuse(
+                request.headers(),
+                access,
+                phases,
+                502,
+                "bad_gateway",
+                "no_upstream".into(),
+                &[],
+            );
+        };
         let max_body = self.config.limits.max_body_bytes;
         let declared = request
             .headers()
@@ -943,7 +984,8 @@ impl Gateway {
                 &[],
             );
         }
-        self.proxy(request, ip, access, phases, upstream, feed).await
+        self.proxy(request, ip, access, phases, (upstream, endpoint), feed)
+            .await
     }
 
     /// The network's routes (DN7, `network.rs`), answered here. A region report is read up to its cap,
@@ -1013,12 +1055,11 @@ impl Gateway {
         ip: String,
         mut access: Access,
         phases: Phases,
-        upstream: Upstream,
+        (upstream, endpoint): (Upstream, Endpoint),
         feed: Option<FeedKind>,
     ) -> Reply {
         access.route = upstream.as_str();
         let (parts, body) = request.into_parts();
-        let endpoint = self.upstream(upstream);
         let path = parts.uri.path_and_query().map_or("/", |p| p.as_str());
         let exchange = Arc::new(Exchange::default());
         let body = RequestBody {
@@ -1129,14 +1170,10 @@ impl Gateway {
         if self.closing() {
             return raw_refuse(access, 503, "shutting_down", "shutting_down".into(), &[]);
         }
-        let target = request.uri().to_string();
-        let choice = classify_for(
-            self.config.game,
-            request.method().as_str(),
-            &target,
-            request.headers(),
-            true,
-        );
+        let Routed {
+            decision: choice,
+            endpoint,
+        } = self.route(&request, true);
         let limit_class = choice.limit_class();
         if let Take::Refused { retry_after_seconds } = self.take(limit_class, &rate_limit_key(&ip)) {
             return raw_refuse(
@@ -1157,8 +1194,11 @@ impl Gateway {
             }
             Decision::Proxy { upstream, .. } => upstream,
         };
+        let Some(endpoint) = self.endpoint(upstream, endpoint) else {
+            return raw_refuse(access, 502, "bad_gateway", "no_upstream".into(), &[]);
+        };
         access.route = upstream.as_str();
-        let endpoint = self.upstream(upstream).authority();
+        let endpoint = endpoint.authority();
         let headers = forward_headers(request.headers(), &ip, &self.config.secret, true, self.proto());
         let path = request.uri().path_and_query().map_or("/", |p| p.as_str()).to_owned();
         let chat_target = redact_capture_target(&path);
