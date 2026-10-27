@@ -94,6 +94,14 @@ impl Settings {
         self
     }
 
+    /// These settings with `over`'s on top: its env file values win, then its switches.
+    pub fn overlay(mut self, over: &Settings) -> Self {
+        self.env.extend(over.env.clone());
+        self.switches.extend(over.switches.clone());
+        self.forced.extend(over.forced.clone());
+        self
+    }
+
     /// The `[switches]` section of a module config, keyed by Node's variable names.
     pub fn switches_from_config(section: Option<&BTreeMap<String, serde_json::Value>>) -> BTreeMap<String, String> {
         SWITCHES

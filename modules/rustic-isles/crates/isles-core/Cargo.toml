@@ -9,6 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+argon2.workspace = true
 axum.workspace = true
 base64.workspace = true
 chrono.workspace = true
@@ -16,24 +17,41 @@ diesel.workspace = true
 diesel_migrations.workspace = true
 dotenvy.workspace = true
 ed25519-dalek.workspace = true
+hmac.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util.workspace = true
 isles-chat.workspace = true
+jsonwebtoken.workspace = true
 module-api.workspace = true
 percent-encoding.workspace = true
+rand.workspace = true
 regex.workspace = true
 rifts-seam.workspace = true
+rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 service-kit.workspace = true
 store.workspace = true
+subtle.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "sync", "time"] }
+tokio-rustls.workspace = true
+tempfile = { workspace = true, optional = true }
 tracing.workspace = true
 uuid.workspace = true
+webpki-roots.workspace = true
 
 [dev-dependencies]
+isles-core = { path = ".", features = ["test-support"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["macros"] }
+
+[features]
+# A whole auth area on SQLite for tests, here and in the module crates
+test-support = ["dep:tempfile"]
 
 [lints]
 workspace = true

@@ -110,7 +110,7 @@ pub fn apply_session_supplies(stacked: &[Value], targets: &[(String, i64)]) -> O
 fn targets_for(
     shared: &Shared,
     user_id: &str,
-    is_instanced: &dyn Fn(&str) -> bool,
+    is_instanced: &(dyn Fn(&str) -> bool + Sync),
 ) -> Result<Option<Vec<(String, i64)>>, String> {
     let Some(file) = shared.settings.get("REFORGED_SESSION_SUPPLIES_FILE") else {
         return Ok(None);
@@ -130,7 +130,7 @@ pub async fn refill_session_supplies(
     starter: &dyn StarterBootstrap,
     account: &AccountId,
     user_id: &str,
-    is_instanced: &dyn Fn(&str) -> bool,
+    is_instanced: &(dyn Fn(&str) -> bool + Sync),
 ) {
     let targets = match targets_for(shared, user_id, is_instanced) {
         Ok(Some(targets)) => targets,

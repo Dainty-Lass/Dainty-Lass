@@ -7,7 +7,7 @@
 
 use axum::body::to_bytes;
 use axum::extract::{FromRequestParts, Request};
-use axum::http::header::{AUTHORIZATION, CONTENT_ENCODING, CONTENT_TYPE};
+use axum::http::header::{CONTENT_ENCODING, CONTENT_TYPE};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use module_api::BoxFuture;
@@ -22,8 +22,6 @@ use crate::game_data::season_window::now_ms;
 use crate::game_data::{patchnotes, tuning};
 use crate::http::{Call, Handlers};
 use crate::routes::{Method, RouteSet, Service};
-
-const GAMESERVER_KEY_HEADER: &str = "x-mysticparadox-gameserver-apikey";
 
 fn json_reply(status: StatusCode, body: Value) -> Response {
     (status, Json(body)).into_response()
@@ -42,37 +40,17 @@ fn text(body: &'static str) -> Response {
         .into_response()
 }
 
-/// `HasParadoxBackendAuth`'s refusal for a request with no credential at all: 401 and an empty body. Whether a
-/// credential is valid (the JWT, the game server key, the launcher account's eligibility, the `INVALID` sentinel) is
-/// RU5 auth's; until its middleware runs ahead of the areas, a request that names a credential passes here. Every
-/// route behind this gate answers static, account-free data.
-fn unauthenticated(call: &Call) -> Option<Response> {
-    let headers = call.request.headers();
-    let bearer = headers
-        .get(AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| ["bearer ", "Bearer ", "BEARER "].iter().any(|p| value.starts_with(p)));
-    if bearer || headers.contains_key(GAMESERVER_KEY_HEADER) {
-        return None;
-    }
-    tracing::error!(
-        "Unauthenticated {} to {} which needs Mystic Paradox Metagame auth!",
-        call.request.method(),
-        call.request.uri().path()
-    );
-    Some(StatusCode::UNAUTHORIZED.into_response())
-}
-
 fn open(run: fn(Call) -> Response) -> impl Fn(Call) -> BoxFuture<'static, Response> + Send + Sync + 'static {
     move |call| Box::pin(async move { run(call) })
 }
 
+/// A route behind `HasParadoxBackendAuth` (the auth area's, which also sets the request's `AuthData`).
 fn gated(run: fn(Call) -> Response) -> impl Fn(Call) -> BoxFuture<'static, Response> + Send + Sync + 'static {
-    move |call| {
+    move |mut call| {
         Box::pin(async move {
-            match unauthenticated(&call) {
-                Some(refusal) => refusal,
-                None => run(call),
+            match crate::areas::auth::game_auth(&mut call).await {
+                Err(refusal) => refusal,
+                Ok(_) => run(call),
             }
         })
     }
@@ -168,8 +146,8 @@ fn profile_update(_: Call) -> Response {
     StatusCode::OK.into_response()
 }
 
-async fn trials_leaderboards_all(call: Call) -> Response {
-    if let Some(refusal) = unauthenticated(&call) {
+async fn trials_leaderboards_all(mut call: Call) -> Response {
+    if let Err(refusal) = crate::areas::auth::game_auth(&mut call).await {
         return refusal;
     }
     let body = match request_body(call.request).await {

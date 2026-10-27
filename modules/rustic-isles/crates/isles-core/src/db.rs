@@ -25,6 +25,7 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     // Player-facing tables are soft-deleted (DD23); each area adds its own as it lands them
     soft_delete: &[
         "accounts",
+        "launcher_accounts",
         "characters",
         "loadouts",
         "inventories",

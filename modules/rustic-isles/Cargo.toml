@@ -35,7 +35,7 @@ rifts-guard = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.
 
 # The versions DaintyLass's workspace asks for, so one copy of each lands in its tree
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio"] }
-diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35"] }
+diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35", "32-column-tables"] }
 diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
 base64 = "0.23"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
@@ -57,6 +57,21 @@ uuid = { version = "1", features = ["v4"] }
 # Game servers started hidden and in a job object (the Director, RU6), as the host kit does
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 
+# RU5 auth: tokens, hashes, passwords and the two outgoing clients (Discord over HTTPS, the code mail over SMTP)
+argon2 = "0.5"
+base64 = "0.23"
+hmac = "0.13"
+http-body-util = "0.1"
+hyper = { version = "1", default-features = false, features = ["client", "http1"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "aws-lc-rs", "webpki-tokio", "tls12"] }
+hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
+jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
+rand = "0.10"
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+subtle = "2"
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+webpki-roots = "1"
+
 [workspace.lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"
@@ -67,3 +82,9 @@ unwrap_used = "deny"
 expect_used = "deny"
 dbg_macro = "deny"
 todo = "deny"
+
+# Argon2 is memory-hard: an unoptimised build takes seconds per password, which the auth tests do dozens of times
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
