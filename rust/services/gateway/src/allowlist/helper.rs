@@ -22,6 +22,7 @@ use tokio::sync::{Notify, Semaphore, watch};
 
 use super::config::AllowlistConfig;
 use super::firewall::{Backend, plan};
+use super::guard::Guard;
 use super::state::{AllowlistState, Refresh};
 use super::sync::{Apply, ApplyResult, FirewallSync, OnResult};
 use crate::cert::iso;
@@ -81,8 +82,18 @@ impl AuditLog {
 /// What applies one desired set: a dry run writes it to the audit log, a real backend changes the
 /// firewall.
 pub fn applier(backend: Arc<Backend>, audit: Arc<AuditLog>, ports: String, dry_run: bool) -> Apply {
+    applier_for(backend, audit, Arc::new(move || ports.clone()), dry_run)
+}
+
+/// The same, for ports that change while it runs: read afresh for every run (the game modules' ranges, DF4d).
+pub fn applier_for(
+    backend: Arc<Backend>,
+    audit: Arc<AuditLog>,
+    ports: Arc<dyn Fn() -> String + Send + Sync>,
+    dry_run: bool,
+) -> Apply {
     Arc::new(move |ips| {
-        let (backend, audit, ports) = (backend.clone(), audit.clone(), ports.clone());
+        let (backend, audit, ports) = (backend.clone(), audit.clone(), ports());
         Box::pin(async move {
             let plan = plan(&ips, &ports)?;
             if dry_run {
@@ -144,6 +155,7 @@ pub struct Helper {
     state: Mutex<AllowlistState>,
     sync: FirewallSync,
     now: Clock,
+    guard: Arc<Guard>,
     throttle: Throttle,
     dirty: AtomicBool,
     expiry: Notify,
@@ -156,10 +168,32 @@ pub struct Running {
 }
 
 impl Helper {
-    pub fn new(config: AllowlistConfig, backend: Backend, audit: Arc<AuditLog>, now: Clock) -> Arc<Self> {
+    pub fn new(
+        config: AllowlistConfig,
+        backend: Backend,
+        audit: Arc<AuditLog>,
+        now: Clock,
+    ) -> Result<Arc<Self>, String> {
+        let guard = Arc::new(Guard::new(&config.ports)?);
+        Ok(Self::with_guard(config, backend, audit, now, guard))
+    }
+
+    /// A helper that guards what `guard` holds: `ALLOWLIST_PORTS` and the ranges game modules registered (DF4d).
+    /// The guard outlives the helper, so a restarted allowlist module keeps the ranges of the modules loaded.
+    pub fn with_guard(
+        config: AllowlistConfig,
+        backend: Backend,
+        audit: Arc<AuditLog>,
+        now: Clock,
+        guard: Arc<Guard>,
+    ) -> Arc<Self> {
         let backend = Arc::new(backend);
         Arc::new_cyclic(|this: &std::sync::Weak<Self>| {
-            let apply = applier(backend.clone(), audit.clone(), config.ports.clone(), config.dry_run);
+            let ports: Arc<dyn Fn() -> String + Send + Sync> = {
+                let guard = guard.clone();
+                Arc::new(move || guard.text())
+            };
+            let apply = applier_for(backend.clone(), audit.clone(), ports, config.dry_run);
             let on_result: OnResult = {
                 let this = this.clone();
                 Arc::new(move |result: &ApplyResult| {
@@ -170,6 +204,14 @@ impl Helper {
             };
             // The interval between rule changes is real time, whatever clock the entries use
             let sync = FirewallSync::new(apply, config.min_interval, on_result);
+            guard.on_change({
+                let this = this.clone();
+                Arc::new(move || {
+                    if let Some(helper) = this.upgrade() {
+                        helper.ports_changed();
+                    }
+                })
+            });
             Self {
                 state: Mutex::new(AllowlistState::new(config.ttl.as_millis() as i64, config.max_entries)),
                 config,
@@ -177,12 +219,18 @@ impl Helper {
                 audit,
                 sync,
                 now,
+                guard,
                 throttle: Throttle::new(60_000),
                 dirty: AtomicBool::new(false),
                 expiry: Notify::new(),
                 stop: watch::Sender::new(false),
             }
         })
+    }
+
+    /// The ports this helper guards: its own, and the game modules' (DF4d).
+    pub fn guard(&self) -> &Arc<Guard> {
+        &self.guard
     }
 
     pub fn sync(&self) -> &FirewallSync {
@@ -195,6 +243,15 @@ impl Helper {
 
     fn lock(&self) -> std::sync::MutexGuard<'_, AllowlistState> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// A module's ranges came or went: the rule is applied again with the same addresses.
+    fn ports_changed(&self) {
+        self.audit.write(
+            "ports_changed",
+            json!({ "ports": self.guard.text(), "modules": self.guard.modules() }),
+        );
+        self.sync.reapply();
     }
 
     fn applied(&self, result: &ApplyResult) {
@@ -237,7 +294,7 @@ impl Helper {
                 "dryRun": self.config.dry_run,
                 "restored": restored,
                 "ttlSeconds": self.config.ttl.as_secs(),
-                "ports": self.config.ports,
+                "ports": self.guard.text(),
                 "allowPrivate": self.config.allow_private,
                 "backend": self.backend.name(),
             }),
@@ -362,16 +419,22 @@ impl Helper {
             }
             out
         });
-        json!({
+        let mut status = json!({
             "backend": self.backend.name(),
             "dryRun": self.config.dry_run,
             "allowPrivate": self.config.allow_private,
             "ttlSeconds": self.config.ttl.as_secs(),
-            "ports": self.config.ports,
+            "ports": self.guard.text(),
             "entries": entries,
             "pending": self.sync.pending(),
             "lastApply": last,
-        })
+        });
+        // Only a server running game modules has any
+        let modules = self.guard.modules();
+        if !modules.is_empty() {
+            status["modulePorts"] = json!(modules);
+        }
+        status
     }
 
     async fn serve(self: Arc<Self>, listener: TcpListener) {
@@ -517,8 +580,19 @@ pub async fn close_ports_once(config: &AllowlistConfig) -> Result<(), String> {
 /// Runs the allowlist helper in-process with a `ServiceContext`.
 pub async fn run_with_context(
     config: AllowlistConfig,
+    ctx: service_kit::context::ServiceContext,
+    helper_slot: Option<Arc<Mutex<Option<Arc<Helper>>>>>,
+) -> Result<(), String> {
+    let guard = Arc::new(Guard::new(&config.ports)?);
+    run_with_guard(config, ctx, helper_slot, guard).await
+}
+
+/// The same, guarding what `guard` holds (the controller shares it with the core plugin, DF4d).
+pub async fn run_with_guard(
+    config: AllowlistConfig,
     mut ctx: service_kit::context::ServiceContext,
     helper_slot: Option<Arc<Mutex<Option<Arc<Helper>>>>>,
+    guard: Arc<Guard>,
 ) -> Result<(), String> {
     ctx.status.starting();
     let audit = Arc::new(AuditLog::new(Some(config.audit_log.clone())));
@@ -537,7 +611,7 @@ pub async fn run_with_context(
             }
         }
     };
-    let helper = Helper::new(config.clone(), backend, audit, Arc::new(crate::now_ms));
+    let helper = Helper::with_guard(config.clone(), backend, audit, Arc::new(crate::now_ms), guard);
     if let Some(slot) = helper_slot {
         *slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(helper.clone());
     }

@@ -26,11 +26,35 @@ pub const BUILT_IN: &[&str] = &[
 /// Every module the crate can build, for the same message.
 pub const ALL: &[&str] = &["gateway", "allowlist", "content", "admin"];
 
-/// The game modules and plugins compiled into this binary (DD3), each by the id its manifest gives.
-/// None yet: DF5's bins add one Cargo feature per game module here.
+/// The game modules compiled into this binary (DD3, DF5): one Cargo feature each, none by default. A server's
+/// `[modules]` section picks which of them load; the rest stay listed and unloaded.
+#[cfg_attr(
+    not(any(feature = "stub-module", feature = "isles-1-14-7", feature = "isles-1-12-0")),
+    allow(unused_mut)
+)]
 pub fn game_modules() -> Vec<crate::registry::ModuleFactory> {
-    Vec::new()
+    let mut modules: Vec<crate::registry::ModuleFactory> = Vec::new();
+    #[cfg(feature = "stub-module")]
+    modules.push(std::sync::Arc::new(|| {
+        std::sync::Arc::new(module_api::stub::StubModule::new()) as std::sync::Arc<dyn module_api::GameModule>
+    }));
+    #[cfg(feature = "isles-1-14-7")]
+    modules.push(std::sync::Arc::new(|| {
+        std::sync::Arc::new(isles_1_14_7::module()) as std::sync::Arc<dyn module_api::GameModule>
+    }));
+    #[cfg(feature = "isles-1-12-0")]
+    modules.push(std::sync::Arc::new(|| {
+        std::sync::Arc::new(isles_1_12_0::module()) as std::sync::Arc<dyn module_api::GameModule>
+    }));
+    modules
 }
+
+/// The game-module features this build was asked for whose crate is not linked yet, so `game_modules` has
+/// nothing for them. The host kit says so at start rather than let a release lack a module unnoticed.
+pub const UNLINKED: &[&str] = &[
+    #[cfg(feature = "revived-1-4-4")]
+    "revived-1-4-4",
+];
 
 /// Where the allowlist module leaves its helper for the gateway module's in-process feed.
 #[cfg(feature = "allowlist")]
@@ -42,19 +66,49 @@ pub fn allowlist_slot() -> AllowlistSlot {
 }
 
 /// The allowlist helper (`allowlist.env`). Started before the Director in public mode, so the game
-/// ports are closed before any game server listens (what `--close-ports` did for a process).
+/// ports are closed before any game server listens (what `--close-ports` did for a process). With the
+/// registry, it also guards the UDP ranges of the game modules that load (DF4d).
 #[cfg(feature = "allowlist")]
-pub fn allowlist(env: &Env, slot: AllowlistSlot) -> Result<Module, String> {
+pub fn allowlist(env: &Env, slot: AllowlistSlot, registry: Option<crate::ModuleRegistry>) -> Result<Module, String> {
     use gateway::allowlist::config::AllowlistConfig;
+    use gateway::allowlist::guard::Guard;
     let config = AllowlistConfig::from_env(env)?;
+    // Made here, not by the helper, so a restarted allowlist module keeps the ranges of the modules loaded
+    let guard = Arc::new(Guard::new(&config.ports)?);
+    if let Some(registry) = registry {
+        let view = Arc::new(RegistryPorts(registry.downgrade()));
+        registry.add_plugin(Arc::new(gateway::allowlist::modules::AllowlistPlugin::new(
+            guard.clone(),
+            view,
+        )));
+    }
     Ok(Module::new(
         "allowlist",
         Arc::new(move |ctx| {
-            let (config, slot) = (config.clone(), slot.clone());
-            Box::pin(async move { gateway::allowlist::helper::run_with_context(config, ctx, Some(slot)).await })
+            let (config, slot, guard) = (config.clone(), slot.clone(), guard.clone());
+            Box::pin(async move { gateway::allowlist::helper::run_with_guard(config, ctx, Some(slot), guard).await })
         }),
     )
     .ready_within(std::time::Duration::from_secs(60)))
+}
+
+/// A public server whose allowlist this process does not run: a module that registers a UDP port is refused,
+/// because nothing here can guard it (DF4d).
+#[cfg(feature = "allowlist")]
+pub fn allowlist_absent(registry: &crate::ModuleRegistry) {
+    let view = Arc::new(RegistryPorts(registry.downgrade()));
+    registry.add_plugin(Arc::new(gateway::allowlist::modules::AllowlistPlugin::absent(view)));
+}
+
+/// The ranges the controller placed, for the allowlist plugin.
+#[cfg(feature = "allowlist")]
+struct RegistryPorts(crate::WeakRegistry);
+
+#[cfg(feature = "allowlist")]
+impl gateway::allowlist::modules::PortView for RegistryPorts {
+    fn assigned(&self, module: &module_api::ModuleId, port: &str) -> Option<module_api::PortRange> {
+        self.0.upgrade()?.assigned(module, port)
+    }
 }
 
 /// The gateway (`gateway.env`). With `slot`, logged-in players' addresses go to the allowlist

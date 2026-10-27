@@ -120,7 +120,12 @@ pub fn nft_script(rule: &RulePlan, settings: &NftSettings) -> Result<String, Str
         lines.push("\t}".into());
         lines
     };
-    let ports = &rule.ports;
+    // A list is an anonymous set; one range keeps the line it always had
+    let ports = if rule.ports.contains(',') {
+        format!("{{ {} }}", rule.ports.replace(',', ", "))
+    } else {
+        rule.ports.clone()
+    };
     let mut lines = vec![
         format!("table inet {table} {{}}"),
         format!("delete table inet {table}"),
@@ -396,6 +401,23 @@ mod tests {
         let text = script(&["203.0.113.7"], "8777", None).unwrap();
         assert!(text.contains("\t\tip saddr @players4 udp dport 8777 accept\n"));
         assert!(text.contains("\t\tudp dport 8777 drop\n"));
+    }
+
+    #[test]
+    fn a_list_of_ranges_is_one_anonymous_set() {
+        let text = script(&["203.0.113.7"], "8770-8777,64000-64009,64020", None).unwrap();
+        for line in [
+            "		ip saddr @players4 udp dport { 8770-8777, 64000-64009, 64020 } accept
+",
+            "		udp dport { 8770-8777, 64000-64009, 64020 } drop
+",
+        ] {
+            assert!(text.contains(line), "{line}");
+        }
+        assert_eq!(
+            text.lines().count(),
+            script(&["203.0.113.7"], "8770-8777", None).unwrap().lines().count()
+        );
     }
 
     #[test]

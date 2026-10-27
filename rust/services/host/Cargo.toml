@@ -17,6 +17,13 @@ gateway = ["controller/gateway", "dep:gateway"]
 allowlist = ["controller/allowlist", "dep:gateway"]
 content = ["controller/content", "dep:content"]
 admin = ["controller/admin", "dep:admin"]
+# The game modules compiled in (DF5): the controller's features of the same names, none by default. The release
+# builds them in
+stub-module = ["controller/stub-module"]
+isles-1-14-7 = ["controller/isles-1-14-7"]
+isles-1-12-0 = ["controller/isles-1-12-0"]
+revived-1-4-4 = ["controller/revived-1-4-4"]
+realms = ["controller/realms"]
 # The Node processes: Mystic Paradox's backend and Director, MongoDB, and the Node gateway and content
 # server until RS5 flips them (`commands::start::binaries::rust_ported`)
 paradox = []

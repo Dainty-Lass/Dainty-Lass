@@ -25,8 +25,8 @@ ports to everyone defeats the allowlist.
 - **Files:** the `.env` the host kit writes (trusted: whoever can write it chooses what runs elevated), the audit log
   and the state file (written by the helper, read back at start).
 
-Code: `rust/services/gateway/src/allowlist/` (`config.rs`, `ports.rs`, `nft.rs`, `firewall.rs`, `windows.rs`,
-`helper.rs`, `state.rs`, `sync.rs`), `src/ip.rs` (`check_allowlist_ip`) and `src/allowlist/cli.rs`.
+Code: `rust/services/gateway/src/allowlist/` (`config.rs`, `ports.rs`, `guard.rs`, `modules.rs`, `nft.rs`,
+`firewall.rs`, `windows.rs`, `helper.rs`, `state.rs`, `sync.rs`), `src/ip.rs` (`check_allowlist_ip`) and `src/allowlist/cli.rs`.
 
 Fuzz target: `allowlist_input` in `rust/fuzz` (the `/allow` body and its `Content-Length`, the state file, and the
 ports, table and interface that reach a script). It also checks that nothing the checks accept changes the shape of
@@ -58,7 +58,9 @@ the nftables script or the Windows rule.
 - [ ] `plan` checks every address again (it must already be canonical) and the port range, so no caller can put
       anything else into a script or a rule. `nft_script` checks the table and interface names again too.
 - [ ] `ALLOWLIST_PORTS` is one port or `low-high` within 1-65535 and nothing else (`ports.rs`). The host kit writes
-      it, widened for `--max-hunts`.
+      it, widened for `--max-hunts`. What reaches `plan` is that or a comma-separated list of such tokens, at most 32
+      (`check_port_list`); nft gets a list as one anonymous set (`udp dport { a-b, c }`), Windows as `LocalPorts`
+      `a-b,c`. A server with no game module guards exactly `ALLOWLIST_PORTS`, as before.
 - [ ] `ALLOWLIST_NFT_TABLE` is a letter then up to 31 letters, digits or `_`; `ALLOWLIST_INTERFACE` is at most 15
       characters from `[A-Za-z0-9_.@-]`, starting with a letter or digit. Neither can close a quote or a brace in the
       script.
@@ -70,6 +72,28 @@ the nftables script or the Windows rule.
       the rule does not grow. Each address expires `ALLOWLIST_TTL_SECONDS` after its last report (default 600).
 - [ ] Changes are debounced: at most one firewall change per `ALLOWLIST_MIN_INTERVAL_MS` (default 3000), however
       fast addresses arrive (`sync.rs`).
+
+### Game modules' UDP ranges (DF4d)
+
+A game module that registers a UDP port (`Registration::udp_ports`) gets the range into the rule through the
+allowlist's core plugin (`modules.rs`, `AllowlistPlugin`) before it starts, and it leaves when the module unloads.
+The set is held in `guard.rs`, outside the helper, so a restarted allowlist module keeps the loaded modules' ranges.
+
+- [ ] The range is the one the controller assigned (it moves a clash, DD4), read from the registry before the module
+      starts; the port must be one the manifest declares as UDP, and the assigned range must be as wide as declared.
+      A module cannot name a range of its own.
+- [ ] A range is refused (and with it the module's load) unless it is a valid range (non-zero, low to high, at most
+      1024 ports), starts at 1024 or above, overlaps neither `ALLOWLIST_PORTS` nor another module's range nor
+      another range of its own, and the rule stays within 32 ranges (`Guard::attach`; unit and fuzz-checked).
+- [ ] A refused attach changes nothing: the set and the firewall stay as they were.
+- [ ] An attach or detach re-applies the rule with the same addresses at once, without waiting out
+      `ALLOWLIST_MIN_INTERVAL_MS` (`FirewallSync::reapply`); a change during a run is not lost to that run. The
+      range is in the firewall before the module's game servers start, which a player's request triggers later.
+- [ ] A public server whose allowlist this process does not run (the Node or Docker helper) refuses every module
+      that registers a UDP port (`AllowlistPlugin::absent`), because nothing could guard it. A private server has
+      no allowlist and no plugin. A build without the `allowlist` feature adds neither.
+- [ ] Every change is audited as `ports_changed` with the module's ranges; `/status` shows `modulePorts` only when
+      a module has any.
 
 ### nftables (Linux)
 
