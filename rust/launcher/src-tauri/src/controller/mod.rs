@@ -36,6 +36,7 @@ pub mod host;
 #[cfg(not(feature = "host"))]
 #[path = "host_off.rs"]
 pub mod host;
+pub mod install;
 #[cfg(feature = "legacy")]
 pub mod legacy;
 #[cfg(not(feature = "legacy"))]
@@ -351,6 +352,8 @@ pub struct Controller {
     /// The Host page (`host.rs`)
     #[cfg_attr(not(feature = "host"), allow(dead_code, reason = "the Host page's"))]
     host: host::HostState,
+    /// Installs from Epic (`install.rs`, DE5)
+    installs: install::Installs,
     /// The executable's hash by size and time (`userData/file-hashes.json`)
     hashes: tokio::sync::Mutex<HashCache>,
     /// The legacy edition's file cache (`legacy.rs`)
@@ -397,6 +400,7 @@ impl Controller {
             keys,
             game,
             host,
+            installs: install::Installs::default(),
             hashes: tokio::sync::Mutex::new(hashes),
             legacy,
             state: Mutex::new(State::new(stored)),

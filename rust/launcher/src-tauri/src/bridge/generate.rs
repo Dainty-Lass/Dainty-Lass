@@ -121,6 +121,8 @@ fn declarations() -> String {
         EpicVersionInfo,
         GameVersionEntry,
         EpicView,
+        InstallState,
+        InstallInfo,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -142,6 +144,7 @@ fn declarations() -> String {
         "type GameVersionList = { ok: true; versions: Array<GameVersionEntry> } | { ok: false; error: LauncherError };"
             .into(),
     );
+    declare("type InstallOutcome = { ok: true; install: InstallInfo } | { ok: false; error: LauncherError };".into());
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
     out

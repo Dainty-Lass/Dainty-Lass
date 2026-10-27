@@ -8,8 +8,8 @@ own Epic library (docs/dainty-lass-plan.md DD22, rows DE1 to DE7, DX2). `SECURIT
 How to use it: before the first release that installs from Epic, copy this list into the release notes' review,
 check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
 date and the commit reviewed. An item that does not hold is a bug to fix before that release, not a box to leave
-open. DE1 wrote the manifest and chunk readers, DE2 the sign-in; the items under "The CDN" are for DE5 to make
-true.
+open. DE1 wrote the manifest and chunk readers, DE2 the sign-in, DE3 the ownership check, DE5 the installer
+(`download.rs` and `download/`, and the launcher's `net/epic_install.rs` and `controller/install.rs`).
 
 ## What it is and where the boundary is
 
@@ -22,18 +22,25 @@ or chunk is code the player will run.
   or the community archive (DD22). None of these is trusted; the pin is.
 - **In, from Epic's CDN:** `.chunk` files from three hosts, without a login (`download::CDN_BASES`).
 - **In, from the player:** the authorization code, pasted or captured by the sign-in webview.
+- **In, from the data folder:** the resume file an earlier run left (`download/resume.rs`). Only the launcher writes
+  it, but it is read as untrusted: a wrong line costs a refetch, never a file left unchecked.
 - **Out:** files written under the install folder the player chose, one folder per version.
 
 Code: `manifest.rs` (header, sections, checks), `manifest/reader.rs` (bounded reads), `manifest/path.rs` (file
 names), `chunk.rs` (chunk check), `auth.rs` (secret types, sign-in through `egs-api`), `library.rs` (ownership and
-its cache, DE3), `download.rs` (stubs, CDN hosts). In the launcher: `platform/epic_session.rs`,
-`platform/epic_login.rs`, `platform/keystore/epic.rs`, `platform/epic_library.rs` and the `epic_*` commands in
-`bridge/commands.rs`.
+its cache, DE3), `download.rs` (the installer and its `Gate`), `download/cdn.rs` (the HTTPS client),
+`download/sources.rs` (where a manifest comes from), `download/resume.rs`, `download/md5.rs`. In the launcher:
+`platform/epic_session.rs`, `platform/epic_login.rs`, `platform/keystore/epic.rs`, `platform/epic_library.rs`, the
+`epic_*` commands in `bridge/commands.rs`, `controller/install.rs` (the profile's pin, the joined server's copy, the
+ownership gate, the `game_install_*` commands) and `net/epic_install.rs` (DR's job: pause, resume, cancel,
+progress).
 
 Fuzz target: `epic_manifest` in `rust/fuzz` (a whole manifest file under its own pin, the unpacked sections behind
-a valid header, and a chunk checked against an entry made from its payload). It checks that nothing panics, that a
-wrong pin is always refused, that every accepted file name passes the folder rules again and stays under the root,
-each once, with parts inside listed chunks, and that an accepted chunk is exactly the size and SHA-1 its entry says.
+a valid header, a chunk checked against an entry made from its payload, and a resume file's body behind a matching
+header). It checks that nothing panics, that a wrong pin is always refused, that every accepted file name passes the
+folder rules again and stays under the root, each once, with parts inside listed chunks, that an accepted chunk is
+exactly the size and SHA-1 its entry says, and that a resume file yields at most one entry per line and nothing
+under another manifest's pin.
 
 ## Checklist
 
@@ -41,8 +48,11 @@ each once, with parts inside listed chunks, and that an accepted chunk is exactl
 
 - [ ] `Manifest::parse` hashes the whole file and compares it with the pin before reading a byte of it; a
       mismatch is `PinMismatch` whatever the bytes. Test: `nothing_is_read_before_the_pin_matches`.
-- [ ] The pin comes from compiled-in data (the game module's client profile, DE4), never from the server or the
-      archive that supplied the manifest. Whichever source answered, the same pin applies (DD22).
+- [ ] The pin comes from compiled-in data (the game module's client profile in
+      `net/versions/builtin.rs`, DE4; the install looks the version up there, never in the joined server's list),
+      never from the server or the archive that supplied the manifest. `download::fetch_manifest` tries the joined server's copy, then the
+      profile's sources in order, and parses only bytes whose SHA-1 is the pin; a source that gives other bytes is
+      skipped for the next (DD22). Test: `the_manifest_comes_from_the_first_source_that_gives_the_pinned_one`.
 - [ ] The header's own SHA-1 of the unpacked data is checked too (`DataHash`); encrypted manifests and JSON
       manifests are refused rather than half-read (`Encrypted`, `Json`).
 - [ ] Unpacking is capped: the header's unpacked size must be at most 64 MiB (`MAX_DATA`) and the stream must give
@@ -63,9 +73,13 @@ each once, with parts inside listed chunks, and that an accepted chunk is exactl
       `names_that_leave_the_install_folder_are_refused`.
 - [ ] A file with a symlink target is refused (`Symlink`): a link could point outside the folder.
 - [ ] Two names that differ only in case are refused (`DuplicatePath`): they are one file on Windows.
-- [ ] The installer (DE5) builds each path with `InstallPath::under(folder)`, which joins component by component,
-      and writes nowhere else. It must also refuse to follow a symlink or junction already inside the folder
-      (open with no-follow, or check each parent).
+- [ ] The installer builds each path with `InstallPath::under(folder)`, which joins component by component, and
+      writes nowhere else. Before creating anything it checks the version folder and every parent of every file
+      with `symlink_metadata` and refuses a symlink or junction (`LinkInFolder`; Rust's `is_symlink` counts
+      junctions on Windows). Tests: `a_link_inside_the_folder_is_refused` (skipped where the account can't make
+      symlinks), `names_that_leave_the_folder_never_reach_the_installer`. Accepted gap: a link planted inside the
+      folder after that check and before a write (another process running as the player) is followed; such a
+      process could write the files itself.
 - [ ] Every file part names a chunk the manifest lists and stays inside its unpacked size (`UnknownChunk`,
       `PartOutOfRange`), so assembly never reads past a buffer. Test:
       `parts_must_name_a_listed_chunk_and_stay_inside_it`.
@@ -78,18 +92,41 @@ each once, with parts inside listed chunks, and that an accepted chunk is exactl
       `malformed_chunks_fail_cleanly`.
 - [ ] Both packed and stored chunks are handled (a quarter of 1.14.7's are stored). Test:
       `packed_and_stored_chunks_of_every_header_version_decode_and_assemble`.
-- [ ] The installer (DE5) checks every assembled file's SHA-1 against the manifest, then the executable's SHA-256
-      against the client profile, before the version shows as installed.
+- [ ] The installer checks every file's size and SHA-1 against the manifest, and its SHA-256 and MD5 where the
+      manifest lists them, then the executable's SHA-256 against the client profile, before the version shows as
+      installed (`download::verify`, `ExecutableHash`; the launcher writes `userData/epic/<version>.installed`
+      only then). A file that fails has its chunks fetched again once; a second failure stops the install
+      (`FileMismatch`). Tests: `installs_from_three_hosts_when_one_redirects_and_one_corrupts`,
+      `a_file_that_fails_its_check_has_its_chunks_fetched_again`, `a_file_that_fails_twice_stops_the_install`,
+      `the_executable_must_be_the_one_the_profile_pins`, `rfc_1321_test_suite`.
+- [ ] A chunk that fails `chunk::decode` is fetched again from the next host, never written. Test:
+      `installs_from_three_hosts_when_one_redirects_and_one_corrupts`.
+- [ ] The resume file lives in the data folder, never the game folder, and names its manifest's pin and folder: one
+      for another download is ignored and rewritten. A file the resume file marks as checked was flushed to disk
+      (`sync_all`) before the line was written; a file missing or of another size on resume has its chunks fetched
+      again. A file changed on disk after its check, with its size kept, is not checked again on resume (only the
+      executable is, by SHA-256): repairing an install is a later row's. Tests:
+      `a_download_killed_halfway_resumes_without_fetching_again`, `only_this_downloads_file_and_whole_lines_count`.
 
 ### The CDN: TLS and no redirects
 
-- [ ] Chunks are fetched only from `download::CDN_BASES`, over HTTPS with the webpki roots; plain HTTP is never
-      tried, even though the manifests' own `BaseUrl` fields still list `http://` hosts. Those fields are ignored.
-- [ ] No redirect is followed: anything but `200` is a failure for that host, and the next host is tried. A chunk
-      body is capped at the entry's download size plus a little. (`tests/archive.rs`'s `get` does this today; the
-      DE5 downloader must keep it.)
-- [ ] The CDN needs no login, so no Epic token is ever sent to it. Ownership is checked first (DE3): nothing is
-      downloaded for an account without Dauntless.
+- [ ] Chunks are fetched only from `download::CDN_BASES`, over HTTPS with the webpki roots (`download::Https`,
+      `https_only`); plain HTTP is never tried, even though the manifests' own `BaseUrl` fields still list `http://`
+      hosts. Those fields are ignored. The manifest sources are fetched by the same client.
+- [ ] No redirect is followed: anything but `200` is a failure for that host, and the next host is tried; a host
+      that failed goes to the back of the order. A chunk body is capped at the entry's download size plus 1 KiB, a
+      manifest at 16 MiB, every request at 60 s. Test: `installs_from_three_hosts_when_one_redirects_and_one_corrupts`
+      (a host answering `302` to a good copy is not followed).
+- [ ] The CDN needs no login, so no Epic token or header of the player's is sent to it. Ownership is asked first
+      (`download::Gate`; the launcher's refreshes the session and puts it through DE3's `require_ownership`, and
+      `game_install_start` asks it too, so the page hears `epic_not_owned` at once): nothing is created or fetched
+      for an account without Dauntless, and a library that can't be read, or no session, refuses as well. Test:
+      `nothing_is_fetched_for_an_account_without_dauntless`.
+- [ ] A chunk that answers 403 or 404 on every host ends the install as `ChunkUnavailable { deleted: true }`
+      (`game_version_unavailable` on the page); there is no other source. Test:
+      `a_chunk_epic_deleted_everywhere_makes_the_version_unavailable`.
+- [ ] The free space the files still need is checked before anything is created (`NoSpace`); a disk that fills
+      anyway stops the install with `disk_space`. Test: `too_little_space_is_refused_before_anything_is_fetched`.
 
 ### Signing in (DE2)
 
@@ -153,7 +190,12 @@ These do not block DE1 but must be settled, or accepted in writing, before the f
 - **Tokens in memory.** `Token` does not zero its memory on drop (no `zeroize` in the workspace). A memory dump of
   the launcher shows the session, as it shows the account key.
 - **Chunks Epic deletes.** A version whose chunks return 403 or 404 on every host shows as unavailable (DD22); the
-  downloader must not fall back to any other source.
+  downloader falls back to no other source. It finds out only when it reaches such a chunk, after downloading
+  what came before.
+- **The joined server's manifest route.** The launcher asks `GET /content/v1/versions/<version>/epic/manifest`
+  (`net::versions::server_manifest_path`, DF4b) over the server's pinned connection with that server's own account
+  key (`net::hostapi::key_headers`) and nowhere else; whatever it answers is checked against the pin like any
+  source. A 401, a 404 (`no_epic_manifest`) or a 503 (`epic_manifest_invalid`) moves on to the profile's sources.
 - **Rolling hash.** Chunks are checked by SHA-1 only; Epic's rolling hash is used for the CDN file name, not
   checked. SHA-1 is enough against corruption and, with the manifest pinned, against a CDN serving other bytes for
   a known chunk name (that would need a second preimage).

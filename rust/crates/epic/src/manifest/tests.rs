@@ -31,6 +31,8 @@ pub(crate) struct Build {
     pub section_padding: usize,
     pub chunk_count: Option<u32>,
     pub compress: bool,
+    /// This file's listed SHA-1 matches no data (the installer's second-failure case)
+    pub wrong_sha1: Option<usize>,
 }
 
 pub(crate) fn chunk(n: u8, len: usize) -> TestChunk {
@@ -68,6 +70,7 @@ impl Default for Build {
             section_padding: 0,
             chunk_count: None,
             compress: true,
+            wrong_sha1: None,
         }
     }
 }
@@ -151,9 +154,13 @@ impl Build {
             .iter()
             .for_each(|f| fstring(&mut fml, &f.name, self.utf16_names));
         self.files.iter().for_each(|f| fstring(&mut fml, &f.symlink, false));
-        self.files
-            .iter()
-            .for_each(|f| fml.extend(Sha1Digest::of(&self.file_data(f)).0));
+        for (i, f) in self.files.iter().enumerate() {
+            let mut sha1 = Sha1Digest::of(&self.file_data(f)).0;
+            if self.wrong_sha1 == Some(i) {
+                sha1[0] ^= 1;
+            }
+            fml.extend(sha1);
+        }
         self.files.iter().for_each(|_| fml.push(FileFlags::READ_ONLY));
         for _ in &self.files {
             fml.extend(1u32.to_le_bytes());
@@ -168,16 +175,16 @@ impl Build {
                 fml.extend(size.to_le_bytes());
             }
         }
-        for _ in &self.files {
+        for f in &self.files {
             fml.extend(1u32.to_le_bytes());
-            fml.extend([0x5A; 16]);
+            fml.extend(md5_of(&self.file_data(f)));
         }
         self.files
             .iter()
             .for_each(|_| fstring(&mut fml, "application/octet-stream", false));
         self.files
             .iter()
-            .for_each(|f| fml.extend(sha256_stand_in(&self.file_data(f))));
+            .for_each(|f| fml.extend(<[u8; 32]>::from(sha2::Sha256::digest(self.file_data(f)))));
         section(&mut out, 2, &fml, pad);
 
         let mut custom = Vec::new();
@@ -193,11 +200,11 @@ impl Build {
     }
 }
 
-/// No SHA-256 in the dependencies; the parser only carries the field.
-fn sha256_stand_in(data: &[u8]) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    out[..20].copy_from_slice(&Sha1Digest::of(data).0);
-    out
+/// The installer checks a listed MD5 (2.1.1's manifests carry them).
+pub(crate) fn md5_of(data: &[u8]) -> [u8; 16] {
+    let mut md5 = crate::download::md5::Md5::new();
+    md5.update(data);
+    md5.finish()
 }
 
 /// The header around `data`.
@@ -263,9 +270,12 @@ fn a_synthetic_manifest_parses_in_full() {
     assert_eq!(exe.sha1, Sha1Digest::of(&build.file_data(&build.files[1])));
     assert!(exe.flags.read_only());
     assert_eq!(exe.install_tags, [""]);
-    assert_eq!(exe.md5, Some([0x5A; 16]));
+    assert_eq!(exe.md5, Some(md5_of(&build.file_data(&build.files[1]))));
     assert_eq!(exe.mime_type, "application/octet-stream");
-    assert!(exe.sha256.is_some());
+    assert_eq!(
+        exe.sha256,
+        Some(sha2::Sha256::digest(build.file_data(&build.files[1])).into())
+    );
     assert_eq!(m.install_size(), 16 + 96);
     assert_eq!(m.download_size(), (64 / 2 + 41) + (48 / 2 + 41));
 }
