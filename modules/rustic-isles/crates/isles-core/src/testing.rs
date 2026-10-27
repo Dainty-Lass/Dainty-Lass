@@ -109,24 +109,30 @@ impl Mounts {
 /// mounted route 501 in the launcher envelope, any other 404 (or 501 when a mounted route takes its path).
 pub async fn sweep(service: Service, address: SocketAddr, mounts: Mounts) -> Vec<String> {
     let table = crate::routes::all();
-    let ported = crate::areas::backend();
     let mut failures = Vec::new();
+    // A route an area has ported answers its own way; its own tests check it
+    let handlers = if service == Service::Backend {
+        crate::areas::backend()
+    } else {
+        crate::http::Handlers::default()
+    };
     for route in table.iter().filter(|r| r.service == service) {
         let path = sample_path(route);
-        // A route an area has ported answers its own way (that area's tests); the sweep checks the 501s
-        let answered_by_area = service == Service::Backend
-            && table.iter().any(|other| {
-                other.service == service
-                    && other.method == route.method
-                    && mounts.mounted(other)
-                    && ported.get(other).is_some()
-                    && (other.when != When::Gauntlet || route.when == When::Gauntlet)
-                    && Pattern::parse(other.path)
-                        .ok()
-                        .and_then(|p| p.matches(path.trim_start_matches(GAUNTLET_ORIGIN)))
-                        .is_some()
-            });
-        if answered_by_area {
+        let matches_path = |other: &RouteDef| {
+            other.service == service
+                && other.method == route.method
+                && mounts.mounted(other)
+                && (other.when != When::Gauntlet || route.when == When::Gauntlet)
+                && Pattern::parse(other.path)
+                    .ok()
+                    .and_then(|p| p.matches(path.trim_start_matches(GAUNTLET_ORIGIN)))
+                    .is_some()
+        };
+        if handlers.get(route).is_some()
+            || table
+                .iter()
+                .any(|other| matches_path(other) && handlers.get(other).is_some())
+        {
             continue;
         }
         let taken = mounts.mounted(route)

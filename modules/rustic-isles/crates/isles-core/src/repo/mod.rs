@@ -166,6 +166,7 @@ impl Repositories {
     pub fn on_store() -> Self {
         Self {
             accounts: Arc::new(auth::SqlAccounts),
+            friendships: Arc::new(chat::SqlFriendships),
             ..Self::stubs()
         }
     }

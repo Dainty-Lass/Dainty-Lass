@@ -10,6 +10,11 @@ publish.workspace = true
 
 [dependencies]
 module-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
