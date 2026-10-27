@@ -19,9 +19,9 @@ use super::spec::{
 };
 use super::types::{
     ActionResult, Branding, EpicLibraryCheck, ErrorCode, ExternalTarget, GameVersionList, HostAction, HostFolder,
-    HostKit,
-    HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck, LauncherError,
-    MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
+    HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck,
+    LauncherError, MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot,
+    TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::core::text::{js_length, js_trim};
