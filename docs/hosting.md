@@ -71,6 +71,7 @@ same tree from its Host page. Logs are in `.workspace\logs` (the game servers' i
 | `multipliers` | XP and loot multipliers for a private test server (`--xp 5 --rewards 5`, `--off`) |
 | `update` | Install a newer server release and run `setup` again (`--check` only compares) |
 | `backup` | Dump the database |
+| `network` | The cluster CA and node certificates of a network (`ca-init`, `issue-node-cert`, `list`; see [A network of servers](#a-network-of-servers)) |
 
 ## Settings
 
@@ -96,6 +97,7 @@ servers' key) lives only in `secrets.env`.
 | (edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below) |
 | (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one (this build has none yet) and no other |
 | (edit `host.toml`) | `[network]` `node`, `region` | This server's name and region in a network. Left out: a server on its own |
+| (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
 
 ### The database engine
 
@@ -143,6 +145,42 @@ unload stops it and kills everything it started.
 Each service reads one env file `setup` writes into `.workspace\config` (`gateway.env`, `content.env`,
 `backend.env`, `director.env`, `allowlist.env`, `admin.env`), and nothing else. Don't edit them: `setup`
 rewrites them from `host.toml`.
+
+### A network of servers
+
+Several public servers, one in each region, can form one network (DD16). Each server stays an ordinary server; they
+call each other through their gateways, on the same TLS port players use, under a certificate authority you run.
+The steps are yours to do by hand:
+
+1. On your own machine (not a server), make the CA once: `reforged-host network ca-init --out cluster-ca.pem`. The
+   file holds the CA's key. Back it up, and never copy it to a server.
+2. For each server, issue its certificate from that file:
+   `reforged-host network issue-node-cert --ca cluster-ca.pem --node oregon-1 --region oregon --host 203.0.113.7`
+   (`--host` is the address its gateway answers on, an IP or a DNS name, as the other nodes will list it; repeat it
+   for more; `--days` sets how long it is valid, 365 by default). It writes `node-cert.pem`, `node-key.pem` and
+   `cluster-ca-cert.pem` to a folder named after the node.
+3. Copy those three files to the server's `.workspace/tls` folder, next to the gateway's own certificate.
+4. In each server's `host.toml`, name it and list the others, then run `setup` again:
+
+```toml
+[network]
+node = "oregon-1"
+region = "oregon"
+
+[[network.nodes]]
+id = "uk-1"
+region = "uk"
+host = "uk.example.org"     # an IP address or a lower-case DNS name, as in the certificate
+port = 443
+fingerprint = "..."         # optional: that server's public certificate, from `gateway make-cert --fingerprint`
+```
+
+A node answers only the nodes it lists, and a certificate from the CA is not enough: to cut a node off, remove it
+from the other nodes' lists and run `setup` again. Node links need `mode = "public"`. Certificates are renewed by
+issuing a new one before `reforged-host network list` says "expires soon"; the server logs a warning 30 days ahead.
+The `fingerprint` is what the launcher pins when it measures the ping to that region; a peer without one is
+still a peer, only not listed to players. `reforged-host network list` shows this server's place in the network,
+or, with `--ca <file>`, what a CA has issued.
 
 ## Public servers
 

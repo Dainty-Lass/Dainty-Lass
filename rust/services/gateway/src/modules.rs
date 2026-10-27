@@ -32,8 +32,9 @@ pub struct RouteGroup {
     pub host_only: bool,
 }
 
-/// Links between the nodes of a network (DD16): host-only, for DN3's mutual TLS. A stub until then: every
-/// request under it is refused, from anywhere.
+/// Links between the nodes of a network (DD16): host-only. A peer reaches them on a connection that offered the
+/// node ALPN name and presented a cluster certificate (DN3, `nodelink.rs`), which the gateway serves before any
+/// routing. Every request that comes any other way, wrapped in `/__origin` or not, is refused here.
 pub const NODE_LINKS: RouteGroup = RouteGroup {
     prefix: "/__node",
     host_only: true,

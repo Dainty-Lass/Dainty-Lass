@@ -88,8 +88,24 @@ pub async fn run_with_routes(
     config: Config,
     capture: Option<CaptureWriter>,
     in_process_allowlist: Option<crate::feed::InProcessSink>,
+    ctx: service_kit::context::ServiceContext,
+    routes: Option<Arc<ModuleRoutes>>,
+) -> Result<(), String> {
+    run_with_node_links(config, capture, in_process_allowlist, ctx, routes, None).await
+}
+
+/// Where a gateway leaves its node-link side for the network plugin, which attaches the service that
+/// answers its peers (DN3). Filled when the gateway starts, if this server is a node of a network.
+pub type NodeLinkSlot = Arc<std::sync::Mutex<Option<Arc<crate::nodelink::NodeLinks>>>>;
+
+/// [`run_with_routes`], leaving the node-link side in `node_links` once the gateway is up.
+pub async fn run_with_node_links(
+    config: Config,
+    capture: Option<CaptureWriter>,
+    in_process_allowlist: Option<crate::feed::InProcessSink>,
     mut ctx: service_kit::context::ServiceContext,
     routes: Option<Arc<ModuleRoutes>>,
+    node_links: Option<NodeLinkSlot>,
 ) -> Result<(), String> {
     ctx.status.starting();
     let tls = match if config.tls { Some(load_tls(&config)) } else { None } {
@@ -183,6 +199,26 @@ pub async fn run_with_routes(
     .inspect_err(|err| {
         ctx.status.failed(err.clone());
     })?;
+    if let Some(links) = gateway.node_links() {
+        let cert = links.certificate();
+        let expiry = chrono::DateTime::from_timestamp(cert.not_after, 0);
+        let fields = json!({
+            "node": cert.identity.node.as_str(),
+            "region": cert.identity.region.as_str(),
+            "fingerprint": cert.fingerprint,
+            "certificateValidUntil": expiry.map(iso),
+        });
+        linelog::info("node links on", fields.clone());
+        if expiry.is_some_and(|until| until - chrono::Utc::now() < chrono::Duration::days(30)) {
+            linelog::warn(
+                "the node certificate expires within 30 days; issue a new one (`network issue-node-cert`)",
+                fields,
+            );
+        }
+        if let Some(slot) = &node_links {
+            *slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(links.clone());
+        }
+    }
     ctx.status.ready(Some(listen_addr), Some(mode_detail.into()));
     linelog::info("gateway ready", serde_json::Value::Object(ready));
     let (stop, stopping) = tokio::sync::watch::channel(false);

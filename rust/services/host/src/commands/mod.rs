@@ -20,6 +20,7 @@ pub mod doctor;
 pub mod gamedata;
 pub mod invite;
 pub mod multipliers;
+pub mod network;
 pub mod preset;
 pub mod publish_runtime;
 pub mod setup;
@@ -54,6 +55,7 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Multipliers(args) => multipliers::run(paths, args),
         Command::Update(args) => update::run(paths, args),
         Command::Backup => backup::run(paths),
+        Command::Network(args) => network::run(args, Some(paths)),
         Command::Gateway { args }
         | Command::Allowlist { args }
         | Command::Content { args }

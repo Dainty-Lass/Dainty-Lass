@@ -19,11 +19,19 @@
 //! [network]
 //! node = "oregon-1"
 //! region = "oregon"
+//!
+//! [[network.nodes]]                    # the other nodes of the network (DN3); left out: no peers
+//! id = "uk-1"
+//! region = "uk"
+//! host = "uk.example.org"              # an IP address or a lower-case DNS name
+//! port = 443
+//! fingerprint = "<64 lowercase hex>"   # optional: the peer's public certificate, listed to the launcher (DN7)
 //! ```
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use module_api::{ModuleId, NodeId, Region, Sha256Hex};
+use network_plugin::cluster::{Peer, check_peers};
 use serde_json::{Map, Value};
 
 use crate::error::HostError;
@@ -60,6 +68,8 @@ pub struct ModulesConfig {
 pub struct NetworkConfig {
     pub node: NodeId,
     pub region: Region,
+    /// The other nodes (`[[network.nodes]]`): the only ones this node answers, and the ones it calls
+    pub nodes: Vec<Peer>,
 }
 
 fn bad(text: impl Into<String>) -> HostError {
@@ -294,16 +304,38 @@ impl NetworkConfig {
                 .map(str::to_owned)
                 .ok_or_else(|| bad(format!("network.{key} must be set: a name of a-z, 0-9 and -")))
         };
-        Ok(Self {
-            node: name("node")?.parse().map_err(|e| bad(format!("network.node: {e}")))?,
-            region: name("region")?
-                .parse()
-                .map_err(|e| bad(format!("network.region: {e}")))?,
-        })
+        let node: NodeId = name("node")?.parse().map_err(|e| bad(format!("network.node: {e}")))?;
+        let region = name("region")?
+            .parse()
+            .map_err(|e| bad(format!("network.region: {e}")))?;
+        let nodes = match m.get("nodes") {
+            None => Vec::new(),
+            Some(list) => list
+                .as_array()
+                .ok_or_else(|| bad("network.nodes must be a list of [[network.nodes]] tables"))?
+                .iter()
+                .map(|item| {
+                    serde_json::from_value::<Peer>(item.clone()).map_err(|e| {
+                        bad(format!(
+                            "[[network.nodes]]: {e} (the settings there are id, region, host, port, fingerprint)"
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+        check_peers(&node, &nodes).map_err(|e| bad(format!("network.nodes: {e}")))?;
+        Ok(Self { node, region, nodes })
     }
 
     pub fn to_json(&self) -> Value {
-        serde_json::json!({ "node": self.node.to_string(), "region": self.region.to_string() })
+        let mut out = Map::new();
+        out.insert("node".into(), Value::String(self.node.to_string()));
+        out.insert("region".into(), Value::String(self.region.to_string()));
+        if !self.nodes.is_empty() {
+            let nodes = self.nodes.iter().filter_map(|peer| serde_json::to_value(peer).ok());
+            out.insert("nodes".into(), Value::Array(nodes.collect()));
+        }
+        Value::Object(out)
     }
 }
 

@@ -2141,6 +2141,7 @@ dependencies = [
  "hyper-util",
  "indexmap 2.14.2",
  "module-api",
+ "network",
  "protocol",
  "proxy",
  "rcgen",
@@ -2647,6 +2648,7 @@ dependencies = [
  "hyper-util",
  "libc",
  "module-api",
+ "network",
  "protocol",
  "ratatui",
  "rcgen",
@@ -3735,18 +3737,28 @@ dependencies = [
 name = "network"
 version = "0.0.0"
 dependencies = [
+ "bytes",
  "diesel",
  "diesel_migrations",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "module-api",
  "protocol",
+ "rcgen",
+ "rustls",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "store",
  "tempfile",
  "thiserror 2.0.21",
+ "time",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "url",
+ "x509-parser",
 ]
 
 [[package]]

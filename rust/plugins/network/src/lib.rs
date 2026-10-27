@@ -1,23 +1,39 @@
 //! The network core plugin (DD16-DD18): regional nodes of one operator's cluster, each an ordinary
-//! server. This row (DN4) is the directory and what it needs from node links:
+//! server.
 //!
-//! - [`link`]: [`PeerLink`] and [`NodeService`], the two sides of a call between nodes. DN3 carries them
-//!   over mutual TLS on host-only gateway routes; [`inprocess`] carries them inside one process for tests,
-//!   with partitions; [`NoPeers`] is the link of a server outside a network.
-//! - [`directory`]: account to home and username claims, one leader writing an append-only log that
-//!   every other node pulls ([`Directory`]), on `store`.
+//! - [`cluster`]: the cluster CA and the node certificates it issues, and the mutual-TLS settings every
+//!   node link uses (DN3).
+//! - [`link`]: [`PeerLink`] and [`NodeService`], the two sides of a call between nodes. [`tls`] carries
+//!   them over mutual TLS to a peer's gateway ([`TlsPeerLink`], with peer health and clock checks);
+//!   [`endpoint`] is the answering side the gateway's `/__node` routes call; [`wire`] is what both put on
+//!   the wire. [`inprocess`] carries them inside one process for tests, with partitions; [`NoPeers`] is
+//!   the link of a server outside a network.
+//! - [`directory`] (feature `directory`): account to home and username claims, one leader writing an
+//!   append-only log that every other node pulls ([`Directory`]), on `store`.
 //! - [`messages`]: what the directory's nodes send each other.
 //!
 //! A server that isn't in a network runs the same directory with no peers (section 6): it is its own
 //! leader, and nothing leaves it.
 
+pub mod cluster;
+#[cfg(feature = "directory")]
 pub mod directory;
+pub mod endpoint;
 pub mod inprocess;
 pub mod link;
+#[cfg(feature = "directory")]
 pub mod messages;
+pub mod tls;
+#[cfg(feature = "directory")]
 pub mod username;
+pub mod wire;
 
+#[cfg(feature = "directory")]
 pub use directory::{AccountRecord, Directory, DirectoryConfig, DirectoryError, Role};
-pub use link::{LinkError, NoPeers, NodeService, PeerLink, Service};
+pub use endpoint::NodeEndpoint;
+pub use link::{Clock, LinkError, NoPeers, NodeService, PeerLink, Service};
+#[cfg(feature = "directory")]
 pub use messages::{DirectoryChange, DirectoryEntry, Refusal};
+pub use tls::{PeerHealth, PeerState, TlsLinkConfig, TlsPeerLink};
+#[cfg(feature = "directory")]
 pub use username::Username;

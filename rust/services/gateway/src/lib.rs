@@ -16,6 +16,7 @@ pub mod guard;
 pub mod ip;
 pub mod modules;
 pub mod network;
+pub mod nodelink;
 pub mod policy;
 pub mod ratelimit;
 pub mod redact;
