@@ -10,6 +10,10 @@ use module_api::{Actor, ActorContext, NodeIdentity};
 use serde_json::json;
 use store::{DatabaseConfig, KeyValue};
 
+/// One test at a time: each opens the database, which prepares it (triggers, migrations) under locks that a write of
+/// another open store can deadlock with. A server opens its database once.
+static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// Each engine to test, with the directory a SQLite file lives in.
 fn engines() -> Vec<(&'static str, DatabaseConfig, Option<tempfile::TempDir>)> {
     let dir = tempfile::tempdir().unwrap();
@@ -53,6 +57,7 @@ async fn create(store: &IslesStore, account: &AccountId, inventory: InventoryRec
 
 #[tokio::test(flavor = "multi_thread")]
 async fn an_inventory_is_written_by_revision_and_logged() {
+    let _serial = SERIAL.lock().await;
     for (name, config, _dir) in engines() {
         let store = open_store(&config);
         let account = account();
@@ -119,6 +124,7 @@ async fn an_inventory_is_written_by_revision_and_logged() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_deleted_inventory_is_hidden_and_comes_back() {
+    let _serial = SERIAL.lock().await;
     for (name, config, _dir) in engines() {
         let store = open_store(&config);
         let account = account();
@@ -155,6 +161,7 @@ async fn a_deleted_inventory_is_hidden_and_comes_back() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_ledger_claims_replays_and_lists() {
+    let _serial = SERIAL.lock().await;
     for (name, config, _dir) in engines() {
         let store = open_store(&config);
         let (mine, theirs) = (account(), account());

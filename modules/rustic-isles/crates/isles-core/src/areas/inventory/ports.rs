@@ -4,42 +4,39 @@
 //!
 //! | port | Node | owner |
 //! | --- | --- | --- |
-//! | [`Authenticator`] | `middleware/HasParadoxBackendAuth.ts` | auth |
+//! | [`Authenticator`] | `middleware/HasParadoxBackendAuth.ts` | auth (until it lands, the `AuthData` it leaves in the request's extensions, as the characters area reads it) |
 //! | [`Wallet`] | `controllers/wallet.ts` (`ApplyCurrencyDeltas`, `MergeWalletIntoStacked`), `challengeRewards.ts` | bounties-store |
-//! | [`StarterBootstrap`] | `controllers/starterManifest.ts` (`EnsureStarterBootstrapRecordsInTransaction`) | characters-loadouts |
-//! | [`Characters`] | `controllers/character.ts` (`GetCharactersForUid`) | characters-loadouts |
+//! | [`StarterBootstrap`] | `controllers/starterManifest.ts` (`EnsureStarterBootstrapRecordsInTransaction`) | characters-loadouts (wired) |
+//! | [`Characters`] | `controllers/character.ts` (`GetCharactersForUid`) | characters-loadouts (wired) |
 //! | [`Observer`] | `diagnostics/*`, `activity/activityMonitor.ts` (monitoring only, never on the wire) | reforged-api, bounties-store |
 
 use std::sync::Arc;
 
-use axum::http::{HeaderMap, Method};
+use axum::http::{Extensions, HeaderMap, Method};
 use axum::response::Response;
 use module_api::BoxFuture;
-use rifts_seam::RuntimeAuth;
 use serde_json::{Map, Value};
 
+use module_api::ActorContext;
+
+use crate::areas::characters::controller::{CtlError, characters_for_user};
+use crate::areas::characters::starter::{EnsureError, ensure_in_transaction};
 use crate::db::IslesStore;
 use crate::http::Shared;
-use crate::repo::{AccountId, AnyConnection, RepoError, RepoResult, Repositories, Tx};
+use crate::repo::{AccountId, RepoError, RepoResult, Repositories, Tx};
 
 use crate::repo::inventory::InventoryRecord;
 
-/// The part of Node's `req.AuthData` this area reads.
-#[derive(Debug, Clone, Default)]
-pub struct AuthData {
-    /// `IsGameserver`: the dedicated server's API key
-    pub is_gameserver: bool,
-    /// The JWT's `userId`, or (a bearer-less gameserver call, under the `ConfiguredAccount` policy) the configured one
-    pub user_id: Option<String>,
-    /// `IsPlayerHostRuntime`: a realm host's runtime, authenticated by rustic-rifts
-    pub host_runtime: Option<RuntimeAuth>,
-}
+/// The part of Node's `req.AuthData` this area reads: the characters area's, which the auth middleware fills.
+pub use crate::areas::characters::AuthData;
 
 /// The request as the middleware sees it: the body is read after.
 pub struct AuthRequest<'a> {
     pub method: &'a Method,
     pub path: &'a str,
     pub headers: &'a HeaderMap,
+    /// Where the auth middleware leaves the request's [`AuthData`]
+    pub extensions: &'a Extensions,
     pub request_id: &'a str,
 }
 
@@ -55,17 +52,19 @@ pub trait Authenticator: Send + Sync {
     fn authenticate<'a>(&'a self, shared: &'a Shared, request: AuthRequest<'a>) -> BoxFuture<'a, Authentication>;
 }
 
+/// The auth middleware's `AuthData` in the request's extensions; a request without it is refused 401, as
+/// `HasParadoxBackendAuth` refuses one it couldn't authenticate.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct UnwiredAuth;
+pub struct ExtensionAuth;
 
-impl Authenticator for UnwiredAuth {
+impl Authenticator for ExtensionAuth {
     fn authenticate<'a>(&'a self, _: &'a Shared, request: AuthRequest<'a>) -> BoxFuture<'a, Authentication> {
-        let id = request.request_id.to_owned();
+        let found = request.extensions.get::<AuthData>().cloned();
         Box::pin(async move {
-            Authentication::Answer(super::respond::repo_error(
-                &RepoError::unimplemented("auth", "has_paradox_backend_auth"),
-                &id,
-            ))
+            match found {
+                Some(auth) => Authentication::Authenticated(auth),
+                None => Authentication::Answer(super::respond::empty(401)),
+            }
         })
     }
 }
@@ -176,23 +175,28 @@ pub trait StarterBootstrap: Send + Sync {
     ) -> RepoResult<Result<InventoryRecord, CharacterOwnership>>;
 }
 
+/// The characters area's starter bootstrap (`characters::starter::ensure_in_transaction`).
 #[derive(Debug, Clone, Copy, Default)]
-pub struct UnwiredStarter;
+pub struct CharactersStarter;
 
-impl StarterBootstrap for UnwiredStarter {
+impl StarterBootstrap for CharactersStarter {
     fn ensure(
         &self,
-        _: &mut Tx<'_>,
-        _: &Repositories,
-        _: &Shared,
-        _: &AccountId,
-        _: &str,
-        _: &str,
+        tx: &mut Tx<'_>,
+        repos: &Repositories,
+        shared: &Shared,
+        account: &AccountId,
+        user_id: &str,
+        character_id: &str,
     ) -> RepoResult<Result<InventoryRecord, CharacterOwnership>> {
-        Err(RepoError::unimplemented(
-            "starterManifest",
-            "ensure_starter_bootstrap_records",
-        ))
+        match ensure_in_transaction(tx, repos, &shared.version.tables, account, user_id, character_id) {
+            Ok((inventory, _loadout)) => Ok(Ok(inventory)),
+            Err(EnsureError::NotOwned { character_id, user }) => Ok(Err(CharacterOwnership {
+                character_id,
+                user_id: user,
+            })),
+            Err(EnsureError::Repo(error)) => Err(error),
+        }
     }
 }
 
@@ -200,37 +204,34 @@ impl StarterBootstrap for UnwiredStarter {
 pub trait Characters: Send + Sync {
     fn first_character_id<'a>(
         &'a self,
+        shared: &'a Shared,
         store: &'a IslesStore,
-        repos: &'a Repositories,
+        actor: &'a ActorContext,
         user_id: &'a str,
     ) -> BoxFuture<'a, RepoResult<Option<String>>>;
 }
 
-/// Reads the account's characters. `GetCharactersForUid` also creates one when the account has none; that write is
-/// the characters area's, so an account without a character answers `None` here.
+/// The characters area's `characters_for_user`, which also makes the first character when the account has none.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct ReadOnlyCharacters;
+pub struct CharactersArea;
 
-impl Characters for ReadOnlyCharacters {
+impl Characters for CharactersArea {
     fn first_character_id<'a>(
         &'a self,
+        shared: &'a Shared,
         store: &'a IslesStore,
-        repos: &'a Repositories,
+        actor: &'a ActorContext,
         user_id: &'a str,
     ) -> BoxFuture<'a, RepoResult<Option<String>>> {
-        let repos = repos.clone();
-        let user = crate::UserId(user_id.to_owned());
         Box::pin(async move {
-            store
-                .database()
-                .read(move |conn: &mut AnyConnection| -> RepoResult<Option<String>> {
-                    let Some(account) = repos.accounts.find_by_user_id(conn, &user)? else {
-                        return Ok(None);
-                    };
-                    let characters = repos.characters.find_many_by_account(conn, &account.id)?;
-                    Ok(characters.into_iter().next().map(|character| character.character_id))
-                })
-                .await
+            match characters_for_user(store, &shared.version.tables, actor, user_id).await {
+                Ok(list) => Ok(list
+                    .first()
+                    .and_then(|character| character.get("id"))
+                    .and_then(|id| id.as_str().map(str::to_owned))),
+                Err(CtlError::Repo(error)) => Err(error),
+                Err(other) => Err(RepoError::Data(other.to_string())),
+            }
         })
     }
 }
@@ -275,10 +276,10 @@ pub struct Ports {
 impl Default for Ports {
     fn default() -> Self {
         Self {
-            auth: Arc::new(UnwiredAuth),
+            auth: Arc::new(ExtensionAuth),
             wallet: Arc::new(UnwiredWallet),
-            starter: Arc::new(UnwiredStarter),
-            characters: Arc::new(ReadOnlyCharacters),
+            starter: Arc::new(CharactersStarter),
+            characters: Arc::new(CharactersArea),
             observer: Arc::new(NoObserver),
             repos: None,
         }

@@ -27,7 +27,7 @@ use crate::db::IslesStore;
 use crate::game_data::GameDataRoot;
 use crate::http::{Handlers, Shared, app};
 use crate::repo::auth::AccountRecord;
-use crate::repo::characters::{CharacterRecord, CharacterRepository};
+use crate::repo::characters::CharacterRecord;
 use crate::repo::inventory::{InventoryRecord, apply_reforge_update};
 use crate::repo::progression::{
     ProgressionGrantRecord, ProgressionGrantRepository, ProgressionObjectiveRecord, ProgressionTrackRecord,
@@ -205,55 +205,6 @@ impl StarterBootstrap for ExistingInventory {
                 character_id: character_id.to_owned(),
                 user_id: user_id.to_owned(),
             }))
-    }
-}
-
-/// Characters in memory, in the order they were made.
-#[derive(Default)]
-pub struct MemoryCharacters {
-    rows: Mutex<Vec<CharacterRecord>>,
-}
-
-impl MemoryCharacters {
-    pub fn add(&self, record: CharacterRecord) {
-        if let Ok(mut rows) = self.rows.lock() {
-            rows.push(record);
-        }
-    }
-}
-
-impl CharacterRepository for MemoryCharacters {
-    fn find_many_by_account(&self, _: &mut AnyConnection, account: &AccountId) -> RepoResult<Vec<CharacterRecord>> {
-        let rows = self.rows.lock().map_err(|_| RepoError::Data("poisoned".into()))?;
-        Ok(rows.iter().filter(|c| c.account == *account).cloned().collect())
-    }
-
-    fn find(
-        &self,
-        _: &mut AnyConnection,
-        character_id: &str,
-        account: &AccountId,
-    ) -> RepoResult<Option<CharacterRecord>> {
-        let rows = self.rows.lock().map_err(|_| RepoError::Data("poisoned".into()))?;
-        Ok(rows
-            .iter()
-            .find(|c| c.character_id == character_id && c.account == *account)
-            .cloned())
-    }
-
-    fn create(&self, tx: &mut Tx<'_>, character: &CharacterRecord) -> RepoResult<CharacterRecord> {
-        Stub.create(tx, character)
-    }
-
-    fn update_data_conditional(
-        &self,
-        tx: &mut Tx<'_>,
-        character_id: &str,
-        account: &AccountId,
-        data: &str,
-        version: i64,
-    ) -> RepoResult<()> {
-        Stub.update_data_conditional(tx, character_id, account, data, version)
     }
 }
 
@@ -515,7 +466,6 @@ pub struct Harness {
     pub accounts: BTreeMap<String, AccountId>,
     pub wallet: Arc<MemoryWallet>,
     pub tracks: Arc<MemoryTracks>,
-    pub characters: Arc<MemoryCharacters>,
     pub repos: Repositories,
 }
 
@@ -547,8 +497,11 @@ pub fn postgres_config() -> Option<DatabaseConfig> {
     }))
 }
 
-/// Opens the store the config names.
+/// Opens the store the config names. Serialized: two opens of one Postgres database, which prepare it under locks
+/// of their own, can deadlock, and a server opens its database once.
 pub fn open_store(config: &DatabaseConfig) -> IslesStore {
+    static OPEN: Mutex<()> = Mutex::new(());
+    let _open = OPEN.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let node = NodeIdentity::standalone();
     let home = Arc::new(StandaloneHome { identity: node.clone() });
     match IslesStore::open(config, &DatabaseOptions::default(), home, &node) {
@@ -558,14 +511,12 @@ pub fn open_store(config: &DatabaseConfig) -> IslesStore {
 }
 
 /// The repositories of a store with the stand-ins in place of the other areas'.
-pub fn repositories(store: &IslesStore) -> (Repositories, Arc<MemoryCharacters>, Arc<MemoryTracks>) {
-    let characters = Arc::new(MemoryCharacters::default());
+pub fn repositories(store: &IslesStore) -> (Repositories, Arc<MemoryTracks>) {
     let tracks = Arc::new(MemoryTracks::default());
     let mut repos = store.repos().clone();
-    repos.characters = characters.clone();
     repos.progression_tracks = tracks.clone();
     repos.progression_grants = Arc::new(MemoryGrants::default());
-    (repos, characters, tracks)
+    (repos, tracks)
 }
 
 impl Harness {
@@ -588,7 +539,18 @@ impl Harness {
         rifts: rifts_seam::Rifts,
     ) -> Self {
         let store = open_store(config);
-        let (repos, characters, tracks) = repositories(&store);
+        // A database kept from an earlier run (the Postgres half's) starts empty: the seed's user ids are fixed
+        let cleared = store
+            .write(&super::transaction::system_actor("testkit"), |tx, _| {
+                use diesel::RunQueryDsl;
+                for table in ["inventory_transactions", "inventories", "characters", "accounts"] {
+                    diesel::sql_query(format!("DELETE FROM {table}")).execute(tx.conn())?;
+                }
+                Ok(())
+            })
+            .await;
+        assert!(cleared.is_ok(), "{cleared:?}");
+        let (repos, tracks) = repositories(&store);
         let wallet = Arc::new(MemoryWallet::default());
         let mut accounts = BTreeMap::new();
         let node = NodeIdentity::standalone();
@@ -620,7 +582,7 @@ impl Harness {
             );
             for character in user["characters"].as_array().into_iter().flatten() {
                 let character_id = character["characterId"].as_str().unwrap_or_default().to_owned();
-                characters.add(CharacterRecord {
+                let row = CharacterRecord {
                     character_id: character_id.clone(),
                     account: account.clone(),
                     created_date: "2026-10-01T00:00:00.000Z".into(),
@@ -628,7 +590,14 @@ impl Harness {
                     name: format!("Hunter {character_id}"),
                     update_version: 1,
                     data: "{}".into(),
-                });
+                };
+                let wrote = store
+                    .account_write(&account, &actor, {
+                        let repos = repos.clone();
+                        move |tx, _| repos.characters.create(tx, &row).map(|_| ())
+                    })
+                    .await;
+                assert!(wrote.is_ok(), "{wrote:?}");
                 let inventory = InventoryRecord {
                     character_id,
                     account: Some(account.clone()),
@@ -659,6 +628,7 @@ impl Harness {
         let ports = Ports {
             auth: Arc::new(HeaderAuth),
             wallet: wallet.clone(),
+            // The recording stubbed the starter bootstrap too: it is the characters area's, and tested there
             starter: Arc::new(ExistingInventory),
             repos: Some(repos.clone()),
             ..Ports::default()
@@ -681,7 +651,6 @@ impl Harness {
             accounts,
             wallet,
             tracks,
-            characters,
             repos,
         }
     }

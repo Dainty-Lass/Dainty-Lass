@@ -25,7 +25,7 @@ use super::reforge::{
 use super::respond;
 use super::transaction::{
     Economy, GrantHook, ItemUpdate, TxContext, TxError, TxOptions, TxOutcome, TxRequest, get_inventory,
-    run_inventory_transaction, update_instanced_item,
+    run_inventory_transaction, system_actor, update_instanced_item,
 };
 use super::validation::{
     inventory_body_has_grant_or_spend, validate_instanced_item_update_body, validate_inventory_transaction_body,
@@ -76,6 +76,7 @@ pub async fn prepare(call: Call, ports: &Ports) -> Result<Prepared, Response> {
                 method: &parts.method,
                 path: parts.uri.path(),
                 headers: &parts.headers,
+                extensions: &parts.extensions,
                 request_id: &call.request_id,
             },
         )
@@ -242,7 +243,10 @@ pub async fn get_without_character(call: Call, ports: Ports) -> Response {
             Err(response) => return response,
         };
         let ctx = inventory_ctx(&prepared, store, &ports);
-        let first = ports.characters.first_character_id(store, &ctx.repos(), user).await;
+        let first = ports
+            .characters
+            .first_character_id(&prepared.shared, store, &system_actor(&prepared.request_id), user)
+            .await;
         match first {
             Err(error) => return respond::repo_error(&error, &prepared.request_id),
             Ok(Some(character_id)) if !character_id.is_empty() => {
@@ -362,8 +366,11 @@ pub async fn post_transaction(call: Call, ports: Ports) -> Response {
                 );
             }
         };
-        let repos = ports.repos.clone().unwrap_or_else(|| store.repos().clone());
-        match ports.characters.first_character_id(store, &repos, user).await {
+        match ports
+            .characters
+            .first_character_id(&prepared.shared, store, &system_actor(&prepared.request_id), user)
+            .await
+        {
             Err(error) => return respond::repo_error(&error, &prepared.request_id),
             Ok(Some(resolved)) if !resolved.is_empty() => {
                 tracing::info!(

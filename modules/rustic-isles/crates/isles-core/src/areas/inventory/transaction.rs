@@ -168,6 +168,13 @@ pub fn player_actor(account: &AccountId, request_id: Option<&str>) -> ActorConte
     actor
 }
 
+/// The actor of a read that may make the account's first character: the server, for a gameserver's player.
+pub fn system_actor(request_id: &str) -> ActorContext {
+    let mut actor = ActorContext::new(Actor::System);
+    actor.request = Some(request_id.to_owned());
+    actor
+}
+
 fn rolled_back(slot: &Mutex<Option<TxError>>, error: impl Into<TxError>) -> RepoError {
     if let Ok(mut slot) = slot.lock() {
         slot.get_or_insert(error.into());
