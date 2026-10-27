@@ -10,6 +10,8 @@ pub mod config;
 pub mod guard;
 pub mod guarded;
 pub mod guarded_cli;
+pub mod history;
+pub mod history_text;
 pub mod hmac;
 pub mod input;
 pub mod key_cli;

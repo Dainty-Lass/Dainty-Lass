@@ -5,9 +5,8 @@
 The checklist for `store`'s change log, `rust/crates/store/src/history.rs` and `database.rs`, its hash chain,
 `history/chain.rs` and `history/record.rs` (DH5), its history and revert engine, `revert.rs` (DH3a), and its
 shipping off the server and restore, `recovery.rs` with `rust/crates/history-ship` (DH4) (docs/dainty-lass-plan.md
-DD23, DH1, DH3a, DH4, DH5, DF7). A stub for DX2 to finish: it covers DH1's layer, the log written in the same
-transaction as each change, DH3a's engine, DH5's chain and DH4's shipping and restore. The `history`/`revert` commands
-(DH3b) add their own section.
+DD23, DH1, DH3a, DH3b, DH4, DH5, DF7). A stub for DX2 to finish: it covers DH1's layer, the log written in the same
+transaction as each change, DH3a's engine, DH5's chain, DH4's shipping and restore and DH3b's commands.
 
 How to use it: before the first service writes player data through `store::Database`, copy this list into the
 review, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with
@@ -128,6 +127,85 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
       operation, a `before`/`after` its operation doesn't have, a row that isn't a JSON object, a hash that isn't 64
       lower-case hex digits, a record over `MAX_RECORD`. Tests: `anything_the_log_could_not_have_written_is_refused`
       and the `history_record` fuzz target.
+
+## The commands: host kit, console, launcher and admin API (DH3b)
+
+`rust/services/admin/src/history.rs` and `history_text.rs` (the engine over a server's databases and its words), the
+host kit's `commands/history.rs` (`reforged-host history` and `revert`, the console's and dashboard's `history` and
+`revert`), the admin API's `history`, `historyCheck`, `revertPlan` and `revertApply` (`schema.rs`) and the server GUI's
+`history_query`, `history_revert_dry_run` and `history_revert_apply` (`launcher/src-tauri/src/server_history.rs`).
+Fuzz target: `history_input` (`rust/fuzz/fuzz_targets/history_input.rs`), for the text a person or the bot
+types (an actor, a time, an account, a cursor). Everything below the filter is `store`'s (`history_record` and the
+engine's tests).
+
+The boundary: whoever may run these can undo any change to player data, so the roles that may are the point. The host
+kit runs on the machine with `admin.env`, so it needs no key, as `admin key` does not; the admin API wants the owner;
+the server GUI wants the host's own launcher. The commands trust `store` to write only through its write path.
+
+### Who may
+
+- [ ] Reading the logs (`history`, `historyCheck`) needs `Role::Admin`; planning or applying a revert needs
+      `Role::Owner`, checked before anything is read (`allow` is the first line of each). A viewer, a moderator and an
+      admin each get `FORBIDDEN` with `requiredRole`. Tests: `only_the_owner_reverts_and_an_admin_reads`, and the
+      role table in `each_role_does_what_it_does_and_the_refusal_names_the_role_it_lacks`.
+- [ ] The actor of a revert is never taken from the request: `admin:<the key's id>` from the authenticated key,
+      `host:console` for the host kit's commands and console, `host:server-gui` for the launcher. Test:
+      `a_partners_revoked_keys_are_restored_by_the_owner_in_one_revert_and_a_changed_row_stays` (the audit row and
+      the revert's entries name the key).
+- [ ] Every revert through the API also leaves a `revertApply` row in `admin_actions` under the key, with the plan's
+      id and the counts.
+- [ ] A revert of more changes than `revert_limit` goes through `Admin::gate` before anything is written, and a held
+      one runs later as `Actor::Admin(<the key that asked>)` through `HistorySet::apply`, which plans again and refuses
+      a plan whose id is not the held `planId`. Tests: `a_revert_over_the_limit_is_held_and_applied_once_after_its_delay`,
+      `a_revert_under_the_limit_is_immediate`, `a_held_revert_whose_plan_no_longer_holds_is_refused_not_applied`.
+- [ ] The host kit's commands read `admin.env` from the workspace and open the databases beside the game's; they do
+      not take a database path from the command line, so they cannot be pointed at another server's file.
+
+### What is shown
+
+- [ ] Row bodies come out only through the admin API (admin or owner) and the server GUI, never in the host kit's or
+      the console's text, which prints the table, the key and the change. Test: the host kit's
+      `a_partners_mass_delete_is_reverted_in_one_command_and_a_row_changed_since_stays`.
+- [ ] A row of `admin_keys` goes out with `key_hash` as `<hidden>` (`history::redact`), in a history page, a plan and
+      the launcher's page. The hash cannot be turned back into a key, but there is no reason to hand it out. Test:
+      `a_partners_revoked_keys_are_restored_by_the_owner_in_one_revert_and_a_changed_row_stays`.
+- [ ] A plan or a result lists at most 500 rows of each kind (`MAX_LISTED`), with the real counts, so a mass delete
+      cannot make a reply the size of the table. The console prints at most 200 lines of a command.
+- [ ] Input is bounded and checked before a database is opened: an account, an actor or a time is 1 to 64 (40)
+      characters with no control character, a time is one of the documented forms, `since` is before `until`, a
+      cursor is at most 128 characters of `<database>:<id>` or `<database>:end` pairs, a page is 1 to 1000. Text the
+      user typed is not echoed back (the console prints it through `plain`). Tests:
+      `people_type_actors_and_times_in_the_forms_the_help_gives`,
+      `one_cursor_pages_every_log_newest_first_without_a_gap_or_a_repeat`.
+
+### What is applied
+
+- [ ] Applying runs only what the dry run showed: the apply plans again from the same selection and refuses unless the
+      plan's id (SHA-256 over every database's plan id) is the one given, then `store` checks each database's id again
+      under its write lock. A plan the server no longer has is `PLAN_EXPIRED`, never guessed. Tests: the same in the
+      host kit and admin API tests, `a_plan_that_has_gone_is_made_again_from_the_same_selection_or_refused`.
+- [ ] The admin API keeps at most 16 plans for ten minutes; a plan is dropped when applied. The server GUI keeps its
+      own and applies only a plan its dry run made.
+- [ ] Rows changed since stay as they are and are reported by the engine (DH3a's check); the commands report them and
+      never offer a way to force them.
+- [ ] `Database::attach` opens a database without its owner's migrations: it refuses a SQLite file that is not
+      there (it would make an empty one), runs no migration, puts the change-log triggers back on every table and keeps
+      a table with a `deleted_at` column soft-deleted. Test:
+      `a_database_attached_without_its_migrations_reverts_as_its_owner_does`.
+- [ ] The tools write through `Database::write` like every other writer: there is no second path to a table.
+
+## Known gaps (DH3b)
+
+- A revert that spans databases is atomic in each, not across them. A failure after the first leaves it reverted and
+  says so; there is no distributed transaction. On Postgres the databases are one.
+- A module's own database that is not the game's, the admin API's or chat's is not read until it is added to
+  `history::sources` (a file name) or declared with `store::declare_accounts` (account columns): today a module in
+  another repository declares its tables by calling `store::declare_accounts("node", ..)` where it opens its
+  `Database`, and the host kit, which does not run the module, sees only what `NODE_ACCOUNTS` lists. RU5's tables go
+  there.
+- The host kit's `revert`, the console and the launcher are not guarded (DH6 guards the admin API's `revertApply`): the
+  host's machine is the check there.
+- The dry run loads every entry the selection holds; a `--since` far back on a busy server reads a lot.
 
 ## Shipping off the server and restore (DH4)
 

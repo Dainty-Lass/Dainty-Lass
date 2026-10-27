@@ -77,6 +77,9 @@ same tree from its Host page. Logs are in `.workspace\logs` (the game servers' i
 | `update` | Install a newer server release and run `setup` again (`--check` only compares) |
 | `backup` | Dump the database |
 | `network` | The cluster CA and node certificates of a network (`ca-init`, `issue-node-cert`, `list`, `status`; see [A network of servers](#a-network-of-servers)) |
+| `history` | What changed in the server's data, by whom and when (`--actor`, `--account`, `--since`, `--until`); `history verify` checks the log's hash chain. See [Undoing a change](#undoing-a-change) |
+| `revert` | Undo what an actor, an account or a time range changed: a dry run first, then `--apply <plan id>` |
+
 
 ## Getting the game from Epic
 
@@ -106,6 +109,46 @@ Installing **1.14.7** also sets `game_dir` in `host.toml` to its folder and rewr
 Director's game servers run from it: restart the server for that to take effect. Without a `host.toml` yet, it
 tells you the `--game` to give `setup`. 1.12.0 is only installed (`game_dir` is 1.14.7's). **1.4.4 cannot be
 installed from Epic** (there is no archived manifest): use your own folder with `setup --legacy-game`.
+
+## Undoing a change
+
+Every change to the server's data is in a change log with who made it, when, and the row before and after
+([DD23](dainty-lass-plan.md)). A partner who turns on you, a bot that deletes the wrong accounts or an admin key
+used by someone it wasn't issued to can be seen and undone from the host, with no key:
+
+```powershell
+bin\reforged-host history --actor admin:58ef5419 --since 2d       # what that key did in the last two days, newest first
+bin\reforged-host history --account <account id>                  # everything that touched one player's rows
+bin\reforged-host revert --actor admin:58ef5419 --since 2d        # a dry run: prints what would change, and a plan id
+bin\reforged-host revert --actor admin:58ef5419 --since 2d --apply <plan id>
+bin\reforged-host history verify                                  # is the log itself intact?
+```
+
+- **Who and when.** `--actor` is `admin:<key id>` (the ids are in `admin key list`; a bare id works, `owner` is
+  `REFORGED_ADMIN_API_KEY`), `host:console`, `player:<account>` or `system:<task>`. A time is RFC 3339
+  (`2026-10-27T10:30:00Z`), a date or a date and time in UTC (`2026-10-27`, `2026-10-27T10:30`) or how long ago
+  (`90m`, `6h`, `2d`, `1w`). `--since` counts, `--until` doesn't. `history` shows 50 changes a page
+  (`--limit`, up to 1000) and prints the `--cursor` for the next, older page.
+- **A dry run changes nothing.** It lists the rows a revert would change (a deleted row brought back, a changed row
+  given its earlier values, an added row removed), the rows that **stay as they are** and why, and the rows that
+  are already right. `revert` with no `--apply` is a dry run. A revert needs an actor, an account or a start
+  time; there is no "revert everything".
+- **A row changed since stays.** If someone else changed a row after the selection did (the owner fixed it by
+  hand, a player played on), the revert doesn't overwrite it: the dry run lists it as "changed since by
+  admin:owner at ..." and the apply leaves it alone.
+- **Apply takes the plan's id** and the same options. It plans again and runs only if the plan is still the one
+  you saw; otherwise it says "the history changed since the dry run: run it again" and writes nothing. It is
+  logged as `host:console`, so it shows in `history` and can be reverted the same way.
+- **One revert, several databases.** The game's data, the admin API's keys and chat's messages are separate
+  databases on SQLite (one on Postgres). A revert is atomic in each, and if a later one fails the earlier ones
+  stay reverted and the message names them.
+- **`history verify`** walks each log's hash chain from its start and names the first entry that was edited or
+  removed. It exits 1 when one is broken. The head it prints is what to keep somewhere off the server.
+
+The same commands are in the `serve` console and the dashboard (`history --actor ...`, `revert ... --apply ...`;
+a long list is cut off at 200 lines, so read a mass revert in a terminal), in the server GUI's commands (its
+screen comes with DU3) and in the admin API for the owner's key ([admin-api.md](admin-api.md)). In Docker:
+`docker compose run --rm host history --actor admin:58ef5419`.
 
 ## Settings
 

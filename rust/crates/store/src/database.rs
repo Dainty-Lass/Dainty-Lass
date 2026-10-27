@@ -301,6 +301,53 @@ impl Database {
         })
     }
 
+    /// Opens a database another service's migrations made, as it is (DH3b): `history` and `revert` need the
+    /// log and the tables, not the owner's code. Nothing is migrated, and the file must exist on SQLite.
+    /// The triggers are put back on every table, a table with a `deleted_at` column soft-deleted as its owner
+    /// has it (DD23), and `accounts` are given to [`Database::with_account_columns`] for the tables and columns
+    /// that are there.
+    pub fn attach(
+        config: &DatabaseConfig,
+        options: &DatabaseOptions,
+        accounts: &[AccountColumn],
+    ) -> Result<Self, Error> {
+        if let DatabaseConfig::Sqlite { file } = config
+            && !file.is_file()
+        {
+            return Err(Error::Config(format!("{}: there is no database here", file.display())));
+        }
+        if let DatabaseConfig::Postgres(pg) = config {
+            pg.check_address().map_err(Error::Config)?;
+        }
+        let (soft_delete, accounts) = {
+            let mut conn = Manager { config: config.clone() }.connect().map_err(|e| match e {
+                diesel::r2d2::Error::ConnectionError(e) => Error::Connection(e),
+                diesel::r2d2::Error::QueryError(e) => Error::Query(e),
+            })?;
+            let mut soft_delete: Vec<&'static str> = Vec::new();
+            let mut present = Vec::new();
+            for table in history::user_tables(&mut conn)? {
+                let columns = history::columns(&mut conn, &table)?;
+                if columns.iter().any(|c| c.name == DELETED_AT) {
+                    // The trigger set takes `&'static str`: a table name leaks once, per attach
+                    soft_delete.push(Box::leak(table.clone().into_boxed_str()));
+                }
+                present.extend(
+                    accounts
+                        .iter()
+                        .filter(|a| a.table == table && columns.iter().any(|c| c.name == a.column)),
+                );
+            }
+            (soft_delete, present.into_iter().copied().collect::<Vec<_>>())
+        };
+        let schema = DatabaseSchema {
+            sqlite: || EmbeddedMigrations::new(&[]),
+            postgres: || EmbeddedMigrations::new(&[]),
+            soft_delete: Box::leak(soft_delete.into_boxed_slice()),
+        };
+        Ok(Self::open(config, options, &schema)?.with_account_columns(&accounts))
+    }
+
     /// Names the column of each table that holds a row's account, for history and reverts by account
     /// (DH3). Without it, a filter naming an account is refused.
     #[must_use]
@@ -309,7 +356,7 @@ impl Database {
         self
     }
 
-    pub(crate) fn account_columns(&self) -> Arc<[AccountColumn]> {
+    pub fn account_columns(&self) -> Arc<[AccountColumn]> {
         self.accounts.clone()
     }
 

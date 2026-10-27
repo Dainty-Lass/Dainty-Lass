@@ -477,14 +477,24 @@ impl Admin {
             .map_err(|e| e.message)
     }
 
-    /// DH3b: runs a held revert as `caller`. It plans `params["selection"]` again, refuses if the plan id is no
-    /// longer `params["planId"]` (something changed since it was held), and applies it as the actor of
-    /// `caller`. Not wired until DH3b gives the admin API the node database.
-    #[allow(clippy::unused_async)]
-    async fn run_revert(&self, _caller: &Caller, _params: &Value) -> async_graphql::Result<String> {
-        Err(fail(
-            Code::NotSupported,
-            "history revert is not available through the admin API yet",
+    /// DH3b: runs a held revert as `caller`: the selection it was held with is planned again, and applied only if
+    /// the plan still has the id it was held under (`HistorySet::apply` refuses a changed one, so a delay or an
+    /// approval never applies more than was shown), logged as `admin:<key id>`.
+    async fn run_revert(&self, caller: &Caller, params: &Value) -> async_graphql::Result<String> {
+        let held = |what: &str| fail(Code::BadInput, format!("the held revert has no usable {what}"));
+        let filter = params
+            .get("selection")
+            .and_then(crate::history::selection_from)
+            .ok_or_else(|| held("selection"))?;
+        let plan_id = params
+            .get("planId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| held("plan id"))?;
+        let applied = self.revert_now(caller, &filter, plan_id).await?;
+        let rows: usize = applied.done.iter().map(|(_, o)| o.plan.actions.len()).sum();
+        Ok(format!(
+            "reverted {rows} rows; {} left as they are",
+            applied.plan.conflicts()
         ))
     }
 }

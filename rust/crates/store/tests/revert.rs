@@ -657,3 +657,52 @@ async fn a_delete_logged_on_sqlite_is_reverted_after_moving_to_postgres() {
         "rows named in both engines' key text are one row each"
     );
 }
+
+// DH3b: a tool without the owner's migrations attaches to the file and reverts what the owner's code wrote.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_database_attached_without_its_migrations_reverts_as_its_owner_does() {
+    for target in targets() {
+        let owned = target.open();
+        let (a, _) = seed(&owned).await;
+        owned
+            .write(partner(), move |tx| {
+                tx.soft_delete("accounts", &[("id", KeyValue::Int(a))])?;
+                tx.conn().batch_execute("DELETE FROM items")?;
+                Ok::<_, Error>(())
+            })
+            .await
+            .unwrap();
+
+        // Columns of tables the file doesn't have are left out; the tables with `deleted_at` stay soft-deleted
+        let mut asked = ACCOUNTS.to_vec();
+        asked.push(AccountColumn {
+            table: "no_such_table",
+            column: "id",
+        });
+        let attached = Database::attach(&target.config(), &DatabaseOptions::default(), &asked).unwrap();
+        let by_account = Filter {
+            account: Some(a.to_string()),
+            ..by(partner())
+        };
+        assert_eq!(attached.history(by_account, None, 10).await.unwrap().entries.len(), 3);
+
+        let plan = attached.revert_dry_run(by(partner())).await.unwrap();
+        attached.revert_apply(owner(), plan).await.unwrap();
+        assert_eq!(all_accounts(&owned).await.iter().filter(|a| a.5.is_some()).count(), 0);
+        assert_eq!(all_items(&owned).await.len(), 3);
+        // The revert is in the log as a soft-delete undone, not as a plain update
+        let log = owned.changes(0, 1000).await.unwrap();
+        assert!(
+            log.iter()
+                .any(|e| e.actor == "admin:owner" && e.table_name == "accounts" && e.op == "restore")
+        );
+    }
+
+    // A file nobody made is not created
+    let dir = tempfile::tempdir().unwrap();
+    let missing = DatabaseConfig::Sqlite {
+        file: dir.path().join("none.db"),
+    };
+    assert!(Database::attach(&missing, &DatabaseOptions::default(), &[]).is_err());
+    assert!(!dir.path().join("none.db").exists());
+}

@@ -428,3 +428,136 @@ async fn a_viewer_cannot_see_or_decide_and_a_bad_id_is_refused() {
         assert_eq!(code(&w.gql(&query, known).await), "NOT_FOUND");
     }
 }
+
+// ------------------------------------------------------------------ a big history revert (DH3b)
+
+const PLAN: &str = "query($selection: HistoryFilter!) { revertPlan(selection: $selection) { id actionCount } }";
+const REVERT: &str = "mutation($id: String!, $selection: HistoryFilter) {
+  revertApply(planId: $id, selection: $selection) { rowsChanged conflictCount } }";
+
+/// More than one change is a big revert.
+fn revert_settings(rule: Rule) -> GuardSettings {
+    GuardSettings {
+        revert_limit: 1,
+        revert_guard: rule,
+        ..GuardSettings::default()
+    }
+}
+
+/// A partner (an owner-level key) revokes `n` moderators' keys. Returns the partner's id and the keys.
+async fn partner_revokes(w: &World, n: usize) -> (String, Vec<String>) {
+    let (partner, partner_key) = w.issue(Role::Owner, "Partner").await;
+    let mut keys = Vec::new();
+    for i in 0..n {
+        let (id, key) = w.issue(Role::Moderator, &format!("Mod {i}")).await;
+        let body = call(w, &partner_key, REVOKE, json!({"id": id})).await;
+        assert!(body["errors"].is_null(), "{body}");
+        assert_eq!(w.gql_as(&key, STATUS, json!({})).await.0, 401);
+        keys.push(key);
+    }
+    (partner, keys)
+}
+
+async fn plan_by(w: &World, partner: &str) -> (String, i64) {
+    let body = w
+        .gql(PLAN, json!({"selection": {"actor": format!("admin:{partner}")}}))
+        .await;
+    let plan = &body["data"]["revertPlan"];
+    (
+        plan["id"].as_str().unwrap().to_owned(),
+        plan["actionCount"].as_i64().unwrap(),
+    )
+}
+
+#[tokio::test]
+async fn a_revert_over_the_limit_is_held_and_applied_once_after_its_delay() {
+    let w = guarded_world(revert_settings(Rule::Delay)).await;
+    let (partner, keys) = partner_revokes(&w, 2).await;
+    let (plan, actions) = plan_by(&w, &partner).await;
+    assert_eq!(actions, 2);
+
+    let body = w.gql_as(API_KEY, REVERT, json!({"id": plan})).await.1;
+    let id = held_id(&body);
+    assert_eq!(body["errors"][0]["extensions"]["mode"], "DELAY");
+    for key in &keys {
+        assert_eq!(w.gql_as(key, STATUS, json!({})).await.0, 401, "held, not done");
+    }
+    // Asked again, it waits once
+    assert_eq!(held_id(&w.gql_as(API_KEY, REVERT, json!({"id": plan})).await.1), id);
+
+    w.clock.fetch_add(9 * MINUTE, Ordering::SeqCst);
+    w.admin.guard_sweep().await;
+    assert_eq!(w.gql_as(&keys[0], STATUS, json!({})).await.0, 401);
+    w.clock.fetch_add(MINUTE, Ordering::SeqCst);
+    w.admin.guard_sweep().await;
+    for key in &keys {
+        assert_eq!(
+            w.gql_as(key, STATUS, json!({})).await.0,
+            200,
+            "the delay ended and it ran"
+        );
+    }
+    let done = w.gql(&list(true), json!({})).await["data"]["guarded"][0].clone();
+    assert_eq!(
+        (done["kind"].as_str(), done["state"].as_str()),
+        (Some("revert"), Some("DONE"))
+    );
+    assert_eq!(done["result"], "reverted 2 rows; 0 left as they are");
+
+    // Once: more sweeps change nothing, and the revert is one audit row
+    for _ in 0..3 {
+        w.admin.guard_sweep().await;
+    }
+    let ran = audited(&w, &["revertApply"]).await;
+    assert_eq!(ran.len(), 1, "{ran:?}");
+}
+
+#[tokio::test]
+async fn a_revert_under_the_limit_is_immediate() {
+    let w = guarded_world(revert_settings(Rule::Delay)).await;
+    let (partner, keys) = partner_revokes(&w, 1).await;
+    let (plan, actions) = plan_by(&w, &partner).await;
+    assert_eq!(actions, 1);
+    let body = w.gql(REVERT, json!({"id": plan})).await;
+    assert_eq!(body["data"]["revertApply"]["rowsChanged"], 1, "{body}");
+    assert_eq!(w.gql_as(&keys[0], STATUS, json!({})).await.0, 200);
+    assert_eq!(w.gql(&list(true), json!({})).await["data"]["guarded"], json!([]));
+    // With the rule off the limit does not matter
+    let w = guarded_world(revert_settings(Rule::Off)).await;
+    let (partner, keys) = partner_revokes(&w, 2).await;
+    let (plan, _) = plan_by(&w, &partner).await;
+    let body = w.gql(REVERT, json!({"id": plan})).await;
+    assert_eq!(body["data"]["revertApply"]["rowsChanged"], 2, "{body}");
+    assert_eq!(w.gql_as(&keys[1], STATUS, json!({})).await.0, 200);
+}
+
+#[tokio::test]
+async fn a_held_revert_whose_plan_no_longer_holds_is_refused_not_applied() {
+    let w = guarded_world(revert_settings(Rule::Approval)).await;
+    let (partner, keys) = partner_revokes(&w, 2).await;
+    let (plan, _) = plan_by(&w, &partner).await;
+    let id = held_id(&w.gql_as(API_KEY, REVERT, json!({"id": plan})).await.1);
+    // While it waits the partner revokes a third key: the plan the owner was shown is not what would run
+    let (extra, extra_key) = w.issue(Role::Moderator, "Extra").await;
+    w.admin
+        .keys
+        .revoke(&extra, store::Actor::Admin(partner.clone()), START)
+        .await
+        .unwrap();
+    assert_eq!(w.gql_as(&extra_key, STATUS, json!({})).await.0, 401);
+
+    let (_, noor) = w.issue(Role::Owner, "Noor").await;
+    let body = call(&w, &noor, &approve_query(), json!({"id": id})).await;
+    assert_eq!(body["data"]["approve"]["state"], "FAILED", "{body}");
+    assert!(
+        body["data"]["approve"]["result"]
+            .as_str()
+            .unwrap()
+            .contains("history changed"),
+        "{body}"
+    );
+    for key in keys.iter().chain([&extra_key]) {
+        assert_eq!(w.gql_as(key, STATUS, json!({})).await.0, 401, "nothing was applied");
+    }
+    assert!(audited(&w, &["revertApply"]).await.is_empty());
+}

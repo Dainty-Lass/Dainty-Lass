@@ -57,6 +57,7 @@ pub fn prepare_with_control(
         timeouts: Timeouts::load(&config.timeouts_file)?,
         keys: keys.clone(),
         guard: Guards::new(keys.database().clone(), config.guard.clone()),
+        history: crate::history::Service::new(config.database.clone()),
         max_hunt_servers: config.max_hunt_servers,
         server_mode: config.server_mode,
         clock,

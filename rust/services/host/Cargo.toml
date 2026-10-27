@@ -95,6 +95,8 @@ rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs"
 tempfile.workspace = true
 # admin.env read back by the admin API itself
 admin.workspace = true
+# A game database to revert in, made without the game module's migrations
+diesel.workspace = true
 service-kit.workspace = true
 store.workspace = true
 

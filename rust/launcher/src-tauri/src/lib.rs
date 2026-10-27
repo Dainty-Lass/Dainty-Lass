@@ -17,6 +17,8 @@ mod net;
 mod platform;
 #[cfg(feature = "server-gui")]
 pub mod server_gui;
+#[cfg(feature = "server-gui")]
+pub mod server_history;
 mod window;
 
 use bridge::backend::Backend;

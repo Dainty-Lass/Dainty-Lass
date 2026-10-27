@@ -136,6 +136,83 @@ enum GuardedState {
 	EXPIRED
 }
 
+"""
+One log's hash chain checked from its start (`history verify`).
+"""
+type HistoryCheck {
+	database: String!
+	entries: String!
+	ok: Boolean!
+	headId: String
+	headHash: String
+	"""
+	Where the chain breaks and what that means.
+	"""
+	broken: String
+}
+
+"""
+One change to one row, from a database's change log.
+"""
+type HistoryEntry {
+	id: String!
+	"""
+	`node` (the game), `admin` or `chat`.
+	"""
+	database: String!
+	at: String!
+	"""
+	Who made it: `player:<account>`, `admin:<key id>`, `host:<command>` or `system:<task>`.
+	"""
+	actor: String!
+	table: String!
+	"""
+	The row's primary key, as JSON.
+	"""
+	key: String!
+	"""
+	`insert`, `update`, `delete`, `soft_delete`, `restore` or `migrate`.
+	"""
+	op: String!
+	"""
+	The row before and after, as JSON; an admin key's hash is hidden.
+	"""
+	before: String
+	after: String
+}
+
+"""
+Which changes to look at: every field set must match. An actor is `admin:<key id>`, `host:console`,
+`player:<account>` or `system:<task>` (a bare key id works too); times are RFC 3339, a date, or how long
+ago (`6h`, `2d`).
+"""
+input HistoryFilter {
+	"""
+	Rows that belong to this account id, before or after the change.
+	"""
+	account: String
+	actor: String
+	"""
+	From this time on, inclusive.
+	"""
+	since: String
+	"""
+	Up to this time, exclusive.
+	"""
+	until: String
+}
+
+"""
+Changes newest first.
+"""
+type HistoryPage {
+	entries: [HistoryEntry!]!
+	"""
+	Pass it as `cursor` for the next, older page; null at the end.
+	"""
+	next: String
+}
+
 type Hunt {
 	id: String!
 	title: String!
@@ -310,6 +387,13 @@ type Mutation {
 	Cancels a held action that has not run: the key that asked, or an owner.
 	"""
 	cancel(id: String!): GuardedAction!
+	"""
+	Applies the plan `revertPlan` showed: its rows are put back by compensating changes, logged as this
+	key, and a row changed since stays as it is. `PLAN_CHANGED` when the history moved since the plan, with
+	nothing written. Pass the same `selection` if the server no longer keeps the plan (PLAN_EXPIRED).
+	Owner role.
+	"""
+	revertApply(planId: String!, selection: HistoryFilter): RevertDone!
 }
 
 type Player {
@@ -377,6 +461,22 @@ type Query {
 	action was answered with the code GUARDED and its id. Moderator role or higher.
 	"""
 	guarded(all: Boolean): [GuardedAction!]!
+	"""
+	Changes from the change logs, newest first: who changed what, with the row before and after. Pass the
+	previous page's `next` as `cursor`; `limit` is 1 to 1000 (50). Admin role or higher.
+	"""
+	history(filter: HistoryFilter, cursor: String, limit: Int): HistoryPage!
+	"""
+	Walks each log's hash chain from its start and names the first entry edited or removed. Admin role or
+	higher.
+	"""
+	historyCheck: [HistoryCheck!]!
+	"""
+	What reverting a selection (an actor, an account, a time range) would do, and what stays as it is
+	because it changed since. Changes nothing; `revertApply` with the plan's `id` does what it shows.
+	Owner role.
+	"""
+	revertPlan(selection: HistoryFilter!): RevertPlan!
 }
 
 """
@@ -415,6 +515,109 @@ enum RestrictionKind {
 	Disabled by the backend's own admin tools.
 	"""
 	DISABLED
+}
+
+type RevertAction {
+	database: String!
+	table: String!
+	key: String!
+	kind: RevertKind!
+	"""
+	The row now and as the revert leaves it, as JSON.
+	"""
+	current: String
+	target: String
+}
+
+"""
+A row the revert leaves as it is.
+"""
+type RevertConflict {
+	database: String!
+	table: String!
+	key: String!
+	"""
+	`changed_since`, `not_as_logged`, `key_changed` or `schema_changed`.
+	"""
+	reason: String!
+	"""
+	`changed_since`: the first newer entry, who made it and when.
+	"""
+	entry: String
+	by: String
+	at: String
+	detail: String
+}
+
+type RevertDone {
+	planId: String!
+	"""
+	The revert's own entries carry this time and `admin:<key id>`.
+	"""
+	at: String
+	rowsChanged: Int!
+	databases: [RevertedIn!]!
+	"""
+	Rows left as they are.
+	"""
+	conflicts: [RevertConflict!]!
+	conflictCount: Int!
+	truncated: Boolean!
+}
+
+enum RevertKind {
+	"""
+	A deleted row, put back.
+	"""
+	INSERT
+	"""
+	A changed row, given its earlier values.
+	"""
+	UPDATE
+	"""
+	An added row, removed.
+	"""
+	DELETE
+	"""
+	An added row in a soft-delete table, soft-deleted.
+	"""
+	SOFT_DELETE
+}
+
+"""
+What a revert would do. `revertApply` with `id` does exactly this and nothing else.
+"""
+type RevertPlan {
+	id: String!
+	"""
+	Log entries the selection matches.
+	"""
+	entries: Int!
+	actionCount: Int!
+	conflictCount: Int!
+	unchangedCount: Int!
+	"""
+	The first rows of each list; `truncated` says there are more than listed.
+	"""
+	actions: [RevertAction!]!
+	conflicts: [RevertConflict!]!
+	unchanged: [RevertUnchanged!]!
+	truncated: Boolean!
+	"""
+	How long the server keeps this plan for `revertApply` without the selection.
+	"""
+	keptForSeconds: Int!
+}
+
+type RevertUnchanged {
+	database: String!
+	table: String!
+	key: String!
+}
+
+type RevertedIn {
+	database: String!
+	rows: Int!
 }
 
 """
