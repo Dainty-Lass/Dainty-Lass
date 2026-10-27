@@ -101,6 +101,10 @@ export const ERROR_KEYS: Record<ErrorCode, Key> = {
   module_input_invalid: "err_module_input_invalid",
   module_settings_invalid: "err_module_settings_invalid",
   module_failed: "err_module_failed",
+  history_bad_filter: "err_history_bad_filter",
+  history_unavailable: "err_history_unavailable",
+  history_plan_changed: "err_history_plan_changed",
+  history_failed: "err_history_failed",
   unknown: "err_unknown",
 }
 
@@ -170,6 +174,8 @@ export function errorMessage(
       }
     case "loader_leftovers":
       return { key: "err_loader_leftovers", vars: { detail } }
+    case "history_failed":
+      return { key: "err_history_failed", vars: { detail } }
     case "host_failed":
       return isKey(`host_err_${detail}`)
         ? { key: `host_err_${detail}` as Key }
