@@ -1,0 +1,43 @@
+[package]
+name = "isles-1-14-7"
+description = "The game module \"Rustic Isles 1.14.7\": the version's manifest, hooks, tables and Director config over isles-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "isles_1_14_7"
+
+# The module as an executable the controller starts out of process (DD5)
+[[bin]]
+name = "isles-1-14-7"
+path = "src/main.rs"
+test = false
+doc = false
+
+[features]
+default = ["realms"]
+# rustic-rifts' server crates; without them the module is dedicated-only (RF2)
+realms = ["dep:rifts-admission", "dep:rifts-relay", "dep:rifts-realms", "dep:rifts-guard"]
+
+[dependencies]
+isles-chat.workspace = true
+isles-core.workspace = true
+isles-director.workspace = true
+module-api.workspace = true
+rifts-seam.workspace = true
+serde_json.workspace = true
+rifts-admission = { workspace = true, optional = true }
+rifts-relay = { workspace = true, optional = true }
+rifts-realms = { workspace = true, optional = true }
+rifts-guard = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true
