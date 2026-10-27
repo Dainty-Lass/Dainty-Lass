@@ -10,9 +10,11 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["directory"]
+default = ["directory", "log-ship"]
 # The directory and its tables. The gateway takes the node links without it, so it doesn't build Diesel (DN3)
 directory = ["dep:diesel", "dep:diesel_migrations", "dep:protocol", "dep:store"]
+# The change log shipped to a peer node (DH7): PeerBucket and the folder a peer keeps. Pulls in `store` through history-ship
+log-ship = ["dep:history-ship"]
 
 [dependencies]
 # Ed25519 for session tickets and the CSPRNG for their ids (DN5); aws-lc-rs is already the tree's crypto
@@ -21,6 +23,7 @@ base64.workspace = true
 diesel = { workspace = true, optional = true }
 diesel_migrations = { workspace = true, optional = true }
 bytes = "1"
+history-ship = { workspace = true, optional = true }
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true

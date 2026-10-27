@@ -533,4 +533,50 @@ mod tests {
         let round_trip = HostConfig::from_toml(&config.to_toml().unwrap()).unwrap();
         assert_eq!(round_trip.network, config.network);
     }
+
+    #[test]
+    fn history_ship_to_peer_round_trips_and_validates_against_peers() {
+        let public = BASE
+            .replace("mode = \"private\"", "mode = \"public\"")
+            .replace("100.101.102.103", "203.0.113.10");
+        let toml = format!(
+            "{public}\n[history]\nship_to_peer = \"uk-1\"\n\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\n\n\
+             [[network.nodes]]\nid = \"uk-1\"\nregion = \"uk\"\nhost = \"198.51.100.2\"\nport = 443\n"
+        );
+        let config = HostConfig::from_toml(&toml).unwrap();
+        assert_eq!(
+            config.history.as_ref().and_then(|h| h.ship_to_peer.as_ref()),
+            Some(&"uk-1".parse().unwrap())
+        );
+        let round_trip = HostConfig::from_toml(&config.to_toml().unwrap()).unwrap();
+        assert_eq!(round_trip.history, config.history);
+        let from_json = HostConfig::from_json(&config.to_json().unwrap()).unwrap();
+        assert_eq!(from_json.history, config.history);
+        assert!(from_json.to_toml().unwrap().contains("ship_to_peer = \"uk-1\""));
+
+        // Refused without [network] or when naming itself or an unlisted peer
+        for (bad_toml, expected) in [
+            (
+                format!("{public}\n[history]\nship_to_peer = \"uk-1\"\n"),
+                "requires [network]",
+            ),
+            (
+                format!(
+                    "{public}\n[history]\nship_to_peer = \"oregon-1\"\n\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\n\n\
+                     [[network.nodes]]\nid = \"uk-1\"\nregion = \"uk\"\nhost = \"198.51.100.2\"\nport = 443\n"
+                ),
+                "is this node itself",
+            ),
+            (
+                format!(
+                    "{public}\n[history]\nship_to_peer = \"de-1\"\n\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\n\n\
+                     [[network.nodes]]\nid = \"uk-1\"\nregion = \"uk\"\nhost = \"198.51.100.2\"\nport = 443\n"
+                ),
+                "not listed in [[network.nodes]]",
+            ),
+        ] {
+            let err = HostConfig::from_toml(&bad_toml).unwrap_err().to_string();
+            assert!(err.contains(expected), "{err}");
+        }
+    }
 }

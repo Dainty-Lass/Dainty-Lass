@@ -282,6 +282,28 @@ read it back. Anyone with root on the server has the server's key, so everything
       `a_local_log_that_no_longer_chains_is_not_shipped_on_and_alerts`.
 - [ ] The status page and the admin API show the alert (host-kit and admin rows).
 
+### Shipping to a peer node (DH7)
+
+`rust/plugins/network/src/logship.rs` (`PeerBucket`, `PeerLogStore`, `Service::LogShip` on `/__node/log_ship`). Fuzz
+target: `network_logship` (`rust/fuzz/fuzz_targets/network_logship.rs`).
+
+- [ ] `PeerBucket` implements `history_ship::Bucket` over `PeerLink` + `Service::LogShip`, so `history_ship::Shipper`,
+      `ShipState`, `lag` and `restore_to` work unchanged whether shipping to S3 (DH4) or to a peer node (DH7).
+- [ ] The receiving node (`PeerLogStore`) authenticates the sender via the mTLS node link (`from` comes from the
+      verified client certificate, never the body), refuses any node not in its peer list (`UnknownPeer`), and enforces
+      that a peer `from` can only write keys under `"<from>/log/..."` or `"<from>/snapshot/..."` (`WrongPrefix`).
+- [ ] Every object key is parsed through `SegmentName::parse` or `SnapshotName::parse` before touching disk (rejecting
+      any path traversal, dotfile or unknown layout with `InvalidKey`), and `sha256_hex(&body)` is verified against the
+      64-hex digest in the key (`HashMismatch`).
+- [ ] Storage in `.workspace/peer-logs/<origin>/` is strictly append-only: existing files are never overwritten or
+      deleted through `Service::LogShip` (a repeat of the identical content-addressed key returns `Stored { created:
+      false }` with the original `received_at`), and `.meta.json` records `received_at` from the receiving peer's own
+      `Clock`, which `BucketRead::list` exposes as `ObjectInfo::last_modified` for `RestoreOptions::trust_window`.
+- [ ] Tests in `rust/plugins/network/tests/logship.rs`:
+      `a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_and_trusted_head_verified`,
+      `a_tampered_segment_is_named_and_peer_enforces_prefix_and_append_only`,
+      `a_down_peer_makes_lag_alert_fire_and_catch_up_works`.
+
 ## Known gaps
 
 - Root on the server can drop the triggers or the log. DH4 bounds the loss to what was not shipped yet; DH5's hash

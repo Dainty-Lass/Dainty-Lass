@@ -14,6 +14,9 @@
 //! - [`home`]: the home API (DD17): session tickets an account's home signs, and a game module's operations on an
 //!   account run at its home for another node ([`home::NetworkedHome`], [`home::HomeService`]).
 //!
+//! - [`logship`]: a node's change log shipped to a peer region's node (DH7): the put protocol, `PeerBucket` for
+//!   `history-ship`'s shipper, and the folder the peer keeps it in.
+//!
 //! A server that isn't in a network runs the same directory with no peers (section 6): it is its own
 //! leader, and nothing leaves it.
 
@@ -24,6 +27,8 @@ pub mod endpoint;
 pub mod home;
 pub mod inprocess;
 pub mod link;
+#[cfg(feature = "log-ship")]
+pub mod logship;
 #[cfg(feature = "directory")]
 pub mod messages;
 pub mod relay;

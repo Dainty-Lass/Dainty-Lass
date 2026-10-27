@@ -28,10 +28,12 @@ pub enum Service {
     Home,
     /// Operator actions relayed between nodes: an admin's kick or ban applied on every node (DN11)
     Admin,
+    /// A node's change log shipped to a peer, which keeps it (DD23 layer 2, DH7)
+    LogShip,
 }
 
 impl Service {
-    pub const ALL: [Service; 3] = [Self::Directory, Self::Home, Self::Admin];
+    pub const ALL: [Service; 4] = [Self::Directory, Self::Home, Self::Admin, Self::LogShip];
 }
 
 impl Service {
@@ -40,6 +42,7 @@ impl Service {
             Self::Directory => "directory",
             Self::Home => "home",
             Self::Admin => "admin",
+            Self::LogShip => "log_ship",
         }
     }
 

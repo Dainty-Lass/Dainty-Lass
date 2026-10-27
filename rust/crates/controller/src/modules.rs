@@ -174,7 +174,7 @@ pub fn gateway(
     .ready_within(std::time::Duration::from_secs(60)))
 }
 
-/// Configuration for the `"network"` module (DD2, DN3, DN5).
+/// Configuration for the `"network"` module (DD2, DN3, DN5, DH7).
 #[cfg(feature = "network")]
 pub struct NetworkOptions {
     pub node: module_api::NodeIdentity,
@@ -186,6 +186,10 @@ pub struct NetworkOptions {
     pub game: module_api::GameVersion,
     pub registry: crate::ModuleRegistry,
     pub replication_interval: std::time::Duration,
+    /// Folder where this node stores log segments and snapshots shipped from peers (`Service::LogShip`, DH7).
+    pub peer_log_dir: Option<std::path::PathBuf>,
+    /// Peer node to ship this node's change log and snapshots to (`[history] ship_to_peer`, DH7), and its state file.
+    pub ship_to_peer: Option<(module_api::network::NodeId, std::path::PathBuf)>,
 }
 
 #[cfg(feature = "network")]
@@ -240,10 +244,12 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
     let game = options.game;
     let registry = options.registry;
     let replication_interval = options.replication_interval;
+    let peer_log_dir = options.peer_log_dir;
+    let ship_to_peer = options.ship_to_peer;
     Ok(Module::new(
         "network",
         Arc::new(move |mut ctx| {
-            let (node, leader, peers, database, game, registry, link, tickets, router) = (
+            let (node, leader, peers, database, game, registry, link, tickets, router, peer_log_dir, ship_to_peer) = (
                 node.clone(),
                 leader.clone(),
                 peers.clone(),
@@ -253,6 +259,8 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 link.clone(),
                 tickets.clone(),
                 router.clone(),
+                peer_log_dir.clone(),
+                ship_to_peer.clone(),
             );
             Box::pin(async move {
                 if let store::DatabaseConfig::Sqlite { file } = &database
@@ -269,7 +277,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 let _health_task = link.spawn_health_checks();
                 let dir_config = network_plugin::directory::DirectoryConfig::in_network(node.node.clone(), leader);
                 let directory = Arc::new(
-                    network_plugin::directory::Directory::new(db, dir_config, link.clone())
+                    network_plugin::directory::Directory::new(db.clone(), dir_config, link.clone())
                         .await
                         .map_err(|e| format!("network directory: {e}"))?,
                 );
@@ -292,16 +300,54 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 ));
                 let services = registry.node_services();
                 services.set_peer_link(Some(link.clone()));
-                services.set_peer_roster(Some(link));
+                services.set_peer_roster(Some(link.clone()));
                 services.set_directory(Some(directory.clone()));
                 services.set_tickets(Some(tickets));
                 services.attach(network_plugin::Service::Directory, directory);
                 services.attach(network_plugin::Service::Home, home_service);
+                if let Some(dir) = peer_log_dir {
+                    let store = Arc::new(network_plugin::logship::PeerLogStore::new(
+                        dir,
+                        peers.iter().map(|p| p.id.clone()),
+                        Arc::new(network_plugin::Clock::default()),
+                    ));
+                    services.attach(network_plugin::Service::LogShip, store);
+                }
+                let ship_task = if let Some((target_peer, state_file)) = ship_to_peer {
+                    if let Some(parent) = state_file.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    let interval = replication_interval
+                        .min(std::time::Duration::from_secs(10))
+                        .max(std::time::Duration::from_millis(50));
+                    let mut settings = history_ship::ShipSettings::new(
+                        network_plugin::logship::PeerBucket::prefix_for(&node.node),
+                        state_file,
+                    );
+                    settings.interval = interval;
+                    settings.segment_bytes = 512 * 1024;
+                    let bucket = network_plugin::logship::PeerBucket::new(target_peer.clone(), link.clone());
+                    let mut shipper = history_ship::Shipper::new(db, bucket, settings)
+                        .map_err(|e| format!("network peer log shipper: {e}"))?;
+                    Some(tokio::spawn(async move {
+                        let mut every = tokio::time::interval(interval);
+                        every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                        loop {
+                            every.tick().await;
+                            if let Err(e) = shipper.tick().await {
+                                tracing::warn!(peer = %target_peer, error = %e, "peer log shipping tick failed");
+                            }
+                        }
+                    }))
+                } else {
+                    None
+                };
                 registry.set_home(networked_home);
                 ctx.status
                     .ready(None, Some(format!("{} ({} peers)", node.node, peers.len())));
                 ctx.wait_stop().await;
                 ctx.status.stopping();
+                services.detach(network_plugin::Service::LogShip);
                 services.detach(network_plugin::Service::Directory);
                 services.detach(network_plugin::Service::Home);
                 services.set_tickets(None);
@@ -309,6 +355,9 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 services.set_peer_roster(None);
                 services.set_peer_link(None);
                 registry.reset_home();
+                if let Some(task) = ship_task {
+                    task.abort();
+                }
                 if let Some(task) = replication_task {
                     task.abort();
                 }
