@@ -12,8 +12,8 @@ use diesel::sql_types::{BigInt, Integer, Text};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use serde_json::Value;
 use store::{
-    Actor, AnyConnection, ChangeEntry, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Engine, Error,
-    KeyValue, PostgresConfig, portable, transfer,
+    Actor, AnyConnection, ChangeEntry, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Engine, Error, Head,
+    KeyValue, PostgresConfig, history, portable, transfer,
 };
 
 const SQLITE: EmbeddedMigrations = embed_migrations!("tests/db/sqlite");
@@ -514,6 +514,8 @@ async fn keeps_working(target: &Target) {
     let after = entries(&db).await;
     assert_eq!(after.len(), before.len() + 2);
     assert!(after[before.len()].id > before.last().unwrap().id);
+    let verified = db.verify(None).await.unwrap();
+    assert_eq!(verified.broken, None, "the chain moves with the log and goes on");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -546,4 +548,310 @@ async fn a_database_moves_between_engines_and_back_unchanged() {
     );
     assert_eq!(back.open().engine(), Engine::Sqlite);
     keeps_working(&pg).await;
+}
+
+// ------------------------------------------------------------------ the hash chain (DH5)
+
+async fn chained(db: &Database) -> Vec<ChangeEntry> {
+    db.changes(0, 1000).await.unwrap()
+}
+
+/// Five writes of one entry each: an account named `alex...`, renamed four times.
+async fn five_writes(db: &Database) -> i64 {
+    let name = format!("alex-{}", NEXT.fetch_add(1, Ordering::Relaxed));
+    let id = db
+        .write(player(), {
+            let name = name.clone();
+            move |tx| Ok::<_, Error>(create_account(tx.conn(), &name)?)
+        })
+        .await
+        .unwrap();
+    for n in 1..5 {
+        let renamed = format!("{name}.{n}");
+        db.write(player(), move |tx| Ok::<_, Error>(rename(tx.conn(), id, &renamed)?))
+            .await
+            .unwrap();
+    }
+    id
+}
+
+/// What root on the server can do: the log's guards off, then `sql`.
+fn tamper(target: &Target, sql: &str) {
+    let mut raw = target.raw();
+    match target {
+        Target::Sqlite(_) => raw
+            .batch_execute(&format!(
+                "DROP TRIGGER IF EXISTS \"__store_change_log_no_update\";
+                 DROP TRIGGER IF EXISTS \"__store_change_log_no_delete\"; {sql}"
+            ))
+            .unwrap(),
+        Target::Postgres(_) => raw
+            .batch_execute(&format!(
+                "ALTER TABLE \"__store_change_log\" DISABLE TRIGGER USER; {sql};
+                 ALTER TABLE \"__store_change_log\" ENABLE TRIGGER USER;"
+            ))
+            .unwrap(),
+    }
+}
+
+/// Rewrites entries from `from` on with `edit` applied to the first, each hash recomputed, as someone who
+/// knows the encoding would.
+fn rewrite(target: &Target, from: i64, edit: impl Fn(&mut ChangeEntry)) {
+    let mut raw = target.raw();
+    let log = history::changes(&mut raw, 0, 1000).unwrap();
+    let mut prev = log.iter().rfind(|e| e.id < from).and_then(|e| e.hash.clone()).unwrap();
+    let mut statements = Vec::new();
+    for mut entry in log.into_iter().filter(|e| e.id >= from) {
+        if entry.id == from {
+            edit(&mut entry);
+        }
+        let hash = history::entry_hash(&prev, &entry);
+        statements.push(format!(
+            "UPDATE \"__store_change_log\" SET \"after\" = {}, \"prev_hash\" = {}, \"hash\" = {} WHERE id = {}",
+            entry
+                .after
+                .as_deref()
+                .map_or("NULL".to_owned(), portable::quote_literal),
+            portable::quote_literal(&prev),
+            portable::quote_literal(&hash),
+            entry.id
+        ));
+        prev = hash;
+    }
+    tamper(target, &statements.join(";\n"));
+}
+
+fn edited(entry: &mut ChangeEntry) {
+    entry.after = entry.after.as_ref().map(|a| a.replace("alex", "mallory"));
+}
+
+fn verify_after(target: &Target, head: &Head) -> history::Verification {
+    let mut raw = target.raw();
+    history::verify_after(&mut raw, head).unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn every_entry_is_chained_from_genesis_and_verifies() {
+    for target in targets() {
+        let db = target.open();
+        five_writes(&db).await;
+        let log = chained(&db).await;
+        assert_eq!(log.len(), 6, "a migration and five writes");
+        assert_eq!(log[0].prev_hash.as_deref(), Some(history::GENESIS));
+        for pair in log.windows(2) {
+            assert_eq!(pair[1].prev_hash, pair[0].hash);
+        }
+        for entry in &log {
+            let hash = history::entry_hash(entry.prev_hash.as_deref().unwrap(), entry);
+            assert_eq!(entry.hash.as_deref(), Some(hash.as_str()));
+        }
+        let head = db.head().await.unwrap().unwrap();
+        assert_eq!((head.id, Some(head.hash.clone())), (log[5].id, log[5].hash.clone()));
+        let verified = db.verify(Some(head.clone())).await.unwrap();
+        assert_eq!(verified.broken, None, "{:?}", db.engine());
+        assert_eq!((verified.entries, verified.head), (6, Some(head.clone())));
+
+        // A shipped head, then more writes: the range after it checks out on its own.
+        five_writes(&db).await;
+        let range = verify_after(&target, &head);
+        assert_eq!((range.entries, range.broken), (5, None));
+        assert_eq!(range.head, db.head().await.unwrap());
+        // Records read back chain as the log did.
+        let mut chain = history::Chain::genesis();
+        for entry in chained(&db).await {
+            let line = history::record::encode(&entry).unwrap();
+            chain.check(&history::record::decode(line.as_bytes()).unwrap()).unwrap();
+        }
+        assert_eq!(chain.head(), db.head().await.unwrap());
+    }
+}
+
+// DH5's Verify: an entry edited or removed locally is found and named.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_entry_edited_or_removed_is_found_and_named() {
+    for postgres in targets().iter().map(|t| matches!(t, Target::Postgres(_))) {
+        let fresh = || {
+            if postgres {
+                Target::Postgres(new_postgres().unwrap())
+            } else {
+                sqlite()
+            }
+        };
+        let log = "\"__store_change_log\"";
+
+        // Edited, its hash left as it was.
+        let target = fresh();
+        let db = target.open();
+        five_writes(&db).await;
+        let ids: Vec<i64> = chained(&db).await.iter().map(|e| e.id).collect();
+        tamper(
+            &target,
+            &format!(
+                "UPDATE {log} SET \"after\" = replace(\"after\", 'alex', 'mallory') WHERE id = {}",
+                ids[3]
+            ),
+        );
+        let found = db.verify(None).await.unwrap();
+        assert_eq!(
+            found.broken,
+            Some(history::Break::Edited { id: ids[3] }),
+            "postgres {postgres}"
+        );
+        assert_eq!((found.entries, found.head.map(|h| h.id)), (3, Some(ids[2])));
+
+        // Removed.
+        let target = fresh();
+        let db = target.open();
+        five_writes(&db).await;
+        let ids: Vec<i64> = chained(&db).await.iter().map(|e| e.id).collect();
+        tamper(&target, &format!("DELETE FROM {log} WHERE id = {}", ids[3]));
+        let found = db.verify(None).await.unwrap().broken.unwrap();
+        assert_eq!(
+            found,
+            history::Break::Unlinked {
+                id: ids[4],
+                after: Some(ids[2])
+            }
+        );
+        assert!(
+            found.to_string().contains(&format!("doesn't follow entry {}", ids[2])),
+            "{found}"
+        );
+
+        // Edited with its own hash recomputed: the next entry no longer follows it.
+        let target = fresh();
+        let db = target.open();
+        five_writes(&db).await;
+        let ids: Vec<i64> = chained(&db).await.iter().map(|e| e.id).collect();
+        let mut entry = chained(&db).await.remove(3);
+        edited(&mut entry);
+        let hash = history::entry_hash(entry.prev_hash.as_deref().unwrap(), &entry);
+        tamper(
+            &target,
+            &format!(
+                "UPDATE {log} SET \"after\" = {}, \"hash\" = {} WHERE id = {}",
+                portable::quote_literal(entry.after.as_deref().unwrap()),
+                portable::quote_literal(&hash),
+                ids[3]
+            ),
+        );
+        assert_eq!(
+            db.verify(None).await.unwrap().broken,
+            Some(history::Break::Unlinked {
+                id: ids[4],
+                after: Some(ids[3])
+            })
+        );
+
+        // Rewritten from an entry on, every hash recomputed: only a head kept elsewhere tells.
+        let target = fresh();
+        let db = target.open();
+        five_writes(&db).await;
+        let shipped = db.head().await.unwrap().unwrap();
+        let ids: Vec<i64> = chained(&db).await.iter().map(|e| e.id).collect();
+        rewrite(&target, ids[2], edited);
+        assert_eq!(db.verify(None).await.unwrap().broken, None, "consistent with itself");
+        assert_eq!(
+            db.verify(Some(shipped.clone())).await.unwrap().broken,
+            Some(history::Break::HeadMismatch { id: shipped.id })
+        );
+        assert_eq!(
+            verify_after(&target, &shipped).broken,
+            Some(history::Break::HeadMismatch { id: shipped.id })
+        );
+
+        // Cut short: the last entry gone.
+        let target = fresh();
+        let db = target.open();
+        five_writes(&db).await;
+        let shipped = db.head().await.unwrap().unwrap();
+        tamper(&target, &format!("DELETE FROM {log} WHERE id = {}", shipped.id));
+        assert_eq!(db.verify(None).await.unwrap().broken, None);
+        let missing = Some(history::Break::HeadMissing { id: shipped.id });
+        assert_eq!(db.verify(Some(shipped.clone())).await.unwrap().broken, missing);
+        assert_eq!(verify_after(&target, &shipped).broken, missing);
+
+        // Put in around store, without a hash.
+        let target = fresh();
+        let db = target.open();
+        five_writes(&db).await;
+        target
+            .raw()
+            .batch_execute(&format!(
+                "INSERT INTO {log} (\"at\", \"actor\", \"table_name\", \"row_key\", \"op\", \"after\")
+                 VALUES (1, 'player:7', 'notes', '{{\"id\":9}}', 'insert', '{{\"id\":9}}')"
+            ))
+            .unwrap();
+        let found = db.verify(None).await.unwrap().broken.unwrap();
+        assert!(matches!(found, history::Break::Unsealed { .. }), "{found:?}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_write_can_seal_nothing_itself() {
+    for target in targets() {
+        let db = target.open();
+        five_writes(&db).await;
+        for sql in [
+            "UPDATE __store_change_log SET prev_hash = 'x', hash = 'y' WHERE hash IS NULL",
+            "UPDATE __store_change_log SET hash = NULL",
+            "UPDATE __store_change_log SET hash = 'y' WHERE id = (SELECT max(id) FROM __store_change_log)",
+        ] {
+            let refused = db
+                .write(player(), move |tx| {
+                    tx.conn().batch_execute("INSERT INTO notes (body) VALUES ('x')")?;
+                    tx.conn().batch_execute(sql)?;
+                    Ok::<_, Error>(())
+                })
+                .await;
+            assert!(refused.is_err(), "{sql}");
+        }
+        assert_eq!(chained(&db).await.len(), 6);
+        assert_eq!(db.verify(None).await.unwrap().broken, None);
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_log_written_before_the_chain_is_sealed_from_genesis_at_open() {
+    for target in targets() {
+        let db = target.open();
+        five_writes(&db).await;
+        drop(db);
+        // The log as DH1 left it: no hash columns, and updates refused outright.
+        let dh1 = match target {
+            Target::Sqlite(_) => {
+                "ALTER TABLE __store_change_log DROP COLUMN hash;
+                 ALTER TABLE __store_change_log DROP COLUMN prev_hash;
+                 CREATE TRIGGER \"__store_change_log_no_update\" BEFORE UPDATE ON __store_change_log
+                   BEGIN SELECT RAISE(ABORT, 'store: the change log is append-only'); END;
+                 CREATE TRIGGER \"__store_change_log_no_delete\" BEFORE DELETE ON __store_change_log
+                   BEGIN SELECT RAISE(ABORT, 'store: the change log is append-only'); END;"
+            }
+            Target::Postgres(_) => {
+                "DROP TRIGGER \"__store_seal_only\" ON __store_change_log;
+                 ALTER TABLE __store_change_log DROP COLUMN hash, DROP COLUMN prev_hash;
+                 DROP TRIGGER \"__store_append_only\" ON __store_change_log;
+                 CREATE TRIGGER \"__store_append_only\" BEFORE UPDATE OR DELETE OR TRUNCATE
+                   ON __store_change_log FOR EACH STATEMENT EXECUTE FUNCTION __store_append_only()"
+            }
+        };
+        tamper(&target, dh1);
+
+        let db = target.open();
+        let log = chained(&db).await;
+        assert_eq!(log.len(), 6);
+        assert_eq!(log[0].prev_hash.as_deref(), Some(history::GENESIS));
+        let verified = db.verify(None).await.unwrap();
+        assert_eq!((verified.entries, verified.broken), (6, None));
+        five_writes(&db).await;
+        assert_eq!(db.verify(None).await.unwrap().entries, 11);
+        let refused = db
+            .write(player(), |tx| {
+                tx.conn()
+                    .batch_execute("UPDATE __store_change_log SET actor = 'player:8'")
+                    .map_err(Error::from)
+            })
+            .await;
+        assert!(refused.is_err(), "still append-only");
+    }
 }

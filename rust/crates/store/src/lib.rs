@@ -40,7 +40,7 @@ pub use adopt::{DrizzleBaseline, Schema};
 pub use connection::{AnyConnection, MultiBackend};
 pub use database::{Database, DatabaseOptions, DatabaseSchema, KeyValue, Tx};
 pub use engine::{DatabaseConfig, Engine, PostgresConfig, is_local_address};
-pub use history::{Actor, ChangeEntry};
+pub use history::{Actor, ChangeEntry, Head};
 pub use readonly::{open_read_only, schema_version};
 pub use revert::{AccountColumn, Cursor, Filter, RevertOutcome, RevertPlan};
 pub use snapshot::schema_snapshot;
