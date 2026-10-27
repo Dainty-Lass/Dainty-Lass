@@ -17,7 +17,7 @@ use super::rules::{
     self, GAME_DATA_FILES, Refusal, RegistrationMode, USER_KEY_HEADER, classify_game_data, is_invite_code,
     looks_like_account_key, make_account_key, normalize_username, status_instances,
 };
-use super::util::{self, BodyKind, Req, hex, hmac_sha256};
+use super::util::{self, BodyKind, Req};
 use crate::db::IslesStore;
 use crate::http::{Call, Handlers, Shared, not_implemented};
 use crate::ids::{AccountId, UserId};
@@ -48,17 +48,15 @@ pub(super) fn js_slice(text: &str, max: usize) -> String {
 
 // ---------------------------------------------------------------- who holds a key
 
-/// `HashApiKey(value, "user")`: HMAC-SHA256 under `API_KEY_HASH_SECRET`, domain-separated by scope. `None` where
-/// Node throws (a secret under 32 characters).
+/// `HashApiKey(value, scope)`, the auth area's one hash (`None` where Node throws: a secret under 32 characters).
 pub fn hash_api_key(shared: &Shared, value: &str, scope: &str) -> Option<String> {
-    let secret = shared.settings.raw("API_KEY_HASH_SECRET").map(str::trim)?;
-    if secret.encode_utf16().count() < 32 {
-        return None;
-    }
-    Some(hex(&hmac_sha256(
-        secret.as_bytes(),
-        &[scope.as_bytes(), b"\0", value.as_bytes()],
-    )))
+    use crate::areas::auth::crypto::{self, KeyScope};
+    let scope = if scope == "user" {
+        KeyScope::User
+    } else {
+        KeyScope::Gameserver
+    };
+    crypto::hash_api_key(&shared.settings, value, scope).ok()
 }
 
 #[derive(Debug, Clone)]
@@ -392,6 +390,7 @@ async fn register_account(call: Call) -> Response {
     };
     let launcher = LauncherAccountRecord {
         account: account.clone(),
+        user_id: user_id.clone(),
         email: None,
         display_name_normalized: username.to_lowercase(),
         display_name: username.clone(),

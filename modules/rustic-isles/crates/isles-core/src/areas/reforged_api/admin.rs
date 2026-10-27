@@ -806,8 +806,12 @@ async fn update_access(ctx: Ctx) -> Response {
                 return Ok(None);
             };
             if !is_account_eligible(&after) {
-                repos.refresh_sessions.revoke_all_for_account(tx, &target)?;
-                repos.game_exchange_codes.revoke_unused_for_account(tx, &target)?;
+                repos
+                    .refresh_sessions
+                    .revoke_all_for_account(tx, &target, &util::now_iso())?;
+                repos
+                    .game_exchange_codes
+                    .revoke_unused_for_account(tx, &target, &util::now_iso())?;
             }
             repos.admin.append_audit(
                 tx,
@@ -896,7 +900,9 @@ async fn update_roles(ctx: Ctx) -> Response {
             };
             // A beta/dev exchange code must not survive removal of Tester during its 60-second lifetime
             if before_roles.iter().any(|r| r == TESTER_ROLE) && !after.roles.iter().any(|r| r == TESTER_ROLE) {
-                repos.game_exchange_codes.revoke_unused_for_account(tx, &target)?;
+                repos
+                    .game_exchange_codes
+                    .revoke_unused_for_account(tx, &target, &util::now_iso())?;
             }
             repos.admin.append_audit(
                 tx,
@@ -985,7 +991,7 @@ async fn delete_player(ctx: Ctx) -> Response {
             repos.refresh_sessions.delete_all_for_account(tx, &target_account)?;
             repos
                 .game_exchange_codes
-                .revoke_unused_for_account(tx, &target_account)?;
+                .revoke_unused_for_account(tx, &target_account, &util::now_iso())?;
             Ok(deleted_with_characters(&mut deleted, tx.conn(), repos, &target_account))
         })
         .await;

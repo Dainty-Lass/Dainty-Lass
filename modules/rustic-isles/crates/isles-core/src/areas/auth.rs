@@ -29,7 +29,9 @@ pub mod runtime_authorization;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 pub mod tokens;
+pub mod totp;
 pub mod util;
+pub mod wiring;
 
 pub use errors::LauncherApiError;
 pub use middleware::{AuthData, LauncherAuth, game_auth, launcher_auth};
@@ -95,10 +97,12 @@ pub async fn start(shared: &std::sync::Arc<crate::http::Shared>) -> Result<Vec<t
     apikeys::register_gameserver_api_keys(shared)
         .await
         .map_err(|e| e.to_string())?;
+    wiring::register_seams();
     let mut tasks = Vec::new();
     if verification.required {
         tasks.push(email::start_unverified_registration_sweeper(shared.clone()));
     }
+    tasks.extend(wiring::start_jobs(shared));
     Ok(tasks)
 }
 

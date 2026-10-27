@@ -106,6 +106,10 @@ async fn replay(case: &Value, routes: RouteSet) -> Vec<String> {
         if header == "content-length" && !compare_body {
             continue;
         }
+        // uptimeSeconds grows a digit once the run is ten seconds old, and only the shape of the body is recorded
+        if header == "content-length" && name.starts_with("server status") {
+            continue;
+        }
         let want = golden_headers.get(header).map(|v| v.as_str().unwrap().to_owned());
         let got = answer.header(header).map(normalize);
         check(header, format!("{got:?}"), format!("{want:?}"));

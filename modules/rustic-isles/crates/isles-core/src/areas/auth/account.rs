@@ -13,7 +13,6 @@ use super::policy::{
 use super::util::{iso_from_ms, iso_now, now_ms, parse_ms};
 use crate::http::Shared;
 use crate::repo::auth::{LauncherAccountRecord, LauncherConsent, LauncherDeletion};
-use crate::repo::reforged::{LauncherNoticeTag, LauncherNoticesRecord, NoticeTone, TagTone};
 
 fn legal_json(required: &LegalRequirements) -> Value {
     json!({
@@ -254,83 +253,6 @@ pub async fn launcher_status(shared: &Shared) -> Result<Value, LauncherApiError>
 
 // ------------------------------------------------------------------ notices
 
-fn notice_active(show_from: Option<&str>, show_until: Option<&str>, now: i64) -> bool {
-    if show_from.is_some_and(|from| parse_ms(from).is_none_or(|from| now < from)) {
-        return false;
-    }
-    if show_until.is_some_and(|until| parse_ms(until).is_none_or(|until| now >= until)) {
-        return false;
-    }
-    true
-}
-
-fn tone_text(tone: NoticeTone) -> &'static str {
-    match tone {
-        NoticeTone::Info => "info",
-        NoticeTone::Warning => "warning",
-        NoticeTone::Critical => "critical",
-    }
-}
-
-fn tag_tone_text(tone: TagTone) -> &'static str {
-    match tone {
-        TagTone::Info => "info",
-        TagTone::Warning => "warning",
-        TagTone::Danger => "danger",
-        TagTone::Success => "success",
-    }
-}
-
-fn with_window(object: &mut Map<String, Value>, from: &Option<String>, until: &Option<String>) {
-    if let Some(from) = from {
-        object.insert("showFrom".into(), json!(from));
-    }
-    if let Some(until) = until {
-        object.insert("showUntil".into(), json!(until));
-    }
-}
-
-/// `PublicLauncherNoticesView`: the items active now.
-pub fn public_notices_view(record: Option<&LauncherNoticesRecord>, now: i64, server_time: &str) -> Value {
-    let mut announcements = Vec::new();
-    let mut tags = Vec::new();
-    if let Some(record) = record {
-        for item in &record.announcements {
-            if !notice_active(item.show_from.as_deref(), item.show_until.as_deref(), now) {
-                continue;
-            }
-            let mut object = Map::new();
-            object.insert("id".into(), json!(item.id));
-            object.insert("text".into(), json!(item.text));
-            object.insert("tone".into(), json!(tone_text(item.tone)));
-            if let Some(event_at) = &item.event_at {
-                object.insert("eventAt".into(), json!(event_at));
-            }
-            with_window(&mut object, &item.show_from, &item.show_until);
-            announcements.push(Value::Object(object));
-        }
-        for item in &record.tags {
-            let LauncherNoticeTag {
-                id,
-                text,
-                tone,
-                show_from,
-                show_until,
-            } = item;
-            if !notice_active(show_from.as_deref(), show_until.as_deref(), now) {
-                continue;
-            }
-            let mut object = Map::new();
-            object.insert("id".into(), json!(id));
-            object.insert("text".into(), json!(text));
-            object.insert("tone".into(), json!(tag_tone_text(*tone)));
-            with_window(&mut object, show_from, show_until);
-            tags.push(Value::Object(object));
-        }
-    }
-    json!({ "announcements": announcements, "tags": tags, "serverTime": server_time })
-}
-
 /// `GetPublicLauncherNotices`: the items active now. A store read error answers the empty set, never an error the
 /// launcher must show; one log line per streak of failed reads, so a broken store does not flood the log every poll.
 pub async fn public_launcher_notices(shared: &Shared) -> Value {
@@ -351,62 +273,12 @@ pub async fn public_launcher_notices(shared: &Shared) -> Value {
             None
         }
     };
-    public_notices_view(record.as_ref(), now_ms(), &iso_now())
+    crate::areas::reforged_api::notices::public_view(record.as_ref(), now_ms(), &iso_now())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repo::reforged::LauncherNotice;
-
-    #[test]
-    fn the_public_view_keeps_only_the_items_active_now() {
-        let record = LauncherNoticesRecord {
-            version: 3,
-            updated_at: None,
-            updated_by: None,
-            announcements: vec![
-                LauncherNotice {
-                    id: "a".into(),
-                    text: "Maintenance at {time}".into(),
-                    tone: NoticeTone::Warning,
-                    event_at: Some("2026-10-20T10:00:00.000Z".into()),
-                    show_from: None,
-                    show_until: Some("2026-10-21T00:00:00.000Z".into()),
-                },
-                LauncherNotice {
-                    id: "later".into(),
-                    text: "Not yet".into(),
-                    tone: NoticeTone::Info,
-                    event_at: None,
-                    show_from: Some("2026-12-01T00:00:00.000Z".into()),
-                    show_until: None,
-                },
-            ],
-            tags: vec![LauncherNoticeTag {
-                id: "t".into(),
-                text: "Beta".into(),
-                tone: TagTone::Success,
-                show_from: None,
-                show_until: None,
-            }],
-        };
-        let now = parse_ms("2026-10-20T00:00:00.000Z").unwrap();
-        let view = public_notices_view(Some(&record), now, "2026-10-20T00:00:00.000Z");
-        assert_eq!(
-            serde_json::to_string(&view).unwrap(),
-            concat!(
-                r#"{"announcements":[{"id":"a","text":"Maintenance at {time}","tone":"warning","#,
-                r#""eventAt":"2026-10-20T10:00:00.000Z","showUntil":"2026-10-21T00:00:00.000Z"}],"#,
-                r#""tags":[{"id":"t","text":"Beta","tone":"success"}],"serverTime":"2026-10-20T00:00:00.000Z"}"#
-            )
-        );
-        let empty = public_notices_view(None, now, "x");
-        assert_eq!(
-            serde_json::to_string(&empty).unwrap(),
-            r#"{"announcements":[],"tags":[],"serverTime":"x"}"#
-        );
-    }
 
     #[test]
     fn legal_requirements_answer_the_current_versions() {

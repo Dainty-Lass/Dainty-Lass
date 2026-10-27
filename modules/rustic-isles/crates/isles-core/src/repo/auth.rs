@@ -359,7 +359,7 @@ repository! {
         fn find_by_email(&self, conn: &mut AnyConnection, normalized_email: &str) -> Option<LauncherAccountRecord>;
         fn find_by_display_name_normalized(&self, conn: &mut AnyConnection, normalized: &str)
             -> Option<LauncherAccountRecord>;
-        /// Writes the game account too (`name` mirrors the display name, `notes` is 0), as Node's `create` did
+        /// Writes the game account too unless it exists (`name` mirrors the display name, `notes` is 0), as Node's `create` did
         fn create(&self, tx: &mut Tx<'_>, account: &LauncherAccountRecord) -> CreateOutcome;
         fn update_last_login(&self, tx: &mut Tx<'_>, account: &AccountId, when: &str) -> ();
         /// Also the game account's `name`; marks the username set
@@ -571,14 +571,23 @@ impl LauncherAccountRepository for SqlLauncherAccounts {
         if name_taken(tx.conn(), &record.display_name_normalized, None)? {
             return Ok(CreateOutcome::DisplayNameTaken);
         }
-        diesel::insert_into(accounts::table)
-            .values((
-                accounts::id.eq(record.account.to_string()),
-                accounts::user_id.eq(record.user_id.as_str()),
-                accounts::name.eq(&record.display_name),
-                accounts::notes.eq(0_i64),
-            ))
-            .execute(tx.conn())?;
+        // The game account is this call's to write unless the caller made it first (reforged-api's registration does)
+        let has_account = accounts::table
+            .filter(accounts::id.eq(record.account.to_string()))
+            .select(accounts::id)
+            .first::<String>(tx.conn())
+            .optional()?
+            .is_some();
+        if !has_account {
+            diesel::insert_into(accounts::table)
+                .values((
+                    accounts::id.eq(record.account.to_string()),
+                    accounts::user_id.eq(record.user_id.as_str()),
+                    accounts::name.eq(&record.display_name),
+                    accounts::notes.eq(0_i64),
+                ))
+                .execute(tx.conn())?;
+        }
         let roles = serde_json::to_string(&record.roles).map_err(|e| RepoError::Data(e.to_string()))?;
         diesel::insert_into(launcher_accounts::table)
             .values((

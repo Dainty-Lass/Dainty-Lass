@@ -105,6 +105,18 @@ pub async fn erase_account(
         Ok(counts)
     })
     .await?;
+    // Privacy Policy section 5: the uploaded launcher logs go with the account (they sit outside the database)
+    let root = crate::areas::reforged_api::logs::log_storage_root(shared);
+    let user = account.user_id.to_string();
+    let logs =
+        tokio::task::spawn_blocking(move || crate::areas::reforged_api::player_logs::remove_account_logs(&root, &user))
+            .await;
+    if !matches!(logs, Ok(Ok(_))) {
+        tracing::warn!(
+            "Account {} erased, but its uploaded logs could not be removed",
+            account.user_id
+        );
+    }
     tracing::info!("Account {} erased", account.user_id);
     Ok(ErasureOutcome::Erased(counts))
 }

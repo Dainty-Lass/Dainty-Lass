@@ -26,6 +26,7 @@ use super::tokens::{validate_game_token, validate_launcher_access_token};
 use super::util::{client_ip, peer_ip};
 use crate::http::{Call, Shared};
 use crate::repo::AccountId;
+use crate::repo::auth::LauncherAccountRecord;
 
 pub const GAMESERVER_KEY_HEADER: &str = "x-mysticparadox-gameserver-apikey";
 
@@ -346,10 +347,21 @@ fn expired() -> LauncherApiError {
 /// `HasLauncherAuth`: the launcher-audience token, an account that exists, a refresh family that is live, and an
 /// account that is admitted.
 pub async fn launcher_auth(shared: &Shared, headers: &HeaderMap) -> Result<LauncherAuth, LauncherApiError> {
-    let Some(authorization) = header(headers, "authorization").filter(|a| has_bearer_prefix(a)) else {
+    let authorization = header(headers, "authorization");
+    launcher_auth_account(shared, authorization.as_deref())
+        .await
+        .map(|(auth, _)| auth)
+}
+
+/// [`launcher_auth`] over the header's text, with the account it found (the Reforged API's launcher routes need it).
+pub async fn launcher_auth_account(
+    shared: &Shared,
+    authorization: Option<&str>,
+) -> Result<(LauncherAuth, LauncherAccountRecord), LauncherApiError> {
+    let Some(authorization) = authorization.filter(|a| has_bearer_prefix(a)) else {
         return Err(LauncherApiError::new("AUTH_UNAUTHORIZED", "Sign in required."));
     };
-    let payload = match validate_launcher_access_token(&shared.settings, bearer_token(&authorization)) {
+    let payload = match validate_launcher_access_token(&shared.settings, bearer_token(authorization)) {
         Ok(payload) => payload,
         Err(_) => {
             tracing::warn!("Request with bad launcher auth!");
@@ -380,11 +392,12 @@ pub async fn launcher_auth(shared: &Shared, headers: &HeaderMap) -> Result<Launc
         return Err(expired());
     }
     assert_account_admitted(&account)?;
-    Ok(LauncherAuth {
+    let auth = LauncherAuth {
         user_id: payload.user_id,
         sid: payload.sid,
         account: id,
-    })
+    };
+    Ok((auth, account))
 }
 
 /// `RequireActiveAccount({consent})`: a deactivated account is refused, and with `consent` an account without a current
