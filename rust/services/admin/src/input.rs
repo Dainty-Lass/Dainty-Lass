@@ -149,6 +149,30 @@ pub fn timeout_end(minutes: Option<i64>, until: Option<&str>, now: i64) -> Resul
     Ok(end)
 }
 
+/// The most characters of a module's error message passed on to the caller.
+pub const MAX_MODULE_MESSAGE: usize = 200;
+
+/// The game a caller names (`game: "1.4.4"`): a game version as the modules declare it (DD4), shown
+/// the one way it can be written.
+pub fn game(given: &str) -> Option<String> {
+    let text = given.trim();
+    if text.len() > 32 {
+        return None;
+    }
+    text.parse::<module_api::GameVersion>().ok().map(|v| v.to_string())
+}
+
+/// A module's error message as the caller reads it: one line, capped. A module out of process is
+/// another program, so its text is not trusted to be short or printable.
+pub fn module_message(given: &str) -> String {
+    let one_line: String = given
+        .chars()
+        .take(MAX_MODULE_MESSAGE)
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    one_line.trim().to_owned()
+}
+
 pub fn iso(ms: i64) -> String {
     chrono::DateTime::from_timestamp_millis(ms)
         .map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
@@ -375,6 +399,20 @@ mod tests {
         assert_eq!(reason(" spamming\nchat ").as_deref(), Some("spamming chat"));
         assert_eq!(reason("no"), None);
         assert_eq!(reason(&"x".repeat(MAX_REASON + 1)), None);
+    }
+
+    #[test]
+    fn games_and_module_messages() {
+        assert_eq!(game(" 1.4.4 ").as_deref(), Some("1.4.4"));
+        assert_eq!(game("1.14.7").as_deref(), Some("1.14.7"));
+        for bad in ["", "1.04.4", "v1.4", "1..4", "reforged", &"1.".repeat(20)] {
+            assert_eq!(game(bad), None, "{bad}");
+        }
+        assert_eq!(module_message(" no\r\nsuch\tplayer "), "no  such player");
+        assert_eq!(
+            module_message(&"x".repeat(MAX_MODULE_MESSAGE * 2)).chars().count(),
+            MAX_MODULE_MESSAGE
+        );
     }
 
     #[test]

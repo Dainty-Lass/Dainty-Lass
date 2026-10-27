@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use admin::config::{Config, ServerMode};
+use admin::modules::AdminPlugin;
 use admin::schema::Admin;
 use admin::upstream::{Operator, operator_signature};
 use axum::Router;
@@ -217,6 +218,7 @@ struct World {
 struct Options {
     director_up: bool,
     secret: &'static str,
+    modules: Arc<AdminPlugin>,
 }
 
 async fn world_with(options: Options) -> World {
@@ -270,7 +272,12 @@ async fn world_with(options: Options) -> World {
     };
     let clock = Arc::new(AtomicI64::new(START));
     let reading = clock.clone();
-    let (app, admin) = admin::server::prepare(&config, Arc::new(move || reading.load(Ordering::SeqCst))).unwrap();
+    let (app, admin) = admin::server::prepare_with_modules(
+        &config,
+        Arc::new(move || reading.load(Ordering::SeqCst)),
+        options.modules,
+    )
+    .unwrap();
     let address = listen(admin::app::router(app)).await;
     World {
         url: format!("http://{address}"),
@@ -287,6 +294,7 @@ async fn world() -> World {
     world_with(Options {
         director_up: true,
         secret: SECRET,
+        modules: Arc::new(AdminPlugin::none()),
     })
     .await
 }
@@ -628,6 +636,7 @@ async fn says_what_is_wrong_when_a_service_is_down_or_the_secret_differs() {
     let w = world_with(Options {
         director_up: false,
         secret: SECRET,
+        modules: Arc::new(AdminPlugin::none()),
     })
     .await;
     // The lookup still answers, without a location
@@ -642,6 +651,7 @@ async fn says_what_is_wrong_when_a_service_is_down_or_the_secret_differs() {
     let w = world_with(Options {
         director_up: true,
         secret: "another-secret-0123456789abcdef0123",
+        modules: Arc::new(AdminPlugin::none()),
     })
     .await;
     let body = w.gql(PLAYER, json!({"name": "Ada"})).await;
@@ -678,4 +688,467 @@ fn schema_graphql_is_current() {
         written, current,
         "schema.graphql is stale: RR_UPDATE_GENERATED=1 cargo test -p admin"
     );
+}
+
+// ------------------------------------------------------------------ the same cases on game modules (DF4c)
+
+mod games {
+    use std::collections::BTreeMap;
+    use std::sync::atomic::AtomicBool;
+
+    use admin::modules::AdminCalls;
+    use module_api::module::PlayerInfo;
+    use module_api::registrar::AdminAction;
+    use module_api::stub::recording_host;
+    use module_api::{
+        API_VERSION, Actor, AdminCall, AdminRequest, AdminResponse, BoxFuture, Capabilities, CorePlugin, ErrorKind,
+        GameModule, GlobalId, IdKind, InProcessModule, ModuleConfig, ModuleContext, ModuleDriver, ModuleDriverExt,
+        ModuleError, ModuleId, ModuleKind, ModuleManifest, ModuleStatus, NodeIdentity, Phase, Registrar,
+    };
+
+    use super::*;
+
+    struct StubPlayer {
+        name: &'static str,
+        account: GlobalId,
+        online: bool,
+        admin: bool,
+    }
+
+    fn stub_player(name: &'static str, online: bool, admin: bool) -> StubPlayer {
+        StubPlayer {
+            name,
+            account: GlobalId::new(IdKind::Account, &NodeIdentity::standalone().node),
+            online,
+            admin,
+        }
+    }
+
+    /// A game module that keeps a few players and every admin call it was sent.
+    struct StubGame {
+        id: &'static str,
+        version: &'static str,
+        kind: ModuleKind,
+        actions: Vec<AdminAction>,
+        players: Mutex<Vec<StubPlayer>>,
+        calls: Mutex<Vec<AdminCall>>,
+        down: AtomicBool,
+    }
+
+    impl StubGame {
+        fn with(id: &'static str, version: &'static str, players: Vec<StubPlayer>) -> Self {
+            Self {
+                id,
+                version,
+                kind: ModuleKind::Game,
+                actions: vec![AdminAction::Kick, AdminAction::Ban, AdminAction::Lookup],
+                players: Mutex::new(players),
+                calls: Mutex::new(Vec::new()),
+                down: AtomicBool::new(false),
+            }
+        }
+
+        fn account_of(&self, name: &str) -> String {
+            let players = self.players.lock().unwrap();
+            players.iter().find(|p| p.name == name).unwrap().account.to_string()
+        }
+
+        fn calls(&self) -> Vec<AdminCall> {
+            self.calls.lock().unwrap().clone()
+        }
+
+        /// The calls other than lookups.
+        fn actions(&self) -> Vec<AdminRequest> {
+            self.calls()
+                .into_iter()
+                .map(|c| c.request)
+                .filter(|r| r.action() != AdminAction::Lookup)
+                .collect()
+        }
+    }
+
+    impl GameModule for StubGame {
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest {
+                id: self.id.parse().unwrap(),
+                kind: self.kind,
+                display_name: format!("Stub {}", self.version),
+                game_version: self.version.parse().unwrap(),
+                invite_aliases: vec![],
+                api: API_VERSION,
+                ports: vec![],
+                capabilities: Capabilities::default(),
+                unverified: false,
+                client: None,
+            }
+        }
+
+        fn register(&self, registrar: &mut Registrar) -> Result<(), ModuleError> {
+            for action in &self.actions {
+                registrar.admin_action(*action);
+            }
+            Ok(())
+        }
+
+        fn start(&self, _ctx: ModuleContext, _config: ModuleConfig) -> BoxFuture<'_, Result<(), ModuleError>> {
+            Box::pin(async { Ok(()) })
+        }
+
+        fn stop(&self, _ctx: ModuleContext) -> BoxFuture<'_, Result<(), ModuleError>> {
+            Box::pin(async { Ok(()) })
+        }
+
+        fn status(&self) -> ModuleStatus {
+            ModuleStatus::new(Phase::Ready)
+        }
+
+        fn admin(&self, _ctx: ModuleContext, call: AdminCall) -> BoxFuture<'_, Result<AdminResponse, ModuleError>> {
+            Box::pin(async move {
+                if self.down.load(Ordering::SeqCst) {
+                    return Err(ModuleError::new(ErrorKind::Unavailable, "stopped"));
+                }
+                self.calls.lock().unwrap().push(call.clone());
+                let players = self.players.lock().unwrap();
+                let (AdminRequest::Kick { player, .. }
+                | AdminRequest::Ban { player, .. }
+                | AdminRequest::Lookup { player }) = &call.request;
+                let Some(found) = players.iter().find(|p| p.name.eq_ignore_ascii_case(player)) else {
+                    return Ok(AdminResponse::NotFound);
+                };
+                Ok(match call.request {
+                    AdminRequest::Lookup { .. } => AdminResponse::Player(PlayerInfo {
+                        account: Some(found.account.clone()),
+                        name: found.name.to_owned(),
+                        online: found.online,
+                    }),
+                    _ if found.admin => return Err(ModuleError::failed("this player is a server admin")),
+                    AdminRequest::Kick { .. } | AdminRequest::Ban { .. } => AdminResponse::Done,
+                })
+            })
+        }
+    }
+
+    /// What DF3's controller does for the admin plugin: one call to one loaded module's driver.
+    struct Drivers(BTreeMap<ModuleId, InProcessModule>);
+
+    impl AdminCalls for Drivers {
+        fn admin<'a>(
+            &'a self,
+            module: &'a ModuleId,
+            call: AdminCall,
+        ) -> BoxFuture<'a, Result<AdminResponse, ModuleError>> {
+            Box::pin(async move {
+                match self.0.get(module) {
+                    Some(driver) => driver.admin(call).await,
+                    None => Err(ModuleError::new(ErrorKind::Unavailable, "not loaded")),
+                }
+            })
+        }
+    }
+
+    /// Loads the games and attaches them, as the controller would.
+    async fn load(games: &[Arc<StubGame>]) -> Arc<AdminPlugin> {
+        let mut drivers = BTreeMap::new();
+        let mut registered = Vec::new();
+        for game in games {
+            let module: Arc<dyn GameModule> = game.clone();
+            let driver = InProcessModule::new(module, NodeIdentity::standalone(), recording_host()).unwrap();
+            registered.push((driver.manifest().clone(), driver.register().await.unwrap()));
+            drivers.insert(driver.manifest().id.clone(), driver);
+        }
+        let plugin = Arc::new(AdminPlugin::new(Arc::new(Drivers(drivers))));
+        for (manifest, registration) in registered {
+            plugin.attach(&manifest, &registration).unwrap();
+        }
+        plugin
+    }
+
+    async fn world_on(games: &[Arc<StubGame>]) -> World {
+        world_with(Options {
+            director_up: true,
+            secret: SECRET,
+            modules: load(games).await,
+        })
+        .await
+    }
+
+    /// The 1.14.7 module takes over from the Node backend, so it holds the backend's names.
+    fn isles() -> Arc<StubGame> {
+        Arc::new(StubGame::with(
+            "isles-stub",
+            "1.14.7",
+            vec![
+                stub_player("Ada", true, false),
+                stub_player("Bo_Slayer", false, false),
+                stub_player("Cyra", true, true),
+            ],
+        ))
+    }
+
+    /// The 1.4.4 module runs beside the Node backend, with names of its own.
+    fn revived_with(extra: Vec<StubPlayer>) -> Arc<StubGame> {
+        let mut players = vec![
+            stub_player("Wren", true, false),
+            stub_player("Moss_Eater", false, false),
+            stub_player("Kestrel", true, true),
+        ];
+        players.extend(extra);
+        Arc::new(StubGame::with("revived-stub", "1.4.4", players))
+    }
+
+    /// Who RD25's cases act on in one game: someone online, someone offline, an admin.
+    struct Cast {
+        game: &'static str,
+        online: &'static str,
+        offline: &'static str,
+        admin: &'static str,
+        /// What refusing an admin answers: the backend's own code, or a module's refusal, since module-api
+        /// has no error kind for it
+        protected: &'static str,
+    }
+
+    const NODE_CAST: Cast = Cast {
+        game: "1.14.7",
+        online: "Ada",
+        offline: "Bo_Slayer",
+        admin: "Cyra",
+        protected: "PROTECTED_ACCOUNT",
+    };
+
+    const KICK: &str = "mutation($name: String!) { kick(username: $name) { userId username connectionsClosed game } }";
+    const BAN: &str =
+        "mutation($name: String!, $reason: String!) { ban(username: $name, reason: $reason) { username game } }";
+    const LOOKUP: &str = "query($name: String!) { player(username: $name) { userId username online game } }";
+
+    /// RD25's lookup, kick and ban cases, as every game answers them. Returns the player's user id.
+    async fn rd25_cases(w: &World, cast: &Cast) -> String {
+        let found = w.gql(LOOKUP, json!({"name": cast.online.to_lowercase()})).await;
+        assert_eq!(found["data"]["player"]["username"], cast.online, "{found}");
+        assert_eq!(found["data"]["player"]["online"], true);
+        assert_eq!(found["data"]["player"]["game"], cast.game);
+        let offline = w.gql(LOOKUP, json!({"name": cast.offline})).await;
+        assert_eq!(offline["data"]["player"]["online"], false);
+        assert_eq!(
+            w.gql(LOOKUP, json!({"name": "Nobody"})).await["data"]["player"],
+            Value::Null
+        );
+        let part = &cast.offline[..3];
+        assert_eq!(
+            w.gql(LOOKUP, json!({"name": part})).await["data"]["player"],
+            Value::Null
+        );
+        assert_eq!(code(&w.gql(LOOKUP, json!({"name": "no spaces"})).await), "BAD_INPUT");
+
+        let kicked = w.gql(KICK, json!({"name": cast.online.to_uppercase()})).await;
+        assert_eq!(kicked["data"]["kick"]["username"], cast.online, "{kicked}");
+        assert_eq!(kicked["data"]["kick"]["userId"], found["data"]["player"]["userId"]);
+        assert_eq!(kicked["data"]["kick"]["game"], cast.game);
+        assert_eq!(code(&w.gql(KICK, json!({"name": cast.admin})).await), cast.protected);
+        assert_eq!(code(&w.gql(KICK, json!({"name": "Nobody"})).await), "NOT_FOUND");
+        assert_eq!(code(&w.gql(KICK, json!({"name": "x"})).await), "BAD_INPUT");
+
+        let banned = w
+            .gql(BAN, json!({"name": cast.offline, "reason": "griefing\nhunts"}))
+            .await;
+        assert_eq!(banned["data"]["ban"]["username"], cast.offline, "{banned}");
+        assert_eq!(banned["data"]["ban"]["game"], cast.game);
+        assert_eq!(
+            code(&w.gql(BAN, json!({"name": cast.offline, "reason": "x"})).await),
+            "BAD_INPUT"
+        );
+        assert_eq!(
+            code(&w.gql(BAN, json!({"name": cast.admin, "reason": "testing"})).await),
+            cast.protected
+        );
+        assert_eq!(
+            code(&w.gql(BAN, json!({"name": "Nobody", "reason": "testing"})).await),
+            "NOT_FOUND"
+        );
+        found["data"]["player"]["userId"].as_str().unwrap().to_owned()
+    }
+
+    fn sent_as_owner(game: &StubGame) {
+        let calls = game.calls();
+        assert!(!calls.is_empty());
+        for call in calls {
+            assert_eq!(call.actor.actor, Actor::Admin { key: "owner".into() });
+            assert!(call.actor.request.as_deref().unwrap().starts_with("admin-"));
+            assert!(call.actor.is_valid());
+        }
+    }
+
+    /// What the cases sent: the admin's refusals are the module's to make, so they reach it too.
+    fn sent(game: &StubGame, cast: &Cast) {
+        let kick = |player: &str| AdminRequest::Kick {
+            player: player.into(),
+            reason: None,
+        };
+        let ban = |player: &str, reason: &str| AdminRequest::Ban {
+            player: player.into(),
+            reason: Some(reason.into()),
+            until: None,
+        };
+        assert_eq!(
+            game.actions(),
+            [
+                kick(cast.online),
+                kick(cast.admin),
+                ban(cast.offline, "griefing hunts"),
+                ban(cast.admin, "testing"),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn rd25_cases_on_the_node_backend() {
+        let w = world().await;
+        assert_eq!(rd25_cases(&w, &NODE_CAST).await, "u-ada");
+        assert_eq!(*w.backend.kicked.lock().unwrap(), ["Ada"]);
+        assert_eq!(w.status_of("u-bo"), "banned");
+    }
+
+    #[tokio::test]
+    async fn rd25_cases_on_a_1_14_7_module_which_takes_over_from_the_node_backend() {
+        let isles = isles();
+        let w = world_on(std::slice::from_ref(&isles)).await;
+        let cast = Cast {
+            protected: "BACKEND_REFUSED",
+            ..NODE_CAST
+        };
+        assert_eq!(rd25_cases(&w, &cast).await, isles.account_of("Ada"));
+        sent(&isles, &cast);
+        sent_as_owner(&isles);
+        // The Node backend was never asked
+        assert!(w.backend.kicked.lock().unwrap().is_empty());
+        assert_eq!(w.status_of("u-bo"), "active");
+    }
+
+    #[tokio::test]
+    async fn rd25_cases_on_a_1_4_4_module_beside_the_node_backend() {
+        let revived = revived_with(vec![]);
+        let w = world_on(std::slice::from_ref(&revived)).await;
+        let cast = Cast {
+            game: "1.4.4",
+            online: "Wren",
+            offline: "Moss_Eater",
+            admin: "Kestrel",
+            protected: "BACKEND_REFUSED",
+        };
+        assert_eq!(rd25_cases(&w, &cast).await, revived.account_of("Wren"));
+        sent(&revived, &cast);
+        sent_as_owner(&revived);
+        // The Node backend's players are still its own
+        assert_eq!(rd25_cases(&w, &NODE_CAST).await, "u-ada");
+        assert_eq!(*w.backend.kicked.lock().unwrap(), ["Ada"]);
+    }
+
+    #[tokio::test]
+    async fn a_name_in_two_games_needs_the_game() {
+        let revived = revived_with(vec![stub_player("Ada", false, false)]);
+        let w = world_on(std::slice::from_ref(&revived)).await;
+        let lookup = "query($name: String!, $game: String) { player(username: $name, game: $game) { userId game } }";
+        let body = w.gql(lookup, json!({"name": "ada"})).await;
+        assert_eq!(code(&body), "AMBIGUOUS_PLAYER");
+        assert!(body["errors"][0]["message"].as_str().unwrap().contains("1.14.7, 1.4.4"));
+        assert_eq!(code(&w.gql(KICK, json!({"name": "Ada"})).await), "AMBIGUOUS_PLAYER");
+        let body = w.gql(lookup, json!({"name": "ada", "game": "1.4.4"})).await;
+        assert_eq!(
+            body["data"]["player"],
+            json!({"userId": revived.account_of("Ada"), "game": "1.4.4"})
+        );
+        let body = w.gql(lookup, json!({"name": "ada", "game": " 1.14.7 "})).await;
+        assert_eq!(body["data"]["player"], json!({"userId": "u-ada", "game": "1.14.7"}));
+        assert_eq!(
+            code(&w.gql(lookup, json!({"name": "ada", "game": "9.9"})).await),
+            "UNKNOWN_GAME"
+        );
+        assert_eq!(
+            code(&w.gql(lookup, json!({"name": "ada", "game": "reforged"})).await),
+            "BAD_INPUT"
+        );
+        let kick = "mutation { kick(username: \"Ada\", game: \"1.4.4\") { game } }";
+        assert_eq!(w.gql(kick, json!({})).await["data"]["kick"]["game"], "1.4.4");
+        assert!(w.backend.kicked.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_game_that_does_not_answer_stops_an_action_but_not_a_lookup() {
+        let revived = revived_with(vec![]);
+        let w = world_on(std::slice::from_ref(&revived)).await;
+        revived.down.store(true, Ordering::SeqCst);
+        // Ada might also be in 1.4.4, which can't say
+        let body = w.gql(LOOKUP, json!({"name": "Ada"})).await;
+        assert_eq!(body["data"]["player"]["userId"], "u-ada");
+        let body = w.gql(KICK, json!({"name": "Ada"})).await;
+        assert_eq!(code(&body), "BACKEND_UNAVAILABLE");
+        assert!(body["errors"][0]["message"].as_str().unwrap().contains("Stub 1.4.4"));
+        assert!(w.backend.kicked.lock().unwrap().is_empty());
+        let kick = "mutation { kick(username: \"Ada\", game: \"1.14.7\") { username } }";
+        assert_eq!(w.gql(kick, json!({})).await["data"]["kick"]["username"], "Ada");
+        // Found nowhere that answered is not "no such player" while a game is silent
+        assert_eq!(
+            code(&w.gql(LOOKUP, json!({"name": "Wren"})).await),
+            "BACKEND_UNAVAILABLE"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_module_keeps_its_own_timeouts_and_lifts_nothing_yet() {
+        let revived = revived_with(vec![]);
+        let w = world_on(std::slice::from_ref(&revived)).await;
+        let body = w
+            .gql(TIMEOUT, json!({"name": "Wren", "minutes": 30, "reason": "spam"}))
+            .await;
+        assert_eq!(body["data"]["timeout"]["status"], "UNKNOWN", "{body}");
+        assert_eq!(body["data"]["timeout"]["restriction"], Value::Null);
+        assert_eq!(
+            revived.actions(),
+            [AdminRequest::Ban {
+                player: "Wren".into(),
+                reason: Some("Timed out until 2027-01-15T08:30:00Z: spam".into()),
+                until: Some("2027-01-15T08:30:00Z".into()),
+            }]
+        );
+        assert!(w.admin.timeouts.all().await.is_empty());
+        for lift in [
+            "mutation { unban(username: \"Wren\") { status } }",
+            "mutation { liftTimeout(username: \"Wren\") { status } }",
+        ] {
+            assert_eq!(code(&w.gql(lift, json!({})).await), "NOT_SUPPORTED", "{lift}");
+        }
+    }
+
+    #[test]
+    fn the_plugin_takes_game_modules_that_answer_lookups_one_per_version() {
+        let plugin = AdminPlugin::none();
+        let attach = |game: StubGame| {
+            let mut registrar = Registrar::new(game.manifest());
+            game.register(&mut registrar).unwrap();
+            plugin.attach(&game.manifest(), &registrar.finish().unwrap())
+        };
+        attach(StubGame::with("revived-stub", "1.4.4", vec![])).unwrap();
+        assert!(plugin.has_game("1.4.4") && !plugin.has_game("1.14.7"));
+        assert!(
+            attach(StubGame::with("revived-twin", "1.4.4", vec![])).is_err(),
+            "a second module for 1.4.4"
+        );
+        let no_lookup = StubGame {
+            actions: vec![AdminAction::Kick],
+            ..StubGame::with("no-lookup", "1.12.0", vec![])
+        };
+        assert!(attach(no_lookup).is_err(), "kick without lookup");
+        let a_plugin = StubGame {
+            kind: ModuleKind::Plugin,
+            ..StubGame::with("a-plugin", "1.14.7", vec![])
+        };
+        assert!(attach(a_plugin).is_err(), "a plugin has no players");
+        let quiet = StubGame {
+            actions: vec![],
+            ..StubGame::with("quiet", "1.12.0", vec![])
+        };
+        attach(quiet).unwrap();
+        assert!(!plugin.has_game("1.12.0"), "no admin actions, nothing to route");
+        plugin.detach(&"revived-stub".parse().unwrap());
+        assert!(plugin.modules().is_empty());
+    }
 }

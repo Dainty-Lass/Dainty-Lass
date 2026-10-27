@@ -22,21 +22,42 @@ backend's admin routes and the Director, so what it can do is bounded by what th
 - **In, from this machine's services:** the backend's answers (`/admin/v1/players`, `/admin/v1/online-players`,
   `/admin/v1/players/<id>/access`, `/reforged/api/Kick`, `/reforged/api/ServerStatus`) and the Director's
   `/api/instances`. They are local and trusted to be what they say, but each one is parsed defensively.
+- **In, from game modules (DF4c):** the answers to kick, ban and lookup (`module_api::AdminResponse` or a
+  `ModuleError`), through the controller's driver. A module out of process is another program: its frames are
+  checked by `module-api`'s parser (fuzz target `module_frame`), and the admin API treats the text of its errors as
+  untrusted.
 - **Out:** signed `/admin/v1` calls (the manager-operator credential,
-  `paradox/backend/src/security/managerOperator.ts`), the admin key to `/reforged/api/Kick`, and GraphQL answers to
-  the caller.
+  `paradox/backend/src/security/managerOperator.ts`), the admin key to `/reforged/api/Kick`, `AdminCall`s to game
+  modules, and GraphQL answers to the caller.
+
+### Which game a player is in
+
+The admin API sends kick, ban and lookup to the game the player is in (`modules.rs`, `schema.rs` `locate`). The Node
+backend answers for 1.14.7 until a module for 1.14.7 is loaded, so a server with no modules works exactly as before.
+Each game module that registered admin actions is attached to the `AdminPlugin` core plugin by the controller; it
+must answer lookups, and one module per game version answers admin actions. A registration names no accounts and
+every game keeps its own until the network's directory (DD17), so the admin API asks every game at once whether it
+has the name. A name found in two games is refused (`AMBIGUOUS_PLAYER`) until the caller names the game
+(`game: "1.4.4"`).
+
+Every call to a module carries `ActorContext { actor: admin { key: "owner" }, request: "admin-<ms>-<n>" }`: today's
+single `REFORGED_ADMIN_API_KEY` is the owner's key (DD23), and the request id is logged beside the operator id, so a
+change in a module's log leads back to the request and the caller who asked. DH2 replaces `owner` with the name of
+each person's key.
 
 Code: `rust/services/admin/src/` (`input.rs` holds every check of outside input, `app.rs` the HTTP side, `schema.rs`
-the fields and what they call, `upstream.rs` the calls and the signature, `hmac.rs`, `timeouts.rs`, `config.rs`,
-`server.rs`). Tests: `tests/api.rs` runs the API end to end against a fake backend and Director that check the
-signature and the admin key as the Node code does.
+the fields and what they call, `upstream.rs` the calls and the signature, `modules.rs` the module registry side,
+`hmac.rs`, `timeouts.rs`, `config.rs`, `server.rs`). Tests: `tests/api.rs` runs the API end to end against a fake
+backend and Director that check the signature and the admin key as the Node code does, and runs RD25's lookup, kick
+and ban cases against the Node backend, a stub 1.14.7 module and a stub 1.4.4 module (`games`).
 
 Fuzz target in `rust/fuzz`:
 
 - `admin_request`: the caller's headers and body, the query text (through async-graphql's parser), a username, a
-  reason, a timeout's `minutes`/`until`, and a Director answer. Checks that a request passes the header check only
-  with exactly one `Bearer <key>` and no proxy header. Checks that an accepted name, reason or timeout end is within
-  its rule, and that an instance's fields stay within their caps.
+  reason, a timeout's `minutes`/`until`, a `game`, a module's error text, and a Director answer. Checks that a
+  request passes the header check only with exactly one `Bearer <key>` and no proxy header. Checks that an accepted
+  name, reason or timeout end is within its rule, that an accepted game has one spelling, that a module's text comes
+  out one capped line, and that an instance's fields stay within their caps.
 
 ## Checklist
 
@@ -76,6 +97,34 @@ Fuzz target in `rust/fuzz`:
 - [ ] When the timeouts file can't be written, the ban just made is undone rather than left permanent
       (`schema.rs`, `timeout`). A damaged file stops the start instead of forgetting every timeout (`timeouts.rs`).
 - [ ] The file is written whole to `<file>.tmp` and renamed. It lives in `.workspace/config`, next to `secrets.env`.
+
+### Game modules (DF4c)
+
+- [ ] A server with no module for 1.14.7 sends 1.14.7's kick, ban and lookup to the Node backend exactly as before,
+      and asks no module when none is loaded (`schema.rs`, `locate`; `rd25_cases_on_the_node_backend`). Once a 1.14.7
+      module is attached, the Node backend is never asked for a player
+      (`rd25_cases_on_a_1_14_7_module_which_takes_over_from_the_node_backend`).
+- [ ] `AdminPlugin::attach` refuses a plugin's admin actions, a game whose actions don't include lookup, and a second
+      module for a game version already attached (`modules.rs`;
+      `the_plugin_takes_game_modules_that_answer_lookups_one_per_version`).
+- [ ] A module is sent only an action it registered, and each call is given up after 5 s (`AdminPlugin::call`).
+- [ ] Every call carries the actor `admin:owner` and a request id, valid by `ActorContext::is_valid`. The request id
+      is logged with the operator id and the action (`module_act`; `sent_as_owner`). The operator id stays the
+      caller's word, as for the backend.
+- [ ] A name found in more than one game is refused with `AMBIGUOUS_PLAYER` until the caller names the game
+      (`a_name_in_two_games_needs_the_game`). `game` must be a game version in its one spelling (`input.rs`, `game`).
+- [ ] A kick, ban or timeout is refused with `BACKEND_UNAVAILABLE` while a game that could also have the name
+      doesn't answer, so it never lands on a namesake. A lookup still answers with what it found. A name found nowhere
+      while a game was silent is an error, not "no such player"
+      (`a_game_that_does_not_answer_stops_an_action_but_not_a_lookup`).
+- [ ] A module's error text reaches the caller as one line of at most 200 characters (`input.rs`, `module_message`),
+      and the error kind decides the code. The details go to the log.
+- [ ] A timeout in a module's game is a ban with `until`: the module lifts it, and `timeouts.json` holds the Node
+      backend's timeouts only. `unban` and `liftTimeout` answer `NOT_SUPPORTED` for a module's player, since
+      `module-api` has no request for them yet (`a_module_keeps_its_own_timeouts_and_lifts_nothing_yet`).
+- [ ] What `module-api`'s answers don't carry (status, restriction, the admin role, location, connections closed)
+      shows as `UNKNOWN`, null, false or 0 for a module's player, never as a guess. Refusing a module's admin is the
+      module's job, and it answers `BACKEND_REFUSED` with the module's reason rather than `PROTECTED_ACCOUNT`.
 
 ### What it sends on
 
