@@ -53,7 +53,7 @@ export type GameProblem = "not_set" | "not_found" | "unverified" | "wrong_versio
 export type ServerGame = "reforged" | "revived";
 export type Game = "reborn" | "legacy";
 export type RuntimeState = "ok" | "missing" | "outdated" | "untrusted" | "unavailable" | "local";
-export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "unknown";
+export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "unknown";
 export type NoticeCode = "keep_open" | "backup_saved" | "runtime_installed" | "runtime_installed_restart" | "game_verified" | "sdk_imported" | "host_done" | "install_done" | "repair_done";
 export type LauncherError = { code: ErrorCode, 
 /**
@@ -180,7 +180,11 @@ legacyAvailable: boolean,
 /**
  * The game versions an invite may name in this build (`protocol::game::supported_versions`)
  */
-gameVersions: Array<string>, };
+gameVersions: Array<string>, 
+/**
+ * The server GUI (`server-gui` feature): the page shows the server screens (DU3)
+ */
+serverGui: boolean, };
 export type Snapshot = { phase: Phase, busy: boolean, server: ServerInfo | null, savedServers: Array<SavedServerInfo>, connect: SnapshotConnect, account: SnapshotAccount, game: GameInfo, 
 /**
  * The current server is a Dauntless Revived one, in the legacy edition
@@ -417,6 +421,56 @@ needsRole: string, createdAt: string,
  * When a delay ends; null for an approval
  */
 releaseAt: string | null, expiresAt: string, approvedBy: string | null, canceledBy: string | null, endedAt: string | null, result: string | null, };
+export type ModuleRole = "game" | "plugin";
+export type ModuleOrigin = "compiled_in" | "external";
+export type ModuleRunState = "not_loaded" | "starting" | "ready" | "failed";
+export type ModulePortView = { name: string, 
+/**
+ * `tcp` or `udp`, from the manifest
+ */
+transport: string, first: number, last: number, };
+export type ModuleArgView = { name: string, required: boolean, help: string, };
+export type ModuleCommandView = { name: string, summary: string, args: Array<ModuleArgView>, };
+export type ModuleSettingValue = boolean | number | string;
+export type ModuleSettingView = { name: string, help: string, default: ModuleSettingValue, 
+/**
+ * What `host.toml` sets, else the default
+ */
+value: ModuleSettingValue, };
+export type ModuleSectionView = { name: string, keys: Array<ModuleSettingView>, };
+export type ModulePatchSetView = { 
+/**
+ * The plugin brings a set of patches; otherwise the game module takes them
+ */
+provides: boolean, displayName: string | null, };
+export type ModulePaletteEntry = { 
+/**
+ * A CSS variable's name without `--`
+ */
+name: string, 
+/**
+ * A colour: checked, so it can't carry anything else into a style
+ */
+value: string, };
+export type ModuleThemeView = { id: string, displayName: string, palette: Array<ModulePaletteEntry>, layout: string | null, 
+/**
+ * The file the plugin registered with content
+ */
+logo: string | null, };
+export type ModuleCapabilitiesView = { realms: boolean, network: boolean, chat: boolean, patchSet: ModulePatchSetView | null, theme: ModuleThemeView | null, };
+export type ModuleView = { id: string, displayName: string | null, role: ModuleRole | null, gameVersion: string | null, origin: ModuleOrigin, autoload: boolean, state: ModuleRunState, 
+/**
+ * Why it failed, or what it last said
+ */
+detail: string | null, 
+/**
+ * Built but not checked against recorded traffic (DD9)
+ */
+unverified: boolean, ports: Array<ModulePortView>, capabilities: ModuleCapabilitiesView, commands: Array<ModuleCommandView>, 
+/**
+ * The settings it registered, empty until it loaded
+ */
+settings: Array<ModuleSectionView>, };
 export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export type ActionResult = { ok: true } | { ok: false; error: LauncherError };
 export type InviteCheck = { ok: true; certificateChanged: boolean; previousFingerprint: string | null; movedFrom: string | null } | { ok: false; error: LauncherError };
@@ -427,4 +481,7 @@ export type GameVersionList = { ok: true; versions: Array<GameVersionEntry> } | 
 export type InstallOutcome = { ok: true; install: InstallInfo } | { ok: false; error: LauncherError };
 export type GuardedList = { ok: true; actions: Array<GuardedActionInfo> } | { ok: false; error: LauncherError };
 export type GuardedOutcome = { ok: true; action: GuardedActionInfo } | { ok: false; error: LauncherError };
+export type ModuleListOutcome = { ok: true; modules: Array<ModuleView> } | { ok: false; error: LauncherError };
+export type ModuleOutcome = { ok: true; module: ModuleView } | { ok: false; error: LauncherError };
+export type ModuleCommandOutcome = { ok: true; text: string; data: string | null } | { ok: false; error: LauncherError };
 export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "dismiss_notice" | "dismiss_error" | "subscribe_progress" | "epic_sign_in_start" | "epic_sign_in_code" | "epic_get" | "epic_sign_out" | "epic_library_check" | "game_version_list" | "game_install_start" | "game_install_pause" | "game_install_resume" | "game_install_cancel" | "game_install_get" | "region_ping" | "module_list" | "module_get" | "module_run_command" | "module_set_settings" | "module_load" | "module_unload" | "realm_host" | "realm_join" | "realm_stop" | "realm_get" | "history_query" | "history_revert_dry_run" | "history_revert_apply" | "guarded_list" | "guarded_approve" | "guarded_cancel";
