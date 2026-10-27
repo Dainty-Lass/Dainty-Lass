@@ -21,7 +21,7 @@ use diesel::sqlite::Sqlite;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 
 use crate::connection::{AnyConnection, MultiBackend};
-use crate::history::{self, Actor, ChangeEntry, DELETED_AT};
+use crate::history::{self, Actor, ChangeEntry, DELETED_AT, Head, Verification};
 use crate::portable::quote_ident;
 use crate::{DatabaseConfig, Engine, Error, run_blocking};
 
@@ -318,14 +318,14 @@ impl Database {
         run_blocking(move || {
             let mut conn = checkout::<E>(&pool)?;
             (*conn).transaction(|conn| {
-                let at = history::begin(conn, &actor, now_ms)?;
+                let begun = history::begin(conn, &actor, now_ms)?;
                 let out = f(&mut Tx {
                     conn,
                     actor: &actor,
-                    at,
+                    at: begun.at,
                     soft_delete: &soft_delete,
                 })?;
-                history::end(conn)?;
+                history::end(conn, begun)?;
                 Ok(out)
             })
         })
@@ -335,6 +335,17 @@ impl Database {
     /// Change-log entries after `after_id`, oldest first.
     pub async fn changes(&self, after_id: i64, limit: i64) -> Result<Vec<ChangeEntry>, Error> {
         self.read(move |conn| history::changes(conn, after_id, limit)).await
+    }
+
+    /// The log's last sealed entry: what DH4 ships with the log (DH5).
+    pub async fn head(&self) -> Result<Option<Head>, Error> {
+        self.read(history::head).await
+    }
+
+    /// `history verify`: walks the log from its start and names the first entry edited, removed or
+    /// reordered, checking `trusted` (a shipped head) on the way ([`history::verify`]).
+    pub async fn verify(&self, trusted: Option<Head>) -> Result<Verification, Error> {
+        self.read(move |conn| history::verify(conn, trusted.as_ref())).await
     }
 
     /// Removes for good the rows soft-deleted longer ago than `retention`, as `system:retention`. Each
@@ -398,16 +409,23 @@ fn set_wal(conn: &mut AnyConnection) -> Result<(), Error> {
 }
 
 /// In one transaction: the log's tables, the triggers off, the pending migrations (logged as such), the
-/// triggers back on every table. The first write takes SQLite's lock; Postgres takes an advisory one.
+/// log sealed into the hash chain, the triggers back on every table. The first write takes SQLite's lock;
+/// Postgres takes advisory ones first, the write lock among them, so the log's table is never locked by an
+/// open waiting on a write that needs it.
 fn prepare(conn: &mut AnyConnection, schema: &DatabaseSchema) -> Result<(), Error> {
     conn.transaction(|conn| {
-        history::ensure_tables(conn)?;
         match conn.engine() {
-            Engine::Sqlite => conn.batch_execute(&format!("DELETE FROM {}", quote_ident(history::CONTEXT)))?,
+            Engine::Sqlite => {
+                history::ensure_tables(conn)?;
+                conn.batch_execute(&format!("DELETE FROM {}", quote_ident(history::CONTEXT)))?;
+            }
             Engine::Postgres => {
-                diesel::sql_query("SELECT pg_advisory_xact_lock($1)")
-                    .bind::<BigInt, _>(history::OPEN_LOCK)
-                    .execute(conn)?;
+                for lock in [history::OPEN_LOCK, history::WRITE_LOCK] {
+                    diesel::sql_query("SELECT pg_advisory_xact_lock($1)")
+                        .bind::<BigInt, _>(lock)
+                        .execute(conn)?;
+                }
+                history::ensure_tables(conn)?;
             }
         }
         history::drop_triggers(conn)?;
@@ -420,6 +438,8 @@ fn prepare(conn: &mut AnyConnection, schema: &DatabaseSchema) -> Result<(), Erro
         .map(ToString::to_string)
         .collect();
         history::log_migrations(conn, &applied, now_ms())?;
+        let sealed = history::head(conn)?;
+        history::seal(conn, sealed)?;
         history::install_triggers(conn, schema.soft_delete)?;
         Ok(())
     })

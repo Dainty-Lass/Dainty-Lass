@@ -820,6 +820,7 @@ dependencies = [
  "serde_json",
  "service-kit",
  "sha2",
+ "store",
  "toml_edit",
  "url",
 ]
