@@ -971,5 +971,9 @@
   "host_data_state_synthetic": "example",
   "host_data_state_missing": "missing",
   "host_data_generate": "Generate game data",
-  "host_data_export_pack": "Save a game data pack"
+  "host_data_export_pack": "Save a game data pack",
+  "err_history_bad_filter": "That filter isn't valid. Check the actor, the account and the times.",
+  "err_history_unavailable": "There is no history to read yet. Set the server up and start it once.",
+  "err_history_plan_changed": "The history changed since the dry run, or the plan is gone. Run the dry run again.",
+  "err_history_failed": "The history couldn't be read or reverted: {detail}"
 }
