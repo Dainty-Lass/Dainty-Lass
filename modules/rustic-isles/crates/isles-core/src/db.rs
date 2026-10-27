@@ -23,7 +23,17 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     sqlite: || SQLITE,
     postgres: || POSTGRES,
     // Player-facing tables are soft-deleted (DD23); each area adds its own as it lands them
-    soft_delete: &["accounts", "characters", "loadouts"],
+    soft_delete: &[
+        "accounts",
+        "characters",
+        "loadouts",
+        "progression_tracks",
+        "progression_objectives",
+        "escalation_progress",
+        "player_journey",
+        "breadcrumbs",
+        "encountered_content",
+    ],
 };
 
 /// The change log's actor for a module's actor (`store` keeps its own, smaller type).
