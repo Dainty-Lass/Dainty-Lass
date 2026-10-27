@@ -14,18 +14,19 @@ use tauri::{AppHandle, Manager, State};
 
 use super::backend::Backend;
 use super::spec::{
-    Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, GAME_PATH_MAX, INVITE_FOR_MAX, INVITE_MAX, KEY_TEXT_MAX,
-    PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
+    Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX, INVITE_FOR_MAX, INVITE_MAX,
+    KEY_TEXT_MAX, PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
 };
 use super::types::{
-    ActionResult, Branding, EpicLibraryCheck, ErrorCode, ExternalTarget, GameVersionList, HostAction, HostFolder,
-    HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck,
+    ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, HostAction,
+    HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck,
     LauncherError, MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot,
     TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::core::text::{js_length, js_trim};
 use crate::platform::epic_library::{self, EpicOwnership};
+use crate::platform::epic_session::Epic;
 
 type Backed<'a> = State<'a, Backend>;
 
@@ -510,37 +511,51 @@ fn planned(command: &str, args: &[&Value]) -> ActionResult {
     ActionResult::Err(LauncherError::with_detail(code, command))
 }
 
+fn epic(app: &AppHandle) -> Arc<Epic> {
+    app.state::<Arc<Epic>>().inner().clone()
+}
+
+/// Opens Epic's sign-in window and answers once the player signed in there or closed it (DE2): the page waits
+/// with a long deadline.
 #[tauri::command]
-pub fn epic_sign_in_start() -> ActionResult {
-    planned("epic_sign_in_start", &[])
+pub async fn epic_sign_in_start(app: AppHandle) -> ActionResult {
+    let language = controller(&app).language();
+    crate::platform::epic_login::sign_in(&app, epic(&app), language).await
+}
+
+/// The paste fallback: the code, or Epic's whole JSON page with it.
+#[tauri::command]
+pub async fn epic_sign_in_code(code: String, app: AppHandle) -> ActionResult {
+    if !fits(&code, EPIC_CODE_MAX) {
+        return ActionResult::err(ErrorCode::EpicCodeInvalid);
+    }
+    let signed_in = epic(&app).sign_in_pasted(&code).await;
+    if signed_in == ActionResult::Ok {
+        crate::platform::epic_login::close(&app);
+    }
+    signed_in
 }
 
 #[tauri::command]
-pub fn epic_sign_in_code(code: Value) -> ActionResult {
-    planned("epic_sign_in_code", &[&code])
+pub fn epic_get(app: AppHandle) -> EpicView {
+    epic(&app).view()
 }
 
 #[tauri::command]
-pub fn epic_get() -> ActionResult {
-    planned("epic_get", &[])
+pub async fn epic_sign_out(app: AppHandle) -> ActionResult {
+    epic(&app).sign_out().await
 }
 
-#[tauri::command]
-pub fn epic_sign_out() -> ActionResult {
-    planned("epic_sign_out", &[])
-}
-
-/// The signed-in Epic session, from the keystore. DE2 keeps it there; until it does, nobody is signed in.
-fn epic_session(app: &AppHandle) -> Option<epic::auth::Session> {
-    let _ = app;
-    None
-}
-
-/// Whether the signed-in Epic account owns Dauntless (DE3), cached a while. The session never crosses.
+/// Whether the signed-in Epic account owns Dauntless (DE3), cached a while. The session never crosses; one close
+/// to expiry is refreshed first (DE2).
 #[tauri::command]
 pub async fn epic_library_check(app: AppHandle) -> EpicLibraryCheck {
     let ownership = app.state::<Arc<EpicOwnership>>().inner().clone();
-    let session = epic_session(&app);
+    let epic = epic(&app);
+    let session = match epic.fresh_session().await {
+        Ok(session) => session,
+        Err(error) => return EpicLibraryCheck::Err(error),
+    };
     epic_library::check(&ownership, session.as_ref()).await
 }
 
@@ -814,10 +829,10 @@ mod tests {
     #[test]
     fn planned_commands_check_their_arguments() {
         let unknown = ActionResult::err(ErrorCode::Unknown);
-        let long = json!("a".repeat(crate::bridge::spec::EPIC_CODE_MAX + 1));
-        assert_eq!(planned("epic_sign_in_code", &[&long]), unknown);
-        assert_eq!(planned("epic_sign_in_code", &[&json!(7)]), unknown);
-        assert_eq!(planned("epic_sign_in_code", &[]), unknown);
+        let long = json!("a".repeat(crate::bridge::spec::GAME_VERSION_MAX + 1));
+        assert_eq!(planned("game_install_start", &[&long]), unknown);
+        assert_eq!(planned("game_install_start", &[&json!(7)]), unknown);
+        assert_eq!(planned("game_install_start", &[]), unknown);
         assert_eq!(planned("realm_host", &[&json!("raid")]), unknown);
         assert_eq!(planned("no_such_command", &[]), unknown);
         let filter = json!({ "actor": "key_01", "since": "2026-10-01T00:00:00Z" });

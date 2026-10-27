@@ -246,6 +246,14 @@ pub enum ErrorCode {
     /// A command this build does not serve, such as a server GUI one in the player launcher (detail: the
     /// command's name)
     NotInThisBuild,
+    // Epic sign-in (DE2):
+    /// Neither an authorization code nor Epic's page with one
+    EpicCodeInvalid,
+    /// Epic refused the code (used or expired) or the stored session (signed out elsewhere)
+    EpicRejected,
+    EpicUnreachable,
+    /// Epic's answer could not be read, or the sign-in window could not open (detail: `window`)
+    EpicFailed,
     Unknown,
 }
 
@@ -1208,6 +1216,18 @@ impl Serialize for GameVersionList {
     }
 }
 
+/// `epic_get`: who is signed in to Epic (DE2). The session itself stays in the keystore (DD22).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct EpicView {
+    pub signed_in: bool,
+    /// The account's Epic display name; null when signed out or Epic gave none
+    pub display_name: Option<String>,
+    /// The sign-in window is open, or a code is being exchanged
+    pub signing_in: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1296,6 +1316,19 @@ mod tests {
                 { "version": "1.4.4", "displayName": "Dauntless Revived", "origin": "server", "install": "locate",
                   "epic": null },
             ] })
+        );
+        let epic = EpicView {
+            signed_in: true,
+            display_name: Some("Slayer".into()),
+            signing_in: false,
+        };
+        assert_eq!(
+            serde_json::to_value(epic).unwrap(),
+            json!({ "signedIn": true, "displayName": "Slayer", "signingIn": false })
+        );
+        assert_eq!(
+            serde_json::to_value(ErrorCode::EpicCodeInvalid).unwrap(),
+            json!("epic_code_invalid")
         );
         let error = LauncherError::with_detail(ErrorCode::HostFailed, "setup_form");
         assert_eq!(

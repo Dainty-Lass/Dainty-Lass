@@ -8,8 +8,8 @@ own Epic library (docs/dainty-lass-plan.md DD22, rows DE1 to DE7, DX2). `SECURIT
 How to use it: before the first release that installs from Epic, copy this list into the release notes' review,
 check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
 date and the commit reviewed. An item that does not hold is a bug to fix before that release, not a box to leave
-open. DE1 wrote the manifest and chunk readers and stubbed the rest, so the items under "Signing in" and "The CDN"
-are for DE2 and DE5 to make true; they say what those rows must deliver.
+open. DE1 wrote the manifest and chunk readers, DE2 the sign-in; the items under "The CDN" are for DE5 to make
+true.
 
 ## What it is and where the boundary is
 
@@ -25,8 +25,10 @@ or chunk is code the player will run.
 - **Out:** files written under the install folder the player chose, one folder per version.
 
 Code: `manifest.rs` (header, sections, checks), `manifest/reader.rs` (bounded reads), `manifest/path.rs` (file
-names), `chunk.rs` (chunk check), `auth.rs` (secret types, stubs), `library.rs` (ownership and its cache, DE3),
-`download.rs` (stubs, CDN hosts); the launcher's `platform/epic_library.rs` and `epic_library_check`.
+names), `chunk.rs` (chunk check), `auth.rs` (secret types, sign-in through `egs-api`), `library.rs` (ownership and
+its cache, DE3), `download.rs` (stubs, CDN hosts). In the launcher: `platform/epic_session.rs`,
+`platform/epic_login.rs`, `platform/keystore/epic.rs`, `platform/epic_library.rs` and the `epic_*` commands in
+`bridge/commands.rs`.
 
 Fuzz target: `epic_manifest` in `rust/fuzz` (a whole manifest file under its own pin, the unpacked sections behind
 a valid header, and a chunk checked against an entry made from its payload). It checks that nothing panics, that a
@@ -94,14 +96,28 @@ each once, with parts inside listed chunks, and that an accepted chunk is exactl
 - [ ] `auth::Token` has no `Debug`, `Display`, `Clone` or `Serialize`; reading one takes `expose()`. `Session`'s
       `Debug` shows the account and expiry, never a token. Tests: `a_session_debugs_without_its_tokens` and the two
       `compile_fail` doc tests in `auth.rs`.
-- [ ] The session lives in the keystore, like the account key: never across the bridge, never in a log, never in a
-      settings file. Sign out deletes the keystore entry.
-- [ ] `egs-api` logs through `log`, and the workspace forwards `log` to `tracing`. Its `error!("{:?}", e)` on a
-      failed request prints the URL, and its SID sign-in puts the SID in the URL. DE2 filters the `egs_api` target
-      out of every log layer and never calls `auth_sid`. `egs-api`'s own `UserData` and `EpicGames` derive `Debug`
-      with the tokens in them: they are never formatted, logged or stored as they are.
-- [ ] The authorization code is checked (`AuthorizationCode::new`: letters and digits only) before it is sent, and
-      dropped after the one exchange.
+- [ ] The session lives in the keystore, like the account key: `userData/keys/epic.session`, encrypted by the
+      account keys' encryptor (`platform/keystore/epic.rs`), with no Documents copy. Never across the bridge
+      (`epic_get` answers `EpicView`: signed in, display name, signing in), never in a settings file. Its tokens go
+      on the log's secret list when read or saved. Sign out deletes the file whether or not Epic answers. Tests:
+      `a_session_round_trips_encrypted`, `signed_in_after_a_restart_until_signed_out`.
+- [ ] `egs-api` logs through `log`, which the server GUI forwards to `tracing`. Its `error!("{:?}", e)` on a failed
+      request prints the URL, and ending a session puts the access token in the URL. The launcher's log layer
+      drops every event whose target, or forwarded `log` target, is `egs_api` (`log::is_muted`), and drops it for
+      the whole subscriber (`event_enabled`), so the server GUI's log channel never sees it either. `auth_sid` is
+      never called. `egs-api`'s `UserData` and `EpicGames` (which derive `Debug` with the tokens) live only inside
+      `EpicAccounts`' calls, and its errors become `AuthError` without their text. Test:
+      `no_code_or_token_reaches_any_log` (a double for Epic that leaks through both `tracing` and `log`, and
+      every event and the log file checked for the code and the tokens).
+- [ ] The authorization code is checked (`AuthorizationCode::new`: letters and digits only, at most 256) before it
+      is sent, and spent by the one exchange. A pasted JSON page gives only its `authorizationCode`
+      (`from_pasted`); the bridge refuses a paste over 1024 characters. Fuzzed: `epic_manifest`'s `Pasted` input.
+- [ ] The sign-in window (`platform/epic_login.rs`) is private (`incognito`: no Epic cookies kept), loads only
+      HTTPS, opens no popups and gets no bridge (the capability names the main window only). Its script acts only on
+      `https://www.epicgames.com/id/api/redirect`, and a code is taken only when the page shown is that one, so a
+      third-party login page can't sign the player in to an account of its choosing. The code reaches Rust as a
+      navigation to `epic-sign-in.invalid` that is cancelled, never sent. Tests:
+      `the_code_is_taken_only_from_epics_redirect_page`, `only_https_loads`.
 
 ### Ownership (DE3)
 
@@ -131,6 +147,9 @@ These do not block DE1 but must be settled, or accepted in writing, before the f
 
 - **Epic's client id.** Signing in uses the Epic Games Launcher's own client id and secret, as Legendary and Heroic
   do. Epic does not sanction it (DD22) and could revoke it.
+- **The refresh token's life.** A stolen `epic.session` file is worth the account until Epic expires the refresh
+  token (weeks) or the player signs out; DPAPI or the Secret Service key ties it to the player's own login, as for
+  account keys.
 - **Tokens in memory.** `Token` does not zero its memory on drop (no `zeroize` in the workspace). A memory dump of
   the launcher shows the session, as it shows the account key.
 - **Chunks Epic deletes.** A version whose chunks return 403 or 404 on every host shows as unavailable (DD22); the
