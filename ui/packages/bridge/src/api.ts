@@ -21,6 +21,7 @@ import type {
   InviteCheck,
   NewsItem,
   RealmKind,
+  RegionPing,
   RegisterOutcome,
   Settings,
   Snapshot,
@@ -122,7 +123,8 @@ export interface LauncherApi {
   gameInstallResume(version: string): Promise<ActionResult>
   gameInstallCancel(version: string): Promise<ActionResult>
   gameInstallGet(version: string): Promise<ActionResult>
-  regionPing(): Promise<ActionResult>
+  // DN7's, filled: the joined server's regions, nearest first
+  regionPing(): Promise<RegionPing>
   moduleList(): Promise<ActionResult>
   moduleGet(module: string): Promise<ActionResult>
   moduleRunCommand(
@@ -354,7 +356,7 @@ export const api: LauncherApi = {
     act("game_install_cancel", { version: String(version) }),
   gameInstallGet: (version) =>
     act("game_install_get", { version: String(version) }),
-  regionPing: () => act("region_ping"),
+  regionPing: () => act<RegionPing>("region_ping"),
   moduleList: () => act("module_list"),
   moduleGet: (module) => act("module_get", { module: String(module) }),
   // The input's shape is the module manifest's, so it crosses as JSON text the backend checks
