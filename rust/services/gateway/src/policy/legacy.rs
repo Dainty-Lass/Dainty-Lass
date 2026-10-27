@@ -1,6 +1,6 @@
 //! The policy for a Dauntless Revived 1.4.4 server (`GATEWAY_GAME=legacy`; RD5 reversed): DR's
-//! `classify` at 24b7624, in front of DR's metagame as `services/metagame` ported it, with DR's names
-//! translated (migration guide section 3): `/undaunted/api` is `/reforged/api`, the game servers'
+//! `classify` at 24b7624, in front of DR's metagame as `services/metagame` (legacy-revived) ported it, with DR's
+//! names translated (migration guide section 3): `/undaunted/api` is `/reforged/api`, the game servers'
 //! header `x-mysticparadox-gameserver-apikey`. The 1.4.4 client calls the metagame's routes directly,
 //! with no `/__origin` wrapping, so the paths are judged as they came.
 

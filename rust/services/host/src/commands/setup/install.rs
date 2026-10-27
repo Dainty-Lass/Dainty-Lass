@@ -1,6 +1,7 @@
 //! Setup's step 2: the services' code, from the server release (RD8, RH5) or, in a developer's
 //! checkout with no release, built from it as the Node kit did (`npm ci` and `npm run build` in
-//! `paradox/backend`, `paradox/director` and the Node gateway and content server).
+//! Mystic Paradox's `ParadoxBackend` and `ParadoxDirector` in `modules/rustic-isles/reference/1.14.7`
+//! and the Node gateway and content server).
 //!
 //! A server installed from a release (`release.json` in its folder) checks every file of it against
 //! `release.json`. When some are missing or changed, or the release is another platform's, it
@@ -36,7 +37,7 @@ impl ServiceSource {
 
 /// The server's folder.
 fn root_of(l: &Layout) -> &Path {
-    l.paradox.parent().unwrap_or(Path::new("."))
+    &l.root
 }
 
 /// Step 2 for this server: from its release, or built from its checkout.

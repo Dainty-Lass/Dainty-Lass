@@ -380,7 +380,7 @@ pub fn performance_checks(
                 if platform == Platform::Linux {
                     "on the Windows PC: reforged-host update, build the runtime again (Host tools page) and reforged-host publish-runtime; then send it here (Deploy-FromWindows.ps1 ... -SkipGame, or copy .workspace\\runtime and reforged-host publish-runtime --from <folder>) and restart the server (players accept the new runtime once)"
                 } else {
-                    "reforged-host update, build the runtime again (Host tools page, or native\\paradox-runtime\\_build.bat), reforged-host publish-runtime, restart the server (players accept the new runtime once)"
+                    "reforged-host update, build the runtime again (Host tools page, or modules\\rustic-isles\\native\\runtime\\_build.bat), reforged-host publish-runtime, restart the server (players accept the new runtime once)"
                 },
             )
         });
@@ -667,16 +667,16 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
         ),
     });
 
-    // ---- Mystic Paradox (paradox/ and native/)
+    // ---- Mystic Paradox (modules/rustic-isles and native/)
     let missing = missing_paradox(&layout);
     checks.push(if missing.is_empty() {
-        check("paradox", Level::Ok, "Mystic Paradox in paradox/ and native/")
+        check("paradox", Level::Ok, "Mystic Paradox in modules/rustic-isles and native/")
     } else {
         fix(
             "paradox",
             Level::Fail,
             format!("this checkout has no {}", missing.join(", ")),
-            "clone the project again with git (docs/hosting.md) and move .workspace into the new clone",
+            "git submodule update --init --recursive, or clone the project again with git clone --recurse-submodules (docs/hosting.md) and move .workspace into the new clone",
         )
     });
     let built: [(&str, PathBuf); 4] = [
@@ -777,7 +777,7 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
         fix(
             "sdk",
             not_here,
-            "no SDK in native/paradox-runtime yet",
+            "no SDK in modules/rustic-isles/native/runtime yet",
             "dump it with Dumper-7 from your own 1.14.7 game (launcher > Settings > Host tools, or docs/sdk-and-game-data.md)",
         )
     });
@@ -791,7 +791,7 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
             if linux {
                 "it is built on a Windows PC: reforged-host publish-runtime --from <folder> publishes it (docs/hosting-linux.md)"
             } else {
-                "build native\\paradox-runtime (Host tools page, or native\\paradox-runtime\\_build.bat)"
+                "build modules\\rustic-isles\\native\\runtime (Host tools page, or its _build.bat)"
             },
         )
     });

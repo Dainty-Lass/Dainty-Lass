@@ -3,7 +3,9 @@
 # Security checklist: the legacy deploy server (RX3)
 
 The checklist for Dauntless Revived's deploy server, ported for legacy (Dauntless 1.4.4) servers:
-`rust/services/deploy` (DR `rust/services/deploy` at `24b7624`; RD5 reversed behind the `legacy` features).
+`rust/services/deploy` in the legacy-revived submodule (`modules/legacy-revived`, DS6; DR's at `24b7624`, RD5
+reversed). This checklist moves there with RV1; its fuzz target (`deploy_input`) left this repository's `rust/fuzz`
+with the code, and RV1 carries it over.
 `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before legacy servers ship, copy this list into the review, check each item in the code (not from
@@ -124,7 +126,7 @@ These must be settled, or accepted in writing, before legacy servers ship:
 
 - **The game-server key is on the game's command line**, as DR passes it (argument one, which the internal-server
   DLL reads). Any local user can read a process's command line. The key lets a caller post as a game server to
-  the metagame. Moving it to the environment needs a change to `native/internal-server` as well.
+  the metagame. Moving it to the environment needs a change to `modules/legacy-revived/native/internal-server` as well.
 - **The game process inherits every deploy setting** under DR's names (`DR_*` for the DLL and `run-game`, plus
   `METAGAME_API_KEY`, `CITY_STATUS_KEY`), as DR did. The game needs some of them; a narrower list is safer.
 - **No caller authentication.** DR has none. A shared secret with the metagame (as the gateway has) would close

@@ -18,6 +18,12 @@ build/
 *.pfx
 secrets/
 
+# What a checkout from before DS6 leaves of a host's own files in the old places (setup copies them over)
+/paradox/
+/native/paradox-runtime/
+/native/catalog-exporter/
+/native/internal-server/
+
 # Game files and generated SDKs (Phoenix Labs' material)
 *.pak
 *.ucas

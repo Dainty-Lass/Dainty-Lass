@@ -77,7 +77,7 @@ Fuzz targets in `rust/fuzz`:
       slashes folded, trailing slashes dropped (`canonical_path`).
 - [ ] Under `/reforged`, only `POST register`, `GET`/`HEAD getuserinfo`, `serverstatus` and `registrationstatus` under
       `/reforged/api/` pass; every other route (invites, account status) is 403 `admin_route`, even with a valid admin
-      key and even as an upgrade. The test reads every route from `paradox/backend/src/routes/reforgedApi.ts`, so a
+      key and even as an upgrade. The test reads every route from `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, so a
       route added there is covered (`policy.rs` and `tests/gateway.rs`, `only_the_public_reforged_routes_*`).
 - [ ] `/admin`, `/launcher`, `/internal` and `/health`, and everything under them, are 403 `host_only_route`
       (Mystic Paradox's admin API, its own launcher API, metrics and readiness probes).
@@ -135,7 +135,7 @@ first, and content and chat stay the gateway's own upstreams, so a module's rout
       reports the peer's address (`policy.rs`, `gateway.rs`). Nothing else does; in particular not `/game/login`
       (Dauntless Revived's route, which Paradox does not have) nor Paradox's `POST /login` (RD20).
 - [ ] Known weakness, the same as the Node gateway: Paradox answers `POST /heartbeat` 200 without checking the token
-      (`paradox/backend/src/routes/system.ts`), so the gateway's `has_bearer` is the only check, and any
+      (`modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/system.ts`), so the gateway's `has_bearer` is the only check, and any
       `Authorization: Bearer <anything>` opens the game ports for its sender. The token route does check credentials.
       Closing this needs the backend to check the bearer on `/heartbeat` (a Paradox fix, RD2) or the gateway to feed
       from a route that does.

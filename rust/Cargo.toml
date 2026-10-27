@@ -20,10 +20,6 @@ members = [
     "services/backend",
     "services/director",
     "services/admin",
-    # Dauntless Revived's 1.4.4 metagame, for legacy servers
-    "services/metagame",
-    # Dauntless Revived's deploy server, which starts the 1.4.4 game servers for the metagame
-    "services/deploy",
     # The network core plugin: node links, the directory (DD16-DD18)
     "plugins/network",
     "launcher/src-tauri",
@@ -35,8 +31,9 @@ members = [
     "bins/server-console",
     "bins/server-minimal",
 ]
-# The fuzz targets (cargo fuzz, nightly) are a workspace of their own
-exclude = ["fuzz"]
+# The fuzz targets (cargo fuzz, nightly) are a workspace of their own, as is each module repository under
+# ../modules (DD2): that entry is a no-op while this workspace sits in rust/, needed if its root moves up (DF1)
+exclude = ["fuzz", "../modules"]
 
 [workspace.package]
 version = "0.0.0"
@@ -118,18 +115,8 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "registry", "std", "t
 toml = "0.9"
 rand = "0.10"
 tempfile = "3"
-# Dauntless Revived's metagame (services/metagame, legacy servers)
-if-addrs = "0.15"
-jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
-memory-stats = "1"
-subtle = "2"
-tower-http = { version = "0.7", features = ["fs", "catch-panic"] }
-# Also game-server ids (services/deploy)
-uuid = { version = "1", features = ["v4"] }
 # Network-wide ids, tagged with the owning node (DD18, crates/module-api)
 ulid = "3"
-# The metagame's chat parity test's WebSocket clients (the version axum's ws uses)
-tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

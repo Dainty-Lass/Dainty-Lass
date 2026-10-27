@@ -4,7 +4,7 @@ Nothing from the game is in this repository. Every host produces three things fr
 on a Windows PC with the game installed:
 
 1. the **SDK**: C++ headers generated from the running game, which the runtime is compiled against;
-2. the **runtime**: `MysticParadox.dll` (built from `native/paradox-runtime` with the SDK) and its loader
+2. the **runtime**: `MysticParadox.dll` (built from `modules/rustic-isles/native/runtime` with the SDK) and its loader
    `winmm.dll` (`native/runtime-loader`, Rust), which players install from your server;
 3. the **game data**: JSON the backend and the Director serve, generated from an export the CatalogExporter
    makes inside the game.
@@ -18,7 +18,7 @@ brings the results over ([hosting-linux.md](hosting-linux.md)).
 Dump the SDK with [Dumper-7](https://github.com/Encryqed/Dumper-7) from your own 1.14.7 client: the Host page
 loads the Dumper-7 DLL through the runtime loader (the launcher never injects on its own), or do it by hand
 as Dumper-7 documents. The dump is a `CppSDK` folder with `SDK.hpp` inside. Import it into
-`native/paradox-runtime` (the Host page's **Import SDK**, or copy it there as the folder's `BUILD.md` says).
+`modules/rustic-isles/native/runtime` (the Host page's **Import SDK**, or copy it there as the folder's `BUILD.md` says).
 `doctor` reports the SDK as imported once it sees the generated `*_functions.cpp` files.
 
 The SDK is Phoenix Labs' material: never commit it, never share it. `.gitignore` refuses `CppSDK/` and
@@ -29,11 +29,11 @@ The SDK is Phoenix Labs' material: never commit it, never share it. `.gitignore`
 Visual Studio 2022 with Desktop development with C++ (the v145 toolset and a Windows SDK). Then:
 
 ```bat
-native\paradox-runtime\_build.bat          REM MysticParadox.dll, one DLL for the client and the dedicated server
-native\paradox-runtime\build-loader.bat    REM winmm.dll, from native\runtime-loader (needs the Rust toolchain)
+modules\rustic-isles\native\runtime\_build.bat          REM MysticParadox.dll, one DLL for the client and the dedicated server
+cd native\runtime-loader && cargo build --release      REM winmm.dll (needs the Rust toolchain; the loader stays here, DD13)
 ```
 
-[native/paradox-runtime/BUILD.md](../native/paradox-runtime/BUILD.md) explains the build and the optional
+[modules/rustic-isles/native/runtime/BUILD.md](../modules/rustic-isles/native/runtime/BUILD.md) explains the build and the optional
 player-hosted module. The runtime reads the backend's address from the environment at run time, so one build
 serves every server and every player of yours. Publish it:
 
@@ -47,18 +47,18 @@ rebuilt runtime has new hashes, and players are asked again.
 
 ## 3. The game data
 
-The CatalogExporter (`native/catalog-exporter`, built with `_build.bat` against the same SDK) runs inside the
+The CatalogExporter (`modules/rustic-isles/native/catalog-exporter`, built with `_build.bat` against the same SDK) runs inside the
 game, loaded through the runtime loader like the runtime, and writes the catalogs the backend needs into
-`paradox/Items_Analysis/`. The progression export comes from the game the same way. Then:
+`modules/rustic-isles/reference/1.14.7/Items_Analysis/`. The progression export comes from the game the same way. Then:
 
 ```powershell
-bin\reforged-host gamedata                         # generate paradox\backend\game-data and paradox\director\game-data
+bin\reforged-host gamedata                         # generate ParadoxBackend\game-data and ParadoxDirector\game-data in modules\rustic-isles\reference\1.14.7
 bin\reforged-host gamedata --progression-only      # only the progression config
 bin\reforged-host gamedata --examples              # the shipped examples: the services start, nobody can play
 ```
 
 `gamedata` runs Mystic Paradox's generators on your export and fetches the five store captures
-(`paradox/backend/store-captures.json` names them, with their hashes) from EisigesEis's repository on your
+(`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json` names them, with their hashes) from EisigesEis's repository on your
 machine, because no licence allows copying them here. The launcher shows players whether a server runs on real
 or example data.
 

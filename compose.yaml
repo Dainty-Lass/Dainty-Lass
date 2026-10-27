@@ -48,10 +48,10 @@ x-server: &server
   restart: unless-stopped
   volumes:
     - workspace:/opt/reforged/.workspace
-    - backend-game-data:/opt/reforged/paradox/backend/game-data
-    - director-game-data:/opt/reforged/paradox/director/game-data
-    - exports:/opt/reforged/paradox/Items_Analysis
-    - captures:/opt/reforged/paradox/DauntlessEndpointDocumentation
+    - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+    - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+    - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
+    - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
     - ${REFORGED_GAME_DIR:-./game}:/game
 
 services:
@@ -160,17 +160,17 @@ services:
     command: ["apply"]
     volumes:
       - workspace:/opt/reforged/.workspace
-      - backend-game-data:/opt/reforged/paradox/backend/game-data
-      - director-game-data:/opt/reforged/paradox/director/game-data
-      - exports:/opt/reforged/paradox/Items_Analysis
-      - captures:/opt/reforged/paradox/DauntlessEndpointDocumentation
+      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
       - ${REFORGED_GAME_DIR:-./game}:/game
       # z: relabelled for SELinux hosts (Fedora, RHEL with Podman); ignored elsewhere
       - ${REFORGED_CONFIG_DIR:-./config}:/config:ro,z
 
   backend:
     <<: *server
-    working_dir: /opt/reforged/paradox/backend
+    working_dir: /opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend
     command: ["node", "--env-file=/opt/reforged/.workspace/config/backend.env", "build/server.js"]
     healthcheck:
       test: ["CMD", "reforged-healthcheck", "backend"]
@@ -323,10 +323,10 @@ services:
     command: ["doctor"]
     volumes:
       - workspace:/opt/reforged/.workspace
-      - backend-game-data:/opt/reforged/paradox/backend/game-data
-      - director-game-data:/opt/reforged/paradox/director/game-data
-      - exports:/opt/reforged/paradox/Items_Analysis
-      - captures:/opt/reforged/paradox/DauntlessEndpointDocumentation
+      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
       - ${REFORGED_GAME_DIR:-./game}:/game
       # Files to bring in: the runtime's DLLs (publish-runtime --from /import/...), game data packs
       - ${REFORGED_IMPORT_DIR:-./import}:/import:ro
@@ -348,8 +348,8 @@ services:
     # The allowlist's nftables test, in this container's own network namespace
     cap_add: [NET_ADMIN]
     volumes:
-      - backend-game-data:/opt/reforged/paradox/backend/game-data:ro
-      - director-game-data:/opt/reforged/paradox/director/game-data:ro
+      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data:ro
+      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data:ro
 
 volumes:
   workspace:

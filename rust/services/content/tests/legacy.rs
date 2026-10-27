@@ -3,7 +3,7 @@
 
 //! A legacy content server (`CONTENT_GAME=legacy`) over HTTP: DR's 1.4.4 manifest and game files,
 //! with HTTP ranges as DR serves them, and the key checked at the metagame (names translated as
-//! `services/metagame` has them: `x-reforged-user-api-key`, `/reforged/api/GetUserInfo`).
+//! legacy-revived's `services/metagame` has them: `x-reforged-user-api-key`, `/reforged/api/GetUserInfo`).
 
 use std::path::Path;
 use std::sync::Arc;

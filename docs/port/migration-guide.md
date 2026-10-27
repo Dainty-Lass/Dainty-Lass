@@ -39,21 +39,23 @@ How to read the tables:
 | --- | --- | --- |
 | DR `rust/` (workspace files, `crates/`, `fuzz/`) | [`rust/`](../../rust) | Same layout (RD11). The workspace lists every planned member from the start, stubs included |
 | DR `rust/services/gateway`, `rust/services/content` | `rust/services/gateway`, `rust/services/content` | Fitted to Reforged; sections 2.3 and 2.4 |
-| DR `rust/services/metagame`, `deploy` (at its tip, `24b7624`) | `rust/services/metagame`, `rust/services/deploy` | For 1.4.4 servers only, behind the `legacy` feature (RD5 reversed); controller modules when the server runs both games (RD26). The 1.14.7 backend is still Mystic Paradox's, and the RB rows still take pieces of `metagame` by hand; section 2.7 |
+| DR `rust/services/metagame`, `deploy` (at its tip, `24b7624`) | `rust/services/metagame`, `rust/services/deploy` in the legacy-revived submodule ([`modules/legacy-revived`](../../modules/legacy-revived), DS6) | For 1.4.4 servers only (RD5 reversed): DR's own workspace there, with this repository's catch-up; the host kit's `legacy` feature runs their binaries and hands them their env files under DR's names (`legacy/mod.rs`, `dr_environment`) until RV1 puts them on `module-api`. The 1.14.7 backend is still Mystic Paradox's; section 2.7 |
+| DR `native/internal-server`, `client-mods` | `native/internal-server`, `client-mods` in legacy-revived | The launcher's `legacy` build bundles `modules/legacy-revived/client-mods` (`tauri.legacy.conf.json`) |
+| — | [`modules/rustic-rifts`](../../modules/rustic-rifts) | Submodule (DS6): the transport and the rifts crates (DD14); nothing here uses it yet |
 | DR `rust/services/discord-bot` | not copied | The admin service (RD25) is Reforged's answer |
 | DR `legacy/UndauntedLauncher/src-tauri`, `isolation/` | [`rust/launcher/src-tauri`](../../rust/launcher/src-tauri), `rust/launcher/isolation` | Section 2.6 |
 | DR `legacy/Undaunted*/` (the Node services) | not copied | Reforged's Node code is DR's modified; it is under `legacy/` here instead |
 | DR `deploy/` (Windows, Linux and OpenBSD kits) | not copied | Replaced by the host kit (section 2.5). Ideas taken earlier into the Node kit: the nftables allowlist table (`deploy/unix-common/allowlist-core.mjs`), the Wine runner on `xvfb-run`, one systemd unit per capability |
 | DR `.github/workflows/server-release.yml`, `ci.yml` | [`.forgejo/workflows/server-release.yml`](../../.forgejo/workflows/server-release.yml), `ci.yml` | Method reused (RH6, RR3); Reforged's binaries and families |
 | Reforged `ReforgedGateway/`, `ReforgedContent/`, `ReforgedHost/`, `ReforgedLauncher/` | gone | Carried under `legacy/` until 2026-10-26, then removed with the rest of the upstream line; the Rust modules below replaced them. The catch-up lists name what they still owed |
-| Reforged `upstream/` (the Paradox pin, patches, `store-captures.json`) | gone | `store-captures.json` is [`paradox/backend/store-captures.json`](../../paradox/backend/store-captures.json); the patch texts are commit messages and [`docs/paradox-patches.md`](../paradox-patches.md) |
-| Mystic Paradox `ParadoxBackend/`, `ParadoxDirector/` | [`paradox/backend`](../../paradox/backend), [`paradox/director`](../../paradox/director) | Still Node, until the RB rows. Any change is allowed, fixes are the baseline (RD2) |
-| Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | [`paradox/shared/hunt-manifest`](../../paradox/shared) | Imported by the backend and the Director |
-| Mystic Paradox `ParadoxRuntime/` | [`native/paradox-runtime`](../../native/paradox-runtime) | C++, built by each host |
-| Mystic Paradox `tools/RuntimeLoader/` | [`native/runtime-loader`](../../native/runtime-loader) | A Rust crate of its own, outside the workspace |
-| Mystic Paradox `tools/CatalogExporter/` | [`native/catalog-exporter`](../../native/catalog-exporter) | Loaded into the game through the runtime loader (RD9) |
+| Reforged `upstream/` (the Paradox pin, patches, `store-captures.json`) | gone | `store-captures.json` is [`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`](../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json); the patch texts are commit messages and [`docs/paradox-patches.md`](../paradox-patches.md) |
+| Mystic Paradox `ParadoxBackend/`, `ParadoxDirector/` | [`modules/rustic-isles/reference/1.14.7/ParadoxBackend`](../../modules/rustic-isles/reference/1.14.7/ParadoxBackend), [`modules/rustic-isles/reference/1.14.7/ParadoxDirector`](../../modules/rustic-isles/reference/1.14.7/ParadoxDirector) | In the rustic-isles submodule since DS6 (`paradox/backend`, `paradox/director` before). Still Node, until the Rust port. Any change is allowed, fixes are the baseline (RD2); it lands in rustic-isles and this repository moves the pin |
+| Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | [`modules/rustic-isles/reference/1.14.7/shared/hunt-manifest`](../../modules/rustic-isles/reference/1.14.7/shared) | Imported by the backend and the Director |
+| Mystic Paradox `ParadoxRuntime/` | [`modules/rustic-isles/native/runtime`](../../modules/rustic-isles/native/runtime) | C++, built by each host (`native/paradox-runtime` before DS6) |
+| Mystic Paradox `tools/RuntimeLoader/` | [`native/runtime-loader`](../../native/runtime-loader) | A Rust crate of its own, outside the workspace; stays here (DD13) |
+| Mystic Paradox `tools/CatalogExporter/` | [`modules/rustic-isles/native/catalog-exporter`](../../modules/rustic-isles/native/catalog-exporter) | Loaded into the game through the runtime loader (RD9) |
 | Mystic Paradox `ParadoxLauncher/`, `ParadoxTransport/`, its release workflows, `.gitleaks.toml`, `docs/SELF_HOSTING.md` | not taken | Reforged has its own launcher; the ICE transport belongs to Paradox's player-hosted realms |
-| Mystic Paradox top-level `ADDITIONAL_TERMS.md`, `LICENSE`, `NOTICE.md`, `README.md`, `docs/` | `paradox/<same>` | Stay there after the Node code is gone (section 4.1 of the plan) |
+| Mystic Paradox top-level `ADDITIONAL_TERMS.md`, `LICENSE`, `NOTICE.md`, `README.md`, `docs/` | `modules/rustic-isles/<same>` | rustic-isles' top level (`paradox/<same>` before DS6) |
 
 ### 2.2 Shared crates (from DR `rust/crates/`)
 
@@ -113,21 +115,21 @@ files one to one; its tests run against fixtures generated from the Node kit (`t
 | --- | --- | --- |
 | `cli.ts` | `cli.rs`, `main.rs`, `commands/mod.rs` | The same commands and options: `setup`, `start`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `preset`, `multipliers`, `update`, `backup`, and the Linux-only `gameserver` |
 | `hostconfig.ts` (`host.json`) | `hostconfig.rs`, `hosttoml.rs` | `host.toml` with the same fields (RD24); a Node kit's `host.json` is read until the first write |
-| `envfile.ts`, `paths.ts`, `run.ts` | `envfile.rs`, `paths.rs`, `run.rs` | `paths.rs` knows the `paradox/` and `native/` layout |
+| `envfile.ts`, `paths.ts`, `run.ts` | `envfile.rs`, `paths.rs`, `run.rs` | `paths.rs` knows the `modules/rustic-isles` and `native/` layout (DS6; `paradox/` before) |
 | `services.ts` (the process tree) | `services.rs`, `services/tree.rs`, `commands/start/` | One process tree; the Node backend and Director plus MongoDB until RB14; the environment cleared of `SERVER_PREFIXES` |
-| `doctor.ts` | `doctor.rs`, `commands/doctor.rs` | Checks `paradox/` and `native/` instead of the patch marker |
+| `doctor.ts` | `doctor.rs`, `commands/doctor.rs` | Checks `modules/rustic-isles` and `native/` instead of the patch marker |
 | `invite.ts` | `invite.rs`, `commands/invite.rs` | Admin routes on loopback only |
 | `mongo.ts` | `mongo.rs`, `mongo/wire.rs` | The replica set, until RB14 |
-| `gamedata.ts`, `gamepack.ts`, `progression.ts`, `captures.ts` | `gamedata.rs`, `gamepack.rs`, `progression.rs`, `captures.rs`, `commands/gamedata.rs` | Runs the Node generators in `paradox/backend/scripts` until RB11 |
+| `gamedata.ts`, `gamepack.ts`, `progression.ts`, `captures.ts` | `gamedata.rs`, `gamepack.rs`, `progression.rs`, `captures.rs`, `commands/gamedata.rs` | Runs the Node generators in `modules/rustic-isles/reference/1.14.7/ParadoxBackend/scripts` until RB11 |
 | `preset.ts` | `preset.rs`, `commands/preset.rs` | `preset/` hash-locked by `preset.json` |
 | `publish.ts` | `publish.rs`, `commands/publish_runtime.rs` | The Host page calls this command (RD23) |
 | `selfupdate.ts` | `selfupdate.rs`, `commands/update.rs` | From the server release (RD8), no longer a `git` fast-forward |
 | `upstream.ts` | gone | RP4: nothing is downloaded from Mystic Paradox |
 | `linux.ts`, `wine.ts`, `gameserver.ts` | `linux.rs`, `wine.rs`, `cli.rs` (`Gameserver`) | systemd units, Wine or Proton on `xvfb-run` |
 | `linux/setup-vps.sh`, `linux/Deploy-FromWindows.ps1` | still only in `legacy/ReforgedHost/linux/` | RH5 reduces them to fetching the release and calling `reforged-host`; [`docs/hosting-linux.md`](../hosting-linux.md) is the host's view |
-| — | `commands/setup/` (`database`, `firewall`, `install`, `options`, `paradox`, `secrets`), `commands/backup.rs`, `commands/multipliers.rs` | The Rust split of the Node `setup` and its helpers |
+| — | `commands/setup/` (`database`, `firewall`, `install`, `options`, `paradox`, `secrets`), `commands/backup.rs`, `commands/multipliers.rs` | The Rust split of the Node `setup` and its helpers; `paradox` also copies a host's files from the layouts before RP4 and DS6 |
 | — | `serve.rs`, `repl.rs`, `tui.rs`, `hostconfig/yaml.rs` | New (RD26): the server as one process, its console and dashboard, and `host.yaml`. No Node counterpart, so an upstream host-kit change never lands here first |
-| — | `legacy/` (`off.rs` without the feature) | New (RD5 reversed): setting up and running DR's 1.4.4 stack |
+| — | `legacy/` (`off.rs` without the feature) | New (RD5 reversed): setting up and running DR's 1.4.4 stack, its metagame and deploy server built in `modules/legacy-revived/rust` |
 
 ### 2.6 Launcher (`rust/launcher`, rows RA1–RA13)
 
@@ -163,14 +165,15 @@ The Rust backend is DR's Tauri launcher fitted to Reforged; the page is still Re
 
 | Mystic Paradox | Now | Rust home (RB rows, after RD17) |
 | --- | --- | --- |
-| `ParadoxBackend` (Express, `ws`, `ltx`, MongoDB) | `paradox/backend` | `rust/services/backend` (a stub today): one trait per Paradox repository on Postgres (RD15), routes by area (RB6–RB9) |
-| `ParadoxBackend/scripts/` (game-data generators, admin bootstrap, data migrations) | `paradox/backend/scripts` | `backend gamedata`, `backend admin bootstrap`, folded into `backend db migrate` (RB11) |
-| `ParadoxBackend/realtime/` (XMPP) | `paradox/backend/src/realtime` | DR's `rust/services/metagame/src/chat/` at `e1c5fec`, copied in by RB9 and fitted to Paradox's JIDs, rooms and auth |
+| `ParadoxBackend` (Express, `ws`, `ltx`, MongoDB) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `rust/services/backend` (a stub today): one trait per Paradox repository on Postgres (RD15), routes by area (RB6–RB9) |
+| `ParadoxBackend/scripts/` (game-data generators, admin bootstrap, data migrations) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/scripts` | `backend gamedata`, `backend admin bootstrap`, folded into `backend db migrate` (RB11) |
+| `ParadoxBackend/realtime/` (XMPP) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/realtime` | DR's `rust/services/metagame/src/chat/` at `e1c5fec`, copied in by RB9 and fitted to Paradox's JIDs, rooms and auth |
 | Express routing, JSON replies, middleware | — | `service-kit` (routing, `json`, `js`), DR metagame's `js.rs`, `origin.rs`, `redact.rs`, `bodylog.rs` and auth extractors, copied in by RB5 |
-| `ParadoxDirector` | `paradox/director` | `rust/services/director` (a stub today), RB10 |
-| Hunt tables, game data | `paradox/*/game-data`, `preset/` | `director hunt-tables import`, `backend gamedata` (RB11) |
+| `ParadoxDirector` | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | `rust/services/director` (a stub today), RB10 |
+| Hunt tables, game data | `modules/rustic-isles/reference/1.14.7/*/game-data`, `preset/` | `director hunt-tables import`, `backend gamedata` (RB11) |
 
-Until then every backend or Director change is a commit to `paradox/`, kept small, and a new or changed route goes in
+Until then every backend or Director change is a commit to rustic-isles' `reference/1.14.7`, kept small, with the
+`modules/rustic-isles` pin moved here after it, and a new or changed route goes in
 RB1's inventory once it exists (RD2 as changed on 2026-10-24).
 
 ### 2.8 The patches to Mystic Paradox
@@ -180,12 +183,12 @@ Each patch's current state (kept, reduced, dropped because upstream now does the
 
 | Patches | Live in | Carried into Rust by |
 | --- | --- | --- |
-| 0001 (runtime part), 0004, 0008, 0011–0016, 0020, 0024, 0026, 0027, 0029, 0031, 0035, 0037–0039 | `native/paradox-runtime` | Nobody: the runtime stays C++ and keeps taking Freeza's patches ([`paradox-runtime-patches.md`](../paradox-runtime-patches.md)) |
-| 0002 (`/reforged/api`, `AUTH_MODE=APIKEY`, HTTP-only mode), 0018 (login queue) | `paradox/backend` | RB7 |
-| 0005, 0007, 0010, 0017, 0023, 0025, 0028, 0030, 0036; 0009 and 0032 as upstream's own code | `paradox/backend` | RB8 (areas) and RB9 (chat: 0017, 0025) |
-| 0003, 0021, 0022, 0033 | `paradox/director` | RB10 |
+| 0001 (runtime part), 0004, 0008, 0011–0016, 0020, 0024, 0026, 0027, 0029, 0031, 0035, 0037–0039 | `modules/rustic-isles/native/runtime` | Nobody: the runtime stays C++ and keeps taking Freeza's patches ([`paradox-runtime-patches.md`](../paradox-runtime-patches.md)) |
+| 0002 (`/reforged/api`, `AUTH_MODE=APIKEY`, HTTP-only mode), 0018 (login queue) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | RB7 |
+| 0005, 0007, 0010, 0017, 0023, 0025, 0028, 0030, 0036; 0009 and 0032 as upstream's own code | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | RB8 (areas) and RB9 (chat: 0017, 0025) |
+| 0003, 0021, 0022, 0033 | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | RB10 |
 | 0006, 0019, 0034 | dropped | Upstream `21b9ff5` has the same fix |
-| The RD25 kick route (`POST /reforged/api/Kick`) | `paradox/backend` | RB7, as the one post-fork backend route |
+| The RD25 kick route (`POST /reforged/api/Kick`) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | RB7, as the one post-fork backend route |
 
 ### 2.9 Not ported, on purpose
 
@@ -257,10 +260,10 @@ Place the change first; every row below names the method and where the port is r
 
 | The change is in | It lands in | How | Recorded in |
 | --- | --- | --- | --- |
-| A runtime patch written against Mystic Paradox's tree | `native/paradox-runtime`, `native/runtime-loader` | Paths rewritten and `git apply --3way`, one commit per patch named `NNNN-runtime-<name>`, as [`paradox-runtime-patches.md`](../paradox-runtime-patches.md) says | A section in `docs/paradox-patches.md` |
-| A backend or Director patch written against Mystic Paradox's tree | `paradox/backend`, `paradox/director` | The same rewrite (`ParadoxBackend/` to `paradox/backend/`), applied as an ordinary commit; a new or changed route goes in RB1's inventory | `docs/paradox-patches.md` |
-| Game data, `store-captures.json` | `paradox/backend/store-captures.json`; a host's own preset | Taken as they are | The commit |
-| Mystic Paradox's own `main` | `paradox/`, `native/` | Advance the fork's `reforged` branch, replay the Reforged patches one by one onto the new base, keep, reduce or drop each, as `ab1830a` did. `ParadoxLauncher`, `ParadoxTransport` and the workflows stay out | The "Updated to" section and table in `docs/paradox-patches.md`; `NOTICE.md` |
+| A runtime patch written against Mystic Paradox's tree | `modules/rustic-isles/native/runtime`, `native/runtime-loader` | Paths rewritten and `git apply --3way`, one commit per patch named `NNNN-runtime-<name>`, as [`paradox-runtime-patches.md`](../paradox-runtime-patches.md) says | A section in `docs/paradox-patches.md` |
+| A backend or Director patch written against Mystic Paradox's tree | `modules/rustic-isles/reference/1.14.7/ParadoxBackend`, `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | The same rewrite (`ParadoxBackend/` to `modules/rustic-isles/reference/1.14.7/ParadoxBackend/`), applied as an ordinary commit; a new or changed route goes in RB1's inventory | `docs/paradox-patches.md` |
+| Game data, `store-captures.json` | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`; a host's own preset | Taken as they are | The commit |
+| Mystic Paradox's own `main` | rustic-isles (its `upstream/main` branch), then the `modules/rustic-isles` pin here | Advance the fork's `reforged` branch, replay the Reforged patches one by one onto the new base, keep, reduce or drop each, as `ab1830a` did. `ParadoxLauncher`, `ParadoxTransport` and the workflows stay out | The "Updated to" section and table in `docs/paradox-patches.md`; `NOTICE.md` |
 | Dauntless Revived | nothing | RD6: the copy is final. A DR Rust fix someone still wants is found by its module in section 2 and ported by hand, naming the DR commit | The commit body |
 | A Rust service here (not a migration) | its crate | AGENTS.md's rules | — |
 | A new Rust module from a row | — | Its line in section 2 of this guide, by the integration pass | This guide |
@@ -305,7 +308,7 @@ still owed, and every commit on them is ported or marked not applicable before t
    cargo test --workspace --locked --no-fail-fast
    ```
 
-   `npm ci && npm test` in a `legacy/` or `paradox/` package the change touched; `bash docker/run-tests.sh` when
+   `npm ci && npm test` in a rustic-isles `reference/1.14.7` package the change touched; `bash docker/run-tests.sh` when
    what the containers run changed. The real nftables test needs `REFORGED_TEST_NFT=1` on Linux. Nothing here plays
    the 1.14.7 client: say so when only the tests passed.
 10. **Record it.** The catch-up entry's `Rust:` line becomes `ported` with the file and lines (section 6's format).
@@ -342,7 +345,8 @@ under its `Rust:` line, as `catchup-host.md` does for `0ba6016`.
 | Reforged `main`, the Node sources the delta lists diffed | `77fb622` | 2026-10-20 |
 | Reforged `main` last merged into `plan` (`02a8070`, patches 0034–0039) | `aea8f64` | 2026-10-23 |
 | Mystic Paradox base (Freeza's pin) | `00d3be8` | — |
-| Mystic Paradox now in `paradox/` and `native/` | `21b9ff5` | 2026-10-18 |
+| Mystic Paradox now in `modules/rustic-isles` and `native/runtime-loader` | `21b9ff5` | 2026-10-18 |
+| Submodules (DS6): rustic-isles, rustic-rifts, legacy-revived at their `plan` | `54970ea`, `b19248c`, `8a98d83` | 2026-10-26 |
 | SilentSpud/Mystic-Paradox `reforged` (base + patches 0001–0033) | `24e60c8` | 2026-10-22 |
 | Game build | `rel-1.14.7-Archon`, changelist 647472, Unreal Engine 4.26.2 | — |
 | The upstream line (RD16) | removed 2026-10-26; `main` has a new root | — |

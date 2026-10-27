@@ -8,7 +8,7 @@
 //! with `bin/` (the Rust binaries), the built Node services and `release.json`, which lists every
 //! file with its SHA-256. Installing copies that folder over the server's folder:
 //! - nothing git ignores is touched (`.workspace/`: config, secrets, the database; the SDK, game
-//!   data and builds the host made in `paradox/` and `native/`)
+//!   data and builds the host made in `modules/rustic-isles` and `native/`)
 //! - a file of the release the host changed stops the update (as `git merge --ff-only` did), and
 //!   files an older release had and this one has not are removed
 //! - `release.json` is written last: a server whose update stopped half way installs it again
@@ -39,10 +39,10 @@ pub const DEFAULT_REPOSITORY: &str = env!("REFORGED_RELEASE_REPOSITORY");
 /// The build outputs a release replaces as a whole on a server that never had a release (a Node-kit
 /// checkout built them with npm): whatever is in them now is not the release's.
 const RELEASE_OWNED_DIRS: [&str; 4] = [
-    "paradox/backend/build",
-    "paradox/backend/node_modules",
-    "paradox/director/dist",
-    "paradox/director/node_modules",
+    "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build",
+    "modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules",
+    "modules/rustic-isles/reference/1.14.7/ParadoxDirector/dist",
+    "modules/rustic-isles/reference/1.14.7/ParadoxDirector/node_modules",
 ];
 
 /// This PC's platform in the release's file names; `None` where there is no release.
@@ -800,14 +800,21 @@ pub struct Installed {
     /// Files written (new or changed).
     pub files: usize,
     pub removed: usize,
-    /// The game runtime's source (`native/paradox-runtime`, `native/runtime-loader`) changed: the
+    /// The game runtime's source (`modules/rustic-isles/native/runtime`, `native/runtime-loader`) changed: the
     /// host rebuilds MysticParadox.dll and winmm.dll and publishes them again. `None`: not known
     /// (the server had no release before).
     pub runtime_changed: Option<bool>,
 }
 
 fn runtime_file(path: &str) -> bool {
-    path.starts_with("native/paradox-runtime/") || path.starts_with("native/runtime-loader/")
+    // native/paradox-runtime: a release from before DS6, compared against one after it
+    [
+        "modules/rustic-isles/native/runtime/",
+        "native/paradox-runtime/",
+        "native/runtime-loader/",
+    ]
+    .iter()
+    .any(|dir| path.starts_with(dir))
 }
 
 /// Whether the game runtime's source differs between two releases.

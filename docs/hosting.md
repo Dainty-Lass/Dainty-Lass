@@ -43,7 +43,7 @@ and in public mode makes the gateway's certificate. **It never remakes that cert
 Then the SDK, the runtime and the game data ([sdk-and-game-data.md](sdk-and-game-data.md)):
 
 ```powershell
-bin\reforged-host gamedata                  # from your CatalogExporter export in paradox\Items_Analysis
+bin\reforged-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
 bin\reforged-host publish-runtime           # the MysticParadox.dll and winmm.dll you built
 bin\reforged-host doctor                    # what is still missing or wrong
 ```

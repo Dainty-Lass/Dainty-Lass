@@ -2,8 +2,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
 //! A gateway in front of a Dauntless Revived 1.4.4 server (`GATEWAY_GAME=legacy`): DR's metagame
-//! routes (names translated as `services/metagame` has them), its host-only routes and its allowlist
-//! feed, against fake upstreams.
+//! routes (names translated as `services/metagame` in legacy-revived has them), its host-only routes and its
+//! allowlist feed, against fake upstreams.
 
 mod common;
 

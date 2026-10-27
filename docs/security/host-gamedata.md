@@ -17,8 +17,8 @@ here listens on a network. The input that is not the host's own:
 - **Game data packs** (`gamedata --import <file>`, and the launcher's Host page): gzip-compressed JSON a host may
   have been sent by another host.
 - **The store captures**: files fetched from a third-party GitHub repository at the commit
-  `paradox/backend/store-captures.json` pins (git, shallow, into `.workspace/captures/`).
-- **The CatalogExporter export** (`paradox/Items_Analysis/`): JSON lines written by a DLL injected into the host's
+  `modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json` pins (git, shallow, into `.workspace/captures/`).
+- **The CatalogExporter export** (`modules/rustic-isles/reference/1.14.7/Items_Analysis/`): JSON lines written by a DLL injected into the host's
   game client.
 - **The preset** (`preset/`): committed with the project; a pull request can change it.
 
@@ -46,7 +46,7 @@ Code: `rust/services/host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `pro
 
 - [ ] The pin's repository is `https://`, `file://` or an absolute local path, the commit a full 40-hex id, and each
   file a plain relative path with a 64-hex SHA-256 (`parse_capture_pin`). On Windows a drive (`C:x`) or a backslash
-  is refused too, so a name can never leave `paradox/DauntlessEndpointDocumentation/` (stricter than the Node kit).
+  is refused too, so a name can never leave `modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation/` (stricter than the Node kit).
 - [ ] git runs with an argument list, never a shell; the commit and repository come from the pin only.
 - [ ] Each file is read from git's objects (`git show <commit>:<path>`) and checked against its pinned hash before
   any file is written; one mismatch writes nothing.
@@ -54,7 +54,7 @@ Code: `rust/services/host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `pro
 
 ### Generators and the export
 
-- [ ] Until RB11 the generators are the Node scripts of `paradox/backend` and `paradox/director`, started through
+- [ ] Until RB11 the generators are the Node scripts of `modules/rustic-isles/reference/1.14.7/ParadoxBackend` and `modules/rustic-isles/reference/1.14.7/ParadoxDirector`, started through
   `gamedata::run_generator` with fixed arguments; nothing from the export reaches a command line.
 - [ ] The progression export is parsed line by line; a line that is not a JSON object is skipped; numbers outside
   JavaScript's safe integers fall back as the Node kit's do. The output is the Node kit's byte for byte

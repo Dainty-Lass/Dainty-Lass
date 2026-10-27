@@ -3,8 +3,8 @@
 #  - npm and cargo: monthly for each package folder (for cargo, the rust/ workspace); minor and patch updates of a
 #    folder come as one pull request. Major updates are never grouped: each one (Electron's included) is its own
 #    pull request, so it can be tested on its own.
-# A release has to be at least a week old before it is proposed. The paradox/ entries do nothing until RP3 brings
-# those folders.
+# A release has to be at least a week old before it is proposed. Mystic Paradox's npm packages are rustic-isles'
+# since DS6, so that repository proposes their updates.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -27,32 +27,6 @@ updates:
       default-days: 7
     groups:
       rust-minor-and-patch:
-        update-types:
-          - minor
-          - patch
-
-  - package-ecosystem: npm
-    directory: /paradox/backend
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 3
-    cooldown:
-      default-days: 7
-    groups:
-      paradox-backend-minor-and-patch:
-        update-types:
-          - minor
-          - patch
-
-  - package-ecosystem: npm
-    directory: /paradox/director
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 3
-    cooldown:
-      default-days: 7
-    groups:
-      paradox-director-minor-and-patch:
         update-types:
           - minor
           - patch

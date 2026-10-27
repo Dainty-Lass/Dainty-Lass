@@ -129,7 +129,7 @@ fn pin_json(pin: &CapturePin) -> String {
 
 #[test]
 fn the_committed_pin_names_a_commit_and_a_hash_for_every_store_file_the_generators_read() {
-    let pin = read_capture_pin(&repo().join("paradox").join("backend").join("store-captures.json")).unwrap();
+    let pin = read_capture_pin(&Paths::new(repo()).captures_pin).unwrap();
     assert_eq!(
         pin.repository,
         "https://github.com/EisigesEis/DauntlessEndpointDocumentation"
