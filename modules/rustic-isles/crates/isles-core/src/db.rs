@@ -23,7 +23,7 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     sqlite: || SQLITE,
     postgres: || POSTGRES,
     // Player-facing tables are soft-deleted (DD23); each area adds its own as it lands them
-    soft_delete: &["accounts"],
+    soft_delete: &["accounts", "characters", "loadouts"],
 };
 
 /// The change log's actor for a module's actor (`store` keeps its own, smaller type).
@@ -60,6 +60,13 @@ impl IslesStore {
             node: node.node.clone(),
             repos: Repositories::on_store(),
         })
+    }
+
+    /// The same store with other repositories, for a test that stands in for the ones not ported yet.
+    #[must_use]
+    pub fn with_repos(mut self, repos: Repositories) -> Self {
+        self.repos = repos;
+        self
     }
 
     pub fn database(&self) -> &Database {

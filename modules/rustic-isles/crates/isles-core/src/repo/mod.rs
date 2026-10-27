@@ -167,6 +167,8 @@ impl Repositories {
         Self {
             accounts: Arc::new(auth::SqlAccounts),
             friendships: Arc::new(chat::SqlFriendships),
+            characters: Arc::new(characters::SqlCharacters),
+            loadouts: Arc::new(characters::SqlLoadouts),
             ..Self::stubs()
         }
     }
