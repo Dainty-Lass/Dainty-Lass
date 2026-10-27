@@ -25,8 +25,8 @@ or chunk is code the player will run.
 - **Out:** files written under the install folder the player chose, one folder per version.
 
 Code: `manifest.rs` (header, sections, checks), `manifest/reader.rs` (bounded reads), `manifest/path.rs` (file
-names), `chunk.rs` (chunk check), `auth.rs` (secret types, stubs), `library.rs` and `download.rs` (stubs, CDN
-hosts).
+names), `chunk.rs` (chunk check), `auth.rs` (secret types, stubs), `library.rs` (ownership and its cache, DE3),
+`download.rs` (stubs, CDN hosts); the launcher's `platform/epic_library.rs` and `epic_library_check`.
 
 Fuzz target: `epic_manifest` in `rust/fuzz` (a whole manifest file under its own pin, the unpacked sections behind
 a valid header, and a chunk checked against an entry made from its payload). It checks that nothing panics, that a
@@ -102,6 +102,28 @@ each once, with parts inside listed chunks, and that an accepted chunk is exactl
       with the tokens in them: they are never formatted, logged or stored as they are.
 - [ ] The authorization code is checked (`AuthorizationCode::new`: letters and digits only) before it is sent, and
       dropped after the one exchange.
+
+### Ownership (DE3)
+
+- [ ] A record is Dauntless when its `app_name` is exactly `Jackal`. `CATALOG_CONFIRMED` also requires namespace
+      `jackal` and catalog item `2f415248cb524eaf950a16e55d315dac` once the maintainer has read them from a real
+      library (spike DE1, step 2); until then it is off, so a wrong guess can't refuse an owner. Test:
+      `jackal_is_matched_by_app_name_until_the_catalog_is_confirmed`.
+- [ ] `egs-api`'s `library_items` logs a failed page and returns what it had, so a request that failed at once
+      reads as an empty library. An empty library is `Unreachable`, never "not owned" (`from_egs`). A page failing
+      halfway can still read as "not owned": that fails closed, and a refusal is kept only `REFUSED_FOR` (10 min).
+- [ ] Only the access token is handed to `egs-api`, never the refresh token; an expired one is refused before
+      Epic is asked (`SessionExpired`).
+- [ ] The cache (`epic-ownership.json` in the user data folder, and memory) holds the account id, the answer and
+      when: never a token. An owner's answer is kept `OWNED_FOR` (24 h), a refusal 10 min; errors are never
+      cached; an answer for another account, from the future or unreadable is no answer. Signing out calls
+      `Ownership::forget` (DE2). Tests: `the_file_keeps_the_answer_across_restarts_and_never_a_token`,
+      `a_damaged_or_foreign_file_is_no_answer`, `answers_expire`, `a_network_error_refuses_and_is_never_cached`.
+- [ ] A download starts only past `require_ownership` (the launcher's `epic_library::require`, `epic_not_owned`):
+      DE5's `game_install_start` and the host kit's install (DE7) call it first. Tests:
+      `an_account_without_dauntless_cant_start_a_download` (crate and launcher).
+- [ ] The launcher's log drops every `egs_api` target (`epic::is_egs_api_target`). Test:
+      `a_registered_key_never_reaches_the_file`.
 
 ## Open points
 

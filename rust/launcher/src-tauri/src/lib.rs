@@ -82,6 +82,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
     if !encryptors.0.is_available() && secure_storage::bootstrap(&args, &paths.home) {
         return Ok(());
     }
+    let epic_ownership = Arc::new(platform::epic_library::ownership(paths.user_data.clone()));
     let backend = Backend::default();
     backend.deliver_invite_link(None, invite_link::invite_from_args(&args));
     tauri::Builder::default()
@@ -100,6 +101,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             responder.respond(response);
         })
         .manage(backend)
+        .manage(epic_ownership)
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::check_invite,

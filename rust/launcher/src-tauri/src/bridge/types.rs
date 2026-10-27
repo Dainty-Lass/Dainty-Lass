@@ -234,6 +234,13 @@ pub enum ErrorCode {
     FolderNotEmpty,
     /// The server plays the other edition (detail: `reborn` or `legacy`): the page offers to switch
     EditionOther,
+    // Epic (DD22):
+    /// No Epic account is signed in, or its session has expired: sign in again
+    EpicSignedOut,
+    /// Epic's library could not be read
+    EpicLibraryFailed,
+    /// The signed-in Epic account does not own Dauntless: nothing is downloaded (DE3)
+    EpicNotOwned,
     /// A command registered ahead of the row that fills it (DF8; detail: the command's name)
     NotImplemented,
     /// A command this build does not serve, such as a server GUI one in the player launcher (detail: the
@@ -369,6 +376,35 @@ impl Serialize for RegisterOutcome {
         }
         match self {
             Self::Ok { username } => Registered { ok: true, username }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// `epic_library_check` (DE3): whether the signed-in Epic account owns Dauntless, and when Epic last said so
+/// (`checkedAt`, as `toISOString` writes it; the answer is cached a while). Not owning it is `owned: false`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EpicLibraryCheck {
+    Ok { owned: bool, checked_at: String },
+    Err(LauncherError),
+}
+
+impl Serialize for EpicLibraryCheck {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Checked<'a> {
+            ok: bool,
+            owned: bool,
+            checked_at: &'a str,
+        }
+        match self {
+            Self::Ok { owned, checked_at } => Checked {
+                ok: true,
+                owned: *owned,
+                checked_at,
+            }
+            .serialize(serializer),
             Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
         }
     }

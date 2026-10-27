@@ -5,7 +5,7 @@
 //! answer until those rows land; this file does not change when they do. The DaintyLass commands at the
 //! end (DF8) are refused by `planned` until their rows replace them.
 
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use regex::Regex;
 use serde_json::Value;
@@ -18,12 +18,13 @@ use super::spec::{
     PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
 };
 use super::types::{
-    ActionResult, Branding, ErrorCode, ExternalTarget, HostAction, HostFolder, HostKit, HostMultipliers,
-    HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck, LauncherError, MAX_MULTIPLIER,
-    NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
+    ActionResult, Branding, EpicLibraryCheck, ErrorCode, ExternalTarget, HostAction, HostFolder, HostKit,
+    HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck, LauncherError,
+    MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::core::text::{js_length, js_trim};
+use crate::platform::epic_library::{self, EpicOwnership};
 
 type Backed<'a> = State<'a, Backend>;
 
@@ -528,9 +529,18 @@ pub fn epic_sign_out() -> ActionResult {
     planned("epic_sign_out", &[])
 }
 
+/// The signed-in Epic session, from the keystore. DE2 keeps it there; until it does, nobody is signed in.
+fn epic_session(app: &AppHandle) -> Option<epic::auth::Session> {
+    let _ = app;
+    None
+}
+
+/// Whether the signed-in Epic account owns Dauntless (DE3), cached a while. The session never crosses.
 #[tauri::command]
-pub fn epic_library_check() -> ActionResult {
-    planned("epic_library_check", &[])
+pub async fn epic_library_check(app: AppHandle) -> EpicLibraryCheck {
+    let ownership = app.state::<Arc<EpicOwnership>>().inner().clone();
+    let session = epic_session(&app);
+    epic_library::check(&ownership, session.as_ref()).await
 }
 
 #[tauri::command]

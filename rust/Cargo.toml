@@ -54,6 +54,7 @@ service-kit = { path = "crates/service-kit" }
 proxy = { path = "crates/proxy" }
 admin = { path = "services/admin" }
 content = { path = "services/content" }
+epic = { path = "crates/epic" }
 gateway = { path = "services/gateway" }
 host = { path = "services/host" }
 launcher = { path = "launcher/src-tauri" }
@@ -95,6 +96,8 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 sha2 = "0.11"
 # Epic's manifests and chunks are pinned and checked by SHA-1 (crates/epic, DD22)
 sha1 = "0.11"
+# Epic sign-in and library only: the manifests and chunks are read by crates/epic itself (spike DE1)
+egs-api = "=0.14.0"
 thiserror = "2"
 # host.toml: read, and written back keeping the host's own comments and layout
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
