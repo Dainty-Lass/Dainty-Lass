@@ -1,0 +1,77 @@
+[
+  {
+    "id": "ll_sword",
+    "displayName": "ll_sword",
+    "displayDescription": "d",
+    "displayPriority": 1,
+    "prices": [
+      {
+        "currencyId": "id_currency_marks_steel",
+        "price": 50
+      }
+    ],
+    "maxAllowed": 1,
+    "images": {},
+    "tags": [
+      "ladyluckstore"
+    ],
+    "items": [
+      {
+        "catalogId": "WP_SWORD",
+        "quantity": 1,
+        "instanced": true
+      }
+    ],
+    "duplicateInstancedItems": []
+  },
+  {
+    "id": "ll_tonic",
+    "displayName": "ll_tonic",
+    "displayDescription": "d",
+    "displayPriority": 1,
+    "prices": [
+      {
+        "currencyId": "id_currency_marks_steel",
+        "price": 5
+      }
+    ],
+    "maxAllowed": null,
+    "images": {},
+    "tags": [
+      "ladyluckstore"
+    ],
+    "items": [
+      {
+        "catalogId": "TONIC",
+        "quantity": 2,
+        "instanced": false
+      }
+    ],
+    "duplicateInstancedItems": []
+  },
+  {
+    "id": "ll_dragon",
+    "displayName": "ll_dragon",
+    "displayDescription": "d",
+    "displayPriority": 1,
+    "prices": [
+      {
+        "currencyId": "id_currency_marks_gilded",
+        "price": 500
+      }
+    ],
+    "maxAllowed": 1,
+    "images": {},
+    "tags": [
+      "ladyluckstore"
+    ],
+    "items": [
+      {
+        "catalogId": "AC_DRAGON",
+        "quantity": 1,
+        "instanced": true
+      }
+    ],
+    "duplicateInstancedItems": []
+  }
+]
