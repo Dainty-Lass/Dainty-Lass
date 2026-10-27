@@ -10,7 +10,9 @@ import type {
   ActionResult,
   Branding,
   CommandName,
+  EpicLibraryCheck,
   ExternalTarget,
+  GameVersionList,
   HostAction,
   HostFolder,
   HostKit,
@@ -116,8 +118,8 @@ export interface LauncherApi {
   epicSignInCode(code: string): Promise<ActionResult>
   epicGet(): Promise<ActionResult>
   epicSignOut(): Promise<ActionResult>
-  epicLibraryCheck(): Promise<ActionResult>
-  gameVersionList(): Promise<ActionResult>
+  epicLibraryCheck(): Promise<EpicLibraryCheck>
+  gameVersionList(): Promise<GameVersionList>
   gameInstallStart(version: string): Promise<ActionResult>
   gameInstallPause(version: string): Promise<ActionResult>
   gameInstallResume(version: string): Promise<ActionResult>
@@ -344,8 +346,8 @@ export const api: LauncherApi = {
   epicSignInCode: (code) => act("epic_sign_in_code", { code: String(code) }),
   epicGet: () => act("epic_get"),
   epicSignOut: () => act("epic_sign_out"),
-  epicLibraryCheck: () => act("epic_library_check"),
-  gameVersionList: () => act("game_version_list"),
+  epicLibraryCheck: () => act<EpicLibraryCheck>("epic_library_check"),
+  gameVersionList: () => act<GameVersionList>("game_version_list"),
   gameInstallStart: (version) =>
     act("game_install_start", { version: String(version) }),
   gameInstallPause: (version) =>
