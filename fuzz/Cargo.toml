@@ -36,7 +36,7 @@ host = { path = "../services/host" }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
 module-api = { path = "../crates/module-api" }
 http = "1"
-# network_directory: the directory's node-link messages (DN4)
+# network_directory: the directory's node-link messages (DN4); network_home, network_ticket: the home API's (DN5)
 network = { path = "../plugins/network" }
 # network_link: the certificate names the node link reads
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
@@ -217,6 +217,20 @@ bench = false
 [[bin]]
 name = "network_directory"
 path = "fuzz_targets/network_directory.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "network_home"
+path = "fuzz_targets/network_home.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "network_ticket"
+path = "fuzz_targets/network_ticket.rs"
 test = false
 doc = false
 bench = false
