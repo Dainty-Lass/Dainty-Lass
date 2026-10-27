@@ -11,8 +11,11 @@ use service_kit::context::{ComponentPhase, ServerSnapshot};
 use service_kit::telemetry::{ChannelLogLayer, HostLogEntry};
 use tokio::sync::{Mutex, mpsc, watch};
 
+use crate::bridge::modules::ModulePanel;
 use crate::bridge::types::{HostComponentPhase, HostServerComponent};
 use crate::platform::hostserver::{EmbeddedServer, LineSink};
+
+mod modules;
 
 type Boxed<T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send>>;
 type Slot<T> = Arc<StdMutex<Option<T>>>;
@@ -27,6 +30,8 @@ pub struct EmbeddedServerState {
     snapshot: Slot<watch::Receiver<ServerSnapshot>>,
     sink: Slot<LineSink>,
     logs: StdMutex<Option<mpsc::UnboundedReceiver<HostLogEntry>>>,
+    /// The module registry and the checkout, for the page's module panels (DU3)
+    panel: modules::Panel,
 }
 
 impl EmbeddedServerState {
@@ -36,6 +41,7 @@ impl EmbeddedServerState {
             snapshot: Arc::new(StdMutex::new(None)),
             sink: Arc::new(StdMutex::new(None)),
             logs: StdMutex::new(Some(logs)),
+            panel: modules::Panel::default(),
         }
     }
 
@@ -82,11 +88,13 @@ impl EmbeddedServer for EmbeddedServerState {
         *lock(&self.sink) = Some(lines.clone());
         self.drain_logs();
         let (controller, snapshot) = (self.controller.clone(), self.snapshot.clone());
+        let panel = self.panel.clone();
         Box::pin(async move {
             let mut guard = controller.lock().await;
             if guard.is_some() {
                 return Ok(());
             }
+            *lock(&panel.workspace) = Some(workspace.clone());
             let printer: host::services::Printer =
                 Arc::new(move |name: &str, line: &str| lines(format!("{name:<14} | {line}")));
             // Setup's checks and files, and the 1.4.4 stack's migrations, block: off the async threads
@@ -96,9 +104,12 @@ impl EmbeddedServer for EmbeddedServerState {
             .await
             .map_err(|e| e.to_string())??;
             *lock(&snapshot) = Some(server.subscribe_status());
+            // The modules load as the server starts; the panels see them from here
+            *lock(&panel.registry) = server.registry().cloned();
             if let Err(why) = server.start_all().await {
                 server.shutdown().await;
                 *lock(&snapshot) = None;
+                *lock(&panel.registry) = None;
                 return Err(why);
             }
             *guard = Some(server);
@@ -108,11 +119,13 @@ impl EmbeddedServer for EmbeddedServerState {
 
     fn stop(&self) -> Boxed<()> {
         let (controller, snapshot) = (self.controller.clone(), self.snapshot.clone());
+        let panel = self.panel.clone();
         Box::pin(async move {
             if let Some(mut server) = controller.lock().await.take() {
                 server.shutdown().await;
             }
             *lock(&snapshot) = None;
+            *lock(&panel.registry) = None;
         })
     }
 
@@ -124,6 +137,10 @@ impl EmbeddedServer for EmbeddedServerState {
                 None => Err("the server is not running".into()),
             }
         })
+    }
+
+    fn modules(&self) -> Option<Arc<dyn ModulePanel>> {
+        Some(modules::shared(&self.panel))
     }
 
     fn components(&self) -> Vec<HostServerComponent> {
