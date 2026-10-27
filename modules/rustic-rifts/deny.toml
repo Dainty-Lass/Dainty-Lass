@@ -25,6 +25,7 @@ allow = [
     "MIT-0",
     "MPL-2.0",
     "OpenSSL",
+    "PostgreSQL",
     "Unicode-3.0",
     "Zlib",
 ]
@@ -44,4 +45,8 @@ unknown-git = "deny"
 allow-registry = [
     "https://github.com/rust-lang/crates.io-index",
     "sparse+https://git.silentspud.com/api/packages/silentspud/cargo/",
+]
+# DF1's fallback until the registry serves module-api and store
+allow-git = [
+    "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git",
 ]
