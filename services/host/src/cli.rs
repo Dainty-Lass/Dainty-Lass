@@ -40,6 +40,8 @@ pub enum Command {
     Gamedata(GamedataArgs),
     /// Publish the game runtime (MysticParadox.dll and winmm.dll) for the players
     PublishRuntime(PublishRuntimeArgs),
+    /// Install Dauntless from your own Epic library, for the game servers (sign-in with a pasted code)
+    InstallGame(InstallGameArgs),
     /// Show, create or apply the project's server preset (preset/)
     Preset(PresetArgs),
     /// XP and reward multipliers (private test servers only)
@@ -93,6 +95,7 @@ impl Command {
             Self::Doctor(_) => "doctor",
             Self::Gamedata(_) => "gamedata",
             Self::PublishRuntime(_) => "publish-runtime",
+            Self::InstallGame(_) => "install-game",
             Self::Preset(_) => "preset",
             Self::Multipliers(_) => "multipliers",
             Self::Update(_) => "update",
@@ -283,6 +286,23 @@ pub struct GamedataArgs {
     pub import: Option<Option<String>>,
 }
 
+/// `install-game` (DE6). The Epic session is never an option: it is kept in `epic-session.env` (owner-only).
+#[derive(Debug, Clone, Default, Args)]
+pub struct InstallGameArgs {
+    /// Which Dauntless to install: the one the game servers run (1.14.7, the default) or 1.12.0
+    #[arg(long, value_name = "1.14.7|1.12.0")]
+    pub version: Option<String>,
+    /// The folder each version's own folder goes in, as a full path (<dir>/1.14.7); .workspace/game when left out
+    #[arg(long, value_name = "folder")]
+    pub dir: Option<String>,
+    /// Read the Epic authorization code from this file instead of asking for it
+    #[arg(long, value_name = "file")]
+    pub code_file: Option<String>,
+    /// End the Epic session this host holds and delete it, then stop
+    #[arg(long)]
+    pub sign_out: bool,
+}
+
 #[derive(Debug, Clone, Default, Args)]
 pub struct PublishRuntimeArgs {
     /// The folder with MysticParadox.dll and winmm.dll, instead of this checkout's builds
@@ -373,6 +393,7 @@ mod tests {
             "doctor",
             "gamedata",
             "publish-runtime",
+            "install-game",
             "preset",
             "multipliers",
             "update",
@@ -445,6 +466,27 @@ mod tests {
             panic!("update")
         };
         assert!(u.check && u.json && !u.no_setup);
+        let Command::InstallGame(g) = parse(&[
+            "install-game",
+            "--version",
+            "1.12.0",
+            "--dir",
+            "/game",
+            "--code-file",
+            "c",
+        ]) else {
+            panic!("install-game")
+        };
+        assert_eq!(
+            (
+                g.version.as_deref(),
+                g.dir.as_deref(),
+                g.code_file.as_deref(),
+                g.sign_out
+            ),
+            (Some("1.12.0"), Some("/game"), Some("c"), false)
+        );
+        assert!(Cli::try_parse_from(["reforged-host", "install-game", "--token", "x"]).is_err());
         let Command::Doctor(d) = parse(&["doctor", "--no-hash"]) else {
             panic!("doctor")
         };

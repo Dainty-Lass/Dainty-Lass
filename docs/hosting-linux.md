@@ -12,13 +12,31 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 
 - Debian 13 (or any distribution with the same packages): `wine wine64 xvfb xauth nftables`, **Node.js 22**
   and **MongoDB** (`mongod`), or your own MongoDB elsewhere.
-- Your **Dauntless 1.14.7** folder copied to the server (about 15 GB), writable by the user the server runs
-  as: the game servers write logs and a switch file next to the executable.
+- Your **Dauntless 1.14.7** folder (about 15 GB), writable by the user the server runs as: the game servers write
+  logs and a switch file next to the executable. Copy it from a PC that has it, or let the server fetch it from
+  your own Epic library with `install-game` ([below](#getting-the-game-from-epic)).
 - The **runtime** (`MysticParadox.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
   game ([sdk-and-game-data.md](sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
   a pack (`reforged-host gamedata --export`).
 - The **server release** (`ReforgedRevivalServer-<version>-linux-x64.tar.gz`).
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
+
+## Getting the game from Epic
+
+A server with no Dauntless folder installs one from the owner's Epic library, as the launcher does for players.
+As the same ordinary user, from the unpacked release (the server need not be set up yet):
+
+```bash
+bin/reforged-host install-game --dir /srv/dauntless          # 1.14.7, into /srv/dauntless/1.14.7
+```
+
+It prints Epic's login address. Open it in a browser on your own PC, sign in, and paste the `authorizationCode`
+Epic shows when asked (or put it in a file, `--code-file /srv/code.txt`, and delete the file after). The session it
+opens is kept in `.workspace/config/epic-session.env`, mode 0600; `install-game --sign-out` ends and deletes it, and
+should be the last thing you run. A stopped install picks up where it left off when you run the command again.
+`setup --game /srv/dauntless/1.14.7` is then the Dauntless folder; if `host.toml` exists already, `install-game`
+sets `game_dir` and rewrites the env files itself. [hosting.md](hosting.md#getting-the-game-from-epic) has the rest.
+Files are written as the server's user, so the game servers can write next to the executable.
 
 ## Setting up
 

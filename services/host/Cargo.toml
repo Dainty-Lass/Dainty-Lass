@@ -47,6 +47,10 @@ network_plugin = { package = "network", path = "../../plugins/network", default-
 crossterm.workspace = true
 # RH4: game data packs are gzip-compressed JSON.
 flate2.workspace = true
+# `install-game`: Dauntless from the host's own Epic library (DE6)
+epic.workspace = true
+# Free space for it, as the launcher checks (launcher/src-tauri); hoist into [workspace.dependencies] with the next pass
+fs4 = "1"
 # The services built into this binary (`reforged-host gateway|allowlist|content|admin`, RD26), and the
 # public gateway's certificate on a first `serve`
 admin = { workspace = true, optional = true }
@@ -84,6 +88,8 @@ windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security"
 libc = "0.2.191"
 
 [dev-dependencies]
+# install-game's tests: synthetic manifests and chunks and a fake CDN (DE6)
+epic = { workspace = true, features = ["test-support"] }
 # Test certificates, as the gateway makes them.
 rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
 tempfile.workspace = true
