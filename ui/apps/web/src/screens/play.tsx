@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react"
 import {
   CheckIcon,
   DatabaseIcon,
+  DownloadIcon,
   FolderIcon,
   InfoIcon,
   KeyIcon,
@@ -475,6 +476,22 @@ function GamePathForm({ snap }: { snap: Snapshot }) {
   )
 }
 
+// No Dauntless on this PC: the Game screen installs it from the player's own Epic library (DD22)
+function FromEpic() {
+  const { t } = useI18n()
+  const { setView } = useLauncher()
+  return (
+    <Panel title={t("locate_epic_title")} text={t("locate_epic_text")}>
+      <div>
+        <Button variant="outline" onClick={() => setView("game")}>
+          <DownloadIcon />
+          {t("locate_epic_button")}
+        </Button>
+      </div>
+    </Panel>
+  )
+}
+
 function Detected({ snap }: { snap: Snapshot }) {
   const { t } = useI18n()
   const { report } = useLauncher()
@@ -675,6 +692,7 @@ function Locate({ snap }: { snap: Snapshot }) {
       )}
       <Detected snap={snap} />
       <GamePathForm snap={snap} />
+      <FromEpic />
     </>
   )
 }

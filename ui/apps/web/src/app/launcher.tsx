@@ -31,7 +31,7 @@ import {
   type InviteSummary,
 } from "./model"
 
-export type View = "play" | "server" | "settings"
+export type View = "play" | "server" | "settings" | "game"
 
 export type Modal =
   | { kind: "invite"; link: string; invite: InviteSummary }
@@ -66,6 +66,9 @@ type Result = ActionResult | { ok: true; username: string }
 export interface Launcher {
   snap: Snapshot | null
   task: TaskProgress | null
+  // The Epic install's progress (kind "install"): the Game screen's, kept apart because a snapshot of any
+  // phase but "installing" clears `task`
+  installTask: TaskProgress | null
   localError: LauncherError | null
   modal: Modal | null
   view: View
@@ -138,6 +141,7 @@ let listening = false
 export function LauncherProvider({ children }: { children: ReactNode }) {
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [task, setTask] = useState<TaskProgress | null>(null)
+  const [installTask, setInstallTask] = useState<TaskProgress | null>(null)
   const [localError, setLocalError] = useState<LauncherError | null>(null)
   const [modal, showModal] = useState<Modal | null>(null)
   const [view, setViewState] = useState<View>("play")
@@ -168,7 +172,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     // The bridge's listeners can't be removed, so they are added once, not again on a StrictMode remount
     listening = true
     api.onSnapshot(onSnapshot)
-    api.onProgress(setTask)
+    api.onProgress((progress) =>
+      progress.kind === "install" ? setInstallTask(progress) : setTask(progress)
+    )
     api.onWindowState(setMaximized)
     api.onInviteLink(() => void checkInviteLink())
     document.addEventListener("visibilitychange", () => {
@@ -375,6 +381,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     () => ({
       snap,
       task,
+      installTask,
       localError,
       modal,
       view,
@@ -396,6 +403,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     [
       snap,
       task,
+      installTask,
       localError,
       modal,
       view,

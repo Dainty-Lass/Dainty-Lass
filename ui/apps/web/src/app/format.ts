@@ -52,6 +52,16 @@ export function formatPercentText(value: number, lang: Language): string {
   }).format(value / 100)
 }
 
+// A date and time, for something that may be a day old
+export function formatDateTime(iso: string, lang: Language): string {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ""
+  return new Date(t).toLocaleString(TIME_LOCALES[lang], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+}
+
 export function formatTime(iso: string, lang: Language): string {
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return ""

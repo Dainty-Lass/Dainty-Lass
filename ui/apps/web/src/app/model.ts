@@ -348,8 +348,11 @@ export function taskView(t: TaskProgress, lang: Language): TaskView {
         ? "task_download"
         : t.kind === "dlls"
           ? "task_dlls"
-          : "task_verify"
-  const moving = t.kind === "runtime" || t.kind === "download"
+          : t.kind === "install"
+            ? "task_install"
+            : "task_verify"
+  const moving =
+    t.kind === "runtime" || t.kind === "download" || t.kind === "install"
   return {
     key,
     percent: formatPercent(t.doneBytes, t.totalBytes),

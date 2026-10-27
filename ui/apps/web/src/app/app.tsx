@@ -9,6 +9,7 @@ import { ActionBar } from "@/components/action-bar"
 import { Banners } from "@/components/banners"
 import { Rail, TitleBar } from "@/components/chrome"
 import { Dialogs } from "@/components/dialogs"
+import { GameScreen } from "@/screens/game"
 import { PlayScreen } from "@/screens/play"
 import { ServerScreen } from "@/screens/servers"
 import { SettingsScreen } from "@/screens/settings"
@@ -31,6 +32,7 @@ function Shell() {
               <Banners />
               {view === "play" && <PlayScreen />}
               {view === "server" && <ServerScreen />}
+              {view === "game" && <GameScreen />}
               {view === "settings" && <SettingsScreen />}
             </div>
           </div>

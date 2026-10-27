@@ -1,6 +1,7 @@
 // The window's own frame (window.rs makes it frameless): the title bar with its controls, and the rail
 import {
   CopyIcon,
+  DownloadIcon,
   MinusIcon,
   PlayIcon,
   ServerIcon,
@@ -63,12 +64,13 @@ export function TitleBar() {
 
 const NAV: {
   view: View
-  key: "nav_play" | "nav_server" | "nav_settings"
+  key: "nav_play" | "nav_server" | "nav_settings" | "nav_game"
   icon: typeof PlayIcon
 }[] = [
   { view: "play", key: "nav_play", icon: PlayIcon },
   { view: "server", key: "nav_server", icon: ServerIcon },
   { view: "settings", key: "nav_settings", icon: SettingsIcon },
+  { view: "game", key: "nav_game", icon: DownloadIcon },
 ]
 
 export function Rail() {
