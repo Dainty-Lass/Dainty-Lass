@@ -35,7 +35,24 @@ pub const MASTERY_PERSISTENCE: SharedSwitch = SharedSwitch {
     help: "Whether a game server's mastery report is saved: on or off",
 };
 
-pub const SWITCHES: [SharedSwitch; 3] = [QOS_PORT, REFORGE, MASTERY_PERSISTENCE];
+pub const BOUNTY_PERSISTENCE: SharedSwitch = SharedSwitch {
+    env: "MYSTICPARADOX_BOUNTY_PERSISTENCE",
+    key: "bounty_persistence",
+    help: "Whether bounty saves are stored (off is 1.12.0's empty stub): on or off",
+};
+pub const COOLDOWN_PERSISTENCE: SharedSwitch = SharedSwitch {
+    env: "MYSTICPARADOX_COOLDOWN_PERSISTENCE",
+    key: "cooldown_persistence",
+    help: "Whether cooldown saves are stored (off is 1.12.0's empty stub): on or off",
+};
+
+pub const SWITCHES: [SharedSwitch; 5] = [
+    QOS_PORT,
+    REFORGE,
+    MASTERY_PERSISTENCE,
+    BOUNTY_PERSISTENCE,
+    COOLDOWN_PERSISTENCE,
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum SettingsError {
