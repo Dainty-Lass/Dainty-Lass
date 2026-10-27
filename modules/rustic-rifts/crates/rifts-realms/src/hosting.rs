@@ -1,10 +1,11 @@
-//! Player-hosted hunts and realm hubs: their lifecycle, host capabilities, leases, host selection and the launcher's
-//! control channel (`p2p/controllers/*`, `p2p/security/hostCapabilities.ts`, `p2p/realm/*`).
+//! The session routes not ported yet (RF2's surface, still answering through [`crate::Stub`]): host bootstrap, the
+//! host's ready, abort and end, status, hub start and stop, the hosting status, the emergency stop and the Director's
+//! manifest. They need rifts-admission's tickets and isles' hunt data, operations policy and party (RU4).
 
-use rifts_seam::{AccountId, BoxFuture, CapabilityScope, HubKind, Json, RuntimeAuth, Secret, SessionId, UnixMillis};
+use rifts_seam::{AccountId, BoxFuture, HubKind, Json, RuntimeAuth, Secret, SessionId};
 
 use crate::RealmsError;
-use crate::store::{ControlMessageRecord, HostCapabilityRecord, HostOfferRecord, HuntState};
+use crate::hunt::HuntState;
 
 /// `CreateHostBootstrap` and `CreateRealmHubSession`: what the host's launcher writes into the session folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,81 +91,4 @@ pub trait HuntLifecycle: Send + Sync {
     fn set_emergency_stop(&self, admin_key: String, policy: Json) -> BoxFuture<'_, Result<Json, RealmsError>>;
     /// The Director's `ResolvePlayerHostedLaunchManifest` (`MYSTICPARADOX_HUNT_MANIFEST_SOURCE=director`).
     fn resolve_launch_manifest(&self, request: Json) -> BoxFuture<'_, Result<Json, RealmsError>>;
-}
-
-/// `RequireHostCapability` and its minting.
-pub trait HostCapabilities: Send + Sync {
-    fn mint(
-        &self,
-        session: SessionId,
-        generation: u64,
-        host: AccountId,
-        scopes: Vec<CapabilityScope>,
-    ) -> BoxFuture<'_, Result<(Secret, HostCapabilityRecord), RealmsError>>;
-    /// By SHA-256 digest, session, expiry and scope.
-    fn check(
-        &self,
-        secret: Secret,
-        session: SessionId,
-        scope: CapabilityScope,
-    ) -> BoxFuture<'_, Result<RuntimeAuth, RealmsError>>;
-    fn revoke(&self, session: SessionId, generation: u64) -> BoxFuture<'_, Result<(), RealmsError>>;
-}
-
-pub trait Leases: Send + Sync {
-    /// `RenewHostLease`, every ~2 s per host session; the new expiry (`P2P_HOST_LEASE_LIFETIME_MS`).
-    fn renew(&self, runtime: RuntimeAuth, sequence: u64) -> BoxFuture<'_, Result<UnixMillis, RealmsError>>;
-    /// The lifecycle monitor's pass: sessions whose lease or deadline ran out, moved on.
-    fn sweep(&self, now: UnixMillis) -> BoxFuture<'_, Result<Vec<(SessionId, u64)>, RealmsError>>;
-}
-
-/// `SubmitHostPresence`: a PC offering to host.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HostPresence {
-    pub consent_to_host: bool,
-    pub launcher_version: String,
-    /// Memory, CPU and network metrics, as the launcher sends them.
-    pub metrics: Json,
-    /// `gameExe`, `internalServer`, `winmmProxy`, the transport and `admissionPublicKey` hashes.
-    pub artifacts: Json,
-    pub guard_session_id: Option<String>,
-}
-
-pub trait HostSelection: Send + Sync {
-    fn submit_presence(&self, account: AccountId, presence: HostPresence) -> BoxFuture<'_, Result<(), RealmsError>>;
-    /// `RespondToHostOffer`.
-    fn respond_to_offer(
-        &self,
-        account: AccountId,
-        offer_id: String,
-        accept: bool,
-        reason: Option<String>,
-    ) -> BoxFuture<'_, Result<(), RealmsError>>;
-    /// Ranks the fresh presences and offers the session to the best (`P2P_HOST_SELECTION_ENABLED`).
-    fn select_host(
-        &self,
-        session: SessionId,
-        generation: u64,
-    ) -> BoxFuture<'_, Result<Option<HostOfferRecord>, RealmsError>>;
-}
-
-/// `p2pControl.ts`: the launcher's long poll.
-pub trait ControlChannel: Send + Sync {
-    /// `PollP2PControl`.
-    fn poll(
-        &self,
-        account: AccountId,
-        after_sequence: u64,
-        wait_ms: u32,
-    ) -> BoxFuture<'_, Result<Vec<ControlMessageRecord>, RealmsError>>;
-    /// `AcknowledgeP2PControl`.
-    fn ack(&self, account: AccountId, message_id: String) -> BoxFuture<'_, Result<(), RealmsError>>;
-    /// Queues one message; its sequence.
-    fn send(
-        &self,
-        account: AccountId,
-        kind: String,
-        session: Option<SessionId>,
-        payload: Json,
-    ) -> BoxFuture<'_, Result<u64, RealmsError>>;
 }

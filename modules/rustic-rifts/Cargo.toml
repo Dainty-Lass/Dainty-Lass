@@ -23,8 +23,18 @@ rifts-realms = { path = "crates/rifts-realms", version = "0.1.0", registry = "si
 rifts-guard = { path = "crates/rifts-guard", version = "0.1.0", registry = "silentspud" }
 rifts-host = { path = "crates/rifts-host", version = "0.1.0", registry = "silentspud" }
 
+# DaintyLass's crates by git until the silentspud registry has them (spike DF1's fallback); then
+# `{ version = "0.1.0", registry = "silentspud" }`. The rev is DaintyLass's plan with DF2 and DF7.
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c777178819f8f4e8bbf0ef7c407f0b75edb9cde9" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c777178819f8f4e8bbf0ef7c407f0b75edb9cde9" }
+
 # Same versions as DaintyLass's workspace, so one copy of each lands in its tree
+diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35"] }
+diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
+rand = "0.10"
+serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
+tempfile = "3"
 thiserror = "2"
 # Admission and relay crypto (RF4): RustCrypto, no OpenSSL; sha2, hmac, sha1 and base64 at DaintyLass's versions
 base64 = "0.23"
@@ -33,6 +43,8 @@ hmac = "0.13"
 p256 = { version = "0.14", default-features = false, features = ["ecdsa", "pem", "pkcs8", "std"] }
 sha1 = "0.11"
 sha2 = "0.11"
+tokio = { version = "1", features = ["rt", "macros"] }
+url = "2"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

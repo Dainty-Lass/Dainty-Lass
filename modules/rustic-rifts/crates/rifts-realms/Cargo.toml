@@ -9,11 +9,23 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+diesel.workspace = true
+diesel_migrations.workspace = true
+module-api.workspace = true
+rand.workspace = true
 rifts-seam.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+store.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]
-serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the tests (as store's own)
+url.workspace = true
 # tests/stubbed.rs assembles every server crate as isles-1-14-7 will
 rifts-admission.workspace = true
 rifts-guard.workspace = true
