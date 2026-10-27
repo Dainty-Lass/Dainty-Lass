@@ -39,19 +39,21 @@ pub const V1120: Version = Version {
 };
 
 /// `count` consecutive UDP ports on loopback that are free now and that no other test of this binary was given.
+/// They start in a band of their own, set by this process's id and well below the system's dynamic ports, so
+/// test runs of other worktrees on the same machine (and the system's own sockets) do not take them.
 pub fn free_range(count: u16) -> (u16, u16) {
     static NEXT: Mutex<u16> = Mutex::new(0);
     let mut next = NEXT.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    for _ in 0..500 {
-        if *next == 0 || u32::from(*next) + u32::from(count) > 65000 {
-            *next = UdpSocket::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        }
+    if *next == 0 {
+        *next = 15000 + (std::process::id() % 2500) as u16 * 8;
+    }
+    for _ in 0..2000 {
         let first = *next;
-        *next = first.saturating_add(count);
-        if first > 65000 - count {
-            *next = 0;
-            continue;
-        }
+        *next = if first + count + 8 > 40000 {
+            15000
+        } else {
+            first + count + 3
+        };
         if (first..first + count).all(|p| UdpSocket::bind(("127.0.0.1", p)).is_ok()) {
             return (first, first + count - 1);
         }
@@ -100,10 +102,32 @@ pub fn env_pairs(root: &Path) -> Vec<(String, String)> {
         ("GAMESERVER_LOG_DIR", path("logs")),
         ("REFORGED_SERVER_MAX_FPS", "30".to_owned()),
         ("FAKE_GS_CONTROL", path("control")),
+        // A fake never outlives this test process, however it ends
+        ("FAKE_GS_PARENT_PID", std::process::id().to_string()),
+        ("FAKE_GS_MAX_SECS", "300".to_owned()),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_owned(), v))
     .collect()
+}
+
+/// Nothing in a test waits for ever: this long for any one step, and for a whole test.
+pub const STEP: Duration = Duration::from_secs(60);
+
+/// A whole test, bounded: a hang fails it (and the harness's `Drop` then ends every game server).
+pub async fn bounded<T>(test: impl std::future::Future<Output = T>) -> T {
+    match tokio::time::timeout(Duration::from_secs(180), test).await {
+        Ok(value) => value,
+        Err(_) => panic!("the test ran over 180 s"),
+    }
+}
+
+/// One step, bounded.
+pub async fn within<T>(what: &str, step: impl std::future::Future<Output = T>) -> T {
+    match tokio::time::timeout(STEP, step).await {
+        Ok(value) => value,
+        Err(_) => panic!("{what} took over {STEP:?}"),
+    }
 }
 
 pub struct Harness {
@@ -114,6 +138,15 @@ pub struct Harness {
     pub begin: u16,
     pub end: u16,
     pub root: tempfile::TempDir,
+    server: tokio::task::JoinHandle<()>,
+}
+
+/// However a test ends, its game servers' process trees and its HTTP server end with it.
+impl Drop for Harness {
+    fn drop(&mut self) {
+        self.director.kill_all();
+        self.server.abort();
+    }
 }
 
 /// What a game server needs from the system to start on Windows (the Director clears the environment).
@@ -159,8 +192,11 @@ pub async fn start_with(version: Version, extra: &[(&str, &str)], tune: impl FnO
     let app = isles_director::router(shared, &director).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await });
+    let server = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
     Harness {
+        server,
         addr,
         director,
         control: root.path().join("control"),
@@ -189,6 +225,14 @@ impl Reply {
 
 /// A minimal HTTP/1.1 client over a TCP socket (no client crate in the tree for tests).
 pub async fn send(addr: SocketAddr, method: &str, path: &str, headers: &[(&str, &str)], body: &str) -> Reply {
+    within(
+        &format!("{method} {path}"),
+        send_unbounded(addr, method, path, headers, body),
+    )
+    .await
+}
+
+async fn send_unbounded(addr: SocketAddr, method: &str, path: &str, headers: &[(&str, &str)], body: &str) -> Reply {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
     let mut request = format!("{method} {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n");
@@ -275,6 +319,48 @@ impl Harness {
             );
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
+    }
+
+    /// `Startup`, then ready, bounded.
+    pub async fn boot(&self) {
+        if tokio::time::timeout(Duration::from_secs(40), self.director.startup())
+            .await
+            .is_err()
+        {
+            panic!(
+                "the boot took over 40 s
+{}",
+                self.diagnostics().await
+            );
+        }
+        self.director.set_persistent_hubs_ready(true);
+    }
+
+    /// What a failed step should say: the hubs' status as the API gives it and every game server's log.
+    pub async fn diagnostics(&self) -> String {
+        let mut text = format!(
+            "ports {}..={}
+hub-status {}
+",
+            self.begin,
+            self.end,
+            self.get("/api/hub-status").await.text
+        );
+        for entry in std::fs::read_dir(&self.logs).into_iter().flatten().flatten() {
+            let log = std::fs::read_to_string(entry.path()).unwrap_or_default();
+            text.push_str(&format!(
+                "--- {:?}
+{}
+",
+                entry.file_name(),
+                log.chars().take(2000).collect::<String>()
+            ));
+        }
+        text
+    }
+
+    pub async fn shutdown(&self) {
+        within("the shutdown", self.director.shutdown()).await;
     }
 
     pub fn stop(&self, port: u16) {

@@ -8,7 +8,7 @@ mod common;
 
 use std::time::Duration;
 
-use common::{Harness, V1120, V1147, Version, send, start, start_with, udp_free};
+use common::{Harness, V1120, V1147, Version, bounded, send, start, start_with, udp_free};
 use serde_json::{Value, json};
 
 fn strings(value: &Value) -> Vec<&str> {
@@ -17,8 +17,7 @@ fn strings(value: &Value) -> Vec<&str> {
 
 /// Boots the hubs and waits as `Startup` does.
 async fn boot(d: &Harness) {
-    d.director.startup().await;
-    d.director.set_persistent_hubs_ready(true);
+    d.boot().await;
 }
 
 async fn serves_the_hubs_and_hunts(version: Version) {
@@ -49,6 +48,12 @@ async fn serves_the_hubs_and_hunts(version: Version) {
         "Express matching"
     );
     let status = d.get("/api/hub-status").await.json();
+    assert!(
+        !status["ramsgate"].is_null(),
+        "Ramsgate is down after the boot
+{}",
+        d.diagnostics().await
+    );
     assert_eq!(status["ramsgate"]["port"], end);
     assert_eq!(status["ramsgate"]["host"], "100.101.102.103");
     assert_eq!(status["trainingDojo"]["port"], end - 1);
@@ -218,7 +223,7 @@ async fn serves_the_hubs_and_hunts(version: Version) {
     assert_eq!(not_json.status, 500, "no JSON content type: req.body is undefined");
 
     // Stopping the Director ends every game server and frees every port.
-    d.director.shutdown().await;
+    d.shutdown().await;
     assert!(d.director.gameservers().is_empty());
     for port in d.begin..=d.end {
         until_udp_free(port).await;
@@ -235,12 +240,18 @@ async fn until_udp_free(port: u16) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn ramsgate_the_training_grounds_and_a_hunt_start_and_stop_on_1_14_7() {
-    serves_the_hubs_and_hunts(V1147).await;
+    bounded(async {
+        serves_the_hubs_and_hunts(V1147).await;
+    })
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn ramsgate_the_training_grounds_and_a_hunt_start_and_stop_on_1_12_0() {
-    serves_the_hubs_and_hunts(V1120).await;
+    bounded(async {
+        serves_the_hubs_and_hunts(V1120).await;
+    })
+    .await;
 }
 
 async fn answers_express_404s_and_request_ids(version: Version) {
@@ -281,8 +292,11 @@ async fn answers_express_404s_and_request_ids(version: Version) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn answers_express_404s_and_request_ids_on_both_versions() {
-    answers_express_404s_and_request_ids(V1147).await;
-    answers_express_404s_and_request_ids(V1120).await;
+    bounded(async {
+        answers_express_404s_and_request_ids(V1147).await;
+        answers_express_404s_and_request_ids(V1120).await;
+    })
+    .await;
 }
 
 async fn failed_starts_stay_failures(version: Version) {
@@ -321,29 +335,35 @@ async fn failed_starts_stay_failures(version: Version) {
         .matchmake(json!({"GameMode": "SHARED", "HuntId": "ShatteredIsles_TrainingDojo"}))
         .await;
     assert_eq!(dojo.json()["port"], d.end - 1, "{}", dojo.text);
-    d.director.shutdown().await;
+    d.shutdown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn failed_starts_stay_failures_on_both_versions() {
-    failed_starts_stay_failures(V1147).await;
-    failed_starts_stay_failures(V1120).await;
+    bounded(async {
+        failed_starts_stay_failures(V1147).await;
+        failed_starts_stay_failures(V1120).await;
+    })
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_missing_executable_is_a_failed_matchmaking_and_gives_the_port_back() {
-    let d = start(V1147, &[("GAMESERVER_BINARY_PATH", "/nonexistent/game-server")]).await;
-    d.director.startup().await;
-    for _ in 0..2 {
-        let reply = d
-            .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/test/ok"}))
-            .await;
-        assert_eq!(reply.status, 500);
-    }
-    assert!(d.director.gameservers().is_empty());
-    assert_eq!(d.get("/api/instances").await.text, "[]");
-    // The hubs are retrying on their backoff; stopping ends that
-    d.director.shutdown().await;
+    bounded(async {
+        let d = start(V1147, &[("GAMESERVER_BINARY_PATH", "/nonexistent/game-server")]).await;
+        d.boot().await;
+        for _ in 0..2 {
+            let reply = d
+                .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/test/ok"}))
+                .await;
+            assert_eq!(reply.status, 500);
+        }
+        assert!(d.director.gameservers().is_empty());
+        assert_eq!(d.get("/api/instances").await.text, "[]");
+        // The hubs are retrying on their backoff; stopping ends that
+        d.shutdown().await;
+    })
+    .await;
 }
 
 async fn a_dead_hub_is_refused_then_restarted(version: Version) {
@@ -369,129 +389,147 @@ async fn a_dead_hub_is_refused_then_restarted(version: Version) {
     })
     .await;
     assert_eq!(d.matchmake(json!({"GameMode": "CITY"})).await.json()["port"], d.end);
-    d.director.shutdown().await;
+    d.shutdown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_dead_hub_is_refused_then_restarted_on_both_versions() {
-    a_dead_hub_is_refused_then_restarted(V1147).await;
-    a_dead_hub_is_refused_then_restarted(V1120).await;
+    bounded(async {
+        a_dead_hub_is_refused_then_restarted(V1147).await;
+        a_dead_hub_is_refused_then_restarted(V1120).await;
+    })
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_registry_survives_a_server_that_dies_after_ready() {
-    let d = start(V1147, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
-    boot(&d).await;
-    let steady = d
-        .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/test/steady"}))
+    bounded(async {
+        let d = start(V1147, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
+        boot(&d).await;
+        let steady = d
+            .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/test/steady"}))
+            .await;
+        assert_eq!(steady.status, 200);
+        let steady_port = steady.json()["port"].as_u64().unwrap() as u16;
+        let flaky = d
+            .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/flaky"}))
+            .await;
+        assert_eq!(flaky.status, 200, "ready first, then it dies");
+        let flaky_port = flaky.json()["port"].as_u64().unwrap() as u16;
+        d.until("the flaky server's exit", |dir| {
+            dir.gameservers().iter().all(|s| s.port != flaky_port)
+        })
         .await;
-    assert_eq!(steady.status, 200);
-    let steady_port = steady.json()["port"].as_u64().unwrap() as u16;
-    let flaky = d
-        .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/flaky"}))
-        .await;
-    assert_eq!(flaky.status, 200, "ready first, then it dies");
-    let flaky_port = flaky.json()["port"].as_u64().unwrap() as u16;
-    d.until("the flaky server's exit", |dir| {
-        dir.gameservers().iter().all(|s| s.port != flaky_port)
+        let log = d.log_of(flaky_port, "=== Gameserver process exited").await;
+        assert!(log.contains("code=5"), "{log}");
+        // Only the steady one is listed, the port is free again, and the Director answers
+        let instances = d.get("/api/instances").await.json();
+        assert_eq!(instances.as_array().unwrap().len(), 1);
+        assert_eq!(instances[0]["id"], format!("hunt-{steady_port}"));
+        let again = d
+            .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/test/after"}))
+            .await;
+        assert_eq!(again.status, 200);
+        d.shutdown().await;
     })
     .await;
-    let log = d.log_of(flaky_port, "=== Gameserver process exited").await;
-    assert!(log.contains("code=5"), "{log}");
-    // Only the steady one is listed, the port is free again, and the Director answers
-    let instances = d.get("/api/instances").await.json();
-    assert_eq!(instances.as_array().unwrap().len(), 1);
-    assert_eq!(instances[0]["id"], format!("hunt-{steady_port}"));
-    let again = d
-        .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/test/after"}))
-        .await;
-    assert_eq!(again.status, 200);
-    d.director.shutdown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_chatty_server_never_blocks_on_its_pipe() {
-    // The 2026-07-19 freeze: nothing read stdout after the readiness marker and the server blocked on a full pipe
-    let d = start(V1147, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
-    boot(&d).await;
-    let reply = d
-        .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/chatty"}))
-        .await;
-    assert_eq!(reply.status, 200);
-    let port = reply.json()["port"].as_u64().unwrap() as u16;
-    let log = d.log_of(port, "CHATTY_DONE").await;
-    assert!(log.len() > 3 * 1024 * 1024, "{} bytes", log.len());
-    d.director.shutdown().await;
+    bounded(async {
+        // The 2026-07-19 freeze: nothing read stdout after the readiness marker and the server blocked on a full pipe
+        let d = start(V1147, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
+        boot(&d).await;
+        let reply = d
+            .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/chatty"}))
+            .await;
+        assert_eq!(reply.status, 200);
+        let port = reply.json()["port"].as_u64().unwrap() as u16;
+        let log = d.log_of(port, "CHATTY_DONE").await;
+        assert!(log.len() > 3 * 1024 * 1024, "{} bytes", log.len());
+        d.shutdown().await;
+    })
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn stopping_ends_the_whole_process_tree() {
-    let d = start(V1147, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
-    boot(&d).await;
-    let reply = d
-        .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/grandchild"}))
-        .await;
-    assert_eq!(reply.status, 200);
-    let port = reply.json()["port"].as_u64().unwrap() as u16;
-    let log = d.log_of(port, "FAKE_GRANDCHILD_UDP=").await;
-    let held: u16 = log
-        .lines()
-        .find_map(|l| l.strip_prefix("FAKE_GRANDCHILD_UDP="))
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
-    assert!(
-        !udp_free(port) && !udp_free(held),
-        "both the server and its child listen"
-    );
-    d.director.shutdown().await;
-    until_udp_free(port).await;
-    until_udp_free(held).await;
+    bounded(async {
+        let d = start(V1147, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
+        boot(&d).await;
+        let reply = d
+            .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/grandchild"}))
+            .await;
+        assert_eq!(reply.status, 200);
+        let port = reply.json()["port"].as_u64().unwrap() as u16;
+        let log = d.log_of(port, "FAKE_GRANDCHILD_UDP=").await;
+        let held: u16 = log
+            .lines()
+            .find_map(|l| l.strip_prefix("FAKE_GRANDCHILD_UDP="))
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        assert!(
+            !udp_free(port) && !udp_free(held),
+            "both the server and its child listen"
+        );
+        d.shutdown().await;
+        until_udp_free(port).await;
+        until_udp_free(held).await;
+    })
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_server_that_exits_takes_what_it_started_with_it() {
-    let d = start(V1120, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
-    boot(&d).await;
-    let reply = d
-        .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/grandchild"}))
-        .await;
-    let port = reply.json()["port"].as_u64().unwrap() as u16;
-    let log = d.log_of(port, "FAKE_GRANDCHILD_UDP=").await;
-    let held: u16 = log
-        .lines()
-        .find_map(|l| l.strip_prefix("FAKE_GRANDCHILD_UDP="))
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
-    d.stop(port);
-    d.until("the exit", |dir| dir.gameservers().is_empty()).await;
-    until_udp_free(held).await;
-    d.director.shutdown().await;
+    bounded(async {
+        let d = start(V1120, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
+        boot(&d).await;
+        let reply = d
+            .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/grandchild"}))
+            .await;
+        let port = reply.json()["port"].as_u64().unwrap() as u16;
+        let log = d.log_of(port, "FAKE_GRANDCHILD_UDP=").await;
+        let held: u16 = log
+            .lines()
+            .find_map(|l| l.strip_prefix("FAKE_GRANDCHILD_UDP="))
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        d.stop(port);
+        d.until("the exit", |dir| dir.gameservers().is_empty()).await;
+        until_udp_free(held).await;
+        d.shutdown().await;
+    })
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_public_hunt_is_reused_when_the_host_allows_it() {
-    let d = start(
-        V1147,
-        &[
-            ("RAMSGATE_HUB", "off"),
-            ("TRAINING_HUB", "off"),
-            ("ENABLE_PUBLIC_HUNT_REUSE", "1"),
-        ],
-    )
+    bounded(async {
+        let d = start(
+            V1147,
+            &[
+                ("RAMSGATE_HUB", "off"),
+                ("TRAINING_HUB", "off"),
+                ("ENABLE_PUBLIC_HUNT_REUSE", "1"),
+            ],
+        )
+        .await;
+        boot(&d).await;
+        let first = d
+            .matchmake(json!({"GameMode": "SHARED", "HuntId": "Plain_Hunt", "ExpectedPlayers": ["acc-1"]}))
+            .await;
+        let second = d
+            .matchmake(json!({"GameMode": "SHARED", "HuntId": "Plain_Hunt", "ExpectedPlayers": ["acc-2"]}))
+            .await;
+        assert_eq!(first.json()["port"], second.json()["port"], "P2 joins P1's server");
+        let instances = d.get("/api/instances").await.json();
+        assert_eq!(instances[0]["playerIds"], json!(["acc-1", "acc-2"]));
+        d.shutdown().await;
+    })
     .await;
-    boot(&d).await;
-    let first = d
-        .matchmake(json!({"GameMode": "SHARED", "HuntId": "Plain_Hunt", "ExpectedPlayers": ["acc-1"]}))
-        .await;
-    let second = d
-        .matchmake(json!({"GameMode": "SHARED", "HuntId": "Plain_Hunt", "ExpectedPlayers": ["acc-2"]}))
-        .await;
-    assert_eq!(first.json()["port"], second.json()["port"], "P2 joins P1's server");
-    let instances = d.get("/api/instances").await.json();
-    assert_eq!(instances[0]["playerIds"], json!(["acc-1", "acc-2"]));
-    d.director.shutdown().await;
 }

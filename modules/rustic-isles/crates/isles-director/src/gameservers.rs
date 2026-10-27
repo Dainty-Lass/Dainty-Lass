@@ -1313,6 +1313,16 @@ impl Director {
         self.shared().gameservers.clear();
     }
 
+    /// Ends every game server's process tree at once and restarts none: for a Director let go in a hurry (a failed
+    /// test), where `shutdown`'s grace is not wanted.
+    pub fn kill_all(&self) {
+        self.stopping.store(true, Ordering::SeqCst);
+        self.dispose();
+        for server in self.gameservers() {
+            server.proc.kill();
+        }
+    }
+
     pub fn is_stopping(&self) -> bool {
         self.stopping.load(Ordering::SeqCst)
     }

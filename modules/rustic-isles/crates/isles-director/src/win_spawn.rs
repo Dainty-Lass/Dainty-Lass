@@ -20,13 +20,12 @@ use windows::Win32::System::JobObjects::{
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
     TerminateJobObject,
 };
-use windows::Win32::System::Pipes::CreatePipe;
+use windows::Win32::System::Pipes::{CreatePipe, PeekNamedPipe};
 use windows::Win32::System::Threading::{
     CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
-    EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, INFINITE, InitializeProcThreadAttributeList,
-    LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION, ResumeThread,
-    STARTF_USESHOWWINDOW, STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW, TerminateProcess,
-    UpdateProcThreadAttribute, WaitForSingleObject,
+    EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
+    PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION, ResumeThread, STARTF_USESHOWWINDOW, STARTF_USESTDHANDLES,
+    STARTUPINFOEXW, STARTUPINFOW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
 };
 use windows::core::{PCWSTR, PWSTR};
 
@@ -46,16 +45,16 @@ impl Process {
         HANDLE(self.process.as_raw_handle())
     }
 
-    /// Blocks until the process ends: its exit code.
-    pub fn wait(&self) -> std::io::Result<u32> {
+    /// The exit code once the process has ended. Polled, never a blocking wait: a blocked thread would
+    /// hold the runtime's shutdown until the game server exited by itself.
+    pub fn exit_code(&self) -> Option<u32> {
         // SAFETY: the handle is open (owned by self) and has SYNCHRONIZE and QUERY rights.
         unsafe {
-            if WaitForSingleObject(self.raw(), INFINITE) != WAIT_OBJECT_0 {
-                return Err(std::io::Error::last_os_error());
+            if WaitForSingleObject(self.raw(), 0) != WAIT_OBJECT_0 {
+                return None;
             }
             let mut code = 0u32;
-            GetExitCodeProcess(self.raw(), &mut code).map_err(std::io::Error::other)?;
-            Ok(code)
+            Some(GetExitCodeProcess(self.raw(), &mut code).map_or(1, |()| code))
         }
     }
 
@@ -147,8 +146,71 @@ impl Drop for AttributeList<'_> {
 pub struct Child {
     pub pid: u32,
     pub process: Arc<Process>,
-    pub stdout: std::fs::File,
-    pub stderr: std::fs::File,
+    pub stdout: PollPipe,
+    pub stderr: PollPipe,
+}
+
+/// The read end of an anonymous pipe, read without ever blocking a thread: the pipe is peeked and read when it
+/// holds something, else polled again 20 ms later. (Anonymous pipes have no overlapped I/O, and a blocking
+/// read on a pool thread keeps a dropped runtime from shutting down while the game server lives.)
+pub struct PollPipe {
+    file: std::fs::File,
+    nap: Option<std::pin::Pin<Box<tokio::time::Sleep>>>,
+}
+
+impl PollPipe {
+    fn new(file: std::fs::File) -> Self {
+        Self { file, nap: None }
+    }
+
+    /// Bytes waiting, or `None` once the writers are gone.
+    fn available(&self) -> Option<u32> {
+        let mut available = 0u32;
+        // SAFETY: the handle is open while `self` lives; the out-pointer is valid for the call.
+        unsafe {
+            PeekNamedPipe(
+                HANDLE(self.file.as_raw_handle()),
+                None,
+                0,
+                None,
+                Some(&mut available),
+                None,
+            )
+        }
+        .ok()
+        .map(|()| available)
+    }
+}
+
+impl tokio::io::AsyncRead for PollPipe {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        use std::io::Read;
+        use std::task::Poll;
+        loop {
+            let Some(available) = self.available() else {
+                return Poll::Ready(Ok(()));
+            };
+            if available > 0 {
+                let want = (available as usize).min(buf.remaining());
+                let mut chunk = vec![0u8; want];
+                let read = self.file.read(&mut chunk)?;
+                buf.put_slice(&chunk[..read]);
+                self.nap = None;
+                return Poll::Ready(Ok(()));
+            }
+            let nap = self
+                .nap
+                .get_or_insert_with(|| Box::pin(tokio::time::sleep(std::time::Duration::from_millis(20))));
+            if nap.as_mut().poll(cx).is_pending() {
+                return Poll::Pending;
+            }
+            self.nap = None;
+        }
+    }
 }
 
 fn wide(text: &str) -> Vec<u16> {
@@ -274,7 +336,7 @@ pub fn spawn(program: &str, args: &[String], env: &[(String, String)], hide: boo
     Ok(Child {
         pid: info.dwProcessId,
         process,
-        stdout: std::fs::File::from(stdout_read),
-        stderr: std::fs::File::from(stderr_read),
+        stdout: PollPipe::new(std::fs::File::from(stdout_read)),
+        stderr: PollPipe::new(std::fs::File::from(stderr_read)),
     })
 }

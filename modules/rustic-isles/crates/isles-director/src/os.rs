@@ -46,6 +46,13 @@ mod imp {
         }
     }
 
+    // What the server left behind goes with the last handle to the tree, as the Windows job does
+    impl Drop for Group {
+        fn drop(&mut self) {
+            self.signal(libc::SIGKILL);
+        }
+    }
+
     impl TreeControl for Group {
         fn terminate(&self) {
             self.signal(libc::SIGTERM);
@@ -136,16 +143,18 @@ mod imp {
         let (waiter, tree) = (child.process.clone(), child.process);
         Ok(Started {
             pid: Some(child.pid),
-            stdout: Box::new(tokio::fs::File::from_std(child.stdout)),
-            stderr: Box::new(tokio::fs::File::from_std(child.stderr)),
+            stdout: Box::new(child.stdout),
+            stderr: Box::new(child.stderr),
             wait: async move {
-                let code = tokio::task::spawn_blocking(move || waiter.wait())
-                    .await
-                    .ok()
-                    .and_then(Result::ok);
+                let code = loop {
+                    if let Some(code) = waiter.exit_code() {
+                        break code;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                };
                 Exit {
                     // The exit code is a u32 (NTSTATUS for a crash); Node reports it as the signed value libuv gives
-                    code: code.map(|c| c as i32),
+                    code: Some(code as i32),
                     signal: None,
                 }
             }

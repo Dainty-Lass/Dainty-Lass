@@ -11,7 +11,10 @@
 //! - `/Game/Maps/chatty`: writes 3 MB after it is ready, to see the pipes keep draining
 //! - `/Game/Maps/flaky`: reports ready, then exits with code 5 after 300 ms
 //! - anything else: ready and running
-#![allow(clippy::unwrap_used, clippy::expect_used)] // a test helper
+//!
+//! It never outlives its test: it exits when the process named by `FAKE_GS_PARENT_PID` is gone (a killed or
+//! panicked test run), and in any case after `FAKE_GS_MAX_SECS` (15 minutes).
+#![allow(clippy::unwrap_used, clippy::expect_used, unsafe_code)] // a test helper; unsafe for the parent watch
 
 use std::io::Write;
 use std::net::UdpSocket;
@@ -21,7 +24,50 @@ use std::time::Duration;
 
 const HOLDER: &str = "FAKE_GS_HOLDER";
 
+/// Whether the process `pid` still runs.
+#[cfg(windows)]
+fn alive(pid: u32) -> bool {
+    use windows::Win32::Foundation::{CloseHandle, WAIT_TIMEOUT};
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject};
+    // SAFETY: a fresh handle, waited on without blocking and closed.
+    unsafe {
+        let Ok(handle) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) else {
+            return false;
+        };
+        let running = WaitForSingleObject(handle, 0) == WAIT_TIMEOUT;
+        let _ = CloseHandle(handle);
+        running
+    }
+}
+
+#[cfg(unix)]
+fn alive(pid: u32) -> bool {
+    let Ok(pid) = libc::pid_t::try_from(pid) else {
+        return false;
+    };
+    // SAFETY: signal 0 only checks that the process exists.
+    unsafe { libc::kill(pid, 0) == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM) }
+}
+
+fn watch_parent() {
+    let parent = std::env::var("FAKE_GS_PARENT_PID")
+        .ok()
+        .and_then(|p| p.parse::<u32>().ok());
+    let limit = std::env::var("FAKE_GS_MAX_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(900);
+    std::thread::spawn(move || {
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(limit) && parent.is_none_or(alive) {
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        std::process::exit(9);
+    });
+}
+
 fn main() -> ExitCode {
+    watch_parent();
     if std::env::var_os(HOLDER).is_some() {
         let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
         println!("FAKE_GRANDCHILD_UDP={}", socket.local_addr().unwrap().port());
