@@ -784,5 +784,8 @@
   "err_windows_runtime_missing": "Faltam no Windows arquivos que o jogo precisa: instale o Microsoft Visual C++ 2015-2022 (x64) e o DirectX End-User Runtime (junho de 2010), depois tente de novo.",
   "err_compat_runtime_missing": "O Linux precisa do Proton ou do Wine para rodar o cliente Windows do jogo. Instale Steam Proton, Proton-GE, Wine ou Lutris Wine e tente de novo.",
   "err_not_implemented": "Esta parte do launcher ainda não está pronta. Uma próxima atualização vai trazê-la.",
-  "err_not_in_this_build": "Esta versão do launcher não inclui isso."
+  "err_not_in_this_build": "Esta versão do launcher não inclui isso.",
+  "err_epic_signed_out": "Entre na Epic Games primeiro.",
+  "err_epic_library_failed": "Não foi possível verificar sua biblioteca da Epic Games. Tente de novo em instantes.",
+  "err_epic_not_owned": "Esta conta da Epic Games não possui Dauntless."
 }

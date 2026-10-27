@@ -83,6 +83,9 @@ export const ERROR_KEYS: Record<ErrorCode, Key> = {
   edition_other: "err_edition_other",
   not_implemented: "err_not_implemented",
   not_in_this_build: "err_not_in_this_build",
+  epic_signed_out: "err_epic_signed_out",
+  epic_library_failed: "err_epic_library_failed",
+  epic_not_owned: "err_epic_not_owned",
   unknown: "err_unknown",
 }
 
