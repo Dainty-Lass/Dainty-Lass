@@ -496,7 +496,7 @@ pub(crate) fn linux_external_allowlist(control: &Control, config: &HostConfig) -
     let flag = control.flag();
     let cancelled = move || flag.load(std::sync::atomic::Ordering::SeqCst);
     let mut units = Vec::new();
-    if config.edition.runs(protocol::game::Game::Reborn) {
+    if config.edition.runs_reborn() {
         units.push((UNIT_ALLOWLIST, PORTS.allowlist));
     }
     if config.edition == crate::hostconfig::Edition::Both {
@@ -584,6 +584,8 @@ mod tests {
             performance: None,
             linux: None,
             database: None,
+            modules: None,
+            network: None,
             file: FileForm::default(),
         }
     }

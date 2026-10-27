@@ -4,14 +4,15 @@
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
-use protocol::game::Game;
+use protocol::GameVersion;
+use protocol::invite::{played_versions, reforged_version, revived_version};
 use serde_json::json;
 use service_kit::env::Env;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
     /// `CONTENT_GAME`: the 1.14.7 runtime, or Dauntless Revived's 1.4.4 game files (legacy)
-    pub game: Game,
+    pub version: GameVersion,
     pub port: u16,
     pub bind_hosts: Vec<String>,
     /// The Mystic Paradox backend, or DR's metagame on a legacy server: the account-key lookup
@@ -67,11 +68,12 @@ pub fn is_loopback_bind_host(host: &str) -> bool {
     host == "::1"
 }
 
-/// `CONTENT_GAME`: `reborn` (the default) or `legacy`, the latter only in a build that carries it.
-pub fn parse_game(raw: Option<&str>) -> Result<Game, String> {
+/// `CONTENT_GAME`: `reborn` (the default, 1.14.7) or `legacy` (1.4.4), the latter only in a build that
+/// carries it.
+pub fn parse_game(raw: Option<&str>) -> Result<GameVersion, String> {
     let game = match raw.map(|r| r.trim().to_ascii_lowercase()).as_deref() {
-        None | Some("") | Some("reborn") => Game::Reborn,
-        Some("legacy") => Game::Legacy,
+        None | Some("") | Some("reborn") => reforged_version(),
+        Some("legacy") => revived_version(),
         Some(_) => {
             return Err(format!(
                 "CONTENT_GAME must be reborn or legacy (got {})",
@@ -79,7 +81,7 @@ pub fn parse_game(raw: Option<&str>) -> Result<Game, String> {
             ));
         }
     };
-    if !game.supported() {
+    if !played_versions().contains(&game) {
         return Err("CONTENT_GAME=legacy (Dauntless Revived's 1.4.4) needs a content server built with the `legacy` feature; this one serves reborn only".into());
     }
     Ok(game)
@@ -87,7 +89,7 @@ pub fn parse_game(raw: Option<&str>) -> Result<Game, String> {
 
 impl Config {
     pub fn from_env(env: &Env) -> Result<Self, String> {
-        let game = parse_game(env.raw("CONTENT_GAME"))?;
+        let version = parse_game(env.raw("CONTENT_GAME"))?;
         let port = int(env, "PORT", 61002, 1, 65535)? as u16;
         let bind_hosts: Vec<String> = optional(env, "BIND_HOST")
             .unwrap_or_else(|| "127.0.0.1".into())
@@ -121,9 +123,9 @@ impl Config {
         // fails the same way, with a `Configuration:` error
         let news_url = crate::news::github_news_url(optional(env, "CONTENT_NEWS_URL").as_deref())?;
         // Read only on a legacy server, where the game folder is DR's only required setting
-        let (game_dir, manifest_path) = match game {
-            Game::Reborn => (None, None),
-            Game::Legacy => {
+        let (game_dir, manifest_path) = match version == revived_version() {
+            false => (None, None),
+            true => {
                 let Some(game_dir) = optional(env, "CONTENT_GAME_DIR") else {
                     return Err("CONTENT_GAME_DIR is not set (the folder that contains Archon\\)".into());
                 };
@@ -134,7 +136,7 @@ impl Config {
             }
         };
         Ok(Self {
-            game,
+            version,
             port,
             bind_hosts,
             backend_url,
@@ -225,8 +227,14 @@ mod tests {
     fn the_game_is_reborn_unless_a_legacy_build_is_told_otherwise() {
         let c = load(&[("CONTENT_GAME_DIR", "game"), ("CONTENT_MANIFEST", "m.json")]).unwrap();
         // A reborn server never reads the game folder
-        assert_eq!((c.game, c.game_dir, c.manifest_path), (Game::Reborn, None, None));
-        assert_eq!(load(&[("CONTENT_GAME", " REBORN ")]).unwrap().game, Game::Reborn);
+        assert_eq!(
+            (c.version, c.game_dir, c.manifest_path),
+            (reforged_version(), None, None)
+        );
+        assert_eq!(
+            load(&[("CONTENT_GAME", " REBORN ")]).unwrap().version,
+            reforged_version()
+        );
         assert!(
             load(&[("CONTENT_GAME", "1.4.4")])
                 .unwrap_err()
@@ -235,7 +243,7 @@ mod tests {
         let legacy = load(&[("CONTENT_GAME", "legacy"), ("CONTENT_GAME_DIR", "game")]);
         if cfg!(feature = "legacy") {
             let legacy = legacy.unwrap();
-            assert_eq!(legacy.game, Game::Legacy);
+            assert_eq!(legacy.version, revived_version());
             assert!(legacy.game_dir.unwrap().is_absolute());
             assert_eq!(legacy.manifest_path, None);
             assert!(

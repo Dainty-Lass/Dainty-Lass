@@ -626,11 +626,10 @@ impl Gateway {
 
     /// The policy and the modules' routes, for the game this gateway fronts (an invite's `version`).
     fn route(&self, request: &Request<Incoming>, is_upgrade: bool) -> Routed {
-        let game = self.config.game;
         let target = request.uri().to_string();
         self.routes.route(
-            game.version(),
-            game,
+            &self.config.version.to_string(),
+            &self.config.version,
             request.method().as_str(),
             &target,
             request.headers(),

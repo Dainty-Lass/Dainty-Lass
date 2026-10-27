@@ -15,7 +15,8 @@
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 
-use protocol::game::Game;
+use protocol::GameVersion;
+use protocol::invite::{played_versions, reforged_version, revived_version};
 use serde_json::{Map, Value};
 use service_kit::{js, jsjson};
 
@@ -245,25 +246,41 @@ impl Edition {
             .find(|e| e.as_str() == text)
     }
 
-    /// Whether the server runs `game`'s stack.
-    pub fn runs(self, game: Game) -> bool {
-        matches!(
-            (self, game),
-            (Self::Both, _) | (Self::Reborn, Game::Reborn) | (Self::Legacy, Game::Legacy)
-        )
+    /// The games whose stacks the server runs (DD4): 1.14.7, 1.4.4 or both. Their versions are taken,
+    /// so the module registry refuses a module for either.
+    pub fn versions(self) -> Vec<GameVersion> {
+        match self {
+            Self::Reborn => vec![reforged_version()],
+            Self::Legacy => vec![revived_version()],
+            Self::Both => vec![reforged_version(), revived_version()],
+        }
+    }
+
+    /// Whether the server runs `version`'s stack.
+    pub fn runs(self, version: &GameVersion) -> bool {
+        self.versions().contains(version)
+    }
+
+    pub fn runs_reborn(self) -> bool {
+        self != Self::Legacy
+    }
+
+    pub fn runs_legacy(self) -> bool {
+        self != Self::Reborn
     }
 
     /// Whether this build carries every game the server runs.
     pub fn supported(self) -> bool {
-        !self.runs(Game::Legacy) || Game::Legacy.supported()
+        let played = played_versions();
+        self.versions().iter().all(|version| played.contains(version))
     }
 
-    /// The game an invite names unless it asks for the other: the server's only one, or reborn.
-    pub fn primary(self) -> Game {
+    /// The game an invite names unless it asks for the other: the server's only one, or 1.14.7.
+    pub fn primary(self) -> GameVersion {
         if self == Self::Legacy {
-            Game::Legacy
+            revived_version()
         } else {
-            Game::Reborn
+            reforged_version()
         }
     }
 }
@@ -305,6 +322,10 @@ pub struct HostConfig {
     pub linux: Option<LinuxOptions>,
     /// Absent: SQLite in the config folder.
     pub database: Option<DatabaseSettings>,
+    /// `[modules]` (DF3). Absent: every compiled-in module and no external one, which is today's server.
+    pub modules: Option<ModulesConfig>,
+    /// `[network]` (DN2). Absent: a server outside any network.
+    pub network: Option<NetworkConfig>,
     /// The file this config was read from; `FileForm::default()` for a new one.
     pub file: FileForm,
 }
@@ -797,6 +818,12 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(database) = c.get("database") {
         validate_database(database)?;
     }
+    if let Some(modules) = c.get("modules") {
+        ModulesConfig::from_json(modules)?;
+    }
+    if let Some(network) = c.get("network") {
+        NetworkConfig::from_json(network)?;
+    }
     let mut out = c.clone();
     out.insert("host".into(), Value::String(host));
     out.insert("name".into(), Value::String(name));
@@ -886,6 +913,8 @@ impl HostConfig {
             .get("database")
             .and_then(Value::as_object)
             .map(DatabaseSettings::from_json);
+        let modules = c.get("modules").map(ModulesConfig::from_json).transpose()?;
+        let network = c.get("network").map(NetworkConfig::from_json).transpose()?;
         let multipliers = c.get("multipliers").and_then(Value::as_object).map(|m| Multipliers {
             xp: num(m, "xp").unwrap_or(1.0),
             rewards: num(m, "rewards").unwrap_or(1.0),
@@ -925,6 +954,8 @@ impl HostConfig {
             performance,
             linux,
             database,
+            modules,
+            network,
             file: FileForm::default(),
         };
         config.file = FileForm {
@@ -1022,6 +1053,12 @@ impl HostConfig {
         if let Some(database) = &self.database {
             m.insert("database".into(), database.to_json());
         }
+        if let Some(modules) = &self.modules {
+            m.insert("modules".into(), modules.to_json());
+        }
+        if let Some(network) = &self.network {
+            m.insert("network".into(), network.to_json());
+        }
         m
     }
 
@@ -1083,7 +1120,10 @@ fn write_pretty(out: &mut String, value: &Value, depth: usize) {
     }
 }
 
+pub mod modules;
 pub mod yaml;
+
+pub use modules::{ExternalModuleEntry, ModulesConfig, NetworkConfig};
 
 /// host.toml, host.yaml or host.json: far more than any needs.
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;

@@ -5,6 +5,10 @@
 //! [`parse_command`] reads a line into a [`ConsoleCommand`] with no side effect; the REPL, the
 //! dashboard's prompt and keys, and the `host_console` fuzz target all go through it
 //! (docs/security/controller.md).
+//!
+//! `module ...` reaches the game modules and plugins `[modules]` lists (DF3): list them, load, unload or
+//! restart one, ask its status, run a command it registered. `start`, `stop` and `restart` take a
+//! module's id as they take a service's name. A module's answer is printed as `plain` text.
 
 use controller::ServerController;
 use service_kit::telemetry::LogFilterReloadHandle;
@@ -31,10 +35,27 @@ pub enum ConsoleCommand {
     Instances,
     Doctor,
     Backup,
-    Log { service: String, level: &'static str },
+    Log {
+        service: String,
+        level: &'static str,
+    },
+    Modules,
+    ModuleStatus(String),
+    ModuleLoad(String),
+    ModuleUnload(String),
+    ModuleRestart(String),
+    ModuleRun {
+        module: String,
+        command: String,
+        args: Vec<String>,
+    },
     Help,
     Quit,
 }
+
+/// Arguments to a module's command: at most this many, each at most [`MAX_ARG`] characters of text.
+pub const MAX_ARGS: usize = 16;
+pub const MAX_ARG: usize = 128;
 
 /// A service name as the console takes it: 1 to [`MAX_NAME`] of `a-z`, `0-9` and `-`.
 pub fn is_service_name(name: &str) -> bool {
@@ -130,10 +151,117 @@ pub fn parse_command(line: &str) -> Result<ConsoleCommand, String> {
                 .ok_or_else(|| format!("a level is one of {}", LEVELS.join(", "))),
             _ => Err(format!("usage: log <service> <{}>", LEVELS.join("|"))),
         },
+        "modules" => alone(ConsoleCommand::Modules),
+        "module" => parse_module(&parts),
         "help" | "?" => alone(ConsoleCommand::Help),
         "quit" | "exit" | "shutdown" => alone(ConsoleCommand::Quit),
         other if is_service_name(other) => Err(format!("unknown command `{other}` (type `help` for the commands)")),
         _ => Err("unknown command (type `help` for the commands)".into()),
+    }
+}
+
+/// `module list|status|load|unload|restart <id>`, `module run <id> <command> [args...]`.
+fn parse_module(parts: &[&str]) -> Result<ConsoleCommand, String> {
+    const USAGE: &str =
+        "usage: module list | module status|load|unload|restart <module> | module run <module> <command> [args]";
+    let named = |name: &str, made: fn(String) -> ConsoleCommand| {
+        if is_service_name(name) {
+            Ok(made(name.to_owned()))
+        } else {
+            Err(format!(
+                "not a module id (a-z, 0-9 and -, at most {MAX_NAME}): type `modules` for the list"
+            ))
+        }
+    };
+    match parts {
+        [_, "list"] => Ok(ConsoleCommand::Modules),
+        [_, "status", name] => named(name, ConsoleCommand::ModuleStatus),
+        [_, "load", name] => named(name, ConsoleCommand::ModuleLoad),
+        [_, "unload", name] => named(name, ConsoleCommand::ModuleUnload),
+        [_, "restart", name] => named(name, ConsoleCommand::ModuleRestart),
+        [_, "run", module, command, args @ ..] => {
+            if !is_service_name(module) || !is_service_name(command) {
+                return Err(format!(
+                    "a module id and a command are a-z, 0-9 and -, at most {MAX_NAME}"
+                ));
+            }
+            // Text only, so nothing typed reaches a module, or the terminal again, as a control sequence
+            let text = |arg: &&str| arg.chars().count() <= MAX_ARG && !arg.chars().any(char::is_control);
+            if args.len() > MAX_ARGS || !args.iter().all(text) {
+                return Err(format!("at most {MAX_ARGS} arguments of {MAX_ARG} characters of text"));
+            }
+            Ok(ConsoleCommand::ModuleRun {
+                module: (*module).to_owned(),
+                command: (*command).to_owned(),
+                args: args.iter().map(|a| (*a).to_owned()).collect(),
+            })
+        }
+        _ => Err(USAGE.into()),
+    }
+}
+
+/// The listed modules as the console prints them.
+fn module_table(registry: &controller::ModuleRegistry) -> Vec<String> {
+    let mut out = vec![format!(
+        "{:<20} {:<10} {:<10} {:<12} {:<18} DETAIL",
+        "MODULE", "STATE", "VERSION", "SOURCE", "PORTS"
+    )];
+    let modules = registry.list();
+    if modules.is_empty() {
+        return vec!["No modules are listed ([modules] in host.toml).".into()];
+    }
+    for module in modules {
+        let version = module
+            .manifest
+            .as_ref()
+            .map_or_else(|| "-".into(), |m| m.game_version.to_string());
+        let ports = module
+            .ports
+            .iter()
+            .map(|(name, range)| {
+                if range.first == range.last {
+                    format!("{name}={}", range.first)
+                } else {
+                    format!("{name}={}-{}", range.first, range.last)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let state = serde_json::to_value(module.state)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_default();
+        out.push(format!(
+            "{:<20} {:<10} {:<10} {:<12} {:<18} {}",
+            module.id,
+            state,
+            version,
+            module.source,
+            if ports.is_empty() { "-".into() } else { ports },
+            plain(module.detail.as_deref().unwrap_or(""))
+        ));
+    }
+    out
+}
+
+/// A module's command, run as the console (DH1: the console has no login, so it is the host).
+async fn run_module(
+    registry: &controller::ModuleRegistry,
+    module: &str,
+    command: String,
+    args: Vec<String>,
+) -> Vec<String> {
+    let Ok(id) = module.parse::<module_api::ModuleId>() else {
+        return vec!["not a module id".into()];
+    };
+    let request = module_api::CommandRequest {
+        actor: module_api::ActorContext::new(module_api::Actor::Console),
+        name: command,
+        args,
+    };
+    match registry.command(&id, request).await {
+        Ok(output) => output.text.lines().map(plain).collect(),
+        Err(error) => vec![format!("error: {}", plain(&error.to_string()))],
     }
 }
 
@@ -225,8 +353,64 @@ pub async fn run_command(
                 Err(e) => said(format!("error: {e}")),
             }
         }
+        ConsoleCommand::Modules
+        | ConsoleCommand::ModuleStatus(_)
+        | ConsoleCommand::ModuleLoad(_)
+        | ConsoleCommand::ModuleUnload(_)
+        | ConsoleCommand::ModuleRestart(_)
+        | ConsoleCommand::ModuleRun { .. } => {
+            let Some(registry) = controller.registry().cloned() else {
+                return said("this server runs no modules".into());
+            };
+            let id = |name: &str| name.parse::<module_api::ModuleId>().map_err(|e| e.to_string());
+            let result = match command {
+                ConsoleCommand::ModuleStatus(name) => match id(&name) {
+                    Ok(id) => match registry.info(&id) {
+                        Ok(info) => {
+                            let live = registry
+                                .module_status(&id)
+                                .await
+                                .map(|s| format!(" (module says {:?})", s.phase))
+                                .unwrap_or_default();
+                            let state = serde_json::to_value(info.state).unwrap_or_default();
+                            Ok(vec![format!(
+                                "{id}: {}{live}{}",
+                                state.as_str().unwrap_or_default(),
+                                info.detail.map(|d| format!(": {}", plain(&d))).unwrap_or_default()
+                            )])
+                        }
+                        Err(e) => Err(e.to_string()),
+                    },
+                    Err(e) => Err(e),
+                },
+                ConsoleCommand::ModuleLoad(name) => match id(&name) {
+                    Ok(id) => registry.load(&id).await.map(|_| vec![format!("loaded {id}")]).map_err(|e| e.to_string()),
+                    Err(e) => Err(e),
+                },
+                ConsoleCommand::ModuleUnload(name) => match id(&name) {
+                    Ok(id) => registry.unload(&id).await.map(|()| vec![format!("unloaded {id}")]).map_err(|e| e.to_string()),
+                    Err(e) => Err(e),
+                },
+                ConsoleCommand::ModuleRestart(name) => match id(&name) {
+                    Ok(id) => registry
+                        .restart(&id)
+                        .await
+                        .map(|_| vec![format!("restarted {id}")])
+                        .map_err(|e| e.to_string()),
+                    Err(e) => Err(e),
+                },
+                ConsoleCommand::ModuleRun { module, command, args } => {
+                    Ok(run_module(&registry, &module, command, args).await)
+                }
+                _ => Ok(module_table(&registry)),
+            };
+            match result {
+                Ok(lines) => (lines, false),
+                Err(e) => said(format!("error: {}", plain(&e))),
+            }
+        }
         ConsoleCommand::Help => said(
-            "Commands: status | start <svc> | stop <svc> | restart <svc> | invite | players | instances | doctor | backup | log <svc> <level> | stop"
+            "Commands: status | start <svc> | stop <svc> | restart <svc> | modules | module status|load|unload|restart <module> | module run <module> <command> [args] | invite | players | instances | doctor | backup | log <svc> <level> | stop"
                 .into(),
         ),
         ConsoleCommand::Quit => (vec!["shutting down server...".into()], true),
@@ -291,6 +475,50 @@ pub async fn run_repl(
 mod tests {
     use super::*;
 
+    #[tokio::test(flavor = "multi_thread")]
+    async fn the_console_drives_the_listed_modules() {
+        use std::sync::Arc;
+        let mut controller = ServerController::new("private", Vec::new());
+        let registry = controller::ModuleRegistry::new(
+            controller::RegistryOptions::standalone(),
+            controller.status_registry().clone(),
+        );
+        registry
+            .add_entry(controller::ModuleEntry {
+                id: "stub".parse().unwrap(),
+                source: controller::ModuleSource::CompiledIn(Arc::new(|| {
+                    Arc::new(module_api::stub::StubModule::new()) as Arc<dyn module_api::GameModule>
+                })),
+                autoload: false,
+                settings: Default::default(),
+            })
+            .unwrap();
+        controller.set_registry(registry);
+        let mut run = async |line: &str| execute_command(line, &mut controller, None).await.0.join("\n");
+        assert!(run("modules").await.contains("not_loaded"));
+        assert_eq!(run("module load stub").await, "loaded stub");
+        let table = run("modules").await;
+        assert!(
+            table.contains("ready") && table.contains("0.0.1") && table.contains("http=65000"),
+            "{table}"
+        );
+        assert_eq!(run("module run stub echo a b").await, "hello a b");
+        assert!(run("module run stub nope").await.starts_with("error:"));
+        assert!(
+            run("module status stub")
+                .await
+                .starts_with("stub: ready (module says Ready)")
+        );
+        assert!(
+            run("status").await.contains("stub"),
+            "a module is a component in status"
+        );
+        assert_eq!(run("restart stub").await, "restarted stub");
+        assert_eq!(run("module unload stub").await, "unloaded stub");
+        assert!(run("module unload stub").await.contains("not loaded"));
+        assert!(run("module load nobody").await.contains("no module nobody"));
+    }
+
     #[test]
     fn reads_each_command_and_refuses_the_rest_without_echoing_it() {
         use ConsoleCommand::*;
@@ -304,6 +532,20 @@ mod tests {
             ("stop", Quit),
             ("exit", Quit),
             ("?", Help),
+            ("modules", Modules),
+            ("module list", Modules),
+            ("module status stub", ModuleStatus("stub".into())),
+            ("module load stub", ModuleLoad("stub".into())),
+            ("module unload stub", ModuleUnload("stub".into())),
+            ("module restart stub", ModuleRestart("stub".into())),
+            (
+                "module run stub echo a b",
+                ModuleRun {
+                    module: "stub".into(),
+                    command: "echo".into(),
+                    args: vec!["a".into(), "b".into()],
+                },
+            ),
             (
                 "log content debug",
                 Log {
@@ -322,6 +564,13 @@ mod tests {
             ("log content loud", "a level is one of"),
             ("log", "usage: log"),
             ("frobnicate", "unknown command `frobnicate`"),
+            ("module", "usage: module"),
+            ("module load", "usage: module"),
+            ("module load Stub", "not a module id"),
+            ("module run stub", "usage: module"),
+            ("module run stub Echo", "a-z, 0-9"),
+            ("module run stub echo a\u{1b}[2J", "of text"),
+            ("modules now", "takes nothing after it"),
         ] {
             assert!(parse_command(line).unwrap_err().contains(said), "{line:?}");
         }

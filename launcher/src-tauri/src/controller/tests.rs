@@ -349,7 +349,7 @@ fn invite(mode: ServerMode, host: &str, port: u16, fp: Option<&str>, code: &str,
         name: name.into(),
         share: None,
         fp: fp.map(str::to_owned),
-        game: protocol::game::Game::Reborn,
+        version: protocol::invite::reforged_version(),
     })
     .unwrap()
 }
@@ -1124,7 +1124,7 @@ async fn settings_take_reforgeds_seven_keys() {
         language: Some(Language::PtBr),
         game_language: Some(GameLanguage::DeDe),
         runtime_profile: Some(RuntimeProfile::Development),
-        game_edition: Some(protocol::game::Game::Legacy),
+        game_edition: Some(crate::bridge::types::Game::Legacy),
     };
     let settings = hx.c.set_settings(patch).await;
     assert_eq!(settings.graphics.value(), 3);
@@ -1142,9 +1142,9 @@ async fn settings_take_reforgeds_seven_keys() {
     // Only a build with the legacy edition takes it, and only it writes the key
     let legacy = cfg!(feature = "legacy");
     let edition = if legacy {
-        protocol::game::Game::Legacy
+        crate::bridge::types::Game::Legacy
     } else {
-        protocol::game::Game::Reborn
+        crate::bridge::types::Game::Reborn
     };
     assert_eq!(settings.game_edition, edition);
     assert_eq!(hx.c.snapshot().app.legacy_available, legacy);
