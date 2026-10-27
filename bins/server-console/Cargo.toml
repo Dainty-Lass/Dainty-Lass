@@ -22,9 +22,21 @@ path = "src/bin/reforged-host.rs"
 default = []
 # Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
 legacy = ["host/legacy"]
+# One feature per compiled-in game module and one for realms (DD12, DF5); the release builds `all-modules` in.
+# `stub-module` is module-api's stub, for tests
+stub-module = ["host/stub-module"]
+isles-1-14-7 = ["host/isles-1-14-7"]
+isles-1-12-0 = ["host/isles-1-12-0"]
+revived-1-4-4 = ["host/revived-1-4-4"]
+realms = ["host/realms"]
+all-modules = ["isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "realms"]
 
 [dependencies]
 host = { workspace = true, default-features = false, features = ["modules"] }
+
+[dev-dependencies]
+controller = { workspace = true, default-features = false }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true
