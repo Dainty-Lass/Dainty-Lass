@@ -107,6 +107,8 @@ COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/bin/
 WORKDIR /opt/reforged
 COPY --chown=node:node LICENSE.txt NOTICE.md ADDITIONAL_TERMS.md README.md ./
 COPY --chown=node:node native/ native/
+# The host kit finds the server folder by rust/Cargo.toml beside modules/rustic-isles (paths.rs find_repo_root)
+COPY --chown=node:node rust/Cargo.toml rust/
 # From the rustic-isles submodule (DS6): its licence files, the runtime and CatalogExporter sources setup checks
 # for, and the Node services as node-build built them
 COPY --chown=node:node modules/rustic-isles/ADDITIONAL_TERMS.md modules/rustic-isles/LICENSE modules/rustic-isles/NOTICE.md modules/rustic-isles/
