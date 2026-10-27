@@ -11,8 +11,9 @@ use tokio::net::TcpListener;
 use crate::app::{AppState, router};
 use crate::config::Config;
 use crate::log;
+use crate::module_control::Modules;
 use crate::modules::AdminPlugin;
-use crate::schema::{Admin, build};
+use crate::schema::{Admin, build_with_control};
 use crate::timeouts::Timeouts;
 use crate::upstream::{Clock, Upstream};
 
@@ -30,6 +31,16 @@ pub fn prepare_with_modules(
     clock: Clock,
     modules: Arc<AdminPlugin>,
 ) -> Result<(AppState, Arc<Admin>), String> {
+    prepare_with_control(config, clock, modules, Modules::default())
+}
+
+/// As `prepare_with_modules`, with the registry's list, load and unload (DF3).
+pub fn prepare_with_control(
+    config: &Config,
+    clock: Clock,
+    modules: Arc<AdminPlugin>,
+    control: Modules,
+) -> Result<(AppState, Arc<Admin>), String> {
     let admin = Arc::new(Admin {
         upstream: Upstream::new(
             &config.backend_url,
@@ -45,7 +56,7 @@ pub fn prepare_with_modules(
         clock,
     });
     let state = AppState {
-        schema: build(admin.clone()),
+        schema: build_with_control(admin.clone(), control),
         api_key: config.api_key.as_str().into(),
     };
     Ok((state, admin))
@@ -64,11 +75,22 @@ pub async fn run_with_context(config: Config, ctx: service_kit::context::Service
 /// controller registers the same plugin with its core plugins (DF3).
 pub async fn run_with_modules(
     config: Config,
-    mut ctx: service_kit::context::ServiceContext,
+    ctx: service_kit::context::ServiceContext,
     modules: Arc<AdminPlugin>,
 ) -> Result<(), String> {
+    run_with_control(config, ctx, modules, Modules::default()).await
+}
+
+/// As `run_with_modules`, with the registry's list, load and unload for `modules`, `loadModule` and the
+/// rest (DF3).
+pub async fn run_with_control(
+    config: Config,
+    mut ctx: service_kit::context::ServiceContext,
+    modules: Arc<AdminPlugin>,
+    control: Modules,
+) -> Result<(), String> {
     ctx.status().report_starting("preparing admin API");
-    let (state, admin) = prepare_with_modules(&config, Arc::new(crate::now_ms), modules)?;
+    let (state, admin) = prepare_with_control(&config, Arc::new(crate::now_ms), modules, control)?;
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let mut servers = Vec::new();
     for host in &config.bind_hosts {

@@ -16,17 +16,31 @@ allowlist = ["dep:gateway"]
 content = ["dep:content"]
 admin = ["dep:admin"]
 
+# A stub module as an executable, for the registry's out-of-process tests: it can start a grandchild
+# and report its pid, so the tests see the whole tree go (DF3)
+[[bin]]
+name = "controller-test-module"
+path = "src/bin/controller-test-module.rs"
+test = false
+doc = false
+
 [dependencies]
 admin = { workspace = true, optional = true }
 content = { workspace = true, optional = true }
 gateway = { workspace = true, optional = true }
+# Game modules and plugins, compiled in or as their own process (DF3)
+module-api.workspace = true
 protocol.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 service-kit.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync", "macros"] }
 tracing.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }
+tempfile.workspace = true
 
 [lints]
 workspace = true

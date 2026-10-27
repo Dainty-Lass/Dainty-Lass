@@ -24,6 +24,7 @@ pub mod network;
 mod peer;
 pub mod registrar;
 pub mod stub;
+mod tree;
 pub mod version;
 
 pub use actor::{Actor, ActorContext};

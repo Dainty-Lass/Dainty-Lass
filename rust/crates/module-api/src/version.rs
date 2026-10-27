@@ -23,6 +23,11 @@ pub enum VersionError {
 }
 
 impl GameVersion {
+    /// A three-part version, such as 1.14.7: the form every Dauntless release has.
+    pub fn release(major: u32, minor: u32, patch: u32) -> Self {
+        Self(vec![major, minor, patch])
+    }
+
     pub fn parts(&self) -> &[u32] {
         &self.0
     }

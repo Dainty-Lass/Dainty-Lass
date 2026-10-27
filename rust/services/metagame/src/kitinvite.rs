@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use base64::Engine;
-use protocol::game::Game;
 use protocol::invite::{Invite, ServerMode, format_invite};
 use sha2::{Digest, Sha256};
 
@@ -104,7 +103,7 @@ pub fn run(args: &[String]) -> Result<String, String> {
             name,
             share: None,
             fp: Some(certificate_fingerprint(&pem)?),
-            game: Game::Legacy,
+            version: protocol::invite::revived_version(),
         }
     } else {
         Invite {
@@ -115,7 +114,7 @@ pub fn run(args: &[String]) -> Result<String, String> {
             name,
             share: None,
             fp: None,
-            game: Game::Legacy,
+            version: protocol::invite::revived_version(),
         }
     };
     format_invite(&invite).map_err(|e| e.to_string())

@@ -45,11 +45,18 @@ impl EmbeddedServerState {
         let Some(mut logs) = lock(&self.logs).take() else {
             return;
         };
-        let sink = self.sink.clone();
+        let (sink, snapshot) = (self.sink.clone(), self.snapshot.clone());
         tauri::async_runtime::spawn(async move {
             while let Some(entry) = logs.recv().await {
+                // A game module logs under its id, which is a component of the server's too (DF3)
+                let module = || {
+                    lock(&snapshot)
+                        .as_ref()
+                        .is_some_and(|snapshot| snapshot.borrow().get(&entry.service).is_some())
+                };
                 let ours = entry.service == "host"
-                    || crate::bridge::spec::HOST_SERVER_COMPONENTS.contains(&entry.service.as_str());
+                    || crate::bridge::spec::HOST_SERVER_COMPONENTS.contains(&entry.service.as_str())
+                    || module();
                 let sink = lock(&sink).clone();
                 if let (true, Some(sink)) = (ours, sink) {
                     sink(format!("{:<14} | {}", entry.service, entry.message));

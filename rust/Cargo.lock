@@ -999,8 +999,13 @@ dependencies = [
  "admin",
  "content",
  "gateway",
+ "module-api",
  "protocol",
+ "serde",
+ "serde_json",
  "service-kit",
+ "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "tracing",
 ]
@@ -2564,6 +2569,7 @@ dependencies = [
  "hyper-rustls",
  "hyper-util",
  "libc",
+ "module-api",
  "protocol",
  "ratatui",
  "rcgen",
@@ -3588,6 +3594,7 @@ dependencies = [
 name = "module-api"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -3595,6 +3602,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
+ "windows",
 ]
 
 [[package]]
@@ -4504,6 +4512,7 @@ name = "protocol"
 version = "0.0.0"
 dependencies = [
  "chrono",
+ "module-api",
  "percent-encoding",
  "serde",
  "serde_json",
@@ -5740,6 +5749,7 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "libsqlite3-sys",
+ "module-api",
  "pq-sys",
  "rusqlite",
  "serde",

@@ -623,9 +623,9 @@ impl Controller {
                 platform: platform_name(self.c.host).into(),
                 host_tools_available: cfg!(feature = "host"),
                 legacy_available: cfg!(feature = "legacy"),
-                game_versions: protocol::game::supported_versions()
-                    .into_iter()
-                    .map(str::to_owned)
+                game_versions: protocol::invite::played_versions()
+                    .iter()
+                    .map(ToString::to_string)
                     .collect(),
             },
             status: st.status.clone(),

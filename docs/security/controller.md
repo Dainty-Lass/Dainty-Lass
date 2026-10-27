@@ -96,6 +96,29 @@ as `plain` prints it carries none either).
 - [ ] A build with no modules says so and serves nothing (`empty_build_message`, `an_empty_build_says_so`): it never
       binds a port.
 
+### The module registry (DF3)
+
+- [ ] Only a module `host.toml` lists can be loaded (`ModuleEntry`, `RegistryError::NotListed`); the console and
+      the admin API name a module by its id, never a path. An external one is checked against its SHA-256 and its
+      hello must name the id listed (`ExternalModule::expected`).
+- [ ] A second game module for a version already served is refused whichever loads first, and so is one for a
+      version the host kit's own stack serves (`taken_versions`). Test:
+      `two_modules_for_one_version_are_refused_in_either_order`.
+- [ ] A module may emit only the events it registered, and an event reaches only the modules that subscribed
+      (`Link::call`, `publish`).
+- [ ] `[modules.<id>.<section>]` sets only what the module registered: anything else refuses the load, rather than
+      being passed on. Test: `a_load_moves_clashing_ports_takes_its_settings_and_joins_the_bus`.
+- [ ] Ports: the server's own (`RESERVED_PORTS`, the gateway's, the game servers' UDP range) are never given to a
+      module, and a clash moves the module's port, never the server's (`PortBook`).
+- [ ] A module's log line and stderr reach the logs under its own id, control characters replaced (`log_safe`); the
+      console prints a module's answers and details through `plain`. Check that the server GUI shows a module's lines
+      only when it is one of the server's components (`drain_logs`).
+- [ ] A module whose process dies shows `Failed` with the reason, its tree is killed, and it stays failed until it
+      is loaded again; `shutdown` unloads every module before it stops the services. Tests:
+      `a_module_killed_mid_run_shows_failed_and_restarts_on_command`, `nothing_is_left_running_after_stop`.
+- [ ] The console's `module run` takes at most 16 arguments of 128 characters of text, no control character
+      (`parse_module`); the `host_console` fuzz target checks it.
+
 ### The server GUI
 
 - [ ] `host_server_restart` takes only a name in `HOST_SERVER_COMPONENTS`; anything else is refused before the

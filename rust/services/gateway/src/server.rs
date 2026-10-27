@@ -167,8 +167,8 @@ pub async fn run_with_routes(
     if let serde_json::Value::Object(fields) = fields {
         ready.extend(fields);
     }
-    if !config.game.is_reborn() {
-        ready.insert("game".into(), json!(config.game.as_str()));
+    if config.version != protocol::invite::reforged_version() {
+        ready.insert("game".into(), json!(config.version.to_string()));
         if let Some(metagame) = ready.remove("backend") {
             ready.insert("metagame".into(), metagame);
         }

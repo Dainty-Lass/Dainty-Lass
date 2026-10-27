@@ -6,7 +6,7 @@
 //! looks at that inner path.
 
 use http::HeaderMap;
-use protocol::game::Game;
+use protocol::GameVersion;
 use service_kit::js;
 
 #[cfg(feature = "legacy")]
@@ -282,14 +282,20 @@ pub fn under(canonical: &str, prefix: &str) -> bool {
 }
 
 /// `Classify` for the game this gateway fronts.
-pub fn classify_for(game: Game, method: &str, raw_url: &str, headers: &HeaderMap, is_upgrade: bool) -> Decision {
+pub fn classify_for(
+    version: &GameVersion,
+    method: &str,
+    raw_url: &str,
+    headers: &HeaderMap,
+    is_upgrade: bool,
+) -> Decision {
     #[cfg(feature = "legacy")]
-    if game == Game::Legacy {
+    if *version == protocol::invite::revived_version() {
         return legacy::classify(method, raw_url, headers, is_upgrade);
     }
     // Without the feature `Config` refuses legacy, so only reborn gets here
     #[cfg(not(feature = "legacy"))]
-    let _ = game;
+    let _ = version;
     classify(method, raw_url, headers, is_upgrade)
 }
 
