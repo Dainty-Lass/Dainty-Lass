@@ -255,15 +255,20 @@ pub fn compose(
     #[cfg(any(feature = "gateway", feature = "allowlist"))]
     #[cfg_attr(not(feature = "allowlist"), allow(unused_mut))]
     let mut slot: Option<modules::AllowlistSlot> = None;
+    // Whether this process guards the UDP ranges of game modules (DF4d)
+    #[cfg(feature = "allowlist")]
+    let mut guarded = false;
     if reborn && public && !external_allowlist {
         if in_process(FrontService::Allowlist) {
             #[cfg(feature = "allowlist")]
             {
                 let helper = modules::allowlist_slot();
                 controller.add(
-                    modules::allowlist(&module_env(paths, "allowlist")?, helper.clone()).map_err(HostError::message)?,
+                    modules::allowlist(&module_env(paths, "allowlist")?, helper.clone(), Some(registry.clone()))
+                        .map_err(HostError::message)?,
                 );
                 slot = Some(helper);
+                guarded = true;
             }
         } else if node_runs {
             controller.add(front_process(
@@ -354,6 +359,12 @@ pub fn compose(
 
     #[cfg(any(feature = "gateway", feature = "allowlist"))]
     let _ = &slot;
+    // A public server guarded by another process (the Node helper, Docker's allowlist) cannot take a module's
+    // ports; without the plugin they would simply be open
+    #[cfg(feature = "allowlist")]
+    if public && !guarded {
+        modules::allowlist_absent(&registry);
+    }
     list_modules(paths, config, &registry, controller::modules::game_modules())?;
     controller.set_registry(registry);
     Ok(controller)
@@ -420,6 +431,11 @@ pub fn list_modules(
     registry: &ModuleRegistry,
     compiled: Vec<controller::ModuleFactory>,
 ) -> Result<(), HostError> {
+    for feature in controller::modules::UNLINKED {
+        say(&format!(
+            "- built with {feature}, whose module crate is not linked yet: it has nothing to load"
+        ));
+    }
     let modules = config.modules.clone().unwrap_or_default();
     let mut settings = modules.settings.clone();
     let mut entry = |id: module_api::ModuleId, source: ModuleSource, autoload: bool| {

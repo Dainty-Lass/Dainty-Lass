@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 use super::config::{AllowlistConfig, FirewallKind};
 use super::nft::{Nft, NftSettings, nft_script};
-use super::ports::check_ports;
+use super::ports::check_port_list;
 use crate::ip::{AllowlistCheck, check_allowlist_ip};
 
 /// The one Windows Firewall rule this helper owns. `RULE_NAME` is the id the Node helper gave it;
@@ -34,9 +34,9 @@ impl RulePlan {
     }
 }
 
-/// `BuildFirewallScript`'s checks: canonical single addresses and a port or range only.
+/// `BuildFirewallScript`'s checks: canonical single addresses and ports or ranges only.
 pub fn plan(ips: &[String], ports: &str) -> Result<RulePlan, String> {
-    let ports = check_ports(ports)?;
+    let ports = check_port_list(ports)?;
     for ip in ips {
         match check_allowlist_ip(Some(ip), true) {
             AllowlistCheck::Ok(parsed) if parsed.canonical == *ip => {}
@@ -287,6 +287,15 @@ mod tests {
                 .unwrap_err()
                 .contains("ALLOWLIST_PORTS")
         );
+    }
+
+    #[test]
+    fn a_list_of_ranges_is_the_windows_rule_s_local_ports_as_it_is() {
+        let rule = plan(&strings(&["203.0.113.7"]), "8770-8777,64000-64009").unwrap();
+        let WindowsChange::Open(rule) = windows_change(&rule, RULE_DISPLAY_NAME) else {
+            panic!("an address opens the rule");
+        };
+        assert_eq!(rule.local_ports, "8770-8777,64000-64009");
     }
 
     #[test]

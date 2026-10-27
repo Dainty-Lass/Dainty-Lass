@@ -15,6 +15,7 @@ use bytes::Bytes;
 use common::*;
 use gateway::allowlist::config::AllowlistConfig;
 use gateway::allowlist::firewall::Backend;
+use gateway::allowlist::guard::Guard;
 use gateway::allowlist::helper::{AuditLog, Helper, Running};
 use gateway::config::Allowlist;
 use gateway::feed::AllowlistFeed;
@@ -80,7 +81,7 @@ async fn start(config: AllowlistConfig, clock: Arc<AtomicI64>) -> Started {
     let state_file = config.state_file.clone();
     let audit = Arc::new(AuditLog::new(Some(audit_file.clone())));
     let backend = Backend::dry_run(&config);
-    let helper = Helper::new(config, backend, audit, Arc::new(move || clock.load(Ordering::SeqCst)));
+    let helper = Helper::new(config, backend, audit, Arc::new(move || clock.load(Ordering::SeqCst))).unwrap();
     let running = helper.start().await.unwrap();
     let port = running.port;
     Started {
@@ -809,4 +810,90 @@ async fn helper_and_gateway_as_processes_open_the_ports_for_a_logged_in_player()
     let _ = helper_stop.send(true);
     let _ = gw_task.await;
     let _ = helper_task.await;
+}
+
+fn last_dry_run(file: &Path) -> Value {
+    audit_events(file)
+        .into_iter()
+        .rfind(|e| e["event"] == "dry_run")
+        .unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_module_s_ports_join_the_rule_and_leave_it_with_the_module() {
+    let dir = tempfile::tempdir().unwrap();
+    // A long interval: a module's ranges must not wait it out
+    let config = helper_config(
+        dir.path(),
+        &[
+            ("ALLOWLIST_MIN_INTERVAL_MS", "60000"),
+            ("ALLOWLIST_FIREWALL", "nftables"),
+        ],
+    );
+    let audit_file = config.audit_log.clone();
+    let audit = Arc::new(AuditLog::new(Some(audit_file.clone())));
+    let guard = Arc::new(Guard::new(&config.ports).unwrap());
+    let backend = Backend::dry_run(&config);
+    let helper = Helper::with_guard(config, backend, audit, Arc::new(gateway_clock), guard.clone());
+    let running = helper.start().await.unwrap();
+    let port = running.port;
+    let module: module_api::ModuleId = "stub".parse().unwrap();
+
+    // No module: exactly today's range
+    helper.sync().settled(Duration::from_secs(5)).await;
+    assert_eq!(last_dry_run(&audit_file)["ports"], "8770-8777");
+    // This one waits out the interval; the module's ports below do not, and take it along
+    assert_eq!(allow(port, json!("203.0.113.7")).await.0, 200);
+    let status = call(port, "GET", "/status", None, Some(SECRET)).await.1;
+    assert_eq!(
+        (status["ports"].as_str(), status.get("modulePorts")),
+        (Some("8770-8777"), None)
+    );
+
+    // Loaded: the same addresses, the new ports, in the script, at once
+    guard
+        .attach(
+            &module,
+            &[module_api::PortRange {
+                first: 65010,
+                last: 65019,
+            }],
+        )
+        .unwrap();
+    helper.sync().settled(Duration::from_secs(5)).await;
+    let applied = last_dry_run(&audit_file);
+    assert_eq!(
+        (applied["ips"].clone(), applied["ports"].as_str()),
+        (json!(["203.0.113.7"]), Some("8770-8777,65010-65019"))
+    );
+    let script = applied["script"].as_str().unwrap();
+    assert!(
+        script.contains("ip saddr @players4 udp dport { 8770-8777, 65010-65019 } accept"),
+        "{script}"
+    );
+    assert!(
+        script.contains("	udp dport { 8770-8777, 65010-65019 } drop"),
+        "{script}"
+    );
+    let status = call(port, "GET", "/status", None, Some(SECRET)).await.1;
+    assert_eq!(status["modulePorts"], json!({ "stub": ["65010-65019"] }));
+    assert!(
+        audit_events(&audit_file)
+            .iter()
+            .any(|e| e["event"] == "ports_changed" && e["ports"] == "8770-8777,65010-65019")
+    );
+
+    // Unloaded: back to today's range
+    guard.detach(&module);
+    helper.sync().settled(Duration::from_secs(5)).await;
+    let applied = last_dry_run(&audit_file);
+    assert_eq!(
+        (applied["ips"].clone(), applied["ports"].as_str()),
+        (json!(["203.0.113.7"]), Some("8770-8777"))
+    );
+    helper.close(running).await;
+}
+
+fn gateway_clock() -> i64 {
+    1_800_000_000_000
 }

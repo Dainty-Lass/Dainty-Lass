@@ -7,7 +7,9 @@
 pub mod cli;
 pub mod config;
 pub mod firewall;
+pub mod guard;
 pub mod helper;
+pub mod modules;
 pub mod nft;
 pub mod ports;
 pub mod state;

@@ -7,12 +7,14 @@
 
 use gateway::allowlist::config::check_rule_name;
 use gateway::allowlist::firewall::{RULE_DISPLAY_NAME, RulePlan, WindowsChange, plan, windows_change};
+use gateway::allowlist::guard::Guard;
 use gateway::allowlist::helper::{allow_body, declared_length};
 use gateway::allowlist::nft::{NftSettings, check_interface, check_nft_table, nft_script};
-use gateway::allowlist::ports::check_ports;
+use gateway::allowlist::ports::{MAX_RANGES, check_port_list, check_ports};
 use gateway::allowlist::state::AllowlistState;
 use gateway::ip::{AllowlistCheck, check_allowlist_ip};
 use libfuzzer_sys::fuzz_target;
+use module_api::{ModuleId, PortRange};
 use serde_json::Value;
 
 /// The lines every script has, whatever the addresses: 3 table lines, 2 sets of 3, 8 chain lines.
@@ -44,6 +46,35 @@ fn script_holds(ips: &[String], ports: &str, settings: &NftSettings) {
     }
     if let WindowsChange::Open(rule) = windows_change(&rule, RULE_DISPLAY_NAME) {
         assert_eq!(rule.remote_addresses.split(',').count(), ips.len());
+    }
+}
+
+/// Whatever ranges modules ask for (DF4d), the guarded ports stay a list the firewall checks accept, hold the
+/// server's own ports, and are never privileged or past `MAX_RANGES`.
+fn modules_guard(data: &[u8], ips: &[String], settings: &NftSettings) {
+    let guard = Guard::new("8770-8777").unwrap();
+    let base = PortRange {
+        first: 8770,
+        last: 8777,
+    };
+    for (n, chunk) in data.chunks_exact(5).take(40).enumerate() {
+        let module: ModuleId = format!("m{}", n % 5).parse().unwrap();
+        let range = PortRange {
+            first: u16::from_le_bytes([chunk[0], chunk[1]]),
+            last: u16::from_le_bytes([chunk[2], chunk[3]]),
+        };
+        let ranges = if chunk[4] & 1 == 0 { vec![range] } else { vec![range, base] };
+        let before = guard.text();
+        match guard.attach(&module, &ranges) {
+            Ok(()) => assert!(ranges.iter().all(|r| r.is_valid() && r.first >= 1024 && !r.overlaps(base))),
+            Err(_) => assert_eq!(guard.text(), before),
+        }
+        if chunk[4] & 2 != 0 {
+            guard.detach(&module);
+        }
+        let text = guard.text();
+        assert_eq!(check_port_list(&text).as_deref(), Ok(text.as_str()));
+        script_holds(ips, &text, settings);
     }
 }
 
@@ -103,7 +134,16 @@ fuzz_target!(|data: &[u8]| {
         assert!(token(&interface));
         settings.interface = Some(interface);
     }
+    // The firewall's list: the same tokens, commas between them, so it is still one nftables set or one
+    // Windows `LocalPorts` value
+    let list = check_port_list(&text).ok();
+    if let Some(list) = &list {
+        assert!(list.bytes().all(|b| b.is_ascii_digit() || b == b'-' || b == b','));
+        assert!(list.split(',').count() <= MAX_RANGES);
+        script_holds(&ips, list, &settings);
+    }
     script_holds(&ips, ports.as_deref().unwrap_or("8770-8777"), &settings);
+    modules_guard(data, &ips, &settings);
     // A plan built by hand still goes through the same checks
     let _ = nft_script(
         &RulePlan {
