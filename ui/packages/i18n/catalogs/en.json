@@ -975,5 +975,8 @@
   "err_history_bad_filter": "That filter isn't valid. Check the actor, the account and the times.",
   "err_history_unavailable": "There is no history to read yet. Set the server up and start it once.",
   "err_history_plan_changed": "The history changed since the dry run, or the plan is gone. Run the dry run again.",
-  "err_history_failed": "The history couldn't be read or reverted: {detail}"
+  "err_history_failed": "The history couldn't be read or reverted: {detail}",
+  "err_realm_unavailable": "Realm hosting isn't available on this server or PC.",
+  "err_realm_not_found": "No realm with that ID is open right now.",
+  "err_realm_failed": "The realm session failed: {detail}"
 }
