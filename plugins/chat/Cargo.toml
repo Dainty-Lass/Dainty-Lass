@@ -17,6 +17,7 @@ diesel_migrations.workspace = true
 futures-util.workspace = true
 # By path: the workspace entry names the silentspud registry, which a checkout without its config can't load
 module-api = { path = "../../crates/module-api" }
+network = { path = "../network" }
 protocol.workspace = true
 rand.workspace = true
 serde.workspace = true
@@ -31,6 +32,7 @@ tracing.workspace = true
 ulid.workspace = true
 
 [dev-dependencies]
+gateway = { path = "../../services/gateway" }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-tungstenite.workspace = true

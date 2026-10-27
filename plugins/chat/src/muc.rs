@@ -21,6 +21,7 @@
 use module_api::chat::{RoomKind, RoomRules};
 
 use crate::federation::Envelope;
+use crate::history::NewRoom;
 use crate::naming::{room_class, room_key, room_kind_of};
 use crate::nick::{check_nickname, name_part_of};
 use crate::server::{Chat, Session, stamp};
@@ -383,7 +384,26 @@ impl Chat {
             },
         );
         self.send(id, &own);
+        let history_limit = if rules.history { self.history_on_join } else { 0 };
+        let pulled = self.backends.federation.room_joined(&kind, history_limit).await;
         if rules.history {
+            let key = room_key(&kind);
+            for msg in pulled {
+                self.remember_mid(&msg.mid);
+                let _ = self
+                    .backends
+                    .history
+                    .add_room_once(NewRoom {
+                        room: key.clone(),
+                        sender: msg.from.to_string(),
+                        nick: msg.nick,
+                        body: msg.body,
+                        stanza_id: msg.stanza_id,
+                        mid: Some(msg.mid),
+                        at: msg.at,
+                    })
+                    .await;
+            }
             self.send_history(id, &kind, &room_jid).await;
         }
         tracing::info!(
@@ -562,7 +582,11 @@ impl Chat {
         }
         let class = room_class(&self.rooms[room].kind);
         if self.rooms[room].occupants.is_empty() {
-            self.rooms.remove(room);
+            let removed = self.rooms.remove(room);
+            let fed = self.backends.federation.clone();
+            tokio::spawn(async move {
+                fed.room_left(&removed.kind).await;
+            });
         }
         tracing::info!(
             "chat: leave room={class} uid={} reason={}",
@@ -634,19 +658,22 @@ impl Chat {
             .as_deref()
             .map(|i| format!(" id=\"{}\"", escape(i)))
             .unwrap_or_default();
+        let mid = format!("rm-{}", crate::server::random_hex(16));
+        self.remember_mid(&mid);
         // Stored before it is sent: a message nobody can read back from history is never on a screen
         if own.rules.history
             && let Err(error) = self
                 .backends
                 .history
-                .add_room_message(
-                    &room_key(&kind),
-                    &sender.to_string(),
-                    &own.nick,
-                    &body,
-                    message_id.as_deref(),
-                    now,
-                )
+                .add_room_once(NewRoom {
+                    room: room_key(&kind),
+                    sender: sender.to_string(),
+                    nick: own.nick.clone(),
+                    body: body.clone(),
+                    stanza_id: message_id.clone(),
+                    mid: Some(mid.clone()),
+                    at: now,
+                })
                 .await
         {
             tracing::error!("chat: storing a room message failed ({error})");
@@ -680,14 +707,65 @@ impl Chat {
             }
         );
         self.publish(Envelope::Room {
+            mid,
             room: kind,
             from: sender,
             nick: own.nick,
             body,
             id: message_id,
             at: now,
+            history: own.rules.history,
         })
         .await;
+    }
+
+    pub async fn remote_room(&mut self, message: crate::federation::RoomWire) {
+        if !self.remember_mid(&message.mid) {
+            return;
+        }
+        let Some(room) = self.room_index(&message.room) else {
+            return;
+        };
+        let keep_history = message.history || self.rooms[room].occupants.iter().any(|o| o.rules.history);
+        if keep_history {
+            let _ = self
+                .backends
+                .history
+                .add_room_once(NewRoom {
+                    room: room_key(&message.room),
+                    sender: message.from.to_string(),
+                    nick: message.nick.clone(),
+                    body: message.body.clone(),
+                    stanza_id: message.stanza_id.clone(),
+                    mid: Some(message.mid.clone()),
+                    at: message.at,
+                })
+                .await;
+        }
+        let Some(room) = self.room_index(&message.room) else {
+            return;
+        };
+        let recipients: Vec<Occupant> = self.rooms[room].occupants.clone();
+        let text = escape(&message.body);
+        let id_attr = message
+            .stanza_id
+            .as_deref()
+            .map(|i| format!(" id=\"{}\"", escape(i)))
+            .unwrap_or_default();
+        for recipient in recipients {
+            let account = self.sessions.get(&recipient.session).and_then(|s| s.account.clone());
+            if let Some(account) = account
+                && self.backends.host.blocked(&message.from, &account).await
+            {
+                continue;
+            }
+            let stanza = format!(
+                "<message xmlns=\"{NS_CLIENT}\" type=\"groupchat\"{id_attr} from=\"{}\" to=\"{}\"><body>{text}</body></message>",
+                escape(&format!("{}/{}", recipient.jid, message.nick)),
+                escape(&self.full_jid_of(recipient.session))
+            );
+            self.send(recipient.session, &stanza);
+        }
     }
 }
 
