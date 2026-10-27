@@ -301,6 +301,20 @@ pub enum ErrorCode {
     GuardedNotFound,
     /// The action already ran, was canceled or expired, or it waits out a delay and cannot be approved
     GuardedNotWaiting,
+    // Module panels in the server GUI (DU3):
+    /// The server is not running, so it has no modules to show or change
+    ServerStopped,
+    /// No such module is listed in host.toml (detail: the id, when it parsed)
+    ModuleUnknown,
+    /// Loading a module that is loaded, or unloading one that is not (detail: `loaded` or `not_loaded`)
+    ModuleBadState,
+    /// A command's input does not fit its manifest (detail: `reason` or `reason:name`)
+    ModuleInputInvalid,
+    /// Settings that do not fit what the module registered, or could not be saved (detail: `reason` or
+    /// `reason:section.key`)
+    ModuleSettingsInvalid,
+    /// The module refused, failed or did not answer (detail: why, in the module's words)
+    ModuleFailed,
     Unknown,
 }
 
@@ -694,6 +708,8 @@ pub struct SnapshotApp {
     pub legacy_available: bool,
     /// The game versions an invite may name in this build (`protocol::game::supported_versions`)
     pub game_versions: Vec<String>,
+    /// The server GUI (`server-gui` feature): the page shows the server screens (DU3)
+    pub server_gui: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1435,6 +1451,249 @@ impl Serialize for GuardedOutcome {
     }
 }
 
+// ------------------------------------------------------------------ module panels (DU3)
+
+/// Game module or plugin (`ModuleManifest::kind`)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum ModuleRole {
+    Game,
+    Plugin,
+}
+
+/// Where a listed module comes from (`ModuleInfo::source`)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "the server GUI's module panels build it")
+)]
+pub enum ModuleOrigin {
+    CompiledIn,
+    External,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "the server GUI's module panels build it")
+)]
+pub enum ModuleRunState {
+    NotLoaded,
+    Starting,
+    Ready,
+    Failed,
+}
+
+/// One port a loaded module was given (the manifest's default, moved off a clash)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct ModulePortView {
+    pub name: String,
+    /// `tcp` or `udp`, from the manifest
+    pub transport: String,
+    pub first: u16,
+    pub last: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct ModuleArgView {
+    pub name: String,
+    pub required: bool,
+    pub help: String,
+}
+
+/// A command the module registered: the form is drawn from it (DD11)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct ModuleCommandView {
+    pub name: String,
+    pub summary: String,
+    pub args: Vec<ModuleArgView>,
+}
+
+/// A setting's value: on/off, a number or text, as `host.toml` takes them
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(untagged)]
+pub enum ModuleSettingValue {
+    Flag(bool),
+    Number(f64),
+    Text(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct ModuleSettingView {
+    pub name: String,
+    pub help: String,
+    pub default: ModuleSettingValue,
+    /// What `host.toml` sets, else the default
+    pub value: ModuleSettingValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct ModuleSectionView {
+    pub name: String,
+    pub keys: Vec<ModuleSettingView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct ModulePatchSetView {
+    /// The plugin brings a set of patches; otherwise the game module takes them
+    pub provides: bool,
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct ModulePaletteEntry {
+    /// A CSS variable's name without `--`
+    pub name: String,
+    /// A colour: checked, so it can't carry anything else into a style
+    pub value: String,
+}
+
+/// The look a plugin ships (DD25), as far as the page may draw it
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct ModuleThemeView {
+    pub id: String,
+    pub display_name: String,
+    pub palette: Vec<ModulePaletteEntry>,
+    pub layout: Option<String>,
+    /// The file the plugin registered with content
+    pub logo: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct ModuleCapabilitiesView {
+    pub realms: bool,
+    pub network: bool,
+    pub chat: bool,
+    pub patch_set: Option<ModulePatchSetView>,
+    pub theme: Option<ModuleThemeView>,
+}
+
+/// A module listed in `host.toml`, as the server GUI's module panel draws it. The manifest-fed fields are
+/// empty or null until the module's manifest is known (a compiled-in one at once, an external one once it
+/// loaded).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct ModuleView {
+    pub id: String,
+    pub display_name: Option<String>,
+    pub role: Option<ModuleRole>,
+    pub game_version: Option<String>,
+    pub origin: ModuleOrigin,
+    pub autoload: bool,
+    pub state: ModuleRunState,
+    /// Why it failed, or what it last said
+    pub detail: Option<String>,
+    /// Built but not checked against recorded traffic (DD9)
+    pub unverified: bool,
+    pub ports: Vec<ModulePortView>,
+    pub capabilities: ModuleCapabilitiesView,
+    pub commands: Vec<ModuleCommandView>,
+    /// The settings it registered, empty until it loaded
+    pub settings: Vec<ModuleSectionView>,
+}
+
+/// `module_list`: `{ ok: true, modules } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "the server GUI's module panels answer with it")
+)]
+pub enum ModuleListOutcome {
+    Ok(Vec<ModuleView>),
+    Err(LauncherError),
+}
+
+impl Serialize for ModuleListOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Listed<'a> {
+            ok: bool,
+            modules: &'a [ModuleView],
+        }
+        match self {
+            Self::Ok(modules) => Listed { ok: true, modules }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// `module_get`, `module_load`, `module_unload`, `module_set_settings`:
+/// `{ ok: true, module } | { ok: false, error }`, the module as it is after the call.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "the server GUI's module panels answer with it")
+)]
+pub enum ModuleOutcome {
+    Ok(Box<ModuleView>),
+    Err(LauncherError),
+}
+
+impl Serialize for ModuleOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            module: &'a ModuleView,
+        }
+        match self {
+            Self::Ok(module) => Found { ok: true, module }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// `module_run_command`: `{ ok: true, text, data } | { ok: false, error }`. `data` is the module's JSON
+/// as text, null when it gave none or too much.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "the server GUI's module panels answer with it")
+)]
+pub enum ModuleCommandOutcome {
+    Ok { text: String, data: Option<String> },
+    Err(LauncherError),
+}
+
+impl Serialize for ModuleCommandOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Ran<'a> {
+            ok: bool,
+            text: &'a str,
+            data: Option<&'a str>,
+        }
+        match self {
+            Self::Ok { text, data } => Ran {
+                ok: true,
+                text,
+                data: data.as_deref(),
+            }
+            .serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1599,6 +1858,52 @@ mod tests {
         assert_eq!(
             serde_json::to_value(RegisterOutcome::Err(error)).unwrap(),
             json!({ "ok": false, "error": { "code": "host_failed", "detail": "setup_form" } })
+        );
+    }
+
+    #[test]
+    fn module_outcomes_read_as_the_page_expects() {
+        let error = LauncherError::with_detail(ErrorCode::ModuleBadState, "loaded");
+        assert_eq!(
+            serde_json::to_value(ModuleOutcome::Err(error.clone())).unwrap(),
+            json!({ "ok": false, "error": { "code": "module_bad_state", "detail": "loaded" } })
+        );
+        assert_eq!(
+            serde_json::to_value(ModuleListOutcome::Ok(Vec::new())).unwrap(),
+            json!({ "ok": true, "modules": [] })
+        );
+        assert_eq!(
+            serde_json::to_value(ModuleCommandOutcome::Ok {
+                text: "hi".into(),
+                data: Some("{\"a\":1}".into()),
+            })
+            .unwrap(),
+            json!({ "ok": true, "text": "hi", "data": "{\"a\":1}" })
+        );
+        assert_eq!(
+            serde_json::to_value(ModuleCommandOutcome::Ok {
+                text: String::new(),
+                data: None,
+            })
+            .unwrap(),
+            json!({ "ok": true, "text": "", "data": null })
+        );
+        assert_eq!(
+            serde_json::to_value([
+                ModuleSettingValue::Flag(true),
+                ModuleSettingValue::Number(2.5),
+                ModuleSettingValue::Text("x".into())
+            ])
+            .unwrap(),
+            json!([true, 2.5, "x"])
+        );
+        assert_eq!(
+            serde_json::to_value(ModuleRunState::NotLoaded).unwrap(),
+            json!("not_loaded")
+        );
+        assert_eq!(
+            serde_json::to_value(ModuleOrigin::CompiledIn).unwrap(),
+            json!("compiled_in")
         );
     }
 

@@ -1132,6 +1132,7 @@ async fn settings_take_reforgeds_seven_keys() {
     // A player-only build refuses the Host tools
     assert_eq!(settings.host_tools, cfg!(feature = "host"));
     assert_eq!(hx.c.snapshot().app.host_tools_available, cfg!(feature = "host"));
+    assert_eq!(hx.c.snapshot().app.server_gui, cfg!(feature = "server-gui"));
     assert_eq!(settings.language, Language::PtBr);
     assert_eq!(settings.game_language, GameLanguage::DeDe);
     assert_eq!(settings.runtime_profile, RuntimeProfile::Development);

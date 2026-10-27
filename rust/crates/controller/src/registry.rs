@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use module_api::manifest::{FitError, Transport, plugin_fits};
 use module_api::network::dispatch_home;
-use module_api::registrar::{AdminAction, CommandSpec, Registration};
+use module_api::registrar::{AdminAction, CommandSpec, ConfigSection, Registration};
 use module_api::{
     AdminCall, AdminResponse, BoxFuture, ChildModule, ChildOptions, CommandOutput, CommandRequest, CorePlugin,
     ErrorKind, Event, ExternalModule, GameModule, GameVersion, HomeApi, HostAnswer, HostCall, HostLink,
@@ -180,6 +180,9 @@ pub struct ModuleInfo {
     pub manifest: Option<ModuleManifest>,
     pub ports: BTreeMap<String, PortRange>,
     pub commands: Vec<CommandSpec>,
+    /// The `[modules.<id>.<section>]` keys it registered, with their defaults: what the server GUI's
+    /// settings editor draws (DU3). Empty until it loads
+    pub config: Vec<ConfigSection>,
 }
 
 enum Driver {
@@ -237,6 +240,7 @@ impl Slot {
             manifest: loaded.map(|l| l.manifest.clone()).or_else(|| self.known.clone()),
             ports: loaded.map(|l| l.ports.clone()).unwrap_or_default(),
             commands: loaded.map(|l| l.registration.commands.clone()).unwrap_or_default(),
+            config: loaded.map(|l| l.registration.config.clone()).unwrap_or_default(),
         }
     }
 }
@@ -398,6 +402,20 @@ impl ModuleRegistry {
             .slots
             .get(id)
             .map(Slot::info)
+            .ok_or_else(|| RegistryError::NotListed(id.clone()))
+    }
+
+    /// Replaces the `[modules.<id>.<section>]` values the next load lays over the defaults (the server GUI
+    /// saved them to host.toml, DU3). A module that is running keeps what it started with.
+    pub fn update_settings(
+        &self,
+        id: &ModuleId,
+        settings: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
+    ) -> Result<(), RegistryError> {
+        lock(&self.inner.state)
+            .slots
+            .get_mut(id)
+            .map(|slot| slot.entry.settings = settings)
             .ok_or_else(|| RegistryError::NotListed(id.clone()))
     }
 

@@ -3,6 +3,14 @@
 
 pub mod backend;
 pub mod commands;
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(
+        dead_code,
+        reason = "the server GUI's module panels use it; its checks are tested in every build"
+    )
+)]
+pub mod modules;
 pub mod progress;
 pub mod spec;
 pub mod types;
