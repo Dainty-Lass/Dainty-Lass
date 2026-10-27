@@ -21,6 +21,7 @@ mod schema {
             confirmed_fremium_rank -> BigInt,
             confirmed_premium_rank -> BigInt,
             update_version -> BigInt,
+            seq -> BigInt,
             created_at -> Text,
             updated_at -> Text,
             reforge -> Nullable<Text>,
@@ -34,6 +35,7 @@ mod schema {
             objective_id -> Text,
             value -> BigInt,
             completed_count -> BigInt,
+            seq -> BigInt,
             created_at -> Text,
             updated_at -> Text,
             deleted_at -> Nullable<BigInt>,
@@ -231,6 +233,12 @@ fn upsert_base(
     if let Some(row) = find_track(tx.conn(), account, progression_id)? {
         return Ok(row);
     }
+    let next_seq = progression_tracks::table
+        .filter(progression_tracks::account.eq(account.to_string()))
+        .select(diesel::dsl::max(progression_tracks::seq))
+        .first::<Option<i64>>(tx.conn())?
+        .unwrap_or(0)
+        + 1;
     diesel::insert_into(progression_tracks::table)
         .values((
             progression_tracks::account.eq(account.to_string()),
@@ -239,6 +247,7 @@ fn upsert_base(
             progression_tracks::confirmed_fremium_rank.eq(0_i64),
             progression_tracks::confirmed_premium_rank.eq(0_i64),
             progression_tracks::update_version.eq(0_i64),
+            progression_tracks::seq.eq(next_seq),
             progression_tracks::created_at.eq(now),
             progression_tracks::updated_at.eq(now),
         ))
@@ -284,10 +293,7 @@ impl ProgressionTrackRepository for SqlProgression {
             .filter(progression_tracks::account.eq(account.to_string()))
             .filter(progression_tracks::deleted_at.is_null())
             // Mongo's natural order was the order rows were made in
-            .order((
-                progression_tracks::created_at.asc(),
-                progression_tracks::progression_id.asc(),
-            ))
+            .order(progression_tracks::seq.asc())
             .select(track_columns!())
             .load::<TrackRow>(conn)?
             .into_iter()
@@ -387,10 +393,7 @@ impl ProgressionTrackRepository for SqlProgression {
         let rows = progression_objectives::table
             .filter(progression_objectives::account.eq(account.to_string()))
             .filter(progression_objectives::deleted_at.is_null())
-            .order((
-                progression_objectives::created_at.asc(),
-                progression_objectives::objective_id.asc(),
-            ))
+            .order(progression_objectives::seq.asc())
             .select((
                 progression_objectives::objective_id,
                 progression_objectives::value,
@@ -616,12 +619,19 @@ fn merge_objective(
         ))
         .execute(tx.conn())?;
     } else {
+        let next_seq = progression_objectives::table
+            .filter(progression_objectives::account.eq(account.to_string()))
+            .select(diesel::dsl::max(progression_objectives::seq))
+            .first::<Option<i64>>(tx.conn())?
+            .unwrap_or(0)
+            + 1;
         diesel::insert_into(progression_objectives::table)
             .values((
                 progression_objectives::account.eq(account.to_string()),
                 progression_objectives::objective_id.eq(objective_id),
                 progression_objectives::value.eq(next_value),
                 progression_objectives::completed_count.eq(next_count),
+                progression_objectives::seq.eq(next_seq),
                 progression_objectives::created_at.eq(now),
                 progression_objectives::updated_at.eq(now),
             ))

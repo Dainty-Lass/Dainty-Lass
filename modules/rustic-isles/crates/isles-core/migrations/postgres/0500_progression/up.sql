@@ -7,6 +7,8 @@ CREATE TABLE progression_tracks (
     confirmed_fremium_rank BIGINT NOT NULL DEFAULT 0,
     confirmed_premium_rank BIGINT NOT NULL DEFAULT 0,
     update_version BIGINT NOT NULL DEFAULT 0,
+    -- the order rows were made in, per account, as Mongo's natural order was
+    seq BIGINT NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     -- WeaponReforgeState as JSON, in Node's field names
@@ -21,6 +23,7 @@ CREATE TABLE progression_objectives (
     objective_id TEXT NOT NULL,
     value BIGINT NOT NULL DEFAULT 0,
     completed_count BIGINT NOT NULL DEFAULT 0,
+    seq BIGINT NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     deleted_at BIGINT,
