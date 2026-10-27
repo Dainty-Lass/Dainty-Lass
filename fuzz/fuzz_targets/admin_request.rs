@@ -1,12 +1,12 @@
 //! What reaches the admin API (docs/security/admin-api.md): the bot's headers and body, the query and
-//! the arguments it names, and the Director's instance list. None of it may panic; a request passes
+//! the arguments it names, a module's error text, and the Director's instance list. None of it may panic; a request passes
 //! the header check only with the exact key and no proxy header; a name, a reason or a timeout end that
 //! passes its check is one the backend and the player's launcher can take as it is.
 #![no_main]
 
 use admin::input::{
-    MAX_REASON, MAX_TIMEOUT_MS, OPERATOR_HEADER, check_headers, is_account_id, is_json, parse_body, parse_instances,
-    reason, timeout_end, username,
+    MAX_MODULE_MESSAGE, MAX_REASON, MAX_TIMEOUT_MS, OPERATOR_HEADER, check_headers, game, is_account_id, is_json,
+    module_message, parse_body, parse_instances, reason, timeout_end, username,
 };
 use http::{HeaderMap, HeaderName, HeaderValue};
 use libfuzzer_sys::arbitrary::{self, Arbitrary};
@@ -23,6 +23,8 @@ struct Request<'a> {
     minutes: Option<i64>,
     until: Option<&'a str>,
     now: i64,
+    game: &'a str,
+    module_message: &'a str,
     director: &'a [u8],
 }
 
@@ -61,6 +63,13 @@ fuzz_target!(|request: Request<'_>| {
     if let Ok(end) = timeout_end(request.minutes, request.until, request.now) {
         assert!(end > request.now && end - request.now <= MAX_TIMEOUT_MS);
     }
+    // A game the caller names is compared as text with the modules' versions, so it has one spelling
+    if let Some(version) = game(request.game) {
+        assert_eq!(game(&version).as_deref(), Some(version.as_str()));
+        assert!(version.bytes().all(|b| b.is_ascii_digit() || b == b'.'));
+    }
+    let text = module_message(request.module_message);
+    assert!(text.chars().count() <= MAX_MODULE_MESSAGE && !text.chars().any(char::is_control));
 
     if let Ok(value) = serde_json::from_slice::<serde_json::Value>(request.director) {
         for instance in parse_instances(&value) {
