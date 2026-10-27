@@ -4,6 +4,8 @@
 use std::path::PathBuf;
 
 pub mod gauntlet;
+#[doc(hidden)]
+pub mod golden;
 pub mod loader;
 pub mod patchnotes;
 pub mod progression_config;

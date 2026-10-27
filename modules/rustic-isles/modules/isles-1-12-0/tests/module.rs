@@ -84,3 +84,25 @@ fn director_args_are_one_point_twelves() {
         "-EpicPortal -server -nullrhi -warp -RepDriverEnable -LogCmds=\"LogPhoenixCharacter VeryVerbose, LogOnline Verbose\""
     );
 }
+
+/// RU5 game-data: the Rust answers equal the reference 1.12.0 Node handlers' (`capture.mjs`, Node 22).
+#[tokio::test(flavor = "multi_thread")]
+async fn game_data_answers_equal_nodes() {
+    let fixtures = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../crates/isles-core/tests/golden");
+    let failures = isles_core::game_data::golden::check(isles_1_12_0::version(), "1.12.0", &fixtures).await;
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// RU5 game-data: the auth gate, the missing game data file and the bodies Express refuses.
+#[tokio::test(flavor = "multi_thread")]
+async fn game_data_edges() {
+    let failures = isles_core::game_data::golden::check_edges(isles_1_12_0::version()).await;
+    assert!(
+        failures.is_empty(),
+        "{}",
+        failures.join(
+            "
+"
+        )
+    );
+}
