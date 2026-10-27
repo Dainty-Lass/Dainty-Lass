@@ -324,6 +324,13 @@ pub enum ErrorCode {
     HistoryPlanChanged,
     /// Reading or reverting the history failed (detail: why)
     HistoryFailed,
+    // Realm hosting and joining (RF7, DU5):
+    /// Realms are not available on this server or PC (detail: why)
+    RealmUnavailable,
+    /// No realm or session with that id was found
+    RealmNotFound,
+    /// Hosting, joining or stopping a realm failed (detail: why)
+    RealmFailed,
     Unknown,
 }
 
@@ -1153,7 +1160,6 @@ pub struct HostSetupRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
-#[cfg_attr(not(test), allow(dead_code, reason = "RF7's realm_host reads it"))]
 pub enum RealmKind {
     Hub,
     Hunt,
@@ -1880,6 +1886,85 @@ impl Serialize for RevertApplyOutcome {
         }
         match self {
             Self::Ok(done) => Found { ok: true, done }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+// ------------------------------------------------------------------ realms (RF7, DU5)
+
+/// A local realm session's state (RF7, DU5)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    not(feature = "realms"),
+    allow(dead_code, reason = "only a build with realms fills it")
+)]
+pub enum RealmState {
+    Starting,
+    Ready,
+    Running,
+    Ended,
+}
+
+/// One hosted or joined realm session on this PC (RF7, DU5)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "realms"),
+    allow(dead_code, reason = "only a build with realms fills it")
+)]
+pub struct RealmSessionView {
+    pub session: String,
+    pub kind: RealmKind,
+    pub hosting: bool,
+    pub generation: u32,
+    pub state: RealmState,
+    /// Local UDP port the game or server routes through when ready
+    pub local_port: Option<u16>,
+    /// Clean exit or failure code when `state` is `ended`
+    pub result: Option<String>,
+}
+
+/// The launcher's realm state on this PC (`realm_get`, `realm_host`, `realm_join`, `realm_stop`; RF7, DU5)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "realms"),
+    allow(dead_code, reason = "only a build with realms fills it")
+)]
+pub struct RealmView {
+    /// Whether this build and PC can host or join a realm (`ParadoxTransport.dll` present and co-op not disabled)
+    pub available: bool,
+    /// Active or most recently ended session on this PC
+    pub active: Option<RealmSessionView>,
+    /// All tracked local sessions
+    pub sessions: Vec<RealmSessionView>,
+}
+
+/// `realm_get`, `realm_host`, `realm_join`, `realm_stop`: `{ ok: true, realm } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "realms"),
+    allow(dead_code, reason = "only a build with realms fills it")
+)]
+pub enum RealmOutcome {
+    Ok(RealmView),
+    Err(LauncherError),
+}
+
+impl Serialize for RealmOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            realm: &'a RealmView,
+        }
+        match self {
+            Self::Ok(realm) => Found { ok: true, realm }.serialize(serializer),
             Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
         }
     }

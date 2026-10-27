@@ -81,6 +81,8 @@ admin = { workspace = true, optional = true }
 server-controller = { workspace = true, optional = true }
 service-kit = { workspace = true, optional = true }
 host = { workspace = true, optional = true }
+rifts-host = { workspace = true, optional = true }
+rifts-seam = { workspace = true, optional = true }
 
 [dev-dependencies]
 sha1_smol = "1"
@@ -115,7 +117,7 @@ stub-module = ["host?/stub-module"]
 isles-1-14-7 = ["host?/isles-1-14-7"]
 isles-1-12-0 = ["host?/isles-1-12-0"]
 revived-1-4-4 = ["host?/revived-1-4-4"]
-realms = ["host?/realms"]
+realms = ["dep:rifts-host", "dep:rifts-seam", "host?/realms"]
 all-modules = ["isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "realms"]
 # Set by `tauri build`: serve the built page from the binary instead of the Vite dev server
 custom-protocol = ["tauri/custom-protocol"]

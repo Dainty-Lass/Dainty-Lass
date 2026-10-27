@@ -46,6 +46,11 @@ pub mod legacy;
 pub mod legacy;
 mod loader;
 pub mod platform;
+#[cfg(feature = "realms")]
+pub mod realms;
+#[cfg(not(feature = "realms"))]
+#[path = "realms_off.rs"]
+pub mod realms;
 mod region;
 pub mod runtime;
 pub mod stored;
@@ -354,6 +359,9 @@ pub struct Controller {
     /// The Host page (`host.rs`)
     #[cfg_attr(not(feature = "host"), allow(dead_code, reason = "the Host page's"))]
     host: host::HostState,
+    /// Realm hosting and joining (`realms.rs`, RF7)
+    #[cfg_attr(not(feature = "realms"), allow(dead_code, reason = "realms feature's"))]
+    realms: realms::RealmsState,
     /// Installs from Epic (`install.rs`, DE5)
     installs: install::Installs,
     /// The executable's hash by size and time (`userData/file-hashes.json`)
@@ -402,6 +410,7 @@ impl Controller {
             keys,
             game,
             host,
+            realms: realms::RealmsState::default(),
             installs: install::Installs::default(),
             hashes: tokio::sync::Mutex::new(hashes),
             legacy,
@@ -1905,6 +1914,7 @@ impl Controller {
         self.st().shutting_down = true;
         // The server the Host page started stops with the launcher (the page says so)
         self.host_shutdown().await;
+        self.realms_shutdown().await;
         let background: Vec<JoinHandle<()>> = lock(&self.background).drain(..).collect();
         for task in background {
             let _ = task.await;
