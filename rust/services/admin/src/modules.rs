@@ -16,8 +16,8 @@ use module_api::{
     GameVersion, ModuleError, ModuleId, ModuleKind, ModuleManifest,
 };
 
-/// The key name today's single `REFORGED_ADMIN_API_KEY` acts under: it is the owner's (DD23). DH2 gives
-/// each person a key of their own, and the actor is named after it.
+/// The id `REFORGED_ADMIN_API_KEY` acts under: it is the owner's key (DD23). Every other key acts under
+/// its own id (`keys.rs`, DH2).
 pub const OWNER_KEY: &str = "owner";
 
 /// The game the Node backend serves. Its admin routes answer for it until a module for this version is
@@ -105,14 +105,12 @@ impl AdminPlugin {
             .any(|m| m.game_version.to_string() == version)
     }
 
-    /// The actor every call carries, with a request id the admin API logs beside the operator id, so a
-    /// change in a module's log leads back to the request that made it (DH1).
-    pub fn actor(&self, now_ms: i64) -> ActorContext {
+    /// The actor every call carries: the key that asked (its id, never the key), and a request id the admin
+    /// API logs beside the operator id, so a change in a module's log leads back to the request that made it
+    /// and the person who asked (DH1, DH2).
+    pub fn actor(&self, key: &str, now_ms: i64) -> ActorContext {
         let n = self.requests.fetch_add(1, Ordering::Relaxed);
-        ActorContext::new(Actor::Admin {
-            key: OWNER_KEY.to_owned(),
-        })
-        .with_request(format!("admin-{now_ms}-{n}"))
+        ActorContext::new(Actor::Admin { key: key.to_owned() }).with_request(format!("admin-{now_ms}-{n}"))
     }
 
     /// One call, refused before it is sent when the module didn't register the action, and given up

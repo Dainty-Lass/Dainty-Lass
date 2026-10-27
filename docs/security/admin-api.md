@@ -14,7 +14,8 @@ commit reviewed. An item that doesn't hold is a bug to fix before the release, n
 A GraphQL service for the host's tools, such as a Discord bot. It runs no moderation of its own. It calls the Node
 backend's admin routes and the Director, so what it can do is bounded by what those routes do.
 
-- **In, from callers:** HTTP on `127.0.0.1:61003` only. `POST /graphql` with `Authorization: Bearer <key>`, an
+- **In, from callers:** HTTP on `127.0.0.1:61003` only. `POST /graphql` with `Authorization: Bearer <key>` (the
+  owner's, or one per person, below), an
   optional `x-reforged-operator-id` (digits), and a JSON body. `GET /health` answers `{"ok":true}` without a key, for
   the host kit's ready probe. It reveals nothing.
 - **In, from the host:** `admin.env` (written by `reforged-host setup` from `host.toml` and `secrets.env`) and the
@@ -40,10 +41,33 @@ every game keeps its own until the network's directory (DD17), so the admin API 
 has the name. A name found in two games is refused (`AMBIGUOUS_PLAYER`) until the caller names the game
 (`game: "1.4.4"`).
 
-Every call to a module carries `ActorContext { actor: admin { key: "owner" }, request: "admin-<ms>-<n>" }`: today's
-single `REFORGED_ADMIN_API_KEY` is the owner's key (DD23), and the request id is logged beside the operator id, so a
-change in a module's log leads back to the request and the caller who asked. DH2 replaces `owner` with the name of
-each person's key.
+Every call to a module carries `ActorContext { actor: admin { key: "<key id>" }, request: "admin-<ms>-<n>" }`: the id
+of the key that asked (`owner` for `REFORGED_ADMIN_API_KEY`, DD23), and the request id is logged beside the operator
+id, so a change in a module's log leads back to the request and the person who asked (DH2).
+
+### Keys and roles (DH2)
+
+| Role | May |
+| --- | --- |
+| viewer | Reads: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module` |
+| moderator | + `kick`, `timeout`, `ban` |
+| admin | + `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator |
+| owner | + `issueKey` for admin and owner, `revokeKey`; the history revert (DH3b) requires `Role::Owner` through `schema::allow` |
+
+- `REFORGED_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `RRA_<8 hex id>_<64 hex
+  secret>` (256 random bits), stored as the SHA-256 of the whole key in `admin_keys` in the admin API's own database
+  (`admin.db` beside the node's SQLite file; the node's database on Postgres). The key is printed once by
+  `reforged-host admin key issue` (or returned once by `issueKey`) and is not recoverable.
+- A request is authenticated on every call against the database, so `key revoke` refuses the key's next request. The
+  owner's key is checked first and needs no database. An unknown id, a wrong secret and a malformed key are the same
+  401, and only a key whose secret matches can learn it was revoked. A key's shape is checked before any lookup.
+- The role is checked at the top of each mutation in `schema.rs` (`Admin::kick`, `ban`, `timeout`, `unban`,
+  `lift_timeout`, `issue_key`, `revoke_key`, the module roots) with `allow`. A refusal is `FORBIDDEN`, names the
+  required role, changes nothing and is logged with the key id, the role, the role needed and the action.
+- Every write is `Database::write` under the actor that made it: moderation actions are `admin_actions` rows under
+  `admin:<key id>`; issuing and revoking are under the issuer (`admin:<id>` or `host:admin key issue|revoke`). The
+  row is written after the action succeeded; a write that fails is logged with all its fields rather than hiding the
+  action.
 
 Code: `rust/services/admin/src/` (`input.rs` holds every check of outside input, `app.rs` the HTTP side, `schema.rs`
 the fields and what they call, `upstream.rs` the calls and the signature, `modules.rs` the module registry side,
@@ -57,7 +81,9 @@ Fuzz target in `rust/fuzz`:
   reason, a timeout's `minutes`/`until`, a `game`, a module's error text, and a Director answer. Checks that a
   request passes the header check only with exactly one `Bearer <key>` and no proxy header. Checks that an accepted
   name, reason or timeout end is within its rule, that an accepted game has one spelling, that a module's text comes
-  out one capped line, and that an instance's fields stay within their caps.
+  out one capped line, and that an instance's fields stay within their caps. It also feeds the key parser: only a
+  77-character `RRA_<8 hex>_<64 hex>` key has an id to look up, a key's name is one capped line and a role name
+  round-trips.
 
 ## Checklist
 
@@ -71,7 +97,7 @@ Fuzz target in `rust/fuzz`:
 - [ ] A request carrying `Forwarded`, `Via`, `X-Real-IP`, `X-Reforged-Gateway` or any `X-Forwarded-*` header is
       403, before the key is looked at (`input.rs`, `check_headers`).
 - [ ] The key is compared as SHA-256 digests with a constant-time fold, so neither its length nor where it differs
-      shows (`hmac.rs`, `same_secret`). A repeated `Authorization` header is refused.
+      shows (`hmac.rs`, `same_secret`). A repeated `Authorization` header is refused. Keys and roles: below.
 - [ ] The key, the backend's admin key and the operator secret are at least 32 characters, or the start fails
       (`config.rs`). setup makes each as 32 random bytes in hex (`commands/setup/secrets.rs`).
 - [ ] The body must be `application/json`, at most 16 KiB, and one request, not a batch. A browser page on the host
@@ -98,6 +124,22 @@ Fuzz target in `rust/fuzz`:
       (`schema.rs`, `timeout`). A damaged file stops the start instead of forgetting every timeout (`timeouts.rs`).
 - [ ] The file is written whole to `<file>.tmp` and renamed. It lives in `.workspace/config`, next to `secrets.env`.
 
+### Keys and roles (DH2) checklist
+
+- [ ] A key is stored only as `SHA-256(key)`; the key is in no log line, no error, no list (`keys.rs`, `list`;
+      `a_key_is_shown_once_and_only_its_hash_is_kept` scans the database files and the change log for it).
+- [ ] The key and the hash are compared in constant time (`hmac::same_secret`), and only a key of the issued shape is
+      looked up (`keys::key_id`; fuzz target `admin_request`).
+- [ ] A revoked key is refused on its next request (`a_revoked_key_is_refused_on_its_next_request`).
+- [ ] The owner's key cannot be revoked through the API or the command, and changing it is in `secrets.env`.
+- [ ] Each role does only its table's rows, tested for every role and every mutation
+      (`each_role_does_what_it_does_and_the_refusal_names_the_role_it_lacks`); an admin issues only viewer and
+      moderator keys (`an_admin_issues_only_keys_below_its_own_role`).
+- [ ] Every change names its key in the change log (`every_change_names_the_key_that_made_it`) and in the module's
+      `ActorContext` (`a_module_is_told_which_key_asked`).
+- [ ] A refusal is logged with the key id and never the key (`allow`, `app.rs` `authenticate`).
+- [ ] `admin key` commands run on the host with `admin.env` and no key; they are as trusted as the host.
+
 ### Game modules (DF4c)
 
 - [ ] A server with no module for 1.14.7 sends 1.14.7's kick, ban and lookup to the Node backend exactly as before,
@@ -108,7 +150,7 @@ Fuzz target in `rust/fuzz`:
       module for a game version already attached (`modules.rs`;
       `the_plugin_takes_game_modules_that_answer_lookups_one_per_version`).
 - [ ] A module is sent only an action it registered, and each call is given up after 5 s (`AdminPlugin::call`).
-- [ ] Every call carries the actor `admin:owner` and a request id, valid by `ActorContext::is_valid`. The request id
+- [ ] Every call carries the actor `admin:<key id>` (`admin:owner` for the owner's key) and a request id, valid by `ActorContext::is_valid`. The request id
       is logged with the operator id and the action (`module_act`; `sent_as_owner`). The operator id stays the
       caller's word, as for the backend.
 - [ ] A name found in more than one game is refused with `AMBIGUOUS_PLAYER` until the caller names the game

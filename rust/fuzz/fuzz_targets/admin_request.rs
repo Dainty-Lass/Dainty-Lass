@@ -5,14 +5,13 @@
 #![no_main]
 
 use admin::input::{
-    MAX_MODULE_MESSAGE, MAX_REASON, MAX_TIMEOUT_MS, OPERATOR_HEADER, check_headers, game, is_account_id, is_json,
-    module_message, parse_body, parse_instances, reason, timeout_end, username,
+    MAX_MODULE_MESSAGE, MAX_REASON, MAX_TIMEOUT_MS, OPERATOR_HEADER, bearer, game, is_account_id, is_json,
+    module_message, operator, parse_body, parse_instances, reason, timeout_end, username,
 };
+use admin::keys::{MAX_NAME, Role, clean_name, hash_key, is_key_id, key_id};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use libfuzzer_sys::arbitrary::{self, Arbitrary};
 use libfuzzer_sys::fuzz_target;
-
-const KEY: &str = "0123456789abcdef0123456789abcdef";
 
 #[derive(Debug, Arbitrary)]
 struct Request<'a> {
@@ -25,6 +24,7 @@ struct Request<'a> {
     now: i64,
     game: &'a str,
     module_message: &'a str,
+    key: &'a str,
     director: &'a [u8],
 }
 
@@ -35,15 +35,30 @@ fuzz_target!(|request: Request<'_>| {
             headers.append(name, value);
         }
     }
-    if let Ok(operator) = check_headers(&headers, KEY) {
+    // The key is whatever follows one Bearer, and only then; whose it is, is Keys::authenticate's to say
+    if let Ok(given) = bearer(&headers) {
         let auth: Vec<_> = headers.get_all("authorization").iter().collect();
         assert_eq!(auth.len(), 1);
-        assert_eq!(auth[0].as_bytes(), format!("Bearer {KEY}").as_bytes());
+        assert_eq!(auth[0].as_bytes(), format!("Bearer {given}").as_bytes());
         assert!(headers.keys().all(|n| !n.as_str().starts_with("x-forwarded-") && n != "x-reforged-gateway"));
+    }
+    if let Ok(operator) = operator(&headers) {
         assert!(!operator.id().is_empty() && operator.id().bytes().all(|b| b.is_ascii_digit()));
         if headers.get(OPERATOR_HEADER).is_none() {
             assert_eq!(operator.id(), "0");
         }
+    }
+    // A key is looked up only when it has the shape of an issued one: its id is 8 hex digits and the whole
+    // key is 77 characters
+    if let Some(id) = key_id(request.key) {
+        assert!(is_key_id(id) && request.key.len() == 77 && request.key.starts_with("RRA_"));
+        assert_eq!(hash_key(request.key).len(), 64);
+    }
+    if let Some(name) = clean_name(request.name) {
+        assert!((1..=MAX_NAME).contains(&name.chars().count()) && !name.chars().any(char::is_control));
+    }
+    if let Some(role) = Role::parse(request.reason) {
+        assert_eq!(Role::parse(role.as_str()), Some(role));
     }
     let _ = is_json(&headers);
     if let Ok(parsed) = parse_body(request.body) {

@@ -1,26 +1,25 @@
 //! The HTTP side: `POST /graphql` for the bot, `GET /health` for `reforged-host start`'s ready probe.
-//! Every GraphQL request is checked before its body is read: a loopback peer, no proxy headers, the
-//! API key (`input::check_headers`).
-
-use std::sync::Arc;
+//! Every GraphQL request is checked before its body is read: a loopback peer, no proxy headers, a key that
+//! is the owner's or an issued one that is not revoked (`keys::Keys`), and the operator id.
 
 use axum::Router;
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request, State};
-use axum::http::{StatusCode, header};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use serde_json::json;
 use service_kit::serve::ConnectionInfo;
 
 use crate::input::{self, Refusal};
+use crate::keys::{AuthError, Caller, Keys};
 use crate::log;
 use crate::schema::AdminSchema;
 
 #[derive(Clone)]
 pub struct AppState {
     pub schema: AdminSchema,
-    pub api_key: Arc<str>,
+    pub keys: Keys,
 }
 
 fn json_reply(status: StatusCode, body: serde_json::Value) -> Response {
@@ -43,6 +42,33 @@ fn refuse(refusal: Refusal) -> Response {
     )
 }
 
+/// Whose request this is. A refusal is logged with the key's id when there is one, never the key (DH2);
+/// the caller is told only 401, whatever the reason.
+async fn authenticate(state: &AppState, headers: &HeaderMap) -> Result<Caller, Refusal> {
+    let given = input::bearer(headers).inspect_err(|refusal| {
+        log::warn("admin API request refused", json!({"code": refusal.code()}));
+    })?;
+    let (key, role) = match state.keys.authenticate(given).await {
+        Ok(found) => found,
+        Err(error) => {
+            let (refusal, why, key) = match error {
+                AuthError::Unknown => (Refusal::Unauthenticated, "unknown key", None),
+                AuthError::Revoked(id) => (Refusal::Unauthenticated, "revoked key", Some(id)),
+                AuthError::Unavailable => (Refusal::KeysUnavailable, "keys unavailable", None),
+            };
+            log::warn(
+                "admin API request refused",
+                json!({"code": refusal.code(), "why": why, "key": key}),
+            );
+            return Err(refusal);
+        }
+    };
+    let operator = input::operator(headers).inspect_err(|refusal| {
+        log::warn("admin API request refused", json!({"code": refusal.code(), "key": key}));
+    })?;
+    Ok(Caller { key, role, operator })
+}
+
 async fn graphql(
     State(state): State<AppState>,
     ConnectInfo(info): ConnectInfo<ConnectionInfo>,
@@ -53,12 +79,9 @@ async fn graphql(
         return refuse(Refusal::Forwarded);
     }
     let (parts, body) = request.into_parts();
-    let operator = match input::check_headers(&parts.headers, &state.api_key) {
-        Ok(operator) => operator,
-        Err(refusal) => {
-            log::warn("admin API request refused", json!({"code": refusal.code()}));
-            return refuse(refusal);
-        }
+    let caller = match authenticate(&state, &parts.headers).await {
+        Ok(caller) => caller,
+        Err(refusal) => return refuse(refusal),
     };
     if !input::is_json(&parts.headers) {
         return refuse(Refusal::NotJson);
@@ -70,7 +93,7 @@ async fn graphql(
         Ok(request) => request,
         Err(refusal) => return refuse(refusal),
     };
-    let response = state.schema.execute(request.data(operator)).await;
+    let response = state.schema.execute(request.data(caller)).await;
     match serde_json::to_value(&response) {
         Ok(body) => json_reply(StatusCode::OK, body),
         Err(_) => json_reply(

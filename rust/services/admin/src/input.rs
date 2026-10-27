@@ -5,7 +5,6 @@
 use hyper::HeaderMap;
 use serde_json::Value;
 
-use crate::hmac::same_secret;
 use crate::upstream::Operator;
 
 /// The biggest request body read: a query and its variables, never more.
@@ -33,6 +32,8 @@ pub enum Refusal {
     BadBody,
     /// 415: not `application/json`
     NotJson,
+    /// 503: the keys' database did not answer (the owner's key still works)
+    KeysUnavailable,
 }
 
 impl Refusal {
@@ -42,6 +43,7 @@ impl Refusal {
             Self::Unauthenticated => 401,
             Self::BadOperator | Self::BadBody => 400,
             Self::NotJson => 415,
+            Self::KeysUnavailable => 503,
         }
     }
 
@@ -52,6 +54,7 @@ impl Refusal {
             Self::BadOperator => "BAD_OPERATOR",
             Self::BadBody => "BAD_REQUEST",
             Self::NotJson => "NOT_JSON",
+            Self::KeysUnavailable => "KEYS_UNAVAILABLE",
         }
     }
 }
@@ -68,9 +71,9 @@ fn one_header<'a>(headers: &'a HeaderMap, name: &str) -> Result<Option<&'a str>,
     first.to_str().map(Some).map_err(|_| ())
 }
 
-/// The checks before the body is read: not forwarded, the API key, and the operator id (`0`, the
-/// host, when the caller names none).
-pub fn check_headers(headers: &HeaderMap, api_key: &str) -> Result<Operator, Refusal> {
+/// The key a request carries, once it is known to come straight from a caller: not forwarded, and
+/// exactly one `Authorization: Bearer <key>`. Whose key it is, is `keys::Keys::authenticate`'s to say.
+pub fn bearer(headers: &HeaderMap) -> Result<&str, Refusal> {
     if headers.keys().any(|name| {
         let name = name.as_str();
         FORWARDED.contains(&name) || name.starts_with("x-forwarded-")
@@ -78,12 +81,13 @@ pub fn check_headers(headers: &HeaderMap, api_key: &str) -> Result<Operator, Ref
         return Err(Refusal::Forwarded);
     }
     let authorization = one_header(headers, "authorization").map_err(|()| Refusal::Unauthenticated)?;
-    let given = authorization
+    authorization
         .and_then(|value| value.strip_prefix("Bearer "))
-        .ok_or(Refusal::Unauthenticated)?;
-    if !same_secret(given, api_key) {
-        return Err(Refusal::Unauthenticated);
-    }
+        .ok_or(Refusal::Unauthenticated)
+}
+
+/// The Discord user the bot names (`0`, the host, when the caller names none).
+pub fn operator(headers: &HeaderMap) -> Result<Operator, Refusal> {
     match one_header(headers, OPERATOR_HEADER).map_err(|()| Refusal::BadOperator)? {
         None => Ok(Operator::host()),
         Some(id) => Operator::parse(id).ok_or(Refusal::BadOperator),
@@ -324,8 +328,16 @@ mod tests {
         map
     }
 
+    /// The header checks in the order the HTTP side runs them (the key is `keys::Keys`'s to check).
+    fn check_headers(headers: &HeaderMap, key: &str) -> Result<Operator, Refusal> {
+        if bearer(headers)? != key {
+            return Err(Refusal::Unauthenticated);
+        }
+        operator(headers)
+    }
+
     #[test]
-    fn a_request_needs_the_key_and_no_proxy_in_between() {
+    fn a_request_carries_one_bearer_key_and_no_proxy_in_between() {
         let bearer = format!("Bearer {KEY}");
         assert_eq!(
             check_headers(&headers(&[("authorization", &bearer)]), KEY).map(|o| o.id().to_owned()),

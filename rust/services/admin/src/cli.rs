@@ -1,5 +1,6 @@
 //! The `admin` binary: `admin serve --env-file <file>` runs the admin API; `serve` is the default.
-//! `admin schema` prints the GraphQL schema (`schema.graphql`).
+//! `admin schema` prints the GraphQL schema (`schema.graphql`). `admin key issue|list|revoke` makes, lists
+//! and ends the per-person keys (DH2).
 //!
 //! The command line, run by `reforged-host <service>` (RD26: one binary runs every service).
 
@@ -25,6 +26,37 @@ enum Command {
     },
     /// Prints the GraphQL schema.
     Schema,
+    /// Admin keys: one per person, each with a role (viewer, moderator, admin or owner).
+    Key {
+        #[command(subcommand)]
+        command: KeyCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum KeyCommand {
+    /// Makes a key and prints it once. It is not kept: only its hash is.
+    Issue {
+        /// Who the key is for (one active key per name)
+        #[arg(long)]
+        name: String,
+        /// viewer, moderator, admin or owner
+        #[arg(long)]
+        role: String,
+        #[arg(long)]
+        env_file: Option<PathBuf>,
+    },
+    /// Lists every key with its role and who issued it. Never a key.
+    List {
+        #[arg(long)]
+        env_file: Option<PathBuf>,
+    },
+    /// Ends a key by its id (from `key list`): its next request is refused.
+    Revoke {
+        id: String,
+        #[arg(long)]
+        env_file: Option<PathBuf>,
+    },
 }
 
 fn fail(error: &str) -> ExitCode {
@@ -45,6 +77,7 @@ where
             print!("{}", crate::schema::sdl());
             return ExitCode::SUCCESS;
         }
+        Command::Key { command } => return crate::key_cli::run(command),
         Command::Serve { env_file } => env_file,
     };
     let env = match Env::load(file.as_deref()) {

@@ -93,16 +93,56 @@ How the moderation works:
 Errors are GraphQL errors with a code in `extensions.code`: `BAD_INPUT`, `NOT_FOUND`, `PROTECTED_ACCOUNT`,
 `ALREADY_BANNED`, `NOT_BANNED`, `NOT_TIMED_OUT`, `BACKEND_UNAVAILABLE` (the backend, the Director or a game's module
 didn't answer), `BACKEND_REFUSED` (its message says when the secrets don't match: run `setup` and restart),
-`STATE_NOT_SAVED`, `AMBIGUOUS_PLAYER`, `UNKNOWN_GAME`, `NOT_SUPPORTED` (the player's module can't do that yet). A
+`STATE_NOT_SAVED`, `AMBIGUOUS_PLAYER`, `UNKNOWN_GAME`, `NOT_SUPPORTED` (the player's module can't do that yet),
+`FORBIDDEN` (the key's role is too low; see above). A
 request refused before any GraphQL runs gets a 4xx with the same shape: 401 `UNAUTHENTICATED`, 403 `FORWARDED`,
-400 `BAD_OPERATOR` or `BAD_REQUEST`, 415 `NOT_JSON`.
+400 `BAD_OPERATOR` or `BAD_REQUEST`, 415 `NOT_JSON`, 503 `KEYS_UNAVAILABLE` (the keys' database didn't answer; the
+owner's key still works). A revoked or unknown key is 401 `UNAUTHENTICATED`.
+
+## Keys and roles
+
+One key per person, each with a role (DD23). `REFORGED_ADMIN_API_KEY` in `secrets.env` is the owner's key and
+nothing about it changes: a server with only that key behaves as it always did, with every right. Everyone else gets
+a key of their own, which the host (or a key that may) issues and revokes, so one person leaving is one revoke and
+nobody else's key changes.
+
+| Role | May |
+| --- | --- |
+| `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module` |
+| `moderator` | Viewer, and `kick`, `timeout`, `ban` |
+| `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys |
+| `owner` | Everything: `issueKey` for any role, `revokeKey`, and the history revert once it lands (DH3) |
+
+A call above the key's role is refused with `FORBIDDEN`; the message names the role it needs
+(`unban needs the admin role; this key's role is moderator`) and `extensions.requiredRole` carries it. Nothing
+changes, and the log gets the key's id.
+
+From the host (no key needed; run it on the server):
+
+```bash
+reforged-host admin key issue --name Maya --role moderator   # prints RRA_<id>_<secret> once
+reforged-host admin key list                                  # id, role, name, who issued it, active or revoked
+reforged-host admin key revoke 58ef5419                       # its next request is refused
+```
+
+The key is shown once and only its SHA-256 is kept, so a lost key is revoked and a new one issued. One active key per
+name. The owner's key is listed as `owner` and is changed in `secrets.env` (then `setup` and a restart), never
+revoked here. In a container: `docker compose run --rm host admin key list --env-file /opt/reforged/.workspace/config/admin.env`.
+
+From the API: `issueKey(name, role)` (admin for viewer and moderator, owner for any), `revokeKey(id)` (owner) and
+`adminKeys`. Revoking takes effect on the key's next request.
+
+The change log (DD23) names the key: each admin API change is a row in `admin_actions` under `admin:<key id>`
+(`admin:owner` for `REFORGED_ADMIN_API_KEY`), the keys' own changes are under whoever issued or revoked them
+(`admin:<id>`, or `host:admin key issue`), and a game module is told the same actor with every call. The keys live in
+the admin API's own database: `admin.db` next to the node's SQLite file, or the node's Postgres database.
 
 ## Calling it
 
 `POST http://127.0.0.1:61003/graphql`, with `Content-Type: application/json` and a body of
 `{"query": ..., "variables": ...}`. The headers:
 
-- `Authorization: Bearer <REFORGED_ADMIN_API_KEY>`
+- `Authorization: Bearer <key>`: `REFORGED_ADMIN_API_KEY` (the owner's), or the person's own key
 - `x-reforged-operator-id: <Discord user id>`: who the moderation is for, digits only. The backend's audit log records
   it as `manager:<id>`. Leave it out and it is `0`, the host.
 
