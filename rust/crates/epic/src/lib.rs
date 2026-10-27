@@ -8,10 +8,13 @@
 //! subscriber that could see it drops that target.
 
 pub mod auth;
+pub mod builds;
 pub mod chunk;
 pub mod download;
 pub mod library;
 pub mod manifest;
+#[cfg(any(test, feature = "test-support"))]
+pub mod testing;
 
 /// The `log` target of `egs-api`'s events. Its failed requests are logged with `{:?}`, so they never reach a log
 /// file (docs/security/epic.md, "Signing in").

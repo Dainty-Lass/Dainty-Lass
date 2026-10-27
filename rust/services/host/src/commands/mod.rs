@@ -12,12 +12,14 @@
 //! | [`gamedata`] | `gamedata` | RH4 |
 //! | [`preset`] | `preset` | RH4 |
 //! | [`publish_runtime`] | `publish-runtime` | RH4 |
+//! | [`install_game`] | `install-game` | DE6 |
 //! | [`update`] | `update` | RH5 |
 //! | `crate::wine::run_game_server` | `gameserver` (hidden, Linux) | RH5 |
 
 pub mod backup;
 pub mod doctor;
 pub mod gamedata;
+pub mod install_game;
 pub mod invite;
 pub mod multipliers;
 pub mod network;
@@ -51,6 +53,7 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Doctor(args) => doctor::run(paths, args),
         Command::Gamedata(args) => gamedata::run(paths, args),
         Command::PublishRuntime(args) => publish_runtime::run(paths, args),
+        Command::InstallGame(args) => install_game::run(paths, args),
         Command::Preset(args) => preset::run(paths, args),
         Command::Multipliers(args) => multipliers::run(paths, args),
         Command::Update(args) => update::run(paths, args),

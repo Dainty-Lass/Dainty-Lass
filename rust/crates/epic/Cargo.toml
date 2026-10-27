@@ -9,6 +9,10 @@ license = "MIT"
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# The synthetic manifests and chunks and the fake CDN (`testing`), for the host kit's tests (DE6)
+test-support = ["dep:rcgen", "dep:tokio-rustls", "hyper/server", "tokio/net", "tokio/io-util", "tokio/rt-multi-thread"]
+
 [dependencies]
 # The CDN client (download/cdn.rs): HTTPS only, no redirect followed
 bytes = "1"
@@ -26,6 +30,9 @@ sha1.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "time", "sync", "fs", "macros"] }
+# test-support only
+rcgen = { version = "0.14.10", optional = true, default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["aws_lc_rs", "tls12"] }
 
 [dev-dependencies]
 hyper = { workspace = true, features = ["server"] }

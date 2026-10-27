@@ -12,6 +12,7 @@
 pub mod cli;
 pub mod commands;
 pub mod envfile;
+pub mod epicinstall;
 pub mod error;
 pub mod hostconfig;
 pub mod hosttoml;

@@ -89,17 +89,18 @@ fn u32_at(raw: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([raw[at], raw[at + 1], raw[at + 2], raw[at + 3]])
 }
 
-#[cfg(test)]
-pub(crate) mod tests {
+/// A `.chunk` file as Epic's writer lays it out, for the tests (and the host kit's, through `test-support`).
+#[cfg(any(test, feature = "test-support"))]
+#[allow(clippy::unwrap_used)]
+pub mod synthetic {
     use std::io::Write;
 
     use flate2::Compression;
     use flate2::write::ZlibEncoder;
 
     use super::*;
-    use crate::manifest::tests::{Build, parse};
 
-    pub(crate) fn encode(guid: Guid, data: &[u8], compress: bool, version: u32) -> Vec<u8> {
+    pub fn encode(guid: Guid, data: &[u8], compress: bool, version: u32) -> Vec<u8> {
         let payload = if compress {
             let mut z = ZlibEncoder::new(Vec::new(), Compression::default());
             z.write_all(data).unwrap();
@@ -130,6 +131,13 @@ pub(crate) mod tests {
         out.extend(payload);
         out
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::synthetic::encode;
+    use super::*;
+    use crate::manifest::synthetic::{Build, parse};
 
     #[test]
     fn packed_and_stored_chunks_of_every_header_version_decode_and_assemble() {

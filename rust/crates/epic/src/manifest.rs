@@ -546,5 +546,7 @@ fn read_custom_fields(r: &mut Reader<'_>, _version: u8) -> Result<Vec<(String, S
     Ok(keys.into_iter().zip(values).collect())
 }
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod synthetic;
 #[cfg(test)]
-pub(crate) mod tests;
+mod tests;
