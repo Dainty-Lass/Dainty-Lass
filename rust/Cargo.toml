@@ -117,6 +117,10 @@ rand = "0.10"
 tempfile = "3"
 # Network-wide ids, tagged with the owning node (DD18, crates/module-api)
 ulid = "3"
+# The chat plugin's (plugins/chat, from DR's metagame chat): constant-time comparisons, and the WebSocket clients
+# of its parity tests (the version axum's ws uses)
+subtle = "2"
+tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"
