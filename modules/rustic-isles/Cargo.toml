@@ -37,9 +37,11 @@ rifts-guard = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio"] }
 diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35"] }
 diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 dotenvy = "0.15"
 percent-encoding = "2"
 regex = "1"
+sha2 = "0.11"
 serde = { version = "1", features = ["derive"] }
 # Keys in insertion order, as JavaScript objects keep them (service-kit turns this on in DaintyLass's tree anyway)
 serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
