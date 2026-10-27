@@ -620,6 +620,103 @@ pub fn network_checks(p: &Paths, config: &HostConfig, platform: Platform) -> Res
     if linux {
         checks.extend(linux_checks(p, config)?);
     }
+    if let Some(network) = &config.network
+        && !network.nodes.is_empty()
+    {
+        let cert = p.tls.join(crate::hostconfig::NODE_CERT_FILE);
+        let key = p.tls.join(crate::hostconfig::NODE_KEY_FILE);
+        let ca = p.tls.join(crate::hostconfig::CLUSTER_CA_FILE);
+        match network_plugin::cluster::NodeCredentials::load(&cert, &key, &ca) {
+            Ok(credentials) => {
+                let info = credentials.info();
+                let said = &info.identity;
+                let now = chrono::Utc::now().timestamp();
+                if said.node != network.node || said.region != network.region {
+                    checks.push(fix(
+                        "network",
+                        Level::Fail,
+                        format!(
+                            "node certificate in {} is for {} in {}, but host.toml says {} in {}",
+                            p.tls.display(),
+                            said.node,
+                            said.region,
+                            network.node,
+                            network.region
+                        ),
+                        format!(
+                            "reforged-host network issue-node-cert --ca cluster-ca.pem --node {} --region {} --host {}",
+                            network.node, network.region, config.host
+                        ),
+                    ));
+                } else if info.not_after <= now {
+                    checks.push(fix(
+                        "network",
+                        Level::Fail,
+                        format!("node certificate for {} has expired", said.node),
+                        format!(
+                            "reforged-host network issue-node-cert --ca cluster-ca.pem --node {} --region {} --host {}",
+                            network.node, network.region, config.host
+                        ),
+                    ));
+                } else if info.not_after - now < 30 * 86_400 {
+                    checks.push(fix(
+                        "network",
+                        Level::Warn,
+                        format!(
+                            "node certificate for {} in {} expires within 30 days",
+                            said.node, said.region
+                        ),
+                        format!(
+                            "reforged-host network issue-node-cert --ca cluster-ca.pem --node {} --region {} --host {}",
+                            network.node, network.region, config.host
+                        ),
+                    ));
+                } else {
+                    checks.push(check(
+                        "network",
+                        Level::Ok,
+                        format!(
+                            "node certificate for {} in {} ({} peers, leader {})",
+                            said.node,
+                            said.region,
+                            network.nodes.len(),
+                            network.effective_leader()
+                        ),
+                    ));
+                }
+            }
+            Err(error) => {
+                checks.push(fix(
+                    "network",
+                    Level::Fail,
+                    format!("node certificate in {} is not usable: {error}", p.tls.display()),
+                    format!(
+                        "copy node-cert.pem, node-key.pem and cluster-ca-cert.pem from `reforged-host network issue-node-cert` into {}",
+                        p.tls.display()
+                    ),
+                ));
+            }
+        }
+        let session_key = p.tls.join(crate::hostconfig::SESSION_KEY_FILE);
+        if session_key.exists() {
+            match network_plugin::home::SigningKey::load_or_create(&session_key) {
+                Ok(key) => checks.push(check(
+                    "network",
+                    Level::Ok,
+                    format!("session ticket signing key {}", key.kid()),
+                )),
+                Err(error) => checks.push(fix(
+                    "network",
+                    Level::Fail,
+                    format!("session ticket signing key {}: {error}", session_key.display()),
+                    format!(
+                        "fix or remove {} so serve can create a fresh key",
+                        session_key.display()
+                    ),
+                )),
+            }
+        }
+    }
     Ok(checks)
 }
 

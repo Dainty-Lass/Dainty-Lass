@@ -332,6 +332,53 @@ pub fn compose(
             .add(modules::admin(&module_env(paths, "admin")?, Some(registry.clone())).map_err(HostError::message)?);
     }
 
+    #[cfg(feature = "gateway")]
+    if let Some(network) = &config.network
+        && !network.nodes.is_empty()
+    {
+        let cert = paths.tls.join(hostconfig::NODE_CERT_FILE);
+        let key = paths.tls.join(hostconfig::NODE_KEY_FILE);
+        let ca = paths.tls.join(hostconfig::CLUSTER_CA_FILE);
+        let credentials = network_plugin::cluster::NodeCredentials::load(&cert, &key, &ca)
+            .map_err(|e| HostError::message(format!("network credentials in {}: {e}", paths.tls.display())))?;
+        let said = credentials.identity();
+        if said.node != network.node || said.region != network.region {
+            return Err(HostError::message(format!(
+                "the node certificate in {} is for {} in {}, but host.toml says {} in {}",
+                paths.tls.display(),
+                said.node,
+                said.region,
+                network.node,
+                network.region
+            )));
+        }
+        std::fs::create_dir_all(&paths.tls).map_err(|e| HostError::io(&paths.tls, e))?;
+        let key_path = paths.tls.join(hostconfig::SESSION_KEY_FILE);
+        let signing_key = network_plugin::home::SigningKey::load_or_create(&key_path)
+            .map_err(|e| HostError::message(format!("network session key {}: {e}", key_path.display())))?;
+        let database = hostconfig::node_database_config(config, paths)?;
+        let game = config
+            .edition
+            .versions()
+            .first()
+            .cloned()
+            .unwrap_or_else(protocol::invite::reforged_version);
+        controller.add(
+            modules::network(modules::NetworkOptions {
+                node: said.clone(),
+                leader: network.effective_leader(),
+                peers: network.nodes.clone(),
+                credentials,
+                signing_key,
+                database,
+                game,
+                registry: registry.clone(),
+                replication_interval: Duration::from_secs(5),
+            })
+            .map_err(HostError::message)?,
+        );
+    }
+
     if !reborn {
     } else if in_process(FrontService::Gateway) {
         #[cfg(feature = "gateway")]

@@ -1688,6 +1688,23 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
 pub const NODE_CERT_FILE: &str = "node-cert.pem";
 pub const NODE_KEY_FILE: &str = "node-key.pem";
 pub const CLUSTER_CA_FILE: &str = "cluster-ca-cert.pem";
+/// The Ed25519 signing key for home-server session tickets in the TLS folder (DN5).
+pub const SESSION_KEY_FILE: &str = "session-key";
+
+/// The node database configuration (`store::DatabaseConfig`) read from `c`, `p`, and `secrets.env` (if present).
+pub fn node_database_config(c: &HostConfig, p: &Paths) -> Result<store::DatabaseConfig, HostError> {
+    let existing = read_env_file(&p.config.join(SECRET_FILE))?;
+    let mut secrets = Secrets::default();
+    if let Some(pw) = existing.get("REFORGED_DB_PASSWORD") {
+        secrets.database_password = pw.to_string();
+    }
+    let entries = database_env(c, &secrets, p);
+    store::DatabaseConfig::from_lookup(
+        |key| entries.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone()),
+        p.config.join(DATABASE_FILE),
+    )
+    .map_err(HostError::message)
+}
 
 /// What the gateway reads to serve node links (`GATEWAY_NODE_*`, `GATEWAY_NETWORK_NODES`, DN3).
 fn node_link_env(network: &NetworkConfig, p: &Paths) -> Vec<(&'static str, String)> {

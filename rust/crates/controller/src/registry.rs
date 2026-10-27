@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, Weak};
 use std::time::Duration;
 
 use module_api::manifest::{FitError, Transport, plugin_fits};
@@ -28,6 +28,7 @@ use serde::Serialize;
 use service_kit::context::{StatusRegistry, StatusReporter};
 use tokio::sync::broadcast;
 
+use crate::node_services::NodeServices;
 use crate::ports::PortBook;
 
 /// Builds a compiled-in module afresh for each load.
@@ -64,6 +65,7 @@ pub struct ModuleEntry {
 /// How the registry runs its modules.
 pub struct RegistryOptions {
     pub node: NodeIdentity,
+    /// The home API modules reach through `HostLink` until the network swaps it ([`ModuleRegistry::set_home`])
     pub home: Arc<dyn HomeApi>,
     /// For every external module; `env` and `current_dir` are filled per module when `None`
     pub child: ChildOptions,
@@ -190,6 +192,23 @@ enum Driver {
     Child(ChildModule),
 }
 
+impl ModuleDriver for Driver {
+    fn manifest(&self) -> &ModuleManifest {
+        self.get().manifest()
+    }
+
+    fn call(
+        &self,
+        call: module_api::frame::ModuleCall,
+    ) -> BoxFuture<'_, Result<module_api::frame::ModuleAnswer, ModuleError>> {
+        self.get().call(call)
+    }
+
+    fn unload(&self) -> BoxFuture<'_, Result<(), ModuleError>> {
+        self.get().unload()
+    }
+}
+
 impl Driver {
     fn get(&self) -> &dyn ModuleDriver {
         match self {
@@ -254,10 +273,24 @@ struct State {
     watching: bool,
 }
 
+/// Told when a module is up and when it is gone, with the driver that reaches it: for the parts of the host that
+/// answer for a module without being asked to attach to its registration (the network's home backends, DN5).
+pub trait LoadHook: Send + Sync {
+    /// The module started. Not called for a plugin that failed to start.
+    fn loaded(&self, manifest: &ModuleManifest, driver: Arc<dyn ModuleDriver>);
+
+    /// The module is gone: unloaded, or it never finished starting.
+    fn unloaded(&self, module: &ModuleId);
+}
+
 struct Inner {
     options: RegistryOptions,
     status: StatusRegistry,
+    /// What `HostCall::Home` reaches: `options.home` until [`ModuleRegistry::set_home`] swaps it
+    home: RwLock<Arc<dyn HomeApi>>,
+    node_services: NodeServices,
     plugins: Mutex<Vec<Arc<dyn CorePlugin>>>,
+    hooks: Mutex<Vec<Arc<dyn LoadHook>>>,
     state: Mutex<State>,
     /// One load, unload or restart at a time, so the version check and the insert can't interleave
     ops: tokio::sync::Mutex<()>,
@@ -297,9 +330,12 @@ impl ModuleRegistry {
         let (events, _) = broadcast::channel(256);
         Self {
             inner: Arc::new(Inner {
+                home: RwLock::new(options.home.clone()),
+                node_services: NodeServices::new(options.node.node.clone()),
                 options,
                 status,
                 plugins: Mutex::new(Vec::new()),
+                hooks: Mutex::new(Vec::new()),
                 state: Mutex::new(state),
                 ops: tokio::sync::Mutex::new(()),
                 events,
@@ -354,6 +390,48 @@ impl ModuleRegistry {
     /// A compiled-in core plugin, handed each module's registration as it loads (DD3).
     pub fn add_plugin(&self, plugin: Arc<dyn CorePlugin>) {
         lock(&self.inner.plugins).push(plugin);
+    }
+
+    /// Told of every module that starts and every one that goes (see [`LoadHook`]).
+    pub fn add_hook(&self, hook: Arc<dyn LoadHook>) {
+        let already_loaded: Vec<(ModuleManifest, Arc<Driver>)> = lock(&self.inner.state)
+            .slots
+            .values()
+            .filter(|slot| slot.state == ModuleState::Ready)
+            .filter_map(|slot| {
+                let loaded = slot.loaded.as_ref()?;
+                Some((loaded.manifest.clone(), loaded.driver.clone()))
+            })
+            .collect();
+        lock(&self.inner.hooks).push(hook.clone());
+        for (manifest, driver) in already_loaded {
+            hook.loaded(&manifest, driver);
+        }
+    }
+
+    pub fn status_registry(&self) -> &StatusRegistry {
+        &self.inner.status
+    }
+
+    /// What this node answers over its node links, by service. A core plugin that serves other nodes attaches
+    /// its service here (`node_services().attach(Service::X, ..)`); a server outside a network never serves it.
+    pub fn node_services(&self) -> &NodeServices {
+        &self.inner.node_services
+    }
+
+    /// The home API modules reach through `HostCall::Home`: `options.home` unless a network swapped it.
+    pub fn home(&self) -> Arc<dyn HomeApi> {
+        self.inner.home.read().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    /// Modules' home calls go to `home` from now on (the network's, DN5).
+    pub fn set_home(&self, home: Arc<dyn HomeApi>) {
+        *self.inner.home.write().unwrap_or_else(PoisonError::into_inner) = home;
+    }
+
+    /// Back to `options.home`, the home of a server outside a network.
+    pub fn reset_home(&self) {
+        self.set_home(self.inner.options.home.clone());
     }
 
     /// Lists a module. A name a service already has is refused, so the console names one thing.
@@ -801,6 +879,10 @@ impl Inner {
                 reason: error.to_string(),
             });
         }
+        let hooks: Vec<Arc<dyn LoadHook>> = lock(&self.hooks).clone();
+        for hook in hooks {
+            hook.loaded(&manifest, driver.clone());
+        }
         Ok(())
     }
 
@@ -808,6 +890,10 @@ impl Inner {
     fn forget(&self, id: &ModuleId, loaded: &Loaded) {
         for plugin in &loaded.plugins {
             plugin.detach(id);
+        }
+        let hooks: Vec<Arc<dyn LoadHook>> = lock(&self.hooks).clone();
+        for hook in hooks {
+            hook.unloaded(id);
         }
         let mut state = lock(&self.state);
         if state.games.get(&loaded.manifest.game_version) == Some(id) {
@@ -923,7 +1009,10 @@ impl HostLink for Link {
                     }
                     Ok(HostAnswer::Done)
                 }
-                HostCall::Home(call) => Ok(HostAnswer::Home(dispatch_home(inner.options.home.as_ref(), call).await)),
+                HostCall::Home(call) => {
+                    let home = inner.home.read().unwrap_or_else(PoisonError::into_inner).clone();
+                    Ok(HostAnswer::Home(dispatch_home(home.as_ref(), call).await))
+                }
             }
         })
     }

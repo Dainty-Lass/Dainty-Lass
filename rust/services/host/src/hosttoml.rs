@@ -50,6 +50,7 @@ const FREE_FORM: &str = "modules";
 const NETWORK: &[Field] = &[
     ("node", "node", false),
     ("region", "region", false),
+    ("leader", "leader", false),
     ("nodes", "nodes", false),
 ];
 
@@ -469,6 +470,9 @@ fn comment(path: &str) -> &'static str {
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",
         "network.region" => "The region it serves, such as oregon.",
+        "network.leader" => {
+            "The directory leader node id (DN4). Left out: the alphabetically first node id across this node and [[network.nodes]]."
+        }
         "network.nodes" => {
             "The other nodes of the network, one [[network.nodes]] each (DN3): id, region, host, port and optionally
 \n             fingerprint. Only these nodes may call this one. Left out: no peers."
