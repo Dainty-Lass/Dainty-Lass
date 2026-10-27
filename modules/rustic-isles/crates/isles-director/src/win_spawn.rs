@@ -1,8 +1,8 @@
 //! Windows: a game server started hidden (Node's `windowsHide`, STARTF_USESHOWWINDOW with SW_HIDE) and
 //! inside a job object. The game is a GUI application and opens a window even with -nullrhi; the
 //! standard library can't set the show state on this toolchain (`show_window` is unstable), so the
-//! process is created here, suspended, put in its job and only then resumed: nothing it starts can be
-//! outside the job. The job has `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so its tree ends with the last
+//! process is created here, in its job from its first instruction (PROC_THREAD_ATTRIBUTE_JOB_LIST): nothing
+//! it starts can be outside the job, and a Director killed mid-spawn cannot orphan a process. The job has `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so its tree ends with the last
 //! handle to it, the Director's death included.
 #![allow(unsafe_code)] // CreateProcessW, pipes, job objects and the process handle
 
@@ -16,17 +16,15 @@ use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_GENERIC_READ, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::JobObjects::{
-    AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
-    TerminateJobObject,
+    CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+    JobObjectExtendedLimitInformation, SetInformationJobObject, TerminateJobObject,
 };
-use windows::Win32::System::Pipes::CreatePipe;
+use windows::Win32::System::Pipes::{CreatePipe, PeekNamedPipe};
 use windows::Win32::System::Threading::{
-    CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
-    EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, INFINITE, InitializeProcThreadAttributeList,
-    LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION, ResumeThread,
-    STARTF_USESHOWWINDOW, STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW, TerminateProcess,
-    UpdateProcThreadAttribute, WaitForSingleObject,
+    CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
+    GetExitCodeProcess, InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
+    PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_JOB_LIST, PROCESS_INFORMATION, STARTF_USESHOWWINDOW,
+    STARTF_USESTDHANDLES, STARTUPINFOEXW, STARTUPINFOW, UpdateProcThreadAttribute, WaitForSingleObject,
 };
 use windows::core::{PCWSTR, PWSTR};
 
@@ -46,16 +44,16 @@ impl Process {
         HANDLE(self.process.as_raw_handle())
     }
 
-    /// Blocks until the process ends: its exit code.
-    pub fn wait(&self) -> std::io::Result<u32> {
+    /// The exit code once the process has ended. Polled, never a blocking wait: a blocked thread would
+    /// hold the runtime's shutdown until the game server exited by itself.
+    pub fn exit_code(&self) -> Option<u32> {
         // SAFETY: the handle is open (owned by self) and has SYNCHRONIZE and QUERY rights.
         unsafe {
-            if WaitForSingleObject(self.raw(), INFINITE) != WAIT_OBJECT_0 {
-                return Err(std::io::Error::last_os_error());
+            if WaitForSingleObject(self.raw(), 0) != WAIT_OBJECT_0 {
+                return None;
             }
             let mut code = 0u32;
-            GetExitCodeProcess(self.raw(), &mut code).map_err(std::io::Error::other)?;
-            Ok(code)
+            Some(GetExitCodeProcess(self.raw(), &mut code).map_or(1, |()| code))
         }
     }
 
@@ -98,37 +96,45 @@ fn new_job() -> std::io::Result<OwnedHandle> {
     Ok(job)
 }
 
-/// A PROC_THREAD_ATTRIBUTE_HANDLE_LIST over `handles`, which must outlive it.
+/// A PROC_THREAD_ATTRIBUTE_HANDLE_LIST over `handles` and a PROC_THREAD_ATTRIBUTE_JOB_LIST over `jobs`, which
+/// must outlive it.
 struct AttributeList<'a> {
     buffer: Vec<usize>,
     _handles: &'a [HANDLE],
+    _jobs: &'a [HANDLE],
 }
 
 impl<'a> AttributeList<'a> {
-    fn new(handles: &'a [HANDLE]) -> std::io::Result<Self> {
+    fn new(handles: &'a [HANDLE], jobs: &'a [HANDLE]) -> std::io::Result<Self> {
         let mut size = 0usize;
         // SAFETY: the first call only reports the size (it fails with ERROR_INSUFFICIENT_BUFFER).
-        let _ = unsafe { InitializeProcThreadAttributeList(None, 1, None, &mut size) };
+        let _ = unsafe { InitializeProcThreadAttributeList(None, 2, None, &mut size) };
         let mut buffer = vec![0usize; size.div_ceil(std::mem::size_of::<usize>())];
         let list = LPPROC_THREAD_ATTRIBUTE_LIST(buffer.as_mut_ptr().cast());
-        // SAFETY: the buffer is at least `size` bytes and aligned for pointers; `handles` lives as
+        // SAFETY: the buffer is at least `size` bytes and aligned for pointers; `handles` and `jobs` live as
         // long as the list (the lifetime), as UpdateProcThreadAttribute requires.
         unsafe {
-            InitializeProcThreadAttributeList(Some(list), 1, None, &mut size).map_err(std::io::Error::other)?;
-            UpdateProcThreadAttribute(
-                list,
-                0,
-                PROC_THREAD_ATTRIBUTE_HANDLE_LIST as usize,
-                Some(handles.as_ptr().cast()),
-                std::mem::size_of_val(handles),
-                None,
-                None,
-            )
-            .map_err(std::io::Error::other)?;
+            InitializeProcThreadAttributeList(Some(list), 2, None, &mut size).map_err(std::io::Error::other)?;
+            for (attribute, values) in [
+                (PROC_THREAD_ATTRIBUTE_HANDLE_LIST, handles),
+                (PROC_THREAD_ATTRIBUTE_JOB_LIST, jobs),
+            ] {
+                UpdateProcThreadAttribute(
+                    list,
+                    0,
+                    attribute as usize,
+                    Some(values.as_ptr().cast()),
+                    std::mem::size_of_val(values),
+                    None,
+                    None,
+                )
+                .map_err(std::io::Error::other)?;
+            }
         }
         Ok(Self {
             buffer,
             _handles: handles,
+            _jobs: jobs,
         })
     }
 
@@ -147,8 +153,71 @@ impl Drop for AttributeList<'_> {
 pub struct Child {
     pub pid: u32,
     pub process: Arc<Process>,
-    pub stdout: std::fs::File,
-    pub stderr: std::fs::File,
+    pub stdout: PollPipe,
+    pub stderr: PollPipe,
+}
+
+/// The read end of an anonymous pipe, read without ever blocking a thread: the pipe is peeked and read when it
+/// holds something, else polled again 20 ms later. (Anonymous pipes have no overlapped I/O, and a blocking
+/// read on a pool thread keeps a dropped runtime from shutting down while the game server lives.)
+pub struct PollPipe {
+    file: std::fs::File,
+    nap: Option<std::pin::Pin<Box<tokio::time::Sleep>>>,
+}
+
+impl PollPipe {
+    fn new(file: std::fs::File) -> Self {
+        Self { file, nap: None }
+    }
+
+    /// Bytes waiting, or `None` once the writers are gone.
+    fn available(&self) -> Option<u32> {
+        let mut available = 0u32;
+        // SAFETY: the handle is open while `self` lives; the out-pointer is valid for the call.
+        unsafe {
+            PeekNamedPipe(
+                HANDLE(self.file.as_raw_handle()),
+                None,
+                0,
+                None,
+                Some(&mut available),
+                None,
+            )
+        }
+        .ok()
+        .map(|()| available)
+    }
+}
+
+impl tokio::io::AsyncRead for PollPipe {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        use std::io::Read;
+        use std::task::Poll;
+        loop {
+            let Some(available) = self.available() else {
+                return Poll::Ready(Ok(()));
+            };
+            if available > 0 {
+                let want = (available as usize).min(buf.remaining());
+                let mut chunk = vec![0u8; want];
+                let read = self.file.read(&mut chunk)?;
+                buf.put_slice(&chunk[..read]);
+                self.nap = None;
+                return Poll::Ready(Ok(()));
+            }
+            let nap = self
+                .nap
+                .get_or_insert_with(|| Box::pin(tokio::time::sleep(std::time::Duration::from_millis(20))));
+            if nap.as_mut().poll(cx).is_pending() {
+                return Poll::Pending;
+            }
+            self.nap = None;
+        }
+    }
 }
 
 fn wide(text: &str) -> Vec<u16> {
@@ -226,7 +295,8 @@ pub fn spawn(program: &str, args: &[String], env: &[(String, String)], hide: boo
     // Only these three reach the child. Without the list it would get every inheritable handle of
     // this process, such as the host kit's log pipe, and hold it open after the Director is gone.
     let inherited = [startup.hStdInput, startup.hStdOutput, startup.hStdError];
-    let attributes = AttributeList::new(&inherited)?;
+    let jobs = [HANDLE(job.as_raw_handle())];
+    let attributes = AttributeList::new(&inherited, &jobs)?;
     let extended = STARTUPINFOEXW {
         StartupInfo: startup,
         lpAttributeList: attributes.raw(),
@@ -241,7 +311,7 @@ pub fn spawn(program: &str, args: &[String], env: &[(String, String)], hide: boo
             None,
             None,
             true,
-            CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
+            CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
             Some(block.as_ptr().cast::<c_void>()),
             PCWSTR::null(),
             &extended.StartupInfo,
@@ -250,31 +320,18 @@ pub fn spawn(program: &str, args: &[String], env: &[(String, String)], hide: boo
         .map_err(|e| std::io::Error::from_raw_os_error(e.code().0 & 0xffff))?;
     }
     drop(attributes);
-    // SAFETY: both handles are fresh and owned from here on; the thread's is closed after it runs.
-    let (process, thread) = unsafe {
-        (
-            OwnedHandle::from_raw_handle(info.hProcess.0),
-            OwnedHandle::from_raw_handle(info.hThread.0),
-        )
+    // SAFETY: both handles are fresh and owned from here on; the thread's is not needed.
+    let process = unsafe {
+        drop(OwnedHandle::from_raw_handle(info.hThread.0));
+        OwnedHandle::from_raw_handle(info.hProcess.0)
     };
-    // SAFETY: both handles are open for the call.
-    let assigned = unsafe { AssignProcessToJobObject(HANDLE(job.as_raw_handle()), HANDLE(process.as_raw_handle())) };
-    if let Err(error) = assigned {
-        // Outside the job it could outlive the Director: never let it run
-        // SAFETY: the process handle is open and has PROCESS_TERMINATE.
-        let _ = unsafe { TerminateProcess(HANDLE(process.as_raw_handle()), 1) };
-        return Err(std::io::Error::other(error));
-    }
-    // SAFETY: the thread handle is open and has THREAD_SUSPEND_RESUME (CreateProcessW's own).
-    unsafe { ResumeThread(HANDLE(thread.as_raw_handle())) };
-    drop(thread);
     // The child's ends close here, so the pipes report the end when the child's copies close.
     drop((stdin, stdout_write, stderr_write));
     let process = Arc::new(Process { process, job });
     Ok(Child {
         pid: info.dwProcessId,
         process,
-        stdout: std::fs::File::from(stdout_read),
-        stderr: std::fs::File::from(stderr_read),
+        stdout: PollPipe::new(std::fs::File::from(stdout_read)),
+        stderr: PollPipe::new(std::fs::File::from(stderr_read)),
     })
 }
