@@ -37,6 +37,8 @@ pub use module::{
     ErrorKind, Event, EventName, GameModule, HostAnswer, HostCall, HostLink, LogLevel, LogRecord, ModuleConfig,
     ModuleContext, ModuleError, ModuleStatus, Phase,
 };
-pub use network::{GlobalId, HomeApi, IdKind, NodeId, NodeIdentity, Region};
+pub use network::{
+    GlobalId, HomeApi, HomeBackend, HomeForward, HomeInvocation, IdKind, NodeId, NodeIdentity, OperationName, Region,
+};
 pub use registrar::{Registrar, Registration};
 pub use version::{API_VERSION, ApiVersion, GameVersion};

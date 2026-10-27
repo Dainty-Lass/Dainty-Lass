@@ -166,6 +166,19 @@ impl GameModule for StubModule {
         request: CommandRequest,
     ) -> BoxFuture<'_, Result<CommandOutput, ModuleError>> {
         Box::pin(async move {
+            // The stub keeps no accounts: a home invocation (DN5) is answered with what it asked
+            if let Some(invocation) = crate::network::HomeInvocation::from_command(&request) {
+                let invocation = invocation?;
+                return Ok(CommandOutput {
+                    text: String::new(),
+                    data: Some(json!({
+                        "from": invocation.from,
+                        "account": invocation.account,
+                        "operation": invocation.operation,
+                        "body": invocation.body,
+                    })),
+                });
+            }
             match request.name.as_str() {
                 "echo" => {
                     let greeting = lock(&self.state).greeting.clone();

@@ -90,7 +90,7 @@ pub struct ApiVersion {
 }
 
 /// The contract this build of the crate speaks.
-pub const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 0 };
+pub const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 1 };
 
 impl ApiVersion {
     /// Whether a host speaking `self` can run a module built against `module`: same major, and nothing

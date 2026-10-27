@@ -15,8 +15,11 @@ use crate::actor::ActorContext;
 use crate::chat::{ChatAnswer, ChatQuery};
 use crate::ids::{ModuleId, check_name};
 use crate::manifest::{ModuleManifest, PortRange};
-use crate::network::{GlobalId, HomeAnswer, HomeCall, HomeError, IdKind, NodeId, NodeIdentity, SessionTicket};
+use crate::network::{
+    GlobalId, HomeAnswer, HomeCall, HomeError, HomeForward, IdKind, NodeId, NodeIdentity, OperationName, SessionTicket,
+};
 use crate::registrar::{AdminAction, Registrar, Registration};
+use crate::version::GameVersion;
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -428,6 +431,60 @@ impl ModuleContext {
         };
         Ok(match self.home(call).await? {
             Ok(HomeAnswer::Ticket(ticket)) => Ok(ticket),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    /// Runs `operation` at the account's home, in `module`'s backend there, and gives its answer (DN5). A
+    /// repeat of the same `key` is answered with the first answer instead of running again; none makes the
+    /// host choose one.
+    pub async fn forward_home(
+        &self,
+        account: &GlobalId,
+        actor: &ActorContext,
+        operation: &OperationName,
+        body: serde_json::Value,
+        key: Option<String>,
+    ) -> Result<Result<serde_json::Value, HomeError>, ModuleError> {
+        let call = HomeCall::Forward(HomeForward {
+            module: self.module.clone(),
+            account: account.clone(),
+            actor: actor.clone(),
+            operation: operation.clone(),
+            body,
+            key,
+        });
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Forwarded(answer)) => Ok(answer),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    /// Checks a ticket a player arrived with, as the node it was made for (DN5): the account it proves is
+    /// logged in at its home, or why not.
+    pub async fn admit_ticket(
+        &self,
+        ticket: &SessionTicket,
+        game: &GameVersion,
+    ) -> Result<Result<GlobalId, HomeError>, ModuleError> {
+        let call = HomeCall::Admit {
+            ticket: ticket.clone(),
+            game: game.clone(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Admitted(account)) => Ok(account),
             Ok(other) => {
                 return Err(ModuleError::new(
                     ErrorKind::Protocol,

@@ -5,8 +5,8 @@
 The checklist for the network core plugin, `rust/plugins/network` (`docs/dainty-lass-plan.md` DD16-DD19, DN3-DN11).
 `SECURITY_REVIEW.md` indexes it. DX2 gives it five parts: node certificates and the cluster CA, session tickets, the
 directory, the claim protocol and chat federation. Each row adds its part with its code; this page has the directory
-(DN4) and the node certificates (DN3) so far. Region ping, which the gateway answers for the launcher, is
-`region-ping.md`'s.
+(DN4), the node certificates (DN3) and the session tickets and home API (DN5) so far. Region ping, which the gateway
+answers for the launcher, is `region-ping.md`'s.
 
 How to use it: before the network's canary (DN14), copy this list into the review, check each item in the code (not
 from memory), link the code or test that shows it, and sign at the end with the date and the commit reviewed. An
@@ -215,12 +215,137 @@ Fuzz target: `network_link` in `rust/fuzz` (the route table, the time header, a 
   renewal needs a restart.
 - **A lost or leaked CA file** means a new CA and every node certificate again. Nothing detects a leak.
 - **The controller doesn't attach a service yet.** `Gateway::node_links().endpoint().attach(..)` and
-  `server::run_with_node_links` give the network plugin its hook; DN5 and DN10b attach their services.
+  `server::run_with_node_links` give the network plugin its hook; DN5 built the services (`ServiceMux` puts the
+  directory's and the home API's behind the one attachment) and DN10b adds its own.
 - **A private (Tailscale) server can't be a node:** node links need the gateway's TLS port.
 
-## Session tickets (DN5)
+## Session tickets and the home API (DN5)
 
-To be written with DN5.
+An account's data lives only at its home (DD17). A node that needs it, such as the one hosting a hunt, gets from the
+home a short-lived **ticket** the home signed, and with it asks the home's game module to run **operations** on the
+account. The plugin carries a module name, an operation name and a JSON body without reading them; the module at the
+home decides what they mean. **The account key never crosses a node link.**
+
+- **Ticket:** `dlt1.<claims>.<signature>`, both base64url without padding, at most 1024 bytes. The claims are JSON the
+  home wrote once: `v`, `kid` (the signing key's id), `iss` (the home), `aud` (the node it is for), `sub` (the
+  account's global id), `game` (the game version), `iat`, `exp` (unix ms), `since` (when the login began, kept by every
+  renewal) and `jti` (128 random bits). The signature is Ed25519 over `dainty-lass/session-ticket/v1\n` and the claim
+  bytes as written, so nothing is re-serialised before it is checked (`ticket.rs`). It holds no secret.
+- **Keys:** each node has one Ed25519 signing key in a file of its own (`dlk1.<64 hex>`, made on first start, mode 0600,
+  refused on Unix if other users can read it; `keys.rs`). Its public key is not secret: a peer fetches it with
+  `public_keys` over the mutually authenticated link, so a key learned from node X was told by X. A node never takes
+  keys for itself from a peer, a rotated key's predecessor stays in the list while tickets it signed can be alive, and a
+  node fetches a given peer's keys at most every 10 seconds.
+- **Lifetimes:** 5 minutes by default, never more than 15 (a verifier refuses a ticket that claims more); clocks may
+  differ by 30 seconds (the node links' own bound); a login can be renewed for 6 hours from `since`.
+- **Where tickets are made:** at the account's home. The home's own modules ask `NetworkedHome::session_ticket`. A
+  node that holds a ticket for a player can **exchange** it at the home for one for another node (to hand the player
+  on, DN6) or for itself (renewal); the home checks the one presented first and keeps `since`.
+- **Where they are checked:** by the node they are for (`HomeApi::admit`), offline against the home's public key:
+  shape, signature, issuer (must be the home the directory names for the account), audience (this node), game version,
+  times, and not seen before. By the home, on every call it answers (below).
+- **What a node does with one:** `admit` keeps it; the node's operations on that account present it, and the node
+  renews it with the home when it has under a minute left. A node with no ticket for an account can do nothing to it.
+- **Operations:** `Service::Home`, route `/__node/home`, requests `public_keys`, `check` (does the home still stand
+  behind this ticket), `exchange` and `run` (module, operation, account, actor, request key, body). Versioned,
+  `deny_unknown_fields`, every name and id typed, bodies at most 256 KiB (`protocol.rs`). The home finds the module's
+  `HomeBackend` in its `HomeRouter` and calls it only for accounts the directory says are homed on this node.
+- **Repeats:** a `run` carries a request key; the home runs one key once and answers a repeat with the first answer
+  (kept for up to 1024 requests or 8 MiB), so a request whose answer was lost can be sent again without writing twice.
+
+Code: `rust/plugins/network/src/home/` (`ticket.rs`, `keys.rs`, `protocol.rs`, `service.rs` for the home's side,
+`client.rs` for `NetworkedHome`), `link.rs` (`Service::Home`, `ServiceMux`), and in
+`rust/crates/module-api/src/network.rs` the seams (`HomeBackend`, `HomeInvocation`, `HomeForward`,
+`HomeApi::forward` and `admit`).
+Tests: `rust/plugins/network/tests/home.rs` (three regions in process, SQLite and, with `REFORGED_TEST_POSTGRES_URL`,
+Postgres), unit tests in `home/ticket.rs`, `keys.rs` and `protocol.rs`, and `rust/services/gateway/tests/home.rs` (two
+real gateways over mutual TLS).
+
+Fuzz targets: `network_home` in `rust/fuzz` (requests and answers: read whole or refused, no account-key-shaped value
+in any free-form field, bounds, written back the same) and `network_ticket` (tokens: never panic, nothing the fuzzer
+writes verifies, a changed byte of a real ticket never verifies; public keys from a peer).
+
+### Checklist
+
+#### The account key
+
+- [ ] No field of any home message can hold an account key. Typed fields are names and ids checked as read; the
+      free-form ones (`HomeBody`, `WireActor`, `RequestKey`, `CleanText`) refuse anything shaped like `RRK_` and eight
+      more key characters, in any case, in a string or an object key, when built and when deserialised; a ticket's
+      token is bounded base64url whose claims are typed. `encode_*` and `decode_*` run `Validate` over what they
+      carry. Tests: `no_message_type_can_carry_an_account_key` (every message type),
+      `the_account_key_never_crosses_a_node_link` (everything on the wire in a whole session is scanned, and a module
+      that tries to write one is refused before anything is sent).
+- [ ] A module's refusal text is cut and scrubbed before it crosses (`CleanText::lossy`); the signing key and tickets
+      are not logged (`Debug` shows key ids and node names only), and a log line for a home call names the peer, module,
+      operation and account id, never the body.
+
+#### Who can ask for what
+
+- [ ] Every `check`, `exchange` and `run` carries a ticket this node signed **for the caller as the link authenticated
+      it**; a ticket presented by another node is `wrong_audience`. A node acts only for players whose home gave it a
+      ticket, only until it expires or the home ends the session. Tests:
+      `a_node_acts_only_for_players_whose_home_gave_it_a_ticket`,
+      `tickets_that_are_foreign_expired_replayed_or_misaddressed_are_refused`.
+- [ ] A `run` for an account that is not the ticket's, for a module the home doesn't run, for a ticket of another game
+      version, or for an account the directory does not place at this node is refused before the module is called.
+- [ ] An exchange only names this node or a peer it lists. The new ticket keeps the login's `since`, and a login older
+      than 6 hours is renewed no more. Test: `a_held_ticket_is_renewed_for_as_long_as_the_login_lasts`.
+- [ ] Ending a session at the home (`Tickets::revoke`: a ban, a logout; DN11) kills every ticket issued before it, at
+      the home, and renewals fail. Test: `a_session_the_home_ends_stops_working_everywhere`.
+- [ ] At most 64 operations run at once; one that outwaits its caller (20 seconds) still finishes and is remembered.
+
+#### Verification (the audience)
+
+- [ ] A ticket is accepted only when its signature verifies with a key the *issuer* told this node, the issuer is the
+      home the directory names for the account, the audience is this node, the game version is the module's, and it is
+      neither expired nor from the future (30 s allowed). Tests in `ticket.rs`:
+      `a_ticket_nobody_but_the_homes_key_signed_is_refused`,
+      `a_ticket_for_another_node_account_game_or_issuer_is_refused`, `tickets_expire_and_clocks_may_differ_a_little`.
+- [ ] A ticket is admitted once: its id is remembered until it could no longer be accepted; a second presentation is
+      `replayed`; a full memory (65 536) refuses rather than forgets; a ticket issued before this node started is
+      refused (`before_start`), since a restart forgot what was used. Tests: `a_ticket_is_admitted_once`,
+      `a_full_replay_memory_fails_closed`, `a_node_that_restarted_refuses_tickets_it_cannot_know_were_used`.
+- [ ] A token is the only spelling of itself (padding, case and extra parts are `malformed`), and its outer fields must
+      match its signed claims. Test: `nonsense_is_malformed_not_a_panic`.
+- [ ] A rotated key is followed: an unknown key id makes the node ask the issuer, at most every 10 seconds. Test:
+      `keys_are_fetched_from_the_home_and_a_rotation_is_followed`.
+
+#### Writes
+
+- [ ] A request key makes a write happen once: the repeat of a request whose answer was lost gets the first answer, a
+      key reused for a different request is refused, and an operation that failed is not remembered (it can be
+      sent again). Test: `a_request_lost_on_the_way_back_is_applied_once`.
+- [ ] The home's module sees who asked: the calling node from the link, and the actor the caller claims (a claim; the
+      module's change log records both).
+- [ ] The loot and XP of a hunt hosted elsewhere are written at the player's home and nowhere else. Tests:
+      `a_hunt_hosted_in_another_region_saves_loot_and_xp_at_the_players_home`, and over real mutual TLS
+      `a_hunt_in_another_region_saves_at_the_players_home_over_mutual_tls`.
+
+#### Outside a network
+
+- [ ] A server with no peers keeps `StandaloneHome`: nothing to forward to, no tickets, nothing leaves it. A
+      `NetworkedHome` with no peers works for its own accounts. Test: `a_server_outside_a_network_has_no_other_home`.
+
+### Still open
+
+- **Nothing builds these from `host.toml` yet.** The controller doesn't create the `Tickets`, `HomeService` and
+  `NetworkedHome`, put them in a `ServiceMux` with the directory, attach that to the gateway's endpoint, or register
+  a module's `HomeBackend` (`DriverBackend` wraps a loaded module) when it loads. The signing key file's place
+  and the 5-minute and 6-hour settings are the caller's to choose in code; none is a `host.toml` key yet.
+- **Revocations and the replay memory are in memory.** A restart of the home forgets who was banned until their ticket
+  would have expired anyway (at most 15 minutes, but a holder can renew until the 6-hour limit unless the home's module
+  checks bans on every operation); a restart of the audience refuses every ticket issued before it, so players ask
+  again.
+- **Admission is offline.** A node admits a ticket without asking the home, so a player whose session ended is admitted
+  until the ticket expires; `NetworkedHome::check_session` asks the home and a module that cares calls it.
+- **The cluster trusts its nodes with the tickets they hold.** A compromised node can act for the players it holds
+  tickets for (and no others) until they expire or the home ends their session. There is no per-operation limit;
+  that is the home's module's to apply to the invocation it receives.
+- **One game per network.** Tickets are made for the game version in `NetworkedConfig` (1.14.7, DD16); a node serving
+  several would need the version on `session_ticket`.
+- **A replica that has not yet pulled a new account** answers `unknown_account` for it. A node that registered the
+  account should `sync` before it hands the player on.
 
 ## The claim protocol (DN8)
 
@@ -237,6 +362,8 @@ Short runs happen on every push (CI's `fuzz` job). The run before the canary, fr
 ```bash
 cargo +nightly fuzz run network_directory -- -max_total_time=86400
 cargo +nightly fuzz run network_link -- -max_total_time=86400
+cargo +nightly fuzz run network_home -- -max_total_time=86400
+cargo +nightly fuzz run network_ticket -- -max_total_time=86400
 ```
 
 Signed: ________ (date, commit)

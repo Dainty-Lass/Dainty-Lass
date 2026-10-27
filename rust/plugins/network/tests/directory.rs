@@ -3,115 +3,21 @@
 //! may create databases on, as `store`'s tests do.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
+mod common;
+
+use common::{Engine, Target, engines};
+
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use diesel::connection::SimpleConnection;
-use diesel::prelude::*;
 use module_api::BoxFuture;
 use module_api::network::{GlobalId, IdKind, NodeId, NodeIdentity};
-use network::directory::SCHEMA;
 use network::inprocess::InProcessNetwork;
 use network::messages::{DIRECTORY_VERSION, DirectoryCall, DirectoryReply, DirectoryRequest, decode_response, encode};
 use network::{Directory, DirectoryConfig, DirectoryError, LinkError, NodeService, PeerLink, Refusal, Role, Service};
 use protocol::account::UsernameCheck;
-use store::{Actor, Database, DatabaseConfig, DatabaseOptions, PostgresConfig, portable};
-
-// ------------------------------------------------------------------ the engines
-
-/// A throwaway Postgres database, dropped with the guard.
-struct PgDatabase {
-    server: PostgresConfig,
-    config: PostgresConfig,
-}
-
-impl Drop for PgDatabase {
-    fn drop(&mut self) {
-        if let Ok(mut admin) = PgConnection::establish(&self.server.conninfo()) {
-            let _ = admin.batch_execute(&format!(
-                "DROP DATABASE IF EXISTS {} WITH (FORCE)",
-                portable::quote_ident(&self.config.database)
-            ));
-        }
-    }
-}
-
-fn postgres_server() -> Option<PostgresConfig> {
-    let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
-    let url = url::Url::parse(&url).expect("REFORGED_TEST_POSTGRES_URL is a postgres:// URL");
-    Some(PostgresConfig {
-        host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
-        port: url.port().unwrap_or(5432),
-        user: url.username().to_owned(),
-        database: url.path().trim_start_matches('/').to_owned(),
-        password: url.password().unwrap_or_default().to_owned(),
-        allow_remote: false,
-    })
-}
-
-static NEXT: AtomicU32 = AtomicU32::new(0);
-
-fn new_postgres(server: PostgresConfig) -> PgDatabase {
-    let name = format!(
-        "network_test_{}_{}_{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .subsec_nanos()
-    );
-    PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
-        .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
-        .unwrap();
-    let config = PostgresConfig {
-        database: name,
-        ..server.clone()
-    };
-    PgDatabase { server, config }
-}
-
-#[derive(Debug, Clone, Copy)]
-enum Engine {
-    Sqlite,
-    Postgres,
-}
-
-/// SQLite, and Postgres when it is configured.
-fn engines() -> Vec<Engine> {
-    if postgres_server().is_some() {
-        vec![Engine::Sqlite, Engine::Postgres]
-    } else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the Postgres half is skipped");
-        vec![Engine::Sqlite]
-    }
-}
-
-enum Target {
-    Sqlite(tempfile::TempDir),
-    Postgres(PgDatabase),
-}
-
-impl Target {
-    fn new(engine: Engine) -> Self {
-        match engine {
-            Engine::Sqlite => Self::Sqlite(tempfile::tempdir().unwrap()),
-            Engine::Postgres => Self::Postgres(new_postgres(postgres_server().unwrap())),
-        }
-    }
-
-    fn open(&self) -> Database {
-        let config = match self {
-            Self::Sqlite(dir) => DatabaseConfig::Sqlite {
-                file: dir.path().join("node.db"),
-            },
-            Self::Postgres(pg) => DatabaseConfig::Postgres(pg.config.clone()),
-        };
-        Database::open(&config, &DatabaseOptions::default(), &SCHEMA).unwrap()
-    }
-}
+use store::{Actor, Database};
 
 // ------------------------------------------------------------------ the nodes
 
