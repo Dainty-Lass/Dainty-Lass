@@ -31,6 +31,8 @@
 //!   the snapshot's `revived` and PLAY whenever the current server is a Dauntless Revived one.
 
 pub mod game;
+#[cfg(feature = "server-gui")]
+mod guarded;
 #[cfg(feature = "host")]
 pub mod host;
 #[cfg(not(feature = "host"))]

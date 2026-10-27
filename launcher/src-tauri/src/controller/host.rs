@@ -197,7 +197,7 @@ impl Controller {
     }
 
     /// The workspace in the settings when it still is one.
-    fn workspace(&self) -> Option<PathBuf> {
+    pub(super) fn workspace(&self) -> Option<PathBuf> {
         self.s().host_workspace.map(PathBuf::from).filter(|ws| is_workspace(ws))
     }
 

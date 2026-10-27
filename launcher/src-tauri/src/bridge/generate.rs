@@ -123,6 +123,9 @@ fn declarations() -> String {
         EpicView,
         InstallState,
         InstallInfo,
+        GuardedState,
+        GuardedMode,
+        GuardedActionInfo,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -145,6 +148,13 @@ fn declarations() -> String {
             .into(),
     );
     declare("type InstallOutcome = { ok: true; install: InstallInfo } | { ok: false; error: LauncherError };".into());
+    declare(
+        "type GuardedList = { ok: true; actions: Array<GuardedActionInfo> } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare(
+        "type GuardedOutcome = { ok: true; action: GuardedActionInfo } | { ok: false; error: LauncherError };".into(),
+    );
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
     out
