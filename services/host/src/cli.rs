@@ -52,6 +52,10 @@ pub enum Command {
     Backup,
     /// The network's cluster CA and node certificates (a server in a network, DD16)
     Network(NetworkArgs),
+    /// What changed in the server's data, by whom and when (DD23); `history verify` checks the log's hash chain
+    History(HistoryArgs),
+    /// Undo what an actor, an account or a time range changed (DD23): a dry run first, then `--apply <plan id>`
+    Revert(RevertArgs),
     /// Linux: one game server through Wine or Proton, as the Director starts it (the Node kit's
     /// `dist/gameserver.js`, run by `.workspace/bin/reforged-gameserver`). Not for people.
     #[command(hide = true)]
@@ -101,6 +105,8 @@ impl Command {
             Self::Update(_) => "update",
             Self::Backup => "backup",
             Self::Network(_) => "network",
+            Self::History(_) => "history",
+            Self::Revert(_) => "revert",
             Self::Gameserver { .. } => "gameserver",
             Self::Gateway { .. } => "gateway",
             Self::Allowlist { .. } => "allowlist",
@@ -587,4 +593,54 @@ pub struct StatusArgs {
     /// The answer as JSON, one object for the node and its peers
     #[arg(long)]
     pub json: bool,
+}
+
+/// Which changes: every option given must match. A time is RFC 3339, a date (UTC), or how long ago (`6h`, `2d`).
+#[derive(Debug, Clone, Default, Args)]
+pub struct HistoryFilterArgs {
+    /// Rows that belong to this account id
+    #[arg(long, value_name = "id")]
+    pub account: Option<String>,
+    /// Who made them: admin:<key id>, host:console, player:<account>, system:<task> (a bare key id works)
+    #[arg(long, value_name = "who")]
+    pub actor: Option<String>,
+    /// From this time on
+    #[arg(long, value_name = "time")]
+    pub since: Option<String>,
+    /// Before this time
+    #[arg(long, value_name = "time")]
+    pub until: Option<String>,
+}
+
+#[derive(Debug, Clone, Args)]
+#[command(args_conflicts_with_subcommands = true)]
+pub struct HistoryArgs {
+    #[command(subcommand)]
+    pub command: Option<HistoryCommand>,
+    #[command(flatten)]
+    pub filter: HistoryFilterArgs,
+    /// Changes per page, newest first (1 to 1000)
+    #[arg(long, value_name = "N", default_value = "50")]
+    pub limit: String,
+    /// Continue after a page: the cursor it printed
+    #[arg(long, value_name = "cursor")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum HistoryCommand {
+    /// Walk each log's hash chain from its start and name the first entry edited or removed
+    Verify,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct RevertArgs {
+    #[command(flatten)]
+    pub filter: HistoryFilterArgs,
+    /// Show what would change and print the plan's id (also what no option does)
+    #[arg(long, conflicts_with = "apply")]
+    pub dry_run: bool,
+    /// Apply the plan with this id, if it is still what the dry run showed; give the same selection
+    #[arg(long, value_name = "plan id")]
+    pub apply: Option<String>,
 }

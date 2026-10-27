@@ -682,11 +682,11 @@ pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
             say("Ctrl+C stops everything.");
         }
         if let Some(ring) = tui_ring {
-            if let Err(error) = crate::tui::run_tui(&mut controller, ring, reload_handle, stop_rx).await {
+            if let Err(error) = crate::tui::run_tui(&mut controller, ring, reload_handle, Some(paths), stop_rx).await {
                 say(&format!("TUI: {error}"));
             }
         } else if interactive {
-            crate::repl::run_repl(&mut controller, reload_handle, stop_rx).await;
+            crate::repl::run_repl(&mut controller, reload_handle, Some(paths), stop_rx).await;
         } else {
             let mut stop_rx = stop_rx;
             let _ = stop_rx.wait_for(|stopped| *stopped).await;

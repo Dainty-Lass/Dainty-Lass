@@ -140,6 +140,13 @@ fn declarations() -> String {
         ModuleThemeView,
         ModuleCapabilitiesView,
         ModuleView,
+        HistoryEntryView,
+        HistoryPageView,
+        RevertRowView,
+        RevertConflictView,
+        RevertPlanView,
+        RevertedInView,
+        RevertDoneView,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -177,6 +184,13 @@ fn declarations() -> String {
     declare(
         "type ModuleCommandOutcome = { ok: true; text: string; data: string | null } | { ok: false; error: LauncherError };"
             .into(),
+    );
+    declare("type HistoryOutcome = { ok: true; page: HistoryPageView } | { ok: false; error: LauncherError };".into());
+    declare(
+        "type RevertPlanOutcome = { ok: true; plan: RevertPlanView } | { ok: false; error: LauncherError };".into(),
+    );
+    declare(
+        "type RevertApplyOutcome = { ok: true; done: RevertDoneView } | { ok: false; error: LauncherError };".into(),
     );
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
