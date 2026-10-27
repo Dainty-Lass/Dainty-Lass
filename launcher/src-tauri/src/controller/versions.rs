@@ -19,7 +19,7 @@ impl Controller {
         }
     }
 
-    fn joined_servers(&self) -> Vec<JoinedServer> {
+    pub(super) fn joined_servers(&self) -> Vec<JoinedServer> {
         let s = self.s();
         let mut ids = Vec::new();
         s.server

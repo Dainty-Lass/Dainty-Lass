@@ -10,6 +10,7 @@ use std::path::Path;
 
 use arbitrary::Arbitrary;
 use epic::chunk;
+use epic::download::resume;
 use epic::manifest::{ChunkInfo, Guid, InstallPath, Manifest, ManifestError, Sha1Digest};
 use libfuzzer_sys::fuzz_target;
 
@@ -23,6 +24,8 @@ enum Input<'a> {
     Chunk { guid: [u32; 4], header: u8, raw: &'a [u8] },
     /// What the player pastes for Epic sign-in (DE2): a code, or Epic's JSON page with one
     Pasted(&'a str),
+    /// A resume file's body after a matching header (DE5)
+    Resume(&'a [u8]),
 }
 
 fn header_around(data: &[u8]) -> Vec<u8> {
@@ -88,5 +91,15 @@ fuzz_target!(|input: Input<'_>| match input {
             assert_eq!(data.len(), info.window_size as usize);
             assert_eq!(Sha1Digest::of(&data), info.sha1);
         }
+    }
+    Input::Resume(body) => {
+        let pin = Sha1Digest([7; 20]);
+        let mut file = format!("dainty-lass epic resume 1\nmanifest {pin}\nfolder install\n").into_bytes();
+        file.extend(body);
+        let state = resume::parse(&file, &pin, "install").expect("a matching header");
+        // At most one chunk or file per line
+        let lines = body.iter().filter(|b| **b == b'\n').count();
+        assert!(state.chunks.len() + state.files.len() <= lines);
+        assert!(resume::parse(&file, &Sha1Digest([8; 20]), "install").is_none());
     }
 });

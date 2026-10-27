@@ -14,16 +14,17 @@ use tauri::{AppHandle, Manager, State};
 
 use super::backend::Backend;
 use super::spec::{
-    Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX, INVITE_FOR_MAX, INVITE_MAX,
-    KEY_TEXT_MAX, PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
+    Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX, GAME_VERSION_MAX, INVITE_FOR_MAX,
+    INVITE_MAX, KEY_TEXT_MAX, PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
 };
 use super::types::{
     ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, HostAction,
-    HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck,
-    LauncherError, MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot,
-    TaskProgress,
+    HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode,
+    InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings,
+    SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
+use crate::controller::install::EpicGate;
 use crate::core::text::{js_length, js_trim};
 use crate::platform::epic_library::{self, EpicOwnership};
 use crate::platform::epic_session::Epic;
@@ -566,29 +567,53 @@ pub async fn game_version_list(app: AppHandle) -> GameVersionList {
     controller(&app).game_version_list().await
 }
 
-#[tauri::command]
-pub fn game_install_start(version: Value) -> ActionResult {
-    planned("game_install_start", &[&version])
+/// `version` as a client profile names it; anything longer is no version (DE5).
+fn game_version(version: &str) -> Option<&str> {
+    (!version.is_empty() && fits(version, GAME_VERSION_MAX)).then_some(version)
 }
 
 #[tauri::command]
-pub fn game_install_pause(version: Value) -> ActionResult {
-    planned("game_install_pause", &[&version])
+pub async fn game_install_start(version: String, app: AppHandle) -> InstallOutcome {
+    let Some(version) = game_version(&version) else {
+        return InstallOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    let gate = Arc::new(EpicGate {
+        epic: epic(&app),
+        ownership: app.state::<Arc<EpicOwnership>>().inner().clone(),
+    });
+    controller(&app).game_install_start(version, gate).await
 }
 
 #[tauri::command]
-pub fn game_install_resume(version: Value) -> ActionResult {
-    planned("game_install_resume", &[&version])
+pub fn game_install_pause(version: String, app: AppHandle) -> ActionResult {
+    match game_version(&version) {
+        Some(version) => controller(&app).game_install_pause(version),
+        None => ActionResult::err(ErrorCode::Unknown),
+    }
 }
 
 #[tauri::command]
-pub fn game_install_cancel(version: Value) -> ActionResult {
-    planned("game_install_cancel", &[&version])
+pub fn game_install_resume(version: String, app: AppHandle) -> ActionResult {
+    match game_version(&version) {
+        Some(version) => controller(&app).game_install_resume(version),
+        None => ActionResult::err(ErrorCode::Unknown),
+    }
 }
 
 #[tauri::command]
-pub fn game_install_get(version: Value) -> ActionResult {
-    planned("game_install_get", &[&version])
+pub fn game_install_cancel(version: String, app: AppHandle) -> ActionResult {
+    match game_version(&version) {
+        Some(version) => controller(&app).game_install_cancel(version),
+        None => ActionResult::err(ErrorCode::Unknown),
+    }
+}
+
+#[tauri::command]
+pub fn game_install_get(version: String, app: AppHandle) -> InstallOutcome {
+    match game_version(&version) {
+        Some(version) => controller(&app).game_install_get(version),
+        None => InstallOutcome::Err(LauncherError::new(ErrorCode::Unknown)),
+    }
 }
 
 /// The joined server's regions, nearest first, reported to it as well (DN7).
@@ -829,10 +854,10 @@ mod tests {
     #[test]
     fn planned_commands_check_their_arguments() {
         let unknown = ActionResult::err(ErrorCode::Unknown);
-        let long = json!("a".repeat(crate::bridge::spec::GAME_VERSION_MAX + 1));
-        assert_eq!(planned("game_install_start", &[&long]), unknown);
-        assert_eq!(planned("game_install_start", &[&json!(7)]), unknown);
-        assert_eq!(planned("game_install_start", &[]), unknown);
+        let long = json!("a".repeat(crate::bridge::spec::MODULE_ID_MAX + 1));
+        assert_eq!(planned("module_get", &[&long]), unknown);
+        assert_eq!(planned("module_get", &[&json!(7)]), unknown);
+        assert_eq!(planned("module_get", &[]), unknown);
         assert_eq!(planned("realm_host", &[&json!("raid")]), unknown);
         assert_eq!(planned("no_such_command", &[]), unknown);
         let filter = json!({ "actor": "key_01", "since": "2026-10-01T00:00:00Z" });
