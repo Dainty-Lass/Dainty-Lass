@@ -17,7 +17,6 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use protocol::game::Game;
 use protocol::manifest::{RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest};
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -164,16 +163,19 @@ impl RuntimeStore {
         state.current.clone()
     }
 
-    /// A game's runtime (`?game=`): `<dir>/<alias>` (`reforged`, `revived`) when that folder exists,
-    /// `<dir>` otherwise, so a server with one runtime answers as it always did.
-    pub fn get_for_game(&self, game: Option<Game>) -> RuntimeStatus {
-        if let (Some(game), Some(base)) = (game, &self.dir) {
-            let sub = base.join(game.version_alias());
-            if sub.is_dir() {
-                return load(&sub);
-            }
+    /// A version's runtime (`modules.rs`): the first of `<dir>/<folder>` that exists, `<dir>` otherwise, so
+    /// a server with one runtime answers as it always did.
+    pub fn get_in(&self, folders: &[String]) -> RuntimeStatus {
+        match self.folder(folders) {
+            Some(sub) => load(&sub),
+            None => self.get(),
         }
-        self.get()
+    }
+
+    /// The first of `folders` the host published a runtime folder under.
+    fn folder(&self, folders: &[String]) -> Option<PathBuf> {
+        let base = self.dir.as_ref()?;
+        folders.iter().map(|name| base.join(name)).find(|sub| sub.is_dir())
     }
 
     /// A listed file and its path. The name must be exactly one in the checked list.
@@ -187,20 +189,17 @@ impl RuntimeStore {
         Some((file, full))
     }
 
-    /// A game's runtime file (`files/<game>/<name>`), from the folder [`Self::get_for_game`] reads.
-    pub fn file_for_game(&self, game: Option<Game>, name: &str) -> Option<(RuntimeFile, PathBuf)> {
-        if let (Some(game), Some(base)) = (game, &self.dir) {
-            let sub = base.join(game.version_alias());
-            if sub.is_dir() {
-                let RuntimeStatus::Ok { index, .. } = load(&sub) else {
-                    return None;
-                };
-                let file = index.files.into_iter().find(|f| f.name == name)?;
-                let full = sub.join(&file.name);
-                return Some((file, full));
-            }
-        }
-        self.file(name)
+    /// A version's runtime file (`files/<version>/<name>`), from the folder [`Self::get_in`] reads.
+    pub fn file_in(&self, folders: &[String], name: &str) -> Option<(RuntimeFile, PathBuf)> {
+        let Some(sub) = self.folder(folders) else {
+            return self.file(name);
+        };
+        let RuntimeStatus::Ok { index, .. } = load(&sub) else {
+            return None;
+        };
+        let file = index.files.into_iter().find(|f| f.name == name)?;
+        let full = sub.join(&file.name);
+        Some((file, full))
     }
 
     /// Forget the last check (a file failed while being served).

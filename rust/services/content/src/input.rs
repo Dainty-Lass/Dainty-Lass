@@ -13,6 +13,10 @@ use service_kit::linelog as log;
 pub const RUNTIME_FILES_PREFIX: &str = "/content/v1/runtime/files/";
 pub const KEY_HEADER: &str = "x-reforged-user-api-key";
 pub const BRANDING_PREFIX: &str = "/content/v1/branding/";
+/// The versions content serves modules for (DF4b), and under it `<version>/client` and
+/// `<version>/epic/manifest`
+pub const VERSIONS_PATH: &str = "/content/v1/versions";
+pub const VERSIONS_PREFIX: &str = "/content/v1/versions/";
 
 // ---- The request ----
 
@@ -37,6 +41,11 @@ pub enum Route<'a> {
     News,
     BrandingImage(&'a str),
     RuntimeFile(&'a str),
+    Versions,
+    /// A version's client profile: the raw version segment
+    ClientProfile(&'a str),
+    /// A version's pinned Epic manifest: the raw version segment
+    EpicManifest(&'a str),
     /// A legacy server's `/content/v1/manifest`
     #[cfg(feature = "legacy")]
     GameManifest,
@@ -59,6 +68,16 @@ impl Route<'_> {
             Route::BrandingImage(name)
         } else if let Some(name) = path_only.strip_prefix(RUNTIME_FILES_PREFIX) {
             Route::RuntimeFile(name)
+        } else if path_only == VERSIONS_PATH {
+            Route::Versions
+        } else if let Some(rest) = path_only.strip_prefix(VERSIONS_PREFIX) {
+            let profile = rest.strip_suffix("/client").filter(|v| is_version_segment(v));
+            let epic = rest.strip_suffix("/epic/manifest").filter(|v| is_version_segment(v));
+            match (profile, epic) {
+                (Some(version), _) => Route::ClientProfile(version),
+                (_, Some(version)) => Route::EpicManifest(version),
+                _ => Route::Unknown,
+            }
         } else {
             Route::Unknown
         }
@@ -78,6 +97,33 @@ impl Route<'_> {
             }
         }
     }
+}
+
+/// A version or alias as a path segment, undecoded: what a `GameVersion` or a module alias can be.
+pub fn is_version_segment(segment: &str) -> bool {
+    (1..=64).contains(&segment.len())
+        && segment
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-'))
+}
+
+/// The query key a request named its game version with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VersionKey {
+    /// `version=` or `game=`: a game version or an alias (`1.14.7`, `reforged`)
+    Version,
+    /// `edition=`: an edition name (`reborn`, `legacy`)
+    Edition,
+}
+
+/// The first `version=`, `game=` or `edition=` in a query and its value, decoded as a form is. Anything
+/// else in the query is ignored, as Node ignores every query here.
+pub fn version_query(query: Option<&str>) -> Option<(VersionKey, String)> {
+    url::form_urlencoded::parse(query?.as_bytes()).find_map(|(key, value)| match key.as_ref() {
+        "version" | "game" => Some((VersionKey::Version, value.into_owned())),
+        "edition" => Some((VersionKey::Edition, value.into_owned())),
+        _ => None,
+    })
 }
 
 /// A runtime file name: exactly one of the two, letter case included (no decoding, no folders, no
@@ -318,6 +364,52 @@ mod tests {
         assert_eq!(Route::of("/content/v1/branding/"), Route::BrandingImage(""));
         assert_eq!(Route::of("/content/v1/files/x"), Route::Unknown);
         assert!(is_runtime_file_name("winmm.dll") && !is_runtime_file_name("winmm.DLL"));
+    }
+
+    #[test]
+    fn version_routes_take_one_plain_segment() {
+        assert_eq!(Route::of("/content/v1/versions"), Route::Versions);
+        assert_eq!(
+            Route::of("/content/v1/versions/1.14.7/client"),
+            Route::ClientProfile("1.14.7")
+        );
+        assert_eq!(
+            Route::of("/content/v1/versions/reforged/epic/manifest"),
+            Route::EpicManifest("reforged")
+        );
+        for unknown in [
+            "/content/v1/versions/",
+            "/content/v1/versions/client",
+            "/content/v1/versions//client",
+            "/content/v1/versions/a/b/client",
+            "/content/v1/versions/%2e%2e/client",
+            "/content/v1/versions/1.14.7/Client",
+            "/content/v1/versions/1.14.7/client/",
+            "/content/v1/versions/1.14.7/epic",
+            "/content/v1/versions/1.14.7",
+        ] {
+            assert_eq!(Route::of(unknown), Route::Unknown, "{unknown}");
+        }
+    }
+
+    #[test]
+    fn the_first_version_key_in_a_query_names_the_version() {
+        let named = |query: &str| version_query(Some(query));
+        assert_eq!(named("game=revived"), Some((VersionKey::Version, "revived".into())));
+        assert_eq!(
+            named("x=1&version=1.12.0"),
+            Some((VersionKey::Version, "1.12.0".into()))
+        );
+        assert_eq!(
+            named("edition=reborn&game=revived"),
+            Some((VersionKey::Edition, "reborn".into()))
+        );
+        assert_eq!(
+            named("game=revived&game=reforged"),
+            Some((VersionKey::Version, "revived".into()))
+        );
+        assert_eq!(named("x=1"), None);
+        assert_eq!(version_query(None), None);
     }
 
     #[test]

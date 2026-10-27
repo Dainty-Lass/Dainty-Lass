@@ -26,17 +26,23 @@ The launcher checks every byte against the list again, and the player accepts a 
   is checked before it is offered.
 - **In, from the network:** the news file at `CONTENT_NEWS_URL` (raw.githubusercontent.com over HTTPS only), and the
   backend's answer to the key check (`GET <BACKEND_URL>/reforged/api/GetUserInfo`, loopback HTTP only).
-- **Out:** the runtime files, their list, news and branding to players; account keys to the backend.
+- **In, from game modules (DF4b):** each loaded module's manifest and registration, handed over by the controller
+  (`CorePlugin::attach`), and the files it registered in its own folder (the folder from the controller's
+  `RegistryView`). An external module runs as its own process (DD5) and its manifest is untrusted input; a
+  compiled-in one is the host's build. Content serves a module's client profile and its pinned Epic manifest.
+- **Out:** the runtime files, their list, news and branding to players; a module's client profile and Epic
+  manifest; account keys to the backend.
 
 Code: `rust/services/content/src/` (`input.rs` holds every parser of outside input, `app.rs` the routes, `runtime.rs`
-the runtime store, `auth.rs` the key check, `config.rs`, `news.rs`, `branding.rs`, `limits.rs`, `client.rs`,
-`server.rs`).
+the runtime store, `modules.rs` the module table, `auth.rs` the key check, `config.rs`, `news.rs`, `branding.rs`,
+`limits.rs`, `client.rs`, `server.rs`).
 
 Fuzz targets in `rust/fuzz` (each drives `content::input`):
 
-- `content_request`: the request path, the account key and `if-none-match` headers, repeated lines included. Checks
-  that a path accepted as a runtime file names exactly one of the two, and that an accepted key is one printable
-  token.
+- `content_request`: the request path and query, the account key and `if-none-match` headers, repeated lines
+  included. Checks that a path accepted as a runtime file names exactly one of the two, that a version route's
+  version is one plain segment (`is_version_segment`), that the version query never panics, and that an accepted
+  key is one printable token.
 - `content_runtime_index`: `runtime.json` bytes. Checks that an accepted index lists exactly the two files, sorted,
   with sizes in range and lower-case SHA-256s under the one build name, and that its body reads back to itself.
 - `content_range` (legacy, drives `content::legacy`): a `Range` header gives a range inside the file or a refusal,
@@ -61,18 +67,28 @@ Fuzz targets in `rust/fuzz` (each drives `content::input`):
 
 ### Which file a request can reach
 
-- [ ] Only five route shapes exist, matched on the raw path up to `?` with no decoding: the manifest, branding,
-      news, `branding/<file>` and `runtime/files/<name>` (`input.rs`, `Route::of`). Anything else is 404, a known path
-      with another method 405. There is no directory listing.
+- [ ] Only eight route shapes exist, matched on the raw path up to `?` with no decoding: the manifest, branding,
+      news, `branding/<file>`, `runtime/files/<name>`, `versions`, `versions/<version>/client` and
+      `versions/<version>/epic/manifest` (`input.rs`, `Route::of`). Anything else is 404, a known path with another
+      method 405. There is no directory listing. None of the parity scripts' paths is a version route, so their
+      answers are unchanged.
 - [ ] A runtime file name must be exactly `MysticParadox.dll` or `winmm.dll`, letter case included, with no
       decoding; `..`, `%2e`, `/`, `\`, `runtime.json` and lookalikes are 404 (`is_runtime_file_name`;
-      `tests/app.rs`, the parity scripts). The one `/` allowed is `runtime/files/<game>/<name>`, where `<game>` is
-      exactly a game version or its alias (`1.14.7`, `reforged`, `1.4.4`, `revived`; `Game::from_version`) and
-      `<name>` passes the same check.
+      `tests/app.rs`, the parity scripts). The one `/` allowed is `runtime/files/<version>/<name>`, where
+      `<version>` resolves to a known game version (a loaded module's version or invite alias, else `1.14.7`,
+      `reforged`, `1.4.4`, `revived`; `ContentModules::resolve`) and `<name>` passes the same check. Anything else
+      before the `/` is 404.
 - [ ] The file served is `CONTENT_RUNTIME_DIR` joined with a name from the checked list, never with the request's
-      text (`RuntimeStore::file`). A game's file is `CONTENT_RUNTIME_DIR/<alias>` joined the same way, the alias
-      from `Game::version_alias`, not the request's text (`file_for_game`); `?game=` on the manifest picks the
-      same folder and is otherwise ignored, as Node ignores the query.
+      text (`RuntimeStore::file`). A version's file is the first of `CONTENT_RUNTIME_DIR/<version>` and
+      `CONTENT_RUNTIME_DIR/<alias>` that exists, joined the same way, the folder names taken from the resolved
+      version and the module's validated aliases, never the request's text, and refused unless they are
+      `[a-z0-9.-]` not starting with `.` (`runtime_folders`, `is_folder_name`, `file_in`). With no such folder it
+      is the server's own runtime, as before modules.
+- [ ] `?version=`, `?game=` (a version or alias) and `?edition=` (`reborn` or `legacy`) on the manifest pick the
+      same folder; the first of the three in the query decides, an unknown value is ignored, and a request without
+      one gets the server's own runtime, 1.14.7, as Node ignores the query (`version_query`; `tests/app.rs`).
+- [ ] A version route's `<version>` is one segment of `[a-z0-9.-]`, at most 64 bytes, undecoded
+      (`is_version_segment`), and is only looked up in the module table, never joined to a path.
 - [ ] A branding image name must match `IMAGE_NAME` (no folder, no leading dot, jpg/png/webp), be listed by the
       current scan, be a regular file of 1 byte to 25 MB, and start with the signature of its extension
       (`branding.rs`).
@@ -94,6 +110,30 @@ Fuzz targets in `rust/fuzz` (each drives `content::input`):
 - [ ] A file that cannot be opened, or that is no longer a regular file of the listed size when it is served, is
       not sent: 503 `file_unavailable`, and the store forgets its check so the next request reloads the folder. The
       body is exactly the listed size (`take`), never more.
+
+### Game modules, client profiles and Epic manifests (DF4b)
+
+- [ ] `attach` checks the manifest (`ModuleManifest::validate`) and the registration against it
+      (`Registration::check`) again, whatever the controller checked, and refuses the load on either: relative
+      paths only, bounded lists, aliases as names (`modules.rs`).
+- [ ] One game module per version: a second module for a version already attached is refused; the same module
+      attached again replaces its entry; `detach` removes every entry of the module, and its aliases stop resolving.
+      A plugin's registration is accepted and nothing of it is served yet (RZ3).
+- [ ] A module that registers `epic/manifest` (`EPIC_MANIFEST_PATH`) without a client profile pinning an Epic build
+      is refused: content never serves a manifest it has no SHA-1 to check against.
+- [ ] `versions/<version>/client` answers the attached module's `ClientProfile`, serialised by module-api's own type
+      (snake_case fields, as the launcher's types read them), with an ETag of the body; 404 `unknown_version` or
+      `no_client_profile` otherwise. It needs no key, as the runtime manifest needs none.
+- [ ] `versions/<version>/epic/manifest` needs `x-reforged-user-api-key` (the same check, cache and log rules as a
+      runtime file) and takes a download slot. The file is the module's folder (`RegistryView::module_dir`) joined
+      with the registered source, canonicalised and refused if a link leads it out of the folder; it must be a
+      regular file of 1 byte to 64 MiB (`MAX_EPIC_MANIFEST_BYTES`, the epic crate's own ceiling).
+- [ ] The Epic manifest is sent only after its SHA-1 matched the profile's `manifest_sha1` (DD22): a mismatch is
+      503 `epic_manifest_invalid` with both digests in the request log, a missing or oversized file 503
+      `epic_manifest_unavailable`, a module that registered none 404 `no_epic_manifest` (the launcher then goes to
+      the profile's sources). The checked bytes are kept in memory and read and hashed again whenever the file's
+      size or modification time changes; the hashing runs off the async threads. Its ETag is the pinned SHA-1.
+- [ ] DaintyLass never hosts game files: content serves only the manifest a module pinned, never chunks.
 
 ### Account keys
 
@@ -187,6 +227,8 @@ node ../../rust/services/content/tests/parity/record.cjs content
 - Node also closed a request after 30 s (`requestTimeout`) and an idle keep-alive connection after 5 s; the Rust
   server has the 20 s header timeout and the 120 s idle timeout only. Requests carry no body, so the 30 s limit had
   nothing to cut short.
+- The version routes (`/content/v1/versions*`, DF4b) and the version query on the runtime routes are Rust only:
+  Node had no modules. A request naming no version, or one content doesn't know, is answered as Node answered it.
 - DR's client refused GitHub's 304 as a redirect and logged a warning each minute; only 301, 302, 303, 307 and 308
   are redirects now, as for `fetch`.
 
