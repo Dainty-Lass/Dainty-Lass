@@ -585,6 +585,7 @@ mod tests {
             linux: None,
             database: None,
             guard: None,
+            history: None,
             modules: None,
             network: None,
             file: FileForm::default(),

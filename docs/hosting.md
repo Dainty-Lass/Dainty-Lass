@@ -173,8 +173,9 @@ servers' key) lives only in `secrets.env`.
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
 | (edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below) |
 | (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
+| (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
 | (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one (this build has none yet) and no other |
-| (edit `host.toml`) | `[network]` `node`, `region` | This server's name and region in a network. Left out: a server on its own |
+| (edit `host.toml`) | `[network]` `node`, `region`, `leader` | This server's name, region and optional directory leader in a network. Left out: a server on its own |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
 
 ### The database engine
@@ -284,6 +285,19 @@ or, with `--ca <file>`, what a CA has issued. `reforged-host network status` pin
 with this server's own certificate and shows each one's state, round trip and clock skew (`--json` for scripts; the exit
 code is 1 when a peer is not up). Docker's `network` profile runs four such nodes with injected latency, for testing
 ([hosting-docker.md](hosting-docker.md#the-network-profile-four-nodes-on-one-machine)).
+
+To ship a node's change log and database snapshots to a peer region's node without paying for an external S3 bucket
+(DH7, DD23 layer 2), add `[history]` naming one of the peers in `[[network.nodes]]`:
+
+```toml
+[history]
+ship_to_peer = "uk-1"
+```
+
+The peer stores each node's shipped segments and snapshots append-only in `.workspace/peer-logs/<origin>/` (using the
+peer's own clock for `received_at` metadata and verifying every object's SHA-256 against its content-addressed name),
+so a destroyed node's database can be restored from the peer's folder with `history_ship::restore_to` while verifying
+the hash chain and any off-server `trusted_head`.
 
 ## Public servers
 

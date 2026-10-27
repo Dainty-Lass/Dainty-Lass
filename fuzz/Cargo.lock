@@ -29,6 +29,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "module-api",
+ "network",
  "percent-encoding",
  "protocol",
  "rand 0.10.3",
@@ -671,11 +672,14 @@ dependencies = [
  "admin",
  "content",
  "gateway",
+ "history-ship",
  "module-api",
+ "network",
  "protocol",
  "serde",
  "serde_json",
  "service-kit",
+ "store",
  "thiserror",
  "tokio",
  "tracing",
@@ -1331,6 +1335,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs4"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e72ed92b67c146290f88e9c89d60ca163ea417a446f61ffd7b72df3e7f1dfd5"
+dependencies = [
+ "rustix",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "fs_extra"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1607,7 +1621,9 @@ dependencies = [
  "content",
  "controller",
  "crossterm",
+ "epic",
  "flate2",
+ "fs4",
  "gateway",
  "http-body-util",
  "hyper",
@@ -1622,6 +1638,7 @@ dependencies = [
  "serde_json",
  "service-kit",
  "sha2",
+ "store",
  "tar",
  "thiserror",
  "tokio",
@@ -2302,6 +2319,7 @@ dependencies = [
  "bytes",
  "diesel",
  "diesel_migrations",
+ "history-ship",
  "http-body-util",
  "hyper",
  "hyper-util",

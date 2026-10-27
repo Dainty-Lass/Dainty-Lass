@@ -39,6 +39,7 @@ const TOP: &[Field] = &[
     ("linux", "linux", false),
     ("database", "database", false),
     ("guard", "guard", false),
+    ("history", "history", false),
     ("network", "network", false),
     ("modules", "modules", false),
 ];
@@ -104,6 +105,8 @@ const GUARD: &[Field] = &[
     ("expireHours", "expire_hours", false),
 ];
 
+const HISTORY: &[Field] = &[("shipToPeer", "ship_to_peer", false)];
+
 /// The keys of a table at the top of the file; `None` for a single value.
 fn table_fields(json_key: &str) -> Option<&'static [Field]> {
     match json_key {
@@ -113,6 +116,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "linux" => Some(LINUX),
         "database" => Some(DATABASE),
         "guard" => Some(GUARD),
+        "history" => Some(HISTORY),
         "network" => Some(NETWORK),
         _ => None,
     }
@@ -287,7 +291,17 @@ fn free_item(value: &Value, path: &str) -> Result<Item, HostError> {
 /// host.toml's (`performance.serverFps` → `performance.server_fps`).
 pub fn message(text: &str) -> String {
     let mut out = text.to_owned();
-    for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, GUARD, NETWORK] {
+    for fields in [
+        TOP,
+        MONGO,
+        MULTIPLIERS,
+        PERFORMANCE,
+        LINUX,
+        DATABASE,
+        GUARD,
+        HISTORY,
+        NETWORK,
+    ] {
         for &(json, toml, _) in fields {
             if json != toml {
                 out = out.replace(json, toml);
@@ -467,6 +481,10 @@ fn comment(path: &str) -> &'static str {
         "guard.revoke_guard" => "What revoking an admin or owner key waits for (delay). Other keys go at once.",
         "guard.delay_minutes" => "How long a delay waits, in minutes (10).",
         "guard.expire_hours" => "How long an action nobody approved stays before it expires (48).",
+        "history" => "Off-server change log and snapshot shipping (DD23, DH7). Left out: off.",
+        "history.ship_to_peer" => {
+            "A peer node id in [[network.nodes]] that receives this node's change log and snapshots over Service::LogShip (DH7)."
+        }
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",
         "network.region" => "The region it serves, such as oregon.",
@@ -565,7 +583,17 @@ mod tests {
     fn snake_case_of_the_host_json_keys() {
         assert_eq!(snake_case("maxHuntServers"), "max_hunt_servers");
         assert_eq!(snake_case("version"), "version");
-        for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, GUARD, NETWORK] {
+        for fields in [
+            TOP,
+            MONGO,
+            MULTIPLIERS,
+            PERFORMANCE,
+            LINUX,
+            DATABASE,
+            GUARD,
+            HISTORY,
+            NETWORK,
+        ] {
             for &(json, toml, _) in fields {
                 assert_eq!(snake_case(json), toml);
             }

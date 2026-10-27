@@ -36,8 +36,8 @@ host = { path = "../services/host" }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
 module-api = { path = "../crates/module-api" }
 http = "1"
-# network_directory: the directory's node-link messages (DN4); network_home, network_ticket: the home API's (DN5); network_admin: the admin relay's (DN11)
-network = { path = "../plugins/network" }
+# network_directory: the directory's node-link messages (DN4); network_home, network_ticket: the home API's (DN5); network_admin: the admin relay's (DN11); network_logship: peer log shipping (DH7)
+network = { path = "../plugins/network", features = ["log-ship"] }
 # network_link: the certificate names the node link reads
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 protocol = { path = "../crates/protocol" }
@@ -238,6 +238,13 @@ bench = false
 [[bin]]
 name = "network_admin"
 path = "fuzz_targets/network_admin.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "network_logship"
+path = "fuzz_targets/network_logship.rs"
 test = false
 doc = false
 bench = false
