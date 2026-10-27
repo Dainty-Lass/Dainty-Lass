@@ -1,12 +1,15 @@
 //! Legacy servers (the `legacy` feature; RD5 reversed): Dauntless Revived's 1.4.4 stack, set up and run
 //! by the same kit. In place of Mystic Paradox's backend, Director and MongoDB, a legacy server runs DR's
 //! metagame (its own SQLite database) and DR's deploy server, which starts the 1.4.4 game servers as DR's
-//! deploy kits did, the internal server (`native/internal-server`) loaded by the runtime loader (`deploy/unix-common/
-//! generate-config.mjs`, `deploy/windows-server/Stack.ps1` at DR 24b7624). The content server, the
-//! allowlist and the gateway are the reborn ones, told `legacy` in their env files.
+//! deploy kits did, the internal server (`native/internal-server` in legacy-revived) loaded by the runtime loader
+//! (`deploy/unix-common/generate-config.mjs`, `deploy/windows-server/Stack.ps1` at DR 24b7624). The content server,
+//! the allowlist and the gateway are the reborn ones, told `legacy` in their env files.
 //!
-//! Each DR variable keeps its name with the service in front: the metagame's `PORT` is `METAGAME_PORT`,
-//! the deploy server's `DEPLOY_PORT`, so a stale one in the shell never reaches them ([`crate::services`]).
+//! Each DR variable keeps its name with the service in front in its env file: the metagame's `PORT` is
+//! `METAGAME_PORT`, the deploy server's `DEPLOY_PORT`, so a stale one in the shell never reaches them
+//! ([`crate::services`]). The metagame and the deploy server are legacy-revived's own binaries since DS6,
+//! built in `modules/legacy-revived/rust`, and read DR's names: [`dr_environment`] hands them the file
+//! with the prefix taken off, until RV1 puts them on `module-api`.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -17,11 +20,13 @@ use crate::commands::start::binaries::{FrontService, Programs};
 use crate::commands::start::{Planned, env_file, require_env_files, say, spec_from};
 use crate::doctor::{Check, GameBuild, Level, check, fix, game_exe_checks, port_in_use as port_taken, wait_for_http};
 use crate::error::HostError;
+use crate::hostconfig::read_env_file;
 use crate::hostconfig::{
     Edition, EnvEntries, HostConfig, LEGACY_RULE_NAME, Platform, Secrets, ServerMode, build_env_files,
     legacy_game_ports, legacy_gateway_port, linux_options, path_text, write_named_env_files, write_secret_file,
 };
 use crate::paths::{BOTH_LEGACY_PORTS, LegacyPorts, PORTS, Paths, game_exe_relative};
+use crate::services::ServiceSpec;
 use crate::services::{Ready, service_environment};
 
 /// The metagame answers where the backend does: the launcher probes 61000 (`start`'s control contract).
@@ -57,8 +62,9 @@ pub fn run_game_wrapper(p: &Paths) -> PathBuf {
 }
 
 fn write_run_game_wrapper(p: &Paths) -> Result<PathBuf, HostError> {
-    let host = crate::linux::host_binary(p);
-    let deploy = host.with_file_name(format!("deploy{}", std::env::consts::EXE_SUFFIX));
+    let deploy = Programs::find_rust(p).rust_bin("deploy").unwrap_or_else(|| {
+        crate::linux::host_binary(p).with_file_name(format!("deploy{}", std::env::consts::EXE_SUFFIX))
+    });
     let script = [
         "#!/bin/sh".to_owned(),
         "# DaintyLass: DR's deploy server starts this for each 1.4.4 game server. Written by `reforged-host setup`."
@@ -368,12 +374,31 @@ pub fn env_file_names(c: &HostConfig) -> Vec<String> {
 
 // ------------------------------------------------------------------ start
 
-/// The metagame's command line: `metagame <args>` with only the system's variables from the shell.
+/// legacy-revived's metagame and deploy server read DR's names (`PORT`): `<name>.env`'s settings with
+/// the service's prefix (`METAGAME_`) taken off, for their environment in place of `--env-file`.
+pub fn dr_environment(paths: &Paths, name: &str) -> Result<Vec<(String, String)>, HostError> {
+    let prefix = format!("{}_", name.to_ascii_uppercase());
+    let settings = read_env_file(&env_file(paths, name))?;
+    Ok(settings
+        .iter()
+        .map(|(k, v)| {
+            let k = k.strip_prefix(prefix.as_str()).filter(|k| !k.is_empty()).unwrap_or(k);
+            (k.to_owned(), v.to_owned())
+        })
+        .collect())
+}
+
+/// The metagame's command line: `metagame <args>` with the system's variables from the shell and its
+/// settings by DR's names.
 fn metagame(programs: &Programs, paths: &Paths, args: &[&str]) -> Result<(), HostError> {
     let bin = programs.rust_bin("metagame").ok_or_else(|| missing_bin("metagame"))?;
     let options = crate::run::RunOptions {
         cwd: paths.workspace.clone(),
-        env: Some(service_environment(std::env::vars(), [], &[])),
+        env: Some(service_environment(
+            std::env::vars(),
+            [],
+            &dr_environment(paths, "metagame")?,
+        )),
         log_file: Some(paths.logs.join("metagame.log")),
         quiet: true,
     };
@@ -390,7 +415,7 @@ fn metagame(programs: &Programs, paths: &Paths, args: &[&str]) -> Result<(), Hos
 
 fn missing_bin(name: &str) -> HostError {
     HostError::message(format!(
-        "a legacy server needs the {name} service built with the legacy feature: the gateway, content server and allowlist inside this binary, the metagame next to it or in rust/target (cargo build --release -p server-console -p metagame --features host/legacy)"
+        "a legacy server needs the {name} service: the gateway, content server and allowlist inside this binary (cargo build --release -p server-console --features host/legacy), the metagame and deploy server next to it or in modules/legacy-revived/rust/target (cargo build --release -p metagame -p deploy there)"
     ))
 }
 
@@ -408,15 +433,16 @@ pub fn legacy_service_plan(
     let ports = layout.ports;
     let minute = Duration::from_secs(60);
     let bin = |name: &str| programs.rust_bin(name).ok_or_else(|| missing_bin(name));
-    let serve = |name: &str, command: PathBuf| crate::commands::start::binaries::Launch {
-        command,
-        args: vec![
-            "serve".into(),
-            "--env-file".into(),
-            env_file(paths, name).display().to_string(),
-        ],
-        cwd: paths.workspace.clone(),
-        env_file_in_args: true,
+    let serve = |name: &str, command: PathBuf, ready: Ready| {
+        Ok::<_, HostError>(ServiceSpec {
+            name: name.into(),
+            cwd: paths.workspace.clone(),
+            command,
+            args: vec!["serve".into()],
+            env_file: None,
+            extra_env: dr_environment(paths, name)?,
+            ready: Some(ready),
+        })
     };
     let front = |service: FrontService| {
         let name = layout.name(service.bin_name());
@@ -427,12 +453,11 @@ pub fn legacy_service_plan(
         Ok::<_, HostError>((name, launch, file))
     };
     let mut plan = vec![Planned {
-        spec: spec_from(
+        spec: serve(
             "metagame",
-            serve("metagame", bin("metagame")?),
-            env_file(paths, "metagame"),
+            bin("metagame")?,
             Ready::http(ports.metagame, "/dauntless-status"),
-        ),
+        )?,
         ready_timeout: Duration::from_secs(120),
         required: true,
     }];
@@ -444,15 +469,10 @@ pub fn legacy_service_plan(
             required: true,
         });
     }
-    // DR's deploy server is not in this repository yet: without it the server runs, but no game server starts.
+    // Without DR's deploy server the server runs, but no game server starts.
     match programs.rust_bin("deploy") {
         Some(deploy) => plan.push(Planned {
-            spec: spec_from(
-                "deploy",
-                serve("deploy", deploy),
-                env_file(paths, "deploy"),
-                Ready::http(ports.deploy, "/gameservers"),
-            ),
+            spec: serve("deploy", deploy, Ready::http(ports.deploy, "/gameservers"))?,
             ready_timeout: minute,
             required: false,
         }),
@@ -493,8 +513,7 @@ pub fn prepare(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
         });
     }
     let programs = Programs::find_rust(paths);
-    let metagame_env = env_file(paths, "metagame").display().to_string();
-    metagame(&programs, paths, &["migrate", "--env-file", &metagame_env])?;
+    metagame(&programs, paths, &["migrate"])?;
     let db = database(paths).display().to_string();
     let key = gameserver_key_file(paths).display().to_string();
     metagame(&programs, paths, &["db", "gs-key", &db, &key])?;
@@ -539,7 +558,7 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
             "services",
             Level::Fail,
             "no metagame bin",
-            "build it with the legacy feature (docs/hosting.md, Legacy servers), or use a server release that has it",
+            "build it in modules/legacy-revived/rust (cargo build --release -p metagame -p deploy; docs/hosting.md, Legacy servers)",
         ),
     });
     for service in [FrontService::Gateway, FrontService::Content, FrontService::Allowlist] {
@@ -565,7 +584,7 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
             "services",
             Level::Fail,
             "no deploy bin (DR's deploy server): the game servers cannot start",
-            "DR's deploy server is not ported to this repository yet (docs/hosting.md, Legacy servers)",
+            "build it in modules/legacy-revived/rust (cargo build --release -p metagame -p deploy; docs/hosting.md, Legacy servers)",
         ),
     });
     let layout = LegacyLayout::of(config);
@@ -637,7 +656,7 @@ pub fn doctor_checks(p: &Paths, config: &HostConfig, hash_exe: bool) -> Result<V
                     SERVER_DLLS[1]
                 ),
                 format!(
-                    "put winmm.dll (native/runtime-loader) and UndauntedInternalServer.dll (native/internal-server) there, and a {LOADER_INI} with the line {}",
+                    "put winmm.dll (native/runtime-loader) and UndauntedInternalServer.dll (modules/legacy-revived/native/internal-server) there, and a {LOADER_INI} with the line {}",
                     SERVER_DLLS[1]
                 ),
             )
@@ -711,16 +730,47 @@ mod tests {
     fn runs_the_metagame_first_and_the_gateway_last_every_one_a_rust_bin_with_its_env_file() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
+        std::fs::create_dir_all(&paths.config).unwrap();
+        std::fs::write(
+            paths.config.join("metagame.env"),
+            "METAGAME_PORT=61000\nMETAGAME_DB_FILENAME=/w/undaunted.db\n",
+        )
+        .unwrap();
+        std::fs::write(
+            paths.config.join("deploy.env"),
+            "DEPLOY_DR_GAME_EXE=/g/x.exe\nDEPLOY_METAGAME_URL=u\n",
+        )
+        .unwrap();
         let all = ["metagame", "deploy", "content", "allowlist", "gateway"];
         let plan =
             legacy_service_plan(&paths, &config(ServerMode::Public), false, &programs(dir.path(), &all)).unwrap();
         assert_eq!(names(&plan), ["metagame", "allowlist", "deploy", "content", "gateway"]);
         for p in &plan {
+            assert_eq!(
+                p.spec.env_file, None,
+                "a Rust bin reads its file itself, or is given DR's names"
+            );
+            if ["metagame", "deploy"].contains(&p.spec.name.as_str()) {
+                assert_eq!(p.spec.args, ["serve"], "{}", p.spec.name);
+                continue;
+            }
             let file = paths.config.join(format!("{}.env", p.spec.name)).display().to_string();
             assert_eq!(p.spec.args.last(), Some(&file), "{}", p.spec.name);
-            assert_eq!(p.spec.env_file, None, "a Rust bin reads its file itself");
         }
-        assert_eq!(plan[0].spec.args[0], "serve");
+        let env = |p: &Planned| {
+            let mut env = p.spec.extra_env.clone();
+            env.sort();
+            env
+        };
+        let pair = |k: &str, v: &str| (k.to_owned(), v.to_owned());
+        assert_eq!(
+            env(&plan[0]),
+            [pair("DB_FILENAME", "/w/undaunted.db"), pair("PORT", "61000")]
+        );
+        assert_eq!(
+            env(&plan[2]),
+            [pair("DR_GAME_EXE", "/g/x.exe"), pair("METAGAME_URL", "u")]
+        );
         assert_eq!(plan[0].spec.ready, Some(Ready::http(61000, "/dauntless-status")));
         assert!(plan[0].required);
         assert_eq!(plan[1].spec.ready, Some(Ready::http(61005, "/status")));

@@ -18,7 +18,7 @@ pub struct PinnedDll {
     pub size: u64,
 }
 
-/// The maintainer's release (`native/internal-server/README.md`, "Release"): the one
+/// The maintainer's release (legacy-revived's `native/internal-server/README.md`, "Release"): the one
 /// UndauntedInternalServer.dll players and hosts run, and the runtime loader (`native/runtime-loader`) that
 /// loads it through `mystic_loader.ini` (RD9). Not DR's binaries, and never its `dxgi.dll` proxy. The pins
 /// and [`DLL_SOURCE`] are empty until the first release; until then the launcher installs neither.

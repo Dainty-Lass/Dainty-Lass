@@ -18,19 +18,24 @@
 # The Rust tests' fixtures hold fake env files and certificates (the test image runs them)
 !rust/**/tests/fixtures/**
 
-# A host's own game data and exports (paradox/.gitignore): mounted as volumes, never baked in
-paradox/backend/game-data/*.json
-paradox/director/game-data/*.json
-!paradox/backend/game-data/*.example.json
-!paradox/director/game-data/*.example.json
-paradox/backend/game-data/raw
-paradox/director/game-data/raw
-paradox/Items_Analysis
-paradox/DauntlessEndpointDocumentation
-native/paradox-runtime/SDK
-native/paradox-runtime/SDK.hpp
-native/paradox-runtime/x64
-native/catalog-exporter/x64
+# A host's own game data and exports (rustic-isles' .gitignore): mounted as volumes, never baked in
+modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.json
+modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/*.json
+!modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.example.json
+!modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/*.example.json
+modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/raw
+modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/raw
+modules/rustic-isles/reference/1.14.7/Items_Analysis
+modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+modules/rustic-isles/native/runtime/SDK
+modules/rustic-isles/native/runtime/SDK.hpp
+modules/rustic-isles/native/runtime/x64
+modules/rustic-isles/native/catalog-exporter/x64
+# Submodules no image uses (DS6), and each submodule's .git file
+**/.git
+modules/rustic-rifts
+modules/rustic-isles/reference/1.12.0
+ui
 
 # Not used by any image
 rust/launcher/node_modules

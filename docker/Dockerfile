@@ -12,7 +12,7 @@
 #           MongoDB's dump tools for `reforged-host backup`; also the image the host kit's commands run in
 #
 # REFORGED_EDITION=legacy builds them for a Dauntless Revived 1.4.4 server (compose.legacy.yaml): the server image
-# also holds DR's metagame and, once it is a workspace member, DR's deploy server.
+# also holds DR's metagame and deploy server, built in the legacy-revived submodule's own workspace (DS6).
 #
 # When RB14 ships, backend and director become Rust bins built in rust-build, the Node stage goes, and the
 # backend and Director move to a slim image like front; Wine stays with the Director.
@@ -32,37 +32,43 @@ WORKDIR /src/rust
 COPY rust/rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
 COPY rust/ ./
+COPY modules/legacy-revived/ /src/modules/legacy-revived/
 # The release workflow's build: the server in one binary, reforged-host, with the gateway, allowlist, content server
 # and admin API inside it. The launcher is a workspace member but is not built (only the lock file is read).
-# REFORGED_EDITION=legacy: the same binary with its `legacy` feature, DR's metagame and its deploy server.
+# REFORGED_EDITION=legacy: the same binary with its `legacy` feature, and legacy-revived's metagame and deploy server.
 ARG REFORGED_EDITION=reborn
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-target,target=/src/rust/target \
+    --mount=type=cache,id=reforged-revived-target,target=/src/modules/legacy-revived/rust/target \
     case "$REFORGED_EDITION" in \
       reborn) set -- ;; \
-      legacy) set -- -p metagame --features server-console/legacy; \
-        if [ -d services/deploy ]; then set -- "$@" -p deploy; fi ;; \
+      legacy) set -- --features server-console/legacy ;; \
       *) echo "REFORGED_EDITION must be reborn or legacy, not $REFORGED_EDITION" >&2; exit 1 ;; \
     esac \
  && cargo build --release --locked -p server-console "$@" --bins \
  && mkdir -p /out/bin \
  && cp target/release/reforged-host /out/bin/ \
- && if [ "$REFORGED_EDITION" = legacy ]; then cp target/release/metagame /out/bin/; fi \
- && if [ "$REFORGED_EDITION" = legacy ] && [ -f target/release/deploy ]; then cp target/release/deploy /out/bin/; fi
+ && if [ "$REFORGED_EDITION" = legacy ]; then \
+      revived=/src/modules/legacy-revived/rust \
+      && (cd "$revived" && cargo build --release --locked -p metagame -p deploy --bins) \
+      && cp "$revived/target/release/metagame" "$revived/target/release/deploy" /out/bin/; \
+    fi
 
 # ------------------------------------------------------------------ the Node services (until RB14)
 FROM ${NODE_IMAGE} AS node-build
 WORKDIR /src
 # Every dependency, dev ones included, as the server release has them: gamedata runs Mystic Paradox's
 # generators, some with tsx. The lock files first, so a source change does not reinstall.
-COPY paradox/backend/package.json paradox/backend/package-lock.json paradox/backend/
-COPY paradox/director/package.json paradox/director/package-lock.json paradox/director/
+# Mystic Paradox's services are in the rustic-isles submodule (DS6).
+ARG ISLES=modules/rustic-isles/reference/1.14.7
+COPY ${ISLES}/ParadoxBackend/package.json ${ISLES}/ParadoxBackend/package-lock.json ${ISLES}/ParadoxBackend/
+COPY ${ISLES}/ParadoxDirector/package.json ${ISLES}/ParadoxDirector/package-lock.json ${ISLES}/ParadoxDirector/
 RUN --mount=type=cache,id=reforged-npm,target=/root/.npm \
-    (cd paradox/backend && npm ci --no-audit --no-fund) \
- && (cd paradox/director && npm ci --no-audit --no-fund)
-COPY paradox/ paradox/
-RUN (cd paradox/backend && npm run build) \
- && (cd paradox/director && npm run build) \
+    (cd "$ISLES/ParadoxBackend" && npm ci --no-audit --no-fund) \
+ && (cd "$ISLES/ParadoxDirector" && npm ci --no-audit --no-fund)
+COPY ${ISLES}/ ${ISLES}/
+RUN (cd "$ISLES/ParadoxBackend" && npm run build) \
+ && (cd "$ISLES/ParadoxDirector" && npm run build) \
  && find . -type d -name .bin -path '*/node_modules/*' -prune -exec rm -rf {} +
 
 # ------------------------------------------------------------------ front: gateway, allowlist, content, admin API
@@ -101,14 +107,21 @@ COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/bin/
 WORKDIR /opt/reforged
 COPY --chown=node:node LICENSE.txt NOTICE.md ADDITIONAL_TERMS.md README.md ./
 COPY --chown=node:node native/ native/
-COPY --chown=node:node --from=node-build /src/paradox/ paradox/
+# The host kit finds the server folder by rust/Cargo.toml beside modules/rustic-isles (paths.rs find_repo_root)
+COPY --chown=node:node rust/Cargo.toml rust/
+# From the rustic-isles submodule (DS6): its licence files, the runtime and CatalogExporter sources setup checks
+# for, and the Node services as node-build built them
+COPY --chown=node:node modules/rustic-isles/ADDITIONAL_TERMS.md modules/rustic-isles/LICENSE modules/rustic-isles/NOTICE.md modules/rustic-isles/
+COPY --chown=node:node modules/rustic-isles/native/ modules/rustic-isles/native/
+COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/
 COPY --from=rust-build /out/bin/ bin/
 COPY --chmod=0755 docker/director-entrypoint.sh bin/reforged-director
 COPY --chmod=0755 docker/legacy-entrypoint.sh bin/reforged-legacy
 COPY --chmod=0755 docker/host-entrypoint.sh bin/reforged-host-docker
 COPY --chmod=0755 docker/healthcheck.sh bin/reforged-healthcheck
-RUN mkdir -p .workspace paradox/Items_Analysis paradox/DauntlessEndpointDocumentation \
- && chown node:node .workspace paradox/Items_Analysis paradox/DauntlessEndpointDocumentation
+ARG ISLES=modules/rustic-isles/reference/1.14.7
+RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation" \
+ && chown node:node .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation"
 # The commit the backend names to players (REFORGED_SOURCE_COMMIT, the AGPL source offer). setup reads it from
 # git or release.json, neither of which is in the image; the process environment wins over the env file.
 ARG REFORGED_COMMIT=""

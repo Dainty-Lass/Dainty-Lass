@@ -5,8 +5,8 @@
 //! Filled by RH2, for `start` only.
 //!
 //!   mongod (if managed)  127.0.0.1:27017
-//!   backend              127.0.0.1:61000   paradox/backend   (API, chat; HTTP only)
-//!   director             127.0.0.1:61001   paradox/director  (starts Ramsgate, the Training Grounds, hunts on UDP 8770-8777)
+//!   backend              127.0.0.1:61000   ParadoxBackend    (API, chat; HTTP only)
+//!   director             127.0.0.1:61001   ParadoxDirector   (starts Ramsgate, the Training Grounds, hunts on UDP 8770-8777)
 //!   content              127.0.0.1:61002   the content server (the runtime, news, art)
 //!   allowlist (public)   127.0.0.1:61005   the allowlist helper (the firewall, administrator)
 //!   gateway              0.0.0.0:443 (public, TLS) or <Tailscale IP>:61000 (private, HTTP)

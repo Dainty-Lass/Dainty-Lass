@@ -3,11 +3,13 @@
 DaintyLass is licensed as a whole under the GNU Affero General Public License, version 3 only
 (`AGPL-3.0-only`); see [LICENSE.txt](LICENSE.txt).
 
-Mystic Paradox material is in two places: [`paradox/`](paradox) (its backend, Director, documentation and
-top-level files, with Mystic Paradox's own copy of these terms in
-[`paradox/ADDITIONAL_TERMS.md`](paradox/ADDITIONAL_TERMS.md)) and [`native/`](native) (its game runtime, the
-runtime's loader and the CatalogExporter). Both come from Mystic Paradox at commit `21b9ff5`, with the changes
-made to them here ([NOTICE.md](NOTICE.md), [docs/paradox-patches.md](docs/paradox-patches.md)).
+Mystic Paradox material is in two places: the rustic-isles submodule at
+[`modules/rustic-isles`](modules/rustic-isles) (its backend, Director, game runtime, CatalogExporter,
+documentation and top-level files, with Mystic Paradox's own copy of these terms in
+[`modules/rustic-isles/ADDITIONAL_TERMS.md`](modules/rustic-isles/ADDITIONAL_TERMS.md)) and
+[`native/runtime-loader`](native/runtime-loader) (the runtime's loader). Both come from Mystic Paradox at commit
+`21b9ff5`, with the changes made to them in this project ([NOTICE.md](NOTICE.md),
+[docs/paradox-patches.md](docs/paradox-patches.md)).
 
 Mystic Paradox applies additional terms under AGPLv3 section 7 to the material identified as "Copyright (C) 2026
 MysticFox / Pranav Karande, Mystic Paradox Project". They are reproduced below word for word (only their

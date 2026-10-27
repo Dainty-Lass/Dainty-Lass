@@ -74,16 +74,28 @@ fn make_release(dir: &Path, version: &str, platform: &str, files: &[(&str, &str)
 
 const V1: &[(&str, &str)] = &[
     ("bin/reforged-host", "host 1"),
-    ("paradox/backend/build/server.js", "backend 1"),
-    ("paradox/backend/node_modules/express/index.js", "express"),
-    ("native/paradox-runtime/dllmain.cpp", "runtime 1"),
+    (
+        "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js",
+        "backend 1",
+    ),
+    (
+        "modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules/express/index.js",
+        "express",
+    ),
+    ("modules/rustic-isles/native/runtime/dllmain.cpp", "runtime 1"),
     ("docs/old.md", "goes in 2"),
 ];
 const V2: &[(&str, &str)] = &[
     ("bin/reforged-host", "host 2"),
-    ("paradox/backend/build/server.js", "backend 2"),
-    ("paradox/backend/node_modules/express/index.js", "express"),
-    ("native/paradox-runtime/dllmain.cpp", "runtime 2"),
+    (
+        "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js",
+        "backend 2",
+    ),
+    (
+        "modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules/express/index.js",
+        "express",
+    ),
+    ("modules/rustic-isles/native/runtime/dllmain.cpp", "runtime 2"),
 ];
 
 fn read(root: &Path, path: &str) -> String {
@@ -350,9 +362,18 @@ fn moves_a_node_kit_checkout_over_then_updates_it() {
         let root = dir.path().join("Reforged");
         // A Node-kit checkout: npm's builds, the host's own files
         for (path, text) in [
-            ("paradox/backend/build/server.js", "npm build"),
-            ("paradox/backend/node_modules/stale/index.js", "from npm"),
-            ("paradox/backend/game-data/store.json", "the host's game data"),
+            (
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js",
+                "npm build",
+            ),
+            (
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules/stale/index.js",
+                "from npm",
+            ),
+            (
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/store.json",
+                "the host's game data",
+            ),
             (".workspace/config/host.json", "{}"),
         ] {
             let file = path.split('/').fold(root.clone(), |p, s| p.join(s));
@@ -366,13 +387,24 @@ fn moves_a_node_kit_checkout_over_then_updates_it() {
         let staged = selfupdate::extract(&archive, &root.join(".workspace").join("update").join("staging")).unwrap();
         let (m1, r1) = selfupdate::install(&staged, &root, None).unwrap();
         assert_eq!((m1.version.as_str(), r1.files, r1.runtime_changed), ("1.0.0", 5, None));
-        assert_eq!(read(&root, "paradox/backend/build/server.js"), "backend 1");
+        assert_eq!(
+            read(
+                &root,
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js"
+            ),
+            "backend 1"
+        );
         assert!(
-            !root.join("paradox/backend/node_modules/stale").exists(),
+            !root
+                .join("modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules/stale")
+                .exists(),
             "npm's node_modules replaced"
         );
         assert_eq!(
-            read(&root, "paradox/backend/game-data/store.json"),
+            read(
+                &root,
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/store.json"
+            ),
             "the host's game data"
         );
         assert_eq!(read(&root, ".workspace/config/host.json"), "{}");
@@ -396,13 +428,24 @@ fn moves_a_node_kit_checkout_over_then_updates_it() {
         let staged = selfupdate::extract(&archive, &root.join(".workspace").join("update").join("staging")).unwrap();
 
         // The host changed a file of the release: refused, as git refused it
-        std::fs::write(root.join("paradox/backend/build/server.js"), "edited").unwrap();
+        std::fs::write(
+            root.join("modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js"),
+            "edited",
+        )
+        .unwrap();
         let Err(UpdateError::Problem(Problem::LocalChanges(files))) = selfupdate::install(&staged, &root, Some(&m1))
         else {
             panic!("local changes")
         };
-        assert_eq!(files, ["paradox/backend/build/server.js"]);
-        std::fs::write(root.join("paradox/backend/build/server.js"), "backend 1").unwrap();
+        assert_eq!(
+            files,
+            ["modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js"]
+        );
+        std::fs::write(
+            root.join("modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js"),
+            "backend 1",
+        )
+        .unwrap();
 
         let (m2, r2) = selfupdate::install(&staged, &root, Some(&m1)).unwrap();
         assert_eq!((m2.version.as_str(), r2.files, r2.removed), ("2.0.0", 3, 1));
@@ -430,7 +473,10 @@ fn a_node_kit_checkout_with_a_changed_tracked_file_is_refused() {
     let root = dir.path().join("Reforged");
     for (path, text) in [
         ("docs/old.md", "as committed"),
-        ("paradox/backend/package-lock.json", "{}"),
+        (
+            "modules/rustic-isles/reference/1.14.7/ParadoxBackend/package-lock.json",
+            "{}",
+        ),
     ] {
         let file = path.split('/').fold(root.clone(), |p, s| p.join(s));
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
@@ -440,12 +486,19 @@ fn a_node_kit_checkout_with_a_changed_tracked_file_is_refused() {
     git(&root, &["add", "-A"]);
     git(&root, &["commit", "-q", "-m", "node kit"]);
     let mut files = V1.to_vec();
-    files.push(("paradox/backend/package-lock.json", "{\"lockfileVersion\": 3}"));
+    files.push((
+        "modules/rustic-isles/reference/1.14.7/ParadoxBackend/package-lock.json",
+        "{\"lockfileVersion\": 3}",
+    ));
     let archive = make_release(&dir.path().join("releases"), "1.0.0", "linux-x64", &files);
     let staged = selfupdate::extract(&archive, &dir.path().join("staging")).unwrap();
 
     // npm rewrote the lock file: that does not count. The host edited docs/old.md: refused.
-    std::fs::write(root.join("paradox/backend/package-lock.json"), "{\"npm\": 11}").unwrap();
+    std::fs::write(
+        root.join("modules/rustic-isles/reference/1.14.7/ParadoxBackend/package-lock.json"),
+        "{\"npm\": 11}",
+    )
+    .unwrap();
     std::fs::write(root.join("docs/old.md"), "edited by the host").unwrap();
     let Err(UpdateError::Problem(Problem::LocalChanges(changed))) = selfupdate::install(&staged, &root, None) else {
         panic!("a changed tracked file stops the move")
@@ -481,7 +534,11 @@ fn setup_puts_back_a_damaged_release_and_leaves_a_whole_one() {
     );
 
     std::fs::remove_file(root.join("bin/reforged-host")).unwrap();
-    std::fs::write(root.join("paradox/backend/build/server.js"), "edited").unwrap();
+    std::fs::write(
+        root.join("modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js"),
+        "edited",
+    )
+    .unwrap();
     let mut lines = Vec::new();
     install_from_release(&root, Some(&m), "linux-x64", &source, &log, &mut |l| {
         lines.push(l.to_owned())
@@ -497,7 +554,13 @@ fn setup_puts_back_a_damaged_release_and_leaves_a_whole_one() {
     );
     assert_eq!(lines.last().unwrap(), "- servers 1.0.0 installed");
     assert_eq!(read(&root, "bin/reforged-host"), "host 1");
-    assert_eq!(read(&root, "paradox/backend/build/server.js"), "backend 1");
+    assert_eq!(
+        read(
+            &root,
+            "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js"
+        ),
+        "backend 1"
+    );
 
     // A newer release is update's, not setup's
     make_release(&releases, "2.0.0", "linux-x64", V2);

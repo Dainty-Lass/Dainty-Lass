@@ -37,5 +37,5 @@ else
 	echo "director |   Mount your Dauntless 1.14.7 folder (REFORGED_GAME_DIR) and run setup with --game /game" >&2
 fi
 
-cd "$root/paradox/director"
+cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxDirector"
 exec node --env-file="$env_file" dist/server.js

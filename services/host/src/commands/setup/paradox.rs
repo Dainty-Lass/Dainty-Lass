@@ -1,15 +1,15 @@
-//! Mystic Paradox is part of this repository (RP2-RP4, `legacy/ReforgedHost/src/paradox.ts`): its
-//! backend and Director in `paradox/`, the game runtime, its loader and the CatalogExporter in
-//! `native/`. Nothing is downloaded from Paradox's repository any more.
+//! Mystic Paradox is part of this repository (RP2-RP4, `legacy/ReforgedHost/src/paradox.ts`): since
+//! DS6 in the rustic-isles submodule, its backend and Director in
+//! `modules/rustic-isles/reference/1.14.7`, the game runtime and the CatalogExporter in
+//! `modules/rustic-isles/native`; the runtime loader stays in `native/` (DD13). Nothing is downloaded
+//! from Paradox's repository any more.
 //!
-//! Hosts set up before that had it in `.workspace/Mystic-Paradox`, a patched checkout that also held
-//! their own files: the SDK from their game, game data, exports and builds.
-//! [`migrate_old_workspace`] copies those into the new places once, where nothing of the host's is
-//! there yet, and never deletes the old folder.
+//! The host's own files (the SDK from their game, game data, exports and builds) sat beside the code
+//! in two older places: `.workspace/Mystic-Paradox`, a patched checkout from before RP4, and
+//! `paradox/` and `native/` from RP4 to DS6. [`migrate_old_workspace`] copies those into the new
+//! places once, where nothing of the host's is there yet, and never deletes the old folders.
 //!
-//! [`Layout`] holds the code side of the Node kit's `paths()` since RP4. RH1's [`Paths`] still has
-//! the layout from before the fork (`.workspace/Mystic-Paradox/ParadoxBackend` ...); once the
-//! integration pass moves these fields into `paths`, this struct goes away.
+//! [`Layout`] holds the code side of the Node kit's `paths()` since RP4.
 
 use std::path::{Path, PathBuf};
 
@@ -18,9 +18,14 @@ use crate::paths::Paths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
+    /// The server's folder (the checkout or the release).
+    pub root: PathBuf,
     pub paradox: PathBuf,
     /// Where setup took the host's own files from before Mystic Paradox was part of the repository.
     pub old_upstream: PathBuf,
+    /// Where Mystic Paradox was from RP4 to DS6: `paradox/` and `native/` in the repository.
+    pub old_paradox: PathBuf,
+    pub old_native: PathBuf,
     pub backend_dir: PathBuf,
     pub director_dir: PathBuf,
     pub gateway_dir: PathBuf,
@@ -42,48 +47,52 @@ pub struct Layout {
 
 impl Layout {
     pub fn new(p: &Paths) -> Self {
-        let paradox = p.repo.join("paradox");
-        let native = p.repo.join("native");
-        let runtime_source = native.join("paradox-runtime");
-        let loader_dir = native.join("runtime-loader");
-        let exporter_dir = native.join("catalog-exporter");
-        let backend_dir = paradox.join("backend");
-        let director_dir = paradox.join("director");
         Self {
-            old_upstream: p.workspace.join("Mystic-Paradox"),
+            root: p.repo.clone(),
+            paradox: p.paradox.clone(),
+            old_upstream: p.old_upstream.clone(),
+            old_paradox: p.repo.join("paradox"),
+            old_native: p.repo.join("native"),
+            backend_dir: p.backend_dir.clone(),
+            director_dir: p.director_dir.clone(),
             gateway_dir: p.gateway_dir.clone(),
             content_dir: p.content_dir.clone(),
-            sdk_header: runtime_source.join("SDK.hpp"),
-            sdk_dir: runtime_source.join("SDK"),
-            runtime_dll: runtime_source.join("x64").join("Release").join("MysticParadox.dll"),
-            loader_dll: loader_dir.join("target").join("release").join("winmm.dll"),
-            exporter_dll: exporter_dir.join("x64").join("Release").join("CatalogExporter.dll"),
-            backend_game_data: backend_dir.join("game-data"),
-            director_game_data: director_dir.join("game-data"),
-            raw_game_data: backend_dir.join("game-data").join("raw"),
-            // Mystic Paradox's generators read these from its root (paradox/).
-            exports: paradox.join("Items_Analysis"),
-            store_captures: paradox.join("DauntlessEndpointDocumentation"),
-            backend_dir,
-            director_dir,
-            runtime_source,
-            loader_dir,
-            exporter_dir,
-            paradox,
+            runtime_source: p.runtime_source.clone(),
+            sdk_header: p.sdk_header.clone(),
+            sdk_dir: p.sdk_dir.clone(),
+            runtime_dll: p.runtime_dll.clone(),
+            loader_dir: p.loader_dir.clone(),
+            loader_dll: p.loader_dll.clone(),
+            exporter_dir: p.exporter_dir.clone(),
+            exporter_dll: p.exporter_dll.clone(),
+            backend_game_data: p.backend_game_data.clone(),
+            director_game_data: p.director_game_data.clone(),
+            raw_game_data: p.raw_game_data.clone(),
+            exports: p.exports.clone(),
+            store_captures: p.store_captures.clone(),
         }
     }
 }
 
 /// The folders the host kit builds from, relative to the repository. A checkout without one of them
-/// is incomplete (a sparse or damaged clone).
+/// is incomplete (a sparse or damaged clone, or one made without `--recurse-submodules`).
 pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
     let needed: [(&str, PathBuf); 5] = [
-        ("paradox/backend", l.backend_dir.join("package.json")),
-        ("paradox/director", l.director_dir.join("package.json")),
-        ("native/paradox-runtime", l.runtime_source.join("MysticParadox.vcxproj")),
+        (
+            "modules/rustic-isles/reference/1.14.7/ParadoxBackend",
+            l.backend_dir.join("package.json"),
+        ),
+        (
+            "modules/rustic-isles/reference/1.14.7/ParadoxDirector",
+            l.director_dir.join("package.json"),
+        ),
+        (
+            "modules/rustic-isles/native/runtime",
+            l.runtime_source.join("MysticParadox.vcxproj"),
+        ),
         ("native/runtime-loader", l.loader_dir.join("Cargo.toml")),
         (
-            "native/catalog-exporter",
+            "modules/rustic-isles/native/catalog-exporter",
             l.exporter_dir.join("CatalogExporter.vcxproj"),
         ),
     ];
@@ -132,10 +141,53 @@ pub fn old_workspace_items(l: &Layout) -> Vec<(PathBuf, PathBuf)> {
     ));
     items.push((old.join("Items_Analysis"), l.exports.clone()));
     items.push((old.join("DauntlessEndpointDocumentation"), l.store_captures.clone()));
-    for (from, to) in [
-        (join(old, &["ParadoxBackend", "game-data"]), &l.backend_game_data),
-        (join(old, &["ParadoxDirector", "game-data"]), &l.director_game_data),
-    ] {
+    game_data_items(
+        &mut items,
+        [
+            (join(old, &["ParadoxBackend", "game-data"]), &l.backend_game_data),
+            (join(old, &["ParadoxDirector", "game-data"]), &l.director_game_data),
+        ],
+    );
+    items
+}
+
+/// What `paradox/` and `native/` held of the host's own before DS6 moved the code to rustic-isles, as
+/// (old path, new path) pairs. The runtime loader did not move (DD13).
+pub fn pre_submodule_items(l: &Layout) -> Vec<(PathBuf, PathBuf)> {
+    let (paradox, native) = (&l.old_paradox, &l.old_native);
+    let runtime = native.join("paradox-runtime");
+    let exporter = native.join("catalog-exporter");
+    let mut items: Vec<(PathBuf, PathBuf)> = SDK_FILES
+        .iter()
+        .chain(&["SDK", "deployment_config.generated.h"])
+        .map(|f| (runtime.join(f), l.runtime_source.join(f)))
+        .collect();
+    items.push((
+        join(&runtime, &["x64", "Release", "MysticParadox.dll"]),
+        l.runtime_dll.clone(),
+    ));
+    items.push((
+        join(&exporter, &["x64", "Release", "CatalogExporter.dll"]),
+        l.exporter_dll.clone(),
+    ));
+    for file in ["ExportPaths.local.h", "export_flags.txt"] {
+        items.push((exporter.join(file), l.exporter_dir.join(file)));
+    }
+    items.push((paradox.join("Items_Analysis"), l.exports.clone()));
+    items.push((paradox.join("DauntlessEndpointDocumentation"), l.store_captures.clone()));
+    game_data_items(
+        &mut items,
+        [
+            (join(paradox, &["backend", "game-data"]), &l.backend_game_data),
+            (join(paradox, &["director", "game-data"]), &l.director_game_data),
+        ],
+    );
+    items
+}
+
+/// The host's generated game data in each `(old, new)` folder, file by file.
+fn game_data_items(items: &mut Vec<(PathBuf, PathBuf)>, dirs: [(PathBuf, &PathBuf); 2]) {
+    for (from, to) in dirs {
         let Ok(entries) = std::fs::read_dir(&from) else {
             continue;
         };
@@ -152,7 +204,6 @@ pub fn old_workspace_items(l: &Layout) -> Vec<(PathBuf, PathBuf)> {
             }
         }
     }
-    items
 }
 
 fn join(base: &Path, parts: &[&str]) -> PathBuf {
@@ -179,14 +230,33 @@ fn copy_tree(from: &Path, to: &Path) -> Result<(), HostError> {
     }
 }
 
-/// Copies the host's own files from the old `.workspace/Mystic-Paradox`. Returns what was copied,
-/// relative to the repository with `/`. Anything already in the new place is left as it is.
+/// The older folders still there that may hold the host's files: `.workspace/Mystic-Paradox`, and
+/// `paradox/`, `native/paradox-runtime` and `native/catalog-exporter` from before DS6.
+pub fn old_folders(l: &Layout) -> Vec<PathBuf> {
+    [
+        l.old_upstream.clone(),
+        l.old_paradox.clone(),
+        l.old_native.join("paradox-runtime"),
+        l.old_native.join("catalog-exporter"),
+    ]
+    .into_iter()
+    .filter(|d| d.exists())
+    .collect()
+}
+
+/// Copies the host's own files from the older layouts. Returns what was copied, relative to the
+/// repository with `/`. Anything already in the new place is left as it is.
 pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, HostError> {
-    if !l.old_upstream.exists() {
-        return Ok(Vec::new());
+    let old = old_folders(l);
+    let mut items = Vec::new();
+    if old.contains(&l.old_upstream) {
+        items.extend(old_workspace_items(l));
+    }
+    if old.iter().any(|d| *d != l.old_upstream) {
+        items.extend(pre_submodule_items(l));
     }
     let mut copied = Vec::new();
-    for (from, to) in old_workspace_items(l) {
+    for (from, to) in items {
         if !from.exists() {
             continue;
         }
@@ -229,11 +299,11 @@ mod tests {
         assert_eq!(
             missing_paradox(&Layout::new(&Paths::new(dir.path()))),
             [
-                "paradox/backend",
-                "paradox/director",
-                "native/paradox-runtime",
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend",
+                "modules/rustic-isles/reference/1.14.7/ParadoxDirector",
+                "modules/rustic-isles/native/runtime",
                 "native/runtime-loader",
-                "native/catalog-exporter"
+                "modules/rustic-isles/native/catalog-exporter"
             ]
         );
     }
@@ -308,13 +378,13 @@ mod tests {
         assert_eq!(
             copied,
             [
-                "native/paradox-runtime/SDK",
-                "native/paradox-runtime/SDK.hpp",
-                "native/paradox-runtime/x64/Release/MysticParadox.dll",
+                "modules/rustic-isles/native/runtime/SDK",
+                "modules/rustic-isles/native/runtime/SDK.hpp",
+                "modules/rustic-isles/native/runtime/x64/Release/MysticParadox.dll",
+                "modules/rustic-isles/reference/1.14.7/Items_Analysis",
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/progression.json",
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/raw",
                 "native/runtime-loader/target/release/winmm.dll",
-                "paradox/Items_Analysis",
-                "paradox/backend/game-data/progression.json",
-                "paradox/backend/game-data/raw",
             ]
         );
         let read = |f: PathBuf| std::fs::read_to_string(f).unwrap();
@@ -345,5 +415,52 @@ mod tests {
             migrate_old_workspace(&l, &p.repo).unwrap().is_empty(),
             "the second time there is nothing left to copy"
         );
+    }
+
+    #[test]
+    fn the_hosts_own_files_move_over_from_paradox_and_native_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let l = Layout::new(&p);
+        assert!(old_folders(&l).is_empty());
+        let runtime = l.old_native.join("paradox-runtime");
+        write(&runtime.join("SDK.hpp"), "sdk");
+        write(&join(&runtime, &["SDK", "Basic.hpp"]), "basic");
+        write(&join(&runtime, &["x64", "Release", "MysticParadox.dll"]), "dll");
+        write(
+            &join(&l.old_native, &["catalog-exporter", "export_flags.txt"]),
+            "EXPORT_CATALOG=1",
+        );
+        write(&join(&l.old_paradox, &["Items_Analysis", "catalog_1_14_7.jsonl"]), "{}");
+        write(
+            &join(&l.old_paradox, &["backend", "game-data", "store.json"]),
+            "{\"mine\":1}",
+        );
+        write(
+            &join(&l.old_paradox, &["backend", "game-data", "store.example.json"]),
+            "{}",
+        );
+        write(&join(&l.old_paradox, &["director", "game-data", "hunts.json"]), "{}");
+        // The loader did not move (DD13): its build is already in place
+        write(&l.loader_dll, "loader");
+
+        let mut copied = migrate_old_workspace(&l, &p.repo).unwrap();
+        copied.sort();
+        assert_eq!(
+            copied,
+            [
+                "modules/rustic-isles/native/catalog-exporter/export_flags.txt",
+                "modules/rustic-isles/native/runtime/SDK",
+                "modules/rustic-isles/native/runtime/SDK.hpp",
+                "modules/rustic-isles/native/runtime/x64/Release/MysticParadox.dll",
+                "modules/rustic-isles/reference/1.14.7/Items_Analysis",
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/store.json",
+                "modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/hunts.json",
+            ]
+        );
+        assert_eq!(std::fs::read_to_string(l.sdk_dir.join("Basic.hpp")).unwrap(), "basic");
+        assert!(!l.backend_game_data.join("store.example.json").exists());
+        assert!(runtime.join("SDK.hpp").exists(), "the old folders are left alone");
+        assert!(migrate_old_workspace(&l, &p.repo).unwrap().is_empty());
     }
 }
