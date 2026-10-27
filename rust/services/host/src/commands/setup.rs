@@ -100,9 +100,8 @@ impl SetupEnv for System {
         tls: &Path,
         log_file: &Path,
     ) -> Result<(), HostError> {
-        // The Node gateway's tool, as today (it needs the gateway's packages, which step 2 installs).
-        let tool = layout.gateway_dir.join("tools").join("make-cert.js");
-        let mut args = vec![tool.to_string_lossy().into_owned()];
+        // The Rust gateway's tool, in the server's binary (RD26): the Node gateway's make-cert.js is gone.
+        let mut args = vec!["gateway".to_owned(), "make-cert".to_owned()];
         for host in hosts {
             args.extend(["--host".to_owned(), host.clone()]);
         }
@@ -113,10 +112,10 @@ impl SetupEnv for System {
         ]);
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
         let r = crate::run::run(
-            "node",
+            &self.gateway_program(),
             &args,
             &crate::run::RunOptions {
-                cwd: layout.gateway_dir.clone(),
+                cwd: layout.root.clone(),
                 env: None,
                 log_file: Some(log_file.to_path_buf()),
                 quiet: true,
