@@ -12,10 +12,14 @@ use content::app::{App, AppState, Deps};
 use content::auth::{AccountInfo, AuthCache, Lookup, LookupResult};
 use content::branding::Branding;
 use content::limits::StreamLimiter;
+use content::modules::{ContentModules, EPIC_MANIFEST_PATH, RegistryView};
 use content::news::News;
 use content::runtime::{RuntimeStore, sha256_hex};
 use futures_util::FutureExt;
+use module_api::stub::StubModule;
+use module_api::{CorePlugin, GameModule, ModuleId, Registrar};
 use serde_json::{Value, json};
+use sha1::{Digest, Sha1};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const KEY: &str = "RRK_cccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -55,6 +59,16 @@ struct Started {
 }
 
 async fn start(runtime_dir: &Path, news_file: Option<&Path>, per_account: usize, total: usize) -> Started {
+    start_with(runtime_dir, news_file, per_account, total, Arc::default()).await
+}
+
+async fn start_with(
+    runtime_dir: &Path,
+    news_file: Option<&Path>,
+    per_account: usize,
+    total: usize,
+    modules: Arc<ContentModules>,
+) -> Started {
     lines();
     let lookups = Arc::new(AtomicUsize::new(0));
     let counted = lookups.clone();
@@ -77,13 +91,16 @@ async fn start(runtime_dir: &Path, news_file: Option<&Path>, per_account: usize,
         .boxed()
     });
     let clock: content::auth::Clock = Arc::new(content::now_ms);
-    let app = App::new(Deps {
-        runtime: Arc::new(RuntimeStore::new(Some(runtime_dir.into()), clock.clone())),
-        auth: AuthCache::new(lookup, Duration::from_secs(300)),
-        limiter: StreamLimiter::new(per_account, total),
-        branding: Branding::new(None, clock.clone()),
-        news: Arc::new(News::new(news_file.map(Path::to_path_buf), None, clock)),
-    });
+    let app = App::with_modules(
+        Deps {
+            runtime: Arc::new(RuntimeStore::new(Some(runtime_dir.into()), clock.clone())),
+            auth: AuthCache::new(lookup, Duration::from_secs(300)),
+            limiter: StreamLimiter::new(per_account, total),
+            branding: Branding::new(None, clock.clone()),
+            news: Arc::new(News::new(news_file.map(Path::to_path_buf), None, clock)),
+        },
+        modules,
+    );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let (stop, stopping) = tokio::sync::watch::channel(false);
@@ -451,4 +468,143 @@ async fn serves_a_game_s_own_runtime_from_its_folder_and_the_server_s_otherwise(
         401,
         "a key, as for the server's own files"
     );
+}
+
+/// Every module's folder is the one given.
+struct OneDir(std::path::PathBuf);
+
+impl RegistryView for OneDir {
+    fn module_dir(&self, _module: &ModuleId) -> Option<std::path::PathBuf> {
+        Some(self.0.clone())
+    }
+}
+
+/// Content on the module registry (DF4b): a 1.12.0 module's client profile, its Epic manifest checked
+/// against the profile's SHA-1, and its runtime keyed by version, while a request naming no version still
+/// gets the server's own.
+#[tokio::test]
+async fn serves_a_module_s_profile_epic_manifest_and_runtime_by_version() {
+    let dir = tempfile::tempdir().unwrap();
+    publish(dir.path(), vec![1; 300], vec![2; 30], "own");
+    let isles_dir = dir.path().join("1.12.0");
+    std::fs::create_dir_all(&isles_dir).unwrap();
+    let (_, isles_loader) = publish(&isles_dir, vec![5; 200], vec![6; 20], "isles");
+    let module_dir = tempfile::tempdir().unwrap();
+    let epic: &[u8] = b"an Epic manifest, pinned";
+    std::fs::create_dir_all(module_dir.path().join("manifests")).unwrap();
+    let epic_file = module_dir.path().join("manifests/1.12.0.manifest");
+    std::fs::write(&epic_file, epic).unwrap();
+
+    let mut manifest = StubModule::new().manifest();
+    manifest.id = "isles-1-12".parse().unwrap();
+    manifest.display_name = String::from("Rustic Isles 1.12");
+    manifest.game_version = "1.12.0".parse().unwrap();
+    manifest.invite_aliases = vec![String::from("isles-112")];
+    let pinned: String = Sha1::digest(epic).iter().map(|b| format!("{b:02x}")).collect();
+    let profile = manifest.client.as_mut().unwrap();
+    profile.epic.as_mut().unwrap().manifest_sha1 = pinned.parse().unwrap();
+    let profile = profile.clone();
+    let mut registrar = Registrar::new(manifest.clone());
+    registrar.content_file(
+        EPIC_MANIFEST_PATH,
+        "manifests/1.12.0.manifest",
+        "application/octet-stream",
+    );
+    let registration = registrar.finish().unwrap();
+
+    let modules = Arc::new(ContentModules::new(Arc::new(OneDir(module_dir.path().into()))));
+    let s = start_with(dir.path(), None, 2, 8, modules.clone()).await;
+    let empty = request(s.port, "GET", "/content/v1/versions", &[]).await;
+    assert_eq!(
+        String::from_utf8(empty.body).unwrap(),
+        r#"{"default_version":"1.14.7","versions":[]}"#
+    );
+    modules.attach(&manifest, &registration).unwrap();
+
+    let list = request(s.port, "GET", "/content/v1/versions", &[]).await;
+    assert_eq!(list.header("content-type"), Some("application/json; charset=utf-8"));
+    assert_eq!(
+        String::from_utf8(list.body).unwrap(),
+        r#"{"default_version":"1.14.7","versions":[{"game_version":"1.12.0","module":"isles-1-12","display_name":"Rustic Isles 1.12","invite_aliases":["isles-112"],"unverified":true,"client":true,"epic_manifest":true}]}"#
+    );
+
+    // The client profile, as module-api writes it, by version or alias
+    for version in ["1.12.0", "isles-112"] {
+        let reply = request(s.port, "GET", &format!("/content/v1/versions/{version}/client"), &[]).await;
+        assert_eq!(reply.status, 200, "{version}");
+        assert_eq!(reply.body, serde_json::to_vec(&profile).unwrap());
+        let etag = reply.header("etag").unwrap().to_owned();
+        let again = request(
+            s.port,
+            "GET",
+            "/content/v1/versions/1.12.0/client",
+            &[("if-none-match", &etag)],
+        )
+        .await;
+        assert_eq!(again.status, 304);
+    }
+    for path in [
+        "/content/v1/versions/1.13.0/client",
+        "/content/v1/versions/1.14.7/client",
+        "/content/v1/versions/1.13.0/epic/manifest",
+    ] {
+        let reply = request(s.port, "GET", path, &[("x-reforged-user-api-key", KEY)]).await;
+        assert_eq!(
+            (reply.status, reply.json()),
+            (404, json!({"error": "unknown_version"})),
+            "{path}"
+        );
+    }
+
+    // The Epic manifest needs a key, and is sent only while it is the pinned file
+    const EPIC: &str = "/content/v1/versions/1.12.0/epic/manifest";
+    let key = [("x-reforged-user-api-key", KEY)];
+    assert_eq!(request(s.port, "GET", EPIC, &[]).await.status, 401);
+    let reply = request(s.port, "GET", EPIC, &key).await;
+    assert_eq!((reply.status, &reply.body[..]), (200, epic));
+    let etag = format!("\"{pinned}\"");
+    assert_eq!(reply.header("etag"), Some(etag.as_str()));
+    assert_eq!(reply.header("content-type"), Some("application/octet-stream"));
+    let head = request(s.port, "HEAD", EPIC, &key).await;
+    let length = epic.len().to_string();
+    assert_eq!(
+        (head.status, head.header("content-length"), head.body.len()),
+        (200, Some(length.as_str()), 0)
+    );
+    let cached = request(s.port, "GET", EPIC, &[key[0], ("if-none-match", &etag)]).await;
+    assert_eq!(cached.status, 304);
+    std::fs::write(&epic_file, b"someone else's manifest").unwrap();
+    let changed = request(s.port, "GET", EPIC, &key).await;
+    assert_eq!(
+        (changed.status, changed.json()),
+        (503, json!({"error": "epic_manifest_invalid"}))
+    );
+
+    // The runtime by version, alias or edition; nothing named, or nothing known, is the server's own
+    for (query, expected) in [
+        ("", "own"),
+        ("?version=1.12.0", "isles"),
+        ("?game=isles-112", "isles"),
+        ("?version=1.14.7", "own"),
+        ("?edition=reborn", "own"),
+        ("?version=1.13.0", "own"),
+    ] {
+        let reply = request(s.port, "GET", &format!("/content/v1/runtime/manifest{query}"), &[]).await;
+        assert_eq!(
+            (reply.status, reply.json()["version"].clone()),
+            (200, json!(expected)),
+            "{query}"
+        );
+    }
+    let file = request(s.port, "GET", "/content/v1/runtime/files/1.12.0/winmm.dll", &key).await;
+    assert_eq!((file.status, file.body), (200, isles_loader));
+    let unknown = request(s.port, "GET", "/content/v1/runtime/files/1.13.0/winmm.dll", &key).await;
+    assert_eq!(unknown.status, 404);
+
+    // Unloaded: the version is gone, and so is its alias
+    modules.detach(&manifest.id);
+    let gone = request(s.port, "GET", "/content/v1/versions/1.12.0/client", &[]).await;
+    assert_eq!(gone.status, 404);
+    let reply = request(s.port, "GET", "/content/v1/runtime/manifest?game=isles-112", &[]).await;
+    assert_eq!(reply.json()["version"], "own");
 }

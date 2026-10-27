@@ -24,11 +24,14 @@ http-body = "1"
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true
+# By path until the silentspud registry is configured: the workspace entry names it and doesn't resolve without it
+module-api = { path = "../../crates/module-api" }
 hyper-util = { workspace = true, features = ["client-legacy", "http1", "server"] }
 rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 service-kit.workspace = true
+sha1.workspace = true
 sha2.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", "sync", "signal", "io-util"] }
 tokio-util.workspace = true
