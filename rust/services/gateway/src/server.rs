@@ -16,6 +16,7 @@ use crate::cert::{self, iso};
 use crate::config::Config;
 use crate::feed::AllowlistFeed;
 use crate::gateway::{Gateway, Tls};
+use crate::modules::ModuleRoutes;
 
 /// The certificate and key, checked: the key belongs to the certificate, which is valid now. A
 /// warning when it expires within 30 days.
@@ -76,7 +77,19 @@ pub async fn run_with_context(
     config: Config,
     capture: Option<CaptureWriter>,
     in_process_allowlist: Option<crate::feed::InProcessSink>,
+    ctx: service_kit::context::ServiceContext,
+) -> Result<(), String> {
+    run_with_routes(config, capture, in_process_allowlist, ctx, None).await
+}
+
+/// With `routes`, the gateway routes to the modules the controller attaches there (DF3); without, to the
+/// stand-in for `GATEWAY_GAME`.
+pub async fn run_with_routes(
+    config: Config,
+    capture: Option<CaptureWriter>,
+    in_process_allowlist: Option<crate::feed::InProcessSink>,
     mut ctx: service_kit::context::ServiceContext,
+    routes: Option<Arc<ModuleRoutes>>,
 ) -> Result<(), String> {
     ctx.status.starting();
     let tls = match if config.tls { Some(load_tls(&config)) } else { None } {
@@ -163,7 +176,11 @@ pub async fn run_with_context(
 
     let grace = config.timeouts.shutdown_grace;
     let mode_detail = if config.tls { "TLS" } else { "HTTP" };
-    let gateway = Gateway::new(config, tls, feed, capture).inspect_err(|err| {
+    let gateway = match routes {
+        Some(routes) => Gateway::with_routes(config, tls, feed, capture, routes),
+        None => Gateway::new(config, tls, feed, capture),
+    }
+    .inspect_err(|err| {
         ctx.status.failed(err.clone());
     })?;
     ctx.status.ready(Some(listen_addr), Some(mode_detail.into()));
