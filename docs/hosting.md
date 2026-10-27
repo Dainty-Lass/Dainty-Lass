@@ -265,6 +265,7 @@ The steps are yours to do by hand:
 [network]
 node = "oregon-1"
 region = "oregon"
+# leader = "oregon-1"       # optional directory leader; defaults to the alphabetically first node id
 
 [[network.nodes]]
 id = "uk-1"

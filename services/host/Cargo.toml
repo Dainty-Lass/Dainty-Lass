@@ -13,7 +13,7 @@ default = ["modules"]
 # The server's modules (`serve`): the Rust services in this process, and Mystic Paradox's backend and
 # Director as supervised Node processes (`paradox`, until the RB rows). None: a controller that serves nothing
 modules = ["gateway", "allowlist", "content", "admin", "paradox"]
-gateway = ["controller/gateway", "dep:gateway"]
+gateway = ["controller/gateway", "controller/network", "dep:gateway"]
 allowlist = ["controller/allowlist", "dep:gateway"]
 content = ["controller/content", "dep:content"]
 admin = ["controller/admin", "dep:admin"]
@@ -69,6 +69,7 @@ rustls.workspace = true
 serde_json.workspace = true
 service-kit.workspace = true
 sha2.workspace = true
+store.workspace = true
 # The Linux release is a .tar.gz, the Windows one a .zip.
 tar = { version = "0.4.46", default-features = false }
 thiserror.workspace = true
@@ -98,7 +99,6 @@ admin.workspace = true
 # A game database to revert in, made without the game module's migrations
 diesel.workspace = true
 service-kit.workspace = true
-store.workspace = true
 
 # Fake services in child processes: the test binary runs itself in their roles (RH2)
 [[test]]
