@@ -48,6 +48,8 @@ pub enum Command {
     Update(UpdateArgs),
     /// Back up the server's database
     Backup,
+    /// The network's cluster CA and node certificates (a server in a network, DD16)
+    Network(NetworkArgs),
     /// Linux: one game server through Wine or Proton, as the Director starts it (the Node kit's
     /// `dist/gameserver.js`, run by `.workspace/bin/reforged-gameserver`). Not for people.
     #[command(hide = true)]
@@ -95,6 +97,7 @@ impl Command {
             Self::Multipliers(_) => "multipliers",
             Self::Update(_) => "update",
             Self::Backup => "backup",
+            Self::Network(_) => "network",
             Self::Gameserver { .. } => "gameserver",
             Self::Gateway { .. } => "gateway",
             Self::Allowlist { .. } => "allowlist",
@@ -469,4 +472,62 @@ pub struct ServeArgs {
     /// error, warn, info, debug or trace
     #[arg(long, value_name = "LEVEL", default_value = "info")]
     pub log_level: String,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct NetworkArgs {
+    #[command(subcommand)]
+    pub command: NetworkCommand,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum NetworkCommand {
+    /// Make the cluster CA: the file that signs every node's certificate. Keep it off the nodes
+    CaInit(CaInitArgs),
+    /// Issue one node's certificate from the CA file, which is given each time and never stored on a node
+    IssueNodeCert(IssueNodeCertArgs),
+    /// What the CA has issued (--ca), or this server's node settings and certificate
+    List(ListArgs),
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct CaInitArgs {
+    /// Where to write the CA file (cluster-ca.pem here). It holds the CA's key
+    #[arg(long, value_name = "file")]
+    pub out: Option<String>,
+    /// Replace the file if it is there (every node certificate it issued stays valid)
+    #[arg(long)]
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct IssueNodeCertArgs {
+    /// The CA file `ca-init` made
+    #[arg(long, value_name = "file")]
+    pub ca: String,
+    /// The node's name, as host.toml's [network] node gives it, such as oregon-1
+    #[arg(long, value_name = "id")]
+    pub node: String,
+    /// Its region, such as oregon
+    #[arg(long, value_name = "region")]
+    pub region: String,
+    /// An IP address or DNS name its gateway answers on, as its peers list it (repeat for more)
+    #[arg(long, value_name = "address", required = true)]
+    pub host: Vec<String>,
+    /// Where to write the node's three files (a folder named after the node here)
+    #[arg(long, value_name = "folder")]
+    pub out: Option<String>,
+    /// How long the certificate is valid (365)
+    #[arg(long, value_name = "days")]
+    pub days: Option<String>,
+    /// Replace the files if they are there
+    #[arg(long)]
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct ListArgs {
+    /// List what this CA file has issued instead of this server's settings
+    #[arg(long, value_name = "file")]
+    pub ca: Option<String>,
 }

@@ -38,11 +38,24 @@ use crate::guard::{Guard, Phases};
 use crate::ip::{peer_address, rate_limit_key};
 use crate::modules::{ModuleRoutes, Routed};
 use crate::network::{self, MAX_REPORT_BYTES, parse_region_report};
+use crate::nodelink::{self, NodeCaller, NodeLinks};
 use crate::policy::{Decision, FeedKind, LimitClass, NetworkRoute, Upstream, has_bearer};
 use crate::ratelimit::{RateLimiter, Take};
 use crate::redact::{redact_target, redact_user_agent};
+use network_plugin::endpoint::{Head, Reply as NodeReply};
+use network_plugin::link::MAX_MESSAGE;
+use network_plugin::wire;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
+/// A node-link refusal the gateway makes before the endpoint is reached.
+fn refusal(status: u16, code: &str) -> NodeReply {
+    NodeReply {
+        status,
+        body: wire::ErrorBody::new(code).encode(),
+        time_ms: crate::now_ms(),
+    }
+}
 
 /// Client-supplied address and origin claims are dropped; the gateway sets its own.
 const CLIENT_CLAIMS: [&str; 12] = [
@@ -486,6 +499,8 @@ pub struct Gateway {
     /// `None` in private mode (plain HTTP inside the tailnet)
     certificate: Option<CertInfo>,
     tls: Option<tokio_rustls::TlsAcceptor>,
+    /// Mutual TLS for the other nodes of a network on this listener (DN3)
+    node_links: Option<Arc<NodeLinks>>,
     feed: Option<AllowlistFeed>,
     capture: Option<Arc<Capture>>,
     client: Client<HttpConnector, RequestBody>,
@@ -549,6 +564,10 @@ impl Gateway {
             writer.add_secret(config.allowlist.as_ref().map(|a| a.secret.as_str()));
             Arc::new(Capture::new(writer))
         });
+        let node_links = match &config.node_links {
+            Some(links) if config.tls => Some(Arc::new(NodeLinks::load(links)?)),
+            _ => None,
+        };
         let (tls, certificate) = match tls {
             Some(Tls { config, info }) => (Some(tokio_rustls::TlsAcceptor::from(config)), Some(info)),
             None => (None, None),
@@ -574,6 +593,7 @@ impl Gateway {
             routes,
             certificate,
             tls,
+            node_links,
             feed,
             capture,
             client,
@@ -584,6 +604,11 @@ impl Gateway {
             throttle: Throttle::new(60_000),
             closing: watch::Sender::new(false),
         }))
+    }
+
+    /// The node-link side, when this server is a node of a network (DN3).
+    pub fn node_links(&self) -> Option<&Arc<NodeLinks>> {
+        self.node_links.as_ref()
     }
 
     /// `None` in private mode.
@@ -754,17 +779,55 @@ impl Gateway {
         let _ = stream.set_nodelay(true);
         let ip = peer_address(Some(&peer.ip().to_string()));
         let Some(acceptor) = self.tls.clone() else {
-            return self.serve_connection(stream, ip).await;
+            return self.serve_connection(stream, ip, None).await;
         };
-        match tokio::time::timeout(self.config.timeouts.handshake, acceptor.accept(stream)).await {
-            Ok(Ok(tls)) => self.serve_connection(tls, ip).await,
-            Ok(Err(error)) => self.handshake_failed(&ip, &error.to_string()),
+        let Some(links) = self.node_links.clone() else {
+            return match tokio::time::timeout(self.config.timeouts.handshake, acceptor.accept(stream)).await {
+                Ok(Ok(tls)) => self.serve_connection(tls, ip, None).await,
+                Ok(Err(error)) => self.handshake_failed(&ip, &error.to_string()),
+                Err(_) => self.handshake_failed(&ip, "timed out"),
+            };
+        };
+        // A client that offers the node ALPN name gets the node certificate and must present one of the
+        // cluster's; any other gets the public certificate, as without node links (DN3)
+        let accepted = tokio::time::timeout(self.config.timeouts.handshake, async {
+            let start = tokio_rustls::LazyConfigAcceptor::new(rustls::server::Acceptor::default(), stream)
+                .await
+                .map_err(|e| (e, false))?;
+            let node = nodelink::is_node_hello(&start.client_hello());
+            let config = if node { links.server_config() } else { acceptor.config() };
+            start
+                .into_stream(config.clone())
+                .await
+                .map(|tls| (tls, node))
+                .map_err(|e| (e, node))
+        })
+        .await;
+        match accepted {
+            Ok(Ok((tls, false))) => self.serve_connection(tls, ip, None).await,
+            Ok(Ok((tls, true))) => match nodelink::caller(tls.get_ref().1.peer_certificates()) {
+                Some(caller) => self.serve_connection(tls, ip, Some(Arc::new(caller))).await,
+                None => self.node_handshake_failed(&ip, "its certificate names no node"),
+            },
+            Ok(Err((error, true))) => self.node_handshake_failed(&ip, &error.to_string()),
+            Ok(Err((error, false))) => self.handshake_failed(&ip, &error.to_string()),
             Err(_) => self.handshake_failed(&ip, "timed out"),
         }
     }
 
+    /// A node-link handshake that fails is worth a warning, not a debug line: a node with a foreign or expired
+    /// certificate is a mistake of the operator's or something that should not be there.
+    fn node_handshake_failed(&self, ip: &str, error: &str) {
+        if self.throttle.allow(&format!("nodetls:{ip}"), crate::now_ms()).is_some() {
+            linelog::warn(
+                "node link refused at the handshake",
+                json!({ "ip": ip, "error": error }),
+            );
+        }
+    }
+
     /// HTTP/1.1 on one connection, TLS or (private mode) plain.
-    async fn serve_connection<S>(self: Arc<Self>, io: S, ip: String)
+    async fn serve_connection<S>(self: Arc<Self>, io: S, ip: String, caller: Option<Arc<NodeCaller>>)
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -777,7 +840,8 @@ impl Gateway {
             let ip = ip.clone();
             hyper::service::service_fn(move |request: Request<Incoming>| {
                 let (gateway, phases, ip, conn) = (gateway.clone(), phases.clone(), ip.clone(), conn.clone());
-                async move { Ok::<_, Infallible>(gateway.handle(request, ip, conn, phases).await) }
+                let caller = caller.clone();
+                async move { Ok::<_, Infallible>(gateway.handle(request, ip, conn, phases, caller).await) }
             })
         };
         let connection = hyper::server::conn::http1::Builder::new()
@@ -926,8 +990,12 @@ impl Gateway {
         ip: String,
         conn: ConnectionId,
         phases: Phases,
+        caller: Option<Arc<NodeCaller>>,
     ) -> Reply {
         phases.request_started();
+        if let Some(caller) = caller {
+            return self.node_request(request, ip, &caller, phases).await;
+        }
         if is_upgrade(request.headers()) {
             return self.upgrade(request, ip, conn, phases).await;
         }
@@ -985,6 +1053,92 @@ impl Gateway {
         }
         self.proxy(request, ip, access, phases, (upstream, endpoint), feed)
             .await
+    }
+
+    /// A request on a node connection (DN3): only `/__node/*`, answered by the node-link endpoint, whose
+    /// caller is the node the verified certificate names. No policy, no rate limit and no capture: the peer
+    /// is a trusted node, its calls are not player traffic and their bodies are the network's data.
+    async fn node_request(&self, request: Request<Incoming>, ip: String, caller: &NodeCaller, phases: Phases) -> Reply {
+        let mut access = Access {
+            ip,
+            method: request.method().as_str().to_owned(),
+            target: redact_target(&request.uri().to_string()),
+            route: "node",
+            status: 0,
+            bytes_in: 0,
+            reason: None,
+            ua: None,
+            started: Instant::now(),
+            capture: None,
+        };
+        let Some(links) = &self.node_links else {
+            return self.node_reply(&request, access, phases, refusal(404, wire::code::NOT_FOUND), true);
+        };
+        let headers = request.headers();
+        let times = headers.get_all(wire::TIME_HEADER);
+        let head = Head {
+            method: request.method().as_str(),
+            target: request.uri().path_and_query().map_or("", |p| p.as_str()),
+            content_length: headers
+                .get(CONTENT_LENGTH)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.parse().ok()),
+            time: (times.iter().count() == 1)
+                .then(|| times.iter().next().and_then(|v| v.to_str().ok()))
+                .flatten(),
+        };
+        let target = match links.endpoint().admit(&caller.node, &head) {
+            Ok(target) => target,
+            Err(reply) => return self.node_reply(&request, access, phases, reply, true),
+        };
+        let (parts, body) = request.into_parts();
+        let limited = http_body_util::Limited::new(body, MAX_MESSAGE);
+        let body = match tokio::time::timeout(self.config.timeouts.request, limited.collect()).await {
+            Ok(Ok(collected)) => collected.to_bytes().to_vec(),
+            Ok(Err(error)) if error.is::<http_body_util::LengthLimitError>() => {
+                let request = Request::from_parts(parts, ());
+                return self.node_reply(&request, access, phases, refusal(413, wire::code::TOO_LARGE), true);
+            }
+            Ok(Err(_)) | Err(_) => {
+                let request = Request::from_parts(parts, ());
+                return self.node_reply(&request, access, phases, refusal(400, wire::code::BAD_REQUEST), true);
+            }
+        };
+        access.bytes_in = body.len() as u64;
+        let reply = links.endpoint().serve(&caller.node, target, body).await;
+        let request = Request::from_parts(parts, ());
+        self.node_reply(&request, access, phases, reply, false)
+    }
+
+    fn node_reply<B>(
+        &self,
+        request: &Request<B>,
+        mut access: Access,
+        phases: Phases,
+        reply: NodeReply,
+        body_unread: bool,
+    ) -> Reply {
+        access.status = reply.status;
+        if reply.status != 200 {
+            access.reason = wire::ErrorBody::decode(&reply.body).map(|b| b.error);
+        }
+        let body = Bytes::from(reply.body);
+        let mut response = Response::builder()
+            .status(reply.status)
+            .header("content-type", "application/json")
+            .header("content-length", body.len())
+            .header("cache-control", "no-store")
+            .header(wire::TIME_HEADER, reply.time_ms.to_string());
+        // A refusal that never read the request's body can't reuse the connection
+        let has_body = request.headers().contains_key(TRANSFER_ENCODING)
+            || request.headers().get(CONTENT_LENGTH).is_some_and(|v| v != "0");
+        if (body_unread && has_body) || self.closing() {
+            response = response.header(CONNECTION, "close");
+        }
+        let response = response
+            .body(ResponseBody::full(body))
+            .unwrap_or_else(|_| Response::new(ResponseBody::full(Bytes::new())));
+        response.map(|body| body.logged(access, None, phases))
     }
 
     /// The network's routes (DN7, `network.rs`), answered here. A region report is read up to its cap,
