@@ -63,10 +63,31 @@ pub fn run(cli: &cli::Cli) -> Outcome {
     | Command::Content { args }
     | Command::Admin { args } = &cli.command
     {
-        return Ok(service_main(cli.command.name(), args));
+        return Ok(service_main(
+            cli.command.name(),
+            &with_admin_env(cli.command.name(), args),
+        ));
     }
     let root = paths::locate_repo_root()?;
     commands::dispatch(&cli.command, &paths::Paths::new(root))
+}
+
+/// `admin key issue|list|revoke` without `--env-file` reads this checkout's admin.env (DH2); a container with
+/// no checkout names the file itself.
+fn with_admin_env(name: &str, args: &[String]) -> Vec<String> {
+    let mut args = args.to_vec();
+    let named = args.iter().any(|a| a == "--env-file" || a.starts_with("--env-file="));
+    if name == "admin"
+        && args.first().is_some_and(|a| a == "key")
+        && !named
+        && let Ok(root) = paths::locate_repo_root()
+    {
+        let file = paths::Paths::new(root).config.join("admin.env");
+        if file.is_file() {
+            args.extend(["--env-file".to_owned(), file.display().to_string()]);
+        }
+    }
+    args
 }
 
 /// Which services this binary runs on its own (`reforged-host <service>`).
