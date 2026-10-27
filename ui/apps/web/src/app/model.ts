@@ -93,6 +93,8 @@ export const ERROR_KEYS: Record<ErrorCode, Key> = {
   game_version_unknown: "err_game_version_unknown",
   game_version_unavailable: "err_game_version_unavailable",
   epic_manifest_unavailable: "err_epic_manifest_unavailable",
+  guarded_not_found: "err_guarded_not_found",
+  guarded_not_waiting: "err_guarded_not_waiting",
   unknown: "err_unknown",
 }
 

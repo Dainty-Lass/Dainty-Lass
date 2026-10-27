@@ -857,5 +857,7 @@
   "gm_not_owned_short": "This account doesn't own Dauntless.",
   "gm_other_running": "Another version is being installed.",
   "gm_folder_title": "Where games go",
-  "gm_folder_text": "Versions install in the Games/Dauntless folder in your home folder, one folder per version. To use one, press Use this install."
+  "gm_folder_text": "Versions install in the Games/Dauntless folder in your home folder, one folder per version. To use one, press Use this install.",
+  "err_guarded_not_found": "That action isn't waiting any more. Refresh the list.",
+  "err_guarded_not_waiting": "That action has already run, been canceled or expired, or it waits out its delay and can't be approved early."
 }

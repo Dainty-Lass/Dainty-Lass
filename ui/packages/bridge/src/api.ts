@@ -14,6 +14,8 @@ import type {
   EpicView,
   ExternalTarget,
   GameVersionList,
+  GuardedList,
+  GuardedOutcome,
   HostAction,
   HostFolder,
   HostKit,
@@ -150,9 +152,9 @@ export interface LauncherApi {
   historyQuery(filter: HistoryFilter): Promise<ActionResult>
   historyRevertDryRun(selection: RevertSelection): Promise<ActionResult>
   historyRevertApply(plan: string): Promise<ActionResult>
-  guardedList(): Promise<ActionResult>
-  guardedApprove(id: string): Promise<ActionResult>
-  guardedCancel(id: string): Promise<ActionResult>
+  guardedList(): Promise<GuardedList>
+  guardedApprove(id: string): Promise<GuardedOutcome>
+  guardedCancel(id: string): Promise<GuardedOutcome>
 }
 
 // What a failed call answers when the page expects an answer, as the Electron main process did
@@ -411,7 +413,9 @@ export const api: LauncherApi = {
     ),
   historyRevertApply: (plan) =>
     act("history_revert_apply", { plan: String(plan) }, LONG_TIMEOUT_MS),
-  guardedList: () => act("guarded_list"),
-  guardedApprove: (id) => act("guarded_approve", { id: String(id) }),
-  guardedCancel: (id) => act("guarded_cancel", { id: String(id) }),
+  guardedList: () => act<GuardedList>("guarded_list"),
+  guardedApprove: (id) =>
+    act<GuardedOutcome>("guarded_approve", { id: String(id) }),
+  guardedCancel: (id) =>
+    act<GuardedOutcome>("guarded_cancel", { id: String(id) }),
 }

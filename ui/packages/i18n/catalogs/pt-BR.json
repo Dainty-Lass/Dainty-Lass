@@ -857,5 +857,7 @@
   "gm_not_owned_short": "Esta conta não possui o Dauntless.",
   "gm_other_running": "Outra versão está sendo instalada.",
   "gm_folder_title": "Onde os jogos ficam",
-  "gm_folder_text": "As versões são instaladas na pasta Games/Dauntless dentro da sua pasta pessoal, uma pasta por versão. Para usar uma, aperte Usar esta instalação."
+  "gm_folder_text": "As versões são instaladas na pasta Games/Dauntless dentro da sua pasta pessoal, uma pasta por versão. Para usar uma, aperte Usar esta instalação.",
+  "err_guarded_not_found": "Essa ação não está mais em espera. Atualize a lista.",
+  "err_guarded_not_waiting": "Essa ação já foi executada, cancelada ou expirou, ou está esperando o atraso e não pode ser aprovada antes."
 }
