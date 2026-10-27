@@ -1,7 +1,7 @@
 //! The backend's own text (rows L14, RA3): the dialogs the backend shows, in the player's language, from
-//! `gen/strings.json` (one table per language, made into `Language` and its tables by build.rs). The
-//! page's own catalogs live in dainty-lass-ui (DU2); this file holds only what the backend shows. Nothing
-//! here lists the languages: a language added to the file appears by rebuilding.
+//! `gen/strings.json` (one table per language, made into `Language` and its tables by build.rs). That file
+//! is dainty-lass-ui's two catalogs (DU2), written by `bridge/generate.rs`; the backend shows only the keys
+//! below. Nothing here lists the languages: a catalog added there appears by regenerating and rebuilding.
 #![cfg_attr(
     not(test),
     allow(
