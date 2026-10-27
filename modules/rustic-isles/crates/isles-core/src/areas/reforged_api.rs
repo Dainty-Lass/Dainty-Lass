@@ -3,16 +3,22 @@
 //! `TARGET_CHANGELIST` (RU3c, seam 7).
 // A handler refuses with the answer itself, as Express's middleware does
 #![allow(clippy::result_large_err)]
+// `segment` and the feed locators fail with Node's one "Invalid ..." and nothing to say beyond it
+#![allow(clippy::result_unit_err)]
 
+pub mod guard_manifest;
 pub mod host_routes;
 pub mod http_get;
 pub mod launcher_api;
+pub mod launcher_auth;
+pub mod logs;
 pub mod metrics;
 pub mod observe;
 pub mod presence;
 pub mod probes;
 pub mod release_gates;
 pub mod rules;
+pub mod updates;
 pub mod util;
 
 use crate::http::Handlers;
@@ -23,4 +29,6 @@ pub fn register(handlers: &mut Handlers) {
     probes::register(handlers);
     launcher_api::register(handlers);
     host_routes::register(handlers);
+    updates::register(handlers);
+    logs::register(handlers);
 }

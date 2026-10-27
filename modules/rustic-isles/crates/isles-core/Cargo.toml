@@ -15,6 +15,7 @@ chrono.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
 dotenvy.workspace = true
+ed25519-dalek.workspace = true
 isles-chat.workspace = true
 module-api.workspace = true
 percent-encoding.workspace = true

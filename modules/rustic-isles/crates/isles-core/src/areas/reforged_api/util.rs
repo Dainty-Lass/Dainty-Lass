@@ -233,8 +233,8 @@ pub fn decode_component(text: &str) -> String {
 }
 
 impl Req {
-    /// Reads `request`; the `Err` is the answer Express's error page gives.
-    pub async fn read(request: Request, kind: BodyKind) -> Result<Self, Response> {
+    /// The request's head and its body, unread: auth middleware runs before a route's own body parser.
+    pub fn head(request: Request) -> (Self, Body) {
         let (parts, body) = request.into_parts();
         let query = parts
             .uri
@@ -248,7 +248,7 @@ impl Req {
             })
             .collect();
         let peer = parts.extensions.get::<ConnectInfo<ConnectionInfo>>().map(|info| info.0);
-        let mut req = Self {
+        let req = Self {
             method: parts.method.as_str().to_owned(),
             path: parts.uri.path().to_owned(),
             headers: parts.headers,
@@ -257,18 +257,30 @@ impl Req {
             body: None,
             raw: None,
         };
+        (req, body)
+    }
+
+    /// Reads `body` the way `kind`'s parser does; the `Err` is the answer Express's error page gives.
+    pub async fn load(&mut self, body: Body, kind: BodyKind) -> Result<(), Response> {
         match kind {
             BodyKind::None => {}
-            BodyKind::Json(limit) if content_type_is(&req.headers, "application/json") => {
-                let bytes = read_limited(body, limit, declared_length(&req.headers)).await?;
+            BodyKind::Json(limit) if content_type_is(&self.headers, "application/json") => {
+                let bytes = read_limited(body, limit, declared_length(&self.headers)).await?;
                 let text = std::str::from_utf8(&bytes).map_err(|_| error_page(StatusCode::BAD_REQUEST))?;
-                req.body = Some(parse_json(text).map_err(|e: BodyError| error_page(e.status()))?);
+                self.body = Some(parse_json(text).map_err(|e: BodyError| error_page(e.status()))?);
             }
-            BodyKind::Raw(limit) if content_type_is(&req.headers, "application/octet-stream") => {
-                req.raw = Some(read_limited(body, limit, declared_length(&req.headers)).await?);
+            BodyKind::Raw(limit) if content_type_is(&self.headers, "application/octet-stream") => {
+                self.raw = Some(read_limited(body, limit, declared_length(&self.headers)).await?);
             }
             _ => {}
         }
+        Ok(())
+    }
+
+    /// Reads `request`; the `Err` is the answer Express's error page gives.
+    pub async fn read(request: Request, kind: BodyKind) -> Result<Self, Response> {
+        let (mut req, body) = Self::head(request);
+        req.load(body, kind).await?;
         Ok(req)
     }
 
