@@ -8,6 +8,7 @@ use admin::input::{
     MAX_MODULE_MESSAGE, MAX_REASON, MAX_TIMEOUT_MS, OPERATOR_HEADER, bearer, game, is_account_id, is_json,
     module_message, operator, parse_body, parse_instances, reason, timeout_end, username,
 };
+use admin::guard::{Rule, is_id};
 use admin::keys::{MAX_NAME, Role, clean_name, hash_key, is_key_id, key_id};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use libfuzzer_sys::arbitrary::{self, Arbitrary};
@@ -56,6 +57,13 @@ fuzz_target!(|request: Request<'_>| {
     }
     if let Some(name) = clean_name(request.name) {
         assert!((1..=MAX_NAME).contains(&name.chars().count()) && !name.chars().any(char::is_control));
+    }
+    // A guarded action is found by 16 lower-case hex digits and nothing else; a rule is one of three words
+    if is_id(request.key) {
+        assert!(request.key.len() == 16 && request.key.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+    }
+    if let Some(rule) = Rule::parse(request.name) {
+        assert_eq!(Rule::parse(rule.as_str()), Some(rule));
     }
     if let Some(role) = Role::parse(request.reason) {
         assert_eq!(Role::parse(role.as_str()), Some(role));

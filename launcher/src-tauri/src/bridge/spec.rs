@@ -300,9 +300,6 @@ pub const PLANNED: &[&str] = &[
     "history_query",
     "history_revert_dry_run",
     "history_revert_apply",
-    "guarded_list",
-    "guarded_approve",
-    "guarded_cancel",
 ];
 
 pub const COMMANDS: &[Command] = &[

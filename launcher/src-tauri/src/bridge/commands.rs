@@ -18,10 +18,10 @@ use super::spec::{
     INVITE_MAX, KEY_TEXT_MAX, PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
 };
 use super::types::{
-    ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, HostAction,
-    HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode,
-    InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings,
-    SettingsPatch, Snapshot, TaskProgress,
+    ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, GuardedList,
+    GuardedOutcome, HostAction, HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest,
+    InstallMode, InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome,
+    Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::controller::install::EpicGate;
@@ -687,19 +687,58 @@ pub fn history_revert_apply(plan: Value) -> ActionResult {
     planned("history_revert_apply", &[&plan])
 }
 
+/// A guarded action's id as the admin API makes it: 16 lower-case hex digits (DH6).
+fn guarded_id(value: &Value) -> Option<&str> {
+    value
+        .as_str()
+        .filter(|id| id.len() == 16 && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+}
+
+/// The destructive and bulk admin actions that wait (DD23, DH6), for the server GUI: the host decides them
+/// as `reforged-host admin guarded` does, in this process.
 #[tauri::command]
-pub fn guarded_list() -> ActionResult {
-    planned("guarded_list", &[])
+pub async fn guarded_list(app: AppHandle) -> GuardedList {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).guarded_list().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        GuardedList::Err(LauncherError::with_detail(ErrorCode::NotInThisBuild, "guarded_list"))
+    }
 }
 
 #[tauri::command]
-pub fn guarded_approve(id: Value) -> ActionResult {
-    planned("guarded_approve", &[&id])
+pub async fn guarded_approve(id: Value, app: AppHandle) -> GuardedOutcome {
+    let Some(id) = guarded_id(&id) else {
+        return GuardedOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).guarded_decide(id, true).await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (app, id);
+        GuardedOutcome::Err(LauncherError::with_detail(ErrorCode::NotInThisBuild, "guarded_approve"))
+    }
 }
 
 #[tauri::command]
-pub fn guarded_cancel(id: Value) -> ActionResult {
-    planned("guarded_cancel", &[&id])
+pub async fn guarded_cancel(id: Value, app: AppHandle) -> GuardedOutcome {
+    let Some(id) = guarded_id(&id) else {
+        return GuardedOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).guarded_decide(id, false).await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (app, id);
+        GuardedOutcome::Err(LauncherError::with_detail(ErrorCode::NotInThisBuild, "guarded_cancel"))
+    }
 }
 
 #[cfg(test)]

@@ -163,7 +163,9 @@ For a server nobody sets up by hand, such as one kept in a repository or deploye
 `toml` profile, `host.toml` in `./config` (or `REFORGED_CONFIG_DIR`) is the server's whole configuration. At
 every `docker compose up` the `configure` container copies it into the `workspace` volume and runs setup from
 it with no options, and nothing else starts unless that worked. A setting is changed by editing the file and
-running `docker compose up -d --force-recreate`.
+running `docker compose up -d --force-recreate`. That includes `[guard]`, which holds the bulk admin actions
+([hosting.md](hosting.md#guarded-admin-actions)); `docker compose run --rm host admin guarded list --env-file
+/opt/reforged/.workspace/config/admin.env` lists what waits.
 
 In `.env`, `COMPOSE_PROFILES=public,toml` (or `toml` for a private server). The file needs every setting a
 first setup asks for, so the easiest way to get one is to let setup write it once and copy it out:
