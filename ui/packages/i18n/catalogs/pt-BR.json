@@ -787,5 +787,10 @@
   "err_not_in_this_build": "Esta versão do launcher não inclui isso.",
   "err_epic_signed_out": "Entre na Epic Games primeiro.",
   "err_epic_library_failed": "Não foi possível verificar sua biblioteca da Epic Games. Tente de novo em instantes.",
-  "err_epic_not_owned": "Esta conta da Epic Games não possui Dauntless."
+  "err_epic_not_owned": "Esta conta da Epic Games não possui Dauntless.",
+  "err_epic_code_invalid": "Isso não é um código de login da Epic Games. Cole o código ou a página inteira que a Epic mostra depois que você entra.",
+  "err_epic_rejected": "A Epic Games não aceitou esse login. O código pode já ter sido usado ou ter expirado: entre de novo para receber outro.",
+  "err_epic_unreachable": "Não foi possível acessar a Epic Games. Verifique sua conexão e tente de novo.",
+  "err_epic_failed": "O login na Epic Games não funcionou. Tente de novo.",
+  "epic_sign_in_title": "Entrar na Epic Games"
 }

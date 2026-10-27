@@ -53,7 +53,7 @@ export type GameProblem = "not_set" | "not_found" | "unverified" | "wrong_versio
 export type ServerGame = "reforged" | "revived";
 export type Game = "reborn" | "legacy";
 export type RuntimeState = "ok" | "missing" | "outdated" | "untrusted" | "unavailable" | "local";
-export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "unknown";
+export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "unknown";
 export type NoticeCode = "keep_open" | "backup_saved" | "runtime_installed" | "runtime_installed_restart" | "game_verified" | "sdk_imported" | "host_done" | "install_done" | "repair_done";
 export type LauncherError = { code: ErrorCode, 
 /**
@@ -371,6 +371,15 @@ export type GameVersionEntry = { version: string, displayName: string, origin: G
  * Null for `locate`
  */
 epic: EpicVersionInfo | null, };
+export type EpicView = { signedIn: boolean, 
+/**
+ * The account's Epic display name; null when signed out or Epic gave none
+ */
+displayName: string | null, 
+/**
+ * The sign-in window is open, or a code is being exchanged
+ */
+signingIn: boolean, };
 export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export type ActionResult = { ok: true } | { ok: false; error: LauncherError };
 export type InviteCheck = { ok: true; certificateChanged: boolean; previousFingerprint: string | null; movedFrom: string | null } | { ok: false; error: LauncherError };

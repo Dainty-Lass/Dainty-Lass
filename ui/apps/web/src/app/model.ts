@@ -86,6 +86,10 @@ export const ERROR_KEYS: Record<ErrorCode, Key> = {
   epic_signed_out: "err_epic_signed_out",
   epic_library_failed: "err_epic_library_failed",
   epic_not_owned: "err_epic_not_owned",
+  epic_code_invalid: "err_epic_code_invalid",
+  epic_rejected: "err_epic_rejected",
+  epic_unreachable: "err_epic_unreachable",
+  epic_failed: "err_epic_failed",
   unknown: "err_unknown",
 }
 

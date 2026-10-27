@@ -11,6 +11,7 @@ import type {
   Branding,
   CommandName,
   EpicLibraryCheck,
+  EpicView,
   ExternalTarget,
   GameVersionList,
   HostAction,
@@ -116,7 +117,7 @@ export interface LauncherApi {
   // Registered ahead of the rows that fill them (DF8): each answers not_implemented for now
   epicSignInStart(): Promise<ActionResult>
   epicSignInCode(code: string): Promise<ActionResult>
-  epicGet(): Promise<ActionResult>
+  epicGet(): Promise<EpicView>
   epicSignOut(): Promise<ActionResult>
   epicLibraryCheck(): Promise<EpicLibraryCheck>
   gameVersionList(): Promise<GameVersionList>
@@ -344,7 +345,7 @@ export const api: LauncherApi = {
   // The sign-in window waits on the player
   epicSignInStart: () => act("epic_sign_in_start", {}, LONG_TIMEOUT_MS),
   epicSignInCode: (code) => act("epic_sign_in_code", { code: String(code) }),
-  epicGet: () => act("epic_get"),
+  epicGet: () => call<EpicView>("epic_get"),
   epicSignOut: () => act("epic_sign_out"),
   epicLibraryCheck: () => act<EpicLibraryCheck>("epic_library_check"),
   gameVersionList: () => act<GameVersionList>("game_version_list"),
