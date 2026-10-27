@@ -3,6 +3,15 @@
 
 use std::path::PathBuf;
 
+pub mod gauntlet;
+#[doc(hidden)]
+pub mod golden;
+pub mod loader;
+pub mod patchnotes;
+pub mod progression_config;
+pub mod season_window;
+pub mod tuning;
+
 /// The backend's files (`ParadoxBackend/game-data`).
 pub const BACKEND_FILES: [&str; 11] = [
     "progression_config.json",
@@ -26,6 +35,19 @@ pub const DIRECTOR_FILES: [&str; 5] = [
     "arena_hard_matchmaker_hunts.json",
     "arena_elite_matchmaker_hunts.json",
 ];
+
+/// The Director's two Trials tables 1.14.7 added (`shared/hunt-manifest`'s `HUNT_TABLE_FILES`); 1.12.0 reads only
+/// [`DIRECTOR_FILES`].
+pub const DIRECTOR_TRIALS_FILES: [&str; 2] = [
+    "arena_hard_matchmaker_hunts_new.json",
+    "arena_elite_matchmaker_hunts_new.json",
+];
+
+/// The Director's tables for a version: the five, plus the Trials tables when it has them.
+pub fn director_files(trials_tables: bool) -> Vec<&'static str> {
+    let trials: &[&str] = if trials_tables { &DIRECTOR_TRIALS_FILES } else { &[] };
+    DIRECTOR_FILES.iter().chain(trials).copied().collect()
+}
 
 /// Where one module's exports are: Node's `PARADOX_GAME_DATA_DIR`, one per service.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
