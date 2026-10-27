@@ -1,5 +1,9 @@
-# Handoff ledger
+<!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false } } -->
 
-One line per merge by the integration pass: date | repo | row | branch | tip SHA | merge SHA | checks run | notes.
+# Handoff integration ledger
 
-2026-10-27 | all | everything in handoff-2026-10-27.md section 3 | see that file | - | see `plan` merge commits | per-merge fmt, clippy, tests | written by the previous integration pass (Claude)
+| Date | Repo | Row | Branch | Tip SHA | Merge SHA | Checks run | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-27 | `dainty-lass` | Baseline | `plan` | `93c063b` | `93c063b` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked --no-fail-fast` (93 suites, 1151 passed, 0 failed, 3 ignored), `RR_UPDATE_GENERATED=1 cargo test -p launcher --locked generated` (1 passed, 0 diff), `ui`: `bun install --frozen-lockfile`, `bun run typecheck/lint/test/build` (45 passed, 0 failed), `rust/launcher`: `npm ci`, `npm test` (18 passed, 0 failed), `npm run typecheck` | Fresh clone into `R:\base` with submodules; Docker/Postgres not run in initial baseline check (covered in 4.5) |
+| 2026-10-27 | `legacy-revived` | RV1+RV2 (4.9) | `feat/rv1-module-crate` | `dd0e9d27` | `c8406cd4` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked --no-fail-fast` (39 suites, 1110 passed, 0 failed, 0 ignored), `rust/fuzz`: `cargo check --locked` | Dropped launcher steps and WebKitGTK install from `.forgejo/workflows/ci.yml` and added HTTPS rewrite for `module-api` git URL in CI; not tested against a real 1.4.4 client or Forgejo runner |
+| 2026-10-27 | `dainty-lass` | DS6+DF5 (4.5) | `fix/docker-build-with-modules` | `09675b5` | `109f2f4` | `bash docker/run-tests.sh` (Docker `front`/`server`/`test` images built; in-image Rust: 66 suites, 666 passed, 0 failed, 1 ignored; Node backend: 1645 passed, 0 failed; Node director: 44 passed, 0 failed; smoke test passed; 4-node network harness passed) | Added `--features server-console/all-modules,server-minimal/all-modules` to `.forgejo/workflows/server-release.yml` and `-p controller -p backend -p director` to `docker/Dockerfile` test stage; Forgejo CI workflow not triggered on runner |
