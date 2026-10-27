@@ -2,9 +2,9 @@
 //! whether they are real or the shipped examples, and the generators that make them.
 //!
 //! The game data the backend and the Director read is generated from the host's own 1.14.7 install
-//! with Mystic Paradox's tools (`paradox/docs/GENERATING_GAME_DATA.md`). `gamedata` runs the steps in
-//! order from the CatalogExporter export in `paradox/Items_Analysis/`. Until RB11 the steps are the
-//! Node generators in `paradox/backend/scripts` (and the Director's); [`run_generator`] is the one
+//! with Mystic Paradox's tools (`modules/rustic-isles/docs/GENERATING_GAME_DATA.md`). `gamedata` runs the steps in
+//! order from the CatalogExporter export in `Items_Analysis/` beside the services. Until RB11 the steps are the
+//! Node generators in `ParadoxBackend/scripts` (rustic-isles) (and the Director's); [`run_generator`] is the one
 //! place that starts them, so RB11 switches it to the `backend gamedata` subcommands.
 //!
 //! `start` (RH2) and `doctor` (RH3) use [`game_data_state`].
@@ -284,7 +284,7 @@ pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
 }
 
 /// Runs one generator step to its end. The one place the generators are started: until RB11 the
-/// Node scripts in `paradox/backend/scripts` (and the Director's) through npm, after it the
+/// Node scripts in `ParadoxBackend/scripts` (rustic-isles) (and the Director's) through npm, after it the
 /// `backend gamedata` subcommands.
 pub fn run_generator(p: &Paths, step: &Step<'_>, log_file: &Path) -> Result<RunResult, HostError> {
     let cwd = match step.cwd {

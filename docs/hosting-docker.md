@@ -16,7 +16,7 @@ a private server over Tailscale works too.
 | --- | --- | --- |
 | `net` | front | Holds the network namespace every other container joins, and the published ports |
 | `mongo` | `mongo:8.0` | MongoDB with the one-member replica set `rs0` the backend needs (until RB14) |
-| `backend` | server | The Node backend (`paradox/backend`), 127.0.0.1:61000 |
+| `backend` | server | The Node backend (`modules/rustic-isles/reference/1.14.7/ParadoxBackend`), 127.0.0.1:61000 |
 | `director` | server | The Node Director, 127.0.0.1:61001; starts Ramsgate, the Training Grounds and hunts through Wine |
 | `content` | front | The content server, 127.0.0.1:61002 (`reforged-host content serve`) |
 | `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables; `reforged-host allowlist`) |
@@ -40,8 +40,8 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | Volume | Path | Holds |
 | --- | --- | --- |
 | `workspace` | `/opt/reforged/.workspace` | Configuration and secrets, the certificate, the published runtime, branding, logs, the Wine prefix |
-| `backend-game-data`, `director-game-data` | `/opt/reforged/paradox/*/game-data` | Your game data |
-| `exports`, `captures` | `/opt/reforged/paradox/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
+| `backend-game-data`, `director-game-data` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/*/game-data` | Your game data |
+| `exports`, `captures` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
 | `mongo-data`, `mongo-config` | MongoDB's | The database |
 | `postgres-data` | Postgres's | The `postgres` profile's database |
 | bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`) |
@@ -67,7 +67,7 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 ## A public server
 
 ```bash
-git clone ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git
+git clone --recurse-submodules ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git
 cd dainty-lass
 cp .env.example .env
 ```
@@ -186,8 +186,8 @@ COMPOSE_PROFILES=legacy,public
 REFORGED_GAME_DIR=/srv/dauntless-1.4.4
 ```
 
-`REFORGED_EDITION=legacy` builds the images with the `legacy` features and adds DR's metagame (and its deploy
-server, once it is ported) to the server image. The `legacy` profile adds the `metagame` and `deploy`
+`REFORGED_EDITION=legacy` builds the images with the `legacy` features and adds DR's metagame and deploy server,
+built from the legacy-revived submodule (`modules/legacy-revived`), to the server image. The `legacy` profile adds the `metagame` and `deploy`
 containers, in the shared namespace like the others, and `compose.legacy.yaml` leaves `mongo`, `backend`,
 `director` and `admin` out and has the content server and the gateway wait for the metagame. Use both: the
 profile alone would run the metagame next to the backend, on the same port. Then:
@@ -200,8 +200,8 @@ docker compose run --rm host invite
 ```
 
 The `metagame` container migrates its database (in the `workspace` volume) and registers the game-server key
-before it serves. The `deploy` container starts the 1.4.4 game servers under Wine; until DR's deploy server is
-ported it stays up and says in its log that no game server can start. Put `winmm.dll`,
+before it serves. The `deploy` container starts the 1.4.4 game servers under Wine. Both read DR's own setting
+names, so their containers hand them their env files with the `METAGAME_`/`DEPLOY_` prefix taken off. Put `winmm.dll`,
 `UndauntedInternalServer.dll` and a `mystic_loader.ini` naming it beside the executable in your game folder. The `toml` profile works the same with
 `edition = "legacy"` in `host.toml` (`COMPOSE_PROFILES=legacy,public,toml`).
 
@@ -226,7 +226,7 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 | --- | --- |
 | Stop, start | `docker compose stop`, `docker compose up -d`; a clean stop includes the game servers |
 | Change a setting | `docker compose run --rm host setup …` (or `multipliers`), then `docker compose up -d --force-recreate`. With the `toml` profile: edit `config/host.toml`, then the same `up` |
-| Update | `git pull`, `docker compose build`, `docker compose up -d`. `reforged-host update` is not used in Docker |
+| Update | `git pull --recurse-submodules` (once after a clone made without them: `git submodule update --init --recursive`), `docker compose build`, `docker compose up -d`. `reforged-host update` is not used in Docker |
 | Back up | `docker compose run --rm host backup` (into the `workspace` volume, `backups/`), and keep a copy of the `workspace` volume: it holds the certificate every invite names and the secrets |
 | A shell | `docker compose run --rm --entrypoint bash host` |
 
@@ -251,8 +251,7 @@ images:
 leaves out step 3. On a server, `docker compose run --rm test` runs step 2 with your game-data volumes mounted
 read-only, so the backend's and Director's game-data tests (skipped without real data) check your data too.
 
-The smoke test runs a reborn server only. A legacy one cannot come up without DR's metagame and deploy server,
-which are not in this repository yet, so the `legacy` profile is checked as far as `docker compose config`.
+The smoke test runs a reborn server only: the `legacy` profile is checked as far as `docker compose config`.
 
 ## Moving an existing Linux host into Docker
 

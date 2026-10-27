@@ -598,7 +598,7 @@ fn linux_options_are_in_host_json_on_linux_only() {
 
 // ------------------------------------------------------------------ a fresh private and public setup
 
-/// A checkout with what setup builds from (paradox/ and native/), and a game folder.
+/// A checkout with what setup builds from (modules/rustic-isles and native/), and a game folder.
 fn checkout() -> (tempfile::TempDir, Paths, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("Reforged");
@@ -648,7 +648,7 @@ fn a_fresh_private_setup_then_again() {
         "{text}"
     );
     assert!(
-        text.contains("\n1. Mystic Paradox (paradox/ and native/ in this project)\n- in place"),
+        text.contains("\n1. Mystic Paradox (modules/rustic-isles and native/ in this project)\n- in place"),
         "{text}"
     );
     assert!(text.contains("- backend: npm ci (mocked)"));
@@ -857,7 +857,7 @@ fn setup_refuses_an_unquoted_value_and_an_incomplete_checkout() {
     let (r, _) = setup(&p, &["--mode", "private"], &Mock::new());
     assert!(
         r.unwrap_err()
-            .starts_with("this checkout has no native/runtime-loader: clone the project again")
+            .starts_with("this checkout has no native/runtime-loader: run git submodule update")
     );
 }
 

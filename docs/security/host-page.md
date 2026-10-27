@@ -107,7 +107,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
 
 - [ ] `reforged-host` is only the one in the chosen project folder (beside it, in `bin\`, or a build in
       `rust\target\release\`), started directly with an argument list, never through a shell or `npm`/`node`
-      (RD23). A folder without it and `paradox\` is not a workspace.
+      (RD23). A folder without it and `modules\rustic-isles\` (or a pre-DS6 `paradox\`) is not a workspace.
 - [ ] The host's text (server name, invite note) is trimmed, length-capped and free of control characters, and goes
       as one argument; the public host matches the DNS-name pattern; multipliers are finite, 1 to 100, rounded to
       two places (`bridge/commands.rs`).

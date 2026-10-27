@@ -3,7 +3,9 @@
 # Security checklist: the legacy metagame (RX3)
 
 The checklist for Dauntless Revived's metagame, the backend of a legacy (Dauntless 1.4.4) server:
-`rust/services/metagame`, copied from DR at `24b7624` (RD5 reversed). `SECURITY_REVIEW.md` indexes it.
+`rust/services/metagame` in the legacy-revived submodule (`modules/legacy-revived`, DS6), DR's at `24b7624` with this
+project's catch-up (RD5 reversed); this checklist moves there with RV1. `SECURITY_REVIEW.md` indexes it. Its fuzz
+targets (`metagame_chat`, `metagame_token`) left this repository's `rust/fuzz` with the code; RV1 carries them over.
 
 How to use it: before the first legacy server goes public, copy this list into the cutover notes, check each item in
 the code (not from memory), link the code or test that shows it, and sign at the end with the date and the commit

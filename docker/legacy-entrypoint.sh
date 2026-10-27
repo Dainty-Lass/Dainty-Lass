@@ -18,16 +18,22 @@ if [ ! -f "$env_file" ]; then
 fi
 cd "$workspace"
 
+# legacy-revived's binaries read DR's names (PORT, not METAGAME_PORT; DS6): the file with its prefix taken off,
+# in a private copy that goes with the container (the host kit's start does the same, legacy/mod.rs dr_environment)
+prefix="$(echo "$role" | tr '[:lower:]' '[:upper:]')_"
+dr_env_file="$(umask 077 && mktemp)"
+sed "s/^$prefix//" "$env_file" >"$dr_env_file"
+
 case "$role" in
 metagame)
+	[ -n "${METAGAME_GIT_COMMIT:-}" ] && export GIT_COMMIT="$METAGAME_GIT_COMMIT"
 	db="$(sed -n 's/^METAGAME_DB_FILENAME=//p' "$env_file" | tail -n 1 | tr -d '"')"
-	metagame migrate --env-file "$env_file"
+	metagame migrate --env-file "$dr_env_file"
 	metagame db gs-key "$db" "$config/gameserver.key"
-	exec metagame serve --env-file "$env_file"
+	exec metagame serve --env-file "$dr_env_file"
 	;;
 deploy)
 	if ! command -v deploy >/dev/null 2>&1; then
-		# DR's deploy server is not ported yet: say so once and stay up, rather than restart forever.
 		echo "deploy | ! this image has no deploy bin (DR's deploy server): no game server can start." >&2
 		exec sleep infinity
 	fi
@@ -35,7 +41,7 @@ deploy)
 	if [ -z "$exe" ] || [ ! -f "$exe" ]; then
 		echo "deploy | ! no game executable at ${exe:-(none)}: mount your Dauntless 1.4.4 folder (REFORGED_GAME_DIR)" >&2
 	fi
-	exec deploy serve --env-file "$env_file"
+	exec deploy serve --env-file "$dr_env_file"
 	;;
 *)
 	echo "unknown role $role" >&2

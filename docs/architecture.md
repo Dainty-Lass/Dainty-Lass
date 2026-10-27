@@ -12,8 +12,8 @@ under [security/](security) go through each trust boundary line by line.
 | Allowlist helper | the server, public mode | `rust/services/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall |
 | Content server | the server | `rust/services/content` | `127.0.0.1:61002` |
 | Admin API | the server | `rust/services/admin` | loopback, host-only |
-| Backend | the server | `paradox/backend` (Node, Mystic Paradox) until the Rust port | `127.0.0.1:61000` |
-| Director | the server | `paradox/director` (Node, Mystic Paradox) until the Rust port | `127.0.0.1:61001`; starts the game servers |
+| Backend | the server | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` (Node, Mystic Paradox) until the Rust port | `127.0.0.1:61000` |
+| Director | the server | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` (Node, Mystic Paradox) until the Rust port | `127.0.0.1:61001`; starts the game servers |
 | Game servers | the server | the game, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts) |
 | Host kit | the server | `rust/services/host`, bin `reforged-host` | nothing; writes the env files, runs `start` |
 | Controller | the server | `rust/crates/controller` | the one process tree `start`, the console and the server GUI run |
@@ -53,7 +53,7 @@ player address, only after that player logged in.
 ## The launcher API
 
 The backend's `/reforged/api` is the one contract between the launcher, the content server, the admin API and
-the host kit ([paradox/backend/src/routes/reforgedApi.ts](../paradox/backend/src/routes/reforgedApi.ts)).
+the host kit ([modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts](../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts)).
 
 | Route | Who calls it | Through the gateway |
 | --- | --- | --- |

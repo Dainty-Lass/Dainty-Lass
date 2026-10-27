@@ -27,7 +27,7 @@ backend's admin routes and the Director, so what it can do is bounded by what th
   checked by `module-api`'s parser (fuzz target `module_frame`), and the admin API treats the text of its errors as
   untrusted.
 - **Out:** signed `/admin/v1` calls (the manager-operator credential,
-  `paradox/backend/src/security/managerOperator.ts`), the admin key to `/reforged/api/Kick`, `AdminCall`s to game
+  `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/security/managerOperator.ts`), the admin key to `/reforged/api/Kick`, `AdminCall`s to game
   modules, and GraphQL answers to the caller.
 
 ### Which game a player is in
@@ -161,9 +161,9 @@ RD2 makes fixes the baseline for `paradox/`, not a rule. The kick needs a way to
 the Node backend did that: `SessionRegistry` holds the chat connections, but no route closed them on demand. The Rust
 backend can't start before its gate (RD17). So `paradox/` gained one small route (2026-10-24, decision RD25):
 
-- `paradox/backend/src/routes/reforgedApi.ts`: `POST /reforged/api/Kick {Username}`, behind `HasAdminKey`, answers
+- `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`: `POST /reforged/api/Kick {Username}`, behind `HasAdminKey`, answers
   `{UserId, Username, Closed}` (404 `not_found`, 400 `bad_request`).
-- `paradox/backend/src/launcherApiRules.ts`: `DisconnectAccount` revokes the account's refresh sessions and unused exchange
+- `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/launcherApiRules.ts`: `DisconnectAccount` revokes the account's refresh sessions and unused exchange
   codes, then closes each chat connection with WebSocket code 1008 `kicked by the host`. Tested in
   `launcherApiRules.test.ts`.
 - The game's access token isn't revocable in the Node backend and stays valid until it expires. The kick doesn't

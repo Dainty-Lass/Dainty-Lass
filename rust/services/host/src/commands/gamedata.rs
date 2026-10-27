@@ -4,7 +4,7 @@
 //! `--export [file]` and `--import <file>` move a game data pack; `--examples` copies the shipped
 //! examples where data is missing; otherwise the generators run from the host's export
 //! (`--progression`: only the progression config). Until RB11 the generators are the Node scripts
-//! in `paradox/backend/scripts` ([`crate::gamedata::run_generator`]), after it the `backend gamedata`
+//! in `ParadoxBackend/scripts` (rustic-isles) ([`crate::gamedata::run_generator`]), after it the `backend gamedata`
 //! subcommands.
 
 use std::path::{Path, PathBuf};

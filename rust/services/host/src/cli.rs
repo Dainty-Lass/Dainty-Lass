@@ -452,7 +452,7 @@ mod tests {
     fn refuses_what_the_node_kit_never_had() {
         assert!(Cli::try_parse_from(["reforged-host", "frobnicate"]).is_err());
         assert!(Cli::try_parse_from(["reforged-host", "start", "--mode", "public"]).is_err());
-        // Removed with `npm run upstream` (RH5, section 6): Mystic Paradox is in paradox/ since RP4.
+        // Removed with `npm run upstream` (RH5, section 6): Mystic Paradox is in this project since RP4 (modules/rustic-isles since DS6).
         assert!(Cli::try_parse_from(["reforged-host", "upstream"]).is_err());
     }
 }

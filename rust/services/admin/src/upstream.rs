@@ -1,5 +1,5 @@
 //! Calls to the Node services on this machine: the backend's `/admin/v1` routes, signed with the
-//! manager-operator credential (`paradox/backend/src/security/managerOperator.ts` holds the contract),
+//! manager-operator credential (rustic-isles' `ParadoxBackend/src/security/managerOperator.ts` holds the contract),
 //! its `/reforged/api` kick with the admin key, its public status, and the Director's instances.
 
 use std::sync::Arc;

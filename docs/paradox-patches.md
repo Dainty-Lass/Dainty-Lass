@@ -1,7 +1,9 @@
 # Changes to Mystic Paradox
 
-`paradox/` and `native/` are Mystic Paradox at commit `21b9ff5` (`pranav158/Mystic-Paradox`, upstream `main`
-on 2026-10-23) with the changes below. Each is marked in the code with `[DaintyLass]` or, for the ones taken
+The rustic-isles submodule (`modules/rustic-isles`: the Node services under `reference/1.14.7`, the runtime and
+the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) and `native/runtime-loader` are
+Mystic Paradox at commit `21b9ff5` (`pranav158/Mystic-Paradox`, upstream `main` on 2026-10-23) with the changes
+below. Each is marked in the code with `[DaintyLass]` or, for the ones taken
 over from the Dauntless Reforged Revival line and kept as received, `[Dauntless Reforged Revival]`
 ([NOTICE.md](../NOTICE.md)). A patch written against Mystic's tree is applied as
 [paradox-runtime-patches.md](paradox-runtime-patches.md) describes.
@@ -10,11 +12,11 @@ over from the Dauntless Reforged Revival line and kept as received, `[Dauntless 
 
 | What | Where |
 | --- | --- |
-| The runtime reads the backend address from `MYSTICPARADOX_BACKEND_URL` or `REFORGED_BACKEND_URL`, so one build serves every server; without a generated deployment header it fails closed on a reserved name; the XMPP `bUseSSL` switch follows the address's scheme, so a `ws://` relay is not opened with TLS | `native/paradox-runtime/dllmain.cpp` |
-| The launcher API (`/reforged/api`): registration with invite codes, account keys as the game's `AUTH_MODE=APIKEY` login, the live status, and the host's invite, account-status and kick routes | `paradox/backend/src/routes/reforgedApi.ts`, `src/launcherApiRules.ts`; `routes/eos.ts` (the client-credentials token, banned accounts refused); `config/listenerPlan.ts` (`REFORGED_HTTP_ONLY`, `QOS_PORT=0`) |
-| The Director listens on loopback (`BIND_HOST`) and lists its running game servers at `GET /api/instances` for the status | `paradox/director/src/server.ts`, `app.ts`, `controllers/gameservers.ts` |
+| The runtime reads the backend address from `MYSTICPARADOX_BACKEND_URL` or `REFORGED_BACKEND_URL`, so one build serves every server; without a generated deployment header it fails closed on a reserved name; the XMPP `bUseSSL` switch follows the address's scheme, so a `ws://` relay is not opened with TLS | `modules/rustic-isles/native/runtime/dllmain.cpp` |
+| The launcher API (`/reforged/api`): registration with invite codes, account keys as the game's `AUTH_MODE=APIKEY` login, the live status, and the host's invite, account-status and kick routes | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, `src/launcherApiRules.ts`; `routes/eos.ts` (the client-credentials token, banned accounts refused); `config/listenerPlan.ts` (`REFORGED_HTTP_ONLY`, `QOS_PORT=0`) |
+| The Director listens on loopback (`BIND_HOST`) and lists its running game servers at `GET /api/instances` for the status | `modules/rustic-isles/reference/1.14.7/ParadoxDirector/src/server.ts`, `app.ts`, `controllers/gameservers.ts` |
 | The admin API's kick (MIGRATION_PLAN.md RD25) | `routes/reforgedApi.ts` |
-| `store-captures.json`: the five live-store captures the store generators read, by commit and SHA-256, fetched on the host's machine | `paradox/backend/store-captures.json` |
+| `store-captures.json`: the five live-store captures the store generators read, by commit and SHA-256, fetched on the host's machine | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json` |
 
 ## Gameplay fixes and settings, taken over (0004 to 0039)
 

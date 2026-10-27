@@ -80,7 +80,7 @@ pub struct Launch {
 }
 
 /// Where the programs are: Node, this binary (which runs the Rust services) and the folders searched
-/// for the Rust binaries that are not part of it yet (a legacy server's metagame and deploy server).
+/// for the Rust binaries that are not part of it (a legacy server's metagame and deploy server).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Programs {
     pub node: PathBuf,
@@ -103,17 +103,20 @@ impl Programs {
     }
 
     /// This binary, and the folders with other Rust binaries: next to it (the server release), then the
-    /// workspace's `rust/target/release` and `debug`. `node` is left as the bare name.
+    /// workspace's `rust/target/release` and `debug`, then legacy-revived's (its metagame and deploy
+    /// server, a workspace of their own since DS6). `node` is left as the bare name.
     pub fn find_rust(paths: &Paths) -> Self {
         let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("reforged-host"));
         let mut rust_dirs = Vec::new();
         if let Some(dir) = exe.parent() {
             rust_dirs.push(dir.to_path_buf());
         }
-        for profile in ["release", "debug"] {
-            let dir = paths.repo.join("rust").join("target").join(profile);
-            if !rust_dirs.contains(&dir) {
-                rust_dirs.push(dir);
+        for workspace in [paths.repo.join("rust"), paths.revived.join("rust")] {
+            for profile in ["release", "debug"] {
+                let dir = workspace.join("target").join(profile);
+                if !rust_dirs.contains(&dir) {
+                    rust_dirs.push(dir);
+                }
             }
         }
         let host = host_cli(&exe, paths, &rust_dirs);

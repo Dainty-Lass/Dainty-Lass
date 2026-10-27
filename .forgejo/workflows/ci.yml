@@ -3,8 +3,8 @@
 # push to main or plan, a manual run and any change to the workflows run every family.
 #  - Rust (rust/, modules/): fmt, clippy and tests on Linux and Windows, each module alone, cargo-deny, a short run
 #    of every fuzz target
-#  - Paradox (paradox/backend, paradox/director): npm ci and tests
-#  - UI (ui/, once DS6 mounts dainty-lass-ui there): bun install and build (DD11)
+#  - Paradox (ParadoxBackend, ParadoxDirector in modules/rustic-isles/reference/1.14.7): npm ci and tests
+#  - UI (ui/, dainty-lass-ui): bun install and build (DD11)
 #  - Docker (docker/, compose*.yaml and everything the images copy): the images, the suites inside them, the smoke test
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
@@ -73,18 +73,18 @@ jobs:
               - rust/**
               - modules/**
             paradox:
-              - paradox/**
+              - modules/rustic-isles
+              - modules/rustic-isles/**
             ui:
               - ui
               - ui/**
-            # The images build the Rust services, the Paradox backend and Director, and copy native/
+            # The images build the Rust services, the Paradox backend and Director (rustic-isles), and copy native/
             docker:
               - docker/**
               - compose*.yaml
               - .dockerignore
               - .env.example
               - rust/**
-              - paradox/**
               - native/**
               - modules/**
 
@@ -284,7 +284,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # The Node backend and Director in this repository (RP3), until the Rust port replaces them.
+  # The Node backend and Director (RP3), in the rustic-isles submodule since DS6, until the Rust port replaces them.
   paradox:
     # No matrix value in the name: Forgejo appends it, and a skipped job would show the expression unexpanded.
     name: Paradox tests
@@ -295,14 +295,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [backend, director]
+        package: [ParadoxBackend, ParadoxDirector]
     defaults:
       run:
-        working-directory: paradox/${{ matrix.package }}
+        working-directory: modules/rustic-isles/reference/1.14.7/${{ matrix.package }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          submodules: recursive
+          token: ${{ secrets.CI_READ_TOKEN || github.token }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
