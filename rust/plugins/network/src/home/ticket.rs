@@ -401,12 +401,15 @@ impl Tickets {
         if now.saturating_sub(skew) >= claims.exp {
             return Err(TicketError::Expired);
         }
-        if claims.iss == self.me {
-            if claims.iat.saturating_sub(claims.since) > ms(self.config.max_session) {
-                return Err(TicketError::SessionTooOld);
-            }
+        if claims.iss == self.me && claims.iat.saturating_sub(claims.since) > ms(self.config.max_session) {
+            return Err(TicketError::SessionTooOld);
+        }
+        {
             let revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
-            if revoked.get(&claims.sub).is_some_and(|floor| claims.iat <= *floor) {
+            if revoked
+                .get(&claims.sub)
+                .is_some_and(|floor| claims.iat <= *floor || claims.since <= *floor)
+            {
                 return Err(TicketError::Revoked);
             }
         }
@@ -442,6 +445,23 @@ impl Tickets {
         let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
         revoked.retain(|_, floor| now.saturating_sub(*floor) <= keep);
         revoked.insert(account.clone(), now);
+    }
+
+    /// Clears an earlier [`Self::revoke`] for `account` (after an unban or lifted timeout).
+    pub fn allow(&self, account: &GlobalId) {
+        self.revoked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(account);
+    }
+
+    /// Whether a session of `account` that started at `at` (ms) has been revoked here.
+    pub fn is_revoked_at(&self, account: &GlobalId, at: i64) -> bool {
+        self.revoked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(account)
+            .is_some_and(|floor| at <= *floor)
     }
 
     /// Replay entries held, for tests.

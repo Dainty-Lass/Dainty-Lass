@@ -26,10 +26,12 @@ pub enum Service {
     Directory,
     /// The home API: session tickets, and operations on an account at its home (DN5)
     Home,
+    /// Operator actions relayed between nodes: an admin's kick or ban applied on every node (DN11)
+    Admin,
 }
 
 impl Service {
-    pub const ALL: [Service; 2] = [Self::Directory, Self::Home];
+    pub const ALL: [Service; 3] = [Self::Directory, Self::Home, Self::Admin];
 }
 
 impl Service {
@@ -37,6 +39,7 @@ impl Service {
         match self {
             Self::Directory => "directory",
             Self::Home => "home",
+            Self::Admin => "admin",
         }
     }
 
@@ -90,6 +93,26 @@ pub trait NodeService: Send + Sync {
         service: Service,
         body: Vec<u8>,
     ) -> BoxFuture<'a, Result<Vec<u8>, LinkError>>;
+}
+
+/// Who the peers of this node are and whether each is reachable now, from the link's own health checks. A
+/// service that must reach every node (DN11) skips the ones that are down and queues for them.
+pub trait PeerRoster: Send + Sync {
+    /// Every peer this node lists, not itself.
+    fn peers(&self) -> Vec<NodeId>;
+
+    /// Whether `node` is worth calling now: a peer never tried counts as up, so its first call is made.
+    fn is_up(&self, node: &NodeId) -> bool;
+}
+
+impl PeerRoster for NoPeers {
+    fn peers(&self) -> Vec<NodeId> {
+        Vec::new()
+    }
+
+    fn is_up(&self, _node: &NodeId) -> bool {
+        false
+    }
 }
 
 /// The link of a server that isn't in a network (section 6: it works as a node with no peers).

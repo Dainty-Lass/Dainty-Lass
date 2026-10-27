@@ -14,7 +14,7 @@ use libfuzzer_sys::fuzz_target;
 use module_api::registrar::RouteSpec;
 use module_api::stub::StubModule;
 use module_api::{CorePlugin, GameModule, Registration};
-use protocol::game::Game;
+use protocol::invite::reforged_version;
 
 #[derive(Arbitrary, Debug)]
 struct Input<'a> {
@@ -56,7 +56,7 @@ fuzz_target!(|input: Input<'_>| {
     }
     let routed = routes.route(
         "0.0.1",
-        Game::Reborn,
+        &reforged_version(),
         input.method,
         input.target,
         &headers,

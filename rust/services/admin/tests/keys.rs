@@ -71,6 +71,8 @@ async fn exercise(config: DatabaseConfig) {
         game: Some("1.14.7"),
         detail: Some("griefing hunts"),
         approved_by: None,
+        via_node: None,
+        request_key: None,
     };
     keys.record(&info.id, entry, 1002).await.unwrap();
 

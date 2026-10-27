@@ -396,6 +396,26 @@ type Mutation {
 	revertApply(planId: String!, selection: HistoryFilter): RevertDone!
 }
 
+"""
+GraphQL representation of a queued admin action waiting for a down peer (DN11).
+"""
+type PendingRelay {
+	id: String!
+	node: String!
+	requestKey: String!
+	operation: String!
+	target: String
+	game: String
+	actorKey: String!
+	createdAt: String!
+	attempts: Int!
+	lastError: String
+	"""
+	`"pending on node <node>"`
+	"""
+	status: String!
+}
+
 type Player {
 	userId: String!
 	username: String!
@@ -461,6 +481,11 @@ type Query {
 	action was answered with the code GUARDED and its id. Moderator role or higher.
 	"""
 	guarded(all: Boolean): [GuardedAction!]!
+	"""
+	Admin actions waiting in the retry queue for unreachable peers, oldest first (DN11). Each row's
+	`status` is `"pending on node <peer>"`. Moderator role or higher.
+	"""
+	pendingRelay: [PendingRelay!]!
 	"""
 	Changes from the change logs, newest first: who changed what, with the row before and after. Pass the
 	previous page's `next` as `cursor`; `limit` is 1 to 1000 (50). Admin role or higher.

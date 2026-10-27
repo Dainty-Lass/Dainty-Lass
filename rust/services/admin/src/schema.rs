@@ -163,7 +163,7 @@ fn upstream(service: &str, error: UpstreamError) -> async_graphql::Error {
 
 // ------------------------------------------------------------------ types
 
-#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AccountStatus {
     Active,
     Banned,
@@ -172,7 +172,7 @@ pub enum AccountStatus {
     Unknown,
 }
 
-#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RestrictionKind {
     /// Banned until someone lifts it.
     Ban,
@@ -183,7 +183,7 @@ pub enum RestrictionKind {
 }
 
 /// Why a player cannot play right now.
-#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Restriction {
     pub kind: RestrictionKind,
     /// The text the player sees in the launcher.
@@ -209,7 +209,7 @@ pub struct ActiveTimeout {
     pub at: String,
 }
 
-#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LocationKind {
     /// Ramsgate
     Hub,
@@ -220,7 +220,7 @@ pub enum LocationKind {
 }
 
 /// The game server a player is on, from the Director.
-#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Location {
     pub kind: LocationKind,
     pub instance_id: String,
@@ -228,7 +228,7 @@ pub struct Location {
     pub title: String,
 }
 
-#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Player {
     pub user_id: String,
     pub username: String,
@@ -302,7 +302,7 @@ pub struct HuntStatus {
     pub hunts: Vec<Hunt>,
 }
 
-#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct KickResult {
     pub user_id: String,
     pub username: String,
@@ -591,6 +591,8 @@ pub struct Admin {
     pub guard: Guards,
     /// The change logs of this server's databases (DH3b).
     pub history: history::Service,
+    /// Peer-to-peer admin relay, session ticket revocation and down-peer queue (DN11).
+    pub relay: crate::relay::AdminRelay,
     pub max_hunt_servers: u32,
     pub server_mode: config::ServerMode,
     pub clock: Clock,
@@ -727,21 +729,67 @@ impl Admin {
     ) {
         // Set while a held action runs: the second operator who approved it (DH6)
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
-        let entry = Action {
-            operator: caller.operator.id(),
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
             action,
             target,
             game,
             detail,
-            approved_by: approved_by.as_deref(),
+            approved_by.as_deref(),
+            None,
+            None,
+        )
+        .await;
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn audit_full(
+        &self,
+        key: &str,
+        operator: &str,
+        action: &str,
+        target: Option<&str>,
+        game: Option<&str>,
+        detail: Option<&str>,
+        approved_by: Option<&str>,
+        via_node: Option<&str>,
+        request_key: Option<&str>,
+    ) {
+        let entry = Action {
+            operator,
+            action,
+            target,
+            game,
+            detail,
+            approved_by,
+            via_node,
+            request_key,
         };
-        if let Err(error) = self.keys.record(&caller.key, entry, self.now()).await {
+        if let Err(error) = self.keys.record(key, entry, self.now()).await {
             log::error(
                 "could not record an admin action",
-                json!({"key": caller.key, "operator": caller.operator.id(), "action": action,
-                       "target": target, "game": game, "detail": detail, "error": error.to_string()}),
+                json!({"key": key, "operator": operator, "action": action,
+                       "target": target, "game": game, "detail": detail,
+                       "viaNode": via_node, "error": error.to_string()}),
             );
         }
+    }
+
+    /// Builds a [`network_plugin::NodeService`] for `Service::Admin` backed by this [`Admin`] (DN11).
+    pub fn relay_service(self: &Arc<Self>) -> Arc<network_plugin::relay::AdminRelayService> {
+        let authority: Arc<dyn network_plugin::relay::AdminAuthority> = self.clone();
+        Arc::new(self.relay.service(authority))
+    }
+
+    /// Queued admin actions waiting for down peers (DN11). Moderator role or higher.
+    pub async fn pending_relay(&self, caller: &Caller) -> async_graphql::Result<Vec<crate::relay::PendingRelay>> {
+        allow(caller, Role::Moderator, "pendingRelay")?;
+        let pending = self.relay.pending().await.map_err(|error| {
+            log::error("the admin API database failed", json!({"error": error.to_string()}));
+            fail(Code::BackendUnavailable, "the admin API database did not answer")
+        })?;
+        Ok(pending.into_iter().map(crate::relay::PendingRelay::from).collect())
     }
 
     /// Every key, the owner first. Never a key or a hash.
@@ -776,12 +824,44 @@ impl Admin {
 
     /// [`Admin::revoke_key`] once it is allowed to run: a held revoke runs here when its time comes (DH6).
     pub(crate) async fn revoke_key_now(&self, caller: &Caller, id: &str) -> async_graphql::Result<AdminKey> {
+        let now = self.now();
         let by = store::Actor::Admin(caller.key.clone());
-        let info = self.keys.revoke(id, by, self.now()).await.map_err(key_failure)?;
+        let info = self.keys.revoke(id, by, now).await.map_err(key_failure)?;
         log::info(
             "admin key revoked",
             json!({"id": info.id, "name": info.name, "by": caller.key}),
         );
+        if self.relay.in_network() {
+            let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+            if let Ok(spec) = crate::relay::OutboundAction::new(
+                crate::relay::operations::REVOKE_KEY,
+                None,
+                false,
+                &caller.key,
+                caller.operator.id(),
+                approved_by.clone(),
+                Some(info.id.clone()),
+                None,
+                json!({ "id": info.id }),
+            ) {
+                let pending = self.relay.fan_out(&spec, None, now).await;
+                if !pending.is_empty() {
+                    let detail = crate::relay::detail_with_pending(None, &pending);
+                    self.audit_full(
+                        &caller.key,
+                        caller.operator.id(),
+                        "revokeKey",
+                        Some(&info.id),
+                        None,
+                        detail.as_deref(),
+                        approved_by.as_deref(),
+                        None,
+                        Some(spec.key.as_str()),
+                    )
+                    .await;
+                }
+            }
+        }
         Ok(info.into())
     }
 
@@ -1221,8 +1301,137 @@ impl Admin {
         })
     }
 
+    /// Where the player named `name` is in the network directory, if a directory is attached.
+    async fn directory_target(
+        &self,
+        name: &str,
+    ) -> (
+        Option<module_api::network::GlobalId>,
+        Option<module_api::network::NodeId>,
+    ) {
+        let Some(record) = self.relay.find_in_directory(name).await else {
+            return (None, None);
+        };
+        let remote_home = match self.relay.local_node() {
+            Some(local) if local != record.home => Some(record.home),
+            _ => None,
+        };
+        (Some(record.account), remote_home)
+    }
+
+    fn peer_error(error: crate::relay::PeerCallError) -> async_graphql::Error {
+        match error {
+            crate::relay::PeerCallError::Refused { code, message } => {
+                let mapped = match code.as_deref() {
+                    Some("BAD_INPUT") => Code::BadInput,
+                    Some("NOT_FOUND") => Code::NotFound,
+                    Some("PROTECTED_ACCOUNT") => Code::Protected,
+                    Some("ALREADY_BANNED") => Code::AlreadyBanned,
+                    Some("NOT_BANNED") => Code::NotBanned,
+                    Some("NOT_TIMED_OUT") => Code::NotTimedOut,
+                    Some("STATE_NOT_SAVED") => Code::StateNotSaved,
+                    Some("AMBIGUOUS_PLAYER") => Code::AmbiguousPlayer,
+                    Some("UNKNOWN_GAME") => Code::UnknownGame,
+                    Some("NOT_SUPPORTED") => Code::NotSupported,
+                    Some("FORBIDDEN") => Code::Forbidden,
+                    _ => Code::BackendRefused,
+                };
+                fail(mapped, message)
+            }
+            crate::relay::PeerCallError::Unreachable(why) => fail(Code::BackendUnavailable, why),
+        }
+    }
+
+    /// Calls the player's remote home `home` first when `remote_home` is `Some`; if the home is down,
+    /// queues the action for `home` and returns `Ok(None)` with `home` in the pending peer list.
+    async fn call_home_and_fan_out(
+        &self,
+        spec: &crate::relay::OutboundAction,
+        remote_home: Option<&module_api::network::NodeId>,
+        now_ms: i64,
+    ) -> async_graphql::Result<(Option<serde_json::Value>, Vec<module_api::network::NodeId>)> {
+        let mut pending = Vec::new();
+        let mut home_reply = None;
+        if let Some(home) = remote_home {
+            let wire = spec.to_wire().map_err(|why| fail(Code::BadInput, why))?;
+            match self.relay.call_peer(home, &wire).await {
+                Ok(value) => home_reply = Some(value),
+                Err(crate::relay::PeerCallError::Unreachable(why)) => {
+                    let _ = self.relay.enqueue(home, spec, &why, now_ms).await;
+                    pending.push(home.clone());
+                }
+                Err(refused) => return Err(Self::peer_error(refused)),
+            }
+        }
+        let mut rest = self.relay.fan_out(spec, remote_home, now_ms).await;
+        pending.append(&mut rest);
+        Ok((home_reply, pending))
+    }
+
     pub async fn kick(&self, caller: &Caller, name: &str, game: Option<&str>) -> async_graphql::Result<KickResult> {
         allow(caller, Role::Moderator, "kick")?;
+        let name = Self::checked_name(name)?;
+        if !self.relay.in_network() {
+            return self.kick_local(caller, name, game, None, None).await;
+        }
+        let now = self.now();
+        let (account_id, remote_home) = self.directory_target(name).await;
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        let spec = crate::relay::OutboundAction::new(
+            crate::relay::operations::KICK,
+            account_id.clone(),
+            true,
+            &caller.key,
+            caller.operator.id(),
+            approved_by.clone(),
+            Some(name.to_owned()),
+            game.map(str::to_owned),
+            json!({ "username": name, "game": game }),
+        )
+        .map_err(|why| fail(Code::BadInput, why))?;
+        let (home_reply, pending) = self.call_home_and_fan_out(&spec, remote_home.as_ref(), now).await?;
+        let local = self.kick_local_quiet(caller, name, game).await;
+        let result = match (local, home_reply) {
+            (Ok(local_res), _) => local_res,
+            (Err(_), Some(value)) => serde_json::from_value::<KickResult>(value).unwrap_or_else(|_| KickResult {
+                user_id: account_id.as_ref().map_or_else(|| name.to_owned(), ToString::to_string),
+                username: name.to_owned(),
+                connections_closed: 0,
+                game: game.unwrap_or(NODE_GAME).to_owned(),
+            }),
+            (Err(_), None) if remote_home.is_some() && !pending.is_empty() => KickResult {
+                user_id: account_id.as_ref().map_or_else(|| name.to_owned(), ToString::to_string),
+                username: name.to_owned(),
+                connections_closed: 0,
+                game: game.unwrap_or(NODE_GAME).to_owned(),
+            },
+            (Err(err), None) => return Err(err),
+        };
+        if let Some(account) = &account_id {
+            self.relay.revoke_tickets(account);
+        }
+        let detail = crate::relay::detail_with_pending(None, &pending);
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "kick",
+            Some(&result.username),
+            Some(&result.game),
+            detail.as_deref(),
+            approved_by.as_deref(),
+            None,
+            Some(spec.key.as_str()),
+        )
+        .await;
+        Ok(result)
+    }
+
+    async fn kick_local_quiet(
+        &self,
+        caller: &Caller,
+        name: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<KickResult> {
         let account = match self
             .locate(caller, name, game, true)
             .await?
@@ -1235,14 +1444,6 @@ impl Admin {
                     reason: None,
                 };
                 self.module_act(caller, &module, request).await?;
-                self.audit(
-                    caller,
-                    "kick",
-                    Some(&info.name),
-                    Some(&module.game_version.to_string()),
-                    None,
-                )
-                .await;
                 return Ok(KickResult {
                     user_id: user_id_of(&info),
                     username: info.name,
@@ -1260,14 +1461,37 @@ impl Admin {
             "player kicked",
             json!({"userId": kicked.user_id, "username": kicked.username, "key": caller.key, "operator": caller.operator.id(), "closed": kicked.closed}),
         );
-        self.audit(caller, "kick", Some(&kicked.username), Some(NODE_GAME), None)
-            .await;
         Ok(KickResult {
             user_id: kicked.user_id,
             username: kicked.username,
             connections_closed: kicked.closed,
             game: NODE_GAME.to_owned(),
         })
+    }
+
+    async fn kick_local(
+        &self,
+        caller: &Caller,
+        name: &str,
+        game: Option<&str>,
+        via_node: Option<&str>,
+        request_key: Option<&str>,
+    ) -> async_graphql::Result<KickResult> {
+        let result = self.kick_local_quiet(caller, name, game).await?;
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "kick",
+            Some(&result.username),
+            Some(&result.game),
+            None,
+            approved_by.as_deref(),
+            via_node,
+            request_key,
+        )
+        .await;
+        Ok(result)
     }
 
     pub async fn ban(
@@ -1300,6 +1524,105 @@ impl Admin {
         reason: &str,
         game: Option<&str>,
     ) -> async_graphql::Result<Player> {
+        if !self.relay.in_network() {
+            return self.ban_local(caller, name, reason, game, None, None).await;
+        }
+        let now = self.now();
+        let (account_id, remote_home) = self.directory_target(name).await;
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        let spec = crate::relay::OutboundAction::new(
+            crate::relay::operations::BAN,
+            account_id.clone(),
+            true,
+            &caller.key,
+            caller.operator.id(),
+            approved_by.clone(),
+            Some(name.to_owned()),
+            game.map(str::to_owned),
+            json!({ "username": name, "reason": reason, "game": game }),
+        )
+        .map_err(|why| fail(Code::BadInput, why))?;
+        let (home_reply, pending) = self.call_home_and_fan_out(&spec, remote_home.as_ref(), now).await?;
+        let local = self.ban_local_quiet(caller, name, reason, game).await;
+        let player = match (local, home_reply) {
+            (Ok(local_player), _) => local_player,
+            (Err(_), Some(value)) => serde_json::from_value::<Player>(value).unwrap_or_else(|_| {
+                Self::fallback_player(
+                    account_id.as_ref(),
+                    name,
+                    AccountStatus::Banned,
+                    Some(Restriction {
+                        kind: RestrictionKind::Ban,
+                        reason: Some(reason.to_owned()),
+                        since: Some(input::iso(now)),
+                        by: Some(format!("manager:{}", caller.operator.id())),
+                        until: None,
+                    }),
+                    game,
+                )
+            }),
+            (Err(_), None) if remote_home.is_some() && !pending.is_empty() => Self::fallback_player(
+                account_id.as_ref(),
+                name,
+                AccountStatus::Banned,
+                Some(Restriction {
+                    kind: RestrictionKind::Ban,
+                    reason: Some(reason.to_owned()),
+                    since: Some(input::iso(now)),
+                    by: Some(format!("manager:{}", caller.operator.id())),
+                    until: None,
+                }),
+                game,
+            ),
+            (Err(err), None) => return Err(err),
+        };
+        if let Some(account) = &account_id {
+            self.relay.revoke_tickets(account);
+        }
+        let detail = crate::relay::detail_with_pending(Some(reason), &pending);
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "ban",
+            Some(&player.username),
+            Some(&player.game),
+            detail.as_deref(),
+            approved_by.as_deref(),
+            None,
+            Some(spec.key.as_str()),
+        )
+        .await;
+        Ok(player)
+    }
+
+    fn fallback_player(
+        account_id: Option<&module_api::network::GlobalId>,
+        name: &str,
+        status: AccountStatus,
+        restriction: Option<Restriction>,
+        game: Option<&str>,
+    ) -> Player {
+        Player {
+            user_id: account_id.map_or_else(|| name.to_owned(), ToString::to_string),
+            username: name.to_owned(),
+            status,
+            restriction,
+            online: false,
+            location: None,
+            admin: false,
+            created_at: None,
+            last_login_at: None,
+            game: game.unwrap_or(NODE_GAME).to_owned(),
+        }
+    }
+
+    async fn ban_local_quiet(
+        &self,
+        caller: &Caller,
+        name: &str,
+        reason: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
         let reason = reason.to_owned();
         let account = match self
             .locate(caller, name, game, true)
@@ -1314,23 +1637,38 @@ impl Admin {
                     until: None,
                 };
                 self.module_act(caller, &module, request).await?;
-                let game = module.game_version.to_string();
-                self.audit(caller, "ban", Some(&info.name), Some(&game), Some(&reason))
-                    .await;
                 return Ok(self.player_now(caller, &module, info).await);
             }
         };
         let updated = self.set_access(caller, &account, "banned", &reason).await?;
-        self.audit(
-            caller,
-            "ban",
-            Some(&updated.display_name),
-            Some(NODE_GAME),
-            Some(&reason),
-        )
-        .await;
         self.forget_timeout(&updated.user_id).await?;
         self.player(&caller.operator, updated).await
+    }
+
+    async fn ban_local(
+        &self,
+        caller: &Caller,
+        name: &str,
+        reason: &str,
+        game: Option<&str>,
+        via_node: Option<&str>,
+        request_key: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let player = self.ban_local_quiet(caller, name, reason, game).await?;
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "ban",
+            Some(&player.username),
+            Some(&player.game),
+            Some(reason),
+            approved_by.as_deref(),
+            via_node,
+            request_key,
+        )
+        .await;
+        Ok(player)
     }
 
     pub async fn timeout(
@@ -1371,9 +1709,89 @@ impl Admin {
         reason: &str,
         game: Option<&str>,
     ) -> async_graphql::Result<Player> {
-        let reason = reason.to_owned();
         let now = self.now();
         let end = input::timeout_end(minutes, until, now).map_err(|why| fail(Code::BadInput, why))?;
+        if !self.relay.in_network() {
+            return self.timeout_local(caller, name, end, reason, game, None, None).await;
+        }
+        let end_iso = input::iso(end);
+        let full_reason = timeout_reason(end, reason);
+        let (account_id, remote_home) = self.directory_target(name).await;
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        let spec = crate::relay::OutboundAction::new(
+            crate::relay::operations::TIMEOUT,
+            account_id.clone(),
+            true,
+            &caller.key,
+            caller.operator.id(),
+            approved_by.clone(),
+            Some(name.to_owned()),
+            game.map(str::to_owned),
+            json!({ "username": name, "until": end_iso, "reason": reason, "game": game }),
+        )
+        .map_err(|why| fail(Code::BadInput, why))?;
+        let (home_reply, pending) = self.call_home_and_fan_out(&spec, remote_home.as_ref(), now).await?;
+        let local = self.timeout_local_quiet(caller, name, end, reason, game).await;
+        let player = match (local, home_reply) {
+            (Ok(local_player), _) => local_player,
+            (Err(_), Some(value)) => serde_json::from_value::<Player>(value).unwrap_or_else(|_| {
+                Self::fallback_player(
+                    account_id.as_ref(),
+                    name,
+                    AccountStatus::Banned,
+                    Some(Restriction {
+                        kind: RestrictionKind::Timeout,
+                        reason: Some(full_reason.clone()),
+                        since: Some(input::iso(now)),
+                        by: Some(format!("manager:{}", caller.operator.id())),
+                        until: Some(end_iso.clone()),
+                    }),
+                    game,
+                )
+            }),
+            (Err(_), None) if remote_home.is_some() && !pending.is_empty() => Self::fallback_player(
+                account_id.as_ref(),
+                name,
+                AccountStatus::Banned,
+                Some(Restriction {
+                    kind: RestrictionKind::Timeout,
+                    reason: Some(full_reason.clone()),
+                    since: Some(input::iso(now)),
+                    by: Some(format!("manager:{}", caller.operator.id())),
+                    until: Some(end_iso),
+                }),
+                game,
+            ),
+            (Err(err), None) => return Err(err),
+        };
+        if let Some(account) = &account_id {
+            self.relay.revoke_tickets(account);
+        }
+        let detail = crate::relay::detail_with_pending(Some(&full_reason), &pending);
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "timeout",
+            Some(&player.username),
+            Some(&player.game),
+            detail.as_deref(),
+            approved_by.as_deref(),
+            None,
+            Some(spec.key.as_str()),
+        )
+        .await;
+        Ok(player)
+    }
+
+    async fn timeout_local_quiet(
+        &self,
+        caller: &Caller,
+        name: &str,
+        end: i64,
+        reason: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let now = self.now();
         let account = match self
             .locate(caller, name, game, true)
             .await?
@@ -1384,14 +1802,10 @@ impl Admin {
             Found::Module(module, info) => {
                 let request = AdminRequest::Ban {
                     player: info.name.clone(),
-                    reason: Some(timeout_reason(end, &reason)),
+                    reason: Some(timeout_reason(end, reason)),
                     until: Some(input::iso(end)),
                 };
                 self.module_act(caller, &module, request).await?;
-                let game = module.game_version.to_string();
-                let detail = timeout_reason(end, &reason);
-                self.audit(caller, "timeout", Some(&info.name), Some(&game), Some(&detail))
-                    .await;
                 return Ok(self.player_now(caller, &module, info).await);
             }
         };
@@ -1407,7 +1821,7 @@ impl Admin {
                 ));
             }
         }
-        let full_reason = timeout_reason(end, &reason);
+        let full_reason = timeout_reason(end, reason);
         let updated = self.set_access(caller, &account, "banned", &full_reason).await?;
         let saved = self
             .timeouts
@@ -1430,15 +1844,36 @@ impl Admin {
                 "the timeouts file could not be saved, so the timeout was undone",
             ));
         }
-        self.audit(
-            caller,
+        self.player(&caller.operator, updated).await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn timeout_local(
+        &self,
+        caller: &Caller,
+        name: &str,
+        end: i64,
+        reason: &str,
+        game: Option<&str>,
+        via_node: Option<&str>,
+        request_key: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let player = self.timeout_local_quiet(caller, name, end, reason, game).await?;
+        let full_reason = timeout_reason(end, reason);
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
             "timeout",
-            Some(&updated.display_name),
-            Some(NODE_GAME),
+            Some(&player.username),
+            Some(&player.game),
             Some(&full_reason),
+            approved_by.as_deref(),
+            via_node,
+            request_key,
         )
         .await;
-        self.player(&caller.operator, updated).await
+        Ok(player)
     }
 
     pub async fn unban(
@@ -1455,6 +1890,63 @@ impl Admin {
             }
             None => "Ban lifted".into(),
         };
+        let name = Self::checked_name(name)?;
+        if !self.relay.in_network() {
+            return self.unban_local(caller, name, &reason, game, None, None).await;
+        }
+        let now = self.now();
+        let (account_id, remote_home) = self.directory_target(name).await;
+        if let Some(account) = &account_id {
+            self.relay.allow_tickets(account);
+        }
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        let spec = crate::relay::OutboundAction::new(
+            crate::relay::operations::UNBAN,
+            account_id.clone(),
+            false,
+            &caller.key,
+            caller.operator.id(),
+            approved_by.clone(),
+            Some(name.to_owned()),
+            game.map(str::to_owned),
+            json!({ "username": name, "reason": reason, "game": game }),
+        )
+        .map_err(|why| fail(Code::BadInput, why))?;
+        let (home_reply, pending) = self.call_home_and_fan_out(&spec, remote_home.as_ref(), now).await?;
+        let local = self.unban_local_quiet(caller, name, &reason, game).await;
+        let player = match (local, home_reply) {
+            (Ok(local_player), _) => local_player,
+            (Err(_), Some(value)) => serde_json::from_value::<Player>(value).unwrap_or_else(|_| {
+                Self::fallback_player(account_id.as_ref(), name, AccountStatus::Active, None, game)
+            }),
+            (Err(_), None) if remote_home.is_some() && !pending.is_empty() => {
+                Self::fallback_player(account_id.as_ref(), name, AccountStatus::Active, None, game)
+            }
+            (Err(err), None) => return Err(err),
+        };
+        let detail = crate::relay::detail_with_pending(Some(&reason), &pending);
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "unban",
+            Some(&player.username),
+            Some(&player.game),
+            detail.as_deref(),
+            approved_by.as_deref(),
+            None,
+            Some(spec.key.as_str()),
+        )
+        .await;
+        Ok(player)
+    }
+
+    async fn unban_local_quiet(
+        &self,
+        caller: &Caller,
+        name: &str,
+        reason: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
         // module-api has no request that lifts a ban yet
         let account = match self
             .locate(caller, name, game, true)
@@ -1467,21 +1959,95 @@ impl Admin {
         if status_of(&account) != AccountStatus::Banned {
             return Err(fail(Code::NotBanned, "this player is not banned"));
         }
-        let updated = self.set_access(caller, &account, "active", &reason).await?;
-        self.audit(
-            caller,
-            "unban",
-            Some(&updated.display_name),
-            Some(NODE_GAME),
-            Some(&reason),
-        )
-        .await;
+        let updated = self.set_access(caller, &account, "active", reason).await?;
         self.forget_timeout(&updated.user_id).await?;
         self.player(&caller.operator, updated).await
     }
 
+    async fn unban_local(
+        &self,
+        caller: &Caller,
+        name: &str,
+        reason: &str,
+        game: Option<&str>,
+        via_node: Option<&str>,
+        request_key: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let player = self.unban_local_quiet(caller, name, reason, game).await?;
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "unban",
+            Some(&player.username),
+            Some(&player.game),
+            Some(reason),
+            approved_by.as_deref(),
+            via_node,
+            request_key,
+        )
+        .await;
+        Ok(player)
+    }
+
     pub async fn lift_timeout(&self, caller: &Caller, name: &str, game: Option<&str>) -> async_graphql::Result<Player> {
         allow(caller, Role::Admin, "liftTimeout")?;
+        let name = Self::checked_name(name)?;
+        if !self.relay.in_network() {
+            return self.lift_timeout_local(caller, name, game, None, None).await;
+        }
+        let now = self.now();
+        let (account_id, remote_home) = self.directory_target(name).await;
+        if let Some(account) = &account_id {
+            self.relay.allow_tickets(account);
+        }
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        let spec = crate::relay::OutboundAction::new(
+            crate::relay::operations::LIFT_TIMEOUT,
+            account_id.clone(),
+            false,
+            &caller.key,
+            caller.operator.id(),
+            approved_by.clone(),
+            Some(name.to_owned()),
+            game.map(str::to_owned),
+            json!({ "username": name, "game": game }),
+        )
+        .map_err(|why| fail(Code::BadInput, why))?;
+        let (home_reply, pending) = self.call_home_and_fan_out(&spec, remote_home.as_ref(), now).await?;
+        let local = self.lift_timeout_local_quiet(caller, name, game).await;
+        let player = match (local, home_reply) {
+            (Ok(local_player), _) => local_player,
+            (Err(_), Some(value)) => serde_json::from_value::<Player>(value).unwrap_or_else(|_| {
+                Self::fallback_player(account_id.as_ref(), name, AccountStatus::Active, None, game)
+            }),
+            (Err(_), None) if remote_home.is_some() && !pending.is_empty() => {
+                Self::fallback_player(account_id.as_ref(), name, AccountStatus::Active, None, game)
+            }
+            (Err(err), None) => return Err(err),
+        };
+        let detail = crate::relay::detail_with_pending(None, &pending);
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "liftTimeout",
+            Some(&player.username),
+            Some(&player.game),
+            detail.as_deref(),
+            approved_by.as_deref(),
+            None,
+            Some(spec.key.as_str()),
+        )
+        .await;
+        Ok(player)
+    }
+
+    async fn lift_timeout_local_quiet(
+        &self,
+        caller: &Caller,
+        name: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
         let account = match self
             .locate(caller, name, game, true)
             .await?
@@ -1495,21 +2061,40 @@ impl Admin {
             return Err(fail(Code::NotTimedOut, "this player is not timed out"));
         }
         let updated = self.set_access(caller, &account, "active", "Timeout lifted").await?;
-        self.audit(
-            caller,
-            "liftTimeout",
-            Some(&updated.display_name),
-            Some(NODE_GAME),
-            None,
-        )
-        .await;
         self.forget_timeout(&updated.user_id).await?;
         self.player(&caller.operator, updated).await
     }
 
-    /// Lifts the timeouts that have run out. One whose ban was changed since (lifted, or replaced
-    /// by another ban) is only forgotten. A backend that does not answer is tried again next time.
+    async fn lift_timeout_local(
+        &self,
+        caller: &Caller,
+        name: &str,
+        game: Option<&str>,
+        via_node: Option<&str>,
+        request_key: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let player = self.lift_timeout_local_quiet(caller, name, game).await?;
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
+        self.audit_full(
+            &caller.key,
+            caller.operator.id(),
+            "liftTimeout",
+            Some(&player.username),
+            Some(&player.game),
+            None,
+            approved_by.as_deref(),
+            via_node,
+            request_key,
+        )
+        .await;
+        Ok(player)
+    }
+
+    /// Lifts the timeouts that have run out, and retries queued admin actions for peers whose links
+    /// have recovered (DN11). One whose ban was changed since (lifted, or replaced by another ban)
+    /// is only forgotten. A backend that does not answer is tried again next time.
     pub async fn sweep(&self) {
+        let _ = self.relay.sweep().await;
         let operator = Operator::host();
         for due in self.timeouts.due(self.now()).await {
             let accounts = match self
@@ -1700,6 +2285,13 @@ impl Query {
         admin.guarded(caller, all.unwrap_or(false)).await
     }
 
+    /// Admin actions waiting in the retry queue for unreachable peers, oldest first (DN11). Each row's
+    /// `status` is `"pending on node <peer>"`. Moderator role or higher.
+    async fn pending_relay(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<crate::relay::PendingRelay>> {
+        let (admin, caller) = parts(ctx)?;
+        admin.pending_relay(caller).await
+    }
+
     /// Changes from the change logs, newest first: who changed what, with the row before and after. Pass the
     /// previous page's `next` as `cursor`; `limit` is 1 to 1000 (50). Admin role or higher.
     async fn history(
@@ -1868,4 +2460,287 @@ impl Mutation {
         let (admin, caller) = parts(ctx)?;
         admin.revert_apply(caller, &plan_id, selection).await
     }
+}
+
+// ------------------------------------------------------------------ inbound peer relay (DN11)
+
+fn to_relay_error(error: async_graphql::Error) -> network_plugin::relay::AdminRelayError {
+    let code = error.extensions.as_ref().and_then(|ext| match ext.get("code") {
+        Some(async_graphql::Value::String(text)) => Some(text.clone()),
+        _ => None,
+    });
+    network_plugin::relay::AdminRelayError::new(code, error.message)
+}
+
+impl network_plugin::relay::AdminAuthority for Admin {
+    fn apply<'a>(
+        &'a self,
+        action: network_plugin::relay::RelayedAction,
+    ) -> module_api::BoxFuture<'a, Result<serde_json::Value, network_plugin::relay::AdminRelayError>> {
+        Box::pin(async move {
+            let via_node = action.via_node.as_str().to_owned();
+            let req_key = action.key.as_str().to_owned();
+            if self.keys.has_relayed(&via_node, &req_key).await.unwrap_or(false) {
+                return Ok(json!({ "applied": true, "duplicate": true }));
+            }
+            let operator = Operator::parse(&action.operator).unwrap_or_else(Operator::host);
+            let caller = Caller {
+                key: action.actor_key,
+                role: Role::Owner,
+                operator,
+            };
+            let approved_by = action.approved_by;
+            let body = &action.body;
+            let text = |field: &str| body.get(field).and_then(serde_json::Value::as_str);
+            let op = action.operation.as_str();
+
+            match op {
+                crate::relay::operations::KICK => {
+                    let name = text("username").ok_or_else(|| {
+                        network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), "missing username")
+                    })?;
+                    let game = text("game");
+                    match self.kick_local_quiet(&caller, name, game).await {
+                        Ok(kicked) => {
+                            self.audit_full(
+                                &caller.key,
+                                caller.operator.id(),
+                                "kick",
+                                Some(&kicked.username),
+                                Some(&kicked.game),
+                                None,
+                                approved_by.as_deref(),
+                                Some(&via_node),
+                                Some(&req_key),
+                            )
+                            .await;
+                            Ok(serde_json::to_value(kicked).unwrap_or_else(|_| json!({ "applied": true })))
+                        }
+                        Err(err) => {
+                            if is_not_found(&err) {
+                                self.audit_full(
+                                    &caller.key,
+                                    caller.operator.id(),
+                                    "kick",
+                                    Some(name),
+                                    game,
+                                    None,
+                                    approved_by.as_deref(),
+                                    Some(&via_node),
+                                    Some(&req_key),
+                                )
+                                .await;
+                                return Ok(json!({ "applied": true }));
+                            }
+                            Err(to_relay_error(err))
+                        }
+                    }
+                }
+                crate::relay::operations::BAN => {
+                    let name = text("username").ok_or_else(|| {
+                        network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), "missing username")
+                    })?;
+                    let reason = text("reason").unwrap_or("Banned");
+                    let game = text("game");
+                    match self.ban_local_quiet(&caller, name, reason, game).await {
+                        Ok(player) => {
+                            self.audit_full(
+                                &caller.key,
+                                caller.operator.id(),
+                                "ban",
+                                Some(&player.username),
+                                Some(&player.game),
+                                Some(reason),
+                                approved_by.as_deref(),
+                                Some(&via_node),
+                                Some(&req_key),
+                            )
+                            .await;
+                            Ok(serde_json::to_value(player).unwrap_or_else(|_| json!({ "applied": true })))
+                        }
+                        Err(err) => {
+                            if is_not_found(&err) {
+                                self.audit_full(
+                                    &caller.key,
+                                    caller.operator.id(),
+                                    "ban",
+                                    Some(name),
+                                    game,
+                                    Some(reason),
+                                    approved_by.as_deref(),
+                                    Some(&via_node),
+                                    Some(&req_key),
+                                )
+                                .await;
+                                return Ok(json!({ "applied": true }));
+                            }
+                            Err(to_relay_error(err))
+                        }
+                    }
+                }
+                crate::relay::operations::TIMEOUT => {
+                    let name = text("username").ok_or_else(|| {
+                        network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), "missing username")
+                    })?;
+                    let until_str = text("until").ok_or_else(|| {
+                        network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), "missing until")
+                    })?;
+                    let end = input::timeout_end(None, Some(until_str), self.now())
+                        .map_err(|why| network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), why))?;
+                    let reason = text("reason").unwrap_or("Timed out");
+                    let game = text("game");
+                    let full_reason = timeout_reason(end, reason);
+                    match self.timeout_local_quiet(&caller, name, end, reason, game).await {
+                        Ok(player) => {
+                            self.audit_full(
+                                &caller.key,
+                                caller.operator.id(),
+                                "timeout",
+                                Some(&player.username),
+                                Some(&player.game),
+                                Some(&full_reason),
+                                approved_by.as_deref(),
+                                Some(&via_node),
+                                Some(&req_key),
+                            )
+                            .await;
+                            Ok(serde_json::to_value(player).unwrap_or_else(|_| json!({ "applied": true })))
+                        }
+                        Err(err) => {
+                            if is_not_found(&err) {
+                                self.audit_full(
+                                    &caller.key,
+                                    caller.operator.id(),
+                                    "timeout",
+                                    Some(name),
+                                    game,
+                                    Some(&full_reason),
+                                    approved_by.as_deref(),
+                                    Some(&via_node),
+                                    Some(&req_key),
+                                )
+                                .await;
+                                return Ok(json!({ "applied": true }));
+                            }
+                            Err(to_relay_error(err))
+                        }
+                    }
+                }
+                crate::relay::operations::UNBAN => {
+                    let name = text("username").ok_or_else(|| {
+                        network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), "missing username")
+                    })?;
+                    let reason = text("reason").unwrap_or("Ban lifted");
+                    let game = text("game");
+                    match self.unban_local_quiet(&caller, name, reason, game).await {
+                        Ok(player) => {
+                            self.audit_full(
+                                &caller.key,
+                                caller.operator.id(),
+                                "unban",
+                                Some(&player.username),
+                                Some(&player.game),
+                                Some(reason),
+                                approved_by.as_deref(),
+                                Some(&via_node),
+                                Some(&req_key),
+                            )
+                            .await;
+                            Ok(serde_json::to_value(player).unwrap_or_else(|_| json!({ "applied": true })))
+                        }
+                        Err(err) => {
+                            if is_not_found(&err) {
+                                self.audit_full(
+                                    &caller.key,
+                                    caller.operator.id(),
+                                    "unban",
+                                    Some(name),
+                                    game,
+                                    Some(reason),
+                                    approved_by.as_deref(),
+                                    Some(&via_node),
+                                    Some(&req_key),
+                                )
+                                .await;
+                                return Ok(json!({ "applied": true }));
+                            }
+                            Err(to_relay_error(err))
+                        }
+                    }
+                }
+                crate::relay::operations::LIFT_TIMEOUT => {
+                    let name = text("username").ok_or_else(|| {
+                        network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), "missing username")
+                    })?;
+                    let game = text("game");
+                    match self.lift_timeout_local_quiet(&caller, name, game).await {
+                        Ok(player) => {
+                            self.audit_full(
+                                &caller.key,
+                                caller.operator.id(),
+                                "liftTimeout",
+                                Some(&player.username),
+                                Some(&player.game),
+                                None,
+                                approved_by.as_deref(),
+                                Some(&via_node),
+                                Some(&req_key),
+                            )
+                            .await;
+                            Ok(serde_json::to_value(player).unwrap_or_else(|_| json!({ "applied": true })))
+                        }
+                        Err(err) => {
+                            if is_not_found(&err) {
+                                self.audit_full(
+                                    &caller.key,
+                                    caller.operator.id(),
+                                    "liftTimeout",
+                                    Some(name),
+                                    game,
+                                    None,
+                                    approved_by.as_deref(),
+                                    Some(&via_node),
+                                    Some(&req_key),
+                                )
+                                .await;
+                                return Ok(json!({ "applied": true }));
+                            }
+                            Err(to_relay_error(err))
+                        }
+                    }
+                }
+                crate::relay::operations::REVOKE_KEY => {
+                    let id = text("id").ok_or_else(|| {
+                        network_plugin::relay::AdminRelayError::new(Some("BAD_INPUT"), "missing key id")
+                    })?;
+                    let by = store::Actor::Admin(caller.key.clone());
+                    let _ = self.keys.revoke(id, by, self.now()).await;
+                    self.audit_full(
+                        &caller.key,
+                        caller.operator.id(),
+                        "revokeKey",
+                        Some(id),
+                        None,
+                        None,
+                        approved_by.as_deref(),
+                        Some(&via_node),
+                        Some(&req_key),
+                    )
+                    .await;
+                    Ok(json!({ "applied": true, "id": id }))
+                }
+                _ => Err(network_plugin::relay::AdminRelayError::new(
+                    Some("NOT_SUPPORTED"),
+                    format!("unknown operation {op}"),
+                )),
+            }
+        })
+    }
+}
+
+fn is_not_found(error: &async_graphql::Error) -> bool {
+    error
+        .extensions
+        .as_ref()
+        .is_some_and(|ext| matches!(ext.get("code"), Some(async_graphql::Value::String(s)) if s == "NOT_FOUND"))
 }

@@ -17,6 +17,7 @@ struct Inner {
     /// Rebuilt when a service comes or goes, so a call takes a read lock and no more
     mux: RwLock<Arc<ServiceMux>>,
     peer_link: RwLock<Option<Arc<dyn network_plugin::PeerLink>>>,
+    peer_roster: RwLock<Option<Arc<dyn network_plugin::PeerRoster>>>,
     #[cfg(feature = "network")]
     directory: RwLock<Option<Arc<network_plugin::directory::Directory>>>,
     #[cfg(feature = "network")]
@@ -38,6 +39,7 @@ impl NodeServices {
                 attached: RwLock::default(),
                 node,
                 peer_link: RwLock::new(None),
+                peer_roster: RwLock::new(None),
                 #[cfg(feature = "network")]
                 directory: RwLock::new(None),
                 #[cfg(feature = "network")]
@@ -48,6 +50,10 @@ impl NodeServices {
         }
     }
 
+    pub fn node(&self) -> &NodeId {
+        &self.inner.node
+    }
+
     pub fn set_peer_link(&self, link: Option<Arc<dyn network_plugin::PeerLink>>) {
         *self.inner.peer_link.write().unwrap_or_else(PoisonError::into_inner) = link;
     }
@@ -55,6 +61,18 @@ impl NodeServices {
     pub fn peer_link(&self) -> Option<Arc<dyn network_plugin::PeerLink>> {
         self.inner
             .peer_link
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    pub fn set_peer_roster(&self, roster: Option<Arc<dyn network_plugin::PeerRoster>>) {
+        *self.inner.peer_roster.write().unwrap_or_else(PoisonError::into_inner) = roster;
+    }
+
+    pub fn peer_roster(&self) -> Option<Arc<dyn network_plugin::PeerRoster>> {
+        self.inner
+            .peer_roster
             .read()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()

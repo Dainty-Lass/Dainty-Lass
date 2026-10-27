@@ -43,8 +43,20 @@ pub fn prepare_with_control(
     modules: Arc<AdminPlugin>,
     control: Modules,
 ) -> Result<(AppState, Arc<Admin>), String> {
+    prepare_with_network(config, clock, modules, control, Arc::new(crate::relay::NoNetwork))
+}
+
+/// As `prepare_with_control`, with the node's peer network handles (DN11).
+pub fn prepare_with_network(
+    config: &Config,
+    clock: Clock,
+    modules: Arc<AdminPlugin>,
+    control: Modules,
+    network: Arc<dyn crate::relay::AdminNetwork>,
+) -> Result<(AppState, Arc<Admin>), String> {
     // The owner's key from secrets.env, the issued ones in the admin API's own database (DH2)
     let keys = Keys::open(&Keys::database_for(&config.database), &config.api_key)?;
+    let relay = crate::relay::AdminRelay::new(keys.database().clone(), network);
     let admin = Arc::new(Admin {
         upstream: Upstream::new(
             &config.backend_url,
@@ -58,6 +70,7 @@ pub fn prepare_with_control(
         keys: keys.clone(),
         guard: Guards::new(keys.database().clone(), config.guard.clone()),
         history: crate::history::Service::new(config.database.clone()),
+        relay,
         max_hunt_servers: config.max_hunt_servers,
         server_mode: config.server_mode,
         clock,
@@ -92,12 +105,28 @@ pub async fn run_with_modules(
 /// rest (DF3).
 pub async fn run_with_control(
     config: Config,
-    mut ctx: service_kit::context::ServiceContext,
+    ctx: service_kit::context::ServiceContext,
     modules: Arc<AdminPlugin>,
     control: Modules,
 ) -> Result<(), String> {
+    run_with_network(config, ctx, modules, control, Arc::new(crate::relay::NoNetwork), None).await
+}
+
+/// As `run_with_control`, with the node's peer network handles and an optional callback that receives
+/// the built [`Admin`] so the controller can attach [`Admin::relay_service`] to `Service::Admin` (DN11).
+pub async fn run_with_network(
+    config: Config,
+    mut ctx: service_kit::context::ServiceContext,
+    modules: Arc<AdminPlugin>,
+    control: Modules,
+    network: Arc<dyn crate::relay::AdminNetwork>,
+    on_ready: Option<Box<dyn FnOnce(Arc<Admin>) + Send>>,
+) -> Result<(), String> {
     ctx.status().report_starting("preparing admin API");
-    let (state, admin) = prepare_with_control(&config, Arc::new(crate::now_ms), modules, control)?;
+    let (state, admin) = prepare_with_network(&config, Arc::new(crate::now_ms), modules, control, network)?;
+    if let Some(callback) = on_ready {
+        callback(admin.clone());
+    }
     admin.guard_start().await;
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let mut servers = Vec::new();

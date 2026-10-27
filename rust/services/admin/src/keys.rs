@@ -63,6 +63,8 @@ diesel::table! {
         game -> Nullable<Text>,
         detail -> Nullable<Text>,
         approved_by -> Nullable<Text>,
+        via_node -> Nullable<Text>,
+        request_key -> Nullable<Text>,
     }
 }
 
@@ -235,6 +237,10 @@ pub struct Action<'a> {
     pub detail: Option<&'a str>,
     /// The second operator's key when a guarded action ran on their approval (DH6).
     pub approved_by: Option<&'a str>,
+    /// The originating peer node when this action arrived over `Service::Admin` (DN11).
+    pub via_node: Option<&'a str>,
+    /// The relay idempotency key when this action arrived over `Service::Admin` (DN11).
+    pub request_key: Option<&'a str>,
 }
 
 /// The admin API's keys: the owner's from `secrets.env`, the rest in the database.
@@ -405,6 +411,8 @@ impl Keys {
             admin_actions::game.eq(action.game.map(str::to_owned)),
             admin_actions::detail.eq(action.detail.map(str::to_owned)),
             admin_actions::approved_by.eq(action.approved_by.map(str::to_owned)),
+            admin_actions::via_node.eq(action.via_node.map(str::to_owned)),
+            admin_actions::request_key.eq(action.request_key.map(str::to_owned)),
         );
         self.db
             .write(Actor::Admin(key.to_owned()), move |tx| {
@@ -412,6 +420,22 @@ impl Keys {
                     .values(values)
                     .execute(tx.conn())?;
                 Ok::<_, store::Error>(())
+            })
+            .await
+    }
+
+    /// Whether a relayed action from `via_node` with `request_key` was already recorded here (DN11).
+    pub async fn has_relayed(&self, via_node: &str, request_key: &str) -> Result<bool, store::Error> {
+        let via_node = via_node.to_owned();
+        let request_key = request_key.to_owned();
+        self.db
+            .read(move |conn: &mut AnyConnection| {
+                let count: i64 = admin_actions::table
+                    .filter(admin_actions::via_node.eq(via_node))
+                    .filter(admin_actions::request_key.eq(request_key))
+                    .count()
+                    .get_result(conn)?;
+                Ok::<_, store::Error>(count > 0)
             })
             .await
     }

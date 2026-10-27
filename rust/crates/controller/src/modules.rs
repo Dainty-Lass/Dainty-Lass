@@ -291,7 +291,8 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     network_plugin::home::NetworkedConfig::new(game),
                 ));
                 let services = registry.node_services();
-                services.set_peer_link(Some(link));
+                services.set_peer_link(Some(link.clone()));
+                services.set_peer_roster(Some(link));
                 services.set_directory(Some(directory.clone()));
                 services.set_tickets(Some(tickets));
                 services.attach(network_plugin::Service::Directory, directory);
@@ -305,6 +306,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 services.detach(network_plugin::Service::Home);
                 services.set_tickets(None);
                 services.set_directory(None);
+                services.set_peer_roster(None);
                 services.set_peer_link(None);
                 registry.reset_home();
                 if let Some(task) = replication_task {
@@ -355,31 +357,90 @@ fn content_module(
 #[cfg(feature = "admin")]
 pub fn admin(env: &Env, registry: Option<crate::ModuleRegistry>) -> Result<Module, String> {
     let config = admin::config::Config::from_env(env)?;
-    let (plugin, control) = match registry {
+    let (plugin, control, services) = match registry {
         Some(registry) => {
             let plugin = Arc::new(admin::modules::AdminPlugin::new(Arc::new(AdminRoute(
                 registry.downgrade(),
             ))));
             registry.add_plugin(plugin.clone());
+            let services = registry.node_services().clone();
             let control = admin::module_control::Modules(Some(
                 Arc::new(AdminModules(registry)) as Arc<dyn admin::module_control::ModuleControl>
             ));
-            (plugin, control)
+            (plugin, control, Some(services))
         }
         None => (
             Arc::new(admin::modules::AdminPlugin::none()),
             admin::module_control::Modules::default(),
+            None,
         ),
     };
     Ok(Module::new(
         "admin",
         Arc::new(move |ctx| {
-            let (config, plugin, control) = (config.clone(), plugin.clone(), control.clone());
-            Box::pin(async move { admin::server::run_with_control(config, ctx, plugin, control).await })
+            let (config, plugin, control, services) =
+                (config.clone(), plugin.clone(), control.clone(), services.clone());
+            Box::pin(async move {
+                let network: Arc<dyn admin::relay::AdminNetwork> = match &services {
+                    Some(services) => Arc::new(NodeServicesNetwork(services.clone())),
+                    None => Arc::new(admin::relay::NoNetwork),
+                };
+                let attach_services = services.clone();
+                let on_ready = attach_services.map(|services| {
+                    Box::new(move |admin: Arc<admin::schema::Admin>| {
+                        services.attach(network_plugin::Service::Admin, admin.relay_service());
+                    }) as Box<dyn FnOnce(Arc<admin::schema::Admin>) + Send>
+                });
+                let result = admin::server::run_with_network(config, ctx, plugin, control, network, on_ready).await;
+                if let Some(services) = services {
+                    services.detach(network_plugin::Service::Admin);
+                }
+                result
+            })
         }),
     )
     .optional()
     .ready_within(std::time::Duration::from_secs(60)))
+}
+
+#[cfg(feature = "admin")]
+struct NodeServicesNetwork(crate::NodeServices);
+
+#[cfg(feature = "admin")]
+impl admin::relay::AdminNetwork for NodeServicesNetwork {
+    fn local_node(&self) -> Option<module_api::network::NodeId> {
+        Some(self.0.node().clone())
+    }
+
+    fn peer_link(&self) -> Option<Arc<dyn network_plugin::PeerLink>> {
+        self.0.peer_link()
+    }
+
+    fn peer_roster(&self) -> Option<Arc<dyn network_plugin::PeerRoster>> {
+        self.0.peer_roster()
+    }
+
+    fn directory(&self) -> Option<Arc<network_plugin::directory::Directory>> {
+        #[cfg(feature = "network")]
+        {
+            self.0.directory()
+        }
+        #[cfg(not(feature = "network"))]
+        {
+            None
+        }
+    }
+
+    fn tickets(&self) -> Option<Arc<network_plugin::home::Tickets>> {
+        #[cfg(feature = "network")]
+        {
+            self.0.tickets()
+        }
+        #[cfg(not(feature = "network"))]
+        {
+            None
+        }
+    }
 }
 
 /// The registry as the admin API reads and drives it.
