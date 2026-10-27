@@ -1,5 +1,6 @@
 //! Where everything lives (`legacy/ReforgedHost/src/paths.ts`). The repository holds the code,
-//! Mystic Paradox's included (`paradox/`, `native/`, RP2-RP4); what is the host's own is git-ignored:
+//! Mystic Paradox's in the rustic-isles submodule (`modules/rustic-isles`, DS6; `paradox/` and
+//! `native/` before it); what is the host's own is git-ignored:
 //! the SDK generated from their game, game data, exports and builds next to the code that uses them,
 //! and in `.workspace/` the configuration with secrets, certificates, the database and logs.
 //!
@@ -107,7 +108,13 @@ pub struct Paths {
     pub gateway_dir: PathBuf,
     pub content_dir: PathBuf,
     pub workspace: PathBuf,
+    /// Mystic Paradox's root as its generators see it: `modules/rustic-isles/reference/1.14.7`
+    /// (`paradox/` before DS6), with `ParadoxBackend/` and `ParadoxDirector/` in it.
     pub paradox: PathBuf,
+    /// The rustic-isles submodule (DS6): the Node services, the game runtime and the CatalogExporter.
+    pub isles: PathBuf,
+    /// The legacy-revived submodule: DR's 1.4.4 metagame and deploy server, built in its own workspace.
+    pub revived: PathBuf,
     /// Where setup took the host's own files from before Mystic Paradox was part of the repository.
     pub old_upstream: PathBuf,
     pub backend_dir: PathBuf,
@@ -149,15 +156,16 @@ pub struct Paths {
 }
 
 impl Paths {
-    /// `root`: the checkout or server release (the folder with `rust/` and `paradox/`).
+    /// `root`: the checkout or server release (the folder with `rust/` and `modules/`).
     pub fn new(root: impl Into<PathBuf>) -> Self {
         let root = root.into();
         let workspace = root.join(".workspace");
-        let paradox = root.join("paradox");
-        let native = root.join("native");
-        let runtime_source = native.join("paradox-runtime");
-        let loader_dir = native.join("runtime-loader");
-        let exporter_dir = native.join("catalog-exporter");
+        let modules = root.join("modules");
+        let isles = modules.join("rustic-isles");
+        let paradox = join(&isles, &["reference", "1.14.7"]);
+        let runtime_source = join(&isles, &["native", "runtime"]);
+        let loader_dir = root.join("native").join("runtime-loader");
+        let exporter_dir = join(&isles, &["native", "catalog-exporter"]);
         let config = workspace.join("config");
         let tls = workspace.join("tls");
         let logs = workspace.join("logs");
@@ -167,20 +175,20 @@ impl Paths {
             gateway_dir: root.join("rust").join("services").join("gateway"),
             content_dir: root.join("rust").join("services").join("content"),
             old_upstream: workspace.join("Mystic-Paradox"),
-            backend_dir: paradox.join("backend"),
-            director_dir: paradox.join("director"),
+            backend_dir: paradox.join("ParadoxBackend"),
+            director_dir: paradox.join("ParadoxDirector"),
             sdk_header: runtime_source.join("SDK.hpp"),
             sdk_dir: runtime_source.join("SDK"),
             runtime_dll: join(&runtime_source, &["x64", "Release", "MysticParadox.dll"]),
             loader_dll: join(&loader_dir, &["target", "release", "winmm.dll"]),
             exporter_dll: join(&exporter_dir, &["x64", "Release", "CatalogExporter.dll"]),
-            backend_game_data: join(&paradox, &["backend", "game-data"]),
-            director_game_data: join(&paradox, &["director", "game-data"]),
-            raw_game_data: join(&paradox, &["backend", "game-data", "raw"]),
-            // Mystic Paradox's generators read these from its root (paradox/).
+            backend_game_data: join(&paradox, &["ParadoxBackend", "game-data"]),
+            director_game_data: join(&paradox, &["ParadoxDirector", "game-data"]),
+            raw_game_data: join(&paradox, &["ParadoxBackend", "game-data", "raw"]),
+            // Mystic Paradox's generators read these from their services' parent folder.
             exports: paradox.join("Items_Analysis"),
             store_captures: paradox.join("DauntlessEndpointDocumentation"),
-            captures_pin: join(&paradox, &["backend", "store-captures.json"]),
+            captures_pin: join(&paradox, &["ParadoxBackend", "store-captures.json"]),
             runtime_publish: workspace.join("runtime"),
             host_toml: config.join("host.toml"),
             host_json: config.join("host.json"),
@@ -195,9 +203,11 @@ impl Paths {
             wine_prefix: workspace.join("wine"),
             proton_data: workspace.join("proton"),
             systemd: config.join("systemd"),
+            revived: modules.join("legacy-revived"),
             repo: root,
             workspace,
             paradox,
+            isles,
             runtime_source,
             loader_dir,
             exporter_dir,
@@ -213,13 +223,12 @@ fn join(base: &Path, parts: &[&str]) -> PathBuf {
 }
 
 /// The repository root: the first folder at or above `start` (at most 8 levels) that holds
-/// `paradox/backend/package.json` and `rust/Cargo.toml` (a checkout and a server release both do).
+/// `modules/rustic-isles` and `rust/Cargo.toml` (a checkout and a server release both do). The
+/// submodule's folder is enough: setup says when it was never checked out.
 pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError> {
     let mut dir = start;
     for _ in 0..8 {
-        if dir.join("paradox").join("backend").join("package.json").exists()
-            && dir.join("rust").join("Cargo.toml").exists()
-        {
+        if dir.join("modules").join("rustic-isles").is_dir() && dir.join("rust").join("Cargo.toml").exists() {
             return Ok(dir.to_path_buf());
         }
         match dir.parent() {
@@ -228,7 +237,7 @@ pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError> {
         }
     }
     Err(HostError::message(format!(
-        "Could not find the server folder (with paradox/ and rust/) above {}",
+        "Could not find the server folder (with modules/rustic-isles/ and rust/) above {}",
         start.display()
     )))
 }
@@ -272,21 +281,35 @@ mod tests {
         assert_eq!(p.host_toml, ws.join("config").join("host.toml"));
         assert_eq!(p.host_json, ws.join("config").join("host.json"));
         assert_eq!(p.cert_file, ws.join("tls").join("gateway-cert.pem"));
-        assert_eq!(p.backend_dir, root.join("paradox").join("backend"));
+        let isles = join(&root, &["modules", "rustic-isles"]);
+        assert_eq!(p.backend_dir, join(&isles, &["reference", "1.14.7", "ParadoxBackend"]));
+        assert_eq!(
+            p.director_dir,
+            join(&isles, &["reference", "1.14.7", "ParadoxDirector"])
+        );
+        assert_eq!(p.exports, join(&isles, &["reference", "1.14.7", "Items_Analysis"]));
         assert_eq!(
             p.runtime_dll,
+            join(&isles, &["native", "runtime", "x64", "Release", "MysticParadox.dll"])
+        );
+        assert_eq!(
+            p.exporter_dll,
             join(
-                &root,
-                &["native", "paradox-runtime", "x64", "Release", "MysticParadox.dll"]
+                &isles,
+                &["native", "catalog-exporter", "x64", "Release", "CatalogExporter.dll"]
             )
         );
+        assert_eq!(p.revived, join(&root, &["modules", "legacy-revived"]));
         assert_eq!(
             p.loader_dll,
             join(&root, &["native", "runtime-loader", "target", "release", "winmm.dll"])
         );
         assert_eq!(
             p.captures_pin,
-            join(&root, &["paradox", "backend", "store-captures.json"])
+            join(
+                &isles,
+                &["reference", "1.14.7", "ParadoxBackend", "store-captures.json"]
+            )
         );
         assert_eq!(p.old_upstream, ws.join("Mystic-Paradox"));
         assert_eq!(p.gameserver_wrapper, ws.join("bin").join("reforged-gameserver"));
@@ -300,9 +323,9 @@ mod tests {
     fn finds_the_checkout_above_a_folder_and_names_the_start_when_there_is_none() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().join("Reforged");
-        std::fs::create_dir_all(root.join("paradox").join("backend")).unwrap();
+        // An empty submodule folder is enough: a clone without --recurse-submodules still finds its root
+        std::fs::create_dir_all(root.join("modules").join("rustic-isles")).unwrap();
         std::fs::create_dir_all(root.join("rust").join("services").join("host")).unwrap();
-        std::fs::write(root.join("paradox").join("backend").join("package.json"), "{}").unwrap();
         std::fs::write(root.join("rust").join("Cargo.toml"), "[workspace]").unwrap();
         let deep = root.join("rust").join("services").join("host");
         assert_eq!(find_repo_root(&deep).unwrap(), root);

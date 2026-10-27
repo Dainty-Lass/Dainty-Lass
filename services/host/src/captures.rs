@@ -1,11 +1,11 @@
 //! The pinned store captures the stores are built from (`legacy/ReforgedHost/src/captures.ts`): Lady
 //! Luck's rotation (`scripts/enrich_ladyluck_store.ts`) and the platinum store's prices, Hunt Pass
 //! rank skips and passes (`scripts/generate_platinum_store.ts`), both from
-//! `paradox/DauntlessEndpointDocumentation/Store/Product/Skus/`. Without them Lady Luck's Store is the
+//! `DauntlessEndpointDocumentation/Store/Product/Skus/` beside the services in rustic-isles. Without them Lady Luck's Store is the
 //! shipped example and the platinum store has no rank skips, no passes and no captured prices.
 //!
 //! They come from EisigesEis/DauntlessEndpointDocumentation, which carries no license, so they are
-//! never copied into this repository: `paradox/backend/store-captures.json` pins the commit and each
+//! never copied into this repository: `ParadoxBackend/store-captures.json` in rustic-isles pins the commit and each
 //! file's SHA-256, and `gamedata` fetches that commit on the host's own machine (a shallow fetch into
 //! `.workspace/captures/`) and writes the files where the generators look (git-ignored). A file whose
 //! bytes do not match its pinned hash is refused.

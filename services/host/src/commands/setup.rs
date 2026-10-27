@@ -1,8 +1,8 @@
 //! `reforged-host setup`: the Node kit's `setup()`, `linuxSetup()`, `firewallScript()`,
 //! `hostConfigFromArgs()` and the `*FromArgs` option readers in `cli.ts`.
 //!
-//! It builds the server's settings in setup's key order and writes them to host.toml ([`options`]), checks Mystic Paradox in `paradox/`
-//! and `native/` ([`paradox`]), installs and builds the services ([`install`], RH5's seam for the
+//! It builds the server's settings in setup's key order and writes them to host.toml ([`options`]), checks Mystic Paradox in
+//! `modules/rustic-isles` and `native/` ([`paradox`]), installs and builds the services ([`install`], RH5's seam for the
 //! server release), writes the secrets ([`secrets`]), the env files and the firewall rules
 //! ([`firewall`]), makes the public gateway's certificate and says what is still missing (the
 //! database: [`database`], RB14's seam for Postgres).
@@ -364,7 +364,7 @@ pub fn run_with(paths: &Paths, args: &SetupArgs, env: &dyn SetupEnv, out: &mut d
     out("\nSetup done. Next:");
     if legacy {
         out(
-            "  1. Beside the 1.4.4 game executable: winmm.dll (native/runtime-loader), UndauntedInternalServer.dll (native/internal-server) and a mystic_loader.ini naming it",
+            "  1. Beside the 1.4.4 game executable: winmm.dll (native/runtime-loader), UndauntedInternalServer.dll (modules/legacy-revived/native/internal-server) and a mystic_loader.ini naming it",
         );
         if linux {
             out(&format!(
@@ -413,26 +413,27 @@ pub fn run_with(paths: &Paths, args: &SetupArgs, env: &dyn SetupEnv, out: &mut d
 /// Step 1 of a reborn server: Mystic Paradox in the checkout, the host's files from an old workspace and
 /// the project's preset.
 fn reborn_sources(p: &Paths, layout: &Layout, env: &dyn SetupEnv, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
-    out("\n1. Mystic Paradox (paradox/ and native/ in this project)");
+    out("\n1. Mystic Paradox (modules/rustic-isles and native/ in this project)");
     let missing = paradox::missing_paradox(layout);
     if !missing.is_empty() {
         return Err(HostError::message(format!(
-            "this checkout has no {}: clone the project again with git (see docs/hosting.md) and move .workspace into the new clone",
+            "this checkout has no {}: run git submodule update --init --recursive, or clone the project again with git clone --recurse-submodules (see docs/hosting.md) and move .workspace into the new clone",
             missing.join(", ")
         )));
     }
+    let old = paradox::old_folders(layout)
+        .iter()
+        .map(|d| d.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
     match paradox::migrate_old_workspace(layout, &p.repo) {
         Ok(copied) if copied.is_empty() => out("- in place"),
         Ok(copied) => out(&format!(
-            "- your files from the old {} copied in: {} (that folder is no longer used; delete it once the server runs)",
-            layout.old_upstream.display(),
+            "- your files from the old {old} copied in: {} (no longer used; delete them once the server runs)",
             copied.join(", ")
         )),
         Err(e) => {
-            return Err(HostError::message(format!(
-                "could not copy your files from {}: {e}",
-                layout.old_upstream.display()
-            )));
+            return Err(HostError::message(format!("could not copy your files from {old}: {e}")));
         }
     }
     // The project's preset (preset/): the game data this server starts from, where none of its own is there yet.

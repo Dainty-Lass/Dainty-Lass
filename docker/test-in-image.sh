@@ -8,8 +8,8 @@
 #             controller, backend, director), every test binary even after a failure. With CAP_NET_ADMIN
 #             (docker run --cap-add NET_ADMIN) the allowlist's nftables test applies its rules for real
 #             (REFORGED_TEST_NFT=1), in this container's own network namespace
-#   backend   the Node backend's tests (paradox/backend, npm test)
-#   director  the Node Director's tests (paradox/director, npm test)
+#   backend   the Node backend's tests (rustic-isles' ParadoxBackend, npm test)
+#   director  the Node Director's tests (rustic-isles' ParadoxDirector, npm test)
 set -uo pipefail
 
 root=/opt/reforged
@@ -35,8 +35,8 @@ run_suite() {
 			-p protocol -p proxy -p service-kit -p store -p gateway -p content -p admin -p host \
 			-p controller -p backend -p director
 		;;
-	backend) cd "$root/paradox/backend" && npm test ;;
-	director) cd "$root/paradox/director" && npm test ;;
+	backend) cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxBackend" && npm test ;;
+	director) cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxDirector" && npm test ;;
 	*)
 		echo "unknown suite $1 (rust, backend, director)" >&2
 		return 2

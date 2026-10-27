@@ -1,16 +1,17 @@
 //! The host kit's workspace as the Host page sees it (Reforged's `src/main/hostkit.ts`), for the planned
-//! layout only (RD23): a DaintyLass folder with `reforged-host` in it, Mystic Paradox
-//! in `paradox/` and `native/` (RD1), and the host's own files git-ignored beside the code:
+//! layout only (RD23): a DaintyLass folder with `reforged-host` in it, Mystic Paradox in the
+//! rustic-isles submodule (DS6), and the host's own files git-ignored beside the code:
 //!
 //! ```text
 //! <workspace>\reforged-host.exe                  the host kit (RD3), or bin\, or rust\target\release\
-//! <workspace>\native\paradox-runtime\            the game runtime's source
+//! <workspace>\modules\rustic-isles\native\runtime\   the game runtime's source
 //!     SDK.hpp, SDK\                              the Dumper-7 CppSDK, copied in by "Import SDK"
 //!     x64\Release\MysticParadox.dll
 //! <workspace>\native\runtime-loader\target\release\winmm.dll
-//! <workspace>\native\catalog-exporter\x64\Release\CatalogExporter.dll
-//! <workspace>\paradox\backend\game-data\, paradox\director\game-data\
-//! <workspace>\paradox\Items_Analysis\            CatalogExporter's output, copied in from the game folder
+//! <workspace>\modules\rustic-isles\native\catalog-exporter\x64\Release\CatalogExporter.dll
+//! <workspace>\modules\rustic-isles\reference\1.14.7\
+//!     ParadoxBackend\game-data\, ParadoxDirector\game-data\
+//!     Items_Analysis\                            CatalogExporter's output, copied in from the game folder
 //! <workspace>\.workspace\config\host.toml        the server's settings (its secrets are in secrets.env);
 //!                                                 host.json while a Node kit's is not moved over yet
 //! <workspace>\.workspace\runtime\                what the content server hands to players
@@ -117,11 +118,11 @@ fn join(base: &Path, parts: &[&str]) -> PathBuf {
 
 impl WorkspacePaths {
     pub fn new(root: &Path) -> Self {
-        let paradox = root.join("paradox");
-        let native = root.join("native");
-        let runtime_source = native.join("paradox-runtime");
-        let loader_dir = native.join("runtime-loader");
-        let exporter_dir = native.join("catalog-exporter");
+        let isles = join(root, &["modules", "rustic-isles"]);
+        let paradox = join(&isles, &["reference", "1.14.7"]);
+        let runtime_source = join(&isles, &["native", "runtime"]);
+        let loader_dir = join(root, &["native", "runtime-loader"]);
+        let exporter_dir = join(&isles, &["native", "catalog-exporter"]);
         let workspace = root.join(".workspace");
         Self {
             sdk_header: runtime_source.join("SDK.hpp"),
@@ -131,8 +132,8 @@ impl WorkspacePaths {
             loader_dll: join(&loader_dir, &["target", "release", "winmm.dll"]),
             exporter_project: exporter_dir.join("CatalogExporter.vcxproj"),
             exporter_dll: join(&exporter_dir, &["x64", "Release", "CatalogExporter.dll"]),
-            backend_game_data: join(&paradox, &["backend", "game-data"]),
-            director_game_data: join(&paradox, &["director", "game-data"]),
+            backend_game_data: join(&paradox, &["ParadoxBackend", "game-data"]),
+            director_game_data: join(&paradox, &["ParadoxDirector", "game-data"]),
             exports: paradox.join("Items_Analysis"),
             publish: workspace.join("runtime"),
             logs: workspace.join("logs"),
@@ -171,9 +172,11 @@ pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
     .find(|candidate| is_file(candidate))
 }
 
-/// A folder the Host page can work in: it has `reforged-host` and Mystic Paradox's `paradox\`.
+/// A folder the Host page can work in: it has `reforged-host` and Mystic Paradox's
+/// `modules\rustic-isles\` (DS6; `paradox\` before it, which the host kit's `update` moves over).
 pub fn is_workspace(root: &Path) -> bool {
-    find_host_binary(root).is_some() && is_dir(&root.join("paradox"))
+    find_host_binary(root).is_some()
+        && (is_dir(&join(root, &["modules", "rustic-isles"])) || is_dir(&root.join("paradox")))
 }
 
 /// `SDK\*_functions.cpp`: an SDK the runtime builds with has them.
@@ -661,15 +664,13 @@ mod tests {
     }
 
     #[test]
-    fn workspace_paths_follow_the_checkout_mystic_paradox_in_paradox_and_native() {
+    fn workspace_paths_follow_the_checkout_mystic_paradox_in_rustic_isles() {
         let root = Path::new("rr");
         let w = WorkspacePaths::new(root);
+        let isles = join(root, &["modules", "rustic-isles"]);
         assert_eq!(
             w.runtime_dll,
-            join(
-                root,
-                &["native", "paradox-runtime", "x64", "Release", "MysticParadox.dll"]
-            )
+            join(&isles, &["native", "runtime", "x64", "Release", "MysticParadox.dll"])
         );
         assert_eq!(
             w.loader_dll,
@@ -678,12 +679,15 @@ mod tests {
         assert_eq!(
             w.exporter_dll,
             join(
-                root,
+                &isles,
                 &["native", "catalog-exporter", "x64", "Release", "CatalogExporter.dll"]
             )
         );
-        assert_eq!(w.backend_game_data, join(root, &["paradox", "backend", "game-data"]));
-        assert_eq!(w.exports, join(root, &["paradox", "Items_Analysis"]));
+        assert_eq!(
+            w.backend_game_data,
+            join(&isles, &["reference", "1.14.7", "ParadoxBackend", "game-data"])
+        );
+        assert_eq!(w.exports, join(&isles, &["reference", "1.14.7", "Items_Analysis"]));
         assert_eq!(w.publish, join(root, &[".workspace", "runtime"]));
         assert_eq!(w.host_toml, join(root, &[".workspace", "config", "host.toml"]));
         assert_eq!(w.host_json, join(root, &[".workspace", "config", "host.json"]));
@@ -698,6 +702,12 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let root = root.path();
         assert!(!is_workspace(root));
+        std::fs::create_dir_all(join(root, &["modules", "rustic-isles"])).unwrap();
+        assert!(!is_workspace(root), "no host kit");
+        write(&root.join(HOST_BINARY), b"");
+        assert!(is_workspace(root), "Mystic Paradox in rustic-isles (DS6)");
+        std::fs::remove_file(root.join(HOST_BINARY)).unwrap();
+        std::fs::remove_dir_all(root.join("modules")).unwrap();
         std::fs::create_dir(root.join("paradox")).unwrap();
         assert!(!is_workspace(root), "no host kit");
         write(&join(root, &["rust", "target", "release", HOST_BINARY]), b"");

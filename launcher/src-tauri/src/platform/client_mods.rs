@@ -3,7 +3,7 @@
 //! before it is copied and again after. The DLLs are the maintainer's release, not DR's: the 1.4.4 DLL and
 //! the runtime loader that loads it through `mystic_loader.ini` (RD9), from the launcher's own copies
 //! (`ensure_dll_cache`, Reforged's `revived/dlls.ts`); DR's `dxgi.dll` proxy is never installed. The client
-//! mods come from the launcher's resources (`native/client-mods`). Mod files marked "keep" (mods.txt, UE4SS-settings.ini) are only
+//! mods come from the launcher's resources (legacy-revived's `client-mods`). Mod files marked "keep" (mods.txt, UE4SS-settings.ini) are only
 //! written when missing, so the player's own choices survive; files the bundle dropped are removed, and
 //! mods named in "disable" are switched off in the kept mods.txt (only their own line changes).
 
@@ -150,7 +150,7 @@ pub fn dll_status(install_dir: &Path, release: &Release) -> Vec<(String, bool)> 
     status
 }
 
-/// DR's `dxgi.dll` beside the game would load the DLL a second time (`native/internal-server`): DR's own
+/// DR's `dxgi.dll` beside the game would load the DLL a second time (legacy-revived's internal server): DR's own
 /// is removed, anything else by that name is left for the player and refused.
 pub fn remove_dr_proxy(install_dir: &Path) -> Result<bool, InstallError> {
     let proxy = win64_dir(install_dir).join("dxgi.dll");

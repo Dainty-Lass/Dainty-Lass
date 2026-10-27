@@ -1,14 +1,14 @@
 # Builds the server release (MIGRATION_PLAN.md RD8, RH6; adapted from Dauntless Revived's server-release.yml, M38).
 # One archive per server platform, which `reforged-host setup` and `reforged-host update` download and check (RH5):
 #  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/:
-#    the source of the commit (git archive, the corresponding source under the AGPL), with
+#    the source of the commit (git archive, the corresponding source under the AGPL) and of the rustic-isles
+#    submodule at the commit it pins (modules/rustic-isles, DS6: the server runs its Node services), with
 #      bin/              the server in one binary (RD26), built here for that platform: dainty-lass-server-console,
 #                        the same as reforged-host (the name update, the systemd units and the Director's
 #                        game-server wrapper run), and dainty-lass-server-minimal. The gateway, allowlist,
 #                        content server and admin API are inside it (`reforged-host <service>` runs one alone)
-#      paradox/backend   and paradox/director built with their node_modules (Node until RB14; hosts keep Node.js)
-#                        still runs them (until RS2 and RS3 flip start's switch; RS5 removes them) and setup makes
-#                        the gateway's certificate with their make-cert tool
+#      modules/rustic-isles/reference/1.14.7/ParadoxBackend and ParadoxDirector, built with their node_modules
+#                        (Node until RB14; hosts keep Node.js)
 #      release.json      the version, commit, platform and repository, and every file of the release with its SHA-256
 #  - SHA256SUMS.txt for the archives
 #
@@ -129,7 +129,8 @@ jobs:
       - name: Build the Node services (backend and Director until RB14)
         run: |
           set -euo pipefail
-          for dir in paradox/backend paradox/director; do
+          isles=modules/rustic-isles/reference/1.14.7
+          for dir in "$isles/ParadoxBackend" "$isles/ParadoxDirector"; do
             echo "::group::$dir"
             (cd "$dir" && npm ci --no-audit --no-fund && npm run build)
             echo "::endgroup::"
@@ -144,13 +145,17 @@ jobs:
           rm -rf "$WORK/assemble" && mkdir -p "$out"
           # The commit's source, as git has it (no .workspace, nothing git ignores)
           git archive --format=tar "$COMMIT" | tar -x -C "$out"
+          # git archive leaves submodules out: rustic-isles' source at the commit this one pins (DS6)
+          mkdir -p "$out/modules/rustic-isles"
+          git -C modules/rustic-isles archive --format=tar HEAD | tar -x -C "$out/modules/rustic-isles"
           mkdir -p "$out/bin"
           for bin in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do
             cp "rust/target/$TARGET/release/$bin$ext" "$out/bin/"
           done
           # backend and director: cp "rust/target/$TARGET/release/backend$ext" ... once they are real (RD8)
-          cp -R paradox/backend/build paradox/backend/node_modules "$out/paradox/backend/"
-          cp -R paradox/director/dist paradox/director/node_modules "$out/paradox/director/"
+          isles=modules/rustic-isles/reference/1.14.7
+          cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"
+          cp -R "$isles/ParadoxDirector/dist" "$isles/ParadoxDirector/node_modules" "$out/$isles/ParadoxDirector/"
           # node_modules/.bin holds links to the packages' commands: nothing a host runs needs them
           find "$out" -type d -name .bin -path '*/node_modules/*' -prune -exec rm -rf {} +
           echo "$COMMIT" > "$out/COMMIT"

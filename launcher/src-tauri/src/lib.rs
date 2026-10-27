@@ -314,11 +314,11 @@ mod secure_storage {
 }
 
 /// Dauntless 1.4.4's folders: DR's launcher's (where it downloads, its settings), and the client mods
-/// (`tauri.legacy.conf.json` bundles `native/client-mods`; a dev build reads them there).
+/// (`tauri.legacy.conf.json` bundles legacy-revived's `client-mods`; a dev build reads them there).
 #[cfg(feature = "legacy")]
 fn legacy_config(resources_dir: &std::path::Path, paths: &Paths) -> controller::legacy::LegacyConfig {
     let resources_dir = if cfg!(dev) {
-        std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../native"))
+        std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../modules/legacy-revived"))
     } else {
         resources_dir.to_path_buf()
     };

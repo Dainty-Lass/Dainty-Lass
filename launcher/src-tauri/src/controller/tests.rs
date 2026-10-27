@@ -1175,7 +1175,7 @@ async fn notices_errors_and_updates() {
 /// A workspace in the planned layout with the fake `reforged-host` (`fixtures/host`) in it.
 #[cfg(feature = "host")]
 fn host_workspace(root: &Path) -> PathBuf {
-    std::fs::create_dir_all(root.join("paradox")).unwrap();
+    std::fs::create_dir_all(root.join("modules").join("rustic-isles")).unwrap();
     std::fs::copy(
         crate::platform::hostkit::fixtures::exe("fake-host-kit"),
         root.join(crate::platform::hostkit::HOST_BINARY),

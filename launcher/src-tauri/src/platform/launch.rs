@@ -215,7 +215,7 @@ pub mod legacy {
     }
 
     /// Wine and Proton load the runtime loader's `winmm.dll` from beside the game, not DR's `dxgi.dll`
-    /// proxy (`native/internal-server`): `winmm=n,b`, and no `dxgi` override.
+    /// proxy (`native/internal-server` in legacy-revived): `winmm=n,b`, and no `dxgi` override.
     pub fn wine_overrides(runtime: &mut super::LaunchRuntime) {
         for (name, value) in &mut runtime.env {
             if name == "WINEDLLOVERRIDES" {
