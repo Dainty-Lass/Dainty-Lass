@@ -11,7 +11,9 @@ use isles_core::hooks::{
 use isles_core::http::Rifts;
 use isles_core::module::{BackendService, DefaultPorts, IslesModule, ModuleSpec};
 use isles_core::routes::RouteSet;
-use isles_core::settings::{MASTERY_PERSISTENCE, QOS_PORT, REFORGE, Settings};
+use isles_core::settings::{
+    BOUNTY_PERSISTENCE, COOLDOWN_PERSISTENCE, MASTERY_PERSISTENCE, QOS_PORT, REFORGE, Settings,
+};
 use isles_core::tables::{
     ItemGrantWindow, MaskedJourneyNode, SeasonalCoin, StarterManifest, SwitchDefault, VersionTables,
 };
@@ -214,6 +216,14 @@ pub const TABLES: VersionTables = VersionTables {
         },
         SwitchDefault {
             switch: MASTERY_PERSISTENCE,
+            value: "on",
+        },
+        SwitchDefault {
+            switch: BOUNTY_PERSISTENCE,
+            value: "on",
+        },
+        SwitchDefault {
+            switch: COOLDOWN_PERSISTENCE,
             value: "on",
         },
     ],

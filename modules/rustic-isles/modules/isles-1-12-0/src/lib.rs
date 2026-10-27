@@ -12,7 +12,9 @@ use isles_core::hooks::{
 use isles_core::http::Rifts;
 use isles_core::module::{BackendService, DefaultPorts, IslesModule, ModuleSpec};
 use isles_core::routes::RouteSet;
-use isles_core::settings::{MASTERY_PERSISTENCE, QOS_PORT, REFORGE, Settings};
+use isles_core::settings::{
+    BOUNTY_PERSISTENCE, COOLDOWN_PERSISTENCE, MASTERY_PERSISTENCE, QOS_PORT, REFORGE, Settings,
+};
 use isles_core::tables::{StarterManifest, SwitchDefault, VersionTables};
 use isles_director::{DirectorConfig, DirectorService, GameserverArgs};
 use module_api::{Capabilities, PortRange};
@@ -128,6 +130,14 @@ pub const TABLES: VersionTables = VersionTables {
         },
         SwitchDefault {
             switch: MASTERY_PERSISTENCE,
+            value: "off",
+        },
+        SwitchDefault {
+            switch: BOUNTY_PERSISTENCE,
+            value: "off",
+        },
+        SwitchDefault {
+            switch: COOLDOWN_PERSISTENCE,
             value: "off",
         },
     ],

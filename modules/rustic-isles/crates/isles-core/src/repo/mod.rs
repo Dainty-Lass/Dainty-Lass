@@ -176,6 +176,11 @@ impl Repositories {
             player_journey: progression.clone(),
             breadcrumbs: progression.clone(),
             encountered_content: progression,
+            bounty_states: Arc::new(bounties::SqlBountyStates),
+            cooldown_states: Arc::new(bounties::SqlCooldownStates),
+            entitlements: Arc::new(bounties::SqlEntitlements),
+            wallets: Arc::new(bounties::SqlWallets),
+            economy_rollups: Arc::new(bounties::SqlEconomyRollups),
             ..Self::stubs()
         }
     }

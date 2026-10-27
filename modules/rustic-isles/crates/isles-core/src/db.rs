@@ -33,6 +33,11 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
         "player_journey",
         "breadcrumbs",
         "encountered_content",
+        "bounty_states",
+        "cooldown_states",
+        "entitlements",
+        "wallets",
+        "wallet_balances",
     ],
 };
 
