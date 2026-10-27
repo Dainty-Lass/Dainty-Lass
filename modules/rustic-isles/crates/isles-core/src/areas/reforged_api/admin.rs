@@ -654,6 +654,7 @@ async fn online_players(ctx: Ctx) -> Response {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn audit_record(
     caller: &AdminCaller,
     req: &Req,

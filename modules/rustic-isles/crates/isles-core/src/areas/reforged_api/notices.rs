@@ -87,7 +87,7 @@ fn check_text(raw: Option<&Value>, label: &str, max: usize, allow_time: bool) ->
     };
     let text = service_kit::js::trim(raw);
     let length = code_points(text);
-    if length < 1 || length > max {
+    if !(1..=max).contains(&length) {
         return Err(format!("{label} must be 1 to {max} characters."));
     }
     if text.chars().any(is_control) {
@@ -268,7 +268,7 @@ pub fn validate_reason(raw: Option<&Value>) -> Check<String> {
     };
     let reason = service_kit::js::trim(raw);
     let length = code_points(reason);
-    if length < REASON_MIN || length > REASON_MAX {
+    if !(REASON_MIN..=REASON_MAX).contains(&length) {
         return Err(format!(
             "The change reason must be {REASON_MIN} to {REASON_MAX} characters."
         ));

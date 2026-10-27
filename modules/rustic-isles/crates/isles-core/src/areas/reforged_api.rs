@@ -7,6 +7,7 @@
 #![allow(clippy::result_unit_err)]
 
 pub mod admin;
+pub mod admin_guard;
 pub mod guard;
 pub mod guard_manifest;
 pub mod host_routes;
@@ -17,6 +18,7 @@ pub mod logs;
 pub mod metrics;
 pub mod notices;
 pub mod observe;
+pub mod player_logs;
 pub mod presence;
 pub mod probes;
 pub mod release_gates;
@@ -37,4 +39,6 @@ pub fn register(handlers: &mut Handlers) {
     guard::register(handlers);
     admin::register(handlers);
     notices::register(handlers);
+    admin_guard::register(handlers);
+    player_logs::register(handlers);
 }

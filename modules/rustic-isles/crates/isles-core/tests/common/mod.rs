@@ -137,8 +137,13 @@ impl LauncherAccountRepository for Fakes {
     fn find_by_account(&self, _: &mut AnyConnection, id: &AccountId) -> RepoResult<Option<LauncherAccountRecord>> {
         Ok(self.world().launchers.iter().find(|a| &a.account == id).cloned())
     }
-    fn find_by_email(&self, c: &mut AnyConnection, e: &str) -> RepoResult<Option<LauncherAccountRecord>> {
-        Stub.find_by_email(c, e)
+    fn find_by_email(&self, _: &mut AnyConnection, e: &str) -> RepoResult<Option<LauncherAccountRecord>> {
+        Ok(self
+            .world()
+            .launchers
+            .iter()
+            .find(|a| a.email.as_deref() == Some(e))
+            .cloned())
     }
     fn find_by_display_name_normalized(
         &self,
@@ -190,10 +195,30 @@ impl LauncherAccountRepository for Fakes {
     }
     fn list_for_admin(
         &self,
-        c: &mut AnyConnection,
+        _: &mut AnyConnection,
         f: &AdminAccountFilter,
     ) -> RepoResult<(Vec<LauncherAccountRecord>, u64)> {
-        Stub.list_for_admin(c, f)
+        let world = self.world();
+        let matching: Vec<_> = world
+            .launchers
+            .iter()
+            .filter(|a| f.status.is_none_or(|s| a.status == s))
+            .filter(|a| {
+                f.search
+                    .as_deref()
+                    .is_none_or(|q| a.display_name.to_lowercase().contains(&q.to_lowercase()))
+            })
+            .cloned()
+            .collect();
+        let total = matching.len() as u64;
+        Ok((
+            matching
+                .into_iter()
+                .skip(f.skip as usize)
+                .take(f.limit as usize)
+                .collect(),
+            total,
+        ))
     }
     fn set_access_state(
         &self,
@@ -220,13 +245,20 @@ impl LauncherAccountRepository for Fakes {
     }
     fn update_roles(
         &self,
-        t: &mut Tx<'_>,
-        a: &AccountId,
-        r: &[String],
+        _: &mut Tx<'_>,
+        id: &AccountId,
+        roles: &[String],
         at: &str,
         by: &str,
     ) -> RepoResult<Option<LauncherAccountRecord>> {
-        Stub.update_roles(t, a, r, at, by)
+        let mut world = self.world();
+        let Some(account) = world.launchers.iter_mut().find(|a| &a.account == id) else {
+            return Ok(None);
+        };
+        account.roles = roles.to_vec();
+        account.roles_updated_at = Some(at.to_owned());
+        account.roles_updated_by = Some(by.to_owned());
+        Ok(Some(account.clone()))
     }
 }
 
@@ -281,8 +313,8 @@ impl RefreshSessionRepository for Fakes {
         self.world().refresh_revoked.push(account.clone());
         Ok(())
     }
-    fn delete_all_for_account(&self, t: &mut Tx<'_>, a: &AccountId) -> RepoResult<()> {
-        Stub.delete_all_for_account(t, a)
+    fn delete_all_for_account(&self, _: &mut Tx<'_>, _: &AccountId) -> RepoResult<()> {
+        Ok(())
     }
     fn is_family_active(&self, c: &mut AnyConnection, f: &str, a: &AccountId) -> RepoResult<bool> {
         Stub.is_family_active(c, f, a)
