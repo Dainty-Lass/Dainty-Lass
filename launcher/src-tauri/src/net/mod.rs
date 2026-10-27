@@ -7,6 +7,7 @@ pub mod autoregion;
 pub mod connector;
 #[cfg(feature = "legacy")]
 pub mod downloader;
+pub mod epic_install;
 pub mod hostapi;
 pub mod http;
 pub mod pinned;

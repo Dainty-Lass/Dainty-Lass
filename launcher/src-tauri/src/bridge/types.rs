@@ -254,6 +254,13 @@ pub enum ErrorCode {
     EpicUnreachable,
     /// Epic's answer could not be read, or the sign-in window could not open (detail: `window`)
     EpicFailed,
+    // Installing from Epic (DE5):
+    /// No client profile names an Epic build for this version (detail: the version)
+    GameVersionUnknown,
+    /// Epic has deleted a chunk of this version on every CDN host: it can't be installed
+    GameVersionUnavailable,
+    /// No source gave the manifest the client profile pins
+    EpicManifestUnavailable,
     Unknown,
 }
 
@@ -430,6 +437,8 @@ pub enum TaskKind {
     Download,
     /// Installing the 1.4.4 client DLLs
     Dlls,
+    /// Installing a version from Epic (DE5): bytes are the chunks', files those checked
+    Install,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1228,10 +1237,85 @@ pub struct EpicView {
     pub signing_in: bool,
 }
 
+/// Where a version's install from Epic stands (DE5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum InstallState {
+    NotInstalled,
+    /// An earlier download stopped (cancelled, failed or the launcher closed): starting picks it up
+    Resumable,
+    Preparing,
+    Downloading,
+    Paused,
+    /// Checking the executable
+    Finishing,
+    Installed,
+    Failed,
+}
+
+/// One version's install from Epic, as `game_install_get` answers it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct InstallInfo {
+    pub version: String,
+    pub state: InstallState,
+    /// The version's own folder
+    pub folder: Option<String>,
+    pub progress: Option<TaskProgress>,
+    /// Why the last attempt stopped
+    pub error: Option<LauncherError>,
+}
+
+/// `game_install_start` and `game_install_get`: `{ ok: true, install } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum InstallOutcome {
+    Ok(InstallInfo),
+    Err(LauncherError),
+}
+
+impl Serialize for InstallOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            install: &'a InstallInfo,
+        }
+        match self {
+            Self::Ok(install) => Found { ok: true, install }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn install_outcomes_read_as_the_page_expects() {
+        let info = InstallInfo {
+            version: "1.14.7".into(),
+            state: InstallState::Downloading,
+            folder: Some("D:/Games/Dauntless/1.14.7".into()),
+            progress: None,
+            error: None,
+        };
+        assert_eq!(
+            serde_json::to_value(InstallOutcome::Ok(info)).unwrap(),
+            json!({ "ok": true, "install": {
+                "version": "1.14.7", "state": "downloading", "folder": "D:/Games/Dauntless/1.14.7",
+                "progress": null, "error": null,
+            } })
+        );
+        assert_eq!(
+            serde_json::to_value(InstallOutcome::Err(LauncherError::new(ErrorCode::EpicNotOwned))).unwrap(),
+            json!({ "ok": false, "error": { "code": "epic_not_owned" } })
+        );
+        assert_eq!(serde_json::to_value(TaskKind::Install).unwrap(), json!("install"));
+    }
 
     #[test]
     fn results_read_as_the_page_expects() {
