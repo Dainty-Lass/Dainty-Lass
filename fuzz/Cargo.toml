@@ -38,6 +38,8 @@ module-api = { path = "../crates/module-api" }
 http = "1"
 # network_directory: the directory's node-link messages (DN4)
 network = { path = "../plugins/network" }
+# network_link: the certificate names the node link reads
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 protocol = { path = "../crates/protocol" }
 proxy = { path = "../crates/proxy" }
 serde = "1"
@@ -201,6 +203,13 @@ bench = false
 [[bin]]
 name = "launcher_legacy"
 path = "fuzz_targets/launcher_legacy.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "network_link"
+path = "fuzz_targets/network_link.rs"
 test = false
 doc = false
 bench = false

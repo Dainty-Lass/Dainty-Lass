@@ -170,6 +170,13 @@ Leave `postgres_host`, `postgres_port`, `postgres_user` and `postgres_database` 
 (`REFORGED_DB_PASSWORD`), so setup has to have run before; the container stops with a message otherwise.
 `POSTGRES_IMAGE` in `.env` picks another image.
 
+## A network of servers
+
+A node of a network ([hosting.md](hosting.md#a-network-of-servers)) is an ordinary server: `[network]` and
+`[[network.nodes]]` in `host.toml`, and the three files `network issue-node-cert` wrote in the `workspace` volume's
+`tls` folder. The CA file stays off the server: `network ca-init` and `issue-node-cert` run on your own machine.
+Node links share the gateway's published TCP port (443); nothing else is published for them.
+
 ## A legacy server (Dauntless 1.4.4)
 
 Docker runs one game per server: `--edition both` ([hosting.md](hosting.md#both-games-on-one-server)) is the host

@@ -68,6 +68,11 @@ pub fn run(cli: &cli::Cli) -> Outcome {
             &with_admin_env(cli.command.name(), args),
         ));
     }
+    // The CA and node certificates are made on the owner's machine, in or out of a server's folder
+    if let Command::Network(args) = &cli.command {
+        let paths = paths::locate_repo_root().ok().map(paths::Paths::new);
+        return commands::network::run(args, paths.as_ref());
+    }
     let root = paths::locate_repo_root()?;
     commands::dispatch(&cli.command, &paths::Paths::new(root))
 }

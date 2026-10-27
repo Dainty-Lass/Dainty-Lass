@@ -23,6 +23,8 @@ indexmap = "2"
 # The core plugin that serves module routes (DF4a). A path, not `workspace = true`: the workspace entry names
 # the `silentspud` registry, which no config here defines yet
 module-api = { path = "../../crates/module-api" }
+# Node links (DN3): the cluster CA, the mutual-TLS settings and the endpoint behind `/__node`. Renamed: this crate has a `network` module (DN7)
+network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
 # `Game`: which Dauntless the gateway fronts (GATEWAY_GAME)
 protocol.workspace = true
 proxy.workspace = true

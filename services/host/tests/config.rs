@@ -775,3 +775,172 @@ fn windows_keeps_starting_the_executable_itself() {
     assert_eq!(get(&f.director, "GAMESERVER_READY_TIMEOUT_MS"), Some("30000"));
     assert_eq!(get(f.allowlist.as_ref().unwrap(), "ALLOWLIST_INTERFACE"), None);
 }
+
+// ------------------------------------------------------------------ node links (DN3)
+
+const NODES: &str = "\
+version = 1
+mode = \"public\"
+name = \"Oregon\"
+host = \"hunts.example.net\"
+game_address = \"203.0.113.7\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+
+[mongo]
+uri = \"mongodb://127.0.0.1:27017\"
+manage = true
+
+# Mine
+[network]
+node = \"oregon-1\"
+region = \"oregon\"
+
+[[network.nodes]]
+id = \"uk-1\"
+region = \"uk\"
+host = \"uk.example.org\"
+port = 443
+fingerprint = \"abababababababababababababababababababababababababababababababab\"
+
+[[network.nodes]]
+id = \"de-1\"
+region = \"germany\"
+host = \"198.51.100.4\"
+port = 8443
+";
+
+fn read_toml(text: &str) -> HostConfig {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("host.toml");
+    std::fs::write(&file, text).unwrap();
+    read_host_config(&file).unwrap().unwrap()
+}
+
+#[test]
+fn the_peers_round_trip_through_host_toml_and_a_new_file() {
+    let config = read_toml(NODES);
+    let network = config.network.clone().unwrap();
+    assert_eq!(
+        network
+            .nodes
+            .iter()
+            .map(|n| (n.id.as_str(), n.port))
+            .collect::<Vec<_>>(),
+        [("uk-1", 443), ("de-1", 8443)]
+    );
+    // Written back as read, comments and all, and changed in place
+    let (back, text) = through_toml(&config);
+    assert_eq!(back.network, config.network);
+    assert!(text.contains("[[network.nodes]]"), "{text}");
+    let mut more = config.clone();
+    more.network.as_mut().unwrap().nodes.pop();
+    let (back, text) = through_toml(&more);
+    assert_eq!(back.network.unwrap().nodes.len(), 1);
+    assert!(text.contains("# Mine"), "{text}");
+    // A file made from host.json says what the list is
+    let fresh = HostConfig::from_json(&config.to_json().unwrap()).unwrap();
+    let (back, text) = through_toml(&fresh);
+    assert_eq!(back.network, config.network);
+    assert!(text.contains("The other nodes of the network"), "{text}");
+    // A server with a network and no peers writes no list: today's server
+    let mut alone = config.clone();
+    alone.network.as_mut().unwrap().nodes.clear();
+    let (back, text) = through_toml(&alone);
+    assert!(
+        !text.contains("network.nodes") && back.network.unwrap().nodes.is_empty(),
+        "{text}"
+    );
+}
+
+#[test]
+fn the_peers_are_checked() {
+    for (bad, said) in [
+        (
+            "id = \"uk-1\"\nregion = \"uk\"\nhost = \"UK.example.org\"\nport = 443\n",
+            "host",
+        ),
+        (
+            "id = \"uk-1\"\nregion = \"uk\"\nhost = \"a.example\"\nport = 0\n",
+            "port",
+        ),
+        (
+            "id = \"uk-1\"\nregion = \"uk\"\nhost = \"a.example\"\nport = 443\nfingerprint = \"AB\"\n",
+            "fingerprint",
+        ),
+        (
+            "id = \"oregon-1\"\nregion = \"oregon\"\nhost = \"a.example\"\nport = 443\n",
+            "itself",
+        ),
+        (
+            "id = \"uk-1\"\nregion = \"uk\"\nhost = \"a.example\"\nport = 443\nkey = 1\n",
+            "unknown field",
+        ),
+        ("id = \"uk-1\"\nregion = \"uk\"\nhost = \"a.example\"\n", "port"),
+    ] {
+        let text = NODES.split("[[network.nodes]]").next().unwrap().to_owned() + "[[network.nodes]]\n" + bad;
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("host.toml");
+        std::fs::write(&file, text).unwrap();
+        let error = read_host_config(&file).unwrap_err().to_string();
+        assert!(error.contains(said), "{bad:?}: {error}");
+    }
+    // Twice, and over the limit
+    let twice =
+        format!("{NODES}\n[[network.nodes]]\nid = \"uk-1\"\nregion = \"uk\"\nhost = \"a.example\"\nport = 443\n");
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("host.toml"), twice).unwrap();
+    assert!(
+        read_host_config(&dir.path().join("host.toml"))
+            .unwrap_err()
+            .to_string()
+            .contains("twice")
+    );
+    // Peers need the TLS port
+    let mut json = read_toml(NODES).to_json().unwrap();
+    json["mode"] = json!("private");
+    json["host"] = json!("100.101.102.103");
+    json["gameAddress"] = json!("100.101.102.103");
+    assert!(error(json).contains("mode = \"public\""));
+}
+
+#[test]
+fn the_gateway_reads_back_the_peers_setup_wrote() {
+    let config = read_toml(NODES);
+    let f = build_env_files(&config, &fast_secrets(), &win_paths(), "", Platform::Windows);
+    assert_eq!(get(&f.gateway, "GATEWAY_NODE_ID"), Some("oregon-1"));
+    assert_eq!(get(&f.gateway, "GATEWAY_NODE_REGION"), Some("oregon"));
+    for (key, file) in [
+        ("GATEWAY_NODE_CERT", "node-cert.pem"),
+        ("GATEWAY_NODE_KEY", "node-key.pem"),
+        ("GATEWAY_NODE_CA", "cluster-ca-cert.pem"),
+    ] {
+        assert!(get(&f.gateway, key).is_some_and(|path| path.ends_with(file)), "{key}");
+    }
+    // Through the file setup writes, as `gateway serve --env-file gateway.env` reads it
+    let text = host::envfile::format_env(&[], &f.gateway).unwrap();
+    let read = host::envfile::parse_env(&text);
+    let env = service_kit::env::Env::from_pairs(read.iter());
+    let gateway = gateway::config::Config::from_env(&env).unwrap();
+    let links = gateway.node_links.unwrap();
+    assert_eq!(links.identity.node.as_str(), "oregon-1");
+    assert_eq!(links.peers, config.network.unwrap().nodes);
+    // Only the peer with a fingerprint is listed to the launcher
+    assert_eq!(gateway.network.len(), 1);
+    assert_eq!(gateway.network[0].host, "uk.example.org");
+}
+
+#[test]
+fn a_server_without_peers_writes_no_node_settings() {
+    for doc in [
+        public(),
+        with(public(), json!({"network": {"node": "oregon-1", "region": "oregon"}})),
+    ] {
+        let f = build_env_files(&config(doc), &fast_secrets(), &win_paths(), "", Platform::Windows);
+        assert!(
+            f.gateway
+                .iter()
+                .all(|(key, _)| !key.starts_with("GATEWAY_NODE") && key != "GATEWAY_NETWORK_NODES")
+        );
+    }
+}
