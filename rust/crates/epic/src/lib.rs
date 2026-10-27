@@ -1,6 +1,6 @@
 //! Installing Dauntless from the player's own Epic library (docs/dainty-lass-plan.md DD22), for the launcher and
 //! the host kit. DE1 lays it down: `manifest` and `chunk` read Epic's formats; `auth` signs in through `egs-api`
-//! (DE2); `library` checks ownership (DE3); `download` is a typed stub until DE5. `docs/port/spike-de1-epic.md` says
+//! (DE2); `library` checks ownership (DE3); `download` installs a version (DE5). `docs/port/spike-de1-epic.md` says
 //! why the formats are read here and not by `egs-api`, and `docs/security/epic.md` is the checklist.
 //!
 //! Nothing here logs. Tokens have no `Debug` or `Display` (`auth::Token`), and a manifest is parsed only once its

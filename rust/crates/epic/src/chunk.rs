@@ -90,7 +90,7 @@ fn u32_at(raw: &[u8], at: usize) -> u32 {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::io::Write;
 
     use flate2::Compression;
@@ -99,7 +99,7 @@ mod tests {
     use super::*;
     use crate::manifest::tests::{Build, parse};
 
-    fn encode(guid: Guid, data: &[u8], compress: bool, version: u32) -> Vec<u8> {
+    pub(crate) fn encode(guid: Guid, data: &[u8], compress: bool, version: u32) -> Vec<u8> {
         let payload = if compress {
             let mut z = ZlibEncoder::new(Vec::new(), Compression::default());
             z.write_all(data).unwrap();
