@@ -1,5 +1,5 @@
 //! RU5 bounties, store, Lady Luck and platinum: bounty and cooldown state, entitlements, wallets, economy rollups
-//! (`migrations/*/0050_bounties_store`).
+//! (`migrations/*/0055_bounties_store`).
 //!
 //! Node's one document per account becomes a row per account (bounty and cooldown state, the lists as JSON text, since
 //! the game's objects are kept verbatim) or a row per entry (entitlements, balances). Optimistic writes keep Node's
