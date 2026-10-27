@@ -15,6 +15,7 @@ pub mod input;
 pub mod legacy;
 pub mod limits;
 pub mod log;
+pub mod modules;
 pub mod news;
 pub mod runtime;
 pub mod server;

@@ -6,7 +6,10 @@
 //! the backend request. A legacy server's routes (`Route::of_legacy`) never name a runtime file.
 #![no_main]
 
-use content::input::{KEY_HEADER, Route, header_text, if_none_match_hits, is_plausible_key, is_runtime_file_name};
+use content::input::{
+    KEY_HEADER, Route, header_text, if_none_match_hits, is_plausible_key, is_runtime_file_name, is_version_segment,
+    version_query,
+};
 use http::{HeaderMap, HeaderValue};
 use libfuzzer_sys::arbitrary::{self, Arbitrary};
 use libfuzzer_sys::fuzz_target;
@@ -30,7 +33,12 @@ fuzz_target!(|request: Request<'_>| {
             }
         }
         Route::BrandingImage(name) => assert!(path_only.ends_with(name)),
-        Route::Unknown | Route::RuntimeManifest | Route::Branding | Route::News => {}
+        // A version is one plain segment, so it can only become a runtime folder name, never a path
+        Route::ClientProfile(version) | Route::EpicManifest(version) => {
+            assert!(is_version_segment(version), "{version:?}");
+            assert!(!version.contains(['/', '\\', '%']));
+        }
+        Route::Unknown | Route::RuntimeManifest | Route::Branding | Route::News | Route::Versions => {}
         Route::GameManifest | Route::GameFile => panic!("a legacy route on a reborn server: {path_only:?}"),
     }
     match Route::of_legacy(path_only) {
@@ -38,6 +46,8 @@ fuzz_target!(|request: Request<'_>| {
         Route::GameFile => assert!(path_only.starts_with("/content/v1/files/")),
         _ => {}
     }
+    // The version query never panics; its value is only ever looked up, never joined to a path
+    let _ = version_query(request.target.split_once('?').map(|(_, query)| query));
 
     // Headers as hyper hands them over: only values it accepts
     let mut headers = HeaderMap::new();

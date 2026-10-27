@@ -8,6 +8,12 @@
 //! - /content/v1/branding: the host's art pack (background image URLs and an accent colour)
 //! - /content/v1/branding/<file>: one of those images
 //! - /content/v1/news: the host's news items
+//! - /content/v1/versions: the game versions loaded modules serve (DF4b, `modules.rs`)
+//! - /content/v1/versions/<version>/client: that module's client profile (DD12)
+//! - /content/v1/versions/<version>/epic/manifest: its pinned Epic manifest (DD22); needs the key
+//!
+//! The runtime routes take the version as `?version=`, `?game=` or `?edition=` on the manifest and
+//! `files/<version>/<name>`; without one they serve the server's own runtime, 1.14.7.
 //!
 //! A legacy server (`CONTENT_GAME=legacy`) serves DR's 1.4.4 game files instead of the runtime
 //! (`app/game_files.rs`).
@@ -28,19 +34,20 @@ use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode};
 use axum::response::Response;
 use bytes::Bytes;
 use futures_util::StreamExt;
-use protocol::game::Game;
+use module_api::GameVersion;
 use serde_json::{Map, Value, json};
 use tokio::io::AsyncReadExt;
 
 pub use crate::input::{KEY_HEADER, RUNTIME_FILES_PREFIX};
 
-use crate::auth::{AuthCache, LookupResult};
+use crate::auth::{AccountInfo, AuthCache, LookupResult};
 use crate::branding::{Branding, MAX_IMAGE_BYTES, is_safe_image_name};
-use crate::input::{Route, header_text, if_none_match_hits, is_runtime_file_name};
+use crate::input::{Route, VersionKey, header_text, if_none_match_hits, is_runtime_file_name, version_query};
 use crate::limits::{Refusal, Slot, StreamLimiter};
 use crate::log;
+use crate::modules::{ContentModules, EpicManifestError};
 use crate::news::News;
-use crate::runtime::{RuntimeStatus, RuntimeStore};
+use crate::runtime::{RuntimeStatus, RuntimeStore, sha256_hex};
 
 #[cfg(feature = "legacy")]
 mod game_files;
@@ -59,6 +66,8 @@ pub type AppState = Arc<App>;
 
 pub struct App {
     deps: Deps,
+    /// What loaded modules registered, by game version (DF4b)
+    modules: Arc<ContentModules>,
     /// The 1.4.4 game in place of the runtime
     #[cfg(feature = "legacy")]
     legacy: Option<crate::legacy::LegacyGame>,
@@ -66,8 +75,14 @@ pub struct App {
 
 impl App {
     pub fn new(deps: Deps) -> AppState {
+        Self::with_modules(deps, Arc::default())
+    }
+
+    /// An app serving what the controller attaches to `modules` (DF3 holds the same `Arc` as a `CorePlugin`).
+    pub fn with_modules(deps: Deps, modules: Arc<ContentModules>) -> AppState {
         Arc::new(Self {
             deps,
+            modules,
             #[cfg(feature = "legacy")]
             legacy: None,
         })
@@ -76,8 +91,14 @@ impl App {
     /// A legacy server: `game`'s files and manifest instead of the runtime (`deps.runtime` unused).
     #[cfg(feature = "legacy")]
     pub fn legacy(deps: Deps, game: crate::legacy::LegacyGame) -> AppState {
+        Self::legacy_with_modules(deps, game, Arc::default())
+    }
+
+    #[cfg(feature = "legacy")]
+    pub fn legacy_with_modules(deps: Deps, game: crate::legacy::LegacyGame, modules: Arc<ContentModules>) -> AppState {
         Arc::new(Self {
             deps,
+            modules,
             legacy: Some(game),
         })
     }
@@ -94,10 +115,20 @@ impl App {
         &self.deps
     }
 
-    /// The runtime's status, read off the async threads (a check may hash both files).
-    async fn runtime(&self, game: Option<Game>) -> RuntimeStatus {
+    pub fn modules(&self) -> &Arc<ContentModules> {
+        &self.modules
+    }
+
+    /// The runtime folders a version may have; none for no version (the server's own runtime).
+    fn runtime_folders(&self, version: Option<&GameVersion>) -> Vec<String> {
+        version.map(|v| self.modules.runtime_folders(v)).unwrap_or_default()
+    }
+
+    /// A version's runtime status, read off the async threads (a check may hash both files).
+    async fn runtime(&self, version: Option<&GameVersion>) -> RuntimeStatus {
         let store = self.deps.runtime.clone();
-        tokio::task::spawn_blocking(move || store.get_for_game(game))
+        let folders = self.runtime_folders(version);
+        tokio::task::spawn_blocking(move || store.get_in(&folders))
             .await
             .unwrap_or_else(|_| RuntimeStatus::Invalid("runtime check failed".into()))
     }
@@ -202,7 +233,7 @@ impl Drop for Logged {
         } else {
             log::Level::Info
         };
-        let download = matches!(self.info.route, "runtime-file" | "files");
+        let download = matches!(self.info.route, "runtime-file" | "files" | "epic-manifest");
         let msg = if download && self.method == "GET" && self.info.bytes.is_some() {
             "download"
         } else {
@@ -312,6 +343,18 @@ async fn handle(State(app): State<AppState>, ConnectInfo(peer): ConnectInfo<Sock
                 info.route = "runtime-file";
                 slot = runtime_file(&app, &headers, head, name, &mut reply, &mut info).await;
             }
+            Route::Versions => {
+                info.route = "versions";
+                versions(&app, head, &mut reply);
+            }
+            Route::ClientProfile(version) => {
+                info.route = "client-profile";
+                client_profile(&app, &headers, head, version, &mut reply, &mut info);
+            }
+            Route::EpicManifest(version) => {
+                info.route = "epic-manifest";
+                slot = epic_manifest(&app, &headers, head, version, &mut reply, &mut info).await;
+            }
             #[cfg(feature = "legacy")]
             Route::GameManifest => {
                 info.route = "manifest";
@@ -346,13 +389,13 @@ async fn handle(State(app): State<AppState>, ConnectInfo(peer): ConnectInfo<Sock
     response
 }
 
-/// `?game=<version or its alias>` (`1.14.7`, `reforged`, `1.4.4`, `revived`), the first one given.
-/// Anything else is ignored, as Node ignores every query here.
-fn parse_game_query(query: Option<&str>) -> Option<Game> {
-    let query = query?;
-    url::form_urlencoded::parse(query.as_bytes())
-        .find(|(key, _)| key == "game")
-        .and_then(|(_, value)| Game::from_version(&value))
+/// The version the query names (`input::version_query`); one that names nothing known is ignored, as Node
+/// ignores every query here.
+fn requested_version(app: &App, query: Option<&str>) -> Option<GameVersion> {
+    match version_query(query)? {
+        (VersionKey::Version, name) => app.modules.resolve(&name),
+        (VersionKey::Edition, name) => app.modules.resolve_edition(&name),
+    }
 }
 
 async fn runtime_manifest(
@@ -363,7 +406,7 @@ async fn runtime_manifest(
     reply: &mut Reply,
     info: &mut Info,
 ) {
-    let (body, etag) = match app.runtime(parse_game_query(query)).await {
+    let (body, etag) = match app.runtime(requested_version(app, query).as_ref()).await {
         RuntimeStatus::Ok { body, etag, .. } => (body, etag),
         // 404: nothing published yet (the launcher shows "waiting for the host").
         // 503: something is published but does not check out; the host has to fix it.
@@ -449,10 +492,10 @@ async fn runtime_file(
     info: &mut Info,
 ) -> Option<Slot> {
     let deps = &app.deps;
-    // `files/<game>/<name>` names the game's runtime (`?game=` on the manifest)
-    let (game, name) = match raw_name.split_once('/') {
-        Some((game, file_name)) => match Game::from_version(game) {
-            Some(game) => (Some(game), file_name),
+    // `files/<version>/<name>` names the version's runtime (`?version=` on the manifest)
+    let (version, name) = match raw_name.split_once('/') {
+        Some((named, file_name)) => match app.modules.resolve(named) {
+            Some(version) => (Some(version), file_name),
             None => (None, raw_name),
         },
         None => (None, raw_name),
@@ -463,29 +506,11 @@ async fn runtime_file(
         return None;
     }
     info.path = Some(name.to_owned());
-    let Some(key) = header_text(headers, KEY_HEADER).filter(|key| !key.is_empty()) else {
-        info.reason = Some("no_key".into());
-        reply.error(head, 401, "unauthorized", &[]);
-        return None;
-    };
-    let account = match deps.auth.check(&key).await {
-        LookupResult::Unavailable(reason) => {
-            info.reason = Some(reason);
-            reply.error(head, 503, "auth_unavailable", &[("retry-after", "5")]);
-            return None;
-        }
-        LookupResult::Invalid => {
-            info.reason = Some("bad_key".into());
-            reply.error(head, 401, "unauthorized", &[]);
-            return None;
-        }
-        LookupResult::Ok(account) => account,
-    };
-    info.account = Some(account.user_id.clone());
-    info.user = Some(account.username.clone());
+    let account = account(app, headers, head, reply, info).await?;
     let store = deps.runtime.clone();
     let wanted = name.to_owned();
-    let found = tokio::task::spawn_blocking(move || store.file_for_game(game, &wanted))
+    let folders = app.runtime_folders(version.as_ref());
+    let found = tokio::task::spawn_blocking(move || store.file_in(&folders, &wanted))
         .await
         .ok()
         .flatten();
@@ -543,5 +568,147 @@ async fn runtime_file(
     reply.set("cache-control", "private, no-transform");
     info.bytes = Some((Arc::new(AtomicU64::new(0)), file.size));
     reply.body = file_body(opened, file.size);
+    Some(slot)
+}
+
+/// The account `x-reforged-user-api-key` names, or the refusal written into `reply`.
+async fn account(
+    app: &App,
+    headers: &HeaderMap,
+    head: bool,
+    reply: &mut Reply,
+    info: &mut Info,
+) -> Option<AccountInfo> {
+    let Some(key) = header_text(headers, KEY_HEADER).filter(|key| !key.is_empty()) else {
+        info.reason = Some("no_key".into());
+        reply.error(head, 401, "unauthorized", &[]);
+        return None;
+    };
+    let account = match app.deps.auth.check(&key).await {
+        LookupResult::Unavailable(reason) => {
+            info.reason = Some(reason);
+            reply.error(head, 503, "auth_unavailable", &[("retry-after", "5")]);
+            return None;
+        }
+        LookupResult::Invalid => {
+            info.reason = Some("bad_key".into());
+            reply.error(head, 401, "unauthorized", &[]);
+            return None;
+        }
+        LookupResult::Ok(account) => account,
+    };
+    info.account = Some(account.user_id.clone());
+    info.user = Some(account.username.clone());
+    Some(account)
+}
+
+/// A reply body in module-api's own field names, so the launcher reads it with the same types.
+fn serialised(value: &impl serde::Serialize) -> Option<String> {
+    serde_json::to_string(value).ok()
+}
+
+/// The versions loaded modules serve (`modules::VersionsBody`).
+fn versions(app: &App, head: bool, reply: &mut Reply) {
+    match serialised(&app.modules.versions()) {
+        Some(body) => reply.text(head, 200, body, &[]),
+        None => reply.error(head, 500, "internal", &[]),
+    }
+}
+
+/// A version's client profile (`module_api::ClientProfile`), with an ETag of its body.
+fn client_profile(app: &App, headers: &HeaderMap, head: bool, raw_version: &str, reply: &mut Reply, info: &mut Info) {
+    info.path = Some(raw_version.to_owned());
+    let profile = app
+        .modules
+        .resolve(raw_version)
+        .and_then(|version| app.modules.client_profile(&version));
+    let profile = match profile {
+        None => return reply.error(head, 404, "unknown_version", &[]),
+        Some(None) => return reply.error(head, 404, "no_client_profile", &[]),
+        Some(Some(profile)) => profile,
+    };
+    let Some(body) = serialised(&profile) else {
+        return reply.error(head, 500, "internal", &[]);
+    };
+    let etag = format!("\"{}\"", sha256_hex(body.as_bytes()));
+    if if_none_match_hits(header_text(headers, "if-none-match").as_deref(), &etag) {
+        reply.status = StatusCode::NOT_MODIFIED;
+        reply.set("etag", &etag);
+        return;
+    }
+    reply.text(head, 200, body, &[("etag", &etag)]);
+}
+
+/// A version's Epic manifest (DD22): the file its module registered, sent only while its SHA-1 is the one
+/// the client profile pins. Needs the key and takes a download slot, as a runtime file does.
+async fn epic_manifest(
+    app: &App,
+    headers: &HeaderMap,
+    head: bool,
+    raw_version: &str,
+    reply: &mut Reply,
+    info: &mut Info,
+) -> Option<Slot> {
+    info.path = Some(raw_version.to_owned());
+    let Some(version) = app.modules.resolve(raw_version) else {
+        reply.error(head, 404, "unknown_version", &[]);
+        return None;
+    };
+    let account = account(app, headers, head, reply, info).await?;
+    let modules = app.modules.clone();
+    let checked = tokio::task::spawn_blocking(move || modules.epic_manifest(&version))
+        .await
+        .unwrap_or_else(|_| Err(EpicManifestError::Unavailable("manifest check failed".into())));
+    let (bytes, sha1) = match checked {
+        Ok(found) => found,
+        Err(EpicManifestError::UnknownVersion) => {
+            reply.error(head, 404, "unknown_version", &[]);
+            return None;
+        }
+        Err(EpicManifestError::NotServed) => {
+            reply.error(head, 404, "no_epic_manifest", &[]);
+            return None;
+        }
+        Err(EpicManifestError::Unavailable(reason)) => {
+            info.reason = Some(reason);
+            reply.error(head, 503, "epic_manifest_unavailable", &[]);
+            return None;
+        }
+        Err(EpicManifestError::Mismatch { expected, found }) => {
+            info.reason = Some(format!("its SHA-1 is {found}, the client profile pins {expected}"));
+            reply.error(head, 503, "epic_manifest_invalid", &[]);
+            return None;
+        }
+    };
+    let etag = format!("\"{sha1}\"");
+    if if_none_match_hits(header_text(headers, "if-none-match").as_deref(), &etag) {
+        reply.status = StatusCode::NOT_MODIFIED;
+        reply.set("etag", &etag);
+        return None;
+    }
+    let size = bytes.len() as u64;
+    if head {
+        reply.set("etag", &etag);
+        reply.set("content-type", "application/octet-stream");
+        reply.set("content-length", size);
+        return None;
+    }
+    let slot = match app.deps.limiter.try_acquire(&account.user_id) {
+        Ok(slot) => slot,
+        Err(refusal) => {
+            info.reason = Some(refusal.as_str().into());
+            match refusal {
+                Refusal::AccountLimit => reply.error(head, 429, "too_many_streams", &[("retry-after", "2")]),
+                Refusal::TotalLimit => reply.error(head, 503, "server_busy", &[("retry-after", "10")]),
+            }
+            return None;
+        }
+    };
+    reply.set("etag", &etag);
+    reply.set("content-type", "application/octet-stream");
+    reply.set("content-length", size);
+    reply.set("cache-control", "private, no-transform");
+    info.bytes = Some((Arc::new(AtomicU64::new(0)), size));
+    reply.body = Body::from(bytes);
     Some(slot)
 }

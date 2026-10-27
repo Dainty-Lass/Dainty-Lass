@@ -23,6 +23,7 @@ use crate::branding::Branding;
 use crate::config::Config;
 use crate::limits::StreamLimiter;
 use crate::log;
+use crate::modules::ContentModules;
 use crate::news::News;
 use crate::runtime::RuntimeStore;
 
@@ -32,11 +33,16 @@ const MAX_CONNECTIONS: usize = 512;
 
 /// Everything up to listening for the configured game; the reason it can't start is an error.
 pub fn prepare_game(config: &Config) -> Result<AppState, String> {
+    prepare_game_with(config, Arc::default())
+}
+
+/// [`prepare_game`], serving what the controller attaches to `modules` (DF4b).
+pub fn prepare_game_with(config: &Config, modules: Arc<ContentModules>) -> Result<AppState, String> {
     #[cfg(feature = "legacy")]
     if let (protocol::game::Game::Legacy, Some(game_dir)) = (config.game, &config.game_dir) {
         let game = crate::legacy::LegacyGame::prepare(game_dir, config.manifest_path.as_deref())?;
         let clock: crate::auth::Clock = Arc::new(crate::now_ms);
-        return Ok(App::legacy(
+        return Ok(App::legacy_with_modules(
             Deps {
                 runtime: Arc::new(RuntimeStore::new(None, clock.clone())),
                 auth: AuthCache::new(
@@ -48,13 +54,18 @@ pub fn prepare_game(config: &Config) -> Result<AppState, String> {
                 news: Arc::new(News::new(config.news_file.clone(), config.news_url.clone(), clock)),
             },
             game,
+            modules,
         ));
     }
-    Ok(prepare(config))
+    Ok(prepare_with(config, modules))
 }
 
 /// Everything up to listening: the runtime store (checked once now) and the app.
 pub fn prepare(config: &Config) -> AppState {
+    prepare_with(config, Arc::default())
+}
+
+fn prepare_with(config: &Config, modules: Arc<ContentModules>) -> AppState {
     let clock: crate::auth::Clock = Arc::new(crate::now_ms);
     let runtime = Arc::new(RuntimeStore::new(config.runtime_dir.clone(), clock.clone()));
     let first = runtime.get();
@@ -64,16 +75,19 @@ pub fn prepare(config: &Config) -> AppState {
             json!({"dir": config.runtime_dir.as_ref().map(|d| d.display().to_string()), "reason": reason}),
         );
     }
-    App::new(Deps {
-        runtime,
-        auth: AuthCache::new(
-            backend_lookup(&config.backend_url, Duration::from_secs(5)),
-            Duration::from_secs(config.auth_cache_seconds),
-        ),
-        limiter: StreamLimiter::new(config.max_streams_per_account, config.max_streams_total),
-        branding: Branding::new(config.branding_dir.clone(), clock.clone()),
-        news: Arc::new(News::new(config.news_file.clone(), config.news_url.clone(), clock)),
-    })
+    App::with_modules(
+        Deps {
+            runtime,
+            auth: AuthCache::new(
+                backend_lookup(&config.backend_url, Duration::from_secs(5)),
+                Duration::from_secs(config.auth_cache_seconds),
+            ),
+            limiter: StreamLimiter::new(config.max_streams_per_account, config.max_streams_total),
+            branding: Branding::new(config.branding_dir.clone(), clock.clone()),
+            news: Arc::new(News::new(config.news_file.clone(), config.news_url.clone(), clock)),
+        },
+        modules,
+    )
 }
 
 /// A connection that ends after two minutes in which nothing could be read or written (Node's
@@ -186,9 +200,18 @@ pub async fn run(config: Config) -> Result<(), String> {
 }
 
 /// In-process entry point driven by `ServerController` (`docs/app-structure-plan.md`).
-pub async fn run_with_context(config: Config, mut ctx: service_kit::context::ServiceContext) -> Result<(), String> {
+pub async fn run_with_context(config: Config, ctx: service_kit::context::ServiceContext) -> Result<(), String> {
+    run_with_modules(config, ctx, Arc::default()).await
+}
+
+/// [`run_with_context`], serving what the controller attaches to `modules` as a `CorePlugin` (DF3, DF4b).
+pub async fn run_with_modules(
+    config: Config,
+    mut ctx: service_kit::context::ServiceContext,
+    modules: Arc<ContentModules>,
+) -> Result<(), String> {
     ctx.status().report_starting("preparing content server");
-    let app = prepare_game(&config)?;
+    let app = prepare_game_with(&config, modules)?;
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let mut servers = Vec::new();
     for host in &config.bind_hosts {
