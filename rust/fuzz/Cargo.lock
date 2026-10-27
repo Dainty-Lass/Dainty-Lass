@@ -837,6 +837,7 @@ dependencies = [
  "epic",
  "flate2",
  "gateway",
+ "history-ship",
  "host",
  "http",
  "libfuzzer-sys",
@@ -1492,6 +1493,28 @@ name = "hermit-abi"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
+
+[[package]]
+name = "history-ship"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "chrono",
+ "flate2",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "store",
+ "thiserror",
+ "tokio",
+ "url",
+]
 
 [[package]]
 name = "host"

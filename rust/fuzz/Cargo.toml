@@ -32,6 +32,8 @@ deploy = { path = "../services/deploy" }
 epic = { path = "../crates/epic" }
 flate2 = "1"
 gateway = { path = "../services/gateway", features = ["legacy"] }
+# history_bucket: what a restore reads back from the history bucket (DH4)
+history-ship = { path = "../crates/history-ship" }
 host = { path = "../services/host" }
 # metagame_chat, metagame_token: Dauntless Revived's metagame (legacy servers)
 metagame = { path = "../services/metagame" }
@@ -133,6 +135,13 @@ bench = false
 [[bin]]
 name = "gateway_policy_legacy"
 path = "fuzz_targets/gateway_policy_legacy.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "history_bucket"
+path = "fuzz_targets/history_bucket.rs"
 test = false
 doc = false
 bench = false

@@ -7,6 +7,8 @@ members = [
     "crates/controller",
     # Installing the game from the player's Epic library (DD22)
     "crates/epic",
+    # The change log and snapshots shipped to an object-locked bucket, and restore (DH4)
+    "crates/history-ship",
     "crates/module-api",
     "crates/protocol",
     "crates/proxy",
@@ -52,6 +54,7 @@ server-controller = { path = "crates/controller", package = "controller" }
 module-api = { path = "crates/module-api", version = "0.1.0", registry = "silentspud" }
 protocol = { path = "crates/protocol" }
 store = { path = "crates/store" }
+history-ship = { path = "crates/history-ship" }
 service-kit = { path = "crates/service-kit" }
 proxy = { path = "crates/proxy" }
 admin = { path = "services/admin" }
