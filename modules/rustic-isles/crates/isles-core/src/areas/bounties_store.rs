@@ -3,7 +3,7 @@
 //! persistence switches `MYSTICPARADOX_BOUNTY_PERSISTENCE` and `_COOLDOWN_PERSISTENCE` carry 1.12.0's stubs.
 //!
 //! What other areas call: [`wallet`] (`get_wallet`, `add_currency`, `spend_platinum`, `merge_wallet_into_stacked`),
-//! [`challenge_rewards`] and [`entitlements`] (inside their transactions), [`store`]. What the
+//! [`challenge_rewards`], [`entitlements`] (inside their transactions) and [`economy_ledger`] (committed after), [`store`]. What the
 //! pipeline must supply: [`authn::AuthData`] and [`authn::StoreSeams`] in the request's extensions.
 
 pub mod authn;
@@ -14,6 +14,7 @@ pub mod challenge_rewards;
 pub mod cooldown_state;
 #[cfg(test)]
 mod cooldown_state_tests;
+pub mod economy_ledger;
 pub mod entitlements;
 pub mod handlers;
 #[doc(hidden)]
