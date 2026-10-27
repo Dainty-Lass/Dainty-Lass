@@ -27,6 +27,7 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
         "accounts",
         "characters",
         "loadouts",
+        "inventories",
         "progression_tracks",
         "progression_objectives",
         "escalation_progress",

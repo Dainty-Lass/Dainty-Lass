@@ -176,6 +176,8 @@ impl Repositories {
             player_journey: progression.clone(),
             breadcrumbs: progression.clone(),
             encountered_content: progression,
+            inventories: Arc::new(inventory::SqlInventories),
+            inventory_transactions: Arc::new(inventory::SqlInventoryTransactions),
             ..Self::stubs()
         }
     }
