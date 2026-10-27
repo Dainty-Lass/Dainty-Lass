@@ -188,6 +188,8 @@ impl Repositories {
             inventories: Arc::new(inventory::SqlInventories),
             inventory_transactions: Arc::new(inventory::SqlInventoryTransactions),
             launcher_guard: Arc::new(reforged::SqlLauncherGuard),
+            admin: Arc::new(reforged::SqlAdmin),
+            launcher_notices: Arc::new(reforged::SqlLauncherNotices),
             ..Self::stubs()
         }
     }

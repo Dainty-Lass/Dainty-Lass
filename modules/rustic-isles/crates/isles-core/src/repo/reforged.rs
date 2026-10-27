@@ -19,12 +19,13 @@ pub struct AdminSessionRecord {
     pub revoked_at: Option<String>,
 }
 
-/// `AdminAuditRecord`.
+/// `AdminAuditRecord`. The actor and the target are the userIds the operator saw (or `manager:<id>`, `host`), as Node
+/// kept them: the audit says what was done to whom in the words of the dashboard.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdminAuditRecord {
     pub id: String,
-    pub actor: AccountId,
-    pub target: Option<AccountId>,
+    pub actor_user_id: String,
+    pub target_user_id: Option<String>,
     pub action: String,
     pub old_state: Option<Json>,
     pub new_state: Option<Json>,
@@ -44,66 +45,35 @@ pub struct PlayerDeletion {
 repository! {
     pub trait AdminRepository("admin") {
         fn create_session(&self, tx: &mut Tx<'_>, session: &AdminSessionRecord) -> ();
-        fn find_active_session_by_token_hash(&self, conn: &mut AnyConnection, token_hash: &str)
+        /// Not revoked and not expired at `now`
+        fn find_active_session_by_token_hash(&self, conn: &mut AnyConnection, token_hash: &str, now: &str)
             -> Option<AdminSessionRecord>;
-        fn revoke_session(&self, tx: &mut Tx<'_>, id: &str) -> ();
+        fn revoke_session(&self, tx: &mut Tx<'_>, id: &str, at: &str) -> ();
         fn append_audit(&self, tx: &mut Tx<'_>, record: &AdminAuditRecord) -> ();
-        /// The records and the total
-        fn list_audit(&self, conn: &mut AnyConnection, target: Option<&AccountId>, skip: u32, limit: u32)
+        /// Newest first (an empty target lists everything); the records and the total
+        fn list_audit(&self, conn: &mut AnyConnection, target_user_id: Option<&str>, skip: u32, limit: u32)
             -> (Vec<AdminAuditRecord>, u64);
         /// Player-facing rows are soft-deleted (DD23), so `revert` can bring them back
-        fn delete_player_data(&self, tx: &mut Tx<'_>, account: &AccountId, audit: &AdminAuditRecord)
+        fn delete_player_data(&self, tx: &mut Tx<'_>, account: &AccountId, user_id: &str, audit: &AdminAuditRecord)
             -> PlayerDeletion;
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NoticeTone {
-    Info,
-    Warning,
-    Critical,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TagTone {
-    Info,
-    Warning,
-    Danger,
-    Success,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LauncherNotice {
-    pub id: String,
-    pub text: String,
-    pub tone: NoticeTone,
-    pub event_at: Option<String>,
-    pub show_from: Option<String>,
-    pub show_until: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LauncherNoticeTag {
-    pub id: String,
-    pub text: String,
-    pub tone: TagTone,
-    pub show_from: Option<String>,
-    pub show_until: Option<String>,
-}
-
-/// `LauncherNoticesRecord`: one document, replaced by version.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// `LauncherNoticesRecord`: one document, replaced by version. The announcements and tags are the validated JSON, so
+/// their key order reaches the dashboard as Node wrote it.
+#[derive(Debug, Clone, PartialEq)]
 pub struct LauncherNoticesRecord {
     pub version: u64,
     pub updated_at: Option<String>,
     pub updated_by: Option<String>,
-    pub announcements: Vec<LauncherNotice>,
-    pub tags: Vec<LauncherNoticeTag>,
+    pub announcements: Vec<Json>,
+    pub tags: Vec<Json>,
 }
 
 repository! {
     pub trait LauncherNoticesRepository("launcherNotices") {
         fn get(&self, conn: &mut AnyConnection) -> Option<LauncherNoticesRecord>;
+        /// Replaces the document when its version is `expected_version` (0 when there is none yet); `false` otherwise
         fn replace_if_version(&self, tx: &mut Tx<'_>, record: &LauncherNoticesRecord, expected_version: u64) -> bool;
     }
 }
@@ -910,5 +880,347 @@ impl LauncherGuardRepository for SqlLauncherGuard {
             ))
             .execute(tx.conn())?;
         Ok(())
+    }
+}
+
+// ---------------------------------------------------------------- the admin panel and the notices on store
+
+diesel::table! {
+    admin_sessions (id) {
+        id -> Text,
+        token_hash -> Text,
+        account -> Text,
+        csrf_token -> Text,
+        created_at -> Text,
+        expires_at -> Text,
+        ip -> Text,
+        user_agent -> Text,
+        revoked_at -> Nullable<Text>,
+        ttl_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    admin_audit (seq) {
+        seq -> BigInt,
+        id -> Text,
+        actor_user_id -> Text,
+        target_user_id -> Nullable<Text>,
+        action -> Text,
+        old_state -> Nullable<Text>,
+        new_state -> Nullable<Text>,
+        reason -> Nullable<Text>,
+        ip -> Text,
+        request_id -> Text,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
+    launcher_notices (id) {
+        id -> BigInt,
+        version -> BigInt,
+        updated_at -> Nullable<Text>,
+        updated_by -> Nullable<Text>,
+        announcements -> Text,
+        tags -> Text,
+    }
+}
+
+type AuditRow = (
+    String,
+    String,
+    Option<String>,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    String,
+    String,
+    String,
+);
+
+fn audit(row: AuditRow) -> RepoResult<AdminAuditRecord> {
+    let (id, actor_user_id, target_user_id, action, old_state, new_state, reason, ip, request_id, created_at) = row;
+    let state = |text: Option<String>, what: &str| {
+        text.map(|t| serde_json::from_str::<Json>(&t).map_err(|e| data(what, e)))
+            .transpose()
+    };
+    Ok(AdminAuditRecord {
+        id,
+        actor_user_id,
+        target_user_id,
+        action,
+        old_state: state(old_state, "admin_audit.old_state")?,
+        new_state: state(new_state, "admin_audit.new_state")?,
+        reason,
+        ip,
+        request_id,
+        created_at,
+    })
+}
+
+/// [`AdminRepository`] on `store`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SqlAdmin;
+
+/// A session lives until it expires, and its row is purged a day after (the Mongo TTL index of `ttlAt`).
+fn session_ttl(expires_at: &str) -> i64 {
+    service_kit::js::date_parse(expires_at).unwrap_or(0) + DAY_MS
+}
+
+fn insert_audit(tx: &mut Tx<'_>, record: &AdminAuditRecord) -> RepoResult<()> {
+    use admin_audit as t;
+    diesel::insert_into(t::table)
+        .values((
+            t::id.eq(&record.id),
+            t::actor_user_id.eq(&record.actor_user_id),
+            t::target_user_id.eq(&record.target_user_id),
+            t::action.eq(&record.action),
+            t::old_state.eq(record.old_state.as_ref().map(Json::to_string)),
+            t::new_state.eq(record.new_state.as_ref().map(Json::to_string)),
+            t::reason.eq(&record.reason),
+            t::ip.eq(&record.ip),
+            t::request_id.eq(&record.request_id),
+            t::created_at.eq(&record.created_at),
+        ))
+        .execute(tx.conn())?;
+    Ok(())
+}
+
+impl AdminRepository for SqlAdmin {
+    fn create_session(&self, tx: &mut Tx<'_>, session: &AdminSessionRecord) -> RepoResult<()> {
+        use admin_sessions as t;
+        diesel::insert_into(t::table)
+            .values((
+                t::id.eq(&session.id),
+                t::token_hash.eq(&session.token_hash),
+                t::account.eq(session.account.to_string()),
+                t::csrf_token.eq(&session.csrf_token),
+                t::created_at.eq(&session.created_at),
+                t::expires_at.eq(&session.expires_at),
+                t::ip.eq(&session.ip),
+                t::user_agent.eq(&session.user_agent),
+                t::revoked_at.eq(&session.revoked_at),
+                t::ttl_at.eq(session_ttl(&session.expires_at)),
+            ))
+            .execute(tx.conn())?;
+        Ok(())
+    }
+
+    fn find_active_session_by_token_hash(
+        &self,
+        conn: &mut AnyConnection,
+        token_hash: &str,
+        now: &str,
+    ) -> RepoResult<Option<AdminSessionRecord>> {
+        use admin_sessions as t;
+        let row = t::table
+            .filter(t::token_hash.eq(token_hash))
+            .filter(t::revoked_at.is_null())
+            .filter(t::expires_at.gt(now))
+            .select((
+                t::id,
+                t::token_hash,
+                t::account,
+                t::csrf_token,
+                t::created_at,
+                t::expires_at,
+                t::ip,
+                t::user_agent,
+            ))
+            .first::<(String, String, String, String, String, String, String, String)>(conn)
+            .optional()?;
+        row.map(
+            |(id, token_hash, account, csrf_token, created_at, expires_at, ip, user_agent)| {
+                Ok(AdminSessionRecord {
+                    id,
+                    token_hash,
+                    account: account.parse().map_err(|_| data("admin_sessions.account", &account))?,
+                    csrf_token,
+                    created_at,
+                    expires_at,
+                    ip,
+                    user_agent,
+                    revoked_at: None,
+                })
+            },
+        )
+        .transpose()
+    }
+
+    fn revoke_session(&self, tx: &mut Tx<'_>, id: &str, at: &str) -> RepoResult<()> {
+        use admin_sessions as t;
+        diesel::update(t::table.filter(t::id.eq(id)))
+            .set(t::revoked_at.eq(Some(at)))
+            .execute(tx.conn())?;
+        Ok(())
+    }
+
+    fn append_audit(&self, tx: &mut Tx<'_>, record: &AdminAuditRecord) -> RepoResult<()> {
+        insert_audit(tx, record)
+    }
+
+    fn list_audit(
+        &self,
+        conn: &mut AnyConnection,
+        target_user_id: Option<&str>,
+        skip: u32,
+        limit: u32,
+    ) -> RepoResult<(Vec<AdminAuditRecord>, u64)> {
+        use admin_audit as t;
+        let target = target_user_id.filter(|t| !t.is_empty());
+        let filtered = || {
+            let mut query = t::table.into_boxed();
+            if let Some(target) = target {
+                query = query.filter(t::target_user_id.eq(target));
+            }
+            query
+        };
+        let total = filtered().count().get_result::<i64>(conn)?;
+        let rows = filtered()
+            .order((t::created_at.desc(), t::seq.desc()))
+            .limit(i64::from(limit))
+            .offset(i64::from(skip))
+            .select((
+                t::id,
+                t::actor_user_id,
+                t::target_user_id,
+                t::action,
+                t::old_state,
+                t::new_state,
+                t::reason,
+                t::ip,
+                t::request_id,
+                t::created_at,
+            ))
+            .load::<AuditRow>(conn)?;
+        Ok((
+            rows.into_iter().map(audit).collect::<RepoResult<Vec<_>>>()?,
+            u64::try_from(total).unwrap_or(0),
+        ))
+    }
+
+    fn delete_player_data(
+        &self,
+        tx: &mut Tx<'_>,
+        account: &AccountId,
+        user_id: &str,
+        record: &AdminAuditRecord,
+    ) -> RepoResult<PlayerDeletion> {
+        use super::reforged::{
+            admin_sessions as sessions, guard_findings as findings, launcher_guard_sessions as guard,
+        };
+        let key = account.to_string();
+        let mut counts = Vec::new();
+        let n = |changed: usize| u64::try_from(changed).unwrap_or(0);
+        // The account itself is soft-deleted (DD23), so a revert brings the player back
+        let soft = tx.soft_delete("accounts", &[("id", ::store::KeyValue::Text(key.clone()))])?;
+        counts.push(("accounts".to_owned(), u64::from(soft)));
+        counts.push((
+            "adminSessions".to_owned(),
+            n(diesel::delete(sessions::table.filter(sessions::account.eq(&key))).execute(tx.conn())?),
+        ));
+        counts.push((
+            "launcherGuardSessions".to_owned(),
+            n(diesel::delete(guard::table.filter(guard::account.eq(&key))).execute(tx.conn())?),
+        ));
+        // The account leaves every Guard module finding that lists it, and the count follows
+        let listed = findings::table
+            .select((findings::id, findings::account_ids))
+            .load::<(i64, String)>(tx.conn())?;
+        let mut touched = 0u64;
+        for (id, accounts) in listed {
+            let accounts: Vec<String> = serde_json::from_str(&accounts).unwrap_or_default();
+            if !accounts.contains(&key) {
+                continue;
+            }
+            let rest: Vec<String> = accounts.into_iter().filter(|a| a != &key).collect();
+            diesel::update(findings::table.filter(findings::id.eq(id)))
+                .set((
+                    findings::account_ids.eq(serde_json::to_string(&rest).unwrap_or_else(|_| "[]".into())),
+                    findings::account_count.eq(i64::try_from(rest.len()).unwrap_or(i64::MAX)),
+                ))
+                .execute(tx.conn())?;
+            touched += 1;
+        }
+        counts.push(("guardFindings".to_owned(), touched));
+        let _ = user_id;
+        insert_audit(tx, record)?;
+        Ok(PlayerDeletion {
+            deleted_counts: counts,
+            character_count: 0,
+        })
+    }
+}
+
+/// [`LauncherNoticesRepository`] on `store`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SqlLauncherNotices;
+
+fn list_of(text: &str) -> Vec<Json> {
+    match serde_json::from_str::<Json>(text) {
+        Ok(Json::Array(items)) => items,
+        _ => Vec::new(),
+    }
+}
+
+impl LauncherNoticesRepository for SqlLauncherNotices {
+    fn get(&self, conn: &mut AnyConnection) -> RepoResult<Option<LauncherNoticesRecord>> {
+        use launcher_notices as t;
+        let row = t::table
+            .filter(t::id.eq(1))
+            .select((t::version, t::updated_at, t::updated_by, t::announcements, t::tags))
+            .first::<(i64, Option<String>, Option<String>, String, String)>(conn)
+            .optional()?;
+        Ok(row.map(
+            |(version, updated_at, updated_by, announcements, tags)| LauncherNoticesRecord {
+                version: u64::try_from(version).unwrap_or(0),
+                updated_at,
+                updated_by,
+                announcements: list_of(&announcements),
+                tags: list_of(&tags),
+            },
+        ))
+    }
+
+    fn replace_if_version(
+        &self,
+        tx: &mut Tx<'_>,
+        record: &LauncherNoticesRecord,
+        expected_version: u64,
+    ) -> RepoResult<bool> {
+        use launcher_notices as t;
+        let expected = i64::try_from(expected_version).unwrap_or(i64::MAX);
+        let version = i64::try_from(record.version).unwrap_or(i64::MAX);
+        let announcements = Json::Array(record.announcements.clone()).to_string();
+        let tags = Json::Array(record.tags.clone()).to_string();
+        let exists = t::table.filter(t::id.eq(1)).count().get_result::<i64>(tx.conn())? > 0;
+        if !exists {
+            if expected != 0 {
+                return Ok(false);
+            }
+            diesel::insert_into(t::table)
+                .values((
+                    t::id.eq(1),
+                    t::version.eq(version),
+                    t::updated_at.eq(&record.updated_at),
+                    t::updated_by.eq(&record.updated_by),
+                    t::announcements.eq(announcements),
+                    t::tags.eq(tags),
+                ))
+                .execute(tx.conn())?;
+            return Ok(true);
+        }
+        let changed = diesel::update(t::table.filter(t::id.eq(1)).filter(t::version.eq(expected)))
+            .set((
+                t::version.eq(version),
+                t::updated_at.eq(&record.updated_at),
+                t::updated_by.eq(&record.updated_by),
+                t::announcements.eq(announcements),
+                t::tags.eq(tags),
+            ))
+            .execute(tx.conn())?;
+        Ok(changed == 1)
     }
 }
