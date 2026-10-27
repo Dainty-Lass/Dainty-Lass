@@ -1339,6 +1339,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "indexmap",
+ "module-api",
  "protocol",
  "proxy",
  "rcgen",

@@ -20,6 +20,9 @@ http-body-util.workspace = true
 hyper.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1", "server"] }
 indexmap = "2"
+# The core plugin that serves module routes (DF4a). A path, not `workspace = true`: the workspace entry names
+# the `silentspud` registry, which no config here defines yet
+module-api = { path = "../../crates/module-api" }
 # `Game`: which Dauntless the gateway fronts (GATEWAY_GAME)
 protocol.workspace = true
 proxy.workspace = true
