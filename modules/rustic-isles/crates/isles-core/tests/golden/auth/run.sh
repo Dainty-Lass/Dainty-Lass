@@ -14,7 +14,6 @@ docker run --rm \
     -v "$root/reference/1.12.0/ParadoxBackend:/src112:ro" \
     -v isles-auth-golden-work112:/work112 \
     -v "$here:/golden:ro" \
-    -v "$here/../../../testdata/auth:/testdata:ro" \
     -v "$here/out:/out" \
     node:22 sh -c '
         set -eu
@@ -28,7 +27,7 @@ docker run --rm \
         rm -rf game-data && cp -r /src/game-data game-data
         for f in game-data/*.example.json; do [ -e "$f" ] && cp "$f" "${f%.example.json}.json"; done
         cp /golden/record.cjs .
-        node --require tsx/cjs record.cjs /golden/scenario.json /testdata /out/golden.json
+        node --require tsx/cjs record.cjs /golden/scenario.json /out/golden.json
         # 1.12.0 (MongoDB only): its login and matchmaking routers over a stand-in persistence layer
         cd /work112
         if [ ! -d node_modules ]; then
@@ -39,7 +38,7 @@ docker run --rm \
         rm -rf game-data && cp -r /src112/game-data game-data 2>/dev/null || mkdir game-data
         for f in game-data/*.example.json; do [ -e "$f" ] && cp "$f" "${f%.example.json}.json"; done
         cp /golden/record.cjs .
-        node --require tsx/cjs record.cjs /golden/scenario112.json /testdata /out/golden112.json 1.12.0
+        node --require tsx/cjs record.cjs /golden/scenario112.json /out/golden112.json 1.12.0
     '
 mv "$here/out/golden.json" "$here/golden.json"
 mv "$here/out/golden112.json" "$here/golden112.json"

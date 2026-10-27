@@ -59,6 +59,8 @@ windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security"
 
 # RU5 auth: tokens, hashes, passwords and the two outgoing clients (Discord over HTTPS, the code mail over SMTP)
 argon2 = "0.5"
+# Test key pairs are generated at test time; a private key is never committed
+aws-lc-rs = "1.18"
 base64 = "0.23"
 hmac = "0.13"
 http-body-util = "0.1"

@@ -4,16 +4,22 @@
 // random codes become placeholders) so the Rust port's can be compared with them; see tests/auth_golden.rs, which makes
 // the same requests and applies the same normalization.
 //
-//   node --require tsx/cjs record.cjs <scenario.json> <testdata dir> <out.json>   (inside a copy of reference/1.14.7/ParadoxBackend)
+//   node --require tsx/cjs record.cjs <scenario.json> <out.json> [version]   (inside a copy of reference/1.14.7/ParadoxBackend)
 const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 
-const [ScenarioPath, TestData, OutPath, Version = "1.14.7"] = process.argv.slice(2);
+const [ScenarioPath, OutPath, Version = "1.14.7"] = process.argv.slice(2);
 const OLD = Version === "1.12.0";
 const Root = fs.mkdtempSync(path.join(os.tmpdir(), "auth-golden-"));
-const B64 = (file) => Buffer.from(fs.readFileSync(path.join(TestData, file), "utf8")).toString("base64");
+// A key pair made for this run: nothing is committed, and the normalized answers never hold a token
+const Keys = require("node:crypto").generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    publicKeyEncoding: { type: "spki", format: "pem" },
+});
+const B64 = (pem) => Buffer.from(pem, "utf8").toString("base64");
 const RUNTIME = ["b".repeat(64), "c".repeat(64)];
 
 Object.assign(process.env, {
@@ -22,8 +28,8 @@ Object.assign(process.env, {
     AUTH_MODE: "LAUNCHER",
     TARGET_CHANGELIST: "647472",
     API_KEY_HASH_SECRET: "test-only-api-key-hash-secret-0123456789abcdef",
-    AUTH_SIGNING_PRIVKEY_B64: B64("test-signing-key.pem"),
-    AUTH_SIGNING_PUBKEY_B64: B64("test-signing-key.pub.pem"),
+    AUTH_SIGNING_PRIVKEY_B64: B64(Keys.privateKey),
+    AUTH_SIGNING_PUBKEY_B64: B64(Keys.publicKey),
     GAMESERVER_API_KEYS: "gs-key-1",
     APPROVED_EXECUTABLE_SHA256: "a".repeat(64),
     LAUNCHER_UPDATE_ROOT: path.join(Root, "updates"),
@@ -90,7 +96,7 @@ if (!OLD) {
     App.use("/", require(path.join(Src, "routes/matchmaking")).matchmakingRouter);
     App.use((req, res) => { res.status(404); res.send(); });
     const jwt = require("jsonwebtoken");
-    Vars.tok = jwt.sign({ userId: "u1" }, fs.readFileSync(path.join(TestData, "test-signing-key.pem"), "utf8"), {
+    Vars.tok = jwt.sign({ userId: "u1" }, Keys.privateKey, {
         algorithm: "RS256", expiresIn: "24h", issuer: "paradox-backend", audience: "paradox-backend",
     });
 }

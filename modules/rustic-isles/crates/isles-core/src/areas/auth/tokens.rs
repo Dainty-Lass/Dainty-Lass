@@ -237,11 +237,46 @@ impl crate::areas::bounties_store::authn::PurchaseTokens for StoreTokens {
     }
 }
 
-/// The settings a test (or a harness) signs with: a throwaway key pair that lives in `testdata/auth`.
+fn pem(label: &str, der: &[u8]) -> String {
+    let body = BASE64.encode(der);
+    let mut out = format!("-----BEGIN {label}-----\n");
+    for line in body.as_bytes().chunks(64) {
+        out.push_str(std::str::from_utf8(line).unwrap_or_default());
+        out.push('\n');
+    }
+    out.push_str(&format!("-----END {label}-----\n"));
+    out
+}
+
+/// A throwaway RS256 key pair, generated once per process: the PEMs a host would put in `AUTH_SIGNING_PRIVKEY_B64` and
+/// `AUTH_SIGNING_PUBKEY_B64` (before base64). Nothing here is ever written to a file or committed.
+fn throwaway_key_pair() -> &'static (String, String) {
+    use aws_lc_rs::encoding::AsDer as _;
+    use aws_lc_rs::rsa::{KeyPair, KeySize};
+    use aws_lc_rs::signature::KeyPair as _;
+    static KEYS: std::sync::OnceLock<(String, String)> = std::sync::OnceLock::new();
+    KEYS.get_or_init(|| {
+        let Ok(pair) = KeyPair::generate(KeySize::Rsa2048) else {
+            return (String::new(), String::new());
+        };
+        let private = pair
+            .as_der()
+            .map(|der| pem("PRIVATE KEY", der.as_ref()))
+            .unwrap_or_default();
+        let public = pair
+            .public_key()
+            .as_der()
+            .map(|der| pem("PUBLIC KEY", der.as_ref()))
+            .unwrap_or_default();
+        (private, public)
+    })
+}
+
+/// The settings a test (or a harness) signs with, over a key pair generated for the process.
 #[doc(hidden)]
 pub fn test_key_settings(extra: &[(&str, &str)]) -> Settings {
-    let private = BASE64.encode(include_str!("../../../testdata/auth/test-signing-key.pem"));
-    let public = BASE64.encode(include_str!("../../../testdata/auth/test-signing-key.pub.pem"));
+    let (private, public) = throwaway_key_pair();
+    let (private, public) = (BASE64.encode(private), BASE64.encode(public));
     let mut pairs = vec![
         ("AUTH_SIGNING_PRIVKEY_B64".to_owned(), private),
         ("AUTH_SIGNING_PUBKEY_B64".to_owned(), public),
