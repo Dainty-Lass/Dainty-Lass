@@ -1,10 +1,9 @@
-//! RU5 inventory, storage policy and reforge: the inventories, POST /inventory's idempotency ledger, and the pure
-//! rules of the reforge record that `progression_tracks` keeps (its SQL is the progression area's).
+//! RU5 inventory, storage policy and reforge: the inventories and POST /inventory's idempotency ledger. The reforge
+//! record lives on `progression_tracks`, whose SQL is the progression area's.
 
 use diesel::prelude::*;
 use serde_json::{Map, Value};
 
-use super::progression::WeaponReforge;
 use super::{AccountId, AnyConnection, Json, RepoError, RepoResult, Tx, repository};
 
 /// `InventoryRecord`. The item lists are JSON text, as Node stored them (`persistence/mapping/domainTypes.ts`).
@@ -94,69 +93,6 @@ repository! {
         /// The account's newest rows, newest first, with the fields an admin timeline shows and never the results.
         fn list_recent_for_account(&self, conn: &mut AnyConnection, account: &AccountId, limit: u32) -> Vec<Json>;
     }
-}
-
-// ------------------------------------------------------------------ the reforge record
-
-fn status_text(open: bool) -> &'static str {
-    if open { "open" } else { "closed" }
-}
-
-/// Whether `reforge` has every field `expected` names (Node's `Partial<WeaponReforgeState>` filter on
-/// `updateReforge`), by the Node field names.
-pub fn reforge_matches(reforge: &WeaponReforge, expected: &Json) -> bool {
-    let Some(fields) = expected.as_object() else {
-        return false;
-    };
-    fields.iter().all(|(name, want)| match name.as_str() {
-        "reforgeId" => want.as_str() == Some(reforge.reforge_id.as_str()),
-        "status" => want.as_str() == Some(status_text(reforge.open)),
-        "priorProgress" => want.as_i64() == Some(reforge.prior_progress),
-        "cap" => want.as_i64() == Some(reforge.cap),
-        "banked" => want.as_i64() == Some(reforge.banked),
-        "bankedRestored" => want.as_i64() == Some(reforge.banked_restored),
-        "prestigeGranted" => want.as_bool() == Some(reforge.prestige_granted),
-        "openedAt" => want.as_str() == Some(reforge.opened_at.as_str()),
-        "closedAt" => want.as_str() == reforge.closed_at.as_deref(),
-        _ => false,
-    })
-}
-
-/// `reforge` with the fields `set` names replaced (Node's `$set` of `reforge.<field>`).
-pub fn reforge_with(reforge: &WeaponReforge, set: &Json) -> WeaponReforge {
-    let mut next = reforge.clone();
-    let Some(fields) = set.as_object() else {
-        return next;
-    };
-    for (name, value) in fields {
-        match name.as_str() {
-            "status" => next.open = value.as_str() == Some("open"),
-            "priorProgress" => next.prior_progress = value.as_i64().unwrap_or(next.prior_progress),
-            "cap" => next.cap = value.as_i64().unwrap_or(next.cap),
-            "banked" => next.banked = value.as_i64().unwrap_or(next.banked),
-            "bankedRestored" => next.banked_restored = value.as_i64().unwrap_or(next.banked_restored),
-            "prestigeGranted" => next.prestige_granted = value.as_bool().unwrap_or(next.prestige_granted),
-            "closedAt" => next.closed_at = value.as_str().map(str::to_owned),
-            _ => {}
-        }
-    }
-    next
-}
-
-/// `updateReforge`'s whole rule, for the progression area's SQL to share: `Some(next)` when the stored reforge is
-/// `reforge_id` and has every field `expected` names, and `set` changes something (a `$set` that changes nothing is
-/// not a modification, and answers false); `None` otherwise.
-pub fn apply_reforge_update(
-    current: &WeaponReforge,
-    reforge_id: &str,
-    expected: &Json,
-    set: &Json,
-) -> Option<WeaponReforge> {
-    if current.reforge_id != reforge_id || !reforge_matches(current, expected) {
-        return None;
-    }
-    let next = reforge_with(current, set);
-    (next != *current).then_some(next)
 }
 
 // ------------------------------------------------------------------ SQL
@@ -484,54 +420,5 @@ impl InventoryTransactionRepository for SqlInventoryTransactions {
                 Ok(Value::Object(out))
             })
             .collect()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn open_reforge() -> WeaponReforge {
-        WeaponReforge {
-            reforge_id: "r1".into(),
-            open: true,
-            prior_progress: 31275,
-            cap: 27775,
-            banked: 3500,
-            banked_restored: 0,
-            prestige_granted: false,
-            opened_at: "2026-10-11T07:00:00.000Z".into(),
-            closed_at: None,
-        }
-    }
-
-    #[test]
-    fn the_reforge_filter_and_set_read_node_field_names() {
-        let reforge = open_reforge();
-        assert!(reforge_matches(
-            &reforge,
-            &json!({"status": "open", "prestigeGranted": false, "bankedRestored": 0})
-        ));
-        assert!(!reforge_matches(&reforge, &json!({"status": "closed"})));
-        assert!(!reforge_matches(&reforge, &json!({"bankedRestored": 1})));
-        assert!(!reforge_matches(&reforge, &json!({"unknown": 1})));
-        let closed = reforge_with(
-            &reforge,
-            &json!({"status": "closed", "closedAt": "2026-10-11T07:00:01.000Z", "prestigeGranted": true, "bankedRestored": 3500}),
-        );
-        assert!(!closed.open && closed.prestige_granted);
-        assert_eq!(
-            (closed.banked_restored, closed.closed_at.as_deref()),
-            (3500, Some("2026-10-11T07:00:01.000Z"))
-        );
-        assert_eq!(closed.reforge_id, "r1");
-        // the compare-and-set: the id and the expected fields must hold, and the set must change something
-        let set = json!({"prestigeGranted": true});
-        assert!(apply_reforge_update(&reforge, "r1", &json!({"status": "open"}), &set).is_some());
-        assert!(apply_reforge_update(&reforge, "other", &json!({"status": "open"}), &set).is_none());
-        assert!(apply_reforge_update(&reforge, "r1", &json!({"status": "closed"}), &set).is_none());
-        assert!(apply_reforge_update(&reforge, "r1", &json!({}), &json!({"prestigeGranted": false})).is_none());
     }
 }

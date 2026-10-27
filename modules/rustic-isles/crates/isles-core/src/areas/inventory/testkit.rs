@@ -18,7 +18,6 @@ use store::DatabaseOptions;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use super::clock::iso_now;
 use super::ports::{
     AuthData, AuthRequest, Authentication, Authenticator, CharacterOwnership, CurrencyChange, Ports, StarterBootstrap,
     Wallet, WalletError,
@@ -28,12 +27,8 @@ use crate::game_data::GameDataRoot;
 use crate::http::{Handlers, Shared, app};
 use crate::repo::auth::AccountRecord;
 use crate::repo::characters::CharacterRecord;
-use crate::repo::inventory::{InventoryRecord, apply_reforge_update};
-use crate::repo::progression::{
-    ProgressionGrantRecord, ProgressionGrantRepository, ProgressionObjectiveRecord, ProgressionTrackRecord,
-    ProgressionTrackRepository, WeaponReforge,
-};
-use crate::repo::{AccountId, AnyConnection, Json, RepoError, RepoResult, Repositories, Stub, Tx, UserId};
+use crate::repo::inventory::InventoryRecord;
+use crate::repo::{AccountId, RepoError, RepoResult, Repositories, Tx, UserId};
 use crate::routes::Service;
 use crate::settings::Settings;
 use crate::version::IslesVersion;
@@ -208,264 +203,12 @@ impl StarterBootstrap for ExistingInventory {
     }
 }
 
-/// `progressionTracks` in memory, with the compare-and-set rules of the SQLite provider's `beginReforge` and
-/// `updateReforge`.
-#[derive(Default)]
-pub struct MemoryTracks {
-    rows: Mutex<Vec<ProgressionTrackRecord>>,
-}
-
-impl MemoryTracks {
-    fn with<T>(&self, f: impl FnOnce(&mut Vec<ProgressionTrackRecord>) -> T) -> RepoResult<T> {
-        let mut rows = self.rows.lock().map_err(|_| RepoError::Data("poisoned".into()))?;
-        Ok(f(&mut rows))
-    }
-
-    pub fn seed(&self, account: &AccountId, progression_id: &str, progress: i64) {
-        let _ = self.with(|rows| {
-            rows.push(ProgressionTrackRecord {
-                account: account.clone(),
-                progression_id: progression_id.to_owned(),
-                progress,
-                confirmed_fremium_rank: 0,
-                confirmed_premium_rank: 0,
-                update_version: 1,
-                created_at: iso_now(),
-                updated_at: iso_now(),
-                reforge: None,
-                prestige_claimed: None,
-            });
-        });
-    }
-}
-
-impl ProgressionTrackRepository for MemoryTracks {
-    fn get_all_for_account(
-        &self,
-        _: &mut AnyConnection,
-        account: &AccountId,
-    ) -> RepoResult<Vec<ProgressionTrackRecord>> {
-        self.with(|rows| rows.iter().filter(|r| r.account == *account).cloned().collect())
-    }
-
-    fn get(&self, _: &mut AnyConnection, account: &AccountId, id: &str) -> RepoResult<Option<ProgressionTrackRecord>> {
-        self.with(|rows| {
-            rows.iter()
-                .find(|r| r.account == *account && r.progression_id == id)
-                .cloned()
-        })
-    }
-
-    fn increment(
-        &self,
-        _: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        amount: i64,
-    ) -> RepoResult<ProgressionTrackRecord> {
-        self.with(|rows| {
-            if let Some(row) = rows
-                .iter_mut()
-                .find(|r| r.account == *account && r.progression_id == id)
-            {
-                row.progress += amount;
-                row.update_version += 1;
-                row.updated_at = iso_now();
-                return row.clone();
-            }
-            let row = ProgressionTrackRecord {
-                account: account.clone(),
-                progression_id: id.to_owned(),
-                progress: amount,
-                confirmed_fremium_rank: 0,
-                confirmed_premium_rank: 0,
-                update_version: 1,
-                created_at: iso_now(),
-                updated_at: iso_now(),
-                reforge: None,
-                prestige_claimed: None,
-            };
-            rows.push(row.clone());
-            row
-        })
-    }
-
-    fn set_progress_if_greater(
-        &self,
-        tx: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        value: i64,
-    ) -> RepoResult<ProgressionTrackRecord> {
-        Stub.set_progress_if_greater(tx, account, id, value)
-    }
-
-    fn set_confirmed_fremium_rank(
-        &self,
-        tx: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        rank: i64,
-    ) -> RepoResult<ProgressionTrackRecord> {
-        Stub.set_confirmed_fremium_rank(tx, account, id, rank)
-    }
-
-    fn append_objective_event(
-        &self,
-        tx: &mut Tx<'_>,
-        account: &AccountId,
-        raw_body: &str,
-        received_at: &str,
-    ) -> RepoResult<()> {
-        Stub.append_objective_event(tx, account, raw_body, received_at)
-    }
-
-    fn get_all_objectives_for_account(
-        &self,
-        conn: &mut AnyConnection,
-        account: &AccountId,
-    ) -> RepoResult<Vec<ProgressionObjectiveRecord>> {
-        Stub.get_all_objectives_for_account(conn, account)
-    }
-
-    fn set_objective_if_greater(
-        &self,
-        tx: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        value: i64,
-        completed: i64,
-    ) -> RepoResult<ProgressionObjectiveRecord> {
-        Stub.set_objective_if_greater(tx, account, id, value, completed)
-    }
-
-    fn begin_reforge(
-        &self,
-        _: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        expected_progress: i64,
-        expected_version: i64,
-        reforge: &WeaponReforge,
-    ) -> RepoResult<Option<ProgressionTrackRecord>> {
-        self.with(|rows| {
-            let row = rows
-                .iter_mut()
-                .find(|r| r.account == *account && r.progression_id == id)?;
-            if row.progress != expected_progress
-                || row.update_version != expected_version
-                || row.reforge.as_ref().is_some_and(|r| r.open)
-            {
-                return None;
-            }
-            row.progress = 0;
-            row.confirmed_fremium_rank = 0;
-            row.confirmed_premium_rank = 0;
-            row.reforge = Some(reforge.clone());
-            row.updated_at = reforge.opened_at.clone();
-            row.update_version += 1;
-            Some(row.clone())
-        })
-    }
-
-    fn update_reforge(
-        &self,
-        _: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        reforge_id: &str,
-        expected: &Json,
-        set: &Json,
-    ) -> RepoResult<bool> {
-        self.with(|rows| {
-            let Some(row) = rows
-                .iter_mut()
-                .find(|r| r.account == *account && r.progression_id == id)
-            else {
-                return false;
-            };
-            let Some(next) = row
-                .reforge
-                .as_ref()
-                .and_then(|current| apply_reforge_update(current, reforge_id, expected, set))
-            else {
-                return false;
-            };
-            row.reforge = Some(next);
-            true
-        })
-    }
-
-    fn claim_prestige_levels(
-        &self,
-        tx: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        before: i64,
-        levels: i64,
-        min: i64,
-    ) -> RepoResult<bool> {
-        Stub.claim_prestige_levels(tx, account, id, before, levels, min)
-    }
-
-    fn get_objectives(
-        &self,
-        conn: &mut AnyConnection,
-        account: &AccountId,
-        ids: &[String],
-    ) -> RepoResult<Vec<ProgressionObjectiveRecord>> {
-        Stub.get_objectives(conn, account, ids)
-    }
-
-    fn merge_objectives(&self, tx: &mut Tx<'_>, account: &AccountId, rows: &[(String, i64, i64)]) -> RepoResult<()> {
-        Stub.merge_objectives(tx, account, rows)
-    }
-
-    fn spend(
-        &self,
-        tx: &mut Tx<'_>,
-        account: &AccountId,
-        id: &str,
-        amount: i64,
-    ) -> RepoResult<Option<ProgressionTrackRecord>> {
-        Stub.spend(tx, account, id, amount)
-    }
-}
-
-#[derive(Default)]
-pub struct MemoryGrants {
-    rows: Mutex<Vec<ProgressionGrantRecord>>,
-}
-
-impl ProgressionGrantRepository for MemoryGrants {
-    fn find_by_grant_id(&self, _: &mut AnyConnection, grant_id: &str) -> RepoResult<Option<ProgressionGrantRecord>> {
-        let rows = self.rows.lock().map_err(|_| RepoError::Data("poisoned".into()))?;
-        Ok(rows.iter().find(|r| r.grant_id == grant_id).cloned())
-    }
-
-    fn insert_applied(&self, _: &mut Tx<'_>, record: &ProgressionGrantRecord) -> RepoResult<()> {
-        let mut rows = self.rows.lock().map_err(|_| RepoError::Data("poisoned".into()))?;
-        rows.push(record.clone());
-        Ok(())
-    }
-
-    fn list_recent_for_account(
-        &self,
-        conn: &mut AnyConnection,
-        account: &AccountId,
-        limit: u32,
-    ) -> RepoResult<Vec<ProgressionGrantRecord>> {
-        Stub.list_recent_for_account(conn, account, limit)
-    }
-}
-
 /// A server on a SQLite store with the stand-ins above.
 pub struct Harness {
     pub address: SocketAddr,
     pub store: IslesStore,
     pub accounts: BTreeMap<String, AccountId>,
     pub wallet: Arc<MemoryWallet>,
-    pub tracks: Arc<MemoryTracks>,
     pub repos: Repositories,
 }
 
@@ -510,15 +253,6 @@ pub fn open_store(config: &DatabaseConfig) -> IslesStore {
     }
 }
 
-/// The repositories of a store with the stand-ins in place of the other areas'.
-pub fn repositories(store: &IslesStore) -> (Repositories, Arc<MemoryTracks>) {
-    let tracks = Arc::new(MemoryTracks::default());
-    let mut repos = store.repos().clone();
-    repos.progression_tracks = tracks.clone();
-    repos.progression_grants = Arc::new(MemoryGrants::default());
-    (repos, tracks)
-}
-
 impl Harness {
     /// [`Harness::start_on`] with the SQLite database in `dir`.
     pub async fn start(dir: &Path, version: IslesVersion, settings: Settings, seed: &Value) -> Self {
@@ -543,14 +277,21 @@ impl Harness {
         let cleared = store
             .write(&super::transaction::system_actor("testkit"), |tx, _| {
                 use diesel::RunQueryDsl;
-                for table in ["inventory_transactions", "inventories", "characters", "accounts"] {
+                for table in [
+                    "inventory_transactions",
+                    "inventories",
+                    "progression_grants",
+                    "progression_tracks",
+                    "characters",
+                    "accounts",
+                ] {
                     diesel::sql_query(format!("DELETE FROM {table}")).execute(tx.conn())?;
                 }
                 Ok(())
             })
             .await;
         assert!(cleared.is_ok(), "{cleared:?}");
-        let (repos, tracks) = repositories(&store);
+        let repos = store.repos().clone();
         let wallet = Arc::new(MemoryWallet::default());
         let mut accounts = BTreeMap::new();
         let node = NodeIdentity::standalone();
@@ -615,7 +356,21 @@ impl Harness {
                 assert!(wrote.is_ok(), "{wrote:?}");
             }
             for (track, progress) in user["tracks"].as_object().into_iter().flatten() {
-                tracks.seed(&account, track, progress.as_i64().unwrap_or(0));
+                let (repos, account_in, track, progress) = (
+                    repos.clone(),
+                    account.clone(),
+                    track.clone(),
+                    progress.as_i64().unwrap_or(0),
+                );
+                let wrote = store
+                    .account_write(&account, &actor, move |tx, _| {
+                        repos
+                            .progression_tracks
+                            .increment(tx, &account_in, &track, progress)
+                            .map(|_| ())
+                    })
+                    .await;
+                assert!(wrote.is_ok(), "{wrote:?}");
             }
             accounts.insert(user_id, account);
         }
@@ -650,7 +405,6 @@ impl Harness {
             store,
             accounts,
             wallet,
-            tracks,
             repos,
         }
     }

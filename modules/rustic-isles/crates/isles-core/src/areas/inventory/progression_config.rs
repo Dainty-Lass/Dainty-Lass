@@ -1,6 +1,5 @@
-//! The two things this area reads from `progression_config.json` (the file `GET /progression/config` serves): a
-//! track's level-20 cap, which a reforge resets at, and which reward currencies are prestige-gated. The rank curves
-//! themselves are the progression area's (`controllers/progression.ts`'s `TrackCurves`).
+//! Which reward currencies are prestige-gated (`wallet.ts`'s `IsPrestigeGatedReward`), from `progression_config.json`:
+//! the test multiplier leaves them alone. A track's cap and the rank curves are the progression area's.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -13,8 +12,6 @@ use super::storage_policy::{PolicyError, read_game_data};
 
 #[derive(Debug, Clone, Default)]
 pub struct ProgressionConfig {
-    /// `TrackCapXp`: the cumulative XP of the track's top regular rank
-    caps: HashMap<String, f64>,
     /// `IsPrestigeGatedReward`: catalog ids a prestige track pays out per level
     gated: HashSet<String>,
 }
@@ -27,30 +24,14 @@ impl ProgressionConfig {
             .pointer("/payload/paths")
             .and_then(Value::as_array)
             .map_or(&[][..], Vec::as_slice);
-        let mut caps = HashMap::new();
         let mut gated = HashSet::new();
         for path in paths {
-            let Some(id) = path
+            if !path
                 .get("progression_id")
                 .and_then(Value::as_str)
-                .filter(|id| !id.is_empty())
-            else {
+                .is_some_and(|id| !id.is_empty())
+            {
                 continue;
-            };
-            let requirements = path
-                .get("requirements")
-                .and_then(Value::as_array)
-                .map_or(&[][..], Vec::as_slice);
-            if !requirements.is_empty() {
-                // The running sum over the requirements by rank is its total at the last rank
-                let cap: f64 = requirements
-                    .iter()
-                    .map(|requirement| {
-                        let xp = js::number(requirement.get("xp_required"));
-                        if xp.is_nan() { 0.0 } else { xp }
-                    })
-                    .sum();
-                caps.insert(id.to_owned(), cap);
             }
             let per_level = js::number(path.pointer("/prestige/xp_per_level"));
             if per_level.is_finite() && per_level > 0.0 {
@@ -69,7 +50,7 @@ impl ProgressionConfig {
                 }
             }
         }
-        Self { caps, gated }
+        Self { gated }
     }
 
     pub fn load(path: &Path) -> Result<Arc<Self>, PolicyError> {
@@ -83,11 +64,6 @@ impl ProgressionConfig {
             cache.insert(path.to_path_buf(), config.clone());
         }
         Ok(config)
-    }
-
-    /// `TrackCapXp`.
-    pub fn track_cap_xp(&self, progression_id: &str) -> Option<i64> {
-        self.caps.get(progression_id).map(|cap| *cap as i64)
     }
 
     /// `IsPrestigeGatedReward`.
@@ -113,15 +89,6 @@ mod tests {
             {"progression_id": "empty", "requirements": []},
             {"requirements": [{"rank_id": 1, "xp_required": 5}]}
         ]}}))
-    }
-
-    #[test]
-    fn caps_are_the_cumulative_xp_of_the_top_rank() {
-        let config = config();
-        assert_eq!(config.track_cap_xp("ExperienceTrack_Weapon_Axe"), Some(27775));
-        assert_eq!(config.track_cap_xp("PrestigeTrack_Weapon_Axe"), Some(0));
-        assert_eq!(config.track_cap_xp("empty"), None);
-        assert_eq!(config.track_cap_xp("nope"), None);
     }
 
     #[test]

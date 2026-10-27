@@ -19,8 +19,8 @@ use super::items::number_value;
 use super::multipliers::{multiply_reward_items, reward_multiplier};
 use super::ports::{AuthData, AuthRequest, Authentication, Ports};
 use super::reforge::{
-    GrantFailure, ReforgeGrantPlan, ResetOutcome, RestoreGrant, grant_banked_restore, is_prestige_gated_reward,
-    is_reforgeable_track, plan_purchase_restore, reforge_mode, reforge_reset, single_track_payload,
+    GrantFailure, ResetOutcome, RestoreGrant, grant_banked_restore, is_prestige_gated_reward, plan_purchase_restore,
+    reforge_reset, single_track_payload,
 };
 use super::respond;
 use super::transaction::{
@@ -31,6 +31,8 @@ use super::validation::{
     inventory_body_has_grant_or_spend, validate_instanced_item_update_body, validate_inventory_transaction_body,
 };
 use super::weapon_level::serve_weapons_at_base_level;
+use crate::areas::progression::reforge::{ReforgePlan, reforge_mode};
+use crate::areas::progression::tracks::{MAX_PROGRESSION_GRANT_AMOUNT, is_reforgeable_track};
 use crate::db::IslesStore;
 use crate::hooks::NoPlayerPolicy;
 use crate::http::{Call, Shared};
@@ -820,6 +822,7 @@ pub async fn reforge_delete(call: Call, ports: Ports) -> Response {
     let result = match reforge_reset(
         &ctx,
         &account,
+        &user,
         &track,
         super::clock::now_ms(),
         Some(&prepared.request_id),
@@ -889,7 +892,7 @@ pub async fn reforge_purchase(call: Call, ports: Ports) -> Response {
     if user == NO_PLAYER_SENTINEL
         || !(amount.fract() == 0.0 && amount.is_finite())
         || amount <= 0.0
-        || amount > super::reforge::MAX_GRANT_AMOUNT
+        || amount > MAX_PROGRESSION_GRANT_AMOUNT as f64
     {
         return respond::refusal(400, "Bad Request");
     }
@@ -923,20 +926,20 @@ pub async fn reforge_purchase(call: Call, ports: Ports) -> Response {
     };
     let purchase = plan_purchase_restore(
         &track,
-        amount,
+        amount as i64,
         row.as_ref(),
         super::clock::now_ms(),
         reforge_mode(&prepared.shared),
     );
-    let (ReforgeGrantPlan::Normal | ReforgeGrantPlan::Restore { .. }, Some(grant_id), Some(account)) =
+    let (ReforgePlan::Normal | ReforgePlan::Restore { .. }, Some(grant_id), Some(account)) =
         (&purchase.plan, &purchase.grant_id, &account)
     else {
         return refuse(match &purchase.plan {
-            ReforgeGrantPlan::Refuse(reason) => reason,
+            ReforgePlan::Refuse(reason) => reason,
             _ => "no grant id",
         });
     };
-    if matches!(purchase.plan, ReforgeGrantPlan::Normal) {
+    if matches!(purchase.plan, ReforgePlan::Normal) {
         // A request that matches a reforge already restored replays only if the ledger holds that grant; a stale
         // reforge finished on arrival has no ledger row, and paying it again would double the banked XP
         let (repos, grant) = (repos.clone(), grant_id.clone());
