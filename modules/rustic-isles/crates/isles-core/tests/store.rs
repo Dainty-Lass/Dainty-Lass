@@ -6,8 +6,9 @@
 use std::sync::Arc;
 
 use isles_core::db::IslesStore;
-use isles_core::repo::RepoError;
 use isles_core::repo::auth::AccountRecord;
+use isles_core::repo::characters::CharacterRepository;
+use isles_core::repo::{RepoError, Stub};
 use isles_core::{AccountId, UserId};
 use module_api::network::StandaloneHome;
 use module_api::{Actor, ActorContext, NodeId, NodeIdentity};
@@ -71,7 +72,7 @@ async fn unported_repositories_answer_unimplemented() {
     let store = open(&dir);
     let id = AccountId::new(&NodeIdentity::standalone().node);
     let result = store
-        .read(move |conn, repos| repos.characters.find_many_by_account(conn, &id))
+        .read(move |conn, _| CharacterRepository::find_many_by_account(&Stub, conn, &id))
         .await;
     assert!(matches!(
         result,
