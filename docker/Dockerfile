@@ -23,6 +23,20 @@ ARG NODE_IMAGE=node:22-trixie-slim
 ARG DEBIAN_IMAGE=debian:trixie-slim
 ARG MONGO_IMAGE=mongo:8.0
 
+# ------------------------------------------------------------------ the game modules' Rust sources (DF5)
+# Cargo reads the module crates' manifests, and their workspaces', even with every module feature off, and the
+# workspace's [patch] entries point the modules' git dependencies at these paths: nothing is fetched over ssh. Only
+# what cargo reads; the Node services, native code and game data are other stages' business.
+FROM scratch AS module-sources
+COPY modules/rustic-isles/Cargo.toml modules/rustic-isles/Cargo.lock /modules/rustic-isles/
+COPY modules/rustic-isles/crates/ /modules/rustic-isles/crates/
+COPY modules/rustic-isles/modules/ /modules/rustic-isles/modules/
+COPY modules/rustic-isles/docs/ /modules/rustic-isles/docs/
+COPY modules/rustic-rifts/Cargo.toml modules/rustic-rifts/Cargo.lock /modules/rustic-rifts/
+COPY modules/rustic-rifts/crates/ /modules/rustic-rifts/crates/
+COPY modules/rustic-rifts/docs/ /modules/rustic-rifts/docs/
+COPY modules/rustic-rifts/src/ /modules/rustic-rifts/src/
+
 # ------------------------------------------------------------------ the Rust binaries
 FROM ${RUST_IMAGE} AS rust-build
 RUN apt-get update \
@@ -33,19 +47,26 @@ WORKDIR /src/rust
 COPY rust/rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
 COPY rust/ ./
+COPY --from=module-sources /modules/ /src/modules/
 COPY modules/legacy-revived/ /src/modules/legacy-revived/
 # The release workflow's build: the server in one binary, reforged-host, with the gateway, allowlist, content server
-# and admin API inside it. The launcher is a workspace member but is not built (only the lock file is read).
+# and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
+# built (only the lock file is read).
 # REFORGED_EDITION=legacy: the same binary with its `legacy` feature, and legacy-revived's metagame and deploy server.
+# REFORGED_MODULES: the server-console features that link the game modules; empty builds none, which still serves.
 ARG REFORGED_EDITION=reborn
+ARG REFORGED_MODULES=all-modules
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-target,target=/src/rust/target \
     --mount=type=cache,id=reforged-revived-target,target=/src/modules/legacy-revived/rust/target \
-    case "$REFORGED_EDITION" in \
-      reborn) set -- ;; \
-      legacy) set -- --features server-console/legacy ;; \
+    features="$REFORGED_MODULES" \
+ && case "$REFORGED_EDITION" in \
+      reborn) ;; \
+      legacy) features="${features:+$features,}legacy" ;; \
       *) echo "REFORGED_EDITION must be reborn or legacy, not $REFORGED_EDITION" >&2; exit 1 ;; \
     esac \
+ && set -- \
+ && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "server-console/$f"; done \
  && cargo build --release --locked -p server-console "$@" --bins \
  && mkdir -p /out/bin \
  && cp target/release/reforged-host /out/bin/ \
@@ -163,6 +184,7 @@ ENV CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:/opt/reforged/bin:$PATH \
     CARGO_TERM_COLOR=never
 COPY --chown=node:node rust/ rust/
+COPY --chown=node:node --from=module-sources /modules/ /opt/reforged/modules/
 COPY --chmod=0755 docker/test-in-image.sh bin/reforged-test
 RUN chown node:node rust && chmod -R a+rwX /usr/local/cargo /usr/local/rustup
 USER node
@@ -170,6 +192,7 @@ USER node
 # rebuilds nothing and needs no network). The launcher (Tauri, WebKitGTK) is not a server crate and is not
 # built; the fuzz targets are a workspace of their own.
 RUN cd rust && cargo test --locked --no-run \
-      -p protocol -p proxy -p service-kit -p store -p gateway -p content -p admin -p host
+      -p protocol -p proxy -p service-kit -p store -p gateway -p content -p admin -p host \
+      -p controller -p backend -p director
 ENTRYPOINT ["/usr/bin/tini", "--", "reforged-test"]
 CMD []
