@@ -792,5 +792,8 @@
   "err_epic_rejected": "A Epic Games não aceitou esse login. O código pode já ter sido usado ou ter expirado: entre de novo para receber outro.",
   "err_epic_unreachable": "Não foi possível acessar a Epic Games. Verifique sua conexão e tente de novo.",
   "err_epic_failed": "O login na Epic Games não funcionou. Tente de novo.",
-  "epic_sign_in_title": "Entrar na Epic Games"
+  "epic_sign_in_title": "Entrar na Epic Games",
+  "err_game_version_unknown": "O launcher não tem um download da Epic Games para essa versão.",
+  "err_game_version_unavailable": "A Epic Games não oferece mais um arquivo de que esta versão precisa, então ela não pode ser instalada.",
+  "err_epic_manifest_unavailable": "Não foi possível obter a lista de arquivos desta versão. Verifique sua conexão e tente de novo."
 }
