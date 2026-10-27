@@ -36,6 +36,8 @@ metagame = { path = "../services/metagame" }
 # module_frame: the module framework's frame protocol (DF2)
 module-api = { path = "../crates/module-api" }
 http = "1"
+# network_directory: the directory's node-link messages (DN4)
+network = { path = "../plugins/network" }
 protocol = { path = "../crates/protocol" }
 proxy = { path = "../crates/proxy" }
 serde = "1"
@@ -183,6 +185,13 @@ bench = false
 [[bin]]
 name = "launcher_legacy"
 path = "fuzz_targets/launcher_legacy.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "network_directory"
+path = "fuzz_targets/network_directory.rs"
 test = false
 doc = false
 bench = false
