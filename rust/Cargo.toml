@@ -22,6 +22,8 @@ members = [
     "services/metagame",
     # Dauntless Revived's deploy server, which starts the 1.4.4 game servers for the metagame
     "services/deploy",
+    # The network core plugin: node links, the directory (DD16-DD18)
+    "plugins/network",
     "launcher/src-tauri",
     # What ships (RD26): the server in one binary (dainty-lass-server-console, and reforged-host, the name installs
     # run, DD1) and the same without a console. The launcher's two (dainty-lass-client, dainty-lass-server-gui) are
