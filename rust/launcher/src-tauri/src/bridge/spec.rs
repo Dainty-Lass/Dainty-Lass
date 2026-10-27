@@ -291,7 +291,6 @@ pub const PLANNED: &[&str] = &[
     "epic_sign_in_code",
     "epic_get",
     "epic_sign_out",
-    "game_version_list",
     "game_install_start",
     "game_install_pause",
     "game_install_resume",
