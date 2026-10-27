@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, PoisonError, Weak};
 use module_api::BoxFuture;
 use module_api::network::NodeId;
 
-use crate::link::{LinkError, MAX_MESSAGE, NodeService, PeerLink, Service};
+use crate::link::{LinkError, MAX_MESSAGE, NodeService, PeerLink, PeerRoster, Service};
 
 #[derive(Default)]
 struct State {
@@ -117,5 +117,19 @@ impl PeerLink for InProcessLink {
             self.network.route(&self.local, to)?;
             Ok(answer)
         })
+    }
+}
+
+/// Every attached node but this one is a peer; one the network has cut off, or whose service is gone, is down.
+impl PeerRoster for InProcessLink {
+    fn peers(&self) -> Vec<NodeId> {
+        let state = self.network.state();
+        let mut peers: Vec<NodeId> = state.nodes.keys().filter(|n| **n != self.local).cloned().collect();
+        peers.sort();
+        peers
+    }
+
+    fn is_up(&self, node: &NodeId) -> bool {
+        self.network.route(&self.local, node).is_ok()
     }
 }

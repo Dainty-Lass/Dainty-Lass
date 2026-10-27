@@ -26,7 +26,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 
 use crate::cluster::{self, NODE_ALPN, NodeCredentials, Peer};
-use crate::link::{Clock, LinkError, MAX_CLOCK_SKEW, MAX_MESSAGE, PeerLink, Service};
+use crate::link::{Clock, LinkError, MAX_CLOCK_SKEW, MAX_MESSAGE, PeerLink, PeerRoster, Service};
 use crate::wire::{self, PingAnswer, Target};
 
 pub struct TlsLinkConfig {
@@ -488,6 +488,21 @@ pub struct HealthTask(tokio::task::JoinHandle<()>);
 impl Drop for HealthTask {
     fn drop(&mut self) {
         self.0.abort();
+    }
+}
+
+/// The peers `[[network.nodes]]` lists. One that has never been called is tried; one the last call found down,
+/// refused, untrusted or off by more than the clock bound waits for the health checks to see it recover.
+impl PeerRoster for TlsPeerLink {
+    fn peers(&self) -> Vec<NodeId> {
+        self.inner.peers.iter().map(|peer| peer.id.clone()).collect()
+    }
+
+    fn is_up(&self, node: &NodeId) -> bool {
+        matches!(
+            self.peer_health(node).map(|health| health.state),
+            Some(PeerState::Up | PeerState::Unknown)
+        )
     }
 }
 
