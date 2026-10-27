@@ -31,9 +31,8 @@ modules/rustic-isles/native/runtime/SDK
 modules/rustic-isles/native/runtime/SDK.hpp
 modules/rustic-isles/native/runtime/x64
 modules/rustic-isles/native/catalog-exporter/x64
-# Submodules no image uses (DS6), and each submodule's .git file
+# Submodules no image uses (DS6), and each submodule's .git file. rustic-rifts stays: cargo reads its crates (DF5)
 **/.git
-modules/rustic-rifts
 modules/rustic-isles/reference/1.12.0
 ui
 

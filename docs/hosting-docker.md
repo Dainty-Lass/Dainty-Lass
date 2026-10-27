@@ -82,6 +82,12 @@ REFORGED_COMMIT=$(git rev-parse --short=12 HEAD) docker compose build
 docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
 ```
 
+The build needs the submodules checked out (`modules/rustic-isles` and `modules/rustic-rifts` hold the game modules'
+Rust crates, which cargo reads even for a build without them) and no network access to the Git server: the modules'
+Git dependencies resolve to those folders ([server-modules.md](server-modules.md)). The server binary is built with
+`all-modules`, as the release is; to build without any game module, set the build argument
+`REFORGED_MODULES=` (`docker build -f docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
+
 `setup` takes every option it takes on a Linux host (`--max-hunts`, `--public-port`, `--registration` …;
 `docker compose run --rm host setup --help`). In the container it also gets `--skip-install` (the services are
 in the image), `--no-manage-mongo --mongo-uri mongodb://127.0.0.1:27017/?replicaSet=rs0` (the `mongo`
