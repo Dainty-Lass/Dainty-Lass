@@ -20,6 +20,7 @@ publish = false
 isles-core = { path = "crates/isles-core" }
 isles-chat = { path = "crates/isles-chat" }
 isles-director = { path = "crates/isles-director" }
+isles-db = { path = "crates/isles-db" }
 
 # DaintyLass's crates, as git dependencies on plan at a fixed rev (DF1's fallback) until the silentspud registry
 # serves them; then each becomes `version = "0.1.0", registry = "silentspud"` and DaintyLass [patch]es it (DD2).
