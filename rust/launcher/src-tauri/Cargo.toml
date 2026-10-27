@@ -77,6 +77,7 @@ tauri-plugin-updater = { version = "2.14", default-features = false, features = 
 # The deb and rpm update check (the updater plugin's own HTTP client)
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
 url.workspace = true
+admin = { workspace = true, optional = true }
 server-controller = { workspace = true, optional = true }
 service-kit = { workspace = true, optional = true }
 host = { workspace = true, optional = true }
@@ -106,7 +107,7 @@ dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
 # someone else hosts (`cargo build -p launcher --no-default-features`)
 default = ["host"]
 host = ["dep:toml_edit"]
-server-gui = ["host", "dep:server-controller", "dep:service-kit", "dep:host"]
+server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host"]
 # Dauntless Revived's 1.4.4 servers next to 1.14.7 ones, chosen in the settings (legacy or reborn; RD5 reversed)
 legacy = ["protocol/legacy", "host?/legacy"]
 # The game modules the server GUI links in, as the server binaries' (DF5)

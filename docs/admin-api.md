@@ -43,6 +43,9 @@ type Query {
   huntStatus: HuntStatus!                      # maxHuntServers, running, free, hunts { title, players { username } }
   activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
   guarded(all: Boolean): [GuardedAction!]!     # the destructive and bulk actions that wait (below)
+  history(filter: HistoryFilter, cursor: String, limit: Int): HistoryPage!   # admin: the change logs, newest first
+  historyCheck: [HistoryCheck!]!               # admin: each log's hash chain, walked from its start
+  revertPlan(selection: HistoryFilter!): RevertPlan!   # owner: what a revert would do; changes nothing
 }
 
 type Mutation {
@@ -53,6 +56,7 @@ type Mutation {
   unban(username: String!, reason: String, game: String): Player!
   approve(id: String!): GuardedAction!         # a second operator approves a held action
   cancel(id: String!): GuardedAction!
+  revertApply(planId: String!, selection: HistoryFilter): RevertDone!   # owner: applies exactly that plan
 }
 
 type Player {
@@ -99,7 +103,8 @@ Errors are GraphQL errors with a code in `extensions.code`: `BAD_INPUT`, `NOT_FO
 didn't answer), `BACKEND_REFUSED` (its message says when the secrets don't match: run `setup` and restart),
 `STATE_NOT_SAVED`, `AMBIGUOUS_PLAYER`, `UNKNOWN_GAME`, `NOT_SUPPORTED` (the player's module can't do that yet),
 `FORBIDDEN` (the key's role is too low; see above), `GUARDED` (the action was held, not done: see Guarded actions),
-`NOT_WAITING` (a guarded action that is not waiting). A
+`NOT_WAITING` (a guarded action that is not waiting), and for the history `PLAN_CHANGED`, `PLAN_EXPIRED`,
+`HISTORY_UNAVAILABLE` and `PARTIAL_REVERT` (see [History and revert](#history-and-revert)). A
 request refused before any GraphQL runs gets a 4xx with the same shape: 401 `UNAUTHENTICATED`, 403 `FORWARDED`,
 400 `BAD_OPERATOR` or `BAD_REQUEST`, 415 `NOT_JSON`, 503 `KEYS_UNAVAILABLE` (the keys' database didn't answer; the
 owner's key still works). A revoked or unknown key is 401 `UNAUTHENTICATED`.
@@ -115,8 +120,8 @@ nobody else's key changes.
 | --- | --- |
 | `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module` |
 | `moderator` | Viewer, and `kick`, `timeout`, `ban`, and `guarded`, `approve`, `cancel` (a held action: see Guarded actions) |
-| `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys |
-| `owner` | Everything: `issueKey` for any role, `revokeKey`, and the history revert once it lands (DH3) |
+| `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys, and reading the change logs: `history`, `historyCheck` |
+| `owner` | Everything: `issueKey` for any role, `revokeKey`, and the history revert: `revertPlan`, `revertApply` (a big one is held first: see Guarded actions) |
 
 A call above the key's role is refused with `FORBIDDEN`; the message names the role it needs
 (`unban needs the admin role; this key's role is moderator`) and `extensions.requiredRole` carries it. Nothing
@@ -233,6 +238,45 @@ The settings, in `host.toml` (each is left out for its default; nothing needs se
 Leave the rules on `delay` until the team has two keys of the right role. `reforged-host setup` writes the settings
 into `admin.env` as `REFORGED_GUARD_BAN_LIMIT`, `_BAN_WINDOW_MINUTES`, `_BAN`, `_REVERT_LIMIT`, `_REVERT`, `_REVOKE`,
 `_DELAY_MINUTES` and `_EXPIRE_HOURS`, only the ones `host.toml` sets.
+
+## History and revert
+
+The change logs (DD23) behind a server's databases, read and undone through the API; the same engine as
+`reforged-host history` and `revert` ([hosting.md](hosting.md#undoing-a-change)). Reading the logs needs the
+`admin` role, since a row's before and after are in them; a revert needs the `owner`.
+
+```graphql
+{ history(filter: { actor: "admin:58ef5419", since: "2d" }, limit: 50) {
+    entries { id database at actor table key op before after }   # newest first
+    next } }                                                      # pass it as `cursor` for older changes
+
+{ revertPlan(selection: { actor: "admin:58ef5419", since: "2d" }) {
+    id actionCount conflictCount
+    actions { database table key kind current target }            # kind: INSERT (put back), UPDATE, DELETE, SOFT_DELETE
+    conflicts { table key reason by at } } }                      # rows that stay: reason "changed_since", ...
+
+mutation { revertApply(planId: "<id>") { rowsChanged databases { database rows } conflictCount } }
+```
+
+- A filter's `actor`, `account`, `since` and `until` all have to match. An actor is `admin:<key id>`, `host:console`,
+  `player:<account>` or `system:<task>` (a bare key id or `owner` works too); a time is RFC 3339, a date, or how long
+  ago (`6h`, `2d`). `database` is `node` (the game), `admin` or `chat` (on Postgres, all `node`).
+- `revertPlan` changes nothing and keeps the plan on the server for ten minutes (the last 16). `revertApply` applies
+  that plan: it plans again under the write lock and runs only if the plan still has the same `id`, otherwise
+  `PLAN_CHANGED` and nothing is written. If the server no longer has the plan, `revertApply` answers `PLAN_EXPIRED`;
+  give it the same `selection` and it plans again and applies only if the result has `planId`.
+- A row someone else changed after the selection did stays as it is and comes back in `conflicts` with `reason`
+  `changed_since`, `by`, `at` and the `entry`. A row already as it was is not touched.
+- The revert is logged as `admin:<key id>` (so it shows in `history` and can be reverted), and leaves a `revertApply`
+  row in the admin API's record. A revert that spans databases is atomic in each; if a later one fails the earlier
+  ones stay reverted and the error is `PARTIAL_REVERT`, naming them.
+- A revert of more changes than `revert_limit` is held (see Guarded actions): `revertApply` answers `GUARDED` and
+  nothing is written. When its delay ends, or a second owner approves, it plans the same selection again and
+  applies it only if the plan still has `planId`, otherwise the held action ends `FAILED` ("the history changed
+  since the dry run") and nothing is applied. A small revert runs at once.
+- Lists are cut at 500 rows (`truncated`; the counts are the real ones). An admin key's `key_hash` is shown as
+  `<hidden>` in every row.
+- `historyCheck` walks each log's hash chain: `ok: false` and `broken` name the first entry edited or removed (DH5).
 
 ## Calling it
 

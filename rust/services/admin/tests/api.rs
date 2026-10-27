@@ -1212,6 +1212,10 @@ mod roles {
     const LIFT: &str = "mutation($name: String!) { liftTimeout(username: $name) { status } }";
     const LOAD: &str = "mutation { loadModule(id: \"stub\") { id } }";
     const STATUS: &str = "{ serverStatus { name } }";
+    const HISTORY: &str = "{ history { next } }";
+    const CHECK: &str = "{ historyCheck { ok } }";
+    const PLAN: &str = "{ revertPlan(selection: {actor: \"admin:owner\"}) { id } }";
+    const APPLY: &str = "mutation { revertApply(planId: \"x\") { rowsChanged } }";
 
     fn missing(body: &Value) -> Option<&str> {
         (code(body) == "FORBIDDEN").then(|| body["errors"][0]["extensions"]["requiredRole"].as_str().unwrap_or(""))
@@ -1248,7 +1252,7 @@ mod roles {
             let ghost = json!({"name": "Nobody"});
             n += 1;
             let fresh = json!({"name": format!("someone {n}"), "role": "VIEWER"});
-            let table: [(&str, Value, i32, &str); 9] = [
+            let table: [(&str, Value, i32, &str); 13] = [
                 (STATUS, json!({}), 0, "viewer"),
                 (KICK, ghost.clone(), 1, "moderator"),
                 (BAN, json!({"name": "Nobody", "reason": "testing"}), 1, "moderator"),
@@ -1258,6 +1262,10 @@ mod roles {
                 (KEYS, json!({}), 2, "admin"),
                 (ISSUE, fresh, 2, "admin"),
                 (REVOKE, json!({"id": "00000000"}), 3, "owner"),
+                (HISTORY, json!({}), 2, "admin"),
+                (CHECK, json!({}), 2, "admin"),
+                (PLAN, json!({}), 3, "owner"),
+                (APPLY, json!({}), 3, "owner"),
             ];
             for (query, variables, needs, required) in table {
                 let (status, body) = w.gql_as(&key, query, variables).await;
@@ -1416,3 +1424,161 @@ mod roles {
 // DH6: the destructive and bulk actions that wait
 #[path = "api/guarded.rs"]
 mod guarded;
+
+// ------------------------------------------------------------------ history and revert (DD23, DH3b)
+
+mod history {
+    use admin::keys::Role;
+    use diesel::connection::SimpleConnection;
+
+    use super::*;
+
+    const REVOKE: &str = "mutation($id: String!) { revokeKey(id: $id) { id } }";
+    const HISTORY: &str = "query($filter: HistoryFilter) { history(filter: $filter, limit: 50) {
+      entries { database actor table key op before after } next } }";
+    const PLAN: &str = "query($selection: HistoryFilter!) { revertPlan(selection: $selection) {
+      id entries actionCount conflictCount truncated
+      actions { database table key kind current target }
+      conflicts { table key reason by entry } } }";
+    const APPLY: &str = "mutation($id: String!, $selection: HistoryFilter) {
+      revertApply(planId: $id, selection: $selection) { rowsChanged databases { database rows } conflictCount } }";
+    const CHECK: &str = "{ historyCheck { database ok entries } }";
+    const STATUS: &str = "{ serverStatus { name } }";
+
+    async fn revoke(w: &World, as_key: &str, id: &str) {
+        let (_, body) = w.gql_as(as_key, REVOKE, json!({"id": id})).await;
+        assert!(body["errors"].is_null(), "{body}");
+    }
+
+    // The partner (an owner-level key) turns on the team: revoking two moderators' keys, and the owner
+    // has since changed one of those rows.
+    #[tokio::test]
+    async fn a_partners_revoked_keys_are_restored_by_the_owner_in_one_revert_and_a_changed_row_stays() {
+        let w = world().await;
+        let (maya, maya_key) = w.issue(Role::Moderator, "Maya").await;
+        let (lee, lee_key) = w.issue(Role::Moderator, "Lee").await;
+        let (partner, partner_key) = w.issue(Role::Owner, "Partner").await;
+        revoke(&w, &partner_key, &maya).await;
+        revoke(&w, &partner_key, &lee).await;
+        assert_eq!(w.gql_as(&maya_key, STATUS, json!({})).await.0, 401);
+        w.admin
+            .keys
+            .database()
+            .write(store::Actor::Admin("owner".into()), {
+                let lee = lee.clone();
+                move |tx| {
+                    tx.conn()
+                        .batch_execute(&format!("UPDATE admin_keys SET name = 'Lee, kept' WHERE id = '{lee}'"))?;
+                    Ok::<_, store::Error>(())
+                }
+            })
+            .await
+            .unwrap();
+
+        let by = json!({"selection": {"actor": format!("admin:{partner}")}});
+        let body = w.gql(PLAN, by.clone()).await;
+        let plan = &body["data"]["revertPlan"];
+        assert_eq!(
+            (plan["actionCount"].as_i64(), plan["conflictCount"].as_i64()),
+            (Some(1), Some(1)),
+            "{body}"
+        );
+        assert_eq!(plan["actions"][0]["table"], "admin_keys");
+        assert_eq!(plan["actions"][0]["kind"], "UPDATE");
+        assert_eq!(plan["conflicts"][0]["reason"], "changed_since");
+        assert_eq!(plan["conflicts"][0]["by"], "admin:owner");
+        // Row bodies are shown, key hashes are not
+        let shown = plan["actions"][0].to_string();
+        assert!(shown.contains("<hidden>"), "{shown}");
+        assert!(!shown.contains(&admin::keys::hash_key(&maya_key)), "{shown}");
+        assert_eq!(
+            w.gql_as(&maya_key, STATUS, json!({})).await.0,
+            401,
+            "a plan changes nothing"
+        );
+
+        let applied = w.gql(APPLY, json!({"id": plan["id"]})).await;
+        assert_eq!(applied["data"]["revertApply"]["rowsChanged"], 1, "{applied}");
+        assert_eq!(applied["data"]["revertApply"]["databases"][0]["database"], "admin");
+        assert_eq!(
+            w.gql_as(&maya_key, STATUS, json!({})).await.0,
+            200,
+            "Maya's key works again"
+        );
+        assert_eq!(
+            w.gql_as(&lee_key, STATUS, json!({})).await.0,
+            401,
+            "Lee's row stays as it is"
+        );
+
+        // The revert is logged as the key that made it, in the history and in the audit record
+        let log = w.gql(HISTORY, json!({"filter": {"actor": "admin:owner"}})).await;
+        let entries = log["data"]["history"]["entries"].as_array().unwrap();
+        assert!(
+            entries
+                .iter()
+                .any(|e| e["table"] == "admin_keys" && e["op"] == "update"),
+            "{log}"
+        );
+        assert!(
+            entries.iter().any(|e| e["table"] == "admin_actions"),
+            "the audit row: {log}"
+        );
+        let spent = w.gql_as(API_KEY, APPLY, json!({"id": plan["id"]})).await.1;
+        assert!(matches!(code(&spent), "PLAN_EXPIRED" | "PLAN_CHANGED"), "{spent}");
+        let chain = w.gql(CHECK, json!({})).await;
+        assert_eq!(chain["data"]["historyCheck"][0]["ok"], true, "{chain}");
+    }
+
+    #[tokio::test]
+    async fn only_the_owner_reverts_and_an_admin_reads() {
+        let w = world().await;
+        let selection = json!({"selection": {"actor": "admin:owner"}});
+        for role in [Role::Viewer, Role::Moderator, Role::Admin] {
+            let (_, key) = w.issue(role, &format!("person {role}")).await;
+            for (query, variables) in [(PLAN, selection.clone()), (APPLY, json!({"id": "x"}))] {
+                let (_, body) = w.gql_as(&key, query, variables).await;
+                assert_eq!(code(&body), "FORBIDDEN", "{role}: {body}");
+                assert_eq!(body["errors"][0]["extensions"]["requiredRole"], "owner");
+            }
+            let (_, read) = w.gql_as(&key, HISTORY, json!({})).await;
+            let (_, check) = w.gql_as(&key, CHECK, json!({})).await;
+            if role == Role::Admin {
+                assert!(read["errors"].is_null() && check["errors"].is_null(), "{read} {check}");
+            } else {
+                assert_eq!(code(&read), "FORBIDDEN", "{role}");
+                assert_eq!(read["errors"][0]["extensions"]["requiredRole"], "admin");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn a_plan_that_has_gone_is_made_again_from_the_same_selection_or_refused() {
+        let w = world().await;
+        let (id, _) = w.issue(Role::Moderator, "Maya").await;
+        let (partner, partner_key) = w.issue(Role::Owner, "Partner").await;
+        revoke(&w, &partner_key, &id).await;
+        let selection = json!({"actor": format!("admin:{partner}")});
+        // Never planned here: no selection, no plan
+        let (_, body) = w.gql_as(API_KEY, APPLY, json!({"id": "f".repeat(64)})).await;
+        assert_eq!(code(&body), "PLAN_EXPIRED", "{body}");
+        // A selection whose plan has another id: nothing is written
+        let (_, body) = w
+            .gql_as(
+                API_KEY,
+                APPLY,
+                json!({"id": "f".repeat(64), "selection": selection.clone()}),
+            )
+            .await;
+        assert_eq!(code(&body), "PLAN_CHANGED", "{body}");
+        // A bad selection and one that names nothing are BAD_INPUT
+        for bad in [
+            json!({}),
+            json!({"since": "whenever"}),
+            json!({"actor": "nobody-knows"}),
+        ] {
+            let (_, body) = w.gql_as(API_KEY, PLAN, json!({"selection": bad})).await;
+            assert_eq!(code(&body), "BAD_INPUT", "{body}");
+        }
+    }
+}

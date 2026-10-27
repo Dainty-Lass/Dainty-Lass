@@ -13,6 +13,8 @@ use tokio::task::JoinSet;
 use crate::config;
 use crate::guard::Guards;
 use crate::guarded::{APPROVED_BY, Gate, GuardedAction};
+use crate::history;
+use crate::history_text;
 use crate::input::{self, InstanceKind};
 use crate::keys::{Action, Caller, KeyError, KeyInfo, Keys, Role};
 use crate::log;
@@ -68,6 +70,10 @@ pub enum Code {
     Guarded,
     /// A guarded action that is not waiting, or that waits out a delay and cannot be approved.
     NotWaiting,
+    PlanChanged,
+    PlanExpired,
+    HistoryUnavailable,
+    PartialRevert,
 }
 
 impl Code {
@@ -88,6 +94,10 @@ impl Code {
             Self::Forbidden => "FORBIDDEN",
             Self::Guarded => "GUARDED",
             Self::NotWaiting => "NOT_WAITING",
+            Self::PlanChanged => "PLAN_CHANGED",
+            Self::PlanExpired => "PLAN_EXPIRED",
+            Self::HistoryUnavailable => "HISTORY_UNAVAILABLE",
+            Self::PartialRevert => "PARTIAL_REVERT",
         }
     }
 }
@@ -340,6 +350,234 @@ pub struct IssuedKey {
     pub info: AdminKey,
 }
 
+// ------------------------------------------------------------------ history and revert (DH3b)
+
+/// Which changes to look at: every field set must match. An actor is `admin:<key id>`, `host:console`,
+/// `player:<account>` or `system:<task>` (a bare key id works too); times are RFC 3339, a date, or how long
+/// ago (`6h`, `2d`).
+#[derive(async_graphql::InputObject, Clone, Debug, Default)]
+pub struct HistoryFilter {
+    /// Rows that belong to this account id, before or after the change.
+    pub account: Option<String>,
+    pub actor: Option<String>,
+    /// From this time on, inclusive.
+    pub since: Option<String>,
+    /// Up to this time, exclusive.
+    pub until: Option<String>,
+}
+
+impl HistoryFilter {
+    fn selection(&self) -> history::Selection {
+        history::Selection {
+            account: self.account.clone(),
+            actor: self.actor.clone(),
+            since: self.since.clone(),
+            until: self.until.clone(),
+        }
+    }
+}
+
+/// One change to one row, from a database's change log.
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct HistoryEntry {
+    pub id: String,
+    /// `node` (the game), `admin` or `chat`.
+    pub database: String,
+    pub at: String,
+    /// Who made it: `player:<account>`, `admin:<key id>`, `host:<command>` or `system:<task>`.
+    pub actor: String,
+    pub table: String,
+    /// The row's primary key, as JSON.
+    pub key: String,
+    /// `insert`, `update`, `delete`, `soft_delete`, `restore` or `migrate`.
+    pub op: String,
+    /// The row before and after, as JSON; an admin key's hash is hidden.
+    pub before: Option<String>,
+    pub after: Option<String>,
+}
+
+/// Changes newest first.
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct HistoryPage {
+    pub entries: Vec<HistoryEntry>,
+    /// Pass it as `cursor` for the next, older page; null at the end.
+    pub next: Option<String>,
+}
+
+#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RevertKind {
+    /// A deleted row, put back.
+    Insert,
+    /// A changed row, given its earlier values.
+    Update,
+    /// An added row, removed.
+    Delete,
+    /// An added row in a soft-delete table, soft-deleted.
+    SoftDelete,
+}
+
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct RevertAction {
+    pub database: String,
+    pub table: String,
+    pub key: String,
+    pub kind: RevertKind,
+    /// The row now and as the revert leaves it, as JSON.
+    pub current: Option<String>,
+    pub target: Option<String>,
+}
+
+/// A row the revert leaves as it is.
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct RevertConflict {
+    pub database: String,
+    pub table: String,
+    pub key: String,
+    /// `changed_since`, `not_as_logged`, `key_changed` or `schema_changed`.
+    pub reason: String,
+    /// `changed_since`: the first newer entry, who made it and when.
+    pub entry: Option<String>,
+    pub by: Option<String>,
+    pub at: Option<String>,
+    pub detail: Option<String>,
+}
+
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct RevertUnchanged {
+    pub database: String,
+    pub table: String,
+    pub key: String,
+}
+
+/// What a revert would do. `revertApply` with `id` does exactly this and nothing else.
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct RevertPlan {
+    pub id: String,
+    /// Log entries the selection matches.
+    pub entries: i32,
+    pub action_count: i32,
+    pub conflict_count: i32,
+    pub unchanged_count: i32,
+    /// The first rows of each list; `truncated` says there are more than listed.
+    pub actions: Vec<RevertAction>,
+    pub conflicts: Vec<RevertConflict>,
+    pub unchanged: Vec<RevertUnchanged>,
+    pub truncated: bool,
+    /// How long the server keeps this plan for `revertApply` without the selection.
+    pub kept_for_seconds: i32,
+}
+
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct RevertedIn {
+    pub database: String,
+    pub rows: i32,
+}
+
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct RevertDone {
+    pub plan_id: String,
+    /// The revert's own entries carry this time and `admin:<key id>`.
+    pub at: Option<String>,
+    pub rows_changed: i32,
+    pub databases: Vec<RevertedIn>,
+    /// Rows left as they are.
+    pub conflicts: Vec<RevertConflict>,
+    pub conflict_count: i32,
+    pub truncated: bool,
+}
+
+/// One log's hash chain checked from its start (`history verify`).
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct HistoryCheck {
+    pub database: String,
+    pub entries: String,
+    pub ok: bool,
+    pub head_id: Option<String>,
+    pub head_hash: Option<String>,
+    /// Where the chain breaks and what that means.
+    pub broken: Option<String>,
+}
+
+const MAX_LISTED: usize = history::MAX_LISTED;
+
+fn count(n: usize) -> i32 {
+    i32::try_from(n).unwrap_or(i32::MAX)
+}
+
+fn conflict_of(database: &str, c: &history::RowConflict) -> RevertConflict {
+    let f = history::conflict_fields(c);
+    RevertConflict {
+        database: database.to_owned(),
+        table: c.table.clone(),
+        key: c.key.to_string(),
+        reason: f.reason.to_owned(),
+        entry: f.entry,
+        by: f.by,
+        at: f.at,
+        detail: f.detail,
+    }
+}
+
+fn plan_of(plan: &history::Plan) -> RevertPlan {
+    let mut out = RevertPlan {
+        id: plan.id.clone(),
+        entries: count(plan.entries()),
+        action_count: count(plan.actions()),
+        conflict_count: count(plan.conflicts()),
+        unchanged_count: count(plan.unchanged()),
+        actions: Vec::new(),
+        conflicts: Vec::new(),
+        unchanged: Vec::new(),
+        truncated: plan.actions() > MAX_LISTED || plan.conflicts() > MAX_LISTED || plan.unchanged() > MAX_LISTED,
+        kept_for_seconds: count(usize::try_from(history::PLAN_KEPT.as_secs()).unwrap_or(0)),
+    };
+    for part in &plan.parts {
+        let room = |listed: usize| MAX_LISTED.saturating_sub(listed);
+        for a in part.plan.actions.iter().take(room(out.actions.len())) {
+            let kind = match a.kind {
+                store::revert::RevertKind::Insert => RevertKind::Insert,
+                store::revert::RevertKind::Update => RevertKind::Update,
+                store::revert::RevertKind::Delete => RevertKind::Delete,
+                store::revert::RevertKind::SoftDelete => RevertKind::SoftDelete,
+            };
+            out.actions.push(RevertAction {
+                database: part.database.clone(),
+                table: a.table.clone(),
+                key: a.key.to_string(),
+                kind,
+                current: history::redacted_json(&a.table, a.current.as_ref()),
+                target: history::redacted_json(&a.table, a.target.as_ref()),
+            });
+        }
+        for c in part.plan.conflicts.iter().take(room(out.conflicts.len())) {
+            out.conflicts.push(conflict_of(&part.database, c));
+        }
+        for u in part.plan.unchanged.iter().take(room(out.unchanged.len())) {
+            out.unchanged.push(RevertUnchanged {
+                database: part.database.clone(),
+                table: u.table.clone(),
+                key: u.key.to_string(),
+            });
+        }
+    }
+    out
+}
+
+/// A history failure as the caller sees it.
+fn history_failure(error: history::HistoryError) -> async_graphql::Error {
+    use history::HistoryError;
+    match error {
+        HistoryError::Bad(why) => fail(Code::BadInput, why),
+        HistoryError::PlanChanged => fail(Code::PlanChanged, error.to_string()),
+        HistoryError::NoDatabase => fail(Code::HistoryUnavailable, error.to_string()),
+        HistoryError::Partial { .. } => fail(Code::PartialRevert, error.to_string()),
+        HistoryError::Store(error) => {
+            log::error("the history failed", json!({"error": error.to_string()}));
+            fail(Code::HistoryUnavailable, "the history did not answer")
+        }
+    }
+}
+
 // ------------------------------------------------------------------ what the fields do
 
 pub struct Admin {
@@ -351,6 +589,8 @@ pub struct Admin {
     pub keys: Keys,
     /// Destructive and bulk actions that wait for a delay or a second operator (DH6).
     pub guard: Guards,
+    /// The change logs of this server's databases (DH3b).
+    pub history: history::Service,
     pub max_hunt_servers: u32,
     pub server_mode: config::ServerMode,
     pub clock: Clock,
@@ -543,6 +783,163 @@ impl Admin {
             json!({"id": info.id, "name": info.name, "by": caller.key}),
         );
         Ok(info.into())
+    }
+
+    /// One page of the change logs, newest first. Admin role or higher: a row's before and after are in it.
+    pub async fn history(
+        &self,
+        caller: &Caller,
+        filter: Option<HistoryFilter>,
+        cursor: Option<&str>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<HistoryPage> {
+        allow(caller, Role::Admin, "history")?;
+        let filter = filter
+            .unwrap_or_default()
+            .selection()
+            .to_filter(self.now())
+            .map_err(history_failure)?;
+        let set = self.history.set().await.map_err(history_failure)?;
+        let limit = i64::from(limit.unwrap_or(history::DEFAULT_PAGE as i32));
+        let page = set.query(&filter, cursor, limit).await.map_err(history_failure)?;
+        Ok(HistoryPage {
+            entries: page
+                .entries
+                .into_iter()
+                .map(|e| HistoryEntry {
+                    id: e.entry.id.to_string(),
+                    database: e.database,
+                    at: input::iso(e.entry.at),
+                    actor: e.entry.actor,
+                    key: e.entry.row_key,
+                    op: e.entry.op,
+                    before: history::redacted_text(&e.entry.table_name, e.entry.before.as_deref()),
+                    after: history::redacted_text(&e.entry.table_name, e.entry.after.as_deref()),
+                    table: e.entry.table_name,
+                })
+                .collect(),
+            next: page.next,
+        })
+    }
+
+    /// Each log's hash chain walked from its start: an entry edited or removed is named (DH5).
+    pub async fn history_check(&self, caller: &Caller) -> async_graphql::Result<Vec<HistoryCheck>> {
+        allow(caller, Role::Admin, "historyCheck")?;
+        let set = self.history.set().await.map_err(history_failure)?;
+        let all = set.verify().await.map_err(history_failure)?;
+        Ok(all
+            .into_iter()
+            .map(|v| HistoryCheck {
+                database: v.database,
+                entries: v.verification.entries.to_string(),
+                ok: v.verification.broken.is_none(),
+                head_id: v.verification.head.as_ref().map(|h| h.id.to_string()),
+                head_hash: v.verification.head.map(|h| h.hash),
+                broken: v.verification.broken.map(|b| b.to_string()),
+            })
+            .collect())
+    }
+
+    /// What reverting a selection would do, without changing anything. The plan is kept for a few minutes for
+    /// `revertApply`. Only the owner: the plan carries rows.
+    pub async fn revert_plan(&self, caller: &Caller, selection: HistoryFilter) -> async_graphql::Result<RevertPlan> {
+        allow(caller, Role::Owner, "revertPlan")?;
+        let filter = selection.selection().to_filter(self.now()).map_err(history_failure)?;
+        let set = self.history.set().await.map_err(history_failure)?;
+        let plan = set.dry_run(&filter).await.map_err(history_failure)?;
+        self.history.plans.put(plan.clone());
+        log::info(
+            "revert planned",
+            json!({"plan": plan.id, "by": caller.key, "rows": plan.actions(), "conflicts": plan.conflicts()}),
+        );
+        Ok(plan_of(&plan))
+    }
+
+    /// Runs a revert as `caller`: plans `filter` again and applies it only if the plan still has `plan_id`,
+    /// logged as `admin:<key id>`. What a held revert does when its delay ends or a second operator approves
+    /// (DH6), and what `revertApply` does at once under the limit.
+    pub(crate) async fn revert_now(
+        &self,
+        caller: &Caller,
+        filter: &store::Filter,
+        plan_id: &str,
+    ) -> async_graphql::Result<history::Applied> {
+        let set = self.history.set().await.map_err(history_failure)?;
+        let actor = store::Actor::Admin(caller.key.clone());
+        let applied = set.apply(&actor, filter, plan_id).await.map_err(history_failure)?;
+        let rows: usize = applied.done.iter().map(|(_, o)| o.plan.actions.len()).sum();
+        log::info(
+            "revert applied",
+            json!({"plan": plan_id, "by": caller.key, "rows": rows, "conflicts": applied.plan.conflicts()}),
+        );
+        let detail = format!("{rows} rows; {} left as they are", applied.plan.conflicts());
+        self.audit(caller, "revertApply", Some(plan_id), None, Some(&detail))
+            .await;
+        Ok(applied)
+    }
+
+    /// Applies a plan: exactly what `revertPlan` showed, or `PLAN_CHANGED` and nothing written. The plan is the
+    /// one the server kept; if it has gone, give the same `selection` and it is made again and applied only if
+    /// its id is `planId`. Only the owner. The revert is logged as `admin:<key id>` and can be reverted.
+    pub async fn revert_apply(
+        &self,
+        caller: &Caller,
+        plan_id: &str,
+        selection: Option<HistoryFilter>,
+    ) -> async_graphql::Result<RevertDone> {
+        allow(caller, Role::Owner, "revertApply")?;
+        let filter = match (self.history.plans.get(plan_id), selection) {
+            (Some(plan), _) => plan.selection,
+            (None, Some(selection)) => selection.selection().to_filter(self.now()).map_err(history_failure)?,
+            (None, None) => {
+                return Err(fail(
+                    Code::PlanExpired,
+                    "that plan is no longer kept: run revertPlan again, or give the same selection",
+                ));
+            }
+        };
+        let set = self.history.set().await.map_err(history_failure)?;
+        // The plan as it is now: the id the caller was shown, or the same selection planned again
+        let plan = set.dry_run(&filter).await.map_err(history_failure)?;
+        if plan.id != plan_id {
+            return Err(history_failure(history::HistoryError::PlanChanged));
+        }
+        let summary = format!(
+            "revert {} changes selected by {}",
+            plan.actions(),
+            history_text::flags(&filter)
+        );
+        // A big revert is held for its delay or a second operator (DH6): the GUARDED error is the receipt
+        self.gate(
+            caller,
+            Gate::Revert {
+                selection: history::selection_json(&filter),
+                plan_id: &plan.id,
+                actions: plan.actions(),
+                summary: &summary,
+            },
+        )
+        .await?;
+        let applied = self.revert_now(caller, &filter, plan_id).await?;
+        self.history.plans.forget(plan_id);
+        let rows: usize = applied.done.iter().map(|(_, o)| o.plan.actions.len()).sum();
+        let shown = plan_of(&applied.plan);
+        Ok(RevertDone {
+            plan_id: plan_id.to_owned(),
+            at: applied.done.first().map(|(_, o)| input::iso(o.at)),
+            rows_changed: count(rows),
+            databases: applied
+                .done
+                .iter()
+                .map(|(database, o)| RevertedIn {
+                    database: database.clone(),
+                    rows: count(o.plan.actions.len()),
+                })
+                .collect(),
+            conflicts: shown.conflicts,
+            conflict_count: shown.conflict_count,
+            truncated: shown.truncated,
+        })
     }
 
     fn checked_name(name: &str) -> async_graphql::Result<&str> {
@@ -1302,6 +1699,34 @@ impl Query {
         let (admin, caller) = parts(ctx)?;
         admin.guarded(caller, all.unwrap_or(false)).await
     }
+
+    /// Changes from the change logs, newest first: who changed what, with the row before and after. Pass the
+    /// previous page's `next` as `cursor`; `limit` is 1 to 1000 (50). Admin role or higher.
+    async fn history(
+        &self,
+        ctx: &Context<'_>,
+        filter: Option<HistoryFilter>,
+        cursor: Option<String>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<HistoryPage> {
+        let (admin, caller) = parts(ctx)?;
+        admin.history(caller, filter, cursor.as_deref(), limit).await
+    }
+
+    /// Walks each log's hash chain from its start and names the first entry edited or removed. Admin role or
+    /// higher.
+    async fn history_check(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<HistoryCheck>> {
+        let (admin, caller) = parts(ctx)?;
+        admin.history_check(caller).await
+    }
+
+    /// What reverting a selection (an actor, an account, a time range) would do, and what stays as it is
+    /// because it changed since. Changes nothing; `revertApply` with the plan's `id` does what it shows.
+    /// Owner role.
+    async fn revert_plan(&self, ctx: &Context<'_>, selection: HistoryFilter) -> async_graphql::Result<RevertPlan> {
+        let (admin, caller) = parts(ctx)?;
+        admin.revert_plan(caller, selection).await
+    }
 }
 
 pub struct Mutation;
@@ -1428,5 +1853,19 @@ impl Mutation {
     async fn cancel(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<GuardedAction> {
         let (admin, caller) = parts(ctx)?;
         admin.cancel(caller, &id).await
+    }
+
+    /// Applies the plan `revertPlan` showed: its rows are put back by compensating changes, logged as this
+    /// key, and a row changed since stays as it is. `PLAN_CHANGED` when the history moved since the plan, with
+    /// nothing written. Pass the same `selection` if the server no longer keeps the plan (PLAN_EXPIRED).
+    /// Owner role.
+    async fn revert_apply(
+        &self,
+        ctx: &Context<'_>,
+        plan_id: String,
+        selection: Option<HistoryFilter>,
+    ) -> async_graphql::Result<RevertDone> {
+        let (admin, caller) = parts(ctx)?;
+        admin.revert_apply(caller, &plan_id, selection).await
     }
 }

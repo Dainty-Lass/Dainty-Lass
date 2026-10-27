@@ -315,6 +315,15 @@ pub enum ErrorCode {
     ModuleSettingsInvalid,
     /// The module refused, failed or did not answer (detail: why, in the module's words)
     ModuleFailed,
+    // History and revert in the server GUI (DH3b):
+    /// The filter names an actor, an account or a time that isn't one
+    HistoryBadFilter,
+    /// No change log to read: the server has not run yet, or its files are not there
+    HistoryUnavailable,
+    /// The history changed since the dry run, or the plan is gone: run the dry run again
+    HistoryPlanChanged,
+    /// Reading or reverting the history failed (detail: why)
+    HistoryFailed,
     Unknown,
 }
 
@@ -1689,6 +1698,188 @@ impl Serialize for ModuleCommandOutcome {
                 data: data.as_deref(),
             }
             .serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+// ------------------------------------------------------------------ history and revert (DH3b)
+
+/// One change in a change log: who changed which row, and when. The rows are JSON text with an admin
+/// key's hash hidden.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryEntryView {
+    pub id: String,
+    /// `node` (the game), `admin` or `chat`
+    pub database: String,
+    /// RFC 3339
+    pub at: String,
+    /// `player:<account>`, `admin:<key id>`, `host:<command>` or `system:<task>`
+    pub actor: String,
+    pub table: String,
+    /// The row's key, as JSON
+    pub key: String,
+    /// `insert`, `update`, `delete`, `soft_delete`, `restore` or `migrate`
+    pub op: String,
+    pub before: Option<String>,
+    pub after: Option<String>,
+}
+
+/// Changes newest first.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryPageView {
+    pub entries: Vec<HistoryEntryView>,
+    /// Pass it back as the filter's `cursor` for the next, older page; null at the end
+    pub next: Option<String>,
+}
+
+/// `history_query`: `{ ok: true, page } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI answers with a page")
+)]
+pub enum HistoryOutcome {
+    Ok(HistoryPageView),
+    Err(LauncherError),
+}
+
+impl Serialize for HistoryOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            page: &'a HistoryPageView,
+        }
+        match self {
+            Self::Ok(page) => Found { ok: true, page }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// One row a revert changes
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct RevertRowView {
+    pub database: String,
+    pub table: String,
+    pub key: String,
+    /// `insert` (a deleted row put back), `update`, `delete` (an added row removed) or `soft_delete`
+    pub kind: String,
+    /// The row now and as the revert leaves it, as JSON
+    pub current: Option<String>,
+    pub target: Option<String>,
+}
+
+/// A row the revert leaves as it is
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct RevertConflictView {
+    pub database: String,
+    pub table: String,
+    pub key: String,
+    /// `changed_since`, `not_as_logged`, `key_changed` or `schema_changed`
+    pub reason: String,
+    /// `changed_since`: the newer entry, who made it and when
+    pub entry: Option<String>,
+    pub by: Option<String>,
+    pub at: Option<String>,
+    pub detail: Option<String>,
+}
+
+/// What a revert would do. `history_revert_apply` with `id` does exactly this.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct RevertPlanView {
+    pub id: String,
+    /// Log entries the selection matches
+    pub entries: u32,
+    pub action_count: u32,
+    pub conflict_count: u32,
+    pub unchanged_count: u32,
+    /// The first rows of each list; `truncated` says the counts are higher
+    pub actions: Vec<RevertRowView>,
+    pub conflicts: Vec<RevertConflictView>,
+    pub truncated: bool,
+}
+
+/// `history_revert_dry_run`: `{ ok: true, plan } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI answers with a page")
+)]
+pub enum RevertPlanOutcome {
+    Ok(RevertPlanView),
+    Err(LauncherError),
+}
+
+impl Serialize for RevertPlanOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            plan: &'a RevertPlanView,
+        }
+        match self {
+            Self::Ok(plan) => Found { ok: true, plan }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// How many rows a revert changed in one database
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct RevertedInView {
+    pub database: String,
+    pub rows: u32,
+}
+
+/// What a revert did
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct RevertDoneView {
+    /// RFC 3339; the revert's own entries carry it
+    pub at: Option<String>,
+    pub rows_changed: u32,
+    pub databases: Vec<RevertedInView>,
+    /// Rows left as they are
+    pub conflicts: Vec<RevertConflictView>,
+    pub conflict_count: u32,
+    pub truncated: bool,
+}
+
+/// `history_revert_apply`: `{ ok: true, done } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI answers with a page")
+)]
+pub enum RevertApplyOutcome {
+    Ok(RevertDoneView),
+    Err(LauncherError),
+}
+
+impl Serialize for RevertApplyOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            done: &'a RevertDoneView,
+        }
+        match self {
+            Self::Ok(done) => Found { ok: true, done }.serialize(serializer),
             Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
         }
     }
