@@ -383,6 +383,23 @@ To be written with DN8.
 
 To be written with DN10b.
 
+## Admin actions across nodes (DN11)
+
+- **Trust boundary**: an admin action relay message arrives over `/__node/admin` (`Service::Admin`) from an mTLS-authenticated peer node in `[[network.nodes]]`. The caller identity (`from`) comes from the verified client certificate's SAN/CN, never from the wire body.
+- **Wire protocol (`network::relay`)**:
+  - [ ] Versioned JSON (`ADMIN_RELAY_VERSION = 1`), `#[serde(deny_unknown_fields)]` on every request, response, action, and refusal struct, bounded to `MAX_ADMIN_WIRE = 64 KiB` inside `MAX_MESSAGE`.
+  - [ ] Every free-form string (`reason`, `request_key`, `actor`, `approved_by`, refusal message) and JSON body (`HomeBody`) is scanned on both encode and decode by `holds_secret_key` (`looks_like_account_key` and `looks_like_admin_key`), refusing anything shaped like an account key (`RRK_...`) or an admin secret key (`RRA_...`) in any case.
+  - [ ] Actor fields (`actor`, `approved_by`) carry only the public 8-hex key id (`^[0-9a-f]{8}$`) or `owner`, never a bearer secret or raw token.
+  - [ ] Requests from a node not listed in `[[network.nodes]]` (`!is_peer(from)`) are refused with `AdminRelayRefusal::NotAPeer` before any state or ticket table is touched.
+- **Authority, session revocation, and audit**:
+  - [ ] When an operator kicks, bans, or times out a player whose home is another node, the originating node applies the action at the player's home node first (`Service::Admin`), then fans out to all remaining peers, and revokes session tickets (`Tickets::revoke`) on the originating node, the home, and each peer only after the authority accepts the action (`Admin` role protection and home validation cannot be bypassed to revoke an admin's session).
+  - [ ] `Tickets::verify` checks the revocation floor (`revoked`) for every issuer, not only the local node, and `NetworkedHome` checks `Tickets::is_revoked_at` on held sessions before reusing or renewing a ticket, so a peer-relayed ban, timeout, or kick cuts off both new offline ticket admissions and already-held sessions immediately.
+  - [ ] `unban` and `liftTimeout` clear the ticket revocation floor (`Tickets::allow`) across peers once applied.
+  - [ ] Every relayed action is recorded in `admin_actions` with `via_node` (the authenticated peer name), `request_key`, and any second-operator `approved_by` id (satisfying guarded actions under `DH6` across nodes).
+- **Idempotency and bounded down-peer queue**:
+  - [ ] `AdminRelayService` deduplicates incoming `(from, request_key)` pairs in a bounded 4,096-entry cache (`Dedup`) and `Admin::apply` checks `Keys::has_relayed(via_node, request_key)` in `admin_actions` so replayed deliveries after a reconnect or restart are idempotent no-ops.
+  - [ ] When a peer is unreachable, the action is persisted to `admin_relay_queue` via `Database::write`, bounded to `MAX_QUEUE_PER_PEER = 256` and `MAX_QUEUE_TOTAL = 2048` rows, surfaced immediately in the audit detail (`"pending on node <peer>"`) and the `pendingRelay` GraphQL query, and replayed by `AdminRelay::sweep()` when the peer returns.
+
 ## Fuzzing
 
 Short runs happen on every push (CI's `fuzz` job). The run before the canary, from `rust/fuzz`:
@@ -392,6 +409,7 @@ cargo +nightly fuzz run network_directory -- -max_total_time=86400
 cargo +nightly fuzz run network_link -- -max_total_time=86400
 cargo +nightly fuzz run network_home -- -max_total_time=86400
 cargo +nightly fuzz run network_ticket -- -max_total_time=86400
+cargo +nightly fuzz run network_admin -- -max_total_time=86400
 ```
 
 Signed: ________ (date, commit)

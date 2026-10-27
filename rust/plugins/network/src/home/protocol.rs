@@ -102,6 +102,12 @@ impl HomeBody {
     }
 }
 
+impl Default for HomeBody {
+    fn default() -> Self {
+        Self::null()
+    }
+}
+
 impl Serialize for HomeBody {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.0.serialize(serializer)
@@ -223,6 +229,16 @@ impl CleanText {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl std::fmt::Display for CleanText {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 

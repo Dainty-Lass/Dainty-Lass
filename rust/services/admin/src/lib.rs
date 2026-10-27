@@ -19,6 +19,7 @@ pub mod keys;
 pub mod log;
 pub mod module_control;
 pub mod modules;
+pub mod relay;
 pub mod schema;
 pub mod server;
 pub mod timeouts;

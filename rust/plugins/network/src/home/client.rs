@@ -56,6 +56,7 @@ impl NetworkedConfig {
 struct Held {
     ticket: SessionTicket,
     exp: i64,
+    since: i64,
 }
 
 pub struct NetworkedHome {
@@ -211,7 +212,7 @@ impl NetworkedHome {
         }
     }
 
-    fn keep(&self, ticket: SessionTicket, exp: i64) {
+    fn keep(&self, ticket: SessionTicket, exp: i64, since: i64) {
         let now = self.tickets.clock().now_ms();
         let mut held = self.held.lock().unwrap_or_else(PoisonError::into_inner);
         if held.len() >= MAX_HELD {
@@ -223,7 +224,7 @@ impl NetworkedHome {
                 held.remove(&oldest);
             }
         }
-        held.insert(ticket.account.clone(), Held { ticket, exp });
+        held.insert(ticket.account.clone(), Held { ticket, exp, since });
     }
 
     fn drop_held(&self, account: &GlobalId) {
@@ -237,7 +238,7 @@ impl NetworkedHome {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .get(account)
-            .is_some_and(|h| h.exp > now)
+            .is_some_and(|h| h.exp > now && !self.tickets.is_revoked_at(account, h.since))
     }
 
     /// The ticket this node holds for `account`, renewed with the home if it is about to expire.
@@ -249,6 +250,10 @@ impl NetworkedHome {
             .get(account)
             .cloned()
             .ok_or_else(|| denied("this node holds no session for that account"))?;
+        if self.tickets.is_revoked_at(account, held.since) {
+            self.drop_held(account);
+            return Err(ticket_denied(TicketError::Revoked));
+        }
         let now = self.tickets.clock().now_ms();
         let soon = i64::try_from(self.config.renew_within.as_millis()).unwrap_or(i64::MAX);
         if held.exp.saturating_sub(now) > soon {
@@ -277,7 +282,7 @@ impl NetworkedHome {
                         },
                     )
                     .map_err(ticket_denied)?;
-                self.keep(ticket.clone(), claims.exp);
+                self.keep(ticket.clone(), claims.exp, claims.since);
                 Ok(ticket)
             }
             Ok(_) => Err(unreachable(format!("{home} answered a renewal with something else"))),
@@ -457,7 +462,7 @@ impl HomeApi for NetworkedHome {
                 .map_err(ticket_denied)?;
             // A ticket made here for a player homed here is checked, not kept: there is no one to forward to
             if home != self.me.node {
-                self.keep(ticket.clone(), claims.exp);
+                self.keep(ticket.clone(), claims.exp, claims.since);
             }
             Ok(claims.sub)
         })

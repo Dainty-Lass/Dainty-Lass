@@ -26,6 +26,7 @@ pub mod inprocess;
 pub mod link;
 #[cfg(feature = "directory")]
 pub mod messages;
+pub mod relay;
 pub mod tls;
 #[cfg(feature = "directory")]
 pub mod username;
@@ -34,7 +35,7 @@ pub mod wire;
 #[cfg(feature = "directory")]
 pub use directory::{AccountRecord, Directory, DirectoryConfig, DirectoryError, Role};
 pub use endpoint::NodeEndpoint;
-pub use link::{Clock, LinkError, NoPeers, NodeService, PeerLink, Service, ServiceMux};
+pub use link::{Clock, LinkError, NoPeers, NodeService, PeerLink, PeerRoster, Service, ServiceMux};
 #[cfg(feature = "directory")]
 pub use messages::{DirectoryChange, DirectoryEntry, Refusal};
 pub use tls::{PeerHealth, PeerState, TlsLinkConfig, TlsPeerLink};

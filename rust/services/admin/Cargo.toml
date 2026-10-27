@@ -23,6 +23,7 @@ hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
 # Kick, ban and lookup sent to the module of the player's game (DF4c). A path, as rust/fuzz has it: the
 # workspace entry names the silentspud registry, which .cargo/config.toml doesn't configure yet
 module-api = { path = "../../crates/module-api" }
+network_plugin = { package = "network", path = "../../plugins/network" }
 percent-encoding.workspace = true
 rand.workspace = true
 serde.workspace = true
@@ -36,6 +37,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", 
 url.workspace = true
 
 [dev-dependencies]
+gateway = { path = "../gateway" }
 tempfile.workspace = true
 
 [lints]
