@@ -1,6 +1,7 @@
-// The Tauri bridge (page/api.ts, MIGRATION_PLAN.md RA2; DR's test/api.test.ts) against Tauri's own IPC
-// mocks: every LauncherApi method of Reforged's preload.ts reaches the command of the same name with the
-// arguments the preload sends, and every call the page can make gets through the isolation hook.
+// The Tauri bridge (dainty-lass-ui's packages/bridge/src/api.ts, from the stand-in page's api.ts, DU2;
+// MIGRATION_PLAN.md RA2; DR's test/api.test.ts) against Tauri's own IPC mocks: every LauncherApi method of
+// Reforged's preload.ts reaches the command of the same name with the arguments the preload sends, and
+// every call the page can make gets through the isolation hook. resolve-ui.ts loads the UI's sources.
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -10,7 +11,7 @@ import type { InvokeArgs } from "@tauri-apps/api/core";
 (globalThis as unknown as { window: unknown }).window = globalThis;
 
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { api, CALL_TIMEOUT_MS } from "../page/api.ts";
+import { api, CALL_TIMEOUT_MS } from "../../../ui/packages/bridge/src/api.ts";
 import { loadHook } from "./hook.ts";
 
 type Call = { cmd: string; args: InvokeArgs | undefined };

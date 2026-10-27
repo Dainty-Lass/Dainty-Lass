@@ -1,3 +1,1 @@
 node_modules/
-# The built page (vite.config.ts), served by the packaged launcher
-/dist-page/
