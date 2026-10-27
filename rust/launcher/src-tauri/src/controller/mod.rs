@@ -628,6 +628,7 @@ impl Controller {
                 update_ready: st.update_ready,
                 platform: platform_name(self.c.host).into(),
                 host_tools_available: cfg!(feature = "host"),
+                server_gui: cfg!(feature = "server-gui"),
                 legacy_available: cfg!(feature = "legacy"),
                 game_versions: protocol::invite::played_versions()
                     .iter()

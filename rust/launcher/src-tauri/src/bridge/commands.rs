@@ -13,6 +13,7 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 
 use super::backend::Backend;
+use super::modules::ModulePanel;
 use super::spec::{
     Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX, GAME_VERSION_MAX, INVITE_FOR_MAX,
     INVITE_MAX, KEY_TEXT_MAX, PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
@@ -20,8 +21,8 @@ use super::spec::{
 use super::types::{
     ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, GuardedList,
     GuardedOutcome, HostAction, HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView, HostSetupRequest,
-    InstallMode, InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome,
-    Settings, SettingsPatch, Snapshot, TaskProgress,
+    InstallMode, InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, ModuleCommandOutcome, ModuleListOutcome,
+    ModuleOutcome, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::controller::install::EpicGate;
@@ -622,34 +623,71 @@ pub async fn region_ping(app: AppHandle) -> RegionPing {
     controller(&app).region_ping().await
 }
 
+/// The server GUI's module panel; a build without the embedded server has none (DU3).
+fn panel(app: &AppHandle) -> Option<Arc<dyn ModulePanel>> {
+    app.try_state::<Arc<dyn ModulePanel>>()
+        .map(|panel| panel.inner().clone())
+}
+
+fn not_in_this_build(command: &str) -> LauncherError {
+    LauncherError::with_detail(ErrorCode::NotInThisBuild, command)
+}
+
+/// The modules `host.toml` lists, with their state, ports, commands and settings (DU3, DD11).
 #[tauri::command]
-pub fn module_list() -> ActionResult {
-    planned("module_list", &[])
+pub async fn module_list(app: AppHandle) -> ModuleListOutcome {
+    match panel(&app) {
+        Some(panel) => panel.list().await,
+        None => ModuleListOutcome::Err(not_in_this_build("module_list")),
+    }
 }
 
 #[tauri::command]
-pub fn module_get(module: Value) -> ActionResult {
-    planned("module_get", &[&module])
+pub async fn module_get(module: String, app: AppHandle) -> ModuleOutcome {
+    match panel(&app) {
+        Some(panel) => panel.get(module).await,
+        None => ModuleOutcome::Err(not_in_this_build("module_get")),
+    }
+}
+
+/// `input` is the command form as JSON text, checked against the command the module registered.
+#[tauri::command]
+pub async fn module_run_command(
+    module: String,
+    command: String,
+    input: String,
+    app: AppHandle,
+) -> ModuleCommandOutcome {
+    match panel(&app) {
+        Some(panel) => panel.run(module, command, input).await,
+        None => ModuleCommandOutcome::Err(not_in_this_build("module_run_command")),
+    }
+}
+
+/// `values` is `{ section: { key: value } }` as JSON text, saved to `host.toml` when it fits the module's
+/// registered settings.
+#[tauri::command]
+pub async fn module_set_settings(module: String, values: String, app: AppHandle) -> ModuleOutcome {
+    match panel(&app) {
+        Some(panel) => panel.set_settings(module, values).await,
+        None => ModuleOutcome::Err(not_in_this_build("module_set_settings")),
+    }
 }
 
 #[tauri::command]
-pub fn module_run_command(module: Value, command: Value, input: Value) -> ActionResult {
-    planned("module_run_command", &[&module, &command, &input])
+pub async fn module_load(module: String, app: AppHandle) -> ModuleOutcome {
+    match panel(&app) {
+        Some(panel) => panel.load(module).await,
+        None => ModuleOutcome::Err(not_in_this_build("module_load")),
+    }
 }
 
 #[tauri::command]
-pub fn module_set_settings(module: Value, values: Value) -> ActionResult {
-    planned("module_set_settings", &[&module, &values])
-}
-
-#[tauri::command]
-pub fn module_load(module: Value) -> ActionResult {
-    planned("module_load", &[&module])
-}
-
-#[tauri::command]
-pub fn module_unload(module: Value) -> ActionResult {
-    planned("module_unload", &[&module])
+pub async fn module_unload(module: String, app: AppHandle) -> ModuleOutcome {
+    match panel(&app) {
+        Some(panel) => panel.unload(module).await,
+        None => ModuleOutcome::Err(not_in_this_build("module_unload")),
+    }
 }
 
 #[tauri::command]
@@ -893,10 +931,10 @@ mod tests {
     #[test]
     fn planned_commands_check_their_arguments() {
         let unknown = ActionResult::err(ErrorCode::Unknown);
-        let long = json!("a".repeat(crate::bridge::spec::MODULE_ID_MAX + 1));
-        assert_eq!(planned("module_get", &[&long]), unknown);
-        assert_eq!(planned("module_get", &[&json!(7)]), unknown);
-        assert_eq!(planned("module_get", &[]), unknown);
+        let long = json!("a".repeat(crate::bridge::spec::REALM_ID_MAX + 1));
+        assert_eq!(planned("realm_join", &[&long]), unknown);
+        assert_eq!(planned("realm_join", &[&json!(7)]), unknown);
+        assert_eq!(planned("realm_join", &[]), unknown);
         assert_eq!(planned("realm_host", &[&json!("raid")]), unknown);
         assert_eq!(planned("no_such_command", &[]), unknown);
         let filter = json!({ "actor": "key_01", "since": "2026-10-01T00:00:00Z" });

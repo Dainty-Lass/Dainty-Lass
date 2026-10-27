@@ -287,12 +287,6 @@ pub fn serves(name: &str) -> bool {
 /// The commands registered ahead of the rows that fill them (DF8), each refused with `not_implemented`
 /// (`commands::planned`). A row that fills one takes it off this list.
 pub const PLANNED: &[&str] = &[
-    "module_list",
-    "module_get",
-    "module_run_command",
-    "module_set_settings",
-    "module_load",
-    "module_unload",
     "realm_host",
     "realm_join",
     "realm_stop",

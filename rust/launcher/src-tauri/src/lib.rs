@@ -214,6 +214,9 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             );
             #[cfg(feature = "host")]
             if let Some(server) = embedded.clone() {
+                if let Some(panel) = server.modules() {
+                    app.manage(panel);
+                }
                 controller.set_embedded_server(server);
             }
             #[cfg(not(feature = "host"))]

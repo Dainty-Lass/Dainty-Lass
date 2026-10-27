@@ -61,6 +61,10 @@ pub trait EmbeddedServer: Send + Sync {
     fn restart(&self, name: String) -> Boxed<Result<(), String>>;
     /// The services as they are now.
     fn components(&self) -> Vec<HostServerComponent>;
+    /// The page's module panels over this server's registry (DU3); the Host page's tests have none.
+    fn modules(&self) -> Option<Arc<dyn crate::bridge::modules::ModulePanel>> {
+        None
+    }
 }
 
 /// How the host kit runs: `reforged-host` in the workspace (tests: a stand-in, with arguments of its

@@ -101,8 +101,8 @@ async function callEverything(): Promise<void> {
   await api.regionPing();
   await api.moduleList();
   await api.moduleGet("isles-1-14-7");
-  await api.moduleRunCommand("isles-1-14-7", "reload_catalog", { force: true });
-  await api.moduleSetSettings("isles-1-14-7", { maxPlayers: 4 });
+  await api.moduleRunCommand("isles-1-14-7", "reload_catalog", { scope: "items" });
+  await api.moduleSetSettings("isles-1-14-7", { game: { max_players: 4 } });
   await api.moduleLoad("isles-1-14-7");
   await api.moduleUnload("isles-1-14-7");
   await api.realmHost("hunt");
@@ -201,14 +201,14 @@ test("1.4.4 calls reach their commands, the mode one of two names (the legacy ed
 test("planned calls send their arguments in the shapes the hook checks", async () => {
   const calls = record();
   try {
-    await api.moduleRunCommand("isles-1-14-7", "reload_catalog", { force: true });
+    await api.moduleRunCommand("isles-1-14-7", "reload_catalog", { scope: "items" });
     await api.realmHost("raid" as never);
     await api.historyQuery({ actor: "key_01" });
     await api.historyRevertDryRun({ since: "2026-10-01T00:00:00Z", cursor: "x" } as never);
     assert.deepEqual(
       calls.map((c) => [c.cmd, c.args]),
       [
-        ["module_run_command", { module: "isles-1-14-7", command: "reload_catalog", input: '{"force":true}' }],
+        ["module_run_command", { module: "isles-1-14-7", command: "reload_catalog", input: '{"scope":"items"}' }],
         ["realm_host", { kind: "hub" }],
         ["history_query", { filter: { account: null, actor: "key_01", since: null, until: null, cursor: null } }],
         ["history_revert_dry_run", { selection: { account: null, actor: null, since: "2026-10-01T00:00:00Z", until: null } }],

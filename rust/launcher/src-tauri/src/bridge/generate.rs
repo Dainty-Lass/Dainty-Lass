@@ -126,6 +126,20 @@ fn declarations() -> String {
         GuardedState,
         GuardedMode,
         GuardedActionInfo,
+        ModuleRole,
+        ModuleOrigin,
+        ModuleRunState,
+        ModulePortView,
+        ModuleArgView,
+        ModuleCommandView,
+        ModuleSettingValue,
+        ModuleSettingView,
+        ModuleSectionView,
+        ModulePatchSetView,
+        ModulePaletteEntry,
+        ModuleThemeView,
+        ModuleCapabilitiesView,
+        ModuleView,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -154,6 +168,15 @@ fn declarations() -> String {
     );
     declare(
         "type GuardedOutcome = { ok: true; action: GuardedActionInfo } | { ok: false; error: LauncherError };".into(),
+    );
+    declare(
+        "type ModuleListOutcome = { ok: true; modules: Array<ModuleView> } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare("type ModuleOutcome = { ok: true; module: ModuleView } | { ok: false; error: LauncherError };".into());
+    declare(
+        "type ModuleCommandOutcome = { ok: true; text: string; data: string | null } | { ok: false; error: LauncherError };"
+            .into(),
     );
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));

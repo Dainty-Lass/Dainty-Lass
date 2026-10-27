@@ -382,3 +382,35 @@ fn children_get_the_os_variables_and_no_server_setting() {
     let kept: Vec<String> = system_environment(vars).into_iter().map(|(k, _)| k).collect();
     assert_eq!(kept, ["PATH", "SystemRoot"]);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_registered_settings_show_and_the_next_load_takes_new_values() {
+    let (reg, _) = registry(RegistryOptions::standalone());
+    reg.add_entry(compiled_stub()).unwrap();
+    assert!(reg.info(&id("stub")).unwrap().config.is_empty(), "known once it loads");
+    reg.load(&id("stub")).await.unwrap();
+    let config = reg.info(&id("stub")).unwrap().config;
+    assert_eq!(config[0].name, "stub");
+    assert_eq!(config[0].keys[0].name, "greeting");
+    assert_eq!(reg.command(&id("stub"), echo()).await.unwrap().text, "hello there");
+    reg.update_settings(
+        &id("stub"),
+        BTreeMap::from([(
+            "stub".to_string(),
+            BTreeMap::from([("greeting".to_string(), serde_json::json!("hey"))]),
+        )]),
+    )
+    .unwrap();
+    assert_eq!(
+        reg.command(&id("stub"), echo()).await.unwrap().text,
+        "hello there",
+        "a running module keeps what it started with"
+    );
+    reg.restart(&id("stub")).await.unwrap();
+    assert_eq!(reg.command(&id("stub"), echo()).await.unwrap().text, "hey there");
+    assert_eq!(
+        reg.update_settings(&id("nope"), BTreeMap::new()),
+        Err(RegistryError::NotListed(id("nope")))
+    );
+    reg.unload_all().await;
+}
