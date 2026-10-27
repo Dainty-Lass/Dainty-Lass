@@ -3,7 +3,7 @@ enum AccountStatus {
 	BANNED
 	DISABLED
 	"""
-	A status this API does not know.
+	A status this API does not know, or a player in a game whose module doesn't report one.
 	"""
 	UNKNOWN
 }
@@ -64,9 +64,13 @@ type KickResult {
 	userId: String!
 	username: String!
 	"""
-	Chat connections closed; 0 when the player held none.
+	Chat connections closed; 0 when the player held none, or in a game whose module doesn't count them.
 	"""
 	connectionsClosed: Int!
+	"""
+	The game version the player is in, such as 1.14.7.
+	"""
+	game: String!
 }
 
 """
@@ -99,25 +103,25 @@ type Mutation {
 	Drops a connected player now: their chat connections close and their sign-in tokens are
 	revoked. They are not banned, and may log in again.
 	"""
-	kick(username: String!): KickResult!
+	kick(username: String!, game: String): KickResult!
 	"""
 	Bans a player until a given time, then lifts the ban. Give `minutes` or `until` (RFC 3339),
 	within a year. Replaces an earlier timeout; refused for a player who is banned.
 	"""
-	timeout(username: String!, minutes: Int, until: String, reason: String!): Player!
+	timeout(username: String!, minutes: Int, until: String, reason: String!, game: String): Player!
 	"""
 	Lifts a timeout before it runs out.
 	"""
-	liftTimeout(username: String!): Player!
+	liftTimeout(username: String!, game: String): Player!
 	"""
 	Bans a player until someone unbans them. Replaces a timeout. The player reads `reason` in the
 	launcher.
 	"""
-	ban(username: String!, reason: String!): Player!
+	ban(username: String!, reason: String!, game: String): Player!
 	"""
 	Lifts a ban or a timeout.
 	"""
-	unban(username: String!, reason: String): Player!
+	unban(username: String!, reason: String, game: String): Player!
 }
 
 type Player {
@@ -137,18 +141,25 @@ type Player {
 	"""
 	location: Location
 	"""
-	Holds the backend's admin role: kicks, timeouts and bans refuse such accounts.
+	Holds the backend's admin role: kicks, timeouts and bans refuse such accounts. False in a game
+	whose module doesn't report it; that module refuses to act on its own admins.
 	"""
 	admin: Boolean!
 	createdAt: String
 	lastLoginAt: String
+	"""
+	The game version the player is in, such as 1.14.7.
+	"""
+	game: String!
 }
 
 type Query {
 	"""
-	A player by username (case-insensitive); null when there is no such account.
+	A player by username (case-insensitive), in whichever game on this server has them; null when
+	there is no such account. `game` (a game version, such as 1.4.4) picks one when several games
+	have the name, here and in every mutation.
 	"""
-	player(username: String!): Player
+	player(username: String!, game: String): Player
 	serverStatus: ServerStatus!
 	"""
 	The running hunt servers, who is in each, and how many more can start.

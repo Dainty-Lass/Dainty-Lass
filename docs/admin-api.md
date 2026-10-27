@@ -37,27 +37,39 @@ the file current). In short:
 
 ```graphql
 type Query {
-  player(username: String!): Player            # null when there is no such account
+  player(username: String!, game: String): Player   # null when there is no such account
   serverStatus: ServerStatus!                  # name, mode, registration, version, commit, uptimeSeconds, onlineCount
   huntStatus: HuntStatus!                      # maxHuntServers, running, free, hunts { title, players { username } }
   activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
 }
 
 type Mutation {
-  kick(username: String!): KickResult!
-  timeout(username: String!, minutes: Int, until: String, reason: String!): Player!
-  liftTimeout(username: String!): Player!
-  ban(username: String!, reason: String!): Player!
-  unban(username: String!, reason: String): Player!
+  kick(username: String!, game: String): KickResult!     # userId, username, connectionsClosed, game
+  timeout(username: String!, minutes: Int, until: String, reason: String!, game: String): Player!
+  liftTimeout(username: String!, game: String): Player!
+  ban(username: String!, reason: String!, game: String): Player!
+  unban(username: String!, reason: String, game: String): Player!
 }
 
 type Player {
   userId: String!  username: String!  status: AccountStatus!    # ACTIVE, BANNED, DISABLED
   restriction: Restriction       # kind BAN | TIMEOUT | DISABLED, reason, since, by, until
   online: Boolean!  location: Location    # kind HUB | HUNT | TRAINING | TUTORIAL, instanceId, title
-  admin: Boolean!  createdAt: String  lastLoginAt: String
+  admin: Boolean!  createdAt: String  lastLoginAt: String  game: String!    # the game version, such as 1.14.7
 }
 ```
+
+Which game a player is in: the Node backend answers for 1.14.7 until a module for 1.14.7 is loaded, and each game
+module that registers admin actions answers for its own game. The API asks every game for the name at once. A name
+that more than one game has is refused with `AMBIGUOUS_PLAYER` until `game` names one (`game: "1.4.4"`); a game this
+server doesn't run is `UNKNOWN_GAME`. A kick, ban or timeout waits for every game to answer: while one doesn't, it is
+refused with `BACKEND_UNAVAILABLE` unless `game` is given.
+
+For a player in a module's game, the module does the work and the answer carries what `module-api` reports: the
+name, the account id and whether they're online. `status` is `UNKNOWN`, `restriction` and `location` are null,
+`admin` is false and `connectionsClosed` is 0. A timeout is sent as a ban with its end, which the module lifts.
+`unban` and `liftTimeout` answer `NOT_SUPPORTED` there for now. The module refuses to act on its own admins, which
+comes back as `BACKEND_REFUSED` with its reason.
 
 How the moderation works:
 
@@ -79,8 +91,9 @@ How the moderation works:
   3 to 400 characters on one line.
 
 Errors are GraphQL errors with a code in `extensions.code`: `BAD_INPUT`, `NOT_FOUND`, `PROTECTED_ACCOUNT`,
-`ALREADY_BANNED`, `NOT_BANNED`, `NOT_TIMED_OUT`, `BACKEND_UNAVAILABLE` (the backend or Director didn't answer),
-`BACKEND_REFUSED` (its message says when the secrets don't match: run `setup` and restart), `STATE_NOT_SAVED`. A
+`ALREADY_BANNED`, `NOT_BANNED`, `NOT_TIMED_OUT`, `BACKEND_UNAVAILABLE` (the backend, the Director or a game's module
+didn't answer), `BACKEND_REFUSED` (its message says when the secrets don't match: run `setup` and restart),
+`STATE_NOT_SAVED`, `AMBIGUOUS_PLAYER`, `UNKNOWN_GAME`, `NOT_SUPPORTED` (the player's module can't do that yet). A
 request refused before any GraphQL runs gets a 4xx with the same shape: 401 `UNAUTHENTICATED`, 403 `FORWARDED`,
 400 `BAD_OPERATOR` or `BAD_REQUEST`, 415 `NOT_JSON`.
 

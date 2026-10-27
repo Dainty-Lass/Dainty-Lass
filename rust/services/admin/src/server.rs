@@ -11,6 +11,7 @@ use tokio::net::TcpListener;
 use crate::app::{AppState, router};
 use crate::config::Config;
 use crate::log;
+use crate::modules::AdminPlugin;
 use crate::schema::{Admin, build};
 use crate::timeouts::Timeouts;
 use crate::upstream::{Clock, Upstream};
@@ -20,6 +21,15 @@ pub const SWEEP_EVERY: Duration = Duration::from_secs(30);
 const DRAIN: Duration = Duration::from_secs(5);
 
 pub fn prepare(config: &Config, clock: Clock) -> Result<(AppState, Arc<Admin>), String> {
+    prepare_with_modules(config, clock, Arc::new(AdminPlugin::none()))
+}
+
+/// As `prepare`, with the game modules the controller attached to `modules` (DF4c).
+pub fn prepare_with_modules(
+    config: &Config,
+    clock: Clock,
+    modules: Arc<AdminPlugin>,
+) -> Result<(AppState, Arc<Admin>), String> {
     let admin = Arc::new(Admin {
         upstream: Upstream::new(
             &config.backend_url,
@@ -28,6 +38,7 @@ pub fn prepare(config: &Config, clock: Clock) -> Result<(AppState, Arc<Admin>), 
             &config.operator_secret,
             clock.clone(),
         ),
+        modules,
         timeouts: Timeouts::load(&config.timeouts_file)?,
         max_hunt_servers: config.max_hunt_servers,
         server_mode: config.server_mode,
@@ -45,9 +56,19 @@ pub async fn run(config: Config) -> Result<(), String> {
 }
 
 /// In-process entry point driven by `ServerController` (`docs/app-structure-plan.md`).
-pub async fn run_with_context(config: Config, mut ctx: service_kit::context::ServiceContext) -> Result<(), String> {
+pub async fn run_with_context(config: Config, ctx: service_kit::context::ServiceContext) -> Result<(), String> {
+    run_with_modules(config, ctx, Arc::new(AdminPlugin::none())).await
+}
+
+/// As `run_with_context`, sending kick, ban and lookup to the modules attached to `modules`: the
+/// controller registers the same plugin with its core plugins (DF3).
+pub async fn run_with_modules(
+    config: Config,
+    mut ctx: service_kit::context::ServiceContext,
+    modules: Arc<AdminPlugin>,
+) -> Result<(), String> {
     ctx.status().report_starting("preparing admin API");
-    let (state, admin) = prepare(&config, Arc::new(crate::now_ms))?;
+    let (state, admin) = prepare_with_modules(&config, Arc::new(crate::now_ms), modules)?;
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let mut servers = Vec::new();
     for host in &config.bind_hosts {

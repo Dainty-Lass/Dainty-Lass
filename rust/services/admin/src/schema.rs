@@ -5,11 +5,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_graphql::{Context, EmptySubscription, Enum, ErrorExtensions, Object, Schema, SimpleObject};
+use module_api::module::PlayerInfo;
+use module_api::{AdminRequest, AdminResponse, ErrorKind, ModuleError};
 use serde_json::json;
+use tokio::task::JoinSet;
 
 use crate::config;
 use crate::input::{self, InstanceKind};
 use crate::log;
+use crate::modules::{AdminModule, AdminPlugin, NODE_GAME};
 use crate::timeouts::{Timeout, Timeouts};
 use crate::upstream::{Account, Clock, Operator, Upstream, UpstreamError};
 
@@ -46,6 +50,9 @@ pub enum Code {
     BackendUnavailable,
     BackendRefused,
     StateNotSaved,
+    AmbiguousPlayer,
+    UnknownGame,
+    NotSupported,
 }
 
 impl Code {
@@ -60,12 +67,46 @@ impl Code {
             Self::BackendUnavailable => "BACKEND_UNAVAILABLE",
             Self::BackendRefused => "BACKEND_REFUSED",
             Self::StateNotSaved => "STATE_NOT_SAVED",
+            Self::AmbiguousPlayer => "AMBIGUOUS_PLAYER",
+            Self::UnknownGame => "UNKNOWN_GAME",
+            Self::NotSupported => "NOT_SUPPORTED",
         }
     }
 }
 
 fn fail(code: Code, message: impl Into<String>) -> async_graphql::Error {
     async_graphql::Error::new(message).extend_with(|_, e| e.set("code", code.as_str()))
+}
+
+fn no_such_player() -> async_graphql::Error {
+    fail(Code::NotFound, "no such player")
+}
+
+/// A module's failure as the bot sees it, its own words capped to one line (`input::module_message`).
+fn module_failure(module: &AdminModule, error: ModuleError) -> async_graphql::Error {
+    let message = input::module_message(&error.message);
+    log::warn(
+        "module admin call failed",
+        json!({"module": module.id.to_string(), "kind": error.kind.to_string(), "error": message}),
+    );
+    let name = &module.display_name;
+    match error.kind {
+        ErrorKind::NotFound => no_such_player(),
+        ErrorKind::Unsupported => fail(
+            Code::NotSupported,
+            format!("{name} does not do this through the admin API"),
+        ),
+        ErrorKind::Invalid => fail(Code::BadInput, format!("{name} refused: {message}")),
+        ErrorKind::Failed => fail(Code::BackendRefused, format!("{name} refused: {message}")),
+        ErrorKind::Protocol | ErrorKind::Unavailable | ErrorKind::Timeout => fail(
+            Code::BackendUnavailable,
+            format!("{name} did not answer; is it running?"),
+        ),
+    }
+}
+
+fn unexpected(answer: &AdminResponse) -> ModuleError {
+    ModuleError::new(ErrorKind::Protocol, format!("answered {answer:?}"))
 }
 
 /// An upstream failure as the bot sees it: what to do about it, without the backend's addresses.
@@ -99,7 +140,7 @@ pub enum AccountStatus {
     Active,
     Banned,
     Disabled,
-    /// A status this API does not know.
+    /// A status this API does not know, or a player in a game whose module doesn't report one.
     Unknown,
 }
 
@@ -170,10 +211,13 @@ pub struct Player {
     pub online: bool,
     /// Null when the player is in no game server the Director knows of (the menus, or offline).
     pub location: Option<Location>,
-    /// Holds the backend's admin role: kicks, timeouts and bans refuse such accounts.
+    /// Holds the backend's admin role: kicks, timeouts and bans refuse such accounts. False in a game
+    /// whose module doesn't report it; that module refuses to act on its own admins.
     pub admin: bool,
     pub created_at: Option<String>,
     pub last_login_at: Option<String>,
+    /// The game version the player is in, such as 1.14.7.
+    pub game: String,
 }
 
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
@@ -234,14 +278,18 @@ pub struct HuntStatus {
 pub struct KickResult {
     pub user_id: String,
     pub username: String,
-    /// Chat connections closed; 0 when the player held none.
+    /// Chat connections closed; 0 when the player held none, or in a game whose module doesn't count them.
     pub connections_closed: u32,
+    /// The game version the player is in, such as 1.14.7.
+    pub game: String,
 }
 
 // ------------------------------------------------------------------ what the fields do
 
 pub struct Admin {
     pub upstream: Upstream,
+    /// The game modules that answer admin actions (DF4c); none until DF3's controller loads modules.
+    pub modules: Arc<AdminPlugin>,
     pub timeouts: Timeouts,
     pub max_hunt_servers: u32,
     pub server_mode: config::ServerMode,
@@ -273,37 +321,231 @@ fn timeout_reason(until: i64, reason: &str) -> String {
     format!("Timed out until {}: {reason}", input::iso(until))
 }
 
+/// Where a player was found.
+enum Found {
+    /// In the Node backend's accounts: 1.14.7, until a module for it is loaded
+    Node(Account),
+    /// In a module's game
+    Module(AdminModule, PlayerInfo),
+}
+
+impl Found {
+    fn game(&self) -> String {
+        match self {
+            Self::Node(_) => NODE_GAME.to_owned(),
+            Self::Module(module, _) => module.game_version.to_string(),
+        }
+    }
+}
+
+/// The account, unless it is one moderation must not touch.
+fn protect(account: Account) -> async_graphql::Result<Account> {
+    if account.roles.iter().any(|r| r == "admin") {
+        return Err(fail(Code::Protected, "this player is a server admin"));
+    }
+    Ok(account)
+}
+
+/// A module's player in today's shape. What `PlayerInfo` doesn't carry (DF2) is UNKNOWN or null.
+fn module_player(module: &AdminModule, info: PlayerInfo) -> Player {
+    Player {
+        user_id: user_id_of(&info),
+        username: info.name,
+        status: AccountStatus::Unknown,
+        restriction: None,
+        online: info.online,
+        location: None,
+        admin: false,
+        created_at: None,
+        last_login_at: None,
+        game: module.game_version.to_string(),
+    }
+}
+
+/// The account's network-wide id, or the name for a game that gives none.
+fn user_id_of(info: &PlayerInfo) -> String {
+    info.account
+        .as_ref()
+        .map_or_else(|| info.name.clone(), ToString::to_string)
+}
+
+fn not_supported(module: &AdminModule, what: &str) -> async_graphql::Error {
+    fail(
+        Code::NotSupported,
+        format!("{} can't {what} through the admin API yet", module.display_name),
+    )
+}
+
 impl Admin {
     fn now(&self) -> i64 {
         (self.clock)()
     }
 
-    async fn find(&self, operator: &Operator, name: &str) -> async_graphql::Result<Option<Account>> {
-        let name = input::username(name).ok_or_else(|| {
+    fn checked_name(name: &str) -> async_graphql::Result<&str> {
+        input::username(name).ok_or_else(|| {
             fail(
                 Code::BadInput,
                 "username must be 3 to 16 letters, digits or underscores",
             )
-        })?;
-        self.upstream
-            .account_by_name(operator, name)
-            .await
-            .map_err(|e| upstream("backend", e))
+        })
     }
 
-    async fn account(&self, operator: &Operator, name: &str) -> async_graphql::Result<Account> {
-        self.find(operator, name)
-            .await?
-            .ok_or_else(|| fail(Code::NotFound, "no such player"))
-    }
-
-    /// The account, unless it is one moderation must not touch.
-    async fn target(&self, operator: &Operator, name: &str) -> async_graphql::Result<Account> {
-        let account = self.account(operator, name).await?;
-        if account.roles.iter().any(|r| r == "admin") {
-            return Err(fail(Code::Protected, "this player is a server admin"));
+    /// Where the player named `name` is: the Node backend's accounts (1.14.7, until a module for it is
+    /// loaded) or a module's game. Every game that could hold them is asked at once, since a registration
+    /// names no accounts. Two answering is ambiguous until the caller names the game; with `act`, so is a
+    /// game that didn't answer, so a kick or ban never lands on a namesake while the right game is down.
+    async fn locate(
+        &self,
+        operator: &Operator,
+        name: &str,
+        game: Option<&str>,
+        act: bool,
+    ) -> async_graphql::Result<Option<Found>> {
+        let name = Self::checked_name(name)?;
+        let wanted = match game {
+            Some(given) => Some(
+                input::game(given)
+                    .ok_or_else(|| fail(Code::BadInput, "game must be a game version, such as 1.14.7"))?,
+            ),
+            None => None,
+        };
+        let is_wanted = |version: &str| wanted.as_deref().is_none_or(|w| w == version);
+        let node = !self.modules.has_game(NODE_GAME) && is_wanted(NODE_GAME);
+        let modules: Vec<AdminModule> = self
+            .modules
+            .modules()
+            .into_iter()
+            .filter(|m| is_wanted(&m.game_version.to_string()))
+            .collect();
+        if modules.is_empty() {
+            if !node {
+                return Err(fail(Code::UnknownGame, "this server runs no such game"));
+            }
+            // Today's path, unchanged while the Node backend is the only game
+            let account = self
+                .upstream
+                .account_by_name(operator, name)
+                .await
+                .map_err(|e| upstream("backend", e))?;
+            return Ok(account.map(Found::Node));
         }
-        Ok(account)
+
+        let mut asked = JoinSet::new();
+        for module in modules {
+            let plugin = self.modules.clone();
+            let actor = self.modules.actor(self.now());
+            let request = AdminRequest::Lookup {
+                player: name.to_owned(),
+            };
+            asked.spawn(async move {
+                let answer = plugin.call(&module, actor, request).await;
+                (module, answer)
+            });
+        }
+        let from_node = async {
+            if node {
+                Some(self.upstream.account_by_name(operator, name).await)
+            } else {
+                None
+            }
+        };
+        let from_modules = async {
+            let mut answers = Vec::new();
+            while let Some(joined) = asked.join_next().await {
+                if let Ok(answer) = joined {
+                    answers.push(answer);
+                }
+            }
+            answers.sort_by(|a, b| a.0.id.cmp(&b.0.id));
+            answers
+        };
+        let (from_node, from_modules) = tokio::join!(from_node, from_modules);
+
+        let mut found = Vec::new();
+        let mut silent = Vec::new();
+        match from_node {
+            Some(Ok(Some(account))) => found.push(Found::Node(account)),
+            Some(Ok(None)) | None => {}
+            Some(Err(error)) => silent.push((String::from("the backend"), upstream("backend", error))),
+        }
+        for (module, answer) in from_modules {
+            let error = match answer {
+                Ok(AdminResponse::Player(info)) => {
+                    found.push(Found::Module(module, info));
+                    continue;
+                }
+                Ok(AdminResponse::NotFound) => continue,
+                Err(error) if error.kind == ErrorKind::NotFound => continue,
+                Ok(other) => unexpected(&other),
+                Err(error) => error,
+            };
+            silent.push((module.display_name.clone(), module_failure(&module, error)));
+        }
+        if found.len() > 1 {
+            let games: Vec<String> = found.iter().map(Found::game).collect();
+            return Err(fail(
+                Code::AmbiguousPlayer,
+                format!(
+                    "more than one game has a player with this name ({}); name the game",
+                    games.join(", ")
+                ),
+            ));
+        }
+        if act && !found.is_empty() && !silent.is_empty() {
+            let names: Vec<&str> = silent.iter().map(|(name, _)| name.as_str()).collect();
+            return Err(fail(
+                Code::BackendUnavailable,
+                format!(
+                    "{} did not answer, so another game may have a player with this name; try again, or name the game",
+                    names.join(", ")
+                ),
+            ));
+        }
+        match found.pop() {
+            Some(found) => Ok(Some(found)),
+            None => match silent.into_iter().next() {
+                Some((_, error)) => Err(error),
+                None => Ok(None),
+            },
+        }
+    }
+
+    /// One kick or ban sent to a module, logged with the operator id beside the request id the
+    /// module's change log records (DH1).
+    async fn module_act(
+        &self,
+        operator: &Operator,
+        module: &AdminModule,
+        request: AdminRequest,
+    ) -> async_graphql::Result<()> {
+        let actor = self.modules.actor(self.now());
+        let request_id = actor.request.clone().unwrap_or_default();
+        let sent = serde_json::to_value(&request).unwrap_or_default();
+        match self.modules.call(module, actor, request).await {
+            Ok(AdminResponse::Done) => {
+                log::info(
+                    "admin action done",
+                    json!({"module": module.id.to_string(), "game": module.game_version.to_string(),
+                           "action": sent, "operator": operator.id(), "request": request_id}),
+                );
+                Ok(())
+            }
+            Ok(AdminResponse::NotFound) => Err(no_such_player()),
+            Ok(other) => Err(module_failure(module, unexpected(&other))),
+            Err(error) => Err(module_failure(module, error)),
+        }
+    }
+
+    /// The player as their module reports them now, or as `info` had them when it doesn't answer.
+    async fn player_now(&self, module: &AdminModule, info: PlayerInfo) -> Player {
+        let request = AdminRequest::Lookup {
+            player: info.name.clone(),
+        };
+        let latest = match self.modules.call(module, self.modules.actor(self.now()), request).await {
+            Ok(AdminResponse::Player(latest)) => latest,
+            _ => info,
+        };
+        module_player(module, latest)
     }
 
     async fn restriction(&self, account: &Account) -> Option<Restriction> {
@@ -370,7 +612,22 @@ impl Admin {
             location,
             created_at: account.created_at,
             last_login_at: account.last_login_at,
+            game: NODE_GAME.to_owned(),
         })
+    }
+
+    /// A player by name, from whichever game has them.
+    pub async fn find_player(
+        &self,
+        operator: &Operator,
+        name: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Option<Player>> {
+        match self.locate(operator, name, game, false).await? {
+            None => Ok(None),
+            Some(Found::Node(account)) => self.player(operator, account).await.map(Some),
+            Some(Found::Module(module, info)) => Ok(Some(module_player(&module, info))),
+        }
     }
 
     async fn set_access(
@@ -402,8 +659,27 @@ impl Admin {
         })
     }
 
-    pub async fn kick(&self, operator: &Operator, name: &str) -> async_graphql::Result<KickResult> {
-        let account = self.target(operator, name).await?;
+    pub async fn kick(&self, operator: &Operator, name: &str, game: Option<&str>) -> async_graphql::Result<KickResult> {
+        let account = match self
+            .locate(operator, name, game, true)
+            .await?
+            .ok_or_else(no_such_player)?
+        {
+            Found::Node(account) => protect(account)?,
+            Found::Module(module, info) => {
+                let request = AdminRequest::Kick {
+                    player: info.name.clone(),
+                    reason: None,
+                };
+                self.module_act(operator, &module, request).await?;
+                return Ok(KickResult {
+                    user_id: user_id_of(&info),
+                    username: info.name,
+                    connections_closed: 0,
+                    game: module.game_version.to_string(),
+                });
+            }
+        };
         let kicked = self
             .upstream
             .kick(&account.display_name)
@@ -417,12 +693,34 @@ impl Admin {
             user_id: kicked.user_id,
             username: kicked.username,
             connections_closed: kicked.closed,
+            game: NODE_GAME.to_owned(),
         })
     }
 
-    pub async fn ban(&self, operator: &Operator, name: &str, reason: &str) -> async_graphql::Result<Player> {
+    pub async fn ban(
+        &self,
+        operator: &Operator,
+        name: &str,
+        reason: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
         let reason = input::reason(reason).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?;
-        let account = self.target(operator, name).await?;
+        let account = match self
+            .locate(operator, name, game, true)
+            .await?
+            .ok_or_else(no_such_player)?
+        {
+            Found::Node(account) => protect(account)?,
+            Found::Module(module, info) => {
+                let request = AdminRequest::Ban {
+                    player: info.name.clone(),
+                    reason: Some(reason),
+                    until: None,
+                };
+                self.module_act(operator, &module, request).await?;
+                return Ok(self.player_now(&module, info).await);
+            }
+        };
         let updated = self.set_access(operator, &account, "banned", &reason).await?;
         self.forget_timeout(&updated.user_id).await?;
         self.player(operator, updated).await
@@ -435,11 +733,28 @@ impl Admin {
         minutes: Option<i64>,
         until: Option<&str>,
         reason: &str,
+        game: Option<&str>,
     ) -> async_graphql::Result<Player> {
         let reason = input::reason(reason).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?;
         let now = self.now();
         let end = input::timeout_end(minutes, until, now).map_err(|why| fail(Code::BadInput, why))?;
-        let account = self.target(operator, name).await?;
+        let account = match self
+            .locate(operator, name, game, true)
+            .await?
+            .ok_or_else(no_such_player)?
+        {
+            Found::Node(account) => protect(account)?,
+            // The module keeps the end and lifts the ban itself, so timeouts.json holds Node bans only
+            Found::Module(module, info) => {
+                let request = AdminRequest::Ban {
+                    player: info.name.clone(),
+                    reason: Some(timeout_reason(end, &reason)),
+                    until: Some(input::iso(end)),
+                };
+                self.module_act(operator, &module, request).await?;
+                return Ok(self.player_now(&module, info).await);
+            }
+        };
         let timed_out = self.timeouts.get(&account.user_id).await.is_some();
         match status_of(&account) {
             AccountStatus::Active => {}
@@ -478,14 +793,28 @@ impl Admin {
         self.player(operator, updated).await
     }
 
-    pub async fn unban(&self, operator: &Operator, name: &str, reason: Option<&str>) -> async_graphql::Result<Player> {
+    pub async fn unban(
+        &self,
+        operator: &Operator,
+        name: &str,
+        reason: Option<&str>,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
         let reason = match reason {
             Some(given) => {
                 input::reason(given).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?
             }
             None => "Ban lifted".into(),
         };
-        let account = self.account(operator, name).await?;
+        // module-api has no request that lifts a ban yet
+        let account = match self
+            .locate(operator, name, game, true)
+            .await?
+            .ok_or_else(no_such_player)?
+        {
+            Found::Node(account) => account,
+            Found::Module(module, _) => return Err(not_supported(&module, "lift a ban")),
+        };
         if status_of(&account) != AccountStatus::Banned {
             return Err(fail(Code::NotBanned, "this player is not banned"));
         }
@@ -494,8 +823,20 @@ impl Admin {
         self.player(operator, updated).await
     }
 
-    pub async fn lift_timeout(&self, operator: &Operator, name: &str) -> async_graphql::Result<Player> {
-        let account = self.account(operator, name).await?;
+    pub async fn lift_timeout(
+        &self,
+        operator: &Operator,
+        name: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let account = match self
+            .locate(operator, name, game, true)
+            .await?
+            .ok_or_else(no_such_player)?
+        {
+            Found::Node(account) => account,
+            Found::Module(module, _) => return Err(not_supported(&module, "lift a timeout")),
+        };
         let player = self.restriction(&account).await;
         if player.map(|r| r.kind) != Some(RestrictionKind::Timeout) {
             return Err(fail(Code::NotTimedOut, "this player is not timed out"));
@@ -630,13 +971,17 @@ pub struct Query;
 
 #[Object]
 impl Query {
-    /// A player by username (case-insensitive); null when there is no such account.
-    async fn player(&self, ctx: &Context<'_>, username: String) -> async_graphql::Result<Option<Player>> {
+    /// A player by username (case-insensitive), in whichever game on this server has them; null when
+    /// there is no such account. `game` (a game version, such as 1.4.4) picks one when several games
+    /// have the name, here and in every mutation.
+    async fn player(
+        &self,
+        ctx: &Context<'_>,
+        username: String,
+        game: Option<String>,
+    ) -> async_graphql::Result<Option<Player>> {
         let (admin, operator) = parts(ctx)?;
-        match admin.find(operator, &username).await? {
-            Some(account) => admin.player(operator, account).await.map(Some),
-            None => Ok(None),
-        }
+        admin.find_player(operator, &username, game.as_deref()).await
     }
 
     async fn server_status(&self, ctx: &Context<'_>) -> async_graphql::Result<ServerStatus> {
@@ -676,9 +1021,14 @@ pub struct Mutation;
 impl Mutation {
     /// Drops a connected player now: their chat connections close and their sign-in tokens are
     /// revoked. They are not banned, and may log in again.
-    async fn kick(&self, ctx: &Context<'_>, username: String) -> async_graphql::Result<KickResult> {
+    async fn kick(
+        &self,
+        ctx: &Context<'_>,
+        username: String,
+        game: Option<String>,
+    ) -> async_graphql::Result<KickResult> {
         let (admin, operator) = parts(ctx)?;
-        admin.kick(operator, &username).await
+        admin.kick(operator, &username, game.as_deref()).await
     }
 
     /// Bans a player until a given time, then lifts the ban. Give `minutes` or `until` (RFC 3339),
@@ -690,24 +1040,36 @@ impl Mutation {
         minutes: Option<i64>,
         until: Option<String>,
         reason: String,
+        game: Option<String>,
     ) -> async_graphql::Result<Player> {
         let (admin, operator) = parts(ctx)?;
         admin
-            .timeout(operator, &username, minutes, until.as_deref(), &reason)
+            .timeout(operator, &username, minutes, until.as_deref(), &reason, game.as_deref())
             .await
     }
 
     /// Lifts a timeout before it runs out.
-    async fn lift_timeout(&self, ctx: &Context<'_>, username: String) -> async_graphql::Result<Player> {
+    async fn lift_timeout(
+        &self,
+        ctx: &Context<'_>,
+        username: String,
+        game: Option<String>,
+    ) -> async_graphql::Result<Player> {
         let (admin, operator) = parts(ctx)?;
-        admin.lift_timeout(operator, &username).await
+        admin.lift_timeout(operator, &username, game.as_deref()).await
     }
 
     /// Bans a player until someone unbans them. Replaces a timeout. The player reads `reason` in the
     /// launcher.
-    async fn ban(&self, ctx: &Context<'_>, username: String, reason: String) -> async_graphql::Result<Player> {
+    async fn ban(
+        &self,
+        ctx: &Context<'_>,
+        username: String,
+        reason: String,
+        game: Option<String>,
+    ) -> async_graphql::Result<Player> {
         let (admin, operator) = parts(ctx)?;
-        admin.ban(operator, &username, &reason).await
+        admin.ban(operator, &username, &reason, game.as_deref()).await
     }
 
     /// Lifts a ban or a timeout.
@@ -716,8 +1078,11 @@ impl Mutation {
         ctx: &Context<'_>,
         username: String,
         reason: Option<String>,
+        game: Option<String>,
     ) -> async_graphql::Result<Player> {
         let (admin, operator) = parts(ctx)?;
-        admin.unban(operator, &username, reason.as_deref()).await
+        admin
+            .unban(operator, &username, reason.as_deref(), game.as_deref())
+            .await
     }
 }

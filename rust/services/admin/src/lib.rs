@@ -1,7 +1,8 @@
 //! The admin API (docs/admin-api.md): GraphQL over HTTP for the host's own tools, such as a Discord
 //! bot. Moderation (kick, timeout, ban and their undo) and status (a player, the server, the hunts),
-//! answered from the Node backend's admin routes and the Director. It listens on loopback only and
-//! wants its key on every request; the gateway never forwards to it (docs/security/admin-api.md).
+//! answered from the Node backend's admin routes and the Director, and kick, ban and lookup from the
+//! module of the player's game (`modules`, DF4c). It listens on loopback only and wants its key on
+//! every request; the gateway never forwards to it (docs/security/admin-api.md).
 
 pub mod app;
 pub mod cli;
@@ -9,6 +10,7 @@ pub mod config;
 pub mod hmac;
 pub mod input;
 pub mod log;
+pub mod modules;
 pub mod schema;
 pub mod server;
 pub mod timeouts;
