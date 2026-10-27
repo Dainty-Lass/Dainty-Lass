@@ -11,7 +11,8 @@
 //! Drizzle databases are adopted (D11, [`adopt`]), new ones get every migration.
 //!
 //! [`Database`] is the same on two engines, SQLite or Postgres (DD15), with the change log on every
-//! write (DD23, [`history`]). [`Store`] stays SQLite-only for DR's metagame until RV3 moves it over.
+//! write (DD23, [`history`]), queried and reverted through [`revert`] (DH3). [`Store`] stays SQLite-only
+//! for DR's metagame until RV3 moves it over.
 
 pub mod adopt;
 pub mod backup;
@@ -22,6 +23,7 @@ mod engine;
 pub mod history;
 pub mod portable;
 pub mod readonly;
+pub mod revert;
 mod snapshot;
 pub mod transfer;
 
@@ -40,6 +42,7 @@ pub use database::{Database, DatabaseOptions, DatabaseSchema, KeyValue, Tx};
 pub use engine::{DatabaseConfig, Engine, PostgresConfig, is_local_address};
 pub use history::{Actor, ChangeEntry};
 pub use readonly::{open_read_only, schema_version};
+pub use revert::{AccountColumn, Cursor, Filter, RevertOutcome, RevertPlan};
 pub use snapshot::schema_snapshot;
 
 /// The connection [`Store`]'s closures get. [`Database`]'s get an [`AnyConnection`].
@@ -69,6 +72,10 @@ pub enum Error {
     Actor(String),
     #[error("db move: {0}")]
     Move(String),
+    #[error("revert: {0}")]
+    Revert(String),
+    #[error("the history changed since the dry run: run it again")]
+    PlanChanged,
     #[error("the database task panicked")]
     Panicked,
 }

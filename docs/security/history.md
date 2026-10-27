@@ -2,9 +2,10 @@
 
 # Security checklist: the change log (DD23)
 
-The checklist for `store`'s change log, `rust/crates/store/src/history.rs` and `database.rs` (docs/dainty-lass-plan.md
-DD23, DH1, DF7). A stub for DX2 to finish: it covers DH1's layer, the log written in the same transaction as each
-change. Shipping it off the server (DH4), the hash chain (DH5) and `history`/`revert` (DH3) add their own sections.
+The checklist for `store`'s change log, `rust/crates/store/src/history.rs` and `database.rs`, and its history and
+revert engine, `revert.rs` (docs/dainty-lass-plan.md DD23, DH1, DH3a, DF7). A stub for DX2 to finish: it covers DH1's
+layer, the log written in the same transaction as each change, and DH3a's engine. Shipping it off the server (DH4),
+the hash chain (DH5) and the `history`/`revert` commands (DH3b) add their own sections.
 
 How to use it: before the first service writes player data through `store::Database`, copy this list into the
 review, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with
@@ -70,9 +71,38 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
 - [ ] Compose's `postgres` container listens on 127.0.0.1 in the shared namespace and asks for the password on it
       (`--auth-host=scram-sha-256`).
 
+### History and revert (DH3a)
+
+- [ ] A revert never overwrites a newer change silently (plan section 6): a row changed since the selection's first
+      entry on it by an entry outside the selection is reported as `changed_since` and left as it is; one that isn't
+      as its last entry left it (a migration) as `not_as_logged`. Test: `a_partners_mass_delete_is_reverted_in_one_call`
+      (both engines).
+- [ ] A row already as the revert would leave it is reported unchanged, so a second revert of the same selection
+      writes nothing. Same test.
+- [ ] `revert_apply` runs as one `Database::write` of the reverting actor: every compensating change is logged and
+      can be reverted in turn, and a failure rolls the whole revert back. Same test (the revert is reverted).
+- [ ] The plan is recomputed under the write lock and applied only while its id (SHA-256 of the selection and every
+      action, conflict and current row) is the dry run's; otherwise `Error::PlanChanged` and nothing is written. The
+      actions a caller passes back are never trusted. Test: `a_plan_that_no_longer_holds_is_refused_and_nothing_is_written`.
+- [ ] A selection needs an actor, an account or a start time: there is no "revert everything" call. Test:
+      `a_revert_needs_a_selection_and_accounts_need_their_columns`.
+- [ ] An inserted row is removed by its table's policy (soft-deleted on a soft-delete table), so a revert doesn't
+      hard-delete player data. Test: `inserts_and_updates_are_undone_by_each_tables_policy`.
+- [ ] Rows come back parents first and go out children first, so foreign keys hold on both engines.
+- [ ] Every identifier in the engine's SQL comes from the catalog or the log and is quoted; every value is bound,
+      the account id included.
+- [ ] A log copied by `db move` reverts on the other engine: key text and booleans are compared normalised. Test:
+      `a_delete_logged_on_sqlite_is_reverted_after_moving_to_postgres`.
+- [ ] Who may revert, and the delay or second approval for a bulk one, are DH3b's and DH6's: the engine trusts its
+      caller.
+
 ## Known gaps
 
 - Root on the server can drop the triggers or the log. DH4 and DH5 are the answer.
 - DR's metagame still writes through the SQLite-only `Store`, outside the log, until RV3 moves it.
+- A change that moved a row's primary key splits its history in two; the engine reports `key_changed` rather than
+  revert it.
+- A dry run loads every entry the selection holds and every later entry on the tables it touched: no cap yet. DH6's
+  guard on bulk reverts is where a limit belongs.
 
 Reviewed by: ________ on ________ at commit ________
