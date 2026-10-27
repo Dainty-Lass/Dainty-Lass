@@ -45,6 +45,8 @@ pub struct Shared {
     pub rifts: Rifts,
     /// `MYSTICPARADOX_ADMIN_API`, read once at start as Node does
     pub admin_api: bool,
+    /// Matchmaking's in-memory state (DD15): queues, candidates, presence
+    pub matchmaking: Arc<crate::areas::matchmaking::state::MatchmakingState>,
 }
 
 impl Shared {
@@ -58,6 +60,7 @@ impl Shared {
             store: None,
             rifts: Rifts::dedicated_only(),
             admin_api: false,
+            matchmaking: Arc::default(),
         }
     }
 }

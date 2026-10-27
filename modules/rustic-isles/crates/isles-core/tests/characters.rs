@@ -534,6 +534,7 @@ fn shared_with(store: &IslesStore, version: IslesVersion, recorder: Arc<Recorder
             routes: Vec::new(),
         }),
         admin_api: false,
+        matchmaking: Arc::default(),
     })
 }
 
