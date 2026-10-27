@@ -275,7 +275,7 @@ fn proxy(upstream: Upstream, limit_class: LimitClass, feed: Option<FeedKind>) ->
 }
 
 /// `Under`: the path is the prefix or below it.
-fn under(canonical: &str, prefix: &str) -> bool {
+pub fn under(canonical: &str, prefix: &str) -> bool {
     canonical
         .strip_prefix(prefix)
         .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
