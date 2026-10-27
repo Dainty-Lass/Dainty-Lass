@@ -47,6 +47,8 @@ sha2 = "0.11"
 # launcher_host: the launcher's host.toml reader
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 service-kit = { path = "../crates/service-kit" }
+# history_record: change-log records read back during a restore (DH5)
+store = { path = "../crates/store" }
 url = "2"
 
 [[bin]]
@@ -122,6 +124,13 @@ bench = false
 [[bin]]
 name = "gateway_policy_legacy"
 path = "fuzz_targets/gateway_policy_legacy.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "history_record"
+path = "fuzz_targets/history_record.rs"
 test = false
 doc = false
 bench = false
