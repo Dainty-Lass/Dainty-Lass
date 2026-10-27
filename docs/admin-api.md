@@ -25,6 +25,7 @@ What it needs, all written by setup:
 | `BACKEND_URL`, `REFORGED_DIRECTOR_URL` | `admin.env` | `http://127.0.0.1:61000` and `:61001`. Loopback only |
 | `REFORGED_ADMIN_API_TIMEOUTS_FILE` | `admin.env` | `.workspace/config/admin-timeouts.json`, which holds when each timeout ends |
 | `REFORGED_MAX_HUNT_SERVERS`, `REFORGED_SERVER_MODE` | `admin.env` | From `host.toml`, for `huntStatus` and `serverStatus` |
+| `REFORGED_GUARD_*` | `admin.env` | From `[guard]` in `host.toml`, only the ones it sets: when a destructive or bulk action waits (below) |
 
 A host moving from an older setup gets the new secrets on the next `setup` (or `update`). The secrets it already has
 stay as they are.
@@ -41,6 +42,7 @@ type Query {
   serverStatus: ServerStatus!                  # name, mode, registration, version, commit, uptimeSeconds, onlineCount
   huntStatus: HuntStatus!                      # maxHuntServers, running, free, hunts { title, players { username } }
   activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
+  guarded(all: Boolean): [GuardedAction!]!     # the destructive and bulk actions that wait (below)
 }
 
 type Mutation {
@@ -49,6 +51,8 @@ type Mutation {
   liftTimeout(username: String!, game: String): Player!
   ban(username: String!, reason: String!, game: String): Player!
   unban(username: String!, reason: String, game: String): Player!
+  approve(id: String!): GuardedAction!         # a second operator approves a held action
+  cancel(id: String!): GuardedAction!
 }
 
 type Player {
@@ -94,7 +98,8 @@ Errors are GraphQL errors with a code in `extensions.code`: `BAD_INPUT`, `NOT_FO
 `ALREADY_BANNED`, `NOT_BANNED`, `NOT_TIMED_OUT`, `BACKEND_UNAVAILABLE` (the backend, the Director or a game's module
 didn't answer), `BACKEND_REFUSED` (its message says when the secrets don't match: run `setup` and restart),
 `STATE_NOT_SAVED`, `AMBIGUOUS_PLAYER`, `UNKNOWN_GAME`, `NOT_SUPPORTED` (the player's module can't do that yet),
-`FORBIDDEN` (the key's role is too low; see above). A
+`FORBIDDEN` (the key's role is too low; see above), `GUARDED` (the action was held, not done: see Guarded actions),
+`NOT_WAITING` (a guarded action that is not waiting). A
 request refused before any GraphQL runs gets a 4xx with the same shape: 401 `UNAUTHENTICATED`, 403 `FORWARDED`,
 400 `BAD_OPERATOR` or `BAD_REQUEST`, 415 `NOT_JSON`, 503 `KEYS_UNAVAILABLE` (the keys' database didn't answer; the
 owner's key still works). A revoked or unknown key is 401 `UNAUTHENTICATED`.
@@ -109,7 +114,7 @@ nobody else's key changes.
 | Role | May |
 | --- | --- |
 | `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module` |
-| `moderator` | Viewer, and `kick`, `timeout`, `ban` |
+| `moderator` | Viewer, and `kick`, `timeout`, `ban`, and `guarded`, `approve`, `cancel` (a held action: see Guarded actions) |
 | `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys |
 | `owner` | Everything: `issueKey` for any role, `revokeKey`, and the history revert once it lands (DH3) |
 
@@ -137,6 +142,98 @@ The change log (DD23) names the key: each admin API change is a row in `admin_ac
 (`admin:<id>`, or `host:admin key issue`), and a game module is told the same actor with every call. The keys live in
 the admin API's own database: `admin.db` next to the node's SQLite file, or the node's Postgres database.
 
+## Guarded actions (DH6)
+
+Some actions cannot be taken back with one more call, or do a lot at once. They do not run when they are asked. They
+are written to the admin API database and wait, either for a **delay** to end or for a **second operator** to
+approve, and then they run once, as the key that asked. Until then the person who asked and any owner can cancel
+them.
+
+| Action | Held when | Waits for (setting) |
+| --- | --- | --- |
+| `ban`, `timeout` | one key has made more than `ban_limit` of them in the last `ban_window_minutes` (10 in an hour) | `ban_guard` (a delay) |
+| `revokeKey` | the key is an admin or owner key and not the caller own. Viewer and moderator keys go at once, so a leaked one is not live for ten minutes | `revoke_guard` (a delay) |
+| the history revert (DH3b) | the plan has more than `revert_limit` changes (100) | `revert_guard` (a delay) |
+
+Not guarded, on purpose: `kick` (nothing is lost), `unban` and `liftTimeout` (they give back), `loadModule`,
+`unloadModule` and `restartModule` (a stopped game is started with one call and nothing is erased) and `issueKey` (it
+adds access, and only the owner issues the high roles). Everything below the limits runs at once, exactly as before:
+a server that never sets `[guard]` behaves as it did except for the bulk and destructive cases in the table.
+
+**The owner waits too.** `REFORGED_ADMIN_API_KEY` is a key like any other here. A held action of the owner needs
+the approval of a second key with the owner role, or of the host (below), or it waits out its delay. There is no way
+around it through the API.
+
+Each rule is `delay` (the action runs by itself `delay_minutes` after it was asked, 10 by default), `approval`
+(another operator approves it; a delay is never approved early) or `off` (never held). An action nobody approved is
+dropped after `expire_hours` (48), and so is one a stopped server could not run in that time; it is then `EXPIRED`.
+An approver must hold **a different key** than the one that asked, with **at least the role of the key that asked**
+and at least the role the action itself needs (an owner for a revoke or a revert); the approval of the same key is
+refused. The action runs as the key that asked, so the change log names that key, and `admin_actions.approved_by`
+names the second operator. If the key that asked was revoked while the action waited, or lost the role it needs, the
+action does not run (`FAILED`, with the reason).
+
+What it looks like to a caller: the call that is held answers **no data and a GraphQL error with the code
+`GUARDED`**, which is not a failure but a receipt:
+
+```json
+{"errors": [{"message": "ban is held as 3f9c1a07d2b4e865: it runs by itself at 2026-10-27T12:10:00Z, unless it is canceled (cancel(id: \"3f9c1a07d2b4e865\"))",
+  "extensions": {"code": "GUARDED", "guardedId": "3f9c1a07d2b4e865", "mode": "DELAY", "releaseAt": "2026-10-27T12:10:00Z",
+                 "expiresAt": "2026-10-29T12:10:00Z", "needsRole": "moderator", "already": false}}]}
+```
+
+The same action asked again while it waits answers the first one (`already: true`). A bot that wants to show it
+branches on `extensions.code`. The rest is three fields (all need the moderator role or higher):
+
+```graphql
+type Query {
+  guarded(all: Boolean): [GuardedAction!]!       # waiting, oldest first; all: the latest 100, newest first
+}
+type Mutation {
+  approve(id: String!): GuardedAction!           # a second operator; runs it now and answers how it went
+  cancel(id: String!): GuardedAction!            # the key that asked, or an owner
+}
+# GuardedAction: id, kind, summary, state (PENDING APPROVED RUNNING DONE FAILED CANCELED EXPIRED), mode (DELAY APPROVAL),
+# initiatedBy, needsRole, createdAt, releaseAt, expiresAt, approvedBy, canceledBy, endedAt, result
+```
+
+`NOT_WAITING` answers an `approve` or `cancel` of an action that already ran, was canceled or expired, or that waits
+out a delay. An id is 16 hex digits.
+
+From the host, which counts as an owner no key can be (so it may approve what an owner asked, and cancel anything):
+
+```bash
+reforged-host admin guarded list [--all] [--json]   # what waits, and for what
+reforged-host admin guarded approve 3f9c1a07d2b4e865
+reforged-host admin guarded cancel 3f9c1a07d2b4e865
+```
+
+These only record the decision, as `host:admin guarded approve` or `cancel` in the change log; the running server
+carries an approved action out within 30 seconds, and a stopped one at its next start. The server GUI Host page
+does the same through the launcher (`guarded_list`, `guarded_approve`, `guarded_cancel`).
+
+**A restart keeps what waits**: the actions are rows in the admin API database. One the server was running when
+it stopped is marked `FAILED` at the next start and never run again, because whether it took effect is not known;
+look at the player or the key, and ask again.
+
+The settings, in `host.toml` (each is left out for its default; nothing needs setting):
+
+| Key | Default | What |
+| --- | --- | --- |
+| `[guard]` `ban_limit` | 10 | Bans and timeouts one key may make in the window before the next is held, 1 to 1000000 |
+| `ban_window_minutes` | 60 | The window, 1 to 1440 |
+| `ban_guard` | `"delay"` | `"delay"`, `"approval"` or `"off"` for the held bans and timeouts |
+| `revert_limit` | 100 | A history revert of more changes than this is held |
+| `revert_guard` | `"delay"` | The same three words |
+| `revoke_guard` | `"delay"` | The same three words, for revoking an admin or owner key |
+| `delay_minutes` | 10 | How long a delay waits, 1 to 1440 |
+| `expire_hours` | 48 | How long an action nobody approved stays, 1 to 720 |
+
+`approval` needs a second person with a key; on a server with one owner key nothing can approve, so it expires.
+Leave the rules on `delay` until the team has two keys of the right role. `reforged-host setup` writes the settings
+into `admin.env` as `REFORGED_GUARD_BAN_LIMIT`, `_BAN_WINDOW_MINUTES`, `_BAN`, `_REVERT_LIMIT`, `_REVERT`, `_REVOKE`,
+`_DELAY_MINUTES` and `_EXPIRE_HOURS`, only the ones `host.toml` sets.
+
 ## Calling it
 
 `POST http://127.0.0.1:61003/graphql`, with `Content-Type: application/json` and a body of
@@ -158,6 +255,10 @@ curl -s http://127.0.0.1:61003/graphql -H "Authorization: Bearer $REFORGED_ADMIN
 The bot runs on the server itself, because the API is loopback only. A bot on another machine reaches it through an
 SSH tunnel (`ssh -L 61003:127.0.0.1:61003 host`), never by changing `BIND_HOST`. Give the bot the key from
 `secrets.env` in its own environment, and never put it in the bot's repository.
+
+A held action (`GUARDED`) comes back as an error whose message already says what to do; the sketch shows it as
+`Refused: ...`, and a bot that wants a nicer line reads `error.extensions.guardedId` and offers `/approve` and
+`/cancel` the same way.
 
 A discord.js sketch in the style of Dauntless Revived's `UndauntedDiscordBot`: `/status`, `/player`, `/hunts` for
 everyone, and `/kick`, `/timeout`, `/ban`, `/unban` only for members who can ban in Discord.

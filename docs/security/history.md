@@ -224,6 +224,7 @@ read it back. Anyone with root on the server has the server's key, so everything
 - A change that moved a row's primary key splits its history in two; the engine reports `key_changed` rather than
   revert it.
 - A dry run loads every entry the selection holds and every later entry on the tables it touched: no cap yet. DH6's
-  guard on bulk reverts is where a limit belongs.
+  guard holds an apply over `revert_limit` changes (`Admin::gate(Gate::Revert { .. })`, `docs/admin-api.md`), but a
+  dry run changes nothing and is not held.
 
 Reviewed by: ________ on ________ at commit ________

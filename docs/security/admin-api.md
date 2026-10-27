@@ -83,7 +83,8 @@ Fuzz target in `rust/fuzz`:
   name, reason or timeout end is within its rule, that an accepted game has one spelling, that a module's text comes
   out one capped line, and that an instance's fields stay within their caps. It also feeds the key parser: only a
   77-character `RRA_<8 hex>_<64 hex>` key has an id to look up, a key's name is one capped line and a role name
-  round-trips.
+  round-trips. Also that a guarded action is found only by 16 lower-case hex digits and that a guard rule is one of
+  `off`, `delay` or `approval` (DH6).
 
 ## Checklist
 
@@ -139,6 +140,42 @@ Fuzz target in `rust/fuzz`:
       `ActorContext` (`a_module_is_told_which_key_asked`).
 - [ ] A refusal is logged with the key id and never the key (`allow`, `app.rs` `authenticate`).
 - [ ] `admin key` commands run on the host with `admin.env` and no key; they are as trusted as the host.
+
+### Guarded actions (DH6) checklist
+
+The destructive and bulk actions wait (DD23 layer 4): a ban or timeout over `ban_limit` an hour from one key,
+`revokeKey` of an admin or owner key, and a history revert over `revert_limit` changes. They are rows of
+`guarded_actions` in the admin database, written by `Admin::gate`, which each of those actions calls after its role
+and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the reason in `guarded.rs`: `kick`,
+`unban`, `liftTimeout`, the module calls and `issueKey`.
+
+- [ ] The owner is held like any key: there is no role or key that skips `gate`, and the owner key cannot approve its
+      own action (`the_owner_waits_too_and_needs_a_second_owner`).
+- [ ] An approval comes from a different key (`Caller.key`) with at least the initiator role and the action own role;
+      the same key is `FORBIDDEN` and nothing changes (`approval_by_the_same_key_or_a_lesser_role_is_refused`). A delay
+      is never approved early (`a_bulk_ban_waits_out_its_delay_and_then_runs_once`).
+- [ ] The host kit (`admin guarded approve`) counts as the key `host`, an owner no key can equal. It is as trusted as
+      the host, which can edit the database anyway; its decisions are `host:admin guarded <command>` in the change log.
+- [ ] Cancel is the key that asked or an owner (`a_second_operator_cancels_a_bulk_action_while_it_waits`); a canceled,
+      done, failed or expired action cannot be approved or canceled again.
+- [ ] Executed once: a held action moves `pending`/`approved` to `running` in one conditional `UPDATE`; only the
+      caller that changed the row runs it (`guard::claim`; `guarded_actions_on_sqlite` claims from eight tasks at once
+      on both engines). One the server stopped in the middle of is marked `failed` at the next start and never run
+      again (`an_action_the_server_stopped_in_the_middle_of_is_failed_and_never_run_again`).
+- [ ] A restart keeps what waits (`a_restart_keeps_what_waits_and_runs_it_once`, `what_waits_survives_a_restart`).
+- [ ] It runs as the key that asked, if that key is still active and still has the role (`Admin::execute`); a key
+      revoked meanwhile fails the action (`a_held_action_does_not_run_for_a_key_that_was_revoked_meanwhile`). The
+      change log names that key, and `admin_actions.approved_by` the approver (`APPROVED_BY`, set only while a held
+      action runs).
+- [ ] `params` hold what the action needs (a name, a reason, a key id, a plan id), never a key or a secret; the API
+      shows `summary`, not `params`.
+- [ ] An unapproved action expires (`expire_hours`); an expired one never runs, also if the server was down past it
+      (`a_held_approval_expires_when_nobody_comes`).
+- [ ] The thresholds are `host.toml` `[guard]`, written to `admin.env` by setup and read by `Config::from_env`, which
+      refuses a value out of range (`config.rs` test, `host/tests/config.rs`). Left out, the defaults hold only the
+      bulk cases (`everyday_moderation_is_immediate_and_old_installs_behave_as_before`).
+- [ ] The count behind `ban_limit` is per key, from `admin_actions`: several keys each stay under it. A team that
+      wants a ceiling on the whole server sets `ban_guard = "approval"` and a small `ban_limit`.
 
 ### Game modules (DF4c)
 
@@ -217,6 +254,12 @@ backend can't start before its gate (RD17). So `paradox/` gained one small route
 Section 6 keeps the host kit's `.env` files as the Node kit wrote them. This row adds to them and changes nothing
 already there: two keys at the end of `secrets.env`, two lines in `backend.env` (after `REFORGED_ADMIN_KEY`), and a
 new `admin.env`. `tests/node_fixtures.rs` still checks every Node-kit line byte for byte and leaves out only these.
+
+DH6 changes no existing file: `admin.env` gains the `REFORGED_GUARD_*` lines only when `host.toml` has a `[guard]`
+table, the admin database gains a table and a column through a migration, and the schema gains `guarded`, `approve`
+and `cancel`. What does change for a client is that a ban or timeout over the limit, the revoking of an admin or
+owner key and a big revert answer `GUARDED` instead of running (the owner included): that is the row, and the limits
+are settings.
 
 ## Fuzzing
 

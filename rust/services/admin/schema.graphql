@@ -53,6 +53,89 @@ type AdminKey {
 	revokedBy: String
 }
 
+enum GuardMode {
+	"""
+	Waits `delay_minutes`, then runs by itself.
+	"""
+	DELAY
+	"""
+	Waits for a second operator.
+	"""
+	APPROVAL
+}
+
+"""
+A guarded action as the API shows it. Never the parameters it runs with.
+"""
+type GuardedAction {
+	"""
+	16 hex digits: what `approve` and `cancel` take.
+	"""
+	id: String!
+	"""
+	`ban`, `timeout`, `revokeKey` or `revert`.
+	"""
+	kind: String!
+	"""
+	One line of what it will do.
+	"""
+	summary: String!
+	state: GuardedState!
+	mode: GuardMode!
+	"""
+	The key that asked: `owner` or a key id.
+	"""
+	initiatedBy: String!
+	"""
+	The lowest role that may approve it.
+	"""
+	needsRole: Role!
+	createdAt: String!
+	"""
+	When a delay ends and the action runs by itself; null when it waits for an approval.
+	"""
+	releaseAt: String
+	"""
+	When it is dropped if it has not run.
+	"""
+	expiresAt: String!
+	"""
+	The second operator key (`host` for the host kit). The action ran as the key that asked.
+	"""
+	approvedBy: String
+	canceledBy: String
+	endedAt: String
+	"""
+	What it did, or why it did not: the action own refusal, or that the key that asked was revoked.
+	"""
+	result: String
+}
+
+enum GuardedState {
+	"""
+	Waiting for its delay to end or for an approval.
+	"""
+	PENDING
+	"""
+	Approved; the server runs it within seconds.
+	"""
+	APPROVED
+	"""
+	Being run now.
+	"""
+	RUNNING
+	DONE
+	"""
+	It ran and the action itself refused or failed, or the server stopped while it ran: see `result`.
+	"""
+	FAILED
+	CANCELED
+	"""
+	Nobody approved it in time, or the server was down past its time.
+	"""
+	EXPIRED
+}
+
 type Hunt {
 	id: String!
 	title: String!
@@ -217,6 +300,16 @@ type Mutation {
 	secrets.env.
 	"""
 	revokeKey(id: String!): AdminKey!
+	"""
+	Approves a held action as a second operator: another key than the one that asked, with at least its
+	role. It runs now as the key that asked, and the answer says how it went. A delay is never approved
+	early. Moderator role or higher.
+	"""
+	approve(id: String!): GuardedAction!
+	"""
+	Cancels a held action that has not run: the key that asked, or an owner.
+	"""
+	cancel(id: String!): GuardedAction!
 }
 
 type Player {
@@ -278,6 +371,12 @@ type Query {
 	key itself.
 	"""
 	adminKeys: [AdminKey!]!
+	"""
+	The destructive and bulk actions that are held: waiting for their delay to end or for a second
+	operator (`approve`), oldest first; with `all`, the latest finished ones too, newest first. A held
+	action was answered with the code GUARDED and its id. Moderator role or higher.
+	"""
+	guarded(all: Boolean): [GuardedAction!]!
 }
 
 """

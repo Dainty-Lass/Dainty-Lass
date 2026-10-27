@@ -14,6 +14,7 @@ pub mod commands;
 pub mod envfile;
 pub mod epicinstall;
 pub mod error;
+pub mod guarded;
 pub mod hostconfig;
 pub mod hosttoml;
 pub mod paths;
@@ -78,13 +79,13 @@ pub fn run(cli: &cli::Cli) -> Outcome {
     commands::dispatch(&cli.command, &paths::Paths::new(root))
 }
 
-/// `admin key issue|list|revoke` without `--env-file` reads this checkout's admin.env (DH2); a container with
-/// no checkout names the file itself.
+/// `admin key ...` and `admin guarded ...` without `--env-file` read this checkout admin.env (DH2, DH6); a
+/// container with no checkout names the file itself.
 fn with_admin_env(name: &str, args: &[String]) -> Vec<String> {
     let mut args = args.to_vec();
     let named = args.iter().any(|a| a == "--env-file" || a.starts_with("--env-file="));
     if name == "admin"
-        && args.first().is_some_and(|a| a == "key")
+        && args.first().is_some_and(|a| a == "key" || a == "guarded")
         && !named
         && let Ok(root) = paths::locate_repo_root()
     {

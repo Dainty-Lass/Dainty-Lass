@@ -296,6 +296,11 @@ pub enum ErrorCode {
     GameVersionUnavailable,
     /// No source gave the manifest the client profile pins
     EpicManifestUnavailable,
+    // Guarded admin actions (DH6):
+    /// No guarded action has that id
+    GuardedNotFound,
+    /// The action already ran, was canceled or expired, or it waits out a delay and cannot be approved
+    GuardedNotWaiting,
     Unknown,
 }
 
@@ -1324,10 +1329,151 @@ impl Serialize for InstallOutcome {
     }
 }
 
+/// Where a guarded admin action stands (DH6; the admin API's `GuardedState`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum GuardedState {
+    /// Waiting for its delay to end or for a second operator
+    Pending,
+    /// Approved; the server runs it within seconds
+    Approved,
+    Running,
+    Done,
+    Failed,
+    Canceled,
+    Expired,
+}
+
+/// What a guarded action waits for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum GuardedMode {
+    /// Its delay ends and it runs by itself
+    Delay,
+    /// A second operator approves it
+    Approval,
+}
+
+/// One destructive or bulk admin action held for a delay or a second operator (DD23, DH6). Times are RFC 3339.
+/// Never the parameters it runs with.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct GuardedActionInfo {
+    /// 16 hex digits
+    pub id: String,
+    /// `ban`, `timeout`, `revokeKey` or `revert`
+    pub kind: String,
+    /// One line of what it will do, in English: it comes from the admin API
+    pub summary: String,
+    pub state: GuardedState,
+    pub mode: GuardedMode,
+    /// The admin key that asked: `owner` or a key id
+    pub initiated_by: String,
+    /// The lowest admin role that may approve it
+    pub needs_role: String,
+    pub created_at: String,
+    /// When a delay ends; null for an approval
+    pub release_at: Option<String>,
+    pub expires_at: String,
+    pub approved_by: Option<String>,
+    pub canceled_by: Option<String>,
+    pub ended_at: Option<String>,
+    pub result: Option<String>,
+}
+
+/// `guarded_list`: `{ ok: true, actions } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum GuardedList {
+    Ok(Vec<GuardedActionInfo>),
+    Err(LauncherError),
+}
+
+impl Serialize for GuardedList {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Listed<'a> {
+            ok: bool,
+            actions: &'a [GuardedActionInfo],
+        }
+        match self {
+            Self::Ok(actions) => Listed { ok: true, actions }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// `guarded_approve` and `guarded_cancel`: `{ ok: true, action } | { ok: false, error }`. The action is as it
+/// stands after: approved (the server runs it within seconds) or canceled.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum GuardedOutcome {
+    Ok(Box<GuardedActionInfo>),
+    Err(LauncherError),
+}
+
+impl Serialize for GuardedOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Decided<'a> {
+            ok: bool,
+            action: &'a GuardedActionInfo,
+        }
+        match self {
+            Self::Ok(action) => Decided { ok: true, action }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn guarded_outcomes_read_as_the_page_expects() {
+        let info = GuardedActionInfo {
+            id: "0123456789abcdef".into(),
+            kind: "ban".into(),
+            summary: "ban Ada: griefing".into(),
+            state: GuardedState::Pending,
+            mode: GuardedMode::Delay,
+            initiated_by: "58ef5419".into(),
+            needs_role: "moderator".into(),
+            created_at: "2026-10-27T12:00:00Z".into(),
+            release_at: Some("2026-10-27T12:10:00Z".into()),
+            expires_at: "2026-10-29T12:10:00Z".into(),
+            approved_by: None,
+            canceled_by: None,
+            ended_at: None,
+            result: None,
+        };
+        let listed = serde_json::to_value(GuardedList::Ok(vec![info.clone()])).unwrap();
+        assert_eq!(listed["ok"], true);
+        assert_eq!(listed["actions"][0]["initiatedBy"], "58ef5419");
+        assert_eq!(listed["actions"][0]["state"], "pending");
+        assert_eq!(listed["actions"][0]["releaseAt"], "2026-10-27T12:10:00Z");
+        let decided = serde_json::to_value(GuardedOutcome::Ok(Box::new(info))).unwrap();
+        assert_eq!(decided["action"]["id"], "0123456789abcdef");
+        assert_eq!(
+            serde_json::to_value(GuardedOutcome::Err(LauncherError::new(ErrorCode::GuardedNotFound))).unwrap(),
+            json!({ "ok": false, "error": { "code": "guarded_not_found" } })
+        );
+        assert_eq!(
+            serde_json::to_value(GuardedList::Err(LauncherError::new(ErrorCode::GuardedNotWaiting))).unwrap(),
+            json!({ "ok": false, "error": { "code": "guarded_not_waiting" } })
+        );
+    }
 
     #[test]
     fn install_outcomes_read_as_the_page_expects() {

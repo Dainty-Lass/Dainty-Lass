@@ -1,6 +1,7 @@
 //! The `admin` binary: `admin serve --env-file <file>` runs the admin API; `serve` is the default.
 //! `admin schema` prints the GraphQL schema (`schema.graphql`). `admin key issue|list|revoke` makes, lists
-//! and ends the per-person keys (DH2).
+//! and ends the per-person keys (DH2). `admin guarded list|approve|cancel` is the host side of the destructive
+//! and bulk actions that wait (DH6).
 //!
 //! The command line, run by `reforged-host <service>` (RD26: one binary runs every service).
 
@@ -30,6 +31,43 @@ enum Command {
     Key {
         #[command(subcommand)]
         command: KeyCommand,
+    },
+    /// Destructive and bulk actions that wait for their delay or a second operator.
+    Guarded {
+        #[command(subcommand)]
+        command: GuardedCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum GuardedCommand {
+    /// Lists the actions that are waiting (with --all, the latest finished ones too).
+    List {
+        #[arg(long)]
+        all: bool,
+        /// One line of JSON, for tools
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        env_file: Option<PathBuf>,
+    },
+    /// Approves an action by its id, as the host: the server carries it out as the key that asked.
+    Approve {
+        id: String,
+        /// One line of JSON, for tools
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        env_file: Option<PathBuf>,
+    },
+    /// Cancels an action that has not run.
+    Cancel {
+        id: String,
+        /// One line of JSON, for tools
+        #[arg(long)]
+        json: bool,
+        #[arg(long)]
+        env_file: Option<PathBuf>,
     },
 }
 
@@ -78,6 +116,7 @@ where
             return ExitCode::SUCCESS;
         }
         Command::Key { command } => return crate::key_cli::run(command),
+        Command::Guarded { command } => return crate::guarded_cli::run(command),
         Command::Serve { env_file } => env_file,
     };
     let env = match Env::load(file.as_deref()) {

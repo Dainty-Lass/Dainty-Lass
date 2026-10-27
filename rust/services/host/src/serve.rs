@@ -804,6 +804,7 @@ mod tests {
             performance: None,
             linux: None,
             database: None,
+            guard: None,
             modules: None,
             network: None,
             file: FileForm::default(),

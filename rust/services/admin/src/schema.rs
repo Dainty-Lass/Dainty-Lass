@@ -11,6 +11,8 @@ use serde_json::json;
 use tokio::task::JoinSet;
 
 use crate::config;
+use crate::guard::Guards;
+use crate::guarded::{APPROVED_BY, Gate, GuardedAction};
 use crate::input::{self, InstanceKind};
 use crate::keys::{Action, Caller, KeyError, KeyInfo, Keys, Role};
 use crate::log;
@@ -62,10 +64,14 @@ pub enum Code {
     UnknownGame,
     NotSupported,
     Forbidden,
+    /// The action was not done but held (DH6): it waits for its delay or a second operator.
+    Guarded,
+    /// A guarded action that is not waiting, or that waits out a delay and cannot be approved.
+    NotWaiting,
 }
 
 impl Code {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::BadInput => "BAD_INPUT",
             Self::NotFound => "NOT_FOUND",
@@ -80,11 +86,13 @@ impl Code {
             Self::UnknownGame => "UNKNOWN_GAME",
             Self::NotSupported => "NOT_SUPPORTED",
             Self::Forbidden => "FORBIDDEN",
+            Self::Guarded => "GUARDED",
+            Self::NotWaiting => "NOT_WAITING",
         }
     }
 }
 
-fn fail(code: Code, message: impl Into<String>) -> async_graphql::Error {
+pub(crate) fn fail(code: Code, message: impl Into<String>) -> async_graphql::Error {
     async_graphql::Error::new(message).extend_with(|_, e| e.set("code", code.as_str()))
 }
 
@@ -341,6 +349,8 @@ pub struct Admin {
     pub timeouts: Timeouts,
     /// The owner's key and the issued ones, and the record of what each did (DH2).
     pub keys: Keys,
+    /// Destructive and bulk actions that wait for a delay or a second operator (DH6).
+    pub guard: Guards,
     pub max_hunt_servers: u32,
     pub server_mode: config::ServerMode,
     pub clock: Clock,
@@ -461,13 +471,13 @@ fn key_failure(error: KeyError) -> async_graphql::Error {
 }
 
 impl Admin {
-    fn now(&self) -> i64 {
+    pub(crate) fn now(&self) -> i64 {
         (self.clock)()
     }
 
     /// Writes what `caller` did to the admin API database, under `admin:<key id>` in the change log (DH2).
     /// The action is done by now: a write that fails is logged with everything, not hidden by an error.
-    async fn audit(
+    pub(crate) async fn audit(
         &self,
         caller: &Caller,
         action: &str,
@@ -475,12 +485,15 @@ impl Admin {
         game: Option<&str>,
         detail: Option<&str>,
     ) {
+        // Set while a held action runs: the second operator who approved it (DH6)
+        let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         let entry = Action {
             operator: caller.operator.id(),
             action,
             target,
             game,
             detail,
+            approved_by: approved_by.as_deref(),
         };
         if let Err(error) = self.keys.record(&caller.key, entry, self.now()).await {
             log::error(
@@ -517,6 +530,12 @@ impl Admin {
     /// Ends a key: its next request is refused. Only the owner does it.
     pub async fn revoke_key(&self, caller: &Caller, id: &str) -> async_graphql::Result<AdminKey> {
         allow(caller, Role::Owner, "revokeKey")?;
+        self.gate(caller, Gate::RevokeKey { id }).await?;
+        self.revoke_key_now(caller, id).await
+    }
+
+    /// [`Admin::revoke_key`] once it is allowed to run: a held revoke runs here when its time comes (DH6).
+    pub(crate) async fn revoke_key_now(&self, caller: &Caller, id: &str) -> async_graphql::Result<AdminKey> {
         let by = store::Actor::Admin(caller.key.clone());
         let info = self.keys.revoke(id, by, self.now()).await.map_err(key_failure)?;
         log::info(
@@ -863,6 +882,28 @@ impl Admin {
     ) -> async_graphql::Result<Player> {
         allow(caller, Role::Moderator, "ban")?;
         let reason = input::reason(reason).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?;
+        let name = Self::checked_name(name)?;
+        self.gate(
+            caller,
+            Gate::Ban {
+                name,
+                reason: &reason,
+                game,
+            },
+        )
+        .await?;
+        self.ban_now(caller, name, &reason, game).await
+    }
+
+    /// [`Admin::ban`] once it is allowed to run, with the reason already checked (DH6).
+    pub(crate) async fn ban_now(
+        &self,
+        caller: &Caller,
+        name: &str,
+        reason: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let reason = reason.to_owned();
         let account = match self
             .locate(caller, name, game, true)
             .await?
@@ -906,6 +947,34 @@ impl Admin {
     ) -> async_graphql::Result<Player> {
         allow(caller, Role::Moderator, "timeout")?;
         let reason = input::reason(reason).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?;
+        let name = Self::checked_name(name)?;
+        input::timeout_end(minutes, until, self.now()).map_err(|why| fail(Code::BadInput, why))?;
+        self.gate(
+            caller,
+            Gate::Timeout {
+                name,
+                minutes,
+                until,
+                reason: &reason,
+                game,
+            },
+        )
+        .await?;
+        self.timeout_now(caller, name, minutes, until, &reason, game).await
+    }
+
+    /// [`Admin::timeout`] once it is allowed to run, with the reason already checked. The end is worked out
+    /// now, so a held `minutes` counts from when it runs (DH6).
+    pub(crate) async fn timeout_now(
+        &self,
+        caller: &Caller,
+        name: &str,
+        minutes: Option<i64>,
+        until: Option<&str>,
+        reason: &str,
+        game: Option<&str>,
+    ) -> async_graphql::Result<Player> {
+        let reason = reason.to_owned();
         let now = self.now();
         let end = input::timeout_end(minutes, until, now).map_err(|why| fail(Code::BadInput, why))?;
         let account = match self
@@ -1225,6 +1294,14 @@ impl Query {
         let (admin, caller) = parts(ctx)?;
         admin.admin_keys(caller).await
     }
+
+    /// The destructive and bulk actions that are held: waiting for their delay to end or for a second
+    /// operator (`approve`), oldest first; with `all`, the latest finished ones too, newest first. A held
+    /// action was answered with the code GUARDED and its id. Moderator role or higher.
+    async fn guarded(&self, ctx: &Context<'_>, all: Option<bool>) -> async_graphql::Result<Vec<GuardedAction>> {
+        let (admin, caller) = parts(ctx)?;
+        admin.guarded(caller, all.unwrap_or(false)).await
+    }
 }
 
 pub struct Mutation;
@@ -1337,5 +1414,19 @@ impl Mutation {
     async fn revoke_key(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<AdminKey> {
         let (admin, caller) = parts(ctx)?;
         admin.revoke_key(caller, &id).await
+    }
+
+    /// Approves a held action as a second operator: another key than the one that asked, with at least its
+    /// role. It runs now as the key that asked, and the answer says how it went. A delay is never approved
+    /// early. Moderator role or higher.
+    async fn approve(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<GuardedAction> {
+        let (admin, caller) = parts(ctx)?;
+        admin.approve(caller, &id).await
+    }
+
+    /// Cancels a held action that has not run: the key that asked, or an owner.
+    async fn cancel(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<GuardedAction> {
+        let (admin, caller) = parts(ctx)?;
+        admin.cancel(caller, &id).await
     }
 }

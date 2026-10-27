@@ -210,6 +210,7 @@ struct World {
     backend: Arc<Backend>,
     instances: Arc<Mutex<Value>>,
     admin: Arc<Admin>,
+    config: Config,
     clock: Arc<AtomicI64>,
     timeouts_file: std::path::PathBuf,
     _dir: tempfile::TempDir,
@@ -222,6 +223,10 @@ struct Options {
 }
 
 async fn world_with(options: Options) -> World {
+    world_with_guard(options, admin::guard::GuardSettings::default()).await
+}
+
+async fn world_with_guard(options: Options, guard: admin::guard::GuardSettings) -> World {
     let state = Arc::new(Backend {
         secret: SECRET.into(),
         ..Backend::default()
@@ -269,6 +274,7 @@ async fn world_with(options: Options) -> World {
         database: store::DatabaseConfig::Sqlite {
             file: timeouts_file.with_file_name("dainty-lass.db"),
         },
+        guard,
     };
     let clock = Arc::new(AtomicI64::new(START));
     let reading = clock.clone();
@@ -284,6 +290,7 @@ async fn world_with(options: Options) -> World {
         backend: state,
         instances,
         admin,
+        config,
         clock,
         timeouts_file,
         _dir: dir,
@@ -1405,3 +1412,7 @@ mod roles {
         }
     }
 }
+
+// DH6: the destructive and bulk actions that wait
+#[path = "api/guarded.rs"]
+mod guarded;
