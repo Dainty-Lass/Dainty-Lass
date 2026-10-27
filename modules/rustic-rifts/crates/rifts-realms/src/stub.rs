@@ -1,22 +1,14 @@
 //! Every operation answers [`rifts_seam::Unimplemented`] until RF5 (RD18).
 
 use rifts_seam::{
-    AccountId, AuthOutcome, BoxFuture, Candidate, CandidateLeave, CapabilityScope, Component, DeletionStep, HubKind,
-    HuntRouteContext, HuntRouteOutcome, Json, Lifecycle, OperationsOverview, PartyId, RealmEntry, RealmId, RealmsEntry,
-    RealmsHooks, ReleaseGate, RequestInfo, RuntimeAuth, SeamError, Secret, SessionId, Settings, TableSpec, UnixMillis,
-    stub,
+    AccountId, AuthOutcome, BoxFuture, Candidate, CandidateLeave, Component, DeletionStep, HubKind, HuntRouteContext,
+    HuntRouteOutcome, Json, Lifecycle, OperationsOverview, PartyId, RealmEntry, RealmId, RealmsEntry, RealmsHooks,
+    ReleaseGate, RequestInfo, RuntimeAuth, SeamError, SessionId, Settings, TableSpec, stub,
 };
 
 use crate::RealmsError;
-use crate::directory::{InviteOptions, JoinRealm, MemberAction, NewRealm, RealmDirectory, RealmSettings};
-use crate::hosting::{
-    ControlChannel, HostBootstrap, HostCapabilities, HostPresence, HostSelection, HuntLifecycle, HuntStatus, Leases,
-    Observation, StartHub,
-};
-use crate::store::{
-    ControlMessageRecord, HostCapabilityRecord, HostOfferRecord, RealmInviteRecord, RealmPresenceRecord, RealmRecord,
-    TABLES,
-};
+use crate::TABLES;
+use crate::hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Stub;
@@ -127,78 +119,6 @@ impl RealmsEntry for Stub {
 
 type Answer<'a, T> = BoxFuture<'a, Result<T, RealmsError>>;
 
-impl RealmDirectory for Stub {
-    fn create_realm(&self, _: AccountId, _: NewRealm) -> Answer<'_, RealmRecord> {
-        stub(COMPONENT, "create_realm")
-    }
-    fn mine(&self, _: AccountId) -> Answer<'_, Option<RealmRecord>> {
-        stub(COMPONENT, "mine")
-    }
-    fn listed(&self, _: AccountId, _: u32, _: u32) -> Answer<'_, Vec<RealmRecord>> {
-        stub(COMPONENT, "listed")
-    }
-    fn by_name(&self, _: AccountId, _: String, _: Option<String>) -> Answer<'_, Option<RealmRecord>> {
-        stub(COMPONENT, "by_name")
-    }
-    fn preview_invite(&self, _: AccountId, _: String) -> Answer<'_, RealmRecord> {
-        stub(COMPONENT, "preview_invite")
-    }
-    fn join(&self, _: AccountId, _: JoinRealm) -> Answer<'_, RealmRecord> {
-        stub(COMPONENT, "join")
-    }
-    fn leave(&self, _: AccountId, _: String) -> Answer<'_, ()> {
-        stub(COMPONENT, "leave")
-    }
-    fn update_settings(&self, _: AccountId, _: RealmSettings) -> Answer<'_, RealmRecord> {
-        stub(COMPONENT, "update_settings")
-    }
-    fn create_invite(&self, _: AccountId, _: InviteOptions) -> Answer<'_, RealmInviteRecord> {
-        stub(COMPONENT, "create_invite")
-    }
-    fn invites(&self, _: AccountId) -> Answer<'_, Vec<RealmInviteRecord>> {
-        stub(COMPONENT, "invites")
-    }
-    fn revoke_invite(&self, _: AccountId, _: String) -> Answer<'_, ()> {
-        stub(COMPONENT, "revoke_invite")
-    }
-    fn moderate(&self, _: AccountId, _: AccountId, _: MemberAction) -> Answer<'_, ()> {
-        stub(COMPONENT, "moderate")
-    }
-    fn host_heartbeat(&self, _: AccountId) -> Answer<'_, RealmRecord> {
-        stub(COMPONENT, "host_heartbeat")
-    }
-    fn release(&self, _: AccountId) -> Answer<'_, ()> {
-        stub(COMPONENT, "release")
-    }
-    fn join_requests(&self, _: AccountId) -> Answer<'_, Vec<AccountId>> {
-        stub(COMPONENT, "join_requests")
-    }
-    fn decide_join_request(&self, _: AccountId, _: AccountId, _: bool) -> Answer<'_, ()> {
-        stub(COMPONENT, "decide_join_request")
-    }
-    fn invite_player(&self, _: AccountId, _: String) -> Answer<'_, ()> {
-        stub(COMPONENT, "invite_player")
-    }
-    fn cancel_player_invite(&self, _: AccountId, _: AccountId) -> Answer<'_, ()> {
-        stub(COMPONENT, "cancel_player_invite")
-    }
-    fn player_invites(&self, _: AccountId) -> Answer<'_, Vec<RealmRecord>> {
-        stub(COMPONENT, "player_invites")
-    }
-    fn answer_player_invite(&self, _: AccountId, _: String, _: bool) -> Answer<'_, ()> {
-        stub(COMPONENT, "answer_player_invite")
-    }
-    fn presence_heartbeat(&self, _: AccountId) -> Answer<'_, RealmPresenceRecord> {
-        stub(COMPONENT, "presence_heartbeat")
-    }
-    fn presence_leave(&self, _: AccountId) -> Answer<'_, ()> {
-        stub(COMPONENT, "presence_leave")
-    }
-    fn presence(&self, _: AccountId) -> Answer<'_, Option<RealmPresenceRecord>> {
-        stub(COMPONENT, "presence")
-    }
-}
-
 impl HuntLifecycle for Stub {
     fn host_bootstrap(&self, _: AccountId, _: SessionId) -> Answer<'_, HostBootstrap> {
         stub(COMPONENT, "host_bootstrap")
@@ -238,57 +158,6 @@ impl HuntLifecycle for Stub {
     }
 }
 
-impl HostCapabilities for Stub {
-    fn mint(
-        &self,
-        _: SessionId,
-        _: u64,
-        _: AccountId,
-        _: Vec<CapabilityScope>,
-    ) -> Answer<'_, (Secret, HostCapabilityRecord)> {
-        stub(COMPONENT, "capabilities.mint")
-    }
-    fn check(&self, _: Secret, _: SessionId, _: CapabilityScope) -> Answer<'_, RuntimeAuth> {
-        stub(COMPONENT, "capabilities.check")
-    }
-    fn revoke(&self, _: SessionId, _: u64) -> Answer<'_, ()> {
-        stub(COMPONENT, "capabilities.revoke")
-    }
-}
-
-impl Leases for Stub {
-    fn renew(&self, _: RuntimeAuth, _: u64) -> Answer<'_, UnixMillis> {
-        stub(COMPONENT, "leases.renew")
-    }
-    fn sweep(&self, _: UnixMillis) -> Answer<'_, Vec<(SessionId, u64)>> {
-        stub(COMPONENT, "leases.sweep")
-    }
-}
-
-impl HostSelection for Stub {
-    fn submit_presence(&self, _: AccountId, _: HostPresence) -> Answer<'_, ()> {
-        stub(COMPONENT, "submit_presence")
-    }
-    fn respond_to_offer(&self, _: AccountId, _: String, _: bool, _: Option<String>) -> Answer<'_, ()> {
-        stub(COMPONENT, "respond_to_offer")
-    }
-    fn select_host(&self, _: SessionId, _: u64) -> Answer<'_, Option<HostOfferRecord>> {
-        stub(COMPONENT, "select_host")
-    }
-}
-
-impl ControlChannel for Stub {
-    fn poll(&self, _: AccountId, _: u64, _: u32) -> Answer<'_, Vec<ControlMessageRecord>> {
-        stub(COMPONENT, "control.poll")
-    }
-    fn ack(&self, _: AccountId, _: String) -> Answer<'_, ()> {
-        stub(COMPONENT, "control.ack")
-    }
-    fn send(&self, _: AccountId, _: String, _: Option<SessionId>, _: Json) -> Answer<'_, u64> {
-        stub(COMPONENT, "control.send")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,22 +191,9 @@ mod tests {
 
     #[test]
     fn surfaces_answer_unimplemented() {
-        assert_eq!(poll_once(Stub.mine(account())).unwrap(), Err(realms("mine")));
         assert_eq!(
             poll_once(Stub.host_bootstrap(account(), session())).unwrap(),
             Err(realms("host_bootstrap"))
-        );
-        assert_eq!(
-            poll_once(Stub.sweep(UnixMillis(0))).unwrap(),
-            Err(realms("leases.sweep"))
-        );
-        assert_eq!(
-            poll_once(Stub.select_host(session(), 1)).unwrap(),
-            Err(realms("select_host"))
-        );
-        assert_eq!(
-            poll_once(Stub.poll(account(), 0, 0)).unwrap(),
-            Err(realms("control.poll"))
         );
     }
 }
