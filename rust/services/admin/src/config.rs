@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 use service_kit::env::Env;
 
+use crate::guard::{GuardSettings, Rule};
+
 /// The backend's checks, matched here so a short secret fails at start rather than on every call.
 const MIN_SECRET: usize = 32;
 /// `paths::MAX_HUNTS` in the host kit: UDP 8766-8777 at most.
@@ -36,6 +38,8 @@ pub struct Config {
     /// (`keys::Keys::database_for`, DH2). Nothing set (an env file from before DF7): SQLite beside the
     /// timeouts file.
     pub database: store::DatabaseConfig,
+    /// `REFORGED_GUARD_*`: when a destructive or bulk action waits (DH6). Nothing set: the defaults.
+    pub guard: GuardSettings,
 }
 
 fn optional(env: &Env, name: &str) -> Option<String> {
@@ -79,6 +83,48 @@ fn local_url(env: &Env, name: &str, default: &str) -> Result<String, String> {
         ));
     }
     Ok(url)
+}
+
+/// A whole number from 1 to `max`; `None` when the variable is not set.
+fn bounded(env: &Env, name: &str, max: u32) -> Result<Option<u32>, String> {
+    match optional(env, name) {
+        None => Ok(None),
+        Some(raw) => raw
+            .parse::<u32>()
+            .ok()
+            .filter(|n| (1..=max).contains(n))
+            .map(Some)
+            .ok_or(format!("{name} must be a whole number from 1 to {max}")),
+    }
+}
+
+fn rule(env: &Env, name: &str, default: Rule) -> Result<Rule, String> {
+    match optional(env, name) {
+        None => Ok(default),
+        Some(raw) => Rule::parse(&raw).ok_or(format!("{name} must be off, delay or approval")),
+    }
+}
+
+/// The guard's settings: what is not set keeps today's default, so an env file from before DH6 still reads.
+fn guard_settings(env: &Env) -> Result<GuardSettings, String> {
+    let d = GuardSettings::default();
+    Ok(GuardSettings {
+        ban_limit: bounded(env, "REFORGED_GUARD_BAN_LIMIT", GuardSettings::MAX_LIMIT)?.unwrap_or(d.ban_limit),
+        ban_window_minutes: bounded(
+            env,
+            "REFORGED_GUARD_BAN_WINDOW_MINUTES",
+            GuardSettings::MAX_WINDOW_MINUTES,
+        )?
+        .unwrap_or(d.ban_window_minutes),
+        ban_guard: rule(env, "REFORGED_GUARD_BAN", d.ban_guard)?,
+        revert_limit: bounded(env, "REFORGED_GUARD_REVERT_LIMIT", GuardSettings::MAX_LIMIT)?.unwrap_or(d.revert_limit),
+        revert_guard: rule(env, "REFORGED_GUARD_REVERT", d.revert_guard)?,
+        revoke_guard: rule(env, "REFORGED_GUARD_REVOKE", d.revoke_guard)?,
+        delay_minutes: bounded(env, "REFORGED_GUARD_DELAY_MINUTES", GuardSettings::MAX_DELAY_MINUTES)?
+            .unwrap_or(d.delay_minutes),
+        expire_hours: bounded(env, "REFORGED_GUARD_EXPIRE_HOURS", GuardSettings::MAX_EXPIRE_HOURS)?
+            .unwrap_or(d.expire_hours),
+    })
 }
 
 impl Config {
@@ -135,6 +181,7 @@ impl Config {
             max_hunt_servers,
             server_mode,
             database,
+            guard: guard_settings(env)?,
         })
     }
 
@@ -202,6 +249,48 @@ mod tests {
             ("REFORGED_DB_HOST", "10.0.0.1"),
         ];
         assert!(load(&far).unwrap_err().contains("not encrypted"));
+    }
+
+    #[test]
+    fn the_guard_keeps_its_defaults_and_checks_what_is_set() {
+        assert_eq!(load(&[]).unwrap().guard, GuardSettings::default());
+        let set = load(&[
+            ("REFORGED_GUARD_BAN_LIMIT", "3"),
+            ("REFORGED_GUARD_BAN_WINDOW_MINUTES", "30"),
+            ("REFORGED_GUARD_BAN", "approval"),
+            ("REFORGED_GUARD_REVERT_LIMIT", "20"),
+            ("REFORGED_GUARD_REVERT", "approval"),
+            ("REFORGED_GUARD_REVOKE", "off"),
+            ("REFORGED_GUARD_DELAY_MINUTES", "45"),
+            ("REFORGED_GUARD_EXPIRE_HOURS", "6"),
+        ])
+        .unwrap()
+        .guard;
+        assert_eq!(
+            set,
+            GuardSettings {
+                ban_limit: 3,
+                ban_window_minutes: 30,
+                ban_guard: Rule::Approval,
+                revert_limit: 20,
+                revert_guard: Rule::Approval,
+                revoke_guard: Rule::Off,
+                delay_minutes: 45,
+                expire_hours: 6,
+            }
+        );
+        for (name, bad) in [
+            ("REFORGED_GUARD_BAN_LIMIT", "0"),
+            ("REFORGED_GUARD_BAN_LIMIT", "many"),
+            ("REFORGED_GUARD_BAN_WINDOW_MINUTES", "1441"),
+            ("REFORGED_GUARD_REVERT_LIMIT", "1000001"),
+            ("REFORGED_GUARD_DELAY_MINUTES", "0"),
+            ("REFORGED_GUARD_EXPIRE_HOURS", "721"),
+            ("REFORGED_GUARD_BAN", "Delay"),
+            ("REFORGED_GUARD_REVOKE", "never"),
+        ] {
+            assert!(load(&[(name, bad)]).unwrap_err().contains(name), "{name}={bad}");
+        }
     }
 
     #[test]

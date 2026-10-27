@@ -7,6 +7,9 @@
 pub mod app;
 pub mod cli;
 pub mod config;
+pub mod guard;
+pub mod guarded;
+pub mod guarded_cli;
 pub mod hmac;
 pub mod input;
 pub mod key_cli;

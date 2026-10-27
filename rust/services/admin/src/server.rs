@@ -10,6 +10,7 @@ use tokio::net::TcpListener;
 
 use crate::app::{AppState, router};
 use crate::config::Config;
+use crate::guard::Guards;
 use crate::keys::Keys;
 use crate::log;
 use crate::module_control::Modules;
@@ -55,6 +56,7 @@ pub fn prepare_with_control(
         modules,
         timeouts: Timeouts::load(&config.timeouts_file)?,
         keys: keys.clone(),
+        guard: Guards::new(keys.database().clone(), config.guard.clone()),
         max_hunt_servers: config.max_hunt_servers,
         server_mode: config.server_mode,
         clock,
@@ -95,6 +97,7 @@ pub async fn run_with_control(
 ) -> Result<(), String> {
     ctx.status().report_starting("preparing admin API");
     let (state, admin) = prepare_with_control(&config, Arc::new(crate::now_ms), modules, control)?;
+    admin.guard_start().await;
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let mut servers = Vec::new();
     for host in &config.bind_hosts {
@@ -117,6 +120,7 @@ pub async fn run_with_control(
         loop {
             tick.tick().await;
             admin.sweep().await;
+            admin.guard_sweep().await;
         }
     });
     ctx.status().report_ready(Some(config.port), "listening");

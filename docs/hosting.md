@@ -129,6 +129,7 @@ servers' key) lives only in `secrets.env`.
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
 | (edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below) |
+| (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one (this build has none yet) and no other |
 | (edit `host.toml`) | `[network]` `node`, `region` | This server's name and region in a network. Left out: a server on its own |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
@@ -148,6 +149,27 @@ Postgres is yours to run: make a role and a database for it, with the role's pas
 encrypted, so `setup` refuses a Postgres server on another machine unless `allow_remote = true`, which is only for a
 network you trust. Nothing stores its data there yet: the backend is still Mystic Paradox's on MongoDB, and the
 setting is for the Rust services as they move over. `reforged-host` does not start a Postgres of its own yet.
+
+### Guarded admin actions
+
+The admin API holds the actions that cannot be taken back, or that do a lot at once, instead of running them: a key
+that bans or times out more than `ban_limit` players in `ban_window_minutes`, a history revert of more than
+`revert_limit` changes, and the revoking of an admin or owner key. A held action waits `delay_minutes` and then
+runs, or, with the rule set to `"approval"`, waits for a second person with a different key of at least the same role.
+It can be canceled while it waits. **The owner key is held too**; there is no setting that lifts the guard for it
+(`"off"` turns a rule off for everyone). Nothing needs setting: the defaults hold only the bulk cases.
+
+```toml
+[guard]
+ban_limit = 5             # bans and timeouts one key may make in the window before the next is held
+ban_guard = "approval"    # "delay" (the default), "approval" or "off"
+delay_minutes = 30
+```
+
+`reforged-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and the server GUI Host page
+lists what waits. A rule on `"approval"` on a server with one owner key waits for nobody and expires after
+`expire_hours`: use it once the team has a second key. How it works, and what a bot sees, is in
+[admin-api.md](admin-api.md#guarded-actions-dh6).
 
 ### Game modules and plugins
 

@@ -322,6 +322,8 @@ pub struct HostConfig {
     pub linux: Option<LinuxOptions>,
     /// Absent: SQLite in the config folder.
     pub database: Option<DatabaseSettings>,
+    /// `[guard]` (DH6). Absent: the admin API defaults.
+    pub guard: Option<GuardConfig>,
     /// `[modules]` (DF3). Absent: every compiled-in module and no external one, which is today's server.
     pub modules: Option<ModulesConfig>,
     /// `[network]` (DN2). Absent: a server outside any network.
@@ -818,6 +820,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(database) = c.get("database") {
         validate_database(database)?;
     }
+    if let Some(guard) = c.get("guard") {
+        guard::validate(guard)?;
+    }
     if let Some(modules) = c.get("modules") {
         ModulesConfig::from_json(modules)?;
     }
@@ -919,6 +924,7 @@ impl HostConfig {
             .get("database")
             .and_then(Value::as_object)
             .map(DatabaseSettings::from_json);
+        let guard = c.get("guard").and_then(Value::as_object).map(GuardConfig::from_json);
         let modules = c.get("modules").map(ModulesConfig::from_json).transpose()?;
         let network = c.get("network").map(NetworkConfig::from_json).transpose()?;
         let multipliers = c.get("multipliers").and_then(Value::as_object).map(|m| Multipliers {
@@ -960,6 +966,7 @@ impl HostConfig {
             performance,
             linux,
             database,
+            guard,
             modules,
             network,
             file: FileForm::default(),
@@ -1059,6 +1066,9 @@ impl HostConfig {
         if let Some(database) = &self.database {
             m.insert("database".into(), database.to_json());
         }
+        if let Some(guard) = &self.guard {
+            m.insert("guard".into(), guard.to_json());
+        }
         if let Some(modules) = &self.modules {
             m.insert("modules".into(), modules.to_json());
         }
@@ -1126,9 +1136,11 @@ fn write_pretty(out: &mut String, value: &Value, depth: usize) {
     }
 }
 
+pub mod guard;
 pub mod modules;
 pub mod yaml;
 
+pub use guard::GuardConfig;
 pub use modules::{ExternalModuleEntry, ModulesConfig, NetworkConfig};
 
 /// host.toml, host.yaml or host.json: far more than any needs.
@@ -1594,7 +1606,8 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         ("REFORGED_MAX_HUNT_SERVERS", c.max_hunt_servers.to_string()),
         ("REFORGED_SERVER_MODE", c.mode.as_str().into()),
     ];
-    let admin = [admin, database_env(c, s, p)].concat();
+    let guard = c.guard.as_ref().map(GuardConfig::env).unwrap_or_default();
+    let admin = [admin, database_env(c, s, p), guard].concat();
     let common: [(&str, String); 4] = [
         ("GATEWAY_SECRET", s.gateway_secret.clone()),
         ("GATEWAY_BACKEND_URL", format!("http://127.0.0.1:{}", PORTS.backend)),

@@ -62,6 +62,7 @@ diesel::table! {
         target -> Nullable<Text>,
         game -> Nullable<Text>,
         detail -> Nullable<Text>,
+        approved_by -> Nullable<Text>,
     }
 }
 
@@ -232,6 +233,8 @@ pub struct Action<'a> {
     pub target: Option<&'a str>,
     pub game: Option<&'a str>,
     pub detail: Option<&'a str>,
+    /// The second operator's key when a guarded action ran on their approval (DH6).
+    pub approved_by: Option<&'a str>,
 }
 
 /// The admin API's keys: the owner's from `secrets.env`, the rest in the database.
@@ -401,6 +404,7 @@ impl Keys {
             admin_actions::target.eq(action.target.map(str::to_owned)),
             admin_actions::game.eq(action.game.map(str::to_owned)),
             admin_actions::detail.eq(action.detail.map(str::to_owned)),
+            admin_actions::approved_by.eq(action.approved_by.map(str::to_owned)),
         );
         self.db
             .write(Actor::Admin(key.to_owned()), move |tx| {
@@ -408,6 +412,43 @@ impl Keys {
                     .values(values)
                     .execute(tx.conn())?;
                 Ok::<_, store::Error>(())
+            })
+            .await
+    }
+
+    /// The role of an active key: `owner` for the owner's, an issued key's own unless revoked. A guarded
+    /// action runs only while the key that started it is still one (DH6).
+    pub async fn active_role(&self, id: &str) -> Result<Option<Role>, store::Error> {
+        if id == OWNER_KEY {
+            return Ok(Some(Role::Owner));
+        }
+        let id = id.to_owned();
+        let row: Option<Row> = self
+            .db
+            .read(move |conn: &mut AnyConnection| {
+                Ok::<_, store::Error>(admin_keys::table.find(id).first(conn).optional()?)
+            })
+            .await?;
+        Ok(row
+            .filter(|r| r.revoked_at.is_none())
+            .and_then(Row::info)
+            .map(|k| k.role))
+    }
+
+    /// How many of `actions` the key made since `since` (ms): what a bulk threshold counts (DH6).
+    pub async fn count_actions(&self, key: &str, actions: &[&str], since: i64) -> Result<i64, store::Error> {
+        let key = key.to_owned();
+        let actions: Vec<String> = actions.iter().map(|a| (*a).to_owned()).collect();
+        self.db
+            .read(move |conn: &mut AnyConnection| {
+                Ok::<_, store::Error>(
+                    admin_actions::table
+                        .filter(admin_actions::key_id.eq(key))
+                        .filter(admin_actions::action.eq_any(actions))
+                        .filter(admin_actions::at.ge(since))
+                        .count()
+                        .get_result(conn)?,
+                )
             })
             .await
     }

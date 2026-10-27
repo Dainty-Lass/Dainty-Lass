@@ -38,6 +38,7 @@ const TOP: &[Field] = &[
     ("performance", "performance", false),
     ("linux", "linux", false),
     ("database", "database", false),
+    ("guard", "guard", false),
     ("network", "network", false),
     ("modules", "modules", false),
 ];
@@ -91,6 +92,17 @@ const DATABASE: &[Field] = &[
     ("allowRemote", "allow_remote", false),
 ];
 
+const GUARD: &[Field] = &[
+    ("banLimit", "ban_limit", false),
+    ("banWindowMinutes", "ban_window_minutes", false),
+    ("banGuard", "ban_guard", false),
+    ("revertLimit", "revert_limit", false),
+    ("revertGuard", "revert_guard", false),
+    ("revokeGuard", "revoke_guard", false),
+    ("delayMinutes", "delay_minutes", false),
+    ("expireHours", "expire_hours", false),
+];
+
 /// The keys of a table at the top of the file; `None` for a single value.
 fn table_fields(json_key: &str) -> Option<&'static [Field]> {
     match json_key {
@@ -99,6 +111,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "performance" => Some(PERFORMANCE),
         "linux" => Some(LINUX),
         "database" => Some(DATABASE),
+        "guard" => Some(GUARD),
         "network" => Some(NETWORK),
         _ => None,
     }
@@ -273,7 +286,7 @@ fn free_item(value: &Value, path: &str) -> Result<Item, HostError> {
 /// host.toml's (`performance.serverFps` → `performance.server_fps`).
 pub fn message(text: &str) -> String {
     let mut out = text.to_owned();
-    for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, NETWORK] {
+    for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, GUARD, NETWORK] {
         for &(json, toml, _) in fields {
             if json != toml {
                 out = out.replace(json, toml);
@@ -441,6 +454,18 @@ fn comment(path: &str) -> &'static str {
             "Postgres: the role to log in as (dainty when left out). Its password is REFORGED_DB_PASSWORD in secrets.env."
         }
         "database.postgres_database" => "Postgres: the database (dainty when left out).",
+        "guard" => {
+            "Destructive and bulk admin actions wait before they run (DH6). A rule is \"delay\" (wait delay_minutes),
+             \"approval\" (a second operator approves) or \"off\". Left out: the defaults shown below."
+        }
+        "guard.ban_limit" => "Bans and timeouts one admin key may make in the window before the next is held (10).",
+        "guard.ban_window_minutes" => "The window, in minutes (60).",
+        "guard.ban_guard" => "What a ban or timeout over the limit waits for (delay).",
+        "guard.revert_limit" => "A history revert of more changes than this is held (100).",
+        "guard.revert_guard" => "What a bigger revert waits for (delay).",
+        "guard.revoke_guard" => "What revoking an admin or owner key waits for (delay). Other keys go at once.",
+        "guard.delay_minutes" => "How long a delay waits, in minutes (10).",
+        "guard.expire_hours" => "How long an action nobody approved stays before it expires (48).",
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",
         "network.region" => "The region it serves, such as oregon.",
@@ -536,7 +561,7 @@ mod tests {
     fn snake_case_of_the_host_json_keys() {
         assert_eq!(snake_case("maxHuntServers"), "max_hunt_servers");
         assert_eq!(snake_case("version"), "version");
-        for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, NETWORK] {
+        for fields in [TOP, MONGO, MULTIPLIERS, PERFORMANCE, LINUX, DATABASE, GUARD, NETWORK] {
             for &(json, toml, _) in fields {
                 assert_eq!(snake_case(json), toml);
             }

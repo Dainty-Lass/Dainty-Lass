@@ -351,6 +351,90 @@ fn the_database_engine_goes_into_admin_env_and_reads_back_as_store_reads_it() {
 }
 
 #[test]
+fn the_guard_goes_into_admin_env_and_reads_back_as_the_admin_api_reads_it() {
+    let s = fast_secrets();
+    let p = win_paths();
+    let read = |doc: Value| {
+        let f = build_env_files(&config(doc), &s, &p, "", Platform::Windows);
+        let env = service_kit::env::Env::from_pairs(f.admin.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        (
+            admin::config::Config::from_env(&env).unwrap().guard,
+            f.admin.iter().any(|(k, _)| k.starts_with("REFORGED_GUARD_")),
+        )
+    };
+    // No [guard], as in every file before DH6: the defaults, and no line added to admin.env
+    let (guard, written) = read(private());
+    assert_eq!(guard, admin::guard::GuardSettings::default());
+    assert!(!written);
+    let (guard, written) = read(with(
+        private(),
+        json!({"guard": {"banLimit": 3, "banWindowMinutes": 30, "banGuard": "approval", "revertLimit": 20,
+                         "revertGuard": "approval", "revokeGuard": "off", "delayMinutes": 45, "expireHours": 6}}),
+    ));
+    assert!(written);
+    assert_eq!(
+        guard,
+        admin::guard::GuardSettings {
+            ban_limit: 3,
+            ban_window_minutes: 30,
+            ban_guard: admin::guard::Rule::Approval,
+            revert_limit: 20,
+            revert_guard: admin::guard::Rule::Approval,
+            revoke_guard: admin::guard::Rule::Off,
+            delay_minutes: 45,
+            expire_hours: 6,
+        }
+    );
+    // A setting left out keeps its default
+    let (guard, _) = read(with(private(), json!({"guard": {"banGuard": "approval"}})));
+    assert_eq!(
+        guard,
+        admin::guard::GuardSettings {
+            ban_guard: admin::guard::Rule::Approval,
+            ..admin::guard::GuardSettings::default()
+        }
+    );
+    // The file keeps what the host wrote, and a bad value stops setup
+    let kept = config(with(private(), json!({"guard": {"delayMinutes": 15}})));
+    assert_eq!(kept.to_json().unwrap()["guard"], json!({"delayMinutes": 15}));
+    for bad in [
+        json!({"banLimit": 0}),
+        json!({"banLimit": 1.5}),
+        json!({"banWindowMinutes": 1441}),
+        json!({"revertLimit": 1000001}),
+        json!({"delayMinutes": 0}),
+        json!({"expireHours": 721}),
+        json!({"banGuard": "Delay"}),
+        json!({"revokeGuard": true}),
+        json!("delay"),
+    ] {
+        assert!(
+            HostConfig::from_json(&with(private(), json!({ "guard": bad }))).is_err(),
+            "{bad}"
+        );
+    }
+    let toml = HostConfig::from_toml(
+        "version = 1
+mode = \"private\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+         name = \"x\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+         [mongo]
+uri = \"mongodb://127.0.0.1:27017/\"
+manage = false
+         [guard]
+ban_limit = 5
+revoke_guard = \"approval\"
+",
+    )
+    .unwrap();
+    assert_eq!(toml.guard.as_ref().and_then(|g| g.ban_limit), Some(5));
+    assert_eq!(toml.guard.and_then(|g| g.revoke_guard).as_deref(), Some("approval"));
+}
+
+#[test]
 fn a_postgres_server_off_this_machine_needs_allow_remote() {
     let far = with(
         private(),
