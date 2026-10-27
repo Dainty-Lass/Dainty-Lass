@@ -53,7 +53,7 @@ export type GameProblem = "not_set" | "not_found" | "unverified" | "wrong_versio
 export type ServerGame = "reforged" | "revived";
 export type Game = "reborn" | "legacy";
 export type RuntimeState = "ok" | "missing" | "outdated" | "untrusted" | "unavailable" | "local";
-export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "history_bad_filter" | "history_unavailable" | "history_plan_changed" | "history_failed" | "unknown";
+export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "history_bad_filter" | "history_unavailable" | "history_plan_changed" | "history_failed" | "realm_unavailable" | "realm_not_found" | "realm_failed" | "unknown";
 export type NoticeCode = "keep_open" | "backup_saved" | "runtime_installed" | "runtime_installed_restart" | "game_verified" | "sdk_imported" | "host_done" | "install_done" | "repair_done";
 export type LauncherError = { code: ErrorCode, 
 /**
@@ -534,6 +534,29 @@ at: string | null, rowsChanged: number, databases: Array<RevertedInView>,
  * Rows left as they are
  */
 conflicts: Array<RevertConflictView>, conflictCount: number, truncated: boolean, };
+export type RealmState = "starting" | "ready" | "running" | "ended";
+export type RealmSessionView = { session: string, kind: RealmKind, hosting: boolean, generation: number, state: RealmState, 
+/**
+ * Local UDP port the game or server routes through when ready
+ */
+localPort: number | null, 
+/**
+ * Clean exit or failure code when `state` is `ended`
+ */
+result: string | null, };
+export type RealmView = { 
+/**
+ * Whether this build and PC can host or join a realm (`ParadoxTransport.dll` present and co-op not disabled)
+ */
+available: boolean, 
+/**
+ * Active or most recently ended session on this PC
+ */
+active: RealmSessionView | null, 
+/**
+ * All tracked local sessions
+ */
+sessions: Array<RealmSessionView>, };
 export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export type ActionResult = { ok: true } | { ok: false; error: LauncherError };
 export type InviteCheck = { ok: true; certificateChanged: boolean; previousFingerprint: string | null; movedFrom: string | null } | { ok: false; error: LauncherError };
@@ -550,4 +573,5 @@ export type ModuleCommandOutcome = { ok: true; text: string; data: string | null
 export type HistoryOutcome = { ok: true; page: HistoryPageView } | { ok: false; error: LauncherError };
 export type RevertPlanOutcome = { ok: true; plan: RevertPlanView } | { ok: false; error: LauncherError };
 export type RevertApplyOutcome = { ok: true; done: RevertDoneView } | { ok: false; error: LauncherError };
+export type RealmOutcome = { ok: true; realm: RealmView } | { ok: false; error: LauncherError };
 export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "dismiss_notice" | "dismiss_error" | "subscribe_progress" | "epic_sign_in_start" | "epic_sign_in_code" | "epic_get" | "epic_sign_out" | "epic_library_check" | "game_version_list" | "game_install_start" | "game_install_pause" | "game_install_resume" | "game_install_cancel" | "game_install_get" | "region_ping" | "module_list" | "module_get" | "module_run_command" | "module_set_settings" | "module_load" | "module_unload" | "realm_host" | "realm_join" | "realm_stop" | "realm_get" | "history_query" | "history_revert_dry_run" | "history_revert_apply" | "guarded_list" | "guarded_approve" | "guarded_cancel";

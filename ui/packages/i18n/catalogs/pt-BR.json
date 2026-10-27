@@ -975,5 +975,8 @@
   "err_history_bad_filter": "Esse filtro não é válido. Verifique o autor, a conta e os horários.",
   "err_history_unavailable": "Ainda não há histórico para ler. Configure o servidor e inicie-o uma vez.",
   "err_history_plan_changed": "O histórico mudou desde a simulação, ou o plano não existe mais. Faça a simulação de novo.",
-  "err_history_failed": "Não foi possível ler ou reverter o histórico: {detail}"
+  "err_history_failed": "Não foi possível ler ou reverter o histórico: {detail}",
+  "err_realm_unavailable": "A hospedagem de reinos não está disponível neste servidor ou PC.",
+  "err_realm_not_found": "Nenhum reino com esse ID está aberto no momento.",
+  "err_realm_failed": "A sessão do reino falhou: {detail}"
 }

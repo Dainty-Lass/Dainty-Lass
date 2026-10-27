@@ -30,6 +30,7 @@ import type {
   ModuleOutcome,
   NewsItem,
   RealmKind,
+  RealmOutcome,
   RegionPing,
   RegisterOutcome,
   Settings,
@@ -159,10 +160,10 @@ export interface LauncherApi {
   ): Promise<ModuleOutcome>
   moduleLoad(module: string): Promise<ModuleOutcome>
   moduleUnload(module: string): Promise<ModuleOutcome>
-  realmHost(kind: RealmKind): Promise<ActionResult>
-  realmJoin(realm: string): Promise<ActionResult>
-  realmStop(): Promise<ActionResult>
-  realmGet(): Promise<ActionResult>
+  realmHost(kind: RealmKind): Promise<RealmOutcome>
+  realmJoin(realm: string): Promise<RealmOutcome>
+  realmStop(): Promise<RealmOutcome>
+  realmGet(): Promise<RealmOutcome>
   historyQuery(filter: HistoryFilter): Promise<ActionResult>
   historyRevertDryRun(selection: RevertSelection): Promise<ActionResult>
   historyRevertApply(plan: string): Promise<ActionResult>
@@ -415,15 +416,15 @@ export const api: LauncherApi = {
       LONG_TIMEOUT_MS
     ),
   realmHost: (kind) =>
-    act(
+    act<RealmOutcome>(
       "realm_host",
       { kind: kind === "hunt" ? "hunt" : "hub" },
       LONG_TIMEOUT_MS
     ),
   realmJoin: (realm) =>
-    act("realm_join", { realm: String(realm) }, LONG_TIMEOUT_MS),
-  realmStop: () => act("realm_stop", {}, LONG_TIMEOUT_MS),
-  realmGet: () => act("realm_get"),
+    act<RealmOutcome>("realm_join", { realm: String(realm) }, LONG_TIMEOUT_MS),
+  realmStop: () => act<RealmOutcome>("realm_stop", {}, LONG_TIMEOUT_MS),
+  realmGet: () => act<RealmOutcome>("realm_get"),
   historyQuery: (filter) =>
     act("history_query", {
       filter: { ...selection(filter), cursor: optionalText(filter.cursor) },
