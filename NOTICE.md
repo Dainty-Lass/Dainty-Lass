@@ -68,14 +68,18 @@ Undaunted or any other project named here, and none of them endorses it.
 By the DaintyLass contributors, in two groups.
 
 - **MIT** ([LICENSE-MIT.txt](LICENSE-MIT.txt)), each crate's `Cargo.toml` says so: `rust/crates/controller`,
-  `rust/services/admin`, `rust/bins`, the `rust/services/backend` and `director` stubs, `rust/crates/module-api`
-  (DF2, the module framework and frame protocol) and `rust/crates/epic` (DE1, written from Epic's manifest and chunk formats as Legendary documents them). Written here against the
-  services' contracts, from none of the projects above. A binary that links them to the AGPL
-  crates is distributed under the AGPL as a whole; the MIT grant is on these crates' own source.
+  `rust/services/admin`, `rust/bins`, the `rust/services/backend` and `director` stubs, `rust/crates/module-api` (DF2,
+  the module framework and frame protocol), `rust/crates/history-ship` (DH4, shipping the change log to an object-
+  locked bucket and restoring from it), `rust/plugins/network` (DN4) and `rust/crates/epic` (DE1, written from Epic's
+  manifest and chunk formats as Legendary documents them). Written here against the services' contracts, from none of
+  the projects above. A binary that links them to the AGPL crates is distributed under the AGPL as a whole; the MIT
+  grant is on these crates' own source.
 - **AGPL-3.0-only**: `rust/services/host`, a port of the Dauntless Reforged Revival line's Node host kit
   (`ReforgedHost`, AGPL-3.0-only, by Freeza and that project's contributors; each ported module names its
   source file); the launcher's modules that port that line's launcher additions (the runtime files, the Host
-  page, the host kit driver); and the new parts of the components above. `docker/`, `docs/`, the workflows,
+  page, the host kit driver); `rust/plugins/chat` (DN10a), a port of Dauntless Revived's metagame chat (DR at
+  `e1c5fec`) with behaviour, no code, from Mystic Paradox's realtime gateway; the launcher's `net/epic_install.rs` (DE5), which keeps
+  DR's downloader structure; and the new parts of the components above. `docker/`, `docs/`, the workflows,
   the launcher's page and bridge files and `rust/launcher/src-tauri/gen/strings.json` are this project's own
   and carry the repository licence.
 
