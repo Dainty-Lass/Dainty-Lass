@@ -120,13 +120,28 @@ pub fn describe_error(error: &dyn std::error::Error) -> String {
     redact(&error.to_string())
 }
 
+/// Whether an event comes from `egs-api`, also when `log` forwarded it (its target is then in a field).
+pub(crate) fn is_muted(event: &tracing::Event<'_>) -> bool {
+    use tracing_log::NormalizeEvent as _;
+    event.normalized_metadata().map_or_else(
+        || epic::is_egs_api_target(event.metadata().target()),
+        |meta| epic::is_egs_api_target(meta.target()),
+    )
+}
+
 /// Library events (`tracing`) at INFO and above, into the same masked log.
 pub(crate) struct Layer;
 
 impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for Layer {
+    /// False drops the event for the whole subscriber, so a layer stacked with this one never sees it either (the
+    /// server GUI's channel).
+    fn event_enabled(&self, event: &tracing::Event<'_>, _: tracing_subscriber::layer::Context<'_, S>) -> bool {
+        !is_muted(event)
+    }
+
     fn on_event(&self, event: &tracing::Event<'_>, _: tracing_subscriber::layer::Context<'_, S>) {
         // Its failed requests are logged with `{:?}` (docs/security/epic.md)
-        if epic::is_egs_api_target(event.metadata().target()) {
+        if is_muted(event) {
             return;
         }
         struct Message(String);
@@ -158,6 +173,15 @@ pub fn install() {
     let subscriber = tracing_subscriber::registry().with(Layer);
     let _ = tracing::subscriber::set_global_default(subscriber);
     std::panic::set_hook(Box::new(|panic| error(&format!("panic: {panic}"))));
+}
+
+/// Tests that point the log at a file of their own take this, since the file is the process's.
+#[cfg(test)]
+pub(crate) static FILE_TESTS: Mutex<()> = Mutex::new(());
+
+#[cfg(test)]
+pub(crate) fn stop_file_for_tests() {
+    *SINK.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
 }
 
 #[cfg(test)]
@@ -195,6 +219,7 @@ mod tests {
 
     #[test]
     fn a_registered_key_never_reaches_the_file() {
+        let _file = FILE_TESTS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let dir = tempfile::tempdir().unwrap();
         log_to_file(dir.path().to_path_buf());
         let key = concat!("RRK_", "fedcba9876543210", "fedcba9876543210", "fedcba9876543210");

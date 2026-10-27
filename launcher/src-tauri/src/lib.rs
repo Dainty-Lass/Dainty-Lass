@@ -194,6 +194,13 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             {
                 invite_link::register_scheme(&exe);
             }
+            // The Epic session, restored from the keystore (DE2)
+            let epic_store =
+                platform::keystore::epic::EpicSessionStore::new(&paths.user_data.join("keys"), encryptors.0.clone());
+            app.manage(Arc::new(platform::epic_session::Epic::new(
+                epic_store,
+                Arc::new(::epic::auth::EpicAccounts),
+            )));
             let controller = make_controller(app.handle(), paths, version, encryptors)?;
             let guard = app.state::<window::CloseGuard>();
             let (reason, kept) = (Arc::downgrade(&controller), Arc::downgrade(&controller));

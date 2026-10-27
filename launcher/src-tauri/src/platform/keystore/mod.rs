@@ -15,6 +15,7 @@
 //! A key goes on the log's secret list (`log::add_secret`) as soon as it is read or saved, and leaves this
 //! module only to the controller; no bridge type carries one.
 
+pub mod epic;
 pub mod format;
 pub mod legacy;
 pub mod os;
