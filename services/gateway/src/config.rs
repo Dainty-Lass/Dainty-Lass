@@ -92,9 +92,11 @@ pub struct Config {
     pub allowlist: Option<Allowlist>,
     pub limits: Limits,
     pub timeouts: Timeouts,
-    /// The network's nodes the launcher pings (DN7). Empty until DN2 and DF3 add `[network]` to
-    /// `host.toml`, which is how a server outside a network answers anyway
+    /// The network's nodes the launcher pings (DN7): the peers `[[network.nodes]]` lists with a fingerprint.
+    /// Empty for a server outside a network, which is how it answers anyway
     pub network: Vec<crate::network::NetworkNode>,
+    /// Node links (DN3); `None` for a server outside a network
+    pub node_links: Option<NodeLinkConfig>,
 }
 
 /// Dauntless Revived's limits, sized from real 1.4.4 sessions (its README has the numbers). The
@@ -234,6 +236,74 @@ pub fn parse_game(raw: Option<&str>) -> Result<GameVersion, String> {
     Ok(game)
 }
 
+/// Links to the other nodes of a network (DD16, DN3). Off unless `GATEWAY_NODE_ID` is set.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeLinkConfig {
+    /// This node and its region (`GATEWAY_NODE_ID`, `GATEWAY_NODE_REGION`); the node certificate must say the same
+    pub identity: module_api::NodeIdentity,
+    pub cert_file: PathBuf,
+    pub key_file: PathBuf,
+    /// The cluster CA's certificate: never its key
+    pub ca_file: PathBuf,
+    /// The nodes that may call this one (`GATEWAY_NETWORK_NODES`, a JSON list `network.nodes` writes)
+    pub peers: Vec<network_plugin::cluster::Peer>,
+}
+
+fn node_link_config(env: &Env, tls: bool) -> Result<Option<NodeLinkConfig>, String> {
+    let Some(node) = optional(env, "GATEWAY_NODE_ID") else {
+        return match optional(env, "GATEWAY_NETWORK_NODES") {
+            Some(_) => Err("GATEWAY_NETWORK_NODES needs GATEWAY_NODE_ID, this node's name".into()),
+            None => Ok(None),
+        };
+    };
+    if !tls {
+        return Err(
+            "GATEWAY_NODE_ID (node links) needs the TLS gateway: a private server (GATEWAY_TLS=0) is plain HTTP".into(),
+        );
+    }
+    let node: module_api::network::NodeId = node.parse().map_err(|e| format!("GATEWAY_NODE_ID: {e}"))?;
+    let region = optional(env, "GATEWAY_NODE_REGION").ok_or("GATEWAY_NODE_REGION is not set (this node's region)")?;
+    let region = region.parse().map_err(|e| format!("GATEWAY_NODE_REGION: {e}"))?;
+    let file = |name: &str| {
+        optional(env, name)
+            .map(|path| resolve(&path))
+            .ok_or_else(|| format!("{name} must name the PEM file `network issue-node-cert` wrote for this node"))
+    };
+    let peers: Vec<network_plugin::cluster::Peer> = match optional(env, "GATEWAY_NETWORK_NODES") {
+        Some(text) => serde_json::from_str(&text).map_err(|e| format!("GATEWAY_NETWORK_NODES: {e}"))?,
+        None => Vec::new(),
+    };
+    network_plugin::cluster::check_peers(&node, &peers).map_err(|e| format!("GATEWAY_NETWORK_NODES: {e}"))?;
+    Ok(Some(NodeLinkConfig {
+        identity: module_api::NodeIdentity { node, region },
+        cert_file: file("GATEWAY_NODE_CERT")?,
+        key_file: file("GATEWAY_NODE_KEY")?,
+        ca_file: file("GATEWAY_NODE_CA")?,
+        peers,
+    }))
+}
+
+/// The peers the launcher can ping (DN7): those listed with the fingerprint of their public certificate,
+/// one per region, at most `MAX_NODES`.
+fn listed_nodes(peers: &[network_plugin::cluster::Peer]) -> Vec<crate::network::NetworkNode> {
+    let mut out: Vec<crate::network::NetworkNode> = Vec::new();
+    for peer in peers {
+        let Some(fingerprint) = &peer.fingerprint else {
+            continue;
+        };
+        if out.iter().any(|node| node.region == peer.region.as_str()) || out.len() >= crate::network::MAX_NODES {
+            continue;
+        }
+        out.push(crate::network::NetworkNode {
+            region: peer.region.to_string(),
+            host: peer.host.clone(),
+            port: peer.port,
+            fingerprint: fingerprint.clone(),
+        });
+    }
+    out
+}
+
 impl Config {
     /// `LoadGatewayConfig`.
     pub fn from_env(env: &Env) -> Result<Self, String> {
@@ -342,6 +412,7 @@ impl Config {
                 connect: rate("GATEWAY_RATE_CONNECT", d.rate.connect)?,
             },
         };
+        let node_links = node_link_config(env, tls)?;
         let t = &DEFAULT_TIMEOUTS;
         let timeouts = Timeouts {
             handshake: ms(env, "GATEWAY_HANDSHAKE_TIMEOUT_MS", t.handshake, 1000, 120_000)?,
@@ -374,7 +445,10 @@ impl Config {
             allowlist,
             limits,
             timeouts,
-            network: Vec::new(),
+            network: node_links
+                .as_ref()
+                .map_or_else(Vec::new, |links| listed_nodes(&links.peers)),
+            node_links,
         })
     }
 }

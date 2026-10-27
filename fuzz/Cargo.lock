@@ -851,6 +851,7 @@ dependencies = [
  "network",
  "protocol",
  "proxy",
+ "rustls",
  "serde",
  "serde_json",
  "service-kit",
@@ -1421,6 +1422,7 @@ dependencies = [
  "hyper-util",
  "indexmap 2.14.2",
  "module-api",
+ "network",
  "protocol",
  "proxy",
  "rcgen",
@@ -1613,6 +1615,7 @@ dependencies = [
  "hyper-util",
  "libc",
  "module-api",
+ "network",
  "protocol",
  "ratatui",
  "rustls",
@@ -2294,16 +2297,26 @@ checksum = "743fb55ba31b18fb1ecef6bdc9aa2743314978ac084044301a7eee33fb99a20d"
 name = "network"
 version = "0.0.0"
 dependencies = [
+ "bytes",
  "diesel",
  "diesel_migrations",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "module-api",
  "protocol",
+ "rcgen",
+ "rustls",
  "serde",
  "serde_json",
+ "sha2",
  "store",
  "thiserror",
+ "time",
  "tokio",
+ "tokio-rustls",
  "tracing",
+ "x509-parser",
 ]
 
 [[package]]

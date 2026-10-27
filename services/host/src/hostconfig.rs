@@ -822,7 +822,13 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         ModulesConfig::from_json(modules)?;
     }
     if let Some(network) = c.get("network") {
-        NetworkConfig::from_json(network)?;
+        let network = NetworkConfig::from_json(network)?;
+        // Node links are mutual TLS on the gateway's public port (DN3)
+        if !network.nodes.is_empty() && c.get("mode").and_then(Value::as_str) != Some("public") {
+            return Err(bad(
+                "network.nodes needs mode = \"public\": node links run over the gateway's TLS port",
+            ));
+        }
     }
     let mut out = c.clone();
     out.insert("host".into(), Value::String(host));
@@ -1604,6 +1610,11 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
                 ("GATEWAY_CERT", path_text(&p.cert_file)),
                 ("GATEWAY_KEY", path_text(&p.key_file)),
             ];
+            // Peers listed: this node answers them over mutual TLS and calls them (DN3). The files are the ones
+            // `network issue-node-cert` wrote, copied to the TLS folder
+            if let Some(network) = c.network.as_ref().filter(|n| !n.nodes.is_empty()) {
+                gateway.extend(node_link_env(network, p));
+            }
             gateway.extend(common);
             gateway.extend([
                 ("ALLOWLIST_URL", format!("http://127.0.0.1:{}", PORTS.allowlist)),
@@ -1658,6 +1669,26 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         admin: owned(admin),
         allowlist: allowlist.map(owned),
     }
+}
+
+/// The node's files in the TLS folder, next to the gateway's own certificate (DN3).
+pub const NODE_CERT_FILE: &str = "node-cert.pem";
+pub const NODE_KEY_FILE: &str = "node-key.pem";
+pub const CLUSTER_CA_FILE: &str = "cluster-ca-cert.pem";
+
+/// What the gateway reads to serve node links (`GATEWAY_NODE_*`, `GATEWAY_NETWORK_NODES`, DN3).
+fn node_link_env(network: &NetworkConfig, p: &Paths) -> Vec<(&'static str, String)> {
+    vec![
+        ("GATEWAY_NODE_ID", network.node.to_string()),
+        ("GATEWAY_NODE_REGION", network.region.to_string()),
+        ("GATEWAY_NODE_CERT", path_text(&p.tls.join(NODE_CERT_FILE))),
+        ("GATEWAY_NODE_KEY", path_text(&p.tls.join(NODE_KEY_FILE))),
+        ("GATEWAY_NODE_CA", path_text(&p.tls.join(CLUSTER_CA_FILE))),
+        (
+            "GATEWAY_NETWORK_NODES",
+            serde_json::to_string(&network.nodes).unwrap_or_default(),
+        ),
+    ]
 }
 
 /// The database settings `store::DatabaseConfig::from_lookup` reads, for a service that keeps the node's

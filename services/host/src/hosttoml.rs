@@ -45,7 +45,16 @@ const TOP: &[Field] = &[
 /// The top-level key whose tables and lists are read as they are (`hostconfig/modules.rs` checks them).
 const FREE_FORM: &str = "modules";
 
-const NETWORK: &[Field] = &[("node", "node", false), ("region", "region", false)];
+/// `network.nodes` is a list of tables (`[[network.nodes]]`), read as it is like `[modules]`
+const NETWORK: &[Field] = &[
+    ("node", "node", false),
+    ("region", "region", false),
+    ("nodes", "nodes", false),
+];
+
+fn is_peer_list(prefix: &str, json: &str) -> bool {
+    prefix == "network." && json == "nodes"
+}
 
 const MONGO: &[Field] = &[
     ("uri", "uri", false),
@@ -135,6 +144,9 @@ fn object(table: &dyn TableLike, fields: &[Field], prefix: &str) -> Result<Map<S
         let path = format!("{prefix}{toml}");
         match table.get(toml) {
             Some(item) if prefix.is_empty() && json == FREE_FORM => {
+                out.insert(json.into(), free_form(item, &path)?);
+            }
+            Some(item) if is_peer_list(prefix, json) => {
                 out.insert(json.into(), free_form(item, &path)?);
             }
             Some(item) => {
@@ -309,6 +321,10 @@ fn patch(
                 table.remove(toml);
                 table.insert(toml, free_item(v, toml)?);
             }
+            (Some(v), None) if !top && is_peer_list("network.", json) && toml == "nodes" => {
+                table.remove(toml);
+                table.insert(toml, free_item(v, "network.nodes")?);
+            }
             (Some(Value::Object(values)), Some(sub)) => {
                 let old_values = o.and_then(Value::as_object).unwrap_or(&empty);
                 if let Some(Item::Table(existing)) = table.get_mut(toml) {
@@ -428,6 +444,10 @@ fn comment(path: &str) -> &'static str {
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",
         "network.region" => "The region it serves, such as oregon.",
+        "network.nodes" => {
+            "The other nodes of the network, one [[network.nodes]] each (DN3): id, region, host, port and optionally
+\n             fingerprint. Only these nodes may call this one. Left out: no peers."
+        }
         "modules" => {
             "The game modules and plugins to load (DF3). compiled lists the compiled-in ones (left out: all of them);\n\
              each [[modules.external]] is an executable with its SHA-256 (id, path, sha256, args, autoload); a\n\
@@ -473,6 +493,9 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
         push_comment(&mut out, toml);
         out.push_str(&format!("[{toml}]\n"));
         for &(sub_json, sub_toml, _) in sub {
+            if is_peer_list(&format!("{toml}."), sub_json) {
+                continue;
+            }
             match values.get(sub_json) {
                 None | Some(Value::Null) => {}
                 Some(v) => {
@@ -480,6 +503,16 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
                     out.push_str(&format!("{sub_toml} = {}\n", scalar(v, sub_toml)?.to_string().trim()));
                 }
             }
+        }
+        if let Some(nodes) = values.get("nodes").filter(|v| !v.is_null()) {
+            let mut doc = DocumentMut::new();
+            let mut parent = Table::new();
+            parent.insert("nodes", free_item(nodes, "network.nodes")?);
+            parent.set_implicit(true);
+            doc.insert(toml, Item::Table(parent));
+            out.push('\n');
+            push_comment(&mut out, &format!("{toml}.nodes"));
+            out.push_str(&doc.to_string());
         }
     }
     if let Some(modules) = fields.get(FREE_FORM).filter(|v| !v.is_null()) {

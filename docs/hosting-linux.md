@@ -49,6 +49,10 @@ Linux options of `setup`: `--wine <path>` or `--proton <script>` (a Proton or GE
 Wine; `--no-proton` goes back), `--xvfb` (the default) or `--no-xvfb`, and `--interface eth0` to make the
 allowlist filter one interface only.
 
+A server in a network of servers lists its peers under `[[network.nodes]]` and keeps its node certificate in
+`.workspace/tls` ([hosting.md](hosting.md#a-network-of-servers)); the nodes meet on the gateway's TLS port, so no
+firewall rule beyond the gateway's own is needed.
+
 Postgres instead of SQLite for the Rust services' database is `[database]` in `host.toml`
 ([hosting.md](hosting.md#the-database-engine)). On Debian or Ubuntu, with the role's password from `secrets.env`:
 
