@@ -218,6 +218,34 @@ Fuzz target: `network_link` in `rust/fuzz` (the route table, the time header, a 
   `server::run_with_node_links` give the network plugin its hook; DN5 built the services (`ServiceMux` puts the
   directory's and the home API's behind the one attachment) and DN10b adds its own.
 - **A private (Tailscale) server can't be a node:** node links need the gateway's TLS port.
+- **The running gateway does not ping its peers yet.** `spawn_health_checks` is used by no service, so a node's health
+  is what `network status` finds when it is run; nothing on a live node records a peer going down between runs.
+
+## The Docker harness (DN12)
+
+`compose.yaml`'s `network` profile runs four nodes on one machine for tests (`docs/hosting-docker.md`,
+`docker/network/test.sh`). It is not a deployment: its CA and every key in it are made for the test and thrown away
+with `docker compose down --volumes`. It keeps the rules above anyway, so what it proves is the real arrangement.
+
+- **The CA key lives in one volume, `network-ca`, mounted only by `network-init`** (at `/ca`, directory mode 700, the CA
+  file 600, root's). No node mounts it and no node file holds it; `network-init` has no network
+  (`network_mode: none`), runs as root only to write the nodes' volumes (`cap_drop: ALL`, then `CHOWN`, `DAC_OVERRIDE`,
+  `FOWNER`) and exits. The CA is made once and kept while the volume lives, so a second `up` keeps every certificate and
+  fingerprint.
+- **A node gets its own files only.** `network-init` writes into each node's workspace volume its public gateway
+  certificate and key, `node-cert.pem`, `node-key.pem` (600, owned by uid 1000) and `cluster-ca-cert.pem`, which is the
+  CA's certificate, and its `host.toml`. The gateway container mounts that volume read-only.
+- **The node certificates name the addresses the harness fixes** (`172.28.77.11` to `.14`, and `<region>.cluster.test`),
+  which is also how each peer is listed, so the checks that a peer answers at the address its certificate names are
+  the ones that run. The `host.toml` lists every other node with the SHA-256 of its public gateway certificate.
+- **CAP_NET_ADMIN is the `netem-*` containers' alone**, in each node's namespace; the gateways keep
+  `cap_drop: ALL`, `no-new-privileges` and a read-only root. `tc` shapes only that namespace's outgoing traffic.
+- **Published ports** are the gateways' 443 on `127.0.0.1` (`REFORGED_NETWORK_PUBLISH_ADDRESS`); the node links share
+  that port as they do anywhere. Setting the address to `0.0.0.0` exposes four nodes whose CA key anyone with the
+  Docker socket can read: don't.
+- **`reforged-host network status`** (the check the harness runs in each node) calls the peers as the node itself, from
+  the node certificate the gateway reads, and prints states and round trips; it takes no action on a peer and prints
+  no key. Run in a container, it needs the node's `gateway.env` and nothing of the CA.
 
 ## Session tickets and the home API (DN5)
 

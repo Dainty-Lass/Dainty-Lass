@@ -12,6 +12,10 @@
 # A legacy server (Dauntless Revived's 1.4.4) is the legacy profile with compose.legacy.yaml on top, which leaves
 # Mystic Paradox's containers out (REFORGED_EDITION=legacy in .env; docs/hosting-docker.md).
 #
+# The network profile (docs/hosting-docker.md, DN12) is a test cluster of four such servers instead, among the services
+# below. Run it by itself with `docker compose --profile network up -d --wait network`: the other services have no
+# profile, so a bare `--profile network up` would start the single server too.
+#
 # Every service shares one network namespace, the net service's: they reach each other on 127.0.0.1 exactly as
 # the env files setup writes say, nothing but the gateway and the game ports is published, and the allowlist's
 # nftables table filters the game servers' traffic inside that namespace without touching the host's firewall.
@@ -53,6 +57,94 @@ x-server: &server
     - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
     - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
     - ${REFORGED_GAME_DIR:-./game}:/game
+
+# The network profile (DN12): four nodes, each its own namespace (net-*) holding the gateway, the only service a node
+# of the harness needs, and a netem sidecar that shapes the namespace's traffic. docker/network/test.sh runs it.
+x-network-net: &network-net
+  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: front
+    args:
+      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
+  profiles: [network]
+  command: ["sleep", "infinity"]
+  init: true
+  restart: unless-stopped
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  sysctls:
+    net.ipv4.ip_unprivileged_port_start: "0"
+  healthcheck:
+    test: ["CMD", "true"]
+    interval: 30s
+
+# tc and nothing else, with CAP_NET_ADMIN in the node's namespace (the node's own containers keep none)
+x-network-netem: &network-netem
+  image: ${REFORGED_IMAGE:-reforged-revival}-netem:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: netem
+  profiles: [network]
+  init: true
+  restart: unless-stopped
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  cap_add: [NET_ADMIN]
+  healthcheck:
+    test: ["CMD-SHELL", "tc qdisc show dev eth0 | grep -q netem"]
+    interval: 2s
+    retries: 15
+
+# Round trips between the regions in milliseconds, the canary's (docs/hosting-docker.md); each way takes half
+x-network-netem-env: &network-netem-env
+  NETEM_NODES: "oregon=${REFORGED_NETWORK_SUBNET:-172.28.77}.11 new-york=${REFORGED_NETWORK_SUBNET:-172.28.77}.12 uk=${REFORGED_NETWORK_SUBNET:-172.28.77}.13 germany=${REFORGED_NETWORK_SUBNET:-172.28.77}.14"
+  NETEM_RTT: "oregon:new-york=${REFORGED_NETWORK_RTT_OREGON_NEW_YORK:-70} oregon:uk=${REFORGED_NETWORK_RTT_OREGON_UK:-140} oregon:germany=${REFORGED_NETWORK_RTT_OREGON_GERMANY:-150} new-york:uk=${REFORGED_NETWORK_RTT_NEW_YORK_UK:-75} new-york:germany=${REFORGED_NETWORK_RTT_NEW_YORK_GERMANY:-85} uk:germany=${REFORGED_NETWORK_RTT_UK_GERMANY:-20}"
+  NETEM_PLAYER_REGION: ${REFORGED_NETWORK_PLAYER_REGION:-germany}
+
+# Setup from the host.toml network-init wrote, before the gateway starts
+x-network-configure: &network-configure
+  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: server
+    args:
+      REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
+  profiles: [network]
+  network_mode: none
+  restart: "no"
+  entrypoint: ["/usr/bin/tini", "--", "reforged-host-docker"]
+  command: ["apply"]
+  # Not read-only: setup writes the game-data folders of the image, which a node with no game never reads
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+x-network-gateway: &network-gateway
+  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: front
+    args:
+      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
+  profiles: [network]
+  command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  healthcheck:
+    test: ["CMD", "reforged-healthcheck", "gateway"]
+    interval: 5s
+    start_period: 30s
 
 services:
   # Holds the network namespace and the published ports, so a service restarting never drops the others'.
@@ -351,6 +443,231 @@ services:
       - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data:ro
       - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data:ro
 
+  # ---- The network profile (DN12): four nodes of one network, the canary's regions. `network` starts them all;
+  # docker/network/test.sh brings them up and checks the links and the region ping. The four blocks below differ
+  # only in the region and its address.
+
+  # Makes the cluster CA (in the network-ca volume, which nothing else mounts) and what each node needs: its public
+  # certificate, its node certificate, the CA's certificate and a host.toml listing the other three. Runs as root,
+  # with the capabilities to write into the node volumes and hand them to uid 1000.
+  network-init:
+    image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: server
+      args:
+        REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
+    profiles: [network]
+    user: "0:0"
+    entrypoint: ["/usr/bin/tini", "--", "reforged-network-init"]
+    environment:
+      NETWORK_NODES: "oregon=oregon-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.11 new-york=new-york-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.12 uk=uk-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.13 germany=germany-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.14"
+    network_mode: none
+    restart: "no"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    volumes:
+      - network-ca:/ca
+      - network-oregon:/nodes/oregon
+      - network-new-york:/nodes/new-york
+      - network-uk:/nodes/uk
+      - network-germany:/nodes/germany
+
+  net-oregon:
+    <<: *network-net
+    hostname: oregon-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.11
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_OREGON:-18441}:443/tcp"
+
+  netem-oregon:
+    <<: *network-netem
+    network_mode: service:net-oregon
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: oregon
+    depends_on:
+      net-oregon:
+        condition: service_started
+
+  configure-oregon:
+    <<: *network-configure
+    volumes:
+      - network-oregon:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-oregon:
+    <<: *network-gateway
+    network_mode: service:net-oregon
+    volumes:
+      - network-oregon:/opt/reforged/.workspace:ro
+    depends_on:
+      net-oregon:
+        condition: service_healthy
+      netem-oregon:
+        condition: service_healthy
+      configure-oregon:
+        condition: service_completed_successfully
+
+  net-new-york:
+    <<: *network-net
+    hostname: new-york-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.12
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_NEW_YORK:-18442}:443/tcp"
+
+  netem-new-york:
+    <<: *network-netem
+    network_mode: service:net-new-york
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: new-york
+    depends_on:
+      net-new-york:
+        condition: service_started
+
+  configure-new-york:
+    <<: *network-configure
+    volumes:
+      - network-new-york:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-new-york:
+    <<: *network-gateway
+    network_mode: service:net-new-york
+    volumes:
+      - network-new-york:/opt/reforged/.workspace:ro
+    depends_on:
+      net-new-york:
+        condition: service_healthy
+      netem-new-york:
+        condition: service_healthy
+      configure-new-york:
+        condition: service_completed_successfully
+
+  net-uk:
+    <<: *network-net
+    hostname: uk-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.13
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_UK:-18443}:443/tcp"
+
+  netem-uk:
+    <<: *network-netem
+    network_mode: service:net-uk
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: uk
+    depends_on:
+      net-uk:
+        condition: service_started
+
+  configure-uk:
+    <<: *network-configure
+    volumes:
+      - network-uk:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-uk:
+    <<: *network-gateway
+    network_mode: service:net-uk
+    volumes:
+      - network-uk:/opt/reforged/.workspace:ro
+    depends_on:
+      net-uk:
+        condition: service_healthy
+      netem-uk:
+        condition: service_healthy
+      configure-uk:
+        condition: service_completed_successfully
+
+  net-germany:
+    <<: *network-net
+    hostname: germany-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.14
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_GERMANY:-18444}:443/tcp"
+
+  netem-germany:
+    <<: *network-netem
+    network_mode: service:net-germany
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: germany
+    depends_on:
+      net-germany:
+        condition: service_started
+
+  configure-germany:
+    <<: *network-configure
+    volumes:
+      - network-germany:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-germany:
+    <<: *network-gateway
+    network_mode: service:net-germany
+    volumes:
+      - network-germany:/opt/reforged/.workspace:ro
+    depends_on:
+      net-germany:
+        condition: service_healthy
+      netem-germany:
+        condition: service_healthy
+      configure-germany:
+        condition: service_completed_successfully
+
+  # `docker compose --profile network up -d --wait network` starts the four nodes and nothing else
+  network:
+    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    profiles: [network]
+    command: ["sleep", "infinity"]
+    init: true
+    network_mode: none
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+    depends_on:
+      gateway-oregon:
+        condition: service_healthy
+      gateway-new-york:
+        condition: service_healthy
+      gateway-uk:
+        condition: service_healthy
+      gateway-germany:
+        condition: service_healthy
+
+networks:
+  # The network profile's private network. Addresses are fixed: the node certificates and tc's filters name them
+  cluster:
+    ipam:
+      config:
+        - subnet: ${REFORGED_NETWORK_SUBNET:-172.28.77}.0/24
+
 volumes:
   workspace:
   backend-game-data:
@@ -360,3 +677,8 @@ volumes:
   mongo-data:
   mongo-config:
   postgres-data:
+  network-ca:
+  network-oregon:
+  network-new-york:
+  network-uk:
+  network-germany:
