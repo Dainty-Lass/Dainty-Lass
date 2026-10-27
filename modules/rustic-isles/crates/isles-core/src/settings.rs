@@ -133,6 +133,11 @@ impl Settings {
         vars
     }
 
+    /// The env file's variables (the release gates look at their names).
+    pub fn env_map(&self) -> &BTreeMap<String, String> {
+        &self.env
+    }
+
     /// The value as set, also when empty: Node's `process.env.X`, which `??` treats as set.
     pub fn raw(&self, name: &str) -> Option<&str> {
         self.forced

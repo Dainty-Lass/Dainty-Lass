@@ -357,7 +357,9 @@ async fn rifts_reply(handler: &dyn RouteHandler, route: rifts_seam::Route, call:
 
 async fn dispatch(State(app): State<Arc<App>>, mut request: Request) -> Response {
     let id = request_id(&request);
+    let observation = crate::areas::reforged_api::observe::begin(&request, &id);
     let mut response = answer(&app, &mut request, id.clone()).await;
+    observation.finish(response.status().as_u16());
     if let Ok(value) = HeaderValue::from_str(&id) {
         response
             .headers_mut()

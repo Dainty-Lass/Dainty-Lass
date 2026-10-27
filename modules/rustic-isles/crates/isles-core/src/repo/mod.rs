@@ -103,6 +103,7 @@ pub struct Repositories {
     pub email_codes: Arc<dyn auth::EmailCodeRepository>,
     pub api_keys: Arc<dyn auth::ApiKeyRepository>,
     pub admin: Arc<dyn reforged::AdminRepository>,
+    pub invites: Arc<dyn reforged::InviteRepository>,
     pub launcher_notices: Arc<dyn reforged::LauncherNoticesRepository>,
     pub activity: Arc<dyn reforged::ActivityRepository>,
     pub launcher_guard: Arc<dyn reforged::LauncherGuardRepository>,
@@ -139,6 +140,7 @@ impl Repositories {
             email_codes: stub.clone(),
             api_keys: stub.clone(),
             admin: stub.clone(),
+            invites: stub.clone(),
             launcher_notices: stub.clone(),
             activity: stub.clone(),
             launcher_guard: stub.clone(),
@@ -168,6 +170,7 @@ impl Repositories {
         Self {
             accounts: Arc::new(auth::SqlAccounts),
             friendships: Arc::new(chat::SqlFriendships),
+            invites: Arc::new(reforged::SqlInvites),
             characters: Arc::new(characters::SqlCharacters),
             loadouts: Arc::new(characters::SqlLoadouts),
             progression_tracks: progression.clone(),
@@ -184,6 +187,9 @@ impl Repositories {
             parties: Arc::new(parties::SqlParties),
             inventories: Arc::new(inventory::SqlInventories),
             inventory_transactions: Arc::new(inventory::SqlInventoryTransactions),
+            launcher_guard: Arc::new(reforged::SqlLauncherGuard),
+            admin: Arc::new(reforged::SqlAdmin),
+            launcher_notices: Arc::new(reforged::SqlLauncherNotices),
             ..Self::stubs()
         }
     }
