@@ -15,7 +15,7 @@ import type {
   StatusInstance,
   TaskProgress,
 } from "@workspace/bridge"
-import { isKey, type Key, type Language } from "@workspace/i18n"
+import { CATALOGS, isKey, type Key, type Language } from "@workspace/i18n"
 
 import {
   formatBytes,
@@ -95,6 +95,12 @@ export const ERROR_KEYS: Record<ErrorCode, Key> = {
   epic_manifest_unavailable: "err_epic_manifest_unavailable",
   guarded_not_found: "err_guarded_not_found",
   guarded_not_waiting: "err_guarded_not_waiting",
+  server_stopped: "err_server_stopped",
+  module_unknown: "err_module_unknown",
+  module_bad_state: "err_module_bad_state",
+  module_input_invalid: "err_module_input_invalid",
+  module_settings_invalid: "err_module_settings_invalid",
+  module_failed: "err_module_failed",
   unknown: "err_unknown",
 }
 
@@ -112,6 +118,18 @@ export const NOTICE_KEYS: Record<NoticeCode, Key> = {
 
 function keyOr(candidate: string, fallback: Key): Key {
   return isKey(candidate) ? candidate : fallback
+}
+
+// A module's refusal comes as `reason` or `reason:name`: one sentence per reason, the name filling it. A
+// reason without a sentence, or one that needs a name the backend couldn't give, gets the code's own.
+function reasoned(prefix: string, fallback: Key, detail: string): Message {
+  const [reason = "", ...rest] = detail.split(":")
+  const name = rest.join(":")
+  const key = `${prefix}${reason}`
+  if (!isKey(key) || (CATALOGS.en[key].includes("{name}") && name === "")) {
+    return { key: fallback }
+  }
+  return { key, vars: { name } }
 }
 
 export function errorMessage(
@@ -156,6 +174,25 @@ export function errorMessage(
       return isKey(`host_err_${detail}`)
         ? { key: `host_err_${detail}` as Key }
         : { key: "err_host_failed", vars: { detail } }
+    case "module_bad_state":
+      return {
+        key:
+          detail === "loaded" || detail === "not_loaded"
+            ? (`mod_err_${detail}` as Key)
+            : "err_module_bad_state",
+      }
+    case "module_input_invalid":
+      return reasoned("mod_err_input_", "err_module_input_invalid", detail)
+    case "module_settings_invalid":
+      return reasoned(
+        "mod_err_settings_",
+        "err_module_settings_invalid",
+        detail
+      )
+    case "module_failed":
+      return isKey(`mod_err_failed_${detail}`)
+        ? { key: `mod_err_failed_${detail}` as Key }
+        : { key: "err_module_failed", vars: { detail } }
     case "launch_failed":
     case "windows_runtime_missing":
       return { key: ERROR_KEYS[e.code], detail: detail || undefined }

@@ -18,6 +18,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 
+import { hostPageAvailable } from "@/app/host-model"
 import { useI18n } from "@/app/i18n"
 import { useLauncher } from "@/app/launcher"
 import {
@@ -699,6 +700,7 @@ function Locate({ snap }: { snap: Snapshot }) {
 
 function Runtime({ snap }: { snap: Snapshot }) {
   const { t } = useI18n()
+  const { setView } = useLauncher()
   const name = serverName(snap)
   const r = snap.runtime
   const version = r.version ?? "?"
@@ -754,7 +756,12 @@ function Runtime({ snap }: { snap: Snapshot }) {
               title={t("runtime_none_host_title")}
               text={t("runtime_none_host_text")}
             >
-              <div>
+              <div className="flex flex-wrap items-center gap-4">
+                {hostPageAvailable(snap) && (
+                  <Button size="sm" onClick={() => setView("host")}>
+                    {t("host_teaser_open")}
+                  </Button>
+                )}
                 <ExternalLink target="project_docs_sdk">
                   {t("host_teaser_docs")}
                 </ExternalLink>

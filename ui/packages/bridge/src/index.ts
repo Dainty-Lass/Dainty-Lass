@@ -13,5 +13,7 @@ export {
   api,
   type HistoryFilter,
   type LauncherApi,
+  type ModuleInput,
+  type ModuleSettingsPatch,
   type RevertSelection,
 } from "./api"

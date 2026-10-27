@@ -62,6 +62,7 @@ function snap(over: Partial<Snapshot> = {}): Snapshot {
       updateReady: false,
       platform: "win32",
       hostToolsAvailable: true,
+      serverGui: false,
       legacyAvailable: false,
       gameVersions: ["1.14.7"],
     },

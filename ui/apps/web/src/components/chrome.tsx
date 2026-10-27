@@ -2,6 +2,7 @@
 import {
   CopyIcon,
   DownloadIcon,
+  HardDriveIcon,
   MinusIcon,
   PlayIcon,
   ServerIcon,
@@ -14,6 +15,7 @@ import { api, inLauncher } from "@workspace/bridge"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { hostPageAvailable } from "@/app/host-model"
 import { useI18n } from "@/app/i18n"
 import { useLauncher, type View } from "@/app/launcher"
 
@@ -64,13 +66,14 @@ export function TitleBar() {
 
 const NAV: {
   view: View
-  key: "nav_play" | "nav_server" | "nav_settings" | "nav_game"
+  key: "nav_play" | "nav_server" | "nav_host" | "nav_settings" | "nav_game"
   icon: typeof PlayIcon
 }[] = [
   { view: "play", key: "nav_play", icon: PlayIcon },
   { view: "server", key: "nav_server", icon: ServerIcon },
-  { view: "settings", key: "nav_settings", icon: SettingsIcon },
   { view: "game", key: "nav_game", icon: DownloadIcon },
+  { view: "host", key: "nav_host", icon: HardDriveIcon },
+  { view: "settings", key: "nav_settings", icon: SettingsIcon },
 ]
 
 export function Rail() {
@@ -78,6 +81,10 @@ export function Rail() {
   const { view, setView, snap } = useLauncher()
   const user = snap?.account.hasKey ? snap.account.username : null
   const serverName = snap?.status?.name ?? snap?.server?.name ?? null
+  // The Host page is the server GUI's, or a player build's once Host tools are on
+  const items = NAV.filter(
+    ({ view: target }) => target !== "host" || hostPageAvailable(snap)
+  )
   return (
     <nav
       aria-label={t("nav_label")}
@@ -95,7 +102,7 @@ export function Rail() {
           </div>
         </div>
         <ul className="flex flex-col gap-1">
-          {NAV.map(({ view: target, key, icon: Icon }) => (
+          {items.map(({ view: target, key, icon: Icon }) => (
             <li key={target}>
               <Button
                 variant="ghost"

@@ -31,7 +31,7 @@ import {
   type InviteSummary,
 } from "./model"
 
-export type View = "play" | "server" | "settings" | "game"
+export type View = "play" | "server" | "host" | "settings" | "game"
 
 export type Modal =
   | { kind: "invite"; link: string; invite: InviteSummary }

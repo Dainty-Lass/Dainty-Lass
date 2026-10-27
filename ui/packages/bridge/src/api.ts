@@ -25,6 +25,9 @@ import type {
   InstallMode,
   InstallOutcome,
   InviteCheck,
+  ModuleCommandOutcome,
+  ModuleListOutcome,
+  ModuleOutcome,
   NewsItem,
   RealmKind,
   RegionPing,
@@ -47,6 +50,16 @@ export interface RevertSelection {
 export interface HistoryFilter extends RevertSelection {
   cursor?: string | null
 }
+
+// A module command's form (DD11): each argument the manifest names, as text. The backend checks it against the
+// command's registered arguments
+export type ModuleInput = Record<string, string>
+
+// `[modules.<id>.<section>]` values to save: section, key, then a value of the type of the key's default
+export type ModuleSettingsPatch = Record<
+  string,
+  Record<string, boolean | number | string>
+>
 
 export interface LauncherApi {
   getSnapshot(): Promise<Snapshot>
@@ -132,19 +145,20 @@ export interface LauncherApi {
   gameInstallGet(version: string): Promise<InstallOutcome>
   // DN7's, filled: the joined server's regions, nearest first
   regionPing(): Promise<RegionPing>
-  moduleList(): Promise<ActionResult>
-  moduleGet(module: string): Promise<ActionResult>
+  // DU3's, filled (server GUI): modules by manifest id, never a path
+  moduleList(): Promise<ModuleListOutcome>
+  moduleGet(module: string): Promise<ModuleOutcome>
   moduleRunCommand(
     module: string,
     command: string,
-    input: unknown
-  ): Promise<ActionResult>
+    input: ModuleInput | null
+  ): Promise<ModuleCommandOutcome>
   moduleSetSettings(
     module: string,
-    values: Record<string, unknown>
-  ): Promise<ActionResult>
-  moduleLoad(module: string): Promise<ActionResult>
-  moduleUnload(module: string): Promise<ActionResult>
+    values: ModuleSettingsPatch
+  ): Promise<ModuleOutcome>
+  moduleLoad(module: string): Promise<ModuleOutcome>
+  moduleUnload(module: string): Promise<ModuleOutcome>
   realmHost(kind: RealmKind): Promise<ActionResult>
   realmJoin(realm: string): Promise<ActionResult>
   realmStop(): Promise<ActionResult>
@@ -369,11 +383,12 @@ export const api: LauncherApi = {
   gameInstallGet: (version) =>
     act<InstallOutcome>("game_install_get", { version: String(version) }),
   regionPing: () => act<RegionPing>("region_ping"),
-  moduleList: () => act("module_list"),
-  moduleGet: (module) => act("module_get", { module: String(module) }),
+  moduleList: () => act<ModuleListOutcome>("module_list"),
+  moduleGet: (module) =>
+    act<ModuleOutcome>("module_get", { module: String(module) }),
   // The input's shape is the module manifest's, so it crosses as JSON text the backend checks
   moduleRunCommand: (module, command, input) =>
-    act(
+    act<ModuleCommandOutcome>(
       "module_run_command",
       {
         module: String(module),
@@ -383,14 +398,22 @@ export const api: LauncherApi = {
       LONG_TIMEOUT_MS
     ),
   moduleSetSettings: (module, values) =>
-    act("module_set_settings", {
+    act<ModuleOutcome>("module_set_settings", {
       module: String(module),
       values: JSON.stringify(values ?? {}),
     }),
   moduleLoad: (module) =>
-    act("module_load", { module: String(module) }, LONG_TIMEOUT_MS),
+    act<ModuleOutcome>(
+      "module_load",
+      { module: String(module) },
+      LONG_TIMEOUT_MS
+    ),
   moduleUnload: (module) =>
-    act("module_unload", { module: String(module) }, LONG_TIMEOUT_MS),
+    act<ModuleOutcome>(
+      "module_unload",
+      { module: String(module) },
+      LONG_TIMEOUT_MS
+    ),
   realmHost: (kind) =>
     act(
       "realm_host",
