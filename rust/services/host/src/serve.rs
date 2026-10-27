@@ -363,6 +363,12 @@ pub fn compose(
             .first()
             .cloned()
             .unwrap_or_else(protocol::invite::reforged_version);
+        let peer_log_dir = Some(paths.workspace.join("peer-logs"));
+        let ship_to_peer = config
+            .history
+            .as_ref()
+            .and_then(|h| h.ship_to_peer.clone())
+            .map(|peer| (peer, paths.config.join("history-peer-state.json")));
         controller.add(
             modules::network(modules::NetworkOptions {
                 node: said.clone(),
@@ -374,6 +380,8 @@ pub fn compose(
                 game,
                 registry: registry.clone(),
                 replication_interval: Duration::from_secs(5),
+                peer_log_dir,
+                ship_to_peer,
             })
             .map_err(HostError::message)?,
         );
@@ -852,6 +860,7 @@ mod tests {
             linux: None,
             database: None,
             guard: None,
+            history: None,
             modules: None,
             network: None,
             file: FileForm::default(),

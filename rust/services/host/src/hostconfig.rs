@@ -324,12 +324,44 @@ pub struct HostConfig {
     pub database: Option<DatabaseSettings>,
     /// `[guard]` (DH6). Absent: the admin API defaults.
     pub guard: Option<GuardConfig>,
+    /// `[history]` (DH7). Absent: off.
+    pub history: Option<HistoryConfig>,
     /// `[modules]` (DF3). Absent: every compiled-in module and no external one, which is today's server.
     pub modules: Option<ModulesConfig>,
     /// `[network]` (DN2). Absent: a server outside any network.
     pub network: Option<NetworkConfig>,
     /// The file this config was read from; `FileForm::default()` for a new one.
     pub file: FileForm,
+}
+
+/// `[history]` (DD23 layer 2, DH7): off-server change log and snapshot shipping to a peer node.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct HistoryConfig {
+    /// A peer node id in `[[network.nodes]]` to ship this node's change log and snapshots to (`Service::LogShip`, DH7).
+    pub ship_to_peer: Option<module_api::network::NodeId>,
+}
+
+impl HistoryConfig {
+    pub fn from_json(h: &Map<String, Value>) -> Result<Self, HostError> {
+        let ship_to_peer = match h.get("shipToPeer") {
+            None => None,
+            Some(v) => {
+                let s = v
+                    .as_str()
+                    .ok_or_else(|| bad("history.shipToPeer must be a node id (a-z, 0-9 and -)"))?;
+                Some(s.parse().map_err(|e| bad(format!("history.shipToPeer: {e}")))?)
+            }
+        };
+        Ok(Self { ship_to_peer })
+    }
+
+    pub fn to_json(&self) -> Value {
+        let mut out = Map::new();
+        if let Some(peer) = &self.ship_to_peer {
+            out.insert("shipToPeer".into(), Value::String(peer.to_string()));
+        }
+        Value::Object(out)
+    }
 }
 
 /// What a read `host.json` or `host.toml` looked like, so that writing it back changes only what was
@@ -826,13 +858,38 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(modules) = c.get("modules") {
         ModulesConfig::from_json(modules)?;
     }
-    if let Some(network) = c.get("network") {
-        let network = NetworkConfig::from_json(network)?;
-        // Node links are mutual TLS on the gateway's public port (DN3)
-        if !network.nodes.is_empty() && c.get("mode").and_then(Value::as_str) != Some("public") {
-            return Err(bad(
-                "network.nodes needs mode = \"public\": node links run over the gateway's TLS port",
-            ));
+    let parsed_network = match c.get("network") {
+        None => None,
+        Some(network) => {
+            let network = NetworkConfig::from_json(network)?;
+            // Node links are mutual TLS on the gateway's public port (DN3)
+            if !network.nodes.is_empty() && c.get("mode").and_then(Value::as_str) != Some("public") {
+                return Err(bad(
+                    "network.nodes needs mode = \"public\": node links run over the gateway's TLS port",
+                ));
+            }
+            Some(network)
+        }
+    };
+    if let Some(history) = c.get("history") {
+        let h = history.as_object().ok_or_else(|| bad("history must be an object"))?;
+        let parsed = HistoryConfig::from_json(h)?;
+        if let Some(peer) = &parsed.ship_to_peer {
+            let Some(network) = &parsed_network else {
+                return Err(bad(format!(
+                    "history.shipToPeer: {peer} requires [network] and [[network.nodes]]"
+                )));
+            };
+            if *peer == network.node {
+                return Err(bad(format!(
+                    "history.shipToPeer: {peer} is this node itself (network.node); pick a peer in [[network.nodes]]"
+                )));
+            }
+            if !network.nodes.iter().any(|n| n.id == *peer) {
+                return Err(bad(format!(
+                    "history.shipToPeer: {peer} is not listed in [[network.nodes]]"
+                )));
+            }
         }
     }
     let mut out = c.clone();
@@ -925,6 +982,11 @@ impl HostConfig {
             .and_then(Value::as_object)
             .map(DatabaseSettings::from_json);
         let guard = c.get("guard").and_then(Value::as_object).map(GuardConfig::from_json);
+        let history = c
+            .get("history")
+            .and_then(Value::as_object)
+            .map(HistoryConfig::from_json)
+            .transpose()?;
         let modules = c.get("modules").map(ModulesConfig::from_json).transpose()?;
         let network = c.get("network").map(NetworkConfig::from_json).transpose()?;
         let multipliers = c.get("multipliers").and_then(Value::as_object).map(|m| Multipliers {
@@ -967,6 +1029,7 @@ impl HostConfig {
             linux,
             database,
             guard,
+            history,
             modules,
             network,
             file: FileForm::default(),
@@ -1068,6 +1131,9 @@ impl HostConfig {
         }
         if let Some(guard) = &self.guard {
             m.insert("guard".into(), guard.to_json());
+        }
+        if let Some(history) = &self.history {
+            m.insert("history".into(), history.to_json());
         }
         if let Some(modules) = &self.modules {
             m.insert("modules".into(), modules.to_json());

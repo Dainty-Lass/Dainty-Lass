@@ -605,6 +605,9 @@ pub fn host_config_from_args(
     if let Some(guard) = existing.and_then(|c| c.guard.as_ref()) {
         doc.insert("guard".into(), guard.to_json());
     }
+    if let Some(history) = existing.and_then(|c| c.history.as_ref()) {
+        doc.insert("history".into(), history.to_json());
+    }
     // host.toml's own as well: modules are pinned by hand (DF3), a node is named by its operator (DN2)
     if let Some(modules) = existing.and_then(|c| c.modules.as_ref()) {
         doc.insert("modules".into(), modules.to_json());

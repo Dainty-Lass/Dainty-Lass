@@ -15,9 +15,9 @@ gateway = ["dep:gateway"]
 allowlist = ["dep:gateway"]
 content = ["dep:content"]
 admin = ["dep:admin"]
-# The node's network side (DD16): the directory, the home API and the tickets, attached to the gateway's node
-# links. It needs the gateway in this process, and a database for the directory
-network = ["gateway", "network_plugin/directory", "dep:store"]
+# The node's network side (DD16): the directory, the home API, tickets, and peer log shipping (DH7), attached to the
+# gateway's node links. It needs the gateway in this process, and a database for the directory
+network = ["gateway", "network_plugin/directory", "network_plugin/log-ship", "dep:store", "dep:history-ship"]
 
 # The game modules compiled in (DD3, DF5), none by default: each is a crate of its module repository under
 # ../modules, linked as a path dependency
@@ -45,6 +45,7 @@ isles-1-12-0 = { workspace = true, optional = true }
 isles-1-14-7 = { workspace = true, optional = true }
 content = { workspace = true, optional = true }
 gateway = { workspace = true, optional = true }
+history-ship = { workspace = true, optional = true }
 # The node-link services and their registry (DN3-DN5); `directory` is the `network` feature's. Renamed as the gateway renames it
 network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
 store = { workspace = true, optional = true }

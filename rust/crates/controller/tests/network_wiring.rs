@@ -102,6 +102,9 @@ fn build_node(ca: &ClusterCa, node: &str, region: &str, leader: &str, port: u16,
         ("GATEWAY_NETWORK_NODES", &peers_json),
     ]);
 
+    let peer_log_dir = dir.path().join("peer-logs");
+    let ship_state = dir.path().join("history-peer-state.json");
+    let ship_to_peer = peers.first().map(|p| (p.id.clone(), ship_state));
     controller.add(
         modules::network(NetworkOptions {
             node: identity,
@@ -113,6 +116,8 @@ fn build_node(ca: &ClusterCa, node: &str, region: &str, leader: &str, port: u16,
             game: "0.0.1".parse().unwrap(),
             registry: registry.clone(),
             replication_interval: Duration::from_millis(100),
+            peer_log_dir: Some(peer_log_dir),
+            ship_to_peer,
         })
         .unwrap(),
     );
@@ -199,6 +204,34 @@ async fn two_composed_controllers_replicate_directory_and_route_home_calls() {
     assert_eq!(answer["operation"], "ping");
     assert_eq!(answer["body"]["hello"], "world");
 
+    assert!(
+        node2
+            .registry
+            .node_services()
+            .is_attached(network_plugin::Service::LogShip)
+    );
+    // Wait briefly for oregon-1's background peer log shipper to push its snapshot and log segment to uk-1 over mTLS
+    let uk_oregon_logs = node2._dir.path().join("peer-logs").join("oregon-1").join("log");
+    let uk_oregon_snaps = node2._dir.path().join("peer-logs").join("oregon-1").join("snapshot");
+    let mut shipped_over_mtls = false;
+    for _ in 0..30 {
+        let has_log = std::fs::read_dir(&uk_oregon_logs)
+            .map(|mut d| d.any(|e| e.ok().is_some_and(|f| f.path().extension().is_some_and(|x| x == "gz"))))
+            .unwrap_or(false);
+        let has_snap = std::fs::read_dir(&uk_oregon_snaps)
+            .map(|mut d| d.any(|e| e.ok().is_some_and(|f| f.path().extension().is_some_and(|x| x == "gz"))))
+            .unwrap_or(false);
+        if has_log && has_snap {
+            shipped_over_mtls = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(
+        shipped_over_mtls,
+        "expected oregon-1 to ship snapshot and log segment to uk-1 over mTLS"
+    );
+
     node2.controller.shutdown().await;
     node1.controller.shutdown().await;
 
@@ -213,5 +246,11 @@ async fn two_composed_controllers_replicate_directory_and_route_home_calls() {
             .registry
             .node_services()
             .is_attached(network_plugin::Service::Home)
+    );
+    assert!(
+        !node1
+            .registry
+            .node_services()
+            .is_attached(network_plugin::Service::LogShip)
     );
 }

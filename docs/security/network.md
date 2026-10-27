@@ -400,6 +400,14 @@ To be written with DN10b.
   - [ ] `AdminRelayService` deduplicates incoming `(from, request_key)` pairs in a bounded 4,096-entry cache (`Dedup`) and `Admin::apply` checks `Keys::has_relayed(via_node, request_key)` in `admin_actions` so replayed deliveries after a reconnect or restart are idempotent no-ops.
   - [ ] When a peer is unreachable, the action is persisted to `admin_relay_queue` via `Database::write`, bounded to `MAX_QUEUE_PER_PEER = 256` and `MAX_QUEUE_TOTAL = 2048` rows, surfaced immediately in the audit detail (`"pending on node <peer>"`) and the `pendingRelay` GraphQL query, and replayed by `AdminRelay::sweep()` when the peer returns.
 
+## Peer log shipping (DH7)
+
+- **Trust boundary**: a peer node in `[[network.nodes]]` ships its change-log segments and database snapshots over `/__node/log_ship` (`Service::LogShip`) to another region's node (`[history] ship_to_peer = "<node id>"`). A compromised sender must not be able to overwrite or delete already-shipped history, write into another node's folder, or forge receiver timestamps.
+- **Wire protocol and receiver (`network::logship`)**:
+  - [ ] Versioned JSON (`LOG_SHIP_VERSION = 1`), `#[serde(deny_unknown_fields)]`, raw object body bounded to `MAX_LOG_SHIP_OBJECT_BYTES = 700 KiB` and total wire payload bounded to `MAX_MESSAGE = 1 MiB`.
+  - [ ] `PeerLogStore` checks `is_peer(from)` first, then `parse_peer_object_key(from, &request.key)`, which enforces the `"<from>/"` prefix (`WrongPrefix`), requires a valid `SegmentName` or `SnapshotName` (`InvalidKey`), rejects path traversal (`..`, `/`, `\`, leading `.`), and verifies `sha256_hex(&raw_body) == expected_sha256` (`HashMismatch`) before writing.
+  - [ ] Files under `.workspace/peer-logs/<from>/{log,snapshot}/` are written once via temporary files and never overwritten or deleted over the link; sidecar `.meta.json` files record `received_at` from the receiver's own `Clock` so `history_ship::restore_to` enforces `RestoreOptions::trust_window`, hash-chain verification (`DH5`), and `trusted_head` verification identically to an S3 bucket (`DH4`).
+
 ## Fuzzing
 
 Short runs happen on every push (CI's `fuzz` job). The run before the canary, from `rust/fuzz`:
@@ -410,6 +418,7 @@ cargo +nightly fuzz run network_link -- -max_total_time=86400
 cargo +nightly fuzz run network_home -- -max_total_time=86400
 cargo +nightly fuzz run network_ticket -- -max_total_time=86400
 cargo +nightly fuzz run network_admin -- -max_total_time=86400
+cargo +nightly fuzz run network_logship -- -max_total_time=86400
 ```
 
 Signed: ________ (date, commit)
