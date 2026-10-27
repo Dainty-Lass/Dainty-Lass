@@ -35,9 +35,16 @@ struct Rig {
     _dir: tempfile::TempDir,
 }
 
-fn launcher(account: &AccountId, name: &str, email: Option<&str>, roles: &[&str]) -> LauncherAccountRecord {
+fn launcher(
+    account: &AccountId,
+    user_id: &UserId,
+    name: &str,
+    email: Option<&str>,
+    roles: &[&str],
+) -> LauncherAccountRecord {
     LauncherAccountRecord {
         account: account.clone(),
+        user_id: user_id.clone(),
         email: email.map(str::to_owned),
         display_name_normalized: name.to_lowercase(),
         display_name: name.to_owned(),
@@ -75,7 +82,7 @@ async fn rig(routes: RouteSet, extra: &[(&str, &str)]) -> Rig {
             name: name.to_owned(),
             notes: 0,
         });
-        world.launchers.push(launcher(&id, name, email, roles));
+        world.launchers.push(launcher(&id, &user_id, name, email, roles));
         (id, user_id.to_string())
     };
     let admin = make("Boss", Some("boss@example.test"), &["player", "admin"]);

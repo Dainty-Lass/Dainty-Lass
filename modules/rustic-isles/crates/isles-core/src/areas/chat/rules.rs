@@ -85,13 +85,22 @@ impl ChatSource for StoreChat {
         })
     }
 
-    // Eligibility (`IsAccountEligible`: approval, status) is the auth area's launcher accounts; until its repository
-    // is ported an account that exists may sign in to chat
+    // A launcher account must be admitted (`IsAccountEligible`: approval, status, a chosen username); an account that
+    // is not a launcher account (a dev or service identity) keeps its API-key or token behaviour
     fn player_by_user<'a>(&'a self, user_id: &'a str) -> BoxFuture<'a, Result<Option<Player>, ModuleError>> {
         Box::pin(async move {
             let (store, user) = (self.store()?, UserId(user_id.to_owned()));
             let found = store
-                .read(move |conn, repos| repos.accounts.find_by_user_id(conn, &user))
+                .read(move |conn, repos| {
+                    let Some(account) = repos.accounts.find_by_user_id(conn, &user)? else {
+                        return Ok(None);
+                    };
+                    let eligible = repos
+                        .launcher_accounts
+                        .find_by_user_id(conn, &user)?
+                        .is_none_or(|launcher| crate::areas::auth::policy::is_account_eligible(&launcher));
+                    Ok(eligible.then_some(account))
+                })
                 .await
                 .map_err(unavailable)?;
             Ok(found.map(player))

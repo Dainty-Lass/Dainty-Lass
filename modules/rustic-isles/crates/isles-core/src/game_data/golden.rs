@@ -58,6 +58,15 @@ async fn exchange(
     })
 }
 
+/// A game token and a game server key the module under test accepts (the auth area's middleware runs ahead of these
+/// routes): `serve` registers both.
+const GAME_SERVER_KEY: &str = "k";
+
+fn bearer(settings: &Settings) -> String {
+    let token = crate::areas::auth::tokens::sign_game_token(settings, "golden-user").unwrap_or_default();
+    format!("Bearer {token}")
+}
+
 async fn fetch(address: SocketAddr, case: &Value) -> std::io::Result<Reply> {
     let request = &case["request"];
     let text = |name: &str| request[name].as_str();
@@ -69,7 +78,8 @@ async fn fetch(address: SocketAddr, case: &Value) -> std::io::Result<Reply> {
         (None, Some(form)) => (Some("application/x-www-form-urlencoded"), form),
         (None, None) => (None, ""),
     };
-    let mut headers = vec![("Authorization", "Bearer golden")];
+    let token = bearer(&crate::areas::auth::tokens::test_key_settings(&[]));
+    let mut headers = vec![("Authorization", token.as_str())];
     if let Some(content_type) = content_type {
         headers.push(("Content-Type", content_type));
     }
@@ -79,8 +89,22 @@ async fn fetch(address: SocketAddr, case: &Value) -> std::io::Result<Reply> {
 
 async fn serve(version: &IslesVersion, settings: Settings, game_data: GameDataRoot) -> Result<SocketAddr, String> {
     let mut shared = Shared::bare(version.clone());
-    shared.settings = settings;
+    shared.settings = crate::areas::auth::tokens::test_key_settings(&[]).overlay(&settings);
     shared.game_data = game_data;
+    // A database for the auth area's middleware to check accounts and game server keys against
+    let dir = std::env::temp_dir().join(format!("isles-golden-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let node = module_api::NodeIdentity::standalone();
+    let home = Arc::new(module_api::network::StandaloneHome { identity: node.clone() });
+    let config = store::DatabaseConfig::Sqlite {
+        file: dir.join("isles.db"),
+    };
+    let store = crate::db::IslesStore::open(&config, &store::DatabaseOptions::default(), home, &node)
+        .map_err(|e| e.to_string())?;
+    shared.store = Some(store);
+    crate::areas::auth::apikeys::synchronize_configured_gameserver_api_keys(&shared, GAME_SERVER_KEY)
+        .await
+        .map_err(|e| e.to_string())?;
     let router = app(Arc::new(shared), Service::Backend, &crate::areas::backend()).map_err(|e| e.to_string())?;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -150,7 +174,8 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
         let reply = exchange(address, method, path, &[], "").await;
         expect(&format!("{method} {path} without credentials"), reply, 200, None);
     }
-    let auth = [("Authorization", "Bearer x")];
+    let token = bearer(&crate::areas::auth::tokens::test_key_settings(&[]));
+    let auth = [("Authorization", token.as_str())];
     // 1.14.7 only: a quiet 404 for a player, a game server and (after the gate) nobody
     if gauntlet {
         let reply = exchange(address, "GET", "/motd/trigger?event_name=test", &auth, "").await;
@@ -166,7 +191,7 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
         500,
         Some("Internal Server Error"),
     );
-    let json = [("Authorization", "Bearer x"), ("Content-Type", "application/json")];
+    let json = [("Authorization", token.as_str()), ("Content-Type", "application/json")];
     let reply = exchange(address, "POST", "/trials/leaderboards/all", &json, "{\"difficulty\":").await;
     expect("a malformed JSON body", reply, 400, Some("<pre>Bad Request</pre>"));
     let reply = exchange(address, "POST", "/trials/leaderboards/all", &json, "\"text\"").await;
@@ -177,12 +202,12 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
         Some("<pre>Bad Request</pre>"),
     );
     let latin = [
-        ("Authorization", "Bearer x"),
+        ("Authorization", token.as_str()),
         ("Content-Type", "application/json; charset=latin1"),
     ];
     let reply = exchange(address, "POST", "/trials/leaderboards/all", &latin, "{}").await;
     expect("an unsupported charset", reply, 415, None);
-    let text = [("Authorization", "Bearer x"), ("Content-Type", "text/plain")];
+    let text = [("Authorization", token.as_str()), ("Content-Type", "text/plain")];
     let reply = exchange(address, "POST", "/trials/leaderboards/all", &text, "difficulty=7").await;
     expect("a body Express leaves unparsed", reply, 200, Some(r#""difficulty":1,"#));
     failures

@@ -1,0 +1,126 @@
+[
+ {
+  "name": "features",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"crossplay\":true,\"crossprogression\":true}}"
+ },
+ {
+  "name": "link epic",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"isLinked\":true}}"
+ },
+ {
+  "name": "is banned",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"isBanned\":false}"
+ },
+ {
+  "name": "accountinfo",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"u1\",\"creationDate\":\"2000-01-01 00:00:00\",\"email\":null,\"preferredLanguage\":null,\"username\":\"Fox\",\"verified\":true}"
+ },
+ {
+  "name": "accountinfo without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "tags",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"u1\",\"tags\":[]}"
+ },
+ {
+  "name": "game session",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"error_code\":null,\"sessionid\":\"SESSION_ID_LOL\",\"sessionToken\":\"<jwt>\"}}"
+ },
+ {
+  "name": "game session epiceos",
+  "status": 404,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "public accountinfo",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"u1\",\"isSubscribed\":true,\"language\":null,\"linkedAccounts\":[{\"accountId\":\"u1\",\"accountType\":\"epic\"}],\"username\":\"Fox\"}"
+ },
+ {
+  "name": "public accountinfo, unknown",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"nobody\",\"isSubscribed\":true,\"language\":null,\"linkedAccounts\":[{\"accountId\":\"nobody\",\"accountType\":\"epic\"}],\"username\":\"nobody\"}"
+ },
+ {
+  "name": "public accountinfo, no body",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "login",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error_code\":\"TicketRateOk\",\"message\":\"\",\"state\":\"OPEN\",\"timeout\":8000,\"title\":\"\"}"
+ },
+ {
+  "name": "login, another email",
+  "status": 400,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "migration status",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"migration_failed\":false,\"migration_finished\":true}}"
+ },
+ {
+  "name": "key generate",
+  "status": 400,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "key generate without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "key consume",
+  "status": 404,
+  "headers": {},
+  "body": ""
+ }
+]

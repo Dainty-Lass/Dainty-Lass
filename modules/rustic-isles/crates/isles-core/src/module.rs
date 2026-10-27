@@ -110,6 +110,8 @@ struct Running {
     store: Option<IslesStore>,
     /// What the chat rules read, once started
     chat: Option<Arc<dyn ChatSource>>,
+    /// Background tasks of the areas (the auth area's registration sweep), aborted at stop
+    background: Vec<JoinHandle<()>>,
 }
 
 pub struct IslesModule {
@@ -204,12 +206,14 @@ impl IslesModule {
             game_data,
             store: store.clone(),
             admin_api,
+            auth: crate::areas::auth::AuthRuntime::default(),
         });
         let chat: Arc<dyn ChatSource> = Arc::new(crate::areas::chat::rules::source(
             ctx.node(),
             store.clone(),
             &shared.settings,
         ));
+        let background = crate::areas::auth::start(&shared).await.map_err(failed)?;
         let mut servers = Vec::new();
         let mut addresses = serde_json::Map::new();
         for service in &self.spec.services {
@@ -257,6 +261,7 @@ impl IslesModule {
         {
             let mut running = lock(&self.running);
             running.servers = servers;
+            running.background = background;
             running.store = store;
             running.chat = Some(chat);
             running.phase = Some(Phase::Ready);
@@ -381,6 +386,9 @@ impl GameModule for IslesModule {
                 let mut running = lock(&self.running);
                 running.phase = Some(Phase::Stopping);
                 running.chat = None;
+                for task in std::mem::take(&mut running.background) {
+                    task.abort();
+                }
                 (std::mem::take(&mut running.servers), running.store.take())
             };
             for (stop, task) in servers {

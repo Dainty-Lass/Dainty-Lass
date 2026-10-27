@@ -12,7 +12,6 @@ use std::sync::Arc;
 use axum::http::{HeaderMap, HeaderName, HeaderValue};
 use common::{Answer, Fakes, get, post_json, send, serve, shared, store};
 use ed25519_dalek::{Signer, SigningKey};
-use isles_core::AccountId;
 use isles_core::areas::reforged_api::guard_manifest::Trusted;
 use isles_core::areas::reforged_api::launcher_auth::{
     LauncherAuthenticator, LauncherCaller, LauncherFailure, set_authenticator,
@@ -22,6 +21,7 @@ use isles_core::areas::reforged_api::util::{Req, base64_encode, iso, now_ms, sha
 use isles_core::http::Shared;
 use isles_core::repo::auth::{LauncherAccountRecord, OperationalStatus};
 use isles_core::routes::{Params, RouteSet};
+use isles_core::{AccountId, UserId};
 use module_api::{BoxFuture, NodeIdentity};
 use serde_json::{Value, json};
 
@@ -549,6 +549,7 @@ struct Accounts;
 fn account(roles: &[&str]) -> LauncherAccountRecord {
     LauncherAccountRecord {
         account: AccountId::new(&NodeIdentity::standalone().node),
+        user_id: UserId::random(),
         email: None,
         display_name_normalized: "x".into(),
         display_name: "X".into(),

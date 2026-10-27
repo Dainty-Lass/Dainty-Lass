@@ -148,13 +148,21 @@ pub async fn sweep(service: Service, address: SocketAddr, mounts: Mounts) -> Vec
             });
         let gated = !mounts.admin && service == Service::Backend && path.to_ascii_lowercase().starts_with("/admin");
         let (want, envelope) = if taken && !gated { (501, true) } else { (404, false) };
+        // A rifts route behind HasLauncherAuth is refused 401 in the launcher envelope before rifts answers
+        let launcher_gated = envelope
+            && route.when == When::Rifts
+            && crate::areas::auth::middleware::rifts_needs_launcher_auth(route.method.as_str(), route.path);
+        let (want, code) = if launcher_gated {
+            (401, r#""code":"AUTH_UNAUTHORIZED""#)
+        } else {
+            (want, r#""code":"NOT_IMPLEMENTED""#)
+        };
         match request(address, route.method.as_str(), &path).await {
             Ok((status, headers, body)) => {
                 let has_id = headers.iter().any(|(name, _)| name == crate::http::REQUEST_ID_HEADER);
                 let ok = status == want
                     && has_id
-                    && (!envelope
-                        || (body.contains(r#""code":"NOT_IMPLEMENTED""#) && body.contains(r#""requestId":""#)))
+                    && (!envelope || (body.contains(code) && (launcher_gated || body.contains(r#""requestId":""#))))
                     && (envelope || body.is_empty());
                 if !ok {
                     failures.push(format!(

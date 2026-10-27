@@ -134,6 +134,9 @@ impl AccountRepository for Fakes {
 }
 
 impl LauncherAccountRepository for Fakes {
+    fn find_by_user_id(&self, _: &mut AnyConnection, user: &UserId) -> RepoResult<Option<LauncherAccountRecord>> {
+        Ok(self.world().launchers.iter().find(|a| &a.user_id == user).cloned())
+    }
     fn find_by_account(&self, _: &mut AnyConnection, id: &AccountId) -> RepoResult<Option<LauncherAccountRecord>> {
         Ok(self.world().launchers.iter().find(|a| &a.account == id).cloned())
     }
@@ -157,14 +160,14 @@ impl LauncherAccountRepository for Fakes {
             .find(|a| a.display_name_normalized == normalized)
             .cloned())
     }
-    fn create(&self, _: &mut Tx<'_>, account: &LauncherAccountRecord) -> RepoResult<()> {
+    fn create(&self, _: &mut Tx<'_>, account: &LauncherAccountRecord) -> RepoResult<CreateOutcome> {
         self.world().launchers.push(account.clone());
-        Ok(())
+        Ok(CreateOutcome::Created)
     }
     fn update_last_login(&self, t: &mut Tx<'_>, a: &AccountId, w: &str) -> RepoResult<()> {
         Stub.update_last_login(t, a, w)
     }
-    fn set_username(&self, t: &mut Tx<'_>, a: &AccountId, d: &str, n: &str) -> RepoResult<()> {
+    fn set_username(&self, t: &mut Tx<'_>, a: &AccountId, d: &str, n: &str) -> RepoResult<CreateOutcome> {
         Stub.set_username(t, a, d, n)
     }
     fn set_consent(&self, t: &mut Tx<'_>, a: &AccountId, c: &LauncherConsent) -> RepoResult<()> {
@@ -243,6 +246,9 @@ impl LauncherAccountRepository for Fakes {
         }
         Ok(Some(account.clone()))
     }
+    fn erase(&self, t: &mut Tx<'_>, a: &AccountId) -> RepoResult<bool> {
+        Stub.erase(t, a)
+    }
     fn update_roles(
         &self,
         _: &mut Tx<'_>,
@@ -272,12 +278,6 @@ impl ApiKeyRepository for Fakes {
     fn replace_game_server_key_hashes(&self, t: &mut Tx<'_>, h: &[String]) -> RepoResult<()> {
         Stub.replace_game_server_key_hashes(t, h)
     }
-    fn find_all_game_server_keys_to_register(&self, c: &mut AnyConnection) -> RepoResult<Vec<KeyToRegister>> {
-        Stub.find_all_game_server_keys_to_register(c)
-    }
-    fn clear_game_server_keys_to_register(&self, t: &mut Tx<'_>) -> RepoResult<()> {
-        Stub.clear_game_server_keys_to_register(t)
-    }
     fn find_all_user_key_hashes(&self, _: &mut AnyConnection) -> RepoResult<Vec<UserKeyHash>> {
         Ok(self.world().keys.clone())
     }
@@ -288,11 +288,8 @@ impl ApiKeyRepository for Fakes {
         });
         Ok(())
     }
-    fn find_all_user_keys_to_register(&self, c: &mut AnyConnection) -> RepoResult<Vec<KeyToRegister>> {
-        Stub.find_all_user_keys_to_register(c)
-    }
-    fn clear_user_keys_to_register(&self, t: &mut Tx<'_>) -> RepoResult<()> {
-        Stub.clear_user_keys_to_register(t)
+    fn delete_user_key_hash(&self, t: &mut Tx<'_>, a: &AccountId) -> RepoResult<bool> {
+        Stub.delete_user_key_hash(t, a)
     }
 }
 
@@ -303,21 +300,24 @@ impl RefreshSessionRepository for Fakes {
     fn find_by_token_hash(&self, c: &mut AnyConnection, h: &str) -> RepoResult<Option<RefreshSessionRecord>> {
         Stub.find_by_token_hash(c, h)
     }
-    fn revoke_by_id(&self, t: &mut Tx<'_>, id: &str) -> RepoResult<()> {
-        Stub.revoke_by_id(t, id)
+    fn revoke_by_id(&self, t: &mut Tx<'_>, id: &str, now: &str) -> RepoResult<()> {
+        Stub.revoke_by_id(t, id, now)
     }
-    fn revoke_family(&self, t: &mut Tx<'_>, f: &str) -> RepoResult<()> {
-        Stub.revoke_family(t, f)
+    fn revoke_family(&self, t: &mut Tx<'_>, f: &str, now: &str) -> RepoResult<()> {
+        Stub.revoke_family(t, f, now)
     }
-    fn revoke_all_for_account(&self, _: &mut Tx<'_>, account: &AccountId) -> RepoResult<()> {
+    fn revoke_all_for_account(&self, _: &mut Tx<'_>, account: &AccountId, _now: &str) -> RepoResult<()> {
         self.world().refresh_revoked.push(account.clone());
         Ok(())
     }
     fn delete_all_for_account(&self, _: &mut Tx<'_>, _: &AccountId) -> RepoResult<()> {
         Ok(())
     }
-    fn is_family_active(&self, c: &mut AnyConnection, f: &str, a: &AccountId) -> RepoResult<bool> {
-        Stub.is_family_active(c, f, a)
+    fn is_family_active(&self, c: &mut AnyConnection, f: &str, a: &AccountId, now: &str) -> RepoResult<bool> {
+        Stub.is_family_active(c, f, a, now)
+    }
+    fn purge_expired(&self, t: &mut Tx<'_>, now: &str) -> RepoResult<u64> {
+        RefreshSessionRepository::purge_expired(&Stub, t, now)
     }
 }
 
@@ -325,12 +325,18 @@ impl GameExchangeCodeRepository for Fakes {
     fn create(&self, t: &mut Tx<'_>, c: &GameExchangeCodeRecord) -> RepoResult<()> {
         GameExchangeCodeRepository::create(&Stub, t, c)
     }
-    fn consume_by_code_hash(&self, t: &mut Tx<'_>, h: &str) -> RepoResult<Option<GameExchangeCodeRecord>> {
-        Stub.consume_by_code_hash(t, h)
+    fn consume_by_code_hash(&self, t: &mut Tx<'_>, h: &str, now: &str) -> RepoResult<Option<GameExchangeCodeRecord>> {
+        Stub.consume_by_code_hash(t, h, now)
     }
-    fn revoke_unused_for_account(&self, _: &mut Tx<'_>, account: &AccountId) -> RepoResult<()> {
+    fn revoke_unused_for_account(&self, _: &mut Tx<'_>, account: &AccountId, _now: &str) -> RepoResult<()> {
         self.world().codes_revoked.push(account.clone());
         Ok(())
+    }
+    fn delete_for_account(&self, t: &mut Tx<'_>, a: &AccountId) -> RepoResult<u64> {
+        GameExchangeCodeRepository::delete_for_account(&Stub, t, a)
+    }
+    fn purge_expired(&self, t: &mut Tx<'_>, now: &str) -> RepoResult<u64> {
+        GameExchangeCodeRepository::purge_expired(&Stub, t, now)
     }
 }
 

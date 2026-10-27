@@ -535,6 +535,7 @@ fn shared_with(store: &IslesStore, version: IslesVersion, recorder: Arc<Recorder
         }),
         admin_api: false,
         matchmaking: Arc::default(),
+        auth: isles_core::areas::auth::AuthRuntime::default(),
     })
 }
 

@@ -282,8 +282,12 @@ async fn kick(call: Call) -> Response {
         .account_write(&target, &actor_host(), {
             let target = target.clone();
             move |tx, repos| {
-                repos.refresh_sessions.revoke_all_for_account(tx, &target)?;
-                repos.game_exchange_codes.revoke_unused_for_account(tx, &target)
+                repos
+                    .refresh_sessions
+                    .revoke_all_for_account(tx, &target, &util::now_iso())?;
+                repos
+                    .game_exchange_codes
+                    .revoke_unused_for_account(tx, &target, &util::now_iso())
             }
         })
         .await;

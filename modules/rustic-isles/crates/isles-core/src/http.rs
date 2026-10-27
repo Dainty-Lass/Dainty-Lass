@@ -14,7 +14,7 @@ use axum::http::{HeaderName, HeaderValue, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 use module_api::{BoxFuture, NodeIdentity};
 use percent_encoding::percent_decode_str;
-use rifts_seam::{Caller, Reply, RequestInfo, RouteCall, RouteHandler, SeamError};
+use rifts_seam::{Reply, RequestInfo, RouteCall, RouteHandler, SeamError};
 use serde_json::json;
 use service_kit::json::Json;
 use service_kit::serve::ConnectionInfo;
@@ -47,6 +47,8 @@ pub struct Shared {
     pub admin_api: bool,
     /// Matchmaking's in-memory state (DD15): queues, candidates, presence
     pub matchmaking: Arc<crate::areas::matchmaking::state::MatchmakingState>,
+    /// The auth area's state and seams (RU5 auth)
+    pub auth: crate::areas::auth::AuthRuntime,
 }
 
 impl Shared {
@@ -61,6 +63,7 @@ impl Shared {
             rifts: Rifts::dedicated_only(),
             admin_api: false,
             matchmaking: Arc::default(),
+            auth: crate::areas::auth::AuthRuntime::default(),
         }
     }
 }
@@ -299,6 +302,19 @@ fn empty(status: StatusCode) -> Response {
 }
 
 async fn rifts_reply(handler: &dyn RouteHandler, route: rifts_seam::Route, call: Call) -> Response {
+    // The auth middleware Node lists on the route (HasLauncherAuth, RequireActiveAccount...) decides the caller
+    let caller = match crate::areas::auth::middleware::rifts_caller(
+        &call.shared,
+        call.request.method().as_str(),
+        call.request.uri().path(),
+        call.route.path,
+        call.request.headers(),
+    )
+    .await
+    {
+        Ok(caller) => caller,
+        Err(refusal) => return refusal,
+    };
     let remote = call
         .request
         .extensions()
@@ -325,18 +341,19 @@ async fn rifts_reply(handler: &dyn RouteHandler, route: rifts_seam::Route, call:
             remote,
             request_id: call.request_id.clone(),
         },
-        // The auth middleware that fills this is RU5 auth's
-        caller: Caller::Anonymous,
+        caller,
         body: body.to_vec(),
     };
     let reply = match handler.handle(rifts_call).await {
         Ok(reply) => reply,
         Err(SeamError::Unimplemented(unimplemented)) => Reply::not_implemented(&unimplemented, &call.request_id),
         Err(SeamError::Refused(refusal)) => {
-            // The status a code is registered under (security/launcherErrors.ts) is RU5 auth's table
+            // The status a code is registered under (security/launcherErrors.ts)
+            let status = StatusCode::from_u16(crate::areas::auth::errors::status_for(&refusal.code))
+                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             let body =
                 json!({ "error": { "code": refusal.code, "message": refusal.message, "requestId": call.request_id } });
-            return (StatusCode::BAD_REQUEST, Json(body)).into_response();
+            return (status, Json(body)).into_response();
         }
         Err(other) => {
             tracing::error!("rifts route {}: {other}", call.route.name());
@@ -358,7 +375,23 @@ async fn rifts_reply(handler: &dyn RouteHandler, route: rifts_seam::Route, call:
 async fn dispatch(State(app): State<Arc<App>>, mut request: Request) -> Response {
     let id = request_id(&request);
     let observation = crate::areas::reforged_api::observe::begin(&request, &id);
-    let mut response = answer(&app, &mut request, id.clone()).await;
+    // The launcher router's CORS gate (routes/launcherAuth.ts) runs ahead of every `/launcher/` route that follows it
+    let cors = if app.service == Service::Backend {
+        crate::areas::auth::launcher_routes::launcher_cors(&app.shared, &request)
+    } else {
+        crate::areas::auth::launcher_routes::Cors::Pass
+    };
+    let mut response = match cors {
+        crate::areas::auth::launcher_routes::Cors::Answer(response) => response,
+        crate::areas::auth::launcher_routes::Cors::Headers(headers) => {
+            let mut response = answer(&app, &mut request, id.clone()).await;
+            for (name, value) in headers {
+                response.headers_mut().insert(name, value);
+            }
+            response
+        }
+        crate::areas::auth::launcher_routes::Cors::Pass => answer(&app, &mut request, id.clone()).await,
+    };
     observation.finish(response.status().as_u16());
     if let Ok(value) = HeaderValue::from_str(&id) {
         response
