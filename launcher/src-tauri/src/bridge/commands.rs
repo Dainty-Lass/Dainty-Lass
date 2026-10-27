@@ -18,7 +18,8 @@ use super::spec::{
     PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
 };
 use super::types::{
-    ActionResult, Branding, EpicLibraryCheck, ErrorCode, ExternalTarget, HostAction, HostFolder, HostKit,
+    ActionResult, Branding, EpicLibraryCheck, ErrorCode, ExternalTarget, GameVersionList, HostAction, HostFolder,
+    HostKit,
     HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck, LauncherError,
     MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
 };
@@ -543,9 +544,11 @@ pub async fn epic_library_check(app: AppHandle) -> EpicLibraryCheck {
     epic_library::check(&ownership, session.as_ref()).await
 }
 
+/// The installable versions (DE4): the compiled-in client profiles and the joined servers', each Epic
+/// build with its sizes from its manifest.
 #[tauri::command]
-pub fn game_version_list() -> ActionResult {
-    planned("game_version_list", &[])
+pub async fn game_version_list(app: AppHandle) -> GameVersionList {
+    controller(&app).game_version_list().await
 }
 
 #[tauri::command]

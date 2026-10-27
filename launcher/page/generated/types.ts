@@ -354,10 +354,28 @@ rttMs: number | null,
  * How many answers the median was taken over
  */
 samples: number, problem: RegionProblem | null, };
+export type GameVersionInstall = "epic" | "locate";
+export type GameVersionOrigin = "launcher" | "server";
+export type EpicManifestState = "ready" | "unreachable" | "invalid";
+export type EpicVersionInfo = { 
+/**
+ * Epic's build version (`1.14.7.647472`)
+ */
+buildVersion: string, manifest: EpicManifestState, 
+/**
+ * Bytes, from the manifest once it is `ready`
+ */
+downloadBytes: number | null, installBytes: number | null, };
+export type GameVersionEntry = { version: string, displayName: string, origin: GameVersionOrigin, install: GameVersionInstall, 
+/**
+ * Null for `locate`
+ */
+epic: EpicVersionInfo | null, };
 export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export type ActionResult = { ok: true } | { ok: false; error: LauncherError };
 export type InviteCheck = { ok: true; certificateChanged: boolean; previousFingerprint: string | null; movedFrom: string | null } | { ok: false; error: LauncherError };
 export type RegisterOutcome = { ok: true; username: string } | { ok: false; error: LauncherError };
 export type RegionPing = { ok: true; regions: Array<RegionRtt>; reported: boolean } | { ok: false; error: LauncherError };
 export type EpicLibraryCheck = { ok: true; owned: boolean; checkedAt: string } | { ok: false; error: LauncherError };
+export type GameVersionList = { ok: true; versions: Array<GameVersionEntry> } | { ok: false; error: LauncherError };
 export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "dismiss_notice" | "dismiss_error" | "subscribe_progress" | "epic_sign_in_start" | "epic_sign_in_code" | "epic_get" | "epic_sign_out" | "epic_library_check" | "game_version_list" | "game_install_start" | "game_install_pause" | "game_install_resume" | "game_install_cancel" | "game_install_get" | "region_ping" | "module_list" | "module_get" | "module_run_command" | "module_set_settings" | "module_load" | "module_unload" | "realm_host" | "realm_join" | "realm_stop" | "realm_get" | "history_query" | "history_revert_dry_run" | "history_revert_apply" | "guarded_list" | "guarded_approve" | "guarded_cancel";

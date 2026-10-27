@@ -46,6 +46,7 @@ pub mod platform;
 mod region;
 pub mod runtime;
 pub mod stored;
+mod versions;
 
 #[cfg(test)]
 mod tests;
