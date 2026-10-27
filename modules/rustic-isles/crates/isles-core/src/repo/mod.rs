@@ -181,6 +181,7 @@ impl Repositories {
             entitlements: Arc::new(bounties::SqlEntitlements),
             wallets: Arc::new(bounties::SqlWallets),
             economy_rollups: Arc::new(bounties::SqlEconomyRollups),
+            parties: Arc::new(parties::SqlParties),
             ..Self::stubs()
         }
     }

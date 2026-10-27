@@ -25,6 +25,8 @@ use store::{DatabaseConfig, DatabaseOptions};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
+use crate::areas::matchmaking::qos;
+use crate::areas::matchmaking::state::MatchmakingState;
 use crate::db::{ContextHome, IslesStore};
 use crate::game_data::GameDataRoot;
 use crate::http::{Rifts, Shared};
@@ -196,6 +198,7 @@ impl IslesModule {
         let shared = Arc::new(Shared {
             version: self.spec.version.clone(),
             rifts: (self.spec.rifts)(&settings),
+            matchmaking: Arc::new(MatchmakingState::from_settings(&settings)),
             settings,
             node: ctx.node().clone(),
             game_data,
@@ -233,6 +236,18 @@ impl IslesModule {
                 }
             });
             servers.push((stop, task));
+        }
+        // The QoS pong answers on loopback; the gateway publishes it on the public QOS_PORT (areas/matchmaking/qos.rs)
+        if let Some(pong) = qos::start(&shared.settings, &self.spec.version.tables).await {
+            addresses.insert("qos".to_owned(), json!(pong.address.to_string()));
+            addresses.insert("qos_public_port".to_owned(), json!(pong.public_port.to_string()));
+            servers.push((pong.stop, pong.task));
+        }
+        // The party outbox's headlines go to the chat plugin as events (areas/matchmaking/outbox.rs)
+        if let Some(store) = &store
+            && let Some(dispatcher) = crate::areas::matchmaking::outbox::start(store.clone(), ctx.clone())
+        {
+            servers.push(dispatcher);
         }
         let detail = addresses
             .iter()
@@ -314,6 +329,7 @@ impl GameModule for IslesModule {
         }
         registrar.udp_ports("game");
         registrar.emits(EventName::new(LISTENING_EVENT).map_err(failed)?);
+        registrar.emits(EventName::new(isles_chat::headline::HEADLINE_EVENT).map_err(failed)?);
         registrar.config_section(ConfigSection::new("backend").key(
             "env_file",
             json!(""),

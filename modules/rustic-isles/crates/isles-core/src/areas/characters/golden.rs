@@ -403,6 +403,7 @@ pub async fn replay(version: IslesVersion, store: IslesStore, scenario: &Value) 
             store: Some(store.clone()),
             rifts: Rifts::dedicated_only(),
             admin_api: false,
+            matchmaking: Arc::default(),
         });
         let method = step["method"].as_str().unwrap_or("GET");
         let path = replace_tokens(step["path"].as_str().unwrap_or("/"), &saved);
