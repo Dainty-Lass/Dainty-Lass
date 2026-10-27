@@ -23,6 +23,7 @@ mod engine;
 pub mod history;
 pub mod portable;
 pub mod readonly;
+pub mod recovery;
 pub mod revert;
 mod snapshot;
 pub mod transfer;
@@ -76,6 +77,8 @@ pub enum Error {
     Revert(String),
     #[error("the history changed since the dry run: run it again")]
     PlanChanged,
+    #[error("restore: {0}")]
+    Restore(String),
     #[error("the database task panicked")]
     Panicked,
 }

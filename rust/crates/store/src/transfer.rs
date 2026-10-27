@@ -19,12 +19,12 @@ use crate::portable::{quote_ident, quote_literal};
 use crate::{Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Engine, Error};
 
 /// Rows read and written per round trip.
-const PAGE: i64 = 1000;
+pub(crate) const PAGE: i64 = 1000;
 
 #[derive(QueryableByName)]
-struct Row {
+pub(crate) struct Row {
     #[diesel(sql_type = Text)]
-    row: String,
+    pub row: String,
 }
 
 /// What a move copied: rows per table, the change log last.
@@ -37,7 +37,7 @@ pub(crate) fn is_blob(column: &Column) -> bool {
     column.kind.contains("blob") || column.kind == "bytea"
 }
 
-fn select_rows(conn: &mut AnyConnection, table: &str, columns: &[Column], key: &[String]) -> String {
+pub(crate) fn select_rows(conn: &mut AnyConnection, table: &str, columns: &[Column], key: &[String]) -> String {
     let order = key.iter().map(|k| quote_ident(k)).collect::<Vec<_>>().join(", ");
     let t = quote_ident(table);
     match conn.engine() {
@@ -51,7 +51,7 @@ fn select_rows(conn: &mut AnyConnection, table: &str, columns: &[Column], key: &
     }
 }
 
-fn insert_row(conn: &mut AnyConnection, table: &str, columns: &[Column]) -> String {
+pub(crate) fn insert_row(conn: &mut AnyConnection, table: &str, columns: &[Column]) -> String {
     let t = quote_ident(table);
     match conn.engine() {
         Engine::Sqlite => {
@@ -109,7 +109,7 @@ struct Sequence {
 }
 
 /// Postgres: each serial or identity column's sequence moved past the copied ids.
-fn fix_sequences(conn: &mut AnyConnection, table: &str, columns: &[Column]) -> Result<(), Error> {
+pub(crate) fn fix_sequences(conn: &mut AnyConnection, table: &str, columns: &[Column]) -> Result<(), Error> {
     for column in columns {
         let found = diesel::sql_query("SELECT pg_get_serial_sequence($1, $2) AS seq")
             .bind::<Text, _>(quote_ident(table))

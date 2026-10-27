@@ -84,7 +84,7 @@ impl Actor {
     }
 }
 
-/// One entry of the log.
+/// One entry of the log; DH4 ships it as [`record`] lines.
 #[derive(Debug, Clone, PartialEq, Eq, QueryableByName)]
 pub struct ChangeEntry {
     #[diesel(sql_type = BigInt)]
@@ -125,6 +125,25 @@ pub fn changes(conn: &mut AnyConnection, after_id: i64, limit: i64) -> Result<Ve
     .bind::<BigInt, _>(after_id)
     .bind::<BigInt, _>(limit)
     .load(conn)?)
+}
+
+#[derive(QueryableByName)]
+struct Newest {
+    #[diesel(sql_type = BigInt)]
+    id: i64,
+    #[diesel(sql_type = BigInt)]
+    at: i64,
+}
+
+/// The newest entry's id and time.
+pub fn last_change(conn: &mut AnyConnection) -> Result<Option<(i64, i64)>, Error> {
+    Ok(diesel::sql_query(format!(
+        "SELECT id, at FROM {} ORDER BY id DESC LIMIT 1",
+        quote_ident(CHANGE_LOG)
+    ))
+    .load::<Newest>(conn)?
+    .first()
+    .map(|n| (n.id, n.at)))
 }
 
 // ------------------------------------------------------------------ the tables

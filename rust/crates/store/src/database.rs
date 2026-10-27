@@ -46,6 +46,8 @@ pub struct DatabaseOptions {
     pub write_connections: u32,
     /// How long a statement waits for a lock: SQLite's `busy_timeout`, Postgres's `lock_timeout`.
     pub busy_timeout: Duration,
+    /// Unix milliseconds for the log's `at`: the system clock, or a test's own (DH4's restore drills).
+    pub clock: fn() -> i64,
 }
 
 impl Default for DatabaseOptions {
@@ -54,6 +56,7 @@ impl Default for DatabaseOptions {
             read_connections: 4,
             write_connections: 2,
             busy_timeout: Duration::from_secs(5),
+            clock: now_ms,
         }
     }
 }
@@ -126,6 +129,9 @@ pub struct Database {
     engine: Engine,
     soft_delete: Arc<[&'static str]>,
     accounts: Arc<[AccountColumn]>,
+    config: Arc<DatabaseConfig>,
+    busy_timeout: Duration,
+    clock: fn() -> i64,
 }
 
 /// One write: what a write closure gets. Every row it changes through [`Tx::conn`] is logged under
@@ -209,7 +215,7 @@ impl Tx<'_> {
     }
 }
 
-fn now_ms() -> i64 {
+pub(crate) fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
@@ -219,7 +225,7 @@ fn checkout<E: From<Error>>(pool: &Pool<Manager>) -> Result<PooledConnection<Man
     pool.get().map_err(|e| E::from(Error::Pool(e)))
 }
 
-fn versions<DB: diesel::backend::Backend>(set: &EmbeddedMigrations) -> Result<Vec<String>, Error>
+pub(crate) fn versions<DB: diesel::backend::Backend>(set: &EmbeddedMigrations) -> Result<Vec<String>, Error>
 where
     EmbeddedMigrations: MigrationSource<DB>,
 {
@@ -264,7 +270,7 @@ impl Database {
             if engine == Engine::Sqlite {
                 set_wal(&mut conn)?;
             }
-            prepare(&mut conn, schema)?;
+            prepare(&mut conn, schema, options.clock)?;
         }
         let pool = |size, read_only| {
             Pool::builder()
@@ -289,6 +295,9 @@ impl Database {
             engine,
             soft_delete: schema.soft_delete.into(),
             accounts: Arc::new([]),
+            config: Arc::new(config.clone()),
+            busy_timeout: options.busy_timeout,
+            clock: options.clock,
         })
     }
 
@@ -338,10 +347,11 @@ impl Database {
     {
         let pool = self.write.clone();
         let soft_delete = self.soft_delete.clone();
+        let clock = self.clock;
         run_blocking(move || {
             let mut conn = checkout::<E>(&pool)?;
             (*conn).transaction(|conn| {
-                let begun = history::begin(conn, &actor, now_ms)?;
+                let begun = history::begin(conn, &actor, clock)?;
                 let out = f(&mut Tx {
                     conn,
                     actor: &actor,
@@ -369,6 +379,16 @@ impl Database {
     /// reordered, checking `trusted` (a shipped head) on the way ([`history::verify`]).
     pub async fn verify(&self, trusted: Option<Head>) -> Result<Verification, Error> {
         self.read(move |conn| history::verify(conn, trusted.as_ref())).await
+    }
+
+    /// The newest change-log entry's id and time, if there is one.
+    pub async fn last_change(&self) -> Result<Option<(i64, i64)>, Error> {
+        self.read(history::last_change).await
+    }
+
+    /// The time the change log records, from [`DatabaseOptions::clock`].
+    pub fn now(&self) -> i64 {
+        (self.clock)()
     }
 
     /// Removes for good the rows soft-deleted longer ago than `retention`, as `system:retention`. Each
@@ -412,6 +432,18 @@ impl Database {
     pub(crate) fn pools(&self) -> (&Pool<Manager>, &Pool<Manager>) {
         (&self.write, &self.read)
     }
+
+    pub(crate) fn config(&self) -> &DatabaseConfig {
+        &self.config
+    }
+
+    pub(crate) fn busy_timeout(&self) -> Duration {
+        self.busy_timeout
+    }
+
+    pub(crate) fn clock(&self) -> fn() -> i64 {
+        self.clock
+    }
 }
 
 #[derive(QueryableByName)]
@@ -435,7 +467,7 @@ fn set_wal(conn: &mut AnyConnection) -> Result<(), Error> {
 /// log sealed into the hash chain, the triggers back on every table. The first write takes SQLite's lock;
 /// Postgres takes advisory ones first, the write lock among them, so the log's table is never locked by an
 /// open waiting on a write that needs it.
-fn prepare(conn: &mut AnyConnection, schema: &DatabaseSchema) -> Result<(), Error> {
+fn prepare(conn: &mut AnyConnection, schema: &DatabaseSchema, clock: fn() -> i64) -> Result<(), Error> {
     conn.transaction(|conn| {
         match conn.engine() {
             Engine::Sqlite => {
@@ -460,7 +492,7 @@ fn prepare(conn: &mut AnyConnection, schema: &DatabaseSchema) -> Result<(), Erro
         .iter()
         .map(ToString::to_string)
         .collect();
-        history::log_migrations(conn, &applied, now_ms())?;
+        history::log_migrations(conn, &applied, clock())?;
         let sealed = history::head(conn)?;
         history::seal(conn, sealed)?;
         history::install_triggers(conn, schema.soft_delete)?;
