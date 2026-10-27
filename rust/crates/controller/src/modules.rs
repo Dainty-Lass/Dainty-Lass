@@ -121,6 +121,10 @@ pub fn gateway(
 ) -> Result<Module, String> {
     use gateway::config::Config;
     let config = Config::from_env(env)?;
+    let node_links = registry.as_ref().map(|r| r.node_services().gateway_slot());
+    let bind_on_ready = registry
+        .as_ref()
+        .map(|r| (r.node_services().clone(), r.status_registry().clone()));
     let routes = registry
         .map(|registry| gateway_routes(&config, &registry))
         .transpose()?;
@@ -128,7 +132,14 @@ pub fn gateway(
     Ok(Module::new(
         "gateway",
         Arc::new(move |ctx| {
-            let (config, env, slot, routes) = (config.clone(), env.clone(), slot.clone(), routes.clone());
+            let (config, env, slot, routes, node_links, bind_on_ready) = (
+                config.clone(),
+                env.clone(),
+                slot.clone(),
+                routes.clone(),
+                node_links.clone(),
+                bind_on_ready.clone(),
+            );
             Box::pin(async move {
                 let capture = gateway::server::load_capture(&env)?;
                 let sink: Option<gateway::feed::InProcessSink> = slot.map(|slot| {
@@ -137,7 +148,170 @@ pub fn gateway(
                         guard.as_ref().is_some_and(|helper| helper.allow_ip(ip))
                     }) as gateway::feed::InProcessSink
                 });
-                gateway::server::run_with_routes(config, capture, sink, ctx, routes).await
+                if let Some((services, status)) = bind_on_ready {
+                    let mut rx = status.subscribe();
+                    tokio::spawn(async move {
+                        while rx.changed().await.is_ok() {
+                            let phase = rx.borrow().get("gateway").map(|c| c.phase);
+                            if let Some(phase) = phase {
+                                match phase {
+                                    service_kit::context::ComponentPhase::Ready => {
+                                        services.bind_gateway();
+                                        break;
+                                    }
+                                    service_kit::context::ComponentPhase::Failed
+                                    | service_kit::context::ComponentPhase::Stopped => break,
+                                    _ => {}
+                                }
+                            }
+                        }
+                    });
+                }
+                gateway::server::run_with_node_links(config, capture, sink, ctx, routes, node_links).await
+            })
+        }),
+    )
+    .ready_within(std::time::Duration::from_secs(60)))
+}
+
+/// Configuration for the `"network"` module (DD2, DN3, DN5).
+#[cfg(feature = "network")]
+pub struct NetworkOptions {
+    pub node: module_api::NodeIdentity,
+    pub leader: module_api::network::NodeId,
+    pub peers: Vec<network_plugin::cluster::Peer>,
+    pub credentials: network_plugin::cluster::NodeCredentials,
+    pub signing_key: network_plugin::home::SigningKey,
+    pub database: store::DatabaseConfig,
+    pub game: module_api::GameVersion,
+    pub registry: crate::ModuleRegistry,
+    pub replication_interval: std::time::Duration,
+}
+
+#[cfg(feature = "network")]
+struct HomeRouterHook {
+    router: Arc<network_plugin::home::HomeRouter>,
+}
+
+#[cfg(feature = "network")]
+impl crate::registry::LoadHook for HomeRouterHook {
+    fn loaded(&self, manifest: &module_api::ModuleManifest, driver: Arc<dyn module_api::ModuleDriver>) {
+        if manifest.kind == module_api::ModuleKind::Game {
+            self.router.register(
+                manifest.id.clone(),
+                Arc::new(network_plugin::home::DriverBackend::new(driver)),
+            );
+        }
+    }
+
+    fn unloaded(&self, module: &module_api::ModuleId) {
+        self.router.unregister(module);
+    }
+}
+
+/// The node's network runtime (`[network]` in `host.toml` when peers are configured): opens the
+/// directory table in the node database, connects [`network_plugin::TlsPeerLink`] to peers, starts
+/// directory replication and peer health checks, wires [`network_plugin::home::NetworkedHome`] into
+/// the [`crate::ModuleRegistry`], and attaches [`network_plugin::Service::Directory`] and
+/// [`network_plugin::Service::Home`] to [`crate::NodeServices`].
+#[cfg(feature = "network")]
+pub fn network(options: NetworkOptions) -> Result<Module, String> {
+    let link = Arc::new(
+        network_plugin::TlsPeerLink::new(network_plugin::TlsLinkConfig::new(
+            options.credentials,
+            options.peers.clone(),
+        ))
+        .map_err(|e| format!("network peer link: {e}"))?,
+    );
+    let tickets = Arc::new(network_plugin::home::Tickets::new(
+        &options.node,
+        options.signing_key,
+        Arc::new(network_plugin::Clock::default()),
+        network_plugin::home::TicketConfig::default(),
+    ));
+    let router = Arc::new(network_plugin::home::HomeRouter::default());
+    options
+        .registry
+        .add_hook(Arc::new(HomeRouterHook { router: router.clone() }));
+    let node = options.node;
+    let leader = options.leader;
+    let peers = options.peers;
+    let database = options.database;
+    let game = options.game;
+    let registry = options.registry;
+    let replication_interval = options.replication_interval;
+    Ok(Module::new(
+        "network",
+        Arc::new(move |mut ctx| {
+            let (node, leader, peers, database, game, registry, link, tickets, router) = (
+                node.clone(),
+                leader.clone(),
+                peers.clone(),
+                database.clone(),
+                game.clone(),
+                registry.clone(),
+                link.clone(),
+                tickets.clone(),
+                router.clone(),
+            );
+            Box::pin(async move {
+                if let store::DatabaseConfig::Sqlite { file } = &database
+                    && let Some(parent) = file.parent()
+                {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let db = store::Database::open(
+                    &database,
+                    &store::DatabaseOptions::default(),
+                    &network_plugin::directory::SCHEMA,
+                )
+                .map_err(|e| format!("network directory database: {e}"))?;
+                let _health_task = link.spawn_health_checks();
+                let dir_config = network_plugin::directory::DirectoryConfig::in_network(node.node.clone(), leader);
+                let directory = Arc::new(
+                    network_plugin::directory::Directory::new(db, dir_config, link.clone())
+                        .await
+                        .map_err(|e| format!("network directory: {e}"))?,
+                );
+                let replication_task = directory.spawn_replication(replication_interval);
+                let home_service = Arc::new(network_plugin::home::HomeService::new(
+                    node.clone(),
+                    tickets.clone(),
+                    router,
+                    directory.clone(),
+                    peers.iter().map(|p| p.id.clone()),
+                    network_plugin::home::HomeConfig::default(),
+                ));
+                let networked_home = Arc::new(network_plugin::home::NetworkedHome::new(
+                    node.clone(),
+                    peers.iter().map(|p| (p.id.clone(), p.region.clone())),
+                    link.clone(),
+                    directory.clone(),
+                    tickets.clone(),
+                    network_plugin::home::NetworkedConfig::new(game),
+                ));
+                let services = registry.node_services();
+                services.set_peer_link(Some(link));
+                services.set_directory(Some(directory.clone()));
+                services.set_tickets(Some(tickets));
+                services.attach(network_plugin::Service::Directory, directory);
+                services.attach(network_plugin::Service::Home, home_service);
+                registry.set_home(networked_home);
+                ctx.status
+                    .ready(None, Some(format!("{} ({} peers)", node.node, peers.len())));
+                ctx.wait_stop().await;
+                ctx.status.stopping();
+                services.detach(network_plugin::Service::Directory);
+                services.detach(network_plugin::Service::Home);
+                services.set_tickets(None);
+                services.set_directory(None);
+                services.set_peer_link(None);
+                registry.reset_home();
+                if let Some(task) = replication_task {
+                    task.abort();
+                }
+                ctx.status.stopped();
+                Ok(())
             })
         }),
     )

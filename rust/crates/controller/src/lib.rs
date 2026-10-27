@@ -13,11 +13,13 @@
 
 pub mod controller;
 pub mod modules;
+pub mod node_services;
 pub mod ports;
 pub mod registry;
 
 pub use controller::{Module, ModuleFuture, ModuleStart, START_TIMEOUT, STOP_GRACE, ServerController};
+pub use node_services::NodeServices;
 pub use registry::{
-    ModuleEntry, ModuleFactory, ModuleInfo, ModuleRegistry, ModuleSource, ModuleState, RegistryError, RegistryOptions,
-    WeakRegistry,
+    LoadHook, ModuleEntry, ModuleFactory, ModuleInfo, ModuleRegistry, ModuleSource, ModuleState, RegistryError,
+    RegistryOptions, WeakRegistry,
 };
