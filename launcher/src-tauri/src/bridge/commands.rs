@@ -18,9 +18,9 @@ use super::spec::{
     PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
 };
 use super::types::{
-    ActionResult, Branding, ErrorCode, ExternalTarget, HostAction, HostFolder, HostKit, HostMultipliers,
-    HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck, LauncherError, MAX_MULTIPLIER,
-    NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
+    ActionResult, Branding, ErrorCode, ExternalTarget, GameVersionList, HostAction, HostFolder, HostKit,
+    HostMultipliers, HostServerMode, HostServerView, HostSetupRequest, InstallMode, InviteCheck, LauncherError,
+    MAX_MULTIPLIER, NewsItem, RegionPing, RegisterOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::core::text::{js_length, js_trim};
@@ -533,9 +533,11 @@ pub fn epic_library_check() -> ActionResult {
     planned("epic_library_check", &[])
 }
 
+/// The installable versions (DE4): the compiled-in client profiles and the joined servers', each Epic
+/// build with its sizes from its manifest.
 #[tauri::command]
-pub fn game_version_list() -> ActionResult {
-    planned("game_version_list", &[])
+pub async fn game_version_list(app: AppHandle) -> GameVersionList {
+    controller(&app).game_version_list().await
 }
 
 #[tauri::command]

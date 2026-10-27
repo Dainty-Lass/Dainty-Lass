@@ -7,7 +7,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { CommandName } from "./generated/types.ts";
-import type { ActionResult, HostKit, HostServerView, LauncherApi, RegionPing, RevertSelection, Settings, Snapshot, TaskProgress } from "./types.ts";
+import type { ActionResult, GameVersionList, HostKit, HostServerView, LauncherApi, RegionPing, RevertSelection, Settings, Snapshot, TaskProgress } from "./types.ts";
 
 // A call that waits on the player (a file dialog) or on a long task (the executable check, the runtime
 // download, a host kit build) gets an hour; any other a minute.
@@ -183,7 +183,7 @@ export const api: LauncherApi = {
   epicGet: () => act("epic_get"),
   epicSignOut: () => act("epic_sign_out"),
   epicLibraryCheck: () => act("epic_library_check"),
-  gameVersionList: () => act("game_version_list"),
+  gameVersionList: () => act<GameVersionList>("game_version_list"),
   gameInstallStart: (version) => act("game_install_start", { version: String(version) }),
   gameInstallPause: (version) => act("game_install_pause", { version: String(version) }),
   gameInstallResume: (version) => act("game_install_resume", { version: String(version) }),

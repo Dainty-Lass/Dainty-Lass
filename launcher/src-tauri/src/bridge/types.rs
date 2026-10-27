@@ -1095,6 +1095,83 @@ impl Serialize for RegionPing {
     }
 }
 
+/// How a version gets onto this PC (DE4): from the player's Epic library, or from a folder the player
+/// already has (1.4.4, which has no archived manifest: DD22)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+pub enum GameVersionInstall {
+    Epic,
+    Locate,
+}
+
+/// Whose profile listed a version: the launcher's compiled-in one, or a joined server's content (DE4)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+pub enum GameVersionOrigin {
+    Launcher,
+    Server,
+}
+
+/// An Epic build's manifest, as the list read it: `unreachable` when no source answered, `invalid` when
+/// none answered with the pinned file
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum EpicManifestState {
+    Ready,
+    Unreachable,
+    Invalid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct EpicVersionInfo {
+    /// Epic's build version (`1.14.7.647472`)
+    pub build_version: String,
+    pub manifest: EpicManifestState,
+    /// Bytes, from the manifest once it is `ready`
+    pub download_bytes: Option<u64>,
+    pub install_bytes: Option<u64>,
+}
+
+/// One version on `game_version_list`, newest first. The display name is the module's (DD4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct GameVersionEntry {
+    pub version: String,
+    pub display_name: String,
+    pub origin: GameVersionOrigin,
+    pub install: GameVersionInstall,
+    /// Null for `locate`
+    pub epic: Option<EpicVersionInfo>,
+}
+
+/// `game_version_list`: `{ ok: true, versions }`. The backend always answers it; the page's
+/// `{ ok: false, error }` arm is `act()`'s own, for a call that fails on the way.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GameVersionList {
+    pub versions: Vec<GameVersionEntry>,
+}
+
+impl Serialize for GameVersionList {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Listed<'a> {
+            ok: bool,
+            versions: &'a [GameVersionEntry],
+        }
+        Listed {
+            ok: true,
+            versions: &self.versions,
+        }
+        .serialize(serializer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1150,6 +1227,39 @@ mod tests {
         assert_eq!(
             serde_json::to_value(RegionPing::Err(LauncherError::new(ErrorCode::ServerUnreachable))).unwrap(),
             json!({ "ok": false, "error": { "code": "server_unreachable" } })
+        );
+        let listed = GameVersionList {
+            versions: vec![
+                GameVersionEntry {
+                    version: "1.14.7".into(),
+                    display_name: "Rustic Isles 1.14.7".into(),
+                    origin: GameVersionOrigin::Launcher,
+                    install: GameVersionInstall::Epic,
+                    epic: Some(EpicVersionInfo {
+                        build_version: "1.14.7.647472".into(),
+                        manifest: EpicManifestState::Ready,
+                        download_bytes: Some(15_985_792_608),
+                        install_bytes: Some(16_521_629_423),
+                    }),
+                },
+                GameVersionEntry {
+                    version: "1.4.4".into(),
+                    display_name: "Dauntless Revived".into(),
+                    origin: GameVersionOrigin::Server,
+                    install: GameVersionInstall::Locate,
+                    epic: None,
+                },
+            ],
+        };
+        assert_eq!(
+            serde_json::to_value(listed).unwrap(),
+            json!({ "ok": true, "versions": [
+                { "version": "1.14.7", "displayName": "Rustic Isles 1.14.7", "origin": "launcher", "install": "epic",
+                  "epic": { "buildVersion": "1.14.7.647472", "manifest": "ready", "downloadBytes": 15_985_792_608_u64,
+                            "installBytes": 16_521_629_423_u64 } },
+                { "version": "1.4.4", "displayName": "Dauntless Revived", "origin": "server", "install": "locate",
+                  "epic": null },
+            ] })
         );
         let error = LauncherError::with_detail(ErrorCode::HostFailed, "setup_form");
         assert_eq!(
