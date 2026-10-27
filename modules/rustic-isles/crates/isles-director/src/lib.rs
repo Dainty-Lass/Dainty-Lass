@@ -2,16 +2,47 @@
 //! its per-version config (RU3c, seam 5): the game servers' launch arguments, the changelist the runtime updater
 //! checks, and the hunt tables in the module's game data root. Its routes are the route table's `Director` rows,
 //! served on the module's `director` port, which no gateway route reaches: the backend calls it on loopback.
+//!
+//! It starts and stops the game servers (Ramsgate, the Training Grounds, one process per hunt) on the module's
+//! UDP range, each as the leader of a process tree it ends with it: a job object on Windows, a process group on
+//! Linux, as the host kit does. Starting is behind [`Launcher`], so the tests run a fake game server.
+//!
+//! Not ported yet: the signed server-runtime update (`runtimeUpdater.ts`, `SERVER_RUNTIME_AUTO_UPDATE`, off as
+//! `setup` writes it). `target_changelist` is what it will check.
+
+pub mod api;
+pub mod cmdline;
+pub mod config;
+pub mod gameservers;
+pub mod hub;
+pub mod hunt;
+pub mod log;
+pub mod matchmaker;
+pub mod memory;
+pub mod occupancy;
+pub mod os;
+pub mod port_pool;
+pub mod process;
+pub mod random;
+#[cfg(windows)]
+mod win_spawn;
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 
 use isles_core::PortService;
 use isles_core::game_data::GameDataRoot;
-use isles_core::http::{Handlers, Shared};
-use isles_core::routes::Service;
+use isles_core::http::Shared;
 use isles_core::settings::Settings;
-use module_api::ModuleError;
+use module_api::{BoxFuture, ModuleError, PortRange};
+use tokio::task::JoinHandle;
+
+pub use api::{register, router};
+pub use config::Config;
+pub use gameservers::Director;
+pub use os::OsLauncher;
+pub use process::Launcher;
 
 /// The persistent hubs, the same maps in both versions (RU3c).
 pub const RAMSGATE_MAP: &str = "/Game/Maps/ramsgate/ramsgate_01_persistent";
@@ -35,6 +66,8 @@ pub struct DirectorConfig {
     /// `runtimeUpdater.ts`'s `TARGET_CHANGELIST`
     pub target_changelist: u32,
     pub args: GameserverArgs,
+    /// Whether the two `_new` Trials tables are part of the version's hunt tables (1.14.7; 1.12.0 has four)
+    pub trials_new_tables: bool,
 }
 
 /// `GAMESERVER_LOG_CMDS`'s shape: "Category Verbosity" pairs separated by commas.
@@ -46,14 +79,24 @@ fn valid_log_cmds(value: &str) -> bool {
 }
 
 impl DirectorConfig {
-    /// The arguments every game server starts with, before the positional ones.
+    fn configured_log_cmds<'a>(&self, settings: &'a Settings) -> &'a str {
+        if self.args.log_cmds_setting {
+            service_kit::js::trim(settings.raw("GAMESERVER_LOG_CMDS").unwrap_or_default())
+        } else {
+            ""
+        }
+    }
+
+    /// `GAMESERVER_LOG_CMDS` is set but is not "Category Verbosity" pairs: the default is used and the start warns.
+    pub fn log_cmds_invalid(&self, settings: &Settings) -> bool {
+        let configured = self.configured_log_cmds(settings);
+        !configured.is_empty() && !valid_log_cmds(configured)
+    }
+
+    /// The switches every game server starts with, after the positional arguments.
     pub fn launch_args(&self, settings: &Settings) -> Vec<String> {
         let mut args: Vec<String> = self.args.standard.iter().map(|a| (*a).to_owned()).collect();
-        let configured = self
-            .args
-            .log_cmds_setting
-            .then(|| settings.raw("GAMESERVER_LOG_CMDS").unwrap_or_default().trim())
-            .filter(|value| valid_log_cmds(value));
+        let configured = Some(self.configured_log_cmds(settings)).filter(|value| valid_log_cmds(value));
         args.push(format!("-LogCmds=\"{}\"", configured.unwrap_or(self.args.log_cmds)));
         args
     }
@@ -69,24 +112,95 @@ impl DirectorConfig {
     }
 }
 
-/// The Director's handlers; RU6 fills them. A route with none answers 501.
-pub fn register(_config: &Arc<DirectorConfig>, _handlers: &mut Handlers) {}
+/// How often the watchdog looks for dead game servers (`setInterval(RunWatchdog, 60 * 1000)`).
+const WATCHDOG_EVERY: Duration = Duration::from_secs(60);
+
+struct Running {
+    director: Arc<Director>,
+    tasks: Vec<JoinHandle<()>>,
+}
 
 /// The Director as one of the module's listeners.
-#[derive(Debug, Clone)]
 pub struct DirectorService {
     config: Arc<DirectorConfig>,
+    launcher: Arc<dyn Launcher>,
+    running: Mutex<Option<Running>>,
 }
 
 impl DirectorService {
     pub fn new(config: DirectorConfig) -> Self {
+        Self::with_launcher(config, Arc::new(OsLauncher))
+    }
+
+    /// With the game servers started some other way (the tests).
+    pub fn with_launcher(config: DirectorConfig, launcher: Arc<dyn Launcher>) -> Self {
         Self {
             config: Arc::new(config),
+            launcher,
+            running: Mutex::new(None),
         }
     }
 
     pub fn config(&self) -> &DirectorConfig {
         &self.config
+    }
+
+    /// The Director of a started module.
+    pub fn director(&self) -> Option<Arc<Director>> {
+        self.running
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .map(|running| running.director.clone())
+    }
+
+    /// The Director over `shared`: its settings, the controller's game port range and the hunt tables.
+    pub fn build(&self, shared: &Shared) -> Result<Arc<Director>, ModuleError> {
+        // The controller's game range, set over the env file by the module (isles-core's `Settings::forced`)
+        let port = |name: &str| {
+            shared
+                .settings
+                .get(name)
+                .and_then(|value| value.parse::<u16>().ok())
+                .ok_or_else(|| ModuleError::failed(format!("the Director has no {name}")))
+        };
+        let ports = PortRange {
+            first: port("PORT_RANGE_BEGIN")?,
+            last: port("PORT_RANGE_END")?,
+        };
+        let config = Config::from_settings(&shared.settings, &self.config, ports, std::env::vars())
+            .map_err(ModuleError::failed)?;
+        for problem in &config.memory_problems {
+            log::warn(&format!("[MemoryGuard] {problem}"));
+        }
+        if config.log_cmds_invalid {
+            log::warn(&format!(
+                "GAMESERVER_LOG_CMDS must be \"Category Verbosity\" pairs separated by commas; using the default ({})",
+                self.config.args.log_cmds
+            ));
+        }
+        // A missing table is fatal to the Node Director; here the hunts fail and the hubs still run
+        let tables = match &shared.game_data.director {
+            Some(dir) => hunt::load_tables(dir, config.trials_new_tables).unwrap_or_else(|error| {
+                log::error(&format!("Hunt tables not loaded, no hunt can start: {error}"));
+                hunt::Tables::default()
+            }),
+            None => {
+                log::error(
+                    "No Director game data folder is configured ([game_data] director_dir), so no hunt can start",
+                );
+                hunt::Tables::default()
+            }
+        };
+        let memory = memory::MemoryAdmission::new(config.memory.clone());
+        Ok(Director::new(config, tables, memory, self.launcher.clone()))
+    }
+
+    fn set_running(&self, running: Option<Running>) -> Option<Running> {
+        std::mem::replace(
+            &mut *self.running.lock().unwrap_or_else(PoisonError::into_inner),
+            running,
+        )
     }
 }
 
@@ -96,9 +210,59 @@ impl PortService for DirectorService {
     }
 
     fn app(&self, shared: Arc<Shared>) -> Result<axum::Router, ModuleError> {
-        let mut handlers = Handlers::default();
-        register(&self.config, &mut handlers);
-        isles_core::http::app(shared, Service::Director, &handlers).map_err(|e| ModuleError::failed(e.to_string()))
+        let director = self.build(&shared)?;
+        let app = router(shared, &director).map_err(|e| ModuleError::failed(e.to_string()))?;
+        self.set_running(Some(Running {
+            director,
+            tasks: Vec::new(),
+        }));
+        Ok(app)
+    }
+
+    /// `app.listen`'s callback: the hubs boot in the background, and the watchdog runs once a minute.
+    fn started(&self) {
+        let mut running = self.running.lock().unwrap_or_else(PoisonError::into_inner);
+        let Some(running) = running.as_mut() else {
+            return;
+        };
+        let director = running.director.clone();
+        if !director.config.can_launch() {
+            log::warn(
+                "GAMESERVER_BINARY_PATH and METAGAME_API_KEY are not set in the env file: the Director starts no game server",
+            );
+            return;
+        }
+        let booting = director.clone();
+        running.tasks.push(tokio::spawn(async move {
+            booting.startup().await;
+            booting.set_persistent_hubs_ready(true);
+        }));
+        running.tasks.push(tokio::spawn(async move {
+            let mut every = tokio::time::interval(WATCHDOG_EVERY);
+            every.tick().await;
+            loop {
+                every.tick().await;
+                // A pass that fails never takes matchmaking down with it.
+                let pass = director.clone();
+                if tokio::spawn(async move { pass.run_watchdog().await }).await.is_err() {
+                    log::error("Gameserver watchdog pass failed");
+                }
+            }
+        }));
+        log::info("Mystic Paradox DeployServer started");
+        log::info("Clear Skies, Slayer.");
+    }
+
+    fn stopping(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async move {
+            let Some(running) = self.set_running(None) else {
+                return;
+            };
+            for task in &running.tasks {
+                task.abort();
+            }
+            running.director.shutdown().await;
+        })
     }
 }
 
@@ -121,6 +285,18 @@ mod tests {
             log_cmds_setting: true,
             windows_hide: true,
         },
+        trials_new_tables: true,
+    };
+
+    const V1120: DirectorConfig = DirectorConfig {
+        target_changelist: 392819,
+        args: GameserverArgs {
+            standard: &["-EpicPortal", "-server", "-nullrhi", "-warp", "-RepDriverEnable"],
+            log_cmds: "LogPhoenixCharacter VeryVerbose, LogOnline Verbose",
+            log_cmds_setting: false,
+            windows_hide: false,
+        },
+        trials_new_tables: false,
     };
 
     #[test]
@@ -142,7 +318,21 @@ mod tests {
                 .last()
                 .is_some_and(|a| a.contains("LogLoad Off"))
         );
+        assert!(V1147.log_cmds_invalid(&bad) && !V1147.log_cmds_invalid(&quiet));
         assert!(V1147.hide_window(&Settings::default()));
         assert!(!V1147.hide_window(&Settings::from_pairs([("GAMESERVER_WINDOWS_HIDE", "0")])));
+    }
+
+    #[test]
+    fn the_1_12_launch_has_no_nosound_no_log_setting_and_a_visible_window() {
+        let settings = Settings::from_pairs([("GAMESERVER_LOG_CMDS", "LogOnline Warning")]);
+        let args = V1120.launch_args(&settings);
+        assert!(!args.contains(&"-nosound".to_owned()));
+        assert_eq!(
+            args.last().map(String::as_str),
+            Some("-LogCmds=\"LogPhoenixCharacter VeryVerbose, LogOnline Verbose\"")
+        );
+        assert!(!V1120.log_cmds_invalid(&settings));
+        assert!(!V1120.hide_window(&Settings::default()));
     }
 }

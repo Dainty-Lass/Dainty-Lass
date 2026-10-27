@@ -170,7 +170,7 @@ pub async fn sweep(service: Service, address: SocketAddr, mounts: Mounts) -> Vec
 }
 
 /// Registers, starts (both listeners on ephemeral ports, `env_file` as the backend's env file), sweeps every
-/// route of both services, stops; the failures.
+/// route of the backend and probes the Director, stops; the failures.
 pub async fn drive(
     driver: &dyn module_api::ModuleDriver,
     host: &RecordingHost,
@@ -194,11 +194,20 @@ pub async fn drive(
         return vec![format!("start: {error}")];
     }
     let addresses = listening(host);
-    for (service, port) in [(Service::Backend, "backend"), (Service::Director, "director")] {
-        match addresses.get(port) {
-            Some(address) => failures.extend(sweep(service, *address, mounts).await),
-            None => failures.push(format!("no {port} address in {addresses:?}")),
+    match addresses.get("backend") {
+        Some(address) => failures.extend(sweep(Service::Backend, *address, mounts).await),
+        None => failures.push(format!("no backend address in {addresses:?}")),
+    }
+    // The Director answers for real (RU6): with no game server configured it is not ready and lists no instance.
+    match addresses.get("director") {
+        Some(address) => {
+            let ready = request(*address, "GET", "/health/ready").await.map(|r| r.0);
+            let instances = request(*address, "GET", "/api/instances").await.map(|r| (r.0, r.2));
+            if ready.as_ref().ok() != Some(&503) || instances.as_ref().ok() != Some(&(200, "[]".to_owned())) {
+                failures.push(format!("director: ready {ready:?}, instances {instances:?}"));
+            }
         }
+        None => failures.push(format!("no director address in {addresses:?}")),
     }
     match driver.status().await {
         Ok(status) if status.phase == Phase::Ready => {}

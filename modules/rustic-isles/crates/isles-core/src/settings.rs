@@ -49,19 +49,32 @@ pub enum SettingsError {
 pub struct Settings {
     env: BTreeMap<String, String>,
     switches: BTreeMap<String, String>,
+    /// Set by the controller's config, over the env file: the game servers' port range
+    forced: BTreeMap<String, String>,
 }
 
 impl Settings {
     /// `env` from the env file; `switches` the `[switches]` section as config text.
     pub fn new(env: BTreeMap<String, String>, switches: BTreeMap<String, String>) -> Self {
-        Self { env, switches }
+        Self {
+            env,
+            switches,
+            forced: BTreeMap::new(),
+        }
     }
 
     pub fn from_pairs<'a>(pairs: impl IntoIterator<Item = (&'a str, &'a str)>) -> Self {
         Self {
             env: pairs.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
             switches: BTreeMap::new(),
+            forced: BTreeMap::new(),
         }
+    }
+
+    /// A setting the module's config decides: it reads as set, whatever the env file says.
+    pub fn forced(mut self, name: &str, value: impl ToString) -> Self {
+        self.forced.insert(name.to_owned(), value.to_string());
+        self
     }
 
     /// The `[switches]` section of a module config, keyed by Node's variable names.
@@ -94,10 +107,20 @@ impl Settings {
         Ok(env)
     }
 
+    /// Every setting as the module sees it: the switches' defaults under the env file's values. What the Director's
+    /// game servers inherit (Node's `...process.env`), the process environment aside.
+    pub fn vars(&self) -> BTreeMap<String, String> {
+        let mut vars = self.switches.clone();
+        vars.extend(self.env.iter().map(|(k, v)| (k.clone(), v.clone())));
+        vars.extend(self.forced.iter().map(|(k, v)| (k.clone(), v.clone())));
+        vars
+    }
+
     /// The value as set, also when empty: Node's `process.env.X`, which `??` treats as set.
     pub fn raw(&self, name: &str) -> Option<&str> {
-        self.env
+        self.forced
             .get(name)
+            .or_else(|| self.env.get(name))
             .or_else(|| self.switches.get(name))
             .map(String::as_str)
     }

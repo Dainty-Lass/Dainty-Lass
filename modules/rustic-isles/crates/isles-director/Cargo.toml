@@ -1,6 +1,6 @@
 [package]
 name = "isles-director"
-description = "The Director both Rustic Isles modules share: its routes, launch arguments and hunt tables per version"
+description = "The Director both Rustic Isles modules share: its routes, game-server lifecycle, launch arguments and hunt tables per version"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,8 +10,28 @@ publish.workspace = true
 
 [dependencies]
 axum.workspace = true
+chrono.workspace = true
+futures-util.workspace = true
 isles-core.workspace = true
 module-api.workspace = true
+serde_json.workspace = true
+service-kit.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "process", "sync", "time"] }
+tracing.workspace = true
+uuid.workspace = true
+
+[target."cfg(unix)".dependencies]
+libc.workspace = true
+
+[target."cfg(windows)".dependencies]
+windows.workspace = true
+
+[dev-dependencies]
+# The real DIRECTOR of each version, for the end-to-end tests (a dev-dependency cycle, as cargo allows)
+isles-1-12-0 = { path = "../../modules/isles-1-12-0", default-features = false }
+isles-1-14-7 = { path = "../../modules/isles-1-14-7", default-features = false }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
 
 [lints]
 workspace = true

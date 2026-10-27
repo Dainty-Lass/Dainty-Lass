@@ -39,6 +39,8 @@ diesel = { version = "2.3", default-features = false, features = ["sqlite", "pos
 diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 dotenvy = "0.15"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+libc = "0.2.191"
 percent-encoding = "2"
 regex = "1"
 sha2 = "0.11"
@@ -50,6 +52,8 @@ thiserror = "2"
 tokio = { version = "1", features = ["rt", "macros"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v4"] }
+# Game servers started hidden and in a job object (the Director, RU6), as the host kit does
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"
