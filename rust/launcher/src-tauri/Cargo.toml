@@ -29,6 +29,8 @@ tauri-build = { version = "2.7", features = ["isolation"] }
 
 [dependencies]
 protocol.workspace = true
+# Epic sign-in, ownership and installs (DD22)
+epic.workspace = true
 serde.workspace = true
 # preserve_order: settings.json keeps its key order (L28); workspace builds unify it on anyway
 serde_json = { workspace = true, features = ["preserve_order"] }

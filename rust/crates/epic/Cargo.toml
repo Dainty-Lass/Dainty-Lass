@@ -10,7 +10,10 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+egs-api.workspace = true
 flate2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sha1.workspace = true
 thiserror.workspace = true
 
@@ -21,6 +24,7 @@ hyper.workspace = true
 hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
 rustls.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 
 [lints]

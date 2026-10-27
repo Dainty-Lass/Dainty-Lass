@@ -126,6 +126,10 @@ fn declarations() -> String {
         "type RegionPing = { ok: true; regions: Array<RegionRtt>; reported: boolean } | { ok: false; error: LauncherError };"
             .into(),
     );
+    declare(
+        "type EpicLibraryCheck = { ok: true; owned: boolean; checkedAt: string } | { ok: false; error: LauncherError };"
+            .into(),
+    );
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
     out

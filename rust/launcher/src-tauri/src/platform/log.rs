@@ -125,6 +125,10 @@ pub(crate) struct Layer;
 
 impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for Layer {
     fn on_event(&self, event: &tracing::Event<'_>, _: tracing_subscriber::layer::Context<'_, S>) {
+        // Its failed requests are logged with `{:?}` (docs/security/epic.md)
+        if epic::is_egs_api_target(event.metadata().target()) {
+            return;
+        }
         struct Message(String);
         impl tracing::field::Visit for Message {
             fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
@@ -200,10 +204,12 @@ mod tests {
             tracing_subscriber::layer::SubscriberExt::with(tracing_subscriber::registry(), Layer),
             || {
                 tracing::warn!("library saw {}", &key[4..]);
+                tracing::error!(target: "egs_api::api", "request to https://x/?sid=egs-api-secret failed");
             },
         );
         let text = std::fs::read_to_string(dir.path().join("launcher.log")).unwrap();
         assert!(!text.contains(&key[4..]), "{text}");
+        assert!(!text.contains("egs-api-secret"), "{text}");
         assert!(text.contains(" INFO launching with -AUTH_PASSWORD=<hidden>"), "{text}");
         assert!(text.contains(" WARN "), "{text}");
         *SINK.lock().unwrap() = None;
