@@ -90,6 +90,9 @@ export const ERROR_KEYS: Record<ErrorCode, Key> = {
   epic_rejected: "err_epic_rejected",
   epic_unreachable: "err_epic_unreachable",
   epic_failed: "err_epic_failed",
+  game_version_unknown: "err_game_version_unknown",
+  game_version_unavailable: "err_game_version_unavailable",
+  epic_manifest_unavailable: "err_epic_manifest_unavailable",
   unknown: "err_unknown",
 }
 

@@ -21,6 +21,7 @@ import type {
   HostServerView,
   HostSetupRequest,
   InstallMode,
+  InstallOutcome,
   InviteCheck,
   NewsItem,
   RealmKind,
@@ -121,11 +122,12 @@ export interface LauncherApi {
   epicSignOut(): Promise<ActionResult>
   epicLibraryCheck(): Promise<EpicLibraryCheck>
   gameVersionList(): Promise<GameVersionList>
-  gameInstallStart(version: string): Promise<ActionResult>
+  // DE5's, filled: progress comes over onProgress (kind "install")
+  gameInstallStart(version: string): Promise<InstallOutcome>
   gameInstallPause(version: string): Promise<ActionResult>
   gameInstallResume(version: string): Promise<ActionResult>
   gameInstallCancel(version: string): Promise<ActionResult>
-  gameInstallGet(version: string): Promise<ActionResult>
+  gameInstallGet(version: string): Promise<InstallOutcome>
   // DN7's, filled: the joined server's regions, nearest first
   regionPing(): Promise<RegionPing>
   moduleList(): Promise<ActionResult>
@@ -349,8 +351,13 @@ export const api: LauncherApi = {
   epicSignOut: () => act("epic_sign_out"),
   epicLibraryCheck: () => act<EpicLibraryCheck>("epic_library_check"),
   gameVersionList: () => act<GameVersionList>("game_version_list"),
+  // Refreshes the Epic session and checks the library before it answers
   gameInstallStart: (version) =>
-    act("game_install_start", { version: String(version) }),
+    act<InstallOutcome>(
+      "game_install_start",
+      { version: String(version) },
+      LONG_TIMEOUT_MS
+    ),
   gameInstallPause: (version) =>
     act("game_install_pause", { version: String(version) }),
   gameInstallResume: (version) =>
@@ -358,7 +365,7 @@ export const api: LauncherApi = {
   gameInstallCancel: (version) =>
     act("game_install_cancel", { version: String(version) }),
   gameInstallGet: (version) =>
-    act("game_install_get", { version: String(version) }),
+    act<InstallOutcome>("game_install_get", { version: String(version) }),
   regionPing: () => act<RegionPing>("region_ping"),
   moduleList: () => act("module_list"),
   moduleGet: (module) => act("module_get", { module: String(module) }),
