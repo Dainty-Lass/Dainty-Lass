@@ -23,6 +23,7 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 use crate::connection::{AnyConnection, MultiBackend};
 use crate::history::{self, Actor, ChangeEntry, DELETED_AT};
 use crate::portable::quote_ident;
+use crate::revert::AccountColumn;
 use crate::{DatabaseConfig, Engine, Error, run_blocking};
 
 /// A service's schema on both engines.
@@ -124,6 +125,7 @@ pub struct Database {
     read: Pool<Manager>,
     engine: Engine,
     soft_delete: Arc<[&'static str]>,
+    accounts: Arc<[AccountColumn]>,
 }
 
 /// One write: what a write closure gets. Every row it changes through [`Tx::conn`] is logged under
@@ -154,6 +156,10 @@ impl Tx<'_> {
 
     pub fn actor(&self) -> &Actor {
         self.actor
+    }
+
+    pub(crate) fn soft_delete_tables(&self) -> &[&'static str] {
+        self.soft_delete
     }
 
     /// When this write started, in unix milliseconds: every log entry of it has this time.
@@ -282,7 +288,24 @@ impl Database {
             read,
             engine,
             soft_delete: schema.soft_delete.into(),
+            accounts: Arc::new([]),
         })
+    }
+
+    /// Names the column of each table that holds a row's account, for history and reverts by account
+    /// (DH3). Without it, a filter naming an account is refused.
+    #[must_use]
+    pub fn with_account_columns(mut self, columns: &[AccountColumn]) -> Self {
+        self.accounts = columns.into();
+        self
+    }
+
+    pub(crate) fn account_columns(&self) -> Arc<[AccountColumn]> {
+        self.accounts.clone()
+    }
+
+    pub(crate) fn soft_delete_tables(&self) -> Arc<[&'static str]> {
+        self.soft_delete.clone()
     }
 
     pub fn engine(&self) -> Engine {

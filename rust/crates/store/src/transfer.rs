@@ -33,7 +33,7 @@ pub struct MoveReport {
     pub tables: Vec<(String, usize)>,
 }
 
-fn is_blob(column: &Column) -> bool {
+pub(crate) fn is_blob(column: &Column) -> bool {
     column.kind.contains("blob") || column.kind == "bytea"
 }
 
@@ -80,7 +80,7 @@ fn insert_row(conn: &mut AnyConnection, table: &str, columns: &[Column]) -> Stri
 }
 
 /// Parents before children, so foreign keys hold row by row; a cycle keeps the order it has.
-fn ordered(conn: &mut AnyConnection, tables: Vec<String>) -> Result<Vec<String>, Error> {
+pub(crate) fn ordered(conn: &mut AnyConnection, tables: Vec<String>) -> Result<Vec<String>, Error> {
     let mut parents = BTreeMap::new();
     for table in &tables {
         let mut of = history::parents(conn, table)?;
