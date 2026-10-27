@@ -242,4 +242,6 @@ pub async fn region_ping(home: &Endpoint, key: Option<&str>, settings: &PingSett
 }
 
 #[cfg(test)]
+mod harness;
+#[cfg(test)]
 mod tests;

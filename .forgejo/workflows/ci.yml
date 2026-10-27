@@ -6,6 +6,8 @@
 #  - Paradox (ParadoxBackend, ParadoxDirector in modules/rustic-isles/reference/1.14.7): npm ci and tests
 #  - UI (ui/, dainty-lass-ui): bun install and build (DD11)
 #  - Docker (docker/, compose*.yaml and everything the images copy): the images, the suites inside them, the smoke test
+#  - Network (the network plugin, the gateway and host kit it runs in, docker/, compose*.yaml): four nodes in Docker with
+#    injected latency, their links and the launcher's region ping (docker/network/test.sh, DN12)
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
 # windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit.
@@ -41,6 +43,7 @@ jobs:
       paradox: ${{ steps.pick.outputs.paradox }}
       ui: ${{ steps.pick.outputs.ui }}
       docker: ${{ steps.pick.outputs.docker }}
+      network: ${{ steps.pick.outputs.network }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -87,6 +90,19 @@ jobs:
               - rust/**
               - native/**
               - modules/**
+            # What the harness runs (the gateway and host kit in the images, the network plugin) and checks (the launcher's
+            # region ping), and the files that build and compose it
+            network:
+              - docker/**
+              - compose*.yaml
+              - .env.example
+              - rust/Cargo.toml
+              - rust/Cargo.lock
+              - rust/plugins/network/**
+              - rust/services/gateway/**
+              - rust/services/host/**
+              - rust/crates/**
+              - rust/launcher/**
 
       - name: Pick the families, run everything on main, plan, manual runs and workflow changes
         id: pick
@@ -96,9 +112,10 @@ jobs:
           PARADOX: ${{ steps.filter.outputs.paradox }}
           UI: ${{ steps.filter.outputs.ui }}
           DOCKER: ${{ steps.filter.outputs.docker }}
+          NETWORK: ${{ steps.filter.outputs.network }}
         run: |
           set -euo pipefail
-          for family in rust paradox ui docker; do
+          for family in rust paradox ui docker network; do
             var="${family^^}"
             value="${!var}"
             [ "$ALL" = true ] && value=true
@@ -358,13 +375,64 @@ jobs:
       - name: Build the images and run the full test run
         env:
           REFORGED_COMMIT: ${{ github.sha }}
+          # The network job below runs the harness
+          SKIP_NETWORK: "1"
         run: bash docker/run-tests.sh
+
+  # The network harness (DN12, docs/hosting-docker.md): the `network` profile's four nodes with the canary's latencies
+  # between them (tc netem), every node reaching its three peers over the node link with a round trip near the injected
+  # one, and the launcher's region ping putting the regions in the order of the injected latency. On the runner's own
+  # Docker (CAP_NET_ADMIN and the netem kernel module in its containers; the nodes' private addresses reachable from
+  # the job, which a job container would not have).
+  network:
+    name: Network harness (four nodes, netem)
+    needs: changes
+    if: needs.changes.outputs.network == 'true'
+    runs-on: linux-host
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+
+      - name: Install rustup
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install the pinned toolchain
+        working-directory: rust
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          key: network
+
+      # The launcher links Tauri (WebKitGTK, GTK3); the runner's user needs passwordless sudo once, or these installed
+      - name: The launcher's Linux build dependencies
+        run: |
+          pkgs="libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf build-essential pkg-config"
+          # shellcheck disable=SC2086
+          if dpkg -s $pkgs > /dev/null 2>&1; then exit 0; fi
+          sudo -n apt-get update
+          sudo -n apt-get install -y --no-install-recommends $pkgs
+
+      - name: Build the images and run the harness
+        env:
+          REFORGED_COMMIT: ${{ github.sha }}
+          NETWORK_REGION_PING: require
+        run: bash docker/network/test.sh
 
   # The one check branch protection requires. Jobs skipped because their family didn't change count as passed; a
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, paradox, ui, docker]
+    needs: [changes, rust, rust-deny, fuzz, paradox, ui, docker, network]
     if: always()
     runs-on: docker
     timeout-minutes: 5

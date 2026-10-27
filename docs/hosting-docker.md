@@ -26,6 +26,7 @@ a private server over Tailscale works too.
 | `metagame` | server | A legacy server only: DR's metagame, 127.0.0.1:61000, in place of `backend` and `mongo` |
 | `deploy` | server | A legacy server only: DR's deploy server, 127.0.0.1:61001; starts the 1.4.4 game servers through Wine |
 | `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
+| `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
 
 **One network namespace.** Every container joins `net`'s, so they reach each other on 127.0.0.1 exactly as
 the env files `reforged-host setup` writes say, and nothing but the gateway and the game ports is reachable
@@ -177,6 +178,78 @@ A node of a network ([hosting.md](hosting.md#a-network-of-servers)) is an ordina
 `tls` folder. The CA file stays off the server: `network ca-init` and `issue-node-cert` run on your own machine.
 Node links share the gateway's published TCP port (443); nothing else is published for them.
 
+### The `network` profile: four nodes on one machine
+
+For testing, not for running a network: `docker compose --profile network up -d --wait network` starts four nodes of
+one network (DD16) on a private Docker network, with latency between them that matches the canary's regions
+(DN12). Each node is a gateway with node links on, set up from a `host.toml` that lists the other three as
+`[[network.nodes]]`, from the same images as a server and with volumes of its own. Nothing else of a server runs in
+them (no backend, MongoDB or game): the gateway answers the node links and the launcher's region ping, which is
+what the harness checks. The other services have no profile, so name the target `network`: a bare
+`--profile network up` would start the single server too.
+
+| Container | What it is |
+| --- | --- |
+| `network-init` | One-shot, as root: makes the cluster CA in the `network-ca` volume, which no other container mounts, and writes into each node's volume its public gateway certificate, its node certificate and key, the CA's certificate (never its key) and its `host.toml` ([security/network.md](security/network.md#the-docker-harness-dn12)) |
+| `configure-<region>` | One-shot: `setup` from that `host.toml` (the `toml` profile's `apply`), then exits |
+| `net-<region>` | The node's network namespace and published port, at a fixed address in the private network |
+| `netem-<region>` | `tc` with CAP_NET_ADMIN in that namespace, the only container with it: shapes the node's outgoing traffic (below) |
+| `gateway-<region>` | The node's gateway (`reforged-host gateway serve`), healthy once it listens |
+| `network` | Nothing: it waits for the four gateways, so `up --wait network` is the whole cluster |
+
+The regions are `oregon`, `new-york`, `uk` and `germany` (nodes `oregon-1` and so on), at `172.28.77.11` to `.14`
+(`REFORGED_NETWORK_SUBNET`), their gateways published on `127.0.0.1` ports 18441 to 18444. The addresses are fixed
+because the node certificates and the `tc` filters name them.
+
+**The latency** is the canary's round trip between each pair of regions (milliseconds; each node delays its outgoing
+traffic to a peer by half, so a round trip adds up to the table's value):
+
+| | new-york | uk | germany |
+| --- | ---: | ---: | ---: |
+| **oregon** | 70 | 140 | 150 |
+| **new-york** | | 75 | 85 |
+| **uk** | | | 20 |
+
+Each pair is a setting, `REFORGED_NETWORK_RTT_<A>_<B>` (`REFORGED_NETWORK_RTT_OREGON_NEW_YORK=70` and so on, listed
+in `.env.example`). The Docker host plays a player: a node delays everything that is not another node by the round
+trip between the player's region (`REFORGED_NETWORK_PLAYER_REGION`, `germany` unless set) and its own, which is what a
+launcher running on the host measures. `docker/network/netem.sh` applies it with a `prio` qdisc, one `netem` band
+per peer and filters by address; ARP is never delayed.
+
+**The test**, `bash docker/network/test.sh` from the repository root (about two minutes once the images are built):
+
+1. Builds the images and checks that this Docker can add a `netem` qdisc in a container.
+2. Starts the profile, waits for the four gateways, and runs `reforged-host network status` inside each node: it
+   pings each peer over the node link (mutual TLS under the cluster CA) and prints its state, round trip and clock
+   skew. The test needs three peers `up` and each round trip from the injected one to 25 ms above it
+   (`NETWORK_TOLERANCE_MS`).
+3. Runs the launcher's real `region_ping` (`cargo test -p launcher`, the ignored test
+   `the_region_order_follows_the_latency_the_harness_injects`) with each node as the home: the regions must come back
+   in the order of the injected latencies from the player's region, each round trip within the same bounds, and
+   the home must take the report. This step needs `cargo` and the nodes' private addresses reachable from the
+   host, which a Linux host has and **Docker Desktop does not**; there it says so and skips
+   (`NETWORK_REGION_PING=require` fails instead, as CI sets it; `skip` leaves it out).
+4. Removes the containers, the network and the volumes.
+
+`NETWORK_OPTIONAL=1` makes it exit 0 with a note when Docker, CAP_NET_ADMIN or the `sch_netem` kernel module is
+missing; `docker/run-tests.sh` runs it that way as its last step (`SKIP_NETWORK=1` leaves it out). CI's `network`
+job runs it on the Linux runner's own Docker, for changes to the network plugin, the gateway, the host kit, `docker/`
+and the compose files.
+
+To look around, start it and run what the test runs:
+
+```bash
+docker compose --profile network up -d --wait network
+docker compose --profile network exec gateway-uk reforged-host network status \
+  --env-file /opt/reforged/.workspace/config/gateway.env
+curl -k https://127.0.0.1:18441/network/v1/nodes       # what the launcher is told about the other regions
+docker compose --profile network exec netem-oregon tc qdisc show dev eth0
+docker compose --profile network down --volumes
+```
+
+`network status` is the host kit's own look at the links (`--json` for scripts, `--count` for more pings per
+peer); its exit code is 1 when a peer is not `up`.
+
 ## A legacy server (Dauntless 1.4.4)
 
 Docker runs one game per server: `--edition both` ([hosting.md](hosting.md#both-games-on-one-server)) is the host
@@ -259,6 +332,10 @@ leaves out step 3. On a server, `docker compose run --rm test` runs step 2 with 
 read-only, so the backend's and Director's game-data tests (skipped without real data) check your data too.
 
 The smoke test runs a reborn server only: the `legacy` profile is checked as far as `docker compose config`.
+
+A fourth step, `docker/network/test.sh`, starts the `network` profile and checks the links and the region ping
+([above](#the-network-profile-four-nodes-on-one-machine)); it is skipped, not failed, where Docker cannot add a
+`netem` qdisc, and `SKIP_NETWORK=1` leaves it out.
 
 ## Moving an existing Linux host into Docker
 

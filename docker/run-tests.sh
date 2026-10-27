@@ -5,7 +5,9 @@
 #     (docker/test-in-image.sh): the Rust server crates, with the allowlist's nftables test applied for real in
 #     the container's own network namespace, and the Node backend's and Director's tests
 #  2. the compose smoke test on the front and server images (docker/smoke-test.sh)
-# Arguments pick the in-image suites (rust, backend, director); SKIP_SMOKE=1 leaves out step 2.
+#  3. the network harness: four nodes with injected latency (docker/network/test.sh). It needs CAP_NET_ADMIN and the netem
+#     kernel module, so it is skipped with a note, not failed, where Docker cannot give them
+# Arguments pick the in-image suites (rust, backend, director); SKIP_SMOKE=1 leaves out step 2, SKIP_NETWORK=1 step 3.
 set -euo pipefail
 
 image="${REFORGED_IMAGE:-reforged-revival}-test:${REFORGED_TAG:-local}"
@@ -21,5 +23,10 @@ docker run --rm --cap-add NET_ADMIN "$image" "$@"
 if [ "${SKIP_SMOKE:-0}" != 1 ]; then
 	printf '\n== the smoke test\n'
 	SMOKE_NO_BUILD=1 bash docker/smoke-test.sh
+fi
+
+if [ "${SKIP_NETWORK:-0}" != 1 ]; then
+	printf '\n== the network harness\n'
+	NETWORK_OPTIONAL=1 bash docker/network/test.sh
 fi
 echo "full test run passed"

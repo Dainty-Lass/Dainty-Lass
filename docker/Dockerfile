@@ -10,6 +10,7 @@
 #           admin API, each a container running `reforged-host <service>` from the one server binary (RD26)
 #   server  reforged-host, the Node backend and Director (until RB14), Wine for the game servers, and
 #           MongoDB's dump tools for `reforged-host backup`; also the image the host kit's commands run in
+#   netem   iproute2 alone, for the `network` profile's injected latency (DN12)
 #
 # REFORGED_EDITION=legacy builds them for a Dauntless Revived 1.4.4 server (compose.legacy.yaml): the server image
 # also holds DR's metagame and deploy server, built in the legacy-revived submodule's own workspace (DS6).
@@ -119,6 +120,8 @@ COPY --chmod=0755 docker/director-entrypoint.sh bin/reforged-director
 COPY --chmod=0755 docker/legacy-entrypoint.sh bin/reforged-legacy
 COPY --chmod=0755 docker/host-entrypoint.sh bin/reforged-host-docker
 COPY --chmod=0755 docker/healthcheck.sh bin/reforged-healthcheck
+# The network profile's one-shot (compose.yaml network-init, DN12)
+COPY --chmod=0755 docker/network/init.sh bin/reforged-network-init
 ARG ISLES=modules/rustic-isles/reference/1.14.7
 RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation" \
  && chown node:node .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation"
@@ -134,6 +137,14 @@ CMD ["reforged-host", "--help"]
 LABEL org.opencontainers.image.title="DaintyLass server" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
+
+# ------------------------------------------------------------------ netem: latency for the network profile (DN12)
+# tc and nothing else, joined to a node's network namespace with CAP_NET_ADMIN (compose.yaml, netem-*)
+FROM ${DEBIAN_IMAGE} AS netem
+RUN apt-get update  && apt-get install -y --no-install-recommends iproute2  && rm -rf /var/lib/apt/lists/*
+COPY --chmod=0755 docker/network/netem.sh /usr/local/bin/reforged-netem
+ENTRYPOINT ["/usr/local/bin/reforged-netem"]
+LABEL org.opencontainers.image.title="DaintyLass network harness latency"       org.opencontainers.image.licenses="AGPL-3.0-only"       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
 
 # ------------------------------------------------------------------ test: every server suite on the server image
 # The server image with the Rust toolchain, the workspace's sources and its tests compiled in, so a test run
