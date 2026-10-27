@@ -1,0 +1,32 @@
+[package]
+name = "network"
+description = "The network core plugin (DD16-DD18): node links and the directory of accounts, homes and usernames (DN4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Born MIT (DD26): written here from nothing, from none of the upstream trees
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+diesel.workspace = true
+diesel_migrations.workspace = true
+# By path: the workspace entry names registry = "silentspud", which rust/.cargo/config.toml doesn't define yet
+module-api = { path = "../../crates/module-api" }
+protocol.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+store.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the tests
+url.workspace = true
+
+[lints]
+workspace = true

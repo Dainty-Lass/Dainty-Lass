@@ -3537,6 +3537,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "network"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "module-api",
+ "protocol",
+ "serde",
+ "serde_json",
+ "store",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
