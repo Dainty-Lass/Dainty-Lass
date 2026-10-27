@@ -2,7 +2,7 @@
   "name": "dainty-lass-launcher",
   "productName": "DaintyLass Launcher",
   "version": "2.0.0-alpha.0",
-  "description": "The Tauri launcher's stand-in page and its bridge to the Rust backend (MIGRATION_PLAN.md section 4.6). Tauri serves dainty-lass-ui's build from ui/ instead (docs/dainty-lass-plan.md, DU1).",
+  "description": "The Tauri launcher's CLI and the tests of its bridge: dainty-lass-ui's page API (ui/packages/bridge) against the isolation hook (MIGRATION_PLAN.md section 4.6; docs/dainty-lass-plan.md, DU2).",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -11,16 +11,13 @@
   },
   "scripts": {
     "tauri": "tauri",
-    "page:dev": "vite --config vite.config.ts",
-    "page:build": "vite build --config vite.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --import ./test/resolve-ui.ts --test \"test/*.test.ts\""
   },
   "devDependencies": {
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/cli": "2.12.4",
     "@types/node": "^24.19.2",
-    "typescript": "~6.0.3",
-    "vite": "^8.3.0"
+    "typescript": "~6.0.3"
   }
 }

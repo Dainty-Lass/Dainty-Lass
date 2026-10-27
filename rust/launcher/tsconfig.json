@@ -14,7 +14,11 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@tauri-apps/api": ["./node_modules/@tauri-apps/api/index.d.ts"],
+      "@tauri-apps/api/*": ["./node_modules/@tauri-apps/api/*"]
+    }
   },
-  "include": ["page/**/*", "test/**/*", "vite.config.ts"]
+  "include": ["test/**/*"]
 }

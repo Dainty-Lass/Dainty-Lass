@@ -1,14 +1,16 @@
 //! The files generated from the bridge (rows L6, L8, L9; RA2), kept in the repository and checked here:
 //!
-//! - the TypeScript declarations of every type in `types.rs` and the command names, twice: for
-//!   dainty-lass-ui's bridge package (`ui/packages/bridge/src/generated/types.ts`, DD11) and for the
-//!   stand-in page's bridge (`page/generated/types.ts`, read by `page/api.ts` and its tests until DU2);
+//! - the TypeScript declarations of every type in `types.rs` and the command names, for dainty-lass-ui's
+//!   bridge package (`ui/packages/bridge/src/generated/types.ts`, DD11);
 //! - `isolation/commands.js`: the command list with each argument's shape, for the isolation hook;
-//! - `src-tauri/permissions/app-commands.toml`: the permission set that grants exactly those commands.
+//! - `src-tauri/permissions/app-commands.toml`: the permission set that grants exactly those commands;
+//! - `src-tauri/gen/strings.json`: dainty-lass-ui's language catalogs (`ui/packages/i18n/catalogs`, DU2),
+//!   from which build.rs makes `Language` and the backend's own text.
 //!
 //! The test fails when a file is stale; `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`
 //! rewrites them.
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -227,6 +229,30 @@ fn ui_dir() -> PathBuf {
     launcher_dir().join("../../ui")
 }
 
+/// Every catalog in `ui/packages/i18n/catalogs`, `en` first (the fallback and `Language::ALL[0]`), each
+/// table sorted by key for the backend's binary search.
+fn strings_export() -> String {
+    let dir = ui_dir().join("packages/i18n/catalogs");
+    let mut languages: Vec<(String, PathBuf)> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|error| panic!("{}: {error}", dir.display()))
+        .filter_map(|entry| {
+            let path = entry.ok()?.path();
+            let code = path.file_name()?.to_str()?.strip_suffix(".json")?.to_owned();
+            Some((code, path))
+        })
+        .collect();
+    languages.sort_by(|a, b| (a.0 != "en", &a.0).cmp(&(b.0 != "en", &b.0)));
+    let mut out = serde_json::Map::new();
+    for (code, path) in languages {
+        let text = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+        let table: BTreeMap<String, String> =
+            serde_json::from_str(&text).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+        let table = table.into_iter().map(|(key, text)| (key, text.into())).collect();
+        out.insert(code, serde_json::Value::Object(table));
+    }
+    serde_json::to_string_pretty(&out).unwrap_or_default() + "\n"
+}
+
 #[test]
 fn generated_files_are_current() {
     // Refused rather than skipped, and never written into an empty submodule folder
@@ -237,12 +263,12 @@ fn generated_files_are_current() {
     );
     let files = [
         (ui_dir().join("packages/bridge/src/generated/types.ts"), declarations()),
-        (launcher_dir().join("page/generated/types.ts"), declarations()),
         (launcher_dir().join("isolation/commands.js"), hook_commands()),
         (
             launcher_dir().join("src-tauri/permissions/app-commands.toml"),
             permission_set(),
         ),
+        (launcher_dir().join("src-tauri/gen/strings.json"), strings_export()),
     ];
     let update = std::env::var("RR_UPDATE_GENERATED").is_ok_and(|value| value == "1");
     let mut stale = Vec::new();

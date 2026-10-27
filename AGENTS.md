@@ -15,7 +15,7 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 | Path | What it is |
 | --- | --- |
-| `rust/` | One cargo workspace: `crates/` (`controller`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host` = the host kit and `serve`, `backend`, `director`, and DR's `metagame` and `deploy` for 1.4.4 servers), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `reforged-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-server-gui` with the `server-gui` feature) and `launcher/page`, `isolation/` |
+| `rust/` | One cargo workspace: `crates/` (`controller`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host` = the host kit and `serve`, `backend`, `director`, and DR's `metagame` and `deploy` for 1.4.4 servers), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `reforged-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-server-gui` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
 | `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
 | `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
 | `paradox/` | Mystic Paradox's Node backend and Director, forked with their history, until the Rust port replaces them. Any change is allowed; fixes are the baseline (RD2) |
@@ -83,11 +83,12 @@ hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `car
 ### Launcher bridge
 
 The page talks to Rust only through the commands in `launcher/src-tauri/src/bridge/spec.rs`. The TS types
-(`ui/packages/bridge/src/generated/types.ts` in the dainty-lass-ui submodule, and `page/generated/types.ts`
-until DU2), the isolation hook's command list (`isolation/commands.js`) and the permission set
-(`permissions/app-commands.toml`) are generated from it and checked by a test. Never edit them by hand:
-`RR_UPDATE_GENERATED=1 cargo test -p launcher generated` rewrites them. The account key never crosses the
-bridge.
+(`ui/packages/bridge/src/generated/types.ts` in the dainty-lass-ui submodule), the isolation hook's command
+list (`isolation/commands.js`) and the permission set (`permissions/app-commands.toml`) are generated from it
+and checked by a test. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`
+rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`; `npm test` in
+`rust/launcher` drives it through the isolation hook and fails a command no method calls. The account key
+never crosses the bridge.
 
 ## Security
 
@@ -156,9 +157,9 @@ rows that change what runs: a service added, moved or removed is a change to `do
 
 ## User-facing text
 
-Every string a player or host reads comes from a language catalog: the page's live in `dainty-lass-ui` (DU2),
-and the Tauri backend's own dialogs in `rust/launcher/src-tauri/gen/strings.json` (`en` and `pt-BR`, one
-object each, keys sorted).
+Every string a player or host reads comes from a language catalog: dainty-lass-ui's
+`packages/i18n/catalogs/en.json` and `pt-BR.json` (DU2). `rust/launcher/src-tauri/gen/strings.json`, from which
+the Tauri backend takes its own dialogs, is generated from them (`generated` test, keys sorted).
 
 - **Both languages in the same commit**, with the same keys and the same `{placeholders}`, never an English
   placeholder in `pt-BR`. The `i18n` test fails a key the backend shows that a language lacks. When you aren't
@@ -188,7 +189,7 @@ Not obvious from reading the suites:
   the suite is usually one that doesn't.
 - **Bind test listeners to `127.0.0.1:0`.** On the maintainer's Windows PC fixed ports can fall in Windows'
   reserved range, which is why two of Content's Node tests fail there.
-- **Generated files are tested for staleness.** If a `generated` or `strings-export` test fails, regenerate
+- **Generated files are tested for staleness.** If a `generated` test fails, regenerate
   with `RR_UPDATE_GENERATED=1` and commit the result; don't edit the output.
 - **The real nftables test is opt-in** (`REFORGED_TEST_NFT=1`, Linux, root or `CAP_NET_ADMIN`). Otherwise it
   skips, so `cargo test` passing says nothing about the rules. `docker/test-in-image.sh` turns it on when the
