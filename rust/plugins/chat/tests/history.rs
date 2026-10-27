@@ -85,6 +85,7 @@ async fn exercise(config: DatabaseConfig) {
         stanza_id: None,
         at: 10,
         delivered_at,
+        mid: None,
     };
     history.add_direct(message("seen", Some(10))).await.unwrap();
     let waiting = history.add_direct(message("later", None)).await.unwrap();

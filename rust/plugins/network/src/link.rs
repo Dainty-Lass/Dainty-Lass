@@ -30,10 +30,12 @@ pub enum Service {
     Admin,
     /// A node's change log shipped to a peer, which keeps it (DD23 layer 2, DH7)
     LogShip,
+    /// Chat federation: direct messages, room fan-out, presence and mutes between nodes (DN10b)
+    Chat,
 }
 
 impl Service {
-    pub const ALL: [Service; 4] = [Self::Directory, Self::Home, Self::Admin, Self::LogShip];
+    pub const ALL: [Service; 5] = [Self::Directory, Self::Home, Self::Admin, Self::LogShip, Self::Chat];
 }
 
 impl Service {
@@ -43,6 +45,7 @@ impl Service {
             Self::Home => "home",
             Self::Admin => "admin",
             Self::LogShip => "log_ship",
+            Self::Chat => "chat",
         }
     }
 

@@ -34,7 +34,9 @@ use module_api::{
 use service_kit::serve::ConnectionInfo;
 use tokio::sync::{mpsc, oneshot};
 
-pub use federation::{Envelope, Federation, LocalOnly};
+pub use federation::{
+    ChatFederation, ChatFederationConfig, DirectWire, Envelope, Federation, LocalOnly, MuteWire, RoomWire,
+};
 pub use history::{DirectMessage, History, Mute, RoomMessage};
 pub use hooks::{ChatHost, Drivers, Login, LoginRefusal, Player};
 pub use server::Options;
@@ -94,13 +96,14 @@ impl ChatPlugin {
             settings.nick_check.as_str()
         );
         let backends = Backends {
-            host,
-            federation,
+            host: host.clone(),
+            federation: federation.clone(),
             history: history.clone(),
             node,
             modules: self.modules.clone(),
         };
         let (events, receiver) = mpsc::unbounded_channel();
+        federation.attach(events.clone(), history.clone(), host, options.clock.clone());
         let chat = Chat::new(backends, settings, options);
         let largest_backlog = chat.largest_backlog.clone();
         let task = tokio::spawn(server::run(chat, receiver));
@@ -130,6 +133,7 @@ impl ChatPlugin {
             stop_listening,
             port,
             history,
+            federation,
             largest_backlog,
         })
     }
@@ -170,6 +174,7 @@ pub struct Running {
     stop_listening: oneshot::Sender<()>,
     pub port: u16,
     history: History,
+    federation: Arc<dyn Federation>,
     /// The most unsent output held for one session so far
     pub largest_backlog: Arc<AtomicUsize>,
 }
@@ -180,8 +185,7 @@ impl Running {
     }
 
     /// Mutes an account until `until` (unix milliseconds; none is until lifted): stored, then its live
-    /// sessions follow at once. Mutes are this node's for now; DD21 applies them network-wide through the
-    /// account's home (DN10b).
+    /// sessions follow at once, and propagated to the account's home and peers (DD21, DN10b).
     pub async fn mute(
         &self,
         account: &GlobalId,
@@ -196,21 +200,23 @@ impl Running {
             by: actor.as_text(),
             at: server::now_ms(),
         };
-        self.history.set_mute(mute.clone(), actor).await?;
+        self.history.set_mute(mute.clone(), actor.clone()).await?;
         let _ = self.events.send(Event::Muted {
             account: account.clone(),
-            mute: Some(mute),
+            mute: Some(mute.clone()),
         });
+        self.federation.set_mute(account, Some(mute), actor).await;
         Ok(())
     }
 
     /// Lifts a mute. Returns whether there was one.
     pub async fn unmute(&self, account: &GlobalId, actor: store::Actor) -> Result<bool, store::Error> {
-        let had = self.history.clear_mute(&account.to_string(), actor).await?;
+        let had = self.history.clear_mute(&account.to_string(), actor.clone()).await?;
         let _ = self.events.send(Event::Muted {
             account: account.clone(),
             mute: None,
         });
+        self.federation.set_mute(account, None, actor).await;
         Ok(had)
     }
 
