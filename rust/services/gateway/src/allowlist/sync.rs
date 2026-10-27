@@ -35,6 +35,10 @@ struct State {
     running: bool,
     runs: u64,
     last: Option<ApplyResult>,
+    /// Bumped when what the applier reads besides the addresses changed (the guarded ports, DF4d)
+    epoch: u64,
+    /// The next run does not wait out the interval
+    urgent: bool,
 }
 
 struct Inner {
@@ -70,6 +74,18 @@ impl FirewallSync {
 
     pub fn request(&self, ips: Vec<String>) {
         self.inner.lock().desired = ips;
+        self.inner.wake.notify_one();
+    }
+
+    /// Applies the current set again although the addresses did not change: the applier reads something
+    /// else that did (the guarded ports), and it must not wait out the interval (a module is about to start).
+    pub fn reapply(&self) {
+        {
+            let mut state = self.inner.lock();
+            state.epoch += 1;
+            state.applied = None;
+            state.urgent = true;
+        }
         self.inner.wake.notify_one();
     }
 
@@ -119,7 +135,7 @@ impl Inner {
 
 /// One run: applies what is desired now and records the result.
 async fn run(inner: &Inner) {
-    let snapshot = {
+    let (snapshot, epoch) = {
         let mut state = inner.lock();
         if state.applied.as_ref() == Some(&state.desired) {
             return;
@@ -127,7 +143,8 @@ async fn run(inner: &Inner) {
         state.last_start = Some(Instant::now());
         state.runs += 1;
         state.running = true;
-        state.desired.clone()
+        state.urgent = false;
+        (state.desired.clone(), state.epoch)
     };
     let at = crate::now_ms();
     let started = Instant::now();
@@ -142,7 +159,8 @@ async fn run(inner: &Inner) {
     {
         let mut state = inner.lock();
         if result.ok {
-            state.applied = Some(snapshot);
+            // A change during the run left the rule as it was before it: apply again
+            state.applied = (state.epoch == epoch).then_some(snapshot);
             state.failures = 0;
         } else {
             state.applied = None;
@@ -153,6 +171,24 @@ async fn run(inner: &Inner) {
     (inner.on_result)(&result);
     // Only now: `settled` means the result was reported too (its audit line written)
     inner.lock().running = false;
+}
+
+/// How long to wait before the next run: the backoff after failures, and the interval since the last run unless
+/// the request is urgent.
+fn delay(inner: &Inner) -> Duration {
+    let state = inner.lock();
+    let backoff = if state.failures == 0 {
+        Duration::ZERO
+    } else {
+        (inner.min_interval * 2u32.saturating_pow(state.failures - 1)).min(Duration::from_secs(60))
+    };
+    let spacing = state
+        .last_start
+        .filter(|_| !state.urgent)
+        .map_or(Duration::ZERO, |last| {
+            (last + inner.min_interval).saturating_duration_since(Instant::now())
+        });
+    backoff.max(spacing)
 }
 
 async fn schedule(inner: Arc<Inner>) {
@@ -171,19 +207,20 @@ async fn schedule(inner: Arc<Inner>) {
             }
             notified.await;
         }
-        let delay = {
-            let state = inner.lock();
-            let backoff = if state.failures == 0 {
-                Duration::ZERO
-            } else {
-                (inner.min_interval * 2u32.saturating_pow(state.failures - 1)).min(Duration::from_secs(60))
-            };
-            let spacing = state.last_start.map_or(Duration::ZERO, |last| {
-                (last + inner.min_interval).saturating_duration_since(Instant::now())
-            });
-            backoff.max(spacing)
-        };
-        tokio::time::sleep(delay).await;
+        let sleep = tokio::time::sleep(delay(&inner));
+        tokio::pin!(sleep);
+        loop {
+            let woken = inner.wake.notified();
+            tokio::select! {
+                () = &mut sleep => break,
+                // Only an urgent request cuts the wait short; any other leaves the timer alone
+                () = woken => {
+                    if inner.lock().urgent {
+                        sleep.as_mut().reset(Instant::now() + delay(&inner));
+                    }
+                }
+            }
+        }
         let _running = inner.run_lock.lock().await;
         if inner.lock().stopped {
             return;
@@ -225,6 +262,30 @@ mod tests {
             assert!(Instant::now() < until, "timed out waiting for {what}");
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
+    }
+
+    #[tokio::test]
+    async fn a_reapply_runs_the_same_addresses_again_at_once() {
+        let runs: Runs = Arc::default();
+        let sync = FirewallSync::new(
+            recorder(runs.clone(), Duration::from_millis(50)),
+            Duration::from_secs(30),
+            ignore(),
+        );
+        sync.request(ips(&["203.0.113.1"]));
+        wait_for("the first run", || runs.lock().unwrap().len() == 1).await;
+        sync.settled(Duration::from_secs(3)).await;
+        sync.reapply();
+        assert!(sync.pending());
+        wait_for("the second run", || runs.lock().unwrap().len() == 2).await;
+        sync.settled(Duration::from_secs(3)).await;
+        assert_eq!(runs.lock().unwrap()[1].1, ips(&["203.0.113.1"]));
+        // A reapply during a run is not lost to that run's result
+        sync.reapply();
+        wait_for("the third run", || runs.lock().unwrap().len() == 3).await;
+        sync.reapply();
+        sync.settled(Duration::from_secs(3)).await;
+        assert_eq!(runs.lock().unwrap().len(), 4);
     }
 
     #[tokio::test]

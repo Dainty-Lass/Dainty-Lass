@@ -86,7 +86,10 @@ async fn run(config: AllowlistConfig, close_ports: bool) -> ExitCode {
         };
     }
 
-    let helper = Helper::new(config.clone(), backend, audit, Arc::new(crate::now_ms));
+    let helper = match Helper::new(config.clone(), backend, audit, Arc::new(crate::now_ms)) {
+        Ok(helper) => helper,
+        Err(error) => return fatal(&error),
+    };
     let running = match helper.start().await {
         Ok(running) => running,
         Err(error) => {

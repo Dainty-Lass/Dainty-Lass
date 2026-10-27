@@ -42,19 +42,49 @@ pub fn allowlist_slot() -> AllowlistSlot {
 }
 
 /// The allowlist helper (`allowlist.env`). Started before the Director in public mode, so the game
-/// ports are closed before any game server listens (what `--close-ports` did for a process).
+/// ports are closed before any game server listens (what `--close-ports` did for a process). With the
+/// registry, it also guards the UDP ranges of the game modules that load (DF4d).
 #[cfg(feature = "allowlist")]
-pub fn allowlist(env: &Env, slot: AllowlistSlot) -> Result<Module, String> {
+pub fn allowlist(env: &Env, slot: AllowlistSlot, registry: Option<crate::ModuleRegistry>) -> Result<Module, String> {
     use gateway::allowlist::config::AllowlistConfig;
+    use gateway::allowlist::guard::Guard;
     let config = AllowlistConfig::from_env(env)?;
+    // Made here, not by the helper, so a restarted allowlist module keeps the ranges of the modules loaded
+    let guard = Arc::new(Guard::new(&config.ports)?);
+    if let Some(registry) = registry {
+        let view = Arc::new(RegistryPorts(registry.downgrade()));
+        registry.add_plugin(Arc::new(gateway::allowlist::modules::AllowlistPlugin::new(
+            guard.clone(),
+            view,
+        )));
+    }
     Ok(Module::new(
         "allowlist",
         Arc::new(move |ctx| {
-            let (config, slot) = (config.clone(), slot.clone());
-            Box::pin(async move { gateway::allowlist::helper::run_with_context(config, ctx, Some(slot)).await })
+            let (config, slot, guard) = (config.clone(), slot.clone(), guard.clone());
+            Box::pin(async move { gateway::allowlist::helper::run_with_guard(config, ctx, Some(slot), guard).await })
         }),
     )
     .ready_within(std::time::Duration::from_secs(60)))
+}
+
+/// A public server whose allowlist this process does not run: a module that registers a UDP port is refused,
+/// because nothing here can guard it (DF4d).
+#[cfg(feature = "allowlist")]
+pub fn allowlist_absent(registry: &crate::ModuleRegistry) {
+    let view = Arc::new(RegistryPorts(registry.downgrade()));
+    registry.add_plugin(Arc::new(gateway::allowlist::modules::AllowlistPlugin::absent(view)));
+}
+
+/// The ranges the controller placed, for the allowlist plugin.
+#[cfg(feature = "allowlist")]
+struct RegistryPorts(crate::WeakRegistry);
+
+#[cfg(feature = "allowlist")]
+impl gateway::allowlist::modules::PortView for RegistryPorts {
+    fn assigned(&self, module: &module_api::ModuleId, port: &str) -> Option<module_api::PortRange> {
+        self.0.upgrade()?.assigned(module, port)
+    }
 }
 
 /// The gateway (`gateway.env`). With `slot`, logged-in players' addresses go to the allowlist

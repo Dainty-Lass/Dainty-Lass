@@ -316,6 +316,12 @@ impl ModuleRegistry {
         slot.loaded.as_ref()?.ports.get(name).copied()
     }
 
+    /// The range assigned to a module's port `name` from the moment the controller places it, before the module
+    /// starts; the core plugins read it as they attach (DF4d). [`port`](Self::port) answers once it runs.
+    pub fn assigned(&self, id: &ModuleId, name: &str) -> Option<PortRange> {
+        lock(&self.inner.state).ports.held(id, name)
+    }
+
     /// The folder an external module's files are relative to (its executable's); none for a compiled-in one.
     pub fn module_dir(&self, id: &ModuleId) -> Option<std::path::PathBuf> {
         let state = lock(&self.inner.state);

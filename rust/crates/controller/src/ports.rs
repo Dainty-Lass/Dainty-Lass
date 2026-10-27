@@ -13,6 +13,8 @@ struct Held {
     range: PortRange,
     /// None: the server's own
     owner: Option<ModuleId>,
+    /// The manifest's name for it; empty for the server's own
+    name: String,
 }
 
 /// Who holds which ports.
@@ -37,6 +39,7 @@ impl PortBook {
             transport,
             range,
             owner: None,
+            name: String::new(),
         });
     }
 
@@ -78,10 +81,19 @@ impl PortBook {
                 transport: port.transport,
                 range,
                 owner: Some(owner.clone()),
+                name: port.name.clone(),
             });
             given.insert(port.name.clone(), range);
         }
         Ok(given)
+    }
+
+    /// The range `owner` holds for its port `name`, from the moment it is assigned.
+    pub fn held(&self, owner: &ModuleId, name: &str) -> Option<PortRange> {
+        self.held
+            .iter()
+            .find(|held| held.owner.as_ref() == Some(owner) && held.name == name)
+            .map(|held| held.range)
     }
 
     pub fn release(&mut self, owner: &ModuleId) {

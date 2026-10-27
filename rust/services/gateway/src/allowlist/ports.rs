@@ -30,9 +30,52 @@ pub fn check_ports(text: &str) -> Result<String, String> {
     })
 }
 
+/// The firewall's own check of what it opens: one or more ports or ranges, comma-separated, each as
+/// [`check_ports`] reads it (`8770-8777,64000-64009`). `ALLOWLIST_PORTS` is still one range; the list is the
+/// game ports plus the ranges the game modules registered (DF4d). At most [`MAX_RANGES`] of them.
+pub fn check_port_list(text: &str) -> Result<String, String> {
+    let items: Vec<&str> = text.split(',').collect();
+    if items.len() > MAX_RANGES {
+        return Err(format!("ALLOWLIST_PORTS holds at most {MAX_RANGES} ranges"));
+    }
+    let mut checked = Vec::with_capacity(items.len());
+    for item in items {
+        checked.push(check_ports(item)?);
+    }
+    Ok(checked.join(","))
+}
+
+/// The most ranges one rule opens, however many modules there are.
+pub const MAX_RANGES: usize = 32;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_list_is_ranges_joined_by_commas_and_nothing_else() {
+        assert_eq!(check_port_list("8770-8777").unwrap(), "8770-8777");
+        assert_eq!(
+            check_port_list("08770-8777,64000,64010-64019").unwrap(),
+            "8770-8777,64000,64010-64019"
+        );
+        for bad in [
+            "",
+            ",",
+            "8770,",
+            ",8770",
+            "8770,,8771",
+            "8770, 8771",
+            "8770;8771",
+            "8770-8777,any",
+            "0,5",
+        ] {
+            assert!(check_port_list(bad).is_err(), "{bad}");
+        }
+        let many = vec!["9000"; MAX_RANGES + 1].join(",");
+        assert!(check_port_list(&many).unwrap_err().contains("at most"));
+        assert!(check_port_list(&many[..many.len() - 5]).is_ok());
+    }
 
     #[test]
     fn a_port_or_a_range_low_to_high() {
