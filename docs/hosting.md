@@ -9,7 +9,8 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 
 ## What you need
 
-- Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it).
+- Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it), or an Epic
+  account whose library has Dauntless, from which `install-game` installs it ([below](#getting-the-game-from-epic)).
 - The **server release** (`ReforgedRevivalServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\reforged-host.exe`
   is the kit. Or a checkout of this repository built from source.
 - **Node.js 22** and **MongoDB** (`mongod`): the backend and the Director are still Node, and the kit runs
@@ -40,6 +41,9 @@ and in public mode makes the gateway's certificate. **It never remakes that cert
 `fp` depends on it. Run `setup` again with different options to change a setting, or edit `host.toml` and run
 `setup` with none.
 
+No 1.14.7 folder yet? `install-game` fetches one from your own Epic library
+([below](#getting-the-game-from-epic)) and points `game_dir` at it.
+
 Then the SDK, the runtime and the game data ([sdk-and-game-data.md](sdk-and-game-data.md)):
 
 ```powershell
@@ -67,11 +71,41 @@ same tree from its Host page. Logs are in `.workspace\logs` (the game servers' i
 | `doctor` | Check the game, the SDK, the builds, the network, the tools and the services |
 | `gamedata` | Generate the game data from your export (`--examples` for a start-up test only); `--export` and `--import` move it as a pack |
 | `publish-runtime` | Publish the runtime for players (`--from <folder>` for DLLs built elsewhere) |
+| `install-game` | Install Dauntless 1.14.7 (or 1.12.0) from your own Epic library for the game servers (`--version`, `--dir`, `--code-file`; `--sign-out`) |
 | `preset` | Keep your game data as a preset (`--create`), or apply one (`--apply`) |
 | `multipliers` | XP and loot multipliers for a private test server (`--xp 5 --rewards 5`, `--off`) |
 | `update` | Install a newer server release and run `setup` again (`--check` only compares) |
 | `backup` | Dump the database |
 | `network` | The cluster CA and node certificates of a network (`ca-init`, `issue-node-cert`, `list`; see [A network of servers](#a-network-of-servers)) |
+
+## Getting the game from Epic
+
+The game servers run your own Dauntless. If you own it on Epic, the host kit installs it from Epic's servers, as
+the launcher does for players (DaintyLass never hosts or mirrors game files):
+
+```powershell
+bin\reforged-host install-game                       # 1.14.7, into .workspace\game\1.14.7
+bin\reforged-host install-game --dir D:\Games\Dauntless   # into D:\Games\Dauntless\1.14.7
+bin\reforged-host install-game --version 1.12.0
+```
+
+It prints Epic's login address. Open it in a browser on any computer, sign in, and Epic shows a page of text with an
+`"authorizationCode"`. Paste the code (or the whole page) when asked, or save it in a file and pass `--code-file`
+(the host never takes the code, or any token, as a command line option). The code is spent by that one sign-in.
+What the host keeps is the session it opens, in `.workspace\config\epic-session.env` beside `secrets.env` (owner-only
+on Linux): the next run, a resume or another version needs no code. It is worth your Epic account until Epic ends
+it (weeks), so **`install-game --sign-out` when you are done**; it ends the session at Epic and deletes the file.
+
+Nothing is downloaded for an account without Dauntless in its library. The manifest is checked against a pinned
+SHA-1 before it is read, every file against the manifest, and the executable against its pinned SHA-256, so what
+lands is the Epic build and nothing else. A run that is stopped (Ctrl+C, a lost connection, a reboot) continues
+where it left off when you run the same command again. 1.14.7 is about 15 GB.
+
+Each version gets a folder of its own under `--dir` (`.workspace\game` unless given), so several sit side by side.
+Installing **1.14.7** also sets `game_dir` in `host.toml` to its folder and rewrites the env files, so the
+Director's game servers run from it: restart the server for that to take effect. Without a `host.toml` yet, it
+tells you the `--game` to give `setup`. 1.12.0 is only installed (`game_dir` is 1.14.7's). **1.4.4 cannot be
+installed from Epic** (there is no archived manifest): use your own folder with `setup --legacy-game`.
 
 ## Settings
 

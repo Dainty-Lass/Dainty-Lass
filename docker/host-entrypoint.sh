@@ -5,6 +5,8 @@
 #  - setup: the services are in the image already (--skip-install), MongoDB is the mongo service
 #    (--no-manage-mongo, the replica set at 127.0.0.1:27017), and the game folder is the one mounted at /game.
 #    Each is added only when the command line does not say otherwise.
+#  - install-game: the versions go in the mounted game folder (--dir /game, unless given), so the Director's
+#    containers, which mount it at the same path, see them.
 #  - start and update are compose's: `docker compose up -d` runs the server, a new image updates it.
 #  - apply (the `toml` profile's configure service): setup from host.toml alone, before every `up`. A host.toml in
 #    /config (REFORGED_CONFIG_DIR) replaces the workspace's first, so that file is the server's whole configuration.
@@ -43,6 +45,11 @@ update)
 	echo "In Docker a new version is a new image: git pull && docker compose build && docker compose up -d" >&2
 	echo "(then docker compose run --rm host setup, which keeps your settings, if the release notes say so)." >&2
 	exit 2
+	;;
+install-game)
+	shift
+	has --dir "$@" || set -- "$@" --dir /game
+	exec reforged-host install-game "$@"
 	;;
 apply)
 	if [ -f /config/host.toml ]; then
