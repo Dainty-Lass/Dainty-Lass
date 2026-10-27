@@ -247,6 +247,8 @@ pub enum Build {
     Host,
     /// The server GUI only (`server-gui` feature)
     ServerGui,
+    /// Realm hosting and joining (`realms` feature, RF7)
+    Realms,
 }
 
 /// The server GUI's own commands: module panels (DU3), history and revert (DH3b), guarded actions (DH6).
@@ -265,9 +267,14 @@ pub const SERVER_GUI_COMMANDS: &[&str] = &[
     "guarded_cancel",
 ];
 
+/// Realm hosting and joining commands (`realms` feature, RF7).
+pub const REALM_COMMANDS: &[&str] = &["realm_host", "realm_join", "realm_stop", "realm_get"];
+
 pub fn build(name: &str) -> Build {
     if SERVER_GUI_COMMANDS.contains(&name) {
         Build::ServerGui
+    } else if REALM_COMMANDS.contains(&name) {
+        Build::Realms
     } else if name.starts_with("host_") {
         Build::Host
     } else {
@@ -281,12 +288,13 @@ pub fn serves(name: &str) -> bool {
         Build::Every => true,
         Build::Host => cfg!(feature = "host"),
         Build::ServerGui => cfg!(feature = "server-gui"),
+        Build::Realms => cfg!(feature = "realms"),
     }
 }
 
 /// The commands registered ahead of the rows that fill them (DF8), each refused with `not_implemented`
 /// (`commands::planned`). A row that fills one takes it off this list.
-pub const PLANNED: &[&str] = &["realm_host", "realm_join", "realm_stop", "realm_get"];
+pub const PLANNED: &[&str] = &[];
 
 pub const COMMANDS: &[Command] = &[
     command("get_snapshot", &[]),
@@ -539,7 +547,7 @@ mod tests {
 
     #[test]
     fn planned_and_server_gui_commands_are_listed() {
-        for name in PLANNED.iter().chain(SERVER_GUI_COMMANDS) {
+        for name in PLANNED.iter().chain(SERVER_GUI_COMMANDS).chain(REALM_COMMANDS) {
             assert!(listed(name), "{name}");
         }
     }
@@ -550,7 +558,7 @@ mod tests {
         assert_eq!(build("module_load"), Build::ServerGui);
         assert_eq!(build("history_revert_apply"), Build::ServerGui);
         assert_eq!(build("epic_sign_in_start"), Build::Every);
-        assert_eq!(build("realm_host"), Build::Every);
+        assert_eq!(build("realm_host"), Build::Realms);
         for command in COMMANDS {
             if build(command.name) == Build::ServerGui {
                 assert!(!command.name.starts_with("host_"), "{}", command.name);
@@ -558,5 +566,6 @@ mod tests {
         }
         assert!(serves("play"));
         assert_eq!(serves("module_list"), cfg!(feature = "server-gui"));
+        assert_eq!(serves("realm_host"), cfg!(feature = "realms"));
     }
 }

@@ -14,16 +14,18 @@ use tauri::{AppHandle, Manager, State};
 
 use super::backend::Backend;
 use super::modules::ModulePanel;
+#[cfg(any(test, feature = "server-gui"))]
+use super::spec::{Arg, COMMANDS};
 use super::spec::{
-    Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX, GAME_VERSION_MAX, INVITE_FOR_MAX,
-    INVITE_MAX, KEY_TEXT_MAX, PUBLIC_HOST_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id, serves,
+    COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX, GAME_VERSION_MAX, INVITE_FOR_MAX, INVITE_MAX,
+    KEY_TEXT_MAX, PUBLIC_HOST_MAX, REALM_ID_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id,
 };
 use super::types::{
     ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, GuardedList,
     GuardedOutcome, HistoryOutcome, HostAction, HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView,
     HostSetupRequest, InstallMode, InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, ModuleCommandOutcome,
-    ModuleListOutcome, ModuleOutcome, NewsItem, RegionPing, RegisterOutcome, RevertApplyOutcome, RevertPlanOutcome,
-    Settings, SettingsPatch, Snapshot, TaskProgress,
+    ModuleListOutcome, ModuleOutcome, NewsItem, RealmKind, RealmOutcome, RegionPing, RegisterOutcome,
+    RevertApplyOutcome, RevertPlanOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::controller::install::EpicGate;
@@ -466,6 +468,7 @@ pub fn subscribe_progress(on_progress: Channel<TaskProgress>, backend: Backed<'_
 
 /// An argument against its shape in the spec, as the hook checks it (`fits` in `isolation/hook.js`): the
 /// planned commands' check until the rows that fill them bring their own.
+#[cfg(any(test, feature = "server-gui"))]
 fn arg_accepts(arg: &Arg, value: Option<&Value>) -> bool {
     match (arg, value) {
         (Arg::Text { max }, Some(Value::String(text))) => fits(text, *max),
@@ -491,6 +494,7 @@ fn arg_accepts(arg: &Arg, value: Option<&Value>) -> bool {
 /// A command registered ahead of the row that fills it (DF8, `spec::PLANNED`): arguments of the wrong
 /// shape are refused as `unknown`, as the other commands refuse them, then the call is refused as
 /// `not_in_this_build` or `not_implemented` with the command's name as the detail. The page shows the code.
+#[cfg(test)]
 fn planned(command: &str, args: &[&Value]) -> ActionResult {
     let shapes = COMMANDS
         .iter()
@@ -506,7 +510,7 @@ fn planned(command: &str, args: &[&Value]) -> ActionResult {
     if !fit {
         return ActionResult::err(ErrorCode::Unknown);
     }
-    let code = if serves(command) {
+    let code = if super::spec::serves(command) {
         ErrorCode::NotImplemented
     } else {
         ErrorCode::NotInThisBuild
@@ -691,24 +695,37 @@ pub async fn module_unload(module: String, app: AppHandle) -> ModuleOutcome {
     }
 }
 
-#[tauri::command]
-pub fn realm_host(kind: Value) -> ActionResult {
-    planned("realm_host", &[&kind])
+/// `realm_join`: a non-empty realm/session id within `REALM_ID_MAX` with no control characters (RF7).
+fn realm_id(value: &Value) -> Option<&str> {
+    let text = js_trim(value.as_str()?);
+    (!text.is_empty() && fits(text, REALM_ID_MAX) && !text.chars().any(|c| c <= '\u{1f}' || c == '\u{7f}'))
+        .then_some(text)
 }
 
 #[tauri::command]
-pub fn realm_join(realm: Value) -> ActionResult {
-    planned("realm_join", &[&realm])
+pub async fn realm_host(kind: Value, app: AppHandle) -> RealmOutcome {
+    match name::<RealmKind>(kind) {
+        Some(kind) => controller(&app).realm_host(kind).await,
+        None => RealmOutcome::Err(LauncherError::new(ErrorCode::Unknown)),
+    }
 }
 
 #[tauri::command]
-pub fn realm_stop() -> ActionResult {
-    planned("realm_stop", &[])
+pub async fn realm_join(realm: Value, app: AppHandle) -> RealmOutcome {
+    match realm_id(&realm) {
+        Some(realm) => controller(&app).realm_join(realm).await,
+        None => RealmOutcome::Err(LauncherError::new(ErrorCode::Unknown)),
+    }
 }
 
 #[tauri::command]
-pub fn realm_get() -> ActionResult {
-    planned("realm_get", &[])
+pub async fn realm_stop(app: AppHandle) -> RealmOutcome {
+    controller(&app).realm_stop().await
+}
+
+#[tauri::command]
+pub async fn realm_get(app: AppHandle) -> RealmOutcome {
+    controller(&app).realm_get().await
 }
 
 /// A history filter or a revert's selection once it fits its shape in the spec: the text fields, an empty
@@ -1001,7 +1018,7 @@ mod tests {
             let shapes = COMMANDS.iter().find(|command| command.name == *name).unwrap().args;
             let values: Vec<Value> = shapes.iter().map(|(_, arg)| good(arg)).collect();
             let args: Vec<&Value> = values.iter().collect();
-            let code = if serves(name) {
+            let code = if crate::bridge::spec::serves(name) {
                 ErrorCode::NotImplemented
             } else {
                 ErrorCode::NotInThisBuild
@@ -1023,6 +1040,16 @@ mod tests {
         assert_eq!(planned("realm_join", &[]), unknown);
         assert_eq!(planned("realm_host", &[&json!("raid")]), unknown);
         assert_eq!(planned("no_such_command", &[]), unknown);
+        assert_eq!(name::<RealmKind>(json!("hub")), Some(RealmKind::Hub));
+        assert_eq!(name::<RealmKind>(json!("hunt")), Some(RealmKind::Hunt));
+        assert_eq!(name::<RealmKind>(json!("raid")), None);
+        assert_eq!(
+            realm_id(&json!(" 01ARZ3NDEKTSV4RRFFQ69G5FAV@local ")),
+            Some("01ARZ3NDEKTSV4RRFFQ69G5FAV@local")
+        );
+        assert_eq!(realm_id(&long), None);
+        assert_eq!(realm_id(&json!("")), None);
+        assert_eq!(realm_id(&json!("a\nb")), None);
     }
     #[test]
     fn history_commands_check_their_arguments() {
