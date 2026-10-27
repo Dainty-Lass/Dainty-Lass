@@ -488,6 +488,8 @@ pub enum NetworkCommand {
     IssueNodeCert(IssueNodeCertArgs),
     /// What the CA has issued (--ca), or this server's node settings and certificate
     List(ListArgs),
+    /// Ping every peer over the node link now, with this server's own certificate, and show what came back
+    Status(StatusArgs),
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -530,4 +532,17 @@ pub struct ListArgs {
     /// List what this CA file has issued instead of this server's settings
     #[arg(long, value_name = "file")]
     pub ca: Option<String>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct StatusArgs {
+    /// The gateway.env setup wrote, which names the node certificate and the peers (this server's, by default)
+    #[arg(long, value_name = "file")]
+    pub env_file: Option<String>,
+    /// Pings timed per peer after the first, which pays the handshake; the median is shown
+    #[arg(long, value_name = "n", default_value_t = 5)]
+    pub count: u32,
+    /// The answer as JSON, one object for the node and its peers
+    #[arg(long)]
+    pub json: bool,
 }

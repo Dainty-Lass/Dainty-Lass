@@ -71,7 +71,7 @@ same tree from its Host page. Logs are in `.workspace\logs` (the game servers' i
 | `multipliers` | XP and loot multipliers for a private test server (`--xp 5 --rewards 5`, `--off`) |
 | `update` | Install a newer server release and run `setup` again (`--check` only compares) |
 | `backup` | Dump the database |
-| `network` | The cluster CA and node certificates of a network (`ca-init`, `issue-node-cert`, `list`; see [A network of servers](#a-network-of-servers)) |
+| `network` | The cluster CA and node certificates of a network (`ca-init`, `issue-node-cert`, `list`, `status`; see [A network of servers](#a-network-of-servers)) |
 
 ## Settings
 
@@ -180,7 +180,10 @@ from the other nodes' lists and run `setup` again. Node links need `mode = "publ
 issuing a new one before `reforged-host network list` says "expires soon"; the server logs a warning 30 days ahead.
 The `fingerprint` is what the launcher pins when it measures the ping to that region; a peer without one is
 still a peer, only not listed to players. `reforged-host network list` shows this server's place in the network,
-or, with `--ca <file>`, what a CA has issued.
+or, with `--ca <file>`, what a CA has issued. `reforged-host network status` pings every peer over the node link now
+with this server's own certificate and shows each one's state, round trip and clock skew (`--json` for scripts; the exit
+code is 1 when a peer is not up). Docker's `network` profile runs four such nodes with injected latency, for testing
+([hosting-docker.md](hosting-docker.md#the-network-profile-four-nodes-on-one-machine)).
 
 ## Public servers
 

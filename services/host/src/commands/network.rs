@@ -8,16 +8,20 @@
 //!   owner copies them to that node's `.workspace/tls` folder, and lists the node under `[[network.nodes]]` on
 //!   every node that should answer or call it.
 //! - `list` shows what a CA file has issued (`--ca`), or this server's `[network]` and its node files.
+//! - `status` pings every peer over the node link with this server's own certificate (DN12's harness reads it).
 //!
 //! No checkout is needed except by `list` without `--ca`.
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::Duration;
 
 use network_plugin::cluster::{self, ClusterCa, DEFAULT_NODE_DAYS, NodeCertInfo, NodeCertRequest, NodeCredentials};
+use network_plugin::{PeerState, TlsLinkConfig, TlsPeerLink};
+use service_kit::env::Env;
 
 use crate::Outcome;
-use crate::cli::{CaInitArgs, IssueNodeCertArgs, ListArgs, NetworkArgs, NetworkCommand};
+use crate::cli::{CaInitArgs, IssueNodeCertArgs, ListArgs, NetworkArgs, NetworkCommand, StatusArgs};
 use crate::error::HostError;
 use crate::hostconfig::{CLUSTER_CA_FILE, NODE_CERT_FILE, NODE_KEY_FILE, load_host_config};
 use crate::paths::Paths;
@@ -31,6 +35,7 @@ pub fn run(args: &NetworkArgs, paths: Option<&Paths>) -> Outcome {
         NetworkCommand::CaInit(a) => ca_init(a),
         NetworkCommand::IssueNodeCert(a) => issue_node_cert(a),
         NetworkCommand::List(a) => list(a, paths),
+        NetworkCommand::Status(a) => status(a, paths),
     }
 }
 
@@ -246,4 +251,219 @@ fn list(a: &ListArgs, paths: Option<&Paths>) -> Outcome {
         }
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Milliseconds to a tenth, as the launcher's region ping reports them.
+fn tenths(time: Duration) -> f64 {
+    (time.as_micros() as f64 / 100.0).round() / 10.0
+}
+
+struct PeerStatus {
+    node: String,
+    region: String,
+    state: PeerState,
+    rtt: Option<Duration>,
+    skew_ms: Option<i64>,
+    error: Option<String>,
+}
+
+/// The first ping of a peer pays the TLS handshake and is not counted; the next `count` run on the kept connection.
+async fn probe(link: &TlsPeerLink, count: u32) -> Vec<PeerStatus> {
+    let mut pings = tokio::task::JoinSet::new();
+    for peer in link.health() {
+        let link = link.clone();
+        pings.spawn(async move {
+            let mut times = Vec::new();
+            let mut skew = None;
+            let mut error = None;
+            for attempt in 0..=count {
+                match link.ping(&peer.node).await {
+                    Ok(report) if attempt > 0 => {
+                        times.push(report.rtt);
+                        skew = Some(report.skew_ms);
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        error = Some(e.to_string());
+                        break;
+                    }
+                }
+            }
+            times.sort_unstable();
+            let health = link.peer_health(&peer.node);
+            PeerStatus {
+                node: peer.node.to_string(),
+                region: peer.region.to_string(),
+                state: health.as_ref().map_or(PeerState::Unknown, |h| h.state),
+                rtt: times.get(times.len() / 2).copied(),
+                skew_ms: skew.or_else(|| health.and_then(|h| h.skew_ms)),
+                error,
+            }
+        });
+    }
+    let mut out = Vec::new();
+    while let Some(done) = pings.join_next().await {
+        if let Ok(status) = done {
+            out.push(status);
+        }
+    }
+    // The order [[network.nodes]] lists them in
+    let order: Vec<_> = link.health().iter().map(|h| h.node.to_string()).collect();
+    out.sort_by_key(|s| order.iter().position(|n| *n == s.node));
+    out
+}
+
+/// The node's own view, as its gateway is configured: the gateway.env `setup` wrote (`GATEWAY_NODE_*`), which needs no
+/// checkout, so a front container can run it.
+fn status(a: &StatusArgs, paths: Option<&Paths>) -> Outcome {
+    let file = match (&a.env_file, paths) {
+        (Some(file), _) => PathBuf::from(file),
+        (None, Some(paths)) => paths.config.join("gateway.env"),
+        (None, None) => return Err(bad("give --env-file <the gateway.env setup wrote>")),
+    };
+    let env = Env::load(Some(&file)).map_err(|e| bad(format!("{}: {e}", file.display())))?;
+    let setting = |name: &str| {
+        env.get(name).map(PathBuf::from).ok_or_else(|| {
+            bad(format!(
+                "{name} is not in {}: this server lists no peers",
+                file.display()
+            ))
+        })
+    };
+    let credentials = NodeCredentials::load(
+        &setting("GATEWAY_NODE_CERT")?,
+        &setting("GATEWAY_NODE_KEY")?,
+        &setting("GATEWAY_NODE_CA")?,
+    )
+    .map_err(|e| bad(format!("node certificate: {e}")))?;
+    let peers: Vec<cluster::Peer> = serde_json::from_str(env.get("GATEWAY_NETWORK_NODES").unwrap_or("[]"))
+        .map_err(|e| bad(format!("GATEWAY_NETWORK_NODES: {e}")))?;
+    if peers.is_empty() {
+        return Err(bad("this server lists no peers ([[network.nodes]] in host.toml)"));
+    }
+    let me = credentials.identity().clone();
+    let link = TlsPeerLink::new(TlsLinkConfig::new(credentials, peers)).map_err(|e| bad(e.to_string()))?;
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| bad(format!("cannot start the runtime: {e}")))?;
+    let peers = runtime.block_on(probe(&link, a.count.clamp(1, 100)));
+    let all_up = peers.iter().all(|p| p.state == PeerState::Up);
+    if a.json {
+        let peers: Vec<_> = peers
+            .iter()
+            .map(|p| {
+                serde_json::json!({
+                    "node": p.node,
+                    "region": p.region,
+                    "state": p.state,
+                    "rttMs": p.rtt.map(tenths),
+                    "skewMs": p.skew_ms,
+                    "error": p.error,
+                })
+            })
+            .collect();
+        let report = serde_json::json!({ "node": me.node, "region": me.region, "peers": peers });
+        println!("{report}");
+    } else {
+        println!("This node: {} in {}", me.node, me.region);
+        for p in &peers {
+            let state = serde_json::to_value(p.state)
+                .ok()
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .unwrap_or_default();
+            let rtt = p.rtt.map_or_else(|| "-".to_owned(), |t| format!("{} ms", tenths(t)));
+            println!(
+                "Peer:      {:<20} {:<14} {:<10} rtt {:>9}  skew {} ms{}",
+                p.node,
+                p.region,
+                state,
+                rtt,
+                p.skew_ms.map_or_else(|| "-".to_owned(), |s| s.to_string()),
+                p.error.as_ref().map_or_else(String::new, |e| format!("  ({e})"))
+            );
+        }
+    }
+    Ok(if all_up { ExitCode::SUCCESS } else { ExitCode::FAILURE })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+
+    /// A node's files and its gateway.env in a folder, listing `peers` (JSON) as its peers.
+    fn gateway_env(dir: &Path, peers: &str) -> String {
+        let ca = ClusterCa::create(30).unwrap();
+        let issued = ca
+            .issue(&NodeCertRequest {
+                node: "oregon-1".parse().unwrap(),
+                region: "oregon".parse().unwrap(),
+                hosts: vec!["127.0.0.1".into()],
+                days: 30,
+            })
+            .unwrap();
+        for (name, text) in [
+            (NODE_CERT_FILE, &issued.cert_pem),
+            (NODE_KEY_FILE, &issued.key_pem),
+            (CLUSTER_CA_FILE, &issued.ca_cert_pem),
+        ] {
+            std::fs::write(dir.join(name), text).unwrap();
+        }
+        let file = dir.join("gateway.env");
+        // Forward slashes: a Windows path's backslashes are not a dotenv value
+        let path = |name: &str| dir.join(name).display().to_string().replace('\\', "/");
+        let text = format!(
+            "GATEWAY_NODE_CERT={}\nGATEWAY_NODE_KEY={}\nGATEWAY_NODE_CA={}\nGATEWAY_NETWORK_NODES='{peers}'\n",
+            path(NODE_CERT_FILE),
+            path(NODE_KEY_FILE),
+            path(CLUSTER_CA_FILE),
+        );
+        std::fs::write(&file, text).unwrap();
+        file.display().to_string()
+    }
+
+    fn status_of(env_file: String) -> Outcome {
+        status(
+            &StatusArgs {
+                env_file: Some(env_file),
+                count: 1,
+                json: true,
+            },
+            None,
+        )
+    }
+
+    #[test]
+    fn status_needs_a_server_with_node_links() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("gateway.env");
+        std::fs::write(&file, "GATEWAY_TLS=1\n").unwrap();
+        let error = status_of(file.display().to_string()).unwrap_err().to_string();
+        assert!(error.contains("GATEWAY_NODE_CERT"), "{error}");
+        assert!(
+            status(
+                &StatusArgs {
+                    env_file: None,
+                    count: 1,
+                    json: false
+                },
+                None
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn status_needs_peers_and_fails_when_one_is_down() {
+        let dir = tempfile::tempdir().unwrap();
+        let error = status_of(gateway_env(dir.path(), "[]")).unwrap_err().to_string();
+        assert!(error.contains("no peers"), "{error}");
+
+        // Nothing listens on port 1: the peer is down, which is a failing exit and not an error
+        let peer = r#"[{"id":"uk-1","region":"uk","host":"127.0.0.1","port":1}]"#;
+        let outcome = status_of(gateway_env(dir.path(), peer)).unwrap();
+        assert_eq!(format!("{outcome:?}"), format!("{:?}", ExitCode::FAILURE));
+    }
 }
