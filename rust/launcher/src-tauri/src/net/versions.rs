@@ -3,10 +3,13 @@
 //! manifest. The manifest is fetched only when the list is asked for and its sizes are kept by SHA-1, so
 //! it is fetched once a session. Sizes are metadata: no game file is fetched here.
 //!
-//! A manifest comes from a server that serves the version first, then the profile's sources in order
-//! (the module's own copy, then the archive), and is taken only when it hashes to the profile's pin
-//! (`docs/security/epic.md`). A compiled-in version keeps its own pin: a server's profile for it with
-//! another pin is ignored.
+//! A joined server is asked on DF4b's routes: `/content/v1/versions` lists what its modules serve, then each
+//! version with a profile gets `/versions/<version>/client`. A manifest comes from a server that holds one
+//! for the version first (`/versions/<version>/epic/manifest`, with the account key, which goes to that
+//! server and no other), then the profile's sources in order (the module's own copy, then the archive), and
+//! is taken only when it hashes to the profile's pin (`docs/security/epic.md`). A compiled-in version keeps
+//! its own pin: a server's profile for it with another pin is ignored. DE5 fetches through the same routes
+//! (`server_manifest_path`).
 
 pub mod builtin;
 pub mod parse;
@@ -25,15 +28,27 @@ use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
 use module_api::{ClientProfile, GameVersion};
 
+use super::hostapi::key_headers;
 use super::http::{Endpoint, RequestOptions, parse_json_body, request};
 use crate::bridge::types::{
     EpicManifestState, EpicVersionInfo, GameVersionEntry, GameVersionInstall, GameVersionOrigin,
 };
 
-/// DF4b's routes on content: the client profiles of the modules the server runs, and its copy of a
-/// version's Epic manifest (`?version=1.14.7`)
-pub const PROFILES_PATH: &str = "/content/v1/client/profiles";
-pub const EPIC_MANIFEST_PATH: &str = "/content/v1/epic/manifest";
+/// DF4b's routes on content (`services/content/src/modules.rs`): the versions its modules serve, and under
+/// each `<version>/client` and `<version>/epic/manifest`. A version or an alias is a path segment.
+pub const VERSIONS_PATH: &str = "/content/v1/versions";
+
+/// `/content/v1/versions/<version>/client`: the module's `ClientProfile` as JSON
+pub fn server_client_path(version: &GameVersion) -> String {
+    format!("{VERSIONS_PATH}/{version}/client")
+}
+
+/// `/content/v1/versions/<version>/epic/manifest`: the pinned file, for a request with the account key.
+/// 404 `no_epic_manifest` means this server has none, 503 `epic_manifest_invalid` that its file fails the
+/// pin; either way the next source is tried.
+pub fn server_manifest_path(version: &GameVersion) -> String {
+    format!("{VERSIONS_PATH}/{version}/epic/manifest")
+}
 
 const PROFILES_TIMEOUT: Duration = Duration::from_secs(5);
 const PROFILES_MAX_BYTES: usize = 256 * 1024;
@@ -51,12 +66,47 @@ pub struct KnownProfile {
     pub client: ClientProfile,
 }
 
+/// A profile a server served, and whether that server also holds the version's Epic manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServedProfile {
+    pub profile: KnownProfile,
+    pub epic_manifest: bool,
+}
+
+/// A server this PC joined, with the account key made for it: the key goes to this server's Epic manifest
+/// route and nowhere else, and never into a log.
+#[derive(Clone, PartialEq, Eq)]
+pub struct JoinedServer {
+    pub endpoint: Endpoint,
+    pub key: Option<String>,
+}
+
+impl std::fmt::Debug for JoinedServer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JoinedServer")
+            .field("endpoint", &self.endpoint)
+            .field("key", &self.key.as_ref().map(|_| "<redacted>"))
+            .finish()
+    }
+}
+
 /// Where a list's manifests and server profiles come from: the network, or a test's stand-in.
 pub trait Sources: Sync {
-    /// A joined server's profiles; none when it serves none or doesn't answer.
-    fn server_profiles(&self, server: &Endpoint) -> impl Future<Output = Vec<KnownProfile>> + Send;
-    /// A joined server's copy of a version's manifest, unchecked.
-    fn server_manifest(&self, server: &Endpoint, version: &GameVersion) -> impl Future<Output = Option<Bytes>> + Send;
+    /// `GET /versions`: the versions a joined server's modules serve; none when it serves none or doesn't
+    /// answer.
+    fn server_versions(&self, server: &JoinedServer) -> impl Future<Output = Vec<parse::ServedVersion>> + Send;
+    /// `GET /versions/<version>/client`, unchecked.
+    fn server_client(
+        &self,
+        server: &JoinedServer,
+        version: &GameVersion,
+    ) -> impl Future<Output = Option<ClientProfile>> + Send;
+    /// `GET /versions/<version>/epic/manifest` with the key, unchecked; none for any refusal.
+    fn server_manifest(
+        &self,
+        server: &JoinedServer,
+        version: &GameVersion,
+    ) -> impl Future<Output = Option<Bytes>> + Send;
     /// An `https` source's copy, unchecked.
     fn url(&self, url: &str) -> impl Future<Output = Option<Bytes>> + Send;
 }
@@ -92,7 +142,7 @@ impl ManifestCache {
 struct Candidate {
     profile: KnownProfile,
     origin: GameVersionOrigin,
-    /// The joined servers (by index) that serve this version with this pin
+    /// The joined servers (by index) that hold this version's Epic manifest, under this pin
     servers: Vec<usize>,
 }
 
@@ -106,7 +156,7 @@ fn same_pin(a: &ClientProfile, b: &ClientProfile) -> bool {
 
 /// The compiled-in profiles, then each server's in the order given (the current server first): a version
 /// is listed once, from the first that names it.
-fn merge(compiled_in: Vec<KnownProfile>, served: Vec<Vec<KnownProfile>>) -> Vec<Candidate> {
+fn merge(compiled_in: Vec<KnownProfile>, served: Vec<Vec<ServedProfile>>) -> Vec<Candidate> {
     let mut list: Vec<Candidate> = compiled_in
         .into_iter()
         .map(|profile| Candidate {
@@ -116,14 +166,15 @@ fn merge(compiled_in: Vec<KnownProfile>, served: Vec<Vec<KnownProfile>>) -> Vec<
         })
         .collect();
     for (server, profiles) in served.into_iter().enumerate() {
-        for profile in profiles {
+        for ServedProfile { profile, epic_manifest } in profiles {
+            let holds = if epic_manifest { vec![server] } else { Vec::new() };
             match list.iter_mut().find(|c| c.profile.game_version == profile.game_version) {
-                Some(known) if same_pin(&known.profile.client, &profile.client) => known.servers.push(server),
+                Some(known) if same_pin(&known.profile.client, &profile.client) => known.servers.extend(holds),
                 Some(_) => {}
                 None => list.push(Candidate {
                     profile,
                     origin: GameVersionOrigin::Server,
-                    servers: vec![server],
+                    servers: holds,
                 }),
             }
         }
@@ -153,7 +204,7 @@ fn read(bytes: &[u8], pin: &Sha1Digest, build: &str) -> Read {
 /// The sizes of one Epic build: from the cache, or from the first source whose copy checks out.
 async fn sizes<S: Sources>(
     sources: &S,
-    servers: &[Endpoint],
+    servers: &[JoinedServer],
     candidate: &Candidate,
     cache: &ManifestCache,
 ) -> (EpicManifestState, Option<Sizes>) {
@@ -192,14 +243,37 @@ async fn sizes<S: Sources>(
     (state, None)
 }
 
+/// A server's profiles: its version list, then the `/client` of each version that has one (all at once).
+/// An entry that fails the module manifest's own checks is dropped on its own.
+async fn server_profiles<S: Sources>(sources: &S, server: &JoinedServer) -> Vec<ServedProfile> {
+    let rows = sources.server_versions(server).await;
+    let profiles = join_all(rows.iter().map(|row| async {
+        if !row.client {
+            return None;
+        }
+        let client = sources.server_client(server, &row.game_version).await?;
+        parse::checked(row, client)
+    }))
+    .await;
+    rows.iter()
+        .zip(profiles)
+        .filter_map(|(row, profile)| {
+            profile.map(|profile| ServedProfile {
+                profile,
+                epic_manifest: row.epic_manifest,
+            })
+        })
+        .collect()
+}
+
 /// The list: every server asked for its profiles at once, then every Epic build's sizes at once.
 pub async fn list<S: Sources>(
     sources: &S,
     compiled_in: Vec<KnownProfile>,
-    servers: &[Endpoint],
+    servers: &[JoinedServer],
     cache: &ManifestCache,
 ) -> Vec<GameVersionEntry> {
-    let served = join_all(servers.iter().map(|server| sources.server_profiles(server))).await;
+    let served = join_all(servers.iter().map(|server| server_profiles(sources, server))).await;
     let candidates = merge(compiled_in, served);
     let read = join_all(candidates.iter().map(|candidate| async {
         tokio::time::timeout(VERSION_DEADLINE, sizes(sources, servers, candidate, cache))
@@ -235,8 +309,8 @@ pub async fn list<S: Sources>(
 type HttpsClient =
     Client<hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>, Empty<Bytes>>;
 
-/// The network: joined servers through `net::http` (pinned TLS in public mode, no key), and the
-/// profiles' `https` sources with the webpki roots, no redirect followed.
+/// The network: joined servers through `net::http` (pinned TLS in public mode; the key only on the Epic
+/// manifest route), and the profiles' `https` sources with the webpki roots, no redirect followed.
 pub struct HttpSources {
     client: Option<HttpsClient>,
 }
@@ -253,25 +327,31 @@ impl Default for HttpSources {
 }
 
 impl Sources for HttpSources {
-    async fn server_profiles(&self, server: &Endpoint) -> Vec<KnownProfile> {
-        match request(
-            server,
-            PROFILES_PATH,
-            RequestOptions::get(PROFILES_TIMEOUT, PROFILES_MAX_BYTES),
-        )
-        .await
-        {
-            Ok(response) if response.status == 200 => parse::read_profiles(parse_json_body(&response).as_ref()),
+    async fn server_versions(&self, server: &JoinedServer) -> Vec<parse::ServedVersion> {
+        let options = RequestOptions::get(PROFILES_TIMEOUT, PROFILES_MAX_BYTES);
+        match request(&server.endpoint, VERSIONS_PATH, options).await {
+            Ok(response) if response.status == 200 => parse::read_versions(parse_json_body(&response).as_ref()),
             _ => Vec::new(),
         }
     }
 
-    async fn server_manifest(&self, server: &Endpoint, version: &GameVersion) -> Option<Bytes> {
-        // A version is digits and dots: nothing to escape
-        let path = format!("{EPIC_MANIFEST_PATH}?version={version}");
+    async fn server_client(&self, server: &JoinedServer, version: &GameVersion) -> Option<ClientProfile> {
+        let options = RequestOptions::get(PROFILES_TIMEOUT, PROFILES_MAX_BYTES);
+        match request(&server.endpoint, &server_client_path(version), options).await {
+            Ok(response) if response.status == 200 => parse::read_client(parse_json_body(&response).as_ref()),
+            _ => None,
+        }
+    }
+
+    async fn server_manifest(&self, server: &JoinedServer, version: &GameVersion) -> Option<Bytes> {
+        // The route needs the key, and `key_headers` sends it only over the pinned or private connection
         let mut options = RequestOptions::get(MANIFEST_TIMEOUT, MANIFEST_MAX_BYTES);
+        options.headers = key_headers(&server.endpoint, server.key.as_deref());
+        if options.headers.is_empty() {
+            return None;
+        }
         options.headers.push(("accept", "application/octet-stream".to_owned()));
-        match request(server, &path, options).await {
+        match request(&server.endpoint, &server_manifest_path(version), options).await {
             Ok(response) if response.status == 200 => Some(response.body),
             _ => None,
         }
