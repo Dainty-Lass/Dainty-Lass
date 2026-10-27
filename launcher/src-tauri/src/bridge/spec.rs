@@ -287,10 +287,6 @@ pub fn serves(name: &str) -> bool {
 /// The commands registered ahead of the rows that fill them (DF8), each refused with `not_implemented`
 /// (`commands::planned`). A row that fills one takes it off this list.
 pub const PLANNED: &[&str] = &[
-    "epic_sign_in_start",
-    "epic_sign_in_code",
-    "epic_get",
-    "epic_sign_out",
     "game_install_start",
     "game_install_pause",
     "game_install_resume",

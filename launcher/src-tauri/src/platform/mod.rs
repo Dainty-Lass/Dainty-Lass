@@ -9,6 +9,8 @@ pub mod client_mods;
 pub mod clipboard;
 pub mod dialogs;
 pub mod epic_library;
+pub mod epic_login;
+pub mod epic_session;
 pub mod game_config;
 pub mod game_folder;
 #[cfg(feature = "host")]

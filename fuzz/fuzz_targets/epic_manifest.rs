@@ -1,9 +1,9 @@
-//! What the launcher and the host kit read from outside before installing from Epic (docs/dainty-lass-plan.md DE1,
-//! DX2; docs/security/epic.md): a download manifest and a CDN chunk. A manifest is pinned by SHA-1 before it is
-//! parsed, so the parser only ever sees a file someone chose; the target pins whatever it is given, and also wraps
-//! the bytes in a valid header so the sections are reached. Whatever the bytes: no panic, no allocation a count
-//! asks for beyond what the data can hold, and an accepted manifest keeps every file inside the install folder, each once, with parts inside
-//! listed chunks. An accepted chunk is exactly the size and SHA-1 its entry says.
+//! What the launcher and the host kit read from outside before installing from Epic (docs/dainty-lass-plan.md DE1, DX2;
+//! docs/security/epic.md): a download manifest, a CDN chunk and the pasted sign-in code (DE2). A manifest is pinned by
+//! SHA-1 before it is parsed, so the parser only ever sees a file someone chose; the target pins whatever it is given,
+//! and also wraps the bytes in a valid header so the sections are reached. Whatever the bytes: no panic, no allocation
+//! a count asks for beyond what the data can hold, and an accepted manifest keeps every file inside the install folder,
+//! each once, with parts inside listed chunks. An accepted chunk is exactly the size and SHA-1 its entry says.
 #![no_main]
 
 use std::path::Path;
@@ -21,6 +21,8 @@ enum Input<'a> {
     Sections(&'a [u8]),
     /// A chunk file, checked against an entry made from its own payload so the fuzzer can reach success
     Chunk { guid: [u32; 4], header: u8, raw: &'a [u8] },
+    /// What the player pastes for Epic sign-in (DE2): a code, or Epic's JSON page with one
+    Pasted(&'a str),
 }
 
 fn header_around(data: &[u8]) -> Vec<u8> {
@@ -64,6 +66,12 @@ fn check_manifest(bytes: &[u8]) {
 }
 
 fuzz_target!(|input: Input<'_>| match input {
+    Input::Pasted(text) => {
+        if let Ok(code) = epic::auth::AuthorizationCode::from_pasted(text) {
+            let code = code.expose();
+            assert!(!code.is_empty() && code.len() <= 256 && code.bytes().all(|b| b.is_ascii_alphanumeric()));
+        }
+    }
     Input::File(bytes) => check_manifest(bytes),
     Input::Sections(data) => check_manifest(&header_around(data)),
     Input::Chunk { guid, header, raw } => {
