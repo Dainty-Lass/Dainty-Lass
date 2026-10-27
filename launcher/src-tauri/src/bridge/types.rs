@@ -2,8 +2,8 @@
 //! (`legacy/ReforgedLauncher`), field for field. The 1.4.4 parts (`RevivedInfo`, `Snapshot.revived`, the
 //! 1.4.4 error and notice codes) are in every build, so the page and the generated types are the same
 //! with and without the `legacy` feature; only a build with it fills them. The TypeScript declarations in
-//! `ui/packages/bridge/src/generated/types.ts` and `page/generated/types.ts` are generated from these
-//! (`generate.rs`), so the page and the backend cannot drift apart.
+//! `ui/packages/bridge/src/generated/types.ts` are generated from these (`generate.rs`), so the page and the
+//! backend cannot drift apart.
 
 /// The game edition the launcher plays (`reborn` 1.14.7, `legacy` 1.4.4), the `gameEdition` setting
 pub use protocol::game::Game;

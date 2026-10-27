@@ -34,5 +34,4 @@ native/catalog-exporter/x64
 
 # Not used by any image
 rust/launcher/node_modules
-rust/launcher/dist-page
 docs
