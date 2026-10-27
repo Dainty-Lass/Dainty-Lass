@@ -18,6 +18,7 @@ pub mod logs;
 pub mod metrics;
 pub mod notices;
 pub mod observe;
+pub mod operations;
 pub mod player_logs;
 pub mod presence;
 pub mod probes;
@@ -41,4 +42,5 @@ pub fn register(handlers: &mut Handlers) {
     notices::register(handlers);
     admin_guard::register(handlers);
     player_logs::register(handlers);
+    operations::register(handlers);
 }

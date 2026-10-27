@@ -672,3 +672,32 @@ async fn a_node_without_a_database_answers_the_skeleton_501() {
     );
     assert_eq!(get(bare, "/reforged/api/RegistrationStatus", &[]).await.status, 200);
 }
+
+#[test]
+fn the_group_s_routes_are_ported_but_the_ones_listed() {
+    use isles_core::routes::{Group, Side, all};
+    let handlers = isles_core::areas::backend();
+    let mut left: Vec<String> = all()
+        .iter()
+        .filter(|r| {
+            matches!(r.group, Group::ReforgedApi | Group::Guard) && r.side == Side::Isles
+                || r.group == Group::Guard && !r.path.contains("hunt")
+        })
+        .filter(|r| handlers.get(r).is_none())
+        .map(|r| r.name())
+        .collect();
+    left.sort();
+    // The activity monitor and its dashboard, the tester tool and the admin Discord sign-in are RU5's leftovers
+    assert_eq!(
+        left,
+        [
+            "GET /admin/v1/activity/flags",
+            "GET /admin/v1/activity/overview",
+            "GET /admin/v1/activity/players/:userId",
+            "GET /admin/v1/auth/discord/callback",
+            "GET /admin/v1/auth/discord/start",
+            "PATCH /admin/v1/activity/flags/:id",
+            "POST /admin/v1/players/:userId/tester-max",
+        ]
+    );
+}

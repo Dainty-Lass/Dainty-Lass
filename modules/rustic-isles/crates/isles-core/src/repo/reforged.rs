@@ -35,6 +35,17 @@ pub struct AdminAuditRecord {
     pub created_at: String,
 }
 
+/// `operationsPolicy`'s document, as stored: the values are `OBSERVE`/`ENFORCE` and `PRODUCTION`/`DEVELOPMENT`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OperationsPolicyRecord {
+    pub guard_enforcement: String,
+    pub diagnostics_profile: String,
+    pub version: u64,
+    pub updated_at: Option<String>,
+    pub updated_by: Option<String>,
+    pub diagnostics_expires_at: Option<String>,
+}
+
 /// `PlayerDeletionResult`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerDeletion {
@@ -53,6 +64,11 @@ repository! {
         /// Newest first (an empty target lists everything); the records and the total
         fn list_audit(&self, conn: &mut AnyConnection, target_user_id: Option<&str>, skip: u32, limit: u32)
             -> (Vec<AdminAuditRecord>, u64);
+        /// The operations policy row (`None` only if the table was emptied by hand)
+        fn read_operations_policy(&self, conn: &mut AnyConnection) -> Option<OperationsPolicyRecord>;
+        /// Replaces the row when its version is `expected_version`, and says version + 1; `false` otherwise
+        fn update_operations_policy(&self, tx: &mut Tx<'_>, expected_version: u64, record: &OperationsPolicyRecord)
+            -> bool;
         /// Player-facing rows are soft-deleted (DD23), so `revert` can bring them back
         fn delete_player_data(&self, tx: &mut Tx<'_>, account: &AccountId, user_id: &str, audit: &AdminAuditRecord)
             -> PlayerDeletion;
@@ -917,6 +933,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    operations_policy (id) {
+        id -> BigInt,
+        guard_enforcement -> Text,
+        diagnostics_profile -> Text,
+        version -> BigInt,
+        updated_at -> Nullable<Text>,
+        updated_by -> Nullable<Text>,
+        diagnostics_expires_at -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
     launcher_notices (id) {
         id -> BigInt,
         version -> BigInt,
@@ -1099,6 +1127,55 @@ impl AdminRepository for SqlAdmin {
             rows.into_iter().map(audit).collect::<RepoResult<Vec<_>>>()?,
             u64::try_from(total).unwrap_or(0),
         ))
+    }
+
+    fn read_operations_policy(&self, conn: &mut AnyConnection) -> RepoResult<Option<OperationsPolicyRecord>> {
+        use operations_policy as t;
+        let row = t::table
+            .filter(t::id.eq(1))
+            .select((
+                t::guard_enforcement,
+                t::diagnostics_profile,
+                t::version,
+                t::updated_at,
+                t::updated_by,
+                t::diagnostics_expires_at,
+            ))
+            .first::<(String, String, i64, Option<String>, Option<String>, Option<String>)>(conn)
+            .optional()?;
+        Ok(row.map(
+            |(guard_enforcement, diagnostics_profile, version, updated_at, updated_by, diagnostics_expires_at)| {
+                OperationsPolicyRecord {
+                    guard_enforcement,
+                    diagnostics_profile,
+                    version: u64::try_from(version).unwrap_or(0),
+                    updated_at,
+                    updated_by,
+                    diagnostics_expires_at,
+                }
+            },
+        ))
+    }
+
+    fn update_operations_policy(
+        &self,
+        tx: &mut Tx<'_>,
+        expected_version: u64,
+        record: &OperationsPolicyRecord,
+    ) -> RepoResult<bool> {
+        use operations_policy as t;
+        let expected = i64::try_from(expected_version).unwrap_or(i64::MAX);
+        let changed = diesel::update(t::table.filter(t::id.eq(1)).filter(t::version.eq(expected)))
+            .set((
+                t::guard_enforcement.eq(&record.guard_enforcement),
+                t::diagnostics_profile.eq(&record.diagnostics_profile),
+                t::version.eq(expected.saturating_add(1)),
+                t::updated_at.eq(&record.updated_at),
+                t::updated_by.eq(&record.updated_by),
+                t::diagnostics_expires_at.eq(&record.diagnostics_expires_at),
+            ))
+            .execute(tx.conn())?;
+        Ok(changed == 1)
     }
 
     fn delete_player_data(

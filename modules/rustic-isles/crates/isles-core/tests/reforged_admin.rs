@@ -1089,3 +1089,107 @@ async fn the_testers_uploads_are_listed_read_and_deleted_with_an_audit() {
     assert_eq!(audit["records"][0]["oldState"]["files"][0]["name"], "launcher.log");
     assert_eq!(delete(r#"{"reason":"asked to remove them"}"#).await.status, 404);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_operations_policy_changes_by_version_and_weakening_needs_a_fresh_code() {
+    let _turn = SERIAL.lock().await;
+    set_credentials(Some(Arc::new(Credentials)));
+    let r = rig(RouteSet::V1147, &[("ADMIN_OPERATIONS_TOTP_SECRET", "654321")]).await;
+    let cookie = [("cookie", COOKIE)];
+    let overview = get(r.address, "/admin/v1/operations/overview", &cookie).await.json();
+    assert_eq!(
+        overview["policy"],
+        json!({"guardEnforcement": "ENFORCE", "diagnosticsProfile": "PRODUCTION", "version": 0})
+    );
+    assert_eq!(overview["launcherGuard"], json!([]));
+    assert_eq!(
+        overview.as_object().unwrap().keys().collect::<Vec<_>>(),
+        ["observedAt", "policy", "launcherGuard"]
+    );
+    let patch_policy = |body: Value| {
+        let (address, text) = (r.address, body.to_string());
+        async move {
+            send(
+                address,
+                "PATCH",
+                "/admin/v1/operations/policy",
+                &session_headers(),
+                Some(("application/json", text.as_bytes())),
+            )
+            .await
+        }
+    };
+    let invalid = patch_policy(json!({"guardEnforcement": "ENFORCE", "diagnosticsProfile": "PRODUCTION", "expectedVersion": 0, "reason": "short"})).await;
+    assert_eq!(invalid.status, 400);
+    assert_eq!(invalid.json()["error"]["code"], "ADMIN_VALIDATION");
+    for body in [
+        json!({"guardEnforcement": "MAYBE", "diagnosticsProfile": "PRODUCTION", "expectedVersion": 0, "reason": "long enough"}),
+        json!({"guardEnforcement": "ENFORCE", "diagnosticsProfile": "PRODUCTION", "expectedVersion": -1, "reason": "long enough"}),
+        json!({"guardEnforcement": "ENFORCE", "diagnosticsProfile": "PRODUCTION", "expectedVersion": 1.5, "reason": "long enough"}),
+        json!({"guardEnforcement": "ENFORCE", "diagnosticsProfile": "PRODUCTION", "reason": "long enough"}),
+    ] {
+        assert_eq!(patch_policy(body).await.status, 400);
+    }
+
+    // A weakening without a code is refused, and the refusal is audited
+    let weak = json!({"guardEnforcement": "OBSERVE", "diagnosticsProfile": "DEVELOPMENT", "expectedVersion": 0, "reason": "debugging a report"});
+    let refused = patch_policy(weak.clone()).await;
+    assert_eq!(refused.status, 403);
+    let body = refused.json();
+    assert_eq!(body["error"]["code"], "ADMIN_POLICY_STEP_UP_REQUIRED");
+    assert_eq!(
+        body["weakeningCodes"],
+        json!(["GUARD_DOWNGRADE", "DEVELOPMENT_DIAGNOSTICS"])
+    );
+    assert_eq!(body["policy"]["version"], 0);
+    let mut wrong = weak.clone();
+    wrong["breakGlassTotp"] = json!("000000");
+    assert_eq!(patch_policy(wrong).await.status, 403);
+    let mut with_code = weak.clone();
+    with_code["breakGlassTotp"] = json!("654321");
+    let done = patch_policy(with_code).await;
+    assert_eq!(done.status, 200, "{}", done.text());
+    let policy = done.json()["policy"].clone();
+    assert_eq!(
+        (
+            policy["guardEnforcement"].clone(),
+            policy["diagnosticsProfile"].clone(),
+            policy["version"].clone()
+        ),
+        (json!("OBSERVE"), json!("DEVELOPMENT"), json!(1))
+    );
+    assert_eq!(policy["updatedBy"], r.admin.1.as_str());
+    assert!(policy["diagnosticsExpiresAt"].as_str().is_some());
+
+    // The same version again is a conflict that carries the current policy
+    let stale = patch_policy(weak).await;
+    assert_eq!(stale.status, 409);
+    assert_eq!(stale.json()["error"]["code"], "ADMIN_POLICY_CONFLICT");
+    assert_eq!(stale.json()["policy"]["version"], 1);
+    // Tightening needs no code
+    let tight = patch_policy(json!({"guardEnforcement": "ENFORCE", "diagnosticsProfile": "PRODUCTION", "expectedVersion": 1, "reason": "back to normal"})).await;
+    assert_eq!(tight.status, 200);
+    assert_eq!(tight.json()["policy"]["version"], 2);
+    assert!(tight.json()["policy"].get("diagnosticsExpiresAt").is_none());
+    let audit = get(r.address, "/admin/v1/audit", &cookie).await.json();
+    let actions: Vec<_> = audit["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["action"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        actions,
+        [
+            "operations.policy.update",
+            "operations.policy.update",
+            "operations.policy.weakening_rejected",
+            "operations.policy.weakening_rejected"
+        ]
+    );
+    assert_eq!(
+        audit["records"][2]["newState"]["weakeningCodes"],
+        json!(["GUARD_DOWNGRADE", "DEVELOPMENT_DIAGNOSTICS"])
+    );
+    set_credentials(None);
+}

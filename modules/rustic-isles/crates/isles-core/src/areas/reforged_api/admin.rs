@@ -48,7 +48,7 @@ pub fn set_credentials(credentials: Option<Arc<dyn AdminCredentials>>) {
     *CREDENTIALS.write().unwrap_or_else(PoisonError::into_inner) = credentials;
 }
 
-fn credentials() -> Option<Arc<dyn AdminCredentials>> {
+pub(super) fn credentials() -> Option<Arc<dyn AdminCredentials>> {
     CREDENTIALS.read().unwrap_or_else(PoisonError::into_inner).clone()
 }
 
