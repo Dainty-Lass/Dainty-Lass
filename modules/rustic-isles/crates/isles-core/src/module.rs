@@ -12,7 +12,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use isles_chat::ChatRules;
+use isles_chat::{ChatRules, ChatSource};
 use module_api::chat::{ChatAnswer, ChatQuery};
 use module_api::manifest::{PortDefault, Transport};
 use module_api::registrar::ConfigSection;
@@ -97,6 +97,8 @@ struct Running {
     detail: Option<String>,
     servers: Vec<(oneshot::Sender<()>, JoinHandle<()>)>,
     store: Option<IslesStore>,
+    /// What the chat rules read, once started
+    chat: Option<Arc<dyn ChatSource>>,
 }
 
 pub struct IslesModule {
@@ -186,6 +188,11 @@ impl IslesModule {
             store: store.clone(),
             admin_api,
         });
+        let chat: Arc<dyn ChatSource> = Arc::new(crate::areas::chat::rules::source(
+            ctx.node(),
+            store.clone(),
+            &shared.settings,
+        ));
         let mut servers = Vec::new();
         let mut addresses = serde_json::Map::new();
         for service in &self.spec.services {
@@ -222,6 +229,7 @@ impl IslesModule {
             let mut running = lock(&self.running);
             running.servers = servers;
             running.store = store;
+            running.chat = Some(chat);
             running.phase = Some(Phase::Ready);
             running.detail = Some(detail.clone());
         }
@@ -336,6 +344,7 @@ impl GameModule for IslesModule {
             let (servers, store) = {
                 let mut running = lock(&self.running);
                 running.phase = Some(Phase::Stopping);
+                running.chat = None;
                 (std::mem::take(&mut running.servers), running.store.take())
             };
             for (stop, task) in servers {
@@ -368,6 +377,11 @@ impl GameModule for IslesModule {
     }
 
     fn chat(&self, _ctx: ModuleContext, query: ChatQuery) -> BoxFuture<'_, Result<ChatAnswer, ModuleError>> {
-        Box::pin(async move { self.spec.chat.answer(&query) })
+        Box::pin(async move {
+            let source = lock(&self.running).chat.clone();
+            // A module that is not running refuses, so the plugin never opens a room the rules would have closed
+            let source = source.ok_or_else(|| ModuleError::new(ErrorKind::Unavailable, "the module is not running"))?;
+            self.spec.chat.answer(&*source, &query).await
+        })
     }
 }

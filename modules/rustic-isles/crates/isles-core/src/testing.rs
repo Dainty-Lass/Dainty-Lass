@@ -110,8 +110,31 @@ impl Mounts {
 pub async fn sweep(service: Service, address: SocketAddr, mounts: Mounts) -> Vec<String> {
     let table = crate::routes::all();
     let mut failures = Vec::new();
+    // A route an area has ported answers its own way; its own tests check it
+    let handlers = if service == Service::Backend {
+        crate::areas::backend()
+    } else {
+        crate::http::Handlers::default()
+    };
     for route in table.iter().filter(|r| r.service == service) {
         let path = sample_path(route);
+        let matches_path = |other: &RouteDef| {
+            other.service == service
+                && other.method == route.method
+                && mounts.mounted(other)
+                && (other.when != When::Gauntlet || route.when == When::Gauntlet)
+                && Pattern::parse(other.path)
+                    .ok()
+                    .and_then(|p| p.matches(path.trim_start_matches(GAUNTLET_ORIGIN)))
+                    .is_some()
+        };
+        if handlers.get(route).is_some()
+            || table
+                .iter()
+                .any(|other| matches_path(other) && handlers.get(other).is_some())
+        {
+            continue;
+        }
         let taken = mounts.mounted(route)
             || table.iter().any(|other| {
                 other.service == service

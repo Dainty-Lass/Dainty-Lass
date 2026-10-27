@@ -1,29 +1,62 @@
-//! Rustic Isles' chat rules (DD21): RU5's chat area became the rules DaintyLass's chat plugin (DN10a) asks a game
-//! module for, instead of a chat of its own. Hooks only until DN10a lands: every answer is "unsupported", and the
-//! modules don't declare the chat capability yet.
+//! Rustic Isles' chat rules (DD21): RU5's chat area is the rules DaintyLass's chat plugin (DN10a) asks a game module
+//! for, not a chat of its own. The plugin owns the XMPP connections, rooms, whispers and presence; this crate says
+//! what Mystic Paradox's `realtime/` decided that the plugin cannot know:
 //!
-//! What the rules will carry, from `realtime/` (RU3c, Cross-cutting: all `same` in both versions): a player's JID
-//! from their `userId`, City rooms authorised by the `gameSessionId` `/candidate/status` serves, party events as
-//! headlines from `party-events@`, an offline presence leaving the party, `REALTIME_XMPP_DEV_CITY_MUC` off. Paradox's
-//! City rooms become DD21's per-region rooms.
+//! - [`jid`](ChatRules::jid): a player's JID is their `userId` on the captured domain (`XMPPAuth.ts`: the SASL authcid
+//!   must be the token's `userId`, so the plugin checks the JID's local part against it).
+//! - [`room`](ChatRules::room): who may join a room (`RoomService.ts#authorizeJoin`): a party's members, the players
+//!   matchmaking sent to a hub in a region (patch 0025, [`HubSessions`]), dev switches for the rest.
+//! - [`login::authenticate`]: `authenticateSasl`'s checks on the token and the account, for the `Login` query DN10a
+//!   asks DF2 for.
+//! - [`headline`]: the JSON of a `party-events@` headline (`PartyOutboxDispatcher.ts`), byte for byte.
+//!
+//! Both versions answer the same (RU3c: the XMPP differences are all `same`); [`ChatVersion`] is kept so a 1.12
+//! recording (DD9) has a place to differ. Everything the rules read about the game goes through [`ChatSource`], which
+//! `isles-core` implements over its store.
+
+#[cfg(test)]
+mod fake;
+pub mod headline;
+pub mod hubs;
+pub mod ids;
+pub mod login;
+pub mod rooms;
+pub mod source;
 
 use module_api::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
-use module_api::{GlobalId, ModuleError};
+use module_api::{BoxFuture, GlobalId, ModuleError};
+
+pub use hubs::{HubSessions, hub_sessions};
+pub use source::{ChatSettings, ChatSource, Player};
+
+/// The XMPP domain every JID has: Paradox's captured logical domain (`XMPP_DOMAIN`), which is also the plugin's default.
+pub const XMPP_DOMAIN: &str = "prod.ol.epicgames.com";
 
 /// The chat plugin's questions, per version.
 pub trait ChatRules: Send + Sync + 'static {
     /// The JID a player has in this game.
-    fn jid(&self, account: &GlobalId) -> Result<Jid, ModuleError>;
+    fn jid<'a>(&'a self, source: &'a dyn ChatSource, account: &'a GlobalId) -> BoxFuture<'a, Result<Jid, ModuleError>>;
 
     /// What a player may do in a room.
-    fn room(&self, room: &RoomKind, account: &GlobalId) -> Result<RoomRules, ModuleError>;
+    fn room<'a>(
+        &'a self,
+        source: &'a dyn ChatSource,
+        room: &'a RoomKind,
+        account: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<RoomRules, ModuleError>>;
 
     /// One query, as `GameModule::chat` receives it.
-    fn answer(&self, query: &ChatQuery) -> Result<ChatAnswer, ModuleError> {
-        match query {
-            ChatQuery::Jid { account } => self.jid(account).map(ChatAnswer::Jid),
-            ChatQuery::Room { room, account } => self.room(room, account).map(ChatAnswer::Room),
-        }
+    fn answer<'a>(
+        &'a self,
+        source: &'a dyn ChatSource,
+        query: &'a ChatQuery,
+    ) -> BoxFuture<'a, Result<ChatAnswer, ModuleError>> {
+        Box::pin(async move {
+            match query {
+                ChatQuery::Jid { account } => self.jid(source, account).await.map(ChatAnswer::Jid),
+                ChatQuery::Room { room, account } => self.room(source, room, account).await.map(ChatAnswer::Room),
+            }
+        })
     }
 }
 
@@ -34,38 +67,23 @@ pub enum ChatVersion {
     V1120,
 }
 
-/// The rules before DN10a: every question unsupported.
+/// The rules of both versions.
 #[derive(Debug, Clone, Copy)]
 pub struct IslesChat {
     pub version: ChatVersion,
 }
 
 impl ChatRules for IslesChat {
-    fn jid(&self, _: &GlobalId) -> Result<Jid, ModuleError> {
-        Err(ModuleError::unsupported("chat (DN10a)"))
+    fn jid<'a>(&'a self, source: &'a dyn ChatSource, account: &'a GlobalId) -> BoxFuture<'a, Result<Jid, ModuleError>> {
+        Box::pin(rooms::jid_of(source, account))
     }
 
-    fn room(&self, _: &RoomKind, _: &GlobalId) -> Result<RoomRules, ModuleError> {
-        Err(ModuleError::unsupported("chat (DN10a)"))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use module_api::{ErrorKind, IdKind, NodeIdentity};
-
-    #[test]
-    fn every_question_is_unsupported_until_the_plugin_lands() {
-        let account = GlobalId::new(IdKind::Account, &NodeIdentity::standalone().node);
-        for version in [ChatVersion::V1147, ChatVersion::V1120] {
-            let rules = IslesChat { version };
-            let error = rules
-                .answer(&ChatQuery::Jid {
-                    account: account.clone(),
-                })
-                .unwrap_err();
-            assert_eq!(error.kind, ErrorKind::Unsupported);
-        }
+    fn room<'a>(
+        &'a self,
+        source: &'a dyn ChatSource,
+        room: &'a RoomKind,
+        account: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<RoomRules, ModuleError>> {
+        Box::pin(async move { rooms::rules_of(source, hub_sessions(), rooms::now_millis(), room, account).await })
     }
 }

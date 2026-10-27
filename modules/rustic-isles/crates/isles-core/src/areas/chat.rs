@@ -23,6 +23,8 @@ use crate::repo::chat::{FriendEdgeRecord, FriendshipDirection, FriendshipStatus}
 use crate::repo::{RepoError, RepoResult};
 use crate::routes::{Method, Service};
 
+pub mod rules;
+
 /// What `HasParadoxBackendAuth` leaves on `req.AuthData` that these routes read. The auth area's middleware puts it in
 /// the request's extensions; a request without one is unauthenticated (401), which is how these routes fail closed
 /// until it is wired.
