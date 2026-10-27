@@ -96,7 +96,12 @@ mod tests {
             assert_eq!(iso(UnixMillis(ms)), text);
             assert_eq!(parse_iso(text), Some(UnixMillis(ms)));
         }
-        for bad in ["2026-02-30T00:00:00.000Z", "2026-10-14T17:46:40Z", "2026-10-14 17:46:40.123Z", ""] {
+        for bad in [
+            "2026-02-30T00:00:00.000Z",
+            "2026-10-14T17:46:40Z",
+            "2026-10-14 17:46:40.123Z",
+            "",
+        ] {
             assert_eq!(parse_iso(bad), None, "{bad}");
         }
     }

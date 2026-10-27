@@ -1,15 +1,14 @@
 //! Every operation answers [`rifts_seam::Unimplemented`] until RF5 (RD18).
 
 use rifts_seam::{
-    AccountId, AuthOutcome, BoxFuture, Candidate, CandidateLeave, Component, DeletionStep, HubKind,
-    HuntRouteContext, HuntRouteOutcome, Json, Lifecycle, OperationsOverview, PartyId, RealmEntry, RealmId, RealmsEntry,
-    RealmsHooks, ReleaseGate, RequestInfo, RuntimeAuth, SeamError, SessionId, Settings, TableSpec,
-    stub,
+    AccountId, AuthOutcome, BoxFuture, Candidate, CandidateLeave, Component, DeletionStep, HubKind, HuntRouteContext,
+    HuntRouteOutcome, Json, Lifecycle, OperationsOverview, PartyId, RealmEntry, RealmId, RealmsEntry, RealmsHooks,
+    ReleaseGate, RequestInfo, RuntimeAuth, SeamError, SessionId, Settings, TableSpec, stub,
 };
 
 use crate::RealmsError;
-use crate::hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub};
 use crate::TABLES;
+use crate::hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Stub;

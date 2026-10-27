@@ -10,8 +10,8 @@ pub mod capabilities;
 pub mod control;
 pub mod db;
 pub mod directory;
-mod hosting;
 pub mod host_policy;
+mod hosting;
 pub mod hub;
 pub mod hunt;
 pub mod ids;
@@ -56,7 +56,12 @@ const fn table(name: &'static str, node_collection: &'static str, keys: &'static
     }
 }
 
-const fn expiring(name: &'static str, node_collection: &'static str, keys: &'static str, by: &'static str) -> TableSpec {
+const fn expiring(
+    name: &'static str,
+    node_collection: &'static str,
+    keys: &'static str,
+    by: &'static str,
+) -> TableSpec {
     TableSpec {
         name,
         node_collection,
@@ -75,19 +80,59 @@ pub const TABLES: &[TableSpec] = &[
     table("rifts_realm_join_requests", "realms.joinRequests", "realm + account"),
     table("rifts_realm_player_invites", "realms.playerInvites", "realm + account"),
     table("rifts_realm_hub_rooms", "realms.hubRoomIds", "room unique"),
-    expiring("rifts_realm_invites", "realmInvites", "code; realm + created_at", "purge_at"),
-    expiring("rifts_realm_presence", "realmPresence", "account; realm + expires_at", "expires_at"),
-    table("rifts_hunt_sessions", "p2pHuntSessions", "session; global id unique; active party key unique; state"),
+    expiring(
+        "rifts_realm_invites",
+        "realmInvites",
+        "code; realm + created_at",
+        "purge_at",
+    ),
+    expiring(
+        "rifts_realm_presence",
+        "realmPresence",
+        "account; realm + expires_at",
+        "expires_at",
+    ),
+    table(
+        "rifts_hunt_sessions",
+        "p2pHuntSessions",
+        "session; global id unique; active party key unique; state",
+    ),
     table("rifts_hunt_roster", "p2pHuntSessions.roster", "session + account"),
-    table("rifts_hunt_transitions", "p2pHuntTransitions", "transition; session + at + state_version"),
-    table("rifts_host_capabilities", "p2pHostCapabilities", "capability; secret digest unique; session + generation"),
+    table(
+        "rifts_hunt_transitions",
+        "p2pHuntTransitions",
+        "transition; session + at + state_version",
+    ),
+    table(
+        "rifts_host_capabilities",
+        "p2pHostCapabilities",
+        "capability; secret digest unique; session + generation",
+    ),
     expiring("rifts_host_presences", "p2pHostPresences", "account", "expires_at"),
-    table("rifts_host_offers", "p2pHostOffers", "offer; session + generation + rank; one accepted"),
+    table(
+        "rifts_host_offers",
+        "p2pHostOffers",
+        "offer; session + generation + rank; one accepted",
+    ),
     table("rifts_host_reliability", "p2pHostReliability", "account"),
-    table("rifts_participant_observations", "p2pParticipantObservations", "observation; session + generation + at"),
+    table(
+        "rifts_participant_observations",
+        "p2pParticipantObservations",
+        "observation; session + generation + at",
+    ),
     table("rifts_control_sequences", "p2pControlSequences", "account"),
-    expiring("rifts_control_messages", "p2pControlMessages", "message; account + sequence unique", "expires_at"),
-    expiring("rifts_hub_presence", "realmHubPresence", "session + account; account / realm + state", "purge_at"),
+    expiring(
+        "rifts_control_messages",
+        "p2pControlMessages",
+        "message; account + sequence unique",
+        "expires_at",
+    ),
+    expiring(
+        "rifts_hub_presence",
+        "realmHubPresence",
+        "session + account; account / realm + state",
+        "purge_at",
+    ),
 ];
 
 #[cfg(test)]

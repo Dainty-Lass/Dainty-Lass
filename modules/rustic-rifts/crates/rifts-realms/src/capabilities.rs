@@ -125,7 +125,11 @@ pub enum SignedUser<'a> {
 
 /// `BuildPlayerHostRuntimeAuthData`: the signed identity wins, then a route's account, then the host. A hub's runtime
 /// acts for the host and the members present; a hunt's for its admitted roster (and the host during startup).
-pub fn runtime_identity(context: &RuntimeContext, signed: SignedUser<'_>, requested: Option<&str>) -> Option<RuntimeIdentity> {
+pub fn runtime_identity(
+    context: &RuntimeContext,
+    signed: SignedUser<'_>,
+    requested: Option<&str>,
+) -> Option<RuntimeIdentity> {
     let host = &context.capability.host_account_id;
     let user_id = match signed {
         SignedUser::Missing => return None,
@@ -277,7 +281,12 @@ impl HostCapabilities {
     }
 
     /// The accounts ADMITTED in a hub generation, through the second-long cache.
-    pub async fn hub_present_accounts(&self, session_id: &str, generation: i64, now: UnixMillis) -> Result<Vec<String>, RealmsError> {
+    pub async fn hub_present_accounts(
+        &self,
+        session_id: &str,
+        generation: i64,
+        now: UnixMillis,
+    ) -> Result<Vec<String>, RealmsError> {
         let key = (session_id.to_owned(), generation);
         if let Some(present) = self.presence.get(&key, now.0) {
             return Ok(present);
@@ -294,7 +303,11 @@ impl HostCapabilities {
     }
 
     /// `ResolveActiveHostRuntimeContext`: a `GAME_SERVER_RUNTIME` capability while its exact generation is live.
-    pub async fn resolve_runtime(&self, header: Option<&str>, now: UnixMillis) -> Result<Option<RuntimeContext>, RealmsError> {
+    pub async fn resolve_runtime(
+        &self,
+        header: Option<&str>,
+        now: UnixMillis,
+    ) -> Result<Option<RuntimeContext>, RealmsError> {
         let Some(digest) = header.and_then(hash_capability_secret) else {
             return Ok(None);
         };
@@ -320,7 +333,9 @@ impl HostCapabilities {
             if !crate::hub::HUB_RUNTIME_STATES.contains(&hunt.state) {
                 return Ok(None);
             }
-            let present = self.hub_present_accounts(&hunt.session_id, hunt.generation, now).await?;
+            let present = self
+                .hub_present_accounts(&hunt.session_id, hunt.generation, now)
+                .await?;
             return Ok(Some(RuntimeContext {
                 capability,
                 hunt,
@@ -365,7 +380,10 @@ mod tests {
     fn a_secret_is_43_characters_of_base64url_and_hashes_to_its_digest() {
         let (secret, digest) = generate_capability_secret();
         assert!(is_opaque_capability(secret.expose()));
-        assert_eq!(hash_capability_secret(secret.expose()).as_deref(), Some(digest.as_str()));
+        assert_eq!(
+            hash_capability_secret(secret.expose()).as_deref(),
+            Some(digest.as_str())
+        );
         assert_eq!(digest.len(), 64);
         assert_eq!(hash_capability_secret("short"), None);
         assert_eq!(base64url(&[0xfb, 0xff]), "-_8");

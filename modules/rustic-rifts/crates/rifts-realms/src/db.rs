@@ -93,7 +93,9 @@ impl RealmsDb {
         T: Send + 'static,
         E: From<store::Error> + From<diesel::result::Error> + Send + 'static,
     {
-        self.db.write(store_actor(actor), move |tx: &mut Tx<'_>| f(tx.conn())).await
+        self.db
+            .write(store_actor(actor), move |tx: &mut Tx<'_>| f(tx.conn()))
+            .await
     }
 }
 

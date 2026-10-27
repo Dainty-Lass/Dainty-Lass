@@ -717,7 +717,10 @@ fn bounded_int(raw: Option<&str>, fallback: u32, min: u32, max: u32) -> u32 {
     if !(1..=6).contains(&text.len()) || !text.bytes().all(|b| b.is_ascii_digit()) {
         return fallback;
     }
-    text.parse().ok().filter(|n| (min..=max).contains(n)).unwrap_or(fallback)
+    text.parse()
+        .ok()
+        .filter(|n| (min..=max).contains(n))
+        .unwrap_or(fallback)
 }
 
 impl RealmLimits {

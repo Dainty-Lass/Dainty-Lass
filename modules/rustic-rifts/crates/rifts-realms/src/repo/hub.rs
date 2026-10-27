@@ -73,7 +73,10 @@ pub struct EntryAt {
 pub enum HubEntryBatch {
     Placed(Vec<(String, HubPresenceRecord, EntryOutcome)>),
     /// Nothing written: the newcomers did not fit next to `live` rows.
-    Full { live: i64, max_peers: i64 },
+    Full {
+        live: i64,
+        max_peers: i64,
+    },
 }
 
 #[derive(diesel::QueryableByName)]
@@ -151,14 +154,16 @@ fn record(row: Row) -> Result<HubPresenceRecord, RepoError> {
 }
 
 fn find(conn: &mut AnyConnection, session_id: &str, account_id: &str) -> Result<Option<HubPresenceRecord>, RepoError> {
-    sql(&format!("SELECT {COLUMNS} FROM rifts_hub_presence WHERE session_id = ? AND account_id = ?"))?
-        .bind::<Text, _>(session_id.to_owned())
-        .bind::<Text, _>(account_id.to_owned())
-        .load::<Row>(conn)?
-        .into_iter()
-        .next()
-        .map(record)
-        .transpose()
+    sql(&format!(
+        "SELECT {COLUMNS} FROM rifts_hub_presence WHERE session_id = ? AND account_id = ?"
+    ))?
+    .bind::<Text, _>(session_id.to_owned())
+    .bind::<Text, _>(account_id.to_owned())
+    .load::<Row>(conn)?
+    .into_iter()
+    .next()
+    .map(record)
+    .transpose()
 }
 
 /// Inserts or replaces the whole row.
@@ -292,7 +297,9 @@ fn bulk(
 }
 
 fn select(conn: &mut AnyConnection, filter: &str, binds: &[&str]) -> Result<Vec<HubPresenceRecord>, RepoError> {
-    let mut query = sql(&format!("SELECT {COLUMNS} FROM rifts_hub_presence WHERE {filter} ORDER BY session_id, account_id"))?;
+    let mut query = sql(&format!(
+        "SELECT {COLUMNS} FROM rifts_hub_presence WHERE {filter} ORDER BY session_id, account_id"
+    ))?;
     for bind in binds {
         query = query.bind::<Text, _>((*bind).to_owned());
     }
@@ -410,8 +417,12 @@ impl RealmHubRepository {
         local_bridge_port: i64,
         now: UnixMillis,
     ) -> Result<HubPresenceRecord, RepoError> {
-        let (session, realm, account, peer) =
-            (session_id.to_owned(), realm_id.to_owned(), account_id.to_owned(), peer_id.to_owned());
+        let (session, realm, account, peer) = (
+            session_id.to_owned(),
+            realm_id.to_owned(),
+            account_id.to_owned(),
+            peer_id.to_owned(),
+        );
         self.db
             .write(actor, move |conn| {
                 let existing = find(conn, &session, &account)?;
@@ -462,7 +473,11 @@ impl RealmHubRepository {
             .await
     }
 
-    pub async fn find_presence(&self, session_id: &str, account_id: &str) -> Result<Option<HubPresenceRecord>, RepoError> {
+    pub async fn find_presence(
+        &self,
+        session_id: &str,
+        account_id: &str,
+    ) -> Result<Option<HubPresenceRecord>, RepoError> {
         let (session, account) = (session_id.to_owned(), account_id.to_owned());
         self.db.read(move |conn| find(conn, &session, &account)).await
     }
@@ -589,8 +604,16 @@ impl RealmHubRepository {
             row.ticketed_at = Some(now);
             row.expires_at = row.expires_at.max(ticket_expires_at);
         };
-        self.transition(actor, session_id, generation, account_id, PresenceEvent::TicketIssued, guard, apply)
-            .await
+        self.transition(
+            actor,
+            session_id,
+            generation,
+            account_id,
+            PresenceEvent::TicketIssued,
+            guard,
+            apply,
+        )
+        .await
     }
 
     /// The member's launcher published its loopback port (a waiting row not expired, or a connected one).
@@ -610,8 +633,16 @@ impl RealmHubRepository {
             row.local_bridge_port = Some(local_bridge_port);
             row.local_bridge_ready_at = Some(ready_at);
         };
-        self.transition(actor, session_id, generation, account_id, PresenceEvent::Admitted, guard, apply)
-            .await
+        self.transition(
+            actor,
+            session_id,
+            generation,
+            account_id,
+            PresenceEvent::Admitted,
+            guard,
+            apply,
+        )
+        .await
     }
 
     /// The host consumed the member's ticket: PENDING, TICKETED (not expired) or ADMITTED (idempotent) -> ADMITTED.
@@ -641,8 +672,16 @@ impl RealmHubRepository {
             row.left_reason = None;
             row.purge_at = None;
         };
-        self.transition(actor, session_id, generation, account_id, PresenceEvent::Admitted, guard, apply)
-            .await
+        self.transition(
+            actor,
+            session_id,
+            generation,
+            account_id,
+            PresenceEvent::Admitted,
+            guard,
+            apply,
+        )
+        .await
     }
 
     /// ADMITTED -> LOST; with `admission_id`, only the current connection's report ends it.
@@ -664,8 +703,16 @@ impl RealmHubRepository {
             row.lost_at = Some(lost_at);
             row.purge_at = Some(purge_at);
         };
-        self.transition(actor, session_id, generation, account_id, PresenceEvent::Disconnected, guard, apply)
-            .await
+        self.transition(
+            actor,
+            session_id,
+            generation,
+            account_id,
+            PresenceEvent::Disconnected,
+            guard,
+            apply,
+        )
+        .await
     }
 
     /// ADMITTED -> LEFT (`TRAVEL` when the member went into a realm hunt).
@@ -687,8 +734,16 @@ impl RealmHubRepository {
             row.left_reason = Some(reason);
             row.purge_at = Some(purge_at);
         };
-        self.transition(actor, session_id, generation, account_id, PresenceEvent::Travelled, |_| true, apply)
-            .await
+        self.transition(
+            actor,
+            session_id,
+            generation,
+            account_id,
+            PresenceEvent::Travelled,
+            |_| true,
+            apply,
+        )
+        .await
     }
 
     /// Kick or ban: every live row of the account in the realm -> REMOVED. The rows as they were.
@@ -753,7 +808,11 @@ impl RealmHubRepository {
                 if let Some(session) = session {
                     query = query.bind::<Text, _>(session);
                 }
-                let rows = query.load::<Row>(conn)?.into_iter().map(record).collect::<Result<Vec<_>, _>>()?;
+                let rows = query
+                    .load::<Row>(conn)?
+                    .into_iter()
+                    .map(record)
+                    .collect::<Result<Vec<_>, _>>()?;
                 bulk(conn, rows, PresenceEvent::Expired, |row| row.purge_at = Some(purge_at))
             })
             .await
@@ -770,7 +829,9 @@ impl RealmHubRepository {
     ) -> Result<Vec<HubPresenceRecord>, RepoError> {
         let session = session_id.to_owned();
         self.db
-            .write(actor, move |conn| end_generation(conn, &session, generation, at, purge_at))
+            .write(actor, move |conn| {
+                end_generation(conn, &session, generation, at, purge_at)
+            })
             .await
     }
 
@@ -778,9 +839,11 @@ impl RealmHubRepository {
     pub async fn purge(&self, now: UnixMillis) -> Result<usize, RepoError> {
         self.db
             .write(&Actor::System("realms-purge"), move |conn| {
-                Ok(sql("DELETE FROM rifts_hub_presence WHERE purge_at IS NOT NULL AND purge_at <= ?")?
-                    .bind::<BigInt, _>(now.0)
-                    .execute(conn)?)
+                Ok(
+                    sql("DELETE FROM rifts_hub_presence WHERE purge_at IS NOT NULL AND purge_at <= ?")?
+                        .bind::<BigInt, _>(now.0)
+                        .execute(conn)?,
+                )
             })
             .await
     }

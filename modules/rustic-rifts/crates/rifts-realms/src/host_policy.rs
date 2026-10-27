@@ -8,8 +8,10 @@ use crate::hunt::{ArtifactHashes, HostPresenceRecord, HostReliabilityRecord, Sco
 use crate::tiers::js_number;
 
 /// Dauntless 1.14.7, CL 647472: `Dauntless-Win64-Shipping.exe` (121,407,264 bytes), checked 11 Oct 2026.
-pub const KNOWN_GAME_EXE_SHA256: &[(i64, &str)] =
-    &[(647_472, "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b")];
+pub const KNOWN_GAME_EXE_SHA256: &[(i64, &str)] = &[(
+    647_472,
+    "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b",
+)];
 
 fn is_sha256(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| b.is_ascii_hexdigit())
@@ -59,7 +61,12 @@ fn feed_extra_file_hash(sources: &ArtifactSources, settings: &dyn Settings, file
         .get("extraFiles")?
         .as_array()?
         .iter()
-        .find(|entry| entry.get("name").and_then(Value::as_str).is_some_and(|n| n.eq_ignore_ascii_case(file)))?
+        .find(|entry| {
+            entry
+                .get("name")
+                .and_then(Value::as_str)
+                .is_some_and(|n| n.eq_ignore_ascii_case(file))
+        })?
         .get("sha256")
         .and_then(Value::as_str)
         .filter(|h| is_sha256(h))
@@ -92,10 +99,13 @@ fn required_hash(
     names: &[&str],
 ) -> Result<String, String> {
     let missing = || format!("Missing or invalid {}.", names[0]);
-    let Some((set, value)) = names
-        .iter()
-        .find_map(|name| settings.get(name).map(str::trim).filter(|v| !v.is_empty()).map(|v| (*name, v)))
-    else {
+    let Some((set, value)) = names.iter().find_map(|name| {
+        settings
+            .get(name)
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(|v| (*name, v))
+    }) else {
         return derived.ok_or_else(missing);
     };
     if !is_sha256(value) {
@@ -182,11 +192,16 @@ pub fn version_at_least(actual: &str, minimum: &str) -> bool {
         let core_end = text.find(['-', '+']).unwrap_or(text.len());
         let (core, rest) = text.split_at(core_end);
         let parts: Vec<&str> = core.split('.').collect();
-        if parts.len() != 3 || parts.iter().any(|p| p.is_empty() || !p.bytes().all(|b| b.is_ascii_digit())) {
+        if parts.len() != 3
+            || parts
+                .iter()
+                .any(|p| p.is_empty() || !p.bytes().all(|b| b.is_ascii_digit()))
+        {
             return None;
         }
         let numbers = [parts[0].parse().ok()?, parts[1].parse().ok()?, parts[2].parse().ok()?];
-        let ident_ok = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+        let ident_ok =
+            |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
         let (pre, build) = match rest.strip_prefix('-') {
             Some(after) => match after.split_once('+') {
                 Some((pre, build)) => (Some(pre), Some(build)),
@@ -269,15 +284,31 @@ fn bounded_ms(settings: &dyn Settings, name: &str, fallback: f64, min: f64, max:
 impl EligibilityPolicy {
     /// `ReadP2PHostEligibilityPolicy`.
     pub fn from_settings(settings: &dyn Settings) -> Self {
-        let version = settings.get("P2P_HOST_MIN_LAUNCHER_VERSION").map(str::trim).unwrap_or_default();
+        let version = settings
+            .get("P2P_HOST_MIN_LAUNCHER_VERSION")
+            .map(str::trim)
+            .unwrap_or_default();
         let version_ok = {
             let parts: Vec<&str> = version.split('.').collect();
-            parts.len() == 3 && parts.iter().all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+            parts.len() == 3
+                && parts
+                    .iter()
+                    .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
         };
         Self {
-            minimum_launcher_version: if version_ok { version.to_owned() } else { "0.1.35".to_owned() },
+            minimum_launcher_version: if version_ok {
+                version.to_owned()
+            } else {
+                "0.1.35".to_owned()
+            },
             minimum_free_memory_mib: bounded(settings, "P2P_HOST_MIN_FREE_MEMORY_MIB", 4096.0, 1024.0, 262_144.0),
-            minimum_commit_headroom_mib: bounded(settings, "P2P_HOST_MIN_COMMIT_HEADROOM_MIB", 6144.0, 1024.0, 262_144.0),
+            minimum_commit_headroom_mib: bounded(
+                settings,
+                "P2P_HOST_MIN_COMMIT_HEADROOM_MIB",
+                6144.0,
+                1024.0,
+                262_144.0,
+            ),
             minimum_logical_cpu_count: bounded(settings, "P2P_HOST_MIN_LOGICAL_CPUS", 4.0, 2.0, 256.0),
             maximum_cpu_load_percent: bounded(settings, "P2P_HOST_MAX_CPU_PERCENT", 85.0, 10.0, 100.0),
             maximum_worst_peer_rtt_ms: bounded(settings, "P2P_HOST_MAX_WORST_RTT_MS", 250.0, 20.0, 2000.0),
@@ -296,7 +327,10 @@ impl EligibilityPolicy {
 
 /// `P2P_HUNT_DRAIN_GRACE_MS`: no cap unless 30 s to 10 min.
 pub fn hunt_drain_cap_ms(settings: &dyn Settings) -> Option<i64> {
-    let raw = settings.get("P2P_HUNT_DRAIN_GRACE_MS").map(str::trim).unwrap_or_default();
+    let raw = settings
+        .get("P2P_HUNT_DRAIN_GRACE_MS")
+        .map(str::trim)
+        .unwrap_or_default();
     if raw.is_empty() {
         return None;
     }
@@ -349,7 +383,10 @@ pub fn host_ineligibility_reason(
     if active_host_sessions > 0 {
         return Some("HOST_ALREADY_ACTIVE");
     }
-    if reliability.and_then(|r| r.cooldown_until).is_some_and(|until| until > now) {
+    if reliability
+        .and_then(|r| r.cooldown_until)
+        .is_some_and(|until| until > now)
+    {
         return Some("HOST_COOLDOWN");
     }
     None

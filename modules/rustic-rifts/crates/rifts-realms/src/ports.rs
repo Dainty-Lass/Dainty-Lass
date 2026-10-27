@@ -131,7 +131,10 @@ impl RecordedEvents {
 
 impl RealmEventSink for RecordedEvents {
     fn emit(&self, event: RealmEvent) -> BoxFuture<'_, Result<(), String>> {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(event);
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(event);
         Box::pin(async { Ok(()) })
     }
 }

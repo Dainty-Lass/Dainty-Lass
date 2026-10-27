@@ -8,15 +8,17 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::RealmsError;
-use crate::hub::{RealmCapacity, RealmCapacityInput, decide_realm_capacity, realm_host_ineligibility_reason};
 use crate::host_policy::{artifact_hashes_match, host_ineligibility_reason, score_host};
+use crate::hub::{RealmCapacity, RealmCapacityInput, decide_realm_capacity, realm_host_ineligibility_reason};
 use crate::hunt::{
     ArtifactHashes, GuardRole as StoredGuardRole, HostOfferRecord, HostPresenceRecord, HuntSession, HuntState,
     HuntTransition, OfferStatus, ReliabilityIncrements, ScoreBreakdown, TransitionActor,
 };
 use crate::ids::random_uuid;
 use crate::leases::{Hosting, integer_in, number_in, refused};
-use crate::lifecycle::{GuardRole, parse_guard_presence_sessions, parse_guard_required_roles, reset_to_selection, string_in};
+use crate::lifecycle::{
+    GuardRole, parse_guard_presence_sessions, parse_guard_required_roles, reset_to_selection, string_in,
+};
 use crate::repo::hunts::NewControlMessage;
 use crate::time::iso;
 
@@ -35,9 +37,7 @@ pub fn derive_ice_peer_id(account: &str) -> String {
 /// `ParseIcePeerReport`: 1 to 20 digits within u64, no leading zero.
 fn parse_ice_peer_report(value: &Value) -> Option<String> {
     let text = value.as_str()?;
-    let shaped = (1..=20).contains(&text.len())
-        && !text.starts_with('0')
-        && text.bytes().all(|b| b.is_ascii_digit());
+    let shaped = (1..=20).contains(&text.len()) && !text.starts_with('0') && text.bytes().all(|b| b.is_ascii_digit());
     (shaped && text.parse::<u64>().is_ok()).then(|| text.to_owned())
 }
 
@@ -128,7 +128,13 @@ impl Hosting {
             return false;
         }
         match self.realms.find_by_host(account).await {
-            Ok(Some(realm)) => self.hunts.count_running_realm_servers(&realm.realm_id).await.unwrap_or(0) > 0,
+            Ok(Some(realm)) => {
+                self.hunts
+                    .count_running_realm_servers(&realm.realm_id)
+                    .await
+                    .unwrap_or(0)
+                    > 0
+            }
             Ok(None) => false,
             Err(error) => {
                 self.log.warn(&format!(
@@ -142,15 +148,37 @@ impl Hosting {
     /// `SubmitHostPresence`: a PC's capacity and integrity report. In observe mode a Guard that does not verify
     /// refuses nothing.
     pub async fn submit_presence(&self, account: &str, body: &Value) -> Result<PresenceReply, RealmsError> {
-        let transport_ready = body.get("transportReady").or_else(|| body.get("steamRuntimeReady")).and_then(Value::as_bool);
-        let peer = body.get("peerId").filter(|v| !v.is_null()).or_else(|| body.get("steamId")).filter(|v| !v.is_null());
+        let transport_ready = body
+            .get("transportReady")
+            .or_else(|| body.get("steamRuntimeReady"))
+            .and_then(Value::as_bool);
+        let peer = body
+            .get("peerId")
+            .filter(|v| !v.is_null())
+            .or_else(|| body.get("steamId"))
+            .filter(|v| !v.is_null());
         let artifacts = parse_artifacts(body.get("artifacts"));
-        let observed = string_in(body.get("observedAt"), 40).as_deref().and_then(crate::time::parse_iso);
+        let observed = string_in(body.get("observedAt"), 40)
+            .as_deref()
+            .and_then(crate::time::parse_iso);
         let now = self.now();
         let flag = |key: &str| body.get(key).and_then(Value::as_bool);
         let preflight = body.get("preflightOnly").filter(|v| !v.is_null());
-        let (Some(artifacts), Some(observed), Some(consent), Some(power_saver), Some(runtime_supported), Some(transport_ready)) =
-            (artifacts, observed, flag("consentToHost"), flag("powerSaver"), flag("runtimeSupported"), transport_ready)
+        let (
+            Some(artifacts),
+            Some(observed),
+            Some(consent),
+            Some(power_saver),
+            Some(runtime_supported),
+            Some(transport_ready),
+        ) = (
+            artifacts,
+            observed,
+            flag("consentToHost"),
+            flag("powerSaver"),
+            flag("runtimeSupported"),
+            transport_ready,
+        )
         else {
             return Err(ticket_invalid("The host presence report is malformed or stale."));
         };
@@ -168,23 +196,35 @@ impl Hosting {
             number_in(body.get("jitterMs"), 0.0, 60_000.0),
             number_in(body.get("packetLossPercent"), 0.0, 100.0),
         );
-        let (Some(free), Some(commit), Some(cpus), Some(load), Some(backend), Some(worst), Some(jitter), Some(loss)) = metrics
+        let (Some(free), Some(commit), Some(cpus), Some(load), Some(backend), Some(worst), Some(jitter), Some(loss)) =
+            metrics
         else {
             return Err(ticket_invalid("The host presence metrics are outside their bounds."));
         };
         let expires_at = UnixMillis(observed.0 + self.settings.eligibility.presence_maximum_age_ms);
-        let current = self.hunts.list_host_presences(&[account.to_owned()], UnixMillis(0), UnixMillis(i64::MIN)).await?;
+        let current = self
+            .hunts
+            .list_host_presences(&[account.to_owned()], UnixMillis(0), UnixMillis(i64::MIN))
+            .await?;
         let revision = current.first().map_or(0, |p| p.revision) + 1;
         let artifacts_verified = match (self.expected_artifacts)() {
             Ok(expected) => artifact_hashes_match(&artifacts, &expected),
             Err(error) => {
-                self.log.warn(&format!("[P2PArtifacts] expected host artifact hashes unavailable ({error}); hosts stay unverified"));
+                self.log.warn(&format!(
+                    "[P2PArtifacts] expected host artifact hashes unavailable ({error}); hosts stay unverified"
+                ));
                 false
             }
         };
         // With ICE the reported id is only the module instance; the link carries the account-derived peer id
         let ice = self.operations.ice_transport();
-        let reported = peer.and_then(|p| if ice { parse_ice_peer_report(p) } else { parse_steam_transport_id(p) });
+        let reported = peer.and_then(|p| {
+            if ice {
+                parse_ice_peer_report(p)
+            } else {
+                parse_steam_transport_id(p)
+            }
+        });
         let steam_id = reported.map(|id| if ice { derive_ice_peer_id(account) } else { id });
         if (transport_ready && steam_id.is_none()) || (!transport_ready && peer.is_some()) {
             return Err(ticket_invalid("The co-op transport observation is malformed."));
@@ -208,9 +248,13 @@ impl Hosting {
         let guard_verified = !required.is_empty() && required.iter().all(|r| healthy.iter().any(|g| g.role == *r));
         if !required.is_empty() && !guard_verified {
             if self.operations.guard_refuses() {
-                return Err(refused("GUARD_REQUIRED", "A current healthy Launcher Guard session is required to host."));
+                return Err(refused(
+                    "GUARD_REQUIRED",
+                    "A current healthy Launcher Guard session is required to host.",
+                ));
             }
-            self.log.info(&format!("[GuardObserve] would refuse hosting for {account}"));
+            self.log
+                .info(&format!("[GuardObserve] would refuse hosting for {account}"));
         }
         if preflight.and_then(Value::as_bool) == Some(true) && artifacts_verified {
             return Ok(PresenceReply {
@@ -295,7 +339,10 @@ impl Hosting {
             if let Some(reason) =
                 host_ineligibility_reason(presence, reliability.as_ref(), active, policy, guard_required, now)
             {
-                self.log.info(&format!("[P2P] host candidate {} ineligible reason={reason}", participant.account_id));
+                self.log.info(&format!(
+                    "[P2P] host candidate {} ineligible reason={reason}",
+                    participant.account_id
+                ));
                 continue;
             }
             let (score, breakdown) = score_host(presence, reliability.as_ref(), policy, active);
@@ -306,7 +353,11 @@ impl Hosting {
                 breakdown,
             });
         }
-        ranked.sort_by(|a, b| a.score.total_cmp(&b.score).then_with(|| a.account_id.cmp(&b.account_id)));
+        ranked.sort_by(|a, b| {
+            a.score
+                .total_cmp(&b.score)
+                .then_with(|| a.account_id.cmp(&b.account_id))
+        });
         Ok(ranked)
     }
 
@@ -328,24 +379,35 @@ impl Hosting {
         let realm_policy = &self.settings.realm_hub;
         let presences = self
             .hunts
-            .list_host_presences(std::slice::from_ref(&host), UnixMillis(now.0 - policy.presence_maximum_age_ms), now)
+            .list_host_presences(
+                std::slice::from_ref(&host),
+                UnixMillis(now.0 - policy.presence_maximum_age_ms),
+                now,
+            )
             .await?;
         let Some(presence) = presences.first() else {
-            self.log.info(&format!("[P2P] realm host {host} for realm {realm_id} has no fresh presence"));
+            self.log.info(&format!(
+                "[P2P] realm host {host} for realm {realm_id} has no fresh presence"
+            ));
             return Ok(Ok(Vec::new()));
         };
         // The memory floors are the capacity's below: a short host is REALM_FULL, not ineligible
         if let Some(reason) =
             realm_host_ineligibility_reason(presence, policy, 0.0, 0.0, self.operations.guard_refuses(), now)
         {
-            self.log.info(&format!("[P2P] realm host {host} for realm {realm_id} ineligible reason={reason}"));
+            self.log.info(&format!(
+                "[P2P] realm host {host} for realm {realm_id} ineligible reason={reason}"
+            ));
             return Ok(Ok(Vec::new()));
         }
         // This hunt is one of the realm's live sessions already
         let others = (self.hunts.count_active_realm_servers(realm_id).await? - 1).max(0);
         let capacity = decide_realm_capacity(&RealmCapacityInput {
             active_servers: others,
-            max_servers: realm.hosting.as_ref().map_or(realm_policy.default_max_servers, |h| h.max_servers),
+            max_servers: realm
+                .hosting
+                .as_ref()
+                .map_or(realm_policy.default_max_servers, |h| h.max_servers),
             free_physical_memory_mib: presence.free_physical_memory_mib,
             commit_headroom_mib: presence.commit_headroom_mib,
             minimum_free_memory_mib: realm_policy.minimum_free_memory_mib,
@@ -394,7 +456,8 @@ impl Hosting {
             (self.rank_hosts(&hunt).await?, None)
         };
         let Some(candidate) = ranked.into_iter().next() else {
-            self.hand_to_recovery(&hunt, refusal.unwrap_or("NO_ELIGIBLE_HOST"), true).await?;
+            self.hand_to_recovery(&hunt, refusal.unwrap_or("NO_ELIGIBLE_HOST"), true)
+                .await?;
             return Ok(());
         };
         let now = self.now();
@@ -412,16 +475,22 @@ impl Hosting {
                     return Ok(None);
                 }
                 let (account, steam, offer_set) = (chosen.account_id.clone(), chosen.steam_id.clone(), offer.clone());
-                let Some(next) = tx.compare_and_set(&id, current.generation, &[HuntState::HostSelecting], current.state_version, move |h| {
-                    h.state = HuntState::HostOffered;
-                    h.host_account_id = account.clone();
-                    h.host_steam_id = steam;
-                    h.host_offer_id = Some(offer_set);
-                    h.offer_expires_at = Some(expires_at);
-                    if !h.tried_host_account_ids.contains(&account) {
-                        h.tried_host_account_ids.push(account);
-                    }
-                })?
+                let Some(next) = tx.compare_and_set(
+                    &id,
+                    current.generation,
+                    &[HuntState::HostSelecting],
+                    current.state_version,
+                    move |h| {
+                        h.state = HuntState::HostOffered;
+                        h.host_account_id = account.clone();
+                        h.host_steam_id = steam;
+                        h.host_offer_id = Some(offer_set);
+                        h.offer_expires_at = Some(expires_at);
+                        if !h.tried_host_account_ids.contains(&account) {
+                            h.tried_host_account_ids.push(account);
+                        }
+                    },
+                )?
                 else {
                     return Ok(None);
                 };
@@ -482,7 +551,12 @@ impl Hosting {
 
     /// `RespondToHostOffer`: an accepted offer asks the host to start (HUNT_BOOTSTRAP); a declined one goes back to
     /// selection. The same account accepting twice is answered as success (a lost ACK is retried).
-    pub async fn respond_to_offer(&self, account: &str, offer_id: &str, body: &Value) -> Result<OfferReply, RealmsError> {
+    pub async fn respond_to_offer(
+        &self,
+        account: &str,
+        offer_id: &str,
+        body: &Value,
+    ) -> Result<OfferReply, RealmsError> {
         let shaped = offer_id.len() == 36 && offer_id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-');
         let Some(accept) = body.get("accept").and_then(Value::as_bool).filter(|_| shaped) else {
             return Err(ticket_invalid("The host offer response is malformed."));
@@ -504,25 +578,49 @@ impl Hosting {
             return Ok(reply(true));
         }
         if offer.status != OfferStatus::Offered || offer.expires_at <= now {
-            return Err(refused("P2P_GENERATION_FENCED", "The host offer has expired or was replaced."));
+            return Err(refused(
+                "P2P_GENERATION_FENCED",
+                "The host offer has expired or was replaced.",
+            ));
         }
         if accept && !self.settings.policy.enabled {
             self.recovery
-                .prepare(offer.session_id.clone(), offer.generation, "P2P_DISABLED".to_owned(), true)
+                .prepare(
+                    offer.session_id.clone(),
+                    offer.generation,
+                    "P2P_DISABLED".to_owned(),
+                    true,
+                )
                 .await?;
             return Err(refused("P2P_DISABLED", "Player-hosted hunts are disabled."));
         }
         if self.emergency_stop().await? {
             self.recovery
-                .prepare(offer.session_id.clone(), offer.generation, "OPERATOR_P2P_STOP".to_owned(), true)
+                .prepare(
+                    offer.session_id.clone(),
+                    offer.generation,
+                    "OPERATOR_P2P_STOP".to_owned(),
+                    true,
+                )
                 .await?;
-            return Err(refused("P2P_DISABLED", "Player-hosted hunts are stopped by operations policy."));
+            return Err(refused(
+                "P2P_DISABLED",
+                "Player-hosted hunts are stopped by operations policy.",
+            ));
         }
         let reason = string_in(body.get("reason"), 96);
-        let status = if accept { OfferStatus::Accepted } else { OfferStatus::Declined };
+        let status = if accept {
+            OfferStatus::Accepted
+        } else {
+            OfferStatus::Declined
+        };
         let startup_ms = self.settings.eligibility.startup_lifetime_ms;
-        let (offer_key, who, session, generation) =
-            (offer_id.to_owned(), account.to_owned(), offer.session_id.clone(), offer.generation);
+        let (offer_key, who, session, generation) = (
+            offer_id.to_owned(),
+            account.to_owned(),
+            offer.session_id.clone(),
+            offer.generation,
+        );
         self.hunts
             .transaction(&player(account), move |tx| {
                 let fenced = |m: &str| refused("P2P_GENERATION_FENCED", m);
@@ -598,7 +696,10 @@ mod tests {
         assert_eq!(parse_ice_peer_report(&json!("12345")).as_deref(), Some("12345"));
         assert_eq!(parse_ice_peer_report(&json!("012")), None);
         assert_eq!(parse_ice_peer_report(&json!("99999999999999999999")), None);
-        assert_eq!(parse_steam_transport_id(&json!("76561198000000101")).as_deref(), Some("76561198000000101"));
+        assert_eq!(
+            parse_steam_transport_id(&json!("76561198000000101")).as_deref(),
+            Some("76561198000000101")
+        );
         assert_eq!(parse_steam_transport_id(&json!("12345678901234567")), None);
     }
 }

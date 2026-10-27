@@ -17,15 +17,33 @@ use HuntState::{
 };
 
 /// `P2P_LIFECYCLE_STATES`: what the monitor scans.
-pub const LIFECYCLE_STATES: &[HuntState] =
-    &[HostSelecting, HostOffered, Starting, HostReady, Admitting, Running, Draining, Suspect, Aborting, Recovering];
+pub const LIFECYCLE_STATES: &[HuntState] = &[
+    HostSelecting,
+    HostOffered,
+    Starting,
+    HostReady,
+    Admitting,
+    Running,
+    Draining,
+    Suspect,
+    Aborting,
+    Recovering,
+];
 /// The host's own end applies in these.
 pub const HOST_END_STATES: &[HuntState] = &[HostReady, Admitting, Running, Suspect];
 /// The last hub return closes these: the host lease is live.
 pub const HUB_RETURN_END_STATES: &[HuntState] = &[HostReady, Admitting, Running];
 /// A party's new request may supersede these (RECOVERING closes on its own).
-pub const SUPERSEDE_STATES: &[HuntState] =
-    &[HostSelecting, HostOffered, Starting, HostReady, Admitting, Running, Suspect, Aborting];
+pub const SUPERSEDE_STATES: &[HuntState] = &[
+    HostSelecting,
+    HostOffered,
+    Starting,
+    HostReady,
+    Admitting,
+    Running,
+    Suspect,
+    Aborting,
+];
 const STARTED_STATES: &[HuntState] = &[HostReady, Admitting, Running, Suspect];
 pub const DRAIN_COMPLETION_REASON: &str = "SUPERSEDED_REQUESTER_LEFT_HUNT";
 /// The host's first Guard verdict follows its process by a few seconds.
@@ -139,7 +157,8 @@ pub fn parse_guard_required_roles(
         }
     }
     // A stale server session must not stand in for the game client
-    if roles.contains(&GuardRole::Host) && !roles.contains(&GuardRole::Client) && !(realm_host_only && roles.len() == 1) {
+    if roles.contains(&GuardRole::Host) && !roles.contains(&GuardRole::Client) && !(realm_host_only && roles.len() == 1)
+    {
         return Err(GuardListError {
             code: "GUARD_REQUIRED",
             message: "A hosted process requires both client and host Guard roles.",
@@ -164,7 +183,9 @@ pub fn host_guard_still_starting(
 
 /// A drained hunt ran too: its players were in it until they left.
 fn hunt_ran(hunt: &HuntSession) -> bool {
-    hunt.state == Running || hunt.state == Draining || (hunt.state == Suspect && hunt.pre_suspect_state == Some(Running))
+    hunt.state == Running
+        || hunt.state == Draining
+        || (hunt.state == Suspect && hunt.pre_suspect_state == Some(Running))
 }
 
 /// Not back in a hub and admitted, or the host (on its own server until it leaves; a LOST host is gone).
@@ -258,12 +279,20 @@ pub fn classify_existing_party_session(
     action
 }
 
-fn classify_before_drain(existing: &HuntSession, hunt_id: &str, requester: &str, now: UnixMillis) -> PartySessionAction {
+fn classify_before_drain(
+    existing: &HuntSession,
+    hunt_id: &str,
+    requester: &str,
+    now: UnixMillis,
+) -> PartySessionAction {
     use PartySessionAction::{Conflict, Drain, Reuse, Supersede};
     if existing.state == Aborting || existing.state == Suspect {
         return Supersede("SESSION_ENDING");
     }
-    if matches!(existing.guard_encounter_state.as_deref(), Some("COMPLETION_REQUESTED" | "ABORTED")) {
+    if matches!(
+        existing.guard_encounter_state.as_deref(),
+        Some("COMPLETION_REQUESTED" | "ABORTED")
+    ) {
         return Supersede("HUNT_FINISHED");
     }
     let started = STARTED_STATES.contains(&existing.state);
@@ -298,7 +327,10 @@ fn classify_before_drain(existing: &HuntSession, hunt_id: &str, requester: &str,
 /// A forming hunt one of its players may still cancel.
 pub fn is_cancellable_forming(hunt: &HuntSession) -> bool {
     CANCELLABLE_FORMING_STATES.contains(&hunt.state)
-        && !hunt.roster.iter().any(|p| p.admission_state == AdmissionState::Admitted)
+        && !hunt
+            .roster
+            .iter()
+            .any(|p| p.admission_state == AdmissionState::Admitted)
 }
 
 /// Where a recovery sends the party: a pre-active failure to the same hunt on a dedicated server (Training to the
@@ -341,10 +373,12 @@ impl Recovery for RecordedRecovery {
         reason: String,
         before_active: bool,
     ) -> BoxFuture<'_, Result<(), RealmsError>> {
-        self.0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push((session_id, generation, reason, before_active));
+        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((
+            session_id,
+            generation,
+            reason,
+            before_active,
+        ));
         Box::pin(async { Ok(()) })
     }
 
@@ -353,7 +387,14 @@ impl Recovery for RecordedRecovery {
     }
 }
 
-fn transition(hunt: &HuntSession, to: &HuntSession, reason: &str, actor: TransitionActor, account: Option<&str>, at: UnixMillis) -> HuntTransition {
+fn transition(
+    hunt: &HuntSession,
+    to: &HuntSession,
+    reason: &str,
+    actor: TransitionActor,
+    account: Option<&str>,
+    at: UnixMillis,
+) -> HuntTransition {
     HuntTransition {
         transition_id: String::new(),
         session_id: hunt.session_id.clone(),
@@ -368,7 +409,14 @@ fn transition(hunt: &HuntSession, to: &HuntSession, reason: &str, actor: Transit
     }
 }
 
-fn fence(account: &str, hunt: &HuntSession, generation: i64, payload: Value, now: UnixMillis, life_ms: i64) -> NewControlMessage {
+fn fence(
+    account: &str,
+    hunt: &HuntSession,
+    generation: i64,
+    payload: Value,
+    now: UnixMillis,
+    life_ms: i64,
+) -> NewControlMessage {
     NewControlMessage {
         account_id: account.to_owned(),
         message_type: "FENCE_NOW".to_owned(),
@@ -429,7 +477,14 @@ pub fn end_session(
         && let Some(offer) = &hunt.host_offer_id
         && !hunt.host_account_id.is_empty()
     {
-        tx.update_offer(offer, &hunt.host_account_id, OfferStatus::Offered, OfferStatus::Cancelled, now, Some(reason))?;
+        tx.update_offer(
+            offer,
+            &hunt.host_account_id,
+            OfferStatus::Offered,
+            OfferStatus::Cancelled,
+            now,
+            Some(reason),
+        )?;
     }
     if terminal == HuntState::Completed && !hunt.host_account_id.is_empty() {
         let add = ReliabilityIncrements {
@@ -442,7 +497,14 @@ pub fn end_session(
     if hunt.state != HostSelecting && fence_bridges {
         let payload = json!({ "reason": reason, "recoveryAction": "NONE", "cleanEnd": true });
         for p in &hunt.roster {
-            tx.enqueue_control(&fence(&p.account_id, &hunt, generation, payload.clone(), now, 10 * 60_000))?;
+            tx.enqueue_control(&fence(
+                &p.account_id,
+                &hunt,
+                generation,
+                payload.clone(),
+                now,
+                10 * 60_000,
+            ))?;
         }
     }
     Ok(Some(ended))
@@ -457,13 +519,19 @@ pub fn mark_suspect(
     now: UnixMillis,
 ) -> Result<Option<HuntSession>, RealmsError> {
     let (from, reason_text) = (hunt.state, reason.to_owned());
-    let suspect = tx.compare_and_set(&hunt.session_id, hunt.generation, &[hunt.state], hunt.state_version, move |h| {
-        h.state = Suspect;
-        h.pre_suspect_state = Some(from);
-        h.suspect_since = Some(now);
-        h.suspect_deadline = Some(UnixMillis(now.0 + suspect_lifetime_ms));
-        h.failure_reason = Some(reason_text);
-    })?;
+    let suspect = tx.compare_and_set(
+        &hunt.session_id,
+        hunt.generation,
+        &[hunt.state],
+        hunt.state_version,
+        move |h| {
+            h.state = Suspect;
+            h.pre_suspect_state = Some(from);
+            h.suspect_since = Some(now);
+            h.suspect_deadline = Some(UnixMillis(now.0 + suspect_lifetime_ms));
+            h.failure_reason = Some(reason_text);
+        },
+    )?;
     if let Some(next) = &suspect {
         tx.append_transition(&transition(hunt, next, reason, TransitionActor::System, None, now))?;
     }
@@ -475,34 +543,51 @@ pub fn recover_from_suspect(tx: &mut HuntTx<'_>, hunt: &HuntSession) -> Result<O
     let Some(before) = hunt.pre_suspect_state else {
         return Ok(None);
     };
-    Ok(tx.compare_and_set(&hunt.session_id, hunt.generation, &[Suspect], hunt.state_version, move |h| {
-        h.state = before;
-        h.failure_reason = Some("LEASE_RECOVERED".to_owned());
-        h.suspect_since = None;
-        h.suspect_deadline = None;
-        h.pre_suspect_state = None;
-    })?)
+    Ok(tx.compare_and_set(
+        &hunt.session_id,
+        hunt.generation,
+        &[Suspect],
+        hunt.state_version,
+        move |h| {
+            h.state = before;
+            h.failure_reason = Some("LEASE_RECOVERED".to_owned());
+            h.suspect_since = None;
+            h.suspect_deadline = None;
+            h.pre_suspect_state = None;
+        },
+    )?)
 }
 
 /// `RetryPreActiveHost`: the host never came up; a new generation goes back to host selection and the old host is
 /// fenced and charged a failed start.
-pub fn retry_pre_active_host(tx: &mut HuntTx<'_>, hunt: &HuntSession, reason: &str, now: UnixMillis) -> Result<Option<HuntSession>, RealmsError> {
+pub fn retry_pre_active_host(
+    tx: &mut HuntTx<'_>,
+    hunt: &HuntSession,
+    reason: &str,
+    now: UnixMillis,
+) -> Result<Option<HuntSession>, RealmsError> {
     tx.revoke_generation(&hunt.session_id, hunt.generation, now)?;
     let reason_text = reason.to_owned();
-    let Some(next) = tx.compare_and_set(&hunt.session_id, hunt.generation, &[hunt.state], hunt.state_version, move |h| {
-        h.generation += 1;
-        h.state = HostSelecting;
-        h.host_account_id = String::new();
-        h.host_steam_id = String::new();
-        h.bridge_instance_id = String::new();
-        h.failure_reason = Some(reason_text);
-        h.host_offer_id = None;
-        h.offer_expires_at = None;
-        h.startup_deadline = None;
-        h.lobby_id = None;
-        h.lease_expires_at = None;
-        h.metadata_nonce = None;
-    })?
+    let Some(next) = tx.compare_and_set(
+        &hunt.session_id,
+        hunt.generation,
+        &[hunt.state],
+        hunt.state_version,
+        move |h| {
+            h.generation += 1;
+            h.state = HostSelecting;
+            h.host_account_id = String::new();
+            h.host_steam_id = String::new();
+            h.bridge_instance_id = String::new();
+            h.failure_reason = Some(reason_text);
+            h.host_offer_id = None;
+            h.offer_expires_at = None;
+            h.startup_deadline = None;
+            h.lobby_id = None;
+            h.lease_expires_at = None;
+            h.metadata_nonce = None;
+        },
+    )?
     else {
         return Ok(None);
     };
@@ -513,18 +598,35 @@ pub fn retry_pre_active_host(tx: &mut HuntTx<'_>, hunt: &HuntSession, reason: &s
             ..ReliabilityIncrements::default()
         };
         tx.increment_reliability(&hunt.host_account_id, add, now, None)?;
-        tx.enqueue_control(&fence(&hunt.host_account_id, hunt, hunt.generation, json!({ "reason": reason }), now, 5 * 60_000))?;
+        tx.enqueue_control(&fence(
+            &hunt.host_account_id,
+            hunt,
+            hunt.generation,
+            json!({ "reason": reason }),
+            now,
+            5 * 60_000,
+        ))?;
     }
     Ok(Some(next))
 }
 
 /// `ExpireOffer`: the offered host never answered; back to host selection.
-pub fn expire_offer(tx: &mut HuntTx<'_>, hunt: &HuntSession, now: UnixMillis) -> Result<Option<HuntSession>, RealmsError> {
+pub fn expire_offer(
+    tx: &mut HuntTx<'_>,
+    hunt: &HuntSession,
+    now: UnixMillis,
+) -> Result<Option<HuntSession>, RealmsError> {
     let Some(offer) = &hunt.host_offer_id else {
         return Ok(None);
     };
-    let expired =
-        tx.update_offer(offer, &hunt.host_account_id, OfferStatus::Offered, OfferStatus::Expired, now, Some("TIMEOUT"))?;
+    let expired = tx.update_offer(
+        offer,
+        &hunt.host_account_id,
+        OfferStatus::Offered,
+        OfferStatus::Expired,
+        now,
+        Some("TIMEOUT"),
+    )?;
     if expired.is_none() {
         return Ok(None);
     }
@@ -535,18 +637,31 @@ pub fn expire_offer(tx: &mut HuntTx<'_>, hunt: &HuntSession, now: UnixMillis) ->
     tx.increment_reliability(&hunt.host_account_id, add, now, None)?;
     let reset = reset_to_selection(tx, hunt)?;
     if let Some(next) = &reset {
-        tx.append_transition(&transition(hunt, next, "HOST_OFFER_EXPIRED", TransitionActor::System, None, now))?;
+        tx.append_transition(&transition(
+            hunt,
+            next,
+            "HOST_OFFER_EXPIRED",
+            TransitionActor::System,
+            None,
+            now,
+        ))?;
     }
     Ok(reset)
 }
 
 /// HOST_OFFERED -> HOST_SELECTING with the offered host cleared.
 pub fn reset_to_selection(tx: &mut HuntTx<'_>, hunt: &HuntSession) -> Result<Option<HuntSession>, RealmsError> {
-    Ok(tx.compare_and_set(&hunt.session_id, hunt.generation, &[HostOffered], hunt.state_version, |h| {
-        h.state = HostSelecting;
-        h.host_account_id = String::new();
-        h.host_steam_id = String::new();
-        h.host_offer_id = None;
-        h.offer_expires_at = None;
-    })?)
+    Ok(tx.compare_and_set(
+        &hunt.session_id,
+        hunt.generation,
+        &[HostOffered],
+        hunt.state_version,
+        |h| {
+            h.state = HostSelecting;
+            h.host_account_id = String::new();
+            h.host_steam_id = String::new();
+            h.host_offer_id = None;
+            h.offer_expires_at = None;
+        },
+    )?)
 }

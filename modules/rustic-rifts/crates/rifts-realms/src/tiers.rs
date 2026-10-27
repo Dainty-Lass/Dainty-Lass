@@ -167,7 +167,8 @@ impl HostingPolicy {
             allowed_hunts: csv_set(get("P2P_ALLOWED_HUNTS")),
             allow_all_resolvable_hunts: strict_true(get("P2P_ALLOW_ALL_RESOLVABLE_HUNTS")),
             allow_high_risk_hunt_classes: strict_true(get("P2P_ALLOW_HIGH_RISK_HUNT_CLASSES")),
-            private_parties_only: get("P2P_PRIVATE_PARTIES_ONLY").is_none_or(|v| !v.trim().eq_ignore_ascii_case("false")),
+            private_parties_only: get("P2P_PRIVATE_PARTIES_ONLY")
+                .is_none_or(|v| !v.trim().eq_ignore_ascii_case("false")),
             max_party_size: bounded_integer(get("P2P_MAX_PARTY_SIZE"), 4, 1, 4),
             percent_rollout: bounded_percent(get("P2P_PERCENT_ROLLOUT")),
             force_sdr: strict_true(get("P2P_FORCE_SDR")),
@@ -223,9 +224,17 @@ fn is_player_hosted_hunt(game_mode: &str, hunt_id: &str, training_enabled: bool)
 /// Trials' real ids say "Arena", so both names are matched.
 fn is_excluded_canary_class(hunt_id: &str) -> bool {
     let lower = hunt_id.to_lowercase();
-    ["trial", "arena", "leaderboard", "gauntlet", "escalation", "race", "competitive"]
-        .iter()
-        .any(|class| lower.contains(class))
+    [
+        "trial",
+        "arena",
+        "leaderboard",
+        "gauntlet",
+        "escalation",
+        "race",
+        "competitive",
+    ]
+    .iter()
+    .any(|class| lower.contains(class))
 }
 
 /// The 1.12 FTUE's cinematic recurses on this runtime: a measured exclusion no switch overrides.
@@ -317,7 +326,11 @@ pub fn decide_hunt_route(
         if !policy.tier1_shadow_approved {
             return dedicated(R::Tier1ShadowNotApproved, None);
         }
-        if input.account_ids.iter().any(|a| !policy.tier1_allowed_accounts.contains(a)) {
+        if input
+            .account_ids
+            .iter()
+            .any(|a| !policy.tier1_allowed_accounts.contains(a))
+        {
             return dedicated(R::Tier1AccountNotAllowlisted, None);
         }
         if !policy.tier1_allowed_hunts.contains(&input.hunt_id) {

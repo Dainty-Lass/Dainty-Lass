@@ -16,8 +16,8 @@ use crate::ports::{Accounts, Clock, IdSource, RateLimiter, RealmEventSink, Realm
 use crate::realm::{
     AccountAt, HEARTBEAT_ONLINE_MS, HostingPatch, InviteState, JoinDenial, JoinVia, MemberRole, PRESENCE_CACHE_MS,
     PRESENCE_TTL_MS, Patch, RealmBan, RealmEvent, RealmInviteRecord, RealmLimits, RealmMember, RealmPresenceRecord,
-    RealmRecord, RemovalReason, apply_heartbeat, build_invite, decide_join, detect_ownership_change,
-    hub_room_ids_of, invite_state, is_realm_hub_ready, is_realm_name_releasable, is_realm_online, is_realm_serving,
+    RealmRecord, RemovalReason, apply_heartbeat, build_invite, decide_join, detect_ownership_change, hub_room_ids_of,
+    invite_state, is_realm_hub_ready, is_realm_name_releasable, is_realm_online, is_realm_serving,
     normalize_hub_room_id, presence_touch_needs_write, realm_name_for_username, realm_name_release_at,
     sort_newest_first, validate_hosting_patch,
 };
@@ -434,7 +434,10 @@ impl RealmDirectory {
 
     fn throttle(&self, bucket: Bucket, account: &str) -> Result<(), RealmsError> {
         let (name, max, window) = bucket.budget();
-        if self.limiter.is_limited(&format!("realms:{name}:{account}"), max, window) {
+        if self
+            .limiter
+            .is_limited(&format!("realms:{name}:{account}"), max, window)
+        {
             return Err(refused(
                 "AUTH_RATE_LIMITED",
                 "Too many realm requests. Please wait a moment and try again.",
@@ -515,8 +518,12 @@ impl RealmDirectory {
         viewer: &str,
         known_host_key: Option<&str>,
     ) -> Vec<RealmPublicInfo> {
-        let names = self.names_for(realms.iter().map(|r| r.host_account_id.clone()).collect()).await;
-        let counts = self.player_counts(realms.iter().map(|r| r.realm_id.clone()).collect()).await;
+        let names = self
+            .names_for(realms.iter().map(|r| r.host_account_id.clone()).collect())
+            .await;
+        let counts = self
+            .player_counts(realms.iter().map(|r| r.realm_id.clone()).collect())
+            .await;
         realms
             .iter()
             .map(|realm| self.public_info(realm, viewer, &names, &counts, known_host_key))
@@ -677,7 +684,9 @@ impl RealmDirectory {
     /// After a kick, ban or leave; a failure does not undo the removal.
     async fn drop_presence_in_realm(&self, actor: &Actor, account: &str, realm_id: &str) {
         if let Err(error) = self.presence.remove(actor, account, Some(realm_id)).await {
-            self.log.warn(&format!("[Realms] could not remove presence realmId={realm_id}: {error}"));
+            self.log.warn(&format!(
+                "[Realms] could not remove presence realmId={realm_id}: {error}"
+            ));
         }
         self.cache().invalidate(account);
     }
@@ -685,7 +694,9 @@ impl RealmDirectory {
     /// After a release: the accounts are unknown, so the whole cache goes.
     async fn drop_presence_of_realm(&self, actor: &Actor, realm_id: &str) {
         if let Err(error) = self.presence.remove_for_realm(actor, realm_id).await {
-            self.log.warn(&format!("[Realms] could not remove presence of realmId={realm_id}: {error}"));
+            self.log.warn(&format!(
+                "[Realms] could not remove presence of realmId={realm_id}: {error}"
+            ));
         }
         self.cache().clear();
     }
@@ -740,7 +751,10 @@ impl RealmDirectory {
             role: MemberRole::Member,
             joined_at: self.now(),
         };
-        let added = self.repo.add_member(&actor, &realm.realm_id, &member, self.limits.max_members).await?;
+        let added = self
+            .repo
+            .add_member(&actor, &realm.realm_id, &member, self.limits.max_members)
+            .await?;
         if added != AddMemberResult::Added
             && let Some(code) = &consumed
         {
@@ -752,7 +766,8 @@ impl RealmDirectory {
             AddMemberResult::NotFound => Err("REALM_NOT_FOUND"),
             AddMemberResult::Added => {
                 let via = if via == JoinVia::Invite { "INVITE" } else { "PUBLIC" };
-                self.log.info(&format!("[Realms] member joined realmId={} via={via}", realm.realm_id));
+                self.log
+                    .info(&format!("[Realms] member joined realmId={} via={via}", realm.realm_id));
                 Ok(true)
             }
             AddMemberResult::AlreadyMember => Ok(false),
@@ -794,7 +809,10 @@ impl RealmDirectory {
             role: MemberRole::Member,
             joined_at: self.now(),
         };
-        let added = self.repo.add_member(actor, &realm.realm_id, &member, self.limits.max_members).await?;
+        let added = self
+            .repo
+            .add_member(actor, &realm.realm_id, &member, self.limits.max_members)
+            .await?;
         match added {
             AddMemberResult::Banned => return Ok(Err("REALM_BANNED")),
             AddMemberResult::Full => return Ok(Err("REALM_FULL")),
@@ -807,7 +825,8 @@ impl RealmDirectory {
         }
         self.repo.remove_join_request(actor, &realm.realm_id, account).await?;
         if added == AddMemberResult::Added {
-            self.log.info(&format!("[Realms] player invite accepted realmId={}", realm.realm_id));
+            self.log
+                .info(&format!("[Realms] player invite accepted realmId={}", realm.realm_id));
         }
         Ok(Ok(()))
     }
@@ -856,7 +875,12 @@ impl RealmDirectory {
     /// Claims a realm name for the caller (one realm per host account).
     pub async fn create_realm(&self, account: &str, input: &CreateRealmInput) -> Result<HostedReply, RealmsError> {
         self.throttle(Bucket::Create, account)?;
-        let already = || refused("REALM_ALREADY_EXISTS", "You already host a realm. Release it before claiming another name.");
+        let already = || {
+            refused(
+                "REALM_ALREADY_EXISTS",
+                "You already host a realm. Release it before claiming another name.",
+            )
+        };
         // The host first: releasing a dormant name only to find the host can't use it would cost someone their name
         if self.repo.find_by_host(account).await?.is_some() {
             return Err(already());
@@ -898,7 +922,10 @@ impl RealmDirectory {
                 .await?
         {
             // A dormant realm frees its name: 3 days never online, 30 days after it was last online
-            self.log.info(&format!("[Realms] name released realmId={} name={}", holder.realm_id, holder.name));
+            self.log.info(&format!(
+                "[Realms] name released realmId={} name={}",
+                holder.realm_id, holder.name
+            ));
             self.drop_presence_of_realm(&actor, &holder.realm_id).await;
             result = self.repo.insert_realm(&actor, &realm).await?;
         }
@@ -1048,7 +1075,9 @@ impl RealmDirectory {
                 });
             }
         }
-        Err(RealmsError::Database("Could not generate a unique invite code.".to_owned()))
+        Err(RealmsError::Database(
+            "Could not generate a unique invite code.".to_owned(),
+        ))
     }
 
     pub async fn list_invites(&self, account: &str) -> Result<InvitesReply, RealmsError> {
@@ -1068,7 +1097,8 @@ impl RealmDirectory {
             .revoke_invite(&player(account), &realm.realm_id, code, self.now())
             .await?
             .ok_or_else(|| refused("REALM_INVITE_INVALID", "That invite code is not valid."))?;
-        self.log.info(&format!("[Realms] invite revoked realmId={}", realm.realm_id));
+        self.log
+            .info(&format!("[Realms] invite revoked realmId={}", realm.realm_id));
         Ok(InviteReply {
             invite: self.invite_view(&invite),
         })
@@ -1106,7 +1136,10 @@ impl RealmDirectory {
         let mut decision = decide_join(&realm, account, invite.as_ref(), self.now());
         if decision == Err(JoinDenial::InviteRequired) && Self::has_player_invite(&realm, account) {
             // The host invited this player by name: joining accepts the invite
-            if let Err(code) = self.accept_player_invite_inner(&player(account), &realm, account).await? {
+            if let Err(code) = self
+                .accept_player_invite_inner(&player(account), &realm, account)
+                .await?
+            {
                 return Err(entry_error(code));
             }
             let fresh = self.repo.find_by_id(&realm.realm_id).await?.unwrap_or(realm);
@@ -1143,7 +1176,11 @@ impl RealmDirectory {
 
     /// The realm part of Play: may this account enter now? The host enters its own realm even when not serving
     /// (that is how it starts it); the offline check comes before any invite use, so a refused Play costs nothing.
-    pub async fn authorize_entry(&self, account: &str, input: &EntryRealmInput) -> Result<EntryAuthorization, RealmsError> {
+    pub async fn authorize_entry(
+        &self,
+        account: &str,
+        input: &EntryRealmInput,
+    ) -> Result<EntryAuthorization, RealmsError> {
         use EntryAuthorization::Refused;
         self.throttle(Bucket::Entry, account)?;
         let mut invite = None;
@@ -1167,7 +1204,10 @@ impl RealmDirectory {
         let mut decision = decide_join(&realm, account, invite.as_ref(), self.now());
         if decision == Err(JoinDenial::InviteRequired) && Self::has_player_invite(&realm, account) {
             // Play with a pending player invite accepts it (the offline check below still applies)
-            if let Err(code) = self.accept_player_invite_inner(&player(account), &realm, account).await? {
+            if let Err(code) = self
+                .accept_player_invite_inner(&player(account), &realm, account)
+                .await?
+            {
                 return Ok(Refused(code));
             }
             decision = Ok(JoinVia::Member);
@@ -1214,7 +1254,8 @@ impl RealmDirectory {
         if !self.repo.remove_member(&actor, &realm.realm_id, account).await? {
             return Err(refused("REALM_NOT_MEMBER", "You are not a member of this realm."));
         }
-        self.log.info(&format!("[Realms] member left realmId={}", realm.realm_id));
+        self.log
+            .info(&format!("[Realms] member left realmId={}", realm.realm_id));
         self.drop_presence_in_realm(&actor, account, &realm.realm_id).await;
         self.emit(RealmEvent::MemberRemoved {
             realm_id: realm.realm_id.clone(),
@@ -1229,13 +1270,20 @@ impl RealmDirectory {
         self.throttle(Bucket::Write, account)?;
         let realm = self.require_hosted(account).await?;
         if target == account {
-            return Err(refused("REALM_INVALID_TARGET", "You cannot remove yourself from your own realm."));
+            return Err(refused(
+                "REALM_INVALID_TARGET",
+                "You cannot remove yourself from your own realm.",
+            ));
         }
         let actor = player(account);
         if !self.repo.remove_member(&actor, &realm.realm_id, target).await? {
-            return Err(refused("REALM_NOT_MEMBER", "That account is not a member of your realm."));
+            return Err(refused(
+                "REALM_NOT_MEMBER",
+                "That account is not a member of your realm.",
+            ));
         }
-        self.log.info(&format!("[Realms] member kicked realmId={}", realm.realm_id));
+        self.log
+            .info(&format!("[Realms] member kicked realmId={}", realm.realm_id));
         self.drop_presence_in_realm(&actor, target, &realm.realm_id).await;
         self.emit(RealmEvent::MemberRemoved {
             realm_id: realm.realm_id.clone(),
@@ -1254,7 +1302,10 @@ impl RealmDirectory {
         self.throttle(Bucket::Write, account)?;
         let realm = self.require_hosted(account).await?;
         if target == account {
-            return Err(refused("REALM_INVALID_TARGET", "You cannot ban yourself from your own realm."));
+            return Err(refused(
+                "REALM_INVALID_TARGET",
+                "You cannot ban yourself from your own realm.",
+            ));
         }
         let actor = player(account);
         let ban = RealmBan {
@@ -1262,12 +1313,16 @@ impl RealmDirectory {
             reason: reason.map(str::to_owned),
             at: self.now(),
         };
-        let result = self.repo.add_ban(&actor, &realm.realm_id, &ban, self.limits.max_bans).await?;
+        let result = self
+            .repo
+            .add_ban(&actor, &realm.realm_id, &ban, self.limits.max_bans)
+            .await?;
         match result {
             AddBanResult::NotFound => return Err(not_hosted()),
             AddBanResult::Full => return Err(refused("REALM_FULL", "The ban list is full; lift a ban first.")),
             AddBanResult::Banned => {
-                self.log.info(&format!("[Realms] account banned realmId={}", realm.realm_id));
+                self.log
+                    .info(&format!("[Realms] account banned realmId={}", realm.realm_id));
                 self.drop_presence_in_realm(&actor, target, &realm.realm_id).await;
                 self.emit(RealmEvent::MemberRemoved {
                     realm_id: realm.realm_id.clone(),
@@ -1290,7 +1345,8 @@ impl RealmDirectory {
         let realm = self.require_hosted(account).await?;
         let changed = self.repo.remove_ban(&player(account), &realm.realm_id, target).await?;
         if changed {
-            self.log.info(&format!("[Realms] ban lifted realmId={}", realm.realm_id));
+            self.log
+                .info(&format!("[Realms] ban lifted realmId={}", realm.realm_id));
         }
         Ok(ChangedReply {
             account_id: target.to_owned(),
@@ -1304,7 +1360,9 @@ impl RealmDirectory {
         self.throttle(Bucket::Read, account)?;
         let realm = self.require_hosted(account).await?;
         let requests = sort_newest_first(&realm.join_requests);
-        let names = self.names_for(requests.iter().map(|r| r.account_id.clone()).collect()).await;
+        let names = self
+            .names_for(requests.iter().map(|r| r.account_id.clone()).collect())
+            .await;
         Ok(RequestsReply {
             requests: requests
                 .iter()
@@ -1333,7 +1391,11 @@ impl RealmDirectory {
             role: MemberRole::Member,
             joined_at: self.now(),
         };
-        match self.repo.add_member(&actor, &realm.realm_id, &member, self.limits.max_members).await? {
+        match self
+            .repo
+            .add_member(&actor, &realm.realm_id, &member, self.limits.max_members)
+            .await?
+        {
             AddMemberResult::NotFound => return Err(not_hosted()),
             AddMemberResult::Banned => {
                 self.repo.remove_join_request(&actor, &realm.realm_id, target).await?;
@@ -1343,7 +1405,8 @@ impl RealmDirectory {
             AddMemberResult::Added | AddMemberResult::AlreadyMember => {}
         }
         self.repo.remove_join_request(&actor, &realm.realm_id, target).await?;
-        self.log.info(&format!("[Realms] join request approved realmId={}", realm.realm_id));
+        self.log
+            .info(&format!("[Realms] join request approved realmId={}", realm.realm_id));
         Ok(StatusReply {
             account_id: target.to_owned(),
             status: "APPROVED",
@@ -1353,13 +1416,18 @@ impl RealmDirectory {
     pub async fn deny_join_request(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
         self.throttle(Bucket::Write, account)?;
         let realm = self.require_hosted(account).await?;
-        if !self.repo.remove_join_request(&player(account), &realm.realm_id, target).await? {
+        if !self
+            .repo
+            .remove_join_request(&player(account), &realm.realm_id, target)
+            .await?
+        {
             return Err(refused(
                 "REALM_REQUEST_NOT_FOUND",
                 "That player has not asked to join your realm.",
             ));
         }
-        self.log.info(&format!("[Realms] join request denied realmId={}", realm.realm_id));
+        self.log
+            .info(&format!("[Realms] join request denied realmId={}", realm.realm_id));
         Ok(StatusReply {
             account_id: target.to_owned(),
             status: "DENIED",
@@ -1381,7 +1449,10 @@ impl RealmDirectory {
             role: MemberRole::Member,
             joined_at: self.now(),
         };
-        let added = self.repo.add_member(&actor, &realm.realm_id, &member, self.limits.max_members).await?;
+        let added = self
+            .repo
+            .add_member(&actor, &realm.realm_id, &member, self.limits.max_members)
+            .await?;
         match added {
             AddMemberResult::NotFound => return Err(not_hosted()),
             AddMemberResult::Banned => {
@@ -1395,7 +1466,8 @@ impl RealmDirectory {
         }
         self.repo.remove_join_request(&actor, &realm.realm_id, &target).await?;
         if added == AddMemberResult::Added {
-            self.log.info(&format!("[Realms] player added by the host realmId={}", realm.realm_id));
+            self.log
+                .info(&format!("[Realms] player added by the host realmId={}", realm.realm_id));
         }
         let display_name = self
             .names_for(vec![target.clone()])
@@ -1432,7 +1504,12 @@ impl RealmDirectory {
             display_name: display_name.clone(),
             status,
         };
-        let banned = || refused("REALM_BANNED", "That player is banned from your realm. Lift the ban first.");
+        let banned = || {
+            refused(
+                "REALM_BANNED",
+                "That player is banned from your realm. Lift the ban first.",
+            )
+        };
         if realm.join_requests.iter().any(|r| r.account_id == target) {
             return match self.accept_player_invite_inner(&actor, &realm, &target).await? {
                 Ok(()) => {
@@ -1465,7 +1542,8 @@ impl RealmDirectory {
             AddEntryResult::AlreadyMember => Ok(reply("MEMBER")),
             AddEntryResult::Added | AddEntryResult::Already => {
                 if result == AddEntryResult::Added {
-                    self.log.info(&format!("[Realms] player invited realmId={}", realm.realm_id));
+                    self.log
+                        .info(&format!("[Realms] player invited realmId={}", realm.realm_id));
                 }
                 Ok(reply("INVITED"))
             }
@@ -1475,10 +1553,18 @@ impl RealmDirectory {
     pub async fn cancel_player_invite(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
         self.throttle(Bucket::Write, account)?;
         let realm = self.require_hosted(account).await?;
-        if !self.repo.remove_player_invite(&player(account), &realm.realm_id, target).await? {
-            return Err(refused("REALM_PLAYER_INVITE_NOT_FOUND", "That player has no invite waiting."));
+        if !self
+            .repo
+            .remove_player_invite(&player(account), &realm.realm_id, target)
+            .await?
+        {
+            return Err(refused(
+                "REALM_PLAYER_INVITE_NOT_FOUND",
+                "That player has no invite waiting.",
+            ));
         }
-        self.log.info(&format!("[Realms] player invite cancelled realmId={}", realm.realm_id));
+        self.log
+            .info(&format!("[Realms] player invite cancelled realmId={}", realm.realm_id));
         Ok(StatusReply {
             account_id: target.to_owned(),
             status: "CANCELLED",
@@ -1499,7 +1585,13 @@ impl RealmDirectory {
                     .iter()
                     .find(|i| i.account_id == account)
                     .map_or(realm.created_at, |i| i.at);
-                (at, PlayerInviteView { realm: info, at: iso(at) })
+                (
+                    at,
+                    PlayerInviteView {
+                        realm: info,
+                        at: iso(at),
+                    },
+                )
             })
             .collect();
         invites.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
@@ -1516,7 +1608,10 @@ impl RealmDirectory {
             .await?
             .ok_or_else(|| refused("REALM_NOT_FOUND", "There is no realm with that name."))?;
         if !Self::has_player_invite(&realm, account) {
-            return Err(refused("REALM_PLAYER_INVITE_NOT_FOUND", "You have no invite to this realm."));
+            return Err(refused(
+                "REALM_PLAYER_INVITE_NOT_FOUND",
+                "You have no invite to this realm.",
+            ));
         }
         let actor = player(account);
         if let Err(code) = self.accept_player_invite_inner(&actor, &realm, account).await? {
@@ -1539,10 +1634,18 @@ impl RealmDirectory {
             .find_by_name(name)
             .await?
             .ok_or_else(|| refused("REALM_NOT_FOUND", "There is no realm with that name."))?;
-        if !self.repo.remove_player_invite(&player(account), &realm.realm_id, account).await? {
-            return Err(refused("REALM_PLAYER_INVITE_NOT_FOUND", "You have no invite to this realm."));
+        if !self
+            .repo
+            .remove_player_invite(&player(account), &realm.realm_id, account)
+            .await?
+        {
+            return Err(refused(
+                "REALM_PLAYER_INVITE_NOT_FOUND",
+                "You have no invite to this realm.",
+            ));
         }
-        self.log.info(&format!("[Realms] player invite declined realmId={}", realm.realm_id));
+        self.log
+            .info(&format!("[Realms] player invite declined realmId={}", realm.realm_id));
         Ok(DeclinedReply { declined: true })
     }
 
@@ -1552,7 +1655,11 @@ impl RealmDirectory {
         let realm = self.require_hosted(account).await?;
         let update = apply_heartbeat(self.now(), input.online, input.version.clone());
         let actor = player(account);
-        if !self.repo.record_heartbeat(&actor, &realm.realm_id, account, &update).await? {
+        if !self
+            .repo
+            .record_heartbeat(&actor, &realm.realm_id, account, &update)
+            .await?
+        {
             return Err(not_hosted());
         }
         if let Some(hosting) = input.hosting {
@@ -1563,7 +1670,9 @@ impl RealmDirectory {
                 afk_seconds: hosting.afk_seconds.map_or(Patch::Remove, Patch::Set),
                 ..HostingPatch::default()
             };
-            self.repo.patch_hosting(&actor, &realm.realm_id, &patch, self.now()).await?;
+            self.repo
+                .patch_hosting(&actor, &realm.realm_id, &patch, self.now())
+                .await?;
         }
         Ok(HeartbeatReply {
             online: input.online != Some(false),
@@ -1582,7 +1691,10 @@ impl RealmDirectory {
         if !self.repo.delete_realm_of_host(&actor, &realm.realm_id, account).await? {
             return Err(not_hosted());
         }
-        self.log.info(&format!("[Realms] realm released realmId={} name={}", realm.realm_id, realm.name));
+        self.log.info(&format!(
+            "[Realms] realm released realmId={} name={}",
+            realm.realm_id, realm.name
+        ));
         self.drop_presence_of_realm(&actor, &realm.realm_id).await;
         self.emit(RealmEvent::RealmReleased {
             realm_id: realm.realm_id.clone(),
@@ -1631,7 +1743,9 @@ impl RealmDirectory {
         match self.authorize_entry(account, &input).await? {
             EntryAuthorization::Refused(code) => Err(entry_error(code)),
             EntryAuthorization::Ok { realm_id, is_host } => {
-                self.log.info(&format!("[Realms] game session authorized realmId={realm_id} host={is_host}"));
+                self.log.info(&format!(
+                    "[Realms] game session authorized realmId={realm_id} host={is_host}"
+                ));
                 Ok(Some((realm_id, is_host)))
             }
         }
@@ -1651,7 +1765,8 @@ impl RealmDirectory {
         match realm_id {
             None => {
                 if let Err(error) = self.bind_presence(account, None).await {
-                    self.log.warn(&format!("[Realms] could not reset realm presence at login: {error}"));
+                    self.log
+                        .warn(&format!("[Realms] could not reset realm presence at login: {error}"));
                 }
                 Ok(())
             }
@@ -1710,10 +1825,16 @@ impl RealmDirectory {
         let now = self.now();
         let lapsed = self
             .repo
-            .claim_lapsed_hosts(&Actor::System("realms-sweeper"), now, UnixMillis(now.0 - SWEEP_LOOKBACK_MS), SWEEP_BATCH)
+            .claim_lapsed_hosts(
+                &Actor::System("realms-sweeper"),
+                now,
+                UnixMillis(now.0 - SWEEP_LOOKBACK_MS),
+                SWEEP_BATCH,
+            )
             .await?;
         for realm in &lapsed {
-            self.log.info(&format!("[Realms] host offline realmId={}", realm.realm_id));
+            self.log
+                .info(&format!("[Realms] host offline realmId={}", realm.realm_id));
             self.emit(RealmEvent::HostOffline {
                 realm_id: realm.realm_id.clone(),
                 host_account_id: realm.host_account_id.clone(),

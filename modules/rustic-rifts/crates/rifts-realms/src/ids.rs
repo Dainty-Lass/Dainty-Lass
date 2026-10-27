@@ -26,7 +26,14 @@ pub fn new_session_ulid(now: UnixMillis) -> u128 {
 /// Lower-case `8-4-4-4-12` hex, as the transport writes a ticket's session bytes (`admission_ticket.cpp`).
 pub fn uuid_text(bits: u128) -> String {
     let hex = format!("{bits:032x}");
-    format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..])
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..]
+    )
 }
 
 /// The bits of a wire session id; `None` unless it is exactly the lower-case form Node and the transport write.
@@ -82,7 +89,10 @@ mod tests {
         assert_eq!(global.kind(), IdKind::Hunt);
         assert_eq!(global.owner(), &node);
         assert!(global.to_string().starts_with("hunt:"));
-        assert_eq!(global_session_id(&wire, true, &node).unwrap().kind(), IdKind::HubInstance);
+        assert_eq!(
+            global_session_id(&wire, true, &node).unwrap().kind(),
+            IdKind::HubInstance
+        );
         let seam = seam_session_id(&wire, &node).unwrap();
         assert_eq!(seam.0.ulid.unix_millis(), 1_792_000_000_000);
         assert_eq!(wire_session_id(&seam), wire);
@@ -93,7 +103,12 @@ mod tests {
 
     #[test]
     fn only_the_lower_case_wire_form_is_a_session_id() {
-        for bad in ["87F6C5D7-FC8C-41B9-8837-5AEAC1BD462D", "87f6c5d7fc8c41b988375aeac1bd462d", "session-1", ""] {
+        for bad in [
+            "87F6C5D7-FC8C-41B9-8837-5AEAC1BD462D",
+            "87f6c5d7fc8c41b988375aeac1bd462d",
+            "session-1",
+            "",
+        ] {
             assert_eq!(session_bits(bad), None, "{bad}");
         }
     }

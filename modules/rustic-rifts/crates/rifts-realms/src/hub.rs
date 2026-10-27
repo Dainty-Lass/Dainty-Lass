@@ -8,7 +8,10 @@ use crate::hunt::{HuntSession, HuntState};
 
 /// `HubPartyKey`: the hub's `activePartyKey` and `partyId`, so a realm has one live hub per kind.
 pub fn hub_party_key(realm_id: &str, kind: HubKind) -> String {
-    format!("realmhub:{realm_id}:{}", crate::realm::hub_kind_name(kind).to_lowercase())
+    format!(
+        "realmhub:{realm_id}:{}",
+        crate::realm::hub_kind_name(kind).to_lowercase()
+    )
 }
 
 /// `RealmRequestClass`: what a realm member's matchmaking request asks for.
@@ -268,7 +271,10 @@ pub fn decide_hub_tick(hub: &HuntSession, now: UnixMillis, emergency_stop: bool,
 
 /// A lost lease, a dead process or a start that never finished counts against the host.
 pub fn hub_end_counts_as_host_failure(reason: &str) -> bool {
-    matches!(reason, "HOST_LEASE_LOST" | "HOST_PROCESS_UNHEALTHY" | "HUB_STARTUP_TIMEOUT")
+    matches!(
+        reason,
+        "HOST_LEASE_LOST" | "HOST_PROCESS_UNHEALTHY" | "HUB_STARTUP_TIMEOUT"
+    )
 }
 
 // ------------------------------------------------------------------ presence
@@ -434,7 +440,10 @@ pub fn hub_ticket_denial(check: &HubTicketCheck<'_>) -> Option<HubTicketDenial> 
     if check.hub.expires_at <= check.now {
         return Some(HubTicketDenial::HubExpired);
     }
-    if check.generation.is_some_and(|generation| generation != check.hub.generation) {
+    if check
+        .generation
+        .is_some_and(|generation| generation != check.hub.generation)
+    {
         return Some(HubTicketDenial::GenerationMismatch);
     }
     if check.account_id == check.hub.host_account_id {
@@ -454,9 +463,7 @@ pub fn hub_ticket_denial(check: &HubTicketCheck<'_>) -> Option<HubTicketDenial> 
         return Some(HubTicketDenial::NotMember);
     }
     match check.link {
-        Some(("VERIFIED", link_peer)) => {
-            (link_peer != peer_id).then_some(HubTicketDenial::PeerIdMismatch)
-        }
+        Some(("VERIFIED", link_peer)) => (link_peer != peer_id).then_some(HubTicketDenial::PeerIdMismatch),
         _ => Some(HubTicketDenial::PeerLinkMissing),
     }
 }
@@ -467,7 +474,10 @@ pub fn hub_ticket_denial_error(reason: HubTicketDenial) -> (&'static str, &'stat
         HubTicketDenial::HubNotRunning | HubTicketDenial::HubExpired => {
             ("P2P_SESSION_NOT_READY", "The realm's hub is not accepting players.")
         }
-        HubTicketDenial::GenerationMismatch => ("P2P_GENERATION_FENCED", "This request belongs to a stale hub generation."),
+        HubTicketDenial::GenerationMismatch => (
+            "P2P_GENERATION_FENCED",
+            "This request belongs to a stale hub generation.",
+        ),
         HubTicketDenial::IsHost | HubTicketDenial::NotExpected | HubTicketDenial::EntryExpired => {
             ("P2P_NOT_ROSTERED", "This account has no open entry into the hub.")
         }
@@ -533,7 +543,10 @@ fn bounded_integer(value: Option<&str>, fallback: i64, min: i64, max: i64) -> i6
     if !(1..=10).contains(&text.len()) || !text.bytes().all(|b| b.is_ascii_digit()) {
         return fallback;
     }
-    text.parse().ok().filter(|n| (min..=max).contains(n)).unwrap_or(fallback)
+    text.parse()
+        .ok()
+        .filter(|n| (min..=max).contains(n))
+        .unwrap_or(fallback)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -549,7 +562,8 @@ pub struct RealmHubPolicy {
 impl RealmHubPolicy {
     pub fn from_settings(settings: &dyn rifts_seam::Settings) -> Self {
         Self {
-            capability_ttl_ms: bounded_integer(settings.get("P2P_REALM_HUB_CAPABILITY_TTL_HOURS"), 24, 1, 168) * 3_600_000,
+            capability_ttl_ms: bounded_integer(settings.get("P2P_REALM_HUB_CAPABILITY_TTL_HOURS"), 24, 1, 168)
+                * 3_600_000,
             #[allow(clippy::cast_precision_loss)]
             minimum_free_memory_mib: bounded_integer(
                 settings.get("P2P_REALM_MIN_FREE_MEMORY_MIB_PER_SERVER"),

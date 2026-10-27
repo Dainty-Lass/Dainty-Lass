@@ -27,7 +27,9 @@ use crate::repo::realms::RealmsRepository;
 use crate::tiers::HostingPolicy;
 use crate::time::iso;
 
-use HuntState::{Aborting, Admitting, Draining, HostOffered, HostReady, HostSelecting, Recovering, Running, Starting, Suspect};
+use HuntState::{
+    Aborting, Admitting, Draining, HostOffered, HostReady, HostSelecting, Recovering, Running, Starting, Suspect,
+};
 
 const LIFECYCLE_SCAN_LIMIT: u32 = 100;
 pub(crate) const MAX_OBSERVATION_AGE_MS: i64 = 15_000;
@@ -54,7 +56,9 @@ pub(crate) fn number_in(value: Option<&Value>, min: f64, max: f64) -> Option<f64
 /// `IntegerIn`.
 pub(crate) fn integer_in(value: Option<&Value>, min: f64, max: f64) -> Option<i64> {
     #[allow(clippy::cast_possible_truncation)]
-    number_in(value, min, max).filter(|n| n.fract() == 0.0).map(|n| n as i64)
+    number_in(value, min, max)
+        .filter(|n| n.fract() == 0.0)
+        .map(|n| n as i64)
 }
 
 /// The settings the lifecycle reads, taken once.
@@ -129,14 +133,24 @@ pub struct ObservationReply {
 /// What one monitor pass did to a session.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SweepStep {
-    Suspect { reason: String },
+    Suspect {
+        reason: String,
+    },
     Recovered,
     OfferExpired,
-    RetriedHost { reason: String },
-    Ended { reason: String, state: HuntState },
+    RetriedHost {
+        reason: String,
+    },
+    Ended {
+        reason: String,
+        state: HuntState,
+    },
     Selected,
     /// Handed to isles' recovery.
-    Recovery { reason: String, before_active: bool },
+    Recovery {
+        reason: String,
+        before_active: bool,
+    },
     RecoveryAdvanced,
     HubEntriesExpired(usize),
 }
@@ -245,20 +259,45 @@ impl Hosting {
         let actor = host_actor(capability);
         match current {
             Some(hunt) if hunt.is_realm_hub() => {
-                self.end_hub(&hunt.session_id, capability.generation, "HOST_PROCESS_UNHEALTHY", HuntState::Aborted, TransitionActor::Host, host)
-                    .await?;
+                self.end_hub(
+                    &hunt.session_id,
+                    capability.generation,
+                    "HOST_PROCESS_UNHEALTHY",
+                    HuntState::Aborted,
+                    TransitionActor::Host,
+                    host,
+                )
+                .await?;
             }
             Some(hunt) if hunt.state == Draining && hunt.generation == capability.generation => {
-                let reason = hunt.completion_reason.clone().unwrap_or_else(|| DRAIN_COMPLETION_REASON.to_owned());
-                self.end_hunt(&actor, &hunt, &reason, &[Draining], TransitionActor::Host, host, true).await?;
+                let reason = hunt
+                    .completion_reason
+                    .clone()
+                    .unwrap_or_else(|| DRAIN_COMPLETION_REASON.to_owned());
+                self.end_hunt(&actor, &hunt, &reason, &[Draining], TransitionActor::Host, host, true)
+                    .await?;
             }
             Some(hunt) if hunt.generation == capability.generation && host_loss_is_clean_end(&hunt).is_some() => {
                 let reason = format!("{}_HOST_STOPPED", host_loss_is_clean_end(&hunt).unwrap_or_default());
-                self.end_hunt(&actor, &hunt, &reason, HOST_END_STATES, TransitionActor::Host, host, true).await?;
+                self.end_hunt(
+                    &actor,
+                    &hunt,
+                    &reason,
+                    HOST_END_STATES,
+                    TransitionActor::Host,
+                    host,
+                    true,
+                )
+                .await?;
             }
             _ => {
                 self.recovery
-                    .prepare(capability.session_id.clone(), capability.generation, "HOST_PROCESS_UNHEALTHY".to_owned(), false)
+                    .prepare(
+                        capability.session_id.clone(),
+                        capability.generation,
+                        "HOST_PROCESS_UNHEALTHY".to_owned(),
+                        false,
+                    )
                     .await?;
             }
         }
@@ -276,14 +315,28 @@ impl Hosting {
         transition_account: Option<&str>,
         fence: bool,
     ) -> Result<Option<HuntSession>, RealmsError> {
-        let (id, generation, reason_text, allowed) =
-            (hunt.session_id.clone(), hunt.generation, reason.to_owned(), allowed.to_vec());
+        let (id, generation, reason_text, allowed) = (
+            hunt.session_id.clone(),
+            hunt.generation,
+            reason.to_owned(),
+            allowed.to_vec(),
+        );
         let account = transition_account.map(str::to_owned);
         let now = self.now();
         let ended = self
             .hunts
             .transaction(actor, move |tx| {
-                end_session(tx, &id, generation, &reason_text, &allowed, transition_actor, account.as_deref(), fence, now)
+                end_session(
+                    tx,
+                    &id,
+                    generation,
+                    &reason_text,
+                    &allowed,
+                    transition_actor,
+                    account.as_deref(),
+                    fence,
+                    now,
+                )
             })
             .await?;
         if let Some(record) = &ended {
@@ -309,7 +362,11 @@ impl Hosting {
         actor_account: Option<&str>,
     ) -> Result<Option<HuntSession>, RealmsError> {
         let now = self.now();
-        let (id, reason_text, account) = (session_id.to_owned(), reason.to_owned(), actor_account.map(str::to_owned));
+        let (id, reason_text, account) = (
+            session_id.to_owned(),
+            reason.to_owned(),
+            actor_account.map(str::to_owned),
+        );
         let actor = account.clone().map_or(SYSTEM, |a| Actor::Account(AccountId(a)));
         let ended = self
             .hunts
@@ -355,7 +412,10 @@ impl Hosting {
                 let rows = tx.end_hub_presence(&id, generation, now, crate::hub::presence_purge_at(now))?;
                 let expires = UnixMillis(now.0 + CONTROL_MESSAGE_LIFETIME_MS);
                 let kind = hub.hub_kind.map(crate::realm::hub_kind_name);
-                for row in rows.iter().filter(|r| r.session_id == id && r.account_id != hub.host_account_id) {
+                for row in rows
+                    .iter()
+                    .filter(|r| r.session_id == id && r.account_id != hub.host_account_id)
+                {
                     tx.enqueue_control(&NewControlMessage {
                         account_id: row.account_id.clone(),
                         message_type: "REALM_SESSION_LEAVE".to_owned(),
@@ -415,7 +475,8 @@ impl Hosting {
                 && let Some(realm) = &hub.realm_id
                 && let Err(error) = self.realms.mark_offline(&SYSTEM, realm, now).await
             {
-                self.log.warn(&format!("[RealmHub] could not mark realm {realm} offline: {error}"));
+                self.log
+                    .warn(&format!("[RealmHub] could not mark realm {realm} offline: {error}"));
             }
         }
         Ok(ended)
@@ -426,7 +487,12 @@ impl Hosting {
         let Some(realm) = &hub.realm_id else {
             return;
         };
-        let active = self.hunts.count_active_realm_servers(realm).await.ok().map(|n| n.min(32));
+        let active = self
+            .hunts
+            .count_active_realm_servers(realm)
+            .await
+            .ok()
+            .map(|n| n.min(32));
         let mut patch = if hub.hub_kind == Some(rifts_seam::HubKind::Training) {
             HostingPatch {
                 training_state: Some(state),
@@ -445,12 +511,19 @@ impl Hosting {
         };
         patch.active_servers = active;
         if let Err(error) = self.realms.patch_hosting(&SYSTEM, realm, &patch, self.now()).await {
-            self.log.warn(&format!("[RealmHub] could not mirror hub state into realm {realm}: {error}"));
+            self.log.warn(&format!(
+                "[RealmHub] could not mirror hub state into realm {realm}: {error}"
+            ));
         }
     }
 
     /// `RecordParticipantObservation`.
-    pub async fn observe(&self, account: &str, session_id: &str, body: &Value) -> Result<ObservationReply, RealmsError> {
+    pub async fn observe(
+        &self,
+        account: &str,
+        session_id: &str,
+        body: &Value,
+    ) -> Result<ObservationReply, RealmsError> {
         let not_bound = || fenced("The observation is not bound to the active roster generation.");
         let generation = body.get("generation").and_then(Value::as_i64);
         let Some(hunt) = self.hunts.find_hunt(session_id).await? else {
@@ -485,12 +558,21 @@ impl Hosting {
         if generation != Some(hunt.generation) {
             return Err(not_bound());
         }
-        let malformed = || refused("P2P_TICKET_INVALID", "The participant observation is malformed or stale.");
+        let malformed = || {
+            refused(
+                "P2P_TICKET_INVALID",
+                "The participant observation is malformed or stale.",
+            )
+        };
         let observed = string_in(body.get("observedAt"), 40)
             .as_deref()
             .and_then(crate::time::parse_iso)
             .ok_or_else(malformed)?;
-        let route = body.get("routeKind").and_then(Value::as_str).unwrap_or_default().to_owned();
+        let route = body
+            .get("routeKind")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
         let metrics = body.get("metricsAvailable").and_then(Value::as_bool);
         let absent = |key: &str| body.get(key).is_none_or(Value::is_null);
         let metrics_valid = match metrics {
@@ -523,7 +605,11 @@ impl Hosting {
             return Err(malformed());
         }
         #[allow(clippy::cast_possible_truncation)]
-        let whole = |key: &str| metrics.then(|| body.get(key).and_then(Value::as_f64).map(|n| n.round() as i64)).flatten();
+        let whole = |key: &str| {
+            metrics
+                .then(|| body.get(key).and_then(Value::as_f64).map(|n| n.round() as i64))
+                .flatten()
+        };
         let observation = ObservationRecord {
             observation_id: random_uuid(),
             session_id: session_id.to_owned(),
@@ -537,7 +623,9 @@ impl Hosting {
             route_kind: route,
             ping_ms: whole("pingMs"),
             jitter_ms: whole("jitterMs"),
-            packet_loss_percent: metrics.then(|| body.get("packetLossPercent").and_then(Value::as_f64)).flatten(),
+            packet_loss_percent: metrics
+                .then(|| body.get("packetLossPercent").and_then(Value::as_f64))
+                .flatten(),
             observed_at: observed,
         };
         if self.emergency_stop().await? {
@@ -563,7 +651,10 @@ impl Hosting {
     /// One monitor pass (`P2PHuntLifecycleMonitor.tick`): every session in a lifecycle state, oldest first. One failing
     /// session does not stop the others; its error is logged.
     pub async fn sweep(&self) -> Result<Vec<(String, SweepStep)>, RealmsError> {
-        let hunts = self.hunts.list_lifecycle_hunts(LIFECYCLE_STATES, LIFECYCLE_SCAN_LIMIT).await?;
+        let hunts = self
+            .hunts
+            .list_lifecycle_hunts(LIFECYCLE_STATES, LIFECYCLE_SCAN_LIMIT)
+            .await?;
         let stop = self.emergency_stop().await?;
         let mut steps = Vec::new();
         for hunt in hunts {
@@ -571,7 +662,9 @@ impl Hosting {
             match self.tick(hunt, stop).await {
                 Ok(Some(step)) => steps.push((id, step)),
                 Ok(None) => {}
-                Err(error) => self.log.warn(&format!("[P2P Lifecycle] session {id} tick failed: {error}")),
+                Err(error) => self
+                    .log
+                    .warn(&format!("[P2P Lifecycle] session {id} tick failed: {error}")),
             }
         }
         Ok(steps)
@@ -595,18 +688,26 @@ impl Hosting {
                 Ok(Some(SweepStep::Selected))
             }
             HostOffered if hunt.offer_expires_at.is_some_and(|at| at <= now) => {
-                let expired = self.hunts.transaction(&SYSTEM, move |tx| expire_offer(tx, &hunt, now)).await?;
+                let expired = self
+                    .hunts
+                    .transaction(&SYSTEM, move |tx| expire_offer(tx, &hunt, now))
+                    .await?;
                 if let Some(next) = expired {
                     self.begin_host_selection(&next.session_id).await?;
                     return Ok(Some(SweepStep::OfferExpired));
                 }
                 Ok(None)
             }
-            Starting if hunt.startup_deadline.is_some_and(|at| at <= now) => self.retry(&hunt, "HOST_STARTUP_TIMEOUT").await,
+            Starting if hunt.startup_deadline.is_some_and(|at| at <= now) => {
+                self.retry(&hunt, "HOST_STARTUP_TIMEOUT").await
+            }
             HostReady | Admitting | Running => self.tick_running(&hunt, now).await,
             Suspect => {
                 if hunt.lease_expires_at.is_some_and(|at| at > now) && hunt.pre_suspect_state.is_some() {
-                    let recovered = self.hunts.transaction(&SYSTEM, move |tx| recover_from_suspect(tx, &hunt)).await?;
+                    let recovered = self
+                        .hunts
+                        .transaction(&SYSTEM, move |tx| recover_from_suspect(tx, &hunt))
+                        .await?;
                     return Ok(recovered.map(|_| SweepStep::Recovered));
                 }
                 if !hunt.suspect_deadline.is_some_and(|at| at <= now) {
@@ -641,7 +742,11 @@ impl Hosting {
         }
         let observations = self
             .hunts
-            .list_recent_participant_observations(&hunt.session_id, hunt.generation, UnixMillis(now.0 - MAX_OBSERVATION_AGE_MS))
+            .list_recent_participant_observations(
+                &hunt.session_id,
+                hunt.generation,
+                UnixMillis(now.0 - MAX_OBSERVATION_AGE_MS),
+            )
             .await?;
         let mut failing: Vec<&str> = observations
             .iter()
@@ -670,8 +775,16 @@ impl Hosting {
     }
 
     /// A drained hunt never goes SUSPECT and never recovers: its players are on their way to another hunt.
-    async fn tick_draining(&self, hunt: &HuntSession, now: UnixMillis, stop: bool) -> Result<Option<SweepStep>, RealmsError> {
-        let reason = hunt.completion_reason.clone().unwrap_or_else(|| DRAIN_COMPLETION_REASON.to_owned());
+    async fn tick_draining(
+        &self,
+        hunt: &HuntSession,
+        now: UnixMillis,
+        stop: bool,
+    ) -> Result<Option<SweepStep>, RealmsError> {
+        let reason = hunt
+            .completion_reason
+            .clone()
+            .unwrap_or_else(|| DRAIN_COMPLETION_REASON.to_owned());
         let lapsed = hunt
             .lease_expires_at
             .is_none_or(|at| at.0 + self.settings.eligibility.suspect_lifetime_ms <= now.0);
@@ -683,7 +796,15 @@ impl Hosting {
             return Ok(None);
         };
         let ended = self
-            .end_hunt(&SYSTEM, hunt, &reason, &[Draining], TransitionActor::System, None, fence)
+            .end_hunt(
+                &SYSTEM,
+                hunt,
+                &reason,
+                &[Draining],
+                TransitionActor::System,
+                None,
+                fence,
+            )
             .await?;
         Ok(ended.map(|h| SweepStep::Ended { reason, state: h.state }))
     }
@@ -693,7 +814,14 @@ impl Hosting {
         match decide_hub_tick(hub, now, stop, enabled) {
             HubTick::End { reason } => {
                 let ended = self
-                    .end_hub(&hub.session_id, hub.generation, reason, HuntState::Aborted, TransitionActor::System, None)
+                    .end_hub(
+                        &hub.session_id,
+                        hub.generation,
+                        reason,
+                        HuntState::Aborted,
+                        TransitionActor::System,
+                        None,
+                    )
                     .await?;
                 Ok(ended.map(|h| SweepStep::Ended {
                     reason: reason.to_owned(),
@@ -749,7 +877,15 @@ impl Hosting {
 
     async fn clean_end(&self, hunt: &HuntSession, reason: &str) -> Result<Option<SweepStep>, RealmsError> {
         let ended = self
-            .end_hunt(&SYSTEM, hunt, reason, HOST_END_STATES, TransitionActor::System, None, true)
+            .end_hunt(
+                &SYSTEM,
+                hunt,
+                reason,
+                HOST_END_STATES,
+                TransitionActor::System,
+                None,
+                true,
+            )
             .await?;
         Ok(ended.map(|h| SweepStep::Ended {
             reason: reason.to_owned(),
@@ -780,7 +916,12 @@ impl Hosting {
         before_active: bool,
     ) -> Result<Option<SweepStep>, RealmsError> {
         self.recovery
-            .prepare(hunt.session_id.clone(), hunt.generation, reason.to_owned(), before_active)
+            .prepare(
+                hunt.session_id.clone(),
+                hunt.generation,
+                reason.to_owned(),
+                before_active,
+            )
             .await?;
         Ok(Some(SweepStep::Recovery {
             reason: reason.to_owned(),

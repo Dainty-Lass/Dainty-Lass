@@ -12,8 +12,8 @@ use crate::db::RealmsDb;
 use crate::hunt::ControlMessageRecord;
 use crate::ports::Clock;
 use crate::repo::hunts::{HuntRepository, NewControlMessage};
-use crate::time::iso;
 use crate::tiers::js_number;
+use crate::time::iso;
 
 const MAX_WAIT_MS: f64 = 25_000.0;
 const POLL_MS: u64 = 250;
@@ -100,7 +100,9 @@ impl ControlChannel {
     /// the unacknowledged messages, flagged `staleCursor`.
     pub async fn poll(&self, account: &str, after: Option<&str>, wait: Option<&str>) -> Result<PollReply, RealmsError> {
         let after = after.map_or(Some(0.0), js_number);
-        let wait = wait.map_or(Some(MAX_WAIT_MS), js_number).map(|w| w.clamp(0.0, MAX_WAIT_MS));
+        let wait = wait
+            .map_or(Some(MAX_WAIT_MS), js_number)
+            .map(|w| w.clamp(0.0, MAX_WAIT_MS));
         let (Some(after), Some(wait)) = (after, wait) else {
             return Err(refused("P2P_TICKET_INVALID", "The control cursor is invalid."));
         };
@@ -114,7 +116,13 @@ impl ControlChannel {
         loop {
             let messages = self
                 .hunts
-                .list_control_messages(account, if stale { 0 } else { after }, self.clock.now(), MAX_MESSAGES, stale)
+                .list_control_messages(
+                    account,
+                    if stale { 0 } else { after },
+                    self.clock.now(),
+                    MAX_MESSAGES,
+                    stale,
+                )
                 .await?;
             if !messages.is_empty() {
                 return Ok(PollReply {

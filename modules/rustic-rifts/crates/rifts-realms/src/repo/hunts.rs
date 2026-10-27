@@ -19,7 +19,15 @@ use HuntState::{Admitting, Draining, HostOffered, HostReady, HostSelecting, Runn
 
 /// `LIVE_HOST_STATES`: a host's session counts while in these.
 pub const LIVE_HOST_STATES: &[HuntState] = &[HostOffered, Starting, HostReady, Admitting, Running, Suspect];
-const REALM_SERVER_STATES: &[HuntState] = &[HostSelecting, HostOffered, Starting, HostReady, Admitting, Running, Suspect];
+const REALM_SERVER_STATES: &[HuntState] = &[
+    HostSelecting,
+    HostOffered,
+    Starting,
+    HostReady,
+    Admitting,
+    Running,
+    Suspect,
+];
 const ROSTER_LIVE_STATES: &[HuntState] = &[HostReady, Admitting, Running];
 
 #[derive(diesel::QueryableByName)]
@@ -120,7 +128,11 @@ fn load_many(conn: &mut AnyConnection, ids: Vec<IdRow>) -> Result<Vec<HuntSessio
 }
 
 /// The row's columns from the record, and the roster rows to match it.
-fn save_session(conn: &mut AnyConnection, db_node: &module_api::NodeId, session: &HuntSession) -> Result<(), RepoError> {
+fn save_session(
+    conn: &mut AnyConnection,
+    db_node: &module_api::NodeId,
+    session: &HuntSession,
+) -> Result<(), RepoError> {
     let detail = serde_json::to_string(session).map_err(|e| RepoError::Corrupt(e.to_string()))?;
     let global = global_session_id(&session.session_id, session.is_realm_hub(), db_node).map(|id| id.to_string());
     diesel::sql_query(store::portable::upsert(
@@ -413,13 +425,15 @@ fn offer_of(row: OfferRow) -> Result<HostOfferRecord, RepoError> {
 }
 
 fn find_offer(conn: &mut AnyConnection, offer_id: &str) -> Result<Option<HostOfferRecord>, RepoError> {
-    sql(&format!("SELECT {OFFER_COLUMNS} FROM rifts_host_offers WHERE offer_id = ?"))?
-        .bind::<Text, _>(offer_id.to_owned())
-        .load::<OfferRow>(conn)?
-        .into_iter()
-        .next()
-        .map(offer_of)
-        .transpose()
+    sql(&format!(
+        "SELECT {OFFER_COLUMNS} FROM rifts_host_offers WHERE offer_id = ?"
+    ))?
+    .bind::<Text, _>(offer_id.to_owned())
+    .load::<OfferRow>(conn)?
+    .into_iter()
+    .next()
+    .map(offer_of)
+    .transpose()
 }
 
 #[derive(diesel::QueryableByName)]
@@ -450,23 +464,25 @@ const RELIABILITY_COLUMNS: &str = "account_id, offers_accepted, offers_declined,
     starts_failed, clean_completions, unexpected_failures, cooldown_until, updated_at";
 
 fn find_reliability(conn: &mut AnyConnection, account_id: &str) -> Result<Option<HostReliabilityRecord>, RepoError> {
-    Ok(sql(&format!("SELECT {RELIABILITY_COLUMNS} FROM rifts_host_reliability WHERE account_id = ?"))?
-        .bind::<Text, _>(account_id.to_owned())
-        .load::<ReliabilityRow>(conn)?
-        .into_iter()
-        .next()
-        .map(|r| HostReliabilityRecord {
-            account_id: r.account_id,
-            offers_accepted: r.offers_accepted,
-            offers_declined: r.offers_declined,
-            offers_expired: r.offers_expired,
-            starts_succeeded: r.starts_succeeded,
-            starts_failed: r.starts_failed,
-            clean_completions: r.clean_completions,
-            unexpected_failures: r.unexpected_failures,
-            cooldown_until: r.cooldown_until.map(UnixMillis),
-            updated_at: UnixMillis(r.updated_at),
-        }))
+    Ok(sql(&format!(
+        "SELECT {RELIABILITY_COLUMNS} FROM rifts_host_reliability WHERE account_id = ?"
+    ))?
+    .bind::<Text, _>(account_id.to_owned())
+    .load::<ReliabilityRow>(conn)?
+    .into_iter()
+    .next()
+    .map(|r| HostReliabilityRecord {
+        account_id: r.account_id,
+        offers_accepted: r.offers_accepted,
+        offers_declined: r.offers_declined,
+        offers_expired: r.offers_expired,
+        starts_succeeded: r.starts_succeeded,
+        starts_failed: r.starts_failed,
+        clean_completions: r.clean_completions,
+        unexpected_failures: r.unexpected_failures,
+        cooldown_until: r.cooldown_until.map(UnixMillis),
+        updated_at: UnixMillis(r.updated_at),
+    }))
 }
 
 #[derive(diesel::QueryableByName)]
@@ -630,8 +646,10 @@ impl HuntTx<'_> {
 
     /// An empty `transition_id` gets a fresh one.
     pub fn append_transition(&mut self, t: &HuntTransition) -> Result<(), RepoError> {
-        sql("INSERT INTO rifts_hunt_transitions (transition_id, session_id, generation, from_state, to_state, \
-             state_version, reason, actor_type, actor_account_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")?
+        sql(
+            "INSERT INTO rifts_hunt_transitions (transition_id, session_id, generation, from_state, to_state, \
+             state_version, reason, actor_type, actor_account_id, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )?
         .bind::<Text, _>(if t.transition_id.is_empty() {
             random_uuid()
         } else {
@@ -841,8 +859,10 @@ impl HuntTx<'_> {
 
     /// A strictly newer sequence on an unrevoked capability.
     pub fn advance_capability_sequence(&mut self, capability_id: &str, sequence: i64) -> Result<bool, RepoError> {
-        Ok(sql("UPDATE rifts_host_capabilities SET last_sequence = ? WHERE capability_id = ? \
-             AND revoked_at IS NULL AND last_sequence < ?")?
+        Ok(sql(
+            "UPDATE rifts_host_capabilities SET last_sequence = ? WHERE capability_id = ? \
+             AND revoked_at IS NULL AND last_sequence < ?",
+        )?
         .bind::<BigInt, _>(sequence)
         .bind::<Text, _>(capability_id.to_owned())
         .bind::<BigInt, _>(sequence)
@@ -852,8 +872,10 @@ impl HuntTx<'_> {
 
     /// Revokes every live capability of the generation.
     pub fn revoke_generation(&mut self, session_id: &str, generation: i64, at: UnixMillis) -> Result<(), RepoError> {
-        sql("UPDATE rifts_host_capabilities SET revoked_at = ? WHERE session_id = ? AND generation = ? \
-             AND revoked_at IS NULL")?
+        sql(
+            "UPDATE rifts_host_capabilities SET revoked_at = ? WHERE session_id = ? AND generation = ? \
+             AND revoked_at IS NULL",
+        )?
         .bind::<BigInt, _>(at.0)
         .bind::<Text, _>(session_id.to_owned())
         .bind::<BigInt, _>(generation)
@@ -906,20 +928,34 @@ impl HuntTx<'_> {
         Ok(record)
     }
 
-    pub fn acknowledge_control(&mut self, account_id: &str, message_id: &str, at: UnixMillis) -> Result<bool, RepoError> {
-        Ok(sql("UPDATE rifts_control_messages SET acknowledged_at = ? WHERE message_id = ? AND account_id = ?")?
-            .bind::<BigInt, _>(at.0)
-            .bind::<Text, _>(message_id.to_owned())
-            .bind::<Text, _>(account_id.to_owned())
-            .execute(self.conn)?
-            > 0)
+    pub fn acknowledge_control(
+        &mut self,
+        account_id: &str,
+        message_id: &str,
+        at: UnixMillis,
+    ) -> Result<bool, RepoError> {
+        Ok(
+            sql("UPDATE rifts_control_messages SET acknowledged_at = ? WHERE message_id = ? AND account_id = ?")?
+                .bind::<BigInt, _>(at.0)
+                .bind::<Text, _>(message_id.to_owned())
+                .bind::<Text, _>(account_id.to_owned())
+                .execute(self.conn)?
+                > 0,
+        )
     }
 
     pub fn upsert_host_presence(&mut self, p: &HostPresenceRecord) -> Result<(), RepoError> {
         let detail = serde_json::to_string(p).map_err(|e| RepoError::Corrupt(e.to_string()))?;
         diesel::sql_query(store::portable::upsert(
             "rifts_host_presences",
-            &["account_id", "revision", "consent_to_host", "observed_at", "expires_at", "detail"],
+            &[
+                "account_id",
+                "revision",
+                "consent_to_host",
+                "observed_at",
+                "expires_at",
+                "detail",
+            ],
             &["account_id"],
             &["revision", "consent_to_host", "observed_at", "expires_at", "detail"],
         ))
@@ -945,7 +981,8 @@ impl HuntTx<'_> {
         now: UnixMillis,
         cooldown_until: Option<UnixMillis>,
     ) -> Result<(), RepoError> {
-        let mut r = find_reliability(self.conn, account_id)?.unwrap_or_else(|| HostReliabilityRecord::new(account_id, now));
+        let mut r =
+            find_reliability(self.conn, account_id)?.unwrap_or_else(|| HostReliabilityRecord::new(account_id, now));
         r.offers_accepted += add.offers_accepted;
         r.offers_declined += add.offers_declined;
         r.offers_expired += add.offers_expired;
@@ -996,21 +1033,26 @@ impl HuntTx<'_> {
         }
         let breakdown = serde_json::to_string(&o.score_breakdown).map_err(|e| RepoError::Corrupt(e.to_string()))?;
         let columns: Vec<&str> = OFFER_COLUMNS.split(", ").collect();
-        diesel::sql_query(store::portable::upsert("rifts_host_offers", &columns, &["offer_id"], &columns[1..]))
-            .bind::<Text, _>(o.offer_id.clone())
-            .bind::<Text, _>(o.session_id.clone())
-            .bind::<BigInt, _>(o.generation)
-            .bind::<Text, _>(o.account_id.clone())
-            .bind::<Text, _>(o.steam_id.clone())
-            .bind::<BigInt, _>(o.rank)
-            .bind::<Double, _>(o.score)
-            .bind::<Text, _>(breakdown)
-            .bind::<Text, _>(o.status.as_str())
-            .bind::<BigInt, _>(o.offered_at.0)
-            .bind::<BigInt, _>(o.expires_at.0)
-            .bind::<Nullable<BigInt>, _>(o.responded_at.map(|t| t.0))
-            .bind::<Nullable<Text>, _>(o.response_reason.clone())
-            .execute(self.conn)?;
+        diesel::sql_query(store::portable::upsert(
+            "rifts_host_offers",
+            &columns,
+            &["offer_id"],
+            &columns[1..],
+        ))
+        .bind::<Text, _>(o.offer_id.clone())
+        .bind::<Text, _>(o.session_id.clone())
+        .bind::<BigInt, _>(o.generation)
+        .bind::<Text, _>(o.account_id.clone())
+        .bind::<Text, _>(o.steam_id.clone())
+        .bind::<BigInt, _>(o.rank)
+        .bind::<Double, _>(o.score)
+        .bind::<Text, _>(breakdown)
+        .bind::<Text, _>(o.status.as_str())
+        .bind::<BigInt, _>(o.offered_at.0)
+        .bind::<BigInt, _>(o.expires_at.0)
+        .bind::<Nullable<BigInt>, _>(o.responded_at.map(|t| t.0))
+        .bind::<Nullable<Text>, _>(o.response_reason.clone())
+        .execute(self.conn)?;
         Ok(())
     }
 
@@ -1028,8 +1070,10 @@ impl HuntTx<'_> {
         responded_at: UnixMillis,
         reason: Option<&str>,
     ) -> Result<Option<HostOfferRecord>, RepoError> {
-        let changed = sql("UPDATE rifts_host_offers SET status = ?, responded_at = ?, response_reason = ? \
-             WHERE offer_id = ? AND account_id = ? AND status = ?")?
+        let changed = sql(
+            "UPDATE rifts_host_offers SET status = ?, responded_at = ?, response_reason = ? \
+             WHERE offer_id = ? AND account_id = ? AND status = ?",
+        )?
         .bind::<Text, _>(status.as_str())
         .bind::<BigInt, _>(responded_at.0)
         .bind::<Nullable<Text>, _>(reason.map(str::to_owned))
@@ -1132,9 +1176,11 @@ impl HuntRepository {
         let account = account_id.to_owned();
         self.db
             .read(move |conn| {
-                let ids = sql("SELECT s.session_id FROM rifts_hunt_sessions s JOIN rifts_hunt_roster r \
+                let ids = sql(
+                    "SELECT s.session_id FROM rifts_hunt_sessions s JOIN rifts_hunt_roster r \
                      ON r.session_id = s.session_id WHERE r.account_id = ? AND s.active_party_key IS NOT NULL \
-                     AND s.session_kind IS NULL ORDER BY s.created_at DESC, s.session_id LIMIT 1")?
+                     AND s.session_kind IS NULL ORDER BY s.created_at DESC, s.session_id LIMIT 1",
+                )?
                 .bind::<Text, _>(account)
                 .load::<IdRow>(conn)?;
                 Ok(load_many(conn, ids)?.into_iter().next())
@@ -1155,9 +1201,11 @@ impl HuntRepository {
         let account = account_id.to_owned();
         self.db
             .read(move |conn| {
-                let ids = sql("SELECT s.session_id FROM rifts_hunt_sessions s JOIN rifts_hunt_roster r \
+                let ids = sql(
+                    "SELECT s.session_id FROM rifts_hunt_sessions s JOIN rifts_hunt_roster r \
                      ON r.session_id = s.session_id WHERE r.account_id = ? AND s.state = ? AND s.expires_at > ? \
-                     ORDER BY s.created_at DESC, s.session_id LIMIT 1")?
+                     ORDER BY s.created_at DESC, s.session_id LIMIT 1",
+                )?
                 .bind::<Text, _>(account)
                 .bind::<Text, _>(HuntState::Recovering.as_str())
                 .bind::<BigInt, _>(now.0)
@@ -1199,8 +1247,10 @@ impl HuntRepository {
         F: FnOnce(&mut HuntSession) + Send + 'static,
     {
         let (id, states) = (session_id.to_owned(), expected_states.to_vec());
-        self.tx(actor, move |tx| tx.compare_and_set(&id, generation, &states, expected_state_version, change))
-            .await
+        self.tx(actor, move |tx| {
+            tx.compare_and_set(&id, generation, &states, expected_state_version, change)
+        })
+        .await
     }
 
     pub async fn append_hunt_transition(&self, actor: &Actor, transition: &HuntTransition) -> Result<(), RepoError> {
@@ -1213,9 +1263,11 @@ impl HuntRepository {
         let id = session_id.to_owned();
         self.db
             .read(move |conn| {
-                sql("SELECT transition_id, session_id, generation, from_state, to_state, state_version, reason, \
+                sql(
+                    "SELECT transition_id, session_id, generation, from_state, to_state, state_version, reason, \
                      actor_type, actor_account_id, at FROM rifts_hunt_transitions WHERE session_id = ? \
-                     ORDER BY at, state_version")?
+                     ORDER BY at, state_version",
+                )?
                 .bind::<Text, _>(id)
                 .load::<TransitionRow>(conn)?
                 .into_iter()
@@ -1248,7 +1300,11 @@ impl HuntRepository {
         self.tx(actor, move |tx| tx.begin_host_startup(&s, now)).await
     }
 
-    pub async fn renew_host_lease(&self, actor: &Actor, renewal: &LeaseRenewal) -> Result<Option<HuntSession>, RepoError> {
+    pub async fn renew_host_lease(
+        &self,
+        actor: &Actor,
+        renewal: &LeaseRenewal,
+    ) -> Result<Option<HuntSession>, RepoError> {
         let r = renewal.clone();
         self.tx(actor, move |tx| tx.renew_host_lease(&r)).await
     }
@@ -1275,8 +1331,12 @@ impl HuntRepository {
         local_bridge_port: i64,
         ready_at: UnixMillis,
     ) -> Result<Option<HuntSession>, RepoError> {
-        let (id, account, steam, bridge) =
-            (session_id.to_owned(), account_id.to_owned(), steam_id.to_owned(), bridge_instance_id.to_owned());
+        let (id, account, steam, bridge) = (
+            session_id.to_owned(),
+            account_id.to_owned(),
+            steam_id.to_owned(),
+            bridge_instance_id.to_owned(),
+        );
         self.tx(actor, move |tx| {
             tx.mark_participant_route_ready(&id, generation, &account, &steam, &bridge, local_bridge_port, ready_at)
         })
@@ -1292,8 +1352,10 @@ impl HuntRepository {
         admitted_at: UnixMillis,
     ) -> Result<Option<HuntSession>, RepoError> {
         let (id, account) = (session_id.to_owned(), account_id.to_owned());
-        self.tx(actor, move |tx| tx.mark_participant_admitted(&id, generation, &account, admitted_at))
-            .await
+        self.tx(actor, move |tx| {
+            tx.mark_participant_admitted(&id, generation, &account, admitted_at)
+        })
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1330,22 +1392,31 @@ impl HuntRepository {
         .await
     }
 
-    pub async fn create_host_capability(&self, actor: &Actor, capability: &HostCapabilityRecord) -> Result<(), RepoError> {
+    pub async fn create_host_capability(
+        &self,
+        actor: &Actor,
+        capability: &HostCapabilityRecord,
+    ) -> Result<(), RepoError> {
         let c = capability.clone();
         self.tx(actor, move |tx| tx.create_capability(&c)).await
     }
 
-    pub async fn find_host_capability_by_digest(&self, digest: &str) -> Result<Option<HostCapabilityRecord>, RepoError> {
+    pub async fn find_host_capability_by_digest(
+        &self,
+        digest: &str,
+    ) -> Result<Option<HostCapabilityRecord>, RepoError> {
         let digest = digest.to_owned();
         self.db
             .read(move |conn| {
-                sql(&format!("SELECT {CAPABILITY_COLUMNS} FROM rifts_host_capabilities WHERE secret_digest = ?"))?
-                    .bind::<Text, _>(digest)
-                    .load::<CapabilityRow>(conn)?
-                    .into_iter()
-                    .next()
-                    .map(capability_of)
-                    .transpose()
+                sql(&format!(
+                    "SELECT {CAPABILITY_COLUMNS} FROM rifts_host_capabilities WHERE secret_digest = ?"
+                ))?
+                .bind::<Text, _>(digest)
+                .load::<CapabilityRow>(conn)?
+                .into_iter()
+                .next()
+                .map(capability_of)
+                .transpose()
             })
             .await
     }
@@ -1357,7 +1428,8 @@ impl HuntRepository {
         sequence: i64,
     ) -> Result<bool, RepoError> {
         let id = capability_id.to_owned();
-        self.tx(actor, move |tx| tx.advance_capability_sequence(&id, sequence)).await
+        self.tx(actor, move |tx| tx.advance_capability_sequence(&id, sequence))
+            .await
     }
 
     pub async fn revoke_generation(
@@ -1368,7 +1440,8 @@ impl HuntRepository {
         revoked_at: UnixMillis,
     ) -> Result<(), RepoError> {
         let id = session_id.to_owned();
-        self.tx(actor, move |tx| tx.revoke_generation(&id, generation, revoked_at)).await
+        self.tx(actor, move |tx| tx.revoke_generation(&id, generation, revoked_at))
+            .await
     }
 
     pub async fn enqueue_control_message(
@@ -1395,7 +1468,11 @@ impl HuntRepository {
                 sql(&format!(
                     "SELECT {MESSAGE_COLUMNS} FROM rifts_control_messages WHERE account_id = ? AND sequence > ? \
                      AND expires_at > ?{} ORDER BY sequence LIMIT ?",
-                    if unacknowledged_only { " AND acknowledged_at IS NULL" } else { "" }
+                    if unacknowledged_only {
+                        " AND acknowledged_at IS NULL"
+                    } else {
+                        ""
+                    }
                 ))?
                 .bind::<Text, _>(account)
                 .bind::<BigInt, _>(after_sequence)
@@ -1431,7 +1508,8 @@ impl HuntRepository {
         at: UnixMillis,
     ) -> Result<bool, RepoError> {
         let (account, id) = (account_id.to_owned(), message_id.to_owned());
-        self.tx(actor, move |tx| tx.acknowledge_control(&account, &id, at)).await
+        self.tx(actor, move |tx| tx.acknowledge_control(&account, &id, at))
+            .await
     }
 
     pub async fn upsert_host_presence(&self, actor: &Actor, presence: &HostPresenceRecord) -> Result<(), RepoError> {
@@ -1486,7 +1564,12 @@ impl HuntRepository {
         self.count_keyed("realm_id", realm_id, REALM_SERVER_STATES).await
     }
 
-    async fn count_keyed(&self, column: &'static str, value: &str, states: &'static [HuntState]) -> Result<i64, RepoError> {
+    async fn count_keyed(
+        &self,
+        column: &'static str,
+        value: &str,
+        states: &'static [HuntState],
+    ) -> Result<i64, RepoError> {
         let value = value.to_owned();
         self.db
             .read(move |conn| {
@@ -1559,8 +1642,10 @@ impl HuntRepository {
         cooldown_until: Option<UnixMillis>,
     ) -> Result<(), RepoError> {
         let account = account_id.to_owned();
-        self.tx(actor, move |tx| tx.increment_reliability(&account, add, now, cooldown_until))
-            .await
+        self.tx(actor, move |tx| {
+            tx.increment_reliability(&account, add, now, cooldown_until)
+        })
+        .await
     }
 
     pub async fn create_host_offer(&self, actor: &Actor, offer: &HostOfferRecord) -> Result<(), RepoError> {
@@ -1609,7 +1694,11 @@ impl HuntRepository {
         .await
     }
 
-    pub async fn record_participant_observation(&self, actor: &Actor, observation: &ObservationRecord) -> Result<(), RepoError> {
+    pub async fn record_participant_observation(
+        &self,
+        actor: &Actor,
+        observation: &ObservationRecord,
+    ) -> Result<(), RepoError> {
         let o = observation.clone();
         self.tx(actor, move |tx| tx.record_observation(&o)).await
     }

@@ -217,9 +217,11 @@ fn by_realm<T>(conn: &mut AnyConnection, select: &str, table: &str, realm_id: &s
 where
     T: diesel::QueryableByName<store::MultiBackend> + 'static,
 {
-    Ok(sql(&format!("SELECT {select} FROM {table} WHERE realm_id = ? ORDER BY seq"))?
-        .bind::<Text, _>(realm_id.to_owned())
-        .load::<T>(conn)?)
+    Ok(
+        sql(&format!("SELECT {select} FROM {table} WHERE realm_id = ? ORDER BY seq"))?
+            .bind::<Text, _>(realm_id.to_owned())
+            .load::<T>(conn)?,
+    )
 }
 
 fn complete(conn: &mut AnyConnection, row: RealmRow) -> Result<RealmRecord, RepoError> {
@@ -300,7 +302,12 @@ fn realms_by_ids(conn: &mut AnyConnection, ids: Vec<IdRow>) -> Result<Vec<RealmR
 }
 
 fn exists(conn: &mut AnyConnection, realm_id: &str) -> Result<bool, RepoError> {
-    count(conn, "SELECT COUNT(*) AS n FROM rifts_realms WHERE realm_id = ?", &[realm_id]).map(|n| n > 0)
+    count(
+        conn,
+        "SELECT COUNT(*) AS n FROM rifts_realms WHERE realm_id = ?",
+        &[realm_id],
+    )
+    .map(|n| n > 0)
 }
 
 fn count(conn: &mut AnyConnection, text: &str, binds: &[&str]) -> Result<i64, RepoError> {
@@ -317,7 +324,11 @@ fn has_row(conn: &mut AnyConnection, table: &str, realm_id: &str, account_id: &s
 }
 
 fn rows_of(conn: &mut AnyConnection, table: &str, realm_id: &str) -> Result<i64, RepoError> {
-    count(conn, &format!("SELECT COUNT(*) AS n FROM {table} WHERE realm_id = ?"), &[realm_id])
+    count(
+        conn,
+        &format!("SELECT COUNT(*) AS n FROM {table} WHERE realm_id = ?"),
+        &[realm_id],
+    )
 }
 
 fn next_seq(conn: &mut AnyConnection, table: &str, realm_id: &str) -> Result<i64, RepoError> {
@@ -329,21 +340,25 @@ fn next_seq(conn: &mut AnyConnection, table: &str, realm_id: &str) -> Result<i64
 }
 
 fn delete_row(conn: &mut AnyConnection, table: &str, realm_id: &str, account_id: &str) -> Result<bool, RepoError> {
-    Ok(sql(&format!("DELETE FROM {table} WHERE realm_id = ? AND account_id = ?"))?
-        .bind::<Text, _>(realm_id.to_owned())
-        .bind::<Text, _>(account_id.to_owned())
-        .execute(conn)?
-        > 0)
+    Ok(
+        sql(&format!("DELETE FROM {table} WHERE realm_id = ? AND account_id = ?"))?
+            .bind::<Text, _>(realm_id.to_owned())
+            .bind::<Text, _>(account_id.to_owned())
+            .execute(conn)?
+            > 0,
+    )
 }
 
 fn insert_entry(conn: &mut AnyConnection, table: &str, realm_id: &str, entry: &AccountAt) -> Result<(), RepoError> {
     let seq = next_seq(conn, table, realm_id)?;
-    sql(&format!("INSERT INTO {table} (realm_id, account_id, at, seq) VALUES (?, ?, ?, ?)"))?
-        .bind::<Text, _>(realm_id.to_owned())
-        .bind::<Text, _>(entry.account_id.clone())
-        .bind::<BigInt, _>(entry.at.0)
-        .bind::<BigInt, _>(seq)
-        .execute(conn)?;
+    sql(&format!(
+        "INSERT INTO {table} (realm_id, account_id, at, seq) VALUES (?, ?, ?, ?)"
+    ))?
+    .bind::<Text, _>(realm_id.to_owned())
+    .bind::<Text, _>(entry.account_id.clone())
+    .bind::<BigInt, _>(entry.at.0)
+    .bind::<BigInt, _>(seq)
+    .execute(conn)?;
     Ok(())
 }
 
@@ -390,9 +405,11 @@ fn delete_realm(conn: &mut AnyConnection, realm_id: &str) -> Result<(), RepoErro
 }
 
 fn write_hosting(conn: &mut AnyConnection, realm_id: &str, hosting: &RealmHosting) -> Result<usize, RepoError> {
-    Ok(sql("UPDATE rifts_realms SET hosting_max_servers = ?, hosting_max_players = ?, hosting_afk_seconds = ?, \
+    Ok(sql(
+        "UPDATE rifts_realms SET hosting_max_servers = ?, hosting_max_players = ?, hosting_afk_seconds = ?, \
          hosting_hub_session_id = ?, hosting_hub_state = ?, hosting_training_state = ?, hosting_active_servers = ?, \
-         hosting_updated_at = ? WHERE realm_id = ?")?
+         hosting_updated_at = ? WHERE realm_id = ?",
+    )?
     .bind::<BigInt, _>(hosting.max_servers)
     .bind::<BigInt, _>(hosting.max_players)
     .bind::<Nullable<BigInt>, _>(hosting.afk_seconds)
@@ -419,12 +436,14 @@ fn invite_of(row: InviteRow) -> RealmInviteRecord {
 }
 
 fn find_invite(conn: &mut AnyConnection, code: &str) -> Result<Option<RealmInviteRecord>, RepoError> {
-    Ok(sql(&format!("SELECT {INVITE_COLUMNS} FROM rifts_realm_invites WHERE code = ?"))?
-        .bind::<Text, _>(code.to_owned())
-        .load::<InviteRow>(conn)?
-        .into_iter()
-        .next()
-        .map(invite_of))
+    Ok(sql(&format!(
+        "SELECT {INVITE_COLUMNS} FROM rifts_realm_invites WHERE code = ?"
+    ))?
+    .bind::<Text, _>(code.to_owned())
+    .load::<InviteRow>(conn)?
+    .into_iter()
+    .next()
+    .map(invite_of))
 }
 
 fn presence_of(row: PresenceRow) -> RealmPresenceRecord {
@@ -437,14 +456,20 @@ fn presence_of(row: PresenceRow) -> RealmPresenceRecord {
     }
 }
 
-fn find_presence(conn: &mut AnyConnection, account_id: &str, now: UnixMillis) -> Result<Option<RealmPresenceRecord>, RepoError> {
-    Ok(sql(&format!("SELECT {PRESENCE_COLUMNS} FROM rifts_realm_presence WHERE account_id = ? AND expires_at > ?"))?
-        .bind::<Text, _>(account_id.to_owned())
-        .bind::<BigInt, _>(now.0)
-        .load::<PresenceRow>(conn)?
-        .into_iter()
-        .next()
-        .map(presence_of))
+fn find_presence(
+    conn: &mut AnyConnection,
+    account_id: &str,
+    now: UnixMillis,
+) -> Result<Option<RealmPresenceRecord>, RepoError> {
+    Ok(sql(&format!(
+        "SELECT {PRESENCE_COLUMNS} FROM rifts_realm_presence WHERE account_id = ? AND expires_at > ?"
+    ))?
+    .bind::<Text, _>(account_id.to_owned())
+    .bind::<BigInt, _>(now.0)
+    .load::<PresenceRow>(conn)?
+    .into_iter()
+    .next()
+    .map(presence_of))
 }
 
 /// Realms' directory tables.
@@ -470,7 +495,9 @@ impl RealmsRepository {
 
     pub async fn find_by_host(&self, host: &str) -> Result<Option<RealmRecord>, RepoError> {
         let host = host.to_owned();
-        self.db.read(move |conn| realm_where(conn, "host_account_id", &host)).await
+        self.db
+            .read(move |conn| realm_where(conn, "host_account_id", &host))
+            .await
     }
 
     /// The realms the account is in (its own included), by name.
@@ -518,16 +545,28 @@ impl RealmsRepository {
         let realm = realm.clone();
         self.db
             .write(actor, move |conn| {
-                if count(conn, "SELECT COUNT(*) AS n FROM rifts_realms WHERE name = ?", &[&realm.name])? > 0 {
+                if count(
+                    conn,
+                    "SELECT COUNT(*) AS n FROM rifts_realms WHERE name = ?",
+                    &[&realm.name],
+                )? > 0
+                {
                     return Ok(InsertRealmResult::NameTaken);
                 }
                 let host = &realm.host_account_id;
-                if count(conn, "SELECT COUNT(*) AS n FROM rifts_realms WHERE host_account_id = ?", &[host])? > 0 {
+                if count(
+                    conn,
+                    "SELECT COUNT(*) AS n FROM rifts_realms WHERE host_account_id = ?",
+                    &[host],
+                )? > 0
+                {
                     return Ok(InsertRealmResult::HostHasRealm);
                 }
-                sql("INSERT INTO rifts_realms (realm_id, name, host_account_id, host_public_key, join_policy, listed, \
+                sql(
+                    "INSERT INTO rifts_realms (realm_id, name, host_account_id, host_public_key, join_policy, listed, \
                      created_at, last_online_at, online_until, version, offline_notified_for) \
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")?
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                )?
                 .bind::<Text, _>(realm.realm_id.clone())
                 .bind::<Text, _>(realm.name.clone())
                 .bind::<Text, _>(realm.host_account_id.clone())
@@ -676,7 +715,12 @@ impl RealmsRepository {
         self.db
             .write(actor, move |conn| {
                 let query = sql(&format!("SELECT {REALM_COLUMNS} FROM rifts_realms WHERE realm_id = ?"))?;
-                let Some(row) = query.bind::<Text, _>(id.clone()).load::<RealmRow>(conn)?.into_iter().next() else {
+                let Some(row) = query
+                    .bind::<Text, _>(id.clone())
+                    .load::<RealmRow>(conn)?
+                    .into_iter()
+                    .next()
+                else {
                     return Ok(false);
                 };
                 let next = apply_hosting_patch(hosting_of(&row)?, &patch, at);
@@ -713,9 +757,11 @@ impl RealmsRepository {
     ) -> Result<Vec<RealmRecord>, RepoError> {
         self.db
             .write(actor, move |conn| {
-                let ids = sql("SELECT realm_id FROM rifts_realms WHERE online_until > ? AND online_until <= ? \
+                let ids = sql(
+                    "SELECT realm_id FROM rifts_realms WHERE online_until > ? AND online_until <= ? \
                      AND (offline_notified_for IS NULL OR offline_notified_for <> online_until) \
-                     ORDER BY online_until, realm_id LIMIT ?")?
+                     ORDER BY online_until, realm_id LIMIT ?",
+                )?
                 .bind::<BigInt, _>(since.0)
                 .bind::<BigInt, _>(now.0)
                 .bind::<BigInt, _>(i64::from(limit))
@@ -777,11 +823,12 @@ impl RealmsRepository {
         let (id, account) = (realm_id.to_owned(), account_id.to_owned());
         self.db
             .write(actor, move |conn| {
-                let removed = sql("DELETE FROM rifts_realm_members WHERE realm_id = ? AND account_id = ? AND role = ?")?
-                    .bind::<Text, _>(id)
-                    .bind::<Text, _>(account)
-                    .bind::<Text, _>(MemberRole::Member.as_str())
-                    .execute(conn)?;
+                let removed =
+                    sql("DELETE FROM rifts_realm_members WHERE realm_id = ? AND account_id = ? AND role = ?")?
+                        .bind::<Text, _>(id)
+                        .bind::<Text, _>(account)
+                        .bind::<Text, _>(MemberRole::Member.as_str())
+                        .execute(conn)?;
                 Ok(removed > 0)
             })
             .await
@@ -832,11 +879,18 @@ impl RealmsRepository {
         request: &AccountAt,
         max_requests: u32,
     ) -> Result<AddEntryResult, RepoError> {
-        self.add_entry(actor, "rifts_realm_join_requests", realm_id, request, max_requests).await
+        self.add_entry(actor, "rifts_realm_join_requests", realm_id, request, max_requests)
+            .await
     }
 
-    pub async fn remove_join_request(&self, actor: &Actor, realm_id: &str, account_id: &str) -> Result<bool, RepoError> {
-        self.delete_child(actor, "rifts_realm_join_requests", realm_id, account_id).await
+    pub async fn remove_join_request(
+        &self,
+        actor: &Actor,
+        realm_id: &str,
+        account_id: &str,
+    ) -> Result<bool, RepoError> {
+        self.delete_child(actor, "rifts_realm_join_requests", realm_id, account_id)
+            .await
     }
 
     pub async fn add_player_invite(
@@ -846,11 +900,18 @@ impl RealmsRepository {
         invite: &AccountAt,
         max_invites: u32,
     ) -> Result<AddEntryResult, RepoError> {
-        self.add_entry(actor, "rifts_realm_player_invites", realm_id, invite, max_invites).await
+        self.add_entry(actor, "rifts_realm_player_invites", realm_id, invite, max_invites)
+            .await
     }
 
-    pub async fn remove_player_invite(&self, actor: &Actor, realm_id: &str, account_id: &str) -> Result<bool, RepoError> {
-        self.delete_child(actor, "rifts_realm_player_invites", realm_id, account_id).await
+    pub async fn remove_player_invite(
+        &self,
+        actor: &Actor,
+        realm_id: &str,
+        account_id: &str,
+    ) -> Result<bool, RepoError> {
+        self.delete_child(actor, "rifts_realm_player_invites", realm_id, account_id)
+            .await
     }
 
     async fn add_entry(
@@ -893,10 +954,16 @@ impl RealmsRepository {
         account_id: &str,
     ) -> Result<bool, RepoError> {
         let (id, account) = (realm_id.to_owned(), account_id.to_owned());
-        self.db.write(actor, move |conn| delete_row(conn, table, &id, &account)).await
+        self.db
+            .write(actor, move |conn| delete_row(conn, table, &id, &account))
+            .await
     }
 
-    pub async fn insert_invite(&self, actor: &Actor, invite: &RealmInviteRecord) -> Result<InsertInviteResult, RepoError> {
+    pub async fn insert_invite(
+        &self,
+        actor: &Actor,
+        invite: &RealmInviteRecord,
+    ) -> Result<InsertInviteResult, RepoError> {
         let invite = invite.clone();
         self.db
             .write(actor, move |conn| {
@@ -950,8 +1017,10 @@ impl RealmsRepository {
         let id = realm_id.to_owned();
         self.db
             .read(move |conn| {
-                Ok(sql("SELECT COUNT(*) AS n FROM rifts_realm_invites WHERE realm_id = ? AND revoked_at IS NULL \
-                     AND expires_at > ? AND uses < max_uses")?
+                Ok(sql(
+                    "SELECT COUNT(*) AS n FROM rifts_realm_invites WHERE realm_id = ? AND revoked_at IS NULL \
+                     AND expires_at > ? AND uses < max_uses",
+                )?
                 .bind::<Text, _>(id)
                 .bind::<BigInt, _>(now.0)
                 .load::<Count>(conn)?
@@ -1074,7 +1143,11 @@ impl RealmPresenceRepository {
     }
 
     /// The row while it is active at `now` (strictly before its `expires_at`).
-    pub async fn find_active(&self, account_id: &str, now: UnixMillis) -> Result<Option<RealmPresenceRecord>, RepoError> {
+    pub async fn find_active(
+        &self,
+        account_id: &str,
+        now: UnixMillis,
+    ) -> Result<Option<RealmPresenceRecord>, RepoError> {
         let account = account_id.to_owned();
         self.db.read(move |conn| find_presence(conn, &account, now)).await
     }

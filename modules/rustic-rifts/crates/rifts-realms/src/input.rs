@@ -114,7 +114,9 @@ pub fn parse_create_realm_body(body: Option<&Value>) -> Parsed<CreateRealmInput>
     if let Some(raw) = get(&source, "name") {
         match raw.as_str().map(validate_realm_name) {
             Some(Ok(valid)) => name = Some(valid),
-            Some(Err(NameRefusal::Reserved)) => return fail_code("REALM_NAME_RESERVED", "That realm name is reserved."),
+            Some(Err(NameRefusal::Reserved)) => {
+                return fail_code("REALM_NAME_RESERVED", "That realm name is reserved.");
+            }
             _ => {
                 return fail_code(
                     "REALM_NAME_INVALID",
@@ -204,13 +206,21 @@ pub fn parse_invite_body(body: Option<&Value>) -> Parsed<InviteInput> {
     if let Some(raw) = get(&source, "maxUses") {
         match whole_number(raw).filter(|n| (1..=INVITE_MAX_USES_LIMIT).contains(n)) {
             Some(n) => input.max_uses = n,
-            None => return fail(format!("maxUses must be a whole number from 1 to {INVITE_MAX_USES_LIMIT}.")),
+            None => {
+                return fail(format!(
+                    "maxUses must be a whole number from 1 to {INVITE_MAX_USES_LIMIT}."
+                ));
+            }
         }
     }
     if let Some(raw) = get(&source, "expiresInHours") {
         match whole_number(raw).filter(|n| (1..=INVITE_MAX_TTL_HOURS).contains(n)) {
             Some(n) => input.ttl_hours = n,
-            None => return fail(format!("expiresInHours must be a whole number from 1 to {INVITE_MAX_TTL_HOURS}.")),
+            None => {
+                return fail(format!(
+                    "expiresInHours must be a whole number from 1 to {INVITE_MAX_TTL_HOURS}."
+                ));
+            }
         }
     }
     Ok(input)
@@ -288,17 +298,23 @@ fn parse_hosting_input(value: &Value) -> Parsed<HostingInput> {
             .filter(|n| (min..=max).contains(n))
     };
     let Some(max_servers) = number("maxServers", 1, HOSTING_MAX_SERVERS_LIMIT) else {
-        return fail(format!("hosting.maxServers must be a whole number from 1 to {HOSTING_MAX_SERVERS_LIMIT}."));
+        return fail(format!(
+            "hosting.maxServers must be a whole number from 1 to {HOSTING_MAX_SERVERS_LIMIT}."
+        ));
     };
     let Some(max_players) = number("maxPlayers", 1, HOSTING_MAX_PLAYERS_LIMIT) else {
-        return fail(format!("hosting.maxPlayers must be a whole number from 1 to {HOSTING_MAX_PLAYERS_LIMIT}."));
+        return fail(format!(
+            "hosting.maxPlayers must be a whole number from 1 to {HOSTING_MAX_PLAYERS_LIMIT}."
+        ));
     };
     let mut afk_seconds = None;
     if source.contains_key("afkSeconds") {
         match number("afkSeconds", 0, HOSTING_MAX_AFK_SECONDS) {
             Some(n) => afk_seconds = Some(n),
             None => {
-                return fail(format!("hosting.afkSeconds must be a whole number from 0 to {HOSTING_MAX_AFK_SECONDS}."));
+                return fail(format!(
+                    "hosting.afkSeconds must be a whole number from 0 to {HOSTING_MAX_AFK_SECONDS}."
+                ));
             }
         }
     }
@@ -388,7 +404,9 @@ pub fn parse_ban_body(body: Option<&Value>) -> Parsed<Option<String>> {
     };
     let trimmed = js_trim(reason);
     if trimmed.encode_utf16().count() > BAN_REASON_MAX_LENGTH || has_control(trimmed) {
-        return fail(format!("reason must be at most {BAN_REASON_MAX_LENGTH} characters of plain text."));
+        return fail(format!(
+            "reason must be at most {BAN_REASON_MAX_LENGTH} characters of plain text."
+        ));
     }
     Ok((!trimmed.is_empty()).then(|| trimmed.to_owned()))
 }
@@ -409,7 +427,9 @@ pub fn parse_username_body(body: Option<&Value>) -> Parsed<String> {
     let username = js_trim(text);
     let length = username.encode_utf16().count();
     if !(1..=USERNAME_MAX_LENGTH).contains(&length) || has_control(username) {
-        return fail(format!("username must be 1 to {USERNAME_MAX_LENGTH} characters of plain text."));
+        return fail(format!(
+            "username must be 1 to {USERNAME_MAX_LENGTH} characters of plain text."
+        ));
     }
     Ok(username.to_owned())
 }
