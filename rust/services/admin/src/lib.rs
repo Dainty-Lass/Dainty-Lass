@@ -9,6 +9,8 @@ pub mod cli;
 pub mod config;
 pub mod hmac;
 pub mod input;
+pub mod key_cli;
+pub mod keys;
 pub mod log;
 pub mod module_control;
 pub mod modules;

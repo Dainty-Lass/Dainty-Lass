@@ -10,6 +10,7 @@ use tokio::net::TcpListener;
 
 use crate::app::{AppState, router};
 use crate::config::Config;
+use crate::keys::Keys;
 use crate::log;
 use crate::module_control::Modules;
 use crate::modules::AdminPlugin;
@@ -41,6 +42,8 @@ pub fn prepare_with_control(
     modules: Arc<AdminPlugin>,
     control: Modules,
 ) -> Result<(AppState, Arc<Admin>), String> {
+    // The owner's key from secrets.env, the issued ones in the admin API's own database (DH2)
+    let keys = Keys::open(&Keys::database_for(&config.database), &config.api_key)?;
     let admin = Arc::new(Admin {
         upstream: Upstream::new(
             &config.backend_url,
@@ -51,13 +54,14 @@ pub fn prepare_with_control(
         ),
         modules,
         timeouts: Timeouts::load(&config.timeouts_file)?,
+        keys: keys.clone(),
         max_hunt_servers: config.max_hunt_servers,
         server_mode: config.server_mode,
         clock,
     });
     let state = AppState {
         schema: build_with_control(admin.clone(), control),
-        api_key: config.api_key.as_str().into(),
+        keys,
     };
     Ok((state, admin))
 }

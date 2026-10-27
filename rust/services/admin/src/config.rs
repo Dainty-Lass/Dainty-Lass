@@ -32,8 +32,9 @@ pub struct Config {
     pub timeouts_file: PathBuf,
     pub max_hunt_servers: u32,
     pub server_mode: ServerMode,
-    /// The node's database (DD15), checked at start; not opened yet. Nothing set (an env file from before
-    /// DF7): SQLite beside the timeouts file.
+    /// The node's database (DD15). The admin API keeps its keys in a database of its own beside it
+    /// (`keys::Keys::database_for`, DH2). Nothing set (an env file from before DF7): SQLite beside the
+    /// timeouts file.
     pub database: store::DatabaseConfig,
 }
 

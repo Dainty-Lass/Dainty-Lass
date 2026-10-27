@@ -12,6 +12,7 @@ use tokio::task::JoinSet;
 
 use crate::config;
 use crate::input::{self, InstanceKind};
+use crate::keys::{Action, Caller, KeyError, KeyInfo, Keys, Role};
 use crate::log;
 use crate::module_control::{self, Module, Modules};
 use crate::modules::{AdminModule, AdminPlugin, NODE_GAME};
@@ -60,6 +61,7 @@ pub enum Code {
     AmbiguousPlayer,
     UnknownGame,
     NotSupported,
+    Forbidden,
 }
 
 impl Code {
@@ -77,6 +79,7 @@ impl Code {
             Self::AmbiguousPlayer => "AMBIGUOUS_PLAYER",
             Self::UnknownGame => "UNKNOWN_GAME",
             Self::NotSupported => "NOT_SUPPORTED",
+            Self::Forbidden => "FORBIDDEN",
         }
     }
 }
@@ -291,6 +294,44 @@ pub struct KickResult {
     pub game: String,
 }
 
+/// An admin key as listed: who it is for and what it may do, never the key itself.
+#[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
+pub struct AdminKey {
+    /// What the log and `admin:<id>` in the change log call it. `owner` is REFORGED_ADMIN_API_KEY.
+    pub id: String,
+    pub name: String,
+    pub role: Role,
+    /// Null for the owner key, which setup made.
+    pub created_at: Option<String>,
+    /// The actor that issued it, as the change log writes it.
+    pub created_by: String,
+    /// Set once revoked: that key is refused.
+    pub revoked_at: Option<String>,
+    pub revoked_by: Option<String>,
+}
+
+impl From<KeyInfo> for AdminKey {
+    fn from(key: KeyInfo) -> Self {
+        Self {
+            id: key.id,
+            name: key.name,
+            role: key.role,
+            created_at: Some(key.created_at).filter(|at| *at > 0).map(input::iso),
+            created_by: key.created_by,
+            revoked_at: key.revoked_at.map(input::iso),
+            revoked_by: key.revoked_by,
+        }
+    }
+}
+
+/// A key just made. The key itself is shown here once and is not kept.
+#[derive(SimpleObject, Clone)]
+pub struct IssuedKey {
+    /// `RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
+    pub key: String,
+    pub info: AdminKey,
+}
+
 // ------------------------------------------------------------------ what the fields do
 
 pub struct Admin {
@@ -298,6 +339,8 @@ pub struct Admin {
     /// The game modules that answer admin actions (DF4c); none until DF3's controller loads modules.
     pub modules: Arc<AdminPlugin>,
     pub timeouts: Timeouts,
+    /// The owner's key and the issued ones, and the record of what each did (DH2).
+    pub keys: Keys,
     pub max_hunt_servers: u32,
     pub server_mode: config::ServerMode,
     pub clock: Clock,
@@ -383,9 +426,104 @@ fn not_supported(module: &AdminModule, what: &str) -> async_graphql::Error {
     )
 }
 
+/// Refuses a key whose role is below `needs`, and says which role it needs (DH2). The log gets the key's
+/// id, never the key.
+pub fn allow(caller: &Caller, needs: Role, action: &str) -> async_graphql::Result<()> {
+    if caller.role >= needs {
+        return Ok(());
+    }
+    log::warn(
+        "admin action refused: the key's role is too low",
+        json!({"key": caller.key, "role": caller.role.as_str(), "needs": needs.as_str(),
+               "action": action, "operator": caller.operator.id()}),
+    );
+    Err(async_graphql::Error::new(format!(
+        "{action} needs the {needs} role; this key's role is {}",
+        caller.role
+    ))
+    .extend_with(|_, e| {
+        e.set("code", Code::Forbidden.as_str());
+        e.set("requiredRole", needs.as_str());
+    }))
+}
+
+/// A key store failure as the caller sees it.
+fn key_failure(error: KeyError) -> async_graphql::Error {
+    match error {
+        KeyError::Invalid(why) => fail(Code::BadInput, why),
+        KeyError::NameTaken(_) | KeyError::Owner => fail(Code::BadInput, error.to_string()),
+        KeyError::NotFound => fail(Code::NotFound, error.to_string()),
+        KeyError::Store(error) => {
+            log::error("the admin API database failed", json!({"error": error.to_string()}));
+            fail(Code::BackendUnavailable, "the admin API database did not answer")
+        }
+    }
+}
+
 impl Admin {
     fn now(&self) -> i64 {
         (self.clock)()
+    }
+
+    /// Writes what `caller` did to the admin API database, under `admin:<key id>` in the change log (DH2).
+    /// The action is done by now: a write that fails is logged with everything, not hidden by an error.
+    async fn audit(
+        &self,
+        caller: &Caller,
+        action: &str,
+        target: Option<&str>,
+        game: Option<&str>,
+        detail: Option<&str>,
+    ) {
+        let entry = Action {
+            operator: caller.operator.id(),
+            action,
+            target,
+            game,
+            detail,
+        };
+        if let Err(error) = self.keys.record(&caller.key, entry, self.now()).await {
+            log::error(
+                "could not record an admin action",
+                json!({"key": caller.key, "operator": caller.operator.id(), "action": action,
+                       "target": target, "game": game, "detail": detail, "error": error.to_string()}),
+            );
+        }
+    }
+
+    /// Every key, the owner first. Never a key or a hash.
+    pub async fn admin_keys(&self, caller: &Caller) -> async_graphql::Result<Vec<AdminKey>> {
+        allow(caller, Role::Admin, "adminKeys")?;
+        let keys = self.keys.list().await.map_err(key_failure)?;
+        Ok(keys.into_iter().map(AdminKey::from).collect())
+    }
+
+    /// A new key. An admin issues viewers and moderators; the owner issues any role. The key is in the answer
+    /// once and nowhere else.
+    pub async fn issue_key(&self, caller: &Caller, name: &str, role: Role) -> async_graphql::Result<IssuedKey> {
+        allow(caller, Role::Admin, "issueKey")?;
+        if role >= Role::Admin {
+            allow(caller, Role::Owner, &format!("issueKey for the {role} role"))?;
+        }
+        let by = store::Actor::Admin(caller.key.clone());
+        let (info, key) = self.keys.issue(name, role, by, self.now()).await.map_err(key_failure)?;
+        log::info(
+            "admin key issued",
+            json!({"id": info.id, "name": info.name, "role": role.as_str(), "by": caller.key}),
+        );
+        Ok(IssuedKey { key, info: info.into() })
+    }
+
+    /// Ends a key: its next request is refused. Only the owner does it.
+    pub async fn revoke_key(&self, caller: &Caller, id: &str) -> async_graphql::Result<AdminKey> {
+        allow(caller, Role::Owner, "revokeKey")?;
+        let by = store::Actor::Admin(caller.key.clone());
+        let info = self.keys.revoke(id, by, self.now()).await.map_err(key_failure)?;
+        log::info(
+            "admin key revoked",
+            json!({"id": info.id, "name": info.name, "by": caller.key}),
+        );
+        Ok(info.into())
     }
 
     fn checked_name(name: &str) -> async_graphql::Result<&str> {
@@ -403,7 +541,7 @@ impl Admin {
     /// game that didn't answer, so a kick or ban never lands on a namesake while the right game is down.
     async fn locate(
         &self,
-        operator: &Operator,
+        caller: &Caller,
         name: &str,
         game: Option<&str>,
         act: bool,
@@ -431,7 +569,7 @@ impl Admin {
             // Today's path, unchanged while the Node backend is the only game
             let account = self
                 .upstream
-                .account_by_name(operator, name)
+                .account_by_name(&caller.operator, name)
                 .await
                 .map_err(|e| upstream("backend", e))?;
             return Ok(account.map(Found::Node));
@@ -440,7 +578,7 @@ impl Admin {
         let mut asked = JoinSet::new();
         for module in modules {
             let plugin = self.modules.clone();
-            let actor = self.modules.actor(self.now());
+            let actor = self.modules.actor(&caller.key, self.now());
             let request = AdminRequest::Lookup {
                 player: name.to_owned(),
             };
@@ -451,7 +589,7 @@ impl Admin {
         }
         let from_node = async {
             if node {
-                Some(self.upstream.account_by_name(operator, name).await)
+                Some(self.upstream.account_by_name(&caller.operator, name).await)
             } else {
                 None
             }
@@ -517,15 +655,15 @@ impl Admin {
         }
     }
 
-    /// One kick or ban sent to a module, logged with the operator id beside the request id the
+    /// One kick or ban sent to a module, logged with the key and the operator id beside the request id the
     /// module's change log records (DH1).
     async fn module_act(
         &self,
-        operator: &Operator,
+        caller: &Caller,
         module: &AdminModule,
         request: AdminRequest,
     ) -> async_graphql::Result<()> {
-        let actor = self.modules.actor(self.now());
+        let actor = self.modules.actor(&caller.key, self.now());
         let request_id = actor.request.clone().unwrap_or_default();
         let sent = serde_json::to_value(&request).unwrap_or_default();
         match self.modules.call(module, actor, request).await {
@@ -533,7 +671,7 @@ impl Admin {
                 log::info(
                     "admin action done",
                     json!({"module": module.id.to_string(), "game": module.game_version.to_string(),
-                           "action": sent, "operator": operator.id(), "request": request_id}),
+                           "action": sent, "key": caller.key, "operator": caller.operator.id(), "request": request_id}),
                 );
                 Ok(())
             }
@@ -544,11 +682,12 @@ impl Admin {
     }
 
     /// The player as their module reports them now, or as `info` had them when it doesn't answer.
-    async fn player_now(&self, module: &AdminModule, info: PlayerInfo) -> Player {
+    async fn player_now(&self, caller: &Caller, module: &AdminModule, info: PlayerInfo) -> Player {
         let request = AdminRequest::Lookup {
             player: info.name.clone(),
         };
-        let latest = match self.modules.call(module, self.modules.actor(self.now()), request).await {
+        let actor = self.modules.actor(&caller.key, self.now());
+        let latest = match self.modules.call(module, actor, request).await {
             Ok(AdminResponse::Player(latest)) => latest,
             _ => info,
         };
@@ -626,32 +765,32 @@ impl Admin {
     /// A player by name, from whichever game has them.
     pub async fn find_player(
         &self,
-        operator: &Operator,
+        caller: &Caller,
         name: &str,
         game: Option<&str>,
     ) -> async_graphql::Result<Option<Player>> {
-        match self.locate(operator, name, game, false).await? {
+        match self.locate(caller, name, game, false).await? {
             None => Ok(None),
-            Some(Found::Node(account)) => self.player(operator, account).await.map(Some),
+            Some(Found::Node(account)) => self.player(&caller.operator, account).await.map(Some),
             Some(Found::Module(module, info)) => Ok(Some(module_player(&module, info))),
         }
     }
 
     async fn set_access(
         &self,
-        operator: &Operator,
+        caller: &Caller,
         account: &Account,
         status: &str,
         reason: &str,
     ) -> async_graphql::Result<Account> {
         let updated = self
             .upstream
-            .set_access(operator, &account.user_id, status, reason)
+            .set_access(&caller.operator, &account.user_id, status, reason)
             .await
             .map_err(|e| upstream("backend", e))?;
         log::info(
             &format!("player is now {status}"),
-            json!({"userId": updated.user_id, "username": updated.display_name, "operator": operator.id(), "reason": reason}),
+            json!({"userId": updated.user_id, "username": updated.display_name, "key": caller.key, "operator": caller.operator.id(), "reason": reason}),
         );
         Ok(updated)
     }
@@ -666,9 +805,10 @@ impl Admin {
         })
     }
 
-    pub async fn kick(&self, operator: &Operator, name: &str, game: Option<&str>) -> async_graphql::Result<KickResult> {
+    pub async fn kick(&self, caller: &Caller, name: &str, game: Option<&str>) -> async_graphql::Result<KickResult> {
+        allow(caller, Role::Moderator, "kick")?;
         let account = match self
-            .locate(operator, name, game, true)
+            .locate(caller, name, game, true)
             .await?
             .ok_or_else(no_such_player)?
         {
@@ -678,7 +818,15 @@ impl Admin {
                     player: info.name.clone(),
                     reason: None,
                 };
-                self.module_act(operator, &module, request).await?;
+                self.module_act(caller, &module, request).await?;
+                self.audit(
+                    caller,
+                    "kick",
+                    Some(&info.name),
+                    Some(&module.game_version.to_string()),
+                    None,
+                )
+                .await;
                 return Ok(KickResult {
                     user_id: user_id_of(&info),
                     username: info.name,
@@ -694,8 +842,10 @@ impl Admin {
             .map_err(|e| upstream("backend", e))?;
         log::info(
             "player kicked",
-            json!({"userId": kicked.user_id, "username": kicked.username, "operator": operator.id(), "closed": kicked.closed}),
+            json!({"userId": kicked.user_id, "username": kicked.username, "key": caller.key, "operator": caller.operator.id(), "closed": kicked.closed}),
         );
+        self.audit(caller, "kick", Some(&kicked.username), Some(NODE_GAME), None)
+            .await;
         Ok(KickResult {
             user_id: kicked.user_id,
             username: kicked.username,
@@ -706,14 +856,15 @@ impl Admin {
 
     pub async fn ban(
         &self,
-        operator: &Operator,
+        caller: &Caller,
         name: &str,
         reason: &str,
         game: Option<&str>,
     ) -> async_graphql::Result<Player> {
+        allow(caller, Role::Moderator, "ban")?;
         let reason = input::reason(reason).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?;
         let account = match self
-            .locate(operator, name, game, true)
+            .locate(caller, name, game, true)
             .await?
             .ok_or_else(no_such_player)?
         {
@@ -721,32 +872,44 @@ impl Admin {
             Found::Module(module, info) => {
                 let request = AdminRequest::Ban {
                     player: info.name.clone(),
-                    reason: Some(reason),
+                    reason: Some(reason.clone()),
                     until: None,
                 };
-                self.module_act(operator, &module, request).await?;
-                return Ok(self.player_now(&module, info).await);
+                self.module_act(caller, &module, request).await?;
+                let game = module.game_version.to_string();
+                self.audit(caller, "ban", Some(&info.name), Some(&game), Some(&reason))
+                    .await;
+                return Ok(self.player_now(caller, &module, info).await);
             }
         };
-        let updated = self.set_access(operator, &account, "banned", &reason).await?;
+        let updated = self.set_access(caller, &account, "banned", &reason).await?;
+        self.audit(
+            caller,
+            "ban",
+            Some(&updated.display_name),
+            Some(NODE_GAME),
+            Some(&reason),
+        )
+        .await;
         self.forget_timeout(&updated.user_id).await?;
-        self.player(operator, updated).await
+        self.player(&caller.operator, updated).await
     }
 
     pub async fn timeout(
         &self,
-        operator: &Operator,
+        caller: &Caller,
         name: &str,
         minutes: Option<i64>,
         until: Option<&str>,
         reason: &str,
         game: Option<&str>,
     ) -> async_graphql::Result<Player> {
+        allow(caller, Role::Moderator, "timeout")?;
         let reason = input::reason(reason).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?;
         let now = self.now();
         let end = input::timeout_end(minutes, until, now).map_err(|why| fail(Code::BadInput, why))?;
         let account = match self
-            .locate(operator, name, game, true)
+            .locate(caller, name, game, true)
             .await?
             .ok_or_else(no_such_player)?
         {
@@ -758,8 +921,12 @@ impl Admin {
                     reason: Some(timeout_reason(end, &reason)),
                     until: Some(input::iso(end)),
                 };
-                self.module_act(operator, &module, request).await?;
-                return Ok(self.player_now(&module, info).await);
+                self.module_act(caller, &module, request).await?;
+                let game = module.game_version.to_string();
+                let detail = timeout_reason(end, &reason);
+                self.audit(caller, "timeout", Some(&info.name), Some(&game), Some(&detail))
+                    .await;
+                return Ok(self.player_now(caller, &module, info).await);
             }
         };
         let timed_out = self.timeouts.get(&account.user_id).await.is_some();
@@ -775,38 +942,47 @@ impl Admin {
             }
         }
         let full_reason = timeout_reason(end, &reason);
-        let updated = self.set_access(operator, &account, "banned", &full_reason).await?;
+        let updated = self.set_access(caller, &account, "banned", &full_reason).await?;
         let saved = self
             .timeouts
             .put(Timeout {
                 user_id: updated.user_id.clone(),
                 username: updated.display_name.clone(),
                 until: end,
-                reason: full_reason,
-                by: operator.id().to_owned(),
+                reason: full_reason.clone(),
+                by: caller.operator.id().to_owned(),
                 at: now,
             })
             .await;
         if let Err(error) = saved {
             // Not remembered means never lifted: undo the ban rather than leave it permanent
             log::error("could not save the timeouts", json!({"error": error}));
-            self.set_access(operator, &updated, "active", "Timeout could not be recorded")
+            self.set_access(caller, &updated, "active", "Timeout could not be recorded")
                 .await?;
             return Err(fail(
                 Code::StateNotSaved,
                 "the timeouts file could not be saved, so the timeout was undone",
             ));
         }
-        self.player(operator, updated).await
+        self.audit(
+            caller,
+            "timeout",
+            Some(&updated.display_name),
+            Some(NODE_GAME),
+            Some(&full_reason),
+        )
+        .await;
+        self.player(&caller.operator, updated).await
     }
 
     pub async fn unban(
         &self,
-        operator: &Operator,
+        caller: &Caller,
         name: &str,
         reason: Option<&str>,
         game: Option<&str>,
     ) -> async_graphql::Result<Player> {
+        allow(caller, Role::Admin, "unban")?;
         let reason = match reason {
             Some(given) => {
                 input::reason(given).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))?
@@ -815,7 +991,7 @@ impl Admin {
         };
         // module-api has no request that lifts a ban yet
         let account = match self
-            .locate(operator, name, game, true)
+            .locate(caller, name, game, true)
             .await?
             .ok_or_else(no_such_player)?
         {
@@ -825,19 +1001,23 @@ impl Admin {
         if status_of(&account) != AccountStatus::Banned {
             return Err(fail(Code::NotBanned, "this player is not banned"));
         }
-        let updated = self.set_access(operator, &account, "active", &reason).await?;
+        let updated = self.set_access(caller, &account, "active", &reason).await?;
+        self.audit(
+            caller,
+            "unban",
+            Some(&updated.display_name),
+            Some(NODE_GAME),
+            Some(&reason),
+        )
+        .await;
         self.forget_timeout(&updated.user_id).await?;
-        self.player(operator, updated).await
+        self.player(&caller.operator, updated).await
     }
 
-    pub async fn lift_timeout(
-        &self,
-        operator: &Operator,
-        name: &str,
-        game: Option<&str>,
-    ) -> async_graphql::Result<Player> {
+    pub async fn lift_timeout(&self, caller: &Caller, name: &str, game: Option<&str>) -> async_graphql::Result<Player> {
+        allow(caller, Role::Admin, "liftTimeout")?;
         let account = match self
-            .locate(operator, name, game, true)
+            .locate(caller, name, game, true)
             .await?
             .ok_or_else(no_such_player)?
         {
@@ -848,9 +1028,17 @@ impl Admin {
         if player.map(|r| r.kind) != Some(RestrictionKind::Timeout) {
             return Err(fail(Code::NotTimedOut, "this player is not timed out"));
         }
-        let updated = self.set_access(operator, &account, "active", "Timeout lifted").await?;
+        let updated = self.set_access(caller, &account, "active", "Timeout lifted").await?;
+        self.audit(
+            caller,
+            "liftTimeout",
+            Some(&updated.display_name),
+            Some(NODE_GAME),
+            None,
+        )
+        .await;
         self.forget_timeout(&updated.user_id).await?;
-        self.player(operator, updated).await
+        self.player(&caller.operator, updated).await
     }
 
     /// Lifts the timeouts that have run out. One whose ban was changed since (lifted, or replaced
@@ -896,11 +1084,11 @@ impl Admin {
         }
     }
 
-    pub async fn server_status(&self, operator: &Operator) -> async_graphql::Result<ServerStatus> {
+    pub async fn server_status(&self, caller: &Caller) -> async_graphql::Result<ServerStatus> {
         let status = self.upstream.status().await.map_err(|e| upstream("backend", e))?;
         let online = self
             .upstream
-            .online(operator)
+            .online(&caller.operator)
             .await
             .map_err(|e| upstream("backend", e))?;
         Ok(ServerStatus {
@@ -919,7 +1107,7 @@ impl Admin {
         })
     }
 
-    pub async fn hunt_status(&self, operator: &Operator) -> async_graphql::Result<HuntStatus> {
+    pub async fn hunt_status(&self, caller: &Caller) -> async_graphql::Result<HuntStatus> {
         let hunts: Vec<_> = self
             .upstream
             .instances()
@@ -933,7 +1121,7 @@ impl Admin {
         ids.dedup();
         let names: HashMap<String, String> = self
             .upstream
-            .accounts_by_ids(operator, &ids)
+            .accounts_by_ids(&caller.operator, &ids)
             .await
             .map_err(|e| upstream("backend", e))?
             .into_iter()
@@ -970,8 +1158,8 @@ impl Admin {
 
 // ------------------------------------------------------------------ the GraphQL roots
 
-fn parts<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<(&'a Arc<Admin>, &'a Operator)> {
-    Ok((ctx.data::<Arc<Admin>>()?, ctx.data::<Operator>()?))
+fn parts<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<(&'a Arc<Admin>, &'a Caller)> {
+    Ok((ctx.data::<Arc<Admin>>()?, ctx.data::<Caller>()?))
 }
 
 pub struct Query;
@@ -987,25 +1175,25 @@ impl Query {
         username: String,
         game: Option<String>,
     ) -> async_graphql::Result<Option<Player>> {
-        let (admin, operator) = parts(ctx)?;
-        admin.find_player(operator, &username, game.as_deref()).await
+        let (admin, caller) = parts(ctx)?;
+        admin.find_player(caller, &username, game.as_deref()).await
     }
 
     async fn server_status(&self, ctx: &Context<'_>) -> async_graphql::Result<ServerStatus> {
-        let (admin, operator) = parts(ctx)?;
-        admin.server_status(operator).await
+        let (admin, caller) = parts(ctx)?;
+        admin.server_status(caller).await
     }
 
     /// The running hunt servers, who is in each, and how many more can start.
     async fn hunt_status(&self, ctx: &Context<'_>) -> async_graphql::Result<HuntStatus> {
-        let (admin, operator) = parts(ctx)?;
-        admin.hunt_status(operator).await
+        let (admin, caller) = parts(ctx)?;
+        admin.hunt_status(caller).await
     }
 
     /// The timeouts this API will lift when they end, soonest first. Read from its own file: the
     /// backend is not asked, so a ban someone replaced since still shows until the sweep sees it.
     async fn active_timeouts(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<ActiveTimeout>> {
-        let (admin, _operator) = parts(ctx)?;
+        let (admin, _caller) = parts(ctx)?;
         Ok(admin
             .timeouts
             .all()
@@ -1030,6 +1218,13 @@ impl Query {
     async fn module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Option<Module>> {
         module_control::get(ctx, &id)
     }
+
+    /// Every admin key, the owner first, with its role and who issued it. Admin role or higher. Never the
+    /// key itself.
+    async fn admin_keys(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<AdminKey>> {
+        let (admin, caller) = parts(ctx)?;
+        admin.admin_keys(caller).await
+    }
 }
 
 pub struct Mutation;
@@ -1044,8 +1239,8 @@ impl Mutation {
         username: String,
         game: Option<String>,
     ) -> async_graphql::Result<KickResult> {
-        let (admin, operator) = parts(ctx)?;
-        admin.kick(operator, &username, game.as_deref()).await
+        let (admin, caller) = parts(ctx)?;
+        admin.kick(caller, &username, game.as_deref()).await
     }
 
     /// Bans a player until a given time, then lifts the ban. Give `minutes` or `until` (RFC 3339),
@@ -1059,9 +1254,9 @@ impl Mutation {
         reason: String,
         game: Option<String>,
     ) -> async_graphql::Result<Player> {
-        let (admin, operator) = parts(ctx)?;
+        let (admin, caller) = parts(ctx)?;
         admin
-            .timeout(operator, &username, minutes, until.as_deref(), &reason, game.as_deref())
+            .timeout(caller, &username, minutes, until.as_deref(), &reason, game.as_deref())
             .await
     }
 
@@ -1072,8 +1267,8 @@ impl Mutation {
         username: String,
         game: Option<String>,
     ) -> async_graphql::Result<Player> {
-        let (admin, operator) = parts(ctx)?;
-        admin.lift_timeout(operator, &username, game.as_deref()).await
+        let (admin, caller) = parts(ctx)?;
+        admin.lift_timeout(caller, &username, game.as_deref()).await
     }
 
     /// Bans a player until someone unbans them. Replaces a timeout. The player reads `reason` in the
@@ -1085,8 +1280,8 @@ impl Mutation {
         reason: String,
         game: Option<String>,
     ) -> async_graphql::Result<Player> {
-        let (admin, operator) = parts(ctx)?;
-        admin.ban(operator, &username, &reason, game.as_deref()).await
+        let (admin, caller) = parts(ctx)?;
+        admin.ban(caller, &username, &reason, game.as_deref()).await
     }
 
     /// Lifts a ban or a timeout.
@@ -1097,24 +1292,50 @@ impl Mutation {
         reason: Option<String>,
         game: Option<String>,
     ) -> async_graphql::Result<Player> {
-        let (admin, operator) = parts(ctx)?;
-        admin
-            .unban(operator, &username, reason.as_deref(), game.as_deref())
-            .await
+        let (admin, caller) = parts(ctx)?;
+        admin.unban(caller, &username, reason.as_deref(), game.as_deref()).await
     }
 
     /// Loads a listed module (a failed one is restarted). Refused with MODULE_REFUSED and the reason: a
     /// second module for a game version, a SHA-256 that doesn't match, a module that failed to start.
+    /// Needs the admin role.
     async fn load_module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Module> {
-        module_control::load(ctx, &id).await
+        let (admin, caller) = parts(ctx)?;
+        allow(caller, Role::Admin, "loadModule")?;
+        let module = module_control::load(ctx, &id).await?;
+        admin.audit(caller, "loadModule", Some(&id), None, None).await;
+        Ok(module)
     }
 
-    /// Stops a module, its plugins first, and kills what it left running.
+    /// Stops a module, its plugins first, and kills what it left running. Needs the admin role.
     async fn unload_module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Module> {
-        module_control::unload(ctx, &id).await
+        let (admin, caller) = parts(ctx)?;
+        allow(caller, Role::Admin, "unloadModule")?;
+        let module = module_control::unload(ctx, &id).await?;
+        admin.audit(caller, "unloadModule", Some(&id), None, None).await;
+        Ok(module)
     }
 
+    /// Needs the admin role.
     async fn restart_module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Module> {
-        module_control::restart(ctx, &id).await
+        let (admin, caller) = parts(ctx)?;
+        allow(caller, Role::Admin, "restartModule")?;
+        let module = module_control::restart(ctx, &id).await?;
+        admin.audit(caller, "restartModule", Some(&id), None, None).await;
+        Ok(module)
+    }
+
+    /// Makes an admin key for one person (`name`) with a role. Needs the admin role, and an admin issues only
+    /// viewer and moderator keys; the owner issues any. The key is in the answer once.
+    async fn issue_key(&self, ctx: &Context<'_>, name: String, role: Role) -> async_graphql::Result<IssuedKey> {
+        let (admin, caller) = parts(ctx)?;
+        admin.issue_key(caller, &name, role).await
+    }
+
+    /// Ends an issued key: its next request is refused. Only the owner does it; the owner key is changed in
+    /// secrets.env.
+    async fn revoke_key(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<AdminKey> {
+        let (admin, caller) = parts(ctx)?;
+        admin.revoke_key(caller, &id).await
     }
 }

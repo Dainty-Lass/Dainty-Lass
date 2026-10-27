@@ -317,10 +317,17 @@ async fn send(url: &str, method: &str, headers: &[(&str, &str)], body: &str) -> 
 }
 
 impl World {
-    /// A GraphQL request as the bot sends it, for Discord user 42.
+    /// A GraphQL request as the bot sends it with the owner's key (REFORGED_ADMIN_API_KEY), for Discord user 42.
     async fn gql(&self, query: &str, variables: Value) -> Value {
-        let bearer = format!("Bearer {API_KEY}");
-        let (status, body) = send(
+        let (status, body) = self.gql_as(API_KEY, query, variables).await;
+        assert_eq!(status, 200, "{body}");
+        body
+    }
+
+    /// The same with any key, answering the HTTP status too.
+    async fn gql_as(&self, key: &str, query: &str, variables: Value) -> (u16, Value) {
+        let bearer = format!("Bearer {key}");
+        send(
             &format!("{}/graphql", self.url),
             "POST",
             &[
@@ -330,9 +337,14 @@ impl World {
             ],
             &json!({"query": query, "variables": variables}).to_string(),
         )
-        .await;
-        assert_eq!(status, 200, "{body}");
-        body
+        .await
+    }
+
+    /// A key for `name`, issued as the host kit's command does: its id and the key.
+    async fn issue(&self, role: admin::keys::Role, name: &str) -> (String, String) {
+        let by = store::Actor::Host("test".into());
+        let (info, key) = self.admin.keys.issue(name, role, by, START).await.unwrap();
+        (info.id, key)
     }
 
     fn status_of(&self, user_id: &str) -> String {
@@ -1043,6 +1055,29 @@ mod games {
     }
 
     #[tokio::test]
+    async fn a_module_is_told_which_key_asked() {
+        let isles = isles();
+        let w = world_on(std::slice::from_ref(&isles)).await;
+        let (id, key) = w.issue(admin::keys::Role::Moderator, "Maya").await;
+        let (status, body) = w.gql_as(&key, KICK, json!({"name": "Ada"})).await;
+        assert_eq!(status, 200);
+        assert!(body["errors"].is_null(), "{body}");
+        let calls = isles.calls();
+        assert!(calls.len() >= 2, "a lookup and the kick");
+        for call in &calls {
+            assert_eq!(call.actor.actor, Actor::Admin { key: id.clone() });
+            assert!(call.actor.is_valid());
+        }
+        assert!(!serde_json::to_string(&calls).unwrap().contains(&key));
+        // The owner's key still acts as the owner
+        w.gql(KICK, json!({"name": "Ada"})).await;
+        assert_eq!(
+            isles.calls().last().unwrap().actor.actor,
+            Actor::Admin { key: "owner".into() }
+        );
+    }
+
+    #[tokio::test]
     async fn a_name_in_two_games_needs_the_game() {
         let revived = revived_with(vec![stub_player("Ada", false, false)]);
         let w = world_on(std::slice::from_ref(&revived)).await;
@@ -1150,5 +1185,223 @@ mod games {
         assert!(!plugin.has_game("1.12.0"), "no admin actions, nothing to route");
         plugin.detach(&"revived-stub".parse().unwrap());
         assert!(plugin.modules().is_empty());
+    }
+}
+
+// ------------------------------------------------------------------ keys and roles (DH2)
+
+mod roles {
+    use admin::keys::Role;
+
+    use super::*;
+
+    const ISSUE: &str = "mutation($name: String!, $role: Role!) {
+      issueKey(name: $name, role: $role) { key info { id name role createdBy } } }";
+    const KEYS: &str = "{ adminKeys { id name role createdBy revokedAt revokedBy } }";
+    const REVOKE: &str = "mutation($id: String!) { revokeKey(id: $id) { id revokedAt revokedBy } }";
+    const KICK: &str = "mutation($name: String!) { kick(username: $name) { username } }";
+    const BAN: &str = "mutation($name: String!, $reason: String!) { ban(username: $name, reason: $reason) { status } }";
+    const UNBAN: &str = "mutation($name: String!) { unban(username: $name) { status } }";
+    const LIFT: &str = "mutation($name: String!) { liftTimeout(username: $name) { status } }";
+    const LOAD: &str = "mutation { loadModule(id: \"stub\") { id } }";
+    const STATUS: &str = "{ serverStatus { name } }";
+
+    fn missing(body: &Value) -> Option<&str> {
+        (code(body) == "FORBIDDEN").then(|| body["errors"][0]["extensions"]["requiredRole"].as_str().unwrap_or(""))
+    }
+
+    #[tokio::test]
+    async fn an_install_with_one_key_is_the_owner() {
+        let w = world().await;
+        let body = w.gql(KEYS, json!({})).await;
+        assert_eq!(body["data"]["adminKeys"][0]["id"], "owner");
+        assert_eq!(body["data"]["adminKeys"][0]["role"], "OWNER");
+        // Everything works with it, and the change log names owner
+        w.gql(BAN, json!({"name": "Bo_Slayer", "reason": "griefing hunts"}))
+            .await;
+        w.gql(UNBAN, json!({"name": "Bo_Slayer"})).await;
+        let log = w.admin.keys.database().changes(0, 1000).await.unwrap();
+        let actions: Vec<_> = log.iter().filter(|e| e.table_name == "admin_actions").collect();
+        assert_eq!(actions.len(), 2);
+        assert!(actions.iter().all(|e| e.actor == "admin:owner"));
+    }
+
+    #[tokio::test]
+    async fn each_role_does_what_it_does_and_the_refusal_names_the_role_it_lacks() {
+        let w = world().await;
+        let mut n = 0;
+        for (role, rank) in [
+            (Role::Viewer, 0),
+            (Role::Moderator, 1),
+            (Role::Admin, 2),
+            (Role::Owner, 3),
+        ] {
+            let (_, key) = w.issue(role, &format!("person {rank}")).await;
+            // Nobody exists by these names, so an allowed call ends in NOT_FOUND and changes nothing
+            let ghost = json!({"name": "Nobody"});
+            n += 1;
+            let fresh = json!({"name": format!("someone {n}"), "role": "VIEWER"});
+            let table: [(&str, Value, i32, &str); 9] = [
+                (STATUS, json!({}), 0, "viewer"),
+                (KICK, ghost.clone(), 1, "moderator"),
+                (BAN, json!({"name": "Nobody", "reason": "testing"}), 1, "moderator"),
+                (UNBAN, ghost.clone(), 2, "admin"),
+                (LIFT, ghost.clone(), 2, "admin"),
+                (LOAD, json!({}), 2, "admin"),
+                (KEYS, json!({}), 2, "admin"),
+                (ISSUE, fresh, 2, "admin"),
+                (REVOKE, json!({"id": "00000000"}), 3, "owner"),
+            ];
+            for (query, variables, needs, required) in table {
+                let (status, body) = w.gql_as(&key, query, variables).await;
+                assert_eq!(status, 200);
+                if rank < needs {
+                    assert_eq!(missing(&body), Some(required), "{role} {query}: {body}");
+                    let message = body["errors"][0]["message"].as_str().unwrap();
+                    assert!(message.contains(&format!("needs the {required} role")), "{message}");
+                    assert!(message.contains(&format!("role is {role}")), "{message}");
+                } else {
+                    assert_ne!(code(&body), "FORBIDDEN", "{role} {query}: {body}");
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn a_moderator_cannot_delete_unban_or_revert_and_changes_nothing() {
+        let w = world().await;
+        let (_, key) = w.issue(Role::Moderator, "Maya").await;
+        w.gql_as(&key, BAN, json!({"name": "Bo_Slayer", "reason": "griefing hunts"}))
+            .await;
+        assert_eq!(w.status_of("u-bo"), "banned");
+        let (_, body) = w.gql_as(&key, UNBAN, json!({"name": "Bo_Slayer"})).await;
+        assert_eq!(missing(&body), Some("admin"));
+        assert_eq!(w.status_of("u-bo"), "banned");
+        let (_, body) = w.gql_as(&key, REVOKE, json!({"id": "00000000"})).await;
+        assert_eq!(missing(&body), Some("owner"));
+    }
+
+    #[tokio::test]
+    async fn an_admin_issues_only_keys_below_its_own_role() {
+        let w = world().await;
+        let (_, key) = w.issue(Role::Admin, "Ari").await;
+        let (_, ok) = w.gql_as(&key, ISSUE, json!({"name": "Mo", "role": "MODERATOR"})).await;
+        assert_eq!(ok["data"]["issueKey"]["info"]["role"], "MODERATOR");
+        for role in ["ADMIN", "OWNER"] {
+            let (_, body) = w.gql_as(&key, ISSUE, json!({"name": "Other", "role": role})).await;
+            assert_eq!(missing(&body), Some("owner"), "{role}");
+        }
+        // The owner issues any role, and a name has one active key
+        let (_, ok) = w.gql_as(API_KEY, ISSUE, json!({"name": "Co", "role": "OWNER"})).await;
+        assert_eq!(ok["data"]["issueKey"]["info"]["createdBy"], "admin:owner");
+        let (_, body) = w.gql_as(API_KEY, ISSUE, json!({"name": "mo", "role": "VIEWER"})).await;
+        assert_eq!(code(&body), "BAD_INPUT");
+    }
+
+    #[tokio::test]
+    async fn a_revoked_key_is_refused_on_its_next_request() {
+        let w = world().await;
+        let (id, key) = w.issue(Role::Moderator, "Maya").await;
+        let (status, _) = w.gql_as(&key, STATUS, json!({})).await;
+        assert_eq!(status, 200);
+        let (_, body) = w.gql_as(API_KEY, REVOKE, json!({"id": id})).await;
+        assert_eq!(body["data"]["revokeKey"]["id"], json!(id));
+        assert_eq!(body["data"]["revokeKey"]["revokedBy"], "admin:owner");
+        let (status, body) = w.gql_as(&key, STATUS, json!({})).await;
+        assert_eq!((status, code(&body)), (401, "UNAUTHENTICATED"));
+        // Revoking twice, or the owner key, is refused; the owner key goes on working
+        let (_, body) = w.gql_as(API_KEY, REVOKE, json!({"id": id})).await;
+        assert_eq!(code(&body), "NOT_FOUND");
+        let (_, body) = w.gql_as(API_KEY, REVOKE, json!({"id": "owner"})).await;
+        assert_eq!(code(&body), "BAD_INPUT");
+        assert_eq!(w.gql_as(API_KEY, STATUS, json!({})).await.0, 200);
+        // The row stays, with who revoked it
+        let listed = w.gql(KEYS, json!({})).await;
+        let rows = listed["data"]["adminKeys"].as_array().unwrap();
+        let row = rows.iter().find(|k| k["id"] == json!(id)).unwrap();
+        assert_eq!(row["revokedBy"], "admin:owner");
+    }
+
+    #[tokio::test]
+    async fn every_change_names_the_key_that_made_it() {
+        let w = world().await;
+        let (maya, maya_key) = w.issue(Role::Moderator, "Maya").await;
+        let (ari, ari_key) = w.issue(Role::Admin, "Ari").await;
+        w.gql_as(&maya_key, BAN, json!({"name": "Bo_Slayer", "reason": "griefing hunts"}))
+            .await;
+        w.gql_as(&ari_key, UNBAN, json!({"name": "Bo_Slayer"})).await;
+        w.gql_as(&maya_key, KICK, json!({"name": "Ada"})).await;
+        w.gql_as(API_KEY, BAN, json!({"name": "Ada", "reason": "spamming chat"}))
+            .await;
+        // A refused call changes nothing and records nothing
+        w.gql_as(&maya_key, UNBAN, json!({"name": "Ada"})).await;
+
+        let log = w.admin.keys.database().changes(0, 1000).await.unwrap();
+        let seen: Vec<(String, String, String)> = log
+            .iter()
+            .filter(|e| e.table_name == "admin_actions")
+            .map(|e| {
+                let row: Value = serde_json::from_str(e.after.as_deref().unwrap()).unwrap();
+                let text = |field: &str| row[field].as_str().unwrap().to_owned();
+                (e.actor.clone(), text("key_id"), text("action"))
+            })
+            .collect();
+        let want = |key: &str, action: &str| (format!("admin:{key}"), key.to_owned(), action.to_owned());
+        assert_eq!(
+            seen,
+            [
+                want(&maya, "ban"),
+                want(&ari, "unban"),
+                want(&maya, "kick"),
+                want("owner", "ban")
+            ]
+        );
+        // The two keys were made by the host kit command here
+        let issued: Vec<_> = log
+            .iter()
+            .filter(|e| e.table_name == "admin_keys")
+            .map(|e| e.actor.as_str())
+            .collect();
+        assert_eq!(issued, ["host:test", "host:test"]);
+    }
+
+    #[tokio::test]
+    async fn a_key_is_shown_once_and_only_its_hash_is_kept() {
+        let w = world().await;
+        let (_, body) = w.gql_as(API_KEY, ISSUE, json!({"name": "Mo", "role": "VIEWER"})).await;
+        let key = body["data"]["issueKey"]["key"].as_str().unwrap().to_owned();
+        assert!(key.starts_with("RRA_") && key.len() == 77, "{key}");
+        let listed = w.gql(KEYS, json!({})).await.to_string();
+        assert!(!listed.contains(&key) && !listed.contains("key_hash"));
+        w.admin.keys.database().checkpoint().await.unwrap();
+        let dir = w.timeouts_file.parent().unwrap();
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let bytes = std::fs::read(entry.unwrap().path()).unwrap();
+            assert!(
+                !bytes.windows(key.len()).any(|part| part == key.as_bytes()),
+                "the key is on disk"
+            );
+        }
+        let log = w.admin.keys.database().changes(0, 1000).await.unwrap();
+        assert!(log.iter().all(|e| !e.after.as_deref().unwrap_or("").contains(&key)));
+        assert_eq!(w.gql_as(&key, STATUS, json!({})).await.0, 200);
+    }
+
+    #[tokio::test]
+    async fn a_wrong_or_malformed_key_is_refused_alike() {
+        let w = world().await;
+        let (id, key) = w.issue(Role::Admin, "Ari").await;
+        let last = if key.ends_with("0") { "1" } else { "0" };
+        let secret_changed = format!("{}{last}", &key[..key.len() - 1]);
+        for bad in [
+            secret_changed,
+            format!("RRA_{id}_{}", "0".repeat(64)),
+            format!("RRA_ffffffff_{}", "0".repeat(64)),
+            "RRA_".to_owned(),
+            key.to_uppercase(),
+        ] {
+            let (status, body) = w.gql_as(&bad, STATUS, json!({})).await;
+            assert_eq!((status, code(&body)), (401, "UNAUTHENTICATED"), "{bad}");
+        }
     }
 }

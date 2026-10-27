@@ -28,6 +28,31 @@ type ActiveTimeout {
 	at: String!
 }
 
+"""
+An admin key as listed: who it is for and what it may do, never the key itself.
+"""
+type AdminKey {
+	"""
+	What the log and `admin:<id>` in the change log call it. `owner` is REFORGED_ADMIN_API_KEY.
+	"""
+	id: String!
+	name: String!
+	role: Role!
+	"""
+	Null for the owner key, which setup made.
+	"""
+	createdAt: String
+	"""
+	The actor that issued it, as the change log writes it.
+	"""
+	createdBy: String!
+	"""
+	Set once revoked: that key is refused.
+	"""
+	revokedAt: String
+	revokedBy: String
+}
+
 type Hunt {
 	id: String!
 	title: String!
@@ -58,6 +83,17 @@ type HuntStatus {
 	"""
 	free: Int!
 	hunts: [Hunt!]!
+}
+
+"""
+A key just made. The key itself is shown here once and is not kept.
+"""
+type IssuedKey {
+	"""
+	`RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
+	"""
+	key: String!
+	info: AdminKey!
 }
 
 type KickResult {
@@ -160,13 +196,27 @@ type Mutation {
 	"""
 	Loads a listed module (a failed one is restarted). Refused with MODULE_REFUSED and the reason: a
 	second module for a game version, a SHA-256 that doesn't match, a module that failed to start.
+	Needs the admin role.
 	"""
 	loadModule(id: String!): Module!
 	"""
-	Stops a module, its plugins first, and kills what it left running.
+	Stops a module, its plugins first, and kills what it left running. Needs the admin role.
 	"""
 	unloadModule(id: String!): Module!
+	"""
+	Needs the admin role.
+	"""
 	restartModule(id: String!): Module!
+	"""
+	Makes an admin key for one person (`name`) with a role. Needs the admin role, and an admin issues only
+	viewer and moderator keys; the owner issues any. The key is in the answer once.
+	"""
+	issueKey(name: String!, role: Role!): IssuedKey!
+	"""
+	Ends an issued key: its next request is refused. Only the owner does it; the owner key is changed in
+	secrets.env.
+	"""
+	revokeKey(id: String!): AdminKey!
 }
 
 type Player {
@@ -223,6 +273,11 @@ type Query {
 	One listed module; null when host.toml lists none by that id.
 	"""
 	module(id: String!): Module
+	"""
+	Every admin key, the owner first, with its role and who issued it. Admin role or higher. Never the
+	key itself.
+	"""
+	adminKeys: [AdminKey!]!
 }
 
 """
@@ -261,6 +316,28 @@ enum RestrictionKind {
 	Disabled by the backend's own admin tools.
 	"""
 	DISABLED
+}
+
+"""
+What a key may do. Each role does what the one before does.
+"""
+enum Role {
+	"""
+	Reads: players, the server, hunts, timeouts, modules.
+	"""
+	VIEWER
+	"""
+	Viewer, and kick, timeout and ban.
+	"""
+	MODERATOR
+	"""
+	Moderator, and unban, lift a timeout, load and unload modules, list keys, issue keys below this role.
+	"""
+	ADMIN
+	"""
+	Everything: every key, revoking keys, and history reverts.
+	"""
+	OWNER
 }
 
 enum ServerMode {
