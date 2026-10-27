@@ -234,6 +234,7 @@ pub const DIRECTOR: DirectorConfig = DirectorConfig {
         log_cmds_setting: true,
         windows_hide: true,
     },
+    trials_new_tables: true,
 };
 
 /// rustic-rifts' crates, stubbed until RF4-RF6, as `MYSTICPARADOX_P2P_MODULE` allows (RF2).

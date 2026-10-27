@@ -141,6 +141,7 @@ pub const DIRECTOR: DirectorConfig = DirectorConfig {
         log_cmds_setting: false,
         windows_hide: false,
     },
+    trials_new_tables: false,
 };
 
 /// Realms exist only on 1.14.7 (DD14).

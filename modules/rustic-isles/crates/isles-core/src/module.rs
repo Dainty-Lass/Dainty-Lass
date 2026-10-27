@@ -50,6 +50,15 @@ pub trait PortService: Send + Sync {
     fn port(&self) -> &'static str;
 
     fn app(&self, shared: Arc<Shared>) -> Result<axum::Router, ModuleError>;
+
+    /// Called once the listener is up (the Director boots its hubs here).
+    fn started(&self) {}
+
+    /// Called before the listeners stop; resolves when the service has let go of what it started (the Director's
+    /// game servers).
+    fn stopping(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async {})
+    }
 }
 
 /// The backend: every area's handlers over the route table.
@@ -145,10 +154,15 @@ impl IslesModule {
             Some(path) => Settings::read_env_file(Path::new(path.trim())).map_err(failed)?,
             None => BTreeMap::new(),
         };
-        Ok(Settings::new(
-            env,
-            Settings::switches_from_config(config.sections.get("switches")),
-        ))
+        let settings = Settings::new(env, Settings::switches_from_config(config.sections.get("switches")));
+        // The Director's PORT_RANGE_BEGIN and _END are the range the controller gave the module, which the
+        // allowlist opens to admitted players, not whatever the env file says
+        Ok(match config.ports.get("game") {
+            Some(range) => settings
+                .forced("PORT_RANGE_BEGIN", range.first)
+                .forced("PORT_RANGE_END", range.last),
+            None => settings,
+        })
     }
 
     fn open_store(settings: &Settings, ctx: &ModuleContext) -> Result<Option<IslesStore>, ModuleError> {
@@ -232,6 +246,9 @@ impl IslesModule {
             running.chat = Some(chat);
             running.phase = Some(Phase::Ready);
             running.detail = Some(detail.clone());
+        }
+        for service in &self.spec.services {
+            service.started();
         }
         ctx.log(
             LogLevel::Info,
@@ -341,6 +358,9 @@ impl GameModule for IslesModule {
 
     fn stop(&self, ctx: ModuleContext) -> BoxFuture<'_, Result<(), ModuleError>> {
         Box::pin(async move {
+            for service in &self.spec.services {
+                service.stopping().await;
+            }
             let (servers, store) = {
                 let mut running = lock(&self.running);
                 running.phase = Some(Phase::Stopping);
