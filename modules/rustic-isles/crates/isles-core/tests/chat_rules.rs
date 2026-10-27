@@ -130,22 +130,39 @@ async fn the_plugin_is_told_the_jid_and_the_rooms_of_a_real_player() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_party_room_waits_for_the_party_area_and_a_missing_account_is_not_found() {
+async fn only_a_partys_members_join_its_room_and_a_missing_account_is_not_found() {
+    use isles_core::repo::parties::NewParty;
     let dir = tempfile::tempdir().unwrap();
     let store = open(&dir);
-    let alice = account(&store, "alice").await;
-    let chat = source(&NodeIdentity::standalone(), Some(store), &Settings::default());
-    // The parties repository is still RU4's stub: the rules cannot say who is in a party, so the join is refused
-    // (the plugin treats any error but `unsupported` as a refusal)
-    let party = GlobalId::new(IdKind::Party, &NodeIdentity::standalone().node);
-    let query = ChatQuery::Room {
-        room: RoomKind::Party(party),
-        account: alice.id.global().clone(),
+    let (alice, bob) = (account(&store, "alice").await, account(&store, "bob").await);
+    let chat = source(&NodeIdentity::standalone(), Some(store.clone()), &Settings::default());
+    let node = NodeIdentity::standalone().node;
+    let party = GlobalId::new(IdKind::Party, &node);
+    let ask = |who: &AccountRecord| ChatQuery::Room {
+        room: RoomKind::Party(party.clone()),
+        account: who.id.global().clone(),
     };
-    assert_eq!(
-        RULES.answer(&chat, &query).await.unwrap_err().kind,
-        ErrorKind::Unavailable
-    );
+    let refused = ChatAnswer::Room(RoomRules::default());
+    // in no party yet: refused
+    assert_eq!(RULES.answer(&chat, &ask(&alice)).await.unwrap(), refused);
+
+    // the party area writes the id the client sees (the room spelling and a build suffix), which the rules read back
+    let new_party = NewParty {
+        party_id: format!("{}_NjQ3NDcy", isles_chat::ids::room_id_text(&party)),
+        id: party.clone(),
+    };
+    let (who, now) = (alice.id.clone(), "2026-10-13T12:00:00.000Z");
+    store
+        .account_write(&alice.id, &ActorContext::new(Actor::System), move |tx, repos| {
+            repos.parties.get_or_create_solo(tx, &who, "647472", &new_party, now)
+        })
+        .await
+        .unwrap();
+    let ChatAnswer::Room(rules) = RULES.answer(&chat, &ask(&alice)).await.unwrap() else {
+        panic!("a room answer")
+    };
+    assert!(rules.may_join);
+    assert_eq!(RULES.answer(&chat, &ask(&bob)).await.unwrap(), refused, "not a member");
 
     let stranger = GlobalId::new(IdKind::Account, &NodeIdentity::standalone().node);
     let error = RULES

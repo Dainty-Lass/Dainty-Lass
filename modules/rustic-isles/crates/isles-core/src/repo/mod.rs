@@ -176,6 +176,7 @@ impl Repositories {
             player_journey: progression.clone(),
             breadcrumbs: progression.clone(),
             encountered_content: progression,
+            parties: Arc::new(parties::SqlParties),
             ..Self::stubs()
         }
     }
