@@ -728,6 +728,7 @@ fn the_table_is_whole() {
         "aa70748e4c0a776a991f2bac10ad342adaa31476"
     );
     assert_eq!(epic.executable_sha256.to_string(), crate::core::pins::PINNED_EXE_SHA256);
+    assert_eq!(crate::core::pins::EXE_RELATIVE_PATH, epic::builds::EXECUTABLE);
     assert_eq!(
         table[1].client.epic.as_ref().unwrap().manifest_sha1.to_string(),
         "46b4097c070afc29ed783e77a68ffa936b6a3504"

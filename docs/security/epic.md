@@ -9,7 +9,8 @@ How to use it: before the first release that installs from Epic, copy this list 
 check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
 date and the commit reviewed. An item that does not hold is a bug to fix before that release, not a box to leave
 open. DE1 wrote the manifest and chunk readers, DE2 the sign-in, DE3 the ownership check, DE5 the installer
-(`download.rs` and `download/`, and the launcher's `net/epic_install.rs` and `controller/install.rs`).
+(`download.rs` and `download/`, and the launcher's `net/epic_install.rs` and `controller/install.rs`), DE6 the host
+kit's `install-game` (`rust/services/host`: `epicinstall.rs`, `commands/install_game.rs`).
 
 ## What it is and where the boundary is
 
@@ -34,6 +35,11 @@ its cache, DE3), `download.rs` (the installer and its `Gate`), `download/cdn.rs`
 `epic_*` commands in `bridge/commands.rs`, `controller/install.rs` (the profile's pin, the joined server's copy, the
 ownership gate, the `game_install_*` commands) and `net/epic_install.rs` (DR's job: pause, resume, cancel,
 progress).
+
+The host kit installs through the same crate: `reforged-host install-game` (DE6) signs in with the pasted-code flow,
+keeps the session in `.workspace/config/epic-session.env`, and installs one folder per version for the game servers.
+Its extra boundaries are the **stdin or `--code-file` input** (the code, as in the launcher's paste fallback) and
+the **session file**, a secret like the account key. `epic::builds` (the pins) is shared by the launcher and the host.
 
 Fuzz target: `epic_manifest` in `rust/fuzz` (a whole manifest file under its own pin, the unpacked sections behind
 a valid header, a chunk checked against an entry made from its payload, and a resume file's body behind a matching
@@ -173,10 +179,58 @@ under another manifest's pin.
       `Ownership::forget` (DE2). Tests: `the_file_keeps_the_answer_across_restarts_and_never_a_token`,
       `a_damaged_or_foreign_file_is_no_answer`, `answers_expire`, `a_network_error_refuses_and_is_never_cached`.
 - [ ] A download starts only past `require_ownership` (the launcher's `epic_library::require`, `epic_not_owned`):
-      DE5's `game_install_start` and the host kit's install (DE7) call it first. Tests:
+      DE5's `game_install_start` and the host kit's install (DE6) call it first. Tests:
       `an_account_without_dauntless_cant_start_a_download` (crate and launcher).
 - [ ] The launcher's log drops every `egs_api` target (`epic::is_egs_api_target`). Test:
       `a_registered_key_never_reaches_the_file`.
+
+### The host kit's install (DE6)
+
+- [ ] The pins are compiled in (`epic::builds`, one table for the launcher's profiles and the host); `--version`
+      only picks a row, and 1.4.4 or an unknown version is refused with what to do instead. No option, env
+      variable or file names a manifest, a pin, a CDN host or an executable hash. Tests:
+      `a_version_epic_cannot_give_is_refused_with_a_way_forward`,
+      `the_command_refuses_what_it_cannot_do_before_asking_for_anything`, `the_hosts_pin_is_the_builds`,
+      `every_build_is_whole`.
+- [ ] The Epic session is in `epic-session.env` in the config folder (`.workspace/config`), written to a temporary
+      file and renamed, mode 0600 on Unix (`write_secret_file`; Windows relies on the folder's ACL, as for
+      `secrets.env`), and a file found group- or world-readable is closed to 0600 when read. It is never a
+      `host.toml` field, an env file's variable, a command line option or a line of output. `secrets.env` is not
+      used: it is made once by setup and its keys are checked at 32 characters, while a session turns over each
+      refresh. Tests: `a_fresh_host_signs_in_with_a_pasted_code_and_installs_for_its_game_servers` (mode 0600; the
+      code and both tokens appear in no output line and no file but the session file; host.toml holds nothing of
+      Epic), `an_expired_access_token_is_refreshed_and_the_new_refresh_token_stored`.
+- [ ] The authorization code comes only from stdin or `--code-file` (at most 16 KiB; a file of any other size is
+      refused), is checked by `AuthorizationCode::from_pasted` before it is sent (the launcher's paste fallback,
+      fuzzed as `epic_manifest`'s `Pasted` input), and is spent by the one exchange; it is not stored. It is shown
+      when pasted into a terminal, as any pasted text is; it is not logged. Tests: `a_wrong_code_signs_nobody_in`,
+      `a_closed_stdin_says_what_to_do`, `a_huge_paste_is_refused`.
+- [ ] Nothing logs. The command installs no `log` or `tracing` subscriber, so `egs-api`'s events (which carry URLs)
+      go nowhere; every message printed is the host kit's own wording of an error variant, never `egs-api`'s or the
+      response's text. An expired or ended session asks for a new code, an unreachable Epic does not (the stored
+      session stays for the next try). Test: `epic_being_down_does_not_ask_for_another_code`.
+- [ ] Ownership is asked before the manifest is fetched or any folder is made (`install_game` calls
+      `Ownership::require` first, then `download::install` asks the same gate again from the cache). Tests:
+      `an_account_without_dauntless_gets_nothing_downloaded_or_created` (no request reaches the CDN, no folder is
+      made, `game_dir` is unchanged; an unreadable library refuses as well).
+- [ ] The manifest is parsed only if it matches the pin, and must also name `Jackal` and the profile's build
+      version, so a source cannot substitute another build. The install is `epic::download::install` unchanged:
+      the folder checks, per-file and executable checks and resume are the ones above. A finished install is
+      recorded in `.workspace/epic/<version>.installed`; a repeat run trusts the record only if the executable still
+      has the pinned SHA-256. Tests: `the_executable_the_profile_pins_must_be_the_one_downloaded` (an executable
+      that is not the pinned one stops the install and leaves host.toml alone),
+      `the_second_run_needs_no_code_and_fetches_nothing`,
+      `a_download_killed_halfway_resumes_without_fetching_again`.
+- [ ] Only a finished install of 1.14.7 on a reborn or both server changes `host.toml` (`game_dir`), keeping the
+      host's comments, and rewrites the env files only if setup made them; a legacy server and 1.12.0 are left
+      alone. Tests: `host_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_runs_it`,
+      `the_host_keeps_the_hosts_own_comments_in_host_toml`.
+- [ ] `install-game --sign-out` ends the session at Epic and deletes the file and the cached ownership answer
+      whether or not Epic answers. Test: `signing_out_ends_and_deletes_the_session_even_when_epic_is_down`.
+- [ ] In Docker the command runs in the `host` container with `--dir /game` (`docker/host-entrypoint.sh`); the
+      session lands in the `workspace` volume with the other secrets, and the container needs no capability.
+- Accepted: the session file holds a refresh token in the clear (as `secrets.env` holds the gateway's secrets); the
+  host's own user and root can read it. A host that wants it gone sooner runs `--sign-out` after the install.
 
 ## Open points
 

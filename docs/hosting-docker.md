@@ -44,7 +44,7 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | `exports`, `captures` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
 | `mongo-data`, `mongo-config` | MongoDB's | The database |
 | `postgres-data` | Postgres's | The `postgres` profile's database |
-| bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`) |
+| bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
 | bind mount `REFORGED_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
 | bind mount `REFORGED_CONFIG_DIR` | `/config` (read-only, `configure` only) | The `toml` profile's `host.toml` |
 
@@ -60,7 +60,9 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
   memory allocator and those kernels' `rseq` disagree, mongodb.org SERVER-121912), which `docker compose logs
   mongo` shows as "MongoDB cannot start". Ubuntu 26.04 ships 6.19; Debian 13 and Ubuntu 24.04 are fine.
 - Your Dauntless 1.14.7 folder on the server, as for [a Linux host](hosting-linux.md) (about 15 GB), owned by
-  or writable for uid 1000: the game servers write their logs and a switch file next to the executable.
+  or writable for uid 1000: the game servers write their logs and a switch file next to the executable. Or an
+  empty folder of that kind and `install-game` ([below](#getting-the-game-from-epic)), which fetches it from your
+  own Epic library.
 - The game runtime and game data, from a Windows PC with your own game ([sdk-and-game-data.md](sdk-and-game-data.md)).
 - Public: the provider's firewall open for TCP 443 and UDP 8770-8777, as in [hosting-linux.md](hosting-linux.md).
 
@@ -84,6 +86,28 @@ docker compose run --rm host setup --mode public --host play.example.org --name 
 in the image), `--no-manage-mongo --mongo-uri mongodb://127.0.0.1:27017/?replicaSet=rs0` (the `mongo`
 container) and `--game /game`, unless you give those yourself. Ignore what it says about systemd and ufw:
 compose runs the server. On a DNS name, give `--game-address <public IPv4>` as on a Linux host.
+
+### Getting the game from Epic
+
+With no Dauntless folder yet, point `REFORGED_GAME_DIR` at an empty one (writable for uid 1000) and install into it
+from the owner's Epic library, as the launcher does for players:
+
+```bash
+docker compose run --rm host install-game
+```
+
+In the container `--dir` is `/game` unless you give it, so 1.14.7 lands in `REFORGED_GAME_DIR/1.14.7` (`/game/1.14.7`).
+The command prints Epic's login address; open it in a browser on any computer and paste the `authorizationCode`
+Epic shows when asked (`run` gives it a terminal; with `-T` or a pipe, put the code in `./import` and pass
+`--code-file /import/code.txt`). The session it opens is kept in the `workspace` volume
+(`config/epic-session.env`, owner-only): a stopped download continues when you run the command again, and
+`docker compose run --rm host install-game --sign-out` ends and deletes the session, which should be the last thing
+you run. If `host.toml` exists, `install-game` sets `game_dir` to `/game/1.14.7` and rewrites the env files, so the
+`director` container's game servers run from it; if not, give `setup` that folder with `--game /game/1.14.7` (setup
+adds `--game /game` itself only when `/game/Archon` exists). A `toml`-profile `host.toml` in `REFORGED_CONFIG_DIR`
+replaces the workspace's, so put `game_dir = "/game/1.14.7"` in it. The `compose.yaml` needs nothing for this: the
+`host` service already mounts the game folder and reaches the internet through `net`. About 15 GB comes down;
+[hosting.md](hosting.md#getting-the-game-from-epic) has the rest.
 
 The runtime and the game data: put the files in `./import` (or `REFORGED_IMPORT_DIR`), then
 
