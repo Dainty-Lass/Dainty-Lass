@@ -4,6 +4,7 @@
 import type {
   ActionResult,
   Branding,
+  GameVersionList,
   HostAction,
   HostFolder,
   HostKit,
@@ -21,7 +22,7 @@ import type {
   TaskProgress,
 } from "./generated/types.ts";
 
-export type { ActionResult, HostKit, HostServerView, RegionPing, Settings, Snapshot, TaskProgress };
+export type { ActionResult, GameVersionList, HostKit, HostServerView, RegionPing, Settings, Snapshot, TaskProgress };
 
 export interface LauncherApi {
   getSnapshot(): Promise<Snapshot>;
@@ -94,7 +95,8 @@ export interface LauncherApi {
   epicGet(): Promise<ActionResult>;
   epicSignOut(): Promise<ActionResult>;
   epicLibraryCheck(): Promise<ActionResult>;
-  gameVersionList(): Promise<ActionResult>;
+  // DE4's, filled: the installable versions, each Epic build with its sizes
+  gameVersionList(): Promise<GameVersionList>;
   gameInstallStart(version: string): Promise<ActionResult>;
   gameInstallPause(version: string): Promise<ActionResult>;
   gameInstallResume(version: string): Promise<ActionResult>;

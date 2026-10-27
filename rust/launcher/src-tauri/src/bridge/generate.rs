@@ -113,6 +113,11 @@ fn declarations() -> String {
         RealmKind,
         RegionProblem,
         RegionRtt,
+        GameVersionInstall,
+        GameVersionOrigin,
+        EpicManifestState,
+        EpicVersionInfo,
+        GameVersionEntry,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -124,6 +129,10 @@ fn declarations() -> String {
     declare("type RegisterOutcome = { ok: true; username: string } | { ok: false; error: LauncherError };".into());
     declare(
         "type RegionPing = { ok: true; regions: Array<RegionRtt>; reported: boolean } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare(
+        "type GameVersionList = { ok: true; versions: Array<GameVersionEntry> } | { ok: false; error: LauncherError };"
             .into(),
     );
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();

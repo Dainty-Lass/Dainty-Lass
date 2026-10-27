@@ -29,6 +29,10 @@ tauri-build = { version = "2.7", features = ["isolation"] }
 
 [dependencies]
 protocol.workspace = true
+# The client profiles (DE4, DD12) and Epic's manifests, read for the version list's sizes (DD22). By path, as
+# rust/fuzz takes them: module-api's workspace entry names the silentspud registry, `epic` has none yet
+module-api = { path = "../../crates/module-api" }
+epic = { path = "../../crates/epic" }
 serde.workspace = true
 # preserve_order: settings.json keeps its key order (L28); workspace builds unify it on anyway
 serde_json = { workspace = true, features = ["preserve_order"] }
