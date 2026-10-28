@@ -103,9 +103,22 @@ pub async fn run_with_node_links(
     config: Config,
     capture: Option<CaptureWriter>,
     in_process_allowlist: Option<crate::feed::InProcessSink>,
+    ctx: service_kit::context::ServiceContext,
+    routes: Option<Arc<ModuleRoutes>>,
+    node_links: Option<NodeLinkSlot>,
+) -> Result<(), String> {
+    run_with_network(config, capture, in_process_allowlist, ctx, routes, node_links, None).await
+}
+
+/// [`run_with_node_links`], also attaching `region_handler` to the gateway for `POST /network/v1/regions` (DN8).
+pub async fn run_with_network(
+    config: Config,
+    capture: Option<CaptureWriter>,
+    in_process_allowlist: Option<crate::feed::InProcessSink>,
     mut ctx: service_kit::context::ServiceContext,
     routes: Option<Arc<ModuleRoutes>>,
     node_links: Option<NodeLinkSlot>,
+    region_handler: Option<crate::network::RegionReportHandler>,
 ) -> Result<(), String> {
     ctx.status.starting();
     let tls = match if config.tls { Some(load_tls(&config)) } else { None } {
@@ -199,6 +212,9 @@ pub async fn run_with_node_links(
     .inspect_err(|err| {
         ctx.status.failed(err.clone());
     })?;
+    if let Some(handler) = region_handler {
+        gateway.set_region_handler(handler);
+    }
     if let Some(links) = gateway.node_links() {
         let cert = links.certificate();
         let expiry = chrono::DateTime::from_timestamp(cert.not_after, 0);

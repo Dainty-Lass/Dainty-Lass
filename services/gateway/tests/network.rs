@@ -158,3 +158,166 @@ async fn the_games_wrapped_calls_still_go_to_the_backend() {
     assert_eq!(w.backend.count(), 1);
     w.gateway.close().await;
 }
+
+#[tokio::test]
+async fn region_report_handler_reaches_ring_node_record_region_pings_authenticated() {
+    use std::sync::Arc;
+
+    use module_api::GameVersion;
+    use module_api::network::{GlobalId, HomeApi, HomeError, IdKind, NodeId, NodeIdentity, SessionTicket};
+    use network_plugin::Clock;
+    use network_plugin::home::{SigningKey, TicketConfig, Tickets};
+    use network_plugin::inprocess::InProcessNetwork;
+    use network_plugin::ring::{RegionPing, RingConfig, RingNode, UnconfiguredDirector};
+
+    struct NoopAllowlist;
+    impl network_plugin::ring::AllowlistSink for NoopAllowlist {
+        fn admit_player(&self, _: &GlobalId, _: &GlobalId, _: &str, _: u16) {}
+    }
+
+    struct TicketVerifyingHome {
+        identity: NodeIdentity,
+        tickets: Arc<Tickets>,
+    }
+
+    impl HomeApi for TicketVerifyingHome {
+        fn resolve_home<'a>(&'a self, _: &'a GlobalId) -> module_api::BoxFuture<'a, Result<NodeIdentity, HomeError>> {
+            let id = self.identity.clone();
+            Box::pin(async move { Ok(id) })
+        }
+
+        fn session_ticket<'a>(
+            &'a self,
+            _: &'a GlobalId,
+            _: &'a NodeId,
+        ) -> module_api::BoxFuture<'a, Result<SessionTicket, HomeError>> {
+            Box::pin(async { Err(HomeError::NotInNetwork) })
+        }
+
+        fn admit<'a>(
+            &'a self,
+            ticket: &'a SessionTicket,
+            game: &'a GameVersion,
+        ) -> module_api::BoxFuture<'a, Result<GlobalId, HomeError>> {
+            let expect = network_plugin::home::Expect {
+                issuer: &self.identity.node,
+                audience: &self.identity.node,
+                game: Some(game),
+                account: None,
+            };
+            let res = self
+                .tickets
+                .verify(ticket, &expect)
+                .map(|c| c.sub)
+                .map_err(|e| HomeError::Denied(e.to_string()));
+            Box::pin(async move { res })
+        }
+    }
+
+    let _serial = serial().await;
+    let w = world(Vec::new()).await;
+    let port = w.gateway.port;
+
+    let node: NodeId = "oregon-1".parse().unwrap();
+    let identity = NodeIdentity {
+        node: node.clone(),
+        region: "oregon".parse().unwrap(),
+    };
+    let clock = Arc::new(Clock::default());
+    let tickets = Arc::new(Tickets::new(
+        &identity,
+        SigningKey::generate().unwrap(),
+        clock.clone(),
+        TicketConfig::default(),
+    ));
+    let net = InProcessNetwork::new();
+    let ring = RingNode::new(
+        RingConfig::new(identity.clone()),
+        clock,
+        Arc::new(net.link(&node)),
+        Arc::new(TicketVerifyingHome {
+            identity: identity.clone(),
+            tickets: tickets.clone(),
+        }),
+        Arc::new(UnconfiguredDirector),
+        Arc::new(NoopAllowlist),
+    );
+    let account = GlobalId::new(IdKind::Account, &node);
+    ring.register_local_account_key(FAKE_KEY, account.clone());
+
+    let game: GameVersion = "1.14.7".parse().unwrap();
+    let ticket_account = GlobalId::new(IdKind::Account, &node);
+    let session_ticket = tickets.issue(&ticket_account, &node, &game, None).unwrap();
+
+    let handler_ring = ring.clone();
+    w.gateway
+        .gateway
+        .set_region_handler(Arc::new(move |api_key, ticket_token, regions| {
+            let ring = handler_ring.clone();
+            Box::pin(async move {
+                let mut pings = Vec::with_capacity(regions.len());
+                for r in regions {
+                    let Ok(region) = r.region.parse() else {
+                        return false;
+                    };
+                    let rtt_ms = r.rtt_ms.map(|ms| ms.round() as u32);
+                    pings.push(RegionPing { region, rtt_ms });
+                }
+                let parsed = match ticket_token.as_deref() {
+                    Some(tok) => match network_plugin::home::ticket::session_ticket_from_token(tok) {
+                        Ok(pair) => Some(pair),
+                        Err(_) => return false,
+                    },
+                    None => None,
+                };
+                let ticket_ref = parsed.as_ref().map(|(t, g)| (t, g));
+                ring.record_region_pings_authenticated(api_key.as_deref(), ticket_ref, pings)
+                    .await
+                    .is_ok()
+            })
+        }));
+
+    // Registered local API key succeeds and stores sorted region pings in RingNode
+    let report = r#"{"regions":[{"region":"oregon","rttMs":95.0},{"region":"uk","rttMs":18.0},{"region":"germany","rttMs":null}]}"#;
+    let ok = https_request(port, "/network/v1/regions", post(report, Some(FAKE_KEY)))
+        .await
+        .unwrap();
+    assert_eq!(ok.status, 204);
+    assert_eq!(
+        ring.region_pings_for(&account),
+        Some(vec![
+            RegionPing {
+                region: "uk".parse().unwrap(),
+                rtt_ms: Some(18),
+            },
+            RegionPing {
+                region: "oregon".parse().unwrap(),
+                rtt_ms: Some(95),
+            },
+            RegionPing {
+                region: "germany".parse().unwrap(),
+                rtt_ms: None,
+            },
+        ])
+    );
+
+    // Unknown API key is refused with 401 when the handler is attached
+    let unknown_key = "RRK_000000000000000000000000000000000000000000000000";
+    let denied = https_request(port, "/network/v1/regions", post(report, Some(unknown_key)))
+        .await
+        .unwrap();
+    assert_eq!(denied.status, 401);
+
+    // Session ticket header is parsed and verified via RingNode::record_region_pings_authenticated
+    let ticket_req = Options {
+        method: Some("POST"),
+        headers: vec![("x-reforged-session-ticket", session_ticket.token.clone())],
+        body: Some(report.as_bytes().to_vec()),
+        ..Options::default()
+    };
+    let ticket_ok = https_request(port, "/network/v1/regions", ticket_req).await.unwrap();
+    assert_eq!(ticket_ok.status, 204);
+    assert!(ring.region_pings_for(&ticket_account).is_some());
+
+    w.gateway.close().await;
+}
