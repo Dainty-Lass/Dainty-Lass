@@ -160,7 +160,7 @@ silentspud/rustic-freeza          Freeza's history (Dauntless-Reforged-Revival a
 | ~~DU2~~ | ~~Player screens: servers, invites, PLAY with the runtime acceptance, settings, the game folder; both languages moved over with every key, the catalogs marked AGPL-3.0-only in the UI's `NOTICE.md` and the screens MIT (DD26)~~ **Done** | ~~The launcher tests that drive the page pass; `i18n` checks pass on the new catalogs~~ |
 | ~~DU3~~ | ~~Server screens: the Host page, the per-component status page, module panels drawn from manifests (DD11) with the unverified mark, module load and unload~~ **Done** | ~~A server GUI build with every module repository runs one of each game~~ |
 | ~~DU4~~ | ~~Drop `rust/launcher/vite.config.ts`'s build of `legacy/ReforgedLauncher`~~ **Done** | ~~No Tauri build reads `legacy/`~~ |
-| ~~DU5~~ | ~~Realm screens: host a hub or hunt, join one, the relay status; shown only for modules with the realms capability~~ **Done** (two-PC NAT check awaits maintainer, RF8) | ~~Two launchers on two PCs host and join a realm (maintainer, RF8)~~ |
+| ~~DU5~~ | ~~Realm screens: host a hub or hunt, join one, the relay status; shown only for modules with the realms capability~~ **Done** (host, join-by-ID, and relay status; server-instance realm browser removed; two-PC NAT check awaits maintainer, RF8) | ~~Two launchers on two PCs host and join a realm (maintainer, RF8)~~ |
 
 ### 4.4 rustic-isles (RU)
 
