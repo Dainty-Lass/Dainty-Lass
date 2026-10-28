@@ -561,11 +561,6 @@ pub(crate) struct Begun {
 /// Makes `actor` the author of what the transaction writes next, and returns the write's time, taken once
 /// the write lock is held so the log's times follow its order. SQLite's first statement is a write, so
 /// the transaction takes the lock at once, as `BEGIN IMMEDIATE` does (its one writer is the pool's).
-#[allow(dead_code)]
-pub(crate) fn begin(conn: &mut AnyConnection, actor: &Actor, now: fn() -> i64) -> Result<Begun, Error> {
-    begin_with_lock(conn, actor, now, WRITE_LOCK)
-}
-
 pub(crate) fn begin_with_lock(
     conn: &mut AnyConnection,
     actor: &Actor,
