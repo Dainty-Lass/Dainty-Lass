@@ -379,6 +379,7 @@ pub fn compose(
                 database,
                 game,
                 registry: registry.clone(),
+                allowlist: slot.clone(),
                 replication_interval: Duration::from_secs(5),
                 peer_log_dir,
                 ship_to_peer,

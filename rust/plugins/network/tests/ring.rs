@@ -14,10 +14,78 @@ use module_api::{BoxFuture, GameVersion, ModuleId};
 use network::inprocess::InProcessNetwork;
 use network::link::{Clock, NodeService};
 use network::ring::{
-    ClaimOutcome, HuntRewards, InstanceRecord, JoinDecision, LoopbackDirector, PeerGateway, RecordedAllowlist,
-    RegionPing, RingCall, RingConfig, RingError, RingNode, RingSchedule, TicketState, WrongNodePolicy, decode_request,
-    encode_request,
+    AllowlistSink, ClaimOutcome, DirectorPlacement, DirectorPlacementError, HuntRewards, InstanceRecord, JoinDecision,
+    PeerGateway, RegionPing, RingCall, RingConfig, RingError, RingNode, RingSchedule, TicketState,
+    UnconfiguredDirector, WrongNodePolicy, decode_request, encode_request,
 };
+
+/// Test-only in-process Director placement that assigns deterministic ports in a region's UDP range.
+#[derive(Debug, Clone)]
+struct LoopbackDirector {
+    host: String,
+    base_port: u16,
+    next_offset: Arc<std::sync::atomic::AtomicU16>,
+}
+
+impl LoopbackDirector {
+    fn new(host: impl Into<String>, base_port: u16) -> Self {
+        Self {
+            host: host.into(),
+            base_port,
+            next_offset: Arc::new(std::sync::atomic::AtomicU16::new(0)),
+        }
+    }
+}
+
+impl DirectorPlacement for LoopbackDirector {
+    fn place_hunt(
+        &self,
+        _hunt_id: &GlobalId,
+        _queue: &str,
+        _game: &GameVersion,
+        _players: &[GlobalId],
+    ) -> Result<(String, u16), DirectorPlacementError> {
+        let offset = self.next_offset.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000;
+        Ok((self.host.clone(), self.base_port.saturating_add(offset)))
+    }
+
+    fn place_hub(
+        &self,
+        _hub_id: &GlobalId,
+        _region: &Region,
+        _shard: u32,
+        _game: &GameVersion,
+    ) -> Result<(String, u16), DirectorPlacementError> {
+        let offset = self.next_offset.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000;
+        Ok((self.host.clone(), self.base_port.saturating_add(offset)))
+    }
+}
+
+type AllowlistEntry = (GlobalId, GlobalId, String, u16);
+
+#[derive(Debug, Default, Clone)]
+struct RecordedAllowlist {
+    entries: Arc<Mutex<Vec<AllowlistEntry>>>,
+}
+
+impl RecordedAllowlist {
+    fn is_admitted(&self, instance: &GlobalId, client_ip: &str, udp_port: u16) -> bool {
+        self.entries
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(id, _, ip, port)| id == instance && ip == client_ip && *port == udp_port)
+    }
+}
+
+impl AllowlistSink for RecordedAllowlist {
+    fn admit_player(&self, instance: &GlobalId, account: &GlobalId, client_ip: &str, udp_port: u16) {
+        self.entries
+            .lock()
+            .unwrap()
+            .push((instance.clone(), account.clone(), client_ip.to_owned(), udp_port));
+    }
+}
 
 struct TestHome {
     identity: NodeIdentity,
@@ -209,6 +277,44 @@ async fn dn6_instance_registry_resolves_owners_and_redirects_or_refuses_wrong_no
         .await
         .unwrap();
     assert!(matches!(refused, JoinDecision::Refused { owner, .. } if owner == uk.identity.node));
+
+    // Under WrongNodePolicy::Redirect, if the target peer has no pinned gateway certificate fingerprint,
+    // resolve_join refuses the redirect rather than sending an unpinned PeerGateway.
+    let identity = oregon.identity.clone();
+    let mut unpinned_cfg = RingConfig::new(identity.clone());
+    unpinned_cfg.wrong_node_policy = WrongNodePolicy::Redirect;
+    unpinned_cfg.peers = vec![PeerGateway {
+        node: uk.identity.node.clone(),
+        region: uk.identity.region.clone(),
+        host: "uk.example.org".into(),
+        port: 4433,
+        fingerprint: None,
+    }];
+    let net = InProcessNetwork::new();
+    let unpinned_ring = RingNode::new(
+        unpinned_cfg,
+        Arc::new(Clock::default()),
+        Arc::new(net.link(&identity.node)),
+        Arc::new(TestHome::new(identity)),
+        Arc::new(UnconfiguredDirector),
+        Arc::new(RecordedAllowlist::default()),
+    );
+    let unpinned_decision = unpinned_ring
+        .resolve_join(&player, "203.0.113.10", &hunt_id)
+        .await
+        .unwrap();
+    assert!(
+        matches!(unpinned_decision, JoinDecision::Refused { owner, message, .. } if owner == uk.identity.node && message.contains("fingerprint"))
+    );
+    // And UnconfiguredDirector refuses hub placement with a typed error
+    let err = unpinned_ring
+        .assign_ramsgate(player, "203.0.113.10", game)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        err,
+        RingError::Director(DirectorPlacementError::Unconfigured("1.14.7".parse().unwrap()))
+    );
 }
 
 #[tokio::test]

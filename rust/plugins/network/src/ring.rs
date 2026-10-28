@@ -281,6 +281,17 @@ pub enum RingOutcome {
     Refused(String),
 }
 
+/// Error returned when [`DirectorPlacement`] cannot start a hunt or hub server (DN8, DN9).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum DirectorPlacementError {
+    /// No Director placement seam is attached for `0`.
+    #[error("no director placement configured for game {0}")]
+    Unconfigured(GameVersion),
+    /// The Director refused or failed to place the instance.
+    #[error("{0}")]
+    Failed(String),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum RingError {
     #[error("ring message exceeds {MAX_RING_MESSAGE} bytes")]
@@ -302,7 +313,7 @@ pub enum RingError {
     #[error("home error: {0}")]
     Home(#[from] HomeError),
     #[error("director placement failed: {0}")]
-    Director(String),
+    Director(#[from] DirectorPlacementError),
 }
 
 fn check_clean_str(s: &str) -> Result<(), RingError> {
@@ -441,7 +452,7 @@ pub trait DirectorPlacement: Send + Sync {
         queue: &str,
         game: &GameVersion,
         players: &[GlobalId],
-    ) -> Result<(String, u16), String>;
+    ) -> Result<(String, u16), DirectorPlacementError>;
 
     /// Starts a regional Ramsgate hub shard for `hub_id` (`shard` index) and returns `(server_host, udp_port)`.
     fn place_hub(
@@ -450,44 +461,23 @@ pub trait DirectorPlacement: Send + Sync {
         region: &Region,
         shard: u32,
         game: &GameVersion,
-    ) -> Result<(String, u16), String>;
+    ) -> Result<(String, u16), DirectorPlacementError>;
 }
 
-/// Default in-process Director placement used when no external Director is attached (assigns deterministic ports
-/// in the module's UDP range).
-#[derive(Debug, Clone)]
-pub struct LoopbackDirector {
-    pub host: String,
-    pub base_port: u16,
-    next_offset: Arc<std::sync::atomic::AtomicU16>,
-}
+/// Production [`DirectorPlacement`] used when no module-to-host Director seam is wired: refuses placement cleanly
+/// with [`DirectorPlacementError::Unconfigured`] instead of returning a fake loopback port.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct UnconfiguredDirector;
 
-impl LoopbackDirector {
-    pub fn new(host: impl Into<String>, base_port: u16) -> Self {
-        Self {
-            host: host.into(),
-            base_port,
-            next_offset: Arc::new(std::sync::atomic::AtomicU16::new(0)),
-        }
-    }
-}
-
-impl Default for LoopbackDirector {
-    fn default() -> Self {
-        Self::new("127.0.0.1", 19000)
-    }
-}
-
-impl DirectorPlacement for LoopbackDirector {
+impl DirectorPlacement for UnconfiguredDirector {
     fn place_hunt(
         &self,
         _hunt_id: &GlobalId,
         _queue: &str,
-        _game: &GameVersion,
+        game: &GameVersion,
         _players: &[GlobalId],
-    ) -> Result<(String, u16), String> {
-        let offset = self.next_offset.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000;
-        Ok((self.host.clone(), self.base_port.saturating_add(offset)))
+    ) -> Result<(String, u16), DirectorPlacementError> {
+        Err(DirectorPlacementError::Unconfigured(game.clone()))
     }
 
     fn place_hub(
@@ -495,50 +485,15 @@ impl DirectorPlacement for LoopbackDirector {
         _hub_id: &GlobalId,
         _region: &Region,
         _shard: u32,
-        _game: &GameVersion,
-    ) -> Result<(String, u16), String> {
-        let offset = self.next_offset.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000;
-        Ok((self.host.clone(), self.base_port.saturating_add(offset)))
+        game: &GameVersion,
+    ) -> Result<(String, u16), DirectorPlacementError> {
+        Err(DirectorPlacementError::Unconfigured(game.clone()))
     }
 }
 
 /// Seam for admitting matched or hub-assigned players' IP addresses into the hosting node's UDP allowlist (DN8, DN9).
 pub trait AllowlistSink: Send + Sync {
     fn admit_player(&self, instance: &GlobalId, account: &GlobalId, client_ip: &str, udp_port: u16);
-}
-
-/// Recorded `(instance, account, client_ip, udp_port)` entry in [`RecordedAllowlist`].
-pub type AllowlistEntry = (GlobalId, GlobalId, String, u16);
-
-/// In-memory recorder implementing [`AllowlistSink`].
-#[derive(Debug, Default, Clone)]
-pub struct RecordedAllowlist {
-    entries: Arc<Mutex<Vec<AllowlistEntry>>>,
-}
-
-impl RecordedAllowlist {
-    pub fn entries(&self) -> Vec<AllowlistEntry> {
-        self.entries.lock().unwrap_or_else(PoisonError::into_inner).clone()
-    }
-
-    pub fn is_admitted(&self, instance: &GlobalId, client_ip: &str, udp_port: u16) -> bool {
-        self.entries
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .iter()
-            .any(|(id, _, ip, port)| id == instance && ip == client_ip && *port == udp_port)
-    }
-}
-
-impl AllowlistSink for RecordedAllowlist {
-    fn admit_player(&self, instance: &GlobalId, account: &GlobalId, client_ip: &str, udp_port: u16) {
-        self.entries.lock().unwrap_or_else(PoisonError::into_inner).push((
-            instance.clone(),
-            account.clone(),
-            client_ip.to_owned(),
-            udp_port,
-        ));
-    }
 }
 
 /// Configuration for [`RingNode`].
@@ -588,6 +543,10 @@ pub struct RingNode {
     director: Arc<dyn DirectorPlacement>,
     allowlist: Arc<dyn AllowlistSink>,
     state: Mutex<State>,
+}
+
+fn is_pinned_fingerprint(fp: Option<&str>) -> bool {
+    fp.is_some_and(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
 }
 
 impl RingNode {
@@ -752,6 +711,17 @@ impl RingNode {
                 ),
             }),
             WrongNodePolicy::Redirect => {
+                if !is_pinned_fingerprint(peer.fingerprint.as_deref()) {
+                    return Ok(JoinDecision::Refused {
+                        instance: instance.clone(),
+                        owner: owner.clone(),
+                        region: peer.region.clone(),
+                        message: format!(
+                            "instance {} is hosted on node {} ({}) which has no pinned gateway certificate fingerprint",
+                            instance, owner, peer.region
+                        ),
+                    });
+                }
                 let ticket = self.home.session_ticket(account, owner).await?;
                 Ok(JoinDecision::Redirect {
                     instance: instance.clone(),
@@ -824,6 +794,16 @@ impl RingNode {
             .region_pings
             .insert(account, pings);
         Ok(())
+    }
+
+    /// Returns the recorded region pings for `account` (sorted by ascending RTT), if any.
+    pub fn region_pings_for(&self, account: &GlobalId) -> Option<Vec<RegionPing>> {
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .region_pings
+            .get(account)
+            .cloned()
     }
 
     /// Returns the ordered list of reachable regions for `account` (lowest RTT first), appending any
@@ -930,6 +910,21 @@ impl RingNode {
             self.publish_to_region(&region, &ticket).await?;
         }
         Ok(count)
+    }
+
+    /// Spawns a background task that calls [`Self::advance_ring`] on `interval` until aborted.
+    pub fn spawn_ticker(self: &Arc<Self>, interval: std::time::Duration) -> tokio::task::JoinHandle<()> {
+        let this = self.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(interval);
+            every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                every.tick().await;
+                if let Err(err) = this.advance_ring().await {
+                    tracing::warn!(error = %err, "ring ticker advance_ring failed");
+                }
+            }
+        })
     }
 
     /// Cancels a home-owned ticket and withdraws it from every region it was published to.

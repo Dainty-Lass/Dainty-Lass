@@ -215,3 +215,90 @@ async fn a_public_server_whose_allowlist_runs_elsewhere_refuses_udp_ports() {
     assert!(error.contains("outside this process"), "{error}");
     registry.unload_all().await;
 }
+
+#[cfg(feature = "network")]
+#[tokio::test(flavor = "multi_thread")]
+async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_not() {
+    use module_api::GameVersion;
+    use module_api::network::{GlobalId, IdKind, NodeId, NodeIdentity, StandaloneHome};
+    use network_plugin::Clock;
+    use network_plugin::inprocess::InProcessNetwork;
+    use network_plugin::ring::{DirectorPlacement, DirectorPlacementError, RingConfig, RingNode};
+
+    struct StubUdpDirector;
+    impl DirectorPlacement for StubUdpDirector {
+        fn place_hunt(
+            &self,
+            _hunt_id: &GlobalId,
+            _queue: &str,
+            _game: &GameVersion,
+            _players: &[GlobalId],
+        ) -> Result<(String, u16), DirectorPlacementError> {
+            Ok(("127.0.0.1".into(), 65012))
+        }
+
+        fn place_hub(
+            &self,
+            _hub_id: &GlobalId,
+            _region: &module_api::network::Region,
+            _shard: u32,
+            _game: &GameVersion,
+        ) -> Result<(String, u16), DirectorPlacementError> {
+            Ok(("127.0.0.1".into(), 65013))
+        }
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut controller = ServerController::new("public", Vec::new());
+    let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
+    let slot = modules::allowlist_slot();
+    controller.add(modules::allowlist(&allowlist_env(dir.path()), slot.clone(), Some(registry.clone())).unwrap());
+    controller.set_registry(registry.clone());
+    controller.start_all().await.unwrap();
+
+    // Load stub game module so its UDP range 65010-65019 is guarded by the allowlist helper (DF4d)
+    registry.add_entry(stub_entry()).unwrap();
+    registry.load(&stub_id()).await.unwrap();
+    eventually("the module's range in the rule", || {
+        applied(dir.path())
+            .last()
+            .is_some_and(|ports| ports == "8770-8777,65010-65019")
+    })
+    .await;
+
+    let node: NodeId = "oregon-1".parse().unwrap();
+    let identity = NodeIdentity {
+        node: node.clone(),
+        region: "oregon".parse().unwrap(),
+    };
+    let net = InProcessNetwork::new();
+    let mut cfg = RingConfig::new(identity.clone());
+    cfg.match_size = 1;
+    let ring = RingNode::new(
+        cfg,
+        Arc::new(Clock::default()),
+        Arc::new(net.link(&node)),
+        Arc::new(StandaloneHome { identity }),
+        Arc::new(StubUdpDirector),
+        Arc::new(modules::InProcessAllowlistSink::new(Some(slot.clone()))),
+    );
+
+    let game: GameVersion = "0.0.1".parse().unwrap();
+    let matched_account = GlobalId::new(IdKind::Account, &node);
+    ring.submit_ticket(matched_account, "patrol_blaze", game.clone(), 1, "203.0.113.42")
+        .await
+        .unwrap();
+    let formed = ring.try_form_matches("patrol_blaze", &game).await.unwrap();
+    assert_eq!(formed.len(), 1);
+    assert_eq!(formed[0].server_port, 65012);
+
+    let helper = slot.lock().unwrap().as_ref().cloned().unwrap();
+    // Matched player's IP is admitted on the guarded UDP port 65012
+    assert!(helper.is_admitted("203.0.113.42", 65012));
+    // Unmatched player's IP is not admitted
+    assert!(!helper.is_admitted("203.0.113.99", 65012));
+    // Port outside the guarded ranges is not admitted even for the matched IP
+    assert!(!helper.is_admitted("203.0.113.42", 59999));
+
+    controller.shutdown().await;
+}

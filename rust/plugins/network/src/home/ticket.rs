@@ -138,6 +138,21 @@ fn parse_token(token: &str) -> Result<(Claims, Vec<u8>, [u8; SIGNATURE_LEN]), Ti
     Ok((claims, payload_bytes, signature))
 }
 
+/// Parses a wire token (`dlt1.<claims>.<signature>`) into a [`SessionTicket`] and the [`GameVersion`] its claims
+/// name, without checking the signature yet (trusted only once passed to [`Tickets::verify`], [`Tickets::redeem`],
+/// or [`module_api::network::HomeApi::admit`]).
+pub fn session_ticket_from_token(token: &str) -> Result<(SessionTicket, GameVersion), TicketError> {
+    let (claims, _, _) = parse_token(token)?;
+    Ok((
+        SessionTicket {
+            account: claims.sub,
+            audience: claims.aud,
+            token: token.to_owned(),
+        },
+        claims.game,
+    ))
+}
+
 fn signed_message(payload: &[u8]) -> Vec<u8> {
     let mut message = Vec::with_capacity(SIGN_CONTEXT.len() + payload.len());
     message.extend_from_slice(SIGN_CONTEXT);
