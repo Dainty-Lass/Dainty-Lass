@@ -105,10 +105,10 @@ spelling, and that it writes back as the same message.
   log first.
 - **A diverged replica stays stopped** until an operator resets it (a fresh table, pulled again from 1). No command
   does that yet.
-- **Nothing creates a directory from `host.toml` yet.** DN3 gave the messages their transport (below); wiring a
-  `Directory` into the controller, with the leader and the link from `[network]`, is still to do.
-- **Joining an existing server** (DN13) needs its accounts registered through the leader, with the clash renames,
-  and its standalone log replaced by the leader's.
+- **Wired in the controller (`controller::modules::network`):** `Directory` opens on the node database, attaches to
+  `Service::Directory` on `NodeServices`, and spawns `spawn_replication` from `[network]` in `host.toml`.
+- **Joining an existing server** (DN13): `reforged-host network join` registers existing accounts through the leader
+  with clash suffixes (`_2`..`_999`) and `rename_required = true`.
 
 ## Node certificates and the cluster CA (DN3)
 
@@ -214,12 +214,10 @@ Fuzz target: `network_link` in `rust/fuzz` (the route table, the time header, a 
 - **Renewal is by hand:** `issue-node-cert` again and copy the three files; the gateway reads them at start, so a
   renewal needs a restart.
 - **A lost or leaked CA file** means a new CA and every node certificate again. Nothing detects a leak.
-- **The controller doesn't attach a service yet.** `Gateway::node_links().endpoint().attach(..)` and
-  `server::run_with_node_links` give the network plugin its hook; DN5 built the services (`ServiceMux` puts the
-  directory's and the home API's behind the one attachment) and DN10b adds its own.
+- **Wired in the controller (`controller::modules::{gateway, network}`):** `NodeServices` attaches `Service::Directory`,
+  `Service::Home`, `Service::Ring`, `Service::Admin` and `Service::LogShip` to the gateway's `/_rr/node/*` endpoint
+  via `bind_gateway`, and `TlsPeerLink::spawn_health_checks` runs while the `"network"` module is active.
 - **A private (Tailscale) server can't be a node:** node links need the gateway's TLS port.
-- **The running gateway does not ping its peers yet.** `spawn_health_checks` is used by no service, so a node's health
-  is what `network status` finds when it is run; nothing on a live node records a peer going down between runs.
 
 ## The Docker harness (DN12)
 
@@ -357,10 +355,9 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 
 ### Still open
 
-- **Nothing builds these from `host.toml` yet.** The controller doesn't create the `Tickets`, `HomeService` and
-  `NetworkedHome`, put them in a `ServiceMux` with the directory, attach that to the gateway's endpoint, or register
-  a module's `HomeBackend` (`DriverBackend` wraps a loaded module) when it loads. The signing key file's place
-  and the 5-minute and 6-hour settings are the caller's to choose in code; none is a `host.toml` key yet.
+- **Wired in the controller (`controller::modules::network`):** `Tickets`, `HomeService`, and `NetworkedHome` are
+  created from `[network]` in `host.toml`, `HomeRouterHook` registers each loaded game module's `DriverBackend`, and
+  `Service::Home` is attached on `NodeServices`. The 5-minute and 6-hour lifetime defaults come from `TicketConfig::default()`.
 - **Revocations and the replay memory are in memory.** A restart of the home forgets who was banned until their ticket
   would have expired anyway (at most 15 minutes, but a holder can renew until the 6-hour limit unless the home's module
   checks bans on every operation); a restart of the audience refuses every ticket issued before it, so players ask
@@ -383,12 +380,15 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
   - [ ] Every free-form string (`queue`, `server_host`, `client_ip`, refusal text) and forwarded reward JSON body (`xp_grant`, `loot_write`, `objective_write`) is checked by `looks_like_account_key` / `holds_account_key`, refusing anything shaped like an `RRK_` account key (`RingError::AccountKey`). Test: `ring_wire_refuses_account_keys_and_bad_versions`.
   - [ ] `PublishTicket` requires `ticket.home_node == from` and `ticket.ticket.owner() == from`; `ClaimTicket` and `ReleaseTicket` require `claiming_node == from`, so a peer cannot publish tickets for another home or claim/release tickets under another node's name.
 - **Instance registry, redirects, and launcher relay re-pointing (DN6, DD18)**:
-  - [ ] Every instance (`IdKind::Hunt`, `IdKind::HubInstance`, `IdKind::Party`, `IdKind::Ticket`) carries its owning node in `GlobalId::owner()`. When a join reaches a non-owning node, `RingNode::resolve_join` either mints a home-signed `SessionTicket` for `audience = instance.owner()` and returns `JoinDecision::Redirect` (`WrongNodePolicy::Redirect`) or refuses with a message naming the owning node and region (`WrongNodePolicy::Refuse`, DN1 kill criterion). Test: `dn6_instance_registry_resolves_owners_and_redirects_or_refuses_wrong_node_joins`.
+  - [ ] Every instance (`IdKind::Hunt`, `IdKind::HubInstance`, `IdKind::Party`, `IdKind::Ticket`) carries its owning node in `GlobalId::owner()`. When a join reaches a non-owning node, `RingNode::resolve_join` either mints a home-signed `SessionTicket` for `audience = instance.owner()` and returns `JoinDecision::Redirect` (`WrongNodePolicy::Redirect`, only when the peer gateway has a pinned 64-hex SHA-256 certificate fingerprint; unpinned peers are refused) or refuses with a message naming the owning node and region (`WrongNodePolicy::Refuse`, DN1 kill criterion). Test: `dn6_instance_registry_resolves_owners_and_redirects_or_refuses_wrong_node_joins`.
   - [ ] When the launcher's local relay (`127.0.0.1:61100`, `Relay::repoint`) re-points to a non-home node's gateway with a `SessionTicket`, it strips `x-reforged-user-api-key` from every forwarded request and attaches `x-reforged-session-ticket` instead so the account key never leaves its home node (DD17). Test: `repoint_switches_target_attaches_ticket_and_strips_account_key`.
 - **Matchmaking ring, CAS claim protocol, and regional Ramsgate (DN8, DN9)**:
-  - [ ] `POST /network/v1/regions` authenticates the caller via either a registered home API key or a verified `SessionTicket` (`record_region_pings_authenticated`) before storing the account's ordered region RTT list.
-  - [ ] A ticket is owned by the player's home node, published to the lowest-ping region at step 0, and widened along `RingSchedule` (`DEFAULT_RING_DELAYS_MS`). When a regional node forms a match, it claims each candidate ticket at its home node via atomic compare-and-set (`local_claim_ticket`); if any ticket is already claimed by another match or cancelled, partial claims are released (`ReleaseTicket`) so no player is ever double-booked. Test: `dn8_four_region_matchmaking_ring_never_double_books_and_bounds_wait_time`.
+  - [ ] `POST /network/v1/regions` is wired in production through `Gateway::set_region_handler` (`NodeServices::region_report_handler`) to `RingNode::record_region_pings_authenticated`, authenticating the caller via either a registered home API key or a verified `SessionTicket` (`session_ticket_from_token`) before storing the account's ordered region RTT list. Test: `region_report_handler_reaches_ring_node_record_region_pings_authenticated`.
+  - [ ] A ticket is owned by the player's home node, published to the lowest-ping region at step 0, and widened along `RingSchedule` (`DEFAULT_RING_DELAYS_MS`) by `RingNode::spawn_ticker` in `controller::modules::network`. When a regional node forms a match, it claims each candidate ticket at its home node via atomic compare-and-set (`local_claim_ticket`), feeds matched players' IPs and guarded UDP ports into the in-process allowlist (`InProcessAllowlistSink` -> `Helper::admit_udp`), and releases partial claims (`ReleaseTicket`) if any candidate was already claimed or cancelled. Tests: `dn8_four_region_matchmaking_ring_never_double_books_and_bounds_wait_time`, `matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_not`.
   - [ ] Regional Ramsgate (`assign_ramsgate`, `AssignHub`) places players from any home node into their lowest-ping region's shared Ramsgate shard and starts a new shard on that region's Director when `max_hub_players` is reached. Test: `dn9_regional_ramsgate_places_players_from_different_homes_into_lowest_ping_hub_and_shards`.
+- **Still open in DN6, DN8, DN9**:
+  - **Missing `module-api` seams between game modules and `RingNode`:** `RingNode` is attached on `Service::Ring` in `controller::modules::network` with `UnconfiguredDirector` (which refuses hunt and hub placement with `DirectorPlacementError::Unconfigured` rather than handing out fake loopback ports), because `module-api` does not yet define a host-to-module `DirectorPlacement` call or module-to-host calls for `register_instance`, `resolve_join`, `submit_ticket`, `try_form_matches`, `forward_hunt_rewards`, `assign_ramsgate`, or `register_local_account_key`.
+  - **Launcher relay re-point caller:** `Relay::repoint` is implemented and unit-tested in `rust/launcher/src-tauri/src/net/relay.rs`, but no launcher bridge command or controller path calls it yet.
 
 ## Chat federation (DN10b)
 
