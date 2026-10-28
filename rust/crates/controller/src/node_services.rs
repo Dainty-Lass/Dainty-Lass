@@ -151,6 +151,47 @@ impl NodeServices {
         }
     }
 
+    /// Builds a [`gateway::network::RegionReportHandler`] that forwards `POST /network/v1/regions` reports
+    /// to [`network_plugin::ring::RingNode::record_region_pings_authenticated`] when the network plugin is
+    /// running, or accepts standalone shape-checked reports when no network ring is active (DN7, DN8).
+    #[cfg(all(feature = "gateway", feature = "network"))]
+    pub fn region_report_handler(&self) -> gateway::network::RegionReportHandler {
+        let services = self.clone();
+        Arc::new(move |api_key, ticket_token, regions| {
+            let services = services.clone();
+            Box::pin(async move {
+                let Some(ring) = services.ring() else {
+                    return true;
+                };
+                let mut pings = Vec::with_capacity(regions.len());
+                for r in regions {
+                    let Ok(region) = r.region.parse() else {
+                        return false;
+                    };
+                    let rtt_ms = r.rtt_ms.and_then(|ms| {
+                        if ms.is_finite() && (0.0..=f64::from(u32::MAX)).contains(&ms) {
+                            Some(ms.round() as u32)
+                        } else {
+                            None
+                        }
+                    });
+                    pings.push(network_plugin::ring::RegionPing { region, rtt_ms });
+                }
+                let parsed_ticket = match ticket_token.as_deref() {
+                    Some(token) => match network_plugin::home::ticket::session_ticket_from_token(token) {
+                        Ok(pair) => Some(pair),
+                        Err(_) => return false,
+                    },
+                    None => None,
+                };
+                let ticket_ref = parsed_ticket.as_ref().map(|(t, g)| (t, g));
+                ring.record_region_pings_authenticated(api_key.as_deref(), ticket_ref, pings)
+                    .await
+                    .is_ok()
+            })
+        })
+    }
+
     pub fn detach(&self, service: Service) {
         let mut attached = self.inner.attached.write().unwrap_or_else(PoisonError::into_inner);
         if attached.remove(&service).is_some() {

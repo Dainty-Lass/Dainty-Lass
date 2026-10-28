@@ -103,6 +103,13 @@ impl Guard {
             .collect()
     }
 
+    /// Whether `port` is inside `ALLOWLIST_PORTS` or any range registered by a loaded game module (DF4d).
+    pub fn covers_port(&self, port: u16) -> bool {
+        self.all(&lock(&self.modules), None)
+            .into_iter()
+            .any(|range| (range.first..=range.last).contains(&port))
+    }
+
     /// Adds `module`'s ranges, or refuses all of them: each must be a valid range of ports from
     /// [`FIRST_MODULE_PORT`] up, overlapping neither `ALLOWLIST_PORTS`, nor another module's ranges, nor its own.
     pub fn attach(&self, module: &ModuleId, ranges: &[PortRange]) -> Result<(), String> {

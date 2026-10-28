@@ -122,6 +122,10 @@ pub fn gateway(
     use gateway::config::Config;
     let config = Config::from_env(env)?;
     let node_links = registry.as_ref().map(|r| r.node_services().gateway_slot());
+    #[cfg(feature = "network")]
+    let region_handler = registry.as_ref().map(|r| r.node_services().region_report_handler());
+    #[cfg(not(feature = "network"))]
+    let region_handler: Option<gateway::network::RegionReportHandler> = None;
     let bind_on_ready = registry
         .as_ref()
         .map(|r| (r.node_services().clone(), r.status_registry().clone()));
@@ -132,12 +136,13 @@ pub fn gateway(
     Ok(Module::new(
         "gateway",
         Arc::new(move |ctx| {
-            let (config, env, slot, routes, node_links, bind_on_ready) = (
+            let (config, env, slot, routes, node_links, region_handler, bind_on_ready) = (
                 config.clone(),
                 env.clone(),
                 slot.clone(),
                 routes.clone(),
                 node_links.clone(),
+                region_handler.clone(),
                 bind_on_ready.clone(),
             );
             Box::pin(async move {
@@ -167,11 +172,45 @@ pub fn gateway(
                         }
                     });
                 }
-                gateway::server::run_with_node_links(config, capture, sink, ctx, routes, node_links).await
+                gateway::server::run_with_network(config, capture, sink, ctx, routes, node_links, region_handler).await
             })
         }),
     )
     .ready_within(std::time::Duration::from_secs(60)))
+}
+
+/// In-process [`network_plugin::ring::AllowlistSink`] backed by the allowlist helper module (`AllowlistSlot`, DF4d, DN8, DN9).
+#[cfg(feature = "network")]
+pub struct InProcessAllowlistSink {
+    slot: Option<AllowlistSlot>,
+}
+
+#[cfg(feature = "network")]
+impl InProcessAllowlistSink {
+    pub fn new(slot: Option<AllowlistSlot>) -> Self {
+        Self { slot }
+    }
+}
+
+#[cfg(feature = "network")]
+impl network_plugin::ring::AllowlistSink for InProcessAllowlistSink {
+    fn admit_player(
+        &self,
+        _instance: &module_api::network::GlobalId,
+        _account: &module_api::network::GlobalId,
+        client_ip: &str,
+        udp_port: u16,
+    ) {
+        if let Some(slot) = &self.slot
+            && let Some(helper) = slot
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .as_ref()
+                .cloned()
+        {
+            let _ = helper.admit_udp(client_ip, udp_port);
+        }
+    }
 }
 
 /// Configuration for the `"network"` module (DD2, DN3, DN5, DH7).
@@ -185,6 +224,7 @@ pub struct NetworkOptions {
     pub database: store::DatabaseConfig,
     pub game: module_api::GameVersion,
     pub registry: crate::ModuleRegistry,
+    pub allowlist: Option<AllowlistSlot>,
     pub replication_interval: std::time::Duration,
     /// Folder where this node stores log segments and snapshots shipped from peers (`Service::LogShip`, DH7).
     pub peer_log_dir: Option<std::path::PathBuf>,
@@ -243,19 +283,34 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
     let database = options.database;
     let game = options.game;
     let registry = options.registry;
+    let allowlist = options.allowlist;
     let replication_interval = options.replication_interval;
     let peer_log_dir = options.peer_log_dir;
     let ship_to_peer = options.ship_to_peer;
     Ok(Module::new(
         "network",
         Arc::new(move |mut ctx| {
-            let (node, leader, peers, database, game, registry, link, tickets, router, peer_log_dir, ship_to_peer) = (
+            let (
+                node,
+                leader,
+                peers,
+                database,
+                game,
+                registry,
+                allowlist,
+                link,
+                tickets,
+                router,
+                peer_log_dir,
+                ship_to_peer,
+            ) = (
                 node.clone(),
                 leader.clone(),
                 peers.clone(),
                 database.clone(),
                 game.clone(),
                 registry.clone(),
+                allowlist.clone(),
                 link.clone(),
                 tickets.clone(),
                 router.clone(),
@@ -306,7 +361,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                         region: p.region.clone(),
                         host: p.host.clone(),
                         port: p.port,
-                        fingerprint: None,
+                        fingerprint: p.fingerprint.clone(),
                     })
                     .collect();
                 let ring_node = network_plugin::ring::RingNode::new(
@@ -314,8 +369,13 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     Arc::new(network_plugin::Clock::default()),
                     link.clone(),
                     networked_home.clone(),
-                    Arc::new(network_plugin::ring::LoopbackDirector::default()),
-                    Arc::new(network_plugin::ring::RecordedAllowlist::default()),
+                    Arc::new(network_plugin::ring::UnconfiguredDirector),
+                    Arc::new(InProcessAllowlistSink::new(allowlist)),
+                );
+                let ring_ticker = ring_node.spawn_ticker(
+                    replication_interval
+                        .min(std::time::Duration::from_secs(1))
+                        .max(std::time::Duration::from_millis(50)),
                 );
                 let services = registry.node_services();
                 services.set_peer_link(Some(link.clone()));
@@ -378,6 +438,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 services.set_peer_roster(None);
                 services.set_peer_link(None);
                 registry.reset_home();
+                ring_ticker.abort();
                 if let Some(task) = ship_task {
                     task.abort();
                 }

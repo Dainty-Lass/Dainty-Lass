@@ -1195,7 +1195,7 @@ impl Gateway {
                                     .unwrap_or_else(PoisonError::into_inner)
                                     .clone();
                                 match handler {
-                                    Some(h) if !h(key.as_deref(), ticket.as_deref(), regions) => {
+                                    Some(h) if !h(key, ticket, regions).await => {
                                         Some((401, "unauthorized", "invalid_credentials"))
                                     }
                                     _ => None,
