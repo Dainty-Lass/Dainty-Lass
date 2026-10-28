@@ -6,8 +6,8 @@
 //! never accept a payload containing an `RRK_` account key.
 
 use libfuzzer_sys::fuzz_target;
-use network_plugin::home::protocol::looks_like_account_key;
-use network_plugin::ring::{decode_reply, decode_request, encode_reply, encode_request};
+use network::home::protocol::looks_like_account_key;
+use network::ring::{decode_reply, decode_request, encode_reply, encode_request};
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(req) = decode_request(data) {
