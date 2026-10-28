@@ -1674,7 +1674,7 @@ dependencies = [
 [[package]]
 name = "rifts-admission"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=8dc30923de3c3458945e2b7c7ea79c9d86b5b71d#8dc30923de3c3458945e2b7c7ea79c9d86b5b71d"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=e70a670bb42f2e4102c08b910bab33e6c8b0e9ec#e70a670bb42f2e4102c08b910bab33e6c8b0e9ec"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "rifts-guard"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=8dc30923de3c3458945e2b7c7ea79c9d86b5b71d#8dc30923de3c3458945e2b7c7ea79c9d86b5b71d"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=e70a670bb42f2e4102c08b910bab33e6c8b0e9ec#e70a670bb42f2e4102c08b910bab33e6c8b0e9ec"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -1704,7 +1704,7 @@ dependencies = [
 [[package]]
 name = "rifts-realms"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=8dc30923de3c3458945e2b7c7ea79c9d86b5b71d#8dc30923de3c3458945e2b7c7ea79c9d86b5b71d"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=e70a670bb42f2e4102c08b910bab33e6c8b0e9ec#e70a670bb42f2e4102c08b910bab33e6c8b0e9ec"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -1723,7 +1723,7 @@ dependencies = [
 [[package]]
 name = "rifts-relay"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=8dc30923de3c3458945e2b7c7ea79c9d86b5b71d#8dc30923de3c3458945e2b7c7ea79c9d86b5b71d"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=e70a670bb42f2e4102c08b910bab33e6c8b0e9ec#e70a670bb42f2e4102c08b910bab33e6c8b0e9ec"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1738,7 +1738,7 @@ dependencies = [
 [[package]]
 name = "rifts-seam"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=8dc30923de3c3458945e2b7c7ea79c9d86b5b71d#8dc30923de3c3458945e2b7c7ea79c9d86b5b71d"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=e70a670bb42f2e4102c08b910bab33e6c8b0e9ec#e70a670bb42f2e4102c08b910bab33e6c8b0e9ec"
 dependencies = [
  "thiserror",
 ]
