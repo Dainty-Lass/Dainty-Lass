@@ -13,14 +13,7 @@ const MAX_ROUTE_LENGTH: usize = 160;
 const NO_ROUTE: &str = "(no route)";
 
 /// One answered host request. `route` is the Express pattern with its mount path, never a URL.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HostRouteSample {
-    pub method: String,
-    pub route: String,
-    pub status_code: u16,
-    pub session_kind: Option<String>,
-    pub hub_kind: Option<String>,
-}
+pub use rifts_seam::HostRouteSample;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct HostRouteKey {

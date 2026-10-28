@@ -611,6 +611,7 @@ fn inventory_is_fenced_again_inside_the_transaction() {
         user: account("friend"),
         character_id: "char-1".to_owned(),
         transaction_id: "tx-1".to_owned(),
+        body: None,
     };
     let decision = poll_once(kit.guard.authorize_inventory(runtime(), transaction.clone()))
         .unwrap()
@@ -756,14 +757,16 @@ fn the_alert_acknowledgement_route() {
 #[test]
 fn the_census_logs_one_line_per_window() {
     let kit = kit(&[]);
-    kit.guard.record_census(&HostRouteSample {
-        method: "POST".to_owned(),
-        route: "/inventory".to_owned(),
-        status_code: 200,
-        session_kind: None,
-        hub_kind: None,
-    });
-    assert_eq!(kit.guard.census(&RequestInfo::default()), Ok(()));
+    assert_eq!(
+        kit.guard.census(&HostRouteSample {
+            method: "POST".to_owned(),
+            route: "/inventory".to_owned(),
+            status_code: 200,
+            session_kind: None,
+            hub_kind: None,
+        }),
+        Ok(())
+    );
     kit.guard.flush_census();
     kit.guard.flush_census();
     let lines = kit.log.lines();
@@ -837,7 +840,7 @@ fn the_stub_answers_unimplemented() {
         Err(GuardError::from(Unimplemented::new(Component::Guard, operation)))
     }
     assert_eq!(Stub.host_policy_refuses(), refuse("host_policy_refuses"));
-    assert_eq!(Stub.census(&RequestInfo::default()), refuse("census"));
+    assert_eq!(Stub.census(&HostRouteSample::default()), refuse("census"));
     assert_eq!(
         poll_once(Stub.rate_limit_bucket(RequestInfo::default())).unwrap(),
         refuse("rate_limit_bucket")

@@ -64,7 +64,7 @@ use serde_json::Value;
 use crate::errors::{fenced, not_collected, store_to_seam};
 use crate::json::js_slice;
 use crate::ports::lock;
-use crate::writes::{host_write_denial, inventory_denial, kind_name, loot_refusal, write_refusal};
+pub use writes::{host_write_denial, inventory_body_denial, inventory_denial, kind_name, loot_refusal, write_refusal};
 
 /// `HuntVerdict`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -642,11 +642,13 @@ impl Guard {
             Some(view) => self.hub_presence(view)?,
             None => None,
         };
-        if let Some(denial) = inventory_denial(
+        let parsed_body = transaction.body.as_ref().and_then(parse_json_text);
+        if let Some(denial) = inventory_body_denial(
             runtime,
             hunt.as_ref(),
             &transaction.user,
             &transaction.character_id,
+            parsed_body.as_ref(),
             presence.as_deref(),
         ) {
             self.log.warn(&format!(
@@ -688,7 +690,7 @@ struct HuntFence {
 }
 
 impl InventoryFence for HuntFence {
-    fn on_grant(&self, _: &Json) -> Result<(), Reply> {
+    fn on_grant(&self, grant: &Json) -> Result<(), Reply> {
         let refuse = |code: &str| {
             self.log
                 .warn(&format!("[P2PInventory] transaction denied code={code} {}", self.tags));
@@ -704,11 +706,18 @@ impl InventoryFence for HuntFence {
             },
             _ => None,
         };
-        match inventory_denial(
+        let parsed_body = self
+            .transaction
+            .body
+            .as_ref()
+            .and_then(parse_json_text)
+            .or_else(|| parse_json_text(grant));
+        match inventory_body_denial(
             &self.runtime,
             hunt.as_ref(),
             &self.transaction.user,
             &self.transaction.character_id,
+            parsed_body.as_ref(),
             presence.as_deref(),
         ) {
             Some(denial) => refuse(&format!("P2P_LOOT_GRANT_{denial}")),
@@ -803,8 +812,9 @@ impl GuardHooks for Guard {
     fn guard_manifest_roles(&self) -> &'static [&'static str] {
         GUARD_MANIFEST_ROLES
     }
-    /// Counting needs the answered request; see [`Guard::record_census`].
-    fn census(&self, _: &RequestInfo) -> Result<(), SeamError> {
+    /// Records one answered host-runtime request in the host route census.
+    fn census(&self, sample: &HostRouteSample) -> Result<(), SeamError> {
+        self.record_census(sample);
         Ok(())
     }
     fn rate_limit_bucket(&self, request: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
@@ -1029,7 +1039,7 @@ impl GuardHooks for Stub {
     fn guard_manifest_roles(&self) -> &'static [&'static str] {
         GUARD_MANIFEST_ROLES
     }
-    fn census(&self, _: &RequestInfo) -> Result<(), SeamError> {
+    fn census(&self, _: &HostRouteSample) -> Result<(), SeamError> {
         refuse("census")
     }
     fn rate_limit_bucket(&self, _: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {

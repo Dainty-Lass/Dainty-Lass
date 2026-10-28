@@ -173,8 +173,7 @@ pub fn loot_refusal(code: &str) -> Reply {
     }
 }
 
-/// `P2PInventoryTransactionDenialReason` for the account the transaction is for. The body's `accountId` check is
-/// isles' (the seam does not pass the body); the account is the transaction's.
+/// `P2PInventoryTransactionDenialReason` for the account the transaction is for.
 pub fn inventory_denial(
     runtime: &RuntimeAuth,
     hunt: Option<&HuntView>,
@@ -182,6 +181,22 @@ pub fn inventory_denial(
     character_id: &str,
     presence: Option<&[AccountId]>,
 ) -> Option<&'static str> {
+    inventory_body_denial(runtime, hunt, account, character_id, None, presence)
+}
+
+/// `P2PInventoryTransactionDenialReason` including the body's `accountId` check when the body is available.
+pub fn inventory_body_denial(
+    runtime: &RuntimeAuth,
+    hunt: Option<&HuntView>,
+    account: &AccountId,
+    character_id: &str,
+    body: Option<&serde_json::Value>,
+    presence: Option<&[AccountId]>,
+) -> Option<&'static str> {
+    let body_account_mismatch = || {
+        body.and_then(|v| v.get("accountId"))
+            .is_some_and(|val| !val.is_null() && val.as_str() != Some(account.0.as_str()))
+    };
     let hunt = hunt.filter(|hunt| {
         hunt.session == runtime.session
             && hunt.generation == runtime.generation
@@ -191,8 +206,13 @@ pub fn inventory_denial(
         return Some("HUNT_NOT_RUNNING");
     };
     if hunt.is_hub() {
-        return (!is_hub_runtime_account(hunt.host.as_ref(), presence.unwrap_or_default(), account))
-            .then_some("PARTICIPANT_NOT_ADMITTED");
+        if !is_hub_runtime_account(hunt.host.as_ref(), presence.unwrap_or_default(), account) {
+            return Some("PARTICIPANT_NOT_ADMITTED");
+        }
+        if body_account_mismatch() {
+            return Some("ACCOUNT_MISMATCH");
+        }
+        return None;
     }
     if !hunt
         .roster
@@ -200,6 +220,9 @@ pub fn inventory_denial(
         .any(|entry| &entry.account == account && entry.admitted)
     {
         return Some("PARTICIPANT_NOT_ADMITTED");
+    }
+    if body_account_mismatch() {
+        return Some("ACCOUNT_MISMATCH");
     }
     let frozen = hunt
         .frozen_characters
@@ -271,6 +294,9 @@ pub(crate) mod tests {
             host_account: account("host"),
             scopes: vec![CapabilityScope::GameServerRuntime],
             roster: vec![account("host"), account("friend")],
+            host_peer: None,
+            bridge_instance: None,
+            wire_session: None,
         }
     }
 
@@ -535,6 +561,18 @@ pub(crate) mod tests {
         assert_eq!(
             inventory_denial(&runtime(), None, &account("friend"), "char-friend", None),
             Some("HUNT_NOT_RUNNING")
+        );
+        let mismatched_body = serde_json::json!({ "accountId": "host" });
+        assert_eq!(
+            inventory_body_denial(
+                &runtime(),
+                Some(&hunt()),
+                &account("friend"),
+                "char-friend",
+                Some(&mismatched_body),
+                None,
+            ),
+            Some("ACCOUNT_MISMATCH")
         );
     }
 

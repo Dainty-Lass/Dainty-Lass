@@ -195,6 +195,19 @@ pub struct InventoryTransaction {
     pub user: AccountId,
     pub character_id: String,
     pub transaction_id: String,
+    /// The request body as JSON when available (`POST /inventory`), so Guard can check `accountId` and grant rules.
+    pub body: Option<Json>,
+}
+
+/// One answered host-runtime request (`p2p/observability/hostRouteCensus.ts`). `route` is the Express pattern with its
+/// mount path, never a URL.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct HostRouteSample {
+    pub method: String,
+    pub route: String,
+    pub status_code: u16,
+    pub session_kind: Option<String>,
+    pub hub_kind: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,8 +269,8 @@ pub trait GuardHooks: Lifecycle {
     fn service_roles(&self) -> &'static [&'static str];
     /// `launcher.guardManifestRoles`.
     fn guard_manifest_roles(&self) -> &'static [&'static str];
-    /// The host route census (`p2p/observability/hostRouteCensus.ts`), mounted before every router.
-    fn census(&self, request: &RequestInfo) -> Result<(), SeamError>;
+    /// The host route census (`p2p/observability/hostRouteCensus.ts`), recorded once the request is answered.
+    fn census(&self, sample: &HostRouteSample) -> Result<(), SeamError>;
     /// `http.rateLimitBucket`: a validated capability's own bucket, or `None` for the per-address one.
     fn rate_limit_bucket(&self, request: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>>;
     /// `inventory.authorizeTransaction` for a runtime rifts authenticated.

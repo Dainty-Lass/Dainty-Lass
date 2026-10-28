@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use crate::error::{Refusal, SeamError};
 use crate::hooks::{
-    AuthOutcome, Candidate, CandidateLeave, GuardHooks, HostWrite, HostWriteKind, HostWriteOptions, HubKind,
-    HuntRouteContext, HuntRouteOutcome, InventoryDecision, InventoryTransaction, Lifecycle, OperationsOverview,
-    RealmEntry, RealmsEntry, RealmsHooks, ReleaseGate, Settings,
+    AuthOutcome, Candidate, CandidateLeave, GuardHooks, HostRouteSample, HostWrite, HostWriteKind, HostWriteOptions,
+    HubKind, HuntRouteContext, HuntRouteOutcome, InventoryDecision, InventoryTransaction, Lifecycle,
+    OperationsOverview, RealmEntry, RealmsEntry, RealmsHooks, ReleaseGate, Settings,
 };
 use crate::http::{BoxFuture, Json, Reply, RequestInfo, Route, RouteHandler, RuntimeAuth};
 use crate::id::{AccountId, PartyId, RealmId};
@@ -120,7 +120,7 @@ impl GuardHooks for DedicatedOnly {
     fn guard_manifest_roles(&self) -> &'static [&'static str] {
         &[]
     }
-    fn census(&self, _: &RequestInfo) -> Result<(), SeamError> {
+    fn census(&self, _: &HostRouteSample) -> Result<(), SeamError> {
         Ok(())
     }
     fn rate_limit_bucket(&self, _: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
@@ -283,6 +283,9 @@ mod tests {
             host_account: AccountId("host".to_owned()),
             scopes: Vec::new(),
             roster: Vec::new(),
+            host_peer: None,
+            bridge_instance: None,
+            wire_session: None,
         }
     }
 
@@ -350,6 +353,7 @@ mod tests {
                 user: AccountId("p".to_owned()),
                 character_id: "c".to_owned(),
                 transaction_id: "t".to_owned(),
+                body: None,
             },
         ))
         .unwrap()
