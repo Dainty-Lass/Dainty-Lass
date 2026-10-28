@@ -8,7 +8,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rifts_seam::{AccountId, BoxFuture, HubKind, Json, RealmId, SeamError, SessionId, StoreError, UnixMillis};
+use rifts_seam::{
+    AccountId, BoxFuture, CapabilityScope, HubKind, IslesCore, Json, RealmId, RuntimeAuth, SeamError, SessionId,
+    StoreError, UnixMillis,
+};
+use std::sync::Arc;
 
 use crate::operations::RewardRollout;
 
@@ -233,6 +237,34 @@ pub trait HuntSessions: Send + Sync {
     fn hub_present_accounts(&self, session: &SessionId, generation: u64) -> Result<Vec<AccountId>, StoreError>;
     /// `findHostCapabilityByDigest`: by the SHA-256 hex of the secret.
     fn capability_by_digest(&self, digest: &str) -> Result<Option<CapabilityView>, StoreError>;
+    /// Resolves a route's `x-mystic-host-capability` digest for `:sessionId` and `scope`.
+    fn resolve_capability(
+        &self,
+        _digest: &str,
+        _session_id: &str,
+        _scope: CapabilityScope,
+        _now: UnixMillis,
+    ) -> Result<Option<RuntimeAuth>, StoreError> {
+        Ok(None)
+    }
+}
+
+/// An empty [`HuntSessions`] when no database is configured.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NoHuntSessions;
+
+impl HuntSessions for NoHuntSessions {
+    fn hunt(&self, _: &SessionId) -> Result<Option<HuntView>, StoreError> {
+        Ok(None)
+    }
+
+    fn hub_present_accounts(&self, _: &SessionId, _: u64) -> Result<Vec<AccountId>, StoreError> {
+        Ok(Vec::new())
+    }
+
+    fn capability_by_digest(&self, _: &str) -> Result<Option<CapabilityView>, StoreError> {
+        Ok(None)
+    }
 }
 
 /// The operations policy as `GetP2POperationsPolicy` returns it.
@@ -323,6 +355,63 @@ impl OperationsPolicyPort for MemoryOperations {
     fn append_audit(&self, entry: AuditEntry) -> BoxFuture<'_, Result<(), SeamError>> {
         lock(&self.state).2.push(entry);
         ready(())
+    }
+}
+
+/// Reads the operations policy from [`IslesCore`] and keeps local rollout/audit writes in memory when `IslesCore` has
+/// no write method yet.
+pub struct CoreOperationsPolicy {
+    core: Arc<dyn IslesCore>,
+    fallback: MemoryOperations,
+}
+
+impl CoreOperationsPolicy {
+    pub fn new(core: Arc<dyn IslesCore>) -> Self {
+        Self {
+            core,
+            fallback: MemoryOperations::default(),
+        }
+    }
+}
+
+impl OperationsPolicyPort for CoreOperationsPolicy {
+    fn policy(&self) -> BoxFuture<'_, Result<PolicySnapshot, SeamError>> {
+        Box::pin(async move {
+            match self.core.operations_policy().await {
+                Ok(json) => {
+                    let parsed = serde_json::from_str::<serde_json::Value>(&json.0).ok();
+                    let version = parsed
+                        .as_ref()
+                        .and_then(|v| v.get("version"))
+                        .and_then(crate::json::safe_integer)
+                        .and_then(|n| u64::try_from(n).ok())
+                        .unwrap_or(0);
+                    let reward_rollout = parsed
+                        .as_ref()
+                        .and_then(|v| RewardRollout::from_value(v.get("rewardRollout")))
+                        .unwrap_or_default();
+                    Ok(PolicySnapshot {
+                        version,
+                        reward_rollout,
+                        json,
+                    })
+                }
+                Err(_) => self.fallback.policy().await,
+            }
+        })
+    }
+
+    fn set_reward_rollout(
+        &self,
+        rollout: RewardRollout,
+        actor: String,
+        expected_version: u64,
+    ) -> BoxFuture<'_, Result<Option<PolicySnapshot>, SeamError>> {
+        self.fallback.set_reward_rollout(rollout, actor, expected_version)
+    }
+
+    fn append_audit(&self, entry: AuditEntry) -> BoxFuture<'_, Result<(), SeamError>> {
+        self.fallback.append_audit(entry)
     }
 }
 

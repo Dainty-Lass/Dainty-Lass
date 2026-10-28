@@ -40,8 +40,9 @@ pub use digest::sha256_hex;
 pub use errors::{ERROR_STATUSES, GuardError, status_of};
 pub use operations::{DEFAULT_REWARD_ROLLOUT, RewardRollout};
 pub use ports::{
-    AuditEntry, CapabilityView, Clock, GuardLog, HuntSessions, HuntView, ManualClock, MemoryLog, MemoryOperations,
-    OperationsPolicyPort, PolicySnapshot, RosterEntry, StderrLog, SystemClock, iso_time,
+    AuditEntry, CapabilityView, Clock, CoreOperationsPolicy, GuardLog, HuntSessions, HuntView, ManualClock, MemoryLog,
+    MemoryOperations, NoHuntSessions, OperationsPolicyPort, PolicySnapshot, RosterEntry, StderrLog, SystemClock,
+    iso_time,
 };
 pub use routes::{GuardRoutes, ROUTES, envelope, stub_routes};
 pub use sql::{
@@ -288,6 +289,20 @@ impl Guard {
     /// The Guard fields of `GetHuntStatus` for one generation.
     pub fn chain_status(&self, session: &SessionId, generation: u64) -> Result<Option<ChainRecord>, GuardError> {
         Ok(self.store.chain(session, generation)?)
+    }
+
+    pub(crate) fn resolve_route_capability(
+        &self,
+        raw_header: Option<&str>,
+        session_id: &str,
+        scope: rifts_seam::CapabilityScope,
+    ) -> Option<RuntimeAuth> {
+        let raw = raw_header.filter(|raw| opaque_capability(raw))?;
+        let digest = sha256_hex(raw.as_bytes());
+        self.hunts
+            .resolve_capability(&digest, session_id, scope, self.clock.now())
+            .ok()
+            .flatten()
     }
 
     /// The hunt a runtime's capability belongs to, or the fence.

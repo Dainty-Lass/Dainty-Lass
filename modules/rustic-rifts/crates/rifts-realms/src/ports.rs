@@ -2,10 +2,10 @@
 //! accounts' names, a log and the event sink. Isles supplies the real ones (RU4); tests use the plain ones here.
 
 use std::collections::BTreeMap;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::{Arc, Mutex};
 
-use rifts_seam::{BoxFuture, UnixMillis};
+use rifts_seam::{AccountId, BoxFuture, GuardMode, IslesCore, UnixMillis};
 
 use crate::realm::RealmEvent;
 
@@ -227,5 +227,108 @@ impl OperationsView for DefaultOperations {
 
     fn guard_refuses(&self) -> bool {
         false
+    }
+}
+
+/// [`Accounts`] backed by [`IslesCore`].
+pub struct CoreAccounts(pub Arc<dyn IslesCore>);
+
+impl Accounts for CoreAccounts {
+    fn display_names(&self, account_ids: Vec<String>) -> BoxFuture<'_, Result<BTreeMap<String, String>, String>> {
+        Box::pin(async move {
+            let mut names = BTreeMap::new();
+            for id in account_ids {
+                if let Ok(Some(name)) = self.0.display_name(AccountId(id.clone())).await {
+                    names.insert(id, name);
+                }
+            }
+            Ok(names)
+        })
+    }
+
+    fn resolve_username(&self, username: String) -> BoxFuture<'_, Result<Option<String>, String>> {
+        Box::pin(async move {
+            self.0
+                .find_by_display_name(username)
+                .await
+                .map(|found| found.map(|id| id.0))
+                .map_err(|error| error.to_string())
+        })
+    }
+}
+
+/// [`GuardSessions`] backed by [`IslesCore`].
+pub struct CoreGuardSessions(pub Arc<dyn IslesCore>);
+
+impl GuardSessions for CoreGuardSessions {
+    fn find_healthy(
+        &self,
+        account: String,
+        guard_session_id: String,
+        role: crate::lifecycle::GuardRole,
+    ) -> BoxFuture<'_, Result<Option<HealthyGuard>, String>> {
+        Box::pin(async move {
+            let Ok(Some(raw)) = self.0.healthy_guard_session(AccountId(account)).await else {
+                return Ok(None);
+            };
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(&raw.0) else {
+                return Ok(None);
+            };
+            let id = value
+                .get("guardSessionId")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            if !id.is_empty() && id != guard_session_id {
+                return Ok(None);
+            }
+            let manifest_sequence = value
+                .get("manifestSequence")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(0);
+            let last_sequence = value
+                .get("lastSequence")
+                .or_else(|| value.get("sequence"))
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(0);
+            let risk_score = value
+                .get("riskScore")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            Ok(Some(HealthyGuard {
+                role,
+                guard_session_id: if id.is_empty() { guard_session_id } else { id.to_owned() },
+                manifest_sequence,
+                last_sequence,
+                risk_score,
+            }))
+        })
+    }
+}
+
+/// [`OperationsView`] backed by [`IslesCore`].
+pub struct CoreOperationsView(pub Arc<dyn IslesCore>);
+
+impl OperationsView for CoreOperationsView {
+    fn emergency_stop(&self) -> BoxFuture<'_, Result<bool, String>> {
+        Box::pin(async move {
+            let Ok(raw) = self.0.operations_policy().await else {
+                return Ok(false);
+            };
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(&raw.0) else {
+                return Ok(false);
+            };
+            Ok(value
+                .get("p2pEmergencyStop")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false))
+        })
+    }
+
+    fn ice_transport(&self) -> bool {
+        true
+    }
+
+    fn guard_refuses(&self) -> bool {
+        self.0.guard_mode() == GuardMode::Enforce
     }
 }

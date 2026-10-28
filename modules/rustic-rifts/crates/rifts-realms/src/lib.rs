@@ -4,7 +4,8 @@
 //! Ported from `realms/` and most of `p2p/` (RF1). Each Node repository is a module of [`repo`] over [`db::RealmsDb`];
 //! every write goes through `store`'s write path with the actor its change log records (DD23). The pure rules are
 //! [`realm`], [`hub`], [`lifecycle`], [`tiers`] and [`host_policy`]; the services are [`directory`], [`capabilities`],
-//! [`control`], [`leases`] and [`selection`]. The routes and the `P2PExtension` hooks still answer through [`Stub`].
+//! [`control`], [`leases`] and [`selection`]. [`RealmsService`] and [`RealmsRoutes`] wire those services over
+//! [`rifts_seam::IslesCore`]; routes without a ported service yet still answer through [`Stub`].
 
 pub mod capabilities;
 pub mod control;
@@ -23,14 +24,17 @@ pub mod realm;
 pub mod repo;
 mod routes;
 pub mod selection;
+pub mod service;
 mod stub;
 pub mod tiers;
 pub mod time;
 
 pub use capabilities::RealmsHuntSessions;
 pub use hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub};
+pub use ports::{CoreAccounts, CoreGuardSessions, CoreOperationsView};
 pub use rifts_guard::SqlGuardStore;
-pub use routes::{ROUTES, stub_routes};
+pub use routes::{ROUTES, RealmsRoutes, RealmsRoutesParts, stub_routes};
+pub use service::{RealmsService, RealmsServiceParts, realms_enabled_or_default};
 pub use stub::Stub;
 
 use rifts_seam::{Component, Refusal, TableSpec, Unimplemented};
