@@ -76,7 +76,7 @@ same tree from its Host page. Logs are in `.workspace\logs` (the game servers' i
 | `multipliers` | XP and loot multipliers for a private test server (`--xp 5 --rewards 5`, `--off`) |
 | `update` | Install a newer server release and run `setup` again (`--check` only compares) |
 | `backup` | Dump the database |
-| `network` | The cluster CA and node certificates of a network (`ca-init`, `issue-node-cert`, `list`, `status`; see [A network of servers](#a-network-of-servers)) |
+| `network` | The cluster CA and node certificates of a network, and joining an existing host database (`ca-init`, `issue-node-cert`, `list`, `status`, `join`; see [A network of servers](#a-network-of-servers)) |
 | `history` | What changed in the server's data, by whom and when (`--actor`, `--account`, `--since`, `--until`); `history verify` checks the log's hash chain. See [Undoing a change](#undoing-a-change) |
 | `revert` | Undo what an actor, an account or a time range changed: a dry run first, then `--apply <plan id>` |
 
@@ -209,8 +209,48 @@ engine = "postgres"
 Postgres is yours to run: make a role and a database for it, with the role's password set to
 `REFORGED_DB_PASSWORD` from `secrets.env` (setup makes it once), then run `setup` again. The connection is not
 encrypted, so `setup` refuses a Postgres server on another machine unless `allow_remote = true`, which is only for a
-network you trust. Nothing stores its data there yet: the backend is still Mystic Paradox's on MongoDB, and the
-setting is for the Rust services as they move over. `reforged-host` does not start a Postgres of its own yet.
+network you trust.
+
+Every Rust service and module repository (`isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`, `admin`, `network`,
+`chat`) runs on `store`'s `MultiConnection` over SQLite or Postgres with identical behaviour and portable
+migrations. When a host switches from SQLite to Postgres (or back), `store db move` copies every table and the
+hash-chained change log (`change_log`) across engines and verifies that row counts and contents match.
+
+### Off-server history bucket and restore
+
+In addition to peer log shipping (`[history] ship_to_peer`, below), a server can stream its change-log segments and
+periodic database snapshots to an S3-compatible bucket with object lock (`history-ship`, DD23 layer 2: AWS S3,
+Backblaze B2, MinIO, Cloudflare R2):
+
+- **Write-only server credentials.** Create the bucket with object lock enabled (`S3Bucket::create_locked` in
+  `rust/crates/history-ship`, retention mode `COMPLIANCE` or `GOVERNANCE`) using the owner's credentials off the
+  server, and give the server a write-only key (`s3:PutObject` only) in `secrets.env`. Even an attacker or rogue
+  operator with root on the server cannot delete or overwrite already-shipped segments or snapshots.
+- **Restoring to a point in time.** `history_ship::restore_to` downloads the latest snapshot at or before the
+  chosen `--to <RFC 3339>` timestamp, replays every shipped change-log segment up to that moment into a target
+  SQLite or Postgres database, verifies every entry's SHA-256 hash chain (`history verify`) and any out-of-band
+  `RestoreOptions::trusted_head`, and refuses unverified tail entries outside `trust_window`
+  ([security/history.md](security/history.md)).
+- **Shipping lag alerts.** Both the server status page and the admin API surface a warning whenever log shipping
+  falls behind the local change log head.
+
+### Realms and the TURN relay
+
+On Dauntless 1.14.7 (`isles-1-14-7` with `modules/rustic-rifts`), players can host hubs and hunts on their own PCs
+(**realms**, DD14) and let friends join directly over ICE (`ParadoxTransport.dll` on `libjuice`) or through a TURN
+relay when NAT traversal needs one:
+
+- **Admission keys.** Generate an ES256 admission key pair (`rifts-admission` / `generate-admission-key`) so the
+  backend can sign short-lived `MPT2` admission tickets and per-pair AES-256-GCM transport keys.
+- **The TURN relay (`turn-rs`, DD24).** The host kit configures, starts and stops `turn-rs` as its own child process
+  (`modules/rustic-rifts/crates/rifts-transport/src/turn.rs`) with `static-auth-secret` set to `P2P_TURN_REST_SECRET`
+  from `secrets.env`. `turn-rs` listens on UDP and TCP 3478 (plus TLS 5349 when a certificate is configured) and
+  allocates relay ports from its configured UDP `port-range`, which the allowlist firewall rules open while the
+  server runs ([security/turn-relay.md](security/turn-relay.md)).
+- **Drop-in alternatives and relay-only mode.** Because the backend mints standard `turn-rest` HMAC-SHA1 credentials
+  (`P2P_TURN_CREDENTIAL_TTL_SECONDS`, default 3600s), `coturn` is a drop-in fallback using the same secret, and
+  Cloudflare TURN remains a configuration option (`P2P_TURN_PROVIDER=cloudflare`). Setting `P2P_FORCE_SDR=true`
+  enforces relay-only mode so neither host nor joiner learns the other's IP address.
 
 ### Guarded admin actions
 
@@ -313,7 +353,11 @@ The `fingerprint` is what the launcher pins when it measures the ping to that re
 still a peer, only not listed to players. `reforged-host network list` shows this server's place in the network,
 or, with `--ca <file>`, what a CA has issued. `reforged-host network status` pings every peer over the node link now
 with this server's own certificate and shows each one's state, round trip and clock skew (`--json` for scripts; the exit
-code is 1 when a peer is not up). Docker's `network` profile runs four such nodes with injected latency, for testing
+code is 1 when a peer is not up). When an existing standalone server joins a network (DN13),
+`reforged-host network join` registers its existing accounts with this server as their `home` while keeping existing
+invites and account keys intact; if a username clashes with an account already in the directory, the earliest-registered
+account keeps the name and the later one gets a temporary `_2` suffix (shortened to 16 characters) and a free rename on
+its next login. Docker's `network` profile runs four such nodes with injected latency, for testing
 ([hosting-docker.md](hosting-docker.md#the-network-profile-four-nodes-on-one-machine)).
 
 To ship a node's change log and database snapshots to a peer region's node without paying for an external S3 bucket
