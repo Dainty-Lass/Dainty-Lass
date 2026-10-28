@@ -8,7 +8,6 @@ import type {
   RealmOutcome,
   RealmSessionView,
   RealmView,
-  ServerStatus,
   Snapshot,
 } from "@workspace/bridge"
 import {
@@ -23,10 +22,7 @@ import { I18nProvider } from "../src/app/i18n"
 import { LauncherProvider } from "../src/app/launcher"
 import { errorMessage } from "../src/app/model"
 import {
-  BROWSER_FILTER_KEYS,
-  browserItems,
   checkRealmId,
-  filterBrowserItems,
   HUB_TARGET_KEYS,
   REALM_ID_MAX,
   REALM_KIND_KEYS,
@@ -409,71 +405,13 @@ describe("session state, roles, relay status, and realm ID checks", () => {
   })
 })
 
-describe("realm browser items and filtering", () => {
-  test("derives joinability from capacity, active sessions, and transport readiness", () => {
-    const status = baseSnap().status!
-    const realm = sampleRealm({
-      available: true,
-      sessions: [
-        sampleSession({
-          session: "01JREALMHUB000000000000001@local",
-          state: "running",
-        }),
-      ],
-    })
-    const items = browserItems(status, realm)
-    expect(items).toHaveLength(3)
-
-    // First instance matches active local session (with @local suffix normalized) -> joined, not joinable
-    expect(items[0]?.joined).toBe(true)
-    expect(items[0]?.joinable).toBe(false)
-
-    // Second instance is open hunt -> joinable
-    expect(items[1]?.kind).toBe("hunt")
-    expect(items[1]?.joined).toBe(false)
-    expect(items[1]?.full).toBe(false)
-    expect(items[1]?.joinable).toBe(true)
-
-    // Third instance is full -> not joinable
-    expect(items[2]?.full).toBe(true)
-    expect(items[2]?.joinable).toBe(false)
-
-    // When transport is unavailable, no realm is joinable
-    const unavailableItems = browserItems(
-      status,
-      sampleRealm({ available: false, sessions: [] })
-    )
-    expect(unavailableItems.every((i) => !i.joinable)).toBe(true)
-
-    // Limited status returns no browser items
-    const limited: ServerStatus = { ...status, limited: true }
-    expect(browserItems(limited, realm)).toEqual([])
-  })
-
-  test("filters browser items by kind and localized query in en and pt-BR", () => {
-    const status = baseSnap().status!
-    const items = browserItems(status, sampleRealm({ sessions: [] }))
-
-    expect(filterBrowserItems(items, "", "all", "en")).toHaveLength(3)
-    expect(filterBrowserItems(items, "", "hub", "en")).toHaveLength(2)
-    expect(filterBrowserItems(items, "", "hunt", "en")).toHaveLength(1)
-
-    expect(filterBrowserItems(items, "shrike", "all", "en")).toHaveLength(1)
-    expect(
-      filterBrowserItems(items, "training grounds", "all", "en")
-    ).toHaveLength(1)
-    expect(
-      filterBrowserItems(items, "campo de treinamento", "all", "pt-BR")
-    ).toHaveLength(1)
-    expect(filterBrowserItems(items, "nonexistent", "all", "en")).toHaveLength(
-      0
-    )
-  })
-})
-
 describe("RealmsContent SSR in en and pt-BR", () => {
   const langs: Language[] = ["en", "pt-BR"]
-  const htmlEscape = (text: string) => text.replaceAll("&", "&amp;")
+  const htmlEscape = (text: string) =>
+    text
+      .replaceAll("&", "&amp;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#x27;")
 
   function renderRealms(
     lang: Language,
@@ -504,8 +442,25 @@ describe("RealmsContent SSR in en and pt-BR", () => {
     expect(renderRealms("en", legacySnap, sampleRealmsState())).toBe("")
   })
 
+  test("never lists dedicated server instances as joinable realms", () => {
+    const snap = baseSnap()
+    const html = renderRealms("en", snap, sampleRealmsState())
+    expect(html).not.toContain('data-action="join-browser"')
+    for (const inst of snap.status!.instances) {
+      expect(html).not.toContain(`data-target="${inst.id}"`)
+    }
+  })
+
+  test("disables host and join-by-ID controls when realm transport is unavailable", () => {
+    const snap = baseSnap()
+    const unavailable = sampleRealm({ available: false, active: null, sessions: [] })
+    const html = renderRealms("en", snap, sampleRealmsState(unavailable))
+    expect(html).toContain('data-transport="unavailable"')
+    expect(html).toContain(htmlEscape(translate("en", "rlm_unavailable_hint")))
+  })
+
   for (const lang of langs) {
-    test(`renders active session, relay status, host controls, join form, and browser in ${lang}`, () => {
+    test(`renders active session, relay status, host controls, and join-by-ID form without server-instance browser in ${lang}`, () => {
       const snap = baseSnap()
       const secondSession = sampleSession({
         session: "01JREALMHUNT00000000000009",
@@ -528,13 +483,16 @@ describe("RealmsContent SSR in en and pt-BR", () => {
       expect(html).toContain('data-action="host-hub"')
       expect(html).toContain('data-action="host-hunt"')
       expect(html).toContain('data-action="join-id"')
-      expect(html).toContain('data-action="join-browser"')
+      expect(html).not.toContain('data-action="join-browser"')
+      expect(html).not.toContain("01JREALMHUNT00000000000002")
       expect(html).toContain('data-action="stop-realm"')
       expect(html).toContain(htmlEscape(translate(lang, "rlm_title")))
       expect(html).toContain(htmlEscape(translate(lang, "rlm_status_title")))
       expect(html).toContain(htmlEscape(translate(lang, "rlm_host_title")))
       expect(html).toContain(htmlEscape(translate(lang, "rlm_join_title")))
-      expect(html).toContain(htmlEscape(translate(lang, "rlm_browser_title")))
+      expect(html).not.toContain(
+        htmlEscape(translate(lang, "rlm_browser_title"))
+      )
       expect(html).toContain(
         htmlEscape(
           translate(lang, "rlm_relay_both", { port: 30777, gateway: 9443 })
@@ -550,7 +508,6 @@ describe("RealmsContent SSR in en and pt-BR", () => {
       ...Object.values(HUB_TARGET_KEYS),
       ...Object.values(REALM_KIND_KEYS),
       ...Object.values(REALM_STATE_KEYS),
-      ...Object.values(BROWSER_FILTER_KEYS),
     ]
     for (const k of keys) {
       expect(isKey(k)).toBe(true)

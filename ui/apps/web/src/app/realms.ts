@@ -1,20 +1,17 @@
 // What the Realms screen shows and offers (DU5, RF7, DD11, DD14), as pure functions over the bridge's types,
 // so the decisions are tested without a DOM (realms.test.ts). Every string is a catalog key.
 import type {
-  InstanceKind,
   ModuleView,
   RealmKind,
   RealmOutcome,
   RealmSessionView,
   RealmState,
-  RealmView,
-  ServerStatus,
   Snapshot,
 } from "@workspace/bridge"
-import { isKey, translate, type Key, type Language } from "@workspace/i18n"
+import { isKey, type Key } from "@workspace/i18n"
 
 import type { Tone } from "./host-model"
-import { instanceTitle, type Message } from "./model"
+import type { Message } from "./model"
 
 // Matches REALM_ID_MAX in rust/launcher/src-tauri/src/bridge/spec.rs
 export const REALM_ID_MAX = 128
@@ -142,94 +139,4 @@ export function checkRealmId(input: unknown): RealmIdCheck {
     if (code <= 0x20 || code === 0x7f) return "bad_chars"
   }
   return "ok"
-}
-
-export type BrowserFilterKind = "all" | "hub" | "hunt"
-
-export const BROWSER_FILTER_KEYS: Record<BrowserFilterKind, Key> = {
-  all: "rlm_browser_filter_all",
-  hub: "rlm_browser_filter_hub",
-  hunt: "rlm_browser_filter_hunt",
-}
-
-export interface RealmBrowserItem {
-  id: string
-  kind: RealmKind
-  instanceKind: InstanceKind
-  title: Message
-  host: string
-  map: string
-  behemoth: string | null
-  players: number
-  maxPlayers: number
-  startedAt: string | null
-  full: boolean
-  joined: boolean
-  joinable: boolean
-}
-
-function sameSessionId(a: string, b: string): boolean {
-  const norm = (s: string) => (s.endsWith("@local") ? s.slice(0, -6) : s)
-  return a === b || norm(a) === norm(b)
-}
-
-export function browserItems(
-  status: ServerStatus | null,
-  realm: RealmView | null
-): RealmBrowserItem[] {
-  if (!status || status.limited) return []
-  const available = Boolean(realm?.available)
-  const liveSessions = (realm?.sessions ?? []).filter(
-    (s) => s.state !== "ended"
-  )
-  return status.instances.map((inst) => {
-    const kind: RealmKind = inst.kind === "hunt" ? "hunt" : "hub"
-    const full = inst.maxPlayers > 0 && inst.players >= inst.maxPlayers
-    const joined = liveSessions.some((s) => sameSessionId(s.session, inst.id))
-    return {
-      id: inst.id,
-      kind,
-      instanceKind: inst.kind,
-      title: instanceTitle(inst),
-      host: status.name,
-      map: inst.map,
-      behemoth: inst.behemoth,
-      players: inst.players,
-      maxPlayers: inst.maxPlayers,
-      startedAt: inst.startedAt,
-      full,
-      joined,
-      joinable: available && !full && !joined,
-    }
-  })
-}
-
-function messageText(msg: Message, lang: Language): string {
-  if (!msg.vars) return translate(lang, msg.key)
-  const plain: Record<string, string | number> = {}
-  for (const [k, v] of Object.entries(msg.vars)) {
-    plain[k] = typeof v === "object" ? translate(lang, v.key) : v
-  }
-  return translate(lang, msg.key, plain)
-}
-
-export function filterBrowserItems(
-  items: RealmBrowserItem[],
-  query: string,
-  kind: BrowserFilterKind,
-  lang: Language
-): RealmBrowserItem[] {
-  const needle = query.trim().toLowerCase()
-  return items.filter((item) => {
-    if (kind !== "all" && item.kind !== kind) return false
-    if (needle === "") return true
-    const title = messageText(item.title, lang).toLowerCase()
-    return (
-      title.includes(needle) ||
-      item.id.toLowerCase().includes(needle) ||
-      item.host.toLowerCase().includes(needle) ||
-      item.map.toLowerCase().includes(needle) ||
-      (item.behemoth !== null && item.behemoth.toLowerCase().includes(needle))
-    )
-  })
 }

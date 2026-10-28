@@ -1,4 +1,4 @@
-// REALMS: hosting a hub or a hunt on this PC, joining a realm by session ID or from the server's open worlds,
+// REALMS: hosting a hub or a hunt on this PC, joining a realm by session ID,
 // and watching the active session and local relay route (DU5, RF7, DD11, DD14). Shown only when realms are in
 // the build and the game supports them.
 import { useState } from "react"
@@ -10,7 +10,6 @@ import {
   PlayIcon,
   RadioIcon,
   RefreshCwIcon,
-  SearchIcon,
   SquareIcon,
   SwordsIcon,
   TriangleAlertIcon,
@@ -24,12 +23,9 @@ import { Label } from "@workspace/ui/components/label"
 
 import { useI18n } from "@/app/i18n"
 import { useLauncher } from "@/app/launcher"
-import { errorMessage, kindKey, locked } from "@/app/model"
+import { errorMessage, locked } from "@/app/model"
 import {
-  BROWSER_FILTER_KEYS,
-  browserItems,
   checkRealmId,
-  filterBrowserItems,
   HUB_TARGET_KEYS,
   REALM_ID_MAX,
   REALM_KIND_KEYS,
@@ -38,7 +34,6 @@ import {
   realmStateTone,
   relayStatusMessage,
   sessionRoleKey,
-  type BrowserFilterKind,
   type HubTarget,
 } from "@/app/realms"
 import { useRealms, type RealmsState } from "@/app/use-realms"
@@ -48,7 +43,6 @@ import { Secret } from "@/components/secret"
 import { toneClass } from "@/components/tone"
 
 const HUB_TARGETS: HubTarget[] = ["ramsgate", "training"]
-const FILTER_KINDS: BrowserFilterKind[] = ["all", "hub", "hunt"]
 
 function SessionItem({
   session,
@@ -344,133 +338,6 @@ function JoinByIdPanel({
   )
 }
 
-function BrowserPanel({
-  snap,
-  state,
-}: {
-  snap: Snapshot | null
-  state: RealmsState
-}) {
-  const { t, msg, lang } = useI18n()
-  const [query, setQuery] = useState("")
-  const [filterKind, setFilterKind] = useState<BrowserFilterKind>("all")
-  const serverName = snap?.status?.name ?? snap?.server?.name ?? null
-  const items = browserItems(snap?.status ?? null, state.realm)
-  const filtered = filterBrowserItems(items, query, filterKind, lang)
-  const busy = state.working !== null || (snap ? locked(snap) : false)
-  return (
-    <Panel
-      title={t("rlm_browser_title")}
-      text={
-        serverName
-          ? t("rlm_browser_text", { server: serverName })
-          : t("rlm_browser_text_noserver")
-      }
-      icon={<SearchIcon className="size-4" />}
-    >
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          id="realm-browser-search"
-          aria-label={t("rlm_browser_search")}
-          className="min-w-0 flex-1 text-sm"
-          maxLength={128}
-          placeholder={t("rlm_browser_search_placeholder")}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <div
-          role="group"
-          aria-label={t("rlm_browser_search")}
-          className="flex flex-wrap gap-1"
-        >
-          {FILTER_KINDS.map((kind) => (
-            <Button
-              key={kind}
-              size="sm"
-              data-filter={kind}
-              variant={filterKind === kind ? "default" : "outline"}
-              aria-pressed={filterKind === kind}
-              onClick={() => setFilterKind(kind)}
-            >
-              {t(BROWSER_FILTER_KEYS[kind])}
-            </Button>
-          ))}
-        </div>
-      </div>
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("rlm_browser_empty")}
-        </p>
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("rlm_browser_no_match")}
-        </p>
-      ) : (
-        <div className="flex flex-col">
-          {filtered.map((item) => (
-            <Row
-              key={item.id}
-              title={
-                <span
-                  className="flex flex-wrap items-center gap-2"
-                  data-realm-id={item.id}
-                >
-                  <span>{msg(item.title)}</span>
-                  <Badge variant="secondary">
-                    {t(kindKey(item.instanceKind))}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={toneClass(
-                      item.joined ? "good" : item.full ? "idle" : "good"
-                    )}
-                  >
-                    {t(
-                      item.joined
-                        ? "rlm_browser_joined"
-                        : item.full
-                          ? "rlm_browser_full"
-                          : "rlm_browser_open"
-                    )}
-                  </Badge>
-                </span>
-              }
-              sub={
-                <span className="flex flex-wrap items-center gap-3">
-                  {item.host && (
-                    <span>{t("rlm_browser_host", { host: item.host })}</span>
-                  )}
-                  <span>
-                    {item.maxPlayers > 0
-                      ? t("inst_players", {
-                          n: item.players,
-                          max: item.maxPlayers,
-                        })
-                      : t("inst_players_nomax", { n: item.players })}
-                  </span>
-                  {item.map && <span>{item.map}</span>}
-                  <Secret text={item.id} className="font-mono" />
-                </span>
-              }
-            >
-              <Button
-                size="sm"
-                data-action="join-browser"
-                data-target={item.id}
-                disabled={!item.joinable || busy}
-                onClick={() => void state.join(item.id)}
-              >
-                <LogInIcon />
-                {t(item.joined ? "rlm_browser_joined" : "rlm_join_btn")}
-              </Button>
-            </Row>
-          ))}
-        </div>
-      )}
-    </Panel>
-  )
-}
-
 export function RealmsContent({
   snap,
   state,
@@ -486,7 +353,6 @@ export function RealmsContent({
       <StatusPanel snap={snap} state={state} />
       <HostPanel snap={snap} state={state} />
       <JoinByIdPanel snap={snap} state={state} />
-      <BrowserPanel snap={snap} state={state} />
     </div>
   )
 }
