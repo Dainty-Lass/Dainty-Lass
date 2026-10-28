@@ -261,19 +261,153 @@ pub fn rifts(_settings: &Settings) -> Rifts {
 
 #[cfg(feature = "realms")]
 pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>) -> Rifts {
-    use rifts_seam::{RiftsParts, RouteHandler};
-    let _ = core;
+    use module_api::NodeId;
+    use rifts_guard::{
+        CoreOperationsPolicy, Guard, GuardConfig, GuardParts, GuardRoutes, GuardStore, HuntSessions, NoHuntSessions,
+        SqlGuardStore, StubGuardStore,
+    };
+    use rifts_realms::capabilities::HostCapabilities;
+    use rifts_realms::control::ControlChannel;
+    use rifts_realms::db::RealmsDb;
+    use rifts_realms::directory::{DirectoryParts, RealmDirectory};
+    use rifts_realms::hunt::HuntSession;
+    use rifts_realms::leases::{Hosting, HostingParts, HostingSettings};
+    use rifts_realms::lifecycle::Recovery;
+    use rifts_realms::ports::{
+        CoreAccounts, CoreGuardSessions, CoreOperationsView, NoRateLimit, RandomIds, StderrLog,
+        SystemClock as RealmsClock,
+    };
+    use rifts_realms::realm::RealmLimits;
+    use rifts_realms::tiers::HostingPolicy;
+    use rifts_realms::{
+        RealmsError, RealmsHuntSessions, RealmsRoutes, RealmsRoutesParts, RealmsService, RealmsServiceParts,
+        realms_enabled_or_default,
+    };
+    use rifts_seam::{BoxFuture, RiftsParts, RouteHandler};
+    use store::{Database, DatabaseConfig, DatabaseOptions};
+
+    struct NoopRecovery;
+
+    impl Recovery for NoopRecovery {
+        fn prepare(&self, _: String, _: i64, _: String, _: bool) -> BoxFuture<'_, Result<(), RealmsError>> {
+            Box::pin(async { Ok(()) })
+        }
+
+        fn advance(&self, _: HuntSession) -> BoxFuture<'_, Result<(), RealmsError>> {
+            Box::pin(async { Ok(()) })
+        }
+    }
+
     Rifts::load(settings, || {
+        let wanted = rifts_seam::Settings::get(settings, "REFORGED_DB_FILE").is_some()
+            || rifts_seam::Settings::get(settings, "REFORGED_DB_ENGINE").is_some();
+        let node = rifts_seam::Settings::get(settings, "REFORGED_NODE_ID")
+            .and_then(|raw| NodeId::new(raw).ok())
+            .or_else(|| NodeId::new("local").ok());
+        let realms_db = if wanted {
+            let lookup = |name: &str| rifts_seam::Settings::get(settings, name).map(str::to_owned);
+            let file = rifts_seam::Settings::get(settings, "REFORGED_DB_FILE")
+                .unwrap_or_default()
+                .into();
+            match (DatabaseConfig::from_lookup(lookup, file), node.clone()) {
+                (Ok(config), Some(node_id)) => {
+                    let options = DatabaseOptions::default();
+                    let _ = Database::open(&config, &options, &rifts_guard::SCHEMA);
+                    RealmsDb::open(&config, &options, node_id).ok()
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        let realms_clock: Arc<dyn rifts_realms::ports::Clock> = Arc::new(RealmsClock);
+        let realms_enabled = realms_enabled_or_default(settings);
+        let policy = HostingPolicy::from_settings(settings);
+
+        let (directory, control, hosting, capabilities) = if let Some(ref db) = realms_db {
+            let directory = Arc::new(RealmDirectory::new(DirectoryParts {
+                db: db.clone(),
+                accounts: Arc::new(CoreAccounts(Arc::clone(&core))),
+                events: None,
+                clock: Arc::clone(&realms_clock),
+                limiter: Arc::new(NoRateLimit),
+                ids: Arc::new(RandomIds),
+                limits: RealmLimits::from_settings(settings),
+                log: Arc::new(StderrLog),
+            }));
+            let control = Arc::new(ControlChannel::new(db.clone(), Arc::clone(&realms_clock)));
+            let hosting = Arc::new(Hosting::new(HostingParts {
+                db: db.clone(),
+                settings: HostingSettings::from_settings(settings),
+                clock: Arc::clone(&realms_clock),
+                operations: Arc::new(CoreOperationsView(Arc::clone(&core))),
+                guard: Arc::new(CoreGuardSessions(Arc::clone(&core))),
+                recovery: Arc::new(NoopRecovery),
+                expected_artifacts: Arc::new(|| Err("artifact policy feed not configured".to_owned())),
+                log: Arc::new(StderrLog),
+            }));
+            let capabilities = Arc::new(HostCapabilities::new(db.clone()));
+            (Some(directory), Some(control), Some(hosting), Some(capabilities))
+        } else {
+            (None, None, None, None)
+        };
+
+        let (guard_store, hunt_sessions, has_store): (Arc<dyn GuardStore>, Arc<dyn HuntSessions>, bool) =
+            if let Some(ref db) = realms_db {
+                (
+                    Arc::new(SqlGuardStore::new(db.database().clone())),
+                    Arc::new(RealmsHuntSessions::new(db.clone(), Arc::clone(&realms_clock))),
+                    true,
+                )
+            } else {
+                (Arc::new(StubGuardStore), Arc::new(NoHuntSessions), false)
+            };
+
+        let guard = Arc::new(Guard::new(GuardParts {
+            config: GuardConfig::from_settings(settings),
+            store: guard_store,
+            hunts: hunt_sessions,
+            operations: Arc::new(CoreOperationsPolicy::new(Arc::clone(&core))),
+            core: Arc::clone(&core),
+            clock: Arc::new(rifts_guard::ports::SystemClock::default()),
+            log: Arc::new(rifts_guard::ports::StderrLog),
+        }));
+
+        let service_node = node.unwrap_or_else(|| {
+            NodeId::new("local").unwrap_or_else(|_| unreachable!("static 'local' node id is valid"))
+        });
+        let realms_service = Arc::new(RealmsService::new(RealmsServiceParts {
+            directory: directory.clone(),
+            capabilities: capabilities.clone(),
+            clock: Arc::clone(&realms_clock),
+            core,
+            policy,
+            realms_enabled,
+            node: service_node,
+        }));
+        let realms_routes = Arc::new(RealmsRoutes::new(RealmsRoutesParts {
+            directory,
+            control,
+            hosting,
+            capabilities,
+            clock: realms_clock,
+            realms_enabled,
+        }));
+        let guard_routes = Arc::new(GuardRoutes::with_store(Arc::clone(&guard), has_store));
+
+        // rifts-admission and rifts-relay route handlers require hunt-session bootstrap state not yet wired on
+        // RealmsRoutes, so their routes remain stub_routes() (recorded in RF4/RF5).
         let routes: Vec<Arc<dyn RouteHandler>> = vec![
             Arc::new(rifts_admission::stub_routes()),
             Arc::new(rifts_relay::stub_routes()),
-            Arc::new(rifts_realms::stub_routes()),
-            Arc::new(rifts_guard::stub_routes()),
+            realms_routes,
+            guard_routes,
         ];
         RiftsParts {
-            realms: Arc::new(rifts_realms::Stub),
-            entry: Arc::new(rifts_realms::Stub),
-            guard: Arc::new(rifts_guard::Stub),
+            realms: Arc::clone(&realms_service) as Arc<dyn rifts_seam::RealmsHooks>,
+            entry: realms_service as Arc<dyn rifts_seam::RealmsEntry>,
+            guard,
             routes,
         }
     })

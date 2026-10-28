@@ -256,9 +256,15 @@ impl IslesModule {
                 state: matchmaking.clone(),
                 fallback: fallback_core,
             });
+        let rifts = {
+            let (settings, rifts_fn) = (settings.clone(), self.spec.rifts);
+            tokio::task::spawn_blocking(move || rifts_fn(&settings, rifts_core))
+                .await
+                .map_err(failed)?
+        };
         let shared = Arc::new(Shared {
             version: self.spec.version.clone(),
-            rifts: (self.spec.rifts)(&settings, rifts_core),
+            rifts,
             matchmaking,
             settings,
             node: ctx.node().clone(),
