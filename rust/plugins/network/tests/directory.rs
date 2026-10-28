@@ -557,3 +557,308 @@ async fn a_replica_ahead_of_its_leader_stops_replicating() {
         assert_eq!(cluster.node("uk-1").find("other").await.unwrap(), None);
     }
 }
+
+// ------------------------------------------------------------------ DN13: joining an existing server
+
+#[tokio::test(flavor = "multi_thread")]
+async fn joining_an_existing_server_assigns_home_keeps_earliest_username_and_suffixes_clashes() {
+    use diesel::prelude::*;
+
+    diesel::table! {
+        #[sql_name = "accounts"]
+        test_accounts (id) {
+            id -> Text,
+            user_id -> Text,
+            name -> Text,
+            notes -> BigInt,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        #[sql_name = "launcher_accounts"]
+        test_launcher_accounts (account_id) {
+            account_id -> Text,
+            display_name_normalized -> Text,
+            display_name -> Text,
+            created_at -> Text,
+            username_set -> Nullable<BigInt>,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        #[sql_name = "invites"]
+        test_invites (code) {
+            code -> Text,
+            used_by_account_id -> Nullable<Text>,
+        }
+    }
+    diesel::table! {
+        #[sql_name = "user_api_keys"]
+        test_user_api_keys (key_hash) {
+            key_hash -> Text,
+            account_id -> Text,
+        }
+    }
+
+    for engine in engines() {
+        let cluster = Cluster::new(engine, 10).await;
+
+        // 1. Existing accounts already in the network (registered at t = 1500, 2000 and 4000):
+        //    - "SixteenCharNameA" (16 chars) on new-york-1 registered at t = 1500
+        //    - "Fox" on oregon-1 registered at t = 2000 (earlier than uk-1's "Fox" at t = 3000)
+        //    - "Wolf" on germany-1 registered at t = 4000 (later than uk-1's "wolf" at t = 1000)
+        let oregon_fox = account(LEADER);
+        let germany_wolf = account("germany-1");
+        let ny_long = account("new-york-1");
+
+        cluster
+            .node("new-york-1")
+            .join(
+                store::Actor::Host("seed".into()),
+                vec![network::JoiningAccount {
+                    account: ny_long.clone(),
+                    username: "SixteenCharNameA".into(),
+                    registered_at: 1500,
+                }],
+            )
+            .await
+            .unwrap();
+        cluster
+            .node(LEADER)
+            .join(
+                store::Actor::Host("seed".into()),
+                vec![network::JoiningAccount {
+                    account: oregon_fox.clone(),
+                    username: "Fox".into(),
+                    registered_at: 2000,
+                }],
+            )
+            .await
+            .unwrap();
+        cluster
+            .node("germany-1")
+            .join(
+                store::Actor::Host("seed".into()),
+                vec![network::JoiningAccount {
+                    account: germany_wolf.clone(),
+                    username: "Wolf".into(),
+                    registered_at: 4000,
+                }],
+            )
+            .await
+            .unwrap();
+        cluster.sync_all().await;
+
+        // 2. uk-1 was running standalone before joining the network:
+        //    Its accounts were minted with `@local` (plus one `@uk-1`), with existing invites and API keys
+        //    in its Reforged tables (`accounts`, `launcher_accounts`, `invites`, `user_api_keys`).
+        let uk_target = Target::new(engine);
+        let uk_db = uk_target.open();
+        uk_db
+            .write(store::Actor::Host("seed".into()), |tx| {
+                use diesel::connection::SimpleConnection;
+                tx.conn().batch_execute(
+                    "CREATE TABLE accounts (
+                        id TEXT PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        notes BIGINT NOT NULL DEFAULT 0,
+                        deleted_at BIGINT
+                    );
+                    CREATE TABLE launcher_accounts (
+                        account_id TEXT PRIMARY KEY,
+                        display_name TEXT NOT NULL,
+                        display_name_normalized TEXT NOT NULL,
+                        username_set BIGINT,
+                        created_at TEXT NOT NULL,
+                        deleted_at BIGINT
+                    );
+                    CREATE TABLE invites (
+                        code TEXT PRIMARY KEY,
+                        used_by_account_id TEXT
+                    );
+                    CREATE TABLE user_api_keys (
+                        key_hash TEXT PRIMARY KEY,
+                        account_id TEXT NOT NULL
+                    );",
+                )?;
+                Ok::<(), network::DirectoryError>(())
+            })
+            .await
+            .unwrap();
+        // Re-open so `store` attaches change-log triggers to the new tables
+        let uk_db = uk_target.open();
+
+        let local = NodeIdentity::standalone().node;
+        let uk_wolf = GlobalId::new(IdKind::Account, &local); // t = 1000: earlier than germany-1's Wolf (t = 4000)
+        let uk_fox = GlobalId::new(IdKind::Account, &local); // t = 3000: later than oregon-1's Fox (t = 2000)
+        let uk_long = GlobalId::new(IdKind::Account, &local); // t = 3500: later than ny's SixteenCharNameA (t = 1500)
+        let uk_lynx = account("uk-1"); // t = 2500: no clash
+
+        let seed_rows = vec![
+            (uk_wolf.clone(), "wolf", "1970-01-01T00:00:01Z"),
+            (uk_lynx.clone(), "Lynx", "1970-01-01T00:00:02.500Z"),
+            (uk_fox.clone(), "fox", "1970-01-01T00:00:03Z"),
+            (uk_long.clone(), "SixteenCharNameA", "1970-01-01T00:00:03.500Z"),
+        ];
+        let fox_id_for_seed = uk_fox.to_string();
+        uk_db
+            .write(store::Actor::Host("seed".into()), move |tx| {
+                for (acc, name, ts_iso) in &seed_rows {
+                    let id_str = acc.to_string();
+                    let norm = name.to_ascii_lowercase();
+                    diesel::insert_into(test_accounts::table)
+                        .values((
+                            test_accounts::id.eq(id_str.clone()),
+                            test_accounts::user_id.eq(id_str.clone()),
+                            test_accounts::name.eq(*name),
+                            test_accounts::notes.eq(0_i64),
+                        ))
+                        .execute(tx.conn())?;
+                    diesel::insert_into(test_launcher_accounts::table)
+                        .values((
+                            test_launcher_accounts::account_id.eq(id_str),
+                            test_launcher_accounts::display_name.eq(*name),
+                            test_launcher_accounts::display_name_normalized.eq(norm),
+                            test_launcher_accounts::created_at.eq(*ts_iso),
+                            test_launcher_accounts::username_set.eq(Some(1_i64)),
+                        ))
+                        .execute(tx.conn())?;
+                }
+                diesel::insert_into(test_invites::table)
+                    .values((
+                        test_invites::code.eq("INV-UK-1"),
+                        test_invites::used_by_account_id.eq(Some(fox_id_for_seed.clone())),
+                    ))
+                    .execute(tx.conn())?;
+                diesel::insert_into(test_user_api_keys::table)
+                    .values((
+                        test_user_api_keys::key_hash.eq("hash-fox"),
+                        test_user_api_keys::account_id.eq(fox_id_for_seed),
+                    ))
+                    .execute(tx.conn())?;
+                Ok::<(), network::DirectoryError>(())
+            })
+            .await
+            .unwrap();
+
+        // 3. Join uk-1's host database into the cluster!
+        let outcome = cluster
+            .node("uk-1")
+            .join_host_database(store::Actor::Host("console".into()), &uk_db)
+            .await
+            .unwrap();
+        assert_eq!(outcome.clashed.len(), 3, "{engine:?}: {outcome:?}");
+        cluster.sync_all().await;
+
+        // 4. Verify every region sees the same directory state:
+        for region in REGIONS {
+            let dir = cluster.node(region);
+            // Every uk-1 account (even with `@local` GlobalId) has `uk-1` as its home in the directory:
+            for acc in [&uk_wolf, &uk_lynx, &uk_fox, &uk_long] {
+                assert_eq!(dir.home_of(acc).await.unwrap(), Some(id("uk-1")), "{engine:?} {region}");
+            }
+            // Non-clashing account kept "Lynx" and does not need a rename:
+            let lynx = dir.find("lynx").await.unwrap().unwrap();
+            assert_eq!(lynx.account, uk_lynx);
+            assert_eq!(lynx.username.as_str(), "Lynx");
+            assert!(!dir.rename_required(&uk_lynx).await.unwrap());
+
+            // "Fox": oregon-1 registered earlier (2000 < 3000), so oregon_fox keeps "Fox" and uk_fox gets "fox_2":
+            let fox = dir.find("fox").await.unwrap().unwrap();
+            assert_eq!(fox.account, oregon_fox);
+            assert!(!dir.rename_required(&oregon_fox).await.unwrap());
+            let fox2 = dir.find("fox_2").await.unwrap().unwrap();
+            assert_eq!(fox2.account, uk_fox);
+            assert!(dir.rename_required(&uk_fox).await.unwrap());
+
+            // "SixteenCharNameA" (16 chars): ny_long registered earlier (1500 < 3500), so uk_long is shortened to
+            // "SixteenCharNam_2" (16 chars) with rename_required = true:
+            let long1 = dir.find("sixteencharnamea").await.unwrap().unwrap();
+            assert_eq!(long1.account, ny_long);
+            let long2 = dir.find("sixteencharnam_2").await.unwrap().unwrap();
+            assert_eq!(long2.account, uk_long);
+            assert_eq!(long2.username.as_str(), "SixteenCharNam_2");
+            assert_eq!(long2.username.as_str().len(), 16);
+            assert!(dir.rename_required(&uk_long).await.unwrap());
+
+            // "Wolf": uk_wolf registered earlier (1000 < 4000), so uk_wolf claims "wolf" and germany_wolf is
+            // renamed to "Wolf_2" with rename_required = true:
+            let wolf = dir.find("wolf").await.unwrap().unwrap();
+            assert_eq!(wolf.account, uk_wolf);
+            assert!(!dir.rename_required(&uk_wolf).await.unwrap());
+            let wolf2 = dir.find("wolf_2").await.unwrap().unwrap();
+            assert_eq!(wolf2.account, germany_wolf);
+            assert_eq!(wolf2.username.as_str(), "Wolf_2");
+            assert!(dir.rename_required(&germany_wolf).await.unwrap());
+        }
+
+        // 5. Verify uk-1's local Reforged tables (`accounts`, `launcher_accounts`, `invites`, `user_api_keys`):
+        //    - `uk_fox` and `uk_long` were updated in `accounts` and `launcher_accounts` with `username_set = 0`
+        //      (so the launcher gets the new displayName and prompts a free rename at next login)
+        //    - `uk_wolf` and `uk_lynx` still have `username_set = 1`
+        //    - `invites` and `user_api_keys` still point to `uk_fox`'s unchanged `account_id`.
+        let (rows, key_account, inv_account) = uk_db
+            .read(|conn| {
+                let rows: Vec<(String, String, String, Option<i64>)> = test_launcher_accounts::table
+                    .select((
+                        test_launcher_accounts::account_id,
+                        test_launcher_accounts::display_name,
+                        test_launcher_accounts::display_name_normalized,
+                        test_launcher_accounts::username_set,
+                    ))
+                    .load(conn)?;
+                let key_account: String = test_user_api_keys::table
+                    .filter(test_user_api_keys::key_hash.eq("hash-fox"))
+                    .select(test_user_api_keys::account_id)
+                    .first(conn)?;
+                let inv_account: Option<String> = test_invites::table
+                    .filter(test_invites::code.eq("INV-UK-1"))
+                    .select(test_invites::used_by_account_id)
+                    .first(conn)?;
+                Ok::<_, network::DirectoryError>((rows, key_account, inv_account))
+            })
+            .await
+            .unwrap();
+        for (acc_id, display, norm, set) in rows {
+            if acc_id == uk_fox.to_string() {
+                assert_eq!((display.as_str(), norm.as_str(), set), ("fox_2", "fox_2", Some(0)));
+            } else if acc_id == uk_long.to_string() {
+                assert_eq!(
+                    (display.as_str(), norm.as_str(), set),
+                    ("SixteenCharNam_2", "sixteencharnam_2", Some(0))
+                );
+            } else if acc_id == uk_wolf.to_string() {
+                assert_eq!((display.as_str(), norm.as_str(), set), ("wolf", "wolf", Some(1)));
+            } else if acc_id == uk_lynx.to_string() {
+                assert_eq!((display.as_str(), norm.as_str(), set), ("Lynx", "lynx", Some(1)));
+            }
+        }
+        assert_eq!(key_account, uk_fox.to_string());
+        assert_eq!(inv_account, Some(uk_fox.to_string()));
+
+        // 6. Re-running `join_host_database` is idempotent (no duplicate entries or extra suffixes):
+        let head_before = cluster.node(LEADER).head().await.unwrap();
+        let repeat = cluster
+            .node("uk-1")
+            .join_host_database(store::Actor::Host("console".into()), &uk_db)
+            .await
+            .unwrap();
+        assert!(repeat.entries.is_empty() && repeat.clashed.is_empty());
+        assert_eq!(cluster.node(LEADER).head().await.unwrap(), head_before);
+
+        // 7. When a clashed account performs its free rename, `rename_required` clears to false and `fox_2` is freed:
+        cluster
+            .node("uk-1")
+            .rename(player(&uk_fox), &uk_fox, "SilverFox")
+            .await
+            .unwrap();
+        cluster.sync_all().await;
+        for region in REGIONS {
+            let dir = cluster.node(region);
+            assert!(!dir.rename_required(&uk_fox).await.unwrap(), "{engine:?} {region}");
+            assert_eq!(dir.find("silverfox").await.unwrap().unwrap().account, uk_fox);
+            assert_eq!(dir.find("fox_2").await.unwrap(), None);
+        }
+    }
+}

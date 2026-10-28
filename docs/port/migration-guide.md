@@ -224,7 +224,9 @@ module only calls the service's `Config::from_env` and `run_with_context`.
 The DaintyLass plan adds [`rust/crates/epic`](../../rust/crates/epic) (DE1, DD22: Epic sign-in, library, manifest and
 chunk reading, and the download for installing from the player's Epic library), [`rust/crates/module-api`](../../rust/crates/module-api)
 (DF2), [`rust/crates/history-ship`](../../rust/crates/history-ship) (DH4), [`rust/plugins/network`](../../rust/plugins/network)
-(DN2–DN5, DH7), and [`rust/plugins/chat`](../../rust/plugins/chat) (DN10a/b).
+(DN2–DN5, DH7, DN13), and [`rust/plugins/chat`](../../rust/plugins/chat) (DN10a/b), documented in
+[`docs/architecture.md`](../architecture.md), [`docs/writing-a-module.md`](../writing-a-module.md), and
+[`docs/security/turn-relay.md`](../security/turn-relay.md).
 `store`'s `connection`, `database`, `engine`, `history`, `portable`, `transfer`, `recovery`, `revert` and `declared`
 modules (DF7, DD15) and its change log and hash chain (`history.rs`, `history/chain.rs`, `history/record.rs`, DH1,
 DH3a, DH5 and DD23) are new here too; `tests/db/{sqlite,postgres}` are the two-dialect test migrations. The SQLite-only

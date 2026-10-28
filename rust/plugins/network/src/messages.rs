@@ -27,22 +27,79 @@ pub enum DirectoryChange {
         username: Username,
         home: NodeId,
     },
+    /// A joining server's account whose username clashed with an earlier-registered account and was given a
+    /// temporary suffixed name (DN13); prompts for a free rename at next login
+    RegisterClash {
+        account: GlobalId,
+        username: Username,
+        home: NodeId,
+    },
     /// An account's new username; the old one is free from this entry on
     Rename { account: GlobalId, username: Username },
+    /// An existing account whose username clashed with an earlier-registered joining account and was given a
+    /// temporary suffixed name (DN13); prompts for a free rename at next login
+    RenameClash { account: GlobalId, username: Username },
 }
 
 impl DirectoryChange {
     pub fn account(&self) -> &GlobalId {
         match self {
-            Self::Register { account, .. } | Self::Rename { account, .. } => account,
+            Self::Register { account, .. }
+            | Self::RegisterClash { account, .. }
+            | Self::Rename { account, .. }
+            | Self::RenameClash { account, .. } => account,
         }
     }
 
     pub fn username(&self) -> &Username {
         match self {
-            Self::Register { username, .. } | Self::Rename { username, .. } => username,
+            Self::Register { username, .. }
+            | Self::RegisterClash { username, .. }
+            | Self::Rename { username, .. }
+            | Self::RenameClash { username, .. } => username,
         }
     }
+
+    pub fn home(&self) -> Option<&NodeId> {
+        match self {
+            Self::Register { home, .. } | Self::RegisterClash { home, .. } => Some(home),
+            Self::Rename { .. } | Self::RenameClash { .. } => None,
+        }
+    }
+
+    /// Whether this entry gave the account a temporary suffixed name on a join clash (DN13).
+    pub fn is_clash(&self) -> bool {
+        matches!(self, Self::RegisterClash { .. } | Self::RenameClash { .. })
+    }
+}
+
+/// An existing server's account joining the network (DN13).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JoiningAccount {
+    pub account: GlobalId,
+    pub username: String,
+    /// When the account was registered on its server, in unix milliseconds; the earlier registration keeps
+    /// the name on a clash
+    pub registered_at: i64,
+}
+
+/// An account whose username clashed during a server join and was assigned a temporary suffixed name (DN13).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClashedAccount {
+    pub account: GlobalId,
+    pub home: NodeId,
+    pub old_username: Username,
+    pub new_username: Username,
+}
+
+/// What joining an existing server's accounts to the directory did (DN13).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JoinOutcome {
+    pub entries: Vec<DirectoryEntry>,
+    pub clashed: Vec<ClashedAccount>,
 }
 
 /// An entry of the log, numbered by the leader from 1 without gaps.
@@ -78,6 +135,11 @@ pub enum DirectoryCall {
         username: String,
         actor: String,
     },
+    /// Join an existing server's accounts to the directory with the caller as their home (DN13).
+    Join {
+        accounts: Vec<JoiningAccount>,
+        actor: String,
+    },
     /// The entries after `after`, at most `limit` (capped at [`MAX_PULL`]). `last` is the puller's entry
     /// `after`, which the leader must hold the same, or the two logs have diverged.
     Pull {
@@ -100,6 +162,8 @@ pub struct DirectoryResponse {
 pub enum DirectoryReply {
     /// The entry a register or rename wrote (or wrote before, for a register repeated after a lost answer)
     Applied(DirectoryEntry),
+    /// The entries and clash renames a server join wrote (DN13)
+    Joined(JoinOutcome),
     /// A page of the log, and the leader's newest entry
     Changes {
         entries: Vec<DirectoryEntry>,

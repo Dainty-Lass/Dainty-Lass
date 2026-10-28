@@ -82,11 +82,11 @@ the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted)
 of those build on. [NOTICE.md](NOTICE.md) says what came from where.
 
 Free software under the GNU AGPL-3.0 (`AGPL-3.0-only`): [LICENSE.txt](LICENSE.txt). The controller, `module-api`,
-`epic`, `history-ship`, the plugins, the admin service and the binaries, written here from no other project, are also
-under the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt); NOTICE.md lists the crates). Additional terms apply to the
+`epic`, `history-ship`, the network plugin, the admin service and the binaries, written here from no other project, are also
+under the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt); [NOTICE.md](NOTICE.md) lists the crates). Additional terms apply to the
 Mystic Paradox material: [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md) and Mystic Paradox's own
-[modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md). Mystic Paradox's Dauntless 1.12.0 port and related
-modifications were developed by Pranav Karande. See NOTICE.md for contribution and provenance information.
+[modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md). "Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related
+modifications were developed by MysticFox / Pranav Karande. See NOTICE.md for contribution and provenance information."
 
 An unofficial fan project, not affiliated with or endorsed by Phoenix Labs, Epic Games, Mystic Paradox or
 Dauntless Revived. Dauntless is a trademark of its owners.

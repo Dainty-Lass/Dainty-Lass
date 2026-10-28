@@ -42,8 +42,8 @@ clap.workspace = true
 controller = { workspace = true, default-features = false }
 # [modules]: module ids, pinned digests, node names (DF3)
 module-api.workspace = true
-# `network ca-init` and `issue-node-cert`, and the peers in `[[network.nodes]]` (DN3). Renamed as the gateway renames it
-network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
+# `network ca-init`, `issue-node-cert` and `join`, and the peers in `[[network.nodes]]` (DN3, DN13). Renamed as the gateway renames it
+network_plugin = { package = "network", path = "../../plugins/network", default-features = false, features = ["directory"] }
 crossterm.workspace = true
 # RH4: game data packs are gzip-compressed JSON.
 flate2.workspace = true

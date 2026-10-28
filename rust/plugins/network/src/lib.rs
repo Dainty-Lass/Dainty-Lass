@@ -38,11 +38,13 @@ pub mod username;
 pub mod wire;
 
 #[cfg(feature = "directory")]
-pub use directory::{AccountRecord, Directory, DirectoryConfig, DirectoryError, Role};
+pub use directory::{
+    AccountRecord, Directory, DirectoryConfig, DirectoryError, Role, apply_host_clashes, read_host_accounts,
+};
 pub use endpoint::NodeEndpoint;
 pub use link::{Clock, LinkError, NoPeers, NodeService, PeerLink, PeerRoster, Service, ServiceMux};
 #[cfg(feature = "directory")]
-pub use messages::{DirectoryChange, DirectoryEntry, Refusal};
+pub use messages::{ClashedAccount, DirectoryChange, DirectoryEntry, JoinOutcome, JoiningAccount, Refusal};
 pub use tls::{PeerHealth, PeerState, TlsLinkConfig, TlsPeerLink};
 #[cfg(feature = "directory")]
 pub use username::Username;

@@ -21,8 +21,9 @@ use store::{Actor, AnyConnection, Database, DatabaseSchema, Tx};
 
 use crate::link::{LinkError, NodeService, PeerLink, Service};
 use crate::messages::{
-    DIRECTORY_VERSION, DecodeError, DirectoryCall, DirectoryChange, DirectoryEntry, DirectoryReply, DirectoryRequest,
-    DirectoryResponse, MAX_PULL, Refusal, decode_request, decode_response, encode,
+    ClashedAccount, DIRECTORY_VERSION, DecodeError, DirectoryCall, DirectoryChange, DirectoryEntry, DirectoryReply,
+    DirectoryRequest, DirectoryResponse, JoinOutcome, JoiningAccount, MAX_PULL, Refusal, decode_request,
+    decode_response, encode,
 };
 use crate::username::Username;
 
@@ -49,6 +50,29 @@ diesel::table! {
 
 use network_directory_accounts as accounts;
 use network_directory_log as log;
+
+diesel::table! {
+    #[sql_name = "accounts"]
+    host_accounts (id) {
+        id -> Text,
+        user_id -> Text,
+        name -> Text,
+        notes -> BigInt,
+        deleted_at -> Nullable<BigInt>,
+    }
+}
+
+diesel::table! {
+    #[sql_name = "launcher_accounts"]
+    host_launcher_accounts (account_id) {
+        account_id -> Text,
+        display_name_normalized -> Text,
+        display_name -> Text,
+        created_at -> Text,
+        username_set -> Nullable<BigInt>,
+        deleted_at -> Nullable<BigInt>,
+    }
+}
 
 pub const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
 pub const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
@@ -165,7 +189,9 @@ type LogRow = (i64, i64, String, String, String, Option<String>);
 type AccountRow = (String, String, String, i64);
 
 const REGISTER: &str = "register";
+const REGISTER_CLASH: &str = "register_clash";
 const RENAME: &str = "rename";
+const RENAME_CLASH: &str = "rename_clash";
 
 fn entry_from_row((seq, at, op, account, username, home): LogRow) -> Result<DirectoryEntry, DirectoryError> {
     let account: GlobalId = account
@@ -178,7 +204,13 @@ fn entry_from_row((seq, at, op, account, username, home): LogRow) -> Result<Dire
             username,
             home: NodeId::new(home).map_err(corrupt)?,
         },
+        (REGISTER_CLASH, Some(home)) => DirectoryChange::RegisterClash {
+            account,
+            username,
+            home: NodeId::new(home).map_err(corrupt)?,
+        },
         (RENAME, None) => DirectoryChange::Rename { account, username },
+        (RENAME_CLASH, None) => DirectoryChange::RenameClash { account, username },
         _ => return Err(corrupt(format!("an entry of kind {op:?}"))),
     };
     Ok(DirectoryEntry {
@@ -260,14 +292,22 @@ fn check_change(conn: &mut AnyConnection, change: &DirectoryChange) -> Result<()
     let existing = account_record(conn, account)?;
     match change {
         DirectoryChange::Register { home, .. } => {
-            if home != account.owner() {
+            if home != account.owner() && account.owner().as_str() != "local" {
                 return Err(Refusal::NotHome.into());
             }
             if existing.is_some() {
                 return Err(Refusal::AccountExists.into());
             }
         }
-        DirectoryChange::Rename { .. } => {
+        DirectoryChange::RegisterClash { home, .. } => {
+            if home != account.owner() && account.owner().as_str() != "local" {
+                return Err(Refusal::NotHome.into());
+            }
+            if existing.is_some() {
+                return Err(Refusal::AccountExists.into());
+            }
+        }
+        DirectoryChange::Rename { .. } | DirectoryChange::RenameClash { .. } => {
             if existing.is_none() {
                 return Err(Refusal::UnknownAccount.into());
             }
@@ -288,7 +328,13 @@ fn apply(tx: &mut Tx<'_>, entry: &DirectoryEntry) -> Result<(), DirectoryError> 
             username,
             home,
         } => (REGISTER, account, username, Some(home)),
+        DirectoryChange::RegisterClash {
+            account,
+            username,
+            home,
+        } => (REGISTER_CLASH, account, username, Some(home)),
         DirectoryChange::Rename { account, username } => (RENAME, account, username, None),
+        DirectoryChange::RenameClash { account, username } => (RENAME_CLASH, account, username, None),
     };
     diesel::insert_into(log::table)
         .values((
@@ -328,6 +374,132 @@ fn apply(tx: &mut Tx<'_>, entry: &DirectoryEntry) -> Result<(), DirectoryError> 
     Ok(())
 }
 
+/// When `account` was first registered in the log, or its ULID timestamp if no register row is present.
+fn registered_at(conn: &mut AnyConnection, account: &GlobalId) -> Result<i64, DirectoryError> {
+    let found: Option<i64> = log::table
+        .select(log::at)
+        .filter(log::account.eq(account.to_string()))
+        .filter(log::op.eq(REGISTER).or(log::op.eq(REGISTER_CLASH)))
+        .order(log::seq.asc())
+        .first(conn)
+        .optional()?;
+    Ok(found.unwrap_or_else(|| i64::try_from(account.ulid().timestamp_ms()).unwrap_or(0)))
+}
+
+/// The first free suffixed username (`Fox_2`, `Fox_3`, ..., shortened to 16 characters) for `base` (DN13).
+fn next_free_suffix(conn: &mut AnyConnection, base: &Username) -> Result<Username, DirectoryError> {
+    for suffix in 2..=999_999 {
+        let candidate = base.with_suffix(suffix);
+        if holder(conn, &candidate)?.is_none() {
+            return Ok(candidate);
+        }
+    }
+    Err(Refusal::UsernameTaken.into())
+}
+
+/// Joins a batch of existing accounts for `from` into the directory (DN13).
+///
+/// Accounts are applied in registration-time order. On a username clash, the account registered first keeps
+/// the name; every other account with that normalized name gets a temporary suffixed name (`Fox_2`, shortened
+/// to fit 16 characters) and is marked as clashed (`RegisterClash` / `RenameClash`) so its next login prompts
+/// for a free rename.
+fn join_batch(tx: &mut Tx<'_>, from: &NodeId, items: Vec<JoiningAccount>) -> Result<JoinOutcome, DirectoryError> {
+    let mut validated = Vec::with_capacity(items.len());
+    for item in items {
+        if item.account.kind() != IdKind::Account {
+            return Err(Refusal::NotAnAccount.into());
+        }
+        if item.account.owner() != from && item.account.owner().as_str() != "local" {
+            return Err(Refusal::NotHome.into());
+        }
+        let username = Username::new(&item.username).map_err(|e| Refusal::InvalidUsername { check: e.0 })?;
+        validated.push((item.account, username, item.registered_at));
+    }
+    validated.sort_by(|a, b| a.2.cmp(&b.2).then_with(|| a.0.to_string().cmp(&b.0.to_string())));
+
+    let mut outcome = JoinOutcome::default();
+    for (account, desired, reg_at) in validated {
+        if let Some(existing) = account_record(tx.conn(), &account)? {
+            if existing.home == *from {
+                continue;
+            }
+            return Err(Refusal::AccountExists.into());
+        }
+        match holder(tx.conn(), &desired)? {
+            None => {
+                let entry = DirectoryEntry {
+                    seq: head(tx.conn())? + 1,
+                    at: reg_at,
+                    change: DirectoryChange::Register {
+                        account,
+                        username: desired,
+                        home: from.clone(),
+                    },
+                };
+                apply(tx, &entry)?;
+                outcome.entries.push(entry);
+            }
+            Some(other) => {
+                let other_at = registered_at(tx.conn(), &other.account)?;
+                let joining_is_earlier = (reg_at, account.to_string()) < (other_at, other.account.to_string());
+                if joining_is_earlier {
+                    // The joining account registered first: displace the later holder to a suffixed name first
+                    let fallback = next_free_suffix(tx.conn(), &other.username)?;
+                    let rename_entry = DirectoryEntry {
+                        seq: head(tx.conn())? + 1,
+                        at: tx.at(),
+                        change: DirectoryChange::RenameClash {
+                            account: other.account.clone(),
+                            username: fallback.clone(),
+                        },
+                    };
+                    apply(tx, &rename_entry)?;
+                    outcome.entries.push(rename_entry);
+                    outcome.clashed.push(ClashedAccount {
+                        account: other.account,
+                        home: other.home,
+                        old_username: other.username,
+                        new_username: fallback,
+                    });
+
+                    let register_entry = DirectoryEntry {
+                        seq: head(tx.conn())? + 1,
+                        at: reg_at,
+                        change: DirectoryChange::Register {
+                            account,
+                            username: desired,
+                            home: from.clone(),
+                        },
+                    };
+                    apply(tx, &register_entry)?;
+                    outcome.entries.push(register_entry);
+                } else {
+                    // The existing holder registered first: it keeps the name, and the joining account gets a suffix
+                    let fallback = next_free_suffix(tx.conn(), &desired)?;
+                    let register_entry = DirectoryEntry {
+                        seq: head(tx.conn())? + 1,
+                        at: reg_at,
+                        change: DirectoryChange::RegisterClash {
+                            account: account.clone(),
+                            username: fallback.clone(),
+                            home: from.clone(),
+                        },
+                    };
+                    apply(tx, &register_entry)?;
+                    outcome.entries.push(register_entry);
+                    outcome.clashed.push(ClashedAccount {
+                        account,
+                        home: from.clone(),
+                        old_username: desired,
+                        new_username: fallback,
+                    });
+                }
+            }
+        }
+    }
+    Ok(outcome)
+}
+
 /// A register or rename the leader was asked for, by `from`.
 #[derive(Debug, Clone)]
 enum Proposal {
@@ -352,8 +524,10 @@ fn propose(tx: &mut Tx<'_>, from: &NodeId, proposal: Proposal) -> Result<Directo
     }
     let existing = account_record(tx.conn(), account)?;
     let home = match &change {
-        DirectoryChange::Register { .. } => account.owner(),
-        DirectoryChange::Rename { .. } => existing.as_ref().map_or(from, |record| &record.home),
+        DirectoryChange::Register { .. } | DirectoryChange::RegisterClash { .. } => account.owner(),
+        DirectoryChange::Rename { .. } | DirectoryChange::RenameClash { .. } => {
+            existing.as_ref().map_or(from, |record| &record.home)
+        }
     };
     if home != from {
         return Err(Refusal::NotHome.into());
@@ -436,6 +610,71 @@ impl Directory {
         self.db.read(move |conn| holder(conn, &username)).await
     }
 
+    /// Whether `account`'s current username is a temporary suffixed name from a network join clash (DN13),
+    /// so its next login should prompt for a free rename. Cleared as soon as [`Directory::rename`] succeeds.
+    pub async fn rename_required(&self, account: &GlobalId) -> Result<bool, DirectoryError> {
+        let account = account.clone();
+        self.db
+            .read(move |conn| {
+                let Some(record) = account_record(conn, &account)? else {
+                    return Ok(false);
+                };
+                let Some(entry) = entry_at(conn, record.seq)? else {
+                    return Ok(false);
+                };
+                Ok(entry.change.is_clash())
+            })
+            .await
+    }
+
+    /// Joins an existing server's accounts to the directory with this node as their home (DN13): through the
+    /// leader in a network, here otherwise.
+    ///
+    /// On a username clash, the account registered first keeps the name; every other account with that
+    /// normalized name gets a temporary suffixed name (`Fox_2`, shortened to fit 16 characters) and is
+    /// returned in [`JoinOutcome::clashed`] (and marked in the directory log so [`Directory::rename_required`]
+    /// is `true` until its free rename).
+    pub async fn join(&self, actor: Actor, accounts: Vec<JoiningAccount>) -> Result<JoinOutcome, DirectoryError> {
+        for item in &accounts {
+            if item.account.kind() != IdKind::Account {
+                return Err(Refusal::NotAnAccount.into());
+            }
+            if item.account.owner() != &self.node && item.account.owner().as_str() != "local" {
+                return Err(Refusal::NotHome.into());
+            }
+            Self::username(&item.username)?;
+        }
+        let Role::Replica { leader } = &self.role else {
+            let from = self.node.clone();
+            return self.db.write(actor, move |tx| join_batch(tx, &from, accounts)).await;
+        };
+        let call = DirectoryCall::Join {
+            accounts,
+            actor: actor.as_text(),
+        };
+        let outcome = match self.call_leader(leader, call).await? {
+            DirectoryReply::Joined(outcome) => outcome,
+            DirectoryReply::Refused(refusal) => return Err(refusal.into()),
+            DirectoryReply::Applied(_) | DirectoryReply::Changes { .. } => {
+                return Err(DirectoryError::Protocol("unexpected reply for a join".into()));
+            }
+        };
+        if let Err(error) = self.sync().await {
+            tracing::debug!(%error, "directory: no pull after a join");
+        }
+        Ok(outcome)
+    }
+
+    /// Joins a Reforged host's existing database (`accounts` and `launcher_accounts`) to this node's
+    /// directory (DN13), and writes any temporary suffixed names and `username_set = false` prompts for
+    /// accounts homed on this node back to `host_db`.
+    pub async fn join_host_database(&self, actor: Actor, host_db: &Database) -> Result<JoinOutcome, DirectoryError> {
+        let accounts = read_host_accounts(host_db).await?;
+        let outcome = self.join(actor.clone(), accounts).await?;
+        apply_host_clashes(host_db, actor, &self.node, &outcome.clashed).await?;
+        Ok(outcome)
+    }
+
     /// Registers an account homed on this node: through the leader in a network, here otherwise.
     /// `actor` is who asked, for the change log.
     pub async fn register(
@@ -496,7 +735,9 @@ impl Directory {
         let entry = match self.call_leader(leader, call).await? {
             DirectoryReply::Applied(entry) => entry,
             DirectoryReply::Refused(refusal) => return Err(refusal.into()),
-            DirectoryReply::Changes { .. } => return Err(DirectoryError::Protocol("changes for a write".into())),
+            DirectoryReply::Changes { .. } | DirectoryReply::Joined(_) => {
+                return Err(DirectoryError::Protocol("changes for a write".into()));
+            }
         };
         let (account, username) = match &proposal {
             Proposal::Register { account, username } | Proposal::Rename { account, username } => (account, username),
@@ -505,7 +746,7 @@ impl Directory {
             && entry.change.username() == username
             && match (&proposal, &entry.change) {
                 (Proposal::Register { .. }, DirectoryChange::Register { home, .. }) => *home == self.node,
-                (Proposal::Register { .. }, DirectoryChange::Rename { .. }) => false,
+                (Proposal::Register { .. }, _) => false,
                 // A rename to the name it has already answers with the entry that gave it
                 (Proposal::Rename { .. }, _) => true,
             };
@@ -575,7 +816,9 @@ impl Directory {
                     return Err(error);
                 }
                 DirectoryReply::Refused(refusal) => return Err(refusal.into()),
-                DirectoryReply::Applied(_) => return Err(DirectoryError::Protocol("an entry for a pull".into())),
+                DirectoryReply::Applied(_) | DirectoryReply::Joined(_) => {
+                    return Err(DirectoryError::Protocol("an entry for a pull".into()));
+                }
             };
             if entries.len() > self.page as usize {
                 return Err(DirectoryError::Protocol(format!(
@@ -685,6 +928,7 @@ impl Directory {
                 username,
                 actor,
             } => self.serve_proposal(from, &actor, account, &username, false).await,
+            DirectoryCall::Join { accounts, actor } => self.serve_join(from, &actor, accounts).await,
             DirectoryCall::Pull { after, last, limit } => self.serve_pull(after, last, limit).await,
         };
         result.unwrap_or_else(|error| match error {
@@ -713,6 +957,18 @@ impl Directory {
         };
         let entry = self.propose_here(actor, from.clone(), proposal).await?;
         Ok(DirectoryReply::Applied(entry))
+    }
+
+    async fn serve_join(
+        &self,
+        from: &NodeId,
+        actor: &str,
+        accounts: Vec<JoiningAccount>,
+    ) -> Result<DirectoryReply, DirectoryError> {
+        let actor = Actor::parse(actor).ok_or(Refusal::BadActor)?;
+        let from = from.clone();
+        let outcome = self.db.write(actor, move |tx| join_batch(tx, &from, accounts)).await?;
+        Ok(DirectoryReply::Joined(outcome))
     }
 
     async fn serve_pull(
@@ -769,4 +1025,117 @@ impl NodeService for Directory {
             .map_err(|_| LinkError::TooLarge)
         })
     }
+}
+
+/// Reads existing accounts from a Reforged host's game database (`launcher_accounts` and `accounts`) for
+/// [`Directory::join`] (DN13).
+pub async fn read_host_accounts(host_db: &Database) -> Result<Vec<JoiningAccount>, DirectoryError> {
+    host_db
+        .read(|conn| {
+            let mut seen = std::collections::BTreeSet::new();
+            let mut out = Vec::new();
+            let rows: Vec<(String, String, String, Option<i64>)> = host_launcher_accounts::table
+                .filter(host_launcher_accounts::deleted_at.is_null())
+                .select((
+                    host_launcher_accounts::account_id,
+                    host_launcher_accounts::display_name,
+                    host_launcher_accounts::created_at,
+                    host_launcher_accounts::username_set,
+                ))
+                .order((
+                    host_launcher_accounts::created_at.asc(),
+                    host_launcher_accounts::account_id.asc(),
+                ))
+                .load(conn)?;
+            for (account_id, display_name, created_at, username_set) in rows {
+                let account: GlobalId = account_id
+                    .parse()
+                    .map_err(|_| corrupt(format!("the account id {account_id:?}")))?;
+                // An account registered without a display name holds its userId as a placeholder until its
+                // first username choice; skip it if it isn't a valid username yet
+                if username_set == Some(0) && Username::new(&display_name).is_err() {
+                    seen.insert(account_id);
+                    continue;
+                }
+                let registered_at =
+                    time::OffsetDateTime::parse(&created_at, &time::format_description::well_known::Rfc3339)
+                        .map(|dt| i64::try_from(dt.unix_timestamp_nanos() / 1_000_000).unwrap_or(0))
+                        .unwrap_or_else(|_| i64::try_from(account.ulid().timestamp_ms()).unwrap_or(0));
+                seen.insert(account_id);
+                out.push(JoiningAccount {
+                    account,
+                    username: display_name,
+                    registered_at,
+                });
+            }
+            let game_rows: Vec<(String, String)> = host_accounts::table
+                .filter(host_accounts::deleted_at.is_null())
+                .select((host_accounts::id, host_accounts::name))
+                .order(host_accounts::id.asc())
+                .load(conn)?;
+            for (id, name) in game_rows {
+                if seen.contains(&id) {
+                    continue;
+                }
+                let account: GlobalId = id.parse().map_err(|_| corrupt(format!("the account id {id:?}")))?;
+                if Username::new(&name).is_err() {
+                    continue;
+                }
+                let registered_at = i64::try_from(account.ulid().timestamp_ms()).unwrap_or(0);
+                out.push(JoiningAccount {
+                    account,
+                    username: name,
+                    registered_at,
+                });
+            }
+            Ok(out)
+        })
+        .await
+}
+
+/// Applies the temporary suffixed names and `username_set = false` prompts from [`JoinOutcome::clashed`]
+/// to the accounts homed on `node` in `host_db` (`launcher_accounts` and `accounts`, DN13).
+pub async fn apply_host_clashes(
+    host_db: &Database,
+    actor: Actor,
+    node: &NodeId,
+    clashed: &[ClashedAccount],
+) -> Result<usize, DirectoryError> {
+    let local_clashes: Vec<ClashedAccount> = clashed.iter().filter(|c| &c.home == node).cloned().collect();
+    if local_clashes.is_empty() {
+        return Ok(0);
+    }
+    host_db
+        .write(actor, move |tx| {
+            // Park normalized names on unique placeholders first so a chain (Fox -> Fox_2) never collides
+            for item in &local_clashes {
+                let id = item.account.to_string();
+                let placeholder = format!("__clash_{id}");
+                diesel::update(host_launcher_accounts::table.filter(host_launcher_accounts::account_id.eq(&id)))
+                    .set(host_launcher_accounts::display_name_normalized.eq(placeholder))
+                    .execute(tx.conn())?;
+            }
+            let mut updated = 0;
+            for item in &local_clashes {
+                let id = item.account.to_string();
+                let new_name = item.new_username.as_str();
+                let new_key = item.new_username.key();
+                let l_rows =
+                    diesel::update(host_launcher_accounts::table.filter(host_launcher_accounts::account_id.eq(&id)))
+                        .set((
+                            host_launcher_accounts::display_name.eq(new_name),
+                            host_launcher_accounts::display_name_normalized.eq(new_key),
+                            host_launcher_accounts::username_set.eq(Some(0_i64)),
+                        ))
+                        .execute(tx.conn())?;
+                let a_rows = diesel::update(host_accounts::table.filter(host_accounts::id.eq(&id)))
+                    .set(host_accounts::name.eq(new_name))
+                    .execute(tx.conn())?;
+                if l_rows > 0 || a_rows > 0 {
+                    updated += 1;
+                }
+            }
+            Ok(updated)
+        })
+        .await
 }

@@ -538,6 +538,8 @@ pub enum NetworkCommand {
     List(ListArgs),
     /// Ping every peer over the node link now, with this server's own certificate, and show what came back
     Status(StatusArgs),
+    /// Join this existing server's accounts to the network directory, resolving username clashes (DN13)
+    Join(JoinArgs),
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -591,6 +593,16 @@ pub struct StatusArgs {
     #[arg(long, value_name = "n", default_value_t = 5)]
     pub count: u32,
     /// The answer as JSON, one object for the node and its peers
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct JoinArgs {
+    /// The directory leader's node id (defaults to the first peer in [[network.nodes]], or this node if none)
+    #[arg(long, value_name = "node")]
+    pub leader: Option<String>,
+    /// The answer as JSON
     #[arg(long)]
     pub json: bool,
 }

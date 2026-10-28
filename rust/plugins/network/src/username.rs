@@ -34,6 +34,17 @@ impl Username {
     pub fn key(&self) -> String {
         self.0.to_ascii_lowercase()
     }
+
+    /// A temporary username for a join clash (DN13): appends `_{suffix}` (`Fox_2`), shortening the base first
+    /// so the result stays within [`protocol::account::USERNAME_MAX`] (16 characters).
+    #[must_use]
+    pub fn with_suffix(&self, suffix: u32) -> Self {
+        let suffix = format!("_{}", suffix.max(2));
+        let keep = protocol::account::USERNAME_MAX
+            .saturating_sub(suffix.len())
+            .min(self.0.len());
+        Self(format!("{}{suffix}", &self.0[..keep]))
+    }
 }
 
 impl TryFrom<String> for Username {
@@ -72,5 +83,24 @@ mod tests {
         assert_eq!(Username::new("ab"), Err(InvalidUsername(UsernameCheck::TooShort)));
         assert!(serde_json::from_str::<Username>(r#""bad name""#).is_err());
         assert_eq!(serde_json::to_string(&fox).unwrap(), r#""Fox_01""#);
+    }
+
+    #[test]
+    fn clash_suffixes_fit_within_sixteen_characters() {
+        let fox = Username::new("Fox").unwrap();
+        assert_eq!(fox.with_suffix(2).as_str(), "Fox_2");
+        assert_eq!(fox.with_suffix(15).as_str(), "Fox_15");
+
+        let sixteen = Username::new("SixteenCharName1").unwrap();
+        assert_eq!(sixteen.as_str().len(), 16);
+        let s2 = sixteen.with_suffix(2);
+        assert_eq!(s2.as_str(), "SixteenCharNam_2");
+        assert_eq!(s2.as_str().len(), 16);
+        assert_eq!(check_username(s2.as_str()), UsernameCheck::Ok);
+
+        let s12 = sixteen.with_suffix(12);
+        assert_eq!(s12.as_str(), "SixteenCharNa_12");
+        assert_eq!(s12.as_str().len(), 16);
+        assert_eq!(check_username(s12.as_str()), UsernameCheck::Ok);
     }
 }

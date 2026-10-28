@@ -14,16 +14,17 @@
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::Duration;
 
 use network_plugin::cluster::{self, ClusterCa, DEFAULT_NODE_DAYS, NodeCertInfo, NodeCertRequest, NodeCredentials};
-use network_plugin::{PeerState, TlsLinkConfig, TlsPeerLink};
+use network_plugin::{Directory, DirectoryConfig, PeerState, TlsLinkConfig, TlsPeerLink};
 use service_kit::env::Env;
 
 use crate::Outcome;
-use crate::cli::{CaInitArgs, IssueNodeCertArgs, ListArgs, NetworkArgs, NetworkCommand, StatusArgs};
+use crate::cli::{CaInitArgs, IssueNodeCertArgs, JoinArgs, ListArgs, NetworkArgs, NetworkCommand, StatusArgs};
 use crate::error::HostError;
-use crate::hostconfig::{CLUSTER_CA_FILE, NODE_CERT_FILE, NODE_KEY_FILE, load_host_config};
+use crate::hostconfig::{CLUSTER_CA_FILE, NODE_CERT_FILE, NODE_KEY_FILE, load_host_config, node_database_config};
 use crate::paths::Paths;
 
 fn bad(text: impl Into<String>) -> HostError {
@@ -36,6 +37,7 @@ pub fn run(args: &NetworkArgs, paths: Option<&Paths>) -> Outcome {
         NetworkCommand::IssueNodeCert(a) => issue_node_cert(a),
         NetworkCommand::List(a) => list(a, paths),
         NetworkCommand::Status(a) => status(a, paths),
+        NetworkCommand::Join(a) => join(a, paths),
     }
 }
 
@@ -385,6 +387,97 @@ fn status(a: &StatusArgs, paths: Option<&Paths>) -> Outcome {
         }
     }
     Ok(if all_up { ExitCode::SUCCESS } else { ExitCode::FAILURE })
+}
+
+/// Joins an existing server's accounts to the network directory (DN13): its accounts get this server as
+/// their home (`dir.home_of`), existing invites and API keys keep working, and any username clash with
+/// another server's account keeps the earlier-registered account's name while giving the later one a
+/// `_2` / `_3` suffix (shortened to fit 16 characters) and a free rename (`needsUsername = true`).
+fn join(a: &JoinArgs, paths: Option<&Paths>) -> Outcome {
+    let paths = paths.ok_or_else(|| bad("run `reforged-host network join` in the server's folder"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml: run `reforged-host setup` first"))?;
+    let network = config
+        .network
+        .as_ref()
+        .ok_or_else(|| bad("this server has no [network] section in host.toml"))?;
+    let credentials = NodeCredentials::load(
+        &paths.tls.join(NODE_CERT_FILE),
+        &paths.tls.join(NODE_KEY_FILE),
+        &paths.tls.join(CLUSTER_CA_FILE),
+    )
+    .map_err(|e| bad(format!("node certificate: {e}")))?;
+    let link = Arc::new(
+        TlsPeerLink::new(TlsLinkConfig::new(credentials, network.nodes.clone())).map_err(|e| bad(e.to_string()))?,
+    );
+    let leader = network.effective_leader();
+    let dir_config = DirectoryConfig::in_network(network.node.clone(), leader);
+    let db_config = node_database_config(&config, paths)?;
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| bad(format!("cannot start the runtime: {e}")))?;
+    let (outcome, head) = runtime.block_on(async {
+        let db = store::Database::open(
+            &db_config,
+            &store::DatabaseOptions::default(),
+            &network_plugin::directory::SCHEMA,
+        )
+        .map_err(|e| bad(format!("database: {e}")))?;
+        let dir = Directory::new(db.clone(), dir_config, link)
+            .await
+            .map_err(|e| bad(format!("directory: {e}")))?;
+        let outcome = dir
+            .join_host_database(store::Actor::Host(crate::commands::history::ACTOR.into()), &db)
+            .await
+            .map_err(|e| bad(format!("join: {e}")))?;
+        let head = dir.head().await.unwrap_or(0);
+        Ok::<_, HostError>((outcome, head))
+    })?;
+    if a.json {
+        let clashes: Vec<_> = outcome
+            .clashed
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "account": c.account,
+                    "home": c.home,
+                    "previousUsername": c.old_username.as_str(),
+                    "assignedUsername": c.new_username.as_str(),
+                })
+            })
+            .collect();
+        let report = serde_json::json!({
+            "node": network.node,
+            "region": network.region,
+            "applied": outcome.entries.len(),
+            "head": head,
+            "clashes": clashes,
+        });
+        println!("{report}");
+    } else {
+        println!(
+            "Joined {} in {} to the directory (head {}, {} change(s) applied).",
+            network.node,
+            network.region,
+            head,
+            outcome.entries.len()
+        );
+        if outcome.clashed.is_empty() {
+            println!("No username clashes.");
+        } else {
+            println!("Username clashes resolved ({}):", outcome.clashed.len());
+            for clash in &outcome.clashed {
+                println!(
+                    "  {} ({}): {} -> {} (free rename at next login)",
+                    clash.account,
+                    clash.home,
+                    clash.old_username.as_str(),
+                    clash.new_username.as_str()
+                );
+            }
+        }
+    }
+    Ok(ExitCode::SUCCESS)
 }
 
 #[cfg(test)]

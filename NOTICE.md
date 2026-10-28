@@ -14,6 +14,30 @@ projects to run Dauntless 1.14.7 (`rel-1.14.7-Archon`, changelist 647472) on pri
 recorded in the commit history. It is **not** an official release of Mystic Paradox, Dauntless Revived,
 Undaunted or any other project named here, and none of them endorses it.
 
+## Submodule and companion repositories
+
+DaintyLass mounts its UI and game modules from separate repositories under `silentspud` on `git.silentspud.com`, each
+with its own `NOTICE.md` and licence files (DD2, DD26, DX4):
+
+- **[`ui/`](ui) (`silentspud/dainty-lass-ui`)**: [ui/NOTICE.md](ui/NOTICE.md) — AGPL-3.0-only as a whole
+  ([ui/LICENSE-AGPL.txt](ui/LICENSE-AGPL.txt)); application and component code also under MIT
+  ([ui/LICENSE-MIT.txt](ui/LICENSE-MIT.txt)), language catalogs (`packages/i18n/catalogs`) and generated bridge types
+  under AGPL-3.0-only.
+- **[`modules/rustic-isles`](modules/rustic-isles) (`silentspud/rustic-isles`)**:
+  [modules/rustic-isles/NOTICE.md](modules/rustic-isles/NOTICE.md) — AGPL-3.0-only
+  ([modules/rustic-isles/LICENSE](modules/rustic-isles/LICENSE)) with Mystic Paradox's section 7 additional terms
+  ([modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md)).
+- **[`modules/rustic-rifts`](modules/rustic-rifts) (`silentspud/rustic-rifts`)**:
+  [modules/rustic-rifts/NOTICE.md](modules/rustic-rifts/NOTICE.md) — AGPL-3.0-only
+  ([modules/rustic-rifts/LICENSE](modules/rustic-rifts/LICENSE)) with Mystic Paradox's section 7 additional terms
+  ([modules/rustic-rifts/ADDITIONAL_TERMS.md](modules/rustic-rifts/ADDITIONAL_TERMS.md)) and libjuice (`MPL-2.0`).
+- **[`modules/legacy-revived`](modules/legacy-revived) (`silentspud/legacy-revived`)**:
+  [modules/legacy-revived/NOTICE.md](modules/legacy-revived/NOTICE.md) — AGPL-3.0-only
+  ([modules/legacy-revived/LICENSE.txt](modules/legacy-revived/LICENSE.txt)), attributing Dauntless Revived, Undaunted
+  and Harmonic's 1.4.4 fork.
+- **`silentspud/rustic-freeza`** (when mounted at `modules/rustic-freeza`, DD25): AGPL-3.0-only, attributing Freeza's
+  Dauntless Reforged Revival line (`FreezaMotoqueiro/Dauntless-Reforged-Revival`).
+
 ## Where the parts come from
 
 ### Mystic Paradox
@@ -21,8 +45,8 @@ Undaunted or any other project named here, and none of them endorses it.
 - By Pranav Karande (MysticFox). Repository:
   [github.com/pranav158/Mystic-Paradox](https://github.com/pranav158/Mystic-Paradox), AGPL-3.0-only with
   additional terms. Mystic Paradox is itself a modified version of Undaunted.
-- **Mystic Paradox's Dauntless 1.12.0 port and related modifications were developed by Pranav Karande. See
-  NOTICE.md for contribution and provenance information.** Mystic Paradox's own notice is
+- **"Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related modifications were developed by MysticFox /
+  Pranav Karande. See NOTICE.md for contribution and provenance information."** Mystic Paradox's own notice is
   [modules/rustic-isles/NOTICE.md](modules/rustic-isles/NOTICE.md), its licence
   [modules/rustic-isles/LICENSE](modules/rustic-isles/LICENSE) and its additional terms
   [modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md).

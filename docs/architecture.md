@@ -7,23 +7,50 @@ under [security/](security) go through each trust boundary line by line.
 
 | Part | Runs on | Code | Listens on |
 | --- | --- | --- | --- |
-| Launcher | each player's PC | `rust/launcher` (Tauri), page from `dainty-lass-ui` | relay `127.0.0.1:61100` for the game |
-| Gateway | the server | `rust/services/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address |
-| Allowlist helper | the server, public mode | `rust/services/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall |
-| Content server | the server | `rust/services/content` | `127.0.0.1:61002` |
-| Admin API | the server | `rust/services/admin` | loopback, host-only |
-| Backend | the server | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` (Node, Mystic Paradox) until the Rust port | `127.0.0.1:61000` |
-| Director | the server | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` (Node, Mystic Paradox) until the Rust port | `127.0.0.1:61001`; starts the game servers |
-| Game servers | the server | the game, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts) |
-| Host kit | the server | `rust/services/host`, bin `reforged-host` | nothing; writes the env files, runs `start` |
-| Controller | the server | `rust/crates/controller` | the one process tree `start`, the console and the server GUI run |
-| MongoDB | the server | managed by the host kit, or the host's own | loopback, until the Rust port moves to `store` |
+| Launcher | each player's PC | `rust/launcher` (Tauri), page from `ui/` (`dainty-lass-ui`) | relay `127.0.0.1:61100` for the game |
+| Controller | the server | `rust/crates/controller` over `rust/crates/module-api` | the one process tree `start`, the console and the server GUI run |
+| Gateway (core plugin) | the server | `rust/services/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
+| Allowlist helper (core plugin) | the server, public mode | `rust/services/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
+| Content server (core plugin) | the server | `rust/services/content` | `127.0.0.1:61002`; keys runtime manifests, client profiles and Epic manifests by `GameVersion` |
+| Admin API (core plugin) | the server | `rust/services/admin` | loopback, host-only; per-operator role keys, guarded actions, history and revert |
+| Network (core plugin) | the server | `rust/plugins/network` | no listener of its own; rides gateway `/__node/*` (directory, home API, session tickets, peer log shipping) |
+| Chat (core plugin) | the server | `rust/plugins/chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
+| Store & history shipping | the server | `rust/crates/store`, `rust/crates/history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
+| Game modules | the server (in-process or child process) | `modules/rustic-isles` (`isles-1-14-7`, `isles-1-12-0`), `modules/legacy-revived` (`revived-1-4-4`) | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
+| Realms & TURN relay | the server & realm hosts' PCs | `modules/rustic-rifts` (`rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, `ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
+| Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
+| Host kit | the server | `rust/services/host`, bin `reforged-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
 
-**The gateway is the only listener off loopback.** Everything else binds `127.0.0.1`, and the gateway refuses
-the host-only routes (`/admin`, `/launcher`, `/internal`, `/health`) and headers
+**The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
+Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
+`/launcher`, `/internal`, `/health`, and `/__node/*` without a valid cluster client certificate) and headers
 (`x-mysticparadox-gameserver-apikey`, `x-reforged-admin-key`, `x-mysticparadox-metrics-token`) before anything
-reaches them. The game servers are the exception the allowlist exists for: their UDP ports are opened per
-player address, only after that player logged in.
+reaches an upstream. The game servers' UDP ports are opened per player address by the allowlist only after that
+player logs in. When realms are enabled on 1.14.7, `turn-rs` (or `coturn`) listens on UDP/TCP 3478 (and optional
+TLS 5349 plus its UDP relay port range) because STUN/TURN traffic cannot sit behind an HTTP gateway
+([security/turn-relay.md](security/turn-relay.md)).
+
+## Controller, core plugins and game modules
+
+DaintyLass separates **core plugins** from **game modules** ([`rust/crates/module-api`](../rust/crates/module-api)):
+
+- **Core plugins (`CorePlugin`)** live in this repository (`gateway` with `allowlist`, `content`, `admin`, `host`,
+  `network`, `chat`) and provide shared infrastructure for every game version on the host.
+- **Game modules (`GameModule`)** live in their own repositories (`modules/rustic-isles` for `"Rustic Isles 1.14.7"`
+  and `"Rustic Isles 1.12"`, `modules/legacy-revived` for `"Dauntless Revived"` 1.4.4) and declare a
+  `ModuleManifest` with an exact `GameVersion` (`1.14.7`, `1.12.0`, `1.4.4`), invite `version` aliases
+  (`reforged`, `revived`), default ports, client profile (executable SHA-256, command line, Epic manifest SHA-1)
+  and capabilities (`realms`, `network`, `chat_rules`, `patch_set`, `theme`).
+- **Registration (`Registrar` and `ModuleContext`).** During `register`, a game module registers its HTTP route
+  prefixes (which the gateway routes by `GameVersion`), UDP port ranges (which the allowlist unions across loaded
+  modules), static and runtime content files, console/admin commands, status panels, admin actions (`kick`, `ban`,
+  `lookup`) and `host.toml` config sections. The controller refuses a second game module for a `GameVersion` that
+  is already loaded and shifts colliding loopback ports automatically.
+- **In-process and out-of-process loading.** The same `GameModule` trait runs compiled into the server binaries
+  (`server-minimal`, `server-console`, `server-gui`) or as an external child process (`module_api::child::main`)
+  speaking length-prefixed JSON frames over stdin/stdout ([writing-a-module.md](writing-a-module.md),
+  [security/module-host.md](security/module-host.md)). Only external executables listed in `host.toml` with their
+  pinned SHA-256 are ever started.
 
 ## Joining a server
 
