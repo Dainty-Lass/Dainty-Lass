@@ -1032,7 +1032,7 @@ fn a_server_without_peers_writes_no_node_settings() {
 #[test]
 fn switches_round_trip_through_host_toml_setup_and_backend_env() {
     let toml_text = format!(
-        "{NODES}\n[switches]\nreforge = \"log\"\nmastery_persistence = \"off\"\nbounty_persistence = \"off\"\ncooldown_persistence = \"off\"\naccount_erasure = \"off\"\nlog_purge = \"off\"\n"
+        "{NODES}\n[switches]\nreforge = \"log\"\nmastery_persistence = \"off\"\nbounty_persistence = \"off\"\ncooldown_persistence = \"off\"\naccount_erasure = \"off\"\nlog_purge = \"off\"\nrate_limit = \"off\"\nrate_limit_per_minute = 300\ngameserver_rate_limit_per_minute = 4500\nhost_rate_limit_per_minute = 5000\n"
     );
     let parsed = read_toml(&toml_text);
     let switches = parsed.switches.as_ref().expect("switches parsed");
@@ -1042,12 +1042,23 @@ fn switches_round_trip_through_host_toml_setup_and_backend_env() {
     assert_eq!(switches.cooldown_persistence.as_deref(), Some("off"));
     assert_eq!(switches.account_erasure.as_deref(), Some("off"));
     assert_eq!(switches.log_purge.as_deref(), Some("off"));
+    assert_eq!(switches.rate_limit.as_deref(), Some("off"));
+    assert_eq!(switches.rate_limit_per_minute, Some(300));
+    assert_eq!(switches.gameserver_rate_limit_per_minute, Some(4500));
+    assert_eq!(switches.host_rate_limit_per_minute, Some(5000));
 
     let (back, out_toml) = through_toml(&parsed);
     assert_eq!(back.switches, parsed.switches);
     assert!(out_toml.contains("[switches]"), "{out_toml}");
     assert!(out_toml.contains("bounty_persistence = \"off\""), "{out_toml}");
     assert!(out_toml.contains("cooldown_persistence = \"off\""), "{out_toml}");
+    assert!(out_toml.contains("rate_limit = \"off\""), "{out_toml}");
+    assert!(out_toml.contains("rate_limit_per_minute = 300"), "{out_toml}");
+    assert!(
+        out_toml.contains("gameserver_rate_limit_per_minute = 4500"),
+        "{out_toml}"
+    );
+    assert!(out_toml.contains("host_rate_limit_per_minute = 5000"), "{out_toml}");
 
     let f = build_env_files(&back, &fast_secrets(), &win_paths(), "", Platform::Windows);
     let text = host::envfile::format_env(&[], &f.backend).unwrap();
@@ -1058,7 +1069,21 @@ fn switches_round_trip_through_host_toml_setup_and_backend_env() {
     assert_eq!(read.get("MYSTICPARADOX_COOLDOWN_PERSISTENCE"), Some("off"));
     assert_eq!(read.get("MYSTICPARADOX_ACCOUNT_ERASURE"), Some("off"));
     assert_eq!(read.get("MYSTICPARADOX_LOG_PURGE"), Some("off"));
+    assert_eq!(read.get("MYSTICPARADOX_RATE_LIMIT"), Some("off"));
+    assert_eq!(read.get("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"), Some("300"));
+    assert_eq!(read.get("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE"), Some("4500"));
+    assert_eq!(read.get("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"), Some("5000"));
+
+    // Absent switches leave the rate-limit env vars unset so the backend's own defaults (on, 600, 6000, 6000) apply.
+    let default_files = build_env_files(&config(public()), &fast_secrets(), &win_paths(), "", Platform::Windows);
+    let default_read = host::envfile::parse_env(&host::envfile::format_env(&[], &default_files.backend).unwrap());
+    assert_eq!(default_read.get("MYSTICPARADOX_RATE_LIMIT"), None);
+    assert_eq!(default_read.get("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"), None);
+    assert_eq!(default_read.get("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE"), None);
+    assert_eq!(default_read.get("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"), None);
 
     let bad_doc = with(public(), json!({"switches": {"bountyPersistence": "maybe"}}));
     assert!(error(bad_doc).contains("switches.bountyPersistence"));
+    let bad_rate = with(public(), json!({"switches": {"rateLimitPerMinute": 0}}));
+    assert!(error(bad_rate).contains("switches.rateLimitPerMinute"));
 }
