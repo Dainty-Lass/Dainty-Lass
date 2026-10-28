@@ -10,11 +10,20 @@ use rifts_realms::db::RealmsDb;
 use rifts_realms::directory::{DirectoryParts, HostedReply, RealmDirectory, RealmHostView};
 use rifts_realms::input::CreateRealmInput;
 use rifts_realms::ports::{
-    Accounts, FixedAccounts, IdSource, ManualClock, NoRateLimit, QuietLog, RateLimiter, RealmEventSink, RecordedEvents,
+    Accounts, FixedAccounts, IdSource, ManualClock, QuietLog, RateLimiter, RealmEventSink, RecordedEvents,
 };
 use rifts_realms::realm::{DEFAULT_REALM_LIMITS, HostingPatch, HubState, JoinPolicy, Patch, RealmEvent, RealmLimits};
 use rifts_realms::repo::realms::{RealmPresenceRepository, RealmsRepository};
 use rifts_seam::{BoxFuture, UnixMillis};
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NoRateLimit;
+
+impl RateLimiter for NoRateLimit {
+    fn is_limited(&self, _: &str, _: u32, _: i64) -> bool {
+        false
+    }
+}
 
 pub const T0: UnixMillis = UnixMillis(1_791_892_800_000); // 2026-10-13T12:00:00.000Z
 pub const DAY: i64 = 24 * 3_600_000;

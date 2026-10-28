@@ -2,18 +2,23 @@
 //! lease handler and the monitor take, each one write transaction. Recovery to a dedicated server or back to Ramsgate
 //! goes through the DeployServer and the party, which are isles' (RU4): realms hands it to a [`Recovery`] port.
 
-use rifts_seam::{BoxFuture, UnixMillis};
+use std::sync::Arc;
+
+use rifts_seam::{AccountId, Actor, BoxFuture, IslesCore, UnixMillis};
 use serde_json::{Value, json};
 
 use crate::RealmsError;
+use crate::db::RealmsDb;
 use crate::hunt::{
     AdmissionState, HuntSession, HuntState, HuntTransition, OfferStatus, Participant, ReliabilityIncrements,
     TransitionActor,
 };
-use crate::repo::hunts::{HuntTx, NewControlMessage};
+use crate::ports::{Clock, RealmsLog};
+use crate::repo::hunts::{HuntRepository, HuntTx, NewControlMessage};
 
 use HuntState::{
-    Aborting, Admitting, Draining, HostOffered, HostReady, HostSelecting, Recovering, Running, Starting, Suspect,
+    Aborted, Aborting, Admitting, Completed, Draining, Fenced, HostOffered, HostReady, HostSelecting, Recovering,
+    Running, Starting, Suspect,
 };
 
 /// `P2P_LIFECYCLE_STATES`: what the monitor scans.
@@ -361,11 +366,26 @@ pub trait Recovery: Send + Sync {
     fn advance(&self, session: HuntSession) -> BoxFuture<'_, Result<(), RealmsError>>;
 }
 
-/// A recovery that records what it was asked, for tests and until isles wires its own.
-#[derive(Debug, Default)]
-pub struct RecordedRecovery(pub std::sync::Mutex<Vec<(String, i64, String, bool)>>);
+/// Realms' recovery on `store` (`PrepareRecovery`, `FinalizeRecovery`, `ResumeRecovery` without a `DeployServer`).
+/// Dedicated-server fallback (`RequestRecoveryDestination`) and party `setActivity` are not on [`IslesCore`], so an
+/// unrecoverable session ends `ABORTED` with a `warn` log, its generation and lease released, its host charged, and
+/// its participants' travel cancelled.
+pub struct RealmsRecovery {
+    db: RealmsDb,
+    core: Arc<dyn IslesCore>,
+    clock: Arc<dyn Clock>,
+    log: Arc<dyn RealmsLog>,
+}
 
-impl Recovery for RecordedRecovery {
+const RECOVERY_ACTOR: Actor = Actor::System("realms-recovery");
+
+impl RealmsRecovery {
+    pub fn new(db: RealmsDb, core: Arc<dyn IslesCore>, clock: Arc<dyn Clock>, log: Arc<dyn RealmsLog>) -> Self {
+        Self { db, core, clock, log }
+    }
+}
+
+impl Recovery for RealmsRecovery {
     fn prepare(
         &self,
         session_id: String,
@@ -373,17 +393,270 @@ impl Recovery for RecordedRecovery {
         reason: String,
         before_active: bool,
     ) -> BoxFuture<'_, Result<(), RealmsError>> {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push((
-            session_id,
-            generation,
-            reason,
-            before_active,
-        ));
-        Box::pin(async { Ok(()) })
+        Box::pin(async move {
+            let now = self.clock.now();
+            let hunts = HuntRepository::new(self.db.clone());
+            let tx_id = session_id.clone();
+            let tx_reason = reason.clone();
+            let outcome = hunts
+                .transaction(&RECOVERY_ACTOR, move |tx| {
+                    let Some(hunt) = tx.find_hunt(&tx_id)? else {
+                        return Ok(None);
+                    };
+                    if hunt.generation != generation || [Completed, Aborted, Recovering, Draining].contains(&hunt.state)
+                    {
+                        return Ok(None);
+                    }
+                    if hunt.state == Aborting {
+                        let ended = end_session(
+                            tx,
+                            &tx_id,
+                            generation,
+                            "NO_DEDICATED_SERVERS",
+                            &[Aborting],
+                            TransitionActor::System,
+                            None,
+                            true,
+                            now,
+                        )?;
+                        return Ok(ended.map(|h| (h, true)));
+                    }
+                    tx.revoke_generation(&tx_id, generation, now)?;
+                    let fenced_reason = tx_reason.clone();
+                    let Some(fenced) =
+                        tx.compare_and_set(&tx_id, generation, &[hunt.state], hunt.state_version, move |h| {
+                            h.state = Fenced;
+                            h.failure_reason = Some(fenced_reason);
+                        })?
+                    else {
+                        return Ok(None);
+                    };
+                    tx.append_transition(&transition(
+                        &hunt,
+                        &fenced,
+                        &tx_reason,
+                        TransitionActor::System,
+                        None,
+                        now,
+                    ))?;
+                    if hunt.state == HostOffered
+                        && let Some(offer) = &hunt.host_offer_id
+                        && !hunt.host_account_id.is_empty()
+                    {
+                        tx.update_offer(
+                            offer,
+                            &hunt.host_account_id,
+                            OfferStatus::Offered,
+                            OfferStatus::Cancelled,
+                            now,
+                            Some(&tx_reason),
+                        )?;
+                    }
+                    let abort_reason = tx_reason.clone();
+                    let Some(aborted) =
+                        tx.compare_and_set(&tx_id, generation, &[Fenced], fenced.state_version, move |h| {
+                            h.state = Aborted;
+                            h.terminal_at = Some(now);
+                            h.failure_reason = Some(abort_reason);
+                            h.active_party_key = None;
+                            h.lease_expires_at = None;
+                            h.startup_deadline = None;
+                            h.recovery_retry_at = None;
+                            h.offer_expires_at = None;
+                            h.suspect_deadline = None;
+                            h.suspect_since = None;
+                            h.pre_suspect_state = None;
+                            h.host_offer_id = None;
+                        })?
+                    else {
+                        return Ok(None);
+                    };
+                    let transition_reason = if before_active {
+                        format!("{tx_reason}_P2P_ONLY")
+                    } else if hunt.realm_id.is_some() {
+                        format!("{tx_reason}_REALM_ONLY")
+                    } else {
+                        format!("{tx_reason}_NO_DEDICATED_FALLBACK")
+                    };
+                    tx.append_transition(&transition(
+                        &fenced,
+                        &aborted,
+                        &transition_reason,
+                        TransitionActor::System,
+                        None,
+                        now,
+                    ))?;
+                    let cooldown = Some(UnixMillis(now.0 + 5 * 60_000));
+                    if before_active {
+                        let payload = json!({ "reason": tx_reason, "recoveryAction": "CANCEL_MATCHMAKING" });
+                        for p in &hunt.roster {
+                            tx.enqueue_control(&NewControlMessage {
+                                account_id: p.account_id.clone(),
+                                message_type: "HOST_OFFER_CANCELLED".to_owned(),
+                                session_id: Some(hunt.session_id.clone()),
+                                generation: Some(generation),
+                                payload: payload.clone(),
+                                created_at: now,
+                                expires_at: UnixMillis(now.0 + 10 * 60_000),
+                            })?;
+                        }
+                        if hunt.realm_id.is_some()
+                            && !hunt.host_account_id.is_empty()
+                            && !hunt.roster.iter().any(|p| p.account_id == hunt.host_account_id)
+                        {
+                            tx.enqueue_control(&NewControlMessage {
+                                account_id: hunt.host_account_id.clone(),
+                                message_type: "HOST_OFFER_CANCELLED".to_owned(),
+                                session_id: Some(hunt.session_id.clone()),
+                                generation: Some(generation),
+                                payload,
+                                created_at: now,
+                                expires_at: UnixMillis(now.0 + 10 * 60_000),
+                            })?;
+                        }
+                        if !hunt.host_account_id.is_empty() {
+                            tx.increment_reliability(
+                                &hunt.host_account_id,
+                                ReliabilityIncrements {
+                                    starts_failed: 1,
+                                    ..ReliabilityIncrements::default()
+                                },
+                                now,
+                                cooldown,
+                            )?;
+                        }
+                    } else {
+                        let payload = json!({ "reason": tx_reason, "recoveryAction": "NONE" });
+                        let mut accounts: Vec<String> = hunt.roster.iter().map(|p| p.account_id.clone()).collect();
+                        if !hunt.host_account_id.is_empty() && !accounts.contains(&hunt.host_account_id) {
+                            accounts.push(hunt.host_account_id.clone());
+                        }
+                        for account in accounts {
+                            tx.enqueue_control(&fence(&account, &hunt, generation, payload.clone(), now, 10 * 60_000))?;
+                        }
+                        if !hunt.host_account_id.is_empty() {
+                            tx.increment_reliability(
+                                &hunt.host_account_id,
+                                ReliabilityIncrements {
+                                    unexpected_failures: 1,
+                                    ..ReliabilityIncrements::default()
+                                },
+                                now,
+                                cooldown,
+                            )?;
+                        }
+                    }
+                    Ok::<_, RealmsError>(Some((aborted, false)))
+                })
+                .await?;
+            if let Some((ended, was_aborting)) = outcome {
+                let accounts: Vec<AccountId> = ended.roster.iter().map(|p| AccountId(p.account_id.clone())).collect();
+                if !accounts.is_empty() {
+                    let _ = self.core.cancel_travel(&ended.hunt_definition_id, &accounts, &reason);
+                }
+                if was_aborting {
+                    self.log.warn(&format!(
+                        "[P2P] ending {} instead of recovering it: dedicated recovery seam not wired reason={reason}",
+                        ended.session_id
+                    ));
+                } else if before_active {
+                    self.log.warn(&format!(
+                        "[P2P] pre-active failure canceled without dedicated hunt fallback session={} reason={reason}",
+                        ended.session_id
+                    ));
+                } else if ended.realm_id.is_some() {
+                    self.log.warn(&format!(
+                        "[P2P] active realm hunt failed; ended without recovery session={} reason={reason}",
+                        ended.session_id
+                    ));
+                } else {
+                    self.log.warn(&format!(
+                        "[P2P] active hunt failed without dedicated recovery seam; ended session={} reason={reason}",
+                        ended.session_id
+                    ));
+                }
+            }
+            Ok(())
+        })
     }
 
-    fn advance(&self, _: HuntSession) -> BoxFuture<'_, Result<(), RealmsError>> {
-        Box::pin(async { Ok(()) })
+    fn advance(&self, session: HuntSession) -> BoxFuture<'_, Result<(), RealmsError>> {
+        Box::pin(async move {
+            let now = self.clock.now();
+            let hunts = HuntRepository::new(self.db.clone());
+            if session.state == Recovering {
+                let session_id = session.session_id.clone();
+                let generation = session.generation;
+                let ended = hunts
+                    .transaction(&RECOVERY_ACTOR, move |tx| {
+                        let Some(current) = tx.find_hunt(&session_id)? else {
+                            return Ok(None);
+                        };
+                        if current.state != Recovering || current.generation != generation {
+                            return Ok(None);
+                        }
+                        let Some(terminal) = tx.compare_and_set(
+                            &current.session_id,
+                            current.generation,
+                            &[Recovering],
+                            current.state_version,
+                            move |h| {
+                                h.state = Aborted;
+                                h.terminal_at = Some(now);
+                                h.failure_reason = Some("RECOVERY_WINDOW_EXPIRED".to_owned());
+                                h.active_party_key = None;
+                                h.recovery_deadline = None;
+                            },
+                        )?
+                        else {
+                            return Ok(None);
+                        };
+                        tx.append_transition(&transition(
+                            &current,
+                            &terminal,
+                            "RECOVERY_WINDOW_EXPIRED",
+                            TransitionActor::System,
+                            None,
+                            now,
+                        ))?;
+                        Ok::<_, RealmsError>(Some(terminal))
+                    })
+                    .await?;
+                if let Some(ended) = ended {
+                    self.log.warn(&format!(
+                        "[P2P] recovery window expired; ended session={}",
+                        ended.session_id
+                    ));
+                }
+            } else if session.state == Aborting {
+                let reason = session
+                    .failure_reason
+                    .clone()
+                    .unwrap_or_else(|| "HOST_FAILED".to_owned());
+                self.log.warn(&format!(
+                    "[P2P] ending {} instead of recovering it: dedicated recovery seam not wired reason={reason}",
+                    session.session_id
+                ));
+                let session_id = session.session_id.clone();
+                let generation = session.generation;
+                hunts
+                    .transaction(&RECOVERY_ACTOR, move |tx| {
+                        end_session(
+                            tx,
+                            &session_id,
+                            generation,
+                            "NO_DEDICATED_SERVERS",
+                            &[Aborting],
+                            TransitionActor::System,
+                            None,
+                            true,
+                            now,
+                        )
+                    })
+                    .await?;
+            }
+            Ok(())
+        })
     }
 }
 

@@ -31,6 +31,7 @@ pub mod time;
 
 pub use capabilities::RealmsHuntSessions;
 pub use hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub};
+pub use lifecycle::RealmsRecovery;
 pub use ports::{CoreAccounts, CoreGuardSessions, CoreOperationsView};
 pub use rifts_guard::SqlGuardStore;
 pub use routes::{ROUTES, RealmsRoutes, RealmsRoutesParts, stub_routes};
