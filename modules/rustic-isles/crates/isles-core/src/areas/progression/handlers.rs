@@ -1000,6 +1000,7 @@ pub async fn pjm_post(call: Call, ports: Ports) -> Response {
     );
 
     req.ports.activity.slayers_path_unlocks(
+        &shared,
         &user_id,
         &saved.newly_unlocked,
         if is_host { "host" } else { "gameserver" },

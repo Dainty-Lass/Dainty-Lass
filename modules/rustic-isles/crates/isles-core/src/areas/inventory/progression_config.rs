@@ -10,10 +10,20 @@ use service_kit::js;
 
 use super::storage_policy::{PolicyError, read_game_data};
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PrestigeRewardSource {
+    pub progression_id: String,
+    pub xp_per_level: f64,
+    pub reward_quantity_per_level: f64,
+    pub cap_xp: f64,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ProgressionConfig {
     /// `IsPrestigeGatedReward`: catalog ids a prestige track pays out per level
     gated: HashSet<String>,
+    /// `PrestigeSourcesByRewardCatalogId`: ordered sources per reward catalog id
+    sources: HashMap<String, Vec<PrestigeRewardSource>>,
 }
 
 type Cache = Mutex<HashMap<PathBuf, Arc<ProgressionConfig>>>;
@@ -25,16 +35,25 @@ impl ProgressionConfig {
             .and_then(Value::as_array)
             .map_or(&[][..], Vec::as_slice);
         let mut gated = HashSet::new();
+        let mut sources: HashMap<String, Vec<PrestigeRewardSource>> = HashMap::new();
         for path in paths {
-            if !path
+            let Some(progression_id) = path
                 .get("progression_id")
                 .and_then(Value::as_str)
-                .is_some_and(|id| !id.is_empty())
-            {
+                .filter(|id| !id.is_empty())
+            else {
                 continue;
-            }
+            };
             let per_level = js::number(path.pointer("/prestige/xp_per_level"));
             if per_level.is_finite() && per_level > 0.0 {
+                let cap_xp = path.get("requirements").and_then(Value::as_array).map_or(0.0, |reqs| {
+                    reqs.iter()
+                        .map(|r| {
+                            let xp = js::number(r.get("xp_required"));
+                            if xp.is_finite() { xp } else { 0.0 }
+                        })
+                        .sum()
+                });
                 let rewards = path
                     .pointer("/prestige/free_rewards/stacked_items")
                     .and_then(Value::as_array)
@@ -46,11 +65,20 @@ impl ProgressionConfig {
                         && quantity > 0.0
                     {
                         gated.insert(catalog_id.to_owned());
+                        sources
+                            .entry(catalog_id.to_owned())
+                            .or_default()
+                            .push(PrestigeRewardSource {
+                                progression_id: progression_id.to_owned(),
+                                xp_per_level: per_level,
+                                reward_quantity_per_level: quantity,
+                                cap_xp,
+                            });
                     }
                 }
             }
         }
-        Self { gated }
+        Self { gated, sources }
     }
 
     pub fn load(path: &Path) -> Result<Arc<Self>, PolicyError> {
@@ -69,6 +97,11 @@ impl ProgressionConfig {
     /// `IsPrestigeGatedReward`.
     pub fn is_prestige_gated_reward(&self, catalog_id: &str) -> bool {
         self.gated.contains(catalog_id)
+    }
+
+    /// `PrestigeSourcesByRewardCatalogId`.
+    pub fn prestige_sources(&self, catalog_id: &str) -> &[PrestigeRewardSource] {
+        self.sources.get(catalog_id).map_or(&[], Vec::as_slice)
     }
 }
 

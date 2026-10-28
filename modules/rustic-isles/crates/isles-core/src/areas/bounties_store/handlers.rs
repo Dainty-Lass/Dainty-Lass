@@ -120,7 +120,7 @@ impl Ctx {
             ..
         } = call;
         let auth = super::authn::auth_of_request(&request);
-        let seams = seams_of_request(&request);
+        let seams = seams_of_request(&request).or_else(|| StoreSeams::production(&shared, &request_id));
         let query = request.uri().query().unwrap_or_default().to_owned();
         let (parts, body) = request.into_parts();
         let (_, body) = read_body_parts(parts, body).await?;
@@ -869,10 +869,9 @@ pub async fn bounty_post(call: Call) -> Response {
                 ));
             }
             monitor::bounty_save(on, &user_id, source, ctx.body.as_ref(), &outcome);
-            tracing::debug!(
-                "{} season challenge(s) claimed",
-                newly_claimed_bounty_ids(&record).len()
-            );
+            let claimed = newly_claimed_bounty_ids(&record).len();
+            tracing::debug!("{claimed} season challenge(s) claimed");
+            crate::areas::reforged_api::activity::record_challenge_claims_activity(&ctx.shared, &user_id, claimed);
             if is_host_write {
                 record_host_write(
                     &ctx,

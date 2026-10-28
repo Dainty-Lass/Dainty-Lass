@@ -372,13 +372,17 @@ pub fn restore_shown_locked(stored: &Value, merged: &Value, shown_locked: &[&str
 /// those; the integration pass wires them in with [`super::Ports`].
 pub trait JourneyInventory: Send + Sync {
     /// The account's first character and its instanced items; `None` when it has no character.
-    fn first_character<'a>(&'a self, shared: &'a Shared, account: &'a AccountId) -> BoxFuture<'a, FirstCharacter>;
+    fn first_character<'a>(
+        &'a self,
+        shared: &'a std::sync::Arc<Shared>,
+        account: &'a AccountId,
+    ) -> BoxFuture<'a, FirstCharacter>;
 
     /// One idempotent inventory transaction: adds the instanced items and removes the given
     /// `(catalogId, instanceId)` ones. `true` when it applied (or already had).
     fn run_transaction<'a>(
         &'a self,
-        shared: &'a Shared,
+        shared: &'a std::sync::Arc<Shared>,
         account: &'a AccountId,
         transaction: RewardTransaction<'a>,
     ) -> BoxFuture<'a, Result<bool, String>>;
@@ -402,17 +406,132 @@ pub struct RewardTransaction<'a> {
 pub struct UnwiredInventory;
 
 impl JourneyInventory for UnwiredInventory {
-    fn first_character<'a>(&'a self, _: &'a Shared, _: &'a AccountId) -> BoxFuture<'a, FirstCharacter> {
+    fn first_character<'a>(&'a self, _: &'a std::sync::Arc<Shared>, _: &'a AccountId) -> BoxFuture<'a, FirstCharacter> {
         Box::pin(async { Err("the inventory area is not wired to progression yet".to_owned()) })
     }
 
     fn run_transaction<'a>(
         &'a self,
-        _: &'a Shared,
+        _: &'a std::sync::Arc<Shared>,
         _: &'a AccountId,
         _: RewardTransaction<'a>,
     ) -> BoxFuture<'a, Result<bool, String>> {
         Box::pin(async { Err("the inventory area is not wired to progression yet".to_owned()) })
+    }
+}
+
+/// The production [`JourneyInventory`] over `characters::controller::characters_for_user` and
+/// `inventory::transaction::{get_inventory, run_inventory_transaction}`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RepoJourneyInventory;
+
+impl JourneyInventory for RepoJourneyInventory {
+    fn first_character<'a>(
+        &'a self,
+        shared: &'a std::sync::Arc<Shared>,
+        account: &'a AccountId,
+    ) -> BoxFuture<'a, FirstCharacter> {
+        Box::pin(async move {
+            let Some(store) = shared.store.as_ref() else {
+                return Ok(None);
+            };
+            let acc_lookup = account.clone();
+            let user_id = store
+                .read(move |conn, repos| {
+                    Ok(repos
+                        .accounts
+                        .find(conn, &acc_lookup)?
+                        .map(|a| a.user_id.0)
+                        .unwrap_or_else(|| acc_lookup.to_string()))
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+            let actor = module_api::ActorContext::new(module_api::Actor::Player {
+                account: account.global().clone(),
+            });
+            let list = crate::areas::characters::controller::characters_for_user(
+                store,
+                &shared.version.tables,
+                &actor,
+                &user_id,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+            let Some(character_id) = list
+                .first()
+                .and_then(|c| c.get("id"))
+                .and_then(Value::as_str)
+                .filter(|id| !id.is_empty())
+                .map(str::to_owned)
+            else {
+                return Ok(None);
+            };
+            let ports = crate::areas::inventory::Ports::default();
+            let ctx = crate::areas::inventory::transaction::TxContext {
+                shared,
+                store,
+                ports: &ports,
+            };
+            let inv = crate::areas::inventory::transaction::get_inventory(&ctx, Some(&user_id), &character_id, None)
+                .await
+                .map_err(|e| e.to_string())?;
+            let items = inv
+                .and_then(|v| v.get("instancedItems").and_then(Value::as_array).cloned())
+                .unwrap_or_default();
+            Ok(Some((character_id, items)))
+        })
+    }
+
+    fn run_transaction<'a>(
+        &'a self,
+        shared: &'a std::sync::Arc<Shared>,
+        _account: &'a AccountId,
+        transaction: RewardTransaction<'a>,
+    ) -> BoxFuture<'a, Result<bool, String>> {
+        Box::pin(async move {
+            use crate::areas::inventory::transaction::{
+                Economy, TxContext, TxOptions, TxOutcome, TxRequest, run_inventory_transaction,
+            };
+            let Some(store) = shared.store.as_ref() else {
+                return Ok(false);
+            };
+            let ports = crate::areas::inventory::Ports::default();
+            let ctx = TxContext {
+                shared,
+                store,
+                ports: &ports,
+            };
+            let remove_instanced: Vec<Value> = transaction
+                .remove_instanced
+                .iter()
+                .map(|(cid, iid)| json!({ "catalogId": cid, "instanceId": iid }))
+                .collect();
+            let req = TxRequest {
+                user_id: transaction.user_id.to_owned(),
+                character_id: transaction.character_id.to_owned(),
+                transaction_id: transaction.transaction_id.to_owned(),
+                add_instanced: Value::Array(transaction.add_instanced),
+                add_stacked: Value::Array(Vec::new()),
+                remove_instanced: Value::Array(remove_instanced),
+                remove_stacked: Value::Array(Vec::new()),
+                save_instanced: Value::Array(Vec::new()),
+            };
+            let options = TxOptions {
+                ownership_already_validated: true,
+                diagnostic_label: Some("slayers-path-reward".into()),
+                economy: Some(Economy {
+                    source: "OTHER".into(),
+                    p2p_session_id: None,
+                    store_sku_id: None,
+                }),
+                ..TxOptions::default()
+            };
+            match run_inventory_transaction(&ctx, req, options, None).await {
+                Ok(TxOutcome::Done(_)) => Ok(true),
+                Ok(TxOutcome::NotOwned) => Ok(false),
+                Err(error) => Err(error.to_string()),
+            }
+        })
     }
 }
 
@@ -490,7 +609,7 @@ pub fn plan_rewards(
 /// `GrantSlayersPathRewards`: reconciles reward items for the unlocked nodes. Returns the catalog ids whose
 /// transaction completed during this call. Never fails: a failed reward is retried on the next journey save.
 pub async fn grant_rewards(
-    shared: &Shared,
+    shared: &std::sync::Arc<Shared>,
     inventory: &dyn JourneyInventory,
     account: &AccountId,
     user_id: &str,

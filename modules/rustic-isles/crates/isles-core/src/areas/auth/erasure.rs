@@ -35,6 +35,44 @@ pub struct NoOtherData;
 
 impl ErasureSeam for NoOtherData {}
 
+/// Erases characters, loadouts, inventories, progression, bounties, cooldowns, entitlements, wallets, economy rollups,
+/// friend edges, and parties for `account` in the same transaction.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AllAreasErasure;
+
+impl ErasureSeam for AllAreasErasure {
+    fn blockers<'a>(&'a self, shared: &'a Shared, account: &'a AccountId) -> BoxFuture<'a, Vec<String>> {
+        Box::pin(async move {
+            let mut reasons = Vec::new();
+            let mut user_id = account.to_string();
+            if let Some(store) = shared.store.as_ref() {
+                let acc_lookup = account.clone();
+                if let Ok(Some(found)) = store
+                    .read(move |conn, repos| Ok(repos.accounts.find(conn, &acc_lookup)?.map(|a| a.user_id.0)))
+                    .await
+                {
+                    user_id = found;
+                }
+            }
+            let active = crate::areas::reforged_api::presence::active_players(
+                crate::areas::reforged_api::activity::ACTIVITY_SESSION_GAP_MS,
+            );
+            if active.iter().any(|u| u == &user_id) {
+                reasons.push("account is currently online".to_owned());
+            }
+            if shared.matchmaking.candidate(&user_id).is_some() {
+                reasons.push("account has an active matchmaking candidate".to_owned());
+            }
+            reasons
+        })
+    }
+
+    fn erase(&self, tx: &mut Tx<'_>, _repos: &Repositories, account: &AccountId) -> RepoResult<u64> {
+        let (counts, _) = crate::repo::reforged::erase_other_areas(tx, account)?;
+        Ok(counts.into_iter().map(|(_, n)| n).sum())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErasureOutcome {
     /// Live activity: the account is left for the next run

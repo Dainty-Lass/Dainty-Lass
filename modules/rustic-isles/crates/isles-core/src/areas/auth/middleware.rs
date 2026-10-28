@@ -468,9 +468,14 @@ pub async fn rifts_caller(
     let _ = request_path;
     match rifts_auth(method, route_path) {
         RiftsAuth::None | RiftsAuth::HostCapability => Ok(Caller::Anonymous),
-        // The admin dashboard's session and the manager's signed headers are the Reforged API's (HasAdminAuth); until its
-        // area fills them in, an admin route sees no caller, which rustic-rifts refuses
-        RiftsAuth::Admin => Ok(Caller::Anonymous),
+        RiftsAuth::Admin => match &shared.store {
+            Some(store) => {
+                let caller =
+                    crate::areas::reforged_api::admin::authenticate_headers(shared, store, method, headers).await?;
+                Ok(Caller::Admin { key_id: caller.user_id })
+            }
+            None => Ok(Caller::Anonymous),
+        },
         RiftsAuth::Launcher { active } => {
             let auth = launcher_auth(shared, headers)
                 .await

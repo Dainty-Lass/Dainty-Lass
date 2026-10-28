@@ -136,5 +136,26 @@ pub fn start_jobs(shared: &Arc<Shared>) -> Vec<tokio::task::JoinHandle<()>> {
             }
         }));
     }
+    if let Some(store) = shared.store.clone() {
+        tasks.push(tokio::spawn(async move {
+            let mut interval = tokio::time::interval(JOB_INTERVAL);
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                interval.tick().await;
+                let now = util::now_ms();
+                let actor = module_api::ActorContext::new(module_api::Actor::System);
+                match store
+                    .write(&actor, move |tx, _| {
+                        crate::repo::reforged::purge_expired_ttl_rows(tx, now)
+                    })
+                    .await
+                {
+                    Ok(0) => {}
+                    Ok(purged) => tracing::info!("[TtlPurge] purged {purged} expired row(s)"),
+                    Err(error) => tracing::warn!("[TtlPurge] run failed: {error}"),
+                }
+            }
+        }));
+    }
     tasks
 }

@@ -100,6 +100,8 @@ pub async fn replay(
     let characters = Arc::new(FakeCharacters::default());
     let ports = Ports {
         characters: characters.clone(),
+        inventory: Arc::new(crate::areas::progression::UnwiredInventory),
+        starter: Arc::new(crate::areas::progression::NoStarterBootstrap),
         ..Ports::default()
     };
     let harness = match Harness::start(Options {

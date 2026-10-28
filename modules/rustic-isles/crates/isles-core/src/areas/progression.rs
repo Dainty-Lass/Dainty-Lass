@@ -34,7 +34,10 @@ use crate::routes::{Method, Service};
 pub use auth::AuthData;
 pub use journey::{FirstCharacter, RewardTransaction};
 pub use journey::{JourneyInventory, UnwiredInventory};
-pub use ports::{Activity, Characters, NoActivity, NoStarterBootstrap, Ports, RepoCharacters, StarterBootstrap};
+pub use ports::{
+    Activity, ActivityMonitor, Characters, CharactersStarterBootstrap, NoActivity, NoStarterBootstrap, Ports,
+    RepoCharacters, StarterBootstrap,
+};
 
 type Route = fn(Call, Ports) -> module_api::BoxFuture<'static, axum::response::Response>;
 

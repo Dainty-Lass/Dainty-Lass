@@ -190,6 +190,7 @@ impl Repositories {
             launcher_guard: Arc::new(reforged::SqlLauncherGuard),
             admin: Arc::new(reforged::SqlAdmin),
             launcher_notices: Arc::new(reforged::SqlLauncherNotices),
+            activity: Arc::new(reforged::SqlActivity),
             launcher_accounts: Arc::new(auth::SqlLauncherAccounts),
             auth_identities: Arc::new(auth::SqlAuthIdentities),
             refresh_sessions: Arc::new(auth::SqlRefreshSessions),
@@ -197,7 +198,6 @@ impl Repositories {
             discord_oauth_transactions: Arc::new(auth::SqlDiscordOAuthTransactions),
             email_codes: Arc::new(auth::SqlEmailCodes),
             api_keys: Arc::new(auth::SqlApiKeys),
-            ..Self::stubs()
         }
     }
 }

@@ -185,7 +185,7 @@ pub async fn get_launcher_policy(shared: &Shared, user_id: &str) -> Result<Value
     let account = require_account(shared, user_id).await?;
     // The tester role unlocks the log upload only: a tester gets the same stable channel and production diagnostics as
     // everyone. The development profile's verbose diagnostics are for admin accounts.
-    let operations = shared.auth.operations.policy().await;
+    let operations = shared.auth.operations.policy(shared).await;
     let development = operations.diagnostics_profile == "DEVELOPMENT" && account.roles.iter().any(|r| r == "admin");
     let version_base = account
         .roles_updated_at

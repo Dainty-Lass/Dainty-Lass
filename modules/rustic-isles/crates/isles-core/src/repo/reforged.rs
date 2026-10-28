@@ -101,10 +101,46 @@ pub enum HuntKind {
     PlayerHosted,
 }
 
+impl HuntKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Dedicated => "dedicated",
+            Self::Realm => "realm",
+            Self::PlayerHosted => "playerHosted",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "dedicated" => Some(Self::Dedicated),
+            "realm" => Some(Self::Realm),
+            "playerHosted" => Some(Self::PlayerHosted),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HuntResult {
     Completed,
     Abandoned,
+}
+
+impl HuntResult {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::Abandoned => "abandoned",
+        }
+    }
+
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "completed" => Some(Self::Completed),
+            "abandoned" => Some(Self::Abandoned),
+            _ => None,
+        }
+    }
 }
 
 /// `ActivityHuntRecord`. `ttl_at` is unix milliseconds; a sweeper purges past it on both engines.
@@ -158,6 +194,9 @@ repository! {
     pub trait ActivityRepository("activity") {
         /// The counters after the increments
         fn add_to_daily(&self, tx: &mut Tx<'_>, account: &AccountId, day: &str, increments: &[(String, f64)],
+            ttl_at: i64) -> Json;
+        /// Sets top-level fields on the day's activity row and returns the updated document
+        fn set_daily_fields(&self, tx: &mut Tx<'_>, account: &AccountId, day: &str, fields: &[(String, Json)],
             ttl_at: i64) -> Json;
         fn find_daily_rows(&self, conn: &mut AnyConnection, account: &AccountId, from_day: &str, to_day: &str,
             limit: u32) -> Vec<Json>;
@@ -1194,6 +1233,11 @@ impl AdminRepository for SqlAdmin {
         // The account itself is soft-deleted (DD23), so a revert brings the player back
         let soft = tx.soft_delete("accounts", &[("id", ::store::KeyValue::Text(key.clone()))])?;
         counts.push(("accounts".to_owned(), u64::from(soft)));
+        let soft_launcher = tx.soft_delete(
+            "launcher_accounts",
+            &[("account_id", ::store::KeyValue::Text(key.clone()))],
+        )?;
+        counts.push(("launcherAccounts".to_owned(), u64::from(soft_launcher)));
         counts.push((
             "adminSessions".to_owned(),
             n(diesel::delete(sessions::table.filter(sessions::account.eq(&key))).execute(tx.conn())?),
@@ -1222,13 +1266,1089 @@ impl AdminRepository for SqlAdmin {
             touched += 1;
         }
         counts.push(("guardFindings".to_owned(), touched));
+        counts.push((
+            "playerActivityDaily".to_owned(),
+            n(
+                diesel::delete(player_activity_daily::table.filter(player_activity_daily::account.eq(&key)))
+                    .execute(tx.conn())?,
+            ),
+        ));
+        counts.push((
+            "activityHunts".to_owned(),
+            n(diesel::delete(activity_hunts::table.filter(activity_hunts::account.eq(&key))).execute(tx.conn())?),
+        ));
+        counts.push((
+            "slayersPathUnlocks".to_owned(),
+            n(
+                diesel::delete(slayers_path_unlocks::table.filter(slayers_path_unlocks::account.eq(&key)))
+                    .execute(tx.conn())?,
+            ),
+        ));
+        counts.push((
+            "activityFlags".to_owned(),
+            n(diesel::delete(activity_flags::table.filter(activity_flags::account.eq(&key))).execute(tx.conn())?),
+        ));
+        let (other_counts, character_count) = erase_other_areas(tx, account)?;
+        counts.extend(other_counts);
         let _ = user_id;
         insert_audit(tx, record)?;
         Ok(PlayerDeletion {
             deleted_counts: counts,
-            character_count: 0,
+            character_count,
         })
     }
+}
+
+mod erasure_schema {
+    diesel::table! {
+        characters (character_id) {
+            character_id -> Text,
+            account_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        loadouts (character_id) {
+            character_id -> Text,
+            account_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        inventories (character_id) {
+            character_id -> Text,
+            account_id -> Nullable<Text>,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        inventory_transactions (account_id, character_id, transaction_id) {
+            account_id -> Text,
+            character_id -> Text,
+            transaction_id -> Text,
+        }
+    }
+    diesel::table! {
+        progression_tracks (account, progression_id) {
+            account -> Text,
+            progression_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        progression_objectives (account, objective_id) {
+            account -> Text,
+            objective_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        progression_objective_events (id) {
+            id -> Text,
+            account -> Text,
+        }
+    }
+    diesel::table! {
+        progression_grants (grant_id) {
+            grant_id -> Text,
+            account -> Text,
+        }
+    }
+    diesel::table! {
+        escalation_progress (account, season_id) {
+            account -> Text,
+            season_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        player_journey (account) {
+            account -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        breadcrumbs (character_id) {
+            character_id -> Text,
+            account -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        encountered_content (character_id) {
+            character_id -> Text,
+            account -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        bounty_states (account_id) {
+            account_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        cooldown_states (account_id) {
+            account_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        entitlements (account_id, name) {
+            account_id -> Text,
+            name -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        wallets (account_id) {
+            account_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        wallet_balances (account_id, catalog_id) {
+            account_id -> Text,
+            catalog_id -> Text,
+            deleted_at -> Nullable<BigInt>,
+        }
+    }
+    diesel::table! {
+        economy_rollup_counters (account_id, day, currency, path) {
+            account_id -> Text,
+            day -> Text,
+            currency -> Text,
+            path -> Text,
+            ttl_at -> BigInt,
+        }
+    }
+    diesel::table! {
+        friend_edges (id) {
+            id -> BigInt,
+            owner -> Text,
+            other -> Text,
+        }
+    }
+    diesel::table! {
+        parties (id) {
+            id -> Text,
+            leader -> Text,
+        }
+    }
+    diesel::table! {
+        party_members (account) {
+            account -> Text,
+            party -> Text,
+            position -> BigInt,
+        }
+    }
+    diesel::table! {
+        party_invites (recipient, sender) {
+            recipient -> Text,
+            sender -> Text,
+        }
+    }
+    diesel::table! {
+        party_outbox (id) {
+            id -> Text,
+            party -> Text,
+        }
+    }
+}
+
+/// Soft-deletes or deletes every non-auth area's rows for `account`, returning `(deleted_counts, character_count)`.
+pub fn erase_other_areas(tx: &mut Tx<'_>, account: &AccountId) -> RepoResult<(Vec<(String, u64)>, u64)> {
+    use erasure_schema::*;
+    let key = account.to_string();
+    let at = Some(tx.at());
+    let n = |changed: usize| u64::try_from(changed).unwrap_or(0);
+    let mut counts = Vec::new();
+
+    let char_ids: Vec<String> = characters::table
+        .filter(characters::account_id.eq(&key))
+        .select(characters::character_id)
+        .load::<String>(tx.conn())?;
+    let active_chars = n(diesel::update(
+        characters::table
+            .filter(characters::account_id.eq(&key))
+            .filter(characters::deleted_at.is_null()),
+    )
+    .set(characters::deleted_at.eq(at))
+    .execute(tx.conn())?);
+    counts.push(("characters".to_owned(), active_chars));
+
+    counts.push((
+        "loadouts".to_owned(),
+        n(diesel::update(
+            loadouts::table
+                .filter(
+                    loadouts::account_id
+                        .eq(&key)
+                        .or(loadouts::character_id.eq_any(&char_ids)),
+                )
+                .filter(loadouts::deleted_at.is_null()),
+        )
+        .set(loadouts::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "inventories".to_owned(),
+        n(diesel::update(
+            inventories::table
+                .filter(
+                    inventories::account_id
+                        .eq(Some(&key))
+                        .or(inventories::character_id.eq_any(&char_ids)),
+                )
+                .filter(inventories::deleted_at.is_null()),
+        )
+        .set(inventories::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "inventoryTransactions".to_owned(),
+        n(diesel::delete(
+            inventory_transactions::table.filter(
+                inventory_transactions::account_id
+                    .eq(&key)
+                    .or(inventory_transactions::character_id.eq_any(&char_ids)),
+            ),
+        )
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "breadcrumbs".to_owned(),
+        n(diesel::update(
+            breadcrumbs::table
+                .filter(
+                    breadcrumbs::account
+                        .eq(&key)
+                        .or(breadcrumbs::character_id.eq_any(&char_ids)),
+                )
+                .filter(breadcrumbs::deleted_at.is_null()),
+        )
+        .set(breadcrumbs::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "encounteredContent".to_owned(),
+        n(diesel::update(
+            encountered_content::table
+                .filter(
+                    encountered_content::account
+                        .eq(&key)
+                        .or(encountered_content::character_id.eq_any(&char_ids)),
+                )
+                .filter(encountered_content::deleted_at.is_null()),
+        )
+        .set(encountered_content::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "progressionTracks".to_owned(),
+        n(diesel::update(
+            progression_tracks::table
+                .filter(progression_tracks::account.eq(&key))
+                .filter(progression_tracks::deleted_at.is_null()),
+        )
+        .set(progression_tracks::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "progressionObjectives".to_owned(),
+        n(diesel::update(
+            progression_objectives::table
+                .filter(progression_objectives::account.eq(&key))
+                .filter(progression_objectives::deleted_at.is_null()),
+        )
+        .set(progression_objectives::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "progressionObjectiveEvents".to_owned(),
+        n(
+            diesel::delete(progression_objective_events::table.filter(progression_objective_events::account.eq(&key)))
+                .execute(tx.conn())?,
+        ),
+    ));
+    counts.push((
+        "progressionGrants".to_owned(),
+        n(
+            diesel::delete(progression_grants::table.filter(progression_grants::account.eq(&key)))
+                .execute(tx.conn())?,
+        ),
+    ));
+    counts.push((
+        "escalationProgress".to_owned(),
+        n(diesel::update(
+            escalation_progress::table
+                .filter(escalation_progress::account.eq(&key))
+                .filter(escalation_progress::deleted_at.is_null()),
+        )
+        .set(escalation_progress::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "playerJourney".to_owned(),
+        n(diesel::update(
+            player_journey::table
+                .filter(player_journey::account.eq(&key))
+                .filter(player_journey::deleted_at.is_null()),
+        )
+        .set(player_journey::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "bountyStates".to_owned(),
+        n(diesel::update(
+            bounty_states::table
+                .filter(bounty_states::account_id.eq(&key))
+                .filter(bounty_states::deleted_at.is_null()),
+        )
+        .set(bounty_states::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "cooldownStates".to_owned(),
+        n(diesel::update(
+            cooldown_states::table
+                .filter(cooldown_states::account_id.eq(&key))
+                .filter(cooldown_states::deleted_at.is_null()),
+        )
+        .set(cooldown_states::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "entitlements".to_owned(),
+        n(diesel::update(
+            entitlements::table
+                .filter(entitlements::account_id.eq(&key))
+                .filter(entitlements::deleted_at.is_null()),
+        )
+        .set(entitlements::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "walletBalances".to_owned(),
+        n(diesel::update(
+            wallet_balances::table
+                .filter(wallet_balances::account_id.eq(&key))
+                .filter(wallet_balances::deleted_at.is_null()),
+        )
+        .set(wallet_balances::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "wallets".to_owned(),
+        n(diesel::update(
+            wallets::table
+                .filter(wallets::account_id.eq(&key))
+                .filter(wallets::deleted_at.is_null()),
+        )
+        .set(wallets::deleted_at.eq(at))
+        .execute(tx.conn())?),
+    ));
+    counts.push((
+        "economyRollups".to_owned(),
+        n(
+            diesel::delete(economy_rollup_counters::table.filter(economy_rollup_counters::account_id.eq(&key)))
+                .execute(tx.conn())?,
+        ),
+    ));
+    counts.push((
+        "friends".to_owned(),
+        n(
+            diesel::delete(friend_edges::table.filter(friend_edges::owner.eq(&key).or(friend_edges::other.eq(&key))))
+                .execute(tx.conn())?,
+        ),
+    ));
+    counts.push((
+        "partyInvites".to_owned(),
+        n(diesel::delete(
+            party_invites::table.filter(party_invites::recipient.eq(&key).or(party_invites::sender.eq(&key))),
+        )
+        .execute(tx.conn())?),
+    ));
+    let member_parties: Vec<String> = party_members::table
+        .filter(party_members::account.eq(&key))
+        .select(party_members::party)
+        .load::<String>(tx.conn())?;
+    let mut parties_touched =
+        n(diesel::delete(party_members::table.filter(party_members::account.eq(&key))).execute(tx.conn())?);
+    for party_id in member_parties {
+        let remaining: Vec<String> = party_members::table
+            .filter(party_members::party.eq(&party_id))
+            .order(party_members::position.asc())
+            .select(party_members::account)
+            .load::<String>(tx.conn())?;
+        if let Some(next_leader) = remaining.first() {
+            diesel::update(
+                parties::table
+                    .filter(parties::id.eq(&party_id))
+                    .filter(parties::leader.eq(&key)),
+            )
+            .set(parties::leader.eq(next_leader))
+            .execute(tx.conn())?;
+        } else {
+            diesel::delete(party_outbox::table.filter(party_outbox::party.eq(&party_id))).execute(tx.conn())?;
+            parties_touched += n(diesel::delete(parties::table.filter(parties::id.eq(&party_id))).execute(tx.conn())?);
+        }
+    }
+    counts.push(("parties".to_owned(), parties_touched));
+
+    Ok((counts, active_chars))
+}
+
+// ---------------------------------------------------------------- activity on store
+
+diesel::table! {
+    player_activity_daily (account, day) {
+        account -> Text,
+        day -> Text,
+        counters -> Text,
+        ttl_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    activity_hunts (id) {
+        id -> Text,
+        account -> Text,
+        host -> Bool,
+        kind -> Text,
+        hunt_id -> Text,
+        hunt_ref -> Text,
+        started_at -> Text,
+        ended_at -> Nullable<Text>,
+        end_reason -> Nullable<Text>,
+        result -> Nullable<Text>,
+        kills -> BigInt,
+        ttl_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    slayers_path_unlocks (id) {
+        id -> Text,
+        account -> Text,
+        node_id -> Text,
+        unlocked_at -> Text,
+        source -> Text,
+        ttl_at -> BigInt,
+    }
+}
+
+diesel::table! {
+    activity_flags (id) {
+        id -> Text,
+        kind -> Text,
+        severity -> Text,
+        account -> Text,
+        day -> Text,
+        detail -> Text,
+        acknowledged -> Bool,
+        created_at -> Text,
+        acknowledged_at -> Nullable<Text>,
+        acknowledged_by -> Nullable<Text>,
+        note -> Nullable<Text>,
+        ttl_at -> BigInt,
+    }
+}
+
+type HuntRow = (
+    String,
+    String,
+    bool,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    i64,
+    i64,
+);
+
+type FlagRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    bool,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    i64,
+);
+
+macro_rules! hunt_columns {
+    () => {{
+        use activity_hunts::*;
+        (
+            id, account, host, kind, hunt_id, hunt_ref, started_at, ended_at, end_reason, result, kills, ttl_at,
+        )
+    }};
+}
+
+macro_rules! flag_columns {
+    () => {{
+        use activity_flags::*;
+        (
+            id,
+            kind,
+            severity,
+            account,
+            day,
+            detail,
+            acknowledged,
+            created_at,
+            acknowledged_at,
+            acknowledged_by,
+            note,
+            ttl_at,
+        )
+    }};
+}
+
+fn hunt_record(row: HuntRow) -> RepoResult<ActivityHuntRecord> {
+    let (id, account, host, kind, hunt_id, hunt_ref, started_at, ended_at, end_reason, result, kills, ttl_at) = row;
+    Ok(ActivityHuntRecord {
+        id,
+        account: account.parse().map_err(|_| data("activity_hunts.account", &account))?,
+        host,
+        kind: HuntKind::parse(&kind).ok_or_else(|| data("activity_hunts.kind", &kind))?,
+        hunt_id,
+        hunt_ref,
+        started_at,
+        ended_at,
+        end_reason,
+        result: result
+            .map(|r| HuntResult::parse(&r).ok_or_else(|| data("activity_hunts.result", &r)))
+            .transpose()?,
+        kills: u64::try_from(kills).unwrap_or(0),
+        ttl_at,
+    })
+}
+
+fn flag_record(row: FlagRow) -> RepoResult<ActivityFlagRecord> {
+    let (
+        id,
+        kind,
+        severity,
+        account,
+        day,
+        detail,
+        acknowledged,
+        created_at,
+        acknowledged_at,
+        acknowledged_by,
+        note,
+        ttl_at,
+    ) = row;
+    Ok(ActivityFlagRecord {
+        id,
+        kind,
+        severity,
+        account: account.parse().map_err(|_| data("activity_flags.account", &account))?,
+        day,
+        detail,
+        acknowledged,
+        created_at,
+        acknowledged_at,
+        acknowledged_by,
+        note,
+        ttl_at,
+    })
+}
+
+fn add_at_path(root: &mut serde_json::Map<String, Json>, path: &str, amount: f64) {
+    if amount == 0.0 {
+        return;
+    }
+    let mut level = root;
+    let mut parts = path.split('.').peekable();
+    while let Some(part) = parts.next() {
+        if parts.peek().is_none() {
+            let current = level.get(part).and_then(Json::as_f64).unwrap_or(0.0);
+            level.insert(part.to_owned(), serde_json::json!(current + amount));
+            break;
+        }
+        let next = level
+            .entry(part.to_owned())
+            .or_insert_with(|| Json::Object(serde_json::Map::new()));
+        if !next.is_object() {
+            *next = Json::Object(serde_json::Map::new());
+        }
+        let Some(object) = next.as_object_mut() else {
+            break;
+        };
+        level = object;
+    }
+}
+
+fn daily_doc(day: &str, counters: &str) -> RepoResult<Json> {
+    let mut value: Json = serde_json::from_str(counters).map_err(|e| data("player_activity_daily.counters", e))?;
+    if let Some(map) = value.as_object_mut() {
+        map.insert("day".into(), serde_json::json!(day));
+    }
+    Ok(value)
+}
+
+/// [`ActivityRepository`] on `store`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SqlActivity;
+
+impl ActivityRepository for SqlActivity {
+    fn add_to_daily(
+        &self,
+        tx: &mut Tx<'_>,
+        account: &AccountId,
+        day: &str,
+        increments: &[(String, f64)],
+        ttl_at: i64,
+    ) -> RepoResult<Json> {
+        use player_activity_daily as t;
+        let key = account.to_string();
+        let existing = t::table
+            .filter(t::account.eq(&key))
+            .filter(t::day.eq(day))
+            .select(t::counters)
+            .first::<String>(tx.conn())
+            .optional()?;
+        let mut map = match &existing {
+            Some(raw) => serde_json::from_str::<serde_json::Map<String, Json>>(raw)
+                .map_err(|e| data("player_activity_daily.counters", e))?,
+            None => serde_json::Map::new(),
+        };
+        map.insert("day".into(), serde_json::json!(day));
+        for (path, amount) in increments {
+            add_at_path(&mut map, path, *amount);
+        }
+        let doc = Json::Object(map);
+        let text = doc.to_string();
+        if existing.is_some() {
+            diesel::update(t::table.filter(t::account.eq(&key)).filter(t::day.eq(day)))
+                .set((t::counters.eq(&text), t::ttl_at.eq(ttl_at)))
+                .execute(tx.conn())?;
+        } else {
+            diesel::insert_into(t::table)
+                .values((
+                    t::account.eq(&key),
+                    t::day.eq(day),
+                    t::counters.eq(&text),
+                    t::ttl_at.eq(ttl_at),
+                ))
+                .execute(tx.conn())?;
+        }
+        Ok(doc)
+    }
+
+    fn set_daily_fields(
+        &self,
+        tx: &mut Tx<'_>,
+        account: &AccountId,
+        day: &str,
+        fields: &[(String, Json)],
+        ttl_at: i64,
+    ) -> RepoResult<Json> {
+        use player_activity_daily as t;
+        let key = account.to_string();
+        let existing = t::table
+            .filter(t::account.eq(&key))
+            .filter(t::day.eq(day))
+            .select(t::counters)
+            .first::<String>(tx.conn())
+            .optional()?;
+        let mut map = match &existing {
+            Some(raw) => serde_json::from_str::<serde_json::Map<String, Json>>(raw)
+                .map_err(|e| data("player_activity_daily.counters", e))?,
+            None => serde_json::Map::new(),
+        };
+        map.insert("day".into(), serde_json::json!(day));
+        for (field, value) in fields {
+            map.insert(field.clone(), value.clone());
+        }
+        let doc = Json::Object(map);
+        let text = doc.to_string();
+        if existing.is_some() {
+            diesel::update(t::table.filter(t::account.eq(&key)).filter(t::day.eq(day)))
+                .set((t::counters.eq(&text), t::ttl_at.eq(ttl_at)))
+                .execute(tx.conn())?;
+        } else {
+            diesel::insert_into(t::table)
+                .values((
+                    t::account.eq(&key),
+                    t::day.eq(day),
+                    t::counters.eq(&text),
+                    t::ttl_at.eq(ttl_at),
+                ))
+                .execute(tx.conn())?;
+        }
+        Ok(doc)
+    }
+
+    fn find_daily_rows(
+        &self,
+        conn: &mut AnyConnection,
+        account: &AccountId,
+        from_day: &str,
+        to_day: &str,
+        limit: u32,
+    ) -> RepoResult<Vec<Json>> {
+        use player_activity_daily as t;
+        t::table
+            .filter(t::account.eq(account.to_string()))
+            .filter(t::day.ge(from_day))
+            .filter(t::day.le(to_day))
+            .order(t::day.asc())
+            .limit(i64::from(limit))
+            .select((t::day, t::counters))
+            .load::<(String, String)>(conn)?
+            .into_iter()
+            .map(|(day, counters)| daily_doc(&day, &counters))
+            .collect()
+    }
+
+    fn find_daily_rows_in_range(
+        &self,
+        conn: &mut AnyConnection,
+        from_day: &str,
+        to_day: &str,
+        limit: u32,
+    ) -> RepoResult<Vec<Json>> {
+        use player_activity_daily as t;
+        t::table
+            .filter(t::day.ge(from_day))
+            .filter(t::day.le(to_day))
+            .order((t::day.asc(), t::account.asc()))
+            .limit(i64::from(limit))
+            .select((t::day, t::counters))
+            .load::<(String, String)>(conn)?
+            .into_iter()
+            .map(|(day, counters)| daily_doc(&day, &counters))
+            .collect()
+    }
+
+    fn insert_hunt_if_absent(&self, tx: &mut Tx<'_>, record: &ActivityHuntRecord) -> RepoResult<bool> {
+        use activity_hunts as t;
+        let exists = t::table
+            .filter(t::id.eq(&record.id))
+            .count()
+            .get_result::<i64>(tx.conn())?
+            > 0;
+        if exists {
+            return Ok(false);
+        }
+        diesel::insert_into(t::table)
+            .values((
+                t::id.eq(&record.id),
+                t::account.eq(record.account.to_string()),
+                t::host.eq(record.host),
+                t::kind.eq(record.kind.as_str()),
+                t::hunt_id.eq(&record.hunt_id),
+                t::hunt_ref.eq(&record.hunt_ref),
+                t::started_at.eq(&record.started_at),
+                t::ended_at.eq(&record.ended_at),
+                t::end_reason.eq(&record.end_reason),
+                t::result.eq(record.result.map(HuntResult::as_str)),
+                t::kills.eq(i64::try_from(record.kills).unwrap_or(i64::MAX)),
+                t::ttl_at.eq(record.ttl_at),
+            ))
+            .execute(tx.conn())?;
+        Ok(true)
+    }
+
+    fn find_hunt(&self, conn: &mut AnyConnection, id: &str) -> RepoResult<Option<ActivityHuntRecord>> {
+        use activity_hunts as t;
+        t::table
+            .filter(t::id.eq(id))
+            .select(hunt_columns!())
+            .first::<HuntRow>(conn)
+            .optional()?
+            .map(hunt_record)
+            .transpose()
+    }
+
+    fn find_open_dedicated_hunts(
+        &self,
+        conn: &mut AnyConnection,
+        account: &AccountId,
+    ) -> RepoResult<Vec<ActivityHuntRecord>> {
+        use activity_hunts as t;
+        t::table
+            .filter(t::account.eq(account.to_string()))
+            .filter(t::kind.eq("dedicated"))
+            .filter(t::ended_at.is_null())
+            .order(t::started_at.desc())
+            .limit(50)
+            .select(hunt_columns!())
+            .load::<HuntRow>(conn)?
+            .into_iter()
+            .map(hunt_record)
+            .collect()
+    }
+
+    fn find_dedicated_hunts_covering(
+        &self,
+        conn: &mut AnyConnection,
+        account: &AccountId,
+        at: &str,
+        not_before: &str,
+        grace_floor: &str,
+    ) -> RepoResult<Vec<ActivityHuntRecord>> {
+        use activity_hunts as t;
+        t::table
+            .filter(t::account.eq(account.to_string()))
+            .filter(t::kind.eq("dedicated"))
+            .filter(t::started_at.ge(not_before))
+            .filter(t::started_at.le(at))
+            .filter(t::ended_at.is_null().or(t::ended_at.ge(grace_floor)))
+            .order(t::started_at.desc())
+            .limit(10)
+            .select(hunt_columns!())
+            .load::<HuntRow>(conn)?
+            .into_iter()
+            .map(hunt_record)
+            .collect()
+    }
+
+    fn close_hunt_if_open(
+        &self,
+        tx: &mut Tx<'_>,
+        id: &str,
+        ended_at: &str,
+        end_reason: &str,
+        result: HuntResult,
+    ) -> RepoResult<bool> {
+        use activity_hunts as t;
+        let changed = diesel::update(t::table.filter(t::id.eq(id)).filter(t::ended_at.is_null()))
+            .set((
+                t::ended_at.eq(Some(ended_at)),
+                t::end_reason.eq(Some(end_reason)),
+                t::result.eq(Some(result.as_str())),
+            ))
+            .execute(tx.conn())?;
+        Ok(changed == 1)
+    }
+
+    fn add_hunt_kills(&self, tx: &mut Tx<'_>, id: &str, kills: u64) -> RepoResult<()> {
+        use activity_hunts as t;
+        let delta = i64::try_from(kills).unwrap_or(i64::MAX);
+        diesel::update(t::table.filter(t::id.eq(id)))
+            .set(t::kills.eq(t::kills + delta))
+            .execute(tx.conn())?;
+        Ok(())
+    }
+
+    fn find_hunts_for_account(
+        &self,
+        conn: &mut AnyConnection,
+        account: &AccountId,
+        limit: u32,
+    ) -> RepoResult<Vec<ActivityHuntRecord>> {
+        use activity_hunts as t;
+        t::table
+            .filter(t::account.eq(account.to_string()))
+            .order((t::started_at.desc(), t::id.asc()))
+            .limit(i64::from(limit))
+            .select(hunt_columns!())
+            .load::<HuntRow>(conn)?
+            .into_iter()
+            .map(hunt_record)
+            .collect()
+    }
+
+    fn insert_unlock_if_absent(&self, tx: &mut Tx<'_>, record: &SlayersPathUnlockRecord) -> RepoResult<bool> {
+        use slayers_path_unlocks as t;
+        let exists = t::table
+            .filter(t::id.eq(&record.id))
+            .count()
+            .get_result::<i64>(tx.conn())?
+            > 0;
+        if exists {
+            return Ok(false);
+        }
+        diesel::insert_into(t::table)
+            .values((
+                t::id.eq(&record.id),
+                t::account.eq(record.account.to_string()),
+                t::node_id.eq(&record.node_id),
+                t::unlocked_at.eq(&record.unlocked_at),
+                t::source.eq(&record.source),
+                t::ttl_at.eq(record.ttl_at),
+            ))
+            .execute(tx.conn())?;
+        Ok(true)
+    }
+
+    fn find_unlocks_for_account(
+        &self,
+        conn: &mut AnyConnection,
+        account: &AccountId,
+        limit: u32,
+    ) -> RepoResult<Vec<SlayersPathUnlockRecord>> {
+        use slayers_path_unlocks as t;
+        let rows = t::table
+            .filter(t::account.eq(account.to_string()))
+            .order((t::unlocked_at.desc(), t::id.asc()))
+            .limit(i64::from(limit))
+            .select((t::id, t::account, t::node_id, t::unlocked_at, t::source, t::ttl_at))
+            .load::<(String, String, String, String, String, i64)>(conn)?;
+        rows.into_iter()
+            .map(|(id, account, node_id, unlocked_at, source, ttl_at)| {
+                Ok(SlayersPathUnlockRecord {
+                    id,
+                    account: account
+                        .parse()
+                        .map_err(|_| data("slayers_path_unlocks.account", &account))?,
+                    node_id,
+                    unlocked_at,
+                    source,
+                    ttl_at,
+                })
+            })
+            .collect()
+    }
+
+    fn insert_flag_if_absent(&self, tx: &mut Tx<'_>, record: &ActivityFlagRecord) -> RepoResult<bool> {
+        use activity_flags as t;
+        let exists = t::table
+            .filter(t::id.eq(&record.id))
+            .count()
+            .get_result::<i64>(tx.conn())?
+            > 0;
+        if exists {
+            return Ok(false);
+        }
+        diesel::insert_into(t::table)
+            .values((
+                t::id.eq(&record.id),
+                t::kind.eq(&record.kind),
+                t::severity.eq(&record.severity),
+                t::account.eq(record.account.to_string()),
+                t::day.eq(&record.day),
+                t::detail.eq(&record.detail),
+                t::acknowledged.eq(record.acknowledged),
+                t::created_at.eq(&record.created_at),
+                t::acknowledged_at.eq(&record.acknowledged_at),
+                t::acknowledged_by.eq(&record.acknowledged_by),
+                t::note.eq(&record.note),
+                t::ttl_at.eq(record.ttl_at),
+            ))
+            .execute(tx.conn())?;
+        Ok(true)
+    }
+
+    fn find_flag(&self, conn: &mut AnyConnection, id: &str) -> RepoResult<Option<ActivityFlagRecord>> {
+        use activity_flags as t;
+        t::table
+            .filter(t::id.eq(id))
+            .select(flag_columns!())
+            .first::<FlagRow>(conn)
+            .optional()?
+            .map(flag_record)
+            .transpose()
+    }
+
+    fn list_flags(
+        &self,
+        conn: &mut AnyConnection,
+        acknowledged: Option<bool>,
+        skip: u32,
+        limit: u32,
+    ) -> RepoResult<(Vec<ActivityFlagRecord>, u64)> {
+        use activity_flags as t;
+        let filtered = || {
+            let mut query = t::table.into_boxed();
+            if let Some(ack) = acknowledged {
+                query = query.filter(t::acknowledged.eq(ack));
+            }
+            query
+        };
+        let total = filtered().count().get_result::<i64>(conn)?;
+        let rows = filtered()
+            .order((t::created_at.desc(), t::id.asc()))
+            .limit(i64::from(limit))
+            .offset(i64::from(skip))
+            .select(flag_columns!())
+            .load::<FlagRow>(conn)?;
+        Ok((
+            rows.into_iter().map(flag_record).collect::<RepoResult<Vec<_>>>()?,
+            u64::try_from(total).unwrap_or(0),
+        ))
+    }
+
+    fn find_flags_for_account(
+        &self,
+        conn: &mut AnyConnection,
+        account: &AccountId,
+        limit: u32,
+    ) -> RepoResult<Vec<ActivityFlagRecord>> {
+        use activity_flags as t;
+        t::table
+            .filter(t::account.eq(account.to_string()))
+            .order((t::created_at.desc(), t::id.asc()))
+            .limit(i64::from(limit))
+            .select(flag_columns!())
+            .load::<FlagRow>(conn)?
+            .into_iter()
+            .map(flag_record)
+            .collect()
+    }
+
+    fn acknowledge_flag(
+        &self,
+        tx: &mut Tx<'_>,
+        id: &str,
+        by: &AccountId,
+        at: &str,
+        note: Option<&str>,
+    ) -> RepoResult<Option<ActivityFlagRecord>> {
+        use activity_flags as t;
+        let Some(current) = self.find_flag(tx.conn(), id)? else {
+            return Ok(None);
+        };
+        if current.acknowledged {
+            return Ok(Some(current));
+        }
+        let actor_user_id =
+            super::super::areas::reforged_api::admin::user_id_of(tx.conn(), &super::Repositories::on_store(), by)
+                .unwrap_or_else(|_| by.to_string());
+        diesel::update(t::table.filter(t::id.eq(id)).filter(t::acknowledged.eq(false)))
+            .set((
+                t::acknowledged.eq(true),
+                t::acknowledged_at.eq(Some(at)),
+                t::acknowledged_by.eq(Some(&actor_user_id)),
+                t::note.eq(note),
+            ))
+            .execute(tx.conn())?;
+        self.find_flag(tx.conn(), id)
+    }
+}
+
+/// Purges rows whose `ttl_at` (unix milliseconds) is at or before `now_ms`.
+pub fn purge_expired_ttl_rows(tx: &mut Tx<'_>, now_ms: i64) -> RepoResult<u64> {
+    let mut purged = 0usize;
+    purged += diesel::delete(admin_sessions::table.filter(admin_sessions::ttl_at.le(now_ms))).execute(tx.conn())?;
+    purged += diesel::delete(launcher_guard_sessions::table.filter(launcher_guard_sessions::ttl_at.le(now_ms)))
+        .execute(tx.conn())?;
+    purged += diesel::delete(guard_findings::table.filter(guard_findings::ttl_at.le(now_ms))).execute(tx.conn())?;
+    purged += diesel::delete(player_activity_daily::table.filter(player_activity_daily::ttl_at.le(now_ms)))
+        .execute(tx.conn())?;
+    purged += diesel::delete(activity_hunts::table.filter(activity_hunts::ttl_at.le(now_ms))).execute(tx.conn())?;
+    purged += diesel::delete(slayers_path_unlocks::table.filter(slayers_path_unlocks::ttl_at.le(now_ms)))
+        .execute(tx.conn())?;
+    purged += diesel::delete(activity_flags::table.filter(activity_flags::ttl_at.le(now_ms))).execute(tx.conn())?;
+    purged += diesel::delete(
+        erasure_schema::economy_rollup_counters::table
+            .filter(erasure_schema::economy_rollup_counters::ttl_at.le(now_ms)),
+    )
+    .execute(tx.conn())?;
+    Ok(u64::try_from(purged).unwrap_or(0))
 }
 
 /// [`LauncherNoticesRepository`] on `store`.

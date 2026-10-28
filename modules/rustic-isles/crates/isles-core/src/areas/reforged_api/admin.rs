@@ -98,8 +98,12 @@ fn allowed_origins(shared: &Shared) -> Vec<String> {
 
 /// `adminRouter.use("/admin/v1", ...)`: the origin check, and the headers every answer carries.
 fn origin_headers(shared: &Shared, req: &Req) -> Result<Vec<(&'static str, String)>, Response> {
+    origin_headers_for(shared, req.header("origin"))
+}
+
+fn origin_headers_for(shared: &Shared, origin: Option<&str>) -> Result<Vec<(&'static str, String)>, Response> {
     let mut headers = Vec::new();
-    if let Some(origin) = req.header("origin") {
+    if let Some(origin) = origin {
         if !allowed_origins(shared).iter().any(|o| o == origin) {
             tracing::warn!("[ADMIN] rejected origin {origin}");
             return Err(util::empty(403));
@@ -147,7 +151,16 @@ fn read_cookie(header: Option<&str>, name: &str) -> Result<Option<String>, ()> {
 
 /// `HasAdminAuth`'s cookie path.
 async fn has_admin_auth(store: &IslesStore, req: &Req) -> Result<AdminCaller, Response> {
-    let raw = match read_cookie(req.header("cookie"), ADMIN_COOKIE_NAME) {
+    has_admin_auth_parts(store, &req.method, req.header("cookie"), req.header("x-csrf-token")).await
+}
+
+async fn has_admin_auth_parts(
+    store: &IslesStore,
+    method: &str,
+    cookie_header: Option<&str>,
+    csrf_header: Option<&str>,
+) -> Result<AdminCaller, Response> {
+    let raw = match read_cookie(cookie_header, ADMIN_COOKIE_NAME) {
         Ok(Some(raw)) if !raw.is_empty() => raw,
         Ok(_) => return Err(error(401, "ADMIN_UNAUTHORIZED", "Administrator sign-in required.")),
         Err(()) => {
@@ -191,11 +204,8 @@ async fn has_admin_auth(store: &IslesStore, req: &Req) -> Result<AdminCaller, Re
             .await;
         return Err(error(403, "ADMIN_FORBIDDEN", "Administrator access denied."));
     };
-    if !matches!(req.method.as_str(), "GET" | "HEAD" | "OPTIONS") {
-        let csrf = req.header("x-csrf-token");
-        if csrf != Some(session.csrf_token.as_str()) {
-            return Err(error(403, "ADMIN_CSRF", "Invalid request token."));
-        }
+    if !matches!(method, "GET" | "HEAD" | "OPTIONS") && csrf_header != Some(session.csrf_token.as_str()) {
+        return Err(error(403, "ADMIN_CSRF", "Invalid request token."));
     }
     let user_id = user_id.unwrap_or_else(|| session.account.to_string());
     Ok(AdminCaller {
@@ -205,7 +215,23 @@ async fn has_admin_auth(store: &IslesStore, req: &Req) -> Result<AdminCaller, Re
     })
 }
 
-fn internal(error: &dyn std::fmt::Display) -> Response {
+/// `HasAdminAuth` for a request that does not pass through [`route`] (the rifts `/admin/...` routes).
+pub async fn authenticate_headers(
+    shared: &Shared,
+    store: &IslesStore,
+    method: &str,
+    headers: &axum::http::HeaderMap,
+) -> Result<AdminCaller, Response> {
+    let origin = headers.get("origin").and_then(|v| v.to_str().ok());
+    let admin_headers = origin_headers_for(shared, origin)?;
+    let cookie = headers.get("cookie").and_then(|v| v.to_str().ok());
+    let csrf = headers.get("x-csrf-token").and_then(|v| v.to_str().ok());
+    has_admin_auth_parts(store, method, cookie, csrf)
+        .await
+        .map_err(|resp| apply(resp, &admin_headers))
+}
+
+pub(super) fn internal(error: &dyn std::fmt::Display) -> Response {
     tracing::error!("[ADMIN] {error}");
     util::empty(500)
 }
@@ -391,7 +417,7 @@ fn opaque_token() -> String {
     hex(&random_bytes(32))
 }
 
-fn actor(caller: &AdminCaller) -> ActorContext {
+pub(super) fn actor(caller: &AdminCaller) -> ActorContext {
     ActorContext::new(Actor::Admin {
         key: caller.user_id.clone(),
     })
@@ -680,23 +706,27 @@ fn audit_record(
     }
 }
 
-fn not_found() -> Response {
+pub(super) fn not_found() -> Response {
     error(404, "NOT_FOUND", "Player not found.")
 }
 
 /// A target by `userId`: the game account id, and the launcher account.
-fn find_target(
+pub(super) fn find_target(
     conn: &mut crate::repo::AnyConnection,
     repos: &crate::repo::Repositories,
     user_id: &str,
 ) -> RepoResult<Option<(AccountId, LauncherAccountRecord)>> {
-    let Some(game) = repos.accounts.find_by_user_id(conn, &UserId(user_id.to_owned()))? else {
-        return Ok(None);
-    };
+    let uid = UserId(user_id.to_owned());
+    if let Some(game) = repos.accounts.find_by_user_id(conn, &uid)? {
+        return Ok(repos
+            .launcher_accounts
+            .find_by_account(conn, &game.id)?
+            .map(|a| (game.id, a)));
+    }
     Ok(repos
         .launcher_accounts
-        .find_by_account(conn, &game.id)?
-        .map(|a| (game.id, a)))
+        .find_by_user_id(conn, &uid)?
+        .map(|a| (a.account.clone(), a)))
 }
 
 fn approval_of(text: &str) -> Option<ApprovalStatus> {

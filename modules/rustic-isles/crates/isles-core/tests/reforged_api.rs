@@ -687,17 +687,5 @@ fn the_group_s_routes_are_ported_but_the_ones_listed() {
         .map(|r| r.name())
         .collect();
     left.sort();
-    // The activity monitor and its dashboard, the tester tool and the admin Discord sign-in are RU5's leftovers
-    assert_eq!(
-        left,
-        [
-            "GET /admin/v1/activity/flags",
-            "GET /admin/v1/activity/overview",
-            "GET /admin/v1/activity/players/:userId",
-            "GET /admin/v1/auth/discord/callback",
-            "GET /admin/v1/auth/discord/start",
-            "PATCH /admin/v1/activity/flags/:id",
-            "POST /admin/v1/players/:userId/tester-max",
-        ]
-    );
+    assert!(left.is_empty(), "{left:?}");
 }

@@ -171,7 +171,7 @@ pub async fn reforge_reset(
             Attempt::Done(result) => {
                 let result = *result;
                 if result.outcome == ResetOutcome::Reset {
-                    ctx.ports.observer.reforge_reset(account, at_ms);
+                    ctx.ports.observer.reforge_reset(ctx.shared, account, at_ms);
                 }
                 return Ok(result);
             }

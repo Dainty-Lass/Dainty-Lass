@@ -529,7 +529,7 @@ async fn grant_progression_xp(req: &Req, account: &AccountId, input: GrantInput)
     notes.extend(more);
     if let Granted::Done { replayed: false, .. } = &granted {
         // The activity monitor counts an applied grant's XP by track (a replay is not counted again)
-        req.ports.activity.xp(&user_id, &progression_id, amount);
+        req.ports.activity.xp(&shared, &user_id, &progression_id, amount);
     }
     Ok((granted, notes))
 }

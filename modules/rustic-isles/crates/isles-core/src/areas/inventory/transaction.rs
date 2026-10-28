@@ -337,6 +337,7 @@ pub async fn run_inventory_transaction(
                     tx,
                     &repos,
                     &CurrencyChange {
+                        shared: &shared,
                         account: &account_in,
                         user_id: &req.user_id,
                         adds: &grants.stacked_items_to_add,
@@ -437,7 +438,7 @@ pub async fn run_inventory_transaction(
     };
     match inner {
         Inner::Done(result, committed) => {
-            ctx.ports.observer.committed(&committed);
+            ctx.ports.observer.committed(ctx.shared, &committed);
             let total = now_ms() - started;
             if options.diagnostic_label.is_some() || total >= 1000 {
                 tracing::info!(

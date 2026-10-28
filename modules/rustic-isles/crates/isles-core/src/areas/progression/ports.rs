@@ -8,21 +8,38 @@ use module_api::BoxFuture;
 use crate::AccountId;
 use crate::http::Shared;
 
-use super::journey::{JourneyInventory, UnwiredInventory};
+use super::journey::{JourneyInventory, RepoJourneyInventory};
 
 /// The activity monitor's recorders (`activity/activityMonitor.ts`: `RecordXpActivity`, `RecordReforgeActivity`,
 /// `RecordSlayersPathUnlocksActivity`), reforged-api's. Monitoring only: they never fail a request.
 pub trait Activity: Send + Sync {
-    fn xp(&self, _user_id: &str, _progression_id: &str, _amount: i64) {}
-    fn reforge(&self, _user_id: &str) {}
+    fn xp(&self, _shared: &Shared, _user_id: &str, _progression_id: &str, _amount: i64) {}
+    fn reforge(&self, _shared: &Shared, _user_id: &str) {}
     /// `source` is `host` or `gameserver`
-    fn slayers_path_unlocks(&self, _user_id: &str, _node_ids: &[String], _source: &str) {}
+    fn slayers_path_unlocks(&self, _shared: &Shared, _user_id: &str, _node_ids: &[String], _source: &str) {}
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NoActivity;
 
 impl Activity for NoActivity {}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ActivityMonitor;
+
+impl Activity for ActivityMonitor {
+    fn xp(&self, shared: &Shared, user_id: &str, progression_id: &str, amount: i64) {
+        crate::areas::reforged_api::activity::record_xp_grant(shared, user_id, progression_id, amount);
+    }
+
+    fn reforge(&self, shared: &Shared, user_id: &str) {
+        crate::areas::reforged_api::activity::record_reforge(shared, user_id);
+    }
+
+    fn slayers_path_unlocks(&self, shared: &Shared, user_id: &str, node_ids: &[String], source: &str) {
+        crate::areas::reforged_api::activity::record_slayers_path_unlocks(shared, user_id, node_ids, source);
+    }
+}
 
 /// `EnsureStarterBootstrapRecords` (characters-loadouts' `starterManifest.ts`), run before a session refill.
 pub trait StarterBootstrap: Send + Sync {
@@ -35,6 +52,36 @@ pub struct NoStarterBootstrap;
 impl StarterBootstrap for NoStarterBootstrap {
     fn ensure<'a>(&'a self, _: &'a Shared, _: &'a AccountId, _: &'a str) -> BoxFuture<'a, ()> {
         Box::pin(async {})
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CharactersStarterBootstrap;
+
+impl StarterBootstrap for CharactersStarterBootstrap {
+    fn ensure<'a>(&'a self, shared: &'a Shared, account: &'a AccountId, character_id: &'a str) -> BoxFuture<'a, ()> {
+        Box::pin(async move {
+            let Some(store) = &shared.store else { return };
+            let actor = module_api::ActorContext::new(module_api::Actor::Player {
+                account: account.global().clone(),
+            });
+            let owner = account.clone();
+            let cid = character_id.to_owned();
+            let tables = shared.version.tables;
+            let _ = store
+                .account_write(account, &actor, move |tx, repos| {
+                    let user = repos
+                        .accounts
+                        .find(tx.conn(), &owner)?
+                        .map(|a| a.user_id.0)
+                        .unwrap_or_else(|| owner.to_string());
+                    let _ = crate::areas::characters::starter::ensure_in_transaction(
+                        tx, repos, &tables, &owner, &user, &cid,
+                    );
+                    Ok(())
+                })
+                .await;
+        })
     }
 }
 
@@ -78,9 +125,9 @@ impl Default for Ports {
     fn default() -> Self {
         Self {
             characters: Arc::new(RepoCharacters),
-            inventory: Arc::new(UnwiredInventory),
-            activity: Arc::new(NoActivity),
-            starter: Arc::new(NoStarterBootstrap),
+            inventory: Arc::new(RepoJourneyInventory),
+            activity: Arc::new(ActivityMonitor),
+            starter: Arc::new(CharactersStarterBootstrap),
         }
     }
 }

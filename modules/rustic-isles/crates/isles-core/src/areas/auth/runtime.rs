@@ -233,21 +233,61 @@ impl EncryptionKeyStore {
 /// The activity monitor (Reforged API): game sessions and launcher builds. Nothing here refuses a request.
 pub trait ActivitySeam: Send + Sync {
     /// `TouchGameSession`
-    fn touch_game_session(&self, _account: &AccountId) {}
+    fn touch_game_session(&self, _shared: &crate::http::Shared, _account: &AccountId) {}
 
     /// `ClassifyReportedLauncherBuild`: against the pinned launcher hash and the served version; unknown without them
-    fn classify_launcher_build(&self, _channel: &str, _report: Option<&LauncherBuildReport>) -> LauncherBuildVerdict {
+    fn classify_launcher_build(
+        &self,
+        _shared: &crate::http::Shared,
+        _channel: &str,
+        _report: Option<&LauncherBuildReport>,
+    ) -> LauncherBuildVerdict {
         LauncherBuildVerdict::Unknown
     }
 
     /// `RecordLauncherBuild`: raises the UNOFFICIAL_LAUNCHER flag; never awaited, never throws
-    fn record_launcher_build(&self, _account: &AccountId, _channel: &str, _report: Option<&LauncherBuildReport>) {}
+    fn record_launcher_build(
+        &self,
+        _shared: &crate::http::Shared,
+        _account: &AccountId,
+        _channel: &str,
+        _report: Option<&LauncherBuildReport>,
+    ) {
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NoActivity;
 
 impl ActivitySeam for NoActivity {}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DefaultActivity;
+
+impl ActivitySeam for DefaultActivity {
+    fn touch_game_session(&self, shared: &crate::http::Shared, account: &AccountId) {
+        crate::areas::reforged_api::activity::touch_game_session(shared, &account.to_string());
+    }
+
+    fn classify_launcher_build(
+        &self,
+        shared: &crate::http::Shared,
+        channel: &str,
+        report: Option<&LauncherBuildReport>,
+    ) -> LauncherBuildVerdict {
+        crate::areas::reforged_api::activity::classify_reported_launcher_build(shared, channel, report)
+    }
+
+    fn record_launcher_build(
+        &self,
+        shared: &crate::http::Shared,
+        account: &AccountId,
+        channel: &str,
+        report: Option<&LauncherBuildReport>,
+    ) {
+        crate::areas::reforged_api::activity::record_launcher_build(shared, &account.to_string(), channel, report);
+    }
+}
 
 /// `OperationsPolicy`, the part the launcher policy reads.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -272,7 +312,7 @@ impl Default for OperationsPolicy {
 
 /// `GetOperationsPolicy` (Reforged API).
 pub trait OperationsSeam: Send + Sync {
-    fn policy(&self) -> BoxFuture<'_, OperationsPolicy> {
+    fn policy<'a>(&'a self, _shared: &'a crate::http::Shared) -> BoxFuture<'a, OperationsPolicy> {
         Box::pin(async { OperationsPolicy::default() })
     }
 }
@@ -280,11 +320,24 @@ pub trait OperationsSeam: Send + Sync {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DefaultOperations;
 
-impl OperationsSeam for DefaultOperations {}
+impl OperationsSeam for DefaultOperations {
+    fn policy<'a>(&'a self, shared: &'a crate::http::Shared) -> BoxFuture<'a, OperationsPolicy> {
+        Box::pin(async move {
+            match crate::areas::reforged_api::operations::current_policy(shared).await {
+                Some(record) => OperationsPolicy {
+                    guard_enforcement: record.guard_enforcement.to_owned(),
+                    diagnostics_profile: record.diagnostics_profile.to_owned(),
+                    version: record.version,
+                },
+                None => OperationsPolicy::default(),
+            }
+        })
+    }
+}
 
 /// What the session supplies need of the inventory area: `GetInventoryStoragePolicy(catalogId)?.storage === "instanced"`.
 pub trait GameDataSeam: Send + Sync {
-    fn is_instanced(&self, _catalog_id: &str) -> bool {
+    fn is_instanced(&self, _shared: &crate::http::Shared, _catalog_id: &str) -> bool {
         false
     }
 }
@@ -293,6 +346,23 @@ pub trait GameDataSeam: Send + Sync {
 pub struct NoGameData;
 
 impl GameDataSeam for NoGameData {}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DefaultGameData;
+
+impl GameDataSeam for DefaultGameData {
+    fn is_instanced(&self, shared: &crate::http::Shared, catalog_id: &str) -> bool {
+        let Some(path) = shared.game_data.backend_file("inventory_storage_policy.json") else {
+            return false;
+        };
+        let Ok(policy) = crate::areas::inventory::storage_policy::StoragePolicy::load(&path) else {
+            return false;
+        };
+        policy
+            .entry(Some(&Value::String(catalog_id.to_owned())))
+            .is_some_and(|e| e.storage == crate::areas::inventory::storage_policy::Storage::Instanced)
+    }
+}
 
 /// Everything the auth area holds for one module.
 pub struct AuthRuntime {
@@ -317,11 +387,11 @@ impl Default for AuthRuntime {
             encryption_keys: Mutex::default(),
             mail: Arc::new(SmtpTransport),
             discord: Arc::new(HttpsDiscord),
-            activity: Arc::new(NoActivity),
+            activity: Arc::new(DefaultActivity),
             operations: Arc::new(DefaultOperations),
-            game_data: Arc::new(NoGameData),
-            starter: Arc::new(crate::areas::progression::NoStarterBootstrap),
-            erasure: Arc::new(super::erasure::NoOtherData),
+            game_data: Arc::new(DefaultGameData),
+            starter: Arc::new(crate::areas::progression::CharactersStarterBootstrap),
+            erasure: Arc::new(super::erasure::AllAreasErasure),
             notices_failure_logged: std::sync::atomic::AtomicBool::new(false),
         }
     }

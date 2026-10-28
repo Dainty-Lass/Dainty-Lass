@@ -700,10 +700,11 @@ pub async fn request_game_exchange_code(
     // An unofficial launcher build: refused only with MYSTICPARADOX_UNOFFICIAL_LAUNCHER=refuse, and never an outdated
     // official build, a report-less older launcher, an allowed test hash or (by default) an admin
     let report = parse_launcher_build_report(request.launcher);
-    let verdict = shared
-        .auth
-        .activity
-        .classify_launcher_build(request.runtime_channel.as_str(), report.as_ref());
+    let verdict =
+        shared
+            .auth
+            .activity
+            .classify_launcher_build(shared, request.runtime_channel.as_str(), report.as_ref());
     if verdict == LauncherBuildVerdict::Unofficial {
         let policy = read_unofficial_launcher_policy(&shared.settings);
         for warning in &policy.warnings {
@@ -764,12 +765,12 @@ pub async fn request_game_exchange_code(
     })
     .await?;
     // A game session starts here (the activity monitor's playtime), and the launcher build is recorded
-    shared.auth.activity.touch_game_session(account_id);
+    shared.auth.activity.touch_game_session(shared, account_id);
     shared.matchmaking.presence.touch(user_id, now_ms());
     shared
         .auth
         .activity
-        .record_launcher_build(account_id, request.runtime_channel.as_str(), report.as_ref());
+        .record_launcher_build(shared, account_id, request.runtime_channel.as_str(), report.as_ref());
     Ok(json!({ "exchangeCode": code, "expiresInSeconds": EXCHANGE_CODE_TTL_MS / 1000 }))
 }
 

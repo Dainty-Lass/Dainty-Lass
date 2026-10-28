@@ -115,7 +115,7 @@ pub async fn login(mut call: Call) -> Response {
         shared.auth.starter.as_ref(),
         &record.id,
         &user_id,
-        &|catalog_id| game_data.is_instanced(catalog_id),
+        &|catalog_id| game_data.is_instanced(&shared, catalog_id),
     )
     .await;
     json_reply(json!({"error_code": "TicketRateOk", "message": "", "state": "OPEN", "timeout": 8000, "title": ""}))

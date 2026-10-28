@@ -185,6 +185,218 @@ pub struct StoreSeams {
     pub inventory: Arc<dyn InventoryTransactions>,
 }
 
+struct ProductionCharacters(Arc<crate::http::Shared>);
+
+impl FirstCharacter for ProductionCharacters {
+    fn first_character_id(&self, account: AccountId) -> BoxFuture<'_, Result<Option<String>, String>> {
+        let shared = self.0.clone();
+        Box::pin(async move {
+            let Some(store) = shared.store.as_ref() else {
+                return Ok(None);
+            };
+            let acc_lookup = account.clone();
+            let user_id = store
+                .read(move |conn, repos| {
+                    Ok(repos
+                        .accounts
+                        .find(conn, &acc_lookup)?
+                        .map(|a| a.user_id.0)
+                        .unwrap_or_else(|| acc_lookup.to_string()))
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+            let actor = module_api::ActorContext::new(module_api::Actor::Player {
+                account: account.global().clone(),
+            });
+            match crate::areas::characters::controller::characters_for_user(
+                store,
+                &shared.version.tables,
+                &actor,
+                &user_id,
+            )
+            .await
+            {
+                Ok(list) => Ok(list
+                    .first()
+                    .and_then(|c| c.get("id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)),
+                Err(error) => Err(error.to_string()),
+            }
+        })
+    }
+}
+
+struct ProductionInventory {
+    shared: Arc<crate::http::Shared>,
+    request_id: String,
+}
+
+impl InventoryTransactions for ProductionInventory {
+    fn run(&self, transaction: StoreTransaction) -> BoxFuture<'_, Result<Value, TransactionFailure>> {
+        let shared = self.shared.clone();
+        let request_id = self.request_id.clone();
+        Box::pin(async move {
+            use crate::areas::inventory::ports::Ports as InventoryPorts;
+            use crate::areas::inventory::transaction::{
+                Economy, GrantHook, TxContext, TxError, TxOptions, TxOutcome, TxRequest, run_inventory_transaction,
+            };
+
+            let Some(store) = shared.store.as_ref() else {
+                return Err(TransactionFailure::Failed("store unavailable".into()));
+            };
+            let has_non_inventory_grants =
+                !transaction.grants.entitlements.is_empty() || transaction.grants.progression.is_some();
+            let on_grant: Option<GrantHook> = if has_non_inventory_grants {
+                let tx_clone = transaction.clone();
+                let shared_for_hook = shared.clone();
+                Some(Box::new(move |tx, repos| {
+                    super::handlers::grant_sku_entitlements(repos, tx, &tx_clone).map_err(TxError::Repo)?;
+                    if let Some(prog) = &tx_clone.grants.progression {
+                        let raw_track_id = prog.get("progressionId").and_then(Value::as_str).unwrap_or_default();
+                        if let Some(track_id) =
+                            crate::areas::progression::tracks::resolve_track_id(&shared_for_hook, raw_track_id)
+                        {
+                            let current = repos
+                                .progression_tracks
+                                .get(tx.conn(), &tx_clone.account, &track_id)
+                                .map_err(TxError::Repo)?
+                                .map_or(0, |r| r.progress);
+                            let xp = prog.get("xp").and_then(Value::as_f64).map_or(0, |v| v.trunc() as i64);
+                            let ranks = prog
+                                .get("ranks")
+                                .and_then(Value::as_f64)
+                                .map_or(0, |v| v.trunc() as i64);
+                            if xp > 0 {
+                                repos
+                                    .progression_tracks
+                                    .increment(tx, &tx_clone.account, &track_id, xp)
+                                    .map_err(TxError::Repo)?;
+                            } else if ranks > 0 {
+                                let curves = crate::areas::progression::tracks::curves(&shared_for_hook);
+                                if let Some(curve) = curves.get(&track_id) {
+                                    let from_rank = curves.rank_for_progress(&track_id, current as f64).unwrap_or(0);
+                                    if from_rank < curve.max_rank {
+                                        let to_rank = (from_rank + ranks).min(curve.max_rank);
+                                        if let Some(threshold) = curve.required_xp_for_rank(to_rank) {
+                                            let delta = (threshold as i64) - current;
+                                            if delta > 0 {
+                                                repos
+                                                    .progression_tracks
+                                                    .increment(tx, &tx_clone.account, &track_id, delta)
+                                                    .map_err(TxError::Repo)?;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Ok(None)
+                }))
+            } else {
+                None
+            };
+
+            let ports = InventoryPorts::default();
+            let ctx = TxContext {
+                shared: &shared,
+                store,
+                ports: &ports,
+            };
+            let request = TxRequest {
+                user_id: transaction.user_id,
+                character_id: transaction.character_id,
+                transaction_id: transaction.transaction_id,
+                add_instanced: Value::Array(transaction.instanced_to_add),
+                add_stacked: Value::Array(transaction.stacked_to_add),
+                remove_instanced: Value::Array(Vec::new()),
+                remove_stacked: Value::Array(transaction.stacked_to_remove),
+                save_instanced: Value::Array(Vec::new()),
+            };
+            let options = TxOptions {
+                ownership_already_validated: transaction.ownership_already_validated,
+                diagnostic_label: Some(transaction.diagnostic_label),
+                on_grant,
+                economy: Some(Economy {
+                    source: "STORE".into(),
+                    p2p_session_id: None,
+                    store_sku_id: Some(transaction.sku_id),
+                }),
+                ..TxOptions::default()
+            };
+            match run_inventory_transaction(&ctx, request, options, Some(&request_id)).await {
+                Ok(TxOutcome::Done(result)) => Ok(result),
+                Ok(TxOutcome::NotOwned) => Err(TransactionFailure::Failed("not_owned".into())),
+                Err(TxError::InsufficientBalance(_)) => Err(TransactionFailure::InsufficientBalance),
+                Err(TxError::Conflict(_)) => Err(TransactionFailure::Conflict),
+                Err(TxError::Mismatch(_)) => Err(TransactionFailure::Mismatch),
+                Err(other) => Err(TransactionFailure::Failed(other.to_string())),
+            }
+        })
+    }
+
+    fn find_claim(
+        &self,
+        account: AccountId,
+        transaction_id: String,
+    ) -> BoxFuture<'_, Result<Option<DailyClaim>, String>> {
+        let shared = self.shared.clone();
+        Box::pin(async move {
+            let Some(store) = shared.store.as_ref() else {
+                return Err("store unavailable".into());
+            };
+            store
+                .read(move |conn, repos| {
+                    let characters = repos.characters.find_many_by_account(conn, &account)?;
+                    for ch in &characters {
+                        let key = crate::repo::inventory::LedgerKey {
+                            account: &account,
+                            character_id: &ch.character_id,
+                            transaction_id: &transaction_id,
+                        };
+                        if let Some(found) = repos.inventory_transactions.find_record(conn, key)? {
+                            return Ok(Some(DailyClaim {
+                                character_id: Some(found.character_id),
+                            }));
+                        }
+                    }
+                    let recent = repos
+                        .inventory_transactions
+                        .list_recent_for_account(conn, &account, 500)?;
+                    for row in recent {
+                        if row.get("transactionId").and_then(Value::as_str) == Some(transaction_id.as_str()) {
+                            return Ok(Some(DailyClaim {
+                                character_id: row.get("characterId").and_then(Value::as_str).map(str::to_owned),
+                            }));
+                        }
+                    }
+                    Ok(None)
+                })
+                .await
+                .map_err(|e| e.to_string())
+        })
+    }
+}
+
+impl StoreSeams {
+    pub fn production(shared: &Arc<crate::http::Shared>, request_id: &str) -> Option<Self> {
+        shared.store.as_ref()?;
+        Some(Self {
+            tokens: Arc::new(crate::areas::auth::tokens::StoreTokens(shared.settings.clone())),
+            characters: Arc::new(ProductionCharacters(shared.clone())),
+            inventory: Arc::new(ProductionInventory {
+                shared: shared.clone(),
+                request_id: request_id.to_owned(),
+            }),
+        })
+    }
+}
+
 pub fn seams_of(call: &Call) -> Option<StoreSeams> {
-    call.request.extensions().get::<StoreSeams>().cloned()
+    call.request
+        .extensions()
+        .get::<StoreSeams>()
+        .cloned()
+        .or_else(|| StoreSeams::production(&call.shared, &call.request_id))
 }

@@ -105,11 +105,47 @@ pub struct ModuleSpec {
 }
 
 #[derive(Default)]
+struct ChatPresenceTracker {
+    online: Mutex<std::collections::HashSet<String>>,
+}
+
+impl crate::areas::matchmaking::state::ChatPresence for ChatPresenceTracker {
+    fn is_online(&self, user_id: &str) -> bool {
+        self.online
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains(user_id)
+    }
+}
+
+impl crate::areas::reforged_api::presence::ChatSessions for ChatPresenceTracker {
+    fn online_user_ids(&self) -> Vec<String> {
+        self.online
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .cloned()
+            .collect()
+    }
+
+    fn close_connections(&self, user_id: &str, _code: u16, _reason: &str) -> usize {
+        usize::from(
+            self.online
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(user_id),
+        )
+    }
+}
+
+#[derive(Default)]
 struct Running {
     phase: Option<Phase>,
     detail: Option<String>,
     servers: Vec<(oneshot::Sender<()>, JoinHandle<()>)>,
     store: Option<IslesStore>,
+    shared: Option<Arc<Shared>>,
+    presence: Arc<ChatPresenceTracker>,
     /// What the chat rules read, once started
     chat: Option<Arc<dyn ChatSource>>,
     /// Background tasks of the areas (the auth area's registration sweep), aborted at stop
@@ -199,10 +235,20 @@ impl IslesModule {
                 .await
                 .map_err(failed)??
         };
+        let matchmaking = Arc::new(MatchmakingState::from_settings(&settings));
+        let presence_tracker = Arc::new(ChatPresenceTracker::default());
+        matchmaking.set_chat_presence(presence_tracker.clone());
+        crate::areas::reforged_api::presence::set_chat_sessions(Some(presence_tracker.clone()));
+        if let Some(store) = &store {
+            matchmaking.set_hunt_activity(Arc::new(crate::areas::reforged_api::activity::StoreHuntActivity {
+                store: store.clone(),
+                settings: settings.clone(),
+            }));
+        }
         let shared = Arc::new(Shared {
             version: self.spec.version.clone(),
             rifts: (self.spec.rifts)(&settings),
-            matchmaking: Arc::new(MatchmakingState::from_settings(&settings)),
+            matchmaking,
             settings,
             node: ctx.node().clone(),
             game_data,
@@ -265,6 +311,8 @@ impl IslesModule {
             running.servers = servers;
             running.background = background;
             running.store = store;
+            running.shared = Some(shared.clone());
+            running.presence = presence_tracker;
             running.chat = Some(chat);
             running.phase = Some(Phase::Ready);
             running.detail = Some(detail.clone());
@@ -346,6 +394,7 @@ impl GameModule for IslesModule {
         }
         registrar.emits(EventName::new(LISTENING_EVENT).map_err(failed)?);
         registrar.emits(EventName::new(isles_chat::headline::HEADLINE_EVENT).map_err(failed)?);
+        registrar.subscribes(EventName::new(module_api::chat::PRESENCE_EVENT).map_err(failed)?);
         registrar.config_section(ConfigSection::new("backend").key(
             "env_file",
             json!(""),
@@ -397,6 +446,7 @@ impl GameModule for IslesModule {
                 let mut running = lock(&self.running);
                 running.phase = Some(Phase::Stopping);
                 running.chat = None;
+                running.shared = None;
                 for task in std::mem::take(&mut running.background) {
                     task.abort();
                 }
@@ -445,6 +495,39 @@ impl GameModule for IslesModule {
             let store = lock(&self.running).store.clone();
             let store = store.ok_or_else(|| ModuleError::new(ErrorKind::Unavailable, "the module has no database"))?;
             handle_admin(&store, call).await
+        })
+    }
+
+    fn event(&self, _ctx: ModuleContext, event: Event) -> BoxFuture<'_, Result<(), ModuleError>> {
+        Box::pin(async move {
+            if event.name.as_str() == module_api::chat::PRESENCE_EVENT {
+                let Ok(presence) = serde_json::from_value::<module_api::chat::PresenceEvent>(event.payload) else {
+                    return Ok(());
+                };
+                let (tracker, shared) = {
+                    let running = lock(&self.running);
+                    (running.presence.clone(), running.shared.clone())
+                };
+                if presence.online {
+                    tracker
+                        .online
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .insert(presence.user_id);
+                } else {
+                    tracker
+                        .online
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .remove(&presence.user_id);
+                    if let Some(shared) = shared {
+                        let _ = crate::areas::matchmaking::party::Parties::of(&shared, None)
+                            .leave(&presence.user_id)
+                            .await;
+                    }
+                }
+            }
+            Ok(())
         })
     }
 }
@@ -574,13 +657,16 @@ async fn handle_admin(store: &IslesStore, call: AdminCall) -> Result<AdminRespon
             Ok(AdminResponse::Done)
         }
         AdminRequest::Lookup { player } => {
-            let Some((target, _, name)) = resolve_player(store, &player).await? else {
+            let Some((target, user_id, name)) = resolve_player(store, &player).await? else {
                 return Ok(AdminResponse::NotFound);
             };
+            let online = presence::active_players(crate::areas::reforged_api::activity::ACTIVITY_SESSION_GAP_MS)
+                .iter()
+                .any(|u| u == &user_id);
             Ok(AdminResponse::Player(PlayerInfo {
                 account: Some(target.global().clone()),
                 name,
-                online: false,
+                online,
             }))
         }
     }

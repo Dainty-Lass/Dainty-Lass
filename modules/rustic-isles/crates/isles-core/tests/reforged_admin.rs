@@ -1200,3 +1200,237 @@ async fn the_operations_policy_changes_by_version_and_weakening_needs_a_fresh_co
     );
     set_credentials(None);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn activity_overview_player_summary_and_flags_work_and_acknowledge_audits() {
+    use isles_core::repo::reforged::{
+        ActivityFlagRecord, ActivityHuntRecord, HuntKind, HuntResult, SlayersPathUnlockRecord,
+    };
+
+    let r = rig(RouteSet::V1147, &[]).await;
+    let cookie = [("cookie", COOKIE)];
+    let player_acc = r.player.0.clone();
+    let player_uid = r.player.1.clone();
+    let today = isles_core::areas::reforged_api::activity::day_of(now_ms());
+    let ttl = now_ms() + 86_400_000;
+    let now_iso = iso(now_ms());
+    let flag_id = format!("UNOFFICIAL_LAUNCHER:{player_uid}:{today}");
+    let flag_id_in = flag_id.clone();
+    let today_in = today.clone();
+    let now_in = now_iso.clone();
+    let acc_in = player_acc.clone();
+    let uid_in = player_uid.clone();
+    r.store
+        .account_write(&player_acc, &ActorContext::new(Actor::System), move |tx, repos| {
+            repos.activity.add_to_daily(
+                tx,
+                &acc_in,
+                &today_in,
+                &[
+                    ("playtimeMinutes".into(), 45.0),
+                    ("sessions".into(), 2.0),
+                    ("huntsStarted.dedicated".into(), 3.0),
+                    ("huntsCompleted.dedicated".into(), 2.0),
+                    ("xp.PlayerSlayerLevel".into(), 1200.0),
+                ],
+                ttl,
+            )?;
+            repos.activity.insert_hunt_if_absent(
+                tx,
+                &ActivityHuntRecord {
+                    id: "dedicated:ref-1:player".into(),
+                    account: acc_in.clone(),
+                    host: false,
+                    kind: HuntKind::Dedicated,
+                    hunt_id: "Island_A".into(),
+                    hunt_ref: "ref-1".into(),
+                    started_at: now_in.clone(),
+                    ended_at: Some(now_in.clone()),
+                    end_reason: Some("ALL_GONE".into()),
+                    result: Some(HuntResult::Completed),
+                    kills: 2,
+                    ttl_at: ttl,
+                },
+            )?;
+            repos.activity.insert_unlock_if_absent(
+                tx,
+                &SlayersPathUnlockRecord {
+                    id: format!("{uid_in}:Node_1"),
+                    account: acc_in.clone(),
+                    node_id: "Node_1".into(),
+                    unlocked_at: now_in.clone(),
+                    source: "gameserver".into(),
+                    ttl_at: ttl,
+                },
+            )?;
+            repos.activity.insert_flag_if_absent(
+                tx,
+                &ActivityFlagRecord {
+                    id: flag_id_in,
+                    kind: "UNOFFICIAL_LAUNCHER".into(),
+                    severity: "high".into(),
+                    account: acc_in,
+                    day: today_in,
+                    detail: "unofficial build".into(),
+                    acknowledged: false,
+                    created_at: now_in,
+                    acknowledged_at: None,
+                    acknowledged_by: None,
+                    note: None,
+                    ttl_at: ttl,
+                },
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+    let overview = get(r.address, "/admin/v1/activity/overview", &cookie).await;
+    assert_eq!(overview.status, 200, "{}", overview.text());
+    let ov_json = overview.json();
+    assert_eq!(ov_json["monitorEnabled"], true);
+    assert_eq!(ov_json["truncated"], false);
+    assert!(!ov_json["days"].as_array().unwrap().is_empty());
+
+    let summary = get(r.address, &format!("/admin/v1/activity/players/{player_uid}"), &cookie).await;
+    assert_eq!(summary.status, 200, "{}", summary.text());
+    let sum_json = summary.json();
+    assert_eq!(sum_json["userId"], player_uid);
+    assert_eq!(sum_json["totals"]["sessions"], 2.0);
+    assert_eq!(sum_json["totals"]["huntsCompleted"]["dedicated"], 2.0);
+    assert_eq!(sum_json["hunts"].as_array().unwrap().len(), 1);
+    assert_eq!(sum_json["unlocks"].as_array().unwrap().len(), 1);
+    assert_eq!(sum_json["flags"].as_array().unwrap().len(), 1);
+
+    let flags = get(r.address, "/admin/v1/activity/flags?status=open", &cookie).await;
+    assert_eq!(flags.status, 200);
+    assert_eq!(flags.json()["total"], 1);
+
+    let encoded_flag = flag_id.replace(':', "%3A");
+    let ack = patch(
+        &r,
+        &format!("/admin/v1/activity/flags/{encoded_flag}"),
+        r#"{"acknowledged":true,"note":"reviewed by operator"}"#,
+    )
+    .await;
+    assert_eq!(ack.status, 200, "{}", ack.text());
+    let ack_json = ack.json();
+    assert_eq!(ack_json["flag"]["status"], "acknowledged");
+    assert_eq!(ack_json["flag"]["note"], "reviewed by operator");
+    assert_eq!(ack_json["flag"]["acknowledgedBy"], r.admin.1);
+
+    let open_after = get(r.address, "/admin/v1/activity/flags?status=open", &cookie)
+        .await
+        .json();
+    assert_eq!(open_after["total"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn discord_admin_auth_start_and_callback_enforce_config_and_pkce_binding() {
+    let unconfigured = rig(RouteSet::V1147, &[]).await;
+    let start_unconf = get(unconfigured.address, "/admin/v1/auth/discord/start", &[]).await;
+    assert_eq!(start_unconf.status, 503);
+    assert_eq!(start_unconf.json()["error"]["code"], "ADMIN_DISCORD_NOT_CONFIGURED");
+
+    let configured = rig(
+        RouteSet::V1147,
+        &[
+            ("DISCORD_CLIENT_ID", "client-123"),
+            ("DISCORD_CLIENT_SECRET", "secret-456"),
+            ("ADMIN_FRONTEND_URL", "http://localhost:4173/admin"),
+            (
+                "ADMIN_DISCORD_REDIRECT_URI",
+                "http://localhost:4173/admin/v1/auth/discord/callback",
+            ),
+            ("ADMIN_DISCORD_ALLOWED_IDS", "100000000000000001"),
+        ],
+    )
+    .await;
+    let start = get(configured.address, "/admin/v1/auth/discord/start", &[]).await;
+    assert_eq!(start.status, 302);
+    let loc = start.header("location").unwrap();
+    assert!(loc.starts_with("https://discord.com/api/oauth2/authorize?"));
+    assert!(loc.contains("client_id=client-123"));
+    assert!(loc.contains("code_challenge_method=S256"));
+    let set_cookie = start.header("set-cookie").unwrap();
+    assert!(set_cookie.starts_with("mysticparadox_admin_oauth="));
+
+    let cb_denied = get(
+        configured.address,
+        "/admin/v1/auth/discord/callback?error=access_denied",
+        &[],
+    )
+    .await;
+    assert_eq!(cb_denied.status, 302);
+    assert_eq!(
+        cb_denied.header("location"),
+        Some("http://localhost:4173/admin/?error=discord_cancelled")
+    );
+
+    let cb_invalid_state = get(
+        configured.address,
+        "/admin/v1/auth/discord/callback?code=abc&state=bad",
+        &[],
+    )
+    .await;
+    assert_eq!(cb_invalid_state.status, 302);
+    assert_eq!(
+        cb_invalid_state.header("location"),
+        Some("http://localhost:4173/admin/?error=discord_expired")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tester_max_requires_tester_role_confirmation_and_run_id() {
+    let r = rig(RouteSet::V1147, &[]).await;
+    let headers = session_headers();
+    let player_uid = r.player.1.clone();
+
+    let not_tester = common::post_json(
+        r.address,
+        &format!("/admin/v1/players/{player_uid}/tester-max"),
+        &headers,
+        r#"{"confirm":"MAX Fox_9","runId":"run_0001"}"#,
+    )
+    .await;
+    assert_eq!(not_tester.status, 409);
+    assert_eq!(not_tester.json()["error"]["code"], "ADMIN_TESTER_REQUIRED");
+
+    r.fakes
+        .world()
+        .launchers
+        .iter_mut()
+        .find(|a| a.account == r.player.0)
+        .unwrap()
+        .roles = vec!["player".into(), "tester".into()];
+
+    let bad_confirm = common::post_json(
+        r.address,
+        &format!("/admin/v1/players/{player_uid}/tester-max"),
+        &headers,
+        r#"{"confirm":"MAX fox_9","runId":"run_0001"}"#,
+    )
+    .await;
+    assert_eq!(bad_confirm.status, 400);
+    assert_eq!(bad_confirm.json()["error"]["code"], "ADMIN_TESTER_MAX_CONFIRMATION");
+
+    let bad_run_id = common::post_json(
+        r.address,
+        &format!("/admin/v1/players/{player_uid}/tester-max"),
+        &headers,
+        r#"{"confirm":"MAX Fox_9","runId":"short"}"#,
+    )
+    .await;
+    assert_eq!(bad_run_id.status, 400);
+    assert_eq!(bad_run_id.json()["error"]["code"], "ADMIN_TESTER_MAX_RUN_ID");
+
+    let missing_kit = common::post_json(
+        r.address,
+        &format!("/admin/v1/players/{player_uid}/tester-max"),
+        &headers,
+        r#"{"confirm":"MAX Fox_9","runId":"run_0001_valid"}"#,
+    )
+    .await;
+    assert_eq!(missing_kit.status, 503);
+    assert_eq!(missing_kit.json()["error"]["code"], "ADMIN_TESTER_MAX_KIT_MISSING");
+}

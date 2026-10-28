@@ -6,7 +6,9 @@
 // `segment` and the feed locators fail with Node's one "Invalid ..." and nothing to say beyond it
 #![allow(clippy::result_unit_err)]
 
+pub mod activity;
 pub mod admin;
+pub mod admin_discord;
 pub mod admin_guard;
 pub mod guard;
 pub mod guard_manifest;
@@ -24,6 +26,7 @@ pub mod presence;
 pub mod probes;
 pub mod release_gates;
 pub mod rules;
+pub mod tester_max;
 pub mod updates;
 pub mod util;
 
@@ -39,6 +42,9 @@ pub fn register(handlers: &mut Handlers) {
     logs::register(handlers);
     guard::register(handlers);
     admin::register(handlers);
+    admin_discord::register(handlers);
+    activity::register(handlers);
+    tester_max::register(handlers);
     notices::register(handlers);
     admin_guard::register(handlers);
     player_logs::register(handlers);
