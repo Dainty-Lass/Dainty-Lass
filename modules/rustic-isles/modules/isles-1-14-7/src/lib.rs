@@ -270,31 +270,33 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
     use rifts_realms::control::ControlChannel;
     use rifts_realms::db::RealmsDb;
     use rifts_realms::directory::{DirectoryParts, RealmDirectory};
-    use rifts_realms::hunt::HuntSession;
     use rifts_realms::leases::{Hosting, HostingParts, HostingSettings};
-    use rifts_realms::lifecycle::Recovery;
+    use rifts_realms::lifecycle::RealmsRecovery;
     use rifts_realms::ports::{
-        CoreAccounts, CoreGuardSessions, CoreOperationsView, NoRateLimit, RandomIds, StderrLog,
-        SystemClock as RealmsClock,
+        Clock, CoreAccounts, CoreGuardSessions, CoreOperationsView, RandomIds, RateLimiter as RealmsRateLimiter,
+        StderrLog, SystemClock as RealmsClock,
     };
     use rifts_realms::realm::RealmLimits;
     use rifts_realms::tiers::HostingPolicy;
     use rifts_realms::{
-        RealmsError, RealmsHuntSessions, RealmsRoutes, RealmsRoutesParts, RealmsService, RealmsServiceParts,
+        RealmsHuntSessions, RealmsRoutes, RealmsRoutesParts, RealmsService, RealmsServiceParts,
         realms_enabled_or_default,
     };
-    use rifts_seam::{BoxFuture, RiftsParts, RouteHandler};
+    use rifts_seam::{RiftsParts, RouteHandler};
     use store::{Database, DatabaseConfig, DatabaseOptions};
 
-    struct NoopRecovery;
+    // Node's IsRateLimited (security/rateLimit.ts) over isles-core's sliding-window limiter; only /launcher/v1/realms*
+    // routes throttle through RealmDirectory (p2pLauncher.ts, p2pControl.ts, p2pHostLifecycle.ts and p2pHunts.ts:80
+    // apply no IsRateLimited window).
+    struct IslesRateLimiter {
+        inner: isles_core::areas::auth::runtime::RateLimiter,
+        clock: Arc<dyn Clock>,
+    }
 
-    impl Recovery for NoopRecovery {
-        fn prepare(&self, _: String, _: i64, _: String, _: bool) -> BoxFuture<'_, Result<(), RealmsError>> {
-            Box::pin(async { Ok(()) })
-        }
-
-        fn advance(&self, _: HuntSession) -> BoxFuture<'_, Result<(), RealmsError>> {
-            Box::pin(async { Ok(()) })
+    impl RealmsRateLimiter for IslesRateLimiter {
+        fn is_limited(&self, key: &str, max: u32, window_ms: i64) -> bool {
+            self.inner
+                .is_limited_at(key, max as usize, window_ms, self.clock.now().0)
         }
     }
 
@@ -331,7 +333,10 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
                 accounts: Arc::new(CoreAccounts(Arc::clone(&core))),
                 events: None,
                 clock: Arc::clone(&realms_clock),
-                limiter: Arc::new(NoRateLimit),
+                limiter: Arc::new(IslesRateLimiter {
+                    inner: isles_core::areas::auth::runtime::RateLimiter::default(),
+                    clock: Arc::clone(&realms_clock),
+                }),
                 ids: Arc::new(RandomIds),
                 limits: RealmLimits::from_settings(settings),
                 log: Arc::new(StderrLog),
@@ -343,7 +348,12 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
                 clock: Arc::clone(&realms_clock),
                 operations: Arc::new(CoreOperationsView(Arc::clone(&core))),
                 guard: Arc::new(CoreGuardSessions(Arc::clone(&core))),
-                recovery: Arc::new(NoopRecovery),
+                recovery: Arc::new(RealmsRecovery::new(
+                    db.clone(),
+                    Arc::clone(&core),
+                    Arc::clone(&realms_clock),
+                    Arc::new(StderrLog),
+                )),
                 expected_artifacts: Arc::new(|| Err("artifact policy feed not configured".to_owned())),
                 log: Arc::new(StderrLog),
             }));
