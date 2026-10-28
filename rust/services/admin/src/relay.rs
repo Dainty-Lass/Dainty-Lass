@@ -400,18 +400,40 @@ impl AdminRelay {
         directory.find(username).await.ok().flatten()
     }
 
-    /// Ends session tickets for `account` on this node immediately.
-    pub fn revoke_tickets(&self, account: &GlobalId) {
-        if let Some(tickets) = self.network.tickets() {
-            tickets.revoke(account);
+    /// Ends session tickets for `account` on this node immediately and persists the revocation
+    /// row when a database is attached.
+    pub fn revoke_tickets(&self, account: &GlobalId) -> Result<(), String> {
+        if let Some(tickets) = self.network.tickets()
+            && let Err(error) = tickets.revoke(account)
+        {
+            log::error(
+                "could not persist ticket revocation",
+                json!({
+                    "account": account.to_string(),
+                    "error": error.to_string(),
+                }),
+            );
+            return Err(error.to_string());
         }
+        Ok(())
     }
 
-    /// Allows session tickets for `account` on this node again after an unban or lifted timeout.
-    pub fn allow_tickets(&self, account: &GlobalId) {
-        if let Some(tickets) = self.network.tickets() {
-            tickets.allow(account);
+    /// Allows session tickets for `account` on this node again after an unban or lifted timeout
+    /// and clears the persisted revocation row when a database is attached.
+    pub fn allow_tickets(&self, account: &GlobalId) -> Result<(), String> {
+        if let Some(tickets) = self.network.tickets()
+            && let Err(error) = tickets.allow(account)
+        {
+            log::error(
+                "could not clear ticket revocation",
+                json!({
+                    "account": account.to_string(),
+                    "error": error.to_string(),
+                }),
+            );
+            return Err(error.to_string());
         }
+        Ok(())
     }
 
     /// Sends `action` to `peer` over `Service::Admin`.

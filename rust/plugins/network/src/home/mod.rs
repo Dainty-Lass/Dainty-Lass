@@ -18,4 +18,4 @@ pub use client::{NetworkedConfig, NetworkedHome};
 pub use keys::{KeyError, SigningKey, VerifyingKey};
 pub use protocol::{HOME_VERSION, HomeBody, HomeCall, HomeRefusal, HomeReply, HomeRequest, HomeRequestCall};
 pub use service::{DriverBackend, HomeConfig, HomeLocator, HomeRouter, HomeService};
-pub use ticket::{Claims, Expect, TicketConfig, TicketError, Tickets};
+pub use ticket::{Claims, Expect, RevocationPersistError, TicketConfig, TicketError, Tickets};

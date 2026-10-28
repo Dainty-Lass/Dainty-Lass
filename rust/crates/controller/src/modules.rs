@@ -196,19 +196,28 @@ impl InProcessAllowlistSink {
 impl network_plugin::ring::AllowlistSink for InProcessAllowlistSink {
     fn admit_player(
         &self,
-        _instance: &module_api::network::GlobalId,
+        instance: &module_api::network::GlobalId,
         _account: &module_api::network::GlobalId,
         client_ip: &str,
         udp_port: u16,
     ) {
-        if let Some(slot) = &self.slot
-            && let Some(helper) = slot
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .as_ref()
-                .cloned()
-        {
-            let _ = helper.admit_udp(client_ip, udp_port);
+        let admitted = self
+            .slot
+            .as_ref()
+            .and_then(|slot| {
+                slot.lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .as_ref()
+                    .cloned()
+            })
+            .is_some_and(|helper| helper.admit_udp(client_ip, udp_port));
+        if !admitted {
+            tracing::warn!(
+                target: "host",
+                instance = %instance,
+                udp_port,
+                "allowlist helper refused player UDP admission; game port stays closed"
+            );
         }
     }
 }

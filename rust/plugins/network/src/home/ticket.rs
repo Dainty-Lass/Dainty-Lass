@@ -81,6 +81,14 @@ pub enum TicketError {
     Unavailable,
 }
 
+/// Persisting a ticket revocation or unban floor in `network_ticket_revocations` failed.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("could not persist ticket revocation for {account}: {reason}")]
+pub struct RevocationPersistError {
+    pub account: GlobalId,
+    pub reason: String,
+}
+
 /// What a ticket says, once its signature has been checked (`Tickets::verify`) or not yet (`Tickets::peek`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -538,7 +546,7 @@ impl Tickets {
     /// Ends every session of `account` that began at or before now: tickets issued so far stop working here,
     /// and can't be renewed. A login after this gets new ones. Persisted in `network_ticket_revocations` when
     /// a database is attached so a restart does not reinstate banned sessions.
-    pub fn revoke(&self, account: &GlobalId) {
+    pub fn revoke(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
         let now = self.clock.now_ms();
         let floor = {
             let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
@@ -549,7 +557,7 @@ impl Tickets {
         #[cfg(feature = "directory")]
         if let Some(db) = self.db.read().unwrap_or_else(PoisonError::into_inner).clone() {
             let account_str = account.to_string();
-            let _ = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
+            if let Err(error) = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
                 use diesel::prelude::*;
                 use diesel::sql_types::{BigInt, Text};
                 let sql = store::portable::upsert(
@@ -563,12 +571,24 @@ impl Tickets {
                     .bind::<BigInt, _>(floor)
                     .execute(tx.conn())?;
                 Ok(())
-            }));
+            })) {
+                let reason = error.to_string();
+                tracing::error!(
+                    account = %account,
+                    error = %reason,
+                    "could not persist ticket revocation floor"
+                );
+                return Err(RevocationPersistError {
+                    account: account.clone(),
+                    reason,
+                });
+            }
         }
+        Ok(())
     }
 
     /// Clears an earlier [`Self::revoke`] for `account` (after an unban or lifted timeout).
-    pub fn allow(&self, account: &GlobalId) {
+    pub fn allow(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
         self.revoked
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -576,15 +596,27 @@ impl Tickets {
         #[cfg(feature = "directory")]
         if let Some(db) = self.db.read().unwrap_or_else(PoisonError::into_inner).clone() {
             let account_str = account.to_string();
-            let _ = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
+            if let Err(error) = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
                 use diesel::prelude::*;
                 use diesel::sql_types::Text;
                 diesel::sql_query("DELETE FROM network_ticket_revocations WHERE account = $1")
                     .bind::<Text, _>(account_str)
                     .execute(tx.conn())?;
                 Ok(())
-            }));
+            })) {
+                let reason = error.to_string();
+                tracing::error!(
+                    account = %account,
+                    error = %reason,
+                    "could not clear persisted ticket revocation floor"
+                );
+                return Err(RevocationPersistError {
+                    account: account.clone(),
+                    reason,
+                });
+            }
         }
+        Ok(())
     }
 
     /// Whether a session of `account` that started at `at` (ms) has been revoked here.
@@ -851,7 +883,7 @@ mod tests {
         let ticket = s.ticket();
         s.home.verify(&ticket, &at_home).unwrap();
         s.clock.skew_by(1_000);
-        s.home.revoke(&s.account);
+        s.home.revoke(&s.account).unwrap();
         assert_eq!(s.home.verify(&ticket, &at_home), Err(TicketError::Revoked));
         // The audience can't know, but a ticket made after the revocation is good
         s.audience.verify(&ticket, &s.expect()).unwrap();
