@@ -9,7 +9,7 @@ use std::sync::Arc;
 use common::{actor, hunt_session, participant, targets};
 use rifts_guard::ports::{CapabilityView, HuntSessions, HuntView, RosterEntry};
 use rifts_guard::{
-    Guard, GuardConfig, GuardParts, HostWriteRecord, ManualClock as GuardClock, MemoryLog, MemoryOperations,
+    Guard, GuardConfig, GuardParts, GuardStore, HostWriteRecord, ManualClock as GuardClock, MemoryLog, MemoryOperations,
 };
 use rifts_realms::RealmsHuntSessions;
 use rifts_realms::capabilities::{HostCapabilities, hash_capability_secret};
@@ -381,5 +381,49 @@ async fn guard_integrates_with_realms_hunt_sessions_and_sql_guard_store() {
             .push((HOST_CAPABILITY_HEADER.to_owned(), secret.expose().to_owned()));
         let bucket = guard.rate_limit_bucket(req).await.unwrap();
         assert_eq!(bucket, Some(format!("host:{}", cap_record.capability_id)));
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn realms_and_guard_schemas_migrate_fresh_and_existing_databases() {
+    for target in targets() {
+        let config = target.config();
+        let options = store::DatabaseOptions::default();
+
+        // 1. Fresh database migrated by rifts-guard first (`2026-10-26-000002_rifts_guard`).
+        let guard_store = rifts_guard::SqlGuardStore::open(&config, &options).unwrap();
+        let seam_sess = seam_session_id(SESSION_WIRE, &module_api::NodeId::new("local").unwrap()).unwrap();
+        guard_store
+            .record_host_write(
+                &actor(),
+                &HostWriteRecord {
+                    kind: HostWriteKind::Xp,
+                    target: AccountId("friend-1".to_owned()),
+                    host: AccountId("host-1".to_owned()),
+                    session: seam_sess.clone(),
+                    generation: 1,
+                    realm: None,
+                    session_kind: None,
+                    hub_kind: None,
+                    summary: Json(r#"{"xp":100}"#.to_owned()),
+                    at: NOW,
+                },
+            )
+            .unwrap();
+
+        // 2. Existing database that already applied `2026-10-26-000002_rifts_guard` is then migrated by `rifts-realms`.
+        let realms_db =
+            rifts_realms::db::RealmsDb::open(&config, &options, module_api::NodeId::new("local").unwrap()).unwrap();
+        let hunts = HuntRepository::new(realms_db.clone());
+        let hunt = hunt_session(SESSION_WIRE, HuntState::Running);
+        hunts.create_hunt(&actor(), &hunt).await.unwrap();
+
+        // 3. Reopening both `rifts-guard` and `rifts-realms` on the already-migrated database succeeds and preserves data.
+        let guard_reopened = rifts_guard::SqlGuardStore::open(&config, &options).unwrap();
+        assert_eq!(guard_reopened.host_writes().unwrap().len(), 1);
+        let realms_reopened =
+            rifts_realms::db::RealmsDb::open(&config, &options, module_api::NodeId::new("local").unwrap()).unwrap();
+        let hunts_reopened = HuntRepository::new(realms_reopened);
+        assert!(hunts_reopened.find_hunt(SESSION_WIRE).await.unwrap().is_some());
     }
 }

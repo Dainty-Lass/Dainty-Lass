@@ -86,13 +86,17 @@ impl Target {
         }
     }
 
-    pub fn open(&self) -> RealmsDb {
-        let config = match self {
+    pub fn config(&self) -> DatabaseConfig {
+        match self {
             Self::Sqlite(dir) => DatabaseConfig::Sqlite {
                 file: dir.path().join("realms.db"),
             },
             Self::Postgres(pg) => DatabaseConfig::Postgres(pg.config.clone()),
-        };
+        }
+    }
+
+    pub fn open(&self) -> RealmsDb {
+        let config = self.config();
         RealmsDb::open(&config, &DatabaseOptions::default(), NodeId::new("local").unwrap()).unwrap()
     }
 }
