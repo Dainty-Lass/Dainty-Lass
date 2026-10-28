@@ -82,6 +82,32 @@ pub fn client_ip(request: &Request) -> String {
     forwarded_client_address(&peer.to_string(), &forwarded)
 }
 
+/// `ipKeyGenerator(ip, 56)` (`express-rate-limit` 8.7.0): converts IPv4-mapped IPv6 addresses to IPv4 and groups other
+/// IPv6 addresses by their `/56` network prefix.
+pub fn ip_key_generator(ip: &str) -> String {
+    let trimmed = ip.trim();
+    if let Some(rest) = trimmed
+        .strip_prefix("::ffff:")
+        .or_else(|| trimmed.strip_prefix("::FFFF:"))
+        && let Ok(v4) = rest.parse::<std::net::Ipv4Addr>()
+    {
+        return v4.to_string();
+    }
+    if let Ok(v6) = trimmed.parse::<std::net::Ipv6Addr>() {
+        if let Some(v4) = v6.to_ipv4_mapped() {
+            return v4.to_string();
+        }
+        if trimmed.contains('.')
+            && let Some(v4) = v6.to_ipv4()
+        {
+            return v4.to_string();
+        }
+        let masked = std::net::Ipv6Addr::from(u128::from(v6) & (!0u128 << (128 - 56)));
+        return format!("{masked}/56");
+    }
+    trimmed.to_owned()
+}
+
 // ------------------------------------------------------------------ bodies
 
 pub use crate::http::{BODY_LIMIT, read_body};
@@ -158,5 +184,25 @@ mod tests {
         );
         assert_eq!(query_param(Some("a=1&name=x&name=y"), "name"), Some(None));
         assert_eq!(query_param(Some("a=1"), "name"), None);
+    }
+
+    #[test]
+    fn ip_key_generator_matches_express_rate_limit_v8() {
+        assert_eq!(ip_key_generator("127.0.0.1"), "127.0.0.1");
+        assert_eq!(ip_key_generator("198.51.100.10"), "198.51.100.10");
+        assert_eq!(ip_key_generator("unknown"), "unknown");
+        assert_eq!(ip_key_generator("::1"), "::/56");
+        assert_eq!(ip_key_generator("::ffff:127.0.0.1"), "127.0.0.1");
+        assert_eq!(ip_key_generator("::ffff:198.51.100.10"), "198.51.100.10");
+        assert_eq!(
+            ip_key_generator("2001:db8:abcd:ef12:1:2:3:4"),
+            "2001:db8:abcd:ef00::/56"
+        );
+        assert_eq!(ip_key_generator("2001:db8:abcd:ef99::1"), "2001:db8:abcd:ef00::/56");
+        assert_eq!(ip_key_generator("fe80::1ff:fe23:4567:890a"), "fe80::/56");
+        assert_eq!(
+            ip_key_generator("2001:0db8:85a3:0000:0000:8a2e:0370:7334"),
+            "2001:db8:85a3::/56"
+        );
     }
 }

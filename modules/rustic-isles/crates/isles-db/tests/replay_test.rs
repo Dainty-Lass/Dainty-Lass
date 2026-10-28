@@ -1220,7 +1220,12 @@ async fn recorded_corpus_and_live_xmpp_chat_replay_with_zero_diffs() {
             "method": "GET", "target": "/reforged/api/ServerStatus", "route": "backend",
             "req_headers": {}, "req_body": null,
             "status": 200,
-            "res_headers": {"content-type": "application/json; charset=utf-8", "cache-control": "no-store"},
+            "res_headers": {
+                "content-type": "application/json; charset=utf-8",
+                "cache-control": "no-store",
+                "ratelimit": "\"600-in-1min\"; r=599; t=60",
+                "ratelimit-policy": "\"600-in-1min\"; q=600; w=60; pk=:YjU5MDczYThlN2Fj:"
+            },
             "res_body": {"json": {
                 "name": "DaintyLass server",
                 "online": true,

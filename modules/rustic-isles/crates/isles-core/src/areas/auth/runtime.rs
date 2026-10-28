@@ -20,10 +20,82 @@ use super::policy::{LauncherBuildReport, LauncherBuildVerdict};
 use super::util::now_ms;
 use crate::repo::AccountId;
 
-/// `security/rateLimit.ts`'s `IsRateLimited`: a sliding window per key, in memory and reset on restart.
+/// `security/rateLimit.ts`'s `IsRateLimited` (sliding window per key) and `CreateRequestRateLimiter`
+/// (`express-rate-limit` 8.7.0 `MemoryStore`, fixed 60-second window per key), in memory and reset on restart.
+// Deliberate improvement over Node: sweep expired keys and cap tracked keys so an address flood cannot grow memory without bound.
+pub const MAX_RATE_LIMIT_KEYS: usize = 16_384;
+pub const REQUEST_BUDGET_WINDOW_MS: i64 = 60_000;
+pub const DEFAULT_CLIENT_LIMIT_PER_MINUTE: u32 = 600;
+pub const DEFAULT_GAMESERVER_LIMIT_PER_MINUTE: u32 = 6000;
+pub const DEFAULT_HOST_LIMIT_PER_MINUTE: u32 = 6000;
+const SWEEP_INTERVAL_MS: i64 = 60_000;
+
+#[derive(Debug, Default)]
+struct SlidingWindow {
+    attempts: Vec<i64>,
+    expires_at: i64,
+}
+
+#[derive(Debug, Default)]
+struct SlidingState {
+    entries: HashMap<String, SlidingWindow>,
+    next_sweep_at: i64,
+    last_now: i64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct BudgetWindow {
+    total_hits: u32,
+    reset_time: i64,
+}
+
+#[derive(Debug, Default)]
+struct BudgetState {
+    entries: HashMap<String, BudgetWindow>,
+    next_sweep_at: i64,
+    last_now: i64,
+}
+
+/// One hit against `CreateRequestRateLimiter` (`security/rateLimit.ts`) and its `draft-8` response headers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestBudgetVerdict {
+    pub limited: bool,
+    pub rate_limit: String,
+    pub rate_limit_policy: String,
+    pub retry_after: Option<String>,
+}
+
+/// `RequestRateLimitOptions` (`security/rateLimit.ts`), read from [`crate::settings::Settings`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RequestBudgetConfig {
+    pub enabled: bool,
+    pub client_limit: u32,
+    pub gameserver_limit: u32,
+    pub host_limit: u32,
+}
+
+impl RequestBudgetConfig {
+    pub fn from_settings(settings: &crate::settings::Settings) -> Self {
+        Self {
+            enabled: settings.rate_limit_enabled(),
+            client_limit: settings.rate_limit_per_minute(),
+            gameserver_limit: settings.gameserver_rate_limit_per_minute(),
+            host_limit: settings.host_rate_limit_per_minute(),
+        }
+    }
+}
+
+fn draft8_partition_key(key: &str) -> String {
+    use base64::Engine;
+    use sha2::{Digest, Sha256};
+    let hex = super::crypto::hex(&Sha256::digest(key.as_bytes()));
+    base64::engine::general_purpose::STANDARD.encode(&hex.as_bytes()[..12])
+}
+
 #[derive(Debug, Default)]
 pub struct RateLimiter {
-    windows: Mutex<HashMap<String, Vec<i64>>>,
+    windows: Mutex<SlidingState>,
+    budgets: Mutex<BudgetState>,
 }
 
 impl RateLimiter {
@@ -33,14 +105,108 @@ impl RateLimiter {
     }
 
     pub fn is_limited_at(&self, key: &str, max_attempts: usize, window_ms: i64, now: i64) -> bool {
-        let mut windows = self.windows.lock().unwrap_or_else(PoisonError::into_inner);
-        let attempts = windows.entry(key.to_owned()).or_default();
-        attempts.retain(|t| now - t < window_ms);
-        if attempts.len() >= max_attempts {
+        let mut state = self.windows.lock().unwrap_or_else(PoisonError::into_inner);
+        if now >= state.next_sweep_at || now < state.last_now || state.entries.len() >= MAX_RATE_LIMIT_KEYS {
+            state.entries.retain(|_, window| window.expires_at > now);
+            state.next_sweep_at = now.saturating_add(SWEEP_INTERVAL_MS);
+        }
+        state.last_now = now;
+        if !state.entries.contains_key(key)
+            && state.entries.len() >= MAX_RATE_LIMIT_KEYS
+            && let Some(oldest_key) = state
+                .entries
+                .iter()
+                .min_by_key(|(_, window)| window.expires_at)
+                .map(|(k, _)| k.clone())
+        {
+            state.entries.remove(&oldest_key);
+        }
+        let window = state.entries.entry(key.to_owned()).or_default();
+        window.attempts.retain(|t| now - t < window_ms);
+        if window.attempts.len() >= max_attempts {
+            if window.attempts.is_empty() {
+                state.entries.remove(key);
+            }
             return true;
         }
-        attempts.push(now);
+        window.attempts.push(now);
+        window.expires_at = window.expires_at.max(now.saturating_add(window_ms));
         false
+    }
+
+    /// Counts one request in `key`'s fixed 60-second window (`express-rate-limit` 8.7.0 `MemoryStore`).
+    pub fn check_request_budget(&self, key: &str, limit: u32) -> RequestBudgetVerdict {
+        self.check_request_budget_at(key, limit, now_ms())
+    }
+
+    pub fn check_request_budget_at(&self, key: &str, limit: u32, now: i64) -> RequestBudgetVerdict {
+        let mut state = self.budgets.lock().unwrap_or_else(PoisonError::into_inner);
+        if now >= state.next_sweep_at || now < state.last_now || state.entries.len() >= MAX_RATE_LIMIT_KEYS {
+            state.entries.retain(|_, window| window.reset_time > now);
+            state.next_sweep_at = now.saturating_add(SWEEP_INTERVAL_MS);
+        }
+        state.last_now = now;
+        if !state.entries.contains_key(key)
+            && state.entries.len() >= MAX_RATE_LIMIT_KEYS
+            && let Some(oldest_key) = state
+                .entries
+                .iter()
+                .min_by_key(|(_, window)| window.reset_time)
+                .map(|(k, _)| k.clone())
+        {
+            state.entries.remove(&oldest_key);
+        }
+        let window = match state.entries.get_mut(key) {
+            Some(existing) if existing.reset_time > now => {
+                existing.total_hits = existing.total_hits.saturating_add(1);
+                *existing
+            }
+            _ => {
+                let fresh = BudgetWindow {
+                    total_hits: 1,
+                    reset_time: now.saturating_add(REQUEST_BUDGET_WINDOW_MS),
+                };
+                state.entries.insert(key.to_owned(), fresh);
+                fresh
+            }
+        };
+        let remaining = limit.saturating_sub(window.total_hits);
+        let delta_ms = window.reset_time.saturating_sub(now);
+        let reset_seconds = if delta_ms <= 0 {
+            0
+        } else {
+            ((delta_ms + 999) / 1000) as u64
+        };
+        let name = format!("{limit}-in-1min");
+        let partition_key = draft8_partition_key(key);
+        let rate_limit = format!("\"{name}\"; r={remaining}; t={reset_seconds}");
+        let rate_limit_policy = format!("\"{name}\"; q={limit}; w=60; pk=:{partition_key}:");
+        let limited = window.total_hits > limit;
+        let retry_after = limited.then(|| reset_seconds.to_string());
+        RequestBudgetVerdict {
+            limited,
+            rate_limit,
+            rate_limit_policy,
+            retry_after,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn tracked_sliding_keys(&self) -> usize {
+        self.windows
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entries
+            .len()
+    }
+
+    #[cfg(test)]
+    pub fn tracked_budget_keys(&self) -> usize {
+        self.budgets
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entries
+            .len()
     }
 }
 
@@ -437,6 +603,26 @@ mod tests {
         // the first two age out
         assert!(!limiter.is_limited_at("k", 2, 1000, 1011));
         assert!(!limiter.is_limited_at("other", 2, 1000, 20));
+    }
+
+    #[test]
+    fn rate_limiter_sweeps_expired_keys_and_bounds_memory() {
+        let limiter = RateLimiter::default();
+        for i in 0..(MAX_RATE_LIMIT_KEYS + 128) {
+            let key = format!("addr-{i}");
+            assert!(!limiter.is_limited_at(&key, 5, 1000, 100));
+            let verdict = limiter.check_request_budget_at(&key, 5, 100);
+            assert!(!verdict.limited);
+        }
+        assert_eq!(limiter.tracked_sliding_keys(), MAX_RATE_LIMIT_KEYS);
+        assert_eq!(limiter.tracked_budget_keys(), MAX_RATE_LIMIT_KEYS);
+
+        // Advancing past the window sweeps all expired keys
+        assert!(!limiter.is_limited_at("fresh", 5, 1000, 70_000));
+        let verdict = limiter.check_request_budget_at("fresh", 5, 70_000);
+        assert!(!verdict.limited);
+        assert_eq!(limiter.tracked_sliding_keys(), 1);
+        assert_eq!(limiter.tracked_budget_keys(), 1);
     }
 
     #[test]

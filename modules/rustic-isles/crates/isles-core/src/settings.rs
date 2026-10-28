@@ -54,6 +54,29 @@ pub const SWITCHES: [SharedSwitch; 5] = [
     COOLDOWN_PERSISTENCE,
 ];
 
+/// Additional `[switches]` keys in `host.toml` whose defaults are not version-table overrides.
+pub const OPTIONAL_SWITCHES: [(&str, &str); 6] = [
+    ("account_erasure", "MYSTICPARADOX_ACCOUNT_ERASURE"),
+    ("log_purge", "MYSTICPARADOX_LOG_PURGE"),
+    ("rate_limit", "MYSTICPARADOX_RATE_LIMIT"),
+    ("rate_limit_per_minute", "MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"),
+    (
+        "gameserver_rate_limit_per_minute",
+        "MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE",
+    ),
+    ("host_rate_limit_per_minute", "MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"),
+];
+
+fn parse_positive_int(raw: Option<&str>, fallback: u32) -> u32 {
+    let trimmed = raw.unwrap_or_default().trim();
+    let digits = trimmed.strip_prefix('+').unwrap_or(trimmed);
+    let prefix: String = digits.chars().take_while(char::is_ascii_digit).collect();
+    match prefix.parse::<u32>() {
+        Ok(value) if value > 0 => value,
+        _ => fallback,
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum SettingsError {
     #[error("{path}: {message}")]
@@ -106,14 +129,16 @@ impl Settings {
     pub fn switches_from_config(section: Option<&BTreeMap<String, serde_json::Value>>) -> BTreeMap<String, String> {
         SWITCHES
             .iter()
-            .filter_map(|switch| {
-                let value = section?.get(switch.key)?;
+            .map(|switch| (switch.key, switch.env))
+            .chain(OPTIONAL_SWITCHES.iter().copied())
+            .filter_map(|(key, env)| {
+                let value = section?.get(key)?;
                 let text = match value {
                     serde_json::Value::String(text) => text.clone(),
                     serde_json::Value::Null => return None,
                     other => other.to_string(),
                 };
-                Some((switch.env.to_owned(), text))
+                Some((env.to_owned(), text))
             })
             .collect()
     }
@@ -166,6 +191,29 @@ impl Settings {
         !["0", "false", "off", "no"]
             .iter()
             .any(|off| value.eq_ignore_ascii_case(off))
+    }
+
+    /// `MYSTICPARADOX_RATE_LIMIT` (`security/rateLimit.ts`): on unless `0`, `off`, `false` or `no` (trimmed, any case).
+    pub fn rate_limit_enabled(&self) -> bool {
+        let raw = self.raw("MYSTICPARADOX_RATE_LIMIT").unwrap_or("on").trim();
+        !["0", "off", "false", "no"]
+            .iter()
+            .any(|off| raw.eq_ignore_ascii_case(off))
+    }
+
+    /// `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 600.
+    pub fn rate_limit_per_minute(&self) -> u32 {
+        parse_positive_int(self.raw("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"), 600)
+    }
+
+    /// `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 6000.
+    pub fn gameserver_rate_limit_per_minute(&self) -> u32 {
+        parse_positive_int(self.raw("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE"), 6000)
+    }
+
+    /// `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 6000.
+    pub fn host_rate_limit_per_minute(&self) -> u32 {
+        parse_positive_int(self.raw("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"), 6000)
     }
 
     /// `MYSTICPARADOX_ADMIN_API` (`config/adminApi.ts`): `on`, `off`, or blank to follow the manager bridge.
