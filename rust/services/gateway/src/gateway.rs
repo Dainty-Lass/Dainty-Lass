@@ -662,11 +662,12 @@ impl Gateway {
         )
     }
 
-    /// Content and chat are the gateway's own upstreams; the rest is the module's, from its route.
+    /// Content and chat are the gateway's own upstreams unless a module registered its own WebSocket route;
+    /// the rest is the module's, from its route.
     fn endpoint(&self, upstream: Upstream, module: Option<Endpoint>) -> Option<Endpoint> {
         match upstream {
             Upstream::Content => Some(self.config.content.clone()),
-            Upstream::Ws => Some(self.config.ws.clone()),
+            Upstream::Ws => module.or_else(|| Some(self.config.ws.clone())),
             _ => module,
         }
     }

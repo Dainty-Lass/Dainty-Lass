@@ -48,6 +48,10 @@ pub struct DatabaseOptions {
     pub busy_timeout: Duration,
     /// Unix milliseconds for the log's `at`: the system clock, or a test's own (DH4's restore drills).
     pub clock: fn() -> i64,
+    /// Postgres only: a schema of its own (such as `"chat"`), created at [`Database::open`] and set as each
+    /// connection's `search_path`, with its own write and open advisory locks so its writes don't queue behind
+    /// the game's. `None` uses the connection's default schema (`public`).
+    pub postgres_schema: Option<String>,
 }
 
 impl Default for DatabaseOptions {
@@ -57,7 +61,22 @@ impl Default for DatabaseOptions {
             write_connections: 2,
             busy_timeout: Duration::from_secs(5),
             clock: now_ms,
+            postgres_schema: None,
         }
+    }
+}
+
+fn check_schema_name(schema: &str) -> Result<(), Error> {
+    let ok = !schema.is_empty()
+        && schema.len() <= 63
+        && schema
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        && schema.as_bytes()[0].is_ascii_lowercase();
+    if ok {
+        Ok(())
+    } else {
+        Err(Error::Config(format!("bad Postgres schema name {schema:?}")))
     }
 }
 
@@ -94,6 +113,7 @@ impl ManageConnection for Manager {
 struct Session {
     busy_timeout: Duration,
     read_only: bool,
+    postgres_schema: Option<String>,
 }
 
 impl CustomizeConnection<AnyConnection, diesel::r2d2::Error> for Session {
@@ -109,7 +129,12 @@ impl CustomizeConnection<AnyConnection, diesel::r2d2::Error> for Session {
             }
             // NOTICEs (IF NOT EXISTS) would go to stderr.
             AnyConnection::Postgres(_) => format!(
-                "SET client_min_messages = warning; SET lock_timeout = {ms};{}",
+                "SET client_min_messages = warning; SET lock_timeout = {ms};{}{}",
+                if let Some(schema) = &self.postgres_schema {
+                    format!(" SET search_path TO {};", quote_ident(schema))
+                } else {
+                    String::new()
+                },
                 if self.read_only {
                     " SET default_transaction_read_only = on;"
                 } else {
@@ -132,6 +157,7 @@ pub struct Database {
     config: Arc<DatabaseConfig>,
     busy_timeout: Duration,
     clock: fn() -> i64,
+    write_lock: i64,
 }
 
 /// One write: what a write closure gets. Every row it changes through [`Tx::conn`] is logged under
@@ -244,6 +270,9 @@ impl Database {
         if let DatabaseConfig::Postgres(pg) = config {
             pg.check_address().map_err(Error::Config)?;
         }
+        if let Some(schema_name) = &options.postgres_schema {
+            check_schema_name(schema_name)?;
+        }
         let sqlite = versions::<Sqlite>(&(schema.sqlite)())?;
         let postgres = versions::<Pg>(&(schema.postgres)())?;
         if sqlite != postgres {
@@ -261,16 +290,23 @@ impl Database {
                 diesel::r2d2::Error::ConnectionError(e) => Error::Connection(e),
                 diesel::r2d2::Error::QueryError(e) => Error::Query(e),
             })?;
+            if engine == Engine::Postgres
+                && let Some(schema_name) = &options.postgres_schema
+            {
+                conn.batch_execute(&format!("CREATE SCHEMA IF NOT EXISTS {}", quote_ident(schema_name)))
+                    .map_err(Error::Query)?;
+            }
             Session {
                 busy_timeout: options.busy_timeout,
                 read_only: false,
+                postgres_schema: options.postgres_schema.clone(),
             }
             .on_acquire(&mut conn)
             .map_err(|e| Error::Migration(e.to_string()))?;
             if engine == Engine::Sqlite {
                 set_wal(&mut conn)?;
             }
-            prepare(&mut conn, schema, options.clock)?;
+            prepare(&mut conn, schema, options.clock, options.postgres_schema.as_deref())?;
         }
         let pool = |size, read_only| {
             Pool::builder()
@@ -280,6 +316,7 @@ impl Database {
                 .connection_customizer(Box::new(Session {
                     busy_timeout: options.busy_timeout,
                     read_only,
+                    postgres_schema: options.postgres_schema.clone(),
                 }))
                 .build(Manager { config: config.clone() })
         };
@@ -298,6 +335,7 @@ impl Database {
             config: Arc::new(config.clone()),
             busy_timeout: options.busy_timeout,
             clock: options.clock,
+            write_lock: history::write_lock_for(options.postgres_schema.as_deref()),
         })
     }
 
@@ -319,11 +357,27 @@ impl Database {
         if let DatabaseConfig::Postgres(pg) = config {
             pg.check_address().map_err(Error::Config)?;
         }
+        if let Some(schema_name) = &options.postgres_schema {
+            check_schema_name(schema_name)?;
+        }
         let (soft_delete, accounts) = {
             let mut conn = Manager { config: config.clone() }.connect().map_err(|e| match e {
                 diesel::r2d2::Error::ConnectionError(e) => Error::Connection(e),
                 diesel::r2d2::Error::QueryError(e) => Error::Query(e),
             })?;
+            if config.engine() == Engine::Postgres
+                && let Some(schema_name) = &options.postgres_schema
+            {
+                conn.batch_execute(&format!("CREATE SCHEMA IF NOT EXISTS {}", quote_ident(schema_name)))
+                    .map_err(Error::Query)?;
+            }
+            Session {
+                busy_timeout: options.busy_timeout,
+                read_only: false,
+                postgres_schema: options.postgres_schema.clone(),
+            }
+            .on_acquire(&mut conn)
+            .map_err(|e| Error::Migration(e.to_string()))?;
             let mut soft_delete: Vec<&'static str> = Vec::new();
             let mut present = Vec::new();
             for table in history::user_tables(&mut conn)? {
@@ -395,10 +449,11 @@ impl Database {
         let pool = self.write.clone();
         let soft_delete = self.soft_delete.clone();
         let clock = self.clock;
+        let write_lock = self.write_lock;
         run_blocking(move || {
             let mut conn = checkout::<E>(&pool)?;
             (*conn).transaction(|conn| {
-                let begun = history::begin(conn, &actor, clock)?;
+                let begun = history::begin_with_lock(conn, &actor, clock, write_lock)?;
                 let out = f(&mut Tx {
                     conn,
                     actor: &actor,
@@ -514,7 +569,12 @@ fn set_wal(conn: &mut AnyConnection) -> Result<(), Error> {
 /// log sealed into the hash chain, the triggers back on every table. The first write takes SQLite's lock;
 /// Postgres takes advisory ones first, the write lock among them, so the log's table is never locked by an
 /// open waiting on a write that needs it.
-fn prepare(conn: &mut AnyConnection, schema: &DatabaseSchema, clock: fn() -> i64) -> Result<(), Error> {
+fn prepare(
+    conn: &mut AnyConnection,
+    schema: &DatabaseSchema,
+    clock: fn() -> i64,
+    postgres_schema: Option<&str>,
+) -> Result<(), Error> {
     conn.transaction(|conn| {
         match conn.engine() {
             Engine::Sqlite => {
@@ -522,7 +582,10 @@ fn prepare(conn: &mut AnyConnection, schema: &DatabaseSchema, clock: fn() -> i64
                 conn.batch_execute(&format!("DELETE FROM {}", quote_ident(history::CONTEXT)))?;
             }
             Engine::Postgres => {
-                for lock in [history::OPEN_LOCK, history::WRITE_LOCK] {
+                for lock in [
+                    history::open_lock_for(postgres_schema),
+                    history::write_lock_for(postgres_schema),
+                ] {
                     diesel::sql_query("SELECT pg_advisory_xact_lock($1)")
                         .bind::<BigInt, _>(lock)
                         .execute(conn)?;

@@ -140,10 +140,38 @@ pub struct Capabilities {
     pub theme: Option<ThemeCapability>,
 }
 
+/// Which folder an [`IniEdit`]'s relative `file` is joined to (DD12).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IniRoot {
+    /// The game's install folder
+    #[default]
+    Install,
+    /// `%LOCALAPPDATA%` (Windows)
+    LocalAppData,
+}
+
+impl IniRoot {
+    pub fn is_install(&self) -> bool {
+        matches!(self, Self::Install)
+    }
+}
+
+/// Another file inside the install folder that the launcher checks by SHA-256 before launch (DD12).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PinnedFile {
+    /// Relative to the install folder, `/`-separated
+    pub path: String,
+    pub sha256: Sha256Hex,
+}
+
 /// One line the launcher writes into a game ini before launch.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IniEdit {
+    #[serde(default, skip_serializing_if = "IniRoot::is_install")]
+    pub root: IniRoot,
     pub file: String,
     pub section: String,
     pub key: String,
@@ -171,8 +199,13 @@ pub struct ClientProfile {
     pub executable: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executable_sha256: Option<Sha256Hex>,
+    /// Other files inside the install folder pinned by SHA-256
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<PinnedFile>,
     #[serde(default)]
     pub arguments: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub environment: BTreeMap<String, String>,
     #[serde(default)]
     pub ini_edits: Vec<IniEdit>,
     /// None for a version that can't come from Epic (1.4.4: locate your folder)
@@ -352,6 +385,9 @@ impl ModuleManifest {
         if !is_relative_path(&client.executable) {
             return fail("the client executable is a relative path inside the install folder");
         }
+        if client.files.len() > limits::LIST || !client.files.iter().all(|f| is_relative_path(&f.path)) {
+            return fail("pinned files must be relative paths inside the install folder");
+        }
         if client.arguments.len() > limits::ARGUMENTS
             || !client
                 .arguments
@@ -363,6 +399,13 @@ impl ModuleManifest {
                 limits::ARGUMENTS,
                 limits::TEXT
             ));
+        }
+        if client.environment.len() > limits::ARGUMENTS
+            || !client.environment.iter().all(|(k, v)| {
+                is_text(k, 128) && !k.contains('=') && v.len() <= limits::TEXT && !v.chars().any(char::is_control)
+            })
+        {
+            return fail("environment variables: 1 to 128 character names and one-line values");
         }
         if client.ini_edits.len() > limits::INI_EDITS {
             return fail(format!("at most {} ini edits", limits::INI_EDITS));
@@ -474,7 +517,9 @@ mod tests {
             client: Some(ClientProfile {
                 executable: String::from("Dauntless/Binaries/Win64/Dauntless-Win64-Shipping.exe"),
                 executable_sha256: None,
+                files: vec![],
                 arguments: vec![String::from("-log")],
+                environment: BTreeMap::new(),
                 ini_edits: vec![],
                 epic: Some(EpicBuild {
                     version: String::from("1.14.7"),

@@ -177,13 +177,17 @@ pub struct History {
 impl History {
     /// Opens (or creates) chat's database and brings its schema up to date. Blocking: call it at start.
     pub fn open(config: &DatabaseConfig) -> Result<Self, Error> {
+        let options = DatabaseOptions {
+            postgres_schema: Some(String::from("chat")),
+            ..DatabaseOptions::default()
+        };
         Ok(Self {
-            db: Database::open(config, &DatabaseOptions::default(), &SCHEMA)?,
+            db: Database::open(config, &options, &SCHEMA)?,
         })
     }
 
-    /// Chat's database next to the game's: on SQLite `chat.db` in the same folder. On Postgres the same
-    /// database for now: a schema of its own needs `store` to take one (reported for DF7).
+    /// Chat's database next to the game's: on SQLite `chat.db` in the same folder; on Postgres the `chat`
+    /// schema in the same database.
     pub fn beside(game: &DatabaseConfig) -> DatabaseConfig {
         match game {
             DatabaseConfig::Sqlite { file } => DatabaseConfig::Sqlite {

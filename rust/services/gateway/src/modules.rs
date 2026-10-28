@@ -133,6 +133,7 @@ struct Route {
 struct Attached {
     manifest: ModuleManifest,
     public: Vec<Route>,
+    websocket: Vec<Route>,
     host_only: Vec<String>,
 }
 
@@ -251,13 +252,42 @@ impl ModuleRoutes {
                 return reject(403, "forbidden", "node_link", limit_class);
             }
         }
-        if matches!(upstream, Upstream::Content | Upstream::Ws) {
+        if matches!(upstream, Upstream::Content) {
             return Routed {
                 decision,
                 endpoint: None,
             };
         }
         let modules = self.read();
+        if matches!(upstream, Upstream::Ws) {
+            let Some(module) = modules
+                .values()
+                .find(|m| m.manifest.answers_invite(version) && !m.websocket.is_empty())
+            else {
+                return Routed {
+                    decision,
+                    endpoint: None,
+                };
+            };
+            let Some(route) = module
+                .websocket
+                .iter()
+                .filter(|route| covers(&inner, &route.prefix))
+                .max_by_key(|route| route.prefix.len())
+            else {
+                return reject(404, "not_found", "no_route", limit_class);
+            };
+            let Some(endpoint) = self.view.endpoint(&module.manifest, &route.port) else {
+                return reject(503, "unavailable", "module_unavailable", limit_class);
+            };
+            if !is_loopback_host(&endpoint.host) {
+                return reject(502, "bad_gateway", "upstream_not_loopback", limit_class);
+            }
+            return Routed {
+                decision,
+                endpoint: Some(endpoint),
+            };
+        }
         let Some(module) = modules.values().find(|m| m.manifest.answers_invite(version)) else {
             return reject(503, "unavailable", "no_module", limit_class);
         };
@@ -297,6 +327,7 @@ impl ModuleRoutes {
             )));
         }
         let mut public = Vec::new();
+        let mut websocket = Vec::new();
         let mut host_only = Vec::new();
         for spec in &registration.routes {
             let prefix = spec.prefix.to_ascii_lowercase();
@@ -305,6 +336,22 @@ impl ModuleRoutes {
                     "{}: route {} is under {reserved}",
                     module.id, spec.prefix
                 )));
+            }
+            if spec.websocket {
+                if websocket.iter().any(|route: &Route| route.prefix == prefix) {
+                    return Err(invalid(format!("{}: route {} given twice", module.id, spec.prefix)));
+                }
+                if let Some(refused) = HOST_ONLY_PREFIXES.iter().find(|refused| under(&prefix, refused)) {
+                    return Err(invalid(format!(
+                        "{}: public route {} is under {refused}, which the gateway refuses from outside",
+                        module.id, spec.prefix
+                    )));
+                }
+                websocket.push(Route {
+                    prefix,
+                    port: spec.port.clone(),
+                });
+                continue;
             }
             if public.iter().any(|route: &Route| route.prefix == prefix) || host_only.contains(&prefix) {
                 return Err(invalid(format!("{}: route {} given twice", module.id, spec.prefix)));
@@ -327,6 +374,7 @@ impl ModuleRoutes {
         Ok(Attached {
             manifest: module.clone(),
             public,
+            websocket,
             host_only,
         })
     }
@@ -639,5 +687,28 @@ mod tests {
         let empty = fresh();
         empty.attach(&manifest, &Registration::default()).unwrap();
         assert!(empty.modules().is_empty());
+    }
+
+    #[test]
+    fn websocket_routes_route_upgrades_to_a_modules_port() {
+        let mut manifest = stub().0;
+        manifest.ports.push(PortDefault {
+            name: "chat".into(),
+            transport: Transport::Tcp,
+            range: PortRange::single(61099),
+        });
+        let mut registrar = Registrar::new(manifest.clone());
+        registrar.route("/", "http").websocket_route("/ws", "chat");
+        let routes = ModuleRoutes::new(Arc::new(ManifestDefaults));
+        routes.attach(&manifest, &registrar.finish().unwrap()).unwrap();
+        let ws = {
+            let mut headers = HeaderMap::new();
+            headers.insert("upgrade", HeaderValue::from_static("websocket"));
+            headers
+        };
+        let upgraded = routes.route("0.0.1", &revived_version(), "GET", "/ws", &ws, true);
+        assert_eq!(port(&upgraded), Some(61099));
+        let missed = routes.route("0.0.1", &revived_version(), "GET", "/other", &ws, true);
+        assert_eq!(reason(&missed), Some("no_route"));
     }
 }

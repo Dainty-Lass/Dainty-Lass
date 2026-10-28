@@ -5,7 +5,9 @@ use super::Controller;
 use crate::bridge::types::{ErrorCode, LauncherError, RealmKind, RealmOutcome};
 
 #[derive(Default)]
-pub struct RealmsState;
+pub struct RealmsState {
+    _priv: (),
+}
 
 impl Controller {
     pub(super) async fn realms_shutdown(&self) {}

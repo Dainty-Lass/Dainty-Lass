@@ -830,6 +830,8 @@ mod games {
                 let players = self.players.lock().unwrap();
                 let (AdminRequest::Kick { player, .. }
                 | AdminRequest::Ban { player, .. }
+                | AdminRequest::Unban { player, .. }
+                | AdminRequest::LiftTimeout { player, .. }
                 | AdminRequest::Lookup { player }) = &call.request;
                 let Some(found) = players.iter().find(|p| p.name.eq_ignore_ascii_case(player)) else {
                     return Ok(AdminResponse::NotFound);
@@ -841,7 +843,10 @@ mod games {
                         online: found.online,
                     }),
                     _ if found.admin => return Err(ModuleError::failed("this player is a server admin")),
-                    AdminRequest::Kick { .. } | AdminRequest::Ban { .. } => AdminResponse::Done,
+                    AdminRequest::Kick { .. }
+                    | AdminRequest::Ban { .. }
+                    | AdminRequest::Unban { .. }
+                    | AdminRequest::LiftTimeout { .. } => AdminResponse::Done,
                 })
             })
         }
@@ -1158,6 +1163,37 @@ mod games {
         ] {
             assert_eq!(code(&w.gql(lift, json!({})).await), "NOT_SUPPORTED", "{lift}");
         }
+
+        let mut full_revived = revived_with(vec![]);
+        Arc::get_mut(&mut full_revived)
+            .unwrap()
+            .actions
+            .extend([AdminAction::Unban, AdminAction::LiftTimeout]);
+        let w = world_on(std::slice::from_ref(&full_revived)).await;
+        let body = w
+            .gql(
+                "mutation { unban(username: \"Wren\", reason: \"pardoned\") { username } }",
+                json!({}),
+            )
+            .await;
+        assert_eq!(body["data"]["unban"]["username"], "Wren", "{body}");
+        let body = w
+            .gql("mutation { liftTimeout(username: \"Wren\") { username } }", json!({}))
+            .await;
+        assert_eq!(body["data"]["liftTimeout"]["username"], "Wren", "{body}");
+        assert_eq!(
+            full_revived.actions(),
+            [
+                AdminRequest::Unban {
+                    player: "Wren".into(),
+                    reason: Some("pardoned".into()),
+                },
+                AdminRequest::LiftTimeout {
+                    player: "Wren".into(),
+                    reason: Some("Timeout lifted".into()),
+                },
+            ]
+        );
     }
 
     #[test]

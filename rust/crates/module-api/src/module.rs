@@ -201,6 +201,16 @@ pub enum AdminRequest {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         until: Option<String>,
     },
+    Unban {
+        player: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+    LiftTimeout {
+        player: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
     Lookup {
         player: String,
     },
@@ -211,6 +221,8 @@ impl AdminRequest {
         match self {
             Self::Kick { .. } => AdminAction::Kick,
             Self::Ban { .. } => AdminAction::Ban,
+            Self::Unban { .. } => AdminAction::Unban,
+            Self::LiftTimeout { .. } => AdminAction::LiftTimeout,
             Self::Lookup { .. } => AdminAction::Lookup,
         }
     }

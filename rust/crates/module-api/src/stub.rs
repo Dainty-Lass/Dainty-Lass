@@ -92,7 +92,9 @@ impl GameModule for StubModule {
             client: Some(ClientProfile {
                 executable: String::from("Stub/stub.exe"),
                 executable_sha256: Some(executable_sha256),
+                files: vec![],
                 arguments: vec![],
+                environment: BTreeMap::new(),
                 ini_edits: vec![],
                 epic: Some(EpicBuild {
                     version: String::from("0.0.1"),
@@ -239,6 +241,7 @@ impl GameModule for StubModule {
                     may_speak: !matches!(room, RoomKind::Network),
                     history: matches!(room, RoomKind::Party(_) | RoomKind::Hunt(_)),
                 }),
+                other => return Err(ModuleError::unsupported(format!("chat query {other:?}"))),
             })
         })
     }

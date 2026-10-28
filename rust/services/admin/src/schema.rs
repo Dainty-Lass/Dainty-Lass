@@ -1947,14 +1947,23 @@ impl Admin {
         reason: &str,
         game: Option<&str>,
     ) -> async_graphql::Result<Player> {
-        // module-api has no request that lifts a ban yet
         let account = match self
             .locate(caller, name, game, true)
             .await?
             .ok_or_else(no_such_player)?
         {
             Found::Node(account) => account,
-            Found::Module(module, _) => return Err(not_supported(&module, "lift a ban")),
+            Found::Module(module, info) => {
+                if !module.answers(module_api::AdminAction::Unban) {
+                    return Err(not_supported(&module, "lift a ban"));
+                }
+                let request = AdminRequest::Unban {
+                    player: info.name.clone(),
+                    reason: Some(reason.to_owned()),
+                };
+                self.module_act(caller, &module, request).await?;
+                return Ok(self.player_now(caller, &module, info).await);
+            }
         };
         if status_of(&account) != AccountStatus::Banned {
             return Err(fail(Code::NotBanned, "this player is not banned"));
@@ -2054,7 +2063,17 @@ impl Admin {
             .ok_or_else(no_such_player)?
         {
             Found::Node(account) => account,
-            Found::Module(module, _) => return Err(not_supported(&module, "lift a timeout")),
+            Found::Module(module, info) => {
+                if !module.answers(module_api::AdminAction::LiftTimeout) {
+                    return Err(not_supported(&module, "lift a timeout"));
+                }
+                let request = AdminRequest::LiftTimeout {
+                    player: info.name.clone(),
+                    reason: Some("Timeout lifted".to_owned()),
+                };
+                self.module_act(caller, &module, request).await?;
+                return Ok(self.player_now(caller, &module, info).await);
+            }
         };
         let player = self.restriction(&account).await;
         if player.map(|r| r.kind) != Some(RestrictionKind::Timeout) {

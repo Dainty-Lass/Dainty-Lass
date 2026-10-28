@@ -530,6 +530,28 @@ pub(crate) const WRITE_LOCK: i64 = 0x6461_696e_7479; // "dainty"
 /// Held while a database is opened, so two services opening one Postgres database don't migrate it twice.
 pub(crate) const OPEN_LOCK: i64 = 0x6461_696e_7475;
 
+fn schema_lock(seed: i64, name: &str) -> i64 {
+    let mut h = seed as u64;
+    for &b in name.as_bytes() {
+        h = h.wrapping_mul(0x100000001b3) ^ u64::from(b);
+    }
+    h as i64
+}
+
+pub(crate) fn write_lock_for(schema: Option<&str>) -> i64 {
+    match schema {
+        None => WRITE_LOCK,
+        Some(name) => schema_lock(WRITE_LOCK, name),
+    }
+}
+
+pub(crate) fn open_lock_for(schema: Option<&str>) -> i64 {
+    match schema {
+        None => OPEN_LOCK,
+        Some(name) => schema_lock(OPEN_LOCK, name),
+    }
+}
+
 /// A write under way: its time, and the head it started from, which [`end`] seals after.
 pub(crate) struct Begun {
     pub at: i64,
@@ -539,13 +561,23 @@ pub(crate) struct Begun {
 /// Makes `actor` the author of what the transaction writes next, and returns the write's time, taken once
 /// the write lock is held so the log's times follow its order. SQLite's first statement is a write, so
 /// the transaction takes the lock at once, as `BEGIN IMMEDIATE` does (its one writer is the pool's).
+#[allow(dead_code)]
 pub(crate) fn begin(conn: &mut AnyConnection, actor: &Actor, now: fn() -> i64) -> Result<Begun, Error> {
+    begin_with_lock(conn, actor, now, WRITE_LOCK)
+}
+
+pub(crate) fn begin_with_lock(
+    conn: &mut AnyConnection,
+    actor: &Actor,
+    now: fn() -> i64,
+    write_lock: i64,
+) -> Result<Begun, Error> {
     actor.check()?;
-    let at = start(conn, actor, now)?;
+    let at = start(conn, actor, now, write_lock)?;
     Ok(Begun { at, head: head(conn)? })
 }
 
-fn start(conn: &mut AnyConnection, actor: &Actor, now: fn() -> i64) -> Result<i64, Error> {
+fn start(conn: &mut AnyConnection, actor: &Actor, now: fn() -> i64, write_lock: i64) -> Result<i64, Error> {
     match conn.engine() {
         Engine::Sqlite => {
             let at = now();
@@ -560,7 +592,7 @@ fn start(conn: &mut AnyConnection, actor: &Actor, now: fn() -> i64) -> Result<i6
         }
         Engine::Postgres => {
             diesel::sql_query("SELECT pg_advisory_xact_lock($1)")
-                .bind::<BigInt, _>(WRITE_LOCK)
+                .bind::<BigInt, _>(write_lock)
                 .execute(conn)?;
             let at = now();
             diesel::sql_query("SELECT set_config('dainty.actor', $1, true), set_config('dainty.at', $2, true)")
@@ -647,5 +679,14 @@ mod tests {
             assert_eq!(logged.as_text(), text);
             logged.check().unwrap();
         }
+    }
+
+    #[test]
+    fn schema_locks_are_distinct_from_default_locks() {
+        assert_eq!(write_lock_for(None), WRITE_LOCK);
+        assert_eq!(open_lock_for(None), OPEN_LOCK);
+        assert_ne!(write_lock_for(Some("chat")), WRITE_LOCK);
+        assert_ne!(open_lock_for(Some("chat")), OPEN_LOCK);
+        assert_ne!(write_lock_for(Some("chat")), open_lock_for(Some("chat")));
     }
 }

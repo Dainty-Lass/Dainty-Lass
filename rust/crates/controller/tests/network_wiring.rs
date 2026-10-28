@@ -166,8 +166,9 @@ async fn two_composed_controllers_replicate_directory_and_route_home_calls() {
         .unwrap();
 
     // Replica pulls the registration from the leader over the gateway's mTLS node link
+    // (or the background 100ms replication loop has already pulled it)
     let pulled = dir2.sync().await.unwrap();
-    assert_eq!(pulled, 1);
+    assert!(pulled <= 1);
     assert_eq!(dir2.home_of(&account).await.unwrap(), Some("oregon-1".parse().unwrap()));
 
     // Node 2's HomeApi (NetworkedHome) resolves the account's home to oregon-1 in oregon

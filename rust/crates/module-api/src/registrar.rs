@@ -32,6 +32,9 @@ pub struct RouteSpec {
     pub port: String,
     #[serde(default)]
     pub host_only: bool,
+    /// A WebSocket upgrade route (such as a module's own XMPP-over-WebSocket listener)
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub websocket: bool,
 }
 
 /// A file content serves for the module's game version (DF4b).
@@ -88,6 +91,8 @@ impl CommandSpec {
 pub enum AdminAction {
     Kick,
     Ban,
+    Unban,
+    LiftTimeout,
     Lookup,
 }
 
@@ -195,7 +200,7 @@ fn is_media_type(text: &str) -> bool {
             .is_some_and(|(kind, sub)| token(kind) && token(sub))
 }
 
-fn unique<'a, T: Ord + 'a>(items: impl IntoIterator<Item = &'a T>, what: &str) -> Result<(), RegistrationError> {
+fn unique<T: Ord>(items: impl IntoIterator<Item = T>, what: &str) -> Result<(), RegistrationError> {
     let mut seen = BTreeSet::new();
     if items.into_iter().all(|item| seen.insert(item)) {
         Ok(())
@@ -225,8 +230,11 @@ impl Registration {
                     route.prefix, route.port
                 ));
             }
+            if route.websocket && route.host_only {
+                return fail(format!("route {}: a WebSocket route cannot be host-only", route.prefix));
+            }
         }
-        unique(self.routes.iter().map(|r| &r.prefix), "a route")?;
+        unique(self.routes.iter().map(|r| (&r.prefix, r.websocket)), "a route")?;
         for name in &self.udp_ports {
             if !port_of(name, Transport::Udp) {
                 return fail(format!("{name:?} is not a UDP port in the manifest"));
@@ -343,6 +351,7 @@ impl Registrar {
             prefix: prefix.into(),
             port: port.into(),
             host_only: false,
+            websocket: false,
         });
         self
     }
@@ -353,6 +362,18 @@ impl Registrar {
             prefix: prefix.into(),
             port: port.into(),
             host_only: true,
+            websocket: false,
+        });
+        self
+    }
+
+    /// A WebSocket upgrade route the gateway sends to one of the module's TCP ports.
+    pub fn websocket_route(&mut self, prefix: impl Into<String>, port: impl Into<String>) -> &mut Self {
+        self.registration.routes.push(RouteSpec {
+            prefix: prefix.into(),
+            port: port.into(),
+            host_only: false,
+            websocket: true,
         });
         self
     }
@@ -484,7 +505,11 @@ mod tests {
             assert!(registrar.finish().is_err(), "{what}");
         }
         let mut registrar = registrar();
-        registrar.route("/", "http").route("/a/b.c~d", "http").udp_ports("game");
+        registrar
+            .route("/", "http")
+            .websocket_route("/", "http")
+            .route("/a/b.c~d", "http")
+            .udp_ports("game");
         registrar.content_file("profiles/client.json", "data/client.json", "application/json");
         assert!(registrar.finish().is_ok());
     }

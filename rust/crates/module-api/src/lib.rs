@@ -31,7 +31,9 @@ pub use actor::{Actor, ActorContext};
 pub use driver::{InProcessModule, ModuleDriver, ModuleDriverExt};
 pub use host::{ChildModule, ChildOptions, ExternalModule, LoadError};
 pub use ids::{ModuleId, Sha1Hex, Sha256Hex};
-pub use manifest::{Capabilities, ClientProfile, EpicBuild, ModuleKind, ModuleManifest, PortRange};
+pub use manifest::{
+    Capabilities, ClientProfile, EpicBuild, IniEdit, IniRoot, ModuleKind, ModuleManifest, PinnedFile, PortRange,
+};
 pub use module::{
     AdminCall, AdminRequest, AdminResponse, BoxFuture, CommandOutput, CommandRequest, CoreCapability, CorePlugin,
     ErrorKind, Event, EventName, GameModule, HostAnswer, HostCall, HostLink, LogLevel, LogRecord, ModuleConfig,
@@ -40,5 +42,5 @@ pub use module::{
 pub use network::{
     GlobalId, HomeApi, HomeBackend, HomeForward, HomeInvocation, IdKind, NodeId, NodeIdentity, OperationName, Region,
 };
-pub use registrar::{Registrar, Registration};
+pub use registrar::{AdminAction, Registrar, Registration};
 pub use version::{API_VERSION, ApiVersion, GameVersion};
