@@ -223,7 +223,7 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           [ -z "$REGISTRY_TOKEN" ] || export CARGO_REGISTRIES_SILENTSPUD_TOKEN="$REGISTRY_TOKEN"
-          for manifest in modules/*/Cargo.toml; do
+          for manifest in modules/*/Cargo.toml modules/*/rust/Cargo.toml; do
             dir="$(dirname "$manifest")"
             echo "::group::$dir"
             (cd "$dir" && { rustup show active-toolchain || rustup toolchain install; } && cargo test --workspace --locked --no-fail-fast)
