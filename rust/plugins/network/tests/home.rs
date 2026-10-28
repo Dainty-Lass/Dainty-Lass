@@ -617,7 +617,7 @@ async fn a_session_the_home_ends_stops_working_everywhere() {
 
     // Banned or logged out at home: the ticket Oregon holds is dead, and so is its renewal
     cluster.clock.skew_by(1_000);
-    germany.tickets.revoke(&fox).unwrap();
+    germany.tickets.revoke(&fox).await.unwrap();
     let why = denied(oregon.home.forward(&grant).await);
     assert!(why.contains("ended"), "{why}");
     assert_eq!(germany.backend.xp(&fox), 10);
@@ -950,6 +950,7 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
             TicketConfig::default(),
             db.clone(),
         )
+        .await
         .unwrap();
 
         let expect = network::home::Expect {
@@ -967,7 +968,7 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
 
         // Advance clock by 1s and ban (revoke) the account
         clock.skew_by(1_000);
-        tickets_before.revoke(&account).unwrap();
+        tickets_before.revoke(&account).await.unwrap();
         assert_eq!(tickets_before.verify(&old_ticket, &expect), Err(TicketError::Revoked));
         drop(tickets_before);
 
@@ -980,6 +981,7 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
             TicketConfig::default(),
             db.clone(),
         )
+        .await
         .unwrap();
 
         // The old ticket issued before the ban is still refused after restart, and its session cannot be renewed
@@ -1003,7 +1005,7 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
         tickets_after.verify(&fresh_ticket, &expect).unwrap();
 
         // Unbanning (`allow`) clears the persisted floor across another restart
-        tickets_after.allow(&account).unwrap();
+        tickets_after.allow(&account).await.unwrap();
         drop(tickets_after);
 
         let tickets_unbanned = Tickets::with_database(
@@ -1013,6 +1015,7 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
             TicketConfig::default(),
             db,
         )
+        .await
         .unwrap();
         assert!(!tickets_unbanned.is_revoked_at(&account, old_claims.since));
     }
@@ -1041,6 +1044,7 @@ async fn revocation_write_failure_is_surfaced_when_database_table_is_missing() {
         TicketConfig::default(),
         db.clone(),
     )
+    .await
     .unwrap();
 
     // Drop the revocation table to force the persistence write to fail
@@ -1055,12 +1059,68 @@ async fn revocation_write_failure_is_surfaced_when_database_table_is_missing() {
 
     let err = tickets
         .revoke(&account)
+        .await
         .expect_err("revoke must return an error when database persistence fails");
     assert_eq!(err.account, account);
     assert!(!err.to_string().is_empty());
 
     let allow_err = tickets
         .allow(&account)
+        .await
         .expect_err("allow must return an error when database persistence fails");
     assert_eq!(allow_err.account, account);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn revocation_inside_current_thread_runtime_completes_without_deadlock() {
+    let target = Target::new(Engine::Sqlite);
+    let db = target.open();
+    let key_dir = tempfile::tempdir().unwrap();
+    let key_path = key_dir.path().join("ticket.key");
+    let home_identity = NodeIdentity {
+        node: id("germany-1"),
+        region: "eu-central".parse().unwrap(),
+    };
+    let audience_node = id("oregon-1");
+    let clock = Arc::new(Clock::default());
+    let account = GlobalId::new(IdKind::Account, &home_identity.node);
+    let game_version = game();
+
+    let tickets = Tickets::with_database(
+        &home_identity,
+        SigningKey::load_or_create(&key_path).unwrap(),
+        clock.clone(),
+        TicketConfig::default(),
+        db.clone(),
+    )
+    .await
+    .unwrap();
+
+    let expect = network::home::Expect {
+        issuer: &home_identity.node,
+        audience: &audience_node,
+        game: Some(&game_version),
+        account: Some(&account),
+    };
+
+    let ticket = tickets.issue(&account, &audience_node, &game_version, None).unwrap();
+    let claims = tickets.verify(&ticket, &expect).unwrap();
+
+    clock.skew_by(1_000);
+    tickets.revoke(&account).await.unwrap();
+    assert_eq!(tickets.verify(&ticket, &expect), Err(TicketError::Revoked));
+
+    let reloaded = Tickets::with_database(
+        &home_identity,
+        SigningKey::load_or_create(&key_path).unwrap(),
+        clock.clone(),
+        TicketConfig::default(),
+        db,
+    )
+    .await
+    .unwrap();
+    assert!(reloaded.is_revoked_at(&account, claims.since));
+
+    reloaded.allow(&account).await.unwrap();
+    assert!(!reloaded.is_revoked_at(&account, claims.since));
 }

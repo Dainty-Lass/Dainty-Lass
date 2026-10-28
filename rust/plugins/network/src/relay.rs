@@ -497,7 +497,7 @@ impl AdminRelayService {
             .is_some_and(|r| r.peers().iter().any(|p| p == from))
     }
 
-    fn apply_ticket_effect(&self, action: &RelayAction) -> Result<(), crate::home::RevocationPersistError> {
+    async fn apply_ticket_effect(&self, action: &RelayAction) -> Result<(), crate::home::RevocationPersistError> {
         let Some(account) = &action.account else {
             return Ok(());
         };
@@ -511,9 +511,9 @@ impl AdminRelayService {
             return Ok(());
         };
         if action.revoke_tickets {
-            tickets.revoke(account)?;
+            tickets.revoke(account).await?;
         } else if matches!(action.operation.as_str(), operations::UNBAN | operations::LIFT_TIMEOUT) {
-            tickets.allow(account)?;
+            tickets.allow(account).await?;
         }
         Ok(())
     }
@@ -540,7 +540,7 @@ impl AdminRelayService {
         match begin {
             Begin::Done(body) => {
                 // Re-apply ticket revocation idempotently in case tickets were rotated or re-checked
-                if let Err(error) = self.apply_ticket_effect(&action) {
+                if let Err(error) = self.apply_ticket_effect(&action).await {
                     return AdminRelayReply::Refused {
                         refusal: AdminRelayRefusal::Failed {
                             code: Some(CleanText::lossy("STATE_NOT_SAVED")),
@@ -616,7 +616,7 @@ impl AdminRelayService {
         };
         match result {
             Ok(body) => {
-                if let Err(error) = self.apply_ticket_effect(&tick_action) {
+                if let Err(error) = self.apply_ticket_effect(&tick_action).await {
                     return AdminRelayReply::Refused {
                         refusal: AdminRelayRefusal::Failed {
                             code: Some(CleanText::lossy("STATE_NOT_SAVED")),

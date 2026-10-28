@@ -402,9 +402,9 @@ impl AdminRelay {
 
     /// Ends session tickets for `account` on this node immediately and persists the revocation
     /// row when a database is attached.
-    pub fn revoke_tickets(&self, account: &GlobalId) -> Result<(), String> {
+    pub async fn revoke_tickets(&self, account: &GlobalId) -> Result<(), String> {
         if let Some(tickets) = self.network.tickets()
-            && let Err(error) = tickets.revoke(account)
+            && let Err(error) = tickets.revoke(account).await
         {
             log::error(
                 "could not persist ticket revocation",
@@ -420,9 +420,9 @@ impl AdminRelay {
 
     /// Allows session tickets for `account` on this node again after an unban or lifted timeout
     /// and clears the persisted revocation row when a database is attached.
-    pub fn allow_tickets(&self, account: &GlobalId) -> Result<(), String> {
+    pub async fn allow_tickets(&self, account: &GlobalId) -> Result<(), String> {
         if let Some(tickets) = self.network.tickets()
-            && let Err(error) = tickets.allow(account)
+            && let Err(error) = tickets.allow(account).await
         {
             log::error(
                 "could not clear ticket revocation",
