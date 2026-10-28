@@ -3176,6 +3176,7 @@ dependencies = [
  "rifts-relay",
  "rifts-seam",
  "serde_json",
+ "store",
 ]
 
 [[package]]
