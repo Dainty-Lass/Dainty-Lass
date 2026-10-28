@@ -45,7 +45,10 @@ fn check_manifest(bytes: &[u8]) {
     let pin = Sha1Digest::of(bytes);
     let mut wrong = pin;
     wrong.0[0] ^= 1;
-    assert!(matches!(Manifest::parse(bytes, &wrong), Err(ManifestError::PinMismatch { .. })));
+    assert!(matches!(
+        Manifest::parse(bytes, &wrong),
+        Err(ManifestError::PinMismatch { .. })
+    ));
     let Ok(manifest) = Manifest::parse(bytes, &pin) else {
         return;
     };

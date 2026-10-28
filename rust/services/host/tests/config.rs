@@ -1028,3 +1028,37 @@ fn a_server_without_peers_writes_no_node_settings() {
         );
     }
 }
+
+#[test]
+fn switches_round_trip_through_host_toml_setup_and_backend_env() {
+    let toml_text = format!(
+        "{NODES}\n[switches]\nreforge = \"log\"\nmastery_persistence = \"off\"\nbounty_persistence = \"off\"\ncooldown_persistence = \"off\"\naccount_erasure = \"off\"\nlog_purge = \"off\"\n"
+    );
+    let parsed = read_toml(&toml_text);
+    let switches = parsed.switches.as_ref().expect("switches parsed");
+    assert_eq!(switches.reforge.as_deref(), Some("log"));
+    assert_eq!(switches.mastery_persistence.as_deref(), Some("off"));
+    assert_eq!(switches.bounty_persistence.as_deref(), Some("off"));
+    assert_eq!(switches.cooldown_persistence.as_deref(), Some("off"));
+    assert_eq!(switches.account_erasure.as_deref(), Some("off"));
+    assert_eq!(switches.log_purge.as_deref(), Some("off"));
+
+    let (back, out_toml) = through_toml(&parsed);
+    assert_eq!(back.switches, parsed.switches);
+    assert!(out_toml.contains("[switches]"), "{out_toml}");
+    assert!(out_toml.contains("bounty_persistence = \"off\""), "{out_toml}");
+    assert!(out_toml.contains("cooldown_persistence = \"off\""), "{out_toml}");
+
+    let f = build_env_files(&back, &fast_secrets(), &win_paths(), "", Platform::Windows);
+    let text = host::envfile::format_env(&[], &f.backend).unwrap();
+    let read = host::envfile::parse_env(&text);
+    assert_eq!(read.get("MYSTICPARADOX_REFORGE"), Some("log"));
+    assert_eq!(read.get("MYSTICPARADOX_MASTERY_PERSISTENCE"), Some("off"));
+    assert_eq!(read.get("MYSTICPARADOX_BOUNTY_PERSISTENCE"), Some("off"));
+    assert_eq!(read.get("MYSTICPARADOX_COOLDOWN_PERSISTENCE"), Some("off"));
+    assert_eq!(read.get("MYSTICPARADOX_ACCOUNT_ERASURE"), Some("off"));
+    assert_eq!(read.get("MYSTICPARADOX_LOG_PURGE"), Some("off"));
+
+    let bad_doc = with(public(), json!({"switches": {"bountyPersistence": "maybe"}}));
+    assert!(error(bad_doc).contains("switches.bountyPersistence"));
+}

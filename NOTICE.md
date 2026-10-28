@@ -23,13 +23,18 @@ Undaunted or any other project named here, and none of them endorses it.
   additional terms. Mystic Paradox is itself a modified version of Undaunted.
 - **Mystic Paradox's Dauntless 1.12.0 port and related modifications were developed by Pranav Karande. See
   NOTICE.md for contribution and provenance information.** Mystic Paradox's own notice is
-  [paradox/NOTICE.md](paradox/NOTICE.md), its licence [paradox/LICENSE](paradox/LICENSE) and its additional
-  terms [paradox/ADDITIONAL_TERMS.md](paradox/ADDITIONAL_TERMS.md).
-- Its backend and Director are in [`paradox/backend`](paradox/backend) and [`paradox/director`](paradox/director)
-  (from `ParadoxBackend/` and `ParadoxDirector/` at commit `21b9ff5`); its game runtime (`ParadoxRuntime/`),
-  the runtime's loader (`tools/RuntimeLoader/`) and the CatalogExporter (`tools/CatalogExporter/`) in
-  [`native/`](native). Its launcher, transport, deployment scripts and self-hosting guide were not taken.
-  Every file from Mystic Paradox, and every change made to it here, stays under Mystic Paradox's terms.
+  [modules/rustic-isles/NOTICE.md](modules/rustic-isles/NOTICE.md), its licence
+  [modules/rustic-isles/LICENSE](modules/rustic-isles/LICENSE) and its additional terms
+  [modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md).
+- Its backend and Director reference sources and Rust ports (`isles-core`, `isles-director`, `isles-chat`,
+  `isles-1-14-7`, `isles-1-12-0`) are in [`modules/rustic-isles`](modules/rustic-isles) (from `ParadoxBackend/`
+  and `ParadoxDirector/` at commit `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`), and its realm and Guard
+  ports (`rifts-transport`, `rifts-guard`, `rifts-server`) are in [`modules/rustic-rifts`](modules/rustic-rifts);
+  its game runtime (`ParadoxRuntime/`) and CatalogExporter (`tools/CatalogExporter/`) are in
+  [`modules/rustic-isles/native`](modules/rustic-isles/native), and the runtime's loader (`tools/RuntimeLoader/`)
+  is in [`native/runtime-loader`](native/runtime-loader). Its launcher, deployment scripts and self-hosting guide
+  were not taken. Every file from Mystic Paradox, and every change made to it here, stays under Mystic Paradox's
+  terms.
 - The changes made to it are listed patch by patch in [docs/paradox-patches.md](docs/paradox-patches.md).
   Patches 0004 to 0039 were written in Freeza's Dauntless Reforged Revival line
   ([github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival](https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival),
@@ -51,8 +56,9 @@ Undaunted or any other project named here, and none of them endorses it.
   and `rust/services/content` are modified versions of its gateway and content server;
   `rust/launcher/src-tauri` of its launcher's Rust side. The invite format, the account key and the pinned TLS
   connection follow its design.
-- `rust/services/metagame`, `rust/services/deploy`, `native/internal-server` and `native/client-mods` are its
-  1.4.4 server, carried here behind the `legacy` feature for Dauntless Revived servers.
+- `modules/legacy-revived` (`rust/services/metagame`, `rust/services/deploy`, `rust/crates/revived-1-4-4`,
+  `native/client-patches` and `native/xinput1_3-proxy`) is its 1.4.4 server and client patch set, carried in the
+  `legacy-revived` submodule (AGPL-3.0-only).
 - Files and functions taken over say so in their comments.
 
 ### Undaunted
@@ -68,19 +74,23 @@ Undaunted or any other project named here, and none of them endorses it.
 By the DaintyLass contributors, in two groups.
 
 - **MIT** ([LICENSE-MIT.txt](LICENSE-MIT.txt)), each crate's `Cargo.toml` says so: `rust/crates/controller`,
-  `rust/services/admin`, `rust/bins`, the `rust/services/backend` and `director` stubs, `rust/crates/module-api` (DF2,
-  the module framework and frame protocol), `rust/crates/history-ship` (DH4, shipping the change log to an object-
+  `rust/services/admin` (including the DH2/DH3/DH6 additions `guard.rs`, `guarded.rs`, `guarded_cli.rs`,
+  `key_cli.rs`, `history.rs` and `history_text.rs`, all new), `rust/bins`, `rust/crates/module-api` (DF2, the
+  module framework and frame protocol), `rust/crates/history-ship` (DH4, shipping the change log to an object-
   locked bucket and restoring from it), `rust/plugins/network` (DN4) and `rust/crates/epic` (DE1, written from Epic's
   manifest and chunk formats as Legendary documents them). Written here against the services' contracts, from none of
   the projects above. A binary that links them to the AGPL crates is distributed under the AGPL as a whole; the MIT
   grant is on these crates' own source.
 - **AGPL-3.0-only**: `rust/services/host`, a port of the Dauntless Reforged Revival line's Node host kit
   (`ReforgedHost`, AGPL-3.0-only, by Freeza and that project's contributors; each ported module names its
-  source file); the launcher's modules that port that line's launcher additions (the runtime files, the Host
-  page, the host kit driver); `rust/plugins/chat` (DN10a), a port of Dauntless Revived's metagame chat (DR at
-  `e1c5fec`) with behaviour, no code, from Mystic Paradox's realtime gateway; the launcher's `net/epic_install.rs` (DE5), which keeps
+  source file), plus `services/host/src/epicinstall.rs` and `services/host/src/commands/install_game.rs` (DE6,
+  new, no DR source) and `services/host/src/{guarded.rs,hostconfig/guard.rs,commands/history.rs,commands/network.rs}`;
+  `modules/legacy-revived/rust/crates/revived-1-4-4` (RV1, wrapping DR's `metagame` and `deploy` as a `GameModule`);
+  the launcher's modules that port that line's launcher additions (the runtime files, the Host page, the host kit
+  driver); `rust/plugins/chat` (DN10a), a port of Dauntless Revived's metagame chat (DR at `e1c5fec`) with behaviour,
+  no code, from Mystic Paradox's realtime gateway; the launcher's `net/epic_install.rs` (DE5), which keeps
   DR's downloader structure; and the new parts of the components above. `docker/`, `docs/`, the workflows,
-  the launcher's page and bridge files and `rust/launcher/src-tauri/gen/strings.json` are this project's own
+  the launcher's page (`ui/`) and bridge files and `rust/launcher/src-tauri/gen/strings.json` are this project's own
   and carry the repository licence.
 
 ### Store captures
@@ -90,7 +100,7 @@ By the DaintyLass contributors, in two groups.
   published for academic and informational purposes, with no licence. Mystic Paradox's store generators read
   five of its files (Lady Luck's rotation, the platinum webstore and dyes, the Hunt Pass rank skips and
   passes). They are **not** copied into this repository:
-  [paradox/backend/store-captures.json](paradox/backend/store-captures.json) names the commit and each
+  [modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json](modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json) names the commit and each
   file's SHA-256, and the host kit's `gamedata` fetches them on the host's own machine.
 
 ### Other material

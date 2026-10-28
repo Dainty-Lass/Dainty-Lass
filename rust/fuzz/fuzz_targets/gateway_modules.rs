@@ -18,7 +18,7 @@ use protocol::invite::reforged_version;
 
 #[derive(Arbitrary, Debug)]
 struct Input<'a> {
-    routes: Vec<(&'a str, bool)>,
+    routes: Vec<(&'a str, bool, bool)>,
     method: &'a str,
     target: &'a str,
     headers: Vec<(&'a [u8], &'a [u8])>,
@@ -36,10 +36,11 @@ fuzz_target!(|input: Input<'_>| {
             .routes
             .iter()
             .take(8)
-            .map(|(prefix, host_only)| RouteSpec {
+            .map(|(prefix, host_only, websocket)| RouteSpec {
                 prefix: (*prefix).to_owned(),
                 port: "http".into(),
                 host_only: *host_only,
+                websocket: *websocket,
             })
             .collect(),
         ..Registration::default()

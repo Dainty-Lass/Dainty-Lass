@@ -16,13 +16,19 @@ use serde::de::DeserializeOwned;
 const LENGTH_BYTES: usize = 4;
 
 /// Decodes every frame in `bytes` as `T`, checking each accepted one round-trips.
-fn frames<T: Serialize + DeserializeOwned + PartialEq + std::fmt::Debug>(bytes: &[u8], max: usize, mut each: impl FnMut(&T)) {
+fn frames<T: Serialize + DeserializeOwned + PartialEq + std::fmt::Debug>(
+    bytes: &[u8],
+    max: usize,
+    mut each: impl FnMut(&T),
+) {
     let mut at = 0;
     while let Ok(Some((message, used))) = frame::decode::<T>(&bytes[at..], max) {
         assert!(used > LENGTH_BYTES && used - LENGTH_BYTES <= max);
         // Escapes can make the written body longer than the one read, so the bound is relaxed for it
         let written = frame::encode(&message, max * 8).expect("an accepted message writes back");
-        let (again, _) = frame::decode::<T>(&written, max * 8).expect("and reads back").expect("whole");
+        let (again, _) = frame::decode::<T>(&written, max * 8)
+            .expect("and reads back")
+            .expect("whole");
         assert_eq!(again, message);
         each(&message);
         at += used;
@@ -48,7 +54,10 @@ fuzz_target!(|data: &[u8]| {
                 assert!(!hello.manifest.display_name.is_empty());
             }
         }
-        ToHost::Reply { result: Ok(ModuleAnswer::Registered(registration)), .. } => {
+        ToHost::Reply {
+            result: Ok(ModuleAnswer::Registered(registration)),
+            ..
+        } => {
             _ = registration.check(&stub);
         }
         _ => {}

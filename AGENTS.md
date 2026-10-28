@@ -15,23 +15,28 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 | Path | What it is |
 | --- | --- |
-| `rust/` | One cargo workspace: `crates/` (`controller`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host` = the host kit and `serve`, `backend`, `director`, and DR's `metagame` and `deploy` for 1.4.4 servers), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `reforged-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-server-gui` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
+| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host` = the host kit and `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-server-gui` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
 | `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
 | `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
-| `paradox/` | Mystic Paradox's Node backend and Director, forked with their history, until the Rust port replaces them. Any change is allowed; fixes are the baseline (RD2) |
-| `native/` | The C++ game runtime (`paradox-runtime`, `MysticParadox.dll`), its loader (`runtime-loader`, `winmm.dll`, Rust, not in the workspace) and the CatalogExporter. Built by each host from their own SDK |
+| `modules/rustic-isles/` | Submodule: `rustic-isles`, the 1.14.7 (`isles-1-14-7`) and 1.12.0 (`isles-1-12-0`) Rust game modules, `isles-core`, `isles-director`, `isles-chat`, `rifts-seam`, the C++ game runtime (`native/paradox-runtime`) and CatalogExporter (`native/CatalogExporter`), and the Node reference trees (`reference/1.14.7`, `reference/1.12.0`) |
+| `modules/rustic-rifts/` | Submodule: `rustic-rifts`, peer-to-peer realms (`rifts-transport`, `rifts-guard`, `rifts-server`, and the client hosting bridge) |
+| `modules/legacy-revived/` | Submodule: `legacy-revived`, the 1.4.4 game module (`revived-1-4-4`), `metagame`, `deploy`, and the 1.4.4 native client patches (`native/client-patches`, `native/xinput1_3-proxy`) |
+| `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, outside the workspace) |
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
-| `docs/` | Player and host guides, `architecture.md`, `paradox-patches.md`, `port/` (the migration guide, delta and catch-up lists), `security/` (one checklist per trust-boundary component) |
+| `docs/` | Player and host guides, `architecture.md`, `paradox-patches.md`, `port/` (the migration guide, delta and catch-up lists), `security/` (one checklist per trust-boundary component; indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 
-`backend` and `director` in `rust/services/` are still stubs: nothing in the RB rows starts before the gate
-(RD17). Don't fill them in ahead of it; the controller runs Mystic Paradox's Node backend and Director as
-supervised modules in their place.
+Game-specific server and runtime code lives in the three module submodules (`modules/rustic-isles`,
+`modules/rustic-rifts`, `modules/legacy-revived`, DD1/DS6). Until the RU9 cutover flips `rust_ported`,
+`host::serve` runs Mystic Paradox's Node backend and Director from
+`modules/rustic-isles/reference/1.14.7/` when the `paradox` feature is enabled, while `isles-1-14-7`,
+`isles-1-12-0` and `revived-1-4-4` link into `crates/controller` behind the `all-modules` feature (DF5).
 
 The server is one executable (RD26). Every service is a module of `crates/controller`, behind its own Cargo
 feature (`modules.rs`), composed by `host::serve` from the files `setup` writes, and still runnable alone as a
-hidden `reforged-host <service>` subcommand (`services/host/src/cli.rs`), which Docker and `start` use. A new
-service is all three, not a binary of its own. DR's `metagame` and `deploy` are the exception still: the 1.4.4
-`start` runs their own binaries, which the server release doesn't build yet.
+hidden `dainty-lass-host <service>` subcommand (`services/host/src/cli.rs`), which Docker and `start` use. A new
+service is all three, not a binary of its own. The 1.4.4 stack compiles into the server binaries as the
+`revived-1-4-4` `GameModule` (`modules/legacy-revived/rust/crates/revived-1-4-4`); `dainty-lass-host start`
+also retains supervised process support for standalone `metagame` and `deploy` binaries.
 
 `docs/architecture.md` is the reference for how the parts talk and what each trusts. Section 6 of the plan,
 "Things that must not change", lists what every port keeps byte for byte: read it before touching anything a
@@ -53,8 +58,8 @@ dependency order, runs the checks and strikes the rows.
   append-only conflicts.
 - **Hands-on work isn't an agent's job:** the canary, cutovers, spikes that need a machine with the game, signing
   and publishing, the cut-off date. Write down the steps and leave them for the maintainer.
-- `paradox/` takes any change, with fixes as the baseline (RD2): keep a change small, and list a new or changed
-  route in RB1's inventory so the Rust port carries it. The Node services this port replaced were removed on
+- `modules/rustic-isles/reference/1.14.7/` takes any change, with fixes as the baseline (RD2): keep a change small, and list a new or changed
+  route in RU3's inventory (`modules/rustic-isles/docs/inventory/`) so the Rust port carries it. The Node services this port replaced were removed on
   2026-10-26; the catch-up lists (`docs/port/catchup-*.md`) are what is still owed from them.
 - **An upstream change is placed before it is ported.** Section 4 of the migration guide says where each kind
   goes (a runtime patch, a backend patch, game data, a Mystic Paradox update);
@@ -114,7 +119,7 @@ Rules that read like overcaution:
 
 No game files, generated SDKs (`CppSDK/`, `SDK.hpp`), exported game data beyond the services' examples, or
 `.workspace/`. Lady Luck's Store and the platinum store are built on each server from
-`paradox/backend/store-captures.json`. A server preset (`reforged-host preset`) is a host's own and is never
+`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`. A server preset (`dainty-lass-host preset`) is a host's own and is never
 committed.
 
 ## Configuration
@@ -174,9 +179,10 @@ the Tauri backend takes its own dialogs, is generated from them (`generated` tes
 
 ## Tests
 
-From `rust/`: `cargo test --workspace --locked --no-fail-fast`. The legacy and Paradox Node packages: `npm ci
-&& npm test` from their folders, Node 22 in CI. `bash docker/run-tests.sh` from the root builds the images and
-runs the server suites and the compose smoke test inside them.
+From `rust/`: `cargo test --workspace --locked --no-fail-fast`. The Paradox Node reference packages in
+`modules/rustic-isles/reference/1.14.7/ParadoxBackend` and `ParadoxDirector`: `npm ci && npm test` from their
+folders, Node 22 in CI. `bash docker/run-tests.sh` from the root builds the images and runs the server suites
+and the compose smoke test inside them.
 
 Not obvious from reading the suites:
 
@@ -199,11 +205,12 @@ Not obvious from reading the suites:
 
 ## Native code
 
-A runtime patch written against Mystic Paradox's tree is applied to `native/` as
+A runtime patch written against Mystic Paradox's tree is applied to `modules/rustic-isles/native/` as
 `docs/paradox-runtime-patches.md` describes: paths rewritten, `git apply --3way`, LF line endings, and a
-section in `docs/paradox-patches.md`. The
-migration guide's sections 2.1 and 2.8 say which Paradox folder became which `native/` folder and which
-patches live there.
+section in `docs/paradox-patches.md`. The migration guide's sections 2.1 and 2.8 say which Paradox folder
+became which `modules/rustic-isles/native/` folder and which patches live there. The 1.4.4 client patches live
+in `modules/legacy-revived/native/` (`client-patches`, `xinput1_3-proxy`), and the WebRTC realm transport lives
+in `modules/rustic-rifts/crates/rifts-transport`.
 `native/runtime-loader` is a Rust crate of its own, outside the workspace: workspace-wide `cargo` commands
 don't cover it.
 
@@ -252,12 +259,12 @@ explanation goes in the commit body or the `docs/security/` checklist.
 ## Licensing
 
 AGPL-3.0-only, with additional terms for the Mystic Paradox material (`ADDITIONAL_TERMS.md`,
-`paradox/ADDITIONAL_TERMS.md`). Keep Paradox's top-level files under `paradox/` even after its code is gone.
+`modules/rustic-isles/ADDITIONAL_TERMS.md`). Keep Paradox's top-level files under `modules/rustic-isles/` even after its Node code is gone.
 Code copied from DR or Paradox keeps its attribution, and the integration pass records each new source in
 `NOTICE.md`.
 
-The crates `NOTICE.md` lists as MIT (`controller`, `admin`, `bins`, the `backend` and `director` stubs) set
-`license = "MIT"` in their own `Cargo.toml`; everything else inherits the workspace's AGPL. A new crate is MIT
-only when nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from those trees,
-no function rewritten from one. Copying a DR or Paradox function into an MIT crate moves the crate back to
-`license.workspace = true` in the same commit, with the NOTICE line to match.
+The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `plugins/network`,
+`plugins/chat`, `admin`, `bins`) set `license = "MIT"` in their own `Cargo.toml`; everything else inherits the
+workspace's AGPL. A new crate is MIT only when nothing in it is ported from DR, Paradox or the Reforged Revival
+line: no file from those trees, no function rewritten from one. Copying a DR or Paradox function into an MIT
+crate moves the crate back to `license.workspace = true` in the same commit, with the NOTICE line to match.

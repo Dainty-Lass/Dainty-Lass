@@ -29,7 +29,8 @@ fuzz_target!(|input: Input<'_>| {
     if let Ok(key) = parse_file_request_path(input.target) {
         assert!(!key.is_empty() && !key.contains(['\\', '\0', ':', '%']), "{key:?}");
         assert!(
-            !key.split('/').any(|part| part.is_empty() || part == "." || part == ".."),
+            !key.split('/')
+                .any(|part| part.is_empty() || part == "." || part == ".."),
             "{key:?}"
         );
     }

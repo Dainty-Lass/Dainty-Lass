@@ -193,6 +193,17 @@ jobs:
             exit 1
           fi
 
+      # store's two-engine tests run against Postgres when REFORGED_TEST_POSTGRES_URL is set (DF7)
+      - name: Start Postgres for the two-engine store tests
+        if: runner.os == 'Linux'
+        run: |
+          sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
+          $sudo apt-get update
+          $sudo apt-get install -y --no-install-recommends postgresql
+          $sudo service postgresql start
+          $sudo su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres';\""
+          echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+
       - name: Format
         run: cargo fmt --all --check
 

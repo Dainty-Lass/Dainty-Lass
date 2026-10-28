@@ -76,7 +76,10 @@ fuzz_target!(|data: &[u8]| {
         }
         assert!(length.is_none_or(|n| n <= MAX_MESSAGE as u64));
         let theirs = wire::parse_time(time).expect("a time");
-        assert!(wire::within(wire::skew_ms(endpoint.clock().now_ms(), theirs), network::link::MAX_CLOCK_SKEW + std::time::Duration::from_secs(5)));
+        assert!(wire::within(
+            wire::skew_ms(endpoint.clock().now_ms(), theirs),
+            network::link::MAX_CLOCK_SKEW + std::time::Duration::from_secs(5)
+        ));
     }
     let stranger: module_api::network::NodeId = "de-1".parse().expect("a node id");
     assert!(endpoint.admit(&stranger, &head).is_err());
