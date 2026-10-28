@@ -329,6 +329,9 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     &network_plugin::directory::SCHEMA,
                 )
                 .map_err(|e| format!("network directory database: {e}"))?;
+                tickets
+                    .attach_database(db.clone())
+                    .map_err(|e| format!("network ticket revocations: {e}"))?;
                 let _health_task = link.spawn_health_checks();
                 let dir_config = network_plugin::directory::DirectoryConfig::in_network(node.node.clone(), leader);
                 let directory = Arc::new(

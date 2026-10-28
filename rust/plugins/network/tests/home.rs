@@ -925,3 +925,95 @@ async fn a_server_outside_a_network_has_no_other_home() {
     // Its own account is its own home
     assert!(denied(home.forward(&call).await).contains("account's home"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
+    for engine in engines() {
+        let target = Target::new(engine);
+        let db = target.open();
+        let key_dir = tempfile::tempdir().unwrap();
+        let key_path = key_dir.path().join("ticket.key");
+
+        let home_identity = NodeIdentity {
+            node: id("germany-1"),
+            region: "eu-central".parse().unwrap(),
+        };
+        let audience_node = id("oregon-1");
+        let clock = Arc::new(Clock::default());
+        let account = GlobalId::new(IdKind::Account, &home_identity.node);
+        let game_version = game();
+
+        let tickets_before = Tickets::with_database(
+            &home_identity,
+            SigningKey::load_or_create(&key_path).unwrap(),
+            clock.clone(),
+            TicketConfig::default(),
+            db.clone(),
+        )
+        .unwrap();
+
+        let expect = network::home::Expect {
+            issuer: &home_identity.node,
+            audience: &audience_node,
+            game: Some(&game_version),
+            account: Some(&account),
+        };
+
+        // Issue a ticket before the ban
+        let old_ticket = tickets_before
+            .issue(&account, &audience_node, &game_version, None)
+            .unwrap();
+        let old_claims = tickets_before.verify(&old_ticket, &expect).unwrap();
+
+        // Advance clock by 1s and ban (revoke) the account
+        clock.skew_by(1_000);
+        tickets_before.revoke(&account);
+        assert_eq!(tickets_before.verify(&old_ticket, &expect), Err(TicketError::Revoked));
+        drop(tickets_before);
+
+        // Restart Tickets on the same database with the same signing key
+        clock.skew_by(2_000);
+        let tickets_after = Tickets::with_database(
+            &home_identity,
+            SigningKey::load_or_create(&key_path).unwrap(),
+            clock.clone(),
+            TicketConfig::default(),
+            db.clone(),
+        )
+        .unwrap();
+
+        // The old ticket issued before the ban is still refused after restart, and its session cannot be renewed
+        assert_eq!(tickets_after.verify(&old_ticket, &expect), Err(TicketError::Revoked));
+        assert_eq!(
+            tickets_after.issue(&account, &audience_node, &game_version, Some(old_claims.since)),
+            Err(TicketError::Revoked)
+        );
+
+        // Even 20 minutes later (past MAX_TTL, within DEFAULT_MAX_SESSION), renewing the pre-ban session is refused
+        clock.skew_by(20 * 60_000);
+        assert_eq!(
+            tickets_after.issue(&account, &audience_node, &game_version, Some(old_claims.since)),
+            Err(TicketError::Revoked)
+        );
+
+        // A fresh login after the ban succeeds
+        let fresh_ticket = tickets_after
+            .issue(&account, &audience_node, &game_version, None)
+            .unwrap();
+        tickets_after.verify(&fresh_ticket, &expect).unwrap();
+
+        // Unbanning (`allow`) clears the persisted floor across another restart
+        tickets_after.allow(&account);
+        drop(tickets_after);
+
+        let tickets_unbanned = Tickets::with_database(
+            &home_identity,
+            SigningKey::load_or_create(&key_path).unwrap(),
+            clock.clone(),
+            TicketConfig::default(),
+            db,
+        )
+        .unwrap();
+        assert!(!tickets_unbanned.is_revoked_at(&account, old_claims.since));
+    }
+}

@@ -214,6 +214,31 @@ impl ReplayCache {
     }
 }
 
+#[cfg(feature = "directory")]
+fn block_on_db<F, T>(fut: F) -> Result<T, store::Error>
+where
+    F: std::future::Future<Output = Result<T, store::Error>> + Send,
+    T: Send,
+{
+    static RUNTIME: std::sync::OnceLock<Result<tokio::runtime::Runtime, String>> = std::sync::OnceLock::new();
+    let rt = RUNTIME
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .map_err(|err| err.to_string())
+        })
+        .as_ref()
+        .map_err(|msg| store::Error::Config(msg.clone()))?;
+    std::thread::scope(|scope| {
+        scope
+            .spawn(|| rt.block_on(fut))
+            .join()
+            .unwrap_or_else(|_| Err(store::Error::Panicked))
+    })
+}
+
 /// One node's tickets: the key it signs with, the public keys of the others, the replay memory of the tickets
 /// it admitted and the sessions it ended. Shared by the home service (answering) and the networked home
 /// (asking), so a node that is both the home of some accounts and the audience for others uses one.
@@ -227,6 +252,8 @@ pub struct Tickets {
     replay: Mutex<ReplayCache>,
     // Accounts whose sessions ended, and when: a ticket issued at or before that is dead
     revoked: Mutex<HashMap<GlobalId, i64>>,
+    #[cfg(feature = "directory")]
+    db: RwLock<Option<store::Database>>,
 }
 
 impl std::fmt::Debug for Tickets {
@@ -251,9 +278,63 @@ impl Tickets {
             }),
             replay: Mutex::new(ReplayCache::default()),
             revoked: Mutex::new(HashMap::new()),
+            #[cfg(feature = "directory")]
+            db: RwLock::new(None),
         };
         tickets.publish_own_keys();
         tickets
+    }
+
+    /// Builds [`Tickets`] backed by `db` (`network_ticket_revocations`), reloading persisted revocation floors.
+    #[cfg(feature = "directory")]
+    pub fn with_database(
+        me: &NodeIdentity,
+        key: SigningKey,
+        clock: Arc<Clock>,
+        config: TicketConfig,
+        db: store::Database,
+    ) -> Result<Self, store::Error> {
+        let tickets = Self::new(me, key, clock, config);
+        tickets.attach_database(db)?;
+        Ok(tickets)
+    }
+
+    /// Attaches `db` (`network_ticket_revocations`) and reloads all persisted revocation floors.
+    #[cfg(feature = "directory")]
+    pub fn attach_database(&self, db: store::Database) -> Result<(), store::Error> {
+        let rows: Vec<(String, i64)> = block_on_db(db.read(|conn| {
+            use diesel::prelude::*;
+            use diesel::sql_types::{BigInt, Text};
+            #[derive(QueryableByName)]
+            struct Row {
+                #[diesel(sql_type = Text)]
+                account: String,
+                #[diesel(sql_type = BigInt)]
+                revoked_at: i64,
+            }
+            Ok(
+                diesel::sql_query("SELECT account, revoked_at FROM network_ticket_revocations")
+                    .load::<Row>(conn)?
+                    .into_iter()
+                    .map(|r| (r.account, r.revoked_at))
+                    .collect(),
+            )
+        }))?;
+        {
+            let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
+            for (raw, floor) in rows {
+                if let Ok(account) = raw.parse::<GlobalId>()
+                    && account.kind() == IdKind::Account
+                {
+                    revoked
+                        .entry(account)
+                        .and_modify(|cur| *cur = (*cur).max(floor))
+                        .or_insert(floor);
+                }
+            }
+        }
+        *self.db.write().unwrap_or_else(PoisonError::into_inner) = Some(db);
+        Ok(())
     }
 
     pub fn node(&self) -> &NodeId {
@@ -335,6 +416,9 @@ impl Tickets {
             return Err(TicketError::WrongAccount);
         }
         let now = self.clock.now_ms();
+        if since.is_some_and(|login_since| self.is_revoked_at(account, login_since)) {
+            return Err(TicketError::Revoked);
+        }
         let since = since.unwrap_or(now);
         if now.saturating_sub(since) > ms(self.config.max_session) {
             return Err(TicketError::SessionTooOld);
@@ -451,15 +535,36 @@ impl Tickets {
         Ok(claims)
     }
 
-    /// Ends every session of `account` that began before now: tickets issued so far stop working here, and
-    /// can't be renewed. A login after this gets new ones. Remembered in memory only, and only as long as a
-    /// ticket lives, since nothing older is valid anyway.
+    /// Ends every session of `account` that began at or before now: tickets issued so far stop working here,
+    /// and can't be renewed. A login after this gets new ones. Persisted in `network_ticket_revocations` when
+    /// a database is attached so a restart does not reinstate banned sessions.
     pub fn revoke(&self, account: &GlobalId) {
         let now = self.clock.now_ms();
-        let keep = ms(MAX_TTL) + self.skew_ms();
-        let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
-        revoked.retain(|_, floor| now.saturating_sub(*floor) <= keep);
-        revoked.insert(account.clone(), now);
+        let floor = {
+            let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
+            let entry = revoked.entry(account.clone()).or_insert(now);
+            *entry = (*entry).max(now);
+            *entry
+        };
+        #[cfg(feature = "directory")]
+        if let Some(db) = self.db.read().unwrap_or_else(PoisonError::into_inner).clone() {
+            let account_str = account.to_string();
+            let _ = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
+                use diesel::prelude::*;
+                use diesel::sql_types::{BigInt, Text};
+                let sql = store::portable::upsert(
+                    "network_ticket_revocations",
+                    &["account", "revoked_at"],
+                    &["account"],
+                    &["revoked_at"],
+                );
+                diesel::sql_query(sql)
+                    .bind::<Text, _>(account_str)
+                    .bind::<BigInt, _>(floor)
+                    .execute(tx.conn())?;
+                Ok(())
+            }));
+        }
     }
 
     /// Clears an earlier [`Self::revoke`] for `account` (after an unban or lifted timeout).
@@ -468,6 +573,18 @@ impl Tickets {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .remove(account);
+        #[cfg(feature = "directory")]
+        if let Some(db) = self.db.read().unwrap_or_else(PoisonError::into_inner).clone() {
+            let account_str = account.to_string();
+            let _ = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
+                use diesel::prelude::*;
+                use diesel::sql_types::Text;
+                diesel::sql_query("DELETE FROM network_ticket_revocations WHERE account = $1")
+                    .bind::<Text, _>(account_str)
+                    .execute(tx.conn())?;
+                Ok(())
+            }));
+        }
     }
 
     /// Whether a session of `account` that started at `at` (ms) has been revoked here.
