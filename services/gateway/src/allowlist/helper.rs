@@ -557,6 +557,19 @@ impl Helper {
         let resp = self.allow(Some(&json!(ip_text)));
         resp.status().as_u16() == 200
     }
+
+    /// Admits `ip_text` into the allowlist when `udp_port` is covered by [`Self::guard`] (DF4d, DN8, DN9).
+    pub fn admit_udp(&self, ip_text: &str, udp_port: u16) -> bool {
+        self.guard.covers_port(udp_port) && self.allow_ip(ip_text)
+    }
+
+    /// Whether `ip_text` is currently admitted in the allowlist and `udp_port` is covered by [`Self::guard`].
+    pub fn is_admitted(&self, ip_text: &str, udp_port: u16) -> bool {
+        let AllowlistCheck::Ok(ip) = check_allowlist_ip(Some(ip_text), self.config.allow_private) else {
+            return false;
+        };
+        self.guard.covers_port(udp_port) && self.list().contains(&ip.canonical)
+    }
 }
 
 /// Closes the firewall game ports once and returns (`--close-ports`).
