@@ -163,6 +163,8 @@ impl GameModule for NodeGame {
             let mut players = self.players.lock().unwrap();
             let (AdminRequest::Kick { player, .. }
             | AdminRequest::Ban { player, .. }
+            | AdminRequest::Unban { player, .. }
+            | AdminRequest::LiftTimeout { player, .. }
             | AdminRequest::Lookup { player }) = &call.request;
             let Some(found) = players.iter_mut().find(|p| p.name.eq_ignore_ascii_case(player)) else {
                 self.calls.lock().unwrap().push(call);
@@ -189,6 +191,12 @@ impl GameModule for NodeGame {
                 AdminRequest::Ban { reason, .. } => {
                     found.online = false;
                     found.banned_reason = Some(reason.clone().unwrap_or_else(|| "Banned".into()));
+                    drop(players);
+                    self.calls.lock().unwrap().push(call);
+                    Ok(AdminResponse::Done)
+                }
+                AdminRequest::Unban { .. } | AdminRequest::LiftTimeout { .. } => {
+                    found.banned_reason = None;
                     drop(players);
                     self.calls.lock().unwrap().push(call);
                     Ok(AdminResponse::Done)
