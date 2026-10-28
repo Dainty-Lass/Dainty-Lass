@@ -302,3 +302,77 @@ async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_n
 
     controller.shutdown().await;
 }
+
+#[cfg(feature = "network")]
+#[test]
+fn refused_udp_admission_logs_warn_with_instance_and_port_without_panicking() {
+    use std::fmt;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use module_api::network::{GlobalId, IdKind, NodeId};
+    use network_plugin::ring::AllowlistSink;
+    use tracing::field::{Field, Visit};
+    use tracing::{Event, Level, Metadata, Subscriber, span};
+
+    #[derive(Default)]
+    struct CapturedWarns {
+        events: Mutex<Vec<String>>,
+        next_id: AtomicU64,
+    }
+
+    struct FieldPrinter(String);
+
+    impl Visit for FieldPrinter {
+        fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
+            use fmt::Write as _;
+            let _ = write!(&mut self.0, "{}={:?} ", field.name(), value);
+        }
+    }
+
+    impl Subscriber for CapturedWarns {
+        fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+            metadata.level() <= &Level::WARN
+        }
+
+        fn new_span(&self, _span: &span::Attributes<'_>) -> span::Id {
+            span::Id::from_u64(self.next_id.fetch_add(1, Ordering::Relaxed) + 1)
+        }
+
+        fn record(&self, _span: &span::Id, _values: &span::Record<'_>) {}
+
+        fn record_follows_from(&self, _span: &span::Id, _follows: &span::Id) {}
+
+        fn event(&self, event: &Event<'_>) {
+            if *event.metadata().level() == Level::WARN {
+                let mut printer = FieldPrinter(String::new());
+                event.record(&mut printer);
+                self.events.lock().unwrap().push(printer.0);
+            }
+        }
+
+        fn enter(&self, _span: &span::Id) {}
+
+        fn exit(&self, _span: &span::Id) {}
+    }
+
+    let node: NodeId = "oregon-1".parse().unwrap();
+    let instance = GlobalId::new(IdKind::Hunt, &node);
+    let account = GlobalId::new(IdKind::Account, &node);
+    let sink = modules::InProcessAllowlistSink::new(None);
+    let subscriber = Arc::new(CapturedWarns::default());
+
+    tracing::subscriber::with_default(subscriber.clone(), || {
+        sink.admit_player(&instance, &account, "203.0.113.77", 59999);
+    });
+
+    let events = subscriber.events.lock().unwrap();
+    assert_eq!(events.len(), 1, "expected one warn event, got {events:?}");
+    let line = &events[0];
+    assert!(line.contains(&instance.to_string()), "missing instance id in {line}");
+    assert!(line.contains("59999"), "missing udp port in {line}");
+    assert!(
+        !line.contains("203.0.113.77"),
+        "warn event must not log full client IP: {line}"
+    );
+}
