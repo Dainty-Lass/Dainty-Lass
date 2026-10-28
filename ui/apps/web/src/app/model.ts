@@ -179,6 +179,10 @@ export function errorMessage(
       return { key: "err_loader_leftovers", vars: { detail } }
     case "history_failed":
       return { key: "err_history_failed", vars: { detail } }
+    case "realm_unavailable":
+      return isKey(`realm_err_${detail}`)
+        ? { key: `realm_err_${detail}` as Key }
+        : { key: "err_realm_unavailable" }
     case "realm_failed":
       return { key: "err_realm_failed", vars: { detail } }
     case "host_failed":

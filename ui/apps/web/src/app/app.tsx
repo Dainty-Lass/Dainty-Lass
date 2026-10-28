@@ -12,6 +12,7 @@ import { Dialogs } from "@/components/dialogs"
 import { GameScreen } from "@/screens/game"
 import { HostScreen } from "@/screens/host"
 import { PlayScreen } from "@/screens/play"
+import { RealmsScreen } from "@/screens/realms"
 import { ServerScreen } from "@/screens/servers"
 import { SettingsScreen } from "@/screens/settings"
 
@@ -32,6 +33,7 @@ function Shell() {
             <div className="flex flex-col gap-4 p-6" data-view={view}>
               <Banners />
               {view === "play" && <PlayScreen />}
+              {view === "realms" && <RealmsScreen />}
               {view === "server" && <ServerScreen />}
               {view === "game" && <GameScreen />}
               {view === "host" && <HostScreen />}

@@ -21,6 +21,7 @@ import { Label } from "@workspace/ui/components/label"
 import { hostPageAvailable } from "@/app/host-model"
 import { useI18n } from "@/app/i18n"
 import { useLauncher } from "@/app/launcher"
+import { realmsPageAvailable } from "@/app/realms"
 import {
   checkUsername,
   errorMessage,
@@ -789,9 +790,10 @@ function Installing({ snap }: { snap: Snapshot }) {
 
 function Ready({ snap }: { snap: Snapshot }) {
   const { t } = useI18n()
-  const { setView, report } = useLauncher()
+  const { setView, report, realm } = useLauncher()
   const user = snap.account.username
   const data = snap.status?.gameData
+  const showRealms = realmsPageAvailable(snap, realm)
   return (
     <>
       <Heading
@@ -834,6 +836,11 @@ function Ready({ snap }: { snap: Snapshot }) {
           <Button variant="link" size="xs" onClick={() => setView("settings")}>
             {t("ready_change")}
           </Button>
+          {showRealms && (
+            <Button variant="link" size="xs" onClick={() => setView("realms")}>
+              {t("rlm_open_from_play")}
+            </Button>
+          )}
           {snap.revived && (
             <Button
               variant="link"

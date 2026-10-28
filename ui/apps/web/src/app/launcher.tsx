@@ -19,6 +19,7 @@ import {
   type Game,
   type InviteCheck,
   type LauncherError,
+  type RealmOutcome,
   type Snapshot,
   type TaskProgress,
 } from "@workspace/bridge"
@@ -30,8 +31,9 @@ import {
   type FormState,
   type InviteSummary,
 } from "./model"
+import { realmsInBuild } from "./realms"
 
-export type View = "play" | "server" | "host" | "settings" | "game"
+export type View = "play" | "server" | "host" | "settings" | "game" | "realms"
 
 export type Modal =
   | { kind: "invite"; link: string; invite: InviteSummary }
@@ -69,6 +71,7 @@ export interface Launcher {
   // The Epic install's progress (kind "install"): the Game screen's, kept apart because a snapshot of any
   // phase but "installing" clears `task`
   installTask: TaskProgress | null
+  realm: RealmOutcome | null
   localError: LauncherError | null
   modal: Modal | null
   view: View
@@ -78,6 +81,7 @@ export interface Launcher {
   username: string
   form: FormState
   setView(view: View): void
+  setRealm(outcome: RealmOutcome | null): void
   setInviteText(text: string): void
   setUsername(text: string): void
   showModal(modal: Modal | null): void
@@ -142,6 +146,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [task, setTask] = useState<TaskProgress | null>(null)
   const [installTask, setInstallTask] = useState<TaskProgress | null>(null)
+  const [realm, setRealm] = useState<RealmOutcome | null>(null)
   const [localError, setLocalError] = useState<LauncherError | null>(null)
   const [modal, showModal] = useState<Modal | null>(null)
   const [view, setViewState] = useState<View>("play")
@@ -153,12 +158,24 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   } | null>(null)
   const [username, setUsername] = useState("")
   const snapRef = useRef<Snapshot | null>(null)
+  const realmRef = useRef<RealmOutcome | null>(null)
 
-  const onSnapshot = useCallback((next: Snapshot) => {
-    snapRef.current = next
-    setSnap(next)
-    if (next.phase !== "installing") setTask(null)
+  const updateRealm = useCallback((next: RealmOutcome | null) => {
+    realmRef.current = next
+    setRealm(next)
   }, [])
+
+  const onSnapshot = useCallback(
+    (next: Snapshot) => {
+      snapRef.current = next
+      setSnap(next)
+      if (next.phase !== "installing") setTask(null)
+      if (realmRef.current === null || realmsInBuild(realmRef.current)) {
+        void api.realmGet().then(updateRealm, () => undefined)
+      }
+    },
+    [updateRealm]
+  )
 
   const checkInviteLink = useCallback(async () => {
     const link = await api.takeInviteLink()
@@ -382,6 +399,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       snap,
       task,
       installTask,
+      realm,
       localError,
       modal,
       view,
@@ -391,6 +409,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       username,
       form,
       setView,
+      setRealm: updateRealm,
       setInviteText,
       setUsername,
       showModal,
@@ -404,6 +423,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       snap,
       task,
       installTask,
+      realm,
       localError,
       modal,
       view,
@@ -413,6 +433,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       username,
       form,
       setView,
+      updateRealm,
       dismissError,
       report,
       primary,

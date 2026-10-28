@@ -2,6 +2,7 @@
 import {
   CopyIcon,
   DownloadIcon,
+  GlobeIcon,
   HardDriveIcon,
   MinusIcon,
   PlayIcon,
@@ -18,6 +19,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { hostPageAvailable } from "@/app/host-model"
 import { useI18n } from "@/app/i18n"
 import { useLauncher, type View } from "@/app/launcher"
+import { realmsPageAvailable } from "@/app/realms"
 
 export function TitleBar() {
   const { t } = useI18n()
@@ -66,10 +68,17 @@ export function TitleBar() {
 
 const NAV: {
   view: View
-  key: "nav_play" | "nav_server" | "nav_host" | "nav_settings" | "nav_game"
+  key:
+    | "nav_play"
+    | "nav_realms"
+    | "nav_server"
+    | "nav_host"
+    | "nav_settings"
+    | "nav_game"
   icon: typeof PlayIcon
 }[] = [
   { view: "play", key: "nav_play", icon: PlayIcon },
+  { view: "realms", key: "nav_realms", icon: GlobeIcon },
   { view: "server", key: "nav_server", icon: ServerIcon },
   { view: "game", key: "nav_game", icon: DownloadIcon },
   { view: "host", key: "nav_host", icon: HardDriveIcon },
@@ -78,13 +87,16 @@ const NAV: {
 
 export function Rail() {
   const { t } = useI18n()
-  const { view, setView, snap } = useLauncher()
+  const { view, setView, snap, realm } = useLauncher()
   const user = snap?.account.hasKey ? snap.account.username : null
   const serverName = snap?.status?.name ?? snap?.server?.name ?? null
-  // The Host page is the server GUI's, or a player build's once Host tools are on
-  const items = NAV.filter(
-    ({ view: target }) => target !== "host" || hostPageAvailable(snap)
-  )
+  // The Host page is the server GUI's, or a player build's once Host tools are on; Realms is shown
+  // when the build includes realm support and the active game edition supports realms.
+  const items = NAV.filter(({ view: target }) => {
+    if (target === "host") return hostPageAvailable(snap)
+    if (target === "realms") return realmsPageAvailable(snap, realm)
+    return true
+  })
   return (
     <nav
       aria-label={t("nav_label")}
