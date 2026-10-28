@@ -1,3 +1,20 @@
+# Rustic Isles (`isles-1-14-7` and `isles-1-12-0`)
+
+> **Modified, unofficial version.** This repository (`silentspud/rustic-isles` on `git.silentspud.com`) is a modified,
+> unofficial version of [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (`21b9ff5` and tag
+> `dauntless-1.12.0` at `4d5dfaa`), maintained as the **Rustic Isles 1.14.7** (`modules/isles-1-14-7`) and
+> **Rustic Isles 1.12** (`modules/isles-1-12-0`) game modules of
+> [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass). It is **not** an official release of the Mystic
+> Paradox project, and Mystic Paradox does not endorse it.
+>
+> "Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related modifications were developed by MysticFox / Pranav
+> Karande. See NOTICE.md for contribution and provenance information."
+>
+> The Rust workspace (`crates/isles-core`, `crates/isles-director`, `crates/isles-chat`, `crates/isles-db`,
+> `modules/isles-1-14-7`, `modules/isles-1-12-0`) ports Mystic Paradox's 1.14.7 and 1.12.0 backend and Director to Rust
+> on `store` (SQLite and Postgres). Everything below is Mystic Paradox's upstream documentation, kept with its credits
+> to MysticFox / Pranav Karande and Undaunted.
+
 <p align="center">
   <img src="docs/assets/banner.webp" alt="Mystic Paradox — open-source Dauntless server project" width="100%">
 </p>
@@ -110,12 +127,14 @@ provided on Reddit.
 ## 📜 License and credits
 
 [AGPL-3.0-only](LICENSE), with additional terms in [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md) — details in
-[Scope and legal](docs/SCOPE_AND_LEGAL.md).
+[Scope and legal](docs/SCOPE_AND_LEGAL.md). This repository is a modified, unofficial version of Mystic Paradox and is
+not an official Mystic Paradox release.
 
+- "Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related modifications were developed by MysticFox / Pranav
+  Karande. See NOTICE.md for contribution and provenance information."
 - Based on **[Undaunted](https://github.com/SyST3MDeV/Undaunted)** by gwog / Gregory Morford (AGPLv3).
 - **Mystic Paradox** is a separate community project with substantial independent changes, maintained
   by **Mystic / Pranav Karande**.
-- Development assistance: [Claude](https://www.anthropic.com/claude) (Anthropic).
 
 Full provenance in [NOTICE.md](NOTICE.md).
 
