@@ -437,7 +437,7 @@ impl Chat {
 
     // ---- The modules ----
 
-    fn answers_chat(&self, module: &ModuleId) -> bool {
+    pub(crate) fn answers_chat(&self, module: &ModuleId) -> bool {
         self.backends
             .modules
             .lock()
@@ -455,7 +455,7 @@ impl Chat {
         };
         match self.backends.host.ask(module, query).await {
             Ok(ChatAnswer::Jid(jid)) => Some(jid),
-            Ok(ChatAnswer::Room(_)) => None,
+            Ok(_) => None,
             Err(error) if hooks::is_unsupported(&error) => hooks::default_jid(authcid, domain),
             Err(error) => {
                 tracing::warn!("chat: module {module} did not give a JID ({})", error.kind);
@@ -477,13 +477,27 @@ impl Chat {
         };
         match self.backends.host.ask(&module, query).await {
             Ok(ChatAnswer::Room(rules)) => Some(rules),
-            Ok(ChatAnswer::Jid(_)) => None,
+            Ok(_) => None,
             Err(error) if hooks::is_unsupported(&error) => Some(hooks::default_rules(room)),
             Err(error) => {
                 tracing::warn!("chat: module {module} did not give room rules ({})", error.kind);
                 None
             }
         }
+    }
+
+    async fn may_whisper(&self, module: Option<&ModuleId>, from: &GlobalId, to: &GlobalId) -> bool {
+        let Some(module) = module.filter(|m| self.answers_chat(m)) else {
+            return true;
+        };
+        let query = ChatQuery::MayWhisper {
+            from: from.clone(),
+            to: to.clone(),
+        };
+        !matches!(
+            self.backends.host.ask(module, query).await,
+            Ok(ChatAnswer::MayWhisper(false))
+        )
     }
 
     pub async fn publish(&self, envelope: Envelope) {
@@ -1435,6 +1449,7 @@ impl Chat {
         let Some(sender) = session.account.clone() else {
             return;
         };
+        let sender_module = session.module.clone();
         if length == 0 || length > BODY_LIMIT {
             refused("size");
             return;
@@ -1456,7 +1471,9 @@ impl Chat {
             return;
         };
         // Either player blocked the other: not delivered (the same rule as party invites)
-        if self.backends.host.blocked(&sender, &recipient).await {
+        if self.backends.host.blocked(&sender, &recipient).await
+            || !self.may_whisper(sender_module.as_ref(), &sender, &recipient).await
+        {
             refused("blocked");
             return;
         }

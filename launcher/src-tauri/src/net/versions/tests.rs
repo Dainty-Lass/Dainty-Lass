@@ -132,7 +132,9 @@ fn profile(version: &str, name: &str, epic: Option<(&str, &[u8], &[&str])>) -> K
         client: ClientProfile {
             executable: "Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe".into(),
             executable_sha256: None,
+            files: vec![],
             arguments: vec![],
+            environment: std::collections::BTreeMap::new(),
             ini_edits: vec![],
             epic: epic.map(|(build, bytes, sources)| EpicBuild {
                 version: build.into(),

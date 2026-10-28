@@ -25,7 +25,9 @@ fn epic_profile(build: &Build) -> Option<KnownProfile> {
         client: ClientProfile {
             executable: pins::EXE_RELATIVE_PATH.to_owned(),
             executable_sha256: Some(build.executable_sha256.parse().ok()?),
+            files: Vec::new(),
             arguments: Vec::new(),
+            environment: std::collections::BTreeMap::new(),
             ini_edits: Vec::new(),
             epic: Some(EpicBuild {
                 version: build.build_version.to_owned(),
@@ -45,7 +47,9 @@ fn revived_profile() -> Option<KnownProfile> {
         client: ClientProfile {
             executable: pins::EXE_RELATIVE_PATH.to_owned(),
             executable_sha256: Some(sha256.parse().ok()?),
+            files: Vec::new(),
             arguments: Vec::new(),
+            environment: std::collections::BTreeMap::new(),
             ini_edits: Vec::new(),
             epic: None,
         },

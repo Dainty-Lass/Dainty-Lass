@@ -223,8 +223,20 @@ impl Chat {
             return;
         }
         let domain = session.domain.clone();
+        let module = session.module.clone();
         let node = &self.backends.node;
-        let kind = room_kind_of(&to.local, &node.node, &node.region);
+        let mut kind = room_kind_of(&to.local, &node.node, &node.region);
+        if kind.is_none()
+            && let Some(module) = &module
+            && self.answers_chat(module)
+            && let Ok(module_api::chat::ChatAnswer::RoomOf(found)) = self
+                .backends
+                .host
+                .ask(module, module_api::chat::ChatQuery::RoomOf { name: to.local.clone() })
+                .await
+        {
+            kind = found;
+        }
         let (Some(kind), true) = (kind, is_muc_domain(&domain, &to.domain)) else {
             self.refuse_join(id, &room_jid, &to.local, &nick, Refusal::NotAllowed)
                 .await;
