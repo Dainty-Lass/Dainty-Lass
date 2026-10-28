@@ -1,0 +1,1 @@
+DROP TABLE network_ticket_revocations;
