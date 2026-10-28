@@ -32,7 +32,7 @@ const MAX_PLAYERS_LISTED: usize = 500;
 /// Express's default JSON limit
 pub(super) const BODY_LIMIT: usize = 100 * 1024;
 
-static BOOTED_AT: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
+static BOOTED_AT: LazyLock<Instant> = LazyLock::new(Instant::now);
 
 pub(super) fn actor_host() -> ActorContext {
     ActorContext::new(Actor::Console)
@@ -288,7 +288,7 @@ pub async fn server_status_body(shared: &Shared, store: &IslesStore, full: bool)
         "commit": js_slice(service_kit::js::trim(shared.settings.raw("REFORGED_SOURCE_COMMIT").unwrap_or_default()), 64),
         "sourceUrl": https_url_or_null(shared.settings.raw("REFORGED_SOURCE_URL")),
         "registration": mode(shared).as_str(),
-        "uptimeSeconds": BOOTED_AT.lock().unwrap_or_else(PoisonError::into_inner).elapsed().as_secs(),
+        "uptimeSeconds": BOOTED_AT.elapsed().as_secs(),
         "contentPort": null,
         "game": {
             "build": format!("rel-{}-Archon", shared.version.tables.game_version),
@@ -510,7 +510,7 @@ fn registration_status(call: &Call) -> Response {
 }
 
 pub fn register(handlers: &mut Handlers) {
-    *BOOTED_AT.lock().unwrap_or_else(PoisonError::into_inner) = Instant::now();
+    let _ = *BOOTED_AT;
     let b = Service::Backend;
     handlers.on(b, Method::Post, "/reforged/api/Register", |call| {
         Box::pin(register_account(call))
@@ -524,4 +524,20 @@ pub fn register(handlers: &mut Handlers) {
     handlers.on(b, Method::Get, "/reforged/api/RegistrationStatus", |call| {
         Box::pin(async move { registration_status(&call) })
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registering_a_second_module_does_not_reset_booted_at() {
+        let mut first = Handlers::default();
+        register(&mut first);
+        let first_boot = *BOOTED_AT;
+        std::thread::sleep(Duration::from_millis(5));
+        let mut second = Handlers::default();
+        register(&mut second);
+        assert_eq!(*BOOTED_AT, first_boot);
+    }
 }
