@@ -58,8 +58,9 @@ pub struct RealmsDb {
 }
 
 impl RealmsDb {
-    /// Opens the database with realms' schema alone (tests, a standalone server). Blocking: call it at start.
+    /// Opens the database with Guard's and realms' schemas (tests, a standalone server). Blocking: call it at start.
     pub fn open(config: &DatabaseConfig, options: &DatabaseOptions, node: NodeId) -> Result<Self, RepoError> {
+        let _ = Database::open(config, options, &rifts_guard::SCHEMA)?;
         Ok(Self::new(Database::open(config, options, &SCHEMA)?, node))
     }
 

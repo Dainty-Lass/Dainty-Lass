@@ -21,8 +21,7 @@ use crate::writes::kind_name;
 pub const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
 pub const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 
-/// Guard's schema on its own; `rifts-realms` also includes `2026-10-26-000002_rifts_guard` so a shared `RealmsDb`
-/// carries all tables from both crates.
+/// Guard's schema (`2026-10-26-000002_rifts_guard`).
 pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     sqlite: || SQLITE_MIGRATIONS,
     postgres: || POSTGRES_MIGRATIONS,
