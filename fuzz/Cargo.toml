@@ -322,3 +322,10 @@ path = "fuzz_targets/history_input.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "network_ring"
+path = "fuzz_targets/network_ring.rs"
+test = false
+doc = false
+bench = false

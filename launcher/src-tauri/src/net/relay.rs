@@ -21,8 +21,8 @@ use std::convert::Infallible;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, PoisonError, RwLock};
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -49,6 +49,10 @@ pub use local::{QOS_PONG, is_qos_path, relay_port_override};
 pub const DEFAULT_RELAY_PORT: u16 = 61100;
 /// The extra QoS-only listener's port (`RelayOptions::qos_port`)
 pub const DEFAULT_QOS_PORT: u16 = 80;
+/// Header carrying the player's home account key; stripped when the relay is re-pointed to another node (DN6, DD17).
+pub const ACCOUNT_KEY_HEADER: &str = "x-reforged-user-api-key";
+/// Header carrying a home-signed session ticket when the relay is re-pointed to a non-home node (DN6, DD18).
+pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
 /// How long an upgraded connection (the chat) may be silent both ways before it is cut
 const TUNNEL_IDLE: Duration = Duration::from_secs(24 * 60 * 60);
 const UPGRADE_BODY_MAX: usize = 64 * 1024;
@@ -147,11 +151,80 @@ fn request_target(uri: &Uri) -> &str {
 
 // ---------------------------------------------------------------- the relay
 
-struct Shared {
-    options: RelayOptions,
+#[derive(Clone)]
+struct ActiveUpstream {
+    target: RelayTarget,
     host_header: HeaderValue,
     connector: HostConnector,
     client: Client<HostConnector, Incoming>,
+    session_ticket: Option<HeaderValue>,
+    ticket_text: Option<String>,
+}
+
+fn build_active_upstream(
+    target: &RelayTarget,
+    connect_timeout: Duration,
+    session_ticket: Option<String>,
+) -> Result<(ActiveUpstream, &'static str, String), RelayError> {
+    let (upstream, mode) = match &target.fingerprint {
+        Some(fingerprint) => (
+            Host::Pinned(PinnedTarget {
+                host: target.host.clone(),
+                port: target.port,
+                fingerprint: fingerprint.clone(),
+            }),
+            "pinned TLS",
+        ),
+        None if protocol::invite::is_private_mode_host(&target.host) => (
+            Host::Plain {
+                host: target.host.clone(),
+                port: target.port,
+            },
+            "plain HTTP, private mode",
+        ),
+        None => {
+            return Err(RelayError::ListenFailed(
+                "plain HTTP only to Tailscale or loopback".into(),
+            ));
+        }
+    };
+    let host = if target.fingerprint.is_some() && target.port == 443 {
+        target.host.clone()
+    } else {
+        format!("{}:{}", target.host, target.port)
+    };
+    let host_header =
+        HeaderValue::from_str(&host).map_err(|_| RelayError::ListenFailed("invalid target host".into()))?;
+    let ticket_header = match &session_ticket {
+        Some(token) => Some(
+            HeaderValue::from_str(token)
+                .map_err(|_| RelayError::ListenFailed("invalid session ticket header".into()))?,
+        ),
+        None => None,
+    };
+    let connector = HostConnector::new(upstream, connect_timeout);
+    let client = Client::builder(TokioExecutor::new())
+        .pool_idle_timeout(Duration::from_secs(60))
+        .pool_max_idle_per_host(8)
+        .set_host(false)
+        .build(connector.clone());
+    Ok((
+        ActiveUpstream {
+            target: target.clone(),
+            host_header,
+            connector,
+            client,
+            session_ticket: ticket_header,
+            ticket_text: session_ticket,
+        },
+        mode,
+        host,
+    ))
+}
+
+struct Shared {
+    options: RelayOptions,
+    upstream: RwLock<ActiveUpstream>,
     stop: CancellationToken,
     requests: AtomicU64,
     upgrades: AtomicU64,
@@ -161,6 +234,20 @@ struct Shared {
 }
 
 impl Shared {
+    fn current_upstream(&self) -> ActiveUpstream {
+        self.upstream.read().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    fn apply_upstream_headers(&self, active: &ActiveUpstream, headers: &mut HeaderMap) {
+        headers.insert(HOST, active.host_header.clone());
+        if let Some(ticket) = &active.session_ticket {
+            // DD17 / AGENTS.md: the account key never leaves its home node; when re-pointed with a
+            // home-signed session ticket, strip the account key and send the session ticket instead.
+            headers.remove(ACCOUNT_KEY_HEADER);
+            headers.insert(SESSION_TICKET_HEADER, ticket.clone());
+        }
+    }
+
     fn log(&self, level: LogLevel, message: String) {
         if let Some(log) = &self.options.on_log {
             log(level, message);
@@ -245,43 +332,8 @@ impl Relay {
     /// Listens on 127.0.0.1 and forwards until `stop`. Plain HTTP (no fingerprint) only to a Tailscale
     /// address or name or to this PC, as for every other request (`http.rs`).
     pub async fn start(options: RelayOptions) -> Result<Self, RelayError> {
-        let target = &options.target;
-        let (upstream, mode) = match &target.fingerprint {
-            Some(fingerprint) => (
-                Host::Pinned(PinnedTarget {
-                    host: target.host.clone(),
-                    port: target.port,
-                    fingerprint: fingerprint.clone(),
-                }),
-                "pinned TLS",
-            ),
-            None if protocol::invite::is_private_mode_host(&target.host) => (
-                Host::Plain {
-                    host: target.host.clone(),
-                    port: target.port,
-                },
-                "plain HTTP, private mode",
-            ),
-            None => {
-                return Err(RelayError::ListenFailed(
-                    "plain HTTP only to Tailscale or loopback".into(),
-                ));
-            }
-        };
-        let host = if target.fingerprint.is_some() && target.port == 443 {
-            target.host.clone()
-        } else {
-            format!("{}:{}", target.host, target.port)
-        };
-        let host_header =
-            HeaderValue::from_str(&host).map_err(|_| RelayError::ListenFailed("invalid target host".into()))?;
-        let connector = HostConnector::new(upstream, options.connect_timeout);
-        let upstream_connections = connector.opened.clone();
-        let client = Client::builder(TokioExecutor::new())
-            .pool_idle_timeout(Duration::from_secs(60))
-            .pool_max_idle_per_host(8)
-            .set_host(false)
-            .build(connector.clone());
+        let (active, mode, host) = build_active_upstream(&options.target, options.connect_timeout, None)?;
+        let upstream_connections = active.connector.opened.clone();
         let listener = bind(options.port).await?;
         let port = listener
             .local_addr()
@@ -290,9 +342,7 @@ impl Relay {
         let wanted_qos = options.qos_port;
         let shared = Arc::new(Shared {
             options,
-            host_header,
-            connector,
-            client,
+            upstream: RwLock::new(active),
             stop: CancellationToken::new(),
             requests: AtomicU64::new(0),
             upgrades: AtomicU64::new(0),
@@ -359,6 +409,28 @@ impl Relay {
     #[cfg_attr(not(test), expect(dead_code, reason = "the tests use it"))]
     pub fn upstream_connections(&self) -> u64 {
         self.shared.upstream_connections.load(Ordering::Relaxed)
+    }
+
+    /// Re-points the running relay on `127.0.0.1:61100` to another node's gateway with a home-signed
+    /// session ticket (DN6, DD18). When `session_ticket` is `Some`, `x-reforged-user-api-key` is stripped
+    /// from every forwarded request and `x-reforged-session-ticket` is sent instead so the account key
+    /// never leaves its home node (DD17).
+    pub fn repoint(&self, target: RelayTarget, session_ticket: Option<String>) -> Result<(), RelayError> {
+        let (active, mode, host) = build_active_upstream(&target, self.shared.options.connect_timeout, session_ticket)?;
+        *self.shared.upstream.write().unwrap_or_else(PoisonError::into_inner) = active;
+        self.shared
+            .log(LogLevel::Info, format!("relay re-pointed to {host} ({mode})"));
+        Ok(())
+    }
+
+    /// Returns the gateway target the relay currently forwards to (DN6).
+    pub fn current_target(&self) -> RelayTarget {
+        self.shared.current_upstream().target
+    }
+
+    /// Returns the active session ticket token if the relay is currently re-pointed to a non-home node (DN6).
+    pub fn current_ticket(&self) -> Option<String> {
+        self.shared.current_upstream().ticket_text
     }
 
     /// Stops listening, cuts every connection and tunnel, and frees both ports.
@@ -492,13 +564,14 @@ async fn handle_request(request: Request<Incoming>, remote: SocketAddr, shared: 
     let Ok(uri) = format!("http://relay-upstream{}", request_target(&parts.uri)).parse::<Uri>() else {
         return json_error(StatusCode::BAD_REQUEST, "bad_request", false);
     };
+    let active = shared.current_upstream();
     let mut upstream = Request::builder()
         .method(parts.method)
         .uri(uri)
         .version(hyper::Version::HTTP_11);
     if let Some(headers) = upstream.headers_mut() {
         *headers = forwarded(&parts.headers);
-        headers.insert(HOST, shared.host_header.clone());
+        shared.apply_upstream_headers(&active, headers);
         if chunked {
             headers.insert(TRANSFER_ENCODING, HeaderValue::from_static("chunked"));
         }
@@ -506,7 +579,7 @@ async fn handle_request(request: Request<Incoming>, remote: SocketAddr, shared: 
     let Ok(upstream) = upstream.body(body) else {
         return json_error(StatusCode::BAD_REQUEST, "bad_request", false);
     };
-    match shared.client.request(upstream).await {
+    match active.client.request(upstream).await {
         Ok(answer) => {
             let (parts, body) = answer.into_parts();
             let mut response = Response::new(
@@ -553,7 +626,8 @@ async fn handle_upgrade(mut request: Request<Incoming>, remote: SocketAddr, shar
 
     // A connection of its own (pinned TLS, or plain in private mode): an upgraded connection never goes
     // back to the pool
-    let stream = match shared
+    let active = shared.current_upstream();
+    let stream = match active
         .connector
         .clone()
         .call(Uri::from_static("http://relay-upstream/"))
@@ -573,7 +647,7 @@ async fn handle_upgrade(mut request: Request<Incoming>, remote: SocketAddr, shar
         .uri(request.uri().clone());
     if let Some(headers) = upstream.headers_mut() {
         *headers = forwarded(request.headers());
-        headers.insert(HOST, shared.host_header.clone());
+        shared.apply_upstream_headers(&active, headers);
         if let Some(protocol) = request.headers().get(UPGRADE) {
             headers.insert(UPGRADE, protocol.clone());
         }

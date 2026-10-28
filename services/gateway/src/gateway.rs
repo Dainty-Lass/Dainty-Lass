@@ -510,6 +510,7 @@ pub struct Gateway {
     websockets: AtomicUsize,
     throttle: Throttle,
     closing: watch::Sender<bool>,
+    region_handler: Mutex<Option<network::RegionReportHandler>>,
 }
 
 /// Counts an open connection until dropped.
@@ -603,7 +604,13 @@ impl Gateway {
             websockets: AtomicUsize::new(0),
             throttle: Throttle::new(60_000),
             closing: watch::Sender::new(false),
+            region_handler: Mutex::new(None),
         }))
+    }
+
+    /// Attaches the network plugin's handler for `POST /network/v1/regions` (DN8).
+    pub fn set_region_handler(&self, handler: network::RegionReportHandler) {
+        *self.region_handler.lock().unwrap_or_else(PoisonError::into_inner) = Some(handler);
     }
 
     /// The node-link side, when this server is a node of a network (DN3).
@@ -1157,8 +1164,19 @@ impl Gateway {
             NetworkRoute::Nodes => Some(network::nodes_body(&self.config.network)),
             NetworkRoute::Ping => None,
             NetworkRoute::Regions => {
-                let key = request.headers().get(ACCOUNT_KEY_HEADER).and_then(|v| v.to_str().ok());
-                if !key.is_some_and(protocol::account::is_plausible_account_key) {
+                let key = request
+                    .headers()
+                    .get(ACCOUNT_KEY_HEADER)
+                    .and_then(|v| v.to_str().ok())
+                    .filter(|k| protocol::account::is_plausible_account_key(k))
+                    .map(str::to_owned);
+                let ticket = request
+                    .headers()
+                    .get(network::SESSION_TICKET_HEADER)
+                    .and_then(|v| v.to_str().ok())
+                    .filter(|t| !t.is_empty() && t.len() <= 4096)
+                    .map(str::to_owned);
+                if key.is_none() && ticket.is_none() {
                     let reason = "no_account_key".into();
                     return self.refuse_on(request.headers(), access, phases, 401, "unauthorized", reason, &[]);
                 }
@@ -1168,9 +1186,22 @@ impl Gateway {
                     Ok(Ok(collected)) => {
                         let report = collected.to_bytes();
                         access.bytes_in = report.len() as u64;
-                        parse_region_report(&report)
-                            .is_none()
-                            .then_some((400, "bad_request", "bad_region_report"))
+                        match parse_region_report(&report) {
+                            None => Some((400, "bad_request", "bad_region_report")),
+                            Some(regions) => {
+                                let handler = self
+                                    .region_handler
+                                    .lock()
+                                    .unwrap_or_else(PoisonError::into_inner)
+                                    .clone();
+                                match handler {
+                                    Some(h) if !h(key.as_deref(), ticket.as_deref(), regions) => {
+                                        Some((401, "unauthorized", "invalid_credentials"))
+                                    }
+                                    _ => None,
+                                }
+                            }
+                        }
                     }
                     Ok(Err(error)) if error.is::<http_body_util::LengthLimitError>() => {
                         Some((413, "body_too_large", "body_too_large"))
