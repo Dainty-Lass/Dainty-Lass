@@ -233,15 +233,15 @@ impl NetworkedHome {
 
     /// Ends session tickets for `account` on this node immediately and persists the revocation
     /// row through `store::Database::write` when a database is attached (DN5, DD17).
-    pub fn revoke_session(&self, account: &GlobalId) -> Result<(), HomeError> {
+    pub async fn revoke_session(&self, account: &GlobalId) -> Result<(), HomeError> {
         self.drop_held(account);
-        self.tickets.revoke(account).map_err(unreachable)
+        self.tickets.revoke(account).await.map_err(unreachable)
     }
 
     /// Allows session tickets for `account` on this node again and clears the persisted
     /// revocation row when a database is attached (DN5, DD17).
-    pub fn allow_session(&self, account: &GlobalId) -> Result<(), HomeError> {
-        self.tickets.allow(account).map_err(unreachable)
+    pub async fn allow_session(&self, account: &GlobalId) -> Result<(), HomeError> {
+        self.tickets.allow(account).await.map_err(unreachable)
     }
 
     /// Whether this node holds a session for `account` (admitted here and not expired).

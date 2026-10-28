@@ -222,31 +222,6 @@ impl ReplayCache {
     }
 }
 
-#[cfg(feature = "directory")]
-fn block_on_db<F, T>(fut: F) -> Result<T, store::Error>
-where
-    F: std::future::Future<Output = Result<T, store::Error>> + Send,
-    T: Send,
-{
-    static RUNTIME: std::sync::OnceLock<Result<tokio::runtime::Runtime, String>> = std::sync::OnceLock::new();
-    let rt = RUNTIME
-        .get_or_init(|| {
-            tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(1)
-                .enable_all()
-                .build()
-                .map_err(|err| err.to_string())
-        })
-        .as_ref()
-        .map_err(|msg| store::Error::Config(msg.clone()))?;
-    std::thread::scope(|scope| {
-        scope
-            .spawn(|| rt.block_on(fut))
-            .join()
-            .unwrap_or_else(|_| Err(store::Error::Panicked))
-    })
-}
-
 /// One node's tickets: the key it signs with, the public keys of the others, the replay memory of the tickets
 /// it admitted and the sessions it ended. Shared by the home service (answering) and the networked home
 /// (asking), so a node that is both the home of some accounts and the audience for others uses one.
@@ -295,7 +270,7 @@ impl Tickets {
 
     /// Builds [`Tickets`] backed by `db` (`network_ticket_revocations`), reloading persisted revocation floors.
     #[cfg(feature = "directory")]
-    pub fn with_database(
+    pub async fn with_database(
         me: &NodeIdentity,
         key: SigningKey,
         clock: Arc<Clock>,
@@ -303,31 +278,33 @@ impl Tickets {
         db: store::Database,
     ) -> Result<Self, store::Error> {
         let tickets = Self::new(me, key, clock, config);
-        tickets.attach_database(db)?;
+        tickets.attach_database(db).await?;
         Ok(tickets)
     }
 
     /// Attaches `db` (`network_ticket_revocations`) and reloads all persisted revocation floors.
     #[cfg(feature = "directory")]
-    pub fn attach_database(&self, db: store::Database) -> Result<(), store::Error> {
-        let rows: Vec<(String, i64)> = block_on_db(db.read(|conn| {
-            use diesel::prelude::*;
-            use diesel::sql_types::{BigInt, Text};
-            #[derive(QueryableByName)]
-            struct Row {
-                #[diesel(sql_type = Text)]
-                account: String,
-                #[diesel(sql_type = BigInt)]
-                revoked_at: i64,
-            }
-            Ok(
-                diesel::sql_query("SELECT account, revoked_at FROM network_ticket_revocations")
-                    .load::<Row>(conn)?
-                    .into_iter()
-                    .map(|r| (r.account, r.revoked_at))
-                    .collect(),
-            )
-        }))?;
+    pub async fn attach_database(&self, db: store::Database) -> Result<(), store::Error> {
+        let rows: Vec<(String, i64)> = db
+            .read::<_, store::Error, _>(|conn| {
+                use diesel::prelude::*;
+                use diesel::sql_types::{BigInt, Text};
+                #[derive(QueryableByName)]
+                struct Row {
+                    #[diesel(sql_type = Text)]
+                    account: String,
+                    #[diesel(sql_type = BigInt)]
+                    revoked_at: i64,
+                }
+                Ok(
+                    diesel::sql_query("SELECT account, revoked_at FROM network_ticket_revocations")
+                        .load::<Row>(conn)?
+                        .into_iter()
+                        .map(|r| (r.account, r.revoked_at))
+                        .collect(),
+                )
+            })
+            .await?;
         {
             let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
             for (raw, floor) in rows {
@@ -546,7 +523,7 @@ impl Tickets {
     /// Ends every session of `account` that began at or before now: tickets issued so far stop working here,
     /// and can't be renewed. A login after this gets new ones. Persisted in `network_ticket_revocations` when
     /// a database is attached so a restart does not reinstate banned sessions.
-    pub fn revoke(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
+    pub async fn revoke(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
         let now = self.clock.now_ms();
         let floor = {
             let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
@@ -555,65 +532,77 @@ impl Tickets {
             *entry
         };
         #[cfg(feature = "directory")]
-        if let Some(db) = self.db.read().unwrap_or_else(PoisonError::into_inner).clone() {
-            let account_str = account.to_string();
-            if let Err(error) = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
-                use diesel::prelude::*;
-                use diesel::sql_types::{BigInt, Text};
-                let sql = store::portable::upsert(
-                    "network_ticket_revocations",
-                    &["account", "revoked_at"],
-                    &["account"],
-                    &["revoked_at"],
-                );
-                diesel::sql_query(sql)
-                    .bind::<Text, _>(account_str)
-                    .bind::<BigInt, _>(floor)
-                    .execute(tx.conn())?;
-                Ok(())
-            })) {
-                let reason = error.to_string();
-                tracing::error!(
-                    account = %account,
-                    error = %reason,
-                    "could not persist ticket revocation floor"
-                );
-                return Err(RevocationPersistError {
-                    account: account.clone(),
-                    reason,
-                });
+        {
+            let db = self.db.read().unwrap_or_else(PoisonError::into_inner).clone();
+            if let Some(db) = db {
+                let account_str = account.to_string();
+                let write_res: Result<(), store::Error> = db
+                    .write(store::Actor::System("ticket-revocation".into()), move |tx| {
+                        use diesel::prelude::*;
+                        use diesel::sql_types::{BigInt, Text};
+                        let sql = store::portable::upsert(
+                            "network_ticket_revocations",
+                            &["account", "revoked_at"],
+                            &["account"],
+                            &["revoked_at"],
+                        );
+                        diesel::sql_query(sql)
+                            .bind::<Text, _>(account_str)
+                            .bind::<BigInt, _>(floor)
+                            .execute(tx.conn())?;
+                        Ok(())
+                    })
+                    .await;
+                if let Err(error) = write_res {
+                    let reason = error.to_string();
+                    tracing::error!(
+                        account = %account,
+                        error = %reason,
+                        "could not persist ticket revocation floor"
+                    );
+                    return Err(RevocationPersistError {
+                        account: account.clone(),
+                        reason,
+                    });
+                }
             }
         }
         Ok(())
     }
 
     /// Clears an earlier [`Self::revoke`] for `account` (after an unban or lifted timeout).
-    pub fn allow(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
+    pub async fn allow(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
         self.revoked
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .remove(account);
         #[cfg(feature = "directory")]
-        if let Some(db) = self.db.read().unwrap_or_else(PoisonError::into_inner).clone() {
-            let account_str = account.to_string();
-            if let Err(error) = block_on_db(db.write(store::Actor::System("ticket-revocation".into()), move |tx| {
-                use diesel::prelude::*;
-                use diesel::sql_types::Text;
-                diesel::sql_query("DELETE FROM network_ticket_revocations WHERE account = $1")
-                    .bind::<Text, _>(account_str)
-                    .execute(tx.conn())?;
-                Ok(())
-            })) {
-                let reason = error.to_string();
-                tracing::error!(
-                    account = %account,
-                    error = %reason,
-                    "could not clear persisted ticket revocation floor"
-                );
-                return Err(RevocationPersistError {
-                    account: account.clone(),
-                    reason,
-                });
+        {
+            let db = self.db.read().unwrap_or_else(PoisonError::into_inner).clone();
+            if let Some(db) = db {
+                let account_str = account.to_string();
+                let write_res: Result<(), store::Error> = db
+                    .write(store::Actor::System("ticket-revocation".into()), move |tx| {
+                        use diesel::prelude::*;
+                        use diesel::sql_types::Text;
+                        diesel::sql_query("DELETE FROM network_ticket_revocations WHERE account = $1")
+                            .bind::<Text, _>(account_str)
+                            .execute(tx.conn())?;
+                        Ok(())
+                    })
+                    .await;
+                if let Err(error) = write_res {
+                    let reason = error.to_string();
+                    tracing::error!(
+                        account = %account,
+                        error = %reason,
+                        "could not clear persisted ticket revocation floor"
+                    );
+                    return Err(RevocationPersistError {
+                        account: account.clone(),
+                        reason,
+                    });
+                }
             }
         }
         Ok(())
@@ -875,15 +864,15 @@ mod tests {
         );
     }
 
-    #[test]
-    fn an_ended_session_and_an_old_login_stop_working_at_the_home() {
+    #[tokio::test]
+    async fn an_ended_session_and_an_old_login_stop_working_at_the_home() {
         let s = setup();
         let mut at_home = s.expect();
         at_home.audience = s.audience.node();
         let ticket = s.ticket();
         s.home.verify(&ticket, &at_home).unwrap();
         s.clock.skew_by(1_000);
-        s.home.revoke(&s.account).unwrap();
+        s.home.revoke(&s.account).await.unwrap();
         assert_eq!(s.home.verify(&ticket, &at_home), Err(TicketError::Revoked));
         // The audience can't know, but a ticket made after the revocation is good
         s.audience.verify(&ticket, &s.expect()).unwrap();

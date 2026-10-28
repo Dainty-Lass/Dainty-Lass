@@ -1410,6 +1410,7 @@ impl Admin {
         if let Some(account) = &account_id {
             self.relay
                 .revoke_tickets(account)
+                .await
                 .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let detail = crate::relay::detail_with_pending(None, &pending);
@@ -1581,6 +1582,7 @@ impl Admin {
         if let Some(account) = &account_id {
             self.relay
                 .revoke_tickets(account)
+                .await
                 .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let detail = crate::relay::detail_with_pending(Some(reason), &pending);
@@ -1771,6 +1773,7 @@ impl Admin {
         if let Some(account) = &account_id {
             self.relay
                 .revoke_tickets(account)
+                .await
                 .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let detail = crate::relay::detail_with_pending(Some(&full_reason), &pending);
@@ -1905,6 +1908,7 @@ impl Admin {
         if let Some(account) = &account_id {
             self.relay
                 .allow_tickets(account)
+                .await
                 .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
@@ -2018,6 +2022,7 @@ impl Admin {
         if let Some(account) = &account_id {
             self.relay
                 .allow_tickets(account)
+                .await
                 .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
