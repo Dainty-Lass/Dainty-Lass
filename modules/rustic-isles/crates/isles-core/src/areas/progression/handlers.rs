@@ -26,7 +26,7 @@ use super::tracks::{
 use super::util::{empty, forbidden, js_number, ok, reply};
 
 fn now_ms() -> i64 {
-    chrono::Utc::now().timestamp_millis()
+    crate::game_data::season_window::now_ms()
 }
 
 macro_rules! prepare {

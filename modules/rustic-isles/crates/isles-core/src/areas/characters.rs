@@ -70,6 +70,30 @@ pub fn auth_data(request: &Request) -> Option<AuthData> {
         .or_else(|| request.extensions().get::<AuthData>().cloned())
 }
 
+async fn authenticate(call: &Ctx, request: &mut Request) -> Result<AuthData, Response> {
+    if let Some(auth) = auth_data(request) {
+        return Ok(auth);
+    }
+    if !request.headers().contains_key("authorization")
+        && !request.headers().contains_key("x-mysticparadox-gameserver-apikey")
+        && !request.headers().contains_key("x-mysticparadox-gameserver-key")
+    {
+        return Err(not_implemented(call.route, &call.request_id));
+    }
+    let taken = std::mem::replace(request, Request::new(axum::body::Body::empty()));
+    let mut auth_call = Call {
+        shared: call.shared.clone(),
+        route: call.route,
+        params: call.params.clone(),
+        request: taken,
+        origin_host: None,
+        request_id: call.request_id.clone(),
+    };
+    let auth = crate::areas::auth::game_auth(&mut auth_call).await?;
+    *request = auth_call.request;
+    Ok(AuthData::from(&auth))
+}
+
 /// What a handler keeps of its [`Call`] across an await: the request's body isn't `Sync`, so it is split off.
 struct Ctx {
     shared: Arc<Shared>,
@@ -155,9 +179,10 @@ fn body_string(body: &Value, key: &str) -> Option<String> {
 
 /// `GET /character`.
 async fn get_character(call: Call) -> Response {
-    let (call, request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
+    let (call, mut request) = split(call);
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
+        Err(response) => return response,
     };
     let store = match store_of(&call) {
         Ok(store) => store,
@@ -189,11 +214,12 @@ async fn get_character(call: Call) -> Response {
 /// `PUT /character`.
 async fn put_character(call: Call) -> Response {
     let (call, mut request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
-    };
     let body = match body_of(&mut request).await {
         Ok(body) => body,
+        Err(response) => return response,
+    };
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
         Err(response) => return response,
     };
     let store = match store_of(&call) {
@@ -237,11 +263,12 @@ fn conflict_page() -> Response {
 /// `POST /character`.
 async fn post_character(call: Call) -> Response {
     let (call, mut request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
-    };
     let body = match body_of(&mut request).await {
         Ok(body) => body,
+        Err(response) => return response,
+    };
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
         Err(response) => return response,
     };
     let store = match store_of(&call) {
@@ -353,9 +380,10 @@ fn log_state(state: &LoadoutState, user: &str, character_id: &str) {
 
 /// `GET /loadout/:userId//all`: the empty-characterId form. Only the no-player sentinel gets an answer.
 async fn get_loadout_without_character(call: Call) -> Response {
-    let (call, request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
+    let (call, mut request) = split(call);
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
+        Err(response) => return response,
     };
     if requestor(&call, &auth).as_deref() == Some(NO_PLAYER_SENTINEL) {
         tracing::debug!("GET /loadout called with no-player sentinel and no characterId - returning empty loadouts");
@@ -366,9 +394,10 @@ async fn get_loadout_without_character(call: Call) -> Response {
 
 /// `GET /loadout/:userId/:characterId/all`.
 async fn get_loadout(call: Call) -> Response {
-    let (call, request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
+    let (call, mut request) = split(call);
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
+        Err(response) => return response,
     };
     let requestor = requestor(&call, &auth);
     if requestor.as_deref() == Some(NO_PLAYER_SENTINEL) {
@@ -484,9 +513,10 @@ async fn journey_nodes(store: &IslesStore, user: &str) -> Result<Option<Value>, 
 /// `POST /loadout/:userId/:characterId/unlock/:numSlots`. The path value is a delta hint; the entitlement is
 /// derived from the Slayer's Path `LoadoutSlot_01..05` nodes, so a host cannot grant more than the player unlocked.
 async fn unlock_loadout_slots(call: Call) -> Response {
-    let (call, request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
+    let (call, mut request) = split(call);
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
+        Err(response) => return response,
     };
     let target = param(&call, "userId").to_owned();
     if let Err(refusal) = authorize_unlock(&call, &auth, &target).await {
@@ -566,9 +596,10 @@ async fn unlock_loadout_slots(call: Call) -> Response {
 /// `POST /loadout/:userId/:characterId/active/:index`: which slot the carousel selected, stored apart from the
 /// slot contents.
 async fn set_active_loadout(call: Call) -> Response {
-    let (call, request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
+    let (call, mut request) = split(call);
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
+        Err(response) => return response,
     };
     let requestor = requestor(&call, &auth);
     let character_id = param(&call, "characterId").to_owned();
@@ -619,11 +650,12 @@ async fn set_active_loadout(call: Call) -> Response {
 /// `POST /loadout/:userId/:characterId/:index`: the whole-slot (or `persistent`) replace.
 async fn set_loadout(call: Call) -> Response {
     let (call, mut request) = split(call);
-    let Some(auth) = auth_data(&request) else {
-        return not_implemented(call.route, &call.request_id);
-    };
     let body = match body_of(&mut request).await {
         Ok(body) => body,
+        Err(response) => return response,
+    };
+    let auth = match authenticate(&call, &mut request).await {
+        Ok(auth) => auth,
         Err(response) => return response,
     };
     let Some(body @ Value::Object(_)) = body else {

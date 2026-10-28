@@ -69,27 +69,58 @@ impl Prepared {
 
 /// Express runs its body parsers, then the route's `HasParadoxBackendAuth`.
 pub async fn prepare(call: Call, ports: &Ports) -> Result<Prepared, Response> {
-    let (parts, parsed) = body::read(call.request).await?;
+    let Call {
+        shared,
+        route,
+        params,
+        request,
+        origin_host,
+        request_id,
+    } = call;
+    let (mut parts, parsed) = body::read(request).await?;
+    let has_ext_auth = parts.extensions.get::<crate::areas::auth::AuthData>().is_some()
+        || parts.extensions.get::<AuthData>().is_some();
+    let has_wire_creds = parts.headers.contains_key("authorization")
+        || parts
+            .headers
+            .contains_key(crate::areas::auth::middleware::GAMESERVER_KEY_HEADER)
+        || parts
+            .headers
+            .contains_key(crate::areas::auth::middleware::GAMESERVER_KEY_ALT_HEADER);
+    if !has_ext_auth && has_wire_creds {
+        let mut auth_call = Call {
+            shared: shared.clone(),
+            route,
+            params: params.clone(),
+            request: axum::extract::Request::from_parts(parts, axum::body::Body::empty()),
+            origin_host,
+            request_id: request_id.clone(),
+        };
+        let auth = crate::areas::auth::game_auth(&mut auth_call).await?;
+        let (next_parts, _) = auth_call.request.into_parts();
+        parts = next_parts;
+        parts.extensions.insert(auth);
+    }
     let authentication = ports
         .auth
         .authenticate(
-            &call.shared,
+            &shared,
             AuthRequest {
                 method: &parts.method,
                 path: parts.uri.path(),
                 headers: &parts.headers,
                 extensions: &parts.extensions,
-                request_id: &call.request_id,
+                request_id: &request_id,
             },
         )
         .await;
     match authentication {
         Authentication::Authenticated(auth) => Ok(Prepared {
-            shared: call.shared,
-            params: call.params,
+            shared,
+            params,
             body: parsed,
             auth,
-            request_id: call.request_id,
+            request_id,
         }),
         Authentication::Answer(response) => Err(response),
     }

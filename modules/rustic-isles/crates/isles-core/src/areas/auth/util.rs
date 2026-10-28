@@ -9,7 +9,7 @@ use serde_json::Value;
 use service_kit::serve::ConnectionInfo;
 
 pub fn now_ms() -> i64 {
-    Utc::now().timestamp_millis()
+    crate::game_data::season_window::replay_now_ms().unwrap_or_else(|| Utc::now().timestamp_millis())
 }
 
 /// `new Date(ms).toISOString()`.

@@ -164,7 +164,7 @@ pub fn create_character(
 ) -> Outcome<CharacterRecord> {
     let today = data::display_date(now);
     let record = CharacterRecord {
-        character_id: uuid::Uuid::new_v4().to_string(),
+        character_id: crate::game_data::season_window::next_uuid().to_string(),
         account: account.clone(),
         created_date: today.clone(),
         last_modified_date: today,

@@ -63,7 +63,7 @@ pub struct UserId(pub String);
 impl UserId {
     /// A new account's: `crypto.randomUUID()`, as `controllers/launcherAuth.ts` mints them.
     pub fn random() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
+        Self(crate::game_data::season_window::next_uuid().to_string())
     }
 
     pub fn as_str(&self) -> &str {

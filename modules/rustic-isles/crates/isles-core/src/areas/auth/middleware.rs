@@ -29,6 +29,7 @@ use crate::repo::AccountId;
 use crate::repo::auth::LauncherAccountRecord;
 
 pub const GAMESERVER_KEY_HEADER: &str = "x-mysticparadox-gameserver-apikey";
+pub const GAMESERVER_KEY_ALT_HEADER: &str = "x-mysticparadox-gameserver-key";
 
 /// Node's `req.AuthData`: the verified token's claims, plus what the caller is.
 #[derive(Debug, Clone, Default)]
@@ -193,7 +194,8 @@ pub fn publish(request: &mut Request, auth: &AuthData) {
 async fn authenticate_game(call: &mut Call) -> Result<AuthData, Response> {
     let shared = call.shared.clone();
     let authorization = header(call.request.headers(), "authorization");
-    let gameserver_key = header(call.request.headers(), GAMESERVER_KEY_HEADER);
+    let gameserver_key = header(call.request.headers(), GAMESERVER_KEY_HEADER)
+        .or_else(|| header(call.request.headers(), GAMESERVER_KEY_ALT_HEADER));
 
     if let Some(key) = gameserver_key {
         let valid = is_valid_gameserver_api_key(&shared, &key).await.map_err(|error| {

@@ -116,14 +116,29 @@ impl Ctx {
             route,
             params,
             request,
+            origin_host,
             request_id,
-            ..
         } = call;
-        let auth = super::authn::auth_of_request(&request);
+        let existing_auth = super::authn::auth_of_request(&request);
         let seams = seams_of_request(&request).or_else(|| StoreSeams::production(&shared, &request_id));
         let query = request.uri().query().unwrap_or_default().to_owned();
         let (parts, body) = request.into_parts();
-        let (_, body) = read_body_parts(parts, body).await?;
+        let (parts, body) = read_body_parts(parts, body).await?;
+        let auth = match existing_auth {
+            Some(auth) => Some(auth),
+            None => {
+                let mut auth_call = Call {
+                    shared: shared.clone(),
+                    route,
+                    params: params.clone(),
+                    request: axum::extract::Request::from_parts(parts, axum::body::Body::empty()),
+                    origin_host,
+                    request_id: request_id.clone(),
+                };
+                let auth = crate::areas::auth::game_auth(&mut auth_call).await?;
+                Some(super::authn::AuthData::from(&auth))
+            }
+        };
         Ok(Self {
             shared,
             call_route: route,

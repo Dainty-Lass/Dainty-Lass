@@ -91,7 +91,7 @@ pub fn compute_inventory_request_hash(
 pub fn mint_instance_id() -> String {
     let mut seed = Vec::with_capacity(48);
     for _ in 0..3 {
-        seed.extend_from_slice(uuid::Uuid::new_v4().as_bytes());
+        seed.extend_from_slice(crate::game_data::season_window::next_uuid().as_bytes());
     }
     let digest = sha256(&seed);
     let mut bits = String::with_capacity(136);

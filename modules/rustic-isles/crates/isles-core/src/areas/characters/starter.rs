@@ -22,7 +22,7 @@ const INSTANCE_ID_LENGTH: usize = 26;
 pub fn generate_instance_id() -> String {
     let mut id = String::with_capacity(INSTANCE_ID_LENGTH);
     while id.len() < INSTANCE_ID_LENGTH {
-        for byte in uuid::Uuid::new_v4().as_bytes() {
+        for byte in crate::game_data::season_window::next_uuid().as_bytes() {
             // 252 = 7 * 36: the bytes above it would bias the draw
             if *byte < 252 && id.len() < INSTANCE_ID_LENGTH {
                 id.push(INSTANCE_ID_ALPHABET[usize::from(*byte) % 36] as char);

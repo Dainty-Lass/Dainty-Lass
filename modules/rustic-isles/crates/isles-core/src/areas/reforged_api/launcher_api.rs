@@ -265,7 +265,8 @@ pub fn forget_status() {
 /// `ServerStatusBody` (crates/protocol status.rs, field for field). The limited view hides who is online.
 pub async fn server_status_body(shared: &Shared, store: &IslesStore, full: bool) -> Value {
     let changelist = shared.version.tables.target_changelist;
-    {
+    let pinned = crate::game_data::season_window::is_replay_pinned();
+    if !pinned {
         let guard = STATUS_SEEN.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some((at, body)) = guard.as_ref().and_then(|cache| cache.get(&(changelist, full)))
             && at.elapsed().as_millis() < STATUS_CACHE_MS
@@ -324,11 +325,13 @@ pub async fn server_status_body(shared: &Shared, store: &IslesStore, full: bool)
         map.insert("instances".into(), json!([]));
         map.insert("limited".into(), json!(true));
     }
-    STATUS_SEEN
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .get_or_insert_with(HashMap::new)
-        .insert((changelist, full), (Instant::now(), body.clone()));
+    if !pinned {
+        STATUS_SEEN
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get_or_insert_with(HashMap::new)
+            .insert((changelist, full), (Instant::now(), body.clone()));
+    }
     body
 }
 

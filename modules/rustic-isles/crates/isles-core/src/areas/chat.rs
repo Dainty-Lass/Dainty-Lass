@@ -6,7 +6,6 @@
 //! edge as an account write of its own, because the friend may be homed elsewhere (DD17). The client sees userIds.
 
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::body::to_bytes;
 use axum::http::{StatusCode, header};
@@ -40,8 +39,7 @@ pub type Clock = Arc<dyn Fn() -> String + Send + Sync>;
 
 /// `Date#toISOString` of now: `2026-10-20T12:00:00.000Z`.
 pub fn iso_now() -> String {
-    let elapsed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-    iso_from_millis(i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX))
+    iso_from_millis(crate::game_data::season_window::now_ms())
 }
 
 /// Milliseconds since the epoch as `Date#toISOString` writes them (years 0000 to 9999).
@@ -83,9 +81,13 @@ fn auth(call: &Call) -> Option<AuthData> {
         .or_else(|| call.request.extensions().get::<AuthData>().cloned())
 }
 
-/// `res.status(401); res.send()`
-fn unauthorized() -> Response {
-    StatusCode::UNAUTHORIZED.into_response()
+#[allow(clippy::result_large_err)]
+async fn authenticate(call: &mut Call) -> Result<AuthData, Response> {
+    if let Some(found) = auth(call) {
+        return Ok(found);
+    }
+    let found = crate::areas::auth::game_auth(call).await?;
+    Ok(AuthData::from(&found))
 }
 
 fn no_content() -> Response {
@@ -123,57 +125,68 @@ pub fn register(handlers: &mut Handlers) {
 
 pub fn register_with(handlers: &mut Handlers, clock: Clock) {
     let backend = Service::Backend;
-    handlers.on(backend, Method::Get, "/vivox/login", |call| {
+    handlers.on(backend, Method::Get, "/vivox/login", |mut call| {
         Box::pin(async move {
             // systemRouter: HasParadoxBackendAuth, then 404 with no body
-            if auth(&call).is_none() {
-                return unauthorized();
+            if let Err(refusal) = authenticate(&mut call).await {
+                return refusal;
             }
             StatusCode::NOT_FOUND.into_response()
         })
     });
-    handlers.on(backend, Method::Get, "/guild/invite/player", |call| {
+    handlers.on(backend, Method::Get, "/guild/invite/player", |mut call| {
         Box::pin(async move {
-            if auth(&call).is_none() {
-                return unauthorized();
+            if let Err(refusal) = authenticate(&mut call).await {
+                return refusal;
             }
             json_reply(StatusCode::OK, &envelope(json!({ "invites": [] })))
         })
     });
-    handlers.on(backend, Method::Get, "/guild", |call| {
+    handlers.on(backend, Method::Get, "/guild", |mut call| {
         Box::pin(async move {
-            if auth(&call).is_none() {
-                return unauthorized();
+            if let Err(refusal) = authenticate(&mut call).await {
+                return refusal;
             }
             no_content()
         })
     });
 
-    handlers.on(backend, Method::Get, "/friends/api/public/friends/:accountId", |call| {
-        Box::pin(async move {
-            let Some(auth) = auth(&call) else { return unauthorized() };
-            let Some(store) = call.shared.store.clone() else {
-                return not_implemented(call.route, &call.request_id);
-            };
-            let include_pending = include_pending(call.request.uri().query());
-            let Some(owner) = auth.user_id else {
-                return json_reply(StatusCode::OK, &json!([]));
-            };
-            match friends_list(&store, &owner, include_pending).await {
-                Ok(list) => json_reply(StatusCode::OK, &list),
-                Err(error) => failed(&call, &error),
-            }
-        })
-    });
+    handlers.on(
+        backend,
+        Method::Get,
+        "/friends/api/public/friends/:accountId",
+        |mut call| {
+            Box::pin(async move {
+                let auth = match authenticate(&mut call).await {
+                    Ok(auth) => auth,
+                    Err(refusal) => return refusal,
+                };
+                let Some(store) = call.shared.store.clone() else {
+                    return not_implemented(call.route, &call.request_id);
+                };
+                let include_pending = include_pending(call.request.uri().query());
+                let Some(owner) = auth.user_id else {
+                    return json_reply(StatusCode::OK, &json!([]));
+                };
+                match friends_list(&store, &owner, include_pending).await {
+                    Ok(list) => json_reply(StatusCode::OK, &list),
+                    Err(error) => failed(&call, &error),
+                }
+            })
+        },
+    );
     let invite_clock = clock;
     handlers.on(
         backend,
         Method::Post,
         "/friends/api/public/friends/:accountId/:friendId",
-        move |call| {
+        move |mut call| {
             let clock = invite_clock.clone();
             Box::pin(async move {
-                let Some(auth) = auth(&call) else { return unauthorized() };
+                let auth = match authenticate(&mut call).await {
+                    Ok(auth) => auth,
+                    Err(refusal) => return refusal,
+                };
                 let Some(store) = call.shared.store.clone() else {
                     return not_implemented(call.route, &call.request_id);
                 };
@@ -193,9 +206,12 @@ pub fn register_with(handlers: &mut Handlers, clock: Clock) {
         backend,
         Method::Delete,
         "/friends/api/public/friends/:accountId/:friendId",
-        |call| {
+        |mut call| {
             Box::pin(async move {
-                let Some(auth) = auth(&call) else { return unauthorized() };
+                let auth = match authenticate(&mut call).await {
+                    Ok(auth) => auth,
+                    Err(refusal) => return refusal,
+                };
                 let Some(store) = call.shared.store.clone() else {
                     return not_implemented(call.route, &call.request_id);
                 };
@@ -235,16 +251,16 @@ pub fn register_with(handlers: &mut Handlers, clock: Clock) {
                 Ok(body) => body,
                 Err(status) => return status.into_response(),
             };
-            if auth(&call).is_none() {
-                return unauthorized();
+            if let Err(refusal) = authenticate(&mut call).await {
+                return refusal;
             }
             json_reply(StatusCode::OK, &envelope(slayer_link_availability(body.as_ref())))
         })
     });
-    handlers.on(backend, Method::Get, "/slayerlink/status_good", |call| {
+    handlers.on(backend, Method::Get, "/slayerlink/status_good", |mut call| {
         Box::pin(async move {
-            if auth(&call).is_none() {
-                return unauthorized();
+            if let Err(refusal) = authenticate(&mut call).await {
+                return refusal;
             }
             json_reply(StatusCode::OK, &envelope(slayer_link_status()))
         })

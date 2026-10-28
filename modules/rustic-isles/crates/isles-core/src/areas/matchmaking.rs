@@ -72,13 +72,18 @@ impl From<&crate::areas::auth::AuthData> for AuthData {
 
 /// `HasParadoxBackendAuth`'s verdict, as it reaches this area: the data it left, or no such data, which answers 401
 /// with an empty body as the middleware does.
-pub fn authenticate(call: &Call) -> Result<AuthData, Response> {
-    call.request
+pub async fn authenticate(call: &mut Call) -> Result<AuthData, Response> {
+    if let Some(auth) = call
+        .request
         .extensions()
         .get::<crate::areas::auth::AuthData>()
         .map(AuthData::from)
         .or_else(|| call.request.extensions().get::<AuthData>().cloned())
-        .ok_or_else(|| StatusCode::UNAUTHORIZED.into_response())
+    {
+        return Ok(auth);
+    }
+    let auth = crate::areas::auth::game_auth(call).await?;
+    Ok(AuthData::from(&auth))
 }
 
 /// An Express failure with no handler of its own: the default error page.
@@ -135,8 +140,8 @@ fn touch_realm_presence(shared: &Shared, user: &str) {
     });
 }
 
-async fn player_register(call: Call) -> Response {
-    let auth = match authenticate(&call) {
+async fn player_register(mut call: Call) -> Response {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -149,8 +154,8 @@ async fn player_register(call: Call) -> Response {
 
 /// The client fires this every ~5 s while in matchmaking or in a game. It extends the activity monitor's playtime
 /// (gap rule in `activity/activityRules.ts`) and keeps a realm member's presence alive.
-async fn alive(call: Call) -> Response {
-    let auth = match authenticate(&call) {
+async fn alive(mut call: Call) -> Response {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -164,8 +169,8 @@ async fn alive(call: Call) -> Response {
     empty_object()
 }
 
-async fn regions(call: Call) -> Response {
-    if let Err(refusal) = authenticate(&call) {
+async fn regions(mut call: Call) -> Response {
+    if let Err(refusal) = authenticate(&mut call).await {
         return refusal;
     }
     tracing::info!("Querying regions for QoS");
@@ -205,8 +210,8 @@ async fn record_hub_session(shared: &Shared, user: &str, game_session_id: &str) 
     }
 }
 
-async fn status(call: Call) -> Response {
-    let auth = match authenticate(&call) {
+async fn status(mut call: Call) -> Response {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -263,7 +268,7 @@ fn request_shape(value: Option<&Value>) -> String {
 }
 
 async fn join(mut call: Call) -> Response {
-    let auth = match authenticate(&call) {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -398,7 +403,7 @@ async fn join(mut call: Call) -> Response {
 /// The other shapes are aliases kept until the log shows which the client sends. Each call logs one `[CandidateLeave]`
 /// line with the method, path, body key names (never values) and the outcome.
 async fn candidate_leave(mut call: Call) -> Response {
-    let auth = match authenticate(&call) {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -491,7 +496,7 @@ async fn qos(_call: Call) -> Response {
 /// `POST /party`: the caller's own party state (a solo party is created on the first call). It reflects the party's
 /// shared matchmaking state, so members polling this follow the leader into the hunt.
 async fn party_state(mut call: Call) -> Response {
-    let auth = match authenticate(&call) {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -561,7 +566,7 @@ async fn party_state(mut call: Call) -> Response {
 
 /// `PUT /party/invite`: invite a player to my party (`recipientPlayerId` in the body).
 async fn party_invite(mut call: Call) -> Response {
-    let auth = match authenticate(&call) {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -590,8 +595,8 @@ async fn party_invite(mut call: Call) -> Response {
 }
 
 /// `GET /party/invites`: my incoming invites.
-async fn party_invites(call: Call) -> Response {
-    let auth = match authenticate(&call) {
+async fn party_invites(mut call: Call) -> Response {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -622,7 +627,7 @@ async fn party_invites(call: Call) -> Response {
 
 /// `PUT /party/invite/accept/:inviterId`.
 async fn party_accept(mut call: Call) -> Response {
-    let auth = match authenticate(&call) {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -645,8 +650,8 @@ async fn party_accept(mut call: Call) -> Response {
 }
 
 /// `DELETE /party/member`: leave my party.
-async fn party_leave(call: Call) -> Response {
-    let auth = match authenticate(&call) {
+async fn party_leave(mut call: Call) -> Response {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -663,8 +668,8 @@ async fn party_leave(call: Call) -> Response {
 }
 
 /// `DELETE /party/member/:targetId`: kick a member.
-async fn party_kick(call: Call) -> Response {
-    let auth = match authenticate(&call) {
+async fn party_kick(mut call: Call) -> Response {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };
@@ -682,8 +687,8 @@ async fn party_kick(call: Call) -> Response {
 }
 
 /// `PUT /party/member/promote/:targetId`: promote a member to leader.
-async fn party_promote(call: Call) -> Response {
-    let auth = match authenticate(&call) {
+async fn party_promote(mut call: Call) -> Response {
+    let auth = match authenticate(&mut call).await {
         Ok(auth) => auth,
         Err(refusal) => return refusal,
     };

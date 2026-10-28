@@ -1,18 +1,153 @@
 //! The Hunt Pass window arithmetic (`seasonWindow.ts`): a rolling 12-week window the served progression config, the
 //! Gauntlet season and the bounty and cooldown limits all hang on (1.14.7 2026-10-08).
 
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::cell::RefCell;
+use std::future::Future;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use sha2::{Digest, Sha256};
 
 /// `Date.parse("2024-09-26T17:00:00+00:00")`: season27's real start, a Thursday.
 pub const ACTIVE_SEASON_ANCHOR_MS: i64 = 1_727_370_000_000;
 pub const ACTIVE_SEASON_LENGTH_MS: i64 = 84 * 24 * 60 * 60 * 1000;
 
+/// Header a replay runner sends to pin the request's clock (epoch milliseconds or ISO-8601 text).
+pub const REPLAY_NOW_HEADER: &str = "x-isles-replay-now-ms";
+/// Header a replay runner sends to pin the request's deterministic ID stream.
+pub const REPLAY_SEED_HEADER: &str = "x-isles-replay-seed";
+
 const NO_OVERRIDE: i64 = i64::MIN;
 static NOW_OVERRIDE: AtomicI64 = AtomicI64::new(NO_OVERRIDE);
 
+/// Per-request replay pinning state (clock and deterministic ID stream), propagated across async tasks and
+/// synchronous store closures.
+#[derive(Debug, Clone, Default)]
+pub struct ReplayScope {
+    pub now_ms: Option<i64>,
+    pub seed: Option<[u8; 32]>,
+    pub counter: Arc<AtomicU64>,
+}
+
+impl ReplayScope {
+    pub fn new(now_ms: Option<i64>, seed_text: Option<&str>) -> Self {
+        let seed = seed_text.filter(|s| !s.is_empty()).map(|text| {
+            let mut hasher = Sha256::new();
+            hasher.update(b"isles-replay-seed:");
+            hasher.update(text.as_bytes());
+            hasher.finalize().into()
+        });
+        Self {
+            now_ms,
+            seed,
+            counter: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.now_ms.is_some() || self.seed.is_some()
+    }
+
+    fn next_seeded_uuid(&self) -> Option<uuid::Uuid> {
+        let seed = self.seed?;
+        let seq = self.counter.fetch_add(1, Ordering::Relaxed);
+        let mut hasher = Sha256::new();
+        hasher.update(seed);
+        hasher.update(seq.to_le_bytes());
+        let digest = hasher.finalize();
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&digest[..16]);
+        // RFC 4122 version 4 and variant 1 bits so any UUID v4 validator accepts it.
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        Some(uuid::Uuid::from_bytes(bytes))
+    }
+
+    /// Runs synchronous work (such as a `store.read` / `store.write` closure) with this scope installed on the thread.
+    pub fn enter<R>(&self, f: impl FnOnce() -> R) -> R {
+        if !self.is_active() {
+            return f();
+        }
+        let prev = THREAD_REPLAY_SCOPE.with(|cell| cell.replace(Some(self.clone())));
+        struct Guard(Option<ReplayScope>);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                let prev = self.0.take();
+                THREAD_REPLAY_SCOPE.with(|cell| {
+                    cell.replace(prev);
+                });
+            }
+        }
+        let _guard = Guard(prev);
+        f()
+    }
+}
+
+tokio::task_local! {
+    static TASK_REPLAY_SCOPE: ReplayScope;
+}
+
+thread_local! {
+    static THREAD_REPLAY_SCOPE: RefCell<Option<ReplayScope>> = const { RefCell::new(None) };
+}
+
+/// Returns the active [`ReplayScope`] on the current thread or Tokio task, if any.
+pub fn current_replay_scope() -> ReplayScope {
+    if let Some(scope) = THREAD_REPLAY_SCOPE.with(|cell| cell.borrow().clone()) {
+        return scope;
+    }
+    TASK_REPLAY_SCOPE.try_with(Clone::clone).unwrap_or_default()
+}
+
+/// Runs an async future with the given [`ReplayScope`] installed.
+pub async fn with_replay_scope<F: Future>(scope: ReplayScope, future: F) -> F::Output {
+    if !scope.is_active() {
+        return future.await;
+    }
+    TASK_REPLAY_SCOPE.scope(scope, future).await
+}
+
+/// Whether the clock is currently pinned (by a request replay scope or `pin_now_for_tests`).
+pub fn is_replay_pinned() -> bool {
+    if THREAD_REPLAY_SCOPE.with(|cell| cell.borrow().as_ref().is_some_and(|s| s.now_ms.is_some())) {
+        return true;
+    }
+    if TASK_REPLAY_SCOPE.try_with(|s| s.now_ms.is_some()).unwrap_or(false) {
+        return true;
+    }
+    NOW_OVERRIDE.load(Ordering::Relaxed) != NO_OVERRIDE
+}
+
+/// Returns the replay-pinned timestamp in milliseconds if a [`ReplayScope`] is active on the current task/thread.
+/// Does NOT read `NOW_OVERRIDE` (`pin_now_for_tests`), so season-window tests do not backdate live JWT `exp` claims.
+pub fn replay_now_ms() -> Option<i64> {
+    if let Some(ms) = THREAD_REPLAY_SCOPE.with(|cell| cell.borrow().as_ref().and_then(|s| s.now_ms)) {
+        return Some(ms);
+    }
+    TASK_REPLAY_SCOPE.try_with(|s| s.now_ms).ok().flatten()
+}
+
+/// Mints a UUID v4: deterministic when a replay seed is active on the current task/thread, random otherwise.
+pub fn next_uuid() -> uuid::Uuid {
+    if let Some(uuid) = THREAD_REPLAY_SCOPE.with(|cell| cell.borrow().as_ref().and_then(ReplayScope::next_seeded_uuid))
+    {
+        return uuid;
+    }
+    if let Ok(Some(uuid)) = TASK_REPLAY_SCOPE.try_with(ReplayScope::next_seeded_uuid) {
+        return uuid;
+    }
+    uuid::Uuid::new_v4()
+}
+
 /// `Date.now()`.
 pub fn now_ms() -> i64 {
+    if let Some(ms) = THREAD_REPLAY_SCOPE.with(|cell| cell.borrow().as_ref().and_then(|s| s.now_ms)) {
+        return ms;
+    }
+    if let Ok(Some(ms)) = TASK_REPLAY_SCOPE.try_with(|s| s.now_ms) {
+        return ms;
+    }
     let pinned = NOW_OVERRIDE.load(Ordering::Relaxed);
     if pinned != NO_OVERRIDE {
         return pinned;

@@ -253,7 +253,7 @@ impl MatchmakingState {
         self.lock()
             .hub_game_session_ids
             .entry(format!("{host}:{port}"))
-            .or_insert_with(|| uuid::Uuid::new_v4().to_string())
+            .or_insert_with(|| crate::game_data::season_window::next_uuid().to_string())
             .clone()
     }
 
@@ -280,7 +280,7 @@ pub(super) fn cancel_hunt(inner: &mut Inner, hunt_id: &str, players: &[String], 
             continue;
         }
         seen.push(player);
-        let candidate_id = uuid::Uuid::new_v4().to_string();
+        let candidate_id = crate::game_data::season_window::next_uuid().to_string();
         let mut result = MatchmakingResult::matching(hunt_id, candidate_id);
         result.canceled = true;
         result.status_reason = Some(reason.to_owned());

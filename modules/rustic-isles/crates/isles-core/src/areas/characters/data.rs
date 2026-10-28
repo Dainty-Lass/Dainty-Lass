@@ -4,7 +4,6 @@
 //! strings, as the 1.12 client reads them and the 1.14.7 measurements kept (character.ts:30-77).
 
 use std::collections::HashSet;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Map, Value, json};
 use service_kit::jsjson;
@@ -174,9 +173,7 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 }
 
 pub fn now_secs() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(0))
+    crate::game_data::season_window::now_ms().div_euclid(1000)
 }
 
 /// `NormalizeCharacterData`: fills what the client expects, stamps the changelist, and forces the returning-player

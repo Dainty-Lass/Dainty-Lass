@@ -85,7 +85,7 @@ fn read_grant_id(req: &Req) -> Option<String> {
 /// `GrantIdFor`: an authenticated game server that sent none gets one minted (the 1.14.7 server sends neither).
 fn grant_id_for(req: &Req) -> Option<String> {
     if sent_grant_id(req).is_none() && req.auth.is_gameserver {
-        return Some(format!("gs-{}", uuid::Uuid::new_v4()));
+        return Some(format!("gs-{}", crate::game_data::season_window::next_uuid()));
     }
     read_grant_id(req)
 }

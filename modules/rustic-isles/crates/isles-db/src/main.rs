@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use isles_db::{Command, USAGE, parse_args, run_migrate, run_verify};
+use isles_db::{Command, USAGE, parse_args, run_migrate, run_replay_cli, run_verify};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -75,6 +75,63 @@ async fn main() -> ExitCode {
             }
             Err(err) => {
                 eprintln!("isles-db verify failed: {err}");
+                ExitCode::FAILURE
+            }
+        },
+        Command::Replay { opts, json } => match run_replay_cli(&opts).await {
+            Ok(report) => {
+                if json {
+                    if let Ok(s) = serde_json::to_string_pretty(&report) {
+                        println!("{s}");
+                    }
+                } else {
+                    let status = if report.passed() { "PASS" } else { "DIFF" };
+                    println!(
+                        "isles-db replay: {status} (records={}, http={}, chat_conns={}, skipped={}, exact_matched={}, inexact_matched={}, inexact_diffed={}, unexplained_diffed={})",
+                        report.total_records,
+                        report.http_replayed,
+                        report.chat_connections_replayed,
+                        report.skipped_records,
+                        report.exact_matched,
+                        report.inexact_matched,
+                        report.inexact_diffed,
+                        report.unexplained_diffed,
+                    );
+                    println!(
+                        "  diffs by kind: status={}, header={}, value={}, text={}, chat_stanza={}",
+                        report.status_diffs,
+                        report.header_diffs,
+                        report.value_diffs,
+                        report.text_diffs,
+                        report.chat_stanza_diffs,
+                    );
+                    for entry in &report.entries {
+                        if !entry.diffs.is_empty() {
+                            let tag = if entry.inexact { "INEXACT" } else { "DIFF" };
+                            println!(
+                                "  [{tag}] #{} {} {} (conn={}, seq={}, route={}): {} diff(s)",
+                                entry.index,
+                                entry.method,
+                                entry.target,
+                                entry.conn,
+                                entry.seq,
+                                entry.route,
+                                entry.diffs.len()
+                            );
+                            for d in &entry.diffs {
+                                println!("    - {d:?}");
+                            }
+                        }
+                    }
+                }
+                if report.passed() {
+                    ExitCode::SUCCESS
+                } else {
+                    ExitCode::from(2)
+                }
+            }
+            Err(err) => {
+                eprintln!("isles-db replay failed: {err}");
                 ExitCode::FAILURE
             }
         },

@@ -16,6 +16,7 @@ pub mod hooks;
 pub mod http;
 pub mod ids;
 pub mod module;
+pub mod replay;
 pub mod repo;
 pub mod routes;
 pub mod settings;

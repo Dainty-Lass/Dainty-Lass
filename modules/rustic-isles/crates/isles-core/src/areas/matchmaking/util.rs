@@ -1,7 +1,6 @@
 //! Small JavaScript behaviours the controllers lean on: `toISOString`, `Number(..)` and a clock the tests can move.
 
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// `Date.now()`, with an offset a test moves instead of sleeping (Node's tests mock `Date.now` the same way).
 #[derive(Debug, Default)]
@@ -11,9 +10,7 @@ pub struct Clock {
 
 impl Clock {
     pub fn now_ms(&self) -> i64 {
-        let real = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+        let real = crate::game_data::season_window::now_ms();
         real.saturating_add(self.offset_ms.load(Ordering::Relaxed))
     }
 
@@ -77,7 +74,7 @@ pub fn random_int(min: i64, max: i64) -> i64 {
         return min;
     }
     let span = u128::try_from(max - min).unwrap_or(1);
-    let bits = uuid::Uuid::new_v4().as_u128();
+    let bits = crate::game_data::season_window::next_uuid().as_u128();
     min + i64::try_from(bits % span).unwrap_or(0)
 }
 

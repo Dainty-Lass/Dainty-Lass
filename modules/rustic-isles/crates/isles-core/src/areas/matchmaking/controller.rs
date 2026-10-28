@@ -215,7 +215,7 @@ impl Matchmaker<'_> {
             && !hub
         {
             // The activity monitor's participation rows; the launch never waits for them
-            let hunt_ref = uuid::Uuid::new_v4().to_string();
+            let hunt_ref = crate::game_data::season_window::next_uuid().to_string();
             self.state()
                 .lock()
                 .hunt_ref_of_instance
@@ -352,7 +352,7 @@ impl Matchmaker<'_> {
         if full {
             self.pop_queue(hunt_id).await?;
         }
-        let candidate_id = uuid::Uuid::new_v4().to_string();
+        let candidate_id = crate::game_data::season_window::next_uuid().to_string();
         self.state()
             .set_candidate(player, MatchmakingResult::matching(hunt_id, candidate_id));
         Ok(true)
@@ -377,7 +377,7 @@ impl Matchmaker<'_> {
                 Some(existing) if existing.hunt_id == hunt_id && now - created < PARTY_INSTANCE_REUSE_MS => {
                     // The destination is party-wide; a candidate is one client's travel attempt
                     let mut mine = existing.clone();
-                    mine.candidate_id = uuid::Uuid::new_v4().to_string();
+                    mine.candidate_id = crate::game_data::season_window::next_uuid().to_string();
                     inner.results.insert(player.to_owned(), mine);
                     let key = format!("{}:{}", existing.host, existing.port);
                     Some(inner.hunt_ref_of_instance.get(&key).cloned().unwrap_or(key))
@@ -405,7 +405,7 @@ impl Matchmaker<'_> {
             });
         };
         let mut inner = self.state().lock();
-        let candidate_id = uuid::Uuid::new_v4().to_string();
+        let candidate_id = crate::game_data::season_window::next_uuid().to_string();
         let mut shared = MatchmakingResult::matching(hunt_id, candidate_id);
         shared.ready = true;
         shared.host = host;
@@ -421,7 +421,7 @@ impl Matchmaker<'_> {
         inner.party_instance_created.insert(party_id.to_owned(), now);
         for member in members {
             let mut mine = shared.clone();
-            mine.candidate_id = uuid::Uuid::new_v4().to_string();
+            mine.candidate_id = crate::game_data::season_window::next_uuid().to_string();
             inner.results.insert(member.clone(), mine);
         }
         Ok(true)
@@ -554,14 +554,14 @@ impl Matchmaker<'_> {
             self.state().activity.get().dedicated_hunt_ends(&everyone, "RETURNED");
         }
         let mut inner = self.state().lock();
-        let candidate_id = uuid::Uuid::new_v4().to_string();
+        let candidate_id = crate::game_data::season_window::next_uuid().to_string();
         let mut shared = MatchmakingResult::matching(effective, candidate_id);
         if is_hub {
             // The hub's room id is stable for the life of the persistent server; CandidateId is not reused for it
             shared.game_session_id = inner
                 .hub_game_session_ids
                 .entry(format!("{host}:{port}"))
-                .or_insert_with(|| uuid::Uuid::new_v4().to_string())
+                .or_insert_with(|| crate::game_data::season_window::next_uuid().to_string())
                 .clone();
         }
         shared.ready = true;
@@ -587,7 +587,7 @@ impl Matchmaker<'_> {
                 for member in members {
                     // Each client needs a fresh candidate to notice and consume this travel
                     let mut mine = shared.clone();
-                    mine.candidate_id = uuid::Uuid::new_v4().to_string();
+                    mine.candidate_id = crate::game_data::season_window::next_uuid().to_string();
                     inner.results.insert(member.clone(), mine);
                 }
             }

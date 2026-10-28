@@ -105,7 +105,8 @@ impl IslesStore {
         T: Send + 'static,
     {
         let repos = self.repos.clone();
-        self.db.read(move |conn| f(conn, &repos)).await
+        let scope = crate::game_data::season_window::current_replay_scope();
+        self.db.read(move |conn| scope.enter(|| f(conn, &repos))).await
     }
 
     /// A write to one account's data, as `actor`: refused unless this node is the account's home.
@@ -134,7 +135,10 @@ impl IslesStore {
         T: Send + 'static,
     {
         let repos = self.repos.clone();
-        self.db.write(store_actor(actor), move |tx| f(tx, &repos)).await
+        let scope = crate::game_data::season_window::current_replay_scope();
+        self.db
+            .write(store_actor(actor), move |tx| scope.enter(|| f(tx, &repos)))
+            .await
     }
 }
 

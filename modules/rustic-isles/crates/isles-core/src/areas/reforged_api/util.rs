@@ -5,7 +5,6 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{Mutex, PoisonError};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::body::{Body, to_bytes};
 use axum::extract::{ConnectInfo, Request};
@@ -20,9 +19,7 @@ use service_kit::serve::ConnectionInfo;
 use sha2::{Digest, Sha256};
 
 pub fn now_ms() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
+    crate::game_data::season_window::now_ms()
 }
 
 /// `new Date(ms).toISOString()`.

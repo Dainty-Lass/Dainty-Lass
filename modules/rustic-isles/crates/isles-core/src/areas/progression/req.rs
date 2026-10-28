@@ -33,16 +33,29 @@ impl Req {
     pub async fn new(call: Call, ports: Ports) -> Result<Self, Response> {
         let Call {
             shared,
+            route,
             params,
             request,
+            origin_host,
             request_id,
-            ..
         } = call;
         let (parts, raw_body) = request.into_parts();
         let (parts, parsed) = read_body_parts(parts, raw_body).await?;
-        let Some(auth) = AuthData::of_extensions(&parts.extensions) else {
-            tracing::error!("Unauthenticated request reached a progression handler");
-            return Err(empty(401));
+        let (parts, auth) = match AuthData::of_extensions(&parts.extensions) {
+            Some(auth) => (parts, auth),
+            None => {
+                let mut auth_call = Call {
+                    shared: shared.clone(),
+                    route,
+                    params: params.clone(),
+                    request: axum::extract::Request::from_parts(parts, axum::body::Body::empty()),
+                    origin_host,
+                    request_id: request_id.clone(),
+                };
+                let auth = crate::areas::auth::game_auth(&mut auth_call).await?;
+                let (parts, _) = auth_call.request.into_parts();
+                (parts, AuthData::from(&auth))
+            }
         };
         let body = Body::from(parsed);
         Ok(Self {

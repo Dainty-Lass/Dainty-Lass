@@ -110,7 +110,7 @@ use schema::{
 
 /// `new Date().toISOString()`.
 pub fn now_iso() -> String {
-    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
+    crate::game_data::season_window::to_iso_string(crate::game_data::season_window::now_ms())
 }
 
 fn data<T, E: std::fmt::Display>(what: &str, result: Result<T, E>) -> RepoResult<T> {

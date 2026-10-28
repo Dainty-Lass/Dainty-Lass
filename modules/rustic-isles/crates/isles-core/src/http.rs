@@ -479,33 +479,53 @@ async fn rifts_reply(handler: &dyn RouteHandler, route: rifts_seam::Route, call:
         .into_response()
 }
 
+fn replay_scope_of(request: &Request) -> crate::game_data::season_window::ReplayScope {
+    use crate::game_data::season_window::{REPLAY_NOW_HEADER, REPLAY_SEED_HEADER, ReplayScope};
+    let now_ms = request
+        .headers()
+        .get(REPLAY_NOW_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .and_then(|raw| raw.parse::<i64>().ok().or_else(|| service_kit::js::date_parse(raw)));
+    let seed = request
+        .headers()
+        .get(REPLAY_SEED_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim);
+    ReplayScope::new(now_ms, seed)
+}
+
 async fn dispatch(State(app): State<Arc<App>>, mut request: Request) -> Response {
-    let id = request_id(&request);
-    let observation = crate::areas::reforged_api::observe::begin(&request, &id);
-    // The launcher router's CORS gate (routes/launcherAuth.ts) runs ahead of every `/launcher/` route that follows it
-    let cors = if app.service == Service::Backend {
-        crate::areas::auth::launcher_routes::launcher_cors(&app.shared, &request)
-    } else {
-        crate::areas::auth::launcher_routes::Cors::Pass
-    };
-    let mut response = match cors {
-        crate::areas::auth::launcher_routes::Cors::Answer(response) => response,
-        crate::areas::auth::launcher_routes::Cors::Headers(headers) => {
-            let mut response = answer(&app, &mut request, id.clone()).await;
-            for (name, value) in headers {
-                response.headers_mut().insert(name, value);
+    let replay_scope = replay_scope_of(&request);
+    crate::game_data::season_window::with_replay_scope(replay_scope, async move {
+        let id = request_id(&request);
+        let observation = crate::areas::reforged_api::observe::begin(&request, &id);
+        // The launcher router's CORS gate (routes/launcherAuth.ts) runs ahead of every `/launcher/` route that follows it
+        let cors = if app.service == Service::Backend {
+            crate::areas::auth::launcher_routes::launcher_cors(&app.shared, &request)
+        } else {
+            crate::areas::auth::launcher_routes::Cors::Pass
+        };
+        let mut response = match cors {
+            crate::areas::auth::launcher_routes::Cors::Answer(response) => response,
+            crate::areas::auth::launcher_routes::Cors::Headers(headers) => {
+                let mut response = answer(&app, &mut request, id.clone()).await;
+                for (name, value) in headers {
+                    response.headers_mut().insert(name, value);
+                }
+                response
             }
+            crate::areas::auth::launcher_routes::Cors::Pass => answer(&app, &mut request, id.clone()).await,
+        };
+        observation.finish(response.status().as_u16());
+        if let Ok(value) = HeaderValue::from_str(&id) {
             response
+                .headers_mut()
+                .insert(HeaderName::from_static(REQUEST_ID_HEADER), value);
         }
-        crate::areas::auth::launcher_routes::Cors::Pass => answer(&app, &mut request, id.clone()).await,
-    };
-    observation.finish(response.status().as_u16());
-    if let Ok(value) = HeaderValue::from_str(&id) {
         response
-            .headers_mut()
-            .insert(HeaderName::from_static(REQUEST_ID_HEADER), value);
-    }
-    response
+    })
+    .await
 }
 
 async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Response {
