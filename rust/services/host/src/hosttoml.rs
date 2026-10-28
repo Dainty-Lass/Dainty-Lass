@@ -115,6 +115,14 @@ const SWITCHES: &[Field] = &[
     ("cooldownPersistence", "cooldown_persistence", false),
     ("accountErasure", "account_erasure", false),
     ("logPurge", "log_purge", false),
+    ("rateLimit", "rate_limit", false),
+    ("rateLimitPerMinute", "rate_limit_per_minute", false),
+    (
+        "gameserverRateLimitPerMinute",
+        "gameserver_rate_limit_per_minute",
+        false,
+    ),
+    ("hostRateLimitPerMinute", "host_rate_limit_per_minute", false),
 ];
 
 /// The keys of a table at the top of the file; `None` for a single value.
@@ -513,6 +521,18 @@ fn comment(path: &str) -> &'static str {
         }
         "switches.log_purge" => {
             "Whether the background sweep purges expired verification codes and activity logs (MYSTICPARADOX_LOG_PURGE): \"on\" or \"off\"."
+        }
+        "switches.rate_limit" => {
+            "Whether the 1.14.7 per-minute HTTP request budget is active (MYSTICPARADOX_RATE_LIMIT): \"on\" or \"off\"."
+        }
+        "switches.rate_limit_per_minute" => {
+            "Per-minute HTTP request budget for a client address (MYSTICPARADOX_RATE_LIMIT_PER_MINUTE, 600 when left out)."
+        }
+        "switches.gameserver_rate_limit_per_minute" => {
+            "Per-minute HTTP request budget for a dedicated game server address (MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE, 6000 when left out)."
+        }
+        "switches.host_rate_limit_per_minute" => {
+            "Per-minute HTTP request budget for a player-hosted hunt capability (MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE, 6000 when left out)."
         }
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",
