@@ -1067,10 +1067,11 @@ fn qos_paths_and_the_port_override() {
 }
 
 #[tokio::test]
-async fn repoint_switches_target_attaches_ticket_and_strips_account_key() {
+async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwarding() {
     let home_upstream = upstream().await;
     let peer_upstream = upstream().await;
     let (relay, _) = relay_for(&home_upstream, None).await;
+    let home_target = relay.current_target();
 
     // Initial request to home node: x-reforged-user-api-key passes through
     let answer = call(
@@ -1089,12 +1090,25 @@ async fn repoint_switches_target_attaches_ticket_and_strips_account_key() {
     );
     assert!(!home_seen.headers.contains_key("x-reforged-session-ticket"));
 
-    // Re-point the running relay to peer_upstream with a home-signed session ticket (DN6)
     let peer_target = RelayTarget {
         host: "127.0.0.1".into(),
         port: peer_upstream.port,
         fingerprint: Some(peer_upstream.fingerprint.clone()),
     };
+
+    // Re-pointing to a non-home target without a session ticket is refused
+    assert_eq!(
+        relay.repoint(peer_target.clone(), None),
+        Err(RelayError::TicketRequired)
+    );
+    assert_eq!(
+        relay.repoint(peer_target.clone(), Some("   ".into())),
+        Err(RelayError::TicketRequired)
+    );
+    assert_eq!(relay.current_target(), home_target);
+    assert_eq!(relay.current_ticket(), None);
+
+    // Re-pointing to peer_upstream with a session ticket strips the account key and sends the ticket
     relay
         .repoint(peer_target.clone(), Some("dlt1.signed_session_ticket".into()))
         .unwrap();
@@ -1112,12 +1126,33 @@ async fn repoint_switches_target_attaches_ticket_and_strips_account_key() {
     assert_eq!(answer.status, 200);
     let peer_seen = peer_upstream.seen().last().cloned().unwrap();
     assert_eq!(peer_seen.uri.as_str(), "/hunt/join");
-    // Account key must NEVER leave the home node; session ticket is sent instead
     assert!(!peer_seen.headers.contains_key("x-reforged-user-api-key"));
     assert_eq!(
         values(&peer_seen.headers, "x-reforged-session-ticket"),
         ["dlt1.signed_session_ticket"]
     );
+
+    // Re-pointing back to the home node with None restores normal account-key forwarding
+    relay.repoint(home_target.clone(), None).unwrap();
+    assert_eq!(relay.current_target(), home_target);
+    assert_eq!(relay.current_ticket(), None);
+
+    let answer = call(
+        relay.port(),
+        "GET",
+        "/session/after-hunt",
+        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        None,
+    )
+    .await;
+    assert_eq!(answer.status, 200);
+    let home_seen_after = home_upstream.seen().last().cloned().unwrap();
+    assert_eq!(home_seen_after.uri.as_str(), "/session/after-hunt");
+    assert_eq!(
+        values(&home_seen_after.headers, "x-reforged-user-api-key"),
+        ["RRK_home_secret_key_123456"]
+    );
+    assert!(!home_seen_after.headers.contains_key("x-reforged-session-ticket"));
 
     relay.stop().await;
 }
