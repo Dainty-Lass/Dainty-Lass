@@ -49,9 +49,9 @@ pub use local::{QOS_PONG, is_qos_path, relay_port_override};
 pub const DEFAULT_RELAY_PORT: u16 = 61100;
 /// The extra QoS-only listener's port (`RelayOptions::qos_port`)
 pub const DEFAULT_QOS_PORT: u16 = 80;
-/// Header carrying the player's home account key; stripped when the relay is re-pointed to another node (DN6, DD17).
+/// Header carrying the player's home account key; stripped when re-pointed to another node.
 pub const ACCOUNT_KEY_HEADER: &str = "x-reforged-user-api-key";
-/// Header carrying a home-signed session ticket when the relay is re-pointed to a non-home node (DN6, DD18).
+/// Header carrying a home-signed session ticket when re-pointed to another node.
 pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
 /// How long an upgraded connection (the chat) may be silent both ways before it is cut
 const TUNNEL_IDLE: Duration = Duration::from_secs(24 * 60 * 60);
@@ -63,6 +63,7 @@ type Body = BoxBody<Bytes, Box<dyn std::error::Error + Send + Sync>>;
 pub enum RelayError {
     PortBusy(u16),
     ListenFailed(String),
+    TicketRequired,
 }
 
 impl std::fmt::Display for RelayError {
@@ -70,6 +71,7 @@ impl std::fmt::Display for RelayError {
         match self {
             Self::PortBusy(port) => write!(f, "port {port} is in use"),
             Self::ListenFailed(message) => f.write_str(message),
+            Self::TicketRequired => f.write_str("a session ticket is required to re-point to a non-home node"),
         }
     }
 }
@@ -240,11 +242,12 @@ impl Shared {
 
     fn apply_upstream_headers(&self, active: &ActiveUpstream, headers: &mut HeaderMap) {
         headers.insert(HOST, active.host_header.clone());
-        if let Some(ticket) = &active.session_ticket {
-            // DD17 / AGENTS.md: the account key never leaves its home node; when re-pointed with a
-            // home-signed session ticket, strip the account key and send the session ticket instead.
+        if active.target != self.options.target || active.session_ticket.is_some() {
+            // The account key never leaves its home node; send the session ticket instead.
             headers.remove(ACCOUNT_KEY_HEADER);
-            headers.insert(SESSION_TICKET_HEADER, ticket.clone());
+            if let Some(ticket) = &active.session_ticket {
+                headers.insert(SESSION_TICKET_HEADER, ticket.clone());
+            }
         }
     }
 
@@ -411,11 +414,13 @@ impl Relay {
         self.shared.upstream_connections.load(Ordering::Relaxed)
     }
 
-    /// Re-points the running relay on `127.0.0.1:61100` to another node's gateway with a home-signed
-    /// session ticket (DN6, DD18). When `session_ticket` is `Some`, `x-reforged-user-api-key` is stripped
-    /// from every forwarded request and `x-reforged-session-ticket` is sent instead so the account key
-    /// never leaves its home node (DD17).
+    /// Re-points the running relay to another node with a session ticket, or back to the home node.
     pub fn repoint(&self, target: RelayTarget, session_ticket: Option<String>) -> Result<(), RelayError> {
+        let session_ticket = match session_ticket {
+            Some(ticket) if !ticket.trim().is_empty() => Some(ticket),
+            _ if target == self.shared.options.target => None,
+            _ => return Err(RelayError::TicketRequired),
+        };
         let (active, mode, host) = build_active_upstream(&target, self.shared.options.connect_timeout, session_ticket)?;
         *self.shared.upstream.write().unwrap_or_else(PoisonError::into_inner) = active;
         self.shared
@@ -423,12 +428,12 @@ impl Relay {
         Ok(())
     }
 
-    /// Returns the gateway target the relay currently forwards to (DN6).
+    /// Returns the gateway target the relay currently forwards to.
     pub fn current_target(&self) -> RelayTarget {
         self.shared.current_upstream().target
     }
 
-    /// Returns the active session ticket token if the relay is currently re-pointed to a non-home node (DN6).
+    /// Returns the active session ticket token if the relay is re-pointed to a non-home node.
     pub fn current_ticket(&self) -> Option<String> {
         self.shared.current_upstream().ticket_text
     }
