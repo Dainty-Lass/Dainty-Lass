@@ -1408,7 +1408,9 @@ impl Admin {
             (Err(err), None) => return Err(err),
         };
         if let Some(account) = &account_id {
-            self.relay.revoke_tickets(account);
+            self.relay
+                .revoke_tickets(account)
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let detail = crate::relay::detail_with_pending(None, &pending);
         self.audit_full(
@@ -1577,7 +1579,9 @@ impl Admin {
             (Err(err), None) => return Err(err),
         };
         if let Some(account) = &account_id {
-            self.relay.revoke_tickets(account);
+            self.relay
+                .revoke_tickets(account)
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let detail = crate::relay::detail_with_pending(Some(reason), &pending);
         self.audit_full(
@@ -1765,7 +1769,9 @@ impl Admin {
             (Err(err), None) => return Err(err),
         };
         if let Some(account) = &account_id {
-            self.relay.revoke_tickets(account);
+            self.relay
+                .revoke_tickets(account)
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let detail = crate::relay::detail_with_pending(Some(&full_reason), &pending);
         self.audit_full(
@@ -1897,7 +1903,9 @@ impl Admin {
         let now = self.now();
         let (account_id, remote_home) = self.directory_target(name).await;
         if let Some(account) = &account_id {
-            self.relay.allow_tickets(account);
+            self.relay
+                .allow_tickets(account)
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         let spec = crate::relay::OutboundAction::new(
@@ -2008,7 +2016,9 @@ impl Admin {
         let now = self.now();
         let (account_id, remote_home) = self.directory_target(name).await;
         if let Some(account) = &account_id {
-            self.relay.allow_tickets(account);
+            self.relay
+                .allow_tickets(account)
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
         }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         let spec = crate::relay::OutboundAction::new(

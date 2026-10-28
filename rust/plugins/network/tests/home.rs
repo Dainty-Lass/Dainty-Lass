@@ -617,7 +617,7 @@ async fn a_session_the_home_ends_stops_working_everywhere() {
 
     // Banned or logged out at home: the ticket Oregon holds is dead, and so is its renewal
     cluster.clock.skew_by(1_000);
-    germany.tickets.revoke(&fox);
+    germany.tickets.revoke(&fox).unwrap();
     let why = denied(oregon.home.forward(&grant).await);
     assert!(why.contains("ended"), "{why}");
     assert_eq!(germany.backend.xp(&fox), 10);
@@ -967,7 +967,7 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
 
         // Advance clock by 1s and ban (revoke) the account
         clock.skew_by(1_000);
-        tickets_before.revoke(&account);
+        tickets_before.revoke(&account).unwrap();
         assert_eq!(tickets_before.verify(&old_ticket, &expect), Err(TicketError::Revoked));
         drop(tickets_before);
 
@@ -1003,7 +1003,7 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
         tickets_after.verify(&fresh_ticket, &expect).unwrap();
 
         // Unbanning (`allow`) clears the persisted floor across another restart
-        tickets_after.allow(&account);
+        tickets_after.allow(&account).unwrap();
         drop(tickets_after);
 
         let tickets_unbanned = Tickets::with_database(
@@ -1016,4 +1016,51 @@ async fn ban_revocation_survives_restart_on_sqlite_and_postgres() {
         .unwrap();
         assert!(!tickets_unbanned.is_revoked_at(&account, old_claims.since));
     }
+}
+
+#[tokio::test]
+async fn revocation_write_failure_is_surfaced_when_database_table_is_missing() {
+    use diesel::RunQueryDsl;
+    use store::Actor;
+
+    let clock = Arc::new(Clock::default());
+    let home_identity = NodeIdentity {
+        node: id("germany-1"),
+        region: "eu-central".parse().unwrap(),
+    };
+    let account = GlobalId::new(IdKind::Account, &home_identity.node);
+    let key_dir = tempfile::tempdir().unwrap();
+    let key_path = key_dir.path().join("ticket.key");
+    let target = Target::new(Engine::Sqlite);
+    let db = target.open();
+
+    let tickets = Tickets::with_database(
+        &home_identity,
+        SigningKey::load_or_create(&key_path).unwrap(),
+        clock,
+        TicketConfig::default(),
+        db.clone(),
+    )
+    .unwrap();
+
+    // Drop the revocation table to force the persistence write to fail
+    db.write::<_, store::Error, _>(Actor::System("test-break-table".to_string()), |tx| {
+        diesel::sql_query("DROP TABLE network_ticket_revocations")
+            .execute(tx.conn())
+            .map(|_| ())
+            .map_err(store::Error::from)
+    })
+    .await
+    .unwrap();
+
+    let err = tickets
+        .revoke(&account)
+        .expect_err("revoke must return an error when database persistence fails");
+    assert_eq!(err.account, account);
+    assert!(!err.to_string().is_empty());
+
+    let allow_err = tickets
+        .allow(&account)
+        .expect_err("allow must return an error when database persistence fails");
+    assert_eq!(allow_err.account, account);
 }

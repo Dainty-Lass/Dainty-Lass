@@ -497,9 +497,9 @@ impl AdminRelayService {
             .is_some_and(|r| r.peers().iter().any(|p| p == from))
     }
 
-    fn apply_ticket_effect(&self, action: &RelayAction) {
+    fn apply_ticket_effect(&self, action: &RelayAction) -> Result<(), crate::home::RevocationPersistError> {
         let Some(account) = &action.account else {
-            return;
+            return Ok(());
         };
         let Some(tickets) = self
             .inner
@@ -508,13 +508,14 @@ impl AdminRelayService {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
         else {
-            return;
+            return Ok(());
         };
         if action.revoke_tickets {
-            tickets.revoke(account);
+            tickets.revoke(account)?;
         } else if matches!(action.operation.as_str(), operations::UNBAN | operations::LIFT_TIMEOUT) {
-            tickets.allow(account);
+            tickets.allow(account)?;
         }
+        Ok(())
     }
 
     /// Handles one decoded [`RelayAction`] from `from` (authenticated by the link).
@@ -539,7 +540,14 @@ impl AdminRelayService {
         match begin {
             Begin::Done(body) => {
                 // Re-apply ticket revocation idempotently in case tickets were rotated or re-checked
-                self.apply_ticket_effect(&action);
+                if let Err(error) = self.apply_ticket_effect(&action) {
+                    return AdminRelayReply::Refused {
+                        refusal: AdminRelayRefusal::Failed {
+                            code: Some(CleanText::lossy("STATE_NOT_SAVED")),
+                            message: CleanText::lossy(&error.to_string()),
+                        },
+                    };
+                }
                 return match HomeBody::new(body) {
                     Ok(body) => AdminRelayReply::Applied { body },
                     Err(_) => AdminRelayReply::Refused {
@@ -608,7 +616,14 @@ impl AdminRelayService {
         };
         match result {
             Ok(body) => {
-                self.apply_ticket_effect(&tick_action);
+                if let Err(error) = self.apply_ticket_effect(&tick_action) {
+                    return AdminRelayReply::Refused {
+                        refusal: AdminRelayRefusal::Failed {
+                            code: Some(CleanText::lossy("STATE_NOT_SAVED")),
+                            message: CleanText::lossy(&error.to_string()),
+                        },
+                    };
+                }
                 match HomeBody::new(body) {
                     Ok(body) => AdminRelayReply::Applied { body },
                     Err(_) => AdminRelayReply::Refused {
