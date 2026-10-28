@@ -497,3 +497,8 @@ pub async fn rifts_caller(
 pub fn ip_of(call: &Call) -> String {
     client_ip(&call.request)
 }
+
+/// `ClientAddress` (`security/rateLimit.ts`): `ipKeyGenerator(req.ip || "unknown")` over [`client_ip`].
+pub fn rate_limit_address(request: &Request) -> String {
+    super::util::ip_key_generator(&client_ip(request))
+}

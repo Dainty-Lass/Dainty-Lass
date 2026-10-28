@@ -480,6 +480,10 @@ async fn realms_and_guard_routes_serve_live_implementations_when_database_is_con
         rifts_seam::HOST_CAPABILITY_HEADER.to_owned(),
         secret.expose().to_owned(),
     ));
+    assert_eq!(
+        rifts.guard().rate_limit_bucket(lease_req.clone()).await.unwrap(),
+        Some(format!("host:{}", capability.capability_id))
+    );
     let lease_err = lease_handler
         .handle(RouteCall {
             route: *lease_route,
