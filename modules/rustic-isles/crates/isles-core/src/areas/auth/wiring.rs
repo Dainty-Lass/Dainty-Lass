@@ -6,13 +6,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use module_api::BoxFuture;
+use rifts_seam::{AccountId as SeamAccountId, GuardMode, IslesCore, Json, Party, PartyId, SeamError, SessionId};
 use serde_json::Value;
 
 use super::errors::{LauncherApiError, status_for};
-use super::{crypto, erasure, middleware, totp, util};
+use super::{crypto, erasure, middleware, policy, totp, util};
 use crate::areas::reforged_api::admin::{self, AdminCredentials};
 use crate::areas::reforged_api::launcher_auth::{self, LauncherAuthenticator, LauncherCaller, LauncherFailure};
 use crate::areas::reforged_api::player_logs;
+use crate::db::IslesStore;
 use crate::http::Shared;
 use crate::settings::Settings;
 
@@ -64,6 +66,190 @@ impl AdminCredentials for AdminSignIn {
 pub fn register_seams() {
     launcher_auth::set_authenticator(Some(Arc::new(LauncherSessions)));
     admin::set_credentials(Some(Arc::new(AdminSignIn)));
+}
+
+/// Accounts, Launcher Guard and operations for `rifts_seam::IslesCore` (`MatchmakingCore::fallback`).
+pub struct AuthReforgedCore {
+    pub store: Option<IslesStore>,
+    pub settings: Settings,
+}
+
+fn refused(code: &str, message: impl Into<String>) -> SeamError {
+    SeamError::Refused(rifts_seam::Refusal {
+        code: code.to_owned(),
+        message: message.into(),
+    })
+}
+
+impl IslesCore for AuthReforgedCore {
+    fn display_name(&self, account: SeamAccountId) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
+        let store = self.store.clone();
+        Box::pin(async move {
+            let Some(store) = store else {
+                return Ok(None);
+            };
+            store
+                .read(move |conn, repos| {
+                    if let Ok(global) = account.0.parse::<module_api::GlobalId>()
+                        && let Ok(id) = crate::ids::AccountId::try_from(global)
+                        && let Some(la) = repos.launcher_accounts.find_by_account(conn, &id)?
+                    {
+                        return Ok(Some(la.display_name));
+                    }
+                    if let Some(acc) = repos
+                        .accounts
+                        .find_by_user_id(conn, &crate::ids::UserId(account.0.clone()))?
+                    {
+                        if let Some(la) = repos.launcher_accounts.find_by_account(conn, &acc.id)? {
+                            return Ok(Some(la.display_name));
+                        }
+                        return Ok(Some(acc.name));
+                    }
+                    Ok(None)
+                })
+                .await
+                .map_err(|e| refused("ACCOUNT_READ_FAILED", e.to_string()))
+        })
+    }
+
+    fn find_by_display_name(&self, name: String) -> BoxFuture<'_, Result<Option<SeamAccountId>, SeamError>> {
+        let store = self.store.clone();
+        Box::pin(async move {
+            let Some(store) = store else {
+                return Ok(None);
+            };
+            let normalized = name.trim().to_lowercase();
+            store
+                .read(move |conn, repos| {
+                    if let Some(la) = repos
+                        .launcher_accounts
+                        .find_by_display_name_normalized(conn, &normalized)?
+                    {
+                        return Ok(Some(SeamAccountId(la.account.to_string())));
+                    }
+                    Ok(None)
+                })
+                .await
+                .map_err(|e| refused("ACCOUNT_READ_FAILED", e.to_string()))
+        })
+    }
+
+    fn launcher_account_eligible(&self, account: SeamAccountId) -> BoxFuture<'_, Result<bool, SeamError>> {
+        let store = self.store.clone();
+        Box::pin(async move {
+            let Some(store) = store else {
+                return Ok(true);
+            };
+            store
+                .read(move |conn, repos| {
+                    if let Ok(global) = account.0.parse::<module_api::GlobalId>()
+                        && let Ok(id) = crate::ids::AccountId::try_from(global)
+                        && let Some(la) = repos.launcher_accounts.find_by_account(conn, &id)?
+                    {
+                        return Ok(policy::is_account_eligible(&la));
+                    }
+                    if let Some(acc) = repos.accounts.find_by_user_id(conn, &crate::ids::UserId(account.0))?
+                        && let Some(la) = repos.launcher_accounts.find_by_account(conn, &acc.id)?
+                    {
+                        return Ok(policy::is_account_eligible(&la));
+                    }
+                    Ok(true)
+                })
+                .await
+                .map_err(|e| refused("ACCOUNT_READ_FAILED", e.to_string()))
+        })
+    }
+
+    fn party(&self, _: PartyId) -> BoxFuture<'_, Result<Option<Party>, SeamError>> {
+        rifts_seam::NoCore.party(
+            "01ARZ3NDEKTSV4RRFFQ69G5FAV@local"
+                .parse()
+                .unwrap_or_else(|_| unreachable!()),
+        )
+    }
+
+    fn get_or_create_party(&self, account: SeamAccountId) -> BoxFuture<'_, Result<Party, SeamError>> {
+        rifts_seam::NoCore.get_or_create_party(account)
+    }
+
+    fn set_candidate(&self, account: SeamAccountId, candidate: rifts_seam::Candidate) -> Result<(), SeamError> {
+        rifts_seam::NoCore.set_candidate(account, candidate)
+    }
+
+    fn cancel_travel(&self, hunt_id: &str, accounts: &[SeamAccountId], reason: &str) -> Result<bool, SeamError> {
+        rifts_seam::NoCore.cancel_travel(hunt_id, accounts, reason)
+    }
+
+    fn dedicated_servers_configured(&self) -> bool {
+        false
+    }
+
+    fn touch_game_session(&self, account: SeamAccountId) -> BoxFuture<'_, Result<(), SeamError>> {
+        rifts_seam::NoCore.touch_game_session(account)
+    }
+
+    fn record_hunt_activity(&self, session: SessionId, activity: Json) -> BoxFuture<'_, Result<(), SeamError>> {
+        rifts_seam::NoCore.record_hunt_activity(session, activity)
+    }
+
+    fn healthy_guard_session(&self, account: SeamAccountId) -> BoxFuture<'_, Result<Option<Json>, SeamError>> {
+        rifts_seam::NoCore.healthy_guard_session(account)
+    }
+
+    fn published_guard_artifacts(&self) -> BoxFuture<'_, Result<Json, SeamError>> {
+        rifts_seam::NoCore.published_guard_artifacts()
+    }
+
+    fn guard_mode(&self) -> GuardMode {
+        GuardMode::from_setting(self.settings.raw("MYSTICPARADOX_GUARD_MODE"))
+    }
+
+    fn operations_policy(&self) -> BoxFuture<'_, Result<Json, SeamError>> {
+        let store = self.store.clone();
+        let observe_override = self.settings.raw("GUARD_ENFORCEMENT_OVERRIDE") == Some("OBSERVE");
+        Box::pin(async move {
+            let record = match store {
+                Some(store) => store
+                    .read(|conn, repos| repos.admin.read_operations_policy(conn))
+                    .await
+                    .ok()
+                    .flatten(),
+                None => None,
+            };
+            let mut policy = match record {
+                Some(record) => crate::areas::reforged_api::operations::normalize(&record, util::now_ms()).0,
+                None => crate::areas::reforged_api::operations::Policy::default_policy(),
+            };
+            if observe_override {
+                policy.guard_enforcement = "OBSERVE";
+            }
+            Ok(Json(policy.to_json().to_string()))
+        })
+    }
+
+    fn verify_operations_step_up(&self, key_id: String, step_up: String) -> BoxFuture<'_, Result<bool, SeamError>> {
+        let secret = self
+            .settings
+            .get("ADMIN_OPERATIONS_TOTP_SECRET")
+            .map(service_kit::js::trim)
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                self.settings
+                    .get("ADMIN_TOTP_SECRET")
+                    .map(service_kit::js::trim)
+                    .filter(|s| !s.is_empty())
+            })
+            .map(str::to_owned);
+        Box::pin(async move {
+            let limited = crate::areas::reforged_api::util::is_rate_limited(
+                &format!("admin-operations-step-up:{key_id}"),
+                6,
+                15 * 60_000,
+            );
+            let code = Value::String(step_up);
+            Ok(secret.is_some_and(|s| !limited && totp::verify_totp(&s, Some(&code))))
+        })
+    }
 }
 
 const JOB_INTERVAL: Duration = Duration::from_secs(3600);

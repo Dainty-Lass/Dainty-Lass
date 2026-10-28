@@ -99,8 +99,8 @@ pub struct ModuleSpec {
     pub ports: DefaultPorts,
     pub version: IslesVersion,
     pub chat: Arc<dyn ChatRules>,
-    /// The version's rustic-rifts, from the module's settings (RF2)
-    pub rifts: fn(&Settings) -> Rifts,
+    /// The version's rustic-rifts, from the module's settings and `IslesCore` (RF2)
+    pub rifts: fn(&Settings, Arc<dyn rifts_seam::IslesCore>) -> Rifts,
     pub services: Vec<Arc<dyn PortService>>,
 }
 
@@ -245,9 +245,20 @@ impl IslesModule {
                 settings: settings.clone(),
             }));
         }
+        let fallback_core: Arc<dyn rifts_seam::IslesCore> = Arc::new(crate::areas::auth::wiring::AuthReforgedCore {
+            store: store.clone(),
+            settings: settings.clone(),
+        });
+        let rifts_core: Arc<dyn rifts_seam::IslesCore> =
+            Arc::new(crate::areas::matchmaking::rifts_core::MatchmakingCore {
+                store: store.clone(),
+                node: ctx.node().node.clone(),
+                state: matchmaking.clone(),
+                fallback: fallback_core,
+            });
         let shared = Arc::new(Shared {
             version: self.spec.version.clone(),
-            rifts: (self.spec.rifts)(&settings),
+            rifts: (self.spec.rifts)(&settings, rifts_core),
             matchmaking,
             settings,
             node: ctx.node().clone(),

@@ -250,7 +250,19 @@ pub const DIRECTOR: DirectorConfig = DirectorConfig {
 /// rustic-rifts' crates, stubbed until RF4-RF6, as `MYSTICPARADOX_P2P_MODULE` allows (RF2).
 #[cfg(feature = "realms")]
 pub fn rifts(settings: &Settings) -> Rifts {
+    rifts_with_core(settings, Arc::new(rifts_seam::NoCore))
+}
+
+/// Built without realms: Node's `DEDICATED_ONLY`.
+#[cfg(not(feature = "realms"))]
+pub fn rifts(_settings: &Settings) -> Rifts {
+    Rifts::dedicated_only()
+}
+
+#[cfg(feature = "realms")]
+pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>) -> Rifts {
     use rifts_seam::{RiftsParts, RouteHandler};
+    let _ = core;
     Rifts::load(settings, || {
         let routes: Vec<Arc<dyn RouteHandler>> = vec![
             Arc::new(rifts_admission::stub_routes()),
@@ -267,9 +279,8 @@ pub fn rifts(settings: &Settings) -> Rifts {
     })
 }
 
-/// Built without realms: Node's `DEDICATED_ONLY`.
 #[cfg(not(feature = "realms"))]
-pub fn rifts(_settings: &Settings) -> Rifts {
+pub fn rifts_with_core(_settings: &Settings, _core: Arc<dyn rifts_seam::IslesCore>) -> Rifts {
     Rifts::dedicated_only()
 }
 
@@ -307,7 +318,7 @@ pub fn spec() -> ModuleSpec {
         chat: Arc::new(IslesChat {
             version: ChatVersion::V1147,
         }),
-        rifts,
+        rifts: rifts_with_core,
         services: vec![Arc::new(BackendService), Arc::new(DirectorService::new(DIRECTOR))],
     }
 }

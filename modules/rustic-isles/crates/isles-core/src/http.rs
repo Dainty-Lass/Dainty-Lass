@@ -422,11 +422,15 @@ async fn rifts_reply(handler: &dyn RouteHandler, route: rifts_seam::Route, call:
         Ok(caller) => caller,
         Err(refusal) => return refusal,
     };
-    let remote = call
+    let peer_remote = call
         .request
         .extensions()
         .get::<ConnectInfo<ConnectionInfo>>()
         .map(|info| info.0.peer.ip());
+    let remote = crate::areas::auth::util::client_ip(&call.request)
+        .parse::<std::net::IpAddr>()
+        .ok()
+        .or(peer_remote);
     let headers = call
         .request
         .headers()

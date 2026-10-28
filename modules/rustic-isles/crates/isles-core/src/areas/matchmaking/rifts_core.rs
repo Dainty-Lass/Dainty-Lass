@@ -9,7 +9,8 @@
 use std::sync::Arc;
 
 use module_api::{BoxFuture, GlobalId, NodeId};
-use rifts_seam::{AccountId, Candidate, GuardMode, IslesCore, Json, Party, PartyId, SeamError, SessionId};
+pub use rifts_seam::IslesCore;
+use rifts_seam::{AccountId, Candidate, GuardMode, Json, Party, PartyId, SeamError, SessionId};
 
 use super::party::{Parties, Party as IslesParty};
 use super::state::{MatchmakingResult, MatchmakingState};

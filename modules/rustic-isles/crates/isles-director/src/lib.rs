@@ -32,10 +32,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use isles_core::PortService;
+use isles_core::areas::matchmaking::deploy::{DedicatedServers, Launch, LaunchRequest, LiveHub, LiveHubStatus};
 use isles_core::game_data::GameDataRoot;
 use isles_core::http::Shared;
 use isles_core::settings::Settings;
 use module_api::{BoxFuture, ModuleError, PortRange};
+use serde_json::Value;
 use tokio::task::JoinHandle;
 
 pub use api::{register, router};
@@ -204,6 +206,51 @@ impl DirectorService {
     }
 }
 
+/// An in-process `DedicatedServers` adapter backed directly by a [`Director`] instance,
+/// used when `DEPLOYSERVER_URL` is not explicitly configured in `shared.settings`.
+#[derive(Clone)]
+pub struct InProcessDirector(pub Arc<Director>);
+
+fn live_hub(value: Option<&Value>) -> Option<LiveHub> {
+    let obj = value?.as_object()?;
+    Some(LiveHub {
+        ready: obj.get("ready").and_then(Value::as_bool).unwrap_or(false),
+        host: obj.get("host").and_then(Value::as_str).unwrap_or_default().to_owned(),
+        port: obj.get("port").and_then(Value::as_i64).unwrap_or(0),
+    })
+}
+
+impl DedicatedServers for InProcessDirector {
+    fn configured(&self) -> bool {
+        self.0.config.can_launch()
+    }
+
+    fn launch(&self, request: LaunchRequest) -> BoxFuture<'_, Result<Launch, String>> {
+        let director = self.0.clone();
+        Box::pin(async move {
+            let body: Value = serde_json::from_str(&request.body()).unwrap_or(Value::Null);
+            match matchmaker::handle(&director, Some(&body)).await {
+                Ok(data) => {
+                    let host = data.get("host").and_then(Value::as_str).unwrap_or_default().to_owned();
+                    let port = data.get("port").and_then(Value::as_i64).unwrap_or(0);
+                    Ok(Launch::Online { host, port })
+                }
+                Err(_) => Ok(Launch::Refused { reason: None }),
+            }
+        })
+    }
+
+    fn hub_status(&self) -> BoxFuture<'_, Option<LiveHubStatus>> {
+        let data = self.0.persistent_hub_status();
+        Box::pin(async move {
+            Some(LiveHubStatus {
+                ramsgate: live_hub(data.get("ramsgate")),
+                training_dojo: live_hub(data.get("trainingDojo")),
+            })
+        })
+    }
+}
+
 impl PortService for DirectorService {
     fn port(&self) -> &'static str {
         "director"
@@ -211,6 +258,15 @@ impl PortService for DirectorService {
 
     fn app(&self, shared: Arc<Shared>) -> Result<axum::Router, ModuleError> {
         let director = self.build(&shared)?;
+        if shared
+            .settings
+            .raw("DEPLOYSERVER_URL")
+            .is_none_or(|url| url.trim().is_empty())
+        {
+            shared
+                .matchmaking
+                .set_dedicated_servers(Arc::new(InProcessDirector(director.clone())));
+        }
         let app = router(shared, &director).map_err(|e| ModuleError::failed(e.to_string()))?;
         self.set_running(Some(Running {
             director,

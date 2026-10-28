@@ -159,6 +159,13 @@ pub fn rifts(_settings: &Settings) -> Rifts {
     Rifts::dedicated_only()
 }
 
+pub fn rifts_with_core(
+    _settings: &Settings,
+    _core: Arc<dyn isles_core::areas::matchmaking::rifts_core::IslesCore>,
+) -> Rifts {
+    Rifts::dedicated_only()
+}
+
 pub fn version() -> IslesVersion {
     IslesVersion {
         hooks: Arc::new(Hooks),
@@ -187,7 +194,7 @@ pub fn spec() -> ModuleSpec {
         chat: Arc::new(IslesChat {
             version: ChatVersion::V1120,
         }),
-        rifts,
+        rifts: rifts_with_core,
         services: vec![Arc::new(BackendService), Arc::new(DirectorService::new(DIRECTOR))],
     }
 }
