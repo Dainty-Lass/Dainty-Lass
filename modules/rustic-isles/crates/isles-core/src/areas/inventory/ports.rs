@@ -59,7 +59,11 @@ pub struct ExtensionAuth;
 
 impl Authenticator for ExtensionAuth {
     fn authenticate<'a>(&'a self, _: &'a Shared, request: AuthRequest<'a>) -> BoxFuture<'a, Authentication> {
-        let found = request.extensions.get::<AuthData>().cloned();
+        let found = request
+            .extensions
+            .get::<crate::areas::auth::AuthData>()
+            .map(AuthData::from)
+            .or_else(|| request.extensions.get::<AuthData>().cloned());
         Box::pin(async move {
             match found {
                 Some(auth) => Authentication::Authenticated(auth),

@@ -168,6 +168,64 @@ pub struct GrantHook {
     pub banked: i64,
 }
 
+/// `ReforgeConflictError`.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{0}")]
+pub struct ReforgeConflict(pub String);
+
+/// Applies a [`GrantHook`] inside the grant's transaction, or returns a [`ReforgeConflict`] if the reforge state
+/// changed concurrently.
+pub fn apply_grant_hook(
+    tx: &mut Tx<'_>,
+    repos: &Repositories,
+    account: &AccountId,
+    user_label: &str,
+    hook: &GrantHook,
+) -> RepoResult<Result<(), ReforgeConflict>> {
+    let applied = repos.progression_tracks.update_reforge(
+        tx,
+        account,
+        &hook.experience_track,
+        &hook.reforge_id,
+        &hook.expected,
+        &hook.set,
+    )?;
+    let kind = if hook.prestige { "prestige" } else { "restore" };
+    if !applied {
+        return Ok(Err(ReforgeConflict(format!(
+            "reforge {} changed concurrently ({kind})",
+            hook.reforge_id
+        ))));
+    }
+    tracing::info!(
+        "[Reforge] {} user={user_label} track={} reforge={}{}{}",
+        if hook.prestige { "PRESTIGE" } else { "BANKED" },
+        hook.experience_track,
+        hook.reforge_id,
+        if hook.prestige {
+            String::new()
+        } else {
+            format!(" restored={}", hook.banked)
+        },
+        if hook.closes { " CLOSE" } else { "" }
+    );
+    Ok(Ok(()))
+}
+
+/// `ReforgeGrantHook`, run inside the grant's transaction for a prestige or restore plan: marks the one-time use, or
+/// refuses with a [`ReforgeConflict`]. Any other plan is a no-op.
+pub fn mark_reforge_use(
+    tx: &mut Tx<'_>,
+    repos: &Repositories,
+    account: &AccountId,
+    plan: &ReforgePlan,
+) -> RepoResult<Result<(), ReforgeConflict>> {
+    let Some(hook) = grant_hook(plan) else {
+        return Ok(Ok(()));
+    };
+    apply_grant_hook(tx, repos, account, &account.to_string(), &hook)
+}
+
 /// `PrestigeTrackFor`.
 pub fn prestige_track_for(experience_track: &str) -> String {
     experience_track.replacen("ExperienceTrack_", "PrestigeTrack_", 1)

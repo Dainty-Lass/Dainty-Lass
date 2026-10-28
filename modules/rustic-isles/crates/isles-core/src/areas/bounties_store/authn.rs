@@ -75,13 +75,28 @@ impl AuthData {
     }
 }
 
+impl From<&crate::areas::auth::AuthData> for AuthData {
+    fn from(auth: &crate::areas::auth::AuthData) -> Self {
+        Self {
+            user_id: auth.user_id.clone(),
+            is_gameserver: auth.is_gameserver,
+            host_runtime: auth.runtime.clone(),
+        }
+    }
+}
+
+/// Reads `AuthData` from the request's extensions, adapting from [`crate::areas::auth::AuthData`] when present.
+pub fn auth_of_request(request: &axum::extract::Request) -> Option<AuthData> {
+    request
+        .extensions()
+        .get::<crate::areas::auth::AuthData>()
+        .map(AuthData::from)
+        .or_else(|| request.extensions().get::<AuthData>().cloned())
+}
+
 /// A call with no `AuthData`: `HasParadoxBackendAuth` answers 401 with an empty body.
 pub fn auth_of(call: &Call) -> Result<AuthData, Response> {
-    call.request
-        .extensions()
-        .get::<AuthData>()
-        .cloned()
-        .ok_or_else(|| axum::http::StatusCode::UNAUTHORIZED.into_response())
+    auth_of_request(&call.request).ok_or_else(|| axum::http::StatusCode::UNAUTHORIZED.into_response())
 }
 
 /// `StorePurchaseTokenPayload`.

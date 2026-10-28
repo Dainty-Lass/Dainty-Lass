@@ -5,17 +5,22 @@
 //! Not here yet, each its RU5 area's: body parsers and their limits, the request budget (429), the request log and
 //! metrics, auth middleware, CORS and Express's automatic `OPTIONS` answers.
 
+// Rejections are axum responses, the way extractors report them; boxing them gains nothing here
+#![allow(clippy::result_large_err)]
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::body::{Body, to_bytes};
-use axum::extract::{ConnectInfo, Request, State};
+use axum::extract::{ConnectInfo, FromRequestParts, Request, State};
+use axum::http::request::Parts;
 use axum::http::{HeaderName, HeaderValue, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 use module_api::{BoxFuture, NodeIdentity};
 use percent_encoding::percent_decode_str;
 use rifts_seam::{Reply, RequestInfo, RouteCall, RouteHandler, SeamError};
-use serde_json::json;
+use serde_json::{Map, Value, json};
+use service_kit::body::{BodyError, ExpressBody, parse_form};
 use service_kit::json::Json;
 use service_kit::serve::ConnectionInfo;
 
@@ -31,8 +36,8 @@ pub use rifts_seam::Rifts;
 /// new UUID, and echoed on the answer.
 pub const REQUEST_ID_HEADER: &str = "x-mysticparadox-request-id";
 
-/// Express's default JSON body limit; the routes with their own parsers set theirs when ported.
-const BODY_LIMIT: usize = 100 * 1024;
+/// Express's default JSON body limit (`100kb`); the routes with their own parsers set theirs when ported.
+pub const BODY_LIMIT: usize = 100 * 1024;
 
 /// What every handler of a module shares.
 pub struct Shared {
@@ -299,6 +304,108 @@ pub fn not_implemented(route: &RouteDef, request_id: &str) -> Response {
 
 fn empty(status: StatusCode) -> Response {
     status.into_response()
+}
+
+async fn read_limited_bytes(body: Body, limit: usize) -> Result<axum::body::Bytes, BodyError> {
+    to_bytes(body, limit).await.map_err(|error| {
+        if std::iter::successors(Some(&error as &dyn std::error::Error), |e| e.source())
+            .any(|e| e.to_string().contains("length limit"))
+        {
+            BodyError::TooLarge
+        } else {
+            BodyError::Aborted
+        }
+    })
+}
+
+fn parse_strict_json(text: &str) -> Result<Value, BodyError> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    if text.is_empty() {
+        return Ok(Value::Object(Map::new()));
+    }
+    match text.trim_start_matches([' ', '\t', '\n', '\r']).chars().next() {
+        Some('{' | '[') => service_kit::jsjson::parse(text).map_err(|_| BodyError::Malformed),
+        _ => Err(BodyError::Malformed),
+    }
+}
+
+/// Parses `req.body` as Express's `express.json({ limit })` and `express.urlencoded({ extended: true, limit })` leave
+/// it: uses [`ExpressBody`] when `service_kit::body::parse_bodies` already ran on the router, otherwise parses the
+/// request body here.
+pub async fn read_body_parts_limit(
+    mut parts: Parts,
+    body: Body,
+    limit: usize,
+) -> Result<(Parts, Option<Value>), BodyError> {
+    let Ok(ExpressBody(parsed)) = ExpressBody::from_request_parts(&mut parts, &()).await;
+    if parsed.is_some() {
+        return Ok((parts, parsed));
+    }
+    let has_body = parts.headers.contains_key(header::TRANSFER_ENCODING)
+        || parts
+            .headers
+            .get(header::CONTENT_LENGTH)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.trim().parse::<f64>().is_ok())
+        || !parts.headers.contains_key(header::HOST);
+    let Some(content_type) = parts.headers.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()) else {
+        return Ok((parts, None));
+    };
+    let mut pieces = content_type.split(';');
+    let essence = pieces.next().unwrap_or("").trim().to_ascii_lowercase();
+    let charset = pieces
+        .filter_map(|p| p.split_once('='))
+        .find(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
+        .map(|(_, value)| value.trim().trim_matches('"').to_ascii_lowercase());
+    let json = match essence.as_str() {
+        "application/json" => true,
+        "application/x-www-form-urlencoded" => false,
+        _ => return Ok((parts, None)),
+    };
+    if !has_body {
+        return Ok((parts, None));
+    }
+    if charset.as_deref().is_some_and(|c| c != "utf-8") {
+        return Err(BodyError::UnsupportedCharset);
+    }
+    let encoding = parts
+        .headers
+        .get(header::CONTENT_ENCODING)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("identity")
+        .trim()
+        .to_ascii_lowercase();
+    if encoding != "identity" {
+        return Err(BodyError::UnsupportedEncoding);
+    }
+    let bytes = read_limited_bytes(body, limit).await?;
+    let text = std::str::from_utf8(&bytes).map_err(|_| BodyError::Malformed)?;
+    let value = if json {
+        parse_strict_json(text)?
+    } else {
+        parse_form(text)?
+    };
+    Ok((parts, Some(value)))
+}
+
+/// Parses `req.body` under Express's default 100 KiB limit, answering errors with Express's production error page.
+pub async fn read_body_parts(parts: Parts, body: Body) -> Result<(Parts, Option<Value>), Response> {
+    read_body_parts_limit(parts, body, BODY_LIMIT)
+        .await
+        .map_err(IntoResponse::into_response)
+}
+
+/// Reads `req.body` from `request` in place under Express's default 100 KiB limit.
+pub async fn read_body(request: &mut Request) -> Result<Option<Value>, Response> {
+    let taken = std::mem::replace(request, Request::new(Body::empty()));
+    let (parts, body) = taken.into_parts();
+    match read_body_parts(parts, body).await {
+        Ok((parts, value)) => {
+            *request = Request::from_parts(parts, Body::empty());
+            Ok(value)
+        }
+        Err(response) => Err(response),
+    }
 }
 
 async fn rifts_reply(handler: &dyn RouteHandler, route: rifts_seam::Route, call: Call) -> Response {

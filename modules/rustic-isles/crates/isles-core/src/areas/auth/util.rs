@@ -4,10 +4,8 @@
 use std::net::IpAddr;
 
 use axum::extract::{ConnectInfo, Request};
-use axum::response::Response;
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde_json::Value;
-use service_kit::body::{self, BodyError};
 use service_kit::serve::ConnectionInfo;
 
 pub fn now_ms() -> i64 {
@@ -86,66 +84,7 @@ pub fn client_ip(request: &Request) -> String {
 
 // ------------------------------------------------------------------ bodies
 
-/// Express's default JSON limit; the auth routes take no other.
-pub const BODY_LIMIT: usize = 100 * 1024;
-
-/// What `express.json()` and `express.urlencoded({extended: true})` leave in `req.body`: `None` is Express 5's
-/// `undefined` (no parsed content type), which `req.body?.x` reads as undefined and `req.body.x` throws on.
-pub async fn read_body(request: &mut Request) -> Result<Option<Value>, Response> {
-    let parsed = parse_content(request).await;
-    parsed.map_err(|error| body::error_page(error.status()))
-}
-
-async fn parse_content(request: &mut Request) -> Result<Option<Value>, BodyError> {
-    let content_type = request
-        .headers()
-        .get(axum::http::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned);
-    let Some(content_type) = content_type else {
-        return Ok(None);
-    };
-    let mut parts = content_type.split(';');
-    let essence = parts.next().unwrap_or("").trim().to_ascii_lowercase();
-    let charset = parts
-        .filter_map(|p| p.split_once('='))
-        .find(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
-        .map(|(_, value)| value.trim().trim_matches('"').to_ascii_lowercase());
-    let json = match essence.as_str() {
-        "application/json" => true,
-        "application/x-www-form-urlencoded" => false,
-        _ => return Ok(None),
-    };
-    if !matches!(charset.as_deref(), None | Some("utf-8")) {
-        return Err(BodyError::UnsupportedCharset);
-    }
-    let encoding = request
-        .headers()
-        .get(axum::http::header::CONTENT_ENCODING)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("identity")
-        .trim()
-        .to_ascii_lowercase();
-    if encoding != "identity" {
-        // gzip and deflate bodies are not used by any auth client; Express would inflate them
-        return Err(BodyError::UnsupportedEncoding);
-    }
-    let raw = std::mem::replace(request.body_mut(), axum::body::Body::empty());
-    let bytes = axum::body::to_bytes(raw, BODY_LIMIT).await.map_err(|e| {
-        if std::error::Error::source(&e).is_some_and(|s| s.is::<http_body_util::LengthLimitError>()) {
-            BodyError::TooLarge
-        } else {
-            BodyError::Aborted
-        }
-    })?;
-    let text = std::str::from_utf8(&bytes).map_err(|_| BodyError::Malformed)?;
-    let value = if json {
-        body::parse_json(text)?
-    } else {
-        body::parse_form(text)?
-    };
-    Ok(Some(value))
-}
+pub use crate::http::{BODY_LIMIT, read_body};
 
 /// `req.body?.name`: the field of an object body.
 pub fn field<'a>(body: Option<&'a Value>, name: &str) -> Option<&'a Value> {

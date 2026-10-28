@@ -2,14 +2,12 @@
 
 use std::sync::Arc;
 
-use axum::extract::FromRequestParts;
 use axum::http::HeaderMap;
 use axum::response::Response;
 use module_api::{Actor, ActorContext};
 use serde_json::Value;
-use service_kit::body::ExpressBody;
 
-use crate::http::{Call, Shared};
+use crate::http::{Call, Shared, read_body_parts};
 use crate::ids::{AccountId, UserId};
 use crate::repo::{RepoError, RepoResult, Repositories};
 use crate::routes::Params;
@@ -40,15 +38,13 @@ impl Req {
             request_id,
             ..
         } = call;
-        let (mut parts, _) = request.into_parts();
-        let Some(auth) = parts.extensions.get::<AuthData>().cloned() else {
+        let (parts, raw_body) = request.into_parts();
+        let (parts, parsed) = read_body_parts(parts, raw_body).await?;
+        let Some(auth) = AuthData::of_extensions(&parts.extensions) else {
             tracing::error!("Unauthenticated request reached a progression handler");
             return Err(empty(401));
         };
-        let body = match ExpressBody::from_request_parts(&mut parts, &()).await {
-            Ok(ExpressBody(parsed)) => Body::from(parsed),
-            Err(never) => match never {},
-        };
+        let body = Body::from(parsed);
         Ok(Self {
             shared,
             params,

@@ -29,13 +29,12 @@ pub mod status;
 pub mod testkit;
 pub mod util;
 
-use axum::body::{Body, to_bytes};
-use axum::extract::{ConnectInfo, Request};
+use axum::extract::ConnectInfo;
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use module_api::BoxFuture;
 use serde_json::{Map, Value, json};
-use service_kit::body::{BodyError, error_page, parse_form, parse_json};
+use service_kit::body::error_page;
 use service_kit::json::Json;
 use service_kit::serve::ConnectionInfo;
 
@@ -50,8 +49,8 @@ use crate::routes::{Method, Service};
 /// presence heartbeats (every 30 s). Shorter than the release gate's 2 minutes, so a member who just closed the game
 /// is not frozen into a roster.
 const PARTY_MEMBER_ACTIVE_WINDOW_MS: i64 = 75_000;
-/// Express's default JSON limit
-const BODY_LIMIT: usize = 100 * 1024;
+
+pub use crate::http::read_body;
 
 /// `req.AuthData`, which `HasParadoxBackendAuth` leaves on the request.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -61,13 +60,24 @@ pub struct AuthData {
     pub claims: Map<String, Value>,
 }
 
+impl From<&crate::areas::auth::AuthData> for AuthData {
+    fn from(auth: &crate::areas::auth::AuthData) -> Self {
+        Self {
+            user_id: auth.user_id.clone(),
+            is_gameserver: auth.is_gameserver,
+            claims: auth.claims.clone(),
+        }
+    }
+}
+
 /// `HasParadoxBackendAuth`'s verdict, as it reaches this area: the data it left, or no such data, which answers 401
 /// with an empty body as the middleware does.
 pub fn authenticate(call: &Call) -> Result<AuthData, Response> {
     call.request
         .extensions()
-        .get::<AuthData>()
-        .cloned()
+        .get::<crate::areas::auth::AuthData>()
+        .map(AuthData::from)
+        .or_else(|| call.request.extensions().get::<AuthData>().cloned())
         .ok_or_else(|| StatusCode::UNAUTHORIZED.into_response())
 }
 
@@ -87,39 +97,6 @@ fn party_error(error: &PartyError, call: &Call) -> Response {
         PartyError::NoDatabase => not_implemented(call.route, &call.request_id),
         other => server_error(other, &call.route.name()),
     }
-}
-
-/// `express.json` / `express.urlencoded`: the request's body as `req.body`, or `None` when no parser applied.
-pub async fn read_body(request: &mut Request) -> Result<Option<Value>, Response> {
-    let content_type = request
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned);
-    let Some(content_type) = content_type else {
-        return Ok(None);
-    };
-    let mut parts = content_type.split(';');
-    let essence = parts.next().unwrap_or_default().trim().to_ascii_lowercase();
-    let json = match essence.as_str() {
-        "application/json" => true,
-        "application/x-www-form-urlencoded" => false,
-        _ => return Ok(None),
-    };
-    let charset = parts
-        .filter_map(|p| p.split_once('='))
-        .find(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
-        .map(|(_, value)| value.trim().trim_matches('"').to_ascii_lowercase());
-    if !matches!(charset.as_deref(), None | Some("utf-8")) {
-        return Err(BodyError::UnsupportedCharset.into_response());
-    }
-    let body = std::mem::replace(request.body_mut(), Body::empty());
-    let raw = to_bytes(body, BODY_LIMIT)
-        .await
-        .map_err(|_| BodyError::TooLarge.into_response())?;
-    let text = std::str::from_utf8(&raw).map_err(|_| BodyError::Malformed.into_response())?;
-    let parsed = if json { parse_json(text) } else { parse_form(text) };
-    parsed.map(Some).map_err(IntoResponse::into_response)
 }
 
 fn string_field(body: Option<&Value>, key: &str) -> Option<String> {

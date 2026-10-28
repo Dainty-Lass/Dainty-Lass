@@ -22,67 +22,22 @@ use service_kit::js;
 use super::clock::{iso, iso_now};
 use super::progression_config::ProgressionConfig;
 use super::transaction::{TxContext, TxError, player_actor};
+pub use crate::areas::progression::reforge::{ReforgeConflict, mark_reforge_use};
 use crate::areas::progression::reforge::{
-    ReforgeMode, ReforgePlan, STALE_REFORGE_MS, classify_grant, finish_stale_reforge, grant_hook, reforge_mode,
+    ReforgeMode, ReforgePlan, STALE_REFORGE_MS, classify_grant, finish_stale_reforge, reforge_mode,
 };
 use crate::areas::progression::tracks::{
     MAX_PROGRESSION_GRANT_AMOUNT, grant_request_hash, is_reforgeable_track, is_valid_grant_id, track_cap_xp,
 };
 use crate::http::Shared;
 use crate::repo::progression::{ProgressionGrantRecord, ProgressionTrackRecord, WeaponReforge};
-use crate::repo::{AccountId, RepoError, RepoResult, Repositories, Tx};
+use crate::repo::{AccountId, RepoError, RepoResult};
 
 const PROGRESSION_FILE: &str = "progression_config.json";
 
 /// `nowMs - Date.parse(openedAt) < window`, false for a date JavaScript can't read (NaN).
 fn opened_within(now_ms: i64, opened_at: &str, window_ms: i64) -> bool {
     js::date_parse(opened_at).is_some_and(|opened| now_ms - opened < window_ms)
-}
-
-/// `ReforgeConflictError`.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("{0}")]
-pub struct ReforgeConflict(pub String);
-
-/// `ReforgeGrantHook`, run inside the grant's transaction for a prestige or restore plan: marks the one-time use, or
-/// refuses with a [`ReforgeConflict`]. Any other plan is a no-op.
-pub fn mark_reforge_use(
-    tx: &mut Tx<'_>,
-    repos: &Repositories,
-    account: &AccountId,
-    plan: &ReforgePlan,
-) -> RepoResult<Result<(), ReforgeConflict>> {
-    let Some(hook) = grant_hook(plan) else {
-        return Ok(Ok(()));
-    };
-    let applied = repos.progression_tracks.update_reforge(
-        tx,
-        account,
-        &hook.experience_track,
-        &hook.reforge_id,
-        &hook.expected,
-        &hook.set,
-    )?;
-    let kind = if hook.prestige { "prestige" } else { "restore" };
-    if !applied {
-        return Ok(Err(ReforgeConflict(format!(
-            "reforge {} changed concurrently ({kind})",
-            hook.reforge_id
-        ))));
-    }
-    tracing::info!(
-        "[Reforge] {} user={account} track={} reforge={}{}{}",
-        if hook.prestige { "PRESTIGE" } else { "BANKED" },
-        hook.experience_track,
-        hook.reforge_id,
-        if hook.prestige {
-            String::new()
-        } else {
-            format!(" restored={}", hook.banked)
-        },
-        if hook.closes { " CLOSE" } else { "" }
-    );
-    Ok(Ok(()))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

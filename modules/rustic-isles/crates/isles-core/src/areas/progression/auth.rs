@@ -30,9 +30,35 @@ pub struct AuthData {
     pub runtime: Option<RuntimeAuth>,
 }
 
+impl From<&crate::areas::auth::AuthData> for AuthData {
+    fn from(auth: &crate::areas::auth::AuthData) -> Self {
+        Self {
+            is_gameserver: auth.is_gameserver,
+            is_player_host_runtime: auth.runtime.is_some(),
+            user_id: auth.user_id.clone(),
+            roster: auth.runtime.as_ref().map_or_else(Vec::new, |runtime| {
+                runtime
+                    .roster
+                    .iter()
+                    .map(ToString::to_string)
+                    .filter(|id| !id.is_empty())
+                    .collect()
+            }),
+            runtime: auth.runtime.clone(),
+        }
+    }
+}
+
 impl AuthData {
+    pub fn of_extensions(extensions: &axum::http::Extensions) -> Option<Self> {
+        extensions
+            .get::<crate::areas::auth::AuthData>()
+            .map(Self::from)
+            .or_else(|| extensions.get::<Self>().cloned())
+    }
+
     pub fn of(request: &Request) -> Option<Self> {
-        request.extensions().get::<Self>().cloned()
+        Self::of_extensions(request.extensions())
     }
 
     /// `IsHostRuntimeAuth`.

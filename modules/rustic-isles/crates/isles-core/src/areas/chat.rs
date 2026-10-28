@@ -66,8 +66,21 @@ pub fn iso_from_millis(millis: i64) -> String {
     )
 }
 
+impl From<&crate::areas::auth::AuthData> for AuthData {
+    fn from(auth: &crate::areas::auth::AuthData) -> Self {
+        Self {
+            user_id: auth.user_id.clone(),
+            is_gameserver: auth.is_gameserver,
+        }
+    }
+}
+
 fn auth(call: &Call) -> Option<AuthData> {
-    call.request.extensions().get::<AuthData>().cloned()
+    call.request
+        .extensions()
+        .get::<crate::areas::auth::AuthData>()
+        .map(AuthData::from)
+        .or_else(|| call.request.extensions().get::<AuthData>().cloned())
 }
 
 /// `res.status(401); res.send()`

@@ -35,6 +35,15 @@ fn normalize(body: &str) -> String {
     uptime.replace_all(&body, r#""uptimeSeconds":0"#).into_owned()
 }
 
+fn normalize_content_length(raw_len: &str, body: &str) -> String {
+    let uptime = regex::Regex::new(r#""uptimeSeconds":\d+"#).unwrap();
+    let normalized = uptime.replace_all(body, r#""uptimeSeconds":0"#);
+    let delta = body.len().saturating_sub(normalized.len());
+    raw_len
+        .parse::<usize>()
+        .map_or_else(|_| raw_len.to_owned(), |n| n.saturating_sub(delta).to_string())
+}
+
 fn write_files(dir: &Path, files: &serde_json::Map<String, Value>) {
     for (name, text) in files {
         let target = dir.join(name);
@@ -106,12 +115,14 @@ async fn replay(case: &Value, routes: RouteSet) -> Vec<String> {
         if header == "content-length" && !compare_body {
             continue;
         }
-        // uptimeSeconds grows a digit once the run is ten seconds old, and only the shape of the body is recorded
-        if header == "content-length" && name.starts_with("server status") {
-            continue;
-        }
         let want = golden_headers.get(header).map(|v| v.as_str().unwrap().to_owned());
-        let got = answer.header(header).map(normalize);
+        let got = answer.header(header).map(|raw| {
+            if header == "content-length" && name.starts_with("server status") {
+                normalize_content_length(raw, &answer.text())
+            } else {
+                normalize(raw)
+            }
+        });
         check(header, format!("{got:?}"), format!("{want:?}"));
     }
     if compare_body {

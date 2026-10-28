@@ -183,44 +183,11 @@ pub async fn game_auth(call: &mut Call) -> Result<AuthData, Response> {
     Ok(auth)
 }
 
-/// Puts `AuthData` on the request in the shape each area reads it (one adapter per area: each reads its own type from the
-/// request's extensions and answers 401 without it), and this area's own.
+/// Puts [`AuthData`] into the request's extensions; each area adapts it through its own reader (`chat::auth`,
+/// `characters::auth_data`, `bounties_store::authn::auth_of_request`, `matchmaking::authenticate`,
+/// `progression::AuthData::of_extensions`, `inventory::ports::GameAuth`).
 pub fn publish(request: &mut Request, auth: &AuthData) {
-    let extensions = request.extensions_mut();
-    extensions.insert(crate::areas::chat::AuthData {
-        user_id: auth.user_id.clone(),
-        is_gameserver: auth.is_gameserver,
-    });
-    extensions.insert(crate::areas::characters::AuthData {
-        user_id: auth.user_id.clone(),
-        is_gameserver: auth.is_gameserver,
-        host_runtime: auth.runtime.clone(),
-    });
-    extensions.insert(crate::areas::bounties_store::authn::AuthData {
-        user_id: auth.user_id.clone(),
-        is_gameserver: auth.is_gameserver,
-        host_runtime: auth.runtime.clone(),
-    });
-    extensions.insert(crate::areas::matchmaking::AuthData {
-        user_id: auth.user_id.clone(),
-        is_gameserver: auth.is_gameserver,
-        claims: auth.claims.clone(),
-    });
-    extensions.insert(crate::areas::progression::AuthData {
-        is_gameserver: auth.is_gameserver,
-        is_player_host_runtime: auth.runtime.is_some(),
-        user_id: auth.user_id.clone(),
-        roster: auth.runtime.as_ref().map_or_else(Vec::new, |runtime| {
-            runtime
-                .roster
-                .iter()
-                .map(ToString::to_string)
-                .filter(|id| !id.is_empty())
-                .collect()
-        }),
-        runtime: auth.runtime.clone(),
-    });
-    extensions.insert(auth.clone());
+    request.extensions_mut().insert(auth.clone());
 }
 
 async fn authenticate_game(call: &mut Call) -> Result<AuthData, Response> {

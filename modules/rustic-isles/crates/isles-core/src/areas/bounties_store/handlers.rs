@@ -6,8 +6,7 @@
 
 use std::sync::Arc;
 
-use axum::body::to_bytes;
-use axum::http::{HeaderMap, StatusCode, header};
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use module_api::{Actor, ActorContext};
 use rifts_seam::{HostWrite, HostWriteKind, HostWriteOptions};
@@ -36,14 +35,12 @@ use super::store::{
 use super::util::{now_iso, now_ms};
 use super::wallet::get_wallet;
 use crate::db::IslesStore;
-use crate::http::{Call, Shared, not_implemented};
+use crate::http::{Call, Shared, not_implemented, read_body_parts};
 use crate::ids::{AccountId, UserId};
 use crate::repo::{RepoError, RepoResult};
 use crate::routes::Params;
 use crate::settings::{BOUNTY_PERSISTENCE, COOLDOWN_PERSISTENCE, SharedSwitch};
 
-/// Express's default JSON body limit.
-const BODY_LIMIT: usize = 100 * 1024;
 /// `MAX_SAVE_ATTEMPTS`: a compare-and-retry loop on the stored version.
 const MAX_SAVE_ATTEMPTS: usize = 8;
 /// The path sentinel a game server sends for a player without an id.
@@ -87,59 +84,6 @@ fn envelope(code: u16, message: &str, payload: Value) -> Response {
     json_reply(code, json!({ "code": null, "message": message, "payload": payload }))
 }
 
-fn is_json(headers: &HeaderMap) -> Result<bool, Response> {
-    let Some(content_type) = headers.get(header::CONTENT_TYPE).and_then(|v| v.to_str().ok()) else {
-        return Ok(false);
-    };
-    let mut parts = content_type.split(';');
-    if !parts
-        .next()
-        .unwrap_or("")
-        .trim()
-        .eq_ignore_ascii_case("application/json")
-    {
-        return Ok(false);
-    }
-    let charset = parts
-        .filter_map(|p| p.split_once('='))
-        .find(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
-        .map(|(_, value)| value.trim().trim_matches('"').to_ascii_lowercase());
-    match charset.as_deref() {
-        None | Some("utf-8") => Ok(true),
-        _ => Err(error_page(StatusCode::UNSUPPORTED_MEDIA_TYPE)),
-    }
-}
-
-/// `express.json()`: an `application/json` body parsed in strict mode (an object or an array at the top; empty is
-/// `{}`); any other content type leaves `req.body` undefined. Errors are Express's error page.
-async fn read_json_body(headers: &HeaderMap, body: axum::body::Body) -> Result<Option<Value>, Response> {
-    if !is_json(headers)? {
-        return Ok(None);
-    }
-    if headers
-        .get(header::CONTENT_ENCODING)
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|e| !e.trim().eq_ignore_ascii_case("identity"))
-    {
-        return Err(error_page(StatusCode::UNSUPPORTED_MEDIA_TYPE));
-    }
-    let bytes = to_bytes(body, BODY_LIMIT)
-        .await
-        .map_err(|_| error_page(StatusCode::PAYLOAD_TOO_LARGE))?;
-    let text = std::str::from_utf8(&bytes).map_err(|_| error_page(StatusCode::BAD_REQUEST))?;
-    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    if text.is_empty() {
-        return Ok(Some(json!({})));
-    }
-    let first = text.trim_start_matches([' ', '\t', '\n', '\r']).chars().next();
-    if !matches!(first, Some('{' | '[')) {
-        return Err(error_page(StatusCode::BAD_REQUEST));
-    }
-    service_kit::jsjson::parse(text)
-        .map(Some)
-        .map_err(|_| error_page(StatusCode::BAD_REQUEST))
-}
-
 /// `req.query.<name>` as Express's simple parser gives it: a string, or an array when the name repeats.
 fn query_param(query: &str, name: &str) -> Option<QueryValue> {
     let mut found: Vec<String> = Vec::new();
@@ -175,11 +119,11 @@ impl Ctx {
             request_id,
             ..
         } = call;
-        let auth = request.extensions().get::<AuthData>().cloned();
+        let auth = super::authn::auth_of_request(&request);
         let seams = seams_of_request(&request);
         let query = request.uri().query().unwrap_or_default().to_owned();
         let (parts, body) = request.into_parts();
-        let body = read_json_body(&parts.headers, body).await?;
+        let (_, body) = read_body_parts(parts, body).await?;
         Ok(Self {
             shared,
             call_route: route,

@@ -32,7 +32,7 @@ const MAX_PLAYERS_LISTED: usize = 500;
 /// Express's default JSON limit
 pub(super) const BODY_LIMIT: usize = 100 * 1024;
 
-static BOOTED_AT: LazyLock<Instant> = LazyLock::new(Instant::now);
+static BOOTED_AT: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
 
 pub(super) fn actor_host() -> ActorContext {
     ActorContext::new(Actor::Console)
@@ -287,7 +287,7 @@ pub async fn server_status_body(shared: &Shared, store: &IslesStore, full: bool)
         "commit": js_slice(service_kit::js::trim(shared.settings.raw("REFORGED_SOURCE_COMMIT").unwrap_or_default()), 64),
         "sourceUrl": https_url_or_null(shared.settings.raw("REFORGED_SOURCE_URL")),
         "registration": mode(shared).as_str(),
-        "uptimeSeconds": BOOTED_AT.elapsed().as_secs(),
+        "uptimeSeconds": BOOTED_AT.lock().unwrap_or_else(PoisonError::into_inner).elapsed().as_secs(),
         "contentPort": null,
         "game": {
             "build": format!("rel-{}-Archon", shared.version.tables.game_version),
@@ -507,7 +507,7 @@ fn registration_status(call: &Call) -> Response {
 }
 
 pub fn register(handlers: &mut Handlers) {
-    LazyLock::force(&BOOTED_AT);
+    *BOOTED_AT.lock().unwrap_or_else(PoisonError::into_inner) = Instant::now();
     let b = Service::Backend;
     handlers.on(b, Method::Post, "/reforged/api/Register", |call| {
         Box::pin(register_account(call))

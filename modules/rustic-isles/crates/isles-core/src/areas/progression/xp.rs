@@ -18,7 +18,7 @@ use super::mastery::{
     HostMasteryLimits, MasteryPlan, StoredObjective, describe_limits, plan_mastery_report, summarize_plan, track_row,
 };
 use super::ports::Ports;
-use super::reforge::{ReforgePlan, classify_grant, grant_hook, reforge_mode};
+use super::reforge::{ReforgePlan, apply_grant_hook, classify_grant, grant_hook, reforge_mode};
 use super::req::{Req, internal, no_account};
 use super::tracks::{
     HostGrantRefusal, MAX_PROGRESSION_GRANT_AMOUNT, NO_PLAYER, PROGRESSION_ID_MAX_LENGTH, active_huntpass_id,
@@ -485,38 +485,10 @@ async fn grant_progression_xp(req: &Req, account: &AccountId, input: GrantInput)
                     ));
                 }
             }
-            if let Some(hook) = &hook {
-                let applied = repos.progression_tracks.update_reforge(
-                    tx,
-                    &owner,
-                    &hook.experience_track,
-                    &hook.reforge_id,
-                    &hook.expected,
-                    &hook.set,
-                )?;
-                if !applied {
-                    return Ok((
-                        Granted::ReforgeConflict(format!(
-                            "reforge {} changed concurrently ({})",
-                            hook.reforge_id,
-                            if hook.prestige { "prestige" } else { "restore" }
-                        )),
-                        notes,
-                    ));
-                }
-                tracing::info!(
-                    "[Reforge] {} user={} track={} reforge={}{}{}",
-                    if hook.prestige { "PRESTIGE" } else { "BANKED" },
-                    input.user_id,
-                    hook.experience_track,
-                    hook.reforge_id,
-                    if hook.prestige {
-                        String::new()
-                    } else {
-                        format!(" restored={}", hook.banked)
-                    },
-                    if hook.closes { " CLOSE" } else { "" }
-                );
+            if let Some(hook) = &hook
+                && let Err(conflict) = apply_grant_hook(tx, repos, &owner, &input.user_id, hook)?
+            {
+                return Ok((Granted::ReforgeConflict(conflict.0), notes));
             }
             let before = repos.progression_tracks.get(tx.conn(), &owner, &input.progression_id)?;
             let after = repos

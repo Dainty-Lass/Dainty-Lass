@@ -5,14 +5,13 @@
 //! The stubs and static answers of `routes/system.ts` and `routes/tuning.ts` (DD6, DD8): the payloads are in
 //! [`crate::game_data`], the handlers here only gate, read the version's hook or table and write the reply.
 
-use axum::body::to_bytes;
-use axum::extract::{FromRequestParts, Request};
-use axum::http::header::{CONTENT_ENCODING, CONTENT_TYPE};
+use axum::extract::Request;
+use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use module_api::BoxFuture;
 use serde_json::{Map, Value, json};
-use service_kit::body::{BodyError, DEFAULT_LIMIT, ExpressBody, error_page, parse_form, parse_json};
+use service_kit::body::{BodyError, DEFAULT_LIMIT, error_page};
 use service_kit::js;
 use service_kit::json::Json;
 
@@ -56,47 +55,12 @@ fn gated(run: fn(Call) -> Response) -> impl Fn(Call) -> BoxFuture<'static, Respo
     }
 }
 
-/// `req.body` as Express's parsers leave it (`app.use(express.json())`): what the pipeline's parser stored, else the
-/// body parsed here for the same content types, until that parser runs ahead of the areas.
+/// `req.body` as Express's parsers leave it (`app.use(express.json())`).
 async fn request_body(request: Request) -> Result<Option<Value>, BodyError> {
-    let (mut parts, body) = request.into_parts();
-    let Ok(ExpressBody(parsed)) = ExpressBody::from_request_parts(&mut parts, &()).await;
-    if parsed.is_some() {
-        return Ok(parsed);
-    }
-    let content_type = parts
-        .headers
-        .get(CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    let essence = content_type.split(';').next().unwrap_or_default().trim().to_owned();
-    let json_body = match essence.as_str() {
-        "application/json" => true,
-        "application/x-www-form-urlencoded" => false,
-        _ => return Ok(None),
-    };
-    let charset_ok = content_type
-        .split(';')
-        .skip(1)
-        .filter_map(|part| part.split_once('='))
-        .filter(|(name, _)| name.trim() == "charset")
-        .all(|(_, value)| value.trim().trim_matches('"') == "utf-8");
-    if !charset_ok {
-        return Err(BodyError::UnsupportedCharset);
-    }
-    let encoded = parts
-        .headers
-        .get(CONTENT_ENCODING)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| !value.trim().eq_ignore_ascii_case("identity"));
-    if encoded {
-        return Err(BodyError::UnsupportedEncoding);
-    }
-    let bytes = to_bytes(body, DEFAULT_LIMIT).await.map_err(|_| BodyError::TooLarge)?;
-    let text = std::str::from_utf8(&bytes).map_err(|_| BodyError::Malformed)?;
-    let parsed = if json_body { parse_json(text) } else { parse_form(text) };
-    parsed.map(Some)
+    let (parts, body) = request.into_parts();
+    crate::http::read_body_parts_limit(parts, body, DEFAULT_LIMIT)
+        .await
+        .map(|(_, parsed)| parsed)
 }
 
 /// `body.field ?? default`.

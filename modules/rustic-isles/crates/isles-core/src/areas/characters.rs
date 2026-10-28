@@ -15,14 +15,13 @@ pub mod data;
 pub mod golden;
 pub mod starter;
 
-use axum::body::{Body, to_bytes};
 use axum::extract::Request;
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use module_api::{Actor, ActorContext};
 use rifts_seam::{AccountId as RiftsAccount, HostWrite, HostWriteKind, HostWriteOptions, RuntimeAuth};
 use serde_json::{Value, json};
-use service_kit::body::{BodyError, error_page, parse_form, parse_json};
+use service_kit::body::error_page;
 use service_kit::json::Json;
 use service_kit::{js, jsjson};
 
@@ -53,8 +52,22 @@ fn is_no_player(user: Option<&str>) -> bool {
     user.is_none_or(|user| user == NO_PLAYER_SENTINEL)
 }
 
+impl From<&crate::areas::auth::AuthData> for AuthData {
+    fn from(auth: &crate::areas::auth::AuthData) -> Self {
+        Self {
+            user_id: auth.user_id.clone(),
+            is_gameserver: auth.is_gameserver,
+            host_runtime: auth.runtime.clone(),
+        }
+    }
+}
+
 pub fn auth_data(request: &Request) -> Option<AuthData> {
-    request.extensions().get::<AuthData>().cloned()
+    request
+        .extensions()
+        .get::<crate::areas::auth::AuthData>()
+        .map(AuthData::from)
+        .or_else(|| request.extensions().get::<AuthData>().cloned())
 }
 
 /// What a handler keeps of its [`Call`] across an await: the request's body isn't `Sync`, so it is split off.
@@ -85,9 +98,6 @@ fn split(call: Call) -> (Ctx, Request) {
     )
 }
 
-/// Express's default JSON parser limit
-const BODY_LIMIT: usize = 100 * 1024;
-
 fn empty(status: StatusCode) -> Response {
     status.into_response()
 }
@@ -104,31 +114,7 @@ fn failed(call: &Ctx, error: &CtlError) -> Response {
 
 /// `req.body` as `express.json()` and `express.urlencoded()` leave it: `None` for any other content type.
 async fn body_of(request: &mut Request) -> Result<Option<Value>, Response> {
-    let content_type = request
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or_default()
-        .to_owned();
-    let mut parts = content_type.split(';');
-    let essence = parts.next().unwrap_or_default().trim().to_ascii_lowercase();
-    let charset_ok = parts
-        .filter_map(|p| p.split_once('='))
-        .find(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
-        .is_none_or(|(_, value)| value.trim().trim_matches('"').eq_ignore_ascii_case("utf-8"));
-    let json_body = essence == "application/json";
-    if !json_body && essence != "application/x-www-form-urlencoded" {
-        return Ok(None);
-    }
-    if !charset_ok {
-        return Err(error_page(BodyError::UnsupportedCharset.status()));
-    }
-    let bytes = to_bytes(std::mem::replace(request.body_mut(), Body::empty()), BODY_LIMIT)
-        .await
-        .map_err(|_| error_page(BodyError::TooLarge.status()))?;
-    let text = std::str::from_utf8(&bytes).map_err(|_| error_page(BodyError::Malformed.status()))?;
-    let parsed = if json_body { parse_json(text) } else { parse_form(text) };
-    parsed.map(Some).map_err(|error| error_page(error.status()))
+    crate::http::read_body(request).await
 }
 
 /// The database, or the answer of a module started without one.
