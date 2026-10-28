@@ -3,7 +3,7 @@
 //! which gives module-api's network-wide id (`hunt:<ULID>@<node>`, DD18) and RF2's seam id without a lookup.
 
 use module_api::{GlobalId, IdKind, NodeId};
-use rifts_seam::{SessionId, Ulid, UnixMillis};
+use rifts_seam::{RealmId, SessionId, Ulid, UnixMillis};
 
 /// A random version 4 UUID (`crypto.randomUUID()`), for realm, offer, message and capability ids.
 pub fn random_uuid() -> String {
@@ -72,6 +72,16 @@ pub fn seam_session_id(wire: &str, node: &NodeId) -> Option<SessionId> {
 /// The wire form of a seam session id.
 pub fn wire_session_id(session: &SessionId) -> String {
     uuid_text(session.0.ulid.0)
+}
+
+/// RF2's seam id (`<ULID>@<node>`) of a wire realm id.
+pub fn seam_realm_id(wire: &str, node: &NodeId) -> Option<RealmId> {
+    format!("{}@{}", Ulid(session_bits(wire)?), node).parse().ok()
+}
+
+/// The wire form of a seam realm id.
+pub fn wire_realm_id(realm: &RealmId) -> String {
+    uuid_text(realm.0.ulid.0)
 }
 
 #[cfg(test)]

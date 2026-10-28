@@ -3,18 +3,21 @@
 //! until it expires or its generation is revoked, and for the scopes it was minted with.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use module_api::NodeId;
-use rifts_seam::{AccountId, CapabilityScope, Refusal, RuntimeAuth, Secret, UnixMillis};
+use rifts_guard::block_on_store;
+use rifts_guard::ports::{CapabilityView, HuntSessions, HuntView, RosterEntry};
+use rifts_seam::{AccountId, CapabilityScope, Refusal, RuntimeAuth, Secret, SessionId, StoreError, UnixMillis};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::RealmsError;
-use crate::db::RealmsDb;
+use crate::db::{RealmsDb, RepoError};
 use crate::hub::PresenceState;
 use crate::hunt::{AdmissionState, HostCapabilityRecord, HuntSession, HuntState};
-use crate::ids::{random_uuid, seam_session_id};
+use crate::ids::{random_uuid, seam_realm_id, seam_session_id, wire_session_id};
+use crate::ports::Clock;
 use crate::repo::hub::RealmHubRepository;
 use crate::repo::hunts::HuntRepository;
 
@@ -204,7 +207,7 @@ pub struct HostCapabilities {
     hunts: HuntRepository,
     hub: RealmHubRepository,
     node: NodeId,
-    presence: HubPresenceCache,
+    presence: Arc<HubPresenceCache>,
 }
 
 impl HostCapabilities {
@@ -213,7 +216,7 @@ impl HostCapabilities {
             hunts: HuntRepository::new(db.clone()),
             hub: RealmHubRepository::new(db.clone()),
             node: db.node().clone(),
-            presence: HubPresenceCache::default(),
+            presence: Arc::new(HubPresenceCache::default()),
         }
     }
 
@@ -372,6 +375,222 @@ impl HostCapabilities {
             .revoke_generation(&rifts_seam::Actor::System("realms"), session_id, generation, at)
             .await?;
         Ok(())
+    }
+
+    /// Creates a [`RealmsHuntSessions`] adapter sharing this [`HostCapabilities`]'s 1-second hub presence cache.
+    pub fn hunt_sessions(&self, clock: Arc<dyn Clock>) -> RealmsHuntSessions {
+        RealmsHuntSessions {
+            hunts: self.hunts.clone(),
+            hub: self.hub.clone(),
+            node: self.node.clone(),
+            presence: self.presence.clone(),
+            clock: SessionClock::Realms(clock),
+        }
+    }
+}
+
+#[derive(Clone)]
+enum SessionClock {
+    Realms(Arc<dyn Clock>),
+    Guard(Arc<dyn rifts_guard::Clock>),
+}
+
+impl SessionClock {
+    fn now(&self) -> UnixMillis {
+        match self {
+            Self::Realms(clock) => clock.now(),
+            Self::Guard(clock) => clock.now(),
+        }
+    }
+}
+
+fn repo_to_store_err(err: RepoError) -> StoreError {
+    StoreError::Database(err.to_string())
+}
+
+fn extract_frozen_characters(extra: &serde_json::Map<String, Value>) -> Vec<(AccountId, String)> {
+    let Some(entries) = extra
+        .get("frozenLoadouts")
+        .or_else(|| extra.get("frozen_loadouts"))
+        .and_then(Value::as_array)
+    else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for entry in entries {
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        let account = obj
+            .get("accountId")
+            .or_else(|| obj.get("account_id"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let character = obj
+            .get("characterId")
+            .or_else(|| obj.get("character_id"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        if let (Some(account), Some(character)) = (account, character) {
+            out.push((AccountId(account.to_owned()), character.to_owned()));
+        }
+    }
+    out
+}
+
+fn hunt_session_to_view(hunt: HuntSession, fallback_session: &SessionId, node: &NodeId) -> HuntView {
+    let session = seam_session_id(&hunt.session_id, node)
+        .or_else(|| hunt.session_id.parse().ok())
+        .unwrap_or_else(|| fallback_session.clone());
+    let generation = u64::try_from(hunt.generation).unwrap_or_default();
+    let state = hunt.state.as_str().to_owned();
+    let pre_suspect_state = hunt.pre_suspect_state.map(|s| s.as_str().to_owned());
+    let host = (!hunt.host_account_id.is_empty()).then(|| AccountId(hunt.host_account_id.clone()));
+    let realm = hunt
+        .realm_id
+        .as_deref()
+        .and_then(|raw| seam_realm_id(raw, node).or_else(|| raw.parse().ok()));
+    let hub = hunt.hub_kind;
+    let roster = hunt
+        .roster
+        .iter()
+        .map(|participant| RosterEntry {
+            account: AccountId(participant.account_id.clone()),
+            admitted: participant.admission_state == AdmissionState::Admitted,
+        })
+        .collect();
+    let frozen_characters = extract_frozen_characters(&hunt.extra);
+    HuntView {
+        session,
+        generation,
+        state,
+        pre_suspect_state,
+        host,
+        realm,
+        hub,
+        roster,
+        frozen_characters,
+    }
+}
+
+/// Adapter implementing [`rifts_guard::ports::HuntSessions`] over [`RealmsDb`] (`HuntRepository` + `RealmHubRepository`)
+/// with a 1-second [`HubPresenceCache`] for `hub_present_accounts`.
+#[derive(Clone)]
+pub struct RealmsHuntSessions {
+    hunts: HuntRepository,
+    hub: RealmHubRepository,
+    node: NodeId,
+    presence: Arc<HubPresenceCache>,
+    clock: SessionClock,
+}
+
+impl RealmsHuntSessions {
+    pub fn new(db: RealmsDb, clock: Arc<dyn Clock>) -> Self {
+        Self::with_cache(db, Arc::new(HubPresenceCache::default()), clock)
+    }
+
+    pub fn with_cache(db: RealmsDb, presence: Arc<HubPresenceCache>, clock: Arc<dyn Clock>) -> Self {
+        let node = db.node().clone();
+        Self {
+            hunts: HuntRepository::new(db.clone()),
+            hub: RealmHubRepository::new(db),
+            node,
+            presence,
+            clock: SessionClock::Realms(clock),
+        }
+    }
+
+    pub fn with_guard_clock(db: RealmsDb, clock: Arc<dyn rifts_guard::Clock>) -> Self {
+        Self::with_cache_and_guard_clock(db, Arc::new(HubPresenceCache::default()), clock)
+    }
+
+    pub fn with_cache_and_guard_clock(
+        db: RealmsDb,
+        presence: Arc<HubPresenceCache>,
+        clock: Arc<dyn rifts_guard::Clock>,
+    ) -> Self {
+        let node = db.node().clone();
+        Self {
+            hunts: HuntRepository::new(db.clone()),
+            hub: RealmHubRepository::new(db),
+            node,
+            presence,
+            clock: SessionClock::Guard(clock),
+        }
+    }
+
+    pub fn presence_cache(&self) -> &Arc<HubPresenceCache> {
+        &self.presence
+    }
+
+    pub fn invalidate_hub_presence(&self, session: &SessionId) {
+        self.presence.invalidate(&wire_session_id(session));
+        self.presence.invalidate(&session.to_string());
+    }
+}
+
+impl HuntSessions for RealmsHuntSessions {
+    fn hunt(&self, session: &SessionId) -> Result<Option<HuntView>, StoreError> {
+        let hunts = self.hunts.clone();
+        let node = self.node.clone();
+        let fallback = session.clone();
+        let wire = wire_session_id(session);
+        let seam_text = session.to_string();
+        block_on_store(async move {
+            let mut found = hunts.find_hunt(&wire).await.map_err(repo_to_store_err)?;
+            if found.is_none() && seam_text != wire {
+                found = hunts.find_hunt(&seam_text).await.map_err(repo_to_store_err)?;
+            }
+            Ok(found.map(|hunt| hunt_session_to_view(hunt, &fallback, &node)))
+        })
+    }
+
+    fn hub_present_accounts(&self, session: &SessionId, generation: u64) -> Result<Vec<AccountId>, StoreError> {
+        let Ok(gen_i64) = i64::try_from(generation) else {
+            return Ok(Vec::new());
+        };
+        let now = self.clock.now().0;
+        let wire = wire_session_id(session);
+        let key = (wire.clone(), gen_i64);
+        if let Some(present) = self.presence.get(&key, now) {
+            return Ok(present.into_iter().map(AccountId).collect());
+        }
+        let hub = self.hub.clone();
+        let presence = self.presence.clone();
+        let seam_text = session.to_string();
+        block_on_store(async move {
+            let mut rows = hub
+                .list_by_state(&wire, gen_i64, &[PresenceState::Admitted], 256)
+                .await
+                .map_err(repo_to_store_err)?;
+            if rows.is_empty() && seam_text != wire {
+                rows = hub
+                    .list_by_state(&seam_text, gen_i64, &[PresenceState::Admitted], 256)
+                    .await
+                    .map_err(repo_to_store_err)?;
+            }
+            let present: Vec<String> = rows.into_iter().map(|row| row.account_id).collect();
+            presence.put(key, now, present.clone());
+            Ok(present.into_iter().map(AccountId).collect())
+        })
+    }
+
+    fn capability_by_digest(&self, digest: &str) -> Result<Option<CapabilityView>, StoreError> {
+        let hunts = self.hunts.clone();
+        let digest_owned = digest.to_owned();
+        block_on_store(async move {
+            let record = hunts
+                .find_host_capability_by_digest(&digest_owned)
+                .await
+                .map_err(repo_to_store_err)?;
+            Ok(record.map(|cap| CapabilityView {
+                capability_id: cap.capability_id,
+                expires_at: cap.expires_at,
+                revoked: cap.revoked_at.is_some(),
+            }))
+        })
     }
 }
 

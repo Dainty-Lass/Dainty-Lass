@@ -77,6 +77,10 @@ impl RealmsDb {
         &self.node
     }
 
+    pub fn guard_store(&self) -> rifts_guard::SqlGuardStore {
+        rifts_guard::SqlGuardStore::new(self.db.clone())
+    }
+
     pub(crate) async fn read<T, E, F>(&self, f: F) -> Result<T, E>
     where
         F: FnOnce(&mut AnyConnection) -> Result<T, E> + Send + 'static,

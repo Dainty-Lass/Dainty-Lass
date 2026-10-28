@@ -20,9 +20,10 @@ mod errors;
 pub mod evidence;
 pub mod json;
 mod operations;
-mod ports;
+pub mod ports;
 mod routes;
-mod store;
+pub mod sql;
+pub mod store;
 mod traffic;
 mod writes;
 
@@ -43,6 +44,9 @@ pub use ports::{
     OperationsPolicyPort, PolicySnapshot, RosterEntry, StderrLog, SystemClock, iso_time,
 };
 pub use routes::{GuardRoutes, ROUTES, envelope, stub_routes};
+pub use sql::{
+    POSTGRES_MIGRATIONS, SCHEMA, SQLITE_MIGRATIONS, SqlGuardStore, XP_SUMMARY_TTL_MS, block_on_store, store_actor,
+};
 pub use store::{
     AlertRecord, BatchRecord, ChainRecord, ChainUpdate, CompletionMode, CompletionRecord, Disposition, EncounterState,
     FindingRecord, GENESIS_HASH, GuardStore, HostWriteRecord, MemoryGuardStore, StubGuardStore, TABLES,

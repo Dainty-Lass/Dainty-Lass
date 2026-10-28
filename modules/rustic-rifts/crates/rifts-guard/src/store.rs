@@ -11,6 +11,7 @@ use rifts_seam::{
 };
 
 use crate::ports::lock;
+pub use crate::sql::SqlGuardStore;
 
 pub const TABLES: &[TableSpec] = &[
     TableSpec {

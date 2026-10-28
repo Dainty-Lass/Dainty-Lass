@@ -84,6 +84,8 @@ pub struct DeletionStep {
 pub enum StoreError {
     #[error(transparent)]
     Unimplemented(#[from] Unimplemented),
+    #[error("{0}")]
+    Database(String),
 }
 
 #[cfg(test)]

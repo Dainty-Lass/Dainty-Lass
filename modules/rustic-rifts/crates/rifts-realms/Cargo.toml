@@ -13,13 +13,14 @@ diesel.workspace = true
 diesel_migrations.workspace = true
 module-api.workspace = true
 rand.workspace = true
+rifts-guard.workspace = true
 rifts-seam.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 store.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["time"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "time"] }
 
 [dev-dependencies]
 tempfile.workspace = true
@@ -28,7 +29,6 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 url.workspace = true
 # tests/stubbed.rs assembles every server crate as isles-1-14-7 will
 rifts-admission.workspace = true
-rifts-guard.workspace = true
 rifts-relay.workspace = true
 
 [lints]
