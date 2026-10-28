@@ -553,6 +553,7 @@ impl RealmsRoutes {
             };
         }
 
+        // Node applies no IsRateLimited window on /launcher/v1/p2p/* or /mystic/v1/hunts/:sessionId/lease (checked in p2pLauncher.ts, p2pControl.ts, p2pHostLifecycle.ts and p2pHunts.ts:80).
         match call.route.handler {
             "p2pControl.ts:PollP2PControl" => {
                 let Some(control) = &self.control else {

@@ -51,15 +51,6 @@ pub trait RateLimiter: Send + Sync {
     fn is_limited(&self, key: &str, max: u32, window_ms: i64) -> bool;
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct NoRateLimit;
-
-impl RateLimiter for NoRateLimit {
-    fn is_limited(&self, _: &str, _: u32, _: i64) -> bool {
-        false
-    }
-}
-
 /// Fresh realm ids and invite codes (`crypto.randomUUID`, `GenerateInviteCode`).
 pub trait IdSource: Send + Sync {
     fn realm_id(&self) -> String;
