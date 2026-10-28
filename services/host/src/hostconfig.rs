@@ -345,6 +345,10 @@ pub struct SwitchesConfig {
     pub cooldown_persistence: Option<String>,
     pub account_erasure: Option<String>,
     pub log_purge: Option<String>,
+    pub rate_limit: Option<String>,
+    pub rate_limit_per_minute: Option<u32>,
+    pub gameserver_rate_limit_per_minute: Option<u32>,
+    pub host_rate_limit_per_minute: Option<u32>,
 }
 
 impl SwitchesConfig {
@@ -377,6 +381,18 @@ impl SwitchesConfig {
                 ))),
             }
         };
+        let positive_int = |key: &str| -> Result<Option<u32>, HostError> {
+            let Some(v) = s.get(key) else {
+                return Ok(None);
+            };
+            let Some(n) = integer(Some(v)).filter(|&n| (1.0..=f64::from(u32::MAX)).contains(&n)) else {
+                return Err(bad(format!(
+                    "switches.{key} must be a whole number of at least 1, not {}",
+                    shown(Some(v))
+                )));
+            };
+            Ok(Some(n as u32))
+        };
         Ok(Self {
             reforge: on_off("reforge", true)?,
             mastery_persistence: on_off("masteryPersistence", false)?,
@@ -384,6 +400,10 @@ impl SwitchesConfig {
             cooldown_persistence: on_off("cooldownPersistence", false)?,
             account_erasure: on_off("accountErasure", false)?,
             log_purge: on_off("logPurge", false)?,
+            rate_limit: on_off("rateLimit", false)?,
+            rate_limit_per_minute: positive_int("rateLimitPerMinute")?,
+            gameserver_rate_limit_per_minute: positive_int("gameserverRateLimitPerMinute")?,
+            host_rate_limit_per_minute: positive_int("hostRateLimitPerMinute")?,
         })
     }
 
@@ -396,9 +416,19 @@ impl SwitchesConfig {
             ("cooldownPersistence", &self.cooldown_persistence),
             ("accountErasure", &self.account_erasure),
             ("logPurge", &self.log_purge),
+            ("rateLimit", &self.rate_limit),
         ] {
             if let Some(v) = value {
                 out.insert(key.into(), Value::String(v.clone()));
+            }
+        }
+        for (key, value) in [
+            ("rateLimitPerMinute", self.rate_limit_per_minute),
+            ("gameserverRateLimitPerMinute", self.gameserver_rate_limit_per_minute),
+            ("hostRateLimitPerMinute", self.host_rate_limit_per_minute),
+        ] {
+            if let Some(v) = value {
+                out.insert(key.into(), Value::Number(v.into()));
             }
         }
         Value::Object(out)
@@ -413,15 +443,31 @@ impl SwitchesConfig {
             ("MYSTICPARADOX_COOLDOWN_PERSISTENCE", &self.cooldown_persistence),
             ("MYSTICPARADOX_ACCOUNT_ERASURE", &self.account_erasure),
             ("MYSTICPARADOX_LOG_PURGE", &self.log_purge),
+            ("MYSTICPARADOX_RATE_LIMIT", &self.rate_limit),
         ] {
             if let Some(v) = value {
                 out.push((env_key, v.clone()));
             }
         }
+        for (env_key, value) in [
+            ("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", self.rate_limit_per_minute),
+            (
+                "MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE",
+                self.gameserver_rate_limit_per_minute,
+            ),
+            (
+                "MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE",
+                self.host_rate_limit_per_minute,
+            ),
+        ] {
+            if let Some(v) = value {
+                out.push((env_key, v.to_string()));
+            }
+        }
         out
     }
 
-    /// Key-value pairs in `[modules.<id>.switches]` form (`snake_case` key -> JSON string).
+    /// Key-value pairs in `[modules.<id>.switches]` form (`snake_case` key -> JSON value).
     pub fn module_switches(&self) -> Vec<(&'static str, Value)> {
         let mut out = Vec::new();
         for (key, value) in [
@@ -429,9 +475,24 @@ impl SwitchesConfig {
             ("mastery_persistence", &self.mastery_persistence),
             ("bounty_persistence", &self.bounty_persistence),
             ("cooldown_persistence", &self.cooldown_persistence),
+            ("account_erasure", &self.account_erasure),
+            ("log_purge", &self.log_purge),
+            ("rate_limit", &self.rate_limit),
         ] {
             if let Some(v) = value {
                 out.push((key, Value::String(v.clone())));
+            }
+        }
+        for (key, value) in [
+            ("rate_limit_per_minute", self.rate_limit_per_minute),
+            (
+                "gameserver_rate_limit_per_minute",
+                self.gameserver_rate_limit_per_minute,
+            ),
+            ("host_rate_limit_per_minute", self.host_rate_limit_per_minute),
+        ] {
+            if let Some(v) = value {
+                out.push((key, Value::Number(v.into())));
             }
         }
         out
@@ -1679,6 +1740,13 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
             ("cooldown_persistence", "MYSTICPARADOX_COOLDOWN_PERSISTENCE"),
             ("account_erasure", "MYSTICPARADOX_ACCOUNT_ERASURE"),
             ("log_purge", "MYSTICPARADOX_LOG_PURGE"),
+            ("rate_limit", "MYSTICPARADOX_RATE_LIMIT"),
+            ("rate_limit_per_minute", "MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"),
+            (
+                "gameserver_rate_limit_per_minute",
+                "MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE",
+            ),
+            ("host_rate_limit_per_minute", "MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"),
         ] {
             if let Some(v) = mod_switches.get(key) {
                 let text = match v {

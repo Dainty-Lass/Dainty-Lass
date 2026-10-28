@@ -170,7 +170,11 @@ For a server nobody sets up by hand, such as one kept in a repository or deploye
 every `docker compose up` the `configure` container copies it into the `workspace` volume and runs setup from
 it with no options, and nothing else starts unless that worked. A setting is changed by editing the file and
 running `docker compose up -d --force-recreate`. That includes `[guard]`, which holds the bulk admin actions
-([hosting.md](hosting.md#guarded-admin-actions)); `docker compose run --rm host admin guarded list --env-file
+([hosting.md](hosting.md#guarded-admin-actions)), and `[switches]`, which configures backend persistence and the 1.14.7
+per-minute HTTP request budget (`rate_limit` -> `MYSTICPARADOX_RATE_LIMIT`, `rate_limit_per_minute` ->
+`MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`, `gameserver_rate_limit_per_minute` ->
+`MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `host_rate_limit_per_minute` ->
+`MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE`; see [hosting.md](hosting.md#game-modules-and-plugins)); `docker compose run --rm host admin guarded list --env-file
 /opt/reforged/.workspace/config/admin.env` lists what waits.
 
 In `.env`, `COMPOSE_PROFILES=public,toml` (or `toml` for a private server). The file needs every setting a

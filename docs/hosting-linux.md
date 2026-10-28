@@ -69,7 +69,12 @@ allowlist filter one interface only.
 
 A server in a network of servers lists its peers under `[[network.nodes]]` and keeps its node certificate in
 `.workspace/tls` ([hosting.md](hosting.md#a-network-of-servers)); the nodes meet on the gateway's TLS port, so no
-firewall rule beyond the gateway's own is needed.
+firewall rule beyond the gateway's own is needed. Backend rule and request-budget settings in `[switches]`
+(`reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`,
+`rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute`) are written by
+`setup` into `backend.env` (`MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`,
+`MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE` and the persistence
+switches; see the settings table in [hosting.md](hosting.md#game-modules-and-plugins)).
 
 Postgres instead of SQLite for the Rust services' database is `[database]` in `host.toml`
 ([hosting.md](hosting.md#the-database-engine)). On Debian or Ubuntu, with the role's password from `secrets.env`:
