@@ -298,13 +298,34 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     tickets.clone(),
                     network_plugin::home::NetworkedConfig::new(game),
                 ));
+                let mut ring_config = network_plugin::ring::RingConfig::new(node.clone());
+                ring_config.peers = peers
+                    .iter()
+                    .map(|p| network_plugin::ring::PeerGateway {
+                        node: p.id.clone(),
+                        region: p.region.clone(),
+                        host: p.host.clone(),
+                        port: p.port,
+                        fingerprint: None,
+                    })
+                    .collect();
+                let ring_node = network_plugin::ring::RingNode::new(
+                    ring_config,
+                    Arc::new(network_plugin::Clock::default()),
+                    link.clone(),
+                    networked_home.clone(),
+                    Arc::new(network_plugin::ring::LoopbackDirector::default()),
+                    Arc::new(network_plugin::ring::RecordedAllowlist::default()),
+                );
                 let services = registry.node_services();
                 services.set_peer_link(Some(link.clone()));
                 services.set_peer_roster(Some(link.clone()));
                 services.set_directory(Some(directory.clone()));
                 services.set_tickets(Some(tickets));
+                services.set_ring(Some(ring_node.clone()));
                 services.attach(network_plugin::Service::Directory, directory);
                 services.attach(network_plugin::Service::Home, home_service);
+                services.attach(network_plugin::Service::Ring, ring_node);
                 if let Some(dir) = peer_log_dir {
                     let store = Arc::new(network_plugin::logship::PeerLogStore::new(
                         dir,
@@ -348,8 +369,10 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 ctx.wait_stop().await;
                 ctx.status.stopping();
                 services.detach(network_plugin::Service::LogShip);
+                services.detach(network_plugin::Service::Ring);
                 services.detach(network_plugin::Service::Directory);
                 services.detach(network_plugin::Service::Home);
+                services.set_ring(None);
                 services.set_tickets(None);
                 services.set_directory(None);
                 services.set_peer_roster(None);

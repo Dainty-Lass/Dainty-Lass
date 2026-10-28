@@ -1065,3 +1065,59 @@ fn qos_paths_and_the_port_override() {
     }
     assert_eq!(relay_port_override(None), None);
 }
+
+#[tokio::test]
+async fn repoint_switches_target_attaches_ticket_and_strips_account_key() {
+    let home_upstream = upstream().await;
+    let peer_upstream = upstream().await;
+    let (relay, _) = relay_for(&home_upstream, None).await;
+
+    // Initial request to home node: x-reforged-user-api-key passes through
+    let answer = call(
+        relay.port(),
+        "GET",
+        "/session",
+        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        None,
+    )
+    .await;
+    assert_eq!(answer.status, 200);
+    let home_seen = home_upstream.seen().last().cloned().unwrap();
+    assert_eq!(
+        values(&home_seen.headers, "x-reforged-user-api-key"),
+        ["RRK_home_secret_key_123456"]
+    );
+    assert!(!home_seen.headers.contains_key("x-reforged-session-ticket"));
+
+    // Re-point the running relay to peer_upstream with a home-signed session ticket (DN6)
+    let peer_target = RelayTarget {
+        host: "127.0.0.1".into(),
+        port: peer_upstream.port,
+        fingerprint: Some(peer_upstream.fingerprint.clone()),
+    };
+    relay
+        .repoint(peer_target.clone(), Some("dlt1.signed_session_ticket".into()))
+        .unwrap();
+    assert_eq!(relay.current_target(), peer_target);
+    assert_eq!(relay.current_ticket().as_deref(), Some("dlt1.signed_session_ticket"));
+
+    let answer = call(
+        relay.port(),
+        "GET",
+        "/hunt/join",
+        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        None,
+    )
+    .await;
+    assert_eq!(answer.status, 200);
+    let peer_seen = peer_upstream.seen().last().cloned().unwrap();
+    assert_eq!(peer_seen.uri.as_str(), "/hunt/join");
+    // Account key must NEVER leave the home node; session ticket is sent instead
+    assert!(!peer_seen.headers.contains_key("x-reforged-user-api-key"));
+    assert_eq!(
+        values(&peer_seen.headers, "x-reforged-session-ticket"),
+        ["dlt1.signed_session_ticket"]
+    );
+
+    relay.stop().await;
+}

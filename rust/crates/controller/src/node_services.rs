@@ -22,6 +22,8 @@ struct Inner {
     directory: RwLock<Option<Arc<network_plugin::directory::Directory>>>,
     #[cfg(feature = "network")]
     tickets: RwLock<Option<Arc<network_plugin::home::Tickets>>>,
+    #[cfg(feature = "network")]
+    ring: RwLock<Option<Arc<network_plugin::ring::RingNode>>>,
     #[cfg(feature = "gateway")]
     gateway_slot: gateway::server::NodeLinkSlot,
 }
@@ -44,6 +46,8 @@ impl NodeServices {
                 directory: RwLock::new(None),
                 #[cfg(feature = "network")]
                 tickets: RwLock::new(None),
+                #[cfg(feature = "network")]
+                ring: RwLock::new(None),
                 #[cfg(feature = "gateway")]
                 gateway_slot: Arc::new(std::sync::Mutex::new(None)),
             }),
@@ -104,6 +108,16 @@ impl NodeServices {
             .read()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
+    }
+
+    #[cfg(feature = "network")]
+    pub fn set_ring(&self, ring: Option<Arc<network_plugin::ring::RingNode>>) {
+        *self.inner.ring.write().unwrap_or_else(PoisonError::into_inner) = ring;
+    }
+
+    #[cfg(feature = "network")]
+    pub fn ring(&self) -> Option<Arc<network_plugin::ring::RingNode>> {
+        self.inner.ring.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
     /// Answers `service` with `handler` from now on, replacing an earlier one.

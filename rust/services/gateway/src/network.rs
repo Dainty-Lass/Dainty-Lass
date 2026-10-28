@@ -4,12 +4,20 @@
 //! section 6). The shapes here are the launcher's (`net/regionping/parse.rs`) until DN2's
 //! `crates/module-api` gives both one definition.
 
+use std::sync::Arc;
+
 use serde::Serialize;
 use serde_json::Value;
 
 pub const NODES_PATH: &str = "/network/v1/nodes";
 pub const PING_PATH: &str = "/network/v1/ping";
 pub const REGIONS_PATH: &str = "/network/v1/regions";
+/// Header carrying a home-signed session ticket when the launcher is connected to or reporting to a node (DN5, DN6, DN8).
+pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
+
+/// Optional sink on the gateway that verifies the caller's account key or session ticket and stores the
+/// ordered [`RegionRtt`] report in the network plugin (`RingNode`, DN8). Returns `true` when accepted.
+pub type RegionReportHandler = Arc<dyn Fn(Option<&str>, Option<&str>, Vec<RegionRtt>) -> bool + Send + Sync>;
 
 /// The launcher reads at most this many nodes; a list longer than that is the operator's mistake
 pub const MAX_NODES: usize = 16;

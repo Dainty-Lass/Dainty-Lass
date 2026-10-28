@@ -18,14 +18,14 @@ Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and 
 | Host game-data and SDK pipeline (`gamedata`, `sdk`, `build-runtime`, `publish`) | [docs/security/host-gamedata.md](docs/security/host-gamedata.md) | `host_gamedata_input.rs` | RH4, RH5 |
 | Change log, hash chain, revert, object-locked bucket and peer log shipping | [docs/security/history.md](docs/security/history.md) | `history_input.rs`, `history_record.rs`, `history_bucket.rs`, `network_logship.rs` | DH1, DH3–DH5, DH7 |
 | TURN relay (`turn-rs` listener exception, `turn-rest` shared secret, credential lifetimes, relay-only mode, UDP relay port range) | [docs/security/turn-relay.md](docs/security/turn-relay.md) | `allowlist_input.rs`, `modules/rustic-rifts/fuzz/fuzz_targets/turn_framing.rs` | DD24, RF4, DX2 |
-| Server network (CA, mTLS node links, directory, home API, session tickets, cluster join) | [docs/security/network.md](docs/security/network.md) | `network_link.rs`, `network_directory.rs`, `network_home.rs`, `network_ticket.rs`, `network_admin.rs`, `network_logship.rs` | DN2–DN5, DN11, DN13 |
+| Server network (CA, mTLS node links, directory, home API, session tickets, instance registry, matchmaking ring, regional Ramsgate, cluster join) | [docs/security/network.md](docs/security/network.md) | `network_link.rs`, `network_directory.rs`, `network_home.rs`, `network_ticket.rs`, `network_admin.rs`, `network_logship.rs`, `network_ring.rs` | DN2–DN6, DN8, DN9, DN11, DN13 |
 | Chat plugin (`rust/plugins/chat`: XMPP over WebSocket, MUC, whispers, federation) | [docs/security/chat.md](docs/security/chat.md) | `chat_stanza.rs`, `chat_federation.rs` | DN10a, DN10b |
 | Epic Games login, manifest parser and CDN chunk installer (`crates/epic`, host, launcher) | [docs/security/epic.md](docs/security/epic.md) | `epic_manifest.rs` | DE1–DE6 |
 | Launcher keystore (OS credential store + AES-256-GCM fallback, account keys, Epic tokens) | [docs/security/keystore.md](docs/security/keystore.md) | `launcher_input.rs` | RA3, DE2 |
 | Launcher network client (pinned TLS, SSRF blocks, redirects, server probe) | [docs/security/launcher-net.md](docs/security/launcher-net.md) | `launcher_net.rs`, `launcher_files.rs` | RA5, RA6 |
 | Launcher region ping (pinned TLS RTT measurement, `ServerHello` timing) | [docs/security/region-ping.md](docs/security/region-ping.md) | `launcher_region.rs` | DN7 |
 | Launcher runtime download and loader verification (`mystic_loader.ini`, SHA-256) | [docs/security/runtime-download.md](docs/security/runtime-download.md) | `runtime_input.rs` | RA8, RA10 |
-| Launcher local loopback relay (`127.0.0.1:61100`, PID owner check, XMPP upgrade) | [docs/security/relay.md](docs/security/relay.md) | `relay_input.rs` | RA9 |
+| Launcher local loopback relay (`127.0.0.1:61100`, PID owner check, XMPP upgrade, mid-session re-point & key stripping) | [docs/security/relay.md](docs/security/relay.md) | `relay_input.rs` | RA9, DN6 |
 | Launcher Host page and supervised `dainty-lass-host` driver | [docs/security/host-page.md](docs/security/host-page.md) | `launcher_host.rs` | RA11, RA12 |
 | Launcher 1.4.4 legacy client path (`dauntless-revived://`, client patcher, relay) | [docs/security/launcher-legacy.md](docs/security/launcher-legacy.md) | `launcher_legacy.rs` | RL1–RL5 |
 

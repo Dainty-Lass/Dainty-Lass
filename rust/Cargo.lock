@@ -5267,10 +5267,14 @@ dependencies = [
 name = "rifts-guard"
 version = "0.1.0"
 dependencies = [
+ "diesel",
+ "diesel_migrations",
  "rifts-seam",
  "serde_json",
  "sha2 0.11.1",
+ "store",
  "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]
@@ -5294,6 +5298,7 @@ dependencies = [
  "diesel_migrations",
  "module-api",
  "rand 0.10.3",
+ "rifts-guard",
  "rifts-seam",
  "serde",
  "serde_json",

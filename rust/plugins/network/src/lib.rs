@@ -32,6 +32,7 @@ pub mod logship;
 #[cfg(feature = "directory")]
 pub mod messages;
 pub mod relay;
+pub mod ring;
 pub mod tls;
 #[cfg(feature = "directory")]
 pub mod username;

@@ -375,9 +375,20 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 - **A replica that has not yet pulled a new account** answers `unknown_account` for it. A node that registered the
   account should `sync` before it hands the player on.
 
-## The claim protocol (DN8)
+## Instance registry, redirects and the claim protocol (DN6, DN8, DN9)
 
-To be written with DN8.
+- **Trust boundary**: instance lookups, matchmaking ring ticket publications, compare-and-set ticket claims, and regional Ramsgate assignments cross `/__node/ring` (`Service::Ring`) between mTLS-authenticated peer nodes. The caller identity (`from`) comes from the verified client certificate's SAN/CN, never from the wire body.
+- **Wire protocol (`network::ring`)**:
+  - [ ] Versioned JSON (`RING_VERSION = 1`), `#[serde(deny_unknown_fields)]` on every request, reply, ticket, and instance record struct, bounded to `MAX_RING_MESSAGE = 64 KiB` and `MAX_RING_TEXT = 256` bytes.
+  - [ ] Every free-form string (`queue`, `server_host`, `client_ip`, refusal text) and forwarded reward JSON body (`xp_grant`, `loot_write`, `objective_write`) is checked by `looks_like_account_key` / `holds_account_key`, refusing anything shaped like an `RRK_` account key (`RingError::AccountKey`). Test: `ring_wire_refuses_account_keys_and_bad_versions`.
+  - [ ] `PublishTicket` requires `ticket.home_node == from` and `ticket.ticket.owner() == from`; `ClaimTicket` and `ReleaseTicket` require `claiming_node == from`, so a peer cannot publish tickets for another home or claim/release tickets under another node's name.
+- **Instance registry, redirects, and launcher relay re-pointing (DN6, DD18)**:
+  - [ ] Every instance (`IdKind::Hunt`, `IdKind::HubInstance`, `IdKind::Party`, `IdKind::Ticket`) carries its owning node in `GlobalId::owner()`. When a join reaches a non-owning node, `RingNode::resolve_join` either mints a home-signed `SessionTicket` for `audience = instance.owner()` and returns `JoinDecision::Redirect` (`WrongNodePolicy::Redirect`) or refuses with a message naming the owning node and region (`WrongNodePolicy::Refuse`, DN1 kill criterion). Test: `dn6_instance_registry_resolves_owners_and_redirects_or_refuses_wrong_node_joins`.
+  - [ ] When the launcher's local relay (`127.0.0.1:61100`, `Relay::repoint`) re-points to a non-home node's gateway with a `SessionTicket`, it strips `x-reforged-user-api-key` from every forwarded request and attaches `x-reforged-session-ticket` instead so the account key never leaves its home node (DD17). Test: `repoint_switches_target_attaches_ticket_and_strips_account_key`.
+- **Matchmaking ring, CAS claim protocol, and regional Ramsgate (DN8, DN9)**:
+  - [ ] `POST /network/v1/regions` authenticates the caller via either a registered home API key or a verified `SessionTicket` (`record_region_pings_authenticated`) before storing the account's ordered region RTT list.
+  - [ ] A ticket is owned by the player's home node, published to the lowest-ping region at step 0, and widened along `RingSchedule` (`DEFAULT_RING_DELAYS_MS`). When a regional node forms a match, it claims each candidate ticket at its home node via atomic compare-and-set (`local_claim_ticket`); if any ticket is already claimed by another match or cancelled, partial claims are released (`ReleaseTicket`) so no player is ever double-booked. Test: `dn8_four_region_matchmaking_ring_never_double_books_and_bounds_wait_time`.
+  - [ ] Regional Ramsgate (`assign_ramsgate`, `AssignHub`) places players from any home node into their lowest-ping region's shared Ramsgate shard and starts a new shard on that region's Director when `max_hub_players` is reached. Test: `dn9_regional_ramsgate_places_players_from_different_homes_into_lowest_ping_hub_and_shards`.
 
 ## Chat federation (DN10b)
 
@@ -461,6 +472,7 @@ cargo +nightly fuzz run network_home -- -max_total_time=86400
 cargo +nightly fuzz run network_ticket -- -max_total_time=86400
 cargo +nightly fuzz run network_admin -- -max_total_time=86400
 cargo +nightly fuzz run network_logship -- -max_total_time=86400
+cargo +nightly fuzz run network_ring -- -max_total_time=86400
 cargo +nightly fuzz run chat_federation -- -max_total_time=86400
 ```
 

@@ -32,10 +32,19 @@ pub enum Service {
     LogShip,
     /// Chat federation: direct messages, room fan-out, presence and mutes between nodes (DN10b)
     Chat,
+    /// Instance registry, redirects, matchmaking ring claims and regional Ramsgate hubs (DN6, DN8, DN9)
+    Ring,
 }
 
 impl Service {
-    pub const ALL: [Service; 5] = [Self::Directory, Self::Home, Self::Admin, Self::LogShip, Self::Chat];
+    pub const ALL: [Service; 6] = [
+        Self::Directory,
+        Self::Home,
+        Self::Admin,
+        Self::LogShip,
+        Self::Chat,
+        Self::Ring,
+    ];
 }
 
 impl Service {
@@ -46,6 +55,7 @@ impl Service {
             Self::Admin => "admin",
             Self::LogShip => "log_ship",
             Self::Chat => "chat",
+            Self::Ring => "ring",
         }
     }
 
