@@ -1,39 +1,32 @@
-# Astro + React + TypeScript + shadcn/ui (Monorepo)
+# dainty-lass-ui
 
-This is a monorepo template for Astro with React, TypeScript, and shadcn/ui.
+The front-end page served by the [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass) Tauri launcher and
+server GUI (`ui/` submodule). Built with Astro, Preact, TypeScript and Tailwind CSS in a Bun workspace.
 
-## Structure
+## Workspace layout
 
-- `apps/web` - Astro application
-- `packages/ui` - Shared UI components (shadcn/ui)
+| Package | What |
+| --- | --- |
+| `apps/web` | Astro static application: player screens (servers, invites, PLAY, runtime acceptance, Epic library & download, realms), server GUI screens (Host, status, declarative module panels, guarded actions, change-log history & revert) |
+| `packages/bridge` | Typed Tauri bridge client and generated types (`src/generated/types.ts`) |
+| `packages/i18n` | Language lookup and string catalogs (`catalogs/en.json`, `catalogs/pt-BR.json`) |
+| `packages/ui` | Shared UI primitives |
 
-## Adding components
-
-To add components, run the following command from the root:
+## Build and test
 
 ```bash
-npx shadcn@latest add button -c apps/web
+bun install --frozen-lockfile
+bun run typecheck
+bun run lint
+bun run test
+bun run build
 ```
 
-## Using components
+## Licence
 
-To use the components in your app, import them in an `.astro` file:
-
-```astro
----
-import { Button } from "@workspace/ui/components/button"
----
-
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Astro App</title>
-  </head>
-  <body>
-    <div class="grid h-screen place-items-center content-center">
-      <Button>Button</Button>
-    </div>
-  </body>
-</html>
-```
+Distributed as a whole under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`,
+[LICENSE-AGPL.txt](LICENSE-AGPL.txt)). All application, component, bridge and i18n lookup code written for this
+project is also licensed under the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt)), while the two language catalogs
+(`packages/i18n/catalogs/en.json` and `pt-BR.json`, derived from Dauntless Revived and the Dauntless Reforged Revival
+line) and the generated bridge types (`packages/bridge/src/generated/types.ts`) remain `AGPL-3.0-only`. See
+[NOTICE.md](NOTICE.md) for full provenance and attribution.
