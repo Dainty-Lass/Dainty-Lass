@@ -289,8 +289,7 @@ pub fn spec() -> ModuleSpec {
         capabilities: Capabilities {
             realms: cfg!(feature = "realms"),
             network: true,
-            // DN10a's plugin first (isles-chat)
-            chat: false,
+            chat: true,
             // rustic-freeza's patch set registers against it (DD25, RZ2)
             patch_set: Some(PatchSetCapability::Accepts),
             theme: None,

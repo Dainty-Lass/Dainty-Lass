@@ -7,34 +7,11 @@
 //! `<message type="headline" from="party-events@prod.ol.epicgames.com" to="{userId}@prod.ol.epicgames.com"
 //! id="{eventId}"><body>{body}</body></message>`.
 
-use module_api::GlobalId;
-use serde::{Deserialize, Serialize};
+pub use module_api::chat::{HEADLINE_EVENT, Headline, HeadlineRecipient as Recipient};
 use serde_json::{Map, Value, json};
-
-/// The event a module emits for the plugin to deliver as a headline; registered under this name (DF2).
-pub const HEADLINE_EVENT: &str = "isles.party.headline";
 
 /// `from` of every headline, a bare JID.
 pub const HEADLINE_FROM: &str = "party-events@prod.ol.epicgames.com";
-
-/// `PartyOutboxRecord`'s public face, as the plugin needs it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Headline {
-    /// The outbox record's `eventId`: the stanza id
-    pub id: String,
-    /// The recipients' accounts and their `userId`s, which the JIDs carry
-    pub recipients: Vec<Recipient>,
-    /// The JSON text of [`public_event`]
-    pub body: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Recipient {
-    pub account: GlobalId,
-    pub user_id: String,
-}
 
 /// The public name of an outbox event type; `None` for a type Paradox has no name for (its JSON then leaves the
 /// field out, as `JSON.stringify` drops `undefined`).
@@ -76,6 +53,7 @@ pub fn public_event(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use module_api::GlobalId;
 
     #[test]
     fn the_public_event_is_nodes_json() {

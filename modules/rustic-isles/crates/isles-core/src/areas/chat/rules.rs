@@ -43,6 +43,7 @@ pub struct StoreChat {
     store: Option<IslesStore>,
     node: NodeIdentity,
     settings: ChatSettings,
+    tokens: crate::areas::auth::tokens::GameTokens,
 }
 
 pub fn source(node: &NodeIdentity, store: Option<IslesStore>, settings: &Settings) -> StoreChat {
@@ -50,6 +51,7 @@ pub fn source(node: &NodeIdentity, store: Option<IslesStore>, settings: &Setting
         store,
         node: node.clone(),
         settings: chat_settings(settings),
+        tokens: crate::areas::auth::tokens::GameTokens(settings.clone()),
     }
 }
 
@@ -72,6 +74,10 @@ impl ChatSource for StoreChat {
 
     fn settings(&self) -> ChatSettings {
         self.settings
+    }
+
+    fn verifier(&self) -> Option<&dyn isles_chat::login::TokenVerifier> {
+        self.store.is_some().then_some(&self.tokens)
     }
 
     fn player<'a>(&'a self, account: &'a GlobalId) -> BoxFuture<'a, Result<Option<Player>, ModuleError>> {

@@ -37,6 +37,11 @@ pub trait ChatSource: Send + Sync {
 
     fn settings(&self) -> ChatSettings;
 
+    /// What the game's token check says about a token (`TokenVerifier`), or `None` when not configured.
+    fn verifier(&self) -> Option<&dyn crate::login::TokenVerifier> {
+        None
+    }
+
     /// The account's player, `None` for one that does not exist.
     fn player<'a>(&'a self, account: &'a GlobalId) -> BoxFuture<'a, Result<Option<Player>, ModuleError>>;
 

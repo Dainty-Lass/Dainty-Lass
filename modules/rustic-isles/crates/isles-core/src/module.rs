@@ -15,10 +15,12 @@ use std::time::Duration;
 use isles_chat::{ChatRules, ChatSource};
 use module_api::chat::{ChatAnswer, ChatQuery};
 use module_api::manifest::{PortDefault, Transport};
+use module_api::module::PlayerInfo;
 use module_api::registrar::ConfigSection;
 use module_api::{
-    API_VERSION, BoxFuture, Capabilities, ErrorKind, Event, EventName, GameModule, LogLevel, ModuleConfig,
-    ModuleContext, ModuleError, ModuleKind, ModuleManifest, ModuleStatus, Phase, PortRange, Registrar,
+    API_VERSION, AdminAction, AdminCall, AdminRequest, AdminResponse, BoxFuture, Capabilities, ErrorKind, Event,
+    EventName, GameModule, LogLevel, ModuleConfig, ModuleContext, ModuleError, ModuleKind, ModuleManifest,
+    ModuleStatus, Phase, PortRange, Registrar,
 };
 use serde_json::{Value, json};
 use store::{DatabaseConfig, DatabaseOptions};
@@ -333,6 +335,15 @@ impl GameModule for IslesModule {
             registrar.host_only_route(prefix, "backend");
         }
         registrar.udp_ports("game");
+        for action in [
+            AdminAction::Kick,
+            AdminAction::Ban,
+            AdminAction::Unban,
+            AdminAction::LiftTimeout,
+            AdminAction::Lookup,
+        ] {
+            registrar.admin_action(action);
+        }
         registrar.emits(EventName::new(LISTENING_EVENT).map_err(failed)?);
         registrar.emits(EventName::new(isles_chat::headline::HEADLINE_EVENT).map_err(failed)?);
         registrar.config_section(ConfigSection::new("backend").key(
@@ -427,5 +438,150 @@ impl GameModule for IslesModule {
             let source = source.ok_or_else(|| ModuleError::new(ErrorKind::Unavailable, "the module is not running"))?;
             self.spec.chat.answer(&*source, &query).await
         })
+    }
+
+    fn admin(&self, _ctx: ModuleContext, call: AdminCall) -> BoxFuture<'_, Result<AdminResponse, ModuleError>> {
+        Box::pin(async move {
+            let store = lock(&self.running).store.clone();
+            let store = store.ok_or_else(|| ModuleError::new(ErrorKind::Unavailable, "the module has no database"))?;
+            handle_admin(&store, call).await
+        })
+    }
+}
+
+async fn resolve_player(
+    store: &IslesStore,
+    player: &str,
+) -> Result<Option<(crate::ids::AccountId, String, String)>, ModuleError> {
+    use crate::ids::{AccountId, UserId};
+    use module_api::GlobalId;
+
+    let raw = player.trim().to_owned();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    store
+        .read(move |conn, repos| {
+            if let Ok(global) = raw.parse::<GlobalId>()
+                && let Ok(id) = AccountId::try_from(global)
+            {
+                if let Some(acc) = repos.accounts.find(conn, &id)? {
+                    return Ok(Some((acc.id, acc.user_id.0, acc.name)));
+                }
+                if let Some(la) = repos.launcher_accounts.find_by_account(conn, &id)? {
+                    return Ok(Some((la.account.clone(), la.account.to_string(), la.display_name)));
+                }
+            }
+            if let Some(acc) = repos.accounts.find_by_user_id(conn, &UserId(raw.clone()))? {
+                return Ok(Some((acc.id, acc.user_id.0, acc.name)));
+            }
+            let normalized = raw.to_lowercase();
+            if let Some(la) = repos
+                .launcher_accounts
+                .find_by_display_name_normalized(conn, &normalized)?
+            {
+                let user_id = repos
+                    .accounts
+                    .find(conn, &la.account)?
+                    .map_or_else(|| la.account.to_string(), |a| a.user_id.0);
+                return Ok(Some((la.account, user_id, la.display_name)));
+            }
+            Ok(None)
+        })
+        .await
+        .map_err(failed)
+}
+
+async fn handle_admin(store: &IslesStore, call: AdminCall) -> Result<AdminResponse, ModuleError> {
+    use crate::areas::reforged_api::launcher_api::forget_status;
+    use crate::areas::reforged_api::{presence, util};
+    use crate::ids::AccountId;
+    use crate::repo::auth::{AccessChange, OperationalStatus};
+
+    let actor = call.actor;
+    let revoke_and_close = |store: IslesStore,
+                            actor: module_api::ActorContext,
+                            target: AccountId,
+                            user_id: String,
+                            reason: &'static str| async move {
+        store
+            .account_write(&target, &actor, {
+                let target = target.clone();
+                move |tx, repos| {
+                    let now = util::now_iso();
+                    repos.refresh_sessions.revoke_all_for_account(tx, &target, &now)?;
+                    repos.game_exchange_codes.revoke_unused_for_account(tx, &target, &now)
+                }
+            })
+            .await
+            .map_err(failed)?;
+        if let Some(chat) = presence::chat_sessions() {
+            chat.close_connections(&user_id, 1008, reason);
+        }
+        forget_status();
+        Ok::<(), ModuleError>(())
+    };
+
+    let set_status = |store: IslesStore,
+                      actor: module_api::ActorContext,
+                      target: AccountId,
+                      status: OperationalStatus,
+                      reason: Option<String>| async move {
+        let change = AccessChange {
+            approval_status: None,
+            status: Some(status),
+            approval_updated_at: util::now_iso(),
+            approval_updated_by: "host".to_owned(),
+            approval_reason: reason.map(|r| r.chars().take(500).collect()),
+        };
+        store
+            .account_write(&target, &actor, {
+                let target = target.clone();
+                move |tx, repos| repos.launcher_accounts.set_access_state(tx, &target, &change)
+            })
+            .await
+            .map_err(failed)?;
+        forget_status();
+        Ok::<(), ModuleError>(())
+    };
+
+    match call.request {
+        AdminRequest::Kick { player, .. } => {
+            let Some((target, user_id, _)) = resolve_player(store, &player).await? else {
+                return Ok(AdminResponse::NotFound);
+            };
+            revoke_and_close(store.clone(), actor, target, user_id, "kicked by the host").await?;
+            Ok(AdminResponse::Done)
+        }
+        AdminRequest::Ban { player, reason, until } => {
+            let Some((target, user_id, _)) = resolve_player(store, &player).await? else {
+                return Ok(AdminResponse::NotFound);
+            };
+            let status = if until.is_some() {
+                OperationalStatus::Disabled
+            } else {
+                OperationalStatus::Banned
+            };
+            set_status(store.clone(), actor.clone(), target.clone(), status, reason).await?;
+            revoke_and_close(store.clone(), actor, target, user_id, "banned by the host").await?;
+            Ok(AdminResponse::Done)
+        }
+        AdminRequest::Unban { player, reason } | AdminRequest::LiftTimeout { player, reason } => {
+            let Some((target, _, _)) = resolve_player(store, &player).await? else {
+                return Ok(AdminResponse::NotFound);
+            };
+            set_status(store.clone(), actor, target, OperationalStatus::Active, reason).await?;
+            Ok(AdminResponse::Done)
+        }
+        AdminRequest::Lookup { player } => {
+            let Some((target, _, name)) = resolve_player(store, &player).await? else {
+                return Ok(AdminResponse::NotFound);
+            };
+            Ok(AdminResponse::Player(PlayerInfo {
+                account: Some(target.global().clone()),
+                name,
+                online: false,
+            }))
+        }
     }
 }

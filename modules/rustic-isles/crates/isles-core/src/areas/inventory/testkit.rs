@@ -75,6 +75,9 @@ fn auth_of(headers: &HeaderMap) -> Option<AuthData> {
                 host_account: rifts_seam::AccountId("host".to_owned()),
                 scopes: Vec::new(),
                 roster: Vec::new(),
+                host_peer: None,
+                bridge_instance: None,
+                wire_session: None,
             }),
     })
 }

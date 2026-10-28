@@ -24,7 +24,7 @@ pub mod rooms;
 pub mod source;
 
 use module_api::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
-use module_api::{BoxFuture, GlobalId, ModuleError};
+use module_api::{BoxFuture, ErrorKind, GlobalId, ModuleError};
 
 pub use hubs::{HubSessions, hub_sessions};
 pub use source::{ChatSettings, ChatSource, Player};
@@ -45,6 +45,56 @@ pub trait ChatRules: Send + Sync + 'static {
         account: &'a GlobalId,
     ) -> BoxFuture<'a, Result<RoomRules, ModuleError>>;
 
+    /// Validates a SASL login and resolves the player.
+    fn login<'a>(
+        &'a self,
+        source: &'a dyn ChatSource,
+        authcid: &'a str,
+        token: &'a str,
+    ) -> BoxFuture<'a, Result<Player, ModuleError>> {
+        Box::pin(async move {
+            let Some(verifier) = source.verifier() else {
+                return Err(ModuleError::unsupported("chat login without a token verifier"));
+            };
+            match login::authenticate(authcid, token, verifier, source).await {
+                Ok(player) => Ok(player),
+                Err(login::Refusal::Unavailable) => Err(ModuleError::new(
+                    ErrorKind::Unavailable,
+                    login::Refusal::Unavailable.as_str(),
+                )),
+                Err(refusal) => Err(ModuleError::new(ErrorKind::Invalid, refusal.as_str())),
+            }
+        })
+    }
+
+    /// Accepted friends of `account`.
+    fn friends<'a>(
+        &'a self,
+        source: &'a dyn ChatSource,
+        account: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<Vec<GlobalId>, ModuleError>> {
+        source.friends(account)
+    }
+
+    /// Whether `from` may whisper `to`.
+    fn may_whisper<'a>(
+        &'a self,
+        _source: &'a dyn ChatSource,
+        _from: &'a GlobalId,
+        _to: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<bool, ModuleError>> {
+        Box::pin(async { Ok(true) })
+    }
+
+    /// Which [`RoomKind`] a MUC room's local part names.
+    fn room_of<'a>(
+        &'a self,
+        source: &'a dyn ChatSource,
+        name: &'a str,
+    ) -> BoxFuture<'a, Result<Option<RoomKind>, ModuleError>> {
+        Box::pin(async move { Ok(rooms::room_kind_of(source, hub_sessions(), rooms::now_millis(), name)) })
+    }
+
     /// One query, as `GameModule::chat` receives it.
     fn answer<'a>(
         &'a self,
@@ -55,6 +105,19 @@ pub trait ChatRules: Send + Sync + 'static {
             match query {
                 ChatQuery::Jid { account } => self.jid(source, account).await.map(ChatAnswer::Jid),
                 ChatQuery::Room { room, account } => self.room(source, room, account).await.map(ChatAnswer::Room),
+                ChatQuery::Login { authcid, token } => {
+                    self.login(source, authcid, token)
+                        .await
+                        .map(|player| ChatAnswer::Login {
+                            account: player.account,
+                            name: player.name,
+                        })
+                }
+                ChatQuery::Friends { account } => self.friends(source, account).await.map(ChatAnswer::Friends),
+                ChatQuery::MayWhisper { from, to } => {
+                    self.may_whisper(source, from, to).await.map(ChatAnswer::MayWhisper)
+                }
+                ChatQuery::RoomOf { name } => self.room_of(source, name).await.map(ChatAnswer::RoomOf),
             }
         })
     }

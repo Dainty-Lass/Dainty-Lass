@@ -54,6 +54,24 @@ const OPEN: RoomRules = RoomRules {
     history: false,
 };
 
+/// What `RoomKind` a room local part names (`Party-<id>`, `Hunt-<id>`, `City-<id>`).
+pub fn room_kind_of(source: &dyn ChatSource, hubs: &HubSessions, now_ms: u64, room: &str) -> Option<RoomKind> {
+    if let Some(rest) = room.strip_prefix("Party-") {
+        return instance_id(rest, IdKind::Party, &source.node().node).map(RoomKind::Party);
+    }
+    if let Some(rest) = room.strip_prefix("Hunt-") {
+        return instance_id(rest, IdKind::Hunt, &source.node().node).map(RoomKind::Hunt);
+    }
+    if let Some(rest) = room.strip_prefix("City-") {
+        let region = hubs
+            .region_of_hub(rest, now_ms)
+            .or_else(|| rest.parse().ok())
+            .or_else(|| (!rest.is_empty()).then(|| source.node().region.clone()))?;
+        return Some(RoomKind::Region(region));
+    }
+    None
+}
+
 /// What `account` may do in `room`, at `now_ms`.
 pub async fn rules_of(
     source: &dyn ChatSource,

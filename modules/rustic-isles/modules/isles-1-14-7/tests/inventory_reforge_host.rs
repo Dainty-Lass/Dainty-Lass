@@ -97,7 +97,7 @@ impl GuardHooks for Guard {
     fn guard_manifest_roles(&self) -> &'static [&'static str] {
         &[]
     }
-    fn census(&self, _: &rifts_seam::RequestInfo) -> Result<(), SeamError> {
+    fn census(&self, _: &rifts_seam::HostRouteSample) -> Result<(), SeamError> {
         Ok(())
     }
     fn rate_limit_bucket(&self, _: rifts_seam::RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {

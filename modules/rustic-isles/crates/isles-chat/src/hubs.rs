@@ -91,6 +91,15 @@ impl HubSessions {
         self.live(account, now_ms)
             .is_some_and(|served| &served.region == region)
     }
+
+    /// The region a live hub session belongs to, when any player has been sent to `game_session_id`.
+    pub fn region_of_hub(&self, game_session_id: &str, now_ms: u64) -> Option<Region> {
+        let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        state.by_account.values().find_map(|(_, served)| {
+            (now_ms.saturating_sub(served.at_ms) <= HUB_SESSION_TTL_MS && served.game_session_id == game_session_id)
+                .then(|| served.region.clone())
+        })
+    }
 }
 
 /// The node's one registry, which matchmaking records into and the chat rules read.

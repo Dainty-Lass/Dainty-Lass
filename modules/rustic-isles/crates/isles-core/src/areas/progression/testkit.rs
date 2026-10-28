@@ -108,7 +108,7 @@ impl GuardHooks for RecordingGuard {
     fn guard_manifest_roles(&self) -> &'static [&'static str] {
         &[]
     }
-    fn census(&self, _: &RequestInfo) -> Result<(), SeamError> {
+    fn census(&self, _: &rifts_seam::HostRouteSample) -> Result<(), SeamError> {
         Ok(())
     }
     fn rate_limit_bucket(&self, _: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
@@ -197,6 +197,9 @@ fn auth_data(request: &Request) -> Option<AuthData> {
                 host_account: RiftsAccount(user.clone().unwrap_or_default()),
                 scopes: vec![CapabilityScope::GameServerRuntime],
                 roster: roster.iter().map(|id| RiftsAccount(id.clone())).collect(),
+                host_peer: None,
+                bridge_instance: None,
+                wire_session: None,
             });
             Some(AuthData {
                 is_gameserver: false,

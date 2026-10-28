@@ -776,6 +776,7 @@ async fn full_migration_and_verification_across_all_areas_and_rb11_transforms() 
     let acc2 = deterministic_account_id(&node, "22222222-2222-4222-8222-222222222222").unwrap();
 
     db.read(move |conn| -> Result<(), DbError> {
+        store::history::verify(conn, None).map_err(DbError::Store)?;
         let entries = store::history::changes(conn, 0, 10_000).map_err(DbError::Store)?;
         assert!(!entries.is_empty(), "change log must contain entries");
         assert!(

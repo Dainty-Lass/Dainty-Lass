@@ -440,6 +440,7 @@ pub async fn post_transaction(call: Call, ports: Ports) -> Response {
                     user: RiftsAccount(user_id.clone().unwrap_or_default()),
                     character_id: character_id.clone(),
                     transaction_id: transaction_id.clone(),
+                    body: Some(RiftsJson(body_value.to_string())),
                 },
             )
             .await;

@@ -466,7 +466,7 @@ impl GuardHooks for Recorder {
     fn guard_manifest_roles(&self) -> &'static [&'static str] {
         self.inner.guard_manifest_roles()
     }
-    fn census(&self, request: &RequestInfo) -> Result<(), SeamError> {
+    fn census(&self, request: &rifts_seam::HostRouteSample) -> Result<(), SeamError> {
         self.inner.census(request)
     }
     fn rate_limit_bucket(&self, request: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
@@ -516,6 +516,9 @@ fn runtime() -> RuntimeAuth {
         host_account: RiftsAccount("host-1".into()),
         scopes: Vec::new(),
         roster: Vec::new(),
+        host_peer: None,
+        bridge_instance: None,
+        wire_session: None,
     }
 }
 

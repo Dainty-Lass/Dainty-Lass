@@ -89,6 +89,9 @@ fn host_runtime() -> AuthData {
                 rifts_seam::AccountId("player-1".into()),
                 rifts_seam::AccountId("player-2".into()),
             ],
+            host_peer: None,
+            bridge_instance: None,
+            wire_session: None,
         }),
     }
 }
