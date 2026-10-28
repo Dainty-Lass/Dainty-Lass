@@ -18,8 +18,8 @@ pub use crate::core::{GuardMode, IslesCore, NoCore, Party};
 pub use dedicated::{DedicatedOnly, Rifts, RiftsParts, p2p_module_enabled};
 pub use error::{Component, Refusal, SeamError, Unimplemented};
 pub use hooks::{
-    AuthOutcome, Candidate, CandidateLeave, CandidateLeaveOutcome, GuardHooks, HostWrite, HostWriteKind,
-    HostWriteOptions, HubKind, HuntRouteContext, HuntRouteOutcome, InventoryDecision, InventoryFence,
+    AuthOutcome, Candidate, CandidateLeave, CandidateLeaveOutcome, GuardHooks, HostRouteSample, HostWrite,
+    HostWriteKind, HostWriteOptions, HubKind, HuntRouteContext, HuntRouteOutcome, InventoryDecision, InventoryFence,
     InventoryTransaction, Lifecycle, OperationsOverview, RealmEntry, RealmsEntry, RealmsHooks, ReleaseGate, Settings,
     TransactionPhase,
 };

@@ -69,8 +69,7 @@ impl AdmissionHunt {
     }
 }
 
-/// The host capability a transport presented (`P2PHostCapabilityRecord`), with the fields admission compares. The
-/// seam's `RuntimeAuth` lacks the host peer and bridge instance; isles builds this from the capability record.
+/// The host capability a transport presented (`P2PHostCapabilityRecord`), with the fields admission compares.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostCapability {
     pub session: SessionId,
@@ -79,6 +78,23 @@ pub struct HostCapability {
     pub host_account: AccountId,
     pub host_peer: PeerId,
     pub bridge_instance_id: String,
+}
+
+impl HostCapability {
+    /// Builds [`HostCapability`] directly from a [`rifts_seam::RuntimeAuth`] when its capability fields are present.
+    pub fn from_runtime(runtime: &rifts_seam::RuntimeAuth) -> Option<Self> {
+        Some(Self {
+            session: runtime.session.clone(),
+            wire_session: runtime
+                .wire_session
+                .clone()
+                .unwrap_or_else(|| runtime.session.0.ulid.to_string()),
+            generation: runtime.generation,
+            host_account: runtime.host_account.clone(),
+            host_peer: runtime.host_peer?,
+            bridge_instance_id: runtime.bridge_instance.clone()?,
+        })
+    }
 }
 
 /// What admission reads and writes in realms (RF5): the hunt and its roster, a hub's presence rows and the realm's

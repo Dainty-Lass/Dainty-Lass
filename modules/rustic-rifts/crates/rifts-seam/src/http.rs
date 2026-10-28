@@ -6,7 +6,7 @@ use std::net::IpAddr;
 use std::pin::Pin;
 
 use crate::error::{Component, SeamError, Unimplemented};
-use crate::id::{AccountId, SessionId};
+use crate::id::{AccountId, PeerId, SessionId};
 
 /// A boxed `Send` future, so the traits stay object-safe and isles can swap stubs, the default and the real thing.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -148,6 +148,12 @@ pub struct RuntimeAuth {
     pub scopes: Vec<CapabilityScope>,
     /// The accounts the runtime may act for.
     pub roster: Vec<AccountId>,
+    /// The host's transport peer id (`hostSteamId`), when known on the capability record.
+    pub host_peer: Option<PeerId>,
+    /// The host's bridge instance id (`bridgeInstanceId`), when known on the capability record.
+    pub bridge_instance: Option<String>,
+    /// The session id in wire spelling (`sessionId`), when known on the capability record.
+    pub wire_session: Option<String>,
 }
 
 /// Who is calling, after isles' middleware (`HasLauncherAuth`, `HasAdminAuth`, `RequireHostCapability`).

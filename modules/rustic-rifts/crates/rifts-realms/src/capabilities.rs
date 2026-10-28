@@ -361,6 +361,9 @@ impl HostCapabilities {
             host_account: AccountId(context.capability.host_account_id.clone()),
             scopes: context.capability.scopes.clone(),
             roster: identity.roster.iter().cloned().map(AccountId).collect(),
+            host_peer: context.capability.host_steam_id.parse().ok().map(rifts_seam::PeerId),
+            bridge_instance: Some(context.capability.bridge_instance_id.clone()),
+            wire_session: Some(context.capability.session_id.clone()),
         })
     }
 
