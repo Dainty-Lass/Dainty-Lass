@@ -16,7 +16,7 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 The Host page lets a host run a server from their PC. It drives `reforged-host` from the host's project folder
 (the server release, RD3, RD8), builds the runtime with the host's own toolchain, and makes game data from the
 1.14.7 client with Dumper-7 (an SDK) and CatalogExporter (an export). Both DLLs are loaded by the runtime loader
-(`winmm.dll`, `native/runtime-loader`), which the game loads at start and which loads every DLL its
+(`winmm.dll`, `modules/rustic-isles/native/runtime-loader`), which the game loads at start and which loads every DLL its
 `mystic_loader.ini` lists. So whatever DLL is beside the loader and on that list runs inside the player's game, with
 the player's account key in reach: the list and the folder it points into are the trust boundary.
 
@@ -51,7 +51,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
 - [ ] The `windows` crate features are only the clipboard's and the key store's (`Cargo.toml`: `Foundation`,
       `Security_Cryptography`, `System_DataExchange`, and `System_Memory` for the clipboard's global memory); no
       `Win32_System_Threading` or `Win32_System_Diagnostics_Debug`.
-- [ ] The loader is unchanged (`native/runtime-loader`): the launcher only places files it reads.
+- [ ] The loader is unchanged (`modules/rustic-isles/native/runtime-loader`): the launcher only places files it reads.
 
 ### The loader's list (`mystic_loader.ini`)
 

@@ -68,7 +68,7 @@ an id list without separators), and that a worker payload decodes to 8 to 64 str
       most 64 of `[A-Za-z0-9_-]`; `Region` is one of `main`, `aus`, `ger`, `us`, `mixed` or absent
       (`400 invalid_region`). Tests: `refuses_anything_else_on_a_command_line`, `bad_input_gets_400_and_starts_nothing`.
 - [ ] Maps, behemoths and game modes for catalog hunts and Trials come from the built-in tables
-      (`node/UndauntedDeployServer/src/vendor/`), never from the request; an unknown hunt id is an error, not a
+      (`modules/legacy-revived/node/UndauntedDeployServer/src/vendor/`), never from the request; an unknown hunt id is an error, not a
       path.
 - [ ] The game's arguments are fixed in count and order: the game-server key, the port, the map, the behemoth or
       `NO_BEHEMOTH`, the matchmaker hunt or `NO_MM_HUNTID`, `uid:hunt,...` or `NO_EXPECTED_PLAYERS`,

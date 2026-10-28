@@ -77,8 +77,8 @@ epic = { path = "crates/epic" }
 isles-1-12-0 = { path = "../modules/rustic-isles/modules/isles-1-12-0" }
 isles-1-14-7 = { path = "../modules/rustic-isles/modules/isles-1-14-7", default-features = false }
 # The launcher's side of realms (RF7, DD12): linked behind launcher's `realms` feature
-rifts-host = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "0ecf59ca67a480b4dcea956de9d1cd4fa61b0a76" }
-rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "0ecf59ca67a480b4dcea956de9d1cd4fa61b0a76" }
+rifts-host = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "ed481ecc64e31e0f90c0a3b6cd5b4b8bd0ecd565" }
+rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "ed481ecc64e31e0f90c0a3b6cd5b4b8bd0ecd565" }
 gateway = { path = "services/gateway" }
 host = { path = "services/host" }
 launcher = { path = "launcher/src-tauri" }
