@@ -63,10 +63,18 @@ fn modules_guard(data: &[u8], ips: &[String], settings: &NftSettings) {
             first: u16::from_le_bytes([chunk[0], chunk[1]]),
             last: u16::from_le_bytes([chunk[2], chunk[3]]),
         };
-        let ranges = if chunk[4] & 1 == 0 { vec![range] } else { vec![range, base] };
+        let ranges = if chunk[4] & 1 == 0 {
+            vec![range]
+        } else {
+            vec![range, base]
+        };
         let before = guard.text();
         match guard.attach(&module, &ranges) {
-            Ok(()) => assert!(ranges.iter().all(|r| r.is_valid() && r.first >= 1024 && !r.overlaps(base))),
+            Ok(()) => assert!(
+                ranges
+                    .iter()
+                    .all(|r| r.is_valid() && r.first >= 1024 && !r.overlaps(base))
+            ),
             Err(_) => assert_eq!(guard.text(), before),
         }
         if chunk[4] & 2 != 0 {
@@ -113,7 +121,10 @@ fuzz_target!(|data: &[u8]| {
     // PowerShell read as written
     if let Ok(name) = check_rule_name(&text) {
         assert!(name.starts_with("Dauntless Reforged Revival ") && name.len() <= 80);
-        assert!(name.bytes().all(|b| b.is_ascii_alphanumeric() || b" ()-._".contains(&b)));
+        assert!(
+            name.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b" ()-._".contains(&b))
+        );
     }
 
     // Settings that reach a script: each accepted one is a single token

@@ -24,7 +24,13 @@ fuzz_target!(|data: &[u8]| {
             assert_eq!(names, RUNTIME_FILE_NAMES);
             for file in &parsed.files {
                 assert!((1..=MAX_RUNTIME_FILE_BYTES).contains(&file.size));
-                assert!(file.sha256.len() == 64 && file.sha256.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+                assert!(
+                    file.sha256.len() == 64
+                        && file
+                            .sha256
+                            .bytes()
+                            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                );
             }
             assert!(!parsed.version.is_empty() && parsed.version.chars().count() <= 48);
             // And it writes back as a manifest with the same files and build (the version is cleaned
@@ -38,5 +44,8 @@ fuzz_target!(|data: &[u8]| {
     }
     let entries = cache_file::parse_cache_file(&text);
     assert!(entries.len() <= cache_file::MAX_ENTRIES);
-    assert_eq!(cache_file::parse_cache_file(&cache_file::write_cache_file(&entries)).len(), entries.len());
+    assert_eq!(
+        cache_file::parse_cache_file(&cache_file::write_cache_file(&entries)).len(),
+        entries.len()
+    );
 });

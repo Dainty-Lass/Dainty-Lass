@@ -11,8 +11,8 @@
 //!   `MAX_NICK_BYTES`, `is_authcid_shape`, no control characters in identifiers).
 
 use chat::federation::{
-    CHAT_FEDERATION_VERSION, Envelope, MAX_CHAT_WIRE, decode_request, decode_response, encode_request,
-    encode_response, validate_envelope,
+    CHAT_FEDERATION_VERSION, Envelope, MAX_CHAT_WIRE, decode_request, decode_response, encode_request, encode_response,
+    validate_envelope,
 };
 use chat::muc::MAX_NICK_BYTES;
 use chat::server::{BODY_LIMIT, is_authcid_shape};
@@ -41,21 +41,13 @@ fuzz_target!(|data: &[u8]| {
     {
         match &env {
             Envelope::Direct {
-                mid,
-                from_local,
-                body,
-                ..
+                mid, from_local, body, ..
             } => {
                 assert!(!mid.is_empty() && mid.len() <= 128);
                 assert!(is_authcid_shape(from_local));
                 assert!(body.len() <= BODY_LIMIT);
             }
-            Envelope::Room {
-                mid,
-                nick,
-                body,
-                ..
-            } => {
+            Envelope::Room { mid, nick, body, .. } => {
                 assert!(!mid.is_empty() && mid.len() <= 128);
                 assert!(!nick.is_empty() && nick.len() <= MAX_NICK_BYTES);
                 assert!(body.len() <= BODY_LIMIT);

@@ -174,9 +174,27 @@ servers' key) lives only in `secrets.env`.
 | (edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below) |
 | (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
-| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one (this build has none yet) and no other |
+| (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge` | Backend persistence and rule switches written to `backend.env` (`MYSTICPARADOX_REFORGE`, `MYSTICPARADOX_MASTERY_PERSISTENCE`, `MYSTICPARADOX_BOUNTY_PERSISTENCE`, `MYSTICPARADOX_COOLDOWN_PERSISTENCE`, `MYSTICPARADOX_ACCOUNT_ERASURE`, `MYSTICPARADOX_LOG_PURGE`) and forwarded to `isles-1-14-7`/`isles-1-12-0` `[switches]`. Left out: each version's own defaults |
+| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one and no other |
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader` | This server's name, region and optional directory leader in a network. Left out: a server on its own |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
+
+### Secrets (`secrets.env`)
+
+`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in `rust/services/host/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
+
+| Variable | Copied to | What |
+| --- | --- | --- |
+| `GATEWAY_SECRET` | `gateway.env` | Authenticates the gateway to its upstreams |
+| `ALLOWLIST_SECRET` | `gateway.env`, `allowlist.env` | Authenticates the gateway to the allowlist helper |
+| `REFORGED_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/reforged/api/*` admin key |
+| `GAMESERVER_API_KEY` | `backend.env` (`GAMESERVER_API_KEYS`), `director.env` (`METAGAME_API_KEY`) | Shared key between the game servers and the backend |
+| `API_KEY_HASH_SECRET` | `backend.env` | HMAC secret for hashing account API keys at rest |
+| `MYSTICPARADOX_METRICS_TOKEN` | `backend.env` | Bearer token for the backend's `/metrics` endpoint |
+| `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` | `backend.env` | 4096-bit RSA keypair (PKCS#8 private key and SPKI public key, base64-encoded PEM) that signs and verifies the auth service's RS256 access tokens |
+| `REFORGED_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](admin-api.md)) |
+| `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
+| `REFORGED_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
 
 ### The database engine
 
@@ -234,6 +252,18 @@ sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
 
 [modules.rustic-freeza.tuning]  # a module's own settings: the ones it says it reads
 ```
+
+For `isles-1-14-7` and `isles-1-12-0` (`modules/rustic-isles`), the `[modules.<id>.switches]` section (or the top-level `[switches]` table, which `setup` also writes to `backend.env`) overrides each version's switch defaults (`crates/isles-core/src/settings.rs`):
+
+| `[switches]` / `[modules.<id>.switches]` key | `backend.env` variable | Values | Default |
+| --- | --- | --- | --- |
+| `qos_port` (`[modules.<id>.switches]` only) | `QOS_PORT` | UDP port (`1`–`65535`) or `"0"`/`"off"` | `80` on 1.14.7 (`0` in `backend.env` when the launcher's relay answers QoS), `off` on 1.12.0 |
+| `reforge` | `MYSTICPARADOX_REFORGE` | `"on"`, `"log"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 |
+| `mastery_persistence` | `MYSTICPARADOX_MASTERY_PERSISTENCE` | `"on"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 |
+| `bounty_persistence` | `MYSTICPARADOX_BOUNTY_PERSISTENCE` | `"on"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 (`"off"` serves 1.12.0's empty stub) |
+| `cooldown_persistence` | `MYSTICPARADOX_COOLDOWN_PERSISTENCE` | `"on"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 (`"off"` serves 1.12.0's empty stub) |
+| `account_erasure` | `MYSTICPARADOX_ACCOUNT_ERASURE` | `"on"`, `"off"` | `"on"` (background sweep erases accounts past their deletion grace period) |
+| `log_purge` | `MYSTICPARADOX_LOG_PURGE` | `"on"`, `"off"` | `"on"` (background sweep purges expired email verification codes and activity logs) |
 
 Two game modules for one version are refused, whichever loads first, and so is one for a version this server's
 own stack serves (`edition`). A port a module asks for that something already holds is moved up past it. In the
@@ -322,8 +352,4 @@ the runtime and publish it again. Players' launchers notice the new hashes and a
 
 ## Known limits
 
-- The backend and the Director are Mystic Paradox's Node services with this project's patches
-  ([paradox-patches.md](paradox-patches.md)); the Rust port is in progress ([../MIGRATION_PLAN.md](../MIGRATION_PLAN.md)).
-- The launcher's page is a stand-in until `dainty-lass-ui` lands.
-- One server runs one game version. Several versions on one host come with the module framework
-  ([dainty-lass-plan.md](dainty-lass-plan.md)).
+- The Rust game modules (`isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`) and `dainty-lass-ui` are built in their submodule repositories (`modules/rustic-isles`, `modules/rustic-rifts`, `modules/legacy-revived`, `ui/`); the Node backend and Director remain in `modules/rustic-isles/reference/1.14.7/` until the RU9 cutover ([dainty-lass-plan.md](dainty-lass-plan.md)).

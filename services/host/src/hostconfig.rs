@@ -326,12 +326,116 @@ pub struct HostConfig {
     pub guard: Option<GuardConfig>,
     /// `[history]` (DH7). Absent: off.
     pub history: Option<HistoryConfig>,
+    /// `[switches]` (RU3c, RU5): backend persistence and rule switches. Absent: each version's own defaults.
+    pub switches: Option<SwitchesConfig>,
     /// `[modules]` (DF3). Absent: every compiled-in module and no external one, which is today's server.
     pub modules: Option<ModulesConfig>,
     /// `[network]` (DN2). Absent: a server outside any network.
     pub network: Option<NetworkConfig>,
     /// The file this config was read from; `FileForm::default()` for a new one.
     pub file: FileForm,
+}
+
+/// `[switches]` in `host.toml`: backend persistence and rule switches (`MYSTICPARADOX_*`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SwitchesConfig {
+    pub reforge: Option<String>,
+    pub mastery_persistence: Option<String>,
+    pub bounty_persistence: Option<String>,
+    pub cooldown_persistence: Option<String>,
+    pub account_erasure: Option<String>,
+    pub log_purge: Option<String>,
+}
+
+impl SwitchesConfig {
+    pub fn from_json(s: &Map<String, Value>) -> Result<Self, HostError> {
+        let on_off = |key: &str, allow_log: bool| -> Result<Option<String>, HostError> {
+            let Some(v) = s.get(key) else {
+                return Ok(None);
+            };
+            match v {
+                Value::Bool(b) => Ok(Some(if *b { "on" } else { "off" }.into())),
+                Value::String(text) => {
+                    let lower = text.trim().to_ascii_lowercase();
+                    if lower == "on" || lower == "off" || (allow_log && lower == "log") {
+                        Ok(Some(lower))
+                    } else if allow_log {
+                        Err(bad(format!(
+                            "switches.{key} must be \"on\", \"log\" or \"off\", not {}",
+                            shown(Some(v))
+                        )))
+                    } else {
+                        Err(bad(format!(
+                            "switches.{key} must be \"on\" or \"off\", not {}",
+                            shown(Some(v))
+                        )))
+                    }
+                }
+                _ => Err(bad(format!(
+                    "switches.{key} must be \"on\" or \"off\", not {}",
+                    shown(Some(v))
+                ))),
+            }
+        };
+        Ok(Self {
+            reforge: on_off("reforge", true)?,
+            mastery_persistence: on_off("masteryPersistence", false)?,
+            bounty_persistence: on_off("bountyPersistence", false)?,
+            cooldown_persistence: on_off("cooldownPersistence", false)?,
+            account_erasure: on_off("accountErasure", false)?,
+            log_purge: on_off("logPurge", false)?,
+        })
+    }
+
+    pub fn to_json(&self) -> Value {
+        let mut out = Map::new();
+        for (key, value) in [
+            ("reforge", &self.reforge),
+            ("masteryPersistence", &self.mastery_persistence),
+            ("bountyPersistence", &self.bounty_persistence),
+            ("cooldownPersistence", &self.cooldown_persistence),
+            ("accountErasure", &self.account_erasure),
+            ("logPurge", &self.log_purge),
+        ] {
+            if let Some(v) = value {
+                out.insert(key.into(), Value::String(v.clone()));
+            }
+        }
+        Value::Object(out)
+    }
+
+    pub fn env(&self) -> Vec<(&'static str, String)> {
+        let mut out = Vec::new();
+        for (env_key, value) in [
+            ("MYSTICPARADOX_REFORGE", &self.reforge),
+            ("MYSTICPARADOX_MASTERY_PERSISTENCE", &self.mastery_persistence),
+            ("MYSTICPARADOX_BOUNTY_PERSISTENCE", &self.bounty_persistence),
+            ("MYSTICPARADOX_COOLDOWN_PERSISTENCE", &self.cooldown_persistence),
+            ("MYSTICPARADOX_ACCOUNT_ERASURE", &self.account_erasure),
+            ("MYSTICPARADOX_LOG_PURGE", &self.log_purge),
+        ] {
+            if let Some(v) = value {
+                out.push((env_key, v.clone()));
+            }
+        }
+        out
+    }
+
+    /// Key-value pairs in `[modules.<id>.switches]` form (`snake_case` key -> JSON string).
+    pub fn module_switches(&self) -> Vec<(&'static str, Value)> {
+        let mut out = Vec::new();
+        for (key, value) in [
+            ("reforge", &self.reforge),
+            ("mastery_persistence", &self.mastery_persistence),
+            ("bounty_persistence", &self.bounty_persistence),
+            ("cooldown_persistence", &self.cooldown_persistence),
+        ] {
+            if let Some(v) = value {
+                out.push((key, Value::String(v.clone())));
+            }
+        }
+        out
+    }
 }
 
 /// `[history]` (DD23 layer 2, DH7): off-server change log and snapshot shipping to a peer node.
@@ -855,6 +959,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(guard) = c.get("guard") {
         guard::validate(guard)?;
     }
+    if let Some(switches) = c.get("switches") {
+        let s = switches.as_object().ok_or_else(|| bad("switches must be an object"))?;
+        SwitchesConfig::from_json(s)?;
+    }
     if let Some(modules) = c.get("modules") {
         ModulesConfig::from_json(modules)?;
     }
@@ -987,6 +1095,11 @@ impl HostConfig {
             .and_then(Value::as_object)
             .map(HistoryConfig::from_json)
             .transpose()?;
+        let switches = c
+            .get("switches")
+            .and_then(Value::as_object)
+            .map(SwitchesConfig::from_json)
+            .transpose()?;
         let modules = c.get("modules").map(ModulesConfig::from_json).transpose()?;
         let network = c.get("network").map(NetworkConfig::from_json).transpose()?;
         let multipliers = c.get("multipliers").and_then(Value::as_object).map(|m| Multipliers {
@@ -1030,6 +1143,7 @@ impl HostConfig {
             database,
             guard,
             history,
+            switches,
             modules,
             network,
             file: FileForm::default(),
@@ -1134,6 +1248,9 @@ impl HostConfig {
         }
         if let Some(history) = &self.history {
             m.insert("history".into(), history.to_json());
+        }
+        if let Some(switches) = &self.switches {
+            m.insert("switches".into(), switches.to_json());
         }
         if let Some(modules) = &self.modules {
             m.insert("modules".into(), modules.to_json());
@@ -1548,6 +1665,41 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         backend.push(("REFORGED_XP_MULTIPLIER", jsjson::number(m.xp)));
         backend.push(("REFORGED_REWARD_MULTIPLIER", jsjson::number(m.rewards)));
     }
+    let mut switch_env: Vec<(&'static str, String)> = Vec::new();
+    if let Some(mod_switches) = c
+        .modules
+        .as_ref()
+        .and_then(|m| m.settings.iter().find(|(id, _)| id.as_str() == "isles-1-14-7"))
+        .and_then(|(_, sections)| sections.get("switches"))
+    {
+        for (key, env_key) in [
+            ("reforge", "MYSTICPARADOX_REFORGE"),
+            ("mastery_persistence", "MYSTICPARADOX_MASTERY_PERSISTENCE"),
+            ("bounty_persistence", "MYSTICPARADOX_BOUNTY_PERSISTENCE"),
+            ("cooldown_persistence", "MYSTICPARADOX_COOLDOWN_PERSISTENCE"),
+            ("account_erasure", "MYSTICPARADOX_ACCOUNT_ERASURE"),
+            ("log_purge", "MYSTICPARADOX_LOG_PURGE"),
+        ] {
+            if let Some(v) = mod_switches.get(key) {
+                let text = match v {
+                    Value::String(s) => s.clone(),
+                    Value::Bool(b) => if *b { "on" } else { "off" }.into(),
+                    other => other.to_string(),
+                };
+                switch_env.push((env_key, text));
+            }
+        }
+    }
+    if let Some(switches) = &c.switches {
+        for (env_key, val) in switches.env() {
+            if let Some(slot) = switch_env.iter_mut().find(|(k, _)| *k == env_key) {
+                slot.1 = val;
+            } else {
+                switch_env.push((env_key, val));
+            }
+        }
+    }
+    backend.extend(switch_env);
     backend.extend([
         // Stacked items given back to a fixed quantity at each login, per account (upstream patch 0023).
         (

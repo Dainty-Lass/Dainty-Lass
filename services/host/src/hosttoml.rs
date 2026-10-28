@@ -40,6 +40,7 @@ const TOP: &[Field] = &[
     ("database", "database", false),
     ("guard", "guard", false),
     ("history", "history", false),
+    ("switches", "switches", false),
     ("network", "network", false),
     ("modules", "modules", false),
 ];
@@ -107,6 +108,15 @@ const GUARD: &[Field] = &[
 
 const HISTORY: &[Field] = &[("shipToPeer", "ship_to_peer", false)];
 
+const SWITCHES: &[Field] = &[
+    ("reforge", "reforge", false),
+    ("masteryPersistence", "mastery_persistence", false),
+    ("bountyPersistence", "bounty_persistence", false),
+    ("cooldownPersistence", "cooldown_persistence", false),
+    ("accountErasure", "account_erasure", false),
+    ("logPurge", "log_purge", false),
+];
+
 /// The keys of a table at the top of the file; `None` for a single value.
 fn table_fields(json_key: &str) -> Option<&'static [Field]> {
     match json_key {
@@ -117,6 +127,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "database" => Some(DATABASE),
         "guard" => Some(GUARD),
         "history" => Some(HISTORY),
+        "switches" => Some(SWITCHES),
         "network" => Some(NETWORK),
         _ => None,
     }
@@ -300,6 +311,7 @@ pub fn message(text: &str) -> String {
         DATABASE,
         GUARD,
         HISTORY,
+        SWITCHES,
         NETWORK,
     ] {
         for &(json, toml, _) in fields {
@@ -485,6 +497,23 @@ fn comment(path: &str) -> &'static str {
         "history.ship_to_peer" => {
             "A peer node id in [[network.nodes]] that receives this node's change log and snapshots over Service::LogShip (DH7)."
         }
+        "switches" => "Backend persistence and rule switches (left out: each version's own defaults).",
+        "switches.reforge" => "Weapon reforge rules (MYSTICPARADOX_REFORGE): \"on\", \"log\" or \"off\".",
+        "switches.mastery_persistence" => {
+            "Whether a game server's mastery report is saved (MYSTICPARADOX_MASTERY_PERSISTENCE): \"on\" or \"off\"."
+        }
+        "switches.bounty_persistence" => {
+            "Whether bounty saves are stored (MYSTICPARADOX_BOUNTY_PERSISTENCE): \"on\" or \"off\" (\"off\" is 1.12.0's stub)."
+        }
+        "switches.cooldown_persistence" => {
+            "Whether cooldown saves are stored (MYSTICPARADOX_COOLDOWN_PERSISTENCE): \"on\" or \"off\" (\"off\" is 1.12.0's stub)."
+        }
+        "switches.account_erasure" => {
+            "Whether the background sweep erases accounts past their deletion grace period (MYSTICPARADOX_ACCOUNT_ERASURE): \"on\" or \"off\"."
+        }
+        "switches.log_purge" => {
+            "Whether the background sweep purges expired verification codes and activity logs (MYSTICPARADOX_LOG_PURGE): \"on\" or \"off\"."
+        }
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",
         "network.region" => "The region it serves, such as oregon.",
@@ -592,6 +621,7 @@ mod tests {
             DATABASE,
             GUARD,
             HISTORY,
+            SWITCHES,
             NETWORK,
         ] {
             for &(json, toml, _) in fields {

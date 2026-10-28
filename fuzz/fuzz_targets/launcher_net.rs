@@ -84,5 +84,10 @@ fuzz_target!(|data: &[u8]| {
     }
     let branding = parse::parse_branding(Some(&value));
     assert!(branding.backgrounds.len() <= 8);
-    assert!(branding.backgrounds.iter().all(|(path, _)| parse::is_branding_path(path)));
+    assert!(
+        branding
+            .backgrounds
+            .iter()
+            .all(|(path, _)| parse::is_branding_path(path))
+    );
 });

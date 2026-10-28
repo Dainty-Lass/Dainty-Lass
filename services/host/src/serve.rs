@@ -494,13 +494,21 @@ pub fn list_modules(
     let modules = config.modules.clone().unwrap_or_default();
     let mut settings = modules.settings.clone();
     let mut entry = |id: module_api::ModuleId, source: ModuleSource, autoload: bool| {
-        let settings = settings.remove(&id).unwrap_or_default();
+        let mut mod_settings = settings.remove(&id).unwrap_or_default();
+        if let Some(switches) = &config.switches
+            && matches!(id.as_str(), "isles-1-14-7" | "isles-1-12-0")
+        {
+            let section = mod_settings.entry("switches".to_owned()).or_default();
+            for (key, value) in switches.module_switches() {
+                section.entry(key.to_owned()).or_insert(value);
+            }
+        }
         registry
             .add_entry(ModuleEntry {
                 id,
                 source,
                 autoload,
-                settings,
+                settings: mod_settings,
             })
             .map_err(|e| HostError::message(format!("[modules]: {e}")))
     };
@@ -863,6 +871,7 @@ mod tests {
             history: None,
             modules: None,
             network: None,
+            switches: Default::default(),
             file: FileForm::default(),
         }
     }

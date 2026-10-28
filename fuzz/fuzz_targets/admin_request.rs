@@ -4,11 +4,11 @@
 //! passes its check is one the backend and the player's launcher can take as it is.
 #![no_main]
 
+use admin::guard::{Rule, is_id};
 use admin::input::{
     MAX_MODULE_MESSAGE, MAX_REASON, MAX_TIMEOUT_MS, OPERATOR_HEADER, bearer, game, is_account_id, is_json,
     module_message, operator, parse_body, parse_instances, reason, timeout_end, username,
 };
-use admin::guard::{Rule, is_id};
 use admin::keys::{MAX_NAME, Role, clean_name, hash_key, is_key_id, key_id};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use libfuzzer_sys::arbitrary::{self, Arbitrary};
@@ -41,7 +41,11 @@ fuzz_target!(|request: Request<'_>| {
         let auth: Vec<_> = headers.get_all("authorization").iter().collect();
         assert_eq!(auth.len(), 1);
         assert_eq!(auth[0].as_bytes(), format!("Bearer {given}").as_bytes());
-        assert!(headers.keys().all(|n| !n.as_str().starts_with("x-forwarded-") && n != "x-reforged-gateway"));
+        assert!(
+            headers
+                .keys()
+                .all(|n| !n.as_str().starts_with("x-forwarded-") && n != "x-reforged-gateway")
+        );
     }
     if let Ok(operator) = operator(&headers) {
         assert!(!operator.id().is_empty() && operator.id().bytes().all(|b| b.is_ascii_digit()));
@@ -60,7 +64,13 @@ fuzz_target!(|request: Request<'_>| {
     }
     // A guarded action is found by 16 lower-case hex digits and nothing else; a rule is one of three words
     if is_id(request.key) {
-        assert!(request.key.len() == 16 && request.key.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+        assert!(
+            request.key.len() == 16
+                && request
+                    .key
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        );
     }
     if let Some(rule) = Rule::parse(request.name) {
         assert_eq!(Rule::parse(rule.as_str()), Some(rule));

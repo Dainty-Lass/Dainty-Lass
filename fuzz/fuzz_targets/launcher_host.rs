@@ -25,7 +25,11 @@ fuzz_target!(|data: &[u8]| {
     }
     if let Some(invite) = parse::invite_line(&lines) {
         // Only an invite link, short, on one line, reaches the page's copy button
-        assert!(parse::INVITE_LINK_PREFIXES.iter().any(|prefix| invite.link.starts_with(prefix)));
+        assert!(
+            parse::INVITE_LINK_PREFIXES
+                .iter()
+                .any(|prefix| invite.link.starts_with(prefix))
+        );
         assert!(invite.link.len() <= 4096 && !invite.link.chars().any(char::is_control));
         if let Some(name) = &invite.for_name {
             assert!(!name.is_empty() && name.chars().count() <= 40 && !name.chars().any(char::is_control));

@@ -588,6 +588,7 @@ mod tests {
             history: None,
             modules: None,
             network: None,
+            switches: Default::default(),
             file: FileForm::default(),
         }
     }
