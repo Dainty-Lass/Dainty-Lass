@@ -299,6 +299,12 @@ target: `network_logship` (`rust/fuzz/fuzz_targets/network_logship.rs`).
       deleted through `Service::LogShip` (a repeat of the identical content-addressed key returns `Stored { created:
       false }` with the original `received_at`), and `.meta.json` records `received_at` from the receiving peer's own
       `Clock`, which `BucketRead::list` exposes as `ObjectInfo::last_modified` for `RestoreOptions::trust_window`.
+- [ ] Segments and full database snapshots shipped via `PeerBucket` are transferred over mTLS (`PeerLink`), but they are
+      stored unencrypted at rest in `.workspace/peer-logs/<origin>/` on the receiving peer's filesystem and contain every
+      logged table row and database snapshot table, including player IP addresses, Discord user IDs, usernames, and
+      HMAC-hashed account keys. Before enabling `ship_to_peer`, a host operator must treat the receiving peer operator as
+      having full read access to that player and audit data, ensure the peer's `.workspace/peer-logs/` directory is on
+      encrypted storage with restricted OS permissions, and disclose off-node backup storage to players where required.
 - [ ] Tests in `rust/plugins/network/tests/logship.rs`:
       `a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_and_trusted_head_verified`,
       `a_tampered_segment_is_named_and_peer_enforces_prefix_and_append_only`,
