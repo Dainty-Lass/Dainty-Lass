@@ -13,7 +13,7 @@ Paradox does not endorse it. Every change is recorded in the commit history.
 
 ## Where the parts come from
 
-### Mystic Paradox: ParadoxTransport
+### Mystic Paradox: ParadoxTransport and realms
 
 - By Pranav Karande (MysticFox). Repository:
   [github.com/pranav158/Mystic-Paradox](https://github.com/pranav158/Mystic-Paradox), AGPL-3.0-only with
@@ -23,8 +23,11 @@ Paradox does not endorse it. Every change is recorded in the commit history.
   MysticFox / Pranav Karande. See NOTICE.md for contribution and provenance information."**
 - The repository root is Mystic Paradox's `ParadoxTransport/` folder, taken with its history (up to `c1c5dca`,
   17 October 2026): the transport (`src/`), its self-test (`src/test/`), the build and dependency scripts and
-  `tools/`. Its files keep Mystic Paradox's copyright headers. Every file from Mystic Paradox, and every change
-  made to it here, stays under Mystic Paradox's terms.
+  `tools/`. Its files keep Mystic Paradox's copyright headers.
+- The Rust workspace (`crates/rifts-seam`, `crates/rifts-admission`, `crates/rifts-relay`, `crates/rifts-realms`,
+  `crates/rifts-guard`, `crates/rifts-host`) ports Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting
+  modules (`21b9ff5`, `AGPL-3.0-only`) to Rust on `store`. Every file from Mystic Paradox, every Rust port of its
+  modules, and every change made to it here stays under `AGPL-3.0-only` and Mystic Paradox's additional terms.
 - `LICENSE` and `ADDITIONAL_TERMS.md` are copied unchanged from Mystic Paradox.
 
 ### libjuice
