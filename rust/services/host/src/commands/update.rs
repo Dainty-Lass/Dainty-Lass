@@ -436,7 +436,7 @@ pub fn migrate_existing_mongo_data_with_config(
         Err(e) => {
             if has_managed_mongo_dir {
                 return Err(HostError::message(format!(
-                    "MongoDB data was found in {}, but MongoDB is not reachable at {display_uri} ({e}): start mongod and run reforged-host setup so your data can be migrated and verified before switching to the Rust backend, or run reforged-host setup --fresh-start (or set fresh_start = true under [database] in host.toml) to start on an empty database; the server was left on its current setup and MongoDB data was not modified",
+                    "MongoDB data was found in {}, but MongoDB is not reachable at {display_uri} ({e}): start mongod (in Docker: docker compose --profile rollback up -d --wait mongo) and run reforged-host setup so your data can be migrated and verified before switching to the Rust backend, or run reforged-host setup --fresh-start (or set fresh_start = true under [database] in host.toml) to start on an empty database; the server was left on its current setup and MongoDB data was not modified",
                     paths.mongo_data.display()
                 )));
             }
