@@ -610,9 +610,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
         let c = config(ServerMode::Private);
+        let host_bin = dir.path().join("bin").join("reforged-host");
         let plan = service_plan(&paths, &c, false, &programs(dir.path()));
         assert_eq!(names(&plan), ["backend", "director", "content", "gateway"]);
-        for p in &plan {
+        for p in &plan[..2] {
             assert_eq!(p.spec.env_file, Some(paths.config.join(format!("{}.env", p.spec.name))));
             assert_eq!(p.spec.command, PathBuf::from("node"));
         }
@@ -628,8 +629,31 @@ mod tests {
         assert_eq!(plan[1].spec.cwd, paths.director_dir);
         assert_eq!(plan[1].spec.ready, Some(Ready::http(61001, "/api/instances")));
         assert!(!plan[1].required && !plan[2].required);
-        assert_eq!(plan[2].spec.ready, Some(Ready::http(61002, "/content/v1/news")));
+        let content = &plan[2];
+        assert_eq!(content.spec.command, host_bin);
+        assert_eq!(
+            content.spec.args,
+            [
+                "content",
+                "serve",
+                "--env-file",
+                &paths.config.join("content.env").display().to_string()
+            ]
+        );
+        assert_eq!(content.spec.env_file, None);
+        assert_eq!(content.spec.ready, Some(Ready::http(61002, "/content/v1/news")));
         let gateway = &plan[3];
+        assert_eq!(gateway.spec.command, host_bin);
+        assert_eq!(
+            gateway.spec.args,
+            [
+                "gateway",
+                "serve",
+                "--env-file",
+                &paths.config.join("gateway.env").display().to_string()
+            ]
+        );
+        assert_eq!(gateway.spec.env_file, None);
         assert_eq!(gateway.spec.ready, Some(Ready::tcp("100.101.102.103", 61000)));
         assert!(gateway.required);
     }
