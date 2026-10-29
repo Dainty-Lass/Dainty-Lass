@@ -1,9 +1,9 @@
 # Hosting a server on Windows
 
-One PC runs the whole server: the gateway, the backend and Director, the content server, MongoDB and the
-game servers. A **private** server is reachable by friends on your tailnet; a **public** one by anyone with an
-invite, over TLS. The host kit, `reforged-host`, does the setting up; the launcher's Host page drives the same
-commands with buttons.
+One PC runs the whole server: the gateway, the 1.14.7 Rust backend and Director (`isles-1-14-7`), the content
+server, the admin API, the SQLite (or Postgres) store and the game servers. A **private** server is reachable by
+friends on your tailnet; a **public** one by anyone with an invite, over TLS. The host kit, `reforged-host`, does
+the setting up; the launcher's Host page drives the same commands with buttons.
 
 Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting-docker.md).
 
@@ -12,9 +12,9 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 - Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it), or an Epic
   account whose library has Dauntless, from which `install-game` installs it ([below](#getting-the-game-from-epic)).
 - The **server release** (`ReforgedRevivalServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\reforged-host.exe`
-  is the kit. Or a checkout of this repository built from source.
-- **Node.js 22** and **MongoDB** (`mongod`): the backend and the Director are still Node, and the kit runs
-  `mongod` for you unless you point it at your own (`--mongo-uri`, `--no-manage-mongo`).
+  is the kit. Or a checkout of this repository built from source. No Node.js or MongoDB is needed on the default
+  path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API are compiled into
+  `reforged-host` and store player data in `.workspace\config\dainty-lass.db` (SQLite) or Postgres (`[database]`).
 - **Visual Studio 2022** with Desktop development with C++, and **Dumper-7**, to generate the SDK and build
   the game runtime from your own game ([sdk-and-game-data.md](sdk-and-game-data.md)). Players get the runtime
   you build; nobody else's works with your server's build.
@@ -35,11 +35,10 @@ bin\reforged-host setup --mode private --name "Friday Hunts" --game "D:\Games\Da
 bin\reforged-host setup --mode public --host play.example.org --game-address 203.0.113.10 --name "Friday Hunts" --game "D:\Games\Dauntless"
 ```
 
-`setup` writes `.workspace\config\host.toml` (every setting, with a comment each) and `secrets.env` (made
-once, never shown), installs the Node services (`--skip-install` to keep yours), starts MongoDB's replica set,
-and in public mode makes the gateway's certificate. **It never remakes that certificate**: every invite's
-`fp` depends on it. Run `setup` again with different options to change a setting, or edit `host.toml` and run
-`setup` with none.
+`setup` writes `.workspace\config\host.toml` (every setting, with a comment each), `secrets.env` (made
+once, never shown) and the service `.env` files, and in public mode makes the gateway's certificate.
+**It never remakes that certificate**: every invite's `fp` depends on it. Run `setup` again with different
+options to change a setting, or edit `host.toml` and run `setup` with none.
 
 No 1.14.7 folder yet? `install-game` fetches one from your own Epic library
 ([below](#getting-the-game-from-epic)) and points `game_dir` at it.
@@ -398,6 +397,10 @@ bin\reforged-host update                    # install it and run setup again
 `update` keeps `.workspace` and runs `setup` from your `host.toml`. When `native\` changed, it says so: rebuild
 the runtime and publish it again. Players' launchers notice the new hashes and ask once more.
 
-## Known limits
+## Rollback to the Node backend and MongoDB (`paradox` feature)
 
-- The Rust game modules (`isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`) and `dainty-lass-ui` are built in their submodule repositories (`modules/rustic-isles`, `modules/rustic-rifts`, `modules/legacy-revived`, `ui/`); the Node backend and Director remain in `modules/rustic-isles/reference/1.14.7/` until the RU9 cutover ([dainty-lass-plan.md](dainty-lass-plan.md)).
+For one release after the RU9/RB14 cutover (until RB15 deletes the reference Node services), building the server with
+the opt-in `paradox` Cargo feature (`cargo build --release -p server-console --features paradox`) runs Mystic
+Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB
+instead of the compiled-in `isles-1-14-7` Rust module. To export a server's SQLite or Postgres store back to MongoDB
+before starting a `paradox` build, run `isles-db export-mongo --database <sqlite-or-postgres-url> --mongo <mongodb-uri>`.

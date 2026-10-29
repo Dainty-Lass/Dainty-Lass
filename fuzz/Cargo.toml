@@ -32,7 +32,7 @@ flate2 = "1"
 gateway = { path = "../services/gateway", features = ["legacy"] }
 # history_bucket: what a restore reads back from the history bucket (DH4)
 history-ship = { path = "../crates/history-ship" }
-host = { path = "../services/host" }
+host = { path = "../services/host", default-features = false, features = ["gateway", "content", "admin"] }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
 module-api = { path = "../crates/module-api" }
 http = "1"
