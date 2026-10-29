@@ -2,13 +2,14 @@
 # One archive per server platform, which `reforged-host setup` and `reforged-host update` download and check (RH5):
 #  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/:
 #    the source of the commit (git archive, the corresponding source under the AGPL) and of the rustic-isles
-#    submodule at the commit it pins (modules/rustic-isles, DS6: the server runs its Node services), with
+#    submodule at the commit it pins (modules/rustic-isles, DS6), with
 #      bin/              the server in one binary (RD26), built here for that platform: dainty-lass-server-console,
 #                        the same as reforged-host (the name update, the systemd units and the Director's
-#                        game-server wrapper run), and dainty-lass-server-minimal. The gateway, allowlist,
-#                        content server and admin API are inside it (`reforged-host <service>` runs one alone)
+#                        game-server wrapper run), and dainty-lass-server-minimal. The 1.14.7 Rust backend and
+#                        Director (isles-1-14-7), gateway, allowlist, content server, admin API and database
+#                        migration/rollback commands (`reforged-host db migrate|verify|export-mongo`) are inside it
 #      modules/rustic-isles/reference/1.14.7/ParadoxBackend and ParadoxDirector, built with their node_modules
-#                        (Node until RB14; hosts keep Node.js)
+#                        (kept for one release only as the documented RB13/RU9 rollback artefact until RB15)
 #      release.json      the version, commit, platform and repository, and every file of the release with its SHA-256
 #  - SHA256SUMS.txt for the archives
 #
@@ -113,8 +114,9 @@ jobs:
           rustup target add "$TARGET"
 
       # No build cache in a release: every file is built from this commit alone.
-      # backend and director join this list once they are real (RB rows; RD8). Until RB14 the archive carries
-      # the Node backend and Director instead (the Node build step below).
+      # The 1.14.7 Rust backend, Director and `reforged-host db` commands are compiled into server-console and
+      # server-minimal (with all-modules). For one release after RU9/RB14 (until RB15), the archive also carries
+      # the Node ParadoxBackend and ParadoxDirector bundle below as the documented rollback artefact.
       # REFORGED_RELEASE_REPOSITORY stays rust/.cargo/config.toml's: the releases are on GitHub until DX5
       - name: Build the release binaries
         working-directory: rust
@@ -126,7 +128,7 @@ jobs:
 
       # Every dependency, dev ones included: gamedata runs Mystic Paradox's generators, some of them with tsx.
       # node_modules is installed on each platform, for the packages with a native build (@node-rs/argon2).
-      - name: Build the Node services (backend and Director until RB14)
+      - name: Build the Node rollback bundle (kept for one release until RB15)
         run: |
           set -euo pipefail
           isles=modules/rustic-isles/reference/1.14.7
@@ -152,7 +154,7 @@ jobs:
           for bin in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do
             cp "rust/target/$TARGET/release/$bin$ext" "$out/bin/"
           done
-          # backend and director: cp "rust/target/$TARGET/release/backend$ext" ... once they are real (RD8)
+          # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
           isles=modules/rustic-isles/reference/1.14.7
           cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"
           cp -R "$isles/ParadoxDirector/dist" "$isles/ParadoxDirector/node_modules" "$out/$isles/ParadoxDirector/"
@@ -187,7 +189,8 @@ jobs:
           bin="$WORK/assemble/reforged-revival-server-$VERSION/bin"
           for b in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
           # Each service the binary runs alone, as the systemd units and the containers run it
-          for service in gateway allowlist content; do "$bin/reforged-host$ext" "$service" --help > /dev/null; done
+          for service in gateway allowlist content backend director; do "$bin/reforged-host$ext" "$service" --help > /dev/null; done
+          for db_cmd in migrate verify export-mongo; do "$bin/reforged-host$ext" db "$db_cmd" --help > /dev/null; done
           "$bin/reforged-host$ext" admin schema > /dev/null
           "$bin/reforged-host$ext" --help
 

@@ -88,9 +88,9 @@ Git dependencies resolve to those folders ([server-modules.md](server-modules.md
 
 `setup` takes every option it takes on a Linux host (`--max-hunts`, `--public-port`, `--registration` …;
 `docker compose run --rm host setup --help`). In the container it also gets `--skip-install` (the services are
-in the image), `--no-manage-mongo --mongo-uri mongodb://127.0.0.1:27017/?replicaSet=rs0` (the `mongo`
-container) and `--game /game`, unless you give those yourself. Ignore what it says about systemd and ufw:
-compose runs the server. On a DNS name, give `--game-address <public IPv4>` as on a Linux host.
+in the image) and `--game /game` (when `/game/Archon` exists), unless you give those yourself. Ignore what it
+says about systemd and ufw: compose runs the server. On a DNS name, give `--game-address <public IPv4>` as on
+a Linux host.
 
 ### Getting the game from Epic
 
@@ -185,9 +185,10 @@ docker compose run --rm --entrypoint cat host /opt/reforged/.workspace/config/ho
 docker compose up -d
 ```
 
-The file setup writes says what each setting is. As in any container, `game_dir` is always `/game` and
-`[mongo]` the `mongo` container, whatever the file says. Secrets are not in it: setup makes `secrets.env` once
-in the `workspace` volume and keeps it. The runtime, the game data and invites are still `host` commands.
+The file setup writes says what each setting is. As in any container, `game_dir` is `/game` when `/game/Archon`
+exists, and the database is SQLite in `.workspace/config/dainty-lass.db` unless `[database]` picks `postgres`
+(below). Secrets are not in it: setup makes `secrets.env` once in the `workspace` volume and keeps it. The
+runtime, the game data and invites are still `host` commands.
 
 ## Postgres
 
