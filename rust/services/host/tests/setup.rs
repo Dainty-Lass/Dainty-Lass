@@ -868,6 +868,22 @@ fn setup_refuses_an_unquoted_value_and_an_incomplete_checkout() {
     );
 }
 
+#[test]
+fn setup_help_hides_paradox_rollback_flags_on_the_default_build_and_keeps_mongo_uri_for_migration() {
+    let err = Cli::try_parse_from(["reforged-host", "setup", "--help"]).unwrap_err();
+    let help = err.to_string();
+    assert!(help.contains("--mongo-uri <uri>"), "{help}");
+    assert!(help.contains("migrate pre-cutover player data from"), "{help}");
+    for flag in ["--manage-mongo", "--no-manage-mongo", "--mongod", "--force-upstream"] {
+        assert_eq!(
+            help.contains(flag),
+            cfg!(feature = "paradox"),
+            "{flag} visibility in setup --help should match cfg!(feature = \"paradox\"):\n{help}"
+        );
+    }
+    assert_eq!(help.contains("Download and patch"), cfg!(feature = "paradox"), "{help}");
+}
+
 // ------------------------------------------------------------------ multipliers
 
 fn multipliers(p: &Paths, args: &[&str]) -> (Result<std::process::ExitCode, String>, Vec<String>) {

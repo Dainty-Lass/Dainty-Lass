@@ -1697,12 +1697,17 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         ("AUTH_SIGNING_PUBKEY_B64", s.jwt_public_key_b64.clone()),
         ("API_KEY_HASH_SECRET", s.api_key_hash_secret.clone()),
         ("GAMESERVER_API_KEYS", s.gameserver_key.clone()),
+        // Written only for a paradox rollback build; the default build uses [database] and migrates from [mongo].
+        #[cfg(feature = "paradox")]
         ("MONGODB_URI", c.mongo.uri.clone()),
+        #[cfg(feature = "paradox")]
         ("MONGODB_DB", "reforged".into()),
+        #[cfg(feature = "paradox")]
         ("MONGODB_APP_NAME", "reforged-backend".into()),
         // A transaction commit may wait up to 15 s (default 2 s). On the VPS (2026-10-23 23:02-23:04) the disk
         // stalled for about a minute; every commit hit the 2 s limit, POST /inventory answered 500, and the
         // patrol chests, gathering and potions of that minute were lost.
+        #[cfg(feature = "paradox")]
         ("MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS", "15000".into()),
         ("TARGET_CHANGELIST", GAME_CHANGELIST.to_string()),
         ("APPROVED_EXECUTABLE_SHA256", PINNED_EXE_SHA256.into()),
