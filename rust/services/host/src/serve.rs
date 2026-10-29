@@ -450,10 +450,10 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
         &[],
     ));
     let mut tcp: Vec<u16> = hostconfig::RESERVED_PORTS.to_vec();
+    tcp.push(hostconfig::gateway_port(config));
     if !cfg!(feature = "paradox") {
         tcp.retain(|port| *port != crate::paths::PORTS.backend && *port != crate::paths::PORTS.director);
     }
-    tcp.push(hostconfig::gateway_port(config));
     let mut udp = if cfg!(feature = "paradox") {
         vec![hostconfig::game_ports(config)]
     } else {
@@ -1166,6 +1166,10 @@ mod tests {
         assert_eq!(reply.status, 200, "{body}");
         assert!(body.contains("\"show-status\""), "{body}");
         assert!(paths.config.join(hostconfig::DATABASE_FILE).is_file());
+        let (secrets, _) =
+            hostconfig::load_or_create_secrets(&paths.config, crate::commands::setup::secrets::new_secrets).unwrap();
+        let invites = crate::invite::list_invite_codes(&secrets.admin_key, crate::paths::PORTS.backend).unwrap();
+        assert!(invites.is_object(), "{invites}");
 
         controller.shutdown().await;
     }
