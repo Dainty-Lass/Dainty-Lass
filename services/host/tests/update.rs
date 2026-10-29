@@ -1139,4 +1139,67 @@ mod mongo_cutover {
         );
         assert_eq!(read(&root, "bin/reforged-host"), "host 1");
     }
+
+    #[test]
+    fn update_refuses_when_configured_external_mongo_is_unreachable_and_leaves_server_unswitched() {
+        let dir = tempfile::tempdir().unwrap();
+        let releases = dir.path().join("releases");
+        let root = dir.path().join("Reforged");
+        make_release(&releases, "1.0.0", "linux-x64", V1);
+
+        let env = Env {
+            source: Source::Folder(releases.clone()),
+            platform: "linux-x64",
+            setups: Default::default(),
+        };
+        update(
+            &root,
+            &env,
+            UpdateArgs {
+                no_setup: true,
+                ..Default::default()
+            },
+        )
+        .0
+        .unwrap();
+        assert_eq!(selfupdate::read_manifest(&root).unwrap().unwrap().version, "1.0.0");
+
+        // Bind and immediately drop a TCP listener so we have a guaranteed closed local port.
+        let closed_port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let unreachable_uri = format!("mongodb://mongo_user:secret_pw@127.0.0.1:{closed_port}/reforged");
+        write_host_config_with_mongo(&root, &unreachable_uri);
+        assert!(
+            !root.join(".workspace").join("mongodb").exists(),
+            "external MongoDB: kit does not manage .workspace/mongodb"
+        );
+
+        make_release(&releases, "2.0.0", "linux-x64", V2);
+        let (r, _lines) = update(&root, &env, UpdateArgs::default());
+        let err = r.unwrap_err();
+        assert!(
+            err.contains("MongoDB is configured at")
+                && err.contains("not reachable")
+                && err.contains("start MongoDB")
+                && err.contains("--fresh-start")
+                && !err.contains("secret_pw"),
+            "{err}"
+        );
+        assert_eq!(
+            selfupdate::read_manifest(&root).unwrap().unwrap().version,
+            "1.0.0",
+            "server remains on 1.0.0 when external MongoDB is unreachable"
+        );
+        assert_eq!(read(&root, "bin/reforged-host"), "host 1");
+        assert!(
+            !root
+                .join(".workspace")
+                .join("config")
+                .join(host::commands::update::MONGO_MIGRATED_MARKER)
+                .exists()
+        );
+    }
 }
