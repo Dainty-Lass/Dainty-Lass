@@ -96,7 +96,7 @@ bin/reforged-host invite --for "Alex"
 journalctl -u reforged -f                      # the services
 ls .workspace/logs/gameservers                  # the game servers
 bin/reforged-host update                        # a newer release, then setup again
-bin/reforged-host backup                        # mongodump into .workspace
+bin/reforged-host backup                        # SQLite/Postgres backup into .workspace/backups
 ```
 
 ## What to expect
