@@ -394,8 +394,31 @@ bin\reforged-host update --check            # is there a newer server release?
 bin\reforged-host update                    # install it and run setup again
 ```
 
-`update` keeps `.workspace` and runs `setup` from your `host.toml`. When `native\` changed, it says so: rebuild
+`update` keeps `.workspace` and runs `setup` from your `host.toml`. On a server that ran the Node backend and has
+existing MongoDB data, `update` runs `isles-db migrate` followed by `isles-db verify` into the configured store
+(`.workspace\config\dainty-lass.db` on SQLite, or Postgres when `[database]` sets `engine = "postgres"`) before
+installing the new release: if `verify` reports any difference, `update` refuses to switch and leaves the server on
+its previous setup, and it never deletes or modifies the MongoDB data. When `native\` changed, it says so: rebuild
 the runtime and publish it again. Players' launchers notice the new hashes and ask once more.
+
+### Live server cutover checklist (backup, update, smoke, rollback)
+
+When cutting a live 1.14.7 server over from the Node backend to the Rust backend:
+
+1. **Backup.** Stop the server (or take a snapshot first), run `bin\reforged-host backup` so `.workspace\backups\`
+   holds a fresh database dump, and copy `.workspace\config` (`host.toml`, `secrets.env`) and `.workspace\tls`
+   (`gateway-cert.pem`, `gateway-key.pem`) to safe off-server storage.
+2. **Update and migrate.** Ensure `mongod` is running if the server has existing MongoDB data so `update` can read it,
+   then run `bin\reforged-host update`. Confirm the output reports `MongoDB migration verified (... 0 differences;
+   MongoDB data kept intact)` and finishes `setup`.
+3. **Smoke check.** Run `bin\reforged-host doctor`, start the server with `bin\reforged-host start`, verify that
+   `/dauntless-status`, `/reforged/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
+   1.14.7 client and launcher that an existing account can sign in, enter Ramsgate with its characters, inventory and
+   loadouts intact, and depart for a hunt.
+4. **Rollback (if needed).** Stop the server, export the SQLite or Postgres store back to MongoDB with
+   `isles-db export-mongo --from .workspace\config\dainty-lass.db --to mongodb://127.0.0.1:27017/reforged` (or the
+   `postgres://` URL), verify with `isles-db verify --from mongodb://127.0.0.1:27017/reforged --to
+   .workspace\config\dainty-lass.db`, and start the `paradox` build (below).
 
 ## Rollback to the Node backend and MongoDB (`paradox` feature)
 
@@ -403,4 +426,5 @@ For one release after the RU9/RB14 cutover (until RB15 deletes the reference Nod
 the opt-in `paradox` Cargo feature (`cargo build --release -p server-console --features paradox`) runs Mystic
 Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB
 instead of the compiled-in `isles-1-14-7` Rust module. To export a server's SQLite or Postgres store back to MongoDB
-before starting a `paradox` build, run `isles-db export-mongo --database <sqlite-or-postgres-url> --mongo <mongodb-uri>`.
+before starting a `paradox` build, run `isles-db export-mongo --from <sqlite-file-or-postgres-url> --to <mongodb-uri>`
+(and optionally `isles-db verify --from <mongodb-uri> --to <sqlite-file-or-postgres-url>`).
