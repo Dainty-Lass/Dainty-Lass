@@ -758,3 +758,343 @@ fn an_update_that_stopped_half_way_installs_again() {
     );
     assert!(!selfupdate::installing_marker(&root).exists());
 }
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+mod mongo_cutover {
+    use super::*;
+    use isles_db::mongo::MockMongoServer;
+    use serde_json::Map;
+
+    fn seed_mongo_collections() -> BTreeMap<String, Vec<Map<String, Value>>> {
+        let mut cols: BTreeMap<String, Vec<Map<String, Value>>> = BTreeMap::new();
+        let doc = |val: Value| val.as_object().unwrap().clone();
+        cols.insert(
+            "accounts".into(),
+            vec![doc(json!({
+                "_id": "11111111-1111-4111-8111-111111111111",
+                "userId": "11111111-1111-4111-8111-111111111111",
+                "name": "SlayerOne",
+                "notes": 2500,
+                "email": "slayer@example.test",
+                "displayNameNormalized": "slayerone",
+                "displayName": "SlayerOne",
+                "passwordHash": "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA",
+                "status": "active",
+                "approvalStatus": "approved",
+                "approvalUpdatedAt": "2026-10-20T00:00:00.000Z",
+                "approvalUpdatedBy": "system:signup",
+                "roles": ["user"],
+                "createdAt": "2026-10-20T00:00:00.000Z",
+                "lastLoginAt": "2026-10-21T00:00:00.000Z",
+                "usernameSet": 1
+            }))],
+        );
+        cols.insert(
+            "characters".into(),
+            vec![doc(json!({
+                "_id": "char-001",
+                "characterId": "char-001",
+                "userId": "11111111-1111-4111-8111-111111111111",
+                "createdDate": "2026-10-20T00:00:00.000Z",
+                "lastModifiedDate": "2026-10-20T00:00:00.000Z",
+                "name": "SlayerOne",
+                "updateVersion": 1,
+                "data": { "primary_dye": "DYE_01" }
+            }))],
+        );
+        cols.insert(
+            "reforgedInvites".into(),
+            vec![doc(json!({
+                "_id": "INV-CUTOVER-01",
+                "code": "INV-CUTOVER-01",
+                "maxUses": 5,
+                "uses": 1,
+                "note": "Friday Hunts",
+                "revoked": false,
+                "createdAt": "2026-10-20T00:00:00.000Z"
+            }))],
+        );
+        cols
+    }
+
+    fn write_host_config_with_mongo(root: &Path, mongo_uri: &str) {
+        let cfg_dir = root.join(".workspace").join("config");
+        std::fs::create_dir_all(&cfg_dir).unwrap();
+        let host_json = json!({
+            "version": 1,
+            "mode": "private",
+            "host": "100.101.102.103",
+            "gameAddress": "100.101.102.103",
+            "name": "Friday Hunts",
+            "gameDir": null,
+            "registration": "INVITECODE",
+            "shareUrl": null,
+            "mongo": {
+                "uri": mongo_uri,
+                "manage": false,
+                "mongod": null
+            },
+            "maxHuntServers": 3
+        });
+        std::fs::write(
+            cfg_dir.join("host.json"),
+            serde_json::to_string_pretty(&host_json).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(cfg_dir.join("backend.env"), format!("MONGODB_URI={mongo_uri}\n")).unwrap();
+    }
+
+    #[test]
+    fn update_migrates_and_verifies_existing_mongo_data_and_preserves_mongo_for_export_rollback() {
+        let dir = tempfile::tempdir().unwrap();
+        let releases = dir.path().join("releases");
+        let root = dir.path().join("Reforged");
+        make_release(&releases, "1.0.0", "linux-x64", V1);
+
+        let seed = seed_mongo_collections();
+        let mock_mongo = MockMongoServer::start(seed.clone(), 50).unwrap();
+        let mongo_uri = mock_mongo.uri("reforged");
+        write_host_config_with_mongo(&root, &mongo_uri);
+        // Existing managed MongoDB data folder must never be deleted or modified by update.
+        let mongo_marker = root.join(".workspace").join("mongodb").join("WiredTiger");
+        std::fs::create_dir_all(mongo_marker.parent().unwrap()).unwrap();
+        std::fs::write(&mongo_marker, "wiredtiger-header").unwrap();
+
+        let env = Env {
+            source: Source::Folder(releases),
+            platform: "linux-x64",
+            setups: Default::default(),
+        };
+        let (r, lines) = update(&root, &env, UpdateArgs::default());
+        r.unwrap();
+        assert!(
+            lines.iter().any(|l| l.contains("migrating existing MongoDB data")),
+            "{lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("MongoDB migration verified") && l.contains("0 differences")),
+            "{lines:?}"
+        );
+        let sqlite_db = root
+            .join(".workspace")
+            .join("config")
+            .join(host::hostconfig::DATABASE_FILE);
+        assert!(sqlite_db.is_file(), "SQLite store created and populated");
+        assert!(
+            root.join(".workspace")
+                .join("config")
+                .join(host::commands::update::MONGO_MIGRATED_MARKER)
+                .is_file()
+        );
+        assert_eq!(
+            std::fs::read_to_string(&mongo_marker).unwrap(),
+            "wiredtiger-header",
+            ".workspace/mongodb untouched"
+        );
+        assert_eq!(
+            mock_mongo.snapshot(),
+            seed,
+            "source MongoDB collections never modified during migrate + verify"
+        );
+
+        // Rollback round trip: export the SQLite store back to a fresh MongoDB instance with
+        // isles-db export-mongo and verify zero differences.
+        let rollback_mongo = MockMongoServer::start(BTreeMap::new(), 50).unwrap();
+        let rollback_uri = rollback_mongo.uri("reforged");
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let export_report = rt
+            .block_on(isles_db::run_export_mongo(&isles_db::ExportOptions {
+                from_source: sqlite_db.to_string_lossy().into_owned(),
+                to_uri: rollback_uri.clone(),
+                areas: Vec::new(),
+                dry_run: false,
+                allow_remote_postgres: false,
+            }))
+            .unwrap();
+        assert_eq!(export_report.counts.get("accounts").copied(), Some(1));
+        assert_eq!(export_report.counts.get("characters").copied(), Some(1));
+        assert_eq!(export_report.counts.get("reforgedInvites").copied(), Some(1));
+
+        let verify_report = rt
+            .block_on(isles_db::run_verify(&isles_db::MigrateOptions {
+                from_uri: rollback_uri,
+                to_target: sqlite_db.to_string_lossy().into_owned(),
+                node: "local".parse().unwrap(),
+                dry_run: false,
+                areas: Vec::new(),
+                skip_invalid: false,
+                game_data_dir: None,
+                allow_remote_postgres: false,
+            }))
+            .unwrap();
+        assert!(verify_report.ok);
+
+        // If a Postgres container is configured (`REFORGED_TEST_POSTGRES_URL`), also exercise
+        // `update` migrating and verifying into `[database] engine = "postgres"`, plus an
+        // `export-mongo` rollback round trip from Postgres back to MongoDB.
+        if let Ok(pg_url) = std::env::var("REFORGED_TEST_POSTGRES_URL")
+            && let Ok(pg_cfg) = isles_db::migrate::parse_postgres_url(&pg_url, false)
+        {
+            let pg_root = dir.path().join("ReforgedPg");
+            let pg_releases = dir.path().join("releases_pg");
+            make_release(&pg_releases, "1.0.0", "linux-x64", V1);
+            let pg_cfg_dir = pg_root.join(".workspace").join("config");
+            std::fs::create_dir_all(&pg_cfg_dir).unwrap();
+            let host_json = json!({
+                "version": 1,
+                "mode": "private",
+                "host": "100.101.102.103",
+                "gameAddress": "100.101.102.103",
+                "name": "Friday Hunts",
+                "gameDir": null,
+                "registration": "INVITECODE",
+                "shareUrl": null,
+                "mongo": {
+                    "uri": mongo_uri,
+                    "manage": false,
+                    "mongod": null
+                },
+                "maxHuntServers": 3,
+                "database": {
+                    "engine": "postgres",
+                    "postgresHost": pg_cfg.host,
+                    "postgresPort": pg_cfg.port,
+                    "postgresUser": pg_cfg.user,
+                    "postgresDatabase": pg_cfg.database
+                }
+            });
+            std::fs::write(
+                pg_cfg_dir.join("host.json"),
+                serde_json::to_string_pretty(&host_json).unwrap(),
+            )
+            .unwrap();
+            std::fs::write(pg_cfg_dir.join("backend.env"), format!("MONGODB_URI={mongo_uri}\n")).unwrap();
+            std::fs::write(
+                pg_cfg_dir.join("secrets.env"),
+                format!("REFORGED_DB_PASSWORD={}\n", pg_cfg.password),
+            )
+            .unwrap();
+            let pg_env = Env {
+                source: Source::Folder(pg_releases),
+                platform: "linux-x64",
+                setups: Default::default(),
+            };
+            let (pg_res, pg_lines) = update(&pg_root, &pg_env, UpdateArgs::default());
+            pg_res.unwrap();
+            assert!(
+                pg_lines
+                    .iter()
+                    .any(|l| l.contains("MongoDB migration verified") && l.contains("0 differences")),
+                "{pg_lines:?}"
+            );
+            let pg_rollback_mongo = MockMongoServer::start(BTreeMap::new(), 50).unwrap();
+            let pg_rollback_uri = pg_rollback_mongo.uri("reforged");
+            let pg_export = rt
+                .block_on(isles_db::run_export_mongo(&isles_db::ExportOptions {
+                    from_source: pg_url.clone(),
+                    to_uri: pg_rollback_uri.clone(),
+                    areas: Vec::new(),
+                    dry_run: false,
+                    allow_remote_postgres: false,
+                }))
+                .unwrap();
+            assert_eq!(pg_export.counts.get("accounts").copied(), Some(1));
+            let pg_verify = rt
+                .block_on(isles_db::run_verify(&isles_db::MigrateOptions {
+                    from_uri: pg_rollback_uri,
+                    to_target: pg_url,
+                    node: "local".parse().unwrap(),
+                    dry_run: false,
+                    areas: Vec::new(),
+                    skip_invalid: false,
+                    game_data_dir: None,
+                    allow_remote_postgres: false,
+                }))
+                .unwrap();
+            assert!(pg_verify.ok);
+        }
+    }
+
+    #[test]
+    fn update_refuses_to_switch_when_verify_or_mongo_fails_and_leaves_server_on_old_setup() {
+        let dir = tempfile::tempdir().unwrap();
+        let releases = dir.path().join("releases");
+        let root = dir.path().join("Reforged");
+        make_release(&releases, "1.0.0", "linux-x64", V1);
+
+        // Install 1.0.0 first before MongoDB data exists.
+        let env = Env {
+            source: Source::Folder(releases.clone()),
+            platform: "linux-x64",
+            setups: Default::default(),
+        };
+        update(
+            &root,
+            &env,
+            UpdateArgs {
+                no_setup: true,
+                ..Default::default()
+            },
+        )
+        .0
+        .unwrap();
+        assert_eq!(selfupdate::read_manifest(&root).unwrap().unwrap().version, "1.0.0");
+
+        // Now publish 2.0.0 and simulate a verify difference via UpdateEnv::migrate_mongo_data.
+        make_release(&releases, "2.0.0", "linux-x64", V2);
+        struct RefusingVerifyEnv {
+            inner: Env,
+        }
+        impl UpdateEnv for RefusingVerifyEnv {
+            fn platform(&self) -> Result<&'static str, HostError> {
+                self.inner.platform()
+            }
+            fn source(&self, installed: Option<&Manifest>) -> Source {
+                self.inner.source(installed)
+            }
+            fn verify_attestation(
+                &self,
+                archive: &Path,
+                candidate: &Candidate,
+                log: &Path,
+            ) -> UpdateResult<Attestation> {
+                self.inner.verify_attestation(archive, candidate, log)
+            }
+            fn checkout_commit(&self, root: &Path) -> String {
+                self.inner.checkout_commit(root)
+            }
+            fn run_setup(&self, program: &Path, root: &Path) -> Result<i32, HostError> {
+                self.inner.run_setup(program, root)
+            }
+            fn migrate_mongo_data(&self, _paths: &Paths, _out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
+                Err(HostError::message(
+                    "isles-db verify reported differences in [accounts]: refusing to switch to the Rust backend; the server stays on its previous setup and MongoDB data was not modified",
+                ))
+            }
+        }
+
+        let refusing = RefusingVerifyEnv { inner: env };
+        let mut lines = Vec::new();
+        let err = run_with(&Paths::new(&root), &UpdateArgs::default(), &refusing, &mut |l| {
+            lines.push(l.to_owned())
+        })
+        .unwrap_err()
+        .to_string();
+        assert!(
+            err.contains("isles-db verify reported differences")
+                && err.contains("refusing to switch to the Rust backend"),
+            "{err}"
+        );
+        assert_eq!(
+            selfupdate::read_manifest(&root).unwrap().unwrap().version,
+            "1.0.0",
+            "server remains on 1.0.0 when verify refuses the switch"
+        );
+        assert_eq!(read(&root, "bin/reforged-host"), "host 1");
+    }
+}
