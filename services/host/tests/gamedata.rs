@@ -15,8 +15,8 @@ use std::process::Command;
 use chrono::{DateTime, Utc};
 use host::captures::{CaptureFetch, CapturePin, ensure_captures, missing_captures, read_capture_pin};
 use host::gamedata::{
-    BACKEND_GAME_DATA, GameDataKind, GenerateOptions, Generators, SUPPLIED_SOURCES, game_data_state, game_data_steps,
-    generate_game_data, generate_game_data_with, use_examples,
+    BACKEND_GAME_DATA, GameDataKind, GenerateOptions, GeneratorKind, Generators, SUPPLIED_SOURCES, game_data_state,
+    game_data_steps, generate_game_data, generate_game_data_with, use_examples,
 };
 use host::gamepack::{
     PACK_FORMAT, export_game_data_pack, import_game_data_pack, pack_json, read_game_data_pack, sha256_hex,
@@ -242,12 +242,12 @@ fn lady_lucks_store_is_built_from_the_live_rotation_unless_the_host_supplies_a_r
     let lady_luck = |p: &Paths| {
         let steps = game_data_steps(p, false);
         let step = steps.into_iter().find(|s| s.title == "Lady Luck store").unwrap();
-        (step.args.clone(), step.skip())
+        (step.generator, step.skip())
     };
     let (_, skip) = lady_luck(&p);
     assert!(skip.unwrap_or_default().contains("store captures are not there"));
     ensure_captures(&p, &pin, None).unwrap();
-    assert_eq!(lady_luck(&p), (vec!["run", "ladyluck:enrich"], None));
+    assert_eq!(lady_luck(&p), (GeneratorKind::LadyLuckEnrich, None));
 
     // The enrichment runs on an existing store file: the example goes in first.
     let fetched = RefCell::new(Vec::new());
@@ -257,7 +257,7 @@ fn lady_lucks_store_is_built_from_the_live_rotation_unless_the_host_supplies_a_r
         Ok(CaptureFetch::AlreadyReady)
     };
     let run = |p: &Paths, step: &host::gamedata::Step<'_>, _: &Path| {
-        assert_eq!(step.args, ["run", "ladyluck:enrich"]);
+        assert_eq!(step.generator, GeneratorKind::LadyLuckEnrich);
         let there = p.backend_game_data.join("ladyluck_store.json").exists();
         Ok(RunResult {
             code: if there { 0 } else { 1 },
@@ -287,7 +287,7 @@ fn lady_lucks_store_is_built_from_the_live_rotation_unless_the_host_supplies_a_r
     write(&p.raw_game_data.join("ladyluck_store.source.json"), "[]\n");
     assert_eq!(
         lady_luck(&p).0,
-        ["run", "generate:ladyluck-store", "--", "--apply"],
+        GeneratorKind::LadyLuckGenerate,
         "a supplied response wins"
     );
 }
@@ -413,12 +413,23 @@ fn runs_the_other_steps_when_one_fails_and_names_the_failure() {
     );
 }
 
-/// The same with the real generators through npm: needs RH2's `run::run`.
+/// Runs the real RB11 Rust generators in-process without Node or npm.
 #[test]
-#[ignore = "needs RH2's run::run (crate::run is a stub until wave 2's integration pass)"]
-fn runs_the_node_generators_and_names_the_error_not_nodes_version_line() {
+fn runs_the_rust_generators_and_names_the_error_while_continuing_other_steps() {
     let dir = TempDir::new().unwrap();
-    let p = failing_progression_host(&dir);
+    let p = host(&dir);
+    write(&p.raw_game_data.join(SUPPLIED_SOURCES[0].1), "{}\n");
+    write(
+        &p.raw_game_data.join(SUPPLIED_SOURCES[1].1),
+        serde_json::to_string_pretty(&json!([
+            {
+                "id": "trials_pr_frank",
+                "prices": [{ "currencyId": "id_currency_marks_steel", "price": 100 }],
+                "items": [{ "catalogId": "CURRENCY_RAMS", "quantity": 100, "instanced": false }]
+            }
+        ]))
+        .unwrap(),
+    );
     let opts = GenerateOptions {
         examples_for_missing: false,
         log_file: p.logs.join("gamedata.log"),
@@ -428,16 +439,285 @@ fn runs_the_node_generators_and_names_the_error_not_nodes_version_line() {
     let r = generate_game_data(&p, &opts, &mut |l| lines.push(l.to_owned())).unwrap();
     assert_eq!((r.ok, r.failed), (false, vec!["Progression config".to_owned()]));
     assert!(
-        p.backend_dir.join("ran.txt").exists(),
-        "the Reward Cache step still ran"
+        p.backend_game_data.join("ladyluck_store.json").exists(),
+        "the Lady Luck store step still ran and wrote its output"
     );
     assert!(
         lines
             .iter()
-            .any(|l| l.contains("failed: Error: Catalog item not found: x")),
+            .any(|l| l.contains("failed: ERROR: source has no payload.paths[] array")),
         "{}",
         lines.join("\n")
     );
+}
+
+#[test]
+fn generates_all_seven_game_data_steps_in_rust_without_node() {
+    let dir = TempDir::new().unwrap();
+    let p = host(&dir);
+
+    let repo_ref = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("modules")
+        .join("rustic-isles")
+        .join("reference")
+        .join("1.14.7");
+    std::fs::create_dir_all(&p.backend_game_data).unwrap();
+    std::fs::create_dir_all(&p.director_game_data).unwrap();
+    for entry in std::fs::read_dir(repo_ref.join("ParadoxBackend").join("game-data")).unwrap() {
+        let entry = entry.unwrap();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.ends_with(".example.json") {
+            std::fs::copy(entry.path(), p.backend_game_data.join(&name)).unwrap();
+        }
+    }
+    for entry in std::fs::read_dir(repo_ref.join("ParadoxDirector").join("game-data")).unwrap() {
+        let entry = entry.unwrap();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if let Some(stem) = name.strip_suffix(".example.json") {
+            std::fs::copy(entry.path(), p.director_game_data.join(format!("{stem}.json"))).unwrap();
+        }
+    }
+
+    let (_exp_dir, exp_root) = export("small");
+    copy_tree(
+        &exp_root.join(PROGRESSION_EXPORT_DIR),
+        &p.exports.join(PROGRESSION_EXPORT_DIR),
+    );
+
+    let hunts_dir = p.exports.join("hunts_1_14_7");
+    write(
+        &hunts_dir.join("hunt_export_manifest.json"),
+        json!({ "gameVersion": "1.14.7", "changelist": 647472 }).to_string(),
+    );
+    write(
+        &hunts_dir.join("player_hunts.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "rowName": "ShatteredIsles_IslandS",
+                "region": { "dataTable": "regions_table", "rowName": "Region_IslandS" },
+                "matchmakerHuntIDs": [
+                    { "dataTable": "matchmaker_hunts_table", "rowName": "MM_IslandS_01" }
+                ],
+                "matchmakerHuntsByTag": [],
+                "matchmakingType": 1,
+                "matchmakingGameType": 3,
+                "huntTags": ["Hunt.IslandS"],
+                "escalationModeSpecification": { "dataTable": null, "rowName": "None" },
+                "escalationPatrolInitialChallengeLevel": 0,
+                "escalationPatrolMaxChallengeLevel": 0,
+                "recommendedEscalationLevel": 0,
+                "hasPortals": false,
+                "hasGlitterEvent": false,
+                "hasPhaelanxEvent": true,
+                "huntSuccessReward": "Reward_IslandS_Success",
+                "firstCompletionSuccessReward": "None",
+                "targetedHuntSuccessReward": "None",
+                "huntFailureReward": "None",
+                "targetedHuntFailureReward": "None",
+                "minWeaponSkillLevel": 14,
+                "recommendedWeaponSkillLevel": 18,
+                "visibleWhileLocked": true
+            })
+        ),
+    );
+    write(
+        &hunts_dir.join("matchmaker_hunts.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "rowName": "MM_IslandS_01",
+                "sourceTable": "matchmaker_hunts_table",
+                "region": { "dataTable": "regions_table", "rowName": "Region_IslandS" },
+                "huntTags": ["Hunt.IslandS"],
+                "huntThreatLevel": 18,
+                "gameModeOverride": "None",
+                "dangerPerSecOverride": 0.0,
+                "specificBehemoth": {
+                    "behemothName": "Phaelanx",
+                    "behemothAssetPath": "/Game/Behemoths/Phaelanx/BP_Phaelanx.BP_Phaelanx_C",
+                    "powerOverride": 550.0,
+                    "weighting": 1.0
+                },
+                "additionalSpecificBehemoths": [],
+                "mapMetaData": { "dataTable": null, "rowName": "None" },
+                "mapList": [
+                    {
+                        "mapName": "Island_S",
+                        "mapAssetPath": "/Game/Maps/Islands/Island_S/Island_S_Main.Island_S_Main",
+                        "biome": 2,
+                        "weighting": 1.0
+                    }
+                ],
+                "modifiers": ["Modifier_Fire"],
+                "gatherableTier": 3,
+                "maxPlayers": 6,
+                "isGeneratedEncounter": true,
+                "gameModeSpecificData": null
+            })
+        ),
+    );
+
+    write(
+        &p.exports.join("slayers_path_1_14_7").join("player_journey_nodes.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "nodeId": "Slayer_09",
+                "autoUnlockIfParentUnlocked": true,
+                "childNodes": ["Slayer_10", "None"],
+                "currencyCosts": [{ "currency": "CURRENCY_RAMS", "amount": 100 }],
+                "rewards": [{ "itemId": "WP_SWORD_00" }]
+            })
+        ),
+    );
+
+    let mut catalog_rows: Vec<Value> = Vec::new();
+    for (idx, item_id) in isles_core::gamedata::reward_cache_selection_ids()
+        .into_iter()
+        .enumerate()
+    {
+        let is_stackable = item_id.starts_with("CURRENCY_") || item_id.starts_with("PATROL_KEY");
+        let item_data = json!({
+            "RarityLevel": 4,
+            "Icon": format!("/Game/UI/Icons/Icon_{idx}.Icon_{idx}"),
+            "LargeIcon": format!("/Game/UI/Icons/Large_{idx}.Large_{idx}")
+        })
+        .to_string();
+        let custom_data = json!({ "ItemData": item_data }).to_string();
+        catalog_rows.push(json!({
+            "itemId": item_id,
+            "displayName": format!("Cache Item {item_id}"),
+            "description": format!("Description for {item_id}"),
+            "tags": ["Equipment.Armour.Helm"],
+            "customData": custom_data,
+            "isStackable": is_stackable,
+            "maxQuantity": if is_stackable { 999999 } else { 1 }
+        }));
+    }
+    for (item_id, name, desc, tags, rarity, stackable, max_qty) in [
+        (
+            "CURRENCY_RAMS",
+            "Rams",
+            "Standard currency",
+            vec!["Currency"],
+            1,
+            true,
+            999_999_999,
+        ),
+        (
+            "WP_SWORD_00",
+            "Recruit's Sword",
+            "Starter sword",
+            vec!["Equipment.Weapon.Sword"],
+            1,
+            false,
+            1,
+        ),
+    ] {
+        let item_data = json!({
+            "RarityLevel": rarity,
+            "Icon": format!("/Game/UI/Icons/{item_id}.{item_id}"),
+            "LargeIcon": format!("/Game/UI/Icons/Large_{item_id}.Large_{item_id}")
+        })
+        .to_string();
+        let custom_data = json!({ "ItemData": item_data }).to_string();
+        catalog_rows.push(json!({
+            "itemId": item_id,
+            "displayName": name,
+            "description": desc,
+            "tags": tags,
+            "customData": custom_data,
+            "isStackable": stackable,
+            "maxQuantity": max_qty
+        }));
+    }
+    let catalog_jsonl = catalog_rows
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    write(&p.exports.join("catalog_1_14_7.jsonl"), catalog_jsonl);
+
+    write(
+        &p.exports.join("store_item_images_1_14_7.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "rowName": "wp_sword_00_sku",
+                "featureImage": "/Game/UI/Store/Feature_Sword.Feature_Sword",
+                "tallImage": "/Game/UI/Store/Tall_Sword.Tall_Sword",
+                "wideImage": "/Game/UI/Store/Wide_Sword.Wide_Sword"
+            })
+        ),
+    );
+    write(
+        &p.raw_game_data.join(SUPPLIED_SOURCES[1].1),
+        serde_json::to_string_pretty(&json!([
+            {
+                "id": "trials_pr_frank",
+                "tags": ["ladyluckstore", "tab_trials_steel"],
+                "prices": [{ "currencyId": "id_currency_marks_steel", "price": 100 }],
+                "items": [{ "catalogId": "CURRENCY_RAMS", "quantity": 100, "instanced": false }]
+            }
+        ]))
+        .unwrap(),
+    );
+    for sku in [
+        "booststore",
+        "generalstore",
+        "huntpassstore",
+        "limitedstore",
+        "loadoutstore",
+        "middlemanstore",
+        "omnistore",
+        "packstore",
+        "platstore",
+        "stylekitstore",
+        "transmogstore",
+    ] {
+        write(
+            &p.store_captures
+                .join("Store")
+                .join("Product")
+                .join("Skus")
+                .join(format!("{sku}.json")),
+            r#"{"status":"OK","payload":{"catalogId":"Store","products":[]}}"#,
+        );
+    }
+
+    let opts = GenerateOptions {
+        examples_for_missing: true,
+        log_file: p.logs.join("gamedata.log"),
+        only: None,
+    };
+    let mut lines = Vec::new();
+    let r = generate_game_data(&p, &opts, &mut |l| lines.push(l.to_owned())).unwrap();
+    assert!(r.ok && r.failed.is_empty(), "{}", lines.join("\n"));
+    for file in [
+        "progression_config.json",
+        "slayers_path.json",
+        "slayers_path_definitions.json",
+        "reward_cache_store.json",
+        "ladyluck_store.json",
+        "platinum_store.json",
+        "inventory_storage_policy.json",
+    ] {
+        assert!(
+            p.backend_game_data.join(file).is_file(),
+            "missing backend generated file {file}"
+        );
+    }
+    for file in ["player_hunts_table.json", "matchmaker_hunts_table.json"] {
+        assert!(
+            p.director_game_data.join(file).is_file(),
+            "missing director generated file {file}"
+        );
+    }
 }
 
 // ------------------------------------------------------------------ progression

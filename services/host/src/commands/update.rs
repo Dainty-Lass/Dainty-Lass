@@ -19,7 +19,9 @@ use serde_json::{Value, json};
 use crate::Outcome;
 use crate::cli::UpdateArgs;
 use crate::error::HostError;
-use crate::hostconfig::{DATABASE_FILE, HostConfig, SECRET_FILE, has_host_config, load_host_config, read_env_file};
+#[cfg(feature = "isles-1-14-7")]
+use crate::hostconfig::load_host_config;
+use crate::hostconfig::{DATABASE_FILE, HostConfig, SECRET_FILE, has_host_config, read_env_file};
 use crate::paths::Paths;
 use crate::selfupdate::{
     self, Attestation, Candidate, Manifest, Source, UpdateError, UpdateResult, Wanted, find_release, installing_marker,
