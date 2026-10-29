@@ -67,7 +67,14 @@
 | 2026-10-28 | `dainty-lass` | RA12 (Cutover C6) | `feat/ra12-host-without-node` | `ee2297d` | `9513b41` | `RR_UPDATE_GENERATED=1 cargo test -p launcher generated --locked -j 4` (1 passed, 0 diff), `cargo fmt --all --check`, `cargo deny check`, `cargo clippy -j 4 --workspace --all-targets --locked -- -D warnings`, `cargo clippy -j 4 -p launcher --features realms --all-targets --locked -- -D warnings`, `cargo check -j 4 --manifest-path fuzz/Cargo.toml --bins --locked`, `cargo test --workspace --locked --no-fail-fast -j 4` with `REFORGED_TEST_POSTGRES_URL` (98 binaries, 1196 passed, 0 failed), `cargo test -p launcher --features realms --locked -j 4` (302 passed, 0 failed) | Updated `ui` submodule to `cd3490d8`, regenerated `rust/launcher/src-tauri/gen/strings.json` with `RR_UPDATE_GENERATED=1`, and removed `[mongo]` from the `server_gui::modules::tests` fixture |
 | 2026-10-28 | `dainty-lass` | RU9 + RB14 + RS5 + RB11 (Cutover C7) | `docs/ru9-cutover-records` | `42c8287` | `0b9848c` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy -j 4 --workspace --all-targets --locked -- -D warnings`, `cargo clippy -j 4 -p launcher --features realms --all-targets --locked -- -D warnings`, `cargo check -j 4 --manifest-path fuzz/Cargo.toml --bins --locked`, `cargo test --workspace --locked --no-fail-fast -j 4` with `REFORGED_TEST_POSTGRES_URL` (98 binaries, 1196 passed, 0 failed), `cargo test -p launcher --features realms --locked -j 4` (302 passed, 0 failed) | Recorded the 2026-10-28 maintainer decision to cut over in code without canary or shadow replay in `docs/dainty-lass-plan.md` and `MIGRATION_PLAN.md` (marking `RU9`/`RB14` "Done in code (maintainer decision 2026-10-28; canary and shadow replay not run)" and leaving `RB15` open), and updated `AGENTS.md`, `README.md`, `docs/architecture.md`, `docs/hosting.md`, `docs/hosting-linux.md`, `docs/sdk-and-game-data.md`, `docs/port/migration-guide.md`, `docs/security/{host-start,host-gamedata,controller}.md`, `SECURITY_REVIEW.md`, `docs/port/handoff-ledger.md`, and `docs/port/handoff-2026-10-27.md` |
 | 2026-10-29 | `dainty-lass` | RU9 + RB14 (Cutover C2 fix) | `fix/ru9-private-backend-port` | `bbe7061` | `1a0748b` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy -j 4 --workspace --all-targets --locked -- -D warnings`, `cargo clippy -j 4 -p launcher --features realms --all-targets --locked -- -D warnings`, `cargo check -j 4 --manifest-path fuzz/Cargo.toml --bins --locked`, `cargo test --workspace --locked --no-fail-fast -j 4` with `REFORGED_TEST_POSTGRES_URL` (98 binaries, 1196 passed, 0 failed), `cargo test -p launcher --features realms --locked -j 4` (302 passed, 0 failed) | Fixed `serve::new_registry` in `rust/services/host/src/serve.rs` so `tcp.push(hostconfig::gateway_port(config))` (`61000` in private mode, bound on the Tailscale IP) runs before `tcp.retain(|port| *port != PORTS.backend && *port != PORTS.director)`, keeping loopback port `127.0.0.1:61000` free for `isles-1-14-7` so `reforged-host invite` and `admin`/`content` reach the backend on `127.0.0.1:61000` |
-| 2026-10-29 | `dainty-lass` | RU9 + RB11 (Cutover C2/C4 feature guards) | `fix/ru9-paradox-feature-guards` | see `plan` | see `plan` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy -j 4 --workspace --all-targets --locked -- -D warnings`, `cargo clippy -j 4 -p host --features paradox --all-targets --locked -- -D warnings`, `cargo clippy -j 4 -p host --no-default-features --features "modules,paradox" --all-targets --locked -- -D warnings`, `cargo test -j 4 -p host --features paradox --locked` (194 passed, 0 failed), `cargo test -j 4 -p host --no-default-features --features "modules,paradox" --locked` (193 passed, 0 failed), `cargo test --workspace --locked --no-fail-fast -j 4` with `REFORGED_TEST_POSTGRES_URL` (98 binaries, 1196 passed, 0 failed) | Guarded `load_host_config` import in `rust/services/host/src/commands/update.rs` with `#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]` and `generates_all_seven_game_data_steps_in_rust_without_node` in `rust/services/host/tests/gamedata.rs` with `#[cfg(feature = "isles-1-14-7")]` so both `--features paradox` and `--no-default-features --features "modules,paradox"` rollback builds pass clippy and tests cleanly |
+| 2026-10-29 | `dainty-lass` | RU9 + RB11 (Cutover C2/C4 feature guards) | `fix/ru9-paradox-feature-guards` | `b49cd71` | `1383000` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy -j 4 --workspace --all-targets --locked -- -D warnings`, `cargo clippy -j 4 -p host --features paradox --all-targets --locked -- -D warnings`, `cargo clippy -j 4 -p host --no-default-features --features "modules,paradox" --all-targets --locked -- -D warnings`, `cargo test -j 4 -p host --features paradox --locked` (194 passed, 0 failed), `cargo test -j 4 -p host --no-default-features --features "modules,paradox" --locked` (193 passed, 0 failed), `cargo test --workspace --locked --no-fail-fast -j 4` with `REFORGED_TEST_POSTGRES_URL` (98 binaries, 1196 passed, 0 failed) | Guarded `load_host_config` import in `rust/services/host/src/commands/update.rs` with `#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]` and `generates_all_seven_game_data_steps_in_rust_without_node` in `rust/services/host/tests/gamedata.rs` with `#[cfg(feature = "isles-1-14-7")]` so both `--features paradox` and `--no-default-features --features "modules,paradox"` rollback builds pass clippy and tests cleanly |
+| 2026-10-29 | `dainty-lass` | RU9 (Review M1) | `fix/m1-setup-migrates` | `380e3e4` | `a6982db` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p host --features paradox --all-targets --locked -j 2 -- -D warnings`, `cargo test -p host --features paradox --locked -j 2` (194 passed, 0 failed), `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=2` with `REFORGED_TEST_POSTGRES_URL` (98 binaries, 1200 passed, 0 failed) | Moved legacy MongoDB-to-`store` migration into `reforged-host setup` (`migrate_existing_mongo_data`), made `start` and `serve` refuse to start the Rust backend while unmigrated MongoDB data exists (`check_unmigrated_mongo_data`), added `--fresh-start` on `setup` and `[database] skip_mongo_migration = true` in `host.toml` (`REFORGED_SKIP_MONGO_MIGRATION`), and added command-level tests in `rust/services/host/tests/update.rs` |
+| 2026-10-29 | `dainty-lass` | RX4 + RU9 (Review M2) | `fix/m2-docker-migration` | `40b3aa5` | `650fa06` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo test -p host --test start --locked -j 2` (11 passed, 0 failed), `bash docker/smoke-test.sh` (passed), `bash docker/run-tests.sh` (`test-in-image.sh`, `smoke-test.sh`, and 4-node `network/test.sh` all passed) | Added `check_unmigrated_mongo_data` to `reforged-host backend` so the Docker `backend` container refuses to start on unmigrated `mongo-data`, updated `docker/smoke-test.sh` to seed a pre-cutover `mongo-data` volume (`LegacyDockerSlayer`), run `mongo` from `--profile rollback` during `host` setup to migrate and verify into SQLite, probe `/reforged/api/ServerStatus` and `/reforged/api/GetUserInfo` through the gateway, and verify `backend` refusal on unmigrated `mongo-data`, and updated `docs/hosting-docker.md` |
+| 2026-10-29 | `rustic-isles` | RB13 (Review M3) | `fix/m3-export-mongo-verify` | `15a5ace` / `b999a31` | `dfd1344` / `b0efebd` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `node scripts/check-route-inventory.mjs` (290 routes: backend 285, director 5), `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=1` with `REFORGED_TEST_POSTGRES_URL` and `ISLES_TEST_MONGO_URI=mongodb://127.0.0.1:27097/dauntless` (59 binaries, 752 passed, 0 failed) | Preserved optional `approvalStatus`, `approvalUpdatedAt`, `approvalUpdatedBy`, `approvalReason`, `rolesUpdatedAt`, `rolesUpdatedBy`, and `usernameSet` fields on `launcherAccounts` during `export_to_mongo` (`15a5ace`), populated canonical deterministic `_id` strings across all exported MongoDB documents so `export_to_mongo` followed by `verify` succeeds on accounts created directly in SQLite/Postgres (`b999a31`), and added `sqlite_native_accounts_export_to_mongo_and_verify` in `crates/isles-db/tests/migrate.rs` |
+| 2026-10-29 | `dainty-lass` | RB4 + RB13 + RU9 (Review M3) | `fix/m3-host-db-commands` | `4e369e7` | `b4e924b` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p host --features paradox --all-targets --locked -j 2 -- -D warnings`, `cargo test -p host --features paradox --locked -j 2` (200 passed, 0 failed), `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=2` with `REFORGED_TEST_POSTGRES_URL` (99 binaries, 1208 passed, 0 failed), end-to-end Docker rollback round-trip test (passed) | Added `reforged-host db migrate`, `reforged-host db verify`, and `reforged-host db export-mongo` subcommands in `rust/services/host/src/commands/db.rs` and `cli.rs` (defaulting `[mongo]` and `[database]` from `host.toml` and redacting URI passwords via `redact_uri`), replaced all `isles-db` references across `docs/` with `reforged-host db ...`, and bumped `modules/rustic-isles` to `b0efebd` |
+| 2026-10-29 | `dainty-lass` | RU9 (Review M4) | `fix/m4-unreachable-mongo` | `e162dce` | `3bff5df` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p host --features paradox --all-targets --locked -j 2 -- -D warnings`, `cargo test -p host --features paradox --locked -j 2` (200 passed, 0 failed), `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=2` with `REFORGED_TEST_POSTGRES_URL` (99 binaries, 1210 passed, 0 failed) | Updated `has_legacy_mongo_data` and `migrate_existing_mongo_data` in `rust/services/host/src/commands/update.rs` so a configured external MongoDB (`manage = false` or non-default `mongo.uri`) that cannot be reached refuses `setup`, `update`, `start`, and `backend` with a clear message naming how to start MongoDB or opt out (`setup --fresh-start` / `[database] skip_mongo_migration = true`), with tests in `rust/services/host/tests/update.rs` |
+| 2026-10-29 | `dainty-lass` | RU9 + RH6 + RX4 (Review M5) | `fix/m5-stale-mongo-node-text` | `bc3e391` | `fb0f20b` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p host --features paradox --all-targets --locked -j 2 -- -D warnings`, `cargo test -p host --features paradox --locked -j 2 -- --test-threads=2` (200 passed, 0 failed), `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=2` with `REFORGED_TEST_POSTGRES_URL` (99 binaries, 1212 passed, 0 failed) | Gated `MONGODB_URI`, `MONGODB_DB`, `MONGODB_APP_NAME`, and `MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS` in `build_env_files` behind `#[cfg(feature = "paradox")]` (adding default `MONGODB_*` `ENV` vars to `server-rollback` in `docker/Dockerfile`), hid `--manage-mongo`, `--no-manage-mongo`, `--mongod`, and `--force-upstream` on default `setup --help` while describing `--mongo-uri` as the migration source, documented why `isles-1-12-0` loads only when `[modules]` `compiled` names it in `serve.rs` and `docs/hosting.md`, updated `docs/hosting.md`, `docs/hosting-docker.md`, and `.forgejo/workflows/server-release.yml` |
+| 2026-10-29 | `dainty-lass` | RU9 + RB12 + RB13 + RB14 (Review M6) | `fix/m6-cutover-proofs` | see `plan` | see `plan` | Whole-server `reforged-host start` proof with `node`, `npm`, and `mongod` off `PATH` in private mode on Tailscale `100.89.243.36:61000`, section 6 smoke list run, RB12/RU8 replay status in `MIGRATION_PLAN.md`, M3 rollback round-trip proof, `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p host --features paradox --all-targets --locked -j 2 -- -D warnings`, `cargo test -p host --features paradox --locked -j 2 -- --test-threads=2` | Recorded whole-server `reforged-host start` proof off `PATH` probed through the gateway, section 6 smoke list results, RB2/RU8/RB12 replay status (`no RB2/RU8 recorded corpus exists`), and the M3 rollback round-trip transcript in `MIGRATION_PLAN.md`, `docs/dainty-lass-plan.md`, `docs/port/handoff-ledger.md`, and `docs/port/handoff-2026-10-27.md` |
 
 ## Round 1 commit body record (G1)
 
@@ -92,3 +99,171 @@ Per G1, the 19 non-merge commits from Round 1 are left untouched on `plan` to av
 - `rustic-rifts` `0bb0652` (`RF5: add RealmsService, RealmsRoutes, IslesCore port adapters, and Guard capability route resolution`): Added `crates/rifts-realms/src/wiring.rs` (`RealmsService`, `RealmsRoutes`, `CoreAccounts`, `CoreGuardSessions`, `CoreOperationsView`, and `CoreOperationsPolicy`) and routed Guard `Capabilities::resolve` through `RealmsHuntSessions` so `isles-1-14-7` can wire live realms and Guard routes (RD6, RD7, RD10).
 - `rustic-rifts` `72fa45e` (`RF6: remove duplicate rifts_guard migration from rifts-realms and test fresh and existing migrations`): Deleted the duplicate `2026-10-26-000002_rifts_guard` migration directory from `crates/rifts-realms/migrations/{sqlite,postgres}` and updated `RealmsDb::open` to run `rifts_guard::SCHEMA` before `rifts_realms::SCHEMA` so `rifts-guard` is the single source of truth for its 7 tables (DD14, RD7).
 - `rustic-rifts` `eef8a6c` (`RF7: update transport.rs module comment to reflect ffi unsafe_code allowance`): Updated the top-of-file comment in `crates/rifts-host/src/transport.rs` to state accurately that `crates/rifts-host/src/ffi.rs` implements the trait over `ParadoxTransport.dll` and is the single module permitted `unsafe_code` (RD8).
+
+## Cutover proofs (M6)
+
+### 1. Whole-server `reforged-host start` with `node`, `npm`, and `mongod` off `PATH` (probed through the gateway)
+
+Run in private mode on Tailscale address `100.89.243.36` (`http://100.89.243.36:61000`), with `PATH` restricted to `C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0;C:\Program Files\Tailscale` so `node`, `npm`, and `mongod` are absent from `PATH`:
+
+```text
+$ $env:PATH = "C:\Windows\System32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0;C:\Program Files\Tailscale"
+$ foreach ($tool in @("node", "npm", "mongod")) { Get-Command $tool -ErrorAction SilentlyContinue }
+=== 1. Verify node, npm, and mongod are off PATH ===
+node : not on PATH
+npm : not on PATH
+mongod : not on PATH
+Tailscale IPv4: 100.89.243.36
+
+$ reforged-host setup --mode private --host 100.89.243.36 --name "M6 Cutover Smoke" --skip-install
+Private server "M6 Cutover Smoke" at 100.89.243.36 (game servers on 100.89.243.36)
+Game servers: 30 fps, 10 fps after 15 s without players; Training Grounds on demand, stopped after 5 min without players; quiet game logs; at most 3 hunts at once (UDP 8770-8777), a new hunt only with 2560 MB free
+
+1. Mystic Paradox (modules/rustic-isles and native/ in this project)
+- in place
+
+2. Skipped installing and building (--skip-install)
+
+3. Configuration
+- secrets: made (kept from now on) in C:\Users\Nick\AppData\Local\Temp\m6-live-smoke-9f6c1ceb\.workspace\config\secrets.env
+- env files: backend.env, director.env, content.env, gateway.env, admin.env in C:\Users\Nick\AppData\Local\Temp\m6-live-smoke-9f6c1ceb\.workspace\config
+- firewall rules to add once (as administrator): C:\Users\Nick\AppData\Local\Temp\m6-live-smoke-9f6c1ceb\.workspace\config\firewall.ps1
+
+$ reforged-host publish-runtime --from runtime-in
+Runtime 20261029-6ef795d5 published in C:\Users\Nick\AppData\Local\Temp\m6-live-smoke-9f6c1ceb\.workspace\runtime:
+  MysticParadox.dll  39 bytes  2e1c5a308506fae305a01ed245881ff1b88a973d0a563b1af7b851074b6ea5ce
+  winmm.dll  30 bytes  5b91499aa7d3d7b99f27d4f67192f0898faaf8e78a780295aa6d0a8c6c9c037a
+
+$ REFORGED_CONTROL=stdin reforged-host start
+! This server runs on example game data: it starts, but it is not playable. The launcher tells players so.
+{"t":"2026-10-29T19:35:10.060Z","level":"info","msg":"runtime ready","version":"20261029-6ef795d5","files":[{"name":"MysticParadox.dll","size":39,"sha256":"2e1c5a308506fae305a01ed245881ff1b88a973d0a563b1af7b851074b6ea5ce"},{"name":"winmm.dll","size":30,"sha256":"5b91499aa7d3d7b99f27d4f67192f0898faaf8e78a780295aa6d0a8c6c9c037a"}]}
+{"t":"2026-10-29T19:35:10.062Z","level":"info","msg":"content server ready","listen":["127.0.0.1:61002"],"backend":"http://127.0.0.1:61000","runtime":"C:\\Users\\Nick\\AppData\\Local\\Temp\\m6-live-smoke-9f6c1ceb\\.workspace\\runtime","branding":"C:\\Users\\Nick\\AppData\\Local\\Temp\\m6-live-smoke-9f6c1ceb\\.workspace\\branding","news":"C:\\Users\\Nick\\AppData\\Local\\Temp\\m6-live-smoke-9f6c1ceb\\.workspace\\config\\news.json","maxStreamsPerAccount":4,"maxStreamsTotal":48}
+{"t":"2026-10-29T19:35:10.114Z","level":"info","msg":"admin API ready","listen":["127.0.0.1:61003"],"backend":"http://127.0.0.1:61000","director":"http://127.0.0.1:61001","timeouts":"C:\\Users\\Nick\\AppData\\Local\\Temp\\m6-live-smoke-9f6c1ceb\\.workspace\\config\\admin-timeouts.json"}
+{"t":"2026-10-29T19:35:10.115Z","level":"info","msg":"gateway ready","listen":"100.89.243.36:61000","mode":"private (plain HTTP inside the tailnet)","backend":"127.0.0.1:61000","content":"127.0.0.1:61002","websocket":"127.0.0.1:61000","allowlistFeed":"off","maxBodyBytes":131072,"maxConnections":2048,"maxConnectionsPerIp":128,"rate":{"general":{"burst":300,"perMinute":180},"content":{"burst":600,"perMinute":600},"register":{"burst":5,"perMinute":0.2},"token":{"burst":10,"perMinute":1},"ws":{"burst":20,"perMinute":12},"connect":{"burst":200,"perMinute":300}}}
+isles-core     | [Startup] MYSTICPARADOX_EMAIL_VERIFICATION not set (default off): sign-in does not check the email
+isles-core     | [Startup] MYSTICPARADOX_REGISTRATION_APPROVAL=off: new accounts are approved at once
+isles-core     | Synchronized 1 Gameserver API key hash(es) from GAMESERVER_API_KEYS
+isles-director | [TrainingOnDemand] TRAINING_IDLE_STOP_MINUTES is set but GAMESERVER_RUNTIME_LOG_DIR is not: the Training Grounds keep running
+isles-core     | QoS latency-test listener off (QOS_PORT=off); the relay or a proxy answers the region pings
+isles-director | GAMESERVER_BINARY_PATH and METAGAME_API_KEY are not set in the env file: the Director starts no game server
+isles-1-14-7   | Rustic Isles 1.14.7 listening: backend 127.0.0.1:61000, director 127.0.0.1:61001
+host           | module isles-1-14-7 loaded
+
+Server "M6 Cutover Smoke" is up: http://100.89.243.36:61000 inside your tailnet
+REFORGED_SERVER_READY
+
+=== Probe through the gateway at http://100.89.243.36:61000 ===
+GET http://100.89.243.36:61000/dauntless-status -> {"show-status":true,"en":"Welcome to Mystic Paradox!","fr":"Welcome to Mystic Paradox!","it":"Welcome to Mystic Paradox!","es":"Welcome to Mystic Paradox!","de":"Welcome to Mystic Paradox!","pt":"Welcome to Mystic Paradox!","ru":"Welcome to Mystic Paradox!","ja":"Welcome to Mystic Paradox!"}
+GET http://100.89.243.36:61000/reforged/api/ServerStatus -> {"name":"M6 Cutover Smoke","online":true,"version":"0.1.0","commit":"","sourceUrl":"https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival","registration":"INVITECODE","uptimeSeconds":0,"contentPort":null,"game":{"build":"rel-1.14.7-Archon","changelist":647472,"executableSha256":"f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b"},"gameData":"synthetic","chat":true,"playersOnline":0,"players":[],"instances":[],"limited":true}
+
+=== Smoke item: create invite & register with invite through the gateway ===
+Invite for SmokeSlayer (1 use):
+  reforged-revival://join?v=1&host=100.89.243.36&port=61000&code=D33K-DX4P-G8T2&name=M6%20Cutover%20Smoke
+POST http://100.89.243.36:61000/reforged/api/Register -> UUK=RRK_38cb...
+
+=== Smoke item: login (GetUserInfo + OAuth token + /accountinfo) through the gateway ===
+GET http://100.89.243.36:61000/reforged/api/GetUserInfo -> {"UserId":"3d7663bd-0a5f-432a-8e5b-6baab13262a6","Username":"SmokeSlayer","IsAdmin":false}
+POST http://100.89.243.36:61000/account/api/oauth/token -> token_type=bearer account_id=3d7663bd-0a5f-432a-8e5b-6baab13262a6 expires_in=86400 access_token_len=896
+GET http://100.89.243.36:61000/accountinfo -> {"accountId":"3d7663bd-0a5f-432a-8e5b-6baab13262a6","creationDate":"2000-01-01 00:00:00","email":null,"preferredLanguage":null,"username":"SmokeSlayer","verified":true}
+
+=== Smoke item: runtime download through the gateway ===
+GET http://100.89.243.36:61000/content/v1/runtime/manifest -> {"version":"20261029-6ef795d5","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"MysticParadox.dll","size":39,"sha256":"2e1c5a308506fae305a01ed245881ff1b88a973d0a563b1af7b851074b6ea5ce"},{"name":"winmm.dll","size":30,"sha256":"5b91499aa7d3d7b99f27d4f67192f0898faaf8e78a780295aa6d0a8c6c9c037a"}]}
+GET http://100.89.243.36:61000/content/v1/runtime/files/MysticParadox.dll -> status=200 bytes=39
+GET http://100.89.243.36:61000/content/v1/runtime/files/winmm.dll -> status=200 bytes=30
+
+=== Smoke item: ban account and verify rejection through the gateway ===
+POST http://127.0.0.1:61000/reforged/api/SetAccountStatus -> {"UserId":"3d7663bd-0a5f-432a-8e5b-6baab13262a6","Username":"SmokeSlayer","Status":"banned"}
+GET http://100.89.243.36:61000/reforged/api/GetUserInfo (after ban) -> HTTP 403
+POST http://100.89.243.36:61000/account/api/oauth/token (after ban) -> HTTP 403
+
+=== Smoke item: clean stop ===
+Stopping...
+isles-1-14-7   | Rustic Isles 1.14.7 stopped
+{"t":"2026-10-29T19:35:11.029Z","level":"info","msg":"stopping","signal":"stop","graceMs":10000}
+{"t":"2026-10-29T19:35:11.029Z","level":"info","msg":"stopped"}
+{"t":"2026-10-29T19:35:11.029Z","level":"info","msg":"stopping","signal":"stop"}
+{"t":"2026-10-29T19:35:11.036Z","level":"info","msg":"stopping","signal":"stop"}
+Stopped.
+reforged-host start exited with code 0
+```
+
+### 2. Section 6 smoke list (`MIGRATION_PLAN.md` section 6)
+
+| Smoke item | Status | Evidence |
+| --- | --- | --- |
+| Register with an invite | **Run, passed** | `reforged-host invite --for "SmokeSlayer"` followed by `POST http://100.89.243.36:61000/reforged/api/Register` through the gateway returned HTTP 200 and an `RRK_...` account key; also verified in `docker/smoke-test.sh` over pinned TLS (`https://127.0.0.1:18443/reforged/api/Register`). |
+| Login | **Run, passed** | `GET http://100.89.243.36:61000/reforged/api/GetUserInfo` (`x-reforged-user-api-key`), `POST http://100.89.243.36:61000/account/api/oauth/token` (`grant_type=exchange_code`), and `GET http://100.89.243.36:61000/accountinfo` (`Authorization: Bearer ...`) through the gateway all returned HTTP 200 with account `3d7663bd-0a5f-432a-8e5b-6baab13262a6` (`SmokeSlayer`). |
+| Ramsgate | **Maintainer, needs a 1.14.7 client** | Requires a live Dauntless 1.14.7 UE4 client and shipping game-server binary (`DauntlessServer-Win64-Shipping.exe`); HTTP/Director matchmaking and instance routes are covered by `isles-core` and `isles-director` integration tests. |
+| A hunt | **Maintainer, needs a 1.14.7 client** | Requires a live Dauntless 1.14.7 UE4 client and shipping game-server binary; hunt matchmaking, instance allocation, and reward posts are covered by `isles-core` and `isles-director` integration tests. |
+| Chat in the City room | **Maintainer, needs a 1.14.7 client** | End-to-end in-game City room chat requires a 1.14.7 client; XMPP-over-WebSocket City room (`0025`), MUC presence, and message stanza handling are covered in `crates/isles-chat` and `rust/plugins/chat` tests. |
+| Runtime download | **Run, passed** | `GET http://100.89.243.36:61000/content/v1/runtime/manifest`, `GET .../content/v1/runtime/files/MysticParadox.dll` (HTTP 200, 39 bytes), and `GET .../content/v1/runtime/files/winmm.dll` (HTTP 200, 30 bytes) through the gateway; also verified in `docker/smoke-test.sh` over TLS (including 401 without a key and 416 on `Range: bytes=0-3`). |
+| Ban | **Run, passed** | `POST http://127.0.0.1:61000/reforged/api/SetAccountStatus` (`Status: "banned"`) set `SmokeSlayer` to `banned`; subsequent `GET http://100.89.243.36:61000/reforged/api/GetUserInfo` and `POST http://100.89.243.36:61000/account/api/oauth/token` through the gateway both returned HTTP 403 (`account_banned`). |
+| Clean stop | **Run, passed** | Sending `stop` to `reforged-host start` stopped `isles-1-14-7`, `gateway`, `admin`, and `content` cleanly and exited with code `0`. |
+
+### 3. Replay (`RB2`, `RU8`, `RB12`)
+
+No RB2/RU8 recorded traffic corpus exists in any repository: per the 2026-10-28 maintainer decision, the Node-to-Rust cutover was performed in code without running a live canary or recording live player traffic. This is stated plainly next to `RB2` and `RB12` in `MIGRATION_PLAN.md` and next to `RU8` in `docs/dainty-lass-plan.md`. The `isles-db replay` harness and normalizer (`crates/isles-core/src/replay.rs` and `crates/isles-db/src/replay.rs`) are verified against synthetic fixture traces in `crates/isles-db/tests/replay_test.rs`.
+
+### 4. M3 rollback round trip (`reforged-host db export-mongo` + `rollback` Compose profile)
+
+End-to-end verification exporting a SQLite-native account (`RollbackSlayer`) created on the Rust backend to a `mongo:8.0` container with `reforged-host db export-mongo`, verifying with `reforged-host db verify`, starting the Node `ParadoxBackend` + `ParadoxDirector` `rollback` Compose profile on that MongoDB volume, and querying `/reforged/api/ServerStatus` and `/reforged/api/GetUserInfo` through the gateway:
+
+```text
+== 1. Build server, front, and server-rollback images
+$ docker compose --profile public --profile rollback build server gateway content allowlist backend-rollback director-rollback
+
+== 2. Setup Rust server and seed account RollbackSlayer into SQLite store
+$ docker compose run --rm host --mode public --host rollback.example.org --game-address 203.0.113.7 --name "Rollback Server" --skip-install
+$ docker compose run --rm --entrypoint reforged-host host gamedata --examples
+$ docker compose --profile public up -d --wait allowlist backend director content gateway
+$ docker compose run --rm --entrypoint reforged-host host invite --for "RollbackSlayer" --uses 5
+Invite code: VD9X-5QKF-JENV
+$ curl -sk --resolve rollback.example.org:443:127.0.0.1 -X POST https://rollback.example.org/reforged/api/Register \
+    -H "Content-Type: application/json" -d '{"Username":"RollbackSlayer","InviteCode":"VD9X-5QKF-JENV"}'
+Registered on Rust backend: {"UUK":"RRK_7350..."}
+
+== 3. Stop Rust backend/director, start mongo, and run reforged-host db export-mongo + db verify
+$ docker compose stop backend director
+$ docker compose --profile rollback up -d --wait mongo
+$ docker compose run --rm --entrypoint reforged-host host db export-mongo
+reforged-host db export-mongo (exported, from /opt/reforged/.workspace/config/dainty-lass.db to mongodb://127.0.0.1:27017/reforged?replicaSet=rs0):
+  accounts: 1
+  gameServerApiKeys: 1
+  reforgedInvites: 1
+  userApiKeys: 1
+
+$ docker compose run --rm --entrypoint reforged-host host db verify
+reforged-host db verify: OK (37 collections verified against mongodb://127.0.0.1:27017/reforged?replicaSet=rs0 for /opt/reforged/.workspace/config/dainty-lass.db)
+  [OK] accounts (area=auth, count=1, sha256=9352dbb586b4789d)
+  [OK] launcher_accounts (area=auth, count=1, sha256=7109482b7a697269)
+  [OK] auth_identities (area=auth, count=0, sha256=5df6e0e2761359d3)
+  [OK] refresh_sessions (area=auth, count=0, sha256=5df6e0e2761359d3)
+  [OK] game_exchange_codes (area=auth, count=0, sha256=5df6e0e2761359d3)
+  [OK] discord_oauth_transactions (area=auth, count=0, sha256=5df6e0e2761359d3)
+  [OK] email_codes (area=auth, count=0, sha256=5df6e0e2761359d3)
+  [OK] game_server_api_keys (area=auth, count=1, sha256=7192725c527660ce)
+  [OK] user_api_keys (area=auth, count=1, sha256=dbed578a1eac52ca)
+  ...
+  [OK] reforged_invites (area=reforged, count=1, sha256=72e84d680ee403ae)
+  ...
+
+== 4. Start rollback profile (Node ParadoxBackend + ParadoxDirector on exported MongoDB)
+$ docker compose --profile public --profile rollback up -d --wait mongo backend-rollback director-rollback content gateway allowlist
+NAME                                       IMAGE                                    SERVICE             STATUS
+reforged-m3-rollback-allowlist-1           reforged-revival-front:local             allowlist           Up 54 seconds (healthy)
+reforged-m3-rollback-backend-rollback-1    reforged-revival-server-rollback:local   backend-rollback    Up 11 seconds (healthy)
+reforged-m3-rollback-content-1             reforged-revival-front:local             content             Up 48 seconds (healthy)
+reforged-m3-rollback-director-rollback-1   reforged-revival-server-rollback:local   director-rollback   Up 6 seconds (healthy)
+reforged-m3-rollback-gateway-1             reforged-revival-front:local             gateway             Up 37 seconds (healthy)
+reforged-m3-rollback-mongo-1               mongo:8.0                                mongo               Up 27 seconds (healthy)
+
+== 5. Probe /reforged/api/ServerStatus and verify RollbackSlayer account on Node rollback backend
+$ curl -sk --resolve rollback.example.org:443:127.0.0.1 https://rollback.example.org/reforged/api/ServerStatus
+Rollback ServerStatus: {"name":"Rollback Server","online":true,"version":"0.1.0","commit":"","sourceUrl":"https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival","registration":"INVITECODE","uptimeSeconds":11,"contentPort":null,"game":{"build":"rel-1.14.7-Archon","changelist":647472,"executableSha256":"f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b"},"gameData":"synthetic","chat":true,"playersOnline":0,"players":[],"instances":[],"limited":true}
+$ curl -sk --resolve rollback.example.org:443:127.0.0.1 -H "x-reforged-user-api-key: RRK_7350..." https://rollback.example.org/reforged/api/GetUserInfo
+Rollback GetUserInfo (exported account): {"UserId":"4f7a465f-d9e5-4f86-b783-1c4b4dcf7927","Username":"RollbackSlayer","IsAdmin":false}
+$ curl -sk --resolve rollback.example.org:443:127.0.0.1 -X POST https://rollback.example.org/reforged/api/Register \
+    -H "Content-Type: application/json" -d '{"Username":"RollbackSlayer","InviteCode":"VD9X-5QKF-JENV"}'
+Rollback Register duplicate check: {"error":"username_taken","message":"That name is taken."}
+M3 rollback end-to-end test passed
+```
