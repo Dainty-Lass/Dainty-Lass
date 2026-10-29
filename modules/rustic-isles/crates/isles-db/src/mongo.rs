@@ -705,6 +705,26 @@ impl MongoClient {
         Ok(())
     }
 
+    /// Checks whether `collection` holds at least one document via a single-document `find` (`limit: 1, singleBatch: true`).
+    pub fn collection_has_documents(&mut self, collection: &str) -> Result<bool, MongoError> {
+        let mut cmd = BsonBuf::new();
+        cmd.put_str("find", collection)
+            .put_i32("limit", 1)
+            .put_bool("singleBatch", true)
+            .put_i32("batchSize", 1)
+            .put_str("$db", &self.database);
+        let reply = self.command(&cmd)?;
+        Self::check_ok(&reply, "find")?;
+        let cursor = reply
+            .get("cursor")
+            .and_then(Value::as_object)
+            .ok_or_else(|| MongoError::Command(format!("find({collection}): missing cursor object")))?;
+        Ok(cursor
+            .get("firstBatch")
+            .and_then(Value::as_array)
+            .is_some_and(|batch| !batch.is_empty()))
+    }
+
     /// Reads all documents in `collection` in insertion (`$natural`) order via `find` + `getMore`.
     pub fn find_all(&mut self, collection: &str) -> Result<Vec<Map<String, Value>>, MongoError> {
         let mut cmd = BsonBuf::new();
@@ -915,15 +935,22 @@ fn handle_mock_client(
                 Err(p) => p.into_inner(),
             };
             let docs = guard.get(col_name).map(Vec::as_slice).unwrap_or(&[]);
+            let req_limit = cmd
+                .get("limit")
+                .and_then(Value::as_i64)
+                .filter(|&n| n > 0)
+                .map(|n| n as usize);
+            let single_batch = cmd.get("singleBatch").and_then(Value::as_bool).unwrap_or(false);
             let req_batch = cmd
                 .get("batchSize")
                 .and_then(Value::as_i64)
                 .map(|n| n as usize)
                 .unwrap_or(max_batch)
                 .min(max_batch);
-            let take = docs.len().min(req_batch);
+            let total = req_limit.map_or(docs.len(), |l| docs.len().min(l));
+            let take = total.min(req_batch);
             let batch_docs: Vec<BsonBuf> = docs[..take].iter().map(BsonBuf::from_json_map).collect();
-            let cursor_id = if take < docs.len() {
+            let cursor_id = if !single_batch && take < total {
                 let cid = next_cursor_id;
                 next_cursor_id += 1;
                 cursors.insert(cid, (col_name.to_owned(), take));
@@ -1010,5 +1037,31 @@ fn handle_mock_client(
         frame.extend_from_slice(&body_bytes);
         stream.write_all(&frame)?;
         stream.flush()?;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn collection_has_documents_uses_limit_one_single_batch_probe() {
+        let mut collections = BTreeMap::new();
+        collections.insert(
+            "accounts".into(),
+            vec![
+                json!({ "_id": "1", "userId": "u1" }).as_object().unwrap().clone(),
+                json!({ "_id": "2", "userId": "u2" }).as_object().unwrap().clone(),
+            ],
+        );
+        collections.insert("empty_col".into(), Vec::new());
+        let server = MockMongoServer::start(collections, 1).unwrap();
+        let mut client = MongoClient::connect(&server.uri("reforged")).unwrap();
+        assert!(client.collection_has_documents("accounts").unwrap());
+        assert!(!client.collection_has_documents("empty_col").unwrap());
+        assert!(!client.collection_has_documents("nonexistent").unwrap());
     }
 }
