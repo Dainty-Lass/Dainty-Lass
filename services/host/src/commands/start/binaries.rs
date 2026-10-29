@@ -15,14 +15,13 @@ pub enum FrontService {
     Allowlist,
 }
 
-/// Whether the service's Rust build replaces its Node build (MIGRATION_PLAN.md section 4.3). Flipping
-/// the gateway or the content server is the front-door cutover (RS5), the maintainer's step.
+/// Whether the service's Rust build replaces its Node build (MIGRATION_PLAN.md section 4.3).
 pub fn rust_ported(service: FrontService) -> bool {
     match service {
-        // RS3 flips this.
-        FrontService::Gateway => false,
-        // RS2 flips this.
-        FrontService::Content => false,
+        // RS3: DR's gateway with Reforged's routes, policy, feed and capture.
+        FrontService::Gateway => true,
+        // RS2: DR's content server with Reforged's runtime manifest and download.
+        FrontService::Content => true,
         // RS4: DR's allowlist with Reforged's port range and nftables variant.
         FrontService::Allowlist => true,
     }
@@ -51,20 +50,6 @@ impl FrontService {
                 vec![self.bin_name().into(), "serve".into(), "--env-file".into(), env_file]
             }
             Self::Allowlist => vec![self.bin_name().into(), "--env-file".into(), env_file],
-        }
-    }
-
-    fn node_dir(self, paths: &Paths) -> PathBuf {
-        match self {
-            Self::Gateway | Self::Allowlist => paths.gateway_dir.clone(),
-            Self::Content => paths.content_dir.clone(),
-        }
-    }
-
-    fn node_script(self) -> PathBuf {
-        match self {
-            Self::Gateway | Self::Content => ["dist", "server.js"].iter().collect(),
-            Self::Allowlist => ["dist", "allowlist", "server.js"].iter().collect(),
         }
     }
 }
@@ -132,29 +117,18 @@ impl Programs {
         self.rust_dirs.iter().map(|d| d.join(&file)).find(|f| f.is_file())
     }
 
-    /// The service's Rust build whether or not [`rust_ported`] says so yet: what a legacy server runs,
-    /// since only the Rust services carry the `legacy` features. `None` when this binary lacks it.
+    /// The service's Rust build when this binary includes it (`None` when built without the feature).
     pub fn launch_rust(&self, service: FrontService, paths: &Paths, env_file: &Path) -> Option<Launch> {
-        service.built_in().then(|| Launch {
-            command: self.host.clone(),
-            args: service.rust_args(env_file),
-            cwd: paths.workspace.clone(),
-            env_file_in_args: true,
-        })
+        service.built_in().then(|| self.launch(service, paths, env_file))
     }
 
     /// The program for `service`, given its env file.
     pub fn launch(&self, service: FrontService, paths: &Paths, env_file: &Path) -> Launch {
-        if rust_ported(service)
-            && let Some(launch) = self.launch_rust(service, paths, env_file)
-        {
-            return launch;
-        }
         Launch {
-            command: self.node.clone(),
-            args: vec![service.node_script().display().to_string()],
-            cwd: service.node_dir(paths),
-            env_file_in_args: false,
+            command: self.host.clone(),
+            args: service.rust_args(env_file),
+            cwd: paths.workspace.clone(),
+            env_file_in_args: true,
         }
     }
 }
@@ -233,45 +207,23 @@ mod tests {
     }
 
     #[test]
-    fn runs_a_ported_service_from_this_binary_when_it_is_built_in_and_node_otherwise() {
+    fn launches_every_front_service_from_this_binary_with_its_env_file_in_args() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
-        let env_file = paths.config.join("allowlist.env");
         let p = programs(dir.path());
-        let launch = p.launch(FrontService::Allowlist, &paths, &env_file);
-        if FrontService::Allowlist.built_in() {
+        for service in [FrontService::Gateway, FrontService::Content, FrontService::Allowlist] {
+            assert!(rust_ported(service));
+            let env_file = paths.config.join(format!("{}.env", service.bin_name()));
+            let launch = p.launch(service, &paths, &env_file);
             assert_eq!(launch.command, dir.path().join("reforged-host"));
-            assert_eq!(
-                launch.args,
-                [
-                    "allowlist".to_string(),
-                    "--env-file".into(),
-                    env_file.display().to_string()
-                ]
-            );
+            assert_eq!(launch.cwd, paths.workspace);
+            assert_eq!(launch.args, service.rust_args(&env_file));
             assert!(launch.env_file_in_args);
-        } else {
-            assert_eq!(launch.command, PathBuf::from("node"));
-            assert_eq!(launch.cwd, paths.gateway_dir);
-            assert!(!launch.env_file_in_args);
+            assert_eq!(
+                p.launch_rust(service, &paths, &env_file),
+                service.built_in().then_some(launch),
+            );
         }
-    }
-
-    #[test]
-    fn keeps_a_service_that_is_not_ported_yet_on_node_even_when_it_is_built_in() {
-        let dir = tempfile::tempdir().unwrap();
-        let paths = Paths::new(dir.path());
-        let p = programs(dir.path());
-        assert!(!rust_ported(FrontService::Gateway) && !rust_ported(FrontService::Content));
-        let gateway = p.launch(FrontService::Gateway, &paths, &paths.config.join("gateway.env"));
-        assert_eq!(gateway.command, PathBuf::from("node"));
-        assert_eq!(gateway.cwd, paths.gateway_dir);
-        let content = p.launch(FrontService::Content, &paths, &paths.config.join("content.env"));
-        assert_eq!(content.cwd, paths.content_dir);
-        assert_eq!(
-            content.args,
-            vec![Path::new("dist").join("server.js").display().to_string()]
-        );
     }
 
     #[test]
