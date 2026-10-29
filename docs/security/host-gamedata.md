@@ -54,8 +54,11 @@ Code: `rust/services/host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `pro
 
 ### Generators and the export
 
-- [ ] Until RB11 the generators are the Node scripts of `modules/rustic-isles/reference/1.14.7/ParadoxBackend` and `modules/rustic-isles/reference/1.14.7/ParadoxDirector`, started through
-  `gamedata::run_generator` with fixed arguments; nothing from the export reaches a command line.
+- [ ] Since RB11, `gamedata` runs the in-process Rust generators in `isles_core::areas::game_data::generators`
+  (`generate_slayers_path`, `generate_lady_luck_store`, `generate_platinum_store`, `generate_reward_cache_store`,
+  `generate_inventory_storage_policy`) and `isles_director::hunt_tables::generate_all`, verified byte for byte against
+  the reference Node scripts in `crates/isles-core/tests/gamedata_generators_parity.rs`; no Node process is spawned and
+  nothing from the export reaches a command line.
 - [ ] The progression export is parsed line by line; a line that is not a JSON object is skipped; numbers outside
   JavaScript's safe integers fall back as the Node kit's do. The output is the Node kit's byte for byte
   (`tests/gamedata.rs`).

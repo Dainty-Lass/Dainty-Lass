@@ -13,11 +13,13 @@ the commit reviewed. An item that does not hold is a bug to fix before the cutov
 
 ## What it is and where the boundary is
 
-The controller starts the server's modules in order (allowlist, gateway, content, admin, MongoDB, Mystic Paradox's
-backend and Director, and the 1.4.4 stack when built with `legacy`), keeps each one's phase, and stops them in
-reverse. It opens no listener of its own: every port belongs to a module, and each module keeps the checklist of its
-component (`gateway.md`, `allowlist.md`, `content.md`, `admin-api.md`, `host-start.md`). What the controller adds is
-one process holding all of them, a console that drives them, and the files it reads to compose them.
+The controller starts the server's modules in order (allowlist, gateway, content, admin, the compiled-in `isles-1-14-7`
+Rust backend on port 61000 and in-process `isles-director` on port 61001 over SQLite or Postgres, and the 1.4.4 stack
+when built with `legacy`; or MongoDB and the Node backend/Director when built with the opt-in `paradox` rollback
+feature), keeps each one's phase, and stops them in reverse. It opens no listener of its own: every port belongs to a
+module, and each module keeps the checklist of its component (`gateway.md`, `allowlist.md`, `content.md`,
+`admin-api.md`, `host-start.md`). What the controller adds is one process holding all of them, a console that drives
+them, and the files it reads to compose them.
 
 - **In, the host's files:** `host.toml`, `host.yaml`/`host.yml` or a Node kit's `host.json`, and the env files setup
   wrote. They are the host's own, but a broken or planted file must only ever be refused.

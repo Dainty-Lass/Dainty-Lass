@@ -80,7 +80,8 @@ DaintyLass separates **core plugins** from **game modules** ([`rust/crates/modul
 ## The launcher API
 
 The backend's `/reforged/api` is the one contract between the launcher, the content server, the admin API and
-the host kit ([modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts](../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts)).
+the host kit (`modules/rustic-isles/crates/isles-core/src/areas/reforged_api/`, ported from
+[modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts](../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts)).
 
 | Route | Who calls it | Through the gateway |
 | --- | --- | --- |

@@ -57,7 +57,8 @@ bin\reforged-host gamedata --progression-only      # only the progression config
 bin\reforged-host gamedata --examples              # the shipped examples: the services start, nobody can play
 ```
 
-`gamedata` runs Mystic Paradox's generators on your export and fetches the five store captures
+`gamedata` runs the in-process Rust game-data generators (`isles_core::areas::game_data::generators` and
+`isles_director::hunt_tables`) on your export with no Node.js required, and fetches the five store captures
 (`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json` names them, with their hashes) from EisigesEis's repository on your
 machine, because no licence allows copying them here. The launcher shows players whether a server runs on real
 or example data.

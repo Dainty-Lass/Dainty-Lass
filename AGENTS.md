@@ -15,7 +15,7 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 | Path | What it is |
 | --- | --- |
-| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host` = the host kit and `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-server-gui` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
+| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `backend`, `director`, `host` = the host kit and `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-server-gui` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
 | `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
 | `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
 | `modules/rustic-isles/` | Submodule: `rustic-isles`, the 1.14.7 (`isles-1-14-7`) and 1.12.0 (`isles-1-12-0`) Rust game modules, `isles-core`, `isles-director`, `isles-chat`, `rifts-seam`, the C++ game runtime (`native/paradox-runtime`) and CatalogExporter (`native/CatalogExporter`), and the Node reference trees (`reference/1.14.7`, `reference/1.12.0`) |
@@ -26,10 +26,12 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 | `docs/` | Player and host guides, `architecture.md`, `paradox-patches.md`, `port/` (the migration guide, delta and catch-up lists), `security/` (one checklist per trust-boundary component; indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 
 Game-specific server and runtime code lives in the three module submodules (`modules/rustic-isles`,
-`modules/rustic-rifts`, `modules/legacy-revived`, DD1/DS6). Until the RU9 cutover flips `rust_ported`,
-`host::serve` runs Mystic Paradox's Node backend and Director from
-`modules/rustic-isles/reference/1.14.7/` when the `paradox` feature is enabled, while `isles-1-14-7`,
-`isles-1-12-0` and `revived-1-4-4` link into `crates/controller` behind the `all-modules` feature (DF5).
+`modules/rustic-rifts`, `modules/legacy-revived`, DD1/DS6). On the default path (since the RU9 code cutover,
+maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 61000) and
+in-process `isles-director` (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7`,
+`isles-1-12-0` and `revived-1-4-4` linked into `crates/controller` behind the `all-modules` feature (DF5). For one
+release after the cutover (until RB15), the opt-in `paradox` Cargo feature on `host` retains Mystic Paradox's Node
+backend and Director from `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 
 The server is one executable (RD26). Every service is a module of `crates/controller`, behind its own Cargo
 feature (`modules.rs`), composed by `host::serve` from the files `setup` writes, and still runnable alone as a
