@@ -1054,6 +1054,60 @@ async fn export_mongo_roundtrip_passes_verify_across_all_collections() {
     };
     run_migrate(&migrate_opts).await.unwrap();
 
+    // Also insert a post-cutover account created directly in SQLite (with approval_status = Some("approved")
+    // and approval_updated_at / approval_updated_by = None, as /reforged/api/Register writes it) to prove
+    // export-mongo + verify round-trips post-cutover accounts cleanly.
+    let db = open_target_database(&sqlite_path.display().to_string(), false).unwrap();
+    let new_acc = deterministic_account_id(&node, "33333333-3333-4333-8333-333333333333").unwrap();
+    db.write(store::Actor::System("test".into()), move |tx| -> Result<(), DbError> {
+        let repos = Repositories::on_store();
+        let uid = UserId("33333333-3333-4333-8333-333333333333".into());
+        repos
+            .accounts
+            .create(
+                tx,
+                &isles_core::repo::auth::AccountRecord {
+                    id: new_acc.clone(),
+                    user_id: uid.clone(),
+                    name: "SlayerThree".into(),
+                    notes: 0,
+                },
+            )
+            .unwrap();
+        repos
+            .launcher_accounts
+            .create(
+                tx,
+                &isles_core::repo::auth::LauncherAccountRecord {
+                    account: new_acc,
+                    user_id: uid,
+                    email: None,
+                    display_name_normalized: "slayerthree".into(),
+                    display_name: "SlayerThree".into(),
+                    password_hash: None,
+                    status: isles_core::repo::auth::OperationalStatus::Active,
+                    approval_status: Some(isles_core::repo::auth::ApprovalStatus::Approved),
+                    approval_updated_at: None,
+                    approval_updated_by: None,
+                    approval_reason: None,
+                    roles: vec!["player".into()],
+                    roles_updated_at: None,
+                    roles_updated_by: None,
+                    created_at: "2026-03-11T12:00:00.000Z".into(),
+                    last_login_at: None,
+                    username_set: Some(true),
+                    consent: None,
+                    deletion: None,
+                    email_verified_at: None,
+                    email_verification_pending_since: None,
+                },
+            )
+            .unwrap();
+        Ok(())
+    })
+    .await
+    .unwrap();
+
     let dest_mongo = MockMongoServer::start(BTreeMap::new(), 2).unwrap();
     let dest_uri = dest_mongo.uri("dauntless");
 
@@ -1082,7 +1136,7 @@ async fn export_mongo_roundtrip_passes_verify_across_all_collections() {
     .await
     .unwrap();
     assert!(!export_report.dry_run);
-    assert_eq!(export_report.counts.get("accounts"), Some(&2));
+    assert_eq!(export_report.counts.get("accounts"), Some(&3));
     assert_eq!(export_report.counts.get("characters"), Some(&1));
 
     let verify_exported = run_verify(&MigrateOptions {
