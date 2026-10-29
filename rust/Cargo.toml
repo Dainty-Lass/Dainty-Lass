@@ -76,7 +76,9 @@ epic = { path = "crates/epic" }
 # The game modules compiled into the server (DF5): Cargo features of the controller and the bins
 isles-1-12-0 = { path = "../modules/rustic-isles/modules/isles-1-12-0" }
 isles-1-14-7 = { path = "../modules/rustic-isles/modules/isles-1-14-7", default-features = false }
+isles-core = { path = "../modules/rustic-isles/crates/isles-core" }
 isles-db = { path = "../modules/rustic-isles/crates/isles-db" }
+isles-director = { path = "../modules/rustic-isles/crates/isles-director" }
 hmac = "0.13"
 # The launcher's side of realms (RF7, DD12): linked behind launcher's `realms` feature
 rifts-host = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "47b0140132515059ad89da22111494b57b8f42a6" }

@@ -3,12 +3,13 @@
 //!
 //! The game data the backend and the Director read is generated from the host's own 1.14.7 install
 //! with Mystic Paradox's tools (`modules/rustic-isles/docs/GENERATING_GAME_DATA.md`). `gamedata` runs the steps in
-//! order from the CatalogExporter export in `Items_Analysis/` beside the services. Until RB11 the steps are the
-//! Node generators in `ParadoxBackend/scripts` (rustic-isles) (and the Director's); [`run_generator`] is the one
-//! place that starts them, so RB11 switches it to the `backend gamedata` subcommands.
+//! order from the CatalogExporter export in `Items_Analysis/` beside the services. Every step runs in-process
+//! through [`isles_core::gamedata`] and [`isles_director::hunt_tables`] (RB11), with no Node or npm dependency.
 //!
 //! `start` (RH2) and `doctor` (RH3) use [`game_data_state`].
 
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::captures::{CaptureFetch, CapturePin, ensure_captures, missing_captures, read_capture_pin};
@@ -16,7 +17,7 @@ use crate::error::HostError;
 use crate::gamepack::example_of;
 use crate::paths::Paths;
 use crate::progression::{PROGRESSION_EXPORT_DIR, SourceWritten, write_progression_source};
-use crate::run::{RunOptions, RunResult};
+use crate::run::RunResult;
 
 pub const BACKEND_GAME_DATA: [&str; 7] = [
     "progression_config.json",
@@ -137,14 +138,41 @@ pub enum StepDir {
     Director,
 }
 
+/// Which RB11 Rust generator a [`Step`] invokes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GeneratorKind {
+    ProgressionConfig,
+    HuntTables,
+    SlayersPath,
+    SlayersPathDefinitions,
+    RewardCache,
+    LadyLuckGenerate,
+    LadyLuckEnrich,
+    PlatinumAndStoragePolicy,
+}
+
+impl GeneratorKind {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::ProgressionConfig => "isles_core::gamedata::generate_progression_config",
+            Self::HuntTables => "isles_director::hunt_tables::import_hunt_tables",
+            Self::SlayersPath => "isles_core::gamedata::generate_slayers_path",
+            Self::SlayersPathDefinitions => "isles_core::gamedata::generate_slayers_path_definitions",
+            Self::RewardCache => "isles_core::gamedata::generate_reward_cache_store",
+            Self::LadyLuckGenerate => "isles_core::gamedata::generate_ladyluck_store",
+            Self::LadyLuckEnrich => "isles_core::gamedata::enrich_ladyluck_store",
+            Self::PlatinumAndStoragePolicy => "isles_core::gamedata::generate_platinum_store",
+        }
+    }
+}
+
 type Check<'a> = Box<dyn Fn() -> Option<String> + 'a>;
 type Prepare<'a> = Box<dyn Fn() -> Result<(), HostError> + 'a>;
 
 pub struct Step<'a> {
     pub title: &'static str,
     pub cwd: StepDir,
-    pub command: &'static str,
-    pub args: Vec<&'static str>,
+    pub generator: GeneratorKind,
     /// Skip the step (with this reason) when it returns one. Checked just before the step runs.
     pub skip_if: Option<Check<'a>>,
     /// Runs just before the step (after `skip_if`).
@@ -157,12 +185,11 @@ impl Step<'_> {
     }
 }
 
-fn step<'a>(title: &'static str, cwd: StepDir, command: &'static str, args: &[&'static str]) -> Step<'a> {
+fn step<'a>(title: &'static str, cwd: StepDir, generator: GeneratorKind) -> Step<'a> {
     Step {
         title,
         cwd,
-        command,
-        args: args.to_vec(),
+        generator,
         skip_if: None,
         prepare: None,
     }
@@ -189,12 +216,7 @@ pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
     let supplied_lady_luck = raw("ladyluck_store.json").exists();
     let progression_source = raw("progression_config.json");
 
-    let mut progression = step(
-        "Progression config",
-        StepDir::Backend,
-        "npm",
-        &["run", "generate:progression-config", "--", "--apply"],
-    );
+    let mut progression = step("Progression config", StepDir::Backend, GeneratorKind::ProgressionConfig);
     progression.skip_if = Some(Box::new(move || {
         (!progression_source.exists()).then(|| {
             format!(
@@ -210,45 +232,24 @@ pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
             )
         })
     }));
-    let mut hunts = step(
-        "Director hunt tables",
-        StepDir::Director,
-        "npm",
-        &["run", "generate:hunt-tables", "--", "--apply"],
-    );
+    let mut hunts = step("Director hunt tables", StepDir::Director, GeneratorKind::HuntTables);
     hunts.skip_if = Some(Box::new(move || export_missing("hunts_1_14_7".into())));
-    let mut graph = step(
-        "Slayer's Path graph",
-        StepDir::Backend,
-        "npm",
-        &["run", "generate:slayers-path", "--", "--apply"],
-    );
+    let mut graph = step("Slayer's Path graph", StepDir::Backend, GeneratorKind::SlayersPath);
     graph.skip_if = Some(Box::new(move || export_missing(journey())));
     let mut definitions = step(
         "Slayer's Path definitions",
         StepDir::Backend,
-        "node",
-        &["scripts/generate_slayers_path_definitions.cjs", "--apply"],
+        GeneratorKind::SlayersPathDefinitions,
     );
     definitions.skip_if = Some(Box::new(move || export_missing(journey())));
-    let mut reward_cache = step(
-        "Reward Cache store",
-        StepDir::Backend,
-        "npm",
-        &["run", "reward-cache:generate"],
-    );
+    let mut reward_cache = step("Reward Cache store", StepDir::Backend, GeneratorKind::RewardCache);
     reward_cache.skip_if = Some(Box::new(move || export_missing("catalog_1_14_7.jsonl".into())));
     // A response the host supplies wins; otherwise the live rotation from the store captures, kept to
     // the items the host's own catalogue has.
     let lady_luck = if supplied_lady_luck {
-        step(
-            "Lady Luck store",
-            StepDir::Backend,
-            "npm",
-            &["run", "generate:ladyluck-store", "--", "--apply"],
-        )
+        step("Lady Luck store", StepDir::Backend, GeneratorKind::LadyLuckGenerate)
     } else {
-        let mut enrich = step("Lady Luck store", StepDir::Backend, "npm", &["run", "ladyluck:enrich"]);
+        let mut enrich = step("Lady Luck store", StepDir::Backend, GeneratorKind::LadyLuckEnrich);
         enrich.skip_if = Some(Box::new(move || {
             export_missing("catalog_1_14_7.jsonl".into()).or_else(captures_missing)
         }));
@@ -261,8 +262,7 @@ pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
     let mut platinum = step(
         "Platinum store and storage policy",
         StepDir::Backend,
-        "npm",
-        &["run", "platinum:generate"],
+        GeneratorKind::PlatinumAndStoragePolicy,
     );
     platinum.skip_if = Some(Box::new(move || {
         export_missing("store_item_images_1_14_7.jsonl".into()).or_else(|| {
@@ -283,21 +283,133 @@ pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
     ]
 }
 
-/// Runs one generator step to its end. The one place the generators are started: until RB11 the
-/// Node scripts in `ParadoxBackend/scripts` (rustic-isles) (and the Director's) through npm, after it the
-/// `backend gamedata` subcommands.
+fn append_generator_log(log_file: &Path, cwd: &Path, label: &str, text: &str) -> Result<(), HostError> {
+    if let Some(dir) = log_file.parent() {
+        fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
+    }
+    let mut log = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_file)
+        .map_err(|e| HostError::io(log_file, e))?;
+    let _ = writeln!(log, "\n$ {label}  (in {})", cwd.display());
+    let _ = writeln!(log, "{text}");
+    Ok(())
+}
+
+#[cfg(feature = "isles-1-14-7")]
+fn execute_rust_generator(p: &Paths, generator: GeneratorKind) -> Result<String, String> {
+    match generator {
+        GeneratorKind::ProgressionConfig => {
+            isles_core::gamedata::generate_progression_config(&p.raw_game_data, &p.backend_game_data, true)
+        }
+        GeneratorKind::HuntTables => {
+            isles_director::hunt_tables::import_hunt_tables(&isles_director::hunt_tables::ImportHuntTablesOptions {
+                export_dir: p.exports.join("hunts_1_14_7"),
+                vendor_dir: p.director_game_data.clone(),
+                repo_root: Some(p.repo.clone()),
+                apply: true,
+                update_existing: false,
+                verbose: false,
+                backup_stamp: None,
+            })
+            .map(|report| report.output)
+        }
+        GeneratorKind::SlayersPath => isles_core::gamedata::generate_slayers_path(
+            &p.exports.join("slayers_path_1_14_7").join("player_journey_nodes.jsonl"),
+            &p.backend_game_data.join("slayers_path.json"),
+            true,
+        ),
+        GeneratorKind::SlayersPathDefinitions => isles_core::gamedata::generate_slayers_path_definitions(
+            &p.exports.join("slayers_path_1_14_7").join("player_journey_nodes.jsonl"),
+            &p.backend_game_data.join("slayers_path_definitions.json"),
+            "1_14_7",
+            true,
+        ),
+        GeneratorKind::RewardCache => {
+            let catalog = p.exports.join("catalog_1_14_7.jsonl");
+            let out = p.backend_game_data.join("reward_cache_store.json");
+            let a = isles_core::gamedata::generate_reward_cache_store(&catalog, &out)?;
+            let b = isles_core::gamedata::generate_inventory_storage_policy(&catalog, None, &p.backend_game_data)?;
+            Ok(format!("{a}\n{b}"))
+        }
+        GeneratorKind::LadyLuckGenerate => {
+            isles_core::gamedata::generate_ladyluck_store(&p.raw_game_data, &p.backend_game_data, true)
+        }
+        GeneratorKind::LadyLuckEnrich => {
+            let catalog = p.exports.join("catalog_1_14_7.jsonl");
+            let live = p
+                .store_captures
+                .join("Store")
+                .join("Product")
+                .join("Skus")
+                .join("ladyluckstore.json");
+            let store = p.backend_game_data.join("ladyluck_store.json");
+            let a = isles_core::gamedata::enrich_ladyluck_store(&catalog, &live, &store)?;
+            let b = isles_core::gamedata::generate_inventory_storage_policy(&catalog, None, &p.backend_game_data)?;
+            Ok(format!("{a}\n{b}"))
+        }
+        GeneratorKind::PlatinumAndStoragePolicy => {
+            let catalog = isles_core::gamedata::resolve_platinum_export_file(&p.exports, "catalog");
+            let store_images = isles_core::gamedata::resolve_platinum_export_file(&p.exports, "store_item_images");
+            let captures = p.store_captures.join("Store").join("Product").join("Skus");
+            let a = isles_core::gamedata::generate_platinum_store(
+                &catalog,
+                &store_images,
+                &captures,
+                &p.backend_game_data,
+            )?;
+            let policy_catalog = p.exports.join("catalog_1_14_7.jsonl");
+            let b =
+                isles_core::gamedata::generate_inventory_storage_policy(&policy_catalog, None, &p.backend_game_data)?;
+            Ok(format!("{a}\n{b}"))
+        }
+    }
+}
+
+#[cfg(not(feature = "isles-1-14-7"))]
+fn execute_rust_generator(_p: &Paths, generator: GeneratorKind) -> Result<String, String> {
+    Err(format!(
+        "{} is unavailable: this binary was built without the isles-1-14-7 feature",
+        generator.label()
+    ))
+}
+
+/// Runs one generator step to its end in-process via [`isles_core::gamedata`] and
+/// [`isles_director::hunt_tables`] (RB11).
 pub fn run_generator(p: &Paths, step: &Step<'_>, log_file: &Path) -> Result<RunResult, HostError> {
     let cwd = match step.cwd {
-        StepDir::Backend => p.backend_dir.clone(),
-        StepDir::Director => p.director_dir.clone(),
+        StepDir::Backend => &p.backend_dir,
+        StepDir::Director => &p.director_dir,
     };
-    let options = RunOptions {
-        cwd,
-        env: None,
-        log_file: Some(log_file.to_path_buf()),
-        quiet: true,
-    };
-    crate::run::run(step.command, &step.args, &options)
+    match execute_rust_generator(p, step.generator) {
+        Ok(output) => {
+            append_generator_log(log_file, cwd, step.generator.label(), &output)?;
+            let last_line = output
+                .lines()
+                .map(str::trim)
+                .rfind(|l| !l.is_empty())
+                .map(|l| l.chars().take(300).collect());
+            Ok(RunResult {
+                code: 0,
+                last_line,
+                output,
+            })
+        }
+        Err(error) => {
+            append_generator_log(log_file, cwd, step.generator.label(), &error)?;
+            let last_line = error
+                .lines()
+                .map(str::trim)
+                .find(|l| !l.is_empty())
+                .map(|l| l.chars().take(300).collect());
+            Ok(RunResult {
+                code: 1,
+                last_line,
+                output: error,
+            })
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
