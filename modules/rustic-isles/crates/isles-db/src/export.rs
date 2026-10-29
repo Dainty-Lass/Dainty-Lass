@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 
 use crate::migrate::{DbError, MigrateArea, TargetState, open_target_database};
 use crate::mongo::MongoClient;
@@ -85,6 +86,17 @@ fn insert_parts(cur: &mut Map<String, Value>, parts: &[&str], value: f64) {
     }
 }
 
+fn ledger_id(user_id: &str, character_id: &str, transaction_id: &str) -> String {
+    let encoded = serde_json::to_string(&[user_id, character_id, transaction_id]).unwrap_or_default();
+    let digest = Sha256::digest(encoded.as_bytes());
+    let mut out = String::with_capacity(64);
+    for b in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut out, "{b:02x}");
+    }
+    out
+}
+
 /// Converts `TargetState` from `store::Database` back into Mystic Paradox 1.14.7 MongoDB collections.
 pub fn state_to_mongo_collections(
     state: &TargetState,
@@ -141,6 +153,10 @@ pub fn state_to_mongo_collections(
         let mut ai_docs = Vec::with_capacity(state.auth_identities.len());
         for ai in state.auth_identities.values() {
             let mut doc = Map::new();
+            doc.insert(
+                "_id".into(),
+                Value::String(format!("{}:{}", ai.provider, ai.provider_subject)),
+            );
             doc.insert("userId".into(), Value::String(user_id_for(state, &ai.account_id)));
             doc.insert("provider".into(), Value::String(ai.provider.clone()));
             doc.insert("providerSubject".into(), Value::String(ai.provider_subject.clone()));
@@ -154,6 +170,7 @@ pub fn state_to_mongo_collections(
         let mut rs_docs = Vec::with_capacity(state.refresh_sessions.len());
         for rs in state.refresh_sessions.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(rs.id.clone()));
             doc.insert("sessionId".into(), Value::String(rs.id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &rs.account_id)));
             doc.insert("tokenHash".into(), Value::String(rs.token_hash.clone()));
@@ -170,6 +187,7 @@ pub fn state_to_mongo_collections(
         let mut gec_docs = Vec::with_capacity(state.game_exchange_codes.len());
         for gec in state.game_exchange_codes.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(gec.code_hash.clone()));
             doc.insert("codeHash".into(), Value::String(gec.code_hash.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &gec.account_id)));
             doc.insert(
@@ -199,6 +217,7 @@ pub fn state_to_mongo_collections(
         let mut do_docs = Vec::with_capacity(state.discord_oauth_transactions.len());
         for d in state.discord_oauth_transactions.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(d.state.clone()));
             doc.insert("state".into(), Value::String(d.state.clone()));
             doc.insert("codeVerifier".into(), Value::String(d.code_verifier.clone()));
             doc.insert("createdAt".into(), Value::String(d.created_at.clone()));
@@ -220,7 +239,9 @@ pub fn state_to_mongo_collections(
         let mut ec_docs = Vec::with_capacity(state.email_codes.len());
         for ec in state.email_codes.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &ec.account_id)));
+            let uid = user_id_for(state, &ec.account_id);
+            doc.insert("_id".into(), Value::String(format!("{uid}:{}", ec.purpose)));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("purpose".into(), Value::String(ec.purpose.clone()));
             doc.insert("codeHash".into(), Value::String(ec.code_hash.clone()));
             doc.insert("attempts".into(), json!(ec.attempts));
@@ -233,6 +254,7 @@ pub fn state_to_mongo_collections(
         let mut gs_docs = Vec::with_capacity(state.game_server_api_keys.len());
         for key_hash in &state.game_server_api_keys {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(key_hash.clone()));
             doc.insert("keyHash".into(), Value::String(key_hash.clone()));
             gs_docs.push(doc);
         }
@@ -241,7 +263,9 @@ pub fn state_to_mongo_collections(
         let mut uk_docs = Vec::with_capacity(state.user_api_keys.len());
         for (acc_id, key_hash) in &state.user_api_keys {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, acc_id)));
+            let uid = user_id_for(state, acc_id);
+            doc.insert("_id".into(), Value::String(uid.clone()));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("keyHash".into(), Value::String(key_hash.clone()));
             uk_docs.push(doc);
         }
@@ -252,6 +276,7 @@ pub fn state_to_mongo_collections(
         let mut char_docs = Vec::with_capacity(state.characters.len());
         for c in state.characters.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(c.character_id.clone()));
             doc.insert("characterId".into(), Value::String(c.character_id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &c.account_id)));
             doc.insert("ord".into(), json!(c.ord));
@@ -267,6 +292,7 @@ pub fn state_to_mongo_collections(
         let mut ld_docs = Vec::with_capacity(state.loadouts.len());
         for ld in state.loadouts.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(ld.character_id.clone()));
             doc.insert("characterId".into(), Value::String(ld.character_id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &ld.account_id)));
             doc.insert("loadouts".into(), parse_json_str(&ld.slots_json, json!([])));
@@ -286,6 +312,7 @@ pub fn state_to_mongo_collections(
         let mut inv_docs = Vec::with_capacity(state.inventories.len());
         for inv in state.inventories.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(inv.character_id.clone()));
             doc.insert("characterId".into(), Value::String(inv.character_id.clone()));
             let uid = inv
                 .account_id
@@ -321,7 +348,12 @@ pub fn state_to_mongo_collections(
                     doc.insert("extra".into(), Value::String(extra_raw.clone()));
                 }
             }
-            doc.insert("userId".into(), Value::String(user_id_for(state, &tx.account_id)));
+            let uid = user_id_for(state, &tx.account_id);
+            doc.insert(
+                "_id".into(),
+                Value::String(ledger_id(&uid, &tx.character_id, &tx.transaction_id)),
+            );
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("characterId".into(), Value::String(tx.character_id.clone()));
             doc.insert("transactionId".into(), Value::String(tx.transaction_id.clone()));
             insert_opt_str(&mut doc, "requestHash", &tx.request_hash);
@@ -342,7 +374,9 @@ pub fn state_to_mongo_collections(
         let mut pj_docs = Vec::with_capacity(state.player_journey.len());
         for pj in state.player_journey.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &pj.account)));
+            let uid = user_id_for(state, &pj.account);
+            doc.insert("_id".into(), Value::String(uid.clone()));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("nodes".into(), parse_json_str(&pj.nodes, json!({})));
             doc.insert("updateVersion".into(), json!(pj.update_version));
             doc.insert("revision".into(), json!(pj.revision));
@@ -353,7 +387,9 @@ pub fn state_to_mongo_collections(
         let mut pt_docs = Vec::with_capacity(state.progression_tracks.len());
         for pt in state.progression_tracks.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &pt.account)));
+            let uid = user_id_for(state, &pt.account);
+            doc.insert("_id".into(), Value::String(format!("{uid}::{}", pt.progression_id)));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("progressionId".into(), Value::String(pt.progression_id.clone()));
             doc.insert("progress".into(), json!(pt.progress));
             doc.insert("confirmedFremiumRank".into(), json!(pt.confirmed_fremium_rank));
@@ -374,7 +410,9 @@ pub fn state_to_mongo_collections(
         let mut po_docs = Vec::with_capacity(state.progression_objectives.len());
         for po in state.progression_objectives.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &po.account)));
+            let uid = user_id_for(state, &po.account);
+            doc.insert("_id".into(), Value::String(format!("{uid}::{}", po.objective_id)));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("objectiveId".into(), Value::String(po.objective_id.clone()));
             doc.insert("value".into(), json!(po.value));
             doc.insert("completedCount".into(), json!(po.completed_count));
@@ -387,6 +425,7 @@ pub fn state_to_mongo_collections(
         let mut poe_docs = Vec::with_capacity(state.progression_objective_events.len());
         for poe in state.progression_objective_events.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(poe.id.clone()));
             doc.insert("id".into(), Value::String(poe.id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &poe.account)));
             doc.insert("rawBody".into(), parse_json_str(&poe.raw_body, json!({})));
@@ -399,6 +438,7 @@ pub fn state_to_mongo_collections(
         for pg in state.progression_grants.values() {
             let mut doc = Map::new();
             let uid = user_id_for(state, &pg.account);
+            doc.insert("_id".into(), Value::String(pg.grant_id.clone()));
             doc.insert("grantId".into(), Value::String(pg.grant_id.clone()));
             doc.insert("userId".into(), Value::String(uid.clone()));
             doc.insert("progressionId".into(), Value::String(pg.progression_id.clone()));
@@ -418,7 +458,9 @@ pub fn state_to_mongo_collections(
         let mut ep_docs = Vec::with_capacity(state.escalation_progress.len());
         for ep in state.escalation_progress.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &ep.account)));
+            let uid = user_id_for(state, &ep.account);
+            doc.insert("_id".into(), Value::String(format!("{uid}::{}", ep.season_id)));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("seasonId".into(), Value::String(ep.season_id.clone()));
             doc.insert("escalationLevel".into(), json!(ep.escalation_level));
             doc.insert("nextLevelXp".into(), json!(ep.next_level_xp));
@@ -437,6 +479,7 @@ pub fn state_to_mongo_collections(
         let mut bc_docs = Vec::with_capacity(state.breadcrumbs.len());
         for bc in state.breadcrumbs.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(bc.character_id.clone()));
             doc.insert("characterId".into(), Value::String(bc.character_id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &bc.account)));
             doc.insert("breadcrumbs".into(), parse_json_str(&bc.items, json!([])));
@@ -448,6 +491,7 @@ pub fn state_to_mongo_collections(
         let mut ec_docs = Vec::with_capacity(state.encountered_content.len());
         for ec in state.encountered_content.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(ec.character_id.clone()));
             doc.insert("characterId".into(), Value::String(ec.character_id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &ec.account)));
             doc.insert("encounteredcontent".into(), parse_json_str(&ec.content, json!([])));
@@ -459,7 +503,9 @@ pub fn state_to_mongo_collections(
         let mut pj_docs = Vec::with_capacity(state.player_journey.len());
         for pj in state.player_journey.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &pj.account)));
+            let uid = user_id_for(state, &pj.account);
+            doc.insert("_id".into(), Value::String(uid.clone()));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("nodes".into(), parse_json_str(&pj.nodes, json!({})));
             doc.insert("updateVersion".into(), json!(pj.update_version));
             doc.insert("revision".into(), json!(pj.revision));
@@ -472,7 +518,9 @@ pub fn state_to_mongo_collections(
         let mut bs_docs = Vec::with_capacity(state.bounty_states.len());
         for bs in state.bounty_states.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &bs.account_id)));
+            let uid = user_id_for(state, &bs.account_id);
+            doc.insert("_id".into(), Value::String(uid.clone()));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("bounties".into(), parse_json_str(&bs.bounties, json!([])));
             doc.insert("draftData".into(), parse_json_str(&bs.draft_data, json!({})));
             insert_opt_str(&mut doc, "dailyRewardCreditedOn", &bs.daily_reward_credited_on);
@@ -491,7 +539,9 @@ pub fn state_to_mongo_collections(
         let mut cs_docs = Vec::with_capacity(state.cooldown_states.len());
         for cs in state.cooldown_states.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &cs.account_id)));
+            let uid = user_id_for(state, &cs.account_id);
+            doc.insert("_id".into(), Value::String(uid.clone()));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("entries".into(), parse_json_str(&cs.entries, json!({})));
             doc.insert("updateVersion".into(), json!(cs.update_version));
             doc.insert("createdAt".into(), Value::String(cs.created_at.clone()));
@@ -516,7 +566,9 @@ pub fn state_to_mongo_collections(
         let mut ent_docs = Vec::with_capacity(ent_by_acc.len());
         for (acc_id, list) in ent_by_acc {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &acc_id)));
+            let uid = user_id_for(state, &acc_id);
+            doc.insert("_id".into(), Value::String(uid.clone()));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("entitlements".into(), Value::Array(list));
             ent_docs.push(doc);
         }
@@ -525,7 +577,9 @@ pub fn state_to_mongo_collections(
         let mut w_docs = Vec::with_capacity(state.wallets.len());
         for w in state.wallets.values() {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &w.account_id)));
+            let uid = user_id_for(state, &w.account_id);
+            doc.insert("_id".into(), Value::String(uid.clone()));
+            doc.insert("userId".into(), Value::String(uid));
             insert_opt_str(&mut doc, "bootstrapVersion", &w.bootstrap_version);
             let mut sorted_bal = w.balances.clone();
             sorted_bal.sort_by_key(|b| b.2);
@@ -549,7 +603,9 @@ pub fn state_to_mongo_collections(
         let mut econ_docs = Vec::with_capacity(econ_grouped.len());
         for ((acc_id, day, currency), (ttl_at, counters)) in econ_grouped {
             let mut doc = Map::new();
-            doc.insert("userId".into(), Value::String(user_id_for(state, &acc_id)));
+            let uid = user_id_for(state, &acc_id);
+            doc.insert("_id".into(), Value::String(format!("{uid}:{day}:{currency}")));
+            doc.insert("userId".into(), Value::String(uid));
             doc.insert("day".into(), Value::String(day));
             doc.insert("currency".into(), Value::String(currency));
             doc.insert("ttlAt".into(), json!(ttl_at));
@@ -572,12 +628,14 @@ pub fn state_to_mongo_collections(
                 let m_uid = user_id_for(state, &m_acc);
                 member_uids.push(Value::String(m_uid.clone()));
                 let mut m_doc = Map::new();
+                m_doc.insert("_id".into(), Value::String(m_uid.clone()));
                 m_doc.insert("partyId".into(), Value::String(p.client_id.clone()));
                 m_doc.insert("userId".into(), Value::String(m_uid));
                 m_doc.insert("joinedAt".into(), Value::String(joined_at));
                 membership_docs.push(m_doc);
             }
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(p.client_id.clone()));
             doc.insert("partyId".into(), Value::String(p.client_id.clone()));
             doc.insert("revision".into(), json!(p.revision));
             doc.insert("leaderPlayerId".into(), Value::String(user_id_for(state, &p.leader)));
@@ -595,11 +653,11 @@ pub fn state_to_mongo_collections(
         let mut pi_docs = Vec::with_capacity(state.party_invites.len());
         for pi in state.party_invites.values() {
             let mut doc = Map::new();
-            doc.insert(
-                "recipientPlayerId".into(),
-                Value::String(user_id_for(state, &pi.recipient)),
-            );
-            doc.insert("sendingPlayerId".into(), Value::String(user_id_for(state, &pi.sender)));
+            let r_uid = user_id_for(state, &pi.recipient);
+            let s_uid = user_id_for(state, &pi.sender);
+            doc.insert("_id".into(), Value::String(format!("{r_uid}\u{0000}{s_uid}")));
+            doc.insert("recipientPlayerId".into(), Value::String(r_uid));
+            doc.insert("sendingPlayerId".into(), Value::String(s_uid));
             doc.insert("partyId".into(), Value::String(party_client_id_for(state, &pi.party)));
             doc.insert("partyRevision".into(), json!(pi.party_revision));
             doc.insert(
@@ -618,6 +676,7 @@ pub fn state_to_mongo_collections(
         let mut po_docs = Vec::with_capacity(state.party_outbox.len());
         for po in state.party_outbox.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(po.id.clone()));
             doc.insert("eventId".into(), Value::String(po.id.clone()));
             doc.insert("partyId".into(), Value::String(po.party.clone()));
             doc.insert("partyRevision".into(), json!(po.party_revision));
@@ -636,7 +695,9 @@ pub fn state_to_mongo_collections(
         let mut fe_docs = Vec::with_capacity(state.friend_edges.len());
         for fe in state.friend_edges.values() {
             let mut doc = Map::new();
-            doc.insert("ownerId".into(), Value::String(user_id_for(state, &fe.owner)));
+            let owner_uid = user_id_for(state, &fe.owner);
+            doc.insert("_id".into(), Value::String(format!("{owner_uid}:{}", fe.other_user_id)));
+            doc.insert("ownerId".into(), Value::String(owner_uid));
             doc.insert("otherId".into(), Value::String(fe.other_user_id.clone()));
             doc.insert("status".into(), Value::String(fe.status.clone()));
             insert_opt_str(&mut doc, "direction", &fe.direction);
@@ -651,6 +712,7 @@ pub fn state_to_mongo_collections(
         let mut ri_docs = Vec::with_capacity(state.reforged_invites.len());
         for ri in state.reforged_invites.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(ri.code.clone()));
             doc.insert("invitecode".into(), Value::String(ri.code.clone()));
             doc.insert("usesRemaining".into(), json!(ri.uses_remaining));
             doc.insert("infiniteUses".into(), Value::Bool(ri.infinite_uses));
@@ -663,6 +725,7 @@ pub fn state_to_mongo_collections(
         let mut as_docs = Vec::with_capacity(state.admin_sessions.len());
         for s in state.admin_sessions.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(s.id.clone()));
             doc.insert("id".into(), Value::String(s.id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &s.account)));
             doc.insert("tokenHash".into(), Value::String(s.token_hash.clone()));
@@ -680,6 +743,7 @@ pub fn state_to_mongo_collections(
         let mut aa_docs = Vec::with_capacity(state.admin_audit.len());
         for a in state.admin_audit.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(a.id.clone()));
             doc.insert("id".into(), Value::String(a.id.clone()));
             doc.insert("actorUserId".into(), Value::String(a.actor_user_id.clone()));
             insert_opt_str(&mut doc, "targetUserId", &a.target_user_id);
@@ -701,6 +765,7 @@ pub fn state_to_mongo_collections(
         let mut ln_docs = Vec::new();
         if let Some(ln) = &state.launcher_notices {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String("current".into()));
             doc.insert("version".into(), json!(ln.version));
             insert_opt_str(&mut doc, "updatedAt", &ln.updated_at);
             insert_opt_str(&mut doc, "updatedBy", &ln.updated_by);
@@ -713,6 +778,7 @@ pub fn state_to_mongo_collections(
         let mut op_docs = Vec::new();
         if let Some(op) = &state.operations_policy {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String("global".into()));
             doc.insert("guardEnforcement".into(), Value::String(op.guard_enforcement.clone()));
             doc.insert(
                 "diagnosticsProfile".into(),
@@ -729,6 +795,7 @@ pub fn state_to_mongo_collections(
         let mut gs_docs = Vec::with_capacity(state.launcher_guard_sessions.len());
         for gs in state.launcher_guard_sessions.values() {
             let mut doc = Map::new();
+            doc.insert("_id".into(), Value::String(gs.guard_session_id.clone()));
             doc.insert("guardSessionId".into(), Value::String(gs.guard_session_id.clone()));
             doc.insert("userId".into(), Value::String(user_id_for(state, &gs.account)));
             doc.insert("role".into(), Value::String(gs.role.clone()));

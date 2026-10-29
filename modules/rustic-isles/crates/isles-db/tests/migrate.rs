@@ -1139,6 +1139,29 @@ async fn export_mongo_roundtrip_passes_verify_across_all_collections() {
     assert_eq!(export_report.counts.get("accounts"), Some(&3));
     assert_eq!(export_report.counts.get("characters"), Some(&1));
 
+    let snap = dest_mongo.snapshot();
+    assert_eq!(
+        snap["reforgedInvites"][0].get("_id").and_then(Value::as_str),
+        Some("INVITE-ALPHA-2026")
+    );
+    assert_eq!(
+        snap["launcherNotices"][0].get("_id").and_then(Value::as_str),
+        Some("current")
+    );
+    assert_eq!(
+        snap["operationsPolicy"][0].get("_id").and_then(Value::as_str),
+        Some("global")
+    );
+    assert_eq!(
+        snap["characters"][0].get("_id").and_then(Value::as_str),
+        Some("char-001")
+    );
+    assert_eq!(snap["loadouts"][0].get("_id").and_then(Value::as_str), Some("char-001"));
+    assert_eq!(
+        snap["inventories"][0].get("_id").and_then(Value::as_str),
+        Some("char-001")
+    );
+
     let verify_exported = run_verify(&MigrateOptions {
         from_uri: dest_uri,
         to_target: sqlite_path.display().to_string(),
