@@ -23,7 +23,7 @@ a private server over Tailscale works too.
 | `metagame` | server | A legacy server only: DR's metagame, 127.0.0.1:61000, in place of `backend` |
 | `deploy` | server | A legacy server only: DR's deploy server, 127.0.0.1:61001; starts the 1.4.4 game servers through Wine |
 | `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
-| `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-isles-db-export-mongo-and-paradox)) |
+| `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-rollback-profile)) |
 | `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
 
 **One network namespace.** Every container joins `net`'s, so they reach each other on 127.0.0.1 exactly as
@@ -405,7 +405,7 @@ To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
 
 For one release after the RU9/RB14 cutover (until RB15), rolling back to the Node backend and MongoDB in Docker uses
 the `rollback` Compose profile (`mongo`, `backend-rollback` and `director-rollback`, built from the `server-rollback`
-Dockerfile stage): export the store back to MongoDB with
-`isles-db export-mongo --from /opt/reforged/.workspace/config/dainty-lass.db --to mongodb://127.0.0.1:27017/reforged`
-and start `mongo`, `backend-rollback` and `director-rollback` in place of `backend` and `director`
-([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).
+Dockerfile stage): start `mongo` (`docker compose --profile rollback up -d --wait mongo`), export the store back to
+MongoDB with `docker compose run --rm host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target
+default from `host.toml`), and start `mongo`, `backend-rollback` and `director-rollback` in place of `backend` and
+`director` ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).

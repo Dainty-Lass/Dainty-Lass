@@ -419,9 +419,9 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
    1.14.7 client and launcher that an existing account can sign in, enter Ramsgate with its characters, inventory and
    loadouts intact, and depart for a hunt.
 4. **Rollback (if needed).** Stop the server, export the SQLite or Postgres store back to MongoDB with
-   `isles-db export-mongo --from .workspace\config\dainty-lass.db --to mongodb://127.0.0.1:27017/reforged` (or the
-   `postgres://` URL), verify with `isles-db verify --from mongodb://127.0.0.1:27017/reforged --to
-   .workspace\config\dainty-lass.db`, and start the `paradox` build (below).
+   `bin\reforged-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target default from
+   `host.toml`), verify with `bin\reforged-host db verify --against mongodb://127.0.0.1:27017/reforged`, and start the
+   `paradox` build (below).
 
 ## Rollback to the Node backend and MongoDB (`paradox` feature)
 
@@ -429,5 +429,5 @@ For one release after the RU9/RB14 cutover (until RB15 deletes the reference Nod
 the opt-in `paradox` Cargo feature (`cargo build --release -p server-console --features paradox`) runs Mystic
 Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB
 instead of the compiled-in `isles-1-14-7` Rust module. To export a server's SQLite or Postgres store back to MongoDB
-before starting a `paradox` build, run `isles-db export-mongo --from <sqlite-file-or-postgres-url> --to <mongodb-uri>`
-(and optionally `isles-db verify --from <mongodb-uri> --to <sqlite-file-or-postgres-url>`).
+before starting a `paradox` build, run `reforged-host db export-mongo --to <mongodb-uri>` (and optionally
+`reforged-host db verify --against <mongodb-uri>`; `--from` and `--to` default from `host.toml`).

@@ -56,6 +56,8 @@ pub enum Command {
     History(HistoryArgs),
     /// Undo what an actor, an account or a time range changed (DD23): a dry run first, then `--apply <plan id>`
     Revert(RevertArgs),
+    /// Migrate, verify or export the server's database between MongoDB and store (RB4, RB13)
+    Db(DbArgs),
     /// Linux: one game server through Wine or Proton, as the Director starts it (the Node kit's
     /// `dist/gameserver.js`, run by `.workspace/bin/reforged-gameserver`). Not for people.
     #[command(hide = true)]
@@ -117,6 +119,7 @@ impl Command {
             Self::Network(_) => "network",
             Self::History(_) => "history",
             Self::Revert(_) => "revert",
+            Self::Db(_) => "db",
             Self::Gameserver { .. } => "gameserver",
             Self::Gateway { .. } => "gateway",
             Self::Allowlist { .. } => "allowlist",
@@ -512,6 +515,30 @@ mod tests {
             panic!("doctor")
         };
         assert!(d.no_hash);
+
+        let Command::Db(DbArgs {
+            command: DbCommand::Migrate(m),
+        }) = parse(&["db", "migrate", "--from", "mongodb://127.0.0.1:27017/reforged"])
+        else {
+            panic!("db migrate")
+        };
+        assert_eq!(m.from.as_deref(), Some("mongodb://127.0.0.1:27017/reforged"));
+
+        let Command::Db(DbArgs {
+            command: DbCommand::Verify(v),
+        }) = parse(&["db", "verify", "--against", "mongodb://127.0.0.1:27017/reforged"])
+        else {
+            panic!("db verify")
+        };
+        assert_eq!(v.against.as_deref(), Some("mongodb://127.0.0.1:27017/reforged"));
+
+        let Command::Db(DbArgs {
+            command: DbCommand::ExportMongo(e),
+        }) = parse(&["db", "export-mongo", "--to", "mongodb://127.0.0.1:27017/reforged"])
+        else {
+            panic!("db export-mongo")
+        };
+        assert_eq!(e.to.as_deref(), Some("mongodb://127.0.0.1:27017/reforged"));
     }
 
     #[test]
@@ -670,4 +697,102 @@ pub struct RevertArgs {
     /// Apply the plan with this id, if it is still what the dry run showed; give the same selection
     #[arg(long, value_name = "plan id")]
     pub apply: Option<String>,
+}
+
+/// `db`: migrate, verify or export the server's database between MongoDB and `store` (RB4, RB13).
+#[derive(Debug, Clone, Args)]
+pub struct DbArgs {
+    #[command(subcommand)]
+    pub command: DbCommand,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum DbCommand {
+    /// Migrate existing MongoDB collections into the configured SQLite or Postgres store (RB4, RU7)
+    Migrate(DbMigrateArgs),
+    /// Verify the SQLite or Postgres store against a MongoDB database (RB4, RU7)
+    Verify(DbVerifyArgs),
+    /// Export the SQLite or Postgres store back to MongoDB for one-release rollback (RB13, RU9)
+    ExportMongo(DbExportMongoArgs),
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct DbMigrateArgs {
+    /// Source MongoDB URI (defaults from host.toml [mongo] / backend.env)
+    #[arg(long, value_name = "mongodb-uri")]
+    pub from: Option<String>,
+    /// Target SQLite file or postgres:// URL (defaults from host.toml [database] / secrets.env)
+    #[arg(long, value_name = "sqlite-or-postgres")]
+    pub to: Option<String>,
+    /// Node id for DD18 global account and party ids (defaults from host.toml [network] or "local")
+    #[arg(long, value_name = "node-id")]
+    pub node: Option<String>,
+    /// Migrate only selected area(s): auth, characters, inventory, progression, bounties, parties, reforged
+    #[arg(long, value_name = "area", value_delimiter = ',')]
+    pub area: Vec<String>,
+    /// Read and transform documents without writing to the target store
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Skip malformed source documents with a warning instead of failing
+    #[arg(long)]
+    pub skip_invalid: bool,
+    /// Folder holding inventory_storage_policy.json (defaults to the backend's game-data folder)
+    #[arg(long, value_name = "dir")]
+    pub game_data_dir: Option<String>,
+    /// Allow a non-loopback Postgres target
+    #[arg(long)]
+    pub allow_remote_postgres: bool,
+    /// Print the report as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct DbVerifyArgs {
+    /// MongoDB URI to verify against (defaults from host.toml [mongo] / backend.env)
+    #[arg(long, visible_alias = "from", value_name = "mongodb-uri")]
+    pub against: Option<String>,
+    /// Target SQLite file or postgres:// URL to verify (defaults from host.toml [database] / secrets.env)
+    #[arg(long, visible_alias = "target", value_name = "sqlite-or-postgres")]
+    pub to: Option<String>,
+    /// Node id for DD18 global account and party ids (defaults from host.toml [network] or "local")
+    #[arg(long, value_name = "node-id")]
+    pub node: Option<String>,
+    /// Verify only selected area(s): auth, characters, inventory, progression, bounties, parties, reforged
+    #[arg(long, value_name = "area", value_delimiter = ',')]
+    pub area: Vec<String>,
+    /// Skip malformed source documents with a warning instead of failing
+    #[arg(long)]
+    pub skip_invalid: bool,
+    /// Folder holding inventory_storage_policy.json (defaults to the backend's game-data folder)
+    #[arg(long, value_name = "dir")]
+    pub game_data_dir: Option<String>,
+    /// Allow a non-loopback Postgres target
+    #[arg(long)]
+    pub allow_remote_postgres: bool,
+    /// Print the report as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct DbExportMongoArgs {
+    /// Source SQLite file or postgres:// URL (defaults from host.toml [database] / secrets.env)
+    #[arg(long, value_name = "sqlite-or-postgres")]
+    pub from: Option<String>,
+    /// Target MongoDB URI (defaults from host.toml [mongo] / backend.env)
+    #[arg(long, value_name = "mongodb-uri")]
+    pub to: Option<String>,
+    /// Export only selected area(s): auth, characters, inventory, progression, bounties, parties, reforged
+    #[arg(long, value_name = "area", value_delimiter = ',')]
+    pub area: Vec<String>,
+    /// Read and transform rows without writing to MongoDB
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Allow reading from a non-loopback Postgres source
+    #[arg(long)]
+    pub allow_remote_postgres: bool,
+    /// Print the report as JSON
+    #[arg(long)]
+    pub json: bool,
 }

@@ -108,12 +108,13 @@ bin/reforged-host backup                        # SQLite/Postgres backup into .w
 - The allowlist's nftables table is swapped in one transaction and filters only the game's UDP ports; it
   touches no other rule on the machine.
 
-## Updating and rollback (`isles-db export-mongo` and `paradox`)
+## Updating and rollback (`reforged-host db export-mongo` and `paradox`)
 
-When `bin/reforged-host update` runs on a Linux host that previously ran the Node backend with MongoDB data, it runs
-`isles-db migrate` and `isles-db verify` into the configured store (`.workspace/config/dainty-lass.db` or Postgres)
-before installing the new release, refuses to switch if `verify` reports any difference, and leaves `.workspace/mongodb`
-untouched ([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)). For one release after
-the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store back to MongoDB with
-`isles-db export-mongo --from .workspace/config/dainty-lass.db --to mongodb://127.0.0.1:27017/reforged` and running a
-`reforged-host` binary built with `--features paradox` ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).
+When `bin/reforged-host update` (or the new release's `bin/reforged-host setup`) runs on a Linux host that previously
+ran the Node backend with MongoDB data, it runs `reforged-host db migrate` and `reforged-host db verify` into the
+configured store (`.workspace/config/dainty-lass.db` or Postgres), refuses to switch if `verify` reports any difference,
+and leaves `.workspace/mongodb` untouched ([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)).
+For one release after the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store
+back to MongoDB with `bin/reforged-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (defaulting the source
+and target from `host.toml`) and running a `reforged-host` binary built with `--features paradox`
+([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).
