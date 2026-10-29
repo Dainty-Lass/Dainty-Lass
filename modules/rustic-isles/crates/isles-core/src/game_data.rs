@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 pub mod gauntlet;
+pub mod generators;
 #[doc(hidden)]
 pub mod golden;
 pub mod loader;
