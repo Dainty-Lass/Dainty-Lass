@@ -1,43 +1,36 @@
-# Database Migration (`isles-db migrate` & `isles-db verify`)
+# Database Migration (`reforged-host db migrate`, `reforged-host db verify` & `reforged-host db export-mongo`)
 
-`crates/isles-db` (rows **RU7** and **RB11**) migrates an existing Dauntless 1.14.7 MongoDB deployment into Rustic Isles' two-engine `store` database (SQLite or Postgres, DD15) and verifies per-collection counts and canonical SHA-256 content hashes. It replaces all Node `reference/1.14.7/ParadoxBackend/scripts/migrate_*.ts` scripts.
+`crates/isles-db` (rows **RU7**, **RB11**, and **RB13**, exposed in the shipped host kit as `reforged-host db migrate`, `reforged-host db verify`, and `reforged-host db export-mongo`) migrates an existing Dauntless 1.14.7 MongoDB deployment into Rustic Isles' two-engine `store` database (SQLite or Postgres, DD15), verifies per-collection counts and canonical SHA-256 content hashes, and exports `store` back to MongoDB for the one-release rollback path. It replaces all Node `reference/1.14.7/ParadoxBackend/scripts/migrate_*.ts` scripts.
 
 ---
 
 ## Quick Start
 
+On a shipped server, `reforged-host db` defaults `--from`, `--against`, `--to`, and `--node` from `host.toml` (`[mongo]`, `[database]`, and `[network]`):
+
 1. **Dry-run against the source MongoDB database** (reads and transforms every collection without touching `--to`):
 
    ```bash
-   cargo run --release -p isles-db -- migrate \
-     --from "mongodb://127.0.0.1:27017/dauntless" \
-     --node local \
-     --dry-run
+   reforged-host db migrate --from "mongodb://127.0.0.1:27017/reforged" --dry-run
    ```
 
 2. **Migrate into SQLite or Postgres**:
 
    ```bash
-   # SQLite target
-   cargo run --release -p isles-db -- migrate \
-     --from "mongodb://127.0.0.1:27017/dauntless" \
-     --to /var/lib/dainty-lass/isles.db \
-     --node eu-west
-
-   # Postgres target
-   cargo run --release -p isles-db -- migrate \
-     --from "mongodb://127.0.0.1:27017/dauntless" \
-     --to "postgres://postgres:postgres@127.0.0.1:5432/isles" \
-     --node eu-west
+   # Uses host.toml defaults when --from / --to are omitted
+   reforged-host db migrate --from "mongodb://127.0.0.1:27017/reforged"
    ```
 
 3. **Verify counts and canonical SHA-256 content hashes**:
 
    ```bash
-   cargo run --release -p isles-db -- verify \
-     --from "mongodb://127.0.0.1:27017/dauntless" \
-     --to /var/lib/dainty-lass/isles.db \
-     --node eu-west
+   reforged-host db verify --against "mongodb://127.0.0.1:27017/reforged"
+   ```
+
+4. **Export back to MongoDB for one-release rollback (RB13)**:
+
+   ```bash
+   reforged-host db export-mongo --to "mongodb://127.0.0.1:27017/reforged"
    ```
 
 ---
@@ -46,8 +39,9 @@
 
 | Flag | Description |
 | --- | --- |
-| `--from <mongodb://...>` | Source MongoDB connection URI (`mongodb://[user:pass@]host[:port]/db`). Strictly read-only. |
-| `--to <path\|postgres://...>` | Destination SQLite file path or `postgres://` / `postgresql://` connection URL. |
+| `--from <mongodb://...\|store>` | Source MongoDB connection URI for `migrate` (or SQLite/Postgres source for `export-mongo`). Defaults from `host.toml` in `reforged-host db`. Strictly read-only. |
+| `--against <mongodb://...>` | Source MongoDB connection URI for `verify` (`--from` is also accepted). Defaults from `host.toml` in `reforged-host db`. |
+| `--to <path\|postgres://...\|mongodb://...>` | Destination SQLite file path or `postgres://` URL for `migrate`/`verify`, or destination `mongodb://` URI for `export-mongo`. Defaults from `host.toml` in `reforged-host db`. |
 | `--node <node-id>` | Node identifier used when deriving deterministic DD18 global IDs (`account:<ULID>@<node>`, `party:<ULID>@<node>`). Defaults to `local`. |
 | `--area <area>` | Restrict migration or verification to one or more areas (`auth`, `characters`, `inventory`, `progression`, `bounties`, `parties`, `reforged`). Repeatable or comma-separated. |
 | `--dry-run` | Extract and run all RB11 transforms in memory, printing the summary without opening or writing to `--to`. |

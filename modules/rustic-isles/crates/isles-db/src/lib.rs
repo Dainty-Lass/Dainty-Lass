@@ -50,12 +50,13 @@ impl Eq for MigrateOptions {}
 pub const USAGE: &str = "\
 Usage:
   isles-db migrate      --from <mongodb://...> --to <sqlite-file|postgres-url> [options]
-  isles-db verify       --from <mongodb://...> --to <sqlite-file|postgres-url> [options]
+  isles-db verify       --against <mongodb://...> --to <sqlite-file|postgres-url> [options]
   isles-db export-mongo --from <sqlite-file|postgres-url> --to <mongodb://...> [options]
   isles-db replay       --corpus <path> --left <url|recorded> --right <url> [options]
 
 Migrate / Verify / Export Options:
   --from <source>            Source URI/path (MongoDB URI for migrate/verify; SQLite/Postgres for export-mongo)
+  --against <mongodb://...>  Source MongoDB URI to verify against (alias for --from on verify)
   --to <target>              Destination target (SQLite/Postgres for migrate/verify; MongoDB URI for export-mongo)
   --node <node-id>           Node ID for DD18 global account/party IDs (default: local)
   --area <area>              Migrate/verify/export only selected area(s): auth, characters,
@@ -154,10 +155,10 @@ where
                 json = true;
                 idx += 1;
             }
-            "--from" => {
+            "--from" | "--against" => {
                 let val = raw
                     .get(idx + 1)
-                    .ok_or_else(|| DbError::Config("--from requires a MongoDB URI".into()))?;
+                    .ok_or_else(|| DbError::Config(format!("{arg} requires a MongoDB URI")))?;
                 from_uri = Some(val.clone());
                 idx += 2;
             }
