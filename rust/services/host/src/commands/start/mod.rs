@@ -342,6 +342,7 @@ pub(crate) fn host_checks(paths: &Paths, config: &HostConfig, external_allowlist
 
 /// The checks before anything starts, as the Node kit's, for `config`.
 pub(crate) fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
+    crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
     require_env_files(paths, &["backend", "director", "content", "gateway"])?;
     host_checks(paths, config, external_allowlist)?;
     use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GameDataKind, game_data_state};

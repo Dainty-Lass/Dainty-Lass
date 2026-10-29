@@ -10,9 +10,9 @@ use super::SetupEnv;
 use crate::cli::SetupArgs;
 use crate::error::HostError;
 use crate::hostconfig::{
-    DEFAULT_MONGO_URI, Edition, HostConfig, LinuxOptions, MAX_MULTIPLIER, Multipliers, PerformanceOptions, Platform,
-    ServerMode, game_ports_text, is_linux_interface, is_public_ipv4, is_tailscale_ipv4, performance_options, valid_fps,
-    valid_megabytes, valid_minutes,
+    DEFAULT_MONGO_URI, DatabaseSettings, Edition, HostConfig, LinuxOptions, MAX_MULTIPLIER, Multipliers,
+    PerformanceOptions, Platform, ServerMode, game_ports_text, is_linux_interface, is_public_ipv4, is_tailscale_ipv4,
+    performance_options, valid_fps, valid_megabytes, valid_minutes,
 };
 use crate::paths::PORTS;
 
@@ -598,8 +598,19 @@ pub fn host_config_from_args(
             }),
         );
     }
-    // Chosen in host.toml only, for now: no setup option sets it (the clap tree is RH1's seam).
-    if let Some(database) = existing.and_then(|c| c.database.as_ref()) {
+    // Chosen in host.toml (or via --fresh-start for database.fresh_start).
+    let database = match (existing.and_then(|c| c.database.clone()), args.fresh_start) {
+        (Some(mut db), true) => {
+            db.fresh_start = Some(true);
+            Some(db)
+        }
+        (None, true) => Some(DatabaseSettings {
+            fresh_start: Some(true),
+            ..DatabaseSettings::default()
+        }),
+        (existing_db, false) => existing_db,
+    };
+    if let Some(database) = database {
         doc.insert("database".into(), database.to_json());
     }
     if let Some(guard) = existing.and_then(|c| c.guard.as_ref()) {

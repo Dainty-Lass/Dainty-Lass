@@ -93,6 +93,7 @@ const DATABASE: &[Field] = &[
     ("postgresUser", "postgres_user", false),
     ("postgresDatabase", "postgres_database", false),
     ("allowRemote", "allow_remote", false),
+    ("freshStart", "fresh_start", false),
 ];
 
 const GUARD: &[Field] = &[
@@ -551,6 +552,9 @@ fn comment(path: &str) -> &'static str {
         }
         "database.allow_remote" => {
             "true: accept a Postgres server on another machine, over a network you trust (private, not the internet)."
+        }
+        "database.fresh_start" => {
+            "true: start on a new database without migrating existing MongoDB data (MongoDB data is kept intact)."
         }
         _ => "",
     }
