@@ -758,13 +758,6 @@ fn nullable_string(object: &Map<String, Value>, key: &str, what: &str) -> Result
     }
 }
 
-fn object_field<'a>(object: &'a Map<String, Value>, key: &str) -> Result<&'a Map<String, Value>, HostError> {
-    object
-        .get(key)
-        .and_then(Value::as_object)
-        .ok_or_else(|| bad(format!("{key} must be an object")))
-}
-
 /// Checks a host.json (`validateHostConfig`), returning the first problem. On success the result is
 /// the same document with `host` trimmed and lower-cased and `name` cleaned, in their places.
 pub fn validate(document: &Value) -> Result<Value, HostError> {
@@ -827,13 +820,15 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(Value::String(url)) if is_share_url(url) => {}
         _ => return Err(bad("shareUrl must be a https://login.tailscale.com/ link")),
     }
-    let mongo = object_field(c, "mongo")?;
-    if !mongo
-        .get("uri")
-        .and_then(Value::as_str)
-        .is_some_and(|u| u.starts_with("mongodb://") || u.starts_with("mongodb+srv://"))
-    {
-        return Err(bad("mongo.uri must be a mongodb:// connection string"));
+    if let Some(mongo) = c.get("mongo") {
+        let mongo = mongo.as_object().ok_or_else(|| bad("mongo must be an object"))?;
+        if !mongo
+            .get("uri")
+            .and_then(Value::as_str)
+            .is_some_and(|u| u.starts_with("mongodb://") || u.starts_with("mongodb+srv://"))
+        {
+            return Err(bad("mongo.uri must be a mongodb:// connection string"));
+        }
     }
     if !integer(c.get("maxHuntServers")).is_some_and(|n| (1.0..=f64::from(MAX_HUNTS)).contains(&n)) {
         return Err(bad(format!(
@@ -1123,7 +1118,7 @@ impl HostConfig {
         let Value::Object(c) = checked else {
             return Err(bad("host.json must hold a JSON object"));
         };
-        let mongo = object_field(&c, "mongo")?;
+        let mongo = c.get("mongo").and_then(Value::as_object);
         let num = |o: &Map<String, Value>, key: &str| o.get(key).and_then(Value::as_f64);
         let performance = match c.get("performance") {
             None | Some(Value::Null) => None,
@@ -1196,10 +1191,17 @@ impl HostConfig {
                 .and_then(Registration::parse)
                 .unwrap_or(Registration::Invitecode),
             share_url: nullable_string(&c, "shareUrl", "shareUrl")?,
-            mongo: MongoConfig {
-                uri: string_field(mongo, "uri", "mongo.uri")?.to_owned(),
-                manage: mongo.get("manage").and_then(Value::as_bool).unwrap_or(false),
-                mongod: nullable_string(mongo, "mongod", "mongo.mongod")?,
+            mongo: match mongo {
+                Some(mongo) => MongoConfig {
+                    uri: string_field(mongo, "uri", "mongo.uri")?.to_owned(),
+                    manage: mongo.get("manage").and_then(Value::as_bool).unwrap_or(false),
+                    mongod: nullable_string(mongo, "mongod", "mongo.mongod")?,
+                },
+                None => MongoConfig {
+                    uri: DEFAULT_MONGO_URI.to_owned(),
+                    manage: true,
+                    mongod: None,
+                },
             },
             max_hunt_servers: num(&c, "maxHuntServers").map_or(3, |v| v as u32),
             multipliers,

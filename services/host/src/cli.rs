@@ -178,7 +178,7 @@ pub struct SetupArgs {
     /// Do not install and build the services
     #[arg(long)]
     pub skip_install: bool,
-    /// Start on a new database without migrating existing MongoDB data (MongoDB data is kept intact)
+    /// Start on a new database without migrating existing MongoDB data (MongoDB data is kept intact; removing database.fresh_start in host.toml and running setup again re-enables migration)
     #[arg(long)]
     pub fresh_start: bool,
     /// Download and patch Mystic Paradox again even when it is in place (--features paradox rollback build)

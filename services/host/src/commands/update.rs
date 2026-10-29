@@ -30,6 +30,9 @@ use crate::selfupdate::{
 
 /// Marker written after `update` migrates and verifies a server's MongoDB data into `store` (RU9/RB14).
 pub const MONGO_MIGRATED_MARKER: &str = ".mongo-migrated";
+/// Contents written to `.mongo-migrated` when the host opts out of MongoDB migration (`--fresh-start` / `database.fresh_start = true`).
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+const FRESH_START_MARKER_TEXT: &str = "fresh start (opted out of MongoDB migration)\n";
 
 /// What `update` asks of this PC: where releases are, the attestation check, data migration and setup.
 pub trait UpdateEnv {
@@ -348,28 +351,106 @@ pub fn mongo_has_documents(client: &mut isles_db::mongo::MongoClient) -> bool {
         "wallets",
     ];
     for col in primary {
-        if client.find_all(col).is_ok_and(|docs| !docs.is_empty()) {
+        if client.collection_has_documents(col).unwrap_or(false) {
             return true;
         }
     }
     let all_areas: std::collections::BTreeSet<isles_db::MigrateArea> = isles_db::MigrateArea::ALL.into_iter().collect();
     let empty_state = isles_db::migrate::TargetState::default();
     for col in isles_db::state_to_mongo_collections(&empty_state, &all_areas).into_keys() {
-        if !primary.contains(&col.as_str()) && client.find_all(&col).is_ok_and(|docs| !docs.is_empty()) {
+        if !primary.contains(&col.as_str()) && client.collection_has_documents(&col).unwrap_or(false) {
             return true;
         }
     }
     false
 }
 
+/// Whether `host.toml` has an explicit `[mongo]` table that configures an external MongoDB
+/// (`uri` differs from the local default by more than the `/reforged` database path).
 #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
-fn is_mongo_configured(config: &HostConfig, raw_uri: &str, has_managed_mongo_dir: bool) -> bool {
-    has_managed_mongo_dir || !config.mongo.manage || raw_uri != crate::hostconfig::DEFAULT_MONGO_URI
+fn host_toml_has_explicit_mongo(paths: &Paths) -> bool {
+    let Ok(text) = std::fs::read_to_string(&paths.host_toml) else {
+        return false;
+    };
+    let Ok(doc) = text.parse::<toml_edit::DocumentMut>() else {
+        return false;
+    };
+    let Some(mongo) = doc.get("mongo").and_then(toml_edit::Item::as_table_like) else {
+        return false;
+    };
+    let Some(uri) = mongo.get("uri").and_then(toml_edit::Item::as_str).map(str::trim) else {
+        return false;
+    };
+    !is_default_local_mongo_uri(uri)
 }
 
 #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
-fn should_probe_mongo(paths: &Paths, config: &HostConfig, raw_uri: &str, has_managed_mongo_dir: bool) -> bool {
-    if is_mongo_configured(config, raw_uri, has_managed_mongo_dir) {
+fn is_default_local_mongo_uri(raw_uri: &str) -> bool {
+    let trimmed = raw_uri.trim();
+    trimmed == crate::hostconfig::DEFAULT_MONGO_URI
+        || mongo_uri_with_database(trimmed, None) == crate::hostconfig::DEFAULT_MONGO_URI
+}
+
+/// Whether `host.json` or `host.json.bak` configures an external MongoDB (`manage == false` or a custom URI).
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+fn host_json_has_external_mongo(paths: &Paths) -> bool {
+    for candidate in [&paths.host_json, &paths.config.join("host.json.bak")] {
+        let Ok(text) = std::fs::read_to_string(candidate) else {
+            continue;
+        };
+        let Ok(val) = serde_json::from_str::<Value>(&text) else {
+            continue;
+        };
+        let Some(mongo) = val.get("mongo").and_then(Value::as_object) else {
+            continue;
+        };
+        let manage = mongo.get("manage").and_then(Value::as_bool);
+        let uri = mongo.get("uri").and_then(Value::as_str).map(str::trim);
+        if manage == Some(false) || uri.is_some_and(|u| !is_default_local_mongo_uri(u)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Whether this workspace has evidence that it previously ran a MongoDB-backed kit:
+/// - a non-empty managed `.workspace/mongodb` data folder;
+/// - a pre-cutover `host.json` or `host.json.bak` file that configures an external MongoDB;
+/// - a pre-cutover `backend.env` that sets `MONGODB_URI`;
+/// - a `host.toml` written by a pre-cutover kit that set an external `[mongo]` URI; or
+/// - an explicit `--mongo-uri` passed on `config`.
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+fn has_mongo_evidence(
+    paths: &Paths,
+    config: &HostConfig,
+    backend_env_has_mongo_uri: bool,
+    has_managed_mongo_dir: bool,
+) -> bool {
+    has_managed_mongo_dir
+        || backend_env_has_mongo_uri
+        || host_json_has_external_mongo(paths)
+        || host_toml_has_explicit_mongo(paths)
+        || !is_default_local_mongo_uri(&config.mongo.uri)
+}
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+fn is_mongo_configured(
+    paths: &Paths,
+    config: &HostConfig,
+    backend_env_has_mongo_uri: bool,
+    has_managed_mongo_dir: bool,
+) -> bool {
+    has_mongo_evidence(paths, config, backend_env_has_mongo_uri, has_managed_mongo_dir)
+}
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+fn should_probe_mongo(
+    paths: &Paths,
+    config: &HostConfig,
+    backend_env_has_mongo_uri: bool,
+    has_managed_mongo_dir: bool,
+) -> bool {
+    if is_mongo_configured(paths, config, backend_env_has_mongo_uri, has_managed_mongo_dir) {
         return true;
     }
     if !paths.host_json.exists() && !paths.host_toml.exists() && !paths.config.join("backend.env").exists() {
@@ -380,6 +461,13 @@ fn should_probe_mongo(paths: &Paths, config: &HostConfig, raw_uri: &str, has_man
         std::time::Duration::from_millis(50),
     )
     .is_ok()
+}
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+fn is_fresh_start_marker(marker: &Path) -> bool {
+    std::fs::read_to_string(marker)
+        .ok()
+        .is_some_and(|s| s.trim_start().starts_with("fresh start"))
 }
 
 #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
@@ -412,19 +500,24 @@ pub fn migrate_existing_mongo_data_with_config(
     }
     let marker = paths.config.join(MONGO_MIGRATED_MARKER);
     if marker.exists() {
-        return Ok(());
+        if !config.fresh_start() && is_fresh_start_marker(&marker) {
+            let _ = std::fs::remove_file(&marker);
+        } else {
+            return Ok(());
+        }
     }
     if config.fresh_start() {
         if let Some(parent) = marker.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(&marker, "fresh start (opted out of MongoDB migration)\n");
+        let _ = std::fs::write(&marker, FRESH_START_MARKER_TEXT);
         out(
             "- skipping MongoDB migration (--fresh-start / database.fresh_start): starting on a fresh database (MongoDB data kept intact)",
         );
         return Ok(());
     }
     let backend_env = read_env_file(&paths.config.join("backend.env"))?;
+    let backend_env_has_mongo_uri = backend_env.get("MONGODB_URI").is_some_and(|u| !u.trim().is_empty());
     let raw_uri = backend_env.get("MONGODB_URI").unwrap_or(&config.mongo.uri).trim();
     if raw_uri.is_empty() {
         return Ok(());
@@ -432,8 +525,8 @@ pub fn migrate_existing_mongo_data_with_config(
     let from_uri = mongo_uri_with_database(raw_uri, backend_env.get("MONGODB_DB"));
     let display_uri = redact_uri_password(&from_uri);
     let has_managed_mongo_dir = has_managed_mongo_data(paths);
-    let configured = is_mongo_configured(config, raw_uri, has_managed_mongo_dir);
-    if !should_probe_mongo(paths, config, raw_uri, has_managed_mongo_dir) {
+    let configured = is_mongo_configured(paths, config, backend_env_has_mongo_uri, has_managed_mongo_dir);
+    if !should_probe_mongo(paths, config, backend_env_has_mongo_uri, has_managed_mongo_dir) {
         return Ok(());
     }
     let probe = isles_db::mongo::MongoClient::connect(&from_uri);
@@ -546,13 +639,17 @@ pub fn check_unmigrated_mongo_data(paths: &Paths, config: &HostConfig) -> Result
     }
     let marker = paths.config.join(MONGO_MIGRATED_MARKER);
     if marker.exists() {
-        return Ok(());
+        if !config.fresh_start() && is_fresh_start_marker(&marker) {
+            let _ = std::fs::remove_file(&marker);
+        } else {
+            return Ok(());
+        }
     }
     if config.fresh_start() {
         if let Some(parent) = marker.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(&marker, "fresh start (opted out of MongoDB migration)\n");
+        let _ = std::fs::write(&marker, FRESH_START_MARKER_TEXT);
         return Ok(());
     }
     if has_managed_mongo_data(paths) {
@@ -562,11 +659,12 @@ pub fn check_unmigrated_mongo_data(paths: &Paths, config: &HostConfig) -> Result
         )));
     }
     let backend_env = read_env_file(&paths.config.join("backend.env"))?;
+    let backend_env_has_mongo_uri = backend_env.get("MONGODB_URI").is_some_and(|u| !u.trim().is_empty());
     let raw_uri = backend_env.get("MONGODB_URI").unwrap_or(&config.mongo.uri).trim();
-    if raw_uri.is_empty() || !should_probe_mongo(paths, config, raw_uri, false) {
+    if raw_uri.is_empty() || !should_probe_mongo(paths, config, backend_env_has_mongo_uri, false) {
         return Ok(());
     }
-    let configured = is_mongo_configured(config, raw_uri, false);
+    let configured = is_mongo_configured(paths, config, backend_env_has_mongo_uri, false);
     let from_uri = mongo_uri_with_database(raw_uri, backend_env.get("MONGODB_DB"));
     let display_uri = redact_uri_password(&from_uri);
     match isles_db::mongo::MongoClient::connect(&from_uri) {

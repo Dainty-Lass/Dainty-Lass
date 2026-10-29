@@ -34,6 +34,20 @@ if [ "${SMOKE_NO_BUILD:-0}" != 1 ]; then
 	compose build
 fi
 
+step "fresh toml profile apply with no MongoDB succeeds"
+cat <<'TOML' >"$REFORGED_CONFIG_DIR/host.toml"
+version = 1
+mode = "public"
+host = "smoke.example.org"
+game_address = "203.0.113.7"
+name = "Fresh Toml Apply"
+registration = "INVITECODE"
+max_hunt_servers = 1
+TOML
+COMPOSE_PROFILES=public,toml compose run --rm configure
+compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/backend.env' | grep -q 'Fresh Toml Apply'
+compose down --volumes --remove-orphans >/dev/null 2>&1
+
 step "seed pre-cutover mongo-data volume"
 COMPOSE_PROFILES=public,rollback compose up -d --wait mongo
 COMPOSE_PROFILES=public,rollback compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/reforged?replicaSet=rs0" --eval '

@@ -22,11 +22,11 @@ docker run --rm --cap-add NET_ADMIN "$image" "$@"
 
 if [ "${SKIP_SMOKE:-0}" != 1 ]; then
 	printf '\n== the smoke test\n'
-	SMOKE_NO_BUILD=1 bash docker/smoke-test.sh
+	env -u MSYS_NO_PATHCONV SMOKE_NO_BUILD=1 bash docker/smoke-test.sh
 fi
 
 if [ "${SKIP_NETWORK:-0}" != 1 ]; then
 	printf '\n== the network harness\n'
-	NETWORK_OPTIONAL=1 bash docker/network/test.sh
+	MSYS_NO_PATHCONV=1 NETWORK_OPTIONAL=1 bash docker/network/test.sh
 fi
 echo "full test run passed"
