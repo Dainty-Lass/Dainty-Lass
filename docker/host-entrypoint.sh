@@ -2,9 +2,10 @@
 # DaintyLass: `docker compose run --rm host <command>` (compose.yaml's host service) runs
 # reforged-host inside the server image, in the server's network, with its volumes. Every command works as on a
 # Linux host (docs/hosting-linux.md), with these differences (docs/hosting-docker.md):
-#  - setup: the services are in the image already (--skip-install), MongoDB is the mongo service
-#    (--no-manage-mongo, the replica set at 127.0.0.1:27017), and the game folder is the one mounted at /game.
-#    Each is added only when the command line does not say otherwise.
+#  - setup: the services are in the image already (--skip-install), the game folder is the one mounted at /game,
+#    and if the mongo-data volume mounted at /opt/reforged/.workspace/mongodb holds pre-cutover MongoDB data,
+#    setup migrates and verifies it from the rollback profile's mongo service at 127.0.0.1:27017 into store.
+#    Each default is added only when the command line does not say otherwise.
 #  - install-game: the versions go in the mounted game folder (--dir /game, unless given), so the Director's
 #    containers, which mount it at the same path, see them.
 #  - start and update are compose's: `docker compose up -d` runs the server, a new image updates it.
@@ -26,9 +27,6 @@ has() {
 # setup with the container's defaults, each only where the command line does not say otherwise
 docker_setup() {
 	has --skip-install "$@" || set -- "$@" --skip-install
-	if ! has --manage-mongo "$@" && ! has --no-manage-mongo "$@" && ! has --mongo-uri "$@"; then
-		set -- "$@" --no-manage-mongo --mongo-uri "mongodb://127.0.0.1:27017/?replicaSet=rs0"
-	fi
 	if ! has --game "$@" && [ -d /game/Archon ]; then
 		set -- "$@" --game /game
 	fi
