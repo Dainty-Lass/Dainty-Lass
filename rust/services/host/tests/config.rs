@@ -1087,6 +1087,18 @@ fn switches_round_trip_through_host_toml_setup_and_backend_env() {
     assert_eq!(default_read.get("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"), None);
     assert_eq!(default_read.get("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE"), None);
     assert_eq!(default_read.get("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"), None);
+    for mongo_key in [
+        "MONGODB_URI",
+        "MONGODB_DB",
+        "MONGODB_APP_NAME",
+        "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS",
+    ] {
+        assert_eq!(
+            default_read.get(mongo_key).is_some(),
+            cfg!(feature = "paradox"),
+            "{mongo_key} should be written to backend.env only on a paradox build"
+        );
+    }
 
     let bad_doc = with(public(), json!({"switches": {"bountyPersistence": "maybe"}}));
     assert!(error(bad_doc).contains("switches.bountyPersistence"));

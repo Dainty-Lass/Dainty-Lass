@@ -26,7 +26,7 @@ pub struct Cli {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Set up (or update) this server: Mystic Paradox, the services, host.toml and the env files
+    /// Set up (or update) this server: the services, host.toml, the env files and the gateway certificate
     Setup(SetupArgs),
     /// Run every service until Ctrl+C (or a "stop" line with REFORGED_CONTROL=stdin)
     Start,
@@ -136,7 +136,7 @@ pub struct SetupArgs {
     /// private (friends over Tailscale) or public (a server on the internet)
     #[arg(long, value_name = "private|public")]
     pub mode: Option<String>,
-    /// reborn (Dauntless 1.14.7 on Mystic Paradox, the default), legacy (Dauntless Revived's 1.4.4), or both
+    /// reborn (Dauntless 1.14.7, the default), legacy (Dauntless Revived's 1.4.4), or both
     #[arg(long, value_name = "reborn|legacy|both")]
     pub edition: Option<String>,
     /// Private: this PC's Tailscale IP (found when Tailscale runs). Public: the public IPv4 or DNS name
@@ -160,17 +160,17 @@ pub struct SetupArgs {
     /// A Tailscale share link to put in invites (private servers)
     #[arg(long, value_name = "Tailscale share link")]
     pub share: Option<String>,
-    /// The backend's MongoDB connection string
+    /// Existing MongoDB URI to migrate pre-cutover player data from (or for a --features paradox rollback build)
     #[arg(long, value_name = "uri")]
     pub mongo_uri: Option<String>,
-    /// The host kit runs its own MongoDB (the default with the default URI)
-    #[arg(long)]
+    /// The host kit runs its own MongoDB (--features paradox rollback build)
+    #[arg(long, hide = cfg!(not(feature = "paradox")))]
     pub manage_mongo: bool,
-    /// Use a MongoDB that runs on its own (with --mongo-uri)
-    #[arg(long)]
+    /// Use a MongoDB that runs on its own (--features paradox rollback build)
+    #[arg(long, hide = cfg!(not(feature = "paradox")))]
     pub no_manage_mongo: bool,
-    /// The mongod program, when it is not found
-    #[arg(long, value_name = "path")]
+    /// The mongod program, when it is not found (--features paradox rollback build)
+    #[arg(long, value_name = "path", hide = cfg!(not(feature = "paradox")))]
     pub mongod: Option<String>,
     /// Hunts at once
     #[arg(long, value_name = "1-10")]
@@ -181,8 +181,8 @@ pub struct SetupArgs {
     /// Start on a new database without migrating existing MongoDB data (MongoDB data is kept intact)
     #[arg(long)]
     pub fresh_start: bool,
-    /// Download and patch Mystic Paradox again even when it is in place
-    #[arg(long)]
+    /// Download and patch Mystic Paradox again even when it is in place (--features paradox rollback build)
+    #[arg(long, hide = cfg!(not(feature = "paradox")))]
     pub force_upstream: bool,
     /// The gateway's port when 443 is taken (a hosting panel, for example); 443 goes back
     #[arg(long, value_name = "port", help_heading = "Public servers")]

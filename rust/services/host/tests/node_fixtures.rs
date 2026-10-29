@@ -134,9 +134,23 @@ const ADMIN_API_LINES: [&str; 4] = [
     "REFORGED_DB_PASSWORD=",
 ];
 
+/// The MongoDB lines written only on a `--features paradox` rollback build (M5).
+const PARADOX_MONGO_LINES: [&str; 4] = [
+    "MONGODB_URI=",
+    "MONGODB_DB=",
+    "MONGODB_APP_NAME=",
+    "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS=",
+];
+
 fn without_admin_api_lines(text: &str) -> String {
     text.split_inclusive('\n')
         .filter(|line| !ADMIN_API_LINES.iter().any(|start| line.starts_with(start)))
+        .collect()
+}
+
+fn without_paradox_mongo_lines(text: &str) -> String {
+    text.split_inclusive('\n')
+        .filter(|line| !PARADOX_MONGO_LINES.iter().any(|start| line.starts_with(start)))
         .collect()
 }
 
@@ -217,11 +231,19 @@ fn the_service_env_files_are_the_node_kits_bytes() {
         names.retain(|n| n != "admin.env");
         assert_eq!(names, expected, "{case}");
         for name in &expected {
-            assert_eq!(
-                without_admin_api_lines(&text(&out.path().join(name))),
-                text(&expected_dir.join(name)),
-                "{case}/{name}"
-            );
+            let actual = without_admin_api_lines(&text(&out.path().join(name)));
+            let fixture_text = text(&expected_dir.join(name));
+            if cfg!(feature = "paradox") {
+                assert_eq!(actual, fixture_text, "{case}/{name}");
+            } else {
+                if name == "backend.env" {
+                    assert!(
+                        !PARADOX_MONGO_LINES.iter().any(|prefix| actual.contains(prefix)),
+                        "{case}/{name}: default build must not write MONGODB_* into backend.env"
+                    );
+                }
+                assert_eq!(actual, without_paradox_mongo_lines(&fixture_text), "{case}/{name}");
+            }
         }
     }
 }

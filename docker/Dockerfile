@@ -224,6 +224,10 @@ RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumen
 ARG REFORGED_COMMIT=""
 ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
     METAGAME_GIT_COMMIT=${REFORGED_COMMIT} \
+    MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0 \
+    MONGODB_DB=reforged \
+    MONGODB_APP_NAME=reforged-backend \
+    MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS=15000 \
     PATH=/opt/reforged/bin:$PATH
 USER node
 ENTRYPOINT ["/usr/bin/tini", "--"]
