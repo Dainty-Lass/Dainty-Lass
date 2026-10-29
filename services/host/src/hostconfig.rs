@@ -105,6 +105,8 @@ pub struct DatabaseSettings {
     pub postgres_database: Option<String>,
     /// A Postgres server off this machine: refused unless true, since libpq is built without TLS (DF7).
     pub allow_remote: Option<bool>,
+    /// Start on a new database without migrating existing MongoDB data (RU9/M1).
+    pub fresh_start: Option<bool>,
 }
 
 /// The SQLite database's file, in the config folder: kept with secrets.env in the host's backups.
@@ -124,6 +126,7 @@ impl DatabaseSettings {
             postgres_user: text("postgresUser"),
             postgres_database: text("postgresDatabase"),
             allow_remote: d.get("allowRemote").and_then(Value::as_bool),
+            fresh_start: d.get("freshStart").and_then(Value::as_bool),
         }
     }
 
@@ -137,6 +140,7 @@ impl DatabaseSettings {
             ("postgresUser", text(&self.postgres_user)),
             ("postgresDatabase", text(&self.postgres_database)),
             ("allowRemote", self.allow_remote.map(Value::from)),
+            ("freshStart", self.fresh_start.map(Value::from)),
         ];
         Value::Object(
             fields
@@ -1097,6 +1101,9 @@ fn validate_database(database: &Value) -> Result<(), HostError> {
     if !d.get("allowRemote").is_none_or(Value::is_boolean) {
         return Err(bad("database.allowRemote must be true or false"));
     }
+    if !d.get("freshStart").is_none_or(Value::is_boolean) {
+        return Err(bad("database.freshStart must be true or false"));
+    }
     let host = d.get("postgresHost").and_then(Value::as_str).unwrap_or("127.0.0.1");
     let allow_remote = d.get("allowRemote").and_then(Value::as_bool) == Some(true);
     // libpq is built without TLS (DF7 spike): a password and every query would cross the network in clear.
@@ -1233,6 +1240,11 @@ impl HostConfig {
             self.file = previous.file.clone();
         }
         self
+    }
+
+    /// Whether the host opted out of migrating existing MongoDB data (`setup --fresh-start` or `database.fresh_start = true`).
+    pub fn fresh_start(&self) -> bool {
+        self.database.as_ref().is_some_and(|d| d.fresh_start == Some(true))
     }
 
     /// The host.toml to write, checked: the file as read with only the changed values replaced, or a

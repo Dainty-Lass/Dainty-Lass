@@ -226,6 +226,9 @@ pub fn compose(
     let public = config.mode == ServerMode::Public;
     let reborn = config.edition.runs_reborn();
     let node_runs = cfg!(feature = "paradox") && reborn;
+    if reborn && !node_runs {
+        crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
+    }
     let games = config.edition.versions().iter().map(ToString::to_string).collect();
     let mut controller = ServerController::new(config.mode.as_str(), games);
     // Made first, so the admin API can hold it; its modules are listed after the services
@@ -698,6 +701,9 @@ fn prepare(
     printer: Printer,
 ) -> Result<ServerController, HostError> {
     hostconfig::check_edition(config)?;
+    if config.edition.runs_reborn() {
+        crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
+    }
     ensure_server_files(paths, config)?;
     if config.edition.runs_reborn() {
         start_cmd::preflight_with(paths, config, external)?;
