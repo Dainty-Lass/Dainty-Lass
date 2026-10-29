@@ -164,7 +164,7 @@ servers' key) lives only in `secrets.env`.
 | `--game` | `game_dir` | The Dauntless folder |
 | `--registration INVITECODE\|OPEN\|NONE` | `registration` | Who may register |
 | `--share` | `share_url` | A Tailscale share link put in private invites |
-| `--mongo-uri`, `--manage-mongo`, `--no-manage-mongo`, `--mongod` | `[mongo]` `uri`, `manage`, `mongod` | The database |
+| `--mongo-uri`, `--manage-mongo`, `--no-manage-mongo`, `--mongod` | `[mongo]` `uri`, `manage`, `mongod` | Legacy MongoDB connection for `update` migration or `--features paradox` rollback (default server uses `[database]`) |
 | `--max-hunts 1-10` | `max_hunt_servers` | Hunts at once; the UDP range widens below 8770 past six |
 | `--xp`, `--rewards`, `--no-multipliers` | `[multipliers]` | Private test servers only |
 | `--public-port` | `public_port` | Another port than 443 |

@@ -11,8 +11,10 @@ from memory), link the code or test that shows it, and sign at the end with the 
 ## What it is and where the boundary is
 
 `start` runs as the host's user (administrator on Windows in public mode, for the allowlist helper; the `reforged`
-systemd unit on Linux). It starts MongoDB when managed, the backend and the Director (Node), the content server, the
-allowlist helper (public) and the gateway, each with its env file, and stops them all.
+systemd unit on Linux). On the default path (since the RU9 code cutover), it runs the compiled-in Rust `isles-1-14-7`
+backend (port 61000) and in-process `isles-director` (port 61001) on `store` (SQLite or Postgres), the content server,
+the admin API, the allowlist helper (public) and the gateway, each with its env file, and stops them all (MongoDB and
+the Node backend/Director run only in opt-in `--features paradox` rollback builds until RB15).
 
 - **In:** `host.toml` (or a Node kit's `host.json`) and the `.env` files under `.workspace/config` (trusted: whoever can write them chooses what
   runs), the process environment, and with `REFORGED_CONTROL=stdin` the launcher's stdin pipe.
