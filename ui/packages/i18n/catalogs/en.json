@@ -1055,5 +1055,9 @@
   "rlm_browser_host": "Host: {host}",
   "rlm_browser_open": "Open",
   "rlm_browser_full": "Full",
-  "rlm_browser_joined": "Joined"
+  "rlm_browser_joined": "Joined",
+  "host_data_step_pack_rust": "Already generated it once? Import your game data pack (reforged-host gamedata --export makes one) instead of the steps above.",
+  "host_err_workspace_rust": "Choose your DaintyLass folder (the one with reforged-host inside) first.",
+  "host_err_pack_invalid_rust": "That file isn't a game data pack. Make one with reforged-host gamedata --export.",
+  "hsrv_text_external_rust": "A server started from a terminal (reforged-host start) is running on this PC. Stop it there with Ctrl+C to control it from here."
 }
