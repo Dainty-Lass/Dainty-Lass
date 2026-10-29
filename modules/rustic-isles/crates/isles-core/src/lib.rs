@@ -10,6 +10,7 @@
 //! - [`module`]: the `GameModule` a version crate fills in.
 
 pub mod areas;
+pub mod bootstrap;
 pub mod db;
 pub mod game_data;
 pub mod hooks;
@@ -25,6 +26,7 @@ pub mod tables;
 pub mod testing;
 pub mod version;
 
+pub use game_data::generators as gamedata;
 pub use hooks::VersionHooks;
 pub use ids::{AccountId, UserId};
 pub use module::{IslesModule, ModuleSpec, PortService};

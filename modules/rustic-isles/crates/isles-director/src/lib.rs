@@ -16,6 +16,7 @@ pub mod config;
 pub mod gameservers;
 pub mod hub;
 pub mod hunt;
+pub mod hunt_tables;
 pub mod log;
 pub mod matchmaker;
 pub mod memory;
