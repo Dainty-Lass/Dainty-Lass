@@ -9,7 +9,7 @@ use isles_db::migrate::{DbError, MigrateArea, MigrateOptions, open_target_databa
 use isles_db::mongo::{BsonBuf, MockMongoServer, MongoUri, decode_bson_doc};
 use isles_db::transforms::deterministic_account_id;
 use isles_db::verify::run_verify;
-use isles_db::{Command, parse_args};
+use isles_db::{Command, ExportOptions, parse_args, run_export_mongo};
 use module_api::NodeId;
 use serde_json::{Map, Value, json};
 
@@ -975,6 +975,114 @@ async fn full_migration_and_verification_across_all_areas_and_rb11_transforms() 
 
     let tampered = run_verify(&opts).await;
     assert!(matches!(tampered, Err(DbError::VerificationFailed(1))));
+}
+
+#[tokio::test]
+async fn export_mongo_roundtrip_passes_verify_across_all_collections() {
+    let parsed = parse_args([
+        "export-mongo",
+        "--from",
+        "sqlite.db",
+        "--to",
+        "mongodb://127.0.0.1:27017/dauntless",
+        "--node",
+        "local",
+        "--area",
+        "auth,characters",
+        "--dry-run",
+        "--allow-remote-postgres",
+        "--json",
+    ])
+    .unwrap();
+    match parsed {
+        Command::ExportMongo { opts, json } => {
+            assert!(json);
+            assert!(opts.dry_run);
+            assert!(opts.allow_remote_postgres);
+            assert_eq!(opts.from_source, "sqlite.db");
+            assert_eq!(opts.to_uri, "mongodb://127.0.0.1:27017/dauntless");
+            assert_eq!(opts.areas, vec![MigrateArea::Auth, MigrateArea::Characters]);
+        }
+        other => panic!("unexpected command: {other:?}"),
+    }
+
+    let source_mongo = MockMongoServer::start(sample_mongo_collections(), 2).unwrap();
+    let source_uri = source_mongo.uri("dauntless");
+
+    let temp_dir = tempfile::tempdir().unwrap();
+    let sqlite_path = temp_dir.path().join("roundtrip.db");
+    let policy_path = temp_dir.path().join("inventory_storage_policy.json");
+    std::fs::write(
+        &policy_path,
+        serde_json::to_string(&json!({
+            "entries": {
+                "WP_EB_BEGINNER": { "storage": "instanced", "maxQuantity": 1, "tags": [] },
+                "STACKABLE_CELL_01": { "storage": "stacked", "maxQuantity": 99, "tags": ["cell"] },
+                "QI_BASIC_FLARE_DURABLE": { "storage": "stacked", "maxQuantity": 1, "tags": ["owned"] }
+            }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let node: NodeId = "local".parse().unwrap();
+    let migrate_opts = MigrateOptions {
+        from_uri: source_uri,
+        to_target: sqlite_path.display().to_string(),
+        node: node.clone(),
+        dry_run: false,
+        areas: Vec::new(),
+        skip_invalid: false,
+        game_data_dir: Some(temp_dir.path().to_path_buf()),
+        allow_remote_postgres: false,
+    };
+    run_migrate(&migrate_opts).await.unwrap();
+
+    let dest_mongo = MockMongoServer::start(BTreeMap::new(), 2).unwrap();
+    let dest_uri = dest_mongo.uri("dauntless");
+
+    let dry_export = run_export_mongo(&ExportOptions {
+        from_source: sqlite_path.display().to_string(),
+        to_uri: dest_uri.clone(),
+        areas: Vec::new(),
+        dry_run: true,
+        allow_remote_postgres: false,
+    })
+    .await
+    .unwrap();
+    assert!(dry_export.dry_run);
+    assert!(
+        dest_mongo.snapshot().is_empty(),
+        "dry-run export must not write to Mongo"
+    );
+
+    let export_report = run_export_mongo(&ExportOptions {
+        from_source: sqlite_path.display().to_string(),
+        to_uri: dest_uri.clone(),
+        areas: Vec::new(),
+        dry_run: false,
+        allow_remote_postgres: false,
+    })
+    .await
+    .unwrap();
+    assert!(!export_report.dry_run);
+    assert_eq!(export_report.counts.get("accounts"), Some(&2));
+    assert_eq!(export_report.counts.get("characters"), Some(&1));
+
+    let verify_exported = run_verify(&MigrateOptions {
+        from_uri: dest_uri,
+        to_target: sqlite_path.display().to_string(),
+        node,
+        dry_run: false,
+        areas: Vec::new(),
+        skip_invalid: false,
+        game_data_dir: Some(temp_dir.path().to_path_buf()),
+        allow_remote_postgres: false,
+    })
+    .await
+    .unwrap();
+    assert!(verify_exported.ok);
+    assert_eq!(verify_exported.collections.len(), 37);
 }
 
 #[tokio::test]
