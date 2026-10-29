@@ -52,6 +52,7 @@ x-server: &server
   restart: unless-stopped
   volumes:
     - workspace:/opt/reforged/.workspace
+    - mongo-data:/opt/reforged/.workspace/mongodb
     - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
     - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
     - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
@@ -253,6 +254,7 @@ services:
     command: ["apply"]
     volumes:
       - workspace:/opt/reforged/.workspace
+      - mongo-data:/opt/reforged/.workspace/mongodb
       - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
       - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
       - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
@@ -260,6 +262,12 @@ services:
       - ${REFORGED_GAME_DIR:-./game}:/game
       # z: relabelled for SELinux hosts (Fedora, RHEL with Podman); ignored elsewhere
       - ${REFORGED_CONFIG_DIR:-./config}:/config:ro,z
+    depends_on:
+      net:
+        condition: service_started
+      mongo:
+        condition: service_healthy
+        required: false
 
   backend:
     <<: *server
@@ -471,6 +479,7 @@ services:
     command: ["doctor"]
     volumes:
       - workspace:/opt/reforged/.workspace
+      - mongo-data:/opt/reforged/.workspace/mongodb
       - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
       - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
       - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
