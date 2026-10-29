@@ -230,6 +230,10 @@ impl MatchmakingState {
         self.deploy.set(deploy);
     }
 
+    pub fn dedicated_servers(&self) -> Arc<dyn DedicatedServers> {
+        self.deploy.get()
+    }
+
     pub fn set_hunt_activity(&self, activity: Arc<dyn HuntActivity>) {
         self.activity.set(activity);
     }

@@ -186,23 +186,49 @@ impl IslesModule {
         &self.spec
     }
 
-    /// The settings a start reads: the `backend` section's env file, then the `switches` section.
+    /// The settings a start reads: the `backend` section's env file (merging sibling `admin.env`
+    /// and `director.env` when given `backend.env` in a host kit config folder), then the `switches`
+    /// section.
     pub fn settings(config: &ModuleConfig) -> Result<Settings, ModuleError> {
         let env = match config
             .get("backend", "env_file")
             .and_then(text)
             .filter(|p| !p.trim().is_empty())
         {
-            Some(path) => Settings::read_env_file(Path::new(path.trim())).map_err(failed)?,
+            Some(path) => {
+                let path = Path::new(path.trim());
+                let mut merged = BTreeMap::new();
+                if path.file_name().is_some_and(|name| name == "backend.env")
+                    && let Some(parent) = path.parent()
+                {
+                    for sibling in ["admin.env", "director.env"] {
+                        let file = parent.join(sibling);
+                        if file.is_file() {
+                            merged.extend(Settings::read_env_file(&file).map_err(failed)?);
+                        }
+                    }
+                }
+                merged.extend(Settings::read_env_file(path).map_err(failed)?);
+                merged
+            }
             None => BTreeMap::new(),
         };
+        let has_port_range = env.contains_key("PORT_RANGE_BEGIN") && env.contains_key("PORT_RANGE_END");
         let settings = Settings::new(env, Settings::switches_from_config(config.sections.get("switches")));
-        // The Director's PORT_RANGE_BEGIN and _END are the range the controller gave the module, which the
-        // allowlist opens to admitted players, not whatever the env file says
+        // The Director's PORT_RANGE_BEGIN and _END come from the controller's assigned range when no
+        // range was set in the env file or when the controller moved the range from the default 8-port
+        // window; otherwise the wider range setup wrote for max_hunt_servers > 6 in director.env is kept.
         Ok(match config.ports.get("game") {
-            Some(range) => settings
-                .forced("PORT_RANGE_BEGIN", range.first)
-                .forced("PORT_RANGE_END", range.last),
+            Some(range) => {
+                let default_window = matches!((range.first, range.last), (8770, 8777) | (8780, 8787));
+                if !has_port_range || !default_window {
+                    settings
+                        .forced("PORT_RANGE_BEGIN", range.first)
+                        .forced("PORT_RANGE_END", range.last)
+                } else {
+                    settings
+                }
+            }
             None => settings,
         })
     }
@@ -216,6 +242,12 @@ impl IslesModule {
         let lookup = |name: &str| settings.get(name).map(str::to_owned);
         let file = settings.get("REFORGED_DB_FILE").unwrap_or_default().into();
         let config = DatabaseConfig::from_lookup(lookup, file).map_err(failed)?;
+        if let DatabaseConfig::Sqlite { file } = &config
+            && let Some(parent) = file.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent).map_err(failed)?;
+        }
         let home = Arc::new(ContextHome(ctx.clone()));
         IslesStore::open(&config, &DatabaseOptions::default(), home, ctx.node())
             .map(Some)
@@ -686,5 +718,82 @@ async fn handle_admin(store: &IslesStore, call: AdminCall) -> Result<AdminRespon
                 online,
             }))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use std::collections::BTreeMap;
+
+    use module_api::{ModuleConfig, PortRange};
+    use serde_json::json;
+
+    use super::IslesModule;
+
+    #[test]
+    fn settings_merge_sibling_admin_and_director_env_when_given_backend_env() {
+        let dir = tempfile::tempdir().unwrap();
+        let backend_env = dir.path().join("backend.env");
+        let director_env = dir.path().join("director.env");
+        let admin_env = dir.path().join("admin.env");
+        std::fs::write(
+            &admin_env,
+            "REFORGED_DB_ENGINE=sqlite\nREFORGED_DB_FILE=/srv/dainty-lass.db\nPORT=61003\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &director_env,
+            "PORT=61001\nMY_IP=100.101.102.103\nPORT_RANGE_BEGIN=8766\nPORT_RANGE_END=8777\nGAMESERVER_BINARY_PATH=/srv/game\nMETAGAME_API_KEY=gs-secret\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &backend_env,
+            "PORT=61000\nDEPLOYSERVER_URL=127.0.0.1:61001\nREGISTRATION_MODE=INVITECODE\n",
+        )
+        .unwrap();
+
+        let mut sections = BTreeMap::new();
+        let mut backend_section = BTreeMap::new();
+        backend_section.insert("env_file".into(), json!(backend_env.display().to_string()));
+        sections.insert("backend".into(), backend_section);
+        let mut ports = BTreeMap::new();
+        ports.insert(
+            "game".into(),
+            PortRange {
+                first: 8770,
+                last: 8777,
+            },
+        );
+        let config = ModuleConfig { sections, ports };
+
+        let settings = IslesModule::settings(&config).unwrap();
+        assert_eq!(settings.get("PORT"), Some("61000"));
+        assert_eq!(settings.get("REFORGED_DB_ENGINE"), Some("sqlite"));
+        assert_eq!(settings.get("REFORGED_DB_FILE"), Some("/srv/dainty-lass.db"));
+        assert_eq!(settings.get("MY_IP"), Some("100.101.102.103"));
+        assert_eq!(settings.get("GAMESERVER_BINARY_PATH"), Some("/srv/game"));
+        assert_eq!(settings.get("METAGAME_API_KEY"), Some("gs-secret"));
+        // Default 8770..=8777 window keeps the wider 8766..=8777 range from director.env.
+        assert_eq!(settings.get("PORT_RANGE_BEGIN"), Some("8766"));
+        assert_eq!(settings.get("PORT_RANGE_END"), Some("8777"));
+
+        // When the controller moves the game port range to avoid a clash, the moved range wins.
+        let mut moved_ports = BTreeMap::new();
+        moved_ports.insert(
+            "game".into(),
+            PortRange {
+                first: 8778,
+                last: 8785,
+            },
+        );
+        let moved = IslesModule::settings(&ModuleConfig {
+            sections: config.sections,
+            ports: moved_ports,
+        })
+        .unwrap();
+        assert_eq!(moved.get("PORT_RANGE_BEGIN"), Some("8778"));
+        assert_eq!(moved.get("PORT_RANGE_END"), Some("8785"));
     }
 }
