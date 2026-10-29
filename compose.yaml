@@ -175,9 +175,10 @@ services:
       test: ["CMD", "true"]
       interval: 30s
 
-  # MongoDB with the one-member replica set the backend needs (until RB14 moves the data to Postgres)
+  # MongoDB with the one-member replica set the Node rollback backend needs (profiles: [rollback] until RB15)
   mongo:
     image: ${MONGO_IMAGE:-mongo:8.0}
+    profiles: [rollback]
     network_mode: service:net
     restart: unless-stopped
     command:
@@ -262,6 +263,34 @@ services:
 
   backend:
     <<: *server
+    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "backend"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      net:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+        required: false
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  # Opt-in rollback path for one release until RB15 deletes it (docs/hosting-docker.md): Node ParadoxBackend on MongoDB
+  backend-rollback:
+    <<: *server
+    image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: server-rollback
+      args:
+        REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
+    profiles: [rollback]
     working_dir: /opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend
     command: ["node", "--env-file=/opt/reforged/.workspace/config/backend.env", "build/server.js"]
     healthcheck:
@@ -274,6 +303,33 @@ services:
         condition: service_healthy
       configure:
         condition: service_completed_successfully
+        required: false
+
+  # Opt-in rollback path for one release until RB15 deletes it (docs/hosting-docker.md): Node ParadoxDirector
+  director-rollback:
+    <<: *server
+    image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: server-rollback
+      args:
+        REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
+    profiles: [rollback]
+    environment:
+      REFORGED_ROLLBACK: "1"
+    command: ["reforged-director"]
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "director"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      backend-rollback:
+        condition: service_healthy
+      allowlist:
+        condition: service_healthy
         required: false
 
   # Starts Ramsgate, the Training Grounds and the hunts as its children (Wine on a virtual display)

@@ -14,7 +14,7 @@ set -uo pipefail
 
 root=/opt/reforged
 suites=("$@")
-[ ${#suites[@]} -eq 0 ] && suites=(rust backend director)
+[ ${#suites[@]} -eq 0 ] && suites=(rust)
 export NPM_CONFIG_UPDATE_NOTIFIER=false NO_COLOR=1
 
 can_net_admin() {

@@ -86,6 +86,16 @@ pub enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    #[command(hide = true, disable_help_flag = true)]
+    Backend {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    #[command(hide = true, disable_help_flag = true)]
+    Director {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 impl Command {
@@ -112,6 +122,8 @@ impl Command {
             Self::Allowlist { .. } => "allowlist",
             Self::Content { .. } => "content",
             Self::Admin { .. } => "admin",
+            Self::Backend { .. } => "backend",
+            Self::Director { .. } => "director",
         }
     }
 }
