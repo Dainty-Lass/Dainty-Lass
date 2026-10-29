@@ -63,7 +63,9 @@ pub fn run(cli: &cli::Cli) -> Outcome {
     if let Command::Gateway { args }
     | Command::Allowlist { args }
     | Command::Content { args }
-    | Command::Admin { args } = &cli.command
+    | Command::Admin { args }
+    | Command::Backend { args }
+    | Command::Director { args } = &cli.command
     {
         return Ok(service_main(
             cli.command.name(),
@@ -107,7 +109,201 @@ pub const BUILT_IN_SERVICES: &[&str] = &[
     "content",
     #[cfg(feature = "admin")]
     "admin",
+    #[cfg(feature = "isles-1-14-7")]
+    "backend",
+    #[cfg(feature = "isles-1-14-7")]
+    "director",
 ];
+
+#[cfg(feature = "isles-1-14-7")]
+struct StandaloneLink {
+    home: module_api::network::StandaloneHome,
+}
+
+#[cfg(feature = "isles-1-14-7")]
+impl module_api::HostLink for StandaloneLink {
+    fn call<'a>(
+        &'a self,
+        module: &'a module_api::ModuleId,
+        call: module_api::HostCall,
+    ) -> module_api::BoxFuture<'a, Result<module_api::HostAnswer, module_api::ModuleError>> {
+        Box::pin(async move {
+            match call {
+                module_api::HostCall::Emit(_) => Ok(module_api::HostAnswer::Done),
+                module_api::HostCall::Log(record) => {
+                    println!("{module} | {:?}: {}", record.level, record.message);
+                    Ok(module_api::HostAnswer::Done)
+                }
+                module_api::HostCall::Home(call) => Ok(module_api::HostAnswer::Home(
+                    module_api::network::dispatch_home(&self.home, call).await,
+                )),
+            }
+        })
+    }
+}
+
+#[cfg(feature = "isles-1-14-7")]
+fn parse_service_env_file(
+    name: &str,
+    args: &[String],
+    paths: Option<&paths::Paths>,
+) -> Result<Option<std::path::PathBuf>, String> {
+    let mut env_file: Option<std::path::PathBuf> = None;
+    let mut idx = 0;
+    while idx < args.len() {
+        let arg = args[idx].as_str();
+        if arg == "serve" && idx == 0 {
+            idx += 1;
+            continue;
+        }
+        if arg == "--env-file" {
+            idx += 1;
+            let Some(val) = args.get(idx) else {
+                return Err("--env-file requires a path".into());
+            };
+            env_file = Some(std::path::PathBuf::from(val));
+            idx += 1;
+        } else if let Some(val) = arg.strip_prefix("--env-file=") {
+            env_file = Some(std::path::PathBuf::from(val));
+            idx += 1;
+        } else {
+            return Err(format!("unexpected argument: {arg}"));
+        }
+    }
+    if env_file.is_none() {
+        if let Some(p) = paths {
+            let candidate = p.config.join(format!("{name}.env"));
+            if candidate.is_file() {
+                env_file = Some(candidate);
+            }
+        }
+        if env_file.is_none() {
+            let dot_env = std::path::PathBuf::from(".env");
+            if dot_env.is_file() {
+                env_file = Some(dot_env);
+            }
+        }
+    }
+    Ok(env_file)
+}
+
+#[cfg(feature = "isles-1-14-7")]
+fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
+    use module_api::GameModule as _;
+
+    let paths = paths::locate_repo_root().ok().map(paths::Paths::new);
+    let env_file = match parse_service_env_file(name, args, paths.as_ref()) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("Configuration: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let host_config = paths
+        .as_ref()
+        .and_then(|p| hostconfig::load_host_config(p).ok().flatten());
+    let identity =
+        host_config
+            .as_ref()
+            .and_then(|c| c.network.as_ref())
+            .map_or_else(module_api::NodeIdentity::standalone, |n| module_api::NodeIdentity {
+                node: n.node.clone(),
+                region: n.region.clone(),
+            });
+
+    let mut spec = isles_1_14_7::spec();
+    spec.services = match name {
+        "backend" => vec![std::sync::Arc::new(isles_core::module::BackendService)],
+        "director" => vec![std::sync::Arc::new(isles_director::DirectorService::new(
+            isles_1_14_7::DIRECTOR,
+        ))],
+        _ => Vec::new(),
+    };
+    let module = isles_core::module::IslesModule::new(spec);
+    let manifest = module.manifest();
+    let mut registrar = module_api::Registrar::new(manifest.clone());
+    if let Err(error) = module.register(&mut registrar) {
+        eprintln!("Configuration: {error}");
+        return ExitCode::FAILURE;
+    }
+    let registration = match registrar.finish() {
+        Ok(reg) => reg,
+        Err(error) => {
+            eprintln!("Configuration: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut config = module_api::ModuleConfig::defaults(&manifest, &registration);
+    if let Some(file) = &env_file {
+        config.sections.entry("backend".to_owned()).or_default().insert(
+            "env_file".to_owned(),
+            serde_json::Value::String(file.display().to_string()),
+        );
+        if let Ok(entries) = hostconfig::read_env_file(file) {
+            if let Some(port) = entries.get("PORT").and_then(|v| v.parse::<u16>().ok()) {
+                config
+                    .ports
+                    .insert(name.to_owned(), module_api::PortRange::single(port));
+            }
+            if let (Some(first), Some(last)) = (
+                entries.get("PORT_RANGE_BEGIN").and_then(|v| v.parse::<u16>().ok()),
+                entries.get("PORT_RANGE_END").and_then(|v| v.parse::<u16>().ok()),
+            ) {
+                config
+                    .ports
+                    .insert("game".to_owned(), module_api::PortRange { first, last });
+            }
+        }
+    }
+    if let Some(p) = &paths {
+        let game_data = config.sections.entry("game_data".to_owned()).or_default();
+        if p.backend_game_data.is_dir() {
+            game_data.insert(
+                "backend_dir".to_owned(),
+                serde_json::Value::String(p.backend_game_data.display().to_string()),
+            );
+        }
+        if p.director_game_data.is_dir() {
+            game_data.insert(
+                "director_dir".to_owned(),
+                serde_json::Value::String(p.director_game_data.display().to_string()),
+            );
+        }
+    }
+    if let Some(switches) = host_config.as_ref().and_then(|c| c.switches.as_ref()) {
+        let section = config.sections.entry("switches".to_owned()).or_default();
+        for (key, value) in switches.module_switches() {
+            section.insert(key.to_owned(), value);
+        }
+    }
+    let ctx = module_api::ModuleContext::new(
+        manifest.id,
+        identity.clone(),
+        std::sync::Arc::new(StandaloneLink {
+            home: module_api::network::StandaloneHome { identity },
+        }),
+    );
+    let _ = service_kit::telemetry::init_table_stdout_subscriber(tracing::level_filters::LevelFilter::INFO);
+    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+        Ok(rt) => rt,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    runtime.block_on(async move {
+        if let Err(error) = module.start(ctx.clone(), config).await {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+        service_kit::serve::stop_requested().await;
+        if let Err(error) = module.stop(ctx).await {
+            eprintln!("{error}");
+            return ExitCode::FAILURE;
+        }
+        ExitCode::SUCCESS
+    })
+}
 
 /// One service with the command line its own binary had: `name` is its argv[0].
 pub fn service_main(name: &str, args: &[String]) -> ExitCode {
@@ -121,6 +317,16 @@ pub fn service_main(name: &str, args: &[String]) -> ExitCode {
         "content" => content::cli::main_from(argv),
         #[cfg(feature = "admin")]
         "admin" => admin::cli::main_from(argv),
+        #[cfg(feature = "isles-1-14-7")]
+        "backend" => {
+            drop(argv);
+            isles_service_main("backend", args)
+        }
+        #[cfg(feature = "isles-1-14-7")]
+        "director" => {
+            drop(argv);
+            isles_service_main("director", args)
+        }
         _ => {
             drop(argv);
             eprintln!(
@@ -159,5 +365,48 @@ pub fn console_main() -> ExitCode {
             eprintln!("\nError: {error}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(all(test, feature = "isles-1-14-7"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn built_in_services_include_backend_and_director() {
+        assert!(BUILT_IN_SERVICES.contains(&"backend"));
+        assert!(BUILT_IN_SERVICES.contains(&"director"));
+        let cli = cli::Cli::try_parse_from([
+            "reforged-host",
+            "backend",
+            "serve",
+            "--env-file",
+            "/opt/reforged/.workspace/config/backend.env",
+        ])
+        .unwrap();
+        assert_eq!(cli.command.name(), "backend");
+        let cli = cli::Cli::try_parse_from([
+            "reforged-host",
+            "director",
+            "serve",
+            "--env-file=/opt/reforged/.workspace/config/director.env",
+        ])
+        .unwrap();
+        assert_eq!(cli.command.name(), "director");
+        assert_eq!(
+            parse_service_env_file(
+                "backend",
+                &[
+                    "serve".into(),
+                    "--env-file".into(),
+                    "/opt/reforged/.workspace/config/backend.env".into()
+                ],
+                None
+            )
+            .unwrap()
+            .as_deref(),
+            Some(std::path::Path::new("/opt/reforged/.workspace/config/backend.env"))
+        );
+        assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }
 }
