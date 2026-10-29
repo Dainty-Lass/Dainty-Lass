@@ -52,10 +52,6 @@ name = "Network node $id"
 registration = "INVITECODE"
 max_hunt_servers = 1
 
-[mongo]
-uri = "mongodb://127.0.0.1:27017/?replicaSet=rs0"
-manage = false
-
 # A node of the harness plays no game, so setup has no Wine prefix to make
 [linux]
 wine = "/nonexistent/wine"

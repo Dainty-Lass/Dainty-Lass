@@ -1776,4 +1776,140 @@ mod m1_mongo_migration {
         let saved = read_host_config(&p.host_toml).unwrap().unwrap();
         drop(host::serve::compose(&p, &saved, false, host::commands::start::console_printer()).unwrap());
     }
+
+    #[test]
+    fn fresh_apply_and_toml_profile_succeed_without_mongodb() {
+        // 1. Fresh `apply` (`setup --skip-install`) on a brand-new node whose `host.toml` was
+        //    written by `docker/network/init.sh` (both with no `[mongo]` table and with the
+        //    legacy `uri = "mongodb://127.0.0.1:27017/?replicaSet=rs0"` / `manage = false`).
+        let (_dir, p, _game) = checkout();
+        let env = Mock {
+            platform: Platform::Linux,
+            mongod: None,
+            ..Mock::new()
+        };
+        std::fs::create_dir_all(&p.config).unwrap();
+        let network_node_toml = "\
+version = 1
+mode = \"public\"
+host = \"oregon.cluster.test\"
+game_address = \"203.0.113.11\"
+name = \"Network node oregon-1\"
+registration = \"INVITECODE\"
+max_hunt_servers = 1
+
+[mongo]
+uri = \"mongodb://127.0.0.1:27017/?replicaSet=rs0\"
+manage = false
+
+[linux]
+wine = \"/nonexistent/wine\"
+xvfb = true
+
+[network]
+node = \"oregon-1\"
+region = \"oregon\"
+";
+        std::fs::write(&p.host_toml, network_node_toml).unwrap();
+        assert!(!p.config.join(host::commands::update::MONGO_MIGRATED_MARKER).exists());
+        assert!(!p.mongo_data.exists());
+
+        let (r, lines) = setup(&p, &["--skip-install"], &env);
+        assert!(r.is_ok(), "fresh apply must succeed: {r:?}\n{}", lines.join("\n"));
+        let cfg = load_host_config(&p).unwrap().unwrap();
+        assert!(host::commands::update::check_unmigrated_mongo_data(&p, &cfg).is_ok());
+
+        // 2. Fresh `apply` under the `toml` profile: a brand-new server where `/config/host.toml`
+        //    is copied into `.workspace/config/host.toml` (with no `[mongo]` table at all, or
+        //    with the default `[mongo]` table) before `secrets.env`, `backend.env` or
+        //    `.mongo-migrated` exist.
+        let (_dir2, p2, _game2) = checkout();
+        std::fs::create_dir_all(&p2.config).unwrap();
+        let toml_profile_cfg = "\
+version = 1
+mode = \"public\"
+host = \"smoke.example.org\"
+game_address = \"203.0.113.7\"
+name = \"Fresh Toml Profile\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+";
+        std::fs::write(&p2.host_toml, toml_profile_cfg).unwrap();
+        let (r2, lines2) = setup(&p2, &["--skip-install"], &env);
+        assert!(
+            r2.is_ok(),
+            "fresh apply under toml profile must succeed: {r2:?}\n{}",
+            lines2.join("\n")
+        );
+        let cfg2 = load_host_config(&p2).unwrap().unwrap();
+        drop(host::serve::compose(&p2, &cfg2, false, host::commands::start::console_printer()).unwrap());
+
+        // 3. An old kit's external, unreachable MongoDB (in `host.toml` or `host.json`) is still refused.
+        let (_dir3, p3, _game3) = checkout();
+        std::fs::create_dir_all(&p3.config).unwrap();
+        let closed_port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let old_external_toml = format!(
+            "\
+version = 1
+mode = \"public\"
+host = \"smoke.example.org\"
+game_address = \"203.0.113.7\"
+name = \"Old External Mongo\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+
+[mongo]
+uri = \"mongodb://mongo_user:secret_pw@127.0.0.1:{closed_port}/reforged\"
+manage = false
+"
+        );
+        std::fs::write(&p3.host_toml, old_external_toml).unwrap();
+        let (r3, _) = setup(&p3, &["--skip-install"], &env);
+        let err3 = r3.unwrap_err();
+        assert!(
+            err3.contains("MongoDB is configured at") && err3.contains("not reachable") && !err3.contains("secret_pw"),
+            "{err3}"
+        );
+    }
+
+    #[test]
+    fn removing_fresh_start_from_host_toml_clears_opt_out_marker_and_runs_migration() {
+        let (_dir, p, game) = checkout();
+        let env = Mock::new();
+        let seed = seed_mongo_collections();
+        let mock_mongo = MockMongoServer::start(seed.clone(), 50).unwrap();
+        let mongo_uri = mock_mongo.uri("reforged");
+        write_old_kit_install(&p, &game, &mongo_uri, true);
+
+        // 1. Run `setup --fresh-start`: writes the fresh-start marker and leaves SQLite unmigrated.
+        let (r_fresh, _) = setup(&p, &["--fresh-start", "--skip-install"], &env);
+        assert!(r_fresh.is_ok(), "{r_fresh:?}");
+        let marker = p.config.join(host::commands::update::MONGO_MIGRATED_MARKER);
+        let sqlite_db = p.config.join(host::hostconfig::DATABASE_FILE);
+        assert!(marker.is_file());
+        assert!(!sqlite_db.exists());
+
+        // 2. Remove `fresh_start = true` from `host.toml`: `start` now refuses because the
+        //    fresh-start marker is cleared and unmigrated MongoDB data is still present, and
+        //    running `setup` migrates and verifies the MongoDB data into SQLite.
+        let toml_without_fresh = std::fs::read_to_string(&p.host_toml)
+            .unwrap()
+            .replace("fresh_start = true\n", "");
+        std::fs::write(&p.host_toml, toml_without_fresh).unwrap();
+        let cfg = load_host_config(&p).unwrap().unwrap();
+        assert!(!cfg.fresh_start());
+
+        let err_start = host::commands::start::run(&p).unwrap_err().to_string();
+        assert!(err_start.contains("unmigrated MongoDB data"), "{err_start}");
+
+        let (r_mig, lines_mig) = setup(&p, &["--skip-install"], &env);
+        assert!(r_mig.is_ok(), "{r_mig:?}\n{}", lines_mig.join("\n"));
+        let text = lines_mig.join("\n");
+        assert!(
+            text.contains("MongoDB migration verified") && text.contains("0 differences"),
+            "{text}"
+        );
+        assert!(sqlite_db.is_file());
+        assert!(std::fs::read_to_string(&marker).unwrap().starts_with("migrated from "));
+    }
 }

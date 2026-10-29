@@ -171,7 +171,7 @@ servers' key) lives only in `secrets.env`.
 | `--public-port` | `public_port` | Another port than 443 |
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
-| `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database without migrating existing MongoDB data (MongoDB is never modified) |
+| `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database without migrating existing MongoDB data (MongoDB is never modified, and removing `fresh_start` from `host.toml` and running `setup` again clears the opt-out marker and runs the migration) |
 | (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
 | (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`MYSTICPARADOX_REFORGE`, `MYSTICPARADOX_MASTERY_PERSISTENCE`, `MYSTICPARADOX_BOUNTY_PERSISTENCE`, `MYSTICPARADOX_COOLDOWN_PERSISTENCE`, `MYSTICPARADOX_ACCOUNT_ERASURE`, `MYSTICPARADOX_LOG_PURGE`, `MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`/`isles-1-12-0` `[switches]`. Left out: each version's own defaults |
@@ -403,7 +403,8 @@ configured store (`.workspace\config\dainty-lass.db` on SQLite, or Postgres when
 `setup` and `update` refuse to switch and leave the server on its previous setup, and they never delete or modify the
 MongoDB data. `start` and `serve` refuse to run the Rust backend while unmigrated MongoDB data exists (unless the host
 explicitly opts into an empty database with `reforged-host setup --fresh-start` or `fresh_start = true` under
-`[database]` in `host.toml`). When `native\` changed, `update` says so: rebuild the runtime and publish it again.
+`[database]` in `host.toml`; removing `fresh_start` later and running `setup` clears the opt-out marker and runs the
+migration). When `native\` changed, `update` says so: rebuild the runtime and publish it again.
 Players' launchers notice the new hashes and ask once more.
 
 ### Live server cutover checklist (backup, update, smoke, rollback)

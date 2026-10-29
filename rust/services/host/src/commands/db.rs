@@ -1,16 +1,22 @@
 //! `reforged-host db`: `migrate`, `verify` and `export-mongo` (RB4, RB13, RU7, RU9), calling
 //! `isles-db`'s library with source and target defaulted from `host.toml` and `secrets.env`.
 
+#[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
 use std::path::PathBuf;
+#[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
 use std::process::ExitCode;
 
 use crate::Outcome;
-use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
-use crate::commands::update::{
-    MONGO_MIGRATED_MARKER, mongo_uri_with_database, redact_uri_password, store_target_for_migration,
-};
+use crate::cli::DbArgs;
+#[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+use crate::cli::{DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
+#[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+use crate::commands::update::MONGO_MIGRATED_MARKER;
+use crate::commands::update::{mongo_uri_with_database, redact_uri_password, store_target_for_migration};
 use crate::error::HostError;
-use crate::hostconfig::{DATABASE_FILE, DEFAULT_MONGO_URI, HostConfig, load_host_config, read_env_file};
+#[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+use crate::hostconfig::load_host_config;
+use crate::hostconfig::{DATABASE_FILE, DEFAULT_MONGO_URI, HostConfig, read_env_file};
 use crate::paths::Paths;
 
 /// Runs `reforged-host db <subcommand>` printing to stdout.
