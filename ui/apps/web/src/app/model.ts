@@ -186,6 +186,11 @@ export function errorMessage(
     case "realm_failed":
       return { key: "err_realm_failed", vars: { detail } }
     case "host_failed":
+      if (detail === "workspace") return { key: "host_err_workspace_rust" }
+      if (detail === "pack_invalid")
+        return { key: "host_err_pack_invalid_rust" }
+      if (detail === "node_missing" || detail === "npm_missing")
+        return { key: "err_host_failed", vars: { detail } }
       return isKey(`host_err_${detail}`)
         ? { key: `host_err_${detail}` as Key }
         : { key: "err_host_failed", vars: { detail } }

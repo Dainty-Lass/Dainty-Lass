@@ -457,7 +457,7 @@ export function GameDataTab({ kit, snap }: { kit: HostKit; snap: Snapshot }) {
         </Button>
         <OpenFolder folder="gamedata_packs" />
       </Step>
-      <Step text={t("host_data_step_pack")}>
+      <Step text={t("host_data_step_pack_rust")}>
         <Button
           variant="outline"
           size="sm"
