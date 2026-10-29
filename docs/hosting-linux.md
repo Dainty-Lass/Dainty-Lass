@@ -10,8 +10,10 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 
 ## What you need on the server
 
-- Debian 13 (or any distribution with the same packages): `wine wine64 xvfb xauth nftables`, **Node.js 22**
-  and **MongoDB** (`mongod`), or your own MongoDB elsewhere.
+- Debian 13 (or any distribution with the same packages): `wine wine64 xvfb xauth nftables`. No Node.js or MongoDB is
+  needed on the default path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API
+  are compiled into `reforged-host` and store player data in `.workspace/config/dainty-lass.db` (SQLite) or Postgres
+  (`[database]`).
 - Your **Dauntless 1.14.7** folder (about 15 GB), writable by the user the server runs as: the game servers write
   logs and a switch file next to the executable. Copy it from a PC that has it, or let the server fetch it from
   your own Epic library with `install-game` ([below](#getting-the-game-from-epic)).
@@ -105,3 +107,13 @@ bin/reforged-host backup                        # mongodump into .workspace
   script, and says what each needs.
 - The allowlist's nftables table is swapped in one transaction and filters only the game's UDP ports; it
   touches no other rule on the machine.
+
+## Updating and rollback (`isles-db export-mongo` and `paradox`)
+
+When `bin/reforged-host update` runs on a Linux host that previously ran the Node backend with MongoDB data, it runs
+`isles-db migrate` and `isles-db verify` into the configured store (`.workspace/config/dainty-lass.db` or Postgres)
+before installing the new release, refuses to switch if `verify` reports any difference, and leaves `.workspace/mongodb`
+untouched ([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)). For one release after
+the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store back to MongoDB with
+`isles-db export-mongo --from .workspace/config/dainty-lass.db --to mongodb://127.0.0.1:27017/reforged` and running a
+`reforged-host` binary built with `--features paradox` ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).

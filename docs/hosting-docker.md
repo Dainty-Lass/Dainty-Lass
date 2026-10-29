@@ -385,3 +385,13 @@ container. Run setup in the container once, so the env files name the container'
 When the Rust backend and Director ship (RB14), the `backend` and `director` containers run the Rust bins, and
 the `mongo` container gives way to Postgres (RD15) after the rollback window; the volumes and the `host`
 commands stay.
+
+## Migrating existing MongoDB data and rollback (`isles-db export-mongo` and `paradox`)
+
+On an existing server with a `mongo-data` volume from the Node backend, migrate and verify its data into the configured
+store (SQLite in `/opt/reforged/.workspace/config/dainty-lass.db` or the `postgres` profile) with `isles-db migrate`
+followed by `isles-db verify` (`reforged-host update` runs both steps automatically on a plain host and refuses to
+switch if `verify` reports any difference, leaving the MongoDB data untouched). For one release after the RU9/RB14
+cutover (until RB15), rolling back to the Node backend and MongoDB is done by exporting the store back to MongoDB with
+`isles-db export-mongo --from /opt/reforged/.workspace/config/dainty-lass.db --to mongodb://127.0.0.1:27017/reforged`
+and starting the `paradox` build ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).

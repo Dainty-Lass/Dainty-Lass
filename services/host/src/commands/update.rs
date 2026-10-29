@@ -19,14 +19,17 @@ use serde_json::{Value, json};
 use crate::Outcome;
 use crate::cli::UpdateArgs;
 use crate::error::HostError;
-use crate::hostconfig::has_host_config;
+use crate::hostconfig::{DATABASE_FILE, HostConfig, SECRET_FILE, has_host_config, load_host_config, read_env_file};
 use crate::paths::Paths;
 use crate::selfupdate::{
     self, Attestation, Candidate, Manifest, Source, UpdateError, UpdateResult, Wanted, find_release, installing_marker,
     read_manifest,
 };
 
-/// What `update` asks of this PC: where releases are, the attestation check and setup.
+/// Marker written after `update` migrates and verifies a server's MongoDB data into `store` (RU9/RB14).
+pub const MONGO_MIGRATED_MARKER: &str = ".mongo-migrated";
+
+/// What `update` asks of this PC: where releases are, the attestation check, data migration and setup.
 pub trait UpdateEnv {
     fn platform(&self) -> Result<&'static str, HostError>;
     fn source(&self, installed: Option<&Manifest>) -> Source;
@@ -35,6 +38,11 @@ pub trait UpdateEnv {
     fn checkout_commit(&self, root: &Path) -> String;
     /// Runs `program setup` in `root`; returns its exit code.
     fn run_setup(&self, program: &Path, root: &Path) -> Result<i32, HostError>;
+    /// Migrates and verifies existing MongoDB data into the configured `store` before switching
+    /// to the Rust backend (RU9/RB14). Defaults to [`migrate_existing_mongo_data`].
+    fn migrate_mongo_data(&self, paths: &Paths, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
+        migrate_existing_mongo_data(paths, out)
+    }
 }
 
 pub struct System;
@@ -204,6 +212,11 @@ fn update(paths: &Paths, args: &UpdateArgs, env: &dyn UpdateEnv, out: &mut dyn F
         Attestation::Skipped(why) => out(&format!("- build provenance: not checked ({why})")),
     }
     let staged = selfupdate::extract(&archive, &work.join("staging"))?;
+    if let Err(e) = env.migrate_mongo_data(paths, out) {
+        let _ = std::fs::remove_dir_all(work.join("staging"));
+        let _ = std::fs::remove_file(&archive);
+        return Err(e.into());
+    }
     let (manifest, report) = selfupdate::install(&staged, root, installed.as_ref())?;
     let _ = std::fs::remove_dir_all(work.join("staging"));
     let _ = std::fs::remove_file(&archive);
@@ -272,4 +285,196 @@ fn update(paths: &Paths, args: &UpdateArgs, env: &dyn UpdateEnv, out: &mut dyn F
         return Err(HostError::message(format!("setup failed: exit {code}")).into());
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Target store (`SQLite` path or `postgres://` URL) and `allow_remote_postgres` for `isles-db`.
+pub fn store_target_for_migration(
+    paths: &Paths,
+    config: &HostConfig,
+) -> Result<(String, bool, Option<PathBuf>), HostError> {
+    let d = config.database.clone().unwrap_or_default();
+    if !d.postgres() {
+        let sqlite_file = paths.config.join(DATABASE_FILE);
+        return Ok((sqlite_file.to_string_lossy().into_owned(), false, Some(sqlite_file)));
+    }
+    let existing = read_env_file(&paths.config.join(SECRET_FILE))?;
+    let password = existing.get("REFORGED_DB_PASSWORD").unwrap_or_default().to_owned();
+    let host = d.postgres_host.unwrap_or_else(|| "127.0.0.1".into());
+    let port = d.postgres_port.unwrap_or(5432);
+    let user = d.postgres_user.unwrap_or_else(|| "dainty".into());
+    let database = d.postgres_database.unwrap_or_else(|| "dainty".into());
+    let allow_remote = d.allow_remote == Some(true);
+    let url = if password.is_empty() {
+        format!("postgres://{user}@{host}:{port}/{database}")
+    } else {
+        format!("postgres://{user}:{password}@{host}:{port}/{database}")
+    };
+    Ok((url, allow_remote, None))
+}
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+pub fn migrate_existing_mongo_data(paths: &Paths, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
+    let config = match load_host_config(paths) {
+        Ok(Some(c)) => c,
+        Ok(None) | Err(_) => return Ok(()),
+    };
+    if !config.edition.runs_reborn() {
+        return Ok(());
+    }
+    let marker = paths.config.join(MONGO_MIGRATED_MARKER);
+    if marker.exists() {
+        return Ok(());
+    }
+    let backend_env = read_env_file(&paths.config.join("backend.env"))?;
+    let raw_uri = backend_env.get("MONGODB_URI").unwrap_or(&config.mongo.uri).trim();
+    if raw_uri.is_empty() {
+        return Ok(());
+    }
+    let from_uri = mongo_uri_with_database(raw_uri, backend_env.get("MONGODB_DB"));
+    let has_managed_mongo_dir = std::fs::read_dir(&paths.mongo_data)
+        .ok()
+        .is_some_and(|mut entries| entries.next().is_some());
+    let probe = isles_db::mongo::MongoClient::connect(&from_uri);
+    let mut client = match probe {
+        Ok(client) => client,
+        Err(e) => {
+            if has_managed_mongo_dir {
+                return Err(HostError::message(format!(
+                    "MongoDB data was found in {}, but MongoDB is not reachable at {from_uri} ({e}): start mongod so update can migrate and verify your data before switching to the Rust backend; the server was left on its current setup and MongoDB data was not modified",
+                    paths.mongo_data.display()
+                )));
+            }
+            return Ok(());
+        }
+    };
+    // Check whether any MongoDB collection has documents to migrate.
+    let mut has_docs = has_managed_mongo_dir;
+    if !has_docs {
+        for col in [
+            "accounts",
+            "characters",
+            "inventories",
+            "loadouts",
+            "reforgedInvites",
+            "wallets",
+        ] {
+            if client.find_all(col).is_ok_and(|docs| !docs.is_empty()) {
+                has_docs = true;
+                break;
+            }
+        }
+    }
+    if !has_docs {
+        return Ok(());
+    }
+
+    let (to_target, allow_remote_postgres, sqlite_path) = store_target_for_migration(paths, &config)?;
+    let sqlite_existed = sqlite_path.as_ref().is_some_and(|p| p.exists());
+    let node_str = config.network.as_ref().map(|n| n.node.as_str()).unwrap_or("local");
+    let node = node_str
+        .parse::<module_api::NodeId>()
+        .or_else(|_| "local".parse::<module_api::NodeId>())
+        .map_err(|e| HostError::message(format!("invalid node id: {e}")))?;
+    let game_data_dir = paths
+        .backend_game_data
+        .is_dir()
+        .then(|| paths.backend_game_data.clone());
+    let opts = isles_db::MigrateOptions {
+        from_uri: from_uri.clone(),
+        to_target: to_target.clone(),
+        node,
+        dry_run: false,
+        areas: Vec::new(),
+        skip_invalid: false,
+        game_data_dir,
+        allow_remote_postgres,
+    };
+
+    out(&format!(
+        "- migrating existing MongoDB data from {from_uri} into the configured store..."
+    ));
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| HostError::message(format!("could not start runtime for migration: {e}")))?;
+
+    if let Err(e) = runtime.block_on(isles_db::run_migrate(&opts)) {
+        if !sqlite_existed && let Some(p) = &sqlite_path {
+            let _ = std::fs::remove_file(p);
+        }
+        return Err(HostError::message(format!(
+            "MongoDB migration failed ({e}): refusing to switch to the Rust backend; the server stays on its previous setup and MongoDB data was not modified"
+        )));
+    }
+
+    out("- verifying migrated store against MongoDB (isles-db verify)...");
+    match runtime.block_on(isles_db::run_verify(&opts)) {
+        Ok(report) if report.ok => {
+            out(&format!(
+                "- MongoDB migration verified ({} collections checked, 0 differences; MongoDB data kept intact)",
+                report.collections.len()
+            ));
+            if let Some(parent) = marker.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(&marker, format!("migrated from {from_uri}\n"));
+            Ok(())
+        }
+        Ok(report) => {
+            if !sqlite_existed && let Some(p) = &sqlite_path {
+                let _ = std::fs::remove_file(p);
+            }
+            let failed: Vec<String> = report
+                .collections
+                .iter()
+                .filter(|c| !c.ok)
+                .map(|c| c.name.clone())
+                .collect();
+            Err(HostError::message(format!(
+                "isles-db verify reported differences in [{}]: refusing to switch to the Rust backend; the server stays on its previous setup and MongoDB data was not modified",
+                failed.join(", ")
+            )))
+        }
+        Err(e) => {
+            if !sqlite_existed && let Some(p) = &sqlite_path {
+                let _ = std::fs::remove_file(p);
+            }
+            Err(HostError::message(format!(
+                "isles-db verify reported a difference ({e}): refusing to switch to the Rust backend; the server stays on its previous setup and MongoDB data was not modified"
+            )))
+        }
+    }
+}
+
+#[cfg(not(all(feature = "isles-1-14-7", not(feature = "paradox"))))]
+pub fn migrate_existing_mongo_data(_paths: &Paths, _out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
+    Ok(())
+}
+
+/// Ensures `uri` names the database from `MONGODB_DB` (default `reforged`) when `uri` has no `/db` path.
+pub fn mongo_uri_with_database(uri: &str, mongodb_db: Option<&str>) -> String {
+    let db = mongodb_db
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("reforged");
+    let Some(rest) = uri.strip_prefix("mongodb://") else {
+        return uri.to_owned();
+    };
+    let (before_query, query) = match rest.split_once('?') {
+        Some((b, q)) => (b, Some(q)),
+        None => (rest, None),
+    };
+    if let Some((authority, path)) = before_query.split_once('/') {
+        if !path.trim_matches('/').is_empty() {
+            return uri.to_owned();
+        }
+        return match query {
+            Some(q) => format!("mongodb://{authority}/{db}?{q}"),
+            None => format!("mongodb://{authority}/{db}"),
+        };
+    }
+    match query {
+        Some(q) => format!("mongodb://{before_query}/{db}?{q}"),
+        None => format!("mongodb://{before_query}/{db}"),
+    }
 }
