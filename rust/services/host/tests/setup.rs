@@ -1707,4 +1707,57 @@ mod m1_mongo_migration {
             "backend.env not overwritten when verify fails"
         );
     }
+
+    #[test]
+    fn unreachable_configured_external_mongo_refuses_in_setup_and_start_unless_fresh_start_is_given() {
+        let (_dir, p, game) = checkout();
+        let env = Mock::new();
+        let closed_port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let unreachable_uri = format!("mongodb://mongo_user:secret_pw@127.0.0.1:{closed_port}/reforged");
+        write_old_kit_install(&p, &game, &unreachable_uri, false);
+        assert!(
+            !p.mongo_data.exists(),
+            "external MongoDB does not use .workspace/mongodb"
+        );
+        let original_host_json = std::fs::read_to_string(&p.host_json).unwrap();
+        let original_backend_env = std::fs::read_to_string(p.config.join("backend.env")).unwrap();
+
+        // 1. `setup` refuses when configured external MongoDB is unreachable, redacts any URI
+        //    password, names how to start it or opt out with `--fresh-start`, and leaves the
+        //    server unswitched.
+        let (r, _lines) = setup(&p, &["--skip-install"], &env);
+        let err = r.unwrap_err();
+        assert!(
+            err.contains("MongoDB is configured at")
+                && err.contains("not reachable")
+                && err.contains("start MongoDB")
+                && err.contains("--fresh-start")
+                && !err.contains("secret_pw"),
+            "{err}"
+        );
+        assert!(!p.config.join(host::commands::update::MONGO_MIGRATED_MARKER).exists());
+        assert!(p.host_json.is_file() && !p.host_toml.exists());
+        assert_eq!(std::fs::read_to_string(&p.host_json).unwrap(), original_host_json);
+        assert_eq!(
+            std::fs::read_to_string(p.config.join("backend.env")).unwrap(),
+            original_backend_env
+        );
+
+        // 2. `start` also refuses while the configured external MongoDB is unreachable.
+        let err_start = host::commands::start::run(&p).unwrap_err().to_string();
+        assert!(
+            err_start.contains("MongoDB is configured at")
+                && err_start.contains("not reachable")
+                && err_start.contains("--fresh-start")
+                && !err_start.contains("secret_pw"),
+            "{err_start}"
+        );
+
+        // 3. Explicit `--fresh-start` opt-out succeeds and lets the server start.
+        let (r_fresh, lines_fresh) = setup(&p, &["--fresh-start", "--skip-install"], &env);
+        assert!(r_fresh.is_ok(), "{r_fresh:?}\n{}", lines_fresh.join("\n"));
+        assert!(p.config.join(host::commands::update::MONGO_MIGRATED_MARKER).is_file());
+        let saved = read_host_config(&p.host_toml).unwrap().unwrap();
+        drop(host::serve::compose(&p, &saved, false, host::commands::start::console_printer()).unwrap());
+    }
 }

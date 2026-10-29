@@ -363,8 +363,13 @@ pub fn mongo_has_documents(client: &mut isles_db::mongo::MongoClient) -> bool {
 }
 
 #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+fn is_mongo_configured(config: &HostConfig, raw_uri: &str, has_managed_mongo_dir: bool) -> bool {
+    has_managed_mongo_dir || !config.mongo.manage || raw_uri != crate::hostconfig::DEFAULT_MONGO_URI
+}
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
 fn should_probe_mongo(paths: &Paths, config: &HostConfig, raw_uri: &str, has_managed_mongo_dir: bool) -> bool {
-    if has_managed_mongo_dir || !config.mongo.manage || raw_uri != crate::hostconfig::DEFAULT_MONGO_URI {
+    if is_mongo_configured(config, raw_uri, has_managed_mongo_dir) {
         return true;
     }
     if !paths.host_json.exists() && !paths.host_toml.exists() && !paths.config.join("backend.env").exists() {
@@ -427,6 +432,7 @@ pub fn migrate_existing_mongo_data_with_config(
     let from_uri = mongo_uri_with_database(raw_uri, backend_env.get("MONGODB_DB"));
     let display_uri = redact_uri_password(&from_uri);
     let has_managed_mongo_dir = has_managed_mongo_data(paths);
+    let configured = is_mongo_configured(config, raw_uri, has_managed_mongo_dir);
     if !should_probe_mongo(paths, config, raw_uri, has_managed_mongo_dir) {
         return Ok(());
     }
@@ -440,11 +446,22 @@ pub fn migrate_existing_mongo_data_with_config(
                     paths.mongo_data.display()
                 )));
             }
+            if configured {
+                return Err(HostError::message(format!(
+                    "MongoDB is configured at {display_uri}, but it is not reachable ({e}): start MongoDB and run reforged-host setup so your data can be migrated and verified before switching to the Rust backend, or run reforged-host setup --fresh-start (or set fresh_start = true under [database] in host.toml) to start on an empty database; the server was left on its current setup and MongoDB data was not modified"
+                )));
+            }
             return Ok(());
         }
     };
     let has_docs = has_managed_mongo_dir || mongo_has_documents(&mut client);
     if !has_docs {
+        if configured {
+            if let Some(parent) = marker.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(&marker, format!("checked {display_uri} (empty)\n"));
+        }
         return Ok(());
     }
 
@@ -549,14 +566,23 @@ pub fn check_unmigrated_mongo_data(paths: &Paths, config: &HostConfig) -> Result
     if raw_uri.is_empty() || !should_probe_mongo(paths, config, raw_uri, false) {
         return Ok(());
     }
+    let configured = is_mongo_configured(config, raw_uri, false);
     let from_uri = mongo_uri_with_database(raw_uri, backend_env.get("MONGODB_DB"));
     let display_uri = redact_uri_password(&from_uri);
-    if let Ok(mut client) = isles_db::mongo::MongoClient::connect(&from_uri)
-        && mongo_has_documents(&mut client)
-    {
-        return Err(HostError::message(format!(
-            "unmigrated MongoDB data was found at {display_uri}: run reforged-host setup to migrate and verify your player data before starting the Rust backend, or run reforged-host setup --fresh-start (or set fresh_start = true under [database] in host.toml) to start on an empty database"
-        )));
+    match isles_db::mongo::MongoClient::connect(&from_uri) {
+        Ok(mut client) => {
+            if mongo_has_documents(&mut client) {
+                return Err(HostError::message(format!(
+                    "unmigrated MongoDB data was found at {display_uri}: run reforged-host setup to migrate and verify your player data before starting the Rust backend, or run reforged-host setup --fresh-start (or set fresh_start = true under [database] in host.toml) to start on an empty database"
+                )));
+            }
+        }
+        Err(e) if configured => {
+            return Err(HostError::message(format!(
+                "MongoDB is configured at {display_uri}, but it is not reachable ({e}): start MongoDB and run reforged-host setup to migrate and verify your player data before starting the Rust backend, or run reforged-host setup --fresh-start (or set fresh_start = true under [database] in host.toml) to start on an empty database"
+            )));
+        }
+        Err(_) => {}
     }
     Ok(())
 }
