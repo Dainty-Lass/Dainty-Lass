@@ -450,8 +450,15 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
         &[],
     ));
     let mut tcp: Vec<u16> = hostconfig::RESERVED_PORTS.to_vec();
+    if !cfg!(feature = "paradox") {
+        tcp.retain(|port| *port != crate::paths::PORTS.backend && *port != crate::paths::PORTS.director);
+    }
     tcp.push(hostconfig::gateway_port(config));
-    let mut udp = vec![hostconfig::game_ports(config)];
+    let mut udp = if cfg!(feature = "paradox") {
+        vec![hostconfig::game_ports(config)]
+    } else {
+        Vec::new()
+    };
     if config.edition.runs_legacy() {
         tcp.push(hostconfig::legacy_gateway_port(config));
         udp.push(hostconfig::legacy_game_ports(config));
@@ -468,6 +475,7 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
         .edition
         .versions()
         .into_iter()
+        .filter(|version| cfg!(feature = "paradox") || *version != protocol::invite::reforged_version())
         .map(|version| {
             let by = format!(
                 "this server's own {version} stack (edition = \"{}\")",
@@ -493,15 +501,37 @@ pub fn list_modules(
         ));
     }
     let modules = config.modules.clone().unwrap_or_default();
+    let explicit_compiled = modules.compiled.is_some();
     let mut settings = modules.settings.clone();
     let mut entry = |id: module_api::ModuleId, source: ModuleSource, autoload: bool| {
         let mut mod_settings = settings.remove(&id).unwrap_or_default();
-        if let Some(switches) = &config.switches
-            && matches!(id.as_str(), "isles-1-14-7" | "isles-1-12-0")
-        {
-            let section = mod_settings.entry("switches".to_owned()).or_default();
-            for (key, value) in switches.module_switches() {
-                section.entry(key.to_owned()).or_insert(value);
+        if matches!(id.as_str(), "isles-1-14-7" | "isles-1-12-0") {
+            let backend_env = start_cmd::env_file(paths, "backend");
+            if backend_env.is_file() {
+                mod_settings
+                    .entry("backend".to_owned())
+                    .or_default()
+                    .entry("env_file".to_owned())
+                    .or_insert_with(|| serde_json::Value::String(backend_env.display().to_string()));
+            }
+            if paths.backend_game_data.is_dir() || paths.director_game_data.is_dir() {
+                let game_data = mod_settings.entry("game_data".to_owned()).or_default();
+                if paths.backend_game_data.is_dir() {
+                    game_data
+                        .entry("backend_dir".to_owned())
+                        .or_insert_with(|| serde_json::Value::String(paths.backend_game_data.display().to_string()));
+                }
+                if paths.director_game_data.is_dir() {
+                    game_data
+                        .entry("director_dir".to_owned())
+                        .or_insert_with(|| serde_json::Value::String(paths.director_game_data.display().to_string()));
+                }
+            }
+            if let Some(switches) = &config.switches {
+                let section = mod_settings.entry("switches".to_owned()).or_default();
+                for (key, value) in switches.module_switches() {
+                    section.entry(key.to_owned()).or_insert(value);
+                }
             }
         }
         registry
@@ -528,7 +558,16 @@ pub fn list_modules(
         built.retain(|(id, _)| wanted.contains(id));
     }
     for (id, factory) in built {
-        entry(id, ModuleSource::CompiledIn(factory), true)?;
+        let autoload = if explicit_compiled {
+            true
+        } else {
+            match id.as_str() {
+                "isles-1-14-7" => config.edition.runs_reborn() && !cfg!(feature = "paradox"),
+                "isles-1-12-0" => false,
+                _ => true,
+            }
+        };
+        entry(id, ModuleSource::CompiledIn(factory), autoload)?;
     }
     for external in &modules.external {
         let path = PathBuf::from(&external.path);
@@ -986,12 +1025,21 @@ mod tests {
         });
         let registry = new_registry(&taken, &controller);
         list_modules(&paths, &taken, &registry, vec![isles]).unwrap();
-        let refused = registry
-            .load(&"isles-1-14-7".parse().unwrap())
-            .await
-            .unwrap_err()
-            .to_string();
-        assert!(refused.contains("this server's own 1.14.7 stack"), "{refused}");
+        if cfg!(feature = "paradox") {
+            let refused = registry
+                .load(&"isles-1-14-7".parse().unwrap())
+                .await
+                .unwrap_err()
+                .to_string();
+            assert!(refused.contains("this server's own 1.14.7 stack"), "{refused}");
+        } else {
+            registry.load(&"isles-1-14-7".parse().unwrap()).await.unwrap();
+            assert_eq!(
+                registry.info(&"isles-1-14-7".parse().unwrap()).unwrap().state,
+                controller::ModuleState::Ready
+            );
+            registry.unload_all().await;
+        }
     }
 
     #[test]
@@ -1035,6 +1083,90 @@ mod tests {
         controller.start_component("gateway").await.unwrap();
         assert!(rust_ported(FrontService::Gateway));
         assert!(rust_ported(FrontService::Content));
+        controller.shutdown().await;
+    }
+
+    #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let mut c = config(ServerMode::Private);
+        c.host = "127.0.0.1".into();
+        c.game_address = "127.0.0.1".into();
+        ensure_server_files(&paths, &c).unwrap();
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("..");
+        let repo_paths = Paths::new(&repo);
+        std::fs::create_dir_all(&paths.backend_game_data).unwrap();
+        std::fs::create_dir_all(&paths.director_game_data).unwrap();
+        for f in crate::gamedata::BACKEND_GAME_DATA {
+            let src = crate::gamepack::example_of(&repo_paths.backend_game_data.join(f));
+            std::fs::copy(&src, paths.backend_game_data.join(f)).unwrap();
+        }
+        for f in crate::gamedata::DIRECTOR_GAME_DATA {
+            let src = crate::gamepack::example_of(&repo_paths.director_game_data.join(f));
+            std::fs::copy(&src, paths.director_game_data.join(f)).unwrap();
+        }
+
+        let content_port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let admin_port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let gateway_port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let content_env = start_cmd::env_file(&paths, "content");
+        let content_text = std::fs::read_to_string(&content_env)
+            .unwrap()
+            .replace("CONTENT_PORT=61002", &format!("CONTENT_PORT={content_port}"));
+        std::fs::write(&content_env, content_text).unwrap();
+        let admin_env = start_cmd::env_file(&paths, "admin");
+        let admin_text = std::fs::read_to_string(&admin_env)
+            .unwrap()
+            .replace("ADMIN_PORT=61003", &format!("ADMIN_PORT={admin_port}"));
+        std::fs::write(&admin_env, admin_text).unwrap();
+        let gateway_env = start_cmd::env_file(&paths, "gateway");
+        let gateway_text = std::fs::read_to_string(&gateway_env)
+            .unwrap()
+            .replace("GATEWAY_PORT=61000", &format!("GATEWAY_PORT={gateway_port}"));
+        std::fs::write(&gateway_env, gateway_text).unwrap();
+
+        let mut controller = compose(&paths, &c, false, table_printer()).unwrap();
+        assert_eq!(controller.module_names(), ["content", "admin", "gateway"]);
+        controller.start_all().await.unwrap();
+
+        let registry = controller.registry().unwrap();
+        let isles = registry.info(&"isles-1-14-7".parse().unwrap()).unwrap();
+        assert_eq!(isles.state, controller::ModuleState::Ready, "{:?}", isles.detail);
+        assert!(isles.autoload);
+        if let Ok(isles_112) = registry.info(&"isles-1-12-0".parse().unwrap()) {
+            assert!(!isles_112.autoload);
+            assert_eq!(isles_112.state, controller::ModuleState::NotLoaded);
+        }
+
+        let reply = crate::invite::http_request(
+            "127.0.0.1",
+            gateway_port,
+            "GET",
+            "/dauntless-status",
+            &[("X-Dauntless-Game-Version", "1.14.7")],
+            None,
+            Duration::from_secs(5),
+        )
+        .unwrap();
+        let body = String::from_utf8_lossy(&reply.body);
+        assert_eq!(reply.status, 200, "{body}");
+        assert!(body.contains("\"show-status\""), "{body}");
+        assert!(paths.config.join(hostconfig::DATABASE_FILE).is_file());
+
         controller.shutdown().await;
     }
 }

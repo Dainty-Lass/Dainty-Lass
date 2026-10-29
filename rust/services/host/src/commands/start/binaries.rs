@@ -74,8 +74,12 @@ pub struct Programs {
 }
 
 impl Programs {
-    /// Node from PATH (or where its Windows installer and nvm-windows put it); the rest as [`Self::find_rust`].
+    /// Node from PATH (or where its Windows installer and nvm-windows put it) when built with `paradox`;
+    /// otherwise [`Self::find_rust`] without looking for `node`.
     pub fn find(paths: &Paths) -> Result<Self, HostError> {
+        if !cfg!(feature = "paradox") {
+            return Ok(Self::find_rust(paths));
+        }
         let node = find_node(&std::env::vars().collect::<Vec<_>>(), Path::exists).ok_or_else(|| {
             HostError::message(
                 "Node.js (node) was not found: the backend and the Director still run on it. Install Node.js 22 or newer from https://nodejs.org",

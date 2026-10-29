@@ -699,14 +699,16 @@ struct GatewayView {
 #[cfg(feature = "gateway")]
 impl gateway::modules::RegistryView for GatewayView {
     fn endpoint(&self, module: &module_api::ModuleManifest, port: &str) -> Option<gateway::config::Endpoint> {
+        if let Some(range) = self.registry.upgrade().and_then(|r| r.port(&module.id, port)) {
+            return Some(gateway::config::Endpoint {
+                host: "127.0.0.1".into(),
+                port: range.first,
+            });
+        }
         if module.id == self.own.0 {
             return (port == self.own.1).then(|| self.own.2.clone());
         }
-        let range = self.registry.upgrade()?.port(&module.id, port)?;
-        Some(gateway::config::Endpoint {
-            host: "127.0.0.1".into(),
-            port: range.first,
-        })
+        None
     }
 }
 
@@ -728,7 +730,9 @@ fn gateway_routes(
         own: (manifest.id.clone(), port, config.backend.clone()),
     };
     let routes = Arc::new(gateway::modules::ModuleRoutes::new(Arc::new(view)));
-    module_api::CorePlugin::attach(routes.as_ref(), &manifest, &registration).map_err(|e| e.to_string())?;
+    routes
+        .attach_stand_in(&manifest, &registration)
+        .map_err(|e| e.to_string())?;
     registry.add_plugin(routes.clone());
     Ok(routes)
 }

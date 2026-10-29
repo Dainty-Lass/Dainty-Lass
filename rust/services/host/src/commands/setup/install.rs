@@ -174,8 +174,13 @@ fn npm(dir: &Path, args: &[&str], log_file: &Path, what: &str) -> Result<(), Hos
     Ok(())
 }
 
-/// `npm ci` and `npm run build` in each service, stopping at the first that fails.
+/// `npm ci` and `npm run build` in each service when built with `paradox`; otherwise the services
+/// are already compiled into this binary.
 pub fn build_from_checkout(l: &Layout, log_file: &Path, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
+    if !cfg!(feature = "paradox") {
+        out("- services: compiled into this binary (Rust backend, Director, gateway and content server)");
+        return Ok(());
+    }
     for (dir, label) in services(l) {
         out(&format!("- {label}: npm ci"));
         npm(dir, &["ci", "--no-audit", "--no-fund"], log_file, "npm ci")?;

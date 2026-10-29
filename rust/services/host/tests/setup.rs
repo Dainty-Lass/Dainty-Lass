@@ -817,10 +817,17 @@ fn a_fresh_public_setup_makes_the_certificate_once() {
         text.contains(&format!("- certificate fingerprint (goes into every invite): {fp}")),
         "{text}"
     );
-    assert!(
-        text.contains("\n! MongoDB was not found. Install MongoDB Community Server"),
-        "{text}"
-    );
+    if cfg!(feature = "paradox") {
+        assert!(
+            text.contains("\n! MongoDB was not found. Install MongoDB Community Server"),
+            "{text}"
+        );
+    } else {
+        assert!(
+            !text.contains("MongoDB"),
+            "SQLite is used by default without paradox: {text}"
+        );
+    }
     assert!(text.contains("\n! No game folder yet"), "{text}");
     assert!(p.config.join("allowlist.env").exists());
     assert!(
