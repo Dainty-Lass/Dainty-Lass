@@ -76,7 +76,24 @@ pub fn run_with(paths: &Paths, env: &dyn BackupEnv, out: &mut dyn FnMut(&str)) -
     let config =
         load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
     match database(&config) {
-        Database::Mongo => mongo_backup(paths, &config, env, out),
+        Database::Sqlite => {
+            let db_file = paths.config.join(crate::hostconfig::DATABASE_FILE);
+            if db_file.is_file() {
+                let dir = paths.workspace.join("backups");
+                std::fs::create_dir_all(&dir).map_err(|e| HostError::io(&dir, e))?;
+                let file = dir.join(format!("sqlite-{}.db", env.stamp()));
+                let bytes = std::fs::copy(&db_file, &file).map_err(|e| HostError::io(&file, e))?;
+                out(&format!("Backup written: {} ({bytes} bytes)", file.display()));
+                out(&format!(
+                    "Restore it with the server stopped: copy \"{}\" over \"{}\"",
+                    file.display(),
+                    db_file.display()
+                ));
+                return Ok(ExitCode::SUCCESS);
+            }
+            mongo_backup(paths, &config, env, out)
+        }
+        Database::Postgres | Database::Mongo => mongo_backup(paths, &config, env, out),
     }
 }
 

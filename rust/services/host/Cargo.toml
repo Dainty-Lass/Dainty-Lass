@@ -9,23 +9,22 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["modules"]
-# The server's modules (`serve`): the Rust services in this process, and Mystic Paradox's backend and
-# Director as supervised Node processes (`paradox`, until the RB rows). None: a controller that serves nothing
-modules = ["gateway", "allowlist", "content", "admin", "paradox"]
+default = ["modules", "isles-1-14-7", "isles-1-12-0", "realms"]
+# The server's modules (`serve`): the Rust services in this process. None: a controller that serves nothing
+modules = ["gateway", "allowlist", "content", "admin"]
 gateway = ["controller/gateway", "controller/network", "dep:gateway"]
 allowlist = ["controller/allowlist", "dep:gateway"]
 content = ["controller/content", "dep:content"]
 admin = ["controller/admin", "dep:admin"]
-# The game modules compiled in (DF5): the controller's features of the same names, none by default. The release
-# builds them in
+# The game modules compiled in (DF5): the controller's features of the same names; 1.14.7, 1.12.0 and realms
+# are on by default (RU9/RB14)
 stub-module = ["controller/stub-module"]
 isles-1-14-7 = ["controller/isles-1-14-7"]
 isles-1-12-0 = ["controller/isles-1-12-0"]
 revived-1-4-4 = ["controller/revived-1-4-4"]
 realms = ["controller/realms"]
-# The Node processes: Mystic Paradox's backend and Director, MongoDB, and the Node gateway and content
-# server until RS5 flips them (`commands::start::binaries::rust_ported`)
+# Opt-in rollback path for one release until RB15 deletes it: Mystic Paradox's Node backend and Director
+# and MongoDB
 paradox = []
 # Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
 legacy = ["protocol/legacy", "gateway?/legacy", "content?/legacy"]
