@@ -999,4 +999,42 @@ mod tests {
         let text = empty_build_message();
         assert!(text.contains("gateway, allowlist, content, admin"), "{text}");
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn compose_runs_gateway_and_content_in_process_without_node() {
+        use start_cmd::binaries::{FrontService, rust_ported};
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let mut c = config(ServerMode::Private);
+        c.host = "127.0.0.1".into();
+        c.game_address = "127.0.0.1".into();
+        ensure_server_files(&paths, &c).unwrap();
+        let content_port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let gateway_port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let content_env = start_cmd::env_file(&paths, "content");
+        let content_text = std::fs::read_to_string(&content_env)
+            .unwrap()
+            .replace("CONTENT_PORT=61002", &format!("CONTENT_PORT={content_port}"));
+        std::fs::write(&content_env, content_text).unwrap();
+        let gateway_env = start_cmd::env_file(&paths, "gateway");
+        let gateway_text = std::fs::read_to_string(&gateway_env)
+            .unwrap()
+            .replace("GATEWAY_PORT=61000", &format!("GATEWAY_PORT={gateway_port}"));
+        std::fs::write(&gateway_env, gateway_text).unwrap();
+
+        let mut controller = compose(&paths, &c, false, table_printer()).unwrap();
+        controller.start_component("content").await.unwrap();
+        controller.start_component("gateway").await.unwrap();
+        assert!(rust_ported(FrontService::Gateway));
+        assert!(rust_ported(FrontService::Content));
+        controller.shutdown().await;
+    }
 }
