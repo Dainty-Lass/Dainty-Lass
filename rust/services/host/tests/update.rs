@@ -940,6 +940,48 @@ mod mongo_cutover {
         if let Ok(pg_url) = std::env::var("REFORGED_TEST_POSTGRES_URL")
             && let Ok(pg_cfg) = isles_db::migrate::parse_postgres_url(&pg_url, false)
         {
+            use diesel::Connection as _;
+            use diesel::connection::SimpleConnection as _;
+            struct TempPg {
+                admin_conninfo: String,
+                db_name: String,
+            }
+            impl Drop for TempPg {
+                fn drop(&mut self) {
+                    if let Ok(mut admin) = diesel::PgConnection::establish(&self.admin_conninfo) {
+                        let _ = admin.batch_execute(&format!(
+                            "DROP DATABASE IF EXISTS {} WITH (FORCE)",
+                            store::portable::quote_ident(&self.db_name)
+                        ));
+                    }
+                }
+            }
+            let db_name = format!(
+                "update_test_{}_{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .subsec_nanos()
+            );
+            let mut admin = diesel::PgConnection::establish(&pg_cfg.conninfo()).unwrap();
+            admin
+                .batch_execute(&format!("CREATE DATABASE {}", store::portable::quote_ident(&db_name)))
+                .unwrap();
+            drop(admin);
+            let _guard = TempPg {
+                admin_conninfo: pg_cfg.conninfo(),
+                db_name: db_name.clone(),
+            };
+            let temp_pg_url = if pg_cfg.password.is_empty() {
+                format!("postgres://{}@{}:{}/{}", pg_cfg.user, pg_cfg.host, pg_cfg.port, db_name)
+            } else {
+                format!(
+                    "postgres://{}:{}@{}:{}/{}",
+                    pg_cfg.user, pg_cfg.password, pg_cfg.host, pg_cfg.port, db_name
+                )
+            };
+
             let pg_root = dir.path().join("ReforgedPg");
             let pg_releases = dir.path().join("releases_pg");
             make_release(&pg_releases, "1.0.0", "linux-x64", V1);
@@ -965,7 +1007,7 @@ mod mongo_cutover {
                     "postgresHost": pg_cfg.host,
                     "postgresPort": pg_cfg.port,
                     "postgresUser": pg_cfg.user,
-                    "postgresDatabase": pg_cfg.database
+                    "postgresDatabase": db_name
                 }
             });
             std::fs::write(
@@ -996,7 +1038,7 @@ mod mongo_cutover {
             let pg_rollback_uri = pg_rollback_mongo.uri("reforged");
             let pg_export = rt
                 .block_on(isles_db::run_export_mongo(&isles_db::ExportOptions {
-                    from_source: pg_url.clone(),
+                    from_source: temp_pg_url.clone(),
                     to_uri: pg_rollback_uri.clone(),
                     areas: Vec::new(),
                     dry_run: false,
@@ -1007,7 +1049,7 @@ mod mongo_cutover {
             let pg_verify = rt
                 .block_on(isles_db::run_verify(&isles_db::MigrateOptions {
                     from_uri: pg_rollback_uri,
-                    to_target: pg_url,
+                    to_target: temp_pg_url,
                     node: "local".parse().unwrap(),
                     dry_run: false,
                     areas: Vec::new(),

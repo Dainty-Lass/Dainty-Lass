@@ -1070,7 +1070,7 @@ mod tests {
         let content_env = start_cmd::env_file(&paths, "content");
         let content_text = std::fs::read_to_string(&content_env)
             .unwrap()
-            .replace("CONTENT_PORT=61002", &format!("CONTENT_PORT={content_port}"));
+            .replace("PORT=61002", &format!("PORT={content_port}"));
         std::fs::write(&content_env, content_text).unwrap();
         let gateway_env = start_cmd::env_file(&paths, "gateway");
         let gateway_text = std::fs::read_to_string(&gateway_env)
@@ -1126,12 +1126,12 @@ mod tests {
         let content_env = start_cmd::env_file(&paths, "content");
         let content_text = std::fs::read_to_string(&content_env)
             .unwrap()
-            .replace("CONTENT_PORT=61002", &format!("CONTENT_PORT={content_port}"));
+            .replace("PORT=61002", &format!("PORT={content_port}"));
         std::fs::write(&content_env, content_text).unwrap();
         let admin_env = start_cmd::env_file(&paths, "admin");
         let admin_text = std::fs::read_to_string(&admin_env)
             .unwrap()
-            .replace("ADMIN_PORT=61003", &format!("ADMIN_PORT={admin_port}"));
+            .replace("PORT=61003", &format!("PORT={admin_port}"));
         std::fs::write(&admin_env, admin_text).unwrap();
         let gateway_env = start_cmd::env_file(&paths, "gateway");
         let gateway_text = std::fs::read_to_string(&gateway_env)
