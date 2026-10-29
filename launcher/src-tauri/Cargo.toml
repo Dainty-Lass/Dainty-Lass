@@ -109,7 +109,7 @@ dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
 # someone else hosts (`cargo build -p launcher --no-default-features`)
 default = ["host"]
 host = ["dep:toml_edit"]
-server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host"]
+server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"]
 # Dauntless Revived's 1.4.4 servers next to 1.14.7 ones, chosen in the settings (legacy or reborn; RD5 reversed)
 legacy = ["protocol/legacy", "host?/legacy"]
 # The game modules the server GUI links in, as the server binaries' (DF5)

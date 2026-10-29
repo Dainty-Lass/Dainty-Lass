@@ -60,8 +60,9 @@ pub fn create(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     } else {
         None
     };
+    let title = app.config().product_name.as_deref().unwrap_or("DaintyLass Launcher");
     let window = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-        .title("DaintyLass Launcher")
+        .title(title)
         .inner_size(width, height)
         .min_inner_size(min_width, min_height)
         .center()
