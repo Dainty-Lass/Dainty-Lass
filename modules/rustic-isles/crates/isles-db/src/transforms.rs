@@ -227,11 +227,12 @@ pub fn to_json_text(val: Option<&Value>, default_json: &str) -> String {
 
 /// RB11 `migrate_launcher_approval.ts`:
 /// Backfills missing `approvalStatus` on existing launcher accounts to `"approved"` with
-/// `updatedBy = "migration:0.1.73"` and `updatedAt = createdAt`.
+/// `updatedBy = "migration:0.1.73"` and `updatedAt = createdAt`. When `approvalStatus` is already
+/// present on the document, preserves `approvalUpdatedAt` and `approvalUpdatedBy` as optional.
 pub fn migrate_launcher_approval(
     doc: &Map<String, Value>,
     created_at: &str,
-) -> (String, String, String, Option<String>) {
+) -> (String, Option<String>, Option<String>, Option<String>) {
     let nested = doc.get("approval").and_then(Value::as_object);
     let raw_status = doc
         .get("approvalStatus")
@@ -243,8 +244,8 @@ pub fn migrate_launcher_approval(
     let Some(status) = raw_status else {
         return (
             "approved".to_owned(),
-            created_at.to_owned(),
-            "migration:0.1.73".to_owned(),
+            Some(created_at.to_owned()),
+            Some("migration:0.1.73".to_owned()),
             None,
         );
     };
@@ -252,16 +253,14 @@ pub fn migrate_launcher_approval(
     let updated_at = as_opt_iso_string(
         doc.get("approvalUpdatedAt")
             .or_else(|| nested.and_then(|n| n.get("updatedAt"))),
-    )
-    .unwrap_or_else(|| created_at.to_owned());
+    );
 
     let updated_by = doc
         .get("approvalUpdatedBy")
         .and_then(Value::as_str)
         .or_else(|| nested.and_then(|n| n.get("updatedBy")).and_then(Value::as_str))
         .filter(|s| !s.is_empty())
-        .unwrap_or("migration:0.1.73")
-        .to_owned();
+        .map(str::to_owned);
 
     let reason = doc
         .get("approvalReason")
