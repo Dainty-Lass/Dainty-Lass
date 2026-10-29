@@ -14,9 +14,11 @@ use std::process::Command;
 
 use chrono::{DateTime, Utc};
 use host::captures::{CaptureFetch, CapturePin, ensure_captures, missing_captures, read_capture_pin};
+#[cfg(feature = "isles-1-14-7")]
+use host::gamedata::generate_game_data;
 use host::gamedata::{
     BACKEND_GAME_DATA, GameDataKind, GenerateOptions, GeneratorKind, Generators, SUPPLIED_SOURCES, game_data_state,
-    game_data_steps, generate_game_data, generate_game_data_with, use_examples,
+    game_data_steps, generate_game_data_with, use_examples,
 };
 use host::gamepack::{
     PACK_FORMAT, export_game_data_pack, import_game_data_pack, pack_json, read_game_data_pack, sha256_hex,
@@ -414,6 +416,7 @@ fn runs_the_other_steps_when_one_fails_and_names_the_failure() {
 }
 
 /// Runs the real RB11 Rust generators in-process without Node or npm.
+#[cfg(feature = "isles-1-14-7")]
 #[test]
 fn runs_the_rust_generators_and_names_the_error_while_continuing_other_steps() {
     let dir = TempDir::new().unwrap();
@@ -451,6 +454,7 @@ fn runs_the_rust_generators_and_names_the_error_while_continuing_other_steps() {
     );
 }
 
+#[cfg(feature = "isles-1-14-7")]
 #[test]
 fn generates_all_seven_game_data_steps_in_rust_without_node() {
     let dir = TempDir::new().unwrap();

@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 use crate::Outcome;
 use crate::cli::UpdateArgs;
 use crate::error::HostError;
-#[cfg(feature = "isles-1-14-7")]
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
 use crate::hostconfig::load_host_config;
 use crate::hostconfig::{DATABASE_FILE, HostConfig, SECRET_FILE, has_host_config, read_env_file};
 use crate::paths::Paths;
