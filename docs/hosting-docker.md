@@ -41,7 +41,7 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | `workspace` | `/opt/reforged/.workspace` | Configuration and secrets, the certificate, the published runtime, branding, logs, the Wine prefix |
 | `backend-game-data`, `director-game-data` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/*/game-data` | Your game data |
 | `exports`, `captures` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
-| `mongo-data`, `mongo-config` | MongoDB's | The database |
+| `mongo-data`, `mongo-config` | `/data/db` in `mongo`, `/opt/reforged/.workspace/mongodb` in `server` | Pre-cutover MongoDB data (migrated into `store` by `host setup` / `configure`, and used by the `rollback` profile) |
 | `postgres-data` | Postgres's | The `postgres` profile's database |
 | bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
 | bind mount `REFORGED_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
@@ -340,7 +340,7 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 | --- | --- |
 | Stop, start | `docker compose stop`, `docker compose up -d`; a clean stop includes the game servers |
 | Change a setting | `docker compose run --rm host setup …` (or `multipliers`), then `docker compose up -d --force-recreate`. With the `toml` profile: edit `config/host.toml`, then the same `up` |
-| Update | `git pull --recurse-submodules` (once after a clone made without them: `git submodule update --init --recursive`), `docker compose build`, `docker compose up -d`. `reforged-host update` is not used in Docker |
+| Update | `git pull --recurse-submodules` (once after a clone made without them: `git submodule update --init --recursive`), `docker compose build`, `docker compose up -d`. On a server updating from the pre-RU9 Node backend with existing `mongo-data`, run the one-time migration below first (`backend` refuses to start while `mongo-data` is unmigrated). `reforged-host update` is not used in Docker |
 | Back up | `docker compose run --rm host backup` (into the `workspace` volume, `backups/`), and keep a copy of the `workspace` volume: it holds the certificate every invite names and the secrets |
 | A shell | `docker compose run --rm --entrypoint bash host` |
 
@@ -358,9 +358,11 @@ images:
 2. Inside the `test` image: `cargo test` for the server crates (protocol, proxy, service-kit, store, gateway,
    content, host), with the allowlist's nftables test applying its rules for real in the container's own network
    namespace.
-3. The compose smoke test (`docker/smoke-test.sh`): a public server set up on example game data in throwaway
-   volumes, the `toml` profile's `configure` applying an edited `host.toml`, every service healthy, the gateway
-   serving setup's certificate, the allowlist's table in place, an invite, a clean stop.
+3. The compose smoke test (`docker/smoke-test.sh`): a pre-cutover `mongo-data` volume seeded with an account and
+   invite, `backend` refusing to start before migration, `host setup` migrating and verifying the data into the
+   SQLite store, the `toml` profile's `configure` applying an edited `host.toml`, every service healthy, the
+   gateway serving setup's certificate and answering `/reforged/api/ServerStatus` and account checks from the
+   Rust backend, the allowlist's table in place, an invite, a clean stop.
 
 `bash docker/run-tests.sh rust` runs only step 2; `SKIP_SMOKE=1` leaves out step 3. On a server,
 `docker compose run --rm test` runs step 2 with your game-data volumes mounted read-only.
@@ -375,18 +377,31 @@ A fourth step, `docker/network/test.sh`, starts the `network` profile and checks
 
 Stop the systemd units, then copy the host's `.workspace` into the `workspace` volume and its game data into
 the game-data volumes (`docker compose run --rm -v /home/reforged/Reforged:/old:ro --entrypoint bash host`,
-then `cp -a` from `/old`). If the host still has pre-RU9 MongoDB data, migrate it with `isles-db migrate` and
-`isles-db verify` first (or run `reforged-host update` on the host before moving `.workspace`). Run setup in
-the container once, so the env files name the container's paths, and start it.
+then `cp -a` from `/old`). If the host still has pre-RU9 MongoDB data, copy its `mongodb` folder into the
+`mongo-data` volume (or run `reforged-host setup` on the host before moving `.workspace`). Run `setup` in
+the container once (with `mongo` running from the `rollback` profile if `mongo-data` was copied unmigrated), so
+the env files name the container's paths and any unmigrated MongoDB data is migrated and verified, then start it.
 
-## Migrating existing MongoDB data and rollback (`isles-db export-mongo` and the `rollback` profile)
+## Migrating existing MongoDB data and rollback (`rollback` profile)
 
-On an existing server with a `mongo-data` volume from the pre-RU9 Node backend, start the `mongo` container
-(`docker compose --profile rollback up -d --wait mongo`), then migrate and verify its data into the configured
-store (SQLite in `/opt/reforged/.workspace/config/dainty-lass.db` or the `postgres` profile) with `isles-db migrate`
-followed by `isles-db verify` (`reforged-host update` runs both steps automatically on a plain host and refuses to
-switch if `verify` reports any difference, leaving the MongoDB data untouched). Once verified, stop `mongo` and bring up
-the default Rust services (`docker compose up -d`).
+The `mongo-data` volume is mounted at `/opt/reforged/.workspace/mongodb` inside `backend`, `configure` and `host`.
+While `mongo-data` is non-empty and `/opt/reforged/.workspace/.mongo-migrated` has not been written, `backend`
+refuses to start so an updated server never comes up silently on an empty database.
+
+To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
+
+1. Start `mongo` from the `rollback` profile for the duration of the migration:
+   `docker compose --profile rollback up -d --wait mongo`
+2. Run `docker compose run --rm host setup` (or `COMPOSE_PROFILES=public,toml,rollback docker compose run --rm configure`
+   when using the `toml` profile). `setup` migrates every collection from `mongo` into the configured store
+   (SQLite in `/opt/reforged/.workspace/config/dainty-lass.db` or the `postgres` profile), runs full verification
+    across every collection (`accounts`, `characters`, `loadouts`, `guilds`, `guildInvites`, `friendships`,
+   `partyInvites`, `moderationLogs`, `reports`, `auditEvents`, `reforgedInvites`, `status`, `schemaMigrations`)
+   and writes `.mongo-migrated` only when zero differences are found, leaving `mongo-data` untouched.
+   (To start on a fresh empty database without migrating, pass `--fresh-start` to `host setup` or set
+   `fresh_start = true` under `[database]` in `host.toml`.)
+3. Stop `mongo` and bring up the Rust services:
+   `docker compose --profile rollback rm -sf mongo && docker compose up -d`
 
 For one release after the RU9/RB14 cutover (until RB15), rolling back to the Node backend and MongoDB in Docker uses
 the `rollback` Compose profile (`mongo`, `backend-rollback` and `director-rollback`, built from the `server-rollback`
