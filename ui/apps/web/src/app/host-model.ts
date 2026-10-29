@@ -65,7 +65,7 @@ export const SERVER_STATE_KEYS: Record<
   starting: { state: "hsrv_state_starting", text: "hsrv_text_starting" },
   running: { state: "hsrv_state_running", text: "hsrv_text_running" },
   stopping: { state: "hsrv_state_stopping", text: "hsrv_text_stopping" },
-  external: { state: "hsrv_state_external", text: "hsrv_text_external" },
+  external: { state: "hsrv_state_external", text: "hsrv_text_external_rust" },
   failed: { state: "hsrv_state_failed", text: "hsrv_text_failed_noreason" },
 }
 
@@ -433,7 +433,7 @@ export function applyPalette(
 // ------------------------------------------------------------------ requirements
 
 export const REQUIREMENT_GROUPS: { key: Key; ids: RequirementId[] }[] = [
-  { key: "hreq_group_host", ids: ["git", "node", "mongodb", "tailscale"] },
+  { key: "hreq_group_host", ids: ["git", "mongodb", "tailscale"] },
   { key: "hreq_group_build", ids: ["visual_studio", "rust", "dumper7"] },
   { key: "hreq_group_play", ids: ["dauntless", "vc_redist"] },
 ]

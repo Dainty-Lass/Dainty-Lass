@@ -235,7 +235,22 @@ test("an error's text: the invite's reason, the port, the host step, a detail ke
   )
   expect(
     errorMessage({ code: "host_failed", detail: "workspace" }, null).key
-  ).toBe("host_err_workspace")
+  ).toBe("host_err_workspace_rust")
+  expect(
+    errorMessage({ code: "host_failed", detail: "pack_invalid" }, null).key
+  ).toBe("host_err_pack_invalid_rust")
+  expect(
+    errorMessage({ code: "host_failed", detail: "node_missing" }, null)
+  ).toEqual({
+    key: "err_host_failed",
+    vars: { detail: "node_missing" },
+  })
+  expect(
+    errorMessage({ code: "host_failed", detail: "npm_missing" }, null)
+  ).toEqual({
+    key: "err_host_failed",
+    vars: { detail: "npm_missing" },
+  })
   expect(
     errorMessage({ code: "launch_failed", detail: "os error 5" }, null)
   ).toEqual({

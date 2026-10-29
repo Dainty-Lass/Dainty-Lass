@@ -365,7 +365,8 @@ test("only a loaded plugin's look is drawn, and only with colours that can't car
 
 test("the requirements have their words in the catalog, steps included", () => {
   const ids = REQUIREMENT_GROUPS.flatMap((g) => g.ids)
-  expect(new Set(ids).size).toBe(9)
+  expect(new Set(ids).size).toBe(8)
+  expect(ids).not.toContain("node")
   for (const id of ids) {
     expect(isKey(REQUIREMENT_KEYS[id].name), id).toBe(true)
     expect(requirementSteps(id).length, id).toBeGreaterThan(0)
