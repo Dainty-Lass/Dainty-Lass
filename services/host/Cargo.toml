@@ -25,7 +25,7 @@ revived-1-4-4 = ["controller/revived-1-4-4"]
 realms = ["controller/realms", "isles-1-14-7?/realms"]
 # Opt-in rollback path for one release until RB15 deletes it: Mystic Paradox's Node backend and Director
 # and MongoDB
-paradox = []
+paradox = ["dep:isles-db"]
 # Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
 legacy = ["protocol/legacy", "gateway?/legacy", "content?/legacy"]
 

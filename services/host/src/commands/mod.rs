@@ -10,6 +10,7 @@
 //! | [`multipliers`] | `multipliers` | RH3 |
 //! | [`backup`] | `backup` (new) | RH3 |
 //! | [`history`] | `history`, `revert` (new) | DH3b |
+//! | [`db`] | `db migrate`, `db verify`, `db export-mongo` | RB4, RB13 |
 //! | [`gamedata`] | `gamedata` | RH4 |
 //! | [`preset`] | `preset` | RH4 |
 //! | [`publish_runtime`] | `publish-runtime` | RH4 |
@@ -18,6 +19,7 @@
 //! | `crate::wine::run_game_server` | `gameserver` (hidden, Linux) | RH5 |
 
 pub mod backup;
+pub mod db;
 pub mod doctor;
 pub mod gamedata;
 pub mod history;
@@ -63,6 +65,7 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Network(args) => network::run(args, Some(paths)),
         Command::History(args) => history::run_history(paths, args),
         Command::Revert(args) => history::run_revert(paths, args),
+        Command::Db(args) => db::run(paths, args),
         Command::Gateway { args }
         | Command::Allowlist { args }
         | Command::Content { args }
