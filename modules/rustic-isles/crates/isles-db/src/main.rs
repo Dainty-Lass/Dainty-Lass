@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use isles_db::{Command, USAGE, parse_args, run_migrate, run_replay_cli, run_verify};
+use isles_db::{Command, USAGE, parse_args, run_export_mongo, run_migrate, run_replay_cli, run_verify};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -75,6 +75,28 @@ async fn main() -> ExitCode {
             }
             Err(err) => {
                 eprintln!("isles-db verify failed: {err}");
+                ExitCode::FAILURE
+            }
+        },
+        Command::ExportMongo { opts, json } => match run_export_mongo(&opts).await {
+            Ok(report) => {
+                if json {
+                    if let Ok(s) = serde_json::to_string_pretty(&report) {
+                        println!("{s}");
+                    }
+                } else {
+                    let mode = if report.dry_run { "dry-run" } else { "exported" };
+                    println!("isles-db export-mongo ({mode}):");
+                    for (collection, count) in &report.counts {
+                        if *count > 0 {
+                            println!("  {collection}: {count}");
+                        }
+                    }
+                }
+                ExitCode::SUCCESS
+            }
+            Err(err) => {
+                eprintln!("isles-db export-mongo failed: {err}");
                 ExitCode::FAILURE
             }
         },

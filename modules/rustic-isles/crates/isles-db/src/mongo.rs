@@ -608,6 +608,15 @@ impl MongoClient {
                 .unwrap_or("command returned ok != 1");
             return Err(MongoError::Command(format!("{cmd_name}: {errmsg}")));
         }
+        if let Some(errs) = reply.get("writeErrors").and_then(Value::as_array)
+            && let Some(first) = errs.first()
+        {
+            let msg = first
+                .get("errmsg")
+                .and_then(Value::as_str)
+                .unwrap_or("writeError reported by MongoDB");
+            return Err(MongoError::Command(format!("{cmd_name}: {msg}")));
+        }
         Ok(())
     }
 
@@ -744,6 +753,34 @@ impl MongoClient {
 
         Ok(out)
     }
+
+    /// Replaces the contents of `collection` by issuing `delete` (`{q: {}, limit: 0}`) followed by
+    /// batched `insert` commands (`export-mongo` rollback path, RB13).
+    pub fn replace_collection(&mut self, collection: &str, docs: &[Map<String, Value>]) -> Result<(), MongoError> {
+        let mut del_item = BsonBuf::new();
+        let empty_q = BsonBuf::new();
+        del_item.put_doc("q", &empty_q).put_i32("limit", 0);
+        let mut del_cmd = BsonBuf::new();
+        del_cmd
+            .put_str("delete", collection)
+            .put_array_docs("deletes", &[del_item])
+            .put_str("$db", &self.database);
+        let del_reply = self.command(&del_cmd)?;
+        Self::check_ok(&del_reply, "delete")?;
+
+        for chunk in docs.chunks(DEFAULT_BATCH_SIZE as usize) {
+            let bson_docs: Vec<BsonBuf> = chunk.iter().map(BsonBuf::from_json_map).collect();
+            let mut ins_cmd = BsonBuf::new();
+            ins_cmd
+                .put_str("insert", collection)
+                .put_array_docs("documents", &bson_docs)
+                .put_str("$db", &self.database);
+            let ins_reply = self.command(&ins_cmd)?;
+            Self::check_ok(&ins_reply, "insert")?;
+        }
+
+        Ok(())
+    }
 }
 
 fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
@@ -769,22 +806,26 @@ fn pbkdf2_hmac_sha256(password: &[u8], salt: &[u8], iterations: u32) -> [u8; 32]
     out
 }
 
-/// Embedded wire-protocol MongoDB server speaking `OP_MSG` (`hello`, `find`, `getMore`) on `127.0.0.1:0`
-/// for fast, self-contained tests of the full TCP + BSON + cursor pagination pipeline.
+type MockCollections = BTreeMap<String, Vec<Map<String, Value>>>;
+
+/// Embedded wire-protocol MongoDB server speaking `OP_MSG` (`hello`, `find`, `getMore`, `delete`, `insert`)
+/// on `127.0.0.1:0` for fast, self-contained tests of the full TCP + BSON + cursor pagination + export pipeline.
 pub struct MockMongoServer {
     addr: SocketAddr,
     stop: Arc<AtomicBool>,
+    collections: Arc<std::sync::Mutex<MockCollections>>,
     handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl MockMongoServer {
-    pub fn start(collections: BTreeMap<String, Vec<Map<String, Value>>>, max_batch: usize) -> std::io::Result<Self> {
+    pub fn start(collections: MockCollections, max_batch: usize) -> std::io::Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         listener.set_nonblocking(true)?;
         let addr = listener.local_addr()?;
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::clone(&stop);
-        let collections = Arc::new(collections);
+        let collections = Arc::new(std::sync::Mutex::new(collections));
+        let collections_for_thread = Arc::clone(&collections);
         let max_batch = max_batch.max(1);
 
         let handle = std::thread::spawn(move || {
@@ -792,7 +833,7 @@ impl MockMongoServer {
                 match listener.accept() {
                     Ok((stream, _)) => {
                         let _ = stream.set_nonblocking(false);
-                        let cols = Arc::clone(&collections);
+                        let cols = Arc::clone(&collections_for_thread);
                         std::thread::spawn(move || {
                             let _ = handle_mock_client(stream, &cols, max_batch);
                         });
@@ -808,12 +849,20 @@ impl MockMongoServer {
         Ok(Self {
             addr,
             stop,
+            collections,
             handle: Some(handle),
         })
     }
 
     pub fn uri(&self, db_name: &str) -> String {
         format!("mongodb://{}/{db_name}", self.addr)
+    }
+
+    pub fn snapshot(&self) -> BTreeMap<String, Vec<Map<String, Value>>> {
+        match self.collections.lock() {
+            Ok(guard) => guard.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        }
     }
 }
 
@@ -829,7 +878,7 @@ impl Drop for MockMongoServer {
 
 fn handle_mock_client(
     mut stream: TcpStream,
-    collections: &BTreeMap<String, Vec<Map<String, Value>>>,
+    collections: &std::sync::Mutex<MockCollections>,
     max_batch: usize,
 ) -> Result<(), MongoError> {
     stream.set_read_timeout(Some(Duration::from_secs(10)))?;
@@ -861,7 +910,11 @@ fn handle_mock_client(
                 .put_i32("maxWireVersion", 21)
                 .put_f64("ok", 1.0);
         } else if let Some(col_name) = cmd.get("find").and_then(Value::as_str) {
-            let docs = collections.get(col_name).map(Vec::as_slice).unwrap_or(&[]);
+            let guard = match collections.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let docs = guard.get(col_name).map(Vec::as_slice).unwrap_or(&[]);
             let req_batch = cmd
                 .get("batchSize")
                 .and_then(Value::as_i64)
@@ -878,6 +931,7 @@ fn handle_mock_client(
             } else {
                 0
             };
+            drop(guard);
             let mut cursor = BsonBuf::new();
             cursor
                 .put_i64("id", cursor_id)
@@ -886,7 +940,11 @@ fn handle_mock_client(
             reply.put_doc("cursor", &cursor).put_f64("ok", 1.0);
         } else if let Some(cid) = cmd.get("getMore").and_then(Value::as_i64) {
             if let Some((col_name, offset)) = cursors.remove(&cid) {
-                let docs = collections.get(&col_name).map(Vec::as_slice).unwrap_or(&[]);
+                let guard = match collections.lock() {
+                    Ok(g) => g,
+                    Err(p) => p.into_inner(),
+                };
+                let docs = guard.get(&col_name).map(Vec::as_slice).unwrap_or(&[]);
                 let req_batch = cmd
                     .get("batchSize")
                     .and_then(Value::as_i64)
@@ -901,6 +959,7 @@ fn handle_mock_client(
                 } else {
                     0
                 };
+                drop(guard);
                 let mut cursor = BsonBuf::new();
                 cursor
                     .put_i64("id", next_cid)
@@ -910,6 +969,31 @@ fn handle_mock_client(
             } else {
                 reply.put_f64("ok", 0.0).put_str("errmsg", "cursor not found");
             }
+        } else if let Some(col_name) = cmd.get("delete").and_then(Value::as_str) {
+            let mut guard = match collections.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let removed = guard.remove(col_name).map(|v| v.len() as i32).unwrap_or(0);
+            drop(guard);
+            reply.put_i32("n", removed).put_f64("ok", 1.0);
+        } else if let Some(col_name) = cmd.get("insert").and_then(Value::as_str) {
+            let mut guard = match collections.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let entry = guard.entry(col_name.to_owned()).or_default();
+            let mut added = 0i32;
+            if let Some(docs) = cmd.get("documents").and_then(Value::as_array) {
+                for item in docs {
+                    if let Some(obj) = item.as_object() {
+                        entry.push(obj.clone());
+                        added += 1;
+                    }
+                }
+            }
+            drop(guard);
+            reply.put_i32("n", added).put_f64("ok", 1.0);
         } else {
             reply.put_f64("ok", 0.0).put_str("errmsg", "unsupported command");
         }
