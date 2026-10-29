@@ -78,6 +78,7 @@ same tree from its Host page. Logs are in `.workspace\logs` (the game servers' i
 | `network` | The cluster CA and node certificates of a network, and joining an existing host database (`ca-init`, `issue-node-cert`, `list`, `status`, `join`; see [A network of servers](#a-network-of-servers)) |
 | `history` | What changed in the server's data, by whom and when (`--actor`, `--account`, `--since`, `--until`); `history verify` checks the log's hash chain. See [Undoing a change](#undoing-a-change) |
 | `revert` | Undo what an actor, an account or a time range changed: a dry run first, then `--apply <plan id>` |
+| `db` | Migrate or verify between MongoDB and the SQLite/Postgres store (`migrate`, `verify`), or export the store back to MongoDB for one-release rollback (`export-mongo`) |
 
 
 ## Getting the game from Epic
@@ -164,7 +165,7 @@ servers' key) lives only in `secrets.env`.
 | `--game` | `game_dir` | The Dauntless folder |
 | `--registration INVITECODE\|OPEN\|NONE` | `registration` | Who may register |
 | `--share` | `share_url` | A Tailscale share link put in private invites |
-| `--mongo-uri`, `--manage-mongo`, `--no-manage-mongo`, `--mongod` | `[mongo]` `uri`, `manage`, `mongod` | Legacy MongoDB connection for `update` migration or `--features paradox` rollback (default server uses `[database]`) |
+| `--mongo-uri` | `[mongo]` `uri` | Existing MongoDB URI to migrate pre-cutover player data from on `setup` / `update` (or for a `--features paradox` rollback build; the default server uses `[database]`) |
 | `--max-hunts 1-10` | `max_hunt_servers` | Hunts at once; the UDP range widens below 8770 past six |
 | `--xp`, `--rewards`, `--no-multipliers` | `[multipliers]` | Private test servers only |
 | `--public-port` | `public_port` | Another port than 443 |
@@ -174,7 +175,7 @@ servers' key) lives only in `secrets.env`.
 | (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
 | (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`MYSTICPARADOX_REFORGE`, `MYSTICPARADOX_MASTERY_PERSISTENCE`, `MYSTICPARADOX_BOUNTY_PERSISTENCE`, `MYSTICPARADOX_COOLDOWN_PERSISTENCE`, `MYSTICPARADOX_ACCOUNT_ERASURE`, `MYSTICPARADOX_LOG_PURGE`, `MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`/`isles-1-12-0` `[switches]`. Left out: each version's own defaults |
-| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one and no other |
+| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one except `isles-1-12-0` (list `"isles-1-12-0"` in `compiled` to load 1.12.0) |
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader` | This server's name, region and optional directory leader in a network. Left out: a server on its own |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
 
@@ -275,13 +276,14 @@ lists what waits. A rule on `"approval"` on a server with one owner key waits fo
 ### Game modules and plugins
 
 A game module serves one exact game version; a plugin extends the module of its version. A module compiled into
-`reforged-host` is loaded unless `compiled` leaves it out; any other is an executable you list with its SHA-256,
-and nothing else is ever started. Its path is taken from the server folder (the one that holds `.workspace`), and
-that folder must be writable by the server's account only.
+`reforged-host` is loaded unless `compiled` leaves it out (`isles-1-12-0` shares 1.14.7's ports and routes, so it
+never autoloads unless `compiled` lists `"isles-1-12-0"` or it is loaded from the console); any other is an
+executable you list with its SHA-256, and nothing else is ever started. Its path is taken from the server folder (the
+one that holds `.workspace`), and that folder must be writable by the server's account only.
 
 ```toml
 [modules]
-# compiled = ["isles-1-14-7"]   # left out: every compiled-in module
+# compiled = ["isles-1-14-7"]   # left out: every compiled-in module except isles-1-12-0
 
 [[modules.external]]
 id = "rustic-freeza"

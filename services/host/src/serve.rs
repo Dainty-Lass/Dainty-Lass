@@ -566,6 +566,7 @@ pub fn list_modules(
         } else {
             match id.as_str() {
                 "isles-1-14-7" => config.edition.runs_reborn() && !cfg!(feature = "paradox"),
+                // 1.12.0 shares 1.14.7's ports and routes, so it loads only when [modules] compiled names it.
                 "isles-1-12-0" => false,
                 _ => true,
             }
