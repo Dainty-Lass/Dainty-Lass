@@ -733,23 +733,25 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
     let layout = Layout::new(p);
     let mut checks: Vec<Check> = Vec::new();
 
-    // ---- tools (Node.js runs the backend and the Director until RB14)
-    let node = crate::run::capture("node", &["--version"], None)?;
-    checks.push(match node.as_deref() {
-        Some(v) if node_version_ok(v) => check("tools", Level::Ok, format!("Node.js {v}")),
-        Some(v) => fix(
-            "tools",
-            Level::Fail,
-            format!("Node.js {v} is too old"),
-            "install Node.js 20.19 or newer (https://nodejs.org)",
-        ),
-        None => fix(
-            "tools",
-            Level::Fail,
-            "Node.js is not installed",
-            "install Node.js 20.19 or newer (https://nodejs.org)",
-        ),
-    });
+    // ---- tools (Node.js is only checked when built with the paradox rollback feature)
+    if cfg!(feature = "paradox") {
+        let node = crate::run::capture("node", &["--version"], None)?;
+        checks.push(match node.as_deref() {
+            Some(v) if node_version_ok(v) => check("tools", Level::Ok, format!("Node.js {v}")),
+            Some(v) => fix(
+                "tools",
+                Level::Fail,
+                format!("Node.js {v} is too old"),
+                "install Node.js 20.19 or newer (https://nodejs.org)",
+            ),
+            None => fix(
+                "tools",
+                Level::Fail,
+                "Node.js is not installed",
+                "install Node.js 20.19 or newer (https://nodejs.org)",
+            ),
+        });
+    }
     checks.push(match crate::run::capture("git", &["--version"], None)? {
         Some(v) => check("tools", Level::Ok, v),
         None => fix(
@@ -776,23 +778,31 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
             "git submodule update --init --recursive, or clone the project again with git clone --recurse-submodules (docs/hosting.md) and move .workspace into the new clone",
         )
     });
-    let built: [(&str, PathBuf); 4] = [
-        ("backend", layout.backend_dir.join("build").join("server.js")),
-        ("Director", layout.director_dir.join("dist").join("server.js")),
-        ("gateway", layout.gateway_dir.join("dist").join("server.js")),
-        ("content server", layout.content_dir.join("dist").join("server.js")),
-    ];
-    for (name, file) in built {
-        checks.push(if file.exists() {
-            check("services", Level::Ok, format!("{name} built"))
-        } else {
-            fix(
-                "services",
-                Level::Fail,
-                format!("{name} is not built"),
-                "reforged-host setup",
-            )
-        });
+    if cfg!(feature = "paradox") {
+        let built: [(&str, PathBuf); 4] = [
+            ("backend", layout.backend_dir.join("build").join("server.js")),
+            ("Director", layout.director_dir.join("dist").join("server.js")),
+            ("gateway", layout.gateway_dir.join("dist").join("server.js")),
+            ("content server", layout.content_dir.join("dist").join("server.js")),
+        ];
+        for (name, file) in built {
+            checks.push(if file.exists() {
+                check("services", Level::Ok, format!("{name} built"))
+            } else {
+                fix(
+                    "services",
+                    Level::Fail,
+                    format!("{name} is not built"),
+                    "reforged-host setup",
+                )
+            });
+        }
+    } else {
+        checks.push(check(
+            "services",
+            Level::Ok,
+            "Rust backend, Director, gateway and content server compiled into this binary",
+        ));
     }
 
     // ---- configuration
@@ -980,17 +990,21 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
 
     // ---- database and running services
     if let Some(config) = &config {
-        let backend_env = read_env_file(&p.config.join("backend.env"))?;
-        let uri = backend_env.get("MONGODB_URI").unwrap_or(&config.mongo.uri).to_owned();
-        let mongo = ensure_replica_set(
-            &uri,
-            &ReplicaSetOptions {
-                initiate: false,
-                host: None,
-                timeout_ms: Some(2500),
-            },
-        )?;
-        checks.push(database_check(&mongo, &uri, config.mongo.manage));
+        if cfg!(feature = "paradox") {
+            let backend_env = read_env_file(&p.config.join("backend.env"))?;
+            let uri = backend_env.get("MONGODB_URI").unwrap_or(&config.mongo.uri).to_owned();
+            let mongo = ensure_replica_set(
+                &uri,
+                &ReplicaSetOptions {
+                    initiate: false,
+                    host: None,
+                    timeout_ms: Some(2500),
+                },
+            )?;
+            checks.push(database_check(&mongo, &uri, config.mongo.manage));
+        } else {
+            checks.push(store_database_check(p, config)?);
+        }
     }
     for (name, port, path) in [
         ("backend", PORTS.backend, "/dauntless-status"),
@@ -1014,6 +1028,36 @@ pub fn run_doctor(p: &Paths, options: &DoctorOptions) -> Result<Vec<Check>, Host
         checks.extend(crate::legacy::doctor_checks(p, &config, options.hash_exe)?);
     }
     Ok(checks)
+}
+
+pub fn store_database_check(p: &Paths, config: &HostConfig) -> Result<Check, HostError> {
+    if let Some(db) = &config.database
+        && db.postgres()
+    {
+        let host = db.postgres_host.as_deref().unwrap_or("127.0.0.1");
+        let port = db.postgres_port.unwrap_or(5432);
+        let name = db.postgres_database.as_deref().unwrap_or("dauntless");
+        return Ok(if port_in_use(port, Some(host))? {
+            check("database", Level::Ok, format!("Postgres at {host}:{port} ({name})"))
+        } else {
+            fix(
+                "database",
+                Level::Fail,
+                format!("Postgres is not answering at {host}:{port}"),
+                "start your Postgres server, or switch [database] engine = \"sqlite\" in host.toml",
+            )
+        });
+    }
+    let file = p.config.join(crate::hostconfig::DATABASE_FILE);
+    Ok(if file.exists() {
+        check("database", Level::Ok, format!("SQLite database {}", file.display()))
+    } else {
+        check(
+            "database",
+            Level::Info,
+            format!("SQLite database {} (created on first start)", file.display()),
+        )
+    })
 }
 
 pub fn database_check(mongo: &MongoCheck, uri: &str, manage: bool) -> Check {

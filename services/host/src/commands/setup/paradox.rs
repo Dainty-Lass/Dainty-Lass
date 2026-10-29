@@ -77,15 +77,20 @@ impl Layout {
 /// The folders the host kit builds from, relative to the repository. A checkout without one of them
 /// is incomplete (a sparse or damaged clone, or one made without `--recurse-submodules`).
 pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
-    let needed: [(&str, PathBuf); 5] = [
-        (
-            "modules/rustic-isles/reference/1.14.7/ParadoxBackend",
-            l.backend_dir.join("package.json"),
-        ),
-        (
-            "modules/rustic-isles/reference/1.14.7/ParadoxDirector",
-            l.director_dir.join("package.json"),
-        ),
+    let mut needed: Vec<(&str, PathBuf)> = Vec::new();
+    if cfg!(feature = "paradox") {
+        needed.extend([
+            (
+                "modules/rustic-isles/reference/1.14.7/ParadoxBackend",
+                l.backend_dir.join("package.json"),
+            ),
+            (
+                "modules/rustic-isles/reference/1.14.7/ParadoxDirector",
+                l.director_dir.join("package.json"),
+            ),
+        ]);
+    }
+    needed.extend([
         (
             "modules/rustic-isles/native/runtime",
             l.runtime_source.join("MysticParadox.vcxproj"),
@@ -95,7 +100,7 @@ pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
             "modules/rustic-isles/native/catalog-exporter",
             l.exporter_dir.join("CatalogExporter.vcxproj"),
         ),
-    ];
+    ]);
     needed
         .into_iter()
         .filter(|(_, file)| !file.exists())
@@ -296,16 +301,19 @@ mod tests {
     fn this_checkout_has_everything_the_host_kit_builds_from() {
         assert_eq!(missing_paradox(&Layout::new(&Paths::new(repo()))), Vec::<&str>::new());
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(
-            missing_paradox(&Layout::new(&Paths::new(dir.path()))),
-            [
+        let mut expected = Vec::new();
+        if cfg!(feature = "paradox") {
+            expected.extend([
                 "modules/rustic-isles/reference/1.14.7/ParadoxBackend",
                 "modules/rustic-isles/reference/1.14.7/ParadoxDirector",
-                "modules/rustic-isles/native/runtime",
-                "native/runtime-loader",
-                "modules/rustic-isles/native/catalog-exporter"
-            ]
-        );
+            ]);
+        }
+        expected.extend([
+            "modules/rustic-isles/native/runtime",
+            "native/runtime-loader",
+            "modules/rustic-isles/native/catalog-exporter",
+        ]);
+        assert_eq!(missing_paradox(&Layout::new(&Paths::new(dir.path()))), expected);
     }
 
     #[test]

@@ -115,7 +115,11 @@ impl Guard {
     pub fn attach(&self, module: &ModuleId, ranges: &[PortRange]) -> Result<(), String> {
         {
             let mut modules = lock(&self.modules);
-            let others = self.all(&modules, Some(module));
+            let other_module_ranges: Vec<PortRange> = modules
+                .iter()
+                .filter(|(id, _)| *id != module)
+                .flat_map(|(_, ranges)| ranges.iter().copied())
+                .collect();
             for (at, range) in ranges.iter().enumerate() {
                 let shown = show(*range);
                 if !range.is_valid() {
@@ -126,16 +130,23 @@ impl Guard {
                         "{shown} is in the privileged ports (below {FIRST_MODULE_PORT})"
                     ));
                 }
-                if range.overlaps(self.base) {
+                // A game module whose manifest matches the server's own game range (`self.base`) may
+                // claim that exact range once; any partial overlap with `self.base` is refused.
+                if range.overlaps(self.base) && *range != self.base {
                     return Err(format!(
                         "{shown} overlaps the server's own game ports {}",
                         show(self.base)
                     ));
                 }
-                if let Some(other) = others.iter().chain(&ranges[..at]).find(|other| other.overlaps(*range)) {
+                if let Some(other) = other_module_ranges
+                    .iter()
+                    .chain(&ranges[..at])
+                    .find(|other| other.overlaps(*range))
+                {
                     return Err(format!("{shown} overlaps {}, which is guarded already", show(*other)));
                 }
             }
+            let others = self.all(&modules, Some(module));
             if merged([others, ranges.to_vec()].concat()).len() > MAX_RANGES {
                 return Err(format!("the firewall rule holds at most {MAX_RANGES} ranges"));
             }

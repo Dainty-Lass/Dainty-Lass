@@ -135,6 +135,7 @@ struct Attached {
     public: Vec<Route>,
     websocket: Vec<Route>,
     host_only: Vec<String>,
+    stand_in: bool,
 }
 
 /// The names an invite's `version` may use for a module: its version and its aliases.
@@ -376,7 +377,21 @@ impl ModuleRoutes {
             public,
             websocket,
             host_only,
+            stand_in: false,
         })
+    }
+
+    /// Attaches a stand-in module for the server's own configured backend until a loaded game module
+    /// with the same id or invite version replaces it.
+    pub fn attach_stand_in(&self, module: &ModuleManifest, registration: &Registration) -> Result<(), ModuleError> {
+        if registration.routes.is_empty() {
+            return Ok(());
+        }
+        let mut attached = self.check(module, registration)?;
+        attached.stand_in = true;
+        let mut modules = self.modules.write().unwrap_or_else(PoisonError::into_inner);
+        modules.insert(module.id.clone(), attached);
+        Ok(())
     }
 }
 
@@ -390,26 +405,30 @@ impl CorePlugin for ModuleRoutes {
     }
 
     /// Refuses a registration that fails its checks, a plugin's routes, a route under a reserved or
-    /// host-only prefix, and a module an invite couldn't tell from one already attached.
+    /// host-only prefix, and a module an invite couldn't tell from one already attached (replacing any
+    /// stand-in for that game version).
     fn attach(&self, module: &ModuleManifest, registration: &Registration) -> Result<(), ModuleError> {
         if registration.routes.is_empty() {
             return Ok(());
         }
         let attached = self.check(module, registration)?;
         let mut modules = self.modules.write().unwrap_or_else(PoisonError::into_inner);
-        if modules.contains_key(&module.id) {
+        if modules.get(&module.id).is_some_and(|existing| !existing.stand_in) {
             return Err(invalid(format!("{} is already attached", module.id)));
         }
         let names = invite_names(module);
         if let Some(other) = modules
             .values()
-            .find(|other| names.iter().any(|name| other.manifest.answers_invite(name)))
+            .find(|other| !other.stand_in && names.iter().any(|name| other.manifest.answers_invite(name)))
         {
             return Err(invalid(format!(
                 "{} answers the same invite version as {} (DD4)",
                 module.id, other.manifest.id
             )));
         }
+        modules.retain(|_, existing| {
+            !(existing.stand_in && names.iter().any(|name| existing.manifest.answers_invite(name)))
+        });
         modules.insert(module.id.clone(), attached);
         Ok(())
     }

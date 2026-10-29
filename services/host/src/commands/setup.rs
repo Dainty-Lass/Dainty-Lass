@@ -70,7 +70,11 @@ impl SetupEnv for System {
     }
 
     fn find_mongod(&self) -> Result<Option<String>, HostError> {
-        crate::mongo::find_mongod()
+        if cfg!(feature = "paradox") {
+            crate::mongo::find_mongod()
+        } else {
+            Ok(None)
+        }
     }
 
     fn find_on_path(&self, name: &str) -> Result<Option<String>, HostError> {
