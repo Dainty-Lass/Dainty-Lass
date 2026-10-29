@@ -11,6 +11,14 @@
   },
   "scripts": {
     "tauri": "tauri",
+    "build:ui": "bun install --cwd ../../ui --frozen-lockfile && bun run --cwd ../../ui build",
+    "build": "tauri build --bundles nsis -- --features legacy,realms",
+    "build:client": "tauri build --bundles nsis -- --features legacy,realms",
+    "build:server-gui": "tauri build --bundles nsis --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui",
+    "build:manager": "npm run build:server-gui",
+    "build:all": "npm run build:client && npm run build:server-gui",
+    "dev": "tauri dev -- --features legacy,realms",
+    "dev:server-gui": "tauri dev --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --import ./test/resolve-ui.ts --test \"test/*.test.ts\""
   },
