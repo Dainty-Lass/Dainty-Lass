@@ -670,6 +670,22 @@ fn cli_arg_parsing_covers_all_flags() {
         other => panic!("unexpected command: {other:?}"),
     }
 
+    let verify_cmd = parse_args([
+        "verify",
+        "--against",
+        "mongodb://127.0.0.1:27017/dauntless",
+        "--to",
+        "/tmp/isles.db",
+    ])
+    .unwrap();
+    match verify_cmd {
+        Command::Verify { opts, .. } => {
+            assert_eq!(opts.from_uri, "mongodb://127.0.0.1:27017/dauntless");
+            assert_eq!(opts.to_target, "/tmp/isles.db");
+        }
+        other => panic!("unexpected command: {other:?}"),
+    }
+
     assert_eq!(parse_args(["--help"]).unwrap(), Command::Help);
     assert!(parse_args(["unknown"]).is_err());
 }
