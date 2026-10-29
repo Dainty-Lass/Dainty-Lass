@@ -457,6 +457,7 @@ fn a_postgres_server_off_this_machine_needs_allow_remote() {
         json!({"postgresPort": 0}),
         json!({"postgresUser": ""}),
         json!({"allowRemote": "yes"}),
+        json!({"freshStart": "yes"}),
         json!("postgres"),
     ] {
         assert!(
@@ -464,6 +465,11 @@ fn a_postgres_server_off_this_machine_needs_allow_remote() {
             "{bad}"
         );
     }
+    let fresh = config(with(private(), json!({"database": {"freshStart": true}})));
+    assert!(fresh.fresh_start());
+    let (back, text) = through_toml(&fresh);
+    assert!(back.fresh_start(), "{text}");
+    assert!(text.contains("fresh_start = true"), "{text}");
     let e = HostConfig::from_toml(
         "version = 1\nmode = \"private\"\nhost = \"100.101.102.103\"\ngame_address = \"100.101.102.103\"\n\
          name = \"x\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n\

@@ -191,6 +191,7 @@ pub fn run_with(paths: &Paths, args: &SetupArgs, env: &dyn SetupEnv, out: &mut d
         }
     };
     let config = options::host_config_from_args(args, existing.as_ref(), env)?.written_over(existing.as_ref());
+    crate::commands::update::migrate_existing_mongo_data_with_config(p, &config, out)?;
     if save_host_config(p, &config)? {
         out("(host.json is now host.toml; the old file is kept as host.json.bak)");
     }

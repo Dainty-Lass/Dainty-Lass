@@ -191,17 +191,48 @@ fn parse_service_env_file(
 fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
     use module_api::GameModule as _;
 
-    let paths = paths::locate_repo_root().ok().map(paths::Paths::new);
-    let env_file = match parse_service_env_file(name, args, paths.as_ref()) {
+    let repo_paths = paths::locate_repo_root().ok().map(paths::Paths::new);
+    let env_file = match parse_service_env_file(name, args, repo_paths.as_ref()) {
         Ok(file) => file,
         Err(error) => {
             eprintln!("Configuration: {error}");
             return ExitCode::FAILURE;
         }
     };
+    let paths = env_file
+        .as_deref()
+        .and_then(|file| {
+            let config_dir = file.parent()?;
+            if config_dir.file_name().is_some_and(|n| n == "config") {
+                let ws_dir = config_dir.parent()?;
+                if ws_dir.file_name().is_some_and(|n| n == ".workspace") {
+                    return ws_dir.parent().map(paths::Paths::new);
+                }
+            }
+            None
+        })
+        .or(repo_paths);
     let host_config = paths
         .as_ref()
         .and_then(|p| hostconfig::load_host_config(p).ok().flatten());
+    if name == "backend"
+        && let Some(p) = &paths
+    {
+        if let Some(hc) = &host_config {
+            if let Err(error) = commands::update::check_unmigrated_mongo_data(p, hc) {
+                eprintln!("{error}");
+                return ExitCode::FAILURE;
+            }
+        } else if !p.config.join(commands::update::MONGO_MIGRATED_MARKER).exists()
+            && commands::update::has_managed_mongo_data(p)
+        {
+            eprintln!(
+                "Unmigrated MongoDB data found in {}. Run `reforged-host setup` to migrate existing player data before starting the server, or pass `reforged-host setup --fresh-start` (or `fresh_start = true` under `[database]` in host.toml) to start with an empty database without modifying MongoDB.",
+                p.mongo_data.display()
+            );
+            return ExitCode::FAILURE;
+        }
+    }
     let identity =
         host_config
             .as_ref()
