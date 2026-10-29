@@ -6,26 +6,24 @@ a private server over Tailscale works too.
 
 > [!WARNING]
 > **Experimental**, as the [Linux server](hosting-linux.md) is: the game servers run through Wine, and
-> **the real Dauntless 1.14.7 has not yet been run under Wine**. The containers also run the **Rust**
-> gateway, content server and allowlist helper (MIGRATION_PLAN.md RS2–RS4), which `reforged-host start` on a
-> plain host only switches to at the front-door cutover. Report what you find.
+> **the real Dauntless 1.14.7 has not yet been run under Wine**. Report what you find.
 
 ## What runs
 
 | Container | Image | What it is |
 | --- | --- | --- |
 | `net` | front | Holds the network namespace every other container joins, and the published ports |
-| `mongo` | `mongo:8.0` | MongoDB with the one-member replica set `rs0` the backend needs (until RB14) |
-| `backend` | server | The Node backend (`modules/rustic-isles/reference/1.14.7/ParadoxBackend`), 127.0.0.1:61000 |
-| `director` | server | The Node Director, 127.0.0.1:61001; starts Ramsgate, the Training Grounds and hunts through Wine |
+| `backend` | server | The 1.14.7 Rust backend (`reforged-host backend serve`), 127.0.0.1:61000 |
+| `director` | server | The 1.14.7 Rust Director (`reforged-host director serve`), 127.0.0.1:61001; starts Ramsgate, the Training Grounds and hunts through Wine |
 | `content` | front | The content server, 127.0.0.1:61002 (`reforged-host content serve`) |
 | `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables; `reforged-host allowlist`) |
 | `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private; `reforged-host gateway serve`) |
 | `host` | server | Not a service: `docker compose run --rm host <command>` runs `reforged-host` |
 | `configure` | server | The `toml` profile only: runs setup from `host.toml` and exits, before the others start |
-| `metagame` | server | A legacy server only: DR's metagame, 127.0.0.1:61000, in place of `backend` and `mongo` |
+| `metagame` | server | A legacy server only: DR's metagame, 127.0.0.1:61000, in place of `backend` |
 | `deploy` | server | A legacy server only: DR's deploy server, 127.0.0.1:61001; starts the 1.4.4 game servers through Wine |
 | `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
+| `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-isles-db-export-mongo-and-paradox)) |
 | `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
 
 **One network namespace.** Every container joins `net`'s, so they reach each other on 127.0.0.1 exactly as
@@ -354,18 +352,18 @@ in every invite, and new secrets log everyone out.
 `bash docker/run-tests.sh` (from the repository root) is the full test run CI's `docker` job does on the built
 images:
 
-1. It builds `front`, `server` and `test`. The `test` image is the `server` image plus the Rust toolchain, with
-   the server crates' tests compiled in, so the code is tested on the OS, Node, Wine and paths production runs on.
+1. It builds `front`, `server` and `test`. The `test` image is the Debian slim `server` image plus the Rust
+   toolchain, with the server crates' tests compiled in, so the code is tested on the OS, Wine and paths
+   production runs on (without Node or MongoDB).
 2. Inside the `test` image: `cargo test` for the server crates (protocol, proxy, service-kit, store, gateway,
    content, host), with the allowlist's nftables test applying its rules for real in the container's own network
-   namespace, then the Node backend's and Director's suites.
+   namespace.
 3. The compose smoke test (`docker/smoke-test.sh`): a public server set up on example game data in throwaway
    volumes, the `toml` profile's `configure` applying an edited `host.toml`, every service healthy, the gateway
    serving setup's certificate, the allowlist's table in place, an invite, a clean stop.
 
-`bash docker/run-tests.sh rust` (or `backend`, `director`) runs only those suites in step 2; `SKIP_SMOKE=1`
-leaves out step 3. On a server, `docker compose run --rm test` runs step 2 with your game-data volumes mounted
-read-only, so the backend's and Director's game-data tests (skipped without real data) check your data too.
+`bash docker/run-tests.sh rust` runs only step 2; `SKIP_SMOKE=1` leaves out step 3. On a server,
+`docker compose run --rm test` runs step 2 with your game-data volumes mounted read-only.
 
 The smoke test runs a reborn server only: the `legacy` profile is checked as far as `docker compose config`.
 
@@ -377,21 +375,22 @@ A fourth step, `docker/network/test.sh`, starts the `network` profile and checks
 
 Stop the systemd units, then copy the host's `.workspace` into the `workspace` volume and its game data into
 the game-data volumes (`docker compose run --rm -v /home/reforged/Reforged:/old:ro --entrypoint bash host`,
-then `cp -a` from `/old`), and the MongoDB database with `mongodump` and `mongorestore` into the `mongo`
-container. Run setup in the container once, so the env files name the container's paths, and start it.
+then `cp -a` from `/old`). If the host still has pre-RU9 MongoDB data, migrate it with `isles-db migrate` and
+`isles-db verify` first (or run `reforged-host update` on the host before moving `.workspace`). Run setup in
+the container once, so the env files name the container's paths, and start it.
 
-## Later in the migration
+## Migrating existing MongoDB data and rollback (`isles-db export-mongo` and the `rollback` profile)
 
-When the Rust backend and Director ship (RB14), the `backend` and `director` containers run the Rust bins, and
-the `mongo` container gives way to Postgres (RD15) after the rollback window; the volumes and the `host`
-commands stay.
-
-## Migrating existing MongoDB data and rollback (`isles-db export-mongo` and `paradox`)
-
-On an existing server with a `mongo-data` volume from the Node backend, migrate and verify its data into the configured
+On an existing server with a `mongo-data` volume from the pre-RU9 Node backend, start the `mongo` container
+(`docker compose --profile rollback up -d --wait mongo`), then migrate and verify its data into the configured
 store (SQLite in `/opt/reforged/.workspace/config/dainty-lass.db` or the `postgres` profile) with `isles-db migrate`
 followed by `isles-db verify` (`reforged-host update` runs both steps automatically on a plain host and refuses to
-switch if `verify` reports any difference, leaving the MongoDB data untouched). For one release after the RU9/RB14
-cutover (until RB15), rolling back to the Node backend and MongoDB is done by exporting the store back to MongoDB with
+switch if `verify` reports any difference, leaving the MongoDB data untouched). Once verified, stop `mongo` and bring up
+the default Rust services (`docker compose up -d`).
+
+For one release after the RU9/RB14 cutover (until RB15), rolling back to the Node backend and MongoDB in Docker uses
+the `rollback` Compose profile (`mongo`, `backend-rollback` and `director-rollback`, built from the `server-rollback`
+Dockerfile stage): export the store back to MongoDB with
 `isles-db export-mongo --from /opt/reforged/.workspace/config/dainty-lass.db --to mongodb://127.0.0.1:27017/reforged`
-and starting the `paradox` build ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).
+and start `mongo`, `backend-rollback` and `director-rollback` in place of `backend` and `director`
+([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).

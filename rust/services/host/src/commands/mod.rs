@@ -66,7 +66,9 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Gateway { args }
         | Command::Allowlist { args }
         | Command::Content { args }
-        | Command::Admin { args } => Ok(crate::service_main(command.name(), args)),
+        | Command::Admin { args }
+        | Command::Backend { args }
+        | Command::Director { args } => Ok(crate::service_main(command.name(), args)),
         Command::Gameserver { args } => {
             let code = crate::wine::run_game_server(args)?;
             Ok(ExitCode::from(u8::try_from(code).unwrap_or(1)))
