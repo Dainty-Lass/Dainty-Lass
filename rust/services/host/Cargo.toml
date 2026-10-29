@@ -19,7 +19,7 @@ admin = ["controller/admin", "dep:admin"]
 # The game modules compiled in (DF5): the controller's features of the same names; 1.14.7, 1.12.0 and realms
 # are on by default (RU9/RB14)
 stub-module = ["controller/stub-module"]
-isles-1-14-7 = ["controller/isles-1-14-7", "dep:isles-db"]
+isles-1-14-7 = ["controller/isles-1-14-7", "dep:isles-db", "dep:isles-core", "dep:isles-director"]
 isles-1-12-0 = ["controller/isles-1-12-0"]
 revived-1-4-4 = ["controller/revived-1-4-4"]
 realms = ["controller/realms"]
@@ -55,7 +55,9 @@ fs4 = "1"
 admin = { workspace = true, optional = true }
 content = { workspace = true, optional = true }
 gateway = { workspace = true, optional = true }
+isles-core = { workspace = true, optional = true }
 isles-db = { workspace = true, optional = true }
+isles-director = { workspace = true, optional = true }
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true
