@@ -1,10 +1,10 @@
 [package]
 name = "proxy"
-description = "Reverse-proxy rules shared by the gateway and the launcher relay: hop-by-hop headers, Connection-named headers, WebSocket tunnelling and idle timeouts (MIGRATION_PLAN.md X5)"
+description = "HTTP hop-by-hop header filtering and idle-timed stream tunnelling"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license = "MIT"
 repository.workspace = true
 publish.workspace = true
 

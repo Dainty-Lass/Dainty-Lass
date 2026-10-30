@@ -1,72 +1,66 @@
-//! What every reverse proxy in the repository does the same way (MIGRATION_PLAN.md X5): the gateway
-//! (S2) and the launcher relay (L22) are mirror images of each other.
-//!
-//! - Hop-by-hop headers (RFC 9110 7.6.1), and every header the `Connection` header names, never
-//!   cross a proxy in either direction ([`end_to_end`]).
-//! - A connection that moves no bytes for a while is cut ([`Idle`]), a stalled download included.
-//! - An upgraded connection is joined to the upstream byte for byte until either side ends or both
-//!   are silent too long ([`tunnel`]).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
-use std::collections::HashSet;
 use std::future::Future;
+use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
 use http::HeaderMap;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::time::{Instant, Sleep};
 
-/// RFC 9110 7.6.1, and the old spellings that still go around.
-pub const HOP_BY_HOP: [&str; 10] = [
+pub const HOP_BY_HOP: &[&str] = &[
     "connection",
     "keep-alive",
-    "proxy-connection",
     "proxy-authenticate",
     "proxy-authorization",
+    "proxy-connection",
     "te",
     "trailer",
-    "trailers",
     "transfer-encoding",
     "upgrade",
 ];
 
 pub fn is_hop_by_hop(name: &str) -> bool {
-    HOP_BY_HOP.contains(&name)
-}
-
-/// The header names a `Connection` header lists (every value joined, lower case).
-pub fn connection_tokens(headers: &HeaderMap) -> HashSet<String> {
-    headers
-        .get_all(http::header::CONNECTION)
+    HOP_BY_HOP
         .iter()
-        .filter_map(|v| v.to_str().ok())
-        .flat_map(|v| v.split(','))
-        .map(|t| t.trim().to_ascii_lowercase())
-        .filter(|t| !t.is_empty())
-        .collect()
+        .any(|hop| name.eq_ignore_ascii_case(hop))
 }
 
-/// The headers that may cross: no hop-by-hop header, none the `Connection` header names, none
-/// `drop` says, in their order.
-pub fn end_to_end(headers: &HeaderMap, drop: impl Fn(&str) -> bool) -> HeaderMap {
-    let named = connection_tokens(headers);
-    let mut out = HeaderMap::new();
-    for (name, value) in headers {
-        let lower = name.as_str();
-        if is_hop_by_hop(lower) || named.contains(lower) || drop(lower) {
-            continue;
+pub fn connection_tokens(headers: &HeaderMap) -> Vec<String> {
+    let mut tokens = Vec::new();
+    for value in headers.get_all(http::header::CONNECTION) {
+        if let Ok(s) = value.to_str() {
+            for part in s.split(',') {
+                let trimmed = part.trim();
+                if !trimmed.is_empty() {
+                    tokens.push(trimmed.to_ascii_lowercase());
+                }
+            }
         }
-        out.append(name.clone(), value.clone());
     }
-    out
+    tokens
 }
 
-/// A connection that ends after `limit` in which nothing could be read or written (Node's
-/// `socket.setTimeout`).
+pub fn end_to_end<'a>(
+    headers: &'a HeaderMap,
+    extra: &'a [&'a str],
+) -> impl Iterator<Item = (&'a http::HeaderName, &'a http::HeaderValue)> + 'a {
+    let conn_tokens = connection_tokens(headers);
+    headers.iter().filter(move |(name, _)| {
+        let s = name.as_str();
+        !is_hop_by_hop(s)
+            && !extra.iter().any(|ex| s.eq_ignore_ascii_case(ex))
+            && !conn_tokens.iter().any(|tok| s.eq_ignore_ascii_case(tok))
+    })
+}
+
 pub struct Idle<S> {
     inner: S,
     limit: Duration,
-    deadline: Pin<Box<tokio::time::Sleep>>,
+    sleep: Pin<Box<Sleep>>,
 }
 
 impl<S> Idle<S> {
@@ -74,140 +68,175 @@ impl<S> Idle<S> {
         Self {
             inner,
             limit,
-            deadline: Box::pin(tokio::time::sleep(limit)),
+            sleep: Box::pin(tokio::time::sleep(limit)),
         }
-    }
-
-    pub fn get_ref(&self) -> &S {
-        &self.inner
-    }
-
-    fn progressed(&mut self) {
-        let next = tokio::time::Instant::now() + self.limit;
-        self.deadline.as_mut().reset(next);
-    }
-
-    fn timed_out(&mut self, cx: &mut Context<'_>) -> bool {
-        self.deadline.as_mut().poll(cx).is_ready()
     }
 }
 
 impl<S: AsyncRead + Unpin> AsyncRead for Idle<S> {
-    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let before = buf.filled().len();
         match Pin::new(&mut self.inner).poll_read(cx, buf) {
-            Poll::Ready(result) => {
-                self.progressed();
-                Poll::Ready(result)
+            Poll::Ready(Ok(())) => {
+                if buf.filled().len() > before {
+                    let deadline = Instant::now() + self.limit;
+                    self.sleep.as_mut().reset(deadline);
+                }
+                Poll::Ready(Ok(()))
             }
-            Poll::Pending if self.timed_out(cx) => Poll::Ready(Err(std::io::ErrorKind::TimedOut.into())),
-            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+            Poll::Pending => match self.sleep.as_mut().poll(cx) {
+                Poll::Ready(()) => Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "idle stream timed out",
+                ))),
+                Poll::Pending => Poll::Pending,
+            },
         }
     }
 }
 
 impl<S: AsyncWrite + Unpin> AsyncWrite for Idle<S> {
-    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, data: &[u8]) -> Poll<std::io::Result<usize>> {
-        match Pin::new(&mut self.inner).poll_write(cx, data) {
-            Poll::Ready(result) => {
-                self.progressed();
-                Poll::Ready(result)
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        match Pin::new(&mut self.inner).poll_write(cx, buf) {
+            Poll::Ready(Ok(n)) => {
+                if n > 0 {
+                    let deadline = Instant::now() + self.limit;
+                    self.sleep.as_mut().reset(deadline);
+                }
+                Poll::Ready(Ok(n))
             }
-            Poll::Pending if self.timed_out(cx) => Poll::Ready(Err(std::io::ErrorKind::TimedOut.into())),
-            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+            Poll::Pending => match self.sleep.as_mut().poll(cx) {
+                Poll::Ready(()) => Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "idle stream timed out",
+                ))),
+                Poll::Pending => Poll::Pending,
+            },
         }
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_flush(cx)
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
     }
 }
 
-/// Joins two upgraded connections until either side ends or one is silent for `idle`; the bytes
-/// that went each way (client to upstream, upstream to client). Either side ending ends both, as
-/// the Node gateway destroys both sockets on either close.
-pub async fn tunnel<A, B>(client: A, upstream: B, idle: Duration) -> (u64, u64)
+pub async fn tunnel<A, B>(a: A, b: B, idle: Duration) -> io::Result<(u64, u64)>
 where
     A: AsyncRead + AsyncWrite + Unpin,
     B: AsyncRead + AsyncWrite + Unpin,
 {
-    let (mut client_read, mut client_write) = tokio::io::split(Idle::new(client, idle));
-    let (mut upstream_read, mut upstream_write) = tokio::io::split(Idle::new(upstream, idle));
-    let (mut up, mut down) = (0u64, 0u64);
-    let mut up_buf = vec![0u8; 16 * 1024];
-    let mut down_buf = vec![0u8; 16 * 1024];
-    loop {
-        tokio::select! {
-            read = client_read.read(&mut up_buf) => match read {
-                Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    if upstream_write.write_all(&up_buf[..n]).await.is_err() {
-                        break;
-                    }
-                    up += n as u64;
-                }
-            },
-            read = upstream_read.read(&mut down_buf) => match read {
-                Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    if client_write.write_all(&down_buf[..n]).await.is_err() {
-                        break;
-                    }
-                    down += n as u64;
-                }
-            },
-        }
-    }
-    let _ = client_write.shutdown().await;
-    let _ = upstream_write.shutdown().await;
-    (up, down)
+    let mut a = Idle::new(a, idle);
+    let mut b = Idle::new(b, idle);
+    tokio::io::copy_bidirectional(&mut a, &mut b).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::HeaderValue;
+    use http::{HeaderName, HeaderValue};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[test]
-    fn hop_by_hop_and_connection_named_headers_never_cross() {
+    fn filters_hop_by_hop_connection_tokens_and_extra_headers() {
         let mut headers = HeaderMap::new();
-        headers.insert("connection", HeaderValue::from_static("keep-alive, X-Secret-Thing"));
-        headers.insert("x-secret-thing", HeaderValue::from_static("1"));
-        headers.insert("transfer-encoding", HeaderValue::from_static("chunked"));
-        headers.insert("x-powered-by", HeaderValue::from_static("Express"));
-        headers.append("set-cookie", HeaderValue::from_static("a=1"));
-        headers.append("set-cookie", HeaderValue::from_static("b=2"));
-        headers.insert("content-type", HeaderValue::from_static("text/plain"));
-        let out = end_to_end(&headers, |n| n == "x-powered-by");
-        let names: Vec<&str> = out.keys().map(|k| k.as_str()).collect();
-        assert_eq!(names, ["set-cookie", "content-type"]);
-        assert_eq!(out.get_all("set-cookie").iter().count(), 2);
+        headers.insert(
+            http::header::CONNECTION,
+            HeaderValue::from_static("x-hop, keep-alive, , X-Second"),
+        );
+        headers.insert(
+            http::header::TRANSFER_ENCODING,
+            HeaderValue::from_static("chunked"),
+        );
+        headers.insert(http::header::TE, HeaderValue::from_static("trailers"));
+        headers.insert(
+            HeaderName::from_static("keep-alive"),
+            HeaderValue::from_static("timeout=5"),
+        );
+        headers.insert(
+            HeaderName::from_static("x-hop"),
+            HeaderValue::from_static("drop-me"),
+        );
+        headers.insert(
+            HeaderName::from_static("x-second"),
+            HeaderValue::from_static("drop-me-too"),
+        );
+        headers.insert(
+            http::header::HOST,
+            HeaderValue::from_static("example.com"),
+        );
+        headers.insert(
+            HeaderName::from_static("x-kept"),
+            HeaderValue::from_static("preserve-me"),
+        );
+
+        assert!(is_hop_by_hop("Connection"));
+        assert!(is_hop_by_hop("TRANSFER-ENCODING"));
+        assert!(!is_hop_by_hop("x-kept"));
+
+        let tokens = connection_tokens(&headers);
+        assert_eq!(tokens, vec!["x-hop", "keep-alive", "x-second"]);
+
+        let kept: Vec<(&str, &str)> = end_to_end(&headers, &["host"])
+            .filter_map(|(k, v)| v.to_str().ok().map(|val| (k.as_str(), val)))
+            .collect();
+        assert_eq!(kept, vec![("x-kept", "preserve-me")]);
     }
 
     #[tokio::test]
-    async fn a_tunnel_carries_both_ways_and_ends_with_either_side() {
-        let (client, mut client_far) = tokio::io::duplex(1024);
-        let (upstream, mut upstream_far) = tokio::io::duplex(1024);
-        let joined = tokio::spawn(tunnel(client, upstream, Duration::from_secs(5)));
-        client_far.write_all(b"hello").await.unwrap();
-        let mut got = [0u8; 5];
-        upstream_far.read_exact(&mut got).await.unwrap();
-        assert_eq!(&got, b"hello");
-        upstream_far.write_all(b"hi").await.unwrap();
-        let mut back = [0u8; 2];
-        client_far.read_exact(&mut back).await.unwrap();
-        assert_eq!(&back, b"hi");
-        drop(upstream_far);
-        assert_eq!(joined.await.unwrap(), (5, 2));
+    async fn tunnel_copies_bidirectionally_when_active() -> io::Result<()> {
+        let (mut client, proxy_a) = tokio::io::duplex(1024);
+        let (proxy_b, mut upstream) = tokio::io::duplex(1024);
+
+        let client_task = tokio::spawn(async move {
+            client.write_all(b"ping").await?;
+            client.shutdown().await?;
+            let mut reply = Vec::new();
+            client.read_to_end(&mut reply).await?;
+            Ok::<Vec<u8>, io::Error>(reply)
+        });
+
+        let upstream_task = tokio::spawn(async move {
+            let mut req = Vec::new();
+            upstream.read_to_end(&mut req).await?;
+            upstream.write_all(b"pong!").await?;
+            upstream.shutdown().await?;
+            Ok::<Vec<u8>, io::Error>(req)
+        });
+
+        let (a_to_b, b_to_a) = tunnel(proxy_a, proxy_b, Duration::from_secs(5)).await?;
+        assert_eq!(a_to_b, 4);
+        assert_eq!(b_to_a, 5);
+
+        let received_req = upstream_task.await.map_err(io::Error::other)??;
+        let received_reply = client_task.await.map_err(io::Error::other)??;
+        assert_eq!(received_req, b"ping");
+        assert_eq!(received_reply, b"pong!");
+        Ok(())
     }
 
     #[tokio::test(start_paused = true)]
-    async fn a_silent_tunnel_is_cut() {
-        let (client, _client_far) = tokio::io::duplex(1024);
-        let (upstream, _upstream_far) = tokio::io::duplex(1024);
-        assert_eq!(tunnel(client, upstream, Duration::from_secs(300)).await, (0, 0));
+    async fn tunnel_times_out_when_idle() {
+        let (_client, proxy_a) = tokio::io::duplex(1024);
+        let (proxy_b, _upstream) = tokio::io::duplex(1024);
+
+        let res = tunnel(proxy_a, proxy_b, Duration::from_millis(50)).await;
+        assert!(res.is_err());
+        if let Err(err) = res {
+            assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+        }
     }
 }
