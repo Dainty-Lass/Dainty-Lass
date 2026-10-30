@@ -905,7 +905,7 @@ async fn a_banned_account_is_told_why() {
     host.registration = "OPEN";
     host.users.insert(key.clone(), ("ghost".into(), "uid-ghost".into()));
     host.banned.insert(key.clone(), "cheating".into());
-    let (_lan, port) = lan(host).await;
+    let (lan, port) = lan(host).await;
     let hx = Harness::new();
     hx.c.init().await;
     let text = invite(ServerMode::Private, "127.0.0.1", port, None, "STRICT-CODE", "Strict");
@@ -917,6 +917,47 @@ async fn a_banned_account_is_told_why() {
     assert_eq!(
         s.last_error,
         Some(LauncherError::with_detail(ErrorCode::AccountBanned, "cheating"))
+    );
+
+    // An already-registered player who is later banned on the server: as in Node ReforgedLauncher
+    // (`controller.ts` lines 330, 670-672 and 1609-1612 at 73d9768), `check_account` (on `connect`)
+    // and `play` set `key_rejected = true`, which drops `phase` back to `Phase::Register` and sets
+    // `account.has_key = false` while showing `ErrorCode::AccountBanned` with the server's reason.
+    assert_eq!(
+        hx.c.register("Wanderer").await,
+        RegisterOutcome::Ok {
+            username: "Wanderer".into()
+        }
+    );
+    let s = hx.last();
+    assert!(s.account.has_key);
+    assert_eq!(s.phase, Phase::Locate);
+    let wanderer_key = lan
+        .lock()
+        .unwrap()
+        .users
+        .iter()
+        .find_map(|(k, (u, _))| (u == "Wanderer").then(|| k.clone()))
+        .expect("registered Wanderer key");
+    lan.lock().unwrap().banned.insert(wanderer_key, "griefing".into());
+
+    assert_eq!(hx.c.connect().await, ActionResult::Ok);
+    let s = hx.last();
+    assert!(!s.account.has_key);
+    assert_eq!(s.phase, Phase::Register);
+    assert_eq!(
+        s.last_error,
+        Some(LauncherError::with_detail(ErrorCode::AccountBanned, "griefing"))
+    );
+
+    let banned_play = ActionResult::Err(LauncherError::with_detail(ErrorCode::AccountBanned, "griefing"));
+    assert_eq!(hx.c.play().await, banned_play);
+    let s = hx.last();
+    assert!(!s.account.has_key);
+    assert_eq!(s.phase, Phase::Register);
+    assert_eq!(
+        s.last_error,
+        Some(LauncherError::with_detail(ErrorCode::AccountBanned, "griefing"))
     );
     hx.c.shutdown().await;
 }

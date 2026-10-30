@@ -199,6 +199,15 @@ Every occurrence in both catalogs of `"Mystic Paradox"` (as something the host d
 | `host_build_intro`, `host_build_step_dump`, `host_build_step_sdk`, `host_build_step_compile`, `host_req_dumper7_why`, `host_req_vc_why`, `err_runtime_missing` | `"Mystic Paradox"` | **Deliberately kept**: refers accurately to the client-side `MysticParadox.dll` C++ UE4 runtime DLL compiled on the optional `Build` tab, not to server setup or downloading |
 | `host_data_step_pack` | `"npm"` | **Deliberately kept as legacy dead key**: `ui/apps/web/src/screens/host-tools.tsx` renders `host_data_step_pack_rust` (`reforged-host gamedata --export`); `host_data_step_pack` is retained only for catalog key stability |
 
+### 4.3 `account_banned` phase behavior (verified in T5)
+
+Both Dauntless Revived's Tauri controller (`rust/launcher/src-tauri/src/controller/mod.rs` at `a6e1870`) and Node `ReforgedLauncher` (`legacy/ReforgedLauncher/src/main/controller.ts` lines 330, 670–672, and 1609–1612, and `legacy/ReforgedLauncher/test/controller.test.ts` lines 285–301 at `73d9768`) set `keyRejected = true` on `account_banned` (`ErrorCode::AccountBanned`) alongside `lastError = { code: "account_banned", detail }`:
+
+- In `checkAccount` (`controller.ts` lines 670–672) and `play` (`controller.ts` lines 1609–1612), an `account_banned` response from `GetUserInfo` sets `this.keyRejected = true` and `this.lastError = { code: "account_banned", detail: info.detail }`.
+- In `computePhase` (`controller.ts` line 330), `if (!this.hasKey || this.keyRejected) return "register";` returns `"register"` (`Phase::Register`), and `snapshot()` (`controller.ts` lines 370–372) sets `account.hasKey = this.hasKey && !this.keyRejected`.
+- In `legacy/ReforgedLauncher/test/controller.test.ts` (`test("a banned account is told why")`, lines 285–301), the Node test explicitly asserts `assert.equal(s.phase, "register")` and `assert.deepEqual(s.lastError, { code: "account_banned", detail: "cheating" })`.
+- The Rust controller (`rust/launcher/src-tauri/src/controller/mod.rs` lines 545–547, 579, 1102–1106, and 1656–1659) matches this behavior identically, and `controller::tests::a_banned_account_is_told_why` (`rust/launcher/src-tauri/src/controller/tests.rs`) tests both adopting a banned key (`use_existing_key`) and an already-registered player whose account is subsequently banned on the server (`connect` and `play`).
+
 ---
 
 ## 5. Part B4 end-to-end desktop verification and screenshots
