@@ -180,7 +180,7 @@ USER reforged
 # rebuilds nothing and needs no network). The launcher (Tauri, WebKitGTK) is not a server crate and is not
 # built; the fuzz targets are a workspace of their own.
 RUN cd rust && cargo test --locked --no-run \
-      -p protocol -p proxy -p service-kit -p store -p gateway -p content -p admin -p host \
+      -p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
       -p controller -p backend -p director
 # gateway's route-policy tests check /reforged/api against the reference route file
 COPY --chown=reforged:reforged modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts
