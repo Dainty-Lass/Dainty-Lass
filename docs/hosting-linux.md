@@ -1,6 +1,7 @@
 # Hosting a server on Linux
 
-The same server as on Windows ([hosting.md](hosting.md)), with the game servers under **Wine** or **Proton** on
+The same server as on Windows ([hosting.md](hosting.md), where **DaintyLass Manager** (`dainty-lass-manager`) or
+`reforged-host` runs it), with the game servers under **Wine** or **Proton** on
 a virtual display. A public server on a VPS (Debian 13 is what this is tested on) is the main use. The
 containers in [hosting-docker.md](hosting-docker.md) are this page with the packages baked in.
 

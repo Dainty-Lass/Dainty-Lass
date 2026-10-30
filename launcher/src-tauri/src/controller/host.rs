@@ -1861,7 +1861,7 @@ impl host::commands::setup::SetupEnv for InProcessSetupEnv {
     }
 
     fn gateway_program(&self) -> String {
-        std::env::current_exe().map_or_else(|_| "dainty-lass-server-gui".to_owned(), |p| p.display().to_string())
+        std::env::current_exe().map_or_else(|_| "dainty-lass-manager".to_owned(), |p| p.display().to_string())
     }
 
     fn require_checkout_sources(&self) -> bool {

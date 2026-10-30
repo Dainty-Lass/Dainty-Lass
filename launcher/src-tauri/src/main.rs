@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() -> std::process::ExitCode {
-    // dainty-lass-server-gui, or dainty-lass-client: the feature decides, the config names the file
+    // dainty-lass-manager, or dainty-lass-client: the feature decides, the config names the file
     #[cfg(feature = "server-gui")]
     let started = launcher::run_server_gui();
     #[cfg(not(feature = "server-gui"))]

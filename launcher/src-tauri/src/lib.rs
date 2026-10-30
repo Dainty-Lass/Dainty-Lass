@@ -410,7 +410,7 @@ pub fn run_client() -> tauri::Result<()> {
     run()
 }
 
-/// `dainty-lass-server-gui`: the launcher with the server inside it, which the Host page's server panel
+/// `dainty-lass-manager`: DaintyLass Manager with the server inside it, which the Host page's server panel
 /// starts, stops and restarts service by service (RD26).
 #[cfg(feature = "server-gui")]
 pub fn run_server_gui() -> tauri::Result<()> {

@@ -3,7 +3,8 @@
 One PC runs the whole server: the gateway, the 1.14.7 Rust backend and Director (`isles-1-14-7`), the content
 server, the admin API, the SQLite (or Postgres) store and the game servers. A **private** server is reachable by
 friends on your tailnet; a **public** one by anyone with an invite, over TLS. The host kit, `reforged-host`, does
-the setting up; the launcher's Host page drives the same commands with buttons.
+the setting up from a terminal; **DaintyLass Manager** (`dainty-lass-manager`, or the client launcher's Host page)
+drives the same server and setup with a graphical interface.
 
 Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting-docker.md).
 
@@ -59,8 +60,8 @@ bin\reforged-host invite --for "Alex"       # an invite link to send
 bin\reforged-host invite --list
 ```
 
-`start` runs one process tree and stops all of it on Ctrl+C. The server GUI build of the launcher runs the
-same tree from its Host page. Logs are in `.workspace\logs` (the game servers' in `logs\gameservers`).
+`start` runs one process tree and stops all of it on Ctrl+C. **DaintyLass Manager** (`dainty-lass-manager`, built
+with the `server-gui` feature) runs the same server in-process from its Host page. Logs are in `.workspace\logs` (the game servers' in `logs\gameservers`).
 
 | Command | What |
 | --- | --- |
@@ -146,8 +147,7 @@ bin\reforged-host history verify                                  # is the log i
   removed. It exits 1 when one is broken. The head it prints is what to keep somewhere off the server.
 
 The same commands are in the `serve` console and the dashboard (`history --actor ...`, `revert ... --apply ...`;
-a long list is cut off at 200 lines, so read a mass revert in a terminal), in the server GUI's commands (its
-screen comes with DU3) and in the admin API for the owner's key ([admin-api.md](admin-api.md)). In Docker:
+a long list is cut off at 200 lines, so read a mass revert in a terminal), in **DaintyLass Manager** (`dainty-lass-manager`, History tab) and in the admin API for the owner's key ([admin-api.md](admin-api.md)). In Docker:
 `docker compose run --rm host history --actor admin:58ef5419`.
 
 ## Settings
@@ -268,7 +268,7 @@ ban_guard = "approval"    # "delay" (the default), "approval" or "off"
 delay_minutes = 30
 ```
 
-`reforged-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and the server GUI Host page
+`reforged-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and **DaintyLass Manager** (`dainty-lass-manager`)
 lists what waits. A rule on `"approval"` on a server with one owner key waits for nobody and expires after
 `expire_hours`: use it once the team has a second key. How it works, and what a bot sees, is in
 [admin-api.md](admin-api.md#guarded-actions-dh6).

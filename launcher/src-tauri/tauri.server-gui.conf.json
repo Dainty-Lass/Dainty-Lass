@@ -1,6 +1,6 @@
 {
-  "productName": "DaintyLass Server",
-  "mainBinaryName": "dainty-lass-server-gui",
+  "productName": "DaintyLass Manager",
+  "mainBinaryName": "dainty-lass-manager",
   "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival.server",
   "bundle": {
     "icon": [
@@ -10,8 +10,8 @@
       "icons/server/icon.icns",
       "icons/server/icon.ico"
     ],
-    "shortDescription": "The DaintyLass launcher with a community server inside",
-    "longDescription": "Everything the launcher does, and the server itself in the same program: set it up, start and stop it, and see its services and logs.",
+    "shortDescription": "DaintyLass Manager — community server manager",
+    "longDescription": "Set up, start, stop, migrate, and administer a DaintyLass community server with its services compiled in.",
     "windows": {
       "nsis": {
         "installMode": "currentUser",
