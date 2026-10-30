@@ -200,6 +200,8 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
         .setup(move |app| {
             let _ = APP.set(app.handle().clone());
             if !cfg!(dev)
+                && !cfg!(feature = "server-gui")
+                && std::env::var_os("REFORGED_DEV_PROFILE").is_none()
                 && let Ok(exe) = std::env::current_exe()
             {
                 invite_link::register_scheme(&exe);

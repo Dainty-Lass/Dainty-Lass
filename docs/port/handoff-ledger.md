@@ -78,7 +78,9 @@
 | 2026-10-29 | `rustic-isles` | RU7 + RU9 (Review A2) | `fix/a2-mongo-has-documents` | `8ff0a59` | `af9c125` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `node scripts/check-route-inventory.mjs` (290 routes: backend 285, director 5), `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=1` (59 binaries, 752 passed, 0 failed) | Added `MongoClient::collection_has_documents` in `crates/isles-db/src/mongo.rs` issuing a `limit: 1, singleBatch: true, batchSize: 1` query instead of fetching entire collections, updated `MockMongoServer` to honour `limit` and `singleBatch`, and added unit test `collection_has_documents_uses_limit_one_single_batch_probe` |
 | 2026-10-29 | `dainty-lass` | RU9 + RX4 (Review A1–A4) | `fix/a1-apply-fresh-install` | `ea33780` | `c7cea40` | `cargo fmt --all --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p host --features paradox --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p launcher --features realms --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p launcher --features server-gui --all-targets --locked -j 2 -- -D warnings`, `cargo check --manifest-path fuzz/Cargo.toml --bins --locked -j 2`, `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=1` (98 binaries, 1207 passed, 0 failed, 2 ignored), `cargo test -p host --features paradox --locked -j 2 -- --test-threads=1` (219 passed, 0 failed), `cargo test -p launcher --features realms --locked -j 2 -- --test-threads=1` (302 passed, 0 failed, 2 ignored), `cargo test -p launcher --features server-gui --locked -j 2 -- --test-threads=1` (307 passed, 0 failed, 2 ignored), `bash docker/run-tests.sh` (`test-in-image.sh`, `smoke-test.sh` including fresh `apply` under `--profile toml`, and 4-node `network/test.sh` with `MSYS_NO_PATHCONV=1` all passed) | Fixed `has_external_mongo_evidence` (`update.rs` and `hostconfig::toml_explicitly_sets_mongo`) so fresh nodes configured by `reforged-host-docker apply` (under `network/test.sh` or `--profile toml`) are never refused for a local MongoDB they never had while preserving M4's refusal for pre-cutover external MongoDBs (A1), switched `mongo_has_documents` from `find_all` to `collection_has_documents` (A2), wrote a distinct `skip_mongo_migration` marker that `setup` clears when `skip_mongo_migration` is removed from `host.toml` and documented it in `docs/hosting.md` and `setup --help` (A3), and updated `docker/run-tests.sh` to run `network/test.sh` with `MSYS_NO_PATHCONV=1` while keeping `smoke-test.sh` without it (A4); bumped `modules/rustic-isles` to `af9c125` |
 | 2026-10-29 | `dainty-lass` | DU1 + DU2 + DU3 + DU5 + DF8 (Part B1) | `docs/tauri-apps-status` | `f20e2df` | `effe5dd` | `cargo fmt --all --check`, `cargo deny check` | Added `docs/port/tauri-apps-status.md` inventorying both Tauri applications (`dainty-lass-client` and `dainty-lass-server-gui`), every UI screen (`ui/apps/web/src/screens/`), all 75 bridge commands in `spec.rs` / `api.ts` with their current state (`working`, `stub`, `broken`, or `maintainer: needs a real game, Epic account or second PC`), how each state was verified, and every string or flow that still assumes Node, npm, or MongoDB |
-| 2026-10-29 | `dainty-lass` | RD26 + DD11 (Part B2) | `feat/b2-tauri-installers` | see `plan` | see `plan` | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -j 2 -- -D warnings`, `cargo test -p launcher --no-default-features --features server-gui -j 2 -- --test-threads=1` (307 passed, 0 failed, 2 ignored), `rust/launcher`: `npm run typecheck`, `npm test` (20 passed, 0 failed), `npm run build:client` (`DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe` built), `npm run build:server-gui` (`DaintyLass Server_2.0.0-alpha.0_x64-setup.exe` built) | Added distinct `icons/server/` icon set and `bundle.icon` / `nsis.installerIcon` in `tauri.server-gui.conf.json`, linked `"isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"` into the `server-gui` feature in `rust/launcher/src-tauri/Cargo.toml`, took the window title from `app.config().product_name` in `window.rs`, wired `build:client`, `build:server-gui`, `build:manager`, `build:all`, `dev`, and `dev:server-gui` scripts in `rust/launcher/package.json`, documented the clean-clone build in `rust/launcher/README.md`, and added `rust/launcher/test/bundles.test.ts` |
+| 2026-10-29 | `dainty-lass` | RD26 + DD11 (Part B2) | `feat/b2-tauri-installers` | `8b122b8` | `dd8a433` | `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -j 2 -- -D warnings`, `cargo test -p launcher --no-default-features --features server-gui -j 2 -- --test-threads=1` (307 passed, 0 failed, 2 ignored), `rust/launcher`: `npm run typecheck`, `npm test` (20 passed, 0 failed), `npm run build:client` (`DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe` built), `npm run build:server-gui` (`DaintyLass Server_2.0.0-alpha.0_x64-setup.exe` built) | Added distinct `icons/server/` icon set and `bundle.icon` / `nsis.installerIcon` in `tauri.server-gui.conf.json`, linked `"isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"` into the `server-gui` feature in `rust/launcher/src-tauri/Cargo.toml`, took the window title from `app.config().product_name` in `window.rs`, wired `build:client`, `build:server-gui`, `build:manager`, `build:all`, `dev`, and `dev:server-gui` scripts in `rust/launcher/package.json`, documented the clean-clone build in `rust/launcher/README.md`, and added `rust/launcher/test/bundles.test.ts` |
+| 2026-10-29 | `dainty-lass-ui` | DU1 + DU2 + DU3 + DH6 + DH3b (Part B3) | `fix/b3-tauri-apps` | `8a69a05` | `0314dde` | `bun run format -- --check` (pass), `bun run typecheck` (4/4), `bun run lint` (4/4), `bun run test` (59 passed, 0 failed: 51 in `web`, 8 in `@workspace/i18n`), `bun run build` (0) | Added `AdminTab`, `HistoryTab` (history query, dry-run/apply revert, guarded actions), `MongoMigrationCard`, `ServerConfigCard`, `DoctorBackupCard`, active invites list, and per-module log viewer in `apps/web/src/screens/host-admin.tsx` and `host.tsx`; fixed `historyQuery`/`historyRevertDryRun`/`historyRevertApply` return types and wired 11 new bridge calls in `packages/bridge/src/api.ts`; defaulted `serverGui` to `view = "host"` with server-only rail (`host`, `settings`); removed `"mongodb"` and `"git"` from host server prerequisites in `host-model.ts`; switched `host-tools.tsx` to `host_data_step_pack_rust`; appended 86 catalog keys to `en.json` and `pt-BR.json` |
+| 2026-10-29 | `dainty-lass` | DU3 + RD26 + DD11 + DF8 (Part B3 & B4) | `fix/b3-tauri-apps` | see `plan` | see `plan` | `RR_UPDATE_GENERATED=1 cargo test -p launcher generated -j 2 -- --test-threads=1` (1 passed, 0 diff), `cargo fmt --all -- --check`, `cargo fmt --manifest-path fuzz/Cargo.toml --all -- --check`, `cargo deny check`, `cargo clippy --workspace --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p host --features paradox --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p launcher --features realms --all-targets --locked -j 2 -- -D warnings`, `cargo clippy -p launcher --features server-gui --all-targets --locked -j 2 -- -D warnings`, `cargo check --manifest-path fuzz/Cargo.toml --bins --locked -j 2`, `cargo test --workspace --locked --no-fail-fast -j 2 -- --test-threads=1` (98 binaries, 1207 passed, 0 failed, 2 ignored), `cargo test -p host --features paradox --locked -j 2 -- --test-threads=1` (13 binaries, 219 passed, 0 failed), `cargo test -p launcher --features realms --locked -j 2 -- --test-threads=1` (3 binaries, 302 passed, 0 failed, 2 ignored), `cargo test -p launcher --features server-gui --locked -j 2 -- --test-threads=1` (3 binaries, 309 passed, 0 failed, 2 ignored), `rust/launcher`: `npm test` (20 passed, 0 failed), `npm run typecheck`, `npm run build:all` (both NSIS installers built), `node test/e2e-desktop.mjs` (passed, 34 `en`/`pt-BR` screenshots saved in `docs/port/screenshots/`), `bash docker/run-tests.sh` (`test-in-image.sh`, `smoke-test.sh`, and 4-node `network/test.sh` all passed) | Wired all `services/host` operations in-process inside `launcher` (`setup`, `invite`, `multipliers`, `update`, `gamedata`, `gamepack`, `publish_runtime`, `doctor`, `backup`, `admin_cli`), embedded 1.14.7 `*.example.json` and `store-captures.json` in `host::gamedata::seed_embedded_examples` (and added them to `module-sources` in `docker/Dockerfile`), added 11 new bridge commands (`admin_lookup`, `admin_action`, `server_doctor`, `server_backup`, `server_config_get`, `server_config_save`, `server_mongo_status`, `server_mongo_migrate`, `server_mongo_fresh_start`, `server_module_logs`, `server_invite_list`), enabled `realms` and `legacy` in default client features, removed `"mongodb"` and `"mongod"` from launcher requirements/spec, isolated `server-gui` single-instance channel (`com.daintylass.server`), bumped `ui` to `0314dde`, added `test/e2e-desktop.mjs` and 34 `en`/`pt-BR` desktop screenshots, and updated `docs/port/tauri-apps-status.md` |
 
 ## Round 1 commit body record (G1)
 
@@ -271,3 +273,49 @@ $ curl -sk --resolve rollback.example.org:443:127.0.0.1 -X POST https://rollback
 Rollback Register duplicate check: {"error":"username_taken","message":"That name is taken."}
 M3 rollback end-to-end test passed
 ```
+
+### 4. Part B4 Windows desktop applications end-to-end verification (`node test/e2e-desktop.mjs`)
+
+Both NSIS installers (`DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe` and
+`DaintyLass Server_2.0.0-alpha.0_x64-setup.exe`) were built via `npm run build:all`, installed silently into isolated
+directories, and driven end-to-end on Windows via `rust/launcher/test/e2e-desktop.mjs`:
+
+```text
+$ cd rust/launcher && node test/e2e-desktop.mjs
+=== B4 Desktop E2E Verification ===
+Root directory: R:\Temp\dl-e2e-desktop-mfe8m3
+=== 1. Installing Client & Server GUI from NSIS installers ===
+Installed client: R:\Temp\dl-e2e-desktop-mfe8m3\install-client\dainty-lass-client.exe
+Installed server GUI: R:\Temp\dl-e2e-desktop-mfe8m3\install-server\dainty-lass-server-gui.exe
+=== 2. Launching Server GUI and Client Desktop Apps ===
+Connected to Server GUI WebView2 CDP and Client WebView2 CDP
+=== 3. Driving Server GUI: seed synthetic data & run setup ===
+host_action(synthetic_data): true null
+host_setup: true null
+server_config_get: mode=private, serverName=Desktop E2E Hunts, dbEngine=sqlite
+server_doctor: ok=true, checks=6
+=== 4. Driving Server GUI: start server & create invite ===
+host_server_start: true null
+server_status: running=true, embedded=true, components=gateway:running, content:running, admin:running, isles-1-14-7:running
+Created invite for E2ETester: code=H3M3-A82J-R433
+=== 5. Driving Client: join server with invite & register account ===
+check_invite valid: true serverName: Desktop E2E Hunts
+submit_invite phase: need_account lastError: null
+register phase: need_game account: Slayer_42 hasKey: true
+Client server status online: true
+=== 6. Capturing screenshots of all screens (en & pt-BR) ===
+=== 7. Driving Server GUI: ban player & verify Client reflects ban ===
+admin_action(ban): ok=true, message=Banned Slayer_42 (059b4bd8-8e4e-4598-a2f6-a9b06ca0cd54).
+Client after ban & refresh_status: phase=need_account, lastError=account_banned
+=== 8. Driving Server GUI: history query, backup & clean stop ===
+history_query count: 2
+server_backup: ok=true, filesCopied=6
+host_server_stop: true null
+server_status after stop: running=false
+=== B4 Desktop E2E Verification PASSED ===
+```
+
+34 screenshots saved under `docs/port/screenshots/`:
+- Client (`dainty-lass-client.exe`): `client-{join,register,play,realms,server,game,settings,banned}-{en,pt-BR}.png` (16 screenshots)
+- Server GUI (`dainty-lass-server-gui.exe`): `server-gui-{setup,server,status,modules,admin,history,gamedata,build,requirements}-{en,pt-BR}.png` (18 screenshots)
+

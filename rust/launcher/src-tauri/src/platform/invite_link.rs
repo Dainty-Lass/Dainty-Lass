@@ -38,7 +38,26 @@ pub type OnArgs = Arc<dyn Fn(Vec<String>) -> Pin<Box<dyn Future<Output = ()> + S
 
 /// The channel's name for this user.
 pub fn channel_name() -> String {
-    let id = "io.github.freezamotoqueiro.dauntlessreforgedrevival";
+    let base_id = if cfg!(feature = "server-gui") {
+        "com.daintylass.server"
+    } else {
+        "io.github.freezamotoqueiro.dauntlessreforgedrevival"
+    };
+    let profile: String = std::env::var("REFORGED_DEV_PROFILE")
+        .unwrap_or_default()
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .rev()
+        .take(24)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+    let id = if profile.is_empty() {
+        base_id.to_owned()
+    } else {
+        format!("{base_id}-{profile}")
+    };
     if cfg!(windows) {
         let user: String = std::env::var("USERNAME")
             .unwrap_or_default()
