@@ -11,9 +11,11 @@ export {
 } from "./call"
 export {
   api,
+  type AdminRequest,
   type HistoryFilter,
   type LauncherApi,
   type ModuleInput,
   type ModuleSettingsPatch,
   type RevertSelection,
+  type ServerConfigPatch,
 } from "./api"

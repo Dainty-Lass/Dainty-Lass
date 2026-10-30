@@ -8,6 +8,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window"
 import { BridgeError, call, CALL_TIMEOUT_MS, LONG_TIMEOUT_MS } from "./call"
 import type {
   ActionResult,
+  AdminActionKind,
+  AdminOutcome,
   Branding,
   CommandName,
   EpicLibraryCheck,
@@ -16,6 +18,7 @@ import type {
   GameVersionList,
   GuardedList,
   GuardedOutcome,
+  HistoryOutcome,
   HostAction,
   HostFolder,
   HostKit,
@@ -33,12 +36,33 @@ import type {
   RealmOutcome,
   RegionPing,
   RegisterOutcome,
+  RevertApplyOutcome,
+  RevertPlanOutcome,
+  ServerConfigOutcome,
+  ServerDoctorOutcome,
+  ServerInviteListOutcome,
   Settings,
   Snapshot,
   TaskProgress,
 } from "./generated/types"
 
 export { BridgeError, CALL_TIMEOUT_MS, LONG_TIMEOUT_MS }
+
+export interface AdminRequest {
+  action: AdminActionKind
+  player: string
+  reason?: string | null
+  until?: string | null
+  module?: string | null
+}
+
+export interface ServerConfigPatch {
+  registration: "OPEN" | "INVITECODE" | "NONE" | "INVITE"
+  database: "sqlite" | "postgres"
+  maxHubs: number
+  maxHunts: number
+  freshStart: boolean
+}
 
 // Who and when a history query or a revert covers (DD23): an account, an actor, RFC 3339 times
 export interface RevertSelection {
@@ -164,12 +188,20 @@ export interface LauncherApi {
   realmJoin(realm: string): Promise<RealmOutcome>
   realmStop(): Promise<RealmOutcome>
   realmGet(): Promise<RealmOutcome>
-  historyQuery(filter: HistoryFilter): Promise<ActionResult>
-  historyRevertDryRun(selection: RevertSelection): Promise<ActionResult>
-  historyRevertApply(plan: string): Promise<ActionResult>
+  historyQuery(filter: HistoryFilter): Promise<HistoryOutcome>
+  historyRevertDryRun(selection: RevertSelection): Promise<RevertPlanOutcome>
+  historyRevertApply(plan: string): Promise<RevertApplyOutcome>
   guardedList(): Promise<GuardedList>
   guardedApprove(id: string): Promise<GuardedOutcome>
   guardedCancel(id: string): Promise<GuardedOutcome>
+  serverDoctor(): Promise<ServerDoctorOutcome>
+  serverBackup(): Promise<ActionResult>
+  serverConfigGet(): Promise<ServerConfigOutcome>
+  serverConfigSave(config: ServerConfigPatch): Promise<ServerConfigOutcome>
+  serverMigrateMongo(): Promise<ActionResult>
+  serverConfirmFreshStart(): Promise<ServerConfigOutcome>
+  serverInviteList(): Promise<ServerInviteListOutcome>
+  adminAction(request: AdminRequest): Promise<AdminOutcome>
 }
 
 // What a failed call answers when the page expects an answer, as the Electron main process did
@@ -426,20 +458,60 @@ export const api: LauncherApi = {
   realmStop: () => act<RealmOutcome>("realm_stop", {}, LONG_TIMEOUT_MS),
   realmGet: () => act<RealmOutcome>("realm_get"),
   historyQuery: (filter) =>
-    act("history_query", {
+    act<HistoryOutcome>("history_query", {
       filter: { ...selection(filter), cursor: optionalText(filter.cursor) },
     }),
   historyRevertDryRun: (value) =>
-    act(
+    act<RevertPlanOutcome>(
       "history_revert_dry_run",
       { selection: selection(value) },
       LONG_TIMEOUT_MS
     ),
   historyRevertApply: (plan) =>
-    act("history_revert_apply", { plan: String(plan) }, LONG_TIMEOUT_MS),
+    act<RevertApplyOutcome>(
+      "history_revert_apply",
+      { plan: String(plan) },
+      LONG_TIMEOUT_MS
+    ),
   guardedList: () => act<GuardedList>("guarded_list"),
   guardedApprove: (id) =>
     act<GuardedOutcome>("guarded_approve", { id: String(id) }),
   guardedCancel: (id) =>
     act<GuardedOutcome>("guarded_cancel", { id: String(id) }),
+  serverDoctor: () =>
+    act<ServerDoctorOutcome>("server_doctor", {}, LONG_TIMEOUT_MS),
+  serverBackup: () => act("server_backup", {}, LONG_TIMEOUT_MS),
+  serverConfigGet: () => act<ServerConfigOutcome>("server_config_get"),
+  serverConfigSave: (config) =>
+    act<ServerConfigOutcome>(
+      "server_config_save",
+      {
+        config: {
+          registration: String(config.registration),
+          database: String(config.database),
+          maxHubs: Math.floor(Number(config.maxHubs)),
+          maxHunts: Math.floor(Number(config.maxHunts)),
+          freshStart: config.freshStart === true,
+        },
+      },
+      LONG_TIMEOUT_MS
+    ),
+  serverMigrateMongo: () => act("server_migrate_mongo", {}, LONG_TIMEOUT_MS),
+  serverConfirmFreshStart: () =>
+    act<ServerConfigOutcome>("server_confirm_fresh_start", {}, LONG_TIMEOUT_MS),
+  serverInviteList: () => act<ServerInviteListOutcome>("server_invite_list"),
+  adminAction: (request) =>
+    act<AdminOutcome>(
+      "admin_action",
+      {
+        request: {
+          action: String(request.action),
+          player: String(request.player),
+          reason: optionalText(request.reason),
+          until: optionalText(request.until),
+          module: optionalText(request.module),
+        },
+      },
+      LONG_TIMEOUT_MS
+    ),
 }

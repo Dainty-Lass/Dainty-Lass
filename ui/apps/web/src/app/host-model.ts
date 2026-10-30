@@ -36,21 +36,30 @@ export function hostPageAvailable(snap: Snapshot | null): boolean {
 }
 
 export type HostTab =
-  "server" | "status" | "modules" | "gamedata" | "build" | "requirements"
+  | "server"
+  | "status"
+  | "modules"
+  | "admin"
+  | "history"
+  | "gamedata"
+  | "build"
+  | "requirements"
 
 export const HOST_TAB_KEYS: Record<HostTab, Key> = {
   server: "host_tab_server",
   status: "host_tab_status",
   modules: "host_tab_modules",
+  admin: "host_tab_admin",
+  history: "host_tab_history",
   gamedata: "host_tab_gamedata",
   build: "host_tab_build",
   requirements: "host_tab_requirements",
 }
 
-// The component status and the module panels exist only where the server runs inside this window
+// The component status, module panels, player administration and history exist only where the server runs inside this window
 export function hostTabs(snap: Snapshot | null): HostTab[] {
   const tabs: HostTab[] = ["server"]
-  if (snap?.app.serverGui) tabs.push("status", "modules")
+  if (snap?.app.serverGui) tabs.push("status", "modules", "admin", "history")
   tabs.push("gamedata", "build", "requirements")
   return tabs
 }
@@ -139,6 +148,8 @@ export const JOB_KEYS: Record<HostJobKind, Key> = {
   multipliers: "host_job_multipliers",
   upstream: "host_job_upstream",
   download_project: "host_job_download_project",
+  backup: "host_job_backup",
+  migrate_mongo: "host_job_migrate_mongo",
 }
 
 // A multiplier field: 1 to 100, as the backend takes them
@@ -433,7 +444,7 @@ export function applyPalette(
 // ------------------------------------------------------------------ requirements
 
 export const REQUIREMENT_GROUPS: { key: Key; ids: RequirementId[] }[] = [
-  { key: "hreq_group_host", ids: ["git", "mongodb", "tailscale"] },
+  { key: "hreq_group_host", ids: ["tailscale"] },
   { key: "hreq_group_build", ids: ["visual_studio", "rust", "dumper7"] },
   { key: "hreq_group_play", ids: ["dauntless", "vc_redist"] },
 ]
