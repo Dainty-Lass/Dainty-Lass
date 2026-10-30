@@ -376,3 +376,51 @@ fn numbers_read_as_javascript_writes_them() {
     assert_eq!(number(100.0), "100");
     assert_eq!(number(1.5), "1.5");
 }
+
+#[test]
+fn generated_output_is_feature_independent() {
+    use super::spec::{REALM_COMMANDS, SERVER_GUI_COMMANDS};
+
+    // Neither generate.rs nor spec.rs's command declarations may gate generated types or commands on Cargo features.
+    let gen_src = include_str!("generate.rs");
+    let before_tests = gen_src.split("#[test]").next().unwrap_or(gen_src);
+    assert!(
+        !before_tests.contains("cfg(feature") && !before_tests.contains("cfg!(feature"),
+        "generate.rs must not branch on Cargo features"
+    );
+
+    let ts = declarations();
+    let js = hook_commands();
+    let perms = permission_set();
+
+    for cmd in SERVER_GUI_COMMANDS.iter().chain(REALM_COMMANDS) {
+        assert!(ts.contains(&format!("\"{cmd}\"")), "types.ts missing command {cmd}");
+        assert!(
+            js.contains(&format!("\"{cmd}\":")),
+            "isolation/commands.js missing command {cmd}"
+        );
+        assert!(
+            perms.contains(&format!("\"allow-{}\"", cmd.replace('_', "-"))),
+            "permissions/app-commands.toml missing command {cmd}"
+        );
+    }
+
+    for ty in [
+        "ModuleView",
+        "HistoryEntryView",
+        "RevertPlanView",
+        "GuardedActionInfo",
+        "RealmView",
+        "RevivedInfo",
+        "DoctorReportView",
+        "MongoMigrationView",
+        "ServerConfigView",
+        "ServerInviteEntry",
+        "AdminResultView",
+    ] {
+        assert!(
+            ts.contains(&format!("export type {ty} =")),
+            "types.ts missing type {ty}"
+        );
+    }
+}
