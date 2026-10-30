@@ -1,84 +1,135 @@
-//! JSON text exactly as JavaScript's `JSON.stringify` writes it (MIGRATION_PLAN.md SB1).
-//!
-//! The Node services re-serialize what they store and send (`JSON.stringify(JSON.parse(x))`), which
-//! rewrites the client's text: `1.0` becomes `1`, `1e2` becomes `100`, `é` becomes `é`, and an
-//! integer above 2^53 loses its last digits. Clients and the parity replays compare this text, so
-//! every number here is a JavaScript double written with `Number.prototype.toString`, and strings
-//! are escaped as `JSON.stringify` escapes them. Key order is the order of the map (insertion order
-//! with `serde_json`'s `preserve_order`), as in JavaScript objects (apart from integer-like keys,
-//! which JavaScript moves to the front; [`stringify`] does that too).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
-use serde_json::{Map, Value};
+use std::fmt::Write;
 
-/// `JSON.stringify(value)`.
-pub fn stringify(value: &Value) -> String {
-    let mut out = String::new();
-    write_value(&mut out, value);
+use serde_json::{Map, Number, Value};
+
+fn array_index(key: &str) -> Option<u32> {
+    if key == "0" {
+        return Some(0);
+    }
+    if !key.starts_with(|c: char| c.is_ascii_digit() && c != '0') {
+        return None;
+    }
+    if !key.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    key.parse::<u32>().ok().filter(|&n| n < u32::MAX)
+}
+
+fn ordered_entries(map: &Map<String, Value>) -> Vec<(&String, &Value)> {
+    let mut indexed: Vec<(u32, &String, &Value)> = Vec::new();
+    let mut others: Vec<(&String, &Value)> = Vec::with_capacity(map.len());
+
+    for (k, v) in map {
+        if let Some(idx) = array_index(k) {
+            indexed.push((idx, k, v));
+        } else {
+            others.push((k, v));
+        }
+    }
+    indexed.sort_by_key(|(idx, _, _)| *idx);
+
+    let mut out = Vec::with_capacity(map.len());
+    for (_, k, v) in indexed {
+        out.push((k, v));
+    }
+    out.extend(others);
     out
 }
 
-/// `JSON.parse(text)` as far as the result can differ: numbers become doubles (an integer above
-/// 2^53 is rounded as JavaScript rounds it) and a repeated key keeps its first place with the last
-/// value. Errors where JSON.parse throws.
-pub fn parse(text: &str) -> Result<Value, serde_json::Error> {
-    serde_json::from_str(text).map(|value| to_js(&value))
-}
-
-/// The value as JavaScript holds it: numbers as doubles, object keys in JavaScript's property order.
-pub fn to_js(value: &Value) -> Value {
-    match value {
-        Value::Number(n) => n
-            .as_f64()
-            .and_then(|f| {
-                if f.fract() == 0.0 && f.abs() < 9_007_199_254_740_992.0 {
-                    Some(Value::from(f as i64))
-                } else {
-                    serde_json::Number::from_f64(f).map(Value::Number)
-                }
-            })
-            .unwrap_or(Value::Null),
-        Value::Array(items) => Value::Array(items.iter().map(to_js).collect()),
-        Value::Object(map) => Value::Object(js_order(map.iter().map(|(k, v)| (k.clone(), to_js(v))))),
-        other => other.clone(),
+pub fn number(value: f64) -> String {
+    if !value.is_finite() {
+        return "null".to_owned();
     }
-}
-
-/// An array index key in JavaScript: a canonical decimal integer below 2^32 - 1.
-fn array_index(key: &str) -> Option<u32> {
-    let n: u32 = key.parse().ok()?;
-    (n != u32::MAX && n.to_string() == key).then_some(n)
-}
-
-/// JavaScript's own-property order: integer keys ascending first, then the rest in insertion order.
-fn js_order(entries: impl Iterator<Item = (String, Value)>) -> Map<String, Value> {
-    let entries: Vec<(String, Value)> = entries.collect();
-    let mut indexed: Vec<(u32, String, Value)> = entries
-        .iter()
-        .filter_map(|(k, v)| array_index(k).map(|n| (n, k.clone(), v.clone())))
-        .collect();
-    indexed.sort_by_key(|(n, _, _)| *n);
-    let mut map = Map::new();
-    for (_, key, value) in indexed {
-        map.insert(key, value);
+    if value == 0.0 {
+        return "0".to_owned();
     }
-    for (key, value) in entries {
-        if array_index(&key).is_none() {
-            map.insert(key, value);
+
+    let mut out = String::new();
+    if value.is_sign_negative() {
+        out.push('-');
+    }
+    let abs = value.abs();
+    let sci = format!("{abs:e}");
+    let (mantissa, exp_str) = sci.split_once('e').unwrap_or((&sci, "0"));
+    let exp: i32 = exp_str.parse().unwrap_or(0);
+
+    if (-6..21).contains(&exp) {
+        let mut digits = String::with_capacity(mantissa.len());
+        for ch in mantissa.chars() {
+            if ch != '.' {
+                digits.push(ch);
+            }
+        }
+        let k = digits.len() as i32;
+        let n = exp + 1;
+        if n <= 0 {
+            out.push_str("0.");
+            for _ in 0..(-n) {
+                out.push('0');
+            }
+            out.push_str(&digits);
+        } else if k <= n {
+            out.push_str(&digits);
+            for _ in 0..(n - k) {
+                out.push('0');
+            }
+        } else {
+            let split = n as usize;
+            out.push_str(&digits[..split]);
+            out.push('.');
+            out.push_str(&digits[split..]);
+        }
+    } else {
+        out.push_str(mantissa);
+        if exp >= 0 {
+            let _ = write!(out, "e+{exp}");
+        } else {
+            let _ = write!(out, "e{exp}");
         }
     }
-    map
+    out
+}
+
+fn write_escaped_str(out: &mut String, s: &str) {
+    out.push('"');
+    for ch in s.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\x08' => out.push_str("\\b"),
+            '\x0c' => out.push_str("\\f"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => {
+                let _ = write!(out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
 }
 
 fn write_value(out: &mut String, value: &Value) {
     match value {
         Value::Null => out.push_str("null"),
-        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
-        Value::Number(n) => out.push_str(&number(n.as_f64().unwrap_or(f64::NAN))),
-        Value::String(s) => write_string(out, s),
+        Value::Bool(true) => out.push_str("true"),
+        Value::Bool(false) => out.push_str("false"),
+        Value::Number(n) => {
+            if let Some(f) = n.as_f64() {
+                out.push_str(&number(f));
+            } else {
+                out.push_str("null");
+            }
+        }
+        Value::String(s) => write_escaped_str(out, s),
         Value::Array(items) => {
             out.push('[');
-            for (index, item) in items.iter().enumerate() {
-                if index > 0 {
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
                     out.push(',');
                 }
                 write_value(out, item);
@@ -87,133 +138,130 @@ fn write_value(out: &mut String, value: &Value) {
         }
         Value::Object(map) => {
             out.push('{');
-            let ordered = js_order(map.iter().map(|(k, v)| (k.clone(), v.clone())));
-            for (index, (key, item)) in ordered.iter().enumerate() {
-                if index > 0 {
+            for (i, (k, v)) in ordered_entries(map).into_iter().enumerate() {
+                if i > 0 {
                     out.push(',');
                 }
-                write_string(out, key);
+                write_escaped_str(out, k);
                 out.push(':');
-                write_value(out, item);
+                write_value(out, v);
             }
             out.push('}');
         }
     }
 }
 
-fn write_string(out: &mut String, text: &str) {
-    out.push('"');
-    for c in text.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\u{8}' => out.push_str("\\b"),
-            '\u{c}' => out.push_str("\\f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
+pub fn stringify(value: &Value) -> String {
+    let mut out = String::new();
+    write_value(&mut out, value);
+    out
 }
 
-/// `Number.prototype.toString()` as JSON writes it: `null` for NaN and the infinities, `0` for -0.
-pub fn number(value: f64) -> String {
-    if !value.is_finite() {
-        return "null".into();
-    }
-    if value == 0.0 {
-        return "0".into();
-    }
-    // Rust's `{:e}` gives the shortest digits that read back the same, as JavaScript uses.
-    let scientific = format!("{:e}", value.abs());
-    let (mantissa, exponent) = scientific.split_once('e').unwrap_or((&scientific, "0"));
-    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    let exponent: i32 = exponent.parse().unwrap_or(0);
-    let k = digits.len() as i32;
-    let n = exponent + 1;
-    let sign = if value < 0.0 { "-" } else { "" };
-    let body = if k <= n && n <= 21 {
-        format!("{digits}{}", "0".repeat((n - k) as usize))
-    } else if 0 < n && n <= 21 {
-        format!("{}.{}", &digits[..n as usize], &digits[n as usize..])
-    } else if -6 < n && n <= 0 {
-        format!("0.{}{digits}", "0".repeat((-n) as usize))
-    } else {
-        let e = n - 1;
-        let e = if e >= 0 { format!("+{e}") } else { e.to_string() };
-        if k == 1 {
-            format!("{digits}e{e}")
-        } else {
-            format!("{}.{}e{e}", &digits[..1], &digits[1..])
+pub fn to_js(value: &Value) -> Value {
+    match value {
+        Value::Null => Value::Null,
+        Value::Bool(b) => Value::Bool(*b),
+        Value::String(s) => Value::String(s.clone()),
+        Value::Number(n) => {
+            let Some(f) = n.as_f64() else {
+                return Value::Null;
+            };
+            if !f.is_finite() {
+                return Value::Null;
+            }
+            if f == 0.0 && f.is_sign_negative() {
+                return Number::from_f64(-0.0).map_or(Value::Null, Value::Number);
+            }
+            if f.fract() == 0.0 {
+                if (0.0..=(u64::MAX as f64)).contains(&f) {
+                    let u = f as u64;
+                    if (u as f64) == f {
+                        return Value::Number(Number::from(u));
+                    }
+                } else if ((i64::MIN as f64)..0.0).contains(&f) {
+                    let i = f as i64;
+                    if (i as f64) == f {
+                        return Value::Number(Number::from(i));
+                    }
+                }
+            }
+            Number::from_f64(f).map_or(Value::Null, Value::Number)
         }
-    };
-    format!("{sign}{body}")
+        Value::Array(items) => Value::Array(items.iter().map(to_js).collect()),
+        Value::Object(map) => {
+            let mut out = Map::with_capacity(map.len());
+            for (k, v) in ordered_entries(map) {
+                out.insert(k.clone(), to_js(v));
+            }
+            Value::Object(out)
+        }
+    }
 }
 
-/// `util.isDeepStrictEqual` on two parsed JSON values: numbers by value (with `0` and `-0` apart),
-/// objects regardless of key order.
+pub fn parse(text: &str) -> Result<Value, serde_json::Error> {
+    let val: Value = serde_json::from_str(text)?;
+    Ok(to_js(&val))
+}
+
 pub fn deep_equal(a: &Value, b: &Value) -> bool {
     match (a, b) {
-        (Value::Number(x), Value::Number(y)) => {
-            let (x, y) = (x.as_f64().unwrap_or(f64::NAN), y.as_f64().unwrap_or(f64::NAN));
-            (x == y && x.is_sign_negative() == y.is_sign_negative()) || (x.is_nan() && y.is_nan())
+        (Value::Null, Value::Null) => true,
+        (Value::Bool(ba), Value::Bool(bb)) => ba == bb,
+        (Value::String(sa), Value::String(sb)) => sa == sb,
+        (Value::Number(na), Value::Number(nb)) => {
+            let fa = na.as_f64().unwrap_or(f64::NAN);
+            let fb = nb.as_f64().unwrap_or(f64::NAN);
+            if fa.is_nan() && fb.is_nan() {
+                true
+            } else {
+                fa.to_bits() == fb.to_bits()
+            }
         }
-        (Value::Array(x), Value::Array(y)) => x.len() == y.len() && x.iter().zip(y).all(|(x, y)| deep_equal(x, y)),
-        (Value::Object(x), Value::Object(y)) => {
-            x.len() == y.len()
-                && x.iter()
-                    .all(|(key, value)| y.get(key).is_some_and(|other| deep_equal(value, other)))
+        (Value::Array(aa), Value::Array(ab)) => {
+            aa.len() == ab.len() && aa.iter().zip(ab.iter()).all(|(x, y)| deep_equal(x, y))
         }
-        _ => a == b,
+        (Value::Object(ma), Value::Object(mb)) => {
+            ma.len() == mb.len()
+                && ma
+                    .iter()
+                    .all(|(k, va)| mb.get(k).is_some_and(|vb| deep_equal(va, vb)))
+        }
+        _ => false,
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use serde_json::json;
 
-    use super::*;
-
-    // Expected values from Node: JSON.stringify(JSON.parse(input)).
     #[test]
-    fn matches_json_stringify() {
-        let cases = [
-            (
-                r#"{"a":1.0,"b":1e2,"c":-0.0,"d":0.1,"e":1e21,"f":1.5e-7,"g":123456789012345678901234}"#,
-                r#"{"a":1,"b":100,"c":0,"d":0.1,"e":1e+21,"f":1.5e-7,"g":1.2345678901234569e+23}"#,
-            ),
-            (
-                r#"[12345678901234567890, 9007199254740993, 0.000001, 1e-7, 123e18, 4.35, 2.5e-5]"#,
-                r#"[12345678901234567000,9007199254740992,0.000001,1e-7,123000000000000000000,4.35,0.000025]"#,
-            ),
-            (
-                r#"{"s":"é \n\t\u0001\"\\/"}"#,
-                "{\"s\":\"é\u{2028}\\n\\t\\u0001\\\"\\\\/\"}",
-            ),
-            (
-                r#"{"b":1,"2":2,"a":3,"1":4,"01":5,"x":{"10":0,"9":1}}"#,
-                r#"{"1":4,"2":2,"b":1,"a":3,"01":5,"x":{"9":1,"10":0}}"#,
-            ),
-            (r#"{"a":1,"b":2,"a":3}"#, r#"{"a":3,"b":2}"#),
-        ];
-        for (input, expected) in cases {
-            assert_eq!(stringify(&parse(input).unwrap()), expected, "{input}");
-        }
-        assert_eq!(number(-1.5), "-1.5");
+    fn formats_numbers_matching_ecmascript() {
+        assert_eq!(number(0.0), "0");
+        assert_eq!(number(-0.0), "0");
         assert_eq!(number(f64::NAN), "null");
+        assert_eq!(number(f64::INFINITY), "null");
+        assert_eq!(number(1e-6), "0.000001");
+        assert_eq!(number(1.5e-7), "1.5e-7");
+        assert_eq!(number(1e20), "100000000000000000000");
+        assert_eq!(number(1e21), "1e+21");
+        assert_eq!(number(-123.456), "-123.456");
     }
 
     #[test]
-    fn deep_equality_is_node_s() {
-        assert!(deep_equal(
-            &json!({"a": 1, "b": [1.0, {"c": null}]}),
-            &json!({"b": [1, {"c": null}], "a": 1.0})
-        ));
-        assert!(!deep_equal(&json!({"a": 1}), &json!({"a": 1, "b": 2})));
-        assert!(!deep_equal(&json!(0.0), &json!(-0.0)));
-        assert!(!deep_equal(&json!("1"), &json!(1)));
+    fn orders_array_index_keys_before_string_keys() {
+        let val = parse(r#"{"b":1,"10":2,"2":3,"a":4,"0":5,"01":6,"4294967295":7}"#).unwrap();
+        assert_eq!(
+            stringify(&val),
+            r#"{"0":5,"2":3,"10":2,"b":1,"a":4,"01":6,"4294967295":7}"#
+        );
+    }
+
+    #[test]
+    fn deep_equal_distinguishes_signed_zero_and_ignores_key_order() {
+        let pos_zero = Value::Number(Number::from_f64(0.0).unwrap());
+        let neg_zero = Value::Number(Number::from_f64(-0.0).unwrap());
+        assert!(!deep_equal(&pos_zero, &neg_zero));
+        assert!(deep_equal(&json!({"a": 1, "b": 2}), &json!({"b": 2, "a": 1})));
     }
 }

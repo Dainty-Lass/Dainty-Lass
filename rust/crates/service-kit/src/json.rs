@@ -1,61 +1,54 @@
-//! JSON replies as Express's `res.json` sends them (MIGRATION_PLAN.md M7, SB1): the body is the text
-//! `JSON.stringify` writes (`crate::jsjson`) and the type is `application/json; charset=utf-8` (axum's own
-//! `Json` leaves the charset out). No ETag (D16) and no `X-Powered-By`.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
-use axum::http::StatusCode;
-use axum::http::header::{CONTENT_TYPE, HeaderValue};
+use axum::extract::Request;
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 pub const JSON_UTF8: &str = "application/json; charset=utf-8";
 
+#[derive(Debug, Clone, Copy)]
 pub struct Json<T>(pub T);
 
 impl<T: Serialize> IntoResponse for Json<T> {
     fn into_response(self) -> Response {
-        // Written as JSON.stringify writes it (numbers, escapes, key order): crate::jsjson.
-        match serde_json::to_value(&self.0) {
-            Ok(value) => (
-                [(CONTENT_TYPE, HeaderValue::from_static(JSON_UTF8))],
-                crate::jsjson::stringify(&value),
-            )
-                .into_response(),
-            Err(error) => {
-                tracing::error!(err = &error as &dyn std::error::Error, "Could not serialize a reply");
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        match serde_json::to_value(self.0) {
+            Ok(val) => {
+                let body = crate::jsjson::stringify(&val);
+                ([(header::CONTENT_TYPE, JSON_UTF8)], body).into_response()
+            }
+            Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
+    }
+}
+
+pub fn js_number<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+    if !value.is_finite() {
+        return serializer.serialize_none();
+    }
+    if *value == 0.0 {
+        return serializer.serialize_i64(0);
+    }
+    if value.fract() == 0.0 && value.abs() < 1e21 {
+        if (*value >= i64::MIN as f64) && (*value <= i64::MAX as f64) {
+            let i = *value as i64;
+            if (i as f64) == *value {
+                return serializer.serialize_i64(i);
             }
         }
+        return serializer.serialize_i128(*value as i128);
     }
+    serializer.serialize_f64(*value)
 }
 
-/// Serializes an `f64` as JavaScript's `JSON.stringify` writes a number (SB1): a whole number
-/// without a fraction (`1`, not `1.0`), `null` for NaN and infinities, otherwise the shortest form
-/// that reads back the same, which `serde_json` and JavaScript agree on. Use with
-/// `#[serde(serialize_with = "service_kit::json::js_number")]`.
-pub fn js_number<S: serde::Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
-    if !value.is_finite() {
-        serializer.serialize_none()
-    } else if value.fract() == 0.0 && value.abs() < 1e21 {
-        // Whole numbers up to 1e21 print without a fraction or exponent in JavaScript.
-        if value.abs() <= i64::MAX as f64 {
-            serializer.serialize_i64(*value as i64)
-        } else {
-            serializer.serialize_i128(*value as i128)
-        }
-    } else {
-        serializer.serialize_f64(*value)
-    }
-}
-
-/// [`js_number`] for an optional number.
-pub fn js_number_opt<S: serde::Serializer>(value: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error> {
+pub fn js_number_opt<S: Serializer>(value: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error> {
     match value {
-        Some(value) => js_number(value, serializer),
+        Some(v) => js_number(v, serializer),
         None => serializer.serialize_none(),
     }
 }
 
-/// The reply of a request no route answers: 404 with an empty body, like the Node services' catch-all.
-pub fn not_found(_request: &axum::extract::Request) -> Response {
+pub fn not_found(_request: &Request) -> Response {
     StatusCode::NOT_FOUND.into_response()
 }

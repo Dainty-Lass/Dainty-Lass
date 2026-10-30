@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! In-process service lifecycle context (`ServiceContext`), component phases (`ComponentPhase`),
 //! and the shared `StatusRegistry` observed by the console REPL, TUI, and GUI Status Page.
 

@@ -1,15 +1,16 @@
-//! The log of the content server and the gateway (their `src/log.ts`): one JSON object per line,
-//! `{t, level, msg, ...fields}`, on stdout (stderr for warnings and errors), so the host can grep or
-//! load it. Not pino's format: those two services never used pino, and the host's tools read these
-//! lines as they are. Nothing here ever receives a key, token or secret: callers pass account ids
-//! and redacted paths, never headers.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
+use std::collections::HashMap;
 use std::io::Write;
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
-use serde_json::{Map, Value, json};
+use chrono::Utc;
+use serde_json::{Map, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
 pub enum Level {
     Debug = 10,
     Info = 20,
@@ -18,7 +19,7 @@ pub enum Level {
 }
 
 impl Level {
-    fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Debug => "debug",
             Self::Info => "info",
@@ -26,77 +27,104 @@ impl Level {
             Self::Error => "error",
         }
     }
+
+    const fn from_u8(val: u8) -> Option<Self> {
+        match val {
+            10 => Some(Self::Debug),
+            20 => Some(Self::Info),
+            30 => Some(Self::Warn),
+            40 => Some(Self::Error),
+            _ => None,
+        }
+    }
 }
 
-type Sink = Box<dyn Fn(&str, Level) + Send + Sync>;
+pub type Sink = Box<dyn Fn(&str, Level) + Send + Sync>;
 
-struct Logger {
-    threshold: Level,
-    sink: Option<Sink>,
+static LEVEL_OVERRIDE: AtomicU8 = AtomicU8::new(0);
+static SINK: OnceLock<Mutex<Option<Arc<Sink>>>> = OnceLock::new();
+
+fn sink_cell() -> &'static Mutex<Option<Arc<Sink>>> {
+    SINK.get_or_init(|| Mutex::new(None))
 }
 
-fn logger() -> &'static Mutex<Logger> {
-    static LOGGER: OnceLock<Mutex<Logger>> = OnceLock::new();
-    LOGGER.get_or_init(|| {
-        let threshold = match std::env::var("LOG_LEVEL").unwrap_or_default().to_lowercase().as_str() {
-            "debug" => Level::Debug,
-            "warn" => Level::Warn,
-            "error" => Level::Error,
+fn env_level() -> Level {
+    static ENV_LEVEL: OnceLock<Level> = OnceLock::new();
+    *ENV_LEVEL.get_or_init(|| {
+        match std::env::var("LOG_LEVEL")
+            .ok()
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
+            Some("debug") => Level::Debug,
+            Some("warn") => Level::Warn,
+            Some("error") => Level::Error,
             _ => Level::Info,
-        };
-        Mutex::new(Logger { threshold, sink: None })
+        }
     })
 }
 
-/// Tests capture the log instead of printing it.
+fn current_level() -> Level {
+    Level::from_u8(LEVEL_OVERRIDE.load(Ordering::Relaxed)).unwrap_or_else(env_level)
+}
+
 pub fn set_sink(sink: Option<Sink>) {
-    logger().lock().unwrap_or_else(std::sync::PoisonError::into_inner).sink = sink;
+    let mut guard = sink_cell()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    *guard = sink.map(Arc::new);
 }
 
 pub fn set_level(level: Level) {
-    logger()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .threshold = level;
+    LEVEL_OVERRIDE.store(level as u8, Ordering::Relaxed);
 }
 
-/// `Log`: `fields` must be a JSON object (anything else is left out).
 pub fn log(level: Level, msg: &str, fields: Value) {
-    let guard = logger().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    if level < guard.threshold {
+    if level < current_level() {
         return;
     }
-    let mut line = Map::new();
-    line.insert(
-        "t".into(),
-        json!(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()),
-    );
-    line.insert("level".into(), json!(level.as_str()));
-    line.insert("msg".into(), json!(msg));
-    if let Value::Object(fields) = fields {
-        for (name, value) in fields {
-            line.insert(name, value);
+
+    let mut map = Map::new();
+    let ts = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+    map.insert("t".to_owned(), Value::String(ts));
+    map.insert("level".to_owned(), Value::String(level.as_str().to_owned()));
+    map.insert("msg".to_owned(), Value::String(msg.to_owned()));
+
+    if let Value::Object(extra) = fields {
+        for (k, v) in extra {
+            map.insert(k, v);
         }
     }
-    let text = crate::jsjson::stringify(&Value::Object(line));
-    if let Some(sink) = &guard.sink {
+
+    let text = crate::jsjson::stringify(&Value::Object(map));
+
+    let custom_sink = sink_cell()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+
+    if let Some(sink) = custom_sink {
         sink(&text, level);
-        return;
-    }
-    drop(guard);
-    if crate::telemetry::tracing_bridge_active() {
+    } else if crate::telemetry::tracing_bridge_active() {
         match level {
             Level::Debug => tracing::debug!("{msg} ({text})"),
             Level::Info => tracing::info!("{msg} ({text})"),
             Level::Warn => tracing::warn!("{msg} ({text})"),
             Level::Error => tracing::error!("{msg} ({text})"),
         }
-        return;
-    }
-    if level >= Level::Warn {
-        let _ = writeln!(std::io::stderr(), "{text}");
     } else {
-        let _ = writeln!(std::io::stdout(), "{text}");
+        match level {
+            Level::Warn | Level::Error => {
+                let mut err = std::io::stderr().lock();
+                let _ = writeln!(err, "{text}");
+            }
+            Level::Debug | Level::Info => {
+                let mut out = std::io::stdout().lock();
+                let _ = writeln!(out, "{text}");
+            }
+        }
     }
 }
 
@@ -116,52 +144,103 @@ pub fn debug(msg: &str, fields: Value) {
     log(Level::Debug, msg, fields);
 }
 
-/// One line per key at most every `interval_ms`, so a flood (a scanner, a helper that is down)
-/// cannot fill the disk (`LogThrottle`).
+const MAX_THROTTLE_KEYS: usize = 10_000;
+
+struct ThrottleEntry {
+    last_ms: i64,
+    suppressed: u64,
+}
+
 pub struct Throttle {
     interval_ms: i64,
-    max_keys: usize,
-    last: Mutex<std::collections::HashMap<String, (i64, u64)>>,
+    entries: Mutex<HashMap<String, ThrottleEntry>>,
 }
 
 impl Throttle {
     pub fn new(interval_ms: i64) -> Self {
         Self {
             interval_ms,
-            max_keys: 10_000,
-            last: Mutex::default(),
+            entries: Mutex::new(HashMap::new()),
         }
     }
 
-    /// `Some(lines held back since the last one let through)`, or `None` to stay quiet.
     pub fn allow(&self, key: &str, now: i64) -> Option<u64> {
-        let mut last = self.last.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some((at, suppressed)) = last.get_mut(key)
-            && now - *at < self.interval_ms
-        {
-            *suppressed += 1;
-            return None;
+        let mut map = self
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+        if let Some(entry) = map.get_mut(key) {
+            if now.saturating_sub(entry.last_ms) < self.interval_ms {
+                entry.suppressed += 1;
+                return None;
+            }
+            let suppressed = entry.suppressed;
+            entry.last_ms = now;
+            entry.suppressed = 0;
+            return Some(suppressed);
         }
-        let suppressed = last.get(key).map_or(0, |(_, s)| *s);
-        if last.len() >= self.max_keys {
-            last.clear();
+
+        if map.len() >= MAX_THROTTLE_KEYS {
+            let interval = self.interval_ms;
+            map.retain(|_, v| now.saturating_sub(v.last_ms) < interval);
+            if map.len() >= MAX_THROTTLE_KEYS
+                && let Some(oldest_key) = map
+                    .iter()
+                    .min_by_key(|(_, v)| v.last_ms)
+                    .map(|(k, _)| k.clone())
+            {
+                map.remove(&oldest_key);
+            }
         }
-        last.insert(key.to_owned(), (now, 0));
-        Some(suppressed)
+
+        map.insert(
+            key.to_owned(),
+            ThrottleEntry {
+                last_ms: now,
+                suppressed: 0,
+            },
+        );
+        Some(0)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
-    fn the_throttle_counts_what_it_held_back() {
+    fn emits_structured_json_to_sink_and_respects_level() {
+        let captured: Arc<Mutex<Vec<(String, Level)>>> = Arc::new(Mutex::new(Vec::new()));
+        let cap_clone = captured.clone();
+        set_level(Level::Info);
+        set_sink(Some(Box::new(move |line, lvl| {
+            cap_clone.lock().unwrap().push((line.to_owned(), lvl));
+        })));
+
+        debug("ignored debug", json!({"a": 1}));
+        info("started", json!({"port": 8080}));
+
+        set_sink(None);
+
+        let logs = captured.lock().unwrap();
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0].1, Level::Info);
+        let parsed: Value = serde_json::from_str(&logs[0].0).unwrap();
+        assert_eq!(parsed["level"], "info");
+        assert_eq!(parsed["msg"], "started");
+        assert_eq!(parsed["port"], 8080);
+        assert!(parsed["t"].as_str().unwrap().ends_with('Z'));
+    }
+
+    #[test]
+    fn throttle_suppresses_within_interval_and_reports_count() {
         let throttle = Throttle::new(1000);
-        assert_eq!(throttle.allow("a", 0), Some(0));
-        assert_eq!(throttle.allow("a", 10), None);
-        assert_eq!(throttle.allow("a", 20), None);
-        assert_eq!(throttle.allow("b", 20), Some(0));
-        assert_eq!(throttle.allow("a", 1000), Some(2));
+        assert_eq!(throttle.allow("k1", 100), Some(0));
+        assert_eq!(throttle.allow("k1", 500), None);
+        assert_eq!(throttle.allow("k1", 999), None);
+        assert_eq!(throttle.allow("k1", 1100), Some(2));
+        assert_eq!(throttle.allow("k1", 2100), Some(0));
     }
 }

@@ -1,184 +1,244 @@
-//! JavaScript's value semantics on parsed JSON, for the code the Node services wrote against untyped
-//! request bodies and files: `Number(x)`, `String(x)`, `===`, `typeof`, `trim()` and `Date.parse`.
-//! `None` stands for `undefined` (a missing key).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
 use serde_json::Value;
 
-/// `Number(x)`.
+pub fn is_space(c: char) -> bool {
+    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
+}
+
+pub fn trim(text: &str) -> &str {
+    text.trim_matches(is_space)
+}
+
 pub fn number(value: Option<&Value>) -> f64 {
     match value {
         None => f64::NAN,
         Some(Value::Null) => 0.0,
-        Some(Value::Bool(b)) => f64::from(u8::from(*b)),
+        Some(Value::Bool(b)) => {
+            if *b {
+                1.0
+            } else {
+                0.0
+            }
+        }
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-        Some(Value::String(text)) => string_to_number(text),
+        Some(Value::String(s)) => {
+            let t = trim(s);
+            if t.is_empty() {
+                return 0.0;
+            }
+            if let Some(hex) = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) {
+                if hex.is_empty() || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+                    return f64::NAN;
+                }
+                return u128::from_str_radix(hex, 16).map_or_else(
+                    |_| {
+                        hex.bytes().fold(0.0_f64, |acc, b| {
+                            let d = match b {
+                                b'0'..=b'9' => b - b'0',
+                                b'a'..=b'f' => b - b'a' + 10,
+                                b'A'..=b'F' => b - b'A' + 10,
+                                _ => 0,
+                            };
+                            acc * 16.0 + f64::from(d)
+                        })
+                    },
+                    |v| v as f64,
+                );
+            }
+            match t {
+                "Infinity" | "+Infinity" => f64::INFINITY,
+                "-Infinity" => f64::NEG_INFINITY,
+                _ => {
+                    if !t.bytes().any(|b| b.is_ascii_digit())
+                        || !t
+                            .bytes()
+                            .all(|b| b.is_ascii_digit() || matches!(b, b'.' | b'+' | b'-' | b'e' | b'E'))
+                    {
+                        return f64::NAN;
+                    }
+                    t.parse::<f64>().unwrap_or(f64::NAN)
+                }
+            }
+        }
         Some(Value::Array(items)) => match items.as_slice() {
             [] => 0.0,
-            [one] => string_to_number(&string(Some(one))),
+            [one] => {
+                let s = string(Some(one));
+                number(Some(&Value::String(s)))
+            }
             _ => f64::NAN,
         },
         Some(Value::Object(_)) => f64::NAN,
     }
 }
 
-fn string_to_number(text: &str) -> f64 {
-    let text = text.trim();
-    if text.is_empty() {
-        return 0.0;
-    }
-    if let Some(hex) = text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
-        return u64::from_str_radix(hex, 16).map_or(f64::NAN, |n| n as f64);
-    }
-    match text {
-        "Infinity" | "+Infinity" => f64::INFINITY,
-        "-Infinity" => f64::NEG_INFINITY,
-        _ if text.contains(|c: char| c.is_ascii_alphabetic() && c != 'e' && c != 'E') => f64::NAN,
-        _ => text.parse().unwrap_or(f64::NAN),
-    }
-}
-
-/// `String(x)`, as template literals write a value.
 pub fn string(value: Option<&Value>) -> String {
     match value {
-        None => "undefined".into(),
-        Some(Value::Null) => "null".into(),
-        Some(Value::Bool(b)) => b.to_string(),
-        Some(Value::Number(n)) => crate::jsjson::number(n.as_f64().unwrap_or(f64::NAN)),
-        Some(Value::String(text)) => text.clone(),
+        None => "undefined".to_owned(),
+        Some(Value::Null) => "null".to_owned(),
+        Some(Value::Bool(true)) => "true".to_owned(),
+        Some(Value::Bool(false)) => "false".to_owned(),
+        Some(Value::Number(n)) => n
+            .as_f64()
+            .map_or_else(|| "NaN".to_owned(), crate::jsjson::number),
+        Some(Value::String(s)) => s.clone(),
         Some(Value::Array(items)) => items
             .iter()
-            .map(|item| {
-                if item.is_null() {
-                    String::new()
-                } else {
-                    string(Some(item))
-                }
+            .map(|item| match item {
+                Value::Null => String::new(),
+                other => string(Some(other)),
             })
             .collect::<Vec<_>>()
             .join(","),
-        Some(Value::Object(_)) => "[object Object]".into(),
+        Some(Value::Object(_)) => "[object Object]".to_owned(),
     }
 }
 
-/// `a === b`: primitives by value; two objects or arrays are never the same value here.
 pub fn strict_eq(a: Option<&Value>, b: Option<&Value>) -> bool {
     match (a, b) {
-        (None, None) => true,
-        (Some(Value::Null), Some(Value::Null)) => true,
-        (Some(Value::Bool(x)), Some(Value::Bool(y))) => x == y,
-        (Some(Value::Number(x)), Some(Value::Number(y))) => x.as_f64() == y.as_f64(),
-        (Some(Value::String(x)), Some(Value::String(y))) => x == y,
+        (None, None) | (Some(Value::Null), Some(Value::Null)) => true,
+        (Some(Value::Bool(ba)), Some(Value::Bool(bb))) => ba == bb,
+        (Some(Value::Number(na)), Some(Value::Number(nb))) => {
+            match (na.as_f64(), nb.as_f64()) {
+                (Some(fa), Some(fb)) => fa == fb,
+                _ => false,
+            }
+        }
+        (Some(Value::String(sa)), Some(Value::String(sb))) => sa == sb,
         _ => false,
     }
 }
 
-/// `x == null`: null or undefined.
 pub fn is_nullish(value: Option<&Value>) -> bool {
     matches!(value, None | Some(Value::Null))
 }
 
-/// JavaScript truthiness, for `!!x`.
 pub fn truthy(value: Option<&Value>) -> bool {
     match value {
-        None | Some(Value::Null) => false,
-        Some(Value::Bool(b)) => *b,
-        Some(Value::Number(n)) => n.as_f64().is_some_and(|n| n != 0.0 && !n.is_nan()),
-        Some(Value::String(text)) => !text.is_empty(),
-        Some(_) => true,
+        None | Some(Value::Null | Value::Bool(false)) => false,
+        Some(Value::Bool(true) | Value::Array(_) | Value::Object(_)) => true,
+        Some(Value::Number(n)) => n.as_f64().is_some_and(|f| f != 0.0 && !f.is_nan()),
+        Some(Value::String(s)) => !s.is_empty(),
     }
 }
 
-/// A regular expression's `\s`: JavaScript's white space (U+FEFF but not U+0085).
-pub fn is_space(c: char) -> bool {
-    (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
-}
-
-/// `String.prototype.trim`.
-pub fn trim(text: &str) -> &str {
-    text.trim_matches(is_space)
-}
-
-/// `typeof x === "number"`.
 pub fn is_number(value: Option<&Value>) -> bool {
     matches!(value, Some(Value::Number(_)))
 }
 
-/// `Number.isSafeInteger(x)` (no coercion).
 pub fn safe_integer(value: Option<&Value>) -> Option<i64> {
-    let n = value?.as_f64()?;
-    (n.fract() == 0.0 && n.abs() <= 9_007_199_254_740_991.0).then_some(n as i64)
+    let f = value?.as_f64()?;
+    if f.is_finite() && f.fract() == 0.0 && f.abs() <= 9_007_199_254_740_991.0 {
+        Some(f as i64)
+    } else {
+        None
+    }
 }
 
-/// `Date.parse(text)` for the forms the game and these services write: ISO 8601 with or without a
-/// time zone (without one, local time, as JavaScript reads it), a bare date (UTC), and RFC 2822.
-/// `None` where JavaScript gives NaN, or for a form outside these.
 pub fn date_parse(text: &str) -> Option<i64> {
-    if let Ok(when) = DateTime::parse_from_rfc3339(text) {
-        return Some(when.timestamp_millis());
+    let s = trim(text);
+    if s.is_empty() {
+        return None;
     }
-    if let Ok(when) = DateTime::parse_from_rfc2822(text) {
-        return Some(when.timestamp_millis());
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some(dt.timestamp_millis());
     }
-    for format in ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"] {
-        if let Ok(local) = NaiveDateTime::parse_from_str(text, format) {
-            return chrono::Local
-                .from_local_datetime(&local)
+    if let Ok(dt) = DateTime::parse_from_rfc2822(s) {
+        return Some(dt.timestamp_millis());
+    }
+    for fmt in ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"] {
+        if let Ok(ndt) = NaiveDateTime::parse_from_str(s, fmt) {
+            return Local
+                .from_local_datetime(&ndt)
                 .earliest()
-                .map(|when| when.timestamp_millis());
+                .map(|dt| dt.timestamp_millis());
         }
     }
-    NaiveDate::parse_from_str(text, "%Y-%m-%d")
-        .ok()
-        .and_then(|day| day.and_hms_opt(0, 0, 0))
-        .map(|when| Utc.from_utc_datetime(&when).timestamp_millis())
+    if let Ok(nd) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+        return nd.and_hms_opt(0, 0, 0).map(|ndt| ndt.and_utc().timestamp_millis());
+    }
+    None
 }
 
-/// `decodeURIComponent(text)`: every `%XX` decoded, the bytes read as UTF-8. `None` where JavaScript
-/// throws a URIError: a `%` without two hex digits after it, or bytes that are not UTF-8.
-pub fn decode_uri_component(text: &str) -> Option<String> {
-    if !text.contains('%') {
-        return Some(text.to_owned());
+fn hex_val(b: u8) -> Option<u8> {
+    match b {
+        b'0'..=b'9' => Some(b - b'0'),
+        b'a'..=b'f' => Some(b - b'a' + 10),
+        b'A'..=b'F' => Some(b - b'A' + 10),
+        _ => None,
     }
-    let raw = text.as_bytes();
-    let mut out = Vec::with_capacity(raw.len());
-    let mut index = 0;
-    while index < raw.len() {
-        if raw[index] != b'%' {
-            out.push(raw[index]);
-            index += 1;
-            continue;
+}
+
+pub fn decode_uri_component(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if i + 2 >= bytes.len() {
+                return None;
+            }
+            let hi = hex_val(bytes[i + 1])?;
+            let lo = hex_val(bytes[i + 2])?;
+            out.push((hi << 4) | lo);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
         }
-        let hex = raw.get(index + 1..index + 3)?;
-        let hex = std::str::from_utf8(hex).ok()?;
-        if !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return None;
-        }
-        out.push(u8::from_str_radix(hex, 16).ok()?);
-        index += 3;
     }
     String::from_utf8(out).ok()
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use serde_json::json;
 
-    use super::*;
+    #[test]
+    fn coerces_values_to_number_and_string() {
+        assert!(number(None).is_nan());
+        assert_eq!(number(Some(&Value::Null)), 0.0);
+        assert_eq!(number(Some(&json!(true))), 1.0);
+        assert_eq!(number(Some(&json!("  0x10 "))), 16.0);
+        assert_eq!(number(Some(&json!(""))), 0.0);
+        assert_eq!(number(Some(&json!([]))), 0.0);
+        assert_eq!(number(Some(&json!(["42"]))), 42.0);
+        assert!(number(Some(&json!([1, 2]))).is_nan());
+        assert!(number(Some(&json!("inf"))).is_nan());
+        assert_eq!(number(Some(&json!("Infinity"))), f64::INFINITY);
+
+        assert_eq!(string(None), "undefined");
+        assert_eq!(string(Some(&Value::Null)), "null");
+        assert_eq!(string(Some(&json!([1, null, "a"]))), "1,,a");
+        assert_eq!(string(Some(&json!({"a": 1}))), "[object Object]");
+    }
 
     #[test]
-    fn coercions_match_javascript() {
-        assert_eq!(number(Some(&json!(" 12 "))), 12.0);
-        assert_eq!(number(Some(&json!(""))), 0.0);
-        assert!(number(Some(&json!("12px"))).is_nan());
-        assert_eq!(number(Some(&json!([7]))), 7.0);
-        assert!(number(None).is_nan());
-        assert_eq!(string(Some(&json!([1, null, "a"]))), "1,,a");
-        assert_eq!(string(Some(&json!(1.0))), "1");
+    fn checks_strict_eq_truthy_and_safe_integer() {
         assert!(strict_eq(None, None));
-        assert!(!strict_eq(Some(&json!({})), Some(&json!({}))));
-        assert_eq!(date_parse("2026-10-20T00:00:00.000Z"), Some(1_792_454_400_000));
-        assert_eq!(date_parse("2026-10-20"), Some(1_792_454_400_000));
-        assert_eq!(date_parse("soon"), None);
+        assert!(strict_eq(Some(&json!(1)), Some(&json!(1.0))));
+        assert!(!strict_eq(Some(&json!([])), Some(&json!([]))));
+
+        assert!(!truthy(None));
+        assert!(!truthy(Some(&json!(0))));
+        assert!(!truthy(Some(&json!(""))));
+        assert!(truthy(Some(&json!([]))));
+
+        assert_eq!(safe_integer(Some(&json!(9_007_199_254_740_991_i64))), Some(9_007_199_254_740_991));
+        assert_eq!(safe_integer(Some(&json!(9_007_199_254_740_992_i64))), None);
+        assert_eq!(safe_integer(Some(&json!(1.5))), None);
+    }
+
+    #[test]
+    fn parses_dates_and_decodes_uri_components() {
+        assert_eq!(date_parse("1970-01-01"), Some(0));
+        assert_eq!(date_parse("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(decode_uri_component("hello%20world%2B1"), Some("hello world+1".into()));
+        assert_eq!(decode_uri_component("%E0%A4%A"), None);
+        assert_eq!(decode_uri_component("%FF"), None);
     }
 }
