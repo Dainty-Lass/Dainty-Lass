@@ -3,11 +3,11 @@
 # Tauri desktop apps status inventory (B1-B4)
 
 Complete inventory and verification record of the two Windows Tauri desktop applications (`dainty-lass-client` and
-`dainty-lass-server-gui` / `dainty-lass-manager`) across Part B1 (baseline audit at `dainty-lass` `c7cea40` and
+`dainty-lass-manager`) across Part B1 (baseline audit at `dainty-lass` `c7cea40` and
 `dainty-lass-ui` `cd3490d`), Part B2 (clean-clone NSIS builds), Part B3 (in-process Server GUI + Client feature and UI
-completion), and Part B4 (installed Windows desktop end-to-end test and `en` / `pt-BR` screenshot capture).
+completion), Part B4 (installed Windows desktop end-to-end test and `en` / `pt-BR` screenshot capture), and T1-T6.
 
-Both applications are built from `rust/launcher/src-tauri` serving the static Astro/React frontend in `ui/apps/web/dist`
+Both applications are built from `rust/launcher/src-tauri` serving the static SolidJS frontend in `ui/apps/web/dist`
 (DD11) over the typed Tauri bridge declared in `rust/launcher/src-tauri/src/bridge/spec.rs` and
 `ui/packages/bridge/src/api.ts`.
 
@@ -15,10 +15,10 @@ Both applications are built from `rust/launcher/src-tauri` serving the static As
 
 ## 1. Applications and build configurations
 
-| Application | Binary (`mainBinaryName`) | Tauri config | Cargo features (post-B3) | B1 baseline -> B4 final state |
+| Application | Binary (`mainBinaryName`) | Tauri config | Cargo features (post-B3) | B1 baseline -> current state |
 | --- | --- | --- | --- | --- |
-| **Client** (`DaintyLass Launcher`) | `dainty-lass-client` | `rust/launcher/src-tauri/tauri.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival`) | `default = ["host", "realms", "legacy"]` | **working**: `npm run build:client` (`tauri build --bundles nsis -- --features legacy,realms`) runs `beforeBuildCommand` (`bun install --cwd ../../ui --frozen-lockfile && bun run --cwd ../../ui build`) and produces `DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe` (8.50 MiB). |
-| **Server GUI** (`DaintyLass Server`) | `dainty-lass-server-gui` | `rust/launcher/src-tauri/tauri.server-gui.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival.server`) | `server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"]` | **working**: `npm run build:server-gui` (`npm run build:manager`) builds `DaintyLass Server_2.0.0-alpha.0_x64-setup.exe` (18.89 MiB) with distinct `icons/server/*` icons, window title `"DaintyLass Server"`, dedicated single-instance channel (`com.daintylass.server`), and all `services/host`, `server-controller`, `admin`, and `store` operations linked in-process. |
+| **Client** (`DaintyLass Launcher`) | `dainty-lass-client` | `rust/launcher/src-tauri/tauri.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival`) | `default = ["host", "realms", "legacy"]` | **working**: `npm run build:client` (`tauri build --bundles nsis -- --features legacy,realms`) runs `beforeBuildCommand` (`bun install --cwd ../../ui --frozen-lockfile && bun run --cwd ../../ui build`) and produces `DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe`. |
+| **Server GUI** (`DaintyLass Manager`) | `dainty-lass-manager` | `rust/launcher/src-tauri/tauri.server-gui.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival.server`) | `server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"]` | **working**: `npm run build:manager` (alias `npm run build:server-gui`) builds `DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe` with distinct `icons/server/*` icons, OS window title and header `"DaintyLass Manager"`, dedicated single-instance channel (`com.daintylass.server`), and all `services/host`, `server-controller`, `admin`, and `store` operations linked in-process. The bundle `identifier` (`...server`) is intentionally preserved so existing installs update in place, and the Cargo feature `server-gui` is kept consistently across `Cargo.toml`, `#[cfg(feature = "server-gui")]`, CI, `package.json`, and tests. |
 
 ---
 
@@ -26,7 +26,7 @@ Both applications are built from `rust/launcher/src-tauri` serving the static As
 
 The shell (`ui/apps/web/src/app/app.tsx` and `ui/apps/web/src/components/chrome.tsx`) renders one active screen at a
 time from the left navigation rail (`play`, `realms`, `server`, `game`, `host`, `settings` in `dainty-lass-client`;
-`host` and `settings` in `dainty-lass-server-gui`), plus shared frame components (`TitleBar`, `Rail`, `Banners`,
+`host` and `settings` in `dainty-lass-manager`), plus shared frame components (`TitleBar`, `Rail`, `Banners`,
 `ActionBar`, `Dialogs`).
 
 ### 2.1 Client (`dainty-lass-client`)
@@ -39,11 +39,11 @@ time from the left navigation rail (`play`, `realms`, `server`, `game`, `host`, 
 | **Server (`server`)** | `ui/apps/web/src/screens/servers.tsx` | Live status of the joined server (online players, active worlds/hunts, server details, news items) | `refresh_status`, `open_external` | **working** | **working** (displays live `Desktop E2E Hunts` status from in-process Rust backend and detects `account_banned` immediately on `refresh_status`) | `e2e-desktop.mjs` (`client-server-{en,pt-BR}.png`) and controller tests |
 | **Game (`game`)** | `ui/apps/web/src/screens/game.tsx` | Sign in to Epic Games (WebView2 window or pasted authorization code), check library ownership of Dauntless, list available game versions and sizes, download/pause/resume/cancel a version from Epic CDN, and select an installed version | `epic_account_get`, `epic_sign_in`, `epic_sign_in_with_code`, `epic_sign_out`, `epic_check_library`, `game_version_list`, `game_install_get`, `game_install_start`, `game_install_pause`, `game_install_resume`, `game_install_cancel`, `use_game_path` | **working** against mocks and compiled-in manifest pins (`1.14.7`, `1.12.0`); live Epic OAuth and CDN download are **maintainer: needs a real game, Epic account or second PC** | **working** (`game_version_list`, `epic_account_get`, and `game_install_get` verified in installed client; live Epic OAuth and CDN download remain **maintainer: needs a real game, Epic account or second PC**) | `e2e-desktop.mjs` (`client-game-{en,pt-BR}.png`) and unit tests in `crates/epic` and `launcher` |
 | **Host (`host`)** (when `settings.hostTools` is enabled) | `ui/apps/web/src/screens/host.tsx`, `host-tools.tsx`, `host-admin.tsx`, `modules.tsx` | Host tools inside the client when toggled on in Settings -> Advanced | Same as Server GUI below | **broken** in part at B1 | **working** | See Section 2.2 below |
-| **Settings (`settings`)** | `ui/apps/web/src/screens/settings.tsx` | Game folder & edition (`reborn` / `legacy`), game language, graphics quality & safe 1280x720 window, account key backup & logout, UI language (`en` / `pt-BR`), streamer mode, Host tools toggle, runtime log profile, local runtime override, logs folder, and credits/license | `choose_game_folder`, `open_game_folder`, `verify_game`, `revived_choose_folder`, `revived_install`, `save_settings`, `save_key_backup`, `logout`, `choose_local_runtime`, `clear_local_runtime`, `open_logs_folder`, `open_external` | **working** | **working** (hides player-only game/account cards when running in `dainty-lass-server-gui`) | `e2e-desktop.mjs` (`client-settings-{en,pt-BR}.png`) and controller tests |
+| **Settings (`settings`)** | `ui/apps/web/src/screens/settings.tsx` | Game folder & edition (`reborn` / `legacy`), game language, graphics quality & safe 1280x720 window, account key backup & logout, UI language (`en` / `pt-BR`), streamer mode, Host tools toggle, runtime log profile, local runtime override, logs folder, and credits/license | `choose_game_folder`, `open_game_folder`, `verify_game`, `revived_choose_folder`, `revived_install`, `save_settings`, `save_key_backup`, `logout`, `choose_local_runtime`, `clear_local_runtime`, `open_logs_folder`, `open_external` | **working** | **working** (hides player-only game/account cards when running in `dainty-lass-manager`) | `e2e-desktop.mjs` (`client-settings-{en,pt-BR}.png`) and controller tests |
 
-### 2.2 Server GUI (`dainty-lass-server-gui`)
+### 2.2 Server GUI (`dainty-lass-manager`)
 
-In `dainty-lass-server-gui` (`snap.app.serverGui === true`), `ui/apps/web/src/app/launcher.tsx` opens directly on
+In `dainty-lass-manager` (`snap.app.serverGui === true`), `ui/apps/web/src/app/launcher.tsx` opens directly on
 `view === "host"` and `ui/apps/web/src/components/chrome.tsx` renders the server-focused rail (`Host` and `Settings`).
 Inside `ui/apps/web/src/screens/host.tsx`, the Host screen has eight sub-tabs (`server`, `status`, `modules`, `admin`,
 `history`, `gamedata`, `build`, `requirements`):
@@ -212,7 +212,7 @@ Run with `node test/e2e-desktop.mjs` from `rust/launcher`:
 Root directory: R:\Temp\dl-e2e-desktop-mfe8m3
 === 1. Installing Client & Server GUI from NSIS installers ===
 Installed client: R:\Temp\dl-e2e-desktop-mfe8m3\install-client\dainty-lass-client.exe
-Installed server GUI: R:\Temp\dl-e2e-desktop-mfe8m3\install-server\dainty-lass-server-gui.exe
+Installed manager: R:\Temp\dl-e2e-desktop-mfe8m3\install-server\dainty-lass-manager.exe
 === 2. Launching Server GUI and Client Desktop Apps ===
 Connected to Server GUI WebView2 CDP and Client WebView2 CDP
 === 3. Driving Server GUI: seed synthetic data & run setup ===
@@ -255,7 +255,7 @@ All 34 screenshots captured from the installed Windows desktop applications in E
   - `client-game-en.png`, `client-game-pt-BR.png` (Game screen — Epic Games sign-in card & `1.14.7` / `1.12.0` version list)
   - `client-settings-en.png`, `client-settings-pt-BR.png` (Settings screen — game folder, edition, language, graphics, account key backup, logs)
   - `client-banned-en.png`, `client-banned-pt-BR.png` (Play screen — `account_banned` error banner shown after Server GUI admin ban)
-- **Server GUI (`dainty-lass-server-gui.exe`) — 18 screenshots**:
+- **Server GUI (`dainty-lass-manager.exe`) — 18 screenshots**:
   - `server-gui-setup-en.png`, `server-gui-setup-pt-BR.png` (Host -> Server tab before setup — initial setup wizard & workspace selector)
   - `server-gui-server-en.png`, `server-gui-server-pt-BR.png` (Host -> Server tab running — live status, invites list, `host.toml` settings editor, doctor & backup, multipliers, console)
   - `server-gui-status-en.png`, `server-gui-status-pt-BR.png` (Host -> Status tab — live `gateway`, `content`, `admin`, and `isles-1-14-7` component cards with restart & module log controls)
@@ -295,6 +295,6 @@ exercised end-to-end against live external systems on this machine:
 | Step | Scope | Status |
 | --- | --- | --- |
 | **B1** | Write and merge `docs/port/tauri-apps-status.md` inventory on `docs/tauri-apps-status` | **Done** (`f20e2df`, merged `effe5dd`) |
-| **B2** | Build both Windows installers (`dainty-lass-client` and `dainty-lass-server-gui` with its own product name, identifier, and icon) from a clean clone via `rust/launcher/package.json` and `tauri*.conf.json`, with `ui/` built by Bun automatically; document in `rust/launcher/README.md` and add a bundle build check | **Done** (`8b122b8`, merged `dd8a433`) |
+| **B2** | Build both Windows installers (`dainty-lass-client` and `dainty-lass-manager` with its own product name, identifier, and icon) from a clean clone via `rust/launcher/package.json` and `tauri*.conf.json`, with `ui/` built by Bun automatically; document in `rust/launcher/README.md` and add a bundle build check | **Done** (`8b122b8`, merged `dd8a433`; renamed to `dainty-lass-manager` / `DaintyLass Manager` in T3) |
 | **B3** | Implement every stub/broken command and missing Server GUI / Client workflow (`services/host` in-process library calls, `server-gui` `all-modules` + `client` `realms` features, admin kick/timeout/ban/unban/lookup, history query/dry-run/apply + guarded actions UI, `doctor`, `backup`, `host.toml` settings editor, per-module logs, M1/M4 MongoDB migration status/migrate-with-verify/confirmed-fresh-start, and removal of obsolete Node/npm/MongoDB assumptions) | **Done** (`dainty-lass-ui` `8a69a05`, merged `0314dde`; `dainty-lass` `fix/b3-tauri-apps`) |
 | **B4** | Install both built apps, run repeatable end-to-end test script (`server GUI setup -> start -> invite -> client join -> register -> sign in -> status -> server GUI ban -> client shows ban -> server GUI clean stop`), save `en` and `pt-BR` screenshots under `docs/port/screenshots/`, and update this table | **Done** (`dainty-lass` `fix/b3-tauri-apps`) |

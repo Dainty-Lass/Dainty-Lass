@@ -1,6 +1,6 @@
 // Checks that both Tauri desktop app bundle configurations (`dainty-lass-client` and
-// `dainty-lass-server-gui`), their icons, Cargo features, and `package.json` build scripts are wired
-// and distinct (Part B2).
+// `dainty-lass-manager`), their icons, Cargo features, and `package.json` build scripts are wired
+// and distinct (Part B2, T3).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -47,8 +47,8 @@ test("client and server-gui Tauri configurations have distinct names, identifier
   assert.equal(clientConf.mainBinaryName, "dainty-lass-client");
   assert.equal(clientConf.identifier, "io.github.freezamotoqueiro.dauntlessreforgedrevival");
 
-  assert.equal(serverConf.productName, "DaintyLass Server");
-  assert.equal(serverConf.mainBinaryName, "dainty-lass-server-gui");
+  assert.equal(serverConf.productName, "DaintyLass Manager");
+  assert.equal(serverConf.mainBinaryName, "dainty-lass-manager");
   assert.equal(serverConf.identifier, "io.github.freezamotoqueiro.dauntlessreforgedrevival.server");
 
   assert.notEqual(clientConf.productName, serverConf.productName);
@@ -87,11 +87,11 @@ test("package.json exposes build scripts for both desktop apps and Cargo.toml li
 
   assert.ok(scripts["build:client"]?.includes("tauri build"), "missing build:client script");
   assert.ok(
-    scripts["build:server-gui"]?.includes("tauri.server-gui.conf.json") &&
-      scripts["build:server-gui"]?.includes("--features server-gui"),
-    "build:server-gui must pass tauri.server-gui.conf.json and --features server-gui",
+    scripts["build:manager"]?.includes("tauri.server-gui.conf.json") &&
+      scripts["build:manager"]?.includes("--features server-gui"),
+    "build:manager must pass tauri.server-gui.conf.json and --features server-gui",
   );
-  assert.ok(scripts["build:manager"], "missing build:manager alias script");
+  assert.ok(scripts["build:server-gui"], "missing build:server-gui alias script");
 
   const cargoToml = fs.readFileSync(path.join(srcTauri, "Cargo.toml"), "utf8");
   assert.ok(
