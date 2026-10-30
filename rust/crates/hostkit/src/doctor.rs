@@ -31,10 +31,33 @@ pub enum Level {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
-    pub area: String,
+    pub area: &'static str,
     pub level: Level,
     pub text: String,
     pub fix: Option<String>,
+}
+
+pub fn check(area: &'static str, level: Level, text: impl Into<String>) -> Check {
+    Check {
+        area,
+        level,
+        text: text.into(),
+        fix: None,
+    }
+}
+
+pub fn fix(
+    area: &'static str,
+    level: Level,
+    text: impl Into<String>,
+    fix_text: impl Into<String>,
+) -> Check {
+    Check {
+        area,
+        level,
+        text: text.into(),
+        fix: Some(fix_text.into()),
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -87,23 +110,31 @@ pub fn tailscale_ipv4() -> Option<String> {
     None
 }
 
-pub fn port_in_use(port: u16, host: &str) -> bool {
-    let ip: IpAddr = if host == "0.0.0.0" || host.trim().is_empty() {
+pub fn port_in_use(port: u16, host: Option<&str>) -> Result<bool, HostError> {
+    let host_str = host.unwrap_or("127.0.0.1");
+    let ip: IpAddr = if host_str == "0.0.0.0" || host_str.trim().is_empty() {
         IpAddr::V4(Ipv4Addr::LOCALHOST)
     } else {
-        host.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
+        host_str.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
     };
     let addr = SocketAddr::new(ip, port);
-    TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok()
+    Ok(TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok())
 }
 
 pub fn port_owner_hint(port: u16) -> Option<String> {
-    port_owner_hint_for(port, Platform::current(), |cmd, args| {
+    port_owner_hint_with(port, Platform::current(), |cmd, args| {
         capture(cmd, args, None).ok().flatten()
     })
 }
 
-pub fn port_owner_hint_for(
+pub fn port_owner_hint_for(port: u16, platform: Platform) -> String {
+    match platform {
+        Platform::Linux => format!("ss -tlnp 'sport = :{port}'"),
+        Platform::Windows | Platform::Other => format!("netstat -ano | findstr :{port}"),
+    }
+}
+
+pub fn port_owner_hint_with(
     port: u16,
     platform: Platform,
     run_cmd: impl Fn(&str, &[&str]) -> Option<String>,
@@ -246,7 +277,7 @@ pub fn count_function_files(sdk_dir: &Path) -> usize {
         .count()
 }
 
-pub fn game_checks(game_dir: Option<&str>, hash_exe: bool) -> Vec<Check> {
+pub fn game_checks(game_dir: Option<&str>, hash_exe: bool) -> Result<Vec<Check>, HostError> {
     game_exe_checks(game_dir, hash_exe, &REBORN_BUILD)
 }
 
@@ -254,133 +285,79 @@ pub fn game_exe_checks(
     game_dir: Option<&str>,
     hash_exe: bool,
     build: &GameBuild<'_>,
-) -> Vec<Check> {
-    let area = if build.name == "1.14.7" {
-        "game"
-    } else {
-        "legacy-game"
-    };
+) -> Result<Vec<Check>, HostError> {
+    let area = "game";
     let mut out = Vec::new();
 
     let Some(dir_str) = game_dir.map(str::trim).filter(|s| !s.is_empty()) else {
         out.push(Check {
-            area: area.to_owned(),
+            area,
             level: Level::Fail,
-            text: "no game folder in host.toml".to_owned(),
+            text: "no game folder configured".to_owned(),
             fix: Some(format!("{} or pass --game <dir> to setup", build.get_it)),
         });
-        return out;
+        return Ok(out);
     };
 
     let dir = Path::new(dir_str);
-    if !dir.is_dir() {
-        out.push(Check {
-            area: area.to_owned(),
-            level: Level::Fail,
-            text: format!("game folder does not exist: {dir_str}"),
-            fix: Some(build.get_it.to_owned()),
-        });
-        return out;
-    }
-
     let exe = dir.join(game_exe_relative());
     if !exe.is_file() {
         out.push(Check {
-            area: area.to_owned(),
+            area,
             level: Level::Fail,
-            text: format!("Dauntless-Win64-Shipping.exe not found in {dir_str}"),
+            text: format!("no game executable at {}", exe.display()),
             fix: Some(build.get_it.to_owned()),
         });
-        return out;
+        return Ok(out);
+    }
+
+    let version_file = dir.join("Version.txt");
+    let raw_version = fs::read_to_string(&version_file).unwrap_or_default();
+    let text = raw_version.strip_prefix('\u{feff}').unwrap_or(&raw_version).trim();
+    if text != build.version_text {
+        let shown = if text.is_empty() { "nothing" } else { text };
+        out.push(Check {
+            area,
+            level: Level::Fail,
+            text: format!(
+                "Version.txt says \"{shown}\", not {}",
+                build.version_text
+            ),
+            fix: Some(build.get_it.to_owned()),
+        });
+        return Ok(out);
     }
 
     out.push(Check {
-        area: area.to_owned(),
+        area,
         level: Level::Ok,
-        text: format!("Dauntless {} executable found ({})", build.name, exe.display()),
+        text: format!("Dauntless {} ({})", build.name, exe.display()),
         fix: None,
     });
 
-    let version_file = dir.join("Version.txt");
-    if version_file.is_file() {
-        match fs::read_to_string(&version_file) {
-            Ok(raw) => {
-                let text = raw.strip_prefix('\u{feff}').unwrap_or(&raw).trim();
-                if text == build.version_text {
-                    out.push(Check {
-                        area: area.to_owned(),
-                        level: Level::Ok,
-                        text: format!("Version.txt matches {} ({text})", build.name),
-                        fix: None,
-                    });
-                } else {
-                    let shown = if text.is_empty() { "nothing" } else { text };
-                    out.push(Check {
-                        area: area.to_owned(),
-                        level: Level::Fail,
-                        text: format!(
-                            "Version.txt has {shown}, expected {}",
-                            build.version_text
-                        ),
-                        fix: Some(build.get_it.to_owned()),
-                    });
-                }
-            }
-            Err(e) => {
-                out.push(Check {
-                    area: area.to_owned(),
-                    level: Level::Warn,
-                    text: format!("could not read Version.txt: {e}"),
-                    fix: None,
-                });
-            }
-        }
-    } else {
-        out.push(Check {
-            area: area.to_owned(),
-            level: Level::Warn,
-            text: "Version.txt is missing from the game folder".to_owned(),
-            fix: None,
-        });
-    }
-
     if hash_exe {
-        match sha256_file(&exe) {
-            Ok(actual) => {
-                if actual.eq_ignore_ascii_case(build.exe_sha256) {
-                    out.push(Check {
-                        area: area.to_owned(),
-                        level: Level::Ok,
-                        text: format!(
-                            "Dauntless-Win64-Shipping.exe SHA-256 matches {}",
-                            build.name
-                        ),
-                        fix: None,
-                    });
-                } else {
-                    out.push(Check {
-                        area: area.to_owned(),
-                        level: Level::Fail,
-                        text: format!(
-                            "Dauntless-Win64-Shipping.exe SHA-256 mismatch (got {actual}, expected {})",
-                            build.exe_sha256
-                        ),
-                        fix: Some(build.get_it.to_owned()),
-                    });
-                }
-            }
-            Err(e) => {
-                out.push(Check {
-                    area: area.to_owned(),
-                    level: Level::Fail,
-                    text: format!("could not hash Dauntless-Win64-Shipping.exe: {e}"),
-                    fix: None,
-                });
-            }
+        let actual = sha256_file(&exe)?;
+        if actual.eq_ignore_ascii_case(build.exe_sha256) {
+            out.push(Check {
+                area,
+                level: Level::Ok,
+                text: format!(
+                    "the executable matches Dauntless {} (SHA-256 {})",
+                    build.name, build.exe_sha256
+                ),
+                fix: None,
+            });
+        } else {
+            out.push(Check {
+                area,
+                level: Level::Fail,
+                text: format!("the executable is another build (SHA-256 {actual})"),
+                fix: Some(build.get_it.to_owned()),
+            });
         }
     }
 
-    out
+    Ok(out)
 }
 
 fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
@@ -447,9 +424,54 @@ pub fn total_memory_mb() -> Option<u64> {
     None
 }
 
+pub fn performance_summary_line(config: &HostConfig) -> String {
+    let perf = performance_options(config);
+    let fps_part = if perf.idle_fps == 0 || perf.idle_fps >= perf.server_fps {
+        format!("{} fps (never lowered when empty)", perf.server_fps)
+    } else {
+        format!(
+            "{} fps, {} fps after 15 s without players",
+            perf.server_fps, perf.idle_fps
+        )
+    };
+    let training_part = if !perf.training_on_demand {
+        "Training Grounds always running".to_owned()
+    } else if perf.training_idle_minutes == 0 {
+        "Training Grounds on demand (never stopped when empty)".to_owned()
+    } else {
+        format!(
+            "Training Grounds on demand, stopped after {} min without players",
+            perf.training_idle_minutes
+        )
+    };
+    let logs_part = if perf.verbose_game_logs {
+        "verbose game logs"
+    } else {
+        "quiet game logs"
+    };
+    let max_h = config.max_hunt_servers;
+    let hunts_word = if max_h == 1 {
+        "1 hunt".to_owned()
+    } else {
+        format!("{max_h} hunts")
+    };
+    let (first_port, last_port) = crate::hostconfig::game_ports(config);
+    let guard_part = if perf.memory_guard {
+        format!(
+            "a new hunt only with {} MB free",
+            perf.hunt_memory_mb + perf.min_free_memory_mb
+        )
+    } else {
+        "memory guard off".to_owned()
+    };
+    format!(
+        "game servers at {fps_part}; {training_part}; {logs_part}; at most {hunts_word} (UDP {first_port}-{last_port}); {guard_part}"
+    )
+}
+
 pub fn performance_checks(
     config: &HostConfig,
-    runtime_dll: &Path,
+    runtime_dll: Option<&Path>,
     total_mb: Option<u64>,
     _platform: Platform,
 ) -> Vec<Check> {
@@ -457,61 +479,61 @@ pub fn performance_checks(
     let mut out = Vec::new();
     let perf = performance_options(config);
 
-    if let Some(patches) = runtime_cpu_patches(runtime_dll) {
+    out.push(Check {
+        area,
+        level: Level::Info,
+        text: performance_summary_line(config),
+        fix: None,
+    });
+
+    if let Some(dll) = runtime_dll
+        && let Some(patches) = runtime_cpu_patches(dll)
+    {
         if patches.cpu_fixes && patches.frame_cap {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Ok,
-                text: "MysticParadox.dll includes CPU and frame-cap patches".to_owned(),
+                text: "MysticParadox.dll includes patches 0019 (CPU fixes) and 0020 (frame cap)"
+                    .to_owned(),
                 fix: None,
             });
         } else {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Warn,
-                text: "MysticParadox.dll is missing CPU or frame-cap patches".to_owned(),
+                text: "MysticParadox.dll is missing patches 0019 (CPU fixes) and 0020 (frame cap)"
+                    .to_owned(),
                 fix: Some("rebuild and publish MysticParadox.dll".to_owned()),
             });
         }
     }
 
-    out.push(Check {
-        area: area.to_owned(),
-        level: Level::Ok,
-        text: format!(
-            "server FPS {}, idle FPS {}, training on demand: {}",
-            perf.server_fps,
-            perf.idle_fps,
-            if perf.training_on_demand { "on" } else { "off" }
-        ),
-        fix: None,
-    });
-
     if let Some(mb) = total_mb {
         let fits = hunts_that_fit(mb, &perf);
-        if u64::from(config.max_hunt_servers) <= fits {
-            out.push(Check {
-                area: area.to_owned(),
-                level: Level::Ok,
-                text: format!(
-                    "{mb} MB RAM fits max_hunt_servers = {} (up to {fits})",
-                    config.max_hunt_servers
-                ),
-                fix: None,
-            });
-        } else {
-            out.push(Check {
-                area: area.to_owned(),
-                level: Level::Warn,
-                text: format!(
-                    "{mb} MB RAM fits about {fits} hunt server(s), but max_hunt_servers is {}",
-                    config.max_hunt_servers
-                ),
-                fix: Some(format!(
-                    "lower max_hunt_servers to {} in host.toml",
-                    fits.max(1)
-                )),
-            });
+        let max_h = u64::from(config.max_hunt_servers);
+        if max_h > fits {
+            let gb = (mb as f64) / 1024.0;
+            if perf.memory_guard {
+                out.push(Check {
+                    area,
+                    level: Level::Info,
+                    text: format!(
+                        "{max_h} hunts at once may need more than this machine's {gb:.1} GB: about {fits} fit; the memory guard refuses a new hunt when memory is low"
+                    ),
+                    fix: None,
+                });
+            } else {
+                out.push(Check {
+                    area,
+                    level: Level::Warn,
+                    text: format!(
+                        "{max_h} hunts at once may need more than this machine's {gb:.1} GB: about {fits} fit"
+                    ),
+                    fix: Some(format!(
+                        "reforged-host setup --memory-guard, or --max-hunts {fits}"
+                    )),
+                });
+            }
         }
     }
 
@@ -530,7 +552,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
                 crate::linux::RuntimeKind::Proton => "Proton",
             };
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Ok,
                 text: format!("{label} runtime found at {}", rt.path),
                 fix: None,
@@ -538,7 +560,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
         }
         None => {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Fail,
                 text: "neither Wine nor Proton was found".to_owned(),
                 fix: Some(
@@ -551,14 +573,14 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
     if opts.proton.is_none() {
         if crate::wine::wine_prefix_ready(&p.wine_prefix) {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Ok,
                 text: format!("Wine prefix ready at {}", p.wine_prefix.display()),
                 fix: None,
             });
         } else {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Warn,
                 text: format!("Wine prefix is not initialized at {}", p.wine_prefix.display()),
                 fix: Some("run reforged-host setup".to_owned()),
@@ -569,14 +591,14 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
     if opts.xvfb {
         if let Some(xvfb) = crate::wine::find_on_path(&["xvfb-run"])? {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Ok,
                 text: format!("xvfb-run found at {xvfb}"),
                 fix: None,
             });
         } else {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Fail,
                 text: "xvfb-run not found on PATH".to_owned(),
                 fix: Some("install xvfb and xauth, or pass --no-xvfb to setup".to_owned()),
@@ -584,14 +606,14 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
         }
         if let Some(xauth) = crate::wine::find_on_path(&["xauth"])? {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Ok,
                 text: format!("xauth found at {xauth}"),
                 fix: None,
             });
         } else {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Warn,
                 text: "xauth not found on PATH (needed by xvfb-run)".to_owned(),
                 fix: Some("install xauth".to_owned()),
@@ -601,7 +623,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
 
     if crate::wine::is_executable(&p.gameserver_wrapper) {
         out.push(Check {
-            area: area.to_owned(),
+            area,
             level: Level::Ok,
             text: format!(
                 "gameserver wrapper ready at {}",
@@ -611,7 +633,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
         });
     } else {
         out.push(Check {
-            area: area.to_owned(),
+            area,
             level: Level::Fail,
             text: format!(
                 "gameserver wrapper missing at {}",
@@ -635,14 +657,14 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
             });
         if let Some(nft_bin) = nft {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Ok,
                 text: format!("nftables found at {nft_bin}"),
                 fix: None,
             });
         } else {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Fail,
                 text: "nftables (nft) not found".to_owned(),
                 fix: Some("install nftables".to_owned()),
@@ -655,7 +677,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
             && !crate::linux::systemd_installed(crate::linux::UNIT_SERVER)
         {
             out.push(Check {
-                area: area.to_owned(),
+                area,
                 level: Level::Warn,
                 text: format!(
                     "port {gw_port} requires CAP_NET_BIND_SERVICE or the systemd unit"
@@ -684,14 +706,14 @@ pub fn network_checks(
             if let Some(ts_ip) = tailscale_ipv4() {
                 if config.game_address == ts_ip {
                     out.push(Check {
-                        area: area.to_owned(),
+                        area,
                         level: Level::Ok,
                         text: format!("Tailscale IPv4 {ts_ip} matches game_address"),
                         fix: None,
                     });
                 } else {
                     out.push(Check {
-                        area: area.to_owned(),
+                        area,
                         level: Level::Warn,
                         text: format!(
                             "Tailscale IPv4 is {ts_ip}, but game_address is {}",
@@ -704,7 +726,7 @@ pub fn network_checks(
                 }
             } else {
                 out.push(Check {
-                    area: area.to_owned(),
+                    area,
                     level: Level::Warn,
                     text: "Tailscale IPv4 was not detected".to_owned(),
                     fix: Some("start Tailscale and sign in".to_owned()),
@@ -716,7 +738,7 @@ pub fn network_checks(
                 match crate::invite::certificate_fingerprint(&p.cert_file) {
                     Ok(fp) => {
                         out.push(Check {
-                            area: area.to_owned(),
+                            area,
                             level: Level::Ok,
                             text: format!(
                                 "gateway TLS certificate ready (sha256:{})",
@@ -727,7 +749,7 @@ pub fn network_checks(
                     }
                     Err(e) => {
                         out.push(Check {
-                            area: area.to_owned(),
+                            area,
                             level: Level::Fail,
                             text: format!("gateway TLS certificate is invalid: {e}"),
                             fix: Some("run reforged-host setup".to_owned()),
@@ -736,7 +758,7 @@ pub fn network_checks(
                 }
             } else {
                 out.push(Check {
-                    area: area.to_owned(),
+                    area,
                     level: Level::Fail,
                     text: "gateway TLS certificate or key is missing".to_owned(),
                     fix: Some("run reforged-host setup".to_owned()),
@@ -751,7 +773,7 @@ pub fn network_checks(
                 let ca_cert = p.tls.join(CLUSTER_CA_FILE);
                 if node_cert.is_file() && node_key.is_file() && ca_cert.is_file() {
                     out.push(Check {
-                        area: area.to_owned(),
+                        area,
                         level: Level::Ok,
                         text: format!(
                             "cluster node TLS credentials present ({} peer node(s))",
@@ -761,7 +783,7 @@ pub fn network_checks(
                     });
                 } else {
                     out.push(Check {
-                        area: area.to_owned(),
+                        area,
                         level: Level::Fail,
                         text: "cluster node TLS certificate, key, or CA is missing in .workspace/tls".to_owned(),
                         fix: Some("run reforged-host network issue-node-cert or join".to_owned()),
@@ -774,8 +796,8 @@ pub fn network_checks(
     Ok(out)
 }
 
-pub fn database_check(mongo: &MongoCheck, managed: bool) -> Check {
-    let area = "database".to_owned();
+pub fn database_check(mongo: &MongoCheck, _uri: &str, managed: bool) -> Check {
+    let area = "database";
     match mongo {
         MongoCheck::Ok {
             set_name,
@@ -784,7 +806,7 @@ pub fn database_check(mongo: &MongoCheck, managed: bool) -> Check {
         } => Check {
             area,
             level: Level::Ok,
-            text: format!("MongoDB replica set {set_name} is primary"),
+            text: format!("MongoDB replica set {set_name}, primary"),
             fix: None,
         },
         MongoCheck::Ok {
@@ -819,8 +841,9 @@ fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<(String, S
     if config.fresh_start() {
         return None;
     }
-    let marker = p.workspace.join("data").join(".mongo-migrated");
-    if marker.is_file() {
+    let marker = p.config.join(".mongo-migrated");
+    let ws_marker = p.workspace.join("data").join(".mongo-migrated");
+    if marker.is_file() || ws_marker.is_file() {
         return None;
     }
     if let Ok(entries) = fs::read_dir(&p.mongo_data) {
@@ -834,7 +857,7 @@ fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<(String, S
                     "unmigrated MongoDB data found in {}",
                     p.mongo_data.display()
                 ),
-                "run reforged-host update (or reforged-host db migrate), or pass --fresh-start to setup".to_owned(),
+                "run reforged-host setup, or pass --fresh-start to setup".to_owned(),
             ));
         }
     }
@@ -846,14 +869,14 @@ fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<(String, S
                 "unmigrated external MongoDB configured ({})",
                 config.mongo.uri
             ),
-            "run reforged-host db migrate, or pass --fresh-start to setup".to_owned(),
+            "run reforged-host setup, or pass --fresh-start to setup".to_owned(),
         ));
     }
     None
 }
 
 pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
-    let area = "database".to_owned();
+    let area = "database";
     if let Some((text, fix)) = unmigrated_mongo_problem(p, config) {
         return Check {
             area,
@@ -918,14 +941,14 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             let trimmed = ver.trim();
             if node_version_ok(trimmed) {
                 checks.push(Check {
-                    area: "tools".to_owned(),
+                    area: "tools",
                     level: Level::Ok,
                     text: format!("Node.js {trimmed}"),
                     fix: None,
                 });
             } else {
                 checks.push(Check {
-                    area: "tools".to_owned(),
+                    area: "tools",
                     level: Level::Fail,
                     text: format!("Node.js {trimmed} is too old (need >= 20.19)"),
                     fix: Some("install Node.js 20.19 or newer".to_owned()),
@@ -933,7 +956,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             }
         } else {
             checks.push(Check {
-                area: "tools".to_owned(),
+                area: "tools",
                 level: Level::Fail,
                 text: "Node.js was not found on PATH".to_owned(),
                 fix: Some("install Node.js 20.19 or newer".to_owned()),
@@ -943,7 +966,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
 
     let Some(config) = load_host_config(p)? else {
         checks.push(Check {
-            area: "config".to_owned(),
+            area: "config",
             level: Level::Fail,
             text: "server is not configured yet (host.toml is missing)".to_owned(),
             fix: Some("run reforged-host setup".to_owned()),
@@ -952,7 +975,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
     };
 
     checks.push(Check {
-        area: "config".to_owned(),
+        area: "config",
         level: Level::Ok,
         text: format!(
             "{} server {:?} on {} (edition {})",
@@ -974,7 +997,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
         }
         if all_rt && p.runtime_publish.join("runtime.json").is_file() {
             checks.push(Check {
-                area: "runtime".to_owned(),
+                area: "runtime",
                 level: Level::Ok,
                 text: format!(
                     "published runtime present in {}",
@@ -984,7 +1007,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             });
         } else {
             checks.push(Check {
-                area: "runtime".to_owned(),
+                area: "runtime",
                 level: Level::Warn,
                 text: format!(
                     "published runtime is missing in {}",
@@ -994,13 +1017,15 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             });
         }
 
-        checks.extend(game_checks(config.game_dir.as_deref(), opts.hash_exe));
+        checks.extend(game_checks(config.game_dir.as_deref(), opts.hash_exe)?);
 
         let published_dll = p.runtime_publish.join("MysticParadox.dll");
         let dll_to_check = if published_dll.is_file() {
-            published_dll.as_path()
+            Some(published_dll.as_path())
+        } else if p.runtime_dll.is_file() {
+            Some(p.runtime_dll.as_path())
         } else {
-            p.runtime_dll.as_path()
+            None
         };
         checks.extend(performance_checks(
             &config,
@@ -1022,10 +1047,11 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
                 &config.mongo.uri,
                 &ReplicaSetOptions {
                     initiate: false,
-                    timeout: Duration::from_millis(2000),
+                    host: None,
+                    timeout_ms: Some(2000),
                 },
-            );
-            checks.push(database_check(&mongo, config.mongo.manage));
+            )?;
+            checks.push(database_check(&mongo, &config.mongo.uri, config.mongo.manage));
         } else {
             checks.push(store_database_check(p, &config));
         }
@@ -1037,14 +1063,14 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
 
     if wait_for_http(PORTS.backend, "/health", Duration::from_millis(250)) {
         checks.push(Check {
-            area: "services".to_owned(),
+            area: "services",
             level: Level::Ok,
             text: format!("backend is responding on 127.0.0.1:{}", PORTS.backend),
             fix: None,
         });
     } else {
         checks.push(Check {
-            area: "services".to_owned(),
+            area: "services",
             level: Level::Info,
             text: "server services are not running right now".to_owned(),
             fix: None,
@@ -1054,15 +1080,15 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
     Ok(checks)
 }
 
-pub fn print_checks(checks: &[Check], mut say: impl FnMut(&str)) -> (usize, usize) {
+pub fn print_checks(checks: &[Check], say: &mut dyn FnMut(&str)) -> (usize, usize) {
     let mut current_area: Option<&str> = None;
     let mut fails = 0usize;
     let mut warns = 0usize;
 
     for check in checks {
-        if current_area != Some(check.area.as_str()) {
+        if current_area != Some(check.area) {
             say(&format!("\n{}", check.area));
-            current_area = Some(check.area.as_str());
+            current_area = Some(check.area);
         }
         let badge = match check.level {
             Level::Ok => "  [ ok ] ",
@@ -1146,7 +1172,7 @@ mod tests {
     #[test]
     fn game_checks_verify_exe_and_version_txt() {
         let tmp = TempDir::new().unwrap();
-        let checks = game_checks(None, false);
+        let checks = game_checks(None, false).unwrap();
         assert_eq!(checks.len(), 1);
         assert_eq!(checks[0].level, Level::Fail);
 
@@ -1159,13 +1185,13 @@ mod tests {
         )
         .unwrap();
 
-        let checks = game_checks(Some(&tmp.path().to_string_lossy()), false);
+        let checks = game_checks(Some(&tmp.path().to_string_lossy()), false).unwrap();
         assert!(checks.iter().all(|c| c.level == Level::Ok));
     }
 
     #[test]
     fn port_owner_hint_parses_windows_and_linux_outputs() {
-        let win = port_owner_hint_for(61000, Platform::Windows, |cmd, _| match cmd {
+        let win = port_owner_hint_with(61000, Platform::Windows, |cmd, _| match cmd {
             "netstat" => Some(
                 "  TCP    127.0.0.1:61000        0.0.0.0:0              LISTENING       4242\r\n"
                     .to_owned(),
@@ -1175,7 +1201,7 @@ mod tests {
         });
         assert_eq!(win.as_deref(), Some("reforged-host.exe (PID 4242)"));
 
-        let lin = port_owner_hint_for(61000, Platform::Linux, |cmd, _| match cmd {
+        let lin = port_owner_hint_with(61000, Platform::Linux, |cmd, _| match cmd {
             "ss" => Some(
                 "LISTEN 0 128 127.0.0.1:61000 0.0.0.0:* users:((\"reforged-host\",pid=9001,fd=8))\n"
                     .to_owned(),
@@ -1189,26 +1215,26 @@ mod tests {
     fn print_checks_groups_by_area_and_counts_failures_and_warnings() {
         let checks = vec![
             Check {
-                area: "config".to_owned(),
+                area: "config",
                 level: Level::Ok,
                 text: "host.toml ok".to_owned(),
                 fix: Some("ignored on ok".to_owned()),
             },
             Check {
-                area: "game".to_owned(),
+                area: "game",
                 level: Level::Warn,
                 text: "Version.txt missing".to_owned(),
                 fix: Some("restore Version.txt".to_owned()),
             },
             Check {
-                area: "game".to_owned(),
+                area: "game",
                 level: Level::Fail,
                 text: "exe missing".to_owned(),
                 fix: Some("run install-game".to_owned()),
             },
         ];
         let mut lines = Vec::new();
-        let (fails, warns) = print_checks(&checks, |l| lines.push(l.to_owned()));
+        let (fails, warns) = print_checks(&checks, &mut |l| lines.push(l.to_owned()));
         assert_eq!((fails, warns), (1, 1));
         assert_eq!(
             lines,

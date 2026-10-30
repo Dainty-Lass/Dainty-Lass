@@ -44,8 +44,8 @@ impl Problem {
             Self::NoRelease(_) => "no_release",
             Self::DownloadFailed(_) => "download_failed",
             Self::NotInSums(_) => "not_in_sums",
-            Self::Checksum { .. } => "checksum_mismatch",
-            Self::Attestation(_) => "attestation_failed",
+            Self::Checksum { .. } => "checksum",
+            Self::Attestation(_) => "attestation",
             Self::BadArchive(_) => "bad_archive",
             Self::LocalChanges(_) => "local_changes",
         }
@@ -76,7 +76,9 @@ impl Problem {
                 file,
                 expected,
                 actual,
-            } => format!("SHA-256 mismatch for {file} (expected {expected}, got {actual})"),
+            } => format!(
+                "{file} is not the file the release lists (expected SHA-256 {expected}, got {actual})"
+            ),
             Self::Attestation(s) => format!("release attestation verification failed: {s}"),
             Self::BadArchive(s) => format!("invalid release archive: {s}"),
             Self::LocalChanges(files) => {
@@ -265,7 +267,12 @@ pub struct Manifest {
 }
 
 fn is_safe_relative_path(path: &str) -> bool {
-    if path.is_empty() || path.starts_with('/') || path.starts_with('\\') {
+    if path.is_empty()
+        || path.starts_with('/')
+        || path.starts_with('\\')
+        || path.contains('\\')
+        || path.contains(':')
+    {
         return false;
     }
     let p = Path::new(path);
@@ -298,9 +305,8 @@ impl Manifest {
         let commit = obj
             .get("commit")
             .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| "release.json is missing commit".to_owned())?
+            .unwrap_or("")
+            .trim()
             .to_owned();
 
         let target = obj
@@ -313,9 +319,8 @@ impl Manifest {
         let platform = obj
             .get("platform")
             .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| "release.json is missing platform".to_owned())?
+            .unwrap_or("")
+            .trim()
             .to_owned();
 
         let repository = obj
@@ -339,20 +344,22 @@ impl Manifest {
                 .get("path")
                 .and_then(Value::as_str)
                 .ok_or_else(|| "file entry is missing path".to_owned())?;
-            let norm_path = raw_path.replace('\\', "/");
-            if !is_safe_relative_path(&norm_path) {
+            if !is_safe_relative_path(raw_path) {
                 return Err(format!("unsafe file path in release.json: {raw_path}"));
             }
+            let norm_path = raw_path.to_owned();
             let sha256 = entry_obj
                 .get("sha256")
                 .and_then(Value::as_str)
                 .map(|s| s.trim().to_ascii_lowercase())
                 .filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
                 .ok_or_else(|| format!("invalid sha256 for {norm_path}"))?;
-            let size = entry_obj
-                .get("size")
-                .and_then(Value::as_u64)
-                .ok_or_else(|| format!("invalid size for {norm_path}"))?;
+            let size = match entry_obj.get("size") {
+                Some(v) => v
+                    .as_u64()
+                    .ok_or_else(|| format!("invalid size for {norm_path}"))?,
+                None => 0,
+            };
             files.push(ManifestFile {
                 path: norm_path,
                 sha256,
@@ -379,7 +386,7 @@ impl Manifest {
         if self.commit.is_empty() {
             "unknown"
         } else {
-            let end = self.commit.len().min(7);
+            let end = self.commit.len().min(12);
             &self.commit[..end]
         }
     }
@@ -521,18 +528,22 @@ pub fn pick_newest<'a>(versions: &[&'a str], installed: Option<&str>) -> Option<
         .is_some_and(|v| v.is_prerelease());
 
     let mut best: Option<(&'a str, Version)> = None;
+    let mut best_pre: Option<(&'a str, Version)> = None;
     for &raw in versions {
         let Some(ver) = Version::parse(raw) else {
             continue;
         };
         if ver.is_prerelease() && !allow_prerelease {
+            if best_pre.as_ref().is_none_or(|(_, b)| ver > *b) {
+                best_pre = Some((raw, ver));
+            }
             continue;
         }
         if best.as_ref().is_none_or(|(_, b)| ver > *b) {
             best = Some((raw, ver));
         }
     }
-    best.map(|(s, _)| s)
+    best.or(best_pre).map(|(s, _)| s)
 }
 
 pub fn read_manifest(root: &Path) -> Result<Option<Manifest>, HostError> {
@@ -591,7 +602,7 @@ pub fn parse_sums(text: &str) -> Vec<(String, String)> {
             .unwrap_or(file)
             .to_owned();
         if !file_name.is_empty() {
-            out.push((file_name, hash.to_ascii_lowercase()));
+            out.push((hash.to_ascii_lowercase(), file_name));
         }
     }
     out
@@ -740,10 +751,28 @@ pub fn find_release(
             }
             let sums_path = dir.join(SUMS_FILE);
             let mut candidates = Vec::new();
+            let mut seen = BTreeSet::new();
+            if let Ok(sums_text) = fs::read_to_string(&sums_path) {
+                for (_, file_name) in parse_sums(&sums_text) {
+                    if let Some(ver) = archive_version(&file_name, platform)
+                        && seen.insert(file_name.clone())
+                    {
+                        candidates.push(Candidate {
+                            version: ver.to_owned(),
+                            archive: file_name.clone(),
+                            archive_at: Location::File(dir.join(&file_name)),
+                            sums_at: Location::File(sums_path.clone()),
+                            repository: None,
+                        });
+                    }
+                }
+            }
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
                 let file_name = entry.file_name().to_string_lossy().into_owned();
-                if let Some(ver) = archive_version(&file_name, platform) {
+                if let Some(ver) = archive_version(&file_name, platform)
+                    && seen.insert(file_name.clone())
+                {
                     candidates.push(Candidate {
                         version: ver.to_owned(),
                         archive: file_name.clone(),
@@ -773,7 +802,7 @@ pub fn find_release(
             let sums_text = http::get_text(&sums_url, false)
                 .map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e)))?;
             let mut candidates = Vec::new();
-            for (name, _) in parse_sums(&sums_text) {
+            for (_, name) in parse_sums(&sums_text) {
                 if let Some(ver) = archive_version(&name, platform) {
                     candidates.push(Candidate {
                         version: ver.to_owned(),
@@ -811,19 +840,52 @@ fn fetch_location(loc: &Location, dest: &Path) -> UpdateResult<()> {
 pub fn fetch(candidate: &Candidate, dir: &Path) -> UpdateResult<PathBuf> {
     fs::create_dir_all(dir)?;
     let sums_dest = dir.join(SUMS_FILE);
-    fetch_location(&candidate.sums_at, &sums_dest)?;
-    let sums_text = fs::read_to_string(&sums_dest)?;
-    let sums = parse_sums(&sums_text);
-    let expected = sums
-        .into_iter()
-        .find(|(name, _)| name == &candidate.archive)
-        .map(|(_, hash)| hash)
-        .ok_or_else(|| UpdateError::Problem(Problem::NotInSums(candidate.archive.clone())))?;
-
     let archive_dest = dir.join(&candidate.archive);
-    fetch_location(&candidate.archive_at, &archive_dest)?;
-    let actual = sha256_file(&archive_dest)?;
+    let cleanup = || {
+        if !matches!(&candidate.sums_at, Location::File(src) if src == &sums_dest) {
+            let _ = fs::remove_file(&sums_dest);
+        }
+        if !matches!(&candidate.archive_at, Location::File(src) if src == &archive_dest) {
+            let _ = fs::remove_file(&archive_dest);
+        }
+    };
+
+    if let Err(e) = fetch_location(&candidate.sums_at, &sums_dest) {
+        cleanup();
+        return Err(e);
+    }
+    let sums_text = match fs::read_to_string(&sums_dest) {
+        Ok(t) => t,
+        Err(e) => {
+            cleanup();
+            return Err(e.into());
+        }
+    };
+    let sums = parse_sums(&sums_text);
+    let Some(expected) = sums
+        .into_iter()
+        .find(|(_, name)| name == &candidate.archive)
+        .map(|(hash, _)| hash)
+    else {
+        cleanup();
+        return Err(UpdateError::Problem(Problem::NotInSums(
+            candidate.archive.clone(),
+        )));
+    };
+
+    if let Err(e) = fetch_location(&candidate.archive_at, &archive_dest) {
+        cleanup();
+        return Err(e);
+    }
+    let actual = match sha256_file(&archive_dest) {
+        Ok(h) => h,
+        Err(e) => {
+            cleanup();
+            return Err(e.into());
+        }
+    };
     if actual != expected {
+        cleanup();
         return Err(UpdateError::Problem(Problem::Checksum {
             file: candidate.archive.clone(),
             expected,
@@ -986,6 +1048,9 @@ fn extract_tar_gz(archive: &Path, dest: &Path) -> UpdateResult<()> {
 }
 
 pub fn extract(archive: &Path, dest: &Path) -> UpdateResult<PathBuf> {
+    if dest.exists() {
+        fs::remove_dir_all(dest)?;
+    }
     fs::create_dir_all(dest)?;
     let name = archive
         .file_name()
@@ -1028,7 +1093,7 @@ pub fn damaged_files(root: &Path, manifest: &Manifest) -> Result<Vec<String>, Ho
             damaged.push(f.path.clone());
             continue;
         };
-        if !meta.is_file() || meta.len() != f.size {
+        if !meta.is_file() || (f.size > 0 && meta.len() != f.size) {
             damaged.push(f.path.clone());
             continue;
         }
@@ -1042,7 +1107,9 @@ pub fn damaged_files(root: &Path, manifest: &Manifest) -> Result<Vec<String>, Ho
 
 fn is_runtime_manifest_path(path: &str) -> bool {
     let norm = path.replace('\\', "/");
-    norm.ends_with("/MysticParadox.dll")
+    norm.starts_with("modules/rustic-isles/native/runtime/")
+        || norm.starts_with("native/runtime/")
+        || norm.ends_with("/MysticParadox.dll")
         || norm.ends_with("/winmm.dll")
         || norm == "MysticParadox.dll"
         || norm == "winmm.dll"
@@ -1070,6 +1137,28 @@ pub fn local_changes(
     next: &Manifest,
 ) -> Result<Vec<String>, HostError> {
     let Some(prev) = previous else {
+        if !root.join(RELEASE_FILE).is_file()
+            && root.join(".git").exists()
+            && let Ok(Some(diff_out)) =
+                crate::run::capture("git", &["diff", "--name-only", "HEAD"], Some(root))
+        {
+            let mut changed = Vec::new();
+            for line in diff_out.lines() {
+                let path = line.trim().replace('\\', "/");
+                if path.is_empty() || path.ends_with("package-lock.json") {
+                    continue;
+                }
+                let full = root.join(&path);
+                if let Some(nf) = next.file(&path)
+                    && full.is_file()
+                    && sha256_file(&full).ok().as_deref() == Some(nf.sha256.as_str())
+                {
+                    continue;
+                }
+                changed.push(path);
+            }
+            return Ok(changed);
+        }
         return Ok(Vec::new());
     };
     let mut changed = Vec::new();
@@ -1165,6 +1254,18 @@ fn install_single_file(src: &Path, dst: &Path) -> io::Result<()> {
     }
 }
 
+fn remove_empty_parent_dirs(mut dir: Option<&Path>, root: &Path) {
+    while let Some(d) = dir {
+        if d == root || !d.starts_with(root) {
+            break;
+        }
+        if fs::remove_dir(d).is_err() {
+            break;
+        }
+        dir = d.parent();
+    }
+}
+
 pub fn install(
     staged: &Path,
     root: &Path,
@@ -1199,12 +1300,34 @@ pub fn install(
     }
     fs::write(&marker, format!("{}\n", next.version))?;
 
+    if previous.is_none() {
+        for rel in [
+            "modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules",
+            "modules/rustic-isles/reference/1.14.7/ParadoxDirector/node_modules",
+            "ParadoxBackend/node_modules",
+            "ParadoxDirector/node_modules",
+        ] {
+            let nm = rel.split('/').fold(root.to_path_buf(), |p, s| p.join(s));
+            if nm.is_dir() {
+                let _ = fs::remove_dir_all(&nm);
+            }
+        }
+    }
+
     let mut next_paths = BTreeSet::new();
+    let mut written_files = 0usize;
     for f in &next.files {
         next_paths.insert(f.path.clone());
         let src = staged.join(&f.path);
         let dst = root.join(&f.path);
+        if previous.is_some()
+            && dst.is_file()
+            && sha256_file(&dst).ok().as_deref() == Some(f.sha256.as_str())
+        {
+            continue;
+        }
         install_single_file(&src, &dst)?;
+        written_files += 1;
     }
 
     let mut removed = 0usize;
@@ -1214,6 +1337,7 @@ pub fn install(
                 let old_path = root.join(&pf.path);
                 if old_path.is_file() && fs::remove_file(&old_path).is_ok() {
                     removed += 1;
+                    remove_empty_parent_dirs(old_path.parent(), root);
                 }
             }
         }
@@ -1226,7 +1350,7 @@ pub fn install(
     let info = Installed {
         from: previous.map(|p| p.version.clone()),
         to: next.version.clone(),
-        files: next.files.len(),
+        files: written_files,
         removed,
         runtime_changed: rt_changed,
     };
@@ -1284,12 +1408,25 @@ pub mod http {
             if !status.is_success() {
                 return Err(format!("HTTP {} from {current}", status.as_u16()));
             }
+            let expected_len = resp
+                .headers()
+                .get(hyper::header::CONTENT_LENGTH)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.trim().parse::<u64>().ok());
             let body = resp
                 .into_body()
                 .collect()
                 .await
-                .map_err(|e| format!("{current}: {e}"))?
+                .map_err(|e| format!("download from {current} was interrupted: {e}"))?
                 .to_bytes();
+            if let Some(len) = expected_len
+                && (body.len() as u64) < len
+            {
+                return Err(format!(
+                    "download from {current} was interrupted ({} of {len} bytes)",
+                    body.len()
+                ));
+            }
             return Ok(body.to_vec());
         }
         Err(format!("too many redirects fetching {url}"))
@@ -1314,7 +1451,11 @@ pub mod http {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         let mut out = File::create(file).map_err(|e| e.to_string())?;
-        out.write_all(&bytes).map_err(|e| e.to_string())?;
+        if let Err(e) = out.write_all(&bytes) {
+            drop(out);
+            let _ = fs::remove_file(file);
+            return Err(e.to_string());
+        }
         Ok(())
     }
 }
@@ -1446,7 +1587,7 @@ mod tests {
 
         let (installed_manifest, stats) = install(&staged, &root, None).unwrap();
         assert_eq!(installed_manifest.version, "0.2.0");
-        assert_eq!(installed_manifest.short_commit(), "abcdef1");
+        assert_eq!(installed_manifest.short_commit(), "abcdef123456");
         assert_eq!(stats.files, 1);
         assert!(root.join("README.txt").is_file());
         assert!(!installing_marker(&root).exists());

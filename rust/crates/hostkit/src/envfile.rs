@@ -31,8 +31,8 @@ impl EnvMap {
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, (String, String)> {
-        self.0.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.0.iter().map(|(k, v)| (k.as_str(), v.as_str()))
     }
 
     #[must_use]
@@ -180,7 +180,7 @@ pub fn format_value(value: &str) -> Result<String, HostError> {
     if value.contains('\n') || value.contains('\r') {
         return Err(HostError::message("env values cannot contain line breaks"));
     }
-    if !value.is_empty() && value.bytes().all(is_plain_value_byte) {
+    if value.is_empty() || value.bytes().all(is_plain_value_byte) {
         return Ok(value.to_owned());
     }
     let mut quoted = String::with_capacity(value.len() + 2);
@@ -371,7 +371,7 @@ mod tests {
         assert_eq!(env.get("NAME"), Some("My \"Server\"\nLine2"));
         assert_eq!(env.get("RAW"), Some("single\\nquoted # not comment"));
         assert_eq!(env.get("URL"), Some("http://127.0.0.1:61000#hash"));
-        let keys: Vec<&str> = env.iter().map(|(k, _)| k.as_str()).collect();
+        let keys: Vec<&str> = env.iter().collect::<Vec<_>>().into_iter().map(|(k, _)| k).collect();
         assert_eq!(keys, vec!["PORT", "NAME", "RAW", "URL"]);
     }
 
@@ -385,7 +385,7 @@ mod tests {
             format_value("plain_value-1.0/path:ok@host,a+b=c%d"),
             Ok("plain_value-1.0/path:ok@host,a+b=c%d".to_owned())
         );
-        assert_eq!(format_value(""), Ok("\"\"".to_owned()));
+        assert_eq!(format_value(""), Ok(String::new()));
         assert_eq!(
             format_value("a \"quote\" \\ slash"),
             Ok("\"a \\\"quote\\\" \\\\ slash\"".to_owned())

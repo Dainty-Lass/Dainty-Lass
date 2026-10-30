@@ -9,24 +9,32 @@ use chrono::Utc;
 use crate::cli::GamedataArgs;
 use crate::error::HostError;
 use crate::gamedata::{
-    BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GenerateOptions, SUPPLIED_SOURCES, generate_game_data,
-    seed_embedded_examples, use_examples,
+    BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GenerateOptions, copy_supplied_sources,
+    generate_game_data, seed_embedded_examples, use_examples,
 };
 use crate::gamepack::{default_pack_file, export_game_data_pack, import_game_data_pack};
 use crate::paths::Paths;
 use crate::progression::{SourceWritten, write_progression_source};
 
 pub fn run(paths: &Paths, args: &GamedataArgs) -> Result<ExitCode, HostError> {
+    run_with(paths, args, &mut |line| println!("{line}"))
+}
+
+pub fn run_with(
+    paths: &Paths,
+    args: &GamedataArgs,
+    out: &mut dyn FnMut(&str),
+) -> Result<ExitCode, HostError> {
     if let Some(ref import_path) = args.import {
         let pack_file = Path::new(import_path.trim());
-        let imported = import_game_data_pack(paths, pack_file)?;
-        println!(
+        let imported = import_game_data_pack(paths, pack_file, Utc::now())?;
+        out(&format!(
             "Imported {} file(s) from {} ({} unchanged, {} backed up).",
             imported.written.len(),
             pack_file.display(),
             imported.unchanged.len(),
             imported.backups.len()
-        );
+        ));
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -34,11 +42,11 @@ pub fn run(paths: &Paths, args: &GamedataArgs) -> Result<ExitCode, HostError> {
         let now = Utc::now();
         let out_file = resolve_export_path(paths, export_arg, now);
         let exported = export_game_data_pack(paths, &out_file, now)?;
-        println!(
+        out(&format!(
             "Exported {} file(s) to {}.",
-            exported.files.len(),
+            exported.included.len(),
             exported.file.display()
-        );
+        ));
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -52,16 +60,16 @@ pub fn run(paths: &Paths, args: &GamedataArgs) -> Result<ExitCode, HostError> {
         let out_file = paths.raw_game_data.join("progression_config.source.json");
         match write_progression_source(&exports_dir, &out_file)? {
             SourceWritten::Written { written, derived } => {
-                println!(
+                out(&format!(
                     "Wrote {written} progression path(s) ({derived} derived prestige track(s)) to {}.",
                     out_file.display()
-                );
+                ));
             }
             SourceWritten::Supplied => {
-                println!(
+                out(&format!(
                     "Keeping existing supplied progression source at {}.",
                     out_file.display()
-                );
+                ));
             }
             SourceWritten::NoExport => {
                 return Err(HostError::message(format!(
@@ -75,29 +83,12 @@ pub fn run(paths: &Paths, args: &GamedataArgs) -> Result<ExitCode, HostError> {
 
     if let Some(ref src_dir_raw) = args.example_sources {
         let src_dir = Path::new(src_dir_raw.trim());
-        std::fs::create_dir_all(&paths.raw_game_data)
-            .map_err(|e| HostError::io(&paths.raw_game_data, e))?;
-        let mut copied = 0usize;
-        for (export_name, source_name) in SUPPLIED_SOURCES {
-            let from_src = src_dir.join(source_name);
-            let from_exp = src_dir.join(export_name);
-            let chosen = if from_src.is_file() {
-                Some(from_src)
-            } else if from_exp.is_file() {
-                Some(from_exp)
-            } else {
-                None
-            };
-            if let Some(src) = chosen {
-                let dst = paths.raw_game_data.join(source_name);
-                std::fs::copy(&src, &dst).map_err(|e| HostError::io(&dst, e))?;
-                copied += 1;
-            }
-        }
-        println!(
-            "Copied {copied} supplied source file(s) into {}.",
+        let copied = copy_supplied_sources(paths, src_dir)?;
+        out(&format!(
+            "Copied {} supplied source file(s) into {}.",
+            copied.len(),
             paths.raw_game_data.display()
-        );
+        ));
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -110,33 +101,33 @@ pub fn run(paths: &Paths, args: &GamedataArgs) -> Result<ExitCode, HostError> {
                 copied.push(s);
             }
         }
-        println!("Seeded {} example game-data file(s).", copied.len());
+        out(&format!("Seeded {} example game-data file(s).", copied.len()));
         return Ok(ExitCode::SUCCESS);
     }
 
-    println!("Generating game data from {}...", paths.exports.display());
+    out(&format!("Generating game data from {}...", paths.exports.display()));
     let log_file = paths.logs.join("gamedata.log");
     let generated = generate_game_data(
         paths,
         &GenerateOptions {
             examples_for_missing: true,
-            log_file: Some(log_file),
+            log_file,
+            only: None,
         },
-        |line| println!("{line}"),
+        out,
     )?;
-    println!(
+    if !generated.ok {
+        return Ok(ExitCode::FAILURE);
+    }
+    out(&format!(
         "Generated {} step(s) ({} fallback example(s)).",
-        generated.steps.len(),
+        generated.ran.len(),
         generated.examples.len()
-    );
+    ));
     Ok(ExitCode::SUCCESS)
 }
 
-fn resolve_export_path(
-    paths: &Paths,
-    raw: &str,
-    now: chrono::DateTime<Utc>,
-) -> PathBuf {
+fn resolve_export_path(paths: &Paths, raw: &str, now: chrono::DateTime<Utc>) -> PathBuf {
     let trimmed = raw.trim();
     if trimmed.is_empty() || trimmed == "default" {
         default_pack_file(paths, now)

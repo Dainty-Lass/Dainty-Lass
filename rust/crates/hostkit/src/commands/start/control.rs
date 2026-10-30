@@ -47,7 +47,7 @@ pub fn watch_stop_input(mut input: impl BufRead, on_stop: impl FnOnce()) {
 }
 
 struct ControlInner {
-    asked: AtomicBool,
+    asked: Arc<AtomicBool>,
     lock: Mutex<bool>,
     cvar: Condvar,
 }
@@ -55,7 +55,7 @@ struct ControlInner {
 impl ControlInner {
     fn new() -> Self {
         Self {
-            asked: AtomicBool::new(false),
+            asked: Arc::new(AtomicBool::new(false)),
             lock: Mutex::new(false),
             cvar: Condvar::new(),
         }
@@ -151,6 +151,12 @@ impl Control {
         }
 
         Ok(ctrl)
+    }
+
+    /// Returns the shared cancellation flag set when a stop signal or stdin stop/EOF is received.
+    #[must_use]
+    pub fn flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.inner.asked)
     }
 
     /// Returns `true` once a stop signal or stdin stop/EOF has been received.

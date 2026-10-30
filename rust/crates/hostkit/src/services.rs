@@ -243,8 +243,7 @@ fn tcp_connect(host: &str, port: u16, timeout: Duration) -> Option<TcpStream> {
 }
 
 #[must_use]
-pub fn check_ready(ready: &Ready) -> bool {
-    let timeout = Duration::from_millis(800);
+pub fn answers(ready: &Ready, timeout: Duration) -> bool {
     match ready {
         Ready::Tcp { host, port } => tcp_connect(host, *port, timeout).is_some(),
         Ready::Http { port, path } => {
@@ -277,6 +276,11 @@ pub fn check_ready(ready: &Ready) -> bool {
     }
 }
 
+#[must_use]
+pub fn check_ready(ready: &Ready) -> bool {
+    answers(ready, Duration::from_millis(100))
+}
+
 pub fn wait_for_ready(ready: &Ready, timeout: Duration, cancel: &dyn Fn() -> bool) -> bool {
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
@@ -286,7 +290,7 @@ pub fn wait_for_ready(ready: &Ready, timeout: Duration, cancel: &dyn Fn() -> boo
         if check_ready(ready) {
             return true;
         }
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(25));
     }
     false
 }
@@ -301,7 +305,8 @@ pub struct Supervisor {
     log_dir: PathBuf,
     printer: Printer,
     cancel: Arc<AtomicBool>,
-    children: Mutex<Vec<ManagedChild>>,
+    stopping: Arc<AtomicBool>,
+    children: Arc<Mutex<Vec<ManagedChild>>>,
 }
 
 impl Supervisor {
@@ -311,7 +316,8 @@ impl Supervisor {
             log_dir: log_dir.into(),
             printer,
             cancel: Arc::new(AtomicBool::new(false)),
-            children: Mutex::new(Vec::new()),
+            stopping: Arc::new(AtomicBool::new(false)),
+            children: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -326,9 +332,14 @@ impl Supervisor {
         &self.log_dir
     }
 
-    pub fn start(&self, spec: ServiceSpec, ready_timeout: Duration) -> Result<bool, HostError> {
-        std::fs::create_dir_all(&self.log_dir).map_err(|e| HostError::io(&self.log_dir, e))?;
-        let log_path = self.log_dir.join(format!("{}.log", spec.name));
+    fn spawn_one(
+        log_dir: &Path,
+        printer: &Printer,
+        children: &Arc<Mutex<Vec<ManagedChild>>>,
+        spec: &ServiceSpec,
+    ) -> Result<(Arc<Mutex<std::fs::File>>, u32), HostError> {
+        std::fs::create_dir_all(log_dir).map_err(|e| HostError::io(log_dir, e))?;
+        let log_path = log_dir.join(format!("{}.log", spec.name));
         let log_file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -376,6 +387,7 @@ impl Supervisor {
                 spec.command.display()
             ))
         })?;
+        let pid = child.id();
         let adopted_tree = tree::Tree::adopt(&child).ok();
 
         let pipe_stream = |stream: Box<dyn Read + Send>,
@@ -397,7 +409,7 @@ impl Supervisor {
             pipe_stream(
                 Box::new(stdout),
                 spec.name.clone(),
-                Arc::clone(&self.printer),
+                Arc::clone(printer),
                 Arc::clone(&log_shared),
             );
         }
@@ -405,12 +417,13 @@ impl Supervisor {
             pipe_stream(
                 Box::new(stderr),
                 spec.name.clone(),
-                Arc::clone(&self.printer),
+                Arc::clone(printer),
                 Arc::clone(&log_shared),
             );
         }
 
-        if let Ok(mut guard) = self.children.lock() {
+        if let Ok(mut guard) = children.lock() {
+            guard.retain(|c| c.name != spec.name);
             guard.push(ManagedChild {
                 name: spec.name.clone(),
                 child,
@@ -418,27 +431,99 @@ impl Supervisor {
             });
         }
 
-        let Some(ready) = &spec.ready else {
-            return Ok(true);
+        Ok((log_shared, pid))
+    }
+
+    pub fn start(&self, spec: ServiceSpec, ready_timeout: Duration) -> Result<bool, HostError> {
+        let (log_shared, _pid) = Self::spawn_one(&self.log_dir, &self.printer, &self.children, &spec)?;
+
+        let ready_ok = if let Some(ready) = &spec.ready {
+            let deadline = Instant::now() + ready_timeout;
+            let mut ok = false;
+            while Instant::now() < deadline {
+                if self.cancel.load(Ordering::SeqCst) || self.stopping.load(Ordering::SeqCst) {
+                    break;
+                }
+                if check_ready(ready) {
+                    (self.printer)(
+                        &spec.name,
+                        &format!("ready on {}:{}", ready.host(), ready.port()),
+                    );
+                    ok = true;
+                    break;
+                }
+                if let Ok(mut guard) = self.children.lock()
+                    && let Some(mc) = guard.iter_mut().find(|c| c.name == spec.name)
+                    && let Ok(Some(_)) = mc.child.try_wait()
+                {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            ok
+        } else {
+            true
         };
 
-        let deadline = Instant::now() + ready_timeout;
-        while Instant::now() < deadline {
-            if self.cancel.load(Ordering::SeqCst) {
-                return Ok(false);
-            }
-            if check_ready(ready) {
-                return Ok(true);
-            }
-            if let Ok(mut guard) = self.children.lock()
-                && let Some(mc) = guard.iter_mut().find(|c| c.name == spec.name)
-                && let Ok(Some(_)) = mc.child.try_wait()
-            {
-                return Ok(false);
-            }
-            std::thread::sleep(Duration::from_millis(100));
+        if ready_ok {
+            let children = Arc::clone(&self.children);
+            let cancel = Arc::clone(&self.cancel);
+            let stopping = Arc::clone(&self.stopping);
+            let printer = Arc::clone(&self.printer);
+            let log_dir = self.log_dir.clone();
+            let mut log_file = log_shared;
+            std::thread::spawn(move || {
+                loop {
+                    if cancel.load(Ordering::SeqCst) || stopping.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    let exited = {
+                        let Ok(mut guard) = children.lock() else {
+                            return;
+                        };
+                        let Some(mc) = guard.iter_mut().find(|c| c.name == spec.name) else {
+                            return;
+                        };
+                        mc.child.try_wait().ok().flatten()
+                    };
+                    if let Some(status) = exited {
+                        if cancel.load(Ordering::SeqCst) || stopping.load(Ordering::SeqCst) {
+                            return;
+                        }
+                        let code_str = status
+                            .code()
+                            .map_or_else(|| "signal".to_owned(), |c| c.to_string());
+                        if let Ok(mut f) = log_file.lock() {
+                            let _ = writeln!(f, "{} exited ({code_str})", spec.name);
+                        }
+                        printer(
+                            &spec.name,
+                            &format!("exited ({code_str}); restarting in 4 s"),
+                        );
+                        let wait_until = Instant::now() + Duration::from_secs(4);
+                        while Instant::now() < wait_until {
+                            if cancel.load(Ordering::SeqCst) || stopping.load(Ordering::SeqCst) {
+                                return;
+                            }
+                            std::thread::sleep(Duration::from_millis(100));
+                        }
+                        if cancel.load(Ordering::SeqCst) || stopping.load(Ordering::SeqCst) {
+                            return;
+                        }
+                        if let Ok((new_log, _)) =
+                            Self::spawn_one(&log_dir, &printer, &children, &spec)
+                        {
+                            log_file = new_log;
+                        } else {
+                            return;
+                        }
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+            });
         }
-        Ok(false)
+
+        Ok(ready_ok)
     }
 
     pub fn any_stopped(&self) -> Option<(String, Option<i32>)> {
@@ -451,7 +536,18 @@ impl Supervisor {
         None
     }
 
+    #[must_use]
+    pub fn all_stopped(&self) -> bool {
+        let Ok(mut guard) = self.children.lock() else {
+            return true;
+        };
+        guard
+            .iter_mut()
+            .all(|mc| matches!(mc.child.try_wait(), Ok(Some(_))))
+    }
+
     pub fn stop_all(&self) {
+        self.stopping.store(true, Ordering::SeqCst);
         let Ok(mut guard) = self.children.lock() else {
             return;
         };

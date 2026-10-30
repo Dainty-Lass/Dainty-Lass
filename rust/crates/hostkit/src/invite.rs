@@ -45,11 +45,10 @@ pub fn parse_game_version(text: &str) -> Option<GameVersion> {
     played_versions().contains(&parsed).then_some(parsed)
 }
 
-/// Components used to build an invite URL before delegating to [`protocol::invite::format_invite`].
+/// Components used to build an invite URL.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InviteParts {
-    /// `true` for public servers, `false` for private (Tailscale) servers.
-    pub mode: bool,
+    pub mode: ServerMode,
     pub host: String,
     pub port: u16,
     pub code: String,
@@ -73,17 +72,19 @@ pub struct HttpResponse {
     pub body: String,
 }
 
-fn normalize_fingerprint(fp: &str) -> String {
-    let trimmed = service_kit::js::trim(fp);
-    let stripped = trimmed
-        .strip_prefix("sha256:")
-        .or_else(|| trimmed.strip_prefix("SHA256:"))
-        .unwrap_or(trimmed);
-    let compact: String = stripped
-        .chars()
-        .filter(|c| !c.is_whitespace() && *c != ':')
-        .collect();
-    compact.to_ascii_lowercase()
+fn encode_uri_component(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for &b in s.as_bytes() {
+        if b.is_ascii_alphanumeric()
+            || matches!(b, b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')')
+        {
+            out.push(b as char);
+        } else {
+            use std::fmt::Write as _;
+            let _ = write!(out, "%{b:02X}");
+        }
+    }
+    out
 }
 
 /// Formats an invite URL for the default 1.14.7 game version from [`InviteParts`].
@@ -93,46 +94,53 @@ pub fn format_invite_parts(parts: &InviteParts) -> Result<String, HostError> {
 
 /// Formats an invite URL for a specific [`GameVersion`] from [`InviteParts`].
 pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<String, HostError> {
-    let fp = if parts.mode {
-        let raw = parts
-            .fp
-            .as_deref()
-            .ok_or_else(|| HostError::message("a public server invite needs the gateway certificate's SHA-256 fingerprint"))?;
-        let norm = normalize_fingerprint(raw);
-        if !is_valid_fingerprint(&norm) {
-            return Err(HostError::message(
-                "certificate fingerprint must be 64 hexadecimal characters",
-            ));
-        }
-        Some(norm)
+    let scheme = if *game == reforged_version() {
+        INVITE_SCHEME
+    } else if *game == revived_version() {
+        REVIVED_INVITE_SCHEME
     } else {
-        None
+        UNIFIED_INVITE_SCHEME
     };
 
-    let invite = Invite {
-        version: game.clone(),
-        mode: if parts.mode {
-            InviteServerMode::Public
-        } else {
-            InviteServerMode::Private
-        },
-        host: parts.host.clone(),
-        port: parts.port,
-        code: parts.code.clone(),
-        name: parts.name.clone(),
-        share: if parts.mode { None } else { parts.share.clone() },
-        fp,
+    let mut url = match parts.mode {
+        ServerMode::Public => {
+            let fp = parts
+                .fp
+                .as_deref()
+                .map(service_kit::js::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| HostError::message("public invites need the certificate fingerprint"))?;
+            format!(
+                "{scheme}://join?v=2&mode=public&host={}&port={}&fp={}&code={}&name={}",
+                encode_uri_component(&parts.host),
+                parts.port,
+                encode_uri_component(fp),
+                encode_uri_component(&parts.code),
+                encode_uri_component(&parts.name),
+            )
+        }
+        ServerMode::Private => {
+            let mut s = format!(
+                "{scheme}://join?v=1&host={}&port={}&code={}&name={}",
+                encode_uri_component(&parts.host),
+                parts.port,
+                encode_uri_component(&parts.code),
+                encode_uri_component(&parts.name),
+            );
+            if let Some(share) = parts.share.as_deref().filter(|v| !v.is_empty()) {
+                s.push_str("&share=");
+                s.push_str(&encode_uri_component(share));
+            }
+            s
+        }
     };
 
-    format_invite(&invite).map_err(|err| match err {
-        FormatError::Host => HostError::message(format!("invalid invite host: {}", parts.host)),
-        FormatError::Port => HostError::message(format!("invalid invite port: {}", parts.port)),
-        FormatError::Code => HostError::message(format!("invalid invite code: {}", parts.code)),
-        FormatError::Name => HostError::message("invalid server name for invite"),
-        FormatError::Share => HostError::message("invalid Tailscale share URL for invite"),
-        FormatError::Fp => HostError::message("invalid certificate fingerprint for invite"),
-        FormatError::Version => HostError::message(format!("unsupported game version for invite: {game}")),
-    })
+    if scheme == UNIFIED_INVITE_SCHEME {
+        url.push_str("&version=");
+        url.push_str(&encode_uri_component(&game.to_string()));
+    }
+
+    Ok(url)
 }
 
 /// Formats an invite URL for `config` on the primary game version (`1.14.7` unless `edition` is `legacy`).
@@ -158,7 +166,7 @@ pub fn invite_for_game(
         gateway_port(config)
     };
     let parts = InviteParts {
-        mode: config.mode == ServerMode::Public,
+        mode: config.mode,
         host: config.host.clone(),
         port,
         code: code.to_owned(),
@@ -447,29 +455,29 @@ fn error_detail_from_body(body: &str) -> String {
 }
 
 /// Calls `POST /reforged/api/CreateInvite` on `127.0.0.1:port` and returns the created invite code.
-pub fn create_invite_code(port: u16, admin_key: &str, opts: &CodeOptions) -> Result<String, HostError> {
+pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Result<String, HostError> {
     let key = admin_key.trim();
     if key.is_empty() {
         return Err(HostError::message("REFORGED_ADMIN_KEY is missing from secrets.env"));
     }
-    let note_val = opts
+    let mut payload = serde_json::Map::new();
+    payload.insert("uses".into(), Value::Number((opts.uses as i64).into()));
+    payload.insert("infinite".into(), Value::Bool(opts.infinite));
+    if let Some(name) = opts
         .note
         .as_deref()
         .map(service_kit::js::trim)
         .filter(|s| !s.is_empty())
-        .map_or(Value::Null, |s| Value::String(s.to_owned()));
-    let payload = serde_json::json!({
-        "maxUses": opts.uses as i64,
-        "infinite": opts.infinite,
-        "note": note_val,
-    });
-    let body_str = service_kit::jsjson::stringify(&payload);
+    {
+        payload.insert("name".into(), Value::String(name.to_owned()));
+    }
+    let body_str = service_kit::jsjson::stringify(&Value::Object(payload));
     let resp = http_request(
         "POST",
         port,
         "/reforged/api/CreateInvite",
         &[
-            ("X-Reforged-Admin-Key", key),
+            ("x-reforged-admin-key", key),
             ("Content-Type", "application/json"),
         ],
         Some(&body_str),
@@ -477,10 +485,16 @@ pub fn create_invite_code(port: u16, admin_key: &str, opts: &CodeOptions) -> Res
     )
     .map_err(|e| {
         HostError::message(format!(
-            "could not reach the backend on 127.0.0.1:{port} ({e}). Is the server running? (npm start)"
+            "the backend is not running on 127.0.0.1:{port} ({e}): start the server first (reforged-host start)"
         ))
     })?;
 
+    if resp.status == 401 || resp.status == 403 {
+        return Err(HostError::message(format!(
+            "the backend refused the admin key (HTTP {}): check REFORGED_ADMIN_KEY in secrets.env",
+            resp.status
+        )));
+    }
     if resp.status != 200 {
         return Err(HostError::message(format!(
             "backend refused invite creation (HTTP {}): {}",
@@ -512,7 +526,7 @@ pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostE
         "GET",
         port,
         "/reforged/api/InviteCodes",
-        &[("X-Reforged-Admin-Key", key)],
+        &[("x-reforged-admin-key", key)],
         None,
         Duration::from_millis(5000),
     )
@@ -563,7 +577,7 @@ mod tests {
         assert_eq!(parse_game_version("9.9.9"), None);
 
         let priv_parts = InviteParts {
-            mode: false,
+            mode: ServerMode::Private,
             host: "100.101.102.103".into(),
             port: 61000,
             code: "ABCD-1234".into(),
@@ -581,7 +595,7 @@ mod tests {
 
         let fp = "ab".repeat(32);
         let pub_parts = InviteParts {
-            mode: true,
+            mode: ServerMode::Public,
             host: "play.example.org".into(),
             port: 443,
             code: "OPEN-9999".into(),
@@ -616,7 +630,7 @@ mod tests {
             let n = stream.read(&mut buf).unwrap();
             let req = String::from_utf8_lossy(&buf[..n]);
             assert!(req.contains("POST /reforged/api/CreateInvite HTTP/1.1"));
-            assert!(req.contains("X-Reforged-Admin-Key: secret123"));
+            assert!(req.contains("x-reforged-admin-key: secret123"));
             let body = r#"{"code":"HUNT-2026"}"#;
             let resp = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
@@ -626,13 +640,13 @@ mod tests {
         });
 
         let code = create_invite_code(
-            port,
             "secret123",
             &CodeOptions {
                 uses: 5.0,
                 infinite: false,
                 note: Some("Alex".into()),
             },
+            port,
         )
         .unwrap();
         assert_eq!(code, "HUNT-2026");

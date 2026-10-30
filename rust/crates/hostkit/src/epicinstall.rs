@@ -101,6 +101,9 @@ pub fn save_session(file: &Path, session: &Session) -> Result<(), HostError> {
 /// The stored session; None when there is none, or when the file is not one this command wrote (the next run signs
 /// in again and replaces it).
 pub fn load_session(file: &Path) -> Result<Option<Session>, HostError> {
+    if !file.exists() {
+        return Ok(None);
+    }
     #[cfg(unix)]
     tighten(file);
     let env = read_env_file(file)?;

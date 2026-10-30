@@ -460,7 +460,16 @@ fn moves_a_node_kit_checkout_over_then_updates_it() {
 fn a_node_kit_checkout_with_a_changed_tracked_file_is_refused() {
     let git = |root: &Path, args: &[&str]| {
         let ok = std::process::Command::new("git")
-            .args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.autocrlf=false"])
+            .args([
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "core.autocrlf=false",
+                "-c",
+                "commit.gpgsign=false",
+            ])
             .args(args)
             .current_dir(root)
             .output()

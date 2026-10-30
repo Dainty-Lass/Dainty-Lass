@@ -859,7 +859,8 @@ impl HostConfig {
             if self.network.is_none() {
                 self.network = prev.network.clone();
             }
-            self.file = prev.file.clone();
+            self.file.read = prev.file.read.clone();
+            self.file.toml = prev.file.toml.clone();
         }
         self
     }
@@ -873,46 +874,52 @@ impl HostConfig {
     }
 
     fn fields_map(&self) -> Map<String, Value> {
-        let mut out = Map::new();
-        out.insert("version".into(), Value::from(self.version));
-        out.insert("mode".into(), Value::String(self.mode.as_str().to_owned()));
+        let mut canonical = Map::new();
+        canonical.insert("version".into(), Value::from(self.version));
+        canonical.insert("mode".into(), Value::String(self.mode.as_str().to_owned()));
         if self.edition != Edition::Reborn || self.file.document.contains_key("edition") {
-            out.insert(
+            canonical.insert(
                 "edition".into(),
                 Value::String(self.edition.as_str().to_owned()),
             );
         }
-        out.insert("host".into(), Value::String(self.host.clone()));
-        out.insert(
+        canonical.insert("host".into(), Value::String(self.host.clone()));
+        canonical.insert(
             "gameAddress".into(),
             Value::String(self.game_address.clone()),
         );
-        out.insert("name".into(), Value::String(self.name.clone()));
-        out.insert(
+        canonical.insert("name".into(), Value::String(self.name.clone()));
+        canonical.insert(
             "gameDir".into(),
             self.game_dir
                 .clone()
                 .map_or(Value::Null, Value::String),
         );
         if self.legacy_game_dir.is_some() || self.file.document.contains_key("legacyGameDir") {
-            out.insert(
+            canonical.insert(
                 "legacyGameDir".into(),
                 self.legacy_game_dir
                     .clone()
                     .map_or(Value::Null, Value::String),
             );
         }
-        out.insert(
+        canonical.insert(
             "registration".into(),
             Value::String(self.registration.as_str().to_owned()),
         );
-        out.insert(
+        canonical.insert(
             "shareUrl".into(),
             self.share_url
                 .clone()
                 .map_or(Value::Null, Value::String),
         );
-        let mut mongo = Map::new();
+        let mut mongo = self
+            .file
+            .document
+            .get("mongo")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
         mongo.insert("uri".into(), Value::String(self.mongo.uri.clone()));
         mongo.insert("manage".into(), Value::Bool(self.mongo.manage));
         mongo.insert(
@@ -922,8 +929,14 @@ impl HostConfig {
                 .clone()
                 .map_or(Value::Null, Value::String),
         );
-        out.insert("mongo".into(), Value::Object(mongo));
-        out.insert("maxHuntServers".into(), Value::from(self.max_hunt_servers));
+        canonical.insert("mongo".into(), Value::Object(mongo));
+        canonical.insert("maxHuntServers".into(), Value::from(self.max_hunt_servers));
+        if let Some(port) = self.public_port {
+            canonical.insert("publicPort".into(), Value::from(port));
+        }
+        if let Some(port) = self.legacy_public_port {
+            canonical.insert("legacyPublicPort".into(), Value::from(port));
+        }
         if let Some(m) = self.multipliers {
             let mut mult = Map::new();
             if let Some(n) = Number::from_f64(m.xp) {
@@ -935,28 +948,78 @@ impl HostConfig {
                     Value::Number(format_multiplier_num(n, m.rewards)),
                 );
             }
-            out.insert("multipliers".into(), Value::Object(mult));
-        }
-        if let Some(port) = self.public_port {
-            out.insert("publicPort".into(), Value::from(port));
-        }
-        if let Some(port) = self.legacy_public_port {
-            out.insert("legacyPublicPort".into(), Value::from(port));
+            canonical.insert("multipliers".into(), Value::Object(mult));
         }
         if let Some(p) = &self.performance {
+            let all_perf = [
+                (
+                    "serverFps",
+                    Value::from(p.server_fps),
+                    p.server_fps != DEFAULT_PERFORMANCE.server_fps,
+                ),
+                (
+                    "idleFps",
+                    Value::from(p.idle_fps),
+                    p.idle_fps != DEFAULT_PERFORMANCE.idle_fps,
+                ),
+                (
+                    "trainingOnDemand",
+                    Value::Bool(p.training_on_demand),
+                    p.training_on_demand != DEFAULT_PERFORMANCE.training_on_demand,
+                ),
+                (
+                    "trainingIdleMinutes",
+                    Value::from(p.training_idle_minutes),
+                    p.training_idle_minutes != DEFAULT_PERFORMANCE.training_idle_minutes,
+                ),
+                (
+                    "verboseGameLogs",
+                    Value::Bool(p.verbose_game_logs),
+                    p.verbose_game_logs != DEFAULT_PERFORMANCE.verbose_game_logs,
+                ),
+                (
+                    "memoryGuard",
+                    Value::Bool(p.memory_guard),
+                    p.memory_guard != DEFAULT_PERFORMANCE.memory_guard,
+                ),
+                (
+                    "minFreeMemoryMb",
+                    Value::from(p.min_free_memory_mb),
+                    p.min_free_memory_mb != DEFAULT_PERFORMANCE.min_free_memory_mb,
+                ),
+                (
+                    "huntMemoryMb",
+                    Value::from(p.hunt_memory_mb),
+                    p.hunt_memory_mb != DEFAULT_PERFORMANCE.hunt_memory_mb,
+                ),
+            ];
             let mut perf = Map::new();
-            perf.insert("serverFps".into(), Value::from(p.server_fps));
-            perf.insert("idleFps".into(), Value::from(p.idle_fps));
-            perf.insert("trainingOnDemand".into(), Value::Bool(p.training_on_demand));
-            perf.insert(
-                "trainingIdleMinutes".into(),
-                Value::from(p.training_idle_minutes),
-            );
-            perf.insert("verboseGameLogs".into(), Value::Bool(p.verbose_game_logs));
-            perf.insert("memoryGuard".into(), Value::Bool(p.memory_guard));
-            perf.insert("minFreeMemoryMb".into(), Value::from(p.min_free_memory_mb));
-            perf.insert("huntMemoryMb".into(), Value::from(p.hunt_memory_mb));
-            out.insert("performance".into(), Value::Object(perf));
+            if let Some(orig_p) = self
+                .file
+                .document
+                .get("performance")
+                .and_then(Value::as_object)
+                .filter(|m| !m.is_empty())
+            {
+                for (k, v) in orig_p {
+                    if let Some((_, new_v, _)) = all_perf.iter().find(|(pk, _, _)| *pk == k.as_str())
+                    {
+                        perf.insert(k.clone(), new_v.clone());
+                    } else {
+                        perf.insert(k.clone(), v.clone());
+                    }
+                }
+                for (k, new_v, changed) in all_perf {
+                    if !perf.contains_key(k) && changed {
+                        perf.insert(k.into(), new_v);
+                    }
+                }
+            } else {
+                for (k, new_v, _) in all_perf {
+                    perf.insert(k.into(), new_v);
+                }
+            }
+            canonical.insert("performance".into(), Value::Object(perf));
         }
         if let Some(l) = &self.linux {
             let mut linux = Map::new();
@@ -975,27 +1038,27 @@ impl HostConfig {
                     .clone()
                     .map_or(Value::Null, Value::String),
             );
-            out.insert("linux".into(), Value::Object(linux));
+            canonical.insert("linux".into(), Value::Object(linux));
         }
         if let Some(d) = &self.database {
-            out.insert("database".into(), d.to_json());
+            canonical.insert("database".into(), d.to_json());
         }
         if let Some(g) = &self.guard {
-            out.insert("guard".into(), g.to_json());
+            canonical.insert("guard".into(), g.to_json());
         }
         if let Some(h) = &self.history {
-            out.insert("history".into(), h.to_json());
+            canonical.insert("history".into(), h.to_json());
         }
         if let Some(s) = &self.switches {
-            out.insert("switches".into(), s.to_json());
+            canonical.insert("switches".into(), s.to_json());
         }
         if let Some(n) = &self.network {
-            out.insert("network".into(), n.to_json());
+            canonical.insert("network".into(), n.to_json());
         }
         if let Some(m) = &self.modules {
-            out.insert("modules".into(), m.to_json());
+            canonical.insert("modules".into(), m.to_json());
         }
-        out
+        merge_document_order(&self.file.document, canonical)
     }
 
     pub fn to_toml(&self) -> Result<String, HostError> {
@@ -1029,7 +1092,7 @@ fn format_multiplier_num(n: Number, raw: f64) -> Number {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Secrets {
     pub gateway_secret: String,
     pub allowlist_secret: String,
@@ -1611,7 +1674,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
                 Some(v) => {
                     let Some(n) = integer(Some(v)).filter(|&n| valid_fps(n, 10.0)) else {
                         return Err(bad(format!(
-                            "performance.serverFps must be 0 (uncapped) or an integer from 10 to 240, not {}",
+                            "performance.serverFps must be 0 (no cap) or 10 to 240, not {}",
                             shown(Some(v))
                         )));
                     };
@@ -1907,42 +1970,52 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         None => None,
     };
 
-    let mut out = Map::new();
-    out.insert("version".into(), Value::from(1));
-    out.insert("mode".into(), Value::String(mode.as_str().to_owned()));
+    let mut canonical = Map::new();
+    canonical.insert("version".into(), Value::from(1));
+    canonical.insert("mode".into(), Value::String(mode.as_str().to_owned()));
     if edition != Edition::Reborn || obj.contains_key("edition") {
-        out.insert("edition".into(), Value::String(edition.as_str().to_owned()));
+        canonical.insert("edition".into(), Value::String(edition.as_str().to_owned()));
     }
-    out.insert("host".into(), Value::String(host));
-    out.insert("gameAddress".into(), Value::String(game_address));
-    out.insert("name".into(), Value::String(name));
-    out.insert(
+    canonical.insert("host".into(), Value::String(host));
+    canonical.insert("gameAddress".into(), Value::String(game_address));
+    canonical.insert("name".into(), Value::String(name));
+    canonical.insert(
         "gameDir".into(),
         game_dir.map_or(Value::Null, Value::String),
     );
     if legacy_game_dir.is_some() || obj.contains_key("legacyGameDir") {
-        out.insert(
+        canonical.insert(
             "legacyGameDir".into(),
             legacy_game_dir.map_or(Value::Null, Value::String),
         );
     }
-    out.insert(
+    canonical.insert(
         "registration".into(),
         Value::String(registration.as_str().to_owned()),
     );
-    out.insert(
+    canonical.insert(
         "shareUrl".into(),
         share_url.map_or(Value::Null, Value::String),
     );
-    let mut mongo_out = Map::new();
+    let mut mongo_out = obj
+        .get("mongo")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
     mongo_out.insert("uri".into(), Value::String(mongo_uri));
     mongo_out.insert("manage".into(), Value::Bool(mongo_manage));
     mongo_out.insert(
         "mongod".into(),
         mongo_mongod.map_or(Value::Null, Value::String),
     );
-    out.insert("mongo".into(), Value::Object(mongo_out));
-    out.insert("maxHuntServers".into(), Value::from(max_hunt_servers));
+    canonical.insert("mongo".into(), Value::Object(mongo_out));
+    canonical.insert("maxHuntServers".into(), Value::from(max_hunt_servers));
+    if let Some(port) = public_port {
+        canonical.insert("publicPort".into(), Value::from(port));
+    }
+    if let Some(port) = legacy_public_port {
+        canonical.insert("legacyPublicPort".into(), Value::from(port));
+    }
     if let Some(m) = multipliers {
         let mut mult_out = Map::new();
         if let Some(n) = Number::from_f64(m.xp) {
@@ -1954,28 +2027,38 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
                 Value::Number(format_multiplier_num(n, m.rewards)),
             );
         }
-        out.insert("multipliers".into(), Value::Object(mult_out));
-    }
-    if let Some(port) = public_port {
-        out.insert("publicPort".into(), Value::from(port));
-    }
-    if let Some(port) = legacy_public_port {
-        out.insert("legacyPublicPort".into(), Value::from(port));
+        canonical.insert("multipliers".into(), Value::Object(mult_out));
     }
     if let Some(p) = performance {
+        let all_perf = [
+            ("serverFps", Value::from(p.server_fps)),
+            ("idleFps", Value::from(p.idle_fps)),
+            ("trainingOnDemand", Value::Bool(p.training_on_demand)),
+            ("trainingIdleMinutes", Value::from(p.training_idle_minutes)),
+            ("verboseGameLogs", Value::Bool(p.verbose_game_logs)),
+            ("memoryGuard", Value::Bool(p.memory_guard)),
+            ("minFreeMemoryMb", Value::from(p.min_free_memory_mb)),
+            ("huntMemoryMb", Value::from(p.hunt_memory_mb)),
+        ];
         let mut perf_out = Map::new();
-        perf_out.insert("serverFps".into(), Value::from(p.server_fps));
-        perf_out.insert("idleFps".into(), Value::from(p.idle_fps));
-        perf_out.insert("trainingOnDemand".into(), Value::Bool(p.training_on_demand));
-        perf_out.insert(
-            "trainingIdleMinutes".into(),
-            Value::from(p.training_idle_minutes),
-        );
-        perf_out.insert("verboseGameLogs".into(), Value::Bool(p.verbose_game_logs));
-        perf_out.insert("memoryGuard".into(), Value::Bool(p.memory_guard));
-        perf_out.insert("minFreeMemoryMb".into(), Value::from(p.min_free_memory_mb));
-        perf_out.insert("huntMemoryMb".into(), Value::from(p.hunt_memory_mb));
-        out.insert("performance".into(), Value::Object(perf_out));
+        if let Some(orig_p) = obj
+            .get("performance")
+            .and_then(Value::as_object)
+            .filter(|m| !m.is_empty())
+        {
+            for (k, v) in orig_p {
+                if let Some((_, new_v)) = all_perf.iter().find(|(pk, _)| *pk == k.as_str()) {
+                    perf_out.insert(k.clone(), new_v.clone());
+                } else {
+                    perf_out.insert(k.clone(), v.clone());
+                }
+            }
+        } else {
+            for (k, new_v) in all_perf {
+                perf_out.insert(k.into(), new_v);
+            }
+        }
+        canonical.insert("performance".into(), Value::Object(perf_out));
     }
     if let Some(l) = linux {
         let mut linux_out = Map::new();
@@ -1986,27 +2069,64 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             "firewallInterface".into(),
             l.firewall_interface.map_or(Value::Null, Value::String),
         );
-        out.insert("linux".into(), Value::Object(linux_out));
+        canonical.insert("linux".into(), Value::Object(linux_out));
     }
     if let Some(d) = database {
-        out.insert("database".into(), d.to_json());
+        canonical.insert("database".into(), d.to_json());
     }
     if let Some(g) = obj.get("guard").and_then(Value::as_object) {
-        out.insert("guard".into(), GuardConfig::from_json(g).to_json());
+        canonical.insert("guard".into(), GuardConfig::from_json(g).to_json());
     }
     if let Some(h) = history_cfg {
-        out.insert("history".into(), h.to_json());
+        canonical.insert("history".into(), h.to_json());
     }
     if let Some(s) = obj.get("switches").and_then(Value::as_object) {
-        out.insert("switches".into(), SwitchesConfig::from_json(s).to_json());
+        canonical.insert("switches".into(), SwitchesConfig::from_json(s).to_json());
     }
     if let Some(n) = network_cfg {
-        out.insert("network".into(), n.to_json());
+        canonical.insert("network".into(), n.to_json());
     }
     if let Some(m) = modules_cfg {
-        out.insert("modules".into(), m.to_json());
+        canonical.insert("modules".into(), m.to_json());
     }
-    Ok(Value::Object(out))
+    Ok(Value::Object(merge_document_order(obj, canonical)))
+}
+
+fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>) -> Map<String, Value> {
+    if orig.is_empty() {
+        return canonical;
+    }
+    const OPTIONAL_KEYS: &[&str] = &[
+        "edition",
+        "legacyGameDir",
+        "publicPort",
+        "legacyPublicPort",
+        "multipliers",
+        "performance",
+        "linux",
+        "database",
+        "guard",
+        "history",
+        "switches",
+        "network",
+        "modules",
+    ];
+    let mut out = Map::new();
+    for (k, orig_v) in orig {
+        if let Some(new_v) = canonical.get(k) {
+            out.insert(k.clone(), new_v.clone());
+        } else if OPTIONAL_KEYS.contains(&k.as_str()) {
+            continue;
+        } else {
+            out.insert(k.clone(), orig_v.clone());
+        }
+    }
+    for (k, new_v) in canonical {
+        if !out.contains_key(&k) {
+            out.insert(k, new_v);
+        }
+    }
+    out
 }
 
 fn format_js_pretty(value: &Value, indent: usize) -> String {
@@ -2102,7 +2222,7 @@ pub fn has_host_config(p: &Paths) -> bool {
 }
 
 pub fn host_config_text(c: &HostConfig) -> Result<String, HostError> {
-    c.to_toml()
+    Ok(format!("{}\n", stringify_pretty(&c.to_json()?)))
 }
 
 pub fn write_host_config(file: &Path, c: &HostConfig) -> Result<(), HostError> {
@@ -2126,7 +2246,9 @@ pub fn save_host_config(p: &Paths, c: &HostConfig) -> Result<bool, HostError> {
     let had_json_only = !p.host_toml.exists() && p.host_json.is_file();
     write_host_config(&p.host_toml, c)?;
     if p.host_json.is_file() {
-        write_host_config(&p.host_json, c)?;
+        let bak = p.config.join("host.json.bak");
+        let _ = std::fs::remove_file(&bak);
+        std::fs::rename(&p.host_json, &bak).map_err(|e| HostError::io(&p.host_json, e))?;
     }
     Ok(had_json_only)
 }
@@ -2186,8 +2308,8 @@ pub fn load_or_create_secrets(
             ("REFORGED_DB_PASSWORD", s.database_password.as_str()),
         ];
         let header = [
-            "Generated by ReforgedHost (`npm run setup`). SECRET: never share or commit.",
-            "Keep this file: deleting it invalidates existing player tokens, invites and admin keys.",
+            "DaintyLass server secrets. SECRET: never share or commit this file.",
+            "Made once by `npm run setup`; changing one logs everyone out or breaks the invites already sent.",
         ];
         let text = format_env(&header, &entries)?;
         write_secret_file(&file, &text)?;
@@ -2244,7 +2366,7 @@ pub fn load_or_create_secrets(
             operator_secret: get("MYSTICPARADOX_MANAGER_OPERATOR_SECRET"),
             database_password: get("REFORGED_DB_PASSWORD"),
         },
-        false,
+        missing,
     ))
 }
 

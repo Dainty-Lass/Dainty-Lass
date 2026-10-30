@@ -128,21 +128,31 @@ pub struct SetupArgs {
     pub registration: Option<String>,
     #[arg(long)]
     pub share: Option<String>,
-    #[arg(long = "mongo-uri")]
+    #[arg(
+        long = "mongo-uri",
+        value_name = "uri",
+        help = "MongoDB connection string to migrate pre-cutover player data from"
+    )]
     pub mongo_uri: Option<String>,
-    #[arg(long = "manage-mongo")]
+    #[arg(long = "manage-mongo", hide = !cfg!(feature = "paradox"))]
     pub manage_mongo: bool,
-    #[arg(long = "no-manage-mongo")]
+    #[arg(long = "no-manage-mongo", hide = !cfg!(feature = "paradox"))]
     pub no_manage_mongo: bool,
-    #[arg(long)]
+    #[arg(long, hide = !cfg!(feature = "paradox"))]
     pub mongod: Option<String>,
+    #[arg(
+        long = "force-upstream",
+        hide = !cfg!(feature = "paradox"),
+        help = "Download and patch upstream Mystic Paradox again"
+    )]
+    pub force_upstream: bool,
     #[arg(long = "max-hunts")]
     pub max_hunts: Option<String>,
-    #[arg(long = "xp-multiplier")]
+    #[arg(long = "xp-multiplier", alias = "xp")]
     pub xp_multiplier: Option<String>,
-    #[arg(long = "reward-multiplier")]
+    #[arg(long = "reward-multiplier", alias = "rewards", alias = "rewards-multiplier")]
     pub reward_multiplier: Option<String>,
-    #[arg(long = "no-multipliers")]
+    #[arg(long = "no-multipliers", alias = "off")]
     pub no_multipliers: bool,
     #[arg(long = "public-port")]
     pub public_port: Option<String>,
@@ -215,7 +225,7 @@ impl Default for ServeArgs {
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct InviteArgs {
     #[arg(long = "for")]
-    pub note: Option<String>,
+    pub for_whom: Option<String>,
     #[arg(long, default_value = "1")]
     pub uses: String,
     #[arg(long)]
@@ -231,7 +241,7 @@ pub struct InviteArgs {
 impl Default for InviteArgs {
     fn default() -> Self {
         Self {
-            note: None,
+            for_whom: None,
             uses: "1".to_owned(),
             unlimited: false,
             list: false,
@@ -295,15 +305,17 @@ pub struct PresetArgs {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct MultipliersArgs {
-    #[arg(long)]
+    #[arg(long, alias = "xp-multiplier")]
     pub xp: Option<String>,
-    #[arg(long)]
+    #[arg(long, alias = "reward-multiplier", alias = "rewards-multiplier")]
     pub rewards: Option<String>,
     #[arg(long)]
     pub off: bool,
+    #[arg(long = "no-multipliers", hide = true)]
+    pub no_multipliers: bool,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Args)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct UpdateArgs {
     #[arg(long)]
     pub check: bool,
@@ -329,28 +341,60 @@ pub enum DbCommand {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct DbMigrateArgs {
-    #[arg(long = "from-mongo")]
-    pub from_mongo: Option<String>,
+    #[arg(long = "from", visible_alias = "from-mongo")]
+    pub from: Option<String>,
     #[arg(long)]
     pub to: Option<String>,
+    #[arg(long)]
+    pub node: Option<String>,
+    #[arg(long)]
+    pub area: Vec<String>,
     #[arg(long = "dry-run")]
     pub dry_run: bool,
+    #[arg(long = "skip-invalid")]
+    pub skip_invalid: bool,
+    #[arg(long = "game-data-dir")]
+    pub game_data_dir: Option<String>,
+    #[arg(long = "allow-remote-postgres")]
+    pub allow_remote_postgres: bool,
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct DbVerifyArgs {
-    #[arg(long = "from-mongo")]
-    pub from_mongo: String,
+    #[arg(long = "against", visible_aliases = ["from", "from-mongo"])]
+    pub against: Option<String>,
     #[arg(long)]
     pub to: Option<String>,
+    #[arg(long)]
+    pub node: Option<String>,
+    #[arg(long)]
+    pub area: Vec<String>,
+    #[arg(long = "skip-invalid")]
+    pub skip_invalid: bool,
+    #[arg(long = "game-data-dir")]
+    pub game_data_dir: Option<String>,
+    #[arg(long = "allow-remote-postgres")]
+    pub allow_remote_postgres: bool,
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct DbExportMongoArgs {
-    #[arg(long = "from-mongo")]
-    pub from_mongo: Option<String>,
+    #[arg(long, visible_alias = "from-mongo")]
+    pub from: Option<String>,
+    #[arg(long, visible_alias = "out")]
+    pub to: Option<String>,
     #[arg(long)]
-    pub out: PathBuf,
+    pub area: Vec<String>,
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
+    #[arg(long = "allow-remote-postgres")]
+    pub allow_remote_postgres: bool,
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
@@ -443,6 +487,7 @@ pub struct HistoryFilterArgs {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
+#[command(args_conflicts_with_subcommands = true)]
 pub struct HistoryArgs {
     #[command(flatten)]
     pub filter: HistoryFilterArgs,
@@ -474,7 +519,7 @@ pub enum HistoryCommand {
 pub struct RevertArgs {
     #[command(flatten)]
     pub filter: HistoryFilterArgs,
-    #[arg(long = "dry-run")]
+    #[arg(long = "dry-run", conflicts_with = "apply")]
     pub dry_run: bool,
     #[arg(long)]
     pub apply: Option<String>,

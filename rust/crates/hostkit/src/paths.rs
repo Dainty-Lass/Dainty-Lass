@@ -213,7 +213,7 @@ impl Paths {
         let logs = workspace.join("logs");
         let gameserver_logs = logs.join("gameservers");
         let branding = workspace.join("branding");
-        let news_file = branding.join("news.json");
+        let news_file = config.join("news.json");
         let bin = workspace.join("bin");
         let gameserver_wrapper = bin.join("reforged-gameserver");
         let wine_prefix = workspace.join("wine");

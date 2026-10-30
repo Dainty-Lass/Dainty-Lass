@@ -21,6 +21,10 @@ pub const HUNT_PASS_EXPORT: &str = "huntpass-season-table.jsonl";
 pub const ACTIVE_HUNT_PASS: &str = "season43";
 pub const GENERATED_BY: &str = "DaintyLass host kit, from the CatalogExporter progression export";
 
+const START_DATE: &str = "2019-01-01T14:00:00+00:00";
+const END_DATE: &str = "2099-01-01T14:00:00+00:00";
+const MAX_SAFE_INT: i64 = 9_007_199_254_740_991;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProgressionBuild {
     pub config: Value,
@@ -47,7 +51,7 @@ pub fn parse_jsonl(text: &str) -> Vec<Map<String, Value>> {
     let mut rows = Vec::new();
     for line in text.split('\n') {
         let trimmed = service_kit::js::trim(line);
-        if trimmed.is_empty() {
+        if trimmed.is_empty() || trimmed.starts_with("status:") {
             continue;
         }
         if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(trimmed) {
@@ -66,19 +70,20 @@ fn clean_id(val: Option<&Value>) -> Option<String> {
     }
 }
 
-fn non_neg_int(val: Option<&Value>) -> Option<i64> {
+fn non_neg_safe_int(val: Option<&Value>) -> Option<i64> {
     let v = val?;
     if let Some(i) = v.as_i64() {
-        return (i >= 0).then_some(i);
+        return (0..=MAX_SAFE_INT).contains(&i).then_some(i);
     }
     if let Some(u) = v.as_u64() {
-        return i64::try_from(u).ok();
+        let i = i64::try_from(u).ok()?;
+        return (0..=MAX_SAFE_INT).contains(&i).then_some(i);
     }
     if let Some(f) = v.as_f64()
         && f.is_finite()
         && f.fract() == 0.0
         && f >= 0.0
-        && f <= (i64::MAX as f64)
+        && f <= (MAX_SAFE_INT as f64)
     {
         return Some(f as i64);
     }
@@ -98,8 +103,8 @@ fn extract_requirements(row: &Map<String, Value>, base: &Map<String, Value>) -> 
         let Some(obj) = item.as_object() else {
             continue;
         };
-        let rank = non_neg_int(obj.get("rankId").or_else(|| obj.get("rank_id")));
-        let xp = non_neg_int(
+        let rank = non_neg_safe_int(obj.get("rankId").or_else(|| obj.get("rank_id")));
+        let xp = non_neg_safe_int(
             obj.get("requiredXP")
                 .or_else(|| obj.get("xp_required"))
                 .or_else(|| obj.get("xpRequired")),
@@ -116,12 +121,134 @@ fn extract_requirements(row: &Map<String, Value>, base: &Map<String, Value>) -> 
         .collect()
 }
 
+fn extract_rewards(raw_rewards: Option<&Value>) -> Vec<Value> {
+    let Some(arr) = raw_rewards.and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(arr.len());
+    for item in arr {
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
+        let rank_id = non_neg_safe_int(obj.get("rankId").or_else(|| obj.get("rank_id"))).unwrap_or(0);
+        let custom_str = match obj.get("customRewardString").and_then(Value::as_str) {
+            Some(s) if !s.is_empty() => Value::String(s.to_owned()),
+            _ => Value::Null,
+        };
+
+        let mut stacked_items = Vec::new();
+        if let Some(stacked) = obj.get("stackedItems").and_then(Value::as_array) {
+            for s_item in stacked {
+                let Some(sobj) = s_item.as_object() else {
+                    continue;
+                };
+                let Some(cat_id) = sobj
+                    .get("catalogId")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                else {
+                    continue;
+                };
+                let hidden = sobj.get("hidden").and_then(Value::as_bool).unwrap_or(false);
+                let priority = non_neg_safe_int(sobj.get("priority")).unwrap_or(0);
+                let quantity = non_neg_safe_int(sobj.get("quantity"))
+                    .filter(|&q| q >= 1)
+                    .unwrap_or(1);
+                stacked_items.push(json!({
+                    "catalog_id": cat_id,
+                    "hidden": hidden,
+                    "priority": priority,
+                    "quantity": quantity,
+                }));
+            }
+        }
+
+        let mut instanced_items = Vec::new();
+        if let Some(inst) = obj.get("instancedItems").and_then(Value::as_array) {
+            for i_val in inst {
+                if let Some(s) = i_val.as_str().filter(|s| !s.is_empty()) {
+                    instanced_items.push(Value::String(s.to_owned()));
+                }
+            }
+        }
+
+        let mut ordered_instanced_items = Vec::new();
+        if let Some(ord) = obj.get("orderedInstancedItems").and_then(Value::as_array) {
+            for o_item in ord {
+                let Some(oobj) = o_item.as_object() else {
+                    continue;
+                };
+                let Some(cat_id) = oobj
+                    .get("catalogId")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                else {
+                    continue;
+                };
+                let priority = non_neg_safe_int(oobj.get("priority")).unwrap_or(0);
+                ordered_instanced_items.push(json!({
+                    "catalog_id": cat_id,
+                    "priority": priority,
+                }));
+            }
+        }
+
+        let mut entitlements = Vec::new();
+        if let Some(ents) = obj.get("entitlements").and_then(Value::as_array) {
+            for e_item in ents {
+                let Some(eobj) = e_item.as_object() else {
+                    continue;
+                };
+                let Some(ent_id) = eobj
+                    .get("entitlementId")
+                    .or_else(|| eobj.get("entitlement"))
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                else {
+                    continue;
+                };
+                let duration = non_neg_safe_int(eobj.get("duration")).unwrap_or(0);
+                entitlements.push(json!({
+                    "duration": duration,
+                    "entitlement": ent_id,
+                }));
+            }
+        }
+
+        out.push(json!({
+            "rank_id": rank_id,
+            "custom_reward_string": {
+                "culture_invariant_string": custom_str,
+            },
+            "stacked_items": stacked_items,
+            "instanced_items": instanced_items,
+            "ordered_instanced_items": ordered_instanced_items,
+            "entitlements": entitlements,
+            "buffs": [],
+        }));
+    }
+    out
+}
+
+fn multiplier_value(base: &Map<String, Value>) -> Value {
+    if let Some(v) = base.get("progressionMultiplier")
+        && let Some(f) = v.as_f64()
+        && f.is_finite()
+        && f > 0.0
+    {
+        if f.fract() == 0.0 && f <= (MAX_SAFE_INT as f64) {
+            return json!(f as i64);
+        }
+        return json!(f);
+    }
+    json!(1)
+}
+
 pub fn build_from_rows(
     tracks: &[Vec<Map<String, Value>>],
     seasons: &[Map<String, Value>],
     active_hunt_pass: &str,
 ) -> Result<ProgressionBuild, HostError> {
-    let _ = seasons;
     let mut seen: HashSet<String> = HashSet::new();
     let mut track_ids: Vec<String> = Vec::new();
     let mut skipped: Vec<String> = Vec::new();
@@ -131,7 +258,17 @@ pub fn build_from_rows(
 
     for group in tracks {
         for row in group {
-            let base = row.get("base").and_then(Value::as_object).unwrap_or(row);
+            let Some(base) = row.get("base").and_then(Value::as_object) else {
+                if let Some(id) = clean_id(row.get("progressionTrack"))
+                    .or_else(|| clean_id(row.get("rowName")))
+                    .or_else(|| clean_id(row.get("id")))
+                    && !seen.contains(&id)
+                    && !skipped.contains(&id)
+                {
+                    skipped.push(id);
+                }
+                continue;
+            };
             let Some(id) = clean_id(base.get("progressionTrack"))
                 .or_else(|| clean_id(row.get("progressionTrack")))
                 .or_else(|| clean_id(row.get("rowName")))
@@ -162,16 +299,27 @@ pub fn build_from_rows(
                     .filter(|w| !w.is_empty())
                     .map(|w| format!("PrestigeTrack_Weapon_{w}")),
             };
-            if let Some(ref pid) = prestige_id {
-                pending_prestige.push((pid.clone(), reqs.clone()));
+            if let Some(pid) = prestige_id {
+                pending_prestige.push((pid, reqs.clone()));
             }
 
-            let prestige_val = prestige_id.map_or(Value::Null, Value::String);
+            let gating = base
+                .get("premiumGatingEntitlement")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let mult = multiplier_value(base);
+            let free_rewards = extract_rewards(base.get("freeRewards"));
+            let premium_rewards = extract_rewards(base.get("premiumRewards"));
+
             path_entries.push(json!({
-                "id": id,
+                "progression_id": id,
+                "premium_gating_entitlement": gating,
+                "progression_multiplier": mult,
+                "start_date": START_DATE,
+                "end_date": END_DATE,
                 "requirements": reqs,
-                "rewards": [],
-                "prestige": prestige_val,
+                "free_rewards": free_rewards,
+                "premium_rewards": premium_rewards,
             }));
         }
     }
@@ -187,10 +335,14 @@ pub fn build_from_rows(
             derived.push(pid.clone());
             track_ids.push(pid.clone());
             path_entries.push(json!({
-                "id": pid,
+                "progression_id": pid,
+                "premium_gating_entitlement": "",
+                "progression_multiplier": 1,
+                "start_date": START_DATE,
+                "end_date": END_DATE,
                 "requirements": reqs,
-                "rewards": [],
-                "prestige": Value::Null,
+                "free_rewards": [],
+                "premium_rewards": [],
             }));
         }
     }
@@ -198,15 +350,45 @@ pub fn build_from_rows(
     let hunt_pass = service_kit::js::trim(active_hunt_pass);
     if !hunt_pass.is_empty() && seen.insert(hunt_pass.to_owned()) {
         track_ids.push(hunt_pass.to_owned());
+        let gating = seasons
+            .iter()
+            .find_map(|row| {
+                let base = row.get("base").and_then(Value::as_object)?;
+                let id = clean_id(base.get("progressionTrack"))
+                    .or_else(|| clean_id(row.get("rowName")))?;
+                if id.eq_ignore_ascii_case(hunt_pass) {
+                    base.get("premiumGatingEntitlement")
+                        .and_then(Value::as_str)
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_owned)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| format!("{hunt_pass}_premium"));
+
         let mut hp_reqs = Vec::with_capacity(51);
+        let mut hp_rewards = Vec::with_capacity(51);
         for rank in 0..=50_i64 {
             let xp = if rank == 0 { 0_i64 } else { 100_i64 };
             hp_reqs.push(json!({ "rank_id": rank, "xp_required": xp }));
+            hp_rewards.push(json!({
+                "rank_id": rank,
+                "stacked_items": [],
+                "instanced_items": [],
+                "ordered_instanced_items": [],
+                "entitlements": [],
+            }));
         }
         path_entries.push(json!({
-            "id": hunt_pass,
+            "progression_id": hunt_pass,
+            "premium_gating_entitlement": gating,
+            "progression_multiplier": 1,
+            "start_date": START_DATE,
+            "end_date": END_DATE,
             "requirements": hp_reqs,
-            "rewards": [],
+            "free_rewards": hp_rewards.clone(),
+            "premium_rewards": hp_rewards,
             "prestige": Value::Null,
         }));
     }
@@ -255,7 +437,7 @@ pub fn build_progression_config(
     }
     if !any_found {
         return Err(HostError::message(format!(
-            "no progression export found in {}",
+            "no progression export found in {} (run CatalogExporter with EXPORT_PROGRESSION=1)",
             dir.display()
         )));
     }
@@ -282,9 +464,14 @@ pub fn write_progression_source(
         && let Ok(existing_text) = std::fs::read_to_string(source_file)
     {
         let existing_text = existing_text.strip_prefix('\u{feff}').unwrap_or(&existing_text);
-        if let Ok(Value::Object(obj)) = serde_json::from_str::<Value>(existing_text) {
-            let gen_by = obj.get("generated_by").and_then(Value::as_str);
-            if gen_by != Some(GENERATED_BY) {
+        match serde_json::from_str::<Value>(existing_text) {
+            Ok(Value::Object(obj)) => {
+                let gen_by = obj.get("generated_by").and_then(Value::as_str);
+                if gen_by != Some(GENERATED_BY) {
+                    return Ok(SourceWritten::Supplied);
+                }
+            }
+            _ => {
                 return Ok(SourceWritten::Supplied);
             }
         }
@@ -337,15 +524,14 @@ mod tests {
         assert_eq!(build.paths, 4);
 
         let paths = build.config["payload"]["paths"].as_array().unwrap();
-        assert_eq!(paths[0]["id"], "ExperienceTrack_PlayerLevel");
+        assert_eq!(paths[0]["progression_id"], "ExperienceTrack_PlayerLevel");
         assert_eq!(
             paths[0]["requirements"],
             json!([{"rank_id": 1, "xp_required": 100}, {"rank_id": 2, "xp_required": 200}])
         );
-        assert_eq!(paths[1]["id"], "ExperienceTrack_Weapon_Sword");
-        assert_eq!(paths[1]["prestige"], "PrestigeTrack_Weapon_Sword");
-        assert_eq!(paths[2]["id"], "PrestigeTrack_Weapon_Sword");
-        assert_eq!(paths[3]["id"], "season43");
+        assert_eq!(paths[1]["progression_id"], "ExperienceTrack_Weapon_Sword");
+        assert_eq!(paths[2]["progression_id"], "PrestigeTrack_Weapon_Sword");
+        assert_eq!(paths[3]["progression_id"], "season43");
         assert_eq!(paths[3]["requirements"].as_array().unwrap().len(), 51);
     }
 

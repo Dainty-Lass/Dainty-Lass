@@ -4,7 +4,7 @@
 use std::process::ExitCode;
 use std::time::Duration;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::cli::InviteArgs;
 use crate::error::HostError;
@@ -19,20 +19,31 @@ use crate::invite::{
 use crate::paths::{PORTS, Paths};
 
 pub fn run(paths: &Paths, args: &InviteArgs) -> Result<ExitCode, HostError> {
+    run_with(paths, args, PORTS.backend, &mut |l| println!("{l}"))
+}
+
+pub fn run_with(
+    paths: &Paths,
+    args: &InviteArgs,
+    backend_port: u16,
+    out: &mut dyn FnMut(&str),
+) -> Result<ExitCode, HostError> {
     let config = load_host_config(paths)?.ok_or_else(|| {
-        HostError::message("server is not configured yet: run reforged-host setup first")
+        HostError::message("not set up yet: run reforged-host setup first")
     })?;
 
     let target_game = resolve_game_version(&config, args.game.as_deref())?;
 
     if args.list {
-        return run_list(paths, args.json);
+        return run_list(paths, args.json, backend_port, out);
     }
+
+    let uses_val = parse_uses_arg(args)?;
 
     let code = if target_game == revived_version() {
         crate::legacy::create_invite_code(paths)?
     } else {
-        resolve_or_create_reborn_code(paths, &config, args)?
+        resolve_or_create_reborn_code(paths, &config, args, uses_val, backend_port)?
     };
 
     let fp = if config.mode == ServerMode::Public {
@@ -54,22 +65,50 @@ pub fn run(paths: &Paths, args: &InviteArgs) -> Result<ExitCode, HostError> {
     };
 
     let url = invite_for_game(&config, &code, fp.as_deref(), &target_game)?;
+    let for_whom = args
+        .for_whom
+        .as_deref()
+        .map(service_kit::js::trim)
+        .filter(|s| !s.is_empty());
 
     if args.json {
-        let out = json!({
-            "invite": url,
-            "code": code,
-            "game": target_game.to_string(),
-            "mode": config.mode.as_str(),
-            "host": config.host,
-            "port": gateway_port(&config),
-            "name": config.name,
-            "fp": fp,
-        });
-        println!("{}", stringify_pretty(&out));
+        let mut obj = serde_json::Map::new();
+        obj.insert("link".into(), Value::String(url));
+        obj.insert(
+            "for".into(),
+            for_whom.map_or(Value::Null, |s| Value::String(s.to_owned())),
+        );
+        obj.insert(
+            "uses".into(),
+            if args.unlimited {
+                Value::Null
+            } else {
+                Value::Number((uses_val as i64).into())
+            },
+        );
+        obj.insert(
+            "shareUrl".into(),
+            config.share_url.clone().map_or(Value::Null, Value::String),
+        );
+        out(&service_kit::jsjson::stringify(&Value::Object(obj)));
     } else {
-        println!("Invite for {} ({target_game}):", config.name);
-        println!("  {url}");
+        let uses_label = if args.unlimited {
+            "unlimited uses".to_owned()
+        } else if uses_val as u64 == 1 {
+            "1 use".to_owned()
+        } else {
+            format!("{} uses", uses_val as u64)
+        };
+        let header = match for_whom {
+            Some(who) => format!("\nInvite for {who} ({uses_label}):\n"),
+            None => format!("\nInvite ({uses_label}):\n"),
+        };
+        out(&header);
+        out(&format!("  {url}\n"));
+        out("Send the whole line. They paste it into the DaintyLass launcher (or click it once the launcher is installed).");
+        if config.mode == ServerMode::Private {
+            out("They also need Tailscale, and access to this PC: share it from https://login.tailscale.com/admin/machines.");
+        }
     }
 
     Ok(ExitCode::SUCCESS)
@@ -117,10 +156,31 @@ fn read_admin_key(paths: &Paths) -> Result<String, HostError> {
     ))
 }
 
+fn parse_uses_arg(args: &InviteArgs) -> Result<f64, HostError> {
+    if args.unlimited {
+        return Ok(1.0);
+    }
+    let n = args
+        .uses
+        .trim()
+        .parse::<u32>()
+        .ok()
+        .filter(|&u| (1..=10_000).contains(&u))
+        .ok_or_else(|| {
+            HostError::message(format!(
+                "--uses must be an integer between 1 and 10000 (got {:?})",
+                args.uses
+            ))
+        })?;
+    Ok(f64::from(n))
+}
+
 fn resolve_or_create_reborn_code(
     paths: &Paths,
     config: &HostConfig,
     args: &InviteArgs,
+    uses: f64,
+    backend_port: u16,
 ) -> Result<String, HostError> {
     match config.registration {
         Registration::Open => Ok("OPEN".to_owned()),
@@ -128,46 +188,34 @@ fn resolve_or_create_reborn_code(
             "registration is disabled (NONE) in host.toml; change registration to INVITECODE or OPEN",
         )),
         Registration::Invitecode => {
-            let uses = if args.unlimited {
-                1.0
-            } else {
-                let n = args
-                    .uses
-                    .trim()
-                    .parse::<u32>()
-                    .ok()
-                    .filter(|&u| (1..=10_000).contains(&u))
-                    .ok_or_else(|| {
-                        HostError::message(format!(
-                            "--uses must be an integer between 1 and 10000 (got {:?})",
-                            args.uses
-                        ))
-                    })?;
-                f64::from(n)
-            };
             let admin_key = read_admin_key(paths)?;
             create_invite_code(
-                PORTS.backend,
                 &admin_key,
                 &CodeOptions {
                     uses,
                     infinite: args.unlimited,
-                    note: args.note.clone(),
+                    note: args.for_whom.clone(),
                 },
+                backend_port,
             )
         }
     }
 }
 
-fn run_list(paths: &Paths, as_json: bool) -> Result<ExitCode, HostError> {
+fn run_list(
+    paths: &Paths,
+    as_json: bool,
+    backend_port: u16,
+    out: &mut dyn FnMut(&str),
+) -> Result<ExitCode, HostError> {
     let admin_key = read_admin_key(paths)?;
-    let invites = list_invite_codes(PORTS.backend, &admin_key)?;
+    let invites = list_invite_codes(backend_port, &admin_key)?;
     if as_json {
-        println!("{}", stringify_pretty(&json!({ "invites": invites })));
+        out(&stringify_pretty(&json!({ "invites": invites })));
         return Ok(ExitCode::SUCCESS);
     }
     if invites.is_empty() {
-        println!("No invite codes found.");
+        out("No invite codes found.");
         return Ok(ExitCode::SUCCESS);
     }
     for item in invites {
@@ -182,9 +230,9 @@ fn run_list(paths: &Paths, as_json: bool) -> Result<ExitCode, HostError> {
             .map(|n| format!(" ({n})"))
             .unwrap_or_default();
         if infinite {
-            println!("  {code}  uses: {uses}/unlimited{note}");
+            out(&format!("  {code}  uses: {uses}/unlimited{note}"));
         } else {
-            println!("  {code}  uses: {uses}/{max_uses}{note}");
+            out(&format!("  {code}  uses: {uses}/{max_uses}{note}"));
         }
     }
     Ok(ExitCode::SUCCESS)

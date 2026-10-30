@@ -41,9 +41,10 @@ pub fn run(paths: &Paths, args: &PresetArgs) -> Result<ExitCode, HostError> {
                 paths,
                 &GenerateOptions {
                     examples_for_missing: false,
-                    log_file: Some(log_file),
+                    log_file,
+                    only: None,
                 },
-                |line| println!("{line}"),
+                &mut |line| println!("{line}"),
             )?;
         }
 

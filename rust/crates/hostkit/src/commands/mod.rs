@@ -44,7 +44,7 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Multipliers(args) => multipliers::run(paths, args),
         Command::Update(args) => Ok(update::run(paths, args)),
         Command::Backup => backup::run(paths),
-        Command::Db(args) => Ok(db::run(paths, args)),
+        Command::Db(args) => db::run(paths, args),
         Command::Network(args) => network::run(args, Some(paths)),
         Command::History(args) => history::run_history(paths, args),
         Command::Revert(args) => history::run_revert(paths, args),

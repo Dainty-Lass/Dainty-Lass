@@ -208,9 +208,10 @@ pub fn missing_captures(p: &Paths, pin: &CapturePin) -> Vec<String> {
         .collect()
 }
 
-fn git_show_blob(git_dir: &Path, spec: &str) -> Result<Vec<u8>, HostError> {
+fn git_show_blob(git_dir: &Path, commit: &str, rel: &str) -> Result<Vec<u8>, HostError> {
+    let spec = format!("{commit}:{rel}");
     let mut cmd = Command::new("git");
-    cmd.args(["--git-dir", &git_dir.to_string_lossy(), "show", spec]);
+    cmd.args(["--git-dir", &git_dir.to_string_lossy(), "show", &spec]);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -223,7 +224,7 @@ fn git_show_blob(git_dir: &Path, spec: &str) -> Result<Vec<u8>, HostError> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let detail = stderr.lines().last().unwrap_or("git show failed").trim();
         return Err(HostError::message(format!(
-            "could not read {spec} from capture repository: {detail}"
+            "capture commit {commit} has no {rel} ({detail})"
         )));
     }
     Ok(output.stdout)
@@ -287,8 +288,7 @@ pub fn ensure_captures(
 
     let mut staged: Vec<(PathBuf, Vec<u8>)> = Vec::with_capacity(pin.files.len());
     for (rel, expected_sha) in &pin.files {
-        let spec = format!("{}:{rel}", pin.commit);
-        let raw = git_show_blob(&git_dir, &spec)?;
+        let raw = git_show_blob(&git_dir, &pin.commit, rel)?;
         let raw_sha = sha256_hex(&raw);
         let verified_bytes = if raw_sha == *expected_sha {
             raw
@@ -299,7 +299,7 @@ pub fn ensure_captures(
                 lf
             } else {
                 return Err(HostError::message(format!(
-                    "store capture {rel} SHA-256 mismatch: expected {expected_sha}, got {raw_sha}"
+                    "store capture {rel} does not match its pinned SHA-256 (expected {expected_sha}, got {raw_sha})"
                 )));
             }
         };
