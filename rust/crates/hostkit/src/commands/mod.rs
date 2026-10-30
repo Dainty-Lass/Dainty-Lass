@@ -59,7 +59,8 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         | Command::Content { args }
         | Command::Admin { args }
         | Command::Backend { args }
-        | Command::Director { args } => {
+        | Command::Director { args }
+        | Command::RemoteAgent { args } => {
             let name = command.name();
             let full_args = crate::with_admin_env(name, args);
             Ok(crate::service_main(name, &full_args))

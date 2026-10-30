@@ -27,7 +27,7 @@ use serde_json::{Value, json};
 use crate::Outcome;
 use crate::cli::{
     RemoteApproveArgs, RemoteArgs, RemoteCancelArgs, RemoteCommand, RemoteEnrollArgs, RemoteExecArgs,
-    RemoteInitControllerArgs, RemoteInviteArgs, SetupArgs,
+    RemoteInitControllerArgs, RemoteInviteArgs, RemoteSyncArgs, SetupArgs,
 };
 use crate::commands::update::MONGO_MIGRATED_MARKER;
 use crate::doctor::{DoctorOptions, Level, run_doctor};
@@ -54,6 +54,8 @@ pub struct ManagedInstallStateFile {
     pub node: NodeId,
     pub region: Region,
     pub controller_node: NodeId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub controller_region: Option<Region>,
     pub controller_url: String,
     pub controller_cert_fp: String,
     pub applied_revision: u64,
@@ -112,6 +114,7 @@ fn ensure_controller_ca_and_node_cert(
     node: &NodeId,
     region: &Region,
     host: &str,
+    controller_url: Option<&str>,
 ) -> Result<ClusterCa, HostError> {
     std::fs::create_dir_all(&paths.tls).map_err(|e| HostError::io(&paths.tls, e))?;
     let ca_file = controller_ca_path(paths);
@@ -130,10 +133,20 @@ fn ensure_controller_ca_and_node_cert(
         Err(_) => true,
     };
     if needs_issue {
+        let mut hosts = vec![host.to_owned(), "127.0.0.1".to_owned(), "localhost".to_owned()];
+        if let Some(u) = controller_url
+            && let Some(rest) = u.strip_prefix("https://").or_else(|| u.strip_prefix("http://"))
+        {
+            let host_port = rest.split('/').next().unwrap_or(rest);
+            let url_host = host_port.split(':').next().unwrap_or(host_port).trim();
+            if !url_host.is_empty() && !hosts.iter().any(|h| h == url_host) {
+                hosts.push(url_host.to_owned());
+            }
+        }
         let req = NodeCertRequest {
             node: node.clone(),
             region: region.clone(),
-            hosts: vec![host.to_owned(), "127.0.0.1".to_owned(), "localhost".to_owned()],
+            hosts,
             days: DEFAULT_NODE_DAYS,
         };
         let issued = ca.issue(&req).map_err(|e| bad(e.to_string()))?;
@@ -167,8 +180,22 @@ pub fn shared_toml_from_host_config(paths: &Paths, config: &HostConfig) -> Resul
     let mut doc: toml_edit::DocumentMut = raw
         .parse()
         .map_err(|e| bad(format!("host.toml is not valid TOML: {e}")))?;
-    for table_key in ["network", "remote", "database", "mongo", "linux"] {
-        doc.as_table_mut().remove(table_key);
+    for key in [
+        "host",
+        "game_address",
+        "mode",
+        "public_port",
+        "legacy_public_port",
+        "game_dir",
+        "legacy_game_dir",
+        "share_url",
+        "network",
+        "remote",
+        "database",
+        "mongo",
+        "linux",
+    ] {
+        doc.as_table_mut().remove(key);
     }
     Ok(doc.to_string())
 }
@@ -205,7 +232,7 @@ pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result
         .unwrap_or_else(|| format!("https://{}:{gw_port}", config.host));
 
     let cert_fp = ensure_gateway_cert_file(paths, &config.host)?;
-    let _ca = ensure_controller_ca_and_node_cert(paths, &node, &region, &config.host)?;
+    let _ca = ensure_controller_ca_and_node_cert(paths, &node, &region, &config.host, Some(&url))?;
 
     let mut rem = config.remote.clone().unwrap_or_default();
     rem.role = Some("controller".to_owned());
@@ -304,9 +331,13 @@ pub fn enroll(paths: &Paths, args: &RemoteEnrollArgs) -> Result<Value, HostError
     } else {
         None
     };
-    let gw_url = args.gateway_url.clone().or_else(|| {
-        (config.mode == ServerMode::Public).then(|| format!("https://{}:{}", config.host, gateway_port(&config)))
-    });
+    let gw_url = args
+        .gateway_url
+        .clone()
+        .or_else(|| {
+            (config.mode == ServerMode::Public).then(|| format!("https://{}:{}", config.host, gateway_port(&config)))
+        })
+        .and_then(|u| remote::validate_controller_url(&u).ok());
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -340,6 +371,7 @@ pub fn enroll(paths: &Paths, args: &RemoteEnrollArgs) -> Result<Value, HostError
         node: invite.node.clone(),
         region: invite.region.clone(),
         controller_node: answer.controller_node.clone(),
+        controller_region: Some(answer.controller_region.clone()),
         controller_url: invite.url.clone(),
         controller_cert_fp: invite.controller_fp.clone(),
         applied_revision: 0,
@@ -1042,7 +1074,7 @@ pub fn ensure_controller_files(paths: &Paths, config: &HostConfig) -> Result<(),
         .map(|n| n.region.clone())
         .unwrap_or_else(|| rem.effective_region());
     let cert_fp = ensure_gateway_cert_file(paths, &config.host)?;
-    let _ca = ensure_controller_ca_and_node_cert(paths, &node, &region, &config.host)?;
+    let _ca = ensure_controller_ca_and_node_cert(paths, &node, &region, &config.host, rem.controller_url.as_deref())?;
     let state_path = controller_state_path(paths);
     if !state_path.is_file() {
         let url = rem
@@ -1079,7 +1111,8 @@ pub fn compose_remote_module(
                 .as_ref()
                 .map(|n| n.region.clone())
                 .unwrap_or_else(|| rem.effective_region());
-            let ca = ensure_controller_ca_and_node_cert(paths, &node, &region, &config.host)?;
+            let ca =
+                ensure_controller_ca_and_node_cert(paths, &node, &region, &config.host, rem.controller_url.as_deref())?;
             let state_path = controller_state_path(paths);
             let state = if state_path.is_file() {
                 RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?
@@ -1133,9 +1166,12 @@ pub fn compose_remote_module(
                 let ca = paths.tls.join(CLUSTER_CA_FILE);
                 let creds = NodeCredentials::load(&cert, &key, &ca)
                     .map_err(|e| bad(format!("managed node TLS credentials in {}: {e}", paths.tls.display())))?;
-                let peer = rem
+                let mut peer = rem
                     .controller_peer(&node)
                     .ok_or_else(|| bad("invalid remote.controller_url or remote.controller_node"))?;
+                if let Some(cr) = mstate.as_ref().and_then(|m| m.controller_region.clone()) {
+                    peer.region = cr;
+                }
                 let tls_link = Arc::new(
                     TlsPeerLink::new(TlsLinkConfig::new(creds, vec![peer]))
                         .map_err(|e| bad(format!("managed node peer link: {e}")))?,
@@ -1158,6 +1194,108 @@ pub fn compose_remote_module(
         _ => {}
     }
     Ok(())
+}
+
+pub fn sync_with_controller(paths: &Paths, args: &RemoteSyncArgs) -> Result<Value, HostError> {
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `reforged-host setup` first"))?;
+    let rem = config
+        .remote
+        .as_ref()
+        .filter(|r| r.role.as_deref() == Some("managed"))
+        .ok_or_else(|| bad("this install is not enrolled as a managed install"))?;
+    let node = config
+        .network
+        .as_ref()
+        .map(|n| n.node.clone())
+        .unwrap_or_else(|| rem.effective_node());
+    let controller_node = rem
+        .controller_node
+        .clone()
+        .ok_or_else(|| bad("remote.controller_node is required for a managed install"))?;
+    let mpath = managed_state_path(paths);
+    let mstate = ManagedInstallStateFile::load(&mpath)?;
+    if mstate.as_ref().is_some_and(|m| m.detached) {
+        return Err(bad("this install was revoked by its controller and is detached"));
+    }
+    let applied_rev = mstate.as_ref().map_or(0, |m| m.applied_revision);
+    let cert = paths.tls.join(NODE_CERT_FILE);
+    let key = paths.tls.join(NODE_KEY_FILE);
+    let ca = paths.tls.join(CLUSTER_CA_FILE);
+    let creds = NodeCredentials::load(&cert, &key, &ca)
+        .map_err(|e| bad(format!("managed node TLS credentials in {}: {e}", paths.tls.display())))?;
+    let mut peer = rem
+        .controller_peer(&node)
+        .ok_or_else(|| bad("invalid remote.controller_url or remote.controller_node"))?;
+    if let Some(cr) = mstate.as_ref().and_then(|m| m.controller_region.clone()) {
+        peer.region = cr;
+    }
+    let link = Arc::new(
+        TlsPeerLink::new(TlsLinkConfig::new(creds, vec![peer]))
+            .map_err(|e| bad(format!("managed node peer link: {e}")))?,
+    );
+    let agent = Arc::new(Mutex::new(RemoteManagedAgent::new(
+        node.clone(),
+        controller_node.clone(),
+        applied_rev,
+        rem.local_overrides.clone(),
+    )));
+    let handler = Arc::new(HostKitRemoteHandler::new(paths.clone()));
+    let outcomes = Arc::new(Mutex::new(Vec::<CommandOutcome>::new()));
+    let interval_secs = args.interval_secs.or(rem.sync_interval_secs).unwrap_or(5).max(1);
+    let continuous = args.continuous;
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| bad(format!("tokio runtime: {e}")))?;
+
+    let final_rev = rt.block_on(async move {
+        if !continuous {
+            let res = remote::sync_once_with_controller(link.as_ref(), &agent, handler.as_ref(), &outcomes).await;
+            if matches!(res, Err(RemoteError::RevokedPeer(_)))
+                && let Ok(Some(mut ms)) = ManagedInstallStateFile::load(&mpath)
+            {
+                ms.detached = true;
+                let _ = ms.save(&mpath);
+            }
+            return res.map_err(|e| bad(e.to_string()));
+        }
+
+        loop {
+            let res = remote::sync_once_with_controller(link.as_ref(), &agent, handler.as_ref(), &outcomes).await;
+            let wait_ms = match res {
+                Ok(_) => interval_secs * 1000,
+                Err(RemoteError::RevokedPeer(_)) => {
+                    if let Ok(Some(mut ms)) = ManagedInstallStateFile::load(&mpath) {
+                        ms.detached = true;
+                        let _ = ms.save(&mpath);
+                    }
+                    let rev = agent.lock().unwrap_or_else(PoisonError::into_inner).applied_revision;
+                    return Ok(rev);
+                }
+                Err(_) => {
+                    let failures = agent
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .consecutive_unreachable;
+                    remote::offline_backoff_delay_ms(failures)
+                }
+            };
+            tokio::select! {
+                () = tokio::time::sleep(Duration::from_millis(wait_ms)) => {}
+                () = service_kit::serve::stop_requested() => {
+                    let rev = agent.lock().unwrap_or_else(PoisonError::into_inner).applied_revision;
+                    return Ok(rev);
+                }
+            }
+        }
+    })?;
+
+    Ok(json!({
+        "node": node.as_str(),
+        "controller_node": controller_node.as_str(),
+        "applied_revision": final_rev,
+    }))
 }
 
 pub fn run(paths: &Paths, args: &RemoteArgs) -> Outcome {
@@ -1300,6 +1438,20 @@ pub fn run(paths: &Paths, args: &RemoteArgs) -> Outcome {
                 println!("{}", serde_json::to_string_pretty(&val).unwrap_or_default());
             } else {
                 println!("Canceled guarded remote action {}", a.id);
+            }
+            Ok(ExitCode::SUCCESS)
+        }
+        RemoteCommand::Sync(a) => {
+            let val = sync_with_controller(paths, a)?;
+            if a.json {
+                println!("{}", serde_json::to_string_pretty(&val).unwrap_or_default());
+            } else {
+                println!(
+                    "Synced {} with controller {} (revision {})",
+                    val["node"].as_str().unwrap_or_default(),
+                    val["controller_node"].as_str().unwrap_or_default(),
+                    val["applied_revision"].as_u64().unwrap_or(0)
+                );
             }
             Ok(ExitCode::SUCCESS)
         }

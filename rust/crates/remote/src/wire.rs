@@ -152,12 +152,7 @@ impl EnrollRequest {
             ));
         }
         if let Some(url) = &self.gateway_url {
-            let canonical = validate_controller_url(url)?;
-            if &canonical != url {
-                return Err(RemoteError::InvalidInput(
-                    "gateway_url must be in canonical scheme://host[:port] form".to_string(),
-                ));
-            }
+            let _ = validate_controller_url(url)?;
         }
         if let Some(fp) = &self.gateway_cert_fp
             && !is_valid_sha256_fp(fp)

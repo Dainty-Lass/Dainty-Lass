@@ -74,6 +74,11 @@ pub enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    #[command(name = "remote-agent", hide = true, disable_help_flag = true)]
+    RemoteAgent {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     #[command(hide = true, disable_help_flag = true)]
     Gameserver(GameserverArgs),
 }
@@ -105,6 +110,7 @@ impl Command {
             Self::Admin { .. } => "admin",
             Self::Backend { .. } => "backend",
             Self::Director { .. } => "director",
+            Self::RemoteAgent { .. } => "remote-agent",
             Self::Gameserver(_) => "gameserver",
         }
     }
@@ -535,7 +541,7 @@ pub struct RemoteArgs {
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum RemoteCommand {
-    #[command(name = "init-controller")]
+    #[command(name = "init-controller", visible_alias = "init")]
     InitController(RemoteInitControllerArgs),
     Invite(RemoteInviteArgs),
     Enroll(RemoteEnrollArgs),
@@ -548,6 +554,7 @@ pub enum RemoteCommand {
     Exec(RemoteExecArgs),
     Approve(RemoteApproveArgs),
     Cancel(RemoteCancelArgs),
+    Sync(RemoteSyncArgs),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
@@ -654,6 +661,16 @@ pub struct RemoteCancelArgs {
     pub role: String,
     #[arg(long, default_value = "cli-operator")]
     pub actor: String,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteSyncArgs {
+    #[arg(long = "loop")]
+    pub continuous: bool,
+    #[arg(long = "interval-secs")]
+    pub interval_secs: Option<u64>,
     #[arg(long)]
     pub json: bool,
 }

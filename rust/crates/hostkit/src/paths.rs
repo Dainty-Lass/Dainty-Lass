@@ -88,6 +88,7 @@ fn is_repo_root(dir: &Path) -> bool {
         .join("host")
         .join("Cargo.toml")
         .exists()
+        || (dir.join("rust").join("Cargo.toml").exists() && dir.join("modules").join("rustic-isles").exists())
         || dir.join("release.json").exists()
 }
 

@@ -138,6 +138,7 @@ pub fn failure(error: &LinkError) -> (u16, ErrorBody) {
     match error {
         LinkError::TooLarge => (413, ErrorBody::new(code::TOO_LARGE)),
         LinkError::NoService { .. } => (503, ErrorBody::new(code::NO_SERVICE)),
+        LinkError::Refused { .. } => (403, ErrorBody::new(code::NOT_A_PEER)),
         _ => (502, ErrorBody::new(code::FAILED)),
     }
 }

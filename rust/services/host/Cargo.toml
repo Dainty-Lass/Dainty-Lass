@@ -12,7 +12,7 @@ publish.workspace = true
 default = ["modules", "isles-1-14-7", "isles-1-12-0", "realms"]
 # The server's modules (`serve`): the Rust services in this process. None: a controller that serves nothing
 modules = ["gateway", "allowlist", "content", "admin"]
-gateway = ["controller/gateway", "controller/network", "dep:gateway"]
+gateway = ["controller/gateway", "controller/network", "controller/remote", "dep:gateway"]
 allowlist = ["controller/allowlist", "dep:gateway"]
 content = ["controller/content", "dep:content"]
 admin = ["controller/admin", "dep:admin", "hostkit/admin"]
@@ -66,6 +66,7 @@ hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
 # The invite links (section 6).
 protocol.workspace = true
+remote.workspace = true
 ratatui.workspace = true
 # Reading the certificate a port serves (doctor), and the release downloads.
 rustls.workspace = true
