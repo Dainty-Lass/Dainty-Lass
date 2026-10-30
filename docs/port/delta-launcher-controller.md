@@ -118,7 +118,11 @@ Carry over (Reforged behavior the Rust copy does not have):
   manifest, a `cert_mismatch` there flips the connection), then `loadExtras` without waiting. DR probes the content
   server in public mode (`probeContent`), inspects the 1.4.4 install and queues extras through `in_background`.
 - **Status and account calls (642–678).** Pass `this.flavor()` to pick `/reforged/api` or `/undaunted/api`; with RD5
-  the flavor goes and only the Reforged paths stay (sibling's `hostapi.ts` delta).
+  the flavor goes and only the Reforged paths stay (sibling's `hostapi.ts` delta). In both DR (`src-tauri/src/controller/mod.rs`
+  at `a6e1870`) and Node `ReforgedLauncher` (`legacy/ReforgedLauncher/src/main/controller.ts` lines 330, 670–672 and
+  1609–1612, and `legacy/ReforgedLauncher/test/controller.test.ts` lines 285–301 at `73d9768`), `checkAccount` and
+  `play` set `keyRejected = true` on `account_banned` alongside `lastError = { code: "account_banned", detail }`, which
+  makes `computePhase` return `"register"` (`Phase::Register`) and `account.hasKey` return `false`.
 - **Polling (693–731).** On a good poll with no runtime offer yet (`unavailable` or no manifest), not playing and no
   task, the runtime offer is fetched again (711): a host can publish a runtime while the player waits.
 - **News and art (737–790).** Fetched from the server's own endpoint (the gateway), not a content endpoint. The art
