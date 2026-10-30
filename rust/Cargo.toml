@@ -14,6 +14,7 @@ members = [
     "crates/module-api",
     "crates/protocol",
     "crates/proxy",
+    "crates/remote",
     "crates/service-kit",
     "crates/store",
     "services/gateway",
@@ -70,6 +71,7 @@ launcher-kit = { path = "crates/launcher-kit" }
 # dependency (spike DF1)
 module-api = { path = "crates/module-api", version = "0.1.0", registry = "silentspud" }
 protocol = { path = "crates/protocol" }
+remote = { path = "crates/remote" }
 store = { path = "crates/store" }
 history-ship = { path = "crates/history-ship" }
 service-kit = { path = "crates/service-kit" }

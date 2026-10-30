@@ -1,0 +1,39 @@
+# Copyright (c) 2026 Silent Spud
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "remote"
+description = "Remote management for DaintyLass installs: one controller manages enrolled server installs over mTLS node links (docs/remote-management.md, DD27, RM1-RM4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+chrono.workspace = true
+module-api = { path = "../module-api" }
+network = { path = "../../plugins/network", default-features = false }
+percent-encoding.workspace = true
+protocol.workspace = true
+rand.workspace = true
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+service-kit.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "fs", "rt"] }
+toml_edit.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
