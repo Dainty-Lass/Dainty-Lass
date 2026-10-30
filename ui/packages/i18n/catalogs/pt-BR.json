@@ -1139,5 +1139,10 @@
   "hsrv_setup_choose_game": "Escolher pasta do jogo…",
   "host_sdk_need_game_mgr": "Escolha antes uma pasta do Dauntless 1.14.7 (aba Servidor).",
   "host_err_workspace_mgr": "Escolha antes uma pasta de dados para o servidor.",
-  "host_err_project_missing": "Nenhuma pasta Reforged foi encontrada ao lado da pasta do jogo. Escolha a pasta do servidor manualmente."
+  "host_err_project_missing": "Nenhuma pasta Reforged foi encontrada ao lado da pasta do jogo. Escolha a pasta do servidor manualmente.",
+  "hsrv_mongo_migrated_title": "Dados de jogadores do MongoDB migrados e verificados",
+  "hsrv_mongo_migrated": "Os dados existentes de jogadores no MongoDB foram migrados e verificados no banco de dados Rust. Os dados originais no MongoDB nunca foram modificados.",
+  "hsrv_mongo_skipped_title": "Início do zero confirmado (MongoDB ignorado)",
+  "hsrv_mongo_skipped": "Este servidor está configurado para iniciar do zero no banco de dados Rust sem migrar dados antigos do MongoDB. Os dados originais no MongoDB nunca foram modificados.",
+  "hsrv_mongo_readonly_note": "Nem a migração nem o início do zero modificam ou apagam qualquer dado no MongoDB."
 }

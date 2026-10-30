@@ -1139,5 +1139,10 @@
   "hsrv_setup_choose_game": "Choose game folder…",
   "host_sdk_need_game_mgr": "Choose a Dauntless 1.14.7 folder first (Server tab).",
   "host_err_workspace_mgr": "Choose a server data folder first.",
-  "host_err_project_missing": "No Reforged server folder was found beside the game folder. Choose your server folder instead."
+  "host_err_project_missing": "No Reforged server folder was found beside the game folder. Choose your server folder instead.",
+  "hsrv_mongo_migrated_title": "MongoDB player data migrated and verified",
+  "hsrv_mongo_migrated": "Existing MongoDB player data was migrated and verified in the Rust database. Your original MongoDB data was never modified.",
+  "hsrv_mongo_skipped_title": "Fresh start confirmed (MongoDB skipped)",
+  "hsrv_mongo_skipped": "This server is configured for a fresh start on the Rust database without migrating old MongoDB data. Your original MongoDB data was never modified.",
+  "hsrv_mongo_readonly_note": "Neither migrating nor starting fresh modifies or deletes any data in MongoDB."
 }
