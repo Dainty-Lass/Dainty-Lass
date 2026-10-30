@@ -9,6 +9,7 @@ members = [
     "crates/epic",
     # The change log and snapshots shipped to an object-locked bucket, and restore (DH4)
     "crates/history-ship",
+    "crates/hostkit",
     "crates/module-api",
     "crates/protocol",
     "crates/proxy",
@@ -62,6 +63,7 @@ publish = false
 [workspace.dependencies]
 controller = { path = "crates/controller" }
 server-controller = { path = "crates/controller", package = "controller" }
+hostkit = { path = "crates/hostkit" }
 # Published for the module repositories: registry = "silentspud" keeps cargo package from writing a crates.io
 # dependency (spike DF1)
 module-api = { path = "crates/module-api", version = "0.1.0", registry = "silentspud" }

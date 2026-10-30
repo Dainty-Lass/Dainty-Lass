@@ -1,0 +1,1486 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
+use std::fs::{self, File};
+use std::io::{self, Read};
+use std::path::{Component, Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use flate2::read::GzDecoder;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+
+use crate::error::HostError;
+use crate::run::{RunOptions, run};
+
+pub const RELEASE_FILE: &str = "release.json";
+pub const SUMS_FILE: &str = "SHA256SUMS.txt";
+pub const SOURCE_ENV: &str = "REFORGED_SERVER_RELEASE";
+pub const TAG_PREFIX: &str = "server-v";
+pub const ARCHIVE_PREFIX: &str = "ReforgedRevivalServer-";
+pub const DEFAULT_REPOSITORY: &str = env!("REFORGED_RELEASE_REPOSITORY");
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Problem {
+    NoRelease(String),
+    DownloadFailed(String),
+    NotInSums(String),
+    Checksum {
+        file: String,
+        expected: String,
+        actual: String,
+    },
+    Attestation(String),
+    BadArchive(String),
+    LocalChanges(Vec<String>),
+}
+
+impl Problem {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::NoRelease(_) => "no_release",
+            Self::DownloadFailed(_) => "download_failed",
+            Self::NotInSums(_) => "not_in_sums",
+            Self::Checksum { .. } => "checksum_mismatch",
+            Self::Attestation(_) => "attestation_failed",
+            Self::BadArchive(_) => "bad_archive",
+            Self::LocalChanges(_) => "local_changes",
+        }
+    }
+
+    pub fn detail(&self) -> Option<String> {
+        match self {
+            Self::NoRelease(s)
+            | Self::DownloadFailed(s)
+            | Self::NotInSums(s)
+            | Self::Attestation(s)
+            | Self::BadArchive(s) => Some(s.clone()),
+            Self::Checksum {
+                file,
+                expected,
+                actual,
+            } => Some(format!("{file}: expected {expected}, got {actual}")),
+            Self::LocalChanges(files) => Some(files.join(", ")),
+        }
+    }
+
+    pub fn message(&self) -> String {
+        match self {
+            Self::NoRelease(s) => s.clone(),
+            Self::DownloadFailed(s) => format!("download failed: {s}"),
+            Self::NotInSums(file) => format!("{file} is not listed in {SUMS_FILE}"),
+            Self::Checksum {
+                file,
+                expected,
+                actual,
+            } => format!("SHA-256 mismatch for {file} (expected {expected}, got {actual})"),
+            Self::Attestation(s) => format!("release attestation verification failed: {s}"),
+            Self::BadArchive(s) => format!("invalid release archive: {s}"),
+            Self::LocalChanges(files) => {
+                format!(
+                    "refusing to overwrite locally modified files: {}",
+                    files.join(", ")
+                )
+            }
+        }
+    }
+}
+
+impl fmt::Display for Problem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message())
+    }
+}
+
+#[derive(Debug)]
+pub enum UpdateError {
+    Problem(Problem),
+    Host(HostError),
+}
+
+impl fmt::Display for UpdateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Problem(p) => write!(f, "{p}"),
+            Self::Host(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for UpdateError {}
+
+impl From<Problem> for UpdateError {
+    fn from(p: Problem) -> Self {
+        Self::Problem(p)
+    }
+}
+
+impl From<HostError> for UpdateError {
+    fn from(e: HostError) -> Self {
+        Self::Host(e)
+    }
+}
+
+impl From<io::Error> for UpdateError {
+    fn from(e: io::Error) -> Self {
+        Self::Host(HostError::from(e))
+    }
+}
+
+pub type UpdateResult<T> = Result<T, UpdateError>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Version {
+    pub core: [u64; 3],
+    pub pre: Vec<String>,
+}
+
+fn valid_semver_ident(s: &str) -> bool {
+    !s.is_empty()
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
+fn parse_numeric_no_leading_zero(s: &str) -> Option<u64> {
+    if s.is_empty() || !s.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    if s.len() > 1 && s.starts_with('0') {
+        return None;
+    }
+    s.parse::<u64>().ok()
+}
+
+impl Version {
+    pub fn parse(text: &str) -> Option<Self> {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        let without_build = match trimmed.split_once('+') {
+            Some((before, build)) => {
+                if build.is_empty() || !build.split('.').all(valid_semver_ident) {
+                    return None;
+                }
+                before
+            }
+            None => trimmed,
+        };
+        let (core_str, pre_vec) = match without_build.split_once('-') {
+            Some((c, pre_str)) => {
+                if pre_str.is_empty() {
+                    return None;
+                }
+                let mut pre = Vec::new();
+                for part in pre_str.split('.') {
+                    if !valid_semver_ident(part) {
+                        return None;
+                    }
+                    if part.bytes().all(|b| b.is_ascii_digit())
+                        && part.len() > 1
+                        && part.starts_with('0')
+                    {
+                        return None;
+                    }
+                    pre.push(part.to_owned());
+                }
+                (c, pre)
+            }
+            None => (without_build, Vec::new()),
+        };
+
+        let mut parts = core_str.split('.');
+        let major = parse_numeric_no_leading_zero(parts.next()?)?;
+        let minor = parse_numeric_no_leading_zero(parts.next()?)?;
+        let patch = parse_numeric_no_leading_zero(parts.next()?)?;
+        if parts.next().is_some() {
+            return None;
+        }
+
+        Some(Self {
+            core: [major, minor, patch],
+            pre: pre_vec,
+        })
+    }
+
+    pub fn is_prerelease(&self) -> bool {
+        !self.pre.is_empty()
+    }
+}
+
+impl Ord for Version {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.core.cmp(&other.core) {
+            Ordering::Equal => {}
+            ord => return ord,
+        }
+        match (self.pre.is_empty(), other.pre.is_empty()) {
+            (true, true) => Ordering::Equal,
+            (true, false) => Ordering::Greater,
+            (false, true) => Ordering::Less,
+            (false, false) => {
+                for (a, b) in self.pre.iter().zip(other.pre.iter()) {
+                    let a_num = a.bytes().all(|c| c.is_ascii_digit()).then(|| a.parse::<u64>().ok()).flatten();
+                    let b_num = b.bytes().all(|c| c.is_ascii_digit()).then(|| b.parse::<u64>().ok()).flatten();
+                    let ord = match (a_num, b_num) {
+                        (Some(an), Some(bn)) => an.cmp(&bn),
+                        (Some(_), None) => Ordering::Less,
+                        (None, Some(_)) => Ordering::Greater,
+                        (None, None) => a.cmp(b),
+                    };
+                    if ord != Ordering::Equal {
+                        return ord;
+                    }
+                }
+                self.pre.len().cmp(&other.pre.len())
+            }
+        }
+    }
+}
+
+impl PartialOrd for Version {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestFile {
+    pub path: String,
+    pub sha256: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Manifest {
+    pub version: String,
+    pub commit: String,
+    pub target: String,
+    pub platform: String,
+    pub repository: Option<String>,
+    pub files: Vec<ManifestFile>,
+}
+
+fn is_safe_relative_path(path: &str) -> bool {
+    if path.is_empty() || path.starts_with('/') || path.starts_with('\\') {
+        return false;
+    }
+    let p = Path::new(path);
+    for comp in p.components() {
+        match comp {
+            Component::Normal(_) => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+impl Manifest {
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let stripped = text.strip_prefix('\u{feff}').unwrap_or(text);
+        let val: Value =
+            serde_json::from_str(stripped).map_err(|e| format!("invalid JSON: {e}"))?;
+        let obj = val
+            .as_object()
+            .ok_or_else(|| "release.json must be a JSON object".to_owned())?;
+
+        let version = obj
+            .get("version")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty() && Version::parse(s).is_some())
+            .ok_or_else(|| "release.json is missing a valid semver version".to_owned())?
+            .to_owned();
+
+        let commit = obj
+            .get("commit")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| "release.json is missing commit".to_owned())?
+            .to_owned();
+
+        let target = obj
+            .get("target")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_owned();
+
+        let platform = obj
+            .get("platform")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| "release.json is missing platform".to_owned())?
+            .to_owned();
+
+        let repository = obj
+            .get("repository")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned);
+
+        let files_arr = obj
+            .get("files")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "release.json is missing files array".to_owned())?;
+
+        let mut files = Vec::with_capacity(files_arr.len());
+        for entry in files_arr {
+            let entry_obj = entry
+                .as_object()
+                .ok_or_else(|| "file entry in release.json must be an object".to_owned())?;
+            let raw_path = entry_obj
+                .get("path")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "file entry is missing path".to_owned())?;
+            let norm_path = raw_path.replace('\\', "/");
+            if !is_safe_relative_path(&norm_path) {
+                return Err(format!("unsafe file path in release.json: {raw_path}"));
+            }
+            let sha256 = entry_obj
+                .get("sha256")
+                .and_then(Value::as_str)
+                .map(|s| s.trim().to_ascii_lowercase())
+                .filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
+                .ok_or_else(|| format!("invalid sha256 for {norm_path}"))?;
+            let size = entry_obj
+                .get("size")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| format!("invalid size for {norm_path}"))?;
+            files.push(ManifestFile {
+                path: norm_path,
+                sha256,
+                size,
+            });
+        }
+
+        Ok(Self {
+            version,
+            commit,
+            target,
+            platform,
+            repository,
+            files,
+        })
+    }
+
+    pub fn file(&self, path: &str) -> Option<&ManifestFile> {
+        let norm = path.replace('\\', "/");
+        self.files.iter().find(|f| f.path == norm)
+    }
+
+    pub fn short_commit(&self) -> &str {
+        if self.commit.is_empty() {
+            "unknown"
+        } else {
+            let end = self.commit.len().min(7);
+            &self.commit[..end]
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Location {
+    File(PathBuf),
+    Url(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Source {
+    GitHub(String),
+    Folder(PathBuf),
+    Url(String),
+}
+
+impl Source {
+    pub fn from_env(installed: Option<&Manifest>) -> Self {
+        if let Ok(val) = std::env::var(SOURCE_ENV) {
+            let trimmed = val.trim();
+            if !trimmed.is_empty() {
+                return Self::parse(trimmed);
+            }
+        }
+        if let Some(repo) = installed
+            .and_then(|m| m.repository.as_deref())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            return Self::GitHub(repo.to_owned());
+        }
+        Self::GitHub(DEFAULT_REPOSITORY.to_owned())
+    }
+
+    pub fn parse(value: &str) -> Self {
+        let trimmed = value.trim();
+        if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+            return Self::Url(trimmed.trim_end_matches('/').to_owned());
+        }
+        if let Some(repo) = trimmed.strip_prefix("github:") {
+            return Self::GitHub(repo.trim().to_owned());
+        }
+        let is_owner_repo = !trimmed.starts_with('.')
+            && !trimmed.starts_with('/')
+            && !trimmed.contains('\\')
+            && !trimmed.contains(':')
+            && trimmed.split('/').count() == 2
+            && trimmed.split('/').all(|p| !p.is_empty())
+            && !Path::new(trimmed).exists();
+        if is_owner_repo {
+            Self::GitHub(trimmed.to_owned())
+        } else {
+            Self::Folder(PathBuf::from(trimmed))
+        }
+    }
+
+    pub fn describe(&self) -> String {
+        match self {
+            Self::GitHub(repo) => format!("GitHub ({repo})"),
+            Self::Folder(path) => format!("folder {}", path.display()),
+            Self::Url(url) => url.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Candidate {
+    pub version: String,
+    pub archive: String,
+    pub archive_at: Location,
+    pub sums_at: Location,
+    pub repository: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wanted<'a> {
+    Newest(Option<&'a str>),
+    Exactly(&'a str),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Attestation {
+    Verified,
+    Skipped(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Installed {
+    pub from: Option<String>,
+    pub to: String,
+    pub files: usize,
+    pub removed: usize,
+    pub runtime_changed: Option<bool>,
+}
+
+pub fn platform() -> Option<&'static str> {
+    if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        Some("windows-x64")
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        Some("linux-x64")
+    } else {
+        None
+    }
+}
+
+pub fn this_platform() -> Result<&'static str, HostError> {
+    platform().ok_or_else(|| {
+        HostError::message("self-update is only supported on windows-x64 and linux-x64")
+    })
+}
+
+fn archive_ext(platform: &str) -> &'static str {
+    if platform.starts_with("windows") {
+        ".zip"
+    } else {
+        ".tar.gz"
+    }
+}
+
+pub fn archive_name(version: &str, platform: &str) -> String {
+    let ext = archive_ext(platform);
+    format!("{ARCHIVE_PREFIX}{version}-{platform}{ext}")
+}
+
+pub fn archive_version<'a>(name: &'a str, platform: &str) -> Option<&'a str> {
+    let ext = archive_ext(platform);
+    let suffix = format!("-{platform}{ext}");
+    let rest = name.strip_prefix(ARCHIVE_PREFIX)?;
+    let ver = rest.strip_suffix(&suffix)?;
+    Version::parse(ver)?;
+    Some(ver)
+}
+
+pub fn pick_newest<'a>(versions: &[&'a str], installed: Option<&str>) -> Option<&'a str> {
+    let allow_prerelease = installed
+        .and_then(Version::parse)
+        .is_some_and(|v| v.is_prerelease());
+
+    let mut best: Option<(&'a str, Version)> = None;
+    for &raw in versions {
+        let Some(ver) = Version::parse(raw) else {
+            continue;
+        };
+        if ver.is_prerelease() && !allow_prerelease {
+            continue;
+        }
+        if best.as_ref().is_none_or(|(_, b)| ver > *b) {
+            best = Some((raw, ver));
+        }
+    }
+    best.map(|(s, _)| s)
+}
+
+pub fn read_manifest(root: &Path) -> Result<Option<Manifest>, HostError> {
+    let file = root.join(RELEASE_FILE);
+    if !file.is_file() {
+        return Ok(None);
+    }
+    let text = fs::read_to_string(&file)?;
+    Manifest::parse(&text)
+        .map(Some)
+        .map_err(|e| HostError::message(format!("invalid {}: {e}", file.display())))
+}
+
+pub fn sha256_file(file: &Path) -> Result<String, HostError> {
+    let mut f = File::open(file)?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    let digest = hasher.finalize();
+    let mut hex = String::with_capacity(64);
+    for b in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut hex, "{b:02x}");
+    }
+    Ok(hex)
+}
+
+pub fn parse_sums(text: &str) -> Vec<(String, String)> {
+    let stripped = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let mut out = Vec::new();
+    for line in stripped.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let mut parts = trimmed.split_whitespace();
+        let Some(hash) = parts.next() else {
+            continue;
+        };
+        let Some(rest) = parts.next() else {
+            continue;
+        };
+        if hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+            continue;
+        }
+        let file = rest.strip_prefix('*').unwrap_or(rest);
+        let file_name = file
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or(file)
+            .to_owned();
+        if !file_name.is_empty() {
+            out.push((file_name, hash.to_ascii_lowercase()));
+        }
+    }
+    out
+}
+
+fn normalize_wanted_version(v: &str) -> &str {
+    v.trim()
+        .strip_prefix(TAG_PREFIX)
+        .or_else(|| v.trim().strip_prefix('v'))
+        .unwrap_or_else(|| v.trim())
+}
+
+fn select_candidate(
+    candidates: &[Candidate],
+    wanted: Wanted<'_>,
+    source_desc: &str,
+    platform: &str,
+) -> UpdateResult<Candidate> {
+    match wanted {
+        Wanted::Exactly(target) => {
+            let norm = normalize_wanted_version(target);
+            candidates
+                .iter()
+                .find(|c| c.version == norm)
+                .cloned()
+                .ok_or_else(|| {
+                    UpdateError::Problem(Problem::NoRelease(format!(
+                        "release {norm} for {platform} was not found in {source_desc}"
+                    )))
+                })
+        }
+        Wanted::Newest(installed) => {
+            let versions: Vec<&str> = candidates.iter().map(|c| c.version.as_str()).collect();
+            let chosen = pick_newest(&versions, installed).ok_or_else(|| {
+                UpdateError::Problem(Problem::NoRelease(format!(
+                    "no release for {platform} was found in {source_desc}"
+                )))
+            })?;
+            candidates
+                .iter()
+                .find(|c| c.version == chosen)
+                .cloned()
+                .ok_or_else(|| {
+                    UpdateError::Problem(Problem::NoRelease(format!(
+                        "no release for {platform} was found in {source_desc}"
+                    )))
+                })
+        }
+    }
+}
+
+pub fn candidates_from_github(
+    releases: &Value,
+    repo: &str,
+    platform: &str,
+    wanted: Wanted<'_>,
+) -> UpdateResult<Candidate> {
+    let single;
+    let list: &[Value] = if let Some(arr) = releases.as_array() {
+        arr.as_slice()
+    } else if releases.is_object() {
+        single = [releases.clone()];
+        &single
+    } else {
+        return Err(UpdateError::Problem(Problem::NoRelease(
+            "GitHub releases response is not a JSON array".to_owned(),
+        )));
+    };
+
+    let mut candidates = Vec::new();
+    for rel in list {
+        let Some(obj) = rel.as_object() else {
+            continue;
+        };
+        if obj.get("draft").and_then(Value::as_bool) == Some(true) {
+            continue;
+        }
+        let Some(tag) = obj.get("tag_name").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(version) = tag.strip_prefix(TAG_PREFIX) else {
+            continue;
+        };
+        if Version::parse(version).is_none() {
+            continue;
+        }
+        let expected_archive = archive_name(version, platform);
+        let Some(assets) = obj.get("assets").and_then(Value::as_array) else {
+            continue;
+        };
+        let mut archive_url = None;
+        let mut sums_url = None;
+        for asset in assets {
+            let Some(aobj) = asset.as_object() else {
+                continue;
+            };
+            let Some(name) = aobj.get("name").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(url) = aobj.get("browser_download_url").and_then(Value::as_str) else {
+                continue;
+            };
+            if name == expected_archive {
+                archive_url = Some(url.to_owned());
+            } else if name == SUMS_FILE {
+                sums_url = Some(url.to_owned());
+            }
+        }
+        if let (Some(a_url), Some(s_url)) = (archive_url, sums_url) {
+            candidates.push(Candidate {
+                version: version.to_owned(),
+                archive: expected_archive,
+                archive_at: Location::Url(a_url),
+                sums_at: Location::Url(s_url),
+                repository: Some(repo.to_owned()),
+            });
+        }
+    }
+
+    select_candidate(&candidates, wanted, &format!("GitHub ({repo})"), platform)
+}
+
+pub fn find_release(
+    source: &Source,
+    platform: &str,
+    wanted: Wanted<'_>,
+) -> UpdateResult<Candidate> {
+    match source {
+        Source::GitHub(repo) => {
+            let api_url = format!("https://api.github.com/repos/{repo}/releases?per_page=30");
+            let body = http::get_text(&api_url, true)
+                .map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e)))?;
+            let json: Value = serde_json::from_str(&body).map_err(|e| {
+                UpdateError::Problem(Problem::DownloadFailed(format!(
+                    "invalid JSON from {api_url}: {e}"
+                )))
+            })?;
+            candidates_from_github(&json, repo, platform, wanted)
+        }
+        Source::Folder(dir) => {
+            if !dir.is_dir() {
+                return Err(UpdateError::Problem(Problem::NoRelease(format!(
+                    "release folder does not exist: {}",
+                    dir.display()
+                ))));
+            }
+            let sums_path = dir.join(SUMS_FILE);
+            let mut candidates = Vec::new();
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let file_name = entry.file_name().to_string_lossy().into_owned();
+                if let Some(ver) = archive_version(&file_name, platform) {
+                    candidates.push(Candidate {
+                        version: ver.to_owned(),
+                        archive: file_name.clone(),
+                        archive_at: Location::File(dir.join(&file_name)),
+                        sums_at: Location::File(sums_path.clone()),
+                        repository: None,
+                    });
+                }
+            }
+            select_candidate(&candidates, wanted, &source.describe(), platform)
+        }
+        Source::Url(url) => {
+            let clean = url.trim_end_matches('/');
+            if let Some((base, file_name)) = clean.rsplit_once('/')
+                && let Some(ver) = archive_version(file_name, platform)
+            {
+                let c = Candidate {
+                    version: ver.to_owned(),
+                    archive: file_name.to_owned(),
+                    archive_at: Location::Url(clean.to_owned()),
+                    sums_at: Location::Url(format!("{base}/{SUMS_FILE}")),
+                    repository: None,
+                };
+                return select_candidate(&[c], wanted, &source.describe(), platform);
+            }
+            let sums_url = format!("{clean}/{SUMS_FILE}");
+            let sums_text = http::get_text(&sums_url, false)
+                .map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e)))?;
+            let mut candidates = Vec::new();
+            for (name, _) in parse_sums(&sums_text) {
+                if let Some(ver) = archive_version(&name, platform) {
+                    candidates.push(Candidate {
+                        version: ver.to_owned(),
+                        archive: name.clone(),
+                        archive_at: Location::Url(format!("{clean}/{name}")),
+                        sums_at: Location::Url(sums_url.clone()),
+                        repository: None,
+                    });
+                }
+            }
+            select_candidate(&candidates, wanted, &source.describe(), platform)
+        }
+    }
+}
+
+fn fetch_location(loc: &Location, dest: &Path) -> UpdateResult<()> {
+    match loc {
+        Location::File(src) => {
+            if !src.is_file() {
+                return Err(UpdateError::Problem(Problem::DownloadFailed(format!(
+                    "file not found: {}",
+                    src.display()
+                ))));
+            }
+            if src != dest {
+                fs::copy(src, dest)?;
+            }
+            Ok(())
+        }
+        Location::Url(url) => http::download(url, dest)
+            .map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e))),
+    }
+}
+
+pub fn fetch(candidate: &Candidate, dir: &Path) -> UpdateResult<PathBuf> {
+    fs::create_dir_all(dir)?;
+    let sums_dest = dir.join(SUMS_FILE);
+    fetch_location(&candidate.sums_at, &sums_dest)?;
+    let sums_text = fs::read_to_string(&sums_dest)?;
+    let sums = parse_sums(&sums_text);
+    let expected = sums
+        .into_iter()
+        .find(|(name, _)| name == &candidate.archive)
+        .map(|(_, hash)| hash)
+        .ok_or_else(|| UpdateError::Problem(Problem::NotInSums(candidate.archive.clone())))?;
+
+    let archive_dest = dir.join(&candidate.archive);
+    fetch_location(&candidate.archive_at, &archive_dest)?;
+    let actual = sha256_file(&archive_dest)?;
+    if actual != expected {
+        return Err(UpdateError::Problem(Problem::Checksum {
+            file: candidate.archive.clone(),
+            expected,
+            actual,
+        }));
+    }
+    Ok(archive_dest)
+}
+
+pub fn verify_attestation(
+    archive: &Path,
+    candidate: &Candidate,
+    log_file: &Path,
+) -> UpdateResult<Attestation> {
+    let Some(repo) = candidate.repository.as_deref() else {
+        return Ok(Attestation::Skipped(
+            "release did not come from a GitHub repository".to_owned(),
+        ));
+    };
+    let gh_found = crate::mongo::search_path("gh", std::env::var_os("PATH").as_deref());
+    let Some(gh_bin) = gh_found else {
+        return Ok(Attestation::Skipped("gh CLI is not installed".to_owned()));
+    };
+
+    let archive_str = archive.to_string_lossy().into_owned();
+    let cwd = archive
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let res = run(
+        &gh_bin.to_string_lossy(),
+        &["attestation", "verify", &archive_str, "--repo", repo],
+        &RunOptions {
+            cwd,
+            env: None,
+            log_file: Some(log_file.to_path_buf()),
+            quiet: true,
+        },
+    )?;
+
+    if res.code == 0 {
+        Ok(Attestation::Verified)
+    } else {
+        let detail = res
+            .last_line
+            .unwrap_or_else(|| format!("gh attestation verify exited with {}", res.code));
+        Err(UpdateError::Problem(Problem::Attestation(detail)))
+    }
+}
+
+fn validate_archive_entry_path(raw: &Path) -> UpdateResult<PathBuf> {
+    let mut clean = PathBuf::new();
+    for comp in raw.components() {
+        match comp {
+            Component::Normal(part) => clean.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(UpdateError::Problem(Problem::BadArchive(format!(
+                    "unsafe path in archive: {}",
+                    raw.display()
+                ))));
+            }
+        }
+    }
+    if clean.as_os_str().is_empty() {
+        return Err(UpdateError::Problem(Problem::BadArchive(
+            "empty path in archive".to_owned(),
+        )));
+    }
+    Ok(clean)
+}
+
+fn extract_zip(archive: &Path, dest: &Path) -> UpdateResult<()> {
+    let file = File::open(archive)?;
+    let mut zip = zip::ZipArchive::new(file)
+        .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("invalid zip: {e}"))))?;
+
+    for i in 0..zip.len() {
+        let mut entry = zip.by_index(i).map_err(|e| {
+            UpdateError::Problem(Problem::BadArchive(format!("corrupt zip entry: {e}")))
+        })?;
+        let entry_name = entry
+            .name()
+            .map_err(|e| {
+                UpdateError::Problem(Problem::BadArchive(format!("invalid zip entry name: {e}")))
+            })?
+            .into_owned();
+        if entry.is_symlink() {
+            return Err(UpdateError::Problem(Problem::BadArchive(format!(
+                "archive contains symlink: {entry_name}"
+            ))));
+        }
+        let raw_name = entry_name.replace('\\', "/");
+        if raw_name.trim_matches('/').is_empty() {
+            continue;
+        }
+        let rel = validate_archive_entry_path(Path::new(&raw_name))?;
+        let out_path = dest.join(&rel);
+        if entry.is_dir() || entry_name.ends_with('/') {
+            fs::create_dir_all(&out_path)?;
+        } else {
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let mut out_file = File::create(&out_path)?;
+            io::copy(&mut entry, &mut out_file)?;
+            #[cfg(unix)]
+            if let Some(mode) = entry.unix_mode() {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(mode & 0o777));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn extract_tar_gz(archive: &Path, dest: &Path) -> UpdateResult<()> {
+    let file = File::open(archive)?;
+    let gz = GzDecoder::new(file);
+    let mut tar = tar::Archive::new(gz);
+
+    let entries = tar
+        .entries()
+        .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("invalid tar.gz: {e}"))))?;
+
+    for entry_res in entries {
+        let mut entry = entry_res.map_err(|e| {
+            UpdateError::Problem(Problem::BadArchive(format!("corrupt tar entry: {e}")))
+        })?;
+        let entry_type = entry.header().entry_type();
+        if entry_type.is_symlink() || entry_type.is_hard_link() {
+            return Err(UpdateError::Problem(Problem::BadArchive(
+                "archive contains symbolic or hard link".to_owned(),
+            )));
+        }
+        let path_cow = entry.path().map_err(|e| {
+            UpdateError::Problem(Problem::BadArchive(format!("invalid tar path: {e}")))
+        })?;
+        if path_cow.as_os_str().is_empty() || path_cow.as_ref() == Path::new(".") {
+            continue;
+        }
+        let rel = validate_archive_entry_path(&path_cow)?;
+        let out_path = dest.join(&rel);
+        if entry_type.is_dir() {
+            fs::create_dir_all(&out_path)?;
+        } else if entry_type.is_file() {
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let mut out_file = File::create(&out_path)?;
+            io::copy(&mut entry, &mut out_file)?;
+            #[cfg(unix)]
+            if let Ok(mode) = entry.header().mode() {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(mode & 0o777));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn extract(archive: &Path, dest: &Path) -> UpdateResult<PathBuf> {
+    fs::create_dir_all(dest)?;
+    let name = archive
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if name.ends_with(".zip") {
+        extract_zip(archive, dest)?;
+    } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+        extract_tar_gz(archive, dest)?;
+    } else {
+        return Err(UpdateError::Problem(Problem::BadArchive(format!(
+            "unsupported archive format: {}",
+            archive.display()
+        ))));
+    }
+
+    if dest.join(RELEASE_FILE).is_file() {
+        return Ok(dest.to_path_buf());
+    }
+    let mut subdirs = Vec::new();
+    for entry in fs::read_dir(dest)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            subdirs.push(path);
+        }
+    }
+    if subdirs.len() == 1 && subdirs[0].join(RELEASE_FILE).is_file() {
+        return Ok(subdirs.remove(0));
+    }
+    Ok(dest.to_path_buf())
+}
+
+pub fn damaged_files(root: &Path, manifest: &Manifest) -> Result<Vec<String>, HostError> {
+    let mut damaged = Vec::new();
+    for f in &manifest.files {
+        let full = root.join(&f.path);
+        let Ok(meta) = fs::metadata(&full) else {
+            damaged.push(f.path.clone());
+            continue;
+        };
+        if !meta.is_file() || meta.len() != f.size {
+            damaged.push(f.path.clone());
+            continue;
+        }
+        let actual = sha256_file(&full)?;
+        if actual != f.sha256 {
+            damaged.push(f.path.clone());
+        }
+    }
+    Ok(damaged)
+}
+
+fn is_runtime_manifest_path(path: &str) -> bool {
+    let norm = path.replace('\\', "/");
+    norm.ends_with("/MysticParadox.dll")
+        || norm.ends_with("/winmm.dll")
+        || norm == "MysticParadox.dll"
+        || norm == "winmm.dll"
+}
+
+pub fn runtime_changed(previous: &Manifest, next: &Manifest) -> bool {
+    let prev_rt: BTreeMap<&str, &str> = previous
+        .files
+        .iter()
+        .filter(|f| is_runtime_manifest_path(&f.path))
+        .map(|f| (f.path.as_str(), f.sha256.as_str()))
+        .collect();
+    let next_rt: BTreeMap<&str, &str> = next
+        .files
+        .iter()
+        .filter(|f| is_runtime_manifest_path(&f.path))
+        .map(|f| (f.path.as_str(), f.sha256.as_str()))
+        .collect();
+    prev_rt != next_rt
+}
+
+pub fn local_changes(
+    root: &Path,
+    previous: Option<&Manifest>,
+    next: &Manifest,
+) -> Result<Vec<String>, HostError> {
+    let Some(prev) = previous else {
+        return Ok(Vec::new());
+    };
+    let mut changed = Vec::new();
+    for pf in &prev.files {
+        let full = root.join(&pf.path);
+        if !full.is_file() {
+            continue;
+        }
+        let actual = sha256_file(&full)?;
+        if actual == pf.sha256 {
+            continue;
+        }
+        if let Some(nf) = next.file(&pf.path)
+            && actual == nf.sha256
+        {
+            continue;
+        }
+        changed.push(pf.path.clone());
+    }
+    Ok(changed)
+}
+
+fn sweep_aside_in_dir(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_dir() {
+            if matches!(
+                name.as_str(),
+                ".workspace" | ".git" | "node_modules" | "target"
+            ) {
+                continue;
+            }
+            sweep_aside_in_dir(&path);
+        } else if name.contains(".rr-old-") || name.contains(".old-") {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
+pub fn remove_moved_aside(root: &Path) {
+    sweep_aside_in_dir(root);
+}
+
+pub fn installing_marker(root: &Path) -> PathBuf {
+    root.join(".workspace").join("update").join("installing")
+}
+
+fn install_single_file(src: &Path, dst: &Path) -> io::Result<()> {
+    if let Some(parent) = dst.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let file_name = dst
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file");
+    let tmp = dst.with_file_name(format!(".{file_name}.tmp-{millis}"));
+    fs::copy(src, &tmp)?;
+
+    #[cfg(unix)]
+    if let Ok(meta) = fs::metadata(src) {
+        let _ = fs::set_permissions(&tmp, meta.permissions());
+    }
+
+    if fs::rename(&tmp, dst).is_ok() {
+        return Ok(());
+    }
+
+    let aside = dst.with_file_name(format!("{file_name}.rr-old-{millis}"));
+    let _ = fs::remove_file(&aside);
+    if dst.exists() {
+        fs::rename(dst, &aside)?;
+    }
+    match fs::rename(&tmp, dst) {
+        Ok(()) => {
+            let _ = fs::remove_file(&aside);
+            Ok(())
+        }
+        Err(e) => {
+            if aside.exists() {
+                let _ = fs::rename(&aside, dst);
+            }
+            let _ = fs::remove_file(&tmp);
+            Err(e)
+        }
+    }
+}
+
+pub fn install(
+    staged: &Path,
+    root: &Path,
+    previous: Option<&Manifest>,
+) -> UpdateResult<(Manifest, Installed)> {
+    let next = read_manifest(staged)
+        .map_err(|e| UpdateError::Problem(Problem::BadArchive(e.to_string())))?
+        .ok_or_else(|| {
+            UpdateError::Problem(Problem::BadArchive(format!(
+                "{RELEASE_FILE} is missing from the release archive"
+            )))
+        })?;
+
+    let bad = damaged_files(staged, &next)?;
+    if !bad.is_empty() {
+        return Err(UpdateError::Problem(Problem::BadArchive(format!(
+            "staged archive is missing or has corrupt files: {}",
+            bad.join(", ")
+        ))));
+    }
+
+    let modified = local_changes(root, previous, &next)?;
+    if !modified.is_empty() {
+        return Err(UpdateError::Problem(Problem::LocalChanges(modified)));
+    }
+
+    remove_moved_aside(root);
+
+    let marker = installing_marker(root);
+    if let Some(parent) = marker.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&marker, format!("{}\n", next.version))?;
+
+    let mut next_paths = BTreeSet::new();
+    for f in &next.files {
+        next_paths.insert(f.path.clone());
+        let src = staged.join(&f.path);
+        let dst = root.join(&f.path);
+        install_single_file(&src, &dst)?;
+    }
+
+    let mut removed = 0usize;
+    if let Some(prev) = previous {
+        for pf in &prev.files {
+            if !next_paths.contains(&pf.path) {
+                let old_path = root.join(&pf.path);
+                if old_path.is_file() && fs::remove_file(&old_path).is_ok() {
+                    removed += 1;
+                }
+            }
+        }
+    }
+
+    install_single_file(&staged.join(RELEASE_FILE), &root.join(RELEASE_FILE))?;
+    let _ = fs::remove_file(&marker);
+
+    let rt_changed = previous.map(|prev| runtime_changed(prev, &next));
+    let info = Installed {
+        from: previous.map(|p| p.version.clone()),
+        to: next.version.clone(),
+        files: next.files.len(),
+        removed,
+        runtime_changed: rt_changed,
+    };
+    Ok((next, info))
+}
+
+pub mod http {
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::Path;
+
+    use bytes::Bytes;
+    use http_body_util::{BodyExt, Empty};
+    use hyper::Request;
+    use hyper_rustls::HttpsConnectorBuilder;
+    use hyper_util::client::legacy::Client;
+    use hyper_util::rt::TokioExecutor;
+
+    async fn fetch_bytes(url: &str, api: bool) -> Result<Vec<u8>, String> {
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let https = HttpsConnectorBuilder::new()
+            .with_webpki_roots()
+            .https_or_http()
+            .enable_http1()
+            .build();
+        let client: Client<_, Empty<Bytes>> = Client::builder(TokioExecutor::new()).build(https);
+
+        let mut current = url.to_owned();
+        for _ in 0..5 {
+            let uri: hyper::Uri = current
+                .parse()
+                .map_err(|e| format!("invalid URL {current}: {e}"))?;
+            let mut builder = Request::builder()
+                .method("GET")
+                .uri(&uri)
+                .header("User-Agent", "dainty-lass-hostkit");
+            if api {
+                builder = builder.header("Accept", "application/vnd.github+json");
+            }
+            let req = builder
+                .body(Empty::<Bytes>::new())
+                .map_err(|e| format!("{current}: {e}"))?;
+            let resp = client
+                .request(req)
+                .await
+                .map_err(|e| format!("{current}: {e}"))?;
+            let status = resp.status();
+            if status.is_redirection()
+                && let Some(loc) = resp.headers().get(hyper::header::LOCATION)
+                && let Ok(loc_str) = loc.to_str()
+            {
+                current = loc_str.to_owned();
+                continue;
+            }
+            if !status.is_success() {
+                return Err(format!("HTTP {} from {current}", status.as_u16()));
+            }
+            let body = resp
+                .into_body()
+                .collect()
+                .await
+                .map_err(|e| format!("{current}: {e}"))?
+                .to_bytes();
+            return Ok(body.to_vec());
+        }
+        Err(format!("too many redirects fetching {url}"))
+    }
+
+    fn run_async<T>(fut: impl std::future::Future<Output = Result<T, String>>) -> Result<T, String> {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| e.to_string())?;
+        rt.block_on(fut)
+    }
+
+    pub fn get_text(url: &str, api: bool) -> Result<String, String> {
+        let bytes = run_async(fetch_bytes(url, api))?;
+        String::from_utf8(bytes).map_err(|e| format!("invalid UTF-8 from {url}: {e}"))
+    }
+
+    pub fn download(url: &str, file: &Path) -> Result<(), String> {
+        let bytes = run_async(fetch_bytes(url, false))?;
+        if let Some(parent) = file.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let mut out = File::create(file).map_err(|e| e.to_string())?;
+        out.write_all(&bytes).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+    use serde_json::json;
+    use tempfile::TempDir;
+
+    #[test]
+    fn semver_parsing_and_ordering() {
+        let v1 = Version::parse("0.1.0").unwrap();
+        let v2 = Version::parse("0.2.0-alpha.1").unwrap();
+        let v3 = Version::parse("0.2.0-alpha.2").unwrap();
+        let v4 = Version::parse("0.2.0-beta.1").unwrap();
+        let v5 = Version::parse("0.2.0").unwrap();
+
+        assert!(v1 < v2);
+        assert!(v2 < v3);
+        assert!(v3 < v4);
+        assert!(v4 < v5);
+        assert!(!v1.is_prerelease());
+        assert!(v2.is_prerelease());
+        assert!(Version::parse("01.0.0").is_none());
+        assert!(Version::parse("1.0").is_none());
+    }
+
+    #[test]
+    fn pick_newest_skips_prereleases_unless_installed_is_prerelease() {
+        let versions = ["0.1.0", "0.2.0", "0.3.0-rc.1"];
+        assert_eq!(pick_newest(&versions, None), Some("0.2.0"));
+        assert_eq!(pick_newest(&versions, Some("0.1.0")), Some("0.2.0"));
+        assert_eq!(
+            pick_newest(&versions, Some("0.3.0-alpha.1")),
+            Some("0.3.0-rc.1")
+        );
+    }
+
+    #[test]
+    fn archive_name_and_version_roundtrip() {
+        let win = archive_name("0.4.2", "windows-x64");
+        assert_eq!(win, "ReforgedRevivalServer-0.4.2-windows-x64.zip");
+        assert_eq!(archive_version(&win, "windows-x64"), Some("0.4.2"));
+        assert_eq!(archive_version(&win, "linux-x64"), None);
+
+        let lin = archive_name("0.4.2", "linux-x64");
+        assert_eq!(lin, "ReforgedRevivalServer-0.4.2-linux-x64.tar.gz");
+        assert_eq!(archive_version(&lin, "linux-x64"), Some("0.4.2"));
+    }
+
+    #[test]
+    fn candidates_from_github_selects_matching_release() {
+        let releases = json!([
+            {
+                "tag_name": "server-v0.1.0",
+                "draft": false,
+                "assets": [
+                    {
+                        "name": "ReforgedRevivalServer-0.1.0-linux-x64.tar.gz",
+                        "browser_download_url": "https://example.org/0.1.0.tar.gz"
+                    },
+                    {
+                        "name": "SHA256SUMS.txt",
+                        "browser_download_url": "https://example.org/0.1.0-sums.txt"
+                    }
+                ]
+            },
+            {
+                "tag_name": "server-v0.2.0",
+                "draft": false,
+                "assets": [
+                    {
+                        "name": "ReforgedRevivalServer-0.2.0-linux-x64.tar.gz",
+                        "browser_download_url": "https://example.org/0.2.0.tar.gz"
+                    },
+                    {
+                        "name": "SHA256SUMS.txt",
+                        "browser_download_url": "https://example.org/0.2.0-sums.txt"
+                    }
+                ]
+            }
+        ]);
+
+        let c = candidates_from_github(
+            &releases,
+            "SilentSpud/Dauntless-Reforged-Revival",
+            "linux-x64",
+            Wanted::Newest(None),
+        )
+        .unwrap();
+        assert_eq!(c.version, "0.2.0");
+        assert_eq!(c.archive, "ReforgedRevivalServer-0.2.0-linux-x64.tar.gz");
+    }
+
+    #[test]
+    fn install_verifies_staged_files_and_refuses_local_changes() {
+        let tmp = TempDir::new().unwrap();
+        let staged = tmp.path().join("staged");
+        let root = tmp.path().join("root");
+        fs::create_dir_all(&staged).unwrap();
+        fs::create_dir_all(&root).unwrap();
+
+        let hello_bytes = b"hello world\n";
+        fs::write(staged.join("README.txt"), hello_bytes).unwrap();
+        let hello_sha = sha256_file(&staged.join("README.txt")).unwrap();
+
+        let manifest_json = json!({
+            "version": "0.2.0",
+            "commit": "abcdef1234567890",
+            "target": "x86_64-unknown-linux-gnu",
+            "platform": "linux-x64",
+            "repository": "SilentSpud/Dauntless-Reforged-Revival",
+            "files": [
+                {
+                    "path": "README.txt",
+                    "sha256": hello_sha,
+                    "size": hello_bytes.len()
+                }
+            ]
+        });
+        fs::write(
+            staged.join(RELEASE_FILE),
+            serde_json::to_string_pretty(&manifest_json).unwrap(),
+        )
+        .unwrap();
+
+        let (installed_manifest, stats) = install(&staged, &root, None).unwrap();
+        assert_eq!(installed_manifest.version, "0.2.0");
+        assert_eq!(installed_manifest.short_commit(), "abcdef1");
+        assert_eq!(stats.files, 1);
+        assert!(root.join("README.txt").is_file());
+        assert!(!installing_marker(&root).exists());
+
+        // Modify README.txt locally and verify a subsequent install with different hash refuses to overwrite it
+        fs::write(root.join("README.txt"), b"locally edited\n").unwrap();
+        let next_bytes = b"version 0.3.0\n";
+        fs::write(staged.join("README.txt"), next_bytes).unwrap();
+        let next_sha = sha256_file(&staged.join("README.txt")).unwrap();
+        let next_manifest_json = json!({
+            "version": "0.3.0",
+            "commit": "1234567890abcdef",
+            "target": "x86_64-unknown-linux-gnu",
+            "platform": "linux-x64",
+            "files": [
+                {
+                    "path": "README.txt",
+                    "sha256": next_sha,
+                    "size": next_bytes.len()
+                }
+            ]
+        });
+        fs::write(
+            staged.join(RELEASE_FILE),
+            serde_json::to_string_pretty(&next_manifest_json).unwrap(),
+        )
+        .unwrap();
+
+        let err = install(&staged, &root, Some(&installed_manifest)).unwrap_err();
+        match err {
+            UpdateError::Problem(Problem::LocalChanges(files)) => {
+                assert_eq!(files, vec!["README.txt".to_owned()]);
+            }
+            other => panic!("expected LocalChanges, got {other:?}"),
+        }
+    }
+}
