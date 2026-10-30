@@ -129,6 +129,13 @@ async function callEverything(): Promise<void> {
   await api.serverConfirmFreshStart();
   await api.serverInviteList();
   await api.adminAction({ action: "lookup", player: "Slayer" });
+  await api.remoteStatus();
+  await api.remoteInitController({ node: "ctrl-main", region: "us-east" });
+  await api.remoteInvite({ node: "managed-01", region: "eu-west", label: "EU 1" });
+  await api.remoteEnroll({ uri: "dainty-lass-remote://enroll?v=1", label: "EU 1" });
+  await api.remoteRevoke("managed-01");
+  await api.remoteLeave();
+  await api.remoteExec({ node: "managed-01", action: "doctor" });
 }
 
 test("each call reaches its command with the preload's arguments", async () => {

@@ -49,8 +49,9 @@ test("every listed command passes with arguments of the right shape", () => {
     selection: { actor: "key_01", since: "2026-10-01T00:00:00Z" },
     plan: "plan_01",
     config: { registration: "INVITECODE", database: "sqlite", maxHubs: 1, maxHunts: 3, freshStart: false },
+    node: "managed-01",
   };
-  assert.equal(Object.keys(commands).length, 92);
+  assert.equal(Object.keys(commands).length, 99);
   for (const [cmd, spec] of Object.entries(commands)) {
     const args: Record<string, unknown> = {};
     for (const name of Object.keys(spec)) {
@@ -60,7 +61,15 @@ test("every listed command passes with arguments of the right shape", () => {
           ? "a"
           : name === "request" && cmd === "admin_action"
             ? { action: "lookup", player: "Slayer", reason: null, until: null, module: null }
-            : good[name];
+            : name === "request" && cmd === "remote_init_controller"
+              ? { node: "ctrl-main", region: "us-east", url: null }
+              : name === "request" && cmd === "remote_invite"
+                ? { node: "managed-01", region: "eu-west", label: "EU 1", url: null }
+                : name === "request" && cmd === "remote_enroll"
+                  ? { uri: "dainty-lass-remote://enroll?v=1", label: "EU 1" }
+                  : name === "request" && cmd === "remote_exec"
+                    ? { node: "managed-01", action: "doctor", target: null, reason: null }
+                    : good[name];
     }
     assert.ok(passes(cmd, args), cmd);
   }
