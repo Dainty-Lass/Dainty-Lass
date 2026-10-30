@@ -1,4 +1,4 @@
-//! The server's game runtime (Reforged's `controller.ts` 1081–1226): accept a server's runtime set once,
+//! The server's game runtime: accept a server's runtime set once,
 //! install it next to the game, or use a host's local build instead, on RA7's `net::runtime_files`. It
 //! replaces DR's 1.4.4 download, repair, pause and resume. This is plan section 6's "runtime acceptance
 //! per server": `trustedRuntimes[serverId]` holds the ids of the sets the player accepted.

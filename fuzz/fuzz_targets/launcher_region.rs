@@ -7,7 +7,7 @@
 use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
 
-#[path = "../../launcher/src-tauri/src/net/regionping/parse.rs"]
+#[path = "../../crates/launcher-kit/src/net/regionping/parse.rs"]
 mod parse;
 
 const STATUSES: [u16; 5] = [200, 204, 404, 429, 500];
