@@ -32,7 +32,7 @@ run_suite() {
 			echo "(nftables test: off; run with --cap-add NET_ADMIN to include it)"
 		fi
 		cd "$root/rust" && cargo test --locked --no-fail-fast \
-			-p protocol -p proxy -p service-kit -p store -p gateway -p content -p admin -p host \
+			-p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
 			-p controller -p backend -p director
 		;;
 	backend) cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxBackend" && npm test ;;
