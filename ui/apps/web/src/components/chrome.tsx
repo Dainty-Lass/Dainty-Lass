@@ -23,13 +23,15 @@ import { realmsPageAvailable } from "@/app/realms"
 
 export function TitleBar() {
   const { t } = useI18n()
-  const { maximized } = useLauncher()
+  const { maximized, snap } = useLauncher()
   return (
     <header
       data-tauri-drag-region
       className="flex h-10 shrink-0 items-center justify-between border-b pl-4 text-xs font-semibold tracking-widest uppercase select-none"
     >
-      <span data-tauri-drag-region>{t("app_title")}</span>
+      <span data-tauri-drag-region>
+        {t(snap?.app.serverGui ? "app_title_manager" : "app_title")}
+      </span>
       {inLauncher() && (
         <div className="flex">
           <Button

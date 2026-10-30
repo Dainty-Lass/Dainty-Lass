@@ -78,6 +78,17 @@ export const SERVER_STATE_KEYS: Record<
   failed: { state: "hsrv_state_failed", text: "hsrv_text_failed_noreason" },
 }
 
+export function serverStateKeys(
+  serverGui = false
+): Record<HostServerState, { state: Key; text: Key }> {
+  if (!serverGui) return SERVER_STATE_KEYS
+  return {
+    ...SERVER_STATE_KEYS,
+    stopped: { state: "hsrv_state_stopped", text: "hsrv_text_stopped_mgr" },
+    running: { state: "hsrv_state_running", text: "hsrv_text_running_mgr" },
+  }
+}
+
 export type CheckId = "workspace" | "setup" | "gamedata" | "runtime"
 
 export interface Check {
@@ -89,14 +100,14 @@ export interface Check {
 }
 
 // "Before you start", from what the kit found on this PC
-export function checks(kit: HostKit): Check[] {
+export function checks(kit: HostKit, serverGui = false): Check[] {
   const { backend, director } = kit.gameData
   const real = backend === "real" && director === "real"
   const have = backend !== "missing" && director !== "missing"
   return [
     {
       id: "workspace",
-      key: "hsrv_check_workspace",
+      key: serverGui ? "hsrv_check_workspace_mgr" : "hsrv_check_workspace",
       ok: kit.workspaceOk,
       warn: false,
     },

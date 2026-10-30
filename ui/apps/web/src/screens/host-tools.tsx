@@ -274,7 +274,15 @@ export function BuildTab({ kit, snap }: { kit: HostKit; snap: Snapshot }) {
         </Step>
         <Step
           text={t("host_sdk_step_run")}
-          hint={hasGame ? undefined : t("host_sdk_need_game")}
+          hint={
+            hasGame
+              ? undefined
+              : t(
+                  snap.app.serverGui
+                    ? "host_sdk_need_game_mgr"
+                    : "host_sdk_need_game"
+                )
+          }
         >
           <Button
             size="sm"
