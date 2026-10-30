@@ -552,6 +552,258 @@ impl HistoryConfig {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RemoteConfig {
+    pub role: Option<String>,
+    pub node: Option<module_api::network::NodeId>,
+    pub region: Option<module_api::network::Region>,
+    pub controller_url: Option<String>,
+    pub controller_node: Option<module_api::network::NodeId>,
+    pub controller_cert_fp: Option<String>,
+    pub sync_interval_secs: Option<u64>,
+    pub label: Option<String>,
+    pub local_overrides: Vec<String>,
+}
+
+impl RemoteConfig {
+    pub fn from_json(value: &Value) -> Result<Self, HostError> {
+        let obj = value.as_object().ok_or_else(|| bad("remote must be an object"))?;
+        let role = match obj.get("role") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) if matches!(s.as_str(), "standalone" | "controller" | "managed") => Some(s.clone()),
+            Some(v) => {
+                return Err(bad(format!(
+                    "remote.role must be \"standalone\", \"controller\" or \"managed\", not {}",
+                    shown(Some(v))
+                )));
+            }
+        };
+        let node = match obj.get("node") {
+            None | Some(Value::Null) => None,
+            Some(v) => {
+                let s = v
+                    .as_str()
+                    .ok_or_else(|| bad("remote.node must be a node id (a-z, 0-9 and -)"))?;
+                let id: module_api::network::NodeId = s.parse().map_err(|e| bad(format!("remote.node: {e}")))?;
+                Some(id)
+            }
+        };
+        let region = match obj.get("region") {
+            None | Some(Value::Null) => None,
+            Some(v) => {
+                let s = v
+                    .as_str()
+                    .ok_or_else(|| bad("remote.region must be a region name (a-z, 0-9 and -)"))?;
+                let id: module_api::network::Region = s.parse().map_err(|e| bad(format!("remote.region: {e}")))?;
+                Some(id)
+            }
+        };
+        let controller_url = match obj.get("controllerUrl") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) => {
+                let trimmed = js::trim(s);
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    let parsed = url::Url::parse(trimmed)
+                        .map_err(|e| bad(format!("remote.controllerUrl must be an https:// URL: {e}")))?;
+                    if parsed.scheme() != "https" && parsed.scheme() != "http" {
+                        return Err(bad("remote.controllerUrl must use https:// (or http:// on loopback)"));
+                    }
+                    Some(trimmed.to_owned())
+                }
+            }
+            Some(v) => {
+                return Err(bad(format!(
+                    "remote.controllerUrl must be a URL string, not {}",
+                    shown(Some(v))
+                )));
+            }
+        };
+        let controller_node = match obj.get("controllerNode") {
+            None | Some(Value::Null) => None,
+            Some(v) => {
+                let s = v
+                    .as_str()
+                    .ok_or_else(|| bad("remote.controllerNode must be a node id (a-z, 0-9 and -)"))?;
+                let id: module_api::network::NodeId =
+                    s.parse().map_err(|e| bad(format!("remote.controllerNode: {e}")))?;
+                Some(id)
+            }
+        };
+        let controller_cert_fp = match obj.get("controllerCertFp") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) => {
+                let trimmed = js::trim(s);
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_owned())
+                }
+            }
+            Some(v) => {
+                return Err(bad(format!(
+                    "remote.controllerCertFp must be a SHA-256 fingerprint string, not {}",
+                    shown(Some(v))
+                )));
+            }
+        };
+        let sync_interval_secs = match obj.get("syncIntervalSecs") {
+            None | Some(Value::Null) => None,
+            Some(v) => {
+                let Some(n) = integer(Some(v)).filter(|&n| (1.0..=86400.0).contains(&n)) else {
+                    return Err(bad(format!(
+                        "remote.syncIntervalSecs must be a whole number from 1 to 86400, not {}",
+                        shown(Some(v))
+                    )));
+                };
+                Some(n as u64)
+            }
+        };
+        let label = match obj.get("label") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) => {
+                let trimmed = js::trim(s);
+                if trimmed.is_empty() {
+                    None
+                } else if trimmed.len() > 64 || trimmed.chars().any(char::is_control) {
+                    return Err(bad(
+                        "remote.label must be 1 to 64 printable characters without control characters",
+                    ));
+                } else {
+                    Some(trimmed.to_owned())
+                }
+            }
+            Some(v) => {
+                return Err(bad(format!("remote.label must be a string, not {}", shown(Some(v)))));
+            }
+        };
+        let local_overrides = match obj.get("localOverrides") {
+            None | Some(Value::Null) => Vec::new(),
+            Some(Value::Array(items)) => {
+                let mut out = Vec::with_capacity(items.len());
+                for item in items {
+                    let s = item
+                        .as_str()
+                        .map(js::trim)
+                        .filter(|s| !s.is_empty())
+                        .ok_or_else(|| bad("remote.localOverrides must be a list of non-empty setting keys"))?;
+                    out.push(s.to_owned());
+                }
+                out
+            }
+            Some(v) => {
+                return Err(bad(format!(
+                    "remote.localOverrides must be a list of setting keys, not {}",
+                    shown(Some(v))
+                )));
+            }
+        };
+        if role.as_deref() == Some("managed") {
+            if controller_url.is_none() {
+                return Err(bad("remote.controllerUrl is required when remote.role = \"managed\""));
+            }
+            if controller_node.is_none() {
+                return Err(bad("remote.controllerNode is required when remote.role = \"managed\""));
+            }
+            if controller_cert_fp.is_none() {
+                return Err(bad(
+                    "remote.controllerCertFp is required when remote.role = \"managed\"",
+                ));
+            }
+        }
+        Ok(Self {
+            role,
+            node,
+            region,
+            controller_url,
+            controller_node,
+            controller_cert_fp,
+            sync_interval_secs,
+            label,
+            local_overrides,
+        })
+    }
+
+    #[must_use]
+    pub fn to_json(&self) -> Value {
+        let mut out = Map::new();
+        if let Some(role) = &self.role {
+            out.insert("role".into(), Value::String(role.clone()));
+        }
+        if let Some(node) = &self.node {
+            out.insert("node".into(), Value::String(node.to_string()));
+        }
+        if let Some(region) = &self.region {
+            out.insert("region".into(), Value::String(region.to_string()));
+        }
+        if let Some(url) = &self.controller_url {
+            out.insert("controllerUrl".into(), Value::String(url.clone()));
+        }
+        if let Some(cnode) = &self.controller_node {
+            out.insert("controllerNode".into(), Value::String(cnode.to_string()));
+        }
+        if let Some(fp) = &self.controller_cert_fp {
+            out.insert("controllerCertFp".into(), Value::String(fp.clone()));
+        }
+        if let Some(secs) = self.sync_interval_secs {
+            out.insert("syncIntervalSecs".into(), Value::from(secs));
+        }
+        if let Some(label) = &self.label {
+            out.insert("label".into(), Value::String(label.clone()));
+        }
+        if !self.local_overrides.is_empty() {
+            out.insert(
+                "localOverrides".into(),
+                Value::Array(self.local_overrides.iter().cloned().map(Value::String).collect()),
+            );
+        }
+        Value::Object(out)
+    }
+
+    #[must_use]
+    pub fn effective_node(&self) -> module_api::network::NodeId {
+        self.node.clone().unwrap_or_else(|| {
+            let default_name = match self.role.as_deref() {
+                Some("controller") => "controller",
+                _ => "managed",
+            };
+            default_name
+                .parse()
+                .unwrap_or_else(|_| module_api::NodeIdentity::standalone().node)
+        })
+    }
+
+    #[must_use]
+    pub fn effective_region(&self) -> module_api::network::Region {
+        self.region
+            .clone()
+            .unwrap_or_else(|| module_api::NodeIdentity::standalone().region)
+    }
+
+    #[must_use]
+    pub fn controller_peer(&self, local_node: &module_api::network::NodeId) -> Option<network_plugin::cluster::Peer> {
+        if self.role.as_deref() != Some("managed") {
+            return None;
+        }
+        let cnode = self.controller_node.as_ref()?;
+        if cnode == local_node {
+            return None;
+        }
+        let url_str = self.controller_url.as_deref()?;
+        let parsed = url::Url::parse(url_str).ok()?;
+        let host = parsed.host_str()?.to_owned();
+        let port = parsed.port_or_known_default().unwrap_or(61000);
+        Some(network_plugin::cluster::Peer {
+            id: cnode.clone(),
+            region: self.effective_region(),
+            host,
+            port,
+            fingerprint: None,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FileForm {
     pub document: Map<String, Value>,
     pub read: Map<String, Value>,
@@ -583,6 +835,7 @@ pub struct HostConfig {
     pub switches: Option<SwitchesConfig>,
     pub modules: Option<ModulesConfig>,
     pub network: Option<NetworkConfig>,
+    pub remote: Option<RemoteConfig>,
     pub file: FileForm,
 }
 
@@ -725,6 +978,10 @@ impl HostConfig {
             Some(n) if !n.is_null() => Some(NetworkConfig::from_json(n)?),
             _ => None,
         };
+        let remote = match obj.get("remote") {
+            Some(r) if !r.is_null() => Some(RemoteConfig::from_json(r)?),
+            _ => None,
+        };
         Ok(Self {
             version,
             mode,
@@ -749,6 +1006,7 @@ impl HostConfig {
             switches,
             modules,
             network,
+            remote,
             file: FileForm {
                 document: obj,
                 read,
@@ -777,6 +1035,9 @@ impl HostConfig {
             }
             if self.network.is_none() {
                 self.network = prev.network.clone();
+            }
+            if self.remote.is_none() {
+                self.remote = prev.remote.clone();
             }
             self.file.read = prev.file.read.clone();
             self.file.toml = prev.file.toml.clone();
@@ -943,6 +1204,9 @@ impl HostConfig {
         }
         if let Some(n) = &self.network {
             canonical.insert("network".into(), n.to_json());
+        }
+        if let Some(r) = &self.remote {
+            canonical.insert("remote".into(), r.to_json());
         }
         if let Some(m) = &self.modules {
             canonical.insert("modules".into(), m.to_json());
@@ -1816,6 +2080,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         }
         None => None,
     };
+    let remote_cfg = match obj.get("remote").filter(|v| !v.is_null()) {
+        Some(r) => Some(RemoteConfig::from_json(r)?),
+        None => None,
+    };
     let history_cfg = match obj.get("history").filter(|v| !v.is_null()) {
         Some(h) => {
             let hist = HistoryConfig::from_json(h)?;
@@ -1934,6 +2202,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(n) = network_cfg {
         canonical.insert("network".into(), n.to_json());
     }
+    if let Some(r) = remote_cfg {
+        canonical.insert("remote".into(), r.to_json());
+    }
     if let Some(m) = modules_cfg {
         canonical.insert("modules".into(), m.to_json());
     }
@@ -1957,6 +2228,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "history",
         "switches",
         "network",
+        "remote",
         "modules",
     ];
     let mut out = Map::new();
@@ -2497,7 +2769,10 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
             push(&mut gateway, "GATEWAY_CERT", path_text(&p.cert_file));
             push(&mut gateway, "GATEWAY_KEY", path_text(&p.key_file));
             if let Some(net) = &c.network
-                && !net.nodes.is_empty()
+                && (!net.nodes.is_empty()
+                    || c.remote
+                        .as_ref()
+                        .is_some_and(|r| matches!(r.role.as_deref(), Some("controller" | "managed"))))
             {
                 push(&mut gateway, "GATEWAY_NODE_ID", net.node.to_string());
                 push(&mut gateway, "GATEWAY_NODE_REGION", net.region.to_string());
@@ -2508,7 +2783,35 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
                 );
                 push(&mut gateway, "GATEWAY_NODE_KEY", path_text(&p.tls.join(NODE_KEY_FILE)));
                 push(&mut gateway, "GATEWAY_NODE_CA", path_text(&p.tls.join(CLUSTER_CA_FILE)));
-                if let Ok(nodes_json) = serde_json::to_string(&net.nodes) {
+                let mut peers = net.nodes.clone();
+                if let Some(rem) = &c.remote
+                    && let Some(peer) = rem.controller_peer(&net.node)
+                    && !peers.iter().any(|existing| existing.id == peer.id)
+                {
+                    peers.push(peer);
+                }
+                if !peers.is_empty()
+                    && let Ok(nodes_json) = serde_json::to_string(&peers)
+                {
+                    push(&mut gateway, "GATEWAY_NETWORK_NODES", nodes_json);
+                }
+            } else if let Some(rem) = &c.remote
+                && matches!(rem.role.as_deref(), Some("controller" | "managed"))
+            {
+                let node = rem.effective_node();
+                let region = rem.effective_region();
+                push(&mut gateway, "GATEWAY_NODE_ID", node.to_string());
+                push(&mut gateway, "GATEWAY_NODE_REGION", region.to_string());
+                push(
+                    &mut gateway,
+                    "GATEWAY_NODE_CERT",
+                    path_text(&p.tls.join(NODE_CERT_FILE)),
+                );
+                push(&mut gateway, "GATEWAY_NODE_KEY", path_text(&p.tls.join(NODE_KEY_FILE)));
+                push(&mut gateway, "GATEWAY_NODE_CA", path_text(&p.tls.join(CLUSTER_CA_FILE)));
+                if let Some(peer) = rem.controller_peer(&node)
+                    && let Ok(nodes_json) = serde_json::to_string(&[peer])
+                {
                     push(&mut gateway, "GATEWAY_NETWORK_NODES", nodes_json);
                 }
             }

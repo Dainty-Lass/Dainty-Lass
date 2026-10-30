@@ -20,6 +20,7 @@ pub struct NodeLinks {
     endpoint: NodeEndpoint,
     tls: Arc<rustls::ServerConfig>,
     info: NodeCertInfo,
+    enroll_handler: std::sync::RwLock<Option<crate::network::EnrollHandler>>,
 }
 
 /// Who is on the other end of a node connection, as its certificate says.
@@ -55,12 +56,27 @@ impl NodeLinks {
             endpoint,
             tls,
             info: credentials.info().clone(),
+            enroll_handler: std::sync::RwLock::new(None),
         })
     }
 
     /// Attach the [`NodeService`](network_plugin::NodeService) that answers calls here.
     pub fn endpoint(&self) -> &NodeEndpoint {
         &self.endpoint
+    }
+
+    pub fn set_enroll_handler(&self, handler: Option<crate::network::EnrollHandler>) {
+        *self
+            .enroll_handler
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = handler;
+    }
+
+    pub fn enroll_handler(&self) -> Option<crate::network::EnrollHandler> {
+        self.enroll_handler
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     pub fn server_config(&self) -> &Arc<rustls::ServerConfig> {

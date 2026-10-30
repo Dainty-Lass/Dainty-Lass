@@ -739,3 +739,200 @@ fn gateway_routes(
     registry.add_plugin(routes.clone());
     Ok(routes)
 }
+
+#[cfg(feature = "remote")]
+pub struct RemoteControllerOptions {
+    pub state: std::sync::Arc<std::sync::Mutex<remote::RemoteControllerState>>,
+    pub state_file: Option<std::path::PathBuf>,
+    pub ca: std::sync::Arc<network_plugin::cluster::ClusterCa>,
+    pub services: crate::NodeServices,
+}
+
+/// Controller-side remote management module (`[remote] role = "controller"`, DD27, RM2, RM3):
+/// attaches `Service::Remote` and `POST /__node/enroll` to [`crate::NodeServices`] and syncs
+/// enrolled peers to the gateway's `NodeEndpoint`.
+#[cfg(feature = "remote")]
+pub fn remote_controller(options: RemoteControllerOptions) -> Result<crate::Module, String> {
+    let state = options.state;
+    let state_file = options.state_file;
+    let ca = options.ca;
+    let services = options.services;
+    Ok(crate::Module::new(
+        "remote",
+        std::sync::Arc::new(move |mut ctx| {
+            let (state, state_file, ca, services) = (state.clone(), state_file.clone(), ca.clone(), services.clone());
+            Box::pin(async move {
+                let enrolled_nodes: Vec<module_api::network::NodeId> = {
+                    let guard = state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    guard
+                        .installs
+                        .values()
+                        .filter(|rec| !rec.revoked)
+                        .map(|rec| rec.node.clone())
+                        .collect()
+                };
+                for node in enrolled_nodes {
+                    services.add_dynamic_peer(node);
+                }
+
+                let enroll_state = state.clone();
+                let enroll_file = state_file.clone();
+                let enroll_ca = ca.clone();
+                let enroll_services = services.clone();
+                let enroll_cb: crate::node_services::RemoteEnrollCallback =
+                    std::sync::Arc::new(move |body: Vec<u8>| {
+                        let enroll_state = enroll_state.clone();
+                        let enroll_file = enroll_file.clone();
+                        let enroll_ca = enroll_ca.clone();
+                        let enroll_services = enroll_services.clone();
+                        Box::pin(async move {
+                            let req = match remote::decode_enroll_request(&body) {
+                                Ok(r) => r,
+                                Err(e) => {
+                                    let err = serde_json::json!({ "error": e.to_string() });
+                                    return (400, err.to_string().into_bytes());
+                                }
+                            };
+                            let now_ms = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|d| d.as_millis() as i64)
+                                .unwrap_or(0);
+                            let answer_res = {
+                                let mut g = enroll_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                                if let Some(path) = &enroll_file
+                                    && path.is_file()
+                                    && let Ok(fresh) = remote::RemoteControllerState::load(path)
+                                {
+                                    *g = fresh;
+                                }
+                                let res = g.redeem_enrollment(&enroll_ca, &req, now_ms);
+                                if res.is_ok()
+                                    && let Some(path) = &enroll_file
+                                {
+                                    let _ = g.save(path);
+                                }
+                                res
+                            };
+                            match answer_res {
+                                Ok(ans) => {
+                                    enroll_services.add_dynamic_peer(req.node);
+                                    match remote::encode_enroll_answer(&ans) {
+                                        Ok(bytes) => (200, bytes),
+                                        Err(e) => {
+                                            let err = serde_json::json!({ "error": e.to_string() });
+                                            (500, err.to_string().into_bytes())
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    let status = match e {
+                                        remote::RemoteError::InvalidEnrollmentToken
+                                        | remote::RemoteError::EnrollmentTokenUsed
+                                        | remote::RemoteError::EnrollmentTokenExpired => 403,
+                                        _ => 400,
+                                    };
+                                    let err = serde_json::json!({ "error": e.to_string() });
+                                    (status, err.to_string().into_bytes())
+                                }
+                            }
+                        })
+                    });
+
+                services.set_enroll_handler(Some(enroll_cb));
+                let svc = std::sync::Arc::new(remote::RemoteControllerService::new(state, state_file));
+                services.attach(network_plugin::Service::Remote, svc);
+                ctx.status.ready(None, Some("controller".to_string()));
+                ctx.wait_stop().await;
+                ctx.status.stopping();
+                services.detach(network_plugin::Service::Remote);
+                services.set_enroll_handler(None);
+                ctx.status.stopped();
+                Ok(())
+            })
+        }),
+    )
+    .optional()
+    .ready_within(std::time::Duration::from_secs(30)))
+}
+
+#[cfg(feature = "remote")]
+pub struct RemoteManagedOptions {
+    pub agent: std::sync::Arc<std::sync::Mutex<remote::RemoteManagedAgent>>,
+    pub handler: std::sync::Arc<dyn remote::RemoteHostHandler>,
+    pub link: std::sync::Arc<dyn network_plugin::PeerLink>,
+    pub services: crate::NodeServices,
+    pub sync_interval: std::time::Duration,
+}
+
+/// Managed-install remote management module (`[remote] role = "managed"`, DD27, RM2, RM3):
+/// attaches `Service::Remote` to [`crate::NodeServices`] for direct controller pushes and runs the
+/// outbound heartbeat sync loop with exponential backoff when the controller is unreachable.
+#[cfg(feature = "remote")]
+pub fn remote_managed(options: RemoteManagedOptions) -> Result<crate::Module, String> {
+    let agent = options.agent;
+    let handler = options.handler;
+    let link = options.link;
+    let services = options.services;
+    let sync_interval = options.sync_interval.max(std::time::Duration::from_secs(1));
+    Ok(crate::Module::new(
+        "remote",
+        std::sync::Arc::new(move |mut ctx| {
+            let (agent, handler, link, services) = (agent.clone(), handler.clone(), link.clone(), services.clone());
+            Box::pin(async move {
+                let controller_node = {
+                    agent
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .controller_node
+                        .clone()
+                };
+                services.add_dynamic_peer(controller_node.clone());
+                let svc = std::sync::Arc::new(remote::RemoteManagedService::new(agent.clone(), handler.clone()));
+                services.attach(network_plugin::Service::Remote, svc);
+                let pending_outcomes = std::sync::Arc::new(std::sync::Mutex::new(Vec::<remote::CommandOutcome>::new()));
+                let loop_agent = agent.clone();
+                let loop_handler = handler.clone();
+                let loop_link = link.clone();
+                let loop_outcomes = pending_outcomes.clone();
+                let sync_task = tokio::spawn(async move {
+                    loop {
+                        let res = remote::sync_once_with_controller(
+                            loop_link.as_ref(),
+                            &loop_agent,
+                            loop_handler.as_ref(),
+                            &loop_outcomes,
+                        )
+                        .await;
+                        let wait_ms = match res {
+                            Ok(_) => sync_interval.as_millis() as u64,
+                            Err(remote::RemoteError::RevokedPeer(_)) => break,
+                            Err(e) => {
+                                let failures = loop_agent
+                                    .lock()
+                                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                    .consecutive_unreachable;
+                                if failures == 1 {
+                                    tracing::warn!(
+                                        error = %e,
+                                        "controller unreachable; continuing on cached configuration"
+                                    );
+                                }
+                                remote::offline_backoff_delay_ms(failures)
+                            }
+                        };
+                        tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
+                    }
+                });
+                ctx.status.ready(None, Some(format!("managed by {controller_node}")));
+                ctx.wait_stop().await;
+                ctx.status.stopping();
+                sync_task.abort();
+                services.detach(network_plugin::Service::Remote);
+                ctx.status.stopped();
+                Ok(())
+            })
+        }),
+    )
+    .optional()
+    .ready_within(std::time::Duration::from_secs(30)))
+}

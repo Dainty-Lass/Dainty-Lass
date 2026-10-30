@@ -41,6 +41,7 @@ pub enum Command {
     Backup,
     Db(DbArgs),
     Network(NetworkArgs),
+    Remote(RemoteArgs),
     History(HistoryArgs),
     Revert(RevertArgs),
     #[command(hide = true, disable_help_flag = true)]
@@ -95,6 +96,7 @@ impl Command {
             Self::Backup => "backup",
             Self::Db(_) => "db",
             Self::Network(_) => "network",
+            Self::Remote(_) => "remote",
             Self::History(_) => "history",
             Self::Revert(_) => "revert",
             Self::Gateway { .. } => "gateway",
@@ -523,6 +525,137 @@ pub struct RevertArgs {
     pub dry_run: bool,
     #[arg(long)]
     pub apply: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
+pub struct RemoteArgs {
+    #[command(subcommand)]
+    pub command: RemoteCommand,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum RemoteCommand {
+    #[command(name = "init-controller")]
+    InitController(RemoteInitControllerArgs),
+    Invite(RemoteInviteArgs),
+    Enroll(RemoteEnrollArgs),
+    Status(RemoteStatusArgs),
+    List(RemoteStatusArgs),
+    Revoke(RemoteRevokeArgs),
+    Leave(RemoteLeaveArgs),
+    #[command(name = "set-config")]
+    SetConfig(RemoteSetConfigArgs),
+    Exec(RemoteExecArgs),
+    Approve(RemoteApproveArgs),
+    Cancel(RemoteCancelArgs),
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteInitControllerArgs {
+    #[arg(long)]
+    pub node: Option<String>,
+    #[arg(long)]
+    pub region: Option<String>,
+    #[arg(long)]
+    pub url: Option<String>,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteInviteArgs {
+    #[arg(long)]
+    pub node: String,
+    #[arg(long)]
+    pub region: Option<String>,
+    #[arg(long)]
+    pub label: Option<String>,
+    #[arg(long = "ttl-secs")]
+    pub ttl_secs: Option<i64>,
+    #[arg(long)]
+    pub url: Option<String>,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteEnrollArgs {
+    pub uri: String,
+    #[arg(long)]
+    pub label: Option<String>,
+    #[arg(long = "gateway-url")]
+    pub gateway_url: Option<String>,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Args)]
+pub struct RemoteStatusArgs {
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteRevokeArgs {
+    pub node: String,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Args)]
+pub struct RemoteLeaveArgs {
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteSetConfigArgs {
+    #[arg(long = "from-host-toml")]
+    pub from_host_toml: bool,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteExecArgs {
+    #[arg(long)]
+    pub node: String,
+    #[arg(long)]
+    pub action: String,
+    #[arg(long)]
+    pub account: Option<String>,
+    #[arg(long)]
+    pub reason: Option<String>,
+    #[arg(long = "for")]
+    pub for_whom: Option<String>,
+    #[arg(long, default_value = "admin")]
+    pub role: String,
+    #[arg(long, default_value = "cli-operator")]
+    pub actor: String,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteApproveArgs {
+    pub id: String,
+    #[arg(long, default_value = "owner")]
+    pub role: String,
+    #[arg(long, default_value = "cli-approver")]
+    pub actor: String,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct RemoteCancelArgs {
+    pub id: String,
+    #[arg(long, default_value = "admin")]
+    pub role: String,
+    #[arg(long, default_value = "cli-operator")]
+    pub actor: String,
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]

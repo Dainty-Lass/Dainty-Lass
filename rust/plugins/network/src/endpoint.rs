@@ -35,7 +35,7 @@ pub struct Head<'a> {
 
 pub struct NodeEndpoint {
     me: NodeIdentity,
-    peers: BTreeSet<NodeId>,
+    peers: RwLock<BTreeSet<NodeId>>,
     max_skew: Duration,
     clock: Arc<Clock>,
     service: RwLock<Option<Arc<dyn NodeService>>>,
@@ -46,7 +46,7 @@ impl NodeEndpoint {
     pub fn new(me: NodeIdentity, peers: impl IntoIterator<Item = NodeId>) -> Self {
         Self {
             me,
-            peers: peers.into_iter().collect(),
+            peers: RwLock::new(peers.into_iter().collect()),
             max_skew: MAX_CLOCK_SKEW,
             clock: Arc::new(Clock::default()),
             service: RwLock::new(None),
@@ -67,7 +67,15 @@ impl NodeEndpoint {
     }
 
     pub fn is_peer(&self, node: &NodeId) -> bool {
-        self.peers.contains(node)
+        self.peers.read().unwrap_or_else(PoisonError::into_inner).contains(node)
+    }
+
+    pub fn add_peer(&self, node: NodeId) {
+        self.peers.write().unwrap_or_else(PoisonError::into_inner).insert(node);
+    }
+
+    pub fn remove_peer(&self, node: &NodeId) {
+        self.peers.write().unwrap_or_else(PoisonError::into_inner).remove(node);
     }
 
     /// Answers calls with `service` from now on, replacing any earlier one. Until then a call is `no_service`

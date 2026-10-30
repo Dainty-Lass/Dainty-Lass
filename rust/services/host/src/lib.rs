@@ -1165,7 +1165,7 @@ pub mod serve {
 }
 
 pub mod commands {
-    pub use hostkit::commands::{backup, history, install_game, invite, multipliers, network, preset};
+    pub use hostkit::commands::{backup, history, install_game, invite, multipliers, network, preset, remote};
 
     pub mod gamedata {
         pub fn run(paths: &crate::paths::Paths, args: &crate::cli::GamedataArgs) -> crate::Outcome {
@@ -1452,6 +1452,7 @@ mod tests {
             switches: None,
             modules: None,
             network: None,
+            remote: None,
             file: FileForm::default(),
         };
         save_host_config(&paths, &cfg).unwrap();
@@ -1534,6 +1535,7 @@ mod tests {
             history: None,
             modules: None,
             network: None,
+            remote: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
@@ -1602,6 +1604,7 @@ mod tests {
             history: None,
             modules: None,
             network: None,
+            remote: None,
             switches: Default::default(),
             file: FileForm::default(),
         };

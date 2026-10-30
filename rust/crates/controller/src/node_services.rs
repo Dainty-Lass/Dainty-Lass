@@ -14,6 +14,8 @@ use module_api::BoxFuture;
 use module_api::network::NodeId;
 use network_plugin::{LinkError, NodeService, Service, ServiceMux};
 
+pub type RemoteEnrollCallback = Arc<dyn Fn(Vec<u8>) -> BoxFuture<'static, (u16, Vec<u8>)> + Send + Sync>;
+
 struct Inner {
     node: NodeId,
     attached: RwLock<HashMap<Service, Arc<dyn NodeService>>>,
@@ -21,6 +23,8 @@ struct Inner {
     mux: RwLock<Arc<ServiceMux>>,
     peer_link: RwLock<Option<Arc<dyn network_plugin::PeerLink>>>,
     peer_roster: RwLock<Option<Arc<dyn network_plugin::PeerRoster>>>,
+    enroll_handler: RwLock<Option<RemoteEnrollCallback>>,
+    dynamic_peers: RwLock<std::collections::BTreeSet<NodeId>>,
     #[cfg(feature = "network")]
     directory: RwLock<Option<Arc<network_plugin::directory::Directory>>>,
     #[cfg(feature = "network")]
@@ -45,6 +49,8 @@ impl NodeServices {
                 node,
                 peer_link: RwLock::new(None),
                 peer_roster: RwLock::new(None),
+                enroll_handler: RwLock::new(None),
+                dynamic_peers: RwLock::default(),
                 #[cfg(feature = "network")]
                 directory: RwLock::new(None),
                 #[cfg(feature = "network")]
@@ -123,6 +129,62 @@ impl NodeServices {
         self.inner.ring.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
+    pub fn set_enroll_handler(&self, handler: Option<RemoteEnrollCallback>) {
+        *self
+            .inner
+            .enroll_handler
+            .write()
+            .unwrap_or_else(PoisonError::into_inner) = handler;
+        #[cfg(feature = "gateway")]
+        self.bind_gateway();
+    }
+
+    pub fn enroll_handler(&self) -> Option<RemoteEnrollCallback> {
+        self.inner
+            .enroll_handler
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    pub fn add_dynamic_peer(&self, node: NodeId) {
+        self.inner
+            .dynamic_peers
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(node.clone());
+        #[cfg(feature = "gateway")]
+        if let Some(links) = self
+            .inner
+            .gateway_slot
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .cloned()
+        {
+            links.endpoint().add_peer(node);
+        }
+    }
+
+    pub fn remove_dynamic_peer(&self, node: &NodeId) {
+        self.inner
+            .dynamic_peers
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(node);
+        #[cfg(feature = "gateway")]
+        if let Some(links) = self
+            .inner
+            .gateway_slot
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .cloned()
+        {
+            links.endpoint().remove_peer(node);
+        }
+    }
+
     /// Answers `service` with `handler` from now on, replacing an earlier one.
     pub fn attach(&self, service: Service, handler: Arc<dyn NodeService>) {
         let mut attached = self.inner.attached.write().unwrap_or_else(PoisonError::into_inner);
@@ -151,6 +213,22 @@ impl NodeServices {
             .cloned()
         {
             links.endpoint().attach(Arc::new(self.clone()));
+            let peers: Vec<NodeId> = self
+                .inner
+                .dynamic_peers
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .iter()
+                .cloned()
+                .collect();
+            for p in peers {
+                links.endpoint().add_peer(p);
+            }
+            if let Some(cb) = self.enroll_handler() {
+                links.set_enroll_handler(Some(Arc::new(move |body| cb(body))));
+            } else {
+                links.set_enroll_handler(None);
+            }
         }
     }
 

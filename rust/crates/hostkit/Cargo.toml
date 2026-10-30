@@ -30,7 +30,7 @@ base64.workspace = true
 bytes = "1"
 chrono.workspace = true
 clap.workspace = true
-controller = { workspace = true, default-features = false }
+controller = { workspace = true, default-features = false, features = ["remote"] }
 crossterm.workspace = true
 epic.workspace = true
 flate2.workspace = true
@@ -43,7 +43,9 @@ module-api.workspace = true
 network_plugin = { package = "network", path = "../../plugins/network", default-features = false, features = ["directory"] }
 protocol.workspace = true
 ratatui.workspace = true
+remote.workspace = true
 rustls.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 service-kit.workspace = true
 sha2.workspace = true

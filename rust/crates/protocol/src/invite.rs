@@ -53,13 +53,13 @@ pub fn named_version(text: &str) -> Option<GameVersion> {
     }
 }
 
-/// Returns the per-game invite URL scheme alias for `version`, if one exists.
+/// Returns the short version alias (`"reforged"` or `"revived"`) for `version`, if one exists.
 #[must_use]
 pub fn version_alias(version: &GameVersion) -> Option<&'static str> {
     if *version == reforged_version() {
-        Some(INVITE_SCHEME)
+        Some("reforged")
     } else if *version == revived_version() {
-        Some(REVIVED_INVITE_SCHEME)
+        Some("revived")
     } else {
         None
     }
@@ -605,9 +605,12 @@ pub fn format_invite(invite: &Invite) -> Result<String, FormatError> {
         return Err(FormatError::Version);
     }
 
-    let (scheme, include_version) = match version_alias(&invite.version) {
-        Some(alias_scheme) => (alias_scheme, false),
-        None => (UNIFIED_INVITE_SCHEME, true),
+    let (scheme, include_version) = if invite.version == reforged_version() {
+        (INVITE_SCHEME, false)
+    } else if invite.version == revived_version() {
+        (REVIVED_INVITE_SCHEME, false)
+    } else {
+        (UNIFIED_INVITE_SCHEME, true)
     };
 
     let mut params = Vec::with_capacity(8);

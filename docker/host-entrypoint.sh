@@ -31,6 +31,9 @@ docker_setup() {
 		set -- "$@" --game /game
 	fi
 	reforged-host setup "$@"
+	if [ -n "${REFORGED_REMOTE_ENROLL_URI:-}" ] && [ ! -f /opt/reforged/.workspace/config/remote-managed.json ]; then
+		reforged-host remote enroll "${REFORGED_REMOTE_ENROLL_URI}"
+	fi
 }
 
 command="${1:-}"

@@ -11,12 +11,13 @@ publish.workspace = true
 [features]
 # Each module is the Rust service built into the binary; by default only MIT services (`admin`) are enabled so
 # `controller` has zero normal AGPL dependencies (`services/host` enables `gateway`, `allowlist`, `content`, `network`)
-default = ["admin"]
-services = ["gateway", "allowlist", "content", "admin", "network"]
+default = ["admin", "remote"]
+services = ["gateway", "allowlist", "content", "admin", "network", "remote"]
 gateway = ["dep:gateway"]
 allowlist = ["dep:gateway"]
 content = ["dep:content"]
 admin = ["dep:admin"]
+remote = ["dep:remote"]
 # The node's network side (DD16): the directory, the home API, tickets, and peer log shipping (DH7), attached to the
 # gateway's node links. It needs the gateway in this process, and a database for the directory
 network = ["gateway", "network_plugin/directory", "network_plugin/log-ship", "dep:store", "dep:history-ship"]
@@ -50,6 +51,7 @@ gateway = { workspace = true, optional = true }
 history-ship = { workspace = true, optional = true }
 # The node-link services and their registry (DN3-DN5); `directory` is the `network` feature's. Renamed as the gateway renames it
 network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
+remote = { workspace = true, optional = true }
 store = { workspace = true, optional = true }
 # Game modules and plugins, compiled in or as their own process (DF3)
 module-api.workspace = true

@@ -196,6 +196,13 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             commands::server_confirm_fresh_start,
             commands::server_invite_list,
             commands::admin_action,
+            commands::remote_status,
+            commands::remote_init_controller,
+            commands::remote_invite,
+            commands::remote_enroll,
+            commands::remote_revoke,
+            commands::remote_leave,
+            commands::remote_exec,
         ])
         .setup(move |app| {
             let _ = APP.set(app.handle().clone());

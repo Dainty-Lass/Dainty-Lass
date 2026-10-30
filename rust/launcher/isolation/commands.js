@@ -93,5 +93,12 @@ window.__RR_COMMANDS__ = {
   "server_confirm_fresh_start": {},
   "server_invite_list": {},
   "admin_action": { "request": { kind: "object", nullable: false, fields: { "action": { kind: "name", names: ["lookup", "kick", "timeout", "ban", "unban"] }, "player": { kind: "text", max: 64 }, "reason": { kind: "optionalText", max: 500 }, "until": { kind: "optionalText", max: 40 }, "module": { kind: "optionalText", max: 64 } } } },
+  "remote_status": {},
+  "remote_init_controller": { "request": { kind: "object", nullable: false, fields: { "node": { kind: "optionalText", max: 64 }, "region": { kind: "optionalText", max: 64 }, "url": { kind: "optionalText", max: 512 } } } },
+  "remote_invite": { "request": { kind: "object", nullable: false, fields: { "node": { kind: "text", max: 64 }, "region": { kind: "optionalText", max: 64 }, "label": { kind: "optionalText", max: 128 }, "url": { kind: "optionalText", max: 512 } } } },
+  "remote_enroll": { "request": { kind: "object", nullable: false, fields: { "uri": { kind: "text", max: 2048 }, "label": { kind: "optionalText", max: 128 } } } },
+  "remote_revoke": { "node": { kind: "text", max: 64 } },
+  "remote_leave": {},
+  "remote_exec": { "request": { kind: "object", nullable: false, fields: { "node": { kind: "text", max: 64 }, "action": { kind: "name", names: ["doctor", "backup", "invite", "ban", "unban", "kick", "announce", "guarded_approve", "guarded_cancel"] }, "target": { kind: "optionalText", max: 64 }, "reason": { kind: "optionalText", max: 500 } } } },
 };
 window.__RR_SETTINGS_KEYS__ = ["graphics", "windowed", "streamerMode", "hostTools", "language", "gameLanguage", "runtimeProfile", "gameEdition"];

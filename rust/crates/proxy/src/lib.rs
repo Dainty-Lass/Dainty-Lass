@@ -59,6 +59,7 @@ pub struct Idle<S> {
     inner: S,
     limit: Duration,
     sleep: Pin<Box<Sleep>>,
+    written: u64,
 }
 
 impl<S> Idle<S> {
@@ -67,6 +68,7 @@ impl<S> Idle<S> {
             inner,
             limit,
             sleep: Box::pin(tokio::time::sleep(limit)),
+            written: 0,
         }
     }
 }
@@ -96,6 +98,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for Idle<S> {
         match Pin::new(&mut self.inner).poll_write(cx, buf) {
             Poll::Ready(Ok(n)) => {
                 if n > 0 {
+                    self.written = self.written.saturating_add(n as u64);
                     let deadline = Instant::now() + self.limit;
                     self.sleep.as_mut().reset(deadline);
                 }
@@ -125,7 +128,9 @@ where
 {
     let mut a = Idle::new(a, idle);
     let mut b = Idle::new(b, idle);
-    tokio::io::copy_bidirectional(&mut a, &mut b).await.unwrap_or((0, 0))
+    tokio::io::copy_bidirectional(&mut a, &mut b)
+        .await
+        .unwrap_or((b.written, a.written))
 }
 
 #[cfg(test)]
