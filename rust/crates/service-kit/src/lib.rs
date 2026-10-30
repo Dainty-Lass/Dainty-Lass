@@ -1,6 +1,7 @@
-//! What every Rust service shares (MIGRATION_PLAN.md B1): Express-compatible routing ([`routing`]),
-//! JSON replies like Express's ([`json`]), pino-format logs ([`log`]), configuration from an explicit
-//! env file ([`env`]) and the listen / stop cycle of X7 ([`serve`]).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod body;
 pub mod collate;

@@ -1,85 +1,89 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use axum::body::Body;
-use axum::extract::State;
-use axum::http::{Request, StatusCode, header};
+use axum::extract::{Extension, State};
+use axum::http::{Method, Request, StatusCode};
 use http_body_util::BodyExt;
-use service_kit::json::{JSON_UTF8, Json, not_found};
-use service_kit::routing::{Params, Router};
+use service_kit::json::not_found;
+use service_kit::routing::{MatchedPattern, Params, Router};
 use tower::ServiceExt;
 
-async fn by_id(params: Params) -> String {
-    format!("by id {}", params.get("id").unwrap())
-}
-
-#[derive(Clone)]
-struct Greeting(&'static str);
-
-fn app() -> axum::Router {
-    // Express order: the parameter route is registered first, so it wins over the literal one.
-    let routes = Router::new()
-        .get("/items/:id", |params: Params| async move {
-            format!("by id {}", params.get("id").unwrap())
-        })
-        .get("/items/special", || async { "special" })
-        .get("/greeting", |State(greeting): State<Greeting>| async move {
-            Json(serde_json::json!({"text": greeting.0}))
-        })
-        .post("/items/:id", by_id_post);
-    axum::Router::new().fallback_service(routes.into_service(Greeting("Clear Skies"), not_found))
-}
-
-async fn by_id_post(params: Params) -> String {
-    by_id(params).await.replace("by id", "posted")
-}
-
-async fn call(method: &str, path: &str) -> (StatusCode, Option<String>, String) {
-    let request = Request::builder().method(method).uri(path).body(Body::empty()).unwrap();
-    let response = app().oneshot(request).await.unwrap();
-    let status = response.status();
-    let content_type = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .map(|v| v.to_str().unwrap().to_owned());
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    (status, content_type, String::from_utf8(body.to_vec()).unwrap())
-}
-
 #[tokio::test]
-async fn the_first_registered_route_wins_case_insensitively() {
-    assert_eq!(call("GET", "/ITEMS/Special").await.2, "by id Special");
-    assert_eq!(call("GET", "/items/A%2FB/").await.2, "by id A/B");
-    assert_eq!(call("POST", "/Items/7").await.2, "posted 7");
-}
+async fn matches_in_registration_order_case_insensitively_and_handles_head() {
+    let router = Router::new()
+        .get("/items/special", || async { "special-item" })
+        .get(
+            "/items/:id",
+            |params: Params, Extension(matched): Extension<MatchedPattern>| async move {
+                format!("{}:{}", matched.0, params.get("id").unwrap_or(""))
+            },
+        )
+        .post("/items/:id", |State(prefix): State<String>, params: Params| async move {
+            format!("{prefix}:{}", params.get("id").unwrap_or(""))
+        });
 
-#[tokio::test]
-async fn head_is_answered_by_the_get_route_without_a_body() {
-    let (status, _, body) = call("HEAD", "/items/1").await;
-    assert_eq!((status, body.as_str()), (StatusCode::OK, ""));
-}
-
-#[tokio::test]
-async fn unmatched_requests_get_an_empty_404() {
     assert_eq!(
-        call("GET", "/nothing").await,
-        (StatusCode::NOT_FOUND, None, String::new())
+        router.table(),
+        vec![
+            (Method::GET, "/items/special".to_owned()),
+            (Method::GET, "/items/:id".to_owned()),
+            (Method::POST, "/items/:id".to_owned()),
+        ]
     );
-    assert_eq!(
-        call("DELETE", "/items/1").await.0,
-        StatusCode::NOT_FOUND,
-        "no route for the method"
-    );
-}
 
-#[tokio::test]
-async fn a_badly_encoded_parameter_is_a_400() {
-    assert_eq!(call("GET", "/items/%E2%28").await.0, StatusCode::BAD_REQUEST);
-}
+    let svc = router.into_service("created".to_owned(), not_found);
 
-#[tokio::test]
-async fn json_replies_name_their_charset() {
-    let (status, content_type, body) = call("GET", "/greeting").await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(content_type.as_deref(), Some(JSON_UTF8));
-    assert_eq!(body, r#"{"text":"Clear Skies"}"#);
+    // Registration order priority + case-insensitivity + trailing slash
+    let req1 = Request::builder()
+        .method(Method::GET)
+        .uri("/ITEMS/SPECIAL/")
+        .body(Body::empty())
+        .unwrap();
+    let resp1 = svc.clone().oneshot(req1).await.unwrap();
+    assert_eq!(resp1.status(), StatusCode::OK);
+    let body1 = resp1.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(&body1[..], b"special-item");
+
+    // Parameter extraction and percent decoding
+    let req2 = Request::builder()
+        .method(Method::GET)
+        .uri("/items/hello%20world")
+        .body(Body::empty())
+        .unwrap();
+    let resp2 = svc.clone().oneshot(req2).await.unwrap();
+    assert_eq!(resp2.status(), StatusCode::OK);
+    let body2 = resp2.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(&body2[..], b"/items/:id:hello world");
+
+    // HEAD request on GET route returns 200 with empty body
+    let req_head = Request::builder()
+        .method(Method::HEAD)
+        .uri("/items/42")
+        .body(Body::empty())
+        .unwrap();
+    let resp_head = svc.clone().oneshot(req_head).await.unwrap();
+    assert_eq!(resp_head.status(), StatusCode::OK);
+    let body_head = resp_head.into_body().collect().await.unwrap().to_bytes();
+    assert!(body_head.is_empty());
+
+    // Invalid UTF-8 parameter returns 400 Bad Request
+    let req_bad = Request::builder()
+        .method(Method::GET)
+        .uri("/items/%FF")
+        .body(Body::empty())
+        .unwrap();
+    let resp_bad = svc.clone().oneshot(req_bad).await.unwrap();
+    assert_eq!(resp_bad.status(), StatusCode::BAD_REQUEST);
+
+    // Unmatched route calls fallback (404)
+    let req_404 = Request::builder()
+        .method(Method::DELETE)
+        .uri("/items/42")
+        .body(Body::empty())
+        .unwrap();
+    let resp_404 = svc.oneshot(req_404).await.unwrap();
+    assert_eq!(resp_404.status(), StatusCode::NOT_FOUND);
 }

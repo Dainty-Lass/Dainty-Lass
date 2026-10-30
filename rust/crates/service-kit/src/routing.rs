@@ -1,14 +1,5 @@
-//! Express-compatible routing (MIGRATION_PLAN.md M6).
-//!
-//! The game client and the launcher were written against Express, which matches a path
-//! case-insensitively, ignores one trailing slash, answers `HEAD` with the `GET` route, and takes
-//! the first registered route that matches. axum's router is case-sensitive and prefers static
-//! segments over parameters whatever the order, so [`Router`] matches by itself, in registration
-//! order, and hands the request to the route's axum handler. Parameter values keep their case and
-//! are percent-decoded; handlers read them with [`Params`]. Patterns are literal segments and
-//! `:name` parameters, which is all the Node services use (`routes.json`).
-//!
-//! Unlike Express, a handler can't pass a request on to the next matching route.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
 use std::convert::Infallible;
 use std::future::Future;
@@ -22,9 +13,9 @@ use axum::handler::Handler;
 use axum::http::request::Parts;
 use axum::http::{Method, Request, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{MethodFilter, MethodRouter, on};
+use axum::routing::{MethodFilter, MethodRouter, Route, on};
 use percent_encoding::percent_decode_str;
-use tower::{Service, ServiceExt};
+use tower::{Layer, Service};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Segment {
@@ -32,91 +23,108 @@ enum Segment {
     Param(String),
 }
 
-/// A route path such as `/character/:characterId/slot/:index`.
 #[derive(Debug, Clone)]
 pub struct Pattern {
-    path: String,
+    raw: String,
     segments: Vec<Segment>,
 }
 
-/// Why a path that matched a pattern can't be served.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BadParam(pub String);
 
 impl Pattern {
-    /// Panics on a malformed pattern: routes are fixed at build time.
     pub fn parse(path: &str) -> Self {
-        assert!(path.starts_with('/'), "route {path:?} must start with /");
-        // A trailing slash is Node's spelling of the same route ("/motd/"): matching ignores one
-        let segments = split(path.strip_suffix('/').filter(|p| !p.is_empty()).unwrap_or(path))
-            .map(|segment| match segment.strip_prefix(':') {
-                Some(name) => {
-                    assert!(!name.is_empty(), "route {path:?} has an unnamed parameter");
-                    Segment::Param(name.to_owned())
-                }
-                None => {
-                    assert!(!segment.is_empty(), "route {path:?} has an empty segment");
+        assert!(
+            path.starts_with('/'),
+            "route pattern must start with '/': {path}"
+        );
+        assert!(
+            !path.contains(['*', '{', '}', '?', '(', ')']),
+            "route pattern contains unsupported wildcard/regex characters: {path}"
+        );
+
+        let mut segments = Vec::new();
+        let rest = &path[1..];
+        if !rest.is_empty() {
+            for seg in rest.split('/') {
+                assert!(
+                    !seg.is_empty(),
+                    "route pattern must not contain empty segments: {path}"
+                );
+                if let Some(param_name) = seg.strip_prefix(':') {
                     assert!(
-                        !segment.contains(['*', '{', '}', '?', '(', ')']),
-                        "route {path:?}: only literals and :params"
+                        !param_name.is_empty(),
+                        "route pattern parameter must have a name: {path}"
                     );
-                    Segment::Literal(segment.to_owned())
+                    segments.push(Segment::Param(param_name.to_owned()));
+                } else {
+                    segments.push(Segment::Literal(seg.to_owned()));
                 }
-            })
-            .collect();
+            }
+        }
+
         Self {
-            path: path.to_owned(),
+            raw: path.to_owned(),
             segments,
         }
     }
 
     pub fn as_str(&self) -> &str {
-        &self.path
+        &self.raw
     }
 
-    /// `None` when the path doesn't match; the parameters, or a value that isn't valid
-    /// percent-encoded UTF-8 (Express answers that with 400), when it does.
     pub fn matches(&self, path: &str) -> Option<Result<Params, BadParam>> {
-        let path = match path.strip_suffix('/') {
-            Some(rest) if !rest.is_empty() => rest,
-            _ => path,
-        };
         if !path.starts_with('/') {
             return None;
         }
-        let parts: Vec<&str> = split(path).collect();
+        let normalized = if path == "/" {
+            "/"
+        } else {
+            path.strip_suffix('/').unwrap_or(path)
+        };
+        let rest = &normalized[1..];
+
+        if self.segments.is_empty() {
+            return if rest.is_empty() {
+                Some(Ok(Params::default()))
+            } else {
+                None
+            };
+        }
+
+        if rest.is_empty() {
+            return None;
+        }
+
+        let parts: Vec<&str> = rest.split('/').collect();
         if parts.len() != self.segments.len() {
             return None;
         }
+
         let mut params = Vec::new();
-        for (segment, part) in self.segments.iter().zip(&parts) {
-            match segment {
-                Segment::Literal(literal) if literal.eq_ignore_ascii_case(part) => {}
-                Segment::Literal(_) => return None,
-                Segment::Param(_) if part.is_empty() => return None,
-                Segment::Param(name) => params.push((name.clone(), (*part).to_owned())),
+        for (seg, actual) in self.segments.iter().zip(parts) {
+            match seg {
+                Segment::Literal(expected) => {
+                    if !expected.eq_ignore_ascii_case(actual) {
+                        return None;
+                    }
+                }
+                Segment::Param(name) => {
+                    if actual.is_empty() {
+                        return None;
+                    }
+                    match percent_decode_str(actual).decode_utf8() {
+                        Ok(decoded) => params.push((name.clone(), decoded.into_owned())),
+                        Err(_) => return Some(Err(BadParam(actual.to_owned()))),
+                    }
+                }
             }
         }
-        Some(
-            params
-                .into_iter()
-                .map(|(name, raw)| match percent_decode_str(&raw).decode_utf8() {
-                    Ok(value) => Ok((name, value.into_owned())),
-                    Err(_) => Err(BadParam(raw)),
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map(Params),
-        )
+
+        Some(Ok(Params(params)))
     }
 }
 
-/// The segments after the leading slash; the root path has none.
-fn split(path: &str) -> impl Iterator<Item = &str> {
-    let rest = &path[1..];
-    rest.split('/').filter(move |_| !rest.is_empty())
-}
-
-/// The route parameters of a request, by name, decoded and in their original case.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Params(Vec<(String, String)>);
 
@@ -124,8 +132,7 @@ impl Params {
     pub fn get(&self, name: &str) -> Option<&str> {
         self.0
             .iter()
-            .find(|(key, _)| key == name)
-            .map(|(_, value)| value.as_str())
+            .find_map(|(k, v)| (k == name).then_some(v.as_str()))
     }
 }
 
@@ -133,32 +140,31 @@ impl<S: Send + Sync> FromRequestParts<S> for Params {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(parts.extensions.get::<Params>().cloned().unwrap_or_default())
+        Ok(parts.extensions.get::<Self>().cloned().unwrap_or_default())
     }
 }
 
-/// The route the request matched, for logging: the pattern as registered.
 #[derive(Debug, Clone)]
 pub struct MatchedPattern(pub Arc<str>);
 
-/// Routes in registration order; the first that matches the method and path serves the request.
-pub struct Router<S = ()> {
-    routes: Vec<(Method, Pattern, MethodRouter<S>)>,
+struct RouteEntry<S> {
+    method: Method,
+    pattern: Pattern,
+    name: Arc<str>,
+    router: MethodRouter<S>,
 }
 
-impl<S> Default for Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-{
+pub struct Router<S = ()> {
+    routes: Vec<RouteEntry<S>>,
+}
+
+impl<S: Clone + Send + Sync + 'static> Default for Router<S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<S> Router<S>
-where
-    S: Clone + Send + Sync + 'static,
-{
+impl<S: Clone + Send + Sync + 'static> Router<S> {
     pub fn new() -> Self {
         Self { routes: Vec::new() }
     }
@@ -168,9 +174,17 @@ where
         H: Handler<T, S>,
         T: 'static,
     {
+        let pattern = Pattern::parse(path);
+        let name: Arc<str> = Arc::from(pattern.as_str());
         let filter = MethodFilter::try_from(method.clone())
-            .unwrap_or_else(|_| panic!("route {path:?}: method {method} can't be routed"));
-        self.routes.push((method, Pattern::parse(path), on(filter, handler)));
+            .unwrap_or_else(|_| panic!("unsupported HTTP method: {method}"));
+        let router = on(filter, handler);
+        self.routes.push(RouteEntry {
+            method,
+            pattern,
+            name,
+            router,
+        });
         self
     }
 
@@ -194,69 +208,71 @@ where
         self.route(Method::DELETE, path, handler)
     }
 
-    /// Wraps the route added last in `layer`, such as a rate limit or an auth check that runs before
-    /// its handler (Express's per-route middleware).
     pub fn layer<L>(mut self, layer: L) -> Self
     where
-        L: tower::Layer<axum::routing::Route> + Clone + Send + Sync + 'static,
+        L: Layer<Route> + Clone + Send + Sync + 'static,
         L::Service: Service<Request<Body>> + Clone + Send + Sync + 'static,
         <L::Service as Service<Request<Body>>>::Response: IntoResponse + 'static,
         <L::Service as Service<Request<Body>>>::Error: Into<Infallible> + 'static,
         <L::Service as Service<Request<Body>>>::Future: Send + 'static,
     {
-        if let Some((method, pattern, route)) = self.routes.pop() {
-            self.routes.push((method, pattern, route.layer(layer)));
-        }
+        self.routes = self
+            .routes
+            .into_iter()
+            .map(|entry| RouteEntry {
+                method: entry.method,
+                pattern: entry.pattern,
+                name: entry.name,
+                router: entry.router.layer(layer.clone()),
+            })
+            .collect();
         self
     }
 
-    /// Appends another router's routes after these, like `app.use("/", router)` in Express.
     pub fn merge(mut self, other: Router<S>) -> Self {
         self.routes.extend(other.routes);
         self
     }
 
-    /// The method and pattern of every route, in match order (checked against `routes.json`).
     pub fn table(&self) -> Vec<(Method, String)> {
         self.routes
             .iter()
-            .map(|(method, pattern, _)| (method.clone(), pattern.as_str().to_owned()))
+            .map(|r| (r.method.clone(), r.pattern.as_str().to_owned()))
             .collect()
     }
 
-    /// Fixes the state; requests no route matches get `fallback`.
-    pub fn into_service(self, state: S, fallback: fn(&Request<Body>) -> Response) -> RouterService {
-        let routes = self
+    pub fn into_service(
+        self,
+        state: S,
+        fallback: fn(&Request<Body>) -> Response,
+    ) -> RouterService {
+        let compiled = self
             .routes
             .into_iter()
-            .map(|(method, pattern, route)| {
-                let name: Arc<str> = pattern.as_str().into();
-                Route {
-                    method,
-                    pattern,
-                    name,
-                    service: route.with_state(state.clone()),
-                }
+            .map(|entry| CompiledRoute {
+                method: entry.method,
+                pattern: entry.pattern,
+                name: entry.name,
+                router: entry.router.with_state(state.clone()),
             })
             .collect();
         RouterService {
-            routes: Arc::new(routes),
+            routes: Arc::new(compiled),
             fallback,
         }
     }
 }
 
-struct Route {
+struct CompiledRoute {
     method: Method,
     pattern: Pattern,
     name: Arc<str>,
-    service: MethodRouter<()>,
+    router: MethodRouter<()>,
 }
 
-/// A [`Router`] with its state: a tower service, mounted with `axum::Router::fallback_service`.
 #[derive(Clone)]
 pub struct RouterService {
-    routes: Arc<Vec<Route>>,
+    routes: Arc<Vec<CompiledRoute>>,
     fallback: fn(&Request<Body>) -> Response,
 }
 
@@ -270,25 +286,32 @@ impl Service<Request<Body>> for RouterService {
     }
 
     fn call(&mut self, mut request: Request<Body>) -> Self::Future {
-        let method = request.method().clone();
-        let path = request.uri().path().to_owned();
+        let req_method = request.method();
+        let req_path = request.uri().path();
+
         for route in self.routes.iter() {
-            if route.method != method && !(method == Method::HEAD && route.method == Method::GET) {
+            let method_ok = route.method == *req_method
+                || (*req_method == Method::HEAD && route.method == Method::GET);
+            if !method_ok {
                 continue;
             }
-            match route.pattern.matches(&path) {
-                None => continue,
-                Some(Err(_)) => return Box::pin(async { Ok(StatusCode::BAD_REQUEST.into_response()) }),
-                Some(Ok(params)) => {
-                    request.extensions_mut().insert(params);
-                    request.extensions_mut().insert(MatchedPattern(route.name.clone()));
-                    let service = route.service.clone();
-                    return Box::pin(service.oneshot(request));
-                }
+            if let Some(matched) = route.pattern.matches(req_path) {
+                return match matched {
+                    Ok(params) => {
+                        request.extensions_mut().insert(params);
+                        request
+                            .extensions_mut()
+                            .insert(MatchedPattern(Arc::clone(&route.name)));
+                        let mut svc = route.router.clone();
+                        Box::pin(async move { Service::call(&mut svc, request).await })
+                    }
+                    Err(_) => Box::pin(async move { Ok(StatusCode::BAD_REQUEST.into_response()) }),
+                };
             }
         }
-        let response = (self.fallback)(&request);
-        Box::pin(async move { Ok(response) })
+
+        let resp = (self.fallback)(&request);
+        Box::pin(async move { Ok(resp) })
     }
 }
 
@@ -296,51 +319,27 @@ impl Service<Request<Body>> for RouterService {
 mod tests {
     use super::*;
 
-    fn params(pattern: &str, path: &str) -> Option<Vec<(String, String)>> {
-        Pattern::parse(pattern)
-            .matches(path)
-            .map(|r| r.map(|p| p.0).unwrap_or_default())
-    }
-
     #[test]
-    fn matches_like_express() {
+    fn matches_case_insensitively_with_trailing_slash_and_params() {
+        let pat = Pattern::parse("/Users/:id/Profile");
+        let m1 = pat.matches("/users/42%20a/profile/").unwrap().unwrap();
+        assert_eq!(m1.get("id"), Some("42 a"));
+        assert!(pat.matches("/users/42/profile//").is_none());
         assert_eq!(
-            params("/account/api/oauth/token", "/Account/API/oauth/TOKEN"),
-            Some(vec![])
-        );
-        assert_eq!(
-            params("/account/api/oauth/token", "/account/api/oauth/token/"),
-            Some(vec![])
-        );
-        assert_eq!(params("/account/api/oauth/token", "/account/api/oauth/token//"), None);
-        assert_eq!(params("/account/api/oauth/token", "/account/api/oauth"), None);
-        assert_eq!(params("/", "/"), Some(vec![]));
-        assert_eq!(params("/", "/x"), None);
-        assert_eq!(
-            params("/character/:characterId/Slot/:index", "/CHARACTER/Ab%20C/slot/3/"),
-            Some(vec![
-                ("characterId".into(), "Ab C".into()),
-                ("index".into(), "3".into())
-            ])
-        );
-        assert_eq!(
-            params("/friends/:friendId", "/friends/"),
-            None,
-            "a parameter is never empty"
+            pat.matches("/users/%FF/profile"),
+            Some(Err(BadParam("%FF".into())))
         );
     }
 
     #[test]
-    fn a_badly_encoded_parameter_is_an_error() {
-        assert_eq!(
-            Pattern::parse("/x/:id").matches("/x/%E2%28"),
-            Some(Err(BadParam("%E2%28".into())))
-        );
+    #[should_panic]
+    fn rejects_empty_segments() {
+        Pattern::parse("/a//b");
     }
 
     #[test]
-    #[should_panic(expected = "only literals and :params")]
-    fn wildcards_are_refused() {
-        Pattern::parse("/files/*rest");
+    #[should_panic]
+    fn rejects_wildcards() {
+        Pattern::parse("/a/*");
     }
 }

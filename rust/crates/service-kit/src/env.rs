@@ -1,13 +1,14 @@
-//! Configuration from an explicit env file (MIGRATION_PLAN.md M25, X7). A service reads only the
-//! file it is given with `--env-file`; nothing is loaded from the working directory. As with
-//! Node's `--env-file`, a variable set in the process environment wins over the file.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+use std::fmt::Display;
 use std::path::Path;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Default)]
 pub struct Env {
-    values: HashMap<String, String>,
+    vars: BTreeMap<String, String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -19,72 +20,76 @@ pub enum EnvError {
 }
 
 impl Env {
-    /// The file's variables (if a file is given), overridden by the process environment.
     pub fn load(file: Option<&Path>) -> Result<Self, EnvError> {
-        let mut values = HashMap::new();
+        let mut vars = BTreeMap::new();
         if let Some(path) = file {
-            let file_error = |message: String| EnvError::File {
+            let iter = dotenvy::from_path_iter(path).map_err(|err| EnvError::File {
                 path: path.display().to_string(),
-                message,
-            };
-            for item in dotenvy::from_path_iter(path).map_err(|e| file_error(e.to_string()))? {
-                let (name, value) = item.map_err(|e| file_error(e.to_string()))?;
-                values.insert(name, value);
+                message: err.to_string(),
+            })?;
+            for item in iter {
+                let (k, v) = item.map_err(|err| EnvError::File {
+                    path: path.display().to_string(),
+                    message: err.to_string(),
+                })?;
+                vars.insert(k, v);
             }
         }
-        values.extend(std::env::vars());
-        Ok(Self { values })
+        for (k, v) in std::env::vars() {
+            vars.insert(k, v);
+        }
+        Ok(Self { vars })
     }
 
     pub fn from_pairs<'a>(pairs: impl IntoIterator<Item = (&'a str, &'a str)>) -> Self {
-        Self {
-            values: pairs.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
-        }
-    }
-
-    /// The variables named `prefix` + `NAME`, as `NAME`, and nothing else: a service ported from upstream
-    /// reads upstream's names under its own prefix (the metagame's `METAGAME_`).
-    pub fn strip_prefix(&self, prefix: &str) -> Self {
-        let values = self
-            .values
-            .iter()
-            .filter_map(|(k, v)| Some((k.strip_prefix(prefix)?.to_owned(), v.clone())))
+        let vars = pairs
+            .into_iter()
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
             .collect();
-        Self { values }
+        Self { vars }
     }
 
-    /// Every variable, as set.
+    pub fn strip_prefix(&self, prefix: &str) -> Self {
+        let vars = self
+            .vars
+            .iter()
+            .filter_map(|(k, v)| {
+                k.strip_prefix(prefix)
+                    .map(|stripped| (stripped.to_owned(), v.clone()))
+            })
+            .collect();
+        Self { vars }
+    }
+
     pub fn vars(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.values.iter().map(|(k, v)| (k.as_str(), v.as_str()))
+        self.vars.iter().map(|(k, v)| (k.as_str(), v.as_str()))
     }
 
-    /// The value as set, also when it is empty.
     pub fn raw(&self, name: &str) -> Option<&str> {
-        self.values.get(name).map(String::as_str)
+        self.vars.get(name).map(String::as_str)
     }
 
-    /// The value, or `None` when it is unset or empty (the Node code treats both alike).
     pub fn get(&self, name: &str) -> Option<&str> {
-        self.values.get(name).map(String::as_str).filter(|v| !v.is_empty())
+        self.raw(name).filter(|val| !val.is_empty())
     }
 
-    /// Parses a set value; `None` when unset or empty.
     pub fn parse<T>(&self, name: &str) -> Result<Option<T>, EnvError>
     where
-        T: std::str::FromStr,
-        T::Err: std::fmt::Display,
+        T: FromStr,
+        T::Err: Display,
     {
-        self.get(name)
-            .map(|text| {
-                text.trim().parse().map_err(|e: T::Err| EnvError::Value {
-                    name: name.to_owned(),
-                    message: e.to_string(),
-                })
+        let Some(val) = self.get(name) else {
+            return Ok(None);
+        };
+        val.trim()
+            .parse::<T>()
+            .map(Some)
+            .map_err(|err| EnvError::Value {
+                name: name.to_owned(),
+                message: err.to_string(),
             })
-            .transpose()
     }
 
-    /// A switch: `1` is on, `0` is off, unset is `default`; anything else is an error.
     pub fn flag(&self, name: &str, default: bool) -> Result<bool, EnvError> {
         match self.get(name) {
             None => Ok(default),
@@ -103,22 +108,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn values_parse_or_fail_with_the_variable_name() {
-        let env = Env::from_pairs([("PORT", "61000"), ("BAD", "x"), ("EMPTY", ""), ("ON", "1")]);
-        assert_eq!(env.parse::<u16>("PORT").unwrap(), Some(61000));
-        assert_eq!(env.parse::<u16>("EMPTY").unwrap(), None);
-        assert!(env.parse::<u16>("BAD").unwrap_err().to_string().starts_with("BAD:"));
-        assert!(env.flag("ON", false).unwrap());
-        assert!(!env.flag("MISSING", false).unwrap());
-        assert!(env.flag("BAD", false).is_err());
+    fn get_ignores_empty_while_raw_preserves_it() {
+        let env = Env::from_pairs([("EMPTY", ""), ("SET", "value")]);
+        assert_eq!(env.raw("EMPTY"), Some(""));
+        assert_eq!(env.get("EMPTY"), None);
+        assert_eq!(env.get("SET"), Some("value"));
+        assert_eq!(env.raw("MISSING"), None);
     }
 
     #[test]
-    fn a_prefix_is_stripped_and_unprefixed_names_dropped() {
-        let env =
-            Env::from_pairs([("METAGAME_PORT", "61010"), ("PORT", "1"), ("METAGAME_", "x")]).strip_prefix("METAGAME_");
-        assert_eq!(env.raw("PORT"), Some("61010"));
-        assert_eq!(env.raw(""), Some("x"));
-        assert_eq!(env.vars().count(), 2);
+    fn strip_prefix_filters_and_strips_keys() {
+        let env = Env::from_pairs([("APP_PORT", "8080"), ("APP_HOST", "localhost"), ("OTHER", "1")]);
+        let stripped = env.strip_prefix("APP_");
+        assert_eq!(stripped.get("PORT"), Some("8080"));
+        assert_eq!(stripped.get("HOST"), Some("localhost"));
+        assert_eq!(stripped.get("OTHER"), None);
+    }
+
+    #[test]
+    fn parse_and_flag_handle_valid_and_invalid_values() {
+        let env = Env::from_pairs([
+            ("PORT", " 3000 "),
+            ("BAD_PORT", "abc"),
+            ("FLAG_ON", "1"),
+            ("FLAG_OFF", "0"),
+            ("FLAG_BAD", "true"),
+        ]);
+        assert_eq!(env.parse::<u16>("PORT").unwrap(), Some(3000));
+        assert_eq!(env.parse::<u16>("UNSET").unwrap(), None);
+        assert!(env.parse::<u16>("BAD_PORT").is_err());
+
+        assert!(env.flag("FLAG_ON", false).unwrap());
+        assert!(!env.flag("FLAG_OFF", true).unwrap());
+        assert!(env.flag("UNSET", true).unwrap());
+        let err = env.flag("FLAG_BAD", false).unwrap_err();
+        assert_eq!(err.to_string(), "FLAG_BAD: \"true\" is not 0 or 1");
     }
 }

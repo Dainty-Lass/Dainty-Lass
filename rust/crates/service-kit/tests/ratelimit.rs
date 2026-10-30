@@ -1,72 +1,97 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::Router;
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::{Request, StatusCode, header};
+use axum::middleware;
+use axum::response::IntoResponse;
+use axum::routing::get;
 use http_body_util::BodyExt;
-use service_kit::json::not_found;
-use service_kit::ratelimit::{Limited, Limiter, enforce};
-use service_kit::routing::Router;
+use serde_json::{Value, json};
+use service_kit::ratelimit::{Limited, Limiter, around, enforce, ip_key};
 use tower::ServiceExt;
 
-fn app(limiter: Arc<Limiter>) -> axum::Router {
-    let limited = Limited::new(limiter, |request| {
-        request
-            .headers()
-            .get("x-client")
-            .map(|v| v.to_str().unwrap().to_owned())
+#[tokio::test]
+async fn enforces_rate_limit_and_sets_draft8_headers() {
+    let limiter = Arc::new(Limiter::new(
+        2,
+        Duration::from_secs(60),
+        json!({"error": "too_many_requests"}),
+    ));
+    let limited = Limited::new(limiter, |req| {
+        req.headers()
+            .get("x-client-ip")
+            .and_then(|v| v.to_str().ok())
+            .map(ip_key)
     });
-    let routes = Router::new()
-        .post("/login/:outcome", |p: service_kit::routing::Params| async move {
-            if p.get("outcome") == Some("ok") {
-                StatusCode::OK
-            } else {
-                StatusCode::UNAUTHORIZED
-            }
-        })
-        .layer(axum::middleware::from_fn_with_state(limited, enforce));
-    axum::Router::new().fallback_service(routes.into_service((), not_found))
-}
 
-async fn login(app: &axum::Router, outcome: &str) -> axum::response::Response {
-    let request = Request::post(format!("/login/{outcome}"))
-        .header("x-client", "203.0.113.9")
+    let app = Router::new()
+        .route("/ping", get(|| async { "pong" }))
+        .layer(middleware::from_fn_with_state(limited, enforce));
+
+    // Request without key passes uncounted without rate-limit headers
+    let req_no_key = Request::builder().uri("/ping").body(Body::empty()).unwrap();
+    let resp_no_key = app.clone().oneshot(req_no_key).await.unwrap();
+    assert_eq!(resp_no_key.status(), StatusCode::OK);
+    assert!(resp_no_key.headers().get("ratelimit").is_none());
+
+    // First request for IP
+    let req1 = Request::builder()
+        .uri("/ping")
+        .header("x-client-ip", "203.0.113.5")
         .body(Body::empty())
         .unwrap();
-    app.clone().oneshot(request).await.unwrap()
+    let resp1 = app.clone().oneshot(req1).await.unwrap();
+    assert_eq!(resp1.status(), StatusCode::OK);
+    let rl1 = resp1.headers().get("ratelimit").unwrap().to_str().unwrap();
+    assert!(rl1.starts_with("\"2-in-1min\"; r=1; t="));
+    let rlp1 = resp1.headers().get("ratelimit-policy").unwrap().to_str().unwrap();
+    assert!(rlp1.starts_with("\"2-in-1min\"; q=2; w=60; pk=:"));
+
+    // Second request for IP
+    let req2 = Request::builder()
+        .uri("/ping")
+        .header("x-client-ip", "::ffff:203.0.113.5")
+        .body(Body::empty())
+        .unwrap();
+    let resp2 = app.clone().oneshot(req2).await.unwrap();
+    assert_eq!(resp2.status(), StatusCode::OK);
+    let rl2 = resp2.headers().get("ratelimit").unwrap().to_str().unwrap();
+    assert!(rl2.starts_with("\"2-in-1min\"; r=0; t="));
+
+    // Third request exceeds limit
+    let req3 = Request::builder()
+        .uri("/ping")
+        .header("x-client-ip", "203.0.113.5")
+        .body(Body::empty())
+        .unwrap();
+    let resp3 = app.oneshot(req3).await.unwrap();
+    assert_eq!(resp3.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(resp3.headers().get(header::RETRY_AFTER).is_some());
+    let body_bytes = resp3.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body_bytes).unwrap();
+    assert_eq!(body_json, json!({"error": "too_many_requests"}));
 }
 
 #[tokio::test]
-async fn failed_requests_count_and_the_limit_answers_429() {
-    let reply = serde_json::json!({"error": "rate_limited", "message": "Too many requests; try again later."});
-    let app = app(Arc::new(
-        Limiter::new(2, Duration::from_secs(600), reply).skip_successful(),
-    ));
+async fn skip_successful_undoes_hits_for_2xx_and_3xx_responses() {
+    let limiter = Limiter::new(1, Duration::from_secs(60), json!({"limited": true})).skip_successful();
 
-    for _ in 0..5 {
-        assert_eq!(
-            login(&app, "ok").await.status(),
-            StatusCode::OK,
-            "successes give their hit back"
-        );
-    }
-    assert_eq!(login(&app, "bad").await.status(), StatusCode::UNAUTHORIZED);
-    let second = login(&app, "bad").await;
-    assert_eq!(second.headers()["ratelimit"], "\"2-in-10min\"; r=0; t=600");
-    let limited = login(&app, "bad").await;
-    assert_eq!(limited.status(), StatusCode::TOO_MANY_REQUESTS);
-    assert_eq!(limited.headers()["retry-after"], "600");
-    assert!(
-        limited.headers()["ratelimit-policy"]
-            .to_str()
-            .unwrap()
-            .starts_with("\"2-in-10min\"; q=2; w=600; pk=:")
-    );
-    let body = limited.into_body().collect().await.unwrap().to_bytes();
-    assert_eq!(
-        &body[..],
-        br#"{"error":"rate_limited","message":"Too many requests; try again later."}"#
-    );
+    // 200 OK does not consume quota
+    let r1 = around(&limiter, Some("k"), async { StatusCode::OK.into_response() }).await;
+    assert_eq!(r1.status(), StatusCode::OK);
+
+    // 401 Unauthorized consumes quota
+    let r2 = around(&limiter, Some("k"), async { StatusCode::UNAUTHORIZED.into_response() }).await;
+    assert_eq!(r2.status(), StatusCode::UNAUTHORIZED);
+
+    // Next attempt is rate-limited
+    let r3 = around(&limiter, Some("k"), async { StatusCode::OK.into_response() }).await;
+    assert_eq!(r3.status(), StatusCode::TOO_MANY_REQUESTS);
 }

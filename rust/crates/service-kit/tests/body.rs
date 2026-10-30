@@ -1,109 +1,171 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::io::Write;
 use std::sync::Arc;
 
+use axum::Router;
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::{Request, StatusCode, header};
+use axum::middleware;
+use axum::response::IntoResponse;
+use axum::routing::post;
+use flate2::Compression;
+use flate2::write::{GzEncoder, ZlibEncoder};
 use http_body_util::BodyExt;
+use serde_json::{Value, json};
 use service_kit::body::{BodyConfig, BodyError, ExpressBody, parse_bodies};
-use service_kit::json::{Json, not_found};
-use service_kit::routing::Router;
+use service_kit::json::Json;
 use tower::ServiceExt;
 
-fn app() -> axum::Router {
-    let routes = Router::new()
-        .post("/echo", |ExpressBody(body): ExpressBody| async move { Json(body) })
-        .post("/ignores-body", || async { "ok" })
-        .post("/undaunted/api/register", || async { "ok" });
+async fn echo_handler(
+    ExpressBody(body): ExpressBody,
+    raw: axum::body::Bytes,
+) -> impl IntoResponse {
+    Json(json!({
+        "parsed": body,
+        "raw": String::from_utf8_lossy(&raw),
+    }))
+}
+
+fn app_with_config(config: BodyConfig) -> Router {
+    Router::new()
+        .route("/echo", post(echo_handler))
+        .layer(middleware::from_fn_with_state(config, parse_bodies))
+}
+
+#[tokio::test]
+async fn parses_json_and_preserves_raw_downstream_body() {
+    let app = app_with_config(BodyConfig::default());
+    let req = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/json; charset=utf-8")
+        .body(Body::from(r#"{"hello":"world"}"#))
+        .unwrap();
+
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let val: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(val["parsed"], json!({"hello": "world"}));
+    assert_eq!(val["raw"], r#"{"hello":"world"}"#);
+}
+
+#[tokio::test]
+async fn parses_urlencoded_form_and_gzip_deflate_bodies() {
+    let app = app_with_config(BodyConfig::default());
+
+    let req = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .body(Body::from("x=1&x=2&msg=hi+there%21"))
+        .unwrap();
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let val: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(val["parsed"], json!({"x": ["1", "2"], "msg": "hi there!"}));
+
+    let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+    gz.write_all(br#"{"compressed":true}"#).unwrap();
+    let gz_bytes = gz.finish().unwrap();
+
+    let req_gz = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CONTENT_ENCODING, "gzip")
+        .body(Body::from(gz_bytes))
+        .unwrap();
+    let resp_gz = app.clone().oneshot(req_gz).await.unwrap();
+    assert_eq!(resp_gz.status(), StatusCode::OK);
+    let val_gz: Value = serde_json::from_slice(
+        &resp_gz.into_body().collect().await.unwrap().to_bytes(),
+    )
+    .unwrap();
+    assert_eq!(val_gz["parsed"], json!({"compressed": true}));
+
+    let mut zl = ZlibEncoder::new(Vec::new(), Compression::default());
+    zl.write_all(br#"{"deflated":1}"#).unwrap();
+    let zl_bytes = zl.finish().unwrap();
+
+    let req_zl = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CONTENT_ENCODING, "deflate")
+        .body(Body::from(zl_bytes))
+        .unwrap();
+    let resp_zl = app.oneshot(req_zl).await.unwrap();
+    assert_eq!(resp_zl.status(), StatusCode::OK);
+    let val_zl: Value = serde_json::from_slice(
+        &resp_zl.into_body().collect().await.unwrap().to_bytes(),
+    )
+    .unwrap();
+    assert_eq!(val_zl["parsed"], json!({"deflated": 1}));
+}
+
+#[tokio::test]
+async fn rejects_malformed_too_large_and_unsupported_charset_or_encoding() {
     let config = BodyConfig {
-        // As the metagame's JSON_ERROR_ROUTES: lower case, trailing slashes removed.
-        on_error: Arc::new(|parts, error| {
-            let path = parts.uri.path().trim_end_matches('/').to_ascii_lowercase();
-            (error == BodyError::Malformed && path == "/undaunted/api/register").then(|| {
-                let reply = Json(serde_json::json!({"error": "bad_request"}));
-                axum::response::IntoResponse::into_response((StatusCode::BAD_REQUEST, reply))
-            })
-        }),
-        ..BodyConfig::default()
+        limit: 16,
+        on_error: Arc::new(|_, _| None),
     };
-    axum::Router::new()
-        .fallback_service(routes.into_service((), not_found))
-        .layer(axum::middleware::from_fn_with_state(config, parse_bodies))
-}
+    let app = app_with_config(config);
 
-async fn post(path: &str, content_type: &str, encoding: Option<&str>, body: Vec<u8>) -> (StatusCode, String) {
-    let mut request = Request::post(path).header("content-type", content_type);
-    if let Some(encoding) = encoding {
-        request = request.header("content-encoding", encoding);
-    }
-    let response = app().oneshot(request.body(Body::from(body)).unwrap()).await.unwrap();
-    let status = response.status();
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    (status, String::from_utf8(body.to_vec()).unwrap())
-}
+    // Too large
+    let req_large = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(r#"{"long_key":"0123456789abcdef"}"#))
+        .unwrap();
+    let resp_large = app.clone().oneshot(req_large).await.unwrap();
+    assert_eq!(resp_large.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(
+        resp_large.headers().get(header::CONTENT_SECURITY_POLICY).unwrap(),
+        "default-src 'none'"
+    );
 
-#[tokio::test]
-async fn json_and_form_bodies_reach_the_handler() {
-    assert_eq!(
-        post(
-            "/echo",
-            "application/json; charset=utf-8",
-            None,
-            br#"{"b":1,"a":2}"#.to_vec()
-        )
-        .await,
-        (StatusCode::OK, r#"{"b":1,"a":2}"#.into())
-    );
-    assert_eq!(
-        post(
-            "/echo",
-            "application/x-www-form-urlencoded",
-            None,
-            b"a=1&b=x+y".to_vec()
-        )
-        .await
-        .1,
-        r#"{"a":"1","b":"x y"}"#
-    );
-    assert_eq!(
-        post("/echo", "text/plain", None, b"hello".to_vec()).await.1,
-        "null",
-        "req.body is undefined"
-    );
-}
+    // Unsupported charset
+    let req_charset = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/json; charset=iso-8859-1")
+        .body(Body::from("{}"))
+        .unwrap();
+    let resp_charset = app.clone().oneshot(req_charset).await.unwrap();
+    assert_eq!(resp_charset.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
 
-#[tokio::test]
-async fn a_malformed_body_is_refused_before_any_route() {
-    let (status, page) = post("/ignores-body", "application/json", None, b"{nope".to_vec()).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(page.contains("<pre>Bad Request</pre>"));
-    assert_eq!(
-        post("/undaunted/api/register/", "application/json", None, b"{nope".to_vec())
-            .await
-            .1,
-        r#"{"error":"bad_request"}"#
-    );
-    assert_eq!(
-        post("/echo", "application/json; charset=latin1", None, b"{}".to_vec())
-            .await
-            .0,
-        StatusCode::UNSUPPORTED_MEDIA_TYPE
-    );
-}
+    // Unsupported content-encoding
+    let req_enc = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CONTENT_ENCODING, "br")
+        .body(Body::from("{}"))
+        .unwrap();
+    let resp_enc = app.clone().oneshot(req_enc).await.unwrap();
+    assert_eq!(resp_enc.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
 
-#[tokio::test]
-async fn gzip_bodies_are_inflated() {
-    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-    gz.write_all(br#"{"z":true}"#).unwrap();
-    assert_eq!(
-        post("/echo", "application/json", Some("gzip"), gz.finish().unwrap())
-            .await
-            .1,
-        r#"{"z":true}"#
-    );
-    assert_eq!(
-        post("/echo", "application/json", Some("zstd"), b"{}".to_vec()).await.0,
-        StatusCode::UNSUPPORTED_MEDIA_TYPE
-    );
+    // Custom on_error override
+    let custom_app = app_with_config(BodyConfig {
+        limit: 16,
+        on_error: Arc::new(|_, err| {
+            assert_eq!(err, BodyError::Malformed);
+            Some((StatusCode::UNPROCESSABLE_ENTITY, "custom error").into_response())
+        }),
+    });
+    let req_bad = Request::builder()
+        .method("POST")
+        .uri("/echo")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from("{bad"))
+        .unwrap();
+    let resp_bad = custom_app.oneshot(req_bad).await.unwrap();
+    assert_eq!(resp_bad.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }

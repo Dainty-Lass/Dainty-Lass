@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! Unified `tracing` + `tracing-subscriber` logging pipeline (`docs/app-structure-plan.md` §4):
 //! - [`RedactingVisitor`] and [`redact_secrets`] scrub `RRK_` keys, operator secrets, and auth tokens.
 //! - [`TableStdoutLayer`] writes `{service:<14} | {line}` atomically to `stdout` (or a custom writer).

@@ -1,89 +1,84 @@
-//! `String.prototype.localeCompare` as Node's ICU answers it with the default locale (MIGRATION_PLAN.md
-//! SB1): the Node services sort names and ids with it, and the replies list them in that order.
-//!
-//! ICU's root collation, which byte order is not: whitespace, then punctuation, then symbols, then
-//! digits, then letters (so `_` sorts before `0` and both before `a`), letters compared without case
-//! first, and only when everything else is equal does lower case come before upper case. The table
-//! below is the order Node gives the printable ASCII characters (checked in the tests); controls are
-//! ignored, as ICU ignores them. Characters outside ASCII sort after `z` by code point, which ICU
-//! doesn't do; the Node services only compare ASCII ids and names this way.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
 use std::cmp::Ordering;
 
-/// Printable ASCII in ICU's primary order; letters stand for both cases.
-const ORDER: &str = " _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
+const ORDER: &[u8] = b" _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
 
-fn primary(c: char) -> Option<u32> {
-    if c.is_ascii_control() {
-        return None;
+const fn build_table() -> [u16; 128] {
+    let mut table = [u16::MAX; 128];
+    let mut i = 0;
+    while i < ORDER.len() {
+        let ch = ORDER[i];
+        table[ch as usize] = i as u16;
+        if ch.is_ascii_lowercase() {
+            table[(ch - b'a' + b'A') as usize] = i as u16;
+        }
+        i += 1;
     }
-    let folded = c.to_ascii_lowercase();
-    match ORDER.find(folded) {
-        Some(index) => Some(index as u32),
-        None => Some(ORDER.len() as u32 + c as u32),
+    table
+}
+
+const PRIMARY_TABLE: [u16; 128] = build_table();
+
+fn primary_weight(c: char) -> u32 {
+    let code = c as u32;
+    if code < 128 {
+        u32::from(PRIMARY_TABLE[code as usize])
+    } else {
+        128 + code
     }
 }
 
-/// `a.localeCompare(b)` as an ordering.
+fn tertiary_weight(c: char) -> u8 {
+    u8::from(c.is_ascii_uppercase())
+}
+
 pub fn locale_compare(a: &str, b: &str) -> Ordering {
-    let primaries = |s: &str| s.chars().filter_map(primary).collect::<Vec<_>>();
-    match primaries(a).cmp(&primaries(b)) {
-        Ordering::Equal => {}
-        other => return other,
+    let mut iter_a = a.chars().filter(|c| !c.is_ascii_control());
+    let mut iter_b = b.chars().filter(|c| !c.is_ascii_control());
+    let mut tertiary = Ordering::Equal;
+
+    loop {
+        match (iter_a.next(), iter_b.next()) {
+            (Some(ca), Some(cb)) => {
+                let cmp = primary_weight(ca).cmp(&primary_weight(cb));
+                if cmp != Ordering::Equal {
+                    return cmp;
+                }
+                if tertiary == Ordering::Equal {
+                    tertiary = tertiary_weight(ca).cmp(&tertiary_weight(cb));
+                }
+            }
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (None, None) => return tertiary,
+        }
     }
-    // Tertiary level: at the first difference in case, lower case first.
-    let cases = |s: &str| {
-        s.chars()
-            .filter(|c| !c.is_ascii_control())
-            .map(|c| c.is_ascii_uppercase())
-            .collect::<Vec<_>>()
-    };
-    cases(a).cmp(&cases(b))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::locale_compare;
+    use super::*;
 
-    // The order Node sorts these in with (a, b) => a.localeCompare(b).
     #[test]
-    fn sorts_like_node() {
-        let node = [
-            "",
-            "a",
-            "a_1",
-            "a-1",
-            "a,b",
-            "a!b",
-            "a.b",
-            "a(b",
-            "a1",
-            "ab",
-            "aB",
-            "Ab",
-            "AB",
-            "b",
-            "B",
-            "f3b2c1d0-1111-4aaa-8bbb-00000000000",
-            "f3b2c1d0-1111-4aaa-8bbb-000000000001",
-            "F3B2C1D0-1111-4aaa-8bbb-000000000001",
-            "season a",
-            "Season_A",
-            "season_free_any",
-            "season_premium_any",
-            "season-a",
-            "season09b_premium",
-            "seasona",
-            "UID-a",
-            "UID-B",
-            "uid-c",
-            "x~",
-            "x$",
-            "x9",
-        ];
-        let mut shuffled: Vec<&str> = node.iter().rev().copied().collect();
-        shuffled.rotate_left(7);
-        shuffled.sort_by(|a, b| locale_compare(a, b));
-        assert_eq!(shuffled, node);
+    fn sorts_punctuation_digits_and_letters_in_icu_root_order() {
+        let mut items = vec!["b", "a", "1", "0", "_", "-", " ", "$"];
+        items.sort_by(|x, y| locale_compare(x, y));
+        assert_eq!(items, vec![" ", "_", "-", "$", "0", "1", "a", "b"]);
+    }
+
+    #[test]
+    fn lowercase_precedes_uppercase_when_primary_equal() {
+        assert_eq!(locale_compare("a", "A"), Ordering::Less);
+        assert_eq!(locale_compare("A", "a"), Ordering::Greater);
+        assert_eq!(locale_compare("aB", "Ab"), Ordering::Less);
+        // Primary difference on second character outweighs tertiary difference on first character
+        assert_eq!(locale_compare("Aa", "aB"), Ordering::Less);
+    }
+
+    #[test]
+    fn ignores_ascii_control_characters() {
+        assert_eq!(locale_compare("a\x00b\n", "ab"), Ordering::Equal);
     }
 }

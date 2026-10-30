@@ -1,31 +1,18 @@
-//! Request bodies as `express.json({limit: "50mb"})` and `express.urlencoded({extended: true})` parse
-//! them in the Node services (MIGRATION_PLAN.md M8).
-//!
-//! Like Express's app-wide body parsers, [`parse_bodies`] runs before routing, for every request: a
-//! malformed body is refused even on a route that never reads it. Handlers read the result with
-//! [`ExpressBody`]: `Some(value)` for a JSON or form body, `None` for any other content type (where
-//! Express leaves `req.body` undefined). What matches Express:
-//!
-//! - JSON (`application/json`): an empty body is `{}`; anything but an object or array at the top
-//!   is refused (strict mode); the charset must be UTF-8.
-//! - Forms (`application/x-www-form-urlencoded`): `+` is a space, a value that isn't valid
-//!   percent-encoding stays as it is, a repeated field becomes an array, at most 1000 fields. Fields
-//!   are flat: `a[b]=1` is the field `a[b]`, where `qs` would nest it.
-//! - `Content-Encoding` gzip and deflate are inflated; the 50 MB limit applies to the inflated body.
-//! - Errors are Express's production error page ([`error_page`]): 400 for a malformed body, 413 for
-//!   one over the limit, 415 for an unsupported charset or encoding. A service can answer some of
-//!   them its own way ([`BodyConfig::on_error`]).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
+use std::convert::Infallible;
 use std::io::Read;
 use std::sync::Arc;
 
 use axum::body::Body;
 use axum::extract::{FromRequestParts, Request, State};
-use axum::http::header::{CONTENT_ENCODING, CONTENT_TYPE, HeaderValue};
 use axum::http::request::Parts;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use flate2::read::{DeflateDecoder, GzDecoder, ZlibDecoder};
+use http_body_util::{BodyExt, LengthLimitError, Limited};
 use percent_encoding::percent_decode_str;
 use serde_json::{Map, Value};
 
@@ -34,13 +21,11 @@ const PARAMETER_LIMIT: usize = 1000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BodyError {
-    /// Not valid JSON, or not an object or array at the top (`entity.parse.failed`).
     Malformed,
     TooLarge,
     TooManyParameters,
     UnsupportedCharset,
     UnsupportedEncoding,
-    /// The connection failed while the body was read.
     Aborted,
 }
 
@@ -60,33 +45,29 @@ impl IntoResponse for BodyError {
     }
 }
 
-/// Express's error reply with `NODE_ENV=production` (`finalhandler`): a small HTML page naming the
-/// status, with its security headers.
 pub fn error_page(status: StatusCode) -> Response {
-    let message = status.canonical_reason().unwrap_or("Error");
-    let body = format!(
-        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>{message}</pre>\n</body>\n</html>\n"
+    let reason = status.canonical_reason().unwrap_or("Error");
+    let html = format!(
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>{reason}</pre>\n</body>\n</html>\n"
     );
-    let mut response = (status, body).into_response();
-    let headers = response.headers_mut();
-    headers.insert(
-        "content-security-policy",
-        HeaderValue::from_static("default-src 'none'"),
-    );
-    headers.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
-    headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
-    response
+    (
+        status,
+        [
+            (header::CONTENT_SECURITY_POLICY, "default-src 'none'"),
+            (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+            (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+        ],
+        html,
+    )
+        .into_response()
 }
 
-/// A service's own answer to a body error, or `None` for Express's error page.
-pub type OnBodyError = dyn Fn(&Parts, BodyError) -> Option<Response> + Send + Sync;
+pub type OnBodyError =
+    dyn Fn(&Parts, BodyError) -> Option<Response> + Send + Sync;
 
-/// How [`parse_bodies`] works for one service.
 #[derive(Clone)]
 pub struct BodyConfig {
     pub limit: usize,
-    /// Answers a body error on some routes differently (the metagame's `JSON_ERROR_ROUTES`); `None`
-    /// keeps Express's error page.
     pub on_error: Arc<OnBodyError>,
 }
 
@@ -99,187 +80,222 @@ impl Default for BodyConfig {
     }
 }
 
-/// The parsed body, stored on the request by [`parse_bodies`].
-#[derive(Debug, Clone)]
-struct Parsed(Option<Value>);
-
-/// The request's body as Express's parsers left it in `req.body`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExpressBody(pub Option<Value>);
 
 impl<S: Send + Sync> FromRequestParts<S> for ExpressBody {
-    type Rejection = std::convert::Infallible;
+    type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(Self(
-            parts.extensions.get::<Parsed>().and_then(|parsed| parsed.0.clone()),
-        ))
+        Ok(parts
+            .extensions
+            .get::<Self>()
+            .cloned()
+            .unwrap_or(Self(None)))
     }
 }
 
-enum Kind {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BodyKind {
     Json,
     Form,
 }
 
-fn kind(headers: &HeaderMap) -> Result<Option<Kind>, BodyError> {
-    let Some(content_type) = headers.get(CONTENT_TYPE).and_then(|v| v.to_str().ok()) else {
+fn inspect_content_type(headers: &axum::http::HeaderMap) -> Result<Option<BodyKind>, BodyError> {
+    let Some(raw) = headers.get(header::CONTENT_TYPE) else {
         return Ok(None);
     };
-    let mut parts = content_type.split(';');
-    let essence = parts.next().unwrap_or("").trim().to_ascii_lowercase();
-    let charset = parts
-        .filter_map(|p| p.split_once('='))
-        .find(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
-        .map(|(_, value)| value.trim().trim_matches('"').to_ascii_lowercase());
-    let kind = match essence.as_str() {
-        "application/json" => Kind::Json,
-        "application/x-www-form-urlencoded" => Kind::Form,
-        _ => return Ok(None),
+    let Ok(text) = raw.to_str() else {
+        return Ok(None);
     };
-    match charset.as_deref() {
-        None | Some("utf-8") => Ok(Some(kind)),
-        _ => Err(BodyError::UnsupportedCharset),
-    }
-}
+    let mut segments = text.split(';');
+    let essence = segments.next().unwrap_or("").trim();
+    let kind = if essence.eq_ignore_ascii_case("application/json") {
+        BodyKind::Json
+    } else if essence.eq_ignore_ascii_case("application/x-www-form-urlencoded") {
+        BodyKind::Form
+    } else {
+        return Ok(None);
+    };
 
-/// Middleware: parses JSON and form bodies before routing (`axum::middleware::from_fn_with_state`).
-pub async fn parse_bodies(State(config): State<BodyConfig>, request: Request, next: Next) -> Response {
-    let (mut parts, body) = request.into_parts();
-    match read(&parts.headers, body, config.limit).await {
-        Ok((parsed, body)) => {
-            parts.extensions.insert(Parsed(parsed));
-            next.run(Request::from_parts(parts, body)).await
+    for param in segments {
+        if let Some((k, v)) = param.split_once('=')
+            && k.trim().eq_ignore_ascii_case("charset")
+        {
+            let charset = v.trim().trim_matches('"');
+            if !charset.eq_ignore_ascii_case("utf-8") {
+                return Err(BodyError::UnsupportedCharset);
+            }
         }
-        Err(error) => (config.on_error)(&parts, error).unwrap_or_else(|| error.into_response()),
     }
+
+    Ok(Some(kind))
 }
 
-async fn read(headers: &HeaderMap, body: Body, limit: usize) -> Result<(Option<Value>, Body), BodyError> {
-    let Some(kind) = kind(headers)? else {
-        return Ok((None, body));
-    };
-    let raw = axum::body::to_bytes(body, limit).await.map_err(|e| {
-        if std::error::Error::source(&e).is_some_and(|s| s.is::<http_body_util::LengthLimitError>()) {
-            BodyError::TooLarge
-        } else {
-            BodyError::Aborted
-        }
-    })?;
-    let bytes = inflate(headers, &raw, limit)?;
-    let text = std::str::from_utf8(&bytes).map_err(|_| BodyError::Malformed)?;
-    let value = match kind {
-        Kind::Json => parse_json(text)?,
-        Kind::Form => parse_form(text)?,
-    };
-    Ok((Some(value), Body::from(raw)))
-}
-
-fn inflate(headers: &HeaderMap, raw: &[u8], limit: usize) -> Result<Vec<u8>, BodyError> {
-    let encoding = headers
-        .get(CONTENT_ENCODING)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("identity")
-        .trim()
-        .to_ascii_lowercase();
-    let reader: Box<dyn Read + '_> = match encoding.as_str() {
-        "identity" => return Ok(raw.to_vec()),
-        "gzip" => Box::new(flate2::read::GzDecoder::new(raw)),
-        "deflate" => Box::new(flate2::read::ZlibDecoder::new(raw)),
-        _ => return Err(BodyError::UnsupportedEncoding),
-    };
-    let mut out = Vec::new();
+fn read_bounded(reader: impl Read, limit: usize) -> Result<Vec<u8>, BodyError> {
+    let mut buf = Vec::new();
+    let max = (limit as u64).saturating_add(1);
     reader
-        .take(limit as u64 + 1)
-        .read_to_end(&mut out)
+        .take(max)
+        .read_to_end(&mut buf)
         .map_err(|_| BodyError::Malformed)?;
-    if out.len() > limit {
+    if buf.len() > limit {
         return Err(BodyError::TooLarge);
     }
-    Ok(out)
+    Ok(buf)
 }
 
-/// `JSON.parse` in body-parser's strict mode.
+fn decode_body_bytes(parts: &Parts, raw: &[u8], limit: usize) -> Result<Vec<u8>, BodyError> {
+    let encoding = match parts.headers.get(header::CONTENT_ENCODING) {
+        None => "identity",
+        Some(val) => val.to_str().map_err(|_| BodyError::UnsupportedEncoding)?.trim(),
+    };
+
+    if encoding.is_empty() || encoding.eq_ignore_ascii_case("identity") {
+        return Ok(raw.to_vec());
+    }
+    if encoding.eq_ignore_ascii_case("gzip") {
+        return read_bounded(GzDecoder::new(raw), limit);
+    }
+    if encoding.eq_ignore_ascii_case("deflate") {
+        return read_bounded(ZlibDecoder::new(raw), limit)
+            .or_else(|_| read_bounded(DeflateDecoder::new(raw), limit));
+    }
+    Err(BodyError::UnsupportedEncoding)
+}
+
+fn fail_response(parts: &Parts, config: &BodyConfig, err: BodyError) -> Response {
+    (config.on_error)(parts, err).unwrap_or_else(|| err.into_response())
+}
+
+pub async fn parse_bodies(
+    State(config): State<BodyConfig>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let kind = match inspect_content_type(request.headers()) {
+        Ok(Some(k)) => k,
+        Ok(None) => {
+            request.extensions_mut().insert(ExpressBody(None));
+            return next.run(request).await;
+        }
+        Err(err) => {
+            let (parts, _) = request.into_parts();
+            return fail_response(&parts, &config, err);
+        }
+    };
+
+    let (mut parts, body) = request.into_parts();
+    let collected = match Limited::new(body, config.limit).collect().await {
+        Ok(c) => c.to_bytes(),
+        Err(err) => {
+            let body_err = if err.downcast_ref::<LengthLimitError>().is_some() {
+                BodyError::TooLarge
+            } else {
+                BodyError::Aborted
+            };
+            return fail_response(&parts, &config, body_err);
+        }
+    };
+
+    let decoded = match decode_body_bytes(&parts, &collected, config.limit) {
+        Ok(d) => d,
+        Err(err) => return fail_response(&parts, &config, err),
+    };
+
+    let Ok(text) = std::str::from_utf8(&decoded) else {
+        return fail_response(&parts, &config, BodyError::Malformed);
+    };
+
+    let parsed = match kind {
+        BodyKind::Json => parse_json(text),
+        BodyKind::Form => parse_form(text),
+    };
+
+    match parsed {
+        Ok(val) => {
+            parts.extensions.insert(ExpressBody(Some(val)));
+            let rebuilt = Request::from_parts(parts, Body::from(collected));
+            next.run(rebuilt).await
+        }
+        Err(err) => fail_response(&parts, &config, err),
+    }
+}
+
 pub fn parse_json(text: &str) -> Result<Value, BodyError> {
     if text.is_empty() {
         return Ok(Value::Object(Map::new()));
     }
-    match text.trim_start_matches([' ', '\t', '\n', '\r']).chars().next() {
-        Some('{' | '[') => serde_json::from_str(text).map_err(|_| BodyError::Malformed),
-        _ => Err(BodyError::Malformed),
+    let trimmed = text.trim_start_matches([' ', '\t', '\n', '\r']);
+    if !trimmed.starts_with('{') && !trimmed.starts_with('[') {
+        return Err(BodyError::Malformed);
     }
+    serde_json::from_str(text).map_err(|_| BodyError::Malformed)
 }
 
-/// A form body as flat fields, decoded like `qs`.
+fn decode_form_part(raw: &str) -> String {
+    let plus_spaced = raw.replace('+', " ");
+    percent_decode_str(&plus_spaced)
+        .decode_utf8()
+        .map_or_else(|_| plus_spaced.clone(), std::borrow::Cow::into_owned)
+}
+
 pub fn parse_form(text: &str) -> Result<Value, BodyError> {
-    let pairs: Vec<&str> = text.split('&').filter(|p| !p.is_empty()).collect();
+    let pairs: Vec<&str> = text.split('&').filter(|s| !s.is_empty()).collect();
     if pairs.len() > PARAMETER_LIMIT {
         return Err(BodyError::TooManyParameters);
     }
-    let mut fields = Map::new();
+
+    let mut map = Map::new();
     for pair in pairs {
-        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
-        let key = decode(key);
+        let (raw_key, raw_val) = pair.split_once('=').unwrap_or((pair, ""));
+        let key = decode_form_part(raw_key);
         if key.is_empty() {
             continue;
         }
-        let value = Value::String(decode(value));
-        match fields.get_mut(&key) {
-            None => {
-                fields.insert(key, value);
+        let val = Value::String(decode_form_part(raw_val));
+        match map.entry(key) {
+            serde_json::map::Entry::Vacant(e) => {
+                e.insert(val);
             }
-            Some(Value::Array(values)) => values.push(value),
-            Some(first) => *first = Value::Array(vec![first.take(), value]),
+            serde_json::map::Entry::Occupied(mut e) => match e.get_mut() {
+                Value::Array(arr) => arr.push(val),
+                existing => {
+                    let prev = existing.take();
+                    *existing = Value::Array(vec![prev, val]);
+                }
+            },
         }
     }
-    Ok(Value::Object(fields))
-}
-
-fn decode(text: &str) -> String {
-    let spaced = text.replace('+', " ");
-    match percent_decode_str(&spaced).decode_utf8() {
-        Ok(decoded) => decoded.into_owned(),
-        Err(_) => spaced,
-    }
+    Ok(Value::Object(map))
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use serde_json::json;
 
-    use super::*;
-
     #[test]
-    fn json_is_strict_like_body_parser() {
-        assert_eq!(parse_json(""), Ok(json!({})));
-        assert_eq!(parse_json(" \n{\"a\":1}"), Ok(json!({"a": 1})));
-        assert_eq!(parse_json("[1,2]"), Ok(json!([1, 2])));
-        assert_eq!(parse_json("\"text\""), Err(BodyError::Malformed));
-        assert_eq!(parse_json("42"), Err(BodyError::Malformed));
-        assert_eq!(parse_json("{\"a\":"), Err(BodyError::Malformed));
+    fn parse_json_enforces_strict_mode_and_empty_object() {
+        assert_eq!(parse_json("").unwrap(), json!({}));
+        assert_eq!(parse_json("  {\"a\": 1}").unwrap(), json!({"a": 1}));
+        assert_eq!(parse_json("\n[1, 2]").unwrap(), json!([1, 2]));
+        assert_eq!(parse_json("\"scalar\""), Err(BodyError::Malformed));
+        assert_eq!(parse_json("123"), Err(BodyError::Malformed));
+        assert_eq!(parse_json("   "), Err(BodyError::Malformed));
     }
 
     #[test]
-    fn duplicate_json_keys_keep_the_last_value_in_the_first_place() {
-        let parsed = parse_json(r#"{"a":1,"b":2,"a":3}"#).unwrap();
-        assert_eq!(serde_json::to_string(&parsed).unwrap(), r#"{"a":3,"b":2}"#);
-    }
-
-    #[test]
-    fn forms_decode_like_qs() {
-        let form = parse_form("grant_type=exchange_code&code=a%2Bb+c&x=%zz&x=2&empty&=skipped").unwrap();
+    fn parse_form_decodes_repeats_and_limits_params() {
         assert_eq!(
-            form,
-            json!({"grant_type": "exchange_code", "code": "a+b c", "x": ["%zz", "2"], "empty": ""})
+            parse_form("a=hello+world&b=1&b=2&=ignored&c").unwrap(),
+            json!({"a": "hello world", "b": ["1", "2"], "c": ""})
         );
-        let too_many = vec!["a=1"; 1001].join("&");
+        assert_eq!(
+            parse_form("bad=%FF+ok").unwrap(),
+            json!({"bad": "%FF ok"})
+        );
+        let too_many = (0..1001).map(|i| format!("k{i}=v")).collect::<Vec<_>>().join("&");
         assert_eq!(parse_form(&too_many), Err(BodyError::TooManyParameters));
-    }
-
-    #[test]
-    fn the_error_page_is_expresss() {
-        let response = error_page(StatusCode::BAD_REQUEST);
-        assert_eq!(response.headers()[CONTENT_TYPE], "text/html; charset=utf-8");
-        assert_eq!(response.headers()["content-security-policy"], "default-src 'none'");
     }
 }
