@@ -6,7 +6,7 @@
   "license": "MIT AND AGPL-3.0-only",
   "scripts": {
     "lint": "eslint",
-    "format": "prettier --write \"**/*.ts\"",
+    "format": "prettier --ignore-path ../../.prettierignore --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
