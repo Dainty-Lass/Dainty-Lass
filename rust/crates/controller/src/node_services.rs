@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! [`NodeServices`]: what this node answers over its node links, by [`Service`] (DD16). The gateway's endpoint
 //! holds one of these for good; a core plugin plugs its service in with one line, wherever it is built:
 //! `registry.node_services().attach(Service::Admin, service)`. The network module attaches the directory's and

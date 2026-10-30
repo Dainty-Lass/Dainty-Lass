@@ -33,7 +33,7 @@
 
 ## 4. Spec Writer / Implementer Q&A Log
 
-- **Questions asked by implementer**: None — `docs/port/spec-proxy.md` fully specified the public signatures (`HOP_BY_HOP`, `is_hop_by_hop`, `connection_tokens`, `end_to_end`, `Idle<S>`, `tunnel`), RFC 9110 header filtering semantics, idle timer reset semantics, and unit test expectations.
+- **Questions asked by implementer**: None during initial build; during downstream integration with `gateway` and `launcher`, `connection_tokens` (`BTreeSet<String>`), `end_to_end` (`impl Fn(&str) -> bool -> HeaderMap`), and `tunnel` (`(u64, u64)`) were aligned with the callers' signatures.
 
 ## 5. Verification
 

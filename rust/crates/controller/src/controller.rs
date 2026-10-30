@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! [`ServerController`]: starts modules in order, stops them in reverse, and keeps every one's
 //! phase in a [`StatusRegistry`] the REPL, the TUI and the GUI read. The game modules and plugins
 //! (DF3) come after the services, from its [`ModuleRegistry`], and go before them; the console's start,
