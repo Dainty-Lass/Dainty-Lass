@@ -42,6 +42,7 @@ network = { path = "../plugins/network", features = ["log-ship"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 protocol = { path = "../crates/protocol" }
 proxy = { path = "../crates/proxy" }
+remote = { path = "../crates/remote" }
 serde = "1"
 serde_json = "1"
 # launcher_legacy: the 1.4.4 manifest's fingerprint
@@ -326,6 +327,13 @@ bench = false
 [[bin]]
 name = "network_ring"
 path = "fuzz_targets/network_ring.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "remote_wire"
+path = "fuzz_targets/remote_wire.rs"
 test = false
 doc = false
 bench = false
