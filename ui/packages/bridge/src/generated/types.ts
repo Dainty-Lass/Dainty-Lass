@@ -6,44 +6,10 @@ export type PlayerWhere = "menu" | "city" | "hunt" | "dojo" | "tutorial" | "unkn
 export type InstanceKind = "city" | "hunt" | "dojo" | "tutorial";
 export type RegistrationMode = "OPEN" | "INVITECODE" | "NONE";
 export type StatusPlayer = { name: string, where: PlayerWhere, instance: string | null, };
-export type StatusInstance = { id: string, kind: InstanceKind, title: string, map: string, behemoth: string | null, players: number, maxPlayers: number, 
-/**
- * ISO string, or null when the server sent something unreadable
- */
-startedAt: string | null, };
+export type StatusInstance = { id: string, kind: InstanceKind, title: string, map: string, behemoth: string | null, players: number, maxPlayers: number, startedAt: string | null, };
 export type GameDataKind = "real" | "synthetic" | "missing" | "unknown";
-export type StatusGame = { 
-/**
- * At most 64 characters
- */
-build: string, 
-/**
- * 0 to 100,000,000, or null when the server sent none or something unreadable
- */
-changelist: number | null, };
-export type ServerStatus = { name: string, online: boolean, version: string, commit: string, 
-/**
- * Only https URLs survive parsing
- */
-sourceUrl: string | null, registration: RegistrationMode | null, playersOnline: number, players: Array<StatusPlayer>, instances: Array<StatusInstance>, uptimeSeconds: number, 
-/**
- * Null when the server names no build
- */
-game: StatusGame | null, gameData: GameDataKind, 
-/**
- * True only when the server says so
- */
-chat: boolean, 
-/**
- * The port of a separate content server, which only Dauntless Revived's servers in private mode
- * named. Kept in the contract; Reforged's launcher does not read it (RD5).
- */
-contentPort: number | null, 
-/**
- * The server hid who is online (playersOnline 0, no players, no instances): its answer to a
- * launcher without an account key there, or with one it did not accept.
- */
-limited: boolean, };
+export type StatusGame = { build: string, changelist: number | null, };
+export type ServerStatus = { name: string, online: boolean, version: string, commit: string, sourceUrl: string | null, registration: RegistrationMode | null, playersOnline: number, players: Array<StatusPlayer>, instances: Array<StatusInstance>, uptimeSeconds: number, game: StatusGame | null, gameData: GameDataKind, chat: boolean, contentPort: number | null, limited: boolean, };
 export type Language = "en" | "pt-BR";
 export type GameLanguage = "auto" | "en-US" | "de-DE" | "es-ES" | "fr-FR" | "it-IT" | "ja-JP" | "pt-BR" | "ru-RU";
 export type RuntimeProfile = "production" | "development";
@@ -55,11 +21,7 @@ export type Game = "reborn" | "legacy";
 export type RuntimeState = "ok" | "missing" | "outdated" | "untrusted" | "unavailable" | "local";
 export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "history_bad_filter" | "history_unavailable" | "history_plan_changed" | "history_failed" | "realm_unavailable" | "realm_not_found" | "realm_failed" | "unknown";
 export type NoticeCode = "keep_open" | "backup_saved" | "runtime_installed" | "runtime_installed_restart" | "game_verified" | "sdk_imported" | "host_done" | "install_done" | "repair_done";
-export type LauncherError = { code: ErrorCode, 
-/**
- * Extra detail for the message, e.g. a file path or a byte count. Never a key.
- */
-detail?: string, };
+export type LauncherError = { code: ErrorCode, detail?: string, };
 export type TaskKind = "verify" | "runtime" | "download" | "dlls" | "install";
 export type TaskProgress = { kind: TaskKind, totalBytes: number, doneBytes: number, filesTotal: number, filesDone: number, bytesPerSecond: number, etaSeconds: number | null, currentFile: string | null, };
 export type ServerInfo = { game: ServerGame, mode: ServerMode, host: string, port: number, name: string, hasShare: boolean, 
@@ -202,179 +164,42 @@ export type Background = {
 url: string, credit: string | null, };
 export type Branding = { backgrounds: Array<Background>, accent: string | null, };
 export type GameDataState = "real" | "synthetic" | "missing";
-export type HostUpstream = { 
-/**
- * .workspace\Mystic-Paradox holds the pinned source
- */
-present: boolean, 
-/**
- * And the Reforged patches are applied
- */
-patched: boolean, };
-export type HostSdk = { 
-/**
- * ParadoxRuntime\SDK.hpp
- */
-present: boolean, 
-/**
- * ParadoxRuntime\SDK\*_functions.cpp
- */
-functionFiles: number, };
+export type HostUpstream = { present: boolean, patched: boolean, };
+export type HostSdk = { present: boolean, functionFiles: number, };
 export type HostDump = { dir: string, name: string, modified: string, };
-export type HostBuilds = { 
-/**
- * ParadoxRuntime\x64\Release\MysticParadox.dll
- */
-runtime: boolean, 
-/**
- * tools\RuntimeLoader\target\release\winmm.dll
- */
-loader: boolean, 
-/**
- * tools\CatalogExporter\x64\Release\CatalogExporter.dll
- */
-exporter: boolean, 
-/**
- * Both runtime files in the content server's runtime folder
- */
-published: boolean, };
-export type HostToolchain = { 
-/**
- * e.g. "Visual Studio 2022 (17.14)"
- */
-visualStudio: string | null, msbuild: boolean, cargo: boolean, };
+export type HostBuilds = { runtime: boolean, loader: boolean, exporter: boolean, published: boolean, };
+export type HostToolchain = { visualStudio: string | null, msbuild: boolean, cargo: boolean, };
 export type HostGameData = { backend: GameDataState, director: GameDataState, };
-export type HostExports = { 
-/**
- * Items_Analysis in the workspace
- */
-present: boolean, 
-/**
- * And beside the game (CatalogExporter's output)
- */
-inGame: boolean, };
+export type HostExports = { present: boolean, inGame: boolean, };
 export type HostServerMode = "private" | "public";
-export type HostServerConfig = { configured: boolean, name: string | null, mode: HostServerMode | null, host: string | null, 
-/**
- * The test XP and reward multipliers (private servers only), null when off
- */
-multipliers: HostMultipliers | null, };
-export type HostKit = { 
-/**
- * A DaintyLass checkout
- */
-workspace: string | null, workspaceOk: boolean, upstream: HostUpstream, sdk: HostSdk, dumps: Array<HostDump>, 
-/**
- * The Dumper-7 DLL the host picked
- */
-dumperDll: string | null, builds: HostBuilds, toolchain: HostToolchain, gameData: HostGameData, exports: HostExports, serverConfig: HostServerConfig, requirements: Array<Requirement>, job: HostJob | null, 
-/**
- * What the last "Update" found, since the launcher started
- */
-update: HostUpdateView | null, 
-/**
- * Where the project folder is downloaded to: beside the game's folder
- */
-projectTarget: string | null, };
+export type HostServerConfig = { configured: boolean, name: string | null, mode: HostServerMode | null, host: string | null, multipliers: HostMultipliers | null, };
+export type HostKit = { workspace: string | null, workspaceOk: boolean, upstream: HostUpstream, sdk: HostSdk, dumps: Array<HostDump>, dumperDll: string | null, builds: HostBuilds, toolchain: HostToolchain, gameData: HostGameData, exports: HostExports, serverConfig: HostServerConfig, requirements: Array<Requirement>, job: HostJob | null, update: HostUpdateView | null, projectTarget: string | null, };
 export type HostMultipliers = { xp: number, rewards: number, };
 export type HostUpdateState = "up_to_date" | "updated";
-export type HostUpdateView = { state: HostUpdateState, 
-/**
- * The short commit this PC is at now
- */
-head: string, 
-/**
- * Files the update changed
- */
-files: number, 
-/**
- * The game runtime changed: build MysticParadox.dll again and publish it
- */
-runtimeChanged: boolean, };
+export type HostUpdateView = { state: HostUpdateState, head: string, files: number, runtimeChanged: boolean, };
 export type RequirementId = "dauntless" | "git" | "node" | "mongodb" | "tailscale" | "visual_studio" | "rust" | "dumper7" | "vc_redist";
 export type RequirementState = "ok" | "missing" | "problem";
-export type Requirement = { id: RequirementId, state: RequirementState, 
-/**
- * The version or place found; never a secret
- */
-detail: string | null, 
-/**
- * What is wrong when state is "problem": node "too_old"; mongodb "service_running"; visual_studio
- * "no_cpp"
- */
-problem: string | null, };
+export type Requirement = { id: RequirementId, state: RequirementState, detail: string | null, problem: string | null, };
 export type HostServerState = "stopped" | "starting" | "running" | "stopping" | "external" | "failed";
 export type HostInvite = { link: string, for: string | null, };
-export type HostServerView = { state: HostServerState, 
-/**
- * The error line when it failed
- */
-message: string | null, 
-/**
- * The newest output of the server and of the host kit commands started here
- */
-lines: Array<string>, invite: HostInvite | null, 
-/**
- * The server runs inside this launcher (the server GUI, RD26), not as `reforged-host start`
- */
-embedded: boolean, 
-/**
- * Its services while it runs inside the launcher; empty otherwise
- */
-components: Array<HostServerComponent>, };
-export type HostServerComponent = { 
-/**
- * One of `spec::HOST_SERVER_COMPONENTS`
- */
-name: string, phase: HostComponentPhase, port: number | null, 
-/**
- * What it last said about itself (an error, for a failed one)
- */
-detail: string, };
+export type HostServerView = { state: HostServerState, message: string | null, lines: Array<string>, invite: HostInvite | null, embedded: boolean, components: Array<HostServerComponent>, };
+export type HostServerComponent = { name: string, phase: HostComponentPhase, port: number | null, detail: string, };
 export type HostComponentPhase = "stopped" | "starting" | "ready" | "stopping" | "failed" | "disabled";
 export type HostJobKind = "inject" | "build_runtime" | "build_loader" | "build_exporter" | "import_sdk" | "copy_exports" | "synthetic_data" | "import_gamedata" | "publish_runtime" | "setup" | "generate_gamedata" | "export_gamedata" | "create_invite" | "update" | "multipliers" | "upstream" | "download_project" | "backup" | "migrate_mongo";
 export type HostJobState = "running" | "done" | "failed";
-export type HostJob = { kind: HostJobKind, state: HostJobState, 
-/**
- * The last line of its log, never a secret
- */
-message: string | null, logFile: string | null, };
+export type HostJob = { kind: HostJobKind, state: HostJobState, message: string | null, logFile: string | null, };
 export type ExternalTarget = "tailscale_download" | "tailscale_share" | "vc_redist" | "server_source" | "project_source" | "project_license" | "project_issues" | "project_docs_players" | "project_docs_hosting" | "project_docs_sdk" | "installing_guide" | "legendary" | "dumper7" | "visual_studio" | "rust" | "nodejs" | "mongodb" | "git" | "visual_studio_installer" | "rust_installer" | "dumper7_zip" | "revived_source" | "mystic_source" | "undaunted_source";
 export type HostAction = "inject_dumper" | "import_sdk" | "build_runtime" | "build_loader" | "build_exporter" | "inject_exporter" | "copy_exports" | "synthetic_data" | "publish_runtime" | "generate_gamedata" | "export_gamedata";
 export type HostFolder = "workspace" | "runtime_source" | "dumps" | "game_data" | "runtime_publish" | "host_logs" | "gamedata_packs";
-export type HostSetupRequest = { name: string, mode: HostServerMode, 
-/**
- * Public mode: the server's public IPv4 or DNS name
- */
-publicHost: string | null, };
+export type HostSetupRequest = { name: string, mode: HostServerMode, publicHost: string | null, };
 export type RealmKind = "hub" | "hunt";
 export type RegionProblem = "timeout" | "unreachable" | "cert_mismatch" | "bad_answer";
-export type RegionRtt = { region: string, 
-/**
- * The median round trip in milliseconds, to a tenth; null when the node never answered
- */
-rttMs: number | null, 
-/**
- * How many answers the median was taken over
- */
-samples: number, problem: RegionProblem | null, };
+export type RegionRtt = { region: string, rttMs: number | null, samples: number, problem: RegionProblem | null, };
 export type GameVersionInstall = "epic" | "locate";
 export type GameVersionOrigin = "launcher" | "server";
 export type EpicManifestState = "ready" | "unreachable" | "invalid";
-export type EpicVersionInfo = { 
-/**
- * Epic's build version (`1.14.7.647472`)
- */
-buildVersion: string, manifest: EpicManifestState, 
-/**
- * Bytes, from the manifest once it is `ready`
- */
-downloadBytes: number | null, installBytes: number | null, };
-export type GameVersionEntry = { version: string, displayName: string, origin: GameVersionOrigin, install: GameVersionInstall, 
-/**
- * Null for `locate`
- */
-epic: EpicVersionInfo | null, };
+export type EpicVersionInfo = { buildVersion: string, manifest: EpicManifestState, downloadBytes: number | null, installBytes: number | null, };
+export type GameVersionEntry = { version: string, displayName: string, origin: GameVersionOrigin, install: GameVersionInstall, epic: EpicVersionInfo | null, };
 export type EpicView = { signedIn: boolean, 
 /**
  * The account's Epic display name; null when signed out or Epic gave none
@@ -424,53 +249,17 @@ releaseAt: string | null, expiresAt: string, approvedBy: string | null, canceled
 export type ModuleRole = "game" | "plugin";
 export type ModuleOrigin = "compiled_in" | "external";
 export type ModuleRunState = "not_loaded" | "starting" | "ready" | "failed";
-export type ModulePortView = { name: string, 
-/**
- * `tcp` or `udp`, from the manifest
- */
-transport: string, first: number, last: number, };
+export type ModulePortView = { name: string, transport: string, first: number, last: number, };
 export type ModuleArgView = { name: string, required: boolean, help: string, };
 export type ModuleCommandView = { name: string, summary: string, args: Array<ModuleArgView>, };
 export type ModuleSettingValue = boolean | number | string;
-export type ModuleSettingView = { name: string, help: string, default: ModuleSettingValue, 
-/**
- * What `host.toml` sets, else the default
- */
-value: ModuleSettingValue, };
+export type ModuleSettingView = { name: string, help: string, default: ModuleSettingValue, value: ModuleSettingValue, };
 export type ModuleSectionView = { name: string, keys: Array<ModuleSettingView>, };
-export type ModulePatchSetView = { 
-/**
- * The plugin brings a set of patches; otherwise the game module takes them
- */
-provides: boolean, displayName: string | null, };
-export type ModulePaletteEntry = { 
-/**
- * A CSS variable's name without `--`
- */
-name: string, 
-/**
- * A colour: checked, so it can't carry anything else into a style
- */
-value: string, };
-export type ModuleThemeView = { id: string, displayName: string, palette: Array<ModulePaletteEntry>, layout: string | null, 
-/**
- * The file the plugin registered with content
- */
-logo: string | null, };
+export type ModulePatchSetView = { provides: boolean, displayName: string | null, };
+export type ModulePaletteEntry = { name: string, value: string, };
+export type ModuleThemeView = { id: string, displayName: string, palette: Array<ModulePaletteEntry>, layout: string | null, logo: string | null, };
 export type ModuleCapabilitiesView = { realms: boolean, network: boolean, chat: boolean, patchSet: ModulePatchSetView | null, theme: ModuleThemeView | null, };
-export type ModuleView = { id: string, displayName: string | null, role: ModuleRole | null, gameVersion: string | null, origin: ModuleOrigin, autoload: boolean, state: ModuleRunState, 
-/**
- * Why it failed, or what it last said
- */
-detail: string | null, 
-/**
- * Built but not checked against recorded traffic (DD9)
- */
-unverified: boolean, ports: Array<ModulePortView>, capabilities: ModuleCapabilitiesView, commands: Array<ModuleCommandView>, 
-/**
- * The settings it registered, empty until it loaded
- */
-settings: Array<ModuleSectionView>, };
+export type ModuleView = { id: string, displayName: string | null, role: ModuleRole | null, gameVersion: string | null, origin: ModuleOrigin, autoload: boolean, state: ModuleRunState, detail: string | null, unverified: boolean, ports: Array<ModulePortView>, capabilities: ModuleCapabilitiesView, commands: Array<ModuleCommandView>, settings: Array<ModuleSectionView>, };
 export type HistoryEntryView = { id: string, 
 /**
  * `node` (the game), `admin` or `chat`
