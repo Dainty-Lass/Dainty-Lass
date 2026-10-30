@@ -2,7 +2,7 @@
 
 ## 1. Purpose and Scope
 
-`store` (`rust/crates/store`) provides the database persistence layer for DaintyLass services. Thirteen of its nineteen source files (`backend.rs`, `connection.rs`, `database.rs`, `drizzle_pg.rs`, `history.rs`, `mongo_export.rs`, `recovery.rs`, `revert.rs`, `schema_diff.rs`, `sql_rewrite.rs`, `transfer.rs`, `url.rs`, `verify.rs`) were authored from scratch for DaintyLass and remain untouched.
+`store` (`rust/crates/store`) provides the database persistence layer for DaintyLass services. Thirteen of its nineteen source files (`connection.rs`, `database.rs`, `declared.rs`, `engine.rs`, `history.rs`, `portable.rs`, `recovery.rs`, `revert.rs`, `transfer.rs`, and submodules) were authored from scratch for DaintyLass (`DD15`, `DD23`, `DH3`, `DR4`) and remain untouched.
 
 This specification covers the six files that replace the legacy SQLite / Drizzle migration layer and its integration test suite so the entire `store` crate is licensed under MIT:
 - `src/lib.rs`
@@ -21,32 +21,35 @@ This specification covers the six files that replace the legacy SQLite / Drizzle
 
 ## 2. Crate Root (`src/lib.rs`)
 
-### Module Exports and Re-exports
+### Module Declarations and Re-exports
 
 ```rust
 pub mod adopt;
-pub mod backend;
 pub mod backup;
-pub mod connection;
-pub mod database;
+mod connection;
+mod database;
+mod declared;
 pub mod drizzle;
-pub mod drizzle_pg;
+mod engine;
 pub mod history;
-pub mod mongo_export;
+pub mod portable;
 pub mod readonly;
 pub mod recovery;
 pub mod revert;
-pub mod schema_diff;
-pub mod snapshot;
-pub mod sql_rewrite;
+mod snapshot;
 pub mod transfer;
-pub mod url;
-pub mod verify;
 
-pub use database::{Database, DatabaseOptions};
-pub use r2d2;
-pub use rusqlite;
-pub use rusqlite::Connection;
+pub use adopt::{DrizzleBaseline, Schema};
+pub use connection::{AnyConnection, MultiBackend};
+pub use database::{Database, DatabaseOptions, DatabaseSchema, KeyValue, Tx};
+pub use declared::{declare_accounts, declared_accounts};
+pub use engine::{DatabaseConfig, Engine, PostgresConfig, is_local_address};
+pub use history::{Actor, ChangeEntry, Head};
+pub use readonly::{open_read_only, schema_version};
+pub use revert::{AccountColumn, Cursor, Filter, RevertOutcome, RevertPlan};
+pub use snapshot::schema_snapshot;
+
+pub type Connection = diesel::SqliteConnection;
 ```
 
 ### Public Types and Functions (`src/lib.rs`)
@@ -54,72 +57,79 @@ pub use rusqlite::Connection;
 ```rust
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("sqlite: {0}")]
-    Sqlite(#[from] rusqlite::Error),
-    #[error("connection pool: {0}")]
-    Pool(#[from] r2d2::Error),
-    #[error("migration failed at version {version}: {source}")]
-    Migration {
-        version: u32,
-        #[source]
-        source: rusqlite::Error,
-    },
-    #[error("database schema version {found} is newer than this binary supports ({supported})")]
-    NewerSchema { found: u32, supported: u32 },
-    #[error(transparent)]
-    Adopt(#[from] adopt::AdoptError),
-    #[error("backup failed: {0}")]
-    Backup(#[source] Box<Error>),
-    #[error("blocking database task failed: {0}")]
-    TaskJoin(#[from] tokio::task::JoinError),
+    #[error("database: {0}")]
+    Query(#[from] diesel::result::Error),
+    #[error("database connection: {0}")]
+    Connection(#[from] diesel::ConnectionError),
+    #[error("database pool: {0}")]
+    Pool(#[from] diesel::r2d2::PoolError),
+    #[error("migration: {0}")]
+    Migration(String),
+    #[error("the database can't be adopted: {0}")]
+    Adoption(String),
+    #[error("backup: {0}")]
+    Backup(String),
+    #[error("database settings: {0}")]
+    Config(String),
+    #[error("schema: {0}")]
+    Schema(String),
+    #[error("not an actor the change log can record: {0:?}")]
+    Actor(String),
+    #[error("db move: {0}")]
+    Move(String),
+    #[error("revert: {0}")]
+    Revert(String),
+    #[error("the history changed since the dry run: run it again")]
+    PlanChanged,
+    #[error("restore: {0}")]
+    Restore(String),
+    #[error("the database task panicked")]
+    Panicked,
 }
 
 #[derive(Debug, Clone)]
 pub struct Options {
-    pub read_pool_size: u32,
+    pub read_connections: u32,
     pub busy_timeout: Duration,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Self {
-            read_pool_size: 4,
+            read_connections: 4,
             busy_timeout: Duration::from_secs(5),
         }
     }
 }
 
 #[derive(Clone)]
-pub struct Store { /* private fields */ }
+pub struct Store {
+    pub(crate) path: Arc<PathBuf>,
+    pub(crate) busy_timeout: Duration,
+    /* private pool fields */
+}
 
 impl Store {
-    pub fn open(
-        path: impl AsRef<Path>,
-        options: Options,
-        migrations: &[&str],
-    ) -> Result<Self, Error>;
+    pub fn open(path: &Path, options: &Options, schema: &Schema) -> Result<Self, Error>;
 
-    pub fn open_in_memory(migrations: &[&str]) -> Result<Self, Error>;
-
-    pub fn path(&self) -> Option<&Path>;
-    pub fn busy_timeout(&self) -> Duration;
-
-    pub async fn write<F, T, E>(&self, f: F) -> Result<T, E>
+    pub async fn read<T, E, F>(&self, f: F) -> Result<T, E>
     where
         F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
         T: Send + 'static,
-        E: From<Error> + Send + 'static;
+        E: From<Error> + From<diesel::result::Error> + Send + 'static;
 
-    pub async fn read<F, T, E>(&self, f: F) -> Result<T, E>
+    pub async fn write<T, E, F>(&self, f: F) -> Result<T, E>
     where
-        F: FnOnce(&Connection) -> Result<T, E> + Send + 'static,
+        F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
         T: Send + 'static,
-        E: From<Error> + Send + 'static;
+        E: From<Error> + From<diesel::result::Error> + Send + 'static;
+
+    pub async fn checkpoint(&self) -> Result<(), Error>;
 }
 
-pub fn migrate(conn: &mut Connection, migrations: &[&str]) -> Result<(), Error>;
+pub fn migrate(conn: &mut Connection, schema: &Schema) -> Result<(), Error>;
 
-pub(crate) async fn run_blocking<F, T, E>(f: F) -> Result<T, E>
+pub(crate) async fn run_blocking<T, E, F>(f: F) -> Result<T, E>
 where
     F: FnOnce() -> Result<T, E> + Send + 'static,
     T: Send + 'static,
@@ -128,283 +138,77 @@ where
 
 ### Observable Behaviour (`src/lib.rs`)
 
-1. **Pragma setup on every SQLite connection**:
-   - Every writer and reader connection applies:
-     - `PRAGMA journal_mode = WAL;`
-     - `PRAGMA synchronous = NORMAL;`
+1. **Connection pool setup (`Store::open`)**:
+   - Builds a Diesel `r2d2::Pool<ConnectionManager<SqliteConnection>>` for writers (`max_size = 1`, `min_idle = Some(0)`, `test_on_check_out = false`) and a pool for readers (`max_size = options.read_connections.max(1)`).
+   - Every acquired connection runs a customiser setting:
+     - `PRAGMA busy_timeout = <busy_timeout_ms>;`
      - `PRAGMA foreign_keys = ON;`
-     - `PRAGMA temp_store = MEMORY;`
-     - `conn.busy_timeout(options.busy_timeout)`
-   - Furthermore, reader pool connections enable `PRAGMA query_only = ON;` so accidental writes inside `Store::read` fail immediately with a SQLite error.
+     - On reader pool connections only: `PRAGMA query_only = ON;`.
+   - Checks out the write connection, executes `PRAGMA journal_mode = WAL`, verifies the returned `journal_mode` equals `"wal"` case-insensitively (otherwise returns `Err(Error::Migration(...))`), and runs `adopt::prepare(&mut conn, schema)?`.
 
-2. **`Store::open(path, options, migrations)`**:
-   - Creates parent directories of `path` if non-empty (`std::fs::create_dir_all`).
-   - Opens the single writer `Connection` at `path`, applies the pragmas, and runs `migrate(&mut writer, migrations)`.
-   - Builds an `r2d2::Pool` of read-only connections (`max_size = options.read_pool_size.max(1)`) against `path` with the pragmas plus `PRAGMA query_only = ON`.
-   - Stores `Some(path.to_path_buf())` for `Store::path(&self)` and `options.busy_timeout` for `Store::busy_timeout(&self)`.
-
-3. **`Store::open_in_memory(migrations)`**:
-   - Generates a unique per-call shared in-memory URI `file:memdb_{id}?mode=memory&cache=shared` (using an atomic counter) with `SQLITE_OPEN_URI`, applies pragmas, runs `migrate`, and creates a reader pool (`read_pool_size = 2`) against the same URI so reader and writer connections see the same in-memory database while different `open_in_memory` calls remain isolated.
-   - `Store::path(&self)` returns `None`.
-
-4. **`Store::write` and `Store::read`**:
-   - Both run the caller's synchronous closure on `tokio::task::spawn_blocking` via `run_blocking`.
-   - `Store::write` serialises writers through a single mutex-guarded `Connection`.
-   - `Store::read` checks out a pooled read connection (`r2d2::Pool::get`).
-
-5. **`migrate(conn, migrations)`**:
-   - Reads `PRAGMA user_version` (`u32`).
-   - Let `supported = migrations.len() as u32`.
-   - If `current > supported`, returns `Err(Error::NewerSchema { found: current, supported })`.
-   - For each index `idx` from `current as usize` to `migrations.len() - 1`:
-     - Let `version = (idx + 1) as u32`.
-     - Opens a SQLite transaction (`conn.transaction()`), executes `migrations[idx]` via `execute_batch`, sets `PRAGMA user_version = {version}`, and commits.
-     - Any SQLite failure during that step is mapped to `Err(Error::Migration { version, source })`.
+2. **`Store::read`, `Store::write`, `Store::checkpoint`, `migrate`, `run_blocking`**:
+   - `Store::read` checks out a reader connection on `run_blocking` and runs `conn.transaction(f)` (deferred transaction; writes fail because `query_only = ON`).
+   - `Store::write` checks out the single writer connection on `run_blocking` and runs `conn.immediate_transaction(f)` (`BEGIN IMMEDIATE`).
+   - `Store::checkpoint` runs `PRAGMA wal_checkpoint(TRUNCATE);` on the writer connection via `run_blocking`.
+   - `migrate(conn, schema)` delegates to `adopt::prepare(conn, schema)` without changing `journal_mode`.
+   - `run_blocking(f)` spawns `f` on `tokio::task::spawn_blocking` and maps a panic (`JoinError`) to `Err(E::from(Error::Panicked))`.
 
 ---
 
-## 3. Module `drizzle` (`src/drizzle.rs`)
+## 3. Module `adopt` (`src/adopt.rs`)
 
-Reads Drizzle Kit migration folders (`*.sql`), computes SHA-256 hashes matching Node's `crypto.createHash("sha256").update(query).digest("hex")`, inspects `__drizzle_migrations`, and replays pending Drizzle SQL files.
+Brings a SQLite database to the current Diesel schema, adopting existing Drizzle databases at the baseline when applicable.
 
 ### Public Signatures
 
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Migration {
-    pub tag: String,
-    pub sql: String,
-    pub sha256: String,
+use diesel_migrations::EmbeddedMigrations;
+
+pub struct Schema {
+    pub migrations: fn() -> EmbeddedMigrations,
+    pub drizzle: Option<DrizzleBaseline>,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum DrizzleError {
-    #[error("reading migrations folder {}: {source}", path.display())]
-    Io {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-    #[error("no .sql files in {}", .0.display())]
-    Empty(PathBuf),
-    #[error("sqlite: {0}")]
-    Sqlite(#[from] rusqlite::Error),
-    #[error("migration {tag} failed on statement {statement}: {source}")]
-    Statement {
-        tag: String,
-        statement: usize,
-        #[source]
-        source: rusqlite::Error,
-    },
-    #[error(
-        "__drizzle_migrations row {row} has hash {found}, expected {expected} ({tag}) or its LF/CRLF twin"
-    )]
-    HashMismatch {
-        row: usize,
-        tag: String,
-        found: String,
-        expected: String,
-    },
-    #[error("__drizzle_migrations has {found} rows, but the folder only has {available} migrations")]
-    AheadOfFolder { found: usize, available: usize },
+pub struct DrizzleBaseline {
+    pub created_at: i64,
+    pub sql: &'static str,
+    pub snapshot: &'static str,
 }
 
-pub fn hash(sql: &str) -> String;
-pub fn hash_matches(sql: &str, recorded: &str) -> bool;
-pub fn read_folder(dir: impl AsRef<Path>) -> Result<Vec<Migration>, DrizzleError>;
-pub fn last_applied(conn: &Connection) -> Result<Option<(usize, String)>, rusqlite::Error>;
-pub fn replay(
-    conn: &mut Connection,
-    migrations: &[Migration],
-    now_ms: i64,
-) -> Result<usize, DrizzleError>;
+pub(crate) fn prepare(conn: &mut Connection, schema: &Schema) -> Result<(), Error>;
 ```
 
 ### Observable Behaviour
 
-1. **`hash(sql)` and `hash_matches(sql, recorded)`**:
-   - `hash(sql)` returns the 64-character lowercase hex SHA-256 digest of `sql.as_bytes()`.
-   - `hash_matches(sql, recorded)` returns `true` if `recorded` equals the SHA-256 of `sql` as-is, or of `sql` normalised to LF (`\r\n` -> `\n`), or of `sql` normalised to CRLF (LF -> `\r\n`), so databases migrated on either Windows or Linux verify cleanly regardless of git `core.autocrlf`.
-
-2. **`read_folder(dir)`**:
-   - Reads directory entries in `dir`, keeping files whose extension is `"sql"`.
-   - Sorts entries lexicographically by file name (`0000_...`, `0001_...`).
-   - If no `.sql` files exist, returns `Err(DrizzleError::Empty(dir))`.
-   - For each `.sql` file, sets `tag` to the file stem (`0000_clever_zarda`), `sql` to the file contents, and `sha256 = hash(&sql)`.
-
-3. **`last_applied(conn)`**:
-   - Checks `sqlite_master` for a table named `__drizzle_migrations`. If absent, returns `Ok(None)`.
-   - Queries `SELECT hash FROM "__drizzle_migrations" ORDER BY created_at ASC, rowid ASC`.
-   - If the table has 0 rows, returns `Ok(None)`; otherwise returns `Ok(Some((count, last_hash)))`.
-
-4. **`replay(conn, migrations, now_ms)`**:
-   - Ensures table `"__drizzle_migrations"` exists:
-     ```sql
-     CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
-         id SERIAL PRIMARY KEY,
-         hash text NOT NULL,
-         created_at numeric
-     )
-     ```
-   - Reads existing hashes in `ORDER BY created_at ASC, rowid ASC`.
-   - If `applied.len() > migrations.len()`, returns `Err(DrizzleError::AheadOfFolder { found: applied.len(), available: migrations.len() })`.
-   - Verifies every applied row `idx` against `migrations[idx]` using `hash_matches(&migrations[idx].sql, &applied[idx])`; if any row does not match, returns `Err(DrizzleError::HashMismatch { row: idx + 1, tag, found, expected })`.
-   - For each unapplied migration in `&migrations[applied.len()..]`:
-     - Opens a transaction (`conn.transaction()`).
-     - Splits `migration.sql` on `"--> statement-breakpoint"`.
-     - Executes each non-blank statement (`conn.execute_batch(stmt)`), mapping errors to `DrizzleError::Statement { tag, statement: i + 1, source }`.
-     - Inserts `(migration.sha256, now_ms)` into `"__drizzle_migrations"`.
-     - Commits the transaction.
-   - Returns the number of newly applied migrations.
+- `prepare(conn, schema)`:
+  1. If table `__diesel_schema_migrations` exists in `sqlite_schema`, runs pending migrations from `(schema.migrations)()` via `MigrationHarness::run_pending_migrations` (mapping errors to `Error::Migration`).
+  2. Else if table `__drizzle_migrations` exists in `sqlite_schema`:
+     - Requires `schema.drizzle` to be `Some(baseline)` (otherwise returns `Err(Error::Adoption(...))`).
+     - Inside `conn.immediate_transaction`:
+       - Calls `drizzle::last_applied(conn)?`; if `None`, returns `Err(Error::Adoption("__drizzle_migrations is empty".into()))`.
+       - Verifies `created_at == Some(baseline.created_at)` and `drizzle::hash_matches(&hash, baseline.sql)` (otherwise returns `Err(Error::Adoption(...))`).
+       - Verifies `schema_snapshot(conn)? == baseline.snapshot.replace("\r\n", "\n")` (otherwise returns `Err(Error::Adoption("its schema differs from the baseline's".into()))`).
+       - Obtains the first migration version from `MigrationSource::<Sqlite>::migrations(&(schema.migrations)())`, ensures `__diesel_schema_migrations` exists (`conn.applied_migrations()`), and inserts `version` into `__diesel_schema_migrations`.
+     - Runs any remaining pending Diesel migrations after the baseline.
+  3. Else if the database has zero non-`sqlite_%` objects in `sqlite_schema`, runs all pending Diesel migrations from `(schema.migrations)()`.
+  4. Otherwise (tables exist with neither `__diesel_schema_migrations` nor `__drizzle_migrations`), returns `Err(Error::Adoption("it has tables but no migration history".into()))`.
 
 ---
 
-## 4. Module `snapshot` (`src/snapshot.rs`)
+## 4. Module `backup` (`src/backup.rs`)
 
-Produces a deterministic text fingerprint of a SQLite database's schema (tables, columns, indexes, foreign keys) so two databases created by different paths (e.g. Drizzle replay vs Rust `migrations`) can be compared for structural equivalence.
+Creates a consistent single-file hot copy of a live SQLite database using `rusqlite::backup::Backup`.
 
 ### Public Signatures
 
 ```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TableSnapshot {
-    pub name: String,
-    pub columns: Vec<ColumnSnapshot>,
-    pub foreign_keys: Vec<ForeignKeySnapshot>,
-    pub indexes: Vec<IndexSnapshot>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ColumnSnapshot {
-    pub name: String,
-    pub col_type: String,
-    pub not_null: bool,
-    pub default_value: Option<String>,
-    pub primary_key: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ForeignKeySnapshot {
-    pub from: String,
-    pub table: String,
-    pub to: String,
-    pub on_update: String,
-    pub on_delete: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct IndexSnapshot {
-    pub unique: bool,
-    pub columns: Vec<String>,
-}
-
-pub fn schema_snapshot(conn: &Connection) -> Result<Vec<TableSnapshot>, rusqlite::Error>;
-```
-
-### Observable Behaviour
-
-- Queries `sqlite_master` for user tables (`type = 'table'`, excluding `sqlite_%` and `__drizzle_migrations`), ordered by `name ASC`.
-- For each table:
-  - Reads `PRAGMA table_info("{table}")`: collects `ColumnSnapshot { name, col_type: type.to_ascii_uppercase(), not_null, default_value, primary_key }` in column order.
-  - Reads `PRAGMA foreign_key_list("{table}")`: collects `ForeignKeySnapshot { from, table, to, on_update: on_update.to_ascii_uppercase(), on_delete: on_delete.to_ascii_uppercase() }`, sorted via `Ord`.
-  - Reads `PRAGMA index_list("{table}")`: ignores autoindexes (`origin == "pk"` or `name.starts_with("sqlite_autoindex_")`), reads `PRAGMA index_info("{index_name}")` ordered by `seqno`, collects `IndexSnapshot { unique, columns }`, and sorts them via `Ord` (so index names do not affect equality).
-
----
-
-## 5. Module `adopt` (`src/adopt.rs`)
-
-Prepares a SQLite database file before `Store::open` runs, handling four cases:
-1. Fresh database (no user tables and `user_version == 0`);
-2. Already managed by Rust (`user_version >= 1`);
-3. Legacy Drizzle database at or behind the Drizzle baseline (`__drizzle_migrations` present and `user_version == 0`);
-4. Unrecognised schema (tables present, `user_version == 0`, no `__drizzle_migrations`).
-
-### Public Signatures
-
-```rust
-#[derive(Debug, Clone, Copy)]
-pub struct DrizzleBaseline<'a> {
-    pub migrations_dir: &'a Path,
-    pub target_version: u32,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Schema<'a> {
-    pub migrations: &'a [&'a str],
-    pub drizzle: Option<DrizzleBaseline<'a>>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Outcome {
-    Fresh,
-    AlreadyAt(u32),
-    Adopted { replayed: usize, version: u32 },
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum AdoptError {
-    #[error("sqlite: {0}")]
-    Sqlite(#[from] rusqlite::Error),
-    #[error("drizzle: {0}")]
-    Drizzle(#[from] drizzle::DrizzleError),
-    #[error(
-        "database has tables ({tables:?}) with user_version = 0 and no __drizzle_migrations table"
-    )]
-    UnknownSchema { tables: Vec<String> },
-    #[error(
-        "__drizzle_migrations is present, but no DrizzleBaseline was supplied to adopt it"
-    )]
-    DrizzleNotConfigured,
-    #[error("adopted Drizzle schema does not match baseline version {version}: {diff}")]
-    SchemaDrift { version: u32, diff: String },
-}
-
 impl Store {
-    pub fn open_with_adoption(
-        path: impl AsRef<Path>,
-        options: Options,
-        schema: Schema<'_>,
-    ) -> Result<(Self, Outcome), Error>;
-}
-
-pub fn prepare(conn: &mut Connection, schema: Schema<'_>) -> Result<Outcome, AdoptError>;
-```
-
-### Observable Behaviour
-
-1. **`prepare(conn, schema)`**:
-   - Reads `PRAGMA user_version`. If `user_version > 0`, returns `Ok(Outcome::AlreadyAt(user_version))`.
-   - Lists user tables in `sqlite_master` (`type = 'table' AND name NOT LIKE 'sqlite_%'`).
-   - If the table list is empty, returns `Ok(Outcome::Fresh)`.
-   - If `"__drizzle_migrations"` is not in the table list, returns `Err(AdoptError::UnknownSchema { tables })`.
-   - If `schema.drizzle` is `None`, returns `Err(AdoptError::DrizzleNotConfigured)`.
-   - With `Some(baseline)`:
-     - Reads the Drizzle folder via `drizzle::read_folder(baseline.migrations_dir)` and replays any unapplied Drizzle migrations via `drizzle::replay(conn, &folder, now_ms)`.
-     - Builds an in-memory reference `Connection`, runs `crate::migrate(&mut ref_conn, &schema.migrations[..baseline.target_version as usize])`, and compares `schema_snapshot(conn)` against `schema_snapshot(&ref_conn)`.
-     - If the snapshots differ, returns `Err(AdoptError::SchemaDrift { version: baseline.target_version, diff })`.
-     - Otherwise sets `PRAGMA user_version = {baseline.target_version}` and returns `Ok(Outcome::Adopted { replayed, version: baseline.target_version })`.
-
-2. **`Store::open_with_adoption(path, options, schema)`**:
-   - Creates parent directories of `path`, opens a connection with `options.busy_timeout`, runs `prepare(&mut conn, schema)`, closes the preparation connection, and then calls `Store::open(path, options, schema.migrations)`.
-
----
-
-## 6. Module `backup` (`src/backup.rs`)
-
-Performs online SQLite hot backups using SQLite's Online Backup API (`rusqlite::backup::Backup`).
-
-### Public Signatures
-
-```rust
-pub const BACKUP_DEADLINE: Duration = Duration::from_secs(30);
-
-impl Store {
-    pub async fn backup(&self, dest: impl AsRef<Path>) -> Result<(), Error>;
+    pub async fn backup(&self, destination: &Path, deadline: Duration) -> Result<(), Error>;
 }
 
 pub fn backup_file(
-    src: &Path,
-    dest: &Path,
+    source: &Path,
+    destination: &Path,
     busy_timeout: Duration,
     deadline: Duration,
 ) -> Result<(), Error>;
@@ -412,42 +216,102 @@ pub fn backup_file(
 
 ### Observable Behaviour
 
-- `backup_file(src, dest, busy_timeout, deadline)`:
-  - Creates parent directories of `dest` if needed, removes any leftover temp/dest file at `dest` before starting, opens `src` (read-only) and `dest` (read-write/create) with `busy_timeout`, and steps `rusqlite::backup::Backup::new(&src_conn, &mut dest_conn)` in chunks (e.g. 100 pages per step with brief pause on busy/locked) until completion or `deadline` expires.
-  - Any error is wrapped in `Error::Backup(Box::new(...))`.
-- `Store::backup(&self, dest)`:
-  - For a file-backed `Store`, runs `backup_file(path, dest, self.busy_timeout(), BACKUP_DEADLINE)` on the blocking pool.
-  - For an in-memory `Store`, runs `rusqlite::backup::Backup` from the store's connection to `dest` on the blocking pool.
+- `backup_file(source, destination, busy_timeout, deadline)`:
+  - If `!source.is_file()`, returns `Err(Error::Backup(format!("no database at {}", source.display())))`.
+  - If `destination.exists()`, returns `Err(Error::Backup(format!("{} exists already", destination.display())))`.
+  - Opens `source` with `rusqlite` in read-only mode (`SQLITE_OPEN_READ_ONLY | SQLITE_OPEN_NO_MUTEX`), sets `busy_timeout`, and starts a read transaction (`BEGIN; SELECT count(*) FROM sqlite_schema;`) so the backup copies a single consistent snapshot without restarting when concurrent WAL writers commit.
+  - Opens `destination` with `rusqlite::Connection::open` and steps `rusqlite::backup::Backup::new(&src, &mut dst)` (e.g. 4096 pages per step, sleeping briefly on busy/locked) until `StepResult::Done` or `Instant::now() >= start + deadline` (which fails with `Error::Backup("the backup deadline passed".into())`).
+  - Commits the read transaction on `src` and sets `PRAGMA journal_mode = DELETE` on `dst` so the backup is a self-contained single file.
+  - If any step fails, removes any partial file at `destination` before returning `Err(Error::Backup(...))`.
 
 ---
 
-## 7. Module `readonly` (`src/readonly.rs`)
+## 5. Module `drizzle` (`src/drizzle.rs`)
 
-Opens existing SQLite database files in strict read-only mode (`SQLITE_OPEN_READ_ONLY`) without creating files or running migrations, used by CLI diagnostic commands (`doctor`, `verify`, `backup`).
+Reads Drizzle Kit migration folders (`meta/_journal.json` and `<tag>.sql`), computes SHA-256 hashes, inspects `__drizzle_migrations`, and replays unapplied Drizzle migrations.
 
 ### Public Signatures
 
 ```rust
-pub fn open_read_only(path: impl AsRef<Path>, busy_timeout: Duration) -> Result<Connection, Error>;
-pub fn schema_version(conn: &Connection) -> Result<u32, Error>;
+#[derive(Debug, Clone)]
+pub struct Migration {
+    pub tag: String,
+    pub created_at: i64,
+    pub sql: String,
+}
+
+pub fn read_folder(dir: &Path) -> Result<Vec<Migration>, Error>;
+pub fn hash(sql: &str) -> String;
+pub fn hash_matches(recorded: &str, sql: &str) -> bool;
+pub fn last_applied(conn: &mut Connection) -> Result<Option<(Option<i64>, String)>, Error>;
+pub fn replay(conn: &mut Connection, migrations: &[Migration]) -> Result<(), Error>;
 ```
 
 ### Observable Behaviour
 
-- `open_read_only(path, busy_timeout)` opens `path` with `OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX`, sets `conn.busy_timeout(busy_timeout)`, and executes `PRAGMA query_only = ON;`. Fails with `Error::Sqlite` if the file does not exist.
-- `schema_version(conn)` queries and returns `PRAGMA user_version` (`u32`).
+- `read_folder(dir)` parses `dir/meta/_journal.json` (`{ "entries": [{ "tag": "...", "when": 123 }] }`) and reads `dir/<tag>.sql` for each entry in journal order, mapping I/O or JSON errors to `Error::Migration`.
+- `hash(sql)` returns the 64-character lowercase hex SHA-256 digest of `sql.as_bytes()`.
+- `hash_matches(recorded, sql)` returns `true` if `recorded` equals `hash` of `sql` with LF line endings (`\r\n` -> `\n`) or CRLF line endings (`\n` -> `\r\n`).
+- `last_applied(conn)` queries `SELECT created_at, hash FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1` and returns `Ok(Option<(Option<i64>, String)>)`.
+- `replay(conn, migrations)` creates `"__drizzle_migrations" (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)` if absent, checks `last_applied(conn)`, and in an `immediate_transaction` executes every migration with `m.created_at > last` (splitting `m.sql` on `"--> statement-breakpoint"`, executing non-empty statements via `batch_execute`, and inserting `(hash(&m.sql), m.created_at)` into `"__drizzle_migrations"`).
 
 ---
 
-## 8. Test Expectations (`tests/store.rs` and Unit Tests)
+## 6. Module `readonly` (`src/readonly.rs`)
+
+Opens an existing SQLite database in read-only mode (`mode=ro` URI + `PRAGMA query_only = ON`) without creating missing files or taking write locks.
+
+### Public Signatures
+
+```rust
+pub fn open_read_only(path: &Path, busy_timeout: Duration) -> Result<Connection, Error>;
+pub fn schema_version(conn: &mut Connection) -> Result<Option<String>, Error>;
+```
+
+### Observable Behaviour
+
+- `open_read_only(path, busy_timeout)` resolves `std::path::absolute(path)`, percent-encodes characters outside `[A-Za-z0-9-._~/:]`, formats a `file://...` (`//` on Unix, `///` on Windows drive paths) URI with `?mode=ro`, establishes a `SqliteConnection`, and executes `PRAGMA busy_timeout = <ms>; PRAGMA query_only = ON;`.
+- `schema_version(conn)` checks whether `__diesel_schema_migrations` exists in `sqlite_master`; if not, returns `Ok(None)`. Otherwise returns `SELECT version FROM __diesel_schema_migrations ORDER BY version DESC LIMIT 1` (`Ok(Option<String>)`).
+
+---
+
+## 7. Module `snapshot` (`src/snapshot.rs`)
+
+Returns a canonical SQL text representation of a SQLite database's schema.
+
+### Public Signatures
+
+```rust
+pub fn schema_snapshot(conn: &mut Connection) -> Result<String, Error>;
+```
+
+### Observable Behaviour
+
+- Queries `sqlite_schema`:
+  ```sql
+  SELECT sql FROM sqlite_schema
+  WHERE sql IS NOT NULL
+    AND name NOT LIKE 'sqlite!_%' ESCAPE '!'
+    AND tbl_name NOT IN ('__drizzle_migrations', '__diesel_schema_migrations')
+  ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 WHEN 'view' THEN 2 ELSE 3 END, name
+  ```
+- Normalises CRLF to LF (`\r\n` -> `\n`) and formats each row as `"{sql};\n"`, concatenated in order.
+
+---
+
+## 8. Test Expectations (`tests/store.rs`)
 
 The implementation must pass:
-1. All unit tests in `drizzle`, `adopt`, `backup`, `readonly`, and `snapshot`.
-2. Integration tests in `tests/store.rs`:
-   - `Store::open` and `Store::open_in_memory` apply migrations sequentially and advance `PRAGMA user_version`.
-   - Opening a database whose `user_version` exceeds `migrations.len()` fails with `Error::NewerSchema`.
-   - `Store::read` rejects write statements (`INSERT`/`UPDATE`/`DELETE`) because `PRAGMA query_only = ON` is active on reader pool connections.
-   - Concurrent `Store::read` calls and `Store::write` calls complete without `SQLITE_BUSY` under load.
-   - `Store::backup` produces a consistent, queryable SQLite file while concurrent writes are running.
-   - `Store::open_with_adoption` adopts both fully-applied and partially-applied Drizzle databases, rejects unknown schemas (`AdoptError::UnknownSchema`), detects schema drift (`AdoptError::SchemaDrift`), and verifies CRLF vs LF Drizzle migration hashes.
-3. All tests in `crates/store` across the 13 born-here files (`cargo test -p store`).
+1. All unit tests in `drizzle` and `readonly`.
+2. All integration tests in `tests/store.rs`:
+   - `writes_commit_and_errors_roll_back`
+   - `reads_cannot_write`
+   - `the_database_is_in_wal_mode`
+   - `sqlite_behaves_like_better_sqlite3`
+   - `a_dropped_request_still_finishes_its_transaction`
+   - `a_panicking_closure_rolls_back_and_the_store_keeps_working`
+   - `a_database_with_unknown_tables_is_refused`
+   - `a_backup_under_constant_writes_is_one_consistent_snapshot`
+   - `a_read_only_connection_reads_but_refuses_writes`
+   - `the_schema_version_is_readable_while_a_write_is_held`
+3. All tests in `tests/database.rs` and `tests/revert.rs` (`cargo test -p store`).
