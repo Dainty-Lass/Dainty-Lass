@@ -237,6 +237,12 @@ test("an error's text: the invite's reason, the port, the host step, a detail ke
     errorMessage({ code: "host_failed", detail: "workspace" }, null).key
   ).toBe("host_err_workspace_rust")
   expect(
+    errorMessage({ code: "host_failed", detail: "workspace_mgr" }, null).key
+  ).toBe("host_err_workspace_mgr")
+  expect(
+    errorMessage({ code: "host_failed", detail: "project_missing" }, null).key
+  ).toBe("host_err_project_missing")
+  expect(
     errorMessage({ code: "host_failed", detail: "pack_invalid" }, null).key
   ).toBe("host_err_pack_invalid_rust")
   expect(

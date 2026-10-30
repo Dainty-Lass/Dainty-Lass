@@ -58,7 +58,7 @@ import {
   PHASE_KEYS,
   phaseTone,
   readyCount,
-  SERVER_STATE_KEYS,
+  serverStateKeys,
   statusRows,
   type HostTab,
 } from "@/app/host-model"
@@ -105,14 +105,18 @@ function JobBar({ kit }: { kit: HostKit }) {
 function Workspace({ kit, snap }: { kit: HostKit; snap: Snapshot }) {
   const { t } = useI18n()
   const act = useAct()
+  const mgr = snap.app.serverGui
   const state = !kit.workspaceOk
     ? "host_ws_missing"
-    : kit.upstream.patched
+    : mgr || kit.upstream.patched
       ? "host_ws_ready"
       : "host_ws_unpatched"
   const working = kit.job?.state === "running"
   return (
-    <Panel title={t("host_ws_title")} text={t("host_ws_text")}>
+    <Panel
+      title={t(mgr ? "host_ws_title_mgr" : "host_ws_title")}
+      text={t(mgr ? "host_ws_text_mgr" : "host_ws_text")}
+    >
       <Row
         title={t(state)}
         sub={kit.workspace ? <Secret text={kit.workspace} /> : undefined}
@@ -124,7 +128,7 @@ function Workspace({ kit, snap }: { kit: HostKit; snap: Snapshot }) {
           onClick={() => act(() => api.hostChooseWorkspace())}
         >
           <FolderIcon />
-          {t("host_ws_choose")}
+          {t(mgr ? "host_ws_choose_mgr" : "host_ws_choose")}
         </Button>
         {kit.workspace && (
           <Button
@@ -136,7 +140,7 @@ function Workspace({ kit, snap }: { kit: HostKit; snap: Snapshot }) {
           </Button>
         )}
       </Row>
-      {!kit.workspaceOk && (
+      {!mgr && !kit.workspaceOk && (
         <Row
           title={t("host_ws_download")}
           sub={
@@ -176,7 +180,7 @@ function ServerPanel({
   const { t } = useI18n()
   const act = useAct()
   const hide = useHidden()
-  const keys = SERVER_STATE_KEYS[server.state]
+  const keys = serverStateKeys(snap.app.serverGui)[server.state]
   const working = kit.job?.state === "running"
   const running = server.state === "running"
   const changing = server.state === "starting" || server.state === "stopping"
@@ -265,7 +269,7 @@ function ServerPanel({
           {t("hsrv_checks")}
         </h3>
         <ul className="flex flex-col">
-          {checks(kit).map((check) => {
+          {checks(kit, snap.app.serverGui).map((check) => {
             const fixer = !check.ok ? fix(check.id) : null
             return (
               <li
@@ -318,8 +322,12 @@ function SetupPanel({
   const stopped = server.state === "stopped" || server.state === "failed"
   const valid = name.trim() !== "" && (mode === "private" || host.trim() !== "")
   const working = kit.job?.state === "running"
+  const mgr = snap.app.serverGui
   return (
-    <Panel title={t("hsrv_setup_title")} text={t("hsrv_setup_text")}>
+    <Panel
+      title={t("hsrv_setup_title")}
+      text={t(mgr ? "hsrv_setup_text_mgr" : "hsrv_setup_text")}
+    >
       {config.configured && (
         <p className="text-sm">
           {t("hsrv_setup_done", {
@@ -350,7 +358,10 @@ function SetupPanel({
           disabled={!stopped}
           options={[
             { value: "private", label: t("hsrv_mode_private") },
-            { value: "public", label: t("hsrv_mode_public") },
+            {
+              value: "public",
+              label: t(mgr ? "hsrv_mode_public_mgr" : "hsrv_mode_public"),
+            },
           ]}
           onChange={setMode}
         />
@@ -372,13 +383,24 @@ function SetupPanel({
           {t("hsrv_setup_tailscale")}
         </p>
       )}
-      <p className="text-xs text-muted-foreground">
-        {snap.game.root ? (
-          <Secret text={t("hsrv_setup_game", { folder: snap.game.root })} />
-        ) : (
-          t("hsrv_setup_no_game")
-        )}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {snap.game.root ? (
+            <Secret text={t("hsrv_setup_game", { folder: snap.game.root })} />
+          ) : (
+            t(mgr ? "hsrv_setup_no_game_mgr" : "hsrv_setup_no_game")
+          )}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!stopped || working}
+          onClick={() => act(() => api.chooseGameFolder())}
+        >
+          <FolderIcon />
+          {t("hsrv_setup_choose_game")}
+        </Button>
+      </div>
       <div>
         <Button
           disabled={!valid || !stopped || working || !kit.workspaceOk}
@@ -1056,7 +1078,7 @@ function ServerTab({
       <InvitePanel kit={kit} server={server} snap={snap} />
       <Multipliers kit={kit} />
       {snap.app.serverGui && <DoctorPanel kit={kit} />}
-      <UpdatePanel kit={kit} server={server} />
+      {!snap.app.serverGui && <UpdatePanel kit={kit} server={server} />}
       <Console server={server} />
     </>
   )

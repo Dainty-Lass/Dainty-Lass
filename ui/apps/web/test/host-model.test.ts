@@ -38,6 +38,7 @@ import {
   requirementSteps,
   safePalette,
   SERVER_STATE_KEYS,
+  serverStateKeys,
   settingsPatch,
   statusRows,
 } from "../src/app/host-model"
@@ -181,6 +182,11 @@ test("before you start: the project, the setup and some game data; a missing run
     warn: true,
   })
   expect(checks(kit()).every((c) => c.ok && !c.warn)).toBe(true)
+  expect(checks(kit(), false)[0]?.key).toBe("hsrv_check_workspace")
+  expect(checks(kit(), true)[0]?.key).toBe("hsrv_check_workspace_mgr")
+  expect(serverStateKeys(false).stopped.text).toBe("hsrv_text_stopped")
+  expect(serverStateKeys(true).stopped.text).toBe("hsrv_text_stopped_mgr")
+  expect(serverStateKeys(true).running.text).toBe("hsrv_text_running_mgr")
 })
 
 test("multipliers are 1 to 100", () => {

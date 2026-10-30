@@ -18,11 +18,12 @@ import { SettingsScreen } from "@/screens/settings"
 
 function Shell() {
   const { t, lang } = useI18n()
-  const { view } = useLauncher()
+  const { view, snap } = useLauncher()
+  const serverGui = snap?.app.serverGui ?? false
   useEffect(() => {
     document.documentElement.lang = lang
-    document.title = t("app_title")
-  }, [lang, t])
+    document.title = t(serverGui ? "app_title_manager" : "app_title")
+  }, [lang, serverGui, t])
   return (
     <div className="flex h-svh flex-col bg-background text-foreground">
       <TitleBar />
