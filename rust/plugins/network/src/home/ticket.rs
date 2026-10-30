@@ -525,6 +525,7 @@ impl Tickets {
     /// a database is attached so a restart does not reinstate banned sessions.
     pub async fn revoke(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
         let now = self.clock.now_ms();
+        #[cfg_attr(not(feature = "directory"), allow(unused_variables))]
         let floor = {
             let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
             let entry = revoked.entry(account.clone()).or_insert(now);

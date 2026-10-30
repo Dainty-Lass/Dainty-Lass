@@ -28,6 +28,7 @@ Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and 
 | Launcher local loopback relay (`127.0.0.1:61100`, PID owner check, XMPP upgrade, mid-session re-point & key stripping) | [docs/security/relay.md](docs/security/relay.md) | `relay_input.rs` | RA9, DN6 |
 | Launcher Host page and supervised `dainty-lass-host` driver | [docs/security/host-page.md](docs/security/host-page.md) | `launcher_host.rs` | RA11, RA12 |
 | Launcher 1.4.4 legacy client path (`dauntless-revived://`, client patcher, relay) | [docs/security/launcher-legacy.md](docs/security/launcher-legacy.md) | `launcher_legacy.rs` | RL1–RL5 |
+| Remote management (`crates/remote`: one-time enrollment URIs, certificate pinning, mTLS `Service::Remote`, secret non-export, `host.toml` override preservation, `DH6` guarded approval) | [docs/security/remote-management.md](docs/security/remote-management.md) | `remote_wire.rs` | DD27, RM1–RM4 |
 
 ## Module repository checklists
 

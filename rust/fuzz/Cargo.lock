@@ -856,6 +856,7 @@ dependencies = [
  "network",
  "protocol",
  "proxy",
+ "remote",
  "rustls",
  "serde",
  "serde_json",
@@ -3085,6 +3086,31 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "remote"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "chrono",
+ "module-api",
+ "network",
+ "percent-encoding",
+ "protocol",
+ "rand 0.10.3",
+ "rcgen",
+ "rustls",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "subtle",
+ "thiserror",
+ "tokio",
+ "toml_edit",
+ "tracing",
+ "url",
+]
 
 [[package]]
 name = "reqwest"
