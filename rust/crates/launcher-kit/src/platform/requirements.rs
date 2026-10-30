@@ -164,27 +164,15 @@ pub async fn check_requirements(
     probes: &Probes<'_>,
     any_vs: impl AsyncFnOnce() -> Option<String>,
 ) -> Vec<Requirement> {
-    let dauntless = if inputs.game.0 {
-        Requirement {
-            id: RequirementId::Dauntless,
-            state: RequirementState::Ok,
-            detail: None,
-            problem: None,
-        }
-    } else if let Some(problem) = &inputs.game.1 {
-        Requirement {
-            id: RequirementId::Dauntless,
-            state: RequirementState::Problem,
-            detail: None,
-            problem: Some(problem.clone()),
-        }
-    } else {
-        Requirement {
-            id: RequirementId::Dauntless,
-            state: RequirementState::Missing,
-            detail: None,
-            problem: None,
-        }
+    let dauntless = Requirement {
+        id: RequirementId::Dauntless,
+        state: if inputs.game.0 {
+            RequirementState::Ok
+        } else {
+            RequirementState::Missing
+        },
+        detail: inputs.game.1.clone(),
+        problem: None,
     };
 
     let tailscale = Requirement {
@@ -198,11 +186,11 @@ pub async fn check_requirements(
         problem: None,
     };
 
-    let visual_studio = if inputs.toolchain.msbuild.is_some() {
+    let visual_studio = if let Some(vs) = &inputs.toolchain.visual_studio {
         Requirement {
             id: RequirementId::VisualStudio,
             state: RequirementState::Ok,
-            detail: inputs.toolchain.visual_studio.clone(),
+            detail: Some(vs.clone()),
             problem: None,
         }
     } else if let Some(vs_name) = any_vs().await {
@@ -221,20 +209,15 @@ pub async fn check_requirements(
         }
     };
 
-    let rust = if let Some(cargo) = &inputs.toolchain.cargo {
-        Requirement {
-            id: RequirementId::Rust,
-            state: RequirementState::Ok,
-            detail: Some(cargo.to_string_lossy().into_owned()),
-            problem: None,
-        }
-    } else {
-        Requirement {
-            id: RequirementId::Rust,
-            state: RequirementState::Missing,
-            detail: None,
-            problem: None,
-        }
+    let rust = Requirement {
+        id: RequirementId::Rust,
+        state: if inputs.toolchain.cargo.is_some() {
+            RequirementState::Ok
+        } else {
+            RequirementState::Missing
+        },
+        detail: None,
+        problem: None,
     };
 
     let dumper7 = if let Some(dumper) = inputs.dumper_dll.filter(|p| (probes.exists)(p)) {
@@ -258,20 +241,15 @@ pub async fn check_requirements(
         }
     };
 
-    let vc_redist = if inputs.missing_vc_runtime == 0 {
-        Requirement {
-            id: RequirementId::VcRedist,
-            state: RequirementState::Ok,
-            detail: None,
-            problem: None,
-        }
-    } else {
-        Requirement {
-            id: RequirementId::VcRedist,
-            state: RequirementState::Missing,
-            detail: Some(inputs.missing_vc_runtime.to_string()),
-            problem: None,
-        }
+    let vc_redist = Requirement {
+        id: RequirementId::VcRedist,
+        state: if inputs.missing_vc_runtime == 0 {
+            RequirementState::Ok
+        } else {
+            RequirementState::Missing
+        },
+        detail: None,
+        problem: None,
     };
 
     vec![dauntless, tailscale, visual_studio, rust, dumper7, vc_redist]
@@ -315,8 +293,8 @@ mod tests {
 
         assert_eq!(list.len(), 6);
         assert_eq!(list[0].id, RequirementId::Dauntless);
-        assert_eq!(list[0].state, RequirementState::Problem);
-        assert_eq!(list[0].problem.as_deref(), Some("wrong_version"));
+        assert_eq!(list[0].state, RequirementState::Missing);
+        assert_eq!(list[0].detail.as_deref(), Some("wrong_version"));
 
         assert_eq!(list[1].id, RequirementId::Tailscale);
         assert_eq!(list[1].state, RequirementState::Ok);

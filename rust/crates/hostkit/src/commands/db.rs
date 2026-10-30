@@ -14,8 +14,7 @@ use crate::commands::update::{
 };
 use crate::error::HostError;
 use crate::hostconfig::{
-    DATABASE_FILE, DEFAULT_MONGO_URI, HostConfig, load_host_config, node_database_config,
-    read_env_file,
+    DATABASE_FILE, DEFAULT_MONGO_URI, HostConfig, load_host_config, node_database_config, read_env_file,
 };
 use crate::paths::Paths;
 
@@ -37,11 +36,7 @@ pub fn run_with(paths: &Paths, args: &DbArgs, out: &mut dyn FnMut(&str)) -> Outc
 }
 
 /// Resolves the MongoDB URI from `--from` / `--against` / `--to`, or defaults from `backend.env` and `host.toml`.
-pub fn resolve_mongo_uri(
-    paths: &Paths,
-    config: Option<&HostConfig>,
-    explicit: Option<&str>,
-) -> String {
+pub fn resolve_mongo_uri(paths: &Paths, config: Option<&HostConfig>, explicit: Option<&str>) -> String {
     let backend_env = read_env_file(&paths.config.join("backend.env")).unwrap_or_default();
     if let Some(raw) = explicit.map(str::trim).filter(|s| !s.is_empty()) {
         return mongo_uri_with_database(raw, backend_env.get("MONGODB_DB"));
@@ -74,10 +69,7 @@ pub fn resolve_store_target(
         return Ok((target, explicit_allow_remote || allow_remote));
     }
     let sqlite_file = paths.config.join(DATABASE_FILE);
-    Ok((
-        sqlite_file.to_string_lossy().into_owned(),
-        explicit_allow_remote,
-    ))
+    Ok((sqlite_file.to_string_lossy().into_owned(), explicit_allow_remote))
 }
 
 /// Extracts the password from a `scheme://user:password@host...` URI, if present and non-empty.
@@ -112,8 +104,7 @@ fn resolve_db_config(
 ) -> Result<store::DatabaseConfig, HostError> {
     if let Some(target) = to {
         if target.starts_with("postgres://") || target.starts_with("postgresql://") {
-            let parsed = url::Url::parse(target)
-                .map_err(|e| HostError::message(format!("--to {target}: {e}")))?;
+            let parsed = url::Url::parse(target).map_err(|e| HostError::message(format!("--to {target}: {e}")))?;
             let host = parsed.host_str().unwrap_or("127.0.0.1").to_owned();
             let port = parsed.port().unwrap_or(5432);
             let user = if parsed.username().is_empty() {
@@ -137,9 +128,7 @@ fn resolve_db_config(
                 allow_remote: true,
             }));
         }
-        return Ok(store::DatabaseConfig::Sqlite {
-            file: target.into(),
-        });
+        return Ok(store::DatabaseConfig::Sqlite { file: target.into() });
     }
     if let Some(c) = config {
         node_database_config(c, p)
@@ -221,9 +210,7 @@ fn export_mongo(p: &Paths, args: &DbExportMongoArgs, out: &mut dyn FnMut(&str)) 
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::hostconfig::{
-        DatabaseSettings, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode,
-    };
+    use crate::hostconfig::{DatabaseSettings, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
     #[test]
     fn defaults_source_and_target_from_host_toml_and_never_prints_passwords() {
@@ -279,16 +266,11 @@ mod tests {
             mongo_uri,
             "mongodb://admin:mongoSecret99@127.0.0.1:27017/reforged?replicaSet=rs0"
         );
-        let (store_target, allow_remote) =
-            resolve_store_target(&paths, Some(&cfg), None, false).unwrap();
-        assert_eq!(
-            store_target,
-            "postgres://dainty:pgSuperSecret42@127.0.0.1:5432/dainty"
-        );
+        let (store_target, allow_remote) = resolve_store_target(&paths, Some(&cfg), None, false).unwrap();
+        assert_eq!(store_target, "postgres://dainty:pgSuperSecret42@127.0.0.1:5432/dainty");
         assert!(!allow_remote);
 
-        let err_text =
-            format!("failed connecting to {store_target} or {mongo_uri} (pw=pgSuperSecret42)");
+        let err_text = format!("failed connecting to {store_target} or {mongo_uri} (pw=pgSuperSecret42)");
         let cleaned = redact_credentials_in_text(&err_text, &[&store_target, &mongo_uri]);
         assert!(!cleaned.contains("pgSuperSecret42"));
         assert!(!cleaned.contains("mongoSecret99"));

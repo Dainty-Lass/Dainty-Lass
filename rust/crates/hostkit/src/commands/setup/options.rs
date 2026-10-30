@@ -9,10 +9,9 @@ use crate::cli::SetupArgs;
 use crate::commands::setup::SetupEnv;
 use crate::error::HostError;
 use crate::hostconfig::{
-    DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, Edition, HostConfig, LinuxOptions, Multipliers,
-    PerformanceOptions, Platform, Registration, ServerMode, check_edition, game_ports, is_dns_name,
-    is_ipv4, is_public_ipv4, is_tailscale_ipv4, is_valid_share_url, linux_options,
-    performance_options,
+    DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, Edition, HostConfig, LinuxOptions, Multipliers, PerformanceOptions,
+    Platform, Registration, ServerMode, check_edition, game_ports, is_dns_name, is_ipv4, is_public_ipv4,
+    is_tailscale_ipv4, is_valid_share_url, linux_options, performance_options,
 };
 use crate::paths::{GAME_VERSION_TEXT, MAX_HUNTS, game_exe_relative};
 
@@ -43,9 +42,7 @@ pub fn public_port_from_args(
             .parse::<u16>()
             .ok()
             .filter(|&p| p >= 1)
-            .ok_or_else(|| {
-                HostError::message(format!("--public-port must be a TCP port number (got {raw})"))
-            })?;
+            .ok_or_else(|| HostError::message(format!("--public-port must be a TCP port number (got {raw})")))?;
         if port == 443 {
             Ok(None)
         } else {
@@ -71,19 +68,11 @@ fn parse_legacy_public_port_from_args(
             ));
         }
         if mode != ServerMode::Public {
-            return Err(HostError::message(
-                "--legacy-public-port is for public servers only",
-            ));
+            return Err(HostError::message("--legacy-public-port is for public servers only"));
         }
-        let port = raw
-            .trim()
-            .parse::<u16>()
-            .ok()
-            .filter(|&p| p >= 1)
-            .ok_or_else(|| {
-                HostError::message(format!(
-                    "--legacy-public-port must be a TCP port number (got {raw})"
-                ))
+        let port =
+            raw.trim().parse::<u16>().ok().filter(|&p| p >= 1).ok_or_else(|| {
+                HostError::message(format!("--legacy-public-port must be a TCP port number (got {raw})"))
             })?;
         if port == crate::paths::DEFAULT_LEGACY_PUBLIC_PORT {
             Ok(None)
@@ -137,16 +126,11 @@ pub fn performance_from_args(
     }
 
     if let Some(ref raw) = args.idle_fps {
-        let fps = raw
-            .trim()
-            .parse::<u32>()
-            .ok()
-            .filter(|&n| n <= 240)
-            .ok_or_else(|| {
-                HostError::message(format!(
-                    "--idle-fps must be 0 (the same as --server-fps) or 1 to 240 frames per second (got {raw})"
-                ))
-            })?;
+        let fps = raw.trim().parse::<u32>().ok().filter(|&n| n <= 240).ok_or_else(|| {
+            HostError::message(format!(
+                "--idle-fps must be 0 (the same as --server-fps) or 1 to 240 frames per second (got {raw})"
+            ))
+        })?;
         perf.idle_fps = fps;
     }
 
@@ -158,16 +142,11 @@ pub fn performance_from_args(
     }
 
     if let Some(ref raw) = args.training_idle_minutes {
-        let mins = raw
-            .trim()
-            .parse::<u32>()
-            .ok()
-            .filter(|&n| n <= 1440)
-            .ok_or_else(|| {
-                HostError::message(format!(
-                    "--training-idle-minutes must be 0 (keep them running) or 1 to 1440 minutes (got {raw})"
-                ))
-            })?;
+        let mins = raw.trim().parse::<u32>().ok().filter(|&n| n <= 1440).ok_or_else(|| {
+            HostError::message(format!(
+                "--training-idle-minutes must be 0 (keep them running) or 1 to 1440 minutes (got {raw})"
+            ))
+        })?;
         perf.training_idle_minutes = mins;
     }
 
@@ -264,9 +243,7 @@ pub fn linux_from_args(
         } else if let Some(found) = find_on_path(trimmed)? {
             lnx.wine = Some(found);
         } else {
-            return Err(HostError::message(format!(
-                "--wine {trimmed:?} was not found on PATH"
-            )));
+            return Err(HostError::message(format!("--wine {trimmed:?} was not found on PATH")));
         }
     }
 
@@ -344,9 +321,7 @@ fn parse_multiplier_arg(flag: &str, raw: &str) -> Result<f64, HostError> {
         .parse::<f64>()
         .ok()
         .filter(|n| n.is_finite() && (1.0..=100.0).contains(n))
-        .ok_or_else(|| {
-            HostError::message(format!("{flag} must be a number from 1 to 100 (got {raw})"))
-        })?;
+        .ok_or_else(|| HostError::message(format!("{flag} must be a number from 1 to 100 (got {raw})")))?;
     Ok(val)
 }
 
@@ -372,19 +347,15 @@ pub fn host_config_from_args(
     };
 
     let edition = if let Some(ref ed) = args.edition {
-        Edition::parse(ed.trim()).ok_or_else(|| {
-            HostError::message(format!(
-                "--edition must be reborn, legacy or both (got {ed})"
-            ))
-        })?
+        Edition::parse(ed.trim())
+            .ok_or_else(|| HostError::message(format!("--edition must be reborn, legacy or both (got {ed})")))?
     } else if let Some(c) = existing {
         c.edition
     } else {
         Edition::Reborn
     };
 
-    if (args.legacy_game.is_some() || args.legacy_public_port.is_some()) && edition != Edition::Both
-    {
+    if (args.legacy_game.is_some() || args.legacy_public_port.is_some()) && edition != Edition::Both {
         return Err(HostError::message(
             "--legacy-game and --legacy-public-port are for --edition both",
         ));
@@ -443,7 +414,8 @@ pub fn host_config_from_args(
                 raw_ga.trim().to_owned()
             } else if is_public_ipv4(&h) {
                 h.clone()
-            } else if let Some(c) = existing.filter(|c| c.mode == ServerMode::Public && is_public_ipv4(&c.game_address)) {
+            } else if let Some(c) = existing.filter(|c| c.mode == ServerMode::Public && is_public_ipv4(&c.game_address))
+            {
                 c.game_address.clone()
             } else {
                 return Err(HostError::message(
@@ -483,9 +455,8 @@ pub fn host_config_from_args(
     };
 
     let registration = if let Some(ref r) = args.registration {
-        Registration::parse(&r.trim().to_ascii_uppercase()).ok_or_else(|| {
-            HostError::message("registration must be INVITECODE, OPEN or NONE")
-        })?
+        Registration::parse(&r.trim().to_ascii_uppercase())
+            .ok_or_else(|| HostError::message("registration must be INVITECODE, OPEN or NONE"))?
     } else if let Some(c) = existing {
         c.registration
     } else {
@@ -546,9 +517,7 @@ pub fn host_config_from_args(
             .ok()
             .filter(|&n| (1..=MAX_HUNTS).contains(&n))
             .ok_or_else(|| {
-                HostError::message(
-                    "maxHuntServers must be 1 to 10 (UDP 8770-8777 up to 6 hunts, 8766-8777 at 10)",
-                )
+                HostError::message("maxHuntServers must be 1 to 10 (UDP 8770-8777 up to 6 hunts, 8766-8777 at 10)")
             })?
     } else if let Some(c) = existing {
         c.max_hunt_servers
@@ -559,9 +528,7 @@ pub fn host_config_from_args(
     let public_port = public_port_from_args(args, mode, existing)?.map(|p| p as u16);
     let legacy_public_port = parse_legacy_public_port_from_args(args, mode, edition, existing)?;
 
-    if (args.xp_multiplier.is_some() || args.reward_multiplier.is_some())
-        && mode != ServerMode::Private
-    {
+    if (args.xp_multiplier.is_some() || args.reward_multiplier.is_some()) && mode != ServerMode::Private {
         return Err(HostError::message(
             "XP and reward multipliers are for private (Tailscale) test servers only",
         ));

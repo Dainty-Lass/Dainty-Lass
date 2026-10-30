@@ -21,7 +21,8 @@ use tokio::net::TcpStream;
 use tokio::process::{ChildStdin, Command};
 use tokio::sync::Mutex as AsyncMutex;
 
-use crate::platform::hostkit::parse::{clean_line, failure_line};
+pub use crate::bridge::types::{HostComponentPhase, HostInvite, HostServerComponent, HostServerState, HostServerView};
+use crate::platform::hostkit::parse::{clean_line, cut, failure_line};
 use crate::platform::hostkit::{WorkspacePaths, find_host_binary};
 
 /// Environment variable telling `reforged-host start` to accept control commands on stdin.
@@ -48,72 +49,17 @@ pub const STARTUP_DEADLINE_MS: u64 = 30_000;
 /// Startup readiness poll interval in milliseconds.
 pub const STARTUP_POLL_MS: u64 = 250;
 
-const STOP_TIMEOUT: Duration = Duration::from_secs(45);
+/// Graceful stop timeout before terminating the child process tree.
+pub const STOP_TIMEOUT: Duration = Duration::from_secs(45);
 const KILL_GRACE: Duration = Duration::from_secs(5);
 const PROBE_TIMEOUT: Duration = Duration::from_millis(700);
 const CHANGE_EVERY: Duration = Duration::from_millis(250);
 
-/// Lifecycle state of the managed host server.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HostServerState {
-    Stopped,
-    Starting,
-    Running,
-    Stopping,
-    Failed,
-    External,
-}
-
 /// Alias for [`HostServerState`].
 pub type ServerState = HostServerState;
 
-/// Lifecycle phase of an individual embedded server component.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HostComponentPhase {
-    Stopped,
-    Starting,
-    Running,
-    Stopping,
-    Failed,
-}
-
-/// Status view of a single host server component or module.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HostServerComponent {
-    pub name: String,
-    pub phase: HostComponentPhase,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
-}
-
 /// Alias for [`HostServerComponent`].
 pub type ServerModule = HostServerComponent;
-
-/// Active invite link metadata associated with the host server.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HostInvite {
-    pub link: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub for_name: Option<String>,
-}
-
-/// Snapshot view of the host server state, log buffer, and active invite.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HostServerView {
-    pub state: HostServerState,
-    pub lines: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite: Option<HostInvite>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
-    #[serde(default)]
-    pub components: Vec<HostServerComponent>,
-}
 
 /// Alias for [`HostServerView`].
 pub type ServerView = HostServerView;
@@ -176,8 +122,8 @@ impl HostKitError {
     /// Returns a human-readable detail string for error reporting.
     pub fn detail(&self) -> String {
         match self {
-            Self::Missing => "host_binary_missing".to_string(),
-            Self::Spawn(err) => err.clone(),
+            Self::Missing => "hostkit_missing".to_string(),
+            Self::Spawn(err) => format!("hostkit_start:{}", cut(err, 200)),
             Self::Busy => "server_busy".to_string(),
             Self::AlreadyRunning => "already_running".to_string(),
         }
@@ -205,6 +151,8 @@ struct Inner {
     message: Option<String>,
     listener: Option<Listener>,
     embedded: Option<Arc<dyn EmbeddedServer>>,
+    embedded_running: bool,
+    stop_requested: bool,
     child: Option<ChildControl>,
     last_emit: Option<Instant>,
 }
@@ -221,12 +169,16 @@ impl Inner {
     }
 
     fn view(&self) -> HostServerView {
-        let components = self.embedded.as_ref().map(|e| e.components()).unwrap_or_default();
+        let components = match (&self.embedded, self.embedded_running) {
+            (Some(server), true) => server.components(),
+            _ => Vec::new(),
+        };
         HostServerView {
             state: self.state,
+            message: self.message.clone(),
             lines: self.lines.iter().cloned().collect(),
             invite: self.invite.clone(),
-            message: self.message.clone(),
+            embedded: self.embedded.is_some(),
             components,
         }
     }
@@ -260,6 +212,8 @@ impl HostServer {
                 message: None,
                 listener: None,
                 embedded: None,
+                embedded_running: false,
+                stop_requested: false,
                 child: None,
                 last_emit: None,
             })),
@@ -299,9 +253,10 @@ impl HostServer {
     pub fn view(&self) -> HostServerView {
         self.inner.lock().map(|g| g.view()).unwrap_or(HostServerView {
             state: HostServerState::Stopped,
+            message: None,
             lines: Vec::new(),
             invite: None,
-            message: None,
+            embedded: false,
             components: Vec::new(),
         })
     }
@@ -311,12 +266,12 @@ impl HostServer {
         self.inner.lock().map(|g| g.state).unwrap_or(HostServerState::Stopped)
     }
 
-    /// Returns `true` when the server is in `Starting`, `Running`, or `External` state.
+    /// Returns `true` when the launcher started a server that has not exited.
     pub fn running(&self) -> bool {
-        matches!(
-            self.state(),
-            HostServerState::Starting | HostServerState::Running | HostServerState::External
-        )
+        self.inner
+            .lock()
+            .map(|g| g.child.is_some() || g.embedded_running)
+            .unwrap_or(false)
     }
 
     /// Updates the active [`HostInvite`] and notifies the listener immediately.
@@ -381,10 +336,6 @@ impl HostServer {
     }
 
     /// Runs a one-shot `reforged-host` subcommand, streaming non-redacted lines to the view and log file.
-    ///
-    /// When running the `"invite"` subcommand, any JSON output line (trimmed text starting with `'{'`)
-    /// is redacted from both `HostServerView::lines` and `.workspace/logs/launcher-invite.log`, and is
-    /// retained only in the returned [`CommandOutput::lines`].
     pub async fn command(
         &self,
         tool: &HostTool,
@@ -392,10 +343,6 @@ impl HostServer {
         args: &[String],
         log_name: &str,
     ) -> Result<CommandOutput, HostKitError> {
-        if !tool.program.is_file() {
-            return Err(HostKitError::Missing);
-        }
-
         let is_invite = log_name == "invite" || args.first().map(|s| s.as_str()) == Some("invite");
         let log_path = WorkspacePaths::new(workspace).launcher_log(log_name);
         if let Some(parent) = log_path.parent() {
@@ -406,14 +353,18 @@ impl HostServer {
         cmd.args(&tool.prefix)
             .args(args)
             .current_dir(workspace)
+            .env("NO_COLOR", "1")
+            .env("FORCE_COLOR", "0")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
 
         #[cfg(windows)]
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 
         let mut child = cmd.spawn().map_err(|e| HostKitError::Spawn(e.to_string()))?;
+        self.note(&format!("> {}", args.first().map_or("", String::as_str)));
 
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
@@ -440,12 +391,20 @@ impl HostServer {
         }
         drop(tx);
 
-        let mut log_file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(&log_path)
-            .ok();
+        let mut log_file = OpenOptions::new().create(true).append(true).open(&log_path).ok();
+        if let Some(f) = log_file.as_mut() {
+            let name = tool
+                .program
+                .file_name()
+                .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+            let _ = writeln!(
+                f,
+                "\n> {name} {}  (in {}, {})",
+                args.join(" "),
+                workspace.display(),
+                chrono::Utc::now().to_rfc3339()
+            );
+        }
 
         let mut collected = Vec::new();
         while let Some(raw) = rx.recv().await {
@@ -465,6 +424,9 @@ impl HostServer {
 
         let status = child.wait().await.map_err(|e| HostKitError::Spawn(e.to_string()))?;
         let code = status.code().unwrap_or(-1);
+        if let Some(f) = log_file.as_mut() {
+            let _ = writeln!(f, "(exit code {code})");
+        }
         let failure = if code == 0 { None } else { failure_line(&collected) };
 
         self.emit_immediate();
@@ -477,31 +439,29 @@ impl HostServer {
 
     /// Probes whether an external server is answering on `BACKEND_PORT` when stopped.
     pub async fn refresh(&self) {
-        if self.has_embedded() {
-            self.emit_immediate();
-            return;
-        }
-        let current = self.state();
-        if !matches!(
-            current,
-            HostServerState::Stopped | HostServerState::External | HostServerState::Failed
-        ) {
-            return;
+        {
+            let Ok(guard) = self.inner.lock() else {
+                return;
+            };
+            if guard.child.is_some()
+                || guard.embedded_running
+                || matches!(guard.state, HostServerState::Starting | HostServerState::Stopping)
+            {
+                return;
+            }
         }
         let answers = (self.probe)().await;
         let changed = {
             let Ok(mut guard) = self.inner.lock() else {
                 return;
             };
-            let next = if answers {
-                HostServerState::External
-            } else if guard.state == HostServerState::External {
-                HostServerState::Stopped
-            } else {
-                guard.state
-            };
-            if next != guard.state {
-                guard.state = next;
+            if answers && guard.state != HostServerState::External {
+                guard.state = HostServerState::External;
+                guard.message = None;
+                true
+            } else if !answers && guard.state == HostServerState::External {
+                guard.state = HostServerState::Stopped;
+                guard.message = None;
                 true
             } else {
                 false
@@ -514,215 +474,257 @@ impl HostServer {
 
     /// Starts the host server (either embedded or as a `reforged-host start` child process).
     pub async fn start(&self, tool: &HostTool, workspace: &Path) -> Result<(), HostKitError> {
-        let embedded = self.inner.lock().ok().and_then(|g| g.embedded.clone());
-        if let Some(server) = embedded {
+        {
+            let Ok(mut guard) = self.inner.lock() else {
+                return Err(HostKitError::Spawn("lock poisoned".to_string()));
+            };
+            if guard.child.is_some()
+                || guard.embedded_running
+                || matches!(guard.state, HostServerState::Starting | HostServerState::Stopping)
             {
-                let Ok(mut guard) = self.inner.lock() else {
-                    return Err(HostKitError::Spawn("lock poisoned".to_string()));
-                };
-                if matches!(guard.state, HostServerState::Starting | HostServerState::Running) {
-                    return Err(HostKitError::AlreadyRunning);
-                }
-                guard.state = HostServerState::Starting;
+                return Ok(());
+            }
+            guard.state = HostServerState::Starting;
+            guard.message = None;
+            guard.stop_requested = false;
+        }
+        if (self.probe)().await {
+            if let Ok(mut guard) = self.inner.lock() {
+                guard.state = HostServerState::External;
                 guard.message = None;
             }
             self.emit_immediate();
+            return Ok(());
+        }
+        self.emit_immediate();
 
+        let embedded = self.inner.lock().ok().and_then(|g| g.embedded.clone());
+        if let Some(server) = embedded {
+            self.note("> start (inside the launcher)");
             let this = self.clone();
             let sink: LineSink = Arc::new(move |line: String| {
                 this.record_line(&line, true);
             });
-            match server.start(workspace.to_path_buf(), sink).await {
-                Ok(()) => {
-                    if let Ok(mut guard) = self.inner.lock() {
-                        guard.state = HostServerState::Running;
-                        guard.message = None;
-                    }
-                    self.emit_immediate();
-                    Ok(())
-                }
-                Err(why) => {
-                    if let Ok(mut guard) = self.inner.lock() {
-                        guard.state = HostServerState::Failed;
-                        guard.message = Some(why.clone());
-                    }
-                    self.emit_immediate();
-                    Err(HostKitError::Spawn(why))
-                }
-            }
-        } else {
-            if !tool.program.is_file() {
-                return Err(HostKitError::Missing);
-            }
-            {
-                let Ok(guard) = self.inner.lock() else {
-                    return Err(HostKitError::Spawn("lock poisoned".to_string()));
-                };
-                if matches!(guard.state, HostServerState::Starting | HostServerState::Running) {
-                    return Err(HostKitError::AlreadyRunning);
-                }
-            }
-
-            if (self.probe)().await {
-                if let Ok(mut guard) = self.inner.lock() {
-                    guard.state = HostServerState::External;
-                }
-                self.emit_immediate();
-                return Err(HostKitError::Busy);
-            }
-
-            let log_path = WorkspacePaths::new(workspace).launcher_log("server");
-            if let Some(parent) = log_path.parent() {
-                let _ = fs::create_dir_all(parent);
-            }
-
-            let mut cmd = Command::new(&tool.program);
-            cmd.args(&tool.prefix)
-                .arg("start")
-                .current_dir(workspace)
-                .env(CONTROL_ENV, "stdin")
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-
-            #[cfg(windows)]
-            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-
-            let mut child = cmd.spawn().map_err(|e| HostKitError::Spawn(e.to_string()))?;
-            let pid = child.id().unwrap_or(0);
-            let stdin = Arc::new(AsyncMutex::new(child.stdin.take()));
-            let stdout = child.stdout.take();
-            let stderr = child.stderr.take();
-            let (done_tx, done_rx) = tokio::sync::watch::channel(false);
-
-            {
-                let Ok(mut guard) = self.inner.lock() else {
-                    return Err(HostKitError::Spawn("lock poisoned".to_string()));
-                };
-                guard.state = HostServerState::Starting;
-                guard.message = None;
-                guard.child = Some(ChildControl {
-                    pid,
-                    stdin,
-                    done: done_rx,
-                });
-            }
-            self.emit_immediate();
-
-            let (line_tx, mut line_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
-            if let Some(out) = stdout {
-                let tx = line_tx.clone();
-                tokio::spawn(async move {
-                    let mut reader = BufReader::new(out).lines();
-                    while let Ok(Some(line)) = reader.next_line().await {
-                        let _ = tx.send(line);
-                    }
-                });
-            }
-            if let Some(err) = stderr {
-                let tx = line_tx.clone();
-                tokio::spawn(async move {
-                    let mut reader = BufReader::new(err).lines();
-                    while let Ok(Some(line)) = reader.next_line().await {
-                        let _ = tx.send(line);
-                    }
-                });
-            }
-            drop(line_tx);
-
-            let server_ref = self.clone();
+            let this = self.clone();
+            let ws_buf = workspace.to_path_buf();
             tokio::spawn(async move {
-                let mut log_file = OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .truncate(true)
-                    .open(&log_path)
-                    .ok();
-                let mut recent = Vec::new();
-
-                while let Some(raw) = line_rx.recv().await {
-                    let cleaned = clean_line(&raw);
-                    if cleaned.is_empty() {
-                        continue;
-                    }
-                    if cleaned.trim() == SERVER_READY_LINE {
-                        if let Ok(mut guard) = server_ref.inner.lock()
-                            && guard.state == HostServerState::Starting
-                        {
+                match server.start(ws_buf, sink).await {
+                    Ok(()) => {
+                        if let Ok(mut guard) = this.inner.lock() {
+                            guard.embedded_running = true;
                             guard.state = HostServerState::Running;
                             guard.message = None;
                         }
-                        server_ref.emit_immediate();
-                        continue;
-                    }
-                    if let Some(f) = log_file.as_mut() {
-                        let _ = writeln!(f, "{cleaned}");
-                    }
-                    recent.push(cleaned.clone());
-                    if recent.len() > MAX_LINES {
-                        recent.remove(0);
-                    }
-                    server_ref.record_line(&cleaned, true);
-                }
-
-                let status = child.wait().await.ok();
-                let code = status.and_then(|s| s.code()).unwrap_or(-1);
-                {
-                    if let Ok(mut guard) = server_ref.inner.lock() {
-                        guard.child = None;
-                        if guard.state == HostServerState::Stopping || code == 0 {
-                            guard.state = HostServerState::Stopped;
-                            guard.message = None;
-                        } else {
-                            guard.state = HostServerState::Failed;
-                            guard.message = failure_line(&recent);
+                        this.emit_immediate();
+                        let mut last = Vec::new();
+                        loop {
+                            let still_running = this.inner.lock().map(|g| g.embedded_running).unwrap_or(false);
+                            if !still_running {
+                                break;
+                            }
+                            let now = server.components();
+                            if now != last {
+                                last = now;
+                                this.emit_immediate();
+                            }
+                            tokio::time::sleep(CHANGE_EVERY).await;
                         }
                     }
+                    Err(why) => {
+                        this.note(&why);
+                        if let Ok(mut guard) = this.inner.lock() {
+                            guard.embedded_running = false;
+                            guard.state = HostServerState::Failed;
+                            guard.message = Some(why);
+                        }
+                        this.emit_immediate();
+                    }
                 }
-                let _ = done_tx.send(true);
-                server_ref.emit_immediate();
             });
-
-            Ok(())
+            return Ok(());
         }
+
+        let log_path = WorkspacePaths::new(workspace).launcher_log("server");
+        if let Some(parent) = log_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+
+        let mut cmd = Command::new(&tool.program);
+        cmd.args(&tool.prefix)
+            .arg("start")
+            .current_dir(workspace)
+            .env("NO_COLOR", "1")
+            .env("FORCE_COLOR", "0")
+            .env(CONTROL_ENV, "stdin")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        #[cfg(windows)]
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        #[cfg(unix)]
+        cmd.process_group(0);
+
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                let err = HostKitError::Spawn(e.to_string());
+                if let Ok(mut guard) = self.inner.lock() {
+                    guard.state = HostServerState::Failed;
+                    guard.message = Some(err.detail());
+                }
+                self.emit_immediate();
+                return Err(err);
+            }
+        };
+        self.note("> start");
+        let pid = child.id().unwrap_or(0);
+        let stdin = Arc::new(AsyncMutex::new(child.stdin.take()));
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+        let (done_tx, done_rx) = tokio::sync::watch::channel(false);
+
+        if let Ok(mut guard) = self.inner.lock() {
+            guard.child = Some(ChildControl {
+                pid,
+                stdin,
+                done: done_rx,
+            });
+        }
+
+        let (line_tx, mut line_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        if let Some(out) = stdout {
+            let tx = line_tx.clone();
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(out).lines();
+                while let Ok(Some(line)) = reader.next_line().await {
+                    let _ = tx.send(line);
+                }
+            });
+        }
+        if let Some(err) = stderr {
+            let tx = line_tx.clone();
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(err).lines();
+                while let Ok(Some(line)) = reader.next_line().await {
+                    let _ = tx.send(line);
+                }
+            });
+        }
+        drop(line_tx);
+
+        let prog_name = tool
+            .program
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        let ws_display = workspace.display().to_string();
+        let server_ref = self.clone();
+        tokio::spawn(async move {
+            let mut log_file = OpenOptions::new().create(true).append(true).open(&log_path).ok();
+            if let Some(f) = log_file.as_mut() {
+                let _ = writeln!(
+                    f,
+                    "\n> {prog_name} start  (in {ws_display}, {})",
+                    chrono::Utc::now().to_rfc3339()
+                );
+            }
+            let mut recent = Vec::new();
+
+            while let Some(raw) = line_rx.recv().await {
+                let cleaned = clean_line(&raw);
+                if cleaned.is_empty() {
+                    continue;
+                }
+                if cleaned.trim() == SERVER_READY_LINE {
+                    if let Ok(mut guard) = server_ref.inner.lock()
+                        && guard.state == HostServerState::Starting
+                    {
+                        guard.state = HostServerState::Running;
+                        guard.message = None;
+                    }
+                    server_ref.emit_immediate();
+                    continue;
+                }
+                if let Some(f) = log_file.as_mut() {
+                    let _ = writeln!(f, "{cleaned}");
+                }
+                recent.push(cleaned.clone());
+                if recent.len() > MAX_LINES {
+                    recent.remove(0);
+                }
+                server_ref.record_line(&cleaned, true);
+            }
+
+            let status = child.wait().await.ok();
+            let code = status.and_then(|s| s.code());
+            if let Some(f) = log_file.as_mut() {
+                let _ = writeln!(
+                    f,
+                    "(exit code {})",
+                    code.map_or_else(|| "none".to_string(), |c| c.to_string())
+                );
+            }
+            {
+                if let Ok(mut guard) = server_ref.inner.lock() {
+                    guard.child = None;
+                    if guard.stop_requested {
+                        guard.state = HostServerState::Stopped;
+                        guard.message = None;
+                    } else {
+                        guard.state = HostServerState::Failed;
+                        guard.message = failure_line(&recent).or_else(|| Some(format!("exit {}", code.unwrap_or(-1))));
+                    }
+                }
+            }
+            let _ = done_tx.send(true);
+            server_ref.emit_immediate();
+        });
+
+        Ok(())
     }
 
     /// Restarts an individual service by name on the embedded server.
     pub async fn restart(&self, name: &str) -> Result<(), String> {
-        let (embedded, state) = {
+        let server = {
             let Ok(guard) = self.inner.lock() else {
-                return Err("server_stopped".to_string());
+                return Err("the server is not running inside this launcher".to_string());
             };
-            (guard.embedded.clone(), guard.state)
+            guard.embedded.clone().filter(|_| guard.embedded_running)
         };
-        if state != HostServerState::Running {
-            return Err("server_stopped".to_string());
-        }
-        let Some(server) = embedded else {
-            return Err("host_failed".to_string());
+        let Some(server) = server else {
+            return Err("the server is not running inside this launcher".to_string());
         };
+        self.note(&format!("> restart {name}"));
         let res = server.restart(name.to_string()).await;
+        if let Err(why) = &res {
+            self.note(why);
+        }
         self.emit_immediate();
         res
     }
 
     /// Stops the running host server cleanly, falling back to `kill_tree` on timeout.
     pub async fn stop(&self) {
-        let embedded = self.inner.lock().ok().and_then(|g| g.embedded.clone());
-        if let Some(server) = embedded {
-            {
-                let Ok(mut guard) = self.inner.lock() else {
-                    return;
-                };
-                if matches!(guard.state, HostServerState::Stopped) {
-                    return;
-                }
+        let embedded = {
+            let Ok(mut guard) = self.inner.lock() else {
+                return;
+            };
+            if let Some(server) = guard.embedded.clone().filter(|_| guard.embedded_running) {
+                guard.stop_requested = true;
                 guard.state = HostServerState::Stopping;
+                guard.message = None;
+                Some(server)
+            } else {
+                None
             }
+        };
+        if let Some(server) = embedded {
             self.emit_immediate();
             server.stop().await;
             if let Ok(mut guard) = self.inner.lock() {
+                guard.embedded_running = false;
                 guard.state = HostServerState::Stopped;
+                guard.message = None;
             }
             self.emit_immediate();
             return;
@@ -733,7 +735,6 @@ impl HostServer {
                 return;
             };
             let Some(ctrl) = guard.child.as_ref() else {
-                guard.state = HostServerState::Stopped;
                 return;
             };
             let next = ChildControl {
@@ -741,7 +742,9 @@ impl HostServer {
                 stdin: ctrl.stdin.clone(),
                 done: ctrl.done.clone(),
             };
+            guard.stop_requested = true;
             guard.state = HostServerState::Stopping;
+            guard.message = None;
             next
         };
         self.emit_immediate();
@@ -749,9 +752,10 @@ impl HostServer {
         if let Some(mut stdin) = control.stdin.lock().await.take() {
             let _ = stdin.write_all(b"stop\n").await;
             let _ = stdin.flush().await;
+            drop(stdin);
         }
 
-        let mut done_rx = control.done;
+        let mut done_rx = control.done.clone();
         let stop_timeout = self.stop_timeout;
         let exited_in_time = tokio::time::timeout(stop_timeout, async move {
             while !*done_rx.borrow_and_update() {
@@ -763,30 +767,18 @@ impl HostServer {
         .await
         .is_ok();
 
-        if !exited_in_time {
-            if control.pid != 0 {
-                kill_tree(control.pid).await;
-            }
-            let mut grace_rx = self
-                .inner
-                .lock()
-                .ok()
-                .and_then(|g| g.child.as_ref().map(|c| c.done.clone()));
-            if let Some(rx) = grace_rx.as_mut() {
-                let _ = tokio::time::timeout(KILL_GRACE, async move {
-                    while !*rx.borrow_and_update() {
-                        if rx.changed().await.is_err() {
-                            break;
-                        }
+        if !exited_in_time && control.pid != 0 {
+            self.note("The server did not stop in time: ending its processes.");
+            kill_tree(control.pid).await;
+            let mut grace_rx = control.done;
+            let _ = tokio::time::timeout(KILL_GRACE, async move {
+                while !*grace_rx.borrow_and_update() {
+                    if grace_rx.changed().await.is_err() {
+                        break;
                     }
-                })
-                .await;
-            }
-            if let Ok(mut guard) = self.inner.lock() {
-                guard.child = None;
-                guard.state = HostServerState::Stopped;
-            }
-            self.emit_immediate();
+                }
+            })
+            .await;
         }
     }
 }
@@ -817,8 +809,9 @@ pub async fn kill_tree(pid: u32) {
     }
     #[cfg(not(windows))]
     {
+        let group = format!("-{pid}");
         let mut cmd = Command::new("kill");
-        cmd.args(["-TERM", &pid.to_string()])
+        cmd.args(["-KILL", "--", &group])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
@@ -874,11 +867,12 @@ mod tests {
             vec![HostServerComponent {
                 name: "gateway".to_string(),
                 phase: if self.started.load(Ordering::SeqCst) {
-                    HostComponentPhase::Running
+                    HostComponentPhase::Ready
                 } else {
                     HostComponentPhase::Stopped
                 },
-                detail: None,
+                port: Some(10443),
+                detail: String::new(),
             }]
         }
     }
@@ -901,10 +895,17 @@ mod tests {
         };
 
         server.start(&dummy_tool, tmp.path()).await.unwrap();
+        for _ in 0..50 {
+            if server.state() == HostServerState::Running {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
         assert_eq!(server.state(), HostServerState::Running);
         assert!(server.running());
+        assert!(server.view().embedded);
         assert_eq!(server.view().components.len(), 1);
-        assert_eq!(server.view().components[0].phase, HostComponentPhase::Running);
+        assert_eq!(server.view().components[0].phase, HostComponentPhase::Ready);
 
         server.restart("gateway").await.unwrap();
         assert!(server.restart("bad").await.is_err());

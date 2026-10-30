@@ -58,11 +58,7 @@ impl Problem {
             | Self::NotInSums(s)
             | Self::Attestation(s)
             | Self::BadArchive(s) => Some(s.clone()),
-            Self::Checksum {
-                file,
-                expected,
-                actual,
-            } => Some(format!("{file}: expected {expected}, got {actual}")),
+            Self::Checksum { file, expected, actual } => Some(format!("{file}: expected {expected}, got {actual}")),
             Self::LocalChanges(files) => Some(files.join(", ")),
         }
     }
@@ -72,20 +68,13 @@ impl Problem {
             Self::NoRelease(s) => s.clone(),
             Self::DownloadFailed(s) => format!("download failed: {s}"),
             Self::NotInSums(file) => format!("{file} is not listed in {SUMS_FILE}"),
-            Self::Checksum {
-                file,
-                expected,
-                actual,
-            } => format!(
-                "{file} is not the file the release lists (expected SHA-256 {expected}, got {actual})"
-            ),
+            Self::Checksum { file, expected, actual } => {
+                format!("{file} is not the file the release lists (expected SHA-256 {expected}, got {actual})")
+            }
             Self::Attestation(s) => format!("release attestation verification failed: {s}"),
             Self::BadArchive(s) => format!("invalid release archive: {s}"),
             Self::LocalChanges(files) => {
-                format!(
-                    "refusing to overwrite locally modified files: {}",
-                    files.join(", ")
-                )
+                format!("refusing to overwrite locally modified files: {}", files.join(", "))
             }
         }
     }
@@ -141,9 +130,7 @@ pub struct Version {
 }
 
 fn valid_semver_ident(s: &str) -> bool {
-    !s.is_empty()
-        && s.bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
 fn parse_numeric_no_leading_zero(s: &str) -> Option<u64> {
@@ -181,10 +168,7 @@ impl Version {
                     if !valid_semver_ident(part) {
                         return None;
                     }
-                    if part.bytes().all(|b| b.is_ascii_digit())
-                        && part.len() > 1
-                        && part.starts_with('0')
-                    {
+                    if part.bytes().all(|b| b.is_ascii_digit()) && part.len() > 1 && part.starts_with('0') {
                         return None;
                     }
                     pre.push(part.to_owned());
@@ -225,8 +209,16 @@ impl Ord for Version {
             (false, true) => Ordering::Less,
             (false, false) => {
                 for (a, b) in self.pre.iter().zip(other.pre.iter()) {
-                    let a_num = a.bytes().all(|c| c.is_ascii_digit()).then(|| a.parse::<u64>().ok()).flatten();
-                    let b_num = b.bytes().all(|c| c.is_ascii_digit()).then(|| b.parse::<u64>().ok()).flatten();
+                    let a_num = a
+                        .bytes()
+                        .all(|c| c.is_ascii_digit())
+                        .then(|| a.parse::<u64>().ok())
+                        .flatten();
+                    let b_num = b
+                        .bytes()
+                        .all(|c| c.is_ascii_digit())
+                        .then(|| b.parse::<u64>().ok())
+                        .flatten();
                     let ord = match (a_num, b_num) {
                         (Some(an), Some(bn)) => an.cmp(&bn),
                         (Some(_), None) => Ordering::Less,
@@ -267,12 +259,7 @@ pub struct Manifest {
 }
 
 fn is_safe_relative_path(path: &str) -> bool {
-    if path.is_empty()
-        || path.starts_with('/')
-        || path.starts_with('\\')
-        || path.contains('\\')
-        || path.contains(':')
-    {
+    if path.is_empty() || path.starts_with('/') || path.starts_with('\\') || path.contains('\\') || path.contains(':') {
         return false;
     }
     let p = Path::new(path);
@@ -288,8 +275,7 @@ fn is_safe_relative_path(path: &str) -> bool {
 impl Manifest {
     pub fn parse(text: &str) -> Result<Self, String> {
         let stripped = text.strip_prefix('\u{feff}').unwrap_or(text);
-        let val: Value =
-            serde_json::from_str(stripped).map_err(|e| format!("invalid JSON: {e}"))?;
+        let val: Value = serde_json::from_str(stripped).map_err(|e| format!("invalid JSON: {e}"))?;
         let obj = val
             .as_object()
             .ok_or_else(|| "release.json must be a JSON object".to_owned())?;
@@ -355,9 +341,7 @@ impl Manifest {
                 .filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
                 .ok_or_else(|| format!("invalid sha256 for {norm_path}"))?;
             let size = match entry_obj.get("size") {
-                Some(v) => v
-                    .as_u64()
-                    .ok_or_else(|| format!("invalid size for {norm_path}"))?,
+                Some(v) => v.as_u64().ok_or_else(|| format!("invalid size for {norm_path}"))?,
                 None => 0,
             };
             files.push(ManifestFile {
@@ -495,9 +479,7 @@ pub fn platform() -> Option<&'static str> {
 }
 
 pub fn this_platform() -> Result<&'static str, HostError> {
-    platform().ok_or_else(|| {
-        HostError::message("self-update is only supported on windows-x64 and linux-x64")
-    })
+    platform().ok_or_else(|| HostError::message("self-update is only supported on windows-x64 and linux-x64"))
 }
 
 fn archive_ext(platform: &str) -> &'static str {
@@ -523,9 +505,7 @@ pub fn archive_version<'a>(name: &'a str, platform: &str) -> Option<&'a str> {
 }
 
 pub fn pick_newest<'a>(versions: &[&'a str], installed: Option<&str>) -> Option<&'a str> {
-    let allow_prerelease = installed
-        .and_then(Version::parse)
-        .is_some_and(|v| v.is_prerelease());
+    let allow_prerelease = installed.and_then(Version::parse).is_some_and(|v| v.is_prerelease());
 
     let mut best: Option<(&'a str, Version)> = None;
     let mut best_pre: Option<(&'a str, Version)> = None;
@@ -596,11 +576,7 @@ pub fn parse_sums(text: &str) -> Vec<(String, String)> {
             continue;
         }
         let file = rest.strip_prefix('*').unwrap_or(rest);
-        let file_name = file
-            .rsplit(['/', '\\'])
-            .next()
-            .unwrap_or(file)
-            .to_owned();
+        let file_name = file.rsplit(['/', '\\']).next().unwrap_or(file).to_owned();
         if !file_name.is_empty() {
             out.push((hash.to_ascii_lowercase(), file_name));
         }
@@ -624,15 +600,11 @@ fn select_candidate(
     match wanted {
         Wanted::Exactly(target) => {
             let norm = normalize_wanted_version(target);
-            candidates
-                .iter()
-                .find(|c| c.version == norm)
-                .cloned()
-                .ok_or_else(|| {
-                    UpdateError::Problem(Problem::NoRelease(format!(
-                        "release {norm} for {platform} was not found in {source_desc}"
-                    )))
-                })
+            candidates.iter().find(|c| c.version == norm).cloned().ok_or_else(|| {
+                UpdateError::Problem(Problem::NoRelease(format!(
+                    "release {norm} for {platform} was not found in {source_desc}"
+                )))
+            })
         }
         Wanted::Newest(installed) => {
             let versions: Vec<&str> = candidates.iter().map(|c| c.version.as_str()).collect();
@@ -641,15 +613,11 @@ fn select_candidate(
                     "no release for {platform} was found in {source_desc}"
                 )))
             })?;
-            candidates
-                .iter()
-                .find(|c| c.version == chosen)
-                .cloned()
-                .ok_or_else(|| {
-                    UpdateError::Problem(Problem::NoRelease(format!(
-                        "no release for {platform} was found in {source_desc}"
-                    )))
-                })
+            candidates.iter().find(|c| c.version == chosen).cloned().ok_or_else(|| {
+                UpdateError::Problem(Problem::NoRelease(format!(
+                    "no release for {platform} was found in {source_desc}"
+                )))
+            })
         }
     }
 }
@@ -725,20 +693,13 @@ pub fn candidates_from_github(
     select_candidate(&candidates, wanted, &format!("GitHub ({repo})"), platform)
 }
 
-pub fn find_release(
-    source: &Source,
-    platform: &str,
-    wanted: Wanted<'_>,
-) -> UpdateResult<Candidate> {
+pub fn find_release(source: &Source, platform: &str, wanted: Wanted<'_>) -> UpdateResult<Candidate> {
     match source {
         Source::GitHub(repo) => {
             let api_url = format!("https://api.github.com/repos/{repo}/releases?per_page=30");
-            let body = http::get_text(&api_url, true)
-                .map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e)))?;
+            let body = http::get_text(&api_url, true).map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e)))?;
             let json: Value = serde_json::from_str(&body).map_err(|e| {
-                UpdateError::Problem(Problem::DownloadFailed(format!(
-                    "invalid JSON from {api_url}: {e}"
-                )))
+                UpdateError::Problem(Problem::DownloadFailed(format!("invalid JSON from {api_url}: {e}")))
             })?;
             candidates_from_github(&json, repo, platform, wanted)
         }
@@ -799,8 +760,8 @@ pub fn find_release(
                 return select_candidate(&[c], wanted, &source.describe(), platform);
             }
             let sums_url = format!("{clean}/{SUMS_FILE}");
-            let sums_text = http::get_text(&sums_url, false)
-                .map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e)))?;
+            let sums_text =
+                http::get_text(&sums_url, false).map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e)))?;
             let mut candidates = Vec::new();
             for (_, name) in parse_sums(&sums_text) {
                 if let Some(ver) = archive_version(&name, platform) {
@@ -832,8 +793,7 @@ fn fetch_location(loc: &Location, dest: &Path) -> UpdateResult<()> {
             }
             Ok(())
         }
-        Location::Url(url) => http::download(url, dest)
-            .map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e))),
+        Location::Url(url) => http::download(url, dest).map_err(|e| UpdateError::Problem(Problem::DownloadFailed(e))),
     }
 }
 
@@ -868,9 +828,7 @@ pub fn fetch(candidate: &Candidate, dir: &Path) -> UpdateResult<PathBuf> {
         .map(|(hash, _)| hash)
     else {
         cleanup();
-        return Err(UpdateError::Problem(Problem::NotInSums(
-            candidate.archive.clone(),
-        )));
+        return Err(UpdateError::Problem(Problem::NotInSums(candidate.archive.clone())));
     };
 
     if let Err(e) = fetch_location(&candidate.archive_at, &archive_dest) {
@@ -895,11 +853,7 @@ pub fn fetch(candidate: &Candidate, dir: &Path) -> UpdateResult<PathBuf> {
     Ok(archive_dest)
 }
 
-pub fn verify_attestation(
-    archive: &Path,
-    candidate: &Candidate,
-    log_file: &Path,
-) -> UpdateResult<Attestation> {
+pub fn verify_attestation(archive: &Path, candidate: &Candidate, log_file: &Path) -> UpdateResult<Attestation> {
     let Some(repo) = candidate.repository.as_deref() else {
         return Ok(Attestation::Skipped(
             "release did not come from a GitHub repository".to_owned(),
@@ -964,14 +918,12 @@ fn extract_zip(archive: &Path, dest: &Path) -> UpdateResult<()> {
         .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("invalid zip: {e}"))))?;
 
     for i in 0..zip.len() {
-        let mut entry = zip.by_index(i).map_err(|e| {
-            UpdateError::Problem(Problem::BadArchive(format!("corrupt zip entry: {e}")))
-        })?;
+        let mut entry = zip
+            .by_index(i)
+            .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("corrupt zip entry: {e}"))))?;
         let entry_name = entry
             .name()
-            .map_err(|e| {
-                UpdateError::Problem(Problem::BadArchive(format!("invalid zip entry name: {e}")))
-            })?
+            .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("invalid zip entry name: {e}"))))?
             .into_owned();
         if entry.is_symlink() {
             return Err(UpdateError::Problem(Problem::BadArchive(format!(
@@ -1012,18 +964,17 @@ fn extract_tar_gz(archive: &Path, dest: &Path) -> UpdateResult<()> {
         .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("invalid tar.gz: {e}"))))?;
 
     for entry_res in entries {
-        let mut entry = entry_res.map_err(|e| {
-            UpdateError::Problem(Problem::BadArchive(format!("corrupt tar entry: {e}")))
-        })?;
+        let mut entry =
+            entry_res.map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("corrupt tar entry: {e}"))))?;
         let entry_type = entry.header().entry_type();
         if entry_type.is_symlink() || entry_type.is_hard_link() {
             return Err(UpdateError::Problem(Problem::BadArchive(
                 "archive contains symbolic or hard link".to_owned(),
             )));
         }
-        let path_cow = entry.path().map_err(|e| {
-            UpdateError::Problem(Problem::BadArchive(format!("invalid tar path: {e}")))
-        })?;
+        let path_cow = entry
+            .path()
+            .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("invalid tar path: {e}"))))?;
         if path_cow.as_os_str().is_empty() || path_cow.as_ref() == Path::new(".") {
             continue;
         }
@@ -1131,16 +1082,11 @@ pub fn runtime_changed(previous: &Manifest, next: &Manifest) -> bool {
     prev_rt != next_rt
 }
 
-pub fn local_changes(
-    root: &Path,
-    previous: Option<&Manifest>,
-    next: &Manifest,
-) -> Result<Vec<String>, HostError> {
+pub fn local_changes(root: &Path, previous: Option<&Manifest>, next: &Manifest) -> Result<Vec<String>, HostError> {
     let Some(prev) = previous else {
         if !root.join(RELEASE_FILE).is_file()
             && root.join(".git").exists()
-            && let Ok(Some(diff_out)) =
-                crate::run::capture("git", &["diff", "--name-only", "HEAD"], Some(root))
+            && let Ok(Some(diff_out)) = crate::run::capture("git", &["diff", "--name-only", "HEAD"], Some(root))
         {
             let mut changed = Vec::new();
             for line in diff_out.lines() {
@@ -1189,10 +1135,7 @@ fn sweep_aside_in_dir(dir: &Path) {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
         if path.is_dir() {
-            if matches!(
-                name.as_str(),
-                ".workspace" | ".git" | "node_modules" | "target"
-            ) {
+            if matches!(name.as_str(), ".workspace" | ".git" | "node_modules" | "target") {
                 continue;
             }
             sweep_aside_in_dir(&path);
@@ -1218,10 +1161,7 @@ fn install_single_file(src: &Path, dst: &Path) -> io::Result<()> {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let file_name = dst
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
+    let file_name = dst.file_name().and_then(|n| n.to_str()).unwrap_or("file");
     let tmp = dst.with_file_name(format!(".{file_name}.tmp-{millis}"));
     fs::copy(src, &tmp)?;
 
@@ -1266,11 +1206,7 @@ fn remove_empty_parent_dirs(mut dir: Option<&Path>, root: &Path) {
     }
 }
 
-pub fn install(
-    staged: &Path,
-    root: &Path,
-    previous: Option<&Manifest>,
-) -> UpdateResult<(Manifest, Installed)> {
+pub fn install(staged: &Path, root: &Path, previous: Option<&Manifest>) -> UpdateResult<(Manifest, Installed)> {
     let next = read_manifest(staged)
         .map_err(|e| UpdateError::Problem(Problem::BadArchive(e.to_string())))?
         .ok_or_else(|| {
@@ -1320,10 +1256,7 @@ pub fn install(
         next_paths.insert(f.path.clone());
         let src = staged.join(&f.path);
         let dst = root.join(&f.path);
-        if previous.is_some()
-            && dst.is_file()
-            && sha256_file(&dst).ok().as_deref() == Some(f.sha256.as_str())
-        {
+        if previous.is_some() && dst.is_file() && sha256_file(&dst).ok().as_deref() == Some(f.sha256.as_str()) {
             continue;
         }
         install_single_file(&src, &dst)?;
@@ -1380,9 +1313,7 @@ pub mod http {
 
         let mut current = url.to_owned();
         for _ in 0..5 {
-            let uri: hyper::Uri = current
-                .parse()
-                .map_err(|e| format!("invalid URL {current}: {e}"))?;
+            let uri: hyper::Uri = current.parse().map_err(|e| format!("invalid URL {current}: {e}"))?;
             let mut builder = Request::builder()
                 .method("GET")
                 .uri(&uri)
@@ -1393,10 +1324,7 @@ pub mod http {
             let req = builder
                 .body(Empty::<Bytes>::new())
                 .map_err(|e| format!("{current}: {e}"))?;
-            let resp = client
-                .request(req)
-                .await
-                .map_err(|e| format!("{current}: {e}"))?;
+            let resp = client.request(req).await.map_err(|e| format!("{current}: {e}"))?;
             let status = resp.status();
             if status.is_redirection()
                 && let Some(loc) = resp.headers().get(hyper::header::LOCATION)
@@ -1491,10 +1419,7 @@ mod tests {
         let versions = ["0.1.0", "0.2.0", "0.3.0-rc.1"];
         assert_eq!(pick_newest(&versions, None), Some("0.2.0"));
         assert_eq!(pick_newest(&versions, Some("0.1.0")), Some("0.2.0"));
-        assert_eq!(
-            pick_newest(&versions, Some("0.3.0-alpha.1")),
-            Some("0.3.0-rc.1")
-        );
+        assert_eq!(pick_newest(&versions, Some("0.3.0-alpha.1")), Some("0.3.0-rc.1"));
     }
 
     #[test]

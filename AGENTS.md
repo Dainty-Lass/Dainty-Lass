@@ -15,7 +15,7 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 | Path | What it is |
 | --- | --- |
-| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `backend`, `director`, `host` = the host kit and `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
+| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `backend`, `director`, `host` = the host kit binary/legacy shell and `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend wrapping `launcher-kit`: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
 | `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
 | `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
 | `modules/rustic-isles/` | Submodule: `rustic-isles`, the 1.14.7 (`isles-1-14-7`) and 1.12.0 (`isles-1-12-0`) Rust game modules, `isles-core`, `isles-director`, `isles-chat`, `rifts-seam`, the C++ game runtime (`native/paradox-runtime`) and CatalogExporter (`native/CatalogExporter`), and the Node reference trees (`reference/1.14.7`, `reference/1.12.0`) |
@@ -265,8 +265,10 @@ AGPL-3.0-only, with additional terms for the Mystic Paradox material (`ADDITIONA
 Code copied from DR or Paradox keeps its attribution, and the integration pass records each new source in
 `NOTICE.md`.
 
-The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `plugins/network`,
-`plugins/chat`, `admin`, `bins`) set `license = "MIT"` in their own `Cargo.toml`; everything else inherits the
-workspace's AGPL. A new crate is MIT only when nothing in it is ported from DR, Paradox or the Reforged Revival
-line: no file from those trees, no function rewritten from one. Copying a DR or Paradox function into an MIT
-crate moves the crate back to `license.workspace = true` in the same commit, with the NOTICE line to match.
+The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
+`service-kit`, `store`, `hostkit`, `launcher-kit`, `plugins/network`, `admin`, `bins`) set `license = "MIT"` in their
+own `Cargo.toml`; everything else (`services/gateway`, `services/content`, `services/host`, `plugins/chat`,
+`launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
+DR, Paradox or the Reforged Revival line: no file from those trees, no function rewritten from one while looking at it.
+Copying a DR or Paradox function into an MIT crate moves the crate back to `license.workspace = true` in the same
+commit, with the NOTICE line to match.

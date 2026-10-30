@@ -134,40 +134,29 @@ fn infer_steam_client_install_path(proton: &Path) -> Option<String> {
     let parent = build_dir.parent()?;
     let parent_name = parent.file_name()?.to_str()?;
     if parent_name == "compatibilitytools.d" {
-        return parent
-            .parent()
-            .map(|p| p.to_string_lossy().into_owned());
+        return parent.parent().map(|p| p.to_string_lossy().into_owned());
     }
     if parent_name == "common" {
         let grand = parent.parent()?;
         if grand.file_name()?.to_str()? == "steamapps" {
-            return grand
-                .parent()
-                .map(|p| p.to_string_lossy().into_owned());
+            return grand.parent().map(|p| p.to_string_lossy().into_owned());
         }
     }
     None
 }
 
-pub fn build_launch(
-    game_args: &[String],
-    env: &BTreeMap<String, String>,
-) -> Result<LaunchSpec, HostError> {
+pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Result<LaunchSpec, HostError> {
     let exe = env
         .get(ENV_EXE)
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .ok_or_else(|| HostError::message(format!("{ENV_EXE} is not set")))?;
     if !is_abs_path(exe) {
-        return Err(HostError::message(format!(
-            "{ENV_EXE} must be an absolute path: {exe}"
-        )));
+        return Err(HostError::message(format!("{ENV_EXE} must be an absolute path: {exe}")));
     }
     let exe_path = PathBuf::from(exe);
     if !exe_path.is_file() {
-        return Err(HostError::message(format!(
-            "game executable does not exist: {exe}"
-        )));
+        return Err(HostError::message(format!("game executable does not exist: {exe}")));
     }
     let cwd = exe_path
         .parent()
@@ -180,125 +169,99 @@ pub fn build_launch(
 
     let path_var = env.get("PATH").map(String::as_str).unwrap_or("");
 
-    let (mut command, mut args, mut runtime) = if let Some(proton) = env
-        .get(ENV_PROTON)
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-    {
-        if !is_abs_path(proton) {
-            return Err(HostError::message(format!(
-                "{ENV_PROTON} must be an absolute path: {proton}"
-            )));
-        }
-        let proton_path = Path::new(proton);
-        if !is_executable(proton_path) {
-            return Err(HostError::message(format!(
-                "Proton script is not executable: {proton}"
-            )));
-        }
-        let proton_data = env
-            .get(ENV_PROTON_DATA)
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| HostError::message(format!("{ENV_PROTON_DATA} is not set")))?;
-        if !is_abs_path(proton_data) {
-            return Err(HostError::message(format!(
-                "{ENV_PROTON_DATA} must be an absolute path: {proton_data}"
-            )));
-        }
-        out_env.insert("STEAM_COMPAT_DATA_PATH".to_owned(), proton_data.to_owned());
-        if !out_env
-            .get("STEAM_COMPAT_CLIENT_INSTALL_PATH")
-            .is_some_and(|v| !v.is_empty())
-            && let Some(steam_dir) = infer_steam_client_install_path(proton_path)
-        {
-            out_env.insert("STEAM_COMPAT_CLIENT_INSTALL_PATH".to_owned(), steam_dir);
-        }
-        out_env.insert("STEAM_COMPAT_APP_ID".to_owned(), "0".to_owned());
-        out_env.insert("PROTON_LOG".to_owned(), "0".to_owned());
+    let (mut command, mut args, mut runtime) =
+        if let Some(proton) = env.get(ENV_PROTON).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            if !is_abs_path(proton) {
+                return Err(HostError::message(format!(
+                    "{ENV_PROTON} must be an absolute path: {proton}"
+                )));
+            }
+            let proton_path = Path::new(proton);
+            if !is_executable(proton_path) {
+                return Err(HostError::message(format!("Proton script is not executable: {proton}")));
+            }
+            let proton_data = env
+                .get(ENV_PROTON_DATA)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| HostError::message(format!("{ENV_PROTON_DATA} is not set")))?;
+            if !is_abs_path(proton_data) {
+                return Err(HostError::message(format!(
+                    "{ENV_PROTON_DATA} must be an absolute path: {proton_data}"
+                )));
+            }
+            out_env.insert("STEAM_COMPAT_DATA_PATH".to_owned(), proton_data.to_owned());
+            if !out_env
+                .get("STEAM_COMPAT_CLIENT_INSTALL_PATH")
+                .is_some_and(|v| !v.is_empty())
+                && let Some(steam_dir) = infer_steam_client_install_path(proton_path)
+            {
+                out_env.insert("STEAM_COMPAT_CLIENT_INSTALL_PATH".to_owned(), steam_dir);
+            }
+            out_env.insert("STEAM_COMPAT_APP_ID".to_owned(), "0".to_owned());
+            out_env.insert("PROTON_LOG".to_owned(), "0".to_owned());
 
-        let build_name = proton_path
-            .parent()
-            .and_then(|p| p.file_name())
-            .and_then(|n| n.to_str())
-            .filter(|s| !s.is_empty())
-            .unwrap_or("Proton");
-        let mut launch_args = Vec::with_capacity(2 + game_args.len());
-        launch_args.push("run".to_owned());
-        launch_args.push(exe.to_owned());
-        launch_args.extend(game_args.iter().cloned());
-        (
-            proton.to_owned(),
-            launch_args,
-            format!("Proton ({build_name})"),
-        )
-    } else {
-        let wine_bin = if let Some(configured) = env
-            .get(ENV_WINE)
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-        {
-            if !is_abs_path(configured) {
-                return Err(HostError::message(format!(
-                    "{ENV_WINE} must be an absolute path: {configured}"
-                )));
-            }
-            if !is_executable(Path::new(configured)) {
-                return Err(HostError::message(format!(
-                    "Wine binary is not executable: {configured}"
-                )));
-            }
-            configured.to_owned()
+            let build_name = proton_path
+                .parent()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                .filter(|s| !s.is_empty())
+                .unwrap_or("Proton");
+            let mut launch_args = Vec::with_capacity(2 + game_args.len());
+            launch_args.push("run".to_owned());
+            launch_args.push(exe.to_owned());
+            launch_args.extend(game_args.iter().cloned());
+            (proton.to_owned(), launch_args, format!("Proton ({build_name})"))
         } else {
-            find_wine(path_var)?.ok_or_else(|| {
-                HostError::message("could not find wine64 or wine on PATH")
-            })?
+            let wine_bin = if let Some(configured) = env.get(ENV_WINE).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                if !is_abs_path(configured) {
+                    return Err(HostError::message(format!(
+                        "{ENV_WINE} must be an absolute path: {configured}"
+                    )));
+                }
+                if !is_executable(Path::new(configured)) {
+                    return Err(HostError::message(format!(
+                        "Wine binary is not executable: {configured}"
+                    )));
+                }
+                configured.to_owned()
+            } else {
+                find_wine(path_var)?.ok_or_else(|| HostError::message("could not find wine64 or wine on PATH"))?
+            };
+
+            let prefix = env
+                .get(ENV_PREFIX)
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| HostError::message(format!("{ENV_PREFIX} is not set")))?;
+            if !is_abs_path(prefix) {
+                return Err(HostError::message(format!(
+                    "{ENV_PREFIX} must be an absolute path: {prefix}"
+                )));
+            }
+            out_env.insert("WINEPREFIX".to_owned(), prefix.to_owned());
+            if !out_env.get("WINEDEBUG").is_some_and(|v| !v.is_empty()) {
+                out_env.insert("WINEDEBUG".to_owned(), "-all".to_owned());
+            }
+
+            let mut launch_args = Vec::with_capacity(1 + game_args.len());
+            launch_args.push(exe.to_owned());
+            launch_args.extend(game_args.iter().cloned());
+            (wine_bin, launch_args, "Wine".to_owned())
         };
 
-        let prefix = env
-            .get(ENV_PREFIX)
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| HostError::message(format!("{ENV_PREFIX} is not set")))?;
-        if !is_abs_path(prefix) {
-            return Err(HostError::message(format!(
-                "{ENV_PREFIX} must be an absolute path: {prefix}"
-            )));
-        }
-        out_env.insert("WINEPREFIX".to_owned(), prefix.to_owned());
-        if !out_env.get("WINEDEBUG").is_some_and(|v| !v.is_empty()) {
-            out_env.insert("WINEDEBUG".to_owned(), "-all".to_owned());
-        }
-
-        let mut launch_args = Vec::with_capacity(1 + game_args.len());
-        launch_args.push(exe.to_owned());
-        launch_args.extend(game_args.iter().cloned());
-        (wine_bin, launch_args, "Wine".to_owned())
-    };
-
     let xvfb_enabled = env.get(ENV_XVFB).map(String::as_str) != Some("0");
-    let has_display = env
-        .get("DISPLAY")
-        .map(|s| !s.trim().is_empty())
-        .unwrap_or(false);
+    let has_display = env.get("DISPLAY").map(|s| !s.trim().is_empty()).unwrap_or(false);
 
     if xvfb_enabled && !has_display {
-        let xvfb_run = if let Some(configured) = env
-            .get(ENV_XVFB_RUN)
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-        {
+        let xvfb_run = if let Some(configured) = env.get(ENV_XVFB_RUN).map(|s| s.trim()).filter(|s| !s.is_empty()) {
             if !is_abs_path(configured) || !is_executable(Path::new(configured)) {
-                return Err(HostError::message(format!(
-                    "xvfb-run is not executable: {configured}"
-                )));
+                return Err(HostError::message(format!("xvfb-run is not executable: {configured}")));
             }
             configured.to_owned()
         } else {
             find_on_path_in(&["xvfb-run"], path_var).ok_or_else(|| {
-                HostError::message(
-                    "xvfb-run not found on PATH (install xvfb or set linux.xvfb = false)",
-                )
+                HostError::message("xvfb-run not found on PATH (install xvfb or set linux.xvfb = false)")
             })?
         };
         let mut wrapped_args = Vec::with_capacity(4 + args.len());
@@ -400,9 +363,7 @@ mod tests {
     #[test]
     fn build_launch_wine_and_xvfb() {
         let tmp = TempDir::new().unwrap();
-        let exe = tmp
-            .path()
-            .join("Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe");
+        let exe = tmp.path().join("Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe");
         write_executable(&exe);
         let wine = tmp.path().join("bin/wine64");
         write_executable(&wine);
@@ -455,33 +416,21 @@ mod tests {
         let mut env = BTreeMap::new();
         env.insert(ENV_EXE.to_owned(), exe.to_string_lossy().into_owned());
         env.insert(ENV_PROTON.to_owned(), proton.to_string_lossy().into_owned());
-        env.insert(
-            ENV_PROTON_DATA.to_owned(),
-            proton_data.to_string_lossy().into_owned(),
-        );
+        env.insert(ENV_PROTON_DATA.to_owned(), proton_data.to_string_lossy().into_owned());
         env.insert(ENV_XVFB.to_owned(), "0".to_owned());
 
         let spec = build_launch(&["-log".to_owned()], &env).unwrap();
         assert_eq!(spec.command, proton.to_string_lossy());
         assert_eq!(
             spec.args,
-            vec![
-                "run".to_owned(),
-                exe.to_string_lossy().into_owned(),
-                "-log".to_owned()
-            ]
+            vec!["run".to_owned(), exe.to_string_lossy().into_owned(), "-log".to_owned()]
         );
         assert_eq!(spec.runtime, "Proton (GE-Proton9-20)");
         assert_eq!(
-            spec.env
-                .get("STEAM_COMPAT_CLIENT_INSTALL_PATH")
-                .map(String::as_str),
+            spec.env.get("STEAM_COMPAT_CLIENT_INSTALL_PATH").map(String::as_str),
             Some(steam_root.to_string_lossy().as_ref())
         );
-        assert_eq!(
-            spec.env.get("STEAM_COMPAT_APP_ID").map(String::as_str),
-            Some("0")
-        );
+        assert_eq!(spec.env.get("STEAM_COMPAT_APP_ID").map(String::as_str), Some("0"));
         assert_eq!(spec.env.get("PROTON_LOG").map(String::as_str), Some("0"));
     }
 }

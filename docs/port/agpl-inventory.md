@@ -568,3 +568,21 @@ The maintainer answered the four `L0` questions on 2026-10-30:
    - `license = "MIT"`
    - `Copyright (c) 2026 Silent Spud`
 
+---
+
+## 6. Implementation status (`L1`–`L3` — Completed 2026-10-30)
+
+All seven crates in the approved `L0` scope have been rewritten clean-room in isolated sparse-checkout worktrees and
+swapped into the workspace under `license = "MIT"` (`Copyright (c) 2026 Silent Spud`):
+
+| Crate | Behaviour spec (`L1`) | Provenance record (`L2`) | Licence after `L3` | Direct normal or dev AGPL dependencies |
+| --- | --- | --- | --- | --- |
+| `rust/crates/protocol` | [`docs/port/spec-protocol.md`](spec-protocol.md) | [`docs/port/clean-room/protocol.md`](clean-room/protocol.md) | `MIT` | None |
+| `rust/crates/proxy` | [`docs/port/spec-proxy.md`](spec-proxy.md) | [`docs/port/clean-room/proxy.md`](clean-room/proxy.md) | `MIT` | None |
+| `rust/crates/store` | [`docs/port/spec-store.md`](spec-store.md) | [`docs/port/clean-room/store.md`](clean-room/store.md) | `MIT` | None |
+| `rust/crates/service-kit` | [`docs/port/spec-service-kit.md`](spec-service-kit.md) | [`docs/port/clean-room/service-kit.md`](clean-room/service-kit.md) | `MIT` | None |
+| `rust/crates/controller` | [`docs/port/clean-room/controller.md`](clean-room/controller.md) | [`docs/port/clean-room/controller.md`](clean-room/controller.md) | `MIT` | None (AGPL `gateway`, `content`, and `isles-*` injected via `CorePluginFactory`) |
+| `rust/crates/hostkit` | [`docs/port/spec-dl3-hostkit.md`](spec-dl3-hostkit.md) | [`docs/port/clean-room/hostkit.md`](clean-room/hostkit.md) | `MIT` | None (`services/host` remains the thin AGPL binary/legacy/isles adapter shell) |
+| `rust/crates/launcher-kit` | [`docs/port/spec-dl4-launcher.md`](spec-dl4-launcher.md) | [`docs/port/clean-room/launcher-kit.md`](clean-room/launcher-kit.md) | `MIT` | None (`launcher/src-tauri` remains the AGPL Tauri shell) |
+
+

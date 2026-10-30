@@ -82,9 +82,7 @@ impl GeneratorKind {
             Self::ProgressionConfig => "isles_core::gamedata::generate_progression_config",
             Self::HuntTables => "isles_director::hunt_tables::import_hunt_tables",
             Self::SlayersPath => "isles_core::gamedata::generate_slayers_path",
-            Self::SlayersPathDefinitions => {
-                "isles_core::gamedata::generate_slayers_path_definitions"
-            }
+            Self::SlayersPathDefinitions => "isles_core::gamedata::generate_slayers_path_definitions",
             Self::RewardCache => "isles_core::gamedata::generate_reward_cache_store",
             Self::LadyLuckGenerate => "isles_core::gamedata::generate_ladyluck_store",
             Self::LadyLuckEnrich => "isles_core::gamedata::enrich_ladyluck_store",
@@ -106,8 +104,8 @@ pub struct Step<'a> {
 impl Step<'_> {
     pub fn skip(&self) -> Option<String> {
         let p = self.paths;
-        let has_catalog = p.exports.join("catalog_1_14_7.jsonl").is_file()
-            || p.exports.join("catalog_1_12.jsonl").is_file();
+        let has_catalog =
+            p.exports.join("catalog_1_14_7.jsonl").is_file() || p.exports.join("catalog_1_12.jsonl").is_file();
         match self.generator {
             GeneratorKind::ProgressionConfig => {
                 let has_source = p.raw_game_data.join(SUPPLIED_SOURCES[0].1).is_file();
@@ -358,8 +356,7 @@ pub fn copy_supplied_sources(p: &Paths, from_dir: &Path) -> Result<Vec<String>, 
             None
         };
         if let Some(src) = from {
-            std::fs::create_dir_all(&p.raw_game_data)
-                .map_err(|e| HostError::io(&p.raw_game_data, e))?;
+            std::fs::create_dir_all(&p.raw_game_data).map_err(|e| HostError::io(&p.raw_game_data, e))?;
             std::fs::copy(&src, &dest).map_err(|e| HostError::io(&dest, e))?;
             copied.push(source_name.to_owned());
         }
@@ -434,11 +431,7 @@ pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
     ]
 }
 
-pub fn run_generator(
-    p: &Paths,
-    step: &Step<'_>,
-    _log_file: &Path,
-) -> Result<RunResult, HostError> {
+pub fn run_generator(p: &Paths, step: &Step<'_>, _log_file: &Path) -> Result<RunResult, HostError> {
     crate::hooks::get().run_generator(p, step)
 }
 
@@ -447,9 +440,7 @@ pub fn generate_game_data(
     opts: &GenerateOptions,
     out: &mut dyn FnMut(&str),
 ) -> Result<Generated, HostError> {
-    let fetch_captures = |paths: &Paths, pin: &CapturePin, log: &Path| {
-        ensure_captures(paths, pin, Some(log))
-    };
+    let fetch_captures = |paths: &Paths, pin: &CapturePin, log: &Path| ensure_captures(paths, pin, Some(log));
     let hooks = Generators {
         fetch_captures: &fetch_captures,
         run_step: &run_generator,
@@ -463,10 +454,8 @@ pub fn generate_game_data_with(
     out: &mut dyn FnMut(&str),
     hooks: &Generators<'_>,
 ) -> Result<Generated, HostError> {
-    std::fs::create_dir_all(&p.backend_game_data)
-        .map_err(|e| HostError::io(&p.backend_game_data, e))?;
-    std::fs::create_dir_all(&p.director_game_data)
-        .map_err(|e| HostError::io(&p.director_game_data, e))?;
+    std::fs::create_dir_all(&p.backend_game_data).map_err(|e| HostError::io(&p.backend_game_data, e))?;
+    std::fs::create_dir_all(&p.director_game_data).map_err(|e| HostError::io(&p.director_game_data, e))?;
     std::fs::create_dir_all(&p.raw_game_data).map_err(|e| HostError::io(&p.raw_game_data, e))?;
 
     let wants = |title: &str| -> bool {
@@ -493,8 +482,7 @@ pub fn generate_game_data_with(
         }
     }
 
-    let needs_captures = !p.raw_game_data.join(SUPPLIED_SOURCES[1].1).is_file()
-        && wants("Lady Luck store")
+    let needs_captures = !p.raw_game_data.join(SUPPLIED_SOURCES[1].1).is_file() && wants("Lady Luck store")
         || wants("Platinum store")
         || wants("Platinum store and storage policy");
     if needs_captures {
@@ -504,16 +492,10 @@ pub fn generate_game_data_with(
                     let short = &pin.commit[..pin.commit.len().min(12)];
                     match (hooks.fetch_captures)(p, &pin, &opts.log_file) {
                         Ok(CaptureFetch::Fetched) => {
-                            out(&format!(
-                                "- Store captures ({} at {short}): fetched",
-                                pin.name
-                            ));
+                            out(&format!("- Store captures ({} at {short}): fetched", pin.name));
                         }
                         Ok(CaptureFetch::AlreadyReady) => {
-                            out(&format!(
-                                "- Store captures ({} at {short}): ready",
-                                pin.name
-                            ));
+                            out(&format!("- Store captures ({} at {short}): ready", pin.name));
                         }
                         Err(e) => {
                             out(&format!("- Store captures: not fetched, {e}"));
@@ -557,9 +539,7 @@ pub fn generate_game_data_with(
         }
         if step.generator == GeneratorKind::LadyLuckEnrich {
             let _ = use_examples(&p.backend_game_data, &["ladyluck_store.json"]);
-            if !p.backend_game_data.join("ladyluck_store.json").is_file()
-                && opts.examples_for_missing
-            {
+            if !p.backend_game_data.join("ladyluck_store.json").is_file() && opts.examples_for_missing {
                 let _ = seed_dir_examples(&p.backend_game_data, &["ladyluck_store.json"]);
             }
         }
@@ -583,9 +563,7 @@ pub fn generate_game_data_with(
                 ran.push(step.title.to_owned());
             }
             Ok(res) => {
-                let detail = res
-                    .last_line
-                    .unwrap_or_else(|| format!("exit {}", res.code));
+                let detail = res.last_line.unwrap_or_else(|| format!("exit {}", res.code));
                 out(&format!("- {}: failed: {detail}", step.title));
                 failed.push(step.title.to_owned());
             }
@@ -636,11 +614,7 @@ mod tests {
         assert_eq!(state.missing.len(), BACKEND_GAME_DATA.len());
 
         for name in BACKEND_GAME_DATA {
-            std::fs::write(
-                dir.join(example_file_name(name)),
-                format!("{{\"example\":\"{name}\"}}"),
-            )
-            .unwrap();
+            std::fs::write(dir.join(example_file_name(name)), format!("{{\"example\":\"{name}\"}}")).unwrap();
         }
         let copied = use_examples(dir, &BACKEND_GAME_DATA).unwrap();
         assert_eq!(copied.len(), BACKEND_GAME_DATA.len());

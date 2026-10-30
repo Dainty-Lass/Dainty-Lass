@@ -14,9 +14,7 @@ pub struct CacheEntry {
 }
 
 fn is_lower_hex_64(s: &str) -> bool {
-    s.len() == 64
-        && s.bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 pub fn parse_cache_file(raw: &str) -> Vec<(String, CacheEntry)> {
@@ -48,11 +46,7 @@ pub fn parse_cache_file(raw: &str) -> Vec<(String, CacheEntry)> {
         else {
             continue;
         };
-        let Some(sha256) = obj
-            .get("sha256")
-            .and_then(Value::as_str)
-            .filter(|s| is_lower_hex_64(s))
-        else {
+        let Some(sha256) = obj.get("sha256").and_then(Value::as_str).filter(|s| is_lower_hex_64(s)) else {
             continue;
         };
         entries.push((

@@ -244,9 +244,7 @@ fn read_f64_le(bytes: &[u8], pos: &mut usize) -> io::Result<f64> {
 }
 
 fn read_cstring(bytes: &[u8], pos: &mut usize) -> io::Result<String> {
-    let rest = bytes
-        .get(*pos..)
-        .ok_or_else(|| bad_bson("truncated BSON cstring"))?;
+    let rest = bytes.get(*pos..).ok_or_else(|| bad_bson("truncated BSON cstring"))?;
     let nul = rest
         .iter()
         .position(|&b| b == 0)
@@ -285,9 +283,7 @@ pub fn decode_doc(bytes: &[u8]) -> io::Result<Doc> {
         return Err(bad_bson("BSON document length smaller than 5 bytes"));
     }
     let total = usize::try_from(total_i32).map_err(|_| bad_bson("invalid BSON document length"))?;
-    let doc_bytes = bytes
-        .get(..total)
-        .ok_or_else(|| bad_bson("truncated BSON document"))?;
+    let doc_bytes = bytes.get(..total).ok_or_else(|| bad_bson("truncated BSON document"))?;
     if doc_bytes.last() != Some(&0) {
         return Err(bad_bson("BSON document missing trailing NUL"));
     }
@@ -351,9 +347,7 @@ pub fn decode_doc(bytes: &[u8]) -> io::Result<Doc> {
                 Value::Other(0x07)
             }
             0x08 => {
-                let b = *doc_bytes
-                    .get(pos)
-                    .ok_or_else(|| bad_bson("truncated BSON bool"))?;
+                let b = *doc_bytes.get(pos).ok_or_else(|| bad_bson("truncated BSON bool"))?;
                 pos += 1;
                 Value::Bool(b != 0)
             }
@@ -444,8 +438,8 @@ pub fn parse_op_msg(bytes: &[u8]) -> io::Result<Doc> {
             }
             1 => {
                 let mut peek = pos;
-                let sec_size = usize::try_from(read_i32_le(bytes, &mut peek)?)
-                    .map_err(|_| bad_bson("invalid section 1 size"))?;
+                let sec_size =
+                    usize::try_from(read_i32_le(bytes, &mut peek)?).map_err(|_| bad_bson("invalid section 1 size"))?;
                 if sec_size < 4 || pos + sec_size > end {
                     return Err(bad_bson("truncated section 1 document sequence"));
                 }
@@ -528,18 +522,11 @@ impl Document {
     }
 
     fn from_doc(doc: Doc) -> Self {
-        Self(
-            doc.into_iter()
-                .map(|(k, v)| (k, Bson::from_value(v)))
-                .collect(),
-        )
+        Self(doc.into_iter().map(|(k, v)| (k, Bson::from_value(v))).collect())
     }
 
     fn to_doc(&self) -> Doc {
-        self.0
-            .iter()
-            .map(|(k, v)| (k.clone(), v.to_value()))
-            .collect()
+        self.0.iter().map(|(k, v)| (k.clone(), v.to_value())).collect()
     }
 }
 
@@ -627,12 +614,10 @@ mod tests {
             ),
             (
                 "members".into(),
-                Value::Array(vec![
-                    Value::Doc(vec![
-                        ("_id".into(), Value::Int32(0)),
-                        ("host".into(), Value::Str("127.0.0.1:27017".into())),
-                    ]),
-                ]),
+                Value::Array(vec![Value::Doc(vec![
+                    ("_id".into(), Value::Int32(0)),
+                    ("host".into(), Value::Str("127.0.0.1:27017".into())),
+                ])]),
             ),
         ];
 

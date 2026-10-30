@@ -183,8 +183,8 @@ pub fn find_mongod_in(path: Option<&OsStr>, program_files_dir: Option<&Path>) ->
     }
     if let Some(pf) = program_files_dir {
         let server_dir = pf.join("MongoDB").join("Server");
-        if let Some(installed) = newest_installed(&server_dir, "mongod.exe")
-            .or_else(|| newest_installed(&server_dir, "mongod"))
+        if let Some(installed) =
+            newest_installed(&server_dir, "mongod.exe").or_else(|| newest_installed(&server_dir, "mongod"))
         {
             return Some(installed.display().to_string());
         }
@@ -204,10 +204,7 @@ pub fn find_mongod(configured: Option<&str>) -> Result<Option<String>, HostError
         )));
     }
     let pf = cfg!(windows).then(program_files);
-    Ok(find_mongod_in(
-        std::env::var_os("PATH").as_deref(),
-        pf.as_deref(),
-    ))
+    Ok(find_mongod_in(std::env::var_os("PATH").as_deref(), pf.as_deref()))
 }
 
 /// Converts a MongoDB replica-set URI into a `directConnection=true` URI for single-node administration.
@@ -321,8 +318,7 @@ fn resolve_addr(host: &str, port: u16) -> Result<SocketAddr, String> {
 }
 
 fn is_primary(doc: &Doc) -> bool {
-    as_bool(find(doc, "isWritablePrimary")).unwrap_or(false)
-        || as_bool(find(doc, "ismaster")).unwrap_or(false)
+    as_bool(find(doc, "isWritablePrimary")).unwrap_or(false) || as_bool(find(doc, "ismaster")).unwrap_or(false)
 }
 
 fn hello_doc() -> Doc {
@@ -439,10 +435,7 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> Result<MongoCh
         });
     }
 
-    let member_host = opts
-        .host
-        .clone()
-        .unwrap_or_else(|| format!("{host}:{port}"));
+    let member_host = opts.host.clone().unwrap_or_else(|| format!("{host}:{port}"));
     let init_cmd: Doc = vec![
         (
             "replSetInitiate".into(),
@@ -488,9 +481,7 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> Result<MongoCh
         if let Ok(doc) = command(addr, &hello_doc(), cmd_timeout)
             && is_primary(&doc)
         {
-            let set_name = as_str(find(&doc, "setName"))
-                .unwrap_or(REPLICA_SET)
-                .to_owned();
+            let set_name = as_str(find(&doc, "setName")).unwrap_or(REPLICA_SET).to_owned();
             return Ok(MongoCheck::Ok {
                 set_name,
                 primary: true,
@@ -561,10 +552,7 @@ mod tests {
             first_host("mongodb://user:pass@localhost:27018,other:27019/db").unwrap(),
             ("localhost".into(), 27018)
         );
-        assert_eq!(
-            first_host("mongodb://[::1]:27020/db").unwrap(),
-            ("::1".into(), 27020)
-        );
+        assert_eq!(first_host("mongodb://[::1]:27020/db").unwrap(), ("::1".into(), 27020));
         assert_eq!(
             first_host("mongodb://127.0.0.1/db").unwrap(),
             ("127.0.0.1".into(), 27017)

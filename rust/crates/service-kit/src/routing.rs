@@ -34,10 +34,7 @@ pub struct BadParam(pub String);
 
 impl Pattern {
     pub fn parse(path: &str) -> Self {
-        assert!(
-            path.starts_with('/'),
-            "route pattern must start with '/': {path}"
-        );
+        assert!(path.starts_with('/'), "route pattern must start with '/': {path}");
         assert!(
             !path.contains(['*', '{', '}', '?', '(', ')']),
             "route pattern contains unsupported wildcard/regex characters: {path}"
@@ -47,10 +44,7 @@ impl Pattern {
         let rest = &path[1..];
         if !rest.is_empty() {
             for seg in rest.split('/') {
-                assert!(
-                    !seg.is_empty(),
-                    "route pattern must not contain empty segments: {path}"
-                );
+                assert!(!seg.is_empty(), "route pattern must not contain empty segments: {path}");
                 if let Some(param_name) = seg.strip_prefix(':') {
                     assert!(
                         !param_name.is_empty(),
@@ -130,9 +124,7 @@ pub struct Params(Vec<(String, String)>);
 
 impl Params {
     pub fn get(&self, name: &str) -> Option<&str> {
-        self.0
-            .iter()
-            .find_map(|(k, v)| (k == name).then_some(v.as_str()))
+        self.0.iter().find_map(|(k, v)| (k == name).then_some(v.as_str()))
     }
 }
 
@@ -176,8 +168,8 @@ impl<S: Clone + Send + Sync + 'static> Router<S> {
     {
         let pattern = Pattern::parse(path);
         let name: Arc<str> = Arc::from(pattern.as_str());
-        let filter = MethodFilter::try_from(method.clone())
-            .unwrap_or_else(|_| panic!("unsupported HTTP method: {method}"));
+        let filter =
+            MethodFilter::try_from(method.clone()).unwrap_or_else(|_| panic!("unsupported HTTP method: {method}"));
         let router = on(filter, handler);
         self.routes.push(RouteEntry {
             method,
@@ -241,11 +233,7 @@ impl<S: Clone + Send + Sync + 'static> Router<S> {
             .collect()
     }
 
-    pub fn into_service(
-        self,
-        state: S,
-        fallback: fn(&Request<Body>) -> Response,
-    ) -> RouterService {
+    pub fn into_service(self, state: S, fallback: fn(&Request<Body>) -> Response) -> RouterService {
         let compiled = self
             .routes
             .into_iter()
@@ -290,8 +278,7 @@ impl Service<Request<Body>> for RouterService {
         let req_path = request.uri().path();
 
         for route in self.routes.iter() {
-            let method_ok = route.method == *req_method
-                || (*req_method == Method::HEAD && route.method == Method::GET);
+            let method_ok = route.method == *req_method || (*req_method == Method::HEAD && route.method == Method::GET);
             if !method_ok {
                 continue;
             }
@@ -299,9 +286,7 @@ impl Service<Request<Body>> for RouterService {
                 return match matched {
                     Ok(params) => {
                         request.extensions_mut().insert(params);
-                        request
-                            .extensions_mut()
-                            .insert(MatchedPattern(Arc::clone(&route.name)));
+                        request.extensions_mut().insert(MatchedPattern(Arc::clone(&route.name)));
                         let mut svc = route.router.clone();
                         Box::pin(async move { Service::call(&mut svc, request).await })
                     }
@@ -325,10 +310,7 @@ mod tests {
         let m1 = pat.matches("/users/42%20a/profile/").unwrap().unwrap();
         assert_eq!(m1.get("id"), Some("42 a"));
         assert!(pat.matches("/users/42/profile//").is_none());
-        assert_eq!(
-            pat.matches("/users/%FF/profile"),
-            Some(Err(BadParam("%FF".into())))
-        );
+        assert_eq!(pat.matches("/users/%FF/profile"), Some(Err(BadParam("%FF".into()))));
     }
 
     #[test]

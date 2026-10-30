@@ -18,8 +18,8 @@ use crate::doctor::tailscale_ipv4;
 use crate::error::HostError;
 use crate::gamedata::{GenerateOptions, generate_game_data, seed_embedded_examples};
 use crate::hostconfig::{
-    Edition, Platform, ServerMode, build_env_files, check_edition, linux_options,
-    load_host_config, load_or_create_secrets, save_host_config, write_env_files,
+    Edition, Platform, ServerMode, build_env_files, check_edition, linux_options, load_host_config,
+    load_or_create_secrets, save_host_config, write_env_files,
 };
 use crate::invite::certificate_fingerprint;
 use crate::linux::{ensure_wine_prefix, is_root, write_gameserver_wrapper, write_systemd_units};
@@ -31,9 +31,7 @@ use crate::tls::generate_self_signed_cert_pem;
 
 use self::database::database_notes;
 use self::firewall::{apply_windows_firewall_rules, write_firewall_script};
-use self::install::{
-    ServiceSource, install_from_release, install_service, service_source, services_to_install,
-};
+use self::install::{ServiceSource, install_from_release, install_service, service_source, services_to_install};
 use self::options::{host_config_from_args, performance_summary};
 use self::paradox::{Layout, migrate_old_workspace, missing_paradox};
 
@@ -48,19 +46,9 @@ pub trait SetupEnv {
     fn find_on_path(&self, name: &str) -> Result<Option<String>, HostError>;
     fn source_commit(&self, repo: &Path) -> Result<String, HostError>;
     fn apply_preset(&self, paths: &Paths) -> Result<Option<PresetApplied>, HostError>;
-    fn install_services(
-        &self,
-        layout: &Layout,
-        log_file: &Path,
-        out: &mut dyn FnMut(&str),
-    ) -> Result<(), HostError>;
-    fn make_certificate(
-        &self,
-        layout: &Layout,
-        hosts: &[String],
-        tls: &Path,
-        log_file: &Path,
-    ) -> Result<(), HostError>;
+    fn install_services(&self, layout: &Layout, log_file: &Path, out: &mut dyn FnMut(&str)) -> Result<(), HostError>;
+    fn make_certificate(&self, layout: &Layout, hosts: &[String], tls: &Path, log_file: &Path)
+    -> Result<(), HostError>;
     fn gateway_program(&self) -> String;
     fn require_checkout_sources(&self) -> bool {
         true
@@ -113,25 +101,13 @@ impl SetupEnv for RealSetupEnv {
         apply_preset(paths, false)
     }
 
-    fn install_services(
-        &self,
-        layout: &Layout,
-        log_file: &Path,
-        out: &mut dyn FnMut(&str),
-    ) -> Result<(), HostError> {
+    fn install_services(&self, layout: &Layout, log_file: &Path, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
         let paths = Paths::new(&layout.repo);
         match service_source(&paths)? {
             ServiceSource::Release(manifest) => {
                 let platform = crate::selfupdate::this_platform()?;
                 let source = crate::selfupdate::Source::from_env(Some(&manifest));
-                install_from_release(
-                    &layout.repo,
-                    Some(&manifest),
-                    platform,
-                    &source,
-                    log_file,
-                    out,
-                )?;
+                install_from_release(&layout.repo, Some(&manifest), platform, &source, log_file, out)?;
             }
             ServiceSource::Checkout => {
                 if cfg!(feature = "paradox") {
@@ -162,8 +138,7 @@ impl SetupEnv for RealSetupEnv {
         let (cert_pem, key_pem) = generate_self_signed_cert_pem(hosts)?;
         let cert_file = tls.join("gateway-cert.pem");
         let key_file = tls.join("gateway-key.pem");
-        std::fs::write(&cert_file, cert_pem.as_bytes())
-            .map_err(|e| HostError::io(&cert_file, e))?;
+        std::fs::write(&cert_file, cert_pem.as_bytes()).map_err(|e| HostError::io(&cert_file, e))?;
         std::fs::write(&key_file, key_pem.as_bytes()).map_err(|e| HostError::io(&key_file, e))?;
         Ok(())
     }
@@ -259,18 +234,10 @@ pub fn run_with(
     }
 
     if args.fresh_start {
-        config
-            .database
-            .get_or_insert_with(Default::default)
-            .fresh_start = Some(true);
+        config.database.get_or_insert_with(Default::default).fresh_start = Some(true);
     }
     if config.edition.runs_reborn() && !cfg!(feature = "paradox") {
-        crate::commands::update::migrate_existing_mongo_data_for_setup(
-            p,
-            &config,
-            &setup_log,
-            out,
-        )?;
+        crate::commands::update::migrate_existing_mongo_data_for_setup(p, &config, &setup_log, out)?;
     }
 
     let (sec, created_secrets) = load_or_create_secrets(&p.config, secrets::new_secrets)?;
@@ -305,8 +272,7 @@ pub fn run_with(
             std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
         }
         if !p.news_file.is_file() {
-            std::fs::write(&p.news_file, "{\n  \"items\": []\n}\n")
-                .map_err(|e| HostError::io(&p.news_file, e))?;
+            std::fs::write(&p.news_file, "{\n  \"items\": []\n}\n").map_err(|e| HostError::io(&p.news_file, e))?;
         }
         let env_files = build_env_files(&config, &sec, p, &commit, platform);
         write_env_files(p, &env_files)?;
@@ -315,13 +281,26 @@ pub fn run_with(
                 written_env_names.push(format!("{name}.env"));
             }
         }
-        for stale in ["metagame.env", "deploy.env", "legacy-content.env", "legacy-gateway.env", "legacy-allowlist.env"] {
+        for stale in [
+            "metagame.env",
+            "deploy.env",
+            "legacy-content.env",
+            "legacy-gateway.env",
+            "legacy-allowlist.env",
+        ] {
             if !config.edition.runs_legacy() {
                 let _ = std::fs::remove_file(p.config.join(stale));
             }
         }
     } else {
-        for stale in ["backend.env", "director.env", "content.env", "gateway.env", "admin.env", "allowlist.env"] {
+        for stale in [
+            "backend.env",
+            "director.env",
+            "content.env",
+            "gateway.env",
+            "admin.env",
+            "allowlist.env",
+        ] {
             let _ = std::fs::remove_file(p.config.join(stale));
         }
     }
@@ -341,31 +320,19 @@ pub fn run_with(
     ));
 
     if config.mode == ServerMode::Public {
-        let tls_dir = p
-            .cert_file
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .to_path_buf();
+        let tls_dir = p.cert_file.parent().unwrap_or_else(|| Path::new(".")).to_path_buf();
         if p.cert_file.is_file() && p.key_file.is_file() {
-            out(&format!(
-                "- gateway certificate kept in {}",
-                p.cert_file.display()
-            ));
+            out(&format!("- gateway certificate kept in {}", p.cert_file.display()));
         } else {
             let mut hosts = vec![config.host.clone()];
             if config.game_address != config.host {
                 hosts.push(config.game_address.clone());
             }
             env.make_certificate(&layout, &hosts, &tls_dir, &setup_log)?;
-            out(&format!(
-                "- gateway certificate made in {}",
-                p.cert_file.display()
-            ));
+            out(&format!("- gateway certificate made in {}", p.cert_file.display()));
         }
         if let Ok(fp) = certificate_fingerprint(&p.cert_file) {
-            out(&format!(
-                "- certificate fingerprint (goes into every invite): {fp}"
-            ));
+            out(&format!("- certificate fingerprint (goes into every invite): {fp}"));
         }
         let _ = crate::hooks::get().ensure_gateway_cert(p, &config);
     }

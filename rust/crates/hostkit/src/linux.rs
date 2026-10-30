@@ -6,8 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::HostError;
 use crate::hostconfig::{
-    Edition, HostConfig, LinuxOptions, ServerMode, game_ports, gateway_port, legacy_game_ports,
-    legacy_gateway_port,
+    Edition, HostConfig, LinuxOptions, ServerMode, game_ports, gateway_port, legacy_game_ports, legacy_gateway_port,
 };
 use crate::paths::Paths;
 use crate::run::{RunOptions, capture, run};
@@ -108,12 +107,7 @@ pub fn is_root() -> Result<bool, HostError> {
     Ok(false)
 }
 
-pub fn can_bind_port_with(
-    port: u16,
-    root: bool,
-    status: Option<&str>,
-    unprivileged_start: Option<&str>,
-) -> bool {
+pub fn can_bind_port_with(port: u16, root: bool, status: Option<&str>, unprivileged_start: Option<&str>) -> bool {
     if port >= 1024 || root {
         return true;
     }
@@ -133,12 +127,7 @@ pub fn can_bind_port(port: u16) -> Result<bool, HostError> {
     let root = is_root()?;
     let status = fs::read_to_string("/proc/self/status").ok();
     let unpriv = fs::read_to_string("/proc/sys/net/ipv4/ip_unprivileged_port_start").ok();
-    Ok(can_bind_port_with(
-        port,
-        root,
-        status.as_deref(),
-        unpriv.as_deref(),
-    ))
+    Ok(can_bind_port_with(port, root, status.as_deref(), unpriv.as_deref()))
 }
 
 pub fn can_change_firewall() -> Result<bool, HostError> {
@@ -181,12 +170,7 @@ fn set_executable_mode(path: &Path) -> Result<(), HostError> {
 }
 
 pub fn game_runtime(options: &LinuxOptions) -> Result<Option<GameRuntime>, HostError> {
-    if let Some(proton) = options
-        .proton
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
+    if let Some(proton) = options.proton.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         if crate::wine::is_executable(Path::new(proton)) {
             return Ok(Some(GameRuntime {
                 kind: RuntimeKind::Proton,
@@ -195,12 +179,7 @@ pub fn game_runtime(options: &LinuxOptions) -> Result<Option<GameRuntime>, HostE
         }
         return Ok(None);
     }
-    if let Some(wine) = options
-        .wine
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
+    if let Some(wine) = options.wine.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         if crate::wine::is_executable(Path::new(wine)) {
             return Ok(Some(GameRuntime {
                 kind: RuntimeKind::Wine,
@@ -216,16 +195,8 @@ pub fn game_runtime(options: &LinuxOptions) -> Result<Option<GameRuntime>, HostE
     }))
 }
 
-pub fn ensure_wine_prefix(
-    paths: &Paths,
-    options: &LinuxOptions,
-    log_file: &Path,
-) -> Result<WinePrefix, HostError> {
-    if options
-        .proton
-        .as_deref()
-        .is_some_and(|s| !s.trim().is_empty())
-    {
+pub fn ensure_wine_prefix(paths: &Paths, options: &LinuxOptions, log_file: &Path) -> Result<WinePrefix, HostError> {
+    if options.proton.as_deref().is_some_and(|s| !s.trim().is_empty()) {
         fs::create_dir_all(&paths.proton_data)?;
         return Ok(WinePrefix {
             ok: true,
@@ -251,16 +222,14 @@ pub fn ensure_wine_prefix(
 
     let wine_path = Path::new(&runtime.path);
     let sibling_wineboot = wine_path.parent().map(|dir| dir.join("wineboot"));
-    let (cmd, args): (String, Vec<&str>) = if let Some(wb) = sibling_wineboot
-        .as_ref()
-        .filter(|p| crate::wine::is_executable(p))
-    {
-        (wb.to_string_lossy().into_owned(), vec!["--init"])
-    } else if let Some(wb) = crate::wine::find_on_path(&["wineboot"])? {
-        (wb, vec!["--init"])
-    } else {
-        (runtime.path.clone(), vec!["wineboot", "--init"])
-    };
+    let (cmd, args): (String, Vec<&str>) =
+        if let Some(wb) = sibling_wineboot.as_ref().filter(|p| crate::wine::is_executable(p)) {
+            (wb.to_string_lossy().into_owned(), vec!["--init"])
+        } else if let Some(wb) = crate::wine::find_on_path(&["wineboot"])? {
+            (wb, vec!["--init"])
+        } else {
+            (runtime.path.clone(), vec!["wineboot", "--init"])
+        };
 
     let mut env: Vec<(String, String)> = std::env::vars().collect();
     env.push((
@@ -301,9 +270,7 @@ pub fn unit_word(s: &str) -> Result<String, HostError> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
     {
-        return Err(HostError::message(format!(
-            "unsafe systemd unit word: {s:?}"
-        )));
+        return Err(HostError::message(format!("unsafe systemd unit word: {s:?}")));
     }
     Ok(trimmed.to_owned())
 }
@@ -312,15 +279,24 @@ pub fn unit_path(s: &str) -> Result<String, HostError> {
     let trimmed = s.trim();
     if trimmed.is_empty()
         || (!trimmed.starts_with('/') && !Path::new(trimmed).is_absolute())
-        || trimmed
-            .chars()
-            .any(|c| c.is_control() || matches!(c, '"' | '\'' | ';'))
+        || trimmed.chars().any(|c| c.is_control() || matches!(c, '"' | '\'' | ';'))
     {
-        return Err(HostError::message(format!(
-            "unsafe systemd unit path: {s:?}"
-        )));
+        return Err(HostError::message(format!("unsafe systemd unit path: {s:?}")));
     }
     Ok(trimmed.replace('%', "%%"))
+}
+
+pub fn host_binary(paths: &Paths) -> PathBuf {
+    resolve_host_bin(paths).unwrap_or_else(|_| paths.repo.join("reforged-host"))
+}
+
+pub fn set_mode(_path: &Path, _mode: u32) -> Result<(), HostError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(_path, fs::Permissions::from_mode(_mode)).map_err(|e| HostError::io(_path, e))?;
+    }
+    Ok(())
 }
 
 fn resolve_host_bin(paths: &Paths) -> Result<PathBuf, HostError> {
@@ -333,11 +309,7 @@ fn resolve_host_bin(paths: &Paths) -> Result<PathBuf, HostError> {
             .join("target")
             .join("release")
             .join("reforged-host"),
-        paths
-            .repo
-            .join("target")
-            .join("release")
-            .join("reforged-host"),
+        paths.repo.join("target").join("release").join("reforged-host"),
     ];
     for c in candidates {
         if c.is_file() {
@@ -377,11 +349,7 @@ pub fn unit_context(paths: &Paths) -> Result<UnitContext, HostError> {
     Ok(UnitContext { user, host_bin })
 }
 
-pub fn systemd_units(
-    c: &HostConfig,
-    p: &Paths,
-    ctx: &UnitContext,
-) -> Result<Vec<(String, String)>, HostError> {
+pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec<(String, String)>, HostError> {
     let user = unit_word(&ctx.user)?;
     if user == "root" {
         return Err(HostError::message(
@@ -558,9 +526,7 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
             if c.edition.runs_reborn() {
                 let gw = gateway_port(c);
                 let (first, last) = game_ports(c);
-                lines.push(format!(
-                    "ufw allow in on tailscale0 to any port {gw} proto tcp"
-                ));
+                lines.push(format!("ufw allow in on tailscale0 to any port {gw} proto tcp"));
                 lines.push(format!(
                     "ufw allow in on tailscale0 to any port {first}:{last} proto udp"
                 ));
@@ -568,9 +534,7 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
             if c.edition.runs_legacy() {
                 let gw = legacy_gateway_port(c);
                 let (first, last) = legacy_game_ports(c);
-                lines.push(format!(
-                    "ufw allow in on tailscale0 to any port {gw} proto tcp"
-                ));
+                lines.push(format!("ufw allow in on tailscale0 to any port {gw} proto tcp"));
                 lines.push(format!(
                     "ufw allow in on tailscale0 to any port {first}:{last} proto udp"
                 ));
@@ -590,7 +554,8 @@ mod tests {
 
     #[test]
     fn parses_effective_capabilities_from_proc_status() {
-        let status = "Name:\treforged-host\nCapInh:\t0000000000000000\nCapPrm:\t0000000000001400\nCapEff:\t0000000000001400\n";
+        let status =
+            "Name:\treforged-host\nCapInh:\t0000000000000000\nCapPrm:\t0000000000001400\nCapEff:\t0000000000001400\n";
         assert_eq!(effective_capabilities(status), 0x1400);
         assert!(has_capability(CAP_NET_BIND_SERVICE, Some(status)));
         assert!(has_capability(CAP_NET_ADMIN, Some(status)));
@@ -604,12 +569,7 @@ mod tests {
         assert!(can_bind_port_with(443, false, None, Some("80\n")));
         assert!(!can_bind_port_with(443, false, None, Some("1024\n")));
         let status_with_cap = "CapEff:\t0000000000000400\n";
-        assert!(can_bind_port_with(
-            443,
-            false,
-            Some(status_with_cap),
-            Some("1024\n")
-        ));
+        assert!(can_bind_port_with(443, false, Some(status_with_cap), Some("1024\n")));
     }
 
     #[test]
@@ -644,10 +604,7 @@ mod tests {
         };
         let units = systemd_units(&cfg, &paths, &ctx).unwrap();
         let names: Vec<&str> = units.iter().map(|(n, _)| n.as_str()).collect();
-        assert_eq!(
-            names,
-            vec![UNIT_ALLOWLIST, UNIT_SERVER, "install.sh"]
-        );
+        assert_eq!(names, vec![UNIT_ALLOWLIST, UNIT_SERVER, "install.sh"]);
         let server_unit = &units[1].1;
         assert!(server_unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
     }

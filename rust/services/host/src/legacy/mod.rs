@@ -396,7 +396,7 @@ fn metagame(programs: &Programs, paths: &Paths, args: &[&str]) -> Result<(), Hos
         cwd: paths.workspace.clone(),
         env: Some(service_environment(
             std::env::vars(),
-            [],
+            std::iter::empty::<(&str, &str)>(),
             &dr_environment(paths, "metagame")?,
         )),
         log_file: Some(paths.logs.join("metagame.log")),

@@ -1,4 +1,4 @@
-//! The Host page (Reforged's `controller.ts` 1765–2351): the host kit's workspace, requirements, builds,
+//! The Host page: the host kit's workspace, requirements, builds,
 //! game data and the server a host runs from the launcher, for the planned layout only (RD23), on
 //! `platform::hostkit`, `platform::hostserver`, `platform::requirements` and
 //! `platform::loader_session`, driving `reforged-host`.

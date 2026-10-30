@@ -43,9 +43,7 @@ pub trait HostHooks: Send + Sync {
         _db_cfg: &store::DatabaseConfig,
         _dry_run: bool,
     ) -> Result<(Vec<(String, usize)>, Vec<(String, String)>), HostError> {
-        Err(HostError::message(
-            "database migration is not registered in this build",
-        ))
+        Err(HostError::message("database migration is not registered in this build"))
     }
 
     fn db_verify(
@@ -58,14 +56,8 @@ pub trait HostHooks: Send + Sync {
         ))
     }
 
-    fn db_export_mongo(
-        &self,
-        _uri: &str,
-        _out: &Path,
-    ) -> Result<Vec<(String, usize)>, HostError> {
-        Err(HostError::message(
-            "MongoDB export is not registered in this build",
-        ))
+    fn db_export_mongo(&self, _uri: &str, _out: &Path) -> Result<Vec<(String, usize)>, HostError> {
+        Err(HostError::message("MongoDB export is not registered in this build"))
     }
 
     fn run_db_command(
@@ -159,12 +151,7 @@ pub trait HostHooks: Send + Sync {
         Err(HostError::message(LEGACY_UNSUPPORTED))
     }
 
-    fn legacy_doctor_checks(
-        &self,
-        _p: &Paths,
-        _config: &HostConfig,
-        _hash_exe: bool,
-    ) -> Result<Vec<Check>, HostError> {
+    fn legacy_doctor_checks(&self, _p: &Paths, _config: &HostConfig, _hash_exe: bool) -> Result<Vec<Check>, HostError> {
         Err(HostError::message(LEGACY_UNSUPPORTED))
     }
 }

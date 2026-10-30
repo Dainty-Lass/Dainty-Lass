@@ -230,17 +230,12 @@ impl Command {
             | Self::AdminListInvites
             | Self::AdminListSessions => Arg::None,
             Self::PreviewInvite | Self::AddServerFromInvite => Arg::Invite,
-            Self::SelectServer
-            | Self::RemoveServer
-            | Self::ProbeServer
-            | Self::ProbeRegionPing => Arg::ServerId,
+            Self::SelectServer | Self::RemoveServer | Self::ProbeServer | Self::ProbeRegionPing => Arg::ServerId,
             Self::RegisterAccount => Arg::RegisterAccount,
             Self::ImportAccountKey => Arg::ImportAccountKey,
             Self::ExportAccountKey => Arg::ExportAccountKey,
             Self::SetGamePath => Arg::GamePath,
-            Self::SelectGameVersion
-            | Self::PickGameVersionFolder
-            | Self::VerifyGameVersion => Arg::SelectGameVersion,
+            Self::SelectGameVersion | Self::PickGameVersionFolder | Self::VerifyGameVersion => Arg::SelectGameVersion,
             Self::SetGameVersionPath => Arg::GameVersionPath,
             Self::EpicCompleteSignIn => Arg::EpicCompleteSignIn,
             Self::InstallGameVersion => Arg::InstallGameVersion,
@@ -258,9 +253,7 @@ impl Command {
             Self::ListHistory => Arg::HistoryQuery,
             Self::PreviewRollback => Arg::HistoryPreviewRollback,
             Self::ApplyRollback => Arg::HistoryApplyRollback,
-            Self::StartRealm | Self::StopRealm | Self::DeleteRealm | Self::JoinRealm => {
-                Arg::RealmId
-            }
+            Self::StartRealm | Self::StopRealm | Self::DeleteRealm | Self::JoinRealm => Arg::RealmId,
             Self::CreateRealm => Arg::RealmCreate,
             Self::ConfigureRealm => Arg::RealmConfig,
             Self::AdminListAccounts => Arg::AdminAccountsQuery,
@@ -647,9 +640,7 @@ pub fn fits(s: &str, max_utf16: usize) -> bool {
 }
 
 pub fn is_server_id(s: &str) -> bool {
-    s.len() == SERVER_ID_LEN
-        && s.bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == SERVER_ID_LEN && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 pub fn arg_accepts(arg: Arg, value: &serde_json::Value) -> bool {
@@ -672,16 +663,12 @@ pub fn arg_accepts(arg: Arg, value: &serde_json::Value) -> bool {
         }
         Arg::ExportAccountKey => get_str(value, "serverId").is_some_and(is_server_id),
         Arg::GamePath => get_str(value, "path").is_some_and(|p| fits(p, PATH_MAX_LEN)),
-        Arg::SelectGameVersion => {
-            get_str(value, "version").is_some_and(|v| fits(v, GAME_VERSION_MAX_LEN))
-        }
+        Arg::SelectGameVersion => get_str(value, "version").is_some_and(|v| fits(v, GAME_VERSION_MAX_LEN)),
         Arg::GameVersionPath => {
             get_str(value, "version").is_some_and(|v| fits(v, GAME_VERSION_MAX_LEN))
                 && get_str(value, "path").is_some_and(|p| fits(p, PATH_MAX_LEN))
         }
-        Arg::EpicCompleteSignIn => {
-            get_str(value, "code").is_some_and(|c| fits(c, EPIC_AUTH_CODE_MAX_LEN))
-        }
+        Arg::EpicCompleteSignIn => get_str(value, "code").is_some_and(|c| fits(c, EPIC_AUTH_CODE_MAX_LEN)),
         Arg::InstallGameVersion => {
             get_str(value, "version").is_some_and(|v| fits(v, GAME_VERSION_MAX_LEN))
                 && get_str(value, "installDir").is_some_and(|p| fits(p, PATH_MAX_LEN))
@@ -689,13 +676,11 @@ pub fn arg_accepts(arg: Arg, value: &serde_json::Value) -> bool {
         Arg::LauncherSettings => value.is_object(),
         Arg::LinuxCompat => get_str(value, "mode").is_some_and(|m| fits(m, 64)),
         Arg::Requirement => get_str(value, "id").is_some_and(|id| {
-            serde_json::from_value::<RequirementId>(serde_json::Value::String(id.to_owned()))
-                .is_ok()
+            serde_json::from_value::<RequirementId>(serde_json::Value::String(id.to_owned())).is_ok()
         }),
         Arg::LocateRequirement => {
             get_str(value, "id").is_some_and(|id| {
-                serde_json::from_value::<RequirementId>(serde_json::Value::String(id.to_owned()))
-                    .is_ok()
+                serde_json::from_value::<RequirementId>(serde_json::Value::String(id.to_owned())).is_ok()
             }) && get_str(value, "path").is_some_and(|p| fits(p, PATH_MAX_LEN))
         }
         Arg::HostServerConfig => {
@@ -708,15 +693,10 @@ pub fn arg_accepts(arg: Arg, value: &serde_json::Value) -> bool {
         Arg::HostLogQuery => value.is_null() || value.is_object(),
         Arg::GuardedDecision => {
             get_str(value, "id").is_some_and(|id| fits(id, 128))
-                && value
-                    .get("approve")
-                    .and_then(serde_json::Value::as_bool)
-                    .is_some()
+                && value.get("approve").and_then(serde_json::Value::as_bool).is_some()
         }
         Arg::ModuleId => get_str(value, "moduleId").is_some_and(|id| fits(id, MODULE_ID_MAX_LEN)),
-        Arg::ModuleConfigure => {
-            get_str(value, "moduleId").is_some_and(|id| fits(id, MODULE_ID_MAX_LEN))
-        }
+        Arg::ModuleConfigure => get_str(value, "moduleId").is_some_and(|id| fits(id, MODULE_ID_MAX_LEN)),
         Arg::ModuleCommand => {
             get_str(value, "moduleId").is_some_and(|id| fits(id, MODULE_ID_MAX_LEN))
                 && get_str(value, "command").is_some_and(|c| fits(c, MODULE_COMMAND_MAX_LEN))
@@ -740,18 +720,13 @@ pub fn arg_accepts(arg: Arg, value: &serde_json::Value) -> bool {
                 && get_str(value, "status").is_some_and(|s| fits(s, 32))
         }
         Arg::AdminAccountNote => {
-            get_str(value, "accountId").is_some_and(|id| fits(id, 128))
-                && opt_str(value, "note", NOTE_MAX_LEN)
+            get_str(value, "accountId").is_some_and(|id| fits(id, 128)) && opt_str(value, "note", NOTE_MAX_LEN)
         }
         Arg::AdminAccountDelete => get_str(value, "accountId").is_some_and(|id| fits(id, 128)),
         Arg::AdminInviteCreate => value.is_null() || value.is_object(),
-        Arg::AdminInviteCode => {
-            get_str(value, "code").is_some_and(|c| fits(c, INVITE_CODE_MAX_LEN))
-        }
+        Arg::AdminInviteCode => get_str(value, "code").is_some_and(|c| fits(c, INVITE_CODE_MAX_LEN)),
         Arg::AdminSessionKick => get_str(value, "sessionId").is_some_and(|id| fits(id, 128)),
-        Arg::AdminBroadcast => {
-            get_str(value, "message").is_some_and(|m| fits(m, BROADCAST_MAX_LEN))
-        }
+        Arg::AdminBroadcast => get_str(value, "message").is_some_and(|m| fits(m, BROADCAST_MAX_LEN)),
         Arg::OptionalUrl => opt_str(value, "url", URL_MAX_LEN),
     }
 }

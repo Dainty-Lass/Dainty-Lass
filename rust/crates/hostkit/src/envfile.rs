@@ -15,10 +15,7 @@ impl EnvMap {
 
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&str> {
-        self.0
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v.as_str())
+        self.0.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
     }
 
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<String>) {
@@ -139,15 +136,9 @@ fn parse_line(raw_line: &str) -> Option<(String, String)> {
         return None;
     }
     let val_trimmed = js::trim(raw_val);
-    let value = if val_trimmed.len() >= 2
-        && val_trimmed.starts_with('"')
-        && val_trimmed.ends_with('"')
-    {
+    let value = if val_trimmed.len() >= 2 && val_trimmed.starts_with('"') && val_trimmed.ends_with('"') {
         unquote_double(&val_trimmed[1..val_trimmed.len() - 1])
-    } else if val_trimmed.len() >= 2
-        && val_trimmed.starts_with('\'')
-        && val_trimmed.ends_with('\'')
-    {
+    } else if val_trimmed.len() >= 2 && val_trimmed.starts_with('\'') && val_trimmed.ends_with('\'') {
         val_trimmed[1..val_trimmed.len() - 1].to_owned()
     } else {
         strip_inline_comment(val_trimmed).to_owned()
@@ -169,11 +160,7 @@ pub fn parse_env(text: &str) -> EnvMap {
 }
 
 fn is_plain_value_byte(b: u8) -> bool {
-    b.is_ascii_alphanumeric()
-        || matches!(
-            b,
-            b'_' | b'.' | b'/' | b':' | b'@' | b',' | b'+' | b'=' | b'%' | b'-'
-        )
+    b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'/' | b':' | b'@' | b',' | b'+' | b'=' | b'%' | b'-')
 }
 
 pub fn format_value(value: &str) -> Result<String, HostError> {
@@ -196,10 +183,7 @@ pub fn format_value(value: &str) -> Result<String, HostError> {
     Ok(quoted)
 }
 
-pub fn format_env<K: AsRef<str>, V: AsRef<str>>(
-    header: &[&str],
-    entries: &[(K, V)],
-) -> Result<String, HostError> {
+pub fn format_env<K: AsRef<str>, V: AsRef<str>>(header: &[&str], entries: &[(K, V)]) -> Result<String, HostError> {
     let mut lines = Vec::new();
     for h in header {
         let h = *h;
@@ -231,11 +215,7 @@ pub fn format_env<K: AsRef<str>, V: AsRef<str>>(
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Line {
     Raw(String),
-    Entry {
-        key: String,
-        value: String,
-        raw: String,
-    },
+    Entry { key: String, value: String, raw: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -287,9 +267,7 @@ impl EnvDocument {
     #[must_use]
     pub fn get(&self, key: &str) -> Option<String> {
         self.lines.iter().rev().find_map(|line| match line {
-            Line::Entry {
-                key: k, value: v, ..
-            } if k == key => Some(v.clone()),
+            Line::Entry { key: k, value: v, .. } if k == key => Some(v.clone()),
             _ => None,
         })
     }
@@ -341,11 +319,7 @@ impl EnvDocument {
             })
             .collect::<Vec<_>>()
             .join(self.line_ending);
-        if self.bom {
-            format!("\u{feff}{joined}")
-        } else {
-            joined
-        }
+        if self.bom { format!("\u{feff}{joined}") } else { joined }
     }
 }
 

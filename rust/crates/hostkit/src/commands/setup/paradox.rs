@@ -153,9 +153,7 @@ pub fn old_folders(l: &Layout) -> Vec<PathBuf> {
 
 pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, HostError> {
     let mut moved = Vec::new();
-    let pairs = pre_submodule_items(l)
-        .into_iter()
-        .chain(old_workspace_items(l));
+    let pairs = pre_submodule_items(l).into_iter().chain(old_workspace_items(l));
     for (src, dst) in pairs {
         if src == dst || !src.exists() || dst.exists() {
             continue;

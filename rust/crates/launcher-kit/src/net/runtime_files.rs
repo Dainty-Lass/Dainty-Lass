@@ -16,8 +16,8 @@ mod tests;
 
 pub use manifest::{MAX_SAFE_INTEGER, RUNTIME_MARKER_FILE, parse_runtime_manifest};
 pub use protocol::manifest::{
-    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_FILE_NAMES,
-    RUNTIME_MANIFEST_PATH, RuntimeBuild, RuntimeFile, RuntimeManifest,
+    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_FILE_NAMES, RUNTIME_MANIFEST_PATH,
+    RuntimeBuild, RuntimeFile, RuntimeManifest,
 };
 
 use crate::bridge::types::{RuntimeFileInfo, RuntimeState};
@@ -207,10 +207,7 @@ pub async fn installed_runtime(win64_dir: &Path) -> Vec<(&'static str, Option<St
 }
 
 pub async fn is_complete_runtime_dir(dir: &Path) -> bool {
-    installed_runtime(dir)
-        .await
-        .iter()
-        .all(|(_, hash)| hash.is_some())
+    installed_runtime(dir).await.iter().all(|(_, hash)| hash.is_some())
 }
 
 pub async fn check_runtime(
@@ -318,12 +315,7 @@ fn now_epoch_millis_iso() -> String {
     format!("{millis}")
 }
 
-fn write_runtime_marker(
-    win64_dir: &Path,
-    version: &str,
-    source: &str,
-    files: &[RuntimeFile],
-) -> std::io::Result<()> {
+fn write_runtime_marker(win64_dir: &Path, version: &str, source: &str, files: &[RuntimeFile]) -> std::io::Result<()> {
     let mut files_map = Map::new();
     for f in files {
         files_map.insert(
@@ -344,9 +336,7 @@ fn write_runtime_marker(
     std::fs::write(win64_dir.join(RUNTIME_MARKER_FILE), text)
 }
 
-pub async fn install_runtime(
-    request: InstallRequest<'_>,
-) -> Result<RuntimeInstallResult, RuntimeError> {
+pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInstallResult, RuntimeError> {
     let InstallRequest {
         endpoint,
         headers,
@@ -356,9 +346,7 @@ pub async fn install_runtime(
         on_progress,
     } = request;
 
-    let is_dir = std::fs::metadata(win64_dir)
-        .map(|m| m.is_dir())
-        .unwrap_or(false);
+    let is_dir = std::fs::metadata(win64_dir).map(|m| m.is_dir()).unwrap_or(false);
     if !is_dir {
         return Err(RuntimeError::new(
             RuntimeErrorCode::DiskError,
@@ -408,10 +396,7 @@ pub async fn install_runtime(
     let ops = DiskOps;
 
     for (files_done, file) in needed.iter().enumerate() {
-        if cancel
-            .as_ref()
-            .is_some_and(CancellationToken::is_cancelled)
-        {
+        if cancel.as_ref().is_some_and(CancellationToken::is_cancelled) {
             return Err(RuntimeError::new(
                 RuntimeErrorCode::Cancelled,
                 Some(file.name.clone()),
@@ -464,18 +449,12 @@ pub async fn install_runtime(
                     let _ = std::fs::remove_file(&tmp);
                     let code = match err {
                         FileRequestError::Http(HttpError::Aborted) => RuntimeErrorCode::Cancelled,
-                        FileRequestError::Http(HttpError::Pin { .. }) => {
-                            RuntimeErrorCode::CertMismatch
-                        }
+                        FileRequestError::Http(HttpError::Pin { .. }) => RuntimeErrorCode::CertMismatch,
                         FileRequestError::Http(HttpError::TooLarge) => RuntimeErrorCode::Different,
                         FileRequestError::Disk(_) => RuntimeErrorCode::DiskError,
                         FileRequestError::Http(_) => RuntimeErrorCode::DownloadFailed,
                     };
-                    return Err(RuntimeError::new(
-                        code,
-                        Some(file.name.clone()),
-                        err.to_string(),
-                    ));
+                    return Err(RuntimeError::new(code, Some(file.name.clone()), err.to_string()));
                 }
             }
         };
@@ -496,10 +475,7 @@ pub async fn install_runtime(
         }
 
         let abort = Abort::new();
-        if cancel
-            .as_ref()
-            .is_some_and(CancellationToken::is_cancelled)
-        {
+        if cancel.as_ref().is_some_and(CancellationToken::is_cancelled) {
             abort.abort();
         }
 
@@ -547,11 +523,7 @@ pub async fn install_runtime(
                 } else {
                     RuntimeErrorCode::DiskError
                 };
-                return Err(RuntimeError::new(
-                    code,
-                    Some(file.name.clone()),
-                    err.to_string(),
-                ));
+                return Err(RuntimeError::new(code, Some(file.name.clone()), err.to_string()));
             }
         }
 
@@ -574,13 +546,8 @@ pub async fn install_runtime(
     Ok(RuntimeInstallResult { replaced_in_use })
 }
 
-pub async fn install_local_runtime(
-    local_dir: &Path,
-    win64_dir: &Path,
-) -> Result<RuntimeInstallResult, RuntimeError> {
-    let is_dir = std::fs::metadata(win64_dir)
-        .map(|m| m.is_dir())
-        .unwrap_or(false);
+pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result<RuntimeInstallResult, RuntimeError> {
+    let is_dir = std::fs::metadata(win64_dir).map(|m| m.is_dir()).unwrap_or(false);
     if !is_dir {
         return Err(RuntimeError::new(
             RuntimeErrorCode::DiskError,
@@ -614,13 +581,8 @@ pub async fn install_local_runtime(
         let target = win64_dir.join(name);
         let tmp = win64_dir.join(format!("{name}{DOWNLOAD_SUFFIX}"));
 
-        std::fs::copy(&src, &tmp).map_err(|err| {
-            RuntimeError::new(
-                RuntimeErrorCode::DiskError,
-                Some((*name).to_owned()),
-                err.to_string(),
-            )
-        })?;
+        std::fs::copy(&src, &tmp)
+            .map_err(|err| RuntimeError::new(RuntimeErrorCode::DiskError, Some((*name).to_owned()), err.to_string()))?;
 
         unblock(&tmp).await;
 
@@ -641,11 +603,7 @@ pub async fn install_local_runtime(
                 } else {
                     RuntimeErrorCode::DiskError
                 };
-                return Err(RuntimeError::new(
-                    code,
-                    Some((*name).to_owned()),
-                    err.to_string(),
-                ));
+                return Err(RuntimeError::new(code, Some((*name).to_owned()), err.to_string()));
             }
         }
 

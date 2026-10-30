@@ -35,14 +35,14 @@ pub fn read_folder(dir: &Path) -> Result<Vec<Migration>, Error> {
     let journal_path = dir.join("meta").join("_journal.json");
     let raw = std::fs::read_to_string(&journal_path)
         .map_err(|e| Error::Migration(format!("{}: {e}", journal_path.display())))?;
-    let journal: Journal = serde_json::from_str(&raw)
-        .map_err(|e| Error::Migration(format!("{}: {e}", journal_path.display())))?;
+    let journal: Journal =
+        serde_json::from_str(&raw).map_err(|e| Error::Migration(format!("{}: {e}", journal_path.display())))?;
 
     let mut migrations = Vec::with_capacity(journal.entries.len());
     for entry in journal.entries {
         let sql_path = dir.join(format!("{}.sql", entry.tag));
-        let sql = std::fs::read_to_string(&sql_path)
-            .map_err(|e| Error::Migration(format!("{}: {e}", sql_path.display())))?;
+        let sql =
+            std::fs::read_to_string(&sql_path).map_err(|e| Error::Migration(format!("{}: {e}", sql_path.display())))?;
         migrations.push(Migration {
             tag: entry.tag,
             created_at: entry.when,
@@ -150,11 +150,7 @@ mod tests {
             "CREATE TABLE a (id INTEGER PRIMARY KEY);\n--> statement-breakpoint\nCREATE TABLE b (id INTEGER PRIMARY KEY);\n",
         )
         .unwrap();
-        std::fs::write(
-            dir.path().join("0001_more.sql"),
-            "INSERT INTO a (id) VALUES (1);\n",
-        )
-        .unwrap();
+        std::fs::write(dir.path().join("0001_more.sql"), "INSERT INTO a (id) VALUES (1);\n").unwrap();
 
         let migrations = read_folder(dir.path()).unwrap();
         assert_eq!(migrations.len(), 2);

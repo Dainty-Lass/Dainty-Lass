@@ -21,9 +21,12 @@ async fn matches_in_registration_order_case_insensitively_and_handles_head() {
                 format!("{}:{}", matched.0, params.get("id").unwrap_or(""))
             },
         )
-        .post("/items/:id", |State(prefix): State<String>, params: Params| async move {
-            format!("{prefix}:{}", params.get("id").unwrap_or(""))
-        });
+        .post(
+            "/items/:id",
+            |State(prefix): State<String>, params: Params| async move {
+                format!("{prefix}:{}", params.get("id").unwrap_or(""))
+            },
+        );
 
     assert_eq!(
         router.table(),

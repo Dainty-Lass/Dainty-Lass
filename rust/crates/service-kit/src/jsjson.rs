@@ -221,10 +221,7 @@ pub fn deep_equal(a: &Value, b: &Value) -> bool {
             aa.len() == ab.len() && aa.iter().zip(ab.iter()).all(|(x, y)| deep_equal(x, y))
         }
         (Value::Object(ma), Value::Object(mb)) => {
-            ma.len() == mb.len()
-                && ma
-                    .iter()
-                    .all(|(k, va)| mb.get(k).is_some_and(|vb| deep_equal(va, vb)))
+            ma.len() == mb.len() && ma.iter().all(|(k, va)| mb.get(k).is_some_and(|vb| deep_equal(va, vb)))
         }
         _ => false,
     }

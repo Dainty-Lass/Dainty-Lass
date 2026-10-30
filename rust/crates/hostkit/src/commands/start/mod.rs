@@ -9,27 +9,19 @@ use std::time::Duration;
 
 use crate::Outcome;
 use crate::doctor::{
-    Level, REBORN_BUILD, game_exe_checks, linux_checks, network_checks,
-    port_in_use as raw_port_in_use, port_owner_hint, store_database_check,
+    Level, REBORN_BUILD, game_exe_checks, linux_checks, network_checks, port_in_use as raw_port_in_use,
+    port_owner_hint, store_database_check,
 };
 use crate::error::HostError;
-use crate::gamedata::{
-    BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GameDataKind, game_data_state, seed_embedded_examples,
-};
-use crate::hostconfig::{
-    HostConfig, Platform, ServerMode, gateway_port, linux_options, load_host_config,
-};
-use crate::linux::{
-    UNIT_ALLOWLIST, ensure_wine_prefix, systemd_installed, write_gameserver_wrapper,
-};
-use crate::mongo::{
-    MongoCheck, ReplicaSetOptions, ensure_replica_set, find_mongod, mongod_args,
-};
+use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GameDataKind, game_data_state, seed_embedded_examples};
+use crate::hostconfig::{HostConfig, Platform, ServerMode, gateway_port, linux_options, load_host_config};
+use crate::linux::{UNIT_ALLOWLIST, ensure_wine_prefix, systemd_installed, write_gameserver_wrapper};
+use crate::mongo::{MongoCheck, ReplicaSetOptions, ensure_replica_set, find_mongod, mongod_args};
 use crate::paths::{PORTS, Paths, game_exe_relative};
 use crate::preset::apply_preset;
 use crate::publish::{ensure_server_flags, install_server_runtime};
-use std::sync::Arc;
 use crate::services::{Printer, Ready, ServiceSpec, Supervisor, check_ready};
+use std::sync::Arc;
 
 use self::binaries::{FrontService, Launch, Programs};
 use self::control::Control;
@@ -98,9 +90,8 @@ pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
 }
 
 pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
-    load_host_config(paths)?.ok_or_else(|| {
-        HostError::message("server is not configured yet: run reforged-host setup first")
-    })
+    load_host_config(paths)?
+        .ok_or_else(|| HostError::message("server is not configured yet: run reforged-host setup first"))
 }
 
 #[must_use]
@@ -147,12 +138,7 @@ pub fn service_plan(
                     name: "backend".into(),
                     cwd: p.backend_dir.clone(),
                     command: programs.node.clone(),
-                    args: vec![
-                        Path::new("build")
-                            .join("server.js")
-                            .display()
-                            .to_string(),
-                    ],
+                    args: vec![Path::new("build").join("server.js").display().to_string()],
                     env_file: Some(env_file(p, "backend")),
                     extra_env: Vec::new(),
                     ready: Some(Ready::http(PORTS.backend, "/dauntless-status")),
@@ -165,12 +151,7 @@ pub fn service_plan(
                     name: "director".into(),
                     cwd: p.director_dir.clone(),
                     command: programs.node.clone(),
-                    args: vec![
-                        Path::new("dist")
-                            .join("server.js")
-                            .display()
-                            .to_string(),
-                    ],
+                    args: vec![Path::new("dist").join("server.js").display().to_string()],
                     env_file: Some(env_file(p, "director")),
                     extra_env: Vec::new(),
                     ready: Some(Ready::http(PORTS.director, "/api/instances")),
@@ -286,11 +267,7 @@ pub fn finish(
     Ok(std::process::ExitCode::SUCCESS)
 }
 
-pub fn host_checks(
-    paths: &Paths,
-    config: &HostConfig,
-    external_allowlist: bool,
-) -> Result<(), HostError> {
+pub fn host_checks(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
     let platform = Platform::current();
     let mut checks = network_checks(paths, config, platform)?;
     if platform == Platform::Linux {
@@ -303,9 +280,7 @@ pub fn host_checks(
 
     let gw_port = gateway_port(config);
     if raw_port_in_use(gw_port, Some(&config.host))? {
-        let owner = port_owner_hint(gw_port)
-            .map(|o| format!(" by {o}"))
-            .unwrap_or_default();
+        let owner = port_owner_hint(gw_port).map(|o| format!(" by {o}")).unwrap_or_default();
         return Err(HostError::message(format!(
             "gateway port {gw_port} is already in use{owner}; stop that program and start again"
         )));
@@ -333,18 +308,13 @@ pub fn preflight(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
     preflight_with(paths, config, false)
 }
 
-pub fn preflight_with(
-    paths: &Paths,
-    config: &HostConfig,
-    external_allowlist: bool,
-) -> Result<(), HostError> {
+pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
     host_checks(paths, config, external_allowlist)?;
 
     let _ = apply_preset(paths, false)?;
     let backend_state = game_data_state(&paths.backend_game_data, &BACKEND_GAME_DATA)?;
     let director_state = game_data_state(&paths.director_game_data, &DIRECTOR_GAME_DATA)?;
-    if backend_state.state == GameDataKind::Missing || director_state.state == GameDataKind::Missing
-    {
+    if backend_state.state == GameDataKind::Missing || director_state.state == GameDataKind::Missing {
         let _ = seed_embedded_examples(paths)?;
     }
 
@@ -395,9 +365,9 @@ pub fn prepare_database(
 
     if !config.mongo.manage {
         return match initial {
-            MongoCheck::Ok { primary: false, .. } => Err(HostError::message(
-                "external MongoDB replica set is not primary yet",
-            )),
+            MongoCheck::Ok { primary: false, .. } => {
+                Err(HostError::message("external MongoDB replica set is not primary yet"))
+            }
             MongoCheck::Failed { detail, .. } => Err(HostError::message(format!(
                 "could not connect to external MongoDB ({}): {detail}",
                 config.mongo.uri
@@ -407,9 +377,7 @@ pub fn prepare_database(
     }
 
     let mongod_bin = find_mongod(config.mongo.mongod.as_deref())?.ok_or_else(|| {
-        HostError::message(
-            "mongod was not found: install MongoDB Community Server or pass --mongod <path> to setup",
-        )
+        HostError::message("mongod was not found: install MongoDB Community Server or pass --mongod <path> to setup")
     })?;
 
     std::fs::create_dir_all(&paths.mongo_data).map_err(|e| HostError::io(&paths.mongo_data, e))?;
@@ -510,10 +478,7 @@ mod tests {
     fn env_file_and_up_line_format_expected_values() {
         let tmp = TempDir::new().unwrap();
         let paths = Paths::new(tmp.path());
-        assert_eq!(
-            env_file(&paths, "gateway"),
-            paths.config.join("gateway.env")
-        );
+        assert_eq!(env_file(&paths, "gateway"), paths.config.join("gateway.env"));
 
         let cfg = HostConfig::from_json(&json!({
             "mode": "private",

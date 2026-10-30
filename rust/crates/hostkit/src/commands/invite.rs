@@ -9,12 +9,11 @@ use serde_json::{Value, json};
 use crate::cli::InviteArgs;
 use crate::error::HostError;
 use crate::hostconfig::{
-    HostConfig, Registration, SECRET_FILE, ServerMode, gateway_port, load_host_config,
-    read_env_file, stringify_pretty,
+    HostConfig, Registration, SECRET_FILE, ServerMode, gateway_port, load_host_config, read_env_file, stringify_pretty,
 };
 use crate::invite::{
-    CodeOptions, GameVersion, certificate_fingerprint, create_invite_code, invite_for_game,
-    list_invite_codes, parse_game_version, revived_version, served_fingerprint,
+    CodeOptions, GameVersion, certificate_fingerprint, create_invite_code, invite_for_game, list_invite_codes,
+    parse_game_version, revived_version, served_fingerprint,
 };
 use crate::paths::{PORTS, Paths};
 
@@ -28,9 +27,8 @@ pub fn run_with(
     backend_port: u16,
     out: &mut dyn FnMut(&str),
 ) -> Result<ExitCode, HostError> {
-    let config = load_host_config(paths)?.ok_or_else(|| {
-        HostError::message("not set up yet: run reforged-host setup first")
-    })?;
+    let config =
+        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
 
     let target_game = resolve_game_version(&config, args.game.as_deref())?;
 
@@ -105,19 +103,20 @@ pub fn run_with(
         };
         out(&header);
         out(&format!("  {url}\n"));
-        out("Send the whole line. They paste it into the DaintyLass launcher (or click it once the launcher is installed).");
+        out(
+            "Send the whole line. They paste it into the DaintyLass launcher (or click it once the launcher is installed).",
+        );
         if config.mode == ServerMode::Private {
-            out("They also need Tailscale, and access to this PC: share it from https://login.tailscale.com/admin/machines.");
+            out(
+                "They also need Tailscale, and access to this PC: share it from https://login.tailscale.com/admin/machines.",
+            );
         }
     }
 
     Ok(ExitCode::SUCCESS)
 }
 
-fn resolve_game_version(
-    config: &HostConfig,
-    game_arg: Option<&str>,
-) -> Result<GameVersion, HostError> {
+fn resolve_game_version(config: &HostConfig, game_arg: Option<&str>) -> Result<GameVersion, HostError> {
     let allowed = config.edition.versions();
     let Some(raw) = game_arg.map(str::trim).filter(|s| !s.is_empty()) else {
         return Ok(config.edition.primary());
@@ -202,12 +201,7 @@ fn resolve_or_create_reborn_code(
     }
 }
 
-fn run_list(
-    paths: &Paths,
-    as_json: bool,
-    backend_port: u16,
-    out: &mut dyn FnMut(&str),
-) -> Result<ExitCode, HostError> {
+fn run_list(paths: &Paths, as_json: bool, backend_port: u16, out: &mut dyn FnMut(&str)) -> Result<ExitCode, HostError> {
     let admin_key = read_admin_key(paths)?;
     let invites = list_invite_codes(backend_port, &admin_key)?;
     if as_json {

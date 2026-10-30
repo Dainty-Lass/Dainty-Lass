@@ -148,8 +148,7 @@ impl DatabaseConfig {
                     port,
                     user: get(ENV_USER).unwrap_or_else(|| DEFAULT_POSTGRES_USER.into()),
                     database: get(ENV_NAME).unwrap_or_else(|| DEFAULT_POSTGRES_DATABASE.into()),
-                    password: get(ENV_PASSWORD)
-                        .ok_or_else(|| format!("{ENV_PASSWORD} is not set"))?,
+                    password: get(ENV_PASSWORD).ok_or_else(|| format!("{ENV_PASSWORD} is not set"))?,
                     allow_remote,
                 };
                 config.check_address()?;

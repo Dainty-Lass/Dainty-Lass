@@ -1,4 +1,4 @@
-//! Requests to the host from the invite, and nowhere else (row L20): `src/main/http.ts`. Redirects are
+//! Requests to the host from the invite, and nowhere else (row L20). Redirects are
 //! never followed, so a request that carries the account key cannot be bounced to another address.
 //!
 //! Private mode (invite v1): plain HTTP over Tailscale, which encrypts the traffic itself. Public mode
@@ -23,13 +23,7 @@ use crate::core::invite::{is_private_mode_host, is_valid_host};
 /// `request_to_file`, RA7's (its own file, so RA5 and RA7 do not share this one)
 pub mod to_file;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Endpoint {
-    pub host: String,
-    pub port: u16,
-    /// The certificate fingerprint in public mode, None for plain HTTP
-    pub pin: Option<String>,
-}
+pub use launcher_kit::net::http::Endpoint;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HttpError {

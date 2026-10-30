@@ -15,10 +15,7 @@ use crate::paths::{GAME_CHANGELIST, Paths};
 
 pub const PRESET_FORMAT: &str = "dauntless-reforged-revival-preset";
 pub const PRESET_MANIFEST: &str = "preset.json";
-pub const PRESET_EXCLUDED: [&str; 2] = [
-    "backend/ladyluck_store.json",
-    "backend/platinum_store.json",
-];
+pub const PRESET_EXCLUDED: [&str; 2] = ["backend/ladyluck_store.json", "backend/platinum_store.json"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PresetFile {
@@ -115,8 +112,8 @@ pub fn read_preset_manifest(p: &Paths) -> Result<Option<PresetManifest>, HostErr
     }
     let text = std::fs::read_to_string(&file).map_err(|e| HostError::io(&file, e))?;
     let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-    let value: Value = serde_json::from_str(text)
-        .map_err(|e| HostError::message(format!("{}: {e}", file.display())))?;
+    let value: Value =
+        serde_json::from_str(text).map_err(|e| HostError::message(format!("{}: {e}", file.display())))?;
     let Some(obj) = value.as_object() else {
         return Err(HostError::message(format!(
             "{}: preset manifest must be a JSON object",
@@ -217,16 +214,10 @@ pub fn read_preset_manifest(p: &Paths) -> Result<Option<PresetManifest>, HostErr
         let sha256 = fobj
             .get("sha256")
             .and_then(Value::as_str)
-            .ok_or_else(|| {
-                HostError::message(format!("{}: {path} missing sha256", file.display()))
-            })?
+            .ok_or_else(|| HostError::message(format!("{}: {path} missing sha256", file.display())))?
             .to_owned();
         let bytes = fobj.get("bytes").and_then(Value::as_u64).unwrap_or(0);
-        files.push(PresetFile {
-            path,
-            sha256,
-            bytes,
-        });
+        files.push(PresetFile { path, sha256, bytes });
     }
 
     Ok(Some(PresetManifest {
@@ -249,9 +240,7 @@ fn clean_stale_preset_files(preset_dir: &Path, dir: &Path, keep: &HashSet<String
         let path = entry.path();
         if path.is_dir() {
             clean_stale_preset_files(preset_dir, &path, keep)?;
-            let is_empty = std::fs::read_dir(&path)
-                .ok()
-                .is_some_and(|mut it| it.next().is_none());
+            let is_empty = std::fs::read_dir(&path).ok().is_some_and(|mut it| it.next().is_none());
             if is_empty {
                 let _ = std::fs::remove_dir(&path);
             }
@@ -269,11 +258,7 @@ fn clean_stale_preset_files(preset_dir: &Path, dir: &Path, keep: &HashSet<String
     Ok(())
 }
 
-pub fn create_preset(
-    p: &Paths,
-    opts: &CreateOptions,
-    now: DateTime<Utc>,
-) -> Result<PresetCreated, HostError> {
+pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Result<PresetCreated, HostError> {
     let mut staged: Vec<(String, String, PresetFile)> = Vec::new();
     let mut left = Vec::new();
     let mut excluded = Vec::new();
@@ -373,8 +358,7 @@ pub fn create_preset(
     };
 
     let manifest_file = p.preset.join(PRESET_MANIFEST);
-    std::fs::write(&manifest_file, manifest.to_json())
-        .map_err(|e| HostError::io(&manifest_file, e))?;
+    std::fs::write(&manifest_file, manifest.to_json()).map_err(|e| HostError::io(&manifest_file, e))?;
 
     Ok(PresetCreated {
         manifest,
@@ -387,11 +371,7 @@ pub fn apply_preset(paths: &Paths, force: bool) -> Result<Option<PresetApplied>,
     apply_preset_at(paths, force, Utc::now())
 }
 
-pub fn apply_preset_at(
-    p: &Paths,
-    force: bool,
-    now: DateTime<Utc>,
-) -> Result<Option<PresetApplied>, HostError> {
+pub fn apply_preset_at(p: &Paths, force: bool, now: DateTime<Utc>) -> Result<Option<PresetApplied>, HostError> {
     let Some(manifest) = read_preset_manifest(p)? else {
         return Ok(None);
     };
@@ -445,9 +425,8 @@ pub fn apply_preset_at(
                 entry.path, entry.sha256
             )));
         }
-        serde_json::from_str::<Value>(&raw).map_err(|e| {
-            HostError::message(format!("preset file {} is not valid JSON ({e})", entry.path))
-        })?;
+        serde_json::from_str::<Value>(&raw)
+            .map_err(|e| HostError::message(format!("preset file {} is not valid JSON ({e})", entry.path)))?;
         verified.push((entry.path.clone(), dest.clone(), raw));
     }
 
@@ -510,11 +489,7 @@ mod tests {
             "{\"preset\":1}\n",
         )
         .unwrap();
-        std::fs::write(
-            paths.backend_game_data.join("ladyluck_store.json"),
-            "{\"store\":1}\n",
-        )
-        .unwrap();
+        std::fs::write(paths.backend_game_data.join("ladyluck_store.json"), "{\"store\":1}\n").unwrap();
 
         let now = Utc.with_ymd_and_hms(2026, 4, 17, 12, 0, 0).unwrap();
         let created = create_preset(

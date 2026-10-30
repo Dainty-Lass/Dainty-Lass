@@ -8,11 +8,7 @@ use crate::doctor::{DoctorOptions, print_checks, run_doctor};
 use crate::error::HostError;
 use crate::paths::Paths;
 
-pub fn run_with(
-    paths: &Paths,
-    args: &DoctorArgs,
-    mut say: impl FnMut(&str),
-) -> Result<ExitCode, HostError> {
+pub fn run_with(paths: &Paths, args: &DoctorArgs, mut say: impl FnMut(&str)) -> Result<ExitCode, HostError> {
     let opts = DoctorOptions {
         hash_exe: !args.no_hash,
     };

@@ -69,14 +69,14 @@ impl Visit for PinoVisitor {
     }
 
     fn record_i128(&mut self, field: &Field, value: i128) {
-        let val = i64::try_from(value)
-            .map_or_else(|_| Value::String(value.to_string()), |v| Value::Number(Number::from(v)));
+        let val =
+            i64::try_from(value).map_or_else(|_| Value::String(value.to_string()), |v| Value::Number(Number::from(v)));
         self.fields.insert(field.name().to_owned(), val);
     }
 
     fn record_u128(&mut self, field: &Field, value: u128) {
-        let val = u64::try_from(value)
-            .map_or_else(|_| Value::String(value.to_string()), |v| Value::Number(Number::from(v)));
+        let val =
+            u64::try_from(value).map_or_else(|_| Value::String(value.to_string()), |v| Value::Number(Number::from(v)));
         self.fields.insert(field.name().to_owned(), val);
     }
 
@@ -117,8 +117,7 @@ impl Visit for PinoVisitor {
         if field.name() == "message" {
             self.msg = Some(formatted);
         } else {
-            self.fields
-                .insert(field.name().to_owned(), Value::String(formatted));
+            self.fields.insert(field.name().to_owned(), Value::String(formatted));
         }
     }
 }

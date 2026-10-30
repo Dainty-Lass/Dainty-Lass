@@ -163,10 +163,7 @@ impl HashCache {
 
         if let Ok(after) = std::fs::metadata(file) {
             let after_mtime = mtime_ms(&after);
-            if after.len() == before.len()
-                && after_mtime > 0.0
-                && (after_mtime - before_mtime).abs() < 1.0
-            {
+            if after.len() == before.len() && after_mtime > 0.0 && (after_mtime - before_mtime).abs() < 1.0 {
                 let key = file.to_string_lossy().into_owned();
                 self.entries.retain(|(k, _)| k != &key);
                 self.entries.push((
@@ -245,9 +242,7 @@ pub async fn check_game_exe(
                 Ok(ExeCheck::OtherBuild)
             }
         }
-        Err(VerifyError::Io(err)) if err.kind() == std::io::ErrorKind::NotFound => {
-            Ok(ExeCheck::Missing)
-        }
+        Err(VerifyError::Io(err)) if err.kind() == std::io::ErrorKind::NotFound => Ok(ExeCheck::Missing),
         Err(err) => Err(err),
     }
 }
@@ -353,10 +348,7 @@ mod tests {
         let cache_path = dir.path().join("verify-cache.json");
         let mut cache = HashCache::load(cache_path);
 
-        assert_eq!(
-            cached_exe_check(&cache, &exe, EXE_PIN),
-            Some(ExeCheck::Missing)
-        );
+        assert_eq!(cached_exe_check(&cache, &exe, EXE_PIN), Some(ExeCheck::Missing));
         assert_eq!(
             check_game_exe(&mut cache, &exe, EXE_PIN, Abort::new(), Arc::new(|_| {}))
                 .await
@@ -367,23 +359,15 @@ mod tests {
         std::fs::write(&exe, b"exe bytes").unwrap();
         assert_eq!(cached_exe_check(&cache, &exe, EXE_PIN), None);
 
-        let actual = hash_file(exe.clone(), Abort::new(), Arc::new(|_| {}))
-            .await
-            .unwrap();
+        let actual = hash_file(exe.clone(), Abort::new(), Arc::new(|_| {})).await.unwrap();
         assert_eq!(
             check_game_exe(&mut cache, &exe, &actual, Abort::new(), Arc::new(|_| {}))
                 .await
                 .unwrap(),
             ExeCheck::Pinned
         );
-        assert_eq!(
-            cached_exe_check(&cache, &exe, &actual),
-            Some(ExeCheck::Pinned)
-        );
-        assert_eq!(
-            cached_exe_check(&cache, &exe, EXE_PIN),
-            Some(ExeCheck::OtherBuild)
-        );
+        assert_eq!(cached_exe_check(&cache, &exe, &actual), Some(ExeCheck::Pinned));
+        assert_eq!(cached_exe_check(&cache, &exe, EXE_PIN), Some(ExeCheck::OtherBuild));
         assert_eq!(
             check_game_exe(&mut cache, &exe, EXE_PIN, Abort::new(), Arc::new(|_| {}))
                 .await

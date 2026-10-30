@@ -8,8 +8,8 @@ use crate::error::HostError;
 use crate::paths::Paths;
 use crate::run::{RunOptions, run};
 use crate::selfupdate::{
-    Manifest, Source, Wanted, damaged_files, extract, fetch, find_release, install, read_manifest,
-    this_platform, verify_attestation,
+    Manifest, Source, Wanted, damaged_files, extract, fetch, find_release, install, read_manifest, this_platform,
+    verify_attestation,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,11 +69,7 @@ pub fn install_service(svc: &ServiceInstall, log_file: &Path) -> Result<(), Host
     } else {
         "install"
     };
-    let install_res = run(
-        npm_program(),
-        &[install_subcmd, "--no-audit", "--no-fund"],
-        &opts,
-    )?;
+    let install_res = run(npm_program(), &[install_subcmd, "--no-audit", "--no-fund"], &opts)?;
     if install_res.code != 0 {
         return Err(HostError::message(format!(
             "npm {install_subcmd} failed in {} ({})",
@@ -135,8 +131,8 @@ pub fn install_from_release(
         source.describe()
     ));
 
-    let candidate = find_release(source, platform, Wanted::Exactly(&m.version))
-        .map_err(|e| HostError::message(e.to_string()))?;
+    let candidate =
+        find_release(source, platform, Wanted::Exactly(&m.version)).map_err(|e| HostError::message(e.to_string()))?;
 
     let tmp_dir = root.join(".workspace").join("update").join("repair");
     std::fs::create_dir_all(&tmp_dir).map_err(|e| HostError::io(&tmp_dir, e))?;
@@ -145,8 +141,7 @@ pub fn install_from_release(
 
     let archive = fetch(&candidate, &fetch_dir).map_err(|e| HostError::message(e.to_string()))?;
     out("- SHA-256 checked against SHA256SUMS.txt");
-    let _ = verify_attestation(&archive, &candidate, log)
-        .map_err(|e| HostError::message(e.to_string()))?;
+    let _ = verify_attestation(&archive, &candidate, log).map_err(|e| HostError::message(e.to_string()))?;
     let staged = extract(&archive, &extract_dir).map_err(|e| HostError::message(e.to_string()))?;
     let _ = install(&staged, root, None).map_err(|e| HostError::message(e.to_string()))?;
     let _ = std::fs::remove_dir_all(&tmp_dir);
@@ -154,24 +149,13 @@ pub fn install_from_release(
     Ok(())
 }
 
-pub fn repair_release(
-    p: &Paths,
-    manifest: &Manifest,
-    log_file: &Path,
-) -> Result<usize, HostError> {
+pub fn repair_release(p: &Paths, manifest: &Manifest, log_file: &Path) -> Result<usize, HostError> {
     let damaged = damaged_files(&p.repo, manifest)?;
     if damaged.is_empty() {
         return Ok(0);
     }
     let platform = this_platform()?;
     let source = Source::from_env(Some(manifest));
-    install_from_release(
-        &p.repo,
-        Some(manifest),
-        platform,
-        &source,
-        log_file,
-        &mut |_| {},
-    )?;
+    install_from_release(&p.repo, Some(manifest), platform, &source, log_file, &mut |_| {})?;
     Ok(damaged.len())
 }

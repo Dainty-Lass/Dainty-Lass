@@ -70,8 +70,7 @@ pub fn sha256_hex(text: &str) -> String {
 }
 
 pub fn pack_entries(p: &Paths) -> Vec<(String, PathBuf)> {
-    let mut entries =
-        Vec::with_capacity(BACKEND_GAME_DATA.len() + DIRECTOR_GAME_DATA.len() + SUPPLIED_SOURCES.len());
+    let mut entries = Vec::with_capacity(BACKEND_GAME_DATA.len() + DIRECTOR_GAME_DATA.len() + SUPPLIED_SOURCES.len());
     for name in BACKEND_GAME_DATA {
         entries.push((format!("backend/{name}"), p.backend_game_data.join(name)));
     }
@@ -79,10 +78,7 @@ pub fn pack_entries(p: &Paths) -> Vec<(String, PathBuf)> {
         entries.push((format!("director/{name}"), p.director_game_data.join(name)));
     }
     for (_, source_name) in SUPPLIED_SOURCES {
-        entries.push((
-            format!("backend/raw/{source_name}"),
-            p.raw_game_data.join(source_name),
-        ));
+        entries.push((format!("backend/raw/{source_name}"), p.raw_game_data.join(source_name)));
     }
     entries
 }
@@ -125,20 +121,13 @@ pub fn pack_json(pack: &Pack) -> String {
 }
 
 pub(crate) fn is_example_path(full_path: &Path) -> Result<bool, HostError> {
-    let (Some(dir), Some(name)) = (
-        full_path.parent(),
-        full_path.file_name().and_then(|n| n.to_str()),
-    ) else {
+    let (Some(dir), Some(name)) = (full_path.parent(), full_path.file_name().and_then(|n| n.to_str())) else {
         return Ok(false);
     };
     is_example_file(dir, name)
 }
 
-pub fn export_game_data_pack(
-    p: &Paths,
-    out_file: &Path,
-    now: DateTime<Utc>,
-) -> Result<Exported, HostError> {
+pub fn export_game_data_pack(p: &Paths, out_file: &Path, now: DateTime<Utc>) -> Result<Exported, HostError> {
     let mut pack_files = Vec::new();
     let mut included = Vec::new();
     let mut left = Vec::new();
@@ -196,25 +185,17 @@ pub fn read_game_data_pack(p: &Paths, file: &Path) -> Result<Pack, HostError> {
     parse_game_data_pack(p, file, &compressed)
 }
 
-pub fn parse_game_data_pack(
-    p: &Paths,
-    file: &Path,
-    compressed: &[u8],
-) -> Result<Pack, HostError> {
+pub fn parse_game_data_pack(p: &Paths, file: &Path, compressed: &[u8]) -> Result<Pack, HostError> {
     let mut decoder = GzDecoder::new(compressed);
     let mut text = String::new();
-    decoder.read_to_string(&mut text).map_err(|e| {
-        HostError::message(format!("{}: not a game data pack ({e})", file.display()))
-    })?;
+    decoder
+        .read_to_string(&mut text)
+        .map_err(|e| HostError::message(format!("{}: not a game data pack ({e})", file.display())))?;
 
-    let value: Value = serde_json::from_str(&text).map_err(|e| {
-        HostError::message(format!("{}: not a game data pack ({e})", file.display()))
-    })?;
+    let value: Value = serde_json::from_str(&text)
+        .map_err(|e| HostError::message(format!("{}: not a game data pack ({e})", file.display())))?;
     let Some(obj) = value.as_object() else {
-        return Err(HostError::message(format!(
-            "{}: not a game data pack",
-            file.display()
-        )));
+        return Err(HostError::message(format!("{}: not a game data pack", file.display())));
     };
 
     let format = obj.get("format").and_then(Value::as_str).unwrap_or_default();
@@ -309,9 +290,8 @@ pub fn parse_game_data_pack(
                 file.display()
             )));
         }
-        serde_json::from_str::<Value>(data).map_err(|e| {
-            HostError::message(format!("{}: {rel_path} is not JSON ({e})", file.display()))
-        })?;
+        serde_json::from_str::<Value>(data)
+            .map_err(|e| HostError::message(format!("{}: {rel_path} is not JSON ({e})", file.display())))?;
         files.push(PackFile {
             path: rel_path.to_owned(),
             sha256: expected_sha.to_owned(),
@@ -328,11 +308,7 @@ pub fn parse_game_data_pack(
     })
 }
 
-pub fn import_game_data_pack(
-    p: &Paths,
-    file: &Path,
-    now: DateTime<Utc>,
-) -> Result<Imported, HostError> {
+pub fn import_game_data_pack(p: &Paths, file: &Path, now: DateTime<Utc>) -> Result<Imported, HostError> {
     let pack = read_game_data_pack(p, file)?;
     let known = pack_entries(p);
     let stamp = iso_millis(now).replace([':', '.'], "-");
@@ -397,7 +373,11 @@ mod tests {
         .unwrap();
 
         let exported = export_game_data_pack(&src_paths, &pack_file, now).unwrap();
-        assert!(exported.included.contains(&"backend/progression_config.json".to_owned()));
+        assert!(
+            exported
+                .included
+                .contains(&"backend/progression_config.json".to_owned())
+        );
 
         // Import into a second workspace where progression_config.json already has different real data
         let dst_tmp = tempfile::tempdir().unwrap();
@@ -419,7 +399,11 @@ mod tests {
 
         // Importing again marks it unchanged
         let imported2 = import_game_data_pack(&dst_paths, &pack_file, now).unwrap();
-        assert!(imported2.unchanged.contains(&"backend/progression_config.json".to_owned()));
+        assert!(
+            imported2
+                .unchanged
+                .contains(&"backend/progression_config.json".to_owned())
+        );
         assert!(imported2.written.is_empty());
     }
 }

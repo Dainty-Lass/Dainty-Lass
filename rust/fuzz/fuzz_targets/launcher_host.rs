@@ -9,7 +9,7 @@
 
 use libfuzzer_sys::fuzz_target;
 
-#[path = "../../launcher/src-tauri/src/platform/hostkit/parse.rs"]
+#[path = "../../crates/launcher-kit/src/platform/hostkit/parse.rs"]
 mod parse;
 
 fuzz_target!(|data: &[u8]| {

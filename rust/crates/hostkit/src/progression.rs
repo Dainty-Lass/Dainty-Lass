@@ -142,18 +142,12 @@ fn extract_rewards(raw_rewards: Option<&Value>) -> Vec<Value> {
                 let Some(sobj) = s_item.as_object() else {
                     continue;
                 };
-                let Some(cat_id) = sobj
-                    .get("catalogId")
-                    .and_then(Value::as_str)
-                    .filter(|s| !s.is_empty())
-                else {
+                let Some(cat_id) = sobj.get("catalogId").and_then(Value::as_str).filter(|s| !s.is_empty()) else {
                     continue;
                 };
                 let hidden = sobj.get("hidden").and_then(Value::as_bool).unwrap_or(false);
                 let priority = non_neg_safe_int(sobj.get("priority")).unwrap_or(0);
-                let quantity = non_neg_safe_int(sobj.get("quantity"))
-                    .filter(|&q| q >= 1)
-                    .unwrap_or(1);
+                let quantity = non_neg_safe_int(sobj.get("quantity")).filter(|&q| q >= 1).unwrap_or(1);
                 stacked_items.push(json!({
                     "catalog_id": cat_id,
                     "hidden": hidden,
@@ -178,11 +172,7 @@ fn extract_rewards(raw_rewards: Option<&Value>) -> Vec<Value> {
                 let Some(oobj) = o_item.as_object() else {
                     continue;
                 };
-                let Some(cat_id) = oobj
-                    .get("catalogId")
-                    .and_then(Value::as_str)
-                    .filter(|s| !s.is_empty())
-                else {
+                let Some(cat_id) = oobj.get("catalogId").and_then(Value::as_str).filter(|s| !s.is_empty()) else {
                     continue;
                 };
                 let priority = non_neg_safe_int(oobj.get("priority")).unwrap_or(0);
@@ -290,8 +280,7 @@ pub fn build_from_rows(
             skipped.retain(|s| s != &id);
             track_ids.push(id.clone());
 
-            let explicit_prestige = clean_id(row.get("prestigeTrack"))
-                .or_else(|| clean_id(base.get("prestigeTrack")));
+            let explicit_prestige = clean_id(row.get("prestigeTrack")).or_else(|| clean_id(base.get("prestigeTrack")));
             let prestige_id = match explicit_prestige {
                 Some(p) => Some(p),
                 None => id
@@ -354,8 +343,7 @@ pub fn build_from_rows(
             .iter()
             .find_map(|row| {
                 let base = row.get("base").and_then(Value::as_object)?;
-                let id = clean_id(base.get("progressionTrack"))
-                    .or_else(|| clean_id(row.get("rowName")))?;
+                let id = clean_id(base.get("progressionTrack")).or_else(|| clean_id(row.get("rowName")))?;
                 if id.eq_ignore_ascii_case(hunt_pass) {
                     base.get("premiumGatingEntitlement")
                         .and_then(Value::as_str)
@@ -414,17 +402,10 @@ pub fn build_from_rows(
 
 fn resolve_export_dir(exports_dir: &Path) -> PathBuf {
     let sub = exports_dir.join(PROGRESSION_EXPORT_DIR);
-    if sub.is_dir() {
-        sub
-    } else {
-        exports_dir.to_path_buf()
-    }
+    if sub.is_dir() { sub } else { exports_dir.to_path_buf() }
 }
 
-pub fn build_progression_config(
-    exports_dir: &Path,
-    active_hunt_pass: &str,
-) -> Result<ProgressionBuild, HostError> {
+pub fn build_progression_config(exports_dir: &Path, active_hunt_pass: &str) -> Result<ProgressionBuild, HostError> {
     let dir = resolve_export_dir(exports_dir);
     let mut track_groups = Vec::with_capacity(TRACK_EXPORTS.len());
     let mut any_found = false;
@@ -456,10 +437,7 @@ pub fn progression_text(build: &ProgressionBuild) -> String {
     text
 }
 
-pub fn write_progression_source(
-    exports_dir: &Path,
-    source_file: &Path,
-) -> Result<SourceWritten, HostError> {
+pub fn write_progression_source(exports_dir: &Path, source_file: &Path) -> Result<SourceWritten, HostError> {
     if source_file.is_file()
         && let Ok(existing_text) = std::fs::read_to_string(source_file)
     {

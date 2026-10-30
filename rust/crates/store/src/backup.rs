@@ -20,12 +20,7 @@ impl Store {
     }
 }
 
-pub fn backup_file(
-    source: &Path,
-    destination: &Path,
-    busy_timeout: Duration,
-    deadline: Duration,
-) -> Result<(), Error> {
+pub fn backup_file(source: &Path, destination: &Path, busy_timeout: Duration, deadline: Duration) -> Result<(), Error> {
     if !source.is_file() {
         return Err(Error::Backup(format!("no database at {}", source.display())));
     }
@@ -40,22 +35,15 @@ pub fn backup_file(
     result
 }
 
-fn perform_backup(
-    source: &Path,
-    destination: &Path,
-    busy_timeout: Duration,
-    deadline: Duration,
-) -> Result<(), Error> {
+fn perform_backup(source: &Path, destination: &Path, busy_timeout: Duration, deadline: Duration) -> Result<(), Error> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let src = rusqlite::Connection::open_with_flags(source, flags)
-        .map_err(|e| Error::Backup(e.to_string()))?;
+    let src = rusqlite::Connection::open_with_flags(source, flags).map_err(|e| Error::Backup(e.to_string()))?;
     src.busy_timeout(busy_timeout)
         .map_err(|e| Error::Backup(e.to_string()))?;
     src.execute_batch("BEGIN; SELECT count(*) FROM sqlite_schema;")
         .map_err(|e| Error::Backup(e.to_string()))?;
 
-    let mut dst = rusqlite::Connection::open(destination)
-        .map_err(|e| Error::Backup(e.to_string()))?;
+    let mut dst = rusqlite::Connection::open(destination).map_err(|e| Error::Backup(e.to_string()))?;
 
     let start = Instant::now();
     {

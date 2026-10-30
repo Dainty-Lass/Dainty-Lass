@@ -13,8 +13,8 @@ pub mod tree {
         use windows::Win32::Foundation::HANDLE;
         use windows::Win32::System::JobObjects::{
             AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
-            SetInformationJobObject, TerminateJobObject,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
+            TerminateJobObject,
         };
         use windows::core::PCWSTR;
 
@@ -46,8 +46,7 @@ pub mod tree {
                 }
                 .map_err(os_error)?;
                 // SAFETY: both handles are open for the call; the child's is held by `child`.
-                unsafe { AssignProcessToJobObject(HANDLE(job.as_raw_handle()), HANDLE(process)) }
-                    .map_err(os_error)?;
+                unsafe { AssignProcessToJobObject(HANDLE(job.as_raw_handle()), HANDLE(process)) }.map_err(os_error)?;
                 Ok(Self { job })
             }
 
@@ -71,8 +70,7 @@ pub mod tree {
         impl Tree {
             pub fn adopt(child: &Child) -> io::Result<Self> {
                 let id = child.id();
-                let group = libc::pid_t::try_from(id)
-                    .map_err(|_| io::Error::other("process id out of range"))?;
+                let group = libc::pid_t::try_from(id).map_err(|_| io::Error::other("process id out of range"))?;
                 Ok(Self { group })
             }
 
@@ -203,11 +201,7 @@ fn upsert_env(vars: &mut Vec<(String, String)>, key: String, val: String) {
 }
 
 #[must_use]
-pub fn service_environment<I1, P1, I2, P2>(
-    base: I1,
-    from_file: I2,
-    extra: &[(String, String)],
-) -> Vec<(String, String)>
+pub fn service_environment<I1, P1, I2, P2>(base: I1, from_file: I2, extra: &[(String, String)]) -> Vec<(String, String)>
 where
     I1: IntoIterator<Item = P1>,
     P1: EnvPair,
@@ -250,9 +244,7 @@ pub fn answers(ready: &Ready, timeout: Duration) -> bool {
             let Some(mut stream) = tcp_connect("127.0.0.1", *port, timeout) else {
                 return false;
             };
-            let req = format!(
-                "GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
-            );
+            let req = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
             if stream.write_all(req.as_bytes()).is_err() {
                 return false;
             }
@@ -269,9 +261,7 @@ pub fn answers(ready: &Ready, timeout: Duration) -> bool {
             let Some(code_str) = parts.next() else {
                 return false;
             };
-            code_str
-                .parse::<u16>()
-                .is_ok_and(|code| (200..500).contains(&code))
+            code_str.parse::<u16>().is_ok_and(|code| (200..500).contains(&code))
         }
     }
 }
@@ -390,20 +380,18 @@ impl Supervisor {
         let pid = child.id();
         let adopted_tree = tree::Tree::adopt(&child).ok();
 
-        let pipe_stream = |stream: Box<dyn Read + Send>,
-                           name: String,
-                           printer: Printer,
-                           log: Arc<Mutex<std::fs::File>>| {
-            std::thread::spawn(move || {
-                let reader = BufReader::new(stream);
-                for line in reader.lines().map_while(Result::ok) {
-                    if let Ok(mut f) = log.lock() {
-                        let _ = writeln!(f, "{line}");
+        let pipe_stream =
+            |stream: Box<dyn Read + Send>, name: String, printer: Printer, log: Arc<Mutex<std::fs::File>>| {
+                std::thread::spawn(move || {
+                    let reader = BufReader::new(stream);
+                    for line in reader.lines().map_while(Result::ok) {
+                        if let Ok(mut f) = log.lock() {
+                            let _ = writeln!(f, "{line}");
+                        }
+                        printer(&name, &line);
                     }
-                    printer(&name, &line);
-                }
-            });
-        };
+                });
+            };
 
         if let Some(stdout) = child.stdout.take() {
             pipe_stream(
@@ -445,10 +433,7 @@ impl Supervisor {
                     break;
                 }
                 if check_ready(ready) {
-                    (self.printer)(
-                        &spec.name,
-                        &format!("ready on {}:{}", ready.host(), ready.port()),
-                    );
+                    (self.printer)(&spec.name, &format!("ready on {}:{}", ready.host(), ready.port()));
                     ok = true;
                     break;
                 }
@@ -490,16 +475,11 @@ impl Supervisor {
                         if cancel.load(Ordering::SeqCst) || stopping.load(Ordering::SeqCst) {
                             return;
                         }
-                        let code_str = status
-                            .code()
-                            .map_or_else(|| "signal".to_owned(), |c| c.to_string());
+                        let code_str = status.code().map_or_else(|| "signal".to_owned(), |c| c.to_string());
                         if let Ok(mut f) = log_file.lock() {
                             let _ = writeln!(f, "{} exited ({code_str})", spec.name);
                         }
-                        printer(
-                            &spec.name,
-                            &format!("exited ({code_str}); restarting in 4 s"),
-                        );
+                        printer(&spec.name, &format!("exited ({code_str}); restarting in 4 s"));
                         let wait_until = Instant::now() + Duration::from_secs(4);
                         while Instant::now() < wait_until {
                             if cancel.load(Ordering::SeqCst) || stopping.load(Ordering::SeqCst) {
@@ -510,9 +490,7 @@ impl Supervisor {
                         if cancel.load(Ordering::SeqCst) || stopping.load(Ordering::SeqCst) {
                             return;
                         }
-                        if let Ok((new_log, _)) =
-                            Self::spawn_one(&log_dir, &printer, &children, &spec)
-                        {
+                        if let Ok((new_log, _)) = Self::spawn_one(&log_dir, &printer, &children, &spec) {
                             log_file = new_log;
                         } else {
                             return;
@@ -541,9 +519,7 @@ impl Supervisor {
         let Ok(mut guard) = self.children.lock() else {
             return true;
         };
-        guard
-            .iter_mut()
-            .all(|mc| matches!(mc.child.try_wait(), Ok(Some(_))))
+        guard.iter_mut().all(|mc| matches!(mc.child.try_wait(), Ok(Some(_))))
     }
 
     pub fn stop_all(&self) {

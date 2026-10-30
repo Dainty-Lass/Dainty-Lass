@@ -62,8 +62,7 @@ pub fn error_page(status: StatusCode) -> Response {
         .into_response()
 }
 
-pub type OnBodyError =
-    dyn Fn(&Parts, BodyError) -> Option<Response> + Send + Sync;
+pub type OnBodyError = dyn Fn(&Parts, BodyError) -> Option<Response> + Send + Sync;
 
 #[derive(Clone)]
 pub struct BodyConfig {
@@ -87,11 +86,7 @@ impl<S: Send + Sync> FromRequestParts<S> for ExpressBody {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(parts
-            .extensions
-            .get::<Self>()
-            .cloned()
-            .unwrap_or(Self(None)))
+        Ok(parts.extensions.get::<Self>().cloned().unwrap_or(Self(None)))
     }
 }
 
@@ -158,8 +153,7 @@ fn decode_body_bytes(parts: &Parts, raw: &[u8], limit: usize) -> Result<Vec<u8>,
         return read_bounded(GzDecoder::new(raw), limit);
     }
     if encoding.eq_ignore_ascii_case("deflate") {
-        return read_bounded(ZlibDecoder::new(raw), limit)
-            .or_else(|_| read_bounded(DeflateDecoder::new(raw), limit));
+        return read_bounded(ZlibDecoder::new(raw), limit).or_else(|_| read_bounded(DeflateDecoder::new(raw), limit));
     }
     Err(BodyError::UnsupportedEncoding)
 }
@@ -168,11 +162,7 @@ fn fail_response(parts: &Parts, config: &BodyConfig, err: BodyError) -> Response
     (config.on_error)(parts, err).unwrap_or_else(|| err.into_response())
 }
 
-pub async fn parse_bodies(
-    State(config): State<BodyConfig>,
-    mut request: Request,
-    next: Next,
-) -> Response {
+pub async fn parse_bodies(State(config): State<BodyConfig>, mut request: Request, next: Next) -> Response {
     let kind = match inspect_content_type(request.headers()) {
         Ok(Some(k)) => k,
         Ok(None) => {
@@ -291,10 +281,7 @@ mod tests {
             parse_form("a=hello+world&b=1&b=2&=ignored&c").unwrap(),
             json!({"a": "hello world", "b": ["1", "2"], "c": ""})
         );
-        assert_eq!(
-            parse_form("bad=%FF+ok").unwrap(),
-            json!({"bad": "%FF ok"})
-        );
+        assert_eq!(parse_form("bad=%FF+ok").unwrap(), json!({"bad": "%FF ok"}));
         let too_many = (0..1001).map(|i| format!("k{i}=v")).collect::<Vec<_>>().join("&");
         assert_eq!(parse_form(&too_many), Err(BodyError::TooManyParameters));
     }
