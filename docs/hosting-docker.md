@@ -285,6 +285,27 @@ docker compose --profile network down --volumes
 `network status` is the host kit's own look at the links (`--json` for scripts, `--count` for more pings per
 peer); its exit code is 1 when a peer is not `up`.
 
+## Managing several installs
+
+A Docker server can enroll under a **DaintyLass Manager** controller (or a headless controller container) over pinned
+mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](remote-management.md)):
+
+- **First-boot enrollment (`REFORGED_REMOTE_ENROLL_TOKEN`).** Set `REFORGED_REMOTE_ENROLL_TOKEN="dainty-lass-remote://enroll?v=1&..."`
+  (and optional `REFORGED_REMOTE_LABEL`) in `.env` and add the `managed` profile (`COMPOSE_PROFILES=public,managed`).
+  When `remote-agent` starts (`docker/host-entrypoint.sh`), it redeems the single-use enrollment URI once if
+  `remote-managed.json` does not exist yet, writes the issued mTLS leaf certificate into `/opt/reforged/.workspace/tls/`,
+  and syncs shared settings and queued remote commands from the controller every `REFORGED_REMOTE_SYNC_INTERVAL_SECS`
+  (default `15`).
+- **Manual CLI enrollment.** On an already running container, run
+  `docker compose run --rm host remote enroll "dainty-lass-remote://enroll?v=1&..."` and
+  `docker compose run --rm host remote sync`.
+- **The `remote` test profile (`docker/remote/test.sh`).** `bash docker/remote/test.sh` (also run by
+  `docker/run-tests.sh` unless `SKIP_REMOTE=1`) starts one controller (`gateway-controller`, `host-controller`) and two
+  managed installs (`alpha`, `bravo`) on `172.28.77.20`–`.22`, proves single-use enrollment, shared config sync,
+  remote ban execution with `remote:<controller>:<operator>` attribution, offline resilience when `gateway-controller`
+  stops, revocation refusal (`403 not_a_peer`), and wire-payload inspection confirming zero secrets, account keys or
+  database files cross the wire.
+
 ## A legacy server (Dauntless 1.4.4)
 
 Docker runs one game per server: `--edition both` ([hosting.md](hosting.md#both-games-on-one-server)) is the host

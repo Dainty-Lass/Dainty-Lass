@@ -30,7 +30,7 @@ through `winmm.dll`) and reaches the backend through a relay the launcher runs o
 
 | Folder | What |
 | --- | --- |
-| [`rust/`](rust) | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host`), `plugins/` (`network`, `chat`), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), `bins/` and `fuzz/` |
+| [`rust/`](rust) | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host`), `plugins/` (`network`, `chat`), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), `bins/` and `fuzz/` |
 | [`ui/`](ui) | [`dainty-lass-ui`](https://git.silentspud.com/silentspud/dainty-lass-ui) submodule: the DaintyLass Launcher and DaintyLass Manager front-end (SolidJS + Vite + Tailwind CSS, built with Bun into `ui/apps/web/dist` and served by `rust/launcher`) |
 | [`modules/rustic-isles/`](modules/rustic-isles) | [`rustic-isles`](https://git.silentspud.com/silentspud/rustic-isles) submodule: the Dauntless 1.14.7 (`isles-1-14-7`) and 1.12.0 (`isles-1-12-0`) game modules, `isles-core`, `isles-director`, `isles-chat`, `rifts-seam`, the `ParadoxRuntime` C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`, `reference/1.12.0`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | [`rustic-rifts`](https://git.silentspud.com/silentspud/rustic-rifts) submodule: peer-to-peer realms, `rifts-transport` (WebRTC over `libjuice` and `turn-rs`), `rifts-guard`, `rifts-server`, and the client hosting bridge |
@@ -76,9 +76,9 @@ the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted)
 of those build on. [NOTICE.md](NOTICE.md) says what came from where.
 
 Free software under the GNU AGPL-3.0 (`AGPL-3.0-only`): [LICENSE.txt](LICENSE.txt). The controller, `module-api`,
-`epic`, `history-ship`, `protocol`, `proxy`, `service-kit`, `store`, `hostkit`, `launcher-kit`, the network plugin, the
-admin service and the binaries, written or rewritten clean-room here from no other project, are also under the MIT
-License ([LICENSE-MIT.txt](LICENSE-MIT.txt); [NOTICE.md](NOTICE.md) lists the crates). Additional terms apply to the
+`epic`, `history-ship`, `protocol`, `proxy`, `remote`, `service-kit`, `store`, `hostkit`, `launcher-kit`, the network
+plugin, the admin service and the binaries, written or rewritten clean-room here from no other project, are also under
+the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt); [NOTICE.md](NOTICE.md) lists the crates). Additional terms apply to the
 Mystic Paradox material: [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md) and Mystic Paradox's own
 [modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md). "Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related
 modifications were developed by MysticFox / Pranav Karande. See NOTICE.md for contribution and provenance information."

@@ -9,10 +9,9 @@
 
 use libfuzzer_sys::fuzz_target;
 use remote::{
-    MAX_REMOTE_WIRE, contains_forbidden_secret_bytes, contains_forbidden_secret_str,
-    contains_prefixed_key_token, decode_enroll_answer, decode_enroll_request, decode_request,
-    decode_response, encode_enroll_answer, encode_enroll_request, encode_request, encode_response,
-    merge_managed_host_toml, parse_enrollment_uri,
+    MAX_REMOTE_WIRE, contains_forbidden_secret_bytes, contains_forbidden_secret_str, contains_prefixed_key_token,
+    decode_enroll_answer, decode_enroll_request, decode_request, decode_response, encode_enroll_answer,
+    encode_enroll_request, encode_request, encode_response, merge_managed_host_toml, parse_enrollment_uri,
 };
 
 fuzz_target!(|data: &[u8]| {
