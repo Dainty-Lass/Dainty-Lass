@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! A change-log entry as one line of JSON: what DH4 ships off the server, and what a restore reads back
 //! from storage it doesn't control. Decoding refuses anything the log couldn't have written (DX2's
 //! `history_record` fuzz target); whether the entries chain is [`super::Chain`]'s to say.

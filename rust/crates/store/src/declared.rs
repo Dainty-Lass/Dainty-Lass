@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! The account columns a database's owner declares (DD23, DH3b), for the history and revert tools that open
 //! the database without the owner's code: `Database::attach` reads them. A module compiled into the server
 //! calls [`declare_accounts`] where it opens its [`crate::Database`], with the columns it also gives

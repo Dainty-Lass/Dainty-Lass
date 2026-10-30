@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! History and revert (DD23, DH3a): the change log queried by account, actor or time, and a selection of
 //! it undone by compensating changes.
 //!

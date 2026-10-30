@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! Which engine a database runs on, as `host.toml`'s `[database]` names it and setup writes it into a
 //! service's env file (DD15). The variables are read here so every service reads them the same way.
 
@@ -146,7 +149,7 @@ impl DatabaseConfig {
                     user: get(ENV_USER).unwrap_or_else(|| DEFAULT_POSTGRES_USER.into()),
                     database: get(ENV_NAME).unwrap_or_else(|| DEFAULT_POSTGRES_DATABASE.into()),
                     password: get(ENV_PASSWORD)
-                        .ok_or_else(|| format!("{ENV_PASSWORD} is not set: run reforged-host setup"))?,
+                        .ok_or_else(|| format!("{ENV_PASSWORD} is not set"))?,
                     allow_remote,
                 };
                 config.check_address()?;

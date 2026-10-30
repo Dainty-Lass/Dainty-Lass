@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! What off-server shipping and restore (DD23, DH4) need from a database: a snapshot of it while it is in
 //! use, and a restore that loads a snapshot into either engine and replays the change log after it.
 //!

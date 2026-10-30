@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! The hash chain (DD23 layer 3, DH5): each entry carries the hash of the one before it (`prev_hash`) and
 //! its own (`hash`), over [`entry_hash`]'s encoding of its fields and `prev_hash`. The first entry's
 //! `prev_hash` is [`GENESIS`]. A head shipped off the server (DH4) then commits to every entry up to it.

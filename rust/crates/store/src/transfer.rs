@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! `db move`: a database copied from one engine to the other, for a host that switches (DD15).
 //!
 //! Each row travels as JSON the source writes and the destination reads back (`json_object` and

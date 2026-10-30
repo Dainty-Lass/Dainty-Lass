@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! History and revert (DD23, DH3a) on both engines. Postgres when `REFORGED_TEST_POSTGRES_URL` is set, as in
 //! `database.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers

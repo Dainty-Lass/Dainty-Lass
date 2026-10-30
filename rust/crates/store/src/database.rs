@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! A database on either engine (DD15), with the change log on every write (DD23, DH1).
 //!
 //! Works as [`crate::Store`] does: a request's work is one closure on tokio's blocking pool. A read runs
