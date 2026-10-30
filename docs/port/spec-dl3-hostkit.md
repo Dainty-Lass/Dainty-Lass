@@ -1351,10 +1351,66 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
 
 ## 3. Target Crate Architecture for DL3b (`crates/hostkit` vs `services/host`)
 
-1. **`rust/crates/hostkit` (`license = "MIT"`):**
-   - Contains all Category A (MIT-eligible original modules) and Category B (clean-room reimplemented modules from Section 2).
-   - Exposes a clean hook/trait (`LegacySupport` or equivalent) for the few places where `setup`, `invite`, `doctor`, and `serve` optionally delegate to the 1.4.4 (`Edition::Legacy` / `Edition::Both`) stack, and a service-registration callback for in-process front-door services.
-   - Has **zero** dependencies on `gateway`, `allowlist`, `content`, `admin`, or `legacy-revived` crates.
-2. **`rust/services/host` (`license = "AGPL-3.0-or-later"`):**
-   - Thin binary/library shell that depends on `hostkit` and the optional feature-gated service crates (`gateway`, `allowlist`, `content`, `admin`) plus `legacy/` (`Edition::Legacy` / `Edition::Both` support).
-   - Re-exports `hostkit` modules so all existing integration tests in `rust/services/host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
+1. **`rust/crates/hostkit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`):**
+   - Contains all Category A (MIT-eligible original modules) and Category B (clean-room reimplemented modules from Section 2 and Section 4).
+   - Exposes a clean trait boundary (`HostRuntimeHooks` / `GameDataGenerator` / `MongoMigrationBackend` / `LegacyEditionSupport`) so `setup`, `invite`, `doctor`, `gamedata`, `db`, `update`, and `serve` operate without linking any AGPL crate.
+   - Has **zero** normal dependencies on `gateway`, `allowlist`, `content`, `chat`, `isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `isles-1-12-0`, `rifts-host`, `rifts-seam`, or `revived-1-4-4`.
+2. **`rust/services/host` (`license = "AGPL-3.0-only"`):**
+   - Thin binary/library shell that depends on `hostkit` and the AGPL module/service crates (`isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `gateway`, `allowlist`, `content`, `revived-1-4-4`).
+   - Implements the `hostkit` runtime traits and re-exports `hostkit` modules so all existing integration tests in `rust/services/host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
+
+---
+
+## 4. Post-cutover Updates (`C1`–`C7`, `M1`–`M6`, `A1`)
+
+### 4.1 In-process Rust Backend and Director by Default (`C1`–`C6`)
+
+1. **Default Build vs `--features paradox`:**
+   - By default (`paradox` feature disabled), the 1.14.7 backend and Director run in-process in Rust (using SQLite/Postgres via `store::Database` instead of Node.js and MongoDB), and the 8 game-data generation steps (`gamedata`) run in-process via the `GameDataGenerator` trait instead of spawning `npm run ...`.
+   - When `--features paradox` is enabled, the legacy Node.js (`ParadoxBackend`, `ParadoxDirector`) and MongoDB (`mongod`) paths remain available for rollback.
+2. **Doctor Checks without `paradox`:**
+   - When `paradox` is disabled, `doctor` does **not** require `node`, `npm`, `mongod`, or `git`, and does not check `ParadoxBackend/node_modules` or `ParadoxDirector/node_modules`.
+   - Instead, `doctor` checks the SQLite/Postgres database state and reports an `[FAIL]` check in area `"database"` if unmigrated legacy MongoDB data is detected (with fix hint `"reforged-host db migrate --from-mongo <uri>"` or `"reforged-host setup"`).
+3. **Hidden Service Subcommands (`backend`, `director`):**
+   - `Cli::Command` includes hidden subcommands `Backend` and `Director` for standalone/subprocess execution alongside in-process `serve`.
+
+### 4.2 Legacy MongoDB-to-SQLite Migration & Refusal Guards (`M1`–`M6`, `A1`)
+
+1. **Migration Marker and Config Escape Hatch:**
+   - Marker file: `.workspace/data/.mongo-migrated` (`mongo_migrated_marker(paths)`).
+   - `host.toml` `[database]` field: `skip_mongo_migration: bool` (default `false`), env `REFORGED_DB_SKIP_MONGO_MIGRATION` (`0`/`1`), CLI flag `reforged-host setup --fresh-start` (sets `database.skip_mongo_migration = true`).
+2. **Detecting Unmigrated Data (`has_external_mongo_evidence`, `collection_has_documents`):**
+   - If `.workspace/data/.mongo-migrated` exists or `config.database.skip_mongo_migration` is `true`, no migration or refusal is triggered.
+   - Managed MongoDB directory (`.workspace/data/mongo`): considered non-empty if it contains files other than `mongod.lock`.
+   - External MongoDB URI (`has_external_mongo_evidence`):
+     - Treats a URI as explicitly configured by a host when `mongo.uri` differs from the default host/port (`127.0.0.1:27017` / `localhost:27017` with no credentials) **or** when `.workspace/config/backend.env` or `.workspace/logs/mongo.log` already exists on disk (`A1`: a fresh Docker `apply` whose URI only changes the database name on `127.0.0.1:27017` without prior workspace artifacts is **not** treated as unmigrated legacy data).
+     - `collection_has_documents(uri)`: connects via the MongoDB wire protocol (`mongo::wire`) and checks `count` on collections `users`, `profiles`, `items`, `loadouts`, `quests`, `friendships`, `guilds`, `guildinvites`, `invites`, `counters`, `reports`, `auditlogs`, `escalationruns`, `huntpassprogresses`, `mailmessages`.
+3. **Automatic Migration in `setup` and `update` (`M1`):**
+   - During `reforged-host setup` and `reforged-host update`:
+     - If unmigrated MongoDB data is present (either a non-empty `.workspace/data/mongo` folder or a reachable MongoDB with documents):
+       - When `.workspace/data/mongo` is non-empty and MongoDB is not currently listening on the configured URI, spawns a temporary `mongod` on a free loopback port (`find_mongod`, `mongod_args`, `ensure_replica_set`), runs `migrate_and_verify` (via the `MongoMigrationBackend` trait), stops the temporary `mongod`, and writes `.workspace/data/.mongo-migrated` only after `verify` confirms zero mismatches.
+       - Never modifies or deletes the MongoDB data directory.
+4. **Startup Refusal (`M1`, `M4`):**
+   - `start`, `serve`, and `backend` call `check_unmigrated_mongo_before_start(paths, config)` before starting services:
+     - Refuses to start with a clear error message if `.workspace/data/mongo` is non-empty and `.mongo-migrated` is absent;
+     - Refuses to start if a reachable MongoDB contains documents in any of the 15 collections and `.mongo-migrated` is absent;
+     - Refuses to start if external MongoDB evidence exists (`has_external_mongo_evidence`) and the MongoDB server is unreachable, naming `reforged-host setup`, `reforged-host db migrate`, and `reforged-host setup --fresh-start`.
+
+### 4.3 `db` Subcommands (`M2`, `M3`, `M5`)
+
+`reforged-host db <subcommand>` (`commands/db.rs`):
+1. `reforged-host db migrate [--from-mongo <uri_or_archive>] [--to <db_url>] [--dry-run]`:
+   - Accepts a live `mongodb://...` URI, a directory containing `*.bson` / `*.json` files, or a `.archive` / `.tar.gz` / `.tgz` dump (`store::mongo_export::load_source`).
+   - Runs migration + verification into the target database (`--to` or `config.database` / `.workspace/data/isles.db`), and writes `.workspace/data/.mongo-migrated` on a non-dry-run success.
+2. `reforged-host db verify --from-mongo <uri_or_archive> [--to <db_url>]`:
+   - Compares every collection/table count and document field between the MongoDB source and SQLite/Postgres target, exiting `0` on an exact match or `1` with mismatch details.
+3. `reforged-host db export-mongo [--from-mongo <uri>] --out <file.tgz>`:
+   - Exports all 15 collections over the wire protocol into a portable `.tgz` archive (`<collection>.bson` + metadata) without needing `mongodump`.
+
+### 4.4 Trait Decoupling for `crates/hostkit` (`DL3b`)
+
+To keep `crates/hostkit` 100% MIT with zero dependencies on `rustic-isles` or any other AGPL crate, `hostkit` defines traits injected by `services/host`:
+- `GameDataBackend` (or `Generators`): executes the in-process Rust catalog/progression/quests/store/worlddata generators when provided by `services/host`.
+- `MongoMigrationBackend`: executes the 15-collection MongoDB-to-`store::Database` import and verification when provided by `services/host`.
+- `HostServiceSpawner`: spawns or runs the in-process front-door and module services (`gateway`, `content`, `allowlist`, `isles-1-14-7`, `isles-director`, `revived-1-4-4`) when `services/host` runs `serve` / `start`.
+

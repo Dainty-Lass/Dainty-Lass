@@ -317,16 +317,14 @@ reforged-host remote leave
 
 ---
 
-## 10. Open questions for the maintainer (`R0` gate)
+## 10. Resolved maintainer decisions (`R0` gate)
 
-Before `R1`–`R4` implementation begins, please confirm or adjust the following design points:
-
-1. **Client launcher scope**: Should remote management apply strictly to **server and Manager installs** (as designed
-   above), or would you also like `dainty-lass-client` to support an optional read-only "community server directory URL"
-   that pulls a list of servers/invites?
-2. **Single controller ownership**: Is **at most one active controller per managed install** (requiring `remote leave`
-   before enrolling with a different controller, while multiple human operators share the controller via per-person
-   `DH2` admin keys) approved?
-3. **Hybrid push + pull sync**: Is the **15-second outbound mTLS heartbeat pull + immediate mTLS push when reachable**
-   model (with automatic local-override preservation for `[server] host`, `ports`, `paths`, `database`, and `network`
-   identity) approved?
+1. **Client launcher scope**: **Confirmed (`Recommended: no remote management in client launcher`)** — remote
+   management applies strictly to server and `DaintyLass Manager` installs; `dainty-lass-client` has no remote
+   management surface.
+2. **Single controller ownership**: **Confirmed (`true`)** — each managed install has at most one active controller at a
+   time (`remote leave` is required before enrolling with a different controller), while multiple human operators share
+   the controller via per-person `DH2` admin keys.
+3. **Hybrid push + pull sync**: **Confirmed (`yes`)** — managed installs run a 15-second outbound mTLS heartbeat pull
+   combined with immediate mTLS push when reachable, preserving per-host local overrides (`[server] host`, `ports`,
+   `paths`, `database`, and `network` identity).
