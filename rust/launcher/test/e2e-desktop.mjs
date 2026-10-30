@@ -262,12 +262,15 @@ async function main() {
 
     const serverSnap = await serverCdp.invoke("get_snapshot")
     assert.equal(serverSnap.app.serverGui, true, "dainty-lass-manager must set app.serverGui = true")
+    const serverKit = await serverCdp.invoke("host_get")
     assert.ok(
-      serverSnap.settings.hostWorkspace?.endsWith("Server"),
-      `fresh dainty-lass-manager profile must default hostWorkspace to <user_data>/Server, got: ${serverSnap.settings.hostWorkspace}`
+      serverKit.workspace?.endsWith("Server"),
+      `fresh dainty-lass-manager profile must default workspace to <user_data>/Server, got: ${serverKit.workspace}`
     )
-    const serverKit = await serverCdp.invoke("host_kit")
     assert.equal(serverKit.workspaceOk, true, "default server data folder must be workspaceOk")
+    const dlProj = await serverCdp.invoke("host_download_project")
+    assert.equal(dlProj.ok, false)
+    assert.equal(dlProj.error?.code, "not_in_this_build")
     const serverTitle = await serverCdp.evaluate("document.title")
     assert.equal(serverTitle, "DaintyLass Manager", "document.title must be DaintyLass Manager")
     const clientSnap = await clientCdp.invoke("get_snapshot")
@@ -281,12 +284,20 @@ async function main() {
     await clientCdp.screenshot("client-join-pt-BR.png")
     await clientCdp.setLanguage("en")
 
-    // Capture initial Server GUI unconfigured setup state in EN and pt-BR
+    // Capture initial Server GUI unconfigured setup state (scrolled to show Server data folder & Prepare the server) in EN and pt-BR
     await serverCdp.setLanguage("en")
+    await serverCdp.evaluate(`(() => {
+      const scroller = document.querySelector('main > div');
+      if (scroller) scroller.scrollTop = 620;
+    })()`)
     await serverCdp.screenshot("server-gui-setup-en.png")
     await serverCdp.setLanguage("pt-BR")
     await serverCdp.screenshot("server-gui-setup-pt-BR.png")
     await serverCdp.setLanguage("en")
+    await serverCdp.evaluate(`(() => {
+      const scroller = document.querySelector('main > div');
+      if (scroller) scroller.scrollTop = 0;
+    })()`)
 
     console.log("[4/8] Setting up server workspace with embedded example game data and starting server...")
     const synRes = await serverCdp.invoke("host_action", { action: "synthetic_data" })

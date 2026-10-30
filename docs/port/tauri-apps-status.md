@@ -217,37 +217,51 @@ Both Dauntless Revived's Tauri controller (`rust/launcher/src-tauri/src/controll
 Run with `node test/e2e-desktop.mjs` from `rust/launcher`:
 
 ```text
-=== B4 Desktop E2E Verification ===
-Root directory: R:\Temp\dl-e2e-desktop-mfe8m3
-=== 1. Installing Client & Server GUI from NSIS installers ===
-Installed client: R:\Temp\dl-e2e-desktop-mfe8m3\install-client\dainty-lass-client.exe
-Installed manager: R:\Temp\dl-e2e-desktop-mfe8m3\install-server\dainty-lass-manager.exe
-=== 2. Launching Server GUI and Client Desktop Apps ===
-Connected to Server GUI WebView2 CDP and Client WebView2 CDP
-=== 3. Driving Server GUI: seed synthetic data & run setup ===
-host_action(synthetic_data): true null
-host_setup: true null
-server_config_get: mode=private, serverName=Desktop E2E Hunts, dbEngine=sqlite
-server_doctor: ok=true, checks=6
-=== 4. Driving Server GUI: start server & create invite ===
-host_server_start: true null
-server_status: running=true, embedded=true, components=gateway:running, content:running, admin:running, isles-1-14-7:running
-Created invite for E2ETester: code=H3M3-A82J-R433
-=== 5. Driving Client: join server with invite & register account ===
-check_invite valid: true serverName: Desktop E2E Hunts
-submit_invite phase: need_account lastError: null
-register phase: need_game account: Slayer_42 hasKey: true
-Client server status online: true
-=== 6. Capturing screenshots of all screens (en & pt-BR) ===
-=== 7. Driving Server GUI: ban player & verify Client reflects ban ===
-admin_action(ban): ok=true, message=Banned Slayer_42 (059b4bd8-8e4e-4598-a2f6-a9b06ca0cd54).
-Client after ban & refresh_status: phase=need_account, lastError=account_banned
-=== 8. Driving Server GUI: history query, backup & clean stop ===
-history_query count: 2
-server_backup: ok=true, filesCopied=6
-host_server_stop: true null
-server_status after stop: running=false
-=== B4 Desktop E2E Verification PASSED ===
+[1/8] Using temporary E2E root: C:\Users\Nick\AppData\Local\Temp\dl-e2e-desktop-1qEcCX
+[2/8] Installing both NSIS bundles into isolated directories...
+  Installed client: C:\Users\Nick\AppData\Local\Temp\dl-e2e-desktop-1qEcCX\install-client\dainty-lass-client.exe
+  Installed manager: C:\Users\Nick\AppData\Local\Temp\dl-e2e-desktop-1qEcCX\install-server\dainty-lass-manager.exe
+[3/8] Launching dainty-lass-manager and dainty-lass-client with WebView2 CDP...
+  [screenshot] saved client-join-en.png
+  [screenshot] saved client-join-pt-BR.png
+  [screenshot] saved server-gui-setup-en.png
+  [screenshot] saved server-gui-setup-pt-BR.png
+[4/8] Setting up server workspace with embedded example game data and starting server...
+  [screenshot] saved server-gui-server-en.png
+  [screenshot] saved server-gui-server-pt-BR.png
+  [screenshot] saved server-gui-status-en.png
+  [screenshot] saved server-gui-status-pt-BR.png
+  [screenshot] saved server-gui-modules-en.png
+  [screenshot] saved server-gui-modules-pt-BR.png
+  [screenshot] saved server-gui-gamedata-en.png
+  [screenshot] saved server-gui-gamedata-pt-BR.png
+  [screenshot] saved server-gui-build-en.png
+  [screenshot] saved server-gui-build-pt-BR.png
+  [screenshot] saved server-gui-requirements-en.png
+  [screenshot] saved server-gui-requirements-pt-BR.png
+[5/8] Joining server from client via invite, registering Slayer_42, and verifying status...
+  [screenshot] saved client-register-en.png
+  [screenshot] saved client-register-pt-BR.png
+  [screenshot] saved client-play-en.png
+  [screenshot] saved client-play-pt-BR.png
+  [screenshot] saved client-realms-en.png
+  [screenshot] saved client-realms-pt-BR.png
+  [screenshot] saved client-server-en.png
+  [screenshot] saved client-server-pt-BR.png
+  [screenshot] saved client-game-en.png
+  [screenshot] saved client-game-pt-BR.png
+  [screenshot] saved client-settings-en.png
+  [screenshot] saved client-settings-pt-BR.png
+[6/8] Banning Slayer_42 from Server GUI and verifying Client shows AccountBanned...
+  [screenshot] saved server-gui-admin-en.png
+  [screenshot] saved server-gui-admin-pt-BR.png
+  [screenshot] saved client-banned-en.png
+  [screenshot] saved client-banned-pt-BR.png
+[7/8] Querying change-log history, backing up database, and stopping server cleanly...
+  [screenshot] saved server-gui-history-en.png
+  [screenshot] saved server-gui-history-pt-BR.png
+[8/8] Closing both apps cleanly...
+E2E desktop test completed successfully.
 ```
 
 ### 5.2 Saved screenshots (`docs/port/screenshots/`)
