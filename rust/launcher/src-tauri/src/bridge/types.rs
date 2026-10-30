@@ -1053,6 +1053,8 @@ pub enum HostJobKind {
     Multipliers,
     Upstream,
     DownloadProject,
+    Backup,
+    MigrateMongo,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1965,6 +1967,269 @@ impl Serialize for RealmOutcome {
         }
         match self {
             Self::Ok(realm) => Found { ok: true, realm }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+// ------------------------------------------------------------------ server GUI doctor, config, migration, invites and admin (B3)
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum DoctorLevel {
+    Ok,
+    Warning,
+    Problem,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct DoctorCheckView {
+    pub level: DoctorLevel,
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct DoctorReportView {
+    pub checks: Vec<DoctorCheckView>,
+    pub warnings: u32,
+    pub problems: u32,
+}
+
+/// `server_doctor`: `{ ok: true, report } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum ServerDoctorOutcome {
+    Ok(DoctorReportView),
+    Err(LauncherError),
+}
+
+impl Serialize for ServerDoctorOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            report: &'a DoctorReportView,
+        }
+        match self {
+            Self::Ok(report) => Found { ok: true, report }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// Where MongoDB migration stands for this workspace (M1, M4, B3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum MongoMigrationState {
+    /// No MongoDB data or configuration found
+    None,
+    /// `.mongo-migrated` shows data was migrated and verified
+    Migrated,
+    /// Host opted out (`fresh_start = true`)
+    Skipped,
+    /// Unmigrated MongoDB data exists and must be migrated (or explicitly skipped) before starting
+    Unmigrated,
+    /// External MongoDB is configured from an earlier setup, has no migration marker, and is unreachable
+    Unreachable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct MongoMigrationView {
+    pub state: MongoMigrationState,
+    pub source: Option<String>,
+    pub detail: Option<String>,
+}
+
+/// `server_config_get` and `server_config_save`: the server's `host.toml` settings and migration status.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct ServerConfigView {
+    pub configured: bool,
+    pub name: String,
+    pub mode: HostServerMode,
+    pub public_host: Option<String>,
+    pub registration: String,
+    pub database: String,
+    pub max_hubs: u32,
+    pub max_hunts: u32,
+    pub fresh_start: bool,
+    pub mongo_migration: MongoMigrationView,
+    pub config_file: Option<String>,
+}
+
+/// `server_config_get`, `server_config_save`, `server_confirm_fresh_start`:
+/// `{ ok: true, config } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum ServerConfigOutcome {
+    Ok(ServerConfigView),
+    Err(LauncherError),
+}
+
+impl Serialize for ServerConfigOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            config: &'a ServerConfigView,
+        }
+        match self {
+            Self::Ok(config) => Found { ok: true, config }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// One invite code on the running server (`server_invite_list`). The link is a secret: blurred in streamer
+/// mode and never logged.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct ServerInviteEntry {
+    pub code: String,
+    pub link: String,
+    #[serde(rename = "for")]
+    pub for_name: Option<String>,
+    pub uses_remaining: u32,
+    pub infinite_uses: bool,
+    pub created_at: String,
+}
+
+/// `server_invite_list`: `{ ok: true, invites } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum ServerInviteListOutcome {
+    Ok(Vec<ServerInviteEntry>),
+    Err(LauncherError),
+}
+
+impl Serialize for ServerInviteListOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Listed<'a> {
+            ok: bool,
+            invites: &'a [ServerInviteEntry],
+        }
+        match self {
+            Self::Ok(invites) => Listed { ok: true, invites }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// The player administration actions the server GUI dispatches to a loaded game module (`admin_action`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+pub enum AdminActionKind {
+    Lookup,
+    Kick,
+    Timeout,
+    Ban,
+    Unban,
+}
+
+/// A player account as `admin_action` (`lookup`, or after a moderation action) returns it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct AdminPlayerView {
+    pub global_id: String,
+    pub display_name: String,
+    pub module_user_id: String,
+    pub online: bool,
+    pub banned: bool,
+    pub ban_reason: Option<String>,
+    pub timeout_until: Option<String>,
+    pub created_at: Option<String>,
+    pub last_login_at: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct AdminResultView {
+    pub action: AdminActionKind,
+    pub ok: bool,
+    pub message: Option<String>,
+    pub player: Option<AdminPlayerView>,
+}
+
+/// `admin_action`: `{ ok: true, result } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum AdminOutcome {
+    Ok(AdminResultView),
+    Err(LauncherError),
+}
+
+impl Serialize for AdminOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Done<'a> {
+            ok: bool,
+            result: &'a AdminResultView,
+        }
+        match self {
+            Self::Ok(result) => Done { ok: true, result }.serialize(serializer),
             Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
         }
     }

@@ -91,6 +91,13 @@ pub fn run_with(paths: &Paths, env: &dyn BackupEnv, out: &mut dyn FnMut(&str)) -
                 ));
                 return Ok(ExitCode::SUCCESS);
             }
+            let backend_env = read_env_file(&paths.config.join("backend.env")).unwrap_or_default();
+            if backend_env.get("MONGODB_URI").is_none() && !paths.host_json.exists() {
+                return Err(HostError::message(format!(
+                    "no SQLite database at {} yet: start the server once so the backend creates it, then run backup again",
+                    db_file.display()
+                )));
+            }
             mongo_backup(paths, &config, env, out)
         }
         Database::Postgres | Database::Mongo => mongo_backup(paths, &config, env, out),

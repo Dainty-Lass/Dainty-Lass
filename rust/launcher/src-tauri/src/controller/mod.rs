@@ -1218,6 +1218,9 @@ impl Controller {
             }
         };
         if let Some(extras) = extras {
+            if !running {
+                self.check_account().await;
+            }
             self.in_background(extras);
         }
         if offer {

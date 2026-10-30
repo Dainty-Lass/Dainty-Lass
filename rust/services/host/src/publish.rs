@@ -121,11 +121,19 @@ fn sweep_aside(dir: &Path) {
     }
 }
 
-/// The checkout's builds of the two runtime files.
+/// The checkout's builds of the two runtime files, falling back to `.workspace/runtime/` when the
+/// files were placed directly in the published runtime folder.
 pub fn default_sources(p: &Paths) -> [(&'static str, PathBuf); 2] {
+    let pick = |built: &Path, name: &str| {
+        if !built.exists() && p.runtime_publish.join(name).exists() {
+            p.runtime_publish.join(name)
+        } else {
+            built.to_path_buf()
+        }
+    };
     [
-        ("MysticParadox.dll", p.runtime_dll.clone()),
-        ("winmm.dll", p.loader_dll.clone()),
+        ("MysticParadox.dll", pick(&p.runtime_dll, "MysticParadox.dll")),
+        ("winmm.dll", pick(&p.loader_dll, "winmm.dll")),
     ]
 }
 
@@ -155,8 +163,11 @@ pub fn publish_runtime(
     std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
     let mut files = Vec::new();
     for name in RUNTIME_FILE_NAMES {
+        let src = source(name);
         let target = dir.join(name);
-        copy_atomically(&source(name), &target)?;
+        if src != target {
+            copy_atomically(&src, &target)?;
+        }
         let size = std::fs::metadata(&target).map_err(|e| HostError::io(&target, e))?.len();
         files.push(RuntimeFile {
             name: name.to_owned(),

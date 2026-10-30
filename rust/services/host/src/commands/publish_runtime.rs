@@ -18,6 +18,10 @@ use crate::paths::{Paths, RUNTIME_FILE_NAMES, game_exe_relative};
 use crate::publish::{default_sources, ensure_server_flags, install_server_runtime, publish_runtime};
 
 pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Outcome {
+    run_with(paths, args, &mut |line| println!("{line}"))
+}
+
+pub fn run_with(paths: &Paths, args: &PublishRuntimeArgs, out: &mut dyn FnMut(&str)) -> Outcome {
     let sources = match &args.from {
         Some(None) => {
             return Err(HostError::message(
@@ -31,15 +35,15 @@ pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Outcome {
         None => default_sources(paths),
     };
     let runtime = publish_runtime(paths, Utc::now(), &sources)?;
-    println!(
+    out(&format!(
         "Runtime {} published in {}:",
         runtime.version,
         paths.runtime_publish.display()
-    );
+    ));
     for f in &runtime.files {
-        println!("  {}  {} bytes  {}", f.name, f.size, f.sha256);
+        out(&format!("  {}  {} bytes  {}", f.name, f.size, f.sha256));
     }
-    println!("Players see these hashes and accept them once in the launcher.");
+    out("Players see these hashes and accept them once in the launcher.");
     let config = load_host_config(paths)?;
     if let Some(game_dir) = config.as_ref().and_then(|c| c.game_dir.as_deref()) {
         let exe = Path::new(game_dir).join(game_exe_relative());
@@ -47,20 +51,23 @@ pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Outcome {
         let r = install_server_runtime(paths, win64);
         let shown = win64.display();
         if !r.installed.is_empty() {
-            println!("Installed for the game servers in {shown}: {}", r.installed.join(", "));
+            out(&format!(
+                "Installed for the game servers in {shown}: {}",
+                r.installed.join(", ")
+            ));
         }
         if !r.in_use.is_empty() {
-            println!(
+            out(&format!(
                 "Game servers still running keep the old {} until the server restarts: restart it so every world uses the new runtime.",
                 r.in_use.join(", ")
-            );
+            ));
         }
         if let Some((_, error)) = r.failed.first() {
             let names: Vec<&str> = r.failed.iter().map(|(name, _)| name.as_str()).collect();
-            println!(
+            out(&format!(
                 "! Could not replace {} in {shown} (another program holds it: stop the server and run this again): {error}",
                 names.join(", ")
-            );
+            ));
         }
         ensure_server_flags(win64)?;
     }
