@@ -52,7 +52,7 @@ impl EmbeddedServerState {
             return;
         };
         let (sink, snapshot) = (self.sink.clone(), self.snapshot.clone());
-        tauri::async_runtime::spawn(async move {
+        tokio::spawn(async move {
             while let Some(entry) = logs.recv().await {
                 // A game module logs under its id, which is a component of the server's too (DF3)
                 let module = || {
@@ -98,7 +98,7 @@ impl EmbeddedServer for EmbeddedServerState {
             let printer: host::services::Printer =
                 Arc::new(move |name: &str, line: &str| lines(format!("{name:<14} | {line}")));
             // Setup's checks and files, and the 1.4.4 stack's migrations, block: off the async threads
-            let mut server = tauri::async_runtime::spawn_blocking(move || {
+            let mut server = tokio::task::spawn_blocking(move || {
                 host::serve::prepare_embedded(&host::paths::Paths::new(workspace), printer)
             })
             .await

@@ -89,4 +89,12 @@ permissions = [
   "allow-guarded-list",
   "allow-guarded-approve",
   "allow-guarded-cancel",
+  "allow-server-doctor",
+  "allow-server-backup",
+  "allow-server-config-get",
+  "allow-server-config-save",
+  "allow-server-migrate-mongo",
+  "allow-server-confirm-fresh-start",
+  "allow-server-invite-list",
+  "allow-admin-action",
 ]

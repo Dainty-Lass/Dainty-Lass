@@ -115,6 +115,20 @@ async function callEverything(): Promise<void> {
   await api.guardedList();
   await api.guardedApprove("guard_01");
   await api.guardedCancel("guard_01");
+  await api.serverDoctor();
+  await api.serverBackup();
+  await api.serverConfigGet();
+  await api.serverConfigSave({
+    registration: "INVITECODE",
+    database: "sqlite",
+    maxHubs: 1,
+    maxHunts: 3,
+    freshStart: false,
+  });
+  await api.serverMigrateMongo();
+  await api.serverConfirmFreshStart();
+  await api.serverInviteList();
+  await api.adminAction({ action: "lookup", player: "Slayer" });
 }
 
 test("each call reaches its command with the preload's arguments", async () => {

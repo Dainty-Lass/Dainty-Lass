@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use module_api::{Actor, ActorContext, CommandRequest, ModuleId};
+use module_api::{Actor, ActorContext, AdminCall, AdminRequest, AdminResponse, CommandRequest, ModuleId, ModuleKind};
 use server_controller::{ModuleInfo, ModuleRegistry, ModuleState, RegistryError};
 
 use super::{Slot, lock};
@@ -17,8 +17,8 @@ use crate::bridge::modules::{
     output_text, plain, refusal,
 };
 use crate::bridge::types::{
-    ErrorCode, LauncherError, ModuleCommandOutcome, ModuleListOutcome, ModuleOrigin, ModuleOutcome, ModuleRunState,
-    ModuleView,
+    AdminActionKind, AdminOutcome, AdminPlayerView, AdminResultView, ErrorCode, LauncherError, ModuleCommandOutcome,
+    ModuleListOutcome, ModuleOrigin, ModuleOutcome, ModuleRunState, ModuleView,
 };
 use crate::platform::log;
 
@@ -194,6 +194,168 @@ impl Panel {
         log::info(&format!("host: module {id} unloaded from the server GUI"));
         self.view_of(&id).await
     }
+
+    async fn admin(
+        &self,
+        action: AdminActionKind,
+        player: &str,
+        reason: Option<String>,
+        until: Option<String>,
+        module: Option<String>,
+    ) -> Result<AdminResultView, LauncherError> {
+        let registry = self.registry()?;
+        let id = match module.as_deref().map(str::trim).filter(|m| !m.is_empty()) {
+            Some(m) => module_id(m)?,
+            None => {
+                let list = registry.list();
+                list.iter()
+                    .find(|info| {
+                        info.state == ModuleState::Ready
+                            && info.manifest.as_ref().is_none_or(|m| m.kind == ModuleKind::Game)
+                    })
+                    .or_else(|| list.iter().find(|info| info.state == ModuleState::Ready))
+                    .map(|info| info.id.clone())
+                    .ok_or_else(|| refusal(ErrorCode::ModuleBadState, "not_loaded".to_owned()))?
+            }
+        };
+        let info = registry.info(&id).map_err(|e| registry_error(&e))?;
+        if info.state != ModuleState::Ready {
+            return Err(refusal(ErrorCode::ModuleBadState, "not_loaded".to_owned()));
+        }
+        let target_until = match action {
+            AdminActionKind::Timeout => Some(
+                until
+                    .filter(|u| !u.trim().is_empty())
+                    .unwrap_or_else(|| (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339()),
+            ),
+            _ => None,
+        };
+        let request = match action {
+            AdminActionKind::Lookup => AdminRequest::Lookup {
+                player: player.to_owned(),
+            },
+            AdminActionKind::Kick => AdminRequest::Kick {
+                player: player.to_owned(),
+                reason: reason.clone(),
+            },
+            AdminActionKind::Timeout => AdminRequest::Ban {
+                player: player.to_owned(),
+                reason: reason.clone(),
+                until: target_until.clone(),
+            },
+            AdminActionKind::Ban => AdminRequest::Ban {
+                player: player.to_owned(),
+                reason: reason.clone(),
+                until: None,
+            },
+            AdminActionKind::Unban => AdminRequest::Unban {
+                player: player.to_owned(),
+                reason: reason.clone(),
+            },
+        };
+        let call = AdminCall {
+            actor: ActorContext::new(Actor::Console),
+            request,
+        };
+        log::info(&format!(
+            "host: module {id} admin {:?} for {} from the server GUI",
+            action,
+            plain(player, 64)
+        ));
+        let response = tokio::time::timeout(COMMAND_TIMEOUT, registry.admin_for(&id, call))
+            .await
+            .map_err(|_| refusal(ErrorCode::ModuleFailed, "timeout".to_owned()))?
+            .map_err(|error| refusal(ErrorCode::ModuleFailed, plain(&error.message, DETAIL_MAX)))?;
+
+        match response {
+            AdminResponse::NotFound => Ok(AdminResultView {
+                action,
+                ok: false,
+                message: Some(format!("No player matching '{}' was found.", plain(player, 64))),
+                player: None,
+            }),
+            AdminResponse::Player(found) => {
+                let global_id = found
+                    .account
+                    .as_ref()
+                    .map_or_else(|| plain(player, 64), ToString::to_string);
+                let module_user_id = found
+                    .account
+                    .as_ref()
+                    .map_or_else(|| plain(player, 64), |g| g.ulid().to_string());
+                let display_name = plain(&found.name, 64);
+                Ok(AdminResultView {
+                    action,
+                    ok: true,
+                    message: Some(format!("Found player {display_name}.")),
+                    player: Some(AdminPlayerView {
+                        global_id,
+                        display_name,
+                        module_user_id,
+                        online: found.online,
+                        banned: false,
+                        ban_reason: None,
+                        timeout_until: None,
+                        created_at: None,
+                        last_login_at: None,
+                    }),
+                })
+            }
+            AdminResponse::Done => {
+                let lookup_call = AdminCall {
+                    actor: ActorContext::new(Actor::Console),
+                    request: AdminRequest::Lookup {
+                        player: player.to_owned(),
+                    },
+                };
+                let looked_up = tokio::time::timeout(COMMAND_TIMEOUT, registry.admin_for(&id, lookup_call))
+                    .await
+                    .ok()
+                    .and_then(Result::ok);
+                let player_view = match looked_up {
+                    Some(AdminResponse::Player(found)) => {
+                        let global_id = found
+                            .account
+                            .as_ref()
+                            .map_or_else(|| plain(player, 64), ToString::to_string);
+                        let module_user_id = found
+                            .account
+                            .as_ref()
+                            .map_or_else(|| plain(player, 64), |g| g.ulid().to_string());
+                        Some(AdminPlayerView {
+                            global_id,
+                            display_name: plain(&found.name, 64),
+                            module_user_id,
+                            online: found.online,
+                            banned: matches!(action, AdminActionKind::Ban),
+                            ban_reason: if matches!(action, AdminActionKind::Ban | AdminActionKind::Timeout) {
+                                reason
+                            } else {
+                                None
+                            },
+                            timeout_until: target_until,
+                            created_at: None,
+                            last_login_at: None,
+                        })
+                    }
+                    _ => None,
+                };
+                let message = match action {
+                    AdminActionKind::Lookup => "Player found.",
+                    AdminActionKind::Kick => "Player session revoked and kicked.",
+                    AdminActionKind::Timeout => "Player timed out and active sessions revoked.",
+                    AdminActionKind::Ban => "Player banned and active sessions revoked.",
+                    AdminActionKind::Unban => "Player unbanned.",
+                };
+                Ok(AdminResultView {
+                    action,
+                    ok: true,
+                    message: Some(message.to_owned()),
+                    player: player_view,
+                })
+            }
+        }
+    }
 }
 
 fn outcome(result: Result<ModuleView, LauncherError>) -> ModuleOutcome {
@@ -247,6 +409,23 @@ impl ModulePanel for Panel {
     fn unload(&self, module: String) -> super::Boxed<ModuleOutcome> {
         let panel = self.clone();
         Box::pin(async move { outcome(panel.unload(&module).await) })
+    }
+
+    fn admin(
+        &self,
+        action: AdminActionKind,
+        player: String,
+        reason: Option<String>,
+        until: Option<String>,
+        module: Option<String>,
+    ) -> super::Boxed<AdminOutcome> {
+        let panel = self.clone();
+        Box::pin(async move {
+            match panel.admin(action, &player, reason, until, module).await {
+                Ok(result) => AdminOutcome::Ok(result),
+                Err(error) => AdminOutcome::Err(error),
+            }
+        })
     }
 }
 

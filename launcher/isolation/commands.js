@@ -47,7 +47,7 @@ window.__RR_COMMANDS__ = {
   "host_server_get": {},
   "host_server_start": {},
   "host_server_stop": {},
-  "host_server_restart": { "name": { kind: "name", names: ["mongod", "allowlist", "backend", "director", "content", "admin", "gateway", "metagame", "legacy-allowlist", "deploy", "legacy-content", "legacy-gateway"] } },
+  "host_server_restart": { "name": { kind: "name", names: ["allowlist", "backend", "director", "content", "admin", "gateway", "metagame", "legacy-allowlist", "deploy", "legacy-content", "legacy-gateway"] } },
   "host_setup": { "request": { kind: "object", nullable: false, fields: { "name": { kind: "text", max: 60 }, "mode": { kind: "name", names: ["private", "public"] }, "publicHost": { kind: "optionalText", max: 253 } } } },
   "host_create_invite": { "forName": { kind: "optionalText", max: 40 } },
   "host_update": {},
@@ -85,5 +85,13 @@ window.__RR_COMMANDS__ = {
   "guarded_list": {},
   "guarded_approve": { "id": { kind: "text", max: 64 } },
   "guarded_cancel": { "id": { kind: "text", max: 64 } },
+  "server_doctor": {},
+  "server_backup": {},
+  "server_config_get": {},
+  "server_config_save": { "config": { kind: "object", nullable: false, fields: { "registration": { kind: "name", names: ["OPEN", "INVITECODE", "NONE", "INVITE"] }, "database": { kind: "name", names: ["sqlite", "postgres"] }, "maxHubs": { kind: "index", max: 64 }, "maxHunts": { kind: "index", max: 128 }, "freshStart": { kind: "flag" } } } },
+  "server_migrate_mongo": {},
+  "server_confirm_fresh_start": {},
+  "server_invite_list": {},
+  "admin_action": { "request": { kind: "object", nullable: false, fields: { "action": { kind: "name", names: ["lookup", "kick", "timeout", "ban", "unban"] }, "player": { kind: "text", max: 64 }, "reason": { kind: "optionalText", max: 500 }, "until": { kind: "optionalText", max: 40 }, "module": { kind: "optionalText", max: 64 } } } },
 };
 window.__RR_SETTINGS_KEYS__ = ["graphics", "windowed", "streamerMode", "hostTools", "language", "gameLanguage", "runtimeProfile", "gameEdition"];

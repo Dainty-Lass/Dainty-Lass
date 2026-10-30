@@ -21,7 +21,9 @@ The Host page lets a host run a server from their PC. It drives `reforged-host` 
 the player's account key in reach: the list and the folder it points into are the trust boundary.
 
 - **In from the host:** the project folder (a folder dialog), the Dumper-7 DLL (a file dialog), a game data pack
-  (a file dialog), the setup form, who an invite is for, the multipliers. The page's values are checked in
+  (a file dialog), the setup form, who an invite is for, the multipliers, and in `dainty-lass-server-gui`
+  (`feature = "server-gui"`) the `host.toml` settings patch (`SERVER_CONFIG_PATCH`) and player administration
+  request (`ADMIN_REQUEST`). The page's values are checked by the isolation hook (`bridge/spec.rs`) and again in
   `bridge/commands.rs` before the controller sees them.
 - **In from the host kit:** `reforged-host`'s output (lines, `Error:` lines, `--json` lines), `host.toml` (or a
   Node kit's `host.json`), and
@@ -97,8 +99,10 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
       (`the_host_page_drives_reforged_host_setup_server_invite_and_stop`). The controller never logs it.
 - [ ] Only a `dauntless://`, `reforged-revival://` or `dauntless-revived://` link of at most 4096 characters with no control characters is taken from the
       host kit's output (`invite_line`).
-- [ ] The launcher never reads `secrets.env` or the env files; `host.toml` (or `host.json`) is read for the name,
-      mode, public host and multipliers only, and a file over 1 MiB is not read.
+- [ ] The client launcher (`dainty-lass-client`) never reads `secrets.env` or the env files; `host.toml` (or `host.json`) is read for the name,
+      mode, public host and multipliers only, and a file over 1 MiB is not read. In `dainty-lass-server-gui` (`feature = "server-gui"`),
+      in-process `host` library calls (`setup`, `backup`, `server_invite_list`) use `secrets.env` inside the Rust process only and never
+      return or log secret values across the bridge.
 - [ ] The host kit gets the launcher's environment plus `NO_COLOR`, `FORCE_COLOR` and, for `start`,
       `REFORGED_CONTROL=stdin`; no key or invite goes into its arguments or environment.
 - [ ] Job messages and errors carry the host kit's last `Error:` line (at most 300 characters), never a JSON line.

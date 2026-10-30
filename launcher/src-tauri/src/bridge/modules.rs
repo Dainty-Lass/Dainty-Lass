@@ -18,9 +18,10 @@ use module_api::{ModuleId, ModuleKind, PortRange};
 use serde_json::Value;
 
 use super::types::{
-    ErrorCode, LauncherError, ModuleArgView, ModuleCapabilitiesView, ModuleCommandOutcome, ModuleCommandView,
-    ModuleListOutcome, ModuleOrigin, ModuleOutcome, ModulePaletteEntry, ModulePatchSetView, ModulePortView, ModuleRole,
-    ModuleRunState, ModuleSectionView, ModuleSettingValue, ModuleSettingView, ModuleThemeView, ModuleView,
+    AdminActionKind, AdminOutcome, ErrorCode, LauncherError, ModuleArgView, ModuleCapabilitiesView,
+    ModuleCommandOutcome, ModuleCommandView, ModuleListOutcome, ModuleOrigin, ModuleOutcome, ModulePaletteEntry,
+    ModulePatchSetView, ModulePortView, ModuleRole, ModuleRunState, ModuleSectionView, ModuleSettingValue,
+    ModuleSettingView, ModuleThemeView, ModuleView,
 };
 
 type Boxed<T> = Pin<Box<dyn Future<Output = T> + Send>>;
@@ -37,6 +38,14 @@ pub trait ModulePanel: Send + Sync {
     fn set_settings(&self, module: String, values: String) -> Boxed<ModuleOutcome>;
     fn load(&self, module: String) -> Boxed<ModuleOutcome>;
     fn unload(&self, module: String) -> Boxed<ModuleOutcome>;
+    fn admin(
+        &self,
+        action: AdminActionKind,
+        player: String,
+        reason: Option<String>,
+        until: Option<String>,
+        module: Option<String>,
+    ) -> Boxed<AdminOutcome>;
 }
 
 /// The longest text one setting holds (host.toml's own bound, `hostconfig/modules.rs`).
