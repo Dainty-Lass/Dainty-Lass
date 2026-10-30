@@ -1,10 +1,10 @@
 [package]
 name = "store"
-description = "SQLite and Postgres through Diesel for every service: pools, closures on the blocking pool, migrations, Drizzle adoption, the change log (MIGRATION_PLAN.md D10, D11; DD15, DD23)"
+description = "SQLite and Postgres persistence, connection pooling, migrations, online backup, and change-log storage"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license = "MIT"
 repository.workspace = true
 publish.workspace = true
 
@@ -12,11 +12,8 @@ publish.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
 libsqlite3-sys.workspace = true
-# A module's actor into the change log (DH1)
 module-api.workspace = true
-# Only to pick libpq's build: bundled, without OpenSSL (DF7 spike). Diesel pulls it in itself.
 pq-sys.workspace = true
-# Only for the online backup, which Diesel has no API for (M17); the same libsqlite3-sys as Diesel.
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -26,7 +23,6 @@ tokio.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the tests
 url.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
 

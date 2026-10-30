@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! `Database` on both engines (DD15) and its change log (DD23, DH1). SQLite always; Postgres when
 //! `REFORGED_TEST_POSTGRES_URL` names a server the tests may create databases on (`postgres://user:pw@
 //! 127.0.0.1:5432/postgres`), and skipped otherwise, like the nftables test.

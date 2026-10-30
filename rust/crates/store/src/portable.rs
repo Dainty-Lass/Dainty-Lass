@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! Raw SQL both engines run the same way, for what `MultiConnection`'s DSL can't express (DF7 spike):
 //! upserts (`on_conflict` doesn't compile through it), insert-or-ignore, batch inserts.
 //!

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! The change log (DD23, DH1): every insert, update and delete on a two-engine database leaves an entry in
 //! `__store_change_log`, in the same transaction, with the time, the actor, the table, the row's key and
 //! the row before and after as JSON.
