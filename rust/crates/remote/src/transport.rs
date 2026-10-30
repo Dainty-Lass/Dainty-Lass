@@ -33,6 +33,16 @@ use crate::wire::{
 
 pub const ENROLL_PATH: &str = "/__node/enroll";
 
+fn append_wire_log(direction: &str, bytes: &[u8]) {
+    if let Ok(path) = std::env::var("REFORGED_REMOTE_WIRE_LOG")
+        && !path.is_empty()
+        && let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path)
+    {
+        use std::io::Write as _;
+        let _ = writeln!(file, "{direction}: {}", String::from_utf8_lossy(bytes));
+    }
+}
+
 /// `NodeService` attached to `Service::Remote` on a controller install.
 pub struct RemoteControllerService {
     state: Arc<Mutex<RemoteControllerState>>,
@@ -59,6 +69,7 @@ impl NodeService for RemoteControllerService {
                     service,
                 });
             }
+            append_wire_log("controller_recv", &body);
             let req = decode_request(&body).map_err(|e| LinkError::Protocol {
                 node: from.clone(),
                 reason: e.to_string(),
@@ -91,10 +102,12 @@ impl NodeService for RemoteControllerService {
                 }
                 r
             };
-            encode_response(&resp).map_err(|e| LinkError::Protocol {
+            let out = encode_response(&resp).map_err(|e| LinkError::Protocol {
                 node: from.clone(),
                 reason: e.to_string(),
-            })
+            })?;
+            append_wire_log("controller_send", &out);
+            Ok(out)
         })
     }
 }
@@ -126,6 +139,7 @@ impl NodeService for RemoteManagedService {
                     service,
                 });
             }
+            append_wire_log("controller_recv", &body);
             let req = decode_request(&body).map_err(|e| LinkError::Protocol {
                 node: from.clone(),
                 reason: e.to_string(),
@@ -149,10 +163,12 @@ impl NodeService for RemoteManagedService {
                         },
                     })?
             };
-            encode_response(&resp).map_err(|e| LinkError::Protocol {
+            let out = encode_response(&resp).map_err(|e| LinkError::Protocol {
                 node: from.clone(),
                 reason: e.to_string(),
-            })
+            })?;
+            append_wire_log("controller_send", &out);
+            Ok(out)
         })
     }
 }
@@ -183,22 +199,42 @@ pub async fn sync_once_with_controller(
         std::mem::take(&mut *g)
     };
     let req = RemoteRequest::Sync {
-        node,
+        node: node.clone(),
         applied_revision: applied_rev,
         report: Box::new(report),
         completed_commands: completed.clone(),
     };
     let req_bytes = encode_request(&req)?;
+    append_wire_log("managed_send", &req_bytes);
     match link.call(&controller_node, Service::Remote, req_bytes).await {
         Ok(resp_bytes) => {
+            append_wire_log("managed_recv", &resp_bytes);
             let ack = decode_response(&resp_bytes)?;
-            let mut g = agent.lock().unwrap_or_else(PoisonError::into_inner);
-            let new_outcomes = g.process_sync_ack(handler, ack)?;
-            let rev = g.applied_revision;
-            drop(g);
+            let (new_outcomes, rev) = {
+                let mut g = agent.lock().unwrap_or_else(PoisonError::into_inner);
+                let outcomes = g.process_sync_ack(handler, ack)?;
+                (outcomes, g.applied_revision)
+            };
             if !new_outcomes.is_empty() {
-                let mut out_guard = pending_outcomes.lock().unwrap_or_else(PoisonError::into_inner);
-                out_guard.extend(new_outcomes);
+                let follow_report = handler.build_report(rev)?;
+                let follow_req = RemoteRequest::Sync {
+                    node,
+                    applied_revision: rev,
+                    report: Box::new(follow_report),
+                    completed_commands: new_outcomes.clone(),
+                };
+                if let Ok(follow_bytes) = encode_request(&follow_req) {
+                    append_wire_log("managed_send", &follow_bytes);
+                    match link.call(&controller_node, Service::Remote, follow_bytes).await {
+                        Ok(follow_resp) => {
+                            append_wire_log("managed_recv", &follow_resp);
+                        }
+                        Err(_) => {
+                            let mut out_guard = pending_outcomes.lock().unwrap_or_else(PoisonError::into_inner);
+                            out_guard.extend(new_outcomes);
+                        }
+                    }
+                }
             }
             Ok(rev)
         }
@@ -209,7 +245,7 @@ pub async fn sync_once_with_controller(
                 restored.extend(std::mem::take(&mut *out_guard));
                 *out_guard = restored;
             }
-            if matches!(err, LinkError::Refused { .. } | LinkError::Untrusted { .. }) {
+            if matches!(err, LinkError::Refused { .. }) {
                 let mut g = agent.lock().unwrap_or_else(PoisonError::into_inner);
                 g.detached = true;
                 return Err(RemoteError::RevokedPeer(err.to_string()));
@@ -302,6 +338,7 @@ pub async fn enroll_with_controller(
         gateway_cert_fp,
     };
     let req_bytes = encode_enroll_request(&req)?;
+    append_wire_log("enroll_send", &req_bytes);
 
     let parsed =
         Url::parse(&invite.url).map_err(|e| RemoteError::InvalidInput(format!("invalid controller URL: {e}")))?;
@@ -359,6 +396,7 @@ pub async fn enroll_with_controller(
     } else {
         send_http1_request(tcp, http_req).await?
     };
+    append_wire_log("enroll_recv", &resp_bytes);
 
     if status != 200 {
         let err_msg = String::from_utf8_lossy(&resp_bytes).into_owned();

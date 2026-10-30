@@ -29,4 +29,9 @@ if [ "${SKIP_NETWORK:-0}" != 1 ]; then
 	printf '\n== the network harness\n'
 	MSYS_NO_PATHCONV=1 NETWORK_OPTIONAL=1 bash docker/network/test.sh
 fi
+
+if [ "${SKIP_REMOTE:-0}" != 1 ]; then
+	printf '\n== the remote management harness\n'
+	MSYS_NO_PATHCONV=1 REMOTE_NO_BUILD=1 bash docker/remote/test.sh
+fi
 echo "full test run passed"

@@ -2762,6 +2762,7 @@ dependencies = [
  "protocol",
  "ratatui",
  "rcgen",
+ "remote",
  "rustls",
  "serde_json",
  "service-kit",

@@ -18,11 +18,21 @@ use crate::wire::contains_forbidden_secret_str;
 
 /// Top-level `host.toml` tables that are always local to the managed install and never overwritten
 /// by a controller sync.
-pub const PRESERVED_LOCAL_TABLES: &[&str] = &["ports", "paths", "database", "network", "remote", "mongo", "wine"];
+pub const PRESERVED_LOCAL_TABLES: &[&str] = &[
+    "ports", "paths", "database", "network", "remote", "mongo", "wine", "linux",
+];
 
-/// Individual dotted `host.toml` keys inside shared tables that belong to the local machine's
+/// Individual dotted or top-level `host.toml` keys that belong to the local machine's
 /// identity and are never overwritten by a controller sync unless explicitly absent locally.
 pub const PRESERVED_LOCAL_KEYS: &[&str] = &[
+    "host",
+    "game_address",
+    "mode",
+    "public_port",
+    "legacy_public_port",
+    "game_dir",
+    "legacy_game_dir",
+    "share_url",
     "server.host",
     "server.game_address",
     "server.mode",

@@ -40,6 +40,7 @@ pub const BUILT_IN_SERVICES: &[&str] = &[
     "backend",
     #[cfg(feature = "isles-1-14-7")]
     "director",
+    "remote-agent",
 ];
 
 struct ServicesHostHooks;
@@ -781,7 +782,10 @@ impl hooks::HostHooks for ServicesHostHooks {
         let argv = std::iter::once(name.to_owned()).chain(args.iter().cloned());
         match name {
             #[cfg(feature = "gateway")]
-            "gateway" => Some(gateway::cli::main_from(argv)),
+            "gateway" => {
+                drop(argv);
+                Some(gateway_service_main(args))
+            }
             #[cfg(feature = "allowlist")]
             "allowlist" => Some(gateway::allowlist::cli::main_from(argv)),
             #[cfg(feature = "content")]
@@ -797,6 +801,10 @@ impl hooks::HostHooks for ServicesHostHooks {
             "director" => {
                 drop(argv);
                 Some(isles_service_main("director", args))
+            }
+            "remote-agent" => {
+                drop(argv);
+                Some(remote_agent_service_main(args))
             }
             _ => {
                 drop(argv);
@@ -875,7 +883,6 @@ impl module_api::HostLink for StandaloneLink {
     }
 }
 
-#[cfg(feature = "isles-1-14-7")]
 fn parse_service_env_file(
     name: &str,
     args: &[String],
@@ -918,6 +925,209 @@ fn parse_service_env_file(
         }
     }
     Ok(env_file)
+}
+
+#[cfg(feature = "gateway")]
+fn gateway_service_main(args: &[String]) -> ExitCode {
+    let argv = std::iter::once("gateway".to_owned()).chain(args.iter().cloned());
+    if args.first().map(String::as_str) == Some("make-cert")
+        || args
+            .iter()
+            .any(|a| matches!(a.as_str(), "--help" | "-h" | "--version" | "-V"))
+    {
+        return gateway::cli::main_from(argv);
+    }
+    let repo_paths = paths::locate_repo_root().ok().map(paths::Paths::new);
+    let Ok(env_file) = parse_service_env_file("gateway", args, repo_paths.as_ref()) else {
+        return gateway::cli::main_from(argv);
+    };
+    let paths = env_file
+        .as_deref()
+        .and_then(|file| {
+            let config_dir = file.parent()?;
+            if config_dir.file_name().is_some_and(|n| n == "config") {
+                let ws_dir = config_dir.parent()?;
+                if ws_dir.file_name().is_some_and(|n| n == ".workspace") {
+                    return ws_dir.parent().map(paths::Paths::new);
+                }
+            }
+            None
+        })
+        .or(repo_paths);
+    let Some(p) = paths else {
+        return gateway::cli::main_from(argv);
+    };
+    let state_file = hostkit::commands::remote::controller_state_path(&p);
+    let ca_file = hostkit::commands::remote::controller_ca_path(&p);
+    if !state_file.is_file() || !ca_file.is_file() {
+        return gateway::cli::main_from(argv);
+    }
+    let Ok(state) = remote::RemoteControllerState::load(&state_file) else {
+        return gateway::cli::main_from(argv);
+    };
+    let Ok(ca) = network_plugin::cluster::ClusterCa::read(&ca_file) else {
+        return gateway::cli::main_from(argv);
+    };
+    let env = match service_kit::env::Env::load(env_file.as_deref()) {
+        Ok(e) => e,
+        Err(error) => {
+            service_kit::linelog::error(&format!("Configuration: {error}"), serde_json::json!({}));
+            return ExitCode::FAILURE;
+        }
+    };
+    let config = match gateway::config::Config::from_env(&env) {
+        Ok(c) => c,
+        Err(error) => {
+            service_kit::linelog::error(&format!("Configuration: {error}"), serde_json::json!({}));
+            return ExitCode::FAILURE;
+        }
+    };
+    let capture = match gateway::server::load_capture(&env) {
+        Ok(cap) => cap,
+        Err(error) => {
+            service_kit::linelog::error(&error, serde_json::json!({}));
+            return ExitCode::FAILURE;
+        }
+    };
+    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+        Ok(rt) => rt,
+        Err(error) => {
+            service_kit::linelog::error(&error.to_string(), serde_json::json!({}));
+            return ExitCode::FAILURE;
+        }
+    };
+    let slot: gateway::server::NodeLinkSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let slot_bg = slot.clone();
+    let state_arc = std::sync::Arc::new(std::sync::Mutex::new(state));
+    let ca_arc = std::sync::Arc::new(ca);
+    let res = runtime.block_on(async move {
+        tokio::spawn(async move {
+            let links = loop {
+                if let Some(l) = slot_bg
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone()
+                {
+                    break l;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            };
+            let enrolled: Vec<module_api::network::NodeId> = {
+                let g = state_arc.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                g.installs
+                    .values()
+                    .filter(|r| !r.revoked)
+                    .map(|r| r.node.clone())
+                    .collect()
+            };
+            for node in enrolled {
+                links.endpoint().add_peer(node);
+            }
+            let enroll_state = state_arc.clone();
+            let enroll_file = state_file.clone();
+            let enroll_ca = ca_arc.clone();
+            let enroll_links = links.clone();
+            links.set_enroll_handler(Some(std::sync::Arc::new(move |body: Vec<u8>| {
+                let enroll_state = enroll_state.clone();
+                let enroll_file = enroll_file.clone();
+                let enroll_ca = enroll_ca.clone();
+                let enroll_links = enroll_links.clone();
+                Box::pin(async move {
+                    let req = match remote::decode_enroll_request(&body) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            let err = serde_json::json!({ "error": e.to_string() });
+                            return (400, err.to_string().into_bytes());
+                        }
+                    };
+                    let now_ms = chrono::Utc::now().timestamp_millis();
+                    let answer_res = {
+                        let mut g = enroll_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                        if enroll_file.is_file()
+                            && let Ok(fresh) = remote::RemoteControllerState::load(&enroll_file)
+                        {
+                            *g = fresh;
+                        }
+                        let res = g.redeem_enrollment(&enroll_ca, &req, now_ms);
+                        if res.is_ok() {
+                            let _ = g.save(&enroll_file);
+                        }
+                        res
+                    };
+                    match answer_res {
+                        Ok(ans) => {
+                            enroll_links.endpoint().add_peer(req.node);
+                            match remote::encode_enroll_answer(&ans) {
+                                Ok(bytes) => (200, bytes),
+                                Err(e) => {
+                                    let err = serde_json::json!({ "error": e.to_string() });
+                                    (500, err.to_string().into_bytes())
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let status = match e {
+                                remote::RemoteError::InvalidEnrollmentToken
+                                | remote::RemoteError::EnrollmentTokenUsed
+                                | remote::RemoteError::EnrollmentTokenExpired => 403,
+                                _ => 400,
+                            };
+                            let err = serde_json::json!({ "error": e.to_string() });
+                            (status, err.to_string().into_bytes())
+                        }
+                    }
+                })
+            })));
+            let svc = std::sync::Arc::new(remote::RemoteControllerService::new(state_arc, Some(state_file)));
+            links.endpoint().attach(svc);
+        });
+        let ctx = service_kit::context::ServiceContext::standalone("gateway");
+        gateway::server::run_with_node_links(config, capture, None, ctx, None, Some(slot)).await
+    });
+    match res {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            service_kit::linelog::error(&error, serde_json::json!({}));
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn remote_agent_service_main(args: &[String]) -> ExitCode {
+    ensure_hooks();
+    let repo_paths = paths::locate_repo_root().ok().map(paths::Paths::new);
+    let env_file = parse_service_env_file("remote-agent", args, repo_paths.as_ref())
+        .ok()
+        .flatten();
+    let paths = env_file
+        .as_deref()
+        .and_then(|file| {
+            let config_dir = file.parent()?;
+            if config_dir.file_name().is_some_and(|n| n == "config") {
+                let ws_dir = config_dir.parent()?;
+                if ws_dir.file_name().is_some_and(|n| n == ".workspace") {
+                    return ws_dir.parent().map(paths::Paths::new);
+                }
+            }
+            None
+        })
+        .or(repo_paths);
+    let Some(p) = paths else {
+        eprintln!("Configuration: could not locate server workspace");
+        return ExitCode::FAILURE;
+    };
+    let sync_args = cli::RemoteSyncArgs {
+        continuous: true,
+        interval_secs: None,
+        json: false,
+    };
+    match hostkit::commands::remote::sync_with_controller(&p, &sync_args) {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 #[cfg(feature = "isles-1-14-7")]

@@ -433,6 +433,15 @@ services:
         condition: service_healthy
         required: false
 
+  # The managed profile: syncs settings and commands from a remote controller over mTLS (docs/hosting-docker.md, RM1-RM5)
+  remote-agent:
+    <<: *server
+    profiles: [managed]
+    command: ["reforged-host", "remote-agent"]
+    depends_on:
+      gateway:
+        condition: service_healthy
+
   # The legacy profile: Dauntless Revived's metagame, in place of the backend and MongoDB (its own SQLite
   # database in the workspace volume). compose.legacy.yaml leaves Mystic Paradox's containers out.
   metagame:
@@ -726,6 +735,252 @@ services:
       gateway-germany:
         condition: service_healthy
 
+  # ---- The remote profile (RM1-RM5): one controller and two managed installs (alpha, bravo) on the cluster network.
+  # docker/remote/test.sh brings them up and verifies enrollment, config sync, remote moderation, offline resilience,
+  # revocation, and wire-payload secret hygiene.
+
+  net-controller:
+    <<: *network-net
+    profiles: [remote]
+    hostname: controller
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.20
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_REMOTE_PORT_CONTROLLER:-18450}:443/tcp"
+
+  configure-controller:
+    <<: *network-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - |
+        reforged-host-docker setup --mode public --host controller.cluster.test --game-address 203.0.113.20 --name "Fleet Controller" --wine /nonexistent/wine --xvfb --fresh-start
+        reforged-host remote init-controller --node controller --region oregon --url https://${REFORGED_NETWORK_SUBNET:-172.28.77}.20:443
+    volumes:
+      - remote-controller:/opt/reforged/.workspace
+
+  gateway-controller:
+    <<: *network-gateway
+    profiles: [remote]
+    network_mode: service:net-controller
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-controller:/opt/reforged/.workspace
+    depends_on:
+      net-controller:
+        condition: service_healthy
+      configure-controller:
+        condition: service_completed_successfully
+
+  host-controller:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-controller
+    command: ["sleep", "infinity"]
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-controller:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+    depends_on:
+      gateway-controller:
+        condition: service_healthy
+
+  net-alpha:
+    <<: *network-net
+    profiles: [remote]
+    hostname: alpha
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.21
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_REMOTE_PORT_ALPHA:-18451}:443/tcp"
+
+  configure-alpha:
+    <<: *network-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - |
+        reforged-host-docker setup --mode public --host alpha.cluster.test --game-address 203.0.113.21 --name "Install Alpha" --wine /nonexistent/wine --xvfb --fresh-start
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+
+  backend-alpha:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "backend"]
+      interval: 5s
+      start_period: 60s
+      retries: 6
+    depends_on:
+      net-alpha:
+        condition: service_healthy
+      configure-alpha:
+        condition: service_completed_successfully
+
+  content-alpha:
+    <<: *front
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "content"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend-alpha:
+        condition: service_healthy
+
+  gateway-alpha:
+    <<: *network-gateway
+    profiles: [remote]
+    network_mode: service:net-alpha
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+    depends_on:
+      net-alpha:
+        condition: service_healthy
+      backend-alpha:
+        condition: service_healthy
+      content-alpha:
+        condition: service_healthy
+
+  host-alpha:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["sleep", "infinity"]
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+    depends_on:
+      gateway-alpha:
+        condition: service_healthy
+
+  net-bravo:
+    <<: *network-net
+    profiles: [remote]
+    hostname: bravo
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.22
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_REMOTE_PORT_BRAVO:-18452}:443/tcp"
+
+  configure-bravo:
+    <<: *network-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - |
+        reforged-host-docker setup --mode public --host bravo.cluster.test --game-address 203.0.113.22 --name "Install Bravo" --wine /nonexistent/wine --xvfb --fresh-start
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+
+  backend-bravo:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "backend"]
+      interval: 5s
+      start_period: 60s
+      retries: 6
+    depends_on:
+      net-bravo:
+        condition: service_healthy
+      configure-bravo:
+        condition: service_completed_successfully
+
+  content-bravo:
+    <<: *front
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "content"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend-bravo:
+        condition: service_healthy
+
+  gateway-bravo:
+    <<: *network-gateway
+    profiles: [remote]
+    network_mode: service:net-bravo
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+    depends_on:
+      net-bravo:
+        condition: service_healthy
+      backend-bravo:
+        condition: service_healthy
+      content-bravo:
+        condition: service_healthy
+
+  host-bravo:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["sleep", "infinity"]
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+    depends_on:
+      gateway-bravo:
+        condition: service_healthy
+
+  # `docker compose --profile remote up -d --wait remote` starts the controller and two managed installs
+  remote:
+    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    profiles: [remote]
+    command: ["sleep", "infinity"]
+    init: true
+    network_mode: none
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+    depends_on:
+      host-controller:
+        condition: service_healthy
+      host-alpha:
+        condition: service_healthy
+      host-bravo:
+        condition: service_healthy
+
 networks:
   # The network profile's private network. Addresses are fixed: the node certificates and tc's filters name them
   cluster:
@@ -747,3 +1002,6 @@ volumes:
   network-new-york:
   network-uk:
   network-germany:
+  remote-controller:
+  remote-alpha:
+  remote-bravo:
