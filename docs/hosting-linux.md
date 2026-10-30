@@ -90,6 +90,27 @@ sudo -u postgres psql -c "CREATE ROLE dainty LOGIN PASSWORD '$pw'" -c "CREATE DA
 
 Debian's package listens on localhost only, which is what `setup` wants: the connection is not encrypted.
 
+## Managing several installs
+
+A Linux server can act as a remote-management controller or enroll under a Windows or Linux **DaintyLass Manager**
+controller over pinned mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](remote-management.md)):
+
+```bash
+# On the controller (or in DaintyLass Manager -> Host -> Managed installs):
+bin/reforged-host remote init-controller --node controller --region oregon --url https://ctrl.example.org
+bin/reforged-host remote invite --node eu-west-1 --region eu-west --label "EU West 1"
+
+# On the managed Linux install:
+bin/reforged-host remote enroll "dainty-lass-remote://enroll?v=1&..."
+bin/reforged-host remote sync
+bin/reforged-host remote status
+```
+
+The managed install keeps its local `host`, `game_address`, `[linux]` (`wine`, `proton`, `xvfb`, `interface`),
+`[database]`, `secrets.env` and any keys listed in `[remote].local_overrides`, while pulling shared settings and
+reporting health over `POST /__node/remote`. If the controller is unreachable, the Linux install continues running
+with its last applied configuration. `bin/reforged-host remote leave` detaches it back to standalone mode.
+
 ## Running it
 
 ```bash

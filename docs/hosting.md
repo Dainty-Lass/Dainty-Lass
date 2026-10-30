@@ -378,6 +378,48 @@ peer's own clock for `received_at` metadata and verifying every object's SHA-256
 so a destroyed node's database can be restored from the peer's folder with `history_ship::restore_to` while verifying
 the hash chain and any off-server `trusted_head`.
 
+### Managing several installs
+
+One **DaintyLass Manager** (`dainty-lass-manager`) install or headless controller can manage several enrolled server
+installs over pinned mTLS ([remote-management.md](remote-management.md), [security/remote-management.md](security/remote-management.md)).
+The player launcher (`dainty-lass-client`) has no remote-management surface.
+
+1. **Initialize the controller.** In **DaintyLass Manager** -> **Host** -> **Managed installs**, click **Enable
+   Controller Mode** (or run `bin\reforged-host remote init-controller --node controller --region oregon --url https://203.0.113.10:443`).
+   This creates `.workspace\tls\remote-cluster-ca.pem` (kept on the controller only) and writes `[remote] role = "controller"` in `host.toml`.
+2. **Mint a single-use enrollment invite.** In the Manager's **Managed installs** panel, enter the target node ID,
+   region and optional label and click **Create Enrollment Invite** (or run `bin\reforged-host remote invite --node us-east-1 --region us-east --label "US East 1"`).
+   The URI (`dainty-lass-remote://enroll?v=1&url=...&fp=<sha256>&node=...&region=...&token=...`) is single-use and
+   expires in 15 minutes (`--ttl-secs`).
+3. **Enroll the managed install.** On the target machine, paste the URI in **DaintyLass Manager** -> **Managed installs**
+   or run `bin\reforged-host remote enroll "dainty-lass-remote://enroll?..."`. The install connects over TLS pinned to
+   `fp`, generates its own ECDSA P-256 private key locally (`.workspace\tls\node-key.pem` never leaves the machine),
+   receives a signed leaf certificate from the controller on `POST /__node/enroll`, and syncs over mTLS on
+   `POST /__node/remote`.
+4. **Shared settings, local overrides and remote actions.** Changing shared settings on the controller
+   (`bin\reforged-host remote set-config --set name="Friday Hunts" --set max_hunt_servers=4`) bumps the controller's
+   config revision; enrolled installs merge the shared revision while keeping their local `host`, `game_address`,
+   `ports`, `paths`, `database`, `tls`, `secrets.env` and any dotted keys listed in `[remote].local_overrides`. Remote
+   admin actions (`bin\reforged-host remote exec --node us-east-1 --action ban --target PlayerName --reason "..."`, or
+   the **Doctor** / **Backup** / **Revoke** buttons in the Manager) preserve `DH2` role checks, `DH6` guarded approval
+   and `DD23` change-log attribution (`remote:<controller>:<operator>`). If the controller goes offline, managed
+   installs keep serving with their last applied configuration.
+5. **Revoke or leave.** `bin\reforged-host remote revoke <node>` on the controller immediately refuses that install on
+   `/__node/remote` (`403 not_a_peer`); `bin\reforged-host remote leave` on a managed install detaches it back to
+   `role = "standalone"`.
+
+| `[remote]` key in `host.toml` | `gateway.env` / `host` variable | Values | Default |
+| --- | --- | --- | --- |
+| `role` | `REFORGED_REMOTE_ROLE` | `"standalone"`, `"controller"`, `"managed"` | `"standalone"` |
+| `controller_url` | `REFORGED_REMOTE_CONTROLLER_URL` | `https://<host>[:<port>]` | unset |
+| `controller_cert_fp` | `REFORGED_REMOTE_CONTROLLER_CERT_FP` | 64 lowercase hex digits (SHA-256 of controller gateway cert) | unset |
+| `controller_node` | `REFORGED_REMOTE_CONTROLLER_NODE` | `[a-z0-9-]{1,32}` | unset |
+| `node` | `REFORGED_REMOTE_NODE` | `[a-z0-9-]{1,32}` | `[network].node` |
+| `region` | `REFORGED_REMOTE_REGION` | `[a-z0-9-]{1,32}` | `[network].region` |
+| `label` | `REFORGED_REMOTE_LABEL` | display string (`1`–`64` chars) | unset |
+| `sync_interval_secs` | `REFORGED_REMOTE_SYNC_INTERVAL_SECS` | integer `5`–`3600` | `15` |
+| `local_overrides` | `REFORGED_REMOTE_LOCAL_OVERRIDES` | array of dotted `host.toml` paths preserved locally | `[]` |
+
 ## Public servers
 
 - The invite carries the certificate's SHA-256; players' launchers connect to nothing else. Keep
