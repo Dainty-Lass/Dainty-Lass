@@ -1,6 +1,5 @@
-//! The shared tables in `tests/cases`: Dauntless Revived's launcher tables (`test/cases` at e1c5fec), with
-//! Reforged's scheme and key prefix put in and the answers written by Reforged's TypeScript
-//! (`tests/cases/generate.js`). The launcher's page runs the same TypeScript, so both sides answer alike.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 

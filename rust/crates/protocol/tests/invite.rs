@@ -1,7 +1,5 @@
-//! `legacy/ReforgedLauncher/test/invite.test.ts`, case for case. The one change is its last test: a
-//! `dauntless-revived://` invite is refused as `revived` instead of read as a 1.4.4 server (RD5). Its
-//! "rejects non-strings" has no counterpart: the parser takes `&str`, and the bridge refuses a non-string
-//! argument before it reaches Rust (RA2).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 

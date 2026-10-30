@@ -1,6 +1,5 @@
-//! The runtime manifest against bodies recorded from `legacy/ReforgedContent` (`RuntimeStore.get().body`),
-//! by `tests/fixtures/record.js`: each `*.input.json` is the `runtime.json` the host wrote, the matching
-//! `*.json` what Node served for it.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
