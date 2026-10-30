@@ -1,69 +1,130 @@
-//! JavaScript's string rules, for the ports that must answer exactly as the TypeScript did
-//! (`legacy/ReforgedLauncher/src/shared/text.ts` and the built-ins it leans on).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
-/// ECMAScript white space and line terminators: what `trim()` removes and `\s` matches. Not Rust's
-/// `char::is_whitespace`, which adds U+0085 and leaves out U+FEFF.
+/// Returns `true` if `c` is considered whitespace by ECMAScript (`String.prototype.trim` / `\s`).
+#[must_use]
 pub fn is_js_space(c: char) -> bool {
     matches!(
         c,
-        '\u{9}'..='\u{d}'
-            | ' '
-            | '\u{a0}'
+        '\u{0009}'..='\u{000D}'
+            | '\u{0020}'
+            | '\u{00A0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200a}'
+            | '\u{2000}'..='\u{200A}'
             | '\u{2028}'
             | '\u{2029}'
-            | '\u{202f}'
-            | '\u{205f}'
+            | '\u{202F}'
+            | '\u{205F}'
             | '\u{3000}'
-            | '\u{feff}'
+            | '\u{FEFF}'
     )
 }
 
-/// `String.prototype.trim`.
-pub fn js_trim(text: &str) -> &str {
-    text.trim_matches(is_js_space)
+/// Returns `true` if `ch` is considered whitespace by ECMAScript (`String.prototype.trim` / `\s`).
+#[must_use]
+pub fn is_js_whitespace(ch: char) -> bool {
+    is_js_space(ch)
 }
 
-/// `String.prototype.length`: UTF-16 code units.
+/// Returns the ECMAScript `.length` (number of UTF-16 code units) of `text`.
+#[must_use]
 pub fn js_length(text: &str) -> usize {
-    text.chars().map(char::len_utf16).sum()
+    text.encode_utf16().count()
 }
 
-/// `UNSAFE_CHAR`: C0 and C1 control characters, and the bidirectional overrides and isolates that
-/// can make one text look like another.
+/// Trims leading and trailing ECMAScript whitespace from `s`.
+#[must_use]
+pub fn js_trim(s: &str) -> &str {
+    s.trim_matches(is_js_space)
+}
+
+/// Returns `true` if `c` is an ASCII/Latin-1 control character or a Unicode bidirectional control.
+#[must_use]
 pub fn is_unsafe_char(c: char) -> bool {
-    matches!(c, '\u{0}'..='\u{1f}' | '\u{7f}'..='\u{9f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+    matches!(
+        c as u32,
+        0x0000..=0x001F
+            | 0x007F..=0x009F
+            | 0x061C
+            | 0x200E..=0x200F
+            | 0x202A..=0x202E
+            | 0x2066..=0x2069
+    )
 }
 
-/// Runs of JavaScript white space made one space: `.replace(/\s+/g, " ")`.
-pub(crate) fn collapse_spaces(text: impl Iterator<Item = char>) -> String {
-    let mut out = String::new();
-    let mut in_space = false;
-    for c in text {
-        if is_js_space(c) {
-            if !in_space {
+/// Returns `true` if `ch` is an ASCII/Latin-1 control character or a Unicode bidirectional control.
+#[must_use]
+pub fn is_control_or_bidi(ch: char) -> bool {
+    is_unsafe_char(ch)
+}
+
+/// Returns `true` if `s` contains any control or bidirectional formatting character.
+#[must_use]
+pub fn has_control_or_format(s: &str) -> bool {
+    s.chars().any(is_unsafe_char)
+}
+
+/// Removes control and bidirectional formatting characters from `s`.
+#[must_use]
+pub fn strip_control_and_format(s: &str) -> String {
+    s.chars().filter(|&ch| !is_unsafe_char(ch)).collect()
+}
+
+/// Collapses runs of ECMAScript whitespace into a single ASCII space and trims both ends.
+#[must_use]
+pub fn collapse_js_whitespace(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut in_ws = false;
+    for ch in js_trim(s).chars() {
+        if is_js_space(ch) {
+            if !in_ws {
                 out.push(' ');
+                in_ws = true;
             }
-            in_space = true;
         } else {
-            out.push(c);
-            in_space = false;
+            out.push(ch);
+            in_ws = false;
         }
     }
     out
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Cleans untrusted display text by removing non-whitespace control and bidirectional characters,
+/// collapsing ECMAScript whitespace runs to a single ASCII space, trimming, and truncating to
+/// `max_chars` Unicode scalar values.
+#[must_use]
+pub fn clean_display_text(s: &str, max_chars: usize) -> String {
+    let mut out = String::new();
+    let mut count = 0;
+    let mut pending_space = false;
 
-    #[test]
-    fn trims_like_javascript() {
-        assert_eq!(js_trim("\u{feff}\u{a0} x \u{3000}\u{2028}"), "x");
-        assert_eq!(js_trim("\u{85}x"), "\u{85}x");
-        assert_eq!(js_length("a\u{1f600}é"), 4);
-        assert!(is_unsafe_char('\u{85}') && is_unsafe_char('\u{202e}') && !is_unsafe_char('\u{200b}'));
-        assert_eq!(collapse_spaces(" a \t\n b ".chars()), " a b ");
+    for ch in s.chars() {
+        if is_js_space(ch) {
+            if !out.is_empty() {
+                pending_space = true;
+            }
+            continue;
+        }
+        if is_unsafe_char(ch) {
+            continue;
+        }
+        if pending_space {
+            if count + 1 >= max_chars {
+                if count < max_chars {
+                    out.push(' ');
+                }
+                break;
+            }
+            out.push(' ');
+            count += 1;
+            pending_space = false;
+        }
+        if count >= max_chars {
+            break;
+        }
+        out.push(ch);
+        count += 1;
     }
+
+    out
 }

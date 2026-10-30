@@ -1,6 +1,5 @@
-//! Dauntless Revived's `username-status.test.ts` (e1c5fec), the cases that still apply, with Reforged's
-//! key prefix; plus the status fields Reforged added, as its `pinned.test.ts` and `controller.test.ts`
-//! read them from a fake server (`test/fakes.ts`).
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 

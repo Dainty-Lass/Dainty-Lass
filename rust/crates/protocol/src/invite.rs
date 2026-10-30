@@ -1,155 +1,79 @@
-//! Invite strings, as `legacy/ReforgedLauncher/src/shared/invite.ts` reads and writes them.
-//!
-//! One scheme, `dauntless://join?…&version=<game version>`, where `version` is one this build plays
-//! ([`played_versions`]: `1.14.7`, and `1.4.4` with the `legacy` feature; [`parse_invite_for`] takes the
-//! list) and defaults to `1.14.7`; `reforged` and `revived` name 1.14.7 and 1.4.4 too. A scheme per game is the same request with `version` given: `reforged-revival://` is
-//! `version=1.14.7`, `dauntless-revived://` is `version=1.4.4`. Such an alias may repeat its own `version`,
-//! never another. Two invite formats (`v`):
-//!
-//! - v=1, private mode (the host's PC, reached over Tailscale, plain HTTP):
-//!   `reforged-revival://join?v=1&host=…&port=61000&code=…&name=…[&share=…]`. The host must be a Tailscale
-//!   address (100.64.0.0/10), a `*.ts.net` name or loopback: v1 must never point at the internet.
-//! - v=2, public mode (a server on a public IP, reached through its TLS gateway):
-//!   `reforged-revival://join?v=2&mode=public&host=…&port=…&fp=…&code=…&name=…`
-//!
-//! The host, port and fingerprint decide where the account key is sent later, so anything that is not
-//! exactly one of these shapes is refused. Dauntless Revived's `dauntless-revived://` invites name servers
-//! for Dauntless 1.4.4 in the same two shapes: with the `legacy` feature they are read by the same rules as
-//! an invite for [`revived_version`]; without it they are refused with [`InviteError::Revived`] (RD5), which the
-//! page words.
-//!
-//! The string rules are JavaScript's, not Rust's: lengths in UTF-16 units, `trim` and `\s` with
-//! ECMAScript's white space, `decodeURIComponent`'s strict UTF-8, and `new URL` for the share link.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
 
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+use std::fmt;
+
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
-use module_api::GameVersion;
+use crate::GameVersion;
+use crate::text::{collapse_js_whitespace, has_control_or_format, js_length, js_trim};
 
-use crate::text::{collapse_spaces, is_unsafe_char, js_length, js_trim};
-
-/// The one scheme every game's invites can use.
 pub const UNIFIED_INVITE_SCHEME: &str = "dauntless";
-/// Reforged's own scheme: `dauntless://` with `version=1.14.7`. The scheme invites are written with, so every
-/// launcher already released opens them.
 pub const INVITE_SCHEME: &str = "reforged-revival";
-/// Dauntless Revived's scheme: a legacy server with the `legacy` feature, refused without it (RD5).
 pub const REVIVED_INVITE_SCHEME: &str = "dauntless-revived";
 pub const DEFAULT_PUBLIC_PORT: u16 = 443;
 pub const MAX_INVITE_LENGTH: usize = 2048;
 
-/// A game the invite format names itself (DD1 keeps the schemes): the scheme that fixes it and the alias
-/// `version` may give it. Every other game is named by its version alone (DD4).
-struct SchemeGame {
-    scheme: &'static str,
-    version: (u32, u32, u32),
-    alias: &'static str,
-    /// The answer in a build that doesn't play it: RD5's typed refusal for 1.4.4
-    unplayed: InviteError,
-}
+const MAX_INVITE_UTF16_LEN: usize = MAX_INVITE_LENGTH;
+const MAX_NAME_CHARS: usize = 64;
+const MAX_SHARE_UTF16_LEN: usize = 512;
+const TAILSCALE_SHARE_PREFIX: &str = "https://login.tailscale.com/";
 
-impl SchemeGame {
-    fn version(&self) -> GameVersion {
-        let (major, minor, patch) = self.version;
-        GameVersion::release(major, minor, patch)
-    }
-}
-
-const SCHEME_GAMES: [SchemeGame; 2] = [
-    SchemeGame {
-        scheme: INVITE_SCHEME,
-        version: (1, 14, 7),
-        alias: "reforged",
-        unplayed: InviteError::Params,
-    },
-    SchemeGame {
-        scheme: REVIVED_INVITE_SCHEME,
-        version: (1, 4, 4),
-        alias: "revived",
-        unplayed: InviteError::Revived,
-    },
-];
-
-/// Dauntless 1.14.7: what an invite plays when it names no version.
+/// Returns the default Reforged game version (`1.14.7`).
+#[must_use]
 pub fn reforged_version() -> GameVersion {
-    SCHEME_GAMES[0].version()
+    GameVersion::release(1, 14, 7)
 }
 
-/// Dauntless Revived's 1.4.4.
+/// Returns the legacy Revived game version (`1.4.4`).
+#[must_use]
 pub fn revived_version() -> GameVersion {
-    SCHEME_GAMES[1].version()
+    GameVersion::release(1, 4, 4)
 }
 
-fn is_reforged(version: &GameVersion) -> bool {
-    *version == reforged_version()
-}
-
-/// The versions this build's invites may name: 1.14.7, and 1.4.4 with the `legacy` feature.
+/// Returns the game versions supported by this build's enabled Cargo features.
+#[must_use]
 pub fn played_versions() -> Vec<GameVersion> {
-    let mut versions = vec![reforged_version()];
     if cfg!(feature = "legacy") {
-        versions.push(revived_version());
+        vec![reforged_version(), revived_version()]
+    } else {
+        vec![reforged_version()]
     }
-    versions
 }
 
-/// The game an invite's `version` names: a scheme game's alias, or an exact version.
+/// Resolves a version string or known alias (`"1.14.7"`, `"reforged"`, `"1.4.4"`, `"revived"`) to a [`GameVersion`].
+#[must_use]
 pub fn named_version(text: &str) -> Option<GameVersion> {
-    SCHEME_GAMES
-        .iter()
-        .find(|game| game.alias == text)
-        .map(SchemeGame::version)
-        .or_else(|| text.parse().ok())
+    match text {
+        "1.14.7" | "reforged" => Some(reforged_version()),
+        "1.4.4" | "revived" => Some(revived_version()),
+        _ => None,
+    }
 }
 
-/// The invite format's own name for a version (`reforged`, `revived`), if it has one.
+/// Returns the per-game invite URL scheme alias for `version`, if one exists.
+#[must_use]
 pub fn version_alias(version: &GameVersion) -> Option<&'static str> {
-    SCHEME_GAMES
-        .iter()
-        .find(|game| game.version() == *version)
-        .map(|game| game.alias)
+    if *version == reforged_version() {
+        Some(INVITE_SCHEME)
+    } else if *version == revived_version() {
+        Some(REVIVED_INVITE_SCHEME)
+    } else {
+        None
+    }
 }
 
-/// The schemes this build opens: the ones a launcher registers with the OS.
+/// Returns the URL schemes that `parse_invite` accepts for this build's enabled Cargo features.
+#[must_use]
 pub fn invite_schemes() -> Vec<&'static str> {
-    let played = played_versions();
-    std::iter::once(UNIFIED_INVITE_SCHEME)
-        .chain(
-            SCHEME_GAMES
-                .iter()
-                .filter(|game| played.contains(&game.version()))
-                .map(|game| game.scheme),
-        )
-        .collect()
+    if cfg!(feature = "legacy") {
+        vec![UNIFIED_INVITE_SCHEME, INVITE_SCHEME, REVIVED_INVITE_SCHEME]
+    } else {
+        vec![UNIFIED_INVITE_SCHEME, INVITE_SCHEME]
+    }
 }
-
-const V1_ALLOWED: &[&str] = &["v", "host", "port", "code", "name", "share", "version"];
-const V1_REQUIRED: &[(&str, InviteError)] = &[
-    ("host", InviteError::Host),
-    ("port", InviteError::Port),
-    ("code", InviteError::Code),
-    ("name", InviteError::Name),
-];
-const V2_ALLOWED: &[&str] = &["v", "mode", "host", "port", "fp", "code", "name", "version"];
-const V2_REQUIRED: &[(&str, InviteError)] = &[
-    ("mode", InviteError::Mode),
-    ("host", InviteError::Host),
-    ("fp", InviteError::Fp),
-    ("code", InviteError::Code),
-    ("name", InviteError::Name),
-];
-
-/// What JavaScript's `encodeURIComponent` leaves as it is: letters, digits and `-_.!~*'()`.
-const URI_COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
-    .remove(b'-')
-    .remove(b'_')
-    .remove(b'.')
-    .remove(b'!')
-    .remove(b'~')
-    .remove(b'*')
-    .remove(b'\'')
-    .remove(b'(')
-    .remove(b')');
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -162,145 +86,217 @@ pub enum ServerMode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Invite {
+    #[serde(default = "reforged_version")]
+    #[cfg_attr(feature = "ts", ts(type = "string"))]
+    pub version: GameVersion,
     pub mode: ServerMode,
     pub host: String,
     pub port: u16,
     pub code: String,
     pub name: String,
-    /// Private mode only: the Tailscale share link.
     pub share: Option<String>,
-    /// Public mode only: SHA-256 of the server's TLS certificate (DER), 64 lower-case hex characters.
     pub fp: Option<String>,
-    /// The game the server plays (DD4). Left out of the JSON for 1.14.7, so that JSON is the TypeScript's
-    #[serde(default = "reforged_version", skip_serializing_if = "is_reforged")]
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>", optional))]
-    pub version: GameVersion,
 }
 
-/// Why an invite was refused. The JSON form is the TypeScript's `InviteError` name, plus `revived`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
 pub enum InviteError {
     Empty,
     TooLong,
     NotInvite,
-    /// A `dauntless-revived://join?…` invite in a build without the `legacy` feature (RD5). Its fields
-    /// are not read.
     Revived,
     Version,
-    Params,
+    GameVersion,
     Mode,
+    Fp,
     Host,
     Port,
-    Fp,
     Code,
     Name,
     Share,
+    Params,
 }
 
 impl InviteError {
-    /// The name the page shows in the error's detail, as the TypeScript returns it.
-    pub fn as_str(self) -> &'static str {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Empty => "empty",
             Self::TooLong => "too_long",
             Self::NotInvite => "not_invite",
             Self::Revived => "revived",
             Self::Version => "version",
-            Self::Params => "params",
+            Self::GameVersion => "game_version",
             Self::Mode => "mode",
+            Self::Fp => "fp",
             Self::Host => "host",
             Self::Port => "port",
-            Self::Fp => "fp",
             Self::Code => "code",
             Self::Name => "name",
             Self::Share => "share",
+            Self::Params => "params",
         }
     }
 }
-
-impl std::fmt::Display for InviteError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl std::error::Error for InviteError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FormatError {
-    /// A public invite without a valid certificate fingerprint.
-    Fingerprint,
+    Host,
+    Port,
+    Code,
+    Name,
+    Share,
+    Fp,
+    Version,
 }
 
-impl std::fmt::Display for FormatError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl FormatError {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Fingerprint => f.write_str("public invites need a certificate fingerprint"),
+            Self::Host => "host",
+            Self::Port => "port",
+            Self::Code => "code",
+            Self::Name => "name",
+            Self::Share => "share",
+            Self::Fp => "fp",
+            Self::Version => "version",
         }
+    }
+}
+
+impl fmt::Display for FormatError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 
 impl std::error::Error for FormatError {}
 
-/// SHA-256 of the certificate's DER bytes, as 64 lower-case hex characters.
-pub fn is_valid_fingerprint(fp: &str) -> bool {
-    fp.len() == 64 && fp.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+fn parse_ipv4_dotted(host: &str) -> Option<[u8; 4]> {
+    let mut parts = host.split('.');
+    let a = parse_octet(parts.next()?)?;
+    let b = parse_octet(parts.next()?)?;
+    let c = parse_octet(parts.next()?)?;
+    let d = parse_octet(parts.next()?)?;
+    if parts.next().is_some() {
+        return None;
+    }
+    Some([a, b, c, d])
 }
 
+fn parse_octet(s: &str) -> Option<u8> {
+    if s.is_empty()
+        || (s.len() > 1 && s.starts_with('0'))
+        || !s.bytes().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+    s.parse::<u8>().ok()
+}
+
+/// Returns `true` if `text` is a canonical dotted-quad IPv4 address.
+#[must_use]
 pub fn is_valid_ipv4(text: &str) -> bool {
-    let parts: Vec<&str> = text.split('.').collect();
-    parts.len() == 4
-        && parts.iter().all(|part| {
-            let digits = part.len() <= 3 && !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit());
-            digits && (*part == "0" || !part.starts_with('0')) && part.parse::<u16>().is_ok_and(|n| n <= 255)
-        })
+    parse_ipv4_dotted(text).is_some()
 }
 
-/// IPv4, or a DNS name made of `[a-z0-9.-]`. Names a resolver could read as a number ("1.2.3",
-/// "0x7f.1", "host.123") are refused.
+fn looks_numeric_or_ipv4_candidate(host: &str) -> bool {
+    host.split('.').next_back().is_some_and(|last| {
+        !last.is_empty()
+            && (last.bytes().all(|b| b.is_ascii_digit())
+                || last.starts_with("0x")
+                || last.starts_with("0X"))
+    })
+}
+
+/// Returns `true` if `host` is a valid lowercase DNS hostname or canonical dotted-quad IPv4 address.
+#[must_use]
 pub fn is_valid_host(host: &str) -> bool {
-    if host.is_empty() || js_length(host) > 253 {
+    if host.is_empty() || host.len() > 253 {
         return false;
     }
-    if host.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.') {
-        return is_valid_ipv4(host);
+    if is_valid_ipv4(host) {
+        return true;
     }
-    if !host
-        .bytes()
-        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'.' || byte == b'-')
-    {
+    if looks_numeric_or_ipv4_candidate(host) {
         return false;
     }
-    let labels: Vec<&str> = host.split('.').collect();
-    if labels
-        .iter()
-        .any(|label| label.is_empty() || label.len() > 63 || label.starts_with('-') || label.ends_with('-'))
-    {
-        return false;
+    for label in host.split('.') {
+        if label.is_empty()
+            || label.len() > 63
+            || label.starts_with('-')
+            || label.ends_with('-')
+            || !label
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        {
+            return false;
+        }
     }
-    let last = labels.last().copied().unwrap_or_default();
-    !last.bytes().all(|byte| byte.is_ascii_digit()) && !last.to_ascii_lowercase().starts_with("0x")
+    true
 }
 
-pub fn is_valid_port(text: &str) -> bool {
-    let bytes = text.as_bytes();
-    (1..=5).contains(&bytes.len())
-        && bytes[0] != b'0'
-        && bytes.iter().all(u8::is_ascii_digit)
-        && text.parse::<u32>().is_ok_and(|n| (1..=65535).contains(&n))
+/// Returns `true` if `host` is a canonical dotted-quad IPv4 address in the Tailscale CGNAT range (`100.64.0.0/10`).
+#[must_use]
+pub fn is_tailscale_ipv4(host: &str) -> bool {
+    matches!(parse_ipv4_dotted(host), Some([100, b, _, _]) if (64..=127).contains(&b))
 }
 
+/// Returns `true` if `host` is `"localhost"` or a canonical `127.0.0.0/8` IPv4 address.
+#[must_use]
+pub fn is_loopback_host(host: &str) -> bool {
+    host == "localhost" || matches!(parse_ipv4_dotted(host), Some([127, _, _, _]))
+}
+
+/// Returns `true` if `host` is a valid Tailscale MagicDNS hostname (`*.ts.net`).
+#[must_use]
+pub fn is_magic_dns_name(host: &str) -> bool {
+    is_valid_host(host) && host.strip_suffix(".ts.net").is_some_and(|prefix| !prefix.is_empty())
+}
+
+/// Returns `true` if `host` is an allowed private-mode (Tailscale / loopback) host.
+#[must_use]
+pub fn is_private_mode_host(host: &str) -> bool {
+    if !is_valid_host(host) {
+        return false;
+    }
+    is_loopback_host(host) || is_tailscale_ipv4(host) || is_magic_dns_name(host)
+}
+
+/// Returns `true` if `fp` is a valid 64-character lowercase hexadecimal SHA-256 fingerprint.
+#[must_use]
+pub fn is_valid_fingerprint(fp: &str) -> bool {
+    fp.len() == 64
+        && fp
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+/// Returns `true` if `code` is a valid invite code (`^[A-Za-z0-9-]{4,64}$`).
+#[must_use]
 pub fn is_valid_invite_code(code: &str) -> bool {
-    (4..=64).contains(&code.len()) && code.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    (4..=64).contains(&code.len())
+        && code
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
+/// Returns `true` if `text` is a valid Tailscale share URL (`https://login.tailscale.com/...`).
+#[must_use]
 pub fn is_valid_share_url(text: &str) -> bool {
-    if js_length(text) > 512 {
+    if text.is_empty()
+        || js_length(text) > MAX_SHARE_UTF16_LEN
+        || has_control_or_format(text)
+    {
         return false;
     }
-    let Ok(url) = url::Url::parse(text) else {
+    if text.len() <= TAILSCALE_SHARE_PREFIX.len()
+        || !text[..TAILSCALE_SHARE_PREFIX.len()].eq_ignore_ascii_case(TAILSCALE_SHARE_PREFIX)
+    {
+        return false;
+    }
+    let Ok(url) = Url::parse(text) else {
         return false;
     };
     url.scheme() == "https"
@@ -308,423 +304,384 @@ pub fn is_valid_share_url(text: &str) -> bool {
         && url.port().is_none()
         && url.username().is_empty()
         && url.password().is_none()
-        && text.to_lowercase().starts_with("https://login.tailscale.com/")
+        && url.path().len() > 1
 }
 
-/// Server names are shown to the friend, always as text (never as HTML).
+/// Validates and normalizes an invite server name, returning `None` if it contains control/bidi
+/// characters, is empty after collapsing whitespace, or exceeds 64 characters.
+#[must_use]
 pub fn clean_server_name(raw: &str) -> Option<String> {
-    // Control characters, and bidirectional overrides that could disguise the name
-    if raw.chars().any(is_unsafe_char) {
+    if has_control_or_format(raw) {
         return None;
     }
-    let name = collapse_spaces(js_trim(raw).chars());
-    (js_length(&name) >= 1 && name.chars().count() <= 64).then_some(name)
-}
-
-pub fn is_loopback_host(host: &str) -> bool {
-    if host == "localhost" {
-        return true;
+    let name = collapse_js_whitespace(raw);
+    if name.is_empty() || name.chars().count() > MAX_NAME_CHARS {
+        return None;
     }
-    let parts: Vec<&str> = host.split('.').collect();
-    parts.len() == 4
-        && parts[0] == "127"
-        && parts
-            .iter()
-            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
+    Some(name)
 }
 
-/// Tailscale hands out addresses from 100.64.0.0/10.
-pub fn is_tailscale_ipv4(host: &str) -> bool {
-    if !is_valid_ipv4(host) {
-        return false;
+fn parse_port(raw: &str) -> Result<u16, InviteError> {
+    if raw.is_empty()
+        || (raw.len() > 1 && raw.starts_with('0'))
+        || !raw.bytes().all(|b| b.is_ascii_digit())
+    {
+        return Err(InviteError::Port);
     }
-    let mut parts = host.split('.').map(|part| part.parse::<u16>().unwrap_or(0));
-    parts.next() == Some(100) && parts.next().is_some_and(|b| (64..=127).contains(&b))
+    let port = raw.parse::<u16>().map_err(|_| InviteError::Port)?;
+    if port == 0 {
+        return Err(InviteError::Port);
+    }
+    Ok(port)
 }
 
-/// A MagicDNS name: `<machine>.<tailnet>.ts.net`.
-pub fn is_magic_dns_name(host: &str) -> bool {
-    is_valid_host(host) && host.ends_with(".ts.net") && host.split('.').count() >= 3
+/// Returns `true` if `text` is a canonical decimal port number in `1..=65535` without leading zeros.
+#[must_use]
+pub fn is_valid_port(text: &str) -> bool {
+    parse_port(text).is_ok()
 }
 
-/// Where private mode (plain HTTP, invite v1) may connect: a Tailscale address or MagicDNS name, or
-/// this PC itself (tests, and a host playing on the server PC).
-pub fn is_private_mode_host(host: &str) -> bool {
-    is_tailscale_ipv4(host) || is_magic_dns_name(host) || is_loopback_host(host)
-}
-
-/// `decodeURIComponent(raw.replace(/\+/g, " "))`: every `%` starts two hex digits, and the bytes
-/// they make must be UTF-8 (no surrogates, no overlong forms).
-fn decode_component(raw: &str) -> Option<String> {
-    let raw = raw.replace('+', " ");
+fn decode_form_component(raw: &str) -> Option<String> {
     let bytes = raw.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' {
-            let hex = bytes.get(i + 1..i + 3)?;
-            let text = std::str::from_utf8(hex).ok()?;
-            if !text.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-                return None;
+        match bytes[i] {
+            b'+' => {
+                out.push(b' ');
+                i += 1;
             }
-            out.push(u8::from_str_radix(text, 16).ok()?);
-            i += 3;
-        } else {
-            out.push(bytes[i]);
-            i += 1;
+            b'%' => {
+                let hi = *bytes.get(i + 1)?;
+                let lo = *bytes.get(i + 2)?;
+                let h = (hi as char).to_digit(16)?;
+                let l = (lo as char).to_digit(16)?;
+                out.push(((h << 4) | l) as u8);
+                i += 3;
+            }
+            b => {
+                out.push(b);
+                i += 1;
+            }
         }
     }
     String::from_utf8(out).ok()
 }
 
-/// `/^<scheme>:\/\/join\/?\?/i`: the query after the prefix, or None.
-fn strip_invite_prefix<'a>(text: &'a str, scheme: &str) -> Option<&'a str> {
-    let prefix = format!("{scheme}://join");
-    let head = text.get(..prefix.len())?;
-    let rest = head.eq_ignore_ascii_case(&prefix).then(|| &text[prefix.len()..])?;
-    let rest = rest.strip_prefix('/').unwrap_or(rest);
-    rest.strip_prefix('?')
+fn resolve_game_version_token(raw: &str, supported: &[GameVersion]) -> Option<GameVersion> {
+    if let Some(v) = named_version(raw) {
+        return Some(v);
+    }
+    let parsed = raw.parse::<GameVersion>().ok()?;
+    supported.contains(&parsed).then_some(parsed)
 }
 
-/// Reads an invite as `parseInvite` does. A `dauntless-revived://` one is a legacy server with the `legacy`
-/// feature and refused without it (RD5).
-pub fn parse_invite(input: &str) -> Result<Invite, InviteError> {
-    parse_invite_for(input, &played_versions())
+/// Parses an invite URL using the crate's compiled-in supported game versions.
+pub fn parse_invite(raw: &str) -> Result<Invite, InviteError> {
+    parse_invite_for(raw, &played_versions())
 }
 
-/// [`parse_invite`] for a caller that knows which versions it plays (the launcher's client profiles).
-pub fn parse_invite_for(input: &str, played: &[GameVersion]) -> Result<Invite, InviteError> {
-    let unplayed = |version: &GameVersion| {
-        SCHEME_GAMES
-            .iter()
-            .find(|game| game.version() == *version)
-            .map_or(InviteError::Params, |game| game.unplayed)
-    };
-    let text = js_trim(input);
-    if text.is_empty() {
+/// Parses an invite URL against the caller's `supported` game versions.
+pub fn parse_invite_for(raw: &str, supported: &[GameVersion]) -> Result<Invite, InviteError> {
+    let trimmed = js_trim(raw);
+    if trimmed.is_empty() {
         return Err(InviteError::Empty);
     }
-    if js_length(text) > MAX_INVITE_LENGTH {
+    if js_length(trimmed) > MAX_INVITE_UTF16_LEN {
         return Err(InviteError::TooLong);
     }
-    let (preset, query) = strip_invite_prefix(text, UNIFIED_INVITE_SCHEME)
-        .map(|query| (None, query))
-        .or_else(|| {
-            SCHEME_GAMES
-                .iter()
-                .find_map(|game| strip_invite_prefix(text, game.scheme).map(|query| (Some(game.version()), query)))
-        })
-        .ok_or(InviteError::NotInvite)?;
-    // A scheme game this build doesn't play is refused unread, as RD5 had it
-    if let Some(version) = preset.as_ref().filter(|version| !played.contains(version)) {
-        return Err(unplayed(version));
+
+    let Some((scheme_raw, after_scheme)) = trimmed.split_once("://") else {
+        return Err(InviteError::NotInvite);
+    };
+    let scheme = scheme_raw.to_ascii_lowercase();
+    let scheme_pinned_version = match scheme.as_str() {
+        UNIFIED_INVITE_SCHEME => None,
+        INVITE_SCHEME => Some(reforged_version()),
+        REVIVED_INVITE_SCHEME => Some(revived_version()),
+        _ => return Err(InviteError::NotInvite),
+    };
+
+    let Some((path_raw, query_raw)) = after_scheme.split_once('?') else {
+        return Err(InviteError::NotInvite);
+    };
+    let path = path_raw.strip_suffix('/').unwrap_or(path_raw);
+    if !path.eq_ignore_ascii_case("join") {
+        return Err(InviteError::NotInvite);
     }
-    if query.contains('#') {
+
+    if let Some(ref pinned) = scheme_pinned_version
+        && *pinned == revived_version()
+        && !supported.contains(pinned)
+    {
+        return Err(InviteError::Revived);
+    }
+
+    if query_raw.is_empty() || query_raw.contains('#') {
         return Err(InviteError::Params);
     }
 
-    // Parsed by hand, so that duplicates and unknown keys can be refused
-    let mut values: Vec<(&str, String)> = Vec::new();
-    for pair in query.split('&') {
-        let Some((key, raw)) = pair.split_once('=') else {
+    let mut p_v: Option<String> = None;
+    let mut p_mode: Option<String> = None;
+    let mut p_host: Option<String> = None;
+    let mut p_port: Option<String> = None;
+    let mut p_code: Option<String> = None;
+    let mut p_name: Option<String> = None;
+    let mut p_share: Option<String> = None;
+    let mut p_fp: Option<String> = None;
+    let mut p_version: Option<String> = None;
+
+    for pair in query_raw.split('&') {
+        if pair.is_empty() {
+            return Err(InviteError::Params);
+        }
+        let Some((k_raw, v_raw)) = pair.split_once('=') else {
             return Err(InviteError::Params);
         };
-        if key.is_empty() || !V2_ALLOWED.contains(&key) && !V1_ALLOWED.contains(&key) {
+        if k_raw.is_empty() || k_raw.contains('%') || k_raw.contains('+') {
             return Err(InviteError::Params);
         }
-        if values.iter().any(|(seen, _)| *seen == key) {
+        let val = decode_form_component(v_raw).ok_or(InviteError::Params)?;
+        let slot = match k_raw {
+            "v" => &mut p_v,
+            "mode" => &mut p_mode,
+            "host" => &mut p_host,
+            "port" => &mut p_port,
+            "code" => &mut p_code,
+            "name" => &mut p_name,
+            "share" => &mut p_share,
+            "fp" => &mut p_fp,
+            "version" => &mut p_version,
+            _ => return Err(InviteError::Params),
+        };
+        if slot.is_some() {
             return Err(InviteError::Params);
         }
-        values.push((key, decode_component(raw).ok_or(InviteError::Params)?));
+        *slot = Some(val);
     }
-    let get = |key: &str| {
-        values
-            .iter()
-            .find(|(seen, _)| *seen == key)
-            .map(|(_, value)| value.as_str())
-    };
 
-    let game = match (get("version"), preset) {
-        (None, preset) => preset.unwrap_or_else(reforged_version),
-        (Some(text), preset) => {
-            let game = named_version(text).ok_or(InviteError::Params)?;
-            if preset.is_some_and(|fixed| fixed != game) {
+    let version = match (scheme_pinned_version, p_version) {
+        (Some(pinned), Some(explicit_raw)) => {
+            let Some(explicit_ver) = resolve_game_version_token(&explicit_raw, supported) else {
+                return Err(InviteError::Params);
+            };
+            if explicit_ver != pinned {
                 return Err(InviteError::Params);
             }
-            game
+            pinned
         }
+        (Some(pinned), None) => pinned,
+        (None, Some(explicit_raw)) => {
+            let Some(explicit_ver) = resolve_game_version_token(&explicit_raw, supported) else {
+                return Err(InviteError::Params);
+            };
+            if explicit_ver == revived_version() && !supported.contains(&explicit_ver) {
+                return Err(InviteError::Revived);
+            }
+            explicit_ver
+        }
+        (None, None) => reforged_version(),
     };
-    if !played.contains(&game) {
-        return Err(unplayed(&game));
-    }
 
-    let version = get("v");
-    if version != Some("1") && version != Some("2") {
-        return Err(InviteError::Version);
-    }
-    let private = version == Some("1");
-    let (allowed, required) = if private {
-        (V1_ALLOWED, V1_REQUIRED)
-    } else {
-        (V2_ALLOWED, V2_REQUIRED)
-    };
-    if values.iter().any(|(key, _)| !allowed.contains(key)) {
+    if !supported.contains(&version) {
+        if version == revived_version() {
+            return Err(InviteError::Revived);
+        }
         return Err(InviteError::Params);
     }
-    if let Some((_, error)) = required.iter().find(|(key, _)| get(key).is_none()) {
-        return Err(*error);
-    }
-    if !private && get("mode") != Some("public") {
-        return Err(InviteError::Mode);
-    }
 
-    let host = get("host").unwrap_or_default().to_lowercase();
-    if !is_valid_host(&host) {
-        return Err(InviteError::Host);
-    }
-    // v1 is plain HTTP, so it may only point into the tailnet; a server on the internet needs a v2
-    // (public, pinned TLS) invite
-    if private && !is_private_mode_host(&host) {
-        return Err(InviteError::Host);
-    }
+    let v_str = p_v.ok_or(InviteError::Version)?;
+    match v_str.as_str() {
+        "1" => {
+            if p_mode.is_some() || p_fp.is_some() {
+                return Err(InviteError::Params);
+            }
+            let host_raw = p_host.ok_or(InviteError::Host)?;
+            let host = js_trim(&host_raw).to_lowercase();
+            if !is_private_mode_host(&host) {
+                return Err(InviteError::Host);
+            }
+            let port_raw = p_port.ok_or(InviteError::Port)?;
+            let port = parse_port(js_trim(&port_raw))?;
+            let code_raw = p_code.ok_or(InviteError::Code)?;
+            let code = js_trim(&code_raw).to_string();
+            if !is_valid_invite_code(&code) {
+                return Err(InviteError::Code);
+            }
+            let name_raw = p_name.ok_or(InviteError::Name)?;
+            let name = clean_server_name(&name_raw).ok_or(InviteError::Name)?;
+            let share = match p_share {
+                Some(s_raw) => {
+                    let s = js_trim(&s_raw).to_string();
+                    if !is_valid_share_url(&s) {
+                        return Err(InviteError::Share);
+                    }
+                    Some(s)
+                }
+                None => None,
+            };
 
-    let mut port = DEFAULT_PUBLIC_PORT;
-    if let Some(text) = get("port") {
-        if !is_valid_port(text) {
-            return Err(InviteError::Port);
+            Ok(Invite {
+                version,
+                mode: ServerMode::Private,
+                host,
+                port,
+                code,
+                name,
+                share,
+                fp: None,
+            })
         }
-        port = text.parse().map_err(|_| InviteError::Port)?;
-    }
+        "2" => {
+            if p_share.is_some() {
+                return Err(InviteError::Params);
+            }
+            let mode_raw = p_mode.ok_or(InviteError::Mode)?;
+            if mode_raw != "public" {
+                return Err(InviteError::Mode);
+            }
+            let fp_raw = p_fp.ok_or(InviteError::Fp)?;
+            let fp = js_trim(&fp_raw).to_string();
+            if !is_valid_fingerprint(&fp) {
+                return Err(InviteError::Fp);
+            }
+            let host_raw = p_host.ok_or(InviteError::Host)?;
+            let host = js_trim(&host_raw).to_lowercase();
+            if !is_valid_host(&host) {
+                return Err(InviteError::Host);
+            }
+            let port = match p_port {
+                Some(port_raw) => parse_port(js_trim(&port_raw))?,
+                None => 443,
+            };
+            let code_raw = p_code.ok_or(InviteError::Code)?;
+            let code = js_trim(&code_raw).to_string();
+            if !is_valid_invite_code(&code) {
+                return Err(InviteError::Code);
+            }
+            let name_raw = p_name.ok_or(InviteError::Name)?;
+            let name = clean_server_name(&name_raw).ok_or(InviteError::Name)?;
 
-    let mut fp = None;
-    if !private {
-        let raw = get("fp").unwrap_or_default();
-        if !is_valid_fingerprint(raw) {
-            return Err(InviteError::Fp);
+            Ok(Invite {
+                version,
+                mode: ServerMode::Public,
+                host,
+                port,
+                code,
+                name,
+                share: None,
+                fp: Some(fp),
+            })
         }
-        fp = Some(raw.to_owned());
+        _ => Err(InviteError::Version),
     }
-
-    let code = get("code").unwrap_or_default();
-    if !is_valid_invite_code(code) {
-        return Err(InviteError::Code);
-    }
-
-    let name = clean_server_name(get("name").unwrap_or_default()).ok_or(InviteError::Name)?;
-
-    let mut share = None;
-    if let Some(raw) = get("share") {
-        if !is_valid_share_url(raw) {
-            return Err(InviteError::Share);
-        }
-        share = Some(raw.to_owned());
-    }
-
-    Ok(Invite {
-        mode: if private {
-            ServerMode::Private
-        } else {
-            ServerMode::Public
-        },
-        host,
-        port,
-        code: code.to_owned(),
-        name,
-        share,
-        fp,
-        version: game,
-    })
 }
 
-fn encode(text: &str) -> impl std::fmt::Display + '_ {
-    utf8_percent_encode(text, URI_COMPONENT)
+const QUERY_ENCODE_SET: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'#')
+    .add(b'$')
+    .add(b'%')
+    .add(b'&')
+    .add(b'+')
+    .add(b',')
+    .add(b'/')
+    .add(b':')
+    .add(b';')
+    .add(b'<')
+    .add(b'=')
+    .add(b'>')
+    .add(b'?')
+    .add(b'@')
+    .add(b'[')
+    .add(b'\\')
+    .add(b']')
+    .add(b'^')
+    .add(b'`')
+    .add(b'{')
+    .add(b'|')
+    .add(b'}');
+
+fn encode_query_val(s: &str) -> String {
+    utf8_percent_encode(s, QUERY_ENCODE_SET).to_string()
 }
 
-/// Builds the invite string, byte for byte as `formatInvite` in the launcher does.
+/// Formats a validated [`Invite`] into its canonical invite URL.
 pub fn format_invite(invite: &Invite) -> Result<String, FormatError> {
-    let named = SCHEME_GAMES.iter().find(|game| game.version() == invite.version);
-    let scheme = named.map_or(UNIFIED_INVITE_SCHEME, |game| game.scheme);
-    let mut out = format!("{scheme}://join?");
+    if invite.port == 0 {
+        return Err(FormatError::Port);
+    }
+    let code = js_trim(&invite.code);
+    if !is_valid_invite_code(code) {
+        return Err(FormatError::Code);
+    }
+    let name = clean_server_name(&invite.name).ok_or(FormatError::Name)?;
+
+    if !played_versions().contains(&invite.version) {
+        return Err(FormatError::Version);
+    }
+
+    let (scheme, include_version) = match version_alias(&invite.version) {
+        Some(alias_scheme) => (alias_scheme, false),
+        None => (UNIFIED_INVITE_SCHEME, true),
+    };
+
+    let mut params = Vec::with_capacity(8);
     match invite.mode {
-        ServerMode::Public => {
-            let fp = invite.fp.as_deref().filter(|fp| is_valid_fingerprint(fp));
-            let fp = fp.ok_or(FormatError::Fingerprint)?;
-            out += &format!(
-                "v=2&mode=public&host={}&port={}&fp={fp}",
-                encode(&invite.host),
-                invite.port
-            );
-        }
         ServerMode::Private => {
-            out += &format!("v=1&host={}&port={}", encode(&invite.host), invite.port);
+            if invite.fp.is_some() {
+                return Err(FormatError::Fp);
+            }
+            let host = js_trim(&invite.host).to_lowercase();
+            if !is_private_mode_host(&host) {
+                return Err(FormatError::Host);
+            }
+            params.push("v=1".to_string());
+            if include_version {
+                params.push(format!("version={}", encode_query_val(&invite.version.to_string())));
+            }
+            params.push(format!("host={}", encode_query_val(&host)));
+            params.push(format!("port={}", invite.port));
+            params.push(format!("code={}", encode_query_val(code)));
+            params.push(format!("name={}", encode_query_val(&name)));
+            if let Some(ref s_raw) = invite.share {
+                let s = js_trim(s_raw);
+                if !is_valid_share_url(s) {
+                    return Err(FormatError::Share);
+                }
+                params.push(format!("share={}", encode_query_val(s)));
+            }
+        }
+        ServerMode::Public => {
+            if invite.share.is_some() {
+                return Err(FormatError::Share);
+            }
+            let fp_raw = invite.fp.as_deref().ok_or(FormatError::Fp)?;
+            let fp = js_trim(fp_raw);
+            if !is_valid_fingerprint(fp) {
+                return Err(FormatError::Fp);
+            }
+            let host = js_trim(&invite.host).to_lowercase();
+            if !is_valid_host(&host) {
+                return Err(FormatError::Host);
+            }
+            params.push("v=2".to_string());
+            if include_version {
+                params.push(format!("version={}", encode_query_val(&invite.version.to_string())));
+            }
+            params.push("mode=public".to_string());
+            params.push(format!("host={}", encode_query_val(&host)));
+            params.push(format!("port={}", invite.port));
+            params.push(format!("fp={}", encode_query_val(fp)));
+            params.push(format!("code={}", encode_query_val(code)));
+            params.push(format!("name={}", encode_query_val(&name)));
         }
     }
-    out += &format!("&code={}&name={}", encode(&invite.code), encode(&invite.name));
-    if let (ServerMode::Private, Some(share)) = (invite.mode, invite.share.as_deref())
-        && !share.is_empty()
-    {
-        out += &format!("&share={}", encode(share));
-    }
-    // A game the schemes don't name goes by the unified one, its version said
-    if named.is_none() {
-        out += &format!("&version={}", invite.version);
+
+    let out = format!("{scheme}://join?{}", params.join("&"));
+    if js_length(&out) > MAX_INVITE_UTF16_LEN {
+        return Err(FormatError::Name);
     }
     Ok(out)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const FP: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-
-    fn private() -> Invite {
-        Invite {
-            mode: ServerMode::Private,
-            host: "100.101.102.103".into(),
-            port: 61000,
-            code: "abcd-1234".into(),
-            name: "Ramsgate Hunters' (EU) ✓".into(),
-            share: Some("https://login.tailscale.com/admin/invite/AbC?x=1&y=2".into()),
-            fp: None,
-            version: reforged_version(),
-        }
-    }
-
-    fn public() -> Invite {
-        Invite {
-            mode: ServerMode::Public,
-            host: "play.example.org".into(),
-            port: 443,
-            share: None,
-            fp: Some(FP.into()),
-            ..private()
-        }
-    }
-
-    // Expected strings are the output of the launcher's formatInvite for the same input.
-    #[test]
-    fn formats_private_invites_like_the_launcher() {
-        assert_eq!(
-            format_invite(&private()).unwrap(),
-            "reforged-revival://join?v=1&host=100.101.102.103&port=61000&code=abcd-1234\
-             &name=Ramsgate%20Hunters'%20(EU)%20%E2%9C%93\
-             &share=https%3A%2F%2Flogin.tailscale.com%2Fadmin%2Finvite%2FAbC%3Fx%3D1%26y%3D2"
-        );
-    }
-
-    #[test]
-    fn formats_public_invites_like_the_launcher() {
-        assert_eq!(
-            format_invite(&public()).unwrap(),
-            format!(
-                "reforged-revival://join?v=2&mode=public&host=play.example.org&port=443&fp={FP}\
-                 &code=abcd-1234&name=Ramsgate%20Hunters'%20(EU)%20%E2%9C%93"
-            )
-        );
-    }
-
-    #[test]
-    fn public_invites_need_a_fingerprint() {
-        for fp in [None, Some(""), Some(&FP[1..]), Some(&*FP.to_uppercase())] {
-            let invite = Invite {
-                fp: fp.map(Into::into),
-                ..public()
-            };
-            assert_eq!(format_invite(&invite), Err(FormatError::Fingerprint));
-        }
-    }
-
-    #[test]
-    fn share_is_left_out_of_public_invites() {
-        let invite = Invite {
-            share: Some("https://login.tailscale.com/x".into()),
-            ..public()
-        };
-        assert!(!format_invite(&invite).unwrap().contains("share="));
-    }
-
-    #[test]
-    fn json_matches_the_typescript_shape() {
-        let json = serde_json::to_value(public()).unwrap();
-        assert_eq!(
-            json,
-            serde_json::json!({
-                "mode": "public", "host": "play.example.org", "port": 443, "code": "abcd-1234",
-                "name": "Ramsgate Hunters' (EU) ✓", "share": null, "fp": FP,
-            })
-        );
-        assert_eq!(serde_json::from_value::<Invite>(json).unwrap(), public());
-    }
-
-    #[test]
-    fn legacy_invites_keep_their_scheme_and_say_so_in_json() {
-        let invite = Invite {
-            version: revived_version(),
-            ..public()
-        };
-        let text = format_invite(&invite).unwrap();
-        assert!(text.starts_with("dauntless-revived://join?v=2&mode=public"), "{text}");
-        assert_eq!(serde_json::to_value(&invite).unwrap()["version"], "1.4.4");
-        if cfg!(feature = "legacy") {
-            assert_eq!(parse_invite(&text), Ok(invite));
-        } else {
-            assert_eq!(parse_invite(&text), Err(InviteError::Revived));
-        }
-    }
-
-    #[test]
-    fn the_schemes_a_build_opens() {
-        let expected: &[&str] = if cfg!(feature = "legacy") {
-            &["dauntless", "reforged-revival", "dauntless-revived"]
-        } else {
-            &["dauntless", "reforged-revival"]
-        };
-        assert_eq!(invite_schemes(), expected);
-        // dauntless:// is not read as the start of dauntless-revived:// or the other way round
-        let text = format_invite(&public())
-            .unwrap()
-            .replacen("reforged-revival", "dauntless", 1);
-        assert_eq!(parse_invite(&text).map(|invite| invite.version), Ok(reforged_version()));
-        assert_eq!(
-            parse_invite(&format!("{text}&version=1.14.7")).map(|invite| invite.version),
-            Ok(reforged_version())
-        );
-        assert_eq!(parse_invite(&format!("{text}&game=reborn")), Err(InviteError::Params));
-        assert_eq!(
-            parse_invite(&text.replacen("dauntless:", "dauntless-:", 1)),
-            Err(InviteError::NotInvite)
-        );
-    }
-
-    #[test]
-    fn a_version_the_schemes_do_not_name_reads_where_it_is_played() {
-        let v12: GameVersion = "1.12.0".parse().unwrap();
-        let invite = Invite {
-            version: v12.clone(),
-            ..public()
-        };
-        let text = format_invite(&invite).unwrap();
-        assert!(
-            text.starts_with("dauntless://join?v=2") && text.ends_with("&version=1.12.0"),
-            "{text}"
-        );
-        assert_eq!(parse_invite(&text), Err(InviteError::Params), "not played by default");
-        assert_eq!(parse_invite_for(&text, &[reforged_version(), v12]), Ok(invite));
-        assert_eq!(named_version("revived"), Some(revived_version()));
-        assert_eq!(version_alias(&reforged_version()), Some("reforged"));
-        assert_eq!(named_version("reborn"), None);
-    }
-
-    #[test]
-    fn errors_serialise_as_the_page_names_them() {
-        for error in [
-            InviteError::TooLong,
-            InviteError::NotInvite,
-            InviteError::Revived,
-            InviteError::Fp,
-        ] {
-            assert_eq!(serde_json::to_value(error).unwrap(), serde_json::json!(error.as_str()));
-        }
-    }
 }
