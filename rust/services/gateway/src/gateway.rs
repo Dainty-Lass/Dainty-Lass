@@ -1007,6 +1007,12 @@ impl Gateway {
         if is_upgrade(request.headers()) {
             return self.upgrade(request, ip, conn, phases).await;
         }
+        if request.method() == "POST"
+            && request.uri().path() == network::ENROLL_PATH
+            && let Some(handler) = self.node_links.as_ref().and_then(|l| l.enroll_handler())
+        {
+            return self.handle_enroll(request, ip, conn, phases, handler).await;
+        }
         let access = self.access(&request, &ip, &conn);
         let Routed {
             decision: choice,
@@ -1061,6 +1067,72 @@ impl Gateway {
         }
         self.proxy(request, ip, access, phases, (upstream, endpoint), feed)
             .await
+    }
+
+    async fn handle_enroll(
+        &self,
+        request: Request<Incoming>,
+        ip: String,
+        conn: ConnectionId,
+        phases: Phases,
+        handler: network::EnrollHandler,
+    ) -> Reply {
+        let mut access = self.access(&request, &ip, &conn);
+        access.route = "enroll";
+        if let Take::Refused { retry_after_seconds } = self.take(LimitClass::Register, &rate_limit_key(&ip)) {
+            return self.refuse(
+                request.headers(),
+                access,
+                phases,
+                429,
+                "rate_limited",
+                "rate_limited:register".into(),
+                &[("retry-after", retry_after_seconds.to_string())],
+            );
+        }
+        let req_headers = request.headers().clone();
+        let limited = http_body_util::Limited::new(request.into_body(), 64 * 1024);
+        let body = match tokio::time::timeout(self.config.timeouts.request, limited.collect()).await {
+            Ok(Ok(collected)) => collected.to_bytes().to_vec(),
+            Ok(Err(error)) if error.is::<http_body_util::LengthLimitError>() => {
+                return self.refuse(
+                    &req_headers,
+                    access,
+                    phases,
+                    413,
+                    "body_too_large",
+                    "body_too_large".into(),
+                    &[],
+                );
+            }
+            Ok(Err(_)) | Err(_) => {
+                return self.refuse(
+                    &req_headers,
+                    access,
+                    phases,
+                    400,
+                    "bad_request",
+                    "body_error".into(),
+                    &[],
+                );
+            }
+        };
+        access.bytes_in = body.len() as u64;
+        let (status, out_bytes) = handler(body).await;
+        access.status = status;
+        let payload = Bytes::from(out_bytes);
+        let mut response = Response::builder()
+            .status(status)
+            .header("content-type", "application/json")
+            .header("content-length", payload.len())
+            .header("cache-control", "no-store");
+        if self.closing() {
+            response = response.header(CONNECTION, "close");
+        }
+        let response = response
+            .body(ResponseBody::full(payload))
+            .unwrap_or_else(|_| Response::new(ResponseBody::full(Bytes::new())));
+        response.map(|body| body.logged(access, None, phases))
     }
 
     /// A request on a node connection (DN3): only `/__node/*`, answered by the node-link endpoint, whose

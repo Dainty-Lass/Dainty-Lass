@@ -34,16 +34,19 @@ pub enum Service {
     Chat,
     /// Instance registry, redirects, matchmaking ring claims and regional Ramsgate hubs (DN6, DN8, DN9)
     Ring,
+    /// Remote management between a controller and its enrolled installs (DD27, RM2)
+    Remote,
 }
 
 impl Service {
-    pub const ALL: [Service; 6] = [
+    pub const ALL: [Service; 7] = [
         Self::Directory,
         Self::Home,
         Self::Admin,
         Self::LogShip,
         Self::Chat,
         Self::Ring,
+        Self::Remote,
     ];
 }
 
@@ -56,6 +59,7 @@ impl Service {
             Self::LogShip => "log_ship",
             Self::Chat => "chat",
             Self::Ring => "ring",
+            Self::Remote => "remote",
         }
     }
 

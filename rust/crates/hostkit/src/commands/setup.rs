@@ -242,6 +242,13 @@ pub fn run_with(
 
     let (sec, created_secrets) = load_or_create_secrets(&p.config, secrets::new_secrets)?;
     let _ = save_host_config(p, &config)?;
+    if config
+        .remote
+        .as_ref()
+        .is_some_and(|r| r.role.as_deref() == Some("controller"))
+    {
+        let _ = crate::commands::remote::set_shared_config_from_host_toml(p);
+    }
     if had_host_json {
         out("(host.json is now host.toml; the old file is kept as host.json.bak)");
     }

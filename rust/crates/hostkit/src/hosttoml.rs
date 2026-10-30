@@ -45,6 +45,7 @@ const TOP: &[Field] = &[
     ("history", "history", false),
     ("switches", "switches", false),
     ("network", "network", false),
+    ("remote", "remote", false),
     ("modules", "modules", false),
 ];
 
@@ -59,8 +60,24 @@ const NETWORK: &[Field] = &[
     ("nodes", "nodes", false),
 ];
 
+const REMOTE: &[Field] = &[
+    ("role", "role", false),
+    ("node", "node", false),
+    ("region", "region", false),
+    ("controllerUrl", "controller_url", false),
+    ("controllerNode", "controller_node", false),
+    ("controllerCertFp", "controller_cert_fp", false),
+    ("syncIntervalSecs", "sync_interval_secs", false),
+    ("label", "label", false),
+    ("localOverrides", "local_overrides", false),
+];
+
 fn is_peer_list(prefix: &str, json: &str) -> bool {
     prefix == "network." && json == "nodes"
+}
+
+fn is_string_list(prefix: &str, json: &str) -> bool {
+    prefix == "remote." && json == "localOverrides"
 }
 
 const MONGO: &[Field] = &[
@@ -141,6 +158,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "history" => Some(HISTORY),
         "switches" => Some(SWITCHES),
         "network" => Some(NETWORK),
+        "remote" => Some(REMOTE),
         _ => None,
     }
 }
@@ -187,7 +205,7 @@ fn object(table: &dyn TableLike, fields: &[Field], prefix: &str) -> Result<Map<S
             Some(item) if prefix.is_empty() && json == FREE_FORM => {
                 out.insert(json.into(), free_form(item, &path)?);
             }
-            Some(item) if is_peer_list(prefix, json) => {
+            Some(item) if is_peer_list(prefix, json) || is_string_list(prefix, json) => {
                 out.insert(json.into(), free_form(item, &path)?);
             }
             Some(item) => {
@@ -325,6 +343,7 @@ pub fn message(text: &str) -> String {
         HISTORY,
         SWITCHES,
         NETWORK,
+        REMOTE,
     ] {
         for &(json, toml, _) in fields {
             if json != toml {
@@ -376,6 +395,10 @@ fn patch(
             (Some(v), None) if !top && is_peer_list("network.", json) && toml == "nodes" => {
                 table.remove(toml);
                 table.insert(toml, free_item(v, "network.nodes")?);
+            }
+            (Some(v), None) if !top && json == "localOverrides" && toml == "local_overrides" => {
+                table.remove(toml);
+                table.insert(toml, free_item(v, "remote.local_overrides")?);
             }
             (Some(Value::Object(values)), Some(sub)) => {
                 let old_values = o.and_then(Value::as_object).unwrap_or(&empty);
@@ -548,6 +571,24 @@ fn comment(path: &str) -> &'static str {
             "The other nodes of the network, one [[network.nodes]] each (DN3): id, region, host, port and optionally
 \n             fingerprint. Only these nodes may call this one. Left out: no peers."
         }
+        "remote" => "Remote management across installs (DD27). Left out: standalone.",
+        "remote.role" => {
+            "\"standalone\" (default), \"controller\" (manages enrolled installs), or \"managed\" (syncs from a controller)."
+        }
+        "remote.node" => "This install's node id for remote management when [network] is not set.",
+        "remote.region" => "This install's region for remote management when [network] is not set.",
+        "remote.controller_url" => {
+            "Managed: the controller gateway's HTTPS URL (such as https://controller.example.com:61000)."
+        }
+        "remote.controller_node" => "Managed: the controller's node id.",
+        "remote.controller_cert_fp" => "Managed: the controller gateway certificate's pinned SHA-256 fingerprint.",
+        "remote.sync_interval_secs" => {
+            "Managed: seconds between outbound heartbeat syncs to the controller (10 when left out)."
+        }
+        "remote.label" => "Display label for this install in the controller's Managed installs list.",
+        "remote.local_overrides" => {
+            "Managed: dotted host.toml keys this install keeps local even when the controller pushes a shared revision."
+        }
         "modules" => {
             "The game modules and plugins to load (DF3). compiled lists the compiled-in ones (left out: all of them);\n\
              each [[modules.external]] is an executable with its SHA-256 (id, path, sha256, args, autoload); a\n\
@@ -601,6 +642,14 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
             }
             match values.get(sub_json) {
                 None | Some(Value::Null) => {}
+                Some(Value::Array(items)) => {
+                    push_comment(&mut out, &format!("{toml}.{sub_toml}"));
+                    let mut arr = toml_edit::Array::new();
+                    for item in items {
+                        arr.push(scalar(item, sub_toml)?);
+                    }
+                    out.push_str(&format!("{sub_toml} = {}\n", arr.to_string().trim()));
+                }
                 Some(v) => {
                     push_comment(&mut out, &format!("{toml}.{sub_toml}"));
                     out.push_str(&format!("{sub_toml} = {}\n", scalar(v, sub_toml)?.to_string().trim()));
@@ -650,6 +699,7 @@ mod tests {
             HISTORY,
             SWITCHES,
             NETWORK,
+            REMOTE,
         ] {
             for &(json, toml, _) in fields {
                 assert_eq!(snake_case(json), toml);

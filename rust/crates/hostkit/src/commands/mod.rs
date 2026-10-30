@@ -12,6 +12,7 @@ pub mod multipliers;
 pub mod network;
 pub mod preset;
 pub mod publish_runtime;
+pub mod remote;
 pub mod setup;
 pub mod start;
 pub mod update;
@@ -46,6 +47,7 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Backup => backup::run(paths),
         Command::Db(args) => db::run(paths, args),
         Command::Network(args) => network::run(args, Some(paths)),
+        Command::Remote(args) => remote::run(paths, args),
         Command::History(args) => history::run_history(paths, args),
         Command::Revert(args) => history::run_revert(paths, args),
         Command::Gameserver(args) => {

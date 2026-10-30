@@ -1171,6 +1171,163 @@ impl Serialize for ServerInviteListOutcome {
     }
 }
 
+// ------------------------------------------------------------------ remote management (DD27, RM4)
+
+/// One enrolled server install tracked by a controller (`remote_status`, DD27).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct ManagedInstallView {
+    pub node: String,
+    pub region: String,
+    pub label: Option<String>,
+    /// `"online"`, `"degraded"`, `"offline"` or `"revoked"`
+    pub state: String,
+    pub enrolled_at_ms: i64,
+    pub last_seen_ms: i64,
+    pub revoked: bool,
+    pub applied_revision: u64,
+    pub players_online: u32,
+    pub active_hunts: u32,
+    pub version: Option<String>,
+    pub queued_commands: u32,
+}
+
+/// Remote management state for the current workspace (`remote_status`, DD27).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct RemoteStatusView {
+    /// `"standalone"`, `"controller"` or `"managed"`
+    pub role: String,
+    pub node: Option<String>,
+    pub region: Option<String>,
+    pub controller_url: Option<String>,
+    pub controller_cert_fp: Option<String>,
+    pub controller_node: Option<String>,
+    pub revision: u64,
+    pub pending_enrollments: u32,
+    pub installs: Vec<ManagedInstallView>,
+    pub detached: bool,
+}
+
+/// `remote_status`, `remote_init_controller`, `remote_enroll`, `remote_revoke`, `remote_leave`:
+/// `{ ok: true, status } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum RemoteStatusOutcome {
+    Ok(RemoteStatusView),
+    Err(LauncherError),
+}
+
+impl Serialize for RemoteStatusOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            status: &'a RemoteStatusView,
+        }
+        match self {
+            Self::Ok(status) => Found { ok: true, status }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// One-time enrollment invite minted on a controller (`remote_invite`, DD27).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct RemoteInviteView {
+    pub uri: String,
+    pub node: String,
+    pub region: String,
+    pub label: Option<String>,
+    pub controller_url: String,
+    pub controller_fp: String,
+    pub expires_at_ms: i64,
+}
+
+/// `remote_invite`: `{ ok: true, invite } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum RemoteInviteOutcome {
+    Ok(RemoteInviteView),
+    Err(LauncherError),
+}
+
+impl Serialize for RemoteInviteOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            invite: &'a RemoteInviteView,
+        }
+        match self {
+            Self::Ok(invite) => Found { ok: true, invite }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
+/// Queued remote command on a controller (`remote_exec`, DD27).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub struct RemoteExecView {
+    pub command_id: String,
+    pub node: String,
+    pub action: String,
+    pub status: String,
+}
+
+/// `remote_exec`: `{ ok: true, result } | { ok: false, error }`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    not(feature = "server-gui"),
+    allow(dead_code, reason = "only the server GUI fills it")
+)]
+pub enum RemoteExecOutcome {
+    Ok(RemoteExecView),
+    Err(LauncherError),
+}
+
+impl Serialize for RemoteExecOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Found<'a> {
+            ok: bool,
+            result: &'a RemoteExecView,
+        }
+        match self {
+            Self::Ok(result) => Found { ok: true, result }.serialize(serializer),
+            Self::Err(error) => Failed { ok: false, error }.serialize(serializer),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

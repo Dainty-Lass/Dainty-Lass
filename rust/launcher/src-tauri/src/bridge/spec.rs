@@ -277,6 +277,63 @@ const SERVER_CONFIG_PATCH: Arg = Arg::Object {
     nullable: false,
 };
 
+pub const REMOTE_LABEL_MAX: usize = 128;
+pub const REMOTE_URL_MAX: usize = 512;
+pub const REMOTE_URI_MAX: usize = 2048;
+pub const REMOTE_EXEC_ACTIONS: &[&str] = &[
+    "doctor",
+    "backup",
+    "invite",
+    "ban",
+    "unban",
+    "kick",
+    "announce",
+    "guarded_approve",
+    "guarded_cancel",
+];
+
+const REMOTE_INIT_REQUEST: Arg = Arg::Object {
+    fields: &[
+        ("node", Arg::OptionalText { max: MODULE_ID_MAX }),
+        ("region", Arg::OptionalText { max: MODULE_ID_MAX }),
+        ("url", Arg::OptionalText { max: REMOTE_URL_MAX }),
+    ],
+    nullable: false,
+};
+
+const REMOTE_INVITE_REQUEST: Arg = Arg::Object {
+    fields: &[
+        ("node", Arg::Text { max: MODULE_ID_MAX }),
+        ("region", Arg::OptionalText { max: MODULE_ID_MAX }),
+        ("label", Arg::OptionalText { max: REMOTE_LABEL_MAX }),
+        ("url", Arg::OptionalText { max: REMOTE_URL_MAX }),
+    ],
+    nullable: false,
+};
+
+const REMOTE_ENROLL_REQUEST: Arg = Arg::Object {
+    fields: &[
+        ("uri", Arg::Text { max: REMOTE_URI_MAX }),
+        ("label", Arg::OptionalText { max: REMOTE_LABEL_MAX }),
+    ],
+    nullable: false,
+};
+
+const REMOTE_EXEC_REQUEST: Arg = Arg::Object {
+    fields: &[
+        ("node", Arg::Text { max: MODULE_ID_MAX }),
+        (
+            "action",
+            Arg::Name {
+                names: REMOTE_EXEC_ACTIONS,
+            },
+        ),
+        ("target", Arg::OptionalText { max: ADMIN_PLAYER_MAX }),
+        ("reason", Arg::OptionalText { max: ADMIN_REASON_MAX }),
+    ],
+    nullable: false,
+};
+
 /// Which builds serve a command. Every build lists every command, so the bridge and its generated files
 /// are the same in all; a build outside a command's own refuses it with a code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -292,7 +349,7 @@ pub enum Build {
 }
 
 /// The server GUI's own commands: module panels (DU3), history and revert (DH3b), guarded actions (DH6),
-/// doctor, backup, config, MongoDB migration and player administration (B3).
+/// doctor, backup, config, MongoDB migration, player administration (B3) and remote management (DD27).
 pub const SERVER_GUI_COMMANDS: &[&str] = &[
     "module_list",
     "module_get",
@@ -314,6 +371,13 @@ pub const SERVER_GUI_COMMANDS: &[&str] = &[
     "server_confirm_fresh_start",
     "server_invite_list",
     "admin_action",
+    "remote_status",
+    "remote_init_controller",
+    "remote_invite",
+    "remote_enroll",
+    "remote_revoke",
+    "remote_leave",
+    "remote_exec",
 ];
 
 /// Realm hosting and joining commands (`realms` feature, RF7).
@@ -507,6 +571,14 @@ pub const COMMANDS: &[Command] = &[
     command("server_confirm_fresh_start", &[]),
     command("server_invite_list", &[]),
     command("admin_action", &[("request", ADMIN_REQUEST)]),
+    // Remote management (DD27, RM4; server GUI)
+    command("remote_status", &[]),
+    command("remote_init_controller", &[("request", REMOTE_INIT_REQUEST)]),
+    command("remote_invite", &[("request", REMOTE_INVITE_REQUEST)]),
+    command("remote_enroll", &[("request", REMOTE_ENROLL_REQUEST)]),
+    command("remote_revoke", &[("node", Arg::Text { max: MODULE_ID_MAX })]),
+    command("remote_leave", &[]),
+    command("remote_exec", &[("request", REMOTE_EXEC_REQUEST)]),
 ];
 
 /// Whether a string fits a limit counted as JavaScript counts it, so the page, the hook and the

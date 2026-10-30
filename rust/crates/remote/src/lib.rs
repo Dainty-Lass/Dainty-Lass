@@ -9,6 +9,7 @@
 pub mod enroll;
 pub mod merge;
 pub mod state;
+pub mod transport;
 pub mod wire;
 
 pub use enroll::{
@@ -22,6 +23,9 @@ pub use state::{
     EnrolledInstallRecord, EnrolledInstallState, PendingGuardedRemoteAction, RemoteControllerState, RemoteHostHandler,
     RemoteManagedAgent, SubmitCommandResult, cert_pem_fingerprint, generate_node_keypair_and_spki_pem,
     offline_backoff_delay_ms, sign_enrolled_node_cert,
+};
+pub use transport::{
+    ENROLL_PATH, RemoteControllerService, RemoteManagedService, enroll_with_controller, sync_once_with_controller,
 };
 pub use wire::{
     AdminModerationKind, CommandOutcome, ComponentHealth, DbSubcommand, DoctorCheckEntry, DoctorSummary, EnrollAnswer,

@@ -1544,6 +1544,13 @@ impl Controller {
                 );
                 let _ = host::hostconfig::write_env_files(&paths, &envs);
             }
+            if config
+                .remote
+                .as_ref()
+                .is_some_and(|r| r.role.as_deref() == Some("controller"))
+            {
+                let _ = host::commands::remote::set_shared_config_from_host_toml(&paths);
+            }
             read_server_config_view(&ws)
         })
         .await;
@@ -1705,6 +1712,284 @@ impl Controller {
             Err(error) => ServerInviteListOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
         }
     }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn remote_status(&self) -> crate::bridge::types::RemoteStatusOutcome {
+        use crate::bridge::types::RemoteStatusOutcome;
+        let Some(ws) = self.workspace() else {
+            return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
+        };
+        match tokio::task::spawn_blocking(move || read_remote_status_view(&ws)).await {
+            Ok(Ok(view)) => RemoteStatusOutcome::Ok(view),
+            Ok(Err(why)) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn remote_init_controller(
+        &self,
+        node: Option<String>,
+        region: Option<String>,
+        url: Option<String>,
+    ) -> crate::bridge::types::RemoteStatusOutcome {
+        use crate::bridge::types::RemoteStatusOutcome;
+        let Some(ws) = self.workspace() else {
+            return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            let args = host::cli::RemoteInitControllerArgs {
+                node,
+                region,
+                url,
+                json: true,
+            };
+            host::commands::remote::init_controller(&paths, &args).map_err(|e| e.to_string())?;
+            read_remote_status_view(&ws)
+        })
+        .await;
+        self.emit_host_kit();
+        match res {
+            Ok(Ok(view)) => RemoteStatusOutcome::Ok(view),
+            Ok(Err(why)) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn remote_invite(
+        &self,
+        node: String,
+        region: Option<String>,
+        label: Option<String>,
+        url: Option<String>,
+    ) -> crate::bridge::types::RemoteInviteOutcome {
+        use crate::bridge::types::{RemoteInviteOutcome, RemoteInviteView};
+        let Some(ws) = self.workspace() else {
+            return RemoteInviteOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<RemoteInviteView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            let args = host::cli::RemoteInviteArgs {
+                node,
+                region,
+                label,
+                url,
+                ttl_secs: None,
+                json: true,
+            };
+            let (_uri, val) = host::commands::remote::create_invite(&paths, &args).map_err(|e| e.to_string())?;
+            Ok(RemoteInviteView {
+                uri: val.get("uri").and_then(|v| v.as_str()).unwrap_or_default().to_owned(),
+                node: val.get("node").and_then(|v| v.as_str()).unwrap_or_default().to_owned(),
+                region: val
+                    .get("region")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned(),
+                label: val.get("label").and_then(|v| v.as_str()).map(str::to_owned),
+                controller_url: val
+                    .get("controller_url")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned(),
+                controller_fp: val
+                    .get("controller_fp")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned(),
+                expires_at_ms: val.get("expires_at_ms").and_then(|v| v.as_i64()).unwrap_or(0),
+            })
+        })
+        .await;
+        match res {
+            Ok(Ok(invite)) => RemoteInviteOutcome::Ok(invite),
+            Ok(Err(why)) => RemoteInviteOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => RemoteInviteOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn remote_enroll(&self, uri: String, label: Option<String>) -> crate::bridge::types::RemoteStatusOutcome {
+        use crate::bridge::types::RemoteStatusOutcome;
+        let Some(ws) = self.workspace() else {
+            return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            let args = host::cli::RemoteEnrollArgs {
+                uri,
+                label,
+                gateway_url: None,
+                json: true,
+            };
+            host::commands::remote::enroll(&paths, &args).map_err(|e| e.to_string())?;
+            read_remote_status_view(&ws)
+        })
+        .await;
+        self.emit_host_kit();
+        match res {
+            Ok(Ok(view)) => RemoteStatusOutcome::Ok(view),
+            Ok(Err(why)) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn remote_revoke(&self, node: String) -> crate::bridge::types::RemoteStatusOutcome {
+        use crate::bridge::types::RemoteStatusOutcome;
+        let Some(ws) = self.workspace() else {
+            return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            host::commands::remote::revoke(&paths, &node).map_err(|e| e.to_string())?;
+            read_remote_status_view(&ws)
+        })
+        .await;
+        match res {
+            Ok(Ok(view)) => RemoteStatusOutcome::Ok(view),
+            Ok(Err(why)) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn remote_leave(&self) -> crate::bridge::types::RemoteStatusOutcome {
+        use crate::bridge::types::RemoteStatusOutcome;
+        let Some(ws) = self.workspace() else {
+            return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            host::commands::remote::leave(&paths).map_err(|e| e.to_string())?;
+            read_remote_status_view(&ws)
+        })
+        .await;
+        self.emit_host_kit();
+        match res {
+            Ok(Ok(view)) => RemoteStatusOutcome::Ok(view),
+            Ok(Err(why)) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn remote_exec(
+        &self,
+        node: String,
+        action: String,
+        target: Option<String>,
+        reason: Option<String>,
+    ) -> crate::bridge::types::RemoteExecOutcome {
+        use crate::bridge::types::{RemoteExecOutcome, RemoteExecView};
+        let Some(ws) = self.workspace() else {
+            return RemoteExecOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<RemoteExecView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            let args = host::cli::RemoteExecArgs {
+                node,
+                action,
+                account: target.clone(),
+                reason,
+                for_whom: target,
+                role: "owner".to_owned(),
+                actor: "manager-gui".to_owned(),
+                json: true,
+            };
+            let val = host::commands::remote::exec_command(&paths, &args).map_err(|e| e.to_string())?;
+            Ok(RemoteExecView {
+                command_id: val
+                    .get("command_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned(),
+                node: val.get("node").and_then(|v| v.as_str()).unwrap_or_default().to_owned(),
+                action: val
+                    .get("action")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned(),
+                status: val
+                    .get("status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned(),
+            })
+        })
+        .await;
+        match res {
+            Ok(Ok(result)) => RemoteExecOutcome::Ok(result),
+            Ok(Err(why)) => RemoteExecOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => RemoteExecOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+}
+
+#[cfg(feature = "server-gui")]
+fn read_remote_status_view(ws: &Path) -> Result<crate::bridge::types::RemoteStatusView, String> {
+    use crate::bridge::types::{ManagedInstallView, RemoteStatusView};
+
+    let paths = host::paths::Paths::new(ws);
+    let val = host::commands::remote::status_json(&paths).map_err(|e| e.to_string())?;
+    let role = val
+        .get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or("standalone")
+        .to_owned();
+    let str_field = |k: &str| val.get(k).and_then(|v| v.as_str()).map(str::to_owned);
+    let revision = val
+        .get("revision")
+        .or_else(|| val.get("applied_revision"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let pending_enrollments = val.get("pending_enrollments").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let detached = val.get("detached").and_then(|v| v.as_bool()).unwrap_or(false);
+    let installs = val
+        .get("installs")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|item| ManagedInstallView {
+                    node: item.get("node").and_then(|v| v.as_str()).unwrap_or_default().to_owned(),
+                    region: item
+                        .get("region")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default()
+                        .to_owned(),
+                    label: item.get("label").and_then(|v| v.as_str()).map(str::to_owned),
+                    state: item
+                        .get("state")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("offline")
+                        .to_owned(),
+                    enrolled_at_ms: item.get("enrolled_at_ms").and_then(|v| v.as_i64()).unwrap_or(0),
+                    last_seen_ms: item.get("last_seen_ms").and_then(|v| v.as_i64()).unwrap_or(0),
+                    revoked: item.get("revoked").and_then(|v| v.as_bool()).unwrap_or(false),
+                    applied_revision: item.get("applied_revision").and_then(|v| v.as_u64()).unwrap_or(0),
+                    players_online: item.get("players_online").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                    active_hunts: item.get("active_hunts").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                    version: item.get("version").and_then(|v| v.as_str()).map(str::to_owned),
+                    queued_commands: item.get("queued_commands").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(RemoteStatusView {
+        role,
+        node: str_field("node"),
+        region: str_field("region"),
+        controller_url: str_field("controller_url"),
+        controller_cert_fp: str_field("controller_cert_fp"),
+        controller_node: str_field("controller_node"),
+        revision,
+        pending_enrollments,
+        installs,
+        detached,
+    })
 }
 
 #[cfg(feature = "server-gui")]

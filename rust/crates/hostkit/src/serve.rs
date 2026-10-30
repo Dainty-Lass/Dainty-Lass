@@ -341,6 +341,7 @@ pub fn compose(
         };
         controller.add(front_process(FrontService::Gateway, ready));
     }
+    crate::commands::remote::compose_remote_module(paths, config, &registry, &mut controller)?;
 
     // The 1.4.4 stack (alone, or beside reborn on its own ports, RD26): every service a supervised
     // process, the metagame and the deploy server being binaries of their own
@@ -363,13 +364,21 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
     use module_api::manifest::Transport;
     use module_api::{NodeIdentity, PortRange};
 
-    let identity = config
-        .network
-        .as_ref()
-        .map_or_else(NodeIdentity::standalone, |network| NodeIdentity {
+    let identity = if let Some(network) = &config.network {
+        NodeIdentity {
             node: network.node.clone(),
             region: network.region.clone(),
-        });
+        }
+    } else if let Some(remote) = &config.remote
+        && matches!(remote.role.as_deref(), Some("controller" | "managed"))
+    {
+        NodeIdentity {
+            node: remote.effective_node(),
+            region: remote.effective_region(),
+        }
+    } else {
+        NodeIdentity::standalone()
+    };
     let mut options = RegistryOptions::standalone();
     options.home = Arc::new(module_api::network::StandaloneHome {
         identity: identity.clone(),
@@ -596,6 +605,26 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
     }
     if config.mode == ServerMode::Public && !paths.cert_file.exists() {
         crate::hooks::get().ensure_gateway_cert(paths, config)?;
+    }
+    crate::commands::remote::ensure_controller_files(paths, config)?;
+    if let Some(rem) = &config.remote
+        && matches!(rem.role.as_deref(), Some("controller" | "managed"))
+    {
+        let gw_env = start_cmd::env_file(paths, "gateway");
+        let needs_node_env = !gw_env.is_file()
+            || hostconfig::read_env_file(&gw_env)
+                .map(|m| m.get("GATEWAY_NODE_ID").is_none())
+                .unwrap_or(true);
+        if needs_node_env {
+            let files = hostconfig::build_env_files(
+                config,
+                &secrets,
+                paths,
+                &source_commit(&paths.repo),
+                Platform::current(),
+            );
+            written = hostconfig::write_env_files(paths, &files)?;
+        }
     }
     Ok(written)
 }
@@ -839,6 +868,7 @@ mod tests {
             history: None,
             modules: None,
             network: None,
+            remote: None,
             switches: Default::default(),
             file: FileForm::default(),
         }

@@ -259,6 +259,7 @@ mod tests {
             switches: None,
             modules: None,
             network: None,
+            remote: None,
             file: FileForm::default(),
         };
         let mongo_uri = resolve_mongo_uri(&paths, Some(&cfg), None);
