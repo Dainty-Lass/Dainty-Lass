@@ -109,8 +109,8 @@ pub fn read_capture_pin(file: &Path) -> Result<CapturePin, HostError> {
 
 pub fn parse_capture_pin(file: &Path, text: &str) -> Result<CapturePin, HostError> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    let value: Value = serde_json::from_str(text)
-        .map_err(|e| HostError::message(format!("{}: {e}", file.display())))?;
+    let value: Value =
+        serde_json::from_str(text).map_err(|e| HostError::message(format!("{}: {e}", file.display())))?;
     let Some(obj) = value.as_object() else {
         return Err(HostError::message(format!(
             "{}: expected a JSON object",
@@ -121,10 +121,7 @@ pub fn parse_capture_pin(file: &Path, text: &str) -> Result<CapturePin, HostErro
     let name = match obj.get("name").and_then(Value::as_str) {
         Some(n) if is_valid_pin_name(n) => n.to_owned(),
         Some(_) => {
-            return Err(HostError::message(format!(
-                "{}: invalid pin name",
-                file.display()
-            )));
+            return Err(HostError::message(format!("{}: invalid pin name", file.display())));
         }
         None => DEFAULT_CAPTURE_NAME.to_owned(),
     };
@@ -230,11 +227,7 @@ fn git_show_blob(git_dir: &Path, commit: &str, rel: &str) -> Result<Vec<u8>, Hos
     Ok(output.stdout)
 }
 
-pub fn ensure_captures(
-    p: &Paths,
-    pin: &CapturePin,
-    log_file: Option<&Path>,
-) -> Result<CaptureFetch, HostError> {
+pub fn ensure_captures(p: &Paths, pin: &CapturePin, log_file: Option<&Path>) -> Result<CaptureFetch, HostError> {
     if missing_captures(p, pin).is_empty() {
         return Ok(CaptureFetch::AlreadyReady);
     }
@@ -280,9 +273,7 @@ pub fn ensure_captures(
         return Err(HostError::message(format!(
             "could not fetch store captures from {} ({})",
             pin.repository,
-            fetch
-                .last_line
-                .unwrap_or_else(|| format!("exit {}", fetch.code))
+            fetch.last_line.unwrap_or_else(|| format!("exit {}", fetch.code))
         )));
     }
 
@@ -342,9 +333,8 @@ mod tests {
         assert_eq!(pin.commit, commit);
         assert_eq!(pin.files, vec![("Store/ladyluck.json".to_owned(), hash.clone())]);
 
-        let bad_repo = format!(
-            r#"{{"repository":"http://example.com/x.git","commit":"{commit}","files":{{"a.json":"{hash}"}}}}"#
-        );
+        let bad_repo =
+            format!(r#"{{"repository":"http://example.com/x.git","commit":"{commit}","files":{{"a.json":"{hash}"}}}}"#);
         assert!(
             parse_capture_pin(file, &bad_repo)
                 .unwrap_err()
@@ -352,9 +342,8 @@ mod tests {
                 .contains("repository must be an https URL")
         );
 
-        let bad_commit = format!(
-            r#"{{"repository":"https://example.com/x.git","commit":"1234","files":{{"a.json":"{hash}"}}}}"#
-        );
+        let bad_commit =
+            format!(r#"{{"repository":"https://example.com/x.git","commit":"1234","files":{{"a.json":"{hash}"}}}}"#);
         assert!(
             parse_capture_pin(file, &bad_commit)
                 .unwrap_err()
@@ -372,9 +361,7 @@ mod tests {
                 .contains("files must map plain paths to SHA-256 hashes")
         );
 
-        let empty_files = format!(
-            r#"{{"repository":"https://example.com/x.git","commit":"{commit}","files":{{}}}}"#
-        );
+        let empty_files = format!(r#"{{"repository":"https://example.com/x.git","commit":"{commit}","files":{{}}}}"#);
         assert!(
             parse_capture_pin(file, &empty_files)
                 .unwrap_err()
@@ -404,9 +391,6 @@ mod tests {
 
         std::fs::write(&dest, content).unwrap();
         assert!(missing_captures(&paths, &pin).is_empty());
-        assert_eq!(
-            ensure_captures(&paths, &pin, None).unwrap(),
-            CaptureFetch::AlreadyReady
-        );
+        assert_eq!(ensure_captures(&paths, &pin, None).unwrap(), CaptureFetch::AlreadyReady);
     }
 }

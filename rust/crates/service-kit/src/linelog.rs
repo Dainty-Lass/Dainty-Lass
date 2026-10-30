@@ -71,9 +71,7 @@ fn current_level() -> Level {
 }
 
 pub fn set_sink(sink: Option<Sink>) {
-    let mut guard = sink_cell()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut guard = sink_cell().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     *guard = sink.map(Arc::new);
 }
 
@@ -165,10 +163,7 @@ impl Throttle {
     }
 
     pub fn allow(&self, key: &str, now: i64) -> Option<u64> {
-        let mut map = self
-            .entries
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut map = self.entries.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
         if let Some(entry) = map.get_mut(key) {
             if now.saturating_sub(entry.last_ms) < self.interval_ms {
@@ -185,10 +180,7 @@ impl Throttle {
             let interval = self.interval_ms;
             map.retain(|_, v| now.saturating_sub(v.last_ms) < interval);
             if map.len() >= MAX_THROTTLE_KEYS
-                && let Some(oldest_key) = map
-                    .iter()
-                    .min_by_key(|(_, v)| v.last_ms)
-                    .map(|(k, _)| k.clone())
+                && let Some(oldest_key) = map.iter().min_by_key(|(_, v)| v.last_ms).map(|(k, _)| k.clone())
             {
                 map.remove(&oldest_key);
             }

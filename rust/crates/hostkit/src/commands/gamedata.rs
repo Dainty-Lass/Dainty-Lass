@@ -9,8 +9,8 @@ use chrono::Utc;
 use crate::cli::GamedataArgs;
 use crate::error::HostError;
 use crate::gamedata::{
-    BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GenerateOptions, copy_supplied_sources,
-    generate_game_data, seed_embedded_examples, use_examples,
+    BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GenerateOptions, copy_supplied_sources, generate_game_data,
+    seed_embedded_examples, use_examples,
 };
 use crate::gamepack::{default_pack_file, export_game_data_pack, import_game_data_pack};
 use crate::paths::Paths;
@@ -20,11 +20,7 @@ pub fn run(paths: &Paths, args: &GamedataArgs) -> Result<ExitCode, HostError> {
     run_with(paths, args, &mut |line| println!("{line}"))
 }
 
-pub fn run_with(
-    paths: &Paths,
-    args: &GamedataArgs,
-    out: &mut dyn FnMut(&str),
-) -> Result<ExitCode, HostError> {
+pub fn run_with(paths: &Paths, args: &GamedataArgs, out: &mut dyn FnMut(&str)) -> Result<ExitCode, HostError> {
     if let Some(ref import_path) = args.import {
         let pack_file = Path::new(import_path.trim());
         let imported = import_game_data_pack(paths, pack_file, Utc::now())?;

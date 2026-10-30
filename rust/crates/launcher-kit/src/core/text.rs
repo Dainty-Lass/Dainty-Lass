@@ -77,10 +77,7 @@ pub fn js_number(text: &str) -> f64 {
         _ => {}
     }
 
-    if let Some(hex) = trimmed
-        .strip_prefix("0x")
-        .or_else(|| trimmed.strip_prefix("0X"))
-    {
+    if let Some(hex) = trimmed.strip_prefix("0x").or_else(|| trimmed.strip_prefix("0X")) {
         if hex.is_empty() || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
             return f64::NAN;
         }
@@ -95,28 +92,18 @@ pub fn js_number(text: &str) -> f64 {
         });
     }
 
-    if let Some(oct) = trimmed
-        .strip_prefix("0o")
-        .or_else(|| trimmed.strip_prefix("0O"))
-    {
+    if let Some(oct) = trimmed.strip_prefix("0o").or_else(|| trimmed.strip_prefix("0O")) {
         if oct.is_empty() || !oct.bytes().all(|b| matches!(b, b'0'..=b'7')) {
             return f64::NAN;
         }
-        return oct
-            .bytes()
-            .fold(0.0_f64, |acc, b| acc * 8.0 + f64::from(b - b'0'));
+        return oct.bytes().fold(0.0_f64, |acc, b| acc * 8.0 + f64::from(b - b'0'));
     }
 
-    if let Some(bin) = trimmed
-        .strip_prefix("0b")
-        .or_else(|| trimmed.strip_prefix("0B"))
-    {
+    if let Some(bin) = trimmed.strip_prefix("0b").or_else(|| trimmed.strip_prefix("0B")) {
         if bin.is_empty() || !bin.bytes().all(|b| matches!(b, b'0' | b'1')) {
             return f64::NAN;
         }
-        return bin
-            .bytes()
-            .fold(0.0_f64, |acc, b| acc * 2.0 + f64::from(b - b'0'));
+        return bin.bytes().fold(0.0_f64, |acc, b| acc * 2.0 + f64::from(b - b'0'));
     }
 
     if !is_decimal_literal(trimmed) {
@@ -126,10 +113,7 @@ pub fn js_number(text: &str) -> f64 {
 }
 
 fn is_decimal_literal(s: &str) -> bool {
-    let s = s
-        .strip_prefix('+')
-        .or_else(|| s.strip_prefix('-'))
-        .unwrap_or(s);
+    let s = s.strip_prefix('+').or_else(|| s.strip_prefix('-')).unwrap_or(s);
     if s.is_empty() {
         return false;
     }
@@ -151,10 +135,7 @@ fn is_decimal_literal(s: &str) -> bool {
     }
 
     if let Some(exp) = exp_part {
-        let exp = exp
-            .strip_prefix('+')
-            .or_else(|| exp.strip_prefix('-'))
-            .unwrap_or(exp);
+        let exp = exp.strip_prefix('+').or_else(|| exp.strip_prefix('-')).unwrap_or(exp);
         if exp.is_empty() || !exp.bytes().all(|b| b.is_ascii_digit()) {
             return false;
         }

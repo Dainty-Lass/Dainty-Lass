@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use axum::extract::{Request, State};
-use axum::http::header::{self, HeaderName, HeaderValue};
 use axum::http::StatusCode;
+use axum::http::header::{self, HeaderName, HeaderValue};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use base64::Engine;
@@ -95,10 +95,7 @@ impl Limiter {
     }
 
     pub fn hit(&self, key: &str, now: Instant) -> Decision {
-        let mut map = self
-            .buckets
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut map = self.buckets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let bucket = match map.get_mut(key) {
             Some(b) if now < b.reset_at => {
@@ -131,10 +128,7 @@ impl Limiter {
         if now >= decision.reset_at {
             return;
         }
-        let mut map = self
-            .buckets
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut map = self.buckets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(bucket) = map.get_mut(key)
             && bucket.reset_at == decision.reset_at
         {
@@ -143,10 +137,7 @@ impl Limiter {
     }
 
     pub fn sweep(&self, now: Instant) {
-        let mut map = self
-            .buckets
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut map = self.buckets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         map.retain(|_, b| b.reset_at > now);
     }
 
@@ -168,10 +159,7 @@ impl Limiter {
         [
             (
                 HeaderName::from_static("ratelimit"),
-                format!(
-                    "\"{}\"; r={}; t={}",
-                    self.name, decision.remaining, decision.reset_secs
-                ),
+                format!("\"{}\"; r={}; t={}", self.name, decision.remaining, decision.reset_secs),
             ),
             (
                 HeaderName::from_static("ratelimit-policy"),
@@ -210,10 +198,7 @@ pub struct Limited {
 }
 
 impl Limited {
-    pub fn new(
-        limiter: Arc<Limiter>,
-        key: impl Fn(&Request) -> Option<String> + Send + Sync + 'static,
-    ) -> Self {
+    pub fn new(limiter: Arc<Limiter>, key: impl Fn(&Request) -> Option<String> + Send + Sync + 'static) -> Self {
         Self {
             limiter,
             key: Arc::new(key),
@@ -221,20 +206,12 @@ impl Limited {
     }
 }
 
-pub async fn enforce(
-    State(limited): State<Limited>,
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn enforce(State(limited): State<Limited>, request: Request, next: Next) -> Response {
     let key = (limited.key)(&request);
     around(&limited.limiter, key.as_deref(), next.run(request)).await
 }
 
-pub async fn around(
-    limiter: &Limiter,
-    key: Option<&str>,
-    handler: impl Future<Output = Response>,
-) -> Response {
+pub async fn around(limiter: &Limiter, key: Option<&str>, handler: impl Future<Output = Response>) -> Response {
     let Some(key) = key else {
         return handler.await;
     };
@@ -271,16 +248,34 @@ mod tests {
 
     #[test]
     fn formats_policy_names_and_ip_keys() {
-        assert_eq!(Limiter::new(10, Duration::from_secs(30), json!({})).name(), "10-in-30sec");
-        assert_eq!(Limiter::new(5, Duration::from_secs(900), json!({})).name(), "5-in-15min");
+        assert_eq!(
+            Limiter::new(10, Duration::from_secs(30), json!({})).name(),
+            "10-in-30sec"
+        );
+        assert_eq!(
+            Limiter::new(5, Duration::from_secs(900), json!({})).name(),
+            "5-in-15min"
+        );
         assert_eq!(Limiter::new(1, Duration::from_secs(3600), json!({})).name(), "1-in-1hr");
-        assert_eq!(Limiter::new(2, Duration::from_secs(7200), json!({})).name(), "2-in-2hrs");
-        assert_eq!(Limiter::new(100, Duration::from_secs(86400), json!({})).name(), "100-in-1day");
-        assert_eq!(Limiter::new(100, Duration::from_secs(172800), json!({})).name(), "100-in-2days");
+        assert_eq!(
+            Limiter::new(2, Duration::from_secs(7200), json!({})).name(),
+            "2-in-2hrs"
+        );
+        assert_eq!(
+            Limiter::new(100, Duration::from_secs(86400), json!({})).name(),
+            "100-in-1day"
+        );
+        assert_eq!(
+            Limiter::new(100, Duration::from_secs(172800), json!({})).name(),
+            "100-in-2days"
+        );
 
         assert_eq!(ip_key("192.168.1.1"), "192.168.1.1");
         assert_eq!(ip_key("::ffff:10.0.0.1"), "10.0.0.1");
-        assert_eq!(ip_key("2001:db8:1234:5678:9abc:def0:1234:5678"), "2001:db8:1234:5600::/56");
+        assert_eq!(
+            ip_key("2001:db8:1234:5678:9abc:def0:1234:5678"),
+            "2001:db8:1234:5600::/56"
+        );
         assert_eq!(ip_key("custom-key"), "custom-key");
     }
 

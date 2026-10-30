@@ -37,10 +37,8 @@ fn table_exists(conn: &mut Connection, name: &str) -> Result<bool, Error> {
 }
 
 fn non_sqlite_object_count(conn: &mut Connection) -> Result<i64, Error> {
-    let row = diesel::sql_query(
-        "SELECT count(*) AS n FROM sqlite_schema WHERE name NOT LIKE 'sqlite!_%' ESCAPE '!'",
-    )
-    .get_result::<CountRow>(conn)?;
+    let row = diesel::sql_query("SELECT count(*) AS n FROM sqlite_schema WHERE name NOT LIKE 'sqlite!_%' ESCAPE '!'")
+        .get_result::<CountRow>(conn)?;
     Ok(row.n)
 }
 
@@ -60,8 +58,7 @@ pub(crate) fn prepare(conn: &mut Connection, schema: &Schema) -> Result<(), Erro
             return Err(Error::Adoption("no Drizzle baseline configured".into()));
         };
         let migrations = (schema.migrations)();
-        let list = MigrationSource::<Sqlite>::migrations(&migrations)
-            .map_err(|e| Error::Migration(e.to_string()))?;
+        let list = MigrationSource::<Sqlite>::migrations(&migrations).map_err(|e| Error::Migration(e.to_string()))?;
         let first = list
             .first()
             .ok_or_else(|| Error::Migration("no Diesel migrations defined".into()))?;
@@ -85,8 +82,7 @@ pub(crate) fn prepare(conn: &mut Connection, schema: &Schema) -> Result<(), Erro
             if current_snapshot != expected_snapshot {
                 return Err(Error::Adoption("its schema differs from the baseline's".into()));
             }
-            conn.applied_migrations()
-                .map_err(|e| Error::Migration(e.to_string()))?;
+            conn.applied_migrations().map_err(|e| Error::Migration(e.to_string()))?;
             diesel::sql_query("INSERT INTO __diesel_schema_migrations (version) VALUES ($1)")
                 .bind::<Text, _>(&first_version)
                 .execute(conn)?;

@@ -55,11 +55,7 @@ pub async fn request_to_file(
         )));
     }
 
-    if options
-        .cancel
-        .as_ref()
-        .is_some_and(CancellationToken::is_cancelled)
-    {
+    if options.cancel.as_ref().is_some_and(CancellationToken::is_cancelled) {
         return Err(FileRequestError::Http(HttpError::Aborted));
     }
 
@@ -179,8 +175,7 @@ pub async fn request_to_file(
             let Some(frame_res) = next_frame else {
                 break;
             };
-            let frame =
-                frame_res.map_err(|e| FileRequestError::Http(HttpError::Protocol(e.to_string())))?;
+            let frame = frame_res.map_err(|e| FileRequestError::Http(HttpError::Protocol(e.to_string())))?;
             if let Some(chunk) = frame.data_ref() {
                 if chunk.is_empty() {
                     continue;
@@ -190,9 +185,7 @@ pub async fn request_to_file(
                 if total_bytes > options.max_bytes {
                     return Err(FileRequestError::Http(HttpError::TooLarge));
                 }
-                file.write_all(chunk)
-                    .await
-                    .map_err(FileRequestError::Disk)?;
+                file.write_all(chunk).await.map_err(FileRequestError::Disk)?;
                 if let Some(cb) = options.on_bytes.as_deref_mut() {
                     cb(chunk_len);
                 }

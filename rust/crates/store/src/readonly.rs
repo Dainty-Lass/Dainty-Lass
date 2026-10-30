@@ -61,10 +61,8 @@ pub fn schema_version(conn: &mut Connection) -> Result<Option<String>, Error> {
     if exists.n == 0 {
         return Ok(None);
     }
-    let rows = diesel::sql_query(
-        "SELECT version FROM __diesel_schema_migrations ORDER BY version DESC LIMIT 1",
-    )
-    .load::<VersionRow>(conn)?;
+    let rows = diesel::sql_query("SELECT version FROM __diesel_schema_migrations ORDER BY version DESC LIMIT 1")
+        .load::<VersionRow>(conn)?;
     Ok(rows.into_iter().next().map(|r| r.version))
 }
 
@@ -77,15 +75,9 @@ mod tests {
     #[test]
     fn ro_uri_formats_unix_and_windows_paths_and_encodes_special_chars() {
         let unix = Path::new("/var/lib/my db#1?.sqlite");
-        assert_eq!(
-            format_ro_uri(unix),
-            "file:///var/lib/my%20db%231%3F.sqlite?mode=ro"
-        );
+        assert_eq!(format_ro_uri(unix), "file:///var/lib/my%20db%231%3F.sqlite?mode=ro");
         let win = Path::new(r"C:\data\my db\test.sqlite");
-        assert_eq!(
-            format_ro_uri(win),
-            "file:///C:/data/my%20db/test.sqlite?mode=ro"
-        );
+        assert_eq!(format_ro_uri(win), "file:///C:/data/my%20db/test.sqlite?mode=ro");
     }
 
     #[test]

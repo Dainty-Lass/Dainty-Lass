@@ -30,16 +30,12 @@ struct MockRoute {
     hits: Arc<AtomicUsize>,
 }
 
-async fn start_tls_server(
-    routes: HashMap<String, MockRoute>,
-) -> (Endpoint, tokio::task::JoinHandle<()>) {
+async fn start_tls_server(routes: HashMap<String, MockRoute>) -> (Endpoint, tokio::task::JoinHandle<()>) {
     let certified = generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
     let cert_der = certified.cert.der().clone();
     let pin = sha256_hex(cert_der.as_ref());
 
-    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-        certified.signing_key.serialize_der(),
-    ));
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
     let server_cfg = ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(vec![cert_der], key_der)
@@ -289,10 +285,7 @@ async fn check_runtime_states() {
         check_runtime(&win64, Some(&manifest), true, None).await,
         (RuntimeState::Ok, true)
     );
-    assert_eq!(
-        check_runtime(&win64, None, false, None).await,
-        (RuntimeState::Ok, true)
-    );
+    assert_eq!(check_runtime(&win64, None, false, None).await, (RuntimeState::Ok, true));
 
     assert_eq!(
         check_runtime(&win64, Some(&manifest), true, Some(&local)).await,
@@ -317,9 +310,7 @@ fn replace_file_moves_a_locked_dll_aside_and_puts_it_back_if_the_second_rename_f
 
     impl ReplaceOps for MockOps {
         fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
-            self.renames
-                .borrow_mut()
-                .push((from.to_path_buf(), to.to_path_buf()));
+            self.renames.borrow_mut().push((from.to_path_buf(), to.to_path_buf()));
             let count = self.renames.borrow().len();
             if count == 1 && self.fail_direct {
                 return Err(io::Error::new(io::ErrorKind::PermissionDenied, "in use"));
@@ -346,10 +337,7 @@ fn replace_file_moves_a_locked_dll_aside_and_puts_it_back_if_the_second_rename_f
         renames: RefCell::new(Vec::new()),
         removes: RefCell::new(Vec::new()),
     };
-    assert_eq!(
-        replace_file(&tmp, &target, &normal_ops).unwrap(),
-        Replaced::Replaced
-    );
+    assert_eq!(replace_file(&tmp, &target, &normal_ops).unwrap(), Replaced::Replaced);
     assert_eq!(normal_ops.renames.borrow().len(), 1);
 
     // 2. First rename fails, aside rename + second rename succeed -> Replaced::InUse
@@ -359,10 +347,7 @@ fn replace_file_moves_a_locked_dll_aside_and_puts_it_back_if_the_second_rename_f
         renames: RefCell::new(Vec::new()),
         removes: RefCell::new(Vec::new()),
     };
-    assert_eq!(
-        replace_file(&tmp, &target, &in_use_ops).unwrap(),
-        Replaced::InUse
-    );
+    assert_eq!(replace_file(&tmp, &target, &in_use_ops).unwrap(), Replaced::InUse);
     assert_eq!(in_use_ops.renames.borrow().len(), 3);
     assert_eq!(in_use_ops.removes.borrow().len(), 1);
 
@@ -448,10 +433,7 @@ async fn install_runtime_downloads_checks_replaces_and_writes_the_marker() {
     assert!(!old_aside.exists());
     assert_eq!(mp_hits.load(Ordering::SeqCst), 1);
     assert_eq!(wm_hits.load(Ordering::SeqCst), 0);
-    assert_eq!(
-        std::fs::read(win64.join("MysticParadox.dll")).unwrap(),
-        mp_bytes
-    );
+    assert_eq!(std::fs::read(win64.join("MysticParadox.dll")).unwrap(), mp_bytes);
     assert!(win64.join(RUNTIME_MARKER_FILE).is_file());
 
     handle.abort();

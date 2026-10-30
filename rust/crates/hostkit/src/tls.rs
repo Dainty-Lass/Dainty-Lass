@@ -53,12 +53,7 @@ fn der_len(len: usize) -> Vec<u8> {
     } else if len <= 0xffff {
         vec![0x82, (len >> 8) as u8, (len & 0xff) as u8]
     } else {
-        vec![
-            0x83,
-            (len >> 16) as u8,
-            ((len >> 8) & 0xff) as u8,
-            (len & 0xff) as u8,
-        ]
+        vec![0x83, (len >> 16) as u8, ((len >> 8) & 0xff) as u8, (len & 0xff) as u8]
     }
 }
 
@@ -151,10 +146,7 @@ pub fn generate_self_signed_cert(req: &CertRequest) -> Result<Cert, HostError> {
     generate_self_signed_cert_at(req, validity)
 }
 
-pub fn generate_self_signed_cert_at(
-    req: &CertRequest,
-    validity: Validity,
-) -> Result<Cert, HostError> {
+pub fn generate_self_signed_cert_at(req: &CertRequest, validity: Validity) -> Result<Cert, HostError> {
     let rng = SystemRandom::new();
     let pkcs8 = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng)
         .map_err(|_| HostError::message("could not generate ECDSA P-256 key pair"))?;
@@ -207,9 +199,7 @@ pub fn generate_self_signed_cert_at(
     // 3. ExtendedKeyUsage (2.5.29.37 = 55 1D 25): serverAuth (1.3.6.1.5.5.7.3.1)
     let eku_ext = der_seq(&[
         der_oid(&[0x55, 0x1d, 0x25]),
-        der_octet_string(&der_seq(&[der_oid(&[
-            0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x01,
-        ])])),
+        der_octet_string(&der_seq(&[der_oid(&[0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x01])])),
     ]);
 
     let mut exts = vec![basic_constraints_ext, key_usage_ext, eku_ext];
@@ -230,10 +220,7 @@ pub fn generate_self_signed_cert_at(
         }
     }
     if !san_items.is_empty() {
-        let san_ext = der_seq(&[
-            der_oid(&[0x55, 0x1d, 0x11]),
-            der_octet_string(&der_seq(&san_items)),
-        ]);
+        let san_ext = der_seq(&[der_oid(&[0x55, 0x1d, 0x11]), der_octet_string(&der_seq(&san_items))]);
         exts.push(san_ext);
     }
 
@@ -261,11 +248,7 @@ pub fn generate_self_signed_cert_at(
 
     let mut hasher = Sha256::new();
     hasher.update(&cert_der);
-    let fingerprint: String = hasher
-        .finalize()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let fingerprint: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
 
     Ok(Cert {
         cert_pem: pem_encode("CERTIFICATE", &cert_der),
@@ -275,10 +258,7 @@ pub fn generate_self_signed_cert_at(
 }
 
 pub fn generate_self_signed_cert_pem(hosts: &[String]) -> Result<(String, String), HostError> {
-    let common_name = hosts
-        .first()
-        .cloned()
-        .unwrap_or_else(|| "127.0.0.1".to_owned());
+    let common_name = hosts.first().cloned().unwrap_or_else(|| "127.0.0.1".to_owned());
     let mut dns_names = Vec::new();
     let mut ip_addresses = Vec::new();
     for h in hosts {
@@ -298,10 +278,7 @@ pub fn generate_self_signed_cert_pem(hosts: &[String]) -> Result<(String, String
     Ok((cert.cert_pem, cert.key_pem))
 }
 
-pub fn write_gateway_cert_if_missing(
-    paths: &Paths,
-    config: &HostConfig,
-) -> Result<bool, HostError> {
+pub fn write_gateway_cert_if_missing(paths: &Paths, config: &HostConfig) -> Result<bool, HostError> {
     if paths.cert_file.is_file() && paths.key_file.is_file() {
         return Ok(false);
     }
@@ -322,8 +299,7 @@ pub fn write_gateway_cert_if_missing(
         ip_addresses,
     };
     let cert = generate_self_signed_cert(&req)?;
-    std::fs::write(&paths.cert_file, &cert.cert_pem)
-        .map_err(|e| HostError::io(&paths.cert_file, e))?;
+    std::fs::write(&paths.cert_file, &cert.cert_pem).map_err(|e| HostError::io(&paths.cert_file, e))?;
     write_secret_file(&paths.key_file, &cert.key_pem)?;
     Ok(true)
 }

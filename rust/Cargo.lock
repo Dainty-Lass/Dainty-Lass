@@ -3585,6 +3585,7 @@ dependencies = [
  "hyper",
  "hyper-rustls",
  "hyper-util",
+ "launcher-kit",
  "module-api",
  "open",
  "pbkdf2",
@@ -3623,6 +3624,45 @@ dependencies = [
  "url",
  "webpki-roots",
  "windows",
+]
+
+[[package]]
+name = "launcher-kit"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "dirs 6.0.0",
+ "epic",
+ "fs4",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "module-api",
+ "percent-encoding",
+ "protocol",
+ "rand 0.10.3",
+ "rcgen",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "sha1_smol",
+ "sha2 0.11.1",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tokio-util",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "tracing",
+ "ts-rs",
+ "url",
+ "webpki-roots",
 ]
 
 [[package]]

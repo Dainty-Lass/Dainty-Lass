@@ -81,9 +81,7 @@ pub fn string(value: Option<&Value>) -> String {
         Some(Value::Null) => "null".to_owned(),
         Some(Value::Bool(true)) => "true".to_owned(),
         Some(Value::Bool(false)) => "false".to_owned(),
-        Some(Value::Number(n)) => n
-            .as_f64()
-            .map_or_else(|| "NaN".to_owned(), crate::jsjson::number),
+        Some(Value::Number(n)) => n.as_f64().map_or_else(|| "NaN".to_owned(), crate::jsjson::number),
         Some(Value::String(s)) => s.clone(),
         Some(Value::Array(items)) => items
             .iter()
@@ -101,12 +99,10 @@ pub fn strict_eq(a: Option<&Value>, b: Option<&Value>) -> bool {
     match (a, b) {
         (None, None) | (Some(Value::Null), Some(Value::Null)) => true,
         (Some(Value::Bool(ba)), Some(Value::Bool(bb))) => ba == bb,
-        (Some(Value::Number(na)), Some(Value::Number(nb))) => {
-            match (na.as_f64(), nb.as_f64()) {
-                (Some(fa), Some(fb)) => fa == fb,
-                _ => false,
-            }
-        }
+        (Some(Value::Number(na)), Some(Value::Number(nb))) => match (na.as_f64(), nb.as_f64()) {
+            (Some(fa), Some(fb)) => fa == fb,
+            _ => false,
+        },
         (Some(Value::String(sa)), Some(Value::String(sb))) => sa == sb,
         _ => false,
     }
@@ -228,7 +224,10 @@ mod tests {
         assert!(!truthy(Some(&json!(""))));
         assert!(truthy(Some(&json!([]))));
 
-        assert_eq!(safe_integer(Some(&json!(9_007_199_254_740_991_i64))), Some(9_007_199_254_740_991));
+        assert_eq!(
+            safe_integer(Some(&json!(9_007_199_254_740_991_i64))),
+            Some(9_007_199_254_740_991)
+        );
         assert_eq!(safe_integer(Some(&json!(9_007_199_254_740_992_i64))), None);
         assert_eq!(safe_integer(Some(&json!(1.5))), None);
     }

@@ -1,7 +1,7 @@
 //! The file and message dialogs (rows L36, RA11), shown from Rust with `tauri-plugin-dialog` and the
-//! backend's own text (row L14); the page has no dialog permission and never names a path. As in Reforged's
-//! `src/main.ts`: each picker is titled by its purpose (the `dialog_*` keys of the language files), folders
-//! start where the current one is (when it exists), key backups in Documents.
+//! backend's own text (row L14); the page has no dialog permission and never names a path. Each picker
+//! is titled by its purpose (the `dialog_*` keys of the language files), folders start where the current
+//! one is (when it exists), key backups in Documents.
 
 use std::path::{Path, PathBuf};
 
@@ -12,42 +12,9 @@ use tokio::sync::oneshot;
 use crate::core::i18n::{self, Language, translate};
 use crate::window::MAIN;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FolderPurpose {
-    /// The player's Dauntless 1.14.7 folder
-    Game,
-    /// A folder with the runtime's two files (a local runtime)
-    Runtime,
-    /// Dumper-7's CppSDK folder (Host page)
-    Sdk,
-    /// The host's workspace (Host page)
-    Workspace,
-    /// Where Dauntless 1.4.4 is or goes (legacy edition)
-    #[cfg(feature = "legacy")]
-    Revived,
-}
-
-// The language files' keys (`src/shared/i18n.ts`); RA3 lists them with the backend's other keys
-pub const DIALOG_GAME_FOLDER: &str = "dialog_game_folder";
-pub const DIALOG_RUNTIME_FOLDER: &str = "dialog_runtime_folder";
-pub const DIALOG_SDK_FOLDER: &str = "dialog_sdk_folder";
-pub const DIALOG_WORKSPACE_FOLDER: &str = "dialog_workspace_folder";
-pub const DIALOG_DUMPER_DLL: &str = "dialog_dumper_dll";
-pub const DIALOG_GAMEDATA_PACK: &str = "dialog_gamedata_pack";
+pub use launcher_kit::platform::dialogs::{DIALOG_DUMPER_DLL, DIALOG_GAMEDATA_PACK, FolderPurpose, folder_title};
 #[cfg(feature = "legacy")]
 pub const DIALOG_LEGACY_FOLDER: &str = i18n::DIALOG_LEGACY_FOLDER;
-
-/// The title key of a folder picker.
-pub fn folder_title(purpose: FolderPurpose) -> &'static str {
-    match purpose {
-        FolderPurpose::Game => DIALOG_GAME_FOLDER,
-        FolderPurpose::Runtime => DIALOG_RUNTIME_FOLDER,
-        FolderPurpose::Sdk => DIALOG_SDK_FOLDER,
-        FolderPurpose::Workspace => DIALOG_WORKSPACE_FOLDER,
-        #[cfg(feature = "legacy")]
-        FolderPurpose::Revived => DIALOG_LEGACY_FOLDER,
-    }
-}
 
 fn path_of(picked: Option<FilePath>) -> Option<PathBuf> {
     picked?.into_path().ok()

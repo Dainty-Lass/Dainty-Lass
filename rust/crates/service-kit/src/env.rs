@@ -42,10 +42,7 @@ impl Env {
     }
 
     pub fn from_pairs<'a>(pairs: impl IntoIterator<Item = (&'a str, &'a str)>) -> Self {
-        let vars = pairs
-            .into_iter()
-            .map(|(k, v)| (k.to_owned(), v.to_owned()))
-            .collect();
+        let vars = pairs.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
         Self { vars }
     }
 
@@ -53,10 +50,7 @@ impl Env {
         let vars = self
             .vars
             .iter()
-            .filter_map(|(k, v)| {
-                k.strip_prefix(prefix)
-                    .map(|stripped| (stripped.to_owned(), v.clone()))
-            })
+            .filter_map(|(k, v)| k.strip_prefix(prefix).map(|stripped| (stripped.to_owned(), v.clone())))
             .collect();
         Self { vars }
     }
@@ -81,13 +75,10 @@ impl Env {
         let Some(val) = self.get(name) else {
             return Ok(None);
         };
-        val.trim()
-            .parse::<T>()
-            .map(Some)
-            .map_err(|err| EnvError::Value {
-                name: name.to_owned(),
-                message: err.to_string(),
-            })
+        val.trim().parse::<T>().map(Some).map_err(|err| EnvError::Value {
+            name: name.to_owned(),
+            message: err.to_string(),
+        })
     }
 
     pub fn flag(&self, name: &str, default: bool) -> Result<bool, EnvError> {

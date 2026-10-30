@@ -31,10 +31,7 @@ pub struct RunResult {
 pub fn is_error_line(line: &str) -> bool {
     let trimmed = js::trim(line);
     let rest = trimmed.strip_prefix("Uncaught ").unwrap_or(trimmed);
-    let word_len = rest
-        .bytes()
-        .take_while(|b| b.is_ascii_alphabetic())
-        .count();
+    let word_len = rest.bytes().take_while(|b| b.is_ascii_alphabetic()).count();
     if word_len == 0 {
         return false;
     }
@@ -114,8 +111,7 @@ pub fn run(command: &str, args: &[&str], options: &RunOptions) -> Result<RunResu
             } else {
                 format!("\n> {command} {}\n", args.join(" "))
             };
-            f.write_all(header.as_bytes())
-                .map_err(|e| HostError::io(file, e))?;
+            f.write_all(header.as_bytes()).map_err(|e| HostError::io(file, e))?;
             Some(f)
         }
         None => None,
@@ -148,11 +144,7 @@ pub fn run(command: &str, args: &[&str], options: &RunOptions) -> Result<RunResu
         .spawn()
         .map_err(|e| HostError::message(format!("failed to start {command}: {e}")))?;
 
-    let state = Arc::new(Mutex::new((
-        RunResult::default(),
-        log_handle.take(),
-        options.quiet,
-    )));
+    let state = Arc::new(Mutex::new((RunResult::default(), log_handle.take(), options.quiet)));
 
     let handle_stream = |stream: Box<dyn std::io::Read + Send>,
                          state: Arc<Mutex<(RunResult, Option<std::fs::File>, bool)>>| {
@@ -201,10 +193,7 @@ pub fn run(command: &str, args: &[&str], options: &RunOptions) -> Result<RunResu
         let _ = r.join();
     }
 
-    let mut final_res = state
-        .lock()
-        .map(|g| g.0.clone())
-        .unwrap_or_default();
+    let mut final_res = state.lock().map(|g| g.0.clone()).unwrap_or_default();
     final_res.code = status.code().unwrap_or(1);
     Ok(final_res)
 }

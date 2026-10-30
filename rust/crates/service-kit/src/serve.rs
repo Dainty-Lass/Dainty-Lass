@@ -72,9 +72,7 @@ async fn stdin_shutdown() {
 async fn terminate_signal() {
     #[cfg(unix)]
     {
-        if let Ok(mut sig) =
-            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-        {
+        if let Ok(mut sig) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
             sig.recv().await;
             return;
         }

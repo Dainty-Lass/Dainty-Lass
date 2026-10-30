@@ -15,8 +15,7 @@ pub const EXE_NAME: &str = "Dauntless-Win64-Shipping.exe";
 pub const EXE_RELATIVE_PATH: &str = "Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe";
 
 /// Lowercase hex SHA-256 digest of the expected 1.14.7 shipping executable.
-pub const PINNED_EXE_SHA256: &str =
-    "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b";
+pub const PINNED_EXE_SHA256: &str = "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b";
 
 /// Visual C++ Redistributable DLLs required in the system directory on Windows.
 pub const VC_RUNTIME_FILES: [&str; 2] = ["MSVCP140.dll", "VCRUNTIME140_1.dll"];
@@ -58,11 +57,7 @@ pub fn normalize_hex<const N: usize>(raw: &str) -> Option<String> {
             return None;
         }
     }
-    if out.len() == N {
-        Some(out)
-    } else {
-        None
-    }
+    if out.len() == N { Some(out) } else { None }
 }
 
 pub fn normalize_pin(raw: &str) -> Option<String> {
@@ -78,9 +73,7 @@ pub fn normalize_sha1(raw: &str) -> Option<String> {
 }
 
 pub fn is_lower_hex(s: &str, expected_len: usize) -> bool {
-    s.len() == expected_len
-        && s.bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == expected_len && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 pub fn lower_hex(bytes: &[u8]) -> String {

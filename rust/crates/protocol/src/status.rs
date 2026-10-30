@@ -34,7 +34,7 @@ const MAX_STARTED_AT_RAW_LEN: usize = 64;
 pub enum RegistrationMode {
     Open,
     Invitecode,
-    Closed,
+    None,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +45,7 @@ pub enum PlayerWhere {
     City,
     Hunt,
     Dojo,
+    Tutorial,
     Unknown,
 }
 
@@ -55,6 +56,7 @@ pub enum InstanceKind {
     City,
     Hunt,
     Dojo,
+    Tutorial,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -128,11 +130,7 @@ pub struct ServerStatus {
 pub fn clean_text(value: Option<&Value>, max: usize) -> Option<String> {
     let s = value?.as_str()?;
     let cleaned = clean_display_text(s, max);
-    if cleaned.is_empty() {
-        None
-    } else {
-        Some(cleaned)
-    }
+    if cleaned.is_empty() { None } else { Some(cleaned) }
 }
 
 fn clean_str_or_empty(val: Option<&Value>, max_chars: usize) -> String {
@@ -168,11 +166,7 @@ pub fn clean_https_url(value: Option<&Value>) -> Option<String> {
         return None;
     }
     let url = Url::parse(&cleaned).ok()?;
-    if url.scheme() != "https"
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || url.host_str().is_none()
-    {
+    if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() || url.host_str().is_none() {
         return None;
     }
     let out: String = url.into();
@@ -186,7 +180,7 @@ fn parse_registration(val: Option<&Value>) -> Option<RegistrationMode> {
     match val?.as_str()? {
         "OPEN" => Some(RegistrationMode::Open),
         "INVITECODE" => Some(RegistrationMode::Invitecode),
-        "CLOSED" => Some(RegistrationMode::Closed),
+        "NONE" => Some(RegistrationMode::None),
         _ => None,
     }
 }
@@ -197,6 +191,7 @@ fn parse_player_where(val: Option<&Value>) -> PlayerWhere {
         Some("city") => PlayerWhere::City,
         Some("hunt") => PlayerWhere::Hunt,
         Some("dojo") => PlayerWhere::Dojo,
+        Some("tutorial") => PlayerWhere::Tutorial,
         _ => PlayerWhere::Unknown,
     }
 }
@@ -206,6 +201,7 @@ fn parse_instance_kind(val: Option<&Value>) -> Option<InstanceKind> {
         "city" => Some(InstanceKind::City),
         "hunt" => Some(InstanceKind::Hunt),
         "dojo" => Some(InstanceKind::Dojo),
+        "tutorial" => Some(InstanceKind::Tutorial),
         _ => None,
     }
 }
@@ -318,7 +314,7 @@ pub fn iso_date(text: &str) -> Option<String> {
             Some(sc_str) => parse_exact_digits(sc_str, 2)?,
             None => 0,
         };
-        if parts.next().is_some() || h > 23 || m > 59 || sc > 59 {
+        if parts.next().is_some() || h > 24 || m > 59 || sc > 59 {
             return None;
         }
 
@@ -332,12 +328,20 @@ pub fn iso_date(text: &str) -> Option<String> {
             }
             None => 0,
         };
+        if h == 24 && (m != 0 || sc != 0 || millis != 0 || frac_part.is_some_and(|f| f.bytes().any(|b| b != b'0'))) {
+            return None;
+        }
 
         (h, m, sc, millis, offset)
     } else {
         (0, 0, 0, 0, 0)
     };
 
+    let (naive_date, hour) = if hour == 24 {
+        (naive_date.succ_opt()?, 0)
+    } else {
+        (naive_date, hour)
+    };
     let naive_dt = naive_date.and_hms_milli_opt(hour, min, sec, ms)?;
     let fixed = FixedOffset::east_opt(offset_secs)?;
     let dt_utc = fixed.from_local_datetime(&naive_dt).single()?.with_timezone(&Utc);
@@ -407,9 +411,7 @@ pub fn parse_server_status(raw: &Value) -> Option<ServerStatus> {
     let limited = obj.get("limited").and_then(Value::as_bool).unwrap_or(false);
 
     let mut players = Vec::new();
-    if !limited
-        && let Some(arr) = obj.get("players").and_then(Value::as_array)
-    {
+    if !limited && let Some(arr) = obj.get("players").and_then(Value::as_array) {
         for item in arr {
             if players.len() >= MAX_PLAYERS_LISTED {
                 break;
@@ -431,9 +433,7 @@ pub fn parse_server_status(raw: &Value) -> Option<ServerStatus> {
     }
 
     let mut instances = Vec::new();
-    if !limited
-        && let Some(arr) = obj.get("instances").and_then(Value::as_array)
-    {
+    if !limited && let Some(arr) = obj.get("instances").and_then(Value::as_array) {
         for item in arr {
             if instances.len() >= MAX_INSTANCES_LISTED {
                 break;
@@ -475,8 +475,7 @@ pub fn parse_server_status(raw: &Value) -> Option<ServerStatus> {
         players.len() as u32
     };
 
-    let uptime_seconds =
-        trunc_clamped_u64(obj.get("uptimeSeconds"), MAX_UPTIME_SECONDS).unwrap_or(0) as u32;
+    let uptime_seconds = trunc_clamped_u64(obj.get("uptimeSeconds"), MAX_UPTIME_SECONDS).unwrap_or(0) as u32;
     let game = parse_game(obj.get("game"));
     let game_data = parse_game_data(obj.get("gameData"));
     let chat = obj.get("chat").and_then(Value::as_bool).unwrap_or(false);

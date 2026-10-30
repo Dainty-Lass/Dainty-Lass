@@ -23,12 +23,11 @@ use crate::hostconfig::{HostConfig, ServerMode, gateway_port, legacy_gateway_por
 
 pub use protocol::GameVersion;
 pub use protocol::invite::{
-    DEFAULT_PUBLIC_PORT, FormatError, INVITE_SCHEME, Invite, InviteError, MAX_INVITE_LENGTH,
-    REVIVED_INVITE_SCHEME, ServerMode as InviteServerMode, UNIFIED_INVITE_SCHEME, clean_server_name,
-    format_invite, invite_schemes, is_loopback_host, is_magic_dns_name, is_private_mode_host,
-    is_tailscale_ipv4, is_valid_fingerprint, is_valid_host, is_valid_invite_code, is_valid_ipv4,
-    is_valid_port, is_valid_share_url, named_version, parse_invite, parse_invite_for,
-    played_versions, reforged_version, revived_version, version_alias,
+    DEFAULT_PUBLIC_PORT, FormatError, INVITE_SCHEME, Invite, InviteError, MAX_INVITE_LENGTH, REVIVED_INVITE_SCHEME,
+    ServerMode as InviteServerMode, UNIFIED_INVITE_SCHEME, clean_server_name, format_invite, invite_schemes,
+    is_loopback_host, is_magic_dns_name, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint, is_valid_host,
+    is_valid_invite_code, is_valid_ipv4, is_valid_port, is_valid_share_url, named_version, parse_invite,
+    parse_invite_for, played_versions, reforged_version, revived_version, version_alias,
 };
 
 /// Default game version string for standard 1.14.7 invites.
@@ -75,9 +74,7 @@ pub struct HttpResponse {
 fn encode_uri_component(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for &b in s.as_bytes() {
-        if b.is_ascii_alphanumeric()
-            || matches!(b, b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')')
-        {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')') {
             out.push(b as char);
         } else {
             use std::fmt::Write as _;
@@ -144,11 +141,7 @@ pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<Str
 }
 
 /// Formats an invite URL for `config` on the primary game version (`1.14.7` unless `edition` is `legacy`).
-pub fn invite_for(
-    config: &HostConfig,
-    code: &str,
-    cert_fingerprint: Option<&str>,
-) -> Result<String, HostError> {
+pub fn invite_for(config: &HostConfig, code: &str, cert_fingerprint: Option<&str>) -> Result<String, HostError> {
     let game = config.edition.primary();
     invite_for_game(config, code, cert_fingerprint, &game)
 }
@@ -288,9 +281,7 @@ pub fn served_fingerprint(port: u16, host: &str, timeout: Duration) -> Option<St
         .with_no_client_auth();
 
     let server_name = ServerName::try_from(host.to_owned()).unwrap_or_else(|_| {
-        let ip = host
-            .parse::<IpAddr>()
-            .unwrap_or(IpAddr::from([127, 0, 0, 1]));
+        let ip = host.parse::<IpAddr>().unwrap_or(IpAddr::from([127, 0, 0, 1]));
         ServerName::IpAddress(ip.into())
     });
 
@@ -346,8 +337,7 @@ pub fn http_request(
     timeout: Duration,
 ) -> Result<HttpResponse, HostError> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let mut stream = TcpStream::connect_timeout(&addr, timeout)
-        .map_err(|e| HostError::message(e.to_string()))?;
+    let mut stream = TcpStream::connect_timeout(&addr, timeout).map_err(|e| HostError::message(e.to_string()))?;
     stream
         .set_read_timeout(Some(timeout))
         .map_err(|e| HostError::message(e.to_string()))?;
@@ -405,9 +395,7 @@ pub fn http_request(
 
     let head_str = String::from_utf8_lossy(head_bytes);
     let mut lines = head_str.lines();
-    let status_line = lines
-        .next()
-        .ok_or_else(|| HostError::message("empty HTTP response"))?;
+    let status_line = lines.next().ok_or_else(|| HostError::message("empty HTTP response"))?;
     let status = status_line
         .split_whitespace()
         .nth(1)
@@ -476,10 +464,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
         "POST",
         port,
         "/reforged/api/CreateInvite",
-        &[
-            ("x-reforged-admin-key", key),
-            ("Content-Type", "application/json"),
-        ],
+        &[("x-reforged-admin-key", key), ("Content-Type", "application/json")],
         Some(&body_str),
         Duration::from_millis(5000),
     )
@@ -503,9 +488,8 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
         )));
     }
 
-    let parsed: Value = serde_json::from_str(&resp.body).map_err(|e| {
-        HostError::message(format!("backend returned invalid JSON for CreateInvite: {e}"))
-    })?;
+    let parsed: Value = serde_json::from_str(&resp.body)
+        .map_err(|e| HostError::message(format!("backend returned invalid JSON for CreateInvite: {e}")))?;
     let code = parsed
         .get("code")
         .or_else(|| parsed.get("payload").and_then(|p| p.get("code")))
@@ -544,9 +528,11 @@ pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostE
         )));
     }
 
-    let parsed: Value = serde_json::from_str(&resp.body).map_err(|e| {
-        HostError::message(format!("backend returned invalid JSON for InviteCodes: {e}"))
-    })?;
+    let parsed: Value = serde_json::from_str(&resp.body)
+        .map_err(|e| HostError::message(format!("backend returned invalid JSON for InviteCodes: {e}")))?;
+    if let Some(arr) = parsed.get("InviteCodes").and_then(Value::as_array) {
+        return Ok(arr.clone());
+    }
     if let Some(arr) = parsed.get("invites").and_then(Value::as_array) {
         return Ok(arr.clone());
     }

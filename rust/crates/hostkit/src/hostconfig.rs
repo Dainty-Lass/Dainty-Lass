@@ -16,10 +16,7 @@ use service_kit::{js, jsjson};
 
 use crate::envfile::{EnvDocument, EnvMap, format_env, parse_env};
 use crate::error::HostError;
-use crate::paths::{
-    BOTH_LEGACY_PORTS, MAX_HUNTS, PINNED_EXE_SHA256, PORTS, Paths, game_exe_relative,
-    game_port_range,
-};
+use crate::paths::{BOTH_LEGACY_PORTS, MAX_HUNTS, PINNED_EXE_SHA256, PORTS, Paths, game_exe_relative, game_port_range};
 
 pub const DATABASE_FILE: &str = "dainty-lass.db";
 pub const DEFAULT_LINUX: LinuxOptions = LinuxOptions {
@@ -93,7 +90,7 @@ pub(crate) fn integer(value: Option<&Value>) -> Option<f64> {
     js::safe_integer(value).map(|n| n as f64)
 }
 
-pub(crate) fn path_text(path: &Path) -> String {
+pub fn path_text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
@@ -177,10 +174,7 @@ pub struct Multipliers {
 
 impl Default for Multipliers {
     fn default() -> Self {
-        Self {
-            xp: 1.0,
-            rewards: 1.0,
-        }
+        Self { xp: 1.0, rewards: 1.0 }
     }
 }
 
@@ -219,22 +213,10 @@ impl DatabaseSettings {
     pub fn from_json(d: &Map<String, Value>) -> Self {
         Self {
             engine: d.get("engine").and_then(Value::as_str).map(str::to_owned),
-            postgres_host: d
-                .get("postgresHost")
-                .and_then(Value::as_str)
-                .map(str::to_owned),
-            postgres_port: d
-                .get("postgresPort")
-                .and_then(Value::as_u64)
-                .map(|n| n as u16),
-            postgres_user: d
-                .get("postgresUser")
-                .and_then(Value::as_str)
-                .map(str::to_owned),
-            postgres_database: d
-                .get("postgresDatabase")
-                .and_then(Value::as_str)
-                .map(str::to_owned),
+            postgres_host: d.get("postgresHost").and_then(Value::as_str).map(str::to_owned),
+            postgres_port: d.get("postgresPort").and_then(Value::as_u64).map(|n| n as u16),
+            postgres_user: d.get("postgresUser").and_then(Value::as_str).map(str::to_owned),
+            postgres_database: d.get("postgresDatabase").and_then(Value::as_str).map(str::to_owned),
             allow_remote: d.get("allowRemote").and_then(Value::as_bool),
             fresh_start: d.get("freshStart").and_then(Value::as_bool),
         }
@@ -363,12 +345,7 @@ impl std::fmt::Display for Edition {
 }
 
 const SWITCH_STRINGS: [(&str, &str, &str, &[&str]); 7] = [
-    (
-        "reforge",
-        "reforge",
-        "MYSTICPARADOX_REFORGE",
-        &["on", "log", "off"],
-    ),
+    ("reforge", "reforge", "MYSTICPARADOX_REFORGE", &["on", "log", "off"]),
     (
         "masteryPersistence",
         "mastery_persistence",
@@ -393,18 +370,8 @@ const SWITCH_STRINGS: [(&str, &str, &str, &[&str]); 7] = [
         "MYSTICPARADOX_ACCOUNT_ERASURE",
         &["on", "off"],
     ),
-    (
-        "logPurge",
-        "log_purge",
-        "MYSTICPARADOX_LOG_PURGE",
-        &["on", "off"],
-    ),
-    (
-        "rateLimit",
-        "rate_limit",
-        "MYSTICPARADOX_RATE_LIMIT",
-        &["on", "off"],
-    ),
+    ("logPurge", "log_purge", "MYSTICPARADOX_LOG_PURGE", &["on", "off"]),
+    ("rateLimit", "rate_limit", "MYSTICPARADOX_RATE_LIMIT", &["on", "off"]),
 ];
 
 const SWITCH_NUMBERS: [(&str, &str, &str); 3] = [
@@ -441,9 +408,7 @@ pub struct SwitchesConfig {
 
 impl SwitchesConfig {
     pub fn validate(value: &Value) -> Result<(), HostError> {
-        let s = value
-            .as_object()
-            .ok_or_else(|| bad("switches must be an object"))?;
+        let s = value.as_object().ok_or_else(|| bad("switches must be an object"))?;
         for (key, _, _, allowed) in SWITCH_STRINGS {
             if let Some(v) = s.get(key)
                 && !v.as_str().is_some_and(|w| allowed.contains(&w))
@@ -509,10 +474,7 @@ impl SwitchesConfig {
         }
         let nums = [
             ("rateLimitPerMinute", self.rate_limit_per_minute),
-            (
-                "gameserverRateLimitPerMinute",
-                self.gameserver_rate_limit_per_minute,
-            ),
+            ("gameserverRateLimitPerMinute", self.gameserver_rate_limit_per_minute),
             ("hostRateLimitPerMinute", self.host_rate_limit_per_minute),
         ];
         for (k, v) in nums {
@@ -565,18 +527,14 @@ pub struct HistoryConfig {
 
 impl HistoryConfig {
     pub fn from_json(value: &Value) -> Result<Self, HostError> {
-        let obj = value
-            .as_object()
-            .ok_or_else(|| bad("history must be an object"))?;
+        let obj = value.as_object().ok_or_else(|| bad("history must be an object"))?;
         let ship_to_peer = match obj.get("shipToPeer") {
             None | Some(Value::Null) => None,
             Some(v) => {
-                let s = v.as_str().ok_or_else(|| {
-                    bad("history.shipToPeer must be a peer node id (a-z, 0-9 and -)")
-                })?;
-                let id: module_api::network::NodeId = s
-                    .parse()
-                    .map_err(|e| bad(format!("history.shipToPeer: {e}")))?;
+                let s = v
+                    .as_str()
+                    .ok_or_else(|| bad("history.shipToPeer must be a peer node id (a-z, 0-9 and -)"))?;
+                let id: module_api::network::NodeId = s.parse().map_err(|e| bad(format!("history.shipToPeer: {e}")))?;
                 Some(id)
             }
         };
@@ -642,11 +600,7 @@ impl HostConfig {
         Self::from_validated(validated, read, Some(text.to_owned()))
     }
 
-    fn from_validated(
-        validated: Value,
-        read: Map<String, Value>,
-        toml: Option<String>,
-    ) -> Result<Self, HostError> {
+    fn from_validated(validated: Value, read: Map<String, Value>, toml: Option<String>) -> Result<Self, HostError> {
         let obj = validated
             .as_object()
             .cloned()
@@ -662,31 +616,20 @@ impl HostConfig {
             .and_then(Value::as_str)
             .and_then(Edition::parse)
             .unwrap_or(Edition::Reborn);
-        let host = obj
-            .get("host")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned();
+        let host = obj.get("host").and_then(Value::as_str).unwrap_or_default().to_owned();
         let game_address = obj
             .get("gameAddress")
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_owned();
-        let name = obj
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned();
+        let name = obj.get("name").and_then(Value::as_str).unwrap_or_default().to_owned();
         let game_dir = obj.get("gameDir").and_then(Value::as_str).map(str::to_owned);
         let registration = obj
             .get("registration")
             .and_then(Value::as_str)
             .and_then(Registration::parse)
             .unwrap_or(Registration::Invitecode);
-        let share_url = obj
-            .get("shareUrl")
-            .and_then(Value::as_str)
-            .map(str::to_owned);
+        let share_url = obj.get("shareUrl").and_then(Value::as_str).map(str::to_owned);
         let mongo = match obj.get("mongo").and_then(Value::as_object) {
             Some(m) => MongoConfig {
                 uri: m
@@ -703,31 +646,16 @@ impl HostConfig {
                 mongod: None,
             },
         };
-        let max_hunt_servers = obj
-            .get("maxHuntServers")
-            .and_then(Value::as_u64)
-            .unwrap_or(4) as u32;
-        let multipliers = obj
-            .get("multipliers")
-            .and_then(Value::as_object)
-            .and_then(|m| {
-                Some(Multipliers {
-                    xp: m.get("xp")?.as_f64()?,
-                    rewards: m.get("rewards")?.as_f64()?,
-                })
-            });
-        let public_port = obj
-            .get("publicPort")
-            .and_then(Value::as_u64)
-            .map(|n| n as u16);
-        let legacy_game_dir = obj
-            .get("legacyGameDir")
-            .and_then(Value::as_str)
-            .map(str::to_owned);
-        let legacy_public_port = obj
-            .get("legacyPublicPort")
-            .and_then(Value::as_u64)
-            .map(|n| n as u16);
+        let max_hunt_servers = obj.get("maxHuntServers").and_then(Value::as_u64).unwrap_or(4) as u32;
+        let multipliers = obj.get("multipliers").and_then(Value::as_object).and_then(|m| {
+            Some(Multipliers {
+                xp: m.get("xp")?.as_f64()?,
+                rewards: m.get("rewards")?.as_f64()?,
+            })
+        });
+        let public_port = obj.get("publicPort").and_then(Value::as_u64).map(|n| n as u16);
+        let legacy_game_dir = obj.get("legacyGameDir").and_then(Value::as_str).map(str::to_owned);
+        let legacy_public_port = obj.get("legacyPublicPort").and_then(Value::as_u64).map(|n| n as u16);
         let performance = obj
             .get("performance")
             .and_then(Value::as_object)
@@ -773,23 +701,14 @@ impl HostConfig {
         let linux = obj.get("linux").and_then(Value::as_object).map(|l| LinuxOptions {
             wine: l.get("wine").and_then(Value::as_str).map(str::to_owned),
             proton: l.get("proton").and_then(Value::as_str).map(str::to_owned),
-            xvfb: l
-                .get("xvfb")
-                .and_then(Value::as_bool)
-                .unwrap_or(DEFAULT_LINUX.xvfb),
-            firewall_interface: l
-                .get("firewallInterface")
-                .and_then(Value::as_str)
-                .map(str::to_owned),
+            xvfb: l.get("xvfb").and_then(Value::as_bool).unwrap_or(DEFAULT_LINUX.xvfb),
+            firewall_interface: l.get("firewallInterface").and_then(Value::as_str).map(str::to_owned),
         });
         let database = obj
             .get("database")
             .and_then(Value::as_object)
             .map(DatabaseSettings::from_json);
-        let guard = obj
-            .get("guard")
-            .and_then(Value::as_object)
-            .map(GuardConfig::from_json);
+        let guard = obj.get("guard").and_then(Value::as_object).map(GuardConfig::from_json);
         let history = match obj.get("history") {
             Some(h) if !h.is_null() => Some(HistoryConfig::from_json(h)?),
             _ => None,
@@ -867,10 +786,7 @@ impl HostConfig {
 
     #[must_use]
     pub fn fresh_start(&self) -> bool {
-        self.database
-            .as_ref()
-            .and_then(|d| d.fresh_start)
-            .unwrap_or(false)
+        self.database.as_ref().and_then(|d| d.fresh_start).unwrap_or(false)
     }
 
     fn fields_map(&self) -> Map<String, Value> {
@@ -878,29 +794,19 @@ impl HostConfig {
         canonical.insert("version".into(), Value::from(self.version));
         canonical.insert("mode".into(), Value::String(self.mode.as_str().to_owned()));
         if self.edition != Edition::Reborn || self.file.document.contains_key("edition") {
-            canonical.insert(
-                "edition".into(),
-                Value::String(self.edition.as_str().to_owned()),
-            );
+            canonical.insert("edition".into(), Value::String(self.edition.as_str().to_owned()));
         }
         canonical.insert("host".into(), Value::String(self.host.clone()));
-        canonical.insert(
-            "gameAddress".into(),
-            Value::String(self.game_address.clone()),
-        );
+        canonical.insert("gameAddress".into(), Value::String(self.game_address.clone()));
         canonical.insert("name".into(), Value::String(self.name.clone()));
         canonical.insert(
             "gameDir".into(),
-            self.game_dir
-                .clone()
-                .map_or(Value::Null, Value::String),
+            self.game_dir.clone().map_or(Value::Null, Value::String),
         );
         if self.legacy_game_dir.is_some() || self.file.document.contains_key("legacyGameDir") {
             canonical.insert(
                 "legacyGameDir".into(),
-                self.legacy_game_dir
-                    .clone()
-                    .map_or(Value::Null, Value::String),
+                self.legacy_game_dir.clone().map_or(Value::Null, Value::String),
             );
         }
         canonical.insert(
@@ -909,9 +815,7 @@ impl HostConfig {
         );
         canonical.insert(
             "shareUrl".into(),
-            self.share_url
-                .clone()
-                .map_or(Value::Null, Value::String),
+            self.share_url.clone().map_or(Value::Null, Value::String),
         );
         let mut mongo = self
             .file
@@ -924,10 +828,7 @@ impl HostConfig {
         mongo.insert("manage".into(), Value::Bool(self.mongo.manage));
         mongo.insert(
             "mongod".into(),
-            self.mongo
-                .mongod
-                .clone()
-                .map_or(Value::Null, Value::String),
+            self.mongo.mongod.clone().map_or(Value::Null, Value::String),
         );
         canonical.insert("mongo".into(), Value::Object(mongo));
         canonical.insert("maxHuntServers".into(), Value::from(self.max_hunt_servers));
@@ -943,10 +844,7 @@ impl HostConfig {
                 mult.insert("xp".into(), Value::Number(format_multiplier_num(n, m.xp)));
             }
             if let Some(n) = Number::from_f64(m.rewards) {
-                mult.insert(
-                    "rewards".into(),
-                    Value::Number(format_multiplier_num(n, m.rewards)),
-                );
+                mult.insert("rewards".into(), Value::Number(format_multiplier_num(n, m.rewards)));
             }
             canonical.insert("multipliers".into(), Value::Object(mult));
         }
@@ -1002,8 +900,7 @@ impl HostConfig {
                 .filter(|m| !m.is_empty())
             {
                 for (k, v) in orig_p {
-                    if let Some((_, new_v, _)) = all_perf.iter().find(|(pk, _, _)| *pk == k.as_str())
-                    {
+                    if let Some((_, new_v, _)) = all_perf.iter().find(|(pk, _, _)| *pk == k.as_str()) {
                         perf.insert(k.clone(), new_v.clone());
                     } else {
                         perf.insert(k.clone(), v.clone());
@@ -1023,20 +920,12 @@ impl HostConfig {
         }
         if let Some(l) = &self.linux {
             let mut linux = Map::new();
-            linux.insert(
-                "wine".into(),
-                l.wine.clone().map_or(Value::Null, Value::String),
-            );
-            linux.insert(
-                "proton".into(),
-                l.proton.clone().map_or(Value::Null, Value::String),
-            );
+            linux.insert("wine".into(), l.wine.clone().map_or(Value::Null, Value::String));
+            linux.insert("proton".into(), l.proton.clone().map_or(Value::Null, Value::String));
             linux.insert("xvfb".into(), Value::Bool(l.xvfb));
             linux.insert(
                 "firewallInterface".into(),
-                l.firewall_interface
-                    .clone()
-                    .map_or(Value::Null, Value::String),
+                l.firewall_interface.clone().map_or(Value::Null, Value::String),
             );
             canonical.insert("linux".into(), Value::Object(linux));
         }
@@ -1063,8 +952,7 @@ impl HostConfig {
 
     pub fn to_toml(&self) -> Result<String, HostError> {
         let fields = self.fields_map();
-        let validated = validate(&Value::Object(fields))
-            .map_err(|e| bad(crate::hosttoml::message(&e.to_string())))?;
+        let validated = validate(&Value::Object(fields)).map_err(|e| bad(crate::hosttoml::message(&e.to_string())))?;
         let obj = validated
             .as_object()
             .ok_or_else(|| bad("host.toml must hold a table"))?;
@@ -1301,9 +1189,7 @@ pub fn is_dns_name(host: &str) -> bool {
             || bytes.len() > 63
             || !bytes[0].is_ascii_alphanumeric()
             || !bytes[bytes.len() - 1].is_ascii_alphanumeric()
-            || !bytes
-                .iter()
-                .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
+            || !bytes.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'-')
         {
             return false;
         }
@@ -1365,10 +1251,9 @@ pub fn is_valid_share_url(url: &str) -> bool {
         return false;
     };
     !rest.is_empty()
-        && rest.bytes().all(|b| {
-            b.is_ascii_alphanumeric()
-                || matches!(b, b'/' | b'_' | b'?' | b'=' | b'&' | b'.' | b'%' | b'-')
-        })
+        && rest
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'_' | b'?' | b'=' | b'&' | b'.' | b'%' | b'-'))
 }
 
 fn is_reserved_or_game_port(port: u16) -> bool {
@@ -1444,9 +1329,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         )));
     }
     if mode == ServerMode::Private && !is_tailscale_ipv4(&game_address) {
-        return Err(bad(
-            "a private server's game address must be its Tailscale IPv4",
-        ));
+        return Err(bad("a private server's game address must be its Tailscale IPv4"));
     }
 
     let raw_name = obj
@@ -1480,8 +1363,8 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         .get("registration")
         .and_then(Value::as_str)
         .ok_or_else(|| bad("registration must be INVITECODE, OPEN or NONE"))?;
-    let registration = Registration::parse(registration_str)
-        .ok_or_else(|| bad("registration must be INVITECODE, OPEN or NONE"))?;
+    let registration =
+        Registration::parse(registration_str).ok_or_else(|| bad("registration must be INVITECODE, OPEN or NONE"))?;
 
     let share_url = match obj.get("shareUrl") {
         None | Some(Value::Null) => None,
@@ -1501,9 +1384,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     let (mongo_uri, mongo_manage, mongo_mongod) = match obj.get("mongo") {
         None => (DEFAULT_MONGO_URI.to_owned(), true, None),
         Some(m_val) => {
-            let m = m_val
-                .as_object()
-                .ok_or_else(|| bad("mongo must be an object"))?;
+            let m = m_val.as_object().ok_or_else(|| bad("mongo must be an object"))?;
             let uri_raw = m
                 .get("uri")
                 .and_then(Value::as_str)
@@ -1534,9 +1415,8 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     };
 
     let hunts_val = obj.get("maxHuntServers");
-    let max_hunts_f = integer(hunts_val).ok_or_else(|| {
-        bad("maxHuntServers must be 1 to 10 (UDP 8770-8777 up to 6 hunts, 8766-8777 at 10)")
-    })?;
+    let max_hunts_f = integer(hunts_val)
+        .ok_or_else(|| bad("maxHuntServers must be 1 to 10 (UDP 8770-8777 up to 6 hunts, 8766-8777 at 10)"))?;
     if !(1.0..=(MAX_HUNTS as f64)).contains(&max_hunts_f) {
         return Err(bad(
             "maxHuntServers must be 1 to 10 (UDP 8770-8777 up to 6 hunts, 8766-8777 at 10)",
@@ -1568,9 +1448,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             };
             let xp = check_mult("xp", "XP")?;
             let rewards = check_mult("rewards", "reward")?;
-            if mode == ServerMode::Public
-                && ((xp - 1.0).abs() > f64::EPSILON || (rewards - 1.0).abs() > f64::EPSILON)
-            {
+            if mode == ServerMode::Public && ((xp - 1.0).abs() > f64::EPSILON || (rewards - 1.0).abs() > f64::EPSILON) {
                 return Err(bad(
                     "XP and reward multipliers are for private (Tailscale) test servers only",
                 ));
@@ -1615,9 +1493,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             if trimmed.is_empty() {
                 None
             } else if !both {
-                return Err(bad(
-                    "legacyGameDir is for a server running both games (edition both)",
-                ));
+                return Err(bad("legacyGameDir is for a server running both games (edition both)"));
             } else {
                 Some(trimmed.to_owned())
             }
@@ -1666,9 +1542,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     let performance = match obj.get("performance") {
         None | Some(Value::Null) => None,
         Some(p_val) => {
-            let p = p_val
-                .as_object()
-                .ok_or_else(|| bad("performance must be an object"))?;
+            let p = p_val.as_object().ok_or_else(|| bad("performance must be an object"))?;
             let server_fps = match p.get("serverFps") {
                 None => DEFAULT_PERFORMANCE.server_fps,
                 Some(v) => {
@@ -1775,9 +1649,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     let linux = match obj.get("linux") {
         None | Some(Value::Null) => None,
         Some(l_val) => {
-            let l = l_val
-                .as_object()
-                .ok_or_else(|| bad("linux must be an object"))?;
+            let l = l_val.as_object().ok_or_else(|| bad("linux must be an object"))?;
             let prog = |key: &str| -> Result<Option<String>, HostError> {
                 match l.get(key) {
                     None | Some(Value::Null) => Ok(None),
@@ -1839,9 +1711,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     let database = match obj.get("database") {
         None | Some(Value::Null) => None,
         Some(d_val) => {
-            let d = d_val
-                .as_object()
-                .ok_or_else(|| bad("database must be an object"))?;
+            let d = d_val.as_object().ok_or_else(|| bad("database must be an object"))?;
             let engine = match d.get("engine") {
                 None | Some(Value::Null) => None,
                 Some(Value::String(s)) if s == "sqlite" || s == "postgres" => Some(s.clone()),
@@ -1875,8 +1745,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             let postgres_port = match d.get("postgresPort") {
                 None | Some(Value::Null) => None,
                 Some(v) => {
-                    let Some(n) = integer(Some(v)).filter(|&n| (1.0..=65535.0).contains(&n))
-                    else {
+                    let Some(n) = integer(Some(v)).filter(|&n| (1.0..=65535.0).contains(&n)) else {
                         return Err(bad(format!(
                             "database.postgresPort must be a TCP port from 1 to 65535, not {}",
                             shown(Some(v))
@@ -1955,9 +1824,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
                     return Err(bad("history.shipToPeer requires [network]"));
                 };
                 if *peer == net.node {
-                    return Err(bad(format!(
-                        "history.shipToPeer: {peer} is this node itself"
-                    )));
+                    return Err(bad(format!("history.shipToPeer: {peer} is this node itself")));
                 }
                 if !net.nodes.iter().any(|n| n.id == *peer) {
                     return Err(bad(format!(
@@ -1979,35 +1846,19 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     canonical.insert("host".into(), Value::String(host));
     canonical.insert("gameAddress".into(), Value::String(game_address));
     canonical.insert("name".into(), Value::String(name));
-    canonical.insert(
-        "gameDir".into(),
-        game_dir.map_or(Value::Null, Value::String),
-    );
+    canonical.insert("gameDir".into(), game_dir.map_or(Value::Null, Value::String));
     if legacy_game_dir.is_some() || obj.contains_key("legacyGameDir") {
         canonical.insert(
             "legacyGameDir".into(),
             legacy_game_dir.map_or(Value::Null, Value::String),
         );
     }
-    canonical.insert(
-        "registration".into(),
-        Value::String(registration.as_str().to_owned()),
-    );
-    canonical.insert(
-        "shareUrl".into(),
-        share_url.map_or(Value::Null, Value::String),
-    );
-    let mut mongo_out = obj
-        .get("mongo")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
+    canonical.insert("registration".into(), Value::String(registration.as_str().to_owned()));
+    canonical.insert("shareUrl".into(), share_url.map_or(Value::Null, Value::String));
+    let mut mongo_out = obj.get("mongo").and_then(Value::as_object).cloned().unwrap_or_default();
     mongo_out.insert("uri".into(), Value::String(mongo_uri));
     mongo_out.insert("manage".into(), Value::Bool(mongo_manage));
-    mongo_out.insert(
-        "mongod".into(),
-        mongo_mongod.map_or(Value::Null, Value::String),
-    );
+    mongo_out.insert("mongod".into(), mongo_mongod.map_or(Value::Null, Value::String));
     canonical.insert("mongo".into(), Value::Object(mongo_out));
     canonical.insert("maxHuntServers".into(), Value::from(max_hunt_servers));
     if let Some(port) = public_port {
@@ -2022,10 +1873,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             mult_out.insert("xp".into(), Value::Number(format_multiplier_num(n, m.xp)));
         }
         if let Some(n) = Number::from_f64(m.rewards) {
-            mult_out.insert(
-                "rewards".into(),
-                Value::Number(format_multiplier_num(n, m.rewards)),
-            );
+            mult_out.insert("rewards".into(), Value::Number(format_multiplier_num(n, m.rewards)));
         }
         canonical.insert("multipliers".into(), Value::Object(mult_out));
     }
@@ -2202,8 +2050,8 @@ pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
             HostConfig::from_json(&doc).map(Some)
         }
         _ => {
-            let doc: Value = serde_json::from_str(&text)
-                .map_err(|e| bad(format!("{} is not valid JSON: {e}", file.display())))?;
+            let doc: Value =
+                serde_json::from_str(&text).map_err(|e| bad(format!("{} is not valid JSON: {e}", file.display())))?;
             HostConfig::from_json(&doc).map(Some)
         }
     }
@@ -2272,9 +2120,7 @@ pub fn write_secret_file(file: &Path, text: &str) -> Result<(), HostError> {
             .mode(0o600)
             .open(file)
             .map_err(|e| HostError::io(file, e))?;
-        handle
-            .write_all(text.as_bytes())
-            .map_err(|e| HostError::io(file, e))?;
+        handle.write_all(text.as_bytes()).map_err(|e| HostError::io(file, e))?;
         let _ = std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600));
         return Ok(());
     }
@@ -2301,10 +2147,7 @@ pub fn load_or_create_secrets(
             ("AUTH_SIGNING_PRIVKEY_B64", s.jwt_private_key_b64.as_str()),
             ("AUTH_SIGNING_PUBKEY_B64", s.jwt_public_key_b64.as_str()),
             ("REFORGED_ADMIN_API_KEY", s.admin_api_key.as_str()),
-            (
-                "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
-                s.operator_secret.as_str(),
-            ),
+            ("MYSTICPARADOX_MANAGER_OPERATOR_SECRET", s.operator_secret.as_str()),
             ("REFORGED_DB_PASSWORD", s.database_password.as_str()),
         ];
         let header = [
@@ -2331,16 +2174,10 @@ pub fn load_or_create_secrets(
             ("GAMESERVER_API_KEY", fresh.gameserver_key.as_str()),
             ("API_KEY_HASH_SECRET", fresh.api_key_hash_secret.as_str()),
             ("MYSTICPARADOX_METRICS_TOKEN", fresh.metrics_token.as_str()),
-            (
-                "AUTH_SIGNING_PRIVKEY_B64",
-                fresh.jwt_private_key_b64.as_str(),
-            ),
+            ("AUTH_SIGNING_PRIVKEY_B64", fresh.jwt_private_key_b64.as_str()),
             ("AUTH_SIGNING_PUBKEY_B64", fresh.jwt_public_key_b64.as_str()),
             ("REFORGED_ADMIN_API_KEY", fresh.admin_api_key.as_str()),
-            (
-                "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
-                fresh.operator_secret.as_str(),
-            ),
+            ("MYSTICPARADOX_MANAGER_OPERATOR_SECRET", fresh.operator_secret.as_str()),
             ("REFORGED_DB_PASSWORD", fresh.database_password.as_str()),
         ];
         for (k, v) in fresh_pairs {
@@ -2378,23 +2215,16 @@ fn database_env(c: &HostConfig, s: &Secrets, p: &Paths) -> Vec<(String, String)>
         out.push(("REFORGED_DB_ENGINE".into(), "postgres".into()));
         out.push((
             "REFORGED_DB_HOST".into(),
-            db.postgres_host
-                .clone()
-                .unwrap_or_else(|| "127.0.0.1".into()),
+            db.postgres_host.clone().unwrap_or_else(|| "127.0.0.1".into()),
         ));
-        out.push((
-            "REFORGED_DB_PORT".into(),
-            db.postgres_port.unwrap_or(5432).to_string(),
-        ));
+        out.push(("REFORGED_DB_PORT".into(), db.postgres_port.unwrap_or(5432).to_string()));
         out.push((
             "REFORGED_DB_USER".into(),
             db.postgres_user.clone().unwrap_or_else(|| "dainty".into()),
         ));
         out.push((
             "REFORGED_DB_NAME".into(),
-            db.postgres_database
-                .clone()
-                .unwrap_or_else(|| "dainty".into()),
+            db.postgres_database.clone().unwrap_or_else(|| "dainty".into()),
         ));
         out.push(("REFORGED_DB_PASSWORD".into(), s.database_password.clone()));
         if db.allow_remote == Some(true) {
@@ -2402,10 +2232,7 @@ fn database_env(c: &HostConfig, s: &Secrets, p: &Paths) -> Vec<(String, String)>
         }
     } else {
         out.push(("REFORGED_DB_ENGINE".into(), "sqlite".into()));
-        out.push((
-            "REFORGED_DB_FILE".into(),
-            path_text(&p.config.join(DATABASE_FILE)),
-        ));
+        out.push(("REFORGED_DB_FILE".into(), path_text(&p.config.join(DATABASE_FILE))));
     }
     out
 }
@@ -2444,13 +2271,7 @@ fn module_switch_env(c: &HostConfig) -> Vec<(String, String)> {
 }
 
 #[must_use]
-pub fn build_env_files(
-    c: &HostConfig,
-    s: &Secrets,
-    p: &Paths,
-    source_commit: &str,
-    platform: Platform,
-) -> EnvFiles {
+pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &str, platform: Platform) -> EnvFiles {
     fn push(vec: &mut EnvEntries, k: &str, v: impl Into<String>) {
         vec.push((k.to_owned(), v.into()));
     }
@@ -2459,11 +2280,7 @@ pub fn build_env_files(
     let mut backend = EnvEntries::new();
     push(&mut backend, "NODE_ENV", "production");
     push(&mut backend, "MYSTICPARADOX_SERVICE_ROLE", "api");
-    push(
-        &mut backend,
-        "MYSTICPARADOX_METRICS_TOKEN",
-        &s.metrics_token,
-    );
+    push(&mut backend, "MYSTICPARADOX_METRICS_TOKEN", &s.metrics_token);
     push(&mut backend, "PORT", PORTS.backend.to_string());
     push(&mut backend, "BIND_HOST", "127.0.0.1");
     push(&mut backend, "REFORGED_HTTP_ONLY", "true");
@@ -2475,27 +2292,15 @@ pub fn build_env_files(
     );
     push(&mut backend, "AUTH_MODE", "APIKEY");
     push(&mut backend, "ALLOW_NO_AUTH_DEV_MODE", "false");
-    push(
-        &mut backend,
-        "AUTH_SIGNING_PRIVKEY_B64",
-        &s.jwt_private_key_b64,
-    );
-    push(
-        &mut backend,
-        "AUTH_SIGNING_PUBKEY_B64",
-        &s.jwt_public_key_b64,
-    );
+    push(&mut backend, "AUTH_SIGNING_PRIVKEY_B64", &s.jwt_private_key_b64);
+    push(&mut backend, "AUTH_SIGNING_PUBKEY_B64", &s.jwt_public_key_b64);
     push(&mut backend, "API_KEY_HASH_SECRET", &s.api_key_hash_secret);
     push(&mut backend, "GAMESERVER_API_KEYS", &s.gameserver_key);
     if cfg!(feature = "paradox") {
         push(&mut backend, "MONGODB_URI", &c.mongo.uri);
         push(&mut backend, "MONGODB_DB", "reforged");
         push(&mut backend, "MONGODB_APP_NAME", "reforged-backend");
-        push(
-            &mut backend,
-            "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS",
-            "15000",
-        );
+        push(&mut backend, "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS", "15000");
     }
     push(&mut backend, "TARGET_CHANGELIST", "647472");
     push(&mut backend, "APPROVED_EXECUTABLE_SHA256", PINNED_EXE_SHA256);
@@ -2533,11 +2338,7 @@ pub fn build_env_files(
         && let Some(m) = c.multipliers
     {
         push(&mut backend, "REFORGED_XP_MULTIPLIER", jsjson::number(m.xp));
-        push(
-            &mut backend,
-            "REFORGED_REWARD_MULTIPLIER",
-            jsjson::number(m.rewards),
-        );
+        push(&mut backend, "REFORGED_REWARD_MULTIPLIER", jsjson::number(m.rewards));
     }
     for (k, v) in module_switch_env(c) {
         push(&mut backend, &k, v);
@@ -2555,14 +2356,8 @@ pub fn build_env_files(
     let linux = platform == Platform::Linux;
     let perf = performance_options(c);
     let exe_rel = game_exe_relative();
-    let exe_path = c
-        .game_dir
-        .as_deref()
-        .map(|d| Path::new(d).join(&exe_rel));
-    let exe_text = exe_path
-        .as_deref()
-        .map(path_text)
-        .unwrap_or_default();
+    let exe_path = c.game_dir.as_deref().map(|d| Path::new(d).join(&exe_rel));
+    let exe_text = exe_path.as_deref().map(path_text).unwrap_or_default();
 
     push(&mut director, "NODE_ENV", "production");
     push(&mut director, "PORT", PORTS.director.to_string());
@@ -2584,30 +2379,14 @@ pub fn build_env_files(
         if let Some(proton) = l_opts.proton {
             push(&mut director, "REFORGED_PROTON", proton);
         }
-        push(
-            &mut director,
-            "REFORGED_WINEPREFIX",
-            path_text(&p.wine_prefix),
-        );
-        push(
-            &mut director,
-            "REFORGED_PROTON_DATA",
-            path_text(&p.proton_data),
-        );
-        push(
-            &mut director,
-            "REFORGED_XVFB",
-            if l_opts.xvfb { "1" } else { "0" },
-        );
+        push(&mut director, "REFORGED_WINEPREFIX", path_text(&p.wine_prefix));
+        push(&mut director, "REFORGED_PROTON_DATA", path_text(&p.proton_data));
+        push(&mut director, "REFORGED_XVFB", if l_opts.xvfb { "1" } else { "0" });
     } else {
         push(&mut director, "GAMESERVER_BINARY_PATH", &exe_text);
     }
     push(&mut director, "METAGAME_API_KEY", &s.gameserver_key);
-    push(
-        &mut director,
-        "SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP",
-        "3",
-    );
+    push(&mut director, "SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP", "3");
     push(
         &mut director,
         "GAMESERVER_READY_TIMEOUT_MS",
@@ -2650,26 +2429,14 @@ pub fn build_env_files(
         "GAMESERVER_HUNT_MEMORY_MB",
         perf.hunt_memory_mb.to_string(),
     );
-    push(
-        &mut director,
-        "REFORGED_SERVER_MAX_FPS",
-        perf.server_fps.to_string(),
-    );
-    push(
-        &mut director,
-        "REFORGED_SERVER_IDLE_FPS",
-        perf.idle_fps.to_string(),
-    );
+    push(&mut director, "REFORGED_SERVER_MAX_FPS", perf.server_fps.to_string());
+    push(&mut director, "REFORGED_SERVER_IDLE_FPS", perf.idle_fps.to_string());
     if !perf.verbose_game_logs {
         push(&mut director, "GAMESERVER_LOG_CMDS", QUIET_GAME_LOG_CMDS);
     }
     push(&mut director, "SERVER_RUNTIME_AUTO_UPDATE", "false");
     push(&mut director, "SERVER_RUNTIME_UPDATE_REQUIRED", "false");
-    push(
-        &mut director,
-        "GAMESERVER_LOG_DIR",
-        path_text(&p.gameserver_logs),
-    );
+    push(&mut director, "GAMESERVER_LOG_DIR", path_text(&p.gameserver_logs));
     push(
         &mut director,
         "REFORGED_BACKEND_URL",
@@ -2687,11 +2454,7 @@ pub fn build_env_files(
         "BACKEND_URL",
         format!("http://127.0.0.1:{}", PORTS.backend),
     );
-    push(
-        &mut content,
-        "CONTENT_RUNTIME_DIR",
-        path_text(&p.runtime_publish),
-    );
+    push(&mut content, "CONTENT_RUNTIME_DIR", path_text(&p.runtime_publish));
     push(&mut content, "CONTENT_BRANDING_DIR", path_text(&p.branding));
     push(&mut content, "CONTENT_NEWS_FILE", path_text(&p.news_file));
 
@@ -2699,11 +2462,7 @@ pub fn build_env_files(
     let mut admin = EnvEntries::new();
     push(&mut admin, "PORT", PORTS.admin.to_string());
     push(&mut admin, "BIND_HOST", "127.0.0.1");
-    push(
-        &mut admin,
-        "BACKEND_URL",
-        format!("http://127.0.0.1:{}", PORTS.backend),
-    );
+    push(&mut admin, "BACKEND_URL", format!("http://127.0.0.1:{}", PORTS.backend));
     push(
         &mut admin,
         "REFORGED_DIRECTOR_URL",
@@ -2711,21 +2470,13 @@ pub fn build_env_files(
     );
     push(&mut admin, "REFORGED_ADMIN_API_KEY", &s.admin_api_key);
     push(&mut admin, "REFORGED_ADMIN_KEY", &s.admin_key);
-    push(
-        &mut admin,
-        "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
-        &s.operator_secret,
-    );
+    push(&mut admin, "MYSTICPARADOX_MANAGER_OPERATOR_SECRET", &s.operator_secret);
     push(
         &mut admin,
         "REFORGED_ADMIN_API_TIMEOUTS_FILE",
         path_text(&p.config.join("admin-timeouts.json")),
     );
-    push(
-        &mut admin,
-        "REFORGED_MAX_HUNT_SERVERS",
-        c.max_hunt_servers.to_string(),
-    );
+    push(&mut admin, "REFORGED_MAX_HUNT_SERVERS", c.max_hunt_servers.to_string());
     push(&mut admin, "REFORGED_SERVER_MODE", c.mode.as_str());
     for (k, v) in database_env(c, s, p) {
         push(&mut admin, &k, v);
@@ -2755,16 +2506,8 @@ pub fn build_env_files(
                     "GATEWAY_NODE_CERT",
                     path_text(&p.tls.join(NODE_CERT_FILE)),
                 );
-                push(
-                    &mut gateway,
-                    "GATEWAY_NODE_KEY",
-                    path_text(&p.tls.join(NODE_KEY_FILE)),
-                );
-                push(
-                    &mut gateway,
-                    "GATEWAY_NODE_CA",
-                    path_text(&p.tls.join(CLUSTER_CA_FILE)),
-                );
+                push(&mut gateway, "GATEWAY_NODE_KEY", path_text(&p.tls.join(NODE_KEY_FILE)));
+                push(&mut gateway, "GATEWAY_NODE_CA", path_text(&p.tls.join(CLUSTER_CA_FILE)));
                 if let Ok(nodes_json) = serde_json::to_string(&net.nodes) {
                     push(&mut gateway, "GATEWAY_NETWORK_NODES", nodes_json);
                 }
@@ -2828,11 +2571,7 @@ pub fn build_env_files(
         ServerMode::Private => {
             push(&mut gateway, "GATEWAY_TLS", "0");
             push(&mut gateway, "GATEWAY_BIND", &c.game_address);
-            push(
-                &mut gateway,
-                "GATEWAY_PORT",
-                PORTS.private_gateway.to_string(),
-            );
+            push(&mut gateway, "GATEWAY_PORT", PORTS.private_gateway.to_string());
             push(&mut gateway, "GATEWAY_SECRET", &s.gateway_secret);
             push(
                 &mut gateway,
@@ -2864,29 +2603,17 @@ pub fn build_env_files(
     }
 }
 
-pub fn node_database_config(
-    c: &HostConfig,
-    p: &Paths,
-) -> Result<store::DatabaseConfig, HostError> {
+pub fn node_database_config(c: &HostConfig, p: &Paths) -> Result<store::DatabaseConfig, HostError> {
     if let Some(db) = &c.database
         && db.postgres()
     {
         let (secrets, _) = load_or_create_secrets(&p.config, new_secrets)?;
         return Ok(store::DatabaseConfig::Postgres(store::PostgresConfig {
-            host: db
-                .postgres_host
-                .clone()
-                .unwrap_or_else(|| "127.0.0.1".to_owned()),
+            host: db.postgres_host.clone().unwrap_or_else(|| "127.0.0.1".to_owned()),
             port: db.postgres_port.unwrap_or(5432),
-            user: db
-                .postgres_user
-                .clone()
-                .unwrap_or_else(|| "dainty".to_owned()),
+            user: db.postgres_user.clone().unwrap_or_else(|| "dainty".to_owned()),
             password: secrets.database_password,
-            database: db
-                .postgres_database
-                .clone()
-                .unwrap_or_else(|| "dainty".to_owned()),
+            database: db.postgres_database.clone().unwrap_or_else(|| "dainty".to_owned()),
             allow_remote: db.allow_remote.unwrap_or(false),
         }));
     }
@@ -2895,10 +2622,7 @@ pub fn node_database_config(
     })
 }
 
-pub fn write_named_env_files(
-    p: &Paths,
-    files: &[(&str, Option<&EnvEntries>)],
-) -> Result<Vec<PathBuf>, HostError> {
+pub fn write_named_env_files(p: &Paths, files: &[(&str, Option<&EnvEntries>)]) -> Result<Vec<PathBuf>, HostError> {
     std::fs::create_dir_all(&p.config).map_err(|e| HostError::io(&p.config, e))?;
     let mut written = Vec::new();
     for &(name, entries) in files {

@@ -12,7 +12,7 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpStream;
 
 use crate::core::pins::normalize_pin;
-use crate::net::pinned::{pinned_connect, validate_host, ConnectError, PinnedTarget};
+use crate::net::pinned::{ConnectError, PinnedTarget, pinned_connect, validate_host};
 
 pub mod to_file;
 
@@ -116,17 +116,14 @@ pub fn check_endpoint(endpoint: &Endpoint) -> Result<Option<String>, HttpError> 
     let host = validate_host(&endpoint.host).map_err(HttpError::from)?;
     match &endpoint.pin {
         Some(raw) => {
-            let normalized = normalize_pin(raw)
-                .ok_or_else(|| HttpError::Io("invalid certificate pin".to_owned()))?;
+            let normalized = normalize_pin(raw).ok_or_else(|| HttpError::Io("invalid certificate pin".to_owned()))?;
             Ok(Some(normalized))
         }
         None => {
             if is_private_or_loopback(host) {
                 Ok(None)
             } else {
-                Err(HttpError::Io(
-                    "public endpoint requires a certificate pin".to_owned(),
-                ))
+                Err(HttpError::Io("public endpoint requires a certificate pin".to_owned()))
             }
         }
     }
@@ -153,16 +150,10 @@ pub fn host_header(endpoint: &Endpoint) -> String {
     }
 }
 
-pub async fn request(
-    endpoint: &Endpoint,
-    path: &str,
-    options: RequestOptions,
-) -> Result<HttpResponse, HttpError> {
+pub async fn request(endpoint: &Endpoint, path: &str, options: RequestOptions) -> Result<HttpResponse, HttpError> {
     let checked_pin = check_endpoint(endpoint)?;
     if !path.starts_with('/') {
-        return Err(HttpError::Protocol(
-            "request path must start with '/'".to_owned(),
-        ));
+        return Err(HttpError::Protocol("request path must start with '/'".to_owned()));
     }
 
     let fut = async {

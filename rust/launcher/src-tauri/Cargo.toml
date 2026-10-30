@@ -28,6 +28,7 @@ sha2.workspace = true
 tauri-build = { version = "2.7", features = ["isolation"] }
 
 [dependencies]
+launcher-kit.workspace = true
 protocol.workspace = true
 # Epic sign-in, ownership and installs (DD22)
 epic.workspace = true
@@ -85,6 +86,7 @@ rifts-host = { workspace = true, optional = true }
 rifts-seam = { workspace = true, optional = true }
 
 [dev-dependencies]
+launcher-kit = { workspace = true, features = ["ts"] }
 sha1_smol = "1"
 tokio-stream = "0.1"
 tempfile.workspace = true
@@ -108,16 +110,16 @@ dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
 # The Host tools page (RA12). Without it, a player-only launcher: join, connect and play on a server
 # someone else hosts (`cargo build -p launcher --no-default-features`)
 default = ["host"]
-host = ["dep:toml_edit"]
-server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"]
+host = ["dep:toml_edit", "launcher-kit/host"]
+server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms", "launcher-kit/server-gui"]
 # Dauntless Revived's 1.4.4 servers next to 1.14.7 ones, chosen in the settings (legacy or reborn; RD5 reversed)
-legacy = ["protocol/legacy", "host?/legacy"]
+legacy = ["protocol/legacy", "host?/legacy", "launcher-kit/legacy"]
 # The game modules the server GUI links in, as the server binaries' (DF5)
 stub-module = ["host?/stub-module"]
 isles-1-14-7 = ["host?/isles-1-14-7"]
 isles-1-12-0 = ["host?/isles-1-12-0"]
 revived-1-4-4 = ["host?/revived-1-4-4"]
-realms = ["dep:rifts-host", "dep:rifts-seam", "host?/realms"]
+realms = ["dep:rifts-host", "dep:rifts-seam", "host?/realms", "launcher-kit/realms"]
 all-modules = ["isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "realms"]
 # Set by `tauri build`: serve the built page from the binary instead of the Vite dev server
 custom-protocol = ["tauri/custom-protocol"]

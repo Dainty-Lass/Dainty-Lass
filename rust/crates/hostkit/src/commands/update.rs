@@ -13,9 +13,8 @@ use crate::hostconfig::{HostConfig, load_host_config, node_database_config};
 use crate::paths::Paths;
 use crate::run::{RunOptions, run as run_cmd};
 use crate::selfupdate::{
-    Attestation, Candidate, Manifest, SUMS_FILE, Source, UpdateError, UpdateResult, Wanted,
-    extract, fetch, find_release, install, installing_marker, read_manifest, this_platform,
-    verify_attestation,
+    Attestation, Candidate, Manifest, SUMS_FILE, Source, UpdateError, UpdateResult, Wanted, extract, fetch,
+    find_release, install, installing_marker, read_manifest, this_platform, verify_attestation,
 };
 
 pub const MONGO_MIGRATED_MARKER: &str = ".mongo-migrated";
@@ -41,19 +40,10 @@ pub const MONGO_COLLECTIONS: [&str; 15] = [
 pub trait UpdateEnv {
     fn platform(&self) -> Result<&'static str, HostError>;
     fn source(&self, installed: Option<&Manifest>) -> Source;
-    fn verify_attestation(
-        &self,
-        archive: &Path,
-        candidate: &Candidate,
-        log: &Path,
-    ) -> UpdateResult<Attestation>;
+    fn verify_attestation(&self, archive: &Path, candidate: &Candidate, log: &Path) -> UpdateResult<Attestation>;
     fn checkout_commit(&self, root: &Path) -> String;
     fn run_setup(&self, program: &Path, root: &Path) -> Result<i32, HostError>;
-    fn migrate_mongo_data(
-        &self,
-        paths: &Paths,
-        out: &mut dyn FnMut(&str),
-    ) -> Result<(), HostError> {
+    fn migrate_mongo_data(&self, paths: &Paths, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
         if let Ok(Some(cfg)) = load_host_config(paths) {
             let log_file = paths.logs.join("update.log");
             let _ = migrate_existing_mongo_data(paths, &cfg, &log_file, out)?;
@@ -74,12 +64,7 @@ impl UpdateEnv for RealUpdateEnv {
         Source::from_env(installed)
     }
 
-    fn verify_attestation(
-        &self,
-        archive: &Path,
-        candidate: &Candidate,
-        log: &Path,
-    ) -> UpdateResult<Attestation> {
+    fn verify_attestation(&self, archive: &Path, candidate: &Candidate, log: &Path) -> UpdateResult<Attestation> {
         verify_attestation(archive, candidate, log)
     }
 
@@ -174,10 +159,7 @@ pub fn store_target_for_migration(
             } else {
                 format!("{}:{}", pg.user, pg.password)
             };
-            let target = format!(
-                "postgres://{auth}@{}:{}/{}",
-                pg.host, pg.port, pg.database
-            );
+            let target = format!("postgres://{auth}@{}:{}/{}", pg.host, pg.port, pg.database);
             Ok((target, pg.allow_remote, None))
         }
     }
@@ -298,17 +280,12 @@ pub fn has_unmigrated_mongo_dir(p: &Paths) -> bool {
     let Ok(entries) = fs::read_dir(&p.mongo_data) else {
         return false;
     };
-    entries
-        .flatten()
-        .any(|e| e.file_name().to_str() != Some("mongod.lock"))
+    entries.flatten().any(|e| e.file_name().to_str() != Some("mongod.lock"))
 }
 
 #[must_use]
 pub fn has_prior_old_kit_artifacts(p: &Paths) -> bool {
-    if p.host_json.is_file()
-        || p.config.join("host.json.bak").is_file()
-        || p.logs.join("mongo.log").is_file()
-    {
+    if p.host_json.is_file() || p.config.join("host.json.bak").is_file() || p.logs.join("mongo.log").is_file() {
         return true;
     }
     fs::read_to_string(p.config.join("backend.env"))
@@ -361,10 +338,7 @@ pub fn unmigrated_mongo_doctor_problem(p: &Paths, config: &HostConfig) -> Option
     None
 }
 
-pub fn check_unmigrated_mongo_before_start(
-    p: &Paths,
-    config: &HostConfig,
-) -> Result<(), HostError> {
+pub fn check_unmigrated_mongo_before_start(p: &Paths, config: &HostConfig) -> Result<(), HostError> {
     if let Some((problem, fix)) = unmigrated_mongo_doctor_problem(p, config) {
         return Err(HostError::message(format!("{problem}: {fix}")));
     }
@@ -418,9 +392,7 @@ pub fn migrate_existing_mongo_data(
     let (counts, _) = crate::hooks::get().db_migrate(&config.mongo.uri, &db_cfg, false)?;
     let mismatches = crate::hooks::get().db_verify(&config.mongo.uri, &db_cfg)?;
     if !mismatches.is_empty() {
-        if !sqlite_existed_before
-            && let store::DatabaseConfig::Sqlite { file } = &db_cfg
-        {
+        if !sqlite_existed_before && let store::DatabaseConfig::Sqlite { file } = &db_cfg {
             let _ = fs::remove_file(file);
             let _ = fs::remove_file(file.with_extension("db-wal"));
             let _ = fs::remove_file(file.with_extension("db-shm"));

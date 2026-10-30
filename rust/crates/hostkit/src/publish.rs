@@ -136,8 +136,7 @@ pub fn publish_runtime(
         }
     }
 
-    std::fs::create_dir_all(&p.runtime_publish)
-        .map_err(|e| HostError::io(&p.runtime_publish, e))?;
+    std::fs::create_dir_all(&p.runtime_publish).map_err(|e| HostError::io(&p.runtime_publish, e))?;
 
     let mut files = Vec::with_capacity(sources.len());
     for (name, src) in sources {
@@ -166,8 +165,7 @@ pub fn publish_runtime(
 
     let manifest_tmp = p.runtime_publish.join("runtime.json.tmp");
     let manifest_dest = p.runtime_publish.join("runtime.json");
-    std::fs::write(&manifest_tmp, published.to_json())
-        .map_err(|e| HostError::io(&manifest_tmp, e))?;
+    std::fs::write(&manifest_tmp, published.to_json()).map_err(|e| HostError::io(&manifest_tmp, e))?;
     let _ = replace_loaded_file(&manifest_tmp, &manifest_dest)?;
 
     Ok(published)

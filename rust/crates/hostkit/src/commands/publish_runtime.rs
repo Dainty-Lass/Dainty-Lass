@@ -10,26 +10,17 @@ use crate::cli::PublishRuntimeArgs;
 use crate::error::HostError;
 use crate::hostconfig::load_host_config;
 use crate::paths::{Paths, RUNTIME_FILE_NAMES, game_exe_relative};
-use crate::publish::{
-    default_sources, ensure_server_flags, install_server_runtime, publish_runtime,
-};
+use crate::publish::{default_sources, ensure_server_flags, install_server_runtime, publish_runtime};
 
 pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Result<ExitCode, HostError> {
     run_with(paths, args, &mut |line| println!("{line}"))
 }
 
-pub fn run_with(
-    paths: &Paths,
-    args: &PublishRuntimeArgs,
-    out: &mut dyn FnMut(&str),
-) -> Result<ExitCode, HostError> {
+pub fn run_with(paths: &Paths, args: &PublishRuntimeArgs, out: &mut dyn FnMut(&str)) -> Result<ExitCode, HostError> {
     let sources: Vec<(&str, PathBuf)> = match args.from.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         Some(dir_str) => {
             let dir = Path::new(dir_str);
-            RUNTIME_FILE_NAMES
-                .iter()
-                .map(|&name| (name, dir.join(name)))
-                .collect()
+            RUNTIME_FILE_NAMES.iter().map(|&name| (name, dir.join(name))).collect()
         }
         None => default_sources(paths).to_vec(),
     };
@@ -42,12 +33,7 @@ pub fn run_with(
         paths.runtime_publish.display()
     ));
     for f in &published.files {
-        out(&format!(
-            "  {} ({} bytes, sha256:{})",
-            f.name,
-            f.size,
-            &f.sha256[..16]
-        ));
+        out(&format!("  {} ({} bytes, sha256:{})", f.name, f.size, &f.sha256[..16]));
     }
 
     if let Ok(Some(cfg)) = load_host_config(paths)

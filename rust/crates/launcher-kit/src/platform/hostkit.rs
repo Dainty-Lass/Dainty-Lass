@@ -15,7 +15,10 @@ use std::time::{Duration, SystemTime};
 use chrono::{DateTime, SecondsFormat, Utc};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-use crate::bridge::types::{GameDataState, HostDump, HostKit, HostMultipliers, HostServerConfig, HostToolchain};
+use crate::bridge::types::{
+    GameDataState, HostBuilds, HostDump, HostExports, HostGameData, HostKit, HostMultipliers, HostSdk,
+    HostServerConfig, HostServerMode, HostToolchain, HostUpstream,
+};
 use crate::platform::system::run_hidden;
 
 pub use parse::{
@@ -57,15 +60,6 @@ pub const HOST_BINARY: &str = if cfg!(windows) {
 } else {
     "reforged-host"
 };
-
-const SDK_TOP_FILES: [&str; 6] = [
-    "SDK.hpp",
-    "Assertions.inl",
-    "NameCollisions.inl",
-    "PropertyFixup.hpp",
-    "UnrealContainers.hpp",
-    "UtfN.hpp",
-];
 
 const EXEC_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_EXEC_BYTES: usize = 4 * 1024 * 1024;
@@ -172,7 +166,7 @@ impl WorkspacePaths {
 
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
-        let runtime_solution = runtime_source.join("MysticParadox.vcxproj");
+        let runtime_solution = runtime_source.join("MysticParadox.sln");
         let runtime_dll = runtime_source.join("x64").join("Release").join("MysticParadox.dll");
         let exporter_project = exporter_dir.join("CatalogExporter.vcxproj");
         let exporter_dll = exporter_dir.join("x64").join("Release").join("CatalogExporter.dll");
@@ -181,7 +175,7 @@ impl WorkspacePaths {
         let config = workspace.join("config");
         let host_toml = config.join("host.toml");
         let host_json = config.join("host.json");
-        let gamedata_packs = workspace.join("gamedata");
+        let gamedata_packs = workspace.join("gamedata-packs");
 
         Self {
             root,
@@ -225,8 +219,8 @@ impl Toolchain {
     pub fn view(&self) -> HostToolchain {
         HostToolchain {
             visual_studio: self.visual_studio.clone(),
-            msbuild: self.msbuild.as_ref().map(|p| p.to_string_lossy().into_owned()),
-            cargo: self.cargo.as_ref().map(|p| p.to_string_lossy().into_owned()),
+            msbuild: self.msbuild.is_some(),
+            cargo: self.cargo.is_some(),
         }
     }
 }
@@ -244,10 +238,10 @@ impl SdkError {
     #[must_use]
     pub const fn code(self) -> &'static str {
         match self {
-            Self::NoHeader => "sdk_no_header",
-            Self::NoRuntimeSource => "sdk_no_runtime_source",
+            Self::NoHeader => "sdk_folder",
+            Self::NoRuntimeSource => "workspace",
             Self::NoFunctions => "sdk_no_functions",
-            Self::Io => "sdk_io",
+            Self::Io => "sdk_copy",
         }
     }
 }
@@ -551,37 +545,19 @@ pub fn read_server_config(root: &Path) -> HostServerConfig {
         };
     };
 
-    let mode_str = match cfg.mode {
-        ServerMode::Private => "private".to_owned(),
-        ServerMode::Public => "public".to_owned(),
+    let mode = match cfg.mode {
+        ServerMode::Private => HostServerMode::Private,
+        ServerMode::Public => HostServerMode::Public,
     };
     let multipliers = cfg.multipliers.map(|(xp, rewards)| HostMultipliers { xp, rewards });
 
     HostServerConfig {
         configured: true,
         name: cfg.name,
-        mode: Some(mode_str),
+        mode: Some(mode),
         host: cfg.host,
         multipliers,
     }
-}
-
-fn has_any_file(dir: &Path) -> bool {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return false;
-    };
-    for entry in entries.flatten() {
-        let Ok(ft) = entry.file_type() else {
-            continue;
-        };
-        if ft.is_file() {
-            return true;
-        }
-        if ft.is_dir() && has_any_file(&entry.path()) {
-            return true;
-        }
-    }
-    false
 }
 
 /// Inspects `workspace`, `toolchain`, and `dump_root` to build a [`HostKit`] snapshot.
@@ -592,64 +568,92 @@ pub fn detect_host_kit(workspace: Option<&Path>, toolchain: &Toolchain, dump_roo
         return HostKit {
             workspace: None,
             workspace_ok: false,
-            sdk_present: false,
-            sdk_functions: 0,
-            runtime_built: false,
-            loader_built: false,
-            exporter_built: false,
-            runtime_published: false,
-            backend_data: GameDataState::Missing,
-            director_data: GameDataState::Missing,
-            exports_ready: false,
-            server: HostServerConfig {
+            upstream: HostUpstream {
+                present: false,
+                patched: false,
+            },
+            sdk: HostSdk {
+                present: false,
+                function_files: 0,
+            },
+            dumps,
+            dumper_dll: None,
+            builds: HostBuilds {
+                runtime: false,
+                loader: false,
+                exporter: false,
+                published: false,
+            },
+            toolchain: toolchain.view(),
+            game_data: HostGameData {
+                backend: GameDataState::Missing,
+                director: GameDataState::Missing,
+            },
+            exports: HostExports {
+                present: false,
+                in_game: false,
+            },
+            server_config: HostServerConfig {
                 configured: false,
                 name: None,
                 mode: None,
                 host: None,
                 multipliers: None,
             },
-            toolchain: toolchain.view(),
-            dumps,
-            dumper_dll: None,
             requirements: Vec::new(),
             job: None,
-            last_update: None,
+            update: None,
+            project_target: None,
         };
     };
 
     let paths = WorkspacePaths::new(ws);
     let workspace_ok = is_workspace(ws);
+    let upstream_present = paths.runtime_source.join("dllmain.cpp").is_file();
     let sdk_functions = count_function_files(&paths.sdk_dir);
-    let sdk_present = paths.sdk_header.is_file() && sdk_functions > 0;
+    let sdk_present = paths.sdk_header.is_file();
     let runtime_built = paths.runtime_dll.is_file();
     let loader_built = paths.loader_dll.is_file();
     let exporter_built = paths.exporter_dll.is_file();
-    let runtime_published = RUNTIME_FILE_NAMES.iter().all(|name| paths.publish.join(name).is_file())
-        && paths.publish.join("runtime.json").is_file();
+    let runtime_published = RUNTIME_FILE_NAMES.iter().all(|name| paths.publish.join(name).is_file());
     let backend_data = detect_game_data(&paths.backend_game_data, &BACKEND_GAME_DATA);
     let director_data = detect_game_data(&paths.director_game_data, &DIRECTOR_GAME_DATA);
-    let exports_ready = has_any_file(&paths.exports);
-    let server = read_server_config(ws);
+    let exports_present = paths.exports.is_dir();
+    let server_config = read_server_config(ws);
 
     HostKit {
         workspace: Some(ws.to_string_lossy().into_owned()),
         workspace_ok,
-        sdk_present,
-        sdk_functions,
-        runtime_built,
-        loader_built,
-        exporter_built,
-        runtime_published,
-        backend_data,
-        director_data,
-        exports_ready,
-        server,
-        toolchain: toolchain.view(),
+        upstream: HostUpstream {
+            present: upstream_present,
+            patched: upstream_present,
+        },
+        sdk: HostSdk {
+            present: sdk_present,
+            function_files: sdk_functions,
+        },
         dumps,
         dumper_dll: None,
+        builds: HostBuilds {
+            runtime: runtime_built,
+            loader: loader_built,
+            exporter: exporter_built,
+            published: runtime_published,
+        },
+        toolchain: toolchain.view(),
+        game_data: HostGameData {
+            backend: backend_data,
+            director: director_data,
+        },
+        exports: HostExports {
+            present: exports_present,
+            in_game: false,
+        },
+        server_config,
         requirements: Vec::new(),
         job: None,
-        last_update: None,
+        update: None,
+        project_target: None,
     }
 }
 
@@ -685,7 +689,7 @@ pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<u32, SdkErro
         return Err(SdkError::NoHeader);
     };
 
-    if !runtime_source.is_dir() {
+    if !runtime_source.join("dllmain.cpp").is_file() {
         return Err(SdkError::NoRuntimeSource);
     }
 
@@ -695,20 +699,11 @@ pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<u32, SdkErro
         return Err(SdkError::NoFunctions);
     }
 
-    for &name in &SDK_TOP_FILES {
-        let src = source.join(name);
-        if let Ok(meta) = std::fs::symlink_metadata(&src)
-            && meta.is_file()
-        {
-            std::fs::copy(&src, runtime_source.join(name)).map_err(|_| SdkError::Io)?;
-        }
-    }
-
     let target_sdk = runtime_source.join("SDK");
     if target_sdk.exists() {
         std::fs::remove_dir_all(&target_sdk).map_err(|_| SdkError::Io)?;
     }
-    copy_tree(&sdk_sub, &target_sdk).map_err(|_| SdkError::Io)?;
+    copy_tree(&source, runtime_source).map_err(|_| SdkError::Io)?;
 
     Ok(count_function_files(&target_sdk))
 }
@@ -846,6 +841,8 @@ mod tests {
         assert_eq!(import_sdk(&dump, &rt), Err(SdkError::NoRuntimeSource));
 
         std::fs::create_dir_all(&rt).unwrap();
+        assert_eq!(import_sdk(&dump, &rt), Err(SdkError::NoRuntimeSource));
+        std::fs::write(rt.join("dllmain.cpp"), b"// main").unwrap();
         assert_eq!(import_sdk(&dump, &rt), Err(SdkError::NoFunctions));
 
         std::fs::write(sdk.join("Archon_functions.cpp"), b"// fn").unwrap();

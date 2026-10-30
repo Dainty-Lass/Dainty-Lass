@@ -13,7 +13,7 @@ pub const USERNAME_MAX: usize = 16;
 const MAX_KEY_EXTRACT_UTF16_LEN: usize = 8192;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct RegisterRequest {
     pub username: String,
     pub invite_code: String,
@@ -21,6 +21,7 @@ pub struct RegisterRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Registered {
+    #[serde(rename = "UUK")]
     pub key: String,
 }
 
@@ -54,10 +55,7 @@ pub fn check_username(raw: &str) -> UsernameCheck {
     if raw.is_empty() {
         return UsernameCheck::Empty;
     }
-    if !raw
-        .bytes()
-        .all(|b| b.is_ascii_alphanumeric() || b == b'_')
-    {
+    if !raw.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
         return UsernameCheck::Chars;
     }
     let len = raw.len();
@@ -79,10 +77,7 @@ pub fn is_valid_username(raw: &str) -> bool {
 /// Returns `true` if `key` is a plausible account key token (`^[A-Za-z0-9_-]{8,128}$`).
 #[must_use]
 pub fn is_plausible_account_key(key: &str) -> bool {
-    (8..=128).contains(&key.len())
-        && key
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    (8..=128).contains(&key.len()) && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
 }
 
 fn is_js_line_terminator(ch: char) -> bool {
@@ -105,11 +100,7 @@ pub fn extract_account_key(raw: &str) -> Option<&str> {
     let mut search_from = 0;
     while let Some(rel) = trimmed[search_from..].find("Key:") {
         let pos = search_from + rel;
-        let at_line_start = pos == 0
-            || trimmed[..pos]
-                .chars()
-                .next_back()
-                .is_some_and(is_js_line_terminator);
+        let at_line_start = pos == 0 || trimmed[..pos].chars().next_back().is_some_and(is_js_line_terminator);
         if at_line_start {
             let after_label = &trimmed[pos + 4..];
             let ws_bytes: usize = after_label
@@ -118,11 +109,7 @@ pub fn extract_account_key(raw: &str) -> Option<&str> {
                 .map(char::len_utf8)
                 .sum();
             let rest = &after_label[ws_bytes..];
-            let token_bytes: usize = rest
-                .chars()
-                .take_while(|&c| !is_js_space(c))
-                .map(char::len_utf8)
-                .sum();
+            let token_bytes: usize = rest.chars().take_while(|&c| !is_js_space(c)).map(char::len_utf8).sum();
             let token = &rest[..token_bytes];
             if is_plausible_account_key(token) {
                 return Some(token);
@@ -144,15 +131,8 @@ pub fn extract_account_key(raw: &str) -> Option<&str> {
             .sum();
         let rest = &after_label[ws_bytes..];
         if let Some(after_prefix) = rest.strip_prefix(ACCOUNT_KEY_PREFIX) {
-            let hex_len = after_prefix
-                .bytes()
-                .take(48)
-                .take_while(u8::is_ascii_hexdigit)
-                .count();
-            let next_is_hex = after_prefix
-                .as_bytes()
-                .get(48)
-                .is_some_and(u8::is_ascii_hexdigit);
+            let hex_len = after_prefix.bytes().take(48).take_while(u8::is_ascii_hexdigit).count();
+            let next_is_hex = after_prefix.as_bytes().get(48).is_some_and(u8::is_ascii_hexdigit);
             if hex_len == 48 && !next_is_hex {
                 return Some(&rest[..52]);
             }

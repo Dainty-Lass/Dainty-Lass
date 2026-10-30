@@ -3,9 +3,9 @@
 //! `isles-core` / `isles-director` generators, and the `legacy` 1.4.4 stack.
 
 pub use hostkit::{
-    HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks,
-    hostconfig, hosttoml, invite, linux, mongo, paths, preset, progression, publish, repl,
-    selfupdate, services, tls, tui, wine, with_admin_env,
+    HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hosttoml,
+    invite, linux, mongo, paths, preset, progression, publish, repl, selfupdate, services, tls, tui, wine,
+    with_admin_env,
 };
 
 pub mod run {
@@ -62,10 +62,7 @@ fn db_cfg_to_target(db_cfg: &store::DatabaseConfig) -> (String, bool) {
                 format!("{}:{}", pg.user, pg.password)
             };
             (
-                format!(
-                    "postgres://{auth}@{}:{}/{}",
-                    pg.host, pg.port, pg.database
-                ),
+                format!("postgres://{auth}@{}:{}/{}", pg.host, pg.port, pg.database),
                 pg.allow_remote,
             )
         }
@@ -73,19 +70,14 @@ fn db_cfg_to_target(db_cfg: &store::DatabaseConfig) -> (String, bool) {
 }
 
 #[cfg(feature = "isles-1-14-7")]
-fn execute_rust_generator(
-    p: &paths::Paths,
-    generator: hostkit::gamedata::GeneratorKind,
-) -> Result<String, String> {
+fn execute_rust_generator(p: &paths::Paths, generator: hostkit::gamedata::GeneratorKind) -> Result<String, String> {
     use hostkit::gamedata::GeneratorKind;
     match generator {
-        GeneratorKind::ProgressionConfig => isles_core::gamedata::generate_progression_config(
-            &p.raw_game_data,
-            &p.backend_game_data,
-            true,
-        ),
-        GeneratorKind::HuntTables => isles_director::hunt_tables::import_hunt_tables(
-            &isles_director::hunt_tables::ImportHuntTablesOptions {
+        GeneratorKind::ProgressionConfig => {
+            isles_core::gamedata::generate_progression_config(&p.raw_game_data, &p.backend_game_data, true)
+        }
+        GeneratorKind::HuntTables => {
+            isles_director::hunt_tables::import_hunt_tables(&isles_director::hunt_tables::ImportHuntTablesOptions {
                 export_dir: p.exports.join("hunts_1_14_7"),
                 vendor_dir: p.director_game_data.clone(),
                 repo_root: Some(p.repo.clone()),
@@ -93,42 +85,30 @@ fn execute_rust_generator(
                 update_existing: false,
                 verbose: false,
                 backup_stamp: None,
-            },
-        )
-        .map(|report| report.output),
+            })
+            .map(|report| report.output)
+        }
         GeneratorKind::SlayersPath => isles_core::gamedata::generate_slayers_path(
-            &p.exports
-                .join("slayers_path_1_14_7")
-                .join("player_journey_nodes.jsonl"),
+            &p.exports.join("slayers_path_1_14_7").join("player_journey_nodes.jsonl"),
             &p.backend_game_data.join("slayers_path.json"),
             true,
         ),
-        GeneratorKind::SlayersPathDefinitions => {
-            isles_core::gamedata::generate_slayers_path_definitions(
-                &p.exports
-                    .join("slayers_path_1_14_7")
-                    .join("player_journey_nodes.jsonl"),
-                &p.backend_game_data.join("slayers_path_definitions.json"),
-                "1_14_7",
-                true,
-            )
-        }
+        GeneratorKind::SlayersPathDefinitions => isles_core::gamedata::generate_slayers_path_definitions(
+            &p.exports.join("slayers_path_1_14_7").join("player_journey_nodes.jsonl"),
+            &p.backend_game_data.join("slayers_path_definitions.json"),
+            "1_14_7",
+            true,
+        ),
         GeneratorKind::RewardCache => {
             let catalog = p.exports.join("catalog_1_14_7.jsonl");
             let out = p.backend_game_data.join("reward_cache_store.json");
             let a = isles_core::gamedata::generate_reward_cache_store(&catalog, &out)?;
-            let b = isles_core::gamedata::generate_inventory_storage_policy(
-                &catalog,
-                None,
-                &p.backend_game_data,
-            )?;
+            let b = isles_core::gamedata::generate_inventory_storage_policy(&catalog, None, &p.backend_game_data)?;
             Ok(format!("{a}\n{b}"))
         }
-        GeneratorKind::LadyLuckGenerate => isles_core::gamedata::generate_ladyluck_store(
-            &p.raw_game_data,
-            &p.backend_game_data,
-            true,
-        ),
+        GeneratorKind::LadyLuckGenerate => {
+            isles_core::gamedata::generate_ladyluck_store(&p.raw_game_data, &p.backend_game_data, true)
+        }
         GeneratorKind::LadyLuckEnrich => {
             let catalog = p.exports.join("catalog_1_14_7.jsonl");
             let live = p
@@ -139,19 +119,12 @@ fn execute_rust_generator(
                 .join("ladyluckstore.json");
             let store = p.backend_game_data.join("ladyluck_store.json");
             let a = isles_core::gamedata::enrich_ladyluck_store(&catalog, &live, &store)?;
-            let b = isles_core::gamedata::generate_inventory_storage_policy(
-                &catalog,
-                None,
-                &p.backend_game_data,
-            )?;
+            let b = isles_core::gamedata::generate_inventory_storage_policy(&catalog, None, &p.backend_game_data)?;
             Ok(format!("{a}\n{b}"))
         }
         GeneratorKind::PlatinumAndStoragePolicy => {
             let catalog = isles_core::gamedata::resolve_platinum_export_file(&p.exports, "catalog");
-            let store_images = isles_core::gamedata::resolve_platinum_export_file(
-                &p.exports,
-                "store_item_images",
-            );
+            let store_images = isles_core::gamedata::resolve_platinum_export_file(&p.exports, "store_item_images");
             let captures = p.store_captures.join("Store").join("Product").join("Skus");
             let a = isles_core::gamedata::generate_platinum_store(
                 &catalog,
@@ -160,21 +133,15 @@ fn execute_rust_generator(
                 &p.backend_game_data,
             )?;
             let policy_catalog = p.exports.join("catalog_1_14_7.jsonl");
-            let b = isles_core::gamedata::generate_inventory_storage_policy(
-                &policy_catalog,
-                None,
-                &p.backend_game_data,
-            )?;
+            let b =
+                isles_core::gamedata::generate_inventory_storage_policy(&policy_catalog, None, &p.backend_game_data)?;
             Ok(format!("{a}\n{b}"))
         }
     }
 }
 
 #[cfg(not(feature = "isles-1-14-7"))]
-fn execute_rust_generator(
-    _p: &paths::Paths,
-    generator: hostkit::gamedata::GeneratorKind,
-) -> Result<String, String> {
+fn execute_rust_generator(_p: &paths::Paths, generator: hostkit::gamedata::GeneratorKind) -> Result<String, String> {
     Err(format!(
         "{} is unavailable: this binary was built without the isles-1-14-7 feature",
         generator.label()
@@ -200,8 +167,7 @@ mod db_impl {
             for part in item.split(',') {
                 let trimmed = part.trim();
                 if !trimmed.is_empty() {
-                    let area = isles_db::MigrateArea::parse(trimmed)
-                        .map_err(|e| HostError::message(e.to_string()))?;
+                    let area = isles_db::MigrateArea::parse(trimmed).map_err(|e| HostError::message(e.to_string()))?;
                     areas.push(area);
                 }
             }
@@ -209,10 +175,7 @@ mod db_impl {
         Ok(areas)
     }
 
-    fn resolve_node(
-        config: Option<&HostConfig>,
-        explicit: Option<&str>,
-    ) -> Result<module_api::NodeId, HostError> {
+    fn resolve_node(config: Option<&HostConfig>, explicit: Option<&str>) -> Result<module_api::NodeId, HostError> {
         let raw = explicit
             .map(str::trim)
             .filter(|s| !s.is_empty())
@@ -423,9 +386,7 @@ mod db_impl {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|e| {
-                HostError::message(format!("could not start runtime for db export-mongo: {e}"))
-            })?;
+            .map_err(|e| HostError::message(format!("could not start runtime for db export-mongo: {e}")))?;
 
         let report = runtime.block_on(isles_db::run_export_mongo(&opts)).map_err(|e| {
             let msg = redact_credentials_in_text(&e.to_string(), &[&from_source, &to_uri]);
@@ -494,8 +455,7 @@ impl hooks::HostHooks for ServicesHostHooks {
     fn mongo_has_documents(&self, uri: &str) -> Result<bool, String> {
         #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
         {
-            let mut client =
-                isles_db::mongo::MongoClient::connect(uri).map_err(|e| e.to_string())?;
+            let mut client = isles_db::mongo::MongoClient::connect(uri).map_err(|e| e.to_string())?;
             let primary = [
                 "accounts",
                 "characters",
@@ -513,9 +473,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                 isles_db::MigrateArea::ALL.into_iter().collect();
             let empty_state = isles_db::migrate::TargetState::default();
             for col in isles_db::state_to_mongo_collections(&empty_state, &all_areas).into_keys() {
-                if !primary.contains(&col.as_str())
-                    && client.collection_has_documents(&col).unwrap_or(false)
-                {
+                if !primary.contains(&col.as_str()) && client.collection_has_documents(&col).unwrap_or(false) {
                     return Ok(true);
                 }
             }
@@ -562,17 +520,11 @@ impl hooks::HostHooks for ServicesHostHooks {
         #[cfg(not(any(feature = "isles-1-14-7", feature = "paradox")))]
         {
             let _ = (source_uri, db_cfg, dry_run);
-            Err(HostError::message(
-                "database migration is not compiled in",
-            ))
+            Err(HostError::message("database migration is not compiled in"))
         }
     }
 
-    fn db_verify(
-        &self,
-        source_uri: &str,
-        db_cfg: &store::DatabaseConfig,
-    ) -> Result<Vec<(String, String)>, HostError> {
+    fn db_verify(&self, source_uri: &str, db_cfg: &store::DatabaseConfig) -> Result<Vec<(String, String)>, HostError> {
         #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
         {
             let (to_target, allow_remote_postgres) = db_cfg_to_target(db_cfg);
@@ -603,37 +555,27 @@ impl hooks::HostHooks for ServicesHostHooks {
                                 c.name,
                                 format!(
                                     "expected count={} sha256={}, actual count={} sha256={}",
-                                    c.expected_count,
-                                    c.expected_sha256,
-                                    c.actual_count,
-                                    c.actual_sha256
+                                    c.expected_count, c.expected_sha256, c.actual_count, c.actual_sha256
                                 ),
                             )
                         })
                         .collect();
                     Ok(mismatches)
                 }
-                Err(isles_db::DbError::VerificationFailed(n)) => Ok(vec![(
-                    format!("{n} collection(s)"),
-                    "verification failed".to_owned(),
-                )]),
+                Err(isles_db::DbError::VerificationFailed(n)) => {
+                    Ok(vec![(format!("{n} collection(s)"), "verification failed".to_owned())])
+                }
                 Err(e) => Err(HostError::message(e.to_string())),
             }
         }
         #[cfg(not(any(feature = "isles-1-14-7", feature = "paradox")))]
         {
             let _ = (source_uri, db_cfg);
-            Err(HostError::message(
-                "database verification is not compiled in",
-            ))
+            Err(HostError::message("database verification is not compiled in"))
         }
     }
 
-    fn db_export_mongo(
-        &self,
-        uri: &str,
-        out: &Path,
-    ) -> Result<Vec<(String, usize)>, HostError> {
+    fn db_export_mongo(&self, uri: &str, out: &Path) -> Result<Vec<(String, usize)>, HostError> {
         #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
         {
             let opts = isles_db::ExportOptions {
@@ -659,12 +601,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         }
     }
 
-    fn run_db_command(
-        &self,
-        paths: &paths::Paths,
-        args: &cli::DbArgs,
-        out: &mut dyn FnMut(&str),
-    ) -> Option<Outcome> {
+    fn run_db_command(&self, paths: &paths::Paths, args: &cli::DbArgs, out: &mut dyn FnMut(&str)) -> Option<Outcome> {
         #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
         {
             Some(db_impl::run_with(paths, args, out))
@@ -713,11 +650,8 @@ impl hooks::HostHooks for ServicesHostHooks {
         #[cfg(feature = "content")]
         {
             controller.add(
-                modules::content(
-                    &hostkit::serve::module_env(paths, "content")?,
-                    Some(registry.clone()),
-                )
-                .map_err(HostError::message)?,
+                modules::content(&hostkit::serve::module_env(paths, "content")?, Some(registry.clone()))
+                    .map_err(HostError::message)?,
             );
         }
         #[cfg(not(feature = "content"))]
@@ -750,9 +684,7 @@ impl hooks::HostHooks for ServicesHostHooks {
             let key = paths.tls.join(hostconfig::NODE_KEY_FILE);
             let ca = paths.tls.join(hostconfig::CLUSTER_CA_FILE);
             let credentials = network_plugin::cluster::NodeCredentials::load(&cert, &key, &ca)
-                .map_err(|e| {
-                    HostError::message(format!("network credentials in {}: {e}", paths.tls.display()))
-                })?;
+                .map_err(|e| HostError::message(format!("network credentials in {}: {e}", paths.tls.display())))?;
             let said = credentials.identity();
             if said.node != network.node || said.region != network.region {
                 return Err(HostError::message(format!(
@@ -766,10 +698,8 @@ impl hooks::HostHooks for ServicesHostHooks {
             }
             std::fs::create_dir_all(&paths.tls).map_err(|e| HostError::io(&paths.tls, e))?;
             let key_path = paths.tls.join(hostconfig::SESSION_KEY_FILE);
-            let signing_key =
-                network_plugin::home::SigningKey::load_or_create(&key_path).map_err(|e| {
-                    HostError::message(format!("network session key {}: {e}", key_path.display()))
-                })?;
+            let signing_key = network_plugin::home::SigningKey::load_or_create(&key_path)
+                .map_err(|e| HostError::message(format!("network session key {}: {e}", key_path.display())))?;
             let database = hostconfig::node_database_config(config, paths)?;
             let game = config
                 .edition
@@ -827,19 +757,11 @@ impl hooks::HostHooks for ServicesHostHooks {
         Ok(())
     }
 
-    fn ensure_gateway_cert(
-        &self,
-        paths: &paths::Paths,
-        config: &hostconfig::HostConfig,
-    ) -> Result<(), HostError> {
+    fn ensure_gateway_cert(&self, paths: &paths::Paths, config: &hostconfig::HostConfig) -> Result<(), HostError> {
         #[cfg(feature = "gateway")]
         if config.mode == hostconfig::ServerMode::Public && !paths.cert_file.exists() {
-            gateway::cert::load_or_generate(
-                &paths.cert_file,
-                &paths.key_file,
-                std::slice::from_ref(&config.host),
-            )
-            .map_err(HostError::message)?;
+            gateway::cert::load_or_generate(&paths.cert_file, &paths.key_file, std::slice::from_ref(&config.host))
+                .map_err(HostError::message)?;
             hostkit::commands::start::say(&format!(
                 "- gateway certificate made in {} (fingerprint {})",
                 paths.tls.display(),
@@ -908,11 +830,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         crate::legacy::legacy_service_plan(paths, config, external_allowlist, programs)
     }
 
-    fn legacy_prepare(
-        &self,
-        paths: &paths::Paths,
-        config: &hostconfig::HostConfig,
-    ) -> Result<(), HostError> {
+    fn legacy_prepare(&self, paths: &paths::Paths, config: &hostconfig::HostConfig) -> Result<(), HostError> {
         crate::legacy::prepare(paths, config)
     }
 
@@ -1039,10 +957,7 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
                 eprintln!("{error}");
                 return ExitCode::FAILURE;
             }
-        } else if !p
-            .config
-            .join(hostkit::commands::update::MONGO_MIGRATED_MARKER)
-            .exists()
+        } else if !p.config.join(hostkit::commands::update::MONGO_MIGRATED_MARKER).exists()
             && hostkit::commands::update::has_managed_mongo_data(p)
         {
             eprintln!(
@@ -1052,16 +967,14 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     }
-    let identity = host_config
-        .as_ref()
-        .and_then(|c| c.network.as_ref())
-        .map_or_else(
-            module_api::NodeIdentity::standalone,
-            |n| module_api::NodeIdentity {
+    let identity =
+        host_config
+            .as_ref()
+            .and_then(|c| c.network.as_ref())
+            .map_or_else(module_api::NodeIdentity::standalone, |n| module_api::NodeIdentity {
                 node: n.node.clone(),
                 region: n.region.clone(),
-            },
-        );
+            });
 
     let mut spec = isles_1_14_7::spec();
     spec.services = match name {
@@ -1087,14 +1000,10 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
     };
     let mut config = module_api::ModuleConfig::defaults(&manifest, &registration);
     if let Some(file) = &env_file {
-        config
-            .sections
-            .entry("backend".to_owned())
-            .or_default()
-            .insert(
-                "env_file".to_owned(),
-                serde_json::Value::String(file.display().to_string()),
-            );
+        config.sections.entry("backend".to_owned()).or_default().insert(
+            "env_file".to_owned(),
+            serde_json::Value::String(file.display().to_string()),
+        );
         if let Ok(entries) = hostconfig::read_env_file(file) {
             if let Some(port) = entries.get("PORT").and_then(|v| v.parse::<u16>().ok()) {
                 config
@@ -1102,12 +1011,8 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
                     .insert(name.to_owned(), module_api::PortRange::single(port));
             }
             if let (Some(first), Some(last)) = (
-                entries
-                    .get("PORT_RANGE_BEGIN")
-                    .and_then(|v| v.parse::<u16>().ok()),
-                entries
-                    .get("PORT_RANGE_END")
-                    .and_then(|v| v.parse::<u16>().ok()),
+                entries.get("PORT_RANGE_BEGIN").and_then(|v| v.parse::<u16>().ok()),
+                entries.get("PORT_RANGE_END").and_then(|v| v.parse::<u16>().ok()),
             ) {
                 config
                     .ports
@@ -1143,13 +1048,8 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
             home: module_api::network::StandaloneHome { identity },
         }),
     );
-    let _ = service_kit::telemetry::init_table_stdout_subscriber(
-        tracing::level_filters::LevelFilter::INFO,
-    );
-    let runtime = match tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-    {
+    let _ = service_kit::telemetry::init_table_stdout_subscriber(tracing::level_filters::LevelFilter::INFO);
+    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
         Ok(rt) => rt,
         Err(error) => {
             eprintln!("{error}");
@@ -1173,18 +1073,12 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
 pub mod doctor {
     pub use hostkit::doctor::*;
 
-    pub fn run_doctor(
-        p: &crate::paths::Paths,
-        opts: &DoctorOptions,
-    ) -> Result<Vec<Check>, crate::HostError> {
+    pub fn run_doctor(p: &crate::paths::Paths, opts: &DoctorOptions) -> Result<Vec<Check>, crate::HostError> {
         crate::ensure_hooks();
         hostkit::doctor::run_doctor(p, opts)
     }
 
-    pub fn store_database_check(
-        p: &crate::paths::Paths,
-        config: &crate::hostconfig::HostConfig,
-    ) -> Check {
+    pub fn store_database_check(p: &crate::paths::Paths, config: &crate::hostconfig::HostConfig) -> Check {
         crate::ensure_hooks();
         hostkit::doctor::store_database_check(p, config)
     }
@@ -1196,7 +1090,7 @@ pub mod gamedata {
     pub fn run_generator(
         p: &crate::paths::Paths,
         step: &Step<'_>,
-        log_file: & std::path::Path,
+        log_file: &std::path::Path,
     ) -> Result<crate::run::RunResult, crate::HostError> {
         crate::ensure_hooks();
         hostkit::gamedata::run_generator(p, step, log_file)
@@ -1271,15 +1165,10 @@ pub mod serve {
 }
 
 pub mod commands {
-    pub use hostkit::commands::{
-        backup, history, install_game, invite, multipliers, network, preset,
-    };
+    pub use hostkit::commands::{backup, history, install_game, invite, multipliers, network, preset};
 
     pub mod gamedata {
-        pub fn run(
-            paths: &crate::paths::Paths,
-            args: &crate::cli::GamedataArgs,
-        ) -> crate::Outcome {
+        pub fn run(paths: &crate::paths::Paths, args: &crate::cli::GamedataArgs) -> crate::Outcome {
             crate::ensure_hooks();
             hostkit::commands::gamedata::run(paths, args)
         }
@@ -1295,10 +1184,7 @@ pub mod commands {
     }
 
     pub mod publish_runtime {
-        pub fn run(
-            paths: &crate::paths::Paths,
-            args: &crate::cli::PublishRuntimeArgs,
-        ) -> crate::Outcome {
+        pub fn run(paths: &crate::paths::Paths, args: &crate::cli::PublishRuntimeArgs) -> crate::Outcome {
             crate::ensure_hooks();
             hostkit::commands::publish_runtime::run(paths, args)
         }
@@ -1339,10 +1225,7 @@ pub mod commands {
     pub mod doctor {
         pub use hostkit::commands::doctor::*;
 
-        pub fn run(
-            paths: &crate::paths::Paths,
-            args: &crate::cli::DoctorArgs,
-        ) -> std::process::ExitCode {
+        pub fn run(paths: &crate::paths::Paths, args: &crate::cli::DoctorArgs) -> std::process::ExitCode {
             crate::ensure_hooks();
             hostkit::commands::doctor::run(paths, args)
         }
@@ -1351,10 +1234,7 @@ pub mod commands {
     pub mod setup {
         pub use hostkit::commands::setup::*;
 
-        pub fn run(
-            paths: &crate::paths::Paths,
-            args: &crate::cli::SetupArgs,
-        ) -> std::process::ExitCode {
+        pub fn run(paths: &crate::paths::Paths, args: &crate::cli::SetupArgs) -> std::process::ExitCode {
             crate::ensure_hooks();
             hostkit::commands::setup::run(paths, args)
         }
@@ -1386,10 +1266,7 @@ pub mod commands {
     pub mod update {
         pub use hostkit::commands::update::*;
 
-        pub fn run(
-            paths: &crate::paths::Paths,
-            args: &crate::cli::UpdateArgs,
-        ) -> std::process::ExitCode {
+        pub fn run(paths: &crate::paths::Paths, args: &crate::cli::UpdateArgs) -> std::process::ExitCode {
             crate::ensure_hooks();
             hostkit::commands::update::run(paths, args)
         }
@@ -1421,9 +1298,7 @@ pub mod commands {
             out: &mut dyn FnMut(&str),
         ) -> Result<bool, crate::HostError> {
             crate::ensure_hooks();
-            hostkit::commands::update::migrate_existing_mongo_data_for_setup(
-                p, config, log_file, out,
-            )
+            hostkit::commands::update::migrate_existing_mongo_data_for_setup(p, config, log_file, out)
         }
 
         pub fn check_unmigrated_mongo_data(
@@ -1508,9 +1383,7 @@ mod tests {
             )
             .unwrap()
             .as_deref(),
-            Some(std::path::Path::new(
-                "/opt/reforged/.workspace/config/backend.env"
-            ))
+            Some(std::path::Path::new("/opt/reforged/.workspace/config/backend.env"))
         );
         assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }
@@ -1520,8 +1393,7 @@ mod tests {
     fn db_migrate_verify_and_export_mongo_work_with_host_toml_defaults() {
         use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
         use crate::hostconfig::{
-            DatabaseSettings, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode,
-            save_host_config,
+            DatabaseSettings, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode, save_host_config,
         };
         use isles_db::mongo::MockMongoServer;
         use serde_json::{Map, Value, json};
@@ -1604,17 +1476,8 @@ mod tests {
             &mut |l| lines.push(l.to_owned()),
         )
         .unwrap();
-        assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("reforged-host db verify: OK"))
-        );
-        assert!(
-            paths
-                .config
-                .join(commands::update::MONGO_MIGRATED_MARKER)
-                .exists()
-        );
+        assert!(lines.iter().any(|l| l.contains("reforged-host db verify: OK")));
+        assert!(paths.config.join(commands::update::MONGO_MIGRATED_MARKER).exists());
 
         lines.clear();
         commands::db::run_with(
@@ -1639,9 +1502,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_runs_gateway_and_content_in_process_without_node() {
         use commands::start::binaries::{FrontService, rust_ported};
-        use hostconfig::{
-            DEFAULT_MONGO_URI, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode,
-        };
+        use hostconfig::{DEFAULT_MONGO_URI, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
@@ -1709,9 +1570,7 @@ mod tests {
     #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo() {
-        use hostconfig::{
-            DEFAULT_MONGO_URI, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode,
-        };
+        use hostconfig::{DEFAULT_MONGO_URI, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
@@ -1747,10 +1606,7 @@ mod tests {
             file: FileForm::default(),
         };
         serve::ensure_server_files(&paths, &c).unwrap();
-        let repo = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("..");
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("..");
         let repo_paths = paths::Paths::new(&repo);
         std::fs::create_dir_all(&paths.backend_game_data).unwrap();
         std::fs::create_dir_all(&paths.director_game_data).unwrap();
@@ -1800,12 +1656,7 @@ mod tests {
 
         let registry = controller.registry().unwrap();
         let isles = registry.info(&"isles-1-14-7".parse().unwrap()).unwrap();
-        assert_eq!(
-            isles.state,
-            controller::ModuleState::Ready,
-            "{:?}",
-            isles.detail
-        );
+        assert_eq!(isles.state, controller::ModuleState::Ready, "{:?}", isles.detail);
         assert!(isles.autoload);
         if let Ok(isles_112) = registry.info(&"isles-1-12-0".parse().unwrap()) {
             assert!(!isles_112.autoload);
@@ -1825,13 +1676,9 @@ mod tests {
         assert_eq!(reply.status, 200, "{body}");
         assert!(body.contains("\"show-status\""), "{body}");
         assert!(paths.config.join(hostconfig::DATABASE_FILE).is_file());
-        let (secrets, _) = hostconfig::load_or_create_secrets(
-            &paths.config,
-            commands::setup::secrets::new_secrets,
-        )
-        .unwrap();
-        let invites =
-            invite::list_invite_codes(paths::PORTS.backend, &secrets.admin_key).unwrap();
+        let (secrets, _) =
+            hostconfig::load_or_create_secrets(&paths.config, commands::setup::secrets::new_secrets).unwrap();
+        let invites = invite::list_invite_codes(paths::PORTS.backend, &secrets.admin_key).unwrap();
         assert!(invites.is_empty(), "{invites:?}");
 
         controller.shutdown().await;

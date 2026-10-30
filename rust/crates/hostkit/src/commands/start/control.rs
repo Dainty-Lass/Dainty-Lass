@@ -78,30 +78,25 @@ fn subscribers() -> &'static Mutex<Vec<Weak<ControlInner>>> {
 fn ensure_ctrlc_registered() {
     static INIT: OnceLock<()> = OnceLock::new();
     INIT.get_or_init(|| {
-        let _ = std::thread::Builder::new()
-            .name("reforged-ctrlc".to_owned())
-            .spawn(|| {
-                let Ok(rt) = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                else {
-                    return;
-                };
-                rt.block_on(async {
-                    while tokio::signal::ctrl_c().await.is_ok() {
-                        if let Ok(mut list) = subscribers().lock() {
-                            list.retain(|weak| {
-                                if let Some(inner) = weak.upgrade() {
-                                    inner.trigger();
-                                    true
-                                } else {
-                                    false
-                                }
-                            });
-                        }
+        let _ = std::thread::Builder::new().name("reforged-ctrlc".to_owned()).spawn(|| {
+            let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
+                return;
+            };
+            rt.block_on(async {
+                while tokio::signal::ctrl_c().await.is_ok() {
+                    if let Ok(mut list) = subscribers().lock() {
+                        list.retain(|weak| {
+                            if let Some(inner) = weak.upgrade() {
+                                inner.trigger();
+                                true
+                            } else {
+                                false
+                            }
+                        });
                     }
-                });
+                }
             });
+        });
     });
 }
 
@@ -145,9 +140,7 @@ impl Control {
                         inner.trigger();
                     });
                 })
-                .map_err(|e| {
-                    HostError::message(format!("failed to spawn stdin control thread: {e}"))
-                })?;
+                .map_err(|e| HostError::message(format!("failed to spawn stdin control thread: {e}")))?;
         }
 
         Ok(ctrl)

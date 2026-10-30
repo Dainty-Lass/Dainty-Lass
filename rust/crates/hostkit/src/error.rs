@@ -44,15 +44,13 @@ impl From<std::io::Error> for HostError {
 impl PartialEq for HostError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (
-                Self::NotImplemented { what: w1, row: r1 },
-                Self::NotImplemented { what: w2, row: r2 },
-            ) => w1 == w2 && r1 == r2,
+            (Self::NotImplemented { what: w1, row: r1 }, Self::NotImplemented { what: w2, row: r2 }) => {
+                w1 == w2 && r1 == r2
+            }
             (Self::Message(a), Self::Message(b)) => a == b,
-            (
-                Self::Io { path: p1, source: s1 },
-                Self::Io { path: p2, source: s2 },
-            ) => p1 == p2 && s1.kind() == s2.kind() && s1.to_string() == s2.to_string(),
+            (Self::Io { path: p1, source: s1 }, Self::Io { path: p2, source: s2 }) => {
+                p1 == p2 && s1.kind() == s2.kind() && s1.to_string() == s2.to_string()
+            }
             _ => false,
         }
     }

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-use crate::net::http::{check_endpoint, Endpoint};
+use crate::net::http::{Endpoint, check_endpoint};
 
 pub const KEY_HEADER: &str = "x-reforged-user-api-key";
 pub const REVIVED_KEY_HEADER: &str = "x-user-api-key";
@@ -44,11 +44,7 @@ pub fn key_headers(endpoint: &Endpoint, key: Option<&str>) -> Vec<(&'static str,
     key_headers_as(REFORGED, endpoint, key)
 }
 
-pub fn key_headers_as(
-    flavor: Flavor,
-    endpoint: &Endpoint,
-    key: Option<&str>,
-) -> Vec<(&'static str, String)> {
+pub fn key_headers_as(flavor: Flavor, endpoint: &Endpoint, key: Option<&str>) -> Vec<(&'static str, String)> {
     let Some(raw) = key else {
         return Vec::new();
     };

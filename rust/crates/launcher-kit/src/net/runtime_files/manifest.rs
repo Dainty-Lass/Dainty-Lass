@@ -7,6 +7,7 @@ use protocol::manifest::{
 use protocol::text::{is_js_space, is_unsafe_char, js_trim};
 use serde_json::Value;
 
+#[allow(dead_code)]
 pub const RUNTIME_MARKER_FILE: &str = ".reforged-runtime.json";
 pub const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
@@ -44,9 +45,7 @@ fn clean_version_text(value: &str, max_len: usize) -> String {
 }
 
 fn is_lower_hex_64(s: &str) -> bool {
-    s.len() == 64
-        && s.bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {

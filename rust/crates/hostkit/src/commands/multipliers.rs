@@ -8,8 +8,8 @@ use crate::cli::MultipliersArgs;
 use crate::commands::setup::secrets;
 use crate::error::HostError;
 use crate::hostconfig::{
-    Platform, build_env_files, load_host_config, load_or_create_secrets,
-    multipliers_on, save_host_config, write_env_files,
+    Platform, build_env_files, load_host_config, load_or_create_secrets, multipliers_on, save_host_config,
+    write_env_files,
 };
 use crate::paths::Paths;
 
@@ -35,13 +35,9 @@ pub fn run(paths: &Paths, args: &MultipliersArgs) -> Result<ExitCode, HostError>
             })
             .unwrap_or_default())
     };
-    run_with(
-        paths,
-        args,
-        Platform::current(),
-        &source_commit,
-        &mut |line| println!("{line}"),
-    )
+    run_with(paths, args, Platform::current(), &source_commit, &mut |line| {
+        println!("{line}")
+    })
 }
 
 pub fn run_with(
@@ -51,13 +47,11 @@ pub fn run_with(
     source_commit: &dyn Fn(&Path) -> Result<String, HostError>,
     out: &mut dyn FnMut(&str),
 ) -> Result<ExitCode, HostError> {
-    let mut config = load_host_config(paths)?
-        .ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
+    let mut config =
+        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
 
     if !config.edition.runs_reborn() {
-        return Err(HostError::message(
-            "test multipliers are for reborn servers only",
-        ));
+        return Err(HostError::message("test multipliers are for reborn servers only"));
     }
 
     if !asked(args) {
@@ -83,8 +77,7 @@ pub fn run_with(
         if let Some(ref rewards_raw) = args.rewards {
             current.rewards = parse_multiplier("--rewards", rewards_raw)?;
         }
-        if (current.xp - 1.0).abs() < f64::EPSILON && (current.rewards - 1.0).abs() < f64::EPSILON
-        {
+        if (current.xp - 1.0).abs() < f64::EPSILON && (current.rewards - 1.0).abs() < f64::EPSILON {
             config.multipliers = None;
         } else {
             config.multipliers = Some(current);
@@ -123,9 +116,7 @@ fn parse_multiplier(flag: &str, raw: &str) -> Result<f64, HostError> {
         .parse::<f64>()
         .ok()
         .filter(|v| v.is_finite() && (1.0..=100.0).contains(v))
-        .ok_or_else(|| {
-            HostError::message(format!("{flag} must be a number from 1 to 100 (got {raw})"))
-        })?;
+        .ok_or_else(|| HostError::message(format!("{flag} must be a number from 1 to 100 (got {raw})")))?;
     Ok(value)
 }
 

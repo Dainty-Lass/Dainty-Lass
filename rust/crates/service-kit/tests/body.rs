@@ -20,10 +20,7 @@ use service_kit::body::{BodyConfig, BodyError, ExpressBody, parse_bodies};
 use service_kit::json::Json;
 use tower::ServiceExt;
 
-async fn echo_handler(
-    ExpressBody(body): ExpressBody,
-    raw: axum::body::Bytes,
-) -> impl IntoResponse {
+async fn echo_handler(ExpressBody(body): ExpressBody, raw: axum::body::Bytes) -> impl IntoResponse {
     Json(json!({
         "parsed": body,
         "raw": String::from_utf8_lossy(&raw),
@@ -83,10 +80,7 @@ async fn parses_urlencoded_form_and_gzip_deflate_bodies() {
         .unwrap();
     let resp_gz = app.clone().oneshot(req_gz).await.unwrap();
     assert_eq!(resp_gz.status(), StatusCode::OK);
-    let val_gz: Value = serde_json::from_slice(
-        &resp_gz.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let val_gz: Value = serde_json::from_slice(&resp_gz.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(val_gz["parsed"], json!({"compressed": true}));
 
     let mut zl = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -102,10 +96,7 @@ async fn parses_urlencoded_form_and_gzip_deflate_bodies() {
         .unwrap();
     let resp_zl = app.oneshot(req_zl).await.unwrap();
     assert_eq!(resp_zl.status(), StatusCode::OK);
-    let val_zl: Value = serde_json::from_slice(
-        &resp_zl.into_body().collect().await.unwrap().to_bytes(),
-    )
-    .unwrap();
+    let val_zl: Value = serde_json::from_slice(&resp_zl.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(val_zl["parsed"], json!({"deflated": 1}));
 }
 

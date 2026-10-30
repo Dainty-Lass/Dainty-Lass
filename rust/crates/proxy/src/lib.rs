@@ -25,9 +25,7 @@ pub const HOP_BY_HOP: &[&str] = &[
 ];
 
 pub fn is_hop_by_hop(name: &str) -> bool {
-    HOP_BY_HOP
-        .iter()
-        .any(|hop| name.eq_ignore_ascii_case(hop))
+    HOP_BY_HOP.iter().any(|hop| name.eq_ignore_ascii_case(hop))
 }
 
 pub fn connection_tokens(headers: &HeaderMap) -> BTreeSet<String> {
@@ -74,11 +72,7 @@ impl<S> Idle<S> {
 }
 
 impl<S: AsyncRead + Unpin> AsyncRead for Idle<S> {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let before = buf.filled().len();
         match Pin::new(&mut self.inner).poll_read(cx, buf) {
             Poll::Ready(Ok(())) => {
@@ -90,10 +84,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for Idle<S> {
             }
             Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
             Poll::Pending => match self.sleep.as_mut().poll(cx) {
-                Poll::Ready(()) => Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "idle stream timed out",
-                ))),
+                Poll::Ready(()) => Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, "idle stream timed out"))),
                 Poll::Pending => Poll::Pending,
             },
         }
@@ -101,11 +92,7 @@ impl<S: AsyncRead + Unpin> AsyncRead for Idle<S> {
 }
 
 impl<S: AsyncWrite + Unpin> AsyncWrite for Idle<S> {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         match Pin::new(&mut self.inner).poll_write(cx, buf) {
             Poll::Ready(Ok(n)) => {
                 if n > 0 {
@@ -116,10 +103,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for Idle<S> {
             }
             Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
             Poll::Pending => match self.sleep.as_mut().poll(cx) {
-                Poll::Ready(()) => Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "idle stream timed out",
-                ))),
+                Poll::Ready(()) => Poll::Ready(Err(io::Error::new(io::ErrorKind::TimedOut, "idle stream timed out"))),
                 Poll::Pending => Poll::Pending,
             },
         }
@@ -141,9 +125,7 @@ where
 {
     let mut a = Idle::new(a, idle);
     let mut b = Idle::new(b, idle);
-    tokio::io::copy_bidirectional(&mut a, &mut b)
-        .await
-        .unwrap_or((0, 0))
+    tokio::io::copy_bidirectional(&mut a, &mut b).await.unwrap_or((0, 0))
 }
 
 #[cfg(test)]
@@ -159,27 +141,18 @@ mod tests {
             http::header::CONNECTION,
             HeaderValue::from_static("x-hop, keep-alive, , X-Second"),
         );
-        headers.insert(
-            http::header::TRANSFER_ENCODING,
-            HeaderValue::from_static("chunked"),
-        );
+        headers.insert(http::header::TRANSFER_ENCODING, HeaderValue::from_static("chunked"));
         headers.insert(http::header::TE, HeaderValue::from_static("trailers"));
         headers.insert(
             HeaderName::from_static("keep-alive"),
             HeaderValue::from_static("timeout=5"),
         );
-        headers.insert(
-            HeaderName::from_static("x-hop"),
-            HeaderValue::from_static("drop-me"),
-        );
+        headers.insert(HeaderName::from_static("x-hop"), HeaderValue::from_static("drop-me"));
         headers.insert(
             HeaderName::from_static("x-second"),
             HeaderValue::from_static("drop-me-too"),
         );
-        headers.insert(
-            http::header::HOST,
-            HeaderValue::from_static("example.com"),
-        );
+        headers.insert(http::header::HOST, HeaderValue::from_static("example.com"));
         headers.insert(
             HeaderName::from_static("x-kept"),
             HeaderValue::from_static("preserve-me"),

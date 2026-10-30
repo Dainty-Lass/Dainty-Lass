@@ -88,16 +88,18 @@ async fn the_database_is_in_wal_mode() {
 
     let mode = store
         .read(|conn| {
-            let row = diesel::sql_query("PRAGMA journal_mode").get_result::<TextRow>(conn).or_else(|_| {
-                #[derive(QueryableByName)]
-                struct Mode {
-                    #[diesel(sql_type = Text)]
-                    journal_mode: String,
-                }
-                diesel::sql_query("PRAGMA journal_mode")
-                    .get_result::<Mode>(conn)
-                    .map(|m| TextRow { val: m.journal_mode })
-            })?;
+            let row = diesel::sql_query("PRAGMA journal_mode")
+                .get_result::<TextRow>(conn)
+                .or_else(|_| {
+                    #[derive(QueryableByName)]
+                    struct Mode {
+                        #[diesel(sql_type = Text)]
+                        journal_mode: String,
+                    }
+                    diesel::sql_query("PRAGMA journal_mode")
+                        .get_result::<Mode>(conn)
+                        .map(|m| TextRow { val: m.journal_mode })
+                })?;
             Ok::<_, Error>(row.val)
         })
         .await
@@ -141,8 +143,8 @@ async fn sqlite_behaves_like_better_sqlite3() {
     // 4. LIKE does not match BLOBs (SQLITE_LIKE_DOESNT_MATCH_BLOBS)
     let like_blob: i64 = store
         .read(|conn| {
-            let row = diesel::sql_query("SELECT CAST(X'616263' LIKE '%b%' AS INTEGER) AS n")
-                .get_result::<CountRow>(conn)?;
+            let row =
+                diesel::sql_query("SELECT CAST(X'616263' LIKE '%b%' AS INTEGER) AS n").get_result::<CountRow>(conn)?;
             Ok::<_, Error>(row.n)
         })
         .await
@@ -267,10 +269,7 @@ async fn a_backup_under_constant_writes_is_one_consistent_snapshot() {
     }
 
     let backup_path = dir.path().join("backup.db");
-    store
-        .backup(&backup_path, Duration::from_secs(10))
-        .await
-        .unwrap();
+    store.backup(&backup_path, Duration::from_secs(10)).await.unwrap();
 
     stop.store(true, Ordering::Relaxed);
     let _ = writer.await;

@@ -7,12 +7,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
+use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{ClientConfig, DigitallySignedStruct, Error as TlsError, SignatureScheme};
 use tokio::net::TcpStream;
-use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 
 use crate::core::pins::{normalize_pin, sha256_hex};
 
@@ -81,12 +81,7 @@ impl ServerCertVerifier for PinVerifier {
         cert: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, TlsError> {
-        verify_tls12_signature(
-            message,
-            cert,
-            dss,
-            &self.provider.signature_verification_algorithms,
-        )
+        verify_tls12_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
     }
 
     fn verify_tls13_signature(
@@ -95,18 +90,11 @@ impl ServerCertVerifier for PinVerifier {
         cert: &CertificateDer<'_>,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, TlsError> {
-        verify_tls13_signature(
-            message,
-            cert,
-            dss,
-            &self.provider.signature_verification_algorithms,
-        )
+        verify_tls13_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        self.provider
-            .signature_verification_algorithms
-            .supported_schemes()
+        self.provider.signature_verification_algorithms.supported_schemes()
     }
 }
 
@@ -134,21 +122,17 @@ pub fn validate_host(host: &str) -> Result<&str, ConnectError> {
     Ok(unbracketed)
 }
 
-pub async fn pinned_connect(
-    target: &PinnedTarget,
-    timeout: Duration,
-) -> Result<TlsStream<TcpStream>, ConnectError> {
+pub async fn pinned_connect(target: &PinnedTarget, timeout: Duration) -> Result<TlsStream<TcpStream>, ConnectError> {
     if target.port == 0 {
         return Err(ConnectError::Io("port cannot be 0".to_owned()));
     }
     let host = validate_host(&target.host)?;
-    let expected_pin = normalize_pin(&target.fingerprint)
-        .ok_or_else(|| ConnectError::Io("invalid certificate pin".to_owned()))?;
+    let expected_pin =
+        normalize_pin(&target.fingerprint).ok_or_else(|| ConnectError::Io("invalid certificate pin".to_owned()))?;
 
     let server_name = match host.parse::<IpAddr>() {
         Ok(ip) => ServerName::IpAddress(ip.into()),
-        Err(_) => ServerName::try_from(host.to_owned())
-            .map_err(|e| ConnectError::Io(e.to_string()))?,
+        Err(_) => ServerName::try_from(host.to_owned()).map_err(|e| ConnectError::Io(e.to_string()))?,
     };
 
     let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
@@ -206,8 +190,8 @@ pub(crate) mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
     use rustls::ServerConfig;
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio_rustls::TlsAcceptor;
@@ -215,15 +199,10 @@ pub(crate) mod tests {
     use super::*;
 
     pub fn certificate() -> (CertificateDer<'static>, PrivateKeyDer<'static>) {
-        let certified = rcgen::generate_simple_self_signed(vec![
-            "localhost".to_owned(),
-            "127.0.0.1".to_owned(),
-        ])
-        .expect("self-signed certificate generation should succeed");
+        let certified = rcgen::generate_simple_self_signed(vec!["localhost".to_owned(), "127.0.0.1".to_owned()])
+            .expect("self-signed certificate generation should succeed");
         let cert_der = certified.cert.der().clone();
-        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-            certified.signing_key.serialize_der(),
-        ));
+        let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
         (cert_der, key_der)
     }
 
@@ -262,9 +241,7 @@ pub(crate) mod tests {
             port,
             fingerprint: pin.clone(),
         };
-        let mut stream = pinned_connect(&ok_target, Duration::from_secs(3))
-            .await
-            .unwrap();
+        let mut stream = pinned_connect(&ok_target, Duration::from_secs(3)).await.unwrap();
         let mut buf = Vec::new();
         stream.read_to_end(&mut buf).await.unwrap();
         assert_eq!(buf, b"ok");
@@ -274,9 +251,7 @@ pub(crate) mod tests {
             port,
             fingerprint: "0".repeat(64),
         };
-        let err = pinned_connect(&bad_target, Duration::from_secs(3))
-            .await
-            .unwrap_err();
+        let err = pinned_connect(&bad_target, Duration::from_secs(3)).await.unwrap_err();
         assert_eq!(
             err,
             ConnectError::Pin {

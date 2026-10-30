@@ -186,10 +186,7 @@ fn parse_ipv4_dotted(host: &str) -> Option<[u8; 4]> {
 }
 
 fn parse_octet(s: &str) -> Option<u8> {
-    if s.is_empty()
-        || (s.len() > 1 && s.starts_with('0'))
-        || !s.bytes().all(|b| b.is_ascii_digit())
-    {
+    if s.is_empty() || (s.len() > 1 && s.starts_with('0')) || !s.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
     s.parse::<u8>().ok()
@@ -204,9 +201,7 @@ pub fn is_valid_ipv4(text: &str) -> bool {
 fn looks_numeric_or_ipv4_candidate(host: &str) -> bool {
     host.split('.').next_back().is_some_and(|last| {
         !last.is_empty()
-            && (last.bytes().all(|b| b.is_ascii_digit())
-                || last.starts_with("0x")
-                || last.starts_with("0X"))
+            && (last.bytes().all(|b| b.is_ascii_digit()) || last.starts_with("0x") || last.starts_with("0X"))
     })
 }
 
@@ -267,28 +262,19 @@ pub fn is_private_mode_host(host: &str) -> bool {
 /// Returns `true` if `fp` is a valid 64-character lowercase hexadecimal SHA-256 fingerprint.
 #[must_use]
 pub fn is_valid_fingerprint(fp: &str) -> bool {
-    fp.len() == 64
-        && fp
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    fp.len() == 64 && fp.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// Returns `true` if `code` is a valid invite code (`^[A-Za-z0-9-]{4,64}$`).
 #[must_use]
 pub fn is_valid_invite_code(code: &str) -> bool {
-    (4..=64).contains(&code.len())
-        && code
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    (4..=64).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
 /// Returns `true` if `text` is a valid Tailscale share URL (`https://login.tailscale.com/...`).
 #[must_use]
 pub fn is_valid_share_url(text: &str) -> bool {
-    if text.is_empty()
-        || js_length(text) > MAX_SHARE_UTF16_LEN
-        || has_control_or_format(text)
-    {
+    if text.is_empty() || js_length(text) > MAX_SHARE_UTF16_LEN || has_control_or_format(text) {
         return false;
     }
     if text.len() <= TAILSCALE_SHARE_PREFIX.len()
@@ -322,10 +308,7 @@ pub fn clean_server_name(raw: &str) -> Option<String> {
 }
 
 fn parse_port(raw: &str) -> Result<u16, InviteError> {
-    if raw.is_empty()
-        || (raw.len() > 1 && raw.starts_with('0'))
-        || !raw.bytes().all(|b| b.is_ascii_digit())
-    {
+    if raw.is_empty() || (raw.len() > 1 && raw.starts_with('0')) || !raw.bytes().all(|b| b.is_ascii_digit()) {
         return Err(InviteError::Port);
     }
     let port = raw.parse::<u16>().map_err(|_| InviteError::Port)?;
