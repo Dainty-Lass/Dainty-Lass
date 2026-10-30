@@ -1,5 +1,5 @@
 //! The fixed list of calls the page may make (rows L6, L7, L9; RA2): one entry per `LauncherApi` method
-//! of Reforged's `preload.ts` that the backend serves, with the shape of its arguments. Three layers read
+//! that the backend serves, with the shape of its arguments. Three layers read
 //! it: the isolation hook in the page (`isolation/commands.js`, generated from this list), the capability
 //! that grants exactly these commands (`build.rs`), and the commands themselves, which check the same
 //! limits again. The `revived*` methods (1.4.4) are served in every build and answer only with the
