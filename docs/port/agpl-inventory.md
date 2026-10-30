@@ -532,37 +532,39 @@ inversion:
 
 ---
 
-## 5. Questions for the maintainer (`L0` gate)
+## 5. Questions for the maintainer (`L0` gate) — Answered 2026-10-30
 
-Per the `L0` instructions, work on `L1`–`L3` stops here until you answer these four questions:
+The maintainer answered the four `L0` questions on 2026-10-30:
 
-1. **DL2 (Freeza's licence consent)**:
-   Has Freeza answered the relicensing request (`DL2`), and if so, does that consent cover the Reforged-derived code in
-   `services/host`, `launcher/src-tauri`, `crates/protocol` (`manifest.rs`, `text.rs`), and `services/content`
-   (`runtime.rs`) so that Reforged-derived code can be relicensed to MIT directly, or must all Reforged-derived code in
-   scope be rewritten clean-room from the behaviour specs?
-
-2. **Scope (which crates to rewrite as MIT)**:
-   Beyond **DL3** (`crates/hostkit` from `services/host`) and **DL4** (`crates/launcher-kit` from `launcher/src-tauri`),
-   which of the candidate crates from Section 4.2 are in scope for clean-room MIT rewrite / dependency inversion?
-   - **Recommended MIT foundation set**:
-     - `crates/protocol` (full clean-room MIT rewrite, ~2.3k lines);
-     - `crates/store` (clean-room MIT rewrite of the 6 DR-derived files, ~957 lines, making all of `store` MIT);
-     - `crates/service-kit` (clean-room MIT rewrite of the 12 DR-derived files, ~2.7k lines, making all of
-       `service-kit` MIT — or splitting out the born-here `context.rs` + `telemetry.rs`);
-     - `crates/controller` (invert the `gateway`, `allowlist`, `content`, and `isles-*` dependencies so `controller`
-       has zero AGPL dependencies);
-     - `crates/proxy` (clean-room MIT rewrite, 1 file / 193 lines).
-   - Or do you also want any of `services/gateway`, `services/content`, or the DR-derived core of
-     `rust/launcher/src-tauri` rewritten clean-room?
-
-3. **Server binaries (`all-modules` in-process vs out-of-process `module-api`)**:
-   Should the AGPL game modules (`isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`, and `rifts-*`) stay compiled into the
-   server binaries (`dainty-lass-server-console`, `dainty-lass-host`, `dainty-lass-server-minimal`, and
-   `dainty-lass-manager`), which keeps those distributed binaries `AGPL-3.0-only` (with Mystic Paradox additional
-   terms), or should they move out of process behind `module-api`'s child-process frame protocol? (And similarly for
-   `gateway` and `content` if they remain AGPL.)
-
+1. **DL2 (Freeza's licence consent)**: **No.**
+   - All Reforged-derived code in scope must be rewritten clean-room from the behaviour specs (`DL3b`, `DL4b`, and
+     `protocol`).
+2. **Scope (which crates to rewrite as MIT)**: **As much as reasonably possible.**
+   - In scope for clean-room MIT rewrite and dependency inversion (`L1`–`L3`):
+     - **`DL3b` (`crates/hostkit`)**: Clean-room MIT rewrite of the 22 Reforged-derived modules in `services/host` + move
+       of the 18 born-here modules + trait decoupling from `isles-core`/`isles-db`/`isles-director`, leaving
+       `services/host` as a thin AGPL binary/legacy shell;
+     - **`DL4b` (`crates/launcher-kit`)**: Clean-room MIT rewrite of the 8 Reforged-derived module groups in
+       `launcher/src-tauri` + move of the born-here modules;
+     - **`crates/protocol`**: Full clean-room MIT rewrite (~2.3k lines);
+     - **`crates/proxy`**: Full clean-room MIT rewrite (1 file, 193 lines);
+     - **`crates/store`**: Clean-room MIT rewrite of the 6 DR-derived SQLite helper files (`lib.rs`, `adopt.rs`,
+       `backup.rs`, `drizzle.rs`, `readonly.rs`, `snapshot.rs` and `tests/store.rs`, ~957 lines) so the entire
+       `crates/store` crate becomes `MIT`;
+     - **`crates/service-kit`**: Clean-room MIT rewrite of the 12 DR-derived files (~2.7k lines) alongside the 2
+       born-here files (`context.rs`, `telemetry.rs`) so the entire `crates/service-kit` crate becomes `MIT`;
+     - **`crates/controller` (`server-controller`)**: Invert/decouple the `gateway`, `allowlist`, `content`, and
+       `isles-*` dependencies so `controller` has zero normal AGPL dependencies.
+   - Left `AGPL-3.0-only` (per Section 4.2 trade-off analysis and `DD26`): `services/gateway`, `services/content`,
+     `plugins/chat`, the DR-derived core of `launcher/src-tauri`, `ui/packages/i18n/catalogs/{en,pt-BR}.json`, and the
+     submodule game repositories (`rustic-isles`, `rustic-rifts`, `legacy-revived`).
+3. **Server binaries (`all-modules` in-process vs out-of-process `module-api`)**: **Keep them compiled in.**
+   - The server binaries (`dainty-lass-server-console`, `dainty-lass-host`, `dainty-lass-server-minimal`, and
+     `dainty-lass-manager`) keep `all-modules` compiled in, so the distributed binaries remain `AGPL-3.0-only` (with
+     Mystic Paradox additional terms), while the MIT crates (`module-api`, `epic`, `protocol`, `proxy`, `service-kit`,
+     `store`, `history-ship`, `plugins/network`, `services/admin`, `controller`, `hostkit`, `launcher-kit`, `remote`,
+     `bins/*`) are 100% MIT with zero AGPL normal dependencies.
 4. **Release (exact licence and copyright line)**:
-   What exact `license` SPDX expression and `Copyright (c) <year> <holder>` line should be placed on the new and
-   rewritten MIT crates (and in `LICENSE-MIT` / `NOTICE.md`)?
+   - `license = "MIT"`
+   - `Copyright (c) 2026 Silent Spud`
+
