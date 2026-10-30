@@ -464,10 +464,15 @@ fn should_probe_mongo(
 }
 
 #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
-fn is_fresh_start_marker(marker: &Path) -> bool {
+pub fn is_fresh_start_marker(marker: &Path) -> bool {
     std::fs::read_to_string(marker)
         .ok()
         .is_some_and(|s| s.trim_start().starts_with("fresh start"))
+}
+
+#[cfg(not(all(feature = "isles-1-14-7", not(feature = "paradox"))))]
+pub fn is_fresh_start_marker(_marker: &Path) -> bool {
+    false
 }
 
 #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
@@ -484,6 +489,9 @@ fn remove_new_sqlite_files(sqlite_existed: bool, sqlite_path: Option<&Path>) {
 pub fn migrate_existing_mongo_data(paths: &Paths, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
     let config = match load_host_config(paths) {
         Ok(Some(c)) => c,
+        Ok(None) if has_managed_mongo_data(paths) => HostConfig::from_toml(
+            "version = 1\nmode = \"private\"\nhost = \"127.0.0.1\"\ngame_address = \"127.0.0.1\"\nname = \"Server\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n",
+        )?,
         Ok(None) | Err(_) => return Ok(()),
     };
     migrate_existing_mongo_data_with_config(paths, &config, out)
@@ -682,6 +690,107 @@ pub fn check_unmigrated_mongo_data(paths: &Paths, config: &HostConfig) -> Result
         }
         Err(_) => {}
     }
+    Ok(())
+}
+
+/// Pre-cutover MongoDB migration state of a workspace (M1/M4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MongoMigrationStatus {
+    None,
+    Migrated,
+    Skipped,
+    Unmigrated { source: String },
+    Unreachable { uri: String, detail: String },
+}
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+pub fn inspect_mongo_migration(paths: &Paths) -> MongoMigrationStatus {
+    let config = load_host_config(paths).ok().flatten();
+    if let Some(c) = &config
+        && !c.edition.runs_reborn()
+    {
+        return MongoMigrationStatus::None;
+    }
+    let marker = paths.config.join(MONGO_MIGRATED_MARKER);
+    if marker.exists() {
+        if is_fresh_start_marker(&marker) {
+            if config.as_ref().is_none_or(HostConfig::fresh_start) {
+                return MongoMigrationStatus::Skipped;
+            }
+        } else {
+            return MongoMigrationStatus::Migrated;
+        }
+    }
+    if config.as_ref().is_some_and(HostConfig::fresh_start) {
+        return MongoMigrationStatus::Skipped;
+    }
+    let has_managed_mongo_dir = has_managed_mongo_data(paths);
+    let Some(config) = config else {
+        if has_managed_mongo_dir {
+            let from_uri = mongo_uri_with_database(crate::hostconfig::DEFAULT_MONGO_URI, None);
+            let display_uri = redact_uri_password(&from_uri);
+            return match isles_db::mongo::MongoClient::connect(&from_uri) {
+                Ok(_) => MongoMigrationStatus::Unmigrated {
+                    source: paths.mongo_data.display().to_string(),
+                },
+                Err(e) => MongoMigrationStatus::Unreachable {
+                    uri: display_uri,
+                    detail: e.to_string(),
+                },
+            };
+        }
+        return MongoMigrationStatus::None;
+    };
+    let backend_env = read_env_file(&paths.config.join("backend.env")).unwrap_or_default();
+    let backend_env_has_mongo_uri = backend_env.get("MONGODB_URI").is_some_and(|u| !u.trim().is_empty());
+    let raw_uri = backend_env.get("MONGODB_URI").unwrap_or(&config.mongo.uri).trim();
+    if raw_uri.is_empty() || !should_probe_mongo(paths, &config, backend_env_has_mongo_uri, has_managed_mongo_dir) {
+        return MongoMigrationStatus::None;
+    }
+    let configured = is_mongo_configured(paths, &config, backend_env_has_mongo_uri, has_managed_mongo_dir);
+    let from_uri = mongo_uri_with_database(raw_uri, backend_env.get("MONGODB_DB"));
+    let display_uri = redact_uri_password(&from_uri);
+    match isles_db::mongo::MongoClient::connect(&from_uri) {
+        Ok(mut client) => {
+            if has_managed_mongo_dir || mongo_has_documents(&mut client) {
+                MongoMigrationStatus::Unmigrated {
+                    source: if has_managed_mongo_dir {
+                        paths.mongo_data.display().to_string()
+                    } else {
+                        display_uri
+                    },
+                }
+            } else {
+                MongoMigrationStatus::None
+            }
+        }
+        Err(e) if has_managed_mongo_dir || configured => MongoMigrationStatus::Unreachable {
+            uri: display_uri,
+            detail: e.to_string(),
+        },
+        Err(_) => MongoMigrationStatus::None,
+    }
+}
+
+#[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+pub fn confirm_fresh_start(paths: &Paths) -> Result<(), HostError> {
+    if let Ok(Some(mut config)) = load_host_config(paths) {
+        config.database.get_or_insert_with(Default::default).fresh_start = Some(true);
+        crate::hostconfig::save_host_config(paths, &config)?;
+    }
+    std::fs::create_dir_all(&paths.config).map_err(|e| HostError::io(&paths.config, e))?;
+    let marker = paths.config.join(MONGO_MIGRATED_MARKER);
+    std::fs::write(&marker, FRESH_START_MARKER_TEXT).map_err(|e| HostError::io(&marker, e))?;
+    Ok(())
+}
+
+#[cfg(not(all(feature = "isles-1-14-7", not(feature = "paradox"))))]
+pub fn inspect_mongo_migration(_paths: &Paths) -> MongoMigrationStatus {
+    MongoMigrationStatus::None
+}
+
+#[cfg(not(all(feature = "isles-1-14-7", not(feature = "paradox"))))]
+pub fn confirm_fresh_start(_paths: &Paths) -> Result<(), HostError> {
     Ok(())
 }
 

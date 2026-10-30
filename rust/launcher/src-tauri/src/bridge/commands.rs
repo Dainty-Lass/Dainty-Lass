@@ -14,18 +14,18 @@ use tauri::{AppHandle, Manager, State};
 
 use super::backend::Backend;
 use super::modules::ModulePanel;
-#[cfg(any(test, feature = "server-gui"))]
-use super::spec::{Arg, COMMANDS};
 use super::spec::{
-    COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX, GAME_VERSION_MAX, INVITE_FOR_MAX, INVITE_MAX,
-    KEY_TEXT_MAX, PUBLIC_HOST_MAX, REALM_ID_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id,
+    ADMIN_PLAYER_MAX, ADMIN_REASON_MAX, Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX,
+    GAME_VERSION_MAX, HISTORY_TIME_MAX, INVITE_FOR_MAX, INVITE_MAX, KEY_TEXT_MAX, MODULE_ID_MAX, PUBLIC_HOST_MAX,
+    REALM_ID_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id,
 };
 use super::types::{
-    ActionResult, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget, GameVersionList, GuardedList,
-    GuardedOutcome, HistoryOutcome, HostAction, HostFolder, HostKit, HostMultipliers, HostServerMode, HostServerView,
-    HostSetupRequest, InstallMode, InstallOutcome, InviteCheck, LauncherError, MAX_MULTIPLIER, ModuleCommandOutcome,
-    ModuleListOutcome, ModuleOutcome, NewsItem, RealmKind, RealmOutcome, RegionPing, RegisterOutcome,
-    RevertApplyOutcome, RevertPlanOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
+    ActionResult, AdminActionKind, AdminOutcome, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget,
+    GameVersionList, GuardedList, GuardedOutcome, HistoryOutcome, HostAction, HostFolder, HostKit, HostMultipliers,
+    HostServerMode, HostServerView, HostSetupRequest, InstallMode, InstallOutcome, InviteCheck, LauncherError,
+    MAX_MULTIPLIER, ModuleCommandOutcome, ModuleListOutcome, ModuleOutcome, NewsItem, RealmKind, RealmOutcome,
+    RegionPing, RegisterOutcome, RevertApplyOutcome, RevertPlanOutcome, ServerConfigOutcome, ServerDoctorOutcome,
+    ServerInviteListOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::controller::install::EpicGate;
@@ -468,7 +468,6 @@ pub fn subscribe_progress(on_progress: Channel<TaskProgress>, backend: Backed<'_
 
 /// An argument against its shape in the spec, as the hook checks it (`fits` in `isolation/hook.js`): the
 /// planned commands' check until the rows that fill them bring their own.
-#[cfg(any(test, feature = "server-gui"))]
 fn arg_accepts(arg: &Arg, value: Option<&Value>) -> bool {
     match (arg, value) {
         (Arg::Text { max }, Some(Value::String(text))) => fits(text, *max),
@@ -488,6 +487,24 @@ fn arg_accepts(arg: &Arg, value: Option<&Value>) -> bool {
                 && fields.iter().all(|(name, arg)| arg_accepts(arg, object.get(*name)))
         }
         _ => false,
+    }
+}
+
+fn shape_accepts(command: &str, value: &Value) -> bool {
+    COMMANDS
+        .iter()
+        .find(|listed| listed.name == command)
+        .and_then(|listed| listed.args.first())
+        .is_some_and(|(_, arg)| arg_accepts(arg, Some(value)))
+}
+
+fn optional_plain(value: Option<&Value>, max: usize) -> Result<Option<String>, ()> {
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) if js_trim(text).is_empty() => Ok(None),
+        Some(value) => plain_text(value, max)
+            .map(|text| (!text.is_empty()).then_some(text))
+            .ok_or(()),
     }
 }
 
@@ -879,6 +896,140 @@ pub async fn guarded_cancel(id: Value, app: AppHandle) -> GuardedOutcome {
     {
         let _ = (app, id);
         GuardedOutcome::Err(LauncherError::with_detail(ErrorCode::NotInThisBuild, "guarded_cancel"))
+    }
+}
+
+#[tauri::command]
+pub async fn server_doctor(app: AppHandle) -> ServerDoctorOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).server_doctor().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        ServerDoctorOutcome::Err(not_in_this_build("server_doctor"))
+    }
+}
+
+#[tauri::command]
+pub async fn server_backup(app: AppHandle) -> ActionResult {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).server_backup().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        ActionResult::Err(not_in_this_build("server_backup"))
+    }
+}
+
+#[tauri::command]
+pub async fn server_config_get(app: AppHandle) -> ServerConfigOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).server_config_get().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        ServerConfigOutcome::Err(not_in_this_build("server_config_get"))
+    }
+}
+
+#[tauri::command]
+pub async fn server_config_save(config: Value, app: AppHandle) -> ServerConfigOutcome {
+    if !shape_accepts("server_config_save", &config) {
+        return ServerConfigOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    }
+    #[cfg(feature = "server-gui")]
+    {
+        let Some((registration, database, max_hubs, max_hunts, fresh_start)) = (|| {
+            let reg = config.get("registration")?.as_str()?.to_owned();
+            let db = config.get("database")?.as_str()?.to_owned();
+            let hubs = config.get("maxHubs")?.as_u64()? as u32;
+            let hunts = config.get("maxHunts")?.as_u64()? as u32;
+            let fresh = config.get("freshStart")?.as_bool()?;
+            Some((reg, db, hubs, hunts, fresh))
+        })() else {
+            return ServerConfigOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+        };
+        controller(&app)
+            .server_config_save(registration, database, max_hubs, max_hunts, fresh_start)
+            .await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        ServerConfigOutcome::Err(not_in_this_build("server_config_save"))
+    }
+}
+
+#[tauri::command]
+pub async fn server_migrate_mongo(app: AppHandle) -> ActionResult {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).server_migrate_mongo().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        ActionResult::Err(not_in_this_build("server_migrate_mongo"))
+    }
+}
+
+#[tauri::command]
+pub async fn server_confirm_fresh_start(app: AppHandle) -> ServerConfigOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).server_confirm_fresh_start().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        ServerConfigOutcome::Err(not_in_this_build("server_confirm_fresh_start"))
+    }
+}
+
+#[tauri::command]
+pub async fn server_invite_list(app: AppHandle) -> ServerInviteListOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).server_invite_list().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        ServerInviteListOutcome::Err(not_in_this_build("server_invite_list"))
+    }
+}
+
+#[tauri::command]
+pub async fn admin_action(request: Value, app: AppHandle) -> AdminOutcome {
+    if !shape_accepts("admin_action", &request) {
+        return AdminOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    }
+    let Some(action) = request.get("action").cloned().and_then(name::<AdminActionKind>) else {
+        return AdminOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    let Some(player) = request
+        .get("player")
+        .and_then(|v| plain_text(v, ADMIN_PLAYER_MAX))
+        .filter(|s| !s.is_empty())
+    else {
+        return AdminOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    let (Ok(reason), Ok(until), Ok(module)) = (
+        optional_plain(request.get("reason"), ADMIN_REASON_MAX),
+        optional_plain(request.get("until"), HISTORY_TIME_MAX),
+        optional_plain(request.get("module"), MODULE_ID_MAX),
+    ) else {
+        return AdminOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    match panel(&app) {
+        Some(panel) => panel.admin(action, player, reason, until, module).await,
+        None => AdminOutcome::Err(not_in_this_build("admin_action")),
     }
 }
 

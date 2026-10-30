@@ -39,6 +39,138 @@ pub const DIRECTOR_GAME_DATA: [&str; 7] = [
     "arena_elite_matchmaker_hunts_new.json",
 ];
 
+const EMBEDDED_BACKEND_EXAMPLES: [(&str, &str); 11] = [
+    (
+        "progression_config.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/progression_config.example.json"
+        ),
+    ),
+    (
+        "slayers_path.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/slayers_path.example.json"
+        ),
+    ),
+    (
+        "slayers_path_definitions.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/slayers_path_definitions.example.json"
+        ),
+    ),
+    (
+        "ladyluck_store.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ladyluck_store.example.json"
+        ),
+    ),
+    (
+        "platinum_store.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/platinum_store.example.json"
+        ),
+    ),
+    (
+        "reward_cache_store.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/reward_cache_store.example.json"
+        ),
+    ),
+    (
+        "inventory_storage_policy.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/inventory_storage_policy.example.json"
+        ),
+    ),
+    (
+        "escalation_tuning.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/escalation_tuning.example.json"
+        ),
+    ),
+    (
+        "fountain_daily_bundle.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/fountain_daily_bundle.example.json"
+        ),
+    ),
+    (
+        "mastery_objectives.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/mastery_objectives.example.json"
+        ),
+    ),
+    (
+        "tester_max_kit.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/tester_max_kit.example.json"
+        ),
+    ),
+];
+
+const EMBEDDED_DIRECTOR_EXAMPLES: [(&str, &str); 7] = [
+    (
+        "player_hunts_table.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/player_hunts_table.example.json"
+        ),
+    ),
+    (
+        "matchmaker_hunts_table.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/matchmaker_hunts_table.example.json"
+        ),
+    ),
+    (
+        "arena_easy_matchmaker_hunts.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/arena_easy_matchmaker_hunts.example.json"
+        ),
+    ),
+    (
+        "arena_hard_matchmaker_hunts.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/arena_hard_matchmaker_hunts.example.json"
+        ),
+    ),
+    (
+        "arena_elite_matchmaker_hunts.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/arena_elite_matchmaker_hunts.example.json"
+        ),
+    ),
+    (
+        "arena_hard_matchmaker_hunts_new.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/arena_hard_matchmaker_hunts_new.example.json"
+        ),
+    ),
+    (
+        "arena_elite_matchmaker_hunts_new.example.json",
+        include_str!(
+            "../../../../modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/arena_elite_matchmaker_hunts_new.example.json"
+        ),
+    ),
+];
+
+/// Ensures `paths.backend_game_data` and `paths.director_game_data` exist and contain the shipped
+/// `*.example.json` files when setting up a standalone workspace folder outside a git checkout.
+pub fn seed_embedded_examples(paths: &Paths) -> Result<(), HostError> {
+    for (dir, files) in [
+        (&paths.backend_game_data, EMBEDDED_BACKEND_EXAMPLES.as_slice()),
+        (&paths.director_game_data, EMBEDDED_DIRECTOR_EXAMPLES.as_slice()),
+    ] {
+        fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
+        for (name, contents) in files {
+            let file = dir.join(name);
+            if !file.exists() {
+                fs::write(&file, contents).map_err(|e| HostError::io(&file, e))?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The sources of the two files no CatalogExporter catalog export produces, in `game-data/raw/`
 /// (target, source): the progression config's is written from the progression export
 /// ([`crate::progression`]) unless the host supplies a captured response; the Lady Luck store's,

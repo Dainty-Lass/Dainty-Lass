@@ -88,11 +88,15 @@ impl HostState {
 }
 
 /// The steps that work in Mystic Paradox's source (`NEEDS_UPSTREAM`).
-fn needs_upstream(action: HostAction) -> bool {
-    matches!(
-        action,
-        HostAction::ImportSdk | HostAction::BuildLoader | HostAction::SyntheticData | HostAction::GenerateGamedata
-    )
+fn needs_upstream(action: HostAction, embedded: bool) -> bool {
+    if embedded {
+        matches!(action, HostAction::ImportSdk | HostAction::BuildLoader)
+    } else {
+        matches!(
+            action,
+            HostAction::ImportSdk | HostAction::BuildLoader | HostAction::SyntheticData | HostAction::GenerateGamedata
+        )
+    }
 }
 
 fn kind_name(kind: HostJobKind) -> String {
@@ -169,7 +173,7 @@ impl Controller {
         let Some(target) = self.project_target() else {
             return quiet("project_no_game");
         };
-        if !is_workspace(&target) {
+        if !self.valid_workspace(&target) {
             return quiet(if target.exists() {
                 "project_folder_taken"
             } else {
@@ -186,6 +190,14 @@ impl Controller {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    pub(super) fn valid_workspace(&self, ws: &Path) -> bool {
+        if self.host.server.has_embedded() {
+            is_dir(ws)
+        } else {
+            is_workspace(ws)
+        }
+    }
 
     fn host_fail(&self, detail: &str) -> ActionResult {
         ActionResult::Err(self.fail(ErrorCode::HostFailed, Some(detail.to_owned())))
@@ -207,7 +219,10 @@ impl Controller {
 
     /// The workspace in the settings when it still is one.
     pub(super) fn workspace(&self) -> Option<PathBuf> {
-        self.s().host_workspace.map(PathBuf::from).filter(|ws| is_workspace(ws))
+        self.s()
+            .host_workspace
+            .map(PathBuf::from)
+            .filter(|ws| self.valid_workspace(ws))
     }
 
     fn job_running(&self) -> bool {
@@ -285,11 +300,21 @@ impl Controller {
     }
 
     fn tool(&self, ws: &Path) -> Result<HostTool, ActionResult> {
+        if self.host.server.has_embedded() {
+            return Ok(HostTool::find(ws).unwrap_or_else(|| HostTool {
+                program: PathBuf::new(),
+                prefix: Vec::new(),
+            }));
+        }
         HostTool::find(ws).ok_or_else(|| self.host_kit_failure(&HostKitError::Missing))
     }
 
-    /// A one-shot `reforged-host` command in the workspace.
+    /// A one-shot `reforged-host` command in the workspace (in-process when the server GUI runs embedded).
     async fn run_host(&self, ws: &Path, args: &[&str], log_name: &str) -> Result<CommandOutput, ActionResult> {
+        #[cfg(feature = "server-gui")]
+        if self.host.server.has_embedded() {
+            return Ok(self.run_host_in_process(ws, args, log_name).await);
+        }
         let tool = self.tool(ws)?;
         let args: Vec<String> = args.iter().map(|a| (*a).to_owned()).collect();
         self.host
@@ -308,13 +333,13 @@ impl Controller {
         }
         let out = work.await;
         if was_running {
-            match HostTool::find(ws) {
-                Some(tool) => {
+            match self.tool(ws) {
+                Ok(tool) => {
                     if let Err(error) = self.host.server.start(&tool, ws).await {
                         log::warn(&format!("host: server not started again: {}", error.detail()));
                     }
                 }
-                None => log::warn("host: server not started again: no reforged-host"),
+                Err(_) => log::warn("host: server not started again: no reforged-host"),
             }
         }
         out
@@ -328,6 +353,11 @@ impl Controller {
         let s = self.s();
         let workspace = s.host_workspace.clone();
         let mut kit = detect_host_kit(workspace.as_deref().map(Path::new), &toolchain, &self.host.dump_root);
+        if let Some(ws) = workspace.as_deref()
+            && self.valid_workspace(Path::new(ws))
+        {
+            kit.workspace_ok = true;
+        }
         let cached = {
             let cache = lock(&self.host.requirements);
             cache
@@ -377,7 +407,7 @@ impl Controller {
         else {
             return ActionResult::err(ErrorCode::Cancelled);
         };
-        if !is_workspace(&picked) {
+        if !self.valid_workspace(&picked) {
             return self.host_fail("workspace");
         }
         let text = path_text(&picked);
@@ -489,7 +519,7 @@ impl Controller {
             return self.host_fail("workspace");
         };
         let w = WorkspacePaths::new(&ws);
-        if needs_upstream(action)
+        if needs_upstream(action, self.host.server.has_embedded())
             && let Err(failed) = self.ensure_upstream(&ws).await
         {
             return failed;
@@ -1087,5 +1117,702 @@ impl Controller {
                 failed
             }
         }
+    }
+
+    // ------------------------------------------------------------------ server GUI in-process host kit (B3)
+
+    #[cfg(feature = "server-gui")]
+    pub(super) async fn run_host_in_process(&self, ws: &Path, args: &[&str], log_name: &str) -> CommandOutput {
+        let cmd_name = args.first().copied().unwrap_or("").to_owned();
+        let secret_json = cmd_name == "invite";
+        self.host.server.note(&format!("> {cmd_name}"));
+        let ws_buf = ws.to_path_buf();
+        let arg_vec: Vec<String> = args.iter().map(|s| (*s).to_owned()).collect();
+        let log_file = WorkspacePaths::new(ws).launcher_log(log_name);
+        let server = self.host.server.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let mut log = log_file.parent().and_then(|dir| {
+                std::fs::create_dir_all(dir).ok()?;
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_file)
+                    .ok()
+            });
+            if let Some(f) = log.as_mut() {
+                use std::io::Write as _;
+                let _ = writeln!(
+                    f,
+                    "\n> embedded-host {}  (in {}, {})",
+                    arg_vec.join(" "),
+                    ws_buf.display(),
+                    chrono::Utc::now().to_rfc3339()
+                );
+            }
+            let mut lines = Vec::<String>::new();
+            let mut emit = |raw: &str| {
+                for part in raw.lines() {
+                    let clean = crate::platform::hostkit::parse::clean_line(part);
+                    if clean.is_empty() {
+                        continue;
+                    }
+                    lines.push(clean.clone());
+                    let hide = secret_json && clean.trim_start().starts_with('{');
+                    if !hide {
+                        if let Some(f) = log.as_mut() {
+                            use std::io::Write as _;
+                            let _ = writeln!(f, "{clean}");
+                        }
+                        server.note(&clean);
+                    }
+                }
+            };
+
+            let paths = host::paths::Paths::new(&ws_buf);
+            let outcome: host::Outcome = match cmd_name.as_str() {
+                "setup" => {
+                    let mut setup_args = host::cli::SetupArgs::default();
+                    let mut i = 1;
+                    while i < arg_vec.len() {
+                        match arg_vec[i].as_str() {
+                            "--mode" if i + 1 < arg_vec.len() => {
+                                setup_args.mode = Some(arg_vec[i + 1].clone());
+                                i += 2;
+                            }
+                            "--name" if i + 1 < arg_vec.len() => {
+                                setup_args.name = Some(arg_vec[i + 1].clone());
+                                i += 2;
+                            }
+                            "--host" if i + 1 < arg_vec.len() => {
+                                setup_args.host = Some(arg_vec[i + 1].clone());
+                                i += 2;
+                            }
+                            "--game" if i + 1 < arg_vec.len() => {
+                                setup_args.game = Some(arg_vec[i + 1].clone());
+                                i += 2;
+                            }
+                            "--fresh-start" => {
+                                setup_args.fresh_start = true;
+                                i += 1;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                    host::commands::setup::run_with(&paths, &setup_args, &InProcessSetupEnv, &mut emit)
+                }
+                "invite" => {
+                    let mut invite_args = host::cli::InviteArgs {
+                        uses: "1".to_owned(),
+                        ..Default::default()
+                    };
+                    let mut i = 1;
+                    while i < arg_vec.len() {
+                        match arg_vec[i].as_str() {
+                            "--json" => {
+                                invite_args.json = true;
+                                i += 1;
+                            }
+                            "--for" if i + 1 < arg_vec.len() => {
+                                invite_args.for_whom = Some(arg_vec[i + 1].clone());
+                                i += 2;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                    host::commands::invite::run_with(&paths, &invite_args, host::paths::PORTS.backend, &mut emit)
+                }
+                "multipliers" => {
+                    let mut mult_args = host::cli::MultipliersArgs::default();
+                    let mut i = 1;
+                    while i < arg_vec.len() {
+                        match arg_vec[i].as_str() {
+                            "--off" => {
+                                mult_args.off = true;
+                                i += 1;
+                            }
+                            "--xp" if i + 1 < arg_vec.len() => {
+                                mult_args.xp = Some(arg_vec[i + 1].clone());
+                                i += 2;
+                            }
+                            "--rewards" if i + 1 < arg_vec.len() => {
+                                mult_args.rewards = Some(arg_vec[i + 1].clone());
+                                i += 2;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                    let commit = |_repo: &Path| -> Result<String, host::HostError> { Ok(String::new()) };
+                    host::commands::multipliers::run_with(
+                        &paths,
+                        &mult_args,
+                        host::hostconfig::Platform::current(),
+                        &commit,
+                        &mut emit,
+                    )
+                }
+                "gamedata" => {
+                    let mut gd_args = host::cli::GamedataArgs::default();
+                    let mut i = 1;
+                    while i < arg_vec.len() {
+                        match arg_vec[i].as_str() {
+                            "--examples" => {
+                                gd_args.examples = true;
+                                i += 1;
+                            }
+                            "--export" => {
+                                if i + 1 < arg_vec.len() && !arg_vec[i + 1].starts_with("--") {
+                                    gd_args.export = Some(Some(arg_vec[i + 1].clone()));
+                                    i += 2;
+                                } else {
+                                    gd_args.export = Some(None);
+                                    i += 1;
+                                }
+                            }
+                            "--import" if i + 1 < arg_vec.len() => {
+                                gd_args.import = Some(Some(arg_vec[i + 1].clone()));
+                                i += 2;
+                            }
+                            _ => i += 1,
+                        }
+                    }
+                    if !paths.backend_dir.exists() && !paths.host_toml.exists() && !paths.host_json.exists() {
+                        let _ = host::gamedata::seed_embedded_examples(&paths);
+                    }
+                    host::commands::gamedata::run_with(&paths, &gd_args, &mut emit)
+                }
+                "publish-runtime" => {
+                    let pr_args = host::cli::PublishRuntimeArgs::default();
+                    host::commands::publish_runtime::run_with(&paths, &pr_args, &mut emit)
+                }
+                "update" => {
+                    emit(r#"{"ok":true,"behind":0,"head":"embedded"}"#);
+                    Ok(std::process::ExitCode::SUCCESS)
+                }
+                other => Err(host::HostError::message(format!("unsupported command: {other}"))),
+            };
+
+            let code = match outcome {
+                Ok(exit) => {
+                    if exit == std::process::ExitCode::SUCCESS {
+                        0
+                    } else {
+                        1
+                    }
+                }
+                Err(error) => {
+                    emit(&format!("Error: {error}"));
+                    1
+                }
+            };
+            if let Some(f) = log.as_mut() {
+                use std::io::Write as _;
+                let _ = writeln!(f, "(exit code {code})");
+            }
+            let failure = if code == 0 {
+                None
+            } else {
+                crate::platform::hostkit::parse::failure_line(&lines)
+            };
+            CommandOutput { code, lines, failure }
+        })
+        .await
+        .unwrap_or_else(|e| CommandOutput {
+            code: 1,
+            lines: vec![e.to_string()],
+            failure: Some(e.to_string()),
+        })
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn server_doctor(&self) -> crate::bridge::types::ServerDoctorOutcome {
+        use crate::bridge::types::{DoctorCheckView, DoctorLevel, DoctorReportView, ServerDoctorOutcome};
+        let Some(ws) = self.workspace() else {
+            return ServerDoctorOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+        };
+        let res = tokio::task::spawn_blocking(move || {
+            let paths = host::paths::Paths::new(ws);
+            host::doctor::run_doctor(&paths, &host::doctor::DoctorOptions { hash_exe: false })
+        })
+        .await;
+        let checks = match res {
+            Ok(Ok(checks)) => checks,
+            Ok(Err(error)) => {
+                return ServerDoctorOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string())));
+            }
+            Err(error) => {
+                return ServerDoctorOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string())));
+            }
+        };
+        let mut warnings = 0u32;
+        let mut problems = 0u32;
+        let mut views = Vec::with_capacity(checks.len());
+        for c in checks {
+            let level = match c.level {
+                host::doctor::Level::Ok | host::doctor::Level::Info => DoctorLevel::Ok,
+                host::doctor::Level::Warn => {
+                    warnings += 1;
+                    DoctorLevel::Warning
+                }
+                host::doctor::Level::Fail => {
+                    problems += 1;
+                    DoctorLevel::Problem
+                }
+            };
+            let detail = match c.fix {
+                Some(fix) => format!("{} — {}", c.text, fix),
+                None => c.text,
+            };
+            views.push(DoctorCheckView {
+                level,
+                label: c.area.to_owned(),
+                detail,
+            });
+        }
+        ServerDoctorOutcome::Ok(DoctorReportView {
+            checks: views,
+            warnings,
+            problems,
+        })
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn server_backup(&self) -> ActionResult {
+        if self.job_running() {
+            return busy();
+        }
+        let Some(ws) = self.workspace() else {
+            return self.host_fail("workspace");
+        };
+        let log_file = WorkspacePaths::new(&ws).launcher_log("backup");
+        self.start_job(HostJobKind::Backup, None, Some(&log_file));
+        let server = self.host.server.clone();
+        let log_clone = log_file.clone();
+        let res = tokio::task::spawn_blocking(move || {
+            let mut log = log_clone.parent().and_then(|dir| {
+                std::fs::create_dir_all(dir).ok()?;
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_clone)
+                    .ok()
+            });
+            let mut lines = Vec::<String>::new();
+            let mut emit = |raw: &str| {
+                for part in raw.lines() {
+                    let clean = crate::platform::hostkit::parse::clean_line(part);
+                    if clean.is_empty() {
+                        continue;
+                    }
+                    if let Some(f) = log.as_mut() {
+                        use std::io::Write as _;
+                        let _ = writeln!(f, "{clean}");
+                    }
+                    server.note(&clean);
+                    lines.push(clean);
+                }
+            };
+            let paths = host::paths::Paths::new(ws);
+            match host::commands::backup::run_with(&paths, &host::commands::backup::System, &mut emit) {
+                Ok(code) if code == std::process::ExitCode::SUCCESS => Ok(lines.last().cloned()),
+                Ok(_) => Err(lines.last().cloned().unwrap_or_else(|| "backup".into())),
+                Err(error) => {
+                    emit(&format!("Error: {error}"));
+                    Err(error.to_string())
+                }
+            }
+        })
+        .await;
+        match res {
+            Ok(Ok(msg)) => self.finish_job(HostJobKind::Backup, true, msg, Some(&log_file)),
+            Ok(Err(why)) => self.finish_job(HostJobKind::Backup, false, Some(why), Some(&log_file)),
+            Err(error) => self.finish_job(HostJobKind::Backup, false, Some(error.to_string()), Some(&log_file)),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn server_config_get(&self) -> crate::bridge::types::ServerConfigOutcome {
+        use crate::bridge::types::ServerConfigOutcome;
+        let Some(ws) = self.workspace() else {
+            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+        };
+        match tokio::task::spawn_blocking(move || read_server_config_view(&ws)).await {
+            Ok(Ok(view)) => ServerConfigOutcome::Ok(view),
+            Ok(Err(why)) => ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn server_config_save(
+        &self,
+        registration: String,
+        database: String,
+        max_hubs: u32,
+        max_hunts: u32,
+        fresh_start: bool,
+    ) -> crate::bridge::types::ServerConfigOutcome {
+        use crate::bridge::types::ServerConfigOutcome;
+        let Some(ws) = self.workspace() else {
+            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::ServerConfigView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            let mut config = host::hostconfig::load_host_config(&paths)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "not_configured".to_owned())?;
+            let reg_norm = if registration == "INVITE" {
+                "INVITECODE"
+            } else {
+                registration.as_str()
+            };
+            config.registration =
+                host::hostconfig::Registration::parse(reg_norm).ok_or_else(|| "registration".to_owned())?;
+            config.max_hunt_servers = max_hunts.clamp(1, 128);
+            let db = config.database.get_or_insert_with(Default::default);
+            db.engine = Some(database);
+            db.fresh_start = if fresh_start { Some(true) } else { None };
+            let _ = max_hubs;
+            host::hostconfig::save_host_config(&paths, &config).map_err(|e| e.to_string())?;
+            if fresh_start {
+                host::commands::update::confirm_fresh_start(&paths).map_err(|e| e.to_string())?;
+            } else {
+                let marker = paths.config.join(host::commands::update::MONGO_MIGRATED_MARKER);
+                if host::commands::update::is_fresh_start_marker(&marker) {
+                    let _ = std::fs::remove_file(&marker);
+                }
+            }
+            if let Ok((secrets, _)) =
+                host::hostconfig::load_or_create_secrets(&paths.config, host::commands::setup::secrets::new_secrets)
+            {
+                let envs = host::hostconfig::build_env_files(
+                    &config,
+                    &secrets,
+                    &paths,
+                    "",
+                    host::hostconfig::Platform::current(),
+                );
+                let _ = host::hostconfig::write_env_files(&paths, &envs);
+            }
+            read_server_config_view(&ws)
+        })
+        .await;
+        self.emit_host_kit();
+        match res {
+            Ok(Ok(view)) => ServerConfigOutcome::Ok(view),
+            Ok(Err(why)) => ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn server_migrate_mongo(&self) -> ActionResult {
+        if self.job_running() {
+            return busy();
+        }
+        if self.host.server.running() || self.host.server.state() == HostServerState::External {
+            return self.host_fail("server_running");
+        }
+        let Some(ws) = self.workspace() else {
+            return self.host_fail("workspace");
+        };
+        let log_file = WorkspacePaths::new(&ws).launcher_log("migrate-mongo");
+        self.start_job(HostJobKind::MigrateMongo, None, Some(&log_file));
+        let server = self.host.server.clone();
+        let log_clone = log_file.clone();
+        let res = tokio::task::spawn_blocking(move || {
+            let mut log = log_clone.parent().and_then(|dir| {
+                std::fs::create_dir_all(dir).ok()?;
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_clone)
+                    .ok()
+            });
+            let mut lines = Vec::<String>::new();
+            let mut emit = |raw: &str| {
+                for part in raw.lines() {
+                    let clean = crate::platform::hostkit::parse::clean_line(part);
+                    if clean.is_empty() {
+                        continue;
+                    }
+                    if let Some(f) = log.as_mut() {
+                        use std::io::Write as _;
+                        let _ = writeln!(f, "{clean}");
+                    }
+                    server.note(&clean);
+                    lines.push(clean);
+                }
+            };
+            let paths = host::paths::Paths::new(ws);
+            match host::commands::update::migrate_existing_mongo_data(&paths, &mut emit) {
+                Ok(()) => Ok(lines.last().cloned()),
+                Err(error) => {
+                    emit(&format!("Error: {error}"));
+                    Err(error.to_string())
+                }
+            }
+        })
+        .await;
+        match res {
+            Ok(Ok(msg)) => self.finish_job(HostJobKind::MigrateMongo, true, msg, Some(&log_file)),
+            Ok(Err(why)) => self.finish_job(HostJobKind::MigrateMongo, false, Some(why), Some(&log_file)),
+            Err(error) => self.finish_job(
+                HostJobKind::MigrateMongo,
+                false,
+                Some(error.to_string()),
+                Some(&log_file),
+            ),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn server_confirm_fresh_start(&self) -> crate::bridge::types::ServerConfigOutcome {
+        use crate::bridge::types::ServerConfigOutcome;
+        let Some(ws) = self.workspace() else {
+            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+        };
+        let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::ServerConfigView, String> {
+            let paths = host::paths::Paths::new(&ws);
+            host::commands::update::confirm_fresh_start(&paths).map_err(|e| e.to_string())?;
+            read_server_config_view(&ws)
+        })
+        .await;
+        self.emit_host_kit();
+        match res {
+            Ok(Ok(view)) => ServerConfigOutcome::Ok(view),
+            Ok(Err(why)) => ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+
+    #[cfg(feature = "server-gui")]
+    pub async fn server_invite_list(&self) -> crate::bridge::types::ServerInviteListOutcome {
+        use crate::bridge::types::{ServerInviteEntry, ServerInviteListOutcome};
+        let Some(ws) = self.workspace() else {
+            return ServerInviteListOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+        };
+        if !matches!(
+            self.host.server.state(),
+            HostServerState::Running | HostServerState::External
+        ) {
+            return ServerInviteListOutcome::Err(self.fail(ErrorCode::ServerStopped, None));
+        }
+        let res = tokio::task::spawn_blocking(move || -> Result<Vec<ServerInviteEntry>, String> {
+            let paths = host::paths::Paths::new(&ws);
+            let config = host::hostconfig::load_host_config(&paths)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "not_configured".to_owned())?;
+            let (secrets, _) =
+                host::hostconfig::load_or_create_secrets(&paths.config, host::commands::setup::secrets::new_secrets)
+                    .map_err(|e| e.to_string())?;
+            let fp = match config.mode {
+                host::hostconfig::ServerMode::Public => {
+                    Some(host::invite::certificate_fingerprint(&paths.cert_file).map_err(|e| e.to_string())?)
+                }
+                host::hostconfig::ServerMode::Private => None,
+            };
+            let raw = host::invite::list_invite_codes(&secrets.admin_key, host::paths::PORTS.backend)
+                .map_err(|e| e.to_string())?;
+            let items = raw
+                .get("InviteCodes")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                let Some(code) = item.get("code").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                let link = host::invite::invite_for(&config, code, fp.as_deref()).unwrap_or_else(|_| code.to_owned());
+                let for_name = item
+                    .get("note")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned);
+                let uses_remaining = item.get("usesRemaining").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                let infinite_uses = item.get("infiniteUses").and_then(|v| v.as_bool()).unwrap_or(false);
+                let created_at = item
+                    .get("createdAt")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_owned();
+                out.push(ServerInviteEntry {
+                    code: code.to_owned(),
+                    link,
+                    for_name,
+                    uses_remaining,
+                    infinite_uses,
+                    created_at,
+                });
+            }
+            Ok(out)
+        })
+        .await;
+        match res {
+            Ok(Ok(invites)) => ServerInviteListOutcome::Ok(invites),
+            Ok(Err(why)) => ServerInviteListOutcome::Err(self.fail(ErrorCode::HostFailed, Some(why))),
+            Err(error) => ServerInviteListOutcome::Err(self.fail(ErrorCode::HostFailed, Some(error.to_string()))),
+        }
+    }
+}
+
+#[cfg(feature = "server-gui")]
+fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConfigView, String> {
+    use crate::bridge::types::{MongoMigrationState, MongoMigrationView, ServerConfigView};
+    use host::commands::update::MongoMigrationStatus;
+
+    let paths = host::paths::Paths::new(ws);
+    let config = host::hostconfig::load_host_config(&paths).map_err(|e| e.to_string())?;
+    let mongo_migration = match host::commands::update::inspect_mongo_migration(&paths) {
+        MongoMigrationStatus::None => MongoMigrationView {
+            state: MongoMigrationState::None,
+            source: None,
+            detail: None,
+        },
+        MongoMigrationStatus::Migrated => MongoMigrationView {
+            state: MongoMigrationState::Migrated,
+            source: None,
+            detail: None,
+        },
+        MongoMigrationStatus::Skipped => MongoMigrationView {
+            state: MongoMigrationState::Skipped,
+            source: None,
+            detail: None,
+        },
+        MongoMigrationStatus::Unmigrated { source } => MongoMigrationView {
+            state: MongoMigrationState::Unmigrated,
+            source: Some(source),
+            detail: None,
+        },
+        MongoMigrationStatus::Unreachable { uri, detail } => MongoMigrationView {
+            state: MongoMigrationState::Unreachable,
+            source: Some(uri),
+            detail: Some(detail),
+        },
+    };
+    let config_file = if paths.host_toml.is_file() {
+        Some(path_text(&paths.host_toml))
+    } else if paths.host_json.is_file() {
+        Some(path_text(&paths.host_json))
+    } else {
+        None
+    };
+    let Some(c) = config else {
+        return Ok(ServerConfigView {
+            configured: false,
+            name: String::new(),
+            mode: HostServerMode::Private,
+            public_host: None,
+            registration: "INVITECODE".into(),
+            database: "sqlite".into(),
+            max_hubs: 1,
+            max_hunts: 3,
+            fresh_start: false,
+            mongo_migration,
+            config_file,
+        });
+    };
+    let mode = match c.mode {
+        host::hostconfig::ServerMode::Private => HostServerMode::Private,
+        host::hostconfig::ServerMode::Public => HostServerMode::Public,
+    };
+    let public_host = (c.mode == host::hostconfig::ServerMode::Public).then(|| c.host.clone());
+    let database = c
+        .database
+        .as_ref()
+        .and_then(|d| d.engine.clone())
+        .unwrap_or_else(|| "sqlite".into());
+    let fresh_start = c.database.as_ref().and_then(|d| d.fresh_start).unwrap_or(false)
+        || matches!(mongo_migration.state, MongoMigrationState::Skipped);
+    Ok(ServerConfigView {
+        configured: true,
+        name: c.name,
+        mode,
+        public_host,
+        registration: c.registration.as_str().to_owned(),
+        database,
+        max_hubs: 1,
+        max_hunts: c.max_hunt_servers,
+        fresh_start,
+        mongo_migration,
+        config_file,
+    })
+}
+
+#[cfg(feature = "server-gui")]
+struct InProcessSetupEnv;
+
+#[cfg(feature = "server-gui")]
+impl host::commands::setup::SetupEnv for InProcessSetupEnv {
+    fn platform(&self) -> host::hostconfig::Platform {
+        host::hostconfig::Platform::current()
+    }
+
+    fn is_root(&self) -> Result<bool, host::HostError> {
+        host::linux::is_root()
+    }
+
+    fn tailscale_ipv4(&self) -> Result<Option<String>, host::HostError> {
+        Ok(host::doctor::tailscale_ipv4()?.or_else(|| Some("100.64.0.1".to_owned())))
+    }
+
+    fn find_mongod(&self) -> Result<Option<String>, host::HostError> {
+        Ok(None)
+    }
+
+    fn find_on_path(&self, name: &str) -> Result<Option<String>, host::HostError> {
+        host::wine::find_on_path(&[name])
+    }
+
+    fn source_commit(&self, repo: &Path) -> Result<String, host::HostError> {
+        if let Some(release) = host::selfupdate::read_manifest(repo)? {
+            return Ok(release.short_commit().to_owned());
+        }
+        Ok(String::new())
+    }
+
+    fn apply_preset(&self, paths: &host::paths::Paths) -> Result<Option<host::preset::PresetApplied>, host::HostError> {
+        host::preset::apply_preset(paths, false)
+    }
+
+    fn install_services(
+        &self,
+        _layout: &host::commands::setup::paradox::Layout,
+        _log_file: &Path,
+        _out: &mut dyn FnMut(&str),
+    ) -> Result<(), host::HostError> {
+        Ok(())
+    }
+
+    fn make_certificate(
+        &self,
+        _layout: &host::commands::setup::paradox::Layout,
+        hosts: &[String],
+        tls: &Path,
+        _log_file: &Path,
+    ) -> Result<(), host::HostError> {
+        let mut args = vec!["make-cert".to_owned()];
+        for host in hosts {
+            args.extend(["--host".to_owned(), host.clone()]);
+        }
+        args.extend([
+            "--out".to_owned(),
+            tls.to_string_lossy().into_owned(),
+            "--json".to_owned(),
+        ]);
+        let code = host::service_main("gateway", &args);
+        if code != std::process::ExitCode::SUCCESS {
+            return Err(host::HostError::message("could not make the gateway certificate"));
+        }
+        Ok(())
+    }
+
+    fn gateway_program(&self) -> String {
+        std::env::current_exe().map_or_else(|_| "dainty-lass-server-gui".to_owned(), |p| p.display().to_string())
+    }
+
+    fn require_checkout_sources(&self) -> bool {
+        false
     }
 }
