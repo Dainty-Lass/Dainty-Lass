@@ -146,6 +146,8 @@ test("the status and module tabs exist only where the server runs in this window
     "server",
     "status",
     "modules",
+    "admin",
+    "history",
     "gamedata",
     "build",
     "requirements",
@@ -365,17 +367,14 @@ test("only a loaded plugin's look is drawn, and only with colours that can't car
 
 test("the requirements have their words in the catalog, steps included", () => {
   const ids = REQUIREMENT_GROUPS.flatMap((g) => g.ids)
-  expect(new Set(ids).size).toBe(8)
+  expect(new Set(ids).size).toBe(6)
   expect(ids).not.toContain("node")
+  expect(ids).not.toContain("git")
+  expect(ids).not.toContain("mongodb")
   for (const id of ids) {
     expect(isKey(REQUIREMENT_KEYS[id].name), id).toBe(true)
     expect(requirementSteps(id).length, id).toBeGreaterThan(0)
   }
-  expect(requirementSteps("git")).toEqual([
-    "req_git_s1",
-    "req_git_s2",
-    "req_git_s3",
-  ])
 })
 
 test("every state, phase, job and module word the screens use is in both languages", () => {

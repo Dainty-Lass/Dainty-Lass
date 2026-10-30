@@ -200,6 +200,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     void api.getSnapshot().then(
       (first) => {
         onSnapshot(first)
+        if (first.app.serverGui) setViewState("host")
         void api.setStatusPolling(!document.hidden)
         void checkInviteLink()
       },

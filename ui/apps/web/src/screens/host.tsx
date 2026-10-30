@@ -16,17 +16,31 @@ import {
 
 import {
   api,
+  type AdminActionKind,
+  type AdminResultView,
+  type DoctorReportView,
+  type GuardedActionInfo,
+  type HistoryEntryView,
   type HostKit,
   type HostServerMode,
   type HostServerView,
   type ModuleView,
+  type RevertDoneView,
+  type RevertPlanView,
+  type ServerConfigView,
+  type ServerInviteEntry,
   type Snapshot,
 } from "@workspace/bridge"
-import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import { Switch } from "@workspace/ui/components/switch"
 import {
   Tabs,
   TabsContent,
@@ -151,10 +165,12 @@ function Workspace({ kit, snap }: { kit: HostKit; snap: Snapshot }) {
 function ServerPanel({
   kit,
   server,
+  snap,
   setTab,
 }: {
   kit: HostKit
   server: HostServerView
+  snap: Snapshot
   setTab(tab: HostTab): void
 }) {
   const { t } = useI18n()
@@ -232,6 +248,15 @@ function ServerPanel({
           >
             <PlayIcon />
             {t("hsrv_start")}
+          </Button>
+        )}
+        {snap.app.serverGui && kit.serverConfig.configured && (
+          <Button
+            variant="outline"
+            disabled={working || changing}
+            onClick={() => act(() => api.serverBackup())}
+          >
+            {t("hsrv_backup")}
           </Button>
         )}
       </div>
@@ -377,14 +402,19 @@ function SetupPanel({
 function InvitePanel({
   kit,
   server,
+  snap,
 }: {
   kit: HostKit
   server: HostServerView
+  snap: Snapshot
 }) {
   const { t } = useI18n()
   const act = useAct()
   const [who, setWho] = useState("")
   const [copied, setCopied] = useState(false)
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  const [invites, setInvites] = useState<ServerInviteEntry[]>([])
+  const [loadingInvites, setLoadingInvites] = useState(false)
   const running = server.state === "running"
   const invite = server.invite
   useEffect(() => {
@@ -392,6 +422,31 @@ function InvitePanel({
     const timer = setTimeout(() => setCopied(false), 2000)
     return () => clearTimeout(timer)
   }, [copied])
+  useEffect(() => {
+    if (!copiedCode) return
+    const timer = setTimeout(() => setCopiedCode(null), 2000)
+    return () => clearTimeout(timer)
+  }, [copiedCode])
+  const loadInvites = async () => {
+    if (!snap.app.serverGui || !running) return
+    setLoadingInvites(true)
+    try {
+      const out = await api.serverInviteList()
+      if (out.ok) setInvites(out.invites)
+    } finally {
+      setLoadingInvites(false)
+    }
+  }
+  useEffect(() => {
+    if (!snap.app.serverGui || !running) return
+    let current = true
+    void api.serverInviteList().then((out) => {
+      if (current && out.ok) setInvites(out.invites)
+    })
+    return () => {
+      current = false
+    }
+  }, [snap.app.serverGui, running, invite?.link])
   return (
     <Panel title={t("hsrv_invite_title")} text={t("hsrv_invite_text")}>
       <div className="flex flex-col gap-1">
@@ -415,6 +470,17 @@ function InvitePanel({
         >
           {t("hsrv_invite_create")}
         </Button>
+        {snap.app.serverGui && running && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loadingInvites}
+            onClick={() => void loadInvites()}
+          >
+            {loadingInvites ? <Spinner /> : <RefreshCwIcon />}
+            {t("hsrv_invite_list_refresh")}
+          </Button>
+        )}
         {!running && (
           <span className="text-xs text-muted-foreground">
             {t("hsrv_invite_need_running")}
@@ -447,6 +513,57 @@ function InvitePanel({
             <p className="text-xs text-muted-foreground">
               {t("hsrv_invite_tailscale")}
             </p>
+          )}
+        </div>
+      )}
+      {snap.app.serverGui && running && (
+        <div className="flex flex-col gap-2 border-t pt-3">
+          <h4 className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+            {t("hsrv_invite_list_title")}
+          </h4>
+          {invites.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {t("hsrv_invite_list_empty")}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {invites.map((entry) => (
+                <li
+                  key={entry.code}
+                  data-invite-code={entry.code}
+                  className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-xs last:border-b-0"
+                >
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-mono font-medium">
+                      <Secret text={entry.code} />
+                      {entry.for && ` (${entry.for})`}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {t("hsrv_invite_uses", {
+                        used: entry.infiniteUses ? "∞" : entry.usesRemaining,
+                        max: entry.infiniteUses ? "∞" : entry.usesRemaining,
+                      })}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() =>
+                      void api
+                        .copyText(entry.link)
+                        .then((ok) => ok && setCopiedCode(entry.code))
+                    }
+                  >
+                    <CopyIcon />
+                    {t(
+                      copiedCode === entry.code
+                        ? "hsrv_invite_copied"
+                        : "hsrv_invite_copy"
+                    )}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
@@ -562,24 +679,357 @@ function UpdatePanel({
   )
 }
 
+function ServerConfigSection({
+  kit,
+  server,
+}: {
+  kit: HostKit
+  server: HostServerView
+}) {
+  const { t } = useI18n()
+  const act = useAct()
+  const { report } = useLauncher()
+  const [cfg, setCfg] = useState<ServerConfigView | null>(null)
+  const [registration, setRegistration] = useState<
+    "OPEN" | "INVITECODE" | "NONE"
+  >("INVITECODE")
+  const [database, setDatabase] = useState<"sqlite" | "postgres">("sqlite")
+  const [maxHubs, setMaxHubs] = useState("1")
+  const [maxHunts, setMaxHunts] = useState("3")
+  const [freshStart, setFreshStart] = useState(false)
+  const [confirmFresh, setConfirmFresh] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const working = kit.job?.state === "running"
+  const stopped = server.state === "stopped" || server.state === "failed"
+
+  const applyView = (view: ServerConfigView) => {
+    setCfg(view)
+    const reg =
+      view.registration === "OPEN" || view.registration === "NONE"
+        ? view.registration
+        : "INVITECODE"
+    setRegistration(reg)
+    setDatabase(view.database === "postgres" ? "postgres" : "sqlite")
+    setMaxHubs(String(view.maxHubs))
+    setMaxHunts(String(view.maxHunts))
+    setFreshStart(view.freshStart)
+  }
+
+  useEffect(() => {
+    if (!kit.workspaceOk) return
+    let current = true
+    void api.serverConfigGet().then((out) => {
+      if (current && out.ok) applyView(out.config)
+    })
+    return () => {
+      current = false
+    }
+  }, [
+    kit.workspace,
+    kit.workspaceOk,
+    kit.serverConfig.configured,
+    kit.job?.state,
+  ])
+
+  if (!kit.workspaceOk || !cfg) return null
+  const mig = cfg.mongoMigration
+  const showMongoBanner =
+    mig.state === "unmigrated" || mig.state === "unreachable"
+  const hubsNum = Number(maxHubs)
+  const huntsNum = Number(maxHunts)
+  const countsValid =
+    Number.isInteger(hubsNum) &&
+    hubsNum >= 1 &&
+    hubsNum <= 64 &&
+    Number.isInteger(huntsNum) &&
+    huntsNum >= 1 &&
+    huntsNum <= 128
+
+  const onSave = async () => {
+    if (!countsValid) return
+    setSaving(true)
+    setSaved(false)
+    try {
+      const out = await api.serverConfigSave({
+        registration,
+        database,
+        maxHubs: hubsNum,
+        maxHunts: huntsNum,
+        freshStart,
+      })
+      if (out.ok) {
+        applyView(out.config)
+        setSaved(true)
+      } else {
+        await report(out)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onConfirmFresh = async () => {
+    setConfirmFresh(false)
+    const out = await api.serverConfirmFreshStart()
+    if (out.ok) applyView(out.config)
+    else await report(out)
+  }
+
+  return (
+    <>
+      {showMongoBanner && (
+        <Alert
+          variant="destructive"
+          data-mongo-migration={mig.state}
+          className="flex flex-col gap-3"
+        >
+          <CircleAlertIcon />
+          <AlertTitle>{t("hsrv_mongo_title")}</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <p>
+              {mig.state === "unmigrated"
+                ? t("hsrv_mongo_unmigrated", { source: mig.source ?? "" })
+                : t("hsrv_mongo_unreachable", {
+                    uri: mig.source ?? "",
+                    detail: mig.detail ?? "",
+                  })}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                disabled={working || !stopped}
+                onClick={() => act(() => api.serverMigrateMongo())}
+              >
+                {t("hsrv_mongo_migrate")}
+              </Button>
+              {!confirmFresh ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={working || !stopped}
+                  onClick={() => setConfirmFresh(true)}
+                >
+                  {t("hsrv_mongo_fresh")}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={working || !stopped}
+                    onClick={() => void onConfirmFresh()}
+                  >
+                    {t("hsrv_mongo_fresh_confirm")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setConfirmFresh(false)}
+                  >
+                    {t("hsrv_mongo_fresh_cancel")}
+                  </Button>
+                </>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      {cfg.configured && (
+        <Panel title={t("hsrv_cfg_title")} text={t("hsrv_cfg_text")}>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="cfg-registration">
+              {t("hsrv_cfg_registration")}
+            </Label>
+            <Choice<"OPEN" | "INVITECODE" | "NONE">
+              id="cfg-registration"
+              value={registration}
+              options={[
+                { value: "INVITECODE", label: t("hsrv_cfg_reg_invite") },
+                { value: "OPEN", label: t("hsrv_cfg_reg_open") },
+                { value: "NONE", label: t("hsrv_cfg_reg_none") },
+              ]}
+              onChange={setRegistration}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="cfg-database">{t("hsrv_cfg_database")}</Label>
+            <Choice<"sqlite" | "postgres">
+              id="cfg-database"
+              value={database}
+              options={[
+                { value: "sqlite", label: t("hsrv_cfg_db_sqlite") },
+                { value: "postgres", label: t("hsrv_cfg_db_postgres") },
+              ]}
+              onChange={setDatabase}
+            />
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="cfg-max-hubs">{t("hsrv_cfg_max_hubs")}</Label>
+              <Input
+                id="cfg-max-hubs"
+                className="w-28"
+                inputMode="numeric"
+                value={maxHubs}
+                onChange={(event) => setMaxHubs(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="cfg-max-hunts">{t("hsrv_cfg_max_hunts")}</Label>
+              <Input
+                id="cfg-max-hunts"
+                className="w-28"
+                inputMode="numeric"
+                value={maxHunts}
+                onChange={(event) => setMaxHunts(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="cfg-fresh-start"
+              checked={freshStart}
+              onCheckedChange={setFreshStart}
+            />
+            <Label htmlFor="cfg-fresh-start">{t("hsrv_cfg_fresh_start")}</Label>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              disabled={saving || working || !countsValid}
+              onClick={() => void onSave()}
+            >
+              {saving && <Spinner />}
+              {t("hsrv_cfg_save")}
+            </Button>
+            {saved && (
+              <span className="text-xs text-muted-foreground" role="status">
+                {t("hsrv_cfg_saved")}
+              </span>
+            )}
+          </div>
+        </Panel>
+      )}
+    </>
+  )
+}
+
+function DoctorPanel({ kit }: { kit: HostKit }) {
+  const { t } = useI18n()
+  const { report } = useLauncher()
+  const [doc, setDoc] = useState<DoctorReportView | null>(null)
+  const [running, setRunning] = useState(false)
+  if (!kit.workspaceOk) return null
+  const runDoctor = async () => {
+    setRunning(true)
+    try {
+      const out = await api.serverDoctor()
+      if (out.ok) setDoc(out.report)
+      else await report(out)
+    } finally {
+      setRunning(false)
+    }
+  }
+  return (
+    <Panel title={t("hsrv_doc_title")} text={t("hsrv_doc_text")}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={running}
+          onClick={() => void runDoctor()}
+        >
+          {running ? <Spinner /> : <RefreshCwIcon />}
+          {t("hsrv_doc_run")}
+        </Button>
+        {doc && (
+          <span className="text-sm font-medium" role="status">
+            {t("hsrv_doc_summary", {
+              problems: doc.problems,
+              warnings: doc.warnings,
+            })}
+          </span>
+        )}
+      </div>
+      {doc && (
+        <ul className="flex flex-col" data-doctor-checks="">
+          {doc.checks.map((c, idx) => (
+            <li
+              key={`${c.label}-${idx}`}
+              className="flex items-start gap-2 border-b py-1.5 text-xs last:border-b-0"
+            >
+              {c.level === "ok" ? (
+                <CheckIcon className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+              ) : c.level === "warning" ? (
+                <CircleAlertIcon className="mt-0.5 size-4 shrink-0 text-amber-500" />
+              ) : (
+                <XIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
+              )}
+              <span className="w-28 shrink-0 font-mono text-muted-foreground">
+                {c.label}
+              </span>
+              <span className="flex-1 break-all">{c.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  )
+}
+
 function Console({ server }: { server: HostServerView }) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState("all")
+  const tags = Array.from(
+    new Set([
+      ...server.components.map((c) => c.name),
+      ...server.lines
+        .map((line) => /^\[([a-z0-9_-]+)\]/.exec(line)?.[1])
+        .filter((v): v is string => Boolean(v)),
+    ])
+  )
+  const filteredLines =
+    filter === "all"
+      ? server.lines
+      : server.lines.filter((line) => line.startsWith(`[${filter}]`))
   return (
     <Panel title={t("hsrv_console")}>
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => setOpen(!open)}>
           {t(open ? "hsrv_console_hide" : "hsrv_console_show")}
         </Button>
+        {open && tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            <Button
+              variant={filter === "all" ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => setFilter("all")}
+            >
+              {t("hsrv_console_filter_all")}
+            </Button>
+            {tags.map((tag) => (
+              <Button
+                key={tag}
+                variant={filter === tag ? "secondary" : "ghost"}
+                size="xs"
+                onClick={() => setFilter(tag)}
+              >
+                {tag}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
       {open &&
-        (server.lines.length === 0 ? (
+        (filteredLines.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("hsrv_console_empty")}
           </p>
         ) : (
           <pre className="max-h-80 overflow-auto bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
-            {server.lines.join("\n")}
+            {filteredLines.join("\n")}
           </pre>
         ))}
     </Panel>
@@ -599,11 +1049,13 @@ function ServerTab({
 }) {
   return (
     <>
-      <ServerPanel kit={kit} server={server} setTab={setTab} />
+      <ServerPanel kit={kit} server={server} snap={snap} setTab={setTab} />
       <Workspace kit={kit} snap={snap} />
       <SetupPanel kit={kit} server={server} snap={snap} />
-      <InvitePanel kit={kit} server={server} />
+      {snap.app.serverGui && <ServerConfigSection kit={kit} server={server} />}
+      <InvitePanel kit={kit} server={server} snap={snap} />
       <Multipliers kit={kit} />
+      {snap.app.serverGui && <DoctorPanel kit={kit} />}
       <UpdatePanel kit={kit} server={server} />
       <Console server={server} />
     </>
@@ -708,6 +1160,435 @@ function StatusTab({ server }: { server: HostServerView }) {
   )
 }
 
+function AdminTab({ server }: { server: HostServerView }) {
+  const { t } = useI18n()
+  const { report } = useLauncher()
+  const [player, setPlayer] = useState("")
+  const [reason, setReason] = useState("")
+  const [until, setUntil] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<AdminResultView | null>(null)
+  const running = server.state === "running"
+  const canRun = running && !busy && player.trim() !== ""
+
+  const runAdmin = async (action: AdminActionKind) => {
+    if (!canRun) return
+    setBusy(true)
+    try {
+      const out = await api.adminAction({
+        action,
+        player: player.trim(),
+        reason: reason.trim() === "" ? null : reason.trim(),
+        until: until.trim() === "" ? null : until.trim(),
+        module: null,
+      })
+      if (out.ok) setResult(out.result)
+      else await report(out)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Panel title={t("hadm_title")} text={t("hadm_text")}>
+      {!running && (
+        <p className="text-sm text-muted-foreground">
+          {t("err_server_stopped")}
+        </p>
+      )}
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="admin-player">{t("hadm_player")}</Label>
+        <Input
+          id="admin-player"
+          value={player}
+          maxLength={64}
+          autoComplete="off"
+          onChange={(event) => setPlayer(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-wrap gap-4">
+        <div className="flex min-w-56 flex-1 flex-col gap-1">
+          <Label htmlFor="admin-reason">{t("hadm_reason")}</Label>
+          <Input
+            id="admin-reason"
+            value={reason}
+            maxLength={500}
+            autoComplete="off"
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </div>
+        <div className="flex min-w-56 flex-1 flex-col gap-1">
+          <Label htmlFor="admin-until">{t("hadm_until")}</Label>
+          <Input
+            id="admin-until"
+            value={until}
+            maxLength={40}
+            autoComplete="off"
+            onChange={(event) => setUntil(event.target.value)}
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          disabled={!canRun}
+          onClick={() => void runAdmin("lookup")}
+        >
+          {t("hadm_lookup")}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!canRun}
+          onClick={() => void runAdmin("kick")}
+        >
+          {t("hadm_kick")}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!canRun}
+          onClick={() => void runAdmin("timeout")}
+        >
+          {t("hadm_timeout")}
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={!canRun}
+          onClick={() => void runAdmin("ban")}
+        >
+          {t("hadm_ban")}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!canRun}
+          onClick={() => void runAdmin("unban")}
+        >
+          {t("hadm_unban")}
+        </Button>
+      </div>
+      {result && (
+        <div
+          className="flex flex-col gap-2 border-t pt-3 text-sm"
+          data-admin-result={result.action}
+          data-admin-ok={result.ok}
+        >
+          {result.message && <p className="font-medium">{result.message}</p>}
+          {result.player && (
+            <div
+              className="flex flex-col gap-1 bg-muted p-3 text-xs"
+              data-admin-player={result.player.displayName}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">
+                  {result.player.displayName}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={toneClass(result.player.online ? "good" : "idle")}
+                >
+                  {t(result.player.online ? "hadm_online" : "hadm_offline")}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={toneClass(result.player.banned ? "bad" : "good")}
+                >
+                  {t(result.player.banned ? "hadm_banned" : "hadm_active")}
+                </Badge>
+              </div>
+              <span className="font-mono text-muted-foreground">
+                ID: {result.player.globalId} ({result.player.moduleUserId})
+              </span>
+              {result.player.banReason && (
+                <span>Reason: {result.player.banReason}</span>
+              )}
+              {result.player.timeoutUntil && (
+                <span>Until: {result.player.timeoutUntil}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+function HistoryTab() {
+  const { t } = useI18n()
+  const { report } = useLauncher()
+  const [account, setAccount] = useState("")
+  const [actor, setActor] = useState("")
+  const [since, setSince] = useState("")
+  const [until, setUntil] = useState("")
+  const [rows, setRows] = useState<HistoryEntryView[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [searched, setSearched] = useState(false)
+  const [plan, setPlan] = useState<RevertPlanView | null>(null)
+  const [applied, setApplied] = useState<RevertDoneView | null>(null)
+  const [guarded, setGuarded] = useState<GuardedActionInfo[]>([])
+  const [busy, setBusy] = useState(false)
+
+  const loadGuarded = async () => {
+    const out = await api.guardedList()
+    if (out.ok) setGuarded(out.actions)
+  }
+
+  useEffect(() => {
+    let current = true
+    void api.guardedList().then((out) => {
+      if (current && out.ok) setGuarded(out.actions)
+    })
+    return () => {
+      current = false
+    }
+  }, [])
+
+  const selection = () => ({
+    account: account.trim() === "" ? null : account.trim(),
+    actor: actor.trim() === "" ? null : actor.trim(),
+    since: since.trim() === "" ? null : since.trim(),
+    until: until.trim() === "" ? null : until.trim(),
+  })
+
+  const runSearch = async (cursor: string | null = null) => {
+    setBusy(true)
+    try {
+      const out = await api.historyQuery({ ...selection(), cursor })
+      if (out.ok) {
+        setRows(cursor ? [...rows, ...out.page.entries] : out.page.entries)
+        setNextCursor(out.page.next)
+        setSearched(true)
+      } else {
+        await report(out)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const runDryRun = async () => {
+    setBusy(true)
+    setApplied(null)
+    try {
+      const out = await api.historyRevertDryRun(selection())
+      if (out.ok) setPlan(out.plan)
+      else await report(out)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const runApply = async () => {
+    if (!plan) return
+    setBusy(true)
+    try {
+      const out = await api.historyRevertApply(plan.id)
+      if (out.ok) {
+        setApplied(out.done)
+        setPlan(null)
+        await runSearch(null)
+      } else {
+        await report(out)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const decideGuarded = async (id: string, approve: boolean) => {
+    const out = approve
+      ? await api.guardedApprove(id)
+      : await api.guardedCancel(id)
+    if (out.ok) await loadGuarded()
+    else await report(out)
+  }
+
+  return (
+    <>
+      <Panel title={t("hhis_title")} text={t("hhis_text")}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="his-account">{t("hhis_account")}</Label>
+            <Input
+              id="his-account"
+              value={account}
+              maxLength={64}
+              autoComplete="off"
+              onChange={(event) => setAccount(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="his-actor">{t("hhis_actor")}</Label>
+            <Input
+              id="his-actor"
+              value={actor}
+              maxLength={64}
+              autoComplete="off"
+              onChange={(event) => setActor(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="his-since">{t("hhis_since")}</Label>
+            <Input
+              id="his-since"
+              value={since}
+              maxLength={40}
+              autoComplete="off"
+              onChange={(event) => setSince(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="his-until">{t("hhis_until")}</Label>
+            <Input
+              id="his-until"
+              value={until}
+              maxLength={40}
+              autoComplete="off"
+              onChange={(event) => setUntil(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => void runSearch(null)}
+          >
+            {t("hhis_search")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void runDryRun()}
+          >
+            {t("hhis_dry_run")}
+          </Button>
+          {plan && plan.actionCount > 0 && (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void runApply()}
+            >
+              {t("hhis_apply", { count: plan.actionCount })}
+            </Button>
+          )}
+        </div>
+        {applied && (
+          <p className="text-sm font-medium" role="status">
+            {t("hhis_applied", {
+              reverted: applied.rowsChanged,
+              accounts: applied.databases.length,
+            })}
+          </p>
+        )}
+        {plan && (
+          <div
+            className="flex flex-col gap-2 bg-muted p-3 text-xs"
+            data-revert-plan={plan.id}
+          >
+            <span className="font-semibold">
+              Plan {plan.id}: {plan.actionCount} actions ({plan.entries} log
+              entries, {plan.conflictCount} conflicts)
+            </span>
+            {plan.actions.map((a, idx) => (
+              <div
+                key={`${a.database}-${a.table}-${a.key}-${idx}`}
+                className="font-mono"
+              >
+                {a.database}.{a.table} · {a.kind} · {a.key}
+              </div>
+            ))}
+          </div>
+        )}
+        {searched &&
+          (rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("hhis_empty")}</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <ul className="flex flex-col" data-history-rows="">
+                {rows.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b py-1.5 text-xs last:border-b-0"
+                  >
+                    <span className="font-mono text-muted-foreground">
+                      {r.at}
+                    </span>
+                    <span className="font-mono">{r.actor}</span>
+                    <span className="font-medium">
+                      {r.database}.{r.table} ({r.op})
+                    </span>
+                    <span className="flex-1 font-mono text-muted-foreground">
+                      {r.key}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {nextCursor && (
+                <div>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void runSearch(nextCursor)}
+                  >
+                    {t("hhis_more")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+      </Panel>
+      <Panel title={t("hhis_guarded_title")} text={t("hhis_guarded_text")}>
+        {guarded.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("hhis_guarded_empty")}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {guarded.map((g) => (
+              <li
+                key={g.id}
+                className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-xs last:border-b-0"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium">
+                    {g.kind}: {g.summary}
+                  </span>
+                  <span className="font-mono text-muted-foreground">
+                    {g.id} · {g.initiatedBy} · expires {g.expiresAt}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {g.state === "pending" && g.mode === "approval" && (
+                    <Button
+                      size="xs"
+                      onClick={() => void decideGuarded(g.id, true)}
+                    >
+                      {t("hhis_guarded_approve")}
+                    </Button>
+                  )}
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => void decideGuarded(g.id, false)}
+                  >
+                    {t("hhis_guarded_cancel")}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+    </>
+  )
+}
+
 export function HostScreen() {
   const { t } = useI18n()
   const { snap } = useLauncher()
@@ -750,6 +1631,12 @@ export function HostScreen() {
           </TabsContent>
           <TabsContent value="modules" className="flex flex-col gap-6 pt-4">
             <ModulesTab scope={scope} />
+          </TabsContent>
+          <TabsContent value="admin" className="flex flex-col gap-6 pt-4">
+            <AdminTab server={server} />
+          </TabsContent>
+          <TabsContent value="history" className="flex flex-col gap-6 pt-4">
+            <HistoryTab />
           </TabsContent>
           <TabsContent value="gamedata" className="flex flex-col gap-6 pt-4">
             <GameDataTab kit={kit} snap={snap} />
