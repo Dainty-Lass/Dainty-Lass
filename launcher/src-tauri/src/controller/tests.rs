@@ -1620,12 +1620,25 @@ async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_proc
     let embedded = std::sync::Arc::new(crate::server_gui::EmbeddedServerState::new(rx));
     hx.c.set_embedded_server(embedded);
     hx.c.init().await;
-    // Test directly against a fresh empty directory
+    // Fresh profile defaults to `<user_data>/Server` and refuses `host_download_project` (T2).
+    let default_ws = hx.c.default_server_data_dir();
+    assert!(default_ws.is_dir());
+    assert_eq!(
+        hx.c.s().host_workspace.as_deref(),
+        Some(default_ws.to_string_lossy().as_ref())
+    );
+    assert!(hx.c.host_kit().await.workspace_ok);
+    assert_eq!(
+        hx.c.host_download_project().await,
+        ActionResult::err(ErrorCode::NotInThisBuild)
+    );
+    // Choosing a new data folder creates it on the spot when it does not exist yet.
     let ws = hx.temp().join("FreshServer");
-    std::fs::create_dir_all(&ws).unwrap();
-    assert!(hx.c.valid_workspace(&ws));
+    assert!(!ws.exists());
     hx.pick("workspace", &ws);
     assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
+    assert!(ws.is_dir());
+    assert!(hx.c.valid_workspace(&ws));
     assert_eq!(hx.c.host_action(HostAction::SyntheticData).await, ActionResult::Ok);
 
     let setup = HostSetupRequest {

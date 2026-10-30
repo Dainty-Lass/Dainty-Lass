@@ -155,9 +155,34 @@ impl Controller {
         }
     }
 
-    /// `ensureHostWorkspace`: the project folder a host's server runs from. With Host tools on and none
-    /// chosen yet, the one beside the game is taken when it is there. `auto` never shows an error.
+    /// `ensureHostWorkspace`: the project folder a host's server runs from (or, in DaintyLass Manager,
+    /// the server's data folder under app data). With Host tools on and none chosen yet, the one beside
+    /// the game is taken when it is there. `auto` never shows an error.
     pub(super) async fn ensure_host_workspace(&self, auto: bool) -> ActionResult {
+        if self.host.server.has_embedded() {
+            if !auto {
+                return ActionResult::err(ErrorCode::NotInThisBuild);
+            }
+            if self.workspace().is_some() {
+                return ActionResult::Ok;
+            }
+            let target = self.default_server_data_dir();
+            if let Err(error) = std::fs::create_dir_all(&target) {
+                log::warn(&format!(
+                    "host: could not create default server data folder {}: {}",
+                    target.display(),
+                    log::describe_error(&error)
+                ));
+                return ActionResult::Ok;
+            }
+            let text = path_text(&target);
+            self.update_settings(|map| super::stored::set_text(map, "hostWorkspace", Some(&text)))
+                .await;
+            log::info(&format!("host: server data folder {text}"));
+            self.emit_host_kit();
+            self.publish();
+            return ActionResult::Ok;
+        }
         if auto && !self.s().host_tools {
             return ActionResult::Ok;
         }
@@ -191,12 +216,28 @@ impl Controller {
 
     // ------------------------------------------------------------------ helpers
 
+    pub(super) fn default_server_data_dir(&self) -> PathBuf {
+        self.c.user_data.join("Server")
+    }
+
     pub(super) fn valid_workspace(&self, ws: &Path) -> bool {
         if self.host.server.has_embedded() {
             is_dir(ws)
         } else {
             is_workspace(ws)
         }
+    }
+
+    fn workspace_detail(&self) -> &'static str {
+        if self.host.server.has_embedded() {
+            "workspace_mgr"
+        } else {
+            "workspace"
+        }
+    }
+
+    fn workspace_fail(&self) -> ActionResult {
+        self.host_fail(self.workspace_detail())
     }
 
     fn host_fail(&self, detail: &str) -> ActionResult {
@@ -399,7 +440,13 @@ impl Controller {
     }
 
     pub async fn host_choose_workspace(&self) -> ActionResult {
-        let start = self.s().host_workspace.map(PathBuf::from).unwrap_or_default();
+        let start = self.s().host_workspace.map(PathBuf::from).unwrap_or_else(|| {
+            if self.host.server.has_embedded() {
+                self.default_server_data_dir()
+            } else {
+                PathBuf::new()
+            }
+        });
         let Some(picked) = self
             .p
             .choose_folder(self.language(), FolderPurpose::Workspace, start)
@@ -407,8 +454,11 @@ impl Controller {
         else {
             return ActionResult::err(ErrorCode::Cancelled);
         };
+        if self.host.server.has_embedded() && !picked.exists() {
+            let _ = std::fs::create_dir_all(&picked);
+        }
         if !self.valid_workspace(&picked) {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         }
         let text = path_text(&picked);
         self.update_settings(|map| super::stored::set_text(map, "hostWorkspace", Some(&text)))
@@ -441,7 +491,7 @@ impl Controller {
             return busy();
         }
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         let Some(file) = self.p.choose_pack().await else {
             return ActionResult::err(ErrorCode::Cancelled);
@@ -474,7 +524,7 @@ impl Controller {
             return busy();
         }
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         let Some(picked) = self
             .p
@@ -516,7 +566,7 @@ impl Controller {
             _ => {}
         }
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         let w = WorkspacePaths::new(&ws);
         if needs_upstream(action, self.host.server.has_embedded())
@@ -656,7 +706,7 @@ impl Controller {
 
     pub async fn host_server_start(&self) -> ActionResult {
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         if self.job_running() {
             return busy();
@@ -708,7 +758,7 @@ impl Controller {
     /// game folder is the one this launcher plays from.
     pub async fn host_setup(&self, request: HostSetupRequest) -> ActionResult {
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         if self.job_running() {
             return busy();
@@ -748,7 +798,7 @@ impl Controller {
     /// secret: it goes to the page's view only, never to the log.
     pub async fn host_create_invite(&self, for_name: Option<String>) -> ActionResult {
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         if !matches!(
             self.host.server.state(),
@@ -783,7 +833,7 @@ impl Controller {
     /// updates with the server stopped and runs setup again with this server's settings.
     pub async fn host_update(&self) -> ActionResult {
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         if self.job_running() {
             return busy();
@@ -858,7 +908,7 @@ impl Controller {
     /// `reforged-host multipliers` (None turns them off). The backend reads them when it starts.
     pub async fn host_set_multipliers(&self, multipliers: Option<HostMultipliers>) -> ActionResult {
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         if self.job_running() {
             return busy();
@@ -1093,7 +1143,7 @@ impl Controller {
     /// after the runtime. It writes `Items_Analysis` there; closing the game ends the session.
     async fn start_export(&self) -> ActionResult {
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         let dir = match self.session_folder() {
             Ok(dir) => dir,
@@ -1328,7 +1378,7 @@ impl Controller {
     pub async fn server_doctor(&self) -> crate::bridge::types::ServerDoctorOutcome {
         use crate::bridge::types::{DoctorCheckView, DoctorLevel, DoctorReportView, ServerDoctorOutcome};
         let Some(ws) = self.workspace() else {
-            return ServerDoctorOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+            return ServerDoctorOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || {
             let paths = host::paths::Paths::new(ws);
@@ -1382,7 +1432,7 @@ impl Controller {
             return busy();
         }
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         let log_file = WorkspacePaths::new(&ws).launcher_log("backup");
         self.start_job(HostJobKind::Backup, None, Some(&log_file));
@@ -1434,7 +1484,7 @@ impl Controller {
     pub async fn server_config_get(&self) -> crate::bridge::types::ServerConfigOutcome {
         use crate::bridge::types::ServerConfigOutcome;
         let Some(ws) = self.workspace() else {
-            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         match tokio::task::spawn_blocking(move || read_server_config_view(&ws)).await {
             Ok(Ok(view)) => ServerConfigOutcome::Ok(view),
@@ -1454,7 +1504,7 @@ impl Controller {
     ) -> crate::bridge::types::ServerConfigOutcome {
         use crate::bridge::types::ServerConfigOutcome;
         let Some(ws) = self.workspace() else {
-            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::ServerConfigView, String> {
             let paths = host::paths::Paths::new(&ws);
@@ -1514,7 +1564,7 @@ impl Controller {
             return self.host_fail("server_running");
         }
         let Some(ws) = self.workspace() else {
-            return self.host_fail("workspace");
+            return self.workspace_fail();
         };
         let log_file = WorkspacePaths::new(&ws).launcher_log("migrate-mongo");
         self.start_job(HostJobKind::MigrateMongo, None, Some(&log_file));
@@ -1570,7 +1620,7 @@ impl Controller {
     pub async fn server_confirm_fresh_start(&self) -> crate::bridge::types::ServerConfigOutcome {
         use crate::bridge::types::ServerConfigOutcome;
         let Some(ws) = self.workspace() else {
-            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+            return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::ServerConfigView, String> {
             let paths = host::paths::Paths::new(&ws);
@@ -1590,7 +1640,9 @@ impl Controller {
     pub async fn server_invite_list(&self) -> crate::bridge::types::ServerInviteListOutcome {
         use crate::bridge::types::{ServerInviteEntry, ServerInviteListOutcome};
         let Some(ws) = self.workspace() else {
-            return ServerInviteListOutcome::Err(self.fail(ErrorCode::HostFailed, Some("workspace".into())));
+            return ServerInviteListOutcome::Err(
+                self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())),
+            );
         };
         if !matches!(
             self.host.server.state(),
