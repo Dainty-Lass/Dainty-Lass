@@ -36,6 +36,9 @@ import type {
   RealmOutcome,
   RegionPing,
   RegisterOutcome,
+  RemoteExecOutcome,
+  RemoteInviteOutcome,
+  RemoteStatusOutcome,
   RevertApplyOutcome,
   RevertPlanOutcome,
   ServerConfigOutcome,
@@ -47,6 +50,42 @@ import type {
 } from "./generated/types"
 
 export { BridgeError, CALL_TIMEOUT_MS, LONG_TIMEOUT_MS }
+
+export interface RemoteInitRequest {
+  node?: string | null
+  region?: string | null
+  url?: string | null
+}
+
+export interface RemoteInviteRequest {
+  node: string
+  region?: string | null
+  label?: string | null
+  url?: string | null
+}
+
+export interface RemoteEnrollRequest {
+  uri: string
+  label?: string | null
+}
+
+export type RemoteExecAction =
+  | "doctor"
+  | "backup"
+  | "invite"
+  | "ban"
+  | "unban"
+  | "kick"
+  | "announce"
+  | "guarded_approve"
+  | "guarded_cancel"
+
+export interface RemoteExecRequest {
+  node: string
+  action: RemoteExecAction
+  target?: string | null
+  reason?: string | null
+}
 
 export interface AdminRequest {
   action: AdminActionKind
@@ -202,6 +241,15 @@ export interface LauncherApi {
   serverConfirmFreshStart(): Promise<ServerConfigOutcome>
   serverInviteList(): Promise<ServerInviteListOutcome>
   adminAction(request: AdminRequest): Promise<AdminOutcome>
+  remoteStatus(): Promise<RemoteStatusOutcome>
+  remoteInitController(
+    request?: RemoteInitRequest
+  ): Promise<RemoteStatusOutcome>
+  remoteInvite(request: RemoteInviteRequest): Promise<RemoteInviteOutcome>
+  remoteEnroll(request: RemoteEnrollRequest): Promise<RemoteStatusOutcome>
+  remoteRevoke(node: string): Promise<RemoteStatusOutcome>
+  remoteLeave(): Promise<RemoteStatusOutcome>
+  remoteExec(request: RemoteExecRequest): Promise<RemoteExecOutcome>
 }
 
 // What a failed call answers when the page expects an answer, as the Electron main process did
@@ -510,6 +558,59 @@ export const api: LauncherApi = {
           reason: optionalText(request.reason),
           until: optionalText(request.until),
           module: optionalText(request.module),
+        },
+      },
+      LONG_TIMEOUT_MS
+    ),
+  remoteStatus: () => act<RemoteStatusOutcome>("remote_status"),
+  remoteInitController: (request = {}) =>
+    act<RemoteStatusOutcome>(
+      "remote_init_controller",
+      {
+        request: {
+          node: optionalText(request.node),
+          region: optionalText(request.region),
+          url: optionalText(request.url),
+        },
+      },
+      LONG_TIMEOUT_MS
+    ),
+  remoteInvite: (request) =>
+    act<RemoteInviteOutcome>(
+      "remote_invite",
+      {
+        request: {
+          node: String(request.node),
+          region: optionalText(request.region),
+          label: optionalText(request.label),
+          url: optionalText(request.url),
+        },
+      },
+      LONG_TIMEOUT_MS
+    ),
+  remoteEnroll: (request) =>
+    act<RemoteStatusOutcome>(
+      "remote_enroll",
+      {
+        request: {
+          uri: String(request.uri),
+          label: optionalText(request.label),
+        },
+      },
+      LONG_TIMEOUT_MS
+    ),
+  remoteRevoke: (node) =>
+    act<RemoteStatusOutcome>("remote_revoke", { node: String(node) }),
+  remoteLeave: () => act<RemoteStatusOutcome>("remote_leave"),
+  remoteExec: (request) =>
+    act<RemoteExecOutcome>(
+      "remote_exec",
+      {
+        request: {
+          node: String(request.node),
+          action: String(request.action),
+          target: optionalText(request.target),
+          reason: optionalText(request.reason),
         },
       },
       LONG_TIMEOUT_MS

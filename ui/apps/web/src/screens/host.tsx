@@ -25,6 +25,9 @@ import {
   type HostServerMode,
   type HostServerView,
   type ModuleView,
+  type RemoteExecAction,
+  type RemoteInviteView,
+  type RemoteStatusView,
   type RevertDoneView,
   type RevertPlanView,
   type ServerConfigView,
@@ -1049,6 +1052,496 @@ export function DoctorPanel({
   )
 }
 
+export function ManagedInstallsPanel({
+  kit,
+  initialStatus = null,
+  initialInvite = null,
+}: {
+  kit: HostKit
+  initialStatus?: RemoteStatusView | null
+  initialInvite?: RemoteInviteView | null
+}) {
+  const { t } = useI18n()
+  const { report } = useLauncher()
+  const [status, setStatus] = useState<RemoteStatusView | null>(initialStatus)
+  const [invite, setInvite] = useState<RemoteInviteView | null>(initialInvite)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [queuedNote, setQueuedNote] = useState<string | null>(null)
+
+  const [ctrlNode, setCtrlNode] = useState("ctrl-main")
+  const [ctrlRegion, setCtrlRegion] = useState("us-east")
+  const [ctrlUrl, setCtrlUrl] = useState("")
+
+  const [invNode, setInvNode] = useState("")
+  const [invRegion, setInvRegion] = useState("")
+  const [invLabel, setInvLabel] = useState("")
+
+  const [enrollUri, setEnrollUri] = useState("")
+  const [enrollLabel, setEnrollLabel] = useState("")
+
+  useEffect(() => {
+    if (!kit.workspaceOk || initialStatus !== null) return
+    let current = true
+    void api.remoteStatus().then((out) => {
+      if (current && out.ok) setStatus(out.status)
+    })
+    return () => {
+      current = false
+    }
+  }, [kit.workspace, kit.workspaceOk, kit.serverConfig.configured, initialStatus])
+
+  if (!kit.workspaceOk || !kit.serverConfig.configured) return null
+
+  const refresh = async () => {
+    setBusy(true)
+    try {
+      const out = await api.remoteStatus()
+      if (out.ok) setStatus(out.status)
+      else await report(out)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onInitController = async () => {
+    setBusy(true)
+    try {
+      const out = await api.remoteInitController({
+        node: ctrlNode.trim() || null,
+        region: ctrlRegion.trim() || null,
+        url: ctrlUrl.trim() || null,
+      })
+      if (out.ok) setStatus(out.status)
+      else await report(out)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onCreateInvite = async () => {
+    if (!invNode.trim()) return
+    setBusy(true)
+    setCopied(false)
+    try {
+      const out = await api.remoteInvite({
+        node: invNode.trim(),
+        region: invRegion.trim() || null,
+        label: invLabel.trim() || null,
+      })
+      if (out.ok) {
+        setInvite(out.invite)
+        const st = await api.remoteStatus()
+        if (st.ok) setStatus(st.status)
+      } else {
+        await report(out)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onEnroll = async () => {
+    if (!enrollUri.trim()) return
+    setBusy(true)
+    try {
+      const out = await api.remoteEnroll({
+        uri: enrollUri.trim(),
+        label: enrollLabel.trim() || null,
+      })
+      if (out.ok) {
+        setStatus(out.status)
+        setEnrollUri("")
+      } else {
+        await report(out)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onRevoke = async (node: string) => {
+    setBusy(true)
+    try {
+      const out = await api.remoteRevoke(node)
+      if (out.ok) setStatus(out.status)
+      else await report(out)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onLeave = async () => {
+    setBusy(true)
+    try {
+      const out = await api.remoteLeave()
+      if (out.ok) {
+        setStatus(out.status)
+        setInvite(null)
+      } else {
+        await report(out)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onExec = async (node: string, action: RemoteExecAction) => {
+    setBusy(true)
+    setQueuedNote(null)
+    try {
+      const out = await api.remoteExec({ node, action })
+      if (out.ok) {
+        setQueuedNote(
+          t("hrem_queued", {
+            action: out.result.action,
+            node: out.result.node,
+            id: out.result.commandId,
+          })
+        )
+        const st = await api.remoteStatus()
+        if (st.ok) setStatus(st.status)
+      } else {
+        await report(out)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copyUri = async (uri: string) => {
+    if (await api.copyText(uri)) setCopied(true)
+  }
+
+  const role = status?.role ?? "standalone"
+  const roleLabel =
+    role === "controller"
+      ? t("hrem_role_controller", {
+          node: status?.node ?? "controller",
+          region: status?.region ?? "default",
+          revision: status?.revision ?? 1,
+        })
+      : role === "managed"
+        ? t("hrem_role_managed", {
+            controller: status?.controllerNode ?? status?.controllerUrl ?? "",
+            revision: status?.revision ?? 0,
+          })
+        : t("hrem_role_standalone")
+
+  return (
+    <Panel title={t("hrem_title")} text={t("hrem_text")}>
+      <div
+        className="flex flex-wrap items-center justify-between gap-2"
+        data-remote-role={role}
+      >
+        <Badge
+          variant="outline"
+          className={toneClass(role === "standalone" ? "idle" : "good")}
+        >
+          {roleLabel}
+        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="xs"
+            disabled={busy}
+            onClick={() => void refresh()}
+          >
+            {busy ? <Spinner /> : <RefreshCwIcon />}
+            {t("hrem_refresh")}
+          </Button>
+          {role !== "standalone" && (
+            <Button
+              variant="ghost"
+              size="xs"
+              disabled={busy}
+              data-action="remote-leave"
+              onClick={() => void onLeave()}
+            >
+              {t("hrem_leave")}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {role === "standalone" && (
+        <div className="grid grid-cols-1 gap-4 border-t pt-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("hrem_init_title")}
+            </span>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="rem-ctrl-node">{t("hrem_init_node")}</Label>
+              <Input
+                id="rem-ctrl-node"
+                value={ctrlNode}
+                maxLength={64}
+                onChange={(e) => setCtrlNode(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="rem-ctrl-region">{t("hrem_init_region")}</Label>
+              <Input
+                id="rem-ctrl-region"
+                value={ctrlRegion}
+                maxLength={64}
+                onChange={(e) => setCtrlRegion(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="rem-ctrl-url">{t("hrem_init_url")}</Label>
+              <Input
+                id="rem-ctrl-url"
+                value={ctrlUrl}
+                maxLength={256}
+                placeholder="https://127.0.0.1:8443"
+                onChange={(e) => setCtrlUrl(e.target.value)}
+              />
+            </div>
+            <div>
+              <Button
+                size="sm"
+                disabled={busy || !ctrlNode.trim()}
+                data-action="remote-init-controller"
+                onClick={() => void onInitController()}
+              >
+                {t("hrem_init_btn")}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("hrem_enroll_title")}
+            </span>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="rem-enroll-uri">{t("hrem_enroll_uri")}</Label>
+              <Input
+                id="rem-enroll-uri"
+                value={enrollUri}
+                maxLength={2048}
+                placeholder="dainty-lass-remote://enroll?..."
+                onChange={(e) => setEnrollUri(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="rem-enroll-label">{t("hrem_enroll_label")}</Label>
+              <Input
+                id="rem-enroll-label"
+                value={enrollLabel}
+                maxLength={128}
+                onChange={(e) => setEnrollLabel(e.target.value)}
+              />
+            </div>
+            <div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy || !enrollUri.trim()}
+                data-action="remote-enroll"
+                onClick={() => void onEnroll()}
+              >
+                {t("hrem_enroll_btn")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {role === "controller" && (
+        <div className="flex flex-col gap-4 border-t pt-3">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("hrem_invite_title")}
+            </span>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="rem-inv-node">{t("hrem_invite_node")}</Label>
+                <Input
+                  id="rem-inv-node"
+                  className="w-40"
+                  value={invNode}
+                  maxLength={64}
+                  placeholder="eu-west-1"
+                  onChange={(e) => setInvNode(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="rem-inv-region">{t("hrem_invite_region")}</Label>
+                <Input
+                  id="rem-inv-region"
+                  className="w-36"
+                  value={invRegion}
+                  maxLength={64}
+                  placeholder="eu-west"
+                  onChange={(e) => setInvRegion(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="rem-inv-label">{t("hrem_invite_label")}</Label>
+                <Input
+                  id="rem-inv-label"
+                  className="w-44"
+                  value={invLabel}
+                  maxLength={128}
+                  placeholder="EU Hunt Node 1"
+                  onChange={(e) => setInvLabel(e.target.value)}
+                />
+              </div>
+              <Button
+                size="sm"
+                disabled={busy || !invNode.trim()}
+                data-action="remote-invite"
+                onClick={() => void onCreateInvite()}
+              >
+                {t("hrem_invite_btn")}
+              </Button>
+            </div>
+            {invite && (
+              <div
+                className="flex flex-col gap-1 bg-muted p-2 text-xs"
+                data-remote-invite={invite.node}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{t("hrem_invite_ready")}</span>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => void copyUri(invite.uri)}
+                  >
+                    <CopyIcon />
+                    {t(copied ? "hsrv_invite_copied" : "hsrv_invite_copy")}
+                  </Button>
+                </div>
+                <div className="font-mono break-all">
+                  <Secret text={invite.uri} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {queuedNote && (
+            <p className="text-xs font-medium" role="status">
+              {queuedNote}
+            </p>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("hrem_list_title", { count: status?.installs.length ?? 0 })}
+            </span>
+            {!status || status.installs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("hrem_list_empty")}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table
+                  className="w-full text-left text-xs"
+                  data-remote-installs=""
+                >
+                  <thead>
+                    <tr className="border-b text-muted-foreground uppercase">
+                      <th className="py-1.5 pr-3">{t("hrem_col_install")}</th>
+                      <th className="py-1.5 pr-3">{t("hrem_col_state")}</th>
+                      <th className="py-1.5 pr-3">{t("hrem_col_rev")}</th>
+                      <th className="py-1.5 pr-3">{t("hrem_col_load")}</th>
+                      <th className="py-1.5 text-right">
+                        {t("hrem_col_actions")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {status.installs.map((inst) => (
+                      <tr
+                        key={inst.node}
+                        data-managed-node={inst.node}
+                        className="border-b last:border-b-0"
+                      >
+                        <td className="py-2 pr-3">
+                          <div className="font-mono font-medium">
+                            {inst.node} ({inst.region})
+                          </div>
+                          {inst.label && (
+                            <div className="text-muted-foreground">
+                              {inst.label}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <Badge
+                            variant="outline"
+                            className={toneClass(
+                              inst.state === "online"
+                                ? "good"
+                                : inst.state === "degraded"
+                                  ? "busy"
+                                  : inst.state === "revoked"
+                                    ? "bad"
+                                    : "idle"
+                            )}
+                          >
+                            {t(
+                              inst.state === "online"
+                                ? "hrem_state_online"
+                                : inst.state === "degraded"
+                                  ? "hrem_state_degraded"
+                                  : inst.state === "revoked"
+                                    ? "hrem_state_revoked"
+                                    : "hrem_state_offline"
+                            )}
+                          </Badge>
+                        </td>
+                        <td className="py-2 pr-3 font-mono">
+                          r{inst.appliedRevision}
+                        </td>
+                        <td className="py-2 pr-3 font-mono">
+                          {inst.playersOnline} / {inst.activeHunts}
+                        </td>
+                        <td className="py-2 text-right">
+                          {!inst.revoked && (
+                            <div className="flex flex-wrap justify-end gap-1">
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                disabled={busy}
+                                onClick={() => void onExec(inst.node, "doctor")}
+                              >
+                                {t("hrem_act_doctor")}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                disabled={busy}
+                                onClick={() => void onExec(inst.node, "backup")}
+                              >
+                                {t("hrem_act_backup")}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="xs"
+                                disabled={busy}
+                                data-action={`remote-revoke-${inst.node}`}
+                                onClick={() => void onRevoke(inst.node)}
+                              >
+                                {t("hrem_act_revoke")}
+                              </Button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
 function Console({ server }: { server: HostServerView }) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
@@ -1127,6 +1620,7 @@ export function ServerTab({
       <InvitePanel kit={kit} server={server} snap={snap} />
       <Multipliers kit={kit} />
       {snap.app.serverGui && <DoctorPanel kit={kit} />}
+      {snap.app.serverGui && <ManagedInstallsPanel kit={kit} />}
       {!snap.app.serverGui && <UpdatePanel kit={kit} server={server} />}
       <Console server={server} />
     </>
