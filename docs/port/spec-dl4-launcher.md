@@ -1112,15 +1112,87 @@ Implements **RD9** (zero process injection):
 
 ---
 
-## 4. Verification & Acceptance Checklist for DL4b
+## 4. Post-cutover and Tauri App Updates (`Part B`, `T1`–`T5`, `DL4b`)
 
-1. **Zero Prohibited Provenance in the MIT Crate**:
-   - The new MIT crate's `Cargo.toml` sets `license = "MIT"`.
-   - Grepping the MIT crate for `ReforgedLauncher`, `Dauntless-Reforged-Revival`, `dauntless-revived`, `mixutin`, `Freeza`, `e1c5fec`, `24b7624`, or `.ts` source citations returns **0 matches**.
+### 4.1 `DaintyLass Manager` (`dainty-lass-manager`) & Default Workspace (`Part B`)
+
+1. **Product & Binary Identity**:
+   - Client launcher binary: `dainty-lass-client` (`DaintyLass`).
+   - Server GUI binary (`--features server-gui`): `dainty-lass-manager` (`DaintyLass Manager`, identifier `com.silentspud.daintylass.manager`, separate `userData` folder).
+2. **Default Server Workspace (`ensure_host_workspace`)**:
+   - In `server-gui` mode (or when `auto` is true), if no workspace is configured in `settings.json`, defaults to `<userData>/Server`, creates `.workspace/config`, `.workspace/data`, and `.workspace/logs`, and writes a starter `.workspace/config/host.toml` if absent so `HostKit::workspace_ok` is `true` on a fresh Manager install without requiring a git checkout.
+3. **`host_download_project` Retired**:
+   - `Controller::host_download_project` is retired and immediately returns `ActionResult::Err(LauncherError::new(ErrorCode::NotInThisBuild))`.
+
+### 4.2 Host Requirements Without MongoDB or Git (`T4`)
+
+- `RequirementId` and `check_requirements_here` check **6** prerequisites in order (MongoDB and Git are no longer required for hosting):
+  1. `RequirementId::Dauntless`
+  2. `RequirementId::Tailscale`
+  3. `RequirementId::VisualStudio`
+  4. `RequirementId::Rust`
+  5. `RequirementId::Dumper7`
+  6. `RequirementId::VcRedist`
+- `find_postgres` remains available for optional PostgreSQL checks.
+
+### 4.3 Feature-Independent Bridge Code Generation (`T1`)
+
+- `bridge::generate` emits identical output regardless of which Cargo features (`server-gui`, `realms`, `legacy`, `host`) are enabled at build time:
+  - `ui/packages/bridge/src/generated/types.ts`
+  - `rust/launcher/src-tauri/isolation/commands.js`
+  - `rust/launcher/src-tauri/permissions/app-commands.toml`
+  - `rust/launcher/src-tauri/gen/strings.json`
+- Every command in `spec::COMMANDS` and every wire type is always included in the generated files; commands disabled by the current binary's features return `ErrorCode::NotInThisBuild` at runtime (`*_off.rs` stubs).
+
+### 4.4 Server GUI Bridge Commands (`admin_*` and `server_*`, `T2`–`T3`)
+
+In addition to the module, history, and guarded-action commands, `spec::SERVER_GUI_ONLY` includes 11 server-management and admin commands:
+1. `admin_lookup(query: Text)` -> looks up player accounts by username, email, or account ID via `admin` / `store::Database`.
+2. `admin_action(request: Object)` -> executes `ban`, `unban`, `kick`, `grant_currency`, `grant_item`, `reset_character`, or `set_role` on a player account, recording the change-log entry under actor `"host:server-gui"`.
+3. `server_doctor()` -> runs `hostkit::doctor::run_doctor` on the active workspace and returns structured `ServerDoctorReport { checks, fails, warnings }`.
+4. `server_backup()` -> creates a hot database backup in `<workspace>/.workspace/backups/` and returns `ServerBackupResult { path, bytes }`.
+5. `server_config_get()` -> reads `<workspace>/.workspace/config/host.toml` and returns `ServerConfigView`.
+6. `server_config_save(patch: Object)` -> validates and writes updated settings (`name`, `mode`, `public_host`, `public_port`, `registration`, `max_hunts`, `xp_multiplier`, `reward_multiplier`, `memory_guard`, `database`) to `host.toml` and regenerates service `.env` files.
+7. `server_mongo_status()` -> inspects `<workspace>` for unmigrated legacy MongoDB data (`.mongo-migrated`, `.workspace/data/mongo`, reachable MongoDB collections) and returns `ServerMongoStatus`.
+8. `server_mongo_migrate(source: OptionalText)` -> runs the MongoDB-to-SQLite migration and verification, writing `.mongo-migrated` on success.
+9. `server_mongo_fresh_start()` -> sets `database.skip_mongo_migration = true` in `host.toml` and writes `.mongo-migrated` so a fresh server starts cleanly without migrating legacy MongoDB data.
+10. `server_module_logs(module_id: OptionalText)` -> returns recent structured log entries (`Vec<ServerLogLine>`) from the in-memory ring buffer filtered by optional service/module name.
+11. `server_invite_list()` -> lists active invite codes from the backend database (`Vec<ServerInviteEntry>`).
+
+### 4.5 Account Ban Handling (`T5`)
+
+- When `/undaunted/api/verify` (or `/undaunted/api/register`) returns HTTP 403 with `"error": "account_banned"`:
+  - `VerifyOutcome::Banned { reason }` sets `st.key_rejected = true` (`ServerView::key_rejected = true`), sets `st.last_error = Some(LauncherError::new(ErrorCode::AccountBanned))` (with optional ban reason detail), and `compute_phase` transitions to `Phase::Register` so the player sees the ban error banner and can enter a different key.
+
+### 4.6 Target Crate Split (`crates/launcher-kit` vs `launcher/src-tauri`, `DL4b`)
+
+1. **`rust/crates/launcher-kit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`)**:
+   - Contains the pure, clean-room and born-here launcher modules that do not depend on `tauri::AppHandle` or DR's `controller`/`keystore`/`proxy` core:
+     - `bridge/spec.rs` (command/event/arg specifications and `arg_accepts` validator)
+     - `bridge/modules.rs` (module panel validation and sanitisation)
+     - `hostkit/mod.rs` and `hostkit/parse.rs` (workspace layout, Dumper-7 discovery, SDK copy, output sanitisation)
+     - `net/runtime_files.rs` and `net/runtime_files/parse.rs` (runtime manifest verification, trust store, atomic download & `.rr-old-*` replacement)
+     - `net/regionping.rs` and `net/regionping/parse.rs` (multi-region ping measurement and node list parser)
+     - `net/versions.rs` and `net/versions/parse.rs` (server version & client profile discovery)
+     - `platform/loader_session.rs` (RD9 `mystic_loader.ini` dump/export session management)
+     - `platform/linux_runtime.rs` (Linux Wine/Proton/Heroic/Legendary discovery)
+     - `platform/requirements.rs` (host prerequisite checks)
+   - Has **zero** normal dependencies on any AGPL crate (`launcher`, `host`, `rifts-host`, `rifts-seam`, `gateway`, `content`, `chat`, `isles-*`, `revived-1-4-4`).
+2. **`rust/launcher/src-tauri` (`license = "AGPL-3.0-only"`)**:
+   - Thin Tauri shell and DR state machine (`controller`, `keystore`, `localproxy`, `singleinstance`, `game`, Tauri window/dialog/command glue) that depends on `launcher-kit` and re-exports its modules at their existing paths so all unit, integration, and fuzz targets compile and pass unchanged.
+
+---
+
+## 5. Verification & Acceptance Checklist for DL4b
+
+1. **Zero Prohibited Provenance in `crates/launcher-kit`**:
+   - `rust/crates/launcher-kit/Cargo.toml` sets `license = "MIT"`.
+   - Grepping `rust/crates/launcher-kit` for `ReforgedLauncher`, `Dauntless-Reforged-Revival`, `dauntless-revived`, `mixutin`, `Freeza`, `e1c5fec`, `24b7624`, or `.ts` source citations returns **0 matches**.
+   - `cargo tree -e normal -p launcher-kit` has **zero** paths to any AGPL crate.
 2. **RD9 No-Injection Check**:
-   - Grepping both the MIT crate and `src-tauri` for `OpenProcess`, `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread`, or `LoadLibrary` injection calls returns **0 matches**.
+   - Grepping both `crates/launcher-kit` and `src-tauri` for `OpenProcess`, `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread`, or `LoadLibrary` injection calls returns **0 matches**.
 3. **Bridge & Generated File Parity**:
-   - `cargo test -p launcher` (and `cargo test -p <mit-crate>`) passes all unit and integration tests across default features, `--features server-gui`, and `--no-default-features`.
-   - `every_command_is_served_and_nothing_else`, `name_lists_are_the_enums`, and `generated_files_are_current` pass without diff.
+   - `cargo test -p launcher-kit` and `cargo test -p launcher` pass all unit and integration tests across default features, `--features server-gui`, and `--no-default-features`.
+   - `every_command_is_served_and_nothing_else`, `name_lists_are_the_enums`, and `generated_files_are_current` pass without diff under both default features and `--features server-gui`.
 4. **Fuzz Target Compatibility**:
-   - `rust/fuzz/fuzz_targets/launcher_host.rs` and `rust/fuzz/fuzz_targets/launcher_region.rs` compile cleanly against the MIT crate's `hostkit::parse` and `regionping::parse` modules.
+   - `rust/fuzz/fuzz_targets/launcher_host.rs` and `rust/fuzz/fuzz_targets/launcher_region.rs` compile cleanly against `launcher-kit`.
