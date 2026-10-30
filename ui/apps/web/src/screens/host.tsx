@@ -701,25 +701,38 @@ function UpdatePanel({
   )
 }
 
-function ServerConfigSection({
+export function ServerConfigSection({
   kit,
   server,
+  initialConfig = null,
+  initialConfirmFresh = false,
 }: {
   kit: HostKit
   server: HostServerView
+  initialConfig?: ServerConfigView | null
+  initialConfirmFresh?: boolean
 }) {
   const { t } = useI18n()
   const act = useAct()
   const { report } = useLauncher()
-  const [cfg, setCfg] = useState<ServerConfigView | null>(null)
+  const [cfg, setCfg] = useState<ServerConfigView | null>(initialConfig)
   const [registration, setRegistration] = useState<
     "OPEN" | "INVITECODE" | "NONE"
-  >("INVITECODE")
-  const [database, setDatabase] = useState<"sqlite" | "postgres">("sqlite")
-  const [maxHubs, setMaxHubs] = useState("1")
-  const [maxHunts, setMaxHunts] = useState("3")
-  const [freshStart, setFreshStart] = useState(false)
-  const [confirmFresh, setConfirmFresh] = useState(false)
+  >(
+    initialConfig?.registration === "OPEN" ||
+      initialConfig?.registration === "NONE"
+      ? initialConfig.registration
+      : "INVITECODE"
+  )
+  const [database, setDatabase] = useState<"sqlite" | "postgres">(
+    initialConfig?.database === "postgres" ? "postgres" : "sqlite"
+  )
+  const [maxHubs, setMaxHubs] = useState(String(initialConfig?.maxHubs ?? 1))
+  const [maxHunts, setMaxHunts] = useState(String(initialConfig?.maxHunts ?? 3))
+  const [freshStart, setFreshStart] = useState(
+    initialConfig?.freshStart ?? false
+  )
+  const [confirmFresh, setConfirmFresh] = useState(initialConfirmFresh)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const working = kit.job?.state === "running"
@@ -804,6 +817,7 @@ function ServerConfigSection({
         <Alert
           variant="destructive"
           data-mongo-migration={mig.state}
+          data-mongo-readonly="true"
           className="flex flex-col gap-3"
         >
           <CircleAlertIcon />
@@ -817,9 +831,13 @@ function ServerConfigSection({
                     detail: mig.detail ?? "",
                   })}
             </p>
+            <p className="text-xs text-muted-foreground">
+              {t("hsrv_mongo_readonly_note")}
+            </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
+                data-action="mongo-migrate"
                 disabled={working || !stopped}
                 onClick={() => act(() => api.serverMigrateMongo())}
               >
@@ -829,6 +847,7 @@ function ServerConfigSection({
                 <Button
                   size="sm"
                   variant="outline"
+                  data-action="mongo-fresh-start"
                   disabled={working || !stopped}
                   onClick={() => setConfirmFresh(true)}
                 >
@@ -839,6 +858,7 @@ function ServerConfigSection({
                   <Button
                     size="sm"
                     variant="destructive"
+                    data-action="mongo-fresh-confirm"
                     disabled={working || !stopped}
                     onClick={() => void onConfirmFresh()}
                   >
@@ -847,6 +867,7 @@ function ServerConfigSection({
                   <Button
                     size="sm"
                     variant="ghost"
+                    data-action="mongo-fresh-cancel"
                     onClick={() => setConfirmFresh(false)}
                   >
                     {t("hsrv_mongo_fresh_cancel")}
@@ -855,6 +876,28 @@ function ServerConfigSection({
               )}
             </div>
           </AlertDescription>
+        </Alert>
+      )}
+      {mig.state === "migrated" && (
+        <Alert
+          data-mongo-migration="migrated"
+          data-mongo-readonly="true"
+          className="flex flex-col gap-2"
+        >
+          <CheckIcon className="text-emerald-500" />
+          <AlertTitle>{t("hsrv_mongo_migrated_title")}</AlertTitle>
+          <AlertDescription>{t("hsrv_mongo_migrated")}</AlertDescription>
+        </Alert>
+      )}
+      {mig.state === "skipped" && (
+        <Alert
+          data-mongo-migration="skipped"
+          data-mongo-readonly="true"
+          className="flex flex-col gap-2"
+        >
+          <CircleAlertIcon />
+          <AlertTitle>{t("hsrv_mongo_skipped_title")}</AlertTitle>
+          <AlertDescription>{t("hsrv_mongo_skipped")}</AlertDescription>
         </Alert>
       )}
       {cfg.configured && (
@@ -937,10 +980,16 @@ function ServerConfigSection({
   )
 }
 
-function DoctorPanel({ kit }: { kit: HostKit }) {
+export function DoctorPanel({
+  kit,
+  initialReport = null,
+}: {
+  kit: HostKit
+  initialReport?: DoctorReportView | null
+}) {
   const { t } = useI18n()
   const { report } = useLauncher()
-  const [doc, setDoc] = useState<DoctorReportView | null>(null)
+  const [doc, setDoc] = useState<DoctorReportView | null>(initialReport)
   const [running, setRunning] = useState(false)
   if (!kit.workspaceOk) return null
   const runDoctor = async () => {
@@ -1058,7 +1107,7 @@ function Console({ server }: { server: HostServerView }) {
   )
 }
 
-function ServerTab({
+export function ServerTab({
   kit,
   server,
   snap,
@@ -1085,7 +1134,7 @@ function ServerTab({
 }
 
 // The server's components as the controller reports them (the server GUI runs it inside this window)
-function StatusTab({ server }: { server: HostServerView }) {
+export function StatusTab({ server }: { server: HostServerView }) {
   const { t } = useI18n()
   const act = useAct()
   const [modules, setModules] = useState<ModuleView[]>([])
@@ -1182,14 +1231,37 @@ function StatusTab({ server }: { server: HostServerView }) {
   )
 }
 
-function AdminTab({ server }: { server: HostServerView }) {
+export async function submitAdminAction(
+  action: AdminActionKind,
+  player: string,
+  reason = "",
+  until = ""
+) {
+  return api.adminAction({
+    action,
+    player: player.trim(),
+    reason: reason.trim() === "" ? null : reason.trim(),
+    until: until.trim() === "" ? null : until.trim(),
+    module: null,
+  })
+}
+
+export function AdminTab({
+  server,
+  initialPlayer = "",
+  initialResult = null,
+}: {
+  server: HostServerView
+  initialPlayer?: string
+  initialResult?: AdminResultView | null
+}) {
   const { t } = useI18n()
   const { report } = useLauncher()
-  const [player, setPlayer] = useState("")
+  const [player, setPlayer] = useState(initialPlayer)
   const [reason, setReason] = useState("")
   const [until, setUntil] = useState("")
   const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<AdminResultView | null>(null)
+  const [result, setResult] = useState<AdminResultView | null>(initialResult)
   const running = server.state === "running"
   const canRun = running && !busy && player.trim() !== ""
 
@@ -1197,13 +1269,7 @@ function AdminTab({ server }: { server: HostServerView }) {
     if (!canRun) return
     setBusy(true)
     try {
-      const out = await api.adminAction({
-        action,
-        player: player.trim(),
-        reason: reason.trim() === "" ? null : reason.trim(),
-        until: until.trim() === "" ? null : until.trim(),
-        module: null,
-      })
+      const out = await submitAdminAction(action, player, reason, until)
       if (out.ok) setResult(out.result)
       else await report(out)
     } finally {
@@ -1337,19 +1403,31 @@ function AdminTab({ server }: { server: HostServerView }) {
   )
 }
 
-function HistoryTab() {
+export function HistoryTab({
+  initialRows = [],
+  initialSearched = false,
+  initialPlan = null,
+  initialApplied = null,
+  initialGuarded = [],
+}: {
+  initialRows?: HistoryEntryView[]
+  initialSearched?: boolean
+  initialPlan?: RevertPlanView | null
+  initialApplied?: RevertDoneView | null
+  initialGuarded?: GuardedActionInfo[]
+}) {
   const { t } = useI18n()
   const { report } = useLauncher()
   const [account, setAccount] = useState("")
   const [actor, setActor] = useState("")
   const [since, setSince] = useState("")
   const [until, setUntil] = useState("")
-  const [rows, setRows] = useState<HistoryEntryView[]>([])
+  const [rows, setRows] = useState<HistoryEntryView[]>(initialRows)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [searched, setSearched] = useState(false)
-  const [plan, setPlan] = useState<RevertPlanView | null>(null)
-  const [applied, setApplied] = useState<RevertDoneView | null>(null)
-  const [guarded, setGuarded] = useState<GuardedActionInfo[]>([])
+  const [searched, setSearched] = useState(initialSearched)
+  const [plan, setPlan] = useState<RevertPlanView | null>(initialPlan)
+  const [applied, setApplied] = useState<RevertDoneView | null>(initialApplied)
+  const [guarded, setGuarded] = useState<GuardedActionInfo[]>(initialGuarded)
   const [busy, setBusy] = useState(false)
 
   const loadGuarded = async () => {
