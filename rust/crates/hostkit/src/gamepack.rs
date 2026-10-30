@@ -1,0 +1,432 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+//! Export and import of portable gzip-compressed game-data packs.
+
+use std::collections::HashSet;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+
+use chrono::{DateTime, SecondsFormat, Utc};
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
+
+use crate::error::HostError;
+use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, SUPPLIED_SOURCES, is_example_file};
+use crate::paths::{GAME_CHANGELIST, Paths};
+
+pub const PACK_FORMAT: &str = "dauntless-reforged-revival-gamedata";
+pub const PACK_VERSION: u64 = 1;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackFile {
+    pub path: String,
+    pub sha256: String,
+    pub data: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pack {
+    pub format: String,
+    pub version: u64,
+    pub game: String,
+    pub created: String,
+    pub files: Vec<PackFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Exported {
+    pub file: PathBuf,
+    pub files: Vec<String>,
+    pub left: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Imported {
+    pub written: Vec<String>,
+    pub unchanged: Vec<String>,
+    pub backups: Vec<String>,
+}
+
+pub fn sha256_hex(text: &str) -> String {
+    let digest = Sha256::digest(text.as_bytes());
+    let mut out = String::with_capacity(64);
+    for b in digest {
+        use std::fmt::Write as _;
+        let _ = write!(out, "{b:02x}");
+    }
+    out
+}
+
+pub fn pack_entries(p: &Paths) -> Vec<(String, PathBuf)> {
+    let mut entries =
+        Vec::with_capacity(BACKEND_GAME_DATA.len() + SUPPLIED_SOURCES.len() + DIRECTOR_GAME_DATA.len());
+    for name in BACKEND_GAME_DATA {
+        entries.push((format!("backend/{name}"), p.backend_game_data.join(name)));
+    }
+    for (_, source_name) in SUPPLIED_SOURCES {
+        entries.push((
+            format!("backend/raw/{source_name}"),
+            p.raw_game_data.join(source_name),
+        ));
+    }
+    for name in DIRECTOR_GAME_DATA {
+        entries.push((format!("director/{name}"), p.director_game_data.join(name)));
+    }
+    entries
+}
+
+pub fn default_pack_file(p: &Paths, now: DateTime<Utc>) -> PathBuf {
+    p.workspace.join(format!(
+        "gamedata-1.14.7-{GAME_CHANGELIST}-{}.json.gz",
+        now.format("%Y%m%d")
+    ))
+}
+
+fn game_tag() -> String {
+    format!("1.14.7-{GAME_CHANGELIST}")
+}
+
+fn iso_millis(now: DateTime<Utc>) -> String {
+    now.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
+pub fn pack_json(pack: &Pack) -> String {
+    let files: Vec<Value> = pack
+        .files
+        .iter()
+        .map(|f| {
+            json!({
+                "path": f.path,
+                "sha256": f.sha256,
+                "data": f.data,
+            })
+        })
+        .collect();
+    let value = json!({
+        "format": pack.format,
+        "version": pack.version,
+        "game": pack.game,
+        "created": pack.created,
+        "files": files,
+    });
+    let mut text = crate::hostconfig::stringify_pretty(&value);
+    text.push('\n');
+    text
+}
+
+pub(crate) fn is_example_path(full_path: &Path) -> Result<bool, HostError> {
+    let (Some(dir), Some(name)) = (
+        full_path.parent(),
+        full_path.file_name().and_then(|n| n.to_str()),
+    ) else {
+        return Ok(false);
+    };
+    is_example_file(dir, name)
+}
+
+pub fn export_game_data_pack(
+    p: &Paths,
+    out_file: &Path,
+    now: DateTime<Utc>,
+) -> Result<Exported, HostError> {
+    let mut pack_files = Vec::new();
+    let mut exported_names = Vec::new();
+    let mut left = Vec::new();
+
+    for (rel, full) in pack_entries(p) {
+        if full.is_file() && !is_example_path(&full)? {
+            let data = std::fs::read_to_string(&full).map_err(|e| HostError::io(&full, e))?;
+            let sha256 = sha256_hex(&data);
+            exported_names.push(rel.clone());
+            pack_files.push(PackFile {
+                path: rel,
+                sha256,
+                data,
+            });
+        } else if !rel.starts_with("backend/raw/") {
+            left.push(rel);
+        }
+    }
+
+    if pack_files.is_empty() {
+        return Err(HostError::message(
+            "no generated game data to export (only the example files, or nothing at all): run reforged-host gamedata first",
+        ));
+    }
+
+    let pack = Pack {
+        format: PACK_FORMAT.to_owned(),
+        version: PACK_VERSION,
+        game: game_tag(),
+        created: iso_millis(now),
+        files: pack_files,
+    };
+
+    let json_text = pack_json(&pack);
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder
+        .write_all(json_text.as_bytes())
+        .map_err(|e| HostError::io(out_file, e))?;
+    let compressed = encoder.finish().map_err(|e| HostError::io(out_file, e))?;
+
+    if let Some(parent) = out_file.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
+    }
+    std::fs::write(out_file, compressed).map_err(|e| HostError::io(out_file, e))?;
+
+    Ok(Exported {
+        file: out_file.to_path_buf(),
+        files: exported_names,
+        left,
+    })
+}
+
+pub fn read_game_data_pack(p: &Paths, file: &Path) -> Result<Pack, HostError> {
+    let compressed = std::fs::read(file).map_err(|e| HostError::io(file, e))?;
+    parse_game_data_pack(p, file, &compressed)
+}
+
+pub fn parse_game_data_pack(
+    p: &Paths,
+    file: &Path,
+    compressed: &[u8],
+) -> Result<Pack, HostError> {
+    let mut decoder = GzDecoder::new(compressed);
+    let mut text = String::new();
+    decoder.read_to_string(&mut text).map_err(|e| {
+        HostError::message(format!("{}: not a valid gzip game-data pack ({e})", file.display()))
+    })?;
+
+    let value: Value = serde_json::from_str(&text).map_err(|e| {
+        HostError::message(format!("{}: invalid JSON in game-data pack ({e})", file.display()))
+    })?;
+    let Some(obj) = value.as_object() else {
+        return Err(HostError::message(format!(
+            "{}: game-data pack must be a JSON object",
+            file.display()
+        )));
+    };
+
+    let format = obj.get("format").and_then(Value::as_str).unwrap_or_default();
+    if format != PACK_FORMAT {
+        return Err(HostError::message(format!(
+            "{}: not a game-data pack (format is {format:?})",
+            file.display()
+        )));
+    }
+
+    let version = obj.get("version").and_then(Value::as_u64).unwrap_or(0);
+    if version != PACK_VERSION {
+        return Err(HostError::message(format!(
+            "{}: unsupported game-data pack version {version}",
+            file.display()
+        )));
+    }
+
+    let expected_game = game_tag();
+    let game = obj.get("game").and_then(Value::as_str).unwrap_or_default();
+    if game != expected_game {
+        return Err(HostError::message(format!(
+            "{}: game-data pack is for {game:?}, expected {expected_game}",
+            file.display()
+        )));
+    }
+
+    let created = obj
+        .get("created")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+
+    let Some(files_arr) = obj.get("files").and_then(Value::as_array) else {
+        return Err(HostError::message(format!(
+            "{}: game-data pack has no files list",
+            file.display()
+        )));
+    };
+    if files_arr.is_empty() {
+        return Err(HostError::message(format!(
+            "{}: game-data pack is empty",
+            file.display()
+        )));
+    }
+
+    let known = pack_entries(p);
+    let mut seen = HashSet::with_capacity(files_arr.len());
+    let mut files = Vec::with_capacity(files_arr.len());
+
+    for item in files_arr {
+        let Some(fobj) = item.as_object() else {
+            return Err(HostError::message(format!(
+                "{}: invalid file entry in game-data pack",
+                file.display()
+            )));
+        };
+        let Some(rel_path) = fobj.get("path").and_then(Value::as_str) else {
+            return Err(HostError::message(format!(
+                "{}: file entry missing path",
+                file.display()
+            )));
+        };
+        if !known.iter().any(|(k, _)| k == rel_path) {
+            return Err(HostError::message(format!(
+                "{}: unknown game-data file path {rel_path:?}",
+                file.display()
+            )));
+        }
+        if !seen.insert(rel_path.to_owned()) {
+            return Err(HostError::message(format!(
+                "{}: duplicate file path {rel_path:?}",
+                file.display()
+            )));
+        }
+        let Some(expected_sha) = fobj.get("sha256").and_then(Value::as_str) else {
+            return Err(HostError::message(format!(
+                "{}: {rel_path} is missing sha256",
+                file.display()
+            )));
+        };
+        let Some(data) = fobj.get("data").and_then(Value::as_str) else {
+            return Err(HostError::message(format!(
+                "{}: {rel_path} is missing data",
+                file.display()
+            )));
+        };
+        let actual_sha = sha256_hex(data);
+        if actual_sha != expected_sha {
+            return Err(HostError::message(format!(
+                "{}: {rel_path} SHA-256 mismatch (expected {expected_sha}, got {actual_sha})",
+                file.display()
+            )));
+        }
+        serde_json::from_str::<Value>(data).map_err(|e| {
+            HostError::message(format!("{}: {rel_path} is not valid JSON ({e})", file.display()))
+        })?;
+        files.push(PackFile {
+            path: rel_path.to_owned(),
+            sha256: expected_sha.to_owned(),
+            data: data.to_owned(),
+        });
+    }
+
+    Ok(Pack {
+        format: format.to_owned(),
+        version,
+        game: game.to_owned(),
+        created,
+        files,
+    })
+}
+
+pub fn import_game_data_pack(p: &Paths, file: &Path) -> Result<Imported, HostError> {
+    import_game_data_pack_at(p, file, Utc::now())
+}
+
+pub fn import_game_data_pack_at(
+    p: &Paths,
+    file: &Path,
+    now: DateTime<Utc>,
+) -> Result<Imported, HostError> {
+    let pack = read_game_data_pack(p, file)?;
+    let known = pack_entries(p);
+    let stamp = now.format("%Y%m%dT%H%M%SZ").to_string();
+
+    let mut written = Vec::new();
+    let mut unchanged = Vec::new();
+    let mut backups = Vec::new();
+
+    for entry in &pack.files {
+        let Some((_, dest)) = known.iter().find(|(k, _)| *k == entry.path) else {
+            continue;
+        };
+        if dest.is_file() {
+            let existing = std::fs::read_to_string(dest).map_err(|e| HostError::io(dest, e))?;
+            if existing == entry.data {
+                unchanged.push(entry.path.clone());
+                continue;
+            }
+            if !is_example_path(dest)? {
+                let backup = PathBuf::from(format!("{}.bak.{stamp}", dest.display()));
+                std::fs::copy(dest, &backup).map_err(|e| HostError::io(&backup, e))?;
+                backups.push(entry.path.clone());
+            }
+        }
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
+        }
+        std::fs::write(dest, &entry.data).map_err(|e| HostError::io(dest, e))?;
+        written.push(entry.path.clone());
+    }
+
+    Ok(Imported {
+        written,
+        unchanged,
+        backups,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use chrono::TimeZone;
+
+    use super::*;
+    use crate::gamedata::use_examples;
+
+    #[test]
+    fn exports_real_files_and_imports_with_backups() {
+        let src_tmp = tempfile::tempdir().unwrap();
+        let src_paths = Paths::new(src_tmp.path());
+        use_examples(&src_paths.backend_game_data, &BACKEND_GAME_DATA).unwrap();
+
+        let now = Utc.with_ymd_and_hms(2026, 4, 17, 12, 0, 0).unwrap();
+        let pack_file = default_pack_file(&src_paths, now);
+
+        // Example-only data is refused
+        assert!(export_game_data_pack(&src_paths, &pack_file, now).is_err());
+
+        // Write one real file
+        std::fs::write(
+            src_paths.backend_game_data.join("progression_config.json"),
+            "{\"real\":1}\n",
+        )
+        .unwrap();
+
+        let exported = export_game_data_pack(&src_paths, &pack_file, now).unwrap();
+        assert_eq!(exported.files, vec!["backend/progression_config.json"]);
+        assert_eq!(exported.left.len(), 13);
+
+        // Import into a second workspace where progression_config.json already has different real data
+        let dst_tmp = tempfile::tempdir().unwrap();
+        let dst_paths = Paths::new(dst_tmp.path());
+        std::fs::create_dir_all(&dst_paths.backend_game_data).unwrap();
+        std::fs::write(
+            dst_paths.backend_game_data.join("progression_config.json"),
+            "{\"old\":true}\n",
+        )
+        .unwrap();
+
+        let imported = import_game_data_pack_at(&dst_paths, &pack_file, now).unwrap();
+        assert_eq!(imported.written, vec!["backend/progression_config.json"]);
+        assert_eq!(imported.backups, vec!["backend/progression_config.json"]);
+        assert!(imported.unchanged.is_empty());
+
+        let backup_file = dst_paths
+            .backend_game_data
+            .join("progression_config.json.bak.20260417T120000Z");
+        assert_eq!(
+            std::fs::read_to_string(backup_file).unwrap(),
+            "{\"old\":true}\n"
+        );
+
+        // Importing again marks it unchanged
+        let imported2 = import_game_data_pack_at(&dst_paths, &pack_file, now).unwrap();
+        assert_eq!(imported2.unchanged, vec!["backend/progression_config.json"]);
+        assert!(imported2.written.is_empty());
+    }
+}
