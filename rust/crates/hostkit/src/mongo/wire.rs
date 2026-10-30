@@ -484,6 +484,127 @@ pub fn command(addr: SocketAddr, doc: &Doc, timeout: Duration) -> io::Result<Doc
     parse_op_msg(&frame)
 }
 
+/// Ordered BSON document type used by wire-protocol callers and tests.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Document(pub Vec<(String, Bson)>);
+
+/// BSON value variants corresponding to [`Document`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum Bson {
+    Double(f64),
+    String(String),
+    Document(Document),
+    Array(Vec<Bson>),
+    Bool(bool),
+    Null,
+    Int32(i32),
+    Int64(i64),
+    Other(u8),
+}
+
+impl Document {
+    #[must_use]
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    #[must_use]
+    pub fn with(mut self, key: impl Into<String>, val: Bson) -> Self {
+        self.0.push((key.into(), val));
+        self
+    }
+
+    #[must_use]
+    pub fn get(&self, key: &str) -> Option<&Bson> {
+        self.0.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+
+    #[must_use]
+    pub fn str(&self, key: &str) -> Option<&str> {
+        match self.get(key)? {
+            Bson::String(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    fn from_doc(doc: Doc) -> Self {
+        Self(
+            doc.into_iter()
+                .map(|(k, v)| (k, Bson::from_value(v)))
+                .collect(),
+        )
+    }
+
+    fn to_doc(&self) -> Doc {
+        self.0
+            .iter()
+            .map(|(k, v)| (k.clone(), v.to_value()))
+            .collect()
+    }
+}
+
+impl Bson {
+    fn from_value(val: Value) -> Self {
+        match val {
+            Value::Double(n) => Self::Double(n),
+            Value::Str(s) => Self::String(s),
+            Value::Doc(d) => Self::Document(Document::from_doc(d)),
+            Value::Array(a) => Self::Array(a.into_iter().map(Self::from_value).collect()),
+            Value::Bool(b) => Self::Bool(b),
+            Value::Null => Self::Null,
+            Value::Int32(n) => Self::Int32(n),
+            Value::Int64(n) => Self::Int64(n),
+            Value::Other(t) => Self::Other(t),
+        }
+    }
+
+    fn to_value(&self) -> Value {
+        match self {
+            Self::Double(n) => Value::Double(*n),
+            Self::String(s) => Value::Str(s.clone()),
+            Self::Document(d) => Value::Doc(d.to_doc()),
+            Self::Array(a) => Value::Array(a.iter().map(Self::to_value).collect()),
+            Self::Bool(b) => Value::Bool(*b),
+            Self::Null => Value::Null,
+            Self::Int32(n) => Value::Int32(*n),
+            Self::Int64(n) => Value::Int64(*n),
+            Self::Other(t) => Value::Other(*t),
+        }
+    }
+}
+
+/// Reads a single `OP_MSG` request frame from `stream`, returning `(request_id, document)`.
+pub fn read_request(stream: &mut impl Read) -> Option<(i32, Document)> {
+    let mut len_buf = [0u8; 4];
+    stream.read_exact(&mut len_buf).ok()?;
+    let total = usize::try_from(i32::from_le_bytes(len_buf)).ok()?;
+    if !(21..=MAX_FRAME_BYTES).contains(&total) {
+        return None;
+    }
+    let mut frame = vec![0u8; total];
+    frame[..4].copy_from_slice(&len_buf);
+    stream.read_exact(&mut frame[4..]).ok()?;
+    let req_id = i32::from_le_bytes([frame[4], frame[5], frame[6], frame[7]]);
+    let doc = parse_op_msg(&frame).ok()?;
+    Some((req_id, Document::from_doc(doc)))
+}
+
+/// Writes an `OP_MSG` reply frame for `response_to` containing `doc` to `stream`.
+pub fn write_reply(stream: &mut impl Write, response_to: i32, doc: &Document) -> io::Result<()> {
+    let body = encode_doc(&doc.to_doc());
+    let total_len = i32::try_from(16 + 4 + 1 + body.len()).unwrap_or(i32::MAX);
+    let mut packet = Vec::with_capacity(21 + body.len());
+    packet.extend_from_slice(&total_len.to_le_bytes());
+    packet.extend_from_slice(&1_i32.to_le_bytes());
+    packet.extend_from_slice(&response_to.to_le_bytes());
+    packet.extend_from_slice(&OP_MSG_CODE.to_le_bytes());
+    packet.extend_from_slice(&0_u32.to_le_bytes());
+    packet.push(0);
+    packet.extend_from_slice(&body);
+    stream.write_all(&packet)?;
+    stream.flush()
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]

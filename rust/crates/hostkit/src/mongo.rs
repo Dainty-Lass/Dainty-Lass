@@ -44,25 +44,26 @@ pub enum MongoCheck {
 }
 
 /// Options for [`ensure_replica_set`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReplicaSetOptions {
     pub initiate: bool,
-    pub timeout: Duration,
+    pub host: Option<String>,
+    pub timeout_ms: Option<u64>,
 }
 
 impl Default for ReplicaSetOptions {
     fn default() -> Self {
         Self {
             initiate: true,
-            timeout: Duration::from_millis(8000),
+            host: None,
+            timeout_ms: Some(8000),
         }
     }
 }
 
 /// Builds the command-line arguments for starting a managed 1-member `mongod` replica set on loopback.
-#[must_use]
-pub fn mongod_args(data_dir: &Path, log_file: &Path, port: u16) -> Vec<String> {
-    vec![
+pub fn mongod_args(data_dir: &Path, log_file: &Path, port: u16) -> Result<Vec<String>, HostError> {
+    Ok(vec![
         "--replSet".into(),
         REPLICA_SET.into(),
         "--bind_ip".into(),
@@ -76,7 +77,7 @@ pub fn mongod_args(data_dir: &Path, log_file: &Path, port: u16) -> Vec<String> {
         "--logappend".into(),
         "--wiredTigerCacheSizeGB".into(),
         MONGO_CACHE_GB.to_string(),
-    ]
+    ])
 }
 
 /// Returns the primary Windows `Program Files` directory (`ProgramW6432` or `ProgramFiles`).
@@ -173,6 +174,24 @@ pub fn newest_installed(base: &Path, exe: &str) -> Option<PathBuf> {
     found.pop().map(|(_, p)| p)
 }
 
+/// Searches `path` (`PATH`) and an optional Windows `Program Files` directory for `mongod` / `mongod.exe`.
+#[must_use]
+pub fn find_mongod_in(path: Option<&OsStr>, program_files_dir: Option<&Path>) -> Option<String> {
+    let exe = if cfg!(windows) { "mongod.exe" } else { "mongod" };
+    if let Some(on_path) = search_path([exe, "mongod", "mongod.exe"], path) {
+        return Some(on_path.display().to_string());
+    }
+    if let Some(pf) = program_files_dir {
+        let server_dir = pf.join("MongoDB").join("Server");
+        if let Some(installed) = newest_installed(&server_dir, "mongod.exe")
+            .or_else(|| newest_installed(&server_dir, "mongod"))
+        {
+            return Some(installed.display().to_string());
+        }
+    }
+    None
+}
+
 /// Finds `mongod` from an explicit `configured` path, `PATH`, or `%ProgramFiles%\MongoDB\Server\<ver>\bin\mongod.exe`.
 pub fn find_mongod(configured: Option<&str>) -> Result<Option<String>, HostError> {
     if let Some(explicit) = configured.map(str::trim).filter(|s| !s.is_empty()) {
@@ -184,25 +203,11 @@ pub fn find_mongod(configured: Option<&str>) -> Result<Option<String>, HostError
             "mongod was not found at configured path: {explicit}"
         )));
     }
-    let exe = if cfg!(windows) { "mongod.exe" } else { "mongod" };
-    if let Some(on_path) = search_path("mongod", std::env::var_os("PATH").as_deref()) {
-        return Ok(Some(on_path.display().to_string()));
-    }
-    if cfg!(windows) {
-        let mut bases = vec![program_files()];
-        if let Some(pf) = std::env::var_os("ProgramFiles").map(PathBuf::from)
-            && !bases.contains(&pf)
-        {
-            bases.push(pf);
-        }
-        for base in bases {
-            let server_dir = base.join("MongoDB").join("Server");
-            if let Some(installed) = newest_installed(&server_dir, exe) {
-                return Ok(Some(installed.display().to_string()));
-            }
-        }
-    }
-    Ok(None)
+    let pf = cfg!(windows).then(program_files);
+    Ok(find_mongod_in(
+        std::env::var_os("PATH").as_deref(),
+        pf.as_deref(),
+    ))
 }
 
 /// Converts a MongoDB replica-set URI into a `directConnection=true` URI for single-node administration.
@@ -329,66 +334,66 @@ fn hello_doc() -> Doc {
 
 /// Connects to the first host in `uri`, inspects its replica-set status via `hello` / `replSetGetStatus`,
 /// and (when `opts.initiate` is `true`) runs `replSetInitiate` if the node is not yet initialized.
-#[must_use]
-pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> MongoCheck {
+pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> Result<MongoCheck, HostError> {
     let (host, port) = match first_host(uri) {
         Ok(hp) => hp,
         Err(detail) => {
-            return MongoCheck::Failed {
+            return Ok(MongoCheck::Failed {
                 reason: MongoProblem::Error,
                 detail,
-            };
+            });
         }
     };
     let addr = match resolve_addr(&host, port) {
         Ok(a) => a,
         Err(detail) => {
-            return MongoCheck::Failed {
+            return Ok(MongoCheck::Failed {
                 reason: MongoProblem::Unreachable,
                 detail,
-            };
+            });
         }
     };
 
-    let deadline = Instant::now() + opts.timeout;
-    let cmd_timeout = opts.timeout.min(Duration::from_millis(3000)).max(Duration::from_millis(200));
+    let timeout = Duration::from_millis(opts.timeout_ms.unwrap_or(8000));
+    let deadline = Instant::now() + timeout;
+    let cmd_timeout = timeout.min(Duration::from_millis(3000)).max(Duration::from_millis(200));
 
     let hello = match command(addr, &hello_doc(), cmd_timeout) {
         Ok(doc) => doc,
         Err(e) => {
-            return MongoCheck::Failed {
+            return Ok(MongoCheck::Failed {
                 reason: MongoProblem::Unreachable,
                 detail: e.to_string(),
-            };
+            });
         }
     };
 
     if let Some(set_name) = as_str(find(&hello, "setName")) {
         let set_name = set_name.to_owned();
         if is_primary(&hello) || !opts.initiate {
-            return MongoCheck::Ok {
+            return Ok(MongoCheck::Ok {
                 set_name,
                 primary: is_primary(&hello),
                 initiated: false,
-            };
+            });
         }
         while Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(150));
             if let Ok(doc) = command(addr, &hello_doc(), cmd_timeout)
                 && is_primary(&doc)
             {
-                return MongoCheck::Ok {
+                return Ok(MongoCheck::Ok {
                     set_name,
                     primary: true,
                     initiated: false,
-                };
+                });
             }
         }
-        return MongoCheck::Ok {
+        return Ok(MongoCheck::Ok {
             set_name,
             primary: false,
             initiated: false,
-        };
+        });
     }
 
     // Node responded to hello without `setName`. Check `replSetGetStatus` to distinguish standalone vs uninitiated.
@@ -399,10 +404,10 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> MongoCheck {
     let status_doc = match command(addr, &status_cmd, cmd_timeout) {
         Ok(doc) => doc,
         Err(e) => {
-            return MongoCheck::Failed {
+            return Ok(MongoCheck::Failed {
                 reason: MongoProblem::Error,
                 detail: e.to_string(),
-            };
+            });
         }
     };
 
@@ -414,28 +419,30 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> MongoCheck {
         || errmsg.contains("--replSet")
         || (!is_repl_flag && code != Some(94) && as_f64(find(&status_doc, "ok")) != Some(1.0))
     {
-        return MongoCheck::Failed {
+        return Ok(MongoCheck::Failed {
             reason: MongoProblem::Standalone,
-            detail: if errmsg.is_empty() {
-                "mongod is running without --replSet".into()
-            } else {
-                errmsg
-            },
-        };
+            detail: format!(
+                "mongod is running without --replSet {REPLICA_SET} ({})",
+                if errmsg.is_empty() { "standalone" } else { &errmsg }
+            ),
+        });
     }
 
     if !opts.initiate {
-        return MongoCheck::Failed {
+        return Ok(MongoCheck::Failed {
             reason: MongoProblem::Error,
-            detail: if errmsg.is_empty() {
-                "replica set is not initiated yet".into()
+            detail: if code == Some(94) || errmsg.is_empty() {
+                "the replica set is not initiated yet".into()
             } else {
                 errmsg
             },
-        };
+        });
     }
 
-    let member_host = format!("{host}:{port}");
+    let member_host = opts
+        .host
+        .clone()
+        .unwrap_or_else(|| format!("{host}:{port}"));
     let init_cmd: Doc = vec![
         (
             "replSetInitiate".into(),
@@ -456,10 +463,10 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> MongoCheck {
     let init_res = match command(addr, &init_cmd, cmd_timeout) {
         Ok(doc) => doc,
         Err(e) => {
-            return MongoCheck::Failed {
+            return Ok(MongoCheck::Failed {
                 reason: MongoProblem::Error,
                 detail: e.to_string(),
-            };
+            });
         }
     };
 
@@ -470,10 +477,10 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> MongoCheck {
         let msg = as_str(find(&init_res, "errmsg"))
             .unwrap_or("replSetInitiate failed")
             .to_owned();
-        return MongoCheck::Failed {
+        return Ok(MongoCheck::Failed {
             reason: MongoProblem::Error,
             detail: msg,
-        };
+        });
     }
 
     let initiated = init_code != Some(23);
@@ -484,20 +491,20 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> MongoCheck {
             let set_name = as_str(find(&doc, "setName"))
                 .unwrap_or(REPLICA_SET)
                 .to_owned();
-            return MongoCheck::Ok {
+            return Ok(MongoCheck::Ok {
                 set_name,
                 primary: true,
                 initiated,
-            };
+            });
         }
         std::thread::sleep(Duration::from_millis(150));
     }
 
-    MongoCheck::Ok {
+    Ok(MongoCheck::Ok {
         set_name: REPLICA_SET.into(),
         primary: false,
         initiated,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -510,7 +517,7 @@ mod tests {
 
     #[test]
     fn builds_mongod_args_and_rewrites_direct_uri() {
-        let args = mongod_args(Path::new("/data/mongo"), Path::new("/logs/mongo.log"), 27017);
+        let args = mongod_args(Path::new("/data/mongo"), Path::new("/logs/mongo.log"), 27017).unwrap();
         assert_eq!(
             args,
             [
@@ -642,9 +649,11 @@ mod tests {
             &uri,
             &ReplicaSetOptions {
                 initiate: true,
-                timeout: Duration::from_secs(3),
+                host: None,
+                timeout_ms: Some(3000),
             },
-        );
+        )
+        .unwrap();
         assert_eq!(
             check,
             MongoCheck::Ok {

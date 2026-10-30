@@ -274,6 +274,30 @@ pub fn generate_self_signed_cert_at(
     })
 }
 
+pub fn generate_self_signed_cert_pem(hosts: &[String]) -> Result<(String, String), HostError> {
+    let common_name = hosts
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "127.0.0.1".to_owned());
+    let mut dns_names = Vec::new();
+    let mut ip_addresses = Vec::new();
+    for h in hosts {
+        if is_ipv4(h) {
+            if !ip_addresses.contains(h) {
+                ip_addresses.push(h.clone());
+            }
+        } else if !dns_names.contains(h) {
+            dns_names.push(h.clone());
+        }
+    }
+    let cert = generate_self_signed_cert(&CertRequest {
+        common_name,
+        dns_names,
+        ip_addresses,
+    })?;
+    Ok((cert.cert_pem, cert.key_pem))
+}
+
 pub fn write_gateway_cert_if_missing(
     paths: &Paths,
     config: &HostConfig,

@@ -1312,15 +1312,15 @@ impl Controller {
                             }
                             "--export" => {
                                 if i + 1 < arg_vec.len() && !arg_vec[i + 1].starts_with("--") {
-                                    gd_args.export = Some(Some(arg_vec[i + 1].clone()));
+                                    gd_args.export = Some(arg_vec[i + 1].clone());
                                     i += 2;
                                 } else {
-                                    gd_args.export = Some(None);
+                                    gd_args.export = Some(String::new());
                                     i += 1;
                                 }
                             }
                             "--import" if i + 1 < arg_vec.len() => {
-                                gd_args.import = Some(Some(arg_vec[i + 1].clone()));
+                                gd_args.import = Some(arg_vec[i + 1].clone());
                                 i += 2;
                             }
                             _ => i += 1,
@@ -1595,8 +1595,11 @@ impl Controller {
                 }
             };
             let paths = host::paths::Paths::new(ws);
-            match host::commands::update::migrate_existing_mongo_data(&paths, &mut emit) {
-                Ok(()) => Ok(lines.last().cloned()),
+            let config = host::hostconfig::load_host_config(&paths)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "not_configured".to_owned())?;
+            match host::commands::update::migrate_existing_mongo_data(&paths, &config, &log_clone, &mut emit) {
+                Ok(_) => Ok(lines.last().cloned()),
                 Err(error) => {
                     emit(&format!("Error: {error}"));
                     Err(error.to_string())
@@ -1664,13 +1667,8 @@ impl Controller {
                 }
                 host::hostconfig::ServerMode::Private => None,
             };
-            let raw = host::invite::list_invite_codes(&secrets.admin_key, host::paths::PORTS.backend)
+            let items = host::invite::list_invite_codes(host::paths::PORTS.backend, &secrets.admin_key)
                 .map_err(|e| e.to_string())?;
-            let items = raw
-                .get("InviteCodes")
-                .and_then(|v| v.as_array())
-                .cloned()
-                .unwrap_or_default();
             let mut out = Vec::with_capacity(items.len());
             for item in items {
                 let Some(code) = item.get("code").and_then(|v| v.as_str()) else {
@@ -1806,7 +1804,7 @@ impl host::commands::setup::SetupEnv for InProcessSetupEnv {
     }
 
     fn tailscale_ipv4(&self) -> Result<Option<String>, host::HostError> {
-        Ok(host::doctor::tailscale_ipv4()?.or_else(|| Some("100.64.0.1".to_owned())))
+        Ok(host::doctor::tailscale_ipv4().or_else(|| Some("100.64.0.1".to_owned())))
     }
 
     fn find_mongod(&self) -> Result<Option<String>, host::HostError> {

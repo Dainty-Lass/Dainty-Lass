@@ -15,6 +15,14 @@ use crate::publish::{
 };
 
 pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Result<ExitCode, HostError> {
+    run_with(paths, args, &mut |line| println!("{line}"))
+}
+
+pub fn run_with(
+    paths: &Paths,
+    args: &PublishRuntimeArgs,
+    out: &mut dyn FnMut(&str),
+) -> Result<ExitCode, HostError> {
     let sources: Vec<(&str, PathBuf)> = match args.from.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         Some(dir_str) => {
             let dir = Path::new(dir_str);
@@ -27,14 +35,19 @@ pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Result<ExitCode, HostErr
     };
 
     let published = publish_runtime(paths, Utc::now(), &sources)?;
-    println!(
+    out(&format!(
         "Published runtime {} (changelist {}) to {}:",
         published.version,
         published.changelist,
         paths.runtime_publish.display()
-    );
+    ));
     for f in &published.files {
-        println!("  {} ({} bytes, sha256:{})", f.name, f.size, &f.sha256[..16]);
+        out(&format!(
+            "  {} ({} bytes, sha256:{})",
+            f.name,
+            f.size,
+            &f.sha256[..16]
+        ));
     }
 
     if let Ok(Some(cfg)) = load_host_config(paths)
@@ -45,11 +58,11 @@ pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Result<ExitCode, HostErr
             let installed = install_server_runtime(paths, win64_dir);
             let _ = ensure_server_flags(win64_dir)?;
             if !installed.installed.is_empty() {
-                println!(
+                out(&format!(
                     "Installed into {}: {}",
                     win64_dir.display(),
                     installed.installed.join(", ")
-                );
+                ));
             }
         }
     }

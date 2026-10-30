@@ -1,316 +1,507 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-use std::io::{self, IsTerminal, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
 
 use crate::cli::SetupArgs;
-use crate::doctor::tailscale_ipv4;
+use crate::commands::setup::SetupEnv;
 use crate::error::HostError;
 use crate::hostconfig::{
-    DEFAULT_MONGO_URI, Edition, HostConfig, Platform, Registration, ServerMode, is_dns_name,
+    DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, Edition, HostConfig, LinuxOptions, Multipliers,
+    PerformanceOptions, Platform, Registration, ServerMode, check_edition, game_ports, is_dns_name,
     is_ipv4, is_public_ipv4, is_tailscale_ipv4, is_valid_share_url, linux_options,
-    multipliers_on, performance_options,
+    performance_options,
 };
-use crate::paths::{GAME_VERSION_TEXT, MAX_HUNTS, PORTS, game_exe_relative};
+use crate::paths::{GAME_VERSION_TEXT, MAX_HUNTS, game_exe_relative};
 
-pub const DEFAULT_HOST: &str = "100.64.0.1";
-pub const DEFAULT_NAME: &str = "Dauntless Reforged Revival";
+pub const DEFAULT_NAME: &str = "DaintyLass server";
 pub const DEFAULT_MAX_HUNT_SERVERS: u32 = 3;
 pub const HOST_CONFIG_VERSION: u32 = 1;
-
-pub trait SetupPromptEnv {
-    fn is_tty(&self) -> bool;
-    fn platform(&self) -> Platform;
-    fn tailscale_ip(&self) -> Option<String>;
-    fn detected_game_dir(&self) -> Option<String>;
-    fn ask(&self, label: &str, default_val: &str) -> Result<String, HostError>;
-}
-
-#[derive(Debug, Clone)]
-pub struct RealSetupPromptEnv {
-    pub is_tty: bool,
-    pub platform: Platform,
-    pub tailscale_ip: Option<String>,
-    pub detected_game_dir: Option<String>,
-}
-
-impl Default for RealSetupPromptEnv {
-    fn default() -> Self {
-        let is_tty = io::stdin().is_terminal() && io::stdout().is_terminal();
-        Self {
-            is_tty,
-            platform: Platform::current(),
-            tailscale_ip: tailscale_ipv4(),
-            detected_game_dir: detect_default_game_dir(),
-        }
-    }
-}
-
-impl SetupPromptEnv for RealSetupPromptEnv {
-    fn is_tty(&self) -> bool {
-        self.is_tty
-    }
-
-    fn platform(&self) -> Platform {
-        self.platform
-    }
-
-    fn tailscale_ip(&self) -> Option<String> {
-        self.tailscale_ip.clone()
-    }
-
-    fn detected_game_dir(&self) -> Option<String> {
-        self.detected_game_dir.clone()
-    }
-
-    fn ask(&self, label: &str, default_val: &str) -> Result<String, HostError> {
-        prompt_stdio(label, default_val)
-    }
-}
-
-fn parse_u32_flag(flag: &str, raw: &str) -> Result<u32, HostError> {
-    raw.trim()
-        .parse::<u32>()
-        .map_err(|_| HostError::message(format!("{flag} must be a non-negative integer (got {raw:?})")))
-}
-
-fn parse_u16_port_flag(flag: &str, raw: &str) -> Result<u16, HostError> {
-    let val = raw
-        .trim()
-        .parse::<u16>()
-        .ok()
-        .filter(|&n| n >= 1)
-        .ok_or_else(|| {
-            HostError::message(format!("{flag} must be a port between 1 and 65535 (got {raw:?})"))
-        })?;
-    Ok(val)
-}
-
-fn parse_f64_flag(flag: &str, raw: &str) -> Result<f64, HostError> {
-    let val = raw
-        .trim()
-        .parse::<f64>()
-        .ok()
-        .filter(|n| n.is_finite() && *n > 0.0 && *n <= 1000.0)
-        .ok_or_else(|| {
-            HostError::message(format!(
-                "{flag} must be a number greater than 0 and at most 1000 (got {raw:?})"
-            ))
-        })?;
-    Ok(val)
-}
 
 pub fn check_unexpected_args(args: &SetupArgs) -> Result<(), HostError> {
     if let Some(first) = args.unexpected.first() {
         return Err(HostError::message(format!(
-            "unexpected argument to setup: {first}"
+            "unexpected {first:?}: put a value with spaces in quotes (for example, --game \"D:\\Games\\My Dauntless\")"
         )));
     }
     Ok(())
 }
 
-fn is_valid_host_for_mode(mode: ServerMode, host: &str) -> bool {
-    let h = host.trim().to_ascii_lowercase();
-    match mode {
-        ServerMode::Private => is_tailscale_ipv4(&h) || (is_dns_name(&h) && h.ends_with(".ts.net")),
-        ServerMode::Public => is_public_ipv4(&h) || is_dns_name(&h),
+pub fn public_port_from_args(
+    args: &SetupArgs,
+    mode: ServerMode,
+    existing: Option<&HostConfig>,
+) -> Result<Option<f64>, HostError> {
+    if let Some(ref raw) = args.public_port {
+        if mode != ServerMode::Public {
+            return Err(HostError::message("--public-port is for public servers only"));
+        }
+        let port = raw
+            .trim()
+            .parse::<u16>()
+            .ok()
+            .filter(|&p| p >= 1)
+            .ok_or_else(|| {
+                HostError::message(format!("--public-port must be a TCP port number (got {raw})"))
+            })?;
+        if port == 443 {
+            Ok(None)
+        } else {
+            Ok(Some(f64::from(port)))
+        }
+    } else if mode == ServerMode::Public {
+        Ok(existing.and_then(|c| c.public_port).map(f64::from))
+    } else {
+        Ok(None)
     }
 }
 
-pub fn resolve_options(
+fn parse_legacy_public_port_from_args(
     args: &SetupArgs,
+    mode: ServerMode,
+    edition: Edition,
     existing: Option<&HostConfig>,
-    env: &dyn SetupPromptEnv,
-) -> Result<HostConfig, HostError> {
-    check_unexpected_args(args)?;
-
-    let interactive = env.is_tty();
-
-    let default_mode = existing
-        .map(|c| c.mode.as_str().to_owned())
-        .unwrap_or_else(|| "private".to_owned());
-    let mode_raw = if let Some(m) = &args.mode {
-        m.trim().to_ascii_lowercase()
-    } else if interactive {
-        let ans = env.ask("Server mode (private/public)", &default_mode)?;
-        if ans.trim().is_empty() {
-            default_mode
-        } else {
-            ans.trim().to_ascii_lowercase()
+) -> Result<Option<u16>, HostError> {
+    if let Some(ref raw) = args.legacy_public_port {
+        if edition != Edition::Both {
+            return Err(HostError::message(
+                "--legacy-game and --legacy-public-port are for --edition both",
+            ));
         }
-    } else {
-        default_mode
-    };
-    let mode = ServerMode::parse(&mode_raw).ok_or_else(|| {
-        HostError::message(format!(
-            "--mode must be \"private\" or \"public\" (got {mode_raw:?})"
-        ))
-    })?;
-    let is_public = mode == ServerMode::Public;
-
-    let default_edition = existing
-        .map(|c| c.edition.as_str().to_owned())
-        .unwrap_or_else(|| "reborn".to_owned());
-    let edition_raw = if let Some(ed) = &args.edition {
-        ed.trim().to_ascii_lowercase()
-    } else if interactive {
-        let ans = env.ask("Edition (reborn/legacy/both)", &default_edition)?;
-        if ans.trim().is_empty() {
-            default_edition
-        } else {
-            ans.trim().to_ascii_lowercase()
+        if mode != ServerMode::Public {
+            return Err(HostError::message(
+                "--legacy-public-port is for public servers only",
+            ));
         }
-    } else {
-        default_edition
-    };
-    let edition = Edition::parse(&edition_raw).ok_or_else(|| {
-        HostError::message(format!(
-            "--edition must be \"reborn\", \"legacy\", or \"both\" (got {edition_raw:?})"
-        ))
-    })?;
-
-    let ts_ip = env.tailscale_ip();
-    let fallback_host = if is_public {
-        existing
-            .filter(|c| c.mode == ServerMode::Public)
-            .map(|c| c.host.clone())
-            .unwrap_or_else(|| "example.com".to_owned())
-    } else {
-        ts_ip
-            .clone()
-            .or_else(|| {
-                existing
-                    .filter(|c| c.mode == ServerMode::Private)
-                    .map(|c| c.host.clone())
-            })
-            .unwrap_or_else(|| DEFAULT_HOST.to_owned())
-    };
-
-    let host = if let Some(h) = &args.host {
-        h.trim().to_owned()
-    } else if interactive {
-        let ans = env.ask("Server host or IPv4", &fallback_host)?;
-        if ans.trim().is_empty() {
-            fallback_host
+        let port = raw
+            .trim()
+            .parse::<u16>()
+            .ok()
+            .filter(|&p| p >= 1)
+            .ok_or_else(|| {
+                HostError::message(format!(
+                    "--legacy-public-port must be a TCP port number (got {raw})"
+                ))
+            })?;
+        if port == crate::paths::DEFAULT_LEGACY_PUBLIC_PORT {
+            Ok(None)
         } else {
-            ans.trim().to_owned()
+            Ok(Some(port))
         }
+    } else if edition == Edition::Both && mode == ServerMode::Public {
+        Ok(existing.and_then(|c| c.legacy_public_port))
     } else {
-        fallback_host
-    };
-    if !is_valid_host_for_mode(mode, &host) {
-        return Err(HostError::message(format!("invalid --host for {mode} mode: {host:?}")));
+        Ok(None)
+    }
+}
+
+fn parse_ram_mb(flag: &str, raw: &str, min_mb: u32) -> Result<u32, HostError> {
+    let trimmed = raw.trim();
+    let num_part = trimmed
+        .strip_suffix("MB")
+        .or_else(|| trimmed.strip_suffix("mb"))
+        .unwrap_or(trimmed)
+        .trim();
+    let mb = num_part
+        .parse::<u32>()
+        .ok()
+        .filter(|&n| n >= min_mb && n <= 1_048_576)
+        .ok_or_else(|| {
+            HostError::message(format!(
+                "{flag} must be a whole number of megabytes, at least {min_mb} (got {raw})"
+            ))
+        })?;
+    Ok(mb)
+}
+
+pub fn performance_from_args(
+    args: &SetupArgs,
+    existing: Option<PerformanceOptions>,
+) -> Result<PerformanceOptions, HostError> {
+    let mut perf = existing.unwrap_or(DEFAULT_PERFORMANCE);
+
+    if let Some(ref raw) = args.server_fps {
+        let fps = raw
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|&n| n == 0 || (10..=240).contains(&n))
+            .ok_or_else(|| {
+                HostError::message(format!(
+                    "--server-fps must be 0 (no cap) or 10 to 240 frames per second (got {raw})"
+                ))
+            })?;
+        perf.server_fps = fps;
     }
 
-    let default_game_address = existing
-        .map(|c| {
-            if c.game_address == c.host && is_ipv4(&host) {
-                host.clone()
-            } else {
-                c.game_address.clone()
-            }
-        })
-        .or_else(|| is_ipv4(&host).then(|| host.clone()))
-        .or(ts_ip)
-        .unwrap_or_else(|| DEFAULT_HOST.to_owned());
+    if let Some(ref raw) = args.idle_fps {
+        let fps = raw
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|&n| n <= 240)
+            .ok_or_else(|| {
+                HostError::message(format!(
+                    "--idle-fps must be 0 (the same as --server-fps) or 1 to 240 frames per second (got {raw})"
+                ))
+            })?;
+        perf.idle_fps = fps;
+    }
 
-    let game_address = if let Some(ga) = &args.game_address {
-        ga.trim().to_owned()
-    } else if interactive && (!is_ipv4(&host) || is_public) {
-        let ans = env.ask("Game server IPv4 address", &default_game_address)?;
-        if ans.trim().is_empty() {
-            default_game_address
-        } else {
-            ans.trim().to_owned()
-        }
-    } else if is_ipv4(&host) && existing.is_none() {
-        host.clone()
-    } else {
-        default_game_address
+    if args.training_on_demand {
+        perf.training_on_demand = true;
+    }
+    if args.training_at_boot {
+        perf.training_on_demand = false;
+    }
+
+    if let Some(ref raw) = args.training_idle_minutes {
+        let mins = raw
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|&n| n <= 1440)
+            .ok_or_else(|| {
+                HostError::message(format!(
+                    "--training-idle-minutes must be 0 (keep them running) or 1 to 1440 minutes (got {raw})"
+                ))
+            })?;
+        perf.training_idle_minutes = mins;
+    }
+
+    if args.verbose_game_logs {
+        perf.verbose_game_logs = true;
+    }
+    if args.quiet_game_logs {
+        perf.verbose_game_logs = false;
+    }
+
+    if args.memory_guard {
+        perf.memory_guard = true;
+    }
+    if args.no_memory_guard {
+        perf.memory_guard = false;
+    }
+
+    if let Some(ref raw) = args.min_free_ram {
+        perf.min_free_memory_mb = parse_ram_mb("--min-free-ram", raw, 0)?;
+    }
+
+    if let Some(ref raw) = args.hunt_ram {
+        perf.hunt_memory_mb = parse_ram_mb("--hunt-ram", raw, 256)?;
+    }
+
+    Ok(perf)
+}
+
+#[must_use]
+pub fn performance_summary(c: &HostConfig) -> String {
+    let perf = performance_options(c);
+    let fps_part = match (perf.server_fps, perf.idle_fps) {
+        (0, 0) => "uncapped fps, no idle cap".to_owned(),
+        (0, idle) => format!("uncapped fps, {idle} fps after 15 s without players"),
+        (fps, 0) => format!("{fps} fps, no idle cap"),
+        (fps, idle) => format!("{fps} fps, {idle} fps after 15 s without players"),
     };
-    if !is_ipv4(&game_address) {
+    let training_part = if !perf.training_on_demand {
+        "Training Grounds at boot".to_owned()
+    } else if perf.training_idle_minutes == 0 {
+        "Training Grounds on demand, kept running".to_owned()
+    } else {
+        format!(
+            "Training Grounds on demand, stopped after {} min without players",
+            perf.training_idle_minutes
+        )
+    };
+    let logs_part = if perf.verbose_game_logs {
+        "verbose game logs"
+    } else {
+        "quiet game logs"
+    };
+    let (first, last) = game_ports(c);
+    let mem_part = if perf.memory_guard {
+        format!(
+            "a new hunt only with {} MB free",
+            perf.min_free_memory_mb + perf.hunt_memory_mb
+        )
+    } else {
+        "no memory guard".to_owned()
+    };
+    format!(
+        "Game servers: {fps_part}; {training_part}; {logs_part}; at most {} hunts at once (UDP {first}-{last}), {mem_part}",
+        c.max_hunt_servers
+    )
+}
+
+fn is_valid_iface(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 15
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+}
+
+pub fn linux_from_args(
+    args: &SetupArgs,
+    existing: Option<&LinuxOptions>,
+    find_on_path: &dyn Fn(&str) -> Result<Option<String>, HostError>,
+) -> Result<LinuxOptions, HostError> {
+    let mut lnx = existing.cloned().unwrap_or(LinuxOptions {
+        wine: None,
+        proton: None,
+        xvfb: true,
+        firewall_interface: None,
+    });
+
+    if let Some(ref raw) = args.wine {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            lnx.wine = None;
+        } else if trimmed.contains('/') || trimmed.contains('\\') {
+            lnx.wine = Some(trimmed.to_owned());
+        } else if let Some(found) = find_on_path(trimmed)? {
+            lnx.wine = Some(found);
+        } else {
+            return Err(HostError::message(format!(
+                "--wine {trimmed:?} was not found on PATH"
+            )));
+        }
+    }
+
+    if args.no_proton {
+        lnx.proton = None;
+    } else if let Some(ref raw) = args.proton {
+        let trimmed = raw.trim();
+        lnx.proton = (!trimmed.is_empty()).then(|| trimmed.to_owned());
+    }
+
+    if args.xvfb {
+        lnx.xvfb = true;
+    }
+    if args.no_xvfb {
+        lnx.xvfb = false;
+    }
+
+    if args.no_firewall_interface {
+        lnx.firewall_interface = None;
+    } else if let Some(ref raw) = args.firewall_interface {
+        let trimmed = raw.trim();
+        if !is_valid_iface(trimmed) {
+            return Err(HostError::message(format!(
+                "--firewall-interface must be a network interface name like eth0 (got {raw})"
+            )));
+        }
+        lnx.firewall_interface = Some(trimmed.to_owned());
+    }
+
+    Ok(lnx)
+}
+
+fn parse_game_dir(flag: &str, ver: &str, raw: &str) -> Result<String, HostError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.contains('^') {
         return Err(HostError::message(format!(
-            "--game-address must be an IPv4 address (got {game_address:?})"
+            "{flag} needs the full path of the Dauntless {ver} folder, like \"D:\\Games\\Dauntless\" (got {raw})"
+        )));
+    }
+    let bytes = trimmed.as_bytes();
+    let is_win_abs = bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'\\' || bytes[2] == b'/');
+    let is_posix_abs = trimmed.starts_with('/');
+
+    if !is_win_abs && !is_posix_abs {
+        return Err(HostError::message(format!(
+            "{flag} needs the full path of the Dauntless {ver} folder, like \"D:\\Games\\Dauntless\" (got {raw})"
         )));
     }
 
-    let default_name = existing
-        .map(|c| c.name.clone())
-        .unwrap_or_else(|| DEFAULT_NAME.to_owned());
-    let name = if let Some(n) = &args.name {
+    if cfg!(windows) && is_posix_abs {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("C:\\"));
+        let cwd_str = cwd.to_string_lossy();
+        let drive = if cwd_str.len() >= 2 && cwd_str.as_bytes()[1] == b':' {
+            &cwd_str[..2]
+        } else {
+            "C:"
+        };
+        let rest = trimmed.replace('/', "\\");
+        Ok(format!("{drive}{rest}"))
+    } else {
+        Ok(trimmed.to_owned())
+    }
+}
+
+fn parse_multiplier_arg(flag: &str, raw: &str) -> Result<f64, HostError> {
+    let trimmed = raw.trim();
+    let num_str = trimmed
+        .strip_prefix('x')
+        .or_else(|| trimmed.strip_prefix('X'))
+        .unwrap_or(trimmed);
+    let val = num_str
+        .parse::<f64>()
+        .ok()
+        .filter(|n| n.is_finite() && (1.0..=100.0).contains(n))
+        .ok_or_else(|| {
+            HostError::message(format!("{flag} must be a number from 1 to 100 (got {raw})"))
+        })?;
+    Ok(val)
+}
+
+pub fn host_config_from_args(
+    args: &SetupArgs,
+    existing: Option<&HostConfig>,
+    env: &dyn SetupEnv,
+) -> Result<HostConfig, HostError> {
+    check_unexpected_args(args)?;
+
+    let mode = if let Some(ref m) = args.mode {
+        ServerMode::parse(m.trim()).ok_or_else(|| {
+            HostError::message(
+                "say which kind of server: --mode private (friends over Tailscale) or --mode public (a server on the internet)",
+            )
+        })?
+    } else if let Some(c) = existing {
+        c.mode
+    } else {
+        return Err(HostError::message(
+            "say which kind of server: --mode private (friends over Tailscale) or --mode public (a server on the internet)",
+        ));
+    };
+
+    let edition = if let Some(ref ed) = args.edition {
+        Edition::parse(ed.trim()).ok_or_else(|| {
+            HostError::message(format!(
+                "--edition must be reborn, legacy or both (got {ed})"
+            ))
+        })?
+    } else if let Some(c) = existing {
+        c.edition
+    } else {
+        Edition::Reborn
+    };
+
+    if (args.legacy_game.is_some() || args.legacy_public_port.is_some()) && edition != Edition::Both
+    {
+        return Err(HostError::message(
+            "--legacy-game and --legacy-public-port are for --edition both",
+        ));
+    }
+
+    let ts_ip = env.tailscale_ipv4()?;
+    let (host, game_address) = match mode {
+        ServerMode::Private => {
+            let h = if let Some(ref raw_h) = args.host {
+                raw_h.trim().to_ascii_lowercase()
+            } else if let Some(ip) = ts_ip.clone() {
+                ip
+            } else if let Some(c) = existing.filter(|c| c.mode == ServerMode::Private) {
+                c.host.clone()
+            } else {
+                return Err(HostError::message(
+                    "Tailscale is not running here, so this PC's Tailscale address is unknown. Start Tailscale, or pass --host <your Tailscale IP>",
+                ));
+            };
+            if !is_tailscale_ipv4(&h) && !(is_dns_name(&h) && h.ends_with(".ts.net")) {
+                return Err(HostError::message(format!(
+                    "private mode needs a Tailscale 100.64.0.0/10 address or .ts.net name (got {h})"
+                )));
+            }
+            let ga = if let Some(ref raw_ga) = args.game_address {
+                raw_ga.trim().to_owned()
+            } else if is_ipv4(&h) {
+                h.clone()
+            } else if let Some(ip) = ts_ip {
+                ip
+            } else if let Some(c) = existing.filter(|c| c.mode == ServerMode::Private) {
+                c.game_address.clone()
+            } else {
+                return Err(HostError::message(
+                    "the host is a DNS name: pass --game-address <your Tailscale IPv4> as well",
+                ));
+            };
+            (h, ga)
+        }
+        ServerMode::Public => {
+            let h = if let Some(ref raw_h) = args.host {
+                raw_h.trim().to_ascii_lowercase()
+            } else if let Some(c) = existing.filter(|c| c.mode == ServerMode::Public) {
+                c.host.clone()
+            } else {
+                return Err(HostError::message(
+                    "public mode needs --host <public IPv4 or domain name>",
+                ));
+            };
+            if !is_public_ipv4(&h) && !is_dns_name(&h) {
+                return Err(HostError::message(format!(
+                    "public mode needs a public IPv4 address or DNS name (got {h})"
+                )));
+            }
+            let ga = if let Some(ref raw_ga) = args.game_address {
+                raw_ga.trim().to_owned()
+            } else if is_public_ipv4(&h) {
+                h.clone()
+            } else if let Some(c) = existing.filter(|c| c.mode == ServerMode::Public && is_public_ipv4(&c.game_address)) {
+                c.game_address.clone()
+            } else {
+                return Err(HostError::message(
+                    "the host is a DNS name: pass --game-address <the server's public IPv4> as well (the game servers announce an address, not a name)",
+                ));
+            };
+            if !is_public_ipv4(&ga) {
+                return Err(HostError::message(format!(
+                    "gameAddress must be a public IPv4 address (got {ga})"
+                )));
+            }
+            (h, ga)
+        }
+    };
+
+    let name = if let Some(ref n) = args.name {
         n.trim().to_owned()
-    } else if interactive {
-        let ans = env.ask("Server display name", &default_name)?;
-        if ans.trim().is_empty() {
-            default_name
-        } else {
-            ans.trim().to_owned()
-        }
+    } else if let Some(c) = existing {
+        c.name.clone()
     } else {
-        default_name
+        DEFAULT_NAME.to_owned()
     };
 
-    let default_game = existing
-        .and_then(|c| c.game_dir.clone())
-        .or_else(|| env.detected_game_dir())
-        .unwrap_or_default();
-    let game_dir_str = if let Some(g) = &args.game {
-        g.trim().to_owned()
-    } else if interactive && edition.runs_reborn() {
-        env.ask("Dauntless 1.14.7 game folder (optional)", &default_game)?
-            .trim()
-            .to_owned()
+    let game_dir = if let Some(ref g) = args.game {
+        let ver = if edition == Edition::Legacy { "1.4.4" } else { "1.14.7" };
+        Some(parse_game_dir("--game", ver, g)?)
     } else {
-        default_game
+        existing.and_then(|c| c.game_dir.clone())
     };
 
-    let default_legacy_game = existing
-        .and_then(|c| c.legacy_game_dir.clone())
-        .unwrap_or_default();
-    let legacy_game_dir_str = if let Some(lg) = &args.legacy_game {
-        lg.trim().to_owned()
-    } else if interactive && edition.runs_legacy() {
-        env.ask("Dauntless 1.4.4 legacy game folder (optional)", &default_legacy_game)?
-            .trim()
-            .to_owned()
+    let legacy_game_dir = if let Some(ref lg) = args.legacy_game {
+        Some(parse_game_dir("--legacy-game", "1.4.4", lg)?)
+    } else if edition == Edition::Both {
+        existing.and_then(|c| c.legacy_game_dir.clone())
     } else {
-        default_legacy_game
-    };
-
-    let default_reg = existing
-        .map(|c| c.registration.as_str().to_owned())
-        .unwrap_or_else(|| "INVITECODE".to_owned());
-    let reg_str = if let Some(r) = &args.registration {
-        r.trim().to_ascii_uppercase()
-    } else if interactive {
-        let ans = env.ask("Registration (OPEN, INVITECODE, or NONE)", &default_reg)?;
-        if ans.trim().is_empty() {
-            default_reg
-        } else {
-            ans.trim().to_ascii_uppercase()
-        }
-    } else {
-        default_reg
-    };
-    let registration = Registration::parse(&reg_str).ok_or_else(|| {
-        HostError::message(format!(
-            "--registration must be OPEN, INVITECODE, or NONE (got {reg_str:?})"
-        ))
-    })?;
-
-    let share_url = if is_public {
         None
-    } else if let Some(sh) = &args.share {
+    };
+
+    let registration = if let Some(ref r) = args.registration {
+        Registration::parse(&r.trim().to_ascii_uppercase()).ok_or_else(|| {
+            HostError::message("registration must be INVITECODE, OPEN or NONE")
+        })?
+    } else if let Some(c) = existing {
+        c.registration
+    } else {
+        Registration::Invitecode
+    };
+
+    let share_url = if mode == ServerMode::Public {
+        None
+    } else if let Some(ref sh) = args.share {
         let trimmed = sh.trim();
         if trimmed.is_empty() {
             None
         } else {
             if !is_valid_share_url(trimmed) {
                 return Err(HostError::message(
-                    "--share must be a https://login.tailscale.com/... link",
+                    "--share must be a https://login.tailscale.com/admin/invite/... link",
                 ));
             }
             Some(trimmed.to_owned())
@@ -330,145 +521,132 @@ pub fn resolve_options(
         false
     } else if args.manage_mongo {
         true
+    } else if args.mongo_uri.is_some() && mongo_uri != DEFAULT_MONGO_URI {
+        false
     } else if let Some(c) = existing {
         c.mongo.manage
     } else {
         true
     };
 
-    let mongod = if let Some(m) = &args.mongod {
+    let mongod = if !manage_mongo {
+        None
+    } else if let Some(ref m) = args.mongod {
         let trimmed = m.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_owned())
-        }
+        (!trimmed.is_empty()).then(|| trimmed.to_owned())
+    } else if let Some(existing_mongod) = existing.and_then(|c| c.mongo.mongod.clone()) {
+        Some(existing_mongod)
     } else {
-        existing.and_then(|c| c.mongo.mongod.clone())
+        env.find_mongod()?
     };
 
-    let max_hunt_servers = if let Some(mh) = &args.max_hunts {
-        let parsed = parse_u32_flag("--max-hunts", mh)?;
-        if !(1..=MAX_HUNTS).contains(&parsed) {
-            return Err(HostError::message(format!(
-                "--max-hunts must be an integer between 1 and {MAX_HUNTS} (got {parsed})"
-            )));
-        }
-        parsed
+    let max_hunt_servers = if let Some(ref mh) = args.max_hunts {
+        mh.trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|&n| (1..=MAX_HUNTS).contains(&n))
+            .ok_or_else(|| {
+                HostError::message(
+                    "maxHuntServers must be 1 to 10 (UDP 8770-8777 up to 6 hunts, 8766-8777 at 10)",
+                )
+            })?
     } else if let Some(c) = existing {
         c.max_hunt_servers
     } else {
         DEFAULT_MAX_HUNT_SERVERS
     };
 
-    let public_port = if let Some(pp) = &args.public_port {
-        let port = parse_u16_port_flag("--public-port", pp)?;
-        Some(port)
+    let public_port = public_port_from_args(args, mode, existing)?.map(|p| p as u16);
+    let legacy_public_port = parse_legacy_public_port_from_args(args, mode, edition, existing)?;
+
+    if (args.xp_multiplier.is_some() || args.reward_multiplier.is_some())
+        && mode != ServerMode::Private
+    {
+        return Err(HostError::message(
+            "XP and reward multipliers are for private (Tailscale) test servers only",
+        ));
+    }
+
+    let multipliers = if mode != ServerMode::Private || args.no_multipliers {
+        None
     } else {
-        existing.and_then(|c| c.public_port)
+        let prev = existing.and_then(|c| c.multipliers);
+        let xp = match &args.xp_multiplier {
+            Some(raw) => Some(parse_multiplier_arg("--xp-multiplier", raw)?),
+            None => prev.map(|m| m.xp),
+        };
+        let rewards = match &args.reward_multiplier {
+            Some(raw) => Some(parse_multiplier_arg("--reward-multiplier", raw)?),
+            None => prev.map(|m| m.rewards),
+        };
+        if xp.is_some() || rewards.is_some() {
+            let m = Multipliers {
+                xp: xp.unwrap_or(1.0),
+                rewards: rewards.unwrap_or(1.0),
+            };
+            if (m.xp - 1.0).abs() < f64::EPSILON && (m.rewards - 1.0).abs() < f64::EPSILON {
+                None
+            } else {
+                Some(m)
+            }
+        } else {
+            None
+        }
     };
 
-    let legacy_public_port = if let Some(lpp) = &args.legacy_public_port {
-        let port = parse_u16_port_flag("--legacy-public-port", lpp)?;
-        Some(port)
-    } else {
-        existing.and_then(|c| c.legacy_public_port)
-    };
-    let _ = PORTS;
+    let perf = performance_from_args(args, existing.and_then(|c| c.performance))?;
 
-    let mut perf = existing.map(performance_options).unwrap_or_default();
-    if let Some(raw) = &args.server_fps {
-        perf.server_fps = parse_u32_flag("--server-fps", raw)?;
-    }
-    if let Some(raw) = &args.idle_fps {
-        perf.idle_fps = parse_u32_flag("--idle-fps", raw)?;
-    }
-    if args.training_on_demand {
-        perf.training_on_demand = true;
-    }
-    if args.training_at_boot {
-        perf.training_on_demand = false;
-    }
-    if let Some(raw) = &args.training_idle_minutes {
-        perf.training_idle_minutes = parse_u32_flag("--training-idle-minutes", raw)?;
-    }
-    if args.verbose_game_logs {
-        perf.verbose_game_logs = true;
-    }
-    if args.quiet_game_logs {
-        perf.verbose_game_logs = false;
-    }
-    if args.memory_guard {
-        perf.memory_guard = true;
-    }
-    if args.no_memory_guard {
-        perf.memory_guard = false;
-    }
-    if let Some(raw) = &args.min_free_ram {
-        perf.min_free_memory_mb = parse_u32_flag("--min-free-ram", raw)?;
-    }
-    if let Some(raw) = &args.hunt_ram {
-        perf.hunt_memory_mb = parse_u32_flag("--hunt-ram", raw)?;
-    }
+    let find_fn = |name: &str| env.find_on_path(name);
+    let linux = if env.platform() == Platform::Linux {
+        Some(linux_from_args(
+            args,
+            existing.and_then(|c| c.linux.as_ref()),
+            &find_fn,
+        )?)
+    } else if let Some(prev_lnx) = existing.and_then(|c| c.linux.as_ref()) {
+        Some(linux_from_args(args, Some(prev_lnx), &find_fn)?)
+    } else {
+        None
+    };
 
     let mut doc = Map::new();
     doc.insert("version".into(), json!(HOST_CONFIG_VERSION));
     doc.insert("mode".into(), json!(mode.as_str()));
-    doc.insert("edition".into(), json!(edition.as_str()));
+    if edition != Edition::Reborn {
+        doc.insert("edition".into(), json!(edition.as_str()));
+    }
     doc.insert("host".into(), json!(host));
     doc.insert("gameAddress".into(), json!(game_address));
     doc.insert("name".into(), json!(name));
-    if !game_dir_str.is_empty() {
-        doc.insert("gameDir".into(), json!(game_dir_str));
-    }
-    if !legacy_game_dir_str.is_empty() {
-        doc.insert("legacyGameDir".into(), json!(legacy_game_dir_str));
+    doc.insert("gameDir".into(), json!(game_dir));
+    if let Some(lgd) = legacy_game_dir {
+        doc.insert("legacyGameDir".into(), json!(lgd));
     }
     doc.insert("registration".into(), json!(registration.as_str()));
-    if let Some(share) = share_url {
-        doc.insert("shareUrl".into(), json!(share));
-    }
+    doc.insert("shareUrl".into(), json!(share_url));
+
+    let mut mongo_obj = Map::new();
+    mongo_obj.insert("uri".into(), json!(mongo_uri));
+    mongo_obj.insert("manage".into(), json!(manage_mongo));
+    mongo_obj.insert("mongod".into(), json!(mongod));
+    doc.insert("mongo".into(), Value::Object(mongo_obj));
+
+    doc.insert("maxHuntServers".into(), json!(max_hunt_servers));
     if let Some(pp) = public_port {
         doc.insert("publicPort".into(), json!(pp));
     }
     if let Some(lpp) = legacy_public_port {
         doc.insert("legacyPublicPort".into(), json!(lpp));
     }
-
-    let mut mongo_obj = Map::new();
-    mongo_obj.insert("uri".into(), json!(mongo_uri));
-    mongo_obj.insert("manage".into(), json!(manage_mongo));
-    if let Some(m) = mongod {
-        mongo_obj.insert("mongod".into(), json!(m));
+    if let Some(m) = multipliers {
+        doc.insert(
+            "multipliers".into(),
+            json!({
+                "xp": m.xp,
+                "rewards": m.rewards,
+            }),
+        );
     }
-    doc.insert("mongo".into(), Value::Object(mongo_obj));
-    doc.insert("maxHuntServers".into(), json!(max_hunt_servers));
-
-    if !args.no_multipliers {
-        let prev_mult = existing.and_then(|c| c.multipliers.as_ref());
-        let xp = match &args.xp_multiplier {
-            Some(raw) => Some(parse_f64_flag("--xp-multiplier", raw)?),
-            None => prev_mult.map(|m| m.xp),
-        };
-        let rewards = match &args.reward_multiplier {
-            Some(raw) => Some(parse_f64_flag("--reward-multiplier", raw)?),
-            None => prev_mult.map(|m| m.rewards),
-        };
-        if xp.is_some() || rewards.is_some() {
-            let xp_val = xp.unwrap_or(1.0);
-            let rewards_val = rewards.unwrap_or(1.0);
-            if (xp_val - 1.0).abs() > f64::EPSILON || (rewards_val - 1.0).abs() > f64::EPSILON {
-                doc.insert(
-                    "multipliers".into(),
-                    json!({
-                        "xp": xp_val,
-                        "rewards": rewards_val,
-                    }),
-                );
-            }
-        }
-    }
-
     doc.insert(
         "performance".into(),
         json!({
@@ -482,53 +660,16 @@ pub fn resolve_options(
             "huntMemoryMb": perf.hunt_memory_mb,
         }),
     );
-
-    let has_linux_flags = args.wine.is_some()
-        || args.proton.is_some()
-        || args.no_proton
-        || args.xvfb
-        || args.no_xvfb
-        || args.firewall_interface.is_some()
-        || args.no_firewall_interface;
-    if env.platform() == Platform::Linux
-        || has_linux_flags
-        || existing.and_then(|c| c.linux.as_ref()).is_some()
-    {
-        let mut lnx = existing.map(linux_options).unwrap_or_default();
-        if let Some(w) = &args.wine {
-            let trimmed = w.trim();
-            lnx.wine = (!trimmed.is_empty()).then(|| trimmed.to_owned());
-        }
-        if args.no_proton {
-            lnx.proton = None;
-        } else if let Some(pr) = &args.proton {
-            let trimmed = pr.trim();
-            lnx.proton = (!trimmed.is_empty()).then(|| trimmed.to_owned());
-        }
-        if args.xvfb {
-            lnx.xvfb = true;
-        }
-        if args.no_xvfb {
-            lnx.xvfb = false;
-        }
-        if args.no_firewall_interface {
-            lnx.firewall_interface = None;
-        } else if let Some(iface) = &args.firewall_interface {
-            let trimmed = iface.trim();
-            lnx.firewall_interface = (!trimmed.is_empty()).then(|| trimmed.to_owned());
-        }
-        let mut lnx_obj = Map::new();
-        if let Some(w) = lnx.wine {
-            lnx_obj.insert("wine".into(), json!(w));
-        }
-        if let Some(pr) = lnx.proton {
-            lnx_obj.insert("proton".into(), json!(pr));
-        }
-        lnx_obj.insert("xvfb".into(), json!(lnx.xvfb));
-        if let Some(iface) = lnx.firewall_interface {
-            lnx_obj.insert("firewallInterface".into(), json!(iface));
-        }
-        doc.insert("linux".into(), Value::Object(lnx_obj));
+    if let Some(lnx) = linux {
+        doc.insert(
+            "linux".into(),
+            json!({
+                "wine": lnx.wine,
+                "proton": lnx.proton,
+                "xvfb": lnx.xvfb,
+                "firewallInterface": lnx.firewall_interface,
+            }),
+        );
     }
 
     if args.fresh_start || existing.and_then(|c| c.database.as_ref()).is_some() {
@@ -565,27 +706,10 @@ pub fn resolve_options(
         }
     }
 
-    let parsed = HostConfig::from_json(&Value::Object(doc))?;
-    let _ = multipliers_on(&parsed);
-    Ok(parsed.written_over(existing))
-}
-
-pub fn prompt_stdio(label: &str, default_val: &str) -> Result<String, HostError> {
-    let mut stdout = io::stdout();
-    if default_val.is_empty() {
-        write!(stdout, "{label}: ")?;
-    } else {
-        write!(stdout, "{label} [{default_val}]: ")?;
-    }
-    stdout.flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    let trimmed = buf.trim();
-    if trimmed.is_empty() {
-        Ok(default_val.to_owned())
-    } else {
-        Ok(trimmed.to_owned())
-    }
+    let parsed = HostConfig::from_json(&Value::Object(doc))?.written_over(existing);
+    check_edition(&parsed)?;
+    let _ = linux_options(&parsed);
+    Ok(parsed)
 }
 
 pub fn detect_default_game_dir() -> Option<String> {
@@ -609,52 +733,4 @@ pub fn detect_default_game_dir() -> Option<String> {
         }
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used)]
-
-    use super::*;
-
-    #[test]
-    fn builds_default_private_config_without_tty() {
-        let args = SetupArgs::default();
-        let env = RealSetupPromptEnv {
-            is_tty: false,
-            platform: Platform::Windows,
-            tailscale_ip: Some("100.101.102.103".to_owned()),
-            detected_game_dir: None,
-        };
-        let cfg = resolve_options(&args, None, &env).unwrap();
-        assert_eq!(cfg.mode, ServerMode::Private);
-        assert_eq!(cfg.edition, Edition::Reborn);
-        assert_eq!(cfg.host, "100.101.102.103");
-        assert_eq!(cfg.game_address, "100.101.102.103");
-        assert_eq!(cfg.registration, Registration::Invitecode);
-    }
-
-    #[test]
-    fn public_mode_validates_host_and_game_address() {
-        let args = SetupArgs {
-            mode: Some("public".to_owned()),
-            host: Some("play.example.com".to_owned()),
-            game_address: Some("203.0.113.10".to_owned()),
-            max_hunts: Some("5".to_owned()),
-            ..SetupArgs::default()
-        };
-        let env = RealSetupPromptEnv {
-            is_tty: false,
-            platform: Platform::Linux,
-            tailscale_ip: None,
-            detected_game_dir: None,
-        };
-        let cfg = resolve_options(&args, None, &env).unwrap();
-        assert_eq!(cfg.mode, ServerMode::Public);
-        assert_eq!(cfg.host, "play.example.com");
-        assert_eq!(cfg.game_address, "203.0.113.10");
-        assert_eq!(cfg.max_hunt_servers, 5);
-        assert!(cfg.multipliers.is_none());
-        assert!(cfg.linux.is_some());
-    }
 }

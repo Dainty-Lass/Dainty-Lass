@@ -28,10 +28,18 @@ use crate::mongo::{
 use crate::paths::{PORTS, Paths, game_exe_relative};
 use crate::preset::apply_preset;
 use crate::publish::{ensure_server_flags, install_server_runtime};
-use crate::services::{Ready, ServiceSpec, Supervisor, check_ready};
+use std::sync::Arc;
+use crate::services::{Printer, Ready, ServiceSpec, Supervisor, check_ready};
 
 use self::binaries::{FrontService, Launch, Programs};
 use self::control::Control;
+
+#[must_use]
+pub fn console_printer() -> Printer {
+    Arc::new(|name: &str, line: &str| {
+        println!("{name:<8} | {line}");
+    })
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Planned {
@@ -55,6 +63,23 @@ pub fn env_file(paths: &Paths, name: &str) -> PathBuf {
     paths.config.join(format!("{name}.env"))
 }
 
+pub fn require_env_files(paths: &Paths, names: &[&str]) -> Result<(), HostError> {
+    let missing: Vec<String> = names
+        .iter()
+        .filter(|n| !env_file(paths, n).is_file())
+        .map(|n| format!("{n}.env"))
+        .collect();
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(HostError::message(format!(
+            "missing {} in {}: run reforged-host setup first",
+            missing.join(", "),
+            paths.config.display()
+        )))
+    }
+}
+
 #[must_use]
 pub fn spec_from(name: &str, launch: Launch, env_file_path: PathBuf, ready: Ready) -> ServiceSpec {
     ServiceSpec {
@@ -69,7 +94,7 @@ pub fn spec_from(name: &str, launch: Launch, env_file_path: PathBuf, ready: Read
 }
 
 pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
-    Ok(check_ready(ready) || raw_port_in_use(ready.port(), ready.host()))
+    Ok(check_ready(ready) || raw_port_in_use(ready.port(), Some(ready.host()))?)
 }
 
 pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
@@ -193,17 +218,27 @@ pub fn service_plan(
     Ok(plan)
 }
 
+pub type PrepareDbFn<'a> = &'a dyn Fn(&Supervisor) -> Result<bool, HostError>;
+pub type PortTakenFn<'a> = &'a dyn Fn(&Ready) -> Result<bool, HostError>;
+
 pub fn start_services(
     supervisor: &Supervisor,
-    plan: &[PlannedService],
-    cancel: &dyn Fn() -> bool,
+    control: &Control,
+    plan: Vec<PlannedService>,
+    prepare_db: Option<PrepareDbFn<'_>>,
+    port_taken: PortTakenFn<'_>,
 ) -> Result<bool, HostError> {
+    if let Some(prep) = prepare_db
+        && !prep(supervisor)?
+    {
+        return Ok(false);
+    }
     for item in plan {
-        if cancel() {
+        if control.asked() {
             return Ok(false);
         }
         if let Some(ready) = &item.spec.ready
-            && port_in_use(ready)?
+            && port_taken(ready)?
         {
             return Err(HostError::message(format!(
                 "port {} ({}) is already in use",
@@ -213,7 +248,7 @@ pub fn start_services(
         }
         let ok = supervisor.start(item.spec.clone(), item.ready_timeout)?;
         if !ok && item.required {
-            if cancel() {
+            if control.asked() {
                 return Ok(false);
             }
             return Err(HostError::message(format!(
@@ -223,12 +258,32 @@ pub fn start_services(
             )));
         }
     }
-    Ok(true)
+    Ok(!control.asked())
 }
 
-pub fn finish(supervisor: &Supervisor, control: &Control) {
-    control.wait();
+pub fn finish(
+    started: bool,
+    supervisor: &Supervisor,
+    control: &Control,
+    controlled: bool,
+    up: &str,
+    after_stop: impl FnOnce(),
+) -> Outcome {
+    if started && !control.asked() {
+        println!("{up}");
+        if controlled {
+            println!("{}", control::SERVER_READY_LINE);
+        } else {
+            println!("Ctrl+C stops everything.");
+        }
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+        control.wait();
+    }
+    println!("Stopping...");
     supervisor.stop_all();
+    after_stop();
+    println!("Stopped.");
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 pub fn host_checks(
@@ -247,7 +302,7 @@ pub fn host_checks(
     }
 
     let gw_port = gateway_port(config);
-    if raw_port_in_use(gw_port, &config.host) {
+    if raw_port_in_use(gw_port, Some(&config.host))? {
         let owner = port_owner_hint(gw_port)
             .map(|o| format!(" by {o}"))
             .unwrap_or_default();
@@ -294,7 +349,7 @@ pub fn preflight_with(
     }
 
     if let Some(ref game_dir) = config.game_dir {
-        let gchecks = game_exe_checks(Some(game_dir), false, &REBORN_BUILD);
+        let gchecks = game_exe_checks(Some(game_dir), false, &REBORN_BUILD)?;
         if let Some(fail) = gchecks.iter().find(|c| c.level == Level::Fail) {
             return Err(HostError::message(fail.text.clone()));
         }
@@ -330,9 +385,10 @@ pub fn prepare_database(
         &config.mongo.uri,
         &ReplicaSetOptions {
             initiate: true,
-            timeout: Duration::from_millis(2000),
+            host: None,
+            timeout_ms: Some(2000),
         },
-    );
+    )?;
     if matches!(initial, MongoCheck::Ok { primary: true, .. }) {
         return Ok(true);
     }
@@ -359,7 +415,7 @@ pub fn prepare_database(
     std::fs::create_dir_all(&paths.mongo_data).map_err(|e| HostError::io(&paths.mongo_data, e))?;
     std::fs::create_dir_all(&paths.logs).map_err(|e| HostError::io(&paths.logs, e))?;
     let mongo_log = paths.logs.join("mongo.log");
-    let args = mongod_args(&paths.mongo_data, &mongo_log, PORTS.mongo);
+    let args = mongod_args(&paths.mongo_data, &mongo_log, PORTS.mongo)?;
 
     let spec = ServiceSpec {
         name: "mongod".to_owned(),
@@ -387,9 +443,10 @@ pub fn prepare_database(
         &config.mongo.uri,
         &ReplicaSetOptions {
             initiate: true,
-            timeout: Duration::from_secs(15),
+            host: None,
+            timeout_ms: Some(15_000),
         },
-    );
+    )?;
     match after {
         MongoCheck::Ok { primary: true, .. } => Ok(true),
         MongoCheck::Ok { primary: false, .. } => Err(HostError::message(

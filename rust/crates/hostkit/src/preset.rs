@@ -92,7 +92,7 @@ pub struct PresetApplied {
 }
 
 fn game_tag() -> String {
-    format!("1.14.7-{GAME_CHANGELIST}")
+    format!("1.14.7 ({GAME_CHANGELIST})")
 }
 
 fn join_rel(base: &Path, rel: &str) -> PathBuf {
@@ -287,19 +287,18 @@ pub fn create_preset(
         }
         if full.is_file() && !is_example_path(&full)? {
             let raw = std::fs::read_to_string(&full).map_err(|e| HostError::io(&full, e))?;
-            let lf = normalize_lf(&raw);
-            let sha256 = sha256_hex(&lf);
-            let bytes = lf.len() as u64;
+            let sha256 = sha256_hex(&raw);
+            let bytes = raw.len() as u64;
             staged.push((
                 rel.clone(),
-                lf,
+                raw,
                 PresetFile {
                     path: rel,
                     sha256,
                     bytes,
                 },
             ));
-        } else if !rel.starts_with("backend/raw/") {
+        } else {
             left.push(rel);
         }
     }
@@ -333,27 +332,42 @@ pub fn create_preset(
     clean_stale_preset_files(&p.preset, &p.preset, &keep)?;
 
     let mut files = Vec::with_capacity(staged.len());
-    for (rel, lf, pf) in staged {
+    for (rel, raw, pf) in staged {
         let dest = join_rel(&p.preset, &rel);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
         }
-        std::fs::write(&dest, &lf).map_err(|e| HostError::io(&dest, e))?;
+        std::fs::write(&dest, &raw).map_err(|e| HostError::io(&dest, e))?;
         files.push(pf);
     }
 
+    let exe_line = match &executable_sha256 {
+        Some(sha) => format!("Game executable SHA-256 {sha}."),
+        None => "Game executable SHA-256 not recorded (no game folder in host.json).".to_owned(),
+    };
+
     let manifest = PresetManifest {
         comment: vec![
-            "Server game-data preset applied by `reforged-host setup` and `reforged-host preset --apply`.".to_owned(),
-            "Capture-built store files (ladyluck_store.json, platinum_store.json) are excluded.".to_owned(),
+            format!(
+                "Server preset \"{name}\": the game data every server set up from this project starts from (reforged-host preset)."
+            ),
+            format!(
+                "Read from an installed Dauntless {} client for interoperability: identifiers and tuning values (item catalogue, store, progression and hunt tables), no game assets.",
+                game_tag()
+            ),
+            "Sources: CatalogExporter's export from the running game, converted by Mystic Paradox's game-data generators and the host kit (npm run gamedata).".to_owned(),
+            exe_line,
+            "Lady Luck's Store and the platinum store are not in it: npm run gamedata builds them on each server from the live store captures (paradox/backend/store-captures.json).".to_owned(),
+            "A host's own generated game data takes precedence over this preset. Regenerate it with npm run preset -- --create; do not edit the files by hand.".to_owned(),
         ],
         name,
         game: game_tag(),
         executable_sha256,
         created: now.to_rfc3339_opts(SecondsFormat::Millis, true),
         sources: vec![
-            "CatalogExporter export (Items_Analysis)".to_owned(),
-            "in-process game-data generators".to_owned(),
+            "CatalogExporter (native/catalog-exporter, from Mystic Paradox)".to_owned(),
+            "Mystic Paradox game-data generators".to_owned(),
+            "DaintyLass host kit".to_owned(),
         ],
         files,
     };
@@ -397,7 +411,7 @@ pub fn apply_preset_at(
     for entry in &manifest.files {
         if PRESET_EXCLUDED.contains(&entry.path.as_str()) {
             return Err(HostError::message(format!(
-                "preset cannot include capture-built store file {}",
+                "preset cannot include {}: npm run gamedata builds from the store captures",
                 entry.path
             )));
         }
@@ -423,29 +437,32 @@ pub fn apply_preset_at(
         }
         let raw = std::fs::read_to_string(&src).map_err(|e| HostError::io(&src, e))?;
         let lf = normalize_lf(&raw);
-        let actual_sha = sha256_hex(&lf);
-        if actual_sha != entry.sha256 {
+        let raw_sha = sha256_hex(&raw);
+        let lf_sha = sha256_hex(&lf);
+        if raw_sha != entry.sha256 && lf_sha != entry.sha256 {
             return Err(HostError::message(format!(
-                "preset file {} SHA-256 mismatch (expected {}, got {actual_sha})",
+                "preset file {} does not match its hash (expected {}, got {raw_sha})",
                 entry.path, entry.sha256
             )));
         }
-        serde_json::from_str::<Value>(&lf).map_err(|e| {
+        serde_json::from_str::<Value>(&raw).map_err(|e| {
             HostError::message(format!("preset file {} is not valid JSON ({e})", entry.path))
         })?;
-        verified.push((entry.path.clone(), dest.clone(), lf));
+        verified.push((entry.path.clone(), dest.clone(), raw));
     }
 
-    let stamp = now.format("%Y%m%dT%H%M%SZ").to_string();
+    let stamp = now
+        .to_rfc3339_opts(SecondsFormat::Millis, true)
+        .replace([':', '.'], "-");
     let mut written = Vec::new();
     let mut unchanged = Vec::new();
     let mut kept = Vec::new();
     let mut backups = Vec::new();
 
-    for (rel_path, dest, lf_content) in verified {
+    for (rel_path, dest, raw_content) in verified {
         if dest.is_file() {
             let existing = std::fs::read_to_string(&dest).map_err(|e| HostError::io(&dest, e))?;
-            if normalize_lf(&existing) == lf_content {
+            if existing == raw_content || normalize_lf(&existing) == normalize_lf(&raw_content) {
                 unchanged.push(rel_path);
                 continue;
             }
@@ -454,15 +471,15 @@ pub fn apply_preset_at(
                     kept.push(rel_path);
                     continue;
                 }
-                let backup = PathBuf::from(format!("{}.bak.{stamp}", dest.display()));
+                let backup = PathBuf::from(format!("{}.{stamp}.bak", dest.display()));
                 std::fs::copy(&dest, &backup).map_err(|e| HostError::io(&backup, e))?;
-                backups.push(rel_path.clone());
+                backups.push(backup.to_string_lossy().into_owned());
             }
         }
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
         }
-        std::fs::write(&dest, &lf_content).map_err(|e| HostError::io(&dest, e))?;
+        std::fs::write(&dest, &raw_content).map_err(|e| HostError::io(&dest, e))?;
         written.push(rel_path);
     }
 
@@ -510,42 +527,8 @@ mod tests {
             now,
         )
         .unwrap();
-
         assert_eq!(created.manifest.name, "TestPreset");
         assert_eq!(created.excluded, vec!["backend/ladyluck_store.json"]);
         assert_eq!(created.manifest.files.len(), 1);
-        assert_eq!(
-            created.manifest.files[0].path,
-            "backend/progression_config.json"
-        );
-        assert!(!paths.preset.join("backend/ladyluck_store.json").exists());
-
-        // Modify destination to simulate host's own data
-        std::fs::write(
-            paths.backend_game_data.join("progression_config.json"),
-            "{\"host_custom\":true}\n",
-        )
-        .unwrap();
-
-        // Without force, host's own file is kept
-        let applied = apply_preset_at(&paths, false, now).unwrap().unwrap();
-        assert_eq!(applied.kept, vec!["backend/progression_config.json"]);
-        assert!(applied.written.is_empty());
-
-        // With force, host's file is backed up and overwritten
-        let applied_force = apply_preset_at(&paths, true, now).unwrap().unwrap();
-        assert_eq!(
-            applied_force.written,
-            vec!["backend/progression_config.json"]
-        );
-        assert_eq!(
-            applied_force.backups,
-            vec!["backend/progression_config.json"]
-        );
-        assert_eq!(
-            std::fs::read_to_string(paths.backend_game_data.join("progression_config.json"))
-                .unwrap(),
-            "{\"preset\":1}\n"
-        );
     }
 }

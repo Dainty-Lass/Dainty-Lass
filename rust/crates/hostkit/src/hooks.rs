@@ -25,11 +25,15 @@ pub trait HostHooks: Send + Sync {
         crate::BUILT_IN_SERVICES
     }
 
-    fn run_generator(&self, _paths: &Paths, step: &Step<'_>) -> Result<(), HostError> {
+    fn run_generator(&self, _paths: &Paths, step: &Step<'_>) -> Result<crate::run::RunResult, HostError> {
         Err(HostError::message(format!(
             "in-process generator for {} is not registered in this build",
-            step.label
+            step.title
         )))
+    }
+
+    fn mongo_has_documents(&self, _uri: &str) -> Result<bool, String> {
+        Err("MongoDB check is not registered in this build".to_owned())
     }
 
     #[allow(clippy::type_complexity)]
@@ -62,6 +66,15 @@ pub trait HostHooks: Send + Sync {
         Err(HostError::message(
             "MongoDB export is not registered in this build",
         ))
+    }
+
+    fn run_db_command(
+        &self,
+        _paths: &Paths,
+        _args: &crate::cli::DbArgs,
+        _out: &mut dyn FnMut(&str),
+    ) -> Option<crate::Outcome> {
+        None
     }
 
     fn install_director_runner(&self, _paths: &Paths) -> Result<(), HostError> {
