@@ -216,8 +216,8 @@ pub struct RuntimeError {
 pub struct RuntimeProgress {
     pub done_bytes: u64,
     pub total_bytes: u64,
-    pub files_done: u32,
-    pub files_total: u32,
+    pub files_done: usize,
+    pub files_total: usize,
     pub current_file: Option<String>,
 }
 
@@ -233,19 +233,19 @@ pub enum Replaced {
 }
 
 pub trait ReplaceOps {
-    fn rename(&mut self, from: &Path, to: &Path) -> std::io::Result<()>;
-    fn remove(&mut self, file: &Path) -> std::io::Result<()>;
+    fn rename(&self, from: &Path, to: &Path) -> std::io::Result<()>;
+    fn remove(&self, file: &Path) -> std::io::Result<()>;
 }
 
 pub struct DiskOps;
 
 pub struct InstallRequest<'a> {
     pub endpoint: &'a Endpoint,
-    pub key: &'a str,
-    pub win64_dir: &'a Path,
+    pub headers: Vec<(&'static str, String)>,
     pub manifest: &'a RuntimeManifest,
+    pub win64_dir: &'a Path,
     pub cancel: Option<CancellationToken>,
-    pub on_progress: Option<Arc<dyn Fn(RuntimeProgress) + Send + Sync>>,
+    pub on_progress: Option<&'a (dyn Fn(RuntimeProgress) + Send + Sync)>,
 }
 
 pub fn file_infos(files: &[RuntimeFile]) -> Vec<RuntimeFileInfo>;
@@ -256,17 +256,17 @@ pub fn accept(trusted: &mut Vec<String>, files: &[RuntimeFile]) -> String;
 pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest>;
 pub async fn fetch_runtime_manifest(endpoint: &Endpoint) -> RuntimeManifestResult;
 pub async fn installed_runtime(win64_dir: &Path) -> Vec<(&'static str, Option<String>)>;
-pub fn is_complete_runtime_dir(dir: &Path) -> bool;
+pub async fn is_complete_runtime_dir(dir: &Path) -> bool;
 pub async fn check_runtime(
     win64_dir: &Path,
     offered: Option<&RuntimeManifest>,
-    trusted: &[String],
+    trusted: bool,
     local_dir: Option<&Path>,
 ) -> (RuntimeState, bool);
 
-pub fn unblock(file: &Path);
-pub fn replace_file(tmp: &Path, target: &Path, ops: &mut dyn ReplaceOps) -> std::io::Result<Replaced>;
-pub async fn sweep_aside(win64_dir: &Path);
+pub async fn unblock(file: &Path);
+pub fn replace_file(tmp: &Path, target: &Path, ops: &dyn ReplaceOps) -> std::io::Result<Replaced>;
+pub fn sweep_aside(win64_dir: &Path);
 pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInstallResult, RuntimeError>;
 pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result<RuntimeInstallResult, RuntimeError>;
 ```
@@ -292,24 +292,21 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
    - Sends `GET /content/v1/runtime/manifest` with a 10 s timeout and 64 KiB body cap, without an account key (public metadata).
    - Maps TLS pin mismatch to `RuntimeManifestResult::CertMismatch`, other transport errors to `Unreachable`, HTTP 404 to `None`, HTTP 200 to `parse_runtime_manifest` (`Ok(m)` or `BadAnswer`), and any other status to `BadAnswer`.
 6. **`installed_runtime` & `is_complete_runtime_dir`**:
-   - `installed_runtime(win64_dir)`: for each name in `RUNTIME_FILE_NAMES`, hashes `<win64_dir>/<name>` via `hash_file(..., Abort::new(), ...)`, returning `(name, Some(sha256))` if the file exists and hashes cleanly, or `(name, None)` if missing/unreadable.
-   - `is_complete_runtime_dir(dir)`: returns `true` iff for every name in `RUNTIME_FILE_NAMES`, `<dir>/<name>` has metadata with `is_file() && len() > 0`.
+   - `installed_runtime(win64_dir)`: for each name in `RUNTIME_FILE_NAMES`, hashes `<win64_dir>/<name>` via `hash_file(..., Abort::new(), ...)`, returning `(name, Some(sha256))` if the file exists, is non-empty, and hashes cleanly, or `(name, None)` if missing/empty/unreadable.
+   - `is_complete_runtime_dir(dir)`: returns `true` iff `installed_runtime(dir).await.iter().all(|(_, hash)| hash.is_some())`.
 7. **`check_runtime(win64_dir, offered, trusted, local_dir)`**:
-   - If `local_dir` is `Some(dir)`: returns `(RuntimeState::Local, false)` if `is_complete_runtime_dir(dir)` is `true`, else `(RuntimeState::Missing, false)`.
-   - Otherwise, inspects `installed = installed_runtime(win64_dir).await`.
-   - `any_installed` = any entry has `Some(_)`; `all_installed` = all entries have `Some(_)`.
-   - Reads marker `<win64_dir>/.reforged-runtime.json` (up to 4096 bytes) and extracts `marker["source"].as_str()` if valid JSON.
+   - Returns `(RuntimeState, bool)` where the boolean indicates whether the runtime files are playable right now:
+   - If `local_dir` is `Some(dir)`: returns `(RuntimeState::Local, is_complete_runtime_dir(dir).await)`.
+   - Otherwise, inspects `installed = installed_runtime(win64_dir).await` and `present = installed.iter().filter(|(_, hash)| hash.is_some()).count()`.
    - If `offered` is `None`:
-     - If `all_installed && marker_source.is_some()` -> `(RuntimeState::Installed, true)`
-     - Else if `any_installed` -> `(RuntimeState::Outdated, false)`
-     - Else -> `(RuntimeState::Missing, false)`
+     - If `present == RUNTIME_FILE_NAMES.len()` -> `(RuntimeState::Ok, true)`
+     - Else -> `(RuntimeState::Unavailable, false)`
    - If `offered` is `Some(manifest)`:
-     - `accepted = is_trusted(trusted, &manifest.files)`
-     - `matches = manifest.files.iter().all(|f| installed.iter().find(|(n, _)| *n == f.name).and_then(|(_, h)| h.as_deref()) == Some(f.sha256.as_str()))`
-     - If `matches` -> `(RuntimeState::UpToDate, accepted)`
-     - Else if `!accepted` -> `(RuntimeState::Untrusted, false)`
-     - Else if `any_installed` -> `(RuntimeState::Outdated, true)`
-     - Else -> `(RuntimeState::Missing, true)`
+     - `matches = manifest.files.iter().all(|f| installed.iter().any(|(n, h)| *n == f.name && h.as_deref() == Some(f.sha256.as_str())))`
+     - If `matches` -> `(RuntimeState::Ok, true)`
+     - Else if `!trusted` -> `(RuntimeState::Untrusted, false)`
+     - Else if `present == 0` -> `(RuntimeState::Missing, false)`
+     - Else -> `(RuntimeState::Outdated, false)`
 8. **`replace_file` & `sweep_aside` & `unblock`**:
    - `replace_file(tmp, target, ops)`:
      - Calls `ops.rename(tmp, target)`. If `Ok(())`, returns `Ok(Replaced::Replaced)`.
@@ -415,7 +412,7 @@ impl HashCache {
         abort: Abort,
         on_bytes: Arc<dyn Fn(u64) + Send + Sync>,
     ) -> Result<String, VerifyError>;
-    pub fn save(&mut self) -> std::io::Result<()>;
+    pub async fn save(&mut self) -> std::io::Result<()>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -472,9 +469,9 @@ Inspects a DaintyLass checkout ("workspace"), discovers the host toolchain (Visu
 
 #### Constants
 - `pub const RUNTIME_FILE_NAMES: [&str; 2] = ["MysticParadox.dll", "winmm.dll"]`
-- `pub const BACKEND_GAME_DATA: [&str; 7] = ["quests.json", "behemoths.json", "escalations.json", "trials.json", "HuntPass.json", "DataTables.json", "CraftingRequirements.json"]`
-- `pub const DIRECTOR_GAME_DATA: [&str; 7] = ["playlists.json", "missions.json", "MapList.json", "LootTables.json", "EscalationPlaylists.json", "TrialPlaylists.json", "GauntletPlaylists.json"]`
-- `pub const EXPORT_FLAGS: &str = "# Written by the DaintyLass launcher for CatalogExporter.\r\n--items\r\n--recipes\r\n--lanterns\r\n--omnicells\r\n--cells\r\n--talents\r\n--armor\r\n--behemoths\r\n--trials\r\n--huntpass\r\n--quests\r\n"`
+- `pub const BACKEND_GAME_DATA: [&str; 7] = ["progression_config.json", "slayers_path.json", "slayers_path_definitions.json", "ladyluck_store.json", "platinum_store.json", "reward_cache_store.json", "inventory_storage_policy.json"]`
+- `pub const DIRECTOR_GAME_DATA: [&str; 7] = ["player_hunts_table.json", "matchmaker_hunts_table.json", "arena_easy_matchmaker_hunts.json", "arena_hard_matchmaker_hunts.json", "arena_elite_matchmaker_hunts.json", "arena_hard_matchmaker_hunts_new.json", "arena_elite_matchmaker_hunts_new.json"]`
+- `pub const EXPORT_FLAGS: &str = "# Written by the DaintyLass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n"`
 - `pub const DUMPER_OUTPUT_ROOT: &str = "C:\\Dumper-7"`
 - `pub const HOST_BINARY: &str = "reforged-host.exe"` (Windows) / `"reforged-host"` (non-Windows)
 - `pub const MAX_MULTIPLIER: f64 = 100.0` (in `parse.rs`)
@@ -534,27 +531,25 @@ pub fn vswhere_msbuild(raw: &str) -> Option<String>;
 pub fn platform_toolset(vs_major: Option<u32>) -> &'static str;
 
 // hostkit.rs
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspacePaths {
     pub root: PathBuf,
-    pub host_binary: Option<PathBuf>,
     pub runtime_source: PathBuf,
-    pub runtime_vcxproj: PathBuf,
     pub sdk_header: PathBuf,
     pub sdk_dir: PathBuf,
+    pub runtime_solution: PathBuf,
     pub runtime_dll: PathBuf,
     pub loader_dir: PathBuf,
-    pub loader_manifest: PathBuf,
     pub loader_dll: PathBuf,
-    pub exporter_vcxproj: PathBuf,
+    pub exporter_project: PathBuf,
     pub exporter_dll: PathBuf,
-    pub items_analysis: PathBuf,
-    pub backend_data: PathBuf,
-    pub director_data: PathBuf,
-    pub runtime_publish: PathBuf,
-    pub server_config: PathBuf,
-    pub server_config_toml: PathBuf,
-    pub host_logs: PathBuf,
+    pub backend_game_data: PathBuf,
+    pub director_game_data: PathBuf,
+    pub exports: PathBuf,
+    pub publish: PathBuf,
+    pub logs: PathBuf,
+    pub host_toml: PathBuf,
+    pub host_json: PathBuf,
     pub gamedata_packs: PathBuf,
 }
 
@@ -563,7 +558,7 @@ impl WorkspacePaths {
     pub fn launcher_log(&self, name: &str) -> PathBuf;
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Toolchain {
     pub visual_studio: Option<String>,
     pub major_version: Option<u32>,
@@ -575,16 +570,16 @@ impl Toolchain {
     pub fn view(&self) -> HostToolchain;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SdkError {
     NoHeader,
     NoRuntimeSource,
     NoFunctions,
-    Io(std::io::Error),
+    Io,
 }
 
 impl SdkError {
-    pub fn code(&self) -> &'static str;
+    pub fn code(self) -> &'static str;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -596,18 +591,18 @@ pub struct Logged {
 pub fn find_host_binary(root: &Path) -> Option<PathBuf>;
 pub fn is_workspace(root: &Path) -> bool;
 pub fn count_function_files(sdk_dir: &Path) -> u32;
-pub fn detect_game_data(dir: &Path, required: &[&str]) -> GameDataState;
+pub fn detect_game_data(dir: &Path, files: &[&str]) -> GameDataState;
 pub fn find_dumps(root: &Path) -> Vec<HostDump>;
 pub async fn exec_text(program: &Path, args: &[&str]) -> Option<String>;
-pub fn vswhere_path() -> Option<PathBuf>;
-pub fn cargo_candidates() -> Vec<PathBuf>;
-pub fn system_env(name: &str) -> Option<String>;
+pub fn vswhere_path(env: &dyn Fn(&str) -> Option<OsString>) -> PathBuf;
+pub fn cargo_candidates(env: &dyn Fn(&str) -> Option<OsString>) -> Vec<PathBuf>;
+pub fn system_env(name: &str) -> Option<OsString>;
 pub async fn find_toolchain() -> Toolchain;
 pub async fn any_visual_studio() -> Option<String>;
-pub fn msbuild_args(vcxproj: &Path, PlatformToolset: &str) -> Vec<String>;
-pub fn read_server_config(workspace: &WorkspacePaths) -> HostServerConfig;
-pub fn detect_host_kit(workspace_root: Option<&Path>, toolchain: &Toolchain, dump_root: &Path) -> HostKit;
-pub fn copy_tree(src: &Path, dst: &Path) -> std::io::Result<u32>;
+pub fn msbuild_args(project: &Path, toolset: &str) -> Vec<String>;
+pub fn read_server_config(root: &Path) -> HostServerConfig;
+pub fn detect_host_kit(workspace: Option<&Path>, toolchain: &Toolchain, dump_root: &Path) -> HostKit;
+pub fn copy_tree(from: &Path, to: &Path) -> std::io::Result<u32>;
 pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<u32, SdkError>;
 pub async fn run_logged(program: &Path, args: &[String], cwd: &Path, log_file: &Path) -> Logged;
 ```
@@ -678,14 +673,14 @@ pub trait EmbeddedServer: Send + Sync {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostTool {
     pub program: PathBuf,
-    pub prefix: Vec<String>,
+    pub prefix: Vec<OsString>,
 }
 
 impl HostTool {
-    pub fn find(workspace_root: &Path) -> Option<Self>;
+    pub fn find(workspace: &Path) -> Option<Self>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -695,7 +690,7 @@ pub enum HostKitError {
 }
 
 impl HostKitError {
-    pub fn detail(&self) -> &'static str;
+    pub fn detail(&self) -> String;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -705,12 +700,16 @@ pub struct CommandOutput {
     pub failure: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct HostServer { /* ... */ }
 
+impl Default for HostServer { fn default() -> Self; }
+
 impl HostServer {
-    pub fn new(probe: Probe) -> Arc<Self>;
+    pub fn new(probe: Probe, stop_timeout: Duration) -> Self;
     pub fn set_listener(&self, listener: Listener);
     pub fn set_embedded(&self, server: Arc<dyn EmbeddedServer>);
+    pub fn has_embedded(&self) -> bool;
     pub fn modules(&self) -> Option<Arc<dyn crate::bridge::modules::ModulePanel>>;
     pub fn view(&self) -> HostServerView;
     pub fn state(&self) -> HostServerState;
@@ -719,15 +718,15 @@ impl HostServer {
     pub fn note(&self, line: &str);
     pub async fn command(
         &self,
-        workspace_root: &Path,
-        subcommand: &str,
+        tool: &HostTool,
+        workspace: &Path,
         args: &[String],
-        timeout: Duration,
+        log_name: &str,
     ) -> Result<CommandOutput, HostKitError>;
-    pub async fn refresh(&self) -> HostServerView;
-    pub async fn start(self: &Arc<Self>, workspace_root: &Path) -> Result<(), ErrorCode>;
-    pub async fn restart(self: &Arc<Self>, name: &str) -> Result<(), LauncherError>;
-    pub async fn stop(&self) -> Result<(), ErrorCode>;
+    pub async fn refresh(&self);
+    pub async fn start(&self, tool: &HostTool, workspace: &Path) -> Result<(), HostKitError>;
+    pub async fn restart(&self, name: &str) -> Result<(), String>;
+    pub async fn stop(&self);
 }
 
 pub async fn port_answers(port: u16) -> bool;
@@ -771,11 +770,11 @@ pub enum Database {
     Postgres,
 }
 
-pub const DATABASE: Database = Database::MongoDb;
+pub const DATABASE: Database = Database::Postgres;
 pub const POSTGRES_MINIMUM: u32 = 17;
 
 pub struct Probes<'a> {
-    pub env: &'a (dyn Fn(&str) -> Option<String> + Sync),
+    pub env: &'a (dyn Fn(&str) -> Option<OsString> + Sync),
     pub exists: &'a (dyn Fn(&Path) -> bool + Sync),
     pub list_dir: &'a (dyn Fn(&Path) -> Vec<String> + Sync),
 }
@@ -785,23 +784,23 @@ impl Probes<'static> {
 }
 
 pub struct Inputs<'a> {
-    pub game: &'a GameInfo,
+    pub game: (bool, Option<String>),
     pub toolchain: &'a Toolchain,
     pub dumper_dll: Option<&'a Path>,
     pub tailscale: bool,
-    pub missing_vc_runtime: &'a [String],
+    pub missing_vc_runtime: usize,
 }
 
 pub fn list_dir(dir: &Path) -> Vec<String>;
 pub fn find_mongod(probes: &Probes<'_>) -> Option<PathBuf>;
 pub fn find_postgres(probes: &Probes<'_>) -> Option<(PathBuf, Option<u32>)>;
-pub async fn check_requirements(inputs: &Inputs<'_>) -> Vec<Requirement>;
-pub async fn check_requirements_here(
+pub async fn check_requirements(
     inputs: &Inputs<'_>,
     probes: &Probes<'_>,
-    any_vs: Option<String>,
-    cargo_version: Option<String>,
+    service_running: impl AsyncFnOnce() -> bool,
+    any_visual_studio: impl AsyncFnOnce() -> Option<String>,
 ) -> Vec<Requirement>;
+pub async fn check_requirements_here(inputs: &Inputs<'_>) -> Vec<Requirement>;
 ```
 
 #### Behavioural Invariants
