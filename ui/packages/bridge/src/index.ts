@@ -16,6 +16,11 @@ export {
   type LauncherApi,
   type ModuleInput,
   type ModuleSettingsPatch,
+  type RemoteEnrollRequest,
+  type RemoteExecAction,
+  type RemoteExecRequest,
+  type RemoteInitRequest,
+  type RemoteInviteRequest,
   type RevertSelection,
   type ServerConfigPatch,
 } from "./api"

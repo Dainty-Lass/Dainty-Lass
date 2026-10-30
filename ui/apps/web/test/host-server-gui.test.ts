@@ -32,6 +32,7 @@ import {
   AdminTab,
   DoctorPanel,
   HistoryTab,
+  ManagedInstallsPanel,
   ServerConfigSection,
   ServerTab,
   StatusTab,
@@ -715,4 +716,106 @@ describe("DoctorPanel, StatusTab, AdminTab, and HistoryTab in en and pt-BR (T4)"
       }
     }
   })
+
+  for (const lang of langs) {
+    test(`renders ManagedInstallsPanel in standalone and controller modes in ${lang}, and omits it in client launcher`, () => {
+      const kit = sampleKit()
+      const standaloneHtml = renderInLanguage(
+        lang,
+        createElement(ManagedInstallsPanel, {
+          kit,
+          initialStatus: {
+            role: "standalone",
+            node: null,
+            region: null,
+            controllerUrl: null,
+            controllerCertFp: null,
+            controllerNode: null,
+            revision: 0,
+            pendingEnrollments: 0,
+            installs: [],
+            detached: false,
+          },
+        })
+      )
+      expect(standaloneHtml).toContain(htmlEscape(translate(lang, "hrem_title")))
+      expect(standaloneHtml).toContain('data-remote-role="standalone"')
+      expect(standaloneHtml).toContain('data-action="remote-init-controller"')
+      expect(standaloneHtml).toContain('data-action="remote-enroll"')
+
+      const controllerHtml = renderInLanguage(
+        lang,
+        createElement(ManagedInstallsPanel, {
+          kit,
+          initialStatus: {
+            role: "controller",
+            node: "ctrl-main",
+            region: "us-east",
+            controllerUrl: "https://ctrl.example.com:8443",
+            controllerCertFp:
+              "SHA256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            controllerNode: null,
+            revision: 3,
+            pendingEnrollments: 1,
+            installs: [
+              {
+                node: "eu-alpha",
+                region: "eu-west",
+                label: "EU Hunt Node Alpha",
+                state: "online",
+                enrolledAtMs: 1700000000000,
+                lastSeenMs: 1700000030000,
+                revoked: false,
+                appliedRevision: 3,
+                playersOnline: 12,
+                activeHunts: 3,
+                version: "2.0.0-alpha.0",
+                queuedCommands: 0,
+              },
+            ],
+            detached: false,
+          },
+          initialInvite: {
+            uri: "dainty-lass-remote://enroll?v=1&node=eu-beta",
+            node: "eu-beta",
+            region: "eu-west",
+            label: "EU Beta",
+            controllerUrl: "https://ctrl.example.com:8443",
+            controllerFp:
+              "SHA256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            expiresAtMs: 1700000900000,
+          },
+        })
+      )
+      expect(controllerHtml).toContain('data-remote-role="controller"')
+      expect(controllerHtml).toContain('data-managed-node="eu-alpha"')
+      expect(controllerHtml).toContain("EU Hunt Node Alpha")
+      expect(controllerHtml).toContain("12 / 3")
+      expect(controllerHtml).toContain('data-remote-invite="eu-beta"')
+      expect(controllerHtml).toContain('data-action="remote-revoke-eu-alpha"')
+
+      const clientSnap = sampleManagerSnap({
+        app: {
+          version: "2.0.0-alpha.0",
+          packaged: true,
+          updateReady: false,
+          platform: "win32",
+          hostToolsAvailable: true,
+          serverGui: false,
+          legacyAvailable: true,
+          gameVersions: ["1.14.7", "1.12.0", "1.4.4"],
+        },
+      })
+      const clientHtml = renderInLanguage(
+        lang,
+        createElement(ServerTab, {
+          kit,
+          server: sampleServer({ state: "stopped" }),
+          snap: clientSnap,
+          setTab: () => undefined,
+        })
+      )
+      expect(clientHtml).not.toContain(htmlEscape(translate(lang, "hrem_title")))
+    })
+  }
 })
