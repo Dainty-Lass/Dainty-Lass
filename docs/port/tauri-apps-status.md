@@ -162,17 +162,42 @@ All 92 commands declared in `rust/launcher/src-tauri/src/bridge/spec.rs` (`spec:
 
 ---
 
-## 4. Strings and flows that assumed Node, npm, or MongoDB (all resolved in B3)
+## 4. Strings and flows that assumed Node, npm, MongoDB, or a repository clone (resolved in B3 & T2)
 
-| Location | B1 Node / npm / MongoDB assumption | B3 resolution |
+### 4.1 Code and setup flow changes
+
+| Location | Earlier Node / npm / MongoDB / repository assumption | Resolution (B3 & T2) |
 | --- | --- | --- |
 | `rust/launcher/src-tauri/src/platform/requirements.rs` | Checked for Windows MongoDB Community Server (`C:\Program Files\MongoDB\Server\*\bin\mongod.exe`) and reported `RequirementState::Missing` when absent | Removed MongoDB from host requirements (`DATABASE = Database::Sqlite`); only checks tools the Rust stack uses (`tailscale`, `visual_studio`, `rust`, `dumper7`, `dauntless`, `vc_redist`, `git`) |
 | `rust/launcher/src-tauri/src/bridge/spec.rs` & `platform/links.rs` | Listed `"mongodb"` in `REQUIREMENT_IDS` and `"mongodb"` / `"node"` in `EXTERNAL_URL_KEYS` | Removed `"mongodb"` from `REQUIREMENT_IDS` and `"mongodb"` / `"node"` from `EXTERNAL_URL_KEYS`; regenerated `isolation/commands.js` |
 | `rust/launcher/src-tauri/src/bridge/spec.rs` & `platform/hostserver.rs` | Listed `"mongod"` as component index 0 in `HOST_SERVER_COMPONENTS` | Removed `"mongod"` from `HOST_SERVER_COMPONENTS` (`&["backend", "director", "content", "admin", "gateway", "allowlist"]`) and `hostserver.rs` |
 | `ui/apps/web/src/app/host-model.ts` | Listed `"git"` and `"mongodb"` under `"To host a server"` on the Requirements tab | Removed `"mongodb"` completely and moved `"git"` under the optional SDK/runtime build tools group; hosting only checks `"tailscale"` |
 | `ui/apps/web/src/screens/host-tools.tsx` | Rendered `t("host_data_step_pack")` (`npm run gamedata -- --export`) | Switched to `t("host_data_step_pack_rust")` (`reforged-host gamedata --export`) |
-| `ui/packages/i18n/catalogs/en.json` & `pt-BR.json` | Legacy strings mentioned `Node.js`, `npm`, and `MongoDB Community Server` | Added 86 new English and Brazilian Portuguese catalog keys (`hadm_*`, `hhis_*`, `hcfg_*`, `hmgo_*`, `hdoc_*`, `hinv_*`, `hmod_logs_*`) describing the Rust server, SQLite/Postgres store, and MongoDB migration accurately; regenerated `gen/strings.json` |
-| `rust/launcher/src-tauri/src/platform/hostkit.rs` & `controller/host.rs` | Required a git checkout containing a pre-built `reforged-host.exe` binary and spawned subprocesses | Accepts any existing directory (`is_workspace`) and calls `services/host` library functions (`setup`, `invite`, `multipliers`, `update`, `gamedata`, `gamepack`, `publish_runtime`, `doctor`, `backup`, `admin_cli`) and `ServerGui` directly in-process |
+| `rust/launcher/src-tauri/src/controller/host.rs` (`ensure_host_workspace`, `host_choose_workspace`) | Required a pre-existing folder or `<game_parent>/Reforged` repository checkout; offered `host_download_project` (`Download it`) on the Server GUI | In `DaintyLass Manager` (`has_embedded()`), `ensure_host_workspace(true)` creates and selects `<user_data>/Server` automatically on a fresh profile, `host_choose_workspace` creates any picked folder if it does not exist yet, and `host_download_project` (`ensure_host_workspace(false)`) returns `ErrorCode::NotInThisBuild` |
+| `ui/apps/web/src/screens/host.tsx` (`WorkspaceBar`, `SetupPanel`, `ServerCard`) | Showed repository checkout copy (`host_ws_text`), the `Download it` button (`host_ws_download`), Node-era setup copy (`hsetup_text`), no game-folder picker on `SetupPanel`, and `"Closing the launcher stops the server."` | In `DaintyLass Manager` (`snap.app.serverGui`), `WorkspaceBar` shows `host_ws_title_mgr` / `host_ws_text_mgr` (`Server data folder`) with no `Download it` button, `SetupPanel` includes a direct Dauntless `1.14.7` game-folder picker (`Choose folder` / `Change folder`) alongside synthetic data and `hsetup_text_mgr`, and `ServerCard` shows `hsrv_text_stopped_mgr` / `hsrv_text_running_mgr` (`Closing DaintyLass Manager stops the server.`) |
+| `ui/apps/web/src/components/chrome.tsx` & `ui/apps/web/src/app/app.tsx` | Always rendered `app_name` (`DaintyLass Launcher`) in the header bar and `document.title` | Renders `app_name_server` (`DaintyLass Manager`) when `snap.app.serverGui` is true, matching `tauri.server-gui.conf.json` (`productName: "DaintyLass Manager"`) |
+
+#### Why `host_download_project` is kept in `dainty-lass-client` Host tools and disabled in `dainty-lass-manager`
+
+- **`dainty-lass-manager` (`server-gui`)** compiles the Rust server services (`gateway`, `content`, `admin`, `isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`) and `services/host` library commands into the binary itself. It needs only a writable data directory (defaulting to `<user_data>/Server`) for `host.toml`, `.workspace/data/reforged.db`, TLS certificates, and logs. `host_download_project` has no purpose there: the UI hides the button when `snap.app.serverGui` is true and the controller refuses `host_download_project` with `ErrorCode::NotInThisBuild`.
+- **`dainty-lass-client` (with Host tools enabled in Settings)** does not embed the server or C++ runtime source; it drives an external `reforged-host` checkout and the optional C++ runtime/exporter MSBuild projects (`Build` tab). In the client's Host tools, `ensure_host_workspace` checks whether `<game_parent>/Reforged` already holds a valid workspace (`is_workspace`) and selects it if present. Keeping `host_download_project` on the client side preserves that external-checkout lookup for developers using the client's Host tools.
+
+### 4.2 Catalog audit (`ui/packages/i18n/catalogs/en.json` & `pt-BR.json`)
+
+Every occurrence in both catalogs of `"Mystic Paradox"` (as something the host downloads), `"npm"`, `"Node"`, `"MongoDB"` (outside migration/rollback screens), `"repository"`, and `"clone"` was audited in T2:
+
+| Catalog key(s) | Term matched | Action taken in T2 |
+| --- | --- | --- |
+| `host_ws_text`, `host_ws_pick`, `host_ws_missing` | `"repository"`, `"Mystic Paradox"` | Updated `host_ws_text` to describe the Rust workspace without claiming setup downloads Mystic Paradox; added `host_ws_title_mgr`, `host_ws_text_mgr`, `host_ws_pick_mgr`, and `host_ws_missing_mgr` (`"Server data folder"`) for `DaintyLass Manager` |
+| `hsetup_text` | `"Mystic Paradox"`, `"installs and builds the services"` | Updated `hsetup_text` to describe writing `host.toml`, generating keys/certificates, and preparing the SQLite database; added `hsetup_text_mgr` for `DaintyLass Manager` |
+| `host_req_git_how`, `host_req_git_detail_missing` | `"clone"`, `"repository"`, `"Mystic Paradox"` | Updated in both `en.json` and `pt-BR.json` to state that Git is optional and only used by the Build tab when fetching C++ runtime sources (`reforged-host upstream`), not to clone the server or download Mystic Paradox during setup |
+| `host_job_setup` | `"Mystic Paradox"` | Updated from `"Preparing the server (Mystic Paradox, services, configuration)..."` to `"Preparing the server (configuration, certificates, database)..."` (`"Preparando o servidor (configuracao, certificados, banco de dados)..."`) |
+| `err_host_workspace` | `"repository"` | Added `err_host_workspace_mgr` (`"Choose a folder for the server's data first."`) and routed `DaintyLass Manager` workspace errors through `workspace_fail()` (`"workspace_mgr"`); kept `err_host_workspace` for the client's external Host tools |
+| `app_name`, `hsrv_text_stopped`, `hsrv_text_running` | Launcher name in Server GUI | Added `app_name_server` (`"DaintyLass Manager"`), `hsrv_text_stopped_mgr`, and `hsrv_text_running_mgr` (`"Closing DaintyLass Manager stops the server."`) |
+| `hmgo_title`, `hmgo_migrated`, `hmgo_skipped`, `hmgo_unmigrated`, `hmgo_unreachable`, `hmgo_confirm_fresh` | `"MongoDB"` | **Deliberately kept**: these are the M1/M4 MongoDB-to-SQLite migration and fresh-start confirmation strings on the Server Settings card, which only render when `mongoMigration.state !== "none"` |
+| `host_job_upstream`, `err_host_upstream_old` | `"Mystic Paradox"` | **Deliberately kept**: only used when a developer explicitly triggers a C++ runtime/SDK action on the `Build` tab that invokes `reforged-host upstream` to populate C++ runtime sources |
+| `host_build_intro`, `host_build_step_dump`, `host_build_step_sdk`, `host_build_step_compile`, `host_req_dumper7_why`, `host_req_vc_why`, `err_runtime_missing` | `"Mystic Paradox"` | **Deliberately kept**: refers accurately to the client-side `MysticParadox.dll` C++ UE4 runtime DLL compiled on the optional `Build` tab, not to server setup or downloading |
+| `host_data_step_pack` | `"npm"` | **Deliberately kept as legacy dead key**: `ui/apps/web/src/screens/host-tools.tsx` renders `host_data_step_pack_rust` (`reforged-host gamedata --export`); `host_data_step_pack` is retained only for catalog key stability |
 
 ---
 
