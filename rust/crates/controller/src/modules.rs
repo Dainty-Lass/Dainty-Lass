@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! The Rust services this binary was built with, as modules: each reads the env file the host kit
 //! wrote for it (`hostconfig.rs`), through its own `Config::from_env`, so a service in this process
 //! sees exactly what it saw as a process of its own.

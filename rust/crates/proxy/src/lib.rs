@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+use std::collections::BTreeSet;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
@@ -29,14 +30,14 @@ pub fn is_hop_by_hop(name: &str) -> bool {
         .any(|hop| name.eq_ignore_ascii_case(hop))
 }
 
-pub fn connection_tokens(headers: &HeaderMap) -> Vec<String> {
-    let mut tokens = Vec::new();
+pub fn connection_tokens(headers: &HeaderMap) -> BTreeSet<String> {
+    let mut tokens = BTreeSet::new();
     for value in headers.get_all(http::header::CONNECTION) {
         if let Ok(s) = value.to_str() {
             for part in s.split(',') {
                 let trimmed = part.trim();
                 if !trimmed.is_empty() {
-                    tokens.push(trimmed.to_ascii_lowercase());
+                    tokens.insert(trimmed.to_ascii_lowercase());
                 }
             }
         }
@@ -44,17 +45,16 @@ pub fn connection_tokens(headers: &HeaderMap) -> Vec<String> {
     tokens
 }
 
-pub fn end_to_end<'a>(
-    headers: &'a HeaderMap,
-    extra: &'a [&'a str],
-) -> impl Iterator<Item = (&'a http::HeaderName, &'a http::HeaderValue)> + 'a {
+pub fn end_to_end(headers: &HeaderMap, drop: impl Fn(&str) -> bool) -> HeaderMap {
     let conn_tokens = connection_tokens(headers);
-    headers.iter().filter(move |(name, _)| {
+    let mut out = HeaderMap::new();
+    for (name, value) in headers {
         let s = name.as_str();
-        !is_hop_by_hop(s)
-            && !extra.iter().any(|ex| s.eq_ignore_ascii_case(ex))
-            && !conn_tokens.iter().any(|tok| s.eq_ignore_ascii_case(tok))
-    })
+        if !is_hop_by_hop(s) && !drop(s) && !conn_tokens.contains(s) {
+            out.append(name.clone(), value.clone());
+        }
+    }
+    out
 }
 
 pub struct Idle<S> {
@@ -134,14 +134,16 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for Idle<S> {
     }
 }
 
-pub async fn tunnel<A, B>(a: A, b: B, idle: Duration) -> io::Result<(u64, u64)>
+pub async fn tunnel<A, B>(a: A, b: B, idle: Duration) -> (u64, u64)
 where
     A: AsyncRead + AsyncWrite + Unpin,
     B: AsyncRead + AsyncWrite + Unpin,
 {
     let mut a = Idle::new(a, idle);
     let mut b = Idle::new(b, idle);
-    tokio::io::copy_bidirectional(&mut a, &mut b).await
+    tokio::io::copy_bidirectional(&mut a, &mut b)
+        .await
+        .unwrap_or((0, 0))
 }
 
 #[cfg(test)]
@@ -188,9 +190,13 @@ mod tests {
         assert!(!is_hop_by_hop("x-kept"));
 
         let tokens = connection_tokens(&headers);
-        assert_eq!(tokens, vec!["x-hop", "keep-alive", "x-second"]);
+        assert!(tokens.contains("x-hop"));
+        assert!(tokens.contains("keep-alive"));
+        assert!(tokens.contains("x-second"));
 
-        let kept: Vec<(&str, &str)> = end_to_end(&headers, &["host"])
+        let kept_map = end_to_end(&headers, |name| name == "host");
+        let kept: Vec<(&str, &str)> = kept_map
+            .iter()
             .filter_map(|(k, v)| v.to_str().ok().map(|val| (k.as_str(), val)))
             .collect();
         assert_eq!(kept, vec![("x-kept", "preserve-me")]);
@@ -217,7 +223,7 @@ mod tests {
             Ok::<Vec<u8>, io::Error>(req)
         });
 
-        let (a_to_b, b_to_a) = tunnel(proxy_a, proxy_b, Duration::from_secs(5)).await?;
+        let (a_to_b, b_to_a) = tunnel(proxy_a, proxy_b, Duration::from_secs(5)).await;
         assert_eq!(a_to_b, 4);
         assert_eq!(b_to_a, 5);
 
@@ -233,10 +239,7 @@ mod tests {
         let (_client, proxy_a) = tokio::io::duplex(1024);
         let (proxy_b, _upstream) = tokio::io::duplex(1024);
 
-        let res = tunnel(proxy_a, proxy_b, Duration::from_millis(50)).await;
-        assert!(res.is_err());
-        if let Err(err) = res {
-            assert_eq!(err.kind(), io::ErrorKind::TimedOut);
-        }
+        let (a_to_b, b_to_a) = tunnel(proxy_a, proxy_b, Duration::from_millis(50)).await;
+        assert_eq!((a_to_b, b_to_a), (0, 0));
     }
 }

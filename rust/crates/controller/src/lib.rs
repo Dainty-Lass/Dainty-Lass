@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! The server controller: named modules run in one process, in order, with one status registry
 //! (`docs/app-structure-plan.md`; the decision row is RD26).
 //!

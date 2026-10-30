@@ -9,8 +9,10 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-# Each module is the Rust service built into the binary; none makes a controller that runs and serves nothing
-default = ["gateway", "allowlist", "content", "admin", "network"]
+# Each module is the Rust service built into the binary; by default only MIT services (`admin`) are enabled so
+# `controller` has zero normal AGPL dependencies (`services/host` enables `gateway`, `allowlist`, `content`, `network`)
+default = ["admin"]
+services = ["gateway", "allowlist", "content", "admin", "network"]
 gateway = ["dep:gateway"]
 allowlist = ["dep:gateway"]
 content = ["dep:content"]

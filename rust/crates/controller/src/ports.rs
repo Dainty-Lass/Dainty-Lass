@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! Port assignment for modules (DD4): each port a manifest asks for keeps its default unless something
 //! already holds it, the server's own ports or another module's, and then moves up past the clash. The
 //! module is told what it got in `ModuleConfig::ports`.

@@ -38,11 +38,8 @@ pub const HOP_BY_HOP: &[&str] = &[
 ];
 
 pub fn is_hop_by_hop(name: &str) -> bool;
-pub fn connection_tokens(headers: &HeaderMap) -> Vec<String>;
-pub fn end_to_end<'a>(
-    headers: &'a HeaderMap,
-    extra: &'a [&'a str],
-) -> impl Iterator<Item = (&'a http::HeaderName, &'a http::HeaderValue)> + 'a;
+pub fn connection_tokens(headers: &HeaderMap) -> BTreeSet<String>;
+pub fn end_to_end(headers: &HeaderMap, drop: impl Fn(&str) -> bool) -> HeaderMap;
 
 pub struct Idle<S> { /* private fields */ }
 
@@ -53,7 +50,7 @@ impl<S> Idle<S> {
 impl<S: AsyncRead + Unpin> AsyncRead for Idle<S> { ... }
 impl<S: AsyncWrite + Unpin> AsyncWrite for Idle<S> { ... }
 
-pub async fn tunnel<A, B>(a: A, b: B, idle: Duration) -> io::Result<(u64, u64)>
+pub async fn tunnel<A, B>(a: A, b: B, idle: Duration) -> (u64, u64)
 where
     A: AsyncRead + AsyncWrite + Unpin,
     B: AsyncRead + AsyncWrite + Unpin;

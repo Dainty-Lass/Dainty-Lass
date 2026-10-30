@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! [`ModuleRegistry`]: the game modules and plugins this server runs (DF3), keyed by game version (DD4),
 //! compiled in or started as their own process (DD5). Only what `host.toml` lists can be loaded
 //! ([`ModuleEntry`]); a second game module for a version already served is refused whichever came first,

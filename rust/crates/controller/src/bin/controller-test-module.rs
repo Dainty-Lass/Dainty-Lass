@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! module-api's stub module as an executable, for the registry's tests (DF3). `--id <id>` renames it,
 //! a second module for the same game version; `--pid-file <file>` writes its pid, so a test can kill it;
 //! `--grandchild <file>` first starts a process of its own that listens on loopback and writes the port
