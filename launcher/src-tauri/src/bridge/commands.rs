@@ -17,15 +17,16 @@ use super::modules::ModulePanel;
 use super::spec::{
     ADMIN_PLAYER_MAX, ADMIN_REASON_MAX, Arg, COMMANDS, COPY_TEXT_MAX, DETECTED_GAME_MAX, EPIC_CODE_MAX, GAME_PATH_MAX,
     GAME_VERSION_MAX, HISTORY_TIME_MAX, INVITE_FOR_MAX, INVITE_MAX, KEY_TEXT_MAX, MODULE_ID_MAX, PUBLIC_HOST_MAX,
-    REALM_ID_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id,
+    REALM_ID_MAX, REMOTE_LABEL_MAX, REMOTE_URI_MAX, REMOTE_URL_MAX, SERVER_NAME_MAX, USERNAME_MAX, fits, is_server_id,
 };
 use super::types::{
     ActionResult, AdminActionKind, AdminOutcome, Branding, EpicLibraryCheck, EpicView, ErrorCode, ExternalTarget,
     GameVersionList, GuardedList, GuardedOutcome, HistoryOutcome, HostAction, HostFolder, HostKit, HostMultipliers,
     HostServerMode, HostServerView, HostSetupRequest, InstallMode, InstallOutcome, InviteCheck, LauncherError,
     MAX_MULTIPLIER, ModuleCommandOutcome, ModuleListOutcome, ModuleOutcome, NewsItem, RealmKind, RealmOutcome,
-    RegionPing, RegisterOutcome, RevertApplyOutcome, RevertPlanOutcome, ServerConfigOutcome, ServerDoctorOutcome,
-    ServerInviteListOutcome, Settings, SettingsPatch, Snapshot, TaskProgress,
+    RegionPing, RegisterOutcome, RemoteExecOutcome, RemoteInviteOutcome, RemoteStatusOutcome, RevertApplyOutcome,
+    RevertPlanOutcome, ServerConfigOutcome, ServerDoctorOutcome, ServerInviteListOutcome, Settings, SettingsPatch,
+    Snapshot, TaskProgress,
 };
 use crate::controller::ControllerHandle;
 use crate::controller::install::EpicGate;
@@ -1030,6 +1031,163 @@ pub async fn admin_action(request: Value, app: AppHandle) -> AdminOutcome {
     match panel(&app) {
         Some(panel) => panel.admin(action, player, reason, until, module).await,
         None => AdminOutcome::Err(not_in_this_build("admin_action")),
+    }
+}
+
+#[tauri::command]
+pub async fn remote_status(app: AppHandle) -> RemoteStatusOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).remote_status().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        RemoteStatusOutcome::Err(not_in_this_build("remote_status"))
+    }
+}
+
+#[tauri::command]
+pub async fn remote_init_controller(request: Value, app: AppHandle) -> RemoteStatusOutcome {
+    if !shape_accepts("remote_init_controller", &request) {
+        return RemoteStatusOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    }
+    let (Ok(node), Ok(region), Ok(url)) = (
+        optional_plain(request.get("node"), MODULE_ID_MAX),
+        optional_plain(request.get("region"), MODULE_ID_MAX),
+        optional_plain(request.get("url"), REMOTE_URL_MAX),
+    ) else {
+        return RemoteStatusOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).remote_init_controller(node, region, url).await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (app, node, region, url);
+        RemoteStatusOutcome::Err(not_in_this_build("remote_init_controller"))
+    }
+}
+
+#[tauri::command]
+pub async fn remote_invite(request: Value, app: AppHandle) -> RemoteInviteOutcome {
+    if !shape_accepts("remote_invite", &request) {
+        return RemoteInviteOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    }
+    let Some(node) = request
+        .get("node")
+        .and_then(|v| plain_text(v, MODULE_ID_MAX))
+        .filter(|s| !s.is_empty())
+    else {
+        return RemoteInviteOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    let (Ok(region), Ok(label), Ok(url)) = (
+        optional_plain(request.get("region"), MODULE_ID_MAX),
+        optional_plain(request.get("label"), REMOTE_LABEL_MAX),
+        optional_plain(request.get("url"), REMOTE_URL_MAX),
+    ) else {
+        return RemoteInviteOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).remote_invite(node, region, label, url).await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (app, node, region, label, url);
+        RemoteInviteOutcome::Err(not_in_this_build("remote_invite"))
+    }
+}
+
+#[tauri::command]
+pub async fn remote_enroll(request: Value, app: AppHandle) -> RemoteStatusOutcome {
+    if !shape_accepts("remote_enroll", &request) {
+        return RemoteStatusOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    }
+    let Some(uri) = request
+        .get("uri")
+        .and_then(|v| plain_text(v, REMOTE_URI_MAX))
+        .filter(|s| !s.is_empty())
+    else {
+        return RemoteStatusOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    let Ok(label) = optional_plain(request.get("label"), REMOTE_LABEL_MAX) else {
+        return RemoteStatusOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).remote_enroll(uri, label).await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (app, uri, label);
+        RemoteStatusOutcome::Err(not_in_this_build("remote_enroll"))
+    }
+}
+
+#[tauri::command]
+pub async fn remote_revoke(node: Value, app: AppHandle) -> RemoteStatusOutcome {
+    let Some(node) = plain_text(&node, MODULE_ID_MAX).filter(|s| !s.is_empty()) else {
+        return RemoteStatusOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).remote_revoke(node).await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (app, node);
+        RemoteStatusOutcome::Err(not_in_this_build("remote_revoke"))
+    }
+}
+
+#[tauri::command]
+pub async fn remote_leave(app: AppHandle) -> RemoteStatusOutcome {
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).remote_leave().await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = app;
+        RemoteStatusOutcome::Err(not_in_this_build("remote_leave"))
+    }
+}
+
+#[tauri::command]
+pub async fn remote_exec(request: Value, app: AppHandle) -> RemoteExecOutcome {
+    if !shape_accepts("remote_exec", &request) {
+        return RemoteExecOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    }
+    let Some(node) = request
+        .get("node")
+        .and_then(|v| plain_text(v, MODULE_ID_MAX))
+        .filter(|s| !s.is_empty())
+    else {
+        return RemoteExecOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    let Some(action) = request
+        .get("action")
+        .and_then(|v| plain_text(v, MODULE_ID_MAX))
+        .filter(|s| super::spec::REMOTE_EXEC_ACTIONS.contains(&s.as_str()))
+    else {
+        return RemoteExecOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    let (Ok(target), Ok(reason)) = (
+        optional_plain(request.get("target"), ADMIN_PLAYER_MAX),
+        optional_plain(request.get("reason"), ADMIN_REASON_MAX),
+    ) else {
+        return RemoteExecOutcome::Err(LauncherError::new(ErrorCode::Unknown));
+    };
+    #[cfg(feature = "server-gui")]
+    {
+        controller(&app).remote_exec(node, action, target, reason).await
+    }
+    #[cfg(not(feature = "server-gui"))]
+    {
+        let _ = (app, node, action, target, reason);
+        RemoteExecOutcome::Err(not_in_this_build("remote_exec"))
     }
 }
 

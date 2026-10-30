@@ -160,6 +160,10 @@ fn declarations() -> String {
         AdminActionKind,
         AdminPlayerView,
         AdminResultView,
+        ManagedInstallView,
+        RemoteStatusView,
+        RemoteInviteView,
+        RemoteExecView,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -219,6 +223,17 @@ fn declarations() -> String {
             .into(),
     );
     declare("type AdminOutcome = { ok: true; result: AdminResultView } | { ok: false; error: LauncherError };".into());
+    declare(
+        "type RemoteStatusOutcome = { ok: true; status: RemoteStatusView } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare(
+        "type RemoteInviteOutcome = { ok: true; invite: RemoteInviteView } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare(
+        "type RemoteExecOutcome = { ok: true; result: RemoteExecView } | { ok: false; error: LauncherError };".into(),
+    );
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
     out
@@ -417,6 +432,10 @@ fn generated_output_is_feature_independent() {
         "ServerConfigView",
         "ServerInviteEntry",
         "AdminResultView",
+        "ManagedInstallView",
+        "RemoteStatusView",
+        "RemoteInviteView",
+        "RemoteExecView",
     ] {
         assert!(
             ts.contains(&format!("export type {ty} =")),

@@ -97,4 +97,11 @@ permissions = [
   "allow-server-confirm-fresh-start",
   "allow-server-invite-list",
   "allow-admin-action",
+  "allow-remote-status",
+  "allow-remote-init-controller",
+  "allow-remote-invite",
+  "allow-remote-enroll",
+  "allow-remote-revoke",
+  "allow-remote-leave",
+  "allow-remote-exec",
 ]
