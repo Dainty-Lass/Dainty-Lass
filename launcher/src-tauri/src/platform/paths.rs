@@ -19,10 +19,8 @@ impl Paths {
     /// From the operating system's folders.
     pub fn from_system() -> Option<Self> {
         let home = dirs::home_dir()?;
-        // Debug builds only: a throwaway profile, so a developer's real settings and keys stay untouched
-        if cfg!(debug_assertions)
-            && let Some(dir) = std::env::var_os("REFORGED_DEV_PROFILE").map(PathBuf::from)
-        {
+        // Throwaway profile when REFORGED_DEV_PROFILE is set, so a developer's or host's real settings and keys stay untouched
+        if let Some(dir) = std::env::var_os("REFORGED_DEV_PROFILE").map(PathBuf::from) {
             return Some(Self {
                 user_data: dir.join("User Data"),
                 documents: dir.join("Documents"),

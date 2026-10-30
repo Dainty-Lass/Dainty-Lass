@@ -1610,3 +1610,220 @@ async fn a_catalog_exporter_session_plays_with_the_exporter_on_the_loader_list()
     hx.exit(0).await;
     hx.c.shutdown().await;
 }
+
+#[cfg(feature = "server-gui")]
+#[tokio::test(flavor = "multi_thread")]
+async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_process() {
+    use crate::bridge::types::{HostServerMode, MongoMigrationState, ServerConfigOutcome, ServerDoctorOutcome};
+    let hx = host_harness();
+    let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let embedded = std::sync::Arc::new(crate::server_gui::EmbeddedServerState::new(rx));
+    hx.c.set_embedded_server(embedded);
+    hx.c.init().await;
+    // Test directly against a fresh empty directory
+    let ws = hx.temp().join("FreshServer");
+    std::fs::create_dir_all(&ws).unwrap();
+    assert!(hx.c.valid_workspace(&ws));
+    hx.pick("workspace", &ws);
+    assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
+    assert_eq!(hx.c.host_action(HostAction::SyntheticData).await, ActionResult::Ok);
+
+    let setup = HostSetupRequest {
+        name: "Embedded Hunts".into(),
+        mode: HostServerMode::Private,
+        public_host: None,
+    };
+    assert_eq!(hx.c.host_setup(setup).await, ActionResult::Ok);
+
+    let cfg = match hx.c.server_config_get().await {
+        ServerConfigOutcome::Ok(view) => view,
+        ServerConfigOutcome::Err(e) => panic!("server_config_get failed: {e:?}"),
+    };
+    assert!(cfg.configured);
+    assert_eq!(cfg.name, "Embedded Hunts");
+    assert_eq!(cfg.mode, HostServerMode::Private);
+    assert_eq!(cfg.registration, "INVITECODE");
+    assert_eq!(cfg.database, "sqlite");
+
+    let saved = match hx
+        .c
+        .server_config_save("OPEN".into(), "sqlite".into(), 1, 5, false)
+        .await
+    {
+        ServerConfigOutcome::Ok(view) => view,
+        ServerConfigOutcome::Err(e) => panic!("server_config_save failed: {e:?}"),
+    };
+    assert_eq!(saved.registration, "OPEN");
+    assert_eq!(saved.max_hunts, 5);
+    assert!(!saved.fresh_start);
+
+    let confirmed = match hx.c.server_confirm_fresh_start().await {
+        ServerConfigOutcome::Ok(view) => view,
+        ServerConfigOutcome::Err(e) => panic!("server_confirm_fresh_start failed: {e:?}"),
+    };
+    assert!(confirmed.fresh_start);
+    assert_eq!(confirmed.mongo_migration.state, MongoMigrationState::Skipped);
+
+    match hx.c.server_doctor().await {
+        ServerDoctorOutcome::Ok(report) => assert!(!report.checks.is_empty()),
+        ServerDoctorOutcome::Err(e) => panic!("server_doctor failed: {e:?}"),
+    }
+
+    std::fs::write(ws.join(".workspace/config/dainty-lass.db"), b"SQLite format 3\0").unwrap();
+    assert_eq!(hx.c.server_backup().await, ActionResult::Ok);
+    assert!(ws.join(".workspace/backups").is_dir());
+}
+
+#[cfg(feature = "server-gui")]
+#[tokio::test(flavor = "multi_thread")]
+async fn server_gui_and_client_end_to_end_start_invite_join_ban_history_and_stop() {
+    use crate::bridge::types::{
+        AdminActionKind, AdminOutcome, HistoryOutcome, HostComponentPhase, HostServerMode, HostServerState,
+        ServerInviteListOutcome,
+    };
+    use crate::platform::hostserver::EmbeddedServer as _;
+
+    // 1. Server GUI sets up a fresh private workspace with embedded example game data
+    let hx = host_harness();
+    let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let embedded = std::sync::Arc::new(crate::server_gui::EmbeddedServerState::new(rx));
+    let panel = embedded.modules().expect("server-gui provides module panel");
+    hx.c.set_embedded_server(embedded);
+    hx.c.init().await;
+
+    let ws = hx.temp().join("LiveServer");
+    std::fs::create_dir_all(&ws).unwrap();
+    hx.pick("workspace", &ws);
+    assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
+    assert_eq!(hx.c.host_action(HostAction::SyntheticData).await, ActionResult::Ok);
+
+    let setup = HostSetupRequest {
+        name: "Live Embedded Hunts".into(),
+        mode: HostServerMode::Private,
+        public_host: None,
+    };
+    assert_eq!(hx.c.host_setup(setup).await, ActionResult::Ok);
+
+    // 2. Server GUI starts the embedded server and all active components reach Ready
+    assert_eq!(hx.c.host_server_start().await, ActionResult::Ok);
+    for _ in 0..200 {
+        if hx.c.host_server_view().state != HostServerState::Starting {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    let view = hx.c.host_server_view();
+    assert_eq!(view.state, HostServerState::Running, "server view: {view:?}");
+    assert!(!view.components.is_empty());
+    for comp in &view.components {
+        if comp.name == "isles-1-12-0" {
+            assert_eq!(comp.phase, HostComponentPhase::Stopped);
+        } else {
+            assert!(
+                matches!(comp.phase, HostComponentPhase::Ready | HostComponentPhase::Disabled),
+                "component {} not ready: {:?}",
+                comp.name,
+                comp
+            );
+        }
+    }
+
+    // 3. Server GUI creates an invite code and lists active invites
+    assert_eq!(hx.c.host_create_invite(Some("Slayer42".into())).await, ActionResult::Ok);
+    let invite_link =
+        hx.c.host_server_view()
+            .invite
+            .expect("invite created on server view")
+            .link;
+    match hx.c.server_invite_list().await {
+        ServerInviteListOutcome::Ok(invites) => {
+            assert_eq!(invites.len(), 1);
+            assert_eq!(invites[0].for_name.as_deref(), Some("Slayer42"));
+        }
+        ServerInviteListOutcome::Err(e) => panic!("server_invite_list failed: {e:?}"),
+    }
+
+    // 4. Client joins via the invite, registers an account, signs in, and sees status
+    let client = Harness::new();
+    client.c.init().await;
+    assert_eq!(client.last().phase, Phase::Join);
+    assert_eq!(
+        client.c.submit_invite(&invite_link, false, false).await,
+        ActionResult::Ok
+    );
+    assert_eq!(client.last().phase, Phase::Register);
+    assert_eq!(
+        client.c.register("Slayer_42").await,
+        RegisterOutcome::Ok {
+            username: "Slayer_42".into()
+        }
+    );
+    let snap = client.last();
+    assert_eq!(snap.account.username.as_deref(), Some("Slayer_42"));
+    assert!(snap.account.has_key);
+    assert_eq!(
+        snap.status.as_ref().map(|st| st.name.as_str()),
+        Some("Live Embedded Hunts")
+    );
+
+    // 5. Server GUI bans the account via admin_action, and the client sees AccountBanned on refresh
+    match panel
+        .admin(
+            AdminActionKind::Ban,
+            "Slayer_42".into(),
+            Some("E2E ban test".into()),
+            None,
+            None,
+        )
+        .await
+    {
+        AdminOutcome::Ok(res) => {
+            assert_eq!(res.action, AdminActionKind::Ban);
+            assert!(res.player.as_ref().is_some_and(|p| p.banned));
+        }
+        AdminOutcome::Err(e) => panic!("admin ban failed: {e:?}"),
+    }
+    client.c.poll_status().await;
+    assert_eq!(
+        client.last().last_error.as_ref().map(|e| e.code),
+        Some(ErrorCode::AccountBanned)
+    );
+
+    // 6. Server GUI unbans and looks up player, queries history, and backs up the live SQLite DB
+    match panel
+        .admin(AdminActionKind::Unban, "Slayer_42".into(), None, None, None)
+        .await
+    {
+        AdminOutcome::Ok(res) => {
+            assert_eq!(res.action, AdminActionKind::Unban);
+            assert!(res.player.as_ref().is_some_and(|p| !p.banned));
+        }
+        AdminOutcome::Err(e) => panic!("admin unban failed: {e:?}"),
+    }
+    client.c.dismiss_error();
+    client.c.poll_status().await;
+    assert!(client.last().last_error.is_none());
+
+    match panel
+        .admin(AdminActionKind::Lookup, "Slayer_42".into(), None, None, None)
+        .await
+    {
+        AdminOutcome::Ok(res) => {
+            assert_eq!(res.player.as_ref().map(|p| p.display_name.as_str()), Some("Slayer_42"));
+        }
+        AdminOutcome::Err(e) => panic!("admin lookup failed: {e:?}"),
+    }
+
+    match crate::server_history::query(&ws, crate::server_history::HistoryArgs::default()).await {
+        HistoryOutcome::Ok(page) => assert!(!page.entries.is_empty(), "expected change-log entries"),
+        HistoryOutcome::Err(e) => panic!("history_query failed: {e:?}"),
+    }
+
+    assert_eq!(hx.c.server_backup().await, ActionResult::Ok);
+
+    // 7. Server GUI stops the server cleanly
+    assert_eq!(hx.c.host_server_stop().await, ActionResult::Ok);
+    assert_eq!(hx.c.host_server_view().state, HostServerState::Stopped);
+    client.c.shutdown().await;
+    hx.c.shutdown().await;
+}

@@ -150,6 +150,16 @@ fn declarations() -> String {
         RealmState,
         RealmSessionView,
         RealmView,
+        DoctorLevel,
+        DoctorCheckView,
+        DoctorReportView,
+        MongoMigrationState,
+        MongoMigrationView,
+        ServerConfigView,
+        ServerInviteEntry,
+        AdminActionKind,
+        AdminPlayerView,
+        AdminResultView,
     );
     // The types serde writes by hand (types.rs)
     declare("type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;".into());
@@ -196,6 +206,19 @@ fn declarations() -> String {
         "type RevertApplyOutcome = { ok: true; done: RevertDoneView } | { ok: false; error: LauncherError };".into(),
     );
     declare("type RealmOutcome = { ok: true; realm: RealmView } | { ok: false; error: LauncherError };".into());
+    declare(
+        "type ServerDoctorOutcome = { ok: true; report: DoctorReportView } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare(
+        "type ServerConfigOutcome = { ok: true; config: ServerConfigView } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare(
+        "type ServerInviteListOutcome = { ok: true; invites: Array<ServerInviteEntry> } | { ok: false; error: LauncherError };"
+            .into(),
+    );
+    declare("type AdminOutcome = { ok: true; result: AdminResultView } | { ok: false; error: LauncherError };".into());
     let names: Vec<String> = COMMANDS.iter().map(|command| format!("\"{}\"", command.name)).collect();
     declare(format!("type CommandName = {};", names.join(" | ")));
     out

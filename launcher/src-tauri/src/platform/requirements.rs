@@ -20,7 +20,7 @@ pub enum Database {
     Postgres,
 }
 
-pub const DATABASE: Database = Database::MongoDb;
+pub const DATABASE: Database = Database::Postgres;
 
 /// The oldest Postgres the backend runs on (RD15).
 pub const POSTGRES_MINIMUM: u32 = 17;
@@ -366,19 +366,14 @@ mod tests {
         )
         .await;
         let ids: Vec<RequirementId> = list.iter().map(|r| r.id).collect();
-        let mut expected = vec![RequirementId::Dauntless];
-        if cfg!(windows) {
-            assert_eq!(list[1].problem.as_deref(), Some("service_running"));
-            assert_eq!(list[1].detail.as_deref(), Some("8.0"));
-        }
-        expected.extend([
-            RequirementId::Mongodb,
+        let expected = vec![
+            RequirementId::Dauntless,
             RequirementId::Tailscale,
             RequirementId::VisualStudio,
             RequirementId::Rust,
             RequirementId::Dumper7,
             RequirementId::VcRedist,
-        ]);
+        ];
         assert_eq!(ids, expected);
         let get = |id| list.iter().find(|r| r.id == id).unwrap();
         assert_eq!(get(RequirementId::Dauntless).state, RequirementState::Ok);

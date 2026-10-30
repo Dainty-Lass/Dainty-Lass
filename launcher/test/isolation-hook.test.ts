@@ -48,13 +48,19 @@ test("every listed command passes with arguments of the right shape", () => {
     filter: { actor: "key_01", since: "2026-10-01T00:00:00Z", cursor: null },
     selection: { actor: "key_01", since: "2026-10-01T00:00:00Z" },
     plan: "plan_01",
+    config: { registration: "INVITECODE", database: "sqlite", maxHubs: 1, maxHunts: 3, freshStart: false },
   };
-  assert.equal(Object.keys(commands).length, 84);
+  assert.equal(Object.keys(commands).length, 92);
   for (const [cmd, spec] of Object.entries(commands)) {
     const args: Record<string, unknown> = {};
     for (const name of Object.keys(spec)) {
       assert.ok(name in good, `${cmd} ${name}`);
-      args[name] = name === "text" && cmd !== "check_invite" && cmd !== "submit_invite" ? "a" : good[name];
+      args[name] =
+        name === "text" && cmd !== "check_invite" && cmd !== "submit_invite"
+          ? "a"
+          : name === "request" && cmd === "admin_action"
+            ? { action: "lookup", player: "Slayer", reason: null, until: null, module: null }
+            : good[name];
     }
     assert.ok(passes(cmd, args), cmd);
   }

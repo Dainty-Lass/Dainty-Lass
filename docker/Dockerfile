@@ -32,6 +32,9 @@ COPY modules/rustic-isles/Cargo.toml modules/rustic-isles/Cargo.lock /modules/ru
 COPY modules/rustic-isles/crates/ /modules/rustic-isles/crates/
 COPY modules/rustic-isles/modules/ /modules/rustic-isles/modules/
 COPY modules/rustic-isles/docs/ /modules/rustic-isles/docs/
+COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ /modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
+COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json /modules/rustic-isles/reference/1.14.7/ParadoxBackend/
+COPY modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/ /modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/
 COPY modules/rustic-rifts/Cargo.toml modules/rustic-rifts/Cargo.lock /modules/rustic-rifts/
 COPY modules/rustic-rifts/crates/ /modules/rustic-rifts/crates/
 COPY modules/rustic-rifts/docs/ /modules/rustic-rifts/docs/

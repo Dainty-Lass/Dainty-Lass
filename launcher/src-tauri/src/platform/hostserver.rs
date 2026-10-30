@@ -241,6 +241,10 @@ impl HostServer {
         *lock(&self.inner.embedded) = Some(server);
     }
 
+    pub fn has_embedded(&self) -> bool {
+        self.embedded().is_some()
+    }
+
     fn embedded(&self) -> Option<Arc<dyn EmbeddedServer>> {
         lock(&self.inner.embedded).clone()
     }

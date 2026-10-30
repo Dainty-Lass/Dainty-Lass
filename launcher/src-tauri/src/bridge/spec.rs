@@ -137,7 +137,6 @@ pub const HOST_ACTIONS: &[&str] = &[
 
 /// The services of the server inside the launcher (`host_server_restart`): the host kit's module names.
 pub const HOST_SERVER_COMPONENTS: &[&str] = &[
-    "mongod",
     "allowlist",
     "backend",
     "director",
@@ -237,6 +236,47 @@ const REVERT_SELECTION: Arg = Arg::Object {
     nullable: false,
 };
 
+/// `AdminActionKind`'s names (`admin_action`, server GUI).
+pub const ADMIN_ACTIONS: &[&str] = &["lookup", "kick", "timeout", "ban", "unban"];
+pub const ADMIN_PLAYER_MAX: usize = 64;
+pub const ADMIN_REASON_MAX: usize = 500;
+
+const ADMIN_REQUEST: Arg = Arg::Object {
+    fields: &[
+        ("action", Arg::Name { names: ADMIN_ACTIONS }),
+        ("player", Arg::Text { max: ADMIN_PLAYER_MAX }),
+        ("reason", Arg::OptionalText { max: ADMIN_REASON_MAX }),
+        ("until", Arg::OptionalText { max: HISTORY_TIME_MAX }),
+        ("module", Arg::OptionalText { max: MODULE_ID_MAX }),
+    ],
+    nullable: false,
+};
+
+/// `host.toml` settings edited from the server GUI (`server_config_save`).
+pub const REGISTRATION_MODES: &[&str] = &["OPEN", "INVITECODE", "NONE", "INVITE"];
+pub const DATABASE_ENGINES: &[&str] = &["sqlite", "postgres"];
+
+const SERVER_CONFIG_PATCH: Arg = Arg::Object {
+    fields: &[
+        (
+            "registration",
+            Arg::Name {
+                names: REGISTRATION_MODES,
+            },
+        ),
+        (
+            "database",
+            Arg::Name {
+                names: DATABASE_ENGINES,
+            },
+        ),
+        ("maxHubs", Arg::Index { max: 64 }),
+        ("maxHunts", Arg::Index { max: 128 }),
+        ("freshStart", Arg::Flag),
+    ],
+    nullable: false,
+};
+
 /// Which builds serve a command. Every build lists every command, so the bridge and its generated files
 /// are the same in all; a build outside a command's own refuses it with a code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -251,7 +291,8 @@ pub enum Build {
     Realms,
 }
 
-/// The server GUI's own commands: module panels (DU3), history and revert (DH3b), guarded actions (DH6).
+/// The server GUI's own commands: module panels (DU3), history and revert (DH3b), guarded actions (DH6),
+/// doctor, backup, config, MongoDB migration and player administration (B3).
 pub const SERVER_GUI_COMMANDS: &[&str] = &[
     "module_list",
     "module_get",
@@ -265,6 +306,14 @@ pub const SERVER_GUI_COMMANDS: &[&str] = &[
     "guarded_list",
     "guarded_approve",
     "guarded_cancel",
+    "server_doctor",
+    "server_backup",
+    "server_config_get",
+    "server_config_save",
+    "server_migrate_mongo",
+    "server_confirm_fresh_start",
+    "server_invite_list",
+    "admin_action",
 ];
 
 /// Realm hosting and joining commands (`realms` feature, RF7).
@@ -449,6 +498,15 @@ pub const COMMANDS: &[Command] = &[
     command("guarded_list", &[]),
     command("guarded_approve", &[("id", Arg::Text { max: CHANGE_ID_MAX })]),
     command("guarded_cancel", &[("id", Arg::Text { max: CHANGE_ID_MAX })]),
+    // Server GUI doctor, backup, config, MongoDB migration, invites and player administration (B3)
+    command("server_doctor", &[]),
+    command("server_backup", &[]),
+    command("server_config_get", &[]),
+    command("server_config_save", &[("config", SERVER_CONFIG_PATCH)]),
+    command("server_migrate_mongo", &[]),
+    command("server_confirm_fresh_start", &[]),
+    command("server_invite_list", &[]),
+    command("admin_action", &[("request", ADMIN_REQUEST)]),
 ];
 
 /// Whether a string fits a limit counted as JavaScript counts it, so the page, the hook and the
@@ -466,7 +524,9 @@ mod tests {
     use serde::de::DeserializeOwned;
     use ts_rs::TS;
 
-    use super::super::types::{ExternalTarget, HostAction, HostFolder, HostServerMode, InstallMode, RealmKind};
+    use super::super::types::{
+        AdminActionKind, ExternalTarget, HostAction, HostFolder, HostServerMode, InstallMode, RealmKind,
+    };
     use super::*;
 
     #[test]
@@ -539,6 +599,7 @@ mod tests {
         same_names::<HostServerMode>(SERVER_MODES);
         same_names::<InstallMode>(INSTALL_MODES);
         same_names::<RealmKind>(REALM_KINDS);
+        same_names::<AdminActionKind>(ADMIN_ACTIONS);
     }
 
     fn listed(name: &str) -> bool {

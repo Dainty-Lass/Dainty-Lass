@@ -188,10 +188,20 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             commands::guarded_list,
             commands::guarded_approve,
             commands::guarded_cancel,
+            commands::server_doctor,
+            commands::server_backup,
+            commands::server_config_get,
+            commands::server_config_save,
+            commands::server_migrate_mongo,
+            commands::server_confirm_fresh_start,
+            commands::server_invite_list,
+            commands::admin_action,
         ])
         .setup(move |app| {
             let _ = APP.set(app.handle().clone());
             if !cfg!(dev)
+                && !cfg!(feature = "server-gui")
+                && std::env::var_os("REFORGED_DEV_PROFILE").is_none()
                 && let Ok(exe) = std::env::current_exe()
             {
                 invite_link::register_scheme(&exe);

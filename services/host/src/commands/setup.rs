@@ -51,6 +51,11 @@ pub trait SetupEnv {
     -> Result<(), HostError>;
     /// The program that listens on the gateway's port, for the firewall rules.
     fn gateway_program(&self) -> String;
+    /// Whether Mystic Paradox's source folders (`modules/rustic-isles` and `native/`) must exist on disk.
+    /// True for a CLI checkout; false when the server GUI sets up a standalone workspace folder.
+    fn require_checkout_sources(&self) -> bool {
+        true
+    }
 }
 
 /// This PC.
@@ -420,10 +425,13 @@ fn reborn_sources(p: &Paths, layout: &Layout, env: &dyn SetupEnv, out: &mut dyn 
     out("\n1. Mystic Paradox (modules/rustic-isles and native/ in this project)");
     let missing = paradox::missing_paradox(layout);
     if !missing.is_empty() {
-        return Err(HostError::message(format!(
-            "this checkout has no {}: run git submodule update --init --recursive, or clone the project again with git clone --recurse-submodules (see docs/hosting.md) and move .workspace into the new clone",
-            missing.join(", ")
-        )));
+        if env.require_checkout_sources() {
+            return Err(HostError::message(format!(
+                "this checkout has no {}: run git submodule update --init --recursive, or clone the project again with git clone --recurse-submodules (see docs/hosting.md) and move .workspace into the new clone",
+                missing.join(", ")
+            )));
+        }
+        crate::gamedata::seed_embedded_examples(p)?;
     }
     let old = paradox::old_folders(layout)
         .iter()
