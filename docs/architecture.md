@@ -13,7 +13,8 @@ under [security/](security) go through each trust boundary line by line.
 | Allowlist helper (core plugin) | the server, public mode | `rust/services/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
 | Content server (core plugin) | the server | `rust/services/content` | `127.0.0.1:61002`; keys runtime manifests, client profiles and Epic manifests by `GameVersion` |
 | Admin API (core plugin) | the server | `rust/services/admin` | loopback, host-only; per-operator role keys, guarded actions, history and revert |
-| Network (core plugin) | the server | `rust/plugins/network` | no listener of its own; rides gateway `/__node/*` (directory, home API, session tickets, peer log shipping) |
+| Network (core plugin) | the server | `rust/plugins/network` | no listener of its own; rides gateway `/__node/*` (directory, home API, session tickets, peer log shipping, remote management) |
+| Remote management | controller & managed installs | `rust/crates/remote` (`Service::Remote`) | no listener of its own; rides gateway `/__node/enroll` (rate-limited token redemption) and `/__node/remote` (mTLS under the controller's CA) |
 | Chat (core plugin) | the server | `rust/plugins/chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
 | Store & history shipping | the server | `rust/crates/store`, `rust/crates/history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
 | Game modules | the server (in-process or child process) | `modules/rustic-isles` (`isles-1-14-7`, `isles-1-12-0`), `modules/legacy-revived` (`revived-1-4-4`) | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
@@ -110,6 +111,14 @@ added there without a policy decision fails CI.
 - **The host kit trusts `host.toml` and `secrets.env`** in `.workspace/config`, which it wrote. Every service
   reads one env file and nothing from its working directory; `start` clears the environment of anything that
   looks like a server setting before passing the file on.
+- **A managed install trusts its enrolled controller only for shared settings and remote admin actions**
+  ([remote-management.md](remote-management.md), [security/remote-management.md](security/remote-management.md)).
+  Enrollment redeems a single-use token over TLS pinned to the controller's SHA-256 certificate fingerprint;
+  subsequent syncs ride mTLS on `/__node/remote` with the controller's cluster CA. Secrets (`secrets.env`),
+  account keys (`RRK_*`), private keys and database files never cross the wire in either direction, local
+  identity keys and `[remote].local_overrides` are preserved locally, and remote actions run through the same
+  `DH2` role checks, `DH6` guarded approval rules and `DD23` change-log attribution (`remote:<controller>:<key>`)
+  as local ones.
 
 ## Where the design is going
 

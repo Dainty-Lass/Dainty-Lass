@@ -102,6 +102,7 @@ By the DaintyLass contributors (`Copyright (c) 2026 Silent Spud`), in two groups
   - **Born here**: `rust/crates/controller`, `rust/crates/module-api` (DF2, the module framework and frame protocol),
     `rust/crates/epic` (DE1, written from Epic's manifest and chunk formats as Legendary documents them),
     `rust/crates/history-ship` (DH4, shipping the change log to an object-locked bucket and restoring from it),
+    `rust/crates/remote` (DD27/RM2, remote management of enrolled server installs over pinned mTLS),
     `rust/plugins/network` (DN4), `rust/services/admin` (including the DH2/DH3/DH6 additions `guard.rs`, `guarded.rs`,
     `guarded_cli.rs`, `key_cli.rs`, `history.rs` and `history_text.rs`), and `rust/bins` (`server-console`,
     `server-minimal`).
