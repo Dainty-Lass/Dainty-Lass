@@ -26,7 +26,7 @@ members = [
     # Core plugins (DD3): chat, XMPP over WebSocket (DD21, DN10)
     "plugins/chat",
     # What ships (RD26): the server in one binary (dainty-lass-server-console, and reforged-host, the name installs
-    # run, DD1) and the same without a console. The launcher's two (dainty-lass-client, dainty-lass-server-gui) are
+    # run, DD1) and the same without a console. The launcher's two (dainty-lass-client, dainty-lass-manager) are
     # launcher/src-tauri's own, as `tauri build` needs
     "bins/server-console",
     "bins/server-minimal",

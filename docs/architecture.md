@@ -7,8 +7,8 @@ under [security/](security) go through each trust boundary line by line.
 
 | Part | Runs on | Code | Listens on |
 | --- | --- | --- | --- |
-| Launcher | each player's PC | `rust/launcher` (Tauri), page from `ui/` (`dainty-lass-ui`) | relay `127.0.0.1:61100` for the game |
-| Controller | the server | `rust/crates/controller` over `rust/crates/module-api` | the one process tree `start`, the console and the server GUI run |
+| Launcher & Manager | each player's or host's PC | `rust/launcher` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), page from `ui/` (`dainty-lass-ui`) | relay `127.0.0.1:61100` for the game (`dainty-lass-client`) |
+| Controller | the server | `rust/crates/controller` over `rust/crates/module-api` | the one process tree `start`, the console and `dainty-lass-manager` (`server-gui`) run |
 | Gateway (core plugin) | the server | `rust/services/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
 | Allowlist helper (core plugin) | the server, public mode | `rust/services/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
 | Content server (core plugin) | the server | `rust/services/content` | `127.0.0.1:61002`; keys runtime manifests, client profiles and Epic manifests by `GameVersion` |
@@ -47,7 +47,7 @@ DaintyLass separates **core plugins** from **game modules** ([`rust/crates/modul
   `lookup`) and `host.toml` config sections. The controller refuses a second game module for a `GameVersion` that
   is already loaded and shifts colliding loopback ports automatically.
 - **In-process and out-of-process loading.** The same `GameModule` trait runs compiled into the server binaries
-  (`server-minimal`, `server-console`, `server-gui`) or as an external child process (`module_api::child::main`)
+  (`server-minimal`, `server-console`, `dainty-lass-manager` with `server-gui`) or as an external child process (`module_api::child::main`)
   speaking length-prefixed JSON frames over stdin/stdout ([writing-a-module.md](writing-a-module.md),
   [security/module-host.md](security/module-host.md)). Only external executables listed in `host.toml` with their
   pinned SHA-256 are ever started.

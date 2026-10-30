@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Opt-in end-to-end desktop test for dainty-lass-client and dainty-lass-server-gui on Windows (B4).
+// Opt-in end-to-end desktop test for dainty-lass-client and dainty-lass-manager on Windows (B4, T2, T3, T5).
 // Installs both NSIS bundles into temporary directories, launches both apps with WebView2 CDP debugging
 // enabled and isolated REFORGED_DEV_PROFILE directories, drives the full server setup -> start -> invite ->
-// client join -> register -> status -> ban -> history -> backup -> stop flow over WebView2 CDP, and saves
-// screenshots of every screen in English and Brazilian Portuguese under docs/port/screenshots/.
+// client join -> register -> status -> ban -> history -> backup -> stop flow over WebView2 CDP, saves
+// screenshots of every screen in English and Brazilian Portuguese under docs/port/screenshots/, and runs
+// each NSIS uninstaller silently in finally so no stale Add/Remove Programs entries remain.
 
 import assert from "node:assert/strict"
 import { spawn, spawnSync } from "node:child_process"
@@ -23,7 +24,7 @@ const CLIENT_INSTALLER = path.join(
 )
 const SERVER_INSTALLER = path.join(
   BUNDLE_DIR,
-  "DaintyLass Server_2.0.0-alpha.0_x64-setup.exe"
+  "DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe"
 )
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -184,6 +185,16 @@ function installNsisBundle(installerPath, targetDir, expectedExe) {
   return exePath
 }
 
+function uninstallNsisBundle(targetDir) {
+  const uninstaller = path.join(targetDir, "uninstall.exe")
+  if (!fs.existsSync(uninstaller)) return
+  // _?=<dir> runs NSIS uninstall.exe synchronously in place and cleans Add/Remove Programs
+  spawnSync(uninstaller, ["/S", `_?=${targetDir}`], {
+    stdio: "ignore",
+    windowsHide: true,
+  })
+}
+
 async function main() {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true })
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dl-e2e-desktop-"))
@@ -193,17 +204,9 @@ async function main() {
   const serverInstallDir = path.join(tempRoot, "install-server")
   const clientProfileDir = path.join(tempRoot, "profile-client")
   const serverProfileDir = path.join(tempRoot, "profile-server")
-  const serverWorkspaceDir = path.join(tempRoot, "server-workspace")
 
   fs.mkdirSync(path.join(clientProfileDir, "User Data"), { recursive: true })
   fs.mkdirSync(path.join(serverProfileDir, "User Data"), { recursive: true })
-  fs.mkdirSync(serverWorkspaceDir, { recursive: true })
-
-  // Pre-seed the server workspace path in the server GUI's isolated settings.json so no OS folder dialog blocks
-  fs.writeFileSync(
-    path.join(serverProfileDir, "User Data", "settings.json"),
-    JSON.stringify({ hostWorkspace: serverWorkspaceDir, hostTools: true }, null, 2)
-  )
 
   console.log("[2/8] Installing both NSIS bundles into isolated directories...")
   const clientExe = installNsisBundle(
@@ -214,10 +217,10 @@ async function main() {
   const serverExe = installNsisBundle(
     SERVER_INSTALLER,
     serverInstallDir,
-    "dainty-lass-server-gui.exe"
+    "dainty-lass-manager.exe"
   )
   console.log(`  Installed client: ${clientExe}`)
-  console.log(`  Installed server: ${serverExe}`)
+  console.log(`  Installed manager: ${serverExe}`)
 
   let serverProc = null
   let clientProc = null
@@ -225,7 +228,7 @@ async function main() {
   let clientCdp = null
 
   try {
-    console.log("[3/8] Launching dainty-lass-server-gui and dainty-lass-client with WebView2 CDP...")
+    console.log("[3/8] Launching dainty-lass-manager and dainty-lass-client with WebView2 CDP...")
     serverProc = spawn(serverExe, [], {
       env: {
         ...process.env,
@@ -258,7 +261,15 @@ async function main() {
     }
 
     const serverSnap = await serverCdp.invoke("get_snapshot")
-    assert.equal(serverSnap.app.serverGui, true, "server-gui must set app.serverGui = true")
+    assert.equal(serverSnap.app.serverGui, true, "dainty-lass-manager must set app.serverGui = true")
+    assert.ok(
+      serverSnap.settings.hostWorkspace?.endsWith("Server"),
+      `fresh dainty-lass-manager profile must default hostWorkspace to <user_data>/Server, got: ${serverSnap.settings.hostWorkspace}`
+    )
+    const serverKit = await serverCdp.invoke("host_kit")
+    assert.equal(serverKit.workspaceOk, true, "default server data folder must be workspaceOk")
+    const serverTitle = await serverCdp.evaluate("document.title")
+    assert.equal(serverTitle, "DaintyLass Manager", "document.title must be DaintyLass Manager")
     const clientSnap = await clientCdp.invoke("get_snapshot")
     assert.equal(clientSnap.app.serverGui, false, "client must set app.serverGui = false")
     assert.equal(clientSnap.phase, "join", "fresh client starts on join phase")
@@ -485,6 +496,12 @@ async function main() {
       serverProc.kill()
     }
     await sleep(500)
+    try {
+      uninstallNsisBundle(clientInstallDir)
+    } catch {}
+    try {
+      uninstallNsisBundle(serverInstallDir)
+    } catch {}
     try {
       fs.rmSync(tempRoot, { recursive: true, force: true })
     } catch {}
