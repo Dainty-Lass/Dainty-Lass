@@ -635,7 +635,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1674,7 +1674,7 @@ dependencies = [
 [[package]]
 name = "rifts-admission"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=279931b409d10bbd18f24afd01436f885c809763#279931b409d10bbd18f24afd01436f885c809763"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "rifts-guard"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=279931b409d10bbd18f24afd01436f885c809763#279931b409d10bbd18f24afd01436f885c809763"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -1704,13 +1704,15 @@ dependencies = [
 [[package]]
 name = "rifts-realms"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=279931b409d10bbd18f24afd01436f885c809763#279931b409d10bbd18f24afd01436f885c809763"
 dependencies = [
  "diesel",
  "diesel_migrations",
  "module-api",
  "rand 0.10.3",
+ "rifts-admission",
  "rifts-guard",
+ "rifts-relay",
  "rifts-seam",
  "serde",
  "serde_json",
@@ -1723,7 +1725,7 @@ dependencies = [
 [[package]]
 name = "rifts-relay"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=279931b409d10bbd18f24afd01436f885c809763#279931b409d10bbd18f24afd01436f885c809763"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1738,7 +1740,7 @@ dependencies = [
 [[package]]
 name = "rifts-seam"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=279931b409d10bbd18f24afd01436f885c809763#279931b409d10bbd18f24afd01436f885c809763"
 dependencies = [
  "thiserror",
 ]
@@ -1801,7 +1803,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2226,7 +2228,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

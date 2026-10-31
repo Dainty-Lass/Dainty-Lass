@@ -512,4 +512,144 @@ async fn realms_and_guard_routes_serve_live_implementations_when_database_is_con
         .unwrap()
         .unwrap();
     assert!(stored_cap.revoked_at.is_some());
+
+    // 7. Full realm hub hosting, admission, and ICE relay signaling through the wired rifts_with_core routes.
+    let (hub_start_route, hub_start_handler) = rifts
+        .routes()
+        .find(|(r, _)| r.method == Method::Post && r.path == "/launcher/v1/realm-hosting/hubs/start")
+        .expect("POST /launcher/v1/realm-hosting/hubs/start mounted");
+    let (presence_route, presence_handler) = rifts
+        .routes()
+        .find(|(r, _)| r.method == Method::Post && r.path == "/launcher/v1/p2p/host-presence")
+        .expect("POST /launcher/v1/p2p/host-presence mounted");
+    let zero_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let presence_reply = presence_handler
+        .handle(RouteCall {
+            route: *presence_route,
+            params: Vec::new(),
+            query: String::new(),
+            request: RequestInfo::default(),
+            caller: Caller::Launcher(AccountId(other_account.to_owned())),
+            body: serde_json::to_vec(&serde_json::json!({
+                "observedAt": rifts_realms::time::iso(rifts_realms::time::now()),
+                "consentToHost": true,
+                "powerSaver": false,
+                "runtimeSupported": true,
+                "transportReady": true,
+                "peerId": rifts_realms::selection::derive_ice_peer_id(other_account),
+                "launcherVersion": "0.2.0",
+                "freePhysicalMemoryMiB": 8192,
+                "commitHeadroomMiB": 8192,
+                "logicalCpuCount": 8,
+                "cpuLoadPercent": 15.0,
+                "backendRttMs": 20.0,
+                "worstPeerRttMs": 20.0,
+                "jitterMs": 1.0,
+                "packetLossPercent": 0.0,
+                "peerLinks": [],
+                "artifacts": {
+                    "gameExe": "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b",
+                    "internalServer": zero_hash,
+                    "winmmProxy": zero_hash,
+                    "steamBridge": zero_hash,
+                    "steamRuntime": zero_hash,
+                    "admissionPublicKey": zero_hash,
+                }
+            }))
+            .unwrap(),
+        })
+        .await
+        .expect("submit_host_presence succeeds in observe mode");
+    assert_eq!(presence_reply.status, 200);
+
+    let hub_start_reply = hub_start_handler
+        .handle(RouteCall {
+            route: *hub_start_route,
+            params: Vec::new(),
+            query: String::new(),
+            request: RequestInfo::default(),
+            caller: Caller::Launcher(AccountId(other_account.to_owned())),
+            body: br#"{"hubKind":"RAMSGATE"}"#.to_vec(),
+        })
+        .await
+        .expect("start_realm_hub succeeds");
+    assert_eq!(hub_start_reply.status, 200);
+    let hub_started: serde_json::Value = serde_json::from_str(&hub_start_reply.body.0).unwrap();
+    let hub_session_id = hub_started["sessionId"].as_str().unwrap().to_owned();
+    let hub_cap = hub_started["capability"].as_str().unwrap().to_owned();
+
+    // Host marks hub ready via POST /mystic/v1/hunts/:sessionId/host-ready.
+    let (ready_route, ready_handler) = rifts
+        .routes()
+        .find(|(r, _)| r.method == Method::Post && r.path == "/mystic/v1/hunts/:sessionId/host-ready")
+        .expect("POST /mystic/v1/hunts/:sessionId/host-ready mounted");
+    let mut ready_req = RequestInfo::default();
+    ready_req
+        .headers
+        .push((rifts_seam::HOST_CAPABILITY_HEADER.to_owned(), hub_cap.clone()));
+    let ready_reply = ready_handler
+        .handle(RouteCall {
+            route: *ready_route,
+            params: vec![("sessionId".to_owned(), hub_session_id.clone())],
+            query: String::new(),
+            request: ready_req,
+            caller: Caller::Anonymous,
+            body: serde_json::to_vec(&serde_json::json!({
+                "lobbyId": "ICE",
+                "virtualPort": 1,
+            }))
+            .unwrap(),
+        })
+        .await
+        .expect("mark_hunt_ready succeeds");
+    assert_eq!(ready_reply.status, 200);
+
+    // Host requests ICE transport config via POST /launcher/v1/p2p/hunts/:sessionId/transport-config (RelayRoutes).
+    let (ice_cfg_route, ice_cfg_handler) = rifts
+        .routes()
+        .find(|(r, _)| r.method == Method::Post && r.path == "/launcher/v1/p2p/hunts/:sessionId/transport-config")
+        .expect("POST /launcher/v1/p2p/hunts/:sessionId/transport-config mounted");
+    let ice_cfg_reply = ice_cfg_handler
+        .handle(RouteCall {
+            route: *ice_cfg_route,
+            params: vec![("sessionId".to_owned(), hub_session_id.clone())],
+            query: String::new(),
+            request: RequestInfo::default(),
+            caller: Caller::Launcher(AccountId(other_account.to_owned())),
+            body: br#"{"generation":1}"#.to_vec(),
+        })
+        .await
+        .expect("RelayRoutes transport_config succeeds");
+    assert_eq!(ice_cfg_reply.status, 200);
+
+    // Host consumes its own self-ticket via POST /mystic/v1/hunts/:sessionId/tickets/consume (AdmissionRoutes).
+    let (consume_route, consume_handler) = rifts
+        .routes()
+        .find(|(r, _)| r.method == Method::Post && r.path == "/mystic/v1/hunts/:sessionId/tickets/consume")
+        .expect("POST /mystic/v1/hunts/:sessionId/tickets/consume mounted");
+    let mut consume_req = RequestInfo {
+        request_id: "req-consume-1".to_owned(),
+        ..RequestInfo::default()
+    };
+    consume_req
+        .headers
+        .push((rifts_seam::HOST_CAPABILITY_HEADER.to_owned(), hub_cap));
+    let consume_reply = consume_handler
+        .handle(RouteCall {
+            route: *consume_route,
+            params: vec![("sessionId".to_owned(), hub_session_id)],
+            query: String::new(),
+            request: consume_req,
+            caller: Caller::Anonymous,
+            body: serde_json::to_vec(&serde_json::json!({
+                "ticket": hub_started["hostTicket"],
+                "authenticatedSteamId": rifts_realms::selection::derive_ice_peer_id(other_account),
+                "bridgeInstanceId": hub_started["bridgeInstanceId"],
+                "connectionHandle": "conn-host-self",
+            }))
+            .unwrap(),
+        })
+        .await
+        .expect("AdmissionRoutes consume_ticket succeeds");
+    assert_eq!(consume_reply.status, 200);
 }

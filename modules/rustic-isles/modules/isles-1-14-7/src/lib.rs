@@ -261,7 +261,14 @@ pub fn rifts(_settings: &Settings) -> Rifts {
 
 #[cfg(feature = "realms")]
 pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>) -> Rifts {
+    use std::collections::HashMap;
+
     use module_api::NodeId;
+    use rifts_admission::{
+        Admission, AdmissionError, AdmissionHunts, AdmissionRoutes, AdmissionService, AdmissionStore,
+        CapabilityResolver, Es256Tickets, HostCapability, KeyId, MemoryAdmissionStore, P256KeyGenerator,
+        TicketAuthority,
+    };
     use rifts_guard::{
         CoreOperationsPolicy, Guard, GuardConfig, GuardParts, GuardRoutes, GuardStore, HuntSessions, NoHuntSessions,
         SqlGuardStore, StubGuardStore,
@@ -270,20 +277,35 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
     use rifts_realms::control::ControlChannel;
     use rifts_realms::db::RealmsDb;
     use rifts_realms::directory::{DirectoryParts, RealmDirectory};
-    use rifts_realms::leases::{Hosting, HostingParts, HostingSettings};
+    use rifts_realms::host_policy::{ArtifactSources, read_artifact_policy};
+    use rifts_realms::hunt::ArtifactHashes;
+    use rifts_realms::ids::seam_session_id;
+    use rifts_realms::leases::{Hosting, HostingParts, HostingRuntime, HostingSettings};
     use rifts_realms::lifecycle::RealmsRecovery;
     use rifts_realms::ports::{
-        Clock, CoreAccounts, CoreGuardSessions, CoreOperationsView, RandomIds, RateLimiter as RealmsRateLimiter,
-        StderrLog, SystemClock as RealmsClock,
+        Clock, CoreAccounts, CoreGuardSessions, CoreOperationsView, IdSource as _, RandomIds,
+        RateLimiter as RealmsRateLimiter, RealmEventSink, StderrLog, SystemClock as RealmsClock,
     };
     use rifts_realms::realm::RealmLimits;
+    use rifts_realms::selection::derive_ice_peer_id;
     use rifts_realms::tiers::HostingPolicy;
     use rifts_realms::{
         RealmsHuntSessions, RealmsRoutes, RealmsRoutesParts, RealmsService, RealmsServiceParts,
         realms_enabled_or_default,
     };
-    use rifts_seam::{RiftsParts, RouteHandler};
+    use rifts_relay::{
+        Ice, IceHunts, IceService, OperationsPolicy, ProviderAnswer, ProviderHttp, ProviderRequest,
+        ProviderUnreachable, RelayConfig, RelayGrants, RelayRoutes, RelayUsageCache,
+    };
+    use rifts_seam::{AccountId, BoxFuture, NodeId as SeamNodeId, PeerId, RiftsParts, RouteHandler, Secret};
     use store::{Database, DatabaseConfig, DatabaseOptions};
+
+    struct NoProviderHttp;
+    impl ProviderHttp for NoProviderHttp {
+        fn post(&self, _request: ProviderRequest) -> BoxFuture<'_, Result<ProviderAnswer, ProviderUnreachable>> {
+            Box::pin(async { Err(ProviderUnreachable) })
+        }
+    }
 
     // Node's IsRateLimited (security/rateLimit.ts) over isles-core's sliding-window limiter; only /launcher/v1/realms*
     // routes throttle through RealmDirectory (p2pLauncher.ts, p2pControl.ts, p2pHostLifecycle.ts and p2pHunts.ts:80
@@ -325,13 +347,144 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
 
         let realms_clock: Arc<dyn rifts_realms::ports::Clock> = Arc::new(RealmsClock);
         let realms_enabled = realms_enabled_or_default(settings);
-        let policy = HostingPolicy::from_settings(settings);
+        let mut policy = HostingPolicy::from_settings(settings);
+        if rifts_seam::Settings::get(settings, "MYSTICPARADOX_P2P_HOSTING").is_none() {
+            policy.enabled = realms_enabled;
+        }
+        let service_node = node.unwrap_or_else(|| {
+            NodeId::new("local").unwrap_or_else(|_| unreachable!("static 'local' node id is valid"))
+        });
+        let seam_node = SeamNodeId::new(service_node.as_str()).unwrap_or_else(|_| {
+            SeamNodeId::new("local").unwrap_or_else(|_| unreachable!("static 'local' node id is valid"))
+        });
 
-        let (directory, control, hosting, capabilities) = if let Some(ref db) = realms_db {
+        #[allow(clippy::type_complexity)]
+        let (directory, control, hosting, capabilities, admission_routes, relay_routes): (
+            Option<Arc<RealmDirectory>>,
+            Option<Arc<ControlChannel>>,
+            Option<Arc<Hosting>>,
+            Option<Arc<HostCapabilities>>,
+            Arc<dyn RouteHandler>,
+            Arc<dyn RouteHandler>,
+        ) = if let Some(ref db) = realms_db {
+            let tickets = Arc::new(Es256Tickets::from_settings(settings).unwrap_or_else(|_| {
+                let (pair, _, _) = P256KeyGenerator
+                    .generate_with_pems(KeyId("default-k1".to_owned()))
+                    .unwrap_or_else(|_| unreachable!("system RNG generates valid P-256 keypair"));
+                let fallback: HashMap<String, String> = [
+                    ("P2P_ADMISSION_KEY_ID".to_owned(), pair.key_id.0),
+                    (
+                        "P2P_ADMISSION_SIGNING_PRIVKEY_B64".to_owned(),
+                        pair.signing_key.expose().to_owned(),
+                    ),
+                    ("P2P_ADMISSION_VERIFY_PUBKEY_B64".to_owned(), pair.verify_key),
+                ]
+                .into_iter()
+                .collect();
+                Es256Tickets::from_settings(&fallback)
+                    .unwrap_or_else(|_| unreachable!("generated P-256 keypair parses"))
+            }));
+            let admission_store = Arc::new(MemoryAdmissionStore::default());
+            let capabilities = Arc::new(HostCapabilities::new(db.clone()));
+
+            let mut hosting_settings = HostingSettings::from_settings(settings);
+            if rifts_seam::Settings::get(settings, "MYSTICPARADOX_REALMS_HOSTING").is_none() {
+                hosting_settings.realm_hosting = realms_enabled;
+            }
+            if rifts_seam::Settings::get(settings, "MYSTICPARADOX_P2P_HOSTING").is_none() {
+                hosting_settings.policy.enabled = realms_enabled;
+            }
+            if rifts_seam::Settings::get(settings, "P2P_ALLOW_ALL_ACCOUNTS").is_none()
+                && rifts_seam::Settings::get(settings, "P2P_CANARY_ACCOUNTS").is_none()
+                && hosting_settings.policy.trust_tier == 0
+            {
+                hosting_settings.policy.allow_all_accounts = true;
+            }
+
+            let settings_for_artifacts = settings.clone();
+            let core_for_artifacts = Arc::clone(&core);
+            let expected_artifacts = Arc::new(move || {
+                if let Ok(policy) = read_artifact_policy(&settings_for_artifacts, &ArtifactSources::default()) {
+                    return Ok(policy.hashes);
+                }
+                if core_for_artifacts.guard_mode() == rifts_seam::GuardMode::Observe {
+                    let zero_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+                    return Ok(ArtifactHashes {
+                        game_exe: rifts_seam::Settings::get(&settings_for_artifacts, "P2P_GAME_EXE_SHA256")
+                            .unwrap_or("f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b")
+                            .to_owned(),
+                        internal_server: rifts_seam::Settings::get(
+                            &settings_for_artifacts,
+                            "P2P_INTERNAL_SERVER_SHA256",
+                        )
+                        .unwrap_or(zero_hash)
+                        .to_owned(),
+                        winmm_proxy: rifts_seam::Settings::get(&settings_for_artifacts, "P2P_WINMM_SHA256")
+                            .unwrap_or(zero_hash)
+                            .to_owned(),
+                        steam_bridge: rifts_seam::Settings::get(&settings_for_artifacts, "P2P_TRANSPORT_MODULE_SHA256")
+                            .or_else(|| rifts_seam::Settings::get(&settings_for_artifacts, "P2P_STEAM_BRIDGE_SHA256"))
+                            .unwrap_or(zero_hash)
+                            .to_owned(),
+                        steam_runtime: rifts_seam::Settings::get(
+                            &settings_for_artifacts,
+                            "P2P_TRANSPORT_RUNTIME_SHA256",
+                        )
+                        .or_else(|| rifts_seam::Settings::get(&settings_for_artifacts, "P2P_STEAM_RUNTIME_SHA256"))
+                        .unwrap_or(zero_hash)
+                        .to_owned(),
+                        admission_public_key: rifts_seam::Settings::get(
+                            &settings_for_artifacts,
+                            "P2P_ADMISSION_PUBLIC_XY_SHA256",
+                        )
+                        .unwrap_or(zero_hash)
+                        .to_owned(),
+                    });
+                }
+                Err("artifact policy feed not configured".to_owned())
+            });
+
+            let backend_url = rifts_seam::Settings::get(settings, "METAGAME_URL")
+                .or_else(|| rifts_seam::Settings::get(settings, "BACKEND_PUBLIC_URL"))
+                .unwrap_or("http://127.0.0.1:61000")
+                .to_owned();
+            let host_server_udp_port = rifts_seam::Settings::get(settings, "P2P_HOST_SERVER_UDP_PORT")
+                .and_then(|raw| raw.trim().parse::<u16>().ok())
+                .filter(|&p| p > 0)
+                .unwrap_or(8791);
+
+            let hosting = Arc::new(
+                Hosting::new(HostingParts {
+                    db: db.clone(),
+                    settings: hosting_settings,
+                    clock: Arc::clone(&realms_clock),
+                    operations: Arc::new(CoreOperationsView(Arc::clone(&core))),
+                    guard: Arc::new(CoreGuardSessions(Arc::clone(&core))),
+                    recovery: Arc::new(RealmsRecovery::new(
+                        db.clone(),
+                        Arc::clone(&core),
+                        Arc::clone(&realms_clock),
+                        Arc::new(StderrLog),
+                    )),
+                    expected_artifacts,
+                    log: Arc::new(StderrLog),
+                })
+                .with_runtime(HostingRuntime {
+                    capabilities: Arc::clone(&capabilities),
+                    tickets: Arc::clone(&tickets),
+                    admission_store: Arc::clone(&admission_store) as Arc<dyn AdmissionStore>,
+                    core: Arc::clone(&core),
+                    node: service_node.clone(),
+                    backend_url,
+                    host_server_udp_port,
+                    realms_enabled,
+                }),
+            );
+
             let directory = Arc::new(RealmDirectory::new(DirectoryParts {
                 db: db.clone(),
                 accounts: Arc::new(CoreAccounts(Arc::clone(&core))),
-                events: None,
+                events: Some(Arc::clone(&hosting) as Arc<dyn RealmEventSink>),
                 clock: Arc::clone(&realms_clock),
                 limiter: Arc::new(IslesRateLimiter {
                     inner: isles_core::areas::auth::runtime::RateLimiter::default(),
@@ -342,25 +495,105 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
                 log: Arc::new(StderrLog),
             }));
             let control = Arc::new(ControlChannel::new(db.clone(), Arc::clone(&realms_clock)));
-            let hosting = Arc::new(Hosting::new(HostingParts {
-                db: db.clone(),
-                settings: HostingSettings::from_settings(settings),
-                clock: Arc::clone(&realms_clock),
-                operations: Arc::new(CoreOperationsView(Arc::clone(&core))),
-                guard: Arc::new(CoreGuardSessions(Arc::clone(&core))),
-                recovery: Arc::new(RealmsRecovery::new(
-                    db.clone(),
-                    Arc::clone(&core),
-                    Arc::clone(&realms_clock),
-                    Arc::new(StderrLog),
-                )),
-                expected_artifacts: Arc::new(|| Err("artifact policy feed not configured".to_owned())),
-                log: Arc::new(StderrLog),
-            }));
-            let capabilities = Arc::new(HostCapabilities::new(db.clone()));
-            (Some(directory), Some(control), Some(hosting), Some(capabilities))
+
+            let mut relay_config = RelayConfig::from_settings(settings);
+            if relay_config.transport_key_secret.is_none() {
+                let first = RandomIds.realm_id().replace('-', "");
+                let second = RandomIds.realm_id().replace('-', "");
+                relay_config.transport_key_secret = Some(Secret::new(format!("{first}{second}")));
+            }
+            let transport_secret = relay_config.transport_key_secret.clone();
+
+            let admissions: Arc<dyn AdmissionService> = Arc::new(Admission::new(
+                Arc::clone(&tickets) as Arc<dyn TicketAuthority>,
+                Arc::clone(&admission_store) as Arc<dyn AdmissionStore>,
+                Arc::clone(&hosting) as Arc<dyn AdmissionHunts>,
+                transport_secret,
+                Arc::new({
+                    let c = Arc::clone(&realms_clock);
+                    move || c.now()
+                }),
+            ));
+            let cap_check = Arc::clone(&capabilities);
+            let cap_clock = Arc::clone(&realms_clock);
+            let cap_node = service_node.clone();
+            let resolver: CapabilityResolver = Arc::new(move |header, session, scope| {
+                let cap_check = Arc::clone(&cap_check);
+                let now = cap_clock.now();
+                let raw = header.map(str::to_owned);
+                let session_str = session.to_owned();
+                let node_clone = cap_node.clone();
+                Box::pin(async move {
+                    let rec = cap_check
+                        .check(raw.as_deref(), &session_str, scope, now)
+                        .await
+                        .map_err(|e| match e {
+                            rifts_realms::RealmsError::Refused(r) => AdmissionError::Refused(r),
+                            other => AdmissionError::Refused(rifts_seam::Refusal {
+                                code: "AUTH_UNAUTHORIZED".to_owned(),
+                                message: other.to_string(),
+                            }),
+                        })?;
+                    let peer_str = if rec.host_steam_id.is_empty() {
+                        derive_ice_peer_id(&rec.host_account_id)
+                    } else {
+                        rec.host_steam_id.clone()
+                    };
+                    let peer_num = peer_str.parse::<u64>().unwrap_or_else(|_| {
+                        rifts_admission::derive_ice_peer_id(&AccountId(rec.host_account_id.clone())).0
+                    });
+                    let seam_session = seam_session_id(&rec.session_id, &node_clone).ok_or_else(|| {
+                        AdmissionError::Refused(rifts_seam::Refusal {
+                            code: "P2P_VALIDATION_FAILED".to_owned(),
+                            message: "sessionId must be a valid session identifier.".to_owned(),
+                        })
+                    })?;
+                    Ok(HostCapability {
+                        session: seam_session,
+                        wire_session: rec.session_id,
+                        generation: u64::try_from(rec.generation.max(1)).unwrap_or(1),
+                        host_account: AccountId(rec.host_account_id),
+                        host_peer: PeerId(peer_num),
+                        bridge_instance_id: rec.bridge_instance_id,
+                    })
+                })
+            });
+            let admission_routes: Arc<dyn RouteHandler> =
+                Arc::new(AdmissionRoutes::new(admissions, Some(resolver), seam_node.clone()));
+
+            let grants = RelayGrants {
+                config: Arc::new(relay_config),
+                http: Arc::new(NoProviderHttp),
+                usage: Arc::new(RelayUsageCache::default()),
+            };
+            let relay_service: Arc<dyn IceService> = Arc::new(Ice::new(
+                Arc::clone(&hosting) as Arc<dyn IceHunts>,
+                grants,
+                Arc::clone(&hosting) as Arc<dyn OperationsPolicy>,
+                Arc::new({
+                    let c = Arc::clone(&realms_clock);
+                    move || c.now()
+                }),
+            ));
+            let relay_routes: Arc<dyn RouteHandler> = Arc::new(RelayRoutes::new(relay_service, seam_node));
+
+            (
+                Some(directory),
+                Some(control),
+                Some(hosting),
+                Some(capabilities),
+                admission_routes,
+                relay_routes,
+            )
         } else {
-            (None, None, None, None)
+            (
+                None,
+                None,
+                None,
+                None,
+                Arc::new(rifts_admission::stub_routes()),
+                Arc::new(rifts_relay::stub_routes()),
+            )
         };
 
         let (guard_store, hunt_sessions, has_store): (Arc<dyn GuardStore>, Arc<dyn HuntSessions>, bool) =
@@ -384,12 +617,10 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
             log: Arc::new(rifts_guard::ports::StderrLog),
         }));
 
-        let service_node = node.unwrap_or_else(|| {
-            NodeId::new("local").unwrap_or_else(|_| unreachable!("static 'local' node id is valid"))
-        });
         let realms_service = Arc::new(RealmsService::new(RealmsServiceParts {
             directory: directory.clone(),
             capabilities: capabilities.clone(),
+            hosting: hosting.clone(),
             clock: Arc::clone(&realms_clock),
             core,
             policy,
@@ -406,14 +637,7 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
         }));
         let guard_routes = Arc::new(GuardRoutes::with_store(Arc::clone(&guard), has_store));
 
-        // rifts-admission and rifts-relay route handlers require hunt-session bootstrap state not yet wired on
-        // RealmsRoutes, so their routes remain stub_routes() (recorded in RF4/RF5).
-        let routes: Vec<Arc<dyn RouteHandler>> = vec![
-            Arc::new(rifts_admission::stub_routes()),
-            Arc::new(rifts_relay::stub_routes()),
-            realms_routes,
-            guard_routes,
-        ];
+        let routes: Vec<Arc<dyn RouteHandler>> = vec![admission_routes, relay_routes, realms_routes, guard_routes];
         RiftsParts {
             realms: Arc::clone(&realms_service) as Arc<dyn rifts_seam::RealmsHooks>,
             entry: realms_service as Arc<dyn rifts_seam::RealmsEntry>,

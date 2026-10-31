@@ -552,7 +552,7 @@ async fn launcher_exchange(shared: &Shared, raw_code: &str) -> Response {
             return empty(503);
         }
     };
-    let rifts_account = rifts_seam::AccountId(record.account.to_string());
+    let rifts_account = rifts_seam::AccountId(user_id.clone());
     if let Err(error) = shared
         .rifts
         .entry()

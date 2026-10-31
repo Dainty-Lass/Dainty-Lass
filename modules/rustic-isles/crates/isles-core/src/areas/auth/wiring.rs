@@ -125,7 +125,7 @@ impl IslesCore for AuthReforgedCore {
                         .launcher_accounts
                         .find_by_display_name_normalized(conn, &normalized)?
                     {
-                        return Ok(Some(SeamAccountId(la.account.to_string())));
+                        return Ok(Some(SeamAccountId(la.user_id.to_string())));
                     }
                     Ok(None)
                 })
