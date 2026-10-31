@@ -24,11 +24,11 @@ use diesel_migrations::MigrationHarness;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::AnyConnection;
-use crate::database::{applied_versions, now_ms, versions};
+use crate::database::{applied_versions, now_ms, run_blocking, versions};
 use crate::history::{self, Break, CHANGE_LOG, Chain, ChangeEntry, Column, Head};
 use crate::portable::{quote_ident, quote_literal};
 use crate::transfer::{PAGE, Row, fix_sequences, insert_row, is_blob, ordered, select_rows};
-use crate::{Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Engine, Error, run_blocking};
+use crate::{Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Engine, Error};
 
 /// The first line of a logical snapshot names this format.
 pub const LOGICAL_FORMAT: &str = "dainty-lass-snapshot";
