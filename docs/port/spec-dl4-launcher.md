@@ -317,7 +317,7 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
    - `sweep_aside(win64_dir)`: reads directory entries of `win64_dir` and best-effort removes any entry whose file name starts with `<runtime_file>.rr-old-` or equals `<runtime_file>.rr-download` for any `<runtime_file>` in `RUNTIME_FILE_NAMES`.
    - `unblock(file)`: on Windows (`#[cfg(windows)]`), best-effort removes the NTFS Alternate Data Stream `<file>:Zone.Identifier`; no-op on non-Windows.
 9. **`install_runtime`**:
-   - Checks `win64_dir` metadata (`is_dir()`), returning `RuntimeErrorCode::DiskError` if missing/not a directory.
+   - Verifies that `win64_dir` exists and is a directory, returning `RuntimeErrorCode::DiskError` if missing/not a directory.
    - Calls `sweep_aside(win64_dir).await`.
    - Inspects `current = installed_runtime(win64_dir).await` and filters `manifest.files` to `needed`: files whose current on-disk SHA-256 does not already match `file.sha256`.
    - Computes `total_bytes = needed.iter().map(|f| f.size).sum()`, `files_total = needed.len() as u32`.
@@ -401,7 +401,7 @@ impl Abort {
     pub fn aborted(&self) -> bool;
 }
 
-pub struct HashCache { /* path: PathBuf, entries: Vec<(String, CacheEntry)>, dirty: bool */ }
+pub struct HashCache;
 
 impl HashCache {
     pub fn load(file: PathBuf) -> Self;
@@ -442,16 +442,16 @@ pub async fn check_game_exe(
 1. **`parse_cache_file` & `write_cache_file`**:
    - JSON format: `{"files": {"<path>": {"size": <u64>, "mtimeMs": <f64>, "sha256": "<64 lowercase hex>"}}}` pretty-printed with 2-space indent.
    - `parse_cache_file` rejects non-empty keys failing `size` (must be finite integer `>= 0` and `<= u64::MAX`), `mtimeMs` (must be finite `> 0.0`), or `sha256` (must be 64 lowercase ASCII hex chars).
-   - If more than `MAX_ENTRIES` (32) valid entries exist, keeps the last 32 entries (`entries.len() - MAX_ENTRIES..`).
+   - If more than `MAX_ENTRIES` (32) valid entries exist, keeps the last 32 entries.
 2. **`mtime_ms`**:
    - Converts `metadata.modified()` duration since `UNIX_EPOCH` into milliseconds (`as_secs_f64() * 1000.0`), or `0.0` on error.
 3. **`hash_file`**:
    - Runs on `tokio::task::spawn_blocking`. Reads the file in `1 MiB` (`1024 * 1024`) chunks, checking `abort.aborted()` before each read and returning `Err(VerifyError::Aborted)` if set.
    - Calls `on_bytes(n as u64)` after each non-empty read and returns the 64-character lowercase hex SHA-256 digest.
 4. **`HashCache`**:
-   - `cached(file)`: checks `std::fs::metadata(file)` (`is_file()`), requires `mtime_ms > 0.0`, and returns `Some(entry.sha256.clone())` iff an entry for `file.to_string_lossy()` has matching `size == metadata.len()` and `(entry.mtime_ms - mtime).abs() < 1.0`.
-   - `hash(file, abort, on_bytes)`: returns `Ok(sha256)` immediately if `self.cached(file)` hits. Otherwise records `before = std::fs::metadata(file)?`, computes `sha256 = hash_file(file.to_path_buf(), abort, on_bytes).await?`, then re-reads `after = std::fs::metadata(file)?`. Only inserts into `entries` (and sets `dirty = true`, trimming oldest past `MAX_ENTRIES = 32`) if `after.len() == before.len()`, `mtime > 0.0`, and `(mtime - mtime_ms(&before)).abs() < 1.0` (so a file modified while being hashed is never cached).
-   - `save()`: if `!self.dirty`, returns `Ok(())`. Otherwise creates parent dirs, writes `write_cache_file(&self.entries)` to `<path>.tmp`, renames `<path>.tmp` to `<path>`, and clears `self.dirty`.
+   - `cached(file)`: checks that `file` exists as a regular file with `mtime_ms > 0.0`, and returns the cached `sha256` iff a cached entry for `file` has matching byte size and `|cached_mtime_ms - mtime_ms| < 1.0`.
+   - `hash(file, abort, on_bytes)`: returns `Ok(sha256)` immediately if `self.cached(file)` hits. Otherwise inspects metadata before and after hashing via `hash_file`; only records the entry in the cache (trimming oldest entries past `MAX_ENTRIES = 32`) if the file size and mtime (`|after_mtime_ms - before_mtime_ms| < 1.0`, `mtime_ms > 0.0`) were unchanged during hashing (so a file modified while being hashed is never cached).
+   - `save()`: no-op if no entries changed since load/save; otherwise creates parent dirs, writes `write_cache_file` to `<path>.tmp`, and atomically renames `<path>.tmp` to `<path>`.
 5. **`cached_exe_check` & `check_game_exe`**:
    - `cached_exe_check(cache, exe, expected_sha256)`: if `!exe.is_file()`, returns `Some(ExeCheck::Missing)`. Otherwise maps `cache.cached(exe)` to `Some(ExeCheck::Pinned)` if `sha256.eq_ignore_ascii_case(expected_sha256)`, `Some(ExeCheck::OtherBuild)` if different, or `None` on cache miss.
    - `check_game_exe(cache, exe, expected_sha256, abort, on_bytes)`: if `!exe.is_file()`, returns `Ok(ExeCheck::Missing)`. Otherwise hashes via `cache.hash(exe, abort, on_bytes).await` (mapping `ErrorKind::NotFound` to `Ok(ExeCheck::Missing)`) and compares case-insensitively with `expected_sha256`.
@@ -701,7 +701,7 @@ pub struct CommandOutput {
 }
 
 #[derive(Clone)]
-pub struct HostServer { /* ... */ }
+pub struct HostServer;
 
 impl Default for HostServer { fn default() -> Self; }
 
@@ -893,7 +893,7 @@ Orchestrates the Host page state (`HostKit`, `HostServerView`), background `Host
 ```rust
 pub use crate::platform::hostserver::Probe;
 
-pub struct HostState { /* server: Arc<HostServer>, dump_root: PathBuf, inner: Mutex<Inner> */ }
+pub struct HostState;
 
 impl Default for HostState { fn default() -> Self; }
 impl HostState {
@@ -935,20 +935,20 @@ impl Controller {
      - `host_kit`: returns an empty `HostKit` (`workspace: None`, `workspace_ok: false`, all booleans `false`, empty `dumps` and `requirements`).
      - `host_server_view`: returns `HostServerView` in `HostServerState::Stopped`.
      - Every action method (`host_choose_workspace`, `host_choose_dumper`, `host_import_gamedata`, `host_import_sdk_folder`, `host_download_project`, `host_action`, `host_open`, `host_server_start`, `host_server_restart`, `host_server_stop`, `host_setup`, `host_create_invite`, `host_update`, `host_set_multipliers`) returns `ActionResult::Err(LauncherError::with_detail(ErrorCode::HostFailed, "host_tools_unavailable"))`.
-2. **Host Tools Gate (`require_host_tools`)**:
-   - Every mutating Host page command checks `self.s().host_tools` first (in builds without `cfg(feature = "server-gui")`, where `host_tools` is always enabled). If `host_tools` is `false`, returns `ErrorCode::HostFailed` with detail `"host_tools_disabled"`.
-3. **Single Job Concurrency (`begin_job`)**:
+2. **Host Tools Gate**:
+   - Every mutating Host page command requires `host_tools` to be enabled in settings (in builds without `cfg(feature = "server-gui")`, where `host_tools` is always enabled). If `host_tools` is `false`, returns `ErrorCode::HostFailed` with detail `"host_tools_disabled"`.
+3. **Single Job Concurrency**:
    - Only one `HostJob` may be in `HostJobState::Running` at a time. Starting another job while one is running returns `ActionResult::Err(LauncherError::new(ErrorCode::Busy))`.
-   - When a job starts, transitions to `Running`, and when it finishes (`Done` or `Failed`), `emit_host_kit` is published immediately.
+   - When a job starts, transitions to `Running`, and when it finishes (`Done` or `Failed`), an updated `HostKit` event (`"launcher:host-kit"`) is published immediately.
 4. **RD9 No-Injection Invariant (`InjectDumper` and `InjectExporter`)**:
    - **NEVER** opens another process handle (`OpenProcess`, `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread` are strictly forbidden).
-   - **`HostAction::InjectDumper`** (`start_dump`):
-     - Refuses with `ErrorCode::GameRunning` if the game is already running or dumping, or if `find_running_clients()` is non-empty.
+   - **`HostAction::InjectDumper`**:
+     - Refuses with `ErrorCode::GameRunning` if the game is already running or dumping, or if any running game client process is detected on the system.
      - Requires a verified game folder (`GameFolderNotFound` / `GameNotVerified` / `GameWrongVersion`), a selected Dumper-7 DLL file (`HostFailed("dumper_dll")`), and the built runtime loader `winmm.dll` (`HostFailed("loader_not_built")`).
      - Calls `self.begin_loader_session(SessionKind::Dump, &win64, &paths.loader_dll, &dumper)` which copies `winmm.dll` and the Dumper-7 DLL into `Win64`, moves `MysticParadox.dll` aside to `MysticParadox.dll.rr-dump-aside` so Dumper-7 sees a clean game process, and writes `mystic_loader.ini` listing the Dumper-7 DLL filename.
      - Spawns `Dauntless-Win64-Shipping.exe` with `["-DisableEOS", "-EpicPortal", "-NoEAC", "-windowed", "-ResX=1280", "-ResY=720"]`.
      - Polls `loader_session::dump_ready(&dump_root, started_at, &baseline)` every 2 seconds up to 180 seconds; once a new `SDK.hpp` is complete (and settled for 3 seconds), stops the game process, calls `end_loader_session().await` (restoring `MysticParadox.dll` and removing `mystic_loader.ini` and the copied Dumper-7 DLL), and marks the job `Done`.
-   - **`HostAction::InjectExporter`** (`start_export`):
+   - **`HostAction::InjectExporter`**:
      - Refuses with `ErrorCode::GameRunning` if the game is already running or dumping.
      - Requires `CatalogExporter.dll` (`HostFailed("exporter_not_built")`), writes `export_flags.txt` (`EXPORT_FLAGS`) to `Win64`, and calls `self.begin_loader_session(SessionKind::Export, &win64, &paths.loader_dll, &paths.exporter_dll)` (which writes `mystic_loader.ini` listing both `MysticParadox.dll` and `CatalogExporter.dll`).
      - Starts the game through the normal `self.play().await` flow; when `play()` finishes or fails, `end_loader_session()` cleans up `CatalogExporter.dll`, `export_flags.txt`, and `mystic_loader.ini`.
@@ -978,20 +978,20 @@ impl Controller {
 1. **`refresh_runtime_offer(endpoint, gen)`**:
    - Calls `fetch_runtime_manifest(endpoint).await`.
    - Checks connection generation `self.current_gen(gen)` before mutating state.
-   - On `Ok(manifest)`: sets `st.runtime_manifest = Some(manifest)` and calls `self.inspect_runtime().await`.
-   - On `None`: clears `st.runtime_manifest = None`, sets `st.runtime.version = None`, `st.runtime.files.clear()`, and calls `self.inspect_runtime().await`.
+   - On `Ok(manifest)`: records the offered `RuntimeManifest` and calls `self.inspect_runtime().await`.
+   - On `None`: clears the offered `RuntimeManifest` and `RuntimeView` version/files, and calls `self.inspect_runtime().await`.
    - On `CertMismatch`: marks connection `Disconnected` with `ConnectProblem::CertMismatch`, `Phase::Blocked`, and `ErrorCode::CertMismatch`.
-   - On `BadAnswer | Unreachable`: clears `st.runtime_manifest = None`, sets `st.runtime.state = RuntimeState::Failed`, and calls `self.recompute_phase()`.
+   - On `BadAnswer | Unreachable`: clears the offered `RuntimeManifest`, sets `RuntimeView.state = RuntimeState::Failed`, and recomputes the launcher phase.
 2. **`inspect_runtime()`**:
-   - Calls `check_runtime(&win64, offered.as_ref(), &trusted, local.as_deref()).await` (or `(RuntimeState::Missing, false)` when no game root is set) and updates `st.runtime` (`state`, `version`, `accepted`, `local_dir`, `files`), then calls `self.recompute_phase()` and `self.publish()`.
+   - Calls `check_runtime(&win64, offered.as_ref(), &trusted, local.as_deref()).await` (or `(RuntimeState::Missing, false)` when no game root is set) and updates `RuntimeView` (`state`, `version`, `accepted`, `local_dir`, `files`), then recomputes the launcher phase and publishes a snapshot.
 3. **`trust_runtime()`**:
-   - Requires a joined server and `st.runtime_manifest` (`ErrorCode::RuntimeNotOffered` if absent).
-   - Calls `runtime_files::accept(&mut list, &manifest.files)` for `sv.id()`, persists `trustedRuntimes` in `settings.json`, re-runs `inspect_runtime().await`, and if `st.runtime.state != RuntimeState::UpToDate`, immediately chains into `self.install_runtime().await`.
+   - Requires a joined server and an offered `RuntimeManifest` (`ErrorCode::RuntimeNotOffered` if absent).
+   - Calls `runtime_files::accept(&mut list, &manifest.files)` for `sv.id()`, persists `trustedRuntimes` in `settings.json`, re-runs `inspect_runtime().await`, and if `RuntimeView.state != RuntimeState::UpToDate`, immediately chains into `self.install_runtime().await`.
 4. **`install_runtime()`**:
-   - Refuses with `ErrorCode::Busy` if a task is already running (`st.task.is_some()`).
+   - Refuses with `ErrorCode::Busy` if a task is already running.
    - Requires a joined server (`ServerUnreachable`), an account key in `KeyStore` (`AccountRequired`), a verified game folder (`GameFolderNotFound` / `GameNotVerified` / `GameWrongVersion`), and an offered `RuntimeManifest` (`RuntimeNotOffered`).
    - If the offered runtime set is not yet trusted for `sv.id()`, returns `ErrorCode::RuntimeUntrusted`.
-   - Runs `runtime_files::install_runtime` with a `CancellationToken` stored in `st.download_cancel` and progress emitted as `TaskKind::Runtime`.
+   - Runs `runtime_files::install_runtime` with a cancellation token and progress emitted as `TaskKind::Runtime`.
    - If `result.replaced_in_use` is non-empty or the game is currently running, sets notice `NoticeCode::RuntimeInstalledRestart`; otherwise `NoticeCode::RuntimeInstalled`.
 5. **`choose_local_runtime()` & `clear_local_runtime()`**:
    - `choose_local_runtime()` opens `choose_folder(language, FolderPurpose::Runtime, start)`. If cancelled, returns `ErrorCode::Cancelled`. Validates `is_complete_runtime_dir(&picked)` (returning `ErrorCode::RuntimeLocalIncomplete` with detail `RUNTIME_FILE_NAMES.join(", ")` if incomplete), saves `localRuntimeDir` in `settings.json`, and calls `inspect_runtime().await`.
@@ -1161,7 +1161,7 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
 ### 4.5 Account Ban Handling (`T5`)
 
 - When `/undaunted/api/verify` (or `/undaunted/api/register`) returns HTTP 403 with `"error": "account_banned"`:
-  - `VerifyOutcome::Banned { reason }` sets `st.key_rejected = true` (`ServerView::key_rejected = true`), sets `st.last_error = Some(LauncherError::new(ErrorCode::AccountBanned))` (with optional ban reason detail), and `compute_phase` transitions to `Phase::Register` so the player sees the ban error banner and can enter a different key.
+  - `VerifyOutcome::Banned { reason }` marks `ServerView::key_rejected = true`, sets the snapshot's `last_error` to `LauncherError::new(ErrorCode::AccountBanned)` (with optional ban reason detail), and transitions the launcher phase to `Phase::Register` so the player sees the ban error banner and can enter a different key.
 
 ### 4.6 Target Crate Split (`crates/launcher-kit` vs `launcher/src-tauri`, `DL4b`)
 

@@ -34,7 +34,7 @@ These modules were written originally for DaintyLass in Rust with no `ReforgedHo
 | `commands/setup/secrets.rs` | Cryptographic secret generator (`new_secrets`, `pem`) using `aws-lc-rs` | `crates/hostkit` |
 | `commands/start/binaries.rs` | Service binary locator and Rust/Node switch (`FrontService`, `rust_ported`, `Launch`, `Programs`, `find_node`) | `crates/hostkit` |
 
-> **Note on Planned Module Names in `dainty-lass-plan.md`:** Row DL3a in `docs/dainty-lass-plan.md` also lists `commands/modules.rs`, `postgres.rs`, and `turn.rs` as MIT-eligible modules if present. In the current tree, module console commands live in `repl.rs` (`parse_module`, `module_table`, `run_module`) and `hostconfig/modules.rs`, database setup lives in `commands/setup/database.rs` and `hostconfig.rs` (`DatabaseSettings` / `node_database_config`), and relay/network configuration lives in `commands/network.rs` and `hostconfig.rs` (`NetworkConfig`). All of those are Category A original DaintyLass code and are MIT-eligible.
+> **Note on Planned Module Names in `dainty-lass-plan.md`:** Row DL3a in `docs/dainty-lass-plan.md` also lists `commands/modules.rs`, `postgres.rs`, and `turn.rs` as MIT-eligible modules if present. In the current tree, module console commands live in `repl.rs` and `hostconfig/modules.rs`, database setup lives in `commands/setup/database.rs` and `hostconfig.rs` (`DatabaseSettings` / `node_database_config`), and relay/network configuration lives in `commands/network.rs` and `hostconfig.rs` (`NetworkConfig`). All of those are Category A original DaintyLass code and are MIT-eligible.
 
 ---
 
@@ -236,7 +236,7 @@ pub fn format_value(value: &str) -> Result<String, HostError>;
 pub fn format_env<K: AsRef<str>, V: AsRef<str>>(header: &[&str], entries: &[(K, V)]) -> Result<String, HostError>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EnvDocument { /* preserves lines, line ending, BOM */ }
+pub struct EnvDocument;
 
 impl EnvDocument {
     pub fn parse(text: &str) -> Self;
@@ -266,9 +266,9 @@ impl EnvDocument {
    - Otherwise (including empty string `""`), wraps in double quotes `"..."`, escaping `\` as `\\` and `"` as `\"`.
    - `format_env(header, entries)`: writes `# <line>` (or `#` if `<line>` is empty) for each line in `header`, followed by an empty line `""` if `!header.is_empty()`, followed by `KEY=formatted_value` for each entry, joined by `\n` with a trailing `\n`.
 4. **Round-trip `EnvDocument`:**
-   - Detects whether input starts with `\u{feff}` (`bom`) and whether input contains `\r\n` (`line_ending = "\r\n"` vs `"\n"`).
-   - `set(key, value)` validates `key` and formats `value`; if `key` already exists in the document, replaces the **last** matching `Line::Entry` in-place; otherwise inserts a new `Line::Entry` before the trailing empty line (if the last line is an empty `Line::Raw("")`) or appends it, ensuring a trailing empty `Line::Raw("")`.
-   - `to_text()` joins lines with `line_ending`, prepending `\u{feff}` if `bom` was present.
+   - Preserves the original UTF-8 BOM (`\u{feff}`), line ending (`\r\n` if present in the input, else `\n`), comments, and blank lines.
+   - `set(key, value)` validates `key` and formats `value`; if `key` already exists in the document, replaces the **last** matching entry line in-place; otherwise inserts a new entry line before the trailing newline, ensuring the rendered document ends with a trailing newline.
+   - `to_text()` joins lines with the preserved line ending, prepending `\u{feff}` if a BOM was present in the input.
 
 ---
 
@@ -386,7 +386,7 @@ pub const LEGACY_ENV_FILES: [&str; 2] = ["metagame", "deploy"];
   ```
   with `from_json`, `to_json`, `env() -> Vec<(&'static str, String)>`, `module_switches() -> Vec<(&'static str, Value)>`.
 - `HistoryConfig`: `{ pub ship_to_peer: Option<module_api::network::NodeId> }`, with `from_json` and `to_json`.
-- `FileForm`: remembers `document: Map<String, Value>`, `read: Map<String, Value>`, and `toml: Option<String>`.
+- `FileForm`: opaque round-trip state carried on `HostConfig` so saving preserves unmodified keys and comments from the loaded TOML/YAML/JSON file.
 - `HostConfig`:
   ```rust
   #[derive(Debug, Clone, PartialEq)]
@@ -496,11 +496,11 @@ pub const LEGACY_ENV_FILES: [&str; 2] = ["metagame", "deploy"];
    - **`content`:**
      - `PORT=61002`, `BIND_HOST=127.0.0.1`, `BACKEND_URL=http://127.0.0.1:61000`, `CONTENT_RUNTIME_DIR=<p.runtime_publish>`, `CONTENT_BRANDING_DIR=<p.branding>`, `CONTENT_NEWS_FILE=<p.news_file>`.
    - **`admin`:**
-     - `PORT=61003`, `BIND_HOST=127.0.0.1`, `BACKEND_URL=http://127.0.0.1:61000`, `REFORGED_DIRECTOR_URL=http://127.0.0.1:61001`, `REFORGED_ADMIN_API_KEY=<s.admin_api_key>`, `REFORGED_ADMIN_KEY=<s.admin_key>`, `MYSTICPARADOX_MANAGER_OPERATOR_SECRET=<s.operator_secret>`, `REFORGED_ADMIN_API_TIMEOUTS_FILE=<p.config/admin-timeouts.json>`, `REFORGED_MAX_HUNT_SERVERS=<c.max_hunt_servers>`, `REFORGED_SERVER_MODE=<c.mode>`, followed by `database_env(c, s, p)` (`REFORGED_DB_ENGINE=sqlite`, `REFORGED_DB_FILE=<p.config/dainty-lass.db>` or `REFORGED_DB_ENGINE=postgres`, `REFORGED_DB_HOST`, `REFORGED_DB_PORT`, `REFORGED_DB_USER`, `REFORGED_DB_NAME`, `REFORGED_DB_PASSWORD`, optional `REFORGED_DB_ALLOW_REMOTE=1`) and `c.guard.env()`.
+     - `PORT=61003`, `BIND_HOST=127.0.0.1`, `BACKEND_URL=http://127.0.0.1:61000`, `REFORGED_DIRECTOR_URL=http://127.0.0.1:61001`, `REFORGED_ADMIN_API_KEY=<s.admin_api_key>`, `REFORGED_ADMIN_KEY=<s.admin_key>`, `MYSTICPARADOX_MANAGER_OPERATOR_SECRET=<s.operator_secret>`, `REFORGED_ADMIN_API_TIMEOUTS_FILE=<p.config/admin-timeouts.json>`, `REFORGED_MAX_HUNT_SERVERS=<c.max_hunt_servers>`, `REFORGED_SERVER_MODE=<c.mode>`, followed by database environment variables (`REFORGED_DB_ENGINE=sqlite`, `REFORGED_DB_FILE=<p.config/dainty-lass.db>` or `REFORGED_DB_ENGINE=postgres`, `REFORGED_DB_HOST`, `REFORGED_DB_PORT`, `REFORGED_DB_USER`, `REFORGED_DB_NAME`, `REFORGED_DB_PASSWORD`, optional `REFORGED_DB_ALLOW_REMOTE=1`) and `c.guard.env()`.
    - **`gateway` & `allowlist`:**
      - Common gateway entries: `GATEWAY_SECRET=<s.gateway_secret>`, `GATEWAY_BACKEND_URL=http://127.0.0.1:61000`, `GATEWAY_CONTENT_URL=http://127.0.0.1:61002`, `GATEWAY_WS_URL=http://127.0.0.1:61000`.
      - In `Public` mode:
-       - `gateway`: `GATEWAY_TLS=1`, `GATEWAY_BIND=0.0.0.0`, `GATEWAY_PORT=<gateway_port(c)>`, `GATEWAY_CERT=<p.cert_file>`, `GATEWAY_KEY=<p.key_file>`, optional `node_link_env` (when `c.network` has non-empty `nodes`: `GATEWAY_NODE_ID`, `GATEWAY_NODE_REGION`, `GATEWAY_NODE_CERT`, `GATEWAY_NODE_KEY`, `GATEWAY_NODE_CA`, `GATEWAY_NETWORK_NODES`), common entries, `ALLOWLIST_URL=http://127.0.0.1:61005`, `ALLOWLIST_SECRET=<s.allowlist_secret>`.
+       - `gateway`: `GATEWAY_TLS=1`, `GATEWAY_BIND=0.0.0.0`, `GATEWAY_PORT=<gateway_port(c)>`, `GATEWAY_CERT=<p.cert_file>`, `GATEWAY_KEY=<p.key_file>`, optional node-link environment variables (when `c.network` has non-empty `nodes`: `GATEWAY_NODE_ID`, `GATEWAY_NODE_REGION`, `GATEWAY_NODE_CERT`, `GATEWAY_NODE_KEY`, `GATEWAY_NODE_CA`, `GATEWAY_NETWORK_NODES`), common entries, `ALLOWLIST_URL=http://127.0.0.1:61005`, `ALLOWLIST_SECRET=<s.allowlist_secret>`.
        - `allowlist`: `ALLOWLIST_DRY_RUN=<"1" if Platform::Other else "0">`, `ALLOWLIST_FIREWALL=<"nftables" if linux else "windows">`, (if `linux`: `ALLOWLIST_NFT_TABLE=reforged_revival` and optional `ALLOWLIST_INTERFACE=<iface>`), `ALLOWLIST_BIND=127.0.0.1`, `ALLOWLIST_PORT=61005`, `ALLOWLIST_SECRET=<s.allowlist_secret>`, `ALLOWLIST_PORTS=<first>-<last>`, `ALLOWLIST_AUDIT_LOG=<p.logs/allowlist-audit.log>`, `ALLOWLIST_STATE_FILE=<p.config/allowlist-state.json>`.
      - In `Private` mode:
        - `gateway`: `GATEWAY_TLS=0`, `GATEWAY_BIND=<c.game_address>`, `GATEWAY_PORT=61000`, common entries, `GATEWAY_ALLOWLIST=0`.
@@ -787,7 +787,7 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> MongoCheck;
    - Requires `mongodb://` prefix, strips optional `user:pass@`, takes the first comma-separated host entry before `/` or `?`, supports `[ipv6]:port` and `host:port`, defaulting port to `27017`.
 4. **Wire Protocol (`mongo/wire` & `ensure_replica_set`):**
    - `mongo::wire` provides `Value` (`Double`, `Str`, `Doc`, `Array`, `Bool`, `Null`, `Int32`, `Int64`, `Other`), `Doc = Vec<(String, Value)>`, `find`, `get`, `as_str`, `as_f64`, `as_bool`, `encode_doc`, `decode_doc`, `op_msg`, `parse_op_msg`, and `command(addr: SocketAddr, doc: &Doc, timeout: Duration) -> io::Result<Doc>`.
-   - `ensure_replica_set(uri, opts)` connects to `first_host(uri)` and sends `hello` / `replSetGetStatus` / `replSetInitiate` as needed, returning `MongoCheck::Ok` or `MongoCheck::Failed`.
+   - `ensure_replica_set(uri, opts)` connects to the first host parsed from `uri` and sends `hello` / `replSetGetStatus` / `replSetInitiate` as needed, returning `MongoCheck::Ok` or `MongoCheck::Failed`.
 
 ---
 
@@ -965,7 +965,7 @@ pub fn import_game_data_pack_at(p: &Paths, file: &Path, now: DateTime<Utc>) -> R
 
 #### Behavioral Contract & Invariants
 1. **Export (`export_game_data_pack`):**
-   - Collects all 7 `backend/<file>` (`BACKEND_GAME_DATA`), `backend/raw/progression_config.source.json`, `backend/raw/ladyluck_store.source.json`, and 7 `director/<file>` (`DIRECTOR_GAME_DATA`) entries (`pack_entries(p)`) that exist and are **not** synthetic/example data (`is_example`).
+   - Collects all 7 `backend/<file>` (`BACKEND_GAME_DATA`), `backend/raw/progression_config.source.json`, `backend/raw/ladyluck_store.source.json`, and 7 `director/<file>` (`DIRECTOR_GAME_DATA`) entries (`pack_entries`) that exist and are **not** synthetic/example data (i.e. differ from the corresponding `.example.json` file).
    - If none are real, returns `Err("no generated game data to export (only the example files, or nothing at all): run reforged-host gamedata first")`.
    - Writes gzip-compressed `pack_json(&pack)` (`format: PACK_FORMAT`, `version: 1`, `game: "1.14.7-647472"`, `created: iso_string(now)`, `files: [{path, sha256, data}]`).
    - Default filename (`default_pack_file`): `<workspace>/gamedata-1.14.7-647472-<YYYYMMDD>.json.gz`.
@@ -1529,7 +1529,7 @@ pub const SDK_FILES: [&str; 6] = [
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Layout { /* paths for current and legacy workspace locations */ }
+pub struct Layout;
 
 impl Layout {
     pub fn new(p: &Paths) -> Self;
