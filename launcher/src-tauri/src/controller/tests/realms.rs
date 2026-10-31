@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 static NEXT_HANDLE: AtomicI32 = AtomicI32::new(1);
 static IS_JOIN: AtomicBool = AtomicBool::new(false);
+static SIGNAL_PENDING: AtomicBool = AtomicBool::new(false);
 
 fn write_cstr(buf: *mut u8, size: u32, text: &[u8]) {
     if buf.is_null() || size == 0 {
@@ -120,6 +121,7 @@ pub extern "C" fn MysticTransport_JoinOpen(
     _pk: *const i8, _cfg: *const i8, _ticket: *const i8, _sec: *const i8, _err: *mut u8, _size: u32
 ) -> i32 {
     IS_JOIN.store(true, Ordering::SeqCst);
+    SIGNAL_PENDING.store(true, Ordering::SeqCst);
     NEXT_HANDLE.fetch_add(1, Ordering::SeqCst)
 }
 
@@ -161,8 +163,17 @@ pub extern "C" fn MysticTransport_LastSessionResultH(handle: i32) -> i32 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn MysticTransport_ReadSignalH(
-    _handle: i32, _to: *mut u8, _to_sz: u32, _kind: *mut u8, _kind_sz: u32, _data: *mut u8, _data_sz: u32
-) -> i32 { 0 }
+    handle: i32, to: *mut u8, to_sz: u32, kind: *mut u8, kind_sz: u32, data: *mut u8, data_sz: u32
+) -> i32 {
+    if handle > 0 && SIGNAL_PENDING.swap(false, Ordering::SeqCst) {
+        write_cstr(to, to_sz, b"user-slayer-1");
+        write_cstr(kind, kind_sz, b"DESCRIPTION");
+        write_cstr(data, data_sz, b"v=0\r\na=ice-ufrag:daintylass\r\n");
+        1
+    } else {
+        0
+    }
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn MysticTransport_SubmitSignalH(
@@ -351,4 +362,281 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     );
 
     hx.c.shutdown().await;
+}
+
+const TEST_HUB_SESSION_UUID: &str = "018f0000-0000-7000-8000-000000000001";
+
+pub(super) fn handle_realms_route(
+    host: &Shared,
+    method: &hyper::Method,
+    path: &str,
+    key: Option<&str>,
+    _body: &[u8],
+) -> Option<Response<Full<Bytes>>> {
+    if !path.starts_with("/launcher/v1/") && !path.starts_with("/mystic/v1/") {
+        return None;
+    }
+    let user = {
+        let h = host.lock().unwrap();
+        key.and_then(|k| h.users.get(k).cloned())
+    };
+    if path.starts_with("/launcher/v1/") && user.is_none() {
+        return Some(reply(
+            401,
+            json!({ "error": { "code": "AUTH_UNAUTHORIZED", "message": "Sign in required." } }),
+        ));
+    }
+    let (_, user_id) = user.unwrap_or_else(|| ("Host".to_owned(), "user-slayer-1".to_owned()));
+
+    match (method, path) {
+        (&hyper::Method::GET, "/launcher/v1/realms/mine") => Some(reply(200, json!({ "realm": null }))),
+        (&hyper::Method::POST, "/launcher/v1/realms") => Some(reply(
+            201,
+            json!({
+                "realm": {
+                    "id": "realm-1",
+                    "name": "slayerrealm",
+                    "joinPolicy": "PUBLIC",
+                    "listed": true
+                }
+            }),
+        )),
+        (&hyper::Method::POST, "/launcher/v1/realms/mine/heartbeat") => Some(reply(200, json!({ "ok": true }))),
+        (&hyper::Method::POST, "/launcher/v1/p2p/host-presence") => Some(reply(200, json!({ "eligible": true }))),
+        (&hyper::Method::POST, "/launcher/v1/realm-hosting/hubs/start") => Some(reply(
+            200,
+            json!({
+                "keyId": "local-key-1",
+                "sessionId": TEST_HUB_SESSION_UUID,
+                "partyId": "realm-hub:realm-1:ramsgate",
+                "partyRevision": 1,
+                "huntDefinitionId": "ShatteredIsles_ReturnToRamsgate",
+                "generation": 1,
+                "build": 647472,
+                "bridgeProtocol": 1,
+                "virtualPort": 1,
+                "hostPeerId": "100001",
+                "bridgeInstanceId": "bridge-hub-0001",
+                "metadataNonce": "0123456789abcdef0123456789abcdef",
+                "forceRelay": false,
+                "guardCompletionMode": "NO_COMPLETION",
+                "capability": "cap-hub-1",
+                "hostTicket": "MPT2.hostticket",
+                "serverUdpPort": 8791,
+                "maximumPeers": 16,
+                "hostLocalClient": true,
+                "huntEvidence": false,
+                "matchmakerHuntId": "ShatteredIsles_ReturnToRamsgate",
+                "mapPath": "/Game/Maps/ramsgate/ramsgate_01_persistent",
+                "behemothPath": "NO_BEHEMOTH",
+                "expectedPlayers": "1",
+                "runtimeProfile": "production",
+                "maxPlayers": 16,
+                "hubAfkSeconds": 600
+            }),
+        )),
+        (&hyper::Method::GET, "/launcher/v1/realms/listed") => Some(reply(
+            200,
+            json!({
+                "realms": [{ "id": "realm-1", "name": "slayerrealm" }]
+            }),
+        )),
+        (&hyper::Method::POST, "/launcher/v1/realms/join") => Some(reply(200, json!({ "joined": true }))),
+        (&hyper::Method::POST, "/launcher/v1/realms/presence/heartbeat") => Some(reply(200, json!({ "ok": true }))),
+        (&hyper::Method::POST, "/launcher/v1/realm-hosting/hubs/peers") => Some(reply(200, json!({ "peers": [] }))),
+        (&hyper::Method::POST, "/launcher/v1/realm-hosting/hubs/stop") => Some(reply(
+            200,
+            json!({
+                "stopped": true,
+                "hubKind": "RAMSGATE",
+                "sessionId": TEST_HUB_SESSION_UUID
+            }),
+        )),
+        (&hyper::Method::GET, "/launcher/v1/p2p/control") => Some(reply(
+            200,
+            json!({
+                "messages": [{ "id": "ctrl-msg-1", "type": "REALM_HUB_STOPPED" }]
+            }),
+        )),
+        _ => {
+            if let Some(rest) = path.strip_prefix("/mystic/v1/hunts/") {
+                if rest.ends_with("/host-ready") {
+                    return Some(reply(
+                        200,
+                        json!({
+                            "ready": true,
+                            "sessionId": TEST_HUB_SESSION_UUID,
+                            "generation": 1,
+                            "state": "HOST_READY"
+                        }),
+                    ));
+                }
+                if rest.ends_with("/tickets/consume") {
+                    return Some(reply(200, json!({ "admitted": true })));
+                }
+            }
+            if let Some(rest) = path.strip_prefix("/launcher/v1/p2p/hunts/") {
+                if rest.ends_with("/transport-config") {
+                    let is_host = user_id == "user-slayer-1";
+                    let peers = if is_host {
+                        json!([])
+                    } else {
+                        json!([{
+                            "accountId": "user-slayer-1",
+                            "peerId": "100001",
+                            "transportKey": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef_"
+                        }])
+                    };
+                    return Some(reply(
+                        200,
+                        json!({
+                            "sessionId": TEST_HUB_SESSION_UUID,
+                            "generation": 1,
+                            "localAccountId": user_id,
+                            "localPeerId": if is_host { "100001" } else { "100002" },
+                            "hostAccountId": "user-slayer-1",
+                            "hostPeerId": "100001",
+                            "iceServers": [
+                                { "urls": ["stun:127.0.0.1:3478"] }
+                            ],
+                            "peers": peers
+                        }),
+                    ));
+                }
+                if rest.ends_with("/route-ready") {
+                    return Some(reply(200, json!({ "ready": true })));
+                }
+                if rest.ends_with("/join-bootstrap") {
+                    return Some(reply(
+                        200,
+                        json!({
+                            "keyId": "local-key-1",
+                            "sessionId": TEST_HUB_SESSION_UUID,
+                            "sessionRole": "HUB",
+                            "partyId": "realm-hub:realm-1:ramsgate",
+                            "partyRevision": 1,
+                            "huntDefinitionId": "ShatteredIsles_ReturnToRamsgate",
+                            "generation": 1,
+                            "build": 647472,
+                            "bridgeProtocol": 1,
+                            "virtualPort": 1,
+                            "hostPeerId": "100001",
+                            "bridgeInstanceId": "bridge-hub-0001",
+                            "metadataNonce": "0123456789abcdef0123456789abcdef",
+                            "forceRelay": false,
+                            "guardCompletionMode": "NO_COMPLETION",
+                            "ticket": "MPT2.jointicket"
+                        }),
+                    ));
+                }
+                if rest.ends_with("/signal") {
+                    return Some(reply(200, json!({ "accepted": true })));
+                }
+                if rest.ends_with("/peers") {
+                    return Some(reply(200, json!({ "generation": 1, "peers": [] })));
+                }
+            }
+            if path.starts_with("/launcher/v1/p2p/control/") && path.ends_with("/ack") {
+                return Some(reply(200, json!({ "acknowledged": true })));
+            }
+            Some(reply(
+                404,
+                json!({ "error": { "code": "P2P_SESSION_NOT_FOUND", "message": "Session not found." } }),
+            ))
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
+    let host_hx = Harness::new();
+    let join_hx = Harness::new();
+    let host_key = "RRK_host_account_key_for_server_realms_1122334455";
+    let join_key = "RRK_join_account_key_for_server_realms_6677889900";
+
+    let host_game = host_hx.game();
+    let host_win64 = host_game.join("Archon").join("Binaries").join("Win64");
+    let host_dll = host_win64.join(TRANSPORT_DLL);
+    build_fake_transport_dll(&host_dll);
+    std::fs::write(host_win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x22u8; 64]).unwrap();
+    let dll_bytes = std::fs::read(&host_dll).unwrap();
+
+    let join_game = join_hx.game();
+    let join_win64 = join_game.join("Archon").join("Binaries").join("Win64");
+    std::fs::write(join_win64.join(TRANSPORT_DLL), &dll_bytes).unwrap();
+    std::fs::write(join_win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x22u8; 64]).unwrap();
+
+    let mut srv = Host::new("LiveRealmsSrv");
+    srv.registration = "OPEN";
+    srv.users
+        .insert(host_key.into(), ("HostSlayer".into(), "user-slayer-1".into()));
+    srv.users
+        .insert(join_key.into(), ("JoinSlayer".into(), "user-slayer-2".into()));
+    srv.runtime = Some(make_runtime(1));
+    let (shared, port) = lan(srv).await;
+
+    let inv = invite(ServerMode::Private, "127.0.0.1", port, None, "OPEN", "LiveRealmsSrv");
+    for (hx, key, game_root) in [(&host_hx, host_key, &host_game), (&join_hx, join_key, &join_game)] {
+        assert_eq!(hx.c.submit_invite(&inv, false, false).await, ActionResult::Ok);
+        assert_eq!(hx.c.use_existing_key(key).await, ActionResult::Ok);
+        assert_eq!(hx.c.use_game_path(game_root.to_str().unwrap()).await, ActionResult::Ok);
+        assert_eq!(hx.c.verify_game().await, ActionResult::Ok);
+        assert_eq!(hx.c.trust_runtime().await, ActionResult::Ok);
+    }
+
+    // Host launcher starts a realm hub through the default ServerHostBackend (no seams overridden).
+    let outcome = host_hx.c.realm_host(RealmKind::Hub).await;
+    let RealmOutcome::Ok(hosted_view) = outcome else {
+        panic!("expected RealmOutcome::Ok from host_hx.c.realm_host(Hub), got {outcome:?}");
+    };
+    assert_eq!(hosted_view.sessions.len(), 1);
+    let hub_session = hosted_view.active.as_ref().unwrap();
+    assert!(hub_session.hosting);
+    assert_eq!(hub_session.kind, RealmKind::Hub);
+    assert_eq!(hub_session.state, RealmState::Running);
+
+    // Join launcher joins the hosted hub using the UUID or session identifier through ServerHostBackend.
+    let join_outcome = join_hx.c.realm_join(TEST_HUB_SESSION_UUID).await;
+    let RealmOutcome::Ok(joined_view) = join_outcome else {
+        panic!("expected RealmOutcome::Ok from join_hx.c.realm_join, got {join_outcome:?}");
+    };
+    assert_eq!(joined_view.sessions.len(), 1);
+    let joined_session = joined_view.active.as_ref().unwrap();
+    assert!(!joined_session.hosting);
+    assert_eq!(joined_session.state, RealmState::Running);
+    assert_eq!(joined_session.local_port, Some(29_100));
+    assert_eq!(joined_session.session, hub_session.session);
+
+    // Stop both launchers cleanly and verify all server routes were exercised.
+    assert!(matches!(join_hx.c.realm_stop().await, RealmOutcome::Ok(_)));
+    assert!(matches!(host_hx.c.realm_stop().await, RealmOutcome::Ok(_)));
+
+    let seen = shared.lock().unwrap().seen.clone();
+    for expected in [
+        "/launcher/v1/realms/mine",
+        "/launcher/v1/realms",
+        "/launcher/v1/realms/mine/heartbeat",
+        "/launcher/v1/p2p/host-presence",
+        "/launcher/v1/realm-hosting/hubs/start",
+        &format!("/mystic/v1/hunts/{TEST_HUB_SESSION_UUID}/host-ready"),
+        &format!("/mystic/v1/hunts/{TEST_HUB_SESSION_UUID}/tickets/consume"),
+        &format!("/launcher/v1/p2p/hunts/{TEST_HUB_SESSION_UUID}/transport-config"),
+        &format!("/launcher/v1/p2p/hunts/{TEST_HUB_SESSION_UUID}/route-ready"),
+        "/launcher/v1/realms/listed",
+        "/launcher/v1/realms/join",
+        "/launcher/v1/realms/presence/heartbeat",
+        &format!("/launcher/v1/p2p/hunts/{TEST_HUB_SESSION_UUID}/join-bootstrap"),
+        &format!("/launcher/v1/p2p/hunts/{TEST_HUB_SESSION_UUID}/signal"),
+        "/launcher/v1/realm-hosting/hubs/stop",
+        "/launcher/v1/p2p/control",
+        "/launcher/v1/p2p/control/ctrl-msg-1/ack",
+    ] {
+        assert!(
+            seen.iter().any(|p| p == expected),
+            "expected server to receive {expected}, seen: {seen:?}"
+        );
+    }
+
+    join_hx.c.shutdown().await;
+    host_hx.c.shutdown().await;
 }

@@ -43,8 +43,12 @@ pub fn channel_name() -> String {
     } else {
         "io.github.freezamotoqueiro.dauntlessreforgedrevival"
     };
-    let profile: String = std::env::var("REFORGED_DEV_PROFILE")
-        .unwrap_or_default()
+    let args: Vec<String> = std::env::args().collect();
+    let raw_profile = crate::platform::paths::user_data_dir_from_args(&args)
+        .map(|p| p.to_string_lossy().into_owned())
+        .or_else(|| std::env::var("REFORGED_DEV_PROFILE").ok().filter(|s| !s.is_empty()))
+        .unwrap_or_default();
+    let profile: String = raw_profile
         .chars()
         .filter(char::is_ascii_alphanumeric)
         .rev()
