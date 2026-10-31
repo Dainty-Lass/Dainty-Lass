@@ -28,11 +28,11 @@ module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.gi
 service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "728d44cbef39142afdd7a218b0c84ff663c80fb4" }
 store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "728d44cbef39142afdd7a218b0c84ff663c80fb4" }
 # rustic-rifts' seam always and its server crates behind isles-1-14-7's realms feature (RF2), the same way
-rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "279931b409d10bbd18f24afd01436f885c809763" }
-rifts-admission = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "279931b409d10bbd18f24afd01436f885c809763" }
-rifts-relay = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "279931b409d10bbd18f24afd01436f885c809763" }
-rifts-realms = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "279931b409d10bbd18f24afd01436f885c809763" }
-rifts-guard = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "279931b409d10bbd18f24afd01436f885c809763" }
+rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
+rifts-admission = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
+rifts-relay = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
+rifts-realms = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
+rifts-guard = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
 
 # The versions DaintyLass's workspace asks for, so one copy of each lands in its tree
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio"] }
