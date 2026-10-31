@@ -1,0 +1,157 @@
+/*
+ * What the theme has no token for: the icon's gold, the accent choice and the few app frames Astryx
+ * does not draw. Same layer as the built theme so ordering is by declaration.
+ */
+@layer astryx-theme {
+  [data-astryx-theme] {
+    --dainty-gold: light-dark(#a86f12, #e6b664);
+    --dainty-navy: #171f29;
+    --dainty-periwinkle: #a0c4ff;
+    --dainty-accent-text: var(--color-text-accent);
+    --dainty-accent-background: var(--color-accent-muted);
+    --dainty-accent-border: var(--color-accent);
+  }
+
+  /* data-dainty-accent on <html>, set from the dashboard's branding setting or the server's launcher branding. */
+  [data-dainty-accent="gold"] [data-astryx-theme],
+  [data-dainty-accent="gold"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-orange);
+    --dainty-accent-background: var(--color-background-orange);
+    --dainty-accent-border: var(--color-border-orange);
+  }
+
+  [data-dainty-accent="green"] [data-astryx-theme],
+  [data-dainty-accent="green"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-green);
+    --dainty-accent-background: var(--color-background-green);
+    --dainty-accent-border: var(--color-border-green);
+  }
+
+  [data-dainty-accent="pink"] [data-astryx-theme],
+  [data-dainty-accent="pink"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-pink);
+    --dainty-accent-background: var(--color-background-pink);
+    --dainty-accent-border: var(--color-border-pink);
+  }
+
+  [data-dainty-accent="purple"] [data-astryx-theme],
+  [data-dainty-accent="purple"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-purple);
+    --dainty-accent-background: var(--color-background-purple);
+    --dainty-accent-border: var(--color-border-purple);
+  }
+}
+
+@layer components {
+  /* The page is the body colour with cards lifted off it; AppShell would paint content in the card token. */
+  .astryx-app-shell
+    .astryx-layout-content:not(:is(dialog, [role="dialog"], [role="alertdialog"]) *) {
+    background-color: var(--color-background-body);
+  }
+
+  /* The rail a step darker than the page, as in the launcher's icon. */
+  .astryx-app-shell-sidenav,
+  .astryx-app-shell-sidenav .astryx-side-nav {
+    background-color: light-dark(#e3e8f0, #0c1117);
+  }
+
+  /* The brand mark: the icon's L and dot, drawn by BrandMark. */
+  .dainty-brand-mark {
+    display: inline-block;
+    flex: none;
+    border-radius: 22%;
+    background: var(--dainty-navy);
+  }
+
+  .dainty-brand-mark rect {
+    fill: var(--dainty-periwinkle);
+  }
+
+  .dainty-brand-mark circle {
+    fill: #e6b664;
+  }
+
+  /* A stat tile's number, tabular so a live count does not jitter. */
+  .dainty-stat {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.1;
+  }
+
+  /* A chat line whose text the filter matched: the matched span, not the whole line. */
+  .dainty-chat-hit {
+    border-radius: var(--radius-inner);
+    background-color: var(--color-background-red);
+    color: var(--color-text-red);
+    padding-inline: 2px;
+  }
+
+  /* Before/after values in an audit diff. */
+  .dainty-diff-before {
+    color: var(--color-text-red);
+    text-decoration: line-through;
+  }
+
+  .dainty-diff-after {
+    color: var(--color-text-green);
+  }
+
+  /* The server console in the server manager: fixed width, newest at the bottom. */
+  .dainty-console {
+    font-family: var(--font-family-code);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    background-color: var(--color-syntax-background, var(--color-background-muted));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-element);
+    block-size: 360px;
+    overflow: auto;
+    margin: 0;
+    padding: var(--spacing-3);
+  }
+
+  /* The launcher's background art, behind a scrim so text on it keeps its contrast. */
+  .dainty-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: var(--radius-container);
+    background-color: var(--dainty-navy);
+    background-size: cover;
+    background-position: center;
+  }
+
+  .dainty-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(
+      90deg,
+      rgb(10 14 20 / 0.92) 0%,
+      rgb(10 14 20 / 0.55) 60%,
+      rgb(10 14 20 / 0.2) 100%
+    );
+  }
+
+  .dainty-hero,
+  .dainty-hero * {
+    color-scheme: dark;
+  }
+
+  /* Tauri's frameless window: the title bar drags the window, its buttons do not. */
+  .dainty-titlebar {
+    -webkit-app-region: drag;
+    app-region: drag;
+    user-select: none;
+  }
+
+  .dainty-titlebar button,
+  .dainty-titlebar a {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}

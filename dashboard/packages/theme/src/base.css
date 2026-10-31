@@ -1,0 +1,29 @@
+/*
+ * The whole CSS stack every DaintyLass app loads, in one import, so the three apps cannot drift apart.
+ * An app's globals.css is `@import "@dainty/theme/base.css";` plus `@source` lines for its own files.
+ */
+
+/* Later layers win regardless of specificity; unlayered styles beat all. First, before any rule. */
+@layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
+
+/* Split so preflight lands in base: unlayered, it would override Astryx's component styles. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+@import "../built/dainty.theme.css";
+@import "./brand.css";
+/* Backs Tailwind utilities with Astryx tokens (bg-surface, text-primary, ...). */
+@import "@astryxdesign/core/tailwind-theme.css";
+
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-body text-primary;
+  }
+}
