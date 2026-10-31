@@ -223,8 +223,9 @@ pub fn inspect_mongo_migration(p: &Paths) -> MongoMigrationStatus {
     if let Some(c) = cfg
         && has_external_mongo_evidence(p, &c)
     {
-        let redacted = redact_mongo_uri(&c.mongo.uri);
-        match crate::hooks::get().mongo_has_documents(&c.mongo.uri) {
+        let uri = crate::commands::db::resolve_mongo_uri(p, Some(&c), None);
+        let redacted = redact_mongo_uri(&uri);
+        match crate::hooks::get().mongo_has_documents(&uri) {
             Ok(true) => return MongoMigrationStatus::Unmigrated { source: redacted },
             Ok(false) => return MongoMigrationStatus::None,
             Err(e) => {
@@ -316,8 +317,9 @@ pub fn unmigrated_mongo_doctor_problem(p: &Paths, config: &HostConfig) -> Option
         ));
     }
     if has_external_mongo_evidence(p, config) {
-        let redacted = redact_mongo_uri(&config.mongo.uri);
-        match crate::hooks::get().mongo_has_documents(&config.mongo.uri) {
+        let uri = crate::commands::db::resolve_mongo_uri(p, Some(config), None);
+        let redacted = redact_mongo_uri(&uri);
+        match crate::hooks::get().mongo_has_documents(&uri) {
             Ok(true) => {
                 return Some((
                     format!("unmigrated MongoDB data was found at {redacted}"),
@@ -364,8 +366,9 @@ pub fn migrate_existing_mongo_data(
         return Ok(false);
     }
 
-    let redacted = redact_mongo_uri(&config.mongo.uri);
-    match crate::hooks::get().mongo_has_documents(&config.mongo.uri) {
+    let uri = crate::commands::db::resolve_mongo_uri(p, Some(config), None);
+    let redacted = redact_mongo_uri(&uri);
+    match crate::hooks::get().mongo_has_documents(&uri) {
         Ok(true) => {}
         Ok(false) => {
             if !has_dir {
@@ -389,8 +392,8 @@ pub fn migrate_existing_mongo_data(
     };
 
     say("- migrating existing MongoDB data to the store database...");
-    let (counts, _) = crate::hooks::get().db_migrate(&config.mongo.uri, &db_cfg, false)?;
-    let mismatches = crate::hooks::get().db_verify(&config.mongo.uri, &db_cfg)?;
+    let (counts, _) = crate::hooks::get().db_migrate(&uri, &db_cfg, false)?;
+    let mismatches = crate::hooks::get().db_verify(&uri, &db_cfg)?;
     if !mismatches.is_empty() {
         if !sqlite_existed_before && let store::DatabaseConfig::Sqlite { file } = &db_cfg {
             let _ = fs::remove_file(file);

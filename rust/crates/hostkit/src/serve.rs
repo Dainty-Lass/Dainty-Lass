@@ -632,8 +632,21 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
 /// The settings to run from: `--config <file>` in any of the three formats, else the workspace's.
 fn load_config(paths: &Paths, config_file: Option<&Path>) -> Result<HostConfig, HostError> {
     match config_file {
-        Some(file) => hostconfig::read_host_config(file)?
-            .ok_or_else(|| HostError::message(format!("{} does not exist", file.display()))),
+        Some(file) => {
+            if let Some(cfg) = hostconfig::read_host_config(file)? {
+                return Ok(cfg);
+            }
+            if !cfg!(feature = "paradox")
+                && !crate::commands::update::mongo_migrated_marker(paths).is_file()
+                && crate::commands::update::has_unmigrated_mongo_dir(paths)
+            {
+                return Err(HostError::message(format!(
+                    "Unmigrated MongoDB data: unmigrated MongoDB data was found in {}: run reforged-host setup (or reforged-host db migrate) to migrate it, or pass --fresh-start (or set [database] fresh_start = true in host.toml) to start on a fresh database",
+                    paths.mongo_data.display()
+                )));
+            }
+            Err(HostError::message(format!("{} does not exist", file.display())))
+        }
         None => start_cmd::load_config(paths),
     }
 }

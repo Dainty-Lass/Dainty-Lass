@@ -196,11 +196,11 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - `tls`: `<repo>/.workspace/tls`
   - `cert_file`: `<repo>/.workspace/tls/gateway-cert.pem`
   - `key_file`: `<repo>/.workspace/tls/gateway-key.pem`
-  - `mongo_data`: `<repo>/.workspace/data/mongo`
+  - `mongo_data`: `<repo>/.workspace/mongodb`
   - `logs`: `<repo>/.workspace/logs`
   - `gameserver_logs`: `<repo>/.workspace/logs/gameservers`
   - `branding`: `<repo>/.workspace/branding`
-  - `news_file`: `<repo>/.workspace/branding/news.json`
+  - `news_file`: `<repo>/.workspace/config/news.json`
   - `bin`: `<repo>/.workspace/bin`
   - `gameserver_wrapper`: `<repo>/.workspace/bin/reforged-gameserver`
   - `wine_prefix`: `<repo>/.workspace/wine`
@@ -1627,20 +1627,20 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
 ### 4.2 Legacy MongoDB-to-SQLite Migration & Refusal Guards (`M1`–`M6`, `A1`)
 
 1. **Migration Marker and Config Escape Hatch:**
-   - Marker file: `.workspace/data/.mongo-migrated` (`mongo_migrated_marker(paths)`).
+   - Marker file: `.workspace/config/.mongo-migrated` (`mongo_migrated_marker(paths)`).
    - `host.toml` `[database]` field: `fresh_start: Option<bool>` (`config.fresh_start()`), CLI flag `reforged-host setup --fresh-start` (sets `database.fresh_start = Some(true)`).
 2. **Detecting Unmigrated Data (`has_unmigrated_mongo_dir`, `has_external_mongo_evidence`, `collection_has_documents`):**
-   - If `.workspace/data/.mongo-migrated` exists or `config.fresh_start()` is `true`, no migration or refusal is triggered.
-   - Managed MongoDB directory (`.workspace/data/mongo`): considered non-empty if it contains files other than `mongod.lock`.
+   - If `.workspace/config/.mongo-migrated` exists or `config.fresh_start()` is `true`, no migration or refusal is triggered.
+   - Managed MongoDB directory (`.workspace/mongodb`, `paths.mongo_data`): considered non-empty if it contains files other than `mongod.lock`.
    - External MongoDB URI (`has_external_mongo_evidence`):
      - Treats a URI as explicitly configured by a host when `mongo.uri` differs from the default host/port (`127.0.0.1:27017` / `localhost:27017` with no credentials) **or** when `.workspace/config/backend.env` or `.workspace/logs/mongo.log` already exists on disk (`A1`: a fresh Docker `apply` whose URI only changes the database name on `127.0.0.1:27017` without prior workspace artifacts is **not** treated as unmigrated legacy data).
      - `collection_has_documents(uri)`: connects via the MongoDB wire protocol (`mongo::wire`) and checks `count` on the 15 collections in `MONGO_COLLECTIONS`.
 3. **Automatic Migration in `setup` and `update` (`M1`):**
    - During `reforged-host setup` and `reforged-host update`, calls `migrate_existing_mongo_data`:
-     - If unmigrated MongoDB data is present, starts a temporary `mongod` if needed, invokes `HostHooks::db_migrate`, and writes `.workspace/data/.mongo-migrated` only after verification confirms zero mismatches.
+     - If unmigrated MongoDB data is present, starts a temporary `mongod` if needed, invokes `HostHooks::db_migrate`, and writes `.workspace/config/.mongo-migrated` only after verification confirms zero mismatches.
      - Never modifies or deletes the MongoDB data directory.
 4. **Startup Refusal (`M1`, `M4`):**
-   - `start`, `serve`, and `backend` call `check_unmigrated_mongo_before_start(paths, config)` before starting services and refuse to start if unmigrated MongoDB data or unreachable external MongoDB evidence exists without `.mongo-migrated`.
+   - `start`, `serve`, and `backend` perform the unmigrated-MongoDB check before requiring `backend.env` or `host.toml`, and refuse to start if unmigrated MongoDB data in `.workspace/mongodb` or unreachable external MongoDB evidence exists without `.mongo-migrated`.
 
 ### 4.3 `db` Subcommands (`M2`, `M3`, `M5`)
 
