@@ -15,6 +15,7 @@ import { TextInput } from "@astryxdesign/core/TextInput";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
 import { Toolbar } from "@astryxdesign/core/Toolbar";
+import { StatTiles } from "@dainty/theme";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -22,7 +23,7 @@ import { useMemo, useState } from "react";
 import { ControllerState, STATE_ORDER } from "@/components/ControllerState";
 import { Page } from "@/components/Page";
 import { SearchField } from "@/components/SearchField";
-import { StatTile } from "@/components/StatTile";
+
 import { useAction } from "@/components/useAction";
 import { useQueryPatch } from "@/components/useQueryPatch";
 import type { ControllerView, FleetTotals } from "@/lib/fleet/status";
@@ -98,18 +99,29 @@ export function ControllersClient({
         ) : undefined
       }
     >
-      <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
-        <StatTile
-          label={t("controllersOnline")}
-          value={`${totals.online}/${totals.controllers}`}
-          hint={down ? t("downCount", { count: down }) : t("allUp")}
-        />
-        <StatTile label={t("columns.players")} value={format.number(totals.players)} />
-        <StatTile
-          label={t("columns.hunts")}
-          value={`${format.number(totals.huntsRunning)}/${format.number(totals.huntsMax)}`}
-        />
-      </Grid>
+      <StatTiles
+        tiles={[
+          {
+            id: "online",
+            label: t("controllersOnline"),
+            value: `${totals.online}/${totals.controllers}`,
+            hue: down ? "red" : "cyan",
+            note: down ? t("downCount", { count: down }) : t("allUp"),
+          },
+          {
+            id: "players",
+            label: t("columns.players"),
+            value: format.number(totals.players),
+            hue: "green",
+          },
+          {
+            id: "hunts",
+            label: t("columns.hunts"),
+            value: `${format.number(totals.huntsRunning)}/${format.number(totals.huntsMax)}`,
+            hue: "purple",
+          },
+        ]}
+      />
 
       <Toolbar
         label={t("filters")}

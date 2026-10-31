@@ -15,6 +15,7 @@ import { pixel, proportional, Table } from "@astryxdesign/core/Table";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
+import { StatTiles } from "@dainty/theme";
 import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -23,7 +24,7 @@ import { AuditSentence } from "@/components/AuditSentence";
 import { ControllerState, STATE_ORDER } from "@/components/ControllerState";
 import { Page } from "@/components/Page";
 import { Sparkline } from "@/components/Sparkline";
-import { StatTile } from "@/components/StatTile";
+
 import type { AuditEvent } from "@/lib/db/schema";
 import type { ControllerView } from "@/lib/fleet/status";
 import type { FleetHunt, Overview, ServiceState } from "@/lib/health";
@@ -146,55 +147,64 @@ export function OverviewClient({
         />
       )}
 
-      <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
-        <StatTile
-          label={t("stats.online")}
-          href="/players?online=1"
-          value={format.number(totals.players)}
-          hint={
-            single?.status?.server
+      <StatTiles
+        tiles={[
+          {
+            id: "players",
+            label: t("stats.online"),
+            href: "/players?online=1",
+            value: format.number(totals.players),
+            hue: "green",
+            note: single?.status?.server
               ? t("stats.uptime", {
                   hours: format.number(Math.floor(single.status.server.uptimeSeconds / 3600)),
                 })
-              : undefined
-          }
-        />
-        {fleetWide && (
-          <StatTile
-            label={tf("controllersOnline")}
-            href="/controllers"
-            value={`${totals.online}/${totals.controllers}`}
-            status={
-              <StatusDot
-                variant={down.length ? "error" : "success"}
-                label={down.length ? tf("someDown") : tf("allUp")}
-              />
-            }
-          />
-        )}
-        <StatTile
-          label={t("stats.hunts")}
-          value={`${format.number(totals.huntsRunning)}/${format.number(totals.huntsMax)}`}
-          hint={t("stats.huntsFree", { free: Math.max(0, totals.huntsMax - totals.huntsRunning) })}
-        />
-        <StatTile
-          label={t("stats.openReports")}
-          href="/reports"
-          value={format.number(reports.open)}
-          hint={t("stats.claimed", { count: reports.claimed })}
-          status={
-            reports.open > 0 ? (
-              <StatusDot variant="warning" label={t("stats.needsAttention")} />
-            ) : undefined
-          }
-        />
-        <StatTile
-          label={t("stats.flagged")}
-          href="/chat?flagged=1&range=24h"
-          value={format.number(chat.flagged)}
-          hint={t("stats.messages", { total: chat.total, senders: chat.senders })}
-        />
-      </Grid>
+              : undefined,
+          },
+          ...(fleetWide
+            ? [
+                {
+                  id: "controllers",
+                  label: tf("controllersOnline"),
+                  href: "/controllers",
+                  value: `${totals.online}/${totals.controllers}`,
+                  hue: down.length ? ("red" as const) : ("cyan" as const),
+                  flag: down.length
+                    ? { label: tf("someDown"), variant: "error" as const }
+                    : undefined,
+                },
+              ]
+            : []),
+          {
+            id: "hunts",
+            label: t("stats.hunts"),
+            value: `${format.number(totals.huntsRunning)}/${format.number(totals.huntsMax)}`,
+            hue: "purple",
+            note: t("stats.huntsFree", {
+              free: Math.max(0, totals.huntsMax - totals.huntsRunning),
+            }),
+          },
+          {
+            id: "reports",
+            label: t("stats.openReports"),
+            href: "/reports",
+            value: format.number(reports.open),
+            hue: reports.open ? "orange" : "gray",
+            note: t("stats.claimed", { count: reports.claimed }),
+            flag: reports.open
+              ? { label: t("stats.needsAttention"), variant: "warning" }
+              : undefined,
+          },
+          {
+            id: "flagged",
+            label: t("stats.flagged"),
+            href: "/chat?flagged=1&range=24h",
+            value: format.number(chat.flagged),
+            hue: chat.flagged ? "red" : "gray",
+            note: t("stats.messages", { total: chat.total, senders: chat.senders }),
+          },
+        ]}
+      />
 
       <Grid columns={{ minWidth: 380, repeat: "fit" }} gap={4}>
         {fleetWide ? (

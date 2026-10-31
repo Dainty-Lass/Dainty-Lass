@@ -42,11 +42,17 @@ A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a pack
 - **The desktop pages render nothing from a request.** They are prerendered to files; read the bridge in
   client components only.
 
+## Design
+
+[docs/design.md](docs/design.md) is the look, copied from Caddy Proxy Manager: neutral with one runtime
+accent (pink by default), `#f1f1f1` / black pages, a tonal current page, stat tiles with a hued edge and
+number, rows for dense data. It is written once, in `packages/theme`; an app never restyles it.
+
 ## Astryx
 
 Components first: no `<div>` layout, no hex or pixel values in components, tokens for everything. The
-exceptions are where Astryx has no component: `packages/theme/src/brand.css` (the brand mark, the console,
-the hero, the title bar's drag region) and `apps/dashboard/src/app/globals.css` (the sparkline). Add a rule
+exceptions are where Astryx has no component: `packages/theme/src/brand.css` (the colouring in `variants.css`, the brand mark, the
+console, the hero, the title bar's drag region) and `apps/dashboard/src/app/globals.css` (the sparkline). Add a rule
 there rather than an inline `style`. Look a component up with `bunx astryx component <Name>` from
 `packages/theme`, which has the CLI installed.
 
