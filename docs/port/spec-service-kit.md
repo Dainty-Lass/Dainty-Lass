@@ -371,14 +371,13 @@ Implements `express-rate-limit` v8 in-memory per-key rate limiting with IETF dra
 ### Public Signatures
 
 ```rust
-pub struct Limiter { /* private fields */ }
+pub struct Limiter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Decision {
     pub remaining: u64,
     pub reset_secs: u64,
     pub limited: bool,
-    /* private fields */
 }
 
 impl Limiter {
@@ -395,7 +394,7 @@ impl Limiter {
 pub fn ip_key(address: &str) -> String;
 
 #[derive(Clone)]
-pub struct Limited { /* private fields */ }
+pub struct Limited;
 
 impl Limited {
     pub fn new(
@@ -420,6 +419,9 @@ pub async fn around(
 ### Observable Behaviour
 
 - Policy name (`Limiter::name`): `"{limit}-in-{window_name}"` where `window_name` is `"{s}sec"` (`< 60s`), `"{m}min"` (`< 60min`), `"{h}hr"` / `"{h}hrs"` (`< 24h`), or `"{d}day"` / `"{d}days"`.
+- `Limiter::hit(key, now)` increments the hit counter for `key` within its active window (or starts a new window of duration `window` if none exists or the previous window expired at or before `now`). `remaining` is `limit.saturating_sub(count)`, `limited` is `count > limit`, and `reset_secs` is the ceiling in whole seconds (`>= 1`) until the window expires.
+- `Limiter::undo(key, decision, now)` decrements the hit count for `key` if the window recorded when `decision` was issued is still the active window at `now` (removing the entry if its count reaches zero); if the window has already expired at or before `now`, `undo` is a no-op.
+- `Limiter::sweep(now)` removes all entries whose window has expired at or before `now`. `spawn_sweeper` runs a background task that calls `sweep` once per window period until the `Limiter` is dropped.
 - `ip_key(address)`: returns IPv4 addresses (including IPv4-mapped `::ffff:a.b.c.d` and IPv4-compatible `::a.b.c.d`) as dotted-quad IPv4 strings, IPv6 addresses masked to their `/56` prefix as `"{network}/56"`, and any non-IP string unchanged.
 - Partition key `pk`: standard base64 of the first 12 ASCII hex characters of `SHA-256(key)`.
 - `headers(key, decision)`:
@@ -437,7 +439,7 @@ Implements an Express-compatible case-insensitive router that matches routes in 
 
 ```rust
 #[derive(Debug, Clone)]
-pub struct Pattern { /* private fields */ }
+pub struct Pattern;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BadParam(pub String);
@@ -449,7 +451,7 @@ impl Pattern {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Params(Vec<(String, String)>);
+pub struct Params;
 
 impl Params {
     pub fn get(&self, name: &str) -> Option<&str>;
@@ -463,7 +465,7 @@ impl<S: Send + Sync> axum::extract::FromRequestParts<S> for Params {
 #[derive(Debug, Clone)]
 pub struct MatchedPattern(pub Arc<str>);
 
-pub struct Router<S = ()> { /* private fields */ }
+pub struct Router<S = ()>;
 
 impl<S: Clone + Send + Sync + 'static> Default for Router<S> { ... }
 
@@ -497,7 +499,7 @@ impl<S: Clone + Send + Sync + 'static> Router<S> {
 }
 
 #[derive(Clone)]
-pub struct RouterService { /* private fields */ }
+pub struct RouterService;
 
 impl tower::Service<axum::http::Request<axum::body::Body>> for RouterService { ... }
 ```
@@ -506,10 +508,10 @@ impl tower::Service<axum::http::Request<axum::body::Body>> for RouterService { .
 
 - `Pattern::parse(path)` panics at build time if `path` does not start with `'/'`, contains empty segments (`"//"`), has an unnamed parameter (`"/:"`), or contains wildcard/regex characters (`'*'`, `'{'`, `'}'`, `'?'`, `'('`, `')'`).
 - `Pattern::matches(path)` strips at most one trailing `'/'` (unless `path == "/"`), compares literal segments ASCII case-insensitively, requires parameter segments to be non-empty, and percent-decodes parameter values as UTF-8 (`Some(Err(BadParam(raw)))` if invalid UTF-8).
-- `RouterService::call`: iterates registered routes in order. A route matches if `route.method == request.method()` or (`request.method() == Method::HEAD && route.method == Method::GET`) and `route.pattern.matches(path)` is `Some`.
+- `RouterService::call`: checks registered routes in registration order. A route matches if the registered HTTP method equals the request's method (or the request is `HEAD` and the registered method is `GET`) and `Pattern::matches(path)` returns `Some`.
   - On `Some(Err(_))`, returns `StatusCode::BAD_REQUEST.into_response()` (`400`).
-  - On `Some(Ok(params))`, inserts `params` and `MatchedPattern(route.name)` into `request.extensions_mut()` and dispatches to the route's `MethodRouter` (which automatically strips the response body for `HEAD` requests on `GET` handlers).
-  - If no route matches, returns `(self.fallback)(&request)`.
+  - On `Some(Ok(params))`, inserts `params` and `MatchedPattern` (holding the route's pattern text) into `request.extensions_mut()` and invokes the route's service (stripping the response body when a `HEAD` request is answered by a `GET` route).
+  - If no route matches, invokes `fallback(&request)`.
 
 ---
 
