@@ -90,8 +90,21 @@ pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
 }
 
 pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
-    load_host_config(paths)?
-        .ok_or_else(|| HostError::message("server is not configured yet: run reforged-host setup first"))
+    if let Some(cfg) = load_host_config(paths)? {
+        return Ok(cfg);
+    }
+    if !cfg!(feature = "paradox")
+        && !crate::commands::update::mongo_migrated_marker(paths).is_file()
+        && crate::commands::update::has_unmigrated_mongo_dir(paths)
+    {
+        return Err(HostError::message(format!(
+            "Unmigrated MongoDB data: unmigrated MongoDB data was found in {}: run reforged-host setup (or reforged-host db migrate) to migrate it, or pass --fresh-start (or set [database] fresh_start = true in host.toml) to start on a fresh database",
+            paths.mongo_data.display()
+        )));
+    }
+    Err(HostError::message(
+        "server is not configured yet: run reforged-host setup first",
+    ))
 }
 
 #[must_use]
@@ -309,6 +322,9 @@ pub fn preflight(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
 }
 
 pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
+    if config.edition.runs_reborn() && !cfg!(feature = "paradox") {
+        crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
+    }
     host_checks(paths, config, external_allowlist)?;
 
     let _ = apply_preset(paths, false)?;
@@ -499,5 +515,20 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let paths = Paths::new(tmp.path());
         assert!(load_config(&paths).is_err());
+    }
+
+    #[test]
+    fn load_config_refuses_unmigrated_mongo_before_requiring_host_toml() {
+        let tmp = TempDir::new().unwrap();
+        let paths = Paths::new(tmp.path());
+        std::fs::create_dir_all(&paths.mongo_data).unwrap();
+        std::fs::write(paths.mongo_data.join("WiredTiger"), "wt").unwrap();
+        let err = load_config(&paths).unwrap_err().to_string();
+        if !cfg!(feature = "paradox") {
+            assert!(
+                err.contains("Unmigrated MongoDB data") && err.contains("unmigrated MongoDB data"),
+                "{err}"
+            );
+        }
     }
 }

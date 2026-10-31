@@ -210,7 +210,7 @@ impl Paths {
         let tls = workspace.join("tls");
         let cert_file = tls.join("gateway-cert.pem");
         let key_file = tls.join("gateway-key.pem");
-        let mongo_data = workspace.join("data").join("mongo");
+        let mongo_data = workspace.join("mongodb");
         let logs = workspace.join("logs");
         let gameserver_logs = logs.join("gameservers");
         let branding = workspace.join("branding");
@@ -297,6 +297,7 @@ mod tests {
         assert_eq!(p.host_json, Path::new("/srv/server/.workspace/config/host.json"));
         assert_eq!(p.cert_file, Path::new("/srv/server/.workspace/tls/gateway-cert.pem"));
         assert_eq!(p.key_file, Path::new("/srv/server/.workspace/tls/gateway-key.pem"));
+        assert_eq!(p.mongo_data, Path::new("/srv/server/.workspace/mongodb"));
         assert_eq!(
             p.gameserver_wrapper,
             Path::new("/srv/server/.workspace/bin/reforged-gameserver")
