@@ -64,6 +64,8 @@ void WinHttpAdmissionClient::reset() {
     host_.clear();
     base_path_.clear();
     port_ = 0;
+    secure_ = true;
+    loopback_ = false;
 }
 
 bool WinHttpAdmissionClient::initialize(std::string_view base_url,
@@ -87,13 +89,21 @@ bool WinHttpAdmissionClient::initialize(std::string_view base_url,
     components.dwPasswordLength = static_cast<DWORD>(-1);
     components.dwExtraInfoLength = static_cast<DWORD>(-1);
     if (!WinHttpCrackUrl(url.c_str(), static_cast<DWORD>(url.size()), 0, &components) ||
-        components.nScheme != INTERNET_SCHEME_HTTPS || components.dwHostNameLength == 0 ||
+        components.dwHostNameLength == 0 ||
         components.dwUserNameLength != 0 || components.dwPasswordLength != 0 ||
         components.dwExtraInfoLength != 0) {
         error = "admission backend must be an HTTPS origin without credentials, query, or fragment";
         return false;
     }
     host_.assign(components.lpszHostName, components.dwHostNameLength);
+    loopback_ = (host_ == L"127.0.0.1" || host_ == L"localhost");
+    if (components.nScheme != INTERNET_SCHEME_HTTPS &&
+        !(loopback_ && components.nScheme == INTERNET_SCHEME_HTTP)) {
+        reset();
+        error = "admission backend must be an HTTPS origin without credentials, query, or fragment";
+        return false;
+    }
+    secure_ = (components.nScheme == INTERNET_SCHEME_HTTPS);
     base_path_.assign(components.lpszUrlPath, components.dwUrlPathLength);
     while (!base_path_.empty() && base_path_.back() == L'/') base_path_.pop_back();
     port_ = components.nPort;
@@ -120,14 +130,20 @@ WinHttpAdmissionClient::HttpResult WinHttpAdmissionClient::post(std::string_view
     }
     Handle connection(WinHttpConnect(static_cast<HINTERNET>(session_), host_.c_str(), port_, 0));
     const std::wstring full_path = base_path_ + Wide(path);
+    const DWORD open_flags = secure_ ? WINHTTP_FLAG_SECURE : 0;
     Handle request(connection ? WinHttpOpenRequest(connection.get(), L"POST", full_path.c_str(),
-        nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE) : nullptr);
+        nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, open_flags) : nullptr);
     if (!connection || !request) {
         result.error = "admission backend connection setup failed";
         return result;
     }
     DWORD disabled = WINHTTP_DISABLE_REDIRECTS;
     WinHttpSetOption(request.get(), WINHTTP_OPTION_DISABLE_FEATURE, &disabled, sizeof(disabled));
+    if (secure_ && loopback_) {
+        DWORD sec_flags = SECURITY_FLAG_IGNORE_UNKNOWN_CA | SECURITY_FLAG_IGNORE_CERT_CN_INVALID |
+            SECURITY_FLAG_IGNORE_CERT_DATE_INVALID;
+        WinHttpSetOption(request.get(), WINHTTP_OPTION_SECURITY_FLAGS, &sec_flags, sizeof(sec_flags));
+    }
     const std::wstring headers = L"Content-Type: application/json\r\nX-Mystic-Host-Capability: " +
         Wide(capability_) + L"\r\nX-MysticParadox-Request-Id: " + Wide(request_id) + L"\r\n";
     if (!WinHttpSendRequest(request.get(), headers.c_str(), static_cast<DWORD>(headers.size()),

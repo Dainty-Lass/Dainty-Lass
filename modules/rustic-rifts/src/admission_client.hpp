@@ -193,6 +193,8 @@ private:
     std::wstring host_;
     std::wstring base_path_;
     unsigned short port_ = 0;
+    bool secure_ = true;
+    bool loopback_ = false;
     std::string capability_;
 };
 
