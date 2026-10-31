@@ -1303,9 +1303,9 @@ pub mod http {
     use hyper_util::rt::TokioExecutor;
 
     async fn fetch_bytes(url: &str, api: bool) -> Result<Vec<u8>, String> {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
         let https = HttpsConnectorBuilder::new()
-            .with_webpki_roots()
+            .with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider())
+            .map_err(|e| format!("TLS setup failed: {e}"))?
             .https_or_http()
             .enable_http1()
             .build();
