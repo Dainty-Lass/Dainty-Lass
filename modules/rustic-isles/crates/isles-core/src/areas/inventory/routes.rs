@@ -503,6 +503,60 @@ pub async fn post_transaction(call: Call, ports: Ports) -> Response {
     let ctx = inventory_ctx(&prepared, store, &ports);
     let user = user_id.clone().unwrap_or_default();
 
+    if auth.is_gameserver
+        && fence.is_none()
+        && let Some(foreign_account) = crate::areas::matchmaking::resolve_foreign_account(&prepared.shared, &user).await
+    {
+        let mut loot = Vec::new();
+        for item in items_of(&add_stacked) {
+            if let Some(catalog_id) = item.get("catalogId").and_then(Value::as_str) {
+                let qty = item.get("quantity").and_then(Value::as_i64).unwrap_or(1).max(1);
+                loot.push(format!("{catalog_id}:{qty}"));
+            }
+        }
+        for item in items_of(&add_instanced) {
+            if let Some(catalog_id) = item.get("catalogId").and_then(Value::as_str) {
+                loot.push(format!("{catalog_id}:1"));
+            }
+        }
+        let instance_id = prepared
+            .shared
+            .matchmaking
+            .ring_instance_for_player(&foreign_account)
+            .unwrap_or_else(|| {
+                module_api::GlobalId::new(module_api::network::IdKind::Hunt, &prepared.shared.node.node)
+            });
+        let module_name = format!(
+            "isles-{}",
+            prepared.shared.version.tables.game_version.replace('.', "-")
+        );
+        let Ok(module) = module_api::ModuleId::new(module_name) else {
+            return respond::server_error();
+        };
+        let rewards = module_api::network::HuntRewards {
+            hunt: instance_id,
+            module,
+            account: foreign_account.clone(),
+            xp_grant: None,
+            loot_write: Some(json!({ "loot": loot })),
+            objective_write: None,
+        };
+        if let Err(error) = prepared.shared.home().ring_forward_hunt_rewards(&rewards).await {
+            tracing::error!("ring_forward_hunt_rewards (loot) for {foreign_account}: {error}");
+            return respond::server_error();
+        }
+        return respond::json(
+            200,
+            json!({
+                "createdInstancedItems": [],
+                "updatedInstancedItems": or_empty_array(&save_instanced),
+                "updatedStackedItems": or_empty_array(&add_stacked),
+                "removedInstancedItems": or_empty_array(&remove_instanced),
+                "forwarded_to_home": true,
+            }),
+        );
+    }
+
     // A season challenge's coin reward may arrive ~50 ms before the bounty save that claims the challenge; give that
     // claim a moment to land so it can fund the grant
     let is_dedicated_server = auth.is_gameserver && fence.is_none();

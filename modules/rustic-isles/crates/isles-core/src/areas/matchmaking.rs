@@ -126,6 +126,31 @@ fn matchmaker(call: &Call) -> Matchmaker<'_> {
     }
 }
 
+/// Resolves a `userId` (either a `GlobalId` string like `account:<ulid>@<node>` or a local `UserId`)
+/// to its `GlobalId`.
+pub async fn resolve_global_account(shared: &Shared, user: &str) -> Option<module_api::GlobalId> {
+    if let Ok(global) = user.parse::<module_api::GlobalId>()
+        && global.kind() == module_api::network::IdKind::Account
+    {
+        return Some(global);
+    }
+    let store = shared.store.as_ref()?;
+    let id = UserId(user.to_owned());
+    store
+        .read(move |conn, repos| repos.accounts.find_by_user_id(conn, &id))
+        .await
+        .ok()
+        .flatten()
+        .map(|a| a.id.global().clone())
+}
+
+/// Resolves `user` to a `GlobalId` when it is owned by a remote node (`owner != shared.node.node`).
+pub async fn resolve_foreign_account(shared: &Shared, user: &str) -> Option<module_api::GlobalId> {
+    resolve_global_account(shared, user)
+        .await
+        .filter(|global| global.owner() != &shared.node.node)
+}
+
 /// `TouchRealmPresence`: a realm member's matchmaking request keeps its realm presence alive. Only when the realms
 /// module is on; the touch never delays or fails the request.
 fn touch_realm_presence(shared: &Shared, user: &str) {
@@ -290,6 +315,122 @@ async fn join(mut call: Call) -> Response {
     let game_args = string_field(Some(&body), "gameArgs");
     let hunt_id = string_field(Some(&body), "playerHuntId");
     let requested = string_field(Some(&body), "partyId").filter(|id| !id.trim().is_empty());
+    let target_instance = string_field(Some(&body), "instanceId")
+        .or_else(|| hunt_id.clone())
+        .or_else(|| game_args.clone())
+        .and_then(|s| s.parse::<module_api::GlobalId>().ok())
+        .filter(|g| {
+            matches!(
+                g.kind(),
+                module_api::network::IdKind::Hunt
+                    | module_api::network::IdKind::HubInstance
+                    | module_api::network::IdKind::Party
+            )
+        });
+    if let Some(instance_global) = target_instance
+        && let Some(account_global) = resolve_global_account(&call.shared, &user).await
+    {
+        let forwarded = call
+            .request
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|v| v.to_str().ok());
+        let peer = call
+            .request
+            .extensions()
+            .get::<ConnectInfo<ConnectionInfo>>()
+            .map(|info| info.0.peer.ip());
+        let client_ip = status::client_ip(peer, forwarded).unwrap_or_else(|| "127.0.0.1".to_owned());
+        match call
+            .shared
+            .home()
+            .ring_resolve_join(&account_global, &client_ip, &instance_global)
+            .await
+        {
+            Ok(module_api::network::JoinDecision::Local(record)) => {
+                let candidate_id = crate::game_data::season_window::next_uuid().to_string();
+                let mut result = self::state::MatchmakingResult::matching(&record.queue, candidate_id.clone());
+                result.ready = true;
+                result.host = record.server_host;
+                result.port = i64::from(record.server_port);
+                result.game_session_id = record.id.to_string();
+                result.ready_at = 0;
+                call.shared.matchmaking.set_candidate(&user, result.clone());
+                let mut answer = Map::new();
+                answer.insert("candidateId".into(), json!(candidate_id));
+                answer.insert("candidateStatusPeriodMillis".into(), json!(1000));
+                if let Some(mode) = game_mode {
+                    answer.insert("gameMode".into(), mode);
+                }
+                answer.insert("huntId".into(), json!(record.queue));
+                answer.insert("instanceId".into(), json!(record.id.to_string()));
+                answer.insert("status".into(), json!("MATCHING"));
+                answer.insert("statusReason".into(), Value::Null);
+                let mut resp = Json(Value::Object(answer)).into_response();
+                if let Ok(val) = HeaderValue::from_str(&record.id.to_string()) {
+                    resp.headers_mut().insert("x-reforged-instance-id", val);
+                }
+                return resp;
+            }
+            Ok(module_api::network::JoinDecision::Refused {
+                instance,
+                owner,
+                region,
+                message,
+            }) => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "error": "WRONG_NODE",
+                        "message": message,
+                        "instance": instance.to_string(),
+                        "hostNode": owner.to_string(),
+                        "region": region.to_string(),
+                    })),
+                )
+                    .into_response();
+            }
+            Ok(module_api::network::JoinDecision::Redirect {
+                instance,
+                owner,
+                gateway,
+                ticket,
+            }) => {
+                let mut resp = (
+                    StatusCode::OK,
+                    Json(json!({
+                        "status": "REDIRECT",
+                        "instance": instance.to_string(),
+                        "hostNode": owner.to_string(),
+                        "region": gateway.region.to_string(),
+                        "gateway": gateway,
+                        "sessionTicket": ticket.token,
+                    })),
+                )
+                    .into_response();
+                let headers = resp.headers_mut();
+                if let Ok(h) = HeaderValue::from_str(&gateway.host) {
+                    headers.insert("x-reforged-redirect-host", h);
+                }
+                if let Ok(p) = HeaderValue::from_str(&gateway.port.to_string()) {
+                    headers.insert("x-reforged-redirect-port", p);
+                }
+                if let Some(fp) = &gateway.fingerprint
+                    && let Ok(f) = HeaderValue::from_str(fp)
+                {
+                    headers.insert("x-reforged-redirect-fingerprint", f);
+                }
+                if let Ok(t) = HeaderValue::from_str(&ticket.token) {
+                    headers.insert("x-reforged-session-ticket", t);
+                }
+                return resp;
+            }
+            Err(module_api::network::HomeError::NotInNetwork) => {}
+            Err(error) => {
+                tracing::warn!("ring_resolve_join for {instance_global} failed: {error}");
+            }
+        }
+    }
     tracing::info!(
         "UserId {user} wants to join a game with GameMode {} & GameArgs {} & HuntId {} & gameType={} privateMatch={} isPrivate={} partyId={}",
         mode.as_deref().unwrap_or("undefined"),
@@ -395,7 +536,13 @@ async fn join(mut call: Call) -> Response {
     answer.insert("huntId".into(), json!(entry.hunt_id));
     answer.insert("status".into(), json!("MATCHING"));
     answer.insert("statusReason".into(), Value::Null);
-    Json(Value::Object(answer)).into_response()
+    let mut response = Json(Value::Object(answer)).into_response();
+    if (entry.game_session_id.starts_with("hunt:") || entry.game_session_id.starts_with("hub_instance:"))
+        && let Ok(val) = HeaderValue::from_str(&entry.game_session_id)
+    {
+        response.headers_mut().insert("x-reforged-instance-id", val);
+    }
+    response
 }
 
 /// The client's Cancel of its search. From the 1.14.7 binary (FUN_140db6dd0): `DELETE /candidate/leave` with no body,

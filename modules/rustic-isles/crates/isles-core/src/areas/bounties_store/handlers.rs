@@ -847,6 +847,36 @@ pub async fn bounty_post(call: Call) -> Response {
         Ok(store) => store,
         Err(response) => return response,
     };
+    if auth.is_gameserver
+        && !is_host_write
+        && let Some(foreign_account) = crate::areas::matchmaking::resolve_foreign_account(&ctx.shared, &user_id).await
+    {
+        let instance_id = ctx
+            .shared
+            .matchmaking
+            .ring_instance_for_player(&foreign_account)
+            .unwrap_or_else(|| module_api::GlobalId::new(module_api::network::IdKind::Hunt, &ctx.shared.node.node));
+        let module_name = format!("isles-{}", ctx.shared.version.tables.game_version.replace('.', "-"));
+        let Ok(module) = module_api::ModuleId::new(module_name) else {
+            return internal_error("POST /bounty", &"invalid module id");
+        };
+        let bounty_progress = match ctx.body.clone() {
+            Some(Value::Object(map)) => Value::Object(map),
+            other => json!({ "bounty": other }),
+        };
+        let rewards = module_api::network::HuntRewards {
+            hunt: instance_id,
+            module,
+            account: foreign_account.clone(),
+            xp_grant: None,
+            loot_write: None,
+            objective_write: Some(json!({ "bounty_progress": bounty_progress })),
+        };
+        if let Err(error) = ctx.shared.home().ring_forward_hunt_rewards(&rewards).await {
+            return internal_error("POST /bounty", &error);
+        }
+        return envelope(200, "OK", bounty_state_payload(None));
+    }
     let account = match account_of(store, &user_id).await {
         Ok(Some(account)) => account,
         Ok(None) => {

@@ -257,6 +257,35 @@ async fn authenticate_game(call: &mut Call) -> Result<AuthData, Response> {
         }
     }
 
+    if let Some(ticket_raw) = header(call.request.headers(), "x-reforged-session-ticket")
+        .map(|t| t.trim().to_owned())
+        .filter(|t| !t.is_empty())
+    {
+        let Ok((ticket, _ticket_game)) = module_api::network::SessionTicket::from_token(&ticket_raw) else {
+            tracing::warn!("Request with malformed x-reforged-session-ticket!");
+            return Err(empty(401));
+        };
+        let Ok(expected_game) = shared.version.tables.game_version.parse::<module_api::GameVersion>() else {
+            return Err(server_error());
+        };
+        let admitted_account = match shared.home().verify_session_ticket(&ticket, &expected_game).await {
+            Ok(account) => account,
+            Err(error) => {
+                tracing::warn!("Request with invalid x-reforged-session-ticket: {error}");
+                return Err(empty(401));
+            }
+        };
+        let user_id = admitted_account.to_string();
+        let mut claims = Map::new();
+        claims.insert("userId".into(), Value::String(user_id.clone()));
+        return Ok(AuthData {
+            user_id: Some(user_id),
+            is_gameserver: false,
+            claims,
+            runtime: None,
+        });
+    }
+
     let Some(authorization) = authorization.filter(|a| has_bearer_prefix(a)) else {
         tracing::error!(
             "Unauthenticated {} to {} which needs Mystic Paradox Metagame auth!",
@@ -496,4 +525,9 @@ pub async fn rifts_caller(
 /// The client address the launcher routes rate-limit by.
 pub fn ip_of(call: &Call) -> String {
     client_ip(&call.request)
+}
+
+/// `ClientAddress` (`security/rateLimit.ts`): `ipKeyGenerator(req.ip || "unknown")` over [`client_ip`].
+pub fn rate_limit_address(request: &Request) -> String {
+    super::util::ip_key_generator(&client_ip(request))
 }

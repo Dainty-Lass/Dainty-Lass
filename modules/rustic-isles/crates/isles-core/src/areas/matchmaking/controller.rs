@@ -305,17 +305,60 @@ impl Matchmaker<'_> {
         if let Some(status) = extension.and_then(|c| parse_candidate(&c)) {
             return Ok(Some(status));
         }
-        if !current.ready {
-            let due = {
-                let inner = self.state().lock();
-                inner
-                    .queues
-                    .get(&current.hunt_id)
-                    .is_some_and(|queue| self.now() - queue.last_added_ms > QUEUE_WAIT_MS)
-            };
-            // A candidate cancelled with no queue behind it has nothing to pop
-            if due {
-                self.pop_queue(&current.hunt_id).await?;
+        if !current.ready && !current.canceled {
+            if let Ok(ticket_global) = current.candidate_id.parse::<module_api::GlobalId>()
+                && ticket_global.kind() == module_api::network::IdKind::Ticket
+            {
+                let home = self.shared.home();
+                if let Ok(game_version) = self
+                    .shared
+                    .version
+                    .tables
+                    .game_version
+                    .parse::<module_api::GameVersion>()
+                {
+                    let _ = home.ring_try_form_matches(&current.hunt_id, &game_version).await;
+                }
+                if let Ok(Some(ticket_state)) = home.ring_ticket_state(&ticket_global).await {
+                    match ticket_state {
+                        module_api::network::TicketState::Claimed { match_id, .. } => {
+                            if let Ok(Some(record)) = home.ring_lookup_instance(&match_id).await {
+                                let mut inner = self.state().lock();
+                                let release_at = self.go_now_release_at(&inner, false);
+                                if let Some(result) = inner.results.get_mut(player)
+                                    && !result.canceled
+                                {
+                                    result.host = record.server_host;
+                                    result.port = i64::from(record.server_port);
+                                    result.game_session_id = match_id.to_string();
+                                    result.ready = true;
+                                    result.ready_at = release_at;
+                                }
+                            }
+                        }
+                        module_api::network::TicketState::Cancelled => {
+                            let mut inner = self.state().lock();
+                            if let Some(result) = inner.results.get_mut(player) {
+                                result.ready = false;
+                                result.canceled = true;
+                                result.status_reason = Some("PLAYER_CANCELED".into());
+                            }
+                        }
+                        module_api::network::TicketState::Searching { .. } => {}
+                    }
+                }
+            } else {
+                let due = {
+                    let inner = self.state().lock();
+                    inner
+                        .queues
+                        .get(&current.hunt_id)
+                        .is_some_and(|queue| self.now() - queue.last_added_ms > QUEUE_WAIT_MS)
+                };
+                // A candidate cancelled with no queue behind it has nothing to pop
+                if due {
+                    self.pop_queue(&current.hunt_id).await?;
+                }
             }
         }
         let now = self.now();
@@ -324,6 +367,42 @@ impl Matchmaker<'_> {
 
     /// `QueuePlayer`: false when the hunt's queue is already launching.
     async fn queue_player(&self, hunt_id: &str, player: &str) -> MatchResult<bool> {
+        if let Some(account_global) = super::resolve_global_account(self.shared, player).await
+            && let Ok(game_version) = self
+                .shared
+                .version
+                .tables
+                .game_version
+                .parse::<module_api::GameVersion>()
+        {
+            let home = self.shared.home();
+            match home
+                .ring_submit_ticket(&account_global, hunt_id, &game_version, 1, "127.0.0.1")
+                .await
+            {
+                Ok(published) => {
+                    let _ = home.ring_try_form_matches(hunt_id, &game_version).await;
+                    let mut candidate = MatchmakingResult::matching(hunt_id, published.ticket.to_string());
+                    if let Ok(Some(module_api::network::TicketState::Claimed { match_id, .. })) =
+                        home.ring_ticket_state(&published.ticket).await
+                        && let Ok(Some(record)) = home.ring_lookup_instance(&match_id).await
+                    {
+                        let inner = self.state().lock();
+                        candidate.ready = true;
+                        candidate.host = record.server_host;
+                        candidate.port = i64::from(record.server_port);
+                        candidate.game_session_id = match_id.to_string();
+                        candidate.ready_at = self.go_now_release_at(&inner, false);
+                    }
+                    self.state().set_candidate(player, candidate);
+                    return Ok(true);
+                }
+                Err(module_api::network::HomeError::NotInNetwork) => {}
+                Err(error) => {
+                    tracing::warn!("ring_submit_ticket for {player} failed ({error}); using local queue");
+                }
+            }
+        }
         let now = self.now();
         let full = {
             let mut inner = self.state().lock();
@@ -404,9 +483,13 @@ impl Matchmaker<'_> {
                 None => false,
             });
         };
+        let registered_instance = self.register_ring_hunt_instance(hunt_id, &host, port, members).await;
         let mut inner = self.state().lock();
         let candidate_id = crate::game_data::season_window::next_uuid().to_string();
         let mut shared = MatchmakingResult::matching(hunt_id, candidate_id);
+        if let Some(instance) = registered_instance {
+            shared.game_session_id = instance.to_string();
+        }
         shared.ready = true;
         shared.host = host;
         shared.port = port;
@@ -523,6 +606,48 @@ impl Matchmaker<'_> {
         self.queue_player(&effective, &join.player).await
     }
 
+    async fn register_ring_hunt_instance(
+        &self,
+        hunt_id: &str,
+        host: &str,
+        port: i64,
+        players: &[String],
+    ) -> Option<module_api::GlobalId> {
+        let game = self
+            .shared
+            .version
+            .tables
+            .game_version
+            .parse::<module_api::GameVersion>()
+            .ok()?;
+        let mut globals = Vec::new();
+        for p in players {
+            if let Some(g) = super::resolve_global_account(self.shared, p).await {
+                globals.push(g);
+            }
+        }
+        let instance = module_api::GlobalId::new(module_api::network::IdKind::Hunt, &self.shared.node.node);
+        let record = module_api::network::InstanceRecord {
+            id: instance.clone(),
+            region: self.shared.node.region.clone(),
+            game,
+            queue: hunt_id.to_owned(),
+            server_host: host.to_owned(),
+            server_port: u16::try_from(port).unwrap_or(7777),
+            capacity: 4,
+            players: globals.clone(),
+            shard: None,
+            created_at_ms: self.now(),
+        };
+        match self.shared.home().ring_register_instance(&record).await {
+            Ok(()) => {
+                self.state().record_ring_instance(instance.clone(), &globals);
+                Some(instance)
+            }
+            Err(_) => None,
+        }
+    }
+
     /// The shared, already-running instance path (Ramsgate, the city hub, the dojo) and a non-CR19 hunt.
     async fn immediate_instance(
         &self,
@@ -532,22 +657,48 @@ impl Matchmaker<'_> {
         is_hub: bool,
     ) -> MatchResult<bool> {
         let everyone = join.party_members.clone().unwrap_or_else(|| vec![join.player.clone()]);
-        let launch = self
-            .launch_game(
-                join.game_mode.as_deref(),
-                join.game_args.as_deref(),
-                effective,
-                &everyone,
-            )
-            .await?;
-        let Launch::Online { host, port } = launch else {
-            let Launch::Refused { reason } = launch else {
-                return Ok(false);
+        let mut ring_assigned_instance: Option<module_api::GlobalId> = None;
+        let (host, port) = if is_hub
+            && effective == RAMSGATE_HUNT
+            && let Some(account_global) = super::resolve_global_account(self.shared, &join.player).await
+            && let Ok(game_version) = self
+                .shared
+                .version
+                .tables
+                .game_version
+                .parse::<module_api::GameVersion>()
+            && let Ok((record, _ticket)) = self
+                .shared
+                .home()
+                .ring_assign_ramsgate(&account_global, "127.0.0.1", &game_version)
+                .await
+        {
+            ring_assigned_instance = Some(record.id);
+            (record.server_host, i64::from(record.server_port))
+        } else {
+            let launch = self
+                .launch_game(
+                    join.game_mode.as_deref(),
+                    join.game_args.as_deref(),
+                    effective,
+                    &everyone,
+                )
+                .await?;
+            let Launch::Online { host, port } = launch else {
+                let Launch::Refused { reason } = launch else {
+                    return Ok(false);
+                };
+                return Ok(match reason {
+                    Some(reason) => self.state().cancel_hunt(effective, &everyone, &reason),
+                    None => false,
+                });
             };
-            return Ok(match reason {
-                Some(reason) => self.state().cancel_hunt(effective, &everyone, &reason),
-                None => false,
-            });
+            if !is_hub {
+                ring_assigned_instance = self
+                    .register_ring_hunt_instance(effective, &host, port, &everyone)
+                    .await;
+            }
+            (host, port)
         };
         // Travelling to a hub ends the party's dedicated hunts (completed or abandoned, once each)
         if is_hub {
@@ -556,7 +707,9 @@ impl Matchmaker<'_> {
         let mut inner = self.state().lock();
         let candidate_id = crate::game_data::season_window::next_uuid().to_string();
         let mut shared = MatchmakingResult::matching(effective, candidate_id);
-        if is_hub {
+        if let Some(instance) = ring_assigned_instance {
+            shared.game_session_id = instance.to_string();
+        } else if is_hub {
             // The hub's room id is stable for the life of the persistent server; CandidateId is not reused for it
             shared.game_session_id = inner
                 .hub_game_session_ids
@@ -682,6 +835,11 @@ impl Matchmaker<'_> {
         }
         if current.canceled {
             return Ok(answer(LeaveOutcome::AlreadyCanceled, "canceled"));
+        }
+        if let Ok(ticket_global) = current.candidate_id.parse::<module_api::GlobalId>()
+            && ticket_global.kind() == module_api::network::IdKind::Ticket
+        {
+            let _ = self.shared.home().ring_cancel_ticket(&ticket_global).await;
         }
         let now = self.now();
         let queued = self

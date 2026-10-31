@@ -1,9 +1,10 @@
-//! The services' HTTP pipeline, in `app.ts`'s order: the request id, the `/__origin/<host>/` strip, the routes in
-//! match order with their mount conditions and the `/admin` gate, then the unstubbed 404. A route no area has a
-//! handler for answers 501 in the launcher envelope (RU4); rustic-rifts answers its own routes when loaded (RF2).
+//! The services' HTTP pipeline, in `app.ts`'s order: the request id, the `/__origin/<host>/` strip, the 1.14.7
+//! per-minute request budget (`CreateRequestRateLimiter`, 429), the routes in match order with their mount conditions
+//! and the `/admin` gate, then the unstubbed 404. A route no area has a handler for answers 501 in the launcher
+//! envelope (RU4); rustic-rifts answers its own routes when loaded (RF2).
 //!
-//! Not here yet, each its RU5 area's: body parsers and their limits, the request budget (429), the request log and
-//! metrics, auth middleware, CORS and Express's automatic `OPTIONS` answers.
+//! Not here yet, each its RU5 area's: body parsers and their limits, the request log and metrics, auth middleware,
+//! CORS and Express's automatic `OPTIONS` answers.
 
 // Rejections are axum responses, the way extractors report them; boxing them gains nothing here
 #![allow(clippy::result_large_err)]
@@ -70,6 +71,15 @@ impl Shared {
             matchmaking: Arc::default(),
             auth: crate::areas::auth::AuthRuntime::default(),
         }
+    }
+
+    /// The home API for this node (from `store` when configured, or standalone otherwise).
+    pub fn home(&self) -> Arc<dyn module_api::HomeApi> {
+        self.store.as_ref().map(|s| s.home().clone()).unwrap_or_else(|| {
+            Arc::new(module_api::network::StandaloneHome {
+                identity: self.node.clone(),
+            })
+        })
     }
 }
 
@@ -151,6 +161,11 @@ struct App {
     shared: Arc<Shared>,
     service: Service,
     routes: Vec<Mounted>,
+    /// Where `app.use(RequestLimiter)` sits (`app.ts` line 245): at `GET /internal/v1/metrics`, after the health probes
+    /// and `releaseGatesRouter`
+    post_probe_gate: Option<usize>,
+    /// 1.12.0 does not install a request limiter (`reference/1.12.0/ParadoxBackend/src/app.ts`), so `isles-1-12-0` stays unlimited
+    rate_limit_enabled: bool,
     /// Where `app.use("/admin", ...)` sits: the first `/admin/` route's position in the table
     admin_gate: Option<usize>,
 }
@@ -189,6 +204,15 @@ pub fn app(shared: Arc<Shared>, service: Service, handlers: &Handlers) -> Result
             position,
         });
     }
+    let post_probe_gate = (service == Service::Backend)
+        .then(|| {
+            table
+                .iter()
+                .position(|r| r.service == Service::Backend && r.path == "/internal/v1/metrics")
+        })
+        .flatten();
+    // 1.12.0 does not install a request limiter (reference/1.12.0/ParadoxBackend/src/app.ts).
+    let rate_limit_enabled = service == Service::Backend && shared.version.routes == crate::routes::RouteSet::V1147;
     let admin_gate = (service == Service::Backend)
         .then(|| {
             table
@@ -200,6 +224,8 @@ pub fn app(shared: Arc<Shared>, service: Service, handlers: &Handlers) -> Result
         shared,
         service,
         routes,
+        post_probe_gate,
+        rate_limit_enabled,
         admin_gate,
     });
     Ok(axum::Router::new().fallback(dispatch).with_state(app))
@@ -499,28 +525,110 @@ fn replay_scope_of(request: &Request) -> crate::game_data::season_window::Replay
     ReplayScope::new(now_ms, seed)
 }
 
+/// `/mystic/v1/hunts` and everything under it, as `app.use("/mystic/v1/hunts", RequestLimiter)` matches.
+fn under_hunts(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower == "/mystic/v1/hunts" || lower.starts_with("/mystic/v1/hunts/")
+}
+
+fn host_bucket_request_info(request: &Request, request_id: &str) -> Option<RequestInfo> {
+    let raw = crate::areas::auth::middleware::header(request.headers(), "x-mystic-host-capability")?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(RequestInfo {
+        path: request.uri().path().to_owned(),
+        headers: vec![("x-mystic-host-capability".to_owned(), trimmed.to_owned())],
+        remote: crate::areas::auth::util::peer_ip(request),
+        request_id: request_id.to_owned(),
+    })
+}
+
+fn check_request_budget(
+    shared: Arc<Shared>,
+    request: &Request,
+    request_id: &str,
+) -> impl std::future::Future<Output = Option<crate::areas::auth::runtime::RequestBudgetVerdict>> + Send {
+    let config = crate::areas::auth::runtime::RequestBudgetConfig::from_settings(&shared.settings);
+    let ip_key = crate::areas::auth::middleware::rate_limit_address(request);
+    let gameserver_candidate = crate::areas::auth::middleware::header(
+        request.headers(),
+        crate::areas::auth::middleware::GAMESERVER_KEY_HEADER,
+    )
+    .is_some_and(|raw| !raw.trim().is_empty());
+    let host_info = (!gameserver_candidate)
+        .then(|| host_bucket_request_info(request, request_id))
+        .flatten();
+
+    async move {
+        if !config.enabled {
+            return None;
+        }
+        let (bucket_key, limit) = if gameserver_candidate {
+            (format!("gameserver:{ip_key}"), config.gameserver_limit)
+        } else if let Some(info) = host_info
+            && let Some(host_bucket) = shared
+                .rifts
+                .guard()
+                .rate_limit_bucket(info)
+                .await
+                .ok()
+                .flatten()
+                .filter(|bucket| !bucket.is_empty())
+        {
+            (host_bucket, config.host_limit)
+        } else {
+            (format!("client:{ip_key}"), config.client_limit)
+        };
+        Some(shared.auth.limiter.check_request_budget(&bucket_key, limit))
+    }
+}
+
+fn attach_budget_headers(
+    headers: &mut axum::http::HeaderMap,
+    verdict: &crate::areas::auth::runtime::RequestBudgetVerdict,
+) {
+    if let Ok(value) = HeaderValue::from_str(&verdict.rate_limit) {
+        headers.insert(HeaderName::from_static("ratelimit"), value);
+    }
+    if let Ok(value) = HeaderValue::from_str(&verdict.rate_limit_policy) {
+        headers.insert(HeaderName::from_static("ratelimit-policy"), value);
+    }
+    if let Some(ref retry_after) = verdict.retry_after
+        && let Ok(value) = HeaderValue::from_str(retry_after)
+    {
+        headers.insert(header::RETRY_AFTER, value);
+    }
+}
+
+fn finish_response(
+    mut response: Response,
+    cors_headers: Vec<(HeaderName, HeaderValue)>,
+    budget: Option<&crate::areas::auth::runtime::RequestBudgetVerdict>,
+) -> Response {
+    for (name, value) in cors_headers {
+        response.headers_mut().insert(name, value);
+    }
+    if let Some(verdict) = budget {
+        attach_budget_headers(response.headers_mut(), verdict);
+    }
+    response
+}
+
+fn rate_limited_response(verdict: &crate::areas::auth::runtime::RequestBudgetVerdict) -> Response {
+    let body = json!({ "error": "Too many requests. Please retry later." });
+    let mut response = (StatusCode::TOO_MANY_REQUESTS, Json(body)).into_response();
+    attach_budget_headers(response.headers_mut(), verdict);
+    response
+}
+
 async fn dispatch(State(app): State<Arc<App>>, mut request: Request) -> Response {
     let replay_scope = replay_scope_of(&request);
     crate::game_data::season_window::with_replay_scope(replay_scope, async move {
         let id = request_id(&request);
         let observation = crate::areas::reforged_api::observe::begin(&request, &id);
-        // The launcher router's CORS gate (routes/launcherAuth.ts) runs ahead of every `/launcher/` route that follows it
-        let cors = if app.service == Service::Backend {
-            crate::areas::auth::launcher_routes::launcher_cors(&app.shared, &request)
-        } else {
-            crate::areas::auth::launcher_routes::Cors::Pass
-        };
-        let mut response = match cors {
-            crate::areas::auth::launcher_routes::Cors::Answer(response) => response,
-            crate::areas::auth::launcher_routes::Cors::Headers(headers) => {
-                let mut response = answer(&app, &mut request, id.clone()).await;
-                for (name, value) in headers {
-                    response.headers_mut().insert(name, value);
-                }
-                response
-            }
-            crate::areas::auth::launcher_routes::Cors::Pass => answer(&app, &mut request, id.clone()).await,
-        };
+        let mut response = answer(&app, &mut request, id.clone()).await;
         observation.finish(response.status().as_u16());
         if let Ok(value) = HeaderValue::from_str(&id) {
             response
@@ -545,12 +653,52 @@ async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Re
         }
     }
     let path = request.uri().path().to_owned();
+    let mut budget_verdict = None;
+    let mut counted = false;
+    // Early mount on `/mystic/v1/hunts` ahead of the body parsers and early routes (`app.ts` line 196).
+    if app.rate_limit_enabled && under_hunts(&path) {
+        counted = true;
+        if let Some(verdict) = check_request_budget(app.shared.clone(), request, &request_id).await {
+            if verdict.limited {
+                return rate_limited_response(&verdict);
+            }
+            budget_verdict = Some(verdict);
+        }
+    }
+    let mut post_probe_passed = false;
+    let mut cors_headers = Vec::new();
     let mut gate_passed = false;
     for mounted in &app.routes {
+        if !post_probe_passed && app.post_probe_gate.is_some_and(|gate| mounted.position >= gate) {
+            post_probe_passed = true;
+            // Main mount after the health probes and `releaseGatesRouter` (`app.ts` line 245); `CountedFlag` prevents
+            // double-counting a request that already passed the `/mystic/v1/hunts` mount.
+            if app.rate_limit_enabled && !counted {
+                counted = true;
+                if let Some(verdict) = check_request_budget(app.shared.clone(), request, &request_id).await {
+                    if verdict.limited {
+                        return rate_limited_response(&verdict);
+                    }
+                    budget_verdict = Some(verdict);
+                }
+            }
+            // The launcher router's CORS gate (`routes/launcherAuth.ts`, `app.ts` line 255) runs after `RequestLimiter`.
+            if app.service == Service::Backend {
+                match crate::areas::auth::launcher_routes::launcher_cors(&app.shared, request) {
+                    crate::areas::auth::launcher_routes::Cors::Answer(response) => {
+                        return finish_response(response, Vec::new(), budget_verdict.as_ref());
+                    }
+                    crate::areas::auth::launcher_routes::Cors::Headers(headers) => {
+                        cors_headers = headers;
+                    }
+                    crate::areas::auth::launcher_routes::Cors::Pass => {}
+                }
+            }
+        }
         if !gate_passed && app.admin_gate.is_some_and(|gate| mounted.position >= gate) {
             gate_passed = true;
             if !app.shared.admin_api && under_admin(&path) {
-                return empty(StatusCode::NOT_FOUND);
+                return finish_response(empty(StatusCode::NOT_FOUND), cors_headers, budget_verdict.as_ref());
             }
         }
         if !mounted.def.method.accepts(request.method()) {
@@ -558,7 +706,9 @@ async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Re
         }
         let params = match mounted.pattern.matches(&path) {
             None => continue,
-            Some(Err(_)) => return empty(StatusCode::BAD_REQUEST),
+            Some(Err(_)) => {
+                return finish_response(empty(StatusCode::BAD_REQUEST), cors_headers, budget_verdict.as_ref());
+            }
             Some(Ok(params)) => params,
         };
         // Node's Gauntlet handlers call next() for any other origin, so they never shadow a 1.12 route
@@ -573,7 +723,7 @@ async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Re
             origin_host,
             request_id: request_id.clone(),
         };
-        return match &mounted.answer {
+        let response = match &mounted.answer {
             Answer::Isles(Some(handler)) => handler(call).await,
             Answer::Isles(None) => not_implemented(mounted.def, &request_id),
             Answer::Rifts(index) => match app.shared.rifts.routes().nth(*index) {
@@ -581,12 +731,35 @@ async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Re
                 None => empty(StatusCode::INTERNAL_SERVER_ERROR),
             },
         };
+        return finish_response(response, cors_headers, budget_verdict.as_ref());
+    }
+    if !post_probe_passed {
+        if app.rate_limit_enabled
+            && !counted
+            && let Some(verdict) = check_request_budget(app.shared.clone(), request, &request_id).await
+        {
+            if verdict.limited {
+                return rate_limited_response(&verdict);
+            }
+            budget_verdict = Some(verdict);
+        }
+        if app.service == Service::Backend {
+            match crate::areas::auth::launcher_routes::launcher_cors(&app.shared, request) {
+                crate::areas::auth::launcher_routes::Cors::Answer(response) => {
+                    return finish_response(response, Vec::new(), budget_verdict.as_ref());
+                }
+                crate::areas::auth::launcher_routes::Cors::Headers(headers) => {
+                    cors_headers = headers;
+                }
+                crate::areas::auth::launcher_routes::Cors::Pass => {}
+            }
+        }
     }
     if !gate_passed && !app.shared.admin_api && app.admin_gate.is_some() && under_admin(&path) {
-        return empty(StatusCode::NOT_FOUND);
+        return finish_response(empty(StatusCode::NOT_FOUND), cors_headers, budget_verdict.as_ref());
     }
     tracing::warn!("Unstubbed route {} {path}", request.method());
-    empty(StatusCode::NOT_FOUND)
+    finish_response(empty(StatusCode::NOT_FOUND), cors_headers, budget_verdict.as_ref())
 }
 
 #[cfg(test)]

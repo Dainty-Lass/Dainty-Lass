@@ -16,6 +16,7 @@ pub mod config;
 pub mod gameservers;
 pub mod hub;
 pub mod hunt;
+pub mod hunt_tables;
 pub mod log;
 pub mod matchmaker;
 pub mod memory;
@@ -207,7 +208,7 @@ impl DirectorService {
 }
 
 /// An in-process `DedicatedServers` adapter backed directly by a [`Director`] instance,
-/// used when `DEPLOYSERVER_URL` is not explicitly configured in `shared.settings`.
+/// used when the Director can launch game servers in-process or when `DEPLOYSERVER_URL` is unset.
 #[derive(Clone)]
 pub struct InProcessDirector(pub Arc<Director>);
 
@@ -258,10 +259,11 @@ impl PortService for DirectorService {
 
     fn app(&self, shared: Arc<Shared>) -> Result<axum::Router, ModuleError> {
         let director = self.build(&shared)?;
-        if shared
-            .settings
-            .raw("DEPLOYSERVER_URL")
-            .is_none_or(|url| url.trim().is_empty())
+        if director.config.can_launch()
+            || shared
+                .settings
+                .raw("DEPLOYSERVER_URL")
+                .is_none_or(|url| url.trim().is_empty())
         {
             shared
                 .matchmaking
@@ -390,5 +392,34 @@ mod tests {
         );
         assert!(!V1120.log_cmds_invalid(&settings));
         assert!(!V1120.hide_window(&Settings::default()));
+    }
+
+    #[tokio::test]
+    async fn director_service_wires_in_process_director_when_launch_is_configured_even_with_deployserver_url() {
+        let mut shared = Shared::bare(isles_1_14_7::version());
+        shared.settings = Settings::from_pairs([
+            ("DEPLOYSERVER_URL", "127.0.0.1:1"),
+            ("GAMESERVER_BINARY_PATH", "/srv/game"),
+            ("METAGAME_API_KEY", "gs-secret"),
+            ("PORT_RANGE_BEGIN", "8766"),
+            ("PORT_RANGE_END", "8777"),
+        ]);
+        shared.matchmaking = Arc::new(isles_core::areas::matchmaking::state::MatchmakingState::from_settings(
+            &shared.settings,
+        ));
+        let shared = Arc::new(shared);
+        // Before DirectorService::app, HttpDeployServer points to dead 127.0.0.1:1 and hub_status is None.
+        assert_eq!(shared.matchmaking.dedicated_servers().hub_status().await, None);
+        let service = DirectorService::new(V1147);
+        assert!(service.app(shared.clone()).is_ok());
+        // After DirectorService::app, InProcessDirector answers directly in memory without hitting 127.0.0.1:1.
+        assert!(shared.matchmaking.dedicated_servers().configured());
+        assert_eq!(
+            shared.matchmaking.dedicated_servers().hub_status().await,
+            Some(LiveHubStatus {
+                ramsgate: None,
+                training_dojo: None,
+            })
+        );
     }
 }

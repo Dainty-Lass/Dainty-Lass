@@ -1,5 +1,7 @@
-//! `isles-db`: RU7 + RB11 MongoDB-to-`store` migration/verification and RU8 shadow replay library and CLI.
+//! `isles-db`: RU7 + RB11 MongoDB-to-`store` migration/verification, RB13 `export-mongo` rollback,
+//! and RU8 shadow replay library and CLI.
 
+pub mod export;
 pub mod migrate;
 pub mod mongo;
 pub mod replay;
@@ -11,6 +13,7 @@ use std::path::PathBuf;
 
 use module_api::NodeId;
 
+pub use export::{ExportOptions, ExportReport, run_export_mongo, state_to_mongo_collections};
 pub use migrate::{DbError, MigrateArea, MigrateOptions, MigrateReport, run_migrate};
 pub use replay::{ReplayOptions, ReplayReport, run_replay_cli};
 pub use verify::{CollectionVerification, VerifyReport, run_verify};
@@ -20,6 +23,7 @@ pub use verify::{CollectionVerification, VerifyReport, run_verify};
 pub enum Command {
     Migrate { opts: MigrateOptions, json: bool },
     Verify { opts: MigrateOptions, json: bool },
+    ExportMongo { opts: ExportOptions, json: bool },
     Replay { opts: ReplayOptions, json: bool },
     Help,
 }
@@ -45,18 +49,20 @@ impl Eq for MigrateOptions {}
 
 pub const USAGE: &str = "\
 Usage:
-  isles-db migrate --from <mongodb://...> --to <sqlite-file|postgres-url> [options]
-  isles-db verify  --from <mongodb://...> --to <sqlite-file|postgres-url> [options]
-  isles-db replay  --corpus <path> --left <url|recorded> --right <url> [options]
+  isles-db migrate      --from <mongodb://...> --to <sqlite-file|postgres-url> [options]
+  isles-db verify       --against <mongodb://...> --to <sqlite-file|postgres-url> [options]
+  isles-db export-mongo --from <sqlite-file|postgres-url> --to <mongodb://...> [options]
+  isles-db replay       --corpus <path> --left <url|recorded> --right <url> [options]
 
-Migrate / Verify Options:
-  --from <uri>               Source MongoDB connection URI (read-only)
-  --to <target>              Destination SQLite file path or postgres:// URL
+Migrate / Verify / Export Options:
+  --from <source>            Source URI/path (MongoDB URI for migrate/verify; SQLite/Postgres for export-mongo)
+  --against <mongodb://...>  Source MongoDB URI to verify against (alias for --from on verify)
+  --to <target>              Destination target (SQLite/Postgres for migrate/verify; MongoDB URI for export-mongo)
   --node <node-id>           Node ID for DD18 global account/party IDs (default: local)
-  --area <area>              Migrate/verify only selected area(s): auth, characters,
+  --area <area>              Migrate/verify/export only selected area(s): auth, characters,
                              inventory, progression, bounties, parties, reforged
                              (repeatable or comma-separated; default: all)
-  --dry-run                  Read and transform MongoDB documents without writing to --to
+  --dry-run                  Read and transform documents without writing to --to
   --skip-invalid             Skip malformed source documents with a warning instead of failing
   --game-data-dir <dir>      Directory containing inventory_storage_policy.json for RB11
   --allow-remote-postgres    Allow non-loopback Postgres targets
@@ -105,12 +111,15 @@ where
     if sub == "replay" {
         return parse_replay_args(&raw[1..]);
     }
+    if sub == "export-mongo" {
+        return parse_export_args(&raw[1..]);
+    }
     let is_migrate = match sub {
         "migrate" => true,
         "verify" => false,
         other => {
             return Err(DbError::Config(format!(
-                "unknown subcommand {other:?}; expected 'migrate', 'verify', or 'replay'"
+                "unknown subcommand {other:?}; expected 'migrate', 'verify', 'export-mongo', or 'replay'"
             )));
         }
     };
@@ -146,10 +155,10 @@ where
                 json = true;
                 idx += 1;
             }
-            "--from" => {
+            "--from" | "--against" => {
                 let val = raw
                     .get(idx + 1)
-                    .ok_or_else(|| DbError::Config("--from requires a MongoDB URI".into()))?;
+                    .ok_or_else(|| DbError::Config(format!("{arg} requires a MongoDB URI")))?;
                 from_uri = Some(val.clone());
                 idx += 2;
             }
@@ -217,6 +226,91 @@ where
     } else {
         Ok(Command::Verify { opts, json })
     }
+}
+
+fn parse_export_args(raw: &[String]) -> Result<Command, DbError> {
+    let mut from_source: Option<String> = None;
+    let mut to_uri: Option<String> = None;
+    let mut areas = Vec::new();
+    let mut dry_run = false;
+    let mut allow_remote_postgres = false;
+    let mut json = false;
+
+    let mut idx = 0;
+    while idx < raw.len() {
+        let arg = raw[idx].as_str();
+        match arg {
+            "-h" | "--help" => return Ok(Command::Help),
+            "--dry-run" => {
+                dry_run = true;
+                idx += 1;
+            }
+            "--allow-remote-postgres" => {
+                allow_remote_postgres = true;
+                idx += 1;
+            }
+            "--json" => {
+                json = true;
+                idx += 1;
+            }
+            "--from" => {
+                let val = raw
+                    .get(idx + 1)
+                    .ok_or_else(|| DbError::Config("--from requires a SQLite path or postgres:// URL".into()))?;
+                from_source = Some(val.clone());
+                idx += 2;
+            }
+            "--to" => {
+                let val = raw
+                    .get(idx + 1)
+                    .ok_or_else(|| DbError::Config("--to requires a MongoDB URI".into()))?;
+                to_uri = Some(val.clone());
+                idx += 2;
+            }
+            "--node" => {
+                let val = raw
+                    .get(idx + 1)
+                    .ok_or_else(|| DbError::Config("--node requires a node ID".into()))?;
+                let _ = val
+                    .parse::<NodeId>()
+                    .map_err(|e| DbError::Config(format!("invalid --node {val:?}: {e}")))?;
+                idx += 2;
+            }
+            "--area" => {
+                let val = raw
+                    .get(idx + 1)
+                    .ok_or_else(|| DbError::Config("--area requires an area name".into()))?;
+                for part in val.split(',') {
+                    if !part.trim().is_empty() {
+                        areas.push(MigrateArea::parse(part)?);
+                    }
+                }
+                idx += 2;
+            }
+            other => {
+                return Err(DbError::Config(format!("unexpected flag {other:?}")));
+            }
+        }
+    }
+
+    let from_source =
+        from_source.ok_or_else(|| DbError::Config("missing required --from <sqlite-file|postgres-url>".into()))?;
+    let to_uri = if dry_run && to_uri.is_none() {
+        String::new()
+    } else {
+        to_uri.ok_or_else(|| DbError::Config("missing required --to <mongodb://...>".into()))?
+    };
+
+    Ok(Command::ExportMongo {
+        opts: ExportOptions {
+            from_source,
+            to_uri,
+            areas,
+            dry_run,
+            allow_remote_postgres,
+        },
+        json,
+    })
 }
 
 fn parse_replay_args(raw: &[String]) -> Result<Command, DbError> {

@@ -30,6 +30,7 @@ isles-director.workspace = true
 module-api.workspace = true
 rifts-seam.workspace = true
 serde_json.workspace = true
+store.workspace = true
 rifts-admission = { workspace = true, optional = true }
 rifts-relay = { workspace = true, optional = true }
 rifts-realms = { workspace = true, optional = true }

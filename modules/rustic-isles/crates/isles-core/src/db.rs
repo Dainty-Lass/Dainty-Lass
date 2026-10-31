@@ -8,7 +8,9 @@
 use std::sync::Arc;
 
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
-use module_api::network::{HomeError, SessionTicket};
+use module_api::network::{
+    HomeError, HuntRewards, InstanceRecord, JoinDecision, PublishedTicket, SessionTicket, TicketState,
+};
 use module_api::{Actor, ActorContext, BoxFuture, GlobalId, HomeApi, ModuleContext, NodeId, NodeIdentity};
 use store::{AnyConnection, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Tx};
 
@@ -99,6 +101,11 @@ impl IslesStore {
         &self.node
     }
 
+    /// The home API attached to this store.
+    pub fn home(&self) -> &Arc<dyn HomeApi> {
+        &self.home
+    }
+
     pub async fn read<T, F>(&self, f: F) -> RepoResult<T>
     where
         F: FnOnce(&mut AnyConnection, &Repositories) -> RepoResult<T> + Send + 'static,
@@ -123,6 +130,7 @@ impl IslesStore {
                     home: home.node.to_string(),
                 });
             }
+            Err(HomeError::UnknownAccount) if account.global().owner() == &self.node => {}
             Err(error) => return Err(RepoError::Home(error.to_string())),
         }
         self.write(actor, f).await
@@ -164,6 +172,153 @@ impl HomeApi for ContextHome {
         Box::pin(async move {
             self.0
                 .session_ticket(account, audience)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn verify_session_ticket<'a>(
+        &'a self,
+        ticket: &'a SessionTicket,
+        game: &'a module_api::GameVersion,
+    ) -> BoxFuture<'a, Result<GlobalId, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .verify_session_ticket(ticket, game)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn register_account_key_hash<'a>(
+        &'a self,
+        key_sha256: &'a str,
+        account: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<(), HomeError>> {
+        Box::pin(async move {
+            self.0
+                .register_account_key_hash(key_sha256, account)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn register_directory_account<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        username: &'a str,
+    ) -> BoxFuture<'a, Result<String, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .register_directory_account(account, username)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_submit_ticket<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        queue: &'a str,
+        game: &'a module_api::GameVersion,
+        party_size: u16,
+        client_ip: &'a str,
+    ) -> BoxFuture<'a, Result<PublishedTicket, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_submit_ticket(account, queue, game, party_size, client_ip)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_try_form_matches<'a>(
+        &'a self,
+        queue: &'a str,
+        game: &'a module_api::GameVersion,
+    ) -> BoxFuture<'a, Result<Vec<InstanceRecord>, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_try_form_matches(queue, game)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_ticket_state<'a>(
+        &'a self,
+        ticket_id: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<Option<TicketState>, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_ticket_state(ticket_id)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_cancel_ticket<'a>(&'a self, ticket_id: &'a GlobalId) -> BoxFuture<'a, Result<bool, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_cancel_ticket(ticket_id)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_lookup_instance<'a>(
+        &'a self,
+        instance: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<Option<InstanceRecord>, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_lookup_instance(instance)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_register_instance<'a>(&'a self, record: &'a InstanceRecord) -> BoxFuture<'a, Result<(), HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_register_instance(record)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_resolve_join<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        client_ip: &'a str,
+        instance: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<JoinDecision, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_resolve_join(account, client_ip, instance)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_assign_ramsgate<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        client_ip: &'a str,
+        game: &'a module_api::GameVersion,
+    ) -> BoxFuture<'a, Result<(InstanceRecord, Option<SessionTicket>), HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_assign_ramsgate(account, client_ip, game)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn ring_forward_hunt_rewards<'a>(&'a self, rewards: &'a HuntRewards) -> BoxFuture<'a, Result<(), HomeError>> {
+        Box::pin(async move {
+            self.0
+                .ring_forward_hunt_rewards(rewards)
                 .await
                 .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
         })

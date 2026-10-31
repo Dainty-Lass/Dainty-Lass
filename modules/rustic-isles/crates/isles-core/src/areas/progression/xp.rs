@@ -231,6 +231,42 @@ pub async fn grant(call: Call, ports: Ports) -> Response {
         }
     }
 
+    if req.auth.is_gameserver
+        && let Some(foreign_account) = crate::areas::matchmaking::resolve_foreign_account(&shared, &user_id).await
+    {
+        let granted_amount = multiply_xp_grant(amount, MAX_PROGRESSION_GRANT_AMOUNT, test_multipliers(&shared));
+        let instance_id = req
+            .header("x-reforged-instance-id")
+            .and_then(|s| s.parse::<module_api::GlobalId>().ok())
+            .or_else(|| shared.matchmaking.ring_instance_for_player(&foreign_account))
+            .unwrap_or_else(|| module_api::GlobalId::new(module_api::network::IdKind::Hunt, &shared.node.node));
+        let module_name = format!("isles-{}", shared.version.tables.game_version.replace('.', "-"));
+        let Ok(module) = module_api::ModuleId::new(module_name) else {
+            return internal(crate::repo::RepoError::Home("invalid module id".into()));
+        };
+        let rewards = module_api::network::HuntRewards {
+            hunt: instance_id,
+            module,
+            account: foreign_account.clone(),
+            xp_grant: Some(json!({
+                "track": progression_id,
+                "xp": granted_amount,
+            })),
+            loot_write: None,
+            objective_write: None,
+        };
+        if let Err(error) = shared.home().ring_forward_hunt_rewards(&rewards).await {
+            tracing::error!("ring_forward_hunt_rewards (xp) for {foreign_account}: {error}");
+            return internal(crate::repo::RepoError::Home(error.to_string()));
+        }
+        return ok(json!({
+            "progression_id": progression_id,
+            "xp": granted_amount,
+            "level": 1,
+            "forwarded_to_home": true,
+        }));
+    }
+
     let Some(account) = (match req.account(&user_id).await {
         Ok(account) => account,
         Err(response) => return response,

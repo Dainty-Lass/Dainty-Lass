@@ -145,6 +145,10 @@ pub(super) struct Inner {
     pub hunt_ref_of_instance: HashMap<String, String>,
     /// A shared hub's stable game session id (the `City-<id>` chat room), by `host:port`
     pub hub_game_session_ids: HashMap<String, String>,
+    /// Ring instance GlobalId by player GlobalId for hunts placed on this node.
+    pub ring_instances_by_player: HashMap<module_api::GlobalId, module_api::GlobalId>,
+    /// Most recent ring instance GlobalId placed on this node.
+    pub last_ring_instance: Option<module_api::GlobalId>,
 }
 
 /// The activity monitor's hunt rows (`RecordDedicatedHuntStarts`, `RecordDedicatedHuntEnds`), the reforged-api
@@ -230,12 +234,33 @@ impl MatchmakingState {
         self.deploy.set(deploy);
     }
 
+    pub fn dedicated_servers(&self) -> Arc<dyn DedicatedServers> {
+        self.deploy.get()
+    }
+
     pub fn set_hunt_activity(&self, activity: Arc<dyn HuntActivity>) {
         self.activity.set(activity);
     }
 
     pub fn set_chat_presence(&self, chat: Arc<dyn ChatPresence>) {
         self.chat.set(chat);
+    }
+
+    pub fn record_ring_instance(&self, instance: module_api::GlobalId, players: &[module_api::GlobalId]) {
+        let mut inner = self.lock();
+        for player in players {
+            inner.ring_instances_by_player.insert(player.clone(), instance.clone());
+        }
+        inner.last_ring_instance = Some(instance);
+    }
+
+    pub fn ring_instance_for_player(&self, player: &module_api::GlobalId) -> Option<module_api::GlobalId> {
+        let inner = self.lock();
+        inner
+            .ring_instances_by_player
+            .get(player)
+            .cloned()
+            .or_else(|| inner.last_ring_instance.clone())
     }
 
     pub(super) fn lock(&self) -> MutexGuard<'_, Inner> {

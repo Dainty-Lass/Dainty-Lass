@@ -164,7 +164,9 @@ pub async fn game_session(mut call: Call) -> Response {
         return response;
     }
     // `AuthHeader.slice(...)` on a missing header throws
-    let Some(authorization) = header(call.request.headers(), "authorization") else {
+    let Some(authorization) = header(call.request.headers(), "authorization")
+        .or_else(|| header(call.request.headers(), "x-reforged-session-ticket"))
+    else {
         return server_error();
     };
     let token = bearer_token(&authorization);
@@ -400,6 +402,18 @@ pub async fn oauth_token(mut call: Call) -> Response {
         }
         return match user_id {
             Some(user_id) => {
+                if let Some(raw_key) = key
+                    && let Ok(Some(acc)) = account_by_user(&shared, &user_id).await
+                {
+                    use sha2::{Digest, Sha256};
+                    let key_sha256: String = Sha256::digest(raw_key.as_bytes())
+                        .iter()
+                        .map(|b| format!("{b:02x}"))
+                        .collect();
+                    let home = shared.home();
+                    let _ = home.register_account_key_hash(&key_sha256, acc.id.global()).await;
+                    let _ = home.register_directory_account(acc.id.global(), &acc.name).await;
+                }
                 tracing::info!("Logging in a user by API key.");
                 login_reply(&shared, &user_id)
             }

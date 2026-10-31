@@ -32,7 +32,7 @@ const MAX_PLAYERS_LISTED: usize = 500;
 /// Express's default JSON limit
 pub(super) const BODY_LIMIT: usize = 100 * 1024;
 
-static BOOTED_AT: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
+static BOOTED_AT: LazyLock<Instant> = LazyLock::new(Instant::now);
 
 pub(super) fn actor_host() -> ActorContext {
     ActorContext::new(Actor::Console)
@@ -61,6 +61,7 @@ pub fn hash_api_key(shared: &Shared, value: &str, scope: &str) -> Option<String>
 
 #[derive(Debug, Clone)]
 struct Holder {
+    account_id: AccountId,
     user_id: String,
     username: String,
     is_admin: bool,
@@ -95,10 +96,19 @@ fn hex_bytes(text: &str) -> Vec<u8> {
         .collect()
 }
 
+fn sha256_hex(text: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(text.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
 async fn holder_of(shared: &Shared, store: &IslesStore, key: Option<&str>) -> Option<Holder> {
     let key = key.filter(|key| looks_like_account_key(key))?;
     let hashed = hash_api_key(shared, key, "user")?;
-    store
+    let key_sha256 = sha256_hex(key);
+    let holder = store
         .read(move |conn, repos| {
             let rows = repos.api_keys.find_all_user_key_hashes(conn)?;
             let Some(account) = find_key_owner(&rows, &hashed) else {
@@ -115,6 +125,7 @@ async fn holder_of(shared: &Shared, store: &IslesStore, key: Option<&str>) -> Op
                 .or_else(|| game.map(|g| g.name))
                 .unwrap_or_else(|| user_id.clone());
             Ok(Some(Holder {
+                account_id: account,
                 user_id,
                 username,
                 is_admin: launcher.as_ref().is_some_and(|l| l.roles.iter().any(|r| r == "admin")),
@@ -123,7 +134,17 @@ async fn holder_of(shared: &Shared, store: &IslesStore, key: Option<&str>) -> Op
         })
         .await
         .ok()
-        .flatten()
+        .flatten()?;
+    if eligible(&holder) {
+        let home = shared.home();
+        let _ = home
+            .register_account_key_hash(&key_sha256, holder.account_id.global())
+            .await;
+        let _ = home
+            .register_directory_account(holder.account_id.global(), &holder.username)
+            .await;
+    }
+    Some(holder)
 }
 
 fn eligible(holder: &Holder) -> bool {
@@ -288,7 +309,7 @@ pub async fn server_status_body(shared: &Shared, store: &IslesStore, full: bool)
         "commit": js_slice(service_kit::js::trim(shared.settings.raw("REFORGED_SOURCE_COMMIT").unwrap_or_default()), 64),
         "sourceUrl": https_url_or_null(shared.settings.raw("REFORGED_SOURCE_URL")),
         "registration": mode(shared).as_str(),
-        "uptimeSeconds": BOOTED_AT.lock().unwrap_or_else(PoisonError::into_inner).elapsed().as_secs(),
+        "uptimeSeconds": BOOTED_AT.elapsed().as_secs(),
         "contentPort": null,
         "game": {
             "build": format!("rel-{}-Archon", shared.version.tables.game_version),
@@ -454,8 +475,14 @@ async fn register_account(call: Call) -> Response {
         }
     }
     tracing::info!("[launcher-api] {username} registered as {user_id}");
+    let home = shared.home();
+    let key_sha256 = sha256_hex(&key);
+    let _ = home.register_account_key_hash(&key_sha256, account.global()).await;
+    let _ = home.register_directory_account(account.global(), &username).await;
     forget_status();
-    util::json(200, &json!({ "UUK": key }))
+    let mut response = util::json(200, &json!({ "UUK": key }));
+    util::set_header(&mut response, "x-reforged-account-id", &account.to_string());
+    response
 }
 
 async fn get_user_info(call: Call) -> Response {
@@ -483,10 +510,12 @@ async fn get_user_info(call: Call) -> Response {
             }),
         );
     }
-    util::json(
+    let mut response = util::json(
         200,
         &json!({ "UserId": holder.user_id, "Username": holder.username, "IsAdmin": holder.is_admin }),
-    )
+    );
+    util::set_header(&mut response, "x-reforged-account-id", &holder.account_id.to_string());
+    response
 }
 
 async fn server_status(call: Call) -> Response {
@@ -510,7 +539,7 @@ fn registration_status(call: &Call) -> Response {
 }
 
 pub fn register(handlers: &mut Handlers) {
-    *BOOTED_AT.lock().unwrap_or_else(PoisonError::into_inner) = Instant::now();
+    let _ = *BOOTED_AT;
     let b = Service::Backend;
     handlers.on(b, Method::Post, "/reforged/api/Register", |call| {
         Box::pin(register_account(call))
@@ -524,4 +553,20 @@ pub fn register(handlers: &mut Handlers) {
     handlers.on(b, Method::Get, "/reforged/api/RegistrationStatus", |call| {
         Box::pin(async move { registration_status(&call) })
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registering_a_second_module_does_not_reset_booted_at() {
+        let mut first = Handlers::default();
+        register(&mut first);
+        let first_boot = *BOOTED_AT;
+        std::thread::sleep(Duration::from_millis(5));
+        let mut second = Handlers::default();
+        register(&mut second);
+        assert_eq!(*BOOTED_AT, first_boot);
+    }
 }

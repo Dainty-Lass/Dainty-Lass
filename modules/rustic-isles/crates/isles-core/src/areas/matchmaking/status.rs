@@ -121,16 +121,20 @@ pub async fn candidate_status_answer(
     // public domain, so its source address equals the advertised host exactly when it is behind the same address.
     let advertised = result.host.as_str();
     let address = client_ip.unwrap_or_default().trim_start_matches("::ffff:");
+    let ring_assigned =
+        result.game_session_id.starts_with("hunt:") || result.game_session_id.starts_with("hub_instance:");
     let local = !address.is_empty()
         && !advertised.is_empty()
-        && (address == advertised || address == "127.0.0.1" || address == "::1");
+        && (address == advertised
+            || ((!ring_assigned || advertised == "127.0.0.1") && (address == "127.0.0.1" || address == "::1")));
     let travel_host = if local { "127.0.0.1" } else { advertised };
 
     // Before answering with a hub address, confirm the hub is STILL serving: a cached candidate is not proof. A hub
     // that can't be verified holds the client in the MATCHING shape it already polls on. A realm hub is the member's
     // own loopback port, so it isn't checked against the DeployServer.
     let mut live_port = result.port;
-    if ramsgate && !realm_hub {
+    let ring_assigned_hub = result.game_session_id.starts_with("hub_instance:");
+    if ramsgate && !realm_hub && !ring_assigned_hub {
         let live = state.deploy.get().hub_status().await;
         match live.and_then(|status| status.ramsgate).filter(|hub| hub.ready) {
             None => {
