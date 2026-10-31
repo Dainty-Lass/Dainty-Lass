@@ -16,7 +16,8 @@ use crate::chat::{ChatAnswer, ChatQuery};
 use crate::ids::{ModuleId, check_name};
 use crate::manifest::{ModuleManifest, PortRange};
 use crate::network::{
-    GlobalId, HomeAnswer, HomeCall, HomeError, HomeForward, IdKind, NodeId, NodeIdentity, OperationName, SessionTicket,
+    GlobalId, HomeAnswer, HomeCall, HomeError, HomeForward, HuntRewards, IdKind, InstanceRecord, JoinDecision, NodeId,
+    NodeIdentity, OperationName, PublishedTicket, SessionTicket, TicketState,
 };
 use crate::registrar::{AdminAction, Registrar, Registration};
 use crate::version::GameVersion;
@@ -497,6 +498,245 @@ impl ModuleContext {
         };
         Ok(match self.home(call).await? {
             Ok(HomeAnswer::Admitted(account)) => Ok(account),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn verify_session_ticket(
+        &self,
+        ticket: &SessionTicket,
+        game: &GameVersion,
+    ) -> Result<Result<GlobalId, HomeError>, ModuleError> {
+        let call = HomeCall::VerifySessionTicket {
+            ticket: ticket.clone(),
+            game: game.clone(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Admitted(account)) => Ok(account),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn register_account_key_hash(
+        &self,
+        key_sha256: &str,
+        account: &GlobalId,
+    ) -> Result<Result<(), HomeError>, ModuleError> {
+        let call = HomeCall::RegisterAccountKeyHash {
+            key_sha256: key_sha256.to_owned(),
+            account: account.clone(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Ack) => Ok(()),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn register_directory_account(
+        &self,
+        account: &GlobalId,
+        username: &str,
+    ) -> Result<Result<String, HomeError>, ModuleError> {
+        let call = HomeCall::RegisterDirectoryAccount {
+            account: account.clone(),
+            username: username.to_owned(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::DirectoryUsername(name)) => Ok(name),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_submit_ticket(
+        &self,
+        account: &GlobalId,
+        queue: &str,
+        game: &GameVersion,
+        party_size: u16,
+        client_ip: &str,
+    ) -> Result<Result<PublishedTicket, HomeError>, ModuleError> {
+        let call = HomeCall::RingSubmitTicket {
+            account: account.clone(),
+            queue: queue.to_owned(),
+            game: game.clone(),
+            party_size,
+            client_ip: client_ip.to_owned(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::PublishedTicket(ticket)) => Ok(*ticket),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_try_form_matches(
+        &self,
+        queue: &str,
+        game: &GameVersion,
+    ) -> Result<Result<Vec<InstanceRecord>, HomeError>, ModuleError> {
+        let call = HomeCall::RingTryFormMatches {
+            queue: queue.to_owned(),
+            game: game.clone(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::FormedMatches(matches)) => Ok(matches),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_ticket_state(
+        &self,
+        ticket: &GlobalId,
+    ) -> Result<Result<Option<TicketState>, HomeError>, ModuleError> {
+        let call = HomeCall::RingTicketState { ticket: ticket.clone() };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::TicketState(state)) => Ok(state.map(|boxed| *boxed)),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_cancel_ticket(&self, ticket: &GlobalId) -> Result<Result<bool, HomeError>, ModuleError> {
+        let call = HomeCall::RingCancelTicket { ticket: ticket.clone() };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Cancelled(cancelled)) => Ok(cancelled),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_lookup_instance(
+        &self,
+        instance: &GlobalId,
+    ) -> Result<Result<Option<InstanceRecord>, HomeError>, ModuleError> {
+        let call = HomeCall::RingLookupInstance {
+            instance: instance.clone(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Instance(record)) => Ok(record.map(|boxed| *boxed)),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_register_instance(&self, record: &InstanceRecord) -> Result<Result<(), HomeError>, ModuleError> {
+        let call = HomeCall::RingRegisterInstance {
+            record: Box::new(record.clone()),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Ack) => Ok(()),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_resolve_join(
+        &self,
+        account: &GlobalId,
+        client_ip: &str,
+        instance: &GlobalId,
+    ) -> Result<Result<JoinDecision, HomeError>, ModuleError> {
+        let call = HomeCall::RingResolveJoin {
+            account: account.clone(),
+            client_ip: client_ip.to_owned(),
+            instance: instance.clone(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::JoinDecision(decision)) => Ok(*decision),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_assign_ramsgate(
+        &self,
+        account: &GlobalId,
+        client_ip: &str,
+        game: &GameVersion,
+    ) -> Result<Result<(InstanceRecord, Option<SessionTicket>), HomeError>, ModuleError> {
+        let call = HomeCall::RingAssignRamsgate {
+            account: account.clone(),
+            client_ip: client_ip.to_owned(),
+            game: game.clone(),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::RamsgateAssigned { instance, ticket }) => Ok((*instance, ticket)),
+            Ok(other) => {
+                return Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("home answered {other:?}"),
+                ));
+            }
+            Err(error) => Err(error),
+        })
+    }
+
+    pub async fn ring_forward_hunt_rewards(&self, rewards: &HuntRewards) -> Result<Result<(), HomeError>, ModuleError> {
+        let call = HomeCall::RingForwardHuntRewards {
+            rewards: Box::new(rewards.clone()),
+        };
+        Ok(match self.home(call).await? {
+            Ok(HomeAnswer::Ack) => Ok(()),
             Ok(other) => {
                 return Err(ModuleError::new(
                     ErrorKind::Protocol,

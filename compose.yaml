@@ -147,6 +147,29 @@ x-network-gateway: &network-gateway
     interval: 5s
     start_period: 30s
 
+x-network-node: &network-node
+  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: server
+    args:
+      REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
+  profiles: [network]
+  environment:
+    REFORGED_NETWORK_FULL_NODE: "1"
+    REFORGED_WRONG_NODE_POLICY: ${REFORGED_WRONG_NODE_POLICY:-refuse}
+  command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  healthcheck:
+    test: ["CMD", "reforged-healthcheck", "gateway"]
+    interval: 5s
+    start_period: 30s
+
 services:
   # Holds the network namespace and the published ports, so a service restarting never drops the others'.
   # compose.tailscale.yaml replaces it with Tailscale for a private server.
@@ -580,10 +603,10 @@ services:
         condition: service_completed_successfully
 
   gateway-oregon:
-    <<: *network-gateway
+    <<: *network-node
     network_mode: service:net-oregon
     volumes:
-      - network-oregon:/opt/reforged/.workspace:ro
+      - network-oregon:/opt/reforged/.workspace
     depends_on:
       net-oregon:
         condition: service_healthy
@@ -620,10 +643,10 @@ services:
         condition: service_completed_successfully
 
   gateway-new-york:
-    <<: *network-gateway
+    <<: *network-node
     network_mode: service:net-new-york
     volumes:
-      - network-new-york:/opt/reforged/.workspace:ro
+      - network-new-york:/opt/reforged/.workspace
     depends_on:
       net-new-york:
         condition: service_healthy
@@ -660,10 +683,10 @@ services:
         condition: service_completed_successfully
 
   gateway-uk:
-    <<: *network-gateway
+    <<: *network-node
     network_mode: service:net-uk
     volumes:
-      - network-uk:/opt/reforged/.workspace:ro
+      - network-uk:/opt/reforged/.workspace
     depends_on:
       net-uk:
         condition: service_healthy
@@ -700,10 +723,10 @@ services:
         condition: service_completed_successfully
 
   gateway-germany:
-    <<: *network-gateway
+    <<: *network-node
     network_mode: service:net-germany
     volumes:
-      - network-germany:/opt/reforged/.workspace:ro
+      - network-germany:/opt/reforged/.workspace
     depends_on:
       net-germany:
         condition: service_healthy

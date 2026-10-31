@@ -227,24 +227,24 @@ async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_n
 
     struct StubUdpDirector;
     impl DirectorPlacement for StubUdpDirector {
-        fn place_hunt(
-            &self,
-            _hunt_id: &GlobalId,
-            _queue: &str,
-            _game: &GameVersion,
-            _players: &[GlobalId],
-        ) -> Result<(String, u16), DirectorPlacementError> {
-            Ok(("127.0.0.1".into(), 65012))
+        fn place_hunt<'a>(
+            &'a self,
+            _hunt_id: &'a GlobalId,
+            _queue: &'a str,
+            _game: &'a GameVersion,
+            _players: &'a [GlobalId],
+        ) -> module_api::BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
+            Box::pin(async { Ok(("127.0.0.1".into(), 65012)) })
         }
 
-        fn place_hub(
-            &self,
-            _hub_id: &GlobalId,
-            _region: &module_api::network::Region,
+        fn place_hub<'a>(
+            &'a self,
+            _hub_id: &'a GlobalId,
+            _region: &'a module_api::network::Region,
             _shard: u32,
-            _game: &GameVersion,
-        ) -> Result<(String, u16), DirectorPlacementError> {
-            Ok(("127.0.0.1".into(), 65013))
+            _game: &'a GameVersion,
+        ) -> module_api::BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
+            Box::pin(async { Ok(("127.0.0.1".into(), 65013)) })
         }
     }
 

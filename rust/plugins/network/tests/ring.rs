@@ -38,26 +38,30 @@ impl LoopbackDirector {
 }
 
 impl DirectorPlacement for LoopbackDirector {
-    fn place_hunt(
-        &self,
-        _hunt_id: &GlobalId,
-        _queue: &str,
-        _game: &GameVersion,
-        _players: &[GlobalId],
-    ) -> Result<(String, u16), DirectorPlacementError> {
+    fn place_hunt<'a>(
+        &'a self,
+        _hunt_id: &'a GlobalId,
+        _queue: &'a str,
+        _game: &'a GameVersion,
+        _players: &'a [GlobalId],
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
         let offset = self.next_offset.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000;
-        Ok((self.host.clone(), self.base_port.saturating_add(offset)))
+        let host = self.host.clone();
+        let port = self.base_port.saturating_add(offset);
+        Box::pin(async move { Ok((host, port)) })
     }
 
-    fn place_hub(
-        &self,
-        _hub_id: &GlobalId,
-        _region: &Region,
+    fn place_hub<'a>(
+        &'a self,
+        _hub_id: &'a GlobalId,
+        _region: &'a Region,
         _shard: u32,
-        _game: &GameVersion,
-    ) -> Result<(String, u16), DirectorPlacementError> {
+        _game: &'a GameVersion,
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
         let offset = self.next_offset.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 1000;
-        Ok((self.host.clone(), self.base_port.saturating_add(offset)))
+        let host = self.host.clone();
+        let port = self.base_port.saturating_add(offset);
+        Box::pin(async move { Ok((host, port)) })
     }
 }
 
@@ -570,5 +574,5 @@ fn ring_wire_refuses_account_keys_and_bad_versions() {
         br#"{"version":99,"call":{"lookup_instance":{"instance":"hunt:01J9Z3N5C8Q0V2X4Y6W8T0R2P4@oregon-1"}}}"#;
     assert!(decode_request(bad_version).is_err());
 
-    let _ = ClaimOutcome::Granted;
+    let _ = ClaimOutcome::Granted { session_ticket: None };
 }

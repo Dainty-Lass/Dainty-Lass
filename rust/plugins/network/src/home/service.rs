@@ -43,6 +43,13 @@ pub trait HomeLocator: Send + Sync {
 impl HomeLocator for crate::directory::Directory {
     fn home_of<'a>(&'a self, account: &'a GlobalId) -> BoxFuture<'a, Result<Option<NodeId>, String>> {
         Box::pin(async move {
+            let found = crate::directory::Directory::home_of(self, account)
+                .await
+                .map_err(|error| error.to_string())?;
+            if found.is_some() {
+                return Ok(found);
+            }
+            let _ = self.sync().await;
             crate::directory::Directory::home_of(self, account)
                 .await
                 .map_err(|error| error.to_string())

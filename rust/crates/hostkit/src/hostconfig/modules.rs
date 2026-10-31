@@ -74,6 +74,9 @@ pub struct NetworkConfig {
     /// Optional explicit directory leader; when `None`, [`Self::effective_leader`] picks the
     /// lexicographically smallest node id across `node` and `nodes`.
     pub leader: Option<NodeId>,
+    /// Optional policy when a client asks to join an instance hosted on another node
+    /// (`"refuse"` or `"redirect"`, default `"refuse"` per DN1 / DN8).
+    pub wrong_node_policy: Option<network_plugin::ring::WrongNodePolicy>,
     /// The other nodes (`[[network.nodes]]`): the only ones this node answers, and the ones it calls
     pub nodes: Vec<Peer>,
 }
@@ -345,10 +348,21 @@ impl NetworkConfig {
                 Some(id)
             }
         };
+        let wrong_node_policy = match m.get("wrongNodePolicy") {
+            None => None,
+            Some(v) => match v.as_str() {
+                Some("refuse") => Some(network_plugin::ring::WrongNodePolicy::Refuse),
+                Some("redirect") => Some(network_plugin::ring::WrongNodePolicy::Redirect),
+                _ => {
+                    return Err(bad("network.wrong_node_policy must be \"refuse\" or \"redirect\""));
+                }
+            },
+        };
         Ok(Self {
             node,
             region,
             leader,
+            wrong_node_policy,
             nodes,
         })
     }
@@ -373,6 +387,13 @@ impl NetworkConfig {
         out.insert("region".into(), Value::String(self.region.to_string()));
         if let Some(leader) = &self.leader {
             out.insert("leader".into(), Value::String(leader.to_string()));
+        }
+        if let Some(policy) = &self.wrong_node_policy {
+            let s = match policy {
+                network_plugin::ring::WrongNodePolicy::Refuse => "refuse",
+                network_plugin::ring::WrongNodePolicy::Redirect => "redirect",
+            };
+            out.insert("wrongNodePolicy".into(), Value::String(s.to_owned()));
         }
         if !self.nodes.is_empty() {
             let nodes = self.nodes.iter().filter_map(|peer| serde_json::to_value(peer).ok());

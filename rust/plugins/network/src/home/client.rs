@@ -9,10 +9,13 @@
 //! use for any of this and keeps [`module_api::network::StandaloneHome`].
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 use std::time::Duration;
 
-use module_api::network::{GlobalId, HomeApi, HomeError, IdKind, NodeId, Region, SessionTicket};
+use module_api::network::{
+    GlobalId, HomeApi, HomeError, HomeInvocation, HuntRewards, IdKind, InstanceRecord, JoinDecision, NodeId,
+    PublishedTicket, Region, SessionTicket, TicketState,
+};
 use module_api::{BoxFuture, GameVersion, HomeForward, NodeIdentity};
 use serde_json::Value;
 
@@ -20,9 +23,10 @@ use super::protocol::{
     DecodeError, HomeBody, HomeCall, HomeRefusal, HomeReply, HomeRequest, HomeRequestCall, RequestKey, SessionInfo,
     WireActor, decode_response, encode_request,
 };
-use super::service::HomeLocator;
+use super::service::{HomeLocator, HomeRouter};
 use super::ticket::{Expect, TicketError, Tickets};
 use crate::link::{LinkError, PeerLink, Service};
+use crate::ring::{RingError, RingNode};
 
 /// Sessions a node holds tickets for at once.
 pub const MAX_HELD: usize = 4096;
@@ -68,6 +72,19 @@ pub struct NetworkedHome {
     config: NetworkedConfig,
     held: Mutex<HashMap<GlobalId, Held>>,
     fetched: Mutex<HashMap<NodeId, i64>>,
+    local_router: Option<Arc<HomeRouter>>,
+    #[cfg(feature = "directory")]
+    directory: Option<Arc<crate::directory::Directory>>,
+    ring: OnceLock<Weak<RingNode>>,
+}
+
+fn ring_to_home_error(err: RingError) -> HomeError {
+    match err {
+        RingError::Home(e) => e,
+        RingError::Link(e) => unreachable(e),
+        RingError::Director(e) => unreachable(e),
+        other => denied(other),
+    }
 }
 
 fn denied(error: impl std::fmt::Display) -> HomeError {
@@ -142,7 +159,33 @@ impl NetworkedHome {
             config,
             held: Mutex::new(HashMap::new()),
             fetched: Mutex::new(HashMap::new()),
+            local_router: None,
+            #[cfg(feature = "directory")]
+            directory: None,
+            ring: OnceLock::new(),
         }
+    }
+
+    pub fn with_local_router(mut self, router: Arc<HomeRouter>) -> Self {
+        self.local_router = Some(router);
+        self
+    }
+
+    #[cfg(feature = "directory")]
+    pub fn with_directory(mut self, directory: Arc<crate::directory::Directory>) -> Self {
+        self.directory = Some(directory);
+        self
+    }
+
+    pub fn set_ring(&self, ring: &Arc<RingNode>) {
+        let _ = self.ring.set(Arc::downgrade(ring));
+    }
+
+    fn ring(&self) -> Result<Arc<RingNode>, HomeError> {
+        self.ring
+            .get()
+            .and_then(Weak::upgrade)
+            .ok_or_else(|| unreachable("the matchmaking ring is not running"))
     }
 
     pub fn tickets(&self) -> &Arc<Tickets> {
@@ -373,6 +416,19 @@ impl NetworkedHome {
     async fn run_forward(&self, forward: &HomeForward) -> Result<Value, HomeError> {
         let home = self.home_node(&forward.account).await?;
         if home == self.me.node {
+            if let Some(router) = &self.local_router {
+                let backend = router
+                    .get(&forward.module)
+                    .ok_or_else(|| denied("module is not loaded on this node"))?;
+                let invocation = HomeInvocation {
+                    from: self.me.node.clone(),
+                    account: forward.account.clone(),
+                    actor: forward.actor.clone(),
+                    operation: forward.operation.clone(),
+                    body: forward.body.clone(),
+                };
+                return backend.run(invocation).await.map_err(HomeError::Module);
+            }
             return Err(denied("this node is the account's home"));
         }
         let key = match &forward.key {
@@ -478,6 +534,168 @@ impl HomeApi for NetworkedHome {
                 self.keep(ticket.clone(), claims.exp, claims.since);
             }
             Ok(claims.sub)
+        })
+    }
+
+    fn verify_session_ticket<'a>(
+        &'a self,
+        ticket: &'a SessionTicket,
+        game: &'a GameVersion,
+    ) -> BoxFuture<'a, Result<GlobalId, HomeError>> {
+        Box::pin(async move {
+            let now = self.tickets.clock().now_ms();
+            let already_held = {
+                let held = self.held.lock().unwrap_or_else(PoisonError::into_inner);
+                held.get(&ticket.account).is_some_and(|h| {
+                    h.ticket.token == ticket.token
+                        && h.exp > now
+                        && !self.tickets.is_revoked_at(&ticket.account, h.since)
+                })
+            };
+            if already_held {
+                let home = self.home_node(&ticket.account).await?;
+                let claims = self
+                    .tickets
+                    .verify(
+                        ticket,
+                        &Expect {
+                            issuer: &home,
+                            audience: &self.me.node,
+                            game: Some(game),
+                            account: Some(&ticket.account),
+                        },
+                    )
+                    .map_err(ticket_denied)?;
+                return Ok(claims.sub);
+            }
+            self.admit(ticket, game).await
+        })
+    }
+
+    fn register_account_key_hash<'a>(
+        &'a self,
+        key_sha256: &'a str,
+        account: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<(), HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.register_local_account_key_hash(key_sha256, account.clone());
+            Ok(())
+        })
+    }
+
+    fn register_directory_account<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        username: &'a str,
+    ) -> BoxFuture<'a, Result<String, HomeError>> {
+        Box::pin(async move {
+            #[cfg(feature = "directory")]
+            if let Some(dir) = &self.directory {
+                let actor = store::Actor::System("home".into());
+                return dir
+                    .register(actor, account, username)
+                    .await
+                    .map(|entry| entry.change.username().as_str().to_owned())
+                    .map_err(denied);
+            }
+            let _ = (account, username);
+            Err(HomeError::NotInNetwork)
+        })
+    }
+
+    fn ring_submit_ticket<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        queue: &'a str,
+        game: &'a GameVersion,
+        party_size: u16,
+        client_ip: &'a str,
+    ) -> BoxFuture<'a, Result<PublishedTicket, HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.submit_ticket(account.clone(), queue, game.clone(), party_size, client_ip)
+                .await
+                .map_err(ring_to_home_error)
+        })
+    }
+
+    fn ring_try_form_matches<'a>(
+        &'a self,
+        queue: &'a str,
+        game: &'a GameVersion,
+    ) -> BoxFuture<'a, Result<Vec<InstanceRecord>, HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.try_form_matches(queue, game).await.map_err(ring_to_home_error)
+        })
+    }
+
+    fn ring_ticket_state<'a>(&'a self, ticket: &'a GlobalId) -> BoxFuture<'a, Result<Option<TicketState>, HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            Ok(ring.ticket_state(ticket))
+        })
+    }
+
+    fn ring_cancel_ticket<'a>(&'a self, ticket: &'a GlobalId) -> BoxFuture<'a, Result<bool, HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.cancel_ticket(ticket).await.map_err(ring_to_home_error)
+        })
+    }
+
+    fn ring_lookup_instance<'a>(
+        &'a self,
+        instance: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<Option<InstanceRecord>, HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.lookup_instance(instance).await.map_err(ring_to_home_error)
+        })
+    }
+
+    fn ring_register_instance<'a>(&'a self, record: &'a InstanceRecord) -> BoxFuture<'a, Result<(), HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.register_instance(record.clone()).map_err(ring_to_home_error)
+        })
+    }
+
+    fn ring_resolve_join<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        client_ip: &'a str,
+        instance: &'a GlobalId,
+    ) -> BoxFuture<'a, Result<JoinDecision, HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.resolve_join(account, client_ip, instance)
+                .await
+                .map_err(ring_to_home_error)
+        })
+    }
+
+    fn ring_assign_ramsgate<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        client_ip: &'a str,
+        game: &'a GameVersion,
+    ) -> BoxFuture<'a, Result<(InstanceRecord, Option<SessionTicket>), HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.assign_ramsgate(account.clone(), client_ip, game.clone())
+                .await
+                .map_err(ring_to_home_error)
+        })
+    }
+
+    fn ring_forward_hunt_rewards<'a>(&'a self, rewards: &'a HuntRewards) -> BoxFuture<'a, Result<(), HomeError>> {
+        Box::pin(async move {
+            let ring = self.ring()?;
+            ring.forward_hunt_rewards(rewards.clone())
+                .await
+                .map_err(ring_to_home_error)
         })
     }
 }

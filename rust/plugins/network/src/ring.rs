@@ -23,14 +23,19 @@
 //!   assigned to the Ramsgate of their lowest-ping region.
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
+pub use module_api::network::{
+    DIRECTOR_COMMAND, DirectorInvocation, HuntRewards, InstanceRecord, JoinDecision, PeerGateway, PlacedInstance,
+    PublishedTicket, RegionPing, TicketState,
+};
 use module_api::network::{
     GlobalId, HomeApi, HomeError, HomeForward, IdKind, NodeId, NodeIdentity, OperationName, Region, SessionTicket,
     operations,
 };
-use module_api::{ActorContext, BoxFuture, GameVersion, ModuleId};
+use module_api::{ActorContext, BoxFuture, GameVersion, ModuleDriver, ModuleDriverExt, ModuleId};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::home::protocol::{holds_account_key, looks_like_account_key};
 use crate::link::{Clock, LinkError, NodeService, PeerLink, Service};
@@ -51,39 +56,24 @@ pub const DEFAULT_MAX_HUB_PLAYERS: u16 = 24;
 /// step 3 at 15s.
 pub const DEFAULT_RING_DELAYS_MS: [u64; 4] = [0, 5_000, 10_000, 15_000];
 
+/// Minimum wait time in milliseconds before a partial match batch (`>= 2` players) forms a hunt when fewer
+/// than `match_size` tickets are waiting in the regional pool (DN8).
+pub const PARTIAL_MATCH_MIN_WAIT_MS: i64 = 1_000;
+
 /// How a node handles a join request for a [`GlobalId`] owned by a different node (DN6, DN1).
+///
+/// Defaults to [`WrongNodePolicy::Refuse`] (the DN1 kill criterion fallback) until spike DN1 proves the
+/// 1.14.7 client survives a mid-session relay switch, or `[network] wrong_node_policy = "redirect"` is
+/// explicitly enabled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum WrongNodePolicy {
     /// Return the owning node's gateway endpoint and a home-signed [`SessionTicket`] so the launcher relay
     /// on `127.0.0.1:61100` re-points to the owner (DD18, DN6).
-    #[default]
     Redirect,
     /// Refuse the wrong-node join with a message naming the owning node and region (DN1 kill criterion).
+    #[default]
     Refuse,
-}
-
-/// Public gateway endpoint of a peer node in the cluster, used by the launcher to ping regions (DN7) and
-/// re-point its local relay (DN6).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PeerGateway {
-    pub node: NodeId,
-    pub region: Region,
-    pub host: String,
-    pub port: u16,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fingerprint: Option<String>,
-}
-
-/// One region entry in a player's measured latency report (`POST /network/v1/regions`, DN7/DN8).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RegionPing {
-    pub region: Region,
-    /// Round-trip time in milliseconds, or `None` if the region did not answer.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rtt_ms: Option<u32>,
 }
 
 /// Widening schedule for matchmaking tickets across regions (DD19, DN8).
@@ -125,75 +115,6 @@ impl RingSchedule {
     }
 }
 
-/// Metadata for an active hunt, hub shard, or party instance registered in the cluster (DN6, DN8, DN9).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InstanceRecord {
-    pub id: GlobalId,
-    pub region: Region,
-    pub game: GameVersion,
-    pub queue: String,
-    pub server_host: String,
-    pub server_port: u16,
-    pub capacity: u16,
-    pub players: Vec<GlobalId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub shard: Option<u32>,
-    pub created_at_ms: i64,
-}
-
-/// Outcome of resolving a join for an instance on this node (DN6).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum JoinDecision {
-    /// This node owns the instance and admitted the player.
-    Local(InstanceRecord),
-    /// Another node owns the instance; the launcher relay should re-point to `gateway` with `ticket`.
-    Redirect {
-        instance: GlobalId,
-        owner: NodeId,
-        gateway: PeerGateway,
-        ticket: SessionTicket,
-    },
-    /// Another node owns the instance and wrong-node joins are refused (`WrongNodePolicy::Refuse`, DN1).
-    Refused {
-        instance: GlobalId,
-        owner: NodeId,
-        region: Region,
-        message: String,
-    },
-}
-
-/// A matchmaking ticket published into the ring (DN8).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PublishedTicket {
-    pub ticket: GlobalId,
-    pub account: GlobalId,
-    pub home_node: NodeId,
-    pub queue: String,
-    pub game: GameVersion,
-    pub party_size: u16,
-    pub client_ip: String,
-    pub ordered_regions: Vec<Region>,
-    pub created_at_ms: i64,
-}
-
-/// State of a matchmaking ticket at its owning home node (DN8).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum TicketState {
-    Searching {
-        published_steps: usize,
-    },
-    Claimed {
-        match_id: GlobalId,
-        hosting_node: NodeId,
-        claimed_at_ms: i64,
-    },
-    Cancelled,
-}
-
 /// Home-owned record of a player's matchmaking ticket (DN8).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HomeTicket {
@@ -205,25 +126,16 @@ pub struct HomeTicket {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ClaimOutcome {
-    Granted,
-    AlreadyClaimed { match_id: GlobalId, hosting_node: NodeId },
+    Granted {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_ticket: Option<SessionTicket>,
+    },
+    AlreadyClaimed {
+        match_id: GlobalId,
+        hosting_node: NodeId,
+    },
     Cancelled,
     UnknownTicket,
-}
-
-/// Post-hunt rewards and objective progress to forward from the hosting node to a player's home (DN8).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HuntRewards {
-    pub hunt: GlobalId,
-    pub module: ModuleId,
-    pub account: GlobalId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub xp_grant: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub loot_write: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub objective_write: Option<serde_json::Value>,
 }
 
 /// Wire requests sent over [`Service::Ring`].
@@ -446,22 +358,22 @@ fn validate_reply(reply: &RingReply) -> Result<(), RingError> {
 /// Seam for starting a hunt or hub game server on this node's Director (DN8, DN9).
 pub trait DirectorPlacement: Send + Sync {
     /// Starts a hunt server for `hunt_id` and returns `(server_host, udp_port)`.
-    fn place_hunt(
-        &self,
-        hunt_id: &GlobalId,
-        queue: &str,
-        game: &GameVersion,
-        players: &[GlobalId],
-    ) -> Result<(String, u16), DirectorPlacementError>;
+    fn place_hunt<'a>(
+        &'a self,
+        hunt_id: &'a GlobalId,
+        queue: &'a str,
+        game: &'a GameVersion,
+        players: &'a [GlobalId],
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>>;
 
     /// Starts a regional Ramsgate hub shard for `hub_id` (`shard` index) and returns `(server_host, udp_port)`.
-    fn place_hub(
-        &self,
-        hub_id: &GlobalId,
-        region: &Region,
+    fn place_hub<'a>(
+        &'a self,
+        hub_id: &'a GlobalId,
+        region: &'a Region,
         shard: u32,
-        game: &GameVersion,
-    ) -> Result<(String, u16), DirectorPlacementError>;
+        game: &'a GameVersion,
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>>;
 }
 
 /// Production [`DirectorPlacement`] used when no module-to-host Director seam is wired: refuses placement cleanly
@@ -470,24 +382,106 @@ pub trait DirectorPlacement: Send + Sync {
 pub struct UnconfiguredDirector;
 
 impl DirectorPlacement for UnconfiguredDirector {
-    fn place_hunt(
-        &self,
-        _hunt_id: &GlobalId,
-        _queue: &str,
-        game: &GameVersion,
-        _players: &[GlobalId],
-    ) -> Result<(String, u16), DirectorPlacementError> {
-        Err(DirectorPlacementError::Unconfigured(game.clone()))
+    fn place_hunt<'a>(
+        &'a self,
+        _hunt_id: &'a GlobalId,
+        _queue: &'a str,
+        game: &'a GameVersion,
+        _players: &'a [GlobalId],
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
+        let game = game.clone();
+        Box::pin(async move { Err(DirectorPlacementError::Unconfigured(game)) })
     }
 
-    fn place_hub(
-        &self,
-        _hub_id: &GlobalId,
-        _region: &Region,
+    fn place_hub<'a>(
+        &'a self,
+        _hub_id: &'a GlobalId,
+        _region: &'a Region,
         _shard: u32,
-        game: &GameVersion,
-    ) -> Result<(String, u16), DirectorPlacementError> {
-        Err(DirectorPlacementError::Unconfigured(game.clone()))
+        game: &'a GameVersion,
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
+        let game = game.clone();
+        Box::pin(async move { Err(DirectorPlacementError::Unconfigured(game)) })
+    }
+}
+
+/// Routes [`DirectorPlacement`] requests to the loaded game module for `game` via [`DirectorInvocation::to_command`] (DN8, DN9).
+#[derive(Default)]
+pub struct DriverDirectorRouter {
+    drivers: RwLock<BTreeMap<GameVersion, Arc<dyn ModuleDriver>>>,
+}
+
+impl DriverDirectorRouter {
+    pub fn register(&self, driver: Arc<dyn ModuleDriver>) {
+        let game = driver.manifest().game_version.clone();
+        self.drivers
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(game, driver);
+    }
+
+    pub fn unregister(&self, module: &ModuleId) {
+        self.drivers
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .retain(|_, d| &d.manifest().id != module);
+    }
+
+    fn driver_for(&self, game: &GameVersion) -> Result<Arc<dyn ModuleDriver>, DirectorPlacementError> {
+        self.drivers
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(game)
+            .cloned()
+            .ok_or_else(|| DirectorPlacementError::Unconfigured(game.clone()))
+    }
+
+    async fn invoke(&self, invocation: DirectorInvocation) -> Result<(String, u16), DirectorPlacementError> {
+        let driver = self.driver_for(invocation.game())?;
+        let output = driver
+            .command(invocation.to_command())
+            .await
+            .map_err(|e| DirectorPlacementError::Failed(e.to_string()))?;
+        let data = output
+            .data
+            .ok_or_else(|| DirectorPlacementError::Failed("director returned no instance endpoint".into()))?;
+        let placed: PlacedInstance =
+            serde_json::from_value(data).map_err(|e| DirectorPlacementError::Failed(e.to_string()))?;
+        Ok((placed.server_host, placed.server_port))
+    }
+}
+
+impl DirectorPlacement for DriverDirectorRouter {
+    fn place_hunt<'a>(
+        &'a self,
+        hunt_id: &'a GlobalId,
+        queue: &'a str,
+        game: &'a GameVersion,
+        players: &'a [GlobalId],
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
+        let inv = DirectorInvocation::PlaceHunt {
+            match_id: hunt_id.clone(),
+            queue: queue.to_owned(),
+            game: game.clone(),
+            players: players.to_vec(),
+        };
+        Box::pin(async move { self.invoke(inv).await })
+    }
+
+    fn place_hub<'a>(
+        &'a self,
+        hub_id: &'a GlobalId,
+        region: &'a Region,
+        shard: u32,
+        game: &'a GameVersion,
+    ) -> BoxFuture<'a, Result<(String, u16), DirectorPlacementError>> {
+        let inv = DirectorInvocation::PlaceHub {
+            hub_id: hub_id.clone(),
+            region: region.clone(),
+            shard,
+            game: game.clone(),
+        };
+        Box::pin(async move { self.invoke(inv).await })
     }
 }
 
@@ -511,13 +505,23 @@ impl RingConfig {
     pub fn new(identity: NodeIdentity) -> Self {
         Self {
             identity,
-            wrong_node_policy: WrongNodePolicy::Redirect,
+            wrong_node_policy: WrongNodePolicy::Refuse,
             schedule: RingSchedule::default(),
             match_size: 4,
             max_hub_players: DEFAULT_MAX_HUB_PLAYERS,
             peers: Vec::new(),
         }
     }
+}
+
+fn sha256_hex_str(s: &str) -> String {
+    let digest = Sha256::digest(s.as_bytes());
+    let mut out = String::with_capacity(64);
+    for b in digest {
+        use std::fmt::Write as _;
+        let _ = write!(&mut out, "{b:02x}");
+    }
+    out
 }
 
 struct State {
@@ -529,7 +533,7 @@ struct State {
     home_tickets: BTreeMap<GlobalId, HomeTicket>,
     /// Matchmaking tickets currently visible in this node's regional matchmaking pool.
     regional_pool: BTreeMap<GlobalId, PublishedTicket>,
-    /// Map of account key (`RRK_...`) -> owning `GlobalId` registered for local key verification on `POST /network/v1/regions`.
+    /// Map of account key (`RRK_...`) or its SHA-256 hex digest -> owning `GlobalId` registered for local key verification on `POST /network/v1/regions`.
     local_account_keys: HashMap<String, GlobalId>,
 }
 
@@ -735,14 +739,25 @@ impl RingNode {
 
     // ------------------------------------------------------------------ DN7 / DN8: Region ping report
 
-    /// Registers a local account's API key (`RRK_...`) so `POST /network/v1/regions` can authenticate
-    /// home-node requests directly.
+    /// Registers a local account's API key (`RRK_...`) or its 64-hex SHA-256 digest so
+    /// `POST /network/v1/regions` can authenticate home-node requests directly.
     pub fn register_local_account_key(&self, api_key: impl Into<String>, account: GlobalId) {
+        let key = api_key.into();
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if key.starts_with("RRK_") {
+            state.local_account_keys.insert(sha256_hex_str(&key), account.clone());
+        }
+        state.local_account_keys.insert(key, account);
+    }
+
+    /// Registers the 64-hex SHA-256 digest of a local account's API key (`RRK_...`) so
+    /// `POST /network/v1/regions` can authenticate home-node requests without the raw key crossing `HostLink`.
+    pub fn register_local_account_key_hash(&self, key_sha256: impl Into<String>, account: GlobalId) {
         self.state
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .local_account_keys
-            .insert(api_key.into(), account);
+            .insert(key_sha256.into().to_ascii_lowercase(), account);
     }
 
     /// Authenticates and records a player's ordered region ping report from `POST /network/v1/regions`
@@ -754,17 +769,19 @@ impl RingNode {
         pings: Vec<RegionPing>,
     ) -> Result<GlobalId, RingError> {
         let account = if let Some(key) = api_key {
-            let found = self
-                .state
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .local_account_keys
-                .get(key)
-                .cloned();
+            let key_hash = sha256_hex_str(key);
+            let found = {
+                let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+                state
+                    .local_account_keys
+                    .get(key)
+                    .or_else(|| state.local_account_keys.get(&key_hash))
+                    .cloned()
+            };
             found.ok_or(RingError::Unauthorized)?
         } else if let Some((session_ticket, game)) = ticket {
             self.home
-                .admit(session_ticket, game)
+                .verify_session_ticket(session_ticket, game)
                 .await
                 .map_err(|_| RingError::Unauthorized)?
         } else {
@@ -912,7 +929,8 @@ impl RingNode {
         Ok(count)
     }
 
-    /// Spawns a background task that calls [`Self::advance_ring`] on `interval` until aborted.
+    /// Spawns a background task that calls [`Self::advance_ring`] and [`Self::try_form_all_regional_matches`]
+    /// on `interval` until aborted.
     pub fn spawn_ticker(self: &Arc<Self>, interval: std::time::Duration) -> tokio::task::JoinHandle<()> {
         let this = self.clone();
         tokio::spawn(async move {
@@ -923,8 +941,31 @@ impl RingNode {
                 if let Err(err) = this.advance_ring().await {
                     tracing::warn!(error = %err, "ring ticker advance_ring failed");
                 }
+                if let Err(err) = this.try_form_all_regional_matches().await {
+                    tracing::warn!(error = %err, "ring ticker try_form_all_regional_matches failed");
+                }
             }
         })
+    }
+
+    /// Attempts to form matches for every `(queue, game)` pair currently waiting in this node's regional pool.
+    pub async fn try_form_all_regional_matches(&self) -> Result<Vec<InstanceRecord>, RingError> {
+        let pairs: Vec<(String, GameVersion)> = {
+            let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut seen = Vec::new();
+            for t in state.regional_pool.values() {
+                let pair = (t.queue.clone(), t.game.clone());
+                if !seen.contains(&pair) {
+                    seen.push(pair);
+                }
+            }
+            seen
+        };
+        let mut out = Vec::new();
+        for (queue, game) in pairs {
+            out.extend(self.try_form_matches(&queue, &game).await?);
+        }
+        Ok(out)
     }
 
     /// Cancels a home-owned ticket and withdraws it from every region it was published to.
@@ -1005,6 +1046,23 @@ impl RingNode {
             }
         }
 
+        // If fewer than `match_size` players are waiting (e.g. a 2- or 3-player hunt across nodes) and the
+        // oldest waiting ticket has been searching for at least `PARTIAL_MATCH_MIN_WAIT_MS`, form a match for
+        // the partial batch so 2-3 players do not wait forever when no 4th player joins.
+        let now_ms = self.clock.now_ms();
+        let min_players = self.config.match_size.min(2);
+        if formed.is_empty()
+            && batch_players >= min_players
+            && batch
+                .iter()
+                .any(|t| now_ms.saturating_sub(t.created_at_ms) >= PARTIAL_MATCH_MIN_WAIT_MS)
+        {
+            let match_id = GlobalId::new(IdKind::Hunt, &self.config.identity.node);
+            if let Some(instance) = self.claim_and_place_match(match_id, queue, game, &batch).await? {
+                formed.push(instance);
+            }
+        }
+
         Ok(formed)
     }
 
@@ -1022,7 +1080,10 @@ impl RingNode {
                 .claim_ticket_at_home(&t.home_node, &t.ticket, &self.config.identity.node, &match_id)
                 .await?;
             match outcome {
-                ClaimOutcome::Granted => {
+                ClaimOutcome::Granted { session_ticket } => {
+                    if let Some(st) = session_ticket {
+                        let _ = self.home.admit(&st, game).await;
+                    }
                     claimed.push(t.clone());
                 }
                 ClaimOutcome::AlreadyClaimed { .. } | ClaimOutcome::Cancelled | ClaimOutcome::UnknownTicket => {
@@ -1047,7 +1108,20 @@ impl RingNode {
             }
         }
 
-        // All tickets claimed! Withdraw from our pool and other regions, start on Director, and feed allowlist.
+        // All tickets claimed! Start on Director first; if placement fails, release claims so tickets can retry.
+        let players: Vec<GlobalId> = claimed.iter().map(|t| t.account.clone()).collect();
+        let (server_host, server_port) = match self.director.place_hunt(&match_id, queue, game, &players).await {
+            Ok(placed) => placed,
+            Err(err) => {
+                for prev in &claimed {
+                    let _ = self
+                        .release_ticket_at_home(&prev.home_node, &prev.ticket, &self.config.identity.node, &match_id)
+                        .await;
+                }
+                return Err(RingError::Director(err));
+            }
+        };
+
         {
             let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
             for t in &claimed {
@@ -1061,12 +1135,6 @@ impl RingNode {
                 }
             }
         }
-
-        let players: Vec<GlobalId> = claimed.iter().map(|t| t.account.clone()).collect();
-        let (server_host, server_port) = self
-            .director
-            .place_hunt(&match_id, queue, game, &players)
-            .map_err(RingError::Director)?;
 
         let record = InstanceRecord {
             id: match_id.clone(),
@@ -1170,7 +1238,7 @@ impl RingNode {
             .ok_or_else(|| RingError::UnknownRegion(target_region.clone()))?;
 
         let instance = if target_node == self.config.identity.node {
-            self.assign_local_hub(&account, &client_ip, &game)?
+            self.assign_local_hub(&account, &client_ip, &game).await?
         } else {
             let reply = self
                 .call_peer(
@@ -1198,65 +1266,72 @@ impl RingNode {
         Ok((instance, ticket))
     }
 
-    fn assign_local_hub(
+    async fn assign_local_hub(
         &self,
         account: &GlobalId,
         client_ip: &str,
         game: &GameVersion,
     ) -> Result<InstanceRecord, RingError> {
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        let existing_or_shard = {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
 
-        // If the player is already in an active hub shard in this region for this game, keep them there.
-        if let Some(existing) = state
-            .instances
-            .values()
-            .find(|inst| inst.id.kind() == IdKind::HubInstance && &inst.game == game && inst.players.contains(account))
-            .cloned()
-        {
-            drop(state);
-            self.allowlist
-                .admit_player(&existing.id, account, client_ip, existing.server_port);
-            return Ok(existing);
-        }
+            // If the player is already in an active hub shard in this region for this game, keep them there.
+            if let Some(existing) = state
+                .instances
+                .values()
+                .find(|inst| {
+                    inst.id.kind() == IdKind::HubInstance && &inst.game == game && inst.players.contains(account)
+                })
+                .cloned()
+            {
+                Ok(existing)
+            } else {
+                // Find the lowest-numbered shard with available capacity.
+                let mut candidate_ids: Vec<(u32, GlobalId)> = state
+                    .instances
+                    .values()
+                    .filter(|inst| {
+                        inst.id.kind() == IdKind::HubInstance
+                            && &inst.game == game
+                            && inst.players.len() < usize::from(inst.capacity)
+                    })
+                    .map(|inst| (inst.shard.unwrap_or(0), inst.id.clone()))
+                    .collect();
+                candidate_ids.sort_by_key(|(shard, _)| *shard);
 
-        // Find the lowest-numbered shard with available capacity.
-        let mut candidate_ids: Vec<(u32, GlobalId)> = state
-            .instances
-            .values()
-            .filter(|inst| {
-                inst.id.kind() == IdKind::HubInstance
-                    && &inst.game == game
-                    && inst.players.len() < usize::from(inst.capacity)
-            })
-            .map(|inst| (inst.shard.unwrap_or(0), inst.id.clone()))
-            .collect();
-        candidate_ids.sort_by_key(|(shard, _)| *shard);
+                if let Some((_, hub_id)) = candidate_ids.first()
+                    && let Some(inst) = state.instances.get_mut(hub_id)
+                {
+                    inst.players.push(account.clone());
+                    Ok(inst.clone())
+                } else {
+                    // All existing shards are full (or none exist yet): start a new shard on this region's Director.
+                    let next_shard = state
+                        .instances
+                        .values()
+                        .filter(|inst| inst.id.kind() == IdKind::HubInstance && &inst.game == game)
+                        .filter_map(|inst| inst.shard)
+                        .max()
+                        .map_or(1, |s| s.saturating_add(1));
+                    Err(next_shard)
+                }
+            }
+        };
 
-        if let Some((_, hub_id)) = candidate_ids.first()
-            && let Some(inst) = state.instances.get_mut(hub_id)
-        {
-            inst.players.push(account.clone());
-            let record = inst.clone();
-            drop(state);
-            self.allowlist
-                .admit_player(&record.id, account, client_ip, record.server_port);
-            return Ok(record);
-        }
-
-        // All existing shards are full (or none exist yet): start a new shard on this region's Director.
-        let next_shard = state
-            .instances
-            .values()
-            .filter(|inst| inst.id.kind() == IdKind::HubInstance && &inst.game == game)
-            .filter_map(|inst| inst.shard)
-            .max()
-            .map_or(1, |s| s.saturating_add(1));
-        drop(state);
+        let next_shard = match existing_or_shard {
+            Ok(record) => {
+                self.allowlist
+                    .admit_player(&record.id, account, client_ip, record.server_port);
+                return Ok(record);
+            }
+            Err(shard) => shard,
+        };
 
         let hub_id = GlobalId::new(IdKind::HubInstance, &self.config.identity.node);
         let (server_host, server_port) = self
             .director
             .place_hub(&hub_id, &self.config.identity.region, next_shard, game)
+            .await
             .map_err(RingError::Director)?;
 
         let record = InstanceRecord {
@@ -1290,7 +1365,7 @@ impl RingNode {
                 .regional_pool
                 .insert(ticket.ticket.clone(), ticket.clone());
             return Ok(());
-        }
+        };
         let _ = self
             .call_peer(&node, RingCall::PublishTicket { ticket: ticket.clone() })
             .await?;
@@ -1323,7 +1398,7 @@ impl RingNode {
         match_id: &GlobalId,
     ) -> Result<ClaimOutcome, RingError> {
         if home_node == &self.config.identity.node {
-            return Ok(self.local_claim_ticket(ticket, claiming_node, match_id));
+            return Ok(self.local_claim_ticket(ticket, claiming_node, match_id).await);
         }
         let reply = self
             .call_peer(
@@ -1366,38 +1441,55 @@ impl RingNode {
         Ok(())
     }
 
-    fn local_claim_ticket(&self, ticket: &GlobalId, claiming_node: &NodeId, match_id: &GlobalId) -> ClaimOutcome {
+    async fn local_claim_ticket(&self, ticket: &GlobalId, claiming_node: &NodeId, match_id: &GlobalId) -> ClaimOutcome {
         let now_ms = self.clock.now_ms();
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        let Some(home_ticket) = state.home_tickets.get_mut(ticket) else {
-            return ClaimOutcome::UnknownTicket;
-        };
-        match &home_ticket.state {
-            TicketState::Searching { .. } => {
-                home_ticket.state = TicketState::Claimed {
-                    match_id: match_id.clone(),
-                    hosting_node: claiming_node.clone(),
-                    claimed_at_ms: now_ms,
-                };
-                state.regional_pool.remove(ticket);
-                ClaimOutcome::Granted
-            }
-            TicketState::Claimed {
-                match_id: existing_match,
-                hosting_node: existing_host,
-                ..
-            } => {
-                if existing_match == match_id && existing_host == claiming_node {
-                    ClaimOutcome::Granted
-                } else {
-                    ClaimOutcome::AlreadyClaimed {
-                        match_id: existing_match.clone(),
-                        hosting_node: existing_host.clone(),
+        let (outcome_kind, account_opt) = {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let Some(home_ticket) = state.home_tickets.get_mut(ticket) else {
+                return ClaimOutcome::UnknownTicket;
+            };
+            let account = home_ticket.published.account.clone();
+            match &home_ticket.state {
+                TicketState::Searching { .. } => {
+                    home_ticket.state = TicketState::Claimed {
+                        match_id: match_id.clone(),
+                        hosting_node: claiming_node.clone(),
+                        claimed_at_ms: now_ms,
+                    };
+                    state.regional_pool.remove(ticket);
+                    (None, Some(account))
+                }
+                TicketState::Claimed {
+                    match_id: existing_match,
+                    hosting_node: existing_host,
+                    ..
+                } => {
+                    if existing_match == match_id && existing_host == claiming_node {
+                        (None, Some(account))
+                    } else {
+                        (
+                            Some(ClaimOutcome::AlreadyClaimed {
+                                match_id: existing_match.clone(),
+                                hosting_node: existing_host.clone(),
+                            }),
+                            None,
+                        )
                     }
                 }
+                TicketState::Cancelled => (Some(ClaimOutcome::Cancelled), None),
             }
-            TicketState::Cancelled => ClaimOutcome::Cancelled,
+        };
+        if let Some(non_granted) = outcome_kind {
+            return non_granted;
         }
+        let session_ticket = if let Some(account) = account_opt
+            && claiming_node != &self.config.identity.node
+        {
+            self.home.session_ticket(&account, claiming_node).await.ok()
+        } else {
+            None
+        };
+        ClaimOutcome::Granted { session_ticket }
     }
 
     fn local_release_ticket(&self, ticket: &GlobalId, claiming_node: &NodeId, match_id: &GlobalId) {
@@ -1484,7 +1576,7 @@ impl NodeService for RingNode {
                             "caller {from} cannot claim tickets on behalf of {claiming_node}"
                         ))
                     } else {
-                        RingOutcome::Claim(self.local_claim_ticket(&ticket, &claiming_node, &match_id))
+                        RingOutcome::Claim(self.local_claim_ticket(&ticket, &claiming_node, &match_id).await)
                     }
                 }
                 RingCall::ReleaseTicket {
@@ -1505,7 +1597,7 @@ impl NodeService for RingNode {
                     account,
                     client_ip,
                     game,
-                } => match self.assign_local_hub(&account, &client_ip, &game) {
+                } => match self.assign_local_hub(&account, &client_ip, &game).await {
                     Ok(rec) => RingOutcome::HubAssigned(rec),
                     Err(err) => RingOutcome::Refused(err.to_string()),
                 },
