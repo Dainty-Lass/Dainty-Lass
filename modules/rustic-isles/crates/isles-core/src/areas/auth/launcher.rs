@@ -624,8 +624,8 @@ pub struct GameSessionRequest<'a> {
     pub launcher: Option<&'a Value>,
 }
 
-fn rifts_account(account: &AccountId) -> RiftsAccount {
-    RiftsAccount(account.to_string())
+fn rifts_account(user_id: &str) -> RiftsAccount {
+    RiftsAccount(user_id.to_owned())
 }
 
 /// `SeamError` from rustic-rifts as the launcher error Node's realms code would have thrown.
@@ -739,7 +739,7 @@ pub async fn request_game_exchange_code(
     let entry = shared
         .rifts
         .entry()
-        .authorize_game_session_realm(rifts_account(account_id), realm_json)
+        .authorize_game_session_realm(rifts_account(user_id), realm_json)
         .await
         .map_err(seam_error)?;
 

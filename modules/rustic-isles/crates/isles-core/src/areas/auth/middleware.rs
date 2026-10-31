@@ -342,13 +342,43 @@ fn expired() -> LauncherApiError {
     LauncherApiError::new("AUTH_UNAUTHORIZED", "Your session has expired. Please sign in again.")
 }
 
-/// `HasLauncherAuth`: the launcher-audience token, an account that exists, a refresh family that is live, and an
-/// account that is admitted.
+/// `HasLauncherAuth`: the launcher-audience token (or a DaintyLass account key header), an account that exists, a
+/// refresh family that is live (when using a bearer token), and an account that is admitted.
 pub async fn launcher_auth(shared: &Shared, headers: &HeaderMap) -> Result<LauncherAuth, LauncherApiError> {
-    let authorization = header(headers, "authorization");
-    launcher_auth_account(shared, authorization.as_deref())
+    if let Some(authorization) = header(headers, "authorization") {
+        return launcher_auth_account(shared, Some(&authorization))
+            .await
+            .map(|(auth, _)| auth);
+    }
+    if let Some(key) = header(headers, "x-reforged-user-api-key")
+        .map(|k| k.trim().to_owned())
+        .filter(|k| !k.is_empty())
+    {
+        return launcher_auth_api_key(shared, &key).await.map(|(auth, _)| auth);
+    }
+    Err(LauncherApiError::new("AUTH_UNAUTHORIZED", "Sign in required."))
+}
+
+async fn launcher_auth_api_key(
+    shared: &Shared,
+    key: &str,
+) -> Result<(LauncherAuth, LauncherAccountRecord), LauncherApiError> {
+    let Some(user_id) = super::apikeys::user_id_for_api_key(shared, key)
         .await
-        .map(|(auth, _)| auth)
+        .map_err(|_| expired())?
+    else {
+        return Err(LauncherApiError::new("AUTH_UNAUTHORIZED", "Sign in required."));
+    };
+    let Some(account) = launcher_by_user(shared, &user_id).await.map_err(|_| expired())? else {
+        return Err(expired());
+    };
+    assert_account_admitted(&account)?;
+    let auth = LauncherAuth {
+        user_id,
+        sid: "apikey".to_owned(),
+        account: account.account.clone(),
+    };
+    Ok((auth, account))
 }
 
 /// [`launcher_auth`] over the header's text, with the account it found (the Reforged API's launcher routes need it).
@@ -516,8 +546,8 @@ pub async fn rifts_caller(
                     .await
                     .map_err(IntoResponse::into_response)?;
             }
-            // The account in the form rifts knows it: the global id's text (DD18)
-            Ok(Caller::Launcher(rifts_seam::AccountId(auth.account.to_string())))
+            // The account in the form rifts and MatchmakingCore know it: the userId text
+            Ok(Caller::Launcher(rifts_seam::AccountId(auth.user_id)))
         }
     }
 }
