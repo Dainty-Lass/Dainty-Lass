@@ -18,9 +18,15 @@ pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// A new session's ULID: its creation time, then 80 random bits.
+/// A new session's ULID: its creation time, then 80 random bits with RFC 4122 v4 version/variant nibbles
+/// so `uuid_text` is also a valid `SessionUuid` for admission tickets.
 pub fn new_session_ulid(now: UnixMillis) -> u128 {
-    Ulid::from_parts(u64::try_from(now.0).unwrap_or_default(), rand::random::<u128>()).0
+    let mut bytes: [u8; 16] = rand::random();
+    let ts = u64::try_from(now.0).unwrap_or_default().to_be_bytes();
+    bytes[..6].copy_from_slice(&ts[2..8]);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    u128::from_be_bytes(bytes)
 }
 
 /// Lower-case `8-4-4-4-12` hex, as the transport writes a ticket's session bytes (`admission_ticket.cpp`).

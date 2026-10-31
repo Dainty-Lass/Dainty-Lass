@@ -95,6 +95,19 @@ pub struct HostingParts {
     pub log: Arc<dyn RealmsLog>,
 }
 
+/// Optional runtime wiring for host bootstrap, hub startup, admission and relay hooks.
+#[derive(Clone)]
+pub struct HostingRuntime {
+    pub capabilities: Arc<crate::capabilities::HostCapabilities>,
+    pub admission_store: Arc<dyn rifts_admission::AdmissionStore>,
+    pub tickets: Arc<rifts_admission::Es256Tickets>,
+    pub core: Arc<dyn rifts_seam::IslesCore>,
+    pub backend_url: String,
+    pub host_server_udp_port: u16,
+    pub realms_enabled: bool,
+    pub node: module_api::NodeId,
+}
+
 /// The host's side of a session: leases, observations, host selection and the monitor.
 pub struct Hosting {
     pub(crate) hunts: HuntRepository,
@@ -107,6 +120,7 @@ pub struct Hosting {
     pub(crate) recovery: Arc<dyn Recovery>,
     pub(crate) expected_artifacts: Arc<dyn Fn() -> Result<crate::hunt::ArtifactHashes, String> + Send + Sync>,
     pub(crate) log: Arc<dyn RealmsLog>,
+    pub(crate) runtime: Option<HostingRuntime>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -174,7 +188,14 @@ impl Hosting {
             recovery: parts.recovery,
             expected_artifacts: parts.expected_artifacts,
             log: parts.log,
+            runtime: None,
         }
+    }
+
+    #[must_use]
+    pub fn with_runtime(mut self, runtime: HostingRuntime) -> Self {
+        self.runtime = Some(runtime);
+        self
     }
 
     pub(crate) fn now(&self) -> UnixMillis {

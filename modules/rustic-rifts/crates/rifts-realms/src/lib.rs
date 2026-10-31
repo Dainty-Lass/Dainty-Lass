@@ -30,7 +30,8 @@ pub mod tiers;
 pub mod time;
 
 pub use capabilities::RealmsHuntSessions;
-pub use hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub};
+pub use hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub, resolve_manifest_for_hunt};
+pub use leases::HostingRuntime;
 pub use lifecycle::RealmsRecovery;
 pub use ports::{CoreAccounts, CoreGuardSessions, CoreOperationsView};
 pub use rifts_guard::SqlGuardStore;

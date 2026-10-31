@@ -307,6 +307,24 @@ impl Hosting {
             realm_host_sessions: Some(realm_sessions),
         };
         self.hunts.upsert_host_presence(&player(account), &record).await?;
+        if record.steam_runtime_ready
+            && let (Some(steam_id), Some(runtime)) = (&record.steam_id, &self.runtime)
+            && let Ok(peer_num) = steam_id.parse::<u64>()
+        {
+            let link = rifts_admission::PeerLinkRecord {
+                account: AccountId(account.to_owned()),
+                peer: rifts_seam::PeerId(peer_num),
+                status: rifts_admission::LinkStatus::Verified,
+                revision: u64::try_from(revision.max(1)).unwrap_or(1),
+                verified_at: now,
+                verification_method: if ice {
+                    "ICE_ACCOUNT_DERIVED".to_owned()
+                } else {
+                    "HOST_PRESENCE".to_owned()
+                },
+            };
+            let _ = runtime.admission_store.put_peer_link(&player(account), &link);
+        }
         Ok(PresenceReply {
             accepted: true,
             revision,

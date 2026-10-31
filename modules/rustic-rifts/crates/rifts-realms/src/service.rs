@@ -15,6 +15,7 @@ use serde_json::Value;
 use crate::capabilities::{HostCapabilities, SignedUser, runtime_identity};
 use crate::directory::RealmDirectory;
 use crate::ids::{seam_realm_id, wire_realm_id};
+use crate::leases::Hosting;
 use crate::ports::Clock;
 use crate::realm::{hub_room_id, realms_module_enabled};
 use crate::tiers::HostingPolicy;
@@ -23,6 +24,7 @@ use crate::{RealmsError, TABLES};
 pub struct RealmsServiceParts {
     pub directory: Option<Arc<RealmDirectory>>,
     pub capabilities: Option<Arc<HostCapabilities>>,
+    pub hosting: Option<Arc<Hosting>>,
     pub clock: Arc<dyn Clock>,
     pub core: Arc<dyn IslesCore>,
     pub policy: HostingPolicy,
@@ -33,6 +35,7 @@ pub struct RealmsServiceParts {
 pub struct RealmsService {
     directory: Option<Arc<RealmDirectory>>,
     capabilities: Option<Arc<HostCapabilities>>,
+    hosting: Option<Arc<Hosting>>,
     clock: Arc<dyn Clock>,
     core: Arc<dyn IslesCore>,
     policy: HostingPolicy,
@@ -45,6 +48,7 @@ impl RealmsService {
         Self {
             directory: parts.directory,
             capabilities: parts.capabilities,
+            hosting: parts.hosting,
             clock: parts.clock,
             core: parts.core,
             policy: parts.policy,
@@ -183,7 +187,7 @@ impl RealmsHooks for RealmsService {
 
     fn dedicated_hunts_disabled(&self) -> Result<bool, SeamError> {
         let _ = &self.core;
-        DedicatedOnly.dedicated_hunts_disabled()
+        Ok(self.policy.dedicated_hunts_disabled)
     }
 
     fn filters_offline_party_members(&self, game_mode: &str, hunt_id: Option<&str>) -> Result<bool, SeamError> {
@@ -191,7 +195,12 @@ impl RealmsHooks for RealmsService {
     }
 
     fn restore_candidate(&self, player: AccountId) -> BoxFuture<'_, Result<Option<Candidate>, SeamError>> {
-        DedicatedOnly.restore_candidate(player)
+        Box::pin(async move {
+            let Some(hosting) = &self.hosting else {
+                return DedicatedOnly.restore_candidate(player).await;
+            };
+            hosting.restore_matchmaking_candidate(&player.0).await.map_err(to_seam)
+        })
     }
 
     fn candidate_status(
@@ -199,7 +208,15 @@ impl RealmsHooks for RealmsService {
         player: AccountId,
         current: Candidate,
     ) -> BoxFuture<'_, Result<Option<Candidate>, SeamError>> {
-        DedicatedOnly.candidate_status(player, current)
+        Box::pin(async move {
+            let Some(hosting) = &self.hosting else {
+                return DedicatedOnly.candidate_status(player, current).await;
+            };
+            hosting
+                .poll_candidate_status(&player.0, &current)
+                .await
+                .map_err(to_seam)
+        })
     }
 
     fn party_instance(&self, party: PartyId) -> BoxFuture<'_, Result<Option<Candidate>, SeamError>> {
@@ -207,7 +224,25 @@ impl RealmsHooks for RealmsService {
     }
 
     fn route_hunt(&self, context: HuntRouteContext) -> BoxFuture<'_, Result<HuntRouteOutcome, SeamError>> {
-        DedicatedOnly.route_hunt(context)
+        Box::pin(async move {
+            let Some(hosting) = &self.hosting else {
+                return DedicatedOnly.route_hunt(context).await;
+            };
+            let realm_id = if let Some(directory) = &self.directory {
+                directory
+                    .presence_of(&context.player.0)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|p| p.realm_id)
+            } else {
+                None
+            };
+            hosting
+                .route_matchmaking_hunt(&context, realm_id)
+                .await
+                .map_err(to_seam)
+        })
     }
 
     fn cancel_candidate(
