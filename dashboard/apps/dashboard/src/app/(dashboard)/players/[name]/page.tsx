@@ -7,6 +7,9 @@ import { present } from "@/lib/chat/present";
 import { searchChat } from "@/lib/chat/store";
 import { knownPlayers } from "@/lib/directory";
 import { DomainError } from "@/lib/errors";
+import { getController } from "@/lib/fleet/controllers";
+import { controllerParam, currentScope } from "@/lib/fleet/scope";
+import { fleet } from "@/lib/fleet/status";
 import { adminApi, type GamePlayer } from "@/lib/game/admin-api";
 import { type BackendAccount, backend } from "@/lib/game/backend";
 import { op } from "@/lib/players";
@@ -22,35 +25,52 @@ export async function generateMetadata({
   return { title: decodeURIComponent((await params).name) };
 }
 
-export default async function PlayerPage({ params }: { params: Promise<{ name: string }> }) {
+export default async function PlayerPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ name: string }>;
+  searchParams: Promise<{ c?: string }>;
+}) {
   const me = await requirePage("players:read");
   const name = decodeURIComponent((await params).name);
+  const controllerId = controllerParam((await searchParams).c, await currentScope());
+  const controller = getController(controllerId)!;
   const t = await getTranslations("players");
 
   let player: GamePlayer | null = null;
   let gameFailure: string | null = null;
   try {
-    player = await adminApi.player(name, me.discordId);
+    player = await adminApi(controllerId).player(name, me.discordId);
   } catch (error) {
     gameFailure = error instanceof DomainError ? error.code : "unknown";
   }
   // While the game cannot answer, the chat log still knows who a name belongs to.
-  const known = knownPlayers(name, 20).find((p) => p.name.toLowerCase() === name.toLowerCase());
+  const known = knownPlayers(name, 50).find(
+    (p) => p.controllerId === controllerId && p.name.toLowerCase() === name.toLowerCase(),
+  );
   const userId = player?.userId ?? known?.userId ?? null;
 
   let account: BackendAccount | null = null;
   if (userId) {
     try {
-      account = (await backend.playersById([userId], op(me))).accounts[0] ?? null;
+      account = (await backend(controllerId).playersById([userId], op(me))).accounts[0] ?? null;
     } catch {
       // The backend's view is extra detail; the page works without it.
     }
   }
 
   const displayName = player?.username ?? account?.displayName ?? known?.name ?? name;
-  const chat = userId ? present(searchChat({ userId, limit: 100 }).messages) : [];
+  const chat = userId
+    ? present(searchChat({ userId, controllerIds: [controllerId], limit: 100 }).messages)
+    : [];
   const history = userId
-    ? queryAudit({ targetType: "player", targetId: userId, pageSize: 100 }).events
+    ? queryAudit({
+        targetType: "player",
+        targetId: userId,
+        controllerIds: [controllerId],
+        pageSize: 100,
+      }).events
     : [];
 
   return (
@@ -62,7 +82,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ name: s
       gameFailure={gameFailure}
       notFound={!player && !account && !known && !gameFailure}
       chat={chat}
-      reports={reportsAgainst(userId ?? "", displayName)}
+      reports={reportsAgainst(userId ?? "", displayName).filter(
+        (r) => r.controllerId === controllerId,
+      )}
       history={history}
       reasons={getSettings().moderationReasons}
       can={{
@@ -71,8 +93,11 @@ export default async function PlayerPage({ params }: { params: Promise<{ name: s
         roles: can(me.role, "players:roles"),
         report: can(me.role, "reports:write"),
         revert: can(me.role, "audit:revert"),
+        fleet: can(me.role, "players:fleet"),
       }}
       backLabel={t("title")}
+      controller={{ id: controllerId, name: controller.name }}
+      fleetSize={fleet().length}
     />
   );
 }

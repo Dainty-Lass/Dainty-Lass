@@ -10,11 +10,23 @@
         "typescript": "^7.0.2",
       },
     },
+    "apps/agent": {
+      "name": "@dainty/agent",
+      "version": "0.1.0",
+      "dependencies": {
+        "@dainty/fleet": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.3",
+        "typescript": "^7.0.2",
+      },
+    },
     "apps/dashboard": {
       "name": "@dainty/dashboard",
       "version": "0.1.0",
       "dependencies": {
         "@astryxdesign/core": "^0.7.2",
+        "@dainty/fleet": "workspace:*",
         "@dainty/theme": "workspace:*",
         "drizzle-orm": "^0.45.4",
         "lucide-react": "^1.61.0",
@@ -106,6 +118,14 @@
       "devDependencies": {
         "@types/bun": "^1.4.3",
         "@types/react": "^19.3.0",
+        "typescript": "^7.0.2",
+      },
+    },
+    "packages/fleet": {
+      "name": "@dainty/fleet",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/bun": "^1.4.3",
         "typescript": "^7.0.2",
       },
     },
@@ -238,9 +258,13 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.6.4", "", { "os": "win32", "cpu": "x64" }, "sha512-pYsMy5AThiHFOZAsngg8qN4PurM6nInKBhVX7sbj3eNpRQqo1Hb0MgCwPL7VqVMrmcEEMj9Ks3qbkallR65e8g=="],
 
+    "@dainty/agent": ["@dainty/agent@workspace:apps/agent"],
+
     "@dainty/bridge": ["@dainty/bridge@workspace:packages/bridge"],
 
     "@dainty/dashboard": ["@dainty/dashboard@workspace:apps/dashboard"],
+
+    "@dainty/fleet": ["@dainty/fleet@workspace:packages/fleet"],
 
     "@dainty/launcher": ["@dainty/launcher@workspace:apps/launcher"],
 

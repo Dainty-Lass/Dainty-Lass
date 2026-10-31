@@ -15,10 +15,12 @@ import { fileReportAction } from "../actions";
 /** A report staff file themselves, from something seen on Discord or in game: it joins the same queue. */
 export function FileReportDialog({
   isOpen,
+  controllerId,
   target,
   onClose,
 }: {
   isOpen: boolean;
+  controllerId: string;
   target: { userId: string | null; name: string };
   onClose: () => void;
 }) {
@@ -63,7 +65,7 @@ export function FileReportDialog({
             onClick={async () => {
               setBusy(true);
               const id = await run(
-                () => fileReportAction(target, category, description),
+                () => fileReportAction(controllerId, target, category, description),
                 t("filed"),
               );
               setBusy(false);

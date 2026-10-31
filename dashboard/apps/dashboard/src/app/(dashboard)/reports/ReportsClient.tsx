@@ -13,6 +13,7 @@ import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
 import { useTranslations } from "next-intl";
+import { ControllerLabel, useControllers } from "@/components/ControllerContext";
 import { Page } from "@/components/Page";
 import { useAction } from "@/components/useAction";
 import { useQueryPatch } from "@/components/useQueryPatch";
@@ -46,6 +47,7 @@ export function ReportsClient({
   meId: number;
 }) {
   const t = useTranslations("reports");
+  const { fleetWide } = useControllers();
   const patch = useQueryPatch();
   const { run } = useAction();
 
@@ -124,9 +126,10 @@ export function ReportsClient({
                 width: pixel(180),
                 renderCell: (r) => (
                   <Stack gap={0.5}>
-                    <Link href={`/players/${encodeURIComponent(r.targetName)}`}>
+                    <Link href={`/players/${encodeURIComponent(r.targetName)}?c=${r.controllerId}`}>
                       {r.targetName}
                     </Link>
+                    {fleetWide && <ControllerLabel id={r.controllerId} />}
                     {r.priorAgainstTarget > 0 && (
                       <Text type="supporting">{t("prior", { count: r.priorAgainstTarget })}</Text>
                     )}

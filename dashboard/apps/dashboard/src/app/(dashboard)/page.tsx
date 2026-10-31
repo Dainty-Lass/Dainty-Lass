@@ -4,8 +4,9 @@ import { auditSince, recentAudit } from "@/lib/audit/query";
 import { requirePage } from "@/lib/auth/guard";
 import { chatHourly, chatStats } from "@/lib/chat/store";
 import { filterVersion } from "@/lib/chat/terms";
-import { health } from "@/lib/health";
-import { op } from "@/lib/players";
+import { getController } from "@/lib/fleet/controllers";
+import { currentScope, scopeIds } from "@/lib/fleet/scope";
+import { overview } from "@/lib/health";
 import { reportCounts } from "@/lib/reports/store";
 import { OverviewClient } from "./OverviewClient";
 
@@ -18,17 +19,19 @@ export default async function OverviewPage({
 }: {
   searchParams: Promise<{ denied?: string }>;
 }) {
-  const me = await requirePage("overview:read");
+  await requirePage("overview:read");
+  const [scope, { denied }] = await Promise.all([currentScope(), searchParams]);
+  const ids = scopeIds(scope);
   const day = Date.now() - 86_400_000;
-  const [h, { denied }] = await Promise.all([health(op(me)), searchParams]);
   return (
     <OverviewClient
-      health={h}
-      reports={reportCounts()}
-      chat={chatStats(day)}
-      hourly={chatHourly(24)}
-      changesToday={auditSince(day)}
-      recent={recentAudit(10)}
+      data={overview(ids)}
+      scopeName={scope.kind === "one" ? (getController(scope.id)?.name ?? null) : null}
+      reports={reportCounts(ids)}
+      chat={chatStats(day, ids)}
+      hourly={chatHourly(24, ids)}
+      changesToday={auditSince(day, ids)}
+      recent={recentAudit(10, ids)}
       filterVersion={filterVersion()}
       denied={denied === "1"}
     />

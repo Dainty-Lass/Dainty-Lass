@@ -29,12 +29,19 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   // The room around the moment when the report says where; otherwise the target's own recent lines.
   const at = report.context?.at ?? report.createdAt;
   const context = report.context?.roomId
-    ? chatAround(at, reportContextMinutes, { roomId: report.context.roomId })
+    ? chatAround(at, reportContextMinutes, {
+        controllerId: report.controllerId,
+        roomId: report.context.roomId,
+      })
     : report.targetUserId
-      ? chatAround(at, reportContextMinutes, { userId: report.targetUserId })
+      ? chatAround(at, reportContextMinutes, {
+          controllerId: report.controllerId,
+          userId: report.targetUserId,
+        })
       : [];
   const targetRecent = report.targetUserId
-    ? searchChat({ userId: report.targetUserId, limit: 30 }).messages
+    ? searchChat({ userId: report.targetUserId, controllerIds: [report.controllerId], limit: 30 })
+        .messages
     : [];
 
   return (

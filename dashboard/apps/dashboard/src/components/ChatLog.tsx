@@ -10,6 +10,7 @@ import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
 import { useTranslations } from "next-intl";
 import type { ChatLine } from "@/lib/chat/present";
+import { ControllerLabel, useControllers } from "./ControllerContext";
 
 const CHANNEL_COLOR = {
   city: "blue",
@@ -37,6 +38,8 @@ export function ChatLog({
 }) {
   const t = useTranslations("chat");
   const tc = useTranslations("common");
+  const tf = useTranslations("fleet");
+  const { fleetWide } = useControllers();
   if (lines.length === 0) return <EmptyState isCompact title={emptyTitle ?? t("empty")} />;
   return (
     <Table<Row>
@@ -67,13 +70,25 @@ export function ChatLog({
             />
           ),
         },
+        ...(fleetWide
+          ? [
+              {
+                key: "controllerId",
+                header: tf("columns.controller"),
+                width: pixel(140),
+                renderCell: (m: Row) => <ControllerLabel id={m.controllerId} />,
+              },
+            ]
+          : []),
         {
           key: "sender",
           header: t("columns.from"),
           width: pixel(170),
           renderCell: (m) => (
             <Stack gap={0}>
-              <Link href={`/players/${encodeURIComponent(m.senderName)}`}>{m.senderName}</Link>
+              <Link href={`/players/${encodeURIComponent(m.senderName)}?c=${m.controllerId}`}>
+                {m.senderName}
+              </Link>
               {m.recipientName && (
                 <Text type="supporting" size="xsm">
                   {t("to", { name: m.recipientName })}

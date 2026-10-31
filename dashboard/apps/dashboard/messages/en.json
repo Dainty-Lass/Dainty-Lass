@@ -70,7 +70,8 @@
     "audit": "Audit log",
     "staff": "Staff",
     "settings": "Settings",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "controllers": "Controllers"
   },
   "login": {
     "title": "Sign in",
@@ -141,7 +142,9 @@
     "recentActivity": "Recent activity",
     "changesToday": "{count, plural, =0 {No changes today} one {# change today} other {# changes today}}",
     "openAudit": "Open audit log",
-    "noActivity": "Nothing has happened yet."
+    "noActivity": "Nothing has happened yet.",
+    "subtitleOne": "{name}",
+    "subtitleFleet": "{count, plural, one {# controller} other {Across # controllers}}"
   },
   "audit": {
     "title": "Audit log",
@@ -178,7 +181,8 @@
       "filter_term": "Filter term",
       "staff": "Staff",
       "settings": "Settings",
-      "session": "Sign-in"
+      "session": "Sign-in",
+      "controller": "Controller"
     },
     "groups": {
       "player": "Player moderation",
@@ -186,7 +190,8 @@
       "filter": "Chat filter",
       "staff": "Staff",
       "settings": "Settings",
-      "session": "Sign-ins"
+      "session": "Sign-ins",
+      "controller": "Controllers"
     },
     "actions": {
       "unknown": "{actor}: {action} on {target}",
@@ -213,7 +218,12 @@
       "session_sign_in": "{actor} signed in",
       "session_sign_out": "{actor} signed out",
       "session_refused": "Sign-in refused for {target}",
-      "chat_export": "{actor} exported chat logs"
+      "chat_export": "{actor} exported chat logs",
+      "controller_create": "{actor} added the controller {target}",
+      "controller_pair": "{target} paired its agent",
+      "controller_repair": "{actor} issued a new pairing code for {target}",
+      "controller_update": "{actor} changed the controller {target}",
+      "controller_remove": "{actor} removed the controller {target}"
     }
   },
   "players": {
@@ -235,8 +245,16 @@
     "noMatches": "No players match those filters.",
     "fromChatLog": "The backend is not answering, so this list comes from the chat log: everyone who has spoken, newest first.",
     "noneKnown": "No players have spoken in chat yet.",
-    "statuses": { "active": "Active", "disabled": "Disabled", "banned": "Banned" },
-    "approval": { "approved": "Approved", "pending": "Pending", "rejected": "Rejected" },
+    "statuses": {
+      "active": "Active",
+      "disabled": "Disabled",
+      "banned": "Banned"
+    },
+    "approval": {
+      "approved": "Approved",
+      "pending": "Pending",
+      "rejected": "Rejected"
+    },
     "gameStatus": {
       "ACTIVE": "Can play",
       "BANNED": "Banned",
@@ -274,7 +292,11 @@
       "accessReason": "Last access reason"
     },
     "reportCount": "{count, plural, =0 {None} one {# report} other {# reports}}",
-    "tabs": { "chat": "Chat", "reports": "Reports", "history": "History" },
+    "tabs": {
+      "chat": "Chat",
+      "reports": "Reports",
+      "history": "History"
+    },
     "noChat": "This player has not said anything the dashboard has received.",
     "allChat": "Open the full chat log for this player",
     "noReports": "No reports against this player.",
@@ -329,14 +351,22 @@
       "ban": "Bans them until someone lifts it. They read the reason in the launcher.",
       "unban": "Lifts a ban or a timeout, so they can play again."
     },
-    "confirm": { "kick": "Kick", "timeout": "Time out", "ban": "Ban", "unban": "Lift ban" },
+    "confirm": {
+      "kick": "Kick",
+      "timeout": "Time out",
+      "ban": "Ban",
+      "unban": "Lift ban"
+    },
     "done": {
       "kick": "{name} was kicked",
       "timeout": "{name} is timed out",
       "ban": "{name} is banned",
       "unban": "{name} can play again",
       "liftTimeout": "{name}'s timeout is lifted"
-    }
+    },
+    "banEverywhere": "Ban on every controller",
+    "banEverywhereHint": "Each reachable controller with an account of this name bans it, each recorded and undoable on its own.",
+    "fleetDone": "{done, plural, =0 {Banned on no controller} one {Banned on # controller} other {Banned on # controllers}} of {total}.{absent, plural, =0 {} one { # has no such account.} other { # have no such account.}}{missed, plural, =0 {} one { # could not be reached or refused:} other { # could not be reached or refused:}}"
   },
   "reports": {
     "title": "Reports",
@@ -356,7 +386,11 @@
       "resolved": "Resolved",
       "dismissed": "Dismissed"
     },
-    "priorities": { "low": "Low", "normal": "Normal", "high": "High" },
+    "priorities": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High"
+    },
     "categories": {
       "harassment": "Harassment",
       "hate_speech": "Hate speech",
@@ -367,7 +401,11 @@
       "real_money_trading": "Real-money trading",
       "other": "Other"
     },
-    "sources": { "game": "In game", "discord": "Discord", "dashboard": "Staff" },
+    "sources": {
+      "game": "In game",
+      "discord": "Discord",
+      "dashboard": "Staff"
+    },
     "columns": {
       "player": "Reported player",
       "description": "Report",
@@ -436,8 +474,17 @@
     "noMatches": "No messages match those filters.",
     "empty": "No messages.",
     "to": "to {name}",
-    "columns": { "time": "Time", "channel": "Channel", "from": "From", "message": "Message" },
-    "verdicts": { "flagged": "Flagged", "masked": "Masked", "blocked": "Blocked" }
+    "columns": {
+      "time": "Time",
+      "channel": "Channel",
+      "from": "From",
+      "message": "Message"
+    },
+    "verdicts": {
+      "flagged": "Flagged",
+      "masked": "Masked",
+      "blocked": "Blocked"
+    }
   },
   "filter": {
     "title": "Chat filter",
@@ -464,7 +511,11 @@
       "blocked": "Blocked"
     },
     "howItWorks": "What each action does",
-    "actions": { "flag": "Flag", "mask": "Mask", "block": "Block" },
+    "actions": {
+      "flag": "Flag",
+      "mask": "Mask",
+      "block": "Block"
+    },
     "actionHelp": {
       "flag": "Delivered as sent, and marked in the log for review.",
       "mask": "Delivered with the matched part replaced by asterisks.",
@@ -482,7 +533,11 @@
     "note": "Note for staff",
     "categoryHint": "In use: {list}",
     "badRegex": "Not a valid regular expression",
-    "kinds": { "word": "Whole word", "substring": "Anywhere", "regex": "Regex" },
+    "kinds": {
+      "word": "Whole word",
+      "substring": "Anywhere",
+      "regex": "Regex"
+    },
     "kindHelp": {
       "word": "Matches the word on its own, ignoring case, spacing tricks and look-alikes such as 0 for o.",
       "substring": "Matches inside other words too, with the same look-alike handling.",
@@ -545,7 +600,10 @@
       "note": "Note",
       "access": "Access"
     },
-    "sources": { "manual": "Staff", "guild": "Discord role" },
+    "sources": {
+      "manual": "Staff",
+      "guild": "Discord role"
+    },
     "roleHelp": {
       "owner": "Everything, including settings and other owners",
       "admin": "Players' accounts, the chat filter, staff and undo",
@@ -622,6 +680,103 @@
     "already_banned": "That player is already banned; lift the ban first.",
     "not_banned": "That player is not banned.",
     "not_timed_out": "That player is not timed out.",
-    "unknown": "Something went wrong. The server log has the details."
+    "unknown": "Something went wrong. The server log has the details.",
+    "controller_disabled": "That controller is disabled.",
+    "controller_offline": "{detail} is not connected. Its agent may be stopped or its host offline.",
+    "game_timeout": "The controller took too long to answer.",
+    "forbidden_call": "The agent refused a call it does not allow ({detail})."
+  },
+  "fleet": {
+    "title": "Controllers",
+    "description": "The hosts running game servers. Each one other than this dashboard's runs an agent that connects here.",
+    "scope": "Controller",
+    "allControllers": "All controllers ({count})",
+    "controllers": "Controllers",
+    "controllersOnline": "Controllers online",
+    "allUp": "All connected",
+    "someDown": "Some are down",
+    "downCount": "{count, plural, one {# not answering} other {# not answering}}",
+    "downBanner": "{count, plural, one {# controller is not answering} other {# controllers are not answering}}",
+    "viewControllers": "View controllers",
+    "playersOverTime": "Players online",
+    "playersOverTimeLabel": "Players online over the last 24 hours",
+    "weekLabel": "Players online over the last week",
+    "lastWeek": "Hourly peaks, last 7 days",
+    "huntCount": "{count, plural, =0 {None running} one {# running} other {# running}}",
+    "playersAcross": "{count, plural, one {# account} other {# accounts}} across the fleet",
+    "someUnanswered": "{count, plural, one {# controller did not answer} other {# controllers did not answer}}",
+    "filters": "Controller filters",
+    "searchPlaceholder": "Controller name",
+    "anyState": "Any state",
+    "anyRegion": "Any region",
+    "stateFilters": {
+      "down": "Not answering",
+      "online": "Online",
+      "pending": "Waiting to pair",
+      "disabled": "Disabled"
+    },
+    "shown": "{shown} of {total}",
+    "noMatches": "No controllers match.",
+    "thisHost": "This dashboard's host",
+    "never": "Never",
+    "region": "Region",
+    "regionPlaceholder": "e.g. eu-west",
+    "name": "Name",
+    "namePlaceholder": "e.g. EU 2",
+    "note": "Note",
+    "add": "Add controller",
+    "addTitle": "Add a controller",
+    "addExplain": "You get a one-time code to start its agent with. Nothing on that host needs a port opened.",
+    "createAndPair": "Create and get code",
+    "states": {
+      "online": "Online",
+      "stale": "Late",
+      "offline": "Offline",
+      "pending": "Waiting to pair",
+      "disabled": "Disabled",
+      "not_configured": "Not set up"
+    },
+    "columns": {
+      "controller": "Controller",
+      "state": "State",
+      "players": "Players",
+      "hunts": "Hunts",
+      "version": "Version",
+      "lastSeen": "Last report"
+    },
+    "agentDescription": "Agent-connected controller · {region}",
+    "localDescription": "The controller this dashboard runs on",
+    "focus": "Show only this controller",
+    "inScope": "Showing only this controller",
+    "focused": "Now showing {name} only",
+    "edit": "Edit",
+    "editTitle": "Edit controller",
+    "saved": "Controller saved",
+    "repair": "Re-pair",
+    "enable": "Enable",
+    "disable": "Disable",
+    "remove": "Remove",
+    "removed": "Controller removed",
+    "removeTitle": "Remove {name}?",
+    "removeBody": "Its agent is disconnected and its token stops working. Chat, reports and history from it stay, labelled with its id.",
+    "pendingBanner": "Waiting for the agent",
+    "pendingHint": "Start the agent on that host with the pairing code. Re-pair from Actions if the code expired.",
+    "offlineBanner": "The agent is not connected",
+    "staleBanner": "The agent has stopped reporting",
+    "neverSeen": "It has never reported in.",
+    "localNotConfigured": "This host's admin API key is not set, so the dashboard cannot reach its game server (DASHBOARD_ADMIN_API_KEY).",
+    "serverName": "Server name",
+    "mode": "Mode",
+    "connectedSince": "Connected since",
+    "activity": "Changes on this controller",
+    "pairing": {
+      "title": "Pair {name}",
+      "code": "Pairing code",
+      "expires": "Expires",
+      "step1": "On that host, write these into an env file. The two secrets come from its own secrets.env and never leave it.",
+      "step2": "Then start the agent from a dainty-dashboard checkout:",
+      "after": "The code works once. The agent stores the token it gets in exchange and reconnects with it from then on.",
+      "insecure": "This dashboard's address is not HTTPS. Agents send their token with every request, so put the dashboard behind TLS before pairing hosts over the internet."
+    }
   }
 }

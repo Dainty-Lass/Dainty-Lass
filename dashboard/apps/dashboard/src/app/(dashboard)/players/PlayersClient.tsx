@@ -24,32 +24,47 @@ import type { BackendAccount } from "@/lib/game/backend";
 
 const STATUS_BADGE = { active: "success", disabled: "neutral", banned: "error" } as const;
 
-type Row = BackendAccount & Record<string, unknown>;
+export type FleetAccount = BackendAccount & {
+  controllerId: string;
+  controllerName: string;
+  online: boolean;
+};
+type Row = FleetAccount & Record<string, unknown>;
 
 export function PlayersClient({
   accounts,
   total,
+  combinedTotal,
   page,
-  onlineIds,
-  failure,
+  onlineCount,
+  failures,
+  fleetWide,
   known,
   filters,
 }: {
-  accounts: BackendAccount[] | null;
+  accounts: FleetAccount[] | null;
+  /** The largest single controller's total: what pagination pages through. */
   total: number;
+  combinedTotal: number;
   page: number;
-  onlineIds: string[];
-  failure: string | null;
+  onlineCount: number;
+  failures: { name: string; code: string }[];
+  fleetWide: boolean;
   known: KnownPlayer[];
   filters: { q: string; status: string; online: boolean };
 }) {
   const t = useTranslations("players");
+  const tf = useTranslations("fleet");
   const te = useTranslations("errors");
   const patch = useQueryPatch();
-  const online = new Set(onlineIds);
+  const href = (name: string, controllerId: string) =>
+    `/players/${encodeURIComponent(name)}?c=${encodeURIComponent(controllerId)}`;
 
   return (
-    <Page title={t("title")} description={t("description")}>
+    <Page
+      title={t("title")}
+      description={fleetWide ? tf("playersAcross", { count: combinedTotal }) : t("description")}
+    >
       <Toolbar
         label={t("filters")}
         startContent={
@@ -61,10 +76,7 @@ export function PlayersClient({
               size="sm"
             >
               <SegmentedControlItem value="all" label={t("allPlayers")} />
-              <SegmentedControlItem
-                value="online"
-                label={t("onlineNow", { count: onlineIds.length })}
-              />
+              <SegmentedControlItem value="online" label={t("onlineNow", { count: onlineCount })} />
             </SegmentedControl>
             <SearchField
               label={t("search")}
@@ -90,11 +102,18 @@ export function PlayersClient({
         }
       />
 
-      {failure && (
+      {failures.length > 0 && (
         <Banner
           status="warning"
-          title={t("backendUnavailable")}
-          description={te(failure as "unknown", { detail: "DASHBOARD_MANAGER_OPERATOR_SECRET" })}
+          title={
+            accounts ? tf("someUnanswered", { count: failures.length }) : t("backendUnavailable")
+          }
+          description={failures
+            .map(
+              (f) =>
+                `${f.name}: ${te(f.code as "unknown", { detail: "DASHBOARD_MANAGER_OPERATOR_SECRET" })}`,
+            )
+            .join(" · ")}
           collapsible={false}
         />
       )}
@@ -106,7 +125,7 @@ export function PlayersClient({
           ) : (
             <Table<Row>
               data={accounts as Row[]}
-              idKey="userId"
+              idKey={(a) => `${a.controllerId}:${a.userId}`}
               hasHover
               density="balanced"
               columns={[
@@ -117,13 +136,11 @@ export function PlayersClient({
                   renderCell: (a) => (
                     <Stack direction="horizontal" gap={2} align="center">
                       <StatusDot
-                        variant={online.has(a.userId) ? "success" : "neutral"}
-                        label={online.has(a.userId) ? t("online") : t("offline")}
+                        variant={a.online ? "success" : "neutral"}
+                        label={a.online ? t("online") : t("offline")}
                       />
                       <Stack gap={0}>
-                        <Link href={`/players/${encodeURIComponent(a.displayName)}`}>
-                          {a.displayName}
-                        </Link>
+                        <Link href={href(a.displayName, a.controllerId)}>{a.displayName}</Link>
                         <Text type="supporting" size="xsm">
                           {a.userId}
                         </Text>
@@ -131,6 +148,18 @@ export function PlayersClient({
                     </Stack>
                   ),
                 },
+                ...(fleetWide
+                  ? [
+                      {
+                        key: "controllerName",
+                        header: tf("columns.controller"),
+                        width: proportional(1),
+                        renderCell: (a: Row) => (
+                          <Link href={`/controllers/${a.controllerId}`}>{a.controllerName}</Link>
+                        ),
+                      },
+                    ]
+                  : []),
                 {
                   key: "status",
                   header: t("columns.status"),
@@ -190,15 +219,13 @@ export function PlayersClient({
           ) : (
             <Table<KnownPlayer & Record<string, unknown>>
               data={known as (KnownPlayer & Record<string, unknown>)[]}
-              idKey="userId"
+              idKey={(p) => `${p.controllerId}:${p.userId}`}
               hasHover
               columns={[
                 {
                   key: "name",
                   header: t("columns.player"),
-                  renderCell: (p) => (
-                    <Link href={`/players/${encodeURIComponent(p.name)}`}>{p.name}</Link>
-                  ),
+                  renderCell: (p) => <Link href={href(p.name, p.controllerId)}>{p.name}</Link>,
                 },
                 { key: "messages", header: t("columns.messages"), width: pixel(120), align: "end" },
                 {

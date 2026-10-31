@@ -4,17 +4,23 @@ The DaintyLass user interfaces on one theme: a **remote management dashboard** f
 **launcher** page players use, and the **server manager** page hosts use. All three are Astryx on Next.js
 (through vinext) on Bun, and share `@dainty/theme`.
 
-| Path | What |
-| --- | --- |
-| [`apps/dashboard`](apps/dashboard) | The dashboard: a server app with Discord sign-in, a SQLite database and the game's admin APIs behind it |
-| [`apps/launcher`](apps/launcher) | The launcher page, exported as static files for the Tauri launcher |
-| [`apps/server-manager`](apps/server-manager) | The server manager page, exported as static files for the Tauri server GUI |
-| [`packages/theme`](packages/theme) | `@dainty/theme`: the Astryx theme, the CSS stack, the colour-mode provider and the brand mark |
-| [`packages/bridge`](packages/bridge) | `@dainty/bridge`: the launcher's Tauri bridge (synced from dainty-lass), a browser stand-in, and the shared desktop catalog |
+| Path                                         | What                                                                                                                        |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/dashboard`](apps/dashboard)           | The dashboard: a server app with Discord sign-in, a SQLite database and the game's admin APIs behind it                     |
+| [`apps/launcher`](apps/launcher)             | The launcher page, exported as static files for the Tauri launcher                                                          |
+| [`apps/server-manager`](apps/server-manager) | The server manager page, exported as static files for the Tauri server GUI                                                  |
+| [`apps/agent`](apps/agent)                   | The agent each extra controller runs, so one dashboard manages them all ([docs/fleet.md](docs/fleet.md))                    |
+| [`packages/theme`](packages/theme)           | `@dainty/theme`: the Astryx theme, the CSS stack, the colour-mode provider and the brand mark                               |
+| [`packages/fleet`](packages/fleet)           | `@dainty/fleet`: the game calls and the dashboard–agent protocol, shared by both sides                                      |
+| [`packages/bridge`](packages/bridge)         | `@dainty/bridge`: the launcher's Tauri bridge (synced from dainty-lass), a browser stand-in, and the shared desktop catalog |
 
 ## The dashboard
 
-What staff do on it:
+What staff do on it, for one controller or a fleet of them ([docs/fleet.md](docs/fleet.md)):
+
+- **Controllers**: every host running game servers, its health, players and hunts, paired with a
+  one-time code. Each controller besides the dashboard's own runs a small agent that connects out to the
+  dashboard, so no controller opens a port and each keeps its own secrets.
 
 - **Overview**: players online, hunts running, open reports, flagged chat, the health of each service the
   dashboard talks to, and the latest changes.

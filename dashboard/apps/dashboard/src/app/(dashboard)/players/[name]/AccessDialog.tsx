@@ -18,12 +18,14 @@ const ASSIGNABLE_ROLES = ["tester"];
 /** The backend's own account state, separate from the game's bans: approval and disabling. */
 export function AccessDialog({
   isOpen,
+  controllerId,
   account,
   canRoles,
   reasons,
   onClose,
 }: {
   isOpen: boolean;
+  controllerId: string;
   account: BackendAccount;
   canRoles: boolean;
   reasons: string[];
@@ -49,6 +51,7 @@ export function AccessDialog({
         (await run(
           () =>
             accessAction(
+              controllerId,
               account.userId,
               status !== account.status ? status : undefined,
               approval !== account.approvalStatus ? approval : undefined,
@@ -58,7 +61,11 @@ export function AccessDialog({
         )) !== false;
     }
     if (ok && rolesChanged)
-      ok = (await run(() => rolesAction(account.userId, roles, reason), t("rolesSaved"))) !== false;
+      ok =
+        (await run(
+          () => rolesAction(controllerId, account.userId, roles, reason),
+          t("rolesSaved"),
+        )) !== false;
     setBusy(false);
     if (ok) onClose();
   }

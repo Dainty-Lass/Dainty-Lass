@@ -12,8 +12,11 @@ export interface AuditInput {
     | "filter_term"
     | "staff"
     | "settings"
-    | "session";
+    | "session"
+    | "controller";
   targetId?: string | number | null;
+  /** The controller the change acted on; omitted means the dashboard's own ("local"). */
+  controllerId?: string;
   targetLabel?: string | null;
   reason?: string | null;
   before?: unknown;
@@ -43,6 +46,7 @@ export function recordAudit(
     .insert(schema.auditEvents)
     .values({
       ...actorFields(actor),
+      controllerId: input.controllerId ?? "local",
       action: input.action,
       targetType: input.targetType,
       targetId: input.targetId == null ? null : String(input.targetId),

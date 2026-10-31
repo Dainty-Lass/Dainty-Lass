@@ -1,8 +1,9 @@
-import { and, desc, eq, gte, like, lt, lte, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lt, lte, or, type SQL, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { AuditEvent } from "@/lib/db/schema";
 
 export interface AuditQuery {
+  controllerIds?: string[];
   actorId?: number;
   targetType?: AuditEvent["targetType"];
   targetId?: string;
@@ -19,6 +20,7 @@ export interface AuditQuery {
 export function queryAudit(q: AuditQuery): { events: AuditEvent[]; total: number } {
   const parts: SQL[] = [];
   if (q.actorId) parts.push(eq(schema.auditEvents.actorId, q.actorId));
+  if (q.controllerIds) parts.push(inArray(schema.auditEvents.controllerId, q.controllerIds));
   if (q.targetType) parts.push(eq(schema.auditEvents.targetType, q.targetType));
   if (q.targetId) parts.push(eq(schema.auditEvents.targetId, q.targetId));
   if (q.action) parts.push(like(schema.auditEvents.action, `${q.action.replace(/[%_]/g, "")}%`));
@@ -61,21 +63,27 @@ export function getAuditEvent(id: number): AuditEvent | undefined {
   return db.select().from(schema.auditEvents).where(eq(schema.auditEvents.id, id)).get();
 }
 
-export function recentAudit(limit = 8): AuditEvent[] {
+export function recentAudit(limit = 8, controllerIds?: string[]): AuditEvent[] {
   return db
     .select()
     .from(schema.auditEvents)
+    .where(controllerIds ? inArray(schema.auditEvents.controllerId, controllerIds) : undefined)
     .orderBy(desc(schema.auditEvents.id))
     .limit(limit)
     .all();
 }
 
-export function auditSince(since: number): number {
+export function auditSince(since: number, controllerIds?: string[]): number {
   return (
     db
       .select({ n: sql<number>`count(*)` })
       .from(schema.auditEvents)
-      .where(gte(schema.auditEvents.at, since))
+      .where(
+        and(
+          gte(schema.auditEvents.at, since),
+          controllerIds ? inArray(schema.auditEvents.controllerId, controllerIds) : undefined,
+        ),
+      )
       .get()?.n ?? 0
   );
 }

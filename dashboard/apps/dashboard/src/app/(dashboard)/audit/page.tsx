@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { auditActors, queryAudit } from "@/lib/audit/query";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
+import { currentScope, scopeIds } from "@/lib/fleet/scope";
 import { auditQueryFromParams, type SearchParams } from "@/lib/query-params";
 import { AuditClient } from "./AuditClient";
 
@@ -14,7 +15,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const me = await requirePage("audit:read");
   const raw = await searchParams;
   const q = auditQueryFromParams(raw);
-  const { events, total } = queryAudit({ ...q, pageSize: 50 });
+  const { events, total } = queryAudit({
+    ...q,
+    controllerIds: scopeIds(await currentScope()),
+    pageSize: 50,
+  });
   const exportQuery = new URLSearchParams(
     Object.entries(raw).flatMap(([k, v]) =>
       typeof v === "string" && k !== "page" ? [[k, v]] : [],

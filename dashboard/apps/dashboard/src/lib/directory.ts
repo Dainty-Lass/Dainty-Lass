@@ -2,6 +2,7 @@ import { desc, like, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 
 export interface KnownPlayer {
+  controllerId: string;
   userId: string;
   name: string;
   lastSeenAt: number;
@@ -15,6 +16,7 @@ export interface KnownPlayer {
 export function knownPlayers(search?: string, limit = 100): KnownPlayer[] {
   return db
     .select({
+      controllerId: schema.chatMessages.controllerId,
       userId: schema.chatMessages.senderUserId,
       name: sql<string>`max(${schema.chatMessages.senderName})`,
       lastSeenAt: sql<number>`max(${schema.chatMessages.at})`,
@@ -24,7 +26,7 @@ export function knownPlayers(search?: string, limit = 100): KnownPlayer[] {
     .where(
       search ? like(schema.chatMessages.senderName, `%${search.replace(/[%_]/g, "")}%`) : undefined,
     )
-    .groupBy(schema.chatMessages.senderUserId)
+    .groupBy(schema.chatMessages.controllerId, schema.chatMessages.senderUserId)
     .orderBy(desc(sql`max(${schema.chatMessages.at})`))
     .limit(limit)
     .all();

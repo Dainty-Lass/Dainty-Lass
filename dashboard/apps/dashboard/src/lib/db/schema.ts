@@ -1,8 +1,17 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 const now = sql`(unixepoch('subsec') * 1000)`;
 const createdAt = () => integer("created_at", { mode: "number" }).notNull().default(now);
+// The controller a row came from or acted on; "local" is the one this dashboard runs on.
+const controllerId = () => text("controller_id").notNull().default("local");
 
 /** The people who may sign in: matched by Discord id, never by name. */
 export const staff = sqliteTable(
@@ -54,6 +63,7 @@ export const auditEvents = sqliteTable(
     at: createdAt(),
     actorId: integer("actor_id"),
     actorName: text("actor_name").notNull(),
+    controllerId: controllerId(),
     action: text("action").notNull(),
     targetType: text("target_type").notNull(),
     targetId: text("target_id"),
@@ -70,6 +80,7 @@ export const auditEvents = sqliteTable(
     index("audit_at").on(t.at),
     index("audit_target").on(t.targetType, t.targetId),
     index("audit_actor").on(t.actorId),
+    index("audit_controller").on(t.controllerId, t.at),
   ],
 );
 
@@ -80,6 +91,7 @@ export const reports = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     createdAt: createdAt(),
     updatedAt: integer("updated_at", { mode: "number" }).notNull().default(now),
+    controllerId: controllerId(),
     source: text("source", { enum: ["game", "discord", "dashboard"] }).notNull(),
     // The sender's own id for this report, so a retried ingest does not file it twice.
     externalId: text("external_id"),
@@ -119,7 +131,8 @@ export const reports = sqliteTable(
   (t) => [
     index("reports_status").on(t.status, t.createdAt),
     index("reports_target").on(t.targetUserId),
-    uniqueIndex("reports_external").on(t.source, t.externalId),
+    uniqueIndex("reports_external").on(t.controllerId, t.source, t.externalId),
+    index("reports_controller").on(t.controllerId, t.status),
   ],
 );
 
@@ -145,6 +158,7 @@ export const chatMessages = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     // The backend's id for the stanza, so a retried batch is not stored twice.
     externalId: text("external_id"),
+    controllerId: controllerId(),
     at: integer("at", { mode: "number" }).notNull(),
     channel: text("channel", { enum: ["city", "party", "guild", "direct", "system"] }).notNull(),
     roomId: text("room_id"),
@@ -164,7 +178,8 @@ export const chatMessages = sqliteTable(
     index("chat_sender").on(t.senderUserId, t.at),
     index("chat_recipient").on(t.recipientUserId, t.at),
     index("chat_room").on(t.roomId, t.at),
-    uniqueIndex("chat_external").on(t.externalId),
+    uniqueIndex("chat_external").on(t.controllerId, t.externalId),
+    index("chat_controller").on(t.controllerId, t.at),
   ],
 );
 
@@ -212,6 +227,41 @@ export const settings = sqliteTable("settings", {
   updatedAt: integer("updated_at", { mode: "number" }).notNull().default(now),
 });
 
+/**
+ * The game servers' hosts. "local" is the one the dashboard runs on and calls directly; every other one
+ * runs the agent (apps/agent), which dials in. A token or pairing code is kept only as its SHA-256.
+ */
+export const controllers = sqliteTable("controllers", {
+  id: text("id").primaryKey(),
+  kind: text("kind", { enum: ["local", "agent"] }).notNull(),
+  name: text("name").notNull(),
+  region: text("region"),
+  note: text("note"),
+  tokenHash: text("token_hash"),
+  pairingCodeHash: text("pairing_code_hash"),
+  pairingExpiresAt: integer("pairing_expires_at", { mode: "number" }),
+  pairedAt: integer("paired_at", { mode: "number" }),
+  lastSeenAt: integer("last_seen_at", { mode: "number" }),
+  version: text("version"),
+  // The last AgentStatus (@dainty/fleet), so pages read status without asking any controller.
+  status: text("status", { mode: "json" }).$type<unknown>(),
+  disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
+  createdAt: createdAt(),
+});
+
+/** A point a minute per controller, for the fleet's history charts; pruned after a week. */
+export const controllerSamples = sqliteTable(
+  "controller_samples",
+  {
+    controllerId: text("controller_id").notNull(),
+    at: integer("at", { mode: "number" }).notNull(),
+    online: integer("online").notNull(),
+    huntsRunning: integer("hunts_running").notNull(),
+    huntsMax: integer("hunts_max").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.controllerId, t.at] })],
+);
+
 export type Staff = typeof staff.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type Report = typeof reports.$inferSelect;
@@ -219,3 +269,4 @@ export type ReportNote = typeof reportNotes.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type BlacklistTerm = typeof blacklistTerms.$inferSelect;
 export type ConfigRevision = typeof configRevisions.$inferSelect;
+export type Controller = typeof controllers.$inferSelect;

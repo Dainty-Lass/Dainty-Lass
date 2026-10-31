@@ -19,9 +19,12 @@ export function listReports(q: {
   status?: ReportStatus | "active";
   targetUserId?: string;
   assigneeId?: number;
+  /** Only these controllers; every controller when omitted. */
+  controllerIds?: string[];
   limit?: number;
 }): ReportListItem[] {
   const parts: SQL[] = [];
+  if (q.controllerIds) parts.push(inArray(schema.reports.controllerId, q.controllerIds));
   if (q.status === "active") parts.push(inArray(schema.reports.status, ["open", "claimed"]));
   else if (q.status) parts.push(eq(schema.reports.status, q.status));
   if (q.targetUserId) parts.push(eq(schema.reports.targetUserId, q.targetUserId));
@@ -53,10 +56,11 @@ export function listReports(q: {
   }));
 }
 
-export function reportCounts(): Record<ReportStatus, number> {
+export function reportCounts(controllerIds?: string[]): Record<ReportStatus, number> {
   const rows = db
     .select({ status: schema.reports.status, n: sql<number>`count(*)` })
     .from(schema.reports)
+    .where(controllerIds ? inArray(schema.reports.controllerId, controllerIds) : undefined)
     .groupBy(schema.reports.status)
     .all();
   const counts = { open: 0, claimed: 0, resolved: 0, dismissed: 0 };
@@ -84,6 +88,8 @@ export function getReport(
 }
 
 export interface NewReport {
+  /** The controller the report is about; reports sent by an agent carry its id. */
+  controllerId?: string;
   source: Report["source"];
   externalId?: string | null;
   reporter?: { userId?: string | null; name?: string | null } | null;
@@ -105,6 +111,7 @@ export function createReport(
         .from(schema.reports)
         .where(
           and(
+            eq(schema.reports.controllerId, input.controllerId ?? "local"),
             eq(schema.reports.source, input.source),
             eq(schema.reports.externalId, input.externalId),
           ),
@@ -119,6 +126,7 @@ export function createReport(
     const report = t
       .insert(schema.reports)
       .values({
+        controllerId: input.controllerId ?? "local",
         source: input.source,
         externalId: input.externalId ?? null,
         reporterUserId: input.reporter?.userId ?? null,
@@ -137,6 +145,7 @@ export function createReport(
       {
         action: "report.create",
         targetType: "report",
+        controllerId: report.controllerId,
         targetId: report.id,
         targetLabel: report.targetName,
         after: report,
@@ -177,6 +186,7 @@ export function updateReport(
       {
         action: "report.update",
         targetType: "report",
+        controllerId: after.controllerId,
         targetId: id,
         targetLabel: after.targetName,
         reason: opts.reason ?? null,
@@ -227,14 +237,12 @@ export function addNote(me: Staff, reportId: number, body: string): ReportNote {
   const text = body.trim();
   if (text.length < 1 || text.length > 2000) throw new DomainError("invalid_input");
   return tx((t) => {
-    if (
-      !t
-        .select({ id: schema.reports.id })
-        .from(schema.reports)
-        .where(eq(schema.reports.id, reportId))
-        .get()
-    )
-      throw new DomainError("not_found");
+    const report = t
+      .select({ controllerId: schema.reports.controllerId })
+      .from(schema.reports)
+      .where(eq(schema.reports.id, reportId))
+      .get();
+    if (!report) throw new DomainError("not_found");
     const note = t
       .insert(schema.reportNotes)
       .values({ reportId, staffId: me.id, authorName: me.globalName || me.username, body: text })
@@ -246,7 +254,13 @@ export function addNote(me: Staff, reportId: number, body: string): ReportNote {
       .run();
     recordAudit(
       me,
-      { action: "report.note", targetType: "report", targetId: reportId, after: { body: text } },
+      {
+        action: "report.note",
+        targetType: "report",
+        targetId: reportId,
+        controllerId: report.controllerId,
+        after: { body: text },
+      },
       t,
     );
     return note;

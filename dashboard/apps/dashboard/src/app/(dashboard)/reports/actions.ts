@@ -62,8 +62,16 @@ export async function resolveAction(
     if (outcome === "resolved" && sanction.kind !== "none") {
       await requireAction("players:moderate");
       const reason = resolution.trim() || `Report #${id}`;
-      if (sanction.kind === "ban") await banPlayer(me, report.targetName, reason);
-      else await timeoutPlayer(me, report.targetName, { minutes: sanction.minutes }, reason);
+      if (sanction.kind === "ban")
+        await banPlayer(me, report.controllerId, report.targetName, reason);
+      else
+        await timeoutPlayer(
+          me,
+          report.controllerId,
+          report.targetName,
+          { minutes: sanction.minutes },
+          reason,
+        );
     }
     closeReport(me, id, outcome, resolution);
   });

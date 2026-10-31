@@ -4,6 +4,7 @@ import { can } from "@/lib/auth/permissions";
 import { currentStaff } from "@/lib/auth/session";
 import { searchChat } from "@/lib/chat/store";
 import { csv, csvResponse } from "@/lib/csv";
+import { currentScope, scopeIds } from "@/lib/fleet/scope";
 import { chatQueryFromParams } from "@/lib/query-params";
 
 /** The chat log as CSV, with the same filters as the page. Exporting is audited: it copies players' words off the server. */
@@ -12,7 +13,11 @@ export async function GET(request: Request) {
   if (!me || !can(me.role, "chat:export"))
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const q = chatQueryFromParams(new URL(request.url).searchParams);
-  const { messages } = searchChat({ ...q, limit: 1000 });
+  const { messages } = searchChat({
+    ...q,
+    controllerIds: scopeIds(await currentScope()),
+    limit: 1000,
+  });
   recordAudit(me, {
     action: "chat.export",
     targetType: "player",
@@ -25,6 +30,7 @@ export async function GET(request: Request) {
     csv(
       [
         "time_utc",
+        "controller",
         "channel",
         "room",
         "sender_id",
@@ -36,6 +42,7 @@ export async function GET(request: Request) {
       ],
       messages.map((m) => [
         new Date(m.at).toISOString(),
+        m.controllerId,
         m.channel,
         m.roomId,
         m.senderUserId,
