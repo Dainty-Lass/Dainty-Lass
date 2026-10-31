@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Schema preparation and Drizzle-to-Diesel baseline adoption.
-
+use diesel::connection::SimpleConnection;
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Text};
 use diesel::sqlite::Sqlite;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 
-use crate::snapshot::schema_snapshot;
-use crate::{Connection, Error, drizzle};
+use crate::{Connection, Error, drizzle, schema_snapshot};
 
+#[derive(Clone, Copy)]
 pub struct Schema {
     pub migrations: fn() -> EmbeddedMigrations,
     pub drizzle: Option<DrizzleBaseline>,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct DrizzleBaseline {
     pub created_at: i64,
     pub sql: &'static str,
@@ -36,65 +36,82 @@ fn table_exists(conn: &mut Connection, name: &str) -> Result<bool, Error> {
     Ok(row.n > 0)
 }
 
-fn non_sqlite_object_count(conn: &mut Connection) -> Result<i64, Error> {
-    let row = diesel::sql_query("SELECT count(*) AS n FROM sqlite_schema WHERE name NOT LIKE 'sqlite!_%' ESCAPE '!'")
+fn has_user_objects(conn: &mut Connection) -> Result<bool, Error> {
+    let row = diesel::sql_query("SELECT count(*) AS n FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'")
         .get_result::<CountRow>(conn)?;
-    Ok(row.n)
+    Ok(row.n > 0)
 }
 
-fn run_pending(conn: &mut Connection, migrations: EmbeddedMigrations) -> Result<(), Error> {
-    conn.run_pending_migrations(migrations)
-        .map(|_| ())
-        .map_err(|e| Error::Migration(e.to_string()))
-}
-
-pub(crate) fn prepare(conn: &mut Connection, schema: &Schema) -> Result<(), Error> {
+pub(crate) fn apply_schema(conn: &mut Connection, schema: &Schema) -> Result<(), Error> {
     if table_exists(conn, "__diesel_schema_migrations")? {
-        return run_pending(conn, (schema.migrations)());
+        conn.run_pending_migrations((schema.migrations)())
+            .map_err(|e| Error::Migration(e.to_string()))?;
+        return Ok(());
     }
 
     if table_exists(conn, "__drizzle_migrations")? {
-        let Some(baseline) = &schema.drizzle else {
-            return Err(Error::Adoption("no Drizzle baseline configured".into()));
-        };
-        let migrations = (schema.migrations)();
-        let list = MigrationSource::<Sqlite>::migrations(&migrations).map_err(|e| Error::Migration(e.to_string()))?;
-        let first = list
-            .first()
-            .ok_or_else(|| Error::Migration("no Diesel migrations defined".into()))?;
-        let first_version = first.name().version().to_string();
-
-        conn.immediate_transaction(|conn| {
-            let Some((created_at, hash)) = drizzle::last_applied(conn)? else {
-                return Err(Error::Adoption("__drizzle_migrations is empty".into()));
-            };
-            if created_at != Some(baseline.created_at) {
-                return Err(Error::Adoption(format!(
-                    "expected baseline created_at {}, got {:?}",
-                    baseline.created_at, created_at
-                )));
-            }
-            if !drizzle::hash_matches(&hash, baseline.sql) {
-                return Err(Error::Adoption("baseline SQL hash does not match".into()));
-            }
-            let current_snapshot = schema_snapshot(conn)?;
-            let expected_snapshot = baseline.snapshot.replace("\r\n", "\n");
-            if current_snapshot != expected_snapshot {
-                return Err(Error::Adoption("its schema differs from the baseline's".into()));
-            }
-            conn.applied_migrations().map_err(|e| Error::Migration(e.to_string()))?;
-            diesel::sql_query("INSERT INTO __diesel_schema_migrations (version) VALUES ($1)")
-                .bind::<Text, _>(&first_version)
-                .execute(conn)?;
-            Ok(())
+        let baseline = schema.drizzle.ok_or_else(|| {
+            Error::Adoption("database has __drizzle_migrations but no Drizzle baseline is configured".into())
         })?;
-
-        return run_pending(conn, (schema.migrations)());
+        adopt_drizzle(conn, schema, &baseline)?;
+        conn.run_pending_migrations((schema.migrations)())
+            .map_err(|e| Error::Migration(e.to_string()))?;
+        return Ok(());
     }
 
-    if non_sqlite_object_count(conn)? == 0 {
-        return run_pending(conn, (schema.migrations)());
+    if has_user_objects(conn)? {
+        return Err(Error::Adoption(
+            "database contains existing schema objects without migration tracking tables".into(),
+        ));
     }
 
-    Err(Error::Adoption("it has tables but no migration history".into()))
+    conn.run_pending_migrations((schema.migrations)())
+        .map_err(|e| Error::Migration(e.to_string()))?;
+    Ok(())
+}
+
+fn adopt_drizzle(conn: &mut Connection, schema: &Schema, baseline: &DrizzleBaseline) -> Result<(), Error> {
+    let (created_at, recorded_hash) =
+        drizzle::last_applied(conn)?.ok_or_else(|| Error::Adoption("__drizzle_migrations table is empty".into()))?;
+
+    if created_at != Some(baseline.created_at) {
+        return Err(Error::Adoption(format!(
+            "last Drizzle migration created_at is {:?}, expected {}",
+            created_at, baseline.created_at
+        )));
+    }
+
+    if !drizzle::hash_matches(&recorded_hash, baseline.sql) {
+        return Err(Error::Adoption(format!(
+            "last Drizzle migration hash {} does not match baseline SQL",
+            recorded_hash
+        )));
+    }
+
+    let actual_snapshot = schema_snapshot(conn)?;
+    let expected_snapshot = baseline.snapshot.replace("\r\n", "\n");
+    if actual_snapshot != expected_snapshot {
+        return Err(Error::Adoption(
+            "live database schema does not match the Drizzle baseline snapshot".into(),
+        ));
+    }
+
+    let embedded = (schema.migrations)();
+    let migrations = MigrationSource::<Sqlite>::migrations(&embedded).map_err(|e| Error::Migration(e.to_string()))?;
+    let first = migrations
+        .first()
+        .ok_or_else(|| Error::Migration("embedded migration list is empty".into()))?;
+    let baseline_version = first.name().version().to_string();
+
+    conn.batch_execute(
+        "CREATE TABLE IF NOT EXISTS __diesel_schema_migrations (
+            version VARCHAR(50) PRIMARY KEY NOT NULL,
+            run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );",
+    )?;
+    diesel::sql_query("INSERT INTO __diesel_schema_migrations (version) VALUES ($1)")
+        .bind::<Text, _>(baseline_version)
+        .execute(conn)?;
+
+    Ok(())
 }

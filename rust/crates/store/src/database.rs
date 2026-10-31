@@ -27,7 +27,18 @@ use crate::connection::{AnyConnection, MultiBackend};
 use crate::history::{self, Actor, ChangeEntry, DELETED_AT, Head, Verification};
 use crate::portable::quote_ident;
 use crate::revert::AccountColumn;
-use crate::{DatabaseConfig, Engine, Error, run_blocking};
+use crate::{DatabaseConfig, Engine, Error};
+
+pub(crate) async fn run_blocking<T, E, F>(f: F) -> Result<T, E>
+where
+    F: FnOnce() -> Result<T, E> + Send + 'static,
+    T: Send + 'static,
+    E: From<Error> + Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|_| E::from(Error::Panicked))?
+}
 
 /// A service's schema on both engines.
 pub struct DatabaseSchema {

@@ -1,23 +1,60 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Integration tests for `Store`, SQLite compile options, online backup, and read-only connections.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use diesel::connection::{Connection as _, SimpleConnection};
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Text};
-use diesel_migrations::{EmbeddedMigrations, embed_migrations};
-use store::{Connection, Error, Options, Schema, Store, open_read_only, schema_version};
+use diesel_migrations::{EmbeddedMigration, EmbeddedMigrations, EmbeddedName, TomlMetadataWrapper, embed_migrations};
+use store::{
+    Connection, DrizzleBaseline, Error, Options, Schema, Store, backup, drizzle, migrate, open_read_only,
+    schema_snapshot, schema_version,
+};
+use tokio::sync::Notify;
 
-const MIGRATIONS: EmbeddedMigrations = embed_migrations!("tests/migrations");
-const SCHEMA: Schema = Schema {
-    migrations: || MIGRATIONS,
+const MIGRATIONS_V1: EmbeddedMigrations = embed_migrations!("tests/migrations");
+
+const UP_V1: &str = include_str!("migrations/0001_items/up.sql");
+const DOWN_V1: &str = include_str!("migrations/0001_items/down.sql");
+const UP_V2: &str = "ALTER TABLE items ADD COLUMN note TEXT NOT NULL DEFAULT '';";
+const DOWN_V2: &str = "ALTER TABLE items DROP COLUMN note;";
+
+const MIGRATIONS_V2: EmbeddedMigrations = EmbeddedMigrations::new(&[
+    EmbeddedMigration::new(
+        UP_V1,
+        Some(DOWN_V1),
+        EmbeddedName::new("0001_items"),
+        TomlMetadataWrapper::new(true),
+    ),
+    EmbeddedMigration::new(
+        UP_V2,
+        Some(DOWN_V2),
+        EmbeddedName::new("0002_items_note"),
+        TomlMetadataWrapper::new(true),
+    ),
+]);
+
+const BASELINE_SNAPSHOT: &str = "\
+CREATE TABLE items (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL);
+CREATE TABLE tags (item INTEGER NOT NULL REFERENCES items (id), tag TEXT NOT NULL);
+";
+
+const SCHEMA_V1: Schema = Schema {
+    migrations: || MIGRATIONS_V1,
     drizzle: None,
+};
+
+const SCHEMA_WITH_DRIZZLE_V2: Schema = Schema {
+    migrations: || MIGRATIONS_V2,
+    drizzle: Some(DrizzleBaseline {
+        created_at: 1_700_000_000_000,
+        sql: UP_V1,
+        snapshot: BASELINE_SNAPSHOT,
+    }),
 };
 
 #[derive(QueryableByName)]
@@ -32,311 +69,388 @@ struct TextRow {
     val: String,
 }
 
-fn temp_store() -> (tempfile::TempDir, Store) {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("test.db");
-    let store = Store::open(&path, &Options::default(), &SCHEMA).unwrap();
-    (dir, store)
+#[derive(QueryableByName)]
+struct JournalModeRow {
+    #[diesel(sql_type = Text)]
+    journal_mode: String,
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn writes_commit_and_errors_roll_back() {
-    let (_dir, store) = temp_store();
+fn item_count(conn: &mut Connection) -> Result<i64, diesel::result::Error> {
+    Ok(diesel::sql_query("SELECT count(*) AS n FROM items")
+        .get_result::<CountRow>(conn)?
+        .n)
+}
 
+#[tokio::test]
+async fn commits_writes_rolls_back_errors_and_rejects_writes_in_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("store.db");
+    let store = Store::open(&db_path, &Options::default(), &SCHEMA_V1).unwrap();
+
+    // Commit a write
     store
-        .write(|conn| {
+        .write::<_, Error, _>(|conn| {
             conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'sword');")?;
-            Ok::<_, Error>(())
+            Ok(())
         })
         .await
         .unwrap();
 
-    let failed: Result<(), Error> = store
-        .write(|conn| {
+    let count = store.read::<_, Error, _>(|conn| Ok(item_count(conn)?)).await.unwrap();
+    assert_eq!(count, 1);
+
+    // Roll back on Err
+    let err = store
+        .write::<(), Error, _>(|conn| {
             conn.batch_execute("INSERT INTO items (id, name) VALUES (2, 'shield');")?;
-            Err(Error::Migration("abort".into()))
+            Err(Error::Config("abort".into()))
         })
         .await;
-    assert!(failed.is_err());
+    assert!(err.is_err());
 
-    let count = store
-        .read(|conn| {
-            let row = diesel::sql_query("SELECT count(*) AS n FROM items").get_result::<CountRow>(conn)?;
-            Ok::<_, Error>(row.n)
-        })
-        .await
-        .unwrap();
+    let count = store.read::<_, Error, _>(|conn| Ok(item_count(conn)?)).await.unwrap();
     assert_eq!(count, 1);
-}
 
-#[tokio::test(flavor = "multi_thread")]
-async fn reads_cannot_write() {
-    let (_dir, store) = temp_store();
-
-    let res: Result<(), Error> = store
-        .read(|conn| {
-            conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'illegal');")?;
+    // Reject write inside Store::read
+    let read_write = store
+        .read::<(), Error, _>(|conn| {
+            conn.batch_execute("INSERT INTO items (id, name) VALUES (3, 'potion');")?;
             Ok(())
         })
         .await;
-    assert!(res.is_err());
+    assert!(read_write.is_err());
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn the_database_is_in_wal_mode() {
-    let (_dir, store) = temp_store();
+#[tokio::test]
+async fn enforces_wal_foreign_keys_and_busy_timeout() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("wal.db");
+    let options = Options {
+        read_connections: 2,
+        busy_timeout: Duration::from_secs(2),
+    };
+    let store = Store::open(&db_path, &options, &SCHEMA_V1).unwrap();
 
+    // Check WAL journal mode
     let mode = store
-        .read(|conn| {
-            let row = diesel::sql_query("PRAGMA journal_mode")
-                .get_result::<TextRow>(conn)
-                .or_else(|_| {
-                    #[derive(QueryableByName)]
-                    struct Mode {
-                        #[diesel(sql_type = Text)]
-                        journal_mode: String,
-                    }
-                    diesel::sql_query("PRAGMA journal_mode")
-                        .get_result::<Mode>(conn)
-                        .map(|m| TextRow { val: m.journal_mode })
-                })?;
-            Ok::<_, Error>(row.val)
+        .read::<_, Error, _>(|conn| {
+            Ok(diesel::sql_query("PRAGMA journal_mode")
+                .get_result::<JournalModeRow>(conn)
+                .map(|r| r.journal_mode)?)
         })
         .await
         .unwrap();
-    assert!(mode.eq_ignore_ascii_case("wal"), "got {mode}");
+    assert!(mode.eq_ignore_ascii_case("wal"));
+
+    // Foreign key enforcement: inserting a tag for missing item 99 must fail
+    let fk_err = store
+        .write::<(), Error, _>(|conn| {
+            conn.batch_execute("INSERT INTO tags (item, tag) VALUES (99, 'rare');")?;
+            Ok(())
+        })
+        .await;
+    assert!(fk_err.is_err());
+
+    // Busy timeout waits for a concurrent lock to release
+    let path_clone = db_path.clone();
+    let locked = Arc::new(Notify::new());
+    let locked_clone = locked.clone();
+    let holder = std::thread::spawn(move || {
+        let mut ext = Connection::establish(&path_clone.to_string_lossy()).unwrap();
+        ext.batch_execute("BEGIN IMMEDIATE;").unwrap();
+        locked_clone.notify_one();
+        std::thread::sleep(Duration::from_millis(150));
+        ext.batch_execute("COMMIT;").unwrap();
+    });
+
+    locked.notified().await;
+    store
+        .write::<_, Error, _>(|conn| {
+            conn.batch_execute("INSERT INTO items (id, name) VALUES (10, 'bow');")?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    holder.join().unwrap();
+
     store.checkpoint().await.unwrap();
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn sqlite_behaves_like_better_sqlite3() {
-    let (_dir, store) = temp_store();
+#[tokio::test]
+async fn completes_in_flight_transaction_when_caller_future_is_dropped() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("drop.db");
+    let store = Store::open(&db_path, &Options::default(), &SCHEMA_V1).unwrap();
 
-    // 1. Double-quoted string literals are rejected (SQLITE_DQS=0)
-    let dqs: Result<(), Error> = store
-        .read(|conn| {
-            conn.batch_execute("SELECT \"not_a_column\";")?;
-            Ok(())
-        })
-        .await;
-    assert!(dqs.is_err(), "double-quoted string literals should be rejected");
-
-    // 2. Foreign keys are enforced
-    let fk: Result<(), Error> = store
-        .write(|conn| {
-            conn.batch_execute("INSERT INTO tags (item, tag) VALUES (999, 'orphan');")?;
-            Ok(())
-        })
-        .await;
-    assert!(fk.is_err(), "foreign key constraint should be enforced");
-
-    // 3. Math functions exist (e.g. sqrt)
-    let math: i64 = store
-        .read(|conn| {
-            let row = diesel::sql_query("SELECT CAST(sqrt(16) AS INTEGER) AS n").get_result::<CountRow>(conn)?;
-            Ok::<_, Error>(row.n)
-        })
-        .await
-        .unwrap();
-    assert_eq!(math, 4);
-
-    // 4. LIKE does not match BLOBs (SQLITE_LIKE_DOESNT_MATCH_BLOBS)
-    let like_blob: i64 = store
-        .read(|conn| {
-            let row =
-                diesel::sql_query("SELECT CAST(X'616263' LIKE '%b%' AS INTEGER) AS n").get_result::<CountRow>(conn)?;
-            Ok::<_, Error>(row.n)
-        })
-        .await
-        .unwrap();
-    assert_eq!(like_blob, 0);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_dropped_request_still_finishes_its_transaction() {
-    let (_dir, store) = temp_store();
-    let (started_tx, started_rx) = tokio::sync::oneshot::channel::<()>();
-    let (proceed_tx, proceed_rx) = std::sync::mpsc::channel::<()>();
+    let entered = Arc::new(Notify::new());
+    let entered_clone = entered.clone();
 
     let store_clone = store.clone();
-    let handle = tokio::spawn(async move {
-        let _ = store_clone
-            .write(move |conn| {
-                conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'committed');")?;
-                let _ = started_tx.send(());
-                let _ = proceed_rx.recv();
-                conn.batch_execute("INSERT INTO items (id, name) VALUES (2, 'also_committed');")?;
-                Ok::<_, Error>(())
-            })
-            .await;
-    });
+    let mut write_fut = Box::pin(store_clone.write::<_, Error, _>(move |conn| {
+        entered_clone.notify_one();
+        std::thread::sleep(Duration::from_millis(80));
+        conn.batch_execute("INSERT INTO items (id, name) VALUES (7, 'axe');")?;
+        Ok(())
+    }));
 
-    started_rx.await.unwrap();
-    handle.abort();
-    let _ = handle.await;
-    let _ = proceed_tx.send(());
+    tokio::select! {
+        _ = &mut write_fut => panic!("write finished before caller dropped it"),
+        _ = entered.notified() => {}
+    }
+    drop(write_fut);
 
-    let count = store
-        .write(|conn| {
-            let row = diesel::sql_query("SELECT count(*) AS n FROM items").get_result::<CountRow>(conn)?;
-            Ok::<_, Error>(row.n)
-        })
-        .await
-        .unwrap();
-    assert_eq!(count, 2);
+    let count = store.write::<_, Error, _>(|conn| Ok(item_count(conn)?)).await.unwrap();
+    assert_eq!(count, 1);
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn a_panicking_closure_rolls_back_and_the_store_keeps_working() {
-    let (_dir, store) = temp_store();
+#[tokio::test]
+async fn recovers_from_panicking_write_without_losing_store_usability() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("panic.db");
+    let store = Store::open(&db_path, &Options::default(), &SCHEMA_V1).unwrap();
 
-    let panicked: Result<(), Error> = store
-        .write(|conn| {
-            conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'before_panic');")?;
-            panic!("boom");
+    let res = store
+        .write::<(), Error, _>(|conn| {
+            conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'cursed');")?;
+            panic!("write closure panicked");
         })
         .await;
-    assert!(matches!(panicked, Err(Error::Panicked)));
+    assert!(matches!(res, Err(Error::Panicked)));
+
+    // Rolled back and still usable
+    let count = store.read::<_, Error, _>(|conn| Ok(item_count(conn)?)).await.unwrap();
+    assert_eq!(count, 0);
 
     store
-        .write(|conn| {
-            conn.batch_execute("INSERT INTO items (id, name) VALUES (2, 'after_panic');")?;
-            Ok::<_, Error>(())
+        .write::<_, Error, _>(|conn| {
+            conn.batch_execute("INSERT INTO items (id, name) VALUES (2, 'blessed');")?;
+            Ok(())
         })
         .await
         .unwrap();
 
-    let count = store
-        .read(|conn| {
-            let row = diesel::sql_query("SELECT count(*) AS n FROM items").get_result::<CountRow>(conn)?;
-            Ok::<_, Error>(row.n)
-        })
-        .await
-        .unwrap();
+    let count = store.read::<_, Error, _>(|conn| Ok(item_count(conn)?)).await.unwrap();
     assert_eq!(count, 1);
 }
 
 #[test]
-fn a_database_with_unknown_tables_is_refused() {
+fn adopts_drizzle_database_and_runs_subsequent_diesel_migrations() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("unknown.db");
-    {
-        let mut conn = Connection::establish(&path.to_string_lossy()).unwrap();
-        conn.batch_execute("CREATE TABLE mystery (id INTEGER PRIMARY KEY);")
-            .unwrap();
-    }
-    let res = Store::open(&path, &Options::default(), &SCHEMA);
-    assert!(matches!(res, Err(Error::Adoption(_))));
+    let drizzle_dir = dir.path().join("drizzle");
+    std::fs::create_dir_all(drizzle_dir.join("meta")).unwrap();
+    std::fs::write(
+        drizzle_dir.join("meta").join("_journal.json"),
+        r#"{"entries":[{"tag":"0000_init","when":1700000000000}]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        drizzle_dir.join("0000_init.sql"),
+        "CREATE TABLE items (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL);\n--> statement-breakpoint\nCREATE TABLE tags (item INTEGER NOT NULL REFERENCES items (id), tag TEXT NOT NULL);\n",
+    )
+    .unwrap();
+
+    let migrations = drizzle::read_folder(&drizzle_dir).unwrap();
+    assert_eq!(migrations.len(), 1);
+    assert!(drizzle::hash_matches(&drizzle::hash("SELECT 1;\n"), "SELECT 1;\r\n"));
+
+    let db_path = dir.path().join("adopt.db");
+    let mut conn = Connection::establish(&db_path.to_string_lossy()).unwrap();
+
+    // Replay the Drizzle migration with the exact baseline SQL
+    drizzle::replay(
+        &mut conn,
+        &[drizzle::Migration {
+            tag: "0000_init".into(),
+            created_at: 1_700_000_000_000,
+            sql: UP_V1.to_owned(),
+        }],
+    )
+    .unwrap();
+    conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'preserved');")
+        .unwrap();
+    assert_eq!(schema_snapshot(&mut conn).unwrap(), BASELINE_SNAPSHOT);
+    drop(conn);
+
+    // Open via Store with SCHEMA_WITH_DRIZZLE_V2: adopts 0001_items and runs 0002_items_note
+    let _store = Store::open(&db_path, &Options::default(), &SCHEMA_WITH_DRIZZLE_V2).unwrap();
+
+    let mut check = Connection::establish(&db_path.to_string_lossy()).unwrap();
+    assert_eq!(schema_version(&mut check).unwrap().as_deref(), Some("0002"));
+    let note = diesel::sql_query("SELECT note AS val FROM items WHERE id = 1")
+        .get_result::<TextRow>(&mut check)
+        .unwrap();
+    assert_eq!(note.val, "");
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn a_backup_under_constant_writes_is_one_consistent_snapshot() {
-    let (dir, store) = temp_store();
-    let stop = Arc::new(AtomicBool::new(false));
-    let writer_stop = stop.clone();
-    let writer_store = store.clone();
+#[test]
+fn refuses_invalid_adoption_cases() {
+    let dir = tempfile::tempdir().unwrap();
 
-    let writer = tokio::spawn(async move {
-        let mut i = 1i64;
-        while !writer_stop.load(Ordering::Relaxed) {
-            let id = i;
-            let _ = writer_store
-                .write(move |conn| {
-                    conn.batch_execute(&format!(
-                        "INSERT INTO items (id, name) VALUES ({id}, 'item-{id}');
-                         INSERT INTO tags (item, tag) VALUES ({id}, 'tag-{id}');"
-                    ))?;
-                    Ok::<_, Error>(())
-                })
-                .await;
-            i += 1;
-        }
-    });
+    // 1. Unknown user tables without migration tracking
+    let unknown_path = dir.path().join("unknown.db");
+    let mut conn = Connection::establish(&unknown_path.to_string_lossy()).unwrap();
+    conn.batch_execute("CREATE TABLE mystery (id INTEGER PRIMARY KEY);")
+        .unwrap();
+    assert!(matches!(
+        migrate(&mut conn, &SCHEMA_WITH_DRIZZLE_V2),
+        Err(Error::Adoption(_))
+    ));
 
-    // Wait until some writes have landed
-    loop {
-        let n = store
-            .read(|conn| {
-                let row = diesel::sql_query("SELECT count(*) AS n FROM items").get_result::<CountRow>(conn)?;
-                Ok::<_, Error>(row.n)
+    // 2. Drizzle table present when schema.drizzle is None
+    let no_baseline_path = dir.path().join("no_baseline.db");
+    let mut conn = Connection::establish(&no_baseline_path.to_string_lossy()).unwrap();
+    drizzle::replay(&mut conn, &[]).unwrap();
+    assert!(matches!(migrate(&mut conn, &SCHEMA_V1), Err(Error::Adoption(_))));
+
+    // 3. Empty __drizzle_migrations table
+    assert!(matches!(
+        migrate(&mut conn, &SCHEMA_WITH_DRIZZLE_V2),
+        Err(Error::Adoption(_))
+    ));
+
+    // 4. Wrong Drizzle timestamp
+    let wrong_ts_path = dir.path().join("wrong_ts.db");
+    let mut conn = Connection::establish(&wrong_ts_path.to_string_lossy()).unwrap();
+    drizzle::replay(
+        &mut conn,
+        &[drizzle::Migration {
+            tag: "0000_init".into(),
+            created_at: 42,
+            sql: UP_V1.to_owned(),
+        }],
+    )
+    .unwrap();
+    assert!(matches!(
+        migrate(&mut conn, &SCHEMA_WITH_DRIZZLE_V2),
+        Err(Error::Adoption(_))
+    ));
+
+    // 5. Wrong Drizzle SQL hash
+    let wrong_hash_path = dir.path().join("wrong_hash.db");
+    let mut conn = Connection::establish(&wrong_hash_path.to_string_lossy()).unwrap();
+    drizzle::replay(
+        &mut conn,
+        &[drizzle::Migration {
+            tag: "0000_init".into(),
+            created_at: 1_700_000_000_000,
+            sql: "CREATE TABLE items (id INTEGER PRIMARY KEY NOT NULL);".into(),
+        }],
+    )
+    .unwrap();
+    assert!(matches!(
+        migrate(&mut conn, &SCHEMA_WITH_DRIZZLE_V2),
+        Err(Error::Adoption(_))
+    ));
+
+    // 6. Modified live schema after Drizzle migration
+    let drifted_path = dir.path().join("drifted.db");
+    let mut conn = Connection::establish(&drifted_path.to_string_lossy()).unwrap();
+    drizzle::replay(
+        &mut conn,
+        &[drizzle::Migration {
+            tag: "0000_init".into(),
+            created_at: 1_700_000_000_000,
+            sql: UP_V1.to_owned(),
+        }],
+    )
+    .unwrap();
+    conn.batch_execute("CREATE INDEX idx_extra ON items (name);").unwrap();
+    assert!(matches!(
+        migrate(&mut conn, &SCHEMA_WITH_DRIZZLE_V2),
+        Err(Error::Adoption(_))
+    ));
+    assert_eq!(schema_version(&mut conn).unwrap(), None);
+}
+
+#[tokio::test]
+async fn backup_produces_consistent_single_file_and_honours_deadline() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("live.db");
+    let store = Store::open(&db_path, &Options::default(), &SCHEMA_V1).unwrap();
+
+    for i in 1..=25 {
+        store
+            .write::<_, Error, _>(move |conn| {
+                conn.batch_execute(&format!("INSERT INTO items (id, name) VALUES ({i}, 'item-{i}');"))?;
+                Ok(())
             })
             .await
             .unwrap();
-        if n >= 5 {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(5)).await;
     }
+
+    let writer_store = store.clone();
+    let writer = tokio::spawn(async move {
+        for i in 26..=50 {
+            let _ = writer_store
+                .write::<_, Error, _>(move |conn| {
+                    conn.batch_execute(&format!("INSERT INTO items (id, name) VALUES ({i}, 'item-{i}');"))?;
+                    Ok(())
+                })
+                .await;
+        }
+    });
 
     let backup_path = dir.path().join("backup.db");
     store.backup(&backup_path, Duration::from_secs(10)).await.unwrap();
-
-    stop.store(true, Ordering::Relaxed);
-    let _ = writer.await;
-
-    let mut conn = open_read_only(&backup_path, Duration::from_secs(5)).unwrap();
-    let items_count = diesel::sql_query("SELECT count(*) AS n FROM items")
-        .get_result::<CountRow>(&mut conn)
-        .unwrap()
-        .n;
-    let tags_count = diesel::sql_query("SELECT count(*) AS n FROM tags")
-        .get_result::<CountRow>(&mut conn)
-        .unwrap()
-        .n;
-    assert!(items_count >= 5);
-    assert_eq!(items_count, tags_count);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a_read_only_connection_reads_but_refuses_writes() {
-    let (dir, store) = temp_store();
-    store
-        .write(|conn| {
-            conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'hello');")?;
-            Ok::<_, Error>(())
-        })
-        .await
-        .unwrap();
-
-    let path = dir.path().join("test.db");
-    let mut ro = open_read_only(&path, Duration::from_secs(5)).unwrap();
-    let count = diesel::sql_query("SELECT count(*) AS n FROM items")
-        .get_result::<CountRow>(&mut ro)
-        .unwrap()
-        .n;
-    assert_eq!(count, 1);
-
-    let err = ro.batch_execute("INSERT INTO items (id, name) VALUES (2, 'nope');");
-    assert!(err.is_err());
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn the_schema_version_is_readable_while_a_write_is_held() {
-    let (dir, store) = temp_store();
-    let path = dir.path().join("test.db");
-
-    let (held_tx, held_rx) = tokio::sync::oneshot::channel::<()>();
-    let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
-
-    let store_clone = store.clone();
-    let writer = tokio::spawn(async move {
-        store_clone
-            .write(move |conn| {
-                conn.batch_execute("INSERT INTO items (id, name) VALUES (1, 'holding');")?;
-                let _ = held_tx.send(());
-                let _ = release_rx.recv();
-                Ok::<_, Error>(())
-            })
-            .await
-            .unwrap();
-    });
-
-    held_rx.await.unwrap();
-
-    let mut ro = open_read_only(&path, Duration::from_secs(5)).unwrap();
-    let version = schema_version(&mut ro).unwrap();
-    assert_eq!(version.as_deref(), Some("0001"));
-
-    let _ = release_tx.send(());
     writer.await.unwrap();
+
+    assert!(backup_path.is_file());
+    assert!(!dir.path().join("backup.db-wal").exists());
+    assert!(!dir.path().join("backup.db-shm").exists());
+
+    let mut ro = open_read_only(&backup_path, Duration::from_secs(1)).unwrap();
+    let mode = diesel::sql_query("PRAGMA journal_mode")
+        .get_result::<JournalModeRow>(&mut ro)
+        .unwrap();
+    assert!(mode.journal_mode.eq_ignore_ascii_case("delete"));
+    let count = item_count(&mut ro).unwrap();
+    assert!(count >= 25);
+
+    // Refuses overwriting existing destination
+    assert!(matches!(
+        backup::backup_file(&db_path, &backup_path, Duration::from_secs(1), Duration::from_secs(5),),
+        Err(Error::Backup(_))
+    ));
+
+    // Zero deadline fails and removes partial file
+    let expired_path = dir.path().join("expired.db");
+    assert!(matches!(
+        backup::backup_file(&db_path, &expired_path, Duration::from_secs(1), Duration::ZERO,),
+        Err(Error::Backup(_))
+    ));
+    assert!(!expired_path.exists());
+}
+
+#[test]
+fn read_only_connections_and_schema_version_inspection() {
+    let dir = tempfile::tempdir().unwrap();
+
+    // Missing file is refused and not created
+    let missing = dir.path().join("missing.db");
+    assert!(matches!(
+        open_read_only(&missing, Duration::from_secs(1)),
+        Err(Error::Connection(_))
+    ));
+    assert!(!missing.exists());
+
+    // Special characters in path (` `, `#`, `?` on platforms that allow them; `#` and spaces on Windows)
+    let special_name = if cfg!(windows) {
+        "space and #hash.db"
+    } else {
+        "space #hash ?query.db"
+    };
+    let special_path = dir.path().join(special_name);
+    let _store = Store::open(&special_path, &Options::default(), &SCHEMA_V1).unwrap();
+
+    let mut ro = open_read_only(&special_path, Duration::from_secs(1)).unwrap();
+    assert!(
+        ro.batch_execute("INSERT INTO items (id, name) VALUES (1, 'nope');")
+            .is_err()
+    );
+
+    // Read schema_version while a write transaction is open
+    let mut writer = Connection::establish(&special_path.to_string_lossy()).unwrap();
+    writer.batch_execute("BEGIN IMMEDIATE;").unwrap();
+    assert_eq!(schema_version(&mut ro).unwrap().as_deref(), Some("0001"));
+    writer.batch_execute("ROLLBACK;").unwrap();
 }

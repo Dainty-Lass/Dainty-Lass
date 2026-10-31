@@ -1,16 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! SQLite connection pooling, Drizzle/Diesel migration adoption, online backup, and change-log persistence.
-
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Duration;
-
-use diesel::connection::{Connection as _, SimpleConnection};
-use diesel::prelude::*;
-use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool, PooledConnection};
-use diesel::sql_types::Text;
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod adopt;
 pub mod backup;
@@ -27,6 +18,15 @@ pub mod revert;
 mod snapshot;
 pub mod transfer;
 
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
+
+use diesel::connection::{Connection as _, SimpleConnection};
+use diesel::prelude::*;
+use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
+use diesel::sql_types::Text;
+
 pub use adopt::{DrizzleBaseline, Schema};
 pub use connection::{AnyConnection, MultiBackend};
 pub use database::{Database, DatabaseOptions, DatabaseSchema, KeyValue, Tx};
@@ -38,6 +38,119 @@ pub use revert::{AccountColumn, Cursor, Filter, RevertOutcome, RevertPlan};
 pub use snapshot::schema_snapshot;
 
 pub type Connection = diesel::SqliteConnection;
+
+#[derive(Clone)]
+pub struct Store {
+    writer_pool: Pool<ConnectionManager<Connection>>,
+    reader_pool: Pool<ConnectionManager<Connection>>,
+    file_path: Arc<PathBuf>,
+    lock_wait: Duration,
+}
+
+impl Store {
+    pub fn open(path: &Path, options: &Options, schema: &Schema) -> Result<Self, Error> {
+        let dsn = path.to_string_lossy().into_owned();
+        {
+            let mut setup_conn = Connection::establish(&dsn)?;
+            configure_connection(&mut setup_conn, options.busy_timeout, false)?;
+            activate_wal_mode(&mut setup_conn)?;
+            migrate(&mut setup_conn, schema)?;
+        }
+
+        let writer_pool = Pool::builder()
+            .max_size(1)
+            .min_idle(Some(0))
+            .test_on_check_out(false)
+            .connection_customizer(Box::new(ConnectionInit {
+                timeout: options.busy_timeout,
+                query_only: false,
+            }))
+            .build(ConnectionManager::<Connection>::new(dsn.clone()))?;
+
+        let reader_pool = Pool::builder()
+            .max_size(options.read_connections.max(1))
+            .min_idle(Some(0))
+            .test_on_check_out(false)
+            .connection_customizer(Box::new(ConnectionInit {
+                timeout: options.busy_timeout,
+                query_only: true,
+            }))
+            .build(ConnectionManager::<Connection>::new(dsn))?;
+
+        Ok(Self {
+            writer_pool,
+            reader_pool,
+            file_path: Arc::new(path.to_path_buf()),
+            lock_wait: options.busy_timeout,
+        })
+    }
+
+    pub async fn read<T, E, F>(&self, f: F) -> Result<T, E>
+    where
+        F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
+        T: Send + 'static,
+        E: From<Error> + From<diesel::result::Error> + Send + 'static,
+    {
+        let pool = self.reader_pool.clone();
+        database::run_blocking(move || {
+            let mut conn = pool.get().map_err(|e| E::from(Error::Pool(e)))?;
+            (*conn).transaction(f)
+        })
+        .await
+    }
+
+    pub async fn write<T, E, F>(&self, f: F) -> Result<T, E>
+    where
+        F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
+        T: Send + 'static,
+        E: From<Error> + From<diesel::result::Error> + Send + 'static,
+    {
+        let pool = self.writer_pool.clone();
+        database::run_blocking(move || {
+            let mut conn = pool.get().map_err(|e| E::from(Error::Pool(e)))?;
+            conn.immediate_transaction(f)
+        })
+        .await
+    }
+
+    pub async fn checkpoint(&self) -> Result<(), Error> {
+        let pool = self.writer_pool.clone();
+        database::run_blocking(move || {
+            let mut conn = pool.get().map_err(Error::Pool)?;
+            conn.batch_execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        &self.file_path
+    }
+
+    pub(crate) fn busy_timeout(&self) -> Duration {
+        self.lock_wait
+    }
+}
+
+/// Brings `conn` up to date with `schema` without changing the connection's journal mode.
+pub fn migrate(conn: &mut Connection, schema: &Schema) -> Result<(), Error> {
+    adopt::apply_schema(conn, schema)
+}
+
+#[derive(Debug, Clone)]
+pub struct Options {
+    pub read_connections: u32,
+    pub busy_timeout: Duration,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            read_connections: 4,
+            busy_timeout: Duration::from_secs(5),
+        }
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -71,143 +184,45 @@ pub enum Error {
     Panicked,
 }
 
-#[derive(Debug, Clone)]
-pub struct Options {
-    pub read_connections: u32,
-    pub busy_timeout: Duration,
-}
-
-impl Default for Options {
-    fn default() -> Self {
-        Self {
-            read_connections: 4,
-            busy_timeout: Duration::from_secs(5),
-        }
-    }
-}
-
 #[derive(Debug)]
-struct SqliteCustomizer {
-    busy_timeout: Duration,
-    read_only: bool,
+struct ConnectionInit {
+    timeout: Duration,
+    query_only: bool,
 }
 
-impl CustomizeConnection<Connection, diesel::r2d2::Error> for SqliteCustomizer {
+impl CustomizeConnection<Connection, diesel::r2d2::Error> for ConnectionInit {
     fn on_acquire(&self, conn: &mut Connection) -> Result<(), diesel::r2d2::Error> {
-        let ms = self.busy_timeout.as_millis();
-        let sql = format!(
-            "PRAGMA busy_timeout = {ms}; PRAGMA foreign_keys = ON;{}",
-            if self.read_only { " PRAGMA query_only = ON;" } else { "" }
-        );
-        conn.batch_execute(&sql).map_err(diesel::r2d2::Error::QueryError)
+        configure_connection(conn, self.timeout, self.query_only).map_err(diesel::r2d2::Error::QueryError)
     }
 }
 
-type SqlitePool = Pool<ConnectionManager<Connection>>;
-
-#[derive(Clone)]
-pub struct Store {
-    pub(crate) path: Arc<PathBuf>,
-    pub(crate) busy_timeout: Duration,
-    write: SqlitePool,
-    read: SqlitePool,
-}
-
-#[derive(QueryableByName)]
-struct JournalModeRow {
-    #[diesel(sql_type = Text)]
-    journal_mode: String,
-}
-
-fn checkout_conn<E: From<Error>>(pool: &SqlitePool) -> Result<PooledConnection<ConnectionManager<Connection>>, E> {
-    pool.get().map_err(|e| E::from(Error::Pool(e)))
-}
-
-impl Store {
-    pub fn open(path: &Path, options: &Options, schema: &Schema) -> Result<Self, Error> {
-        let target = path.to_string_lossy().into_owned();
-        let build_pool = |max_size: u32, read_only: bool| {
-            Pool::builder()
-                .max_size(max_size)
-                .min_idle(Some(0))
-                .test_on_check_out(false)
-                .connection_customizer(Box::new(SqliteCustomizer {
-                    busy_timeout: options.busy_timeout,
-                    read_only,
-                }))
-                .build(ConnectionManager::<Connection>::new(target.clone()))
-        };
-        let write = build_pool(1, false)?;
-        let read = build_pool(options.read_connections.max(1), true)?;
-        {
-            let mut conn = checkout_conn::<Error>(&write)?;
-            let row = diesel::sql_query("PRAGMA journal_mode = WAL").get_result::<JournalModeRow>(&mut conn)?;
-            if !row.journal_mode.eq_ignore_ascii_case("wal") {
-                return Err(Error::Migration(format!(
-                    "expected WAL journal mode, got {}",
-                    row.journal_mode
-                )));
-            }
-            adopt::prepare(&mut conn, schema)?;
-        }
-        Ok(Self {
-            path: Arc::new(path.to_path_buf()),
-            busy_timeout: options.busy_timeout,
-            write,
-            read,
-        })
+fn configure_connection(
+    conn: &mut Connection,
+    timeout: Duration,
+    query_only: bool,
+) -> Result<(), diesel::result::Error> {
+    let mut pragmas = format!(
+        "PRAGMA busy_timeout = {}; PRAGMA foreign_keys = ON;",
+        timeout.as_millis()
+    );
+    if query_only {
+        pragmas.push_str(" PRAGMA query_only = ON;");
     }
-
-    pub async fn read<T, E, F>(&self, f: F) -> Result<T, E>
-    where
-        F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
-        T: Send + 'static,
-        E: From<Error> + From<diesel::result::Error> + Send + 'static,
-    {
-        let pool = self.read.clone();
-        run_blocking(move || {
-            let mut conn = checkout_conn::<E>(&pool)?;
-            (*conn).transaction(f)
-        })
-        .await
-    }
-
-    pub async fn write<T, E, F>(&self, f: F) -> Result<T, E>
-    where
-        F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
-        T: Send + 'static,
-        E: From<Error> + From<diesel::result::Error> + Send + 'static,
-    {
-        let pool = self.write.clone();
-        run_blocking(move || {
-            let mut conn = checkout_conn::<E>(&pool)?;
-            (*conn).immediate_transaction(f)
-        })
-        .await
-    }
-
-    pub async fn checkpoint(&self) -> Result<(), Error> {
-        let pool = self.write.clone();
-        run_blocking(move || {
-            let mut conn = checkout_conn::<Error>(&pool)?;
-            conn.batch_execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
-            Ok(())
-        })
-        .await
-    }
+    conn.batch_execute(&pragmas)
 }
 
-pub fn migrate(conn: &mut Connection, schema: &Schema) -> Result<(), Error> {
-    adopt::prepare(conn, schema)
-}
-
-pub(crate) async fn run_blocking<T, E, F>(f: F) -> Result<T, E>
-where
-    F: FnOnce() -> Result<T, E> + Send + 'static,
-    T: Send + 'static,
-    E: From<Error> + Send + 'static,
-{
-    tokio::task::spawn_blocking(f)
-        .await
-        .map_err(|_| E::from(Error::Panicked))?
+fn activate_wal_mode(conn: &mut Connection) -> Result<(), Error> {
+    #[derive(QueryableByName)]
+    struct ModeCell {
+        #[diesel(sql_type = Text)]
+        journal_mode: String,
+    }
+    let cell = diesel::sql_query("PRAGMA journal_mode = WAL").get_result::<ModeCell>(conn)?;
+    if !cell.journal_mode.eq_ignore_ascii_case("wal") {
+        return Err(Error::Migration(format!(
+            "the database stayed in journal mode {}",
+            cell.journal_mode
+        )));
+    }
+    Ok(())
 }

@@ -1,33 +1,39 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Canonical SQL text representation of a SQLite database schema.
-
 use diesel::prelude::*;
 use diesel::sql_types::Text;
 
 use crate::{Connection, Error};
 
 #[derive(QueryableByName)]
-struct SqlRow {
+struct CatalogObject {
     #[diesel(sql_type = Text)]
     sql: String,
 }
 
+/// Returns a deterministic text snapshot of user-defined schema objects in `conn`.
 pub fn schema_snapshot(conn: &mut Connection) -> Result<String, Error> {
-    let rows = diesel::sql_query(
+    let objects = diesel::sql_query(
         "SELECT sql FROM sqlite_schema
          WHERE sql IS NOT NULL
-           AND name NOT LIKE 'sqlite!_%' ESCAPE '!'
+           AND name NOT LIKE 'sqlite_%'
+           AND name NOT IN ('__drizzle_migrations', '__diesel_schema_migrations')
            AND tbl_name NOT IN ('__drizzle_migrations', '__diesel_schema_migrations')
-         ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 WHEN 'view' THEN 2 ELSE 3 END, name",
+         ORDER BY
+           CASE type
+             WHEN 'table' THEN 1
+             WHEN 'index' THEN 2
+             WHEN 'view' THEN 3
+             ELSE 4
+           END,
+           name",
     )
-    .load::<SqlRow>(conn)?;
+    .load::<CatalogObject>(conn)?;
 
     let mut out = String::new();
-    for row in rows {
-        let normalized = row.sql.replace("\r\n", "\n");
-        out.push_str(&normalized);
+    for obj in objects {
+        out.push_str(&obj.sql.replace("\r\n", "\n"));
         out.push_str(";\n");
     }
     Ok(out)
