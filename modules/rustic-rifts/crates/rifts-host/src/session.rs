@@ -5,15 +5,17 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use rifts_seam::{AccountId, BoxFuture, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
+use rifts_seam::{AccountId, BoxFuture, GlobalId, HubKind, NodeId, PeerId, Secret, SessionId, Ulid};
 use serde::{Deserialize, Serialize};
 
 use crate::HostError;
 use crate::files::{ADMISSION_PUBLIC_KEY_FILE, DISABLE_COOP_FLAG_FILE, SESSION_FILES, validate_hub_limits};
-use crate::transport::{ABI_VERSION, Handle, HostOpen, JoinOpen, ReadyState, SessionResult, TransportAbi};
+use crate::transport::{ABI_VERSION, Handle, HostOpen, JoinOpen, ReadyState, SessionResult, Signal, TransportAbi};
 
 /// What the launcher gives the hosted game server, checked by the runtime's `ReadLaunch`. A change here is a change
 /// to rustic-isles' runtime too (RF1, decision 5).
@@ -1067,6 +1069,43 @@ pub trait HostBackend: Send + Sync {
         generation: u64,
         local_port: u16,
     ) -> Result<(), HostError>;
+
+    /// Returns `true` when this backend drives live peer-roster polling and ICE signal relay.
+    fn supports_signalling(&self) -> bool {
+        false
+    }
+
+    /// Polls the current wanted peer roster for a hosted session.
+    fn poll_peers(
+        &self,
+        _account: &AccountId,
+        _session: &SessionId,
+        _generation: u64,
+        _role: HostedRole,
+    ) -> Result<Vec<PeerListEntry>, HostError> {
+        Ok(Vec::new())
+    }
+
+    /// Forwards an outgoing ICE signal read from [`TransportAbi::read_signal`] to the server relay.
+    fn send_signal(
+        &self,
+        _account: &AccountId,
+        _session: &SessionId,
+        _generation: u64,
+        _signal: &Signal,
+    ) -> Result<(), HostError> {
+        Ok(())
+    }
+
+    /// Polls pending incoming `(from_account, signal)` ICE messages from the server relay.
+    fn poll_signals(
+        &self,
+        _account: &AccountId,
+        _session: &SessionId,
+        _generation: u64,
+    ) -> Result<Vec<(AccountId, Signal)>, HostError> {
+        Ok(Vec::new())
+    }
 }
 
 /// Deterministic local [`HostBackend`] for single-PC hosting, the debug launcher, and unit tests.
@@ -1327,6 +1366,8 @@ struct ManagedSession {
     server_pid: Option<u32>,
     local_port: u16,
     launch_env: BTreeMap<String, String>,
+    stop_flag: Arc<AtomicBool>,
+    pump_thread: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 /// Concrete [`RealmHosting`] implementation managing session directories, `0600` secret files, [`LAUNCH_VARIABLES`]
@@ -1374,6 +1415,11 @@ impl LocalRealmHosting {
             wait_ready_timeout_ms: 5_000,
             sessions: Mutex::new(BTreeMap::new()),
         }
+    }
+
+    pub fn with_wait_ready_timeout_ms(mut self, timeout_ms: u32) -> Self {
+        self.wait_ready_timeout_ms = timeout_ms;
+        self
     }
 
     pub fn session_directory(&self, session: &SessionId) -> Option<PathBuf> {
@@ -1599,6 +1645,39 @@ impl LocalRealmHosting {
             return Err(err);
         }
 
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let pump_thread = if self.backend.supports_signalling() {
+            let transport = Arc::clone(&self.transport);
+            let backend = Arc::clone(&self.backend);
+            let stop = Arc::clone(&stop_flag);
+            let account_clone = account.clone();
+            let session_clone = session.clone();
+            let generation = spec.common.generation;
+            let role = spec.role;
+            let host_account = transport_config.local_account_id.clone();
+            let initial_peers: HashSet<String> = if hub_session {
+                HashSet::new()
+            } else {
+                transport_config.peers.iter().map(|p| p.account_id.clone()).collect()
+            };
+            Some(thread::spawn(move || {
+                Self::run_host_pump(
+                    transport,
+                    backend,
+                    stop,
+                    handle,
+                    account_clone,
+                    session_clone,
+                    generation,
+                    role,
+                    host_account,
+                    initial_peers,
+                );
+            }))
+        } else {
+            None
+        };
+
         let local = LocalSession {
             session: session.clone(),
             generation: spec.common.generation,
@@ -1616,6 +1695,8 @@ impl LocalRealmHosting {
                 server_pid: Some(server_pid),
                 local_port,
                 launch_env,
+                stop_flag,
+                pump_thread: Arc::new(Mutex::new(pump_thread)),
             },
         );
         cleanup.commit();
@@ -1667,7 +1748,30 @@ impl LocalRealmHosting {
             secrets: secrets_path,
         };
         let handle = self.transport.join_open(&open)?;
-        let local_port = match self.transport.wait_ready(handle, self.wait_ready_timeout_ms) {
+        let ready_state = if self.backend.supports_signalling() {
+            let deadline = Instant::now() + Duration::from_millis(u64::from(self.wait_ready_timeout_ms));
+            loop {
+                Self::pump_signals_once(
+                    self.transport.as_ref(),
+                    self.backend.as_ref(),
+                    handle,
+                    &account,
+                    &session,
+                    spec.common.generation,
+                );
+                let slice_ms = deadline
+                    .saturating_duration_since(Instant::now())
+                    .as_millis()
+                    .clamp(1, 50) as u32;
+                match self.transport.wait_ready(handle, slice_ms) {
+                    Ok(ReadyState::TimedOut) if Instant::now() < deadline => continue,
+                    other => break other,
+                }
+            }
+        } else {
+            self.transport.wait_ready(handle, self.wait_ready_timeout_ms)
+        };
+        let local_port = match ready_state {
             Ok(ReadyState::Ready(line)) => {
                 if line.starts_with("ROUTE_READY ") {
                     match parse_ice_ready(&line, "ROUTE_READY", spec.common.force_relay, true) {
@@ -1707,6 +1811,29 @@ impl LocalRealmHosting {
             return Err(err);
         }
 
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let pump_thread = if self.backend.supports_signalling() {
+            let transport = Arc::clone(&self.transport);
+            let backend = Arc::clone(&self.backend);
+            let stop = Arc::clone(&stop_flag);
+            let account_clone = account.clone();
+            let session_clone = session.clone();
+            let generation = spec.common.generation;
+            Some(thread::spawn(move || {
+                Self::run_join_pump(
+                    transport,
+                    backend,
+                    stop,
+                    handle,
+                    account_clone,
+                    session_clone,
+                    generation,
+                );
+            }))
+        } else {
+            None
+        };
+
         let local = LocalSession {
             session: session.clone(),
             generation: spec.common.generation,
@@ -1724,19 +1851,129 @@ impl LocalRealmHosting {
                 server_pid: None,
                 local_port,
                 launch_env: BTreeMap::new(),
+                stop_flag,
+                pump_thread: Arc::new(Mutex::new(pump_thread)),
             },
         );
         cleanup.commit();
         Ok(local)
     }
 
+    fn pump_signals_once(
+        transport: &dyn TransportAbi,
+        backend: &dyn HostBackend,
+        handle: Handle,
+        account: &AccountId,
+        session: &SessionId,
+        generation: u64,
+    ) {
+        while let Ok(Some(signal)) = transport.read_signal(handle) {
+            let _ = backend.send_signal(account, session, generation, &signal);
+        }
+        if let Ok(incoming) = backend.poll_signals(account, session, generation) {
+            for (from_account, signal) in incoming {
+                let _ = transport.submit_signal(handle, &from_account, &signal.kind, &signal.data);
+            }
+        }
+        while let Ok(Some(_)) = transport.read_peer_event(handle) {}
+        while let Ok(Some(_)) = transport.read_diagnostic(handle) {}
+    }
+
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "background host pump owns cloned session handles and peer state"
+    )]
+    fn run_host_pump(
+        transport: Arc<dyn TransportAbi>,
+        backend: Arc<dyn HostBackend>,
+        stop: Arc<AtomicBool>,
+        handle: Handle,
+        account: AccountId,
+        session: SessionId,
+        generation: u64,
+        role: HostedRole,
+        host_account: String,
+        mut linked_peers: HashSet<String>,
+    ) {
+        while !stop.load(Ordering::Relaxed) {
+            if !transport.session_running(handle).unwrap_or(false) {
+                break;
+            }
+            if let Ok(entries) = backend.poll_peers(&account, &session, generation, role) {
+                let (wanted, _) = wanted_peers(&entries, Some(host_account.as_str()));
+                let diff = peer_diff(&linked_peers, &wanted);
+                for peer in diff.add {
+                    let peer_id = PeerId(peer.peer_id);
+                    let key = Secret::new(peer.transport_key);
+                    if transport
+                        .add_peer(handle, &AccountId(peer.account_id.clone()), peer_id, &key)
+                        .is_ok()
+                    {
+                        linked_peers.insert(peer.account_id);
+                    }
+                }
+                for peer_account in diff.remove {
+                    let _ = transport.remove_peer(handle, &AccountId(peer_account.clone()), "roster");
+                    linked_peers.remove(&peer_account);
+                }
+            }
+            Self::pump_signals_once(
+                transport.as_ref(),
+                backend.as_ref(),
+                handle,
+                &account,
+                &session,
+                generation,
+            );
+            thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    fn run_join_pump(
+        transport: Arc<dyn TransportAbi>,
+        backend: Arc<dyn HostBackend>,
+        stop: Arc<AtomicBool>,
+        handle: Handle,
+        account: AccountId,
+        session: SessionId,
+        generation: u64,
+    ) {
+        while !stop.load(Ordering::Relaxed) {
+            if !transport.session_running(handle).unwrap_or(false) {
+                break;
+            }
+            Self::pump_signals_once(
+                transport.as_ref(),
+                backend.as_ref(),
+                handle,
+                &account,
+                &session,
+                generation,
+            );
+            thread::sleep(Duration::from_millis(50));
+        }
+    }
+
     fn stop_managed(&self, managed: ManagedSession) -> Result<(), HostError> {
+        managed.stop_flag.store(true, Ordering::Relaxed);
         let stop_res = self.transport.stop_session(managed.handle);
+        if let Some(join_handle) = managed.pump_thread.lock().unwrap_or_else(|p| p.into_inner()).take() {
+            let _ = join_handle.join();
+        }
         if let Some(pid) = managed.server_pid {
             self.spawner.stop(pid);
         }
         cleanup_directory(&managed.session_dir);
         stop_res
+    }
+}
+
+impl Drop for LocalRealmHosting {
+    fn drop(&mut self) {
+        let sessions = std::mem::take(&mut *self.sessions.lock().unwrap_or_else(|p| p.into_inner()));
+        for (_, managed) in sessions {
+            let _ = self.stop_managed(managed);
+        }
     }
 }
 
