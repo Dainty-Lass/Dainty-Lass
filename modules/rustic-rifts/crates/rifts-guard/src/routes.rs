@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use rifts_seam::{
-    BoxFuture, Caller, Component, Json, Method, Mount, Refusal, Reply, Route, RouteCall, RouteHandler, SeamError,
-    StubRoutes, Unimplemented,
+    BoxFuture, Caller, CapabilityScope, Component, HOST_CAPABILITY_HEADER, Json, Method, Mount, Refusal, Reply, Route,
+    RouteCall, RouteHandler, SeamError, StubRoutes, Unimplemented,
 };
 use serde_json::Value;
 
@@ -72,11 +72,16 @@ pub fn stub_routes() -> StubRoutes {
 #[derive(Clone)]
 pub struct GuardRoutes {
     guard: Arc<Guard>,
+    has_store: bool,
 }
 
 impl GuardRoutes {
     pub fn new(guard: Arc<Guard>) -> Self {
-        Self { guard }
+        Self { guard, has_store: true }
+    }
+
+    pub fn with_store(guard: Arc<Guard>, has_store: bool) -> Self {
+        Self { guard, has_store }
     }
 
     fn param<'a>(call: &'a RouteCall, name: &str) -> &'a str {
@@ -103,7 +108,26 @@ impl GuardRoutes {
                 ));
             }
         };
-        let answer = match (call.route.handler, &call.caller) {
+        let resolved_caller = match (call.route.handler, &call.caller) {
+            (SUBMIT, Caller::Anonymous) => self
+                .guard
+                .resolve_route_capability(
+                    call.request.header(HOST_CAPABILITY_HEADER),
+                    Self::param(call, "sessionId"),
+                    CapabilityScope::EventsWrite,
+                )
+                .map_or(Caller::Anonymous, Caller::HostRuntime),
+            (COMPLETE, Caller::Anonymous) => self
+                .guard
+                .resolve_route_capability(
+                    call.request.header(HOST_CAPABILITY_HEADER),
+                    Self::param(call, "sessionId"),
+                    CapabilityScope::CompleteRequest,
+                )
+                .map_or(Caller::Anonymous, Caller::HostRuntime),
+            (_, caller) => caller.clone(),
+        };
+        let answer = match (call.route.handler, &resolved_caller) {
             (SUBMIT | COMPLETE, Caller::HostRuntime(runtime)) => {
                 let bytes = stringified_len(body.as_ref());
                 let Some(_permit) = self.guard.request_budget().try_acquire(bytes) else {
@@ -175,6 +199,12 @@ impl GuardRoutes {
     }
 
     async fn answer(&self, call: RouteCall) -> Result<Reply, SeamError> {
+        if !self.has_store {
+            return Err(SeamError::Unimplemented(Unimplemented::new(
+                Component::Guard,
+                call.route.handler,
+            )));
+        }
         let result = match call.route.handler {
             SUBMIT | COMPLETE | SELF_REWARD | SHADOW => self.hunts_route(&call),
             ROLLOUT | ACK => self.admin_route(&call).await,
@@ -253,6 +283,34 @@ mod tests {
     #[test]
     fn every_stub_route_answers_unimplemented() {
         let handler = stub_routes();
+        for route in ROUTES {
+            let call = RouteCall {
+                route: *route,
+                params: Vec::new(),
+                query: String::new(),
+                request: RequestInfo::default(),
+                caller: Caller::Anonymous,
+                body: Vec::new(),
+            };
+            let answer = poll_once(handler.handle(call)).unwrap();
+            let expected = Unimplemented::new(Component::Guard, route.handler);
+            assert_eq!(answer, Err(SeamError::Unimplemented(expected)), "{}", route.path);
+        }
+    }
+
+    #[test]
+    fn guard_routes_without_store_answers_unimplemented() {
+        let core: Arc<dyn rifts_seam::IslesCore> = Arc::new(rifts_seam::NoCore);
+        let guard = Arc::new(Guard::new(crate::GuardParts {
+            config: crate::GuardConfig::default(),
+            store: Arc::new(crate::StubGuardStore),
+            hunts: Arc::new(crate::NoHuntSessions),
+            operations: Arc::new(crate::CoreOperationsPolicy::new(Arc::clone(&core))),
+            core,
+            clock: Arc::new(crate::ports::SystemClock::default()),
+            log: Arc::new(crate::ports::MemoryLog::default()),
+        }));
+        let handler = GuardRoutes::with_store(guard, false);
         for route in ROUTES {
             let call = RouteCall {
                 route: *route,

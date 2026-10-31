@@ -1,5 +1,5 @@
-//! `ParadoxTransport.dll`'s ABI (`src/paradox_transport_api.hpp`, RF1 section 4) as a trait. RF7 implements it over
-//! the DLL; this crate has no FFI yet, so the workspace's `unsafe_code = "deny"` still holds.
+//! `ParadoxTransport.dll`'s ABI (`src/paradox_transport_api.hpp`, RF1 section 4) as a trait. `ffi` implements it over
+//! the DLL and is the one module allowed `unsafe_code`.
 
 use std::path::{Path, PathBuf};
 

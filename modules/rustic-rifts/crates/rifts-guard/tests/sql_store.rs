@@ -499,8 +499,19 @@ static NEXT: AtomicU32 = AtomicU32::new(0);
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sql_guard_store_suite_runs_on_sqlite_and_postgres() {
-    let (_dir, sqlite_store) = open_sqlite();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let sqlite_config = DatabaseConfig::Sqlite {
+        file: dir.path().join("guard.sqlite"),
+    };
+    let sqlite_store =
+        SqlGuardStore::open(&sqlite_config, &DatabaseOptions::default()).expect("open fresh sqlite guard store");
     run_suite(sqlite_store).await;
+    let reopened_sqlite =
+        SqlGuardStore::open(&sqlite_config, &DatabaseOptions::default()).expect("reopen existing sqlite guard store");
+    assert!(
+        reopened_sqlite.alert("alert-100").expect("alert on reopen").is_some(),
+        "reopening an already-migrated sqlite database preserves guard rows"
+    );
 
     if let Ok(base_url) = std::env::var("REFORGED_TEST_POSTGRES_URL") {
         let url = url::Url::parse(&base_url).expect("parse REFORGED_TEST_POSTGRES_URL");
@@ -528,9 +539,15 @@ async fn sql_guard_store_suite_runs_on_sqlite_and_postgres() {
             database: name.clone(),
             ..server.clone()
         };
-        let pg_store = SqlGuardStore::open(&DatabaseConfig::Postgres(config), &DatabaseOptions::default())
-            .expect("open postgres guard store");
+        let pg_config = DatabaseConfig::Postgres(config);
+        let pg_store = SqlGuardStore::open(&pg_config, &DatabaseOptions::default()).expect("open postgres guard store");
         run_suite(pg_store).await;
+        let reopened_pg =
+            SqlGuardStore::open(&pg_config, &DatabaseOptions::default()).expect("reopen existing postgres guard store");
+        assert!(
+            reopened_pg.alert("alert-100").expect("alert on reopen").is_some(),
+            "reopening an already-migrated postgres database preserves guard rows"
+        );
         drop(admin);
         if let Ok(mut cleanup) = PgConnection::establish(&server.conninfo()) {
             let _ = cleanup.batch_execute(&format!(

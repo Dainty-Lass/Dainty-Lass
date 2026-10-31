@@ -592,6 +592,51 @@ impl HuntSessions for RealmsHuntSessions {
             }))
         })
     }
+
+    fn resolve_capability(
+        &self,
+        digest: &str,
+        session_id: &str,
+        scope: CapabilityScope,
+        now: UnixMillis,
+    ) -> Result<Option<RuntimeAuth>, StoreError> {
+        let hunts = self.hunts.clone();
+        let node = self.node.clone();
+        let digest_owned = digest.to_owned();
+        let session_owned = session_id.to_owned();
+        block_on_store(async move {
+            let Some(cap) = hunts
+                .find_host_capability_by_digest(&digest_owned)
+                .await
+                .map_err(repo_to_store_err)?
+            else {
+                return Ok(None);
+            };
+            if cap.revoked_at.is_some() || cap.expires_at <= now || !cap.scopes.contains(&scope) {
+                return Ok(None);
+            }
+            let Some(seam_session) = seam_session_id(&cap.session_id, &node) else {
+                return Ok(None);
+            };
+            if cap.session_id != session_owned && seam_session.to_string() != session_owned {
+                return Ok(None);
+            }
+            let Ok(generation) = u64::try_from(cap.generation) else {
+                return Ok(None);
+            };
+            Ok(Some(RuntimeAuth {
+                capability_id: cap.capability_id,
+                session: seam_session,
+                generation,
+                host_account: AccountId(cap.host_account_id),
+                scopes: cap.scopes,
+                roster: Vec::new(),
+                host_peer: cap.host_steam_id.parse().ok().map(rifts_seam::PeerId),
+                bridge_instance: Some(cap.bridge_instance_id),
+                wire_session: Some(cap.session_id),
+            }))
+        })
+    }
 }
 
 #[cfg(test)]
