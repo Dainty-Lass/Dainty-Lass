@@ -270,11 +270,13 @@ impl HostCapabilities {
             .find_host_capability_by_digest(&digest)
             .await
             .map_err(|_| invalid("The hunt host capability could not be verified."))?;
+        let stripped = session_id.split_once(':').map_or(session_id, |(_, r)| r);
         match capability {
             Some(c)
                 if c.revoked_at.is_none()
                     && c.expires_at > now
-                    && c.session_id == session_id
+                    && (c.session_id == stripped
+                        || seam_session_id(&c.session_id, &self.node).is_some_and(|s| s.to_string() == stripped))
                     && c.scopes.contains(&scope) =>
             {
                 Ok(c)

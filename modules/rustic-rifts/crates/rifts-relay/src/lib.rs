@@ -25,7 +25,7 @@ pub use credentials::{
     mint_cloudflare, mint_turn_rest, month_window, normalize_provider_ice_servers, read_monthly_relay_egress_bytes,
     relay_account_tag, relay_ttl_seconds,
 };
-pub use routes::{ROUTES, stub_routes};
+pub use routes::{ROUTES, RelayRoutes, stub_routes};
 pub use rules::{CoopTransport, HuntSnapshot, derive_pair_key};
 pub use service::{ControlMessage, CoopTransportOutcome, Ice, IceHunts, OperationsPolicy, P2PGate, refusal};
 

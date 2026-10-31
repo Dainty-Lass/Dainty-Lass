@@ -13,6 +13,7 @@ use crate::RealmsError;
 use crate::capabilities::HostCapabilities;
 use crate::control::ControlChannel;
 use crate::directory::RealmDirectory;
+use crate::hosting::HuntLifecycle;
 use crate::input::{
     ParseFailure, parse_account_id_param, parse_ban_body, parse_create_realm_body, parse_heartbeat_body,
     parse_invite_body, parse_invite_code_param, parse_join_body, parse_known_host_key_query, parse_list_query,
@@ -555,6 +556,168 @@ impl RealmsRoutes {
 
         // Node applies no IsRateLimited window on /launcher/v1/p2p/* or /mystic/v1/hunts/:sessionId/lease (checked in p2pLauncher.ts, p2pControl.ts, p2pHostLifecycle.ts and p2pHunts.ts:80).
         match call.route.handler {
+            "p2pAdmission.ts:MarkHostReady" => {
+                let (Some(hosting), Some(capabilities)) = (&self.hosting, &self.capabilities) else {
+                    return Err(unimplemented());
+                };
+                let session_id = Self::param(call, "sessionId").unwrap_or_default();
+                let capability = capabilities
+                    .check(
+                        call.request.header(HOST_CAPABILITY_HEADER),
+                        session_id,
+                        CapabilityScope::HostReady,
+                        self.clock.now(),
+                    )
+                    .await?;
+                let body = Self::parse_p2p_object(call)?;
+                Self::ok_json(&hosting.mark_host_ready(&capability, &body).await?)
+            }
+            "p2pHuntStatus.ts:AbortHunt" => {
+                let (Some(hosting), Some(capabilities)) = (&self.hosting, &self.capabilities) else {
+                    return Err(unimplemented());
+                };
+                let session_id = Self::param(call, "sessionId").unwrap_or_default();
+                let capability = capabilities
+                    .check(
+                        call.request.header(HOST_CAPABILITY_HEADER),
+                        session_id,
+                        CapabilityScope::Abort,
+                        self.clock.now(),
+                    )
+                    .await?;
+                let body = Self::parse_p2p_object(call)?;
+                Self::ok_json(&hosting.abort_hunt(&capability, &body).await?)
+            }
+            "p2pHuntStatus.ts:EndHunt" => {
+                let (Some(hosting), Some(capabilities)) = (&self.hosting, &self.capabilities) else {
+                    return Err(unimplemented());
+                };
+                let session_id = Self::param(call, "sessionId").unwrap_or_default();
+                let raw_header = call.request.header(HOST_CAPABILITY_HEADER);
+                let now = self.clock.now();
+                let capability = match capabilities
+                    .check(raw_header, session_id, CapabilityScope::CompleteRequest, now)
+                    .await
+                {
+                    Ok(cap) => cap,
+                    Err(_) => match capabilities
+                        .check(raw_header, session_id, CapabilityScope::GameServerRuntime, now)
+                        .await
+                    {
+                        Ok(cap) => cap,
+                        Err(_) => {
+                            capabilities
+                                .check(raw_header, session_id, CapabilityScope::Abort, now)
+                                .await?
+                        }
+                    },
+                };
+                let body = Self::parse_p2p_object(call)?;
+                Self::ok_json(&hosting.finish_hunt(&capability, &body).await?)
+            }
+            "p2pHuntStatus.ts:GetHuntStatus" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let session_id = Self::param(call, "sessionId").unwrap_or_default();
+                let caller_account = match &call.caller {
+                    Caller::Launcher(account) => Some(account.0.as_str()),
+                    Caller::HostRuntime(rt) => Some(rt.host_account.0.as_str()),
+                    Caller::Admin { .. } => None,
+                    Caller::Anonymous => {
+                        if let Some(capabilities) = &self.capabilities
+                            && let Some(raw) = call.request.header(HOST_CAPABILITY_HEADER)
+                        {
+                            let _ = capabilities
+                                .check(
+                                    raw.into(),
+                                    session_id,
+                                    CapabilityScope::LeaseHeartbeat,
+                                    self.clock.now(),
+                                )
+                                .await?;
+                            None
+                        } else {
+                            return Err(RealmsError::Refused(Refusal {
+                                code: "AUTH_UNAUTHORIZED".to_owned(),
+                                message: "Sign in required.".to_owned(),
+                            }));
+                        }
+                    }
+                };
+                Self::ok_json(&hosting.get_hunt_status(caller_account, session_id).await?)
+            }
+            "p2pAdminOperations.ts:UpdateP2PEmergencyStop" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let admin_key = match &call.caller {
+                    Caller::Admin { key_id } => key_id.clone(),
+                    _ => {
+                        return Err(RealmsError::Refused(Refusal {
+                            code: "AUTH_UNAUTHORIZED".to_owned(),
+                            message: "Admin authentication required.".to_owned(),
+                        }));
+                    }
+                };
+                let text = String::from_utf8(call.body.clone()).unwrap_or_default();
+                let json = HuntLifecycle::set_emergency_stop(hosting.as_ref(), admin_key, Json(text)).await?;
+                Ok(Reply {
+                    status: 200,
+                    body: json,
+                })
+            }
+            "p2pLauncher.ts:CreateHostBootstrap" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let account = Self::launcher_account(call)?;
+                let session_id = Self::param(call, "sessionId").unwrap_or_default();
+                Self::ok_json(&hosting.create_host_bootstrap(account, session_id).await?)
+            }
+            "p2pLauncher.ts:MarkLocalRouteReady" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let account = Self::launcher_account(call)?;
+                let session_id = Self::param(call, "sessionId").unwrap_or_default();
+                let body = Self::parse_p2p_object(call)?;
+                Self::ok_json(&hosting.mark_local_route_ready(account, session_id, &body).await?)
+            }
+            "realmHubLifecycle.ts:CreateRealmHubSession" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let account = Self::launcher_account(call)?;
+                let body = Self::parse_p2p_object(call)?;
+                Self::ok_json(&hosting.start_realm_hub(account, &body).await?)
+            }
+            "realmHubLifecycle.ts:StopRealmHubSession" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let account = Self::launcher_account(call)?;
+                let body = Self::parse_p2p_object(call)?;
+                Self::ok_json(&hosting.stop_realm_hub(account, &body).await?)
+            }
+            "realmHostingStatus.ts:GetRealmHostingStatus" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let account = Self::launcher_account(call)?;
+                Self::ok_json(&hosting.get_realm_hosting_status(account).await?)
+            }
+            "huntLaunchManifest.ts:ResolvePlayerHostedLaunchManifest" => {
+                let Some(hosting) = &self.hosting else {
+                    return Err(unimplemented());
+                };
+                let text = String::from_utf8(call.body.clone()).unwrap_or_default();
+                let json = HuntLifecycle::resolve_launch_manifest(hosting.as_ref(), Json(text)).await?;
+                Ok(Reply {
+                    status: 200,
+                    body: json,
+                })
+            }
             "p2pControl.ts:PollP2PControl" => {
                 let Some(control) = &self.control else {
                     return Err(unimplemented());

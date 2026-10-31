@@ -14,7 +14,7 @@ mod store;
 pub mod ticket;
 
 pub use keys::{KeyError, P256KeyGenerator, SECRET_SETTINGS, write_key_set};
-pub use routes::{ROUTES, stub_routes};
+pub use routes::{AdmissionRoutes, CapabilityResolver, ROUTES, stub_routes};
 pub use service::{
     Admission, AdmissionHunt, AdmissionHunts, ConsumeTicket, ConsumedTicket, HostCapability, HubPeer, HubPeers,
     IssuedTicket, JOIN_TICKET_LIFETIME_SECONDS, JoinBootstrap, MAXIMUM_PEER_LIST, refused,
