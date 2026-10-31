@@ -57,6 +57,7 @@ const NETWORK: &[Field] = &[
     ("node", "node", false),
     ("region", "region", false),
     ("leader", "leader", false),
+    ("wrongNodePolicy", "wrong_node_policy", false),
     ("nodes", "nodes", false),
 ];
 

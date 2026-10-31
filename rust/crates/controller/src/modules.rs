@@ -242,11 +242,14 @@ pub struct NetworkOptions {
     pub peer_log_dir: Option<std::path::PathBuf>,
     /// Peer node to ship this node's change log and snapshots to (`[history] ship_to_peer`, DH7), and its state file.
     pub ship_to_peer: Option<(module_api::network::NodeId, std::path::PathBuf)>,
+    /// Policy when a player joins an instance hosted on a different node (`[network] wrong_node_policy`, DN8).
+    pub wrong_node_policy: Option<network_plugin::ring::WrongNodePolicy>,
 }
 
 #[cfg(feature = "network")]
 struct HomeRouterHook {
     router: Arc<network_plugin::home::HomeRouter>,
+    director: Arc<network_plugin::ring::DriverDirectorRouter>,
 }
 
 #[cfg(feature = "network")]
@@ -255,13 +258,15 @@ impl crate::registry::LoadHook for HomeRouterHook {
         if manifest.kind == module_api::ModuleKind::Game {
             self.router.register(
                 manifest.id.clone(),
-                Arc::new(network_plugin::home::DriverBackend::new(driver)),
+                Arc::new(network_plugin::home::DriverBackend::new(driver.clone())),
             );
+            self.director.register(driver);
         }
     }
 
     fn unloaded(&self, module: &module_api::ModuleId) {
         self.router.unregister(module);
+        self.director.unregister(module);
     }
 }
 
@@ -286,9 +291,11 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
         network_plugin::home::TicketConfig::default(),
     ));
     let router = Arc::new(network_plugin::home::HomeRouter::default());
-    options
-        .registry
-        .add_hook(Arc::new(HomeRouterHook { router: router.clone() }));
+    let director = Arc::new(network_plugin::ring::DriverDirectorRouter::default());
+    options.registry.add_hook(Arc::new(HomeRouterHook {
+        router: router.clone(),
+        director: director.clone(),
+    }));
     let node = options.node;
     let leader = options.leader;
     let peers = options.peers;
@@ -299,6 +306,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
     let replication_interval = options.replication_interval;
     let peer_log_dir = options.peer_log_dir;
     let ship_to_peer = options.ship_to_peer;
+    let wrong_node_policy = options.wrong_node_policy;
     Ok(Module::new(
         "network",
         Arc::new(move |mut ctx| {
@@ -313,8 +321,10 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 link,
                 tickets,
                 router,
+                director,
                 peer_log_dir,
                 ship_to_peer,
+                wrong_node_policy,
             ) = (
                 node.clone(),
                 leader.clone(),
@@ -326,8 +336,10 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 link.clone(),
                 tickets.clone(),
                 router.clone(),
+                director.clone(),
                 peer_log_dir.clone(),
                 ship_to_peer.clone(),
+                wrong_node_policy,
             );
             Box::pin(async move {
                 if let store::DatabaseConfig::Sqlite { file } = &database
@@ -356,20 +368,37 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 let home_service = Arc::new(network_plugin::home::HomeService::new(
                     node.clone(),
                     tickets.clone(),
-                    router,
+                    router.clone(),
                     directory.clone(),
                     peers.iter().map(|p| p.id.clone()),
                     network_plugin::home::HomeConfig::default(),
                 ));
-                let networked_home = Arc::new(network_plugin::home::NetworkedHome::new(
-                    node.clone(),
-                    peers.iter().map(|p| (p.id.clone(), p.region.clone())),
-                    link.clone(),
-                    directory.clone(),
-                    tickets.clone(),
-                    network_plugin::home::NetworkedConfig::new(game),
-                ));
+                let networked_home = Arc::new(
+                    network_plugin::home::NetworkedHome::new(
+                        node.clone(),
+                        peers.iter().map(|p| (p.id.clone(), p.region.clone())),
+                        link.clone(),
+                        directory.clone(),
+                        tickets.clone(),
+                        network_plugin::home::NetworkedConfig::new(game),
+                    )
+                    .with_local_router(router)
+                    .with_directory(directory.clone()),
+                );
                 let mut ring_config = network_plugin::ring::RingConfig::new(node.clone());
+                ring_config.wrong_node_policy = wrong_node_policy
+                    .or_else(|| {
+                        match std::env::var("REFORGED_WRONG_NODE_POLICY")
+                            .ok()
+                            .as_deref()
+                            .map(str::trim)
+                        {
+                            Some("redirect") => Some(network_plugin::ring::WrongNodePolicy::Redirect),
+                            Some("refuse") => Some(network_plugin::ring::WrongNodePolicy::Refuse),
+                            _ => None,
+                        }
+                    })
+                    .unwrap_or_default();
                 ring_config.peers = peers
                     .iter()
                     .map(|p| network_plugin::ring::PeerGateway {
@@ -385,9 +414,10 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     Arc::new(network_plugin::Clock::default()),
                     link.clone(),
                     networked_home.clone(),
-                    Arc::new(network_plugin::ring::UnconfiguredDirector),
+                    director,
                     Arc::new(InProcessAllowlistSink::new(allowlist)),
                 );
+                networked_home.set_ring(&ring_node);
                 let ring_ticker = ring_node.spawn_ticker(
                     replication_interval
                         .min(std::time::Duration::from_secs(1))

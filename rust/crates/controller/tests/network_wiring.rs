@@ -119,6 +119,7 @@ fn build_node(ca: &ClusterCa, node: &str, region: &str, leader: &str, port: u16,
             replication_interval: Duration::from_millis(100),
             peer_log_dir: Some(peer_log_dir),
             ship_to_peer,
+            wrong_node_policy: None,
         })
         .unwrap(),
     );
