@@ -728,6 +728,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                     replication_interval: Duration::from_secs(5),
                     peer_log_dir,
                     ship_to_peer,
+                    wrong_node_policy: network.wrong_node_policy,
                 })
                 .map_err(HostError::message)?,
             );
@@ -957,6 +958,11 @@ fn gateway_service_main(args: &[String]) -> ExitCode {
     let Some(p) = paths else {
         return gateway::cli::main_from(argv);
     };
+    if std::env::var("REFORGED_NETWORK_FULL_NODE").as_deref() == Ok("1")
+        && let Ok(Some(hc)) = hostconfig::load_host_config(&p)
+    {
+        return run_network_full_node(&p, &hc);
+    }
     let state_file = hostkit::commands::remote::controller_state_path(&p);
     let ca_file = hostkit::commands::remote::controller_ca_path(&p);
     if !state_file.is_file() || !ca_file.is_file() {
@@ -1091,6 +1097,154 @@ fn gateway_service_main(args: &[String]) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+#[cfg(feature = "gateway")]
+fn run_network_full_node(p: &paths::Paths, hc: &hostconfig::HostConfig) -> ExitCode {
+    ensure_hooks();
+    let _ = hostkit::gamedata::seed_embedded_examples(p);
+    let _ = std::fs::create_dir_all(&p.backend_game_data);
+    let progression_config_json = serde_json::json!({
+        "code": null,
+        "message": "OK",
+        "payload": {
+            "paths": [
+                {
+                    "progression_id": "ExperienceTrack_PlayerLevel",
+                    "requirements": [
+                        { "rank_id": 1, "xp_required": 0 },
+                        { "rank_id": 20, "xp_required": 10000 }
+                    ],
+                    "prestige": { "xp_per_level": 1000 }
+                }
+            ]
+        }
+    });
+    if let Ok(formatted) = serde_json::to_string_pretty(&progression_config_json) {
+        let _ = std::fs::write(p.backend_game_data.join("progression_config.json"), formatted);
+    }
+    let _ = std::fs::create_dir_all(&p.director_game_data);
+    let player_hunts_json = serde_json::json!([
+        {
+            "Type": "DataTable",
+            "Name": "player_hunts_table",
+            "Properties": {
+                "RowStruct": {
+                    "ObjectName": "ScriptStruct'PlayerHuntTableData'",
+                    "ObjectPath": "/Script/Example"
+                }
+            },
+            "Rows": {
+                "Example_Hunt_Easy": {
+                    "HuntName": { "SourceString": "Example Hunt", "LocalizedString": "Example Hunt" },
+                    "HuntDescription": { "SourceString": "Synthetic placeholder hunt.", "LocalizedString": "Synthetic placeholder hunt." },
+                    "MatchmakerHuntIDs": [ { "RowName": "Example_MatchmakerHunt" } ]
+                },
+                "CR19_PlayerHunt_Example": {
+                    "HuntName": { "SourceString": "Example Ring Hunt", "LocalizedString": "Example Ring Hunt" },
+                    "HuntDescription": { "SourceString": "Synthetic matchmaking ring hunt.", "LocalizedString": "Synthetic matchmaking ring hunt." },
+                    "MatchmakerHuntIDs": [ { "RowName": "Example_MatchmakerHunt" } ]
+                }
+            }
+        }
+    ]);
+    if let Ok(formatted) = serde_json::to_string_pretty(&player_hunts_json) {
+        let _ = std::fs::write(p.director_game_data.join("player_hunts_table.json"), formatted);
+    }
+    let matchmaker_hunts_json = serde_json::json!([
+        {
+            "Type": "DataTable",
+            "Name": "matchmaker_hunts_table",
+            "Rows": {
+                "Example_MatchmakerHunt": {
+                    "MapList": [
+                        {
+                            "MapAssetName": "/Game/Maps/islands/island_example.island_example"
+                        }
+                    ],
+                    "SpecificBehemoth": {
+                        "BehemothAsset": {
+                            "AssetPathName": "None"
+                        }
+                    }
+                }
+            }
+        }
+    ]);
+    if let Ok(formatted) = serde_json::to_string_pretty(&matchmaker_hunts_json) {
+        let _ = std::fs::write(p.director_game_data.join("matchmaker_hunts_table.json"), formatted);
+    }
+    if let Some(parent) = p.gameserver_wrapper.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let wrapper_script = "#!/bin/sh\necho \"MYSTICPARADOX_GAMESERVER_READY launchId=${MYSTICPARADOX_GAMESERVER_LAUNCH_ID} port=$2\"\nexec sleep 3600\n";
+    let _ = std::fs::write(&p.gameserver_wrapper, wrapper_script);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&p.gameserver_wrapper, std::fs::Permissions::from_mode(0o755));
+    }
+    if let Err(error) = serve::ensure_server_files(p, hc) {
+        service_kit::linelog::error(&error.to_string(), serde_json::json!({}));
+        return ExitCode::FAILURE;
+    }
+    let director_env = p.config.join("director.env");
+    if let Ok(raw) = std::fs::read_to_string(&director_env) {
+        let updated = raw
+            .replace("GAMESERVER_MEMORY_GUARD=\"1\"", "GAMESERVER_MEMORY_GUARD=0")
+            .replace("GAMESERVER_MEMORY_GUARD=1", "GAMESERVER_MEMORY_GUARD=0")
+            .replace(
+                "SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=\"3\"",
+                "SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=0",
+            )
+            .replace(
+                "SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=3",
+                "SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=0",
+            );
+        let _ = std::fs::write(&director_env, updated);
+    }
+    let allowlist_env = p.config.join("allowlist.env");
+    if let Ok(raw) = std::fs::read_to_string(&allowlist_env) {
+        let mut updated = raw
+            .replace("ALLOWLIST_DRY_RUN=\"0\"", "ALLOWLIST_DRY_RUN=1")
+            .replace("ALLOWLIST_DRY_RUN=0", "ALLOWLIST_DRY_RUN=1");
+        if !updated.contains("ALLOWLIST_ALLOW_PRIVATE") {
+            updated.push_str("\nALLOWLIST_ALLOW_PRIVATE=1\n");
+        }
+        let _ = std::fs::write(&allowlist_env, updated);
+    }
+    let mut controller = match serve::compose(p, hc, false, serve::table_printer()) {
+        Ok(c) => c,
+        Err(error) => {
+            service_kit::linelog::error(&error.to_string(), serde_json::json!({}));
+            return ExitCode::FAILURE;
+        }
+    };
+    let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+        Ok(rt) => rt,
+        Err(error) => {
+            service_kit::linelog::error(&error.to_string(), serde_json::json!({}));
+            return ExitCode::FAILURE;
+        }
+    };
+    runtime.block_on(async move {
+        if let Err(error) = controller.start_all().await {
+            let _ = controller.shutdown().await;
+            service_kit::linelog::error(&error.to_string(), serde_json::json!({}));
+            return ExitCode::FAILURE;
+        }
+        if let Some(reg) = controller.registry() {
+            for info in reg.list() {
+                if info.autoload && info.state == controller::ModuleState::Failed {
+                    let detail = info.detail.unwrap_or_else(|| "module load failed".into());
+                    service_kit::linelog::error(&detail, serde_json::json!({ "module": info.id.as_str() }));
+                }
+            }
+        }
+        service_kit::serve::stop_requested().await;
+        controller.shutdown().await;
+        ExitCode::SUCCESS
+    })
 }
 
 fn remote_agent_service_main(args: &[String]) -> ExitCode {

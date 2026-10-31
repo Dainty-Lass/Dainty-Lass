@@ -53,6 +53,10 @@ pub const DEFAULT_QOS_PORT: u16 = 80;
 pub const ACCOUNT_KEY_HEADER: &str = "x-reforged-user-api-key";
 /// Header carrying a home-signed session ticket when re-pointed to another node.
 pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
+/// Headers sent by a node when redirecting a wrong-node join under `WrongNodePolicy::Redirect`.
+pub const REDIRECT_HOST_HEADER: &str = "x-reforged-redirect-host";
+pub const REDIRECT_PORT_HEADER: &str = "x-reforged-redirect-port";
+pub const REDIRECT_FINGERPRINT_HEADER: &str = "x-reforged-redirect-fingerprint";
 /// How long an upgraded connection (the chat) may be silent both ways before it is cut
 const TUNNEL_IDLE: Duration = Duration::from_secs(24 * 60 * 60);
 const UPGRADE_BODY_MAX: usize = 64 * 1024;
@@ -251,6 +255,54 @@ impl Shared {
         }
     }
 
+    fn repoint_to(&self, target: RelayTarget, session_ticket: Option<String>) -> Result<(), RelayError> {
+        let session_ticket = match session_ticket {
+            Some(ticket) if !ticket.trim().is_empty() => Some(ticket),
+            _ if target == self.options.target => None,
+            _ => return Err(RelayError::TicketRequired),
+        };
+        let (active, mode, host) = build_active_upstream(&target, self.options.connect_timeout, session_ticket)?;
+        *self.upstream.write().unwrap_or_else(PoisonError::into_inner) = active;
+        self.log(LogLevel::Info, format!("relay re-pointed to {host} ({mode})"));
+        Ok(())
+    }
+
+    fn maybe_repoint_from_response(&self, headers: &HeaderMap) {
+        let Some(host) = headers
+            .get(REDIRECT_HOST_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        else {
+            return;
+        };
+        let Some(port) = headers
+            .get(REDIRECT_PORT_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.trim().parse::<u16>().ok())
+        else {
+            return;
+        };
+        let ticket = headers
+            .get(SESSION_TICKET_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty());
+        let fingerprint = headers
+            .get(REDIRECT_FINGERPRINT_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty());
+        let target = RelayTarget {
+            host: host.to_owned(),
+            port,
+            fingerprint,
+        };
+        if let Err(err) = self.repoint_to(target, ticket) {
+            self.log(LogLevel::Warn, format!("ignored invalid redirect headers: {err}"));
+        }
+    }
+
     fn log(&self, level: LogLevel, message: String) {
         if let Some(log) = &self.options.on_log {
             log(level, message);
@@ -416,16 +468,7 @@ impl Relay {
 
     /// Re-points the running relay to another node with a session ticket, or back to the home node.
     pub fn repoint(&self, target: RelayTarget, session_ticket: Option<String>) -> Result<(), RelayError> {
-        let session_ticket = match session_ticket {
-            Some(ticket) if !ticket.trim().is_empty() => Some(ticket),
-            _ if target == self.shared.options.target => None,
-            _ => return Err(RelayError::TicketRequired),
-        };
-        let (active, mode, host) = build_active_upstream(&target, self.shared.options.connect_timeout, session_ticket)?;
-        *self.shared.upstream.write().unwrap_or_else(PoisonError::into_inner) = active;
-        self.shared
-            .log(LogLevel::Info, format!("relay re-pointed to {host} ({mode})"));
-        Ok(())
+        self.shared.repoint_to(target, session_ticket)
     }
 
     /// Returns the gateway target the relay currently forwards to.
@@ -587,6 +630,7 @@ async fn handle_request(request: Request<Incoming>, remote: SocketAddr, shared: 
     match active.client.request(upstream).await {
         Ok(answer) => {
             let (parts, body) = answer.into_parts();
+            shared.maybe_repoint_from_response(&parts.headers);
             let mut response = Response::new(
                 body.map_err(|error| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)
                     .boxed(),

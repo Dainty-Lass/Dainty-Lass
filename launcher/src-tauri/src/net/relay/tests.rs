@@ -179,6 +179,23 @@ async fn route(mut request: Request<Incoming>, seen: Arc<Mutex<Vec<Seen>>>) -> R
                 .insert(hyper::ext::ReasonPhrase::try_from(&b"I'm a teapot"[..]).unwrap());
             response
         }
+        "/redirect-me" => {
+            let mut response = json(serde_json::json!({ "redirected": true }));
+            let headers = response.headers_mut();
+            if let Some(h) = request.headers().get("x-test-redirect-host") {
+                headers.insert("x-reforged-redirect-host", h.clone());
+            }
+            if let Some(p) = request.headers().get("x-test-redirect-port") {
+                headers.insert("x-reforged-redirect-port", p.clone());
+            }
+            if let Some(f) = request.headers().get("x-test-redirect-fingerprint") {
+                headers.insert("x-reforged-redirect-fingerprint", f.clone());
+            }
+            if let Some(t) = request.headers().get("x-test-session-ticket") {
+                headers.insert("x-reforged-session-ticket", t.clone());
+            }
+            response
+        }
         "/head" => {
             let mut response = Response::new(empty());
             response
@@ -1153,6 +1170,58 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
         ["RRK_home_secret_key_123456"]
     );
     assert!(!home_seen_after.headers.contains_key("x-reforged-session-ticket"));
+
+    relay.stop().await;
+}
+
+#[tokio::test]
+async fn redirect_response_headers_automatically_repoint_relay_and_strip_account_key() {
+    let home_upstream = upstream().await;
+    let peer_upstream = upstream().await;
+    let (relay, _) = relay_for(&home_upstream, None).await;
+
+    let peer_port_str = peer_upstream.port.to_string();
+    let answer = call(
+        relay.port(),
+        "POST",
+        "/redirect-me",
+        &[
+            ("x-reforged-user-api-key", "RRK_home_secret_key_123456"),
+            ("x-test-redirect-host", "127.0.0.1"),
+            ("x-test-redirect-port", &peer_port_str),
+            ("x-test-redirect-fingerprint", &peer_upstream.fingerprint),
+            ("x-test-session-ticket", "dlt1.auto_redirect_ticket"),
+        ],
+        None,
+    )
+    .await;
+    assert_eq!(answer.status, 200);
+    assert_eq!(
+        relay.current_target(),
+        RelayTarget {
+            host: "127.0.0.1".into(),
+            port: peer_upstream.port,
+            fingerprint: Some(peer_upstream.fingerprint.clone()),
+        }
+    );
+    assert_eq!(relay.current_ticket().as_deref(), Some("dlt1.auto_redirect_ticket"));
+
+    let follow_up = call(
+        relay.port(),
+        "GET",
+        "/matchmaking/instance-info",
+        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        None,
+    )
+    .await;
+    assert_eq!(follow_up.status, 200);
+    let peer_seen = peer_upstream.seen().last().cloned().unwrap();
+    assert_eq!(peer_seen.uri.as_str(), "/matchmaking/instance-info");
+    assert!(!peer_seen.headers.contains_key("x-reforged-user-api-key"));
+    assert_eq!(
+        values(&peer_seen.headers, "x-reforged-session-ticket"),
+        ["dlt1.auto_redirect_ticket"]
+    );
 
     relay.stop().await;
 }

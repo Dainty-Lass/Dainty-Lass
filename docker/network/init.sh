@@ -49,8 +49,11 @@ host = "$region.cluster.test"
 # Documentation range: the harness plays no game, and a public server wants a public-looking address
 game_address = "203.0.113.${address##*.}"
 name = "Network node $id"
-registration = "INVITECODE"
-max_hunt_servers = 1
+registration = "OPEN"
+max_hunt_servers = 3
+
+[switches]
+rate_limit = "off"
 
 # A node of the harness plays no game, so setup has no Wine prefix to make
 [linux]
