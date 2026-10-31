@@ -293,6 +293,10 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
             None => reply(404, json!({})),
         };
     }
+    #[cfg(feature = "realms")]
+    if let Some(resp) = realms::handle_realms_route(&host, &method, &path, key.as_deref(), &body) {
+        return resp;
+    }
     reply(404, Value::Null)
 }
 
