@@ -726,7 +726,7 @@ dependencies = [
 [[package]]
 name = "module-api"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ca78f56f60b251785192dda283742194be46237b#ca78f56f60b251785192dda283742194be46237b"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4#728d44cbef39142afdd7a218b0c84ff663c80fb4"
 dependencies = [
  "libc",
  "serde",
@@ -1280,7 +1280,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 [[package]]
 name = "store"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ca78f56f60b251785192dda283742194be46237b#ca78f56f60b251785192dda283742194be46237b"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4#728d44cbef39142afdd7a218b0c84ff663c80fb4"
 dependencies = [
  "diesel",
  "diesel_migrations",
