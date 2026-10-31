@@ -1164,7 +1164,7 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
     {
         if let Some(hc) = &host_config {
             if let Err(error) = hostkit::commands::update::check_unmigrated_mongo_data(p, hc) {
-                eprintln!("{error}");
+                eprintln!("Unmigrated MongoDB data: {error}");
                 return ExitCode::FAILURE;
             }
         } else if !p.config.join(hostkit::commands::update::MONGO_MIGRATED_MARKER).exists()
