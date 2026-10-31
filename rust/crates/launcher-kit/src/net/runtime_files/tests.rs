@@ -36,7 +36,10 @@ async fn start_tls_server(routes: HashMap<String, MockRoute>) -> (Endpoint, toki
     let pin = sha256_hex(cert_der.as_ref());
 
     let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
-    let server_cfg = ServerConfig::builder()
+    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+    let server_cfg = ServerConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .unwrap()
         .with_no_client_auth()
         .with_single_cert(vec![cert_der], key_der)
         .unwrap();

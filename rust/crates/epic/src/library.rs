@@ -85,6 +85,7 @@ pub struct EgsLibrary;
 
 impl Library for EgsLibrary {
     async fn records(&self, session: &Session) -> Result<Vec<Record>, LibraryError> {
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
         let mut user = UserData::new();
         user.set_access_token(Some(session.access_token().expose().to_owned()));
         user.token_type = Some("bearer".to_owned());

@@ -188,6 +188,7 @@ pub struct EpicAccounts;
 impl Accounts for EpicAccounts {
     fn token(&self, grant: Grant) -> Pending<'_, Session> {
         Box::pin(async move {
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
             let mut client = EpicGames::new();
             let started = match grant {
                 Grant::Code(code) => client.try_auth_code(None, Some(code.expose().to_owned())).await,
@@ -209,6 +210,7 @@ impl Accounts for EpicAccounts {
 
     fn end_session(&self, access_token: Token) -> Pending<'_, ()> {
         Box::pin(async move {
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
             let mut client = EpicGames::new();
             let mut user = UserData::new();
             user.set_access_token(Some(access_token.expose().to_owned()));
