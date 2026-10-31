@@ -75,28 +75,106 @@ fn subscribers() -> &'static Mutex<Vec<Weak<ControlInner>>> {
     SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
+fn notify_subscribers() {
+    if let Ok(mut list) = subscribers().lock() {
+        list.retain(|weak| {
+            if let Some(inner) = weak.upgrade() {
+                inner.trigger();
+                true
+            } else {
+                false
+            }
+        });
+    }
+}
+
+#[cfg(windows)]
+#[allow(unsafe_code)]
+mod win_ctrl {
+    use windows::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, CTRL_CLOSE_EVENT, SetConsoleCtrlHandler};
+    use windows::core::BOOL;
+
+    unsafe extern "system" fn handler(ctrl_type: u32) -> BOOL {
+        if matches!(ctrl_type, CTRL_C_EVENT | CTRL_BREAK_EVENT | CTRL_CLOSE_EVENT) {
+            super::notify_subscribers();
+            BOOL(1)
+        } else {
+            BOOL(0)
+        }
+    }
+
+    pub fn register() {
+        // SAFETY: `SetConsoleCtrlHandler(None, false)` clears any inherited ignore-CTRL+C
+        // attribute from a non-interactive parent shell, and `SetConsoleCtrlHandler(Some(handler), true)`
+        // registers `handler` with the process console subsystem.
+        unsafe {
+            let _ = SetConsoleCtrlHandler(None, false);
+            let _ = SetConsoleCtrlHandler(Some(handler), true);
+        }
+    }
+}
+
 fn ensure_ctrlc_registered() {
     static INIT: OnceLock<()> = OnceLock::new();
     INIT.get_or_init(|| {
-        let _ = std::thread::Builder::new().name("reforged-ctrlc".to_owned()).spawn(|| {
-            let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
-                return;
-            };
-            rt.block_on(async {
-                while tokio::signal::ctrl_c().await.is_ok() {
-                    if let Ok(mut list) = subscribers().lock() {
-                        list.retain(|weak| {
-                            if let Some(inner) = weak.upgrade() {
-                                inner.trigger();
-                                true
-                            } else {
-                                false
+        #[cfg(windows)]
+        {
+            win_ctrl::register();
+        }
+        #[cfg(not(windows))]
+        {
+            let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(0);
+            let _ = std::thread::Builder::new()
+                .name("reforged-ctrlc".to_owned())
+                .spawn(move || {
+                    let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
+                        let _ = ready_tx.send(());
+                        return;
+                    };
+                    rt.block_on(async move {
+                        #[cfg(unix)]
+                        {
+                            use tokio::signal::unix::{SignalKind, signal};
+                            let mut sigint = signal(SignalKind::interrupt()).ok();
+                            let mut sigterm = signal(SignalKind::terminate()).ok();
+                            let _ = ready_tx.send(());
+                            loop {
+                                tokio::select! {
+                                    res = async {
+                                        match &mut sigint {
+                                            Some(s) => s.recv().await,
+                                            None => std::future::pending().await,
+                                        }
+                                    } => {
+                                        if res.is_none() {
+                                            break;
+                                        }
+                                    }
+                                    res = async {
+                                        match &mut sigterm {
+                                            Some(s) => s.recv().await,
+                                            None => std::future::pending().await,
+                                        }
+                                    } => {
+                                        if res.is_none() {
+                                            break;
+                                        }
+                                    }
+                                }
+                                notify_subscribers();
                             }
-                        });
-                    }
-                }
-            });
-        });
+                        }
+                        #[cfg(not(unix))]
+                        {
+                            let _ = ready_tx.send(());
+                            while tokio::signal::ctrl_c().await.is_ok() {
+                                notify_subscribers();
+                            }
+                        }
+                    });
+                });
+            let _ = ready_rx.recv();
+        }
     });
 }
 
