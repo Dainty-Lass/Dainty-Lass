@@ -15,10 +15,38 @@ pub struct Paths {
     pub home: PathBuf,
 }
 
+/// Parses `--user-data-dir <dir>` or `--user-data-dir=<dir>` from command-line arguments so multiple
+/// launcher instances can run side by side with isolated profiles.
+pub fn user_data_dir_from_args<S: AsRef<str>>(args: &[S]) -> Option<PathBuf> {
+    let mut iter = args.iter().map(AsRef::as_ref);
+    while let Some(arg) = iter.next() {
+        if arg == "--user-data-dir"
+            && let Some(dir) = iter.next()
+            && !dir.is_empty()
+        {
+            return Some(PathBuf::from(dir));
+        }
+        if let Some(dir) = arg.strip_prefix("--user-data-dir=")
+            && !dir.is_empty()
+        {
+            return Some(PathBuf::from(dir));
+        }
+    }
+    None
+}
+
 impl Paths {
     /// From the operating system's folders.
     pub fn from_system() -> Option<Self> {
         let home = dirs::home_dir()?;
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(dir) = user_data_dir_from_args(&args) {
+            return Some(Self {
+                user_data: dir.join("User Data"),
+                documents: dir.join("Documents"),
+                home,
+            });
+        }
         // Throwaway profile when REFORGED_DEV_PROFILE is set, so a developer's or host's real settings and keys stay untouched
         if let Some(dir) = std::env::var_os("REFORGED_DEV_PROFILE").map(PathBuf::from) {
             return Some(Self {
