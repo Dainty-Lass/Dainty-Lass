@@ -61,6 +61,7 @@ pub fn hash_api_key(shared: &Shared, value: &str, scope: &str) -> Option<String>
 
 #[derive(Debug, Clone)]
 struct Holder {
+    account_id: AccountId,
     user_id: String,
     username: String,
     is_admin: bool,
@@ -95,10 +96,19 @@ fn hex_bytes(text: &str) -> Vec<u8> {
         .collect()
 }
 
+fn sha256_hex(text: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(text.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
 async fn holder_of(shared: &Shared, store: &IslesStore, key: Option<&str>) -> Option<Holder> {
     let key = key.filter(|key| looks_like_account_key(key))?;
     let hashed = hash_api_key(shared, key, "user")?;
-    store
+    let key_sha256 = sha256_hex(key);
+    let holder = store
         .read(move |conn, repos| {
             let rows = repos.api_keys.find_all_user_key_hashes(conn)?;
             let Some(account) = find_key_owner(&rows, &hashed) else {
@@ -115,6 +125,7 @@ async fn holder_of(shared: &Shared, store: &IslesStore, key: Option<&str>) -> Op
                 .or_else(|| game.map(|g| g.name))
                 .unwrap_or_else(|| user_id.clone());
             Ok(Some(Holder {
+                account_id: account,
                 user_id,
                 username,
                 is_admin: launcher.as_ref().is_some_and(|l| l.roles.iter().any(|r| r == "admin")),
@@ -123,7 +134,17 @@ async fn holder_of(shared: &Shared, store: &IslesStore, key: Option<&str>) -> Op
         })
         .await
         .ok()
-        .flatten()
+        .flatten()?;
+    if eligible(&holder) {
+        let home = shared.home();
+        let _ = home
+            .register_account_key_hash(&key_sha256, holder.account_id.global())
+            .await;
+        let _ = home
+            .register_directory_account(holder.account_id.global(), &holder.username)
+            .await;
+    }
+    Some(holder)
 }
 
 fn eligible(holder: &Holder) -> bool {
@@ -454,8 +475,14 @@ async fn register_account(call: Call) -> Response {
         }
     }
     tracing::info!("[launcher-api] {username} registered as {user_id}");
+    let home = shared.home();
+    let key_sha256 = sha256_hex(&key);
+    let _ = home.register_account_key_hash(&key_sha256, account.global()).await;
+    let _ = home.register_directory_account(account.global(), &username).await;
     forget_status();
-    util::json(200, &json!({ "UUK": key }))
+    let mut response = util::json(200, &json!({ "UUK": key }));
+    util::set_header(&mut response, "x-reforged-account-id", &account.to_string());
+    response
 }
 
 async fn get_user_info(call: Call) -> Response {
@@ -483,10 +510,12 @@ async fn get_user_info(call: Call) -> Response {
             }),
         );
     }
-    util::json(
+    let mut response = util::json(
         200,
         &json!({ "UserId": holder.user_id, "Username": holder.username, "IsAdmin": holder.is_admin }),
-    )
+    );
+    util::set_header(&mut response, "x-reforged-account-id", &holder.account_id.to_string());
+    response
 }
 
 async fn server_status(call: Call) -> Response {

@@ -1298,7 +1298,7 @@ dependencies = [
 [[package]]
 name = "module-api"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ca78f56f60b251785192dda283742194be46237b#ca78f56f60b251785192dda283742194be46237b"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4#728d44cbef39142afdd7a218b0c84ff663c80fb4"
 dependencies = [
  "libc",
  "serde",
@@ -1674,7 +1674,7 @@ dependencies = [
 [[package]]
 name = "rifts-admission"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=47b0140132515059ad89da22111494b57b8f42a6#47b0140132515059ad89da22111494b57b8f42a6"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1689,7 +1689,7 @@ dependencies = [
 [[package]]
 name = "rifts-guard"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=47b0140132515059ad89da22111494b57b8f42a6#47b0140132515059ad89da22111494b57b8f42a6"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -1704,7 +1704,7 @@ dependencies = [
 [[package]]
 name = "rifts-realms"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=47b0140132515059ad89da22111494b57b8f42a6#47b0140132515059ad89da22111494b57b8f42a6"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -1723,7 +1723,7 @@ dependencies = [
 [[package]]
 name = "rifts-relay"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=47b0140132515059ad89da22111494b57b8f42a6#47b0140132515059ad89da22111494b57b8f42a6"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1738,7 +1738,7 @@ dependencies = [
 [[package]]
 name = "rifts-seam"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=47b0140132515059ad89da22111494b57b8f42a6#47b0140132515059ad89da22111494b57b8f42a6"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=14214423662ab4c1e16fa490a4217cd70eb562c2#14214423662ab4c1e16fa490a4217cd70eb562c2"
 dependencies = [
  "thiserror",
 ]
@@ -1976,7 +1976,7 @@ dependencies = [
 [[package]]
 name = "service-kit"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ca78f56f60b251785192dda283742194be46237b#ca78f56f60b251785192dda283742194be46237b"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4#728d44cbef39142afdd7a218b0c84ff663c80fb4"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -2161,7 +2161,7 @@ dependencies = [
 [[package]]
 name = "store"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ca78f56f60b251785192dda283742194be46237b#ca78f56f60b251785192dda283742194be46237b"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4#728d44cbef39142afdd7a218b0c84ff663c80fb4"
 dependencies = [
  "diesel",
  "diesel_migrations",

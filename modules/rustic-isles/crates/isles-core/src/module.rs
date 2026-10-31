@@ -33,7 +33,7 @@ use crate::db::{ContextHome, IslesStore};
 use crate::game_data::GameDataRoot;
 use crate::http::{Rifts, Shared};
 use crate::routes::Service;
-use crate::settings::{SWITCHES, Settings};
+use crate::settings::{OPTIONAL_SWITCHES, SWITCHES, Settings};
 use crate::version::IslesVersion;
 
 /// The Reforged API routes `HostOnly` guards (`reforgedApi.ts`: the host's admin key from a loopback peer). The
@@ -454,6 +454,9 @@ impl GameModule for IslesModule {
             let default = self.spec.version.tables.switch_default(switch).unwrap_or_default();
             switches = switches.key(switch.key, json!(default), switch.help);
         }
+        for (key, env) in OPTIONAL_SWITCHES {
+            switches = switches.key(key, Value::Null, format!("Optional host switch ({env})"));
+        }
         registrar.config_section(switches);
         registrar.config_section(
             ConfigSection::new("game_data")
@@ -578,6 +581,395 @@ impl GameModule for IslesModule {
             }
             Ok(())
         })
+    }
+
+    fn command(
+        &self,
+        _ctx: ModuleContext,
+        request: module_api::CommandRequest,
+    ) -> BoxFuture<'_, Result<module_api::CommandOutput, ModuleError>> {
+        Box::pin(async move {
+            let shared = lock(&self.running).shared.clone();
+            let shared = shared.ok_or_else(|| ModuleError::new(ErrorKind::Unavailable, "the module is not running"))?;
+            if let Some(director_res) = module_api::network::DirectorInvocation::from_command(&request) {
+                let director_inv = director_res?;
+                let data = handle_director_invocation(&shared, director_inv).await?;
+                return Ok(module_api::CommandOutput {
+                    text: "ok".to_owned(),
+                    data: Some(data),
+                });
+            }
+            if let Some(home_res) = module_api::network::HomeInvocation::from_command(&request) {
+                let home_inv = home_res?;
+                let data = handle_home_invocation(&shared, home_inv).await?;
+                return Ok(module_api::CommandOutput {
+                    text: "ok".to_owned(),
+                    data: Some(data),
+                });
+            }
+            Err(ModuleError::unsupported(format!("command {}", request.name)))
+        })
+    }
+}
+
+async fn handle_director_invocation(
+    shared: &Arc<Shared>,
+    invocation: module_api::network::DirectorInvocation,
+) -> Result<Value, ModuleError> {
+    use crate::areas::matchmaking::controller::RAMSGATE_HUNT;
+    use crate::areas::matchmaking::deploy::{Launch, LaunchRequest};
+    use module_api::network::{DirectorInvocation, PlacedInstance};
+
+    let deploy = shared.matchmaking.dedicated_servers();
+    if !deploy.configured() {
+        return Err(ModuleError::new(
+            ErrorKind::Unavailable,
+            "dedicated servers are not configured on this node",
+        ));
+    }
+    match invocation {
+        DirectorInvocation::PlaceHunt {
+            match_id,
+            queue,
+            game: _,
+            players,
+        } => {
+            let mut expected_players = Vec::with_capacity(players.len());
+            for p in &players {
+                if let Some(store) = &shared.store
+                    && p.owner() == &shared.node.node
+                    && let Ok(acc_id) = crate::ids::AccountId::try_from(p.clone())
+                    && let Ok(Some(rec)) = store.read(move |conn, repos| repos.accounts.find(conn, &acc_id)).await
+                {
+                    expected_players.push(rec.user_id.0);
+                } else {
+                    expected_players.push(p.to_string());
+                }
+            }
+            let launch = deploy
+                .launch(LaunchRequest {
+                    game_mode: Some("ISLAND".to_owned()),
+                    game_args: Some(String::new()),
+                    hunt_id: queue,
+                    expected_players,
+                    request_id: None,
+                })
+                .await
+                .map_err(failed)?;
+            match launch {
+                Launch::Online { host, port } => {
+                    shared.matchmaking.record_ring_instance(match_id, &players);
+                    let placed = PlacedInstance {
+                        server_host: host,
+                        server_port: u16::try_from(port).unwrap_or(7777),
+                    };
+                    serde_json::to_value(placed).map_err(failed)
+                }
+                Launch::Refused { reason } => Err(ModuleError::failed(
+                    reason.unwrap_or_else(|| "director refused hunt launch".to_owned()),
+                )),
+            }
+        }
+        DirectorInvocation::PlaceHub {
+            hub_id,
+            region: _,
+            shard: _,
+            game: _,
+        } => {
+            if let Some(live) = deploy.hub_status().await
+                && let Some(hub) = live.ramsgate
+                && hub.ready
+            {
+                shared.matchmaking.record_ring_instance(hub_id, &[]);
+                let placed = PlacedInstance {
+                    server_host: hub.host,
+                    server_port: u16::try_from(hub.port).unwrap_or(7777),
+                };
+                return serde_json::to_value(placed).map_err(failed);
+            }
+            let launch = deploy
+                .launch(LaunchRequest {
+                    game_mode: Some("CITY".to_owned()),
+                    game_args: None,
+                    hunt_id: RAMSGATE_HUNT.to_owned(),
+                    expected_players: Vec::new(),
+                    request_id: None,
+                })
+                .await
+                .map_err(failed)?;
+            match launch {
+                Launch::Online { host, port } => {
+                    shared.matchmaking.record_ring_instance(hub_id, &[]);
+                    let placed = PlacedInstance {
+                        server_host: host,
+                        server_port: u16::try_from(port).unwrap_or(7777),
+                    };
+                    serde_json::to_value(placed).map_err(failed)
+                }
+                Launch::Refused { reason } => Err(ModuleError::failed(
+                    reason.unwrap_or_else(|| "director refused hub launch".to_owned()),
+                )),
+            }
+        }
+    }
+}
+
+async fn handle_home_invocation(
+    shared: &Arc<Shared>,
+    invocation: module_api::network::HomeInvocation,
+) -> Result<Value, ModuleError> {
+    use crate::areas::reforged_api::util::now_iso;
+    use crate::ids::AccountId;
+    use crate::repo::bounties::{BountyGroup, BountyStateRecord, DraftData, StoredBounty};
+    use crate::repo::characters::CharacterRecord;
+    use crate::repo::inventory::InventoryRecord;
+    use module_api::{Actor, ActorContext};
+
+    let Some(store) = &shared.store else {
+        return Err(ModuleError::new(ErrorKind::Unavailable, "the module has no database"));
+    };
+    if invocation.account.owner() != &shared.node.node {
+        return Err(ModuleError::new(
+            ErrorKind::Invalid,
+            format!(
+                "account {} is homed on {}, not {}",
+                invocation.account,
+                invocation.account.owner(),
+                shared.node.node
+            ),
+        ));
+    }
+    let account_id = AccountId::try_from(invocation.account.clone())
+        .map_err(|e| ModuleError::new(ErrorKind::Invalid, e.to_string()))?;
+    let actor = ActorContext::new(Actor::Player {
+        account: invocation.account.clone(),
+    });
+    match invocation.operation.as_str() {
+        "progression.grant" => {
+            let xp = invocation.body.get("xp").and_then(Value::as_i64).unwrap_or(0).max(0);
+            let track = invocation
+                .body
+                .get("track")
+                .and_then(Value::as_str)
+                .unwrap_or("ExperienceTrack_PlayerLevel")
+                .to_owned();
+            let target = account_id.clone();
+            let tr = track.clone();
+            let updated = store
+                .account_write(&account_id, &actor, move |tx, repos| {
+                    repos.progression_tracks.increment(tx, &target, &tr, xp)
+                })
+                .await
+                .map_err(failed)?;
+            Ok(json!({
+                "ok": true,
+                "account": invocation.account.to_string(),
+                "progression_id": updated.progression_id,
+                "progress": updated.progress,
+            }))
+        }
+        "progression.read" => {
+            let target = account_id.clone();
+            let tracks = store
+                .read(move |conn, repos| repos.progression_tracks.get_all_for_account(conn, &target))
+                .await
+                .map_err(failed)?;
+            let items: Vec<Value> = tracks
+                .into_iter()
+                .map(|t| {
+                    json!({
+                        "progression_id": t.progression_id,
+                        "progress": t.progress,
+                        "update_version": t.update_version,
+                    })
+                })
+                .collect();
+            Ok(json!({ "tracks": items }))
+        }
+        "inventory.write" => {
+            let loot: Vec<String> = invocation
+                .body
+                .get("loot")
+                .and_then(Value::as_array)
+                .map(|arr| arr.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+                .unwrap_or_default();
+            let target = account_id.clone();
+            let applied = store
+                .account_write(&account_id, &actor, move |tx, repos| {
+                    let chars = repos.characters.find_many_by_account(tx.conn(), &target)?;
+                    let char_id = match chars.first() {
+                        Some(c) => c.character_id.clone(),
+                        None => {
+                            let cid = format!("char-{}", target);
+                            let now = now_iso();
+                            repos.characters.create(
+                                tx,
+                                &CharacterRecord {
+                                    character_id: cid.clone(),
+                                    account: target.clone(),
+                                    created_date: now.clone(),
+                                    last_modified_date: now,
+                                    name: "Slayer".to_owned(),
+                                    update_version: 1,
+                                    data: "{}".to_owned(),
+                                },
+                            )?;
+                            cid
+                        }
+                    };
+                    let existing = repos.inventories.find_by_character_id(tx.conn(), &char_id)?;
+                    let (instanced_json, mut stacked, rev, is_new) = match existing {
+                        Some(inv) => {
+                            let parsed: Vec<Value> = serde_json::from_str(&inv.stacked_items).unwrap_or_default();
+                            (inv.instanced_items, parsed, inv.revision.unwrap_or(0), false)
+                        }
+                        None => ("[]".to_owned(), Vec::new(), 0, true),
+                    };
+                    for item in &loot {
+                        let (catalog_id, qty) = match item.split_once(':') {
+                            Some((c, q)) => (c, q.parse::<i64>().unwrap_or(1).max(1)),
+                            None => (item.as_str(), 1),
+                        };
+                        if let Some(existing_entry) = stacked
+                            .iter_mut()
+                            .find(|v| v.get("catalogId").and_then(Value::as_str) == Some(catalog_id))
+                        {
+                            let prev = existing_entry.get("quantity").and_then(Value::as_i64).unwrap_or(0);
+                            if let Some(obj) = existing_entry.as_object_mut() {
+                                obj.insert("quantity".into(), json!(prev + qty));
+                            }
+                        } else {
+                            stacked.push(json!({
+                                "catalogId": catalog_id,
+                                "quantity": qty,
+                            }));
+                        }
+                    }
+                    let stacked_json = serde_json::to_string(&stacked).unwrap_or_else(|_| "[]".to_owned());
+                    if is_new {
+                        repos.inventories.create(
+                            tx,
+                            &InventoryRecord {
+                                character_id: char_id,
+                                account: Some(target),
+                                instanced_items: instanced_json,
+                                stacked_items: stacked_json,
+                                revision: Some(1),
+                                bootstrap_version: None,
+                            },
+                        )?;
+                    } else {
+                        repos.inventories.update_both_if_revision_matches(
+                            tx,
+                            &char_id,
+                            &instanced_json,
+                            &stacked_json,
+                            rev,
+                        )?;
+                    }
+                    Ok(loot.len())
+                })
+                .await
+                .map_err(failed)?;
+            Ok(json!({
+                "ok": true,
+                "account": invocation.account.to_string(),
+                "loot_applied": applied,
+            }))
+        }
+        "inventory.read" => {
+            let target = account_id.clone();
+            let inv = store
+                .read(move |conn, repos| {
+                    let chars = repos.characters.find_many_by_account(conn, &target)?;
+                    if let Some(first) = chars.first() {
+                        repos.inventories.find_by_character_id(conn, &first.character_id)
+                    } else {
+                        Ok(None)
+                    }
+                })
+                .await
+                .map_err(failed)?;
+            match inv {
+                Some(inv) => {
+                    let stacked: Value = serde_json::from_str(&inv.stacked_items).unwrap_or_else(|_| json!([]));
+                    let instanced: Value = serde_json::from_str(&inv.instanced_items).unwrap_or_else(|_| json!([]));
+                    Ok(json!({
+                        "character_id": inv.character_id,
+                        "stacked_items": stacked,
+                        "instanced_items": instanced,
+                    }))
+                }
+                None => Ok(json!({ "stacked_items": [], "instanced_items": [] })),
+            }
+        }
+        "bounty.write" => {
+            let bounty_progress = invocation
+                .body
+                .get("bounty_progress")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
+            let target = account_id.clone();
+            let updated_ver = store
+                .account_write(&account_id, &actor, move |tx, repos| {
+                    let prev = repos.bounty_states.get(tx.conn(), &target)?;
+                    let now = now_iso();
+                    let (mut bounties, draft_data, expected_ver, created_at) = match prev {
+                        Some(r) => (r.bounties, r.draft_data, Some(r.update_version), r.created_at),
+                        None => (Vec::new(), DraftData::default(), None, now.clone()),
+                    };
+                    bounties.push(StoredBounty {
+                        group: BountyGroup::Base,
+                        bounty: bounty_progress,
+                        claimed_at: None,
+                        reward_credit: None,
+                    });
+                    let next_ver = expected_ver.unwrap_or(0) + 1;
+                    let record = BountyStateRecord {
+                        account: target,
+                        bounties,
+                        draft_data,
+                        daily_reward_credited_on: None,
+                        daily_premium_draft_granted_on: None,
+                        update_version: next_ver,
+                        created_at,
+                        updated_at: now,
+                    };
+                    repos.bounty_states.save_if_version(tx, &record, expected_ver)?;
+                    Ok(next_ver)
+                })
+                .await
+                .map_err(failed)?;
+            Ok(json!({
+                "ok": true,
+                "account": invocation.account.to_string(),
+                "update_version": updated_ver,
+            }))
+        }
+        "bounty.read" => {
+            let target = account_id.clone();
+            let state = store
+                .read(move |conn, repos| repos.bounty_states.get(conn, &target))
+                .await
+                .map_err(failed)?;
+            let count = state.as_ref().map_or(0, |s| s.bounties.len());
+            let entries: Vec<Value> = state
+                .map(|s| s.bounties.into_iter().map(|b| b.bounty).collect())
+                .unwrap_or_default();
+            Ok(json!({
+                "count": count,
+                "bounties": entries,
+            }))
+        }
+        "character.load" | "account.write" => Ok(json!({
+            "ok": true,
+            "account": invocation.account.to_string(),
+            "operation": invocation.operation.as_str(),
+        })),
+        other => Err(ModuleError::new(
+            ErrorKind::NotFound,
+            format!("unknown home operation {other}"),
+        )),
     }
 }
 

@@ -72,6 +72,15 @@ impl Shared {
             auth: crate::areas::auth::AuthRuntime::default(),
         }
     }
+
+    /// The home API for this node (from `store` when configured, or standalone otherwise).
+    pub fn home(&self) -> Arc<dyn module_api::HomeApi> {
+        self.store.as_ref().map(|s| s.home().clone()).unwrap_or_else(|| {
+            Arc::new(module_api::network::StandaloneHome {
+                identity: self.node.clone(),
+            })
+        })
+    }
 }
 
 /// One matched request.
