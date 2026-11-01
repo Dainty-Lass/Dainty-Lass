@@ -179,6 +179,7 @@ fn fast_secrets() -> Result<Secrets, host::HostError> {
         admin_api_key: "i".repeat(64),
         operator_secret: "j".repeat(64),
         database_password: "l".repeat(64),
+        dashboard_ingest_key: "l".repeat(64),
     })
 }
 

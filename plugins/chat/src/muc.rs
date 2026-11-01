@@ -653,11 +653,51 @@ impl Chat {
             return;
         }
         let uid = session.uid.clone().unwrap_or_default();
+        let name = session.name_at_login.clone().unwrap_or_else(|| uid.clone());
         let Some(sender) = session.account.clone() else {
             return;
         };
         let kind = self.rooms[room].kind.clone();
+        if let Some(command) = crate::moderation::parse_report(&body) {
+            let from = room_jid.clone();
+            self.report_command(id, command, Some(room_key(&kind)), "groupchat", &from);
+            return;
+        }
+        let mid = format!("rm-{}", crate::server::random_hex(16));
+        let rated = self.moderation.rate(&body, crate::moderation::channel_of(&kind));
+        self.moderation.record(crate::moderation::Line {
+            id: mid.clone(),
+            at: now,
+            channel: crate::moderation::channel_of(&kind).as_str(),
+            room_id: Some(room_key(&kind)),
+            sender: crate::moderation::Person {
+                user_id: uid.clone(),
+                name,
+            },
+            recipient: None,
+            body: body.clone(),
+            verdict: rated.verdict,
+        });
+        let body = rated.shown;
         let text = escape(&body);
+        // Blocked: only the sender's own echo, so it reads as sent (dashboard integration.md)
+        if rated.verdict == crate::moderation::Verdict::Blocked {
+            let stanza = format!(
+                "<message xmlns=\"{NS_CLIENT}\" type=\"groupchat\"{} from=\"{}\" to=\"{}\"><body>{text}</body></message>",
+                message_id
+                    .as_deref()
+                    .map(|i| format!(" id=\"{}\"", escape(i)))
+                    .unwrap_or_default(),
+                escape(&format!("{}/{}", own.jid, own.nick)),
+                escape(&self.full_jid_of(id))
+            );
+            self.send(id, &stanza);
+            tracing::info!(
+                "chat: message room={} uid={uid} len={length} blocked by filter",
+                room_class(&kind)
+            );
+            return;
+        }
         let recipients: Vec<Occupant> = self.rooms[room]
             .occupants
             .iter()
@@ -670,7 +710,6 @@ impl Chat {
             .as_deref()
             .map(|i| format!(" id=\"{}\"", escape(i)))
             .unwrap_or_default();
-        let mid = format!("rm-{}", crate::server::random_hex(16));
         self.remember_mid(&mid);
         // Stored before it is sent: a message nobody can read back from history is never on a screen
         if own.rules.history
