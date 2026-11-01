@@ -22,9 +22,15 @@ function open() {
     mkdirSync(dirname(config.databaseFile), { recursive: true });
   const sqlite = new Database(config.databaseFile, { create: true, strict: true });
   // WAL so the ingest writer and page reads do not block each other.
-  sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+  sqlite.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
   const db = drizzle(sqlite, { schema });
+  // Off while migrating: a table rebuild drops the old table, and with keys on that would null or delete
+  // every row pointing at it. The pragma is ignored inside the migrator's transaction, so it is set here.
+  sqlite.exec("PRAGMA foreign_keys = OFF;");
   migrate(db, { migrationsFolder: migrationsFolder() });
+  sqlite.exec("PRAGMA foreign_keys = ON;");
+  const broken = sqlite.query("PRAGMA foreign_key_check").all();
+  if (broken.length) throw new Error(`Migrations left ${broken.length} rows pointing nowhere`);
   return db;
 }
 

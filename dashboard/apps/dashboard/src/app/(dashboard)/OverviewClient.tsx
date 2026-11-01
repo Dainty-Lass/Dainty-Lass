@@ -53,11 +53,12 @@ export function OverviewClient({
   data: Overview;
   /** The one controller in scope, or null for the whole fleet. */
   scopeName: string | null;
-  reports: Record<"open" | "claimed" | "resolved" | "dismissed", number>;
-  chat: { total: number; flagged: number; senders: number };
-  hourly: { hour: number; total: number; flagged: number }[];
-  changesToday: number;
-  recent: AuditEvent[];
+  // Null where the reader's role may not see it: reports and chat from moderator, changes from admin.
+  reports: Record<"open" | "claimed" | "resolved" | "dismissed", number> | null;
+  chat: { total: number; flagged: number; senders: number } | null;
+  hourly: { hour: number; total: number; flagged: number }[] | null;
+  changesToday: number | null;
+  recent: AuditEvent[] | null;
   filterVersion: number;
   denied: boolean;
 }) {
@@ -184,25 +185,33 @@ export function OverviewClient({
               free: Math.max(0, totals.huntsMax - totals.huntsRunning),
             }),
           },
-          {
-            id: "reports",
-            label: t("stats.openReports"),
-            href: "/reports",
-            value: format.number(reports.open),
-            hue: reports.open ? "orange" : "gray",
-            note: t("stats.claimed", { count: reports.claimed }),
-            flag: reports.open
-              ? { label: t("stats.needsAttention"), variant: "warning" }
-              : undefined,
-          },
-          {
-            id: "flagged",
-            label: t("stats.flagged"),
-            href: "/chat?flagged=1&range=24h",
-            value: format.number(chat.flagged),
-            hue: chat.flagged ? "red" : "gray",
-            note: t("stats.messages", { total: chat.total, senders: chat.senders }),
-          },
+          ...(reports
+            ? [
+                {
+                  id: "reports",
+                  label: t("stats.openReports"),
+                  href: "/reports",
+                  value: format.number(reports.open),
+                  hue: reports.open ? ("orange" as const) : ("gray" as const),
+                  note: t("stats.claimed", { count: reports.claimed }),
+                  flag: reports.open
+                    ? { label: t("stats.needsAttention"), variant: "warning" as const }
+                    : undefined,
+                },
+              ]
+            : []),
+          ...(chat
+            ? [
+                {
+                  id: "flagged",
+                  label: t("stats.flagged"),
+                  href: "/chat?flagged=1&range=24h",
+                  value: format.number(chat.flagged),
+                  hue: chat.flagged ? ("red" as const) : ("gray" as const),
+                  note: t("stats.messages", { total: chat.total, senders: chat.senders }),
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -299,19 +308,23 @@ export function OverviewClient({
 
         <Card padding={4}>
           <Stack gap={3}>
-            <Stack direction="horizontal" justify="between" align="center">
-              <Heading level={2}>{t("chatActivity")}</Heading>
-              <Stack direction="horizontal" gap={1}>
-                <Token size="sm" label={t("legend.messages")} color="blue" />
-                <Token size="sm" label={t("legend.flagged")} color="red" />
-              </Stack>
-            </Stack>
-            <Sparkline
-              points={hourly}
-              label={t("chatActivityLabel", { total: chat.total, flagged: chat.flagged })}
-              height={72}
-            />
-            <Heading level={3}>{tf("playersOverTime")}</Heading>
+            {chat && hourly && (
+              <>
+                <Stack direction="horizontal" justify="between" align="center">
+                  <Heading level={2}>{t("chatActivity")}</Heading>
+                  <Stack direction="horizontal" gap={1}>
+                    <Token size="sm" label={t("legend.messages")} color="blue" />
+                    <Token size="sm" label={t("legend.flagged")} color="red" />
+                  </Stack>
+                </Stack>
+                <Sparkline
+                  points={hourly}
+                  label={t("chatActivityLabel", { total: chat.total, flagged: chat.flagged })}
+                  height={72}
+                />
+              </>
+            )}
+            <Heading level={chat ? 3 : 2}>{tf("playersOverTime")}</Heading>
             <Sparkline
               points={data.history.map((p) => ({ total: p.online, flagged: 0 }))}
               label={tf("playersOverTimeLabel")}
@@ -413,26 +426,28 @@ export function OverviewClient({
         </Stack>
       </Card>
 
-      <Card padding={4}>
-        <Stack gap={3}>
-          <Stack direction="horizontal" justify="between" align="center">
-            <Heading level={2}>{t("recentActivity")}</Heading>
-            <Stack direction="horizontal" gap={2} align="center">
-              <Text type="supporting">{t("changesToday", { count: changesToday })}</Text>
-              <Button label={t("openAudit")} size="sm" variant="ghost" href="/audit" />
+      {recent && (
+        <Card padding={4}>
+          <Stack gap={3}>
+            <Stack direction="horizontal" justify="between" align="center">
+              <Heading level={2}>{t("recentActivity")}</Heading>
+              <Stack direction="horizontal" gap={2} align="center">
+                <Text type="supporting">{t("changesToday", { count: changesToday ?? 0 })}</Text>
+                <Button label={t("openAudit")} size="sm" variant="ghost" href="/audit" />
+              </Stack>
             </Stack>
+            {recent.length === 0 ? (
+              <EmptyState isCompact title={t("noActivity")} />
+            ) : (
+              <Stack gap={2}>
+                {recent.map((ev) => (
+                  <AuditSentence key={ev.id} event={ev} />
+                ))}
+              </Stack>
+            )}
           </Stack>
-          {recent.length === 0 ? (
-            <EmptyState isCompact title={t("noActivity")} />
-          ) : (
-            <Stack gap={2}>
-              {recent.map((ev) => (
-                <AuditSentence key={ev.id} event={ev} />
-              ))}
-            </Stack>
-          )}
-        </Stack>
-      </Card>
+        </Card>
+      )}
     </Page>
   );
 }

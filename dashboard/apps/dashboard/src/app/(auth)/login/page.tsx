@@ -1,5 +1,3 @@
-import { Banner } from "@astryxdesign/core/Banner";
-import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Center } from "@astryxdesign/core/Center";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -9,24 +7,15 @@ import { BrandMark } from "@dainty/theme";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { DiscordIcon } from "@/components/DiscordIcon";
 import { currentStaff } from "@/lib/auth/session";
-import { config, discordConfigured } from "@/lib/config";
+import { config, discordConfigured, emailSignInAvailable, twitchConfigured } from "@/lib/config";
 import { getSettings } from "@/lib/settings";
+import { LoginClient } from "./LoginClient";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("login");
   return { title: t("title") };
 }
-
-const ERRORS = [
-  "not_staff",
-  "disabled",
-  "discord_denied",
-  "discord_failed",
-  "state_mismatch",
-  "discord_not_configured",
-] as const;
 
 export default async function LoginPage({
   searchParams,
@@ -36,7 +25,6 @@ export default async function LoginPage({
   if (await currentStaff()) redirect("/");
   const [{ error }, t] = await Promise.all([searchParams, getTranslations("login")]);
   const { serverName } = getSettings();
-  const known = ERRORS.find((e) => e === error);
   return (
     <Center height="100dvh">
       <Stack gap={4} width={400} maxWidth="calc(100vw - 32px)">
@@ -53,26 +41,19 @@ export default async function LoginPage({
                 </Text>
               </Stack>
             </Stack>
-            {known && <Banner status="error" title={t(`errors.${known}`)} collapsible={false} />}
-            <Button
-              label={t("discord")}
-              variant="primary"
-              size="lg"
-              width="100%"
-              href="/api/auth/discord/start"
-              icon={<DiscordIcon />}
-              isDisabled={!discordConfigured()}
-              tooltip={discordConfigured() ? undefined : t("errors.discord_not_configured")}
+            <LoginClient
+              providers={{
+                discord: discordConfigured(),
+                twitch: twitchConfigured(),
+                email: emailSignInAvailable(),
+              }}
+              dev={config.devLogin}
+              initialError={error ? error.toLowerCase() : null}
             />
-            {config.devLogin && (
-              <form method="post" action="/api/auth/dev">
-                <Button label={t("dev")} type="submit" variant="ghost" width="100%" />
-              </form>
-            )}
           </Stack>
         </Card>
         <Text type="supporting" justify="center">
-          {t("staffOnly")}
+          {t("anyone")}
         </Text>
       </Stack>
     </Center>

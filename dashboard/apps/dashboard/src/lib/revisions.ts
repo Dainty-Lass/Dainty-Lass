@@ -14,7 +14,9 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type FilterSnapshot = Omit<BlacklistTerm, "createdAt" | "updatedAt">[];
 export type StaffSnapshot = {
-  discordId: string;
+  // Older snapshots name people by Discord id only.
+  id?: number;
+  discordId: string | null;
   username: string;
   role: string;
   disabled: boolean;
@@ -41,6 +43,7 @@ export function snapshotFilter(t: Pick<Tx, "select"> = db): FilterSnapshot {
 function snapshotStaff(t: Pick<Tx, "select">): StaffSnapshot {
   return t
     .select({
+      id: schema.staff.id,
       discordId: schema.staff.discordId,
       username: schema.staff.username,
       role: schema.staff.role,
@@ -138,28 +141,29 @@ function applyStaffSnapshot(t: Tx, snapshot: StaffSnapshot) {
   // Roles and disabled flags only: people are never deleted by a restore, and a restore that would
   // leave no enabled owner is refused, since nobody could undo it.
   if (!snapshot.some((s) => s.role === "owner" && !s.disabled)) throw new DomainError("last_owner");
-  const present = new Map(
-    t
-      .select()
-      .from(schema.staff)
-      .all()
-      .map((s) => [s.discordId, s]),
-  );
+  const rows = t.select().from(schema.staff).all();
+  const find = (s: StaffSnapshot[number]) =>
+    rows.find((r) =>
+      s.id !== undefined ? r.id === s.id : s.discordId !== null && r.discordId === s.discordId,
+    );
+  const signOut = (userId: number) =>
+    t.delete(schema.authSessions).where(eq(schema.authSessions.userId, userId)).run();
+  const named = new Set<number>();
   for (const s of snapshot) {
-    const row = present.get(s.discordId);
+    const row = find(s);
     if (!row) continue;
+    named.add(row.id);
     t.update(schema.staff)
       .set({ role: s.role as never, disabled: s.disabled, roleSource: s.roleSource as never })
       .where(eq(schema.staff.id, row.id))
       .run();
-    if (s.disabled) t.delete(schema.sessions).where(eq(schema.sessions.staffId, row.id)).run();
+    if (s.disabled) signOut(row.userId);
   }
   // Someone added after the snapshot is disabled, which is what "as it was" means for access.
-  const named = new Set(snapshot.map((s) => s.discordId));
-  for (const row of present.values()) {
-    if (named.has(row.discordId) || row.disabled) continue;
+  for (const row of rows) {
+    if (named.has(row.id) || row.disabled) continue;
     t.update(schema.staff).set({ disabled: true }).where(eq(schema.staff.id, row.id)).run();
-    t.delete(schema.sessions).where(eq(schema.sessions.staffId, row.id)).run();
+    signOut(row.userId);
   }
 }
 

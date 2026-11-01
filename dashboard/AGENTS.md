@@ -8,7 +8,7 @@ A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a pack
 
 | Path                                   | What                                                                                                                      |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `apps/dashboard`                       | Server app: vinext, SQLite (`bun:sqlite` + drizzle), Discord sign-in                                                      |
+| `apps/dashboard`                       | Server app: vinext, SQLite (`bun:sqlite` + drizzle), Better Auth sign-in ([docs/access.md](docs/access.md))               |
 | `apps/launcher`, `apps/server-manager` | Static exports for the Tauri shells; no server, no request APIs                                                           |
 | `apps/agent`                           | Runs on each extra controller; dials the dashboard ([docs/fleet.md](docs/fleet.md))                                       |
 | `packages/fleet`                       | The game calls and the agent protocol, shared by the dashboard and the agent                                              |
@@ -39,6 +39,12 @@ A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a pack
 - **A new setting is an entry in `lib/settings.ts`** (and its validation in `settings-change.ts`), not an
   environment variable. The environment holds only what the process needs before the database: paths,
   secrets, the public origin.
+- **No passwords.** Sign-in is Discord, Twitch, an email code or a passkey (`lib/auth/server.ts`);
+  `emailAndPassword` stays off. Every new session goes through `signInMember`, which decides the tier.
+- **Pages and actions check capabilities, not tiers.** A page hides what `can()` refuses and the server
+  does not fetch it: users never receive reports, chat or audit rows, moderators never receive audit rows.
+- **A migration that rebuilds a table runs with foreign keys off** (`lib/db/index.ts`): drizzle's rebuild
+  drops the old table, which with keys on would null every row pointing at it.
 - **The desktop pages render nothing from a request.** They are prerendered to files; read the bridge in
   client components only.
 

@@ -24,12 +24,26 @@ export const config = {
   databaseFile: env("DASHBOARD_DATABASE_FILE") ?? join(dataDir, "dashboard.db"),
   /** The public origin, for the OAuth redirect and the Secure cookie decision. */
   baseUrl: (env("DASHBOARD_BASE_URL") ?? "http://localhost:3000").replace(/\/+$/, ""),
+  /** Signs session cookies and encrypts provider tokens; written to the data directory when unset. */
+  authSecret: env("DASHBOARD_AUTH_SECRET"),
   discord: {
     clientId: env("DASHBOARD_DISCORD_CLIENT_ID"),
     clientSecret: env("DASHBOARD_DISCORD_CLIENT_SECRET"),
+    // A bot in the guild with Manage Roles, so accepting the terms can add the approved role.
+    botToken: env("DASHBOARD_DISCORD_BOT_TOKEN"),
   },
-  /** Discord ids that become owners on first sign-in: how the first person gets in. */
+  twitch: {
+    clientId: env("DASHBOARD_TWITCH_CLIENT_ID"),
+    clientSecret: env("DASHBOARD_TWITCH_CLIENT_SECRET"),
+  },
+  /** Where sign-in codes are sent from: smtp(s)://user:pass@host:port. Without it, no email sign-in. */
+  mail: {
+    smtpUrl: env("DASHBOARD_SMTP_URL"),
+    from: env("DASHBOARD_MAIL_FROM"),
+  },
+  /** Discord ids and verified addresses that become owners on sign-in: how the first person gets in. */
   ownerDiscordIds: list("DASHBOARD_OWNER_DISCORD_IDS"),
+  ownerEmails: list("DASHBOARD_OWNER_EMAILS").map((e) => e.toLowerCase()),
   /** The admin service's GraphQL (docs/admin-api.md in dainty-lass): moderation and live status. */
   adminApi: {
     url: env("DASHBOARD_ADMIN_API_URL") ?? "http://127.0.0.1:61003/graphql",
@@ -43,12 +57,21 @@ export const config = {
   /** What the backend sends with chat and reports; at least 32 characters or ingest stays off. */
   ingestKey: env("DASHBOARD_INGEST_KEY"),
   sessionDays: Number(env("DASHBOARD_SESSION_DAYS") || 7),
-  /** Sign-in without Discord, for a dashboard on a laptop with no app registered. Never in production. */
+  /** One-click sign-in per tier, for a dashboard on a laptop with no provider registered. Never in production. */
   devLogin: env("DASHBOARD_DEV_LOGIN") === "on" && process.env.NODE_ENV !== "production",
 } as const;
 
 export function discordConfigured(): boolean {
   return Boolean(config.discord.clientId && config.discord.clientSecret);
+}
+
+export function twitchConfigured(): boolean {
+  return Boolean(config.twitch.clientId && config.twitch.clientSecret);
+}
+
+/** Email codes need somewhere to send them; a dev box without SMTP prints them instead. */
+export function emailSignInAvailable(): boolean {
+  return Boolean(config.mail.smtpUrl && config.mail.from) || config.devLogin;
 }
 
 export function secureCookies(): boolean {

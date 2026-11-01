@@ -79,6 +79,10 @@ export function PlayerDetailClient({
     report: boolean;
     revert: boolean;
     fleet: boolean;
+    // What the reader's role may see: users get neither chat, reports nor history.
+    readChat: boolean;
+    readReports: boolean;
+    readAudit: boolean;
   };
   backLabel: string;
   controller: { id: string; name: string };
@@ -89,7 +93,12 @@ export function PlayerDetailClient({
   const te = useTranslations("errors");
   const tr = useTranslations("reports");
   const { run } = useAction();
-  const [tab, setTab] = useState("chat");
+  const tabs = [
+    can.readChat && "chat",
+    can.readReports && "reports",
+    can.readAudit && "history",
+  ].filter((x): x is string => Boolean(x));
+  const [tab, setTab] = useState(tabs[0] ?? "");
   const [dialog, setDialog] = useState<ModerationKind | null>(null);
   const [access, setAccess] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -268,9 +277,11 @@ export function PlayerDetailClient({
                   : "—"}
               </Stack>
             </MetadataListItem>
-            <MetadataListItem label={t("fields.reports")}>
-              {t("reportCount", { count: reports.length })}
-            </MetadataListItem>
+            {can.readReports && (
+              <MetadataListItem label={t("fields.reports")}>
+                {t("reportCount", { count: reports.length })}
+              </MetadataListItem>
+            )}
             {account?.approvalReason && (
               <MetadataListItem label={t("fields.accessReason")}>
                 {account.approvalReason}
@@ -280,86 +291,92 @@ export function PlayerDetailClient({
         </Card>
       </Grid>
 
-      <Card padding={0}>
-        <Stack paddingInline={4} paddingBlockStart={2}>
-          <TabList value={tab} onChange={setTab} hasDivider>
-            <Tab
-              value="chat"
-              label={t("tabs.chat")}
-              endContent={<Badge label={String(chat.length)} />}
-            />
-            <Tab
-              value="reports"
-              label={t("tabs.reports")}
-              endContent={reports.length ? <Badge label={String(reports.length)} /> : undefined}
-            />
-            <Tab value="history" label={t("tabs.history")} />
-          </TabList>
-        </Stack>
-        {tab === "chat" && (
-          <Stack gap={0}>
-            <ChatLog lines={chat} emptyTitle={t("noChat")} />
-            {userId && chat.length >= 100 && (
-              <Stack padding={3} align="center">
-                <Link href={`/chat?user=${encodeURIComponent(userId)}`}>{t("allChat")}</Link>
-              </Stack>
-            )}
+      {tabs.length > 0 && (
+        <Card padding={0}>
+          <Stack paddingInline={4} paddingBlockStart={2}>
+            <TabList value={tab} onChange={setTab} hasDivider>
+              {can.readChat && (
+                <Tab
+                  value="chat"
+                  label={t("tabs.chat")}
+                  endContent={<Badge label={String(chat.length)} />}
+                />
+              )}
+              {can.readReports && (
+                <Tab
+                  value="reports"
+                  label={t("tabs.reports")}
+                  endContent={reports.length ? <Badge label={String(reports.length)} /> : undefined}
+                />
+              )}
+              {can.readAudit && <Tab value="history" label={t("tabs.history")} />}
+            </TabList>
           </Stack>
-        )}
-        {tab === "reports" &&
-          (reports.length === 0 ? (
-            <EmptyState isCompact title={t("noReports")} />
-          ) : (
-            <Table<Report & Record<string, unknown>>
-              data={reports as (Report & Record<string, unknown>)[]}
-              idKey="id"
-              density="compact"
-              hasHover
-              columns={[
-                {
-                  key: "id",
-                  header: "#",
-                  width: pixel(70),
-                  renderCell: (x) => <Link href={`/reports/${x.id}`}>#{x.id}</Link>,
-                },
-                {
-                  key: "category",
-                  header: tr("columns.category"),
-                  width: pixel(170),
-                  renderCell: (x) => tr(`categories.${x.category}`),
-                },
-                {
-                  key: "description",
-                  header: tr("columns.description"),
-                  width: proportional(3),
-                  renderCell: (x) => <Text maxLines={2}>{x.description}</Text>,
-                },
-                {
-                  key: "status",
-                  header: tr("columns.status"),
-                  width: pixel(120),
-                  renderCell: (x) => (
-                    <Badge variant={REPORT_BADGE[x.status]} label={tr(`statuses.${x.status}`)} />
-                  ),
-                },
-                {
-                  key: "createdAt",
-                  header: tr("columns.filed"),
-                  width: pixel(120),
-                  renderCell: (x) => (
-                    <Timestamp
-                      value={new Date(x.createdAt).toISOString()}
-                      format="relative_short"
-                    />
-                  ),
-                },
-              ]}
-            />
-          ))}
-        {tab === "history" && (
-          <AuditTable events={history} canRevert={can.revert} emptyTitle={t("noHistory")} />
-        )}
-      </Card>
+          {tab === "chat" && (
+            <Stack gap={0}>
+              <ChatLog lines={chat} emptyTitle={t("noChat")} />
+              {userId && chat.length >= 100 && (
+                <Stack padding={3} align="center">
+                  <Link href={`/chat?user=${encodeURIComponent(userId)}`}>{t("allChat")}</Link>
+                </Stack>
+              )}
+            </Stack>
+          )}
+          {tab === "reports" &&
+            (reports.length === 0 ? (
+              <EmptyState isCompact title={t("noReports")} />
+            ) : (
+              <Table<Report & Record<string, unknown>>
+                data={reports as (Report & Record<string, unknown>)[]}
+                idKey="id"
+                density="compact"
+                hasHover
+                columns={[
+                  {
+                    key: "id",
+                    header: "#",
+                    width: pixel(70),
+                    renderCell: (x) => <Link href={`/reports/${x.id}`}>#{x.id}</Link>,
+                  },
+                  {
+                    key: "category",
+                    header: tr("columns.category"),
+                    width: pixel(170),
+                    renderCell: (x) => tr(`categories.${x.category}`),
+                  },
+                  {
+                    key: "description",
+                    header: tr("columns.description"),
+                    width: proportional(3),
+                    renderCell: (x) => <Text maxLines={2}>{x.description}</Text>,
+                  },
+                  {
+                    key: "status",
+                    header: tr("columns.status"),
+                    width: pixel(120),
+                    renderCell: (x) => (
+                      <Badge variant={REPORT_BADGE[x.status]} label={tr(`statuses.${x.status}`)} />
+                    ),
+                  },
+                  {
+                    key: "createdAt",
+                    header: tr("columns.filed"),
+                    width: pixel(120),
+                    renderCell: (x) => (
+                      <Timestamp
+                        value={new Date(x.createdAt).toISOString()}
+                        format="relative_short"
+                      />
+                    ),
+                  },
+                ]}
+              />
+            ))}
+          {tab === "history" && (
+            <AuditTable events={history} canRevert={can.revert} emptyTitle={t("noHistory")} />
+          )}
+        </Card>
+      )}
 
       <ModerationDialog
         kind={dialog}

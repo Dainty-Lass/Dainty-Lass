@@ -19,6 +19,7 @@ import {
   Settings,
   ShieldBan,
   UserCog,
+  UserRound,
   Users,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -27,6 +28,7 @@ import type { ReactNode } from "react";
 import { ControllerProvider } from "@/components/ControllerContext";
 import { ControllerState } from "@/components/ControllerState";
 import { useAction } from "@/components/useAction";
+import { signOutAction } from "@/lib/auth/sign-out";
 import type { ControllerState as State } from "@/lib/fleet/status";
 import { setScopeAction } from "./controllers/actions";
 
@@ -37,7 +39,16 @@ export interface ShellProps {
   /** A controller id, or "all". */
   scope: string;
   controllers: { id: string; name: string; state: State }[];
-  nav: { filter: boolean; controllers: boolean; staff: boolean; settings: boolean };
+  /** Accounts waiting on approval, for admins. */
+  pending: number;
+  nav: {
+    reports: boolean;
+    chat: boolean;
+    audit: boolean;
+    controllers: boolean;
+    staff: boolean;
+    settings: boolean;
+  };
   children: ReactNode;
 }
 
@@ -45,6 +56,7 @@ export function DashboardShell({
   serverName,
   me,
   openReports,
+  pending,
   scope,
   controllers,
   nav,
@@ -116,7 +128,14 @@ export function DashboardShell({
                   </Text>
                   <Text type="supporting">{tc(`roles.${me.role as "owner"}`)}</Text>
                 </Stack>
-                <form method="post" action="/api/auth/logout">
+                <IconButton
+                  label={t("account")}
+                  icon={<UserRound size={16} />}
+                  variant="ghost"
+                  size="sm"
+                  href="/account"
+                />
+                <form action={signOutAction}>
                   <IconButton
                     label={t("signOut")}
                     icon={<LogOut size={16} />}
@@ -140,15 +159,16 @@ export function DashboardShell({
           <SideNavSection title={t("moderation")}>
             {item("/", t("overview"), LayoutDashboard)}
             {item("/players", t("players"), Users)}
-            {item(
-              "/reports",
-              t("reports"),
-              Flag,
-              openReports > 0 ? <Badge variant="error" label={String(openReports)} /> : undefined,
-            )}
-            {item("/chat", t("chat"), MessagesSquare)}
-            {nav.filter && item("/chat-filter", t("chatFilter"), ShieldBan)}
-            {item("/audit", t("audit"), History)}
+            {nav.reports &&
+              item(
+                "/reports",
+                t("reports"),
+                Flag,
+                openReports > 0 ? <Badge variant="error" label={String(openReports)} /> : undefined,
+              )}
+            {nav.chat && item("/chat", t("chat"), MessagesSquare)}
+            {nav.chat && item("/chat-filter", t("chatFilter"), ShieldBan)}
+            {nav.audit && item("/audit", t("audit"), History)}
             {nav.controllers &&
               item(
                 "/controllers",
@@ -159,7 +179,13 @@ export function DashboardShell({
           </SideNavSection>
           {(nav.staff || nav.settings) && (
             <SideNavSection title={t("administration")}>
-              {nav.staff && item("/staff", t("staff"), UserCog)}
+              {nav.staff &&
+                item(
+                  "/members",
+                  t("members"),
+                  UserCog,
+                  pending > 0 ? <Badge variant="warning" label={String(pending)} /> : undefined,
+                )}
               {nav.settings && item("/settings", t("settings"), Settings)}
             </SideNavSection>
           )}

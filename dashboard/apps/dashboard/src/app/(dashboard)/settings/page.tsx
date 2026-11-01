@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { redirectUri } from "@/lib/auth/discord";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { config, discordConfigured } from "@/lib/config";
+import { config, discordConfigured, emailSignInAvailable, twitchConfigured } from "@/lib/config";
 import { listRevisions } from "@/lib/revisions";
 import { getSettings } from "@/lib/settings";
 import { SettingsClient } from "./SettingsClient";
@@ -27,8 +26,15 @@ export default async function SettingsPage() {
         operatorSecret: Boolean(config.backend.operatorSecret),
         ingestKey: Boolean(config.ingestKey && config.ingestKey.length >= 32),
         discord: discordConfigured(),
-        redirectUri: redirectUri(),
-        ownerCount: config.ownerDiscordIds.length,
+        redirectUris: {
+          discord: `${config.baseUrl}/api/auth/callback/discord`,
+          twitch: `${config.baseUrl}/api/auth/callback/twitch`,
+        },
+        twitch: twitchConfigured(),
+        email: emailSignInAvailable(),
+        mail: Boolean(config.mail.smtpUrl && config.mail.from),
+        botToken: Boolean(config.discord.botToken),
+        ownerCount: config.ownerDiscordIds.length + config.ownerEmails.length,
         dataDir: config.dataDir,
       }}
       revisions={listRevisions("settings", 20).map(({ snapshot, ...r }) => r)}

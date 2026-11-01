@@ -12,7 +12,7 @@ import { controllerParam, currentScope } from "@/lib/fleet/scope";
 import { fleet } from "@/lib/fleet/status";
 import { adminApi, type GamePlayer } from "@/lib/game/admin-api";
 import { type BackendAccount, backend } from "@/lib/game/backend";
-import { op } from "@/lib/players";
+import { op, operatorId } from "@/lib/players";
 import { reportsAgainst } from "@/lib/reports/store";
 import { getSettings } from "@/lib/settings";
 import { PlayerDetailClient } from "./PlayerDetailClient";
@@ -41,7 +41,7 @@ export default async function PlayerPage({
   let player: GamePlayer | null = null;
   let gameFailure: string | null = null;
   try {
-    player = await adminApi(controllerId).player(name, me.discordId);
+    player = await adminApi(controllerId).player(name, operatorId(me));
   } catch (error) {
     gameFailure = error instanceof DomainError ? error.code : "unknown";
   }
@@ -61,17 +61,24 @@ export default async function PlayerPage({
   }
 
   const displayName = player?.username ?? account?.displayName ?? known?.name ?? name;
-  const chat = userId
-    ? present(searchChat({ userId, controllerIds: [controllerId], limit: 100 }).messages)
-    : [];
-  const history = userId
-    ? queryAudit({
-        targetType: "player",
-        targetId: userId,
-        controllerIds: [controllerId],
-        pageSize: 100,
-      }).events
-    : [];
+  const may = {
+    chat: can(me.role, "chat:read"),
+    reports: can(me.role, "reports:read"),
+    audit: can(me.role, "audit:read"),
+  };
+  const chat =
+    userId && may.chat
+      ? present(searchChat({ userId, controllerIds: [controllerId], limit: 100 }).messages)
+      : [];
+  const history =
+    userId && may.audit
+      ? queryAudit({
+          targetType: "player",
+          targetId: userId,
+          controllerIds: [controllerId],
+          pageSize: 100,
+        }).events
+      : [];
 
   return (
     <PlayerDetailClient
@@ -82,9 +89,11 @@ export default async function PlayerPage({
       gameFailure={gameFailure}
       notFound={!player && !account && !known && !gameFailure}
       chat={chat}
-      reports={reportsAgainst(userId ?? "", displayName).filter(
-        (r) => r.controllerId === controllerId,
-      )}
+      reports={
+        may.reports
+          ? reportsAgainst(userId ?? "", displayName).filter((r) => r.controllerId === controllerId)
+          : []
+      }
       history={history}
       reasons={getSettings().moderationReasons}
       can={{
@@ -94,6 +103,9 @@ export default async function PlayerPage({
         report: can(me.role, "reports:write"),
         revert: can(me.role, "audit:revert"),
         fleet: can(me.role, "players:fleet"),
+        readChat: may.chat,
+        readReports: may.reports,
+        readAudit: may.audit,
       }}
       backLabel={t("title")}
       controller={{ id: controllerId, name: controller.name }}

@@ -13,43 +13,131 @@ const createdAt = () => integer("created_at", { mode: "number" }).notNull().defa
 // The controller a row came from or acted on; "local" is the one this dashboard runs on.
 const controllerId = () => text("controller_id").notNull().default("local");
 
-/** The people who may sign in: matched by Discord id, never by name. */
+// Better Auth's tables (lib/auth/server.ts). Keys are its field names; times are Date in milliseconds.
+const authTime = (name: string) => integer(name, { mode: "timestamp_ms" });
+
+/** A sign-in identity: one per person, whichever of Discord, Twitch, an email code or a passkey they use. */
+export const authUsers = sqliteTable("auth_users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
+  image: text("image"),
+  createdAt: authTime("created_at").notNull(),
+  updatedAt: authTime("updated_at").notNull(),
+});
+
+export const authSessions = sqliteTable(
+  "auth_sessions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: authTime("expires_at").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: authTime("created_at").notNull(),
+    updatedAt: authTime("updated_at").notNull(),
+  },
+  (t) => [index("auth_sessions_user").on(t.userId)],
+);
+
+/** A linked provider: discord, twitch. Tokens are encrypted with the auth secret. No passwords, ever. */
+export const authAccounts = sqliteTable(
+  "auth_accounts",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: authTime("access_token_expires_at"),
+    refreshTokenExpiresAt: authTime("refresh_token_expires_at"),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: authTime("created_at").notNull(),
+    updatedAt: authTime("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("auth_accounts_provider").on(t.providerId, t.accountId),
+    index("auth_accounts_user").on(t.userId),
+  ],
+);
+
+/** Email codes and OAuth state. */
+export const authVerifications = sqliteTable("auth_verifications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: authTime("expires_at").notNull(),
+  createdAt: authTime("created_at"),
+  updatedAt: authTime("updated_at"),
+});
+
+export const authPasskeys = sqliteTable(
+  "auth_passkeys",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull().unique(),
+    counter: integer("counter").notNull(),
+    deviceType: text("device_type").notNull(),
+    backedUp: integer("backed_up", { mode: "boolean" }).notNull(),
+    transports: text("transports"),
+    aaguid: text("aaguid"),
+    createdAt: authTime("created_at"),
+  },
+  (t) => [index("auth_passkeys_user").on(t.userId)],
+);
+
+/**
+ * What the dashboard knows of each person who has signed in: one row per sign-in identity. Anyone may sign
+ * in; `role` decides what they see, and `approvedAt` whether they are past onboarding when the server asks.
+ * `discordId` is set once a Discord account is linked: guild roles and the game's operator id need it.
+ */
 export const staff = sqliteTable(
   "staff",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    discordId: text("discord_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    discordId: text("discord_id"),
+    // The name shown until a display name is chosen: the provider's, or the email's local part.
     username: text("username").notNull(),
     globalName: text("global_name"),
+    // A full URL from whichever provider signed in last.
     avatar: text("avatar"),
-    role: text("role", { enum: ["owner", "admin", "moderator", "viewer"] }).notNull(),
-    // Set when a guild role granted the access: the next sign-in re-reads it rather than trusting this row.
-    roleSource: text("role_source", { enum: ["manual", "guild"] })
+    role: text("role", { enum: ["owner", "admin", "moderator", "user"] }).notNull(),
+    // manual: set here and kept. guild: from a Discord role, re-read at every sign-in. default: no role
+    // granted anything, so the account is a plain user until one does.
+    roleSource: text("role_source", { enum: ["manual", "guild", "default"] })
       .notNull()
       .default("manual"),
     disabled: integer("disabled", { mode: "boolean" }).notNull().default(false),
     note: text("note"),
+    // Chosen on the welcome page; the provider's name is shown until then.
+    displayName: text("display_name"),
+    // The in-game name the person says is theirs, so staff can find them among players.
+    gameName: text("game_name"),
+    approvedAt: integer("approved_at", { mode: "number" }),
+    approvedVia: text("approved_via", { enum: ["tos", "guild", "manual"] }),
+    // The terms version accepted; a newer version asks again of those approved by accepting.
+    tosVersion: integer("tos_version"),
     createdAt: createdAt(),
     lastSeenAt: integer("last_seen_at", { mode: "number" }),
   },
-  (t) => [uniqueIndex("staff_discord_id").on(t.discordId)],
-);
-
-/** Only the SHA-256 of the cookie's token is stored, so a copy of the database signs nobody in. */
-export const sessions = sqliteTable(
-  "sessions",
-  {
-    tokenHash: text("token_hash").primaryKey(),
-    staffId: integer("staff_id")
-      .notNull()
-      .references(() => staff.id, { onDelete: "cascade" }),
-    createdAt: createdAt(),
-    expiresAt: integer("expires_at", { mode: "number" }).notNull(),
-    lastUsedAt: integer("last_used_at", { mode: "number" }).notNull().default(now),
-    ip: text("ip"),
-    userAgent: text("user_agent"),
-  },
-  (t) => [index("sessions_staff").on(t.staffId)],
+  (t) => [uniqueIndex("staff_user").on(t.userId), uniqueIndex("staff_discord_id").on(t.discordId)],
 );
 
 /**

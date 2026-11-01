@@ -17,6 +17,8 @@ export const ERROR_CODES = [
   "game_unavailable",
   "game_refused",
   "game_not_configured",
+  "onboarding_required",
+  "last_sign_in",
   "controller_disabled",
   "controller_offline",
   "game_timeout",

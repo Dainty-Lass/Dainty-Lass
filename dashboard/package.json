@@ -1,7 +1,7 @@
 {
   "name": "dainty-dashboard",
   "version": "0.1.0",
-  "description": "DaintyLass's remote management dashboard, launcher page and server manager page, on one theme",
+  "description": "Dainty Lass's remote management dashboard, launcher page and server manager page, on one theme",
   "type": "module",
   "private": true,
   "license": "AGPL-3.0-only",

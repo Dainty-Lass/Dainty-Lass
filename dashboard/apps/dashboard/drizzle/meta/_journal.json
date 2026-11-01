@@ -15,6 +15,20 @@
       "when": 1793468762408,
       "tag": "0001_fleet",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793493259797,
+      "tag": "0002_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793493269696,
+      "tag": "0003_drop_sessions",
+      "breakpoints": true
     }
   ]
 }

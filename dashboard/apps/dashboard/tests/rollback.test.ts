@@ -10,17 +10,13 @@ import { claimReport, closeReport, createReport, getReport } from "@/lib/reports
 import { listRevisions, restoreRevision } from "@/lib/revisions";
 import { getSettings } from "@/lib/settings";
 import { updateSettings } from "@/lib/settings-change";
-import { addStaff, resolveSignIn, updateStaff } from "@/lib/staff";
+import { addStaff, updateStaff } from "@/lib/staff";
+import { identity, signedIn } from "./helpers";
 
 let owner: Staff;
 
 beforeAll(() => {
-  const outcome = resolveSignIn(
-    { id: "100000000000000001", username: "owner", global_name: null, avatar: null },
-    null,
-  );
-  if (!outcome.ok) throw new Error("owner sign-in refused");
-  owner = outcome.staff;
+  owner = signedIn(identity({ name: "owner", discordId: "100000000000000001" }));
 });
 
 const term = (pattern: string) => ({
@@ -33,30 +29,6 @@ const term = (pattern: string) => ({
   channels: null,
 });
 const lastEvent = () => queryAudit({ pageSize: 1 }).events[0]!;
-
-describe("sign-in", () => {
-  test("an environment owner is admitted; a stranger is not", () => {
-    expect(owner.role).toBe("owner");
-    expect(
-      resolveSignIn(
-        { id: "100000000000000099", username: "x", global_name: null, avatar: null },
-        null,
-      ),
-    ).toEqual({ ok: false, reason: "not_staff" });
-  });
-
-  test("a guild role admits and is re-read at the next sign-in", () => {
-    const user = {
-      id: "100000000000000050",
-      username: "guildmod",
-      global_name: null,
-      avatar: null,
-    };
-    const first = resolveSignIn(user, "moderator");
-    expect(first.ok && first.staff.role).toBe("moderator");
-    expect(resolveSignIn(user, null)).toEqual({ ok: false, reason: "not_staff" });
-  });
-});
 
 describe("chat filter rollback", () => {
   test("create, edit and delete each revert to what was there", async () => {
@@ -110,7 +82,7 @@ describe("settings and staff rollback", () => {
     updateSettings(owner, { serverName: "Renamed" });
     expect(getSettings().serverName).toBe("Renamed");
     await revertEvent(owner, lastEvent().id);
-    expect(getSettings().serverName).toBe("DaintyLass");
+    expect(getSettings().serverName).toBe("Dainty Lass");
   });
 
   test("the last owner cannot be demoted or disabled, and nobody demotes themselves", () => {
@@ -127,14 +99,14 @@ describe("settings and staff rollback", () => {
     const helper = addStaff(owner, {
       discordId: "100000000000000003",
       username: "helper",
-      role: "viewer",
+      role: "user",
     });
     updateStaff(owner, helper.id, { role: "admin" });
     await revertEvent(owner, lastEvent().id);
     expect(
       queryAudit({ targetType: "staff", targetId: String(helper.id), pageSize: 1 }).events[0]
         ?.after,
-    ).toMatchObject({ role: "viewer" });
+    ).toMatchObject({ role: "user" });
   });
 });
 
@@ -167,11 +139,11 @@ describe("reports", () => {
 
 describe("permissions", () => {
   test("roles are ranked and owners alone make owners", () => {
-    expect(can("viewer", "players:moderate")).toBe(false);
+    expect(can("user", "players:moderate")).toBe(false);
     expect(can("moderator", "players:moderate")).toBe(true);
     expect(can("admin", "settings:write")).toBe(false);
     expect(canAssign("admin", "owner")).toBe(false);
     expect(canAssign("owner", "owner")).toBe(true);
-    expect(canAssign("moderator", "viewer")).toBe(false);
+    expect(canAssign("moderator", "user")).toBe(false);
   });
 });

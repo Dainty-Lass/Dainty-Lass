@@ -11,7 +11,10 @@ import { type BackendAccount, backend } from "@/lib/game/backend";
  * before and after, which is what a revert puts back.
  */
 
-export const op = (me: Staff) => ({ id: me.discordId, name: me.globalName || me.username });
+/** Who the game audits a call as: the Discord id when one is linked, else this dashboard's member id. */
+export const operatorId = (me: Staff) => me.discordId ?? `dashboard-${me.id}`;
+
+export const op = (me: Staff) => ({ id: operatorId(me), name: me.displayName || me.username });
 
 function restrictionOf(p: GamePlayer | null) {
   return p ? { status: p.status, restriction: p.restriction } : null;
@@ -25,7 +28,7 @@ function reasonOf(reason: string): string {
 }
 
 async function current(controllerId: string, username: string, me: Staff): Promise<GamePlayer> {
-  const p = await adminApi(controllerId).player(username, me.discordId);
+  const p = await adminApi(controllerId).player(username, operatorId(me));
   if (!p) throw new DomainError("not_found");
   return p;
 }
@@ -37,7 +40,7 @@ export async function kickPlayer(
   reason: string | null,
 ) {
   const before = await current(controllerId, username, me);
-  const result = await adminApi(controllerId).kick(before.username, me.discordId);
+  const result = await adminApi(controllerId).kick(before.username, operatorId(me));
   recordAudit(me, {
     action: "player.kick",
     targetType: "player",
@@ -63,7 +66,7 @@ export async function timeoutPlayer(
     before.username,
     until,
     reasonOf(reason),
-    me.discordId,
+    operatorId(me),
   );
   recordAudit(me, {
     action: "player.timeout",
@@ -88,7 +91,7 @@ export async function banPlayer(
   revertOfId?: number,
 ) {
   const before = await current(controllerId, username, me);
-  const after = await adminApi(controllerId).ban(before.username, reasonOf(reason), me.discordId);
+  const after = await adminApi(controllerId).ban(before.username, reasonOf(reason), operatorId(me));
   recordAudit(me, {
     action: "player.ban",
     targetType: "player",
@@ -115,7 +118,7 @@ export async function unbanPlayer(
   const after = await adminApi(controllerId).unban(
     before.username,
     reason?.trim() || null,
-    me.discordId,
+    operatorId(me),
   );
   recordAudit(me, {
     action: "player.unban",
@@ -139,7 +142,7 @@ export async function liftTimeout(
   revertOfId?: number,
 ) {
   const before = await current(controllerId, username, me);
-  const after = await adminApi(controllerId).liftTimeout(before.username, me.discordId);
+  const after = await adminApi(controllerId).liftTimeout(before.username, operatorId(me));
   recordAudit(me, {
     action: "player.lift_timeout",
     targetType: "player",

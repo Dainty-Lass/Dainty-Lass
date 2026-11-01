@@ -1,12 +1,12 @@
 # dainty-dashboard
 
-The DaintyLass user interfaces on one theme: a **remote management dashboard** for a server's staff, the
+The Dainty Lass user interfaces on one theme: a **remote management dashboard** for a server's staff, the
 **launcher** page players use, and the **server manager** page hosts use. All three are Astryx on Next.js
 (through vinext) on Bun, and share `@dainty/theme`.
 
 | Path                                         | What                                                                                                                        |
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/dashboard`](apps/dashboard)           | The dashboard: a server app with Discord sign-in, a SQLite database and the game's admin APIs behind it                     |
+| [`apps/dashboard`](apps/dashboard)           | The dashboard: a server app with passwordless sign-in, a SQLite database and the game's admin APIs behind it                |
 | [`apps/launcher`](apps/launcher)             | The launcher page, exported as static files for the Tauri launcher                                                          |
 | [`apps/server-manager`](apps/server-manager) | The server manager page, exported as static files for the Tauri server GUI                                                  |
 | [`apps/agent`](apps/agent)                   | The agent each extra controller runs, so one dashboard manages them all ([docs/fleet.md](docs/fleet.md))                    |
@@ -33,8 +33,9 @@ What staff do on it, for one controller or a fleet of them ([docs/fleet.md](docs
 - **Chat filter**: whole-word, anywhere and regex terms that flag, mask or block, per channel, with a tester.
   Look-alikes (`id1ot`) and spacing tricks (`i.d.i.o.t`) are caught by the non-regex kinds.
 - **Audit log**: every change, with what it replaced, filterable and exportable. Most changes have **Undo**.
-- **Staff** and **Settings**: who may sign in and with what role; Discord role sync; moderation reasons;
-  retention. Both keep a revision history.
+- **Members** and **Settings**: everyone who has signed in and their tier; Discord role sync; onboarding
+  and server terms; moderation reasons; retention. Both keep a revision history.
+- **Your account**: each person's own sign-in methods and passkeys.
 
 ### Rollback
 
@@ -50,11 +51,12 @@ A kick cannot be undone, and neither can a timeout that has already run out.
 
 ### Sign-in
 
-Discord OAuth2 with PKCE. Someone gets in when they are on the Staff page, when their Discord id is in
-`DASHBOARD_OWNER_DISCORD_IDS` (which is how the first owner gets in), or when a role they hold in the
-server's Discord guild is mapped to a dashboard role under Settings. Access granted by a guild role is
-re-read at every sign-in. Roles: owner, admin, moderator, viewer
-([`permissions.ts`](apps/dashboard/src/lib/auth/permissions.ts) has the table).
+Discord, Twitch, a code by email, or a passkey; never a password. Anyone can sign in, and their tier
+decides what they see: users get the overview, players and controllers; moderators add reports and chat;
+admins add the audit log, members and settings; owners can change settings. Tiers come from the
+Members page, from Discord roles, or from `DASHBOARD_OWNER_DISCORD_IDS` / `DASHBOARD_OWNER_EMAILS`
+(how the first owner gets in). The server can also ask newcomers to accept its terms first, which can
+add an "approved" role in Discord. [docs/access.md](docs/access.md) has the details.
 
 ### Running it
 
@@ -68,7 +70,7 @@ bun run dev                                           # http://localhost:3000
 For production, `bun run build` and then `bun run start` (or the [Dockerfile](docker/dashboard.Dockerfile)).
 The dashboard reaches the admin API and the backend on loopback, so it runs on the game server or on a
 machine with an SSH tunnel to it. Put it behind a TLS reverse proxy and set `DASHBOARD_BASE_URL` to the
-public origin; register `<DASHBOARD_BASE_URL>/api/auth/discord/callback` as the Discord app's redirect.
+public origin; register `<DASHBOARD_BASE_URL>/api/auth/callback/discord` (and `/twitch`) as the redirects.
 
 [`docs/integration.md`](docs/integration.md) covers what the dashboard needs from the server: the admin API
 key, the manager-operator secret, and the ingest API the backend posts chat and reports to.
@@ -92,4 +94,4 @@ bun run lint
 
 ## Licence
 
-AGPL-3.0-only, as the rest of DaintyLass ([LICENSE](LICENSE)).
+AGPL-3.0-only, as the rest of Dainty Lass ([LICENSE](LICENSE)).

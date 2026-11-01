@@ -21,7 +21,7 @@ import { useState } from "react";
 import { Page } from "@/components/Page";
 import { RevisionList, type RevisionRow } from "@/components/RevisionList";
 import { useAction } from "@/components/useAction";
-import { canAssign, ROLES, type Role } from "@/lib/auth/permissions";
+import { canAssign, ROLES, type Role, rank } from "@/lib/auth/permissions";
 import type { Staff } from "@/lib/db/schema";
 import { addStaffAction, updateStaffAction } from "./actions";
 
@@ -35,6 +35,7 @@ export function StaffClient({
   canRestore,
   guildSync,
   revisions,
+  requireApproval,
 }: {
   staff: Member[];
   me: { id: number; role: Role };
@@ -42,6 +43,8 @@ export function StaffClient({
   canRestore: boolean;
   guildSync: boolean;
   revisions: RevisionRow[];
+  // Approval only means anything when the server asks for it.
+  requireApproval: boolean;
 }) {
   const t = useTranslations("staff");
   const tc = useTranslations("common");
@@ -52,6 +55,12 @@ export function StaffClient({
   const [role, setRole] = useState<Role>("moderator");
   const [note, setNote] = useState("");
   const assignable = ROLES.filter((r) => canAssign(me.role, r));
+  const [show, setShow] = useState<"all" | "pending">("all");
+  const editable = (s: Member) => canWrite && s.id !== me.id && canAssign(me.role, s.role);
+  // Moderators and above never wait on approval (lib/onboarding.ts).
+  const waits = (s: Member) => rank(s.role) < rank("moderator");
+  const pending = staff.filter((s) => waits(s) && !s.approvedAt && !s.disabled);
+  const shown = show === "pending" ? pending : staff;
 
   return (
     <Page
@@ -68,6 +77,20 @@ export function StaffClient({
         ) : undefined
       }
     >
+      {requireApproval && (
+        <Selector
+          label={t("show")}
+          isLabelHidden
+          size="sm"
+          variant="secondary"
+          value={show}
+          options={[
+            { value: "all", label: t("showAll") },
+            { value: "pending", label: t("showPending", { count: pending.length }) },
+          ]}
+          onChange={(v) => setShow(v === "pending" ? "pending" : "all")}
+        />
+      )}
       {guildSync && (
         <Banner
           status="info"
@@ -78,7 +101,7 @@ export function StaffClient({
       )}
       <Card padding={0}>
         <Table<Row>
-          data={staff as Row[]}
+          data={shown as Row[]}
           idKey="id"
           hasHover
           columns={[
@@ -89,17 +112,17 @@ export function StaffClient({
               renderCell: (s) => (
                 <Stack direction="horizontal" gap={2} align="center">
                   <Avatar
-                    name={s.globalName || s.username}
+                    name={s.displayName || s.username}
                     src={s.avatarUrl ?? undefined}
                     size="sm"
                   />
                   <Stack gap={0}>
                     <Text weight="medium" hasStrikethrough={s.disabled}>
-                      {s.globalName || s.username}
+                      {s.displayName || s.username}
                       {s.id === me.id ? ` ${t("you")}` : ""}
                     </Text>
                     <Text type="supporting" size="xsm">
-                      {s.discordId}
+                      {s.gameName ? t("plays", { name: s.gameName }) : (s.discordId ?? "")}
                     </Text>
                   </Stack>
                 </Stack>
@@ -110,7 +133,7 @@ export function StaffClient({
               header: t("columns.role"),
               width: pixel(170),
               renderCell: (s) =>
-                canWrite && s.id !== me.id && canAssign(me.role, s.role) ? (
+                editable(s) ? (
                   <Selector
                     label={t("columns.role")}
                     isLabelHidden
@@ -132,9 +155,70 @@ export function StaffClient({
             {
               key: "roleSource",
               header: t("columns.source"),
-              width: pixel(120),
-              renderCell: (s) => <Token size="sm" label={t(`sources.${s.roleSource}`)} />,
+              width: pixel(170),
+              renderCell: (s) =>
+                guildSync && s.roleSource === "manual" && editable(s) ? (
+                  <Button
+                    label={t("followDiscord")}
+                    tooltip={t("followDiscordHint")}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      void run(() => updateStaffAction(s.id, { roleSource: "guild" }), t("updated"))
+                    }
+                  />
+                ) : (
+                  <Token size="sm" label={t(`sources.${s.roleSource}`)} />
+                ),
             },
+            ...(requireApproval
+              ? [
+                  {
+                    key: "approvedAt",
+                    header: t("columns.approval"),
+                    width: pixel(230),
+                    renderCell: (s: Row) =>
+                      !waits(s) ? (
+                        <Text type="supporting">{t("notNeeded")}</Text>
+                      ) : s.approvedAt ? (
+                        <Stack direction="horizontal" gap={1} align="center">
+                          <Token
+                            size="sm"
+                            color="green"
+                            label={t(`approval.${s.approvedVia ?? "manual"}`)}
+                          />
+                          {editable(s) && (
+                            <Button
+                              label={t("revoke")}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                void run(
+                                  () => updateStaffAction(s.id, { approvedAt: null }),
+                                  t("updated"),
+                                )
+                              }
+                            />
+                          )}
+                        </Stack>
+                      ) : editable(s) ? (
+                        <Button
+                          label={t("approve")}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            void run(
+                              () => updateStaffAction(s.id, { approvedAt: Date.now() }),
+                              t("approved"),
+                            )
+                          }
+                        />
+                      ) : (
+                        <Token size="sm" color="orange" label={t("pending")} />
+                      ),
+                  },
+                ]
+              : []),
             {
               key: "lastSeenAt",
               header: t("columns.lastSeen"),
@@ -162,7 +246,7 @@ export function StaffClient({
                   isLabelHidden
                   size="sm"
                   value={!s.disabled}
-                  isDisabled={!canWrite || s.id === me.id || !canAssign(me.role, s.role)}
+                  isDisabled={!editable(s)}
                   changeAction={async (on) =>
                     void (await run(
                       () => updateStaffAction(s.id, { disabled: !on }),
