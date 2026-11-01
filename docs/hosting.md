@@ -276,10 +276,12 @@ lists what waits. A rule on `"approval"` on a server with one owner key waits fo
 ### Game modules and plugins
 
 A game module serves one exact game version; a plugin extends the module of its version. A module compiled into
-`reforged-host` is loaded unless `compiled` leaves it out (`isles-1-12-0` shares 1.14.7's ports and routes, so it
-never autoloads unless `compiled` lists `"isles-1-12-0"` or it is loaded from the console); any other is an
-executable you list with its SHA-256, and nothing else is ever started. Its path is taken from the server folder (the
-one that holds `.workspace`), and that folder must be writable by the server's account only.
+`reforged-host` is loaded unless `compiled` leaves it out (`isles-1-12-0` shares 1.14.7's ports `61000`/`61001` and
+`8770–8777` and its routes, so `isles-1-12-0` is opt-in: pass `reforged-host setup --modules isles-1-12-0`, select
+`Dauntless 1.12.0 (isles-1-12-0, opt-in)` in **DaintyLass Manager**'s Server Configuration card, or set
+`compiled = ["isles-1-12-0"]` in `[modules]`); any other is an executable you list with its SHA-256, and nothing else
+is ever started. Its path is taken from the server folder (the one that holds `.workspace`), and that folder must be
+writable by the server's account only.
 
 ```toml
 [modules]
