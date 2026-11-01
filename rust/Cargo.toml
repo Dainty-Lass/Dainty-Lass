@@ -88,8 +88,8 @@ isles-db = { path = "../modules/rustic-isles/crates/isles-db" }
 isles-director = { path = "../modules/rustic-isles/crates/isles-director" }
 hmac = "0.13"
 # The launcher's side of realms (RF7, DD12): linked behind launcher's `realms` feature
-rifts-host = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
-rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
+rifts-host = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "91c834b3423124a2d8ba761945d74d93b95c9a8f" }
+rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "91c834b3423124a2d8ba761945d74d93b95c9a8f" }
 gateway = { path = "services/gateway" }
 host = { path = "services/host" }
 launcher = { path = "launcher/src-tauri" }
