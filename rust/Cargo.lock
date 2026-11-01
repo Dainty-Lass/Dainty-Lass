@@ -1044,6 +1044,7 @@ name = "controller"
 version = "0.0.0"
 dependencies = [
  "admin",
+ "chat",
  "content",
  "gateway",
  "history-ship",

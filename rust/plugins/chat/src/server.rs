@@ -644,6 +644,7 @@ impl Chat {
                 self.by_uid.remove(uid);
                 if let Some(account) = &account {
                     self.backends.federation.presence(account, uid, false).await;
+                    self.backends.host.presence(account, uid, false).await;
                 }
             } else {
                 self.by_uid.insert(uid.clone(), list);
@@ -1211,6 +1212,7 @@ impl Chat {
         }
         if let Some(account) = &account {
             self.backends.federation.presence(account, &uid, true).await;
+            self.backends.host.presence(account, &uid, true).await;
         }
         self.deliver_waiting(id).await;
     }

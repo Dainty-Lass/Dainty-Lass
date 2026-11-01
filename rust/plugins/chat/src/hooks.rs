@@ -73,6 +73,12 @@ pub trait ChatHost: Send + Sync {
     fn account_of<'a>(&'a self, _local: &'a str) -> BoxFuture<'a, Option<GlobalId>> {
         Box::pin(async { None })
     }
+
+    /// Called when an account's local online presence changes on this node (`online = true` when its first
+    /// session binds, `online = false` when its last session closes).
+    fn presence<'a>(&'a self, _account: &'a GlobalId, _local: &'a str, _online: bool) -> BoxFuture<'a, ()> {
+        Box::pin(async {})
+    }
 }
 
 /// The JID of a module that doesn't answer: the name the client logged in with, on its own domain.
@@ -118,6 +124,15 @@ impl Drivers {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .remove(module);
+    }
+
+    pub fn module_ids(&self) -> Vec<ModuleId> {
+        self.drivers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .keys()
+            .cloned()
+            .collect()
     }
 
     pub async fn ask(&self, module: &ModuleId, query: ChatQuery) -> Result<ChatAnswer, ModuleError> {
