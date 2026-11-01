@@ -1,7 +1,7 @@
 {
   "name": "dainty-lass-launcher",
   "productName": "DaintyLass Launcher",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-beta",
   "description": "The Tauri launcher's CLI and the tests of its bridge: dainty-lass-ui's page API (ui/packages/bridge) against the isolation hook (MIGRATION_PLAN.md section 4.6; docs/dainty-lass-plan.md, DU2).",
   "private": true,
   "type": "module",
