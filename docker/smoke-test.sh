@@ -91,9 +91,11 @@ fi
 cat "$smoke_dir/unmigrated.txt"
 grep -q "Unmigrated MongoDB data" "$smoke_dir/unmigrated.txt"
 
-step "setup migrates and verifies mongo-data into the Rust store"
+step "db migrate and db verify move mongo-data into the Rust store"
 compose run --rm host setup --mode public --host smoke.example.org --game-address 203.0.113.7 --name "Smoke Test" | tee "$smoke_dir/setup.txt"
-grep -q "MongoDB migration verified" "$smoke_dir/setup.txt"
+# setup no longer moves it (dainty-legacy's `import reforged` does, or these two by hand); verify writes the marker
+compose run --rm host db migrate
+compose run --rm host db verify
 COMPOSE_PROFILES=public,rollback compose rm -sf mongo
 
 step "the toml profile applies host.toml alone"

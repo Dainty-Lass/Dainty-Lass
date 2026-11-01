@@ -288,7 +288,7 @@ fn backup_dumps_the_backends_database_into_the_workspace() {
         "mongo": { "uri": DEFAULT_MONGO_URI, "manage": true, "mongod": null }, "maxHuntServers": 3
     }))
     .unwrap();
-    write_host_config(&p.host_json, &config).unwrap();
+    write_host_config(&p.host_toml, &config).unwrap();
     std::fs::write(
         p.config.join("backend.env"),
         "MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0&w=majority\n",

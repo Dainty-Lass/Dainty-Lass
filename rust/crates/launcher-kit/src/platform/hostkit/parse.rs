@@ -343,65 +343,6 @@ fn parse_mode(raw: &str) -> Option<ServerMode> {
     }
 }
 
-/// Parses legacy `.workspace/config/host.json`.
-#[must_use]
-pub fn server_config(raw: &str) -> Option<ServerConfig> {
-    if raw.len() > 1024 * 1024 {
-        return None;
-    }
-    let root: Value = serde_json::from_str(raw).ok()?;
-    let obj = root.as_object()?;
-    let srv = obj.get("server").and_then(Value::as_object);
-
-    let mode_str = obj
-        .get("mode")
-        .or_else(|| srv.and_then(|s| s.get("mode")))
-        .and_then(Value::as_str)?;
-    let mode = parse_mode(mode_str)?;
-
-    let name = obj
-        .get("name")
-        .or_else(|| srv.and_then(|s| s.get("name")))
-        .and_then(Value::as_str)
-        .and_then(|s| clean_config_field(s, MAX_SERVER_NAME_LEN));
-
-    let host = obj
-        .get("host")
-        .or_else(|| srv.and_then(|s| s.get("public_host").or_else(|| s.get("host"))))
-        .and_then(Value::as_str)
-        .and_then(clean_host_field);
-
-    let multipliers = if mode == ServerMode::Private {
-        let mult_obj = obj
-            .get("multipliers")
-            .or_else(|| obj.get("test_multipliers"))
-            .or_else(|| obj.get("gameplay"))
-            .and_then(Value::as_object);
-        mult_obj.and_then(|m| {
-            let xp = m
-                .get("xp")
-                .or_else(|| m.get("xp_multiplier"))
-                .and_then(Value::as_f64)
-                .and_then(round_multiplier)?;
-            let rewards = m
-                .get("rewards")
-                .or_else(|| m.get("reward_multiplier"))
-                .and_then(Value::as_f64)
-                .and_then(round_multiplier)?;
-            (xp > 1.0 || rewards > 1.0).then_some((xp, rewards))
-        })
-    } else {
-        None
-    };
-
-    Some(ServerConfig {
-        name,
-        mode,
-        host,
-        multipliers,
-    })
-}
-
 fn toml_number(item: &Item) -> Option<f64> {
     if let Some(f) = item.as_float() {
         Some(f)
@@ -466,14 +407,6 @@ pub fn server_config_toml(raw: &str) -> Option<ServerConfig> {
         host,
         multipliers,
     })
-}
-
-/// Parses `host.toml` when present, falling back to `host.json`.
-#[must_use]
-pub fn parse_server_config_files(toml_raw: Option<&str>, json_raw: Option<&str>) -> Option<ServerConfig> {
-    toml_raw
-        .and_then(server_config_toml)
-        .or_else(|| json_raw.and_then(server_config))
 }
 
 /// Checks if a CMake/source text carries the DaintyLass patch marker.

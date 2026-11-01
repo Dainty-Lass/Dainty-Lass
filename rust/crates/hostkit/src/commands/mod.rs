@@ -8,6 +8,7 @@ pub mod gamedata;
 pub mod history;
 pub mod install_game;
 pub mod invite;
+pub mod legacy;
 pub mod multipliers;
 pub mod network;
 pub mod preset;
@@ -50,6 +51,7 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
         Command::Remote(args) => remote::run(paths, args),
         Command::History(args) => history::run_history(paths, args),
         Command::Revert(args) => history::run_revert(paths, args),
+        Command::Legacy(args) => legacy::run(paths, args),
         Command::Gameserver(args) => {
             let code = crate::wine::run_game_server(&args.args)?;
             Ok(ExitCode::from(code.clamp(0, 255) as u8))

@@ -174,7 +174,6 @@ pub fn run_with(
     }
 
     let layout = Layout::new(p);
-    let had_host_json = p.host_json.is_file() && !p.host_toml.is_file();
     let existing = load_host_config(p)?;
     let mut config = host_config_from_args(args, existing.as_ref(), env)?;
 
@@ -192,12 +191,6 @@ pub fn run_with(
     std::fs::create_dir_all(&p.logs).map_err(|e| HostError::io(&p.logs, e))?;
 
     let setup_log = p.logs.join("setup.log");
-
-    // Run MongoDB migration BEFORE switching host.json -> host.toml or overwriting backend.env so
-    // any verification or connection failure leaves the previous setup untouched.
-    if !cfg!(feature = "paradox") {
-        crate::commands::update::migrate_existing_mongo_data(p, &config, &setup_log, out)?;
-    }
 
     match config.mode {
         ServerMode::Private => out(&format!(
@@ -223,21 +216,15 @@ pub fn run_with(
     if args.fresh_start {
         config.database.get_or_insert_with(Default::default).fresh_start = Some(true);
     }
-    if !cfg!(feature = "paradox") {
-        crate::commands::update::migrate_existing_mongo_data_for_setup(p, &config, &setup_log, out)?;
-    }
 
     let (sec, created_secrets) = load_or_create_secrets(&p.config, secrets::new_secrets)?;
-    let _ = save_host_config(p, &config)?;
+    save_host_config(p, &config)?;
     if config
         .remote
         .as_ref()
         .is_some_and(|r| r.role.as_deref() == Some("controller"))
     {
         let _ = crate::commands::remote::set_shared_config_from_host_toml(p);
-    }
-    if had_host_json {
-        out("(host.json is now host.toml; the old file is kept as host.json.bak)");
     }
     if created_secrets {
         out(&format!(

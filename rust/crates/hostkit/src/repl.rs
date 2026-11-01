@@ -161,6 +161,19 @@ pub fn parse_command(line: &str) -> Result<ConsoleCommand, String> {
         },
         "modules" => alone(ConsoleCommand::Modules),
         "module" => parse_module(&parts),
+        // dainty-legacy's importers, as `module run legacy import-<kind>`
+        "legacy" => match parts.as_slice() {
+            [_, "import", kind, args @ ..] if crate::commands::legacy::KINDS.contains(kind) => {
+                let command = format!("import-{kind}");
+                let mut run = vec!["module", "run", crate::commands::legacy::MODULE_ID, command.as_str()];
+                run.extend_from_slice(args);
+                parse_module(&run)
+            }
+            _ => Err(format!(
+                "usage: legacy import <{}> [args]",
+                crate::commands::legacy::KINDS.join("|")
+            )),
+        },
         "history" | "revert" => history::parse_console(word, &parts[1..]).map(ConsoleCommand::History),
         "help" | "?" => alone(ConsoleCommand::Help),
         "quit" | "exit" | "shutdown" => alone(ConsoleCommand::Quit),
@@ -445,7 +458,7 @@ pub async fn run_command(
             }
         }
         ConsoleCommand::Help => said(
-            "Commands: status | start <svc> | stop <svc> | restart <svc> | modules | module status|load|unload|restart <module> | module run <module> <command> [args] | history [--actor who] [--account id] [--since time] [--limit N] | history verify | revert --actor who [--dry-run | --apply <plan id>] | invite | players | instances | doctor | backup | log <svc> <level> | stop"
+            "Commands: status | start <svc> | stop <svc> | restart <svc> | modules | module status|load|unload|restart <module> | module run <module> <command> [args] | legacy import <revived|offline-save|reforged> [args] | history [--actor who] [--account id] [--since time] [--limit N] | history verify | revert --actor who [--dry-run | --apply <plan id>] | invite | players | instances | doctor | backup | log <svc> <level> | stop"
                 .into(),
         ),
         ConsoleCommand::Quit => (vec!["shutting down server...".into()], true),
@@ -583,6 +596,14 @@ mod tests {
                     args: vec!["a".into(), "b".into()],
                 },
             ),
+            (
+                "legacy import revived /srv/metagame.db --dry-run",
+                ModuleRun {
+                    module: "legacy".into(),
+                    command: "import-revived".into(),
+                    args: vec!["/srv/metagame.db".into(), "--dry-run".into()],
+                },
+            ),
             ("history verify", History(Job::Verify)),
             (
                 "revert --actor=admin:ab12cd34 --apply abc",
@@ -618,6 +639,8 @@ mod tests {
             ("module run stub", "usage: module"),
             ("module run stub Echo", "a-z, 0-9"),
             ("module run stub echo a\u{1b}[2J", "of text"),
+            ("legacy import metagame", "usage: legacy import"),
+            ("legacy", "usage: legacy import"),
             ("modules now", "takes nothing after it"),
             ("revert --limit 5", "usage: revert"),
             ("history --limit", "usage: history"),

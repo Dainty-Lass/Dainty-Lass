@@ -661,7 +661,7 @@ fn a_fresh_private_setup_then_again() {
     let config = read_host_config(&p.host_toml).unwrap().unwrap();
     assert_eq!(config.mode, ServerMode::Private);
     assert_eq!(config.game_dir.as_deref(), Some(game_arg.as_str()));
-    assert!(!p.host_json.exists(), "host.toml only");
+    assert!(!p.config.join("host.json").exists(), "host.toml only");
     let toml = read(&p.host_toml);
     assert!(toml.starts_with("# This server's settings (reforged-host)."), "{toml}");
     assert!(
@@ -704,43 +704,24 @@ fn a_fresh_private_setup_then_again() {
 }
 
 #[test]
-fn setup_moves_a_node_kits_host_json_over_to_host_toml() {
+fn setup_leaves_a_node_kits_host_json_to_dainty_legacy() {
     let (_dir, p, game) = checkout();
     let env = Mock::new();
     let game_arg = game.to_string_lossy().into_owned();
-    setup(
+    std::fs::create_dir_all(&p.config).unwrap();
+    std::fs::write(
+        p.config.join("host.json"),
+        "{\"mode\":\"private\",\"name\":\"Friday Hunts\"}\n",
+    )
+    .unwrap();
+    let (r, _) = setup(
         &p,
         &["--mode", "private", "--name", "Friday Hunts", "--game", &game_arg],
         &env,
-    )
-    .0
-    .unwrap();
-    // As a Node kit leaves it: host.json only.
-    let config = read_host_config(&p.host_toml).unwrap().unwrap();
-    write_host_config(&p.host_json, &config).unwrap();
-    let json = read(&p.host_json);
-    std::fs::remove_file(&p.host_toml).unwrap();
-    assert_eq!(
-        load_host_config(&p).unwrap().unwrap().name,
-        "Friday Hunts",
-        "read while there is no host.toml"
     );
-
-    let (r, lines) = setup(&p, &["--skip-install"], &env);
-    assert!(r.is_ok(), "{r:?}");
-    assert!(
-        lines.contains(&"(host.json is now host.toml; the old file is kept as host.json.bak)".to_owned()),
-        "{lines:?}"
-    );
-    assert!(!p.host_json.exists());
-    assert_eq!(read(&p.config.join("host.json.bak")), json, "kept as it was");
-    let moved = read_host_config(&p.host_toml).unwrap().unwrap();
-    assert_eq!(moved.name, "Friday Hunts");
-    assert_eq!(moved.game_dir.as_deref(), Some(game_arg.as_str()));
-
-    // Once moved, setup says nothing more about it.
-    let (_, lines) = setup(&p, &["--skip-install"], &env);
-    assert!(!lines.iter().any(|l| l.contains("host.json.bak")));
+    let err = r.unwrap_err();
+    assert!(err.contains("dainty-legacy import reforged"), "{err}");
+    assert!(!p.host_toml.exists(), "nothing written");
 }
 
 #[test]
@@ -989,437 +970,53 @@ edition"
     assert!(error.contains("edition must be reborn"), "{error}");
 }
 
-// ------------------------------------------------------------------ M1: setup migrates old-kit MongoDB data, start/serve refuse until migrated
+// ------------------------------------------------------------------ M1: a Node kit's MongoDB is dainty-legacy's to move
 
 #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
 mod m1_mongo_migration {
     use super::*;
-    use isles_db::mongo::MockMongoServer;
-    use serde_json::{Map, Value, json};
-    use std::collections::BTreeMap;
-    use std::net::{TcpListener, TcpStream};
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    fn seed_mongo_collections() -> BTreeMap<String, Vec<Map<String, Value>>> {
-        let mut cols: BTreeMap<String, Vec<Map<String, Value>>> = BTreeMap::new();
-        let doc = |val: Value| val.as_object().unwrap().clone();
-        cols.insert(
-            "accounts".into(),
-            vec![doc(json!({
-                "_id": "11111111-1111-4111-8111-111111111111",
-                "userId": "11111111-1111-4111-8111-111111111111",
-                "name": "SlayerOne",
-                "notes": 2500,
-                "email": "slayer@example.test",
-                "displayNameNormalized": "slayerone",
-                "displayName": "SlayerOne",
-                "passwordHash": "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA",
-                "status": "active",
-                "approvalStatus": "approved",
-                "approvalUpdatedAt": "2026-10-20T00:00:00.000Z",
-                "approvalUpdatedBy": "system:signup",
-                "roles": ["user"],
-                "createdAt": "2026-10-20T00:00:00.000Z",
-                "lastLoginAt": "2026-10-21T00:00:00.000Z",
-                "usernameSet": 1
-            }))],
-        );
-        cols.insert(
-            "characters".into(),
-            vec![doc(json!({
-                "_id": "char-001",
-                "characterId": "char-001",
-                "userId": "11111111-1111-4111-8111-111111111111",
-                "createdDate": "2026-10-20T00:00:00.000Z",
-                "lastModifiedDate": "2026-10-20T00:00:00.000Z",
-                "name": "SlayerOne",
-                "updateVersion": 1,
-                "data": { "primary_dye": "DYE_01" }
-            }))],
-        );
-        cols.insert(
-            "reforgedInvites".into(),
-            vec![doc(json!({
-                "_id": "INV-CUTOVER-01",
-                "code": "INV-CUTOVER-01",
-                "maxUses": 5,
-                "uses": 1,
-                "note": "Friday Hunts",
-                "revoked": false,
-                "createdAt": "2026-10-20T00:00:00.000Z"
-            }))],
-        );
-        cols
-    }
-
-    fn write_old_kit_install(p: &Paths, game: &Path, mongo_uri: &str, manage_mongo: bool) {
-        std::fs::create_dir_all(&p.config).unwrap();
-        let host_json = json!({
-            "version": 1,
-            "mode": "private",
-            "host": "100.101.102.103",
-            "gameAddress": "100.101.102.103",
-            "name": "Friday Hunts",
-            "gameDir": game.to_string_lossy(),
-            "registration": "INVITECODE",
-            "shareUrl": null,
-            "mongo": {
-                "uri": mongo_uri,
-                "manage": manage_mongo,
-                "mongod": null
-            },
-            "maxHuntServers": 3
-        });
-        std::fs::write(&p.host_json, serde_json::to_string_pretty(&host_json).unwrap()).unwrap();
-        std::fs::write(p.config.join("backend.env"), format!("MONGODB_URI={mongo_uri}\n")).unwrap();
-        if manage_mongo {
-            std::fs::create_dir_all(&p.mongo_data).unwrap();
-            std::fs::write(p.mongo_data.join("WiredTiger"), "wiredtiger-header").unwrap();
-        }
-    }
 
     #[test]
-    fn old_kit_install_with_mongo_data_and_no_marker_is_migrated_by_new_setup() {
+    fn start_refuses_unmigrated_managed_mongodb_until_fresh_start_or_imported() {
         let (_dir, p, game) = checkout();
         let env = Mock::new();
-        let seed = seed_mongo_collections();
-        let mock_mongo = MockMongoServer::start(seed.clone(), 50).unwrap();
-        let mongo_uri = mock_mongo.uri("reforged");
-        write_old_kit_install(&p, &game, &mongo_uri, true);
-
-        let marker = p.config.join(host::commands::update::MONGO_MIGRATED_MARKER);
-        let sqlite_db = p.config.join(host::hostconfig::DATABASE_FILE);
-        assert!(!marker.exists());
-        assert!(!sqlite_db.exists());
-
-        // An install made by an old kit runs `setup` with the new binary (as `update` from an old
-        // kit invokes the newly installed binary's `setup`).
-        let (r, lines) = setup(&p, &["--skip-install"], &env);
-        assert!(r.is_ok(), "{r:?}\n{}", lines.join("\n"));
-        let text = lines.join("\n");
-        assert!(text.contains("migrating existing MongoDB data"), "{text}");
-        assert!(
-            text.contains("MongoDB migration verified") && text.contains("0 differences"),
-            "{text}"
+        let game_arg = game.to_string_lossy().into_owned();
+        let (r, _) = setup(
+            &p,
+            &[
+                "--mode",
+                "private",
+                "--name",
+                "Friday Hunts",
+                "--game",
+                &game_arg,
+                "--skip-install",
+            ],
+            &env,
         );
-        assert!(marker.is_file(), ".mongo-migrated marker written");
-        assert!(sqlite_db.is_file(), "SQLite store populated");
-        assert!(
-            p.host_toml.is_file() && !p.host_json.exists(),
-            "host.json moved to host.toml"
-        );
-        assert_eq!(
-            std::fs::read_to_string(p.mongo_data.join("WiredTiger")).unwrap(),
-            "wiredtiger-header",
-            "managed MongoDB folder untouched"
-        );
-        assert_eq!(mock_mongo.snapshot(), seed, "source MongoDB collections never modified");
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let verify = rt
-            .block_on(isles_db::run_verify(&isles_db::MigrateOptions {
-                from_uri: mongo_uri,
-                to_target: sqlite_db.to_string_lossy().into_owned(),
-                node: "local".parse().unwrap(),
-                dry_run: false,
-                areas: Vec::new(),
-                skip_invalid: false,
-                game_data_dir: None,
-                allow_remote_postgres: false,
-            }))
-            .unwrap();
-        assert!(verify.ok);
-        let accounts = verify.collections.iter().find(|c| c.name == "accounts").unwrap();
-        assert_eq!((accounts.expected_count, accounts.actual_count), (1, 1));
-
-        // Running `setup` a second time sees `.mongo-migrated` and does not migrate again.
-        let (r2, lines2) = setup(&p, &["--skip-install"], &env);
-        assert!(r2.is_ok(), "{r2:?}");
-        assert!(!lines2.iter().any(|l| l.contains("migrating existing MongoDB data")));
-    }
-
-    #[test]
-    fn start_and_serve_refuse_before_migration_and_run_after() {
-        let (_dir, p, game) = checkout();
-        let env = Mock::new();
-        let seed = seed_mongo_collections();
-        let mock_mongo = MockMongoServer::start(seed, 50).unwrap();
-        let mongo_uri = mock_mongo.uri("reforged");
-        write_old_kit_install(&p, &game, &mongo_uri, true);
-
-        // Before migration, both `start::run` (which dispatches to `serve::run` -> `serve::prepare`)
-        // and `serve::compose` refuse when managed MongoDB data exists without `.mongo-migrated`.
-        let err_start = host::commands::start::run(&p).unwrap_err().to_string();
-        assert!(
-            err_start.contains("unmigrated MongoDB data")
-                && err_start.contains("reforged-host setup")
-                && err_start.contains("--fresh-start"),
-            "{err_start}"
-        );
-        let cfg = load_host_config(&p).unwrap().unwrap();
-        let err_compose = match host::serve::compose(&p, &cfg, false, host::commands::start::console_printer()) {
-            Ok(_) => panic!("compose must refuse unmigrated MongoDB data"),
-            Err(e) => e.to_string(),
-        };
-        assert!(
-            err_compose.contains("unmigrated MongoDB data") && err_compose.contains("reforged-host setup"),
-            "{err_compose}"
-        );
-
-        // Also check when `.workspace/mongodb` is empty (external MongoDB) and the configured
-        // MongoDB is reachable and holds documents.
-        std::fs::remove_dir_all(&p.mongo_data).unwrap();
-        write_old_kit_install(&p, &game, &mongo_uri, false);
-        let err_ext = host::commands::start::run(&p).unwrap_err().to_string();
-        assert!(
-            err_ext.contains("unmigrated MongoDB data was found at")
-                && err_ext.contains("reforged-host setup")
-                && err_ext.contains("--fresh-start"),
-            "{err_ext}"
-        );
-
-        // Now run `setup` to migrate the data.
-        let (r, _) = setup(&p, &["--skip-install"], &env);
         assert!(r.is_ok(), "{r:?}");
+        std::fs::create_dir_all(&p.mongo_data).unwrap();
+        std::fs::write(p.mongo_data.join("WiredTiger"), "wt").unwrap();
 
-        // After migration, `serve::compose` succeeds.
-        let config = load_host_config(&p).unwrap().unwrap();
-        let controller = host::serve::compose(&p, &config, false, host::commands::start::console_printer()).unwrap();
-        drop(controller);
-    }
-
-    #[test]
-    fn explicit_fresh_start_opt_out_works_via_cli_and_host_toml() {
-        // 1. CLI opt-out: `reforged-host setup --fresh-start`
-        let (_dir, p, game) = checkout();
-        let env = Mock::new();
-        let seed = seed_mongo_collections();
-        let mock_mongo = MockMongoServer::start(seed.clone(), 50).unwrap();
-        let mongo_uri = mock_mongo.uri("reforged");
-        write_old_kit_install(&p, &game, &mongo_uri, true);
-
-        let (r, lines) = setup(&p, &["--fresh-start", "--skip-install"], &env);
-        assert!(r.is_ok(), "{r:?}\n{}", lines.join("\n"));
+        let err = host::commands::start::run(&p).unwrap_err().to_string();
         assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("skipping MongoDB migration") && l.contains("starting on a fresh database")),
-            "{lines:?}"
-        );
-        let marker = p.config.join(host::commands::update::MONGO_MIGRATED_MARKER);
-        assert!(marker.is_file());
-        assert!(
-            !p.config.join(host::hostconfig::DATABASE_FILE).exists(),
-            "fresh start does not migrate MongoDB documents into dainty-lass.db"
-        );
-        assert_eq!(
-            std::fs::read_to_string(p.mongo_data.join("WiredTiger")).unwrap(),
-            "wiredtiger-header",
-            "MongoDB folder never modified"
-        );
-        assert_eq!(mock_mongo.snapshot(), seed, "MongoDB documents never modified");
-        let saved = read_host_config(&p.host_toml).unwrap().unwrap();
-        assert!(saved.fresh_start());
-        drop(host::serve::compose(&p, &saved, false, host::commands::start::console_printer()).unwrap());
-
-        // 2. `host.toml` opt-out: `[database] fresh_start = true`
-        let (_dir2, p2, game2) = checkout();
-        write_old_kit_install(&p2, &game2, &mongo_uri, true);
-        let mut hc = load_host_config(&p2).unwrap().unwrap();
-        hc.database.get_or_insert_with(Default::default).fresh_start = Some(true);
-        write_host_config(&p2.host_toml, &hc).unwrap();
-        std::fs::remove_file(&p2.host_json).unwrap();
-        std::fs::remove_file(p2.config.join(host::commands::update::MONGO_MIGRATED_MARKER)).ok();
-
-        // Even before running setup again, `start`/`serve` honours `fresh_start = true` in `host.toml`.
-        let hc2 = load_host_config(&p2).unwrap().unwrap();
-        host::serve::ensure_server_files(&p2, &hc2).unwrap();
-        drop(host::serve::compose(&p2, &hc2, false, host::commands::start::console_printer()).unwrap());
-        std::fs::remove_file(p2.config.join(host::commands::update::MONGO_MIGRATED_MARKER)).ok();
-        let (r2, lines2) = setup(&p2, &["--skip-install"], &env);
-        assert!(r2.is_ok(), "{r2:?}");
-        assert!(
-            lines2
-                .iter()
-                .any(|l| l.contains("skipping MongoDB migration") && l.contains("starting on a fresh database"))
-        );
-        assert!(p2.config.join(host::commands::update::MONGO_MIGRATED_MARKER).is_file());
-    }
-
-    #[test]
-    fn verify_difference_in_setup_leaves_server_unswitched() {
-        let (_dir, p, game) = checkout();
-        let env = Mock::new();
-        let seed_migrate = seed_mongo_collections();
-        let mut seed_verify = seed_mongo_collections();
-        seed_verify.get_mut("accounts").unwrap().push(
-            json!({
-                "_id": "22222222-2222-4222-8222-222222222222",
-                "userId": "22222222-2222-4222-8222-222222222222",
-                "name": "ExtraSlayer",
-                "notes": 0,
-                "email": "extra@example.test",
-                "displayNameNormalized": "extraslayer",
-                "displayName": "ExtraSlayer",
-                "passwordHash": "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA",
-                "status": "active",
-                "approvalStatus": "approved",
-                "roles": ["user"],
-                "createdAt": "2026-10-20T00:00:00.000Z",
-                "usernameSet": 1
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
-        );
-
-        let mongo_migrate = MockMongoServer::start(seed_migrate, 50).unwrap();
-        let mongo_verify = MockMongoServer::start(seed_verify, 50).unwrap();
-        let addr_migrate = mongo_migrate
-            .uri("reforged")
-            .strip_prefix("mongodb://")
-            .unwrap()
-            .split('/')
-            .next()
-            .unwrap()
-            .to_owned();
-        let addr_verify = mongo_verify
-            .uri("reforged")
-            .strip_prefix("mongodb://")
-            .unwrap()
-            .split('/')
-            .next()
-            .unwrap()
-            .to_owned();
-
-        // Forward the first two connections (`mongo_has_documents` + `run_migrate`) to `mongo_migrate`
-        // and the third connection (`run_verify`) to `mongo_verify` so `isles-db verify` sees a real
-        // mismatch in `accounts`.
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let proxy_addr = listener.local_addr().unwrap();
-        let conn_count = Arc::new(AtomicUsize::new(0));
-        let count_for_thread = Arc::clone(&conn_count);
-        std::thread::spawn(move || {
-            for incoming in listener.incoming().flatten() {
-                let idx = count_for_thread.fetch_add(1, Ordering::SeqCst);
-                let target = if idx < 2 {
-                    addr_migrate.clone()
-                } else {
-                    addr_verify.clone()
-                };
-                std::thread::spawn(move || {
-                    let Ok(upstream) = TcpStream::connect(&target) else {
-                        return;
-                    };
-                    let (Ok(mut c_read), Ok(mut u_write)) = (incoming.try_clone(), upstream.try_clone()) else {
-                        return;
-                    };
-                    let mut u_read = upstream;
-                    let mut c_write = incoming;
-                    let t1 = std::thread::spawn(move || {
-                        let _ = std::io::copy(&mut c_read, &mut u_write);
-                    });
-                    let _ = std::io::copy(&mut u_read, &mut c_write);
-                    let _ = t1.join();
-                });
-            }
-        });
-
-        let proxy_uri = format!("mongodb://{proxy_addr}/reforged");
-        write_old_kit_install(&p, &game, &proxy_uri, true);
-        let original_host_json = std::fs::read_to_string(&p.host_json).unwrap();
-        let original_backend_env = std::fs::read_to_string(p.config.join("backend.env")).unwrap();
-
-        let (r, lines) = setup(&p, &["--skip-install"], &env);
-        let err = r.unwrap_err();
-        assert!(
-            err.contains("isles-db verify reported a difference")
-                && err.contains("refusing to switch to the Rust backend"),
-            "{err}\n{}",
-            lines.join("\n")
-        );
-        assert!(
-            !p.config.join(host::commands::update::MONGO_MIGRATED_MARKER).exists(),
-            "no .mongo-migrated marker written when verify fails"
-        );
-        assert!(
-            !p.config.join(host::hostconfig::DATABASE_FILE).exists(),
-            "unverified dainty-lass.db removed when verify fails"
-        );
-        assert!(
-            p.host_json.is_file() && !p.host_toml.exists(),
-            "host.json not switched to host.toml when verify fails"
-        );
-        assert_eq!(std::fs::read_to_string(&p.host_json).unwrap(), original_host_json);
-        assert_eq!(
-            std::fs::read_to_string(p.config.join("backend.env")).unwrap(),
-            original_backend_env,
-            "backend.env not overwritten when verify fails"
-        );
-    }
-
-    #[test]
-    fn unreachable_configured_external_mongo_refuses_in_setup_and_start_unless_fresh_start_is_given() {
-        let (_dir, p, game) = checkout();
-        let env = Mock::new();
-        let closed_port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        let unreachable_uri = format!("mongodb://mongo_user:secret_pw@127.0.0.1:{closed_port}/reforged");
-        write_old_kit_install(&p, &game, &unreachable_uri, false);
-        assert!(
-            !p.mongo_data.exists(),
-            "external MongoDB does not use .workspace/mongodb"
-        );
-        let original_host_json = std::fs::read_to_string(&p.host_json).unwrap();
-        let original_backend_env = std::fs::read_to_string(p.config.join("backend.env")).unwrap();
-
-        // 1. `setup` refuses when configured external MongoDB is unreachable, redacts any URI
-        //    password, names how to start it or opt out with `--fresh-start`, and leaves the
-        //    server unswitched.
-        let (r, _lines) = setup(&p, &["--skip-install"], &env);
-        let err = r.unwrap_err();
-        assert!(
-            err.contains("MongoDB is configured at")
-                && err.contains("not reachable")
-                && err.contains("start MongoDB")
-                && err.contains("--fresh-start")
-                && !err.contains("secret_pw"),
+            err.contains("unmigrated MongoDB data") && err.contains("dainty-legacy import reforged"),
             "{err}"
         );
-        assert!(!p.config.join(host::commands::update::MONGO_MIGRATED_MARKER).exists());
-        assert!(p.host_json.is_file() && !p.host_toml.exists());
-        assert_eq!(std::fs::read_to_string(&p.host_json).unwrap(), original_host_json);
-        assert_eq!(
-            std::fs::read_to_string(p.config.join("backend.env")).unwrap(),
-            original_backend_env
-        );
 
-        // 2. `start` also refuses while the configured external MongoDB is unreachable.
-        let err_start = host::commands::start::run(&p).unwrap_err().to_string();
-        assert!(
-            err_start.contains("MongoDB is configured at")
-                && err_start.contains("not reachable")
-                && err_start.contains("--fresh-start")
-                && !err_start.contains("secret_pw"),
-            "{err_start}"
-        );
-
-        // 3. Explicit `--fresh-start` opt-out succeeds and lets the server start.
-        let (r_fresh, lines_fresh) = setup(&p, &["--fresh-start", "--skip-install"], &env);
-        assert!(r_fresh.is_ok(), "{r_fresh:?}\n{}", lines_fresh.join("\n"));
-        assert!(p.config.join(host::commands::update::MONGO_MIGRATED_MARKER).is_file());
-        let saved = read_host_config(&p.host_toml).unwrap().unwrap();
-        drop(host::serve::compose(&p, &saved, false, host::commands::start::console_printer()).unwrap());
+        // dainty-legacy's marker, as its `import reforged` leaves it
+        std::fs::write(
+            p.config.join(host::commands::update::MONGO_MIGRATED_MARKER),
+            "migrated from mongodb://127.0.0.1:27017/reforged\n",
+        )
+        .unwrap();
+        let cfg = load_host_config(&p).unwrap().unwrap();
+        assert!(host::commands::update::check_unmigrated_mongo_data(&p, &cfg).is_ok());
     }
 
     #[test]
     fn fresh_apply_and_toml_profile_succeed_without_mongodb() {
-        // 1. Fresh `apply` (`setup --skip-install`) on a brand-new node whose `host.toml` was
-        //    written by `docker/network/init.sh` (both with no `[mongo]` table and with the
-        //    legacy `uri = "mongodb://127.0.0.1:27017/?replicaSet=rs0"` / `manage = false`).
+        // A brand-new node whose host.toml docker/network/init.sh wrote, with the old default [mongo] table
         let (_dir, p, _game) = checkout();
         let env = Mock {
             platform: Platform::Linux,
@@ -1449,18 +1046,12 @@ node = \"oregon-1\"
 region = \"oregon\"
 ";
         std::fs::write(&p.host_toml, network_node_toml).unwrap();
-        assert!(!p.config.join(host::commands::update::MONGO_MIGRATED_MARKER).exists());
-        assert!(!p.mongo_data.exists());
-
         let (r, lines) = setup(&p, &["--skip-install"], &env);
         assert!(r.is_ok(), "fresh apply must succeed: {r:?}\n{}", lines.join("\n"));
         let cfg = load_host_config(&p).unwrap().unwrap();
         assert!(host::commands::update::check_unmigrated_mongo_data(&p, &cfg).is_ok());
 
-        // 2. Fresh `apply` under the `toml` profile: a brand-new server where `/config/host.toml`
-        //    is copied into `.workspace/config/host.toml` (with no `[mongo]` table at all, or
-        //    with the default `[mongo]` table) before `secrets.env`, `backend.env` or
-        //    `.mongo-migrated` exist.
+        // The toml profile: /config/host.toml copied in with no [mongo] table, before anything else exists
         let (_dir2, p2, _game2) = checkout();
         std::fs::create_dir_all(&p2.config).unwrap();
         let toml_profile_cfg = "\
@@ -1481,73 +1072,5 @@ max_hunt_servers = 3
         );
         let cfg2 = load_host_config(&p2).unwrap().unwrap();
         drop(host::serve::compose(&p2, &cfg2, false, host::commands::start::console_printer()).unwrap());
-
-        // 3. An old kit's external, unreachable MongoDB (in `host.toml` or `host.json`) is still refused.
-        let (_dir3, p3, _game3) = checkout();
-        std::fs::create_dir_all(&p3.config).unwrap();
-        let closed_port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
-        let old_external_toml = format!(
-            "\
-version = 1
-mode = \"public\"
-host = \"smoke.example.org\"
-game_address = \"203.0.113.7\"
-name = \"Old External Mongo\"
-registration = \"INVITECODE\"
-max_hunt_servers = 3
-
-[mongo]
-uri = \"mongodb://mongo_user:secret_pw@127.0.0.1:{closed_port}/reforged\"
-manage = false
-"
-        );
-        std::fs::write(&p3.host_toml, old_external_toml).unwrap();
-        let (r3, _) = setup(&p3, &["--skip-install"], &env);
-        let err3 = r3.unwrap_err();
-        assert!(
-            err3.contains("MongoDB is configured at") && err3.contains("not reachable") && !err3.contains("secret_pw"),
-            "{err3}"
-        );
-    }
-
-    #[test]
-    fn removing_fresh_start_from_host_toml_clears_opt_out_marker_and_runs_migration() {
-        let (_dir, p, game) = checkout();
-        let env = Mock::new();
-        let seed = seed_mongo_collections();
-        let mock_mongo = MockMongoServer::start(seed.clone(), 50).unwrap();
-        let mongo_uri = mock_mongo.uri("reforged");
-        write_old_kit_install(&p, &game, &mongo_uri, true);
-
-        // 1. Run `setup --fresh-start`: writes the fresh-start marker and leaves SQLite unmigrated.
-        let (r_fresh, _) = setup(&p, &["--fresh-start", "--skip-install"], &env);
-        assert!(r_fresh.is_ok(), "{r_fresh:?}");
-        let marker = p.config.join(host::commands::update::MONGO_MIGRATED_MARKER);
-        let sqlite_db = p.config.join(host::hostconfig::DATABASE_FILE);
-        assert!(marker.is_file());
-        assert!(!sqlite_db.exists());
-
-        // 2. Remove `fresh_start = true` from `host.toml`: `start` now refuses because the
-        //    fresh-start marker is cleared and unmigrated MongoDB data is still present, and
-        //    running `setup` migrates and verifies the MongoDB data into SQLite.
-        let toml_without_fresh = std::fs::read_to_string(&p.host_toml)
-            .unwrap()
-            .replace("fresh_start = true\n", "");
-        std::fs::write(&p.host_toml, toml_without_fresh).unwrap();
-        let cfg = load_host_config(&p).unwrap().unwrap();
-        assert!(!cfg.fresh_start());
-
-        let err_start = host::commands::start::run(&p).unwrap_err().to_string();
-        assert!(err_start.contains("unmigrated MongoDB data"), "{err_start}");
-
-        let (r_mig, lines_mig) = setup(&p, &["--skip-install"], &env);
-        assert!(r_mig.is_ok(), "{r_mig:?}\n{}", lines_mig.join("\n"));
-        let text = lines_mig.join("\n");
-        assert!(
-            text.contains("MongoDB migration verified") && text.contains("0 differences"),
-            "{text}"
-        );
-        assert!(sqlite_db.is_file());
-        assert!(std::fs::read_to_string(&marker).unwrap().starts_with("migrated from "));
     }
 }

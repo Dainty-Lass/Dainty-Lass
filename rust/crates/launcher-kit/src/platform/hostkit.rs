@@ -26,9 +26,9 @@ pub use parse::{
     PATCH_SENTINEL, PINNED_MP_COMMIT, SERVER_PORT, ServerConfig, ServerConfigValue, ServerMode, ServerMultipliersValue,
     UpdateCheck, UpdateDone, UpdateSummary, classify_game_data, clean_invite_link, clean_line, cut, failure_line,
     invite_line, is_patched_source, last_json, last_output_line, pack_written, parse_env_multipliers,
-    parse_server_config_files, parse_update_output, platform_toolset, published_version, round_multiplier,
-    sanitize_output_line, server_config, server_config_toml, set_env_multipliers, update_check, update_done,
-    update_failure, vswhere_install, vswhere_msbuild,
+    parse_update_output, platform_toolset, published_version, round_multiplier, sanitize_output_line,
+    server_config_toml, set_env_multipliers, update_check, update_done, update_failure, vswhere_install,
+    vswhere_msbuild,
 };
 
 pub const RUNTIME_FILE_NAMES: [&str; 2] = ["MysticParadox.dll", "winmm.dll"];
@@ -85,7 +85,6 @@ pub struct WorkspacePaths {
     pub publish: PathBuf,
     pub logs: PathBuf,
     pub host_toml: PathBuf,
-    pub host_json: PathBuf,
     pub gamedata_packs: PathBuf,
 }
 
@@ -174,7 +173,6 @@ impl WorkspacePaths {
         let logs = workspace.join("logs");
         let config = workspace.join("config");
         let host_toml = config.join("host.toml");
-        let host_json = config.join("host.json");
         let gamedata_packs = workspace.join("gamedata-packs");
 
         Self {
@@ -194,7 +192,6 @@ impl WorkspacePaths {
             publish,
             logs,
             host_toml,
-            host_json,
             gamedata_packs,
         }
     }
@@ -529,13 +526,14 @@ fn read_bounded_string(path: &Path) -> Option<String> {
     std::fs::read_to_string(path).ok()
 }
 
-/// Reads `.workspace/config/host.toml` (or legacy `host.json`) into [`HostServerConfig`].
+/// Reads `.workspace/config/host.toml` into [`HostServerConfig`]; a Node kit's host.json is dainty-legacy's.
 #[must_use]
 pub fn read_server_config(root: &Path) -> HostServerConfig {
     let paths = WorkspacePaths::new(root);
-    let toml_raw = read_bounded_string(&paths.host_toml);
-    let json_raw = read_bounded_string(&paths.host_json);
-    let Some(cfg) = parse_server_config_files(toml_raw.as_deref(), json_raw.as_deref()) else {
+    let Some(cfg) = read_bounded_string(&paths.host_toml)
+        .as_deref()
+        .and_then(server_config_toml)
+    else {
         return HostServerConfig {
             configured: false,
             name: None,
