@@ -46,12 +46,10 @@ struct SlidingState {
 
 impl SlidingState {
     fn sweep_expired(&mut self, now: i64) {
-        while let Some(&(expires_at, _)) = self.by_expiry.first() {
-            if expires_at > now {
-                break;
+        while self.by_expiry.first().is_some_and(|(expires_at, _)| *expires_at <= now) {
+            if let Some((_, key)) = self.by_expiry.pop_first() {
+                self.entries.remove(&key);
             }
-            let (_, key) = self.by_expiry.pop_first().unwrap();
-            self.entries.remove(&key);
         }
     }
 
@@ -78,12 +76,10 @@ struct BudgetState {
 
 impl BudgetState {
     fn sweep_expired(&mut self, now: i64) {
-        while let Some(&(reset_time, _)) = self.by_expiry.first() {
-            if reset_time > now {
-                break;
+        while self.by_expiry.first().is_some_and(|(reset_time, _)| *reset_time <= now) {
+            if let Some((_, key)) = self.by_expiry.pop_first() {
+                self.entries.remove(&key);
             }
-            let (_, key) = self.by_expiry.pop_first().unwrap();
-            self.entries.remove(&key);
         }
     }
 

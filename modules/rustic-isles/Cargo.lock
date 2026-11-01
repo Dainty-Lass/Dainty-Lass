@@ -635,7 +635,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1024,7 +1024,7 @@ dependencies = [
  "isles-chat",
  "isles-core",
  "isles-director",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "module-api",
  "serde_json",
  "tempfile",
  "tokio",
@@ -1037,14 +1037,14 @@ dependencies = [
  "isles-chat",
  "isles-core",
  "isles-director",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "module-api",
  "rifts-admission",
  "rifts-guard",
  "rifts-realms",
  "rifts-relay",
  "rifts-seam",
  "serde_json",
- "store 0.0.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "store",
  "tempfile",
  "tokio",
 ]
@@ -1053,7 +1053,7 @@ dependencies = [
 name = "isles-chat"
 version = "0.1.0"
 dependencies = [
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "module-api",
  "serde",
  "serde_json",
  "tokio",
@@ -1080,7 +1080,7 @@ dependencies = [
  "isles-chat",
  "isles-core",
  "jsonwebtoken",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "module-api",
  "percent-encoding",
  "rand 0.10.3",
  "regex",
@@ -1090,7 +1090,7 @@ dependencies = [
  "serde_json",
  "service-kit",
  "sha2 0.11.1",
- "store 0.0.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "store",
  "subtle",
  "tempfile",
  "thiserror",
@@ -1110,14 +1110,14 @@ dependencies = [
  "diesel",
  "hmac",
  "isles-core",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "module-api",
  "percent-encoding",
  "rand 0.10.3",
  "serde",
  "serde_json",
  "service-kit",
  "sha2 0.11.1",
- "store 0.0.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "store",
  "tempfile",
  "thiserror",
  "tokio",
@@ -1135,7 +1135,7 @@ dependencies = [
  "isles-1-14-7",
  "isles-core",
  "libc",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "module-api",
  "serde_json",
  "service-kit",
  "tempfile",
@@ -1293,22 +1293,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "module-api"
-version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4#728d44cbef39142afdd7a218b0c84ff663c80fb4"
-dependencies = [
- "libc",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "thiserror",
- "tokio",
- "tracing",
- "ulid",
- "windows",
 ]
 
 [[package]]
@@ -1690,7 +1674,7 @@ dependencies = [
 [[package]]
 name = "rifts-admission"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=4e8bfb4a46b0944eae4c01eda3fb70993d3b99de#4e8bfb4a46b0944eae4c01eda3fb70993d3b99de"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=91c834b3423124a2d8ba761945d74d93b95c9a8f#91c834b3423124a2d8ba761945d74d93b95c9a8f"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1705,14 +1689,14 @@ dependencies = [
 [[package]]
 name = "rifts-guard"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=4e8bfb4a46b0944eae4c01eda3fb70993d3b99de#4e8bfb4a46b0944eae4c01eda3fb70993d3b99de"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=91c834b3423124a2d8ba761945d74d93b95c9a8f#91c834b3423124a2d8ba761945d74d93b95c9a8f"
 dependencies = [
  "diesel",
  "diesel_migrations",
  "rifts-seam",
  "serde_json",
  "sha2 0.11.1",
- "store 0.0.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4)",
+ "store",
  "thiserror",
  "tokio",
 ]
@@ -1720,11 +1704,11 @@ dependencies = [
 [[package]]
 name = "rifts-realms"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=4e8bfb4a46b0944eae4c01eda3fb70993d3b99de#4e8bfb4a46b0944eae4c01eda3fb70993d3b99de"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=91c834b3423124a2d8ba761945d74d93b95c9a8f#91c834b3423124a2d8ba761945d74d93b95c9a8f"
 dependencies = [
  "diesel",
  "diesel_migrations",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4)",
+ "module-api",
  "rand 0.10.3",
  "rifts-admission",
  "rifts-guard",
@@ -1733,7 +1717,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
- "store 0.0.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4)",
+ "store",
  "thiserror",
  "tokio",
 ]
@@ -1741,7 +1725,7 @@ dependencies = [
 [[package]]
 name = "rifts-relay"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=4e8bfb4a46b0944eae4c01eda3fb70993d3b99de#4e8bfb4a46b0944eae4c01eda3fb70993d3b99de"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=91c834b3423124a2d8ba761945d74d93b95c9a8f#91c834b3423124a2d8ba761945d74d93b95c9a8f"
 dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
@@ -1756,7 +1740,7 @@ dependencies = [
 [[package]]
 name = "rifts-seam"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=4e8bfb4a46b0944eae4c01eda3fb70993d3b99de#4e8bfb4a46b0944eae4c01eda3fb70993d3b99de"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git?rev=91c834b3423124a2d8ba761945d74d93b95c9a8f#91c834b3423124a2d8ba761945d74d93b95c9a8f"
 dependencies = [
  "thiserror",
 ]
@@ -1819,7 +1803,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2179,30 +2163,12 @@ dependencies = [
 [[package]]
 name = "store"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4#728d44cbef39142afdd7a218b0c84ff663c80fb4"
-dependencies = [
- "diesel",
- "diesel_migrations",
- "libsqlite3-sys",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=728d44cbef39142afdd7a218b0c84ff663c80fb4)",
- "pq-sys",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "store"
-version = "0.0.0"
 source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864#95dbec137ca7ccee0a8fa23be65065c65253d864"
 dependencies = [
  "diesel",
  "diesel_migrations",
  "libsqlite3-sys",
- "module-api 0.1.0 (git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=95dbec137ca7ccee0a8fa23be65065c65253d864)",
+ "module-api",
  "pq-sys",
  "rusqlite",
  "serde",
@@ -2259,10 +2225,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
