@@ -69,7 +69,8 @@ child process and writes the same `.workspace/config/.mongo-migrated` marker.
   `edition`, `legacyGameDir` and `legacyPublicPort`. A key dainty-lass removes (such as `[mongo]`) or renames must
   leave the converter in the same change, or setup refuses the host.toml it writes.
 - **isles' tables.** `target.rs` writes `accounts`, `launcher_accounts`, `auth_identities` and `reforged_invites` as
-  rustic-isles `af9c125` makes them, and puts back isles-core's soft-delete set (`db.rs`). A change to either there is
+  rustic-isles `af9c125` makes them, and a 1.4.4 timed ban as a timeout (`launcher_accounts.timeout_*`, migration
+  `0610` on rustic-isles `feat/timed-bans`) where the server has it, and puts back isles-core's soft-delete set (`db.rs`). A change to either there is
   a change here.
 - **Account ids.** `target::account_id` is `isles-db`'s `deterministic_account_id`; if isles-db changes its
   derivation, change both.

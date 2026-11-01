@@ -1,5 +1,6 @@
 //! The 1.14.7 server's account storage, as rustic-isles' `isles-core` keeps it (`migrations/*/0001_accounts`,
-//! `0020_auth`, `0200_reforged_invites` at rustic-isles `af9c125`): `accounts`, `launcher_accounts`,
+//! `0020_auth`, `0200_reforged_invites` at rustic-isles `af9c125`, and `0610_timeouts` where the server has it):
+//! `accounts`, `launcher_accounts`,
 //! `auth_identities` and `reforged_invites`. The database is opened as it is, through `store::Database` with no
 //! migrations of its own, so every row written here is in the change log under `host:legacy-import` (DD23) and an
 //! import can be reverted like any other write.
@@ -49,6 +50,8 @@ const AS_IT_IS: DatabaseSchema = DatabaseSchema {
 
 /// The isles migrations whose tables an import writes.
 const NEEDED: [&str; 3] = ["0001", "0020", "0200"];
+/// rustic-isles' timeouts (`launcher_accounts.timeout_*`); without it a 1.4.4 timed ban is imported as a ban.
+const TIMEOUTS: &str = "0610";
 
 pub const ACTOR: &str = "legacy-import";
 const DISCORD: &str = "discord";
@@ -58,6 +61,7 @@ const DISCORD: &str = "discord";
 pub struct Ban {
     /// Unix milliseconds; none is permanent
     pub expires_at: Option<i64>,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,6 +134,14 @@ pub fn account_id(node: &NodeId, user_id: &str) -> Result<GlobalId> {
         .map_err(|e| ImportError::invalid(format!("a derived account id: {e}")))
 }
 
+/// `Date#toISOString`, as isles keeps a timeout's end, so the text orders as the time does.
+fn iso_ms(ms: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(ms)
+        .unwrap_or_default()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string()
+}
+
 /// `normalize_display_name` in isles-core's launcher: trimmed and lower-cased.
 fn normalized(name: &str) -> String {
     name.trim().to_lowercase()
@@ -155,7 +167,8 @@ fn exists(conn: &mut AnyConnection, sql: &str, binds: &[&str]) -> std::result::R
     Ok(query.get_result::<Count>(conn)?.n > 0)
 }
 
-fn check_versions(versions: Vec<Version>) -> Result<()> {
+/// Whether the target keeps timeouts, once it is one an import can write.
+fn check_versions(versions: Vec<Version>) -> Result<bool> {
     let have: BTreeSet<String> = versions.into_iter().map(|v| v.version).collect();
     let missing: Vec<&str> = NEEDED.iter().copied().filter(|v| !have.contains(*v)).collect();
     if !missing.is_empty() {
@@ -164,7 +177,7 @@ fn check_versions(versions: Vec<Version>) -> Result<()> {
             missing.join(", ")
         )));
     }
-    Ok(())
+    Ok(have.contains(TIMEOUTS))
 }
 
 pub struct Target {
@@ -199,8 +212,9 @@ impl Target {
         &self.node
     }
 
-    /// Refuses a database the 1.14.7 backend didn't make, or one too old for the tables an import writes.
-    pub async fn check(&self) -> Result<()> {
+    /// Refuses a database the 1.14.7 backend didn't make, or one too old for the tables an import writes; whether it
+    /// keeps timeouts.
+    pub async fn check(&self) -> Result<bool> {
         let versions = self
             .db
             .read(|conn| -> std::result::Result<_, TxError> {
@@ -214,7 +228,7 @@ impl Target {
     /// Writes `batch` in one transaction, or on a dry run writes it and rolls it back. `now` is the RFC 3339 time
     /// the new rows are made at; `source` names the old install in the rows' notes and approvals.
     pub async fn import(&self, batch: Batch, mut report: Report, now: String, source: &'static str) -> Result<Report> {
-        self.check().await?;
+        let timeouts = self.check().await?;
         let node = self.node.clone();
         let dry_run = report.dry_run;
         let outcome = self
@@ -222,7 +236,7 @@ impl Target {
             .write(Actor::Host(ACTOR.to_owned()), move |tx| {
                 let conn = tx.conn();
                 for account in &batch.accounts {
-                    write_account(conn, &node, account, &now, source, &mut report)?;
+                    write_account(conn, &node, account, &now, source, timeouts, &mut report)?;
                 }
                 for invite in &batch.invites {
                     write_invite(conn, invite, &now, source, &mut report)?;
@@ -248,6 +262,7 @@ fn write_account(
     account: &LegacyAccount,
     now: &str,
     source: &'static str,
+    timeouts: bool,
     report: &mut Report,
 ) -> std::result::Result<(), TxError> {
     let user_id = account.user_id.trim();
@@ -289,7 +304,17 @@ fn write_account(
         .bind::<Text, _>(display_name)
         .bind::<BigInt, _>(account.notes)
         .execute(conn)?;
-    let status = if account.ban.is_some() { "banned" } else { "active" };
+    // A timed ban is a timeout where the target keeps them: the player may sign in, and plays again when it ends
+    let timeout = account.ban.as_ref().and_then(|ban| {
+        ban.expires_at
+            .filter(|_| timeouts)
+            .map(|end| (end, ban.reason.as_str()))
+    });
+    let status = if account.ban.is_some() && timeout.is_none() {
+        "banned"
+    } else {
+        "active"
+    };
     let by = format!("{ACTOR}:{source}");
     diesel::sql_query(
         "INSERT INTO launcher_accounts (account_id, display_name_normalized, display_name, status, approval_status, \
@@ -305,7 +330,17 @@ fn write_account(
     .bind::<Text, _>(now)
     .execute(conn)?;
     report.count("accounts");
-    if let Some(ban) = &account.ban {
+    if let Some((end, reason)) = timeout {
+        diesel::sql_query(
+            "UPDATE launcher_accounts SET timeout_until = $1, timeout_since = $2, timeout_reason = $3              WHERE account_id = $4",
+        )
+        .bind::<Text, _>(iso_ms(end))
+        .bind::<Text, _>(now)
+        .bind::<Text, _>(reason)
+        .bind::<Text, _>(&id)
+        .execute(conn)?;
+        report.count("timeouts");
+    } else if let Some(ban) = &account.ban {
         report.count("bans");
         if ban.expires_at.is_some() {
             report.count("temporary bans made permanent");

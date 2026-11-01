@@ -57,7 +57,8 @@ Fuzz targets: `database_readers` (arbitrary bytes as a server database, an offli
 
 ### What crosses into 1.14.7
 
-- [ ] Only accounts, active bans, Discord links and invite codes are written; characters, inventory and progression
+- [ ] Only accounts, active bans (a timed one as a timeout where the target has migration `0610`), Discord links and
+      invite codes are written; characters, inventory and progression
       are counted, not carried.
 - [ ] No key crosses: 1.4.4 keeps SHA-256 hashes, 1.14.7 HMACs; `user_api_keys` is never written (test
       `check_first_import`).

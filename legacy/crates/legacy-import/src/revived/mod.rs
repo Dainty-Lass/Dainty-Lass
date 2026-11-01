@@ -60,7 +60,9 @@ fn common_notes(report: &mut Report) {
         report.note("1.4.4 admins were imported as players: give them their roles in the admin UI");
     }
     if report.imported("temporary bans made permanent") > 0 {
-        report.note("1.14.7 has no timed bans: lift the temporary ones in the admin UI when they run out");
+        report.note(
+            "this 1.14.7 database keeps no timeouts yet (rustic-isles before migration 0610), so timed bans were              imported as bans: update the server and import again, or lift them in the admin UI when they run out",
+        );
     }
 }
 
