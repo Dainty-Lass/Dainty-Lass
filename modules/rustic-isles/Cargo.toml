@@ -24,15 +24,15 @@ isles-db = { path = "crates/isles-db" }
 
 # DaintyLass's crates, as git dependencies on plan at a fixed rev (DF1's fallback) until the silentspud registry
 # serves them; then each becomes `version = "0.1.0", registry = "silentspud"` and DaintyLass [patch]es it (DD2).
-module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864" }
-service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864" }
-store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218" }
+service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218" }
 # rustic-rifts' seam always and its server crates behind isles-1-14-7's realms feature (RF2), the same way
-rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "91c834b3423124a2d8ba761945d74d93b95c9a8f" }
-rifts-admission = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "91c834b3423124a2d8ba761945d74d93b95c9a8f" }
-rifts-relay = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "91c834b3423124a2d8ba761945d74d93b95c9a8f" }
-rifts-realms = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "91c834b3423124a2d8ba761945d74d93b95c9a8f" }
-rifts-guard = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "91c834b3423124a2d8ba761945d74d93b95c9a8f" }
+rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-admission = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-relay = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-realms = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-guard = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
 
 # The versions DaintyLass's workspace asks for, so one copy of each lands in its tree
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio"] }

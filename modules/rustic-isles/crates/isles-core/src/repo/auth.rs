@@ -48,6 +48,9 @@ diesel::table! {
         email_verified_at -> Nullable<Text>,
         email_verification_pending_since -> Nullable<Text>,
         deleted_at -> Nullable<BigInt>,
+        timeout_until -> Nullable<Text>,
+        timeout_since -> Nullable<Text>,
+        timeout_reason -> Nullable<Text>,
     }
 }
 
@@ -284,6 +287,15 @@ pub struct LauncherDeletion {
     pub scheduled_for: String,
 }
 
+/// A timeout (migration 0610): the account may sign in but not play until `until`. Times are `iso_from_ms`'s text,
+/// so they compare as the times do.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountTimeout {
+    pub until: String,
+    pub since: String,
+    pub reason: Option<String>,
+}
+
 /// `LauncherAccountRecord`. The password hash stays out of `Debug`.
 #[derive(Clone, PartialEq, Eq)]
 pub struct LauncherAccountRecord {
@@ -309,6 +321,15 @@ pub struct LauncherAccountRecord {
     pub deletion: Option<LauncherDeletion>,
     pub email_verified_at: Option<String>,
     pub email_verification_pending_since: Option<String>,
+    /// The last timeout set, which may have run out: [`Self::timeout_at`] says whether it is in force
+    pub timeout: Option<AccountTimeout>,
+}
+
+impl LauncherAccountRecord {
+    /// The timeout in force at `now` (`iso_from_ms`'s text).
+    pub fn timeout_at(&self, now: &str) -> Option<&AccountTimeout> {
+        self.timeout.as_ref().filter(|t| t.until.as_str() > now)
+    }
 }
 
 impl fmt::Debug for LauncherAccountRecord {
@@ -320,6 +341,7 @@ impl fmt::Debug for LauncherAccountRecord {
             .field("status", &self.status)
             .field("approval_status", &self.approval_status)
             .field("roles", &self.roles)
+            .field("timeout", &self.timeout)
             .field("password_hash", &self.password_hash.as_ref().map(|_| "<set>"))
             .finish_non_exhaustive()
     }
@@ -329,6 +351,8 @@ impl fmt::Debug for LauncherAccountRecord {
 pub struct AdminAccountFilter {
     pub approval_status: Option<ApprovalStatus>,
     pub status: Option<OperationalStatus>,
+    /// Only the accounts with a timeout in force at this time
+    pub timed_out_at: Option<String>,
     pub search: Option<String>,
     pub skip: u32,
     pub limit: u32,
@@ -380,6 +404,9 @@ repository! {
             -> (Vec<LauncherAccountRecord>, u64);
         fn set_access_state(&self, tx: &mut Tx<'_>, account: &AccountId, change: &AccessChange)
             -> Option<LauncherAccountRecord>;
+        /// Sets or (with `None`) lifts the account's timeout
+        fn set_timeout(&self, tx: &mut Tx<'_>, account: &AccountId, timeout: Option<&AccountTimeout>)
+            -> Option<LauncherAccountRecord>;
         fn update_roles(&self, tx: &mut Tx<'_>, account: &AccountId, roles: &[String], at: &str, by: &str)
             -> Option<LauncherAccountRecord>;
         /// An account's erasure (the 30-day deletion): soft-deletes the launcher and the game account (DD23); whether
@@ -414,6 +441,9 @@ struct LauncherRow {
     deletion_scheduled_for: Option<String>,
     email_verified_at: Option<String>,
     email_verification_pending_since: Option<String>,
+    timeout_until: Option<String>,
+    timeout_since: Option<String>,
+    timeout_reason: Option<String>,
 }
 
 fn launcher_record(row: LauncherRow, user_id: String) -> RepoResult<LauncherAccountRecord> {
@@ -437,6 +467,14 @@ fn launcher_record(row: LauncherRow, user_id: String) -> RepoResult<LauncherAcco
             terms_version,
             privacy_version,
             accepted_at,
+        }),
+        _ => None,
+    };
+    let timeout = match (row.timeout_until, row.timeout_since) {
+        (Some(until), Some(since)) => Some(AccountTimeout {
+            until,
+            since,
+            reason: row.timeout_reason,
         }),
         _ => None,
     };
@@ -469,6 +507,7 @@ fn launcher_record(row: LauncherRow, user_id: String) -> RepoResult<LauncherAcco
         deletion,
         email_verified_at: row.email_verified_at,
         email_verification_pending_since: row.email_verification_pending_since,
+        timeout,
     })
 }
 
@@ -775,6 +814,13 @@ impl LauncherAccountRepository for SqlLauncherAccounts {
             if filter.status.is_some_and(|wanted| wanted != record.status) {
                 continue;
             }
+            if filter
+                .timed_out_at
+                .as_deref()
+                .is_some_and(|now| record.timeout_at(now).is_none())
+            {
+                continue;
+            }
             if let Some(needle) = &needle {
                 let hit = [
                     Some(record.display_name.as_str()),
@@ -828,6 +874,25 @@ impl LauncherAccountRepository for SqlLauncherAccounts {
                 .set(launcher_accounts::status.eq(status.as_str()))
                 .execute(tx.conn())?;
         }
+        find_launcher_by_account(tx.conn(), id)
+    }
+
+    fn set_timeout(
+        &self,
+        tx: &mut Tx<'_>,
+        id: &AccountId,
+        timeout: Option<&AccountTimeout>,
+    ) -> RepoResult<Option<LauncherAccountRecord>> {
+        if find_launcher_by_account(tx.conn(), id)?.is_none() {
+            return Ok(None);
+        }
+        diesel::update(launcher_accounts::table.filter(launcher_accounts::account_id.eq(id.to_string())))
+            .set((
+                launcher_accounts::timeout_until.eq(timeout.map(|t| t.until.clone())),
+                launcher_accounts::timeout_since.eq(timeout.map(|t| t.since.clone())),
+                launcher_accounts::timeout_reason.eq(timeout.and_then(|t| t.reason.clone())),
+            ))
+            .execute(tx.conn())?;
         find_launcher_by_account(tx.conn(), id)
     }
 

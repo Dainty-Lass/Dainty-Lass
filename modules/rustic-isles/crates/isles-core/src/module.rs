@@ -15,7 +15,7 @@ use std::time::Duration;
 use isles_chat::{ChatRules, ChatSource};
 use module_api::chat::{ChatAnswer, ChatQuery};
 use module_api::manifest::{PortDefault, Transport};
-use module_api::module::PlayerInfo;
+use module_api::module::{PlayerInfo, PlayerRestriction, RestrictionKind};
 use module_api::registrar::ConfigSection;
 use module_api::{
     API_VERSION, AdminAction, AdminCall, AdminRequest, AdminResponse, BoxFuture, Capabilities, ErrorKind, Event,
@@ -1068,20 +1068,24 @@ async fn handle_admin(store: &IslesStore, call: AdminCall) -> Result<AdminRespon
     use crate::areas::reforged_api::launcher_api::forget_status;
     use crate::areas::reforged_api::{presence, util};
     use crate::ids::AccountId;
-    use crate::repo::auth::{AccessChange, OperationalStatus};
+    use crate::repo::auth::{AccessChange, AccountTimeout, OperationalStatus};
 
     let actor = call.actor;
+    // A ban signs the player out of the launcher too; a kick or a timeout only ends their play
     let revoke_and_close = |store: IslesStore,
                             actor: module_api::ActorContext,
                             target: AccountId,
                             user_id: String,
+                            sign_out: bool,
                             reason: &'static str| async move {
         store
             .account_write(&target, &actor, {
                 let target = target.clone();
                 move |tx, repos| {
                     let now = util::now_iso();
-                    repos.refresh_sessions.revoke_all_for_account(tx, &target, &now)?;
+                    if sign_out {
+                        repos.refresh_sessions.revoke_all_for_account(tx, &target, &now)?;
+                    }
                     repos.game_exchange_codes.revoke_unused_for_account(tx, &target, &now)
                 }
             })
@@ -1117,32 +1121,81 @@ async fn handle_admin(store: &IslesStore, call: AdminCall) -> Result<AdminRespon
         Ok::<(), ModuleError>(())
     };
 
+    let set_timeout = |store: IslesStore,
+                       actor: module_api::ActorContext,
+                       target: AccountId,
+                       timeout: Option<AccountTimeout>| async move {
+        store
+            .account_write(&target, &actor, {
+                let target = target.clone();
+                move |tx, repos| repos.launcher_accounts.set_timeout(tx, &target, timeout.as_ref())
+            })
+            .await
+            .map_err(failed)?;
+        forget_status();
+        Ok::<(), ModuleError>(())
+    };
+
     match call.request {
         AdminRequest::Kick { player, .. } => {
             let Some((target, user_id, _)) = resolve_player(store, &player).await? else {
                 return Ok(AdminResponse::NotFound);
             };
-            revoke_and_close(store.clone(), actor, target, user_id, "kicked by the host").await?;
+            revoke_and_close(store.clone(), actor, target, user_id, false, "kicked by the host").await?;
             Ok(AdminResponse::Done)
         }
-        AdminRequest::Ban { player, reason, until } => {
+        AdminRequest::Ban {
+            player,
+            reason,
+            until: Some(until),
+        } => {
+            let now = util::now_iso();
+            let until = timeout_end(&until, &now)?;
             let Some((target, user_id, _)) = resolve_player(store, &player).await? else {
                 return Ok(AdminResponse::NotFound);
             };
-            let status = if until.is_some() {
-                OperationalStatus::Disabled
-            } else {
-                OperationalStatus::Banned
+            let timeout = AccountTimeout {
+                until,
+                since: now,
+                reason: reason.map(|r| r.chars().take(500).collect()),
             };
-            set_status(store.clone(), actor.clone(), target.clone(), status, reason).await?;
-            revoke_and_close(store.clone(), actor, target, user_id, "banned by the host").await?;
+            set_timeout(store.clone(), actor.clone(), target.clone(), Some(timeout)).await?;
+            revoke_and_close(store.clone(), actor, target, user_id, false, "timed out by the host").await?;
             Ok(AdminResponse::Done)
         }
-        AdminRequest::Unban { player, reason } | AdminRequest::LiftTimeout { player, reason } => {
+        AdminRequest::Ban {
+            player,
+            reason,
+            until: None,
+        } => {
+            let Some((target, user_id, _)) = resolve_player(store, &player).await? else {
+                return Ok(AdminResponse::NotFound);
+            };
+            set_status(
+                store.clone(),
+                actor.clone(),
+                target.clone(),
+                OperationalStatus::Banned,
+                reason,
+            )
+            .await?;
+            // A ban outlasts any timeout, which would otherwise show beside it
+            set_timeout(store.clone(), actor.clone(), target.clone(), None).await?;
+            revoke_and_close(store.clone(), actor, target, user_id, true, "banned by the host").await?;
+            Ok(AdminResponse::Done)
+        }
+        AdminRequest::Unban { player, reason } => {
             let Some((target, _, _)) = resolve_player(store, &player).await? else {
                 return Ok(AdminResponse::NotFound);
             };
             set_status(store.clone(), actor, target, OperationalStatus::Active, reason).await?;
+            Ok(AdminResponse::Done)
+        }
+        AdminRequest::LiftTimeout { player, .. } => {
+            let Some((target, _, _)) = resolve_player(store, &player).await? else {
+                return Ok(AdminResponse::NotFound);
+            };
+            set_timeout(store.clone(), actor, target, None).await?;
             Ok(AdminResponse::Done)
         }
         AdminRequest::Lookup { player } => {
@@ -1152,13 +1205,57 @@ async fn handle_admin(store: &IslesStore, call: AdminCall) -> Result<AdminRespon
             let online = presence::active_players(crate::areas::reforged_api::activity::ACTIVITY_SESSION_GAP_MS)
                 .iter()
                 .any(|u| u == &user_id);
+            let launcher = store
+                .read({
+                    let target = target.clone();
+                    move |conn, repos| repos.launcher_accounts.find_by_account(conn, &target)
+                })
+                .await
+                .map_err(failed)?;
             Ok(AdminResponse::Player(PlayerInfo {
                 account: Some(target.global().clone()),
                 name,
                 online,
+                restriction: launcher.and_then(|account| restriction_of(&account, &util::now_iso())),
             }))
         }
     }
+}
+
+/// A timeout's end as the launcher accounts keep it (`iso_from_ms`'s text), refused unless it is RFC 3339 and later
+/// than `now`.
+fn timeout_end(until: &str, now: &str) -> Result<String, ModuleError> {
+    let end = chrono::DateTime::parse_from_rfc3339(until)
+        .map(|t| crate::areas::auth::util::iso_from_ms(t.timestamp_millis()))
+        .map_err(|_| ModuleError::new(ErrorKind::Invalid, "a timeout ends at an RFC 3339 time"))?;
+    if end.as_str() <= now {
+        return Err(ModuleError::new(ErrorKind::Invalid, "a timeout ends in the future"));
+    }
+    Ok(end)
+}
+
+/// What keeps the account out of play at `now`, for the admin API: a ban or disabling first, then a timeout.
+fn restriction_of(account: &crate::repo::auth::LauncherAccountRecord, now: &str) -> Option<PlayerRestriction> {
+    use crate::repo::auth::OperationalStatus;
+    let kind = match account.status {
+        OperationalStatus::Banned => Some(RestrictionKind::Ban),
+        OperationalStatus::Disabled => Some(RestrictionKind::Disabled),
+        OperationalStatus::Active => None,
+    };
+    if let Some(kind) = kind {
+        return Some(PlayerRestriction {
+            kind,
+            reason: account.approval_reason.clone().filter(|r| !r.is_empty()),
+            since: account.approval_updated_at.clone(),
+            until: None,
+        });
+    }
+    account.timeout_at(now).map(|timeout| PlayerRestriction {
+        kind: RestrictionKind::Timeout,
+        reason: timeout.reason.clone(),
+        since: Some(timeout.since.clone()),
+        until: Some(timeout.until.clone()),
+    })
 }
 
 #[cfg(test)]
@@ -1235,5 +1332,116 @@ mod tests {
         .unwrap();
         assert_eq!(moved.get("PORT_RANGE_BEGIN"), Some("8778"));
         assert_eq!(moved.get("PORT_RANGE_END"), Some("8785"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_timeout_keeps_a_player_out_of_play_until_it_ends_or_is_lifted() {
+        use module_api::actor::{Actor, ActorContext};
+        use module_api::module::RestrictionKind;
+        use module_api::{AdminCall, AdminRequest, AdminResponse};
+
+        use crate::areas::auth::policy::{assert_account_admitted, is_account_eligible};
+        use crate::areas::auth::test_support::TestServer;
+
+        let server = TestServer::new(&[]);
+        let account = server
+            .add_launcher_account("Slayer", "slayer@example.org", "hunter2-long")
+            .await;
+        let store = server.store();
+        let call = |request| AdminCall {
+            actor: ActorContext::new(Actor::Console),
+            request,
+        };
+        let launcher = || async {
+            let id = account.account.clone();
+            store
+                .read(move |conn, repos| repos.launcher_accounts.find_by_account(conn, &id))
+                .await
+                .unwrap()
+                .unwrap()
+        };
+        let lookup = || async {
+            match super::handle_admin(
+                store,
+                call(AdminRequest::Lookup {
+                    player: "Slayer".into(),
+                }),
+            )
+            .await
+            .unwrap()
+            {
+                AdminResponse::Player(info) => info.restriction,
+                other => panic!("{other:?}"),
+            }
+        };
+
+        let past = super::handle_admin(
+            store,
+            call(AdminRequest::Ban {
+                player: "Slayer".into(),
+                reason: Some("spam".into()),
+                until: Some("2020-01-01T00:00:00Z".into()),
+            }),
+        )
+        .await;
+        assert!(past.is_err(), "a timeout ends in the future");
+        assert_eq!(lookup().await, None);
+
+        super::handle_admin(
+            store,
+            call(AdminRequest::Ban {
+                player: "Slayer".into(),
+                reason: Some("spam".into()),
+                until: Some("2099-01-15T08:30:00+00:00".into()),
+            }),
+        )
+        .await
+        .unwrap();
+        let restriction = lookup().await.unwrap();
+        assert_eq!(restriction.kind, RestrictionKind::Timeout);
+        assert_eq!(restriction.until.as_deref(), Some("2099-01-15T08:30:00.000Z"));
+        assert_eq!(restriction.reason.as_deref(), Some("spam"));
+        let record = launcher().await;
+        assert!(
+            assert_account_admitted(&record).is_ok(),
+            "the launcher still signs them in"
+        );
+        assert!(!is_account_eligible(&record), "but they can't play");
+
+        super::handle_admin(
+            store,
+            call(AdminRequest::LiftTimeout {
+                player: "Slayer".into(),
+                reason: None,
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(lookup().await, None);
+        assert!(is_account_eligible(&launcher().await));
+
+        // A ban replaces a timeout, and lifting a timeout never lifts a ban
+        for request in [
+            AdminRequest::Ban {
+                player: "Slayer".into(),
+                reason: Some("spam".into()),
+                until: Some("2099-01-15T08:30:00Z".into()),
+            },
+            AdminRequest::Ban {
+                player: "Slayer".into(),
+                reason: Some("cheating".into()),
+                until: None,
+            },
+            AdminRequest::LiftTimeout {
+                player: "Slayer".into(),
+                reason: None,
+            },
+        ] {
+            super::handle_admin(store, call(request)).await.unwrap();
+        }
+        let restriction = lookup().await.unwrap();
+        assert_eq!(restriction.kind, RestrictionKind::Ban);
+        assert_eq!(restriction.reason.as_deref(), Some("cheating"));
+        assert_eq!(launcher().await.timeout, None);
     }
 }

@@ -336,6 +336,7 @@ pub async fn register_account(shared: &Shared, input: RegisterInput<'_>) -> Repl
         email_verified_at: None,
         // The sweep removes this registration if it is not verified within 48 h
         email_verification_pending_since: verification_required.then(|| created_at.clone()),
+        timeout: None,
     };
     let to_store = record.clone();
     let outcome = store(shared)?

@@ -501,6 +501,7 @@ async fn resolve_admin_account(
                 deletion: None,
                 email_verified_at: None,
                 email_verification_pending_since: None,
+                timeout: None,
             };
             match repos.launcher_accounts.create(tx, &account)? {
                 CreateOutcome::Created => {}

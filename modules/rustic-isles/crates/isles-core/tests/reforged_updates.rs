@@ -530,6 +530,7 @@ fn account(roles: &[&str]) -> LauncherAccountRecord {
         deletion: None,
         email_verified_at: None,
         email_verification_pending_since: None,
+        timeout: None,
     }
 }
 

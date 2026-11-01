@@ -514,6 +514,7 @@ async fn bootstrap_admin_grants_admin_and_approves_account() {
                         deletion: None,
                         email_verified_at: None,
                         email_verification_pending_since: None,
+                        timeout: None,
                     },
                 )?;
                 Ok(())
