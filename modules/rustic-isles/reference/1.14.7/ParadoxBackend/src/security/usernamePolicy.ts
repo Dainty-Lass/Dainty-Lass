@@ -3,7 +3,7 @@ import { LauncherApiError } from "./launcherErrors";
 // [2026-10-16] Launcher usernames: the in-game display name AND the realm invite handle. Letters and digits only (the owner's
 // decision: no underscores or other symbols), 3-16 characters, at least one letter, unique in any letter case (checked by the
 // caller against the accounts). A name must also not impersonate staff or the project and must not be vulgar, abusive or a slur.
-// The word lists are a best-effort filter, not a guarantee: the operator can add terms with MYSTICPARADOX_USERNAME_BLOCKLIST and
+// The word lists are a best-effort filter, not a guarantee: the operator can add terms with RUSTIC_ISLES_USERNAME_BLOCKLIST and
 // still moderate names by hand. They apply to new names only; an account keeps a name it already has.
 
 export const USERNAME_MIN = 3;
@@ -13,9 +13,9 @@ const USERNAME_PATTERN = /^[A-Za-z0-9]+$/;
 export const USERNAME_RESERVED_MESSAGE = "That username is reserved. Choose another.";
 export const USERNAME_NOT_ALLOWED_MESSAGE = "That username isn't allowed. Choose another.";
 
-/** Staff and official words refused anywhere in a name ("AdminBob", "TheOwner", "MysticParadoxTeam"). */
+/** Staff and official words refused anywhere in a name ("AdminBob", "TheOwner", "RusticIslesTeam"). */
 const IMPERSONATION_ANYWHERE = [
-    "admin", "moderat", "owner", "staff", "support", "official", "developer", "gamemaster", "mysticparadox", "mysticfox", "phoenixlabs"
+    "admin", "moderat", "owner", "staff", "support", "official", "developer", "gamemaster", "rusticisles", "mysticparadox", "mysticfox", "phoenixlabs"
 ];
 
 /** Short or common words refused only as the whole name (trailing digits ignored), so ordinary names that contain them still pass. */
@@ -53,9 +53,9 @@ function Collapse(text: string): string {
     return text.replace(/(.)\1{2,}/g, "$1");
 }
 
-/** Extra substrings from MYSTICPARADOX_USERNAME_BLOCKLIST (comma or space separated, letters and digits; anything else is ignored). */
+/** Extra substrings from RUSTIC_ISLES_USERNAME_BLOCKLIST (comma or space separated, letters and digits; anything else is ignored). */
 function OperatorBlocklist(env: NodeJS.ProcessEnv): string[] {
-    return (env.MYSTICPARADOX_USERNAME_BLOCKLIST ?? "")
+    return (env.RUSTIC_ISLES_USERNAME_BLOCKLIST ?? "")
         .split(/[\s,]+/)
         .map((term) => term.trim().toLowerCase())
         .filter((term) => /^[a-z0-9]{2,32}$/.test(term));

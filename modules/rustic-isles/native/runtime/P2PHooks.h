@@ -14,12 +14,12 @@
 //
 // The runtime is complete without it: P2PHooksStub.cpp gives every hook its dedicated-only behaviour
 // (the mode is never claimed, so a server runs as a DeployServer gameserver). When the p2p\ sources
-// are present, MysticParadox.vcxproj compiles them instead of the stub. dllmain.cpp and Networking.cpp
+// are present, Rustic-Isles.vcxproj compiles them instead of the stub. dllmain.cpp and Networking.cpp
 // call only these functions; they never include anything from p2p\.
 namespace P2PHooks {
     // --- Init, under the loader lock: no logging, no file I/O ---
 
-    // True when the module serves this MYSTICPARADOX_AUTH_MODE value; the server then runs in the
+    // True when the module serves this RUSTIC_ISLES_AUTH_MODE value; the server then runs in the
     // module's mode (Globals::ServerAuthMode::HuntCapability). The stub claims nothing, so any value
     // other than GLOBAL_GAMESERVER stays invalid and the server exits before listen.
     bool ClaimAuthMode(const std::string& Value);
@@ -59,13 +59,13 @@ namespace P2PHooks {
     // --- Launcher-declared hosted role (module mode only; any thread after ReadLaunch) ---
     // The stub answers the defaults (false / 0 / -1), so a build without the module behaves exactly as before.
 
-    // True when the launcher started this process as a persistent hub (MYSTICPARADOX_HOSTED_ROLE=HUB, valid
+    // True when the launcher started this process as a persistent hub (RUSTIC_ISLES_HOSTED_ROLE=HUB, valid
     // bootstrap). Absent or HUNT = false: the process is a disposable hunt server whatever map it loads.
     bool HostedRoleIsHub();
-    // The hub's player cap from MYSTICPARADOX_MAX_PLAYERS (1..64), only for a HUB role. 0 = none: the core keeps its
+    // The hub's player cap from RUSTIC_ISLES_MAX_PLAYERS (1..64), only for a HUB role. 0 = none: the core keeps its
     // HUB_MAX_PLAYERS.txt / default.
     int MaxPlayersOverride();
-    // The hub's idle-kick timeout from MYSTICPARADOX_HUB_AFK_SECONDS (0..7200, 0 = never kick), only for a HUB role.
+    // The hub's idle-kick timeout from RUSTIC_ISLES_HUB_AFK_SECONDS (0..7200, 0 = never kick), only for a HUB role.
     // -1 = none: the core keeps its HUB_AFK_TIMEOUT_SECONDS.txt / default.
     int HubAfkSecondsOverride();
 }

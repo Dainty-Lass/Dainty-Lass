@@ -467,7 +467,7 @@ export type StorePurchaseOptions = {
     hasClaim?: DailyClaimLookup;
 };
 
-const ECONOMY_MONITOR_ENABLED = !/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_ECONOMY_MONITOR ?? "");
+const ECONOMY_MONITOR_ENABLED = !/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_ECONOMY_MONITOR ?? "");
 
 export async function PurchaseStoreSku(userId: string, characterId: string, storeTag: string, skuId: string, characterBindingValidated = false,
     Options: StorePurchaseOptions = {}): Promise<PurchaseResult> {

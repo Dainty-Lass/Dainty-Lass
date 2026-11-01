@@ -1,6 +1,6 @@
 //! Golden tests for the 18 routes of the matchmaking-parties group: `tests/golden/scenario.json` is replayed against
 //! the Rust backend over real HTTP, and every answer (status, content type, `X-Mystic-Party-Revision`, body text with
-//! its key order) must equal what Mystic Paradox's own routers answered to the same scenario, recorded in
+//! its key order) must equal what Rustic Isles' own routers answered to the same scenario, recorded in
 //! `tests/golden/matchmaking-parties.json` by `tests/golden/capture.cjs` (the real `routes/matchmaking.ts` and
 //! `routes/party.ts` on Node 22, in a container). Only the ids Node draws at random are normalised.
 //!

@@ -407,7 +407,7 @@ const PROGRESSION_ID_MAX_LENGTH = 128;
 // applied once. An id that is present but invalid, or that differs between header and body, is still
 // refused.
 function GrantIdFor(req: any): string | undefined {
-    const Sent = req.get?.("x-mysticparadox-grant-id") ?? req.get?.("idempotency-key") ?? req.body?.grant_id ?? req.body?.grantId;
+    const Sent = req.get?.("x-rustic-isles-grant-id") ?? req.get?.("idempotency-key") ?? req.body?.grant_id ?? req.body?.grantId;
     if(Sent === undefined && req.AuthData?.IsGameserver === true){
         return `gs-${crypto.randomUUID()}`;
     }
@@ -415,7 +415,7 @@ function GrantIdFor(req: any): string | undefined {
 }
 
 function ReadAuthoritativeGrantId(req: any): string | undefined {
-    const HeaderValue = req.get?.("x-mysticparadox-grant-id") ?? req.get?.("idempotency-key");
+    const HeaderValue = req.get?.("x-rustic-isles-grant-id") ?? req.get?.("idempotency-key");
     const BodyValue = req.body?.grant_id ?? req.body?.grantId;
     if(HeaderValue !== undefined && BodyValue !== undefined && HeaderValue !== BodyValue) return undefined;
     const Candidate = HeaderValue ?? BodyValue;
@@ -425,7 +425,7 @@ function ReadAuthoritativeGrantId(req: any): string | undefined {
 // "invalid": a grant id was sent but fails IsValidProgressionGrantId, or the header and body ids disagree.
 function DescribeGrantIdPresence(req: any, grantId: string | undefined): "present" | "absent" | "invalid" {
     if(grantId !== undefined) return "present";
-    const Sent = req.get?.("x-mysticparadox-grant-id") ?? req.get?.("idempotency-key") ?? req.body?.grant_id ?? req.body?.grantId;
+    const Sent = req.get?.("x-rustic-isles-grant-id") ?? req.get?.("idempotency-key") ?? req.body?.grant_id ?? req.body?.grantId;
     return Sent === undefined ? "absent" : "invalid";
 }
 
@@ -500,7 +500,7 @@ progressionRouter.post("/progression/:userId/:progressionId/:amount", HasParadox
     if(IsHost){
         // [2026-10-16] The kinds are tried quietly (probe) in order, so a grant the session takes as REFORGE or HUNT_PASS_XP is
         // tagged as that kind; only when none fits does the plain XP call below decide (and log). In the module's observe mode
-        // (MYSTICPARADOX_HOST_POLICY) that last call lets a kind the session does not take through as XP, logged.
+        // (RUSTIC_ISLES_HOST_POLICY) that last call lets a kind the session does not take through as XP, logged.
         const Probe = { probe: true };
         let Denial = await RefuseUnauthorizedHostWrite(req, "XP", RequestedUserId, undefined, Probe);
         if(Denial !== undefined && ExperienceTrackForPrestige(ProgressionId) !== undefined
@@ -552,7 +552,7 @@ progressionRouter.post("/progression/:userId/:progressionId/:amount", HasParadox
             return;
         }
         // [2026-10-14 realms S4] A REFORGE-authorized grant is the reforge's +1 and nothing else. ClassifyReforgeGrant gives a
-        // PrestigeTrack_* grant only a prestige plan or a refusal, but with MYSTICPARADOX_REFORGE=off it returns "normal" for
+        // PrestigeTrack_* grant only a prestige plan or a refusal, but with RUSTIC_ISLES_REFORGE=off it returns "normal" for
         // every grant; without this check a host could then add an unreviewed +1 that the hub would never have accepted as XP.
         // [2026-10-14] The same holds for a hunt's host (authorized as XP): the game grants a weapon's prestige only from a
         // reforge (38_ section 23.6), so any host prestige grant that is not an open reforge's +1 is refused, switch or not.
@@ -954,7 +954,7 @@ progressionRouter.post("/pjm/:userId", HasParadoxBackendAuth, async (req: any, r
     // This route now has real inventory-granting side effects. A bearer-authenticated client must
     // not be able to forge node_status=Unlocked for arbitrary reward nodes (or another user).
     // The 1.12 flow reaches this endpoint through the game server, which supplies the validated
-    // x-mysticparadox-gameserver-apikey header and receives AuthData.IsGameserver=true in the auth layer.
+    // x-rustic-isles-gameserver-apikey header and receives AuthData.IsGameserver=true in the auth layer.
     // [2026-10-13 realms S3] The other caller is a player-hosted server's runtime (IsPlayerHostRuntime, optional P2P module).
     // It saves the map for its players too, after the module's hostWrites hook accepts SLAYERS_PATH for that player, but its
     // unlocks are checked here (PlanHostPlayerJourney: the node exists and a parent is unlocked; an unlocked node never

@@ -37,14 +37,14 @@ systemRouter.get("/dauntless-status", (req, res) => {
 
     res.json({
 	    "show-status": true,
-	    "en": "Welcome to Mystic Paradox!",
-	    "fr": "Welcome to Mystic Paradox!",
-	    "it": "Welcome to Mystic Paradox!",
-	    "es": "Welcome to Mystic Paradox!",
-	    "de": "Welcome to Mystic Paradox!",
-	    "pt": "Welcome to Mystic Paradox!",
-	    "ru": "Welcome to Mystic Paradox!",
-	    "ja": "Welcome to Mystic Paradox!"
+	    "en": "Welcome to Rustic Isles!",
+	    "fr": "Welcome to Rustic Isles!",
+	    "it": "Welcome to Rustic Isles!",
+	    "es": "Welcome to Rustic Isles!",
+	    "de": "Welcome to Rustic Isles!",
+	    "pt": "Welcome to Rustic Isles!",
+	    "ru": "Welcome to Rustic Isles!",
+	    "ja": "Welcome to Rustic Isles!"
     });
 });
 
@@ -620,9 +620,9 @@ systemRouter.get("/huntpass/:userId", HasParadoxBackendAuth, (req: any, res) => 
 
 // [2026-10-10] Per-account cooldowns, persisted in Mongo (src/cooldownState.ts). These were stubs: the GET answered an
 // empty payload and the PUT discarded every save, so the daily bounty's and the patrol bonus's once-per-period gates
-// never found their cooldown and fired on every arrival (38_ section 19.7). MYSTICPARADOX_COOLDOWN_PERSISTENCE=off
+// never found their cooldown and fired on every arrival (38_ section 19.7). RUSTIC_ISLES_COOLDOWN_PERSISTENCE=off
 // restores the stubs.
-const COOLDOWN_PERSISTENCE = !/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_COOLDOWN_PERSISTENCE ?? "");
+const COOLDOWN_PERSISTENCE = !/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_COOLDOWN_PERSISTENCE ?? "");
 const COOLDOWN_NO_PLAYER = "INVALID";
 
 systemRouter.get("/cooldown/:userId", HasParadoxBackendAuth, async (req: any, res) => {
@@ -725,8 +725,8 @@ systemRouter.get("/bounty/game-data", HasParadoxBackendAuth, (req: any, res) => 
 // [2026-10-10] Per-account bounty state, persisted in Mongo (src/bountyState.ts has the wire shape and merge rules).
 // These routes were stubs that discarded every save, so each arrival re-seeded the season challenges at progress 0
 // and auto-drafted the daily bounty again (38_ section 19.4). The GET also masks /bounty/game-data above only for the
-// literal id "game-data", which is registered first. MYSTICPARADOX_BOUNTY_PERSISTENCE=off restores the stubs.
-const BOUNTY_PERSISTENCE = !/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_BOUNTY_PERSISTENCE ?? "");
+// literal id "game-data", which is registered first. RUSTIC_ISLES_BOUNTY_PERSISTENCE=off restores the stubs.
+const BOUNTY_PERSISTENCE = !/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_BOUNTY_PERSISTENCE ?? "");
 const BOUNTY_NO_PLAYER = "INVALID";
 
 // [2026-10-13 realms S3 limits] The host-write twin of controllers/bounty.ts SaveBountyState (same one-at-a-time-per-account
@@ -818,11 +818,11 @@ systemRouter.post("/bounty/:userId", HasParadoxBackendAuth, async (req: any, res
 });
 
 // [Dauntless Reforged Revival] Claiming a completed bounty deletes it here first; the game grants the reward only after a
-// 200 (bountyState.ts, DeleteBounties). Registered for DELETE too, the verb the game's own log line names. Mystic Paradox
+// 200 (bountyState.ts, DeleteBounties). Registered for DELETE too, the verb the game's own log line names. Rustic Isles
 // answers this route with 200 and changes nothing (it reads it as ResetBounties); here the bounties the body names are
 // removed, season challenges never, and a body that names none is refused. Authority is the bounty save's: a game server,
 // or a host whose hostWrites hook allows BOUNTY for this player. A call that names no bounty (the reset, with no body) changes
-// nothing and answers like Mystic Paradox's.
+// nothing and answers like Rustic Isles'.
 async function HandleBountyDelete(req: any, res: any) {
 	const UserId = String(req.params.userId);
 	const Raw = JSON.stringify(req.body ?? null).slice(0, 2000);
@@ -900,7 +900,7 @@ systemRouter.get("/patchnotes/:language/:gameversion", (req, res) => {
 				{
 					sections: [
 						{
-							description: "Mystic Paradox is a community project that keeps Dauntless alive. Your Slayer, gear and loadouts are kept on Mystic Paradox servers, so you can pick up right where you left off.",
+							description: "Rustic Isles is a community project that keeps Dauntless alive. Your Slayer, gear and loadouts are kept on Rustic Isles servers, so you can pick up right where you left off.",
 							title: "The hunt continues",
 							type: "featured"
 						},
@@ -918,7 +918,7 @@ systemRouter.get("/patchnotes/:language/:gameversion", (req, res) => {
 							type: "default"
 						}
 					],
-					title: "Welcome to Mystic Paradox",
+					title: "Welcome to Rustic Isles",
 					type: "new_to_dauntless"
 				},
 				{
@@ -927,8 +927,8 @@ systemRouter.get("/patchnotes/:language/:gameversion", (req, res) => {
 							changes: [
 								{
 									list: [
-										"Mystic Paradox is still growing, so you may run into the odd bug",
-										"If something goes wrong, tell the Mystic Paradox team what you were doing and roughly when it happened",
+										"Rustic Isles is still growing, so you may run into the odd bug",
+										"If something goes wrong, tell the Rustic Isles team what you were doing and roughly when it happened",
 										"Thank you for hunting with us!"
 									]
 								}
@@ -941,9 +941,9 @@ systemRouter.get("/patchnotes/:language/:gameversion", (req, res) => {
 					type: "quality_of_life"
 				}
 			],
-			permalink: "/patch-notes/mysticparadox/",
+			permalink: "/patch-notes/rusticisles/",
 			release_version: "",
-			title: "Mystic Paradox"
+			title: "Rustic Isles"
 		}
 	});
 });

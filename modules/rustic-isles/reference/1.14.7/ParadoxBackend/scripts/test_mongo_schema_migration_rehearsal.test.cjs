@@ -21,7 +21,7 @@ async function run(mode) {
         async close() { closed++; }
     }
     const processMock = { env: { ALLOW_DB_INTEGRATION_TESTS: "true", MONGODB_URI: "mongodb://fixture",
-        MONGODB_DB: "mystpax", MONGODB_TEST_DB: "mysticparadox_guard_migration_it_20260912" } };
+        MONGODB_DB: "mystpax", MONGODB_TEST_DB: "rustic_isles_guard_migration_it_20260912" } };
     const context = { process: processMock, console: { log: x => output.push(x), error: () => {} }, require(name) {
         if (name === "mongodb") return { MongoClient };
         if (name.includes("/client.js")) return { MongoPersistenceLifecycle: class { async stop() {} } };

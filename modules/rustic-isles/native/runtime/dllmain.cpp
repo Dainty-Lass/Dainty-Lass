@@ -319,7 +319,7 @@ bool DevelopmentRuntimeProfile() {
 
     char Profile[32]{};
     const DWORD Length = GetEnvironmentVariableA(
-        "MYSTICPARADOX_RUNTIME_PROFILE", Profile, static_cast<DWORD>(std::size(Profile)));
+        "RUSTIC_ISLES_RUNTIME_PROFILE", Profile, static_cast<DWORD>(std::size(Profile)));
     Cached = (Length == 11 && strcmp(Profile, "development") == 0) ? 1 : 0;
     return Cached == 1;
 }
@@ -477,7 +477,7 @@ void MpLog(const std::string& Msg) {
     }
     char Path[MAX_PATH];
     const int Port = Globals::Port;
-    sprintf_s(Path, "%smysticparadox_dll_port%d.log", MpLogDir(), Port);
+    sprintf_s(Path, "%srustic_isles_dll_port%d.log", MpLogDir(), Port);
 
     if (MpLogMode() == 0) {
         // MPLOG_OPEN_PER_LINE.flag: the pre-11-Oct writer, unchanged.
@@ -512,7 +512,7 @@ void MpLog(const std::string& Msg) {
 void MpLogRawPort(int Port, const std::string& Msg) {
     if (MpProcessDetaching()) return;
     char Path[MAX_PATH];
-    sprintf_s(Path, "%smysticparadox_dll_port%d.log", MpLogDir(), Port);
+    sprintf_s(Path, "%srustic_isles_dll_port%d.log", MpLogDir(), Port);
     if (MpLogMode() == 0) {
         std::ofstream File(Path, std::ios::app);
         if (File.is_open()) {
@@ -2239,7 +2239,7 @@ void MainThread() {
     InitLog("[MainThread] MpLog returned, entering UWorld wait loop");
 
     if (Globals::AmServer && Globals::AuthMode == Globals::ServerAuthMode::Invalid) {
-        MpLog("[ServerAuth] unknown MYSTICPARADOX_AUTH_MODE; terminating before listen");
+        MpLog("[ServerAuth] unknown RUSTIC_ISLES_AUTH_MODE; terminating before listen");
         TerminateProcess(GetCurrentProcess(), 0xE102);
         return;
     }
@@ -2993,12 +2993,12 @@ static void MpLogHungGameThread() {
  * and must never be relaxed to the AArchonGameMode base. Game thread only (IsA/GObjects work).
  */
 static float BleedoutDurationFallback() {
-    // Override with MYSTICPARADOX_BLEEDOUT_SECONDS if the default proves wrong in play.
+    // Override with RUSTIC_ISLES_BLEEDOUT_SECONDS if the default proves wrong in play.
     static float Cached = -1.0f;
     if (Cached < 0.0f) {
         Cached = 30.0f;
         char Buf[32]{};
-        if (GetEnvironmentVariableA("MYSTICPARADOX_BLEEDOUT_SECONDS", Buf, sizeof(Buf)) > 0) {
+        if (GetEnvironmentVariableA("RUSTIC_ISLES_BLEEDOUT_SECONDS", Buf, sizeof(Buf)) > 0) {
             float Parsed = static_cast<float>(atof(Buf));
             if (Parsed > 0.0f && Parsed < 600.0f) Cached = Parsed;
         }
@@ -3380,15 +3380,15 @@ static void AutoPressStartFromEvent(SDK::UObject* Object, const std::string& Fun
         + " (the same function a click calls); screen=" + MpPtr(Object) + " fn=" + MpPtr(Fn));
 }
 
-// [CLIENT BRANDING 2026-10-08] Mystic Paradox login screen. Client only and RVA-free: every call is a reflected
+// [CLIENT BRANDING 2026-10-08] Rustic Isles login screen. Client only and RVA-free: every call is a reflected
 // UFunction reached through ProcessEvent, every field comes from the 1.14.7 SDK dump.
 //   - Background. LoginScreen_bps_C.SetSplashImage reads the served hunt-pass season's
 //     HuntPassScreenDetails.LoginTexture and puts it on SplashImage with SetBrushFromSoftTexture (read from the
-//     cooked asset's imports), which is why the art followed the season. The PNG embedded by MysticParadox.rc
+//     cooked asset's imports), which is why the art followed the season. The PNG embedded by Rustic-Isles.rc
 //     is decoded by KismetRenderingLibrary.ImportBufferAsTexture2D and set with Image.SetBrushFromTexture, which
 //     also cancels the season texture's pending async load. Applied from Construct onward.
 //   - The DAUNTLESS logo (ArchonLogoMat, /Game/UI/Textures/Logo/ArchonLogo_Mat) is collapsed; the background
-//     carries the Mystic Paradox logo.
+//     carries the Rustic Isles logo.
 //   - The patch-notes "Update <release_version>" line (preview and popup) is collapsed; the Metagame serves the
 //     title and text (routes/system.ts /patchnotes).
 // Re-asserted after every LoginScreen event because the screen's own animations and native refreshes may
@@ -3540,7 +3540,7 @@ static void OnLoginScreenEvent(SDK::UObject* Object, const std::string& Function
 
 static FProperty* FindPropertyByNameInChain(UStruct* Struct, const char* TargetName);   // defined below
 
-// [CLIENT BRANDING 2026-10-09] Credits: a "Mystic Paradox" block above Phoenix Labs. Client only and RVA-free.
+// [CLIENT BRANDING 2026-10-09] Credits: a "Rustic Isles" block above Phoenix Labs. Client only and RVA-free.
 // bpw_Credits_C stacks its studio sections in one ScrollBox; each credits_section_name_title_bpw_C is a title
 // TextBlock (SectionTextBlock) over a ColumnsBox whose first two TextBlocks receive every name and every title as
 // one multi-line string, filled by UArchonCreditsSection::NativeConstruct from SectionTable (FCreditsNameTitle
@@ -3558,12 +3558,12 @@ namespace CreditsBranding {
 
 // Layout: title, subheading, empty line, disclaimer, empty line, names | titles, two empty lines, Phoenix Labs.
 // The empty lines are trailing newlines; both columns end with the same two so their rows stay aligned.
-static const wchar_t* const kTitle = L"Mystic Paradox";
+static const wchar_t* const kTitle = L"Rustic Isles";
 static const wchar_t* const kSubheading = L"Private Server Development\n";
 static const wchar_t* const kDisclaimer =
-    L"Mystic Paradox is a community preservation server\nand is not affiliated with Phoenix Labs.\n";
+    L"Rustic Isles is a community preservation server\nand is not affiliated with Phoenix Labs.\n";
 static const wchar_t* const kNames = L"Mystic / Pranav Karande\nHarmonicRain\ngwog / SyST3MDeV\n\n";
-static const wchar_t* const kRoles = L"Mystic Paradox\nUndaunted Fork\nUndaunted 1.4.4\n\n";
+static const wchar_t* const kRoles = L"Rustic Isles\nUndaunted Fork\nUndaunted 1.4.4\n\n";
 
 static SDK::UObject* s_Section = nullptr;            // last injected section, for the PreConstruct re-check
 static int32_t s_SectionIndex = -1;
@@ -3697,7 +3697,7 @@ static void Inject(SDK::Ubpw_Credits_C* Credits) {
     CallUFunction(SDK::UWidgetBlueprintLibrary::GetDefaultObj(), "WidgetBlueprintLibrary", "Create", &Create);
     auto* Section = static_cast<SDK::UArchonCreditsSection*>(Create.ReturnValue);
     if (!Section || !Section->SectionTextBlock || !Section->ColumnsBox) {
-        MpLog("[CreditsBranding] could not create the Mystic Paradox section - credits left unchanged");
+        MpLog("[CreditsBranding] could not create the Rustic Isles section - credits left unchanged");
         return;
     }
     Section->bShowContributerTitle = Phoenix->bShowContributerTitle;
@@ -3720,7 +3720,7 @@ static void Inject(SDK::Ubpw_Credits_C* Credits) {
         s_Section = Section;
         s_SectionIndex = Section->Index;
     }
-    MpLog("[CreditsBranding] Mystic Paradox block above Phoenix Labs: placed " + std::to_string(Placed)
+    MpLog("[CreditsBranding] Rustic Isles block above Phoenix Labs: placed " + std::to_string(Placed)
         + "/4 (title, subheading, disclaimer, names) at index " + std::to_string(PhoenixIndex) + " of "
         + Parent->Class->GetName() + " section=" + MpPtr(Section));
 }
@@ -3748,7 +3748,7 @@ static void OnCreditsEvent(SDK::UObject* Object, const std::string& FunctionName
             && SDK::UObject::GObjects->GetByIndex(s_SectionIndex) == s_Section;
         if (Alive) ApplyTexts(static_cast<SDK::UArchonCreditsSection*>(s_Section));
         static int s_Logged = 0;
-        if (s_Logged++ < 4) MpLog(std::string("[CreditsBranding] credits constructed; Mystic Paradox section ") + (Alive ? "present" : "MISSING"));
+        if (s_Logged++ < 4) MpLog(std::string("[CreditsBranding] credits constructed; Rustic Isles section ") + (Alive ? "present" : "MISSING"));
     }
 }
 
@@ -3766,7 +3766,7 @@ namespace PressStartBranding {
 // The empty line sets the credit apart (the TextBlock has one style for all lines).
 static const wchar_t* const kWelcome =
     L"Welcome back to the Shattered Isles, Slayer.\n"
-    L"Mystic Paradox keeps the hunt going, together.\n"
+    L"Rustic Isles keeps the hunt going, together.\n"
     L"\n"
     L"Credits: Mystic  •  github.com/pranav158/Mystic-Paradox";
 
@@ -3940,8 +3940,8 @@ static void MpAfkPrimeConfig() {
     g_MpAfkDisabled = MpExeRelativeFlagPresent(L"DISABLE_AFK_TIMEOUT_OVERRIDE.flag");
     g_MpAfkHub = MpAfkSecondsFromFile(L"HUB_AFK_TIMEOUT_SECONDS.txt", 1200);
     g_MpAfkHunt = MpAfkSecondsFromFile(L"HUNT_AFK_TIMEOUT_SECONDS.txt", -1);
-    // [2026-10-13 realms hub] A hub the launcher started (MYSTICPARADOX_HOSTED_ROLE=HUB) takes its idle-kick timeout
-    // from MYSTICPARADOX_HUB_AFK_SECONDS when the launcher set it (the hook is -1 otherwise, always -1 on a dedicated
+    // [2026-10-13 realms hub] A hub the launcher started (RUSTIC_ISLES_HOSTED_ROLE=HUB) takes its idle-kick timeout
+    // from RUSTIC_ISLES_HUB_AFK_SECONDS when the launcher set it (the hook is -1 otherwise, always -1 on a dedicated
     // server and in the build without the p2p module): no per-install text file in the host's game folder. The same
     // floor as the file applies, so a value of 1..59 becomes 60; 0 = never kick. HUNT_AFK_TIMEOUT_SECONDS.txt is
     // unchanged and DISABLE_AFK_TIMEOUT_OVERRIDE.flag still turns every write off.
@@ -3962,7 +3962,7 @@ static void MpAfkPrimeConfig() {
     MpLog("[AfkTimeout] config hub=" + MpAfkSecondsText(g_MpAfkHub) + " hunt=" + MpAfkSecondsText(g_MpAfkHunt));
     if (g_MpAfkHub.Seconds == 0) {
         MpLog(HubFromLauncher
-            ? "[AfkTimeout] WARNING: MYSTICPARADOX_HUB_AFK_SECONDS = 0 -> hub players are never idle-kicked; idle "
+            ? "[AfkTimeout] WARNING: RUSTIC_ISLES_HUB_AFK_SECONDS = 0 -> hub players are never idle-kicked; idle "
               "players can hold every hub slot indefinitely"
             : "[AfkTimeout] WARNING: HUB_AFK_TIMEOUT_SECONDS.txt = 0 -> hub players are never idle-kicked; idle "
               "players can hold every hub slot indefinitely");
@@ -3993,7 +3993,7 @@ static std::string MpAfkFloatText(float V) {
  * KEEP_HOSTED_HUB_ROLE.flag reverts (read once). Game thread only (both callers are).
  *
  * [2026-10-13 realms hub] The one exception is a launcher-declared hub: the launcher that runs a realm's Ramsgate or
- * Training on the host's PC starts it with MYSTICPARADOX_HOSTED_ROLE=HUB, and P2PHooks::HostedRoleIsHub() then makes
+ * Training on the host's PC starts it with RUSTIC_ISLES_HOSTED_ROLE=HUB, and P2PHooks::HostedRoleIsHub() then makes
  * the named hub class persistent (role 1: never reaped, hub AFK rule - the launcher's supervisor owns its lifecycle,
  * as the DeployServer does for a dedicated hub). A launcher role HUNT (also the default when the variable is absent)
  * keeps today's behaviour for every class. The flag stays a manual override that wins over a HUNT role. A HUB role
@@ -4781,8 +4781,8 @@ bool IsLevelInitForActorHook(void* a1, char a2);
 // ExpectedPlayerCount is synchronized separately from the concrete launch roster below.
 // Default 4 (Dauntless party size). Override WITHOUT a rebuild by writing an integer into
 // <game-exe-dir>\HUB_MAX_PLAYERS.txt. Read once.
-// [2026-10-13 realms hub] A hub the launcher started (MYSTICPARADOX_HOSTED_ROLE=HUB) sets its cap with
-// MYSTICPARADOX_MAX_PLAYERS (1..64, validated by the p2p module): P2PHooks::MaxPlayersOverride() is consulted first
+// [2026-10-13 realms hub] A hub the launcher started (RUSTIC_ISLES_HOSTED_ROLE=HUB) sets its cap with
+// RUSTIC_ISLES_MAX_PLAYERS (1..64, validated by the p2p module): P2PHooks::MaxPlayersOverride() is consulted first
 // and then HUB_MAX_PLAYERS.txt is not read at all (no per-install text file in the host's game folder). The hook is 0
 // ("none") on a dedicated server, for a HUNT role and in the build without the p2p module, so those read the file as
 // before. A player-hosted server logs the source once.
@@ -4792,7 +4792,7 @@ static int HubMaxPlayers() {
         const int LauncherMax = P2PHooks::MaxPlayersOverride();
         if (LauncherMax >= 1 && LauncherMax <= 64) {
             Cached = LauncherMax;
-            MpLog("[HubRole] max players " + std::to_string(Cached) + " (launcher MYSTICPARADOX_MAX_PLAYERS)");
+            MpLog("[HubRole] max players " + std::to_string(Cached) + " (launcher RUSTIC_ISLES_MAX_PLAYERS)");
             return Cached;
         }
         Cached = 4; // default party size
@@ -8586,7 +8586,7 @@ static std::wstring MpProgressionGrantPath(const std::wstring& Url) {
 }
 
 // [1.14.7 2026-10-10] Idempotent grant id on dedicated-server XP grants. The backend accepts
-// POST /progression/{account}/{track}/{amount} only with x-mysticparadox-grant-id (^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$)
+// POST /progression/{account}/{track}/{amount} only with x-rustic-isles-grant-id (^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$)
 // and applies each id once; the game sends none (no grant/idempotency string in the exe). UE's HTTP retry re-issues
 // ProcessRequest on the SAME FCurlHttpRequest, so the header is read back first: a retry keeps the id it was given on
 // the first attempt and the backend replays instead of applying the XP twice. New ids are "gs-" + 128 random bits.
@@ -8616,7 +8616,7 @@ static void MpEnsureProgressionGrantId(void* Request) {
     void** Vtable = *reinterpret_cast<void***>(Request);
     if (!Vtable || !IsReadablePointer(Vtable, 17 * sizeof(void*))) return;
 
-    FString HeaderName(L"x-mysticparadox-grant-id");
+    FString HeaderName(L"x-rustic-isles-grant-id");
     RawFString Existing{};
     using GetHeaderFn = void*(*)(void*, void*, const void*);
     reinterpret_cast<GetHeaderFn>(Vtable[2])(Request, &Existing, &HeaderName);
@@ -8679,7 +8679,7 @@ char ProcessRequest(void* Request) {
     // Only a DeployServer gameserver carries the global gameserver credential. The optional
     // player-hosted mode never receives it and supplies its own scoped header (P2PHooks.h).
     if (Globals::AuthMode == Globals::ServerAuthMode::GlobalGameserver && Globals::ServerAPIKey) {
-        FString APIHeader(L"x-mysticparadox-gameserver-apikey");
+        FString APIHeader(L"x-rustic-isles-gameserver-apikey");
         FString APIKey(Globals::ServerAPIKey);
 
         // SetHeader is virtual: vtable BYTE offset 0x80 == INDEX 16 (0x80/8). NOT index 0x80.
@@ -8730,7 +8730,7 @@ char ProcessRequest(void* Request) {
 // ============================================================================
 //
 // [2026-10-13 realms S1] The backend address is no longer only compiled in. The launcher can hand the game process the
-// backend to use (a community realm, a self-hosted hub) in MYSTICPARADOX_BACKEND_URL = scheme://host[:port]: http or
+// backend to use (a community realm, a self-hosted hub) in RUSTIC_ISLES_BACKEND_URL = scheme://host[:port]: http or
 // https, a DNS name, IPv4 or [IPv6] host, no path, query, fragment or user information (BackendUrl.h has the exact
 // grammar). A valid value replaces the built-in https://MP_PUBLIC_HOST as the API base used by MpBuildRedirectUrl and
 // as the chat WebSocket address further down (ws/wss matching http/https, same host; the port goes to the XMPP
@@ -8749,7 +8749,7 @@ static wchar_t g_MpApiBase[kMpBackendAddressChars];
 static wchar_t g_MpXmppWsUrl[kMpBackendAddressChars];
 static uint16_t g_MpXmppPort = kMpBuiltInXmppPort;
 static bool g_MpBackendFromEnv = false;
-static char g_MpBackendEnvIgnored[96];                  // why MYSTICPARADOX_BACKEND_URL was ignored; empty if used or absent
+static char g_MpBackendEnvIgnored[96];                  // why RUSTIC_ISLES_BACKEND_URL was ignored; empty if used or absent
 static DWORD g_MpBackendEnvLength = 0;
 static volatile LONG g_MpBackendState = 0;              // 0 = unresolved, 1 = being resolved, 2 = ready
 
@@ -8770,7 +8770,7 @@ static void MpResolveBackendAddress() {
         char Raw[512] = {};
         // [DaintyLass] The first of these that is set wins: Mystic's own name, then the one the DaintyLass launcher
         // and Director export (REFORGED_BACKEND_URL, a name installs depend on).
-        static const char* const kBackendUrlVariables[] = { "MYSTICPARADOX_BACKEND_URL", "REFORGED_BACKEND_URL" };
+        static const char* const kBackendUrlVariables[] = { "RUSTIC_ISLES_BACKEND_URL", "REFORGED_BACKEND_URL" };
         DWORD Length = 0;
         for (const char* Name : kBackendUrlVariables) {
             Length = GetEnvironmentVariableA(Name, Raw, static_cast<DWORD>(sizeof(Raw)));
@@ -8850,7 +8850,7 @@ static void MpLogBackendAddress() {
     std::string Line = std::string("[BackendAddress] source=") + (g_MpBackendFromEnv ? "env" : "built-in")
         + " api=" + MpNarrow(g_MpApiBase) + " ws=" + MpNarrow(g_MpXmppWsUrl) + ":" + std::to_string(g_MpXmppPort);
     if (g_MpBackendEnvIgnored[0]) {
-        Line += std::string(" (MYSTICPARADOX_BACKEND_URL ignored: ") + g_MpBackendEnvIgnored
+        Line += std::string(" (RUSTIC_ISLES_BACKEND_URL ignored: ") + g_MpBackendEnvIgnored
             + ", length=" + std::to_string(g_MpBackendEnvLength) + ")";
     }
     MpLog(Line);
@@ -8910,7 +8910,7 @@ static bool MpSplitUrl(const std::wstring& Url, std::wstring& OutHost, std::wstr
 
 static std::wstring MpBuildRedirectUrl(const std::wstring& Host, const std::wstring& Tail) {
     // https://paradox.mysticfox.dev/__origin/<original-host><tail>  (Tail begins with '/')
-    // [2026-10-13 realms S1] The base is the built-in address unless MYSTICPARADOX_BACKEND_URL named another (above).
+    // [2026-10-13 realms S1] The base is the built-in address unless RUSTIC_ISLES_BACKEND_URL named another (above).
     std::wstring Out = MpApiBase();
     Out += L"/__origin/";
     Out += Host;
@@ -8974,8 +8974,8 @@ static uintptr_t MpFunctionStartForAddress(uintptr_t Address) {
 // its dispatch-stack capture) is DELETED. It answered its question - an FCurlHttpRequest carries no reachable
 // link to its issuer - and then began crashing the process:
 //   EXCEPTION_ACCESS_VIOLATION reading address 0x0000023f48460000
-//     MysticParadox.dll!MpProbeCharacterRequestAssociation() [dllmain.cpp:5287]
-//     MysticParadox.dll!ProcessRequest() [dllmain.cpp:5082]
+//     Rustic-Isles.dll!MpProbeCharacterRequestAssociation() [dllmain.cpp:5287]
+//     Rustic-Isles.dll!ProcessRequest() [dllmain.cpp:5082]
 // A diagnostic must not be able to kill the thing it measures. The findings it produced are recorded in
 // Progress/34_DAUNTLESS_1_14_7_UPGRADE_AUDIT.md.
 #if 0
@@ -9356,7 +9356,7 @@ static void MpLogUrlObservation(const std::wstring& Host, const std::wstring& Ta
 // it (observed reject: GET /__ws/xmpp:443). With a bare host the client connects to
 // wss://paradox.mysticfox.dev:443 and requests the root path, which the gateway accepts.
 // [2026-10-13 realms S1] The ServerAddr written here is MpXmppWsUrl() - still wss://MP_PUBLIC_HOST (host only, no path)
-// by default, ws:// or wss:// plus the host of MYSTICPARADOX_BACKEND_URL when the launcher set it (backend-address
+// by default, ws:// or wss:// plus the host of RUSTIC_ISLES_BACKEND_URL when the launcher set it (backend-address
 // block above). Because of the concatenation the port cannot ride in that string: when the address came from the
 // environment the hook also answers XMPP ServerPort with MpXmppServerPort() (scheme default 80 / 443 or the explicit
 // port); with the built-in address ServerPort is left to the game's own config (443), as before.
@@ -9508,7 +9508,7 @@ bool GetConfigStringHook(void* This, const wchar_t* Section, const wchar_t* Key,
         // Allocation failed — fall through and leave the original result untouched.
     }
 
-    // [2026-10-13 realms S1] An address from MYSTICPARADOX_BACKEND_URL also fixes the port (the client appends
+    // [2026-10-13 realms S1] An address from RUSTIC_ISLES_BACKEND_URL also fixes the port (the client appends
     // ":" + ServerPort to ServerAddr). Never reached with the built-in address: ServerPort stays the game's own.
     if (Redirect && Value != nullptr && MpBackendFromEnvironment() && MpIsXmppServerPort(Sec, K)) {
         const std::wstring Port = std::to_wstring(static_cast<unsigned>(MpXmppServerPort()));
@@ -15682,7 +15682,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
 
     // Player-host joins can complete the UE handshake and PostLogin, then be rejected by
     // the client during its first travel/replication frame.  The normal UE diagnostics are
-    // not written to mysticparadox_dll_port0.log, which previously made this look like an SDR
+    // not written to rustic_isles_dll_port0.log, which previously made this look like an SDR
     // transport fault.  These are the game's own high-level failure callbacks; record the
     // enum values before the Blueprint handles them, without changing control flow.
     if (Parms && IsReadablePointer(Parms, 2)) {
@@ -18505,11 +18505,11 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     // would just get overwritten by the next replicated health update.
     //
     // Four-way gated so enabling development diagnostics does not also enable combat mutation:
-    //   1. MYSTICPARADOX_RUNTIME_PROFILE must be exactly "development".
-    //   2. MYSTICPARADOX_ALLOW_DAMAGE_DEBUG must be exactly "1" (the launcher never sets this).
+    //   1. RUSTIC_ISLES_RUNTIME_PROFILE must be exactly "development".
+    //   2. RUSTIC_ISLES_ALLOW_DAMAGE_DEBUG must be exactly "1" (the launcher never sets this).
     //   3. debug\DEBUG_DAMAGE_MULTIPLIER.flag must exist (create/delete to toggle; checked once
     //      per process launch, matching every other .flag toggle in this file).
-    //   4. MYSTICPARADOX_DEBUG_DAMAGE_MULTIPLIER env var sets the factor (DeployServer forwards its own
+    //   4. RUSTIC_ISLES_DEBUG_DAMAGE_MULTIPLIER env var sets the factor (DeployServer forwards its own
     //      process.env to every spawned gameserver, so set this in ParadoxDirector/.env).
     // Global (applies to whoever is dealing damage) - deliberately not scoped to a specific
     // player, since the flag + server-side-only gating is already enough to keep this from ever
@@ -18517,10 +18517,10 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     if (Globals::AmServer && Function && Parms) {
         static const bool s_developmentRuntimeProfile = [] {
             char Profile[32]{};
-            DWORD Length = GetEnvironmentVariableA("MYSTICPARADOX_RUNTIME_PROFILE", Profile,
+            DWORD Length = GetEnvironmentVariableA("RUSTIC_ISLES_RUNTIME_PROFILE", Profile,
                 static_cast<DWORD>(std::size(Profile)));
             char DamageDebug[8]{};
-            DWORD DamageLength = GetEnvironmentVariableA("MYSTICPARADOX_ALLOW_DAMAGE_DEBUG", DamageDebug,
+            DWORD DamageLength = GetEnvironmentVariableA("RUSTIC_ISLES_ALLOW_DAMAGE_DEBUG", DamageDebug,
                 static_cast<DWORD>(std::size(DamageDebug)));
             return Length == 11 && strcmp(Profile, "development") == 0
                 && DamageLength == 1 && DamageDebug[0] == '1';
@@ -18531,7 +18531,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         if (s_debugDamageMultiplierFlagPresent) {
             static float s_debugDamageMultiplier = [] {
                 char Buf[64];
-                DWORD Len = GetEnvironmentVariableA("MYSTICPARADOX_DEBUG_DAMAGE_MULTIPLIER", Buf, sizeof(Buf));
+                DWORD Len = GetEnvironmentVariableA("RUSTIC_ISLES_DEBUG_DAMAGE_MULTIPLIER", Buf, sizeof(Buf));
                 if (Len == 0 || Len >= sizeof(Buf)) return 1.0f;
                 float Parsed = 1.0f;
                 try { Parsed = std::stof(Buf); } catch (...) { return 1.0f; }
@@ -18953,7 +18953,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
                 float*   fPrio   = reinterpret_cast<float*>(reinterpret_cast<uintptr_t>(PawnObj) + 0x110);
                 // [1.12 ROLE-FIX 2026-07-10] AActor::RemoteRole @ 0x5F.
                 // Verified in Assertions.inl:7033 static_assert.
-                // Log evidence (mysticparadox_dll_port8790.log:3097) shows this stays at
+                // Log evidence (rustic_isles_dll_port8790.log:3097) shows this stays at
                 // SimulatedProxy(1) even though ClientRestart fires and possession
                 // completes. That's because native SetAutonomousProxy(true) is
                 // either skipped (PC.NetConnection null at Possess time) or reset
@@ -22567,7 +22567,7 @@ static std::wstring ServerSharedPlayerHuntId() {
 // Production behavior is always enabled. All 181 numbered rows are rewritten as contiguous UTC windows.
 // TRIALS_ROTATION_MINUTES controls the interval (default 10080 = seven days; 30 is useful for testing).
 // DeployServer uses the same Unix-epoch bucket formula. A spawned arena process receives
-// MYSTICPARADOX_TRIALS_WEEK so an in-progress trial stays pinned to the exact matchmaker row it launched with.
+// RUSTIC_ISLES_TRIALS_WEEK so an in-progress trial stays pinned to the exact matchmaker row it launched with.
 void* OrigSchedulerInitialize = nullptr;
 
 static constexpr int kTrialsRotationRowCount = 181;
@@ -22592,7 +22592,7 @@ static int TrialsRotationMinutes() {
 
 static int TrialsLaunchWeekOverride() {
     char Value[16] = {};
-    DWORD n = GetEnvironmentVariableA("MYSTICPARADOX_TRIALS_WEEK", Value, static_cast<DWORD>(sizeof(Value)));
+    DWORD n = GetEnvironmentVariableA("RUSTIC_ISLES_TRIALS_WEEK", Value, static_cast<DWORD>(sizeof(Value)));
     if (n == 0 || n >= sizeof(Value)) return 0;
     char* End = nullptr;
     long Parsed = std::strtol(Value, &End, 10);
@@ -26027,7 +26027,7 @@ void InitServerHooks() {
             + " target=+" + MpHex(0x03D47A90));
 
         // [1.14.7 2026-10-05] OPT-IN ONLY - measured unsafe. A detour at this call site crashes on its own
-        // compiled prologue (`movaps [rsp+150h],xmm6` faulted at MysticParadox.dll+0x22569, hub pid 37160 at
+        // compiled prologue (`movaps [rsp+150h],xmm6` faulted at Rustic-Isles.dll+0x22569, hub pid 37160 at
         // 23:30:51): the engine reaches the evaluator with a stack this hook's prologue cannot assume. The
         // +0x1091D5D fault is recovered in VectoredExceptionTrace instead, which needs no stack assumptions.
         if (MpExeRelativeFlagPresent(L"ENABLE_SPLINE_EVAL_HOOK.flag")) {
@@ -26447,7 +26447,7 @@ void Init() {
     // (UNCACHED_FLAG_FILES.flag) before anything reads a flag; no lock is held here (see MpExeRelativeFlagPresent).
     MpResolveExeDirW();
     MpDecideFlagCacheMode();
-    // [2026-10-13 realms S1] Decide the backend address (MYSTICPARADOX_BACKEND_URL or the built-in one) before any hook
+    // [2026-10-13 realms S1] Decide the backend address (RUSTIC_ISLES_BACKEND_URL or the built-in one) before any hook
     // that builds a backend URL is installed; MainThread logs the result (no logging under the loader lock).
     MpResolveBackendAddress();
 
@@ -26457,7 +26457,7 @@ void Init() {
 
     if (Globals::AmServer) {
         std::string AuthMode;
-        if (!MpReadEnvironment("MYSTICPARADOX_AUTH_MODE", AuthMode, 32) || AuthMode == "GLOBAL_GAMESERVER") {
+        if (!MpReadEnvironment("RUSTIC_ISLES_AUTH_MODE", AuthMode, 32) || AuthMode == "GLOBAL_GAMESERVER") {
             Globals::AuthMode = Globals::ServerAuthMode::GlobalGameserver;
         }
         else if (P2PHooks::ClaimAuthMode(AuthMode)) {
@@ -26589,6 +26589,23 @@ void Init() {
     InitLog("[Init] MainThread created, returning from DllMain");
 }
 
+// [2026-11-01 Rustic Isles rename] A launcher or Director from before the rename sets only MYSTICPARADOX_*: each gets
+// its RUSTIC_ISLES_* name unless that is set, for one release. Before Init, so every read sees the new names.
+static void MpAcceptLegacyEnvironment() {
+    static const char kLegacy[] = "MYSTICPARADOX_";
+    std::vector<std::pair<std::string, std::string>> Renamed;
+    if (LPCH Block = GetEnvironmentStringsA()) {
+        for (LPCH Entry = Block; *Entry; Entry += strlen(Entry) + 1) {
+            const char* Equals = strchr(Entry, '=');
+            if (!Equals || strncmp(Entry, kLegacy, sizeof(kLegacy) - 1) != 0) continue;
+            std::string Name = "RUSTIC_ISLES_" + std::string(Entry + sizeof(kLegacy) - 1, Equals);
+            if (GetEnvironmentVariableA(Name.c_str(), nullptr, 0) == 0) Renamed.emplace_back(Name, Equals + 1);
+        }
+        FreeEnvironmentStringsA(Block);
+    }
+    for (const auto& Pair : Renamed) SetEnvironmentVariableA(Pair.first.c_str(), Pair.second.c_str());
+}
+
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved
@@ -26598,6 +26615,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
         DisableThreadLibraryCalls(hModule);
+        MpAcceptLegacyEnvironment();
         Init();
         break;
     case DLL_PROCESS_DETACH:

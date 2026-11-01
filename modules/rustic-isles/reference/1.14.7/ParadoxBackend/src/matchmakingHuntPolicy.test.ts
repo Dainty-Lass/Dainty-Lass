@@ -12,15 +12,15 @@ import {
     GAUNTLET_DISABLED_REASON, GauntletMatchmakingEnabled, IsGauntletHuntId, RefusesGauntletRequest
 } from "./matchmakingHuntPolicy";
 
-// [2026-10-14] Gauntlet is refused on every route until MYSTICPARADOX_GAUNTLET=on (owner decision). The helper tests are pure; the
-// dedicated-route tests run the shared matchmaker with the P2P module off (MYSTICPARADOX_P2P_MODULE=off: the public build's
+// [2026-10-14] Gauntlet is refused on every route until RUSTIC_ISLES_GAUNTLET=on (owner decision). The helper tests are pure; the
+// dedicated-route tests run the shared matchmaker with the P2P module off (RUSTIC_ISLES_P2P_MODULE=off: the public build's
 // dedicated-only defaults), so no database is needed. The matchmaker reads MATCHMAKING_MODE when it loads, hence the dynamic import.
 
-const MANAGED = ["MYSTICPARADOX_GAUNTLET", "MYSTICPARADOX_P2P_MODULE", "MATCHMAKING_MODE"] as const;
+const MANAGED = ["RUSTIC_ISLES_GAUNTLET", "RUSTIC_ISLES_P2P_MODULE", "MATCHMAKING_MODE"] as const;
 const saved = new Map(MANAGED.map((name) => [name, process.env[name]]));
 
 before(() => {
-    process.env.MYSTICPARADOX_P2P_MODULE = "off";
+    process.env.RUSTIC_ISLES_P2P_MODULE = "off";
     process.env.MATCHMAKING_MODE = "DEPLOYSERVER";
 });
 
@@ -31,12 +31,12 @@ after(() => {
     }
 });
 
-test("MYSTICPARADOX_GAUNTLET enables Gauntlet only for the literal on (case and spaces aside)", () => {
+test("RUSTIC_ISLES_GAUNTLET enables Gauntlet only for the literal on (case and spaces aside)", () => {
     for (const value of ["on", " ON ", "On"]) {
-        assert.equal(GauntletMatchmakingEnabled({ MYSTICPARADOX_GAUNTLET: value }), true, `"${value}" enables it`);
+        assert.equal(GauntletMatchmakingEnabled({ RUSTIC_ISLES_GAUNTLET: value }), true, `"${value}" enables it`);
     }
     for (const value of [undefined, "", "off", "true", "1", "yes", "onn"]) {
-        assert.equal(GauntletMatchmakingEnabled({ MYSTICPARADOX_GAUNTLET: value }), false, `"${value}" keeps it refused`);
+        assert.equal(GauntletMatchmakingEnabled({ RUSTIC_ISLES_GAUNTLET: value }), false, `"${value}" keeps it refused`);
     }
 });
 
@@ -52,13 +52,13 @@ test("Gauntlet hunt ids are the ids that contain Gauntlet; no other hunt is a Ga
 test("RefusesGauntletRequest refuses a Gauntlet hunt while the switch is off and allows it with the switch on", () => {
     assert.equal(GAUNTLET_DISABLED_REASON, "GAUNTLET_DISABLED");
     assert.equal(RefusesGauntletRequest("CR19_PlayerHunt_Gauntlet", {}), true);
-    assert.equal(RefusesGauntletRequest("CR19_MatchmakerHunt_Gauntlet", { MYSTICPARADOX_GAUNTLET: "on" }), false);
+    assert.equal(RefusesGauntletRequest("CR19_MatchmakerHunt_Gauntlet", { RUSTIC_ISLES_GAUNTLET: "on" }), false);
     assert.equal(RefusesGauntletRequest("ShatteredIsles_IslandA", {}), false);
 });
 
 test("the dedicated route cancels a Gauntlet request with GAUNTLET_DISABLED for the requester and the whole party", async () => {
     const { CheckAndUpdateQueueStatus, HandlePlayerMatchmaking } = await import("./controllers/matchmaking");
-    delete process.env.MYSTICPARADOX_GAUNTLET;
+    delete process.env.RUSTIC_ISLES_GAUNTLET;
 
     assert.equal(await HandlePlayerMatchmaking("ISLAND", "", "CR19_PlayerHunt_Gauntlet", "core-solo-player"), true);
     const solo = await CheckAndUpdateQueueStatus("core-solo-player");
@@ -74,9 +74,9 @@ test("the dedicated route cancels a Gauntlet request with GAUNTLET_DISABLED for 
     }
 });
 
-test("the dedicated route queues a Gauntlet request with MYSTICPARADOX_GAUNTLET=on, and other hunts are not refused by name", async () => {
+test("the dedicated route queues a Gauntlet request with RUSTIC_ISLES_GAUNTLET=on, and other hunts are not refused by name", async () => {
     const { CheckAndUpdateQueueStatus, HandlePlayerMatchmaking } = await import("./controllers/matchmaking");
-    process.env.MYSTICPARADOX_GAUNTLET = "on";
+    process.env.RUSTIC_ISLES_GAUNTLET = "on";
     try {
         assert.equal(await HandlePlayerMatchmaking("ISLAND", "", "CR19_PlayerHunt_Gauntlet", "core-gauntlet-on"), true);
         const queued = await CheckAndUpdateQueueStatus("core-gauntlet-on");
@@ -86,6 +86,6 @@ test("the dedicated route queues a Gauntlet request with MYSTICPARADOX_GAUNTLET=
         assert.equal(await HandlePlayerMatchmaking("ISLAND", "", "CR19_PlayerHunt_Arena_Elite", "core-arena"), true);
         assert.equal((await CheckAndUpdateQueueStatus("core-arena"))?.Canceled, undefined);
     } finally {
-        delete process.env.MYSTICPARADOX_GAUNTLET;
+        delete process.env.RUSTIC_ISLES_GAUNTLET;
     }
 });

@@ -25,27 +25,27 @@ export interface CodeEmail {
 
 const COPY: Record<CodeEmailPurpose, { subject: string; kicker: string; title: string; lead: string }> = {
     verify: {
-        subject: "Your Mystic Paradox code",
+        subject: "Your Rustic Isles code",
         kicker: "Email verification",
         title: "Confirm your email",
-        lead: "Enter this code in the Mystic Paradox launcher to verify your email address."
+        lead: "Enter this code in the Rustic Isles launcher to verify your email address."
     },
     reset: {
-        subject: "Your Mystic Paradox password reset code",
+        subject: "Your Rustic Isles password reset code",
         kicker: "Password reset",
         title: "Reset your password",
-        lead: "Enter this code in the Mystic Paradox launcher to choose a new password."
+        lead: "Enter this code in the Rustic Isles launcher to choose a new password."
     },
     unlink: {
-        subject: "Your Mystic Paradox code to unlink Discord",
+        subject: "Your Rustic Isles code to unlink Discord",
         kicker: "Discord unlink",
         title: "Unlink Discord",
-        lead: "Enter this code in the Mystic Paradox launcher to unlink Discord from your account."
+        lead: "Enter this code in the Rustic Isles launcher to unlink Discord from your account."
     }
 };
 
 const IGNORE: Record<CodeEmailPurpose, string> = {
-    verify: "If you didn't create a Mystic Paradox account, ignore this email. Nothing happens without this code.",
+    verify: "If you didn't create a Rustic Isles account, ignore this email. Nothing happens without this code.",
     reset: "If you didn't ask to reset your password, ignore this email. Your password stays as it is.",
     unlink: "If you didn't ask to unlink Discord, ignore this email: Discord stays linked. Someone may know your password, so consider changing it."
 };
@@ -69,11 +69,11 @@ export function RenderCodeEmail(purpose: CodeEmailPurpose, code: string, expires
     const minutes = `${expiresInMinutes} minute${expiresInMinutes === 1 ? "" : "s"}`;
     const expiry = `This code expires in ${minutes} and works only once.`;
     const ignore = IGNORE[purpose];
-    const footer = "Mystic Paradox is a community-run, open-source Dauntless server. It is not affiliated with Phoenix Labs.";
+    const footer = "Rustic Isles is a community-run, open-source Dauntless server. It is not affiliated with Phoenix Labs.";
 
     const subject = `${copy.subject}: ${code}`;
     const text = [
-        "MYSTIC PARADOX",
+        "RUSTIC ISLES",
         "",
         copy.title,
         "",
@@ -107,7 +107,7 @@ export function RenderCodeEmail(purpose: CodeEmailPurpose, code: string, expires
         <tr>
           <td align="center" style="padding:0 0 28px 0;">
             <div style="font-family:${FONT_DISPLAY};font-size:30px;line-height:30px;color:#8cc6ff;">&#10022;</div>
-            <div style="padding-top:12px;font-family:${FONT_DISPLAY};font-size:19px;line-height:24px;letter-spacing:5px;color:#eef3fb;">MYSTIC PARADOX</div>
+            <div style="padding-top:12px;font-family:${FONT_DISPLAY};font-size:19px;line-height:24px;letter-spacing:5px;color:#eef3fb;">RUSTIC ISLES</div>
             <div style="padding-top:6px;font-family:${FONT_BODY};font-size:10px;line-height:14px;letter-spacing:4px;color:#8191a8;">DAUNTLESS SERVER</div>
           </td>
         </tr>

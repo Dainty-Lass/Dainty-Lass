@@ -48,7 +48,7 @@ npm run platinum:generate                               # from the catalog and s
 
 The `generate:*` scripts preview without `--apply`; the others write directly. `npm run
 inventory:storage-policy:generate` rebuilds the storage policy alone (from the catalog, for every item
-the code and the game data reference). Set `MYSTICPARADOX_CATALOG_PATH` to read another catalog.
+the code and the game data reference). Set `RUSTIC_ISLES_CATALOG_PATH` to read another catalog.
 
 ## Fountain daily bundle (optional, hand-written)
 

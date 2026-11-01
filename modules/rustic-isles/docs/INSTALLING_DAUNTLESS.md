@@ -1,6 +1,6 @@
 # Installing Dauntless 1.14.7
 
-Mystic Paradox needs the Windows client of Dauntless 1.14.7 (`rel-1.14.7-Archon`, changelist `647472`).
+Rustic Isles needs the Windows client of Dauntless 1.14.7 (`rel-1.14.7-Archon`, changelist `647472`).
 The project does not host, mirror or distribute any game files. This guide downloads the build from Epic's own
 servers to your PC with **your own Epic account**, using the open-source launcher
 [Legendary](https://github.com/legendary-gl/legendary).
@@ -11,20 +11,20 @@ servers to your PC with **your own Epic account**, using the open-source launche
 > help, and the project cannot provide the game.
 
 > [!NOTE]
-> Legendary is an external, third-party tool. It is not made, maintained or reviewed by Mystic Paradox, and this
+> Legendary is an external, third-party tool. It is not made, maintained or reviewed by Rustic Isles, and this
 > guide uses it only as one example. Any similar tool that can install an Epic build from a manifest works too, as
 > long as it uses the manifest from this guide and the result passes the checks in [step 5](#5-check-the-result).
-> Mystic Paradox takes no responsibility for Legendary or any other third-party tool, for how it handles your
+> Rustic Isles takes no responsibility for Legendary or any other third-party tool, for how it handles your
 > files or your Epic account, or for the results of using it. You use these tools at your own risk.
 
 ## Why not just press Install?
 
 Epic still lists Dauntless for accounts that own it, but the build it serves today is **2.1.1** (Awakening).
-The Epic Games Launcher, Heroic and a plain `legendary install` all download 2.1.1, which Mystic Paradox does not
+The Epic Games Launcher, Heroic and a plain `legendary install` all download 2.1.1, which Rustic Isles does not
 support. To get 1.14.7 you give Legendary that build's *manifest*: a small file (about 1 MB) listing the pieces of
 the game that Epic's servers should send. Epic only hands out the manifest for its current build. The 1.14.7
 manifest was preserved by the community
-[Dauntless Manifest Archive](https://github.com/addison2k/DauntlessManifestArchive); Mystic Paradox serves a
+[Dauntless Manifest Archive](https://github.com/addison2k/DauntlessManifestArchive); Rustic Isles serves a
 checked copy of it. The manifest contains no game content, and the game itself still comes from Epic.
 
 ## What you need
@@ -112,12 +112,12 @@ Then confirm that the game executable is the supported one:
 | Number of game files | 611 |
 | 1.14.7 manifest, SHA-1 | `aa70748e4c0a776a991f2bac10ad342adaa31476` |
 
-## 6. Point the Mystic Paradox launcher at it
+## 6. Point the Rustic Isles launcher at it
 
 In the launcher, select **Locate game** and choose the `Dauntless` folder from step 4, for example
 `D:\Games\Dauntless`. The launcher finds `Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe` and checks its hash.
 
-Always start the game from the Mystic Paradox launcher, not from Legendary, Heroic or the Epic Games Launcher.
+Always start the game from the Rustic Isles launcher, not from Legendary, Heroic or the Epic Games Launcher.
 
 ## Keep it on 1.14.7
 
@@ -181,13 +181,13 @@ To remove the Epic session that Legendary saved:
 
     .\legendary.exe auth --delete
 
-The installed game keeps working with the Mystic Paradox launcher without it. Repairs need you to sign in again.
+The installed game keeps working with the Rustic Isles launcher without it. Repairs need you to sign in again.
 
 ## Credits
 
 The 1.14.7 and 1.12.0 manifests were preserved by the
 [Dauntless Manifest Archive](https://github.com/addison2k/DauntlessManifestArchive) (contributed by Moyka009 and
 zgh95). [Legendary](https://github.com/legendary-gl/legendary) is an independent open-source Epic Games
-launcher. Neither is affiliated with Mystic Paradox, and Mystic Paradox is not affiliated with Epic Games,
+launcher. Neither is affiliated with Rustic Isles, and Rustic Isles is not affiliated with Epic Games,
 Phoenix Labs, Forte Labs or any current or former Dauntless rights holder. Third-party tools are used at your own
 risk; see the note at the top of this guide.

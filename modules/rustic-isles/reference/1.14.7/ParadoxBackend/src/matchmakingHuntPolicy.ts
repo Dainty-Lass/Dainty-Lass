@@ -7,15 +7,15 @@
  */
 
 // [2026-10-14] Gauntlet is not enabled or tested yet (owner decision). A request for a Gauntlet hunt is cancelled with
-// GAUNTLET_DISABLED before any route sees it: a realm's hunt, a player-hosted hunt or a dedicated server. MYSTICPARADOX_GAUNTLET=on
+// GAUNTLET_DISABLED before any route sees it: a realm's hunt, a player-hosted hunt or a dedicated server. RUSTIC_ISLES_GAUNTLET=on
 // lifts the refusal; the switch is read on every request. Gauntlet leaderboard and information GET routes are not refused.
 // Core code: it must not import the P2P module (the public build has none), so the shared matchmaker and the P2P routes both use it.
 
 export const GAUNTLET_DISABLED_REASON = "GAUNTLET_DISABLED";
 
-/** MYSTICPARADOX_GAUNTLET=on enables Gauntlet matchmaking. Any other value, including unset, keeps it refused. */
+/** RUSTIC_ISLES_GAUNTLET=on enables Gauntlet matchmaking. Any other value, including unset, keeps it refused. */
 export function GauntletMatchmakingEnabled(environment: NodeJS.ProcessEnv = process.env): boolean {
-    return (environment.MYSTICPARADOX_GAUNTLET ?? "").trim().toLowerCase() === "on";
+    return (environment.RUSTIC_ISLES_GAUNTLET ?? "").trim().toLowerCase() === "on";
 }
 
 /**

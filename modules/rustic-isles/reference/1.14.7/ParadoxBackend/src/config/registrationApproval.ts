@@ -8,13 +8,13 @@
 
 import { logger } from "../logger";
 
-// [2026-10-14] MYSTICPARADOX_REGISTRATION_APPROVAL=required|off decides what a newly registered launcher account starts with, on every
+// [2026-10-14] RUSTIC_ISLES_REGISTRATION_APPROVAL=required|off decides what a newly registered launcher account starts with, on every
 // persistence provider (MongoDB and SQLite, launcher sign-up and Discord sign-up alike). off (the default, and blank) approves the account
 // at once; required keeps it pending until an operator approves it. An unrecognised value fails closed to required, with a warning.
-// The earlier MYSTICPARADOX_REGISTRATION_AUTO_APPROVE switch (sqlite only) is replaced: it is read only to warn that it has no effect.
+// The earlier RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE switch (sqlite only) is replaced: it is read only to warn that it has no effect.
 
-export const REGISTRATION_APPROVAL_ENV = "MYSTICPARADOX_REGISTRATION_APPROVAL";
-export const LEGACY_REGISTRATION_AUTO_APPROVE_ENV = "MYSTICPARADOX_REGISTRATION_AUTO_APPROVE";
+export const REGISTRATION_APPROVAL_ENV = "RUSTIC_ISLES_REGISTRATION_APPROVAL";
+export const LEGACY_REGISTRATION_AUTO_APPROVE_ENV = "RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE";
 
 export type RegistrationApprovalMode = "required" | "off";
 

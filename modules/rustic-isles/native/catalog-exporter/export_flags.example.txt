@@ -2,7 +2,7 @@
 # See ExportFlags.md for full details and docs/GENERATING_GAME_DATA.md for what the services need.
 #
 # The flags file and the output folder are <root>\native\catalog-exporter\export_flags.txt and
-# <root>\Items_Analysis when ExportPaths.local.h defines MYSTICPARADOX_EXPORT_ROOT, otherwise
+# <root>\Items_Analysis when ExportPaths.local.h defines RUSTIC_ISLES_EXPORT_ROOT, otherwise
 # .\export_flags.txt and .\Items_Analysis relative to the injected game's working directory.
 # The generators read <repository>\Items_Analysis. A 1.14.7 build names its files *_1_14_7.
 #

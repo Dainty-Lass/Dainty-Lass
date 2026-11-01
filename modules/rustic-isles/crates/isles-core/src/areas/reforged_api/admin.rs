@@ -1,5 +1,5 @@
 //! The admin API (`routes/admin.ts`, `controllers/admin.ts`, `middleware/HasAdminAuth.ts`): a cookie session with a
-//! CSRF token for the dashboard, the players and their access, the audit. Mounted only with `MYSTICPARADOX_ADMIN_API`
+//! CSRF token for the dashboard, the players and their access, the audit. Mounted only with `RUSTIC_ISLES_ADMIN_API`
 //! on; with it off the pipeline answers 404 before any of this (app.ts).
 //!
 //! Not here yet: the manager's signed operator credential (`security/managerOperator.ts`, Mystic's own manager) and
@@ -24,7 +24,9 @@ use crate::repo::reforged::{AdminAuditRecord, AdminSessionRecord};
 use crate::repo::{RepoError, RepoResult};
 use crate::routes::{Method, Params, Service};
 
-pub const ADMIN_COOKIE_NAME: &str = "mysticparadox_admin";
+pub const ADMIN_COOKIE_NAME: &str = "rustic_isles_admin";
+/// Set before the rename and still read for one release (crate::legacy)
+pub const LEGACY_ADMIN_COOKIE_NAME: &str = "mysticparadox_admin";
 const SESSION_TTL_MS: i64 = 8 * 60 * 60 * 1000;
 const BODY_LIMIT: usize = 100 * 1024;
 pub const ASSIGNABLE_ROLES: [&str; 1] = ["tester"];
@@ -149,6 +151,14 @@ fn read_cookie(header: Option<&str>, name: &str) -> Result<Option<String>, ()> {
     Ok(None)
 }
 
+/// `name`, else the cookie `legacy` names.
+fn read_cookie_or_legacy(header: Option<&str>, name: &str, legacy: &str) -> Result<Option<String>, ()> {
+    match read_cookie(header, name)? {
+        Some(value) => Ok(Some(value)),
+        None => read_cookie(header, legacy),
+    }
+}
+
 /// `HasAdminAuth`'s cookie path.
 async fn has_admin_auth(store: &IslesStore, req: &Req) -> Result<AdminCaller, Response> {
     has_admin_auth_parts(store, &req.method, req.header("cookie"), req.header("x-csrf-token")).await
@@ -160,7 +170,7 @@ async fn has_admin_auth_parts(
     cookie_header: Option<&str>,
     csrf_header: Option<&str>,
 ) -> Result<AdminCaller, Response> {
-    let raw = match read_cookie(cookie_header, ADMIN_COOKIE_NAME) {
+    let raw = match read_cookie_or_legacy(cookie_header, ADMIN_COOKIE_NAME, LEGACY_ADMIN_COOKIE_NAME) {
         Ok(Some(raw)) if !raw.is_empty() => raw,
         Ok(_) => return Err(error(401, "ADMIN_UNAUTHORIZED", "Administrator sign-in required.")),
         Err(()) => {
@@ -1178,13 +1188,13 @@ mod tests {
     #[test]
     fn cookies_are_read_and_decoded() {
         assert_eq!(
-            read_cookie(Some("a=1; mysticparadox_admin=ab%20c=d; b=2"), ADMIN_COOKIE_NAME),
+            read_cookie(Some("a=1; rustic_isles_admin=ab%20c=d; b=2"), ADMIN_COOKIE_NAME),
             Ok(Some("ab c=d".into()))
         );
         assert_eq!(read_cookie(Some("a=1"), ADMIN_COOKIE_NAME), Ok(None));
         assert_eq!(read_cookie(None, ADMIN_COOKIE_NAME), Ok(None));
         assert_eq!(
-            read_cookie(Some("mysticparadox_admin=%E0%A4%A"), ADMIN_COOKIE_NAME),
+            read_cookie(Some("rustic_isles_admin=%E0%A4%A"), ADMIN_COOKIE_NAME),
             Err(())
         );
     }

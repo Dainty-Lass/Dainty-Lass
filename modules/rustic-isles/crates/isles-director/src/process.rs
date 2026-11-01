@@ -154,10 +154,14 @@ pub struct Spawned {
     pub log: mpsc::UnboundedSender<Vec<u8>>,
 }
 
-/// `MYSTICPARADOX_GAMESERVER_READY launchId=<id> port=<port>`, which the runtime prints only after
-/// Listen succeeded: `Some(true)` for this launch, `Some(false)` for another one's.
+/// `RUSTIC_ISLES_GAMESERVER_READY launchId=<id> port=<port>`, which the runtime prints only after
+/// Listen succeeded: `Some(true)` for this launch, `Some(false)` for another one's. A runtime from before the rename
+/// prints `MYSTICPARADOX_GAMESERVER_READY` (isles_core::legacy).
 pub fn readiness(line: &str, launch_id: &str, port: u16) -> Option<bool> {
-    let rest = service_kit::js::trim(line).strip_prefix("MYSTICPARADOX_GAMESERVER_READY launchId=")?;
+    let line = service_kit::js::trim(line);
+    let rest = line
+        .strip_prefix("RUSTIC_ISLES_GAMESERVER_READY launchId=")
+        .or_else(|| line.strip_prefix("MYSTICPARADOX_GAMESERVER_READY launchId="))?;
     let (id, rest) = rest.split_once(" port=")?;
     if id.is_empty() || !id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f' | b'-')) {
         return None;

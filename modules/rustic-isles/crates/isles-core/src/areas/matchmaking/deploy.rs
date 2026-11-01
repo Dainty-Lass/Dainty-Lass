@@ -24,7 +24,7 @@ pub struct LaunchRequest {
     pub game_args: Option<String>,
     pub hunt_id: String,
     pub expected_players: Vec<String>,
-    /// Forwarded as `x-mysticparadox-request-id`
+    /// Forwarded as `x-rustic-isles-request-id`
     pub request_id: Option<String>,
 }
 

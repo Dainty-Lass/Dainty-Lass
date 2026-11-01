@@ -68,7 +68,7 @@ test("rejects names of the wrong size, alphabet or hyphen placement", () => {
 });
 
 test("refuses reserved names in any case and with hyphens inside them", () => {
-    for (const name of ["official", "OFFICIAL", "paradox", "mysticparadox", "mystic-paradox", "o-fficial", "ad-min", "support", "mod", "admin"]) {
+    for (const name of ["official", "OFFICIAL", "paradox", "rusticisles", "rustic-isles", "o-fficial", "ad-min", "support", "mod", "admin"]) {
         assert.deepEqual(ValidateRealmName(name), { ok: false, reason: "RESERVED" }, name);
     }
     assert.equal(IsReservedRealmName("my-official"), false);
@@ -79,7 +79,7 @@ test("every reserved name is itself well-formed, so the list can never hide behi
     for (const name of RESERVED_REALM_NAMES) {
         assert.ok(/^[a-z0-9]{3,24}$/.test(name), name);
     }
-    for (const required of ["official", "paradox", "mysticparadox", "admin", "support", "mod"]) {
+    for (const required of ["official", "paradox", "rusticisles", "mysticparadox", "admin", "support", "mod"]) {
         assert.ok(RESERVED_REALM_NAMES.includes(required), required);
     }
 });

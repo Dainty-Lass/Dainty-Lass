@@ -9,22 +9,22 @@
 // [2026-10-15] The SMTP settings of the one-time code mail (email verification and password reset). The owner sends through Mailgun
 // over SMTP; the login is entered in the manager's env editor and is never printed or logged. A problem names its key only.
 
-export const SMTP_HOST_ENV = "MYSTICPARADOX_SMTP_HOST";
-export const SMTP_PORT_ENV = "MYSTICPARADOX_SMTP_PORT";
-export const SMTP_SECURE_ENV = "MYSTICPARADOX_SMTP_SECURE";
-export const SMTP_USER_ENV = "MYSTICPARADOX_SMTP_USER";
-export const SMTP_PASSWORD_ENV = "MYSTICPARADOX_SMTP_PASSWORD";
-export const MAIL_FROM_ENV = "MYSTICPARADOX_MAIL_FROM";
-export const MAIL_FROM_DEFAULT = "Mystic Paradox <no-reply@mysticfox.dev>";
+export const SMTP_HOST_ENV = "RUSTIC_ISLES_SMTP_HOST";
+export const SMTP_PORT_ENV = "RUSTIC_ISLES_SMTP_PORT";
+export const SMTP_SECURE_ENV = "RUSTIC_ISLES_SMTP_SECURE";
+export const SMTP_USER_ENV = "RUSTIC_ISLES_SMTP_USER";
+export const SMTP_PASSWORD_ENV = "RUSTIC_ISLES_SMTP_PASSWORD";
+export const MAIL_FROM_ENV = "RUSTIC_ISLES_MAIL_FROM";
+export const MAIL_FROM_DEFAULT = "Rustic Isles <no-reply@mysticfox.dev>";
 
 export interface SmtpSettings {
     host: string;
     port: number;
-    /** true: TLS from the first byte (port 465, MYSTICPARADOX_SMTP_SECURE=tls). false: STARTTLS, which is required (port 587). */
+    /** true: TLS from the first byte (port 465, RUSTIC_ISLES_SMTP_SECURE=tls). false: STARTTLS, which is required (port 587). */
     implicitTls: boolean;
     user: string;
     password: string;
-    /** The From header, for example `Mystic Paradox <no-reply@mysticfox.dev>`. */
+    /** The From header, for example `Rustic Isles <no-reply@mysticfox.dev>`. */
     from: string;
 }
 
@@ -38,7 +38,7 @@ function Trimmed(environment: NodeJS.ProcessEnv, key: string): string {
 
 /**
  * Pure: the SMTP settings from the environment, or the keys that are missing or invalid (key names only, never values). Blank
- * counts as missing. The port defaults to 587 and MYSTICPARADOX_SMTP_SECURE to starttls. An unknown secure value is a problem:
+ * counts as missing. The port defaults to 587 and RUSTIC_ISLES_SMTP_SECURE to starttls. An unknown secure value is a problem:
  * the code mail must never fall back to a mode the owner did not choose.
  */
 export function ReadSmtpSettings(environment: NodeJS.ProcessEnv = process.env): SmtpReading {

@@ -14,7 +14,7 @@ import type { ActivityFlagRecord, ActivityFlagStatus, ActivityHuntRecord, Slayer
 import { logger } from "../logger";
 
 // [2026-10-14] Read endpoints of the activity monitor for the admin dashboard (mounted behind HasAdminAuth in routes/admin.ts), plus
-// the one write: acknowledging a review flag (audited). The reads answer with what exists even when MYSTICPARADOX_ACTIVITY_MONITOR is
+// the one write: acknowledging a review flag (audited). The reads answer with what exists even when RUSTIC_ISLES_ACTIVITY_MONITOR is
 // off (monitorEnabled says which). Ranges are UTC days, inclusive, at most ACTIVITY_RETENTION_DAYS long.
 
 const DAY_MS = 24 * 60 * 60 * 1000;

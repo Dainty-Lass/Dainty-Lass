@@ -12,7 +12,7 @@ import test, { before } from "node:test";
 // [2026-10-15] No DeployServer (DEPLOYSERVER_URL unset, as on the VPS): the matchmaker asks for no dedicated hub or hunt, reports the hubs
 // as unavailable, and cancels what needs a dedicated server with NO_DEDICATED_SERVERS. The module constants are read at import, so the
 // environment is set first (as matchmakingLeave.test.ts does), with the P2P module off so only the dedicated path is in play.
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 process.env.MATCHMAKING_MODE = "DEPLOYSERVER";
 delete process.env.DEPLOYSERVER_URL;
 

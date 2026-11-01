@@ -205,7 +205,7 @@ export async function AcknowledgeOperationsAlert(req: Request, res: Response): P
             message: "The alert is missing or has already been acknowledged." } });
         return;
     }
-    IncrementMetric("mysticparadox_operations_alerts_acknowledged_total", 1, { code: "OPERATIONS_ALERT" });
+    IncrementMetric("rustic_isles_operations_alerts_acknowledged_total", 1, { code: "OPERATIONS_ALERT" });
     res.json({ alertId, status: "ACKNOWLEDGED", acknowledgedAt, requestId });
 }
 

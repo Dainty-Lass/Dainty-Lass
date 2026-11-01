@@ -30,9 +30,9 @@ check needs Node 22 and nothing installed; DX3 runs it in CI.
 - **Side**: `rifts` for `p2p/`, `realms/` and Guard (DD14), `isles` for the rest.
 - **Group**: one of RU5's nine area groups or the Director for isles rows, the source area (`p2p`, `realms`,
   `guard`) for rifts rows. The judgement calls are listed under [Groups](#groups).
-- **When**: mounted only with `admin` (`MYSTICPARADOX_ADMIN_API` on, or the manager bridge; otherwise every `/admin`
+- **When**: mounted only with `admin` (`RUSTIC_ISLES_ADMIN_API` on, or the manager bridge; otherwise every `/admin`
   path answers 404 before any router), `p2p` (the optional module in `src/p2p` is present and
-  `MYSTICPARADOX_P2P_MODULE` isn't off) or `realms` (`MYSTICPARADOX_REALMS_MODULE` on).
+  `RUSTIC_ISLES_P2P_MODULE` isn't off) or `realms` (`RUSTIC_ISLES_REALMS_MODULE` on).
 - **Middleware** is what the route itself lists, plus `(router)` for a router-level hook that runs first:
   `launcher CORS` (`launcherAuth.ts`: 403 for an origin outside `LAUNCHER_ALLOWED_ORIGINS`, 204 for `OPTIONS`),
   `admin CORS` (`admin.ts`, `/admin/v1`: the same with the admin origins, plus `no-store` and a CSP), `P2P JSON
@@ -55,12 +55,12 @@ which logs `Unstubbed route` and answers 404.
 2. The `/__origin/<host>/` strip: the runtime's `SetURL` hook prefixes the official host to the path; the prefix is
    removed, the host checked against `steelyard.ca`, `steelyard.online`, `ol.epicgames.com` and `api.epicgames.dev`
    (400 otherwise) and kept as `req.originHost`. The gauntlet routes branch on it.
-3. `MYSTICPARADOX_LOG_ORIGIN_BODIES=1` only: logs the bodies served to `/__origin` requests.
+3. `RUSTIC_ISLES_LOG_ORIGIN_BODIES=1` only: logs the bodies served to `/__origin` requests.
 4. The request log and HTTP metrics (the `/mystic/v1/hunts/:id/lease` and `event-batches` lines only when refused).
 5. The request budget on `/mystic/v1/hunts`, then the p2p module's early routes (`p2p`): the host-route census
-   (`MYSTICPARADOX_HOST_ROUTE_CENSUS`) and `p2pHuntsRouter`, ahead of the shared body parsers.
+   (`RUSTIC_ISLES_HOST_ROUTE_CENSUS`) and `p2pHuntsRouter`, ahead of the shared body parsers.
 6. `express.json()` (keeping the raw bytes of `/admin/v1` bodies for the manager operator signature),
-   `express.urlencoded()`, and the `MYSTICPARADOX_BODY_CAPTURE` log.
+   `express.urlencoded()`, and the `RUSTIC_ISLES_BODY_CAPTURE` log.
 7. `/`, `/health/live`, `/health/ready` and, with the admin API, `/health/release-gates` (loopback peers only): outside
    the request budget.
 8. The request budget for everything below (429).
@@ -72,14 +72,14 @@ which logs `Unstubbed route` and answers 404.
 12. The 404 fallthrough, then the p2p module's body error handler.
 
 Auth middleware, for reading the Middleware column: `HasParadoxBackendAuth` (the game's bearer token or a game
-server's `x-mysticparadox-gameserver-apikey`, 401/403), `HasLauncherAuth` (the launcher's access token, `LE`),
+server's `x-rustic-isles-gameserver-apikey`, 401/403), `HasLauncherAuth` (the launcher's access token, `LE`),
 `RequireActiveAccount` (an account that isn't deactivated; `(consent)` also needs the current consent),
 `RequireHostCapability(...)` (a player host's capability token for that operation, p2p), `HasAdminAuth` (the admin
 dashboard's cookie session with its CSRF token, or the manager's signed operator headers when that bridge is on),
 `HostOnly` (`reforgedApi.ts`: `REFORGED_ADMIN_KEY` from a loopback peer, nothing forwarded, 403), `requireSyncToken`
 (`LAUNCHER_LOG_SYNC_TOKEN` in `x-sync-token`, 401). Routes with no auth middleware answer anyone who reaches the listener;
 several check a header inside the handler (`/reforged/api/*` reads the account key, the update publisher routes
-`UPDATE_PUBLISHER_API_KEY`, `/internal/v1/metrics` `MYSTICPARADOX_METRICS_TOKEN`, or a loopback peer outside
+`UPDATE_PUBLISHER_API_KEY`, `/internal/v1/metrics` `RUSTIC_ISLES_METRICS_TOKEN`, or a loopback peer outside
 production).
 
 ## Backend routes
@@ -481,7 +481,7 @@ HTTP surface in its interface, so it adds no route.
 | Service | Listener | Where | Side | Group | Notes |
 | --- | --- | --- | --- | --- | --- |
 | backend | HTTP, `PORT` (3000), every interface unless `BIND_HOST` | `reference/1.14.7/ParadoxBackend/src/server.ts` | | | The Express app. The Director and the game servers call it here, over plain HTTP with their API keys |
-| backend | HTTPS, `HTTPS_PORT` (3443) | `reference/1.14.7/ParadoxBackend/src/server.ts` | | | The same app with the `paradox` certificate (`PARADOX_CERT_PEM_PATH`, `PARADOX_KEY_PEM_PATH`, `PARADOX_KEY_PASSPHRASE`); not opened when `MYSTICPARADOX_TLS_TERMINATED_BY_PROXY=on` |
+| backend | HTTPS, `HTTPS_PORT` (3443) | `reference/1.14.7/ParadoxBackend/src/server.ts` | | | The same app with the `paradox` certificate (`PARADOX_CERT_PEM_PATH`, `PARADOX_KEY_PEM_PATH`, `PARADOX_KEY_PASSPHRASE`); not opened when `RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY=on` |
 | backend | XMPP over WebSocket, upgrade on the HTTPS listener (on the HTTP one behind a proxy) | `reference/1.14.7/ParadoxBackend/src/realtime/RealtimeGateway.ts`, `realtime/index.ts` | isles | chat | Only with `REALTIME_XMPP_ENABLED=true` (503 otherwise). Paths `//`, `/` and `/__ws/xmpp` (`REALTIME_WS_PATHS`; `REALTIME_XMPP_WS_PATHS` replaces them; 404 for any other), subprotocol `xmpp` echoed when offered. 403 for a host outside `REALTIME_XMPP_ALLOWED_HOSTS`, 503 at the global connection cap, 429 at the per-IP cap or after failed auth |
 | backend | HTTP, `QOS_PORT` (80; `off` for none) | `reference/1.14.7/ParadoxBackend/src/server.ts` | isles | matchmaking-parties | Answers every method and path `200 <!DOCTYPE html><html><body>pong</body></html>`: the client's region ping for each `/candidate/regions` URL. A bind failure is logged and leaves readiness alone |
 | director | HTTP, `PORT`, `BIND_HOST` (127.0.0.1) | `reference/1.14.7/ParadoxDirector/src/server.ts` | | | The Express app above |

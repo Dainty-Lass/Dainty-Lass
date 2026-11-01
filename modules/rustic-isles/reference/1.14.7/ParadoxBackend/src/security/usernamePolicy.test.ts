@@ -41,7 +41,7 @@ test("[2026-10-16] format: letters and digits, 3-16 characters, at least one let
 
 test("[2026-10-16] staff and project names are reserved anywhere in a name; short reserved words only as the whole name", () => {
     for (const name of ["Admin", "AdminBob", "TheAdmin7", "Moderator", "ModeratorX", "TheOwner", "Owner1", "StaffFox", "Support",
-        "FoxSupport", "Official", "Developer", "GameMaster", "MysticParadox", "MysticFox", "MysticFox2", "PhoenixLabs",
+        "FoxSupport", "Official", "Developer", "GameMaster", "RusticIsles", "MysticParadox", "MysticFox", "MysticFox2", "PhoenixLabs",
         "Mod", "mod7", "Dev", "GM", "Root", "Paradox", "Paradox99", "Dauntless", "Player1", "Host", "Guest", "Null"]) {
         assert.equal(Refusal(name), USERNAME_RESERVED_MESSAGE, name);
     }
@@ -66,8 +66,8 @@ test("[2026-10-16] ordinary names that only contain such letters pass (the Scunt
     }
 });
 
-test("[2026-10-16] the operator's MYSTICPARADOX_USERNAME_BLOCKLIST adds terms (case-insensitive); malformed entries are ignored", () => {
-    const env = { MYSTICPARADOX_USERNAME_BLOCKLIST: "Grief, toxic  b@d x" };
+test("[2026-10-16] the operator's RUSTIC_ISLES_USERNAME_BLOCKLIST adds terms (case-insensitive); malformed entries are ignored", () => {
+    const env = { RUSTIC_ISLES_USERNAME_BLOCKLIST: "Grief, toxic  b@d x" };
     assert.equal(Refusal("GriefLord", env), USERNAME_NOT_ALLOWED_MESSAGE);
     assert.equal(Refusal("ToXiCfox", env), USERNAME_NOT_ALLOWED_MESSAGE);
     assert.equal(Refusal("Toxic7", env), USERNAME_NOT_ALLOWED_MESSAGE);

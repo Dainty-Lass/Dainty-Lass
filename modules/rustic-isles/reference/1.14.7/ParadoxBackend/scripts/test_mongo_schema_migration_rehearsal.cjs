@@ -12,7 +12,7 @@
  *   $env:ALLOW_DB_INTEGRATION_TESTS="true"
  *   $env:MONGODB_URI="mongodb://127.0.0.1:27017/?replicaSet=guard"
  *   $env:MONGODB_DB="mystpax"
- *   $env:MONGODB_TEST_DB="mysticparadox_guard_migration_it_20260911"
+ *   $env:MONGODB_TEST_DB="rustic_isles_guard_migration_it_20260911"
  *   node scripts/test_mongo_schema_migration_rehearsal.cjs
  */
 
@@ -23,7 +23,7 @@ const { MongoClient } = require("mongodb");
 const MAIN_DB = String(process.env.MONGODB_DB || "mystpax").trim();
 const TEST_DB = String(process.env.MONGODB_TEST_DB || "").trim();
 const URI = String(process.env.MONGODB_URI || "").trim();
-const SAFE_TEST_DB = /^mysticparadox_guard_migration_it_[a-z0-9_-]{8,63}$/u;
+const SAFE_TEST_DB = /^rustic_isles_guard_migration_it_[a-z0-9_-]{8,63}$/u;
 
 function refuse(message) {
     console.error(`NOT RUN: ${message}`);
@@ -45,7 +45,7 @@ async function main() {
         return;
     }
     if (!SAFE_TEST_DB.test(TEST_DB)) {
-        refuse("MONGODB_TEST_DB must match mysticparadox_guard_migration_it_<run-id>");
+        refuse("MONGODB_TEST_DB must match rustic_isles_guard_migration_it_<run-id>");
         return;
     }
     if (TEST_DB === MAIN_DB) {
@@ -68,7 +68,7 @@ async function main() {
     } = require("../build/persistence/mongo/schemaMigrations.js");
 
     const client = new MongoClient(URI, {
-        appName: "mysticparadox-central-guard-migration-rehearsal",
+        appName: "rustic-isles-central-guard-migration-rehearsal",
         serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS || 5000),
         retryWrites: true,
     });

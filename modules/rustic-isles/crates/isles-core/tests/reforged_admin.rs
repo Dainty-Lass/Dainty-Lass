@@ -23,7 +23,7 @@ use serde_json::{Value, json};
 /// The credentials are process-wide, so the tests that set them take turns.
 static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-const COOKIE: &str = "mysticparadox_admin=raw-session-token";
+const COOKIE: &str = "rustic_isles_admin=raw-session-token";
 const CSRF: &str = "csrf-token-1";
 
 struct Rig {
@@ -105,7 +105,7 @@ async fn rig(routes: RouteSet, extra: &[(&str, &str)]) -> Rig {
         })
         .await
         .unwrap();
-    let mut pairs = vec![("MYSTICPARADOX_ADMIN_API", "on")];
+    let mut pairs = vec![("RUSTIC_ISLES_ADMIN_API", "on")];
     pairs.extend_from_slice(extra);
     let address = serve(shared(routes, &pairs, Some(opened.clone()))).await;
     Rig {
@@ -143,13 +143,21 @@ async fn the_session_cookie_and_the_csrf_token_gate_every_route() {
         none.text(),
         r#"{"error":{"code":"ADMIN_UNAUTHORIZED","message":"Administrator sign-in required."}}"#
     );
-    let unknown = get(r.address, "/admin/v1/me", &[("cookie", "mysticparadox_admin=nope")]).await;
+    let unknown = get(r.address, "/admin/v1/me", &[("cookie", "rustic_isles_admin=nope")]).await;
     assert_eq!(unknown.json()["error"]["message"], "Administrator session expired.");
-    let broken = get(r.address, "/admin/v1/me", &[("cookie", "mysticparadox_admin=%E0%A4%A")]).await;
+    let broken = get(r.address, "/admin/v1/me", &[("cookie", "rustic_isles_admin=%E0%A4%A")]).await;
     assert_eq!(broken.status, 500);
 
     let me = get(r.address, "/admin/v1/me", &[("cookie", COOKIE)]).await;
     assert_eq!(me.status, 200);
+    // A session cookie set before the rename still signs in for one release
+    let legacy = COOKIE.replace("rustic_isles_admin=", "mysticparadox_admin=");
+    assert_eq!(
+        get(r.address, "/admin/v1/me", &[("cookie", legacy.as_str())])
+            .await
+            .status,
+        200
+    );
     assert_eq!(me.header("cache-control"), Some("no-store"));
     assert_eq!(
         me.header("content-security-policy"),
@@ -351,7 +359,7 @@ async fn signing_in_makes_a_session_and_signing_out_ends_it() {
     let ok = login(r#"{"email":" BOSS@example.test ","password":"right"}"#).await;
     assert_eq!(ok.status, 200);
     let cookie = ok.header("set-cookie").unwrap().to_owned();
-    assert!(cookie.starts_with("mysticparadox_admin="), "{cookie}");
+    assert!(cookie.starts_with("rustic_isles_admin="), "{cookie}");
     assert!(
         cookie.ends_with("; Path=/admin/v1; HttpOnly; SameSite=Strict; Max-Age=28800"),
         "{cookie}"
@@ -378,7 +386,7 @@ async fn signing_in_makes_a_session_and_signing_out_ends_it() {
     assert_eq!((out.status, out.text().as_str()), (200, "{}"));
     assert_eq!(
         out.header("set-cookie"),
-        Some("mysticparadox_admin=; Path=/admin/v1; HttpOnly; SameSite=Strict; Max-Age=0")
+        Some("rustic_isles_admin=; Path=/admin/v1; HttpOnly; SameSite=Strict; Max-Age=0")
     );
     assert_eq!(
         get(r.address, "/admin/v1/me", &[("cookie", pair.as_str())])
@@ -796,7 +804,7 @@ async fn the_launcher_notices_are_saved_by_version() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_admin_api_switched_off_is_a_404() {
-    let off = rig(RouteSet::V1147, &[("MYSTICPARADOX_ADMIN_API", "off")]).await;
+    let off = rig(RouteSet::V1147, &[("RUSTIC_ISLES_ADMIN_API", "off")]).await;
     assert_eq!(
         get(off.address, "/admin/v1/me", &[("cookie", COOKIE)]).await.status,
         404
@@ -1352,7 +1360,7 @@ async fn discord_admin_auth_start_and_callback_enforce_config_and_pkce_binding()
     assert!(loc.contains("client_id=client-123"));
     assert!(loc.contains("code_challenge_method=S256"));
     let set_cookie = start.header("set-cookie").unwrap();
-    assert!(set_cookie.starts_with("mysticparadox_admin_oauth="));
+    assert!(set_cookie.starts_with("rustic_isles_admin_oauth="));
 
     let cb_denied = get(
         configured.address,

@@ -37,10 +37,10 @@ test("guard mode: unset is observe (ok); observe and enforce are ok; an unknown 
     const Unset = GuardModeReleaseGate({});
     assert.equal(Unset.ok, true);
     assert.equal(Unset.detail, "mode=observe (default)");
-    assert.equal(GuardModeReleaseGate({ MYSTICPARADOX_GUARD_MODE: " Observe " }).detail, "mode=observe");
-    assert.equal(GuardModeReleaseGate({ MYSTICPARADOX_GUARD_MODE: "enforce" }).detail, "mode=enforce");
-    assert.equal(GuardModeReleaseGate({ MYSTICPARADOX_GUARD_MODE: "enforce" }).ok, true);
-    const Bad = GuardModeReleaseGate({ MYSTICPARADOX_GUARD_MODE: "sometimes" });
+    assert.equal(GuardModeReleaseGate({ RUSTIC_ISLES_GUARD_MODE: " Observe " }).detail, "mode=observe");
+    assert.equal(GuardModeReleaseGate({ RUSTIC_ISLES_GUARD_MODE: "enforce" }).detail, "mode=enforce");
+    assert.equal(GuardModeReleaseGate({ RUSTIC_ISLES_GUARD_MODE: "enforce" }).ok, true);
+    const Bad = GuardModeReleaseGate({ RUSTIC_ISLES_GUARD_MODE: "sometimes" });
     assert.equal(Bad.ok, false);
     assert.equal(Bad.name, "guard_mode");
     assert.equal(Bad.detail.includes("sometimes"), false);
@@ -49,23 +49,23 @@ test("guard mode: unset is observe (ok); observe and enforce are ok; an unknown 
 test("registration approval: default off, required, and an unparseable value is not ok", () => {
     assert.equal(RegistrationApprovalReleaseGate({}).detail, "mode=off (default)");
     assert.equal(RegistrationApprovalReleaseGate({}).ok, true);
-    assert.equal(RegistrationApprovalReleaseGate({ MYSTICPARADOX_REGISTRATION_APPROVAL: "required" }).detail, "mode=required");
-    assert.equal(RegistrationApprovalReleaseGate({ MYSTICPARADOX_REGISTRATION_APPROVAL: "required" }).ok, true);
-    const Bad = RegistrationApprovalReleaseGate({ MYSTICPARADOX_REGISTRATION_APPROVAL: "maybe" });
+    assert.equal(RegistrationApprovalReleaseGate({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "required" }).detail, "mode=required");
+    assert.equal(RegistrationApprovalReleaseGate({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "required" }).ok, true);
+    const Bad = RegistrationApprovalReleaseGate({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "maybe" });
     assert.equal(Bad.ok, false);
     assert.equal(Bad.detail.includes("maybe"), false);
 });
 
 test("registration approval: the replaced legacy switch is reported but does not fail the gate", () => {
-    const Gate = RegistrationApprovalReleaseGate({ MYSTICPARADOX_REGISTRATION_AUTO_APPROVE: "true" });
+    const Gate = RegistrationApprovalReleaseGate({ RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE: "true" });
     assert.equal(Gate.ok, true);
     assert.equal(Gate.detail.includes("has no effect"), true);
 });
 
 test("tls proxy: off is ok; on with a loopback BIND_HOST is ok; on with another or no BIND_HOST is not ok", () => {
     assert.equal(TlsProxyReleaseGate({}).ok, true);
-    assert.equal(TlsProxyReleaseGate({ MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "off" }).detail, "proxy mode off (in-process HTTPS)");
-    const On = { MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "on" };
+    assert.equal(TlsProxyReleaseGate({ RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "off" }).detail, "proxy mode off (in-process HTTPS)");
+    const On = { RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "on" };
     assert.equal(TlsProxyReleaseGate({ ...On, BIND_HOST: "127.0.0.1" }).ok, true);
     assert.equal(TlsProxyReleaseGate({ ...On, BIND_HOST: "::1" }).ok, true);
     assert.equal(TlsProxyReleaseGate({ ...On, BIND_HOST: "localhost" }).ok, true);
@@ -76,15 +76,15 @@ test("tls proxy: off is ok; on with a loopback BIND_HOST is ok; on with another 
 });
 
 test("tls proxy: an invalid switch value is not ok", () => {
-    const Gate = TlsProxyReleaseGate({ MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "perhaps", BIND_HOST: "127.0.0.1" });
+    const Gate = TlsProxyReleaseGate({ RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "perhaps", BIND_HOST: "127.0.0.1" });
     assert.equal(Gate.ok, false);
     assert.equal(Gate.name, "tls_proxy_consistency");
 });
 
 test("legacy keys: none is ok; any MYSTPAX_ key name fails with the count and the names, never the values", () => {
-    assert.equal(LegacyEnvKeysReleaseGate({ MYSTICPARADOX_GUARD_MODE: "observe" }).ok, true);
+    assert.equal(LegacyEnvKeysReleaseGate({ RUSTIC_ISLES_GUARD_MODE: "observe" }).ok, true);
     const Secret = "super-secret-value-7731";
-    const Gate = LegacyEnvKeysReleaseGate({ MYSTPAX_B: Secret, MYSTPAX_A: "x", MYSTICPARADOX_X: "y" });
+    const Gate = LegacyEnvKeysReleaseGate({ MYSTPAX_B: Secret, MYSTPAX_A: "x", RUSTIC_ISLES_X: "y" });
     assert.equal(Gate.ok, false);
     assert.equal(Gate.detail, "2 MYSTPAX_ key(s): MYSTPAX_A, MYSTPAX_B");
     assert.equal(Gate.detail.includes(Secret), false);

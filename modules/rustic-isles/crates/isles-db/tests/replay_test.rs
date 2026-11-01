@@ -223,7 +223,7 @@ fn prepare_http_request_encodes_form_and_injects_replay_headers() {
         target: "/account/api/oauth/token".into(),
         route: "backend".into(),
         req_headers: serde_json::Map::from_iter([
-            ("x-mysticparadox-gameserver-apikey".into(), json!("<gskey>")),
+            ("x-rustic-isles-gameserver-apikey".into(), json!("<gskey>")),
             ("authorization".into(), json!("basic <redacted>")),
         ]),
         req_body: CaptureBody::Form(vec![
@@ -247,7 +247,7 @@ fn prepare_http_request_encodes_form_and_injects_replay_headers() {
     assert!(
         prep.headers
             .iter()
-            .any(|(k, v)| k == "x-mysticparadox-gameserver-apikey" && v == "gs-secret")
+            .any(|(k, v)| k == "x-rustic-isles-gameserver-apikey" && v == "gs-secret")
     );
     assert!(
         prep.headers
@@ -301,7 +301,7 @@ fn normalizer_classifies_status_header_value_text_and_chat_diffs() {
             ("date".into(), "Wed, 22 Oct 2026 17:00:00 GMT".into()),
             ("etag".into(), "W/\"123-abc\"".into()),
             ("x-powered-by".into(), "Express".into()),
-            ("x-mysticparadox-request-id".into(), "req-node-1".into()),
+            ("x-rustic-isles-request-id".into(), "req-node-1".into()),
             ("content-type".into(), "application/json; charset=UTF-8".into()),
             ("x-mystic-party-revision".into(), "3".into()),
         ]),
@@ -314,7 +314,7 @@ fn normalizer_classifies_status_header_value_text_and_chat_diffs() {
         headers: BTreeMap::from([
             ("date".into(), "Thu, 23 Oct 2026 18:00:00 GMT".into()),
             ("content-length".into(), "999".into()),
-            ("x-mysticparadox-request-id".into(), "req-rust-2".into()),
+            ("x-rustic-isles-request-id".into(), "req-rust-2".into()),
             ("content-type".into(), "application/json; charset=utf-8".into()),
             ("x-mystic-party-revision".into(), "3".into()),
         ]),
@@ -591,7 +591,7 @@ const TEST_TABLES_1147: VersionTables = VersionTables {
     }),
     masked_journey_nodes: &[MaskedJourneyNode {
         node: "Gauntlet_Unlock",
-        unless: "MYSTICPARADOX_GAUNTLET",
+        unless: "RUSTIC_ISLES_GAUNTLET",
     }],
     starter_manifest: StarterManifest {
         bootstrap_version: "starter-1.12-v5",
@@ -736,7 +736,7 @@ async fn build_live_1147_server() -> (
     let settings = test_key_settings(&[
         ("AUTH_MODE", "APIKEY"),
         ("GAMESERVER_API_KEYS", TEST_GS_KEY),
-        ("MYSTICPARADOX_ADMIN_API", "on"),
+        ("RUSTIC_ISLES_ADMIN_API", "on"),
     ]);
 
     // Seed player account and API key
@@ -931,7 +931,7 @@ async fn target_against_target_and_golden_node_corpus_replay_with_zero_diffs() {
         json!({
             "t": "2026-10-22T17:00:11.000Z", "kind": "http", "conn": 1, "seq": 11, "ip": "127.0.0.1",
             "method": "POST", "target": "/inventory", "route": "backend",
-            "req_headers": {"x-mysticparadox-gameserver-apikey": "<gskey>", "content-type": "application/json"},
+            "req_headers": {"x-rustic-isles-gameserver-apikey": "<gskey>", "content-type": "application/json"},
             "req_body": {"json": {
                 "accountId": TEST_USER_ID,
                 "characterId": placeholder_char_id,
@@ -953,7 +953,7 @@ async fn target_against_target_and_golden_node_corpus_replay_with_zero_diffs() {
         json!({
             "t": "2026-10-22T17:00:13.000Z", "kind": "http", "conn": 1, "seq": 13, "ip": "127.0.0.1",
             "method": "POST", "target": format!("/progression/{TEST_USER_ID}/ExperienceTrack_Weapon_Axe/150"), "route": "backend",
-            "req_headers": {"x-mysticparadox-gameserver-apikey": "<gskey>", "content-type": "application/json"},
+            "req_headers": {"x-rustic-isles-gameserver-apikey": "<gskey>", "content-type": "application/json"},
             "req_body": {"json": {"grantId": "gs-11111111-2222-4333-8444-555555555555"}},
             "status": 200, "res_headers": {}, "res_body": null
         }),
@@ -984,7 +984,7 @@ async fn target_against_target_and_golden_node_corpus_replay_with_zero_diffs() {
         json!({
             "t": "2026-10-22T17:00:18.000Z", "kind": "http", "conn": 1, "seq": 18, "ip": "127.0.0.1",
             "method": "POST", "target": format!("/bounty/{TEST_USER_ID}"), "route": "backend",
-            "req_headers": {"x-mysticparadox-gameserver-apikey": "<gskey>", "content-type": "application/json"},
+            "req_headers": {"x-rustic-isles-gameserver-apikey": "<gskey>", "content-type": "application/json"},
             "req_body": {"json": {
                 "bounties": [{"bounty_id": "bounty_slay_behemoths_01", "objectives": [{"objective_id": "obj_1", "progress": 2}]}]
             }},

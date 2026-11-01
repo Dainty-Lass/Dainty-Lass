@@ -15,7 +15,7 @@
 //
 // The player-hosted mode is complete without it: AntiCheatHooksStub.cpp produces no evidence, so the
 // backend sees an unmonitored hunt with no verdict and no rewards. When the ..\anticheat\ sources are
-// present, MysticParadox.vcxproj compiles them instead of the stub. PlayerHost.cpp calls only these
+// present, Rustic-Isles.vcxproj compiles them instead of the stub. PlayerHost.cpp calls only these
 // functions; it never includes anything from anticheat\.
 namespace AntiCheatHooks {
     // True when the evidence producer is compiled in.

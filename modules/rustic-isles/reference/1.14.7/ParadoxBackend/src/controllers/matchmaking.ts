@@ -587,11 +587,11 @@ export async function HandlePlayerMatchmaking(GameMode: string, GameArgs: string
     }
     else if(MATCHMAKING_MODE === "DEPLOYSERVER"){
         const EffectiveHuntId = GetFallbackHuntId(GameMode, GameArgs, HuntId);
-        // [2026-10-14] Gauntlet is refused on every route (realm, player-hosted and dedicated) until MYSTICPARADOX_GAUNTLET=on. The
+        // [2026-10-14] Gauntlet is refused on every route (realm, player-hosted and dedicated) until RUSTIC_ISLES_GAUNTLET=on. The
         // cancel reaches the requester's and the party's candidate status like any other refusal.
         if (RefusesGauntletRequest(EffectiveHuntId)) {
             logger.warn({ event: "gauntlet_refused", huntId: EffectiveHuntId, reason: GAUNTLET_DISABLED_REASON },
-                `[HuntRoute] Gauntlet hunt ${EffectiveHuntId} refused reason=${GAUNTLET_DISABLED_REASON} (MYSTICPARADOX_GAUNTLET is not on)`);
+                `[HuntRoute] Gauntlet hunt ${EffectiveHuntId} refused reason=${GAUNTLET_DISABLED_REASON} (RUSTIC_ISLES_GAUNTLET is not on)`);
             return CancelHuntMatchmaking(EffectiveHuntId, PartyMembers ?? [PlayerId], GAUNTLET_DISABLED_REASON);
         }
         // An optional module may route the hunt itself (for example to a player host).

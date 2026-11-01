@@ -18,9 +18,9 @@ import { EMAIL_CODE_TTL_MINUTES } from "../security/emailCodes";
 afterEach(() => SetMailTransportForTest(undefined));
 
 const SMTP_ENV = {
-    MYSTICPARADOX_SMTP_HOST: "smtp.example.test",
-    MYSTICPARADOX_SMTP_USER: "postmaster",
-    MYSTICPARADOX_SMTP_PASSWORD: "fixture-password"
+    RUSTIC_ISLES_SMTP_HOST: "smtp.example.test",
+    RUSTIC_ISLES_SMTP_USER: "postmaster",
+    RUSTIC_ISLES_SMTP_PASSWORD: "fixture-password"
 };
 
 test("the code mail's wording states the 5-minute expiry from the one constant", () => {
@@ -34,7 +34,7 @@ test("a verification code is mailed with the subject, the expiry and the single-
     assert.equal(Recorder.sent.length, 1);
     const [Mail] = Recorder.sent;
     assert.equal(Mail!.to, "slayer@example.test");
-    assert.equal(Mail!.subject, "Your Mystic Paradox code: 482913");
+    assert.equal(Mail!.subject, "Your Rustic Isles code: 482913");
     assert.match(Mail!.text, /expires in 5 minutes and works only once/);
     assert.match(Mail!.html, /expires in 5 minutes and works only once/);
 });
@@ -43,7 +43,7 @@ test("a password reset code is mailed with its own subject", async () => {
     const Recorder = new RecordingMailTransport();
     SetMailTransportForTest(Recorder);
     await SendPasswordResetCode("slayer@example.test", "000017");
-    assert.equal(Recorder.sent[0]!.subject, "Your Mystic Paradox password reset code: 000017");
+    assert.equal(Recorder.sent[0]!.subject, "Your Rustic Isles password reset code: 000017");
     assert.equal(Recorder.codeFor("slayer@example.test"), "000017");
 });
 
@@ -57,7 +57,7 @@ test("a code that is not 6 digits is refused before anything is sent", async () 
 test("without the SMTP settings the transport refuses, and names the keys (never their values)", () => {
     assert.throws(() => GetMailTransport({}), (error: unknown) => {
         const Message = String((error as Error).message);
-        return /MYSTICPARADOX_SMTP_HOST/.test(Message) && /MYSTICPARADOX_SMTP_PASSWORD/.test(Message);
+        return /RUSTIC_ISLES_SMTP_HOST/.test(Message) && /RUSTIC_ISLES_SMTP_PASSWORD/.test(Message);
     });
 });
 
@@ -77,14 +77,14 @@ test("the SMTP transport sends STARTTLS with a required upgrade on port 587 (the
     assert.equal(Calls.options.requireTLS, true, "the login never goes out before TLS is up");
     assert.deepEqual(Calls.options.auth, { user: "postmaster", pass: "fixture-password" });
     assert.deepEqual(Calls.mail, {
-        from: "Mystic Paradox <no-reply@mysticfox.dev>", to: "slayer@example.test", subject: "S", text: "T", html: "<p>H</p>"
+        from: "Rustic Isles <no-reply@mysticfox.dev>", to: "slayer@example.test", subject: "S", text: "T", html: "<p>H</p>"
     });
 });
 
-test("port 465 with MYSTICPARADOX_SMTP_SECURE=tls speaks TLS from the first byte", () => {
+test("port 465 with RUSTIC_ISLES_SMTP_SECURE=tls speaks TLS from the first byte", () => {
     const Captured: any[] = [];
     const Factory = ((options: any) => { Captured.push(options); return { sendMail: async () => ({}) }; }) as unknown as Parameters<typeof CreateSmtpTransport>[1];
-    const Reading = ReadSmtpSettings({ ...SMTP_ENV, MYSTICPARADOX_SMTP_PORT: "465", MYSTICPARADOX_SMTP_SECURE: "tls" });
+    const Reading = ReadSmtpSettings({ ...SMTP_ENV, RUSTIC_ISLES_SMTP_PORT: "465", RUSTIC_ISLES_SMTP_SECURE: "tls" });
     assert.equal(Reading.configured, true);
     CreateSmtpTransport(Reading.configured ? Reading.settings : (undefined as never), Factory);
     assert.equal(Captured[0].port, 465);

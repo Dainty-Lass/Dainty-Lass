@@ -8,12 +8,12 @@
 
 import { logger } from "../logger";
 
-// [2026-10-14] MYSTICPARADOX_GUARD_MODE=observe|enforce. observe (the default, and blank) lets no Guard verdict refuse anything: hosting,
+// [2026-10-14] RUSTIC_ISLES_GUARD_MODE=observe|enforce. observe (the default, and blank) lets no Guard verdict refuse anything: hosting,
 // host selection, hub start, admission or play. Each refusal that the enforce rule would have made is logged once per Guard session as
 // [GuardObserve] would refuse ... . enforce keeps the refusals as they were: the operations policy (GUARD_ENFORCEMENT, ENFORCE by default)
 // or P2P_LAUNCHER_GUARD_REQUIRED=true. An unrecognised value is enforce, with a startup warning (the stricter, earlier behaviour).
 
-export const GUARD_MODE_ENV = "MYSTICPARADOX_GUARD_MODE";
+export const GUARD_MODE_ENV = "RUSTIC_ISLES_GUARD_MODE";
 
 export type GuardMode = "observe" | "enforce";
 export type GuardOperationsEnforcement = "OBSERVE" | "ENFORCE";

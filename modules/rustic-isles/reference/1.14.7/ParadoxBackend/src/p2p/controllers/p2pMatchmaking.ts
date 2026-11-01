@@ -306,7 +306,7 @@ export function DedicatedFallbackAction(isHub: boolean, dedicatedHuntsDisabled: 
 
 /**
  * [2026-10-14 M1] A player-hosted hunt's launch manifest. The default source resolves it here from the hunt tables
- * (src/p2p/huntManifest), with no DeployServer request; MYSTICPARADOX_HUNT_MANIFEST_SOURCE=director asks DeployServer as
+ * (src/p2p/huntManifest), with no DeployServer request; RUSTIC_ISLES_HUNT_MANIFEST_SOURCE=director asks DeployServer as
  * before. A refusal (an unknown hunt, a malformed party) throws in the local source and reports undefined from DeployServer;
  * the caller treats both as HUNT_MANIFEST_UNAVAILABLE.
  */
@@ -571,7 +571,7 @@ async function CreatePlayerHostedMatchmaking(
 export async function RouteP2PHunt(Context: HuntRouteContext): Promise<HuntRouteOutcome> {
     const { gameMode: GameMode, huntId: EffectiveHuntId, playerId: PlayerId, partyId: PartyId,
         partyMembers: PartyMembers, isHub } = Context;
-    // [2026-10-14] Gauntlet is refused on every route until MYSTICPARADOX_GAUNTLET=on (the shared matchmaker refuses it first; this keeps
+    // [2026-10-14] Gauntlet is refused on every route until RUSTIC_ISLES_GAUNTLET=on (the shared matchmaker refuses it first; this keeps
     // the route's own answer the same when it is called directly).
     if (RefusesGauntletRequest(EffectiveHuntId)) {
         return { handled: true, result: Context.cancel(EffectiveHuntId, PartyMembers ?? [PlayerId], GAUNTLET_DISABLED_REASON) };

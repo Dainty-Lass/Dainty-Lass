@@ -9,10 +9,10 @@
 /*
  * Where the exporters write and read their flags.
  *
- * An optional, git-ignored ExportPaths.local.h next to this file may define MYSTICPARADOX_EXPORT_ROOT,
+ * An optional, git-ignored ExportPaths.local.h next to this file may define RUSTIC_ISLES_EXPORT_ROOT,
  * a wide-string folder (normally your repository root), for example:
  *
- *     #define MYSTICPARADOX_EXPORT_ROOT L"D:\\MysticParadox"
+ *     #define RUSTIC_ISLES_EXPORT_ROOT L"D:\\RusticIsles"
  *
  * Exports then land in <root>\Items_Analysis and the flags file is read from
  * <root>\native\catalog-exporter\export_flags.txt, whatever the injected game's working directory is.
@@ -29,11 +29,16 @@
 #include "ExportPaths.local.h"
 #endif
 
+// The name before the Rustic Isles rename, read for one release
+#if !defined(RUSTIC_ISLES_EXPORT_ROOT) && defined(MYSTICPARADOX_EXPORT_ROOT)
+#define RUSTIC_ISLES_EXPORT_ROOT MYSTICPARADOX_EXPORT_ROOT
+#endif
+
 // The first existing folder of <root>\Items_Analysis and .\Items_Analysis; otherwise the first is created.
 inline std::wstring ExportOutDir() {
     std::vector<std::wstring> candidates;
-#ifdef MYSTICPARADOX_EXPORT_ROOT
-    candidates.push_back(std::wstring(MYSTICPARADOX_EXPORT_ROOT) + L"\\Items_Analysis");
+#ifdef RUSTIC_ISLES_EXPORT_ROOT
+    candidates.push_back(std::wstring(RUSTIC_ISLES_EXPORT_ROOT) + L"\\Items_Analysis");
 #endif
     candidates.push_back(L".\\Items_Analysis");
     for (const std::wstring& candidate : candidates) {
@@ -47,8 +52,8 @@ inline std::wstring ExportOutDir() {
 // Flags file candidates in search order (see ExportFlags.hpp).
 inline std::vector<std::wstring> ExportFlagsFileCandidates() {
     std::vector<std::wstring> candidates;
-#ifdef MYSTICPARADOX_EXPORT_ROOT
-    candidates.push_back(std::wstring(MYSTICPARADOX_EXPORT_ROOT) + L"\\native\\catalog-exporter\\export_flags.txt");
+#ifdef RUSTIC_ISLES_EXPORT_ROOT
+    candidates.push_back(std::wstring(RUSTIC_ISLES_EXPORT_ROOT) + L"\\native\\catalog-exporter\\export_flags.txt");
 #endif
     candidates.push_back(L".\\export_flags.txt");
     return candidates;

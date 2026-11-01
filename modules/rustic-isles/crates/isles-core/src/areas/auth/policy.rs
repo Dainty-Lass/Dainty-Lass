@@ -134,21 +134,21 @@ fn trimmed_lower(settings: &Settings, name: &str) -> String {
     service_kit::js::trim(settings.raw(name).unwrap_or_default()).to_lowercase()
 }
 
-/// `MYSTICPARADOX_CONSENT_REQUIRED`: an explicit value wins (off/false/0/no turns it off, anything else on). Blank
+/// `RUSTIC_ISLES_CONSENT_REQUIRED`: an explicit value wins (off/false/0/no turns it off, anything else on). Blank
 /// follows the database: Node defaulted to on with MongoDB, the official backend, and off with its local SQLite.
 /// Here a Postgres node is the shared one, so it defaults to on, and a SQLite server to off.
 pub fn consent_required_at_sign_up(settings: &Settings, engine: Option<Engine>) -> bool {
-    let raw = trimmed_lower(settings, "MYSTICPARADOX_CONSENT_REQUIRED");
+    let raw = trimmed_lower(settings, "RUSTIC_ISLES_CONSENT_REQUIRED");
     if raw.is_empty() {
         return engine == Some(Engine::Postgres);
     }
     !matches!(raw.as_str(), "0" | "false" | "off" | "no")
 }
 
-/// `MYSTICPARADOX_CONSENT_ENFORCE`: off unless on.
+/// `RUSTIC_ISLES_CONSENT_ENFORCE`: off unless on.
 pub fn consent_enforced(settings: &Settings) -> bool {
     matches!(
-        trimmed_lower(settings, "MYSTICPARADOX_CONSENT_ENFORCE").as_str(),
+        trimmed_lower(settings, "RUSTIC_ISLES_CONSENT_ENFORCE").as_str(),
         "1" | "true" | "on" | "yes"
     )
 }
@@ -223,7 +223,7 @@ pub fn assert_account_not_deactivated(account: &LauncherAccountRecord) -> Result
     .with_detail("scheduledFor", Value::String(deletion.scheduled_for.clone())))
 }
 
-/// Game sessions and realm hosting, when `MYSTICPARADOX_CONSENT_ENFORCE` is on: 403 CONSENT_REQUIRED unless current.
+/// Game sessions and realm hosting, when `RUSTIC_ISLES_CONSENT_ENFORCE` is on: 403 CONSENT_REQUIRED unless current.
 pub fn assert_consent_current_when_enforced(
     account: &LauncherAccountRecord,
     settings: &Settings,
@@ -242,7 +242,7 @@ pub const USERNAME_RESERVED_MESSAGE: &str = "That username is reserved. Choose a
 pub const USERNAME_NOT_ALLOWED_MESSAGE: &str = "That username isn't allowed. Choose another.";
 
 /// Staff and official words refused anywhere in a name.
-const IMPERSONATION_ANYWHERE: [&str; 11] = [
+const IMPERSONATION_ANYWHERE: [&str; 12] = [
     "admin",
     "moderat",
     "owner",
@@ -251,6 +251,8 @@ const IMPERSONATION_ANYWHERE: [&str; 11] = [
     "official",
     "developer",
     "gamemaster",
+    "rusticisles",
+    // The project's former name, still refused (crate::legacy)
     "mysticparadox",
     "mysticfox",
     "phoenixlabs",
@@ -371,7 +373,7 @@ fn collapse(text: &str) -> String {
 
 fn operator_blocklist(settings: &Settings) -> Vec<String> {
     settings
-        .raw("MYSTICPARADOX_USERNAME_BLOCKLIST")
+        .raw("RUSTIC_ISLES_USERNAME_BLOCKLIST")
         .unwrap_or_default()
         .split(|c: char| service_kit::js::is_space(c) || c == ',')
         .map(|term| term.trim().to_lowercase())
@@ -480,7 +482,7 @@ pub struct EmailVerificationPolicy {
 
 /// `ResolveEmailVerification`: only required and off are recognised; blank is off; anything else is required.
 pub fn resolve_email_verification(settings: &Settings) -> EmailVerificationPolicy {
-    match trimmed_lower(settings, "MYSTICPARADOX_EMAIL_VERIFICATION").as_str() {
+    match trimmed_lower(settings, "RUSTIC_ISLES_EMAIL_VERIFICATION").as_str() {
         "" => EmailVerificationPolicy {
             required: false,
             is_default: true,
@@ -520,10 +522,10 @@ pub struct RegistrationApprovalPolicy {
 
 /// `ResolveRegistrationApproval`: what a new launcher account starts with, on either database.
 pub fn resolve_registration_approval(settings: &Settings) -> RegistrationApprovalPolicy {
-    let raw = trimmed_lower(settings, "MYSTICPARADOX_REGISTRATION_APPROVAL");
+    let raw = trimmed_lower(settings, "RUSTIC_ISLES_REGISTRATION_APPROVAL");
     let legacy = !service_kit::js::trim(
         settings
-            .raw("MYSTICPARADOX_REGISTRATION_AUTO_APPROVE")
+            .raw("RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE")
             .unwrap_or_default(),
     )
     .is_empty();
@@ -566,7 +568,7 @@ pub fn dedicated_servers_configured(settings: &Settings) -> bool {
 
 static REPORTED_OFFICIAL_PLAY: LazyLock<Mutex<BTreeSet<String>>> = LazyLock::new(Mutex::default);
 
-/// `ReadOfficialPlay`: `MYSTICPARADOX_OFFICIAL_PLAY=on|off`; blank is on with a Director to send hunts to (Node's
+/// `ReadOfficialPlay`: `RUSTIC_ISLES_OFFICIAL_PLAY=on|off`; blank is on with a Director to send hunts to (Node's
 /// DeployServer), otherwise off; any other value fails closed to off, with one warning.
 pub fn read_official_play(settings: &Settings) -> OfficialPlayStatus {
     let unavailable = OfficialPlayStatus {
@@ -577,14 +579,14 @@ pub fn read_official_play(settings: &Settings) -> OfficialPlayStatus {
         available: true,
         message: None,
     };
-    match trimmed_lower(settings, "MYSTICPARADOX_OFFICIAL_PLAY").as_str() {
+    match trimmed_lower(settings, "RUSTIC_ISLES_OFFICIAL_PLAY").as_str() {
         "on" => available,
         "off" => unavailable,
         "" if dedicated_servers_configured(settings) => available,
         "" => unavailable,
         other => {
             let refusal = format!(
-                "MYSTICPARADOX_OFFICIAL_PLAY must be on or off (got {other:?}); official play is treated as off"
+                "RUSTIC_ISLES_OFFICIAL_PLAY must be on or off (got {other:?}); official play is treated as off"
             );
             let first = REPORTED_OFFICIAL_PLAY
                 .lock()
@@ -598,7 +600,8 @@ pub fn read_official_play(settings: &Settings) -> OfficialPlayStatus {
     }
 }
 
-pub const UNOFFICIAL_LAUNCHER_MESSAGE: &str = "This launcher isn't an official Mystic Paradox build. Install the official launcher (github.com/pranav158/Mystic-Paradox/releases) to play on Mystic Paradox.";
+pub const UNOFFICIAL_LAUNCHER_MESSAGE: &str =
+    "This launcher isn't an official Rustic Isles build. Install the official launcher to play on Rustic Isles.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnofficialLauncherPolicy {
@@ -611,18 +614,18 @@ pub struct UnofficialLauncherPolicy {
 /// `ReadUnofficialLauncherPolicy`.
 pub fn read_unofficial_launcher_policy(settings: &Settings) -> UnofficialLauncherPolicy {
     let mut warnings = Vec::new();
-    let raw = trimmed_lower(settings, "MYSTICPARADOX_UNOFFICIAL_LAUNCHER");
+    let raw = trimmed_lower(settings, "RUSTIC_ISLES_UNOFFICIAL_LAUNCHER");
     let refuse = raw == "refuse";
     if !refuse && !raw.is_empty() && raw != "observe" {
         let shown: String = raw.chars().take(32).collect();
         warnings.push(format!(
-            "MYSTICPARADOX_UNOFFICIAL_LAUNCHER must be observe or refuse (got {shown:?}); observe applies"
+            "RUSTIC_ISLES_UNOFFICIAL_LAUNCHER must be observe or refuse (got {shown:?}); observe applies"
         ));
     }
     let mut allowed = BTreeSet::new();
     let mut malformed = 0;
     for entry in settings
-        .raw("MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES")
+        .raw("RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES")
         .unwrap_or_default()
         .split(|c: char| service_kit::js::is_space(c) || c == ',')
     {
@@ -638,11 +641,11 @@ pub fn read_unofficial_launcher_policy(settings: &Settings) -> UnofficialLaunche
     }
     if malformed > 0 {
         warnings.push(format!(
-            "MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES: {malformed} entr{} not a SHA-256 and ignored",
+            "RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES: {malformed} entr{} not a SHA-256 and ignored",
             if malformed == 1 { "y is" } else { "ies are" }
         ));
     }
-    let exempt_raw = trimmed_lower(settings, "MYSTICPARADOX_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT");
+    let exempt_raw = trimmed_lower(settings, "RUSTIC_ISLES_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT");
     let admins_exempt = !matches!(exempt_raw.as_str(), "0" | "false" | "off" | "no");
     UnofficialLauncherPolicy {
         refuse,
@@ -900,19 +903,19 @@ mod tests {
         assert!(consent_required_at_sign_up(&none, postgres));
         assert!(!consent_required_at_sign_up(&none, sqlite));
         assert!(!consent_required_at_sign_up(&none, None));
-        let on = Settings::from_pairs([("MYSTICPARADOX_CONSENT_REQUIRED", "on")]);
+        let on = Settings::from_pairs([("RUSTIC_ISLES_CONSENT_REQUIRED", "on")]);
         assert!(consent_required_at_sign_up(&on, sqlite));
-        let off = Settings::from_pairs([("MYSTICPARADOX_CONSENT_REQUIRED", "off")]);
+        let off = Settings::from_pairs([("RUSTIC_ISLES_CONSENT_REQUIRED", "off")]);
         assert!(!consent_required_at_sign_up(&off, postgres));
-        let blank = Settings::from_pairs([("MYSTICPARADOX_CONSENT_REQUIRED", "   ")]);
+        let blank = Settings::from_pairs([("RUSTIC_ISLES_CONSENT_REQUIRED", "   ")]);
         assert!(!consent_required_at_sign_up(&blank, sqlite));
         assert!(!consent_enforced(&none));
         assert!(!consent_enforced(&Settings::from_pairs([(
-            "MYSTICPARADOX_CONSENT_ENFORCE",
+            "RUSTIC_ISLES_CONSENT_ENFORCE",
             "off"
         )])));
         assert!(consent_enforced(&Settings::from_pairs([(
-            "MYSTICPARADOX_CONSENT_ENFORCE",
+            "RUSTIC_ISLES_CONSENT_ENFORCE",
             "ON"
         )])));
     }
@@ -1025,7 +1028,7 @@ mod tests {
 
     #[test]
     fn enforced_consent_refuses_with_403() {
-        let enforced = Settings::from_pairs([("MYSTICPARADOX_CONSENT_ENFORCE", "on")]);
+        let enforced = Settings::from_pairs([("RUSTIC_ISLES_CONSENT_ENFORCE", "on")]);
         assert!(assert_consent_current_when_enforced(&account(|_| {}), &Settings::default()).is_ok());
         let refused = assert_consent_current_when_enforced(&account(|_| {}), &enforced).unwrap_err();
         assert_eq!((refused.code.as_str(), refused.status()), ("CONSENT_REQUIRED", 403));
@@ -1098,6 +1101,7 @@ mod tests {
             "Official",
             "Developer",
             "GameMaster",
+            "RusticIsles",
             "MysticParadox",
             "MysticFox",
             "MysticFox2",
@@ -1221,7 +1225,7 @@ mod tests {
 
     #[test]
     fn the_operators_blocklist_adds_terms() {
-        let env = Settings::from_pairs([("MYSTICPARADOX_USERNAME_BLOCKLIST", "Grief, toxic  b@d x")]);
+        let env = Settings::from_pairs([("RUSTIC_ISLES_USERNAME_BLOCKLIST", "Grief, toxic  b@d x")]);
         assert_eq!(
             refusal("GriefLord", &env).as_deref(),
             Some(USERNAME_NOT_ALLOWED_MESSAGE)
@@ -1236,7 +1240,7 @@ mod tests {
     #[test]
     fn email_verification_reads_like_node() {
         let read = |value: &str| {
-            resolve_email_verification(&Settings::from_pairs([("MYSTICPARADOX_EMAIL_VERIFICATION", value)]))
+            resolve_email_verification(&Settings::from_pairs([("RUSTIC_ISLES_EMAIL_VERIFICATION", value)]))
         };
         assert_eq!(
             resolve_email_verification(&Settings::default()),
@@ -1258,7 +1262,7 @@ mod tests {
     #[test]
     fn registration_approval_reads_like_node() {
         let read = |value: &str| {
-            resolve_registration_approval(&Settings::from_pairs([("MYSTICPARADOX_REGISTRATION_APPROVAL", value)]))
+            resolve_registration_approval(&Settings::from_pairs([("RUSTIC_ISLES_REGISTRATION_APPROVAL", value)]))
         };
         let default = resolve_registration_approval(&Settings::default());
         assert!(default.is_default && default.approval_status == ApprovalStatus::Approved);
@@ -1267,8 +1271,8 @@ mod tests {
         let typo = read("requried");
         assert!(typo.required && typo.unrecognised.as_deref() == Some("requried"));
         let legacy = resolve_registration_approval(&Settings::from_pairs([
-            ("MYSTICPARADOX_REGISTRATION_AUTO_APPROVE", "on"),
-            ("MYSTICPARADOX_REGISTRATION_APPROVAL", "required"),
+            ("RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE", "on"),
+            ("RUSTIC_ISLES_REGISTRATION_APPROVAL", "required"),
         ]));
         assert!(legacy.legacy_warning && legacy.required);
     }
@@ -1288,11 +1292,11 @@ mod tests {
         assert_eq!(with(&[deploy]), on);
         assert_eq!(with(&[]), off);
         assert_eq!(with(&[("DEPLOYSERVER_URL", "  ")]), off);
-        assert_eq!(with(&[("MYSTICPARADOX_OFFICIAL_PLAY", "   "), deploy]), on);
-        assert_eq!(with(&[("MYSTICPARADOX_OFFICIAL_PLAY", " ON ")]), on);
-        assert_eq!(with(&[deploy, ("MYSTICPARADOX_OFFICIAL_PLAY", "Off")]), off);
+        assert_eq!(with(&[("RUSTIC_ISLES_OFFICIAL_PLAY", "   "), deploy]), on);
+        assert_eq!(with(&[("RUSTIC_ISLES_OFFICIAL_PLAY", " ON ")]), on);
+        assert_eq!(with(&[deploy, ("RUSTIC_ISLES_OFFICIAL_PLAY", "Off")]), off);
         for value in ["1", "0", "yes", "true", "disabled", "onn", "of"] {
-            assert_eq!(with(&[deploy, ("MYSTICPARADOX_OFFICIAL_PLAY", value)]), off, "{value}");
+            assert_eq!(with(&[deploy, ("RUSTIC_ISLES_OFFICIAL_PLAY", value)]), off, "{value}");
         }
     }
 
@@ -1310,15 +1314,15 @@ mod tests {
         let read =
             |pairs: &[(&str, &str)]| read_unofficial_launcher_policy(&Settings::from_pairs(pairs.iter().copied()));
         assert!(!read(&[]).refuse);
-        assert!(read(&[("MYSTICPARADOX_UNOFFICIAL_LAUNCHER", " Refuse ")]).refuse);
-        let typo = read(&[("MYSTICPARADOX_UNOFFICIAL_LAUNCHER", "refuze")]);
+        assert!(read(&[("RUSTIC_ISLES_UNOFFICIAL_LAUNCHER", " Refuse ")]).refuse);
+        let typo = read(&[("RUSTIC_ISLES_UNOFFICIAL_LAUNCHER", "refuze")]);
         assert!(!typo.refuse);
         assert_eq!(typo.warnings.len(), 1);
         assert!(read(&[]).admins_exempt);
-        assert!(!read(&[("MYSTICPARADOX_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT", "off")]).admins_exempt);
+        assert!(!read(&[("RUSTIC_ISLES_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT", "off")]).admins_exempt);
         let test_build = "c".repeat(64);
         let hashes = format!("{}, not-a-hash  {}", test_build.to_uppercase(), "d".repeat(64));
-        let policy = read(&[("MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES", &hashes)]);
+        let policy = read(&[("RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES", &hashes)]);
         assert_eq!(
             policy.allowed_hashes.iter().cloned().collect::<Vec<_>>(),
             vec![test_build, "d".repeat(64)]
@@ -1331,8 +1335,8 @@ mod tests {
         let test_build = "c".repeat(64);
         let self_built = "b".repeat(64);
         let refuse = read_unofficial_launcher_policy(&Settings::from_pairs([
-            ("MYSTICPARADOX_UNOFFICIAL_LAUNCHER", "refuse"),
-            ("MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES", test_build.as_str()),
+            ("RUSTIC_ISLES_UNOFFICIAL_LAUNCHER", "refuse"),
+            ("RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES", test_build.as_str()),
         ]));
         let player = vec!["player".to_owned()];
         use LauncherBuildVerdict::*;

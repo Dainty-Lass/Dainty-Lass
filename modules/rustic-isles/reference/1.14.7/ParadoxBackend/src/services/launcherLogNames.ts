@@ -16,7 +16,8 @@ export const LAUNCHER_LOG_SESSION_ID_PATTERN = /^[a-f0-9-]{8,64}$/i;
 // Exactly the files the launcher's launch::logs module writes into a session folder - see ParadoxLauncher/src-tauri/src/launch/logs.rs.
 // Anything else is rejected before it reaches disk (upload) and is never listed or read (admin).
 const ALLOWED_EXACT_FILENAMES = new Set(["metadata.json", "launcher.log"]);
-const ALLOWED_FILENAME_PATTERN = /^runtime-mysticparadox_dll_port\d+\.log$/i;
+// A launcher from before the Rustic Isles rename uploads the old name
+const ALLOWED_FILENAME_PATTERN = /^runtime-(rustic_isles|mysticparadox)_dll_port\d+\.log$/i;
 
 /** True for the exact names the launcher writes into a session folder (the upload marker `.uploaded-at.json` is not one of them). */
 export function isAllowedLauncherLogFileName(name: string): boolean {

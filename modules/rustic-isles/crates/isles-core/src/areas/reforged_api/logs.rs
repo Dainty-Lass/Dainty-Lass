@@ -41,10 +41,11 @@ pub fn is_allowed_file_name(name: &str) -> bool {
     if name == "metadata.json" || name == "launcher.log" {
         return true;
     }
-    // /^runtime-mysticparadox_dll_port\d+\.log$/i
+    // /^runtime-(rustic_isles|mysticparadox)_dll_port\d+\.log$/i: a launcher from before the rename sends the old name
     let lower = name.to_lowercase();
     lower
-        .strip_prefix("runtime-mysticparadox_dll_port")
+        .strip_prefix("runtime-rustic_isles_dll_port")
+        .or_else(|| lower.strip_prefix("runtime-mysticparadox_dll_port"))
         .and_then(|rest| rest.strip_suffix(".log"))
         .is_some_and(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
 }
@@ -310,16 +311,17 @@ mod tests {
         for good in [
             "metadata.json",
             "launcher.log",
+            "runtime-rustic_isles_dll_port7777.log",
+            "RUNTIME-Rustic_Isles_DLL_PORT1.LOG",
             "runtime-mysticparadox_dll_port7777.log",
-            "RUNTIME-MysticParadox_DLL_PORT1.LOG",
         ] {
             assert!(is_allowed_file_name(good), "{good}");
         }
         for bad in [
             "",
             "other.log",
-            "runtime-mysticparadox_dll_port.log",
-            "runtime-mysticparadox_dll_portx.log",
+            "runtime-rustic_isles_dll_port.log",
+            "runtime-rustic_isles_dll_portx.log",
             "../launcher.log",
             "Metadata.json",
             "launcher.log.exe",

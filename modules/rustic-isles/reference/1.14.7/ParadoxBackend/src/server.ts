@@ -9,6 +9,7 @@
  * Additional terms under AGPLv3 Section 7 apply. See ADDITIONAL_TERMS.md.
  */
 
+import "./legacyNames";
 import fs from "node:fs";
 import https from "node:https";
 import http from "node:http";
@@ -23,7 +24,7 @@ import { GetPersistenceLifecycle } from "./persistence";
 import { LogRegistrationApprovalPolicy, ResolveRegistrationApproval } from "./config/registrationApproval";
 import { AssertEmailVerificationConfig, EmailVerificationRequired, LogEmailVerificationPolicy, ResolveEmailVerification } from "./config/emailVerification";
 import { StartUnverifiedRegistrationSweeper } from "./controllers/launcherEmail";
-// [2026-10-15] The automatic purge of the uploaded launcher logs (90 days after their last upload; MYSTICPARADOX_LOG_RETENTION=off).
+// [2026-10-15] The automatic purge of the uploaded launcher logs (90 days after their last upload; RUSTIC_ISLES_LOG_RETENTION=off).
 import { LOG_STORAGE_ROOT } from "./routes/launcherLogs";
 import { StartUploadedLogRetention, UploadedLogRetentionJob } from "./services/launcherLogRetention";
 import { LogGuardModePolicy, ResolveGuardMode } from "./services/guardMode";
@@ -81,7 +82,7 @@ function LoadTlsContext(CertPath: string, KeyPath: string, Label: string, Passph
 // Mongo client — GetPersistenceLifecycle().stop() existed already but nothing ever called it.
 let HttpServer: import("node:http").Server | undefined;
 let HttpsServer: https.Server | undefined;
-// [2026-10-15] The uploaded-log purge (services/launcherLogRetention.ts); undefined when MYSTICPARADOX_LOG_RETENTION=off.
+// [2026-10-15] The uploaded-log purge (services/launcherLogRetention.ts); undefined when RUSTIC_ISLES_LOG_RETENTION=off.
 let UploadedLogRetention: UploadedLogRetentionJob | undefined;
 
 function HandleListenerError(Label: "HTTP" | "HTTPS", Error: Error, ServiceRole: ReturnType<typeof ReadMetagameServiceRole>): void {
@@ -110,7 +111,7 @@ async function Main(): Promise<void> {
     if (serviceRole !== "combined" && serviceRole !== "api") {
         throw new Error(`server.ts serves the combined or api role; ${serviceRole} has its own entry point.`);
     }
-    // [2026-10-14 M2] Behind a reverse proxy (MYSTICPARADOX_TLS_TERMINATED_BY_PROXY=on) the proxy holds the certificate: no HTTPS
+    // [2026-10-14 M2] Behind a reverse proxy (RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY=on) the proxy holds the certificate: no HTTPS
     // listener is opened and none is loaded here, in production too. Throws on an invalid switch value.
     const Listeners = ResolveListenerPlan(process.env);
     const ParadoxCtx = Listeners.tlsTerminatedByProxy
@@ -122,7 +123,7 @@ async function Main(): Promise<void> {
     // API keys are HMAC-hashed under API_KEY_HASH_SECRET; refuse to start without it rather than reject every
     // gameserver request later.
     AssertApiKeyHashSecret();
-    // [2026-10-15] MYSTICPARADOX_EMAIL_VERIFICATION=required needs working SMTP settings: the same refusal to start as the line above. One
+    // [2026-10-15] RUSTIC_ISLES_EMAIL_VERIFICATION=required needs working SMTP settings: the same refusal to start as the line above. One
     // line logs the mode (and the warning for an unrecognised value, once).
     AssertEmailVerificationConfig(process.env);
     LogEmailVerificationPolicy(ResolveEmailVerification(process.env));
@@ -147,7 +148,7 @@ async function Main(): Promise<void> {
         ? app.listen(Number(PORT), Listeners.httpBindHost, listening)
         : app.listen(PORT, listening));
     HttpServer = ListenHttp(() => {
-        logger.info(`Mystic Paradox Metagame (HTTP) on port ${PORT}${Listeners.httpBindHost != undefined ? ` bound to ${Listeners.httpBindHost}` : ""}`);
+        logger.info(`Rustic Isles Metagame (HTTP) on port ${PORT}${Listeners.httpBindHost != undefined ? ` bound to ${Listeners.httpBindHost}` : ""}`);
         logger.info(`Clear Skies, Slayer.`);
         if (Listeners.tlsTerminatedByProxy) SetServiceReadiness({ ready: true, reason: "API_BEHIND_PROXY_RUNNING", role: serviceRole });
     });
@@ -160,7 +161,7 @@ async function Main(): Promise<void> {
     }
 
     if (Listeners.tlsTerminatedByProxy) {
-        logger.info("TLS terminates at the reverse proxy (MYSTICPARADOX_TLS_TERMINATED_BY_PROXY=on): no HTTPS listener and no certificate loaded");
+        logger.info("TLS terminates at the reverse proxy (RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY=on): no HTTPS listener and no certificate loaded");
     } else if (ParadoxCtx == undefined) {
         logger.error("No HTTPS certificate available - HTTPS listener not started (game client TLS will fail)");
     } else {
@@ -180,7 +181,7 @@ async function Main(): Promise<void> {
             // when disabled, every WS upgrade is rejected cleanly and no XMPP state exists.
             initRealtime(RealtimeHttpsServer);
             HttpsServer = RealtimeHttpsServer.listen(Number(HTTPS_PORT), () => {
-                logger.info(`Mystic Paradox Metagame (HTTPS) on port ${HTTPS_PORT} [paradox=ready]`);
+                logger.info(`Rustic Isles Metagame (HTTPS) on port ${HTTPS_PORT} [paradox=ready]`);
                 SetServiceReadiness({ ready: true, reason: "API_AND_HTTPS_RUNNING", role: serviceRole });
             });
             HttpsServer.on("error", (error) => {

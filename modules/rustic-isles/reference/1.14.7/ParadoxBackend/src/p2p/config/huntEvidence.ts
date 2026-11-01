@@ -8,8 +8,8 @@
 
 import { logger } from "../../logger";
 
-// [2026-10-17] MYSTICPARADOX_HUNT_EVIDENCE=on|off: whether a hosted hunt's server produces Hunt Guard evidence (the bootstrap's
-// evidenceCollection; the launcher then sets MYSTICPARADOX_HUNT_GUARD_EVENTS=1 for the hunt server it starts, launcher
+// [2026-10-17] RUSTIC_ISLES_HUNT_EVIDENCE=on|off: whether a hosted hunt's server produces Hunt Guard evidence (the bootstrap's
+// evidenceCollection; the launcher then sets RUSTIC_ISLES_HUNT_GUARD_EVENTS=1 for the hunt server it starts, launcher
 // p2p/session/hub.rs plan_host). Off by default at trust tier 0, because the evidence lags every hosted hunt:
 //   - the host's transport (ParadoxTransport transport_app.cpp RunIceHost) relays the game's packets and posts each Guard event to the
 //     backend on the same thread, one blocking HTTPS request per event, so every post stops the packets of every player in the hunt
@@ -22,7 +22,7 @@ import { logger } from "../../logger";
 // depends on it; a hunt whose host does not play has always run without it. Tier 1 rewards are decided from the evidence, so there the
 // default is on. Turn it back on once a transport posts off its packet thread.
 
-export const HUNT_EVIDENCE_ENV = "MYSTICPARADOX_HUNT_EVIDENCE";
+export const HUNT_EVIDENCE_ENV = "RUSTIC_ISLES_HUNT_EVIDENCE";
 
 export interface HuntEvidenceSetting {
     enabled: boolean;

@@ -5,7 +5,7 @@
  * baseline first, then tags valid documents and clears the legacy starter inventory itemData
  * payload (loadout.instance_data remains the sole weapon/appearance state).
  *
- * Run locally only: node --env-file=.env migration-fixtures/migrate_mysticparadox_bootstrap.cjs
+ * Run locally only: node --env-file=.env migration-fixtures/migrate_rustic_isles_bootstrap.cjs
  */
 require("dotenv").config();
 const { MongoClient } = require("mongodb");
@@ -50,7 +50,7 @@ function validateBaseline(inventory, loadout, wallet) {
     for (const item of instancedItems) {
         if (!item || typeof item.catalogId !== "string" || typeof item.instanceId !== "string") fail("inventory contains an invalid instanced item");
         if (!INSTANCE_ID.test(item.instanceId)) fail(`inventory ${item.catalogId} has invalid instance ID ${JSON.stringify(item.instanceId)}`);
-        if (item.instanceId.startsWith("MYSTICPARADOX_STARTER_")) fail(`inventory ${item.catalogId} has a shared starter ID`);
+        if (item.instanceId.startsWith("RUSTIC_ISLES_STARTER_")) fail(`inventory ${item.catalogId} has a shared starter ID`);
         if (instanceIds.has(item.instanceId)) fail(`inventory has duplicate instance ID ${item.instanceId}`);
         instanceIds.add(item.instanceId);
         if (byCatalogId.has(item.catalogId)) fail(`inventory has duplicate catalog ID ${item.catalogId}`);
@@ -67,7 +67,7 @@ function validateBaseline(inventory, loadout, wallet) {
         const equipment = Object.values(slot).find((value) => value && typeof value === "object" && value.item_id === catalogId);
         if (!equipment) fail(`loadout slot zero is missing ${catalogId}`);
         if (!INSTANCE_ID.test(equipment.instance_id ?? "")) fail(`loadout ${catalogId} has an invalid instance ID`);
-        if (equipment.instance_id.startsWith("MYSTICPARADOX_STARTER_")) fail(`loadout ${catalogId} has a shared starter ID`);
+        if (equipment.instance_id.startsWith("RUSTIC_ISLES_STARTER_")) fail(`loadout ${catalogId} has a shared starter ID`);
         if (byCatalogId.get(catalogId).instanceId !== equipment.instance_id) fail(`loadout ${catalogId} does not reference its inventory instance`);
     }
 

@@ -23,7 +23,7 @@ const DISCORD_STATE_MAC_BYTES = 32;
 const DISCORD_STATE_PATTERN = /^v1\.([a-f0-9]{48})\.([a-f0-9]{64})$/;
 const DISCORD_BROWSER_BINDING_BYTES = 32;
 const DISCORD_BROWSER_BINDING_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-export const ADMIN_DISCORD_BINDING_COOKIE_NAME = "mysticparadox_admin_oauth";
+export const ADMIN_DISCORD_BINDING_COOKIE_NAME = "rustic_isles_admin_oauth";
 const ADMIN_OAUTH_ACTOR = "system:admin-discord-oauth";
 
 interface AdminDiscordConfig {

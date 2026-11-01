@@ -1,5 +1,5 @@
 //! `isles-db export-mongo` (RB13): exports the live SQLite or Postgres `store::Database` back into
-//! MongoDB collections in Mystic Paradox 1.14.7's document shape for one-release rollback.
+//! MongoDB collections in Rustic Isles 1.14.7's document shape for one-release rollback.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -97,7 +97,7 @@ fn ledger_id(user_id: &str, character_id: &str, transaction_id: &str) -> String 
     out
 }
 
-/// Converts `TargetState` from `store::Database` back into Mystic Paradox 1.14.7 MongoDB collections.
+/// Converts `TargetState` from `store::Database` back into Rustic Isles 1.14.7 MongoDB collections.
 pub fn state_to_mongo_collections(
     state: &TargetState,
     areas: &BTreeSet<MigrateArea>,

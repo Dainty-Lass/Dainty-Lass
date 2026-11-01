@@ -1,6 +1,6 @@
 import { logger } from "../../logger";
 
-// [2026-10-16] MYSTICPARADOX_HOST_POLICY=observe|enforce, for the POLICY refusals
+// [2026-10-16] RUSTIC_ISLES_HOST_POLICY=observe|enforce, for the POLICY refusals
 // of a player host's writes (a realm hub or a hosted hunt):
 //   - the item classes a host may not grant (hostGrantPolicy.ts: PREMIUM_CURRENCY = Platinum, HUNT_PASS, COSMETIC, ENTITLEMENT) and the
 //     no-reward session of a hosted Training hunt (NO_REWARD_SESSION);
@@ -19,7 +19,7 @@ import { logger } from "../../logger";
 // a realm server do a dedicated server's own work for a player of its session (hostWrites.authorize `parity`: the reforge repair at the
 // player's load, the Slayer's Path catch-up at login). enforce keeps all of them as before.
 
-export const HOST_POLICY_ENV = "MYSTICPARADOX_HOST_POLICY";
+export const HOST_POLICY_ENV = "RUSTIC_ISLES_HOST_POLICY";
 
 export type HostPolicyMode = "observe" | "enforce";
 

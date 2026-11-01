@@ -134,7 +134,7 @@ fn is_hub_destination(game_mode: Option<&str>, hunt_id: Option<&str>) -> bool {
 
 pub struct Matchmaker<'a> {
     pub shared: &'a Shared,
-    /// Forwarded to the Director as `x-mysticparadox-request-id`
+    /// Forwarded to the Director as `x-rustic-isles-request-id`
     pub request_id: Option<String>,
 }
 
@@ -560,11 +560,11 @@ impl Matchmaker<'_> {
             join.hunt_id.as_deref(),
         );
         let everyone = || join.party_members.clone().unwrap_or_else(|| vec![join.player.clone()]);
-        // Gauntlet is refused on every route until MYSTICPARADOX_GAUNTLET=on; the cancel reaches the requester's and
+        // Gauntlet is refused on every route until RUSTIC_ISLES_GAUNTLET=on; the cancel reaches the requester's and
         // the party's candidate status like any other refusal
         if refuses_gauntlet_request(Some(&effective), &self.shared.settings) {
             tracing::warn!(
-                "[HuntRoute] Gauntlet hunt {effective} refused reason={GAUNTLET_DISABLED_REASON} (MYSTICPARADOX_GAUNTLET is not on)"
+                "[HuntRoute] Gauntlet hunt {effective} refused reason={GAUNTLET_DISABLED_REASON} (RUSTIC_ISLES_GAUNTLET is not on)"
             );
             return Ok(self
                 .state()

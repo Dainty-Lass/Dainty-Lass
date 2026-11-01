@@ -15,7 +15,7 @@ import { p2pLauncherRouter } from "./p2pLauncher";
 // hunt peer list, the host presence, the join bootstrap and the host's offer answer (a deactivated account only). Stopping a hub and the
 // status stay open, and are not tested here.
 
-const SAVED = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64", "PERSISTENCE_PROVIDER", "MYSTICPARADOX_CONSENT_ENFORCE"] as const;
+const SAVED = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64", "PERSISTENCE_PROVIDER", "RUSTIC_ISLES_CONSENT_ENFORCE"] as const;
 const SAVED_VALUES = new Map<string, string | undefined>(SAVED.map((key) => [key, process.env[key]]));
 
 let Realm: TestRealm;
@@ -65,7 +65,7 @@ before(async () => {
     process.env.AUTH_SIGNING_PRIVKEY_B64 = Buffer.from(Keys.privateKey).toString("base64");
     process.env.AUTH_SIGNING_PUBKEY_B64 = Buffer.from(Keys.publicKey).toString("base64");
     process.env.PERSISTENCE_PROVIDER = "mongodb";
-    delete process.env.MYSTICPARADOX_CONSENT_ENFORCE;
+    delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE;
 
     Realm = OpenTestRealm("realm-hosting-account-guard");
     UsePersistenceForTest({ repos: Realm.repos, uow: Realm.uow });
@@ -104,8 +104,8 @@ test("a deactivated account cannot start a realm hub, read a hunt's peers, post 
     }
 });
 
-test("with MYSTICPARADOX_CONSENT_ENFORCE on, realm hosting needs the current consent; a hunt peer list does not", async () => {
-    process.env.MYSTICPARADOX_CONSENT_ENFORCE = "on";
+test("with RUSTIC_ISLES_CONSENT_ENFORCE on, realm hosting needs the current consent; a hunt peer list does not", async () => {
+    process.env.RUSTIC_ISLES_CONSENT_ENFORCE = "on";
     try {
         const WithoutConsent = await Account();
         const Refused = await Post("/launcher/v1/realm-hosting/hubs/start", WithoutConsent);
@@ -115,6 +115,6 @@ test("with MYSTICPARADOX_CONSENT_ENFORCE on, realm hosting needs the current con
         const Peers = await Post("/launcher/v1/p2p/hunts/session-1/peers", WithoutConsent);
         assert.notEqual(Peers.json?.error?.code, "CONSENT_REQUIRED", "the peer list is not gated by consent");
     } finally {
-        delete process.env.MYSTICPARADOX_CONSENT_ENFORCE;
+        delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE;
     }
 });

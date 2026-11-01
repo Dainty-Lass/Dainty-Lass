@@ -26,6 +26,7 @@ import { PortPool } from "./portPool";
 import { CreateSerialGate, HubSupervisor, HubLogLevel, HubSwitchOn } from "./hubSupervisor";
 import { HuntMemoryUnavailableError, MemoryAdmissionFromEnv } from "./memoryAdmission";
 import { IdleStopPolicy, RuntimeLogOccupancy } from "./hubOccupancy";
+import { LegacyEnvName } from "../legacyNames";
 
 // [2026-10-14 M1] Hunt tables from ParadoxDirector/game-data (exported from the client by CatalogExporter). Trials/Arena
 // rows sit in their own matchmaker tables and are reached only through tag routing (shared/hunt-manifest).
@@ -225,7 +226,8 @@ const TRAINING_IDLE_STOP_MS = (() => {
 })();
 const RUNTIME_LOG_DIR = (process.env.GAMESERVER_RUNTIME_LOG_DIR ?? "").trim();
 const TrainingOccupancy = !TRAINING_HUB_AT_BOOT && TRAINING_IDLE_STOP_MS > 0 && RUNTIME_LOG_DIR
-    ? new RuntimeLogOccupancy(path.join(RUNTIME_LOG_DIR, `mysticparadox_dll_port${TRAINING_DOJO_PORT}.log`))
+    ? new RuntimeLogOccupancy(path.join(RUNTIME_LOG_DIR, `rustic_isles_dll_port${TRAINING_DOJO_PORT}.log`),
+        path.join(RUNTIME_LOG_DIR, `mysticparadox_dll_port${TRAINING_DOJO_PORT}.log`))
     : undefined;
 const TrainingIdle = new IdleStopPolicy(TrainingOccupancy ? TRAINING_IDLE_STOP_MS : 0);
 let TrainingLastRequestAt = 0;
@@ -317,7 +319,7 @@ function WaitForServerReady(Child: ReturnType<typeof spawn>, LaunchId: string, P
      * RIP and RSP were byte-identical 161 seconds apart: a hard wait, no progress.
      *
      * The tell was visible long before the stack was: gameserver stdout goes silent immediately
-     * after MYSTICPARADOX_GAMESERVER_READY — i.e. exactly when Lines.close() paused the stream.
+     * after RUSTIC_ISLES_GAMESERVER_READY — i.e. exactly when Lines.close() paused the stream.
      *
      * Matches every reported symptom: not tied to a map or behemoth, worse with more players (more
      * log volume fills the pipe sooner), instantaneous with no prior degradation, and cured by a
@@ -360,7 +362,8 @@ function WaitForServerReady(Child: ReturnType<typeof spawn>, LaunchId: string, P
         const Timeout = globalThis.setTimeout(() => Finish(new GameserverStartupError(`${Label} port ${Port} did not report ready within ${GAMESERVER_READY_TIMEOUT_MS}ms`)), GAMESERVER_READY_TIMEOUT_MS);
 
         function HandleLine(Line: string){
-            const Match = /^MYSTICPARADOX_GAMESERVER_READY launchId=([0-9a-f-]+) port=(\d+)$/.exec(Line.trim());
+            // A runtime from before the Rustic Isles rename prints MYSTICPARADOX_GAMESERVER_READY
+            const Match = /^(?:RUSTIC_ISLES|MYSTICPARADOX)_GAMESERVER_READY launchId=([0-9a-f-]+) port=(\d+)$/.exec(Line.trim());
             if (!Match) return;
             if (Match[1] !== LaunchId || Number(Match[2]) !== Port) {
                 logger.warn(`Ignoring mismatched gameserver readiness marker on port ${Port}: ${Line}`);
@@ -567,11 +570,16 @@ async function StartServer(Map: string, Behemoth: string | undefined, Matchmaker
     // override and keep following the rotating schedule; an in-progress Trial retains the row it was
     // launched for even if the global UTC bucket changes while its process is starting/running.
     const ArenaWeekMatch = MatchmakerHuntId?.match(/^Arena_MatchmakerHunt_(?:Easy|Hard|Elite)_(\d{3})$/);
-    const ChildEnvironment = {
+    const ChildEnvironment: NodeJS.ProcessEnv = {
         ...process.env,
-        MYSTICPARADOX_GAMESERVER_LAUNCH_ID: Id,
-        ...(ArenaWeekMatch ? { MYSTICPARADOX_TRIALS_WEEK: ArenaWeekMatch[1] } : {})
+        RUSTIC_ISLES_GAMESERVER_LAUNCH_ID: Id,
+        ...(ArenaWeekMatch ? { RUSTIC_ISLES_TRIALS_WEEK: ArenaWeekMatch[1] } : {})
     };
+    // A runtime from before the Rustic Isles rename reads only the old names; the new value wins
+    for (const [Name, Value] of Object.entries(ChildEnvironment)) {
+        const Legacy = LegacyEnvName(Name);
+        if (Legacy) ChildEnvironment[Legacy] = Value;
+    }
 
     let Child: ReturnType<typeof spawn>;
     try {

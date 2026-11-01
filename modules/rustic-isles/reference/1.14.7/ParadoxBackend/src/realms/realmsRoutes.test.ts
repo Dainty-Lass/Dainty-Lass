@@ -437,14 +437,14 @@ test("an unexpected failure is answered as INTERNAL without leaking its message"
     }
 });
 
-test("the module is mounted only when MYSTICPARADOX_REALMS_MODULE is on, true or 1", async () => {
+test("the module is mounted only when RUSTIC_ISLES_REALMS_MODULE is on, true or 1", async () => {
     for (const [env, mounted] of [
         [{}, false],
-        [{ MYSTICPARADOX_REALMS_MODULE: "off" }, false],
-        [{ MYSTICPARADOX_REALMS_MODULE: "yes" }, false],
-        [{ MYSTICPARADOX_REALMS_MODULE: "on" }, true],
-        [{ MYSTICPARADOX_REALMS_MODULE: "TRUE" }, true],
-        [{ MYSTICPARADOX_REALMS_MODULE: "1" }, true]
+        [{ RUSTIC_ISLES_REALMS_MODULE: "off" }, false],
+        [{ RUSTIC_ISLES_REALMS_MODULE: "yes" }, false],
+        [{ RUSTIC_ISLES_REALMS_MODULE: "on" }, true],
+        [{ RUSTIC_ISLES_REALMS_MODULE: "TRUE" }, true],
+        [{ RUSTIC_ISLES_REALMS_MODULE: "1" }, true]
     ] as Array<[NodeJS.ProcessEnv, boolean]>) {
         const app = express();
         assert.equal(MountRealmsModule(app, env), mounted, JSON.stringify(env));

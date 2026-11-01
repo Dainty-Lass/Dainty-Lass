@@ -109,7 +109,7 @@ export async function CreateIceTransportConfig(accountId: string, sessionId: str
     const grant = await IssueRelayGrant(config, accountId, ttlSeconds, { fetchImpl, usageCache, now });
     const peers = IcePeersFor(hunt, accountId, role, config.transportKeySecret, presence);
     const relayResult = grant.relay.allowed ? "ISSUED" : grant.relay.reason;
-    IncrementMetric("mysticparadox_p2p_relay_grants_total", 1, { result: relayResult });
+    IncrementMetric("rustic_isles_p2p_relay_grants_total", 1, { result: relayResult });
     logger.info({
         event: "p2p_ice_config_issued", sessionId, generation: hunt.generation, accountId, role,
         relay: relayResult, ttlSeconds: grant.relay.allowed ? ttlSeconds : undefined, peers: peers.length
@@ -154,7 +154,7 @@ export async function SubmitIceSignal(accountId: string, sessionId: string, body
 
     const data = ReadP2PPolicy().forceSdr ? FilterRelayOnly(signal.kind, signal.data) : signal.data;
     if (data == undefined) {
-        IncrementMetric("mysticparadox_p2p_ice_signals_total", 1, { result: "FILTERED_RELAY_ONLY" });
+        IncrementMetric("rustic_isles_p2p_ice_signals_total", 1, { result: "FILTERED_RELAY_ONLY" });
         return { delivered: false, reason: "FILTERED_RELAY_ONLY" };
     }
     const signalId = crypto.randomUUID();
@@ -169,6 +169,6 @@ export async function SubmitIceSignal(accountId: string, sessionId: string, body
         createdAt: now.toISOString(),
         expiresAt: new Date(Math.min(Date.parse(hunt.expiresAt), now.getTime() + SIGNAL_LIFETIME_MS)).toISOString()
     });
-    IncrementMetric("mysticparadox_p2p_ice_signals_total", 1, { result: "DELIVERED" });
+    IncrementMetric("rustic_isles_p2p_ice_signals_total", 1, { result: "DELIVERED" });
     return { delivered: true, signalId };
 }

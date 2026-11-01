@@ -8,7 +8,7 @@
  * ever reads or writes the production database.
  *
  * Run with:
- *   $env:ALLOW_DB_INTEGRATION_TESTS="true"; $env:MONGODB_TEST_DB="mysticparadox_test"
+ *   $env:ALLOW_DB_INTEGRATION_TESTS="true"; $env:MONGODB_TEST_DB="rustic_isles_test"
  *   node --env-file=.env scripts/test_bootstrap_regression.cjs
  * (npm run test:bootstrap wires the same thing.)
  *
@@ -259,7 +259,7 @@ async function test(name, fn) {
             const recovered = await distInventory.GetInventoryForUserIdAndCharacterId(userId, character.id);
             assert.equal(recovered.instancedItems.map((i) => i.catalogId).sort().join(","), [...EXPECTED_INSTANCED].sort().join(","));
             for (const item of recovered.instancedItems) {
-                assert.ok(!item.instanceId.startsWith("MYSTICPARADOX_STARTER_"), `${item.catalogId} recovered with a shared-ID prefix`);
+                assert.ok(!item.instanceId.startsWith("RUSTIC_ISLES_STARTER_"), `${item.catalogId} recovered with a shared-ID prefix`);
             }
 
             const loadoutAfter = await distPersistence.GetRepositories().loadouts.findByCharacterIdAndUserId(character.id, userId);
@@ -278,7 +278,7 @@ async function test(name, fn) {
             const byId = new Map(JSON.parse(inventoryBefore.instancedItems).map((i) => [i.catalogId, i.instanceId]));
             assert.equal(recovered[0].weapon.instance_id, byId.get("WP_EB_BEGINNER"));
             assert.equal(recovered[0].helmet.instance_id, byId.get("AR_UNEQUIPPED_HELM"));
-            assert.ok(!recovered[0].weapon.instance_id.startsWith("MYSTICPARADOX_STARTER_"));
+            assert.ok(!recovered[0].weapon.instance_id.startsWith("RUSTIC_ISLES_STARTER_"));
 
             const inventoryAfter = await distPersistence.GetRepositories().inventories.findByCharacterId(character.id);
             const loadoutAfter = await distPersistence.GetRepositories().loadouts.findByCharacterIdAndUserId(character.id, userId);

@@ -6,7 +6,7 @@
  * Additional terms under AGPLv3 Section 7 apply. See ADDITIONAL_TERMS.md.
  */
 
-// [2026-10-15] MYSTICPARADOX_EMAIL_VERIFICATION=off|required decides whether a sign-in needs a verified email. off (the default, and
+// [2026-10-15] RUSTIC_ISLES_EMAIL_VERIFICATION=off|required decides whether a sign-in needs a verified email. off (the default, and
 // blank) keeps today's sign-in. required: a new registration is mailed a code and waits for it; an unverified account gets a code at
 // sign-in and must enter it (launcher 0.1.67 or later). An unrecognised value fails closed to required, with a warning. required
 // needs working SMTP settings: without them the backend refuses to start (AssertEmailVerificationConfig), as it does without
@@ -14,7 +14,7 @@
 import { logger } from "../logger";
 import { ReadSmtpSettings, SMTP_HOST_ENV, SMTP_PASSWORD_ENV, SMTP_USER_ENV } from "../mail/mailConfig";
 
-export const EMAIL_VERIFICATION_ENV = "MYSTICPARADOX_EMAIL_VERIFICATION";
+export const EMAIL_VERIFICATION_ENV = "RUSTIC_ISLES_EMAIL_VERIFICATION";
 
 export type EmailVerificationMode = "off" | "required";
 
@@ -43,7 +43,7 @@ export function ResolveEmailVerification(environment: NodeJS.ProcessEnv = proces
     };
 }
 
-/** True when sign-in needs a verified email (MYSTICPARADOX_EMAIL_VERIFICATION=required). */
+/** True when sign-in needs a verified email (RUSTIC_ISLES_EMAIL_VERIFICATION=required). */
 export function EmailVerificationRequired(environment: NodeJS.ProcessEnv = process.env): boolean {
     return ResolveEmailVerification(environment).mode === "required";
 }

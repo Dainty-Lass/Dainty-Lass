@@ -96,7 +96,8 @@ adminRouter.get("/admin/v1/auth/discord/start", async (req, res) => {
 
 adminRouter.get("/admin/v1/auth/discord/callback", async (req, res) => {
     try {
-        const BrowserBinding = ReadCookieValue(req.headers.cookie, ADMIN_DISCORD_BINDING_COOKIE_NAME);
+        const BrowserBinding = ReadCookieValue(req.headers.cookie, ADMIN_DISCORD_BINDING_COOKIE_NAME)
+            ?? ReadCookieValue(req.headers.cookie, "mysticparadox_admin_oauth");
         const { redirectUrl, setCookie } = await HandleAdminDiscordCallback(
             req.query.code as string | undefined,
             req.query.state as string | undefined,

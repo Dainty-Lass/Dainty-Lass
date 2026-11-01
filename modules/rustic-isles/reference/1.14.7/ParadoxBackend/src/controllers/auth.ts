@@ -81,16 +81,17 @@ function SignStorePurchaseToken(payload: StorePurchaseTokenPayload){
     return jwt.sign(payload, PRIVKEY, {
         algorithm: "RS256",
         expiresIn: "10m",
-        issuer: "mysticparadox-store",
-        audience: "mysticparadox-store-purchase"
+        issuer: "rustic-isles-store",
+        audience: "rustic-isles-store-purchase"
     });
 }
 
 function ValidateStorePurchaseToken(token: string){
     return jwt.verify(token, PUBKEY, {
         algorithms: ["RS256"],
-        issuer: "mysticparadox-store",
-        audience: "mysticparadox-store-purchase"
+        // Tokens signed before the Rustic Isles rename, for one release
+        issuer: ["rustic-isles-store", "mysticparadox-store"],
+        audience: ["rustic-isles-store-purchase", "mysticparadox-store-purchase"]
     }) as StorePurchaseTokenPayload;
 }
 

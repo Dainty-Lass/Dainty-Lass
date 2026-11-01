@@ -1,6 +1,6 @@
 # Scope, legal and responsible use
 
-Mystic Paradox is an unofficial, community-developed preservation project. It is not affiliated with,
+Rustic Isles is an unofficial, community-developed preservation project. It is not affiliated with,
 endorsed by, or sponsored by Phoenix Labs, Epic Games, Forte Labs, or any current or former Dauntless
 rights holder.
 

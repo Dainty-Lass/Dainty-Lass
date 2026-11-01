@@ -321,7 +321,7 @@ pub fn plan_host_journey(stored: &Value, merged: &Value, graph: &SlayersPathGrap
 // ---------------------------------------------------------------------------------------------------------------
 // The masked node
 
-/// `JourneyNodesShownLocked`: the table's masked nodes whose switch is not on (`MYSTICPARADOX_GAUNTLET`).
+/// `JourneyNodesShownLocked`: the table's masked nodes whose switch is not on (`RUSTIC_ISLES_GAUNTLET`).
 pub fn nodes_shown_locked(shared: &Shared) -> Vec<&'static str> {
     shared
         .version

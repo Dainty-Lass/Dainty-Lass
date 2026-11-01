@@ -65,7 +65,7 @@ test("the persistence barrel serves the SQLite provider end to end when PERSISTE
         }
         main().catch((error) => { console.error(error); process.exit(1); });
     `);
-    const First = JSON.parse(RunChild(Writer, { PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_SQLITE_PATH: Database, MYSTICPARADOX_SQLITE_BACKUP_INTERVAL_MINUTES: "0" }));
+    const First = JSON.parse(RunChild(Writer, { PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_SQLITE_PATH: Database, RUSTIC_ISLES_SQLITE_BACKUP_INTERVAL_MINUTES: "0" }));
     assert.deepEqual(First, { Healthy: true, RolledBack: true, Gold: 15, HealthyAfterStop: false });
     assert.ok(fs.existsSync(Database), "the database file was created, folder included");
 
@@ -80,7 +80,7 @@ test("the persistence barrel serves the SQLite provider end to end when PERSISTE
         }
         main().catch((error) => { console.error(error); process.exit(1); });
     `);
-    const Second = JSON.parse(RunChild(Reader, { PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_SQLITE_PATH: Database, MYSTICPARADOX_SQLITE_BACKUP_INTERVAL_MINUTES: "0" }));
+    const Second = JSON.parse(RunChild(Reader, { PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_SQLITE_PATH: Database, RUSTIC_ISLES_SQLITE_BACKUP_INTERVAL_MINUTES: "0" }));
     assert.deepEqual(Second, { Gold: 15, Name: "Realm Player" });
 });
 
@@ -110,8 +110,8 @@ test("the three direct reads in core code (operations policy, daily claim, Guard
     `);
     // MONGO_URI points nowhere: a call site that still reached MongoDB would fail instead of passing silently.
     // The policy service logs through the console too; the result is the tagged line.
-    const Lines = RunChild(Script, { PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_SQLITE_PATH: Database,
-        MYSTICPARADOX_SQLITE_BACKUP_INTERVAL_MINUTES: "0", MONGO_URI: "mongodb://127.0.0.1:1/none", MONGODB_URI: "mongodb://127.0.0.1:1/none" })
+    const Lines = RunChild(Script, { PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_SQLITE_PATH: Database,
+        RUSTIC_ISLES_SQLITE_BACKUP_INTERVAL_MINUTES: "0", MONGO_URI: "mongodb://127.0.0.1:1/none", MONGODB_URI: "mongodb://127.0.0.1:1/none" })
         .split(/\r?\n/);
     const Output = JSON.parse(Lines.find((Line) => Line.startsWith("RESULT "))!.slice("RESULT ".length));
     assert.deepEqual(Output, { Before: ["ENFORCE", 0], Stale: true, After: ["OBSERVE", 1], Claim: null, Guard: 0 });

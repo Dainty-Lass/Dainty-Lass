@@ -29,7 +29,7 @@ export async function IsCurrentLauncherAccountEligible(Payload: JwtPayload): Pro
 export async function HasParadoxBackendAuth(req: Request, res: Response, next: NextFunction){
     const AuthHeader = req.headers.authorization;
 
-    const GameserverAuthHeader = req.headers["x-mysticparadox-gameserver-apikey"];
+    const GameserverAuthHeader = req.headers["x-rustic-isles-gameserver-apikey"];
 
     if(GameserverAuthHeader !== undefined){
         const IsValid = await IsValidGameserverAPIKey(GameserverAuthHeader as string);
@@ -114,7 +114,7 @@ export async function HasParadoxBackendAuth(req: Request, res: Response, next: N
         res.status(401);
         res.send();
 
-        logger.error(`Unauthenticated ${req.method} to ${req.path} which needs Mystic Paradox Metagame auth!`);
+        logger.error(`Unauthenticated ${req.method} to ${req.path} which needs Rustic Isles Metagame auth!`);
 
         return;
     }
@@ -135,7 +135,7 @@ export async function HasParadoxBackendAuth(req: Request, res: Response, next: N
         res.status(401);
         res.send();
 
-        logger.warn("Request with bad Mystic Paradox Metagame auth!");
+        logger.warn("Request with bad Rustic Isles Metagame auth!");
 
         return;
     }

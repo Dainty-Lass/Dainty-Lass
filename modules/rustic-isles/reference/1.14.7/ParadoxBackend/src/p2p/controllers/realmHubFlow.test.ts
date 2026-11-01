@@ -181,10 +181,10 @@ test("hub host bootstrap: only the host, once, with its transport link, while re
         kit.hunts.steamLinks.delete(HOST);
         await ThrowsCode(() => CreateHostBootstrap(HOST, started.sessionId), "P2P_STEAM_LINK_REQUIRED");
         kit.linkAccount(HOST);
-        const hosting = process.env.MYSTICPARADOX_REALMS_HOSTING;
-        process.env.MYSTICPARADOX_REALMS_HOSTING = "off";
+        const hosting = process.env.RUSTIC_ISLES_REALMS_HOSTING;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = "off";
         await ThrowsCode(() => CreateHostBootstrap(HOST, started.sessionId), "P2P_DISABLED");
-        process.env.MYSTICPARADOX_REALMS_HOSTING = hosting;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = hosting;
         UseP2POperationsPolicyForTest({ p2pEmergencyStop: true, coopTransport: "ICE" });
         await ThrowsCode(() => CreateHostBootstrap(HOST, started.sessionId), "P2P_DISABLED");
         UseP2POperationsPolicyForTest({ p2pEmergencyStop: false, coopTransport: "ICE" });
@@ -764,10 +764,10 @@ test("monitor: the operator's emergency stop and the hosting switch end every hu
         assert.equal(Hub(kit, hub).state, "RUNNING");
         assert.equal(kit.hunts.hunts.get(hunt.sessionId)!.state, "RUNNING", "a healthy hunt stays as it is");
 
-        const hosting = process.env.MYSTICPARADOX_REALMS_HOSTING;
-        process.env.MYSTICPARADOX_REALMS_HOSTING = "off";
+        const hosting = process.env.RUSTIC_ISLES_REALMS_HOSTING;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = "off";
         await monitor().tick();
-        process.env.MYSTICPARADOX_REALMS_HOSTING = hosting;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = hosting;
         assert.equal(Hub(kit, hub).state, "ABORTED");
         assert.equal(Hub(kit, hub).failureReason, "REALM_HOSTING_DISABLED");
         assert.equal(kit.hunts.hostReliability.get(HOST)?.unexpectedFailures ?? 0, 0, "switching the feature off is nobody's failure");

@@ -221,6 +221,6 @@ export async function ListHubPeers(accountId: string, sessionId: string, body: u
         transportKey: DeriveIcePairKey(secret, hub.sessionId, hub.generation, hub.hostAccountId, row.accountId),
         state: row.state as HubPeerListEntry["state"]
     }));
-    IncrementMetric("mysticparadox_p2p_realm_hub_peer_lists_total", 1);
+    IncrementMetric("rustic_isles_p2p_realm_hub_peer_lists_total", 1);
     return { generation: hub.generation, peers };
 }

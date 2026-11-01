@@ -286,7 +286,7 @@ pub async fn register_account(shared: &Shared, input: RegisterInput<'_>) -> Repl
     let email = normalize_email(input.email.and_then(Value::as_str).unwrap_or_default());
     let normalized_name = given_name.as_deref().map(normalize_display_name);
 
-    // Under MYSTICPARADOX_EMAIL_VERIFICATION=required the code mail must be set up before an account is created: one
+    // Under RUSTIC_ISLES_EMAIL_VERIFICATION=required the code mail must be set up before an account is created: one
     // that can never be verified would only wait for the 48 h sweep
     let verification_required = email_verification_required(&shared.settings);
     if verification_required {
@@ -659,10 +659,10 @@ pub async fn request_game_exchange_code(
         .await?
         .ok_or_else(|| LauncherApiError::new("AUTH_UNAUTHORIZED", "Sign in required."))?;
     assert_account_eligible(&account)?;
-    // A deletion request deactivates the account; MYSTICPARADOX_CONSENT_ENFORCE gates the consent
+    // A deletion request deactivates the account; RUSTIC_ISLES_CONSENT_ENFORCE gates the consent
     assert_account_not_deactivated(&account)?;
     assert_consent_current_when_enforced(&account, &shared.settings)?;
-    // Official play (no realm) is refused while MYSTICPARADOX_OFFICIAL_PLAY is off. A realm launch is not refused here:
+    // Official play (no realm) is refused while RUSTIC_ISLES_OFFICIAL_PLAY is off. A realm launch is not refused here:
     // the realm decides at the end of this function.
     let no_realm = matches!(request.realm, None | Some(Value::Null));
     if no_realm && !read_official_play(&shared.settings).available {
@@ -698,7 +698,7 @@ pub async fn request_game_exchange_code(
         ));
     }
 
-    // An unofficial launcher build: refused only with MYSTICPARADOX_UNOFFICIAL_LAUNCHER=refuse, and never an outdated
+    // An unofficial launcher build: refused only with RUSTIC_ISLES_UNOFFICIAL_LAUNCHER=refuse, and never an outdated
     // official build, a report-less older launcher, an allowed test hash or (by default) an admin
     let report = parse_launcher_build_report(request.launcher);
     let verdict =

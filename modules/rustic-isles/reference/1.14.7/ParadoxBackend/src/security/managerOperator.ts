@@ -10,8 +10,8 @@
 // operator in (Discord allowlist + passkey) and proxies the admin dashboard's calls to /admin/v1/* over loopback. This module
 // is the backend half of that contract; the manager implements the sender from the text below.
 //
-// SWITCH: MYSTICPARADOX_MANAGER_ADMIN=on enables the credential. Blank or off (the default) leaves /admin/v1 with the cookie
-// session only. Any other value stops startup. SECRET: MYSTICPARADOX_MANAGER_OPERATOR_SECRET, at least 32 characters, required
+// SWITCH: RUSTIC_ISLES_MANAGER_ADMIN=on enables the credential. Blank or off (the default) leaves /admin/v1 with the cookie
+// session only. Any other value stops startup. SECRET: RUSTIC_ISLES_MANAGER_OPERATOR_SECRET, at least 32 characters, required
 // while the switch is on (startup refuses otherwise). It is read as UTF-8 after trimming.
 //
 // REQUEST HEADERS (all four are required except the name):
@@ -56,8 +56,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { LauncherAccountRecord } from "../persistence/contracts/LauncherAccountRepository";
 import { IsLoopbackAddress } from "../config/proxyTrust";
 
-export const MANAGER_OPERATOR_SWITCH_KEY = "MYSTICPARADOX_MANAGER_ADMIN";
-export const MANAGER_OPERATOR_SECRET_KEY = "MYSTICPARADOX_MANAGER_OPERATOR_SECRET";
+export const MANAGER_OPERATOR_SWITCH_KEY = "RUSTIC_ISLES_MANAGER_ADMIN";
+export const MANAGER_OPERATOR_SECRET_KEY = "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET";
 /** Audit actor prefix: every record written for a manager request carries `manager:<operatorId>`. */
 export const MANAGER_ACTOR_PREFIX = "manager:";
 

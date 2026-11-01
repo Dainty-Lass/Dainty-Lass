@@ -16,7 +16,7 @@ import { logger } from "../logger";
 import { STARTER_WALLET } from "./wallet";
 
 // [hardening 2026-07-14] The authoritative new-player bootstrap manifest. Replaces the previous
-// design (shared MYSTICPARADOX_STARTER_* instance IDs reused across every account, defined in
+// design (shared RUSTIC_ISLES_STARTER_* instance IDs reused across every account, defined in
 // inventory.ts's STARTER_INSTANCE_IDS/StarterInstancedItems) - those were fine for a single dev
 // account but are wrong for real multiplayer accounts, which must never share instance IDs.
 //
@@ -419,7 +419,7 @@ function RepairStarterInstancedItems(existingItems: any[], sourceLoadout?: any):
     }
 
     // A surviving loadout is only an ID source when its equipment item has the observed
-    // 26-character ID format. Shared MYSTICPARADOX_STARTER_* placeholders are never propagated.
+    // 26-character ID format. Shared RUSTIC_ISLES_STARTER_* placeholders are never propagated.
     const loadoutIds: Record<string, string> = {};
     for (const [Key, CatalogId] of LOADOUT_EQUIPMENT) {
         const equipment = sourceLoadout?.[Key];

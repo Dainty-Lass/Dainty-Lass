@@ -17,13 +17,13 @@ function Enabled(value: string | undefined): boolean {
  * This runs before persistence or listeners start, so a bad deployment never accepts traffic.
  */
 export function AssertRuntimeSafety(environment: NodeJS.ProcessEnv = process.env): void {
-    // [2026-10-08] The MYSTPAX_ environment prefix was renamed to MYSTICPARADOX_. A stale key would
+    // [2026-10-08] The MYSTPAX_ environment prefix was renamed to RUSTIC_ISLES_. A stale key would
     // be ignored silently and quietly switch its feature off, so refuse to start until it is renamed.
     const legacyKeys = Object.keys(environment).filter((key) => key.startsWith("MYSTPAX_"));
     if (legacyKeys.length > 0) {
-        throw new Error(`Rename these environment keys to the MYSTICPARADOX_ prefix: ${legacyKeys.sort().join(", ")}`);
+        throw new Error(`Rename these environment keys to the RUSTIC_ISLES_ prefix: ${legacyKeys.sort().join(", ")}`);
     }
-    // [2026-10-14, P5.1] MYSTICPARADOX_MANAGER_ADMIN=on needs MYSTICPARADOX_MANAGER_OPERATOR_SECRET (32+ characters); refused here, not at first request.
+    // [2026-10-14, P5.1] RUSTIC_ISLES_MANAGER_ADMIN=on needs RUSTIC_ISLES_MANAGER_OPERATOR_SECRET (32+ characters); refused here, not at first request.
     AssertManagerOperatorConfig(environment);
     ReadMetagameServiceRole(environment);
     const production = environment.NODE_ENV === "production";
@@ -34,22 +34,22 @@ export function AssertRuntimeSafety(environment: NodeJS.ProcessEnv = process.env
     const unsafe: string[] = [...moduleIssues];
     if ((environment.AUTH_MODE ?? "").trim().toUpperCase() === "NONE") unsafe.push("AUTH_MODE=NONE");
     if (LiteralTrue(environment.ALLOW_NO_AUTH_DEV_MODE)) unsafe.push("ALLOW_NO_AUTH_DEV_MODE=true");
-    if (Enabled(environment.MYSTICPARADOX_BODY_CAPTURE)) unsafe.push("MYSTICPARADOX_BODY_CAPTURE");
-    if (Enabled(environment.MYSTICPARADOX_INV_CAPTURE_RAW)) unsafe.push("MYSTICPARADOX_INV_CAPTURE_RAW");
+    if (Enabled(environment.RUSTIC_ISLES_BODY_CAPTURE)) unsafe.push("RUSTIC_ISLES_BODY_CAPTURE");
+    if (Enabled(environment.RUSTIC_ISLES_INV_CAPTURE_RAW)) unsafe.push("RUSTIC_ISLES_INV_CAPTURE_RAW");
     if (environment.REALTIME_XMPP_DEV_CITY_MUC !== "false") unsafe.push("REALTIME_XMPP_DEV_CITY_MUC must be false");
     if (unsafe.length > 0) {
         throw new Error(`Unsafe production configuration: ${unsafe.join(", ")}`);
     }
-    const configuredServiceRole = (environment.MYSTICPARADOX_SERVICE_ROLE ?? "").trim().toLowerCase();
+    const configuredServiceRole = (environment.RUSTIC_ISLES_SERVICE_ROLE ?? "").trim().toLowerCase();
     if (configuredServiceRole.length === 0) {
         const roles = ["api", ...GetP2PExtension().server.serviceRoles].join(" or ");
-        throw new Error(`Unsafe production configuration: MYSTICPARADOX_SERVICE_ROLE must be explicit (${roles}).`);
+        throw new Error(`Unsafe production configuration: RUSTIC_ISLES_SERVICE_ROLE must be explicit (${roles}).`);
     }
     if (configuredServiceRole === "combined") {
-        throw new Error("Unsafe production configuration: MYSTICPARADOX_SERVICE_ROLE=combined is local-development only.");
+        throw new Error("Unsafe production configuration: RUSTIC_ISLES_SERVICE_ROLE=combined is local-development only.");
     }
-    if (configuredServiceRole === "api" && !(environment.MYSTICPARADOX_METRICS_TOKEN ?? "").trim()) {
-        unsafe.push("MYSTICPARADOX_METRICS_TOKEN is required for the production API role");
+    if (configuredServiceRole === "api" && !(environment.RUSTIC_ISLES_METRICS_TOKEN ?? "").trim()) {
+        unsafe.push("RUSTIC_ISLES_METRICS_TOKEN is required for the production API role");
     }
     if (!(environment.MONGODB_URI ?? "").trim()) {
         unsafe.push("MONGODB_URI is required for the production service");

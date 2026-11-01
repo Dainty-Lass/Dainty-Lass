@@ -16,12 +16,12 @@ pub fn payload(language: &str, release_version: &str) -> Value {
     } else {
         envelope(json!({
             "date": "2024-12-19T18:00:00.000+00:00",
-            "description": "Welcome to Mystic Paradox!",
+            "description": "Welcome to Rustic Isles!",
             "language": language,
             "notes": [],
-            "permalink": "/patch-notes/mysticparadox/",
+            "permalink": "/patch-notes/rusticisles/",
             "release_version": release_version,
-            "title": "Mystic Paradox"
+            "title": "Rustic Isles"
         }))
     }
 }
@@ -35,7 +35,7 @@ fn welcome(language: &str, release_version: &str) -> Value {
             {
                 "sections": [
                     {
-                        "description": "Mystic Paradox is a community project that keeps Dauntless alive. Your Slayer, gear and loadouts are kept on Mystic Paradox servers, so you can pick up right where you left off.",
+                        "description": "Rustic Isles is a community project that keeps Dauntless alive. Your Slayer, gear and loadouts are kept on Rustic Isles servers, so you can pick up right where you left off.",
                         "title": "The hunt continues",
                         "type": "featured"
                     },
@@ -53,7 +53,7 @@ fn welcome(language: &str, release_version: &str) -> Value {
                         "type": "default"
                     }
                 ],
-                "title": "Welcome to Mystic Paradox",
+                "title": "Welcome to Rustic Isles",
                 "type": "new_to_dauntless"
             },
             {
@@ -62,8 +62,8 @@ fn welcome(language: &str, release_version: &str) -> Value {
                         "changes": [
                             {
                                 "list": [
-                                    "Mystic Paradox is still growing, so you may run into the odd bug",
-                                    "If something goes wrong, tell the Mystic Paradox team what you were doing and roughly when it happened",
+                                    "Rustic Isles is still growing, so you may run into the odd bug",
+                                    "If something goes wrong, tell the Rustic Isles team what you were doing and roughly when it happened",
                                     "Thank you for hunting with us!"
                                 ]
                             }
@@ -76,9 +76,9 @@ fn welcome(language: &str, release_version: &str) -> Value {
                 "type": "quality_of_life"
             }
         ],
-        "permalink": "/patch-notes/mysticparadox/",
+        "permalink": "/patch-notes/rusticisles/",
         "release_version": release_version,
-        "title": "Mystic Paradox"
+        "title": "Rustic Isles"
     })
 }
 

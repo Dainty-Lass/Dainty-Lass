@@ -85,7 +85,7 @@ export const DEV_USER_ID = process.env.DEV_USER_ID ?? "mystpax";
 // [hardening 2026-07-14] dev_inventory.json is NO LONGER LOADED AT RUNTIME. It was previously
 // read here (as DEV_INVENTORY) and served verbatim + force-resynced into Mongo on every GET for
 // DEV_USER_ID - the exact "continuously resetting from JSON prevents progression" problem. The
-// account has been migrated to Mongo via a one-time script (_migrate_mysticparadox_bootstrap.cjs,
+// account has been migrated to Mongo via a one-time script (_migrate_rustic_isles_bootstrap.cjs,
 // archived - see the migration doc/commit for details) and now persists through the same code
 // path as every other account. The file itself is kept on disk only as an archived migration
 // fixture (it is no longer imported, read, or referenced by any runtime code path).
@@ -462,7 +462,7 @@ export async function RunInventoryTransaction(UserId: string, CharacterId: strin
     // explicit instruction: the account (now migrated to Mongo, see the one-time migration
     // script) persists exactly like any other account. The root cause that motivated the
     // original bypass - NormalizeInstancedItems clobbering real instance IDs with the shared
-    // MYSTICPARADOX_STARTER_* constants - is fixed directly in NormalizeInstancedItems above (it now
+    // RUSTIC_ISLES_STARTER_* constants - is fixed directly in NormalizeInstancedItems above (it now
     // prefers an item's own existing instanceId), so no per-account skip is needed here at all.
 
     // [hardening] transactionId is now a real idempotency key, and the currency + inventory

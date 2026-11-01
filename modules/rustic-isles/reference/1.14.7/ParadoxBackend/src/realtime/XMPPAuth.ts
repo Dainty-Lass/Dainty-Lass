@@ -21,7 +21,7 @@ import { IsAccountEligible } from "../security/accountEligibility";
  * WP4 — SASL authentication + identity binding for the realtime gateway.
  *
  * Captured truth (plan §27): the 1.12 client authenticates with SASL PLAIN where authcid = the
- * Mystic Paradox userId and the password = the RS256 game JWT. This validator therefore:
+ * Rustic Isles userId and the password = the RS256 game JWT. This validator therefore:
  *   - requires exactly PLAIN;
  *   - bounds the SASL blob size (defense-in-depth on top of the WS frame cap);
  *   - parses exactly three NUL-delimited PLAIN fields (rejects malformed layouts);

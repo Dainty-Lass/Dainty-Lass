@@ -116,7 +116,7 @@ export async function GetP2POperationsPolicy(session?: ClientSession): Promise<P
     const { p2pEmergencyStop, rewardRollout, coopTransport } = NormalizeP2POperationsPolicyRecord(record).policy;
     const policy: P2POperationsPolicy = { ...ResolveOperationsPolicy(record, session), p2pEmergencyStop, rewardRollout,
         coopTransport };
-    SetMetric("mysticparadox_reward_rollout_enabled", policy.rewardRollout?.tier1GrantsEnabled ? 1 : 0);
+    SetMetric("rustic_isles_reward_rollout_enabled", policy.rewardRollout?.tier1GrantsEnabled ? 1 : 0);
     return policy;
 }
 
@@ -234,8 +234,8 @@ export async function PauseTier1RewardsForInvariant(input: RewardInvariantPauseI
             return after;
         });
         if (outcome != undefined) {
-            IncrementMetric("mysticparadox_reward_auto_pauses_total", 1, { code: reasonCode });
-            IncrementMetric("mysticparadox_operations_alerts_enqueued_total", 1, { code: "REWARD_INVARIANT" });
+            IncrementMetric("rustic_isles_reward_auto_pauses_total", 1, { code: reasonCode });
+            IncrementMetric("rustic_isles_operations_alerts_enqueued_total", 1, { code: "REWARD_INVARIANT" });
             logger.error({ alertId: requestId, code: "REWARD_INVARIANT", reasonCode },
                 "[OperationsPolicy] critical central Guard alert opened");
             return outcome;

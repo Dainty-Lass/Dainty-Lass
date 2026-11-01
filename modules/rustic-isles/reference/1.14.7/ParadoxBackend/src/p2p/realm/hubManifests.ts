@@ -11,7 +11,7 @@ import type { RealmHubKind } from "../persistence/contracts/RealmHubRepository";
 
 // [2026-10-13 realms S1] The launch manifests of a realm's hubs (SteamDocs/PARADOX_REALMS_HUB_DESIGN_2026_10_13.md section
 // 4.1). A hunt's manifest comes from the local hunt tables (src/p2p/huntManifest; DeployServer only with
-// MYSTICPARADOX_HUNT_MANIFEST_SOURCE=director) [2026-10-14 M1]; a hub's never changes, so it is
+// RUSTIC_ISLES_HUNT_MANIFEST_SOURCE=director) [2026-10-14 M1]; a hub's never changes, so it is
 // constant here and no Director is involved. The values are the ones the dedicated Director passes for its persistent hubs
 // (ParadoxDirector controllers/gameservers.ts RAMSGATE_MAP_PATH / TRAINING_DOJO_MAP_PATH, hub layout "-" <port> <map>
 // NO_BEHEMOTH NO_MM_HUNTID NO_EXPECTED_PLAYERS ...), and the hunt ids the client asks for.

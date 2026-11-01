@@ -158,9 +158,9 @@ test("path and query values: names, invite codes, account ids and host keys", ()
 });
 
 test("the module switch: only on, true or 1 (any case) turns it on; the default is off", () => {
-    for (const value of ["on", "ON", "true", "True", "1", " on "]) assert.equal(IsRealmsModuleEnabled({ MYSTICPARADOX_REALMS_MODULE: value }), true, value);
+    for (const value of ["on", "ON", "true", "True", "1", " on "]) assert.equal(IsRealmsModuleEnabled({ RUSTIC_ISLES_REALMS_MODULE: value }), true, value);
     for (const value of [undefined, "", "off", "false", "0", "yes", "enabled", "2", "onn"]) {
-        assert.equal(IsRealmsModuleEnabled({ MYSTICPARADOX_REALMS_MODULE: value }), false, String(value));
+        assert.equal(IsRealmsModuleEnabled({ RUSTIC_ISLES_REALMS_MODULE: value }), false, String(value));
     }
     assert.equal(IsRealmsModuleEnabled({}), false);
 });
@@ -180,8 +180,8 @@ test("adding a player: a username is required, trimmed, 1-64 plain characters; n
 
 test("realm limits: defaults, bounded overrides, garbage ignored", () => {
     assert.deepEqual(ReadRealmLimits({}), { maxMembers: 1000, maxBans: 1000, maxActiveInvites: 25, maxJoinRequests: 50, maxPlayerInvites: 50 });
-    assert.equal(ReadRealmLimits({ MYSTICPARADOX_REALMS_MAX_MEMBERS: "50" }).maxMembers, 50);
-    assert.equal(ReadRealmLimits({ MYSTICPARADOX_REALMS_MAX_MEMBERS: "1" }).maxMembers, 1000);
-    assert.equal(ReadRealmLimits({ MYSTICPARADOX_REALMS_MAX_MEMBERS: "99999" }).maxMembers, 1000);
-    assert.equal(ReadRealmLimits({ MYSTICPARADOX_REALMS_MAX_BANS: "abc" }).maxBans, 1000);
+    assert.equal(ReadRealmLimits({ RUSTIC_ISLES_REALMS_MAX_MEMBERS: "50" }).maxMembers, 50);
+    assert.equal(ReadRealmLimits({ RUSTIC_ISLES_REALMS_MAX_MEMBERS: "1" }).maxMembers, 1000);
+    assert.equal(ReadRealmLimits({ RUSTIC_ISLES_REALMS_MAX_MEMBERS: "99999" }).maxMembers, 1000);
+    assert.equal(ReadRealmLimits({ RUSTIC_ISLES_REALMS_MAX_BANS: "abc" }).maxBans, 1000);
 });

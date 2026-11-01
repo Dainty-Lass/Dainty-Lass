@@ -28,7 +28,7 @@ The gateway automatically scrubs credentials before writing to disk while preser
 | `<token:UID-...>` | JWT whose payload had `userId` or `sub` equal to `UID-...` | Re-signed as a valid RS256 (`--signing-key`) or HS256 (`--jwt-secret`) JWT for `UID-...` at the record's timestamp |
 | `<token>` | JWT without a string `userId`/`sub` claim | Re-signed for the default replay subject `UID-replay0000000000000000000000` |
 | `<key:sha256>` | Raw `RRK_...` / `UUK_...` account key hashed with SHA-256 | Replaced with the raw key from `--key-map <file.json>` (or deterministic `RRK_replay_<hash[..24]>`) |
-| `<gskey>` | `x-mysticparadox-gameserver-apikey` / `x-mysticparadox-gameserver-key` | Replaced with `--gs-key` (`GAMESERVER_API_KEY`) |
+| `<gskey>` | `x-rustic-isles-gameserver-apikey` / `x-rustic-isles-gameserver-key` | Replaced with `--gs-key` (`GAMESERVER_API_KEY`) |
 | `<plain:UID-...>` | Base64 SASL `PLAIN` payload `\0<account>\0<jwt>` | Re-encoded as base64 `\0UID-...\0<fresh-jwt>` |
 | `<redacted>` | Irreversibly scrubbed secret (e.g., Basic client credentials or passwords) | Marked `inexact = true` unless on a known non-secret route |
 
@@ -41,14 +41,14 @@ Before replaying a stateful capture corpus against both Node (`left`) and Rust (
 ```powershell
 # 1. Migrate the MongoDB snapshot into SQLite (or postgres://...)
 cargo run -p isles-db -- migrate `
-  --from "mongodb://127.0.0.1:27017/mysticparadox_snapshot" `
+  --from "mongodb://127.0.0.1:27017/rustic_isles_snapshot" `
   --to "R:\captures\session-2026-10-22\isles.sqlite" `
   --node local `
   --game-data-dir "R:\game_data\1.14.7"
 
 # 2. Verify row counts and canonical SHA-256 digests across all 22 collections
 cargo run -p isles-db -- verify `
-  --from "mongodb://127.0.0.1:27017/mysticparadox_snapshot" `
+  --from "mongodb://127.0.0.1:27017/rustic_isles_snapshot" `
   --to "R:\captures\session-2026-10-22\isles.sqlite" `
   --node local `
   --game-data-dir "R:\game_data\1.14.7"
@@ -118,7 +118,7 @@ Before comparing responses from `left` and `right`, the normalizer applies the f
 
 1. **JWT Verification & Canonicalization**: Every `eyJ...` token in response bodies or headers is base64url-decoded and verified to have a valid JSON header (`"alg"`) and JSON payload. Valid tokens are replaced with `<jwt:<userId>>` (or `<jwt>` when no subject claim is present). Malformed tokens are left untouched so structural corruption is caught immediately.
 2. **Opaque Tokens & Nonces**: `refresh_token`, `refreshToken`, and `challengeSignature` fields are normalized to `<opaque-token>`, `nonce` to `<nonce>`, and PKCE `code_challenge=...` query parameters to `code_challenge=<challenge>`.
-3. **Volatile HTTP Headers**: Transport headers (`date`, `etag`, `x-powered-by`, `connection`, `keep-alive`, `content-length`, `transfer-encoding`, `x-mysticparadox-request-id`, `x-request-id`, `server`, `vary`, and CORS headers) are stripped, while `content-type` (canonicalized) and application headers (e.g., `x-mystic-party-revision`) are compared.
+3. **Volatile HTTP Headers**: Transport headers (`date`, `etag`, `x-powered-by`, `connection`, `keep-alive`, `content-length`, `transfer-encoding`, `x-rustic-isles-request-id`, `x-request-id`, `server`, `vary`, and CORS headers) are stripped, while `content-type` (canonicalized) and application headers (e.g., `x-mystic-party-revision`) are compared.
 4. **Timestamps & Dynamic IDs**: Non-sentinel ISO-8601 timestamps (`<date>`), login timestamps (`<login-time>`), display dates (`<display-date>`), `uptimeSeconds` / `processId`, and dynamically generated UUIDs (`<uuid#N>`), 16-hex instance IDs (`<iid#N>`), party IDs (`<party#N>_<region>`), and progression grant IDs (`gs-<uuid#N>`) are numbered by first appearance per side so co-reference structure is strictly preserved.
 5. **XMPP Chat Stanzas**: Server stream IDs (`id='<stream>'`) and server-generated stanza IDs (`id='srv-<id>'`) are normalized, and asynchronous server keepalive pings (`<ping xmlns='urn:xmpp:ping'/>`) and replay barriers are filtered out before comparing outbound stanza sequences.
 

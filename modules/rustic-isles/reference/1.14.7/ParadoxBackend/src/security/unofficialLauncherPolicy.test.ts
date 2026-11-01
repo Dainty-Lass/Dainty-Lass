@@ -11,25 +11,25 @@ const sources = { pinnedLauncherSha256: () => OFFICIAL, servedLauncherVersion: (
 
 test("[2026-10-16] the unofficial-launcher policy is observe unless set to refuse; a typo never refuses", () => {
     assert.equal(ReadUnofficialLauncherPolicy({}).mode, "observe");
-    assert.equal(ReadUnofficialLauncherPolicy({ MYSTICPARADOX_UNOFFICIAL_LAUNCHER: " Refuse " }).mode, "refuse");
-    const typo = ReadUnofficialLauncherPolicy({ MYSTICPARADOX_UNOFFICIAL_LAUNCHER: "refuze" });
+    assert.equal(ReadUnofficialLauncherPolicy({ RUSTIC_ISLES_UNOFFICIAL_LAUNCHER: " Refuse " }).mode, "refuse");
+    const typo = ReadUnofficialLauncherPolicy({ RUSTIC_ISLES_UNOFFICIAL_LAUNCHER: "refuze" });
     assert.equal(typo.mode, "observe");
     assert.equal(typo.warnings.length, 1);
     assert.equal(ReadUnofficialLauncherPolicy({}).testersExempt, true);
-    assert.equal(ReadUnofficialLauncherPolicy({ MYSTICPARADOX_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT: "off" }).testersExempt, false);
+    assert.equal(ReadUnofficialLauncherPolicy({ RUSTIC_ISLES_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT: "off" }).testersExempt, false);
 });
 
 test("[2026-10-16] allowed test-build hashes are read case-insensitively; malformed entries are ignored with a warning", () => {
     const policy = ReadUnofficialLauncherPolicy({
-        MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES: `${TEST_BUILD.toUpperCase()}, not-a-hash  ${"d".repeat(64)}`
+        RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES: `${TEST_BUILD.toUpperCase()}, not-a-hash  ${"d".repeat(64)}`
     });
     assert.deepEqual([...policy.allowedHashes].sort(), [TEST_BUILD, "d".repeat(64)]);
     assert.equal(policy.warnings.length, 1);
 });
 
 test("[2026-10-16] with refuse, only an unofficial build is refused; outdated, unknown, allowed hashes and admins play on", () => {
-    const refuse = ReadUnofficialLauncherPolicy({ MYSTICPARADOX_UNOFFICIAL_LAUNCHER: "refuse",
-        MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES: TEST_BUILD });
+    const refuse = ReadUnofficialLauncherPolicy({ RUSTIC_ISLES_UNOFFICIAL_LAUNCHER: "refuse",
+        RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES: TEST_BUILD });
     const player: string[] = ["player"];
     assert.equal(UnofficialLauncherRefuses("unofficial", report(SELF_BUILT), player, refuse), true);
     assert.equal(UnofficialLauncherRefuses("official", report(OFFICIAL), player, refuse), false);

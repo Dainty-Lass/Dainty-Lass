@@ -14,7 +14,7 @@ import { AuthorizeP2PInventoryTransaction } from "./p2pInventoryAuthorization";
 import { DeriveIcePeerId } from "./transportPeerIds";
 
 /*
- * [2026-10-16] MYSTICPARADOX_HOST_POLICY's observe mode, the live default
+ * [2026-10-16] RUSTIC_ISLES_HOST_POLICY's observe mode, the live default
  * (hostPolicyMode.ts): the host grant classes (Platinum, Hunt Pass items, cosmetics, entitlements), a hosted Training hunt's no-reward
  * session, the daily premium draft token's cap and the write kinds a hub does not take are logged as [HostPolicyObserve] and let
  * through; who may write is still checked. The enforce-mode refusals are pinned by the other tests (the hub test kit sets enforce).

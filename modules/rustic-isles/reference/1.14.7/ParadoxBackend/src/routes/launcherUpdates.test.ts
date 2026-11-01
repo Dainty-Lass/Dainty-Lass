@@ -77,7 +77,7 @@ const githubManifest = (version = "0.1.64", over: Record<string, unknown> = {}):
     version,
     notes: "update",
     pub_date: "2026-10-15T10:00:00.000Z",
-    url: `${RELEASES}launcher-v${version}/Mystic.Paradox.Launcher_${version}_x64-setup.exe`,
+    url: `${RELEASES}launcher-v${version}/Rustic.Isles.Launcher_${version}_x64-setup.exe`,
     signature: "c2lnbmF0dXJl",
     sha256: "0".repeat(64),
     size: 5_000_000,
@@ -114,9 +114,9 @@ test("a manifest pointing elsewhere, over http, with a query, unsigned or withou
 });
 
 test("the old self-hosted layout (file + this backend's download route) still works", () => {
-    const selfHosted = githubManifest("0.1.42", { file: "Mystic Paradox Launcher_0.1.42_x64-setup.exe", url: `${BASE}/launcher/v1/updates/windows/x86_64/download` });
+    const selfHosted = githubManifest("0.1.42", { file: "Rustic Isles Launcher_0.1.42_x64-setup.exe", url: `${BASE}/launcher/v1/updates/windows/x86_64/download` });
     assert.deepEqual(DecideLauncherUpdate(selfHosted, "0.1.41", PREFIXES), { offer: true });
-    assert.deepEqual(LauncherDownloadTarget(selfHosted, PREFIXES), { kind: "file", version: "0.1.42", file: "Mystic Paradox Launcher_0.1.42_x64-setup.exe" });
+    assert.deepEqual(LauncherDownloadTarget(selfHosted, PREFIXES), { kind: "file", version: "0.1.42", file: "Rustic Isles Launcher_0.1.42_x64-setup.exe" });
     assert.equal(LauncherDownloadTarget({ ...selfHosted, file: "../escape.exe" }, PREFIXES), undefined);
 });
 
@@ -129,7 +129,7 @@ test("the download route redirects to an allowed release download, never to itse
 });
 
 // [2026-10-15] Self-hosted installers (GITHUB_RELEASES.md): the manager writes launcher/<target>/<arch>/<version>/<file>.
-const ownName = (version: string): string => `MysticParadoxLauncher_${version}_x64-setup.exe`;
+const ownName = (version: string): string => `RusticIslesLauncher_${version}_x64-setup.exe`;
 const ownManifest = (version = "0.1.64"): Record<string, unknown> => githubManifest(version, {
     url: `${BASE}/launcher/v1/updates/windows/x86_64/files/${version}/${ownName(version)}`,
     file: ownName(version),
@@ -159,9 +159,9 @@ test("the versioned installer route serves only this version's installer names, 
     const ok = LauncherInstallerPath(root, "windows", "x86_64", "0.1.64", ownName("0.1.64"));
     assert.ok(ok !== undefined && ok.endsWith(ownName("0.1.64")) && ok.includes("0.1.64"));
     for (const [target, arch, version, file] of [
-        ["windows", "x86_64", "0.1.64", "Mystic Paradox Launcher_0.1.64_x64-setup.exe"],
+        ["windows", "x86_64", "0.1.64", "Rustic Isles Launcher_0.1.64_x64-setup.exe"],
         ["windows", "x86_64", "0.1.64", ownName("0.1.63")],
-        ["windows", "x86_64", "0.1", "MysticParadoxLauncher_0.1_x64-setup.exe"],
+        ["windows", "x86_64", "0.1", "RusticIslesLauncher_0.1_x64-setup.exe"],
         ["windows", "x86_64", "0.1.64", "latest.json"],
         ["windows", "x86_64", "0.1.64", "..%2F" + ownName("0.1.64")],
         ["..", "x86_64", "0.1.64", ownName("0.1.64")],

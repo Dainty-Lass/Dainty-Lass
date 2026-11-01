@@ -78,22 +78,22 @@ const CASES: Case[] = [
     // metrics: the body holds the clock
     { name: "metrics, loopback without a token", env: { NODE_ENV: "development" }, request: get("/internal/v1/metrics"), skipBody: true },
     { name: "metrics, production without a token", env: { NODE_ENV: "production" }, request: get("/internal/v1/metrics") },
-    { name: "metrics, token required and missing", env: { MYSTICPARADOX_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics") },
-    { name: "metrics, wrong bearer", env: { MYSTICPARADOX_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics", { authorization: "Bearer nope" }) },
-    { name: "metrics, bearer", env: { MYSTICPARADOX_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics", { authorization: "Bearer route-test-token" }), skipBody: true },
-    { name: "metrics, token header", env: { MYSTICPARADOX_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics", { "x-mysticparadox-metrics-token": "route-test-token" }), skipBody: true },
+    { name: "metrics, token required and missing", env: { RUSTIC_ISLES_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics") },
+    { name: "metrics, wrong bearer", env: { RUSTIC_ISLES_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics", { authorization: "Bearer nope" }) },
+    { name: "metrics, bearer", env: { RUSTIC_ISLES_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics", { authorization: "Bearer route-test-token" }), skipBody: true },
+    { name: "metrics, token header", env: { RUSTIC_ISLES_METRICS_TOKEN: "route-test-token" }, request: get("/internal/v1/metrics", { "x-rustic-isles-metrics-token": "route-test-token" }), skipBody: true },
 
     // release gates
-    { name: "release gates, defaults", env: { MYSTICPARADOX_ADMIN_API: "on" }, request: get("/health/release-gates") },
-    { name: "release gates, legacy key and a bad guard mode", env: { MYSTICPARADOX_ADMIN_API: "on", MYSTPAX_OLD: "1", MYSTPAX_AGAIN: "2", MYSTICPARADOX_GUARD_MODE: "sometimes" }, request: get("/health/release-gates") },
-    { name: "release gates, enforce and required", env: { MYSTICPARADOX_ADMIN_API: "on", MYSTICPARADOX_GUARD_MODE: " Enforce ", MYSTICPARADOX_REGISTRATION_APPROVAL: "required", MYSTICPARADOX_REGISTRATION_AUTO_APPROVE: "true" }, request: get("/health/release-gates") },
-    { name: "release gates, proxy without a bind host", env: { MYSTICPARADOX_ADMIN_API: "on", MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "on" }, request: get("/health/release-gates") },
-    { name: "release gates, proxy on loopback", env: { MYSTICPARADOX_ADMIN_API: "on", MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "on", BIND_HOST: "127.0.0.1" }, request: get("/health/release-gates") },
-    { name: "release gates, proxy value unreadable", env: { MYSTICPARADOX_ADMIN_API: "on", MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "perhaps" }, request: get("/health/release-gates") },
-    { name: "release gates, http only", env: { MYSTICPARADOX_ADMIN_API: "on", REFORGED_HTTP_ONLY: "yes", BIND_HOST: "0.0.0.0" }, request: get("/health/release-gates") },
-    { name: "release gates, forwarded", env: { MYSTICPARADOX_ADMIN_API: "on" }, request: get("/health/release-gates", { "x-forwarded-for": "203.0.113.7" }) },
-    { name: "release gates, real ip", env: { MYSTICPARADOX_ADMIN_API: "on" }, request: get("/health/release-gates", { "x-real-ip": "203.0.113.7" }) },
-    { name: "release gates, forwarded header", env: { MYSTICPARADOX_ADMIN_API: "on" }, request: get("/health/release-gates", { forwarded: "for=203.0.113.7" }) },
+    { name: "release gates, defaults", env: { RUSTIC_ISLES_ADMIN_API: "on" }, request: get("/health/release-gates") },
+    { name: "release gates, legacy key and a bad guard mode", env: { RUSTIC_ISLES_ADMIN_API: "on", MYSTPAX_OLD: "1", MYSTPAX_AGAIN: "2", RUSTIC_ISLES_GUARD_MODE: "sometimes" }, request: get("/health/release-gates") },
+    { name: "release gates, enforce and required", env: { RUSTIC_ISLES_ADMIN_API: "on", RUSTIC_ISLES_GUARD_MODE: " Enforce ", RUSTIC_ISLES_REGISTRATION_APPROVAL: "required", RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE: "true" }, request: get("/health/release-gates") },
+    { name: "release gates, proxy without a bind host", env: { RUSTIC_ISLES_ADMIN_API: "on", RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "on" }, request: get("/health/release-gates") },
+    { name: "release gates, proxy on loopback", env: { RUSTIC_ISLES_ADMIN_API: "on", RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "on", BIND_HOST: "127.0.0.1" }, request: get("/health/release-gates") },
+    { name: "release gates, proxy value unreadable", env: { RUSTIC_ISLES_ADMIN_API: "on", RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "perhaps" }, request: get("/health/release-gates") },
+    { name: "release gates, http only", env: { RUSTIC_ISLES_ADMIN_API: "on", REFORGED_HTTP_ONLY: "yes", BIND_HOST: "0.0.0.0" }, request: get("/health/release-gates") },
+    { name: "release gates, forwarded", env: { RUSTIC_ISLES_ADMIN_API: "on" }, request: get("/health/release-gates", { "x-forwarded-for": "203.0.113.7" }) },
+    { name: "release gates, real ip", env: { RUSTIC_ISLES_ADMIN_API: "on" }, request: get("/health/release-gates", { "x-real-ip": "203.0.113.7" }) },
+    { name: "release gates, forwarded header", env: { RUSTIC_ISLES_ADMIN_API: "on" }, request: get("/health/release-gates", { forwarded: "for=203.0.113.7" }) },
 
     // the Reforged API: the answers that come before the database
     { name: "registration status, default", request: get("/reforged/api/RegistrationStatus") },
@@ -239,11 +239,11 @@ const SEEN_HEADERS = ["content-type", "cache-control", "content-length", "locati
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 const ENV_KEYS = [
     "LAUNCHER_UPDATE_ROOT", "LAUNCHER_LOG_STORAGE_DIR", "UPDATE_PUBLIC_BASE_URL", "UPDATE_PUBLISHER_ALLOWED_IPS", "UPDATE_PUBLISHER_API_KEY",
-    "LAUNCHER_UPDATE_URL_PREFIXES", "LAUNCHER_LOG_SYNC_TOKEN", "NODE_ENV", "MYSTICPARADOX_METRICS_TOKEN", "MYSTICPARADOX_ADMIN_API",
+    "LAUNCHER_UPDATE_URL_PREFIXES", "LAUNCHER_LOG_SYNC_TOKEN", "NODE_ENV", "RUSTIC_ISLES_METRICS_TOKEN", "RUSTIC_ISLES_ADMIN_API",
     "REGISTRATION_MODE", "REFORGED_ADMIN_KEY", "REFORGED_SERVER_NAME", "REFORGED_SERVER_VERSION", "REFORGED_SOURCE_URL", "REFORGED_SOURCE_COMMIT",
-    "APPROVED_EXECUTABLE_SHA256", "REALTIME_XMPP_ENABLED", "TARGET_CHANGELIST", "MYSTPAX_OLD", "MYSTPAX_AGAIN", "MYSTICPARADOX_GUARD_MODE",
-    "MYSTICPARADOX_REGISTRATION_APPROVAL", "MYSTICPARADOX_REGISTRATION_AUTO_APPROVE", "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY", "BIND_HOST",
-    "REFORGED_HTTP_ONLY", "DEPLOYSERVER_URL", "PARADOX_GAME_DATA_DIR", "MYSTICPARADOX_SERVICE_ROLE", "RUNTIME_EXTRA_FILES"
+    "APPROVED_EXECUTABLE_SHA256", "REALTIME_XMPP_ENABLED", "TARGET_CHANGELIST", "MYSTPAX_OLD", "MYSTPAX_AGAIN", "RUSTIC_ISLES_GUARD_MODE",
+    "RUSTIC_ISLES_REGISTRATION_APPROVAL", "RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE", "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY", "BIND_HOST",
+    "REFORGED_HTTP_ONLY", "DEPLOYSERVER_URL", "PARADOX_GAME_DATA_DIR", "RUSTIC_ISLES_SERVICE_ROLE", "RUNTIME_EXTRA_FILES"
 ];
 
 // The modules read signing keys when loaded; none of the captured routes uses them
@@ -252,7 +252,7 @@ process.env.AUTH_SIGNING_PUBKEY_B64 = process.env.AUTH_SIGNING_PRIVKEY_B64;
 process.env.API_KEY_HASH_SECRET = "a-test-secret-of-at-least-32-characters";
 
 const nodeRequire = createRequire(import.meta.url);
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 
 const express = (await import(pathToFileURL(path.join(workRoot, "node_modules/express/index.js")).href)).default;
 const quiet = () => { for (const method of ["log", "info", "warn", "error"] as const) (console as any)[method] = () => {}; };
@@ -277,7 +277,7 @@ async function run(spec: Case, serial: number) {
     app.set("trust proxy", "loopback");
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
-    if (process.env.MYSTICPARADOX_ADMIN_API === "on") app.use("/", (await load("routes/releaseGates.ts")).releaseGatesRouter);
+    if (process.env.RUSTIC_ISLES_ADMIN_API === "on") app.use("/", (await load("routes/releaseGates.ts")).releaseGatesRouter);
     app.use("/", (await load("routes/metrics.ts")).metricsRouter);
     app.use("/", (await load("routes/loginQueue.ts")).loginQueueRouter);
     app.use("/", (await load("routes/reforgedApi.ts")).reforgedApiRouter);

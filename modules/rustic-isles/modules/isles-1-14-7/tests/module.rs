@@ -22,7 +22,7 @@ const MOUNTS: Mounts = Mounts {
 /// The admin API on, so its routes are mounted and swept too.
 fn env_file() -> tempfile::NamedTempFile {
     let mut file = tempfile::NamedTempFile::new().unwrap();
-    writeln!(file, "MYSTICPARADOX_ADMIN_API=on").unwrap();
+    writeln!(file, "RUSTIC_ISLES_ADMIN_API=on").unwrap();
     file
 }
 

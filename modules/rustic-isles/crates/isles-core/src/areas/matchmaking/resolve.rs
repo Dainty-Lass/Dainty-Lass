@@ -67,7 +67,7 @@ pub const GAUNTLET_DISABLED_REASON: &str = "GAUNTLET_DISABLED";
 /// `GauntletMatchmakingEnabled`: only the literal `on` (case and spaces aside).
 pub fn gauntlet_enabled(settings: &Settings) -> bool {
     settings
-        .raw("MYSTICPARADOX_GAUNTLET")
+        .raw("RUSTIC_ISLES_GAUNTLET")
         .unwrap_or_default()
         .trim()
         .eq_ignore_ascii_case("on")
@@ -169,13 +169,13 @@ mod tests {
     fn gauntlet_is_enabled_only_by_the_literal_on() {
         for value in ["on", " ON ", "On"] {
             assert!(
-                gauntlet_enabled(&Settings::from_pairs([("MYSTICPARADOX_GAUNTLET", value)])),
+                gauntlet_enabled(&Settings::from_pairs([("RUSTIC_ISLES_GAUNTLET", value)])),
                 "{value}"
             );
         }
         for value in ["", "off", "true", "1", "yes", "onn"] {
             assert!(
-                !gauntlet_enabled(&Settings::from_pairs([("MYSTICPARADOX_GAUNTLET", value)])),
+                !gauntlet_enabled(&Settings::from_pairs([("RUSTIC_ISLES_GAUNTLET", value)])),
                 "{value}"
             );
         }
@@ -206,7 +206,7 @@ mod tests {
     fn a_gauntlet_request_is_refused_while_the_switch_is_off() {
         assert_eq!(GAUNTLET_DISABLED_REASON, "GAUNTLET_DISABLED");
         let off = Settings::default();
-        let on = Settings::from_pairs([("MYSTICPARADOX_GAUNTLET", "on")]);
+        let on = Settings::from_pairs([("RUSTIC_ISLES_GAUNTLET", "on")]);
         assert!(refuses_gauntlet_request(Some("CR19_PlayerHunt_Gauntlet"), &off));
         assert!(!refuses_gauntlet_request(Some("CR19_MatchmakerHunt_Gauntlet"), &on));
         assert!(!refuses_gauntlet_request(Some("ShatteredIsles_IslandA"), &off));

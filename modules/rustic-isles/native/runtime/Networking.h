@@ -23,7 +23,7 @@ namespace Networking {
 	// launcher has accepted the structured readiness message over its private pipe.
 	bool Listen(UEngine* Engine, int Port);
 
-	// [1.14.7 2026-10-03] Emit the exact MYSTICPARADOX_GAMESERVER_READY marker the DeployServer waits for,
+	// [1.14.7 2026-10-03] Emit the exact RUSTIC_ISLES_GAMESERVER_READY marker the DeployServer waits for,
 	// for the case where the ENGINE created the listener itself (map URL carries ?listen) instead of
 	// this module creating the NetDriver by hand. The manual path leaves the world context invalid on
 	// 1.14.7 ("WorldContext requested with invalid context object" x28 per run), so the engine path is

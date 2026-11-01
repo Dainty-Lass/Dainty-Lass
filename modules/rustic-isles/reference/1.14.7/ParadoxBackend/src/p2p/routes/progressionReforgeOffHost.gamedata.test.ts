@@ -16,10 +16,10 @@ import type * as Kit from "../realm/realmHubTestKit";
 
 // The reforge is read from the environment when controllers/reforge.ts loads, so this file (its own process under
 // node --test) switches it off before anything loads it.
-process.env.MYSTICPARADOX_REFORGE = "off";
+process.env.RUSTIC_ISLES_REFORGE = "off";
 
 /*
- * [2026-10-14 realms S4] With MYSTICPARADOX_REFORGE=off, ClassifyReforgeGrant returns "normal" for every grant. The prestige +1 a
+ * [2026-10-14 realms S4] With RUSTIC_ISLES_REFORGE=off, ClassifyReforgeGrant returns "normal" for every grant. The prestige +1 a
  * realm hub's host sends (authorized as the reforge's REFORGE write, since a hub takes no XP) must then still be refused: the
  * route's own check is the only thing that stops an unreviewed +1. Tracks and grants are in memory; the P2P side is the realm hub
  * test kit's, as in progressionReforgeHost.gamedata.test.ts.
@@ -149,14 +149,14 @@ async function WithRealm(body: (scenario: { hub: Kit.RunningHub; rows: any[] }) 
     }
 }
 
-test("with MYSTICPARADOX_REFORGE=off a hub host's prestige +1 is refused even with an open reforge: nothing stored, nothing tagged", async () => {
+test("with RUSTIC_ISLES_REFORGE=off a hub host's prestige +1 is refused even with an open reforge: nothing stored, nothing tagged", async () => {
     await WithRealm(async ({ hub, rows }) => {
         Tracks.set(Key(Kit_.MEMBER, SWORD), { userId: Kit_.MEMBER, progressionId: SWORD, progress: 0, confirmedFremiumRank: 0, confirmedPremiumRank: 0,
             updateVersion: 2, updatedAt: "2026-10-14T00:00:00.000Z",
             reforge: { reforgeId: "reforge-off", status: "open", priorProgress: 28_000, cap: 27_775, banked: 225, bankedRestored: 0,
                 prestigeGranted: false, openedAt: new Date().toISOString() } });
         const Plus = await Send("POST", `/progression/${Kit_.MEMBER}/${PRESTIGE_SWORD}/1`,
-            { "x-test-role": "host", "x-test-capability": hub.capabilitySecret, "x-test-user": Kit_.MEMBER, "x-mysticparadox-grant-id": "off-prestige-1" });
+            { "x-test-role": "host", "x-test-capability": hub.capabilitySecret, "x-test-user": Kit_.MEMBER, "x-rustic-isles-grant-id": "off-prestige-1" });
         assert.equal(Plus.status, 409, JSON.stringify(Plus.json));
         assert.equal(Tracks.get(Key(Kit_.MEMBER, PRESTIGE_SWORD)), undefined, "the +1 was not stored");
         assert.equal(Tracks.get(Key(Kit_.MEMBER, SWORD)).reforge.prestigeGranted, false);
@@ -165,7 +165,7 @@ test("with MYSTICPARADOX_REFORGE=off a hub host's prestige +1 is refused even wi
     });
 });
 
-test("with MYSTICPARADOX_REFORGE=off a hunt host's prestige +1 is refused too: the game grants prestige only from a reforge", async () => {
+test("with RUSTIC_ISLES_REFORGE=off a hunt host's prestige +1 is refused too: the game grants prestige only from a reforge", async () => {
     const kit = Kit_.CreateHubKit();
     const rows: any[] = [];
     require("../security/hostWrites").UseHostWriteSinkForTest(async (row: unknown) => { rows.push(row); });
@@ -181,7 +181,7 @@ test("with MYSTICPARADOX_REFORGE=off a hunt host's prestige +1 is refused too: t
         }));
         kit.hunts.hunts.set(hub.sessionId, { ...Record, sessionKind: undefined, hubKind: undefined, realmId: undefined, roster } as any);
         const Plus = await Send("POST", `/progression/${Kit_.MEMBER}/${PRESTIGE_SWORD}/1`,
-            { "x-test-role": "host", "x-test-capability": hub.capabilitySecret, "x-test-user": Kit_.MEMBER, "x-mysticparadox-grant-id": "off-hunt-prestige-1" });
+            { "x-test-role": "host", "x-test-capability": hub.capabilitySecret, "x-test-user": Kit_.MEMBER, "x-rustic-isles-grant-id": "off-hunt-prestige-1" });
         assert.equal(Plus.status, 409, JSON.stringify(Plus.json));
         assert.equal(Tracks.get(Key(Kit_.MEMBER, PRESTIGE_SWORD)), undefined, "the +1 was not stored");
         assert.equal(Grants.size, 0);

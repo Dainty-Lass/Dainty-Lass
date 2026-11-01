@@ -23,7 +23,7 @@ global.Date = class extends RealDate {
 };
 
 process.env.PARADOX_GAME_DATA_DIR = "/golden/game-data";
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 
 const Quiet = () => undefined;
 function Fake(modulePath, exports) {

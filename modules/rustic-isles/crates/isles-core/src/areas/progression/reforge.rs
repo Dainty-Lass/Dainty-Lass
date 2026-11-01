@@ -17,7 +17,7 @@ const DUPLICATE_RESTORE_WINDOW_MS: i64 = 15 * 60 * 1000;
 /// An open record older than this was abandoned: the next DELETE or progression load finishes it.
 pub const STALE_REFORGE_MS: i64 = 2 * 60 * 1000;
 
-/// `REFORGE_MODE`: `MYSTICPARADOX_REFORGE` (the env file, then the version's default switch) is `on`, `log` or `off`.
+/// `REFORGE_MODE`: `RUSTIC_ISLES_REFORGE` (the env file, then the version's default switch) is `on`, `log` or `off`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReforgeMode {
     On,

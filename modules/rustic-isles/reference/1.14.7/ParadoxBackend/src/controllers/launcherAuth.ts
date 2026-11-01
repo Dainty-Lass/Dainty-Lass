@@ -80,7 +80,7 @@ export interface LauncherSessionResult {
 }
 
 export interface PendingRegistrationResult {
-    /** False when the account was approved at once (MYSTICPARADOX_REGISTRATION_APPROVAL=off, the default). */
+    /** False when the account was approved at once (RUSTIC_ISLES_REGISTRATION_APPROVAL=off, the default). */
     approvalRequired: boolean;
     account: LauncherAccountView;
     /** [2026-10-15] Present (true, with the normalized address) when a code was mailed and the launcher must ask for it (EMAIL_VERIFICATION=required). */
@@ -252,7 +252,7 @@ export async function RegisterAccount(
     const NormalizedDisplayName = GivenName === undefined ? undefined : NormalizeDisplayName(GivenName);
 
     const Repos = GetRepositories();
-    // [2026-10-15] Under MYSTICPARADOX_EMAIL_VERIFICATION=required the code mail must be set up before an account is created: an account
+    // [2026-10-15] Under RUSTIC_ISLES_EMAIL_VERIFICATION=required the code mail must be set up before an account is created: an account
     // that can never be verified would only wait for the 48 h sweep.
     const VerificationRequired = EmailVerificationRequired();
     if (VerificationRequired) RequireEmailSending();
@@ -267,7 +267,7 @@ export async function RegisterAccount(
 
     const UserId = crypto.randomUUID();
     const PasswordHash = await HashPassword(password);
-    // [2026-10-14] MYSTICPARADOX_REGISTRATION_APPROVAL: off (the default) approves at once on every provider; required keeps pending.
+    // [2026-10-14] RUSTIC_ISLES_REGISTRATION_APPROVAL: off (the default) approves at once on every provider; required keeps pending.
     const approvalStatus = ResolveRegistrationApproval(process.env).approvalStatus;
     const CreatedAt = new Date().toISOString();
 
@@ -339,7 +339,7 @@ export async function LoginWithPassword(email: string, password: string, deviceI
     // [2026-10-15] A banned or disabled account is refused first: no code is mailed to it.
     AssertAccountNotBlocked(Account);
 
-    // [2026-10-15] MYSTICPARADOX_EMAIL_VERIFICATION=required: the right password is not enough while the email is unverified (accounts from
+    // [2026-10-15] RUSTIC_ISLES_EMAIL_VERIFICATION=required: the right password is not enough while the email is unverified (accounts from
     // before the switch included). A code is mailed within the send limits (when they are reached none is mailed, and the answer is the
     // same) and the sign-in waits for it. A wrong password never gets here.
     if (EmailVerificationRequired() && Account.emailVerifiedAt == undefined) {
@@ -474,10 +474,10 @@ export async function RequestGameExchangeCode(
         throw new LauncherApiError("AUTH_UNAUTHORIZED", "Sign in required.");
     }
     AssertAccountEligible(Account);
-    // [2026-10-14] A deletion request deactivates the account (ACCOUNT_DEACTIVATED); MYSTICPARADOX_CONSENT_ENFORCE gates the consent.
+    // [2026-10-14] A deletion request deactivates the account (ACCOUNT_DEACTIVATED); RUSTIC_ISLES_CONSENT_ENFORCE gates the consent.
     AssertAccountNotDeactivated(Account);
     AssertConsentCurrentWhenEnforced(Account);
-    // [2026-10-15] Official play (no realm) is refused while MYSTICPARADOX_OFFICIAL_PLAY is off. A realm launch is not refused here: the
+    // [2026-10-15] Official play (no realm) is refused while RUSTIC_ISLES_OFFICIAL_PLAY is off. A realm launch is not refused here: the
     // realm decides at the end of this function, as before.
     if ((realm === undefined || realm === null) && !ReadOfficialPlay().available) {
         throw new LauncherApiError("OFFICIAL_PLAY_UNAVAILABLE", OFFICIAL_PLAY_UNAVAILABLE_MESSAGE);
@@ -504,7 +504,7 @@ export async function RequestGameExchangeCode(
     }
 
     // [2026-10-16] An unofficial launcher build (security/unofficialLauncherPolicy.ts): refused only with
-    // MYSTICPARADOX_UNOFFICIAL_LAUNCHER=refuse, and never an outdated official build, a report-less older launcher, an allowed test hash
+    // RUSTIC_ISLES_UNOFFICIAL_LAUNCHER=refuse, and never an outdated official build, a report-less older launcher, an allowed test hash
     // or (by default) a tester or admin. Before the realm gate below, which may use an invite.
     const LauncherReport = ParseLauncherBuildReport(launcherBuild);
     const LauncherVerdict = ClassifyReportedLauncherBuild(runtimeChannel, LauncherReport);

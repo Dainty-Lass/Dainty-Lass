@@ -23,7 +23,7 @@ const RUNTIME = ["b".repeat(64), "c".repeat(64)];
 
 Object.assign(process.env, {
     PERSISTENCE_PROVIDER: "sqlite",
-    MYSTICPARADOX_SQLITE_PATH: path.join(Root, "realm.sqlite"),
+    RUSTIC_ISLES_SQLITE_PATH: path.join(Root, "realm.sqlite"),
     AUTH_MODE: "LAUNCHER",
     TARGET_CHANGELIST: "647472",
     API_KEY_HASH_SECRET: "test-only-api-key-hash-secret-0123456789abcdef",
@@ -32,12 +32,12 @@ Object.assign(process.env, {
     GAMESERVER_API_KEYS: "gs-key-1",
     APPROVED_EXECUTABLE_SHA256: "a".repeat(64),
     LAUNCHER_UPDATE_ROOT: path.join(Root, "updates"),
-    MYSTICPARADOX_OFFICIAL_PLAY: "on",
-    MYSTICPARADOX_RATE_LIMIT: "off",
+    RUSTIC_ISLES_OFFICIAL_PLAY: "on",
+    RUSTIC_ISLES_RATE_LIMIT: "off",
     LOG_LEVEL: "silent",
     NODE_ENV: "production",
     // The Rust module without its rifts crates is Node's DEDICATED_ONLY
-    MYSTICPARADOX_P2P_MODULE: "off",
+    RUSTIC_ISLES_P2P_MODULE: "off",
 });
 
 const ManifestPath = path.join(Root, "updates", "runtime", "client", "stable", "windows-x86_64", "latest.json");

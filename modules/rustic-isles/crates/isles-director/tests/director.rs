@@ -106,7 +106,7 @@ async fn serves_the_hubs_and_hunts(version: Version) {
     assert_eq!(
         ramsgate["launchId"].as_str().map(str::len),
         Some(36),
-        "MYSTICPARADOX_GAMESERVER_LAUNCH_ID"
+        "RUSTIC_ISLES_GAMESERVER_LAUNCH_ID"
     );
 
     let city = d.matchmake(json!({"GameMode": "CITY"})).await;
@@ -115,7 +115,7 @@ async fn serves_the_hubs_and_hunts(version: Version) {
         (200, format!(r#"{{"host":"100.101.102.103","port":{end}}}"#).as_str())
     );
     assert!(
-        city.header("x-mysticparadox-request-id")
+        city.header("x-rustic-isles-request-id")
             .is_some_and(|id| id.len() == 36)
     );
     let dojo = d
@@ -200,7 +200,7 @@ async fn serves_the_hubs_and_hunts(version: Version) {
     let log = d.log_of(begin, "=== Gameserver process exited").await;
     assert!(log.starts_with("=== Gameserver launch "));
     assert!(
-        log.contains("MYSTICPARADOX_GAMESERVER_READY"),
+        log.contains("RUSTIC_ISLES_GAMESERVER_READY"),
         "the output is copied to the log"
     );
     assert!(
@@ -252,11 +252,11 @@ async fn answers_express_404s_and_request_ids(version: Version) {
     assert_eq!(missing.status, 404);
     assert!(missing.text.contains("<pre>Cannot GET /nope</pre>"), "{}", missing.text);
     assert_eq!(missing.header("content-type"), Some("text/html; charset=utf-8"));
-    assert!(missing.header("x-mysticparadox-request-id").is_some());
+    assert!(missing.header("x-rustic-isles-request-id").is_some());
     let chosen = send(d.addr, "GET", "/nope", &[("x-request-id", "client-id-0001")], "").await;
-    assert_eq!(chosen.header("x-mysticparadox-request-id"), Some("client-id-0001"));
-    let unsafe_id = send(d.addr, "GET", "/nope", &[("x-mysticparadox-request-id", "short")], "").await;
-    assert_ne!(unsafe_id.header("x-mysticparadox-request-id"), Some("short"));
+    assert_eq!(chosen.header("x-rustic-isles-request-id"), Some("client-id-0001"));
+    let unsafe_id = send(d.addr, "GET", "/nope", &[("x-rustic-isles-request-id", "short")], "").await;
+    assert_ne!(unsafe_id.header("x-rustic-isles-request-id"), Some("short"));
     let wrong_method = d.post("/api/instances", json!({})).await;
     assert_eq!(wrong_method.status, 404);
     assert!(wrong_method.text.contains("Cannot POST /api/instances"));

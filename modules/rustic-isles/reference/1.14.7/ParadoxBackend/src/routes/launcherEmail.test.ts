@@ -27,14 +27,14 @@ import { launcherAuthRouter } from "./launcherAuth";
 const CURRENT = CurrentLegalRequirements();
 const CONSENT = { termsVersion: CURRENT.termsVersion, privacyVersion: CURRENT.privacyVersion, ageConfirmed: true };
 const SMTP_ENV: Record<string, string | undefined> = {
-    MYSTICPARADOX_SMTP_HOST: "smtp.example.test", MYSTICPARADOX_SMTP_USER: "postmaster", MYSTICPARADOX_SMTP_PASSWORD: "fixture-password"
+    RUSTIC_ISLES_SMTP_HOST: "smtp.example.test", RUSTIC_ISLES_SMTP_USER: "postmaster", RUSTIC_ISLES_SMTP_PASSWORD: "fixture-password"
 };
 const NO_SMTP_ENV: Record<string, string | undefined> = {
-    MYSTICPARADOX_SMTP_HOST: undefined, MYSTICPARADOX_SMTP_USER: undefined, MYSTICPARADOX_SMTP_PASSWORD: undefined
+    RUSTIC_ISLES_SMTP_HOST: undefined, RUSTIC_ISLES_SMTP_USER: undefined, RUSTIC_ISLES_SMTP_PASSWORD: undefined
 };
 const ENV_KEYS = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64", "PERSISTENCE_PROVIDER", "API_KEY_HASH_SECRET",
-    "MYSTICPARADOX_EMAIL_VERIFICATION", "MYSTICPARADOX_REGISTRATION_APPROVAL", "MYSTICPARADOX_SMTP_HOST", "MYSTICPARADOX_SMTP_USER",
-    "MYSTICPARADOX_SMTP_PASSWORD", "MYSTICPARADOX_SMTP_PORT", "MYSTICPARADOX_SMTP_SECURE", "MYSTICPARADOX_MAIL_FROM"] as const;
+    "RUSTIC_ISLES_EMAIL_VERIFICATION", "RUSTIC_ISLES_REGISTRATION_APPROVAL", "RUSTIC_ISLES_SMTP_HOST", "RUSTIC_ISLES_SMTP_USER",
+    "RUSTIC_ISLES_SMTP_PASSWORD", "RUSTIC_ISLES_SMTP_PORT", "RUSTIC_ISLES_SMTP_SECURE", "RUSTIC_ISLES_MAIL_FROM"] as const;
 const SAVED_ENV = new Map<string, string | undefined>();
 
 let Realm: TestRealm;
@@ -125,7 +125,7 @@ before(async () => {
         // The official backend's provider (consent is then required at sign-up; every case sends the consent).
         PERSISTENCE_PROVIDER: "mongodb",
         API_KEY_HASH_SECRET: "email-routes-test-secret-that-is-long-enough-9012",
-        MYSTICPARADOX_REGISTRATION_APPROVAL: undefined
+        RUSTIC_ISLES_REGISTRATION_APPROVAL: undefined
     });
     Realm = OpenTestRealm("launcher-email-routes");
     UsePersistenceForTest({ repos: Realm.repos, uow: Realm.uow });
@@ -150,7 +150,7 @@ before(async () => {
 });
 
 beforeEach(() => {
-    SetEnv({ ...SMTP_ENV, MYSTICPARADOX_EMAIL_VERIFICATION: "required" });
+    SetEnv({ ...SMTP_ENV, RUSTIC_ISLES_EMAIL_VERIFICATION: "required" });
 });
 
 after(async () => {
@@ -202,7 +202,7 @@ test("register with a display name keeps it, and the account is not asked for on
 });
 
 test("register under off: today's answer (no code, no verification fields), with or without a display name", async () => {
-    SetEnv({ MYSTICPARADOX_EMAIL_VERIFICATION: "off" });
+    SetEnv({ RUSTIC_ISLES_EMAIL_VERIFICATION: "off" });
     const Email = `offmode${crypto.randomBytes(3).toString("hex")}@example.test`;
     const Reply = await Call("POST", "/launcher/v1/auth/register", { email: Email, password: "correct horse battery", consent: CONSENT });
     assert.equal(Reply.status, 202, JSON.stringify(Reply.json));
@@ -300,7 +300,7 @@ test("resend mails a verification code to an unverified account after the answer
     const Reply = await Call("POST", "/launcher/v1/auth/email/resend", { email: Unverified.email });
     assert.deepEqual(Reply, { status: 200, json: { sent: true } });
     await Recorder.waitForCount(Before + 1);
-    assert.match(Recorder.lastTo(Unverified.email)?.subject ?? "", /^Your Mystic Paradox code: \d{6}$/);
+    assert.match(Recorder.lastTo(Unverified.email)?.subject ?? "", /^Your Rustic Isles code: \d{6}$/);
 
     const Verified = await Seed({ verified: true });
     const Quiet = Recorder.sent.length;
@@ -316,7 +316,7 @@ test("forgot answers { sent: true } for any address, and mails a reset code to a
     const Before = Recorder.sent.length;
     assert.deepEqual((await Call("POST", "/launcher/v1/auth/password/forgot", { email: Account.email })).json, { sent: true });
     await Recorder.waitForCount(Before + 1);
-    assert.match(Recorder.lastTo(Account.email)?.subject ?? "", /^Your Mystic Paradox password reset code: \d{6}$/);
+    assert.match(Recorder.lastTo(Account.email)?.subject ?? "", /^Your Rustic Isles password reset code: \d{6}$/);
 });
 
 test("a malformed address is 400 (a shape error, not an account question); resend is limited to five an hour per address", async () => {

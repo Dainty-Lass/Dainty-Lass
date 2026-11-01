@@ -15,7 +15,7 @@
  * empty long enough to stop.
  *
  * The Director does not see the game servers' connections. The runtime does, and writes every change of its
- * remote-client count to its own log, mysticparadox_dll_port<port>.log beside the game executable:
+ * remote-client count to its own log, rustic_isles_dll_port<port>.log beside the game executable:
  *     [12:00:01.234] pid=292 [NetConnEdge] tick=1234 connCount 0 -> 1 connMax=... NetDriver=...
  * (the first one, "-2 -> 0", when the server starts listening). RuntimeLogOccupancy follows that file from
  * where it ended when the hub was started, so only the current process's lines count (under Wine the pid in
@@ -35,19 +35,35 @@ export class RuntimeLogOccupancy {
     private position = 0;
     private partial = "";
     private count: number | null = null;
+    private reading: string;
 
-    constructor(readonly file: string) {}
+    // legacy: what a runtime from before the Rustic Isles rename writes, followed while file is absent
+    constructor(readonly file: string, readonly legacy?: string) {
+        this.reading = file;
+    }
+
+    private current(): string {
+        return this.legacy !== undefined && !fs.existsSync(this.file) && fs.existsSync(this.legacy) ? this.legacy : this.file;
+    }
 
     // Called just before the hub's process starts: everything the log holds now belongs to earlier runs.
     begin(): void {
-        this.position = FileSize(this.file);
+        this.reading = this.current();
+        this.position = FileSize(this.reading);
         this.partial = "";
         this.count = null;
     }
 
     // Reads what the log gained since the last call. The newest connection count, or null before the first edge.
     poll(): number | null {
-        const Size = FileSize(this.file);
+        const Current = this.current();
+        if (Current !== this.reading) {
+            // The runtime was updated to the new name: its file is all this run's
+            this.reading = Current;
+            this.position = 0;
+            this.partial = "";
+        }
+        const Size = FileSize(this.reading);
         if (Size < this.position) {
             // The log was truncated or replaced: start over from its beginning.
             this.position = 0;
@@ -61,7 +77,7 @@ export class RuntimeLogOccupancy {
         }
         let Text: string;
         try {
-            const Fd = fs.openSync(this.file, "r");
+            const Fd = fs.openSync(this.reading, "r");
             try {
                 const Bytes = Buffer.alloc(Size - Start);
                 const Read = fs.readSync(Fd, Bytes, 0, Bytes.length, Start);

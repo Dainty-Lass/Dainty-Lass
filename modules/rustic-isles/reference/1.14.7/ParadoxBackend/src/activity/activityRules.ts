@@ -43,7 +43,7 @@ export interface ActivitySettings {
     enabled: boolean;
     killsPerHourFlag: number;
     rewardsPerHourFlag: number;
-    /** Existing economy thresholds (MYSTICPARADOX_PLAT_DAILY_FLAG, _SPEND_FLAG, MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG, _XP_PER_MINUTE_FLAG). */
+    /** Existing economy thresholds (RUSTIC_ISLES_PLAT_DAILY_FLAG, _SPEND_FLAG, RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG, _XP_PER_MINUTE_FLAG). */
     platinumDailyCreditFlag: number;
     platinumDailySpendFlag: number;
     seasonalCoinDailyFlag: number;
@@ -57,13 +57,13 @@ function ReadNonNegative(env: NodeJS.ProcessEnv, name: string, fallback: number)
     return Number.isFinite(Value) && Value >= 0 ? Value : fallback;
 }
 
-/** The monitor's settings from the environment (pure: tests pass their own map). MYSTICPARADOX_ACTIVITY_MONITOR is on unless off. */
+/** The monitor's settings from the environment (pure: tests pass their own map). RUSTIC_ISLES_ACTIVITY_MONITOR is on unless off. */
 export function ReadActivitySettings(env: NodeJS.ProcessEnv = process.env): ActivitySettings {
     const Economy = ReadEconomyMonitorSettings(env);
     return {
-        enabled: !/^(0|false|off|no)$/i.test(env.MYSTICPARADOX_ACTIVITY_MONITOR?.trim() ?? ""),
-        killsPerHourFlag: ReadNonNegative(env, "MYSTICPARADOX_KILLS_PER_HOUR_FLAG", 90),
-        rewardsPerHourFlag: ReadNonNegative(env, "MYSTICPARADOX_REWARDS_PER_HOUR_FLAG", 600),
+        enabled: !/^(0|false|off|no)$/i.test(env.RUSTIC_ISLES_ACTIVITY_MONITOR?.trim() ?? ""),
+        killsPerHourFlag: ReadNonNegative(env, "RUSTIC_ISLES_KILLS_PER_HOUR_FLAG", 90),
+        rewardsPerHourFlag: ReadNonNegative(env, "RUSTIC_ISLES_REWARDS_PER_HOUR_FLAG", 600),
         platinumDailyCreditFlag: Economy.platinumDailyCreditFlag,
         platinumDailySpendFlag: Economy.platinumDailySpendFlag,
         seasonalCoinDailyFlag: Economy.seasonalCoinDailyFlag,

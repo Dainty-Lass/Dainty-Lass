@@ -1,6 +1,6 @@
 @echo off
 setlocal
-REM Builds the winmm.dll proxy that loads MysticParadox.dll (tools\RuntimeLoader). The crate's
+REM Builds the winmm.dll proxy that loads Rustic-Isles.dll (tools\RuntimeLoader). The crate's
 REM library is named winmm, so cargo writes target\release\winmm.dll directly.
 pushd "%~dp0..\..\tools\RuntimeLoader"
 if errorlevel 1 exit /b 1

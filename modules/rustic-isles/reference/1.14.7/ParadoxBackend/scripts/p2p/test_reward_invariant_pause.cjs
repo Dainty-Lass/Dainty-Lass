@@ -9,7 +9,7 @@ async function main() {
     const database = process.env.MONGODB_TEST_DB || "";
     if (process.env.ALLOW_DB_INTEGRATION_TESTS !== "true" ||
         !/^mongodb:\/\/(?:127\.0\.0\.1:\d+)(?:,127\.0\.0\.1:\d+)*(?:\/|\?)/.test(uri) ||
-        !/^mysticparadox_guard_it_[a-z0-9_]+$/.test(database) || database === process.env.MONGODB_DB) {
+        !/^rustic_isles_guard_it_[a-z0-9_]+$/.test(database) || database === process.env.MONGODB_DB) {
         throw new Error("Explicit isolated loopback test target required");
     }
 

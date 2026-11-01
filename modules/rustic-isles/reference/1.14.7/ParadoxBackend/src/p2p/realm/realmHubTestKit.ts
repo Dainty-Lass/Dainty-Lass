@@ -37,9 +37,9 @@ const ARTIFACT_PINS = ["P2P_GAME_EXE_SHA256", "P2P_INTERNAL_SERVER_SHA256", "P2P
     "P2P_TRANSPORT_RUNTIME_SHA256", "P2P_ADMISSION_PUBLIC_XY_SHA256"] as const;
 
 const MANAGED_ENVIRONMENT = [
-    "P2P_HUNTS_ENABLED", "MYSTICPARADOX_REALMS_HOSTING", "P2P_BACKEND_URL", "P2P_TRANSPORT_KEY_SECRET", "P2P_TURN_PROVIDER",
+    "P2P_HUNTS_ENABLED", "RUSTIC_ISLES_REALMS_HOSTING", "P2P_BACKEND_URL", "P2P_TRANSPORT_KEY_SECRET", "P2P_TURN_PROVIDER",
     "P2P_ADMISSION_KEY_ID", "P2P_ADMISSION_SIGNING_PRIVKEY_B64", "P2P_ADMISSION_VERIFY_PUBKEY_B64", "P2P_FORCE_SDR",
-    "P2P_REALM_HUB_CAPABILITY_TTL_HOURS", "P2P_LAUNCHER_GUARD_REQUIRED", "MYSTICPARADOX_GUARD_MODE", "MYSTICPARADOX_HOST_POLICY",
+    "P2P_REALM_HUB_CAPABILITY_TTL_HOURS", "P2P_LAUNCHER_GUARD_REQUIRED", "RUSTIC_ISLES_GUARD_MODE", "RUSTIC_ISLES_HOST_POLICY",
     "LAUNCHER_UPDATE_ROOT", ...ARTIFACT_PINS
 ] as const;
 
@@ -48,7 +48,7 @@ export function InstallHubTestEnvironment(): () => void {
     const saved = new Map(MANAGED_ENVIRONMENT.map((name) => [name, process.env[name]]));
     const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
     process.env.P2P_HUNTS_ENABLED = "true";
-    process.env.MYSTICPARADOX_REALMS_HOSTING = "on";
+    process.env.RUSTIC_ISLES_REALMS_HOSTING = "on";
     process.env.P2P_BACKEND_URL = "https://backend.test";
     process.env.P2P_TRANSPORT_KEY_SECRET = "t".repeat(48);
     process.env.P2P_TURN_PROVIDER = "none";
@@ -59,10 +59,10 @@ export function InstallHubTestEnvironment(): () => void {
     delete process.env.P2P_REALM_HUB_CAPABILITY_TTL_HOURS;
     delete process.env.P2P_LAUNCHER_GUARD_REQUIRED;
     // [2026-10-14] The Guard mode is the default (observe) unless a test sets it.
-    delete process.env.MYSTICPARADOX_GUARD_MODE;
+    delete process.env.RUSTIC_ISLES_GUARD_MODE;
     // [2026-10-16] The host policy runs in enforce here: these tests pin each rule's refusal. The live default is observe
     // (hostPolicyMode.ts), which hostPolicyObserve.gamedata.test.ts covers by setting it.
-    process.env.MYSTICPARADOX_HOST_POLICY = "enforce";
+    process.env.RUSTIC_ISLES_HOST_POLICY = "enforce";
     for (const pin of ARTIFACT_PINS) process.env[pin] = "a".repeat(64);
     process.env.LAUNCHER_UPDATE_ROOT = path.join(os.tmpdir(), "paradox-realm-hub-tests-no-feed");
     return () => {

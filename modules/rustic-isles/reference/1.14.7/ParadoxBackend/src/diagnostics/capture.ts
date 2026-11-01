@@ -14,15 +14,15 @@ import { logger } from "../logger";
 /*
  * [diagnostics] Reusable, flag-gated capture for inventory / store / economy iteration.
  *
- * This is intentionally separate from app.ts's raw MYSTICPARADOX_BODY_CAPTURE dump: it emits low-noise,
+ * This is intentionally separate from app.ts's raw RUSTIC_ISLES_BODY_CAPTURE dump: it emits low-noise,
  * STRUCTURED, greppable lines (stable `[INV-CAP]` prefix) that decode a transaction into its
  * per-array item deltas, so an entire debugging session (core dupe, cell equip, currency spend,
  * store reconcile, ...) can be left on without drowning the log. OFF by default.
  *
  * Environment flags (all accept 1/true/on/yes):
- *   MYSTICPARADOX_INV_CAPTURE          enable [INV-CAP] structured capture
- *   MYSTICPARADOX_INV_CAPTURE_RAW      additionally dump the full JSON of each captured payload/result
- *   MYSTICPARADOX_INV_CAPTURE_FILTER   optional case-insensitive regex of catalogIds to focus on;
+ *   RUSTIC_ISLES_INV_CAPTURE          enable [INV-CAP] structured capture
+ *   RUSTIC_ISLES_INV_CAPTURE_RAW      additionally dump the full JSON of each captured payload/result
+ *   RUSTIC_ISLES_INV_CAPTURE_FILTER   optional case-insensitive regex of catalogIds to focus on;
  *                                a transaction that touches NO matching catalogId is skipped
  *                                (e.g. "CONTAINER_CORE|CELLCORE" while chasing the core dupe,
  *                                 or "CELL_" while chasing cell-equip saves)
@@ -34,16 +34,16 @@ function IsFlagOn(value: string | undefined): boolean {
     return /^(1|true|on|yes)$/i.test(value ?? "");
 }
 
-const CAPTURE_ENABLED = IsFlagOn(process.env.MYSTICPARADOX_INV_CAPTURE);
-const CAPTURE_RAW = IsFlagOn(process.env.MYSTICPARADOX_INV_CAPTURE_RAW);
+const CAPTURE_ENABLED = IsFlagOn(process.env.RUSTIC_ISLES_INV_CAPTURE);
+const CAPTURE_RAW = IsFlagOn(process.env.RUSTIC_ISLES_INV_CAPTURE_RAW);
 
 const FocusPattern: RegExp | undefined = (() => {
-    const Raw = process.env.MYSTICPARADOX_INV_CAPTURE_FILTER;
+    const Raw = process.env.RUSTIC_ISLES_INV_CAPTURE_FILTER;
     if (Raw == undefined || Raw.length === 0) return undefined;
     try {
         return new RegExp(Raw, "i");
     } catch {
-        logger.warn(`[INV-CAP] ignoring invalid MYSTICPARADOX_INV_CAPTURE_FILTER regex: ${Raw}`);
+        logger.warn(`[INV-CAP] ignoring invalid RUSTIC_ISLES_INV_CAPTURE_FILTER regex: ${Raw}`);
         return undefined;
     }
 })();
@@ -98,7 +98,7 @@ export interface InventoryTransactionContext {
     userId?: string;
     characterId?: string;
     transactionId?: string;
-    gsKey?: boolean;         // x-mysticparadox-gameserver-apikey header present on the request
+    gsKey?: boolean;         // x-rustic-isles-gameserver-apikey header present on the request
     isGameserver?: boolean;  // AuthData.IsGameserver (authoritative grant/spend authority)
     addInstancedItems?: any;
     addStackedItems?: any;
@@ -160,7 +160,7 @@ export function CaptureInventoryTransaction(ctx: InventoryTransactionContext): v
 }
 
 // Generic structured capture for other inventory/store/economy touchpoints (single-item updates,
-// store reconcile/balance, wallet deltas, future endpoints). Gated by the same MYSTICPARADOX_INV_CAPTURE
+// store reconcile/balance, wallet deltas, future endpoints). Gated by the same RUSTIC_ISLES_INV_CAPTURE
 // flag so one switch turns the whole economy trace on/off.
 export function CaptureEvent(tag: string, fields: Record<string, unknown>): void {
     if (!CAPTURE_ENABLED) return;

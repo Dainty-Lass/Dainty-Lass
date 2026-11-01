@@ -477,7 +477,7 @@ async fn the_dedicated_route_cancels_a_gauntlet_request_with_gauntlet_disabled_f
 
 #[tokio::test]
 async fn the_dedicated_route_queues_a_gauntlet_request_with_the_switch_on_and_other_hunts_are_not_refused_by_name() {
-    let shared = shared(&[("MYSTICPARADOX_GAUNTLET", "on")], FakeDeploy::online("h", 1));
+    let shared = shared(&[("RUSTIC_ISLES_GAUNTLET", "on")], FakeDeploy::online("h", 1));
     let mm = matchmaker(&shared);
     assert!(
         mm.handle_player_matchmaking(join("ISLAND", "CR19_PlayerHunt_Gauntlet", "core-gauntlet-on"))

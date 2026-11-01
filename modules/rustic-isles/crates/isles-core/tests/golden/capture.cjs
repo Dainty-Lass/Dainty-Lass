@@ -1,4 +1,4 @@
-// Records what Mystic Paradox's own matchmaking and party routers answer (RU5 matchmaking-parties golden tests).
+// Records what Rustic Isles' own matchmaking and party routers answer (RU5 matchmaking-parties golden tests).
 //
 //   docker run --rm -v <repo>/reference/1.14.7/ParadoxBackend:/ref:ro -v <repo>/crates/isles-core/tests/golden:/out \
 //     node:22 sh -c 'cp -r /ref /work && cd /work && npm ci --ignore-scripts && node /out/capture.cjs /out/matchmaking-parties.json'
@@ -37,9 +37,9 @@ deploy.listen(0, "127.0.0.1", async () => {
         HUB_GO_NOW_MAX_DELAY_MS: "40",
         GO_NOW_LOAD_PADDING_PER_JOINER_MS: "1",
         QOS_TARGET_URL: "qos.example.net",
-        MYSTICPARADOX_P2P_MODULE: "off",
+        RUSTIC_ISLES_P2P_MODULE: "off",
         PERSISTENCE_PROVIDER: "sqlite",
-        MYSTICPARADOX_SQLITE_PATH: "/tmp/golden.sqlite",
+        RUSTIC_ISLES_SQLITE_PATH: "/tmp/golden.sqlite",
         TARGET_CHANGELIST: "647472"
     });
     const original = Module._load;

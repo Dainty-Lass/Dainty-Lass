@@ -137,7 +137,7 @@ export function PurgeExpiredUploadedLogs(root: string, nowMs: number, retentionD
 }
 
 /** The switch that turns the automatic pass off. Blank and on keep it on, which is the policy default. */
-export const UPLOADED_LOG_RETENTION_SWITCH_KEY = "MYSTICPARADOX_LOG_RETENTION";
+export const UPLOADED_LOG_RETENTION_SWITCH_KEY = "RUSTIC_ISLES_LOG_RETENTION";
 /** The first pass runs this long after start (shortly, so a bad start shows at once). */
 export const UPLOADED_LOG_RETENTION_FIRST_PASS_MS = 60_000;
 /** Then one pass every six hours. */

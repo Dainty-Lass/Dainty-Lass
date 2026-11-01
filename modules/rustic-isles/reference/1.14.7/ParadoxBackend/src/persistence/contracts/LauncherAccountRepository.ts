@@ -65,9 +65,9 @@ export interface LauncherAccountRecord {
      *  and restore it, but it cannot play, host or join. scripts/process_account_deletions.ts erases it after scheduledFor. */
     deletion?: LauncherDeletionRecord;
     /** [2026-10-15] When the email was verified (a code entered, or a password reset by code). Absent until then, and for accounts
-     *  from before email verification (they verify at their next sign-in under MYSTICPARADOX_EMAIL_VERIFICATION=required). */
+     *  from before email verification (they verify at their next sign-in under RUSTIC_ISLES_EMAIL_VERIFICATION=required). */
     emailVerifiedAt?: string;
-    /** [2026-10-15] Set on a registration made under MYSTICPARADOX_EMAIL_VERIFICATION=required, cleared when the email is verified. A
+    /** [2026-10-15] Set on a registration made under RUSTIC_ISLES_EMAIL_VERIFICATION=required, cleared when the email is verified. A
      *  registration still unverified 48 h after this time is removed by the sweep in controllers/launcherEmail.ts. */
     emailVerificationPendingSince?: string;
 }

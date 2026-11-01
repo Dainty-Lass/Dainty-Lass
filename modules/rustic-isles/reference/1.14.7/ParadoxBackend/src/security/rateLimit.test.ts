@@ -43,7 +43,7 @@ async function withLimitedApp(environment: NodeJS.ProcessEnv, run: (port: number
     }
 }
 
-const GameserverHeader = { "x-mysticparadox-gameserver-apikey": "any-value" };
+const GameserverHeader = { "x-rustic-isles-gameserver-apikey": "any-value" };
 
 test("request budget defaults, overrides and ignores invalid values", async () => {
     const req = (headers: Record<string, string>) => ({ headers, ip: "203.0.113.7" }) as any;
@@ -52,10 +52,10 @@ test("request budget defaults, overrides and ignores invalid values", async () =
 
     assert.equal(limit({}), DEFAULT_REQUESTS_PER_MINUTE);
     assert.equal(limit({}, GameserverHeader), DEFAULT_GAMESERVER_REQUESTS_PER_MINUTE);
-    assert.equal(limit({ MYSTICPARADOX_RATE_LIMIT_PER_MINUTE: " 50 " }), 50);
-    assert.equal(limit({ MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE: "900" }, GameserverHeader), 900);
+    assert.equal(limit({ RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE: " 50 " }), 50);
+    assert.equal(limit({ RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE: "900" }, GameserverHeader), 900);
     for (const invalid of ["0", "-5", "1.5", "lots", ""]) {
-        assert.equal(limit({ MYSTICPARADOX_RATE_LIMIT_PER_MINUTE: invalid }), DEFAULT_REQUESTS_PER_MINUTE);
+        assert.equal(limit({ RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE: invalid }), DEFAULT_REQUESTS_PER_MINUTE);
     }
 
     const key = RequestRateLimitOptions({}, NoHostBucket).keyGenerator as (req: any, res: any) => Promise<string>;
@@ -64,7 +64,7 @@ test("request budget defaults, overrides and ignores invalid values", async () =
 });
 
 test("client and gameserver calls from one address use separate budgets", async () => {
-    await withLimitedApp({ MYSTICPARADOX_RATE_LIMIT_PER_MINUTE: "2", MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE: "3" }, async (port) => {
+    await withLimitedApp({ RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE: "2", RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE: "3" }, async (port) => {
         assert.deepEqual([await request(port), await request(port), await request(port)], [200, 200, 429]);
         const gameserver = [];
         for (let index = 0; index < 4; index++) gameserver.push(await request(port, GameserverHeader));
@@ -72,8 +72,8 @@ test("client and gameserver calls from one address use separate budgets", async 
     });
 });
 
-test("MYSTICPARADOX_RATE_LIMIT=off disables the budget", async () => {
-    await withLimitedApp({ MYSTICPARADOX_RATE_LIMIT: "off", MYSTICPARADOX_RATE_LIMIT_PER_MINUTE: "1" }, async (port) => {
+test("RUSTIC_ISLES_RATE_LIMIT=off disables the budget", async () => {
+    await withLimitedApp({ RUSTIC_ISLES_RATE_LIMIT: "off", RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE: "1" }, async (port) => {
         assert.deepEqual([await request(port), await request(port), await request(port)], [200, 200, 200]);
     });
 });
@@ -84,7 +84,7 @@ const FakeHostBucket: HostRateLimitBucketResolver = async (req) =>
     req.headers["x-mystic-host-capability"] === "validated-capability" ? "host:capability-1" : undefined;
 
 test("a validated host capability gets its own budget; anything else stays in the address bucket (B4)", async () => {
-    const options = RequestRateLimitOptions({ MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE: "900" }, FakeHostBucket);
+    const options = RequestRateLimitOptions({ RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE: "900" }, FakeHostBucket);
     const key = options.keyGenerator as (req: any, res: any) => Promise<string>;
     const limit = options.limit as (req: any, res: any) => number;
     const hostReq = { headers: HostHeader, ip: "203.0.113.7" } as any;
@@ -103,7 +103,7 @@ test("a validated host capability gets its own budget; anything else stays in th
 });
 
 test("host traffic no longer spends the address's client budget", async () => {
-    await withLimitedApp({ MYSTICPARADOX_RATE_LIMIT_PER_MINUTE: "2", MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE: "3" }, async (port) => {
+    await withLimitedApp({ RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE: "2", RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE: "3" }, async (port) => {
         const host = [];
         for (let index = 0; index < 4; index++) host.push(await request(port, HostHeader));
         assert.deepEqual(host, [200, 200, 200, 429]);
@@ -113,7 +113,7 @@ test("host traffic no longer spends the address's client budget", async () => {
 
 test("one limiter mounted twice counts a request once", async () => {
     const application = express();
-    const limiter = CreateRequestRateLimiter({ MYSTICPARADOX_RATE_LIMIT_PER_MINUTE: "2" }, NoHostBucket);
+    const limiter = CreateRequestRateLimiter({ RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE: "2" }, NoHostBucket);
     application.use("/probe", limiter);
     application.use(limiter);
     application.get("/probe", (_req, res) => { res.status(200).send("ok"); });

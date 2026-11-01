@@ -21,7 +21,9 @@ import {
     VerifyManagerOperatorRequest
 } from "../security/managerOperator";
 
-export const ADMIN_COOKIE_NAME = "mysticparadox_admin";
+export const ADMIN_COOKIE_NAME = "rustic_isles_admin";
+// Set before the Rustic Isles rename and still read for one release
+export const LEGACY_ADMIN_COOKIE_NAME = "mysticparadox_admin";
 
 function ReadCookie(req: Request, name: string): string | undefined {
     const Header = req.headers.cookie;
@@ -62,7 +64,7 @@ export async function HasAdminAuth(req: Request, res: Response, next: NextFuncti
         return;
     }
 
-    const RawToken = ReadCookie(req, ADMIN_COOKIE_NAME);
+    const RawToken = ReadCookie(req, ADMIN_COOKIE_NAME) ?? ReadCookie(req, LEGACY_ADMIN_COOKIE_NAME);
     if (!RawToken) {
         res.status(401).json({ error: { code: "ADMIN_UNAUTHORIZED", message: "Administrator sign-in required." } });
         return;

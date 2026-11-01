@@ -33,9 +33,9 @@ use crate::version::IslesVersion;
 
 pub use rifts_seam::Rifts;
 
-/// `x-mysticparadox-request-id` (`observability/requestContext.ts`): taken from the request when it is safe, else a
+/// `x-rustic-isles-request-id` (`observability/requestContext.ts`): taken from the request when it is safe, else a
 /// new UUID, and echoed on the answer.
-pub const REQUEST_ID_HEADER: &str = "x-mysticparadox-request-id";
+pub const REQUEST_ID_HEADER: &str = "x-rustic-isles-request-id";
 
 /// Express's default JSON body limit (`100kb`); the routes with their own parsers set theirs when ported.
 pub const BODY_LIMIT: usize = 100 * 1024;
@@ -49,7 +49,7 @@ pub struct Shared {
     /// `None` until a database is configured (`REFORGED_DB_FILE` or `REFORGED_DB_ENGINE`)
     pub store: Option<IslesStore>,
     pub rifts: Rifts,
-    /// `MYSTICPARADOX_ADMIN_API`, read once at start as Node does
+    /// `RUSTIC_ISLES_ADMIN_API`, read once at start as Node does
     pub admin_api: bool,
     /// Matchmaking's in-memory state (DD15): queues, candidates, presence
     pub matchmaking: Arc<crate::areas::matchmaking::state::MatchmakingState>,
@@ -625,6 +625,7 @@ fn rate_limited_response(verdict: &crate::areas::auth::runtime::RequestBudgetVer
 }
 
 async fn dispatch(State(app): State<Arc<App>>, mut request: Request) -> Response {
+    crate::legacy::accept_legacy_headers(request.headers_mut());
     let replay_scope = replay_scope_of(&request);
     crate::game_data::season_window::with_replay_scope(replay_scope, async move {
         let id = request_id(&request);

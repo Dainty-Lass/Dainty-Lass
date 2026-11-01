@@ -201,7 +201,7 @@ impl IslesCore for AuthReforgedCore {
     }
 
     fn guard_mode(&self) -> GuardMode {
-        GuardMode::from_setting(self.settings.raw("MYSTICPARADOX_GUARD_MODE"))
+        GuardMode::from_setting(self.settings.raw("RUSTIC_ISLES_GUARD_MODE"))
     }
 
     fn operations_policy(&self) -> BoxFuture<'_, Result<Json, SeamError>> {
@@ -288,12 +288,12 @@ pub async fn run_log_purge(shared: &Shared) -> player_logs::RetentionPass {
         .unwrap_or_default()
 }
 
-/// The jobs the host switched on: `MYSTICPARADOX_ACCOUNT_ERASURE` (the 30-day erasure, Privacy Policy section 5) and
-/// `MYSTICPARADOX_LOG_PURGE` (the 90-day purge of uploaded launcher logs). Both are off unless on, because the erasure
+/// The jobs the host switched on: `RUSTIC_ISLES_ACCOUNT_ERASURE` (the 30-day erasure, Privacy Policy section 5) and
+/// `RUSTIC_ISLES_LOG_PURGE` (the 90-day purge of uploaded launcher logs). Both are off unless on, because the erasure
 /// is irreversible past the soft-delete retention and Node's script needed an operator's `--apply`.
 pub fn start_jobs(shared: &Arc<Shared>) -> Vec<tokio::task::JoinHandle<()>> {
     let mut tasks = Vec::new();
-    if switched_on(&shared.settings, "MYSTICPARADOX_ACCOUNT_ERASURE") {
+    if switched_on(&shared.settings, "RUSTIC_ISLES_ACCOUNT_ERASURE") {
         let shared = shared.clone();
         tasks.push(tokio::spawn(async move {
             let mut interval = tokio::time::interval(JOB_INTERVAL);
@@ -308,7 +308,7 @@ pub fn start_jobs(shared: &Arc<Shared>) -> Vec<tokio::task::JoinHandle<()>> {
             }
         }));
     }
-    if switched_on(&shared.settings, "MYSTICPARADOX_LOG_PURGE") {
+    if switched_on(&shared.settings, "RUSTIC_ISLES_LOG_PURGE") {
         let shared = shared.clone();
         tasks.push(tokio::spawn(async move {
             let mut interval = tokio::time::interval(JOB_INTERVAL);

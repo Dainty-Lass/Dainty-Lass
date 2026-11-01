@@ -187,7 +187,7 @@ characterRouter.get("/character", HasParadoxBackendAuth, async (req: any, res) =
     // The decision is carried on THIS request (its own headers), so each retry is classified independently -
     // never a global or last-requesting-player flag. Real-player requests and any request without the
     // gameserver key keep their stored account and character ids.
-    const HasGameserverKey = req.headers["x-mysticparadox-gameserver-apikey"] !== undefined;
+    const HasGameserverKey = req.headers["x-rustic-isles-gameserver-apikey"] !== undefined;
     const HasPlayerBearer = typeof req.headers.authorization === "string"
         && req.headers.authorization.toLowerCase().startsWith("bearer ");
     const PhantomCompatibilityShape = HasGameserverKey && !HasPlayerBearer;

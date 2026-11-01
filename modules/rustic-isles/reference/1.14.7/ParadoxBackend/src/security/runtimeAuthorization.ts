@@ -10,6 +10,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { LauncherApiError } from "./launcherErrors";
+import { CanonicalArtifactName } from "../legacyNames";
 
 export const RUNTIME_CHANNELS = ["stable", "beta", "dev"] as const;
 export type RuntimeChannel = typeof RUNTIME_CHANNELS[number];
@@ -38,7 +39,7 @@ export interface ApprovedRuntimeAttestation {
 }
 
 /** Every launcher installs and reports these: the runtime and the winmm proxy that loads it. */
-const CORE_INSTALLED_ARTIFACTS = ["MysticParadox.dll", "winmm.dll"];
+const CORE_INSTALLED_ARTIFACTS = ["Rustic-Isles.dll", "winmm.dll"];
 
 /**
  * The published manifest's other files (an optional module's runtime files, such as the co-op transport) are
@@ -95,7 +96,8 @@ function NormalizeRuntimeArtifactSet(value: unknown, optionalArtifacts: readonly
     const seen = new Set<string>();
     const normalized = value.map((raw) => {
         const input = raw as Partial<RuntimeArtifactHash>;
-        const name = typeof input?.name === "string" ? input.name : "";
+        // A launcher from before the rename reports the runtime under its old name
+        const name = CanonicalArtifactName(typeof input?.name === "string" ? input.name : "");
         if (!SAFE_ARTIFACT_NAME.test(name) || seen.has(name.toLowerCase()) ||
             !knownArtifacts.has(name.toLowerCase())) {
             throw new LauncherApiError("AUTH_VALIDATION_FAILED", "The runtime artifact set is malformed.");
@@ -185,8 +187,8 @@ export function GetApprovedRuntimeAttestation(channel: RuntimeChannel,
     if (!Array.isArray(manifest.extraFiles)) {
         throw new LauncherApiError("RUNTIME_BUILD_UNSUPPORTED", "The published runtime manifest is incomplete.");
     }
-    const artifacts: RuntimeArtifactHash[] = [{ name: "MysticParadox.dll", sha256: mainHash }];
-    const seen = new Set(["mysticparadox.dll"]);
+    const artifacts: RuntimeArtifactHash[] = [{ name: "Rustic-Isles.dll", sha256: mainHash }];
+    const seen = new Set(["rustic-isles.dll"]);
     for (const raw of manifest.extraFiles) {
         const extra = raw as { name?: unknown; sha256?: unknown };
         const name = typeof extra?.name === "string" ? extra.name : "";

@@ -15,6 +15,7 @@ import { matchmakingRouter } from "./routes/matchmaker.js";
 import { GetPersistentHubStatus, InstanceSummaries } from "./controllers/gameservers.js";
 import { logger } from "./logger.js";
 import { GetRequestId, RequestContextMiddleware } from "./observability/requestContext.js";
+import { AcceptLegacyHeaders } from "./legacyNames.js";
 
 export const app = express();
 
@@ -39,6 +40,7 @@ app.get('/api/instances', (_req, res) => {
     res.status(200).json(InstanceSummaries());
 });
 
+app.use(AcceptLegacyHeaders);
 app.use(RequestContextMiddleware);
 
 app.use(express.json());

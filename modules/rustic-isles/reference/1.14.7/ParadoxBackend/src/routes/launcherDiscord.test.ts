@@ -26,16 +26,16 @@ import { RecordingMailTransport } from "../mail/testSupport";
 import { launcherAuthRouter } from "./launcherAuth";
 
 const ENV_KEYS = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64", "PERSISTENCE_PROVIDER", "API_KEY_HASH_SECRET",
-    "DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET", "DISCORD_REDIRECT_URI", "MYSTICPARADOX_EMAIL_VERIFICATION", "LAUNCHER_DEEPLINK_SCHEME",
-    "MYSTICPARADOX_SMTP_HOST", "MYSTICPARADOX_SMTP_USER", "MYSTICPARADOX_SMTP_PASSWORD", "MYSTICPARADOX_SMTP_PORT",
-    "MYSTICPARADOX_SMTP_SECURE", "MYSTICPARADOX_MAIL_FROM"] as const;
+    "DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET", "DISCORD_REDIRECT_URI", "RUSTIC_ISLES_EMAIL_VERIFICATION", "LAUNCHER_DEEPLINK_SCHEME",
+    "RUSTIC_ISLES_SMTP_HOST", "RUSTIC_ISLES_SMTP_USER", "RUSTIC_ISLES_SMTP_PASSWORD", "RUSTIC_ISLES_SMTP_PORT",
+    "RUSTIC_ISLES_SMTP_SECURE", "RUSTIC_ISLES_MAIL_FROM"] as const;
 const SAVED_ENV = new Map<string, string | undefined>();
 const SAVED_FETCH = globalThis.fetch;
 const SMTP_ENV: Record<string, string | undefined> = {
-    MYSTICPARADOX_SMTP_HOST: "smtp.example.test", MYSTICPARADOX_SMTP_USER: "postmaster", MYSTICPARADOX_SMTP_PASSWORD: "fixture-password"
+    RUSTIC_ISLES_SMTP_HOST: "smtp.example.test", RUSTIC_ISLES_SMTP_USER: "postmaster", RUSTIC_ISLES_SMTP_PASSWORD: "fixture-password"
 };
 const NO_SMTP_ENV: Record<string, string | undefined> = {
-    MYSTICPARADOX_SMTP_HOST: undefined, MYSTICPARADOX_SMTP_USER: undefined, MYSTICPARADOX_SMTP_PASSWORD: undefined
+    RUSTIC_ISLES_SMTP_HOST: undefined, RUSTIC_ISLES_SMTP_USER: undefined, RUSTIC_ISLES_SMTP_PASSWORD: undefined
 };
 const Recorder = new RecordingMailTransport();
 
@@ -122,7 +122,7 @@ async function Seed(options: { password?: boolean; email?: boolean } = {}): Prom
 async function LinkDiscord(account: Account, n: number): Promise<void> {
     const Start = await Call("POST", "/launcher/v1/account/discord/link/start", {}, account.token);
     const Callback = await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(n)}&state=${StateOf(Start.json.authorizeUrl)}`);
-    assert.equal(Callback.location, "mysticparadox://link/done");
+    assert.equal(Callback.location, "rusticisles://link/done");
 }
 
 /** The 6-digit code the unlink mail to the account carries (the mail is awaited by the start route, so it is recorded by now). */
@@ -166,7 +166,7 @@ before(async () => {
     process.env.DISCORD_CLIENT_SECRET = "discord-client-secret-fixture";
     process.env.DISCORD_REDIRECT_URI = "https://paradox.example.test/launcher/v1/auth/discord/callback";
     delete process.env.LAUNCHER_DEEPLINK_SCHEME;
-    delete process.env.MYSTICPARADOX_EMAIL_VERIFICATION;
+    delete process.env.RUSTIC_ISLES_EMAIL_VERIFICATION;
     globalThis.fetch = StubFetch as typeof fetch;
 
     Realm = OpenTestRealm("launcher-discord-routes");
@@ -225,7 +225,7 @@ test("the callback links the Discord user to the signed-in account, answers link
     const State = StateOf(Start.json.authorizeUrl);
     const Callback = await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(1)}&state=${State}`);
     assert.equal(Callback.status, 302);
-    assert.equal(Callback.location, "mysticparadox://link/done");
+    assert.equal(Callback.location, "rusticisles://link/done");
 
     const Me = await Call("GET", "/launcher/v1/me", undefined, Account.token);
     assert.deepEqual(Me.json.discord, { linked: true, username: `user-${DiscordId(1).slice(-4)}` });
@@ -237,14 +237,14 @@ test("an account that already has a Discord link cannot start another (409), and
     const First = await Call("POST", "/launcher/v1/account/discord/link/start", {}, Account.token);
     const State = StateOf(First.json.authorizeUrl);
     assert.equal((await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(2)}&state=${State}`)).location,
-        "mysticparadox://link/done");
+        "rusticisles://link/done");
 
     const Again = await Call("POST", "/launcher/v1/account/discord/link/start", {}, Account.token);
     assert.equal(Again.status, 409);
     assert.equal(Again.json.error.code, "AUTH_DISCORD_ACCOUNT_HAS_LINK");
 
     const Replay = await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(3)}&state=${State}`);
-    assert.equal(Replay.location, "mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED", "a used state cannot link again");
+    assert.equal(Replay.location, "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED", "a used state cannot link again");
 });
 
 test("a Discord user linked to another account is refused at the callback: link/error AUTH_DISCORD_ALREADY_LINKED", async () => {
@@ -255,7 +255,7 @@ test("a Discord user linked to another account is refused at the callback: link/
     const Other = await Seed();
     const Second = await Call("POST", "/launcher/v1/account/discord/link/start", {}, Other.token);
     const Callback = await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(4)}&state=${StateOf(Second.json.authorizeUrl)}`);
-    assert.equal(Callback.location, "mysticparadox://link/error?code=AUTH_DISCORD_ALREADY_LINKED");
+    assert.equal(Callback.location, "rusticisles://link/error?code=AUTH_DISCORD_ALREADY_LINKED");
     assert.equal((await Call("GET", "/launcher/v1/me", undefined, Other.token)).json.discord.linked, false);
 });
 
@@ -266,14 +266,14 @@ test("an account that gained a link while its link was pending is refused at the
         provider: "discord", providerSubject: DiscordId(5), userId: Account.userId, providerUsername: "earlier", linkedAt: new Date().toISOString()
     });
     const Callback = await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(6)}&state=${StateOf(Start.json.authorizeUrl)}`);
-    assert.equal(Callback.location, "mysticparadox://link/error?code=AUTH_DISCORD_ACCOUNT_HAS_LINK");
+    assert.equal(Callback.location, "rusticisles://link/error?code=AUTH_DISCORD_ACCOUNT_HAS_LINK");
 });
 
 test("sign-in with an unlinked Discord user is refused (auth/error AUTH_DISCORD_NOT_LINKED) and creates no account", async () => {
     const Before = await AccountCount();
     const Start = await Call("POST", "/launcher/v1/auth/discord/start");
     const Callback = await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(7)}&state=${StateOf(Start.json.authorizeUrl)}`);
-    assert.equal(Callback.location, "mysticparadox://auth/error?code=AUTH_DISCORD_NOT_LINKED");
+    assert.equal(Callback.location, "rusticisles://auth/error?code=AUTH_DISCORD_NOT_LINKED");
     assert.equal(await AccountCount(), Before, "no account was created");
 });
 
@@ -284,7 +284,7 @@ test("sign-in with a linked Discord user completes: auth/complete, then the comp
 
     const Start = await Call("POST", "/launcher/v1/auth/discord/start");
     const Callback = await Call("GET", `/launcher/v1/auth/discord/callback?code=code-${DiscordId(8)}&state=${StateOf(Start.json.authorizeUrl)}`);
-    assert.match(Callback.location ?? "", /^mysticparadox:\/\/auth\/complete\?code=[0-9a-f]{64}$/);
+    assert.match(Callback.location ?? "", /^rusticisles:\/\/auth\/complete\?code=[0-9a-f]{64}$/);
     const CompletionCode = new URL(Callback.location!).searchParams.get("code");
     const Complete = await Call("POST", "/launcher/v1/auth/discord/complete", { code: CompletionCode });
     assert.equal(Complete.status, 200, JSON.stringify(Complete.json));
@@ -319,8 +319,8 @@ test("unlink/start mails one unlink code, answers the masked address, and unlink
     assert.deepEqual(Start.json, { sent: true, email: MaskEmail(Account.email!) });
     assert.equal(Recorder.sent.length, Before + 1, "one mail");
     const Mail = Recorder.lastTo(Account.email!)!;
-    assert.match(Mail.subject, /^Your Mystic Paradox code to unlink Discord: \d{6}$/);
-    assert.equal(Mail.subject, `Your Mystic Paradox code to unlink Discord: ${UnlinkCodeMailedTo(Account.email!)}`);
+    assert.match(Mail.subject, /^Your Rustic Isles code to unlink Discord: \d{6}$/);
+    assert.equal(Mail.subject, `Your Rustic Isles code to unlink Discord: ${UnlinkCodeMailedTo(Account.email!)}`);
     assert.equal(await Linked(Account), true, "a start unlinks nothing");
 
     const Again = await Call("POST", UNLINK_START, {}, Account.token);

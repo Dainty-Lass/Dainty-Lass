@@ -14,18 +14,18 @@ import path from "node:path";
 // Settings of the SQLite persistence provider (local realms, realms plan S5). Everything is read from the
 // environment; nothing here is secret.
 //
-//   MYSTICPARADOX_SQLITE_PATH                      database file; ":memory:" for tests. A relative path is resolved
+//   RUSTIC_ISLES_SQLITE_PATH                      database file; ":memory:" for tests. A relative path is resolved
 //                                                  against the backend folder, never the process working directory.
 //                                                  Default: ../realm-data/realm.sqlite (next to the backend folder).
-//   MYSTICPARADOX_SQLITE_SYNCHRONOUS               full (default) | normal. FULL fsyncs every commit; NORMAL (WAL)
+//   RUSTIC_ISLES_SQLITE_SYNCHRONOUS               full (default) | normal. FULL fsyncs every commit; NORMAL (WAL)
 //                                                  can lose the last commits on a power cut but never corrupts.
-//   MYSTICPARADOX_SQLITE_BUSY_TIMEOUT_MS           wait for a lock held by ANOTHER process (default 5000). It blocks
+//   RUSTIC_ISLES_SQLITE_BUSY_TIMEOUT_MS           wait for a lock held by ANOTHER process (default 5000). It blocks
 //                                                  the event loop while waiting, so keep it short.
-//   MYSTICPARADOX_SQLITE_QUEUE_TIMEOUT_MS          how long a write waits behind other writes and the open unit of work before it
+//   RUSTIC_ISLES_SQLITE_QUEUE_TIMEOUT_MS          how long a write waits behind other writes and the open unit of work before it
 //                                                  fails with SQLITE_QUEUE_TIMEOUT instead of hanging (default 60000).
-//   MYSTICPARADOX_SQLITE_BACKUP_INTERVAL_MINUTES   VACUUM INTO backup when the newest one is older than this
+//   RUSTIC_ISLES_SQLITE_BACKUP_INTERVAL_MINUTES   VACUUM INTO backup when the newest one is older than this
 //                                                  (default 1440 = daily, 0 = never). Checked at start and hourly.
-//   MYSTICPARADOX_SQLITE_BACKUP_KEEP               number of backups kept in <database folder>/backups (default 7).
+//   RUSTIC_ISLES_SQLITE_BACKUP_KEEP               number of backups kept in <database folder>/backups (default 7).
 
 export interface SqliteRuntimeConfig {
     path: string;
@@ -56,21 +56,21 @@ export function ResolveSqlitePath(raw: string | undefined): string {
     const value = raw?.trim();
     if (value == undefined || value.length === 0) return path.resolve(BACKEND_ROOT, DEFAULT_SQLITE_RELATIVE_PATH);
     if (value === IN_MEMORY_DATABASE) return value;
-    if (/[\u0000-\u001F]/u.test(value)) throw new Error("MYSTICPARADOX_SQLITE_PATH contains control characters");
+    if (/[\u0000-\u001F]/u.test(value)) throw new Error("RUSTIC_ISLES_SQLITE_PATH contains control characters");
     return path.resolve(BACKEND_ROOT, value);
 }
 
 export function ReadSqliteRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): SqliteRuntimeConfig {
-    const synchronous = (environment.MYSTICPARADOX_SQLITE_SYNCHRONOUS ?? "full").trim().toLowerCase();
+    const synchronous = (environment.RUSTIC_ISLES_SQLITE_SYNCHRONOUS ?? "full").trim().toLowerCase();
     if (synchronous !== "full" && synchronous !== "normal") {
-        throw new Error("MYSTICPARADOX_SQLITE_SYNCHRONOUS must be 'full' or 'normal'");
+        throw new Error("RUSTIC_ISLES_SQLITE_SYNCHRONOUS must be 'full' or 'normal'");
     }
     return {
-        path: ResolveSqlitePath(environment.MYSTICPARADOX_SQLITE_PATH),
+        path: ResolveSqlitePath(environment.RUSTIC_ISLES_SQLITE_PATH),
         synchronous: synchronous === "normal" ? "NORMAL" : "FULL",
-        busyTimeoutMs: ReadBoundedInteger(environment, "MYSTICPARADOX_SQLITE_BUSY_TIMEOUT_MS", 5_000, 0, 60_000),
-        queueTimeoutMs: ReadBoundedInteger(environment, "MYSTICPARADOX_SQLITE_QUEUE_TIMEOUT_MS", 60_000, 100, 600_000),
-        backupIntervalMinutes: ReadBoundedInteger(environment, "MYSTICPARADOX_SQLITE_BACKUP_INTERVAL_MINUTES", 1_440, 0, 525_600),
-        backupKeep: ReadBoundedInteger(environment, "MYSTICPARADOX_SQLITE_BACKUP_KEEP", 7, 1, 365)
+        busyTimeoutMs: ReadBoundedInteger(environment, "RUSTIC_ISLES_SQLITE_BUSY_TIMEOUT_MS", 5_000, 0, 60_000),
+        queueTimeoutMs: ReadBoundedInteger(environment, "RUSTIC_ISLES_SQLITE_QUEUE_TIMEOUT_MS", 60_000, 100, 600_000),
+        backupIntervalMinutes: ReadBoundedInteger(environment, "RUSTIC_ISLES_SQLITE_BACKUP_INTERVAL_MINUTES", 1_440, 0, 525_600),
+        backupKeep: ReadBoundedInteger(environment, "RUSTIC_ISLES_SQLITE_BACKUP_KEEP", 7, 1, 365)
     };
 }

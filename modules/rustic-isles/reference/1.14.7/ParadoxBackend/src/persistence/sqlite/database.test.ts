@@ -29,13 +29,13 @@ test("config: default path sits next to the backend folder, relative paths resol
     assert.equal(ResolveSqlitePath("data/x.sqlite"), path.resolve(BACKEND_ROOT, "data", "x.sqlite"));
     assert.equal(ResolveSqlitePath(":memory:"), ":memory:");
     assert.equal(ReadSqliteRuntimeConfig({}).synchronous, "FULL");
-    assert.equal(ReadSqliteRuntimeConfig({ MYSTICPARADOX_SQLITE_SYNCHRONOUS: "Normal" }).synchronous, "NORMAL");
-    assert.throws(() => ReadSqliteRuntimeConfig({ MYSTICPARADOX_SQLITE_SYNCHRONOUS: "off" }), /full' or 'normal/);
-    assert.throws(() => ReadSqliteRuntimeConfig({ MYSTICPARADOX_SQLITE_BUSY_TIMEOUT_MS: "-1" }), /integer between/);
-    assert.throws(() => ReadSqliteRuntimeConfig({ MYSTICPARADOX_SQLITE_BACKUP_KEEP: "0" }), /integer between/);
+    assert.equal(ReadSqliteRuntimeConfig({ RUSTIC_ISLES_SQLITE_SYNCHRONOUS: "Normal" }).synchronous, "NORMAL");
+    assert.throws(() => ReadSqliteRuntimeConfig({ RUSTIC_ISLES_SQLITE_SYNCHRONOUS: "off" }), /full' or 'normal/);
+    assert.throws(() => ReadSqliteRuntimeConfig({ RUSTIC_ISLES_SQLITE_BUSY_TIMEOUT_MS: "-1" }), /integer between/);
+    assert.throws(() => ReadSqliteRuntimeConfig({ RUSTIC_ISLES_SQLITE_BACKUP_KEEP: "0" }), /integer between/);
     assert.equal(ReadSqliteRuntimeConfig({}).backupIntervalMinutes, 1440);
     assert.equal(ReadSqliteRuntimeConfig({}).queueTimeoutMs, 60_000);
-    assert.throws(() => ReadSqliteRuntimeConfig({ MYSTICPARADOX_SQLITE_QUEUE_TIMEOUT_MS: "5" }), /integer between/);
+    assert.throws(() => ReadSqliteRuntimeConfig({ RUSTIC_ISLES_SQLITE_QUEUE_TIMEOUT_MS: "5" }), /integer between/);
 });
 
 test("the file is WAL, the schema is versioned and a reopen keeps the data and the seeded policy", async () => {

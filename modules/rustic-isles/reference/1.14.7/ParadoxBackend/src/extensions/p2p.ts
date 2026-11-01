@@ -11,7 +11,7 @@
 // The server is complete without it: every hook below has a dedicated-only default (hunts route to
 // DeployServer, no host-runtime credential, no extra routes, loops, indexes or policy fields). When a
 // `p2p` folder is present next to this one, GetP2PExtension() loads it once and uses its hooks
-// instead. MYSTICPARADOX_P2P_MODULE=off keeps the dedicated-only defaults even when the folder exists.
+// instead. RUSTIC_ISLES_P2P_MODULE=off keeps the dedicated-only defaults even when the folder exists.
 //
 // Shared code never imports the module directly; it calls these hooks only.
 
@@ -128,7 +128,7 @@ export interface OperationsOverviewExtension {
 export interface P2PExtension {
     readonly loaded: boolean;
     server: {
-        /** Extra MYSTICPARADOX_SERVICE_ROLE values that have their own entry point. */
+        /** Extra RUSTIC_ISLES_SERVICE_ROLE values that have their own entry point. */
         serviceRoles: readonly string[];
         /**
          * Runs before persistence starts. Throws for a rule that applies in every environment and
@@ -190,7 +190,7 @@ export interface P2PExtension {
         record(req: Request, write: HostWriteRecordInput): Promise<void>;
     };
     /**
-     * [2026-10-17] The host policy (MYSTICPARADOX_HOST_POLICY, the module's security/hostPolicyMode.ts) for limits the core applies to
+     * [2026-10-17] The host policy (RUSTIC_ISLES_HOST_POLICY, the module's security/hostPolicyMode.ts) for limits the core applies to
      * a host's writes, such as the per-grant XP ceilings and the full player-level track (controllers/progression.ts): `refuses` is
      * true only in enforce mode; in observe mode the core logs the would-be refusal through `noteWouldRefuse` and lets it through.
      */
@@ -294,8 +294,8 @@ const DEDICATED_ONLY: P2PExtension = {
 let Extension: P2PExtension | undefined;
 
 function LoadP2PExtension(): P2PExtension {
-    if (/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_P2P_MODULE?.trim() ?? "")) {
-        logger.info("[P2P] module disabled by MYSTICPARADOX_P2P_MODULE; dedicated hunts only");
+    if (/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_P2P_MODULE?.trim() ?? "")) {
+        logger.info("[P2P] module disabled by RUSTIC_ISLES_P2P_MODULE; dedicated hunts only");
         return DEDICATED_ONLY;
     }
     const modulePath = path.join(__dirname, "..", "p2p");

@@ -7,7 +7,7 @@
  */
 
 // Player-hosted (P2P) server mode: a game server the launcher runs on a player's PC for one hunt
-// session (MYSTICPARADOX_AUTH_MODE=HUNT_CAPABILITY). It binds to loopback only, authenticates to the
+// session (RUSTIC_ISLES_AUTH_MODE=HUNT_CAPABILITY). It binds to loopback only, authenticates to the
 // backend with a session-scoped host capability instead of the gameserver key, reports readiness and
 // accepts its fence over launcher-owned named pipes, and feeds the optional anti-cheat module's Hunt
 // Guard evidence producer (AntiCheatHooks.h).
@@ -22,7 +22,7 @@
 #include "AntiCheatHooks.h"
 
 namespace State {
-    // MYSTICPARADOX_AUTH_MODE=HUNT_CAPABILITY on a server (ClaimAuthMode).
+    // RUSTIC_ISLES_AUTH_MODE=HUNT_CAPABILITY on a server (ClaimAuthMode).
     static bool Active = false;
     // The launcher's bootstrap environment was complete and valid (ReadLaunch).
     static bool BootstrapValid = false;
@@ -34,11 +34,11 @@ namespace State {
     static std::string RuntimeCapability;
     static std::string ControlPipe;
     static DWORD ExpectedLauncherPid = 0;
-    // Launcher-declared role (ReadHostedRole): MYSTICPARADOX_HOSTED_ROLE=HUB makes a City/TrainingGrounds server a
+    // Launcher-declared role (ReadHostedRole): RUSTIC_ISLES_HOSTED_ROLE=HUB makes a City/TrainingGrounds server a
     // persistent hub; absent or HUNT keeps it disposable. The two numbers are meaningful for a HUB only.
     static bool HostedHub = false;
-    static int MaxPlayers = 0;        // MYSTICPARADOX_MAX_PLAYERS 1..64, 0 = not set
-    static int HubAfkSeconds = -1;    // MYSTICPARADOX_HUB_AFK_SECONDS 0..7200, -1 = not set
+    static int MaxPlayers = 0;        // RUSTIC_ISLES_MAX_PLAYERS 1..64, 0 = not set
+    static int HubAfkSeconds = -1;    // RUSTIC_ISLES_HUB_AFK_SECONDS 0..7200, -1 = not set
     // The first invalid role variable (a string literal; ReadLaunch runs under the loader lock and cannot log, so
     // StartServer reports it before ending the process).
     static const char* RoleProblem = nullptr;
@@ -96,8 +96,8 @@ static bool MpParseBoundedInteger(const std::string& Text, int Minimum, int Maxi
     return true;
 }
 
-// MYSTICPARADOX_HOSTED_ROLE (HUNT | HUB, absent = HUNT), MYSTICPARADOX_MAX_PLAYERS (1..64) and
-// MYSTICPARADOX_HUB_AFK_SECONDS (0..7200): each is optional, a present value must be valid. The numbers are checked
+// RUSTIC_ISLES_HOSTED_ROLE (HUNT | HUB, absent = HUNT), RUSTIC_ISLES_MAX_PLAYERS (1..64) and
+// RUSTIC_ISLES_HUB_AFK_SECONDS (0..7200): each is optional, a present value must be valid. The numbers are checked
 // for a HUNT role too (a launcher bug should fail loudly either way) but only a HUB uses them. False = invalid.
 static bool ReadHostedRole() {
     State::HostedHub = false;
@@ -106,46 +106,46 @@ static bool ReadHostedRole() {
     State::RoleProblem = nullptr;
     std::string Text;
 
-    switch (MpReadOptionalEnvironment("MYSTICPARADOX_HOSTED_ROLE", Text, 8)) {
+    switch (MpReadOptionalEnvironment("RUSTIC_ISLES_HOSTED_ROLE", Text, 8)) {
     case OptionalEnvironment::Absent:
         break;
     case OptionalEnvironment::Valid:
         if (Text == "HUB") State::HostedHub = true;
         else if (Text != "HUNT") {
-            State::RoleProblem = "MYSTICPARADOX_HOSTED_ROLE is neither HUNT nor HUB";
+            State::RoleProblem = "RUSTIC_ISLES_HOSTED_ROLE is neither HUNT nor HUB";
             return false;
         }
         break;
     case OptionalEnvironment::Invalid:
-        State::RoleProblem = "MYSTICPARADOX_HOSTED_ROLE is set but empty or malformed";
+        State::RoleProblem = "RUSTIC_ISLES_HOSTED_ROLE is set but empty or malformed";
         return false;
     }
 
-    switch (MpReadOptionalEnvironment("MYSTICPARADOX_MAX_PLAYERS", Text, 5)) {
+    switch (MpReadOptionalEnvironment("RUSTIC_ISLES_MAX_PLAYERS", Text, 5)) {
     case OptionalEnvironment::Absent:
         break;
     case OptionalEnvironment::Valid:
         if (!MpParseBoundedInteger(Text, 1, 64, State::MaxPlayers)) {
-            State::RoleProblem = "MYSTICPARADOX_MAX_PLAYERS is not a whole number from 1 to 64";
+            State::RoleProblem = "RUSTIC_ISLES_MAX_PLAYERS is not a whole number from 1 to 64";
             return false;
         }
         break;
     case OptionalEnvironment::Invalid:
-        State::RoleProblem = "MYSTICPARADOX_MAX_PLAYERS is set but empty or malformed";
+        State::RoleProblem = "RUSTIC_ISLES_MAX_PLAYERS is set but empty or malformed";
         return false;
     }
 
-    switch (MpReadOptionalEnvironment("MYSTICPARADOX_HUB_AFK_SECONDS", Text, 5)) {
+    switch (MpReadOptionalEnvironment("RUSTIC_ISLES_HUB_AFK_SECONDS", Text, 5)) {
     case OptionalEnvironment::Absent:
         break;
     case OptionalEnvironment::Valid:
         if (!MpParseBoundedInteger(Text, 0, 7200, State::HubAfkSeconds)) {
-            State::RoleProblem = "MYSTICPARADOX_HUB_AFK_SECONDS is not a whole number from 0 to 7200";
+            State::RoleProblem = "RUSTIC_ISLES_HUB_AFK_SECONDS is not a whole number from 0 to 7200";
             return false;
         }
         break;
     case OptionalEnvironment::Invalid:
-        State::RoleProblem = "MYSTICPARADOX_HUB_AFK_SECONDS is set but empty or malformed";
+        State::RoleProblem = "RUSTIC_ISLES_HUB_AFK_SECONDS is set but empty or malformed";
         return false;
     }
     return true;
@@ -238,21 +238,21 @@ void P2PHooks::ReadLaunch(int NumArgs, wchar_t** Args) {
     std::string LauncherPid;
     State::BootstrapValid =
         NumArgs > 1 && std::wstring(Args[1]) == L"-" && HasLoopbackMultihome &&
-        MpReadEnvironment("MYSTICPARADOX_BIND_ADDRESS", BindAddress, 15) && BindAddress == "127.0.0.1" &&
-        MpReadEnvironment("MYSTICPARADOX_SESSION_ID", State::SessionId, 36) &&
+        MpReadEnvironment("RUSTIC_ISLES_BIND_ADDRESS", BindAddress, 15) && BindAddress == "127.0.0.1" &&
+        MpReadEnvironment("RUSTIC_ISLES_SESSION_ID", State::SessionId, 36) &&
         MpSafeIdentifier(State::SessionId, 36, 36) &&
-        MpReadEnvironment("MYSTICPARADOX_SESSION_GENERATION", State::Generation, 10) &&
+        MpReadEnvironment("RUSTIC_ISLES_SESSION_GENERATION", State::Generation, 10) &&
         !State::Generation.empty() &&
         std::ranges::all_of(State::Generation, [](unsigned char Character) { return Character >= '0' && Character <= '9'; }) &&
-        MpReadEnvironment("MYSTICPARADOX_HOST_RUNTIME_CAPABILITY", State::RuntimeCapability, 43) &&
+        MpReadEnvironment("RUSTIC_ISLES_HOST_RUNTIME_CAPABILITY", State::RuntimeCapability, 43) &&
         MpSafeIdentifier(State::RuntimeCapability, 43, 43) &&
-        MpReadEnvironment("MYSTICPARADOX_CONTROL_PIPE", State::ControlPipe, 240) &&
+        MpReadEnvironment("RUSTIC_ISLES_CONTROL_PIPE", State::ControlPipe, 240) &&
         MpSafePipeName(State::ControlPipe, "\\\\.\\pipe\\MysticInternalServer.") &&
-        MpReadEnvironment("MYSTICPARADOX_READY_PIPE", ReadyPipe, 240) &&
+        MpReadEnvironment("RUSTIC_ISLES_READY_PIPE", ReadyPipe, 240) &&
         MpSafePipeName(ReadyPipe, "\\\\.\\pipe\\MysticInternalServer.") &&
-        MpReadEnvironment("MYSTICPARADOX_GAMESERVER_LAUNCH_ID", LaunchId, 96) &&
+        MpReadEnvironment("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", LaunchId, 96) &&
         MpSafeIdentifier(LaunchId, 16, 96) &&
-        MpReadEnvironment("MYSTICPARADOX_LAUNCHER_PID", LauncherPid, 10) &&
+        MpReadEnvironment("RUSTIC_ISLES_LAUNCHER_PID", LauncherPid, 10) &&
         std::ranges::all_of(LauncherPid, [](unsigned char Character) { return Character >= '0' && Character <= '9'; });
     if (State::BootstrapValid) {
         try {
@@ -275,7 +275,7 @@ void P2PHooks::InstallServerHooks() {
     // when the anti-cheat module is compiled in.
     std::string HuntGuardEvents;
     const bool EnableHuntGuardEvents = State::Active
-        && MpReadEnvironment("MYSTICPARADOX_HUNT_GUARD_EVENTS", HuntGuardEvents, 8)
+        && MpReadEnvironment("RUSTIC_ISLES_HUNT_GUARD_EVENTS", HuntGuardEvents, 8)
         && HuntGuardEvents == "1";
     AntiCheatHooks::Initialize(EnableHuntGuardEvents, State::SessionKey);
     if (!AntiCheatHooks::Present()) {
@@ -315,7 +315,7 @@ bool P2PHooks::StartServer() {
     else {
         MpLog(std::string("[HostedRole] launcher role=HUNT (disposable)")
             + ((State::MaxPlayers > 0 || State::HubAfkSeconds >= 0)
-                ? " - MYSTICPARADOX_MAX_PLAYERS / MYSTICPARADOX_HUB_AFK_SECONDS are set but ignored (they apply to a HUB only)"
+                ? " - RUSTIC_ISLES_MAX_PLAYERS / RUSTIC_ISLES_HUB_AFK_SECONDS are set but ignored (they apply to a HUB only)"
                 : ""));
     }
     HANDLE ControlThread = CreateThread(nullptr, 0, PlayerHostControlThread, nullptr, 0, nullptr);
@@ -341,7 +341,7 @@ bool P2PHooks::StartServer() {
 bool P2PHooks::PrepareListen(std::wstring& Host) {
     if (!State::Active) return true;
     std::string BindAddress;
-    if (!MpReadEnvironment("MYSTICPARADOX_BIND_ADDRESS", BindAddress, 15) || BindAddress != "127.0.0.1") {
+    if (!MpReadEnvironment("RUSTIC_ISLES_BIND_ADDRESS", BindAddress, 15) || BindAddress != "127.0.0.1") {
         MpLog("[Networking::Listen] player-host bind address is not loopback; refusing listen");
         return false;
     }
@@ -364,11 +364,11 @@ bool P2PHooks::ReportReady(int Port) {
     std::string Generation;
     std::string LaunchId;
     const std::string PipePrefix = "\\\\.\\pipe\\MysticInternalServer.";
-    if (!MpReadEnvironment("MYSTICPARADOX_READY_PIPE", PipeName, 240) || !MpSafePipeName(PipeName, PipePrefix.c_str()) ||
-        !MpReadEnvironment("MYSTICPARADOX_SESSION_ID", SessionId, 36) || !MpSafeIdentifier(SessionId, 36, 36) ||
-        !MpReadEnvironment("MYSTICPARADOX_SESSION_GENERATION", Generation, 10) || !MpSafeIdentifier(Generation, 1, 10) ||
+    if (!MpReadEnvironment("RUSTIC_ISLES_READY_PIPE", PipeName, 240) || !MpSafePipeName(PipeName, PipePrefix.c_str()) ||
+        !MpReadEnvironment("RUSTIC_ISLES_SESSION_ID", SessionId, 36) || !MpSafeIdentifier(SessionId, 36, 36) ||
+        !MpReadEnvironment("RUSTIC_ISLES_SESSION_GENERATION", Generation, 10) || !MpSafeIdentifier(Generation, 1, 10) ||
         Generation.find_first_not_of("0123456789") != std::string::npos ||
-        !MpReadEnvironment("MYSTICPARADOX_GAMESERVER_LAUNCH_ID", LaunchId, 96) || !MpSafeIdentifier(LaunchId, 16, 96)) {
+        !MpReadEnvironment("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", LaunchId, 96) || !MpSafeIdentifier(LaunchId, 16, 96)) {
         MpLog("[Networking::Listen] player-host readiness environment is invalid");
         return false;
     }

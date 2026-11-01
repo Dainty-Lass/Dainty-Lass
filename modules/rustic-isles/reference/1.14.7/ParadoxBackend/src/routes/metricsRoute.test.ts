@@ -19,7 +19,7 @@ function request(port: number, headers: Record<string, string> = {}): Promise<{ 
 
 test("metrics endpoint is loopback-only without a token and bearer-authenticated with one", async () => {
     const previousNodeEnv = process.env.NODE_ENV;
-    const previousToken = process.env.MYSTICPARADOX_METRICS_TOKEN;
+    const previousToken = process.env.RUSTIC_ISLES_METRICS_TOKEN;
     const application = express();
     application.use(metricsRouter);
     const server = application.listen(0, "127.0.0.1");
@@ -32,17 +32,17 @@ test("metrics endpoint is loopback-only without a token and bearer-authenticated
     const port = (address as import("node:net").AddressInfo).port;
     try {
         process.env.NODE_ENV = "development";
-        delete process.env.MYSTICPARADOX_METRICS_TOKEN;
+        delete process.env.RUSTIC_ISLES_METRICS_TOKEN;
         assert.equal((await request(port)).status, 200);
 
-        process.env.MYSTICPARADOX_METRICS_TOKEN = "route-test-token";
+        process.env.RUSTIC_ISLES_METRICS_TOKEN = "route-test-token";
         assert.equal((await request(port)).status, 401);
         const authorized = await request(port, { authorization: "Bearer route-test-token" });
         assert.equal(authorized.status, 200);
-        assert.match(authorized.body, /mysticparadox_service_ready/);
+        assert.match(authorized.body, /rustic_isles_service_ready/);
     } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
         if (previousNodeEnv == undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previousNodeEnv;
-        if (previousToken == undefined) delete process.env.MYSTICPARADOX_METRICS_TOKEN; else process.env.MYSTICPARADOX_METRICS_TOKEN = previousToken;
+        if (previousToken == undefined) delete process.env.RUSTIC_ISLES_METRICS_TOKEN; else process.env.RUSTIC_ISLES_METRICS_TOKEN = previousToken;
     }
 });

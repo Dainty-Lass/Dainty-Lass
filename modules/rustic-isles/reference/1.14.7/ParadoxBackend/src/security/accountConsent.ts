@@ -16,19 +16,19 @@ import { LauncherApiError } from "./launcherErrors";
 // the tests use one definition. Flags are read from the environment at each call (the operator may change them with a restart).
 
 /**
- * MYSTICPARADOX_CONSENT_REQUIRED: an explicit value wins (off/false/0/no turns it off, anything else on). When blank, the default
+ * RUSTIC_ISLES_CONSENT_REQUIRED: an explicit value wins (off/false/0/no turns it off, anything else on). When blank, the default
  * follows the persistence provider: on with MongoDB (the official backend), off with SQLite (a local server, whose operator sets its
  * own rules).
  */
 export function ConsentRequiredAtSignUp(environment: NodeJS.ProcessEnv = process.env): boolean {
-    const Raw = environment.MYSTICPARADOX_CONSENT_REQUIRED?.trim().toLowerCase();
+    const Raw = environment.RUSTIC_ISLES_CONSENT_REQUIRED?.trim().toLowerCase();
     if (Raw === undefined || Raw === "") return ReadPersistenceProvider(environment) === "mongodb";
     return !/^(0|false|off|no)$/.test(Raw);
 }
 
-/** MYSTICPARADOX_CONSENT_ENFORCE: off unless set to on (default off). When on, game sessions and realm hosting need a current consent. */
+/** RUSTIC_ISLES_CONSENT_ENFORCE: off unless set to on (default off). When on, game sessions and realm hosting need a current consent. */
 export function ConsentEnforced(environment: NodeJS.ProcessEnv = process.env): boolean {
-    const Raw = environment.MYSTICPARADOX_CONSENT_ENFORCE?.trim().toLowerCase() ?? "";
+    const Raw = environment.RUSTIC_ISLES_CONSENT_ENFORCE?.trim().toLowerCase() ?? "";
     return /^(1|true|on|yes)$/.test(Raw);
 }
 
@@ -94,7 +94,7 @@ export function AssertAccountNotDeactivated(account: LauncherAccountRecord): voi
         { details: { scheduledFor: account.deletion.scheduledFor } });
 }
 
-/** Game sessions and realm hosting, when MYSTICPARADOX_CONSENT_ENFORCE is on: 403 CONSENT_REQUIRED unless the consent is current. */
+/** Game sessions and realm hosting, when RUSTIC_ISLES_CONSENT_ENFORCE is on: 403 CONSENT_REQUIRED unless the consent is current. */
 export function AssertConsentCurrentWhenEnforced(account: LauncherAccountRecord, environment: NodeJS.ProcessEnv = process.env): void {
     if (!ConsentEnforced(environment) || IsConsentCurrent(account.consent)) return;
     throw new LauncherApiError("CONSENT_REQUIRED",

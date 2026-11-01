@@ -18,7 +18,7 @@ let ipCounter = 0;
 const NextIp = () => `198.51.100.${++ipCounter}`;
 
 const Environment: Record<string, string | undefined> = {
-    PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_REGISTRATION_APPROVAL: "off", MYSTICPARADOX_EMAIL_VERIFICATION: undefined
+    PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_REGISTRATION_APPROVAL: "off", RUSTIC_ISLES_EMAIL_VERIFICATION: undefined
 };
 
 async function WithEnvironment<T>(run: () => Promise<T>): Promise<T> {
@@ -79,7 +79,7 @@ test("[2026-10-16] registration refuses a taken, reserved or invalid name, and k
     assert.equal(First.account.needsUsername, false);
 
     assert.equal((await Refusal(() => Register("emberhold", "RegTwo"))).code, "AUTH_DISPLAY_NAME_TAKEN");
-    assert.equal((await Refusal(() => Register("MysticParadox", "RegThree"))).code, "AUTH_VALIDATION_FAILED");
+    assert.equal((await Refusal(() => Register("RusticIsles", "RegThree"))).code, "AUTH_VALIDATION_FAILED");
     assert.equal((await Refusal(() => Register("Ember_Hold", "RegFour"))).code, "AUTH_VALIDATION_FAILED");
 
     const Nameless = await Register(undefined, "RegFive");

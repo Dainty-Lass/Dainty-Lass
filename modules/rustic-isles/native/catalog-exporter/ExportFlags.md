@@ -32,7 +32,7 @@ EXPORT_SKINS=0
 
 Search order (first match wins):
 1. `<root>\native\catalog-exporter\export_flags.txt` when the optional, git-ignored `ExportPaths.local.h`
-   defines `MYSTICPARADOX_EXPORT_ROOT` (normally your repository root; works whatever the injected process's
+   defines `RUSTIC_ISLES_EXPORT_ROOT` (normally your repository root; works whatever the injected process's
    CWD is - see `ExportPaths.hpp`)
 2. `.\export_flags.txt` (relative to the injected process's CWD)
 
@@ -278,7 +278,7 @@ Output shape:
 
 **Complementary evidence, not a replacement:** `routes/loadout.ts` in
 `ParadoxBackend` got a diagnostic capture in the same investigation pass
-(`08_LOADOUT.md`, 2026-07-21) — set `MYSTICPARADOX_INV_CAPTURE=1` on the metagame
+(`08_LOADOUT.md`, 2026-07-21) — set `RUSTIC_ISLES_INV_CAPTURE=1` on the metagame
 server and reproduce the same equip to see what the client actually sends
 over the wire, alongside what this export shows the client holds locally.
 If the two disagree (client holds it locally but never sends it, or sends it

@@ -8,7 +8,7 @@
 
 // [2026-10-14 M1] The Metagame's own hunt manifest lookup. A player-hosted (P2P or realm) hunt used to ask DeployServer for
 // its launch manifest; now the Metagame resolves it from the hunt tables with the resolver DeployServer uses
-// (shared/hunt-manifest), so a VPS needs no DeployServer for those hunts. MYSTICPARADOX_HUNT_MANIFEST_SOURCE=director keeps
+// (shared/hunt-manifest), so a VPS needs no DeployServer for those hunts. RUSTIC_ISLES_HUNT_MANIFEST_SOURCE=director keeps
 // the old request for comparison. Only P2P code imports this folder (src/p2p), so the public build does not carry it.
 
 import path from "node:path";
@@ -18,7 +18,7 @@ import type { HuntResolver } from "../../../../shared/hunt-manifest";
 import { ResolvePlayerHostedManifest } from "../../../../shared/hunt-manifest/p2p/completionMode";
 import { logger } from "../../logger";
 
-export const HUNT_MANIFEST_SOURCE_ENV = "MYSTICPARADOX_HUNT_MANIFEST_SOURCE";
+export const HUNT_MANIFEST_SOURCE_ENV = "RUSTIC_ISLES_HUNT_MANIFEST_SOURCE";
 export const HUNT_DATA_DIR_ENV = "PARADOX_HUNT_DATA_DIR";
 
 export type HuntManifestSource = "local" | "director";

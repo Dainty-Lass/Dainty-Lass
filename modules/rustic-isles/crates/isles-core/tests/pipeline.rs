@@ -109,7 +109,7 @@ async fn every_route_is_a_501_in_the_launcher_envelope() {
     );
     let id = headers
         .iter()
-        .find(|(n, _)| n == "x-mysticparadox-request-id")
+        .find(|(n, _)| n == "x-rustic-isles-request-id")
         .map(|(_, v)| v.clone())
         .unwrap();
     assert_eq!(
@@ -463,9 +463,9 @@ async fn request_budget_matches_express_rate_limit_golden_byte_for_byte() {
     let shared = shared_with_settings(
         RouteSet::V1147,
         &[
-            ("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "2"),
-            ("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE", "4"),
-            ("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE", "5"),
+            ("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "2"),
+            ("RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE", "4"),
+            ("RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE", "5"),
         ],
         false,
     );
@@ -509,9 +509,9 @@ async fn buckets_are_independent_and_gameserver_and_host_headers_select_their_bu
     let mut shared = shared_with_settings(
         RouteSet::V1147,
         &[
-            ("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "2"),
-            ("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE", "3"),
-            ("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE", "2"),
+            ("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "2"),
+            ("RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE", "3"),
+            ("RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE", "2"),
         ],
         false,
     );
@@ -538,7 +538,7 @@ async fn buckets_are_independent_and_gameserver_and_host_headers_select_their_bu
     let gs_hdrs = [
         now,
         ("x-forwarded-for", "198.51.100.10"),
-        ("x-mysticparadox-gameserver-apikey", "unverified-key"),
+        ("x-rustic-isles-gameserver-apikey", "unverified-key"),
     ];
     // On an unauthenticated route, 3 hits succeed then the 4th is 429
     assert_eq!(
@@ -614,8 +614,8 @@ async fn switch_disables_budget_and_invalid_limits_fall_back_to_defaults() {
         let shared = shared_with_settings(
             RouteSet::V1147,
             &[
-                ("MYSTICPARADOX_RATE_LIMIT", off_value),
-                ("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "1"),
+                ("RUSTIC_ISLES_RATE_LIMIT", off_value),
+                ("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "1"),
             ],
             false,
         );
@@ -632,10 +632,10 @@ async fn switch_disables_budget_and_invalid_limits_fall_back_to_defaults() {
     let shared = shared_with_settings(
         RouteSet::V1147,
         &[
-            ("MYSTICPARADOX_RATE_LIMIT", "on"),
-            ("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "0"),
-            ("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE", "-10"),
-            ("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE", "not-a-number"),
+            ("RUSTIC_ISLES_RATE_LIMIT", "on"),
+            ("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "0"),
+            ("RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE", "-10"),
+            ("RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE", "not-a-number"),
         ],
         false,
     );
@@ -652,7 +652,7 @@ async fn switch_disables_budget_and_invalid_limits_fall_back_to_defaults() {
         address,
         "GET",
         "/character",
-        &[now, ("x-mysticparadox-gameserver-apikey", "k")],
+        &[now, ("x-rustic-isles-gameserver-apikey", "k")],
     )
     .await;
     assert_eq!(
@@ -675,7 +675,7 @@ async fn switch_disables_budget_and_invalid_limits_fall_back_to_defaults() {
 
 #[tokio::test]
 async fn health_probes_are_not_counted_and_hunts_mount_counts_only_once() {
-    let shared = shared_with_settings(RouteSet::V1147, &[("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "2")], true);
+    let shared = shared_with_settings(RouteSet::V1147, &[("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "2")], true);
     let address = serve_with_peer(shared, &test_handlers(), None).await;
     let now = [("x-isles-replay-now-ms", "1700000000000")];
 
@@ -718,7 +718,7 @@ async fn x_forwarded_for_honoured_only_from_loopback_and_ipv6_grouped_by_56_subn
     let now = ("x-isles-replay-now-ms", "1700000000000");
 
     // 1. Loopback peer (trust proxy: loopback): X-Forwarded-For separates clients and groups IPv6 by /56
-    let shared_loopback = shared_with_settings(RouteSet::V1147, &[("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "1")], false);
+    let shared_loopback = shared_with_settings(RouteSet::V1147, &[("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "1")], false);
     let loopback_addr = serve_with_peer(shared_loopback, &handlers, None).await;
     // Two different IPv6 addresses in the same /56 subnet (2001:db8:abcd:ef00::/56) share one bucket
     let v6_a = [now, ("x-forwarded-for", "2001:db8:abcd:ef12:1:2:3:4")];
@@ -740,7 +740,7 @@ async fn x_forwarded_for_honoured_only_from_loopback_and_ipv6_grouped_by_56_subn
     );
 
     // 2. Non-loopback peer (198.51.100.77): X-Forwarded-For is ignored; spoofed headers share the peer's own bucket
-    let shared_direct = shared_with_settings(RouteSet::V1147, &[("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "1")], false);
+    let shared_direct = shared_with_settings(RouteSet::V1147, &[("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "1")], false);
     let direct_peer: SocketAddr = "198.51.100.77:54321".parse().unwrap();
     let direct_addr = serve_with_peer(shared_direct, &handlers, Some(direct_peer)).await;
     let spoof1 = [now, ("x-forwarded-for", "203.0.113.1")];

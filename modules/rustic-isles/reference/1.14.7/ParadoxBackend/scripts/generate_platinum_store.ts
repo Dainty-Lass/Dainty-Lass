@@ -52,10 +52,10 @@ function ExportFile(baseName: string): string {
     const Current = path.join(ProjectRoot, "Items_Analysis", `${baseName}_1_14_7.jsonl`);
     return fs.existsSync(Legacy) || !fs.existsSync(Current) ? Legacy : Current;
 }
-const CatalogOverride = process.env.MYSTICPARADOX_CATALOG_1_12_PATH ?? process.env.MYSTICPARADOX_CATALOG_PATH;
+const CatalogOverride = process.env.RUSTIC_ISLES_CATALOG_1_12_PATH ?? process.env.RUSTIC_ISLES_CATALOG_PATH;
 const CatalogPath = CatalogOverride ? path.resolve(CatalogOverride) : ExportFile("catalog");
-const StoreImagesPath = process.env.MYSTICPARADOX_STORE_IMAGES_PATH
-    ? path.resolve(process.env.MYSTICPARADOX_STORE_IMAGES_PATH)
+const StoreImagesPath = process.env.RUSTIC_ISLES_STORE_IMAGES_PATH
+    ? path.resolve(process.env.RUSTIC_ISLES_STORE_IMAGES_PATH)
     : ExportFile("store_item_images");
 const CapturePath = path.join(ProjectRoot, "DauntlessEndpointDocumentation", "Store", "Product", "Skus");
 const DataDir = path.join(MetagameRoot, "game-data");

@@ -524,7 +524,7 @@
   "headers": {
    "content-type": "application/json; charset=utf-8"
   },
-  "body": "{\"error\":{\"code\":\"CONSENT_AGE_REQUIRED\",\"message\":\"You must be at least 16 years old to play Mystic Paradox.\",\"requestId\":\"<uuid>\"}}"
+  "body": "{\"error\":{\"code\":\"CONSENT_AGE_REQUIRED\",\"message\":\"You must be at least 16 years old to play Rustic Isles.\",\"requestId\":\"<uuid>\"}}"
  },
  {
   "name": "consent missing versions",
@@ -1201,40 +1201,40 @@
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED"
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
  },
  {
   "name": "discord callback, unknown state",
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED"
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
  },
  {
   "name": "discord callback, repeated parameter",
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED"
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
  },
  {
   "name": "discord callback for a browser",
   "status": 302,
   "headers": {
    "content-type": "text/html; charset=utf-8",
-   "location": "mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
    "vary": "Accept"
   },
-  "body": "<p>Found. Redirecting to mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED</p>"
+  "body": "<p>Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED</p>"
  },
  {
   "name": "discord link, not configured",
@@ -1265,10 +1265,10 @@
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://auth/error?code=AUTH_DISCORD_NOT_LINKED",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_NOT_LINKED",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://auth/error?code=AUTH_DISCORD_NOT_LINKED"
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_NOT_LINKED"
  },
  {
   "name": "discord link without a token",
@@ -1291,10 +1291,10 @@
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://link/error?code=AUTH_DISCORD_CANCELLED",
+   "location": "rusticisles://link/error?code=AUTH_DISCORD_CANCELLED",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://link/error?code=AUTH_DISCORD_CANCELLED"
+  "body": "Found. Redirecting to rusticisles://link/error?code=AUTH_DISCORD_CANCELLED"
  },
  {
   "name": "discord link start again",
@@ -1309,20 +1309,20 @@
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://link/done",
+   "location": "rusticisles://link/done",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://link/done"
+  "body": "Found. Redirecting to rusticisles://link/done"
  },
  {
   "name": "discord link callback replayed",
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://auth/error?code=AUTH_DISCORD_CANCELLED"
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
  },
  {
   "name": "me with a discord link",
@@ -1353,10 +1353,10 @@
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://link/error?code=AUTH_DISCORD_ALREADY_LINKED",
+   "location": "rusticisles://link/error?code=AUTH_DISCORD_ALREADY_LINKED",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://link/error?code=AUTH_DISCORD_ALREADY_LINKED"
+  "body": "Found. Redirecting to rusticisles://link/error?code=AUTH_DISCORD_ALREADY_LINKED"
  },
  {
   "name": "discord sign-in start",
@@ -1371,10 +1371,10 @@
   "status": 302,
   "headers": {
    "content-type": "text/plain; charset=utf-8",
-   "location": "mysticparadox://auth/complete?code=<hex64>",
+   "location": "rusticisles://auth/complete?code=<hex64>",
    "vary": "Accept"
   },
-  "body": "Found. Redirecting to mysticparadox://auth/complete?code=<hex64>"
+  "body": "Found. Redirecting to rusticisles://auth/complete?code=<hex64>"
  },
  {
   "name": "discord complete",
@@ -1487,10 +1487,10 @@
  {
   "name": "mail on, verification required",
   "env": {
-   "MYSTICPARADOX_EMAIL_VERIFICATION": "required",
-   "MYSTICPARADOX_SMTP_HOST": "smtp.example.test",
-   "MYSTICPARADOX_SMTP_USER": "postmaster",
-   "MYSTICPARADOX_SMTP_PASSWORD": "fixture-password"
+   "RUSTIC_ISLES_EMAIL_VERIFICATION": "required",
+   "RUSTIC_ISLES_SMTP_HOST": "smtp.example.test",
+   "RUSTIC_ISLES_SMTP_USER": "postmaster",
+   "RUSTIC_ISLES_SMTP_PASSWORD": "fixture-password"
   }
  },
  {

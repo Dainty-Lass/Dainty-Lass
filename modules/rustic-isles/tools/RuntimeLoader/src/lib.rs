@@ -10,7 +10,8 @@ use winapi::um::winnt::DLL_PROCESS_ATTACH;
 mod exports;
 pub mod proxy;
 
-const RUNTIME_DLL_NAMES: [&str; 2] = ["MysticParadox.dll", "MystPaxInternalServer.dll"];
+// MysticParadox.dll: the name before the Rustic Isles rename, loaded for one release
+const RUNTIME_DLL_NAMES: [&str; 3] = ["Rustic-Isles.dll", "MysticParadox.dll", "MystPaxInternalServer.dll"];
 const CANONICAL_RUNTIME_DLL_NAME: &str = RUNTIME_DLL_NAMES[0];
 
 /// Optional additional-DLL list placed next to the proxy DLL.

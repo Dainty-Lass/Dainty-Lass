@@ -73,13 +73,13 @@ test("the list is newest first across accounts, with only the launcher's files a
     const Root = NewTestDirectory("player-logs-list");
     try {
         WriteSession(Root, ACCOUNT, OLD_SESSION, T_OLD, { "launcher.log": "abc", "metadata.json": "{}", "notes.txt": "not ours" });
-        WriteSession(Root, OTHER, NEW_SESSION, T_NEW, { "runtime-mysticparadox_dll_port8790.log": "12345" });
+        WriteSession(Root, OTHER, NEW_SESSION, T_NEW, { "runtime-rustic_isles_dll_port8790.log": "12345" });
 
         const Page = ListPlayerLogSessions(Root, { limit: 50 });
         assert.deepEqual(Page.sessions.map((session) => [session.userId, session.launchSessionId]), [[OTHER, NEW_SESSION], [ACCOUNT, OLD_SESSION]]);
         assert.equal(Page.nextBefore, null, "a page that holds every session has no next page");
         assert.equal(Page.sessions[0].uploadedAt, T_NEW);
-        assert.deepEqual(Page.sessions[0].files, [{ name: "runtime-mysticparadox_dll_port8790.log", size: 5 }]);
+        assert.deepEqual(Page.sessions[0].files, [{ name: "runtime-rustic_isles_dll_port8790.log", size: 5 }]);
         assert.equal(Page.sessions[0].totalBytes, 5);
         assert.deepEqual(Page.sessions[1].files, [{ name: "launcher.log", size: 3 }, { name: "metadata.json", size: 2 }], "notes.txt and the marker are not listed");
         assert.equal(Page.sessions[1].totalBytes, 5);
@@ -170,7 +170,7 @@ test("reads refuse unsafe segments, names that are not the launcher's, and sessi
         Expect(ReadPlayerLogFile(Root, ACCOUNT, "not-a-session!", "launcher.log"), 400, "PLAYER_LOG_PATH");
         Expect(ReadPlayerLogFile(Root, ACCOUNT, OLD_SESSION, ".uploaded-at.json"), 400, "PLAYER_LOG_NAME_REFUSED");
         Expect(ReadPlayerLogFile(Root, ACCOUNT, OLD_SESSION, "secret.txt"), 400, "PLAYER_LOG_NAME_REFUSED");
-        Expect(ReadPlayerLogFile(Root, ACCOUNT, OLD_SESSION, "runtime-mysticparadox_dll_port.log"), 400, "PLAYER_LOG_NAME_REFUSED");
+        Expect(ReadPlayerLogFile(Root, ACCOUNT, OLD_SESSION, "runtime-rustic_isles_dll_port.log"), 400, "PLAYER_LOG_NAME_REFUSED");
         Expect(ReadPlayerLogFile(Root, ACCOUNT, NEW_SESSION, "launcher.log"), 404, "PLAYER_LOG_NOT_FOUND");
         Expect(ReadPlayerLogFile(Root, ACCOUNT, OLD_SESSION, "metadata.json"), 404, "PLAYER_LOG_NOT_FOUND");
         Expect(ReadPlayerLogFile(path.join(Root, "missing-root"), ACCOUNT, OLD_SESSION, "launcher.log"), 404, "PLAYER_LOG_NOT_FOUND");

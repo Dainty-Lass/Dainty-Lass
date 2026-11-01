@@ -100,7 +100,7 @@ impl Config {
         let cwd = std::env::current_dir().map_err(|e| format!("the working folder: {e}"))?;
         let training_on_demand = enabled(settings.raw("TRAINING_ON_DEMAND"));
         let vars = settings.vars();
-        // [2026-10-08] MYSTPAX_ became MYSTICPARADOX_; the game servers inherit this environment, so a stale
+        // [2026-10-08] MYSTPAX_ was renamed (now RUSTIC_ISLES_); the game servers inherit this environment, so a stale
         // key would silently switch a runtime feature off.
         let legacy: Vec<&str> = vars
             .keys()
@@ -109,13 +109,19 @@ impl Config {
             .collect();
         if !legacy.is_empty() {
             return Err(format!(
-                "Rename these environment keys to the MYSTICPARADOX_ prefix: {}",
+                "Rename these environment keys to the RUSTIC_ISLES_ prefix: {}",
                 legacy.join(", ")
             ));
         }
         // The process environment wins over the env file, as Node's --env-file does
         let mut child_env = vars.clone();
         child_env.extend(process_env);
+        // A runtime from before the rename reads only the old names; the new value wins (isles_core::legacy)
+        let aliases: Vec<(String, String)> = child_env
+            .iter()
+            .filter_map(|(name, value)| Some((isles_core::legacy::legacy_env(name)?, value.clone())))
+            .collect();
+        child_env.extend(aliases);
         let (memory, memory_problems) = crate::memory::options_from_settings(settings);
         Ok(Self {
             port_range_begin: ports.first,

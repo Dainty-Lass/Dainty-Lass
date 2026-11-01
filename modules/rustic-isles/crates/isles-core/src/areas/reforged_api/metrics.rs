@@ -1,5 +1,5 @@
 //! `observability/metrics.ts`: counters, gauges and latency histograms in Prometheus text, one registry per process
-//! (Node's module-level maps). The pipeline feeds the `mysticparadox_http_*` series; areas add their own.
+//! (Node's module-level maps). The pipeline feeds the `rustic_isles_http_*` series; areas add their own.
 
 use std::collections::BTreeMap;
 use std::sync::{Mutex, PoisonError};
@@ -51,7 +51,7 @@ fn safe_name(name: &str) -> String {
     if first_ok && rest_ok && name.len() <= 128 {
         name.to_owned()
     } else {
-        "mysticparadox_invalid_metric".to_owned()
+        "rustic_isles_invalid_metric".to_owned()
     }
 }
 
@@ -178,24 +178,24 @@ pub fn register_section(section: Section) {
 pub fn render(now_ms: i64, role: &str, ready: bool, changed_at_seconds: f64) -> String {
     let mut lines: Vec<String> = Vec::new();
     let line = |name: &str, labels: &Labels, value: f64| format!("{name}{} {}", labels_text(labels), number(value));
-    lines.push("# HELP mysticparadox_info Process identity and configured role.".into());
-    lines.push("# TYPE mysticparadox_info gauge".into());
+    lines.push("# HELP rustic_isles_info Process identity and configured role.".into());
+    lines.push("# TYPE rustic_isles_info gauge".into());
     let info: Labels = safe_labels(&[("service", "metagame"), ("role", role)]);
-    lines.push(line("mysticparadox_info", &info, 1.0));
-    lines.push("# HELP mysticparadox_service_ready Whether the service has completed its role startup.".into());
-    lines.push("# TYPE mysticparadox_service_ready gauge".into());
+    lines.push(line("rustic_isles_info", &info, 1.0));
+    lines.push("# HELP rustic_isles_service_ready Whether the service has completed its role startup.".into());
+    lines.push("# TYPE rustic_isles_service_ready gauge".into());
     lines.push(line(
-        "mysticparadox_service_ready",
+        "rustic_isles_service_ready",
         &Vec::new(),
         f64::from(u8::from(ready)),
     ));
     lines.push(
-        "# HELP mysticparadox_service_readiness_changed_timestamp_seconds Unix time of the last readiness transition."
+        "# HELP rustic_isles_service_readiness_changed_timestamp_seconds Unix time of the last readiness transition."
             .into(),
     );
-    lines.push("# TYPE mysticparadox_service_readiness_changed_timestamp_seconds gauge".into());
+    lines.push("# TYPE rustic_isles_service_readiness_changed_timestamp_seconds gauge".into());
     lines.push(line(
-        "mysticparadox_service_readiness_changed_timestamp_seconds",
+        "rustic_isles_service_readiness_changed_timestamp_seconds",
         &Vec::new(),
         changed_at_seconds,
     ));
@@ -214,7 +214,7 @@ pub fn render(now_ms: i64, role: &str, ready: bool, changed_at_seconds: f64) -> 
         names.sort_unstable();
         names.dedup();
         for name in names {
-            lines.push(format!("# HELP {name} Mystic Paradox counter."));
+            lines.push(format!("# HELP {name} Rustic Isles counter."));
             lines.push(format!("# TYPE {name} counter"));
         }
         for (name, labels, value) in r.counters.values() {
@@ -224,12 +224,12 @@ pub fn render(now_ms: i64, role: &str, ready: bool, changed_at_seconds: f64) -> 
             if sections.iter().any(|s| s.hidden_gauges.contains(&name.as_str())) {
                 continue;
             }
-            lines.push(format!("# HELP {name} Mystic Paradox gauge."));
+            lines.push(format!("# HELP {name} Rustic Isles gauge."));
             lines.push(format!("# TYPE {name} gauge"));
             lines.push(line(name, labels, *value));
         }
         for (name, labels, h) in r.histograms.values() {
-            lines.push(format!("# HELP {name} Mystic Paradox request latency histogram."));
+            lines.push(format!("# HELP {name} Rustic Isles request latency histogram."));
             lines.push(format!("# TYPE {name} histogram"));
             for index in 0..8 {
                 let bound = BUCKETS.get(index).map_or_else(|| "+Inf".to_owned(), |b| number(*b));
@@ -261,7 +261,7 @@ mod tests {
             vec![("method".into(), "GET".into()), ("status".into(), "2xx".into())]
         );
         assert_eq!(labels_text(&labels), r#"{method="GET",status="2xx"}"#);
-        assert_eq!(safe_name("Bad Name"), "mysticparadox_invalid_metric");
+        assert_eq!(safe_name("Bad Name"), "rustic_isles_invalid_metric");
     }
 
     #[test]
@@ -272,9 +272,9 @@ mod tests {
         adjust("mp_test_inflight", -3.0, &[]);
         observe("mp_test_duration_ms", 30.0, &[("class", "game")]);
         let text = render(0, "combined", true, 12.5);
-        assert!(text.starts_with("# HELP mysticparadox_info Process identity and configured role.\n"));
-        assert!(text.contains("mysticparadox_info{role=\"combined\",service=\"metagame\"} 1\n"));
-        assert!(text.contains("mysticparadox_service_readiness_changed_timestamp_seconds 12.5\n"));
+        assert!(text.starts_with("# HELP rustic_isles_info Process identity and configured role.\n"));
+        assert!(text.contains("rustic_isles_info{role=\"combined\",service=\"metagame\"} 1\n"));
+        assert!(text.contains("rustic_isles_service_readiness_changed_timestamp_seconds 12.5\n"));
         assert!(text.contains("mp_test_requests_total{class=\"game\",method=\"GET\"} 3\n"));
         assert!(text.contains("# TYPE mp_test_requests_total counter\n"));
         assert!(text.contains("mp_test_inflight 0\n"), "gauges stop at 0");

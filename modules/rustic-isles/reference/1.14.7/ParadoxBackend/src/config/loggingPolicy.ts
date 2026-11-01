@@ -15,7 +15,7 @@ function Normalize(value: string | undefined): string {
 export function ResolveOperationalLogLevel(profile: OperationalDiagnosticsProfile,
     environment: NodeJS.ProcessEnv = process.env): string {
     if (profile === "DEVELOPMENT") {
-        const requested = Normalize(environment.MYSTICPARADOX_DEVELOPMENT_LOG_LEVEL);
+        const requested = Normalize(environment.RUSTIC_ISLES_DEVELOPMENT_LOG_LEVEL);
         return PINO_LEVELS.has(requested) ? requested : "debug";
     }
     const requested = Normalize(environment.LOG_LEVEL);

@@ -58,7 +58,7 @@
   {
     "name": "metrics, token required and missing",
     "env": {
-      "MYSTICPARADOX_METRICS_TOKEN": "route-test-token"
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
     },
     "files": {},
     "request": {
@@ -77,7 +77,7 @@
   {
     "name": "metrics, wrong bearer",
     "env": {
-      "MYSTICPARADOX_METRICS_TOKEN": "route-test-token"
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
     },
     "files": {},
     "request": {
@@ -99,7 +99,7 @@
   {
     "name": "metrics, bearer",
     "env": {
-      "MYSTICPARADOX_METRICS_TOKEN": "route-test-token"
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
     },
     "files": {},
     "request": {
@@ -122,14 +122,14 @@
   {
     "name": "metrics, token header",
     "env": {
-      "MYSTICPARADOX_METRICS_TOKEN": "route-test-token"
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
     },
     "files": {},
     "request": {
       "method": "GET",
       "path": "/internal/v1/metrics",
       "headers": {
-        "x-mysticparadox-metrics-token": "route-test-token"
+        "x-rustic-isles-metrics-token": "route-test-token"
       }
     },
     "response": {
@@ -145,7 +145,7 @@
   {
     "name": "release gates, defaults",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on"
+      "RUSTIC_ISLES_ADMIN_API": "on"
     },
     "files": {},
     "request": {
@@ -164,10 +164,10 @@
   {
     "name": "release gates, legacy key and a bad guard mode",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on",
+      "RUSTIC_ISLES_ADMIN_API": "on",
       "MYSTPAX_OLD": "1",
       "MYSTPAX_AGAIN": "2",
-      "MYSTICPARADOX_GUARD_MODE": "sometimes"
+      "RUSTIC_ISLES_GUARD_MODE": "sometimes"
     },
     "files": {},
     "request": {
@@ -178,18 +178,18 @@
       "status": 503,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "472"
+        "content-length": "471"
       },
-      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":false,\"detail\":\"MYSTICPARADOX_GUARD_MODE has an unrecognised value (must be observe or enforce)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode off (in-process HTTPS)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":false,\"detail\":\"2 MYSTPAX_ key(s): MYSTPAX_AGAIN, MYSTPAX_OLD\"}]}"
+      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":false,\"detail\":\"RUSTIC_ISLES_GUARD_MODE has an unrecognised value (must be observe or enforce)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode off (in-process HTTPS)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":false,\"detail\":\"2 MYSTPAX_ key(s): MYSTPAX_AGAIN, MYSTPAX_OLD\"}]}"
     }
   },
   {
     "name": "release gates, enforce and required",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on",
-      "MYSTICPARADOX_GUARD_MODE": " Enforce ",
-      "MYSTICPARADOX_REGISTRATION_APPROVAL": "required",
-      "MYSTICPARADOX_REGISTRATION_AUTO_APPROVE": "true"
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_GUARD_MODE": " Enforce ",
+      "RUSTIC_ISLES_REGISTRATION_APPROVAL": "required",
+      "RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE": "true"
     },
     "files": {},
     "request": {
@@ -200,16 +200,16 @@
       "status": 200,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "433"
+        "content-length": "432"
       },
-      "body": "{\"ok\":true,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=enforce\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=required; MYSTICPARADOX_REGISTRATION_AUTO_APPROVE is set and has no effect\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode off (in-process HTTPS)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+      "body": "{\"ok\":true,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=enforce\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=required; RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE is set and has no effect\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode off (in-process HTTPS)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
     }
   },
   {
     "name": "release gates, proxy without a bind host",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on",
-      "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY": "on"
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY": "on"
     },
     "files": {},
     "request": {
@@ -228,8 +228,8 @@
   {
     "name": "release gates, proxy on loopback",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on",
-      "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY": "on",
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY": "on",
       "BIND_HOST": "127.0.0.1"
     },
     "files": {},
@@ -249,8 +249,8 @@
   {
     "name": "release gates, proxy value unreadable",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on",
-      "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY": "perhaps"
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY": "perhaps"
     },
     "files": {},
     "request": {
@@ -261,15 +261,15 @@
       "status": 503,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "406"
+        "content-length": "405"
       },
-      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=observe (default)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":false,\"detail\":\"MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=observe (default)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":false,\"detail\":\"RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
     }
   },
   {
     "name": "release gates, http only",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on",
+      "RUSTIC_ISLES_ADMIN_API": "on",
       "REFORGED_HTTP_ONLY": "yes",
       "BIND_HOST": "0.0.0.0"
     },
@@ -290,7 +290,7 @@
   {
     "name": "release gates, forwarded",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on"
+      "RUSTIC_ISLES_ADMIN_API": "on"
     },
     "files": {},
     "request": {
@@ -311,7 +311,7 @@
   {
     "name": "release gates, real ip",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on"
+      "RUSTIC_ISLES_ADMIN_API": "on"
     },
     "files": {},
     "request": {
@@ -332,7 +332,7 @@
   {
     "name": "release gates, forwarded header",
     "env": {
-      "MYSTICPARADOX_ADMIN_API": "on"
+      "RUSTIC_ISLES_ADMIN_API": "on"
     },
     "files": {},
     "request": {

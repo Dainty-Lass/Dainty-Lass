@@ -340,7 +340,7 @@ pub struct ReplayTargetAuth {
     pub jwt_secret: Option<String>,
     /// Base64-encoded PEM RSA private key (`AUTH_SIGNING_PRIVKEY_B64`) when targeting `isles-core`.
     pub signing_key_b64: Option<String>,
-    /// Game-server API key (`GAMESERVER_KEY` / `X-MysticParadox-GameServer-Key`).
+    /// Game-server API key (`GAMESERVER_KEY` / `X-Rustic-Isles-GameServer-Key`).
     pub gs_key: Option<String>,
     /// Optional `x-gateway-secret` header injected on forwarded requests.
     pub gateway_secret: Option<String>,
@@ -424,8 +424,8 @@ pub fn mint_hs256_jwt(subject: &str, secret: &str, now_ms: i64) -> Result<String
         "sub": subject,
         "iat": iat,
         "exp": exp,
-        "iss": "mysticparadox",
-        "aud": "mysticparadox-game"
+        "iss": "rusticisles",
+        "aud": "rustic-isles-game"
     });
     let payload_bytes = serde_json::to_vec(&payload_json).map_err(|e| ReplayError::Json(e.to_string()))?;
     let payload = BASE64_URL.encode(&payload_bytes);
@@ -845,6 +845,8 @@ pub const IGNORED_RESPONSE_HEADERS: &[&str] = &[
     "keep-alive",
     "content-length",
     "transfer-encoding",
+    "x-rustic-isles-request-id",
+    // A capture from a build before the Rustic Isles rename
     "x-mysticparadox-request-id",
     "x-request-id",
     "server",

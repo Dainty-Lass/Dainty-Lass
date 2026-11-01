@@ -10,11 +10,11 @@ import { HostIneligibilityReason, P2PHostEligibilityPolicy } from "../config/p2p
 import type { P2PHostPresenceRecord } from "../persistence/contracts/P2PHuntRepository";
 
 // [2026-10-13 realms S1] Switches and thresholds of the realm hosting stage (SteamDocs/PARADOX_REALMS_HUB_DESIGN_2026_10_13.md
-// section 1): MYSTICPARADOX_REALMS_HOSTING, P2P_REALM_HUB_CAPABILITY_TTL_HOURS, P2P_REALM_MIN_FREE_MEMORY_MIB_PER_SERVER.
+// section 1): RUSTIC_ISLES_REALMS_HOSTING, P2P_REALM_HUB_CAPABILITY_TTL_HOURS, P2P_REALM_MIN_FREE_MEMORY_MIB_PER_SERVER.
 
-/** MYSTICPARADOX_REALMS_HOSTING=on|true|1 (the realms module's own switch spelling). Anything else is off. */
+/** RUSTIC_ISLES_REALMS_HOSTING=on|true|1 (the realms module's own switch spelling). Anything else is off. */
 export function IsRealmHostingEnabled(environment: NodeJS.ProcessEnv = process.env): boolean {
-    return /^(on|true|1)$/i.test((environment.MYSTICPARADOX_REALMS_HOSTING ?? "").trim());
+    return /^(on|true|1)$/i.test((environment.RUSTIC_ISLES_REALMS_HOSTING ?? "").trim());
 }
 
 function BoundedInteger(value: string | undefined, fallback: number, min: number, max: number): number {

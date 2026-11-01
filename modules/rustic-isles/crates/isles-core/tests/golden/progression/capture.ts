@@ -18,7 +18,7 @@ import type { Server } from "node:http";
 
 const Fixture = process.env.GOLDEN_FIXTURE_DIR ?? path.resolve(__dirname, "..", "..", "..", "tests", "golden", "progression");
 process.env.PARADOX_GAME_DATA_DIR = path.join(Fixture, "game-data");
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 delete process.env.GAMESERVER_NO_PLAYER_USER_ID;
 delete process.env.DEV_USER_ID;
 
@@ -274,7 +274,7 @@ const GS = "gs";
 const Req = (name: string, method: string, path: string, role: string | undefined, user: string | undefined, body?: Json, headers: Record<string, string> = {}, extra: any = {}): Step =>
     ({ name, method, path, role, user, body, headers, ...extra });
 const Grant = (name: string, user: string, track: string, amount: string | number, id: string | undefined, role = GS, extra: any = {}) =>
-    Req(name, "POST", `/progression/${user}/${track}/${amount}`, role, undefined, undefined, id === undefined ? {} : { "x-mysticparadox-grant-id": id }, extra);
+    Req(name, "POST", `/progression/${user}/${track}/${amount}`, role, undefined, undefined, id === undefined ? {} : { "x-rustic-isles-grant-id": id }, extra);
 
 const Node = (id: string, status: number, extra: any = {}) => ({ node_id: id, node_status: status, objectives: [], ...extra });
 
@@ -303,7 +303,7 @@ const Steps: Step[] = [
     Grant("grant without an id from a game server", "player-1", "ExperienceTrack_PlayerLevel", 98, undefined),
     Grant("grant without an id from a host-less player", "player-1", "ExperienceTrack_PlayerLevel", 98, undefined, "player", { user: "player-1" }),
     Grant("grant with a bad id", "player-1", "ExperienceTrack_PlayerLevel", 98, "-bad id"),
-    Req("grant with header and body ids that differ", "POST", "/progression/player-1/ExperienceTrack_PlayerLevel/5", GS, undefined, { grant_id: "g-body" }, { "x-mysticparadox-grant-id": "g-head" }),
+    Req("grant with header and body ids that differ", "POST", "/progression/player-1/ExperienceTrack_PlayerLevel/5", GS, undefined, { grant_id: "g-body" }, { "x-rustic-isles-grant-id": "g-head" }),
     Req("grant with the id in the body", "POST", "/progression/player-1/ExperienceTrack_PlayerLevel/5", GS, undefined, { grantId: "g-body-2" }),
     Req("grant with an idempotency key", "POST", "/progression/player-1/ExperienceTrack_PlayerLevel/6", GS, undefined, undefined, { "idempotency-key": "g-key" }),
     Grant("grant, amount zero", "player-1", "ExperienceTrack_PlayerLevel", 0, "g2"),

@@ -18,7 +18,7 @@ import { RequireActiveAccount } from "./RequireActiveAccount";
 
 const CURRENT = CurrentLegalRequirements();
 const SCHEDULED = "2026-11-13T12:00:00.000Z";
-const SAVED = { mode: process.env.MYSTICPARADOX_CONSENT_ENFORCE, provider: process.env.PERSISTENCE_PROVIDER };
+const SAVED = { mode: process.env.RUSTIC_ISLES_CONSENT_ENFORCE, provider: process.env.PERSISTENCE_PROVIDER };
 
 let Realm: TestRealm;
 let Server: http.Server;
@@ -68,7 +68,7 @@ before(async () => {
     Realm = OpenTestRealm("active-account-guard");
     UsePersistenceForTest({ repos: Realm.repos, uow: Realm.uow });
     process.env.PERSISTENCE_PROVIDER = "mongodb";
-    delete process.env.MYSTICPARADOX_CONSENT_ENFORCE;
+    delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE;
 
     const app = express();
     app.use(express.json());
@@ -89,7 +89,7 @@ after(async () => {
     await new Promise<void>((resolve) => Server.close(() => resolve()));
     UsePersistenceForTest(undefined);
     await Realm.cleanup();
-    if (SAVED.mode === undefined) delete process.env.MYSTICPARADOX_CONSENT_ENFORCE; else process.env.MYSTICPARADOX_CONSENT_ENFORCE = SAVED.mode;
+    if (SAVED.mode === undefined) delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE; else process.env.RUSTIC_ISLES_CONSENT_ENFORCE = SAVED.mode;
     if (SAVED.provider === undefined) delete process.env.PERSISTENCE_PROVIDER; else process.env.PERSISTENCE_PROVIDER = SAVED.provider;
 });
 
@@ -111,12 +111,12 @@ test("a deactivated account is refused by hosting and joining guards, with the e
     }
 });
 
-test("the consent check applies to hosting only, and only when MYSTICPARADOX_CONSENT_ENFORCE is on", async () => {
+test("the consent check applies to hosting only, and only when RUSTIC_ISLES_CONSENT_ENFORCE is on", async () => {
     const WithoutConsent = await Account();
     assert.equal((await Post("/hosting", WithoutConsent)).status, 200, "enforcement off by default");
     assert.equal((await Post("/joining", WithoutConsent)).status, 200);
 
-    process.env.MYSTICPARADOX_CONSENT_ENFORCE = "on";
+    process.env.RUSTIC_ISLES_CONSENT_ENFORCE = "on";
     try {
         const Hosting = await Post("/hosting", WithoutConsent);
         assert.equal(Hosting.status, 403);
@@ -126,7 +126,7 @@ test("the consent check applies to hosting only, and only when MYSTICPARADOX_CON
         const WithConsent = await Account({ consent: true });
         assert.equal((await Post("/hosting", WithConsent)).status, 200);
     } finally {
-        delete process.env.MYSTICPARADOX_CONSENT_ENFORCE;
+        delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE;
     }
 });
 
@@ -146,12 +146,12 @@ test("the realms router refuses a deactivated account's hosting and joining rout
 
 test("the realms router's hosting routes need the consent when it is enforced", async () => {
     const WithoutConsent = await Account();
-    process.env.MYSTICPARADOX_CONSENT_ENFORCE = "on";
+    process.env.RUSTIC_ISLES_CONSENT_ENFORCE = "on";
     try {
         const Refused = await Post("/launcher/v1/realms", WithoutConsent);
         assert.equal(Refused.status, 403);
         assert.equal(Refused.json.error.code, "CONSENT_REQUIRED");
     } finally {
-        delete process.env.MYSTICPARADOX_CONSENT_ENFORCE;
+        delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE;
     }
 });

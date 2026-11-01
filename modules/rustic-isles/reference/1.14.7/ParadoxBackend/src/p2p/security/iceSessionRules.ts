@@ -83,6 +83,7 @@ export function ActiveJoiners(hunt: P2PHuntSessionRecord, presence?: readonly Ic
  */
 export function DeriveIcePairKey(secret: string, sessionId: string, generation: number,
     hostAccountId: string, joinerAccountId: string): string {
+    // The label predates the Rustic Isles rename; both ends derive it, so it changes only with a v2
     return crypto.createHmac("sha256", secret)
         .update(`mysticparadox-ice-pair-v1\n${sessionId}\n${generation}\n${hostAccountId}\n${joinerAccountId}`)
         .digest("base64url");

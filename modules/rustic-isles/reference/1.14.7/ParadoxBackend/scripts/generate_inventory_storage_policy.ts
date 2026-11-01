@@ -13,7 +13,7 @@ const ScriptDir = path.dirname(fileURLToPath(import.meta.url));
 const MetagameRoot = path.resolve(ScriptDir, "..");
 const ProjectRoot = path.resolve(MetagameRoot, "..");
 const SourceRoot = path.join(MetagameRoot, "src");
-const CatalogOverride = process.env.MYSTICPARADOX_CATALOG_PATH ?? process.env.MYSTICPARADOX_CATALOG_1_12_PATH;
+const CatalogOverride = process.env.RUSTIC_ISLES_CATALOG_PATH ?? process.env.RUSTIC_ISLES_CATALOG_1_12_PATH;
 const CatalogPath = CatalogOverride
     ? path.resolve(CatalogOverride)
     : path.join(ProjectRoot, "Items_Analysis", "catalog_1_14_7.jsonl");

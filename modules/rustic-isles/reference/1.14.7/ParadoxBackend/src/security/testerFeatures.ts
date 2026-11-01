@@ -15,7 +15,7 @@ export const ASSIGNABLE_ROLES: readonly string[] = ["tester"];
  * [2026-10-16, owner] The tester role unlocks the launcher log upload (routes/launcherLogs.ts) and nothing else: a tester plays the
  * same stable account as everyone (stable channel, production diagnostics, no unofficial-launcher exemption). It is also the target
  * check of the operator's tester tool (controllers/testerMax.ts), which only an admin runs. The tester channel
- * (MYSTICPARADOX_TESTER_CHANNEL) is gone: every account plays stable, and only an admin may read a non-stable feed.
+ * (RUSTIC_ISLES_TESTER_CHANNEL) is gone: every account plays stable, and only an admin may read a non-stable feed.
  */
 export const TESTER_ROLE = "tester";
 

@@ -46,12 +46,12 @@ test("only archive files older than the retention period are chosen; other names
     assert.deepEqual(ExpiredServerLogArchives(Entries, NOW, 365), []);
 });
 
-test("MYSTICPARADOX_LOG_RETENTION_DAYS is a whole number of days of at least 1, 90 otherwise", () => {
+test("RUSTIC_ISLES_LOG_RETENTION_DAYS is a whole number of days of at least 1, 90 otherwise", () => {
     assert.equal(ServerLogRetentionDays({} as NodeJS.ProcessEnv), 90);
-    assert.equal(ServerLogRetentionDays({ MYSTICPARADOX_LOG_RETENTION_DAYS: "30" } as NodeJS.ProcessEnv), 30);
-    assert.equal(ServerLogRetentionDays({ MYSTICPARADOX_LOG_RETENTION_DAYS: " 7 " } as NodeJS.ProcessEnv), 7);
+    assert.equal(ServerLogRetentionDays({ RUSTIC_ISLES_LOG_RETENTION_DAYS: "30" } as NodeJS.ProcessEnv), 30);
+    assert.equal(ServerLogRetentionDays({ RUSTIC_ISLES_LOG_RETENTION_DAYS: " 7 " } as NodeJS.ProcessEnv), 7);
     for (const Bad of ["", "0", "-5", "1.5", "soon"]) {
-        assert.equal(ServerLogRetentionDays({ MYSTICPARADOX_LOG_RETENTION_DAYS: Bad } as NodeJS.ProcessEnv), 90, Bad);
+        assert.equal(ServerLogRetentionDays({ RUSTIC_ISLES_LOG_RETENTION_DAYS: Bad } as NodeJS.ProcessEnv), 90, Bad);
     }
 });
 

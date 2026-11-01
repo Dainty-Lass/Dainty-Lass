@@ -112,7 +112,7 @@ test("a removal that fails is counted by its error code, and the pass goes on wi
 
 test("the switch reads off in any case, keeps blank and on as on, and reports any other value", () => {
     const Key = UPLOADED_LOG_RETENTION_SWITCH_KEY;
-    assert.equal(Key, "MYSTICPARADOX_LOG_RETENTION");
+    assert.equal(Key, "RUSTIC_ISLES_LOG_RETENTION");
     assert.deepEqual(ReadUploadedLogRetentionSwitch({}), { enabled: true, unrecognised: false });
     assert.deepEqual(ReadUploadedLogRetentionSwitch({ [Key]: "" }), { enabled: true, unrecognised: false });
     assert.deepEqual(ReadUploadedLogRetentionSwitch({ [Key]: " On " }), { enabled: true, unrecognised: false });
@@ -149,7 +149,7 @@ test("the automatic pass starts two unref-ed timers: one pass about a minute aft
     }
 });
 
-test("MYSTICPARADOX_LOG_RETENTION=off starts no timer and says so once", () => {
+test("RUSTIC_ISLES_LOG_RETENTION=off starts no timer and says so once", () => {
     const Lines: string[] = [];
     const { timers, made } = FakeTimers();
     const Job = StartUploadedLogRetention({ root: path.join("does", "not", "exist"), log: (line) => Lines.push(line), timers },
@@ -157,7 +157,7 @@ test("MYSTICPARADOX_LOG_RETENTION=off starts no timer and says so once", () => {
     assert.equal(Job, undefined);
     assert.equal(made.length, 0);
     assert.equal(Lines.length, 1);
-    assert.match(Lines[0], /automatic purge of uploaded launcher logs is off \(MYSTICPARADOX_LOG_RETENTION=off\)/);
+    assert.match(Lines[0], /automatic purge of uploaded launcher logs is off \(RUSTIC_ISLES_LOG_RETENTION=off\)/);
 });
 
 test("an unrecognised switch value keeps the purge on and says so before the first line", () => {

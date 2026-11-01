@@ -53,40 +53,40 @@ pub async fn start(shared: &std::sync::Arc<crate::http::Shared>) -> Result<Vec<t
     let verification = policy::resolve_email_verification(&shared.settings);
     if verification.unrecognised {
         tracing::warn!(
-            "[Startup] WARNING: MYSTICPARADOX_EMAIL_VERIFICATION must be required or off; the unrecognised value is treated as required"
+            "[Startup] WARNING: RUSTIC_ISLES_EMAIL_VERIFICATION must be required or off; the unrecognised value is treated as required"
         );
     }
     if verification.required {
         // required needs working SMTP settings: without them the backend refuses to start
         if let mail::SmtpReading::Problems(problems) = mail::read_smtp_settings(&shared.settings) {
             return Err(format!(
-                "MYSTICPARADOX_EMAIL_VERIFICATION=required needs working SMTP settings ({} not set or invalid; the required keys are MYSTICPARADOX_SMTP_HOST, MYSTICPARADOX_SMTP_USER and MYSTICPARADOX_SMTP_PASSWORD)",
+                "RUSTIC_ISLES_EMAIL_VERIFICATION=required needs working SMTP settings ({} not set or invalid; the required keys are RUSTIC_ISLES_SMTP_HOST, RUSTIC_ISLES_SMTP_USER and RUSTIC_ISLES_SMTP_PASSWORD)",
                 problems.join(", ")
             ));
         }
         tracing::info!(
-            "[Startup] MYSTICPARADOX_EMAIL_VERIFICATION=required: sign-in needs a verified email (launcher 0.1.67 or later)"
+            "[Startup] RUSTIC_ISLES_EMAIL_VERIFICATION=required: sign-in needs a verified email (launcher 0.1.67 or later)"
         );
     } else if verification.is_default {
         tracing::info!(
-            "[Startup] MYSTICPARADOX_EMAIL_VERIFICATION not set (default off): sign-in does not check the email"
+            "[Startup] RUSTIC_ISLES_EMAIL_VERIFICATION not set (default off): sign-in does not check the email"
         );
     } else {
-        tracing::info!("[Startup] MYSTICPARADOX_EMAIL_VERIFICATION=off: sign-in does not check the email");
+        tracing::info!("[Startup] RUSTIC_ISLES_EMAIL_VERIFICATION=off: sign-in does not check the email");
     }
     let approval = policy::resolve_registration_approval(&shared.settings);
     if let Some(value) = &approval.unrecognised {
         tracing::warn!(
-            "[Startup] WARNING: MYSTICPARADOX_REGISTRATION_APPROVAL must be required or off (got {value:?}); it is treated as required, so new accounts stay pending"
+            "[Startup] WARNING: RUSTIC_ISLES_REGISTRATION_APPROVAL must be required or off (got {value:?}); it is treated as required, so new accounts stay pending"
         );
     }
     if approval.legacy_warning {
         tracing::warn!(
-            "[Startup] WARNING: MYSTICPARADOX_REGISTRATION_AUTO_APPROVE is replaced by MYSTICPARADOX_REGISTRATION_APPROVAL and has no effect now"
+            "[Startup] WARNING: RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE is replaced by RUSTIC_ISLES_REGISTRATION_APPROVAL and has no effect now"
         );
     }
     tracing::info!(
-        "[Startup] MYSTICPARADOX_REGISTRATION_APPROVAL={}: new accounts {}",
+        "[Startup] RUSTIC_ISLES_REGISTRATION_APPROVAL={}: new accounts {}",
         if approval.required { "required" } else { "off" },
         if approval.required {
             "need approval"

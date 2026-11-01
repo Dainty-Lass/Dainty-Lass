@@ -16,7 +16,7 @@ import { logger } from "../logger";
 
 // [2026-10-14 cancel] The leave routes: their registration and auth, and the handler over HTTP (the answer and the [CandidateLeave] line).
 // The dedicated-only build keeps the P2P hook inert; the route file itself needs no database for a leave with no search.
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 // The auth controller reads its signing keys when it loads (this file signs nothing): throwaway keys generated here, read from no file.
 const AuthKeys = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
 process.env.AUTH_SIGNING_PRIVKEY_B64 = Buffer.from(AuthKeys.privateKey.export({ type: "pkcs8", format: "pem" }) as string).toString("base64");

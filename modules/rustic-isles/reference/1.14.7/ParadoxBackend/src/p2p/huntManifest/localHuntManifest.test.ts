@@ -32,7 +32,7 @@ test("the manifest source is local by default, director on request, and any othe
     assert.equal(ReadHuntManifestSource({ [HUNT_MANIFEST_SOURCE_ENV]: " LOCAL " }), "local");
     assert.equal(ReadHuntManifestSource({ [HUNT_MANIFEST_SOURCE_ENV]: "Director" }), "director");
     assert.throws(() => ReadHuntManifestSource({ [HUNT_MANIFEST_SOURCE_ENV]: "remote" }),
-        { message: "MYSTICPARADOX_HUNT_MANIFEST_SOURCE must be 'local' or 'director' (got 'remote')" });
+        { message: "RUSTIC_ISLES_HUNT_MANIFEST_SOURCE must be 'local' or 'director' (got 'remote')" });
 });
 
 test("the hunt tables are in ParadoxDirector/game-data unless PARADOX_HUNT_DATA_DIR names another folder", () => {

@@ -664,7 +664,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -752,7 +752,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -776,7 +776,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -800,7 +800,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -824,7 +824,7 @@
     "runtimeManifestVersion": "0.1.77",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -848,7 +848,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
      },
      {
@@ -872,7 +872,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -900,7 +900,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -927,7 +927,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -954,7 +954,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "MysticParadox.dll",
+      "name": "Rustic-Isles.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -1233,7 +1233,7 @@
    "method": "POST",
    "path": "/login",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    },
    "json": {
     "email": "{{a.userId}}"
@@ -1244,7 +1244,7 @@
    "method": "POST",
    "path": "/login",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "wrong"
+    "x-rustic-isles-gameserver-apikey": "wrong"
    },
    "json": {
     "email": "x"
@@ -1255,7 +1255,7 @@
    "method": "POST",
    "path": "/login",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1",
+    "x-rustic-isles-gameserver-apikey": "gs-key-1",
     "authorization": "Bearer {{a.game}}"
    },
    "json": {
@@ -1267,7 +1267,7 @@
    "method": "POST",
    "path": "/login",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1",
+    "x-rustic-isles-gameserver-apikey": "gs-key-1",
     "authorization": "Bearer garbage"
    },
    "json": {
@@ -1287,7 +1287,7 @@
    "method": "GET",
    "path": "/accountinfo",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    }
   },
   {
@@ -1303,7 +1303,7 @@
    "method": "GET",
    "path": "/tags",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    }
   },
   {
@@ -1330,7 +1330,7 @@
    "method": "PUT",
    "path": "/gamesession/epic",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    }
   },
   {
@@ -1443,7 +1443,7 @@
    "method": "POST",
    "path": "/key/consume",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    },
    "json": {
     "candidateId": "cand-1"
@@ -1457,7 +1457,7 @@
    "method": "POST",
    "path": "/key/consume",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    },
    "json": {
     "token": "Bearer {{b.game}}"
@@ -1471,7 +1471,7 @@
    "method": "POST",
    "path": "/key/consume?token={{a.game}}",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    },
    "versions": [
     "1.14.7"
@@ -1482,7 +1482,7 @@
    "method": "POST",
    "path": "/key/consume",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    },
    "json": {
     "token": "who"
@@ -1496,7 +1496,7 @@
    "method": "POST",
    "path": "/key/consume",
    "headers": {
-    "x-mysticparadox-gameserver-apikey": "gs-key-1"
+    "x-rustic-isles-gameserver-apikey": "gs-key-1"
    },
    "versions": [
     "1.14.7"
@@ -1759,10 +1759,10 @@
   {
    "name": "mail on, verification required",
    "env": {
-    "MYSTICPARADOX_EMAIL_VERIFICATION": "required",
-    "MYSTICPARADOX_SMTP_HOST": "smtp.example.test",
-    "MYSTICPARADOX_SMTP_USER": "postmaster",
-    "MYSTICPARADOX_SMTP_PASSWORD": "fixture-password"
+    "RUSTIC_ISLES_EMAIL_VERIFICATION": "required",
+    "RUSTIC_ISLES_SMTP_HOST": "smtp.example.test",
+    "RUSTIC_ISLES_SMTP_USER": "postmaster",
+    "RUSTIC_ISLES_SMTP_PASSWORD": "fixture-password"
    }
   },
   {

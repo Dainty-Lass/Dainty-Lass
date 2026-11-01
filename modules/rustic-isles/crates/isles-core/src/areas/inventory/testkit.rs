@@ -1,7 +1,7 @@
 //! What this area's tests share, across `isles-core` and the two module crates: in-memory stand-ins for the other
 //! areas' pieces (the ports of [`super::ports`], the characters and progression repositories), a server on a real
 //! SQLite store, a small HTTP client, and the golden run that replays `tests/golden/inventory/scenarios.json` against
-//! the answers recorded from Mystic Paradox's Node backend (`record.cjs`). Not for production code.
+//! the answers recorded from Rustic Isles' Node backend (`record.cjs`). Not for production code.
 
 use std::collections::BTreeMap;
 use std::net::SocketAddr;

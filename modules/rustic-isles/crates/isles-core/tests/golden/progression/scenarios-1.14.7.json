@@ -292,7 +292,7 @@
         "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/250",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g1"
+          "x-rustic-isles-grant-id": "g1"
         }
       },
       "response": {
@@ -312,7 +312,7 @@
         "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/250",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g1"
+          "x-rustic-isles-grant-id": "g1"
         }
       },
       "response": {
@@ -332,7 +332,7 @@
         "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/251",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g1"
+          "x-rustic-isles-grant-id": "g1"
         }
       },
       "response": {
@@ -352,7 +352,7 @@
         "path": "/progression/player-2/ExperienceTrack_Weapon_Axe/250",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g1"
+          "x-rustic-isles-grant-id": "g1"
         }
       },
       "response": {
@@ -409,7 +409,7 @@
         "path": "/progression/player-1/ExperienceTrack_PlayerLevel/98",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "-bad id"
+          "x-rustic-isles-grant-id": "-bad id"
         }
       },
       "response": {
@@ -429,7 +429,7 @@
         "path": "/progression/player-1/ExperienceTrack_PlayerLevel/5",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g-head"
+          "x-rustic-isles-grant-id": "g-head"
         },
         "body": {
           "grant_id": "g-body"
@@ -493,7 +493,7 @@
         "path": "/progression/player-1/ExperienceTrack_PlayerLevel/0",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g2"
+          "x-rustic-isles-grant-id": "g2"
         }
       },
       "response": {
@@ -513,7 +513,7 @@
         "path": "/progression/player-1/ExperienceTrack_PlayerLevel/abc",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g3"
+          "x-rustic-isles-grant-id": "g3"
         }
       },
       "response": {
@@ -533,7 +533,7 @@
         "path": "/progression/player-1/ExperienceTrack_PlayerLevel/1.5",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g4"
+          "x-rustic-isles-grant-id": "g4"
         }
       },
       "response": {
@@ -553,7 +553,7 @@
         "path": "/progression/player-1/ExperienceTrack_PlayerLevel/1e2",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g5"
+          "x-rustic-isles-grant-id": "g5"
         }
       },
       "response": {
@@ -573,7 +573,7 @@
         "path": "/progression/player-1/ExperienceTrack_PlayerLevel/100001",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g6"
+          "x-rustic-isles-grant-id": "g6"
         }
       },
       "response": {
@@ -593,7 +593,7 @@
         "path": "/progression/player-1/ExperienceTrack_Weapon_Sword/100000",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g7"
+          "x-rustic-isles-grant-id": "g7"
         }
       },
       "response": {
@@ -613,7 +613,7 @@
         "path": "/progression/INVALID/ExperienceTrack_PlayerLevel/5",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g8"
+          "x-rustic-isles-grant-id": "g8"
         }
       },
       "response": {
@@ -633,7 +633,7 @@
         "path": "/progression/player-1/Linked_Slayer_Slot_1/5",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g9"
+          "x-rustic-isles-grant-id": "g9"
         }
       },
       "response": {
@@ -653,7 +653,7 @@
         "path": "/progression/player-1/ExperienceTrack_Nothing/5",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g10"
+          "x-rustic-isles-grant-id": "g10"
         }
       },
       "response": {
@@ -673,7 +673,7 @@
         "path": "/progression/player-1/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/5",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g11"
+          "x-rustic-isles-grant-id": "g11"
         }
       },
       "response": {
@@ -693,7 +693,7 @@
         "path": "/progression/player-1/season43/20",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g12"
+          "x-rustic-isles-grant-id": "g12"
         }
       },
       "response": {
@@ -713,7 +713,7 @@
         "path": "/progression/player-1/season19/20",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g13"
+          "x-rustic-isles-grant-id": "g13"
         }
       },
       "response": {
@@ -733,7 +733,7 @@
         "path": "/progression/player-1/MasteryTrack_PlayerLevel/2",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g14"
+          "x-rustic-isles-grant-id": "g14"
         }
       },
       "response": {
@@ -754,7 +754,7 @@
         "role": "player",
         "user": "player-1",
         "headers": {
-          "x-mysticparadox-grant-id": "g15"
+          "x-rustic-isles-grant-id": "g15"
         }
       },
       "response": {
@@ -774,7 +774,7 @@
         "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "g16"
+          "x-rustic-isles-grant-id": "g16"
         }
       },
       "response": {
@@ -1113,7 +1113,7 @@
         "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "r1"
+          "x-rustic-isles-grant-id": "r1"
         }
       },
       "response": {
@@ -1133,7 +1133,7 @@
         "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "r2"
+          "x-rustic-isles-grant-id": "r2"
         }
       },
       "response": {
@@ -1153,7 +1153,7 @@
         "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "r1"
+          "x-rustic-isles-grant-id": "r1"
         }
       },
       "response": {
@@ -1173,7 +1173,7 @@
         "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/49",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "r3"
+          "x-rustic-isles-grant-id": "r3"
         }
       },
       "response": {
@@ -1193,7 +1193,7 @@
         "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/50",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "r4"
+          "x-rustic-isles-grant-id": "r4"
         }
       },
       "response": {
@@ -1213,7 +1213,7 @@
         "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/50",
         "role": "gs",
         "headers": {
-          "x-mysticparadox-grant-id": "r5"
+          "x-rustic-isles-grant-id": "r5"
         }
       },
       "response": {
@@ -2865,7 +2865,7 @@
         "user": "host-1",
         "roster": "host-1,player-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h1"
+          "x-rustic-isles-grant-id": "h1"
         }
       },
       "response": {
@@ -2901,7 +2901,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h2"
+          "x-rustic-isles-grant-id": "h2"
         }
       },
       "response": {
@@ -2927,7 +2927,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h3"
+          "x-rustic-isles-grant-id": "h3"
         }
       },
       "response": {
@@ -2953,7 +2953,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h4"
+          "x-rustic-isles-grant-id": "h4"
         }
       },
       "response": {
@@ -2979,7 +2979,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h5"
+          "x-rustic-isles-grant-id": "h5"
         }
       },
       "response": {
@@ -3024,7 +3024,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h6"
+          "x-rustic-isles-grant-id": "h6"
         }
       },
       "response": {
@@ -3064,7 +3064,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h7"
+          "x-rustic-isles-grant-id": "h7"
         }
       },
       "response": {
@@ -3111,7 +3111,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h8"
+          "x-rustic-isles-grant-id": "h8"
         }
       },
       "response": {
@@ -3147,7 +3147,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h9"
+          "x-rustic-isles-grant-id": "h9"
         }
       },
       "response": {
@@ -3183,7 +3183,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h10"
+          "x-rustic-isles-grant-id": "h10"
         }
       },
       "response": {
@@ -3226,7 +3226,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h11"
+          "x-rustic-isles-grant-id": "h11"
         }
       },
       "response": {
@@ -3728,7 +3728,7 @@
         "role": "host",
         "user": "host-1",
         "headers": {
-          "x-mysticparadox-grant-id": "h12"
+          "x-rustic-isles-grant-id": "h12"
         }
       },
       "response": {

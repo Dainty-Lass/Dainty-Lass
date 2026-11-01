@@ -4,7 +4,7 @@
  * PURPOSE
  * -------
  * Store SKU responses are remote service data. The local catalog and StoreItemsTable cannot recover
- * the original Reward Cache offer list, prices or rotation. Once Mystic Paradox serves a repro offer,
+ * the original Reward Cache offer list, prices or rotation. Once Rustic Isles serves a repro offer,
  * however, the real 1.12 client parses it into UStoreViewModel/UStoreItemViewModel objects. This pass
  * captures that parsed state plus the client-authored category/tag configuration and StoreItemsTable
  * image rows, so a repro answers the remaining contract questions without guessing.

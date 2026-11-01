@@ -16,6 +16,7 @@ pub mod game_data;
 pub mod hooks;
 pub mod http;
 pub mod ids;
+pub mod legacy;
 pub mod module;
 pub mod replay;
 pub mod repo;

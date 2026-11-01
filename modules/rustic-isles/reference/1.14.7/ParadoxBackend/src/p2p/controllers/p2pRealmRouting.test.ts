@@ -252,8 +252,8 @@ test("Ramsgate with hosting off: a realm member is routed as before (no realm br
     await WithKit(async (kit) => {
         await StartRunningHub(kit);
         kit.realms.bindPresence(MEMBER, REALM_ID);
-        const saved = process.env.MYSTICPARADOX_REALMS_HOSTING;
-        process.env.MYSTICPARADOX_REALMS_HOSTING = "off";
+        const saved = process.env.RUSTIC_ISLES_REALMS_HOSTING;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = "off";
         try {
             const h = Harness(MEMBER);
             // The dedicated route (no hunt in the way): RouteP2PHunt answers handled=false for a request it does not own.
@@ -261,8 +261,8 @@ test("Ramsgate with hosting off: a realm member is routed as before (no realm br
             assert.equal(h.candidates.size, 0);
             assert.deepEqual(h.cancels, []);
         } finally {
-            if (saved === undefined) delete process.env.MYSTICPARADOX_REALMS_HOSTING;
-            else process.env.MYSTICPARADOX_REALMS_HOSTING = saved;
+            if (saved === undefined) delete process.env.RUSTIC_ISLES_REALMS_HOSTING;
+            else process.env.RUSTIC_ISLES_REALMS_HOSTING = saved;
         }
     });
 });
@@ -405,30 +405,30 @@ test("every hunt class routes as a realm hunt (Trials, arena, leaderboard, race,
     });
 });
 
-test("Gauntlet is refused for realm members with MYSTICPARADOX_GAUNTLET off (GAUNTLET_DISABLED, no hunt) and is a realm hunt with it on", async () => {
-    const saved = process.env.MYSTICPARADOX_GAUNTLET;
+test("Gauntlet is refused for realm members with RUSTIC_ISLES_GAUNTLET off (GAUNTLET_DISABLED, no hunt) and is a realm hunt with it on", async () => {
+    const saved = process.env.RUSTIC_ISLES_GAUNTLET;
     try {
         for (const huntId of ["CR19_PlayerHunt_Gauntlet", "CR19_MatchmakerHunt_Gauntlet"]) {
             await WithKit(async (kit) => {
-                delete process.env.MYSTICPARADOX_GAUNTLET;
+                delete process.env.RUSTIC_ISLES_GAUNTLET;
                 const refused = await RealmHunt(kit, "party-gauntlet-off", [MEMBER], huntId);
                 assert.deepEqual(refused.harness.cancels, [{ huntId, accountIds: [MEMBER], reason: "GAUNTLET_DISABLED" }]);
                 assert.equal(refused.hunt, undefined, `${huntId} creates no hunt while it is disabled`);
 
-                process.env.MYSTICPARADOX_GAUNTLET = "on";
+                process.env.RUSTIC_ISLES_GAUNTLET = "on";
                 const allowed = await RealmHunt(kit, "party-gauntlet-on", [MEMBER], huntId);
                 assert.deepEqual(allowed.harness.cancels, []);
                 assert.equal(allowed.hunt?.realmId, REALM_ID, `${huntId} is a realm hunt with the switch on`);
             });
         }
     } finally {
-        if (saved === undefined) delete process.env.MYSTICPARADOX_GAUNTLET;
-        else process.env.MYSTICPARADOX_GAUNTLET = saved;
+        if (saved === undefined) delete process.env.RUSTIC_ISLES_GAUNTLET;
+        else process.env.RUSTIC_ISLES_GAUNTLET = saved;
     }
 });
 
 test("Gauntlet is refused on the player-hosted route for a player with no realm (GAUNTLET_DISABLED); with the switch on it stays on the dedicated route", async () => {
-    const saved = process.env.MYSTICPARADOX_GAUNTLET;
+    const saved = process.env.RUSTIC_ISLES_GAUNTLET;
     try {
         await WithEnvironment({ DEPLOYSERVER_URL: DEPLOYSERVER }, () => WithKit(async (kit) => {
             kit.addParty("party-p2p-gauntlet", [STRANGER]);
@@ -436,20 +436,20 @@ test("Gauntlet is refused on the player-hosted route for a player with no realm 
             const request = () => Harness(STRANGER, { gameMode: "ISLAND", huntId: "CR19_PlayerHunt_Gauntlet", isHub: false,
                 partyId: "party-p2p-gauntlet", partyMembers: [STRANGER], partyRevision: 1 });
 
-            delete process.env.MYSTICPARADOX_GAUNTLET;
+            delete process.env.RUSTIC_ISLES_GAUNTLET;
             const refused = request();
             assert.deepEqual(await RouteP2PHunt(refused.context), { handled: true, result: true });
             assert.deepEqual(refused.cancels.map((entry) => entry.reason), ["GAUNTLET_DISABLED"]);
 
             // With the switch on, the account is not on the player-hosted allowlist, so the request is the dedicated route's, as before.
-            process.env.MYSTICPARADOX_GAUNTLET = "on";
+            process.env.RUSTIC_ISLES_GAUNTLET = "on";
             const allowed = request();
             assert.deepEqual(await RouteP2PHunt(allowed.context), { handled: false });
             assert.deepEqual(allowed.cancels, []);
         }));
     } finally {
-        if (saved === undefined) delete process.env.MYSTICPARADOX_GAUNTLET;
-        else process.env.MYSTICPARADOX_GAUNTLET = saved;
+        if (saved === undefined) delete process.env.RUSTIC_ISLES_GAUNTLET;
+        else process.env.RUSTIC_ISLES_GAUNTLET = saved;
     }
 });
 

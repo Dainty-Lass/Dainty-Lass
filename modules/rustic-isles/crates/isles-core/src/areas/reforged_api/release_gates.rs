@@ -48,7 +48,7 @@ pub fn body(gates: &[Gate]) -> Value {
 
 /// `ResolveGuardMode`: `(enforce, is_default, refused)`.
 pub fn guard_mode(env: &Env) -> (bool, bool, bool) {
-    match var(env, "MYSTICPARADOX_GUARD_MODE").trim().to_lowercase().as_str() {
+    match var(env, "RUSTIC_ISLES_GUARD_MODE").trim().to_lowercase().as_str() {
         "" => (false, true, false),
         "observe" => (false, false, false),
         "enforce" => (true, false, false),
@@ -62,7 +62,7 @@ pub fn guard_mode_gate(env: &Env) -> Gate {
         return Gate::new(
             "guard_mode",
             false,
-            "MYSTICPARADOX_GUARD_MODE has an unrecognised value (must be observe or enforce)",
+            "RUSTIC_ISLES_GUARD_MODE has an unrecognised value (must be observe or enforce)",
         );
     }
     Gate::new(
@@ -77,8 +77,8 @@ pub fn guard_mode_gate(env: &Env) -> Gate {
 }
 
 pub fn registration_approval_gate(env: &Env) -> Gate {
-    let raw = var(env, "MYSTICPARADOX_REGISTRATION_APPROVAL").trim().to_lowercase();
-    let legacy = !var(env, "MYSTICPARADOX_REGISTRATION_AUTO_APPROVE").trim().is_empty();
+    let raw = var(env, "RUSTIC_ISLES_REGISTRATION_APPROVAL").trim().to_lowercase();
+    let legacy = !var(env, "RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE").trim().is_empty();
     let (mode, is_default, refused) = match raw.as_str() {
         "" => ("off", true, false),
         "off" => ("off", false, false),
@@ -89,11 +89,11 @@ pub fn registration_approval_gate(env: &Env) -> Gate {
         return Gate::new(
             "registration_approval_mode",
             false,
-            "MYSTICPARADOX_REGISTRATION_APPROVAL has an unrecognised value (treated as required)",
+            "RUSTIC_ISLES_REGISTRATION_APPROVAL has an unrecognised value (treated as required)",
         );
     }
     let legacy = if legacy {
-        "; MYSTICPARADOX_REGISTRATION_AUTO_APPROVE is set and has no effect"
+        "; RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE is set and has no effect"
     } else {
         ""
     };
@@ -106,7 +106,7 @@ pub fn registration_approval_gate(env: &Env) -> Gate {
 
 /// `ReadTlsTerminatedByProxy`; `Err` where it throws.
 pub fn tls_terminated_by_proxy(env: &Env) -> Result<bool, String> {
-    let mut raw = var(env, "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY").trim().to_lowercase();
+    let mut raw = var(env, "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY").trim().to_lowercase();
     if raw.is_empty()
         && matches!(
             var(env, "REFORGED_HTTP_ONLY").trim().to_lowercase().as_str(),
@@ -119,7 +119,7 @@ pub fn tls_terminated_by_proxy(env: &Env) -> Result<bool, String> {
         "" | "0" | "off" | "false" | "no" => Ok(false),
         "1" | "on" | "true" | "yes" => Ok(true),
         other => Err(format!(
-            "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off (got '{other}')"
+            "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off (got '{other}')"
         )),
     }
 }
@@ -127,7 +127,7 @@ pub fn tls_terminated_by_proxy(env: &Env) -> Result<bool, String> {
 pub fn tls_proxy_gate(env: &Env) -> Gate {
     let name = "tls_proxy_consistency";
     let Ok(on) = tls_terminated_by_proxy(env) else {
-        return Gate::new(name, false, "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off");
+        return Gate::new(name, false, "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off");
     };
     if !on {
         return Gate::new(name, true, "proxy mode off (in-process HTTPS)");
@@ -231,34 +231,34 @@ mod tests {
     fn guard_mode_reads_like_node() {
         assert_eq!(guard_mode_gate(&env(&[])).detail, "mode=observe (default)");
         assert_eq!(
-            guard_mode_gate(&env(&[("MYSTICPARADOX_GUARD_MODE", " Observe ")])).detail,
+            guard_mode_gate(&env(&[("RUSTIC_ISLES_GUARD_MODE", " Observe ")])).detail,
             "mode=observe"
         );
-        let enforce = guard_mode_gate(&env(&[("MYSTICPARADOX_GUARD_MODE", "enforce")]));
+        let enforce = guard_mode_gate(&env(&[("RUSTIC_ISLES_GUARD_MODE", "enforce")]));
         assert_eq!((enforce.ok, enforce.detail.as_str()), (true, "mode=enforce"));
-        let bad = guard_mode_gate(&env(&[("MYSTICPARADOX_GUARD_MODE", "sometimes")]));
+        let bad = guard_mode_gate(&env(&[("RUSTIC_ISLES_GUARD_MODE", "sometimes")]));
         assert!(!bad.ok && bad.name == "guard_mode" && !bad.detail.contains("sometimes"));
     }
 
     #[test]
     fn registration_approval_reads_like_node() {
         assert_eq!(registration_approval_gate(&env(&[])).detail, "mode=off (default)");
-        let required = registration_approval_gate(&env(&[("MYSTICPARADOX_REGISTRATION_APPROVAL", "required")]));
+        let required = registration_approval_gate(&env(&[("RUSTIC_ISLES_REGISTRATION_APPROVAL", "required")]));
         assert_eq!((required.ok, required.detail.as_str()), (true, "mode=required"));
-        let bad = registration_approval_gate(&env(&[("MYSTICPARADOX_REGISTRATION_APPROVAL", "maybe")]));
+        let bad = registration_approval_gate(&env(&[("RUSTIC_ISLES_REGISTRATION_APPROVAL", "maybe")]));
         assert!(!bad.ok && !bad.detail.contains("maybe"));
-        let legacy = registration_approval_gate(&env(&[("MYSTICPARADOX_REGISTRATION_AUTO_APPROVE", "true")]));
+        let legacy = registration_approval_gate(&env(&[("RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE", "true")]));
         assert!(legacy.ok && legacy.detail.contains("has no effect"));
     }
 
     #[test]
     fn the_tls_proxy_gate_wants_a_loopback_bind() {
         assert_eq!(
-            tls_proxy_gate(&env(&[("MYSTICPARADOX_TLS_TERMINATED_BY_PROXY", "off")])).detail,
+            tls_proxy_gate(&env(&[("RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY", "off")])).detail,
             "proxy mode off (in-process HTTPS)"
         );
         let on = |host: &str| {
-            let mut pairs = vec![("MYSTICPARADOX_TLS_TERMINATED_BY_PROXY", "on")];
+            let mut pairs = vec![("RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY", "on")];
             if !host.is_empty() {
                 pairs.push(("BIND_HOST", host));
             }
@@ -268,7 +268,7 @@ mod tests {
         assert!(!on("0.0.0.0").ok && !on("203.0.113.9").ok && !on("").ok);
         assert!(!on("0.0.0.0").detail.contains("0.0.0.0"));
         let bad = tls_proxy_gate(&env(&[
-            ("MYSTICPARADOX_TLS_TERMINATED_BY_PROXY", "perhaps"),
+            ("RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY", "perhaps"),
             ("BIND_HOST", "127.0.0.1"),
         ]));
         assert!(!bad.ok && bad.name == "tls_proxy_consistency");
@@ -276,11 +276,11 @@ mod tests {
 
     #[test]
     fn legacy_keys_show_names_never_values() {
-        assert!(legacy_env_keys_gate(&env(&[("MYSTICPARADOX_GUARD_MODE", "observe")])).ok);
+        assert!(legacy_env_keys_gate(&env(&[("RUSTIC_ISLES_GUARD_MODE", "observe")])).ok);
         let gate = legacy_env_keys_gate(&env(&[
             ("MYSTPAX_B", "super-secret-value-7731"),
             ("MYSTPAX_A", "x"),
-            ("MYSTICPARADOX_X", "y"),
+            ("RUSTIC_ISLES_X", "y"),
         ]));
         assert!(!gate.ok);
         assert_eq!(gate.detail, "2 MYSTPAX_ key(s): MYSTPAX_A, MYSTPAX_B");

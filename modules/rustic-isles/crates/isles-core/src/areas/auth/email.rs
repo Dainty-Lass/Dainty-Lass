@@ -376,7 +376,7 @@ pub async fn reset_password_with_code(
 }
 
 /// `SweepUnverifiedRegistrations`: removes the launcher accounts registered under
-/// `MYSTICPARADOX_EMAIL_VERIFICATION=required` that were not verified within 48 h, with their codes and sessions. It
+/// `RUSTIC_ISLES_EMAIL_VERIFICATION=required` that were not verified within 48 h, with their codes and sessions. It
 /// removes nothing else: existing accounts carry no pending mark, and an account verified meanwhile is kept by the
 /// conditional delete. The rows are soft-deleted (DD23). Returns how many accounts were removed.
 pub async fn sweep_unverified_registrations(shared: &Shared, now: i64, limit: u32) -> Result<usize, LauncherApiError> {

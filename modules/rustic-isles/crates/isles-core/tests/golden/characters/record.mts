@@ -14,8 +14,8 @@ process.env.AUTH_SIGNING_PUBKEY_B64 = Buffer.from(publicKey.export({ type: "spki
 Object.assign(process.env, {
     NODE_ENV: "production",
     PERSISTENCE_PROVIDER: "sqlite",
-    MYSTICPARADOX_SQLITE_PATH: ":memory:",
-    MYSTICPARADOX_RATE_LIMIT: "off",
+    RUSTIC_ISLES_SQLITE_PATH: ":memory:",
+    RUSTIC_ISLES_RATE_LIMIT: "off",
     API_KEY_HASH_SECRET: "x".repeat(40),
     GAMESERVER_API_KEYS: "gs-key",
     TARGET_CHANGELIST: process.env.TARGET_CHANGELIST ?? "647472",
@@ -57,7 +57,7 @@ for (const step of scenario.steps) {
     }
     const headers: Record<string, string> = {};
     const [kind, who] = String(step.as).split(":");
-    if (kind === "gameserver") headers["x-mysticparadox-gameserver-apikey"] = "gs-key";
+    if (kind === "gameserver") headers["x-rustic-isles-gameserver-apikey"] = "gs-key";
     if (who) headers.authorization = `Bearer ${SignMetagameJWTForUid(who)}`;
     let body: string | undefined;
     if (step.rawBody !== undefined) body = step.rawBody;

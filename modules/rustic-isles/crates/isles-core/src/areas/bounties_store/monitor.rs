@@ -1,5 +1,5 @@
 //! The always-on economy monitors of the routes in this area (`diagnostics/economyMonitor.ts`): greppable server log
-//! lines that never fail a request. `MYSTICPARADOX_ECONOMY_MONITOR=off` silences them. English, since they are a host's
+//! lines that never fail a request. `RUSTIC_ISLES_ECONOMY_MONITOR=off` silences them. English, since they are a host's
 //! log, not launcher text.
 
 use serde_json::Value;
@@ -8,7 +8,7 @@ use service_kit::js;
 use crate::settings::Settings;
 
 pub fn enabled(settings: &Settings) -> bool {
-    settings.on_unless_off("MYSTICPARADOX_ECONOMY_MONITOR")
+    settings.on_unless_off("RUSTIC_ISLES_ECONOMY_MONITOR")
 }
 
 fn text(value: Option<&Value>, default: &str) -> String {

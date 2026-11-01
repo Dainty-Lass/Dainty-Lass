@@ -17,7 +17,7 @@ import type { ExtensionHttpResponse, HostWriteKind, HostWriteRecordInput } from 
 import { gameDataPath, tryLoadGameData } from "../gameData/loader";
 
 // The limits and the module's refusals are separate; the module itself is replaced by a recorder below.
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 
 /*
  * [2026-10-13 realms S3 limits] POST /progression/:userId/:progressionId/:amount and POST /progression/:userId through the real
@@ -157,7 +157,7 @@ function Send(method: string, path: string, role: string | undefined, body?: unk
 }
 
 const Grant = (role: string, track: string, amount: number, grantId: string, user = "player-1") =>
-    Send("POST", `/progression/${user}/${track}/${amount}`, role, undefined, { "x-mysticparadox-grant-id": grantId });
+    Send("POST", `/progression/${user}/${track}/${amount}`, role, undefined, { "x-rustic-isles-grant-id": grantId });
 
 const LIMIT_CODE = "HOST_WRITE_LIMIT";
 const DENIAL: ExtensionHttpResponse = { status: 403, body: { code: "P2P_HOST_WRITE_DENIED", message: "This host may not write this player's state.", payload: null } };

@@ -83,7 +83,7 @@ export function CountsAgainstGuardTraffic(operation: P2PHuntOperation): boolean 
 
 async function Handle(req: Request, res: Response, action: () => Promise<unknown>): Promise<void> {
     const operation = P2PHuntOperationOf(req.path);
-    IncrementMetric("mysticparadox_p2p_requests_total", 1, { operation });
+    IncrementMetric("rustic_isles_p2p_requests_total", 1, { operation });
     try {
         const capability = (req as any).HostCapabilityAuthData as HostCapabilityAuthData | undefined;
         if (capability?.capability !== undefined) {
@@ -105,11 +105,11 @@ async function Handle(req: Request, res: Response, action: () => Promise<unknown
         res.status(200).json(await action());
     } catch (error) {
         if (error instanceof LauncherApiError) {
-            IncrementMetric("mysticparadox_p2p_errors_total", 1, { code: error.code });
+            IncrementMetric("rustic_isles_p2p_errors_total", 1, { code: error.code });
             SendLauncherError(res, error);
             return;
         }
-        IncrementMetric("mysticparadox_p2p_errors_total", 1, { code: "INTERNAL" });
+        IncrementMetric("rustic_isles_p2p_errors_total", 1, { code: "INTERNAL" });
         logger.error(`Unhandled P2P route error requestId=${GetRequestId() ?? "missing"}: ${error}`);
         SendLauncherError(res, new LauncherApiError("INTERNAL", "The player-hosted hunt request failed."));
     }

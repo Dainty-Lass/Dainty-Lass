@@ -193,7 +193,7 @@ impl std::fmt::Display for LauncherApiError {
 
 impl std::error::Error for LauncherApiError {}
 
-/// `SendLauncherError`. Its request id is a fresh UUID, as Node's is (not the `x-mysticparadox-request-id`).
+/// `SendLauncherError`. Its request id is a fresh UUID, as Node's is (not the `x-rustic-isles-request-id`).
 impl IntoResponse for LauncherApiError {
     fn into_response(self) -> Response {
         let status = StatusCode::from_u16(self.status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);

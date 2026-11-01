@@ -15,7 +15,7 @@ import { GetRealmsService, StartRealmsSweeper } from "./realmsInstance";
 // [2026-10-13 realms S2] Paradox realms directory: a player hosts game servers on their own PC for friends, through our
 // backend and Paradox accounts (SteamDocs/PARADOX_REALMS_PLAN_2026_10_13.md). Self-contained: app.ts calls MountRealmsModule, the
 // game-session and login routes call the two entry functions, and the p2p module imports the accessors below; nothing else of
-// the app imports this folder. MYSTICPARADOX_REALMS_MODULE=on|true|1 turns it on; the default is off.
+// the app imports this folder. RUSTIC_ISLES_REALMS_MODULE=on|true|1 turns it on; the default is off.
 // [2026-10-13 hub design section 2] Entry authorization, presence, host hosting state, the sweeper and the event sink.
 
 export { EnsureRealmsDatabase } from "./persistence/mongo/indexes";

@@ -18,6 +18,7 @@ const STEAM_ID = /^[1-9][0-9]{0,19}$/;
 
 export interface AdmissionTicketClaims {
     issuer: "paradox-backend";
+    // Predates the Rustic Isles rename; the transport checks it, so it changes only with a new ticket version
     audience: "mysticparadox-steam-bridge";
     purpose: "JOIN_HUNT";
     version: 2;

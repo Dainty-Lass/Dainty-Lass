@@ -13,7 +13,7 @@ import type { LeavePartyLookup } from "./matchmaking";
 // [2026-10-14 cancel] The client's Cancel of a search (DELETE /candidate/leave) on the dedicated path, in the dedicated-only build (the
 // P2P module off). The realm and player-hosted cancels are in src/p2p/controllers/p2pCandidateLeave.test.ts.
 // The module constants (MATCHMAKING_MODE, DEPLOYSERVER_URL) are read at import, so the modules load after the environment is set.
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 process.env.MATCHMAKING_MODE = "DEPLOYSERVER";
 process.env.DEPLOYSERVER_URL = "deployserver.invalid:8080";
 

@@ -7,5 +7,5 @@ temp/
 .cache/
 *.db
 file
-migration-fixtures/snapshot_mysticparadox_pre_migration.json
+migration-fixtures/snapshot_rustic_isles_pre_migration.json
 launcher-logs/

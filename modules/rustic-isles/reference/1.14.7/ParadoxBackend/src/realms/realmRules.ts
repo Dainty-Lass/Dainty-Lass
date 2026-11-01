@@ -24,10 +24,10 @@ export const REALM_NAME_PATTERN = /^[a-z0-9-]{3,24}$/;
 
 /**
  * Names nobody may claim: they would read as the official server, a staff account or the service itself. Matched
- * against the name with its hyphens removed, so "o-fficial" and "mystic-paradox" are refused as well.
+ * against the name with its hyphens removed, so "o-fficial" and "rustic-isles" are refused as well.
  */
 export const RESERVED_REALM_NAMES: readonly string[] = Object.freeze([
-    "official", "paradox", "mysticparadox", "mystic", "mysticfox", "admin", "administrator", "support", "mod", "moderator",
+    "official", "paradox", "rusticisles", "mysticparadox", "mystic", "mysticfox", "admin", "administrator", "support", "mod", "moderator",
     "staff", "system", "root", "dauntless", "phoenixlabs", "launcher", "backend", "directory", "realm", "realms", "api", "www",
     "help", "security", "owner", "team", "local", "dedicated", "default"
 ]);

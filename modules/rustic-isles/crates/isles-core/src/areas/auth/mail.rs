@@ -1,6 +1,6 @@
 //! The code mail (`mail/mailConfig.ts`, `mail/codeEmail.ts`, `mail/mailSender.ts`): the one-time codes of email
 //! verification, password reset and the Discord unlink, sent over SMTP. Port 587 starts plain and must upgrade
-//! (STARTTLS), so the login never goes out in clear; port 465 (`MYSTICPARADOX_SMTP_SECURE=tls`) speaks TLS from the
+//! (STARTTLS), so the login never goes out in clear; port 465 (`RUSTIC_ISLES_SMTP_SECURE=tls`) speaks TLS from the
 //! first byte. Nothing the user typed goes into the mail, only the code and fixed text, and a failure is logged by
 //! its code only: an SMTP reply can repeat the recipient's address.
 
@@ -19,7 +19,7 @@ use tokio_rustls::TlsConnector;
 use crate::repo::auth::EmailCodePurpose;
 use crate::settings::Settings;
 
-pub const MAIL_FROM_DEFAULT: &str = "Mystic Paradox <no-reply@mysticfox.dev>";
+pub const MAIL_FROM_DEFAULT: &str = "Rustic Isles <no-reply@mysticfox.dev>";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const IO_TIMEOUT: Duration = Duration::from_secs(20);
 
@@ -31,7 +31,7 @@ pub struct SmtpSettings {
     pub implicit_tls: bool,
     pub user: String,
     pub password: String,
-    /// The From header, for example `Mystic Paradox <no-reply@mysticfox.dev>`
+    /// The From header, for example `Rustic Isles <no-reply@mysticfox.dev>`
     pub from: String,
 }
 
@@ -66,11 +66,11 @@ fn trimmed<'a>(settings: &'a Settings, name: &str) -> &'a str {
 /// a problem, since the code mail must never fall back to a mode the owner did not choose.
 pub fn read_smtp_settings(settings: &Settings) -> SmtpReading {
     let mut problems = Vec::new();
-    let host = trimmed(settings, "MYSTICPARADOX_SMTP_HOST");
+    let host = trimmed(settings, "RUSTIC_ISLES_SMTP_HOST");
     if host.is_empty() {
-        problems.push("MYSTICPARADOX_SMTP_HOST".to_owned());
+        problems.push("RUSTIC_ISLES_SMTP_HOST".to_owned());
     }
-    let port_text = trimmed(settings, "MYSTICPARADOX_SMTP_PORT");
+    let port_text = trimmed(settings, "RUSTIC_ISLES_SMTP_PORT");
     let port = if port_text.is_empty() {
         Some(587)
     } else {
@@ -78,24 +78,24 @@ pub fn read_smtp_settings(settings: &Settings) -> SmtpReading {
         port_text.parse::<u32>().ok().filter(|port| (1..=65535).contains(port))
     };
     if port.is_none() {
-        problems.push("MYSTICPARADOX_SMTP_PORT (a port number)".to_owned());
+        problems.push("RUSTIC_ISLES_SMTP_PORT (a port number)".to_owned());
     }
-    let secure = trimmed(settings, "MYSTICPARADOX_SMTP_SECURE").to_lowercase();
+    let secure = trimmed(settings, "RUSTIC_ISLES_SMTP_SECURE").to_lowercase();
     if !["", "starttls", "tls"].contains(&secure.as_str()) {
-        problems.push("MYSTICPARADOX_SMTP_SECURE (starttls or tls)".to_owned());
+        problems.push("RUSTIC_ISLES_SMTP_SECURE (starttls or tls)".to_owned());
     }
-    let user = trimmed(settings, "MYSTICPARADOX_SMTP_USER");
+    let user = trimmed(settings, "RUSTIC_ISLES_SMTP_USER");
     if user.is_empty() {
-        problems.push("MYSTICPARADOX_SMTP_USER".to_owned());
+        problems.push("RUSTIC_ISLES_SMTP_USER".to_owned());
     }
-    let password = settings.raw("MYSTICPARADOX_SMTP_PASSWORD").unwrap_or_default();
+    let password = settings.raw("RUSTIC_ISLES_SMTP_PASSWORD").unwrap_or_default();
     if service_kit::js::trim(password).is_empty() {
-        problems.push("MYSTICPARADOX_SMTP_PASSWORD".to_owned());
+        problems.push("RUSTIC_ISLES_SMTP_PASSWORD".to_owned());
     }
     let Some(port) = port.filter(|_| problems.is_empty()) else {
         return SmtpReading::Problems(problems);
     };
-    let from = Some(trimmed(settings, "MYSTICPARADOX_MAIL_FROM"))
+    let from = Some(trimmed(settings, "RUSTIC_ISLES_MAIL_FROM"))
         .filter(|from| !from.is_empty())
         .unwrap_or(MAIL_FROM_DEFAULT);
     SmtpReading::Configured(SmtpSettings {
@@ -128,24 +128,24 @@ struct Copy {
 const fn copy(purpose: EmailCodePurpose) -> Copy {
     match purpose {
         EmailCodePurpose::Verify => Copy {
-            subject: "Your Mystic Paradox code",
+            subject: "Your Rustic Isles code",
             kicker: "Email verification",
             title: "Confirm your email",
-            lead: "Enter this code in the Mystic Paradox launcher to verify your email address.",
-            ignore: "If you didn't create a Mystic Paradox account, ignore this email. Nothing happens without this code.",
+            lead: "Enter this code in the Rustic Isles launcher to verify your email address.",
+            ignore: "If you didn't create a Rustic Isles account, ignore this email. Nothing happens without this code.",
         },
         EmailCodePurpose::Reset => Copy {
-            subject: "Your Mystic Paradox password reset code",
+            subject: "Your Rustic Isles password reset code",
             kicker: "Password reset",
             title: "Reset your password",
-            lead: "Enter this code in the Mystic Paradox launcher to choose a new password.",
+            lead: "Enter this code in the Rustic Isles launcher to choose a new password.",
             ignore: "If you didn't ask to reset your password, ignore this email. Your password stays as it is.",
         },
         EmailCodePurpose::Unlink => Copy {
-            subject: "Your Mystic Paradox code to unlink Discord",
+            subject: "Your Rustic Isles code to unlink Discord",
             kicker: "Discord unlink",
             title: "Unlink Discord",
-            lead: "Enter this code in the Mystic Paradox launcher to unlink Discord from your account.",
+            lead: "Enter this code in the Rustic Isles launcher to unlink Discord from your account.",
             ignore: "If you didn't ask to unlink Discord, ignore this email: Discord stays linked. Someone may know your password, so consider changing it.",
         },
     }
@@ -183,10 +183,10 @@ pub fn render_code_email(purpose: EmailCodePurpose, code: &str, expires_in_minut
     );
     let expiry = format!("This code expires in {minutes} and works only once.");
     let footer =
-        "Mystic Paradox is a community-run, open-source Dauntless server. It is not affiliated with Phoenix Labs.";
+        "Rustic Isles is a community-run, open-source Dauntless server. It is not affiliated with Phoenix Labs.";
     let subject = format!("{}: {code}", copy.subject);
     let text = [
-        "MYSTIC PARADOX",
+        "RUSTIC ISLES",
         "",
         copy.title,
         "",
@@ -232,7 +232,7 @@ pub fn render_code_email(purpose: EmailCodePurpose, code: &str, expires_in_minut
         <tr>
           <td align="center" style="padding:0 0 28px 0;">
             <div style="font-family:{FONT_DISPLAY};font-size:30px;line-height:30px;color:#8cc6ff;">&#10022;</div>
-            <div style="padding-top:12px;font-family:{FONT_DISPLAY};font-size:19px;line-height:24px;letter-spacing:5px;color:#eef3fb;">MYSTIC PARADOX</div>
+            <div style="padding-top:12px;font-family:{FONT_DISPLAY};font-size:19px;line-height:24px;letter-spacing:5px;color:#eef3fb;">RUSTIC ISLES</div>
             <div style="padding-top:6px;font-family:{FONT_BODY};font-size:10px;line-height:14px;letter-spacing:4px;color:#8191a8;">DAUNTLESS SERVER</div>
           </td>
         </tr>
@@ -509,9 +509,9 @@ mod tests {
 
     fn complete() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("MYSTICPARADOX_SMTP_HOST", "smtp.example.test"),
-            ("MYSTICPARADOX_SMTP_USER", "postmaster"),
-            ("MYSTICPARADOX_SMTP_PASSWORD", "SECRET_PASSWORD_VALUE"),
+            ("RUSTIC_ISLES_SMTP_HOST", "smtp.example.test"),
+            ("RUSTIC_ISLES_SMTP_USER", "postmaster"),
+            ("RUSTIC_ISLES_SMTP_PASSWORD", "SECRET_PASSWORD_VALUE"),
         ]
     }
 
@@ -535,12 +535,7 @@ mod tests {
                 settings.implicit_tls,
                 settings.from.as_str()
             ),
-            (
-                "smtp.example.test",
-                587,
-                false,
-                "Mystic Paradox <no-reply@mysticfox.dev>"
-            )
+            ("smtp.example.test", 587, false, "Rustic Isles <no-reply@mysticfox.dev>")
         );
         assert_eq!(settings.password, "SECRET_PASSWORD_VALUE");
     }
@@ -548,9 +543,9 @@ mod tests {
     #[test]
     fn the_port_the_mode_and_the_from_header_can_be_set() {
         let extra = [
-            ("MYSTICPARADOX_SMTP_PORT", "465"),
-            ("MYSTICPARADOX_SMTP_SECURE", "TLS"),
-            ("MYSTICPARADOX_MAIL_FROM", "Ops <ops@example.test>"),
+            ("RUSTIC_ISLES_SMTP_PORT", "465"),
+            ("RUSTIC_ISLES_SMTP_SECURE", "TLS"),
+            ("RUSTIC_ISLES_MAIL_FROM", "Ops <ops@example.test>"),
         ];
         let SmtpReading::Configured(settings) = read(&extra, "") else {
             panic!("not configured")
@@ -559,7 +554,7 @@ mod tests {
             (settings.port, settings.implicit_tls, settings.from.as_str()),
             (465, true, "Ops <ops@example.test>")
         );
-        let SmtpReading::Configured(starttls) = read(&[("MYSTICPARADOX_SMTP_SECURE", " starttls ")], "") else {
+        let SmtpReading::Configured(starttls) = read(&[("RUSTIC_ISLES_SMTP_SECURE", " starttls ")], "") else {
             panic!("not configured")
         };
         assert!(!starttls.implicit_tls);
@@ -568,9 +563,9 @@ mod tests {
     #[test]
     fn a_missing_or_blank_host_user_or_password_is_a_problem_named_by_its_key() {
         for key in [
-            "MYSTICPARADOX_SMTP_HOST",
-            "MYSTICPARADOX_SMTP_USER",
-            "MYSTICPARADOX_SMTP_PASSWORD",
+            "RUSTIC_ISLES_SMTP_HOST",
+            "RUSTIC_ISLES_SMTP_USER",
+            "RUSTIC_ISLES_SMTP_PASSWORD",
         ] {
             for value in ["", "   "] {
                 let reading = read(&[(key, value)], key);
@@ -582,25 +577,25 @@ mod tests {
 
     #[test]
     fn an_invalid_port_or_mode_is_a_problem_and_no_value_is_in_it() {
-        let SmtpReading::Problems(problems) = read(&[("MYSTICPARADOX_SMTP_PORT", "SECRET_PORT_TEXT")], "") else {
+        let SmtpReading::Problems(problems) = read(&[("RUSTIC_ISLES_SMTP_PORT", "SECRET_PORT_TEXT")], "") else {
             panic!("configured")
         };
         let joined = problems.join(",");
-        assert!(joined.contains("MYSTICPARADOX_SMTP_PORT") && !joined.contains("SECRET_PORT_TEXT"));
-        let SmtpReading::Problems(problems) = read(&[("MYSTICPARADOX_SMTP_SECURE", "ssl-maybe")], "") else {
+        assert!(joined.contains("RUSTIC_ISLES_SMTP_PORT") && !joined.contains("SECRET_PORT_TEXT"));
+        let SmtpReading::Problems(problems) = read(&[("RUSTIC_ISLES_SMTP_SECURE", "ssl-maybe")], "") else {
             panic!("an unknown secure mode never falls back to plain text")
         };
-        assert!(problems.join(",").contains("MYSTICPARADOX_SMTP_SECURE"));
+        assert!(problems.join(",").contains("RUSTIC_ISLES_SMTP_SECURE"));
         for port in ["0", "65536", "587.5"] {
-            assert!(!read(&[("MYSTICPARADOX_SMTP_PORT", port)], "").configured(), "{port}");
+            assert!(!read(&[("RUSTIC_ISLES_SMTP_PORT", port)], "").configured(), "{port}");
         }
     }
 
     #[test]
     fn the_password_is_kept_exactly_as_set() {
         let SmtpReading::Configured(settings) = read(
-            &[("MYSTICPARADOX_SMTP_PASSWORD", "  spaced  ")],
-            "MYSTICPARADOX_SMTP_PASSWORD",
+            &[("RUSTIC_ISLES_SMTP_PASSWORD", "  spaced  ")],
+            "RUSTIC_ISLES_SMTP_PASSWORD",
         ) else {
             panic!("not configured")
         };
@@ -610,7 +605,7 @@ mod tests {
     #[test]
     fn a_code_email_carries_the_code_the_expiry_and_the_single_use_note() {
         let mail = render_code_email(Verify, "482913", 5).unwrap();
-        assert_eq!(mail.subject, "Your Mystic Paradox code: 482913");
+        assert_eq!(mail.subject, "Your Rustic Isles code: 482913");
         assert!(mail.text.contains("482913"));
         assert!(mail.text.contains("expires in 5 minutes and works only once"));
         assert!(mail.html.contains(">482913<"));
@@ -622,11 +617,11 @@ mod tests {
     #[test]
     fn reset_and_unlink_have_their_own_subject_and_wording() {
         let reset = render_code_email(Reset, "000017", 1).unwrap();
-        assert_eq!(reset.subject, "Your Mystic Paradox password reset code: 000017");
+        assert_eq!(reset.subject, "Your Rustic Isles password reset code: 000017");
         assert!(reset.html.contains("Reset your password"));
         assert!(reset.text.contains("expires in 1 minute and"));
         let unlink = render_code_email(Unlink, "552019", 5).unwrap();
-        assert_eq!(unlink.subject, "Your Mystic Paradox code to unlink Discord: 552019");
+        assert_eq!(unlink.subject, "Your Rustic Isles code to unlink Discord: 552019");
         assert!(unlink.html.contains("Unlink Discord"));
         assert!(unlink.text.contains("Discord stays linked"));
     }
@@ -642,7 +637,7 @@ mod tests {
     #[test]
     fn the_envelope_address_is_the_one_in_angle_brackets() {
         assert_eq!(
-            address_of("Mystic Paradox <no-reply@mysticfox.dev>"),
+            address_of("Rustic Isles <no-reply@mysticfox.dev>"),
             "no-reply@mysticfox.dev"
         );
         assert_eq!(address_of(" a@b.c "), "a@b.c");

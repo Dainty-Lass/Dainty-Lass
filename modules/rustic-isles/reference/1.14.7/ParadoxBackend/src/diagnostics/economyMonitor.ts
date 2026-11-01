@@ -22,10 +22,10 @@ import { GetRequestId } from "../observability/requestContext.js";
  *   [HuntPassMon]  every stored hunt pass XP grant: progress and rank (by the served requirements) before and after.
  *
  * Unlike [INV-CAP] (diagnostics/capture.ts, off by default) these stay on: they only fire for the
- * few catalog ids above. MYSTICPARADOX_ECONOMY_MONITOR=off silences both.
+ * few catalog ids above. RUSTIC_ISLES_ECONOMY_MONITOR=off silences both.
  */
 
-const ENABLED = !/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_ECONOMY_MONITOR ?? "");
+const ENABLED = !/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_ECONOMY_MONITOR ?? "");
 
 const DRAFT_TOKEN_PATTERN = /^TOKEN_(DAILY|WEEKLY)_CHALLENGE_DRAFT(_PREMIUM)?$/;
 

@@ -12,7 +12,7 @@ import { DAY_MS, SERVER_LOG_DEFAULT_RETENTION_DAYS } from "../legal/retentionPol
 
 // [2026-10-14] Retention of the server log (debug/metagame/metagame.log), Privacy Policy section 5. At the start of a server run
 // (logger.ts calls this only in the server entry, before the file transport opens the log) the previous run's file is archived
-// whenever it has content, and archives older than MYSTICPARADOX_LOG_RETENTION_DAYS are deleted. Archiving at every start (not only
+// whenever it has content, and archives older than RUSTIC_ISLES_LOG_RETENTION_DAYS are deleted. Archiving at every start (not only
 // on a new UTC day) keeps a same-day restart from emptying the log: the server opens it with append: false.
 // Only files matching the archive name are ever deleted. Nothing here runs under the test runner.
 
@@ -42,9 +42,9 @@ export function ExpiredServerLogArchives(entries: Array<{ name: string; mtimeMs:
         .map((entry) => entry.name);
 }
 
-/** MYSTICPARADOX_LOG_RETENTION_DAYS: a whole number of days, 90 when unset or not a whole number of at least 1. */
+/** RUSTIC_ISLES_LOG_RETENTION_DAYS: a whole number of days, 90 when unset or not a whole number of at least 1. */
 export function ServerLogRetentionDays(environment: NodeJS.ProcessEnv = process.env): number {
-    const Raw = environment.MYSTICPARADOX_LOG_RETENTION_DAYS?.trim();
+    const Raw = environment.RUSTIC_ISLES_LOG_RETENTION_DAYS?.trim();
     if (Raw === undefined || Raw === "") return SERVER_LOG_DEFAULT_RETENTION_DAYS;
     const Value = Number(Raw);
     return Number.isInteger(Value) && Value >= 1 ? Value : SERVER_LOG_DEFAULT_RETENTION_DAYS;

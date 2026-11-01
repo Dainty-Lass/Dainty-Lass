@@ -18,6 +18,7 @@ const MAXIMUM_U64 = (1n << 64n) - 1n;
 
 /** The account's ICE peer id: SHA-256 of a fixed label and the account id, the first 63 bits, never zero. */
 export function DeriveIcePeerId(accountId: string): string {
+    // The label predates the Rustic Isles rename; both ends derive it, so it changes only with a v2
     const digest = crypto.createHash("sha256").update(`mysticparadox-ice-peer-v1\n${accountId}`).digest();
     const value = digest.readBigUInt64BE(0) & 0x7fff_ffff_ffff_ffffn;
     return (value === 0n ? 1n : value).toString();

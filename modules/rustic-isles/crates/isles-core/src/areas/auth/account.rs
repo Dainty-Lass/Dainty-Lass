@@ -70,7 +70,7 @@ pub async fn accept_consent(
         return Err(LauncherApiError::new(
             "CONSENT_AGE_REQUIRED",
             format!(
-                "You must be at least {} years old to play Mystic Paradox.",
+                "You must be at least {} years old to play Rustic Isles.",
                 required.minimum_age
             ),
         ));

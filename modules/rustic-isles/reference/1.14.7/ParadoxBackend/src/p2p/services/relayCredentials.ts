@@ -54,6 +54,7 @@ class RelayProviderError extends Error {}
  * digest cannot be reversed by guessing.
  */
 export function RelayAccountTag(accountId: string): string {
+    // The label predates the Rustic Isles rename; the relay derives it too, so it changes only with a v2
     return crypto.createHash("sha256").update(`mysticparadox-relay-tag-v1\n${accountId}`).digest("hex").slice(0, 32);
 }
 
