@@ -119,6 +119,21 @@ fn empty_object() -> Response {
     Json(json!({})).into_response()
 }
 
+/// The player's address, as the hosting node's allowlist must admit it (DN8)
+fn request_client_ip(call: &Call) -> Option<String> {
+    let forwarded = call
+        .request
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok());
+    let peer = call
+        .request
+        .extensions()
+        .get::<ConnectInfo<ConnectionInfo>>()
+        .map(|info| info.0.peer.ip());
+    status::client_ip(peer, forwarded)
+}
+
 fn matchmaker(call: &Call) -> Matchmaker<'_> {
     Matchmaker {
         shared: &call.shared,
@@ -330,17 +345,7 @@ async fn join(mut call: Call) -> Response {
     if let Some(instance_global) = target_instance
         && let Some(account_global) = resolve_global_account(&call.shared, &user).await
     {
-        let forwarded = call
-            .request
-            .headers()
-            .get("x-forwarded-for")
-            .and_then(|v| v.to_str().ok());
-        let peer = call
-            .request
-            .extensions()
-            .get::<ConnectInfo<ConnectionInfo>>()
-            .map(|info| info.0.peer.ip());
-        let client_ip = status::client_ip(peer, forwarded).unwrap_or_else(|| "127.0.0.1".to_owned());
+        let client_ip = request_client_ip(&call).unwrap_or_else(|| "127.0.0.1".to_owned());
         match call
             .shared
             .home()
@@ -512,6 +517,7 @@ async fn join(mut call: Call) -> Response {
         party_members: resolution.party_members,
         party_revision: resolution.party_revision,
         build_id: string_field(Some(&body), "buildId"),
+        client_ip: request_client_ip(&call),
     };
     match matchmaker.handle_player_matchmaking(request).await {
         Ok(true) => {}
