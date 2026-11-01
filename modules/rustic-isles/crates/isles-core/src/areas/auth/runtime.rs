@@ -8,7 +8,7 @@
 //! the area works before the others land; a neighbour installs its own by replacing the field when it builds
 //! `Shared`.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use module_api::BoxFuture;
@@ -39,8 +39,27 @@ struct SlidingWindow {
 #[derive(Debug, Default)]
 struct SlidingState {
     entries: HashMap<String, SlidingWindow>,
+    by_expiry: BTreeSet<(i64, String)>,
     next_sweep_at: i64,
     last_now: i64,
+}
+
+impl SlidingState {
+    fn sweep_expired(&mut self, now: i64) {
+        while let Some(&(expires_at, _)) = self.by_expiry.first() {
+            if expires_at > now {
+                break;
+            }
+            let (_, key) = self.by_expiry.pop_first().unwrap();
+            self.entries.remove(&key);
+        }
+    }
+
+    fn evict_oldest(&mut self) {
+        if let Some((_, oldest_key)) = self.by_expiry.pop_first() {
+            self.entries.remove(&oldest_key);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -52,8 +71,27 @@ struct BudgetWindow {
 #[derive(Debug, Default)]
 struct BudgetState {
     entries: HashMap<String, BudgetWindow>,
+    by_expiry: BTreeSet<(i64, String)>,
     next_sweep_at: i64,
     last_now: i64,
+}
+
+impl BudgetState {
+    fn sweep_expired(&mut self, now: i64) {
+        while let Some(&(reset_time, _)) = self.by_expiry.first() {
+            if reset_time > now {
+                break;
+            }
+            let (_, key) = self.by_expiry.pop_first().unwrap();
+            self.entries.remove(&key);
+        }
+    }
+
+    fn evict_oldest(&mut self) {
+        if let Some((_, oldest_key)) = self.by_expiry.pop_first() {
+            self.entries.remove(&oldest_key);
+        }
+    }
 }
 
 /// One hit against `CreateRequestRateLimiter` (`security/rateLimit.ts`) and its `draft-8` response headers.
@@ -107,30 +145,36 @@ impl RateLimiter {
     pub fn is_limited_at(&self, key: &str, max_attempts: usize, window_ms: i64, now: i64) -> bool {
         let mut state = self.windows.lock().unwrap_or_else(PoisonError::into_inner);
         if now >= state.next_sweep_at || now < state.last_now || state.entries.len() >= MAX_RATE_LIMIT_KEYS {
-            state.entries.retain(|_, window| window.expires_at > now);
-            state.next_sweep_at = now.saturating_add(SWEEP_INTERVAL_MS);
+            state.sweep_expired(now);
+            if now >= state.next_sweep_at || now < state.last_now {
+                state.next_sweep_at = now.saturating_add(SWEEP_INTERVAL_MS);
+            }
         }
         state.last_now = now;
-        if !state.entries.contains_key(key)
-            && state.entries.len() >= MAX_RATE_LIMIT_KEYS
-            && let Some(oldest_key) = state
-                .entries
-                .iter()
-                .min_by_key(|(_, window)| window.expires_at)
-                .map(|(k, _)| k.clone())
-        {
-            state.entries.remove(&oldest_key);
+        if !state.entries.contains_key(key) && state.entries.len() >= MAX_RATE_LIMIT_KEYS {
+            state.evict_oldest();
         }
+        let prev_expires_at = state.entries.get(key).map(|w| w.expires_at);
         let window = state.entries.entry(key.to_owned()).or_default();
         window.attempts.retain(|t| now - t < window_ms);
         if window.attempts.len() >= max_attempts {
             if window.attempts.is_empty() {
-                state.entries.remove(key);
+                let removed = state.entries.remove(key);
+                if let Some(removed) = removed {
+                    state.by_expiry.remove(&(removed.expires_at, key.to_owned()));
+                }
             }
             return true;
         }
         window.attempts.push(now);
-        window.expires_at = window.expires_at.max(now.saturating_add(window_ms));
+        let new_expires_at = window.expires_at.max(now.saturating_add(window_ms));
+        window.expires_at = new_expires_at;
+        if prev_expires_at != Some(new_expires_at) {
+            if let Some(old) = prev_expires_at {
+                state.by_expiry.remove(&(old, key.to_owned()));
+            }
+            state.by_expiry.insert((new_expires_at, key.to_owned()));
+        }
         false
     }
 
@@ -142,19 +186,14 @@ impl RateLimiter {
     pub fn check_request_budget_at(&self, key: &str, limit: u32, now: i64) -> RequestBudgetVerdict {
         let mut state = self.budgets.lock().unwrap_or_else(PoisonError::into_inner);
         if now >= state.next_sweep_at || now < state.last_now || state.entries.len() >= MAX_RATE_LIMIT_KEYS {
-            state.entries.retain(|_, window| window.reset_time > now);
-            state.next_sweep_at = now.saturating_add(SWEEP_INTERVAL_MS);
+            state.sweep_expired(now);
+            if now >= state.next_sweep_at || now < state.last_now {
+                state.next_sweep_at = now.saturating_add(SWEEP_INTERVAL_MS);
+            }
         }
         state.last_now = now;
-        if !state.entries.contains_key(key)
-            && state.entries.len() >= MAX_RATE_LIMIT_KEYS
-            && let Some(oldest_key) = state
-                .entries
-                .iter()
-                .min_by_key(|(_, window)| window.reset_time)
-                .map(|(k, _)| k.clone())
-        {
-            state.entries.remove(&oldest_key);
+        if !state.entries.contains_key(key) && state.entries.len() >= MAX_RATE_LIMIT_KEYS {
+            state.evict_oldest();
         }
         let window = match state.entries.get_mut(key) {
             Some(existing) if existing.reset_time > now => {
@@ -162,11 +201,16 @@ impl RateLimiter {
                 *existing
             }
             _ => {
+                let prev_reset = state.entries.get(key).map(|w| w.reset_time);
                 let fresh = BudgetWindow {
                     total_hits: 1,
                     reset_time: now.saturating_add(REQUEST_BUDGET_WINDOW_MS),
                 };
                 state.entries.insert(key.to_owned(), fresh);
+                if let Some(old) = prev_reset {
+                    state.by_expiry.remove(&(old, key.to_owned()));
+                }
+                state.by_expiry.insert((fresh.reset_time, key.to_owned()));
                 fresh
             }
         };
@@ -576,8 +620,6 @@ pub fn non_empty_str(value: Option<&Value>) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use super::*;
 
     const LEADER: &str = "BEARER eyJleader.payload.sig";
@@ -608,12 +650,20 @@ mod tests {
     #[test]
     fn rate_limiter_sweeps_expired_keys_and_bounds_memory() {
         let limiter = RateLimiter::default();
-        for i in 0..(MAX_RATE_LIMIT_KEYS + 128) {
+        let flood_keys = MAX_RATE_LIMIT_KEYS + 20_000;
+        let start = std::time::Instant::now();
+        for i in 0..flood_keys {
             let key = format!("addr-{i}");
-            assert!(!limiter.is_limited_at(&key, 5, 1000, 100));
-            let verdict = limiter.check_request_budget_at(&key, 5, 100);
+            let now = 100 + (i as i64 % 500);
+            assert!(!limiter.is_limited_at(&key, 5, 1000, now));
+            let verdict = limiter.check_request_budget_at(&key, 5, now);
             assert!(!verdict.limited);
         }
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_secs(5),
+            "spoofed-IP flood eviction took {elapsed:?} for {flood_keys} keys"
+        );
         assert_eq!(limiter.tracked_sliding_keys(), MAX_RATE_LIMIT_KEYS);
         assert_eq!(limiter.tracked_budget_keys(), MAX_RATE_LIMIT_KEYS);
 

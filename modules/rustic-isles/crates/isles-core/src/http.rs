@@ -545,6 +545,12 @@ fn host_bucket_request_info(request: &Request, request_id: &str) -> Option<Reque
     })
 }
 
+fn is_gameserver_budget_candidate(request: &Request) -> bool {
+    request
+        .headers()
+        .contains_key(crate::areas::auth::middleware::GAMESERVER_KEY_HEADER)
+}
+
 fn check_request_budget(
     shared: Arc<Shared>,
     request: &Request,
@@ -552,11 +558,7 @@ fn check_request_budget(
 ) -> impl std::future::Future<Output = Option<crate::areas::auth::runtime::RequestBudgetVerdict>> + Send {
     let config = crate::areas::auth::runtime::RequestBudgetConfig::from_settings(&shared.settings);
     let ip_key = crate::areas::auth::middleware::rate_limit_address(request);
-    let gameserver_candidate = crate::areas::auth::middleware::header(
-        request.headers(),
-        crate::areas::auth::middleware::GAMESERVER_KEY_HEADER,
-    )
-    .is_some_and(|raw| !raw.trim().is_empty());
+    let gameserver_candidate = is_gameserver_budget_candidate(request);
     let host_info = (!gameserver_candidate)
         .then(|| host_bucket_request_info(request, request_id))
         .flatten();
@@ -798,5 +800,23 @@ mod tests {
         assert_ne!(with("short"), "short");
         assert_ne!(with("-abcdefgh"), "-abcdefgh");
         assert_eq!(with("-abcdefgh").len(), 36);
+    }
+
+    #[test]
+    fn empty_gameserver_apikey_header_uses_gameserver_rate_limit_bucket_like_node() {
+        let with_empty = Request::builder()
+            .header(crate::areas::auth::middleware::GAMESERVER_KEY_HEADER, "")
+            .body(Body::empty())
+            .unwrap();
+        assert!(is_gameserver_budget_candidate(&with_empty));
+
+        let with_whitespace = Request::builder()
+            .header(crate::areas::auth::middleware::GAMESERVER_KEY_HEADER, "   ")
+            .body(Body::empty())
+            .unwrap();
+        assert!(is_gameserver_budget_candidate(&with_whitespace));
+
+        let without = Request::builder().body(Body::empty()).unwrap();
+        assert!(!is_gameserver_budget_candidate(&without));
     }
 }
