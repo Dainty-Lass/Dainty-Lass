@@ -673,6 +673,35 @@ pub fn host_config_from_args(
         }
     }
 
+    if let Some(ref raw_modules) = args.modules {
+        let mut compiled = Vec::new();
+        for raw in raw_modules {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let id: module_api::ModuleId = trimmed
+                .parse()
+                .map_err(|e| HostError::message(format!("--modules: {e}")))?;
+            if crate::hostconfig::modules::RESERVED_KEYS.contains(&id.as_str()) {
+                return Err(HostError::message(format!("--modules: {id} can't be a module id")));
+            }
+            if !compiled.contains(&id) {
+                compiled.push(id);
+            }
+        }
+        if compiled.iter().any(|id| id.as_str() == "isles-1-14-7")
+            && compiled.iter().any(|id| id.as_str() == "isles-1-12-0")
+        {
+            return Err(HostError::message(
+                "--modules cannot list both isles-1-14-7 and isles-1-12-0: they share ports 61000/61001 and 8770-8777",
+            ));
+        }
+        let mut mod_cfg = existing.and_then(|c| c.modules.clone()).unwrap_or_default();
+        mod_cfg.compiled = Some(compiled);
+        doc.insert("modules".into(), mod_cfg.to_json());
+    }
+
     let parsed = HostConfig::from_json(&Value::Object(doc))?.written_over(existing);
     check_edition(&parsed)?;
     let _ = linux_options(&parsed);

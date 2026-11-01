@@ -1702,18 +1702,30 @@ async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_proc
     assert_eq!(cfg.mode, HostServerMode::Private);
     assert_eq!(cfg.registration, "INVITECODE");
     assert_eq!(cfg.database, "sqlite");
+    assert_eq!(cfg.reborn_module, "isles-1-14-7");
 
     let saved = match hx
         .c
-        .server_config_save("OPEN".into(), "sqlite".into(), 1, 5, false)
+        .server_config_save("OPEN".into(), "sqlite".into(), Some("isles-1-12-0".into()), 1, 5, false)
         .await
     {
         ServerConfigOutcome::Ok(view) => view,
         ServerConfigOutcome::Err(e) => panic!("server_config_save failed: {e:?}"),
     };
     assert_eq!(saved.registration, "OPEN");
+    assert_eq!(saved.reborn_module, "isles-1-12-0");
     assert_eq!(saved.max_hunts, 5);
     assert!(!saved.fresh_start);
+
+    let saved = match hx
+        .c
+        .server_config_save("OPEN".into(), "sqlite".into(), Some("isles-1-14-7".into()), 1, 5, false)
+        .await
+    {
+        ServerConfigOutcome::Ok(view) => view,
+        ServerConfigOutcome::Err(e) => panic!("server_config_save failed: {e:?}"),
+    };
+    assert_eq!(saved.reborn_module, "isles-1-14-7");
 
     let confirmed = match hx.c.server_confirm_fresh_start().await {
         ServerConfigOutcome::Ok(view) => view,
