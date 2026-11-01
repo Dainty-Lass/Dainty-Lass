@@ -13,7 +13,7 @@ Three labels. One Linux machine can serve the first two from one runner.
 | --- | --- | --- |
 | `docker` | A job container from `node:22-bookworm` on a Linux runner | Rust (rustup is installed by the job), Node, Bun, cargo-deny, fuzzing, the change detection and `CI ok` |
 | `linux-host` | The Linux runner itself (host mode) | dainty-lass's Docker job: it builds the images and runs the compose smoke test on the runner's own Docker |
-| `windows-msvc` | The maintainer's Windows machine (host mode) | MSVC builds: dainty-lass's Rust workspace and release build on Windows, rustic-rifts' transport |
+| `windows-msvc` | The maintainer's Windows machine (host mode) | MSVC builds: dainty-lass's Rust workspace, both unsigned NSIS installers (`windows-nsis-installers`) and release build on Windows, rustic-rifts' transport |
 
 | Repository | Workflows | Labels |
 | --- | --- | --- |
