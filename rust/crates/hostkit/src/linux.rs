@@ -429,6 +429,12 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
         ""
     };
 
+    let env_line = if c.mode == ServerMode::Public {
+        "Environment=REFORGED_ALLOWLIST=external\n"
+    } else {
+        ""
+    };
+
     let server_unit = format!(
         "[Unit]\n\
          Description=DaintyLass game server ({name})\n\
@@ -439,7 +445,7 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
          Type=simple\n\
          User={user}\n\
          WorkingDirectory={repo_dir}\n\
-         ExecStart={host_bin} start\n\
+         {env_line}ExecStart={host_bin} start\n\
          {cap_lines}NoNewPrivileges=true\n\
          Restart=on-failure\n\
          RestartSec=5\n\
@@ -607,6 +613,7 @@ mod tests {
         assert_eq!(names, vec![UNIT_ALLOWLIST, UNIT_SERVER, "install.sh"]);
         let server_unit = &units[1].1;
         assert!(server_unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
+        assert!(server_unit.contains("Environment=REFORGED_ALLOWLIST=external\n"));
     }
 
     #[test]

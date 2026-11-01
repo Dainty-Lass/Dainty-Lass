@@ -121,6 +121,17 @@ pub fn allowlist_absent(registry: &crate::ModuleRegistry) {
     registry.add_plugin(Arc::new(gateway::allowlist::modules::AllowlistPlugin::absent(view)));
 }
 
+/// A public server whose allowlist runs in an external helper process (`reforged-allowlist.service`)
+/// guarding `base` (`game_ports(config)`): a module whose assigned UDP ports lie inside `base` is
+/// guarded by that helper; any module asking for UDP ports outside `base` is refused (DF4d).
+#[cfg(feature = "allowlist")]
+pub fn allowlist_external(registry: &crate::ModuleRegistry, base: module_api::PortRange) {
+    let view = Arc::new(RegistryPorts(registry.downgrade()));
+    registry.add_plugin(Arc::new(gateway::allowlist::modules::AllowlistPlugin::external(
+        base, view,
+    )));
+}
+
 /// The ranges the controller placed, for the allowlist plugin.
 #[cfg(feature = "allowlist")]
 struct RegistryPorts(crate::WeakRegistry);

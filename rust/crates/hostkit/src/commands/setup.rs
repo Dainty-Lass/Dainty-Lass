@@ -385,7 +385,14 @@ pub fn run_with(
 
     let gw_prog = env.gateway_program();
     let fw_script = write_firewall_script(p, &config, &gw_prog)?;
-    out(&format!("- firewall script written to {}", fw_script.display()));
+    if platform == Platform::Linux {
+        out(&format!(
+            "- firewall script written to {}",
+            p.config.join("firewall.sh").display()
+        ));
+    } else {
+        out(&format!("- firewall script written to {}", fw_script.display()));
+    }
 
     for note in database_notes(&config, platform) {
         out(&note);
