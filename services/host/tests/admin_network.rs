@@ -350,6 +350,7 @@ impl AdminCluster {
                     file: temp.path().join("dainty-lass.db"),
                 },
                 guard: guard.clone(),
+                metrics_token: None,
             };
             let network =
                 ConnectedNetwork::new(me.node.clone(), link.clone(), Some(dir.clone()), Some(tickets.clone()));
@@ -944,6 +945,7 @@ async fn real_mtls_gateway_node_links_carry_admin_relay() {
                 file: dir.path().join("dainty-lass.db"),
             },
             guard: GuardSettings::default(),
+            metrics_token: None,
         };
         let net = ConnectedNetwork::new(me.node.clone(), link, Some(directory), Some(tickets));
         let clk = admin_clock.clone();
