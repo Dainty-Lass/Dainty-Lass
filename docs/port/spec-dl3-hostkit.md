@@ -1479,7 +1479,7 @@ Defines the `clap` CLI argument parser (`Cli`, `Command`, and per-command `*Args
 10. `Multipliers(MultipliersArgs)`: `--xp`, `--rewards`, `--off`.
 11. `Update(UpdateArgs)`: `--check`, `--json`, `--no-setup`.
 12. `Backup`: No flags.
-13. `Db(DbArgs)`: `DbCommand::{Migrate(DbMigrateArgs), Verify(DbVerifyArgs), ExportMongo(DbExportMongoArgs)}`.
+13. `Db(DbArgs)`: `DbCommand::{Migrate(DbMigrateArgs), Verify(DbVerifyArgs), ExportMongo(DbExportMongoArgs), Replay(DbReplayArgs)}`.
 14. `Network(NetworkArgs)`: `NetworkCommand::{CaInit(CaInitArgs), IssueNodeCert(IssueNodeCertArgs), List, Status(NetworkStatusArgs), Join(JoinArgs)}`.
 15. `History(HistoryArgs)` & `Revert(RevertArgs)`: `--account`, `--actor`, `--since`, `--until`, `--limit`, `--cursor`, `HistoryCommand::Verify`, `--dry-run`, `--apply`.
 16. Hidden service/wrapper subcommands: `Gateway`, `Allowlist`, `Content`, `Admin`, `Backend`, `Director`, `Gameserver(GameserverArgs)`.
@@ -1642,11 +1642,13 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
 4. **Startup Refusal (`M1`, `M4`):**
    - `start`, `serve`, and `backend` perform the unmigrated-MongoDB check before requiring `backend.env` or `host.toml`, and refuse to start if unmigrated MongoDB data in `.workspace/mongodb` or unreachable external MongoDB evidence exists without `.mongo-migrated`.
 
-### 4.3 `db` Subcommands (`M2`, `M3`, `M5`)
+### 4.3 `db` Subcommands (`M2`, `M3`, `M5`, `RU8`, `RU9`)
 
-`reforged-host db <subcommand>` (`commands/db.rs`) delegates to `HostHooks::db_migrate`, `HostHooks::db_verify`, and `HostHooks::db_export_mongo`:
+`reforged-host db <subcommand>` (`commands/db.rs`) delegates to `HostHooks::run_db_command` (or `HostHooks::db_migrate`, `HostHooks::db_verify`, and `HostHooks::db_export_mongo`):
 1. `reforged-host db migrate [--from-mongo <uri_or_archive>] [--to <db_url>] [--dry-run]`
 2. `reforged-host db verify --from-mongo <uri_or_archive> [--to <db_url>]`
 3. `reforged-host db export-mongo [--from-mongo <uri>] --out <file.tgz>`
+4. `reforged-host db replay --corpus <path> [--left <url|recorded>] [--right <url>] [--key-map <file.json>] [--out <report.json>] [--json]`:
+   Replays a gateway JSONL capture corpus against recorded responses or live backend/Director/chat targets via `isles_db::run_replay_cli`, automatically defaulting `--signing-key`, `--jwt-secret`, `--gs-key`, and `--gateway-secret` from `.workspace/config/secrets.env` when omitted on the CLI. Returns exit code `0` on zero unexplained diffs and `2` when unexplained diffs are found.
 
 

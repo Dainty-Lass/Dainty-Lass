@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host db migrate | verify | export-mongo`: MongoDB-to-SQLite/Postgres migration and
-//! verification commands.
+//! `reforged-host db migrate | verify | export-mongo | replay`: MongoDB-to-SQLite/Postgres
+//! migration, verification, and shadow replay commands.
 
 use std::path::Path;
 use std::process::ExitCode;
 
 use crate::Outcome;
-use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
+use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbReplayArgs, DbVerifyArgs};
 use crate::commands::update::{
     mongo_migrated_marker, mongo_uri_with_database, redact_uri_password, store_target_for_migration,
 };
@@ -32,6 +32,7 @@ pub fn run_with(paths: &Paths, args: &DbArgs, out: &mut dyn FnMut(&str)) -> Outc
         DbCommand::Migrate(m) => migrate(paths, m, out),
         DbCommand::Verify(v) => verify(paths, v, out),
         DbCommand::ExportMongo(e) => export_mongo(paths, e, out),
+        DbCommand::Replay(r) => replay(paths, r, out),
     }
 }
 
@@ -204,6 +205,10 @@ fn export_mongo(p: &Paths, args: &DbExportMongoArgs, out: &mut dyn FnMut(&str)) 
         counts.len()
     ));
     Ok(ExitCode::SUCCESS)
+}
+
+fn replay(_p: &Paths, _args: &DbReplayArgs, _out: &mut dyn FnMut(&str)) -> Outcome {
+    Err(HostError::message("shadow replay is not registered in this build"))
 }
 
 #[cfg(test)]
