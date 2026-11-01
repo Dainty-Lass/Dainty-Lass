@@ -385,8 +385,10 @@ Checked against `dainty-lass` `33cf625`, `dainty-lass-ui` `8c08e8c`, `rustic-isl
     1. `Tickets::revoke` and `Tickets::allow` (`rust/plugins/network/src/home/ticket.rs`) retry `persist_revoked` up to 3 times (`MAX_PERSIST_ATTEMPTS = 3`) with bounded backoff, roll back in-memory `allow` if persistence fails so banned accounts fail closed, and return `TicketError::Storage`; both `AdminRelay` (`rust/services/admin/src/relay.rs`) and local admin mutations (`kick_local`, `ban_local`, `timeout_local`, `unban_local`, `lift_timeout_local` in `rust/services/admin/src/schema.rs`) propagate revocation persistence errors as `Code::StateNotSaved` (tested by `home::ticket::tests::revocation_persistence_failure_is_returned_and_fails_closed` and `admin/tests/network_moderation.rs`).
     2. `PeerBucket` (`rust/plugins/network/src/logship.rs`) encrypts shipped history segments and snapshots before shipping over `Service::LogShip` using a node-owned AES-256-GCM key (`LogShipKey::from_signing_key(&options.signing_key)` in `rust/crates/controller/src/modules.rs`, stored with a `DLENC1\0` magic header, 12-byte random nonce, and AAD bound to the object key). `PeerLogStore` on the storage peer stores only ciphertext at rest and never holds the origin's decryption key; on restore, `PeerLogStore::with_decryption_key(key)` decrypts and verifies the AAD before `history_ship::restore_to` verifies the inner plaintext SHA-256 and hash chain (tested by `peer_shipped_segments_and_snapshots_are_encrypted_at_rest_and_reject_wrong_key_or_tampering` in `rust/plugins/network/tests/logship.rs`).
 - **C1 (CI ready for runners in `.forgejo/`)**:
-  - **Current state**: `.forgejo/workflows/ci.yml` has no Windows job that builds and uploads both unsigned NSIS installers (`dainty-lass-client` and `dainty-lass-manager`), and the Linux job sets `SKIP_NETWORK: "1"` when calling `docker/run-tests.sh`.
-  - **Action required**: Add the Windows installer build + artifact upload job and ensure the Linux job runs the workspace tests and `docker/run-tests.sh`, dry-run locally, and paste the output.
+  - **Current state (resolved in `ci/c1-workflows-ready`)**:
+    1. `.forgejo/workflows/ci.yml`'s `docker` job on `linux-host` runs `bash docker/run-tests.sh` without `SKIP_NETWORK: "1"`, executing the in-image Rust/Node suites, the compose smoke test (`docker/smoke-test.sh`), the 4-node network harness (`docker/network/test.sh`), and the remote-management harness (`docker/remote/test.sh`), while the `rust` job runs the full workspace tests (`cargo test --workspace --locked --no-fail-fast`) and per-module tests on both `docker` (Linux) and `windows-msvc`.
+    2. Added the `installers-windows` job on `windows-msvc` to `.forgejo/workflows/ci.yml` (and wired it into `ci-ok`), which runs `npm ci`, `npm test`, `npm run build:client`, and `npm run build:manager` in `rust/launcher` and uploads both unsigned NSIS installers (`DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe` and `DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe`) as the `windows-nsis-installers` workflow artifact.
+    3. Updated `docs/ci-runners.md` with the `windows-nsis-installers` coverage and dry-ran the Windows job locally (see transcript below).
 - **C2 (Linux hosting outside Docker)**:
   - **Current state**: Not yet exercised end-to-end on a plain Linux host (WSL2 with systemd) in this round.
   - **Action required**: Run `setup`, `start`, `invite`, `doctor`, `backup`, and clean stop on WSL2 Linux, covering systemd units, `REFORGED_TEST_NFT=1` nftables allowlist as root, and Wine/Proton checks, and update `docs/hosting-linux.md`.
@@ -425,6 +427,37 @@ unmute Player B on germany-1: {"ok":true,"account":"account:01M6AHGJ26XFSSFG3MPW
 Player A on oregon-1 heard unmuted Player B on uk-1: {"ok":true,"matched":true,"frames":["<message xmlns=\"jabber:client\" type=\"groupchat\" id=\"m1\" from=\"Hunt-01J9Z3N5C8Q0V2X4Y6W8T0R2P4.oregon-1@muc.prod.ol.epicgames.com/SlayerGermany:76ea3d6b-fada-4a6c-9a21-ec4ac04c5d64:V0:Win:dauntless:0.1\" to=\"0f4e8c1e-6011-4a88-8f8b-c2a314765d76@prod.ol.epicgames.com/V0:Win:dauntless:0.1\"><body>unmuted from uk</body></message>"]}
 network harness passed
 ```
+
+### Part C1 (`ci/c1-workflows-ready`) local dry-run transcript
+
+```text
+> dainty-lass-launcher@2.0.0-alpha.0 test
+> node --import ./test/resolve-ui.ts --test "test/*.test.ts"
+1..20
+# tests 20
+# pass 20
+# fail 0
+
+> dainty-lass-launcher@2.0.0-alpha.0 build:client
+> tauri build --bundles nsis -- --features legacy,realms
+    Finished `release` profile [optimized] target(s) in 3m 06s
+    Built application at: ...\rust\target\release\dainty-lass-client.exe
+    Finished 1 bundle at:
+        ...\rust\target\release\bundle\nsis\DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe
+
+> dainty-lass-launcher@2.0.0-alpha.0 build:manager
+> tauri build --bundles nsis --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui
+    Finished `release` profile [optimized] target(s) in 3m 31s
+    Built application at: ...\rust\target\release\dainty-lass-manager.exe
+    Finished 1 bundle at:
+        ...\rust\target\release\bundle\nsis\DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe
+
+Name                                             Length LastWriteTime
+----                                             ------ -------------
+DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe 8686274 10/31/2026 10:31:09 PM
+DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe 22589186 10/31/2026 10:34:46 PM
+```
+
 
 
 
