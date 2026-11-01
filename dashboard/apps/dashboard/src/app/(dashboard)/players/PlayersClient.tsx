@@ -22,7 +22,16 @@ import { useQueryPatch } from "@/components/useQueryPatch";
 import type { KnownPlayer } from "@/lib/directory";
 import type { BackendAccount } from "@/lib/game/backend";
 
-const STATUS_BADGE = { active: "success", disabled: "neutral", banned: "error" } as const;
+const STATUS_BADGE = {
+  active: "success",
+  disabled: "neutral",
+  banned: "error",
+  timedOut: "warning",
+} as const;
+
+/** What keeps a row out of play: a timed-out account is active, so the timeout shows instead. */
+const shownStatus = (a: BackendAccount) =>
+  a.status === "active" && a.timeoutUntil ? "timedOut" : a.status;
 
 export type FleetAccount = BackendAccount & {
   controllerId: string;
@@ -92,7 +101,7 @@ export function PlayersClient({
               placeholder={t("anyStatus")}
               hasClear
               value={filters.status || null}
-              options={(["active", "disabled", "banned"] as const).map((s) => ({
+              options={(["active", "disabled", "banned", "timedOut"] as const).map((s) => ({
                 value: s,
                 label: t(`statuses.${s}`),
               }))}
@@ -165,7 +174,10 @@ export function PlayersClient({
                   header: t("columns.status"),
                   width: pixel(120),
                   renderCell: (a) => (
-                    <Badge variant={STATUS_BADGE[a.status]} label={t(`statuses.${a.status}`)} />
+                    <Badge
+                      variant={STATUS_BADGE[shownStatus(a)]}
+                      label={t(`statuses.${shownStatus(a)}`)}
+                    />
                   ),
                 },
                 {

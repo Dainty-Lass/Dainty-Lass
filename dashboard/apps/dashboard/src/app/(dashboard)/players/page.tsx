@@ -13,7 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("players"))("title") };
 }
 
-const STATUSES = ["active", "disabled", "banned"] as const;
+// timedOut is no account status: the backend lists the active accounts with a timeout in force
+const STATUSES = ["active", "disabled", "banned", "timedOut"] as const;
 const PAGE = 25;
 
 export default async function PlayersPage({

@@ -275,7 +275,8 @@
     "statuses": {
       "active": "Active",
       "disabled": "Disabled",
-      "banned": "Banned"
+      "banned": "Banned",
+      "timedOut": "Timed out"
     },
     "approval": {
       "approved": "Approved",
