@@ -48,6 +48,8 @@ pub struct JoinRequest {
     pub party_members: Option<Vec<String>>,
     pub party_revision: Option<i64>,
     pub build_id: Option<String>,
+    /// Where the player connects from; a ring match admits this address on the hosting node (DN8)
+    pub client_ip: Option<String>,
 }
 
 /// `LeavePartyLookup`'s answer.
@@ -366,8 +368,10 @@ impl Matchmaker<'_> {
     }
 
     /// `QueuePlayer`: false when the hunt's queue is already launching.
-    async fn queue_player(&self, hunt_id: &str, player: &str) -> MatchResult<bool> {
-        if let Some(account_global) = super::resolve_global_account(self.shared, player).await
+    async fn queue_player(&self, hunt_id: &str, player: &str, client_ip: Option<&str>) -> MatchResult<bool> {
+        // Without the player's address the hosting node could not admit them, so the hunt stays local
+        if let Some(client_ip) = client_ip
+            && let Some(account_global) = super::resolve_global_account(self.shared, player).await
             && let Ok(game_version) = self
                 .shared
                 .version
@@ -377,7 +381,7 @@ impl Matchmaker<'_> {
         {
             let home = self.shared.home();
             match home
-                .ring_submit_ticket(&account_global, hunt_id, &game_version, 1, "127.0.0.1")
+                .ring_submit_ticket(&account_global, hunt_id, &game_version, 1, client_ip)
                 .await
             {
                 Ok(published) => {
@@ -603,7 +607,8 @@ impl Matchmaker<'_> {
                 .handle_party_matchmaking(&effective, &join.player, party_id, members)
                 .await;
         }
-        self.queue_player(&effective, &join.player).await
+        self.queue_player(&effective, &join.player, join.client_ip.as_deref())
+            .await
     }
 
     async fn register_ring_hunt_instance(
@@ -660,6 +665,7 @@ impl Matchmaker<'_> {
         let mut ring_assigned_instance: Option<module_api::GlobalId> = None;
         let (host, port) = if is_hub
             && effective == RAMSGATE_HUNT
+            && let Some(client_ip) = join.client_ip.as_deref()
             && let Some(account_global) = super::resolve_global_account(self.shared, &join.player).await
             && let Ok(game_version) = self
                 .shared
@@ -670,7 +676,7 @@ impl Matchmaker<'_> {
             && let Ok((record, _ticket)) = self
                 .shared
                 .home()
-                .ring_assign_ramsgate(&account_global, "127.0.0.1", &game_version)
+                .ring_assign_ramsgate(&account_global, client_ip, &game_version)
                 .await
         {
             ring_assigned_instance = Some(record.id);

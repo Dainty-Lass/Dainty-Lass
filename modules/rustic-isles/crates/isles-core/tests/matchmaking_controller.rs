@@ -852,3 +852,60 @@ async fn version_1_12_answers_island_with_the_real_hunt_id_and_its_own_build_id(
     assert_eq!(body["huntId"], RAMSGATE);
     assert_eq!(body["serverInfo"]["buildId"], "392819_1.12.0_shipping");
 }
+
+/// DN8: the ring gets the address the player connects from, which the hosting node's allowlist admits; a join
+/// without one stays on this node.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_ring_is_given_the_players_address_and_skipped_without_one() {
+    use module_api::module::{HostCall, ModuleContext};
+    use module_api::network::{HomeCall, IdKind};
+    use module_api::{GlobalId, NodeIdentity};
+
+    let host = module_api::stub::recording_host();
+    let node = NodeIdentity::standalone();
+    let context = ModuleContext::new("isles-1-14-7".parse().unwrap(), node.clone(), host.clone());
+    let dir = tempfile::tempdir().unwrap();
+    let config = store::DatabaseConfig::Sqlite {
+        file: dir.path().join("isles.db"),
+    };
+    let home = Arc::new(isles_core::db::ContextHome(context));
+    let opened = isles_core::db::IslesStore::open(&config, &store::DatabaseOptions::default(), home, &node).unwrap();
+    let mut shared = module(FakeDeploy::online("203.0.113.9", 8790));
+    shared.store = Some(opened);
+    let mm = matchmaker(&shared);
+    let ring_ips = || {
+        host.calls()
+            .into_iter()
+            .filter_map(|(_, call)| match call {
+                HostCall::Home(HomeCall::RingSubmitTicket { client_ip, .. }) => Some(("ticket", client_ip)),
+                HostCall::Home(HomeCall::RingAssignRamsgate { client_ip, .. }) => Some(("ramsgate", client_ip)),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let hunter = GlobalId::new(IdKind::Account, &node.node).to_string();
+    let mut request = join("ISLAND", "CR19_PlayerHunt_Four", &hunter);
+    request.client_ip = Some("198.51.100.7".to_owned());
+    assert!(mm.handle_player_matchmaking(request).await.unwrap());
+
+    let hub = GlobalId::new(IdKind::Account, &node.node).to_string();
+    let mut request = join("CITY", RAMSGATE, &hub);
+    request.client_ip = Some("198.51.100.8".to_owned());
+    assert!(mm.handle_player_matchmaking(request).await.unwrap());
+
+    let silent = GlobalId::new(IdKind::Account, &node.node).to_string();
+    assert!(
+        mm.handle_player_matchmaking(join("ISLAND", "CR19_PlayerHunt_Four", &silent))
+            .await
+            .unwrap()
+    );
+
+    assert_eq!(
+        ring_ips(),
+        [
+            ("ticket", "198.51.100.7".to_owned()),
+            ("ramsgate", "198.51.100.8".to_owned())
+        ]
+    );
+}
