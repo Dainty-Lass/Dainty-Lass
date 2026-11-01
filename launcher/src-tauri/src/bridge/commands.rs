@@ -946,28 +946,18 @@ pub async fn server_config_save(config: Value, app: AppHandle) -> ServerConfigOu
     }
     #[cfg(feature = "server-gui")]
     {
-        let Some((registration, database, reborn_module, max_hubs, max_hunts, fresh_start)) = (|| {
+        let Some((registration, database, max_hubs, max_hunts, fresh_start)) = (|| {
             let reg = config.get("registration")?.as_str()?.to_owned();
             let db = config.get("database")?.as_str()?.to_owned();
-            let reborn_mod = match config.get("rebornModule") {
-                None | Some(Value::Null) => None,
-                Some(v) => {
-                    let s = v.as_str()?;
-                    if !super::spec::REBORN_MODULES.contains(&s) {
-                        return None;
-                    }
-                    Some(s.to_owned())
-                }
-            };
             let hubs = config.get("maxHubs")?.as_u64()? as u32;
             let hunts = config.get("maxHunts")?.as_u64()? as u32;
             let fresh = config.get("freshStart")?.as_bool()?;
-            Some((reg, db, reborn_mod, hubs, hunts, fresh))
+            Some((reg, db, hubs, hunts, fresh))
         })() else {
             return ServerConfigOutcome::Err(LauncherError::new(ErrorCode::Unknown));
         };
         controller(&app)
-            .server_config_save(registration, database, reborn_module, max_hubs, max_hunts, fresh_start)
+            .server_config_save(registration, database, max_hubs, max_hunts, fresh_start)
             .await
     }
     #[cfg(not(feature = "server-gui"))]

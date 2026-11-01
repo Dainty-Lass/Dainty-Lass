@@ -1094,7 +1094,6 @@ pub struct ServerConfigView {
     pub public_host: Option<String>,
     pub registration: String,
     pub database: String,
-    pub reborn_module: String,
     pub max_hubs: u32,
     pub max_hunts: u32,
     pub fresh_start: bool,

@@ -88,7 +88,7 @@ window.__RR_COMMANDS__ = {
   "server_doctor": {},
   "server_backup": {},
   "server_config_get": {},
-  "server_config_save": { "config": { kind: "object", nullable: false, fields: { "registration": { kind: "name", names: ["OPEN", "INVITECODE", "NONE", "INVITE"] }, "database": { kind: "name", names: ["sqlite", "postgres"] }, "rebornModule": { kind: "optionalText", max: 64 }, "maxHubs": { kind: "index", max: 64 }, "maxHunts": { kind: "index", max: 128 }, "freshStart": { kind: "flag" } } } },
+  "server_config_save": { "config": { kind: "object", nullable: false, fields: { "registration": { kind: "name", names: ["OPEN", "INVITECODE", "NONE", "INVITE"] }, "database": { kind: "name", names: ["sqlite", "postgres"] }, "maxHubs": { kind: "index", max: 64 }, "maxHunts": { kind: "index", max: 128 }, "freshStart": { kind: "flag" } } } },
   "server_migrate_mongo": {},
   "server_confirm_fresh_start": {},
   "server_invite_list": {},
