@@ -10,7 +10,7 @@ exclude = ["fuzz"]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
-# DD26: the importers are ported from Dauntless Revived, and the target schema is rustic-isles' (Mystic Paradox)
+# DD26: the importers are ported from Dauntless Revived, and the target schema is rustic-isles'
 license = "AGPL-3.0-only"
 repository = "https://git.silentspud.com/silentspud/dainty-legacy"
 publish = false

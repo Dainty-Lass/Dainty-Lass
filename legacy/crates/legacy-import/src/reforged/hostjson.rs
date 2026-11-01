@@ -2,7 +2,7 @@
 // `fb46a4a`), MIT, Copyright (c) 2026 Silent Spud; LICENSE-MIT.txt there. Changed for 1.14.7 alone.
 
 //! `host.json` → `host.toml`: the Node kit's settings file moved to the one DaintyLass reads, with the keys of the
-//! games DaintyLass no longer runs (Dauntless Revived 1.4.4 and Mystic Paradox's 1.12.0) left out. The values are
+//! games DaintyLass no longer runs (Dauntless Revived 1.4.4 and Rustic Isles' 1.12.0) left out. The values are
 //! carried as they are: `reforged-host setup`, run next, checks them and fills in the rest with its defaults.
 
 use serde_json::{Map, Value};
