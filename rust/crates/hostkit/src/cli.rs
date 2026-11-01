@@ -347,11 +347,13 @@ pub struct DbArgs {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+#[allow(clippy::large_enum_variant)]
 pub enum DbCommand {
     Migrate(DbMigrateArgs),
     Verify(DbVerifyArgs),
     #[command(name = "export-mongo")]
     ExportMongo(DbExportMongoArgs),
+    Replay(DbReplayArgs),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
@@ -408,6 +410,56 @@ pub struct DbExportMongoArgs {
     pub dry_run: bool,
     #[arg(long = "allow-remote-postgres")]
     pub allow_remote_postgres: bool,
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
+pub struct DbReplayArgs {
+    #[arg(long)]
+    pub corpus: String,
+    #[arg(long, default_value = "recorded")]
+    pub left: String,
+    #[arg(long, default_value = "http://127.0.0.1:61000")]
+    pub right: String,
+    #[arg(long = "left-director")]
+    pub left_director: Option<String>,
+    #[arg(long = "right-director")]
+    pub right_director: Option<String>,
+    #[arg(long = "left-chat")]
+    pub left_chat: Option<String>,
+    #[arg(long = "right-chat")]
+    pub right_chat: Option<String>,
+    #[arg(long = "jwt-secret")]
+    pub jwt_secret: Option<String>,
+    #[arg(long = "left-jwt-secret")]
+    pub left_jwt_secret: Option<String>,
+    #[arg(long = "right-jwt-secret")]
+    pub right_jwt_secret: Option<String>,
+    #[arg(long = "signing-key")]
+    pub signing_key: Option<String>,
+    #[arg(long = "left-signing-key")]
+    pub left_signing_key: Option<String>,
+    #[arg(long = "right-signing-key")]
+    pub right_signing_key: Option<String>,
+    #[arg(long = "gs-key")]
+    pub gs_key: Option<String>,
+    #[arg(long = "left-gs-key")]
+    pub left_gs_key: Option<String>,
+    #[arg(long = "right-gs-key")]
+    pub right_gs_key: Option<String>,
+    #[arg(long = "gateway-secret")]
+    pub gateway_secret: Option<String>,
+    #[arg(long = "key-map")]
+    pub key_map: Option<String>,
+    #[arg(long = "pin-clock")]
+    pub pin_clock: bool,
+    #[arg(long = "no-pin-clock")]
+    pub no_pin_clock: bool,
+    #[arg(long)]
+    pub filter: Option<String>,
+    #[arg(long)]
+    pub out: Option<String>,
     #[arg(long)]
     pub json: bool,
 }
@@ -711,6 +763,31 @@ mod tests {
             assert_eq!(args, vec!["serve", "--env-file", "g.env"]);
         } else {
             panic!("expected Gateway");
+        }
+
+        let cli = Cli::parse_from([
+            "reforged-host",
+            "db",
+            "replay",
+            "--corpus",
+            ".workspace/captures",
+            "--right",
+            "http://127.0.0.1:61100",
+            "--key-map",
+            "keys.json",
+            "--json",
+        ]);
+        if let Command::Db(DbArgs {
+            command: DbCommand::Replay(r),
+        }) = cli.command
+        {
+            assert_eq!(r.corpus, ".workspace/captures");
+            assert_eq!(r.left, "recorded");
+            assert_eq!(r.right, "http://127.0.0.1:61100");
+            assert_eq!(r.key_map.as_deref(), Some("keys.json"));
+            assert!(r.json);
+        } else {
+            panic!("expected Db::Replay");
         }
     }
 }

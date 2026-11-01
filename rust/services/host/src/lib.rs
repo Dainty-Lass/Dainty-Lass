@@ -155,9 +155,9 @@ mod db_impl {
     use std::process::ExitCode;
 
     use crate::Outcome;
-    use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
+    use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbReplayArgs, DbVerifyArgs};
     use crate::error::HostError;
-    use crate::hostconfig::{HostConfig, load_host_config};
+    use crate::hostconfig::{HostConfig, load_host_config, read_env_file};
     use crate::paths::Paths;
     use hostkit::commands::db::{redact_credentials_in_text, resolve_mongo_uri, resolve_store_target};
     use hostkit::commands::update::{MONGO_MIGRATED_MARKER, redact_uri_password};
@@ -207,6 +207,7 @@ mod db_impl {
             DbCommand::Migrate(m) => run_migrate_cmd(paths, config.as_ref(), m, out),
             DbCommand::Verify(v) => run_verify_cmd(paths, config.as_ref(), v, out),
             DbCommand::ExportMongo(e) => run_export_cmd(paths, config.as_ref(), e, out),
+            DbCommand::Replay(r) => run_replay_cmd(paths, r, out),
         }
     }
 
@@ -412,6 +413,147 @@ mod db_impl {
             }
         }
         Ok(ExitCode::SUCCESS)
+    }
+
+    fn run_replay_cmd(paths: &Paths, args: &DbReplayArgs, out: &mut dyn FnMut(&str)) -> Outcome {
+        let secrets_env = read_env_file(&paths.config.join("secrets.env")).unwrap_or_default();
+        let default_signing_key = secrets_env
+            .get("AUTH_SIGNING_PRIVKEY_B64")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned);
+        let default_jwt_secret = secrets_env
+            .get("JWT_SECRET")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned);
+        let default_gs_key = secrets_env
+            .get("GAMESERVER_API_KEY")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned);
+        let default_gateway_secret = secrets_env
+            .get("GATEWAY_SECRET")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned);
+
+        let left_signing_key = args
+            .left_signing_key
+            .clone()
+            .or_else(|| args.signing_key.clone())
+            .or_else(|| default_signing_key.clone());
+        let right_signing_key = args
+            .right_signing_key
+            .clone()
+            .or_else(|| args.signing_key.clone())
+            .or(default_signing_key);
+
+        let left_jwt_secret = args
+            .left_jwt_secret
+            .clone()
+            .or_else(|| args.jwt_secret.clone())
+            .or_else(|| default_jwt_secret.clone());
+        let right_jwt_secret = args
+            .right_jwt_secret
+            .clone()
+            .or_else(|| args.jwt_secret.clone())
+            .or(default_jwt_secret);
+
+        let left_gs_key = args
+            .left_gs_key
+            .clone()
+            .or_else(|| args.gs_key.clone())
+            .or_else(|| default_gs_key.clone());
+        let right_gs_key = args
+            .right_gs_key
+            .clone()
+            .or_else(|| args.gs_key.clone())
+            .or(default_gs_key);
+
+        let gateway_secret = args.gateway_secret.clone().or(default_gateway_secret);
+        let pin_clock = !args.no_pin_clock || args.pin_clock;
+
+        let opts = isles_db::ReplayOptions {
+            corpus: PathBuf::from(&args.corpus),
+            left: args.left.clone(),
+            right: args.right.clone(),
+            left_director: args.left_director.clone(),
+            right_director: args.right_director.clone(),
+            left_chat: args.left_chat.clone(),
+            right_chat: args.right_chat.clone(),
+            left_jwt_secret,
+            right_jwt_secret,
+            left_signing_key,
+            right_signing_key,
+            left_gs_key,
+            right_gs_key,
+            gateway_secret,
+            key_map_path: args.key_map.as_ref().map(PathBuf::from),
+            pin_clock,
+            filter: args.filter.clone(),
+            out_path: args.out.as_ref().map(PathBuf::from),
+        };
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| HostError::message(format!("could not start runtime for db replay: {e}")))?;
+
+        let report = runtime
+            .block_on(isles_db::run_replay_cli(&opts))
+            .map_err(|e| HostError::message(format!("db replay failed: {e}")))?;
+
+        if args.json {
+            if let Ok(s) = serde_json::to_string_pretty(&report) {
+                out(&s);
+            }
+        } else {
+            let status = if report.passed() { "PASS" } else { "DIFF" };
+            out(&format!(
+                "reforged-host db replay: {status} (records={}, http={}, chat_conns={}, skipped={}, exact_matched={}, inexact_matched={}, inexact_diffed={}, unexplained_diffed={})",
+                report.total_records,
+                report.http_replayed,
+                report.chat_connections_replayed,
+                report.skipped_records,
+                report.exact_matched,
+                report.inexact_matched,
+                report.inexact_diffed,
+                report.unexplained_diffed,
+            ));
+            out(&format!(
+                "  diffs by kind: status={}, header={}, value={}, text={}, chat_stanza={}",
+                report.status_diffs,
+                report.header_diffs,
+                report.value_diffs,
+                report.text_diffs,
+                report.chat_stanza_diffs,
+            ));
+            for entry in &report.entries {
+                if !entry.diffs.is_empty() {
+                    let tag = if entry.inexact { "INEXACT" } else { "DIFF" };
+                    out(&format!(
+                        "  [{tag}] #{} {} {} (conn={}, seq={}, route={}): {} diff(s)",
+                        entry.index,
+                        entry.method,
+                        entry.target,
+                        entry.conn,
+                        entry.seq,
+                        entry.route,
+                        entry.diffs.len()
+                    ));
+                    for d in &entry.diffs {
+                        out(&format!("    - {d:?}"));
+                    }
+                }
+            }
+        }
+
+        if report.passed() {
+            Ok(ExitCode::SUCCESS)
+        } else {
+            Ok(ExitCode::from(2))
+        }
     }
 }
 
