@@ -25,6 +25,8 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use aws_lc_rs::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
+use aws_lc_rs::rand;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use history_ship::layout::{SegmentName, SnapshotName, sha256_hex};
@@ -32,11 +34,115 @@ use history_ship::{Bucket, BucketRead, Error as ShipError, ObjectInfo};
 use module_api::BoxFuture;
 use module_api::network::NodeId;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::home::protocol::CleanText;
+use crate::home::{KeyError, SigningKey};
 use crate::link::{Clock, LinkError, MAX_MESSAGE, NodeService, PeerLink, Service};
 
 pub const LOG_SHIP_VERSION: u32 = 1;
+
+/// Magic header prepended to peer-shipped objects encrypted at rest (`DLENC1\0` + 12-byte random nonce + AES-256-GCM ciphertext + 16-byte tag).
+pub const ENCRYPTED_MAGIC: &[u8; 7] = b"DLENC1\0";
+const NONCE_LEN: usize = 12;
+const TAG_LEN: usize = 16;
+const LOG_SHIP_KEY_CONTEXT: &[u8] = b"dainty-lass/log-ship-key/v1\n";
+
+/// A node-owned 256-bit key used to encrypt peer-shipped history segments and database snapshots at rest (DH7)
+/// so the receiving storage peer cannot read player history.
+#[derive(Clone, PartialEq, Eq)]
+pub struct LogShipKey([u8; 32]);
+
+impl std::fmt::Debug for LogShipKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LogShipKey")
+            .field("kid", &self.kid())
+            .finish_non_exhaustive()
+    }
+}
+
+impl LogShipKey {
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    pub fn generate() -> Result<Self, KeyError> {
+        let mut bytes = [0u8; 32];
+        rand::fill(&mut bytes).map_err(|_| KeyError::Random)?;
+        Ok(Self(bytes))
+    }
+
+    /// Derives a deterministic, domain-separated 256-bit key from the node's private [`SigningKey`] (`session-key`).
+    /// Peers hold only the node's public [`crate::home::VerifyingKey`] and cannot compute this key.
+    pub fn from_signing_key(signing_key: &SigningKey) -> Self {
+        let sig = signing_key.sign(LOG_SHIP_KEY_CONTEXT);
+        let digest = Sha256::digest(sig);
+        let mut bytes = [0u8; 32];
+        bytes.copy_from_slice(&digest);
+        Self(bytes)
+    }
+
+    /// Deterministic test key used by [`PeerBucket::new`] when no explicit [`LogShipKey`] is supplied.
+    pub fn default_test_key() -> Self {
+        let digest = Sha256::digest(b"dainty-lass/log-ship-default-test-key/v1");
+        let mut bytes = [0u8; 32];
+        bytes.copy_from_slice(&digest);
+        Self(bytes)
+    }
+
+    pub fn kid(&self) -> String {
+        crate::home::keys::hex(&Sha256::digest(self.0)[..8])
+    }
+
+    /// Encrypts `plaintext` with AES-256-GCM bound to `object_key` as Additional Authenticated Data.
+    pub fn encrypt(&self, object_key: &str, plaintext: &[u8]) -> Result<Vec<u8>, String> {
+        let unbound = UnboundKey::new(&AES_256_GCM, &self.0).map_err(|_| "invalid AES-256-GCM key".to_owned())?;
+        let key = LessSafeKey::new(unbound);
+        let mut nonce_bytes = [0u8; NONCE_LEN];
+        rand::fill(&mut nonce_bytes).map_err(|_| "random source failed".to_owned())?;
+        let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+        let mut out = Vec::with_capacity(ENCRYPTED_MAGIC.len() + NONCE_LEN + plaintext.len() + TAG_LEN);
+        out.extend_from_slice(ENCRYPTED_MAGIC);
+        out.extend_from_slice(&nonce_bytes);
+        out.extend_from_slice(plaintext);
+        let payload_start = ENCRYPTED_MAGIC.len() + NONCE_LEN;
+        let tag = key
+            .seal_in_place_separate_tag(nonce, Aad::from(object_key.as_bytes()), &mut out[payload_start..])
+            .map_err(|_| "AES-256-GCM seal failed".to_owned())?;
+        out.extend_from_slice(tag.as_ref());
+        Ok(out)
+    }
+
+    /// Decrypts and authenticates an encrypted `DLENC1\0` object bound to `object_key`.
+    pub fn decrypt(&self, object_key: &str, wire: &[u8]) -> Result<Vec<u8>, String> {
+        if !is_encrypted_object(wire) {
+            return Err("object does not have the DLENC1 encryption header".to_owned());
+        }
+        let min_len = ENCRYPTED_MAGIC.len() + NONCE_LEN + TAG_LEN;
+        if wire.len() < min_len {
+            return Err("encrypted object is truncated".to_owned());
+        }
+        let unbound = UnboundKey::new(&AES_256_GCM, &self.0).map_err(|_| "invalid AES-256-GCM key".to_owned())?;
+        let key = LessSafeKey::new(unbound);
+        let nonce_slice = &wire[ENCRYPTED_MAGIC.len()..ENCRYPTED_MAGIC.len() + NONCE_LEN];
+        let mut nonce_bytes = [0u8; NONCE_LEN];
+        nonce_bytes.copy_from_slice(nonce_slice);
+        let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+        let mut buf = wire[ENCRYPTED_MAGIC.len() + NONCE_LEN..].to_vec();
+        let plaintext = key
+            .open_in_place(nonce, Aad::from(object_key.as_bytes()), &mut buf)
+            .map_err(|_| {
+                "could not decrypt peer-shipped object (wrong LogShipKey or tampered ciphertext)".to_owned()
+            })?;
+        let len = plaintext.len();
+        buf.truncate(len);
+        Ok(buf)
+    }
+}
+
+pub fn is_encrypted_object(bytes: &[u8]) -> bool {
+    bytes.starts_with(ENCRYPTED_MAGIC)
+}
 
 /// Maximum raw object body (gzipped segment or snapshot) in one `Service::LogShip` message, leaving
 /// room for base64 and JSON framing inside [`MAX_MESSAGE`].
@@ -63,8 +169,11 @@ pub struct LogShipPutRequest {
     pub version: u32,
     pub key: String,
     pub content_type: String,
-    /// Base64-encoded (standard alphabet) gzipped segment or snapshot bytes.
+    /// Base64-encoded (standard alphabet) segment or snapshot bytes (encrypted `DLENC1\0...` envelope when shipped via [`PeerBucket`]).
     pub body_b64: String,
+    /// SHA-256 of the encrypted wire payload when `body_b64` holds a `DLENC1\0` ciphertext envelope whose outer SHA-256 differs from the plaintext SHA-256 in `key`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wire_sha256: Option<String>,
 }
 
 impl LogShipPutRequest {
@@ -76,11 +185,13 @@ impl LogShipPutRequest {
         if body.len() > MAX_LOG_SHIP_OBJECT_BYTES {
             return Err(LogShipDecodeError::TooLarge(body.len()));
         }
+        let wire_sha256 = is_encrypted_object(body).then(|| sha256_hex(body));
         let req = Self {
             version: LOG_SHIP_VERSION,
             key: key.into(),
             content_type: content_type.into(),
             body_b64: BASE64.encode(body),
+            wire_sha256,
         };
         req.validate_fields()?;
         Ok(req)
@@ -108,6 +219,13 @@ impl LogShipPutRequest {
         {
             return Err(LogShipDecodeError::Field(
                 "content_type must be 1..=64 printable characters".into(),
+            ));
+        }
+        if let Some(ref digest) = self.wire_sha256
+            && (digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+        {
+            return Err(LogShipDecodeError::Field(
+                "wire_sha256 must be 64 lowercase hex characters".into(),
             ));
         }
         let _ = self.decode_body()?;
@@ -221,20 +339,30 @@ pub fn parse_peer_object_key(origin: &NodeId, key: &str) -> Option<(String, Stri
     None
 }
 
-/// Write-only [`Bucket`] that ships segments and snapshots to a single peer node over `Service::LogShip`.
+/// Write-only [`Bucket`] that encrypts segments and snapshots at rest with the origin node's [`LogShipKey`]
+/// and ships them to a peer node over `Service::LogShip` (DH7).
 #[derive(Clone)]
 pub struct PeerBucket {
     peer: NodeId,
     link: Arc<dyn PeerLink>,
+    key: LogShipKey,
 }
 
 impl PeerBucket {
     pub fn new(peer: NodeId, link: Arc<dyn PeerLink>) -> Self {
-        Self { peer, link }
+        Self::with_key(peer, link, LogShipKey::default_test_key())
+    }
+
+    pub fn with_key(peer: NodeId, link: Arc<dyn PeerLink>, key: LogShipKey) -> Self {
+        Self { peer, link, key }
     }
 
     pub fn peer(&self) -> &NodeId {
         &self.peer
+    }
+
+    pub fn key(&self) -> &LogShipKey {
+        &self.key
     }
 
     /// The required `ShipSettings::prefix` for `origin` when shipping to a peer (`"<origin>/"`).
@@ -252,9 +380,27 @@ impl Bucket for PeerBucket {
     ) -> impl Future<Output = Result<(), ShipError>> + Send {
         let peer = self.peer.clone();
         let link = self.link.clone();
+        let enc_key = self.key.clone();
         let key = key.to_owned();
         async move {
-            let request = LogShipPutRequest::new(key, content_type, &body)
+            let encrypted = if is_encrypted_object(&body) {
+                body
+            } else {
+                if let Some((origin_str, _)) = key.split_once('/')
+                    && let Ok(origin) = origin_str.parse::<NodeId>()
+                    && let Some((_, expected_sha)) = parse_peer_object_key(&origin, &key)
+                    && sha256_hex(&body) != expected_sha
+                {
+                    return Err(ShipError::Bucket(format!(
+                        "peer {peer} refused put: {}",
+                        LogShipRefusal::HashMismatch
+                    )));
+                }
+                enc_key
+                    .encrypt(&key, &body)
+                    .map_err(|e| ShipError::Bucket(format!("peer {peer}: {e}")))?
+            };
+            let request = LogShipPutRequest::new(key, content_type, &encrypted)
                 .map_err(|e| ShipError::Bucket(format!("peer {peer}: {e}")))?;
             let wire = encode_put_request(&request).map_err(|e| ShipError::Bucket(format!("peer {peer}: {e}")))?;
             let answer = link
@@ -286,12 +432,17 @@ struct ObjectMeta {
 }
 
 /// Receiving side for `Service::LogShip` and read-only [`BucketRead`] over the per-origin append-only folder.
+///
+/// On a storage peer, [`PeerLogStore::new`] holds no decryption key (`decryption_key: None`) so the peer stores
+/// only `DLENC1\0` ciphertext and cannot read player history. When restoring a destroyed node from the peer's
+/// folder, attach the origin node's [`LogShipKey`] via [`PeerLogStore::with_decryption_key`].
 #[derive(Clone)]
 pub struct PeerLogStore {
     root: PathBuf,
     peers: Arc<BTreeSet<NodeId>>,
     clock: Arc<Clock>,
     write_lock: Arc<Mutex<()>>,
+    decryption_key: Option<LogShipKey>,
 }
 
 impl PeerLogStore {
@@ -301,7 +452,17 @@ impl PeerLogStore {
             peers: Arc::new(peers.into_iter().collect()),
             clock,
             write_lock: Arc::new(Mutex::new(())),
+            decryption_key: None,
         }
+    }
+
+    /// Returns a view of this store configured with the origin node's [`LogShipKey`] so [`history_ship::restore_to`]
+    /// can decrypt and authenticate objects shipped by that node.
+    #[must_use]
+    pub fn with_decryption_key(&self, key: LogShipKey) -> Self {
+        let mut cloned = self.clone();
+        cloned.decryption_key = Some(key);
+        cloned
     }
 
     pub fn root(&self) -> &Path {
@@ -313,11 +474,23 @@ impl PeerLogStore {
         self.root.join(origin.as_str())
     }
 
+    /// Reads the raw bytes stored on disk for `key` without decrypting (for verifying ciphertext-at-rest or re-shipping).
+    pub fn get_raw(&self, key: &str) -> Result<Vec<u8>, ShipError> {
+        let path = self.resolve_key_path(key)?;
+        std::fs::read(&path).map_err(|_| ShipError::Bucket(format!("no object {key}")))
+    }
+
     fn is_peer(&self, node: &NodeId) -> bool {
         self.peers.contains(node)
     }
 
-    fn store_object(&self, from: &NodeId, key: &str, body: &[u8]) -> Result<(bool, i64), LogShipRefusal> {
+    fn store_object(
+        &self,
+        from: &NodeId,
+        key: &str,
+        body: &[u8],
+        wire_sha256: Option<&str>,
+    ) -> Result<(bool, i64), LogShipRefusal> {
         let Some((rel, expected_sha)) = parse_peer_object_key(from, key) else {
             let prefix = format!("{from}/");
             if !key.starts_with(&prefix) {
@@ -327,7 +500,12 @@ impl PeerLogStore {
             }
             return Err(LogShipRefusal::InvalidKey);
         };
-        if sha256_hex(body) != expected_sha {
+        if is_encrypted_object(body) {
+            let min_len = ENCRYPTED_MAGIC.len() + NONCE_LEN + TAG_LEN;
+            if body.len() < min_len || wire_sha256 != Some(sha256_hex(body).as_str()) {
+                return Err(LogShipRefusal::HashMismatch);
+            }
+        } else if sha256_hex(body) != expected_sha {
             return Err(LogShipRefusal::HashMismatch);
         }
 
@@ -424,7 +602,7 @@ impl PeerLogStore {
         let Ok(raw_body) = request.decode_body() else {
             return LogShipPutResponse::refused(LogShipRefusal::Malformed);
         };
-        match self.store_object(from, &request.key, &raw_body) {
+        match self.store_object(from, &request.key, &raw_body, request.wire_sha256.as_deref()) {
             Ok((created, received_at)) => LogShipPutResponse::stored(created, received_at),
             Err(refusal) => LogShipPutResponse::refused(refusal),
         }
@@ -542,8 +720,19 @@ impl BucketRead for PeerLogStore {
     }
 
     async fn get(&self, key: &str) -> Result<Vec<u8>, ShipError> {
-        let path = self.resolve_key_path(key)?;
-        std::fs::read(&path).map_err(|_| ShipError::Bucket(format!("no object {key}")))
+        let bytes = self.get_raw(key)?;
+        if is_encrypted_object(&bytes) {
+            let dec_key = self.decryption_key.as_ref().ok_or_else(|| ShipError::Object {
+                key: key.to_owned(),
+                reason: "peer-shipped object is encrypted at rest; attach the origin node's LogShipKey with with_decryption_key() to restore".to_owned(),
+            })?;
+            dec_key.decrypt(key, &bytes).map_err(|reason| ShipError::Object {
+                key: key.to_owned(),
+                reason,
+            })
+        } else {
+            Ok(bytes)
+        }
     }
 }
 
