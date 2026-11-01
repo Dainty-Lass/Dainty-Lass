@@ -6,7 +6,7 @@
 //!
 //! The controller knows no service. The host kit composes the modules (`host::serve`): the Rust
 //! services this binary was built with, through the constructors in [`modules`], and the programs
-//! it supervises (MongoDB, Mystic Paradox's backend and Director until the RB rows) as modules of
+//! it supervises (MongoDB, Rustic Isles's backend and Director until the RB rows) as modules of
 //! their own. A build with no module features is a controller that starts, says so, and serves
 //! nothing.
 //!

@@ -17,7 +17,7 @@ const SECRET: &str = "0123456789abcdef0123456789abcdef";
 fn write_env(dir: &Path, extra: &str) -> String {
     let file = dir.join("admin.env");
     let text = format!(
-        "REFORGED_ADMIN_API_KEY={SECRET}\nREFORGED_ADMIN_KEY={SECRET}\nMYSTICPARADOX_MANAGER_OPERATOR_SECRET={SECRET}\n\
+        "REFORGED_ADMIN_API_KEY={SECRET}\nREFORGED_ADMIN_KEY={SECRET}\nRUSTIC_ISLES_MANAGER_OPERATOR_SECRET={SECRET}\n\
          REFORGED_ADMIN_API_TIMEOUTS_FILE={}\n{extra}",
         dir.join("admin-timeouts.json").display().to_string().replace("\\", "/")
     );

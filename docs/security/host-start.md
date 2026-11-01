@@ -30,7 +30,7 @@ line and compared with one word.
 
 - [ ] Every program is started with an argument list, never a shell string (`services.rs` `launch`, `run.rs`); `npm`
       and `npx` on Windows are the only `.cmd` files, with fixed arguments.
-- [ ] A service's environment is the system's variables, then its env file: no `REFORGED_`, `MYSTICPARADOX_`,
+- [ ] A service's environment is the system's variables, then its env file: no `REFORGED_`, `RUSTIC_ISLES_`,
       `GATEWAY_`, `ALLOWLIST_`, `MONGODB_` or other server setting left in the shell reaches it
       (`service_environment`, tested).
 - [ ] A Rust service gets its env file with `--env-file` and nothing else configures it (DR X7, `binaries.rs`).

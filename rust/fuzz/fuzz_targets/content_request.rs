@@ -28,7 +28,7 @@ fuzz_target!(|request: Request<'_>| {
     match Route::of(path_only) {
         Route::RuntimeFile(name) => {
             if is_runtime_file_name(name) {
-                assert!(name == "MysticParadox.dll" || name == "winmm.dll", "{name}");
+                assert!(protocol::manifest::runtime_file_slot(name).is_some(), "{name}");
                 assert!(path_only.ends_with(name) && !name.contains(['/', '\\', '%']));
             }
         }

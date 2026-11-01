@@ -204,7 +204,7 @@ pub fn run_with(
     }
     out(&performance_summary(&config));
 
-    out("\n1. Mystic Paradox (modules/rustic-isles and native/ in this project)\n- in place");
+    out("\n1. Rustic Isles (modules/rustic-isles and native/ in this project)\n- in place");
 
     if args.skip_install {
         out("\n2. Skipped installing and building (--skip-install)");

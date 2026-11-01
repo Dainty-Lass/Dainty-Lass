@@ -24,8 +24,9 @@ use serde::{Deserialize, Serialize};
 pub const LOADER_INI: &str = "mystic_loader.ini";
 /// The loader: the game loads it in place of Windows' own `winmm.dll`.
 pub const LOADER_DLL: &str = "winmm.dll";
-/// The runtime DLLs the loader looks for first (`native/runtime-loader`'s `RUNTIME_DLL_NAMES`).
-pub const RUNTIME_DLLS: [&str; 2] = ["MysticParadox.dll", "MystPaxInternalServer.dll"];
+/// The runtime DLLs the loader looks for first (`native/runtime-loader`'s `RUNTIME_DLL_NAMES`), the name from
+/// before the Rustic Isles rename included (DX4).
+pub const RUNTIME_DLLS: [&str; 3] = ["Rustic-Isles.dll", "MysticParadox.dll", "MystPaxInternalServer.dll"];
 /// CatalogExporter's file name, as the workspace builds it.
 pub const EXPORTER_DLL: &str = "CatalogExporter.dll";
 /// What a set-aside runtime DLL is renamed to while a Dumper-7 session runs.
@@ -315,7 +316,7 @@ mod tests {
         let dir = temp.path().join("Win64");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join(LOADER_DLL), b"loader").unwrap();
-        std::fs::write(dir.join("MysticParadox.dll"), b"runtime").unwrap();
+        std::fs::write(dir.join("Rustic-Isles.dll"), b"runtime").unwrap();
         std::fs::write(dir.join("steam_api64.dll"), b"the game's own").unwrap();
         let tools = temp.path().join("tools");
         std::fs::create_dir_all(&tools).unwrap();
@@ -357,7 +358,7 @@ mod tests {
             names(&f.dir),
             [
                 "Dumper-7.dll",
-                "MysticParadox.dll.rr-dump-off",
+                "Rustic-Isles.dll.rr-dump-off",
                 LOADER_INI,
                 "steam_api64.dll",
                 LOADER_DLL
@@ -370,12 +371,12 @@ mod tests {
         // While it runs, PLAY would refuse
         assert_eq!(
             leftovers(&f.dir, &f.record, &[]),
-            ["Dumper-7.dll", LOADER_INI, "MysticParadox.dll.rr-dump-off"]
+            ["Dumper-7.dll", LOADER_INI, "Rustic-Isles.dll.rr-dump-off"]
         );
 
         session.end().unwrap();
-        assert_eq!(names(&f.dir), ["MysticParadox.dll", "steam_api64.dll", LOADER_DLL]);
-        assert_eq!(std::fs::read(f.dir.join("MysticParadox.dll")).unwrap(), b"runtime");
+        assert_eq!(names(&f.dir), ["Rustic-Isles.dll", "steam_api64.dll", LOADER_DLL]);
+        assert_eq!(std::fs::read(f.dir.join("Rustic-Isles.dll")).unwrap(), b"runtime");
         assert!(!f.record.exists());
         assert!(leftovers(&f.dir, &f.record, &["Dumper-7.dll", EXPORTER_DLL]).is_empty());
     }
@@ -386,12 +387,12 @@ mod tests {
         let exporter = f.tool.with_file_name(EXPORTER_DLL);
         std::fs::write(&exporter, b"exporter").unwrap();
         let session = begin(SessionKind::Export, &f.dir, &exporter, &f.record, &[EXPORTER_DLL]).unwrap();
-        assert!(f.dir.join("MysticParadox.dll").exists());
+        assert!(f.dir.join("Rustic-Isles.dll").exists());
         assert!(session.aside.is_empty());
         let ini = std::fs::read_to_string(f.dir.join(LOADER_INI)).unwrap();
         assert_eq!(ini_entries(&ini), [EXPORTER_DLL]);
         session.end().unwrap();
-        assert_eq!(names(&f.dir), ["MysticParadox.dll", "steam_api64.dll", LOADER_DLL]);
+        assert_eq!(names(&f.dir), ["Rustic-Isles.dll", "steam_api64.dll", LOADER_DLL]);
     }
 
     #[test]
@@ -400,7 +401,7 @@ mod tests {
         let session = begin(SessionKind::Dump, &f.dir, &f.tool, &f.record, &[]).unwrap();
         drop(session);
         assert!(recover(&f.record).unwrap().is_ok());
-        assert_eq!(names(&f.dir), ["MysticParadox.dll", "steam_api64.dll", LOADER_DLL]);
+        assert_eq!(names(&f.dir), ["Rustic-Isles.dll", "steam_api64.dll", LOADER_DLL]);
         assert!(recover(&f.record).is_none());
     }
 
@@ -408,10 +409,10 @@ mod tests {
     fn a_runtime_installed_during_a_dump_session_wins_over_the_one_set_aside() {
         let f = folder();
         let session = begin(SessionKind::Dump, &f.dir, &f.tool, &f.record, &[]).unwrap();
-        std::fs::write(f.dir.join("MysticParadox.dll"), b"newer").unwrap();
+        std::fs::write(f.dir.join("Rustic-Isles.dll"), b"newer").unwrap();
         session.end().unwrap();
-        assert_eq!(names(&f.dir), ["MysticParadox.dll", "steam_api64.dll", LOADER_DLL]);
-        assert_eq!(std::fs::read(f.dir.join("MysticParadox.dll")).unwrap(), b"newer");
+        assert_eq!(names(&f.dir), ["Rustic-Isles.dll", "steam_api64.dll", LOADER_DLL]);
+        assert_eq!(std::fs::read(f.dir.join("Rustic-Isles.dll")).unwrap(), b"newer");
     }
 
     #[test]
@@ -421,7 +422,7 @@ mod tests {
 
         std::fs::write(
             f.dir.join(LOADER_INI),
-            "evil.dll\r\n..\\outside.dll\r\nMysticParadox.dll\r\n",
+            "evil.dll\r\n..\\outside.dll\r\nRustic-Isles.dll\r\n",
         )
         .unwrap();
         std::fs::write(f.dir.join("evil.dll"), b"x").unwrap();
@@ -434,7 +435,7 @@ mod tests {
         assert_eq!(leftovers(&f.dir, &f.record, &[EXPORTER_DLL]), [EXPORTER_DLL]);
         // The loader's and runtime's own names are never "known" leftovers
         std::fs::remove_file(f.dir.join(EXPORTER_DLL)).unwrap();
-        assert!(leftovers(&f.dir, &f.record, &[LOADER_DLL, "MysticParadox.dll"]).is_empty());
+        assert!(leftovers(&f.dir, &f.record, &[LOADER_DLL, "Rustic-Isles.dll"]).is_empty());
     }
 
     #[test]
@@ -456,7 +457,7 @@ mod tests {
         assert_eq!(std::fs::read(f.dir.join("Dumper-7.dll")).unwrap(), b"someone else's");
         std::fs::remove_file(f.dir.join("Dumper-7.dll")).unwrap();
 
-        for bad in ["winmm.dll", "MYSTICPARADOX.DLL", "notes.txt", ".dll"] {
+        for bad in ["winmm.dll", "RUSTIC-ISLES.DLL", "notes.txt", ".dll"] {
             let picked = f.tool.with_file_name(bad);
             assert_eq!(
                 begin(SessionKind::Dump, &f.dir, &picked, &f.record, &[]),
@@ -480,7 +481,7 @@ mod tests {
         let Err(SessionError::Io(_)) = begin(SessionKind::Dump, &f.dir, &missing, &f.record, &[]) else {
             panic!("the copy fails");
         };
-        assert_eq!(names(&f.dir), ["MysticParadox.dll", "steam_api64.dll", LOADER_DLL]);
+        assert_eq!(names(&f.dir), ["Rustic-Isles.dll", "steam_api64.dll", LOADER_DLL]);
         assert!(!f.record.exists());
     }
 

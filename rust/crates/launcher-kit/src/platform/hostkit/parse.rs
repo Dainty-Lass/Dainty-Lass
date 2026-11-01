@@ -412,7 +412,8 @@ pub fn server_config_toml(raw: &str) -> Option<ServerConfig> {
 /// Checks if a CMake/source text carries the DaintyLass patch marker.
 #[must_use]
 pub fn is_patched_source(cmake: &str) -> bool {
-    cmake.contains(PATCH_SENTINEL) || cmake.contains("MysticParadox")
+    // MysticParadox: the runtime's name before the Rustic Isles rename, in sources from an older checkout
+    cmake.contains(PATCH_SENTINEL) || cmake.contains("Rustic-Isles") || cmake.contains("MysticParadox")
 }
 
 /// Classifies a set of `(real_content, example_content)` pairs as `"missing"`, `"synthetic"`, or `"real"`.

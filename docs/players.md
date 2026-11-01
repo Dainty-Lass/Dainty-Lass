@@ -26,7 +26,7 @@ Install the launcher from a release and start it. Then:
 3. **Point it at Dauntless.** The launcher finds Epic, Legendary and Heroic installs on its own; otherwise
    choose the folder with `Archon` in it. It checks the executable's hash: only 1.14.7 (`rel-1.14.7-Archon`)
    works.
-4. **Accept the host's runtime.** The host built `MysticParadox.dll` and `winmm.dll` from their own game; the
+4. **Accept the host's runtime.** The host built `Rustic-Isles.dll` and `winmm.dll` from their own game; the
    launcher shows their sizes and hashes and asks you once. They are native code the host made, so accept
    them only from a host you trust. The launcher checks the files before every launch and asks again if they
    change.

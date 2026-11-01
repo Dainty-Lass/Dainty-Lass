@@ -10,7 +10,8 @@ use winapi::um::winnt::DLL_PROCESS_ATTACH;
 mod exports;
 pub mod proxy;
 
-const RUNTIME_DLL_NAMES: [&str; 2] = ["MysticParadox.dll", "MystPaxInternalServer.dll"];
+// MysticParadox.dll: the name before the Rustic Isles rename, loaded for one release
+const RUNTIME_DLL_NAMES: [&str; 3] = ["Rustic-Isles.dll", "MysticParadox.dll", "MystPaxInternalServer.dll"];
 const CANONICAL_RUNTIME_DLL_NAME: &str = RUNTIME_DLL_NAMES[0];
 
 /// Optional additional-DLL list placed next to the proxy DLL.
@@ -163,6 +164,18 @@ mod tests {
 
         let selected = select_runtime_dll(&dir).unwrap();
         assert_eq!(selected.file_name().unwrap(), "MystPaxInternalServer.dll");
+
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn loads_the_runtime_under_its_name_from_before_the_rename() {
+        let dir = test_dir("renamed");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("MysticParadox.dll"), b"runtime").unwrap();
+
+        let selected = select_runtime_dll(&dir).unwrap();
+        assert_eq!(selected.file_name().unwrap(), "MysticParadox.dll");
 
         fs::remove_dir_all(dir).ok();
     }

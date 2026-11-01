@@ -63,7 +63,7 @@ pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
     if !l.director_dir.join("package.json").is_file() {
         missing.push("modules/rustic-isles/reference/1.14.7/ParadoxDirector");
     }
-    if !l.runtime_source.join("MysticParadox.vcxproj").is_file() {
+    if !l.runtime_source.join("Rustic-Isles.vcxproj").is_file() {
         missing.push("native/runtime");
     }
     if !l.loader_dir.join("Cargo.toml").is_file() {
@@ -95,7 +95,7 @@ mod tests {
         fs::create_dir_all(&layout.director_dir).unwrap();
         fs::write(layout.director_dir.join("package.json"), "{}").unwrap();
         fs::create_dir_all(&layout.runtime_source).unwrap();
-        fs::write(layout.runtime_source.join("MysticParadox.vcxproj"), "{}").unwrap();
+        fs::write(layout.runtime_source.join("Rustic-Isles.vcxproj"), "{}").unwrap();
         fs::create_dir_all(&layout.loader_dir).unwrap();
         fs::write(layout.loader_dir.join("Cargo.toml"), "{}").unwrap();
         fs::create_dir_all(&layout.exporter_dir).unwrap();

@@ -118,7 +118,7 @@ fn set_id_and_trust_follow_the_electron_launcher() {
         sha256: "b".repeat(64),
     };
     let f2 = RuntimeFile {
-        name: "MysticParadox.dll".to_owned(),
+        name: "Rustic-Isles.dll".to_owned(),
         size: 2048,
         sha256: "a".repeat(64),
     };
@@ -128,7 +128,7 @@ fn set_id_and_trust_follow_the_electron_launcher() {
     assert_eq!(id_forward, id_reverse);
 
     let expected_lines = format!(
-        "MysticParadox.dll:2048:{}\nwinmm.dll:1024:{}",
+        "Rustic-Isles.dll:2048:{}\nwinmm.dll:1024:{}",
         "a".repeat(64),
         "b".repeat(64)
     );
@@ -144,7 +144,7 @@ fn set_id_and_trust_follow_the_electron_launcher() {
 
     for i in 0..10u64 {
         let dummy = [RuntimeFile {
-            name: "MysticParadox.dll".to_owned(),
+            name: "Rustic-Isles.dll".to_owned(),
             size: 100 + i,
             sha256: format!("{i:064x}"),
         }];
@@ -162,19 +162,19 @@ fn manifest_parses_only_the_two_runtime_files() {
         "version": " 1.2.3 ",
         "files": [
             { "name": "winmm.dll", "size": 512, "sha256": sha_b },
-            { "name": "MysticParadox.dll", "size": 1024, "sha256": sha_a }
+            { "name": "Rustic-Isles.dll", "size": 1024, "sha256": sha_a }
         ]
     });
     let parsed = parse_runtime_manifest(&valid).expect("valid manifest");
     assert_eq!(parsed.version, "1.2.3");
     assert_eq!(parsed.build.changelist, DEFAULT_CHANGELIST);
-    assert_eq!(parsed.files[0].name, "MysticParadox.dll");
+    assert_eq!(parsed.files[0].name, "Rustic-Isles.dll");
     assert_eq!(parsed.files[1].name, "winmm.dll");
 
     let missing_file = json!({
         "version": "1.0.0",
         "files": [
-            { "name": "MysticParadox.dll", "size": 1024, "sha256": sha_a }
+            { "name": "Rustic-Isles.dll", "size": 1024, "sha256": sha_a }
         ]
     });
     assert!(parse_runtime_manifest(&missing_file).is_none());
@@ -182,7 +182,7 @@ fn manifest_parses_only_the_two_runtime_files() {
     let unknown_file = json!({
         "version": "1.0.0",
         "files": [
-            { "name": "MysticParadox.dll", "size": 1024, "sha256": sha_a },
+            { "name": "Rustic-Isles.dll", "size": 1024, "sha256": sha_a },
             { "name": "other.dll", "size": 512, "sha256": sha_b }
         ]
     });
@@ -191,7 +191,7 @@ fn manifest_parses_only_the_two_runtime_files() {
     let uppercase_hash = json!({
         "version": "1.0.0",
         "files": [
-            { "name": "MysticParadox.dll", "size": 1024, "sha256": "A".repeat(64) },
+            { "name": "Rustic-Isles.dll", "size": 1024, "sha256": "A".repeat(64) },
             { "name": "winmm.dll", "size": 512, "sha256": sha_b }
         ]
     });
@@ -200,7 +200,7 @@ fn manifest_parses_only_the_two_runtime_files() {
     let zero_size = json!({
         "version": "1.0.0",
         "files": [
-            { "name": "MysticParadox.dll", "size": 0, "sha256": sha_a },
+            { "name": "Rustic-Isles.dll", "size": 0, "sha256": sha_a },
             { "name": "winmm.dll", "size": 512, "sha256": sha_b }
         ]
     });
@@ -209,7 +209,7 @@ fn manifest_parses_only_the_two_runtime_files() {
     let oversized = json!({
         "version": "1.0.0",
         "files": [
-            { "name": "MysticParadox.dll", "size": MAX_RUNTIME_FILE_BYTES + 1, "sha256": sha_a },
+            { "name": "Rustic-Isles.dll", "size": MAX_RUNTIME_FILE_BYTES + 1, "sha256": sha_a },
             { "name": "winmm.dll", "size": 512, "sha256": sha_b }
         ]
     });
@@ -218,7 +218,7 @@ fn manifest_parses_only_the_two_runtime_files() {
     let control_only_version = json!({
         "version": "\u{0000}\u{0007}",
         "files": [
-            { "name": "MysticParadox.dll", "size": 1024, "sha256": sha_a },
+            { "name": "Rustic-Isles.dll", "size": 1024, "sha256": sha_a },
             { "name": "winmm.dll", "size": 512, "sha256": sha_b }
         ]
     });
@@ -228,7 +228,7 @@ fn manifest_parses_only_the_two_runtime_files() {
         "version": "1.0.0",
         "build": { "changelist": u64::from(u32::MAX) + 5 },
         "files": [
-            { "name": "MysticParadox.dll", "size": 1024, "sha256": sha_a },
+            { "name": "Rustic-Isles.dll", "size": 1024, "sha256": sha_a },
             { "name": "winmm.dll", "size": 512, "sha256": sha_b }
         ]
     });
@@ -244,14 +244,14 @@ async fn check_runtime_states() {
     std::fs::create_dir_all(&win64).unwrap();
     std::fs::create_dir_all(&local).unwrap();
 
-    let mp_bytes = b"mystic paradox dll bytes";
+    let mp_bytes = b"rustic isles dll bytes";
     let wm_bytes = b"winmm dll bytes";
     let manifest = RuntimeManifest::new(
         "1.0.0".to_owned(),
         DEFAULT_CHANGELIST,
         vec![
             RuntimeFile {
-                name: "MysticParadox.dll".to_owned(),
+                name: "Rustic-Isles.dll".to_owned(),
                 size: mp_bytes.len() as u64,
                 sha256: sha256_hex(mp_bytes),
             },
@@ -276,13 +276,13 @@ async fn check_runtime_states() {
         (RuntimeState::Missing, false)
     );
 
-    std::fs::write(win64.join("MysticParadox.dll"), b"old mp").unwrap();
+    std::fs::write(win64.join("Rustic-Isles.dll"), b"old mp").unwrap();
     assert_eq!(
         check_runtime(&win64, Some(&manifest), true, None).await,
         (RuntimeState::Outdated, false)
     );
 
-    std::fs::write(win64.join("MysticParadox.dll"), mp_bytes).unwrap();
+    std::fs::write(win64.join("Rustic-Isles.dll"), mp_bytes).unwrap();
     std::fs::write(win64.join("winmm.dll"), wm_bytes).unwrap();
     assert_eq!(
         check_runtime(&win64, Some(&manifest), true, None).await,
@@ -294,7 +294,7 @@ async fn check_runtime_states() {
         check_runtime(&win64, Some(&manifest), true, Some(&local)).await,
         (RuntimeState::Local, false)
     );
-    std::fs::write(local.join("MysticParadox.dll"), mp_bytes).unwrap();
+    std::fs::write(local.join("Rustic-Isles.dll"), mp_bytes).unwrap();
     std::fs::write(local.join("winmm.dll"), wm_bytes).unwrap();
     assert_eq!(
         check_runtime(&win64, Some(&manifest), true, Some(&local)).await,
@@ -369,14 +369,14 @@ fn replace_file_moves_a_locked_dll_aside_and_puts_it_back_if_the_second_rename_f
 
 #[tokio::test]
 async fn install_runtime_downloads_checks_replaces_and_writes_the_marker() {
-    let mp_bytes = b"mystic paradox fresh content";
+    let mp_bytes = b"rustic isles fresh content";
     let wm_bytes = b"winmm already current content";
     let manifest = RuntimeManifest::new(
         "2.0.0".to_owned(),
         DEFAULT_CHANGELIST,
         vec![
             RuntimeFile {
-                name: "MysticParadox.dll".to_owned(),
+                name: "Rustic-Isles.dll".to_owned(),
                 size: mp_bytes.len() as u64,
                 sha256: sha256_hex(mp_bytes),
             },
@@ -392,7 +392,7 @@ async fn install_runtime_downloads_checks_replaces_and_writes_the_marker() {
     let wm_hits = Arc::new(AtomicUsize::new(0));
     let mut routes = HashMap::new();
     routes.insert(
-        format!("{RUNTIME_FILES_BASE_PATH}/MysticParadox.dll"),
+        format!("{RUNTIME_FILES_BASE_PATH}/Rustic-Isles.dll"),
         MockRoute {
             status: 200,
             body: mp_bytes.to_vec(),
@@ -418,7 +418,7 @@ async fn install_runtime_downloads_checks_replaces_and_writes_the_marker() {
     // Pre-populate winmm.dll so it is skipped
     std::fs::write(win64.join("winmm.dll"), wm_bytes).unwrap();
     // Pre-populate an old aside file so sweep_aside cleans it
-    let old_aside = win64.join("MysticParadox.dll.rr-old-12345");
+    let old_aside = win64.join("Rustic-Isles.dll.rr-old-12345");
     std::fs::write(&old_aside, b"old").unwrap();
 
     let res = install_runtime(InstallRequest {
@@ -436,22 +436,100 @@ async fn install_runtime_downloads_checks_replaces_and_writes_the_marker() {
     assert!(!old_aside.exists());
     assert_eq!(mp_hits.load(Ordering::SeqCst), 1);
     assert_eq!(wm_hits.load(Ordering::SeqCst), 0);
-    assert_eq!(std::fs::read(win64.join("MysticParadox.dll")).unwrap(), mp_bytes);
+    assert_eq!(std::fs::read(win64.join("Rustic-Isles.dll")).unwrap(), mp_bytes);
     assert!(win64.join(RUNTIME_MARKER_FILE).is_file());
 
     handle.abort();
 }
 
 #[tokio::test]
+async fn install_runtime_takes_a_runtime_a_host_lists_under_its_name_from_before_the_rename() {
+    let dll = b"runtime the host still lists by its old name";
+    let wm_bytes = b"winmm already current content";
+    let manifest = parse_runtime_manifest(&json!({
+        "version": "1.9.0",
+        "files": [
+            { "name": "MysticParadox.dll", "size": dll.len(), "sha256": sha256_hex(dll) },
+            { "name": "winmm.dll", "size": wm_bytes.len(), "sha256": sha256_hex(wm_bytes) }
+        ]
+    }))
+    .unwrap();
+    assert_eq!(manifest.files[0].name, "MysticParadox.dll");
+
+    let hits = Arc::new(AtomicUsize::new(0));
+    let mut routes = HashMap::new();
+    routes.insert(
+        format!("{RUNTIME_FILES_BASE_PATH}/MysticParadox.dll"),
+        MockRoute {
+            status: 200,
+            body: dll.to_vec(),
+            require_auth: None,
+            hits: Arc::clone(&hits),
+        },
+    );
+    let (endpoint, handle) = start_tls_server(routes).await;
+    let dir = tempfile::tempdir().unwrap();
+    let win64 = dir.path().join("win64");
+    std::fs::create_dir_all(&win64).unwrap();
+    std::fs::write(win64.join("winmm.dll"), wm_bytes).unwrap();
+    std::fs::write(win64.join("MysticParadox.dll"), b"an older runtime").unwrap();
+
+    assert_eq!(
+        check_runtime(&win64, Some(&manifest), true, None).await,
+        (RuntimeState::Outdated, false)
+    );
+    install_runtime(InstallRequest {
+        endpoint: &endpoint,
+        headers: Vec::new(),
+        manifest: &manifest,
+        win64_dir: &win64,
+        cancel: None,
+        on_progress: None,
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(hits.load(Ordering::SeqCst), 1);
+    assert_eq!(std::fs::read(win64.join("Rustic-Isles.dll")).unwrap(), dll);
+    assert!(!win64.join("MysticParadox.dll").exists());
+    assert_eq!(
+        check_runtime(&win64, Some(&manifest), true, None).await,
+        (RuntimeState::Ok, true)
+    );
+
+    // A game folder an older launcher filled is current without a download
+    std::fs::rename(win64.join("Rustic-Isles.dll"), win64.join("MysticParadox.dll")).unwrap();
+    assert_eq!(
+        check_runtime(&win64, Some(&manifest), true, None).await,
+        (RuntimeState::Ok, true)
+    );
+
+    handle.abort();
+}
+
+#[test]
+fn manifest_refuses_both_names_of_the_runtime() {
+    let sha = "a".repeat(64);
+    let both = json!({
+        "version": "1.0",
+        "files": [
+            { "name": "MysticParadox.dll", "size": 1, "sha256": sha },
+            { "name": "Rustic-Isles.dll", "size": 1, "sha256": sha }
+        ]
+    });
+    assert!(parse_runtime_manifest(&both).is_none());
+}
+
+#[tokio::test]
 async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
-    let mp_bytes = b"expected mystic paradox bytes";
+    let mp_bytes = b"expected rustic isles bytes";
     let wm_bytes = b"expected winmm bytes";
     let manifest = RuntimeManifest::new(
         "1.0.0".to_owned(),
         DEFAULT_CHANGELIST,
         vec![
             RuntimeFile {
-                name: "MysticParadox.dll".to_owned(),
+                name: "Rustic-Isles.dll".to_owned(),
                 size: mp_bytes.len() as u64,
                 sha256: sha256_hex(mp_bytes),
             },
@@ -465,10 +543,10 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
 
     let mut routes = HashMap::new();
     routes.insert(
-        format!("{RUNTIME_FILES_BASE_PATH}/MysticParadox.dll"),
+        format!("{RUNTIME_FILES_BASE_PATH}/Rustic-Isles.dll"),
         MockRoute {
             status: 200,
-            body: b"tampered mystic paradox bytes".to_vec(),
+            body: b"tampered rustic isles bytes".to_vec(),
             require_auth: Some("Bearer valid-key".to_owned()),
             hits: Arc::new(AtomicUsize::new(0)),
         },
@@ -500,7 +578,7 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
     .await
     .unwrap_err();
     assert_eq!(err_401.code, RuntimeErrorCode::KeyRejected);
-    assert!(!win64.join("MysticParadox.dll.rr-download").exists());
+    assert!(!win64.join("Rustic-Isles.dll.rr-download").exists());
 
     // 2. Wrong hash -> Different
     let err_hash = install_runtime(InstallRequest {
@@ -514,7 +592,7 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
     .await
     .unwrap_err();
     assert_eq!(err_hash.code, RuntimeErrorCode::Different);
-    assert!(!win64.join("MysticParadox.dll.rr-download").exists());
+    assert!(!win64.join("Rustic-Isles.dll.rr-download").exists());
 
     // 3. Wrong pin -> CertMismatch
     let wrong_pin_endpoint = Endpoint {
@@ -533,7 +611,7 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
     .await
     .unwrap_err();
     assert_eq!(err_pin.code, RuntimeErrorCode::CertMismatch);
-    assert!(!win64.join("MysticParadox.dll.rr-download").exists());
+    assert!(!win64.join("Rustic-Isles.dll.rr-download").exists());
 
     handle.abort();
 }

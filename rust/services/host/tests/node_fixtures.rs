@@ -129,8 +129,8 @@ fn with_admin_api_secrets() -> Result<Secrets, host::error::HostError> {
 /// The lines the Rust kit writes that the Node kit never did, which the comparisons leave out.
 const ADMIN_API_LINES: [&str; 4] = [
     "REFORGED_ADMIN_API_KEY=",
-    "MYSTICPARADOX_MANAGER_ADMIN=",
-    "MYSTICPARADOX_MANAGER_OPERATOR_SECRET=",
+    "RUSTIC_ISLES_MANAGER_ADMIN=",
+    "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET=",
     "REFORGED_DB_PASSWORD=",
 ];
 
@@ -167,7 +167,7 @@ fn secrets_env_written_by_the_node_kit_is_kept_byte_for_byte() {
     let rewritten = text(&copy.path().join("secrets.env"));
     assert_eq!(without_admin_api_lines(&rewritten), text(&file));
     assert!(rewritten.ends_with(&format!(
-        "MYSTICPARADOX_MANAGER_OPERATOR_SECRET={}\nREFORGED_DB_PASSWORD={}\n",
+        "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET={}\nREFORGED_DB_PASSWORD={}\n",
         "h".repeat(64),
         "p".repeat(64)
     )));

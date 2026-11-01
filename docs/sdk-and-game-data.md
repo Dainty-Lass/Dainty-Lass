@@ -4,7 +4,7 @@ Nothing from the game is in this repository. Every host produces three things fr
 on a Windows PC with the game installed:
 
 1. the **SDK**: C++ headers generated from the running game, which the runtime is compiled against;
-2. the **runtime**: `MysticParadox.dll` (built from `modules/rustic-isles/native/runtime` with the SDK) and its loader
+2. the **runtime**: `Rustic-Isles.dll` (built from `modules/rustic-isles/native/runtime` with the SDK) and its loader
    `winmm.dll` (`native/runtime-loader`, Rust), which players install from your server;
 3. the **game data**: JSON the backend and the Director serve, generated from an export the CatalogExporter
    makes inside the game.
@@ -29,7 +29,7 @@ The SDK is Phoenix Labs' material: never commit it, never share it. `.gitignore`
 Visual Studio 2022 with Desktop development with C++ (the v145 toolset and a Windows SDK). Then:
 
 ```bat
-modules\rustic-isles\native\runtime\_build.bat          REM MysticParadox.dll, one DLL for the client and the dedicated server
+modules\rustic-isles\native\runtime\_build.bat          REM Rustic-Isles.dll, one DLL for the client and the dedicated server
 cd native\runtime-loader && cargo build --release      REM winmm.dll (needs the Rust toolchain; the loader stays here, DD13)
 ```
 

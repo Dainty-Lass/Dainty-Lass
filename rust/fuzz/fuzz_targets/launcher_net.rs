@@ -69,7 +69,11 @@ fuzz_target!(|data: &[u8]| {
     }
     if let Some(manifest) = parse::parse_runtime_manifest(Some(&value)) {
         // Exactly the two runtime files, sorted, each in range with a plain hash
-        let names: Vec<&str> = manifest.files.iter().map(|file| file.name.as_str()).collect();
+        let names: Vec<&str> = manifest
+            .files
+            .iter()
+            .filter_map(|file| protocol::manifest::runtime_file_slot(&file.name))
+            .collect();
         assert_eq!(names, protocol::manifest::RUNTIME_FILE_NAMES);
         for file in &manifest.files {
             assert!((1..=protocol::manifest::MAX_RUNTIME_FILE_BYTES).contains(&file.size));

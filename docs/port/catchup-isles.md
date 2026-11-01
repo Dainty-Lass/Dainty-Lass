@@ -178,7 +178,7 @@ For RU1 and RZ2: `replay` holds every patch as a commit, and DD13 splits them.
   `reforgedApiRules.ts`, `.test.ts` (deleted), `routes/eos.ts`, `routes/reforgedApi.ts`;
   `paradox/director/src/app.ts`, `controllers/gameservers.ts`, `server.ts`; every file under `preset/` (deleted)
 - **Behavior:** the three infrastructure patches written again from the Rust side's contract, with the same routes,
-  headers, env names and answers. Runtime (0001): `MYSTICPARADOX_BACKEND_URL`, then `REFORGED_BACKEND_URL`; the
+  headers, env names and answers. Runtime (0001): `RUSTIC_ISLES_BACKEND_URL`, then `REFORGED_BACKEND_URL`; the
   fail-closed host is `backend.invalid` instead of `reforged.invalid`; `bUseSSL` follows the address's scheme.
   Backend (0002): the launcher API in `launcherApiRules.ts` and `reforgedApi.ts`, the kick included; the EOS
   client-credentials token and the refusal of banned keys; the listener-plan aliases. Director (0003): loopback bind

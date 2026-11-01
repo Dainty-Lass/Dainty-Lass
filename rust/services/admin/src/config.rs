@@ -29,7 +29,7 @@ pub struct Config {
     pub api_key: String,
     /// `REFORGED_ADMIN_KEY`: the backend's `/reforged/api` admin routes (the kick)
     pub admin_key: String,
-    /// `MYSTICPARADOX_MANAGER_OPERATOR_SECRET`: signs the calls to the backend's `/admin/v1`
+    /// `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET`: signs the calls to the backend's `/admin/v1`
     pub operator_secret: String,
     pub timeouts_file: PathBuf,
     pub max_hunt_servers: u32,
@@ -54,6 +54,15 @@ fn secret(env: &Env, name: &str) -> Result<String, String> {
         Some(value) if value.chars().count() >= MIN_SECRET => Ok(value),
         Some(_) => Err(format!("{name} must be at least {MIN_SECRET} characters")),
         None => Err(format!("{name} is not set: run reforged-host setup")),
+    }
+}
+
+/// `new`, or `old` when only that is set: its name before the Rustic Isles rename, read for one release (DX4)
+fn renamed<'a>(env: &Env, new: &'a str, old: &'a str) -> &'a str {
+    if optional(env, new).is_none() && optional(env, old).is_some() {
+        old
+    } else {
+        new
     }
 }
 
@@ -176,7 +185,14 @@ impl Config {
             director_url: local_url(env, "REFORGED_DIRECTOR_URL", "http://127.0.0.1:61001")?,
             api_key: secret(env, "REFORGED_ADMIN_API_KEY")?,
             admin_key: secret(env, "REFORGED_ADMIN_KEY")?,
-            operator_secret: secret(env, "MYSTICPARADOX_MANAGER_OPERATOR_SECRET")?,
+            operator_secret: secret(
+                env,
+                renamed(
+                    env,
+                    "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
+                    "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
+                ),
+            )?,
             timeouts_file,
             max_hunt_servers,
             server_mode,
@@ -204,7 +220,7 @@ mod tests {
         let mut pairs = vec![
             ("REFORGED_ADMIN_API_KEY", KEY),
             ("REFORGED_ADMIN_KEY", KEY),
-            ("MYSTICPARADOX_MANAGER_OPERATOR_SECRET", KEY),
+            ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", KEY),
             ("REFORGED_ADMIN_API_TIMEOUTS_FILE", "timeouts.json"),
         ];
         pairs.extend_from_slice(extra);
@@ -224,12 +240,25 @@ mod tests {
         for name in [
             "REFORGED_ADMIN_API_KEY",
             "REFORGED_ADMIN_KEY",
-            "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
+            "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
             "REFORGED_ADMIN_API_TIMEOUTS_FILE",
         ] {
             assert!(load(&[(name, " ")]).unwrap_err().contains(name), "{name}");
         }
         assert!(load(&[("REFORGED_ADMIN_API_KEY", "short")]).unwrap_err().contains("32"));
+    }
+
+    #[test]
+    fn reads_the_operator_secret_under_its_name_from_before_the_rename() {
+        let old = "fedcba9876543210fedcba9876543210";
+        let c = load(&[
+            ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", " "),
+            ("MYSTICPARADOX_MANAGER_OPERATOR_SECRET", old),
+        ])
+        .unwrap();
+        assert_eq!(c.operator_secret, old);
+        let c = load(&[("MYSTICPARADOX_MANAGER_OPERATOR_SECRET", old)]).unwrap();
+        assert_eq!(c.operator_secret, KEY, "the new name wins");
     }
 
     #[test]

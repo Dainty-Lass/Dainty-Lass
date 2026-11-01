@@ -1,10 +1,10 @@
-//! The game runtime this server hands to players (`src/runtime.ts`): `MysticParadox.dll` and
+//! The game runtime this server hands to players (`src/runtime.ts`): `Rustic-Isles.dll` and
 //! `winmm.dll`, built by the host from their own SDK and copied into `CONTENT_RUNTIME_DIR` with a
 //! `runtime.json` next to them (the host kit's `publish-runtime`, or the launcher's Host page):
 //!
 //! ```json
 //! { "version": "20261014-1a2b3c4d", "build": { "changelist": 647472 },
-//!   "files": [ { "name": "MysticParadox.dll", "size": 4718592, "sha256": "<64 hex>" },
+//!   "files": [ { "name": "Rustic-Isles.dll", "size": 4718592, "sha256": "<64 hex>" },
 //!              { "name": "winmm.dll", "size": 233472, "sha256": "<64 hex>" } ] }
 //! ```
 //!
@@ -17,7 +17,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use protocol::manifest::{RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest};
+use protocol::manifest::{LEGACY_RUNTIME_DLL, RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest, runtime_file_slot};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
@@ -52,6 +52,14 @@ impl RuntimeStatus {
             Self::None(reason) | Self::Invalid(reason) => Some(reason),
         }
     }
+}
+
+fn listed(index: RuntimeManifest, name: &str) -> Option<RuntimeFile> {
+    let slot = runtime_file_slot(name)?;
+    index
+        .files
+        .into_iter()
+        .find(|f| runtime_file_slot(&f.name) == Some(slot))
 }
 
 pub fn sha256_hex(data: &[u8]) -> String {
@@ -178,13 +186,14 @@ impl RuntimeStore {
         folders.iter().map(|name| base.join(name)).find(|sub| sub.is_dir())
     }
 
-    /// A listed file and its path. The name must be exactly one in the checked list.
+    /// A listed file and its path. The name must be exactly one in the checked list, or the runtime's under
+    /// its other name (DX4).
     pub fn file(&self, name: &str) -> Option<(RuntimeFile, PathBuf)> {
         let RuntimeStatus::Ok { index, .. } = self.get() else {
             return None;
         };
         let dir = self.dir.as_ref()?;
-        let file = index.files.into_iter().find(|f| f.name == name)?;
+        let file = listed(index, name)?;
         let full = dir.join(&file.name);
         Some((file, full))
     }
@@ -197,7 +206,7 @@ impl RuntimeStore {
         let RuntimeStatus::Ok { index, .. } = load(&sub) else {
             return None;
         };
-        let file = index.files.into_iter().find(|f| f.name == name)?;
+        let file = listed(index, name)?;
         let full = sub.join(&file.name);
         Some((file, full))
     }
@@ -212,6 +221,7 @@ impl RuntimeStore {
     fn signature_now(dir: &Path) -> String {
         std::iter::once(INDEX_FILE)
             .chain(RUNTIME_FILE_NAMES)
+            .chain([LEGACY_RUNTIME_DLL])
             .map(|name| match std::fs::metadata(dir.join(name)) {
                 Ok(meta) => {
                     let modified = meta
@@ -272,7 +282,7 @@ mod tests {
 
     fn good() -> Value {
         json!({"version": "1.0", "build": {"changelist": 647472}, "files": [
-            {"name": "MysticParadox.dll", "size": 10, "sha256": "a".repeat(64)},
+            {"name": "Rustic-Isles.dll", "size": 10, "sha256": "a".repeat(64)},
             {"name": "winmm.dll", "size": 5, "sha256": "b".repeat(64)},
         ]})
     }
@@ -287,14 +297,14 @@ mod tests {
     pub fn publish(dir: &Path, seed: u8, version: &str) -> (Vec<u8>, Vec<u8>) {
         let dll = vec![seed; 5000 + seed as usize];
         let loader = vec![seed + 1; 3000 + seed as usize];
-        std::fs::write(dir.join("MysticParadox.dll"), &dll).unwrap();
+        std::fs::write(dir.join("Rustic-Isles.dll"), &dll).unwrap();
         std::fs::write(dir.join("winmm.dll"), &loader).unwrap();
         let index = json!({
             "version": version,
             "build": {"changelist": 647472},
             "files": [
                 {"name": "winmm.dll", "size": loader.len(), "sha256": sha256_hex(&loader)},
-                {"name": "MysticParadox.dll", "size": dll.len(), "sha256": sha256_hex(&dll)},
+                {"name": "Rustic-Isles.dll", "size": dll.len(), "sha256": sha256_hex(&dll)},
             ],
         });
         std::fs::write(dir.join("runtime.json"), index.to_string()).unwrap();
@@ -312,7 +322,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             index.files.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(),
-            ["MysticParadox.dll", "winmm.dll"]
+            ["Rustic-Isles.dll", "winmm.dll"]
         );
         assert_eq!(index.build.name, "rel-1.14.7-Archon");
         assert_eq!(index.build.changelist, 647472);
@@ -335,7 +345,7 @@ mod tests {
             with(|v| v["files"] = json!("x")),
             with(|v| v["files"] = json!([file0.clone()])),
             with(|v| v["files"] = json!([file0.clone(), file1.clone(), file0.clone()])),
-            changed("name", json!("..\\MysticParadox.dll")),
+            changed("name", json!("..\\Rustic-Isles.dll")),
             changed("name", json!("dxgi.dll")),
             changed("sha256", json!("A".repeat(64))),
             changed("size", json!(0)),
@@ -352,13 +362,13 @@ mod tests {
         // Whole doubles are integers, a missing or non-object build takes the default, the version
         // is trimmed, a BOM is dropped, and the host's build name is never kept
         let index = parse_runtime_json(
-            "\u{feff}{\"version\":\" v1 \",\"build\":[],\"files\":[{\"name\":\"winmm.dll\",\"size\":5.0,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},{\"name\":\"MysticParadox.dll\",\"size\":1e1,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}".as_bytes(),
+            "\u{feff}{\"version\":\" v1 \",\"build\":[],\"files\":[{\"name\":\"winmm.dll\",\"size\":5.0,\"sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},{\"name\":\"Rustic-Isles.dll\",\"size\":1e1,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]}".as_bytes(),
         )
         .unwrap();
         assert_eq!(index.version, "v1");
         assert_eq!(index.build.changelist, DEFAULT_CHANGELIST);
         assert_eq!(index.files[0].size, 10);
-        assert!(index.to_json().starts_with(r#"{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"MysticParadox.dll","size":10,"#));
+        assert!(index.to_json().starts_with(r#"{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"Rustic-Isles.dll","size":10,"#));
         for bad in [
             json!({"build": {"changelist": null}}),
             json!({"build": {"changelist": 1.5}}),
@@ -370,11 +380,11 @@ mod tests {
         }
         assert_eq!(
             parse_runtime_index(&with(|v| v["files"][0]["name"] = json!(null))).unwrap_err(),
-            "unknown file null (only MysticParadox.dll and winmm.dll)"
+            "unknown file null (only Rustic-Isles.dll and winmm.dll)"
         );
         assert_eq!(
             parse_runtime_index(&with(|v| v["files"][0] = json!(5))).unwrap_err(),
-            "unknown file undefined (only MysticParadox.dll and winmm.dll)"
+            "unknown file undefined (only Rustic-Isles.dll and winmm.dll)"
         );
     }
 
@@ -408,6 +418,51 @@ mod tests {
             RuntimeStore::new(Some(dir.path().into()), now).get(),
             RuntimeStatus::None(_)
         ));
+    }
+
+    #[test]
+    fn serves_a_runtime_published_under_its_name_from_before_the_rename() {
+        let (now, _) = clock();
+        let dir = tempfile::tempdir().unwrap();
+        let (dll, _) = publish(dir.path(), 1, "v1");
+        std::fs::rename(
+            dir.path().join("Rustic-Isles.dll"),
+            dir.path().join("MysticParadox.dll"),
+        )
+        .unwrap();
+        let index = std::fs::read_to_string(dir.path().join("runtime.json")).unwrap();
+        std::fs::write(
+            dir.path().join("runtime.json"),
+            index.replace("Rustic-Isles.dll", "MysticParadox.dll"),
+        )
+        .unwrap();
+        let store = RuntimeStore::new(Some(dir.path().into()), now);
+        let RuntimeStatus::Ok { index, .. } = store.get() else {
+            panic!("not ok")
+        };
+        assert_eq!(
+            index.files.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(),
+            ["MysticParadox.dll", "winmm.dll"]
+        );
+        for name in ["MysticParadox.dll", "Rustic-Isles.dll"] {
+            let (file, full) = store.file(name).unwrap();
+            assert_eq!(file.name, "MysticParadox.dll", "{name}");
+            assert_eq!(std::fs::read(full).unwrap(), dll);
+        }
+        assert!(store.file("mysticparadox.dll").is_none());
+    }
+
+    #[test]
+    fn refuses_both_names_of_the_runtime_in_one_list() {
+        let both = with(|v| {
+            let mut old = v["files"][0].clone();
+            old["name"] = json!("MysticParadox.dll");
+            v["files"].as_array_mut().unwrap().push(old);
+        });
+        assert_eq!(
+            parse_runtime_index(&both).unwrap_err(),
+            "MysticParadox.dll is listed twice"
+        );
     }
 
     #[test]

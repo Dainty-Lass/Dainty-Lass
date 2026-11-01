@@ -164,7 +164,7 @@ To allow the MIT crate (e.g. `launcher-kit`, `license = "MIT"`) to compile witho
 
 ### 2.1 Module 1: `net::runtime_files` (`runtime_files.rs`, `runtime_files/manifest.rs`, `runtime_files/tests.rs`)
 
-Manages inspection, trust calculation, manifest parsing, downloading, atomic/in-use replacement, and local developer copying of the two game runtime files (`MysticParadox.dll` and `winmm.dll`) inside `<game_root>/Archon/Binaries/Win64`.
+Manages inspection, trust calculation, manifest parsing, downloading, atomic/in-use replacement, and local developer copying of the two game runtime files (`Rustic-Isles.dll` and `winmm.dll`) inside `<game_root>/Archon/Binaries/Win64`.
 
 #### Constants
 - `pub const RUNTIME_MARKER_FILE: &str = ".reforged-runtime.json"` (re-exported from `manifest`)
@@ -174,7 +174,7 @@ Manages inspection, trust calculation, manifest parsing, downloading, atomic/in-
 - `const MANIFEST_TIMEOUT: Duration = Duration::from_secs(10)`
 - `const MANIFEST_MAX_BYTES: usize = 64 * 1024`
 - `const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1` (`9_007_199_254_740_991`)
-- From `protocol::manifest`: `RUNTIME_FILE_NAMES = ["MysticParadox.dll", "winmm.dll"]`, `RUNTIME_FILES_BASE_PATH = "/content/v1/runtime/files"`, `RUNTIME_MANIFEST_PATH = "/content/v1/runtime/manifest"`, `DEFAULT_CHANGELIST = 647_472`, `MAX_RUNTIME_FILE_BYTES = 64 * 1024 * 1024`, ` RuntimeFile`, `RuntimeManifest`.
+- From `protocol::manifest`: `RUNTIME_FILE_NAMES = ["Rustic-Isles.dll", "winmm.dll"]`, `RUNTIME_FILES_BASE_PATH = "/content/v1/runtime/files"`, `RUNTIME_MANIFEST_PATH = "/content/v1/runtime/manifest"`, `DEFAULT_CHANGELIST = 647_472`, `MAX_RUNTIME_FILE_BYTES = 64 * 1024 * 1024`, ` RuntimeFile`, `RuntimeManifest`.
 
 #### Public Types & Signatures
 
@@ -468,7 +468,7 @@ pub async fn check_game_exe(
 Inspects a DaintyLass checkout ("workspace"), discovers the host toolchain (Visual Studio / MSBuild via `vswhere.exe` and Rust `cargo`), scans Dumper-7 outputs, imports CppSDK headers/functions into `ParadoxRuntime`, reads `.workspace/config/host.toml` (or legacy `host.json`), and runs logged build/host commands.
 
 #### Constants
-- `pub const RUNTIME_FILE_NAMES: [&str; 2] = ["MysticParadox.dll", "winmm.dll"]`
+- `pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"]`
 - `pub const BACKEND_GAME_DATA: [&str; 7] = ["progression_config.json", "slayers_path.json", "slayers_path_definitions.json", "ladyluck_store.json", "platinum_store.json", "reward_cache_store.json", "inventory_storage_policy.json"]`
 - `pub const DIRECTOR_GAME_DATA: [&str; 7] = ["player_hunts_table.json", "matchmaker_hunts_table.json", "arena_easy_matchmaker_hunts.json", "arena_hard_matchmaker_hunts.json", "arena_elite_matchmaker_hunts.json", "arena_hard_matchmaker_hunts_new.json", "arena_elite_matchmaker_hunts_new.json"]`
 - `pub const EXPORT_FLAGS: &str = "# Written by the DaintyLass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n"`
@@ -945,12 +945,12 @@ impl Controller {
    - **`HostAction::InjectDumper`**:
      - Refuses with `ErrorCode::GameRunning` if the game is already running or dumping, or if any running game client process is detected on the system.
      - Requires a verified game folder (`GameFolderNotFound` / `GameNotVerified` / `GameWrongVersion`), a selected Dumper-7 DLL file (`HostFailed("dumper_dll")`), and the built runtime loader `winmm.dll` (`HostFailed("loader_not_built")`).
-     - Calls `self.begin_loader_session(SessionKind::Dump, &win64, &paths.loader_dll, &dumper)` which copies `winmm.dll` and the Dumper-7 DLL into `Win64`, moves `MysticParadox.dll` aside to `MysticParadox.dll.rr-dump-aside` so Dumper-7 sees a clean game process, and writes `mystic_loader.ini` listing the Dumper-7 DLL filename.
+     - Calls `self.begin_loader_session(SessionKind::Dump, &win64, &paths.loader_dll, &dumper)` which copies `winmm.dll` and the Dumper-7 DLL into `Win64`, moves `Rustic-Isles.dll` aside to `Rustic-Isles.dll.rr-dump-aside` so Dumper-7 sees a clean game process, and writes `mystic_loader.ini` listing the Dumper-7 DLL filename.
      - Spawns `Dauntless-Win64-Shipping.exe` with `["-DisableEOS", "-EpicPortal", "-NoEAC", "-windowed", "-ResX=1280", "-ResY=720"]`.
-     - Polls `loader_session::dump_ready(&dump_root, started_at, &baseline)` every 2 seconds up to 180 seconds; once a new `SDK.hpp` is complete (and settled for 3 seconds), stops the game process, calls `end_loader_session().await` (restoring `MysticParadox.dll` and removing `mystic_loader.ini` and the copied Dumper-7 DLL), and marks the job `Done`.
+     - Polls `loader_session::dump_ready(&dump_root, started_at, &baseline)` every 2 seconds up to 180 seconds; once a new `SDK.hpp` is complete (and settled for 3 seconds), stops the game process, calls `end_loader_session().await` (restoring `Rustic-Isles.dll` and removing `mystic_loader.ini` and the copied Dumper-7 DLL), and marks the job `Done`.
    - **`HostAction::InjectExporter`**:
      - Refuses with `ErrorCode::GameRunning` if the game is already running or dumping.
-     - Requires `CatalogExporter.dll` (`HostFailed("exporter_not_built")`), writes `export_flags.txt` (`EXPORT_FLAGS`) to `Win64`, and calls `self.begin_loader_session(SessionKind::Export, &win64, &paths.loader_dll, &paths.exporter_dll)` (which writes `mystic_loader.ini` listing both `MysticParadox.dll` and `CatalogExporter.dll`).
+     - Requires `CatalogExporter.dll` (`HostFailed("exporter_not_built")`), writes `export_flags.txt` (`EXPORT_FLAGS`) to `Win64`, and calls `self.begin_loader_session(SessionKind::Export, &win64, &paths.loader_dll, &paths.exporter_dll)` (which writes `mystic_loader.ini` listing both `Rustic-Isles.dll` and `CatalogExporter.dll`).
      - Starts the game through the normal `self.play().await` flow; when `play()` finishes or fails, `end_loader_session()` cleans up `CatalogExporter.dll`, `export_flags.txt`, and `mystic_loader.ini`.
 5. **Auto-Applying Local Runtime & Server Invite**:
    - After `PublishRuntime` succeeds, if the host server is running and the joined server is on this PC (`is_loopback_host(&sv.host)`), automatically installs the published runtime into the local game folder (`install_local_runtime`) and refreshes the runtime offer.
@@ -1029,17 +1029,17 @@ impl Controller {
 ### 3.2 Runtime Loader Sessions (`platform/loader_session.rs`, `controller/loader.rs`)
 
 Implements **RD9** (zero process injection):
-- `LOADER_INI = "mystic_loader.ini"`, `DUMP_ASIDE = "MysticParadox.dll.rr-dump-aside"`, `HOST_SESSION_DLLS = ["CatalogExporter.dll", "Dumper-7.dll"]`, `EXPORT_FLAGS_FILE = "export_flags.txt"`, `LOADER_DLL = "winmm.dll"`, `RUNTIME_DLL = "MysticParadox.dll"`.
+- `LOADER_INI = "mystic_loader.ini"`, `DUMP_ASIDE = "Rustic-Isles.dll.rr-dump-aside"`, `HOST_SESSION_DLLS = ["CatalogExporter.dll", "Dumper-7.dll"]`, `EXPORT_FLAGS_FILE = "export_flags.txt"`, `LOADER_DLL = "winmm.dll"`, `RUNTIME_DLL = "Rustic-Isles.dll"`.
 - `SessionKind { Dump, Export }`:
   - `LoaderSession::begin(kind, win64_dir, loader_dll, session_dll)`:
     - Copies `loader_dll` to `<win64_dir>/winmm.dll` (and unblocks it) if not already identical.
     - Copies `session_dll` into `<win64_dir>/<file_name>` (and unblocks it).
-    - For `SessionKind::Dump`: renames `<win64_dir>/MysticParadox.dll` to `<win64_dir>/MysticParadox.dll.rr-dump-aside` so Dumper-7 inspects the unpatched game, and writes `mystic_loader.ini` containing `<session_dll_name>\r\n`.
-    - For `SessionKind::Export`: requires `<win64_dir>/MysticParadox.dll` to exist, and writes `mystic_loader.ini` containing `MysticParadox.dll\r\n<session_dll_name>\r\n`.
+    - For `SessionKind::Dump`: renames `<win64_dir>/Rustic-Isles.dll` to `<win64_dir>/Rustic-Isles.dll.rr-dump-aside` so Dumper-7 inspects the unpatched game, and writes `mystic_loader.ini` containing `<session_dll_name>\r\n`.
+    - For `SessionKind::Export`: requires `<win64_dir>/Rustic-Isles.dll` to exist, and writes `mystic_loader.ini` containing `Rustic-Isles.dll\r\n<session_dll_name>\r\n`.
   - `LoaderSession::cleanup(&self)` / `clean_leftovers(win64_dir)`:
     - Removes `mystic_loader.ini`, `export_flags.txt`, and any `HOST_SESSION_DLLS` (plus the session's copied DLL) from `win64_dir`.
-    - Restores `MysticParadox.dll.rr-dump-aside` back to `MysticParadox.dll` (or removes the aside file if `MysticParadox.dll` already exists).
-  - `leftover_files(win64_dir)`: returns the list of any leftover session files (`mystic_loader.ini`, `MysticParadox.dll.rr-dump-aside`, `export_flags.txt`, `CatalogExporter.dll`, `Dumper-7.dll`). Both `Controller::play()` and `Controller::ensure_realms_ready()` refuse to start if leftovers remain after cleanup (`ErrorCode::LoaderLeftovers`).
+    - Restores `Rustic-Isles.dll.rr-dump-aside` back to `Rustic-Isles.dll` (or removes the aside file if `Rustic-Isles.dll` already exists).
+  - `leftover_files(win64_dir)`: returns the list of any leftover session files (`mystic_loader.ini`, `Rustic-Isles.dll.rr-dump-aside`, `export_flags.txt`, `CatalogExporter.dll`, `Dumper-7.dll`). Both `Controller::play()` and `Controller::ensure_realms_ready()` refuse to start if leftovers remain after cleanup (`ErrorCode::LoaderLeftovers`).
 
 ### 3.3 Platform Support Files (`linux_runtime.rs`, `updater.rs`, `core/i18n.rs`, `window.rs`, `log.rs`, `system.rs`)
 

@@ -6,7 +6,7 @@ Draft, 2026-10-31. Target: the controller (`rust/crates/controller`), `service-k
 consumers that need it first: a Discord bot and dainty-dashboard's fleet agent.
 
 **One game.** This plan covers Dauntless 1.14.7 on rustic-isles (Mystic Paradox's implementation for the latest
-version) and nothing else. Dauntless Revived's 1.4.4 stack and Mystic Paradox's 1.12 port are not modules here, and
+version) and nothing else. Dauntless Revived's 1.4.4 stack and Rustic Isles's 1.12 port are not modules here, and
 the controller's second edition (`Refined`, which `protocol` maps to the 1.4.4 game) has no place in it.
 
 ## The problem
@@ -492,7 +492,7 @@ integration pass adds the rows and the decisions below.
 - 2026-10-31: the event store waits for Postgres (RB3, RB14); no interim SQLite store.
 - 2026-10-31: the Discord bot waits for the event store (MS11), so it ships with its audit, after the backend
   cutover.
-- 2026-10-31: one game, 1.14.7 on rustic-isles. No Dauntless Revived 1.4.4 modules and no Mystic Paradox 1.12
+- 2026-10-31: one game, 1.14.7 on rustic-isles. No Dauntless Revived 1.4.4 modules and no Rustic Isles 1.12
   modules, so nothing here is per edition. Importing and converting a legacy database is kept, outside this plan.
 
 ## Open questions

@@ -1,6 +1,6 @@
 # Applying a runtime patch
 
-A change to the game runtime (`MysticParadox.dll`) or its loader (`winmm.dll`) that was written against Mystic
+A change to the game runtime (`Rustic-Isles.dll`) or its loader (`winmm.dll`) that was written against Mystic
 Paradox's tree, as a `git diff` with paths starting `ParadoxRuntime/` or `tools/RuntimeLoader/`, is applied in two
 places since DS6: the runtime in the rustic-isles repository (`native/runtime/` there, mounted here at
 [`modules/rustic-isles`](../modules/rustic-isles)), the loader in this one

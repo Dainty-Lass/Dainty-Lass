@@ -2,7 +2,7 @@
   "_comment": [
     "Server preset \"x\": the game data every server set up from this project starts from (reforged-host preset).",
     "Read from an installed Dauntless 1.14.7 (647472) client for interoperability: identifiers and tuning values (item catalogue, store, progression and hunt tables), no game assets.",
-    "Sources: CatalogExporter's export from the running game, converted by Mystic Paradox's game-data generators and the host kit (npm run gamedata).",
+    "Sources: CatalogExporter's export from the running game, converted by Rustic Isles's game-data generators and the host kit (npm run gamedata).",
     "Game executable SHA-256 not recorded (no game folder in host.json).",
     "Lady Luck's Store and the platinum store are not in it: npm run gamedata builds them on each server from the live store captures (paradox/backend/store-captures.json).",
     "A host's own generated game data takes precedence over this preset. Regenerate it with npm run preset -- --create; do not edit the files by hand."

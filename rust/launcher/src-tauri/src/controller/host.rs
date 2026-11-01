@@ -87,7 +87,7 @@ impl HostState {
     }
 }
 
-/// The steps that work in Mystic Paradox's source (`NEEDS_UPSTREAM`).
+/// The steps that work in Rustic Isles's source (`NEEDS_UPSTREAM`).
 fn needs_upstream(action: HostAction, embedded: bool) -> bool {
     if embedded {
         matches!(action, HostAction::ImportSdk | HostAction::BuildLoader)
@@ -972,7 +972,7 @@ impl Controller {
         self.finish_job(kind, r.code == 0, message, Some(&log_file))
     }
 
-    /// Mystic Paradox's source is part of the checkout (RD1); a release without it gets it from
+    /// Rustic Isles's source is part of the checkout (RD1); a release without it gets it from
     /// `reforged-host upstream`, so the SDK, the loader and the game data steps do not wait for setup.
     async fn ensure_upstream(&self, ws: &Path) -> Result<(), ActionResult> {
         let w = WorkspacePaths::new(ws);
@@ -996,7 +996,7 @@ impl Controller {
             self.set_job(None);
             return Err(self.host_fail("upstream_old"));
         }
-        log::info("host: Mystic Paradox downloaded for the Build tab");
+        log::info("host: Rustic Isles downloaded for the Build tab");
         Ok(())
     }
 
@@ -1113,10 +1113,7 @@ impl Controller {
         let base = self.seams.env.clone().unwrap_or_else(|| std::env::vars_os().collect());
         let env: Vec<_> = base
             .into_iter()
-            .filter(|(name, _)| {
-                let name = name.to_string_lossy().to_ascii_uppercase();
-                !name.starts_with("REFORGED_") && !name.starts_with("MYSTICPARADOX_")
-            })
+            .filter(|(name, _)| !crate::platform::launch::is_runtime_env(name))
             .collect();
         let args: Vec<String> = DUMP_ARGS.iter().map(|a| (*a).to_owned()).collect();
         log::info(&format!(

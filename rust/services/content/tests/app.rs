@@ -38,14 +38,14 @@ fn lines() -> &'static Mutex<Vec<String>> {
 
 /// test/helpers.ts `Publish`, with the DLL's size given.
 fn publish(dir: &Path, dll: Vec<u8>, loader: Vec<u8>, version: &str) -> (Vec<u8>, Vec<u8>) {
-    std::fs::write(dir.join("MysticParadox.dll"), &dll).unwrap();
+    std::fs::write(dir.join("Rustic-Isles.dll"), &dll).unwrap();
     std::fs::write(dir.join("winmm.dll"), &loader).unwrap();
     let index = json!({
         "version": version,
         "build": {"changelist": 647472},
         "files": [
             {"name": "winmm.dll", "size": loader.len(), "sha256": sha256_hex(&loader)},
-            {"name": "MysticParadox.dll", "size": dll.len(), "sha256": sha256_hex(&dll)},
+            {"name": "Rustic-Isles.dll", "size": dll.len(), "sha256": sha256_hex(&dll)},
         ],
     });
     std::fs::write(dir.join("runtime.json"), index.to_string()).unwrap();
@@ -157,7 +157,7 @@ async fn stalled(port: u16, key: &str) -> (u16, tokio::net::TcpStream) {
     let mut socket = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
     socket
         .write_all(
-            format!("GET /content/v1/runtime/files/MysticParadox.dll HTTP/1.1\r\nhost: x\r\nx-reforged-user-api-key: {key}\r\n\r\n")
+            format!("GET /content/v1/runtime/files/Rustic-Isles.dll HTTP/1.1\r\nhost: x\r\nx-reforged-user-api-key: {key}\r\n\r\n")
                 .as_bytes(),
         )
         .await
@@ -178,7 +178,7 @@ async fn wait_for(what: &str, condition: impl Fn() -> bool) {
     panic!("timed out waiting for {what}");
 }
 
-const DLL: &str = "/content/v1/runtime/files/MysticParadox.dll";
+const DLL: &str = "/content/v1/runtime/files/Rustic-Isles.dll";
 
 /// test/app.test.ts's `before`: the runtime from `Publish(Dir)` and one news item.
 async fn published() -> (tempfile::TempDir, Started, Vec<u8>, Vec<u8>) {
@@ -201,7 +201,7 @@ async fn serves_the_runtime_manifest_without_a_key_with_an_etag() {
     assert_eq!(reply.status, 200);
     let body = reply.json();
     assert_eq!(body["version"], "20261014-1a2b3c4d");
-    assert_eq!(body["files"][0]["name"], "MysticParadox.dll");
+    assert_eq!(body["files"][0]["name"], "Rustic-Isles.dll");
     assert_eq!(body["files"][1]["name"], "winmm.dll");
     assert_eq!(body["files"][0]["sha256"], sha256_hex(&dll));
     let etag = reply.header("etag").unwrap().to_owned();
@@ -254,7 +254,7 @@ async fn serves_nothing_but_the_two_runtime_files() {
         "/content/v1/runtime/files/%2e%2e/runtime.json",
         "/content/v1/runtime/files/winmm.DLL",
         "/content/v1/runtime/files/",
-        "/content/v1/runtime/files/MysticParadox.dll/x",
+        "/content/v1/runtime/files/Rustic-Isles.dll/x",
         "/content/v1/runtime/",
         "/content/v1/files/x",
         "/",
@@ -392,7 +392,7 @@ async fn a_file_changed_under_the_list_is_refused_and_picked_up_again() {
     let key = [("x-reforged-user-api-key", KEY)];
     assert_eq!(request(server.port, "GET", DLL, &key).await.status, 200);
     // A new publish in progress: the DLL has another size than the list the server checked
-    std::fs::write(dir.path().join("MysticParadox.dll"), vec![3u8; 10]).unwrap();
+    std::fs::write(dir.path().join("Rustic-Isles.dll"), vec![3u8; 10]).unwrap();
     let reply = request(server.port, "GET", DLL, &key).await;
     assert_eq!(reply.status, 503);
     assert_eq!(reply.json(), json!({"error": "file_unavailable"}));

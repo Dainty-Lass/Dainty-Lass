@@ -12,7 +12,7 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 
 ## What it is and where the boundary is
 
-Each server's host builds its own runtime, `MysticParadox.dll` and the `winmm.dll` loader, from their own SDK. The
+Each server's host builds its own runtime, `Rustic-Isles.dll` and the `winmm.dll` loader, from their own SDK. The
 launcher puts both next to the game's executable, and the game loads them at start: whatever lands there runs as
 the player, with the player's files and the account key's server in reach. So the content server is trusted only
 as far as the player said so, and only for the exact bytes the player accepted.
@@ -39,8 +39,10 @@ manifest that parses names only the two runtime files, each once, with a plain h
 
 ### The manifest
 
-- [ ] `parse_runtime_manifest` rejects the whole manifest unless `files` lists exactly `MysticParadox.dll` and
-      `winmm.dll`, each once. No other name, no path, no `..`, no case variant is ever accepted, so nothing else is
+- [ ] `parse_runtime_manifest` rejects the whole manifest unless `files` lists exactly `Rustic-Isles.dll` and
+      `winmm.dll`, each once. For one release a host may list the runtime as `MysticParadox.dll`, its name before the
+      Rustic Isles rename; it is fetched under that name and installed as `Rustic-Isles.dll`, and both names at once
+      reject the manifest. No other name, no path, no `..`, no case variant is ever accepted, so nothing else is
       written next to the game.
 - [ ] Each `sha256` is 64 lower-case hex characters, each `size` an integer from 1 byte to 64 MiB
       (`MAX_RUNTIME_FILE_BYTES`); a float with a fraction, a negative, a string or `1e12` rejects the manifest.
@@ -84,7 +86,9 @@ manifest that parses names only the two runtime files, each once, with a plain h
 - [ ] `replace_file` renames over the target; if a running process holds the old file, the old one is moved to
       `<name>.rr-old-<ms>` first and put back if the new one cannot take its place, so the game always has a
       runtime.
-- [ ] `sweep_aside` deletes only `MysticParadox.dll.rr-old-*` and `winmm.dll.rr-old-*`, nothing else in the folder.
+- [ ] `sweep_aside` deletes only `Rustic-Isles.dll.rr-old-*`, `MysticParadox.dll.rr-old-*` and `winmm.dll.rr-old-*`
+      (and their `.rr-download`), nothing else in the folder. Installing the runtime removes a `MysticParadox.dll` left
+      by an older launcher.
 
 ### The check before every launch
 

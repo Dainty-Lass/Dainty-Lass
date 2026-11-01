@@ -71,7 +71,7 @@ Behavior to carry:
   `PINNED_EXE_SIZE`, `EXPECTED_BUILD` in `core/pins.rs`, `PINNED_DLLS`, `DLL_RELATIVE_PATHS`). Reforged has no exe
   size pin: only the hash. RA9.
 - Line 52: `VERSION_FILE` `Version.txt` (read by `game-folder.ts`). RA9.
-- Lines 54–60: `RUNTIME_FILE_NAMES` `MysticParadox.dll`, `winmm.dll` (the only names ever written next to the game),
+- Lines 54–60: `RUNTIME_FILE_NAMES` `Rustic-Isles.dll`, `winmm.dll` (the only names ever written next to the game),
   `MAX_RUNTIME_FILE_BYTES` 64 MiB, `RUNTIME_MARKER_FILE` `.reforged-runtime.json`. RA7.
 - Lines 62–67: `DEFAULT_RELAY_PORT` 61100 (DR: 61000). DR's `XMPP_PORT` 61099 goes: chat goes through the relay.
   RA6.
@@ -230,8 +230,8 @@ Behavior to carry:
   `<host>:<port>` argument, its placeholder values and `-RamsStore` go. `maskArgs` still
   hides `-AUTH_PASSWORD`.
 - Lines 69–77, `launchEnvironment(base, backendUrl, profile)`: `backendUrl` must match
-  `^http://127\.0\.0\.1:[1-9][0-9]{0,4}$`; every inherited variable starting `REFORGED_` or `MYSTICPARADOX_`
-  (case-insensitive) is removed; then `REFORGED_BACKEND_URL` and `MYSTICPARADOX_RUNTIME_PROFILE` are set.
+  `^http://127\.0\.0\.1:[1-9][0-9]{0,4}$`; every inherited variable starting `REFORGED_` or `RUSTIC_ISLES_`
+  (case-insensitive) is removed; then `REFORGED_BACKEND_URL` and `RUSTIC_ISLES_RUNTIME_PROFILE` are set.
 - Lines 92–93: `pid` is null when no game runs.
 - Lines 100–109: `start(win64Dir, args, env)` spawns the exe directly with that environment. DR's `LaunchRuntime`
   wrapper and `extraEnv` (`DR_SHOW_CONSOLE`) are gone in Reforged because it is Windows-only. **On Linux the Rust
@@ -402,7 +402,7 @@ RD8 change):
 
 - Workspace layout, lines 6–17 and 92–115: `ReforgedHost\package.json` marks a workspace;
   `.workspace\Mystic-Paradox\` holds `ParadoxRuntime\` (`dllmain.cpp`, `SDK.hpp`, `SDK\`, `MysticParadox.sln`,
-  `x64\Release\MysticParadox.dll`), `tools\RuntimeLoader\target\release\winmm.dll`, `tools\CatalogExporter\`
+  `x64\Release\Rustic-Isles.dll`), `tools\RuntimeLoader\target\release\winmm.dll`, `tools\CatalogExporter\`
   (`.vcxproj`, `x64\Release\CatalogExporter.dll`), `ParadoxBackend\game-data`, `ParadoxDirector\game-data`,
   `Items_Analysis\`, and `.reforged-patches.json` as the patch marker; `.workspace\runtime\` is what the content
   server publishes; `.workspace\logs\` holds build logs; `.workspace\config\host.json` the server's config.

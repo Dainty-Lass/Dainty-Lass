@@ -18,7 +18,7 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 - Your **Dauntless 1.14.7** folder (about 15 GB), writable by the user the server runs as: the game servers write
   logs and a switch file next to the executable. Copy it from a PC that has it, or let the server fetch it from
   your own Epic library with `install-game` ([below](#getting-the-game-from-epic)).
-- The **runtime** (`MysticParadox.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
+- The **runtime** (`Rustic-Isles.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
   game ([sdk-and-game-data.md](sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
   a pack (`reforged-host gamedata --export`).
 - The **server release** (`ReforgedRevivalServer-<version>-linux-x64.tar.gz`).
@@ -76,8 +76,8 @@ A server in a network of servers lists its peers under `[[network.nodes]]` and k
 firewall rule beyond the gateway's own is needed. Backend rule and request-budget settings in `[switches]`
 (`reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`,
 `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute`) are written by
-`setup` into `backend.env` (`MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`,
-`MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE` and the persistence
+`setup` into `backend.env` (`RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`,
+`RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE` and the persistence
 switches; see the settings table in [hosting.md](hosting.md#game-modules-and-plugins)).
 
 Postgres instead of SQLite for the Rust services' database is `[database]` in `host.toml`

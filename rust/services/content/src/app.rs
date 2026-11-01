@@ -3,7 +3,7 @@
 //! - /content/v1/runtime/manifest: the game runtime the host published, its version and files with
 //!   their sizes and SHA-256 (no key needed: the launcher shows it to the player before asking them
 //!   to accept it)
-//! - /content/v1/runtime/files/<name>: `MysticParadox.dll` or `winmm.dll`; needs
+//! - /content/v1/runtime/files/<name>: `Rustic-Isles.dll` or `winmm.dll`; needs
 //!   `x-reforged-user-api-key`; always the whole file (no HTTP ranges)
 //! - /content/v1/branding: the host's art pack (background image URLs and an accent colour)
 //! - /content/v1/branding/<file>: one of those images

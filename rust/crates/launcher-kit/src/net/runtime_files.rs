@@ -16,8 +16,8 @@ mod tests;
 
 pub use manifest::{MAX_SAFE_INTEGER, RUNTIME_MARKER_FILE, parse_runtime_manifest};
 pub use protocol::manifest::{
-    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_FILE_NAMES, RUNTIME_MANIFEST_PATH,
-    RuntimeBuild, RuntimeFile, RuntimeManifest,
+    DEFAULT_CHANGELIST, LEGACY_RUNTIME_DLL, MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_DLL,
+    RUNTIME_FILE_NAMES, RUNTIME_MANIFEST_PATH, RuntimeBuild, RuntimeFile, RuntimeManifest, runtime_file_slot,
 };
 
 use crate::bridge::types::{RuntimeFileInfo, RuntimeState};
@@ -189,10 +189,25 @@ pub async fn fetch_runtime_manifest(endpoint: &Endpoint) -> RuntimeManifestResul
     }
 }
 
+/// `name`'s file in `dir`; the runtime may still be there under its name from before the Rustic Isles rename (DX4)
+fn runtime_path(dir: &Path, name: &str) -> PathBuf {
+    let path = dir.join(name);
+    let legacy = dir.join(LEGACY_RUNTIME_DLL);
+    if name == RUNTIME_DLL && !path.is_file() && legacy.is_file() {
+        return legacy;
+    }
+    path
+}
+
+/// Whether a manifest entry is the installed file `installed` (a [`RUNTIME_FILE_NAMES`] name)
+fn same_slot(installed: &str, listed: &str) -> bool {
+    runtime_file_slot(listed) == Some(installed)
+}
+
 pub async fn installed_runtime(win64_dir: &Path) -> Vec<(&'static str, Option<String>)> {
     let mut out = Vec::with_capacity(RUNTIME_FILE_NAMES.len());
     for name in RUNTIME_FILE_NAMES {
-        let path = win64_dir.join(name);
+        let path = runtime_path(win64_dir, name);
         let valid_meta = std::fs::metadata(&path)
             .map(|m| m.is_file() && m.len() > 0)
             .unwrap_or(false);
@@ -235,7 +250,7 @@ pub async fn check_runtime(
             let matches = manifest.files.iter().all(|f| {
                 installed
                     .iter()
-                    .any(|(n, h)| *n == f.name && h.as_deref() == Some(f.sha256.as_str()))
+                    .any(|(n, h)| same_slot(n, &f.name) && h.as_deref() == Some(f.sha256.as_str()))
             });
             if matches {
                 (RuntimeState::Ok, true)
@@ -296,7 +311,7 @@ pub fn sweep_aside(win64_dir: &Path) {
         let Some(name_str) = file_name.to_str() else {
             continue;
         };
-        let should_remove = RUNTIME_FILE_NAMES.iter().any(|rt| {
+        let should_remove = RUNTIME_FILE_NAMES.iter().chain([&LEGACY_RUNTIME_DLL]).any(|rt| {
             let download_name = format!("{rt}{DOWNLOAD_SUFFIX}");
             let aside_prefix = format!("{rt}{ASIDE_MARK}");
             name_str == download_name || name_str.starts_with(&aside_prefix)
@@ -364,7 +379,7 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
         .filter(|f| {
             !current
                 .iter()
-                .any(|(name, hash)| *name == f.name && hash.as_deref() == Some(f.sha256.as_str()))
+                .any(|(name, hash)| same_slot(name, &f.name) && hash.as_deref() == Some(f.sha256.as_str()))
         })
         .collect();
 
@@ -414,8 +429,10 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
             });
         }
 
-        let target = win64_dir.join(&file.name);
-        let tmp = win64_dir.join(format!("{}{DOWNLOAD_SUFFIX}", file.name));
+        // Installed under today's name whatever the host lists it as (DX4)
+        let slot = runtime_file_slot(&file.name).unwrap_or(&file.name);
+        let target = win64_dir.join(slot);
+        let tmp = win64_dir.join(format!("{slot}{DOWNLOAD_SUFFIX}"));
         let path_and_query = format!("{RUNTIME_FILES_BASE_PATH}/{}", file.name);
 
         let status = {
@@ -527,6 +544,11 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
             }
         }
 
+        if slot == RUNTIME_DLL {
+            // A runtime left under its old name would be loaded instead if it were ever the newer file
+            let _ = std::fs::remove_file(win64_dir.join(LEGACY_RUNTIME_DLL));
+        }
+
         completed_bytes = completed_bytes.saturating_add(file.size);
         let done_count = files_done + 1;
         if let Some(cb) = on_progress {
@@ -559,7 +581,7 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
     sweep_aside(win64_dir);
 
     for name in RUNTIME_FILE_NAMES {
-        let src = local_dir.join(name);
+        let src = runtime_path(local_dir, name);
         let ok = std::fs::metadata(&src)
             .map(|m| m.is_file() && m.len() > 0)
             .unwrap_or(false);
@@ -577,7 +599,7 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
     let ops = DiskOps;
 
     for name in RUNTIME_FILE_NAMES {
-        let src = local_dir.join(name);
+        let src = runtime_path(local_dir, name);
         let target = win64_dir.join(name);
         let tmp = win64_dir.join(format!("{name}{DOWNLOAD_SUFFIX}"));
 

@@ -309,6 +309,12 @@ impl EnvDocument {
         Ok(())
     }
 
+    /// Drops every line that sets `key`.
+    pub fn remove(&mut self, key: &str) {
+        self.lines
+            .retain(|line| !matches!(line, Line::Entry { key: k, .. } if k == key));
+    }
+
     #[must_use]
     pub fn to_text(&self) -> String {
         let joined = self

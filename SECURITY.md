@@ -2,7 +2,7 @@
 
 Report a security problem privately to the maintainer on `git.silentspud.com` (a private issue on
 `silentspud/dainty-lass`, or a direct message), never in a public issue. Say which part is affected (the
-launcher, the gateway, the content server, the admin API, the host kit, a patch to Mystic Paradox), how to
+launcher, the gateway, the content server, the admin API, the host kit, a patch to Rustic Isles), how to
 reproduce it, and what an attacker gains. A problem in Mystic Paradox's or Dauntless Revived's own code that
 our changes did not cause belongs to that project; we help pass it on.
 

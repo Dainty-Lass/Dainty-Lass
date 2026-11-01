@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 pub const RUNTIME_MANIFEST_PATH: &str = "/content/v1/runtime/manifest";
 pub const RUNTIME_BUILD_NAME: &str = "rel-1.14.7-Archon";
 pub const DEFAULT_CHANGELIST: u64 = 647_472;
-pub const RUNTIME_FILE_NAMES: [&str; 2] = ["MysticParadox.dll", "winmm.dll"];
+pub const RUNTIME_DLL: &str = "Rustic-Isles.dll";
+/// [`RUNTIME_DLL`]'s name before the Rustic Isles rename: a host that still publishes it is served for one release (DX4)
+pub const LEGACY_RUNTIME_DLL: &str = "MysticParadox.dll";
+pub const RUNTIME_FILE_NAMES: [&str; 2] = [RUNTIME_DLL, "winmm.dll"];
 pub const MAX_RUNTIME_FILE_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,6 +38,16 @@ pub struct RuntimeFile {
     #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub size: u64,
     pub sha256: String,
+}
+
+/// The [`RUNTIME_FILE_NAMES`] entry `name` stands for, letter case included: itself, or [`RUNTIME_DLL`] for
+/// [`LEGACY_RUNTIME_DLL`]
+#[must_use]
+pub fn runtime_file_slot(name: &str) -> Option<&'static str> {
+    if name == LEGACY_RUNTIME_DLL {
+        return Some(RUNTIME_DLL);
+    }
+    RUNTIME_FILE_NAMES.into_iter().find(|known| *known == name)
 }
 
 impl RuntimeManifest {

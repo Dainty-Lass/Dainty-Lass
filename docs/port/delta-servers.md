@@ -68,8 +68,8 @@ Behavior to carry:
 - New host-only path prefixes `/admin`, `/launcher`, `/internal` and `/health` (lines 32-38). Any path equal to
   one of them or under it answers 403 with reason `host_only_route` (lines 174-176). The match is on the
   canonical path, after the `/__origin` unwrap, and uses the `Under` helper (lines 124-126).
-- Host-only headers (lines 40-43, 159-163): `x-mysticparadox-gameserver-apikey` (DR's was
-  `x-undaunted-gameserver-apikey`), `x-reforged-admin-key` and `x-mysticparadox-metrics-token`. Any of them on a
+- Host-only headers (lines 40-43, 159-163): `x-rustic-isles-gameserver-apikey` (DR's was
+  `x-undaunted-gameserver-apikey`), `x-reforged-admin-key` and `x-rustic-isles-metrics-token`. Any of them on a
   request answers 403. The reason is `gameserver_key_header` for the first and `host_only_header` for the other
   two.
 - New `/__origin/<host><rest>` unwrapping (lines 95-119, 138-142). The 1.14.7 runtime sends the game's calls as
@@ -298,7 +298,7 @@ Behavior to carry:
 
 Behavior to carry, all new:
 
-- The runtime is exactly two files, `MysticParadox.dll` and `winmm.dll` (line 19), with a `runtime.json` next to
+- The runtime is exactly two files, `Rustic-Isles.dll` and `winmm.dll` (line 19), with a `runtime.json` next to
   them in `CONTENT_RUNTIME_DIR` (lines 6-17).
 - Limits: each file is 1 byte to 64 MiB (line 20), and `runtime.json` is at most 64 KiB and a regular file (lines
   21, 158-160). A UTF-8 BOM is stripped (line 161).
@@ -436,7 +436,7 @@ Behavior to carry:
    Node feed does not. Keeping it changes nothing a player sees and stops the log flood the DR commit describes.
    Recommendation: keep it, and list it in RS3's PR as a behavior change from the Node gateway.
 3. **`POST /game/login` as an allowlist feed.** DR Rust feeds the allowlist on `/game/login` as well as
-   `/heartbeat`; Reforged feeds only on `/heartbeat`. Whether to keep it depends on whether Mystic Paradox's
+   `/heartbeat`; Reforged feeds only on `/heartbeat`. Whether to keep it depends on whether Rustic Isles's
    `/game/login` (under `/__origin`) checks the bearer before it answers 2xx, as DR's metagame did. RS3 should
    check that against the Paradox fork and drop the `/game/login` branch if not.
 4. **nft on stdin.** Reforged's `nft.ts` writes a file because, its comment says, nft refuses a pipe on stdin.

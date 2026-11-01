@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use protocol::manifest::{
-    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest,
+    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest, runtime_file_slot,
 };
 use protocol::text::{is_js_space, is_unsafe_char, js_trim};
 use serde_json::Value;
@@ -65,10 +65,11 @@ pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
     for item in files_arr {
         let f_obj = item.as_object()?;
         let name = f_obj.get("name")?.as_str()?;
-        if !RUNTIME_FILE_NAMES.contains(&name) {
-            return None;
-        }
-        if files.iter().any(|existing: &RuntimeFile| existing.name == name) {
+        let slot = runtime_file_slot(name)?;
+        if files
+            .iter()
+            .any(|existing: &RuntimeFile| runtime_file_slot(&existing.name) == Some(slot))
+        {
             return None;
         }
         let sha256 = f_obj.get("sha256")?.as_str()?;

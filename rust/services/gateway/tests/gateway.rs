@@ -296,7 +296,7 @@ async fn the_game_server_key_header_is_refused_and_never_forwarded() {
         };
         options
             .headers
-            .push(("x-mysticparadox-gameserver-apikey", "0123456789abcdef".repeat(3)));
+            .push(("x-rustic-isles-gameserver-apikey", "0123456789abcdef".repeat(3)));
         options.headers.push(("authorization", "Bearer good-token".into()));
         let reply = https_request(w.gateway.port, path, options).await.unwrap();
         assert_eq!(
@@ -308,7 +308,7 @@ async fn the_game_server_key_header_is_refused_and_never_forwarded() {
     let upper = https_request(
         w.gateway.port,
         "/party",
-        with(get(), "X-MysticParadox-GameServer-ApiKey", "k"),
+        with(get(), "x-rustic-isles-GameServer-ApiKey", "k"),
     )
     .await
     .unwrap();
@@ -723,8 +723,11 @@ async fn upgrades_follow_the_same_rules_and_pass_on_a_refusal() {
     let w = world().await;
     let port = w.gateway.port;
     let before = w.ws.count();
+    for name in ["x-mysticparadox-gameserver-apikey", "x-mysticparadox-gameserver-key"] {
+        assert_eq!(upgrade(port, "/xmpp", &[(name, "k")], None).await.status, 403, "{name}");
+    }
     assert_eq!(
-        upgrade(port, "/xmpp", &[("x-mysticparadox-gameserver-apikey", "k")], None)
+        upgrade(port, "/xmpp", &[("x-rustic-isles-gameserver-apikey", "k")], None)
             .await
             .status,
         403
@@ -851,7 +854,18 @@ async fn the_origin_prefix_and_the_host_only_routes_end_to_end() {
             "{path} logs {reason}"
         );
     }
-    for name in ["x-reforged-admin-key", "x-mysticparadox-metrics-token"] {
+    // The x-mysticparadox- names are the backend's from before the Rustic Isles rename, still read for one release
+    for name in [
+        "x-reforged-admin-key",
+        "x-rustic-isles-metrics-token",
+        "x-mysticparadox-metrics-token",
+        "X-MysticParadox-Metrics-Token",
+        "x-rustic-isles-gameserver-apikey",
+        "x-rustic-isles-gameserver-key",
+        "x-mysticparadox-gameserver-apikey",
+        "X-MysticParadox-GameServer-ApiKey",
+        "x-mysticparadox-gameserver-key",
+    ] {
         let reply = https_request(port, "/reforged/api/ServerStatus", with(get(), name, "x"))
             .await
             .unwrap();
@@ -927,7 +941,7 @@ async fn the_capture_records_requests_answers_and_chat_redacted() {
     let refused = https_request(
         port,
         "/reforged/admin/anything",
-        with(get(), "x-mysticparadox-gameserver-apikey", GS_KEY),
+        with(get(), "x-rustic-isles-gameserver-apikey", GS_KEY),
     )
     .await
     .unwrap();
@@ -987,7 +1001,7 @@ async fn the_capture_records_requests_answers_and_chat_redacted() {
         "the gateway secret echoed by the backend is cut"
     );
     assert_eq!((&third["status"], &third["route"]), (&json!(403), &json!("gateway")));
-    assert_eq!(third["reqHeaders"]["x-mysticparadox-gameserver-apikey"], "<gskey>");
+    assert_eq!(third["reqHeaders"]["x-rustic-isles-gameserver-apikey"], "<gskey>");
     assert_eq!(third["resBody"], json!({ "json": { "error": "forbidden" } }));
     let seq: Vec<u64> = http.iter().map(|l| l["seq"].as_u64().unwrap()).collect();
     assert!(seq[0] < seq[1] && seq[1] < seq[2]);

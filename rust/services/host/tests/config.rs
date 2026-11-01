@@ -262,6 +262,43 @@ fn secrets_are_made_once_and_kept_and_a_missing_one_is_added_without_touching_th
     assert_eq!(made, 2);
 }
 
+#[test]
+fn secrets_under_their_names_from_before_the_rename_move_to_the_new_ones_with_the_same_values() {
+    let dir = tempfile::tempdir().unwrap();
+    let (first, _) = load_or_create_secrets(dir.path(), || Ok(fast_secrets())).unwrap();
+    let file = dir.path().join("secrets.env");
+    let text = std::fs::read_to_string(&file).unwrap();
+    let old = text.replace("RUSTIC_ISLES_", "MYSTICPARADOX_");
+    assert!(old.contains("MYSTICPARADOX_METRICS_TOKEN=") && !old.contains("RUSTIC_ISLES_"));
+    std::fs::write(&file, old).unwrap();
+
+    let (moved, created) = load_or_create_secrets(dir.path(), || -> Result<Secrets, _> {
+        panic!("a renamed secret is never made again")
+    })
+    .unwrap();
+    assert!(!created);
+    assert_eq!(moved, first);
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(!text.contains("MYSTICPARADOX_"), "{text}");
+    assert!(text.contains(&format!("RUSTIC_ISLES_METRICS_TOKEN={}", first.metrics_token)));
+    assert!(text.contains(&format!(
+        "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET={}",
+        first.operator_secret
+    )));
+
+    // A file with both keeps the new name's value and leaves the old line alone
+    std::fs::write(
+        &file,
+        format!(
+            "{text}MYSTICPARADOX_METRICS_TOKEN=stale
+"
+        ),
+    )
+    .unwrap();
+    let (both, _) = load_or_create_secrets(dir.path(), || -> Result<Secrets, _> { panic!("kept") }).unwrap();
+    assert_eq!(both.metrics_token, first.metrics_token);
+}
+
 // ------------------------------------------------------------------ the service env files
 
 fn win_paths() -> Paths {
@@ -279,9 +316,9 @@ fn the_admin_api_gets_its_keys_on_loopback_and_the_backend_accepts_its_signed_ca
         "",
         Platform::Windows,
     );
-    assert_eq!(get(&f.backend, "MYSTICPARADOX_MANAGER_ADMIN"), Some("on"));
+    assert_eq!(get(&f.backend, "RUSTIC_ISLES_MANAGER_ADMIN"), Some("on"));
     assert_eq!(
-        get(&f.backend, "MYSTICPARADOX_MANAGER_OPERATOR_SECRET"),
+        get(&f.backend, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET"),
         Some(s.operator_secret.as_str())
     );
     assert!(
@@ -491,7 +528,7 @@ fn private_mode_the_backend_behind_the_gateway_on_the_tailscale_address_in_plain
     let f = build_env_files(&config(private()), &s, &p, "abc123", Platform::Windows);
     assert_eq!(get(&f.backend, "AUTH_MODE"), Some("APIKEY"));
     assert_eq!(get(&f.backend, "NODE_ENV"), Some("production"));
-    assert_eq!(get(&f.backend, "MYSTICPARADOX_SERVICE_ROLE"), Some("api"));
+    assert_eq!(get(&f.backend, "RUSTIC_ISLES_SERVICE_ROLE"), Some("api"));
     assert_eq!(get(&f.backend, "BIND_HOST"), Some("127.0.0.1"));
     assert_eq!(get(&f.backend, "REFORGED_HTTP_ONLY"), Some("true"));
     assert_eq!(get(&f.backend, "QOS_TARGET_URL"), Some("http://127.0.0.1:61100/QoS"));
@@ -1069,24 +1106,24 @@ fn switches_round_trip_through_host_toml_setup_and_backend_env() {
     let f = build_env_files(&back, &fast_secrets(), &win_paths(), "", Platform::Windows);
     let text = host::envfile::format_env(&[], &f.backend).unwrap();
     let read = host::envfile::parse_env(&text);
-    assert_eq!(read.get("MYSTICPARADOX_REFORGE"), Some("log"));
-    assert_eq!(read.get("MYSTICPARADOX_MASTERY_PERSISTENCE"), Some("off"));
-    assert_eq!(read.get("MYSTICPARADOX_BOUNTY_PERSISTENCE"), Some("off"));
-    assert_eq!(read.get("MYSTICPARADOX_COOLDOWN_PERSISTENCE"), Some("off"));
-    assert_eq!(read.get("MYSTICPARADOX_ACCOUNT_ERASURE"), Some("off"));
-    assert_eq!(read.get("MYSTICPARADOX_LOG_PURGE"), Some("off"));
-    assert_eq!(read.get("MYSTICPARADOX_RATE_LIMIT"), Some("off"));
-    assert_eq!(read.get("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"), Some("300"));
-    assert_eq!(read.get("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE"), Some("4500"));
-    assert_eq!(read.get("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"), Some("5000"));
+    assert_eq!(read.get("RUSTIC_ISLES_REFORGE"), Some("log"));
+    assert_eq!(read.get("RUSTIC_ISLES_MASTERY_PERSISTENCE"), Some("off"));
+    assert_eq!(read.get("RUSTIC_ISLES_BOUNTY_PERSISTENCE"), Some("off"));
+    assert_eq!(read.get("RUSTIC_ISLES_COOLDOWN_PERSISTENCE"), Some("off"));
+    assert_eq!(read.get("RUSTIC_ISLES_ACCOUNT_ERASURE"), Some("off"));
+    assert_eq!(read.get("RUSTIC_ISLES_LOG_PURGE"), Some("off"));
+    assert_eq!(read.get("RUSTIC_ISLES_RATE_LIMIT"), Some("off"));
+    assert_eq!(read.get("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE"), Some("300"));
+    assert_eq!(read.get("RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE"), Some("4500"));
+    assert_eq!(read.get("RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE"), Some("5000"));
 
     // Absent switches leave the rate-limit env vars unset so the backend's own defaults (on, 600, 6000, 6000) apply.
     let default_files = build_env_files(&config(public()), &fast_secrets(), &win_paths(), "", Platform::Windows);
     let default_read = host::envfile::parse_env(&host::envfile::format_env(&[], &default_files.backend).unwrap());
-    assert_eq!(default_read.get("MYSTICPARADOX_RATE_LIMIT"), None);
-    assert_eq!(default_read.get("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"), None);
-    assert_eq!(default_read.get("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE"), None);
-    assert_eq!(default_read.get("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"), None);
+    assert_eq!(default_read.get("RUSTIC_ISLES_RATE_LIMIT"), None);
+    assert_eq!(default_read.get("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE"), None);
+    assert_eq!(default_read.get("RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE"), None);
+    assert_eq!(default_read.get("RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE"), None);
     for mongo_key in [
         "MONGODB_URI",
         "MONGODB_DB",
