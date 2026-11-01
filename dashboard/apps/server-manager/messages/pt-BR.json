@@ -145,7 +145,7 @@
     "stages": { "sdk": "1. SDK", "runtime": "2. Runtime do jogo", "data": "3. Dados do jogo" },
     "stageHints": {
       "sdk": "O runtime é compilado contra um SDK extraído do seu jogo em execução.",
-      "runtime": "MysticParadox.dll e o loader dele, que os jogadores instalam a partir do seu servidor.",
+      "runtime": "Rustic-Isles.dll e o loader dele, que os jogadores instalam a partir do seu servidor.",
       "data": "Tabelas de loja, loot e progressão exportadas do seu jogo, ou substitutos sintéticos."
     },
     "steps": {
@@ -167,7 +167,7 @@
       },
       "build_runtime": {
         "title": "Compilar o runtime",
-        "hint": "MysticParadox.dll, com o MSBuild."
+        "hint": "Rustic-Isles.dll, com o MSBuild."
       },
       "build_loader": { "title": "Compilar o loader", "hint": "winmm.dll, com o Cargo." },
       "publish_runtime": {
