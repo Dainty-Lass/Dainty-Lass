@@ -55,12 +55,11 @@ test("client and server-gui Tauri configurations have distinct names, identifier
   assert.notEqual(clientConf.mainBinaryName, serverConf.mainBinaryName);
   assert.notEqual(clientConf.identifier, serverConf.identifier);
 
-  // Build hook builds ui/ with Bun and serves ui/apps/web/dist with no manual copy step
-  assert.equal(clientConf.build?.frontendDist, "../../../ui/apps/web/dist");
-  assert.ok(
-    clientConf.build?.beforeBuildCommand?.includes("bun run --cwd ../../ui build"),
-    "beforeBuildCommand must build ../../ui with Bun",
-  );
+  // Each app serves its own dainty-dashboard page, which its build hook exports and copies into place
+  assert.equal(clientConf.build?.frontendDist, "../dist/launcher");
+  assert.equal(clientConf.build?.beforeBuildCommand, "node scripts/dashboard-page.mjs build launcher");
+  assert.equal(serverConf.build?.frontendDist, "../dist/server-manager");
+  assert.equal(serverConf.build?.beforeBuildCommand, "node scripts/dashboard-page.mjs build server-manager");
 
   // Every icon referenced by both configs exists on disk and the sets are distinct
   const clientIcons = clientConf.bundle?.icon ?? [];

@@ -11,7 +11,7 @@
   },
   "scripts": {
     "tauri": "tauri",
-    "build:ui": "bun install --cwd ../../ui --frozen-lockfile && bun run --cwd ../../ui build",
+    "build:pages": "node scripts/dashboard-page.mjs build launcher && node scripts/dashboard-page.mjs build server-manager",
     "build": "tauri build --bundles nsis -- --features realms",
     "build:client": "tauri build --bundles nsis -- --features realms",
     "build:manager": "tauri build --bundles nsis --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui",
