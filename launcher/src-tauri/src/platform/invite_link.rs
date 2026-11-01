@@ -285,7 +285,8 @@ pub fn register_windows(registry: &mut dyn Registry, program: &Path) -> std::io:
     Ok(())
 }
 
-pub const DESKTOP_FILE: &str = "reforged-revival-launcher-handler.desktop";
+pub const DESKTOP_FILE: &str = "dainty-lass-launcher-handler.desktop";
+pub const LEGACY_DESKTOP_FILE: &str = "reforged-revival-launcher-handler.desktop";
 
 /// An `Exec` argument: quoted, with `"`, `` ` ``, `$` and `\` escaped, then every `\` doubled for the
 /// string value and every `%` doubled for the field codes (the Desktop Entry Specification's rules).
@@ -332,6 +333,7 @@ pub fn register_linux(
     })?;
     std::fs::create_dir_all(applications)?;
     std::fs::write(applications.join(DESKTOP_FILE), entry)?;
+    let _ = std::fs::remove_file(applications.join(LEGACY_DESKTOP_FILE));
     for scheme in invite_schemes() {
         if !set_default(DESKTOP_FILE, &format!("x-scheme-handler/{scheme}")) {
             return Err(std::io::Error::other("xdg-mime failed"));

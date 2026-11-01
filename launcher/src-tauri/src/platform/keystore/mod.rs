@@ -578,6 +578,7 @@ mod tests {
             serde_json::from_str(&std::fs::read_to_string(profile.join("expected.json")).unwrap()).unwrap();
         let user_data = profile.join("User Data");
         let keys_dir = user_data.join("keys");
+        crate::platform::paths::migrate_legacy_folders(&user_data, Some(&profile.join("Documents")));
         let recovery = profile
             .join("Documents")
             .join(crate::platform::paths::RECOVERY_FOLDER)

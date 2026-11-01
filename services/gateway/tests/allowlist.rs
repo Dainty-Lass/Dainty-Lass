@@ -433,10 +433,7 @@ async fn the_windows_rule_after_a_login_and_a_logout() {
     let (port, audit, helper) = (started.port, started.audit_file.clone(), started.helper.clone());
     helper.sync().settled(Duration::from_secs(5)).await;
     let start_run = dry_run_events(&audit, 0);
-    assert_eq!(
-        start_run[0]["rule"],
-        "Dauntless Reforged Revival game ports (allowlist)"
-    );
+    assert_eq!(start_run[0]["rule"], "DaintyLass game ports (allowlist)");
     assert_eq!(start_run[0]["windows"], json!({ "enabled": false }));
 
     assert_eq!(allow(port, json!("203.0.113.7")).await.0, 200);
@@ -446,7 +443,7 @@ async fn the_windows_rule_after_a_login_and_a_logout() {
         login.last().unwrap()["windows"],
         json!({
             "enabled": true,
-            "displayName": "Dauntless Reforged Revival game ports (allowlist)",
+            "displayName": "DaintyLass game ports (allowlist)",
             "direction": "in",
             "action": "allow",
             "protocol": "udp",

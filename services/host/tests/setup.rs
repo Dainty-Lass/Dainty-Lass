@@ -367,7 +367,7 @@ fn writes_firewall_rules_tailscale_only_in_private_mode_443_and_a_closed_allowli
     };
     let public = firewall_script(&public, "C:\\node\\node.exe");
     assert!(public.contains("'443'"));
-    assert!(public.contains("ReforgedRevival-GamePorts-Allowlist"));
+    assert!(public.contains("DaintyLass-GamePorts-Allowlist"));
     assert!(public.contains("'False'"));
     assert!(public.contains(&format!("'{}'", exe.display())));
 }
@@ -830,10 +830,7 @@ fn a_fresh_public_setup_makes_the_certificate_once() {
     }
     assert!(text.contains("\n! No game folder yet"), "{text}");
     assert!(p.config.join("allowlist.env").exists());
-    assert!(
-        read(&p.config.join("firewall.ps1"))
-            .contains("'ReforgedRevival-Gateway' 'Dauntless Reforged Revival gateway (TCP 443)'")
-    );
+    assert!(read(&p.config.join("firewall.ps1")).contains("'DaintyLass-Gateway' 'DaintyLass gateway (TCP 443)'"));
     let gateway = read_env_file(&p.config.join("gateway.env")).unwrap();
     assert_eq!(gateway.get("GATEWAY_PORT"), Some("443"));
 
@@ -1342,7 +1339,7 @@ fn a_setup_for_both_games_writes_both_stacks_env_files_and_firewall_rules() {
         Some(host::hostconfig::LEGACY_RULE_NAME)
     );
     let firewall = read(&p.config.join("firewall.ps1"));
-    assert!(firewall.contains("'ReforgedRevival-Gateway-Legacy'"), "{firewall}");
+    assert!(firewall.contains("'DaintyLass-Gateway-Legacy'"), "{firewall}");
     assert!(firewall.contains("'8780-8787'"), "{firewall}");
     assert!(
         lines.iter().any(|l| l.starts_with("Both games:")),
