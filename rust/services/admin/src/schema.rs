@@ -648,13 +648,30 @@ fn protect(account: Account) -> async_graphql::Result<Account> {
     Ok(account)
 }
 
-/// A module's player in today's shape. What `PlayerInfo` doesn't carry (DF2) is UNKNOWN or null.
+/// A module's player in today's shape. What `PlayerInfo` doesn't carry (DF2) is UNKNOWN or null; a module that
+/// reports no restriction may still have one, so its status stays UNKNOWN rather than ACTIVE.
 fn module_player(module: &AdminModule, info: PlayerInfo) -> Player {
+    let restriction = info.restriction.as_ref().map(|r| Restriction {
+        kind: match r.kind {
+            module_api::RestrictionKind::Ban => RestrictionKind::Ban,
+            module_api::RestrictionKind::Timeout => RestrictionKind::Timeout,
+            module_api::RestrictionKind::Disabled => RestrictionKind::Disabled,
+        },
+        reason: r.reason.clone(),
+        since: r.since.clone(),
+        by: None,
+        until: r.until.clone(),
+    });
+    let status = match info.restriction.as_ref().map(|r| r.kind) {
+        Some(module_api::RestrictionKind::Ban | module_api::RestrictionKind::Timeout) => AccountStatus::Banned,
+        Some(module_api::RestrictionKind::Disabled) => AccountStatus::Disabled,
+        None => AccountStatus::Unknown,
+    };
     Player {
         user_id: user_id_of(&info),
         username: info.name,
-        status: AccountStatus::Unknown,
-        restriction: None,
+        status,
+        restriction,
         online: info.online,
         location: None,
         admin: false,
