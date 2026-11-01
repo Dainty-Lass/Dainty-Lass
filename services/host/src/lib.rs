@@ -783,7 +783,12 @@ impl hooks::HostHooks for ServicesHostHooks {
         let _ = &slot;
         #[cfg(feature = "allowlist")]
         if public && !guarded {
-            modules::allowlist_absent(registry);
+            if !cfg!(feature = "paradox") && config.edition.runs_reborn() {
+                let (first, last) = hostconfig::game_ports(config);
+                modules::allowlist_external(registry, module_api::PortRange { first, last });
+            } else {
+                modules::allowlist_absent(registry);
+            }
         }
         #[cfg(not(feature = "allowlist"))]
         let _ = (registry, public, guarded);
