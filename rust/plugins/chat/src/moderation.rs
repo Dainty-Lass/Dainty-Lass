@@ -3,11 +3,12 @@
 //! every line, with the verdict, and every `/report` go to it in the background. Without a dashboard
 //! configured all of it is off and chat behaves as before.
 //!
-//! The matcher follows the dashboard's `lib/chat/filter.ts`, so both rate a line the same. Two differences
-//! the `regex` crate forces: `word` terms check their edges by hand (no look-behind), and a `regex` term that
+//! The matcher follows the dashboard's `lib/chat/filter.ts`, so both rate a line the same. `regex` terms
+//! are JavaScript (`giu`): `\d \w \b \s` and `.` are rewritten to JavaScript's meaning. Two differences the
+//! `regex` crate forces: `word` terms check their edges by hand (no look-behind), and a `regex` term that
 //! uses look-around or back-references does not compile here and is skipped, as `filter.ts` skips a bad one.
 
-use std::sync::{Arc, PoisonError, RwLock};
+use std::sync::{Arc, LazyLock, PoisonError, RwLock};
 use std::time::Duration;
 
 use http_body_util::{BodyExt, Full, Limited};
@@ -138,19 +139,67 @@ fn leet(ch: char) -> Option<&'static str> {
     })
 }
 
+/// JavaScript's `\s`, as a class body.
+const JS_SPACE: &str =
+    r"\t\n\x0B\x0C\r \u{A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}";
+
+/// A JavaScript `u` regex in `regex` syntax: the classes and `\b` that are ASCII there, `.` stopping at
+/// every line terminator, and `[`, `&`, `~` literal inside a class. What has no equivalent fails to compile.
+fn js_regex(pattern: &str) -> String {
+    let mut out = String::with_capacity(pattern.len() * 2);
+    let mut class = false;
+    let mut chars = pattern.chars();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\\' => match chars.next() {
+                Some('d') => out.push_str("[0-9]"),
+                Some('D') => out.push_str("[^0-9]"),
+                Some('w') => out.push_str("[0-9A-Za-z_]"),
+                Some('W') => out.push_str("[^0-9A-Za-z_]"),
+                Some('s') => out.push_str(&format!("[{JS_SPACE}]")),
+                Some('S') => out.push_str(&format!("[^{JS_SPACE}]")),
+                Some('b') if class => out.push_str(r"\x08"),
+                Some('b') => out.push_str(r"(?-u:\b)"),
+                Some('B') => out.push_str(r"(?-u:\B)"),
+                Some(next) => {
+                    out.push('\\');
+                    out.push(next);
+                }
+                None => out.push('\\'),
+            },
+            '[' if class => out.push_str(r"\["),
+            '[' => {
+                class = true;
+                out.push('[');
+            }
+            ']' if class => {
+                class = false;
+                out.push(']');
+            }
+            '&' | '~' if class => {
+                out.push('\\');
+                out.push(ch);
+            }
+            '.' if !class => out.push_str(r"[^\n\r\u{2028}\u{2029}]"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
 /// A term's pattern as a case-insensitive regex (`compilePattern`); `None` when it does not compile.
 fn compile_pattern(pattern: &str, match_type: MatchType) -> Option<regex::Regex> {
-    if pattern.trim().is_empty() || pattern.chars().count() > 200 {
+    if pattern.trim().is_empty() || pattern.encode_utf16().count() > 200 {
         return None;
     }
     let body = match match_type {
-        MatchType::Regex => pattern.to_owned(),
+        MatchType::Regex => js_regex(pattern),
         MatchType::Word | MatchType::Substring => pattern
             .to_lowercase()
             .chars()
             .map(|ch| leet(ch).map_or_else(|| regex::escape(&ch.to_string()), str::to_owned))
             .collect::<Vec<_>>()
-            .join(r"[\s._-]*"),
+            .join(&format!("[{JS_SPACE}._-]*")),
     };
     regex::RegexBuilder::new(&body)
         .case_insensitive(true)
@@ -159,8 +208,14 @@ fn compile_pattern(pattern: &str, match_type: MatchType) -> Option<regex::Regex>
         .ok()
 }
 
+/// `[\p{L}\p{N}]` under `iu`, as `filter.ts`'s look-around has it: case folding pulls in a few marks.
+static WORD_CHAR: LazyLock<Option<regex::Regex>> = LazyLock::new(|| regex::Regex::new(r"^(?i)[\p{L}\p{N}]$").ok());
+
 fn is_word_char(ch: char) -> bool {
-    ch.is_alphabetic() || ch.is_numeric()
+    match &*WORD_CHAR {
+        Some(word) => word.is_match(ch.encode_utf8(&mut [0; 4])),
+        None => ch.is_alphabetic() || ch.is_numeric(),
+    }
 }
 
 impl Filter {
@@ -266,7 +321,21 @@ impl DashboardSettings {
 #[serde(rename_all = "camelCase")]
 pub struct Person {
     pub user_id: String,
+    #[serde(serialize_with = "name_field")]
     pub name: String,
+}
+
+/// Past 64 UTF-16 units the dashboard refuses a line and drops a name: clip rather than lose it.
+fn name_field<S: serde::Serializer>(name: &str, serializer: S) -> Result<S::Ok, S::Error> {
+    let mut units = 0;
+    let end = name
+        .char_indices()
+        .find(|(_, ch)| {
+            units += ch.len_utf16();
+            units > 64
+        })
+        .map_or(name.len(), |(i, _)| i);
+    serializer.serialize_str(&name[..end])
 }
 
 /// One line for `POST /api/ingest/chat`, with the original text.
@@ -305,6 +374,7 @@ pub struct Report {
 pub struct TargetPerson {
     #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
+    #[serde(serialize_with = "name_field")]
     pub name: String,
 }
 
@@ -327,7 +397,8 @@ pub fn parse_report(body: &str) -> Option<Result<(String, &'static str, String),
         .strip_prefix("/report")
         .filter(|r| r.is_empty() || r.starts_with(char::is_whitespace))?;
     let mut words = rest.split_whitespace();
-    let Some(target) = words.next().filter(|t| t.chars().count() <= 64) else {
+    // Counted as the dashboard does (UTF-16), which refuses a longer one
+    let Some(target) = words.next().filter(|t| t.encode_utf16().count() <= 64) else {
         return Some(Err(()));
     };
     let words: Vec<&str> = words.collect();
@@ -699,6 +770,103 @@ mod tests {
         let f = filter(&[t]);
         assert_eq!(f.rate("spoiler", Channel::City).verdict, Verdict::Masked);
         assert_eq!(f.rate("spoiler", Channel::Party).verdict, Verdict::Allowed);
+    }
+
+    fn count(f: &Filter, text: &str, channel: Channel) -> usize {
+        f.matches(text, channel).len()
+    }
+
+    /// dainty-dashboard `apps/dashboard/tests/filter.test.ts`, case for case.
+    #[test]
+    fn the_dashboards_own_filter_tests_agree() {
+        let f = filter(&[term(1, "idiot", MatchType::Word, Action::Mask)]);
+        assert_eq!(count(&f, "you are such an id1ot lol", Channel::City), 1);
+        assert_eq!(count(&f, "i.d.i.o.t", Channel::City), 1);
+        assert_eq!(count(&f, "IDIOT!", Channel::City), 1);
+        assert_eq!(count(&f, "idiotic", Channel::City), 0);
+
+        let f = filter(&[term(1, "gold", MatchType::Substring, Action::Flag)]);
+        assert_eq!(count(&f, "goldsite dot com", Channel::City), 1);
+
+        let f = filter(&[
+            term(1, "spam", MatchType::Word, Action::Flag),
+            term(2, "scam", MatchType::Word, Action::Block),
+        ]);
+        assert_eq!(f.rate("spam and scam", Channel::City).verdict, Verdict::Blocked);
+        assert_eq!(f.rate("hello", Channel::City).verdict, Verdict::Allowed);
+
+        let f = filter(&[
+            term(1, "darn", MatchType::Word, Action::Mask),
+            term(2, "heck", MatchType::Word, Action::Flag),
+        ]);
+        assert_eq!(f.rate("darn it, heck", Channel::City).shown, "**** it, heck");
+
+        let mut t = term(1, "lfg", MatchType::Word, Action::Block);
+        t.channels = Some(vec!["city".to_owned()]);
+        let f = filter(&[t]);
+        assert_eq!(count(&f, "lfg", Channel::City), 1);
+        assert_eq!(count(&f, "lfg", Channel::Party), 0);
+
+        let f = filter(&[term(1, "bad", MatchType::Word, Action::Mask)]);
+        assert_eq!(f.matches("a bad day", Channel::City), vec![(Action::Mask, 2, 5)]);
+
+        assert!(compile_pattern("(unclosed", MatchType::Regex).is_none());
+        assert!(compile_pattern("", MatchType::Word).is_none());
+        assert_eq!(
+            filter(&[term(1, "(unclosed", MatchType::Regex, Action::Block)])
+                .terms
+                .len(),
+            0
+        );
+    }
+
+    /// Edge cases run through `filter.ts` under Bun; the expected values are what it answered.
+    #[test]
+    fn edge_cases_agree_with_filter_ts() {
+        let idiot = filter(&[term(1, "idiot", MatchType::Word, Action::Mask)]);
+        // U+0345 folds to iota, so `[\p{L}\p{N}]` under `iu` takes it as a letter
+        assert_eq!(idiot.rate("idiot\u{345} x", Channel::City).verdict, Verdict::Allowed);
+        // A spacing mark is Alphabetic but not a letter
+        assert_eq!(idiot.rate("\u{BBE}idiot", Channel::City).shown, "\u{BBE}*****");
+        assert_eq!(idiot.rate("éidiot idiot", Channel::City).shown, "éidiot *****");
+        // filter.ts's maskText indexes code points with UTF-16 offsets and shows "😀 i****"
+        assert_eq!(idiot.rate("😀 idiot", Channel::City).shown, "😀 *****");
+
+        let one = |pattern: &str, text: &str| {
+            count(
+                &filter(&[term(1, pattern, MatchType::Regex, Action::Flag)]),
+                text,
+                Channel::City,
+            )
+        };
+        assert_eq!(one(r"\d+", "\u{661}\u{662}"), 0);
+        assert_eq!(one(r"\d+", "a12"), 1);
+        assert_eq!(one(r"\bcat\b", "écat"), 1);
+        assert_eq!(one(r"\bcat\b", "cats"), 0);
+        assert_eq!(one(r"\w+", "é"), 0);
+        assert_eq!(one(r"\w", "\u{17F}"), 1);
+        assert_eq!(one(r"a.b", "a\u{2028}b"), 0);
+        assert_eq!(one(r"a.b", "a-b"), 1);
+        assert_eq!(one(r"a\sb", "a\u{FEFF}b"), 1);
+        assert_eq!(one(r"a\sb", "a\u{85}b"), 0);
+        assert_eq!(one("\u{17F}", "S"), 1);
+        assert_eq!(one(r"[\b]", "\u{8}"), 1);
+        assert_eq!(one(r"[a&&b]", "&"), 1);
+        assert_eq!(one(r"[[]", "["), 1);
+        // filter.ts matches these; the regex crate has no look-around or back-references
+        assert_eq!(one(r"(?<=x)y", "xy"), 0);
+        assert_eq!(one(r"(a)\1", "aa"), 0);
+    }
+
+    #[test]
+    fn names_are_clipped_to_what_the_dashboard_keeps() {
+        let person = Person {
+            user_id: "u".to_owned(),
+            name: "😀".repeat(40),
+        };
+        let json = serde_json::to_value(&person).unwrap();
+        assert_eq!(json["name"].as_str().unwrap().encode_utf16().count(), 64);
+        assert!(parse_report(&format!("/report {} spam x", "😀".repeat(33))) == Some(Err(())));
     }
 
     #[test]
