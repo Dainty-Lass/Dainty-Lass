@@ -29,10 +29,12 @@ import { useEffect, useState } from "react";
 import { AuditTable } from "@/components/AuditTable";
 import { ControllerState } from "@/components/ControllerState";
 import { Page } from "@/components/Page";
+import { PerformanceSection } from "@/components/PerformanceSection";
 import { Sparkline } from "@/components/Sparkline";
 
 import { useAction } from "@/components/useAction";
 import type { AuditEvent } from "@/lib/db/schema";
+import type { Performance } from "@/lib/fleet/metrics";
 import type { ControllerView } from "@/lib/fleet/status";
 import {
   removeControllerAction,
@@ -47,6 +49,7 @@ type HuntRow = Hunt & Record<string, unknown>;
 
 export function ControllerDetailClient({
   controller: c,
+  perf,
   history,
   reports,
   audit,
@@ -57,6 +60,7 @@ export function ControllerDetailClient({
   insecure,
 }: {
   controller: ControllerView;
+  perf: Performance;
   history: { at: number; online: number; hunts: number }[];
   // Null where the reader's role may not see them.
   reports: Record<"open" | "claimed" | "resolved" | "dismissed", number> | null;
@@ -346,6 +350,8 @@ export function ControllerDetailClient({
           />
         )}
       </Card>
+
+      {c.state !== "pending" && <PerformanceSection perf={perf} single />}
 
       {audit && (
         <Card padding={0}>

@@ -23,7 +23,8 @@ What staff do on it, for one controller or a fleet of them ([docs/fleet.md](docs
   dashboard, so no controller opens a port and each keeps its own secrets.
 
 - **Overview**: players online, hunts running, open reports, flagged chat, the health of each service the
-  dashboard talks to, and the latest changes.
+  dashboard talks to, the latest changes, and performance: each component's phase, uptime, restarts, CPU
+  and memory, game servers, request rates and latency per upstream, and chat by verdict.
 - **Players**: search every account, see who is online and where, and kick, time out, ban or lift a ban.
   Admins change an account's access and game roles. Each player page has their chat, the reports against
   them and every staff action taken on them.

@@ -23,9 +23,11 @@ import { type ReactNode, useEffect, useState } from "react";
 import { AuditSentence } from "@/components/AuditSentence";
 import { ControllerState, STATE_ORDER } from "@/components/ControllerState";
 import { Page } from "@/components/Page";
+import { PerformanceSection } from "@/components/PerformanceSection";
 import { Sparkline } from "@/components/Sparkline";
 
 import type { AuditEvent } from "@/lib/db/schema";
+import type { Performance } from "@/lib/fleet/metrics";
 import type { ControllerView } from "@/lib/fleet/status";
 import type { FleetHunt, Overview, ServiceState } from "@/lib/health";
 
@@ -41,6 +43,7 @@ type HuntRow = FleetHunt & Record<string, unknown>;
 
 export function OverviewClient({
   data,
+  perf,
   scopeName,
   reports,
   chat,
@@ -51,6 +54,7 @@ export function OverviewClient({
   denied,
 }: {
   data: Overview;
+  perf: Performance;
   /** The one controller in scope, or null for the whole fleet. */
   scopeName: string | null;
   // Null where the reader's role may not see it: reports and chat from moderator, changes from admin.
@@ -425,6 +429,8 @@ export function OverviewClient({
           )}
         </Stack>
       </Card>
+
+      <PerformanceSection perf={perf} single={!fleetWide} />
 
       {recent && (
         <Card padding={4}>

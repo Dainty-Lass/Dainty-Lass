@@ -7,6 +7,7 @@ import { chatHourly, chatStats } from "@/lib/chat/store";
 import { filterVersion } from "@/lib/chat/terms";
 import { getController } from "@/lib/fleet/controllers";
 import { currentScope, scopeIds } from "@/lib/fleet/scope";
+import { fleetPerformance } from "@/lib/fleet/status";
 import { overview } from "@/lib/health";
 import { reportCounts } from "@/lib/reports/store";
 import { OverviewClient } from "./OverviewClient";
@@ -27,6 +28,7 @@ export default async function OverviewPage({
   return (
     <OverviewClient
       data={overview(ids)}
+      perf={fleetPerformance(ids, can(me.role, "chat:read"))}
       scopeName={scope.kind === "one" ? (getController(scope.id)?.name ?? null) : null}
       reports={can(me.role, "reports:read") ? reportCounts(ids) : null}
       chat={can(me.role, "chat:read") ? chatStats(day, ids) : null}

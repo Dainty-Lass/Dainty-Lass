@@ -6,7 +6,7 @@ import { can } from "@/lib/auth/permissions";
 import { config } from "@/lib/config";
 import { getController } from "@/lib/fleet/controllers";
 import { currentScope } from "@/lib/fleet/scope";
-import { recentSamples, viewOf } from "@/lib/fleet/status";
+import { fleetPerformance, recentSamples, viewOf } from "@/lib/fleet/status";
 import { reportCounts } from "@/lib/reports/store";
 import { ControllerDetailClient } from "./ControllerDetailClient";
 
@@ -37,6 +37,7 @@ export default async function ControllerPage({ params }: { params: Promise<{ id:
   return (
     <ControllerDetailClient
       controller={viewOf(controller)}
+      perf={fleetPerformance([id], can(me.role, "chat:read"))}
       history={Array.from({ length: 168 }, (_, i) => {
         const at = Math.floor(Date.now() / 3_600_000) * 3_600_000 - (167 - i) * 3_600_000;
         return { at, ...(hourly.get(at) ?? { online: 0, hunts: 0 }) };

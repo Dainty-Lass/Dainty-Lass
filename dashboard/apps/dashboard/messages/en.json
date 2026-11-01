@@ -906,5 +906,93 @@
       "subject": "{code} is your {server} sign-in code",
       "body": "Your {server} dashboard sign-in code is {code}.\n\nIt works once, for five minutes. If you did not ask for it, ignore this email."
     }
+  },
+  "performance": {
+    "title": "Performance",
+    "updated": "Updated",
+    "none": "No metrics yet",
+    "noneHint": "The admin service's /metrics has not answered. It needs a Dainty Lass server that serves metrics and the admin key; another controller also needs an agent recent enough to report them.",
+    "requests": "Requests",
+    "requestsLabel": "Requests per minute over the last hour, with server errors in red",
+    "cpu": "CPU",
+    "cpuLabel": "CPU use over the last hour, in percent of one core",
+    "memory": "Memory",
+    "memoryLabel": "Resident memory over the last hour",
+    "lastHour": "Per minute, last hour",
+    "components": "Components",
+    "componentsHint": "CPU and memory where a process has the component's name; the rest run inside the controller.",
+    "gameServers": "Game servers",
+    "noGameServers": "No game servers are running.",
+    "directorDown": "The Director is not answering, so no game servers are listed.",
+    "processes": "Processes",
+    "processesHint": "The controller and every process it started. Metrics do not say which process runs which game server.",
+    "upstreams": "Requests by upstream",
+    "upstreamsHint": "Last 5 minutes",
+    "noRequests": "No requests recorded yet.",
+    "chat": "Chat by verdict",
+    "chatSince": "Since",
+    "noChat": "No chat lines in this window.",
+    "dashboardPosts": "Posts to this dashboard",
+    "sinceStart": "Since the server started",
+    "byController": "By controller",
+    "columns": {
+      "component": "Component",
+      "phase": "Phase",
+      "uptime": "Uptime",
+      "restarts": "Restarts",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "controller": "Controller",
+      "instance": "Game server",
+      "kind": "Kind",
+      "players": "Players",
+      "process": "Process",
+      "pid": "PID",
+      "role": "Role",
+      "service": "Service",
+      "route": "Route",
+      "rate": "Requests",
+      "errors": "5xx",
+      "p50": "p50",
+      "p95": "p95",
+      "ready": "Ready",
+      "verdict": "Verdict",
+      "count": "Lines",
+      "result": "Result",
+      "posts": "Posts"
+    },
+    "phases": {
+      "stopped": "Stopped",
+      "starting": "Starting",
+      "ready": "Ready",
+      "stopping": "Stopping",
+      "failed": "Failed",
+      "disabled": "Disabled",
+      "unknown": "Unknown"
+    },
+    "roles": {
+      "host": "Controller",
+      "child": "Started by it"
+    },
+    "kinds": {
+      "city": "City",
+      "hunt": "Hunt",
+      "dojo": "Training Grounds",
+      "tutorial": "Tutorial"
+    },
+    "posts": {
+      "ok": "Delivered",
+      "refused": "Refused",
+      "failed": "Failed"
+    },
+    "units": {
+      "ms": "{value} ms",
+      "perSecond": "{value}/s",
+      "perMinute": "{value}/min",
+      "days": "{days} d {hours} h",
+      "hours": "{hours} h {minutes} min",
+      "minutes": "{minutes} min",
+      "seconds": "{seconds} s"
+    }
   }
 }

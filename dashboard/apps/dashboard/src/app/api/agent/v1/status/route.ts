@@ -1,4 +1,4 @@
-import type { AgentStatus } from "@dainty/fleet";
+import { type AgentStatus, sanitizeSummary } from "@dainty/fleet";
 import { NextResponse } from "next/server";
 import { asAgent } from "@/lib/fleet/agent-http";
 import { recordStatus } from "@/lib/fleet/status";
@@ -16,11 +16,13 @@ export function POST(request: Request) {
     ) {
       return NextResponse.json({ error: "bad_request" }, { status: 400 });
     }
+    const metrics = sanitizeSummary(body.metrics);
     // The dashboard's clock, not the agent's: a host with a wrong clock must not look fresh or stale.
     recordStatus(agent.id, {
       ...body,
       at: Date.now(),
       capabilities: Array.isArray(body.capabilities) ? body.capabilities.slice(0, 20) : [],
+      metrics: metrics && { ...metrics, at: Date.now() },
     });
     return NextResponse.json({ ok: true });
   });

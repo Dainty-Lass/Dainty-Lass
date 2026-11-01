@@ -3,6 +3,7 @@ import { and, eq, gte, lt } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { Controller } from "@/lib/db/schema";
 import { ensureLocal, LOCAL, listControllers } from "./controllers";
+import { type Performance, performance, recordMetrics } from "./metrics";
 import { connectedSince, isConnected } from "./registry";
 import { localGameConfig } from "./transport";
 
@@ -52,6 +53,7 @@ export function recordStatus(controllerId: string, status: AgentStatus): void {
     })
     .onConflictDoNothing()
     .run();
+  if (status.metrics) recordMetrics(controllerId, status.metrics, now);
 }
 
 function stateOf(c: Controller, status: AgentStatus | null): ControllerState {
@@ -64,7 +66,9 @@ function stateOf(c: Controller, status: AgentStatus | null): ControllerState {
 }
 
 export function viewOf(c: Controller): ControllerView {
-  const status = (c.status as AgentStatus | null) ?? null;
+  const stored = (c.status as AgentStatus | null) ?? null;
+  // The metrics summary is for the performance section (lib/fleet/metrics.ts), not every list of controllers.
+  const status = stored ? { ...stored, metrics: undefined } : null;
   return {
     id: c.id,
     kind: c.kind,
@@ -83,6 +87,19 @@ export function viewOf(c: Controller): ControllerView {
 export function fleet(): ControllerView[] {
   startLocalReporter();
   return listControllers().map(viewOf);
+}
+
+/** The performance section for these controllers (all of them without ids), from what they last reported. */
+export function fleetPerformance(controllerIds: string[] | undefined, chat: boolean): Performance {
+  startLocalReporter();
+  const rows = listControllers().filter(
+    (c) =>
+      (!controllerIds || controllerIds.includes(c.id)) && !(c.kind === "agent" && !c.tokenHash),
+  );
+  return performance(
+    rows.map((c) => ({ id: c.id, name: c.name, state: viewOf(c).state, controller: c })),
+    { chat },
+  );
 }
 
 export interface FleetTotals {

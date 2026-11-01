@@ -1,4 +1,5 @@
 import type { GameResult } from "./game";
+import type { MetricsSummary } from "./metrics";
 import type { AdminOp } from "./ops";
 import type { HuntStatus, Operator, ServerStatus } from "./types";
 
@@ -10,7 +11,7 @@ import type { HuntStatus, Operator, ServerStatus } from "./types";
  *   POST /api/agent/v1/pair         { code, name, version }          -> { agentId, token }
  *   GET  /api/agent/v1/stream       text/event-stream of AgentCommand ("command" events, "ping" keep-alives)
  *   POST /api/agent/v1/result       AgentResult
- *   POST /api/agent/v1/status       AgentStatus
+ *   POST /api/agent/v1/status       AgentStatus, with the host's /metrics summarised when it answers
  *   POST /api/agent/v1/ingest/chat, /ingest/reports, GET /chat-filter: the ingest API, tagged with the agent
  *
  * Every call but pairing carries Authorization: Bearer <token>.
@@ -58,6 +59,11 @@ export interface AgentStatus {
   server: ServerStatus | null;
   hunts: HuntStatus | null;
   online: number | null;
+  /**
+   * The admin service's `/metrics`, summarised (metrics.ts). Absent from agents older than the
+   * "metrics" capability, null when the host's `/metrics` did not answer.
+   */
+  metrics?: MetricsSummary | null;
 }
 
 export interface PairRequest {
