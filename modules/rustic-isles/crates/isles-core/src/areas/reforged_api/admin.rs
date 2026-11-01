@@ -340,6 +340,14 @@ pub fn public_account(account: &LauncherAccountRecord, user_id: &str) -> Value {
     optional("approvalUpdatedAt", &account.approval_updated_at);
     optional("approvalUpdatedBy", &account.approval_updated_by);
     optional("approvalReason", &account.approval_reason);
+    // Only while one is in force, so an account without a timeout reads as Node's did
+    if let Some(timeout) = account.timeout_at(&crate::areas::auth::util::iso_now()) {
+        out.insert("timeoutUntil".into(), json!(timeout.until));
+        out.insert("timeoutSince".into(), json!(timeout.since));
+        if let Some(reason) = &timeout.reason {
+            out.insert("timeoutReason".into(), json!(reason));
+        }
+    }
     Value::Object(out)
 }
 
@@ -609,15 +617,19 @@ async fn list_players(ctx: Ctx) -> Response {
         Some("rejected") => Some(ApprovalStatus::Rejected),
         _ => None,
     };
-    let status = match query_text(&ctx.req, "status").as_deref() {
+    let status_query = query_text(&ctx.req, "status");
+    let status = match status_query.as_deref() {
         Some("active") => Some(OperationalStatus::Active),
         Some("disabled") => Some(OperationalStatus::Disabled),
         Some("banned") => Some(OperationalStatus::Banned),
         _ => None,
     };
+    // Not a status of its own: a timed-out account is active, kept out of play until its timeout ends
+    let timed_out_at = (status_query.as_deref() == Some("timedOut")).then(crate::areas::auth::util::iso_now);
     let filter = AdminAccountFilter {
         approval_status: approval,
         status,
+        timed_out_at,
         search: ctx
             .req
             .query_string("search")

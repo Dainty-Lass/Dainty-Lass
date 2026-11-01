@@ -1100,6 +1100,7 @@ async fn export_mongo_roundtrip_passes_verify_across_all_collections() {
                     deletion: None,
                     email_verified_at: None,
                     email_verification_pending_since: None,
+                    timeout: None,
                 },
             )
             .unwrap();

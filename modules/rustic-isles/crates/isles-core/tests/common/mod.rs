@@ -246,6 +246,19 @@ impl LauncherAccountRepository for Fakes {
         }
         Ok(Some(account.clone()))
     }
+    fn set_timeout(
+        &self,
+        _: &mut Tx<'_>,
+        id: &AccountId,
+        timeout: Option<&AccountTimeout>,
+    ) -> RepoResult<Option<LauncherAccountRecord>> {
+        let mut world = self.world();
+        let Some(account) = world.launchers.iter_mut().find(|a| &a.account == id) else {
+            return Ok(None);
+        };
+        account.timeout = timeout.cloned();
+        Ok(Some(account.clone()))
+    }
     fn erase(&self, t: &mut Tx<'_>, a: &AccountId) -> RepoResult<bool> {
         Stub.erase(t, a)
     }

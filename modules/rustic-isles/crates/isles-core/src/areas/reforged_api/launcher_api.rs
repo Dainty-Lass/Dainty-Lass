@@ -434,6 +434,7 @@ async fn register_account(call: Call) -> Response {
         deletion: None,
         email_verified_at: None,
         email_verification_pending_since: None,
+        timeout: None,
     };
     let spend = (registration == RegistrationMode::InviteCode).then_some(code);
     let actor = ActorContext::new(Actor::Player {

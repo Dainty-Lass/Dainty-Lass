@@ -85,8 +85,15 @@ pub fn assert_account_admitted(account: &LauncherAccountRecord) -> Result<(), La
     }
 }
 
+/// May the account play: admitted, not timed out, with a username. A timed-out account still signs in to the
+/// launcher (`assert_account_admitted`), so the player sees when they can play again.
 pub fn assert_account_eligible(account: &LauncherAccountRecord) -> Result<(), LauncherApiError> {
+    assert_account_eligible_at(account, &super::util::iso_now())
+}
+
+pub fn assert_account_eligible_at(account: &LauncherAccountRecord, now: &str) -> Result<(), LauncherApiError> {
     assert_account_admitted(account)?;
+    assert_not_timed_out(account, now)?;
     if account.username_set == Some(false) {
         return Err(LauncherApiError::new(
             "AUTH_USERNAME_REQUIRED",
@@ -94,6 +101,27 @@ pub fn assert_account_eligible(account: &LauncherAccountRecord) -> Result<(), La
         ));
     }
     Ok(())
+}
+
+/// A timeout in force refuses play with its end (and reason) as details, for the launcher to show in the player's
+/// locale.
+pub fn assert_not_timed_out(account: &LauncherAccountRecord, now: &str) -> Result<(), LauncherApiError> {
+    let Some(timeout) = account.timeout_at(now) else {
+        return Ok(());
+    };
+    let mut error = LauncherApiError::new(
+        "AUTH_ACCOUNT_TIMED_OUT",
+        format!("This account is timed out until {}.", timeout.until),
+    );
+    error
+        .details
+        .push(("timeoutUntil".to_owned(), Value::String(timeout.until.clone())));
+    if let Some(reason) = &timeout.reason {
+        error
+            .details
+            .push(("timeoutReason".to_owned(), Value::String(reason.clone())));
+    }
+    Err(error)
 }
 
 pub fn is_account_eligible(account: &LauncherAccountRecord) -> bool {
@@ -803,6 +831,7 @@ mod tests {
             deletion: None,
             email_verified_at: None,
             email_verification_pending_since: None,
+            timeout: None,
         };
         update(&mut record);
         record
@@ -835,6 +864,32 @@ mod tests {
         )));
         assert!(!is_account_eligible(&account(|a| a.status = OperationalStatus::Banned)));
         assert!(!is_account_eligible(&account(|a| a.username_set = Some(false))));
+    }
+
+    #[test]
+    fn a_timeout_stops_play_until_it_ends_but_not_sign_in() {
+        let timed_out = account(|a| {
+            a.timeout = Some(crate::repo::auth::AccountTimeout {
+                until: "2026-10-14T13:00:00.000Z".into(),
+                since: NOW.into(),
+                reason: Some("spam".into()),
+            })
+        });
+        assert!(assert_account_admitted(&timed_out).is_ok());
+        let error = assert_account_eligible_at(&timed_out, NOW).unwrap_err();
+        assert_eq!(error.code, "AUTH_ACCOUNT_TIMED_OUT");
+        assert_eq!(
+            error.details,
+            [
+                ("timeoutUntil".to_owned(), Value::from("2026-10-14T13:00:00.000Z")),
+                ("timeoutReason".to_owned(), Value::from("spam")),
+            ]
+        );
+        assert!(
+            assert_account_eligible_at(&timed_out, "2026-10-14T13:00:00.000Z").is_ok(),
+            "it ends on time"
+        );
+        assert!(assert_account_eligible_at(&timed_out, "2026-10-15T00:00:00.000Z").is_ok());
     }
 
     #[test]
