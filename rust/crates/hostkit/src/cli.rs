@@ -200,13 +200,6 @@ pub struct SetupArgs {
     pub fresh_start: bool,
     #[arg(long = "skip-install")]
     pub skip_install: bool,
-    #[arg(
-        long = "modules",
-        alias = "module",
-        value_delimiter = ',',
-        help = "Compiled-in game modules to load (for example, isles-1-14-7 or isles-1-12-0)"
-    )]
-    pub modules: Option<Vec<String>>,
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
     pub unexpected: Vec<String>,
 }

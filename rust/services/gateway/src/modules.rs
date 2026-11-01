@@ -247,25 +247,11 @@ impl ModuleRoutes {
             };
         }
         let modules = self.read();
-        let select_module = |pred: &dyn Fn(&Attached) -> bool| -> Option<&Attached> {
-            if let Some(m) = modules
-                .values()
-                .find(|m| !m.stand_in && m.manifest.answers_invite(version) && pred(m))
-            {
-                return Some(m);
-            }
-            let non_stand_in: Vec<&Attached> = modules.values().filter(|m| !m.stand_in && pred(m)).collect();
-            if non_stand_in.len() == 1
-                && modules
-                    .values()
-                    .any(|m| m.stand_in && m.manifest.answers_invite(version))
-            {
-                return Some(non_stand_in[0]);
-            }
-            modules.values().find(|m| m.manifest.answers_invite(version) && pred(m))
-        };
         if matches!(upstream, Upstream::Ws) {
-            let Some(module) = select_module(&|m| !m.websocket.is_empty()) else {
+            let Some(module) = modules
+                .values()
+                .find(|m| m.manifest.answers_invite(version) && !m.websocket.is_empty())
+            else {
                 return Routed {
                     decision,
                     endpoint: None,
@@ -290,7 +276,7 @@ impl ModuleRoutes {
                 endpoint: Some(endpoint),
             };
         }
-        let Some(module) = select_module(&|_| true) else {
+        let Some(module) = modules.values().find(|m| m.manifest.answers_invite(version)) else {
             return reject(503, "unavailable", "no_module", limit_class);
         };
         // Host-only wins over a longer public route below it

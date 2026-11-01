@@ -876,7 +876,7 @@ impl hooks::HostHooks for ServicesHostHooks {
             );
         }
         #[cfg(all(feature = "chat", not(feature = "paradox")))]
-        if config.edition.runs_reborn() && in_process_gateway {
+        if in_process_gateway {
             let node = config
                 .network
                 .as_ref()
@@ -913,7 +913,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         let _ = &slot;
         #[cfg(feature = "allowlist")]
         if public && !guarded {
-            if !cfg!(feature = "paradox") && config.edition.runs_reborn() {
+            if !cfg!(feature = "paradox") {
                 let (first, last) = hostconfig::game_ports(config);
                 modules::allowlist_external(registry, module_api::PortRange { first, last });
             } else {
@@ -2051,16 +2051,11 @@ mod tests {
         controller.shutdown().await;
     }
 
-    #[cfg(not(feature = "paradox"))]
-    static BACKEND_PORT_LOCK: std::sync::LazyLock<tokio::sync::Mutex<()>> =
-        std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
-
     #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo() {
         use hostconfig::{DEFAULT_MONGO_URI, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
-        let _guard = BACKEND_PORT_LOCK.lock().await;
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
         let paths = paths::Paths::new(dir.path());
@@ -2163,175 +2158,6 @@ mod tests {
             hostconfig::load_or_create_secrets(&paths.config, commands::setup::secrets::new_secrets).unwrap();
         let invites = invite::list_invite_codes(paths::PORTS.backend, &secrets.admin_key).unwrap();
         assert!(invites.is_empty(), "{invites:?}");
-
-        controller.shutdown().await;
-    }
-
-    #[cfg(all(feature = "isles-1-12-0", not(feature = "paradox")))]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn compose_starts_opt_in_isles_1_12_0_when_configured_in_modules_compiled() {
-        let _guard = BACKEND_PORT_LOCK.lock().await;
-        ensure_hooks();
-        let dir = tempfile::tempdir().unwrap();
-        let paths = paths::Paths::new(dir.path());
-        std::fs::create_dir_all(&paths.config).unwrap();
-
-        struct FakeSetupEnv;
-        impl commands::setup::SetupEnv for FakeSetupEnv {
-            fn platform(&self) -> hostconfig::Platform {
-                hostconfig::Platform::current()
-            }
-            fn is_root(&self) -> Result<bool, HostError> {
-                Ok(false)
-            }
-            fn tailscale_ipv4(&self) -> Result<Option<String>, HostError> {
-                Ok(Some("100.64.0.1".to_owned()))
-            }
-            fn find_mongod(&self) -> Result<Option<String>, HostError> {
-                Ok(None)
-            }
-            fn find_on_path(&self, _name: &str) -> Result<Option<String>, HostError> {
-                Ok(None)
-            }
-            fn source_commit(&self, _repo: &Path) -> Result<String, HostError> {
-                Ok("test".to_owned())
-            }
-            fn apply_preset(&self, _paths: &paths::Paths) -> Result<Option<preset::PresetApplied>, HostError> {
-                Ok(None)
-            }
-            fn install_services(
-                &self,
-                _layout: &commands::setup::paradox::Layout,
-                _log_file: &Path,
-                _out: &mut dyn FnMut(&str),
-            ) -> Result<(), HostError> {
-                Ok(())
-            }
-            fn make_certificate(
-                &self,
-                _layout: &commands::setup::paradox::Layout,
-                _hosts: &[String],
-                _tls: &Path,
-                _log_file: &Path,
-            ) -> Result<(), HostError> {
-                Ok(())
-            }
-            fn gateway_program(&self) -> String {
-                "reforged-host".to_owned()
-            }
-            fn require_checkout_sources(&self) -> bool {
-                false
-            }
-        }
-
-        let both_err = commands::setup::options::host_config_from_args(
-            &cli::SetupArgs {
-                mode: Some("private".into()),
-                host: Some("100.64.0.1".into()),
-                modules: Some(vec!["isles-1-14-7".into(), "isles-1-12-0".into()]),
-                ..Default::default()
-            },
-            None,
-            &FakeSetupEnv,
-        )
-        .unwrap_err();
-        assert!(
-            both_err
-                .to_string()
-                .contains("cannot list both isles-1-14-7 and isles-1-12-0"),
-            "{both_err}"
-        );
-
-        let mut c = commands::setup::options::host_config_from_args(
-            &cli::SetupArgs {
-                mode: Some("private".into()),
-                host: Some("100.64.0.1".into()),
-                name: Some("Opt-in 1.12.0".into()),
-                modules: Some(vec!["isles-1-12-0".into()]),
-                ..Default::default()
-            },
-            None,
-            &FakeSetupEnv,
-        )
-        .unwrap();
-        c.host = "127.0.0.1".into();
-        c.game_address = "127.0.0.1".into();
-        assert_eq!(
-            c.modules.as_ref().and_then(|m| m.compiled.as_ref()),
-            Some(&vec!["isles-1-12-0".parse().unwrap()])
-        );
-
-        serve::ensure_server_files(&paths, &c).unwrap();
-        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("..");
-        let repo_paths = paths::Paths::new(&repo);
-        std::fs::create_dir_all(&paths.backend_game_data).unwrap();
-        std::fs::create_dir_all(&paths.director_game_data).unwrap();
-        for f in gamedata::BACKEND_GAME_DATA {
-            let src = gamepack::example_of(&repo_paths.backend_game_data.join(f));
-            std::fs::copy(&src, paths.backend_game_data.join(f)).unwrap();
-        }
-        for f in gamedata::DIRECTOR_GAME_DATA {
-            let src = gamepack::example_of(&repo_paths.director_game_data.join(f));
-            std::fs::copy(&src, paths.director_game_data.join(f)).unwrap();
-        }
-
-        let content_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let admin_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let gateway_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let content_env = commands::start::env_file(&paths, "content");
-        let content_text = std::fs::read_to_string(&content_env)
-            .unwrap()
-            .replace("PORT=61002", &format!("PORT={content_port}"));
-        std::fs::write(&content_env, content_text).unwrap();
-        let admin_env = commands::start::env_file(&paths, "admin");
-        let admin_text = std::fs::read_to_string(&admin_env)
-            .unwrap()
-            .replace("PORT=61003", &format!("PORT={admin_port}"));
-        std::fs::write(&admin_env, admin_text).unwrap();
-        let gateway_env = commands::start::env_file(&paths, "gateway");
-        let gateway_text = std::fs::read_to_string(&gateway_env)
-            .unwrap()
-            .replace("GATEWAY_PORT=61000", &format!("GATEWAY_PORT={gateway_port}"));
-        std::fs::write(&gateway_env, gateway_text).unwrap();
-
-        let mut controller = serve::compose(&paths, &c, false, serve::table_printer()).unwrap();
-        controller.start_all().await.unwrap();
-
-        let registry = controller.registry().unwrap();
-        let isles_112 = registry.info(&"isles-1-12-0".parse().unwrap()).unwrap();
-        assert_eq!(
-            isles_112.state,
-            controller::ModuleState::Ready,
-            "{:?}",
-            isles_112.detail
-        );
-        assert!(isles_112.autoload);
-        assert!(registry.info(&"isles-1-14-7".parse().unwrap()).is_err());
-
-        let reply = invite::http_request(
-            "GET",
-            gateway_port,
-            "/dauntless-status",
-            &[("X-Dauntless-Game-Version", "1.12.0")],
-            None,
-            Duration::from_secs(5),
-        )
-        .unwrap();
-        let body = &reply.body;
-        assert_eq!(reply.status, 200, "{body}");
-        assert!(body.contains("\"show-status\""), "{body}");
 
         controller.shutdown().await;
     }

@@ -254,8 +254,6 @@ const ADMIN_REQUEST: Arg = Arg::Object {
 /// `host.toml` settings edited from the server GUI (`server_config_save`).
 pub const REGISTRATION_MODES: &[&str] = &["OPEN", "INVITECODE", "NONE", "INVITE"];
 pub const DATABASE_ENGINES: &[&str] = &["sqlite", "postgres"];
-#[cfg(feature = "server-gui")]
-pub const REBORN_MODULES: &[&str] = &["isles-1-14-7", "isles-1-12-0"];
 
 const SERVER_CONFIG_PATCH: Arg = Arg::Object {
     fields: &[
@@ -271,7 +269,6 @@ const SERVER_CONFIG_PATCH: Arg = Arg::Object {
                 names: DATABASE_ENGINES,
             },
         ),
-        ("rebornModule", Arg::OptionalText { max: MODULE_ID_MAX }),
         ("maxHubs", Arg::Index { max: 64 }),
         ("maxHunts", Arg::Index { max: 128 }),
         ("freshStart", Arg::Flag),
