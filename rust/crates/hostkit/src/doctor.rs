@@ -11,9 +11,8 @@ use sha2::{Digest, Sha256};
 
 use crate::error::HostError;
 use crate::hostconfig::{
-    CLUSTER_CA_FILE, DEFAULT_MONGO_URI, HostConfig, NODE_CERT_FILE, NODE_KEY_FILE, PerformanceOptions, Platform,
-    ServerMode, gateway_port, is_tailscale_ipv4, linux_options, load_host_config, node_database_config,
-    performance_options,
+    CLUSTER_CA_FILE, HostConfig, NODE_CERT_FILE, NODE_KEY_FILE, PerformanceOptions, Platform, ServerMode, gateway_port,
+    is_tailscale_ipv4, linux_options, load_host_config, node_database_config, performance_options,
 };
 use crate::mongo::{MongoCheck, MongoProblem, ReplicaSetOptions, ensure_replica_set};
 use crate::paths::{GAME_VERSION_TEXT, PINNED_EXE_SHA256, PORTS, Paths, RUNTIME_FILE_NAMES, game_exe_relative};
@@ -769,45 +768,14 @@ pub fn database_check(mongo: &MongoCheck, _uri: &str, managed: bool) -> Check {
     }
 }
 
-fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<(String, String)> {
-    if config.fresh_start() {
-        return None;
-    }
-    let marker = p.config.join(".mongo-migrated");
-    let ws_marker = p.workspace.join("data").join(".mongo-migrated");
-    if marker.is_file() || ws_marker.is_file() {
-        return None;
-    }
-    if let Ok(entries) = fs::read_dir(&p.mongo_data) {
-        let has_data = entries.flatten().any(|e| {
-            let name = e.file_name();
-            name.to_str() != Some("mongod.lock")
-        });
-        if has_data {
-            return Some((
-                format!("unmigrated MongoDB data found in {}", p.mongo_data.display()),
-                "run reforged-host setup, or pass --fresh-start to setup".to_owned(),
-            ));
-        }
-    }
-    let has_prior_artifacts = p.config.join("backend.env").is_file() || p.logs.join("mongo.log").is_file();
-    if !config.mongo.manage && config.mongo.uri != DEFAULT_MONGO_URI && has_prior_artifacts {
-        return Some((
-            format!("unmigrated external MongoDB configured ({})", config.mongo.uri),
-            "run reforged-host setup, or pass --fresh-start to setup".to_owned(),
-        ));
-    }
-    None
-}
-
 pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
     let area = "database";
-    if let Some((text, fix)) = unmigrated_mongo_problem(p, config) {
+    if let Some(text) = crate::commands::update::unmigrated_mongo_problem(p, config) {
         return Check {
             area,
             level: Level::Fail,
             text,
-            fix: Some(fix),
+            fix: None,
         };
     }
 

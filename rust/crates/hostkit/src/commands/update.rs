@@ -17,25 +17,8 @@ use crate::selfupdate::{
     find_release, install, installing_marker, read_manifest, this_platform, verify_attestation,
 };
 
+// Written by dainty-legacy's `import reforged`, which moves a Node kit's MongoDB into the store
 pub const MONGO_MIGRATED_MARKER: &str = ".mongo-migrated";
-
-pub const MONGO_COLLECTIONS: [&str; 15] = [
-    "accounts",
-    "characters",
-    "inventories",
-    "loadouts",
-    "progression",
-    "quests",
-    "masteries",
-    "huntpasses",
-    "guilds",
-    "friends",
-    "mails",
-    "leaderboards",
-    "sanctions",
-    "invites",
-    "sessions",
-];
 
 pub trait UpdateEnv {
     fn platform(&self) -> Result<&'static str, HostError>;
@@ -43,13 +26,6 @@ pub trait UpdateEnv {
     fn verify_attestation(&self, archive: &Path, candidate: &Candidate, log: &Path) -> UpdateResult<Attestation>;
     fn checkout_commit(&self, root: &Path) -> String;
     fn run_setup(&self, program: &Path, root: &Path) -> Result<i32, HostError>;
-    fn migrate_mongo_data(&self, paths: &Paths, out: &mut dyn FnMut(&str)) -> Result<(), HostError> {
-        if let Ok(Some(cfg)) = load_host_config(paths) {
-            let log_file = paths.logs.join("update.log");
-            let _ = migrate_existing_mongo_data(paths, &cfg, &log_file, out)?;
-        }
-        Ok(())
-    }
 }
 
 #[derive(Default)]
@@ -165,26 +141,12 @@ pub fn store_target_for_migration(
     }
 }
 
-#[must_use]
-pub fn has_managed_mongo_data(p: &Paths) -> bool {
-    has_unmigrated_mongo_dir(p)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MigrationOutcome {
-    NotNeeded,
-    AlreadyMigrated,
-    FreshStart,
-    Migrated { records: usize },
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MongoMigrationStatus {
     None,
     Migrated,
     Skipped,
     Unmigrated { source: String },
-    Unreachable { uri: String, detail: String },
 }
 
 #[must_use]
@@ -211,8 +173,7 @@ pub fn inspect_mongo_migration(p: &Paths) -> MongoMigrationStatus {
         }
         return MongoMigrationStatus::Migrated;
     }
-    let cfg = load_host_config(p).ok().flatten();
-    if cfg.as_ref().is_some_and(HostConfig::fresh_start) {
+    if load_host_config(p).ok().flatten().is_some_and(|c| c.fresh_start()) {
         return MongoMigrationStatus::Skipped;
     }
     if has_unmigrated_mongo_dir(p) {
@@ -220,60 +181,7 @@ pub fn inspect_mongo_migration(p: &Paths) -> MongoMigrationStatus {
             source: p.mongo_data.to_string_lossy().into_owned(),
         };
     }
-    if let Some(c) = cfg
-        && has_external_mongo_evidence(p, &c)
-    {
-        let uri = crate::commands::db::resolve_mongo_uri(p, Some(&c), None);
-        let redacted = redact_mongo_uri(&uri);
-        match crate::hooks::get().mongo_has_documents(&uri) {
-            Ok(true) => return MongoMigrationStatus::Unmigrated { source: redacted },
-            Ok(false) => return MongoMigrationStatus::None,
-            Err(e) => {
-                return MongoMigrationStatus::Unreachable {
-                    uri: redacted,
-                    detail: e.to_string(),
-                };
-            }
-        }
-    }
     MongoMigrationStatus::None
-}
-
-#[must_use]
-pub fn is_default_local_mongo_uri(uri: &str) -> bool {
-    let trimmed = uri.trim();
-    let Some(rest) = trimmed.strip_prefix("mongodb://") else {
-        return false;
-    };
-    let without_query = rest.split('?').next().unwrap_or(rest);
-    let (authority, path) = match without_query.split_once('/') {
-        Some((a, p)) => (a, p.trim_matches('/')),
-        None => (without_query, ""),
-    };
-    if authority.contains('@') {
-        return false;
-    }
-    let is_local_27017 =
-        authority.eq_ignore_ascii_case("127.0.0.1:27017") || authority.eq_ignore_ascii_case("localhost:27017");
-    let is_default_db = path.is_empty() || path == "reforged";
-    is_local_27017 && is_default_db
-}
-
-#[must_use]
-pub fn has_valid_mongo_migrated_marker(p: &Paths, config: &HostConfig) -> bool {
-    let marker = mongo_migrated_marker(p);
-    if !marker.is_file() {
-        return false;
-    }
-    if !config.fresh_start()
-        && fs::read_to_string(&marker)
-            .ok()
-            .is_some_and(|s| s.starts_with("fresh-start"))
-    {
-        let _ = fs::remove_file(&marker);
-        return false;
-    }
-    true
 }
 
 #[must_use]
@@ -285,158 +193,24 @@ pub fn has_unmigrated_mongo_dir(p: &Paths) -> bool {
 }
 
 #[must_use]
-pub fn has_prior_old_kit_artifacts(p: &Paths) -> bool {
-    if p.host_json.is_file() || p.config.join("host.json.bak").is_file() || p.logs.join("mongo.log").is_file() {
-        return true;
-    }
-    fs::read_to_string(p.config.join("backend.env"))
-        .ok()
-        .is_some_and(|s| s.lines().any(|l| l.trim_start().starts_with("MONGODB_URI=")))
-}
-
-#[must_use]
-pub fn has_external_mongo_evidence(p: &Paths, config: &HostConfig) -> bool {
-    if config.fresh_start() || has_valid_mongo_migrated_marker(p, config) {
-        return false;
-    }
-    !is_default_local_mongo_uri(&config.mongo.uri) || has_prior_old_kit_artifacts(p)
-}
-
-#[must_use]
-pub fn unmigrated_mongo_doctor_problem(p: &Paths, config: &HostConfig) -> Option<(String, String)> {
-    if cfg!(feature = "paradox") || config.fresh_start() || has_valid_mongo_migrated_marker(p, config) {
+pub fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<String> {
+    if cfg!(feature = "paradox") || config.fresh_start() || mongo_migrated_marker(p).is_file() {
         return None;
     }
-    if has_unmigrated_mongo_dir(p) {
-        return Some((
-            format!(
-                "unmigrated MongoDB data was found in {}",
-                p.mongo_data.display()
-            ),
-            "run reforged-host setup (or reforged-host db migrate) to migrate it, or pass --fresh-start (or set [database] fresh_start = true in host.toml) to start on a fresh database".to_owned(),
-        ));
-    }
-    if has_external_mongo_evidence(p, config) {
-        let uri = crate::commands::db::resolve_mongo_uri(p, Some(config), None);
-        let redacted = redact_mongo_uri(&uri);
-        match crate::hooks::get().mongo_has_documents(&uri) {
-            Ok(true) => {
-                return Some((
-                    format!("unmigrated MongoDB data was found at {redacted}"),
-                    "run reforged-host setup (or reforged-host db migrate) to migrate it, or pass --fresh-start (or set [database] fresh_start = true in host.toml) to start on a fresh database".to_owned(),
-                ));
-            }
-            Ok(false) => return None,
-            Err(_) => {
-                if !config.mongo.manage || !is_default_local_mongo_uri(&config.mongo.uri) {
-                    return Some((
-                        format!("MongoDB is configured at {redacted}, but it is not reachable"),
-                        "start MongoDB and run reforged-host setup (or reforged-host update), or pass --fresh-start (or set [database] fresh_start = true in host.toml) to start on a fresh database".to_owned(),
-                    ));
-                }
-            }
-        }
-    }
-    None
-}
-
-pub fn check_unmigrated_mongo_before_start(p: &Paths, config: &HostConfig) -> Result<(), HostError> {
-    if let Some((problem, fix)) = unmigrated_mongo_doctor_problem(p, config) {
-        return Err(HostError::message(format!("{problem}: {fix}")));
-    }
-    Ok(())
+    // An install already on host.toml never meets dainty-legacy's host.json check, so it is caught here
+    has_unmigrated_mongo_dir(p).then(|| {
+        format!(
+            "unmigrated MongoDB data was found in {}: move it with `reforged-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
+            p.mongo_data.display()
+        )
+    })
 }
 
 pub fn check_unmigrated_mongo_data(p: &Paths, config: &HostConfig) -> Result<(), HostError> {
-    check_unmigrated_mongo_before_start(p, config)
-}
-
-pub fn migrate_existing_mongo_data(
-    p: &Paths,
-    config: &HostConfig,
-    _log_file: &Path,
-    say: &mut dyn FnMut(&str),
-) -> Result<bool, HostError> {
-    if cfg!(feature = "paradox") || config.fresh_start() || has_valid_mongo_migrated_marker(p, config) {
-        return Ok(false);
+    match unmigrated_mongo_problem(p, config) {
+        Some(problem) => Err(HostError::message(problem)),
+        None => Ok(()),
     }
-    let has_dir = has_unmigrated_mongo_dir(p);
-    let has_ext = has_external_mongo_evidence(p, config);
-    if !has_dir && !has_ext {
-        return Ok(false);
-    }
-
-    let uri = crate::commands::db::resolve_mongo_uri(p, Some(config), None);
-    let redacted = redact_mongo_uri(&uri);
-    match crate::hooks::get().mongo_has_documents(&uri) {
-        Ok(true) => {}
-        Ok(false) => {
-            if !has_dir {
-                return Ok(false);
-            }
-        }
-        Err(_) => {
-            if !config.mongo.manage || !is_default_local_mongo_uri(&config.mongo.uri) || has_dir {
-                return Err(HostError::message(format!(
-                    "MongoDB is configured at {redacted}, but it is not reachable: start MongoDB and run reforged-host setup (or reforged-host update) again, or pass --fresh-start (or set [database] fresh_start = true in host.toml) to start on a fresh database"
-                )));
-            }
-            return Ok(false);
-        }
-    }
-
-    let db_cfg = node_database_config(config, p)?;
-    let sqlite_existed_before = match &db_cfg {
-        store::DatabaseConfig::Sqlite { file } => file.is_file(),
-        _ => true,
-    };
-
-    say("- migrating existing MongoDB data to the store database...");
-    let (counts, _) = crate::hooks::get().db_migrate(&uri, &db_cfg, false)?;
-    let mismatches = crate::hooks::get().db_verify(&uri, &db_cfg)?;
-    if !mismatches.is_empty() {
-        if !sqlite_existed_before && let store::DatabaseConfig::Sqlite { file } = &db_cfg {
-            let _ = fs::remove_file(file);
-            let _ = fs::remove_file(file.with_extension("db-wal"));
-            let _ = fs::remove_file(file.with_extension("db-shm"));
-        }
-        let cols: Vec<&str> = mismatches.iter().map(|(c, _)| c.as_str()).collect();
-        return Err(HostError::message(format!(
-            "isles-db verify reported a difference in [{}]: refusing to switch to the Rust backend; the server stays on its previous setup and MongoDB data was not modified",
-            cols.join(", ")
-        )));
-    }
-
-    let marker = mongo_migrated_marker(p);
-    if let Some(parent) = marker.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    let _ = fs::write(&marker, format!("migrated from {redacted}\n"));
-    let total: usize = counts.iter().map(|(_, n)| *n).sum();
-    say(&format!(
-        "- MongoDB migration verified ({total} record(s), 0 differences)"
-    ));
-    Ok(true)
-}
-
-pub fn migrate_existing_mongo_data_for_setup(
-    p: &Paths,
-    config: &HostConfig,
-    log_file: &Path,
-    out: &mut dyn FnMut(&str),
-) -> Result<bool, HostError> {
-    if config.fresh_start() {
-        let marker = mongo_migrated_marker(p);
-        if let Some(parent) = marker.parent() {
-            fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
-        }
-        if !marker.is_file() {
-            fs::write(&marker, "fresh-start\n").map_err(|e| HostError::io(&marker, e))?;
-        }
-        out("- skipping MongoDB migration (--fresh-start): starting on a fresh database");
-        return Ok(false);
-    }
-    migrate_existing_mongo_data(p, config, log_file, out)
 }
 
 #[must_use]
@@ -583,13 +357,6 @@ pub fn run_with(
         }
     };
 
-    if let Err(e) = env.migrate_mongo_data(p, out) {
-        let _ = fs::remove_file(&archive);
-        let _ = fs::remove_file(update_dir.join(SUMS_FILE));
-        let _ = fs::remove_dir_all(&staging_dir);
-        return Err(e);
-    }
-
     let prev_for_install = if interrupted { None } else { installed.as_ref() };
     let (_manifest, info) = match install(&staged, &p.repo, prev_for_install) {
         Ok(r) => r,
@@ -630,7 +397,7 @@ pub fn run_with(
     }
 
     if !args.no_setup {
-        let configured = p.host_toml.is_file() || p.host_json.is_file();
+        let configured = p.host_toml.is_file();
         if configured {
             let host_bin = p
                 .repo
@@ -658,7 +425,7 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn check_unmigrated_mongo_data_passes_when_empty_or_fresh_start() {
+    fn check_unmigrated_mongo_data_passes_when_empty_or_marked() {
         let tmp = TempDir::new().unwrap();
         let paths = Paths::new(tmp.path());
         let cfg = HostConfig::from_json(&json!({
@@ -670,19 +437,18 @@ mod tests {
             "maxHuntServers": 4
         }))
         .unwrap();
-        assert!(check_unmigrated_mongo_before_start(&paths, &cfg).is_ok());
+        assert!(check_unmigrated_mongo_data(&paths, &cfg).is_ok());
 
-        // Add non-lock file in mongo_data -> fails unless marker or fresh_start
         fs::create_dir_all(&paths.mongo_data).unwrap();
         fs::write(paths.mongo_data.join("WiredTiger"), b"data").unwrap();
         if !cfg!(feature = "paradox") {
-            assert!(check_unmigrated_mongo_before_start(&paths, &cfg).is_err());
+            let err = check_unmigrated_mongo_data(&paths, &cfg).unwrap_err().to_string();
+            assert!(err.contains("dainty-legacy import reforged"), "{err}");
         }
 
-        // Marker clears the error
         let marker = mongo_migrated_marker(&paths);
         fs::create_dir_all(marker.parent().unwrap()).unwrap();
         fs::write(&marker, "migrated from mongodb://127.0.0.1:27017/reforged\n").unwrap();
-        assert!(check_unmigrated_mongo_before_start(&paths, &cfg).is_ok());
+        assert!(check_unmigrated_mongo_data(&paths, &cfg).is_ok());
     }
 }

@@ -29,10 +29,6 @@ pub trait HostHooks: Send + Sync {
         )))
     }
 
-    fn mongo_has_documents(&self, _uri: &str) -> Result<bool, String> {
-        Err("MongoDB check is not registered in this build".to_owned())
-    }
-
     #[allow(clippy::type_complexity)]
     fn db_migrate(
         &self,

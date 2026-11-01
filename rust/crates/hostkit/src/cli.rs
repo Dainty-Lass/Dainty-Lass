@@ -44,6 +44,8 @@ pub enum Command {
     Remote(RemoteArgs),
     History(HistoryArgs),
     Revert(RevertArgs),
+    /// Imports an old install with dainty-legacy: a Revived 1.4.4 server or offline save, or a Reforged Node kit
+    Legacy(LegacyArgs),
     #[command(hide = true, disable_help_flag = true)]
     Gateway {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -104,6 +106,7 @@ impl Command {
             Self::Remote(_) => "remote",
             Self::History(_) => "history",
             Self::Revert(_) => "revert",
+            Self::Legacy(_) => "legacy",
             Self::Gateway { .. } => "gateway",
             Self::Allowlist { .. } => "allowlist",
             Self::Content { .. } => "content",
@@ -577,6 +580,29 @@ pub struct RevertArgs {
     pub dry_run: bool,
     #[arg(long)]
     pub apply: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
+pub struct LegacyArgs {
+    #[command(subcommand)]
+    pub command: LegacyCommand,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
+pub enum LegacyCommand {
+    Import(LegacyImportArgs),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Args)]
+pub struct LegacyImportArgs {
+    /// revived, offline-save or reforged
+    pub kind: String,
+    /// dainty-legacy's executable, when host.toml pins none (a Node kit before its first setup)
+    #[arg(long)]
+    pub program: Option<std::path::PathBuf>,
+    /// Passed on to `dainty-legacy import <kind>`
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Args)]

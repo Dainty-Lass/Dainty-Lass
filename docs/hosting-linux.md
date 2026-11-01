@@ -133,10 +133,11 @@ bin/reforged-host backup                        # SQLite/Postgres backup into .w
 
 ## Updating and rollback (`reforged-host db export-mongo` and `paradox`)
 
-When `bin/reforged-host update` (or the new release's `bin/reforged-host setup`) runs on a Linux host that previously
-ran the Node backend with MongoDB data, it runs `reforged-host db migrate` and `reforged-host db verify` into the
-configured store (`.workspace/config/dainty-lass.db` or Postgres), refuses to switch if `verify` reports any difference,
-and leaves `.workspace/mongodb` untouched ([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)).
+On a Linux host that previously ran the Node backend with MongoDB data, run `bin/reforged-host db migrate` and then
+`bin/reforged-host db verify` after `update`: they move the data into the configured store
+(`.workspace/config/dainty-lass.db` or Postgres) and leave `.workspace/mongodb` untouched, and `start` refuses until
+`verify` has found no difference. An old Node kit (`host.json`) is upgraded by dainty-legacy's `import reforged`
+([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)).
 For one release after the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store
 back to MongoDB with `bin/reforged-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (defaulting the source
 and target from `host.toml`) and running a `reforged-host` binary built with `--features paradox`

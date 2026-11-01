@@ -153,7 +153,6 @@ pub struct Paths {
     pub runtime_publish: PathBuf,
     pub config: PathBuf,
     pub host_toml: PathBuf,
-    pub host_json: PathBuf,
     pub tls: PathBuf,
     pub cert_file: PathBuf,
     pub key_file: PathBuf,
@@ -202,7 +201,6 @@ impl Paths {
         let runtime_publish = workspace.join("runtime");
         let config = workspace.join("config");
         let host_toml = config.join("host.toml");
-        let host_json = config.join("host.json");
         let tls = workspace.join("tls");
         let cert_file = tls.join("gateway-cert.pem");
         let key_file = tls.join("gateway-key.pem");
@@ -245,7 +243,6 @@ impl Paths {
             runtime_publish,
             config,
             host_toml,
-            host_json,
             tls,
             cert_file,
             key_file,
@@ -288,7 +285,6 @@ mod tests {
         assert_eq!(p.workspace, Path::new("/srv/server/.workspace"));
         assert_eq!(p.config, Path::new("/srv/server/.workspace/config"));
         assert_eq!(p.host_toml, Path::new("/srv/server/.workspace/config/host.toml"));
-        assert_eq!(p.host_json, Path::new("/srv/server/.workspace/config/host.json"));
         assert_eq!(p.cert_file, Path::new("/srv/server/.workspace/tls/gateway-cert.pem"));
         assert_eq!(p.key_file, Path::new("/srv/server/.workspace/tls/gateway-key.pem"));
         assert_eq!(p.mongo_data, Path::new("/srv/server/.workspace/mongodb"));

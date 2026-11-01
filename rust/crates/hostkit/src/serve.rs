@@ -603,7 +603,7 @@ fn load_config(paths: &Paths, config_file: Option<&Path>) -> Result<HostConfig, 
                 && crate::commands::update::has_unmigrated_mongo_dir(paths)
             {
                 return Err(HostError::message(format!(
-                    "Unmigrated MongoDB data: unmigrated MongoDB data was found in {}: run reforged-host setup (or reforged-host db migrate) to migrate it, or pass --fresh-start (or set [database] fresh_start = true in host.toml) to start on a fresh database",
+                    "unmigrated MongoDB data was found in {}: move it with `reforged-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
                     paths.mongo_data.display()
                 )));
             }

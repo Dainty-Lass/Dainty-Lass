@@ -2112,15 +2112,19 @@ pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
 }
 
 pub fn load_host_config(p: &Paths) -> Result<Option<HostConfig>, HostError> {
-    if let Some(cfg) = read_host_config(&p.host_toml)? {
-        return Ok(Some(cfg));
+    let old = p.config.join("host.json");
+    if !p.host_toml.is_file() && old.is_file() {
+        return Err(HostError::message(format!(
+            "{} is a Node kit's: run `dainty-legacy import reforged <checkout>` first",
+            old.display()
+        )));
     }
-    read_host_config(&p.host_json)
+    read_host_config(&p.host_toml)
 }
 
 #[must_use]
 pub fn has_host_config(p: &Paths) -> bool {
-    p.host_toml.is_file() || p.host_json.is_file()
+    p.host_toml.is_file()
 }
 
 pub fn host_config_text(c: &HostConfig) -> Result<String, HostError> {
@@ -2144,15 +2148,8 @@ pub fn write_host_config(file: &Path, c: &HostConfig) -> Result<(), HostError> {
     std::fs::write(file, text).map_err(|e| HostError::io(file, e))
 }
 
-pub fn save_host_config(p: &Paths, c: &HostConfig) -> Result<bool, HostError> {
-    let had_json_only = !p.host_toml.exists() && p.host_json.is_file();
-    write_host_config(&p.host_toml, c)?;
-    if p.host_json.is_file() {
-        let bak = p.config.join("host.json.bak");
-        let _ = std::fs::remove_file(&bak);
-        std::fs::rename(&p.host_json, &bak).map_err(|e| HostError::io(&p.host_json, e))?;
-    }
-    Ok(had_json_only)
+pub fn save_host_config(p: &Paths, c: &HostConfig) -> Result<(), HostError> {
+    write_host_config(&p.host_toml, c)
 }
 
 pub fn new_secrets() -> Result<Secrets, HostError> {
