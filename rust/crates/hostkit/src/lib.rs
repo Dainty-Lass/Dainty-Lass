@@ -18,7 +18,6 @@ pub mod hooks;
 pub mod hostconfig;
 pub mod hosttoml;
 pub mod invite;
-pub mod legacy;
 pub mod linux;
 pub mod mongo;
 pub mod paths;

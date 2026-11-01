@@ -659,17 +659,8 @@ impl Gateway {
     /// The policy and the modules' routes, for the game this gateway fronts (an invite's `version`).
     fn route(&self, request: &Request<Incoming>, is_upgrade: bool) -> Routed {
         let target = request.uri().to_string();
-        let default_version = self.config.version.to_string();
-        let version = request
-            .headers()
-            .get("x-dauntless-game-version")
-            .or_else(|| request.headers().get("x-reforged-game-version"))
-            .and_then(|v| v.to_str().ok())
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .unwrap_or(&default_version);
         self.routes.route(
-            version,
+            &self.config.version.to_string(),
             &self.config.version,
             request.method().as_str(),
             &target,

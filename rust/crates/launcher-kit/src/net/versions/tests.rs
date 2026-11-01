@@ -721,11 +721,7 @@ fn the_table_is_whole() {
         .collect();
     assert_eq!(
         rows,
-        [
-            ("1.14.7".to_owned(), "Rustic Isles 1.14.7", Some("1.14.7.647472")),
-            ("1.12.0".to_owned(), "Rustic Isles 1.12", Some("1.12.0.392819")),
-            ("1.4.4".to_owned(), "Dauntless Revived", None),
-        ]
+        [("1.14.7".to_owned(), "Rustic Isles 1.14.7", Some("1.14.7.647472")),]
     );
     let epic = table[0].client.epic.as_ref().unwrap();
     assert_eq!(
@@ -734,15 +730,6 @@ fn the_table_is_whole() {
     );
     assert_eq!(epic.executable_sha256.to_string(), crate::core::pins::PINNED_EXE_SHA256);
     assert_eq!(crate::core::pins::EXE_RELATIVE_PATH, epic::builds::EXECUTABLE);
-    assert_eq!(
-        table[1].client.epic.as_ref().unwrap().manifest_sha1.to_string(),
-        "46b4097c070afc29ed783e77a68ffa936b6a3504"
-    );
-    #[cfg(feature = "legacy")]
-    assert_eq!(
-        table[2].client.executable_sha256.unwrap().to_string(),
-        crate::core::legacy_pins::PINNED_EXE_SHA256
-    );
     for profile in &table {
         // Each passes the check a served one gets, and reads back as served
         let row = ServedVersion {
@@ -777,11 +764,7 @@ fn with_nothing_reachable_the_list_is_still_the_table() {
         .collect();
     assert_eq!(
         states,
-        [
-            ("1.14.7", GameVersionInstall::Epic, Some(EpicManifestState::Unreachable)),
-            ("1.12.0", GameVersionInstall::Epic, Some(EpicManifestState::Unreachable)),
-            ("1.4.4", GameVersionInstall::Locate, None),
-        ]
+        [("1.14.7", GameVersionInstall::Epic, Some(EpicManifestState::Unreachable)),]
     );
 }
 
@@ -789,7 +772,7 @@ fn with_nothing_reachable_the_list_is_still_the_table() {
 #[test]
 fn the_archived_manifests_give_the_archives_sizes() {
     if std::env::var("REFORGED_TEST_EPIC_MANIFEST").as_deref() != Ok("1") {
-        eprintln!("set REFORGED_TEST_EPIC_MANIFEST=1 to fetch the archived 1.14.7 and 1.12.0 manifests");
+        eprintln!("set REFORGED_TEST_EPIC_MANIFEST=1 to fetch the archived 1.14.7 manifest");
         return;
     }
     let list = block_on(list(
@@ -804,13 +787,6 @@ fn the_archived_manifests_give_the_archives_sizes() {
         Some(Sizes {
             download: 15_985_792_608,
             install: 16_521_629_423
-        })
-    );
-    assert_eq!(
-        sizes_of(&list[1]),
-        Some(Sizes {
-            download: 15_822_495_601,
-            install: 16_421_864_653
         })
     );
 }

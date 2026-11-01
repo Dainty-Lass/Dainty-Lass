@@ -9,9 +9,9 @@ use crate::cli::SetupArgs;
 use crate::commands::setup::SetupEnv;
 use crate::error::HostError;
 use crate::hostconfig::{
-    DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, Edition, HostConfig, LinuxOptions, Multipliers, PerformanceOptions,
-    Platform, Registration, ServerMode, check_edition, game_ports, is_dns_name, is_ipv4, is_public_ipv4,
-    is_tailscale_ipv4, is_valid_share_url, linux_options, performance_options,
+    DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, HostConfig, LinuxOptions, Multipliers, PerformanceOptions, Platform,
+    Registration, ServerMode, game_ports, is_dns_name, is_ipv4, is_public_ipv4, is_tailscale_ipv4, is_valid_share_url,
+    linux_options, performance_options,
 };
 use crate::paths::{GAME_VERSION_TEXT, MAX_HUNTS, game_exe_relative};
 
@@ -50,37 +50,6 @@ pub fn public_port_from_args(
         }
     } else if mode == ServerMode::Public {
         Ok(existing.and_then(|c| c.public_port).map(f64::from))
-    } else {
-        Ok(None)
-    }
-}
-
-fn parse_legacy_public_port_from_args(
-    args: &SetupArgs,
-    mode: ServerMode,
-    edition: Edition,
-    existing: Option<&HostConfig>,
-) -> Result<Option<u16>, HostError> {
-    if let Some(ref raw) = args.legacy_public_port {
-        if edition != Edition::Both {
-            return Err(HostError::message(
-                "--legacy-game and --legacy-public-port are for --edition both",
-            ));
-        }
-        if mode != ServerMode::Public {
-            return Err(HostError::message("--legacy-public-port is for public servers only"));
-        }
-        let port =
-            raw.trim().parse::<u16>().ok().filter(|&p| p >= 1).ok_or_else(|| {
-                HostError::message(format!("--legacy-public-port must be a TCP port number (got {raw})"))
-            })?;
-        if port == crate::paths::DEFAULT_LEGACY_PUBLIC_PORT {
-            Ok(None)
-        } else {
-            Ok(Some(port))
-        }
-    } else if edition == Edition::Both && mode == ServerMode::Public {
-        Ok(existing.and_then(|c| c.legacy_public_port))
     } else {
         Ok(None)
     }
@@ -346,21 +315,6 @@ pub fn host_config_from_args(
         ));
     };
 
-    let edition = if let Some(ref ed) = args.edition {
-        Edition::parse(ed.trim())
-            .ok_or_else(|| HostError::message(format!("--edition must be reborn, legacy or both (got {ed})")))?
-    } else if let Some(c) = existing {
-        c.edition
-    } else {
-        Edition::Reborn
-    };
-
-    if (args.legacy_game.is_some() || args.legacy_public_port.is_some()) && edition != Edition::Both {
-        return Err(HostError::message(
-            "--legacy-game and --legacy-public-port are for --edition both",
-        ));
-    }
-
     let ts_ip = env.tailscale_ipv4()?;
     let (host, game_address) = match mode {
         ServerMode::Private => {
@@ -440,18 +394,9 @@ pub fn host_config_from_args(
     };
 
     let game_dir = if let Some(ref g) = args.game {
-        let ver = if edition == Edition::Legacy { "1.4.4" } else { "1.14.7" };
-        Some(parse_game_dir("--game", ver, g)?)
+        Some(parse_game_dir("--game", "1.14.7", g)?)
     } else {
         existing.and_then(|c| c.game_dir.clone())
-    };
-
-    let legacy_game_dir = if let Some(ref lg) = args.legacy_game {
-        Some(parse_game_dir("--legacy-game", "1.4.4", lg)?)
-    } else if edition == Edition::Both {
-        existing.and_then(|c| c.legacy_game_dir.clone())
-    } else {
-        None
     };
 
     let registration = if let Some(ref r) = args.registration {
@@ -526,7 +471,6 @@ pub fn host_config_from_args(
     };
 
     let public_port = public_port_from_args(args, mode, existing)?.map(|p| p as u16);
-    let legacy_public_port = parse_legacy_public_port_from_args(args, mode, edition, existing)?;
 
     if (args.xp_multiplier.is_some() || args.reward_multiplier.is_some()) && mode != ServerMode::Private {
         return Err(HostError::message(
@@ -579,16 +523,10 @@ pub fn host_config_from_args(
     let mut doc = Map::new();
     doc.insert("version".into(), json!(HOST_CONFIG_VERSION));
     doc.insert("mode".into(), json!(mode.as_str()));
-    if edition != Edition::Reborn {
-        doc.insert("edition".into(), json!(edition.as_str()));
-    }
     doc.insert("host".into(), json!(host));
     doc.insert("gameAddress".into(), json!(game_address));
     doc.insert("name".into(), json!(name));
     doc.insert("gameDir".into(), json!(game_dir));
-    if let Some(lgd) = legacy_game_dir {
-        doc.insert("legacyGameDir".into(), json!(lgd));
-    }
     doc.insert("registration".into(), json!(registration.as_str()));
     doc.insert("shareUrl".into(), json!(share_url));
 
@@ -601,9 +539,6 @@ pub fn host_config_from_args(
     doc.insert("maxHuntServers".into(), json!(max_hunt_servers));
     if let Some(pp) = public_port {
         doc.insert("publicPort".into(), json!(pp));
-    }
-    if let Some(lpp) = legacy_public_port {
-        doc.insert("legacyPublicPort".into(), json!(lpp));
     }
     if let Some(m) = multipliers {
         doc.insert(
@@ -673,37 +608,7 @@ pub fn host_config_from_args(
         }
     }
 
-    if let Some(ref raw_modules) = args.modules {
-        let mut compiled = Vec::new();
-        for raw in raw_modules {
-            let trimmed = raw.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            let id: module_api::ModuleId = trimmed
-                .parse()
-                .map_err(|e| HostError::message(format!("--modules: {e}")))?;
-            if crate::hostconfig::modules::RESERVED_KEYS.contains(&id.as_str()) {
-                return Err(HostError::message(format!("--modules: {id} can't be a module id")));
-            }
-            if !compiled.contains(&id) {
-                compiled.push(id);
-            }
-        }
-        if compiled.iter().any(|id| id.as_str() == "isles-1-14-7")
-            && compiled.iter().any(|id| id.as_str() == "isles-1-12-0")
-        {
-            return Err(HostError::message(
-                "--modules cannot list both isles-1-14-7 and isles-1-12-0: they share ports 61000/61001 and 8770-8777",
-            ));
-        }
-        let mut mod_cfg = existing.and_then(|c| c.modules.clone()).unwrap_or_default();
-        mod_cfg.compiled = Some(compiled);
-        doc.insert("modules".into(), mod_cfg.to_json());
-    }
-
     let parsed = HostConfig::from_json(&Value::Object(doc))?.written_over(existing);
-    check_edition(&parsed)?;
     let _ = linux_options(&parsed);
     Ok(parsed)
 }

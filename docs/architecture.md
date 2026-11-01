@@ -17,7 +17,7 @@ under [security/](security) go through each trust boundary line by line.
 | Remote management | controller & managed installs | `rust/crates/remote` (`Service::Remote`) | no listener of its own; rides gateway `/__node/enroll` (rate-limited token redemption) and `/__node/remote` (mTLS under the controller's CA) |
 | Chat (core plugin) | the server | `rust/plugins/chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
 | Store & history shipping | the server | `rust/crates/store`, `rust/crates/history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
-| Game modules | the server (in-process or child process) | `modules/rustic-isles` (`isles-1-14-7`, `isles-1-12-0`), `modules/legacy-revived` (`revived-1-4-4`) | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
+| Game modules | the server (in-process or child process) | `modules/rustic-isles` (`isles-1-14-7`) | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
 | Realms & TURN relay | the server & realm hosts' PCs | `modules/rustic-rifts` (`rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, `ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
 | Host kit | the server | `rust/crates/hostkit` and `rust/services/host`, bin `reforged-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |

@@ -46,12 +46,6 @@ pub enum Route<'a> {
     ClientProfile(&'a str),
     /// A version's pinned Epic manifest: the raw version segment
     EpicManifest(&'a str),
-    /// A legacy server's `/content/v1/manifest`
-    #[cfg(feature = "legacy")]
-    GameManifest,
-    /// A legacy server's `/content/v1/files/<path>`, parsed from the raw target by the handler
-    #[cfg(feature = "legacy")]
-    GameFile,
     Unknown,
 }
 
@@ -80,21 +74,6 @@ impl Route<'_> {
             }
         } else {
             Route::Unknown
-        }
-    }
-
-    /// A legacy server's routes (DR's `known` check): the game's in place of the runtime's.
-    #[cfg(feature = "legacy")]
-    pub fn of_legacy(path_only: &str) -> Route<'_> {
-        if path_only == "/content/v1/manifest" {
-            Route::GameManifest
-        } else if path_only.starts_with(crate::legacy::paths::FILES_PREFIX) {
-            Route::GameFile
-        } else {
-            match Route::of(path_only) {
-                Route::RuntimeManifest | Route::RuntimeFile(_) => Route::Unknown,
-                other => other,
-            }
         }
     }
 }

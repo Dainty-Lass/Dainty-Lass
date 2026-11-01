@@ -4,7 +4,7 @@
 //! Which program runs each service. The backend and the Director are Node until RB14. The gateway,
 //! the content server and the allowlist helper move to Rust one row at a time: [`rust_ported`] is the
 //! one switch each row flips. A ported service runs inside this binary (RD26): in-process under `start`,
-//! or as `<this binary> <service>` where it needs a process of its own (the legacy plan, `--close-ports`).
+//! or as `<this binary> <service>` where it needs a process of its own (`--close-ports`).
 
 use std::path::{Path, PathBuf};
 
@@ -65,7 +65,7 @@ pub struct Launch {
 }
 
 /// Where the programs are: Node, this binary (which runs the Rust services) and the folders searched
-/// for the Rust binaries that are not part of it (a legacy server's metagame and deploy server).
+/// for the Rust binaries that are not part of it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Programs {
     pub node: PathBuf,
@@ -92,15 +92,14 @@ impl Programs {
     }
 
     /// This binary, and the folders with other Rust binaries: next to it (the server release), then the
-    /// workspace's `rust/target/release` and `debug`, then legacy-revived's (its metagame and deploy
-    /// server, a workspace of their own since DS6). `node` is left as the bare name.
+    /// workspace's `rust/target/release` and `debug`. `node` is left as the bare name.
     pub fn find_rust(paths: &Paths) -> Self {
         let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("reforged-host"));
         let mut rust_dirs = Vec::new();
         if let Some(dir) = exe.parent() {
             rust_dirs.push(dir.to_path_buf());
         }
-        for workspace in [paths.repo.join("rust"), paths.revived.join("rust")] {
+        for workspace in [paths.repo.join("rust")] {
             for profile in ["release", "debug"] {
                 let dir = workspace.join("target").join(profile);
                 if !rust_dirs.contains(&dir) {

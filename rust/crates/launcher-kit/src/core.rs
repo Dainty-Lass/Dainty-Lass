@@ -6,10 +6,6 @@
 pub mod pins;
 pub mod text;
 
-pub mod legacy_pins {
-    pub const PINNED_EXE_SHA256: &str = "d3d41e614908d2befd518b27046d9822d6130ef12ba3504babbdb786bef9cff4";
-}
-
 pub mod invite {
     pub use protocol::invite::*;
 }

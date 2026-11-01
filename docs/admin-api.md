@@ -74,10 +74,13 @@ server doesn't run is `UNKNOWN_GAME`. A kick, ban or timeout waits for every gam
 refused with `BACKEND_UNAVAILABLE` unless `game` is given.
 
 For a player in a module's game, the module does the work and the answer carries what `module-api` reports: the
-name, the account id and whether they're online. `status` is `UNKNOWN`, `restriction` and `location` are null,
-`admin` is false and `connectionsClosed` is 0. A timeout is sent as a ban with its end, which the module lifts.
-`unban` and `liftTimeout` answer `NOT_SUPPORTED` there for now. The module refuses to act on its own admins, which
-comes back as `BACKEND_REFUSED` with its reason.
+name, the account id, whether they're online and, when the module reports one, the ban, timeout or disabling that
+keeps them out of play (`restriction`, with a timeout's `until`; `status` is then `BANNED` or `DISABLED`). Without
+one `status` is `UNKNOWN` and `restriction` null; `location` is null, `admin` false and `connectionsClosed` 0. A
+timeout is sent as a ban with its end, which the module keeps and ends itself: the 1.14.7 module lets a timed-out
+player sign in to the launcher but not play. A module that doesn't register `unban` and `liftTimeout` answers
+`NOT_SUPPORTED` to them. The module refuses to act on its own admins, which comes back as `BACKEND_REFUSED` with its
+reason.
 
 How the moderation works:
 

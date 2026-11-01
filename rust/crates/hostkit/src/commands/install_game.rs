@@ -22,8 +22,7 @@ use crate::cli::InstallGameArgs;
 use crate::epicinstall::{self, DEFAULT_VERSION, Env, Files, Plan};
 use crate::error::HostError;
 use crate::hostconfig::{
-    Edition, HostConfig, Platform, build_env_files, load_host_config, load_or_create_secrets, save_host_config,
-    write_env_files,
+    HostConfig, Platform, build_env_files, load_host_config, load_or_create_secrets, save_host_config, write_env_files,
 };
 use crate::paths::Paths;
 
@@ -39,8 +38,6 @@ pub enum Configured {
     Unchanged,
     /// No host.toml yet: setup takes the folder as `--game`
     NoSettings,
-    /// A legacy server runs 1.4.4, not this game
-    Legacy,
     /// Not the version `game_dir` is for
     OtherVersion,
 }
@@ -188,7 +185,6 @@ pub async fn run_with<L: Library>(
         Configured::NoSettings => out(&format!(
             "No host.toml yet: run setup with --game \"{folder}\" so the game servers run from it."
         )),
-        Configured::Legacy => out("This server runs Dauntless 1.4.4, so host.toml was not changed."),
         Configured::OtherVersion => {}
     }
     Ok(ExitCode::SUCCESS)
@@ -204,9 +200,6 @@ pub fn configure(
     let Some(config) = load_host_config(paths)? else {
         return Ok(Configured::NoSettings);
     };
-    if config.edition == Edition::Legacy {
-        return Ok(Configured::Legacy);
-    }
     if config.game_dir.as_deref() == Some(folder) {
         return Ok(Configured::Unchanged);
     }

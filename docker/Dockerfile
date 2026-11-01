@@ -12,9 +12,6 @@
 #           game servers on Debian slim; also the image the host kit's commands run in
 #   netem   iproute2 alone, for the `network` profile's injected latency (DN12)
 #
-# REFORGED_EDITION=legacy builds them for a Dauntless Revived 1.4.4 server (compose.legacy.yaml): the server image
-# also holds DR's metagame and deploy server, built in the legacy-revived submodule's own workspace (DS6).
-#
 # `server-rollback` keeps the Node backend and Director and MongoDB's dump tools for the `rollback` Compose profile
 # for one release until RB15 deletes it (docs/hosting-docker.md).
 
@@ -51,33 +48,19 @@ COPY rust/rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
 COPY rust/ ./
 COPY --from=module-sources /modules/ /src/modules/
-COPY modules/legacy-revived/ /src/modules/legacy-revived/
 # The release workflow's build: the server in one binary, reforged-host, with the gateway, allowlist, content server
 # and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
 # built (only the lock file is read).
-# REFORGED_EDITION=legacy: the same binary with its `legacy` feature, and legacy-revived's metagame and deploy server.
 # REFORGED_MODULES: the server-console features that link the game modules; empty builds none, which still serves.
-ARG REFORGED_EDITION=reborn
 ARG REFORGED_MODULES=all-modules
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-target,target=/src/rust/target \
-    --mount=type=cache,id=reforged-revived-target,target=/src/modules/legacy-revived/rust/target \
     features="$REFORGED_MODULES" \
- && case "$REFORGED_EDITION" in \
-      reborn) ;; \
-      legacy) features="${features:+$features,}legacy" ;; \
-      *) echo "REFORGED_EDITION must be reborn or legacy, not $REFORGED_EDITION" >&2; exit 1 ;; \
-    esac \
  && set -- \
  && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "server-console/$f"; done \
  && cargo build --release --locked -p server-console "$@" --bins \
  && mkdir -p /out/bin \
- && cp target/release/reforged-host /out/bin/ \
- && if [ "$REFORGED_EDITION" = legacy ]; then \
-      revived=/src/modules/legacy-revived/rust \
-      && (cd "$revived" && cargo build --release --locked -p metagame -p deploy --bins) \
-      && cp "$revived/target/release/metagame" "$revived/target/release/deploy" /out/bin/; \
-    fi
+ && cp target/release/reforged-host /out/bin/
 
 # ------------------------------------------------------------------ front: gateway, allowlist, content, admin API
 FROM ${DEBIAN_IMAGE} AS front
@@ -125,7 +108,6 @@ COPY --chown=reforged:reforged ${ISLES}/ParadoxBackend/store-captures.json ${ISL
 COPY --chown=reforged:reforged ${ISLES}/ParadoxDirector/game-data/ ${ISLES}/ParadoxDirector/game-data/
 COPY --from=rust-build /out/bin/ bin/
 COPY --chmod=0755 docker/director-entrypoint.sh bin/reforged-director
-COPY --chmod=0755 docker/legacy-entrypoint.sh bin/reforged-legacy
 COPY --chmod=0755 docker/host-entrypoint.sh bin/reforged-host-docker
 COPY --chmod=0755 docker/healthcheck.sh bin/reforged-healthcheck
 # The network profile's one-shot (compose.yaml network-init, DN12)
@@ -136,7 +118,6 @@ RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumen
 # git or release.json, neither of which is in the image; the process environment wins over the env file.
 ARG REFORGED_COMMIT=""
 ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
-    METAGAME_GIT_COMMIT=${REFORGED_COMMIT} \
     PATH=/opt/reforged/bin:$PATH
 USER reforged
 ENTRYPOINT ["/usr/bin/tini", "--"]
@@ -217,7 +198,6 @@ COPY --chown=node:node modules/rustic-isles/native/ modules/rustic-isles/native/
 COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/
 COPY --from=rust-build /out/bin/ bin/
 COPY --chmod=0755 docker/director-entrypoint.sh bin/reforged-director
-COPY --chmod=0755 docker/legacy-entrypoint.sh bin/reforged-legacy
 COPY --chmod=0755 docker/host-entrypoint.sh bin/reforged-host-docker
 COPY --chmod=0755 docker/healthcheck.sh bin/reforged-healthcheck
 COPY --chmod=0755 docker/network/init.sh bin/reforged-network-init
@@ -226,7 +206,6 @@ RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumen
  && chown node:node .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation"
 ARG REFORGED_COMMIT=""
 ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
-    METAGAME_GIT_COMMIT=${REFORGED_COMMIT} \
     MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0 \
     MONGODB_DB=reforged \
     MONGODB_APP_NAME=reforged-backend \

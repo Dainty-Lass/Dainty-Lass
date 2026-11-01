@@ -43,14 +43,13 @@ certificate changed.
 
 ## Dauntless Revived servers
 
-A launcher built with the `legacy` feature also joins Dauntless Revived's 1.4.4 servers from their
-`dauntless-revived://` invites, with the game's 1.4.4 folder (which the launcher can download for that
-version) and Dauntless Revived's client DLLs through the same loader.
+DaintyLass plays Dauntless 1.14.7 only. A `dauntless-revived://` invite (a Dauntless Revived 1.4.4 server) is
+refused, and a 1.4.4 server saved by an older launcher stays in the list, greyed out, with its key kept.
 
 ## If something is wrong
 
-- "This invite is for another kind of server": a `dauntless-revived://` invite on a build without the
-  legacy feature, or the other way round.
+- "This invite is for another kind of server": a `dauntless-revived://` invite, for a Dauntless Revived 1.4.4
+  server.
 - "Not reachable": a private server needs Tailscale running on both PCs and the host's PC shared with you.
 - "Unverified game": the folder is not 1.14.7, or the install is incomplete; verify it with Legendary.
 - Logs: the launcher's menu opens its log folder; send the log to your host.

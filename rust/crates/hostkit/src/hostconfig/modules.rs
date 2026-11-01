@@ -139,12 +139,6 @@ impl ModulesConfig {
                 }
                 ids.push(id);
             }
-            if ids.iter().any(|id| id.as_str() == "isles-1-14-7") && ids.iter().any(|id| id.as_str() == "isles-1-12-0")
-            {
-                return Err(bad(
-                    "modules.compiled cannot list both isles-1-14-7 and isles-1-12-0: they share ports 61000/61001 and 8770-8777",
-                ));
-            }
             config.compiled = Some(ids);
         }
         if let Some(external) = object.get("external") {

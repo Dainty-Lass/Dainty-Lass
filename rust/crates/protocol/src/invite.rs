@@ -27,20 +27,21 @@ pub fn reforged_version() -> GameVersion {
     GameVersion::release(1, 14, 7)
 }
 
-/// Returns the legacy Revived game version (`1.4.4`).
-#[must_use]
-pub fn revived_version() -> GameVersion {
+/// Dauntless Revived's 1.4.4: never played, only refused with its own error (RD5).
+fn revived_version() -> GameVersion {
     GameVersion::release(1, 4, 4)
 }
 
-/// Returns the game versions supported by this build's enabled Cargo features.
+/// Whether `version` is Dauntless Revived's 1.4.4, which is recognised only to be refused (RD5).
+#[must_use]
+pub fn is_revived(version: &GameVersion) -> bool {
+    *version == revived_version()
+}
+
+/// Returns the game versions this build plays.
 #[must_use]
 pub fn played_versions() -> Vec<GameVersion> {
-    if cfg!(feature = "legacy") {
-        vec![reforged_version(), revived_version()]
-    } else {
-        vec![reforged_version()]
-    }
+    vec![reforged_version()]
 }
 
 /// Resolves a version string or known alias (`"1.14.7"`, `"reforged"`, `"1.4.4"`, `"revived"`) to a [`GameVersion`].
@@ -53,26 +54,16 @@ pub fn named_version(text: &str) -> Option<GameVersion> {
     }
 }
 
-/// Returns the short version alias (`"reforged"` or `"revived"`) for `version`, if one exists.
+/// Returns the short version alias (`"reforged"`) for `version`, if one exists.
 #[must_use]
 pub fn version_alias(version: &GameVersion) -> Option<&'static str> {
-    if *version == reforged_version() {
-        Some("reforged")
-    } else if *version == revived_version() {
-        Some("revived")
-    } else {
-        None
-    }
+    (*version == reforged_version()).then_some("reforged")
 }
 
-/// Returns the URL schemes that `parse_invite` accepts for this build's enabled Cargo features.
+/// Returns the URL schemes that `parse_invite` accepts.
 #[must_use]
 pub fn invite_schemes() -> Vec<&'static str> {
-    if cfg!(feature = "legacy") {
-        vec![UNIFIED_INVITE_SCHEME, INVITE_SCHEME, REVIVED_INVITE_SCHEME]
-    } else {
-        vec![UNIFIED_INVITE_SCHEME, INVITE_SCHEME]
-    }
+    vec![UNIFIED_INVITE_SCHEME, INVITE_SCHEME]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -607,8 +598,6 @@ pub fn format_invite(invite: &Invite) -> Result<String, FormatError> {
 
     let (scheme, include_version) = if invite.version == reforged_version() {
         (INVITE_SCHEME, false)
-    } else if invite.version == revived_version() {
-        (REVIVED_INVITE_SCHEME, false)
     } else {
         (UNIFIED_INVITE_SCHEME, true)
     };

@@ -121,8 +121,6 @@ pub struct SetupArgs {
     #[arg(long)]
     pub mode: Option<String>,
     #[arg(long)]
-    pub edition: Option<String>,
-    #[arg(long)]
     pub host: Option<String>,
     #[arg(long = "game-address")]
     pub game_address: Option<String>,
@@ -130,8 +128,6 @@ pub struct SetupArgs {
     pub name: Option<String>,
     #[arg(long)]
     pub game: Option<String>,
-    #[arg(long = "legacy-game")]
-    pub legacy_game: Option<String>,
     #[arg(long)]
     pub registration: Option<String>,
     #[arg(long)]
@@ -164,8 +160,6 @@ pub struct SetupArgs {
     pub no_multipliers: bool,
     #[arg(long = "public-port")]
     pub public_port: Option<String>,
-    #[arg(long = "legacy-public-port")]
-    pub legacy_public_port: Option<String>,
     #[arg(long = "server-fps")]
     pub server_fps: Option<String>,
     #[arg(long = "idle-fps")]
@@ -206,13 +200,6 @@ pub struct SetupArgs {
     pub fresh_start: bool,
     #[arg(long = "skip-install")]
     pub skip_install: bool,
-    #[arg(
-        long = "modules",
-        alias = "module",
-        value_delimiter = ',',
-        help = "Compiled-in game modules to load (for example, isles-1-14-7 or isles-1-12-0)"
-    )]
-    pub modules: Option<Vec<String>>,
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
     pub unexpected: Vec<String>,
 }

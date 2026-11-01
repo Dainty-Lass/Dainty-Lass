@@ -236,6 +236,32 @@ pub struct AdminCall {
     pub request: AdminRequest,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RestrictionKind {
+    /// Banned until someone lifts it
+    Ban,
+    /// Kept out of play until `until`, then let back in by the module itself
+    Timeout,
+    /// Disabled by the game's own tools
+    Disabled,
+}
+
+/// Why a player can't play right now, as the module keeps it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlayerRestriction {
+    pub kind: RestrictionKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// RFC 3339
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
+    /// RFC 3339: a timeout's end
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlayerInfo {
@@ -243,6 +269,9 @@ pub struct PlayerInfo {
     pub account: Option<GlobalId>,
     pub name: String,
     pub online: bool,
+    /// None for a player who may play, or a game whose module doesn't say
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restriction: Option<PlayerRestriction>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -3,19 +3,16 @@
 
 //! Runtime hook boundary (`HostHooks`) allowing `hostkit` to remain 100% MIT with zero
 //! dependencies on AGPL service or game-module crates while `services/host` wires in the
-//! compiled-in services, generators, database migration tables, and legacy edition support.
+//! compiled-in services, generators and database migration tables.
 
 use std::any::Any;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::ExitCode;
 use std::sync::OnceLock;
 
-use crate::commands::start::Planned;
-use crate::commands::start::binaries::Programs;
-use crate::doctor::Check;
 use crate::error::HostError;
 use crate::gamedata::Step;
-use crate::hostconfig::{HostConfig, LEGACY_UNSUPPORTED, Platform, Secrets};
+use crate::hostconfig::HostConfig;
 use crate::paths::Paths;
 
 pub type AnySlot = Box<dyn Any + Send + Sync>;
@@ -116,43 +113,6 @@ pub trait HostHooks: Send + Sync {
 
     fn run_service(&self, _name: &str, _args: &[String]) -> Option<ExitCode> {
         None
-    }
-
-    fn legacy_write_env_files(
-        &self,
-        _c: &HostConfig,
-        _s: &Secrets,
-        _p: &Paths,
-        _source_commit: &str,
-        _platform: Platform,
-    ) -> Result<Vec<PathBuf>, HostError> {
-        Err(HostError::message(LEGACY_UNSUPPORTED))
-    }
-
-    fn legacy_env_file_names(&self, _c: &HostConfig) -> Vec<String> {
-        Vec::new()
-    }
-
-    fn legacy_service_plan(
-        &self,
-        _paths: &Paths,
-        _config: &HostConfig,
-        _external_allowlist: bool,
-        _programs: &Programs,
-    ) -> Result<Vec<Planned>, HostError> {
-        Err(HostError::message(LEGACY_UNSUPPORTED))
-    }
-
-    fn legacy_prepare(&self, _paths: &Paths, _config: &HostConfig) -> Result<(), HostError> {
-        Err(HostError::message(LEGACY_UNSUPPORTED))
-    }
-
-    fn legacy_create_invite_code(&self, _paths: &Paths) -> Result<String, HostError> {
-        Err(HostError::message(LEGACY_UNSUPPORTED))
-    }
-
-    fn legacy_doctor_checks(&self, _p: &Paths, _config: &HostConfig, _hash_exe: bool) -> Result<Vec<Check>, HostError> {
-        Err(HostError::message(LEGACY_UNSUPPORTED))
     }
 }
 

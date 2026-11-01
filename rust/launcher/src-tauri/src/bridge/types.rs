@@ -29,7 +29,7 @@ pub enum Game {
 impl Game {
     /// The edition that plays `version`: legacy for 1.4.4, reborn for every other.
     pub fn of(version: &GameVersion) -> Self {
-        if *version == protocol::invite::revived_version() {
+        if protocol::invite::is_revived(version) {
             Self::Legacy
         } else {
             Self::Reborn
@@ -1094,7 +1094,6 @@ pub struct ServerConfigView {
     pub public_host: Option<String>,
     pub registration: String,
     pub database: String,
-    pub reborn_module: String,
     pub max_hubs: u32,
     pub max_hunts: u32,
     pub fresh_start: bool,

@@ -898,52 +898,44 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
     checks.push(Check {
         area: "config",
         level: Level::Ok,
-        text: format!(
-            "{} server {:?} on {} (edition {})",
-            config.mode.as_str(),
-            config.name,
-            config.host,
-            config.edition.as_str()
-        ),
+        text: format!("{} server {:?} on {}", config.mode.as_str(), config.name, config.host),
         fix: None,
     });
 
-    if config.edition.runs_reborn() {
-        let mut all_rt = true;
-        for name in RUNTIME_FILE_NAMES {
-            if !p.runtime_publish.join(name).is_file() {
-                all_rt = false;
-                break;
-            }
+    let mut all_rt = true;
+    for name in RUNTIME_FILE_NAMES {
+        if !p.runtime_publish.join(name).is_file() {
+            all_rt = false;
+            break;
         }
-        if all_rt && p.runtime_publish.join("runtime.json").is_file() {
-            checks.push(Check {
-                area: "runtime",
-                level: Level::Ok,
-                text: format!("published runtime present in {}", p.runtime_publish.display()),
-                fix: None,
-            });
-        } else {
-            checks.push(Check {
-                area: "runtime",
-                level: Level::Warn,
-                text: format!("published runtime is missing in {}", p.runtime_publish.display()),
-                fix: Some("run reforged-host publish-runtime".to_owned()),
-            });
-        }
-
-        checks.extend(game_checks(config.game_dir.as_deref(), opts.hash_exe)?);
-
-        let published_dll = p.runtime_publish.join("MysticParadox.dll");
-        let dll_to_check = if published_dll.is_file() {
-            Some(published_dll.as_path())
-        } else if p.runtime_dll.is_file() {
-            Some(p.runtime_dll.as_path())
-        } else {
-            None
-        };
-        checks.extend(performance_checks(&config, dll_to_check, total_memory_mb(), platform));
     }
+    if all_rt && p.runtime_publish.join("runtime.json").is_file() {
+        checks.push(Check {
+            area: "runtime",
+            level: Level::Ok,
+            text: format!("published runtime present in {}", p.runtime_publish.display()),
+            fix: None,
+        });
+    } else {
+        checks.push(Check {
+            area: "runtime",
+            level: Level::Warn,
+            text: format!("published runtime is missing in {}", p.runtime_publish.display()),
+            fix: Some("run reforged-host publish-runtime".to_owned()),
+        });
+    }
+
+    checks.extend(game_checks(config.game_dir.as_deref(), opts.hash_exe)?);
+
+    let published_dll = p.runtime_publish.join("MysticParadox.dll");
+    let dll_to_check = if published_dll.is_file() {
+        Some(published_dll.as_path())
+    } else if p.runtime_dll.is_file() {
+        Some(p.runtime_dll.as_path())
+    } else {
+        None
+    };
+    checks.extend(performance_checks(&config, dll_to_check, total_memory_mb(), platform));
 
     if platform == Platform::Linux {
         checks.extend(linux_checks(p, &config)?);
@@ -951,24 +943,18 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
 
     checks.extend(network_checks(p, &config, platform)?);
 
-    if config.edition.runs_reborn() {
-        if cfg!(feature = "paradox") {
-            let mongo = ensure_replica_set(
-                &config.mongo.uri,
-                &ReplicaSetOptions {
-                    initiate: false,
-                    host: None,
-                    timeout_ms: Some(2000),
-                },
-            )?;
-            checks.push(database_check(&mongo, &config.mongo.uri, config.mongo.manage));
-        } else {
-            checks.push(store_database_check(p, &config));
-        }
-    }
-
-    if config.edition.runs_legacy() {
-        checks.extend(crate::legacy::doctor_checks(p, &config, opts.hash_exe)?);
+    if cfg!(feature = "paradox") {
+        let mongo = ensure_replica_set(
+            &config.mongo.uri,
+            &ReplicaSetOptions {
+                initiate: false,
+                host: None,
+                timeout_ms: Some(2000),
+            },
+        )?;
+        checks.push(database_check(&mongo, &config.mongo.uri, config.mongo.manage));
+    } else {
+        checks.push(store_database_check(p, &config));
     }
 
     if wait_for_http(PORTS.backend, "/health", Duration::from_millis(250)) {

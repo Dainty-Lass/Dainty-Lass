@@ -335,33 +335,6 @@ mod secure_storage {
     }
 }
 
-/// Dauntless 1.4.4's folders: DR's launcher's (where it downloads, its settings), and the client mods
-/// (`tauri.legacy.conf.json` bundles legacy-revived's `client-mods`; a dev build reads them there).
-#[cfg(feature = "legacy")]
-fn legacy_config(resources_dir: &std::path::Path, paths: &Paths) -> controller::legacy::LegacyConfig {
-    let resources_dir = if cfg!(dev) {
-        std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../modules/legacy-revived"))
-    } else {
-        resources_dir.to_path_buf()
-    };
-    let default_dir = if cfg!(windows) {
-        std::env::var_os("LOCALAPPDATA")
-            .map(std::path::PathBuf::from)
-            .map(|local| local.join("DauntlessRevived").join("Game"))
-    } else {
-        Some(paths.home.join("Games").join("DauntlessRevived"))
-    };
-    controller::legacy::LegacyConfig {
-        resources_dir,
-        default_dir,
-        dr_settings: dirs::config_dir().map(|dir| dir.join("Dauntless Revived Launcher").join("settings.json")),
-        manifest: None,
-        dll_fetch: None,
-        release: None,
-        relay_port: None,
-    }
-}
-
 /// The controller with this PC's folders and the app's resources.
 fn make_controller(
     app: &AppHandle,
@@ -396,10 +369,6 @@ fn make_controller(
         status_poll: std::time::Duration::from_millis(core::pins::STATUS_POLL_MS),
         encryptor,
         legacy_encryptor,
-        #[cfg(feature = "legacy")]
-        legacy: legacy_config(&resources_dir, &paths),
-        #[cfg(not(feature = "legacy"))]
-        legacy: Default::default(),
     };
     let platform = TauriPlatform {
         app: app.clone(),

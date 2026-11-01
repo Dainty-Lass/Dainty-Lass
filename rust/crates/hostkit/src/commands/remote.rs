@@ -185,9 +185,7 @@ pub fn shared_toml_from_host_config(paths: &Paths, config: &HostConfig) -> Resul
         "game_address",
         "mode",
         "public_port",
-        "legacy_public_port",
         "game_dir",
-        "legacy_game_dir",
         "share_url",
         "network",
         "remote",
@@ -1471,7 +1469,6 @@ mod tests {
 version = 1
 name = "Controller Server"
 mode = "public"
-edition = "reborn"
 host = "ctrl.example.com"
 game_address = "203.0.113.10"
 public_port = 8443

@@ -22,4 +22,3 @@ workspace = true
 
 [features]
 ts = ["dep:ts-rs"]
-legacy = []

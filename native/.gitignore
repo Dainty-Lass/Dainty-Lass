@@ -1,5 +1,5 @@
 # The runtime, its SDK, the CatalogExporter and DR's internal server are in the module submodules since DS6
-# (modules/rustic-isles, modules/legacy-revived), each with its own ignore rules.
+# (modules/rustic-isles), each with its own ignore rules.
 
 # Build output
 target/
