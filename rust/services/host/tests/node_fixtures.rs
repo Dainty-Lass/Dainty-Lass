@@ -122,16 +122,18 @@ fn with_admin_api_secrets() -> Result<Secrets, host::error::HostError> {
         admin_api_key: "g".repeat(64),
         operator_secret: "h".repeat(64),
         database_password: "p".repeat(64),
+        dashboard_ingest_key: "p".repeat(64),
         ..Secrets::default()
     })
 }
 
 /// The lines the Rust kit writes that the Node kit never did, which the comparisons leave out.
-const ADMIN_API_LINES: [&str; 4] = [
+const ADMIN_API_LINES: [&str; 5] = [
     "REFORGED_ADMIN_API_KEY=",
     "RUSTIC_ISLES_MANAGER_ADMIN=",
     "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET=",
     "REFORGED_DB_PASSWORD=",
+    "DASHBOARD_INGEST_KEY=",
 ];
 
 /// The MongoDB lines written only on a `--features paradox` rollback build (M5).
@@ -167,8 +169,9 @@ fn secrets_env_written_by_the_node_kit_is_kept_byte_for_byte() {
     let rewritten = text(&copy.path().join("secrets.env"));
     assert_eq!(without_admin_api_lines(&rewritten), text(&file));
     assert!(rewritten.ends_with(&format!(
-        "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET={}\nREFORGED_DB_PASSWORD={}\n",
+        "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET={}\nREFORGED_DB_PASSWORD={}\nDASHBOARD_INGEST_KEY={}\n",
         "h".repeat(64),
+        "p".repeat(64),
         "p".repeat(64)
     )));
     // Made by the Rust kit from the same values: the same file.

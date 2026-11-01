@@ -55,6 +55,7 @@ pub fn new_secrets() -> Result<Secrets, HostError> {
         admin_api_key: hex(&rng)?,
         operator_secret: hex(&rng)?,
         database_password: hex(&rng)?,
+        dashboard_ingest_key: hex(&rng)?,
     })
 }
 

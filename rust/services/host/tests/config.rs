@@ -87,6 +87,7 @@ fn fast_secrets() -> Secrets {
         admin_api_key: hex(9),
         operator_secret: hex(10),
         database_password: hex(11),
+        dashboard_ingest_key: hex(12),
     }
 }
 

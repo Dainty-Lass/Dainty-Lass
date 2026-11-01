@@ -297,6 +297,30 @@ curl -s http://127.0.0.1:61003/graphql -H "Authorization: Bearer $REFORGED_ADMIN
   -H 'Content-Type: application/json' -d '{"query":"{ serverStatus { name onlineCount uptimeSeconds } }"}'
 ```
 
+## Metrics
+
+`GET http://127.0.0.1:61003/metrics` with any admin key (`Authorization: Bearer <key>`, no operator id) answers every
+component's metrics in Prometheus' text format, read at the moment of the scrape:
+
+| Metric | What |
+| --- | --- |
+| `dainty_http_requests_total`, `dainty_http_request_duration_ms` | Requests by `service` (`gateway`, `admin`), `route` (the gateway's upstream: `backend`, `content`, `ws`, or `node`, `network`, `enroll`, `refused`), method and status class; time to the response head |
+| `dainty_component_phase`, `_restarts`, `_uptime_seconds` | Each service and module the controller runs |
+| `dainty_process_cpu_percent`, `_memory_bytes`, `_uptime_seconds` | The host process (`role="host"`) and every process it started (`role="child"`): the game servers, and mongod or turn-rs when the kit runs them. CPU reads 0 at the first scrape |
+| `dainty_players_online`, `dainty_hunts_active`, `dainty_hunts_max` | The server's own counts |
+| `dainty_game_server_players`, `_max_players`, `dainty_director_up` | Each running game server, from the Director |
+| `dainty_chat_messages_total`, `dainty_chat_dashboard_posts_total` | Chat lines by channel and filter verdict; posts to the staff dashboard |
+| the backend's own, and `dainty_backend_metrics_up` | `/internal/v1/metrics`, fetched with `RUSTIC_ISLES_METRICS_TOKEN` (setup writes it to `admin.env`) |
+
+A Prometheus job for it:
+
+```yaml
+scrape_configs:
+  - job_name: dainty-lass
+    authorization: { credentials_file: /etc/prometheus/dainty-admin-key }
+    static_configs: [{ targets: ["127.0.0.1:61003"] }]
+```
+
 ## A Discord bot calling it
 
 The bot runs on the server itself, because the API is loopback only. A bot on another machine reaches it through an

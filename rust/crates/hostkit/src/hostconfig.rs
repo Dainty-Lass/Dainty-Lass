@@ -51,7 +51,7 @@ pub const RESERVED_PORTS: [u16; 8] = [
 pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from host.toml (an old 1.4.4 server's accounts import with reforged-host legacy import revived)";
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 pub const SECRET_FILE: &str = "secrets.env";
-pub const SECRET_KEYS: [&str; 11] = [
+pub const SECRET_KEYS: [&str; 12] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
     "REFORGED_ADMIN_KEY",
@@ -63,6 +63,7 @@ pub const SECRET_KEYS: [&str; 11] = [
     "REFORGED_ADMIN_API_KEY",
     "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
     "REFORGED_DB_PASSWORD",
+    "DASHBOARD_INGEST_KEY",
 ];
 /// Secrets under their names from before the Rustic Isles rename: `setup` moves each to its new name with the same value,
 /// never a fresh one, since a changed secret breaks every signed call (DX4)
@@ -755,6 +756,8 @@ pub struct HostConfig {
     pub max_hunt_servers: u32,
     pub multipliers: Option<Multipliers>,
     pub public_port: Option<u16>,
+    /// The staff dashboard chat sends its log and reports to, with `DASHBOARD_INGEST_KEY` (dainty-dashboard)
+    pub dashboard_url: Option<String>,
     pub performance: Option<PerformanceOptions>,
     pub linux: Option<LinuxOptions>,
     pub database: Option<DatabaseSettings>,
@@ -830,6 +833,7 @@ impl HostConfig {
             })
         });
         let public_port = obj.get("publicPort").and_then(Value::as_u64).map(|n| n as u16);
+        let dashboard_url = obj.get("dashboardUrl").and_then(Value::as_str).map(str::to_owned);
         let performance = obj
             .get("performance")
             .and_then(Value::as_object)
@@ -916,6 +920,7 @@ impl HostConfig {
             max_hunt_servers,
             multipliers,
             public_port,
+            dashboard_url,
             performance,
             linux,
             database,
@@ -956,6 +961,9 @@ impl HostConfig {
             }
             if self.remote.is_none() {
                 self.remote = prev.remote.clone();
+            }
+            if self.dashboard_url.is_none() {
+                self.dashboard_url = prev.dashboard_url.clone();
             }
             self.file.read = prev.file.read.clone();
             self.file.toml = prev.file.toml.clone();
@@ -1002,6 +1010,9 @@ impl HostConfig {
         );
         canonical.insert("mongo".into(), Value::Object(mongo));
         canonical.insert("maxHuntServers".into(), Value::from(self.max_hunt_servers));
+        if let Some(url) = &self.dashboard_url {
+            canonical.insert("dashboardUrl".into(), Value::String(url.clone()));
+        }
         if let Some(port) = self.public_port {
             canonical.insert("publicPort".into(), Value::from(port));
         }
@@ -1163,6 +1174,8 @@ pub struct Secrets {
     pub admin_api_key: String,
     pub operator_secret: String,
     pub database_password: String,
+    /// What chat sends the staff dashboard with; the dashboard's own `DASHBOARD_INGEST_KEY` is set to it
+    pub dashboard_ingest_key: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1608,6 +1621,24 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         }
     };
 
+    let dashboard_url = match obj.get("dashboardUrl") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) if js::trim(s).is_empty() => None,
+        Some(Value::String(s))
+            if url::Url::parse(js::trim(s)).is_ok_and(|u| {
+                matches!(u.scheme(), "http" | "https") && u.host().is_some() && u.username().is_empty()
+            }) =>
+        {
+            Some(js::trim(s).trim_end_matches('/').to_owned())
+        }
+        Some(v) => {
+            return Err(bad(format!(
+                "dashboardUrl must be the dashboard's http:// or https:// address, not {}",
+                shown(Some(v))
+            )));
+        }
+    };
+
     let performance = match obj.get("performance") {
         None | Some(Value::Null) => None,
         Some(p_val) => {
@@ -1928,6 +1959,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(port) = public_port {
         canonical.insert("publicPort".into(), Value::from(port));
     }
+    if let Some(url) = dashboard_url {
+        canonical.insert("dashboardUrl".into(), Value::String(url));
+    }
     if let Some(m) = multipliers {
         let mut mult_out = Map::new();
         if let Some(n) = Number::from_f64(m.xp) {
@@ -2011,6 +2045,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
     const OPTIONAL_KEYS: &[&str] = &[
         "edition",
         "publicPort",
+        "dashboardUrl",
         "multipliers",
         "performance",
         "linux",
@@ -2209,6 +2244,7 @@ pub fn load_or_create_secrets(
             ("REFORGED_ADMIN_API_KEY", s.admin_api_key.as_str()),
             ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", s.operator_secret.as_str()),
             ("REFORGED_DB_PASSWORD", s.database_password.as_str()),
+            ("DASHBOARD_INGEST_KEY", s.dashboard_ingest_key.as_str()),
         ];
         let header = [
             "DaintyLass server secrets. SECRET: never share or commit this file.",
@@ -2243,6 +2279,7 @@ pub fn load_or_create_secrets(
             ("REFORGED_ADMIN_API_KEY", fresh.admin_api_key.as_str()),
             ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", fresh.operator_secret.as_str()),
             ("REFORGED_DB_PASSWORD", fresh.database_password.as_str()),
+            ("DASHBOARD_INGEST_KEY", fresh.dashboard_ingest_key.as_str()),
         ];
         for (k, v) in fresh_pairs {
             if existing.get(k).is_none_or(|cur| cur.trim().is_empty()) {
@@ -2266,6 +2303,7 @@ pub fn load_or_create_secrets(
             admin_api_key: get("REFORGED_ADMIN_API_KEY"),
             operator_secret: get("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET"),
             database_password: get("REFORGED_DB_PASSWORD"),
+            dashboard_ingest_key: get("DASHBOARD_INGEST_KEY"),
         },
         missing,
     ))
@@ -2548,6 +2586,8 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut admin, "REFORGED_ADMIN_API_KEY", &s.admin_api_key);
     push(&mut admin, "REFORGED_ADMIN_KEY", &s.admin_key);
     push(&mut admin, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", &s.operator_secret);
+    // `/metrics` adds the backend's own with it
+    push(&mut admin, "RUSTIC_ISLES_METRICS_TOKEN", &s.metrics_token);
     push(
         &mut admin,
         "REFORGED_ADMIN_API_TIMEOUTS_FILE",
@@ -2700,6 +2740,11 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
             None
         }
     };
+    // Chat runs with the gateway's file (`host::serve`)
+    if let Some(url) = &c.dashboard_url {
+        push(&mut gateway, "CHAT_DASHBOARD_URL", url);
+        push(&mut gateway, "CHAT_DASHBOARD_INGEST_KEY", &s.dashboard_ingest_key);
+    }
 
     EnvFiles {
         backend,
@@ -2811,5 +2856,33 @@ mod tests {
         let back = HostConfig::from_toml(&toml).unwrap();
         assert_eq!(back.host, "100.101.102.103");
         assert_eq!(back.max_hunt_servers, 4);
+    }
+
+    #[test]
+    fn the_dashboard_url_round_trips_and_must_be_http() {
+        let mut doc = json!({
+            "version": 1,
+            "mode": "private",
+            "host": "100.101.102.103",
+            "gameAddress": "100.101.102.103",
+            "name": "Friday Hunts",
+            "registration": "INVITECODE",
+            "maxHuntServers": 4,
+            "dashboardUrl": " https://dash.example/ "
+        });
+        let cfg = HostConfig::from_json(&doc).unwrap();
+        assert_eq!(cfg.dashboard_url.as_deref(), Some("https://dash.example"));
+        let toml = cfg.to_toml().unwrap();
+        assert!(toml.contains("dashboard_url = \"https://dash.example\""), "{toml}");
+        assert_eq!(
+            HostConfig::from_toml(&toml).unwrap().dashboard_url.as_deref(),
+            Some("https://dash.example")
+        );
+        for bad in [json!("dash.example"), json!("ftp://dash.example"), json!(7)] {
+            doc["dashboardUrl"] = bad;
+            assert!(HostConfig::from_json(&doc).is_err(), "{doc}");
+        }
+        doc["dashboardUrl"] = json!("");
+        assert_eq!(HostConfig::from_json(&doc).unwrap().dashboard_url, None);
     }
 }

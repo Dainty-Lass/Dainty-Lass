@@ -15,6 +15,7 @@ pub mod connection;
 pub mod federation;
 pub mod history;
 pub mod hooks;
+pub mod moderation;
 pub mod muc;
 pub mod naming;
 pub mod nick;
@@ -39,6 +40,7 @@ pub use federation::{
 };
 pub use history::{DirectMessage, History, Mute, RoomMessage};
 pub use hooks::{ChatHost, Drivers, Login, LoginRefusal, Player};
+pub use moderation::{DashboardSettings, Moderation};
 pub use server::Options;
 pub use settings::{NickCheck, Settings};
 

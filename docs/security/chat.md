@@ -89,6 +89,22 @@ room only through a JID-safe id.
 - [ ] No token, SASL payload or message body reaches a log; `trace` frames go through `redact_frame` (DR's tests
       `the_trace_is_redacted`, `credentials_never_reach_the_log`).
 
+### The staff dashboard (`moderation.rs`)
+
+Out, when `dashboard_url` is set: every room line and whisper with its sender (original text), and `/report`s, to
+`CHAT_DASHBOARD_URL`; in, the chat filter from it. The dashboard is trusted with chat's content, not with chat.
+
+- [ ] `CHAT_DASHBOARD_INGEST_KEY` (`secrets.env`'s `DASHBOARD_INGEST_KEY`) goes only in the `Authorization` header to
+      that URL, and `DashboardSettings`' `Debug` leaves it out (test `settings_need_a_url_and_a_long_key`).
+- [ ] Use `https://` for a dashboard that is not on loopback or the tailnet: lines are sent in clear over `http://`.
+- [ ] Delivery never waits on the dashboard: rating reads the last good filter, and lines go through a bounded queue
+      that drops when full (`Moderation::record`). A dashboard that is down costs warnings, not chat.
+- [ ] A filter term is compiled by the `regex` crate (linear time, `size_limit` 1 MiB), so a hostile pattern
+      cannot stall chat's task; one that does not compile is skipped.
+- [ ] A blocked room line goes back to its sender alone and is neither stored nor federated; a blocked whisper goes
+      nowhere (test `the_dashboards_filter_applies_and_chat_and_reports_reach_it`).
+- [ ] `/report` is one per 30 s per player and is never delivered to anyone else.
+
 ## Open points
 
 - **The gateway route.** The gateway's `ws` upstream must point at the plugin's port for the 1.14.7 game and keep
