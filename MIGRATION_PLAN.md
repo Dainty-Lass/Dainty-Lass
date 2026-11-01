@@ -8,7 +8,9 @@ afterwards; RD19–RD23 came from wave 0's delta lists (`docs/port/delta-*.md`);
 records the server structure (2026-10-25); on 2026-10-26 `docs/dainty-lass-plan.md` expanded this plan into the
 five-repository DaintyLass architecture (`dainty-lass`, `dainty-lass-ui`, `rustic-isles`, `rustic-rifts`,
 `legacy-revived`), and its section 7 amendments are folded in below (2026-10-28 integration pass). Waves 0 to 3's
-agent rows and the DaintyLass waves in `docs/dainty-lass-plan.md` are merged into `plan` (RD18).
+agent rows and the DaintyLass waves in `docs/dainty-lass-plan.md` are merged into `plan` (RD18). On 2026-10-31
+DaintyLass narrowed to one game, Dauntless 1.14.7: `legacy-revived` and the 1.12 port were removed (`29631d2`), and
+importing old installs moved to the `dainty-legacy` plugin.
 
 Completed rows are ~~struck through~~ in the tables below, as in DR's plan, and the "What's left" table above
 section 1 is kept current by each integration pass. The decisions, the reuse table and section 6 are reference, not
@@ -18,9 +20,8 @@ This plan replaces Dauntless Revived's Rust migration, which stopped on 2026-10-
 ([its plan](https://github.com/mixutin/dauntless-revived/blob/plan/MIGRATION_PLAN.md)) and is not continued.
 Most of what it built was written for code this repository already shares: the launcher, gateway, allowlist
 helper and content server all started as Dauntless Revived's. This plan takes that Rust code over and fits it to a
-module-hosting framework (`crates/module-api`), with Mystic Paradox (1.14.7 and 1.12.0) in `modules/rustic-isles`,
-realms and P2P in `modules/rustic-rifts`, and Dauntless Revived 1.4.4 in `modules/legacy-revived`, so no Node is
-left on a player's PC or a host.
+module-hosting framework (`crates/module-api`), with Mystic Paradox's 1.14.7 in `modules/rustic-isles` and realms
+and P2P in `modules/rustic-rifts`, so no Node is left on a player's PC or a host.
 
 This repository began as a fork of the Dauntless Reforged Revival line. On 2026-10-26 that line was removed: its
 Node projects (`legacy/`), preset, brand, docs and workflows are gone, its three infrastructure patches to Mystic
@@ -31,16 +32,22 @@ attributed in `NOTICE.md`.
 Row ids: **RA** = launcher, **RS** = gateway, allowlist and content, **RH** = host kit, **RP** = the Paradox fork,
 **RB** = backend and Director (moved to **RU** and **RF** in `docs/dainty-lass-plan.md`), **RR** = repository and CI,
 **RX** = cross-cutting, **RD** = decisions. See `docs/dainty-lass-plan.md` for the five-repository rows (**DS**,
-**DF**, **DU**, **RU**, **RF**, **RV**, **DN**, **DE**, **DH**, **DX**, **RZ**, **DL**). "DR" means Dauntless Revived
+**DF**, **DU**, **RU**, **RF**, **RV** (removed 2026-10-31: one game), **DN**, **DE**, **DH**, **DX**, **RZ**, **DL**). "DR" means Dauntless Revived
 at `e1c5fec`; DR row ids (L27, S2, X4, …) point into its plan, where the method and the checks for each piece are
 written down.
 
 ## What's left
 
-Updated by the 2026-10-28 integration pass (see `docs/dainty-lass-plan.md` and `docs/port/handoff-ledger.md`).
-Merged into `plan`: waves 0 to 3 (RR1–RR5, RP1–RP4, RX1, RX3, RX4, RS1–RS4, RH1–RH6, RA1–RA9, RA11–RA13) and the
-DaintyLass architecture rows (`DS2`–`DS7`, `DF1`–`DF8`, `DU1`–`DU4`, `RU1`–`RU7`, `RU10`, `RF1`–`RF7`, `RV1`–`RV3`,
-`DN2`–`DN5`, `DN7`, `DN10`–`DN12`, `DE1`–`DE7`, `DH1`–`DH7`, `DX3`, `DL1`).
+Updated by the 2026-10-28 integration pass (see `docs/dainty-lass-plan.md` and `docs/port/handoff-ledger.md`) and
+rebuilt on 2026-11-01 for one game. Merged into `plan`: waves 0 to 3 (RR1–RR5, RP1–RP4, RX1, RX3, RX4, RS1–RS4,
+RH1–RH6, RA1–RA9, RA11–RA13) and the DaintyLass architecture rows (`DS2`–`DS7`, `DF1`–`DF8`, `DU1`–`DU4`,
+`RU1`–`RU7`, `RU10`, `RF1`–`RF5`, `RF7`, `DN2`–`DN13`, `DE1`–`DE7`, `DH1`–`DH7`, `DX1`–`DX4`, `DL1`–`DL4`).
+`RV1`–`RV3` were merged too, then removed with `legacy-revived` on 2026-10-31.
+
+Merged since 2026-10-28: the RU9 replay runbook (`reforged-host db replay`, `scripts/replay-capture.mjs`,
+`docs/canary.md`; `92b22cb`), DN5, DN6, DN8 and DN9's matchmaking ring, redirects and Ramsgate (`e50393e`), timed
+bans through `module-api` (RD25, `2678d18`), the removal of Dauntless Revived 1.4.4 and the 1.12 port (`29631d2`) and
+DD9's 1.12.0 opt-in (`efeee7b`).
 
 [#1]: https://github.com/SilentSpud/Dauntless-Reforged-Revival/pull/1
 [#9]: https://github.com/SilentSpud/Dauntless-Reforged-Revival/pull/9
@@ -55,13 +62,13 @@ DaintyLass architecture rows (`DS2`–`DS7`, `DF1`–`DF8`, `DU1`–`DU4`, `RU1`
 
 | Area | Done | Next | Waiting on the maintainer |
 | --- | --- | --- | --- |
-| Repository and CI | RR1–RR5, DS1–DS7, DX3, RX3 (`SECURITY_REVIEW.md`) | DX1, DX2, DX4 | Make `CI ok` the required check on `plan`; `DS8` (`rustic-freeza`) |
-| Paradox & game modules (`modules/*`) | RP1–RP4 (moved to `modules/rustic-isles`), RU1–RU7, RU10, RB11, RB13, RF1–RF7, RV1–RV3; RU9/RB14 done in code (maintainer decision 2026-10-28; canary and shadow replay not run) | RB15 (one release after cutover) | RB2/RU8 live traffic captures; RF8 two-PC NAT check; live server RU9 cutover; RU11 1.12.0 replay |
+| Repository and CI | RR1–RR5, DS1–DS7, DX1–DX4, RX3 (`SECURITY_REVIEW.md`) | — | Make `CI ok` the required check on `plan`; DS8 (`rustic-freeza`), then RZ1–RZ4; DL5 legal read, then DX5 GitHub publication |
+| Paradox & game modules (`modules/*`) | RP1–RP4 (moved to `modules/rustic-isles`), RU1–RU7, RU10, RB11, RB13, RF1–RF5, RF7; RU9/RB14 done in code (maintainer decision 2026-10-28; canary and shadow replay not run); RU11 and RV1–RV3 removed 2026-10-31 (one game) | The rest of RU5 (the QoS listener on `QOS_PORT`, the `MultiplyRewardItems` progression hook); the rest of RF6 (Guard's enforce mode: grant-class and draft-token cap checks) | RU8/RB2 live traffic captures; the RU9 canary, then RB15 one release after it; RF8 two-PC NAT check |
 | Gateway, allowlist, content | RX1, RS1–RS5, RX2's lists, DF4a, DF4b | — | RS4's nft and Windows Firewall checks ([#9]); the shared check on the canary |
-| Host kit & controller | RH1–RH6, RD24 (`host.toml`), DF2–DF5, DE6, DH1–DH7 | DL3a/DL3b | Publish a server prerelease and follow `docs/hosting-linux.md` on a clean Debian 13 |
-| Launcher & UI (`ui/`) | RX1, RA1–RA9, RA11–RA13, DF8, DU1–DU4, DE1–DE5, DE7 | `DU5` realm screens, DL4a/DL4b, RA14–RA16 | RA10 and RA12a Linux spikes; CatalogExporter through the loader in a real 1.14.7 client ([#27]); RV2 1.4.4 client check |
-| Network (`plugins/network`) | DN2–DN5, DN7, DN10a/b, DN11, DN12 | DN6, DN8, DN9, DN13 | DN1 spike (1.14.7 client relay switch); DN14 four-region canary |
-| Server structure (RD26, DF3–DF5) | Four executables (`dainty-lass-client`, `dainty-lass-server-gui`, `dainty-lass-server-console`, `dainty-lass-server-minimal`); `crates/module-api`; all modules and plugins wired (`DF3`–`DF5`) | — | Merge `plan` into `main` when ready; `server-release.yml` dry run and Tauri release workflow; play through `serve` against real 1.14.7 and 1.4.4 clients |
+| Host kit & controller | RH1–RH6, RD24 (`host.toml`), DF2–DF5, DE6, DH1–DH7, DL3a/DL3b | — | Publish a server prerelease and follow `docs/hosting-linux.md` on a clean Debian 13 |
+| Launcher & UI (`ui/`) | RX1, RA1–RA9, RA11–RA13, DF8, DU1–DU4, DE1–DE7, DL4a/DL4b; DU5 in part (its two-PC check is RF8's) | RA14 packaging; RA15 and RA16 (the Electron bridge, then retiring Squirrel) | RA10 and RA12a Linux spikes; CatalogExporter through the loader in a real 1.14.7 client ([#27]) |
+| Network (`plugins/network`) | DN2–DN13 | — | DN1 spike (1.14.7 client relay switch); DN14 four-region canary |
+| Server structure (RD26, DF3–DF5) | Four executables (`dainty-lass-client`, `dainty-lass-server-gui`, `dainty-lass-server-console`, `dainty-lass-server-minimal`); `crates/module-api`; all modules and plugins wired (`DF3`–`DF5`) | — | Merge `plan` into `main` when ready; the release dry runs (`server-release.yml` and the Tauri release workflow); play through `serve` against a real 1.14.7 client |
 
 Local notes, not plan changes: on the maintainer's Windows PC two of Content's test ports fall in Windows'
 reserved range, and the npm config refuses git-sourced packages, which blocks the launcher's `npm ci`.
@@ -119,37 +126,38 @@ host kit and front door the rest.
 ## 3. Decisions
 
 Made 2026-10-22; RD5 and RD15 changed and RD16, RD17 added after the review the same day. RD24 and RD25
-added 2026-10-24, and RD5 reversed behind the `legacy` feature the same day. RD26 added 2026-10-25.
+added 2026-10-24, and RD5 reversed behind the `legacy` feature the same day, then restored on 2026-10-31 (one
+game). RD26 added 2026-10-25.
 Amended 2026-10-26 by `docs/dainty-lass-plan.md` (DD1–DD26, section 7) and folded in on 2026-10-28.
 
 | # | Topic | Decision | Consequence |
 | --- | --- | --- | --- |
-| RD1 | Mystic Paradox | **Amended (DD2, DS2, DS6): a submodule at `modules/rustic-isles`**, forked with Mystic Paradox's full history (`21b9ff5` on `main`, `replay` at `00d3be8` + the 39 patches, `upstream` = `1.12` at `9b9138e`). The 1.14.7 and 1.12.0 Node backends, Directors, runtimes and presets live in `modules/rustic-isles/` alongside the Rust workspace (`isles-proto`, `isles-store`, `isles-game`, `isles-director`, `isles-1-14-7`, `isles-1-12-0`), while the generic `RuntimeLoader` (`winmm.dll`) stays at `native/runtime-loader`. (Was: merged as a subtree at `paradox/` with `ParadoxRuntime` at `native/paradox-runtime`.) Paradox's `ADDITIONAL_TERMS.md` stays in `modules/rustic-isles` and `modules/rustic-rifts` and its attribution is in `NOTICE.md` | Hosts no longer download anything from Paradox's repository. Each module repository has its own history and integration pass |
+| RD1 | Mystic Paradox | **Amended (DD2, DS2, DS6): a submodule at `modules/rustic-isles`**, forked with Mystic Paradox's full history (`21b9ff5` on `main`, `replay` at `00d3be8` + the 39 patches, `upstream` = `1.12` at `9b9138e`). The 1.14.7 Node backend and Director (`reference/1.14.7`), runtime and preset live in `modules/rustic-isles/` alongside the Rust workspace (`isles-core`, `isles-db`, `isles-chat`, `isles-director`, `isles-1-14-7`; the 1.12.0 tree and `isles-1-12-0` were removed 2026-10-31: one game), while the generic `RuntimeLoader` (`winmm.dll`) stays at `native/runtime-loader`. (Was: merged as a subtree at `paradox/` with `ParadoxRuntime` at `native/paradox-runtime`.) Paradox's `ADDITIONAL_TERMS.md` stays in `modules/rustic-isles` and `modules/rustic-rifts` and its attribution is in `NOTICE.md` | Hosts no longer download anything from Paradox's repository. Each module repository has its own history and integration pass |
 | RD2 | Backend and Director | **Ported to Rust in `modules/rustic-isles` and `modules/rustic-rifts`** (RU and RF rows in `docs/dainty-lass-plan.md`, replacing the RB rows below; no gate per DD6). Each Paradox repository is a Rust trait in `isles-store` with a two-engine (`store::Database`, SQLite and Postgres) implementation (DD15); there is no MongoDB implementation. **Maintainer decision (2026-10-28, departing from RB12 and RB14):** cut over to the Rust 1.14.7 backend and Director in code now without running the canary week (RB14/RU9) or replaying a recorded shadow-traffic corpus (RB12/RU8). No canary was run and no recorded traffic was replayed. The Node services in `modules/rustic-isles/reference/` and `--features paradox` / `reforged-host db export-mongo` stay for one release as a rollback path until RB15 | No Node or MongoDB on hosts on the default path |
 | RD3 | Host kit | **Ported to Rust** as `rust/services/host`, bin `reforged-host`, with the same commands (`setup`, `start`, `invite`, `doctor`, `gamedata`, `preset`, `multipliers`, `publish-runtime`, `update`, plus `install-game`, `network`, `history` and `guarded`) and the same files it writes (`host.toml` under RD24, and the `.env` files). It starts every service under one process tree (Windows job object, Linux process group) or in-process via `crates/controller` (`serve`) | One binary drives the whole server; the Host page runs it instead of `node dist/cli.js` |
 | RD4 | Launcher platforms | **Windows and Linux.** DR's Linux code comes with it: Proton/Wine runtime, Secret Service and KWallet keystore, WebKitGTK 4.1 (DR D3), AppImage, deb and rpm. The Host page on Linux (SDK and game-data generation against the 1.14.7 client under Proton, the runtime loader loading Dumper-7 or CatalogExporter in that Wine process, RD9) is a spike with a kill criterion (RA12a): if the spike fails, the Host page stays Windows-only and this row is amended | 1.14.7 and the runtime have to be shown to work under Proton first (RA10, a spike); Linux CI and release jobs |
-| RD5 | DR's 1.4.4 servers | **Reversed behind the `legacy` feature and moved to `modules/legacy-revived` (`revived-1-4-4`, DD3, DD10, RV1–RV3)** (2026-10-24, `c1be7f7`, and 2026-10-26): a `dauntless-revived://` invite reads by the same rules and `revived-1-4-4` runs 1.4.4 servers on `module-api` and `store::Database` | Both 1.14.7/1.12.0 (`rustic-isles`) and 1.4.4 (`legacy-revived`) are game modules on `crates/module-api` |
+| RD5 | DR's 1.4.4 servers | **Not played: a `dauntless-revived://` invite is a typed refusal** (`protocol::invite`). History: reversed behind the `legacy` feature on 2026-10-24 (`c1be7f7`) and moved to `modules/legacy-revived` (`revived-1-4-4`, RV1–RV3) on 2026-10-26; **removed 2026-10-31: one game** (`29631d2`). A 1.4.4 server's accounts and bans import through `dainty-legacy` | 1.14.7 (`rustic-isles`) is the one game module on `crates/module-api` |
 | RD6 | How DR's Rust code comes in | **Snapshot copy** at `e1c5fec` in one commit, with the source commit in the message and in `NOTICE.md`. DR is not continued, so nothing flows either way afterwards | From the copy on, the code is Reforged's own |
 | RD7 | Launcher updates | DR's design (D2): `tauri-plugin-updater` with ed25519 signatures. Existing installs take a one-time bridge, Electron **1.6.0**, which downloads the Tauri **2.0.0** installer, checks its SHA-256 compiled into the bridge, runs it and removes the Squirrel install. The Squirrel feed is retired with 3.0.0; the Electron key copies are kept until then so a rollback works | One extra Electron release; 1.5.x installs that skip it before 3.0.0 reinstall by hand |
 | RD8 | Server binaries | **Released by CI**: a server release workflow (from DR's `server-release.yml`) builds the server executables (`dainty-lass-server-console` / `reforged-host` and `dainty-lass-server-minimal`, DF5) for `x86_64-pc-windows-msvc` and `x86_64-unknown-linux-gnu`, in one archive per OS, with `SHA256SUMS.txt` and provenance attestations. `setup` and `update` download and check it. Until RU9 the archive also carries the built Node backend and Director, and hosts keep their own Node.js | No Rust toolchain on hosts, and no Node once RU9 ships; `update` stops being a `git` fast-forward of a checkout |
 | RD9 | Loading Dumper-7 and CatalogExporter | **No injector** (changed in wave 3; was a remote-thread injector on the `windows` crate). The Host page has the runtime's own loader (`winmm.dll`, `native/runtime-loader`) load the DLL the host picked at game start, through the `mystic_loader.ini` list the loader already reads next to itself: the launcher copies the picked DLL next to the loader, writes the ini naming only it, starts the game it launches, and removes both when that game exits. In a dump session no `MysticParadox.dll` is present, so the loader loads the picked DLL alone. Before every ordinary PLAY the launcher refuses to start while a `mystic_loader.ini` or an unknown DLL sits next to the loader, so a leftover never rides along with the runtime | No process-injection code anywhere in the launcher, and no change to the loader. Under Proton it works the same way, since `WINEDLLOVERRIDES` already loads the loader (RA10, RA12a). The ini handling and the pre-launch check get their own security checklist (RX3) |
 | RD10 | Security | **DR's full pass** (D26, X9): a checklist per trust-boundary component in `SECURITY_REVIEW.md`, `cargo-fuzz` targets for every parser of untrusted input run briefly on every push, a 24-hour fuzz run and a signed checklist before each component's cutover | Replaces a second reviewer where a mistake costs most |
-| RD11 | Repository layout | **Amended (DD2, section 4.1): five repositories** (`dainty-lass` with `rust/`, `native/runtime-loader`, `docs/`, `docker/`; submodules `modules/rustic-isles`, `modules/rustic-rifts`, `modules/legacy-revived`, and `ui/` for `dainty-lass-ui`) | Each repository has its own history and CI; `dainty-lass` pins them as submodules and git/registry crates |
+| RD11 | Repository layout | **Amended (DD2, section 4.1): five repositories** (`dainty-lass` with `rust/`, `native/runtime-loader`, `docs/`, `docker/`; submodules `modules/rustic-isles`, `modules/rustic-rifts` and `ui/` for `dainty-lass-ui`; `modules/legacy-revived` was removed 2026-10-31: one game) | Each repository has its own history and CI; `dainty-lass` pins them as submodules and git/registry crates |
 | RD12 | Order | **Amended (DD6, RD18): parallel waves across all five repositories** (`docs/dainty-lass-plan.md` section 5), synced on seam crates (`module-api`, `store`, launcher bridge, `isles-*`, `rifts-*`) | Each track's cutover still waits for its own checks |
 | RD13 | Test environment | **A canary run by the maintainer**, like DR's D23: a small server on the Linux kit with a copy of a real database and invited testers. The shared checks, the traffic capture (RB2), the shadow replay (RB12/RU8) and every first cutover run there; then the hosts | The Linux path is tested first |
 | RD14 | Languages | en and pt-BR, as today, split one file per language as DR did (L13), so a third language is data only | — |
-| RD15 | Database | **Amended (DD15, DF7): SQLite by default, Postgres where concurrency pays**, through `store::Database` (`AnyConnection` over `SqliteConnection` and `PgConnection`, `pq-sys` `bundled_without_openssl`) with the hash-chained change log on every write (DD23, DH1–DH5). Both `rustic-isles` (`isles-store`) and `legacy-revived` (`metagame`) run on both engines, and `store::transfer::move_database` moves a database between SQLite and Postgres in one transaction. A host's MongoDB data moves with `isles-store`'s `db migrate` / `db verify` / `db export-mongo` (RU7) | Small and single-PC servers need no database server; public and networked servers can run Postgres without changing a line of module code |
+| RD15 | Database | **Amended (DD15, DF7): SQLite by default, Postgres where concurrency pays**, through `store::Database` (`AnyConnection` over `SqliteConnection` and `PgConnection`, `pq-sys` `bundled_without_openssl`) with the hash-chained change log on every write (DD23, DH1–DH5). `rustic-isles` (`isles-core`) runs on both engines, and `store::transfer::move_database` moves a database between SQLite and Postgres in one transaction. A host's MongoDB data moves with `isles-store`'s `db migrate` / `db verify` / `db export-mongo` (RU7) | Small and single-PC servers need no database server; public and networked servers can run Postgres without changing a line of module code |
 | RD16 | Upstream | **Closed 2026-10-26: the upstream line was removed and nothing is merged from it.** Its gameplay patches 0004–0039 are gated behind `[switches]` in `host.toml` and move to the optional `rustic-freeza` plugin (DD25, RZ1–RZ4) | RX2's catch-up lists are closed |
 | RD17 | Gate before the backend | **Amended (DD6): no gate for the Paradox port.** The Rust port of Mystic Paradox (`modules/rustic-isles`, RU rows) and realms (`modules/rustic-rifts`, RF rows) ran in parallel with the framework and UI rows; only the production cutover (RU9) waits on the shadow replay (RU8) and canary checks | The port and the framework finish together |
 | RD18 | How the rows are done | **One row, one agent, in parallel waves across five repositories** (section 5, `docs/dainty-lass-plan.md` section 5). Each repository has its own integration pass merging its rows into its own `plan` branch, so the review limit (about eight rows in flight) applies per repository, not to the whole plan. Seams (`DF2` `module-api`, `DF7` `store`, `DF8` bridge, `RU4`, `RF2`) land first | The canary runs, cutovers, spikes that need a machine with the game, signing and publishing stay with the maintainer |
 | RD19 | Traffic capture | **Ported into the Rust gateway** (RS3) from DR's Node `capture.ts`; DR's Rust gateway at `e1c5fec` has none and Reforged's Node gateway never had one. Off unless configured, redacting as `capture.ts` does | RU8 records on the Rust gateway; nothing is added to the Node gateway |
 | RD20 | Allowlist helper and gateway details | **Reforged's behavior where the two differ, DR's where Reforged has nothing.** nft: one atomic transaction swapping the whole table, with Reforged's `lo` rule (not DR's prepare-then-flush, which briefly empties the sets); `nft -f -` tried first, a `0600` file in a `0700` folder if Debian 13 refuses stdin; `nft` at its configured path, no PATH lookup. Env: only the `ALLOWLIST_*` names the host kit writes, not DR's `DR_*`; `ALLOWLIST_POWERSHELL` accepted and ignored (Windows Firewall goes through COM). DR's feed backoff from a helper that is down kept, listed in RS3's PR as a change from Node. `/game/login` feeds the allowlist only if Paradox checks the bearer before answering 2xx (RS3 checks against the fork); otherwise only `/heartbeat`, as today. The certificate subcommand is `gateway make-cert`, as in DR and `npm run make-cert` | An existing host's `.env` starts the Rust helper unchanged |
 | RD21 | Relay owner check | **DR's kept on Windows** (`net/relay_owner.rs`: only connections whose socket belongs to the game process the launcher started are served), stricter than Reforged's Node relay. On Linux, RA10 decides whether the game process can be found under Proton; if not, the relay serves loopback only, as today. The Dumper-7 session's game does not use the relay and is not checked | A trust-boundary control at no cost on Windows; RX3 covers it |
-| RD22 | Launcher behaviors that differ from DR | **Amended (DD12, DD22, DE5, DN13):** **1.4.4 servers** are supported again through `revived-1-4-4` (`modules/legacy-revived`, RV2). **DR's `net/downloader.rs`** is brought back to download and resume game versions from Epic's CDN (`crates/epic`, DE5), while the runtime's two files still use `request_to_file` in `net/http.rs`. **Stored usernames** update when a login reply carries a new name after a network join clash (DN13). **Missing Visual C++ files** only warn before PLAY; **shutdown** waits for downloads and refuses PLAY; **keystore** reads `RRK2` and bare keys; **copying text** stays a bridge command with its 4096-character limit | Full multi-version launcher with Epic install and resume |
+| RD22 | Launcher behaviors that differ from DR | **Amended (DD12, DD22, DE5, DN13):** **1.4.4 servers** are not supported (they were through `revived-1-4-4`, RV2, from 2026-10-26 until its removal on 2026-10-31: one game). **DR's `net/downloader.rs`** is brought back to download and resume game versions from Epic's CDN (`crates/epic`, DE5), while the runtime's two files still use `request_to_file` in `net/http.rs`. **Stored usernames** update when a login reply carries a new name after a network join clash (DN13). **Missing Visual C++ files** only warn before PLAY; **shutdown** waits for downloads and refuses PLAY; **keystore** reads `RRK2` and bare keys; **copying text** stays a bridge command with its 4096-character limit | The 1.14.7 launcher with Epic install and resume |
 | RD23 | Host page target | **The planned layout only.** RA12 drives `reforged-host` from the server release (RD3, RD8), never `npm run setup` or `node dist/cli.js`; `publish-runtime` is the host kit's command, which the Host page calls, so the version format and `runtime.json` exist once. `reforged-host` keeps today's process contract: `REFORGED_CONTROL=stdin`, the `REFORGED_SERVER_READY` line and the port 61000 probe (RH2) | RA12 waits for RH2; the Node-kit code paths in `hostkit.ts`, `hostserver.ts` and the controller (`upstream`, the git fallback) are not ported |
 | RD24 | Host configuration format | **TOML for the files hosts write** (changes section 6's host-kit line). `host.json` becomes `.workspace/config/host.toml`, with the same fields and checks under snake_case keys, and a left-out key in place of `null` (`hosttoml.rs`). Writes patch the file with `toml_edit`, so a host's comments and layout survive `setup`. A Node kit's `host.json` is still read while there is no `host.toml`. The first write (`setup`, which `update` runs) moves it over and keeps it as `host.json.bak`. The launcher's Host page reads `host.toml` first. Extended with `[modules.<id>]`, `[switches]`, `[network]`, `[history]`, and `[relay]` (`docs/hosting.md`) | Phase 1 and the DaintyLass module/network/history/relay/switches tables landed. Every setting is a key in `hosttoml.rs`'s table with a comment for new files (AGENTS.md) |
 | RD25 | Admin API | **Amended (DD23, DH2, DH3b, DH6, DN11): per-person admin keys with roles (`owner`, `admin`, `moderator`, `reader`), history revert, guarded actions, and network-wide moderation** (`rust/services/admin`, `docs/admin-api.md`). The existing `REFORGED_ADMIN_API_KEY` in `secrets.env` becomes the `owner` key; additional per-person keys are issued and revoked by command and recorded as the `Actor` in `store`'s change log. Destructive and bulk actions wait on a delay or second operator approval (`guarded.rs`, DH6), and in a network bans, timeouts and kicks propagate through the player's home node to every peer (DN11) | Every admin mutation names the operator key that made it and can be audited and reverted |
-| RD26 | Server structure | **Amended (DD5, DF2–DF5): four executables and `crates/module-api`** (2026-10-25, updated 2026-10-26). `crates/controller` and `crates/module-api` host game modules (`isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`) and core plugins (`plugins/network`, `plugins/chat`, `rifts-*`) in-process or via the module-host subprocess frame protocol (`host::module_host`). **Four executables** (DF5): `dainty-lass-client` (`rust/launcher/src-tauri`), `dainty-lass-server-gui` (`rust/bins/dainty-lass-server-gui`), `dainty-lass-server-console` (`rust/services/host`, also built as `reforged-host`), and `dainty-lass-server-minimal` (`rust/bins/dainty-lass-server-minimal`, headless with no console or TUI). Settings read `host.toml`, `host.yaml`/`host.yml`, or `host.json`; writes are always `host.toml` (RD24) | `docs/app-structure-plan.md` and `docs/dainty-lass-plan.md` describe the merged design. The controller and module host have checklists (`docs/security/controller.md`, `docs/security/module-host.md`) and fuzz targets (`host_config`, `host_console`, `module_frame`) |
+| RD26 | Server structure | **Amended (DD5, DF2–DF5): four executables and `crates/module-api`** (2026-10-25, updated 2026-10-26). `crates/controller` and `crates/module-api` host the game module (`isles-1-14-7`; `isles-1-12-0` and `revived-1-4-4` removed 2026-10-31: one game) and core plugins (`plugins/network`, `plugins/chat`, `rifts-*`) in-process or via the module-host subprocess frame protocol (`host::module_host`). **Four executables** (DF5): `dainty-lass-client` (`rust/launcher/src-tauri`), `dainty-lass-server-gui` (`rust/bins/dainty-lass-server-gui`), `dainty-lass-server-console` (`rust/services/host`, also built as `reforged-host`), and `dainty-lass-server-minimal` (`rust/bins/dainty-lass-server-minimal`, headless with no console or TUI). Settings read `host.toml`, `host.yaml`/`host.yml`, or `host.json`; writes are always `host.toml` (RD24) | `docs/app-structure-plan.md` and `docs/dainty-lass-plan.md` describe the merged design. The controller and module host have checklists (`docs/security/controller.md`, `docs/security/module-host.md`) and fuzz targets (`host_config`, `host_console`, `module_frame`) |
 
 ## 4. Work
 
@@ -165,9 +173,8 @@ rust/                    one cargo workspace
   services/              gateway, content, admin, host (dainty-lass-server-console / reforged-host), backend, director
   launcher/src-tauri     dainty-lass-client
 modules/
-  rustic-isles/          1.14.7 and 1.12.0 Rust crates (isles-*), runtimes, presets, reference Node services
+  rustic-isles/          1.14.7 Rust crates (isles-*), runtime, preset, reference Node services
   rustic-rifts/          P2P transport (ParadoxTransport.dll), admission, TURN relay, realms, guard, host
-  legacy-revived/        1.4.4 metagame, deploy and revived-1-4-4 module crate
 ui/                      dainty-lass-ui (Astro + React + Tailwind v4 + shadcn/ui, built with Bun)
 native/
   runtime-loader/        winmm.dll (generic DLL loader)
@@ -219,7 +226,7 @@ The file-by-file delta each row carries over is in `docs/port/delta-servers.md` 
 
 ### 4.5 Backend and Director (RB → moved to RU and RF in `docs/dainty-lass-plan.md`)
 
-Amended by `docs/dainty-lass-plan.md` sections 4.4 (`rustic-isles`, RU1–RU11) and 4.5 (`rustic-rifts`, RF1–RF8), with
+Amended by `docs/dainty-lass-plan.md` sections 4.4 (`rustic-isles`, RU1–RU10) and 4.5 (`rustic-rifts`, RF1–RF8), with
 no gate (DD6) and on `store::Database`'s two engines (SQLite and Postgres, DD15).
 
 | # | What | Moved to | Verify |
@@ -276,9 +283,8 @@ Phases follow DR's Part A. Extended by `docs/dainty-lass-plan.md` sections 4.3 (
 
 ## 5. Order: parallel waves
 
-See `docs/dainty-lass-plan.md` section 5 for the current five-repository wave schedule (`DS`, `DF`, `DU`, `RU`, `RF`,
-`RV`, `DN`, `DE`, `DH`, `DX`, `RZ`, `DL`). Each repository (`dainty-lass`, `dainty-lass-ui`, `rustic-isles`,
-`rustic-rifts`, `legacy-revived`) has its own integration pass merging its rows into its own `plan` branch, so the
+See `docs/dainty-lass-plan.md` section 5 for the wave schedule (`DS`, `DF`, `DU`, `RU`, `RF`, `DN`, `DE`, `DH`,
+`DX`, `RZ`, `DL`). Each repository (`dainty-lass`, `dainty-lass-ui`, `rustic-isles`, `rustic-rifts`) has its own integration pass merging its rows into its own `plan` branch, so the
 review limit RD18 set (about eight rows in flight) applies per repository.
 
 ### 5.1 Rules for a row
@@ -313,7 +319,7 @@ review limit RD18 set (about eight rows in flight) applies per repository.
 | `crates/store` (`Database`, change log, migrations, `portable`, `transfer`) | DF7 (with DH1), DH3a, DH5 | Never; a seam change goes through the integration pass |
 | `services/host`: `main.rs`, the `clap` tree, `paths`, `envfile`, `hostconfig`, `hosttoml`, `serve` | RH1, DF3 | Fill the one command module the row owns |
 | `launcher/src-tauri`: `main.rs`, the bridge spec, generated types, the isolation hook | RA1–RA2, DF8 | Fill the one module the row owns |
-| `modules/rustic-isles`, `modules/rustic-rifts`, `modules/legacy-revived`, `ui/` | Each repository's own rows (`RU*`, `RF*`, `RV*`, `DU*`) and integration pass | Submodule pointers in `dainty-lass` updated by the integration pass |
+| `modules/rustic-isles`, `modules/rustic-rifts`, `ui/` | Each repository's own rows (`RU*`, `RF*`, `DU*`) and integration pass | Submodule pointers in `dainty-lass` updated by the integration pass |
 
 ### 5.2 Before the gate
 

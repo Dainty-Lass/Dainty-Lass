@@ -15,30 +15,28 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 | Path | What it is |
 | --- | --- |
-| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `backend`, `director`, `host` = the host kit binary/legacy shell and `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend wrapping `launcher-kit`: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
+| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `backend`, `director`, `host` = the thin AGPL shell around `hostkit`, with `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend wrapping `launcher-kit`: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
 | `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
 | `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
-| `modules/rustic-isles/` | Submodule: `rustic-isles`, the 1.14.7 (`isles-1-14-7`) and 1.12.0 (`isles-1-12-0`) Rust game modules, `isles-core`, `isles-director`, `isles-chat`, `rifts-seam`, the C++ game runtime (`native/paradox-runtime`) and CatalogExporter (`native/CatalogExporter`), and the Node reference trees (`reference/1.14.7`, `reference/1.12.0`) |
-| `modules/rustic-rifts/` | Submodule: `rustic-rifts`, peer-to-peer realms (`rifts-transport`, `rifts-guard`, `rifts-server`, and the client hosting bridge) |
-| `modules/legacy-revived/` | Submodule: `legacy-revived`, the 1.4.4 game module (`revived-1-4-4`), `metagame`, `deploy`, and the 1.4.4 native client patches (`native/client-patches`, `native/xinput1_3-proxy`) |
+| `modules/rustic-isles/` | Submodule: `rustic-isles`, the 1.14.7 Rust game module (`modules/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`) |
+| `modules/rustic-rifts/` | Submodule: `rustic-rifts`, peer-to-peer realms: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host` (the launcher's side), and `ParadoxTransport.dll` (`src/`) |
 | `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, outside the workspace) |
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
 | `docs/` | Player and host guides, `architecture.md`, `paradox-patches.md`, `port/` (the migration guide, delta and catch-up lists), `security/` (one checklist per trust-boundary component; indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 
-Game-specific server and runtime code lives in the three module submodules (`modules/rustic-isles`,
-`modules/rustic-rifts`, `modules/legacy-revived`, DD1/DS6). On the default path (since the RU9 code cutover,
-maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 61000) and
-in-process `isles-director` (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7`,
-`isles-1-12-0` and `revived-1-4-4` linked into `crates/controller` behind the `all-modules` feature (DF5). For one
-release after the cutover (until RB15), the opt-in `paradox` Cargo feature on `host` retains Mystic Paradox's Node
-backend and Director from `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
+DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). Game-specific server and runtime code lives in the two
+module submodules (`modules/rustic-isles`, `modules/rustic-rifts`, DD1/DS6). Old installs (Dauntless Revived 1.4.4,
+the Reforged Revival Node kit) are imported by `dainty-legacy`, an external plugin `host.toml` pins, not by code
+here. On the default path (since the RU9 code cutover, maintainer decision 2026-10-28), `host::serve` runs the
+compiled-in Rust `isles-1-14-7` backend (port 61000) and in-process `isles-director` (port 61001) on `store` (SQLite
+by default, or Postgres), with `isles-1-14-7` and realms linked in by the server binaries' `all-modules` feature
+(DF5). For one release after the cutover (until RB15), the opt-in `paradox` Cargo feature on `host` retains Mystic
+Paradox's Node backend and Director from `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 
 The server is one executable (RD26). Every service is a module of `crates/controller`, behind its own Cargo
 feature (`modules.rs`), composed by `host::serve` from the files `setup` writes, and still runnable alone as a
 hidden `dainty-lass-host <service>` subcommand (`services/host/src/cli.rs`), which Docker and `start` use. A new
-service is all three, not a binary of its own. The 1.4.4 stack compiles into the server binaries as the
-`revived-1-4-4` `GameModule` (`modules/legacy-revived/rust/crates/revived-1-4-4`); `dainty-lass-host start`
-also retains supervised process support for standalone `metagame` and `deploy` binaries.
+service is all three, not a binary of its own.
 
 `docs/architecture.md` is the reference for how the parts talk and what each trusts. Section 6 of the plan,
 "Things that must not change", lists what every port keeps byte for byte: read it before touching anything a
@@ -111,9 +109,8 @@ Rules that read like overcaution:
   certificate's SHA-256 from the invite is checked before any byte is sent. The gateway loads its existing
   certificate and never regenerates it, because every invite's `fp` depends on it.
 - **Secrets and keys are never logged.** Keep the redaction in the gateway, the launcher and the content server.
-- **The invite parser accepts nothing it doesn't recognise.** Without the `legacy` feature,
-  `dauntless-revived://` is a typed refusal (RD5); with it, the same v1/v2 rules read it as a 1.4.4 invite, never
-  looser ones.
+- **The invite parser accepts nothing it doesn't recognise.** `dauntless-revived://` is a typed refusal (RD5), not
+  a second path.
 - **The launcher never injects** (RD9). DLLs reach the game only through the runtime loader's
   `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or unknown DLL sits next to the loader.
 
@@ -210,17 +207,16 @@ Not obvious from reading the suites:
 A runtime patch written against Mystic Paradox's tree is applied to `modules/rustic-isles/native/` as
 `docs/paradox-runtime-patches.md` describes: paths rewritten, `git apply --3way`, LF line endings, and a
 section in `docs/paradox-patches.md`. The migration guide's sections 2.1 and 2.8 say which Paradox folder
-became which `modules/rustic-isles/native/` folder and which patches live there. The 1.4.4 client patches live
-in `modules/legacy-revived/native/` (`client-patches`, `xinput1_3-proxy`), and the WebRTC realm transport lives
-in `modules/rustic-rifts/crates/rifts-transport`.
+became which `modules/rustic-isles/native/` folder and which patches live there. The realm transport,
+`ParadoxTransport.dll`, lives in `modules/rustic-rifts/src`.
 `native/runtime-loader` is a Rust crate of its own, outside the workspace: workspace-wide `cargo` commands
 don't cover it.
 
 ## CI
 
-`.forgejo/workflows/ci.yml` runs only the families a change touches (Rust, the launcher, legacy services,
-Paradox, Docker), and `CI ok` sums them up. It runs on every pushed branch. A push to `plan` or `main` runs
-every family. Workflows belong to RR3, and to RH6 and RA14 for the two release workflows; a row doesn't edit
+`.forgejo/workflows/ci.yml` runs only the families a change touches (Rust, the Tauri launcher, Paradox's
+Node reference, the UI, Docker, the network), and `CI ok` sums them up. It runs on every pushed branch. A push to
+`plan` or `main` runs every family. Workflows belong to RR3, and to RH6 and RA14 for the two release workflows; a row doesn't edit
 them.
 
 ## Branches
