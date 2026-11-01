@@ -4,8 +4,7 @@
 //! `tests/golden/matchmaking-parties.json` by `tests/golden/capture.cjs` (the real `routes/matchmaking.ts` and
 //! `routes/party.ts` on Node 22, in a container). Only the ids Node draws at random are normalised.
 //!
-//! The scenario runs on both versions (1.12 answers the 1.14.7-only leave aliases with the shared 404) and on both
-//! engines when `REFORGED_TEST_POSTGRES_URL` names a server.
+//! The scenario runs on both engines when `REFORGED_TEST_POSTGRES_URL` names a server.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
 mod support;
@@ -13,7 +12,7 @@ mod support;
 use std::sync::Arc;
 use std::time::Duration;
 
-use isles_core::areas::matchmaking::testkit::{FakeDeploy, Reply, Which, send, serve, shared};
+use isles_core::areas::matchmaking::testkit::{FakeDeploy, Reply, send, serve, shared};
 use regex::Regex;
 use serde_json::{Value, json};
 
@@ -83,14 +82,13 @@ async fn send_raw(address: std::net::SocketAddr, method: &str, path: &str, user:
 }
 
 /// Runs the scenario; the answers by step name, in order.
-async fn run(which: Which, target: &support::Target) -> Vec<(String, Reply)> {
+async fn run(target: &support::Target) -> Vec<(String, Reply)> {
     for name in ["alice", "bob", "carol"] {
         target.account(name).await;
     }
     let deploy = FakeDeploy::online("203.0.113.10", 7777);
     deploy.set_ramsgate(true, "203.0.113.10", 7777);
     let mut module = shared(
-        which,
         &[
             ("HUNT_GO_NOW_MIN_DELAY_MS", "40"),
             ("HUNT_GO_NOW_MAX_DELAY_MS", "40"),
@@ -132,7 +130,7 @@ fn summary(reply: &Reply) -> Value {
 async fn every_answer_is_what_node_answered_on_1_14_7() {
     let golden: Vec<Value> = serde_json::from_str(GOLDEN).unwrap();
     for target in support::targets() {
-        let answers = run(Which::V1147, &target).await;
+        let answers = run(&target).await;
         assert_eq!(answers.len(), golden.len());
         for ((name, reply), expected) in answers.iter().zip(&golden) {
             assert_eq!(name, expected["name"].as_str().unwrap());
@@ -144,48 +142,5 @@ async fn every_answer_is_what_node_answered_on_1_14_7() {
             });
             assert_eq!(summary(reply), want, "{name} {} on {}", expected["path"], target.engine);
         }
-    }
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn version_1_12_answers_alike_but_for_the_1_14_7_only_leave_aliases_and_its_own_hub_and_build() {
-    let golden: Vec<Value> = serde_json::from_str(GOLDEN).unwrap();
-    let target = support::targets().remove(0);
-    let answers = run(Which::V1120, &target).await;
-    let aliases = [
-        "leave",
-        "leave-post",
-        "leave-put",
-        "leave-delete-candidate",
-        "leave-delete-id",
-    ];
-    for ((name, reply), expected) in answers.iter().zip(&golden) {
-        if aliases.contains(&name.as_str()) {
-            // the route does not exist on 1.12: the shared 404 with an empty body
-            assert_eq!((reply.status, reply.body.as_str()), (404, ""), "{name}");
-            continue;
-        }
-        if name == "status-ramsgate" {
-            let body = reply.json();
-            assert_eq!(body["gameMode"], "ISLAND");
-            assert_eq!(body["huntId"], "ShatteredIsles_ReturnToRamsgate");
-            assert_eq!(body["serverInfo"]["buildId"], "392819_1.12.0_shipping");
-            continue;
-        }
-        // Without Cancel the search the leave started is still going, so the canceled status differs too
-        if matches!(
-            name.as_str(),
-            "status-canceled" | "status-party-alice" | "status-party-bob" | "join-island-party"
-        ) || name.starts_with("party-bob-")
-            || name == "status-party-bob-ready"
-        {
-            continue;
-        }
-        assert_eq!(
-            summary(reply)["status"],
-            expected["status"],
-            "{name} {}",
-            expected["path"]
-        );
     }
 }

@@ -31,7 +31,7 @@ pub struct MaskedJourneyNode {
 }
 
 /// What a new account is seeded with (`controllers/starterManifest.ts`). The instanced items and the loadout are
-/// the same in both versions; these are the parts that differ.
+/// fixed; these are the module's parts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StarterManifest {
     /// `BOOTSTRAP_VERSION`: which seeding an account got, so a newer one reconciles it

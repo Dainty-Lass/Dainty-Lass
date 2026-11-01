@@ -21,7 +21,7 @@ pub fn island_content_config() -> Value {
 }
 
 /// `BountyGrantWindows()`, from the version's `BOUNTY_ITEM_GRANT_DATA`: windows that cover now, or the bounty
-/// component finds no season and the hub disconnects (1.14.7 2026-10-03). 1.12.0 has none.
+/// component finds no season and the hub disconnects (1.14.7 2026-10-03).
 pub fn item_grant_data(windows: &[ItemGrantWindow]) -> Value {
     Value::Array(
         windows

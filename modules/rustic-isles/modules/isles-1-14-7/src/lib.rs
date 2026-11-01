@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use isles_chat::{ChatVersion, IslesChat};
+use isles_chat::IslesChat;
 use isles_core::IslesVersion;
 use isles_core::hooks::{
     Destination, Entitlement, GameMode, NoPlayerPolicy, ObjectiveRow, ProgressionConfigRule, StubReply, VersionHooks,
@@ -40,10 +40,6 @@ impl VersionHooks for Hooks {
     // The captured epiceos contract: the token as the session id, under both spellings
     fn game_session_payload(&self, token: &str) -> Value {
         json!({ "error_code": null, "sessionid": token, "sessiontoken": token, "sessionToken": token })
-    }
-
-    fn network_encryption_keys(&self) -> bool {
-        true
     }
 
     // weaponBaseLevel.ts: only KEEP_WEAPON_ITEM_LEVELS=true keeps the stored levels
@@ -241,10 +237,7 @@ pub const DIRECTOR: DirectorConfig = DirectorConfig {
             "-RepDriverEnable",
         ],
         log_cmds: "LogPhoenixCharacter VeryVerbose, LogOnline Verbose, LogLoad Off",
-        log_cmds_setting: true,
-        windows_hide: true,
     },
-    trials_new_tables: true,
 };
 
 /// rustic-rifts' crates, stubbed until RF4-RF6, as `MYSTICPARADOX_P2P_MODULE` allows (RF2).
@@ -685,9 +678,7 @@ pub fn spec() -> ModuleSpec {
             },
         },
         version: version(),
-        chat: Arc::new(IslesChat {
-            version: ChatVersion::V1147,
-        }),
+        chat: Arc::new(IslesChat),
         rifts: rifts_with_core,
         services: vec![Arc::new(BackendService), Arc::new(DirectorService::new(DIRECTOR))],
     }

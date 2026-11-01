@@ -794,9 +794,7 @@ async fn the_launcher_notices_are_saved_by_version() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn the_112_module_serves_the_admin_api_too() {
-    let r = rig(RouteSet::V1120, &[]).await;
-    assert_eq!(get(r.address, "/admin/v1/me", &[("cookie", COOKIE)]).await.status, 200);
+async fn the_admin_api_switched_off_is_a_404() {
     let off = rig(RouteSet::V1147, &[("MYSTICPARADOX_ADMIN_API", "off")]).await;
     assert_eq!(
         get(off.address, "/admin/v1/me", &[("cookie", COOKIE)]).await.status,

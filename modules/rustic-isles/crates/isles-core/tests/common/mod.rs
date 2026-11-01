@@ -31,9 +31,6 @@ impl VersionHooks for NoHooks {
     fn game_session_payload(&self, _: &str) -> Value {
         Value::Null
     }
-    fn network_encryption_keys(&self) -> bool {
-        false
-    }
     fn weapons_at_base_level(&self, _: &Settings) -> bool {
         false
     }
@@ -92,7 +89,6 @@ pub const fn tables(changelist: u32, game_version: &'static str) -> VersionTable
 pub fn version(routes: RouteSet) -> IslesVersion {
     let (changelist, game) = match routes {
         RouteSet::V1147 => (647_472, "1.14.7"),
-        RouteSet::V1120 => (392_819, "1.12.0"),
     };
     IslesVersion {
         hooks: Arc::new(NoHooks),

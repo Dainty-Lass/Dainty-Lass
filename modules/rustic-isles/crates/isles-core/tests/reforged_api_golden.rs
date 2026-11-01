@@ -2,8 +2,7 @@
 //! as the reference routers answered it under Node 22 (`golden/reforged_api_capture.mts`): status, the headers a client
 //! sees and the body text. A case that differs is the Rust side's bug, unless it is listed in `KNOWN` with its reason.
 //!
-//! The cases run on both versions' routes where the area exists in both (the Node-scope routes are served by the 1.12
-//! module too, RU3c seam 7); the reference served 1.14.7's changelist.
+//! The reference served 1.14.7's changelist.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests
 
 mod common;
@@ -158,15 +157,6 @@ async fn the_rust_backend_answers_as_the_reference_routers_did() {
             continue;
         }
         diffs.extend(replay(case, RouteSet::V1147).await);
-        // What names the changelist (the feeds, the status) is the reference's 647472 only
-        let path = case["request"]["path"].as_str().unwrap();
-        let by_changelist = path.starts_with("/launcher/v1/runtime/")
-            || path.starts_with("/launcher/v1/guard-manifests/")
-            || path.starts_with("/reforged/api/ServerStatus");
-        // Only 1.14.7 has the login queue's maintenance probe (RU3c)
-        if !by_changelist && path != "/maintenance/status" {
-            diffs.extend(replay(case, RouteSet::V1120).await);
-        }
     }
     assert!(diffs.is_empty(), "{} differences:\n{}", diffs.len(), diffs.join("\n"));
 }

@@ -1,5 +1,5 @@
 //! The isles database: `store`'s [`Database`] on SQLite or Postgres (DD15) with its change log (DD23), one schema for
-//! both modules (RU3c: a 1.12 account simply has no rows in the 1.14.7-only tables).
+//! the module.
 //!
 //! Every write names its actor, and a write to an account's data first asks the home API (DN2, DD17) where the
 //! account lives: only its home writes it. A server outside a network is its own accounts' home, so nothing changes

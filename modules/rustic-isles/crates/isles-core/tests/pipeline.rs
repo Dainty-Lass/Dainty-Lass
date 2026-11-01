@@ -21,9 +21,6 @@ impl VersionHooks for NoHooks {
     fn game_session_payload(&self, _: &str) -> serde_json::Value {
         serde_json::Value::Null
     }
-    fn network_encryption_keys(&self) -> bool {
-        false
-    }
     fn weapons_at_base_level(&self, _: &isles_core::Settings) -> bool {
         false
     }
@@ -160,30 +157,6 @@ async fn routes_match_in_express_order() {
         .await
         .unwrap();
     assert_eq!(status, 400);
-}
-
-#[tokio::test]
-async fn the_112_set_leaves_114_only_routes_to_the_404() {
-    let address = serve(shared(RouteSet::V1120, false), &Handlers::default()).await;
-    assert_eq!(request(address, "PUT", "/gamesession/epiceos").await.unwrap().0, 404);
-    assert_eq!(request(address, "PUT", "/gamesession/epic").await.unwrap().0, 501);
-    assert_eq!(request(address, "GET", "/progression/a/b").await.unwrap().0, 404);
-    // 1.12 keeps the named route the 1.14.7 regex shadows
-    let (_, _, body) = request(address, "POST", "/inventory/c/cl").await.unwrap();
-    assert_eq!(
-        message(&body),
-        "isles: POST /inventory/:characterId/:changeList is not implemented yet"
-    );
-    // Node-scope routes are served whichever version is loaded (RU3c, seam 7)
-    assert_eq!(
-        request(address, "GET", "/reforged/api/ServerStatus").await.unwrap().0,
-        501
-    );
-    // Realms are 1.14.7's, and only with rustic-rifts loaded
-    assert_eq!(
-        request(address, "GET", "/launcher/v1/realms/mine").await.unwrap().0,
-        404
-    );
 }
 
 #[tokio::test]
@@ -780,24 +753,4 @@ async fn x_forwarded_for_honoured_only_from_loopback_and_ipv6_grouped_by_56_subn
         request_with_headers(direct_addr, "GET", "/character", &spoof2).await.0,
         429
     );
-}
-
-#[tokio::test]
-async fn version_1_12_0_is_not_rate_limited() {
-    let shared = shared_with_settings(
-        RouteSet::V1120,
-        &[
-            ("MYSTICPARADOX_RATE_LIMIT", "on"),
-            ("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE", "1"),
-        ],
-        false,
-    );
-    let address = serve_with_peer(shared, &test_handlers(), None).await;
-    let now = [("x-isles-replay-now-ms", "1700000000000")];
-    for _ in 0..5 {
-        let (status, hdrs, _) = request_with_headers(address, "GET", "/character", &now).await;
-        assert_eq!(status, 200);
-        assert!(find_header(&hdrs, "ratelimit").is_none());
-        assert!(find_header(&hdrs, "ratelimit-policy").is_none());
-    }
 }

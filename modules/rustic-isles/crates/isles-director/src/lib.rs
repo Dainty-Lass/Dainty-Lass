@@ -47,7 +47,7 @@ pub use gameservers::Director;
 pub use os::OsLauncher;
 pub use process::Launcher;
 
-/// The persistent hubs, the same maps in both versions (RU3c).
+/// The persistent hubs.
 pub const RAMSGATE_MAP: &str = "/Game/Maps/ramsgate/ramsgate_01_persistent";
 pub const TRAINING_DOJO_MAP: &str = "/Game/Maps/islands/dojo/training_dojo_persistent";
 
@@ -55,12 +55,8 @@ pub const TRAINING_DOJO_MAP: &str = "/Game/Maps/islands/dojo/training_dojo_persi
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameserverArgs {
     pub standard: &'static [&'static str],
-    /// The `-LogCmds` value
+    /// The `-LogCmds` value, unless `GAMESERVER_LOG_CMDS` replaces it
     pub log_cmds: &'static str,
-    /// Whether `GAMESERVER_LOG_CMDS` may replace it (1.14.7)
-    pub log_cmds_setting: bool,
-    /// Whether the window is hidden unless `GAMESERVER_WINDOWS_HIDE=0` (1.14.7); shown otherwise
-    pub windows_hide: bool,
 }
 
 /// One version's Director.
@@ -69,8 +65,6 @@ pub struct DirectorConfig {
     /// `runtimeUpdater.ts`'s `TARGET_CHANGELIST`
     pub target_changelist: u32,
     pub args: GameserverArgs,
-    /// Whether the two `_new` Trials tables are part of the version's hunt tables (1.14.7; 1.12.0 has four)
-    pub trials_new_tables: bool,
 }
 
 /// `GAMESERVER_LOG_CMDS`'s shape: "Category Verbosity" pairs separated by commas.
@@ -83,11 +77,7 @@ fn valid_log_cmds(value: &str) -> bool {
 
 impl DirectorConfig {
     fn configured_log_cmds<'a>(&self, settings: &'a Settings) -> &'a str {
-        if self.args.log_cmds_setting {
-            service_kit::js::trim(settings.raw("GAMESERVER_LOG_CMDS").unwrap_or_default())
-        } else {
-            ""
-        }
+        service_kit::js::trim(settings.raw("GAMESERVER_LOG_CMDS").unwrap_or_default())
     }
 
     /// `GAMESERVER_LOG_CMDS` is set but is not "Category Verbosity" pairs: the default is used and the start warns.
@@ -104,9 +94,9 @@ impl DirectorConfig {
         args
     }
 
-    /// `windowsHide`: `(GAMESERVER_WINDOWS_HIDE ?? "1") !== "0"` on 1.14.7.
+    /// `windowsHide`: `(GAMESERVER_WINDOWS_HIDE ?? "1") !== "0"`.
     pub fn hide_window(&self, settings: &Settings) -> bool {
-        self.args.windows_hide && settings.raw("GAMESERVER_WINDOWS_HIDE").unwrap_or("1") != "0"
+        settings.raw("GAMESERVER_WINDOWS_HIDE").unwrap_or("1") != "0"
     }
 
     /// A hunt table (`isles_core::game_data::DIRECTOR_FILES`) in the module's root.
@@ -184,7 +174,7 @@ impl DirectorService {
         }
         // A missing table is fatal to the Node Director; here the hunts fail and the hubs still run
         let tables = match &shared.game_data.director {
-            Some(dir) => hunt::load_tables(dir, config.trials_new_tables).unwrap_or_else(|error| {
+            Some(dir) => hunt::load_tables(dir).unwrap_or_else(|error| {
                 log::error(&format!("Hunt tables not loaded, no hunt can start: {error}"));
                 hunt::Tables::default()
             }),
@@ -340,21 +330,7 @@ mod tests {
                 "-RepDriverEnable",
             ],
             log_cmds: "LogPhoenixCharacter VeryVerbose, LogOnline Verbose, LogLoad Off",
-            log_cmds_setting: true,
-            windows_hide: true,
         },
-        trials_new_tables: true,
-    };
-
-    const V1120: DirectorConfig = DirectorConfig {
-        target_changelist: 392819,
-        args: GameserverArgs {
-            standard: &["-EpicPortal", "-server", "-nullrhi", "-warp", "-RepDriverEnable"],
-            log_cmds: "LogPhoenixCharacter VeryVerbose, LogOnline Verbose",
-            log_cmds_setting: false,
-            windows_hide: false,
-        },
-        trials_new_tables: false,
     };
 
     #[test]
@@ -379,19 +355,6 @@ mod tests {
         assert!(V1147.log_cmds_invalid(&bad) && !V1147.log_cmds_invalid(&quiet));
         assert!(V1147.hide_window(&Settings::default()));
         assert!(!V1147.hide_window(&Settings::from_pairs([("GAMESERVER_WINDOWS_HIDE", "0")])));
-    }
-
-    #[test]
-    fn the_1_12_launch_has_no_nosound_no_log_setting_and_a_visible_window() {
-        let settings = Settings::from_pairs([("GAMESERVER_LOG_CMDS", "LogOnline Warning")]);
-        let args = V1120.launch_args(&settings);
-        assert!(!args.contains(&"-nosound".to_owned()));
-        assert_eq!(
-            args.last().map(String::as_str),
-            Some("-LogCmds=\"LogPhoenixCharacter VeryVerbose, LogOnline Verbose\"")
-        );
-        assert!(!V1120.log_cmds_invalid(&settings));
-        assert!(!V1120.hide_window(&Settings::default()));
     }
 
     #[tokio::test]

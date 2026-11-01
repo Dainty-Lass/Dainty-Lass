@@ -8,7 +8,7 @@ mod common;
 
 use std::time::Duration;
 
-use common::{Harness, V1120, V1147, Version, bounded, send, start, start_with, udp_free};
+use common::{Harness, V1147, Version, bounded, send, start, start_with, udp_free};
 use serde_json::{Value, json};
 
 fn strings(value: &Value) -> Vec<&str> {
@@ -246,14 +246,6 @@ async fn ramsgate_the_training_grounds_and_a_hunt_start_and_stop_on_1_14_7() {
     .await;
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn ramsgate_the_training_grounds_and_a_hunt_start_and_stop_on_1_12_0() {
-    bounded(async {
-        serves_the_hubs_and_hunts(V1120).await;
-    })
-    .await;
-}
-
 async fn answers_express_404s_and_request_ids(version: Version) {
     let d = start(version, &[]).await;
     let missing = d.get("/nope?x=1").await;
@@ -291,10 +283,9 @@ async fn answers_express_404s_and_request_ids(version: Version) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn answers_express_404s_and_request_ids_on_both_versions() {
+async fn answers_express_404s_and_request_ids_on_1_14_7() {
     bounded(async {
         answers_express_404s_and_request_ids(V1147).await;
-        answers_express_404s_and_request_ids(V1120).await;
     })
     .await;
 }
@@ -339,10 +330,9 @@ async fn failed_starts_stay_failures(version: Version) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn failed_starts_stay_failures_on_both_versions() {
+async fn failed_starts_stay_failures_on_1_14_7() {
     bounded(async {
         failed_starts_stay_failures(V1147).await;
-        failed_starts_stay_failures(V1120).await;
     })
     .await;
 }
@@ -393,10 +383,9 @@ async fn a_dead_hub_is_refused_then_restarted(version: Version) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_dead_hub_is_refused_then_restarted_on_both_versions() {
+async fn a_dead_hub_is_refused_then_restarted_on_1_14_7() {
     bounded(async {
         a_dead_hub_is_refused_then_restarted(V1147).await;
-        a_dead_hub_is_refused_then_restarted(V1120).await;
     })
     .await;
 }
@@ -485,7 +474,7 @@ async fn stopping_ends_the_whole_process_tree() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_server_that_exits_takes_what_it_started_with_it() {
     bounded(async {
-        let d = start(V1120, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
+        let d = start(V1147, &[("RAMSGATE_HUB", "off"), ("TRAINING_HUB", "off")]).await;
         boot(&d).await;
         let reply = d
             .matchmake(json!({"GameMode": "ISLAND", "GameArgs": "/Game/Maps/grandchild"}))

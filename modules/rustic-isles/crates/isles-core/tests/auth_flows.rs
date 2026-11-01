@@ -18,7 +18,7 @@ use isles_core::areas::auth::launcher::{
     LAST_SIGN_IN_WRITE_INTERVAL_MS, create_session_for_user, note_sign_in, refresh_session,
 };
 use isles_core::areas::auth::middleware::{game_auth, require_active_account};
-use isles_core::areas::auth::test_support::{TestServer, TestVersion};
+use isles_core::areas::auth::test_support::TestServer;
 use isles_core::areas::auth::util::{iso_from_ms, now_ms};
 use isles_core::http::Call;
 use isles_core::repo::auth::{EmailCodePurpose, EmailCodeRecord, LauncherAccountRecord, LauncherDeletion};
@@ -648,17 +648,15 @@ fn call(server: &TestServer, method: &str, uri: &str, headers: &[(&str, &str)]) 
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_game_servers_read_of_the_invalid_sentinel_is_re_pointed_on_1147_only() {
-    for (version, extra, want) in [
-        (TestVersion::V1147, vec![], "/loadout/mystpax//all"),
+async fn a_game_servers_read_of_the_invalid_sentinel_is_re_pointed() {
+    for (extra, want) in [
+        (vec![], "/loadout/mystpax//all"),
         (
-            TestVersion::V1147,
             vec![("GAMESERVER_NO_PLAYER_USER_ID", " some user ")],
             "/loadout/some%20user//all",
         ),
-        (TestVersion::V1120, vec![], "/loadout/INVALID//all"),
     ] {
-        let server = TestServer::for_version(version, &extra);
+        let server = TestServer::new(&extra);
         server.gameserver_key("gs-key").await;
         let mut read = call(
             &server,
@@ -667,7 +665,7 @@ async fn a_game_servers_read_of_the_invalid_sentinel_is_re_pointed_on_1147_only(
             &[("x-mysticparadox-gameserver-apikey", "gs-key")],
         );
         game_auth(&mut read).await.unwrap();
-        assert_eq!(read.request.uri().to_string(), format!("{want}?x=1"), "{version:?}");
+        assert_eq!(read.request.uri().to_string(), format!("{want}?x=1"), "{extra:?}");
         // Writes are never rewritten
         let mut write = call(
             &server,
@@ -681,7 +679,7 @@ async fn a_game_servers_read_of_the_invalid_sentinel_is_re_pointed_on_1147_only(
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a_bearer_less_game_server_call_is_attributed_to_the_configured_account_on_1147_only() {
+async fn a_bearer_less_game_server_call_is_attributed_to_the_configured_account() {
     let key = [("x-mysticparadox-gameserver-apikey", "gs-key")];
     let server = TestServer::new(&[("GAMESERVER_NO_PLAYER_USER_ID", "configured")]);
     server.gameserver_key("gs-key").await;
@@ -703,13 +701,6 @@ async fn a_bearer_less_game_server_call_is_attributed_to_the_configured_account_
     assert_eq!(
         game_auth(&mut call(&none, "GET", "/tags", &key)).await.unwrap().user_id,
         None
-    );
-    let old = TestServer::for_version(TestVersion::V1120, &[("GAMESERVER_NO_PLAYER_USER_ID", "configured")]);
-    old.gameserver_key("gs-key").await;
-    assert_eq!(
-        game_auth(&mut call(&old, "GET", "/tags", &key)).await.unwrap().user_id,
-        None,
-        "1.12 has no user for it"
     );
     // A wrong key is 401 whatever else is sent
     let refused = game_auth(&mut call(

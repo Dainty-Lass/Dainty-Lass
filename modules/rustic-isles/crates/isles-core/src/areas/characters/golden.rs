@@ -17,7 +17,6 @@ use module_api::network::StandaloneHome;
 use module_api::{Actor, ActorContext, NodeIdentity};
 use regex::Regex;
 use serde_json::Value;
-use service_kit::jsjson;
 use store::{DatabaseConfig, DatabaseOptions, PostgresConfig};
 
 use super::{AuthData, controller};
@@ -326,7 +325,7 @@ pub async fn call_once(
     let http_method = axum::http::Method::from_bytes(method.as_bytes()).unwrap_or_default();
     let (route, params) = crate::routes::all()
         .iter()
-        .filter(|r| r.service == Service::Backend && shared.version.routes.serves(r) && r.method.accepts(&http_method))
+        .filter(|r| r.service == Service::Backend && r.method.accepts(&http_method))
         .find_map(|r| {
             let matched = Pattern::parse(r.path).ok()?.matches(path)?.ok()?;
             Some((r, matched))
@@ -502,128 +501,6 @@ impl Normalizer {
 /// How `replies` differ from the Node `golden` (`{"steps": [{name, status, contentType, body}]}`): one line each.
 pub fn differences(golden: &Value, replies: &[Reply]) -> Vec<String> {
     compare(golden, replies, |body| body.to_owned())
-}
-
-/// What RU3c unifies on 1.12 (the 1.14.7 behaviour on both versions) and a reply therefore doesn't show the same
-/// way: the Dojo series is reconciled on 1.12 too, the wire slot counts and the active slot are the 1.14.7 ones, the
-/// default chat wheels are 1.14.7's only, and each version stamps its own changelist. Applied to both sides of a
-/// comparison with 1.12.0's Node answers; what it hides is covered by unit tests of the rules themselves.
-pub fn mask_unified(body: &str) -> String {
-    fn mask(value: &mut Value) {
-        match value {
-            Value::Array(items) => items.iter_mut().for_each(mask),
-            Value::Object(map) => {
-                if let Some(Value::String(data)) = map.get("data")
-                    && let Ok(Value::Object(mut inner)) = jsjson::parse(data)
-                    && inner.contains_key("LastChangelist")
-                {
-                    inner.remove("SERIE_dojo");
-                    inner.insert("LastChangelist".into(), Value::String("<changelist>".into()));
-                    let text = jsjson::stringify(&Value::Object(inner));
-                    map.insert("data".into(), Value::String(text));
-                }
-                if let Some(Value::Object(payload)) = map.get_mut("payload") {
-                    for key in [
-                        "num_account_slots",
-                        "max_account_slots",
-                        "num_character_slots",
-                        "max_character_slots",
-                        "active_index",
-                    ] {
-                        payload.remove(key);
-                    }
-                    if let Some(Value::Object(persistent)) = payload.get_mut("persistent") {
-                        persistent.remove("quick_chats");
-                        persistent.remove("emojis");
-                        // 1.12.0 seeded the banner and glider as catalog ids; the instance references that
-                        // 1.14.7's 2026-10-14 fix introduced resolve to an owned item
-                        persistent.insert("banner".into(), Value::Null);
-                        persistent.insert("glider".into(), Value::Null);
-                    }
-                    for slot in payload
-                        .get_mut("loadouts")
-                        .and_then(Value::as_array_mut)
-                        .into_iter()
-                        .flatten()
-                    {
-                        if let Some(Value::Object(slot)) = Some(slot).filter(|s| s.get("flask").is_some()) {
-                            slot.insert("flask".into(), Value::Null);
-                            if let Some(Value::Object(persistent)) = slot.get_mut("persistent") {
-                                persistent.insert("banner".into(), Value::Null);
-                                persistent.insert("glider".into(), Value::Null);
-                                persistent.remove("quick_chats");
-                                persistent.remove("emojis");
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-    match jsjson::parse(body) {
-        Ok(mut value) => {
-            mask(&mut value);
-            jsjson::stringify(&value)
-        }
-        Err(_) => body.to_owned(),
-    }
-}
-
-/// [`differences`] for 1.12.0: both sides masked ([`mask_unified`]), and the steps named in `unified` compared with
-/// the 1.14.7 answers instead, because RU3c has the port answer them as 1.14.7 does (the route 1.12.0 lacked, the unlock
-/// read as a delta from the Slayer's Path). `port_answers` are the steps where 1.12.0's Node threw (500) and the port
-/// answers a status of its own: only that status is checked.
-pub fn differences_unified(
-    golden: &Value,
-    golden_1_14_7: &Value,
-    unified: &[&str],
-    port_answers: &[(&str, u16)],
-    replies: &[Reply],
-) -> Vec<String> {
-    let mut found = Vec::new();
-    for source in [golden, golden_1_14_7] {
-        if source["steps"].as_array().map(Vec::len) != Some(replies.len()) {
-            found.push(format!(
-                "a golden has {:?} answers, {} replayed",
-                source["steps"].as_array().map(Vec::len),
-                replies.len()
-            ));
-        }
-    }
-    let pick = |name: &str| if unified.contains(&name) { 1 } else { 0 };
-    let goldens = [golden, golden_1_14_7];
-    // Each answer set numbers its ids by first appearance over the whole run, so the sets compare step by step
-    let mut want_norm = [
-        Normalizer::seeded(golden, mask_unified),
-        Normalizer::seeded(golden_1_14_7, mask_unified),
-    ];
-    let mut got_norm = Normalizer::new();
-    for reply in replies {
-        got_norm.apply(&mask_unified(&reply.body));
-    }
-    let mut got_norm = got_norm.restart();
-    for (i, got) in replies.iter().enumerate() {
-        if let Some((_, status)) = port_answers.iter().find(|(name, _)| *name == got.name) {
-            if got.status != *status {
-                found.push(format!(
-                    "{}: status {} (the port answers {status})",
-                    got.name, got.status
-                ));
-            }
-            continue;
-        }
-        let which = pick(&got.name);
-        let want = &goldens[which]["steps"][i];
-        found.extend(compare_step(
-            want,
-            got,
-            &mut want_norm[which],
-            &mut got_norm,
-            mask_unified,
-        ));
-    }
-    found
 }
 
 fn compare(golden: &Value, replies: &[Reply], mask: fn(&str) -> String) -> Vec<String> {

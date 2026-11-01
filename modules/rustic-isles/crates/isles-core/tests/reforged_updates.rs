@@ -421,37 +421,6 @@ async fn a_signed_runtime_is_published_and_served_per_changelist() {
     // The legacy download URL is shadowed by the manifest route: 400, since the channel isn't a target (RU3a)
     let shadowed = get(address, "/launcher/v1/runtime/stable/windows-x86_64/download", &[]).await;
     assert_eq!((shadowed.status, shadowed.text().as_str()), (400, "Bad Request"));
-
-    // The 1.12 module on the same node has a feed of its own
-    let old = server(&env, RouteSet::V1120, &[]).await;
-    assert_eq!(
-        get(old, "/launcher/v1/runtime/client/stable/windows-x86_64", &[])
-            .await
-            .status,
-        404
-    );
-    let old_ctx = Ctx::with(&shared_for(&env, RouteSet::V1120, &[]), trusted());
-    let (headers, body) = runtime_upload(392_819, "1.12.0", &dll, &runtime_key());
-    assert_eq!(
-        body_of(publish_runtime(
-            &old_ctx,
-            &as_req(&headers, body),
-            &params(&RUNTIME_PARAMS)
-        ))
-        .await
-        .0,
-        201
-    );
-    let old_manifest = get(old, "/launcher/v1/runtime/client/stable/windows-x86_64", &[])
-        .await
-        .json();
-    assert_eq!(
-        (
-            old_manifest["version"].clone(),
-            old_manifest["targetChangelist"].clone()
-        ),
-        (json!("1.12.0"), json!(392_819))
-    );
     assert_eq!(
         get(address, "/launcher/v1/runtime/client/stable/windows-x86_64", &[])
             .await
@@ -533,14 +502,6 @@ async fn a_runtime_written_by_node_is_still_served() {
         .await
         .body,
         b"old"
-    );
-    // It names the changelist it was made for; the other module doesn't take it
-    let old = server(&env, RouteSet::V1120, &[]).await;
-    assert_eq!(
-        get(old, "/launcher/v1/runtime/client/stable/windows-x86_64", &[])
-            .await
-            .status,
-        404
     );
 }
 

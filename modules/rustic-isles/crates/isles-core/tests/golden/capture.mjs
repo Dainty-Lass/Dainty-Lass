@@ -17,7 +17,7 @@ const [referenceRoot, goldenDir] = process.argv.slice(2);
 const NOW = Date.parse("2026-10-26T12:00:00.000Z");
 Date.now = () => NOW;
 
-const VERSIONS = ["1.14.7", "1.12.0"];
+const VERSIONS = ["1.14.7"];
 const GAME_DATA = path.resolve(goldenDir);
 const ORIGIN = "gauntlet-prod.steelyard.ca";
 const PASSES = "progression_config.synthetic.json";

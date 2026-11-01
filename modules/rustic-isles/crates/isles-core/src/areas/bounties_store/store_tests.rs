@@ -169,9 +169,9 @@ fn a_valid_bundle_loads_free_stacked_and_reachable_only_by_its_own_id() {
     assert_eq!(offer.prices[0].currency_id, "id_currency_platinum");
     assert_eq!(offer.prices[0].price, json!(0));
     assert!(offer.items.iter().all(|i| !i.instanced));
-    assert_eq!(catalog.find_by_id_or_catalog_id(&offer.id, false).unwrap().0, TAG);
+    assert_eq!(catalog.find_by_id_or_catalog_id(&offer.id).unwrap().0, TAG);
     // the fountain grants plain currency other stores may sell too: never the fallback of a bare catalog id
-    assert!(catalog.find_by_id_or_catalog_id("CURRENCY_NOTES", false).is_none());
+    assert!(catalog.find_by_id_or_catalog_id("CURRENCY_NOTES").is_none());
 }
 
 #[test]
@@ -186,10 +186,7 @@ fn a_fountain_offer_sharing_an_id_with_another_store_is_disabled() {
     let catalog = StoreCatalog::load(&root, &["exchange_vendor_slot_2", TAG]);
     assert!(catalog.skus(TAG).is_empty());
     assert_eq!(
-        catalog
-            .find_by_id_or_catalog_id("single_exchange_slot_2", false)
-            .unwrap()
-            .0,
+        catalog.find_by_id_or_catalog_id("single_exchange_slot_2").unwrap().0,
         "exchange_vendor_slot_2"
     );
 }
@@ -212,7 +209,7 @@ fn middleman_fusion_slots_2_and_3_are_sold_for_1000_platinum_as_permanent_entitl
         assert_eq!(sku.max_allowed, json!(1));
         assert!(sku.items.is_empty());
         assert_eq!(
-            catalog.find_by_id_or_catalog_id(&sku.id, false).unwrap().0,
+            catalog.find_by_id_or_catalog_id(&sku.id).unwrap().0,
             format!("exchange_vendor_slot_{slot}")
         );
     }
@@ -239,11 +236,11 @@ fn a_version_serves_only_the_sections_its_table_names() {
     let v112 = StoreCatalog::load(&root, &["ladyluckstore"]);
     assert_eq!(v112.skus("ladyluckstore").len(), 1);
     assert!(v112.skus("webstore").is_empty());
-    assert!(v112.find_by_id_or_catalog_id("dye1", false).is_none());
+    assert!(v112.find_by_id_or_catalog_id("dye1").is_none());
     let v1147 = StoreCatalog::load(&root, &["ladyluckstore", "webstore", "dyes", "hp_level_skip_rank"]);
     assert_eq!(v1147.skus("webstore").len(), 1);
     assert_eq!(v1147.skus("dyes").len(), 1);
     assert!(v1147.skus("hp_level_skip_rank").is_empty());
     // one SKU reachable from two sections resolves to one offer, the first section's
-    assert_eq!(v1147.find_by_id_or_catalog_id("DYE_ONE", false).unwrap().0, "webstore");
+    assert_eq!(v1147.find_by_id_or_catalog_id("DYE_ONE").unwrap().0, "webstore");
 }

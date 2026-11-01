@@ -164,7 +164,7 @@ struct App {
     /// Where `app.use(RequestLimiter)` sits (`app.ts` line 245): at `GET /internal/v1/metrics`, after the health probes
     /// and `releaseGatesRouter`
     post_probe_gate: Option<usize>,
-    /// 1.12.0 does not install a request limiter (`reference/1.12.0/ParadoxBackend/src/app.ts`), so `isles-1-12-0` stays unlimited
+    /// The Backend's; the Director has no request limiter
     rate_limit_enabled: bool,
     /// Where `app.use("/admin", ...)` sits: the first `/admin/` route's position in the table
     admin_gate: Option<usize>,
@@ -183,7 +183,7 @@ pub fn app(shared: Arc<Shared>, service: Service, handlers: &Handlers) -> Result
     let table = crate::routes::all();
     let mut routes = Vec::new();
     for (position, def) in table.iter().enumerate() {
-        if def.service != service || !shared.version.routes.serves(def) {
+        if def.service != service {
             continue;
         }
         let answer = match def.when {
@@ -211,8 +211,7 @@ pub fn app(shared: Arc<Shared>, service: Service, handlers: &Handlers) -> Result
                 .position(|r| r.service == Service::Backend && r.path == "/internal/v1/metrics")
         })
         .flatten();
-    // 1.12.0 does not install a request limiter (reference/1.12.0/ParadoxBackend/src/app.ts).
-    let rate_limit_enabled = service == Service::Backend && shared.version.routes == crate::routes::RouteSet::V1147;
+    let rate_limit_enabled = service == Service::Backend;
     let admin_gate = (service == Service::Backend)
         .then(|| {
             table
@@ -713,7 +712,7 @@ async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Re
             }
             Some(Ok(params)) => params,
         };
-        // Node's Gauntlet handlers call next() for any other origin, so they never shadow a 1.12 route
+        // Node's Gauntlet handlers call next() for any other origin, so they never shadow another route
         if mounted.def.when == When::Gauntlet && !origin_host.as_deref().is_some_and(|h| h.contains("gauntlet")) {
             continue;
         }

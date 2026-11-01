@@ -8,7 +8,7 @@
 //! reset stores a reforge record on the weapon's ExperienceTrack row, and the +1 and the banked restore are each
 //! accepted once against it, marked inside the grant's own transaction. A repeated DELETE while the record is open
 //! replays without resetting again. `MYSTICPARADOX_REFORGE=off` answers the DELETE 409 and `=log` does the same and
-//! logs the request; the `reforge_rules` hook is false on 1.12.0, which has none of this.
+//! logs the request; the `reforge_rules` hook turns all of it off.
 //!
 //! The classification, the mark and the stale repair are the progression area's (`areas::progression::reforge`), which
 //! its XP route and `GET /progression/:userId` call; this file has the reset, the banked restore and the grant that

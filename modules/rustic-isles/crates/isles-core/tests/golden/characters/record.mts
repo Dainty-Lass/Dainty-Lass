@@ -13,8 +13,8 @@ process.env.AUTH_SIGNING_PRIVKEY_B64 = Buffer.from(privateKey.export({ type: "pk
 process.env.AUTH_SIGNING_PUBKEY_B64 = Buffer.from(publicKey.export({ type: "spki", format: "pem" })).toString("base64");
 Object.assign(process.env, {
     NODE_ENV: "production",
-    // 1.14.7 runs on its SQLite provider; the 1.12.0 tag is MongoDB only (MONGODB_URI from record.sh)
-    ...(process.env.MONGODB_URI ? {} : { PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_SQLITE_PATH: ":memory:" }),
+    PERSISTENCE_PROVIDER: "sqlite",
+    MYSTICPARADOX_SQLITE_PATH: ":memory:",
     MYSTICPARADOX_RATE_LIMIT: "off",
     API_KEY_HASH_SECRET: "x".repeat(40),
     GAMESERVER_API_KEYS: "gs-key",
@@ -30,11 +30,6 @@ const { app } = await import("./src/app");
 const { GetRepositories } = await import("./src/persistence");
 const { DrainAndRegisterAPIKeys } = await import("./src/controllers/apikeys");
 const { SignMetagameJWTForUid } = await import("./src/controllers/auth");
-if (process.env.MONGODB_URI) {
-    // A fresh database per run; the 1.12.0 indexes are created by its server start, not needed for these routes
-    const { GetMongoDb } = await import("./src/persistence/mongo/client");
-    await (await GetMongoDb()).dropDatabase();
-}
 
 await DrainAndRegisterAPIKeys();
 const server = http.createServer(app as any);
@@ -57,8 +52,7 @@ for (const step of scenario.steps) {
     if (step.setup === "journey") {
         const journeys: any = GetRepositories().playerJourney;
         const record = { userId: step.user, nodes: JSON.stringify(step.nodes), updateVersion: 1, revision: 0 };
-        // 1.14.7 has createIfAbsent; the 1.12.0 tag's repository has create
-        await (journeys.createIfAbsent ? journeys.createIfAbsent(record) : journeys.create(record));
+        await journeys.createIfAbsent(record);
         continue;
     }
     const headers: Record<string, string> = {};

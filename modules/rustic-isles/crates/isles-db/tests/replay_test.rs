@@ -633,10 +633,6 @@ impl VersionHooks for TestHooks1147 {
         json!({ "error_code": null, "sessionid": token, "sessiontoken": token, "sessionToken": token })
     }
 
-    fn network_encryption_keys(&self) -> bool {
-        true
-    }
-
     fn weapons_at_base_level(&self, _settings: &Settings) -> bool {
         true
     }

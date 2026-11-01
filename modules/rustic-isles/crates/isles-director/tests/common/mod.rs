@@ -32,12 +32,6 @@ pub const V1147: Version = Version {
     version: isles_1_14_7::version,
 };
 
-pub const V1120: Version = Version {
-    name: "1.12.0",
-    config: isles_1_12_0::DIRECTOR,
-    version: isles_1_12_0::version,
-};
-
 /// `count` consecutive UDP ports on loopback that are free now and that no other test of this binary was given.
 /// They start in a band of their own, set by this process's id and well below the system's dynamic ports, so
 /// test runs of other worktrees on the same machine (and the system's own sockets) do not take them.
@@ -65,7 +59,7 @@ pub fn udp_free(port: u16) -> bool {
     UdpSocket::bind(("127.0.0.1", port)).is_ok()
 }
 
-pub fn write_tables(dir: &Path, trials_new: bool) {
+pub fn write_tables(dir: &Path) {
     let table = |rows: Value| json!([{ "Type": "DataTable", "Rows": rows }]).to_string();
     std::fs::write(
         dir.join("player_hunts_table.json"),
@@ -83,8 +77,7 @@ pub fn write_tables(dir: &Path, trials_new: bool) {
         })),
     )
     .unwrap();
-    let wanted = if trials_new { 5 } else { 3 };
-    for (_, file) in hunt::MATCHMAKER_TABLES[1..].iter().take(wanted) {
+    for (_, file) in &hunt::MATCHMAKER_TABLES[1..] {
         std::fs::write(dir.join(file), table(json!({}))).unwrap();
     }
 }
@@ -166,7 +159,7 @@ pub async fn start_with(version: Version, extra: &[(&str, &str)], tune: impl FnO
     for d in ["control", "game-data", "logs"] {
         std::fs::create_dir_all(root.path().join(d)).unwrap();
     }
-    write_tables(&root.path().join("game-data"), version.config.trials_new_tables);
+    write_tables(&root.path().join("game-data"));
     let (begin, end) = free_range(5);
     let mut pairs = env_pairs(root.path());
     for (k, v) in extra {
@@ -185,7 +178,7 @@ pub async fn start_with(version: Version, extra: &[(&str, &str)], tune: impl FnO
     )
     .unwrap();
     tune(&mut config);
-    let tables = hunt::load_tables(&root.path().join("game-data"), config.trials_new_tables).unwrap();
+    let tables = hunt::load_tables(&root.path().join("game-data")).unwrap();
     let memory = MemoryAdmission::new(config.memory.clone());
     let director = Director::new(config, tables, memory, Arc::new(OsLauncher));
     let shared = Arc::new(Shared::bare((version.version)()));

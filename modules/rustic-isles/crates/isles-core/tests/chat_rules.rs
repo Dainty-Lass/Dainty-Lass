@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use isles_chat::login::{TokenRefused, TokenVerifier, authenticate};
-use isles_chat::{ChatRules, ChatVersion, IslesChat, hub_sessions};
+use isles_chat::{ChatRules, IslesChat, hub_sessions};
 use isles_core::Settings;
 use isles_core::areas::chat::rules::source;
 use isles_core::db::IslesStore;
@@ -42,9 +42,7 @@ async fn account(store: &IslesStore, user: &str) -> AccountRecord {
     record
 }
 
-const RULES: IslesChat = IslesChat {
-    version: ChatVersion::V1147,
-};
+const RULES: IslesChat = IslesChat;
 
 struct Tokens;
 

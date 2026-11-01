@@ -305,15 +305,12 @@ fn loads_the_seven_tables_with_a_bom_and_refuses_a_missing_or_non_datatable_one(
         };
         std::fs::write(dir.path().join(file), body).unwrap();
     }
-    let loaded = hunt::load_tables(dir.path(), true).unwrap();
+    let loaded = hunt::load_tables(dir.path()).unwrap();
     assert_eq!(loaded.player_rows.len(), 1);
     assert_eq!(loaded.matchmaker_sources.len(), 6);
-    // 1.12.0 has no `_new` Trials tables, so a folder without them loads
-    let legacy = hunt::load_tables(dir.path(), false).unwrap();
-    assert_eq!(legacy.matchmaker_sources.len(), 4);
     let third = hunt::MATCHMAKER_TABLES[2].1;
     std::fs::remove_file(dir.path().join(third)).unwrap();
-    let error = hunt::load_tables(dir.path(), true).unwrap_err();
+    let error = hunt::load_tables(dir.path()).unwrap_err();
     assert!(
         error.starts_with("[hunt-manifest] Required hunt table is missing: ")
             && error.ends_with("arena_hard_matchmaker_hunts.json"),
@@ -321,7 +318,7 @@ fn loads_the_seven_tables_with_a_bom_and_refuses_a_missing_or_non_datatable_one(
     );
     std::fs::write(dir.path().join(third), r#"{"Rows":{}}"#).unwrap();
     assert!(
-        hunt::load_tables(dir.path(), true)
+        hunt::load_tables(dir.path())
             .unwrap_err()
             .ends_with("is not a DataTable export (no Rows)")
     );
@@ -338,7 +335,7 @@ fn real_tables() -> Option<Tables> {
         || repo().join("reference/1.14.7/ParadoxDirector/game-data"),
         PathBuf::from,
     );
-    match hunt::load_tables(&dir, true) {
+    match hunt::load_tables(&dir) {
         Ok(tables) => Some(tables),
         Err(error) => {
             eprintln!("[tests] skipping a game-data test: {error}");

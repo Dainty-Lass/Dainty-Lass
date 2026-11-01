@@ -551,9 +551,6 @@ fn version() -> IslesVersion {
         fn game_session_payload(&self, _: &str) -> Value {
             Value::Null
         }
-        fn network_encryption_keys(&self) -> bool {
-            false
-        }
         fn weapons_at_base_level(&self, _: &isles_core::Settings) -> bool {
             false
         }

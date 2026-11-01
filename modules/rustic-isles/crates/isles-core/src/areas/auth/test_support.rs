@@ -32,33 +32,15 @@ use crate::settings::Settings;
 use crate::tables::{StarterManifest, VersionTables};
 use crate::{AccountId, IslesVersion, UserId};
 
-/// Which module's hooks a test serves: the two sides of RU3c's `game_session_payload`, `network_encryption_keys` and
-/// `no_player_policy`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TestVersion {
-    V1147,
-    V1120,
-}
-
-struct Hooks(TestVersion);
+/// 1.14.7's `game_session_payload` and `no_player_policy`; the rest answer nothing.
+struct Hooks;
 
 impl VersionHooks for Hooks {
     fn no_player_policy(&self) -> NoPlayerPolicy {
-        match self.0 {
-            TestVersion::V1147 => NoPlayerPolicy::ConfiguredAccount,
-            TestVersion::V1120 => NoPlayerPolicy::Off,
-        }
+        NoPlayerPolicy::ConfiguredAccount
     }
     fn game_session_payload(&self, token: &str) -> Value {
-        match self.0 {
-            TestVersion::V1147 => {
-                json!({ "error_code": null, "sessionid": token, "sessiontoken": token, "sessionToken": token })
-            }
-            TestVersion::V1120 => json!({ "error_code": null, "sessionid": "SESSION_ID_LOL", "sessionToken": token }),
-        }
-    }
-    fn network_encryption_keys(&self) -> bool {
-        self.0 == TestVersion::V1147
+        json!({ "error_code": null, "sessionid": token, "sessiontoken": token, "sessionToken": token })
     }
     fn weapons_at_base_level(&self, _: &Settings) -> bool {
         false
@@ -116,14 +98,11 @@ const TABLES: VersionTables = VersionTables {
     switch_defaults: &[],
 };
 
-pub fn test_version(version: TestVersion) -> IslesVersion {
+pub fn test_version() -> IslesVersion {
     IslesVersion {
-        hooks: Arc::new(Hooks(version)),
+        hooks: Arc::new(Hooks),
         tables: TABLES,
-        routes: match version {
-            TestVersion::V1147 => RouteSet::V1147,
-            TestVersion::V1120 => RouteSet::V1120,
-        },
+        routes: RouteSet::V1147,
     }
 }
 
@@ -215,7 +194,6 @@ pub struct TestServer {
     store: IslesStore,
     address: Mutex<Option<SocketAddr>>,
     next_ip: std::sync::atomic::AtomicU32,
-    version: TestVersion,
 }
 
 fn open_store(dir: &tempfile::TempDir) -> IslesStore {
@@ -227,8 +205,8 @@ fn open_store(dir: &tempfile::TempDir) -> IslesStore {
     IslesStore::open(&config, &DatabaseOptions::default(), home, &node).unwrap()
 }
 
-fn build(version: TestVersion, store: &IslesStore, extra: &[(&str, &str)]) -> (Arc<Shared>, Arc<RecordingMail>) {
-    let mut shared = Shared::bare(test_version(version));
+fn build(store: &IslesStore, extra: &[(&str, &str)]) -> (Arc<Shared>, Arc<RecordingMail>) {
+    let mut shared = Shared::bare(test_version());
     shared.settings = test_key_settings(extra);
     shared.store = Some(store.clone());
     let mail = Arc::new(RecordingMail::default());
@@ -239,13 +217,9 @@ fn build(version: TestVersion, store: &IslesStore, extra: &[(&str, &str)]) -> (A
 
 impl TestServer {
     pub fn new(extra: &[(&str, &str)]) -> Self {
-        Self::for_version(TestVersion::V1147, extra)
-    }
-
-    pub fn for_version(version: TestVersion, extra: &[(&str, &str)]) -> Self {
         let dir = Arc::new(tempfile::tempdir().unwrap());
         let store = open_store(&dir);
-        let (shared, mail) = build(version, &store, extra);
+        let (shared, mail) = build(&store, extra);
         Self {
             shared,
             mail,
@@ -253,13 +227,12 @@ impl TestServer {
             store,
             address: Mutex::new(None),
             next_ip: std::sync::atomic::AtomicU32::new(1),
-            version,
         }
     }
 
     /// The same database under other settings, as a restart with a changed env file would be.
     pub fn with_store_of(other: &TestServer, extra: &[(&str, &str)]) -> Self {
-        let (shared, mail) = build(other.version, &other.store, extra);
+        let (shared, mail) = build(&other.store, extra);
         Self {
             shared,
             mail,
@@ -267,7 +240,6 @@ impl TestServer {
             store: other.store.clone(),
             address: Mutex::new(None),
             next_ip: std::sync::atomic::AtomicU32::new(1),
-            version: other.version,
         }
     }
 

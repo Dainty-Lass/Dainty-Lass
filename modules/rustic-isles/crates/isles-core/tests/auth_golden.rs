@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use isles_core::areas::auth::test_support::{Reply, TestServer, TestVersion, send};
+use isles_core::areas::auth::test_support::{Reply, TestServer, send};
 use regex::{Captures, Regex};
 use serde_json::{Map, Value, json};
 
@@ -166,12 +166,7 @@ fn capture(spec: &str, reply: &Reply) -> String {
 }
 
 /// The test server for the base environment plus whatever `env` steps set so far.
-fn server(
-    version: TestVersion,
-    store_of: Option<&TestServer>,
-    extra: &BTreeMap<String, String>,
-    updates: &str,
-) -> TestServer {
+fn server(store_of: Option<&TestServer>, extra: &BTreeMap<String, String>, updates: &str) -> TestServer {
     let mut settings: Vec<(&str, &str)> = vec![
         ("AUTH_MODE", "LAUNCHER"),
         ("APPROVED_EXECUTABLE_SHA256", EXECUTABLE),
@@ -182,7 +177,7 @@ fn server(
     settings.extend(extra.iter().map(|(k, v)| (k.as_str(), v.as_str())));
     match store_of {
         Some(other) => TestServer::with_store_of(other, &settings),
-        None => TestServer::for_version(version, &settings),
+        None => TestServer::new(&settings),
     }
 }
 
@@ -201,34 +196,17 @@ fn write_manifest(dir: &std::path::Path) {
 }
 
 /// Runs the scenario for one version and returns the steps that differ from `golden`.
-async fn run(version: TestVersion, label: &str, scenario_file: &str, golden: &[Value]) -> Vec<String> {
+async fn run(label: &str, scenario_file: &str, golden: &[Value]) -> Vec<String> {
     let scenario = read(scenario_file);
     let updates = tempfile::tempdir().unwrap();
     write_manifest(updates.path());
     let updates_path = updates.path().display().to_string();
     let mut extra: BTreeMap<String, String> = BTreeMap::new();
-    let mut current = server(version, None, &extra, &updates_path);
+    let mut current = server(None, &extra, &updates_path);
     isles_core::areas::auth::apikeys::register_gameserver_api_keys(&current.shared)
         .await
         .unwrap();
     let mut vars: BTreeMap<String, String> = BTreeMap::new();
-    if version == TestVersion::V1120 {
-        // The stand-in persistence of the 1.12.0 recording knows one game account
-        let account = isles_core::repo::auth::AccountRecord {
-            id: isles_core::AccountId::new(&module_api::NodeIdentity::standalone().node),
-            user_id: isles_core::UserId("u1".into()),
-            name: "Fox".into(),
-            notes: 0,
-        };
-        current
-            .store()
-            .write(&isles_core::areas::auth::data::system_actor(), move |tx, repos| {
-                repos.accounts.create(tx, &account)
-            })
-            .await
-            .unwrap();
-        vars.insert("tok".into(), current.game_token("u1"));
-    }
     let mut failures = Vec::new();
     let mut counter = 0u32;
     // The recorded answers are only those of steps this version runs, in order
@@ -252,7 +230,7 @@ async fn run(version: TestVersion, label: &str, scenario_file: &str, golden: &[V
             for (key, value) in values {
                 extra.insert(key.clone(), value.as_str().unwrap().to_owned());
             }
-            current = server(version, Some(&current), &extra, &updates_path);
+            current = server(Some(&current), &extra, &updates_path);
             continue;
         }
         if let Some(spec) = step.get("mailcode") {
@@ -320,35 +298,7 @@ async fn run(version: TestVersion, label: &str, scenario_file: &str, golden: &[V
 #[tokio::test(flavor = "multi_thread")]
 async fn the_auth_routes_answer_as_the_reference_backend_does() {
     let golden = read("golden.json");
-    let failures = run(
-        TestVersion::V1147,
-        "1.14.7",
-        "scenario.json",
-        golden.as_array().unwrap(),
-    )
-    .await;
-    assert!(
-        failures.is_empty(),
-        "{} steps differ:
-{}",
-        failures.len(),
-        failures.join(
-            "
-"
-        )
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn the_1_12_module_answers_the_game_client_routes_as_1_12_0_does() {
-    let golden = read("golden112.json");
-    let failures = run(
-        TestVersion::V1120,
-        "1.12.0",
-        "scenario112.json",
-        golden.as_array().unwrap(),
-    )
-    .await;
+    let failures = run("1.14.7", "scenario.json", golden.as_array().unwrap()).await;
     assert!(
         failures.is_empty(),
         "{} steps differ:

@@ -733,16 +733,12 @@ pub async fn public_account_bulk(mut call: Call) -> Response {
 // ------------------------------------------------------------------ routes/matchmaking.ts: the network keys
 
 /// `POST /key/generate`: a 256-bit key and a nonce, kept under the caller's own token for the hub's `/key/consume`.
-/// A version whose client connects unencrypted (1.12) answers 400 with an empty body.
 pub async fn key_generate(mut call: Call) -> Response {
     let auth = match game_auth(&mut call).await {
         Ok(auth) => auth,
         Err(response) => return response,
     };
     let shared = call.shared.clone();
-    if !shared.version.hooks.network_encryption_keys() {
-        return empty(400);
-    }
     let key = random_hex(32);
     let nonce = random_base64url(32);
     let authorization = header(call.request.headers(), "authorization").unwrap_or_default();
@@ -796,10 +792,6 @@ pub async fn key_consume(mut call: Call) -> Response {
         Err(response) => return response,
     };
     let shared = call.shared.clone();
-    if !shared.version.hooks.network_encryption_keys() {
-        // 1.12 has no /key/consume: the shared 404
-        return empty(404);
-    }
     let query = call.request.uri().query().map(str::to_owned);
     let body = match read_body(&mut call.request).await {
         Ok(body) => body,

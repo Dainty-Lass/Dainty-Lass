@@ -27,8 +27,7 @@ libc.workspace = true
 windows.workspace = true
 
 [dev-dependencies]
-# The real DIRECTOR of each version, for the end-to-end tests (a dev-dependency cycle, as cargo allows)
-isles-1-12-0 = { path = "../../modules/isles-1-12-0", default-features = false }
+# The real DIRECTOR, for the end-to-end tests (a dev-dependency cycle, as cargo allows)
 isles-1-14-7 = { path = "../../modules/isles-1-14-7", default-features = false }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }

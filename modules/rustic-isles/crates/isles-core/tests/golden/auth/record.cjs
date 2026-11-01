@@ -11,7 +11,6 @@ const os = require("node:os");
 const path = require("node:path");
 
 const [ScenarioPath, OutPath, Version = "1.14.7"] = process.argv.slice(2);
-const OLD = Version === "1.12.0";
 const Root = fs.mkdtempSync(path.join(os.tmpdir(), "auth-golden-"));
 // A key pair made for this run: nothing is committed, and the normalized answers never hold a token
 const Keys = require("node:crypto").generateKeyPairSync("rsa", {
@@ -69,37 +68,12 @@ const Src = path.join(process.cwd(), "src");
 let App;
 let Start = async () => undefined;
 const Vars = {};
-if (!OLD) {
-    ({ app: App } = require(path.join(Src, "app")));
-    const { SetMailTransportForTest } = require(path.join(Src, "mail/mailSender"));
-    SetMailTransportForTest({ async send(message) { Mails.push(message); } });
-    const { GetPersistenceLifecycle } = require(path.join(Src, "persistence"));
-    const { DrainAndRegisterAPIKeys } = require(path.join(Src, "controllers/apikeys"));
-    Start = async () => { await GetPersistenceLifecycle().start(); await DrainAndRegisterAPIKeys(); };
-} else {
-    // 1.12.0 only has MongoDB: its login and matchmaking routers run over a stand-in for the persistence layer, which knows one
-    // game account, "u1" (Fox), and no launcher accounts. The auth middleware and the controllers are the reference's own.
-    const Resolved = require.resolve(path.join(Src, "persistence"));
-    require.cache[Resolved] = {
-        id: Resolved, filename: Resolved, loaded: true, children: [], paths: [],
-        exports: {
-            GetRepositories: () => ({
-                launcherAccounts: { findByUserId: async () => undefined },
-                accounts: { findByUserId: async (id) => (id === "u1" ? { userId: id, name: "Fox", notes: 0 } : undefined) },
-            }),
-        },
-    };
-    const express = require("express");
-    App = express();
-    App.use(express.json());
-    App.use("/", require(path.join(Src, "routes/login")).loginRouter);
-    App.use("/", require(path.join(Src, "routes/matchmaking")).matchmakingRouter);
-    App.use((req, res) => { res.status(404); res.send(); });
-    const jwt = require("jsonwebtoken");
-    Vars.tok = jwt.sign({ userId: "u1" }, Keys.privateKey, {
-        algorithm: "RS256", expiresIn: "24h", issuer: "paradox-backend", audience: "paradox-backend",
-    });
-}
+({ app: App } = require(path.join(Src, "app")));
+const { SetMailTransportForTest } = require(path.join(Src, "mail/mailSender"));
+SetMailTransportForTest({ async send(message) { Mails.push(message); } });
+const { GetPersistenceLifecycle } = require(path.join(Src, "persistence"));
+const { DrainAndRegisterAPIKeys } = require(path.join(Src, "controllers/apikeys"));
+Start = async () => { await GetPersistenceLifecycle().start(); await DrainAndRegisterAPIKeys(); };
 
 // ---- the shared normalization (tests/auth_golden.rs does the same)
 function NormalizeText(text) {

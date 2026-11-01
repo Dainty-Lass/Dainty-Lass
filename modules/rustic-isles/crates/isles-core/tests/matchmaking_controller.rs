@@ -12,7 +12,7 @@ use isles_core::areas::matchmaking::controller::{
 use isles_core::areas::matchmaking::deploy::{DedicatedServers, Unconfigured};
 use isles_core::areas::matchmaking::state::{MatchmakingResult, Source};
 use isles_core::areas::matchmaking::status::{REALM_FULL_RETRY_AFTER_SECONDS, candidate_status_answer};
-use isles_core::areas::matchmaking::testkit::{FakeDeploy, Which, shared};
+use isles_core::areas::matchmaking::testkit::{FakeDeploy, shared};
 use isles_core::http::Shared;
 use serde_json::{Value, json};
 
@@ -26,7 +26,7 @@ const TRAINING: &str = "ShatteredIsles_TrainingDojo";
 const PARTY_ID: &str = "party-cancel-0001";
 
 fn module(deploy: Arc<dyn DedicatedServers>) -> Shared {
-    shared(Which::V1147, &[], deploy)
+    shared(&[], deploy)
 }
 
 fn join(mode: &str, hunt: &str, player: &str) -> JoinRequest {
@@ -424,7 +424,7 @@ async fn a_launch_the_director_refuses_is_a_rejected_join_and_one_that_throws_fa
 #[tokio::test]
 async fn matchmaking_mode_must_be_deployserver() {
     for mode in ["DISABLED", "", "deployserver", "SOMETHING"] {
-        let shared = shared(Which::V1147, &[("MATCHMAKING_MODE", mode)], FakeDeploy::online("h", 1));
+        let shared = shared(&[("MATCHMAKING_MODE", mode)], FakeDeploy::online("h", 1));
         assert!(
             !matchmaker(&shared)
                 .handle_player_matchmaking(join("ISLAND", ISLAND, USER))
@@ -477,11 +477,7 @@ async fn the_dedicated_route_cancels_a_gauntlet_request_with_gauntlet_disabled_f
 
 #[tokio::test]
 async fn the_dedicated_route_queues_a_gauntlet_request_with_the_switch_on_and_other_hunts_are_not_refused_by_name() {
-    let shared = shared(
-        Which::V1147,
-        &[("MYSTICPARADOX_GAUNTLET", "on")],
-        FakeDeploy::online("h", 1),
-    );
+    let shared = shared(&[("MYSTICPARADOX_GAUNTLET", "on")], FakeDeploy::online("h", 1));
     let mm = matchmaker(&shared);
     assert!(
         mm.handle_player_matchmaking(join("ISLAND", "CR19_PlayerHunt_Gauntlet", "core-gauntlet-on"))
@@ -831,26 +827,6 @@ async fn the_poll_period_is_one_second_while_matching_and_in_the_release_window_
         .status_period_millis(now),
         10_000
     );
-}
-
-#[tokio::test]
-async fn version_1_12_answers_island_with_the_real_hunt_id_and_its_own_build_id() {
-    let live = FakeDeploy::online("h", 1);
-    live.set_ramsgate(true, "198.51.100.9", 8790);
-    let shared = shared(Which::V1120, &[], live);
-    let ramsgate = candidate(|c| {
-        c.hunt_id = RAMSGATE.into();
-        c.ready = true;
-        c.host = "198.51.100.9".into();
-        c.port = 8790;
-    });
-    let body = candidate_status_answer(&shared, USER, Some(&ramsgate), None)
-        .await
-        .body
-        .unwrap();
-    assert_eq!(body["gameMode"], "ISLAND");
-    assert_eq!(body["huntId"], RAMSGATE);
-    assert_eq!(body["serverInfo"]["buildId"], "392819_1.12.0_shipping");
 }
 
 /// DN8: the ring gets the address the player connects from, which the hosting node's allowlist admits; a join
