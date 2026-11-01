@@ -24,9 +24,9 @@ isles-db = { path = "crates/isles-db" }
 
 # DaintyLass's crates, as git dependencies on plan at a fixed rev (DF1's fallback) until the silentspud registry
 # serves them; then each becomes `version = "0.1.0", registry = "silentspud"` and DaintyLass [patch]es it (DD2).
-module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "728d44cbef39142afdd7a218b0c84ff663c80fb4" }
-service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "728d44cbef39142afdd7a218b0c84ff663c80fb4" }
-store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "728d44cbef39142afdd7a218b0c84ff663c80fb4" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864" }
+service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864" }
 # rustic-rifts' seam always and its server crates behind isles-1-14-7's realms feature (RF2), the same way
 rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
 rifts-admission = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "4e8bfb4a46b0944eae4c01eda3fb70993d3b99de" }
