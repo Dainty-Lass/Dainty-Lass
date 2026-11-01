@@ -716,6 +716,7 @@ mod games {
     use std::sync::atomic::AtomicBool;
 
     use admin::modules::AdminCalls;
+    use module_api::PlayerRestriction;
     use module_api::module::PlayerInfo;
     use module_api::registrar::AdminAction;
     use module_api::stub::recording_host;
@@ -752,6 +753,8 @@ mod games {
         players: Mutex<Vec<StubPlayer>>,
         calls: Mutex<Vec<AdminCall>>,
         down: AtomicBool,
+        /// Keeps each player's ban or timeout and reports it in a lookup, as isles does
+        restrictions: Option<Mutex<BTreeMap<String, PlayerRestriction>>>,
     }
 
     impl StubGame {
@@ -764,6 +767,7 @@ mod games {
                 players: Mutex::new(players),
                 calls: Mutex::new(Vec::new()),
                 down: AtomicBool::new(false),
+                restrictions: None,
             }
         }
 
@@ -836,11 +840,40 @@ mod games {
                 let Some(found) = players.iter().find(|p| p.name.eq_ignore_ascii_case(player)) else {
                     return Ok(AdminResponse::NotFound);
                 };
+                if let Some(restrictions) = &self.restrictions {
+                    let mut restrictions = restrictions.lock().unwrap();
+                    match &call.request {
+                        AdminRequest::Ban { reason, until, .. } => {
+                            let kind = if until.is_some() {
+                                module_api::RestrictionKind::Timeout
+                            } else {
+                                module_api::RestrictionKind::Ban
+                            };
+                            restrictions.insert(
+                                found.name.to_owned(),
+                                PlayerRestriction {
+                                    kind,
+                                    reason: reason.clone(),
+                                    since: None,
+                                    until: until.clone(),
+                                },
+                            );
+                        }
+                        AdminRequest::Unban { .. } | AdminRequest::LiftTimeout { .. } => {
+                            restrictions.remove(found.name);
+                        }
+                        _ => {}
+                    }
+                }
                 Ok(match call.request {
                     AdminRequest::Lookup { .. } => AdminResponse::Player(PlayerInfo {
                         account: Some(found.account.clone()),
                         name: found.name.to_owned(),
                         online: found.online,
+                        restriction: self
+                            .restrictions
+                            .as_ref()
+                            .and_then(|r| r.lock().unwrap().get(found.name).cloned()),
                     }),
                     _ if found.admin => return Err(ModuleError::failed("this player is a server admin")),
                     AdminRequest::Kick { .. }
@@ -1137,6 +1170,29 @@ mod games {
             code(&w.gql(LOOKUP, json!({"name": "Wren"})).await),
             "BACKEND_UNAVAILABLE"
         );
+    }
+
+    #[tokio::test]
+    async fn a_module_s_own_timeout_shows_with_its_end() {
+        let mut game = StubGame::with("isles-stub", "1.14.7", vec![stub_player("Ada", true, false)]);
+        game.actions.extend([AdminAction::Unban, AdminAction::LiftTimeout]);
+        game.restrictions = Some(Mutex::new(BTreeMap::new()));
+        let w = world_on(&[Arc::new(game)]).await;
+        let body = w
+            .gql(TIMEOUT, json!({"name": "Ada", "minutes": 30, "reason": "spam"}))
+            .await;
+        let player = &body["data"]["timeout"];
+        assert_eq!(player["status"], "BANNED", "{body}");
+        assert_eq!(player["restriction"]["kind"], "TIMEOUT");
+        assert_eq!(player["restriction"]["until"], "2027-01-15T08:30:00Z");
+        let body = w
+            .gql(
+                "mutation { liftTimeout(username: \"Ada\") { status restriction { kind } } }",
+                json!({}),
+            )
+            .await;
+        assert_eq!(body["data"]["liftTimeout"]["status"], "UNKNOWN", "{body}");
+        assert_eq!(body["data"]["liftTimeout"]["restriction"], Value::Null);
     }
 
     #[tokio::test]

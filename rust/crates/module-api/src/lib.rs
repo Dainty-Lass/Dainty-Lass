@@ -37,7 +37,7 @@ pub use manifest::{
 pub use module::{
     AdminCall, AdminRequest, AdminResponse, BoxFuture, CommandOutput, CommandRequest, CoreCapability, CorePlugin,
     ErrorKind, Event, EventName, GameModule, HostAnswer, HostCall, HostLink, LogLevel, LogRecord, ModuleConfig,
-    ModuleContext, ModuleError, ModuleStatus, Phase,
+    ModuleContext, ModuleError, ModuleStatus, Phase, PlayerInfo, PlayerRestriction, RestrictionKind,
 };
 pub use network::{
     GlobalId, HomeApi, HomeBackend, HomeForward, HomeInvocation, IdKind, NodeId, NodeIdentity, OperationName, Region,
