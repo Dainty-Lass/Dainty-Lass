@@ -13,6 +13,14 @@ use crate::platform::dialogs::KeepOpen;
 
 pub const MAIN: &str = "main";
 
+/// Only the task switcher shows it: the page draws its own title bar. Not productName, which names files
+/// and folders and so has no space.
+const TITLE: &str = if cfg!(feature = "server-gui") {
+    "Dainty Lass Manager"
+} else {
+    "Dainty Lass Launcher"
+};
+
 /// The page's ink (styles.css, `#03080F`), so nothing flashes before it paints.
 const INK: Color = Color(0x03, 0x08, 0x0f, 0xff);
 
@@ -60,9 +68,8 @@ pub fn create(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     } else {
         None
     };
-    let title = app.config().product_name.as_deref().unwrap_or("DaintyLass Launcher");
     let mut builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-        .title(title)
+        .title(TITLE)
         .inner_size(width, height)
         .min_inner_size(min_width, min_height)
         .center()
