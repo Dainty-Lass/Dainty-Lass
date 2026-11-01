@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use protocol::GameVersion;
-use protocol::invite::{played_versions, reforged_version, revived_version};
+use protocol::invite::reforged_version;
 use serde_json::json;
 use service_kit::env::Env;
 
@@ -217,23 +217,19 @@ fn helper_url(text: &str, name: &str) -> Result<String, String> {
     Ok(format!("http://{}", point.authority()))
 }
 
-/// `GATEWAY_GAME`: `reborn` (the default, 1.14.7) or `legacy` (1.4.4), the latter only in a build that
-/// carries it.
+/// `GATEWAY_GAME`: `reborn` (the default, 1.14.7). `legacy` was Dauntless Revived's 1.4.4, which is no longer served.
 pub fn parse_game(raw: Option<&str>) -> Result<GameVersion, String> {
-    let game = match raw.map(|r| r.trim().to_ascii_lowercase()).as_deref() {
-        None | Some("") | Some("reborn") => reforged_version(),
-        Some("legacy") => revived_version(),
-        Some(_) => {
-            return Err(format!(
-                "GATEWAY_GAME must be reborn or legacy (got {})",
-                serde_json::to_string(raw.unwrap_or_default()).unwrap_or_default()
-            ));
-        }
-    };
-    if !played_versions().contains(&game) {
-        return Err("GATEWAY_GAME=legacy (Dauntless Revived's 1.4.4) needs a gateway built with the `legacy` feature; this one serves reborn only".into());
+    match raw.map(|r| r.trim().to_ascii_lowercase()).as_deref() {
+        None | Some("") | Some("reborn") => Ok(reforged_version()),
+        Some("legacy") => Err(
+            "GATEWAY_GAME=legacy (Dauntless Revived's 1.4.4) is no longer served; this gateway serves reborn only"
+                .into(),
+        ),
+        Some(_) => Err(format!(
+            "GATEWAY_GAME must be reborn (got {})",
+            serde_json::to_string(raw.unwrap_or_default()).unwrap_or_default()
+        )),
     }
-    Ok(game)
 }
 
 /// Links to the other nodes of a network (DD16, DN3). Off unless `GATEWAY_NODE_ID` is set.
@@ -338,18 +334,9 @@ impl Config {
             parse_loopback_url(&optional(env, name).unwrap_or_else(|| default.into()), name)
         };
         let content = upstream("GATEWAY_CONTENT_URL", "http://127.0.0.1:61002")?;
-        let (backend, ws) = match version == revived_version() {
-            // The backend serves the game's chat (XMPP over WebSocket) on its own listener
-            false => (
-                upstream("GATEWAY_BACKEND_URL", "http://127.0.0.1:61000")?,
-                upstream("GATEWAY_WS_URL", "http://127.0.0.1:61000")?,
-            ),
-            // DR's metagame and its chat listener (DR config.rs)
-            true => (
-                upstream("GATEWAY_METAGAME_URL", "http://127.0.0.1:61000")?,
-                upstream("GATEWAY_WS_URL", "http://127.0.0.1:61099")?,
-            ),
-        };
+        // The backend serves the game's chat (XMPP over WebSocket) on its own listener
+        let backend = upstream("GATEWAY_BACKEND_URL", "http://127.0.0.1:61000")?;
+        let ws = upstream("GATEWAY_WS_URL", "http://127.0.0.1:61000")?;
         // Without the feed nobody's game ports open, so a missing secret is an error, not a silent off
         let allowlist = if env.raw("GATEWAY_ALLOWLIST") == Some("0") {
             None
@@ -583,52 +570,13 @@ mod tests {
     }
 
     #[test]
-    fn the_game_is_reborn_unless_a_legacy_build_is_told_otherwise() {
+    fn the_game_is_reborn() {
         assert_eq!(load(&[], &[]).unwrap().version, reforged_version());
         assert_eq!(
             load(&[("GATEWAY_GAME", " Reborn ")], &[]).unwrap().version,
             reforged_version()
         );
-        // A reborn gateway never reads the metagame's address
-        let metagame = load(&[("GATEWAY_METAGAME_URL", "http://127.0.0.1:7000")], &[]).unwrap();
-        assert_eq!(metagame.backend.port, 61000);
-        fails(&[("GATEWAY_GAME", "revived")], &[], "reborn or legacy");
-        let legacy = load(&[("GATEWAY_GAME", "legacy")], &[]);
-        if cfg!(feature = "legacy") {
-            assert_eq!(legacy.unwrap().version, revived_version());
-        } else {
-            assert!(legacy.unwrap_err().contains("`legacy` feature"));
-        }
-    }
-
-    #[cfg(feature = "legacy")]
-    #[test]
-    fn legacy_mode_fronts_the_metagame_and_its_chat_listener() {
-        let config = load(&[("GATEWAY_GAME", "legacy")], &[]).unwrap();
-        let endpoint = |port| Endpoint {
-            host: "127.0.0.1".into(),
-            port,
-        };
-        assert_eq!(config.backend, endpoint(61000));
-        assert_eq!(config.content, endpoint(61002));
-        assert_eq!(config.ws, endpoint(61099));
-        let moved = load(
-            &[
-                ("GATEWAY_GAME", "legacy"),
-                ("GATEWAY_METAGAME_URL", "http://127.0.0.1:7000"),
-                ("GATEWAY_BACKEND_URL", "http://127.0.0.1:7001"),
-            ],
-            &[],
-        )
-        .unwrap();
-        assert_eq!(moved.backend, endpoint(7000));
-        fails(
-            &[
-                ("GATEWAY_GAME", "legacy"),
-                ("GATEWAY_METAGAME_URL", "http://10.0.0.5:61000"),
-            ],
-            &[],
-            "GATEWAY_METAGAME_URL must point at 127.0.0.1",
-        );
+        fails(&[("GATEWAY_GAME", "revived")], &[], "GATEWAY_GAME must be reborn");
+        fails(&[("GATEWAY_GAME", "legacy")], &[], "no longer served");
     }
 }

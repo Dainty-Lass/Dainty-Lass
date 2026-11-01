@@ -1,6 +1,6 @@
 //! The `content` binary: `content serve [--env-file <file>]` runs the server (`npm start`); `serve` is
 //! the default. Without `--env-file`, a `.env` in the working folder is read if there is one, as
-//! `node --env-file-if-exists=.env` did. A legacy build also has DR's `content verify`.
+//! `node --env-file-if-exists=.env` did.
 //!
 //! The command line, run by `reforged-host <service>` (RD26: one binary runs every service).
 
@@ -24,19 +24,6 @@ enum Command {
         #[arg(long)]
         env_file: Option<PathBuf>,
     },
-    /// Hashes a legacy server's 1.4.4 game folder against the manifest.
-    #[cfg(feature = "legacy")]
-    Verify {
-        #[arg(long)]
-        env_file: Option<PathBuf>,
-        /// Sizes only.
-        #[arg(long)]
-        quick: bool,
-        #[arg(long)]
-        game_dir: Option<PathBuf>,
-        #[arg(long)]
-        manifest: Option<PathBuf>,
-    },
 }
 
 fn env_file(given: Option<PathBuf>) -> Option<PathBuf> {
@@ -51,22 +38,6 @@ where
     let cli = Cli::parse_from(args);
     match cli.command.unwrap_or(Command::Serve { env_file: None }) {
         Command::Serve { env_file: file } => serve(env_file(file)),
-        #[cfg(feature = "legacy")]
-        Command::Verify {
-            env_file: file,
-            quick,
-            game_dir,
-            manifest,
-        } => {
-            let env = match Env::load(env_file(file).as_deref()) {
-                Ok(env) => env,
-                Err(error) => {
-                    eprintln!("{error}");
-                    return ExitCode::from(2);
-                }
-            };
-            ExitCode::from(crate::legacy::verify::run(&env, game_dir, manifest, quick) as u8)
-        }
     }
 }
 

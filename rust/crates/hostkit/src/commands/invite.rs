@@ -13,7 +13,7 @@ use crate::hostconfig::{
 };
 use crate::invite::{
     CodeOptions, GameVersion, certificate_fingerprint, create_invite_code, invite_for_game, list_invite_codes,
-    parse_game_version, revived_version, served_fingerprint,
+    parse_game_version, reforged_version, served_fingerprint,
 };
 use crate::paths::{PORTS, Paths};
 
@@ -30,7 +30,7 @@ pub fn run_with(
     let config =
         load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
 
-    let target_game = resolve_game_version(&config, args.game.as_deref())?;
+    let target_game = resolve_game_version(args.game.as_deref())?;
 
     if args.list {
         return run_list(paths, args.json, backend_port, out);
@@ -38,11 +38,7 @@ pub fn run_with(
 
     let uses_val = parse_uses_arg(args)?;
 
-    let code = if target_game == revived_version() {
-        crate::legacy::create_invite_code(paths)?
-    } else {
-        resolve_or_create_reborn_code(paths, &config, args, uses_val, backend_port)?
-    };
+    let code = resolve_or_create_reborn_code(paths, &config, args, uses_val, backend_port)?;
 
     let fp = if config.mode == ServerMode::Public {
         let disk_fp = certificate_fingerprint(&paths.cert_file)?;
@@ -116,23 +112,15 @@ pub fn run_with(
     Ok(ExitCode::SUCCESS)
 }
 
-fn resolve_game_version(config: &HostConfig, game_arg: Option<&str>) -> Result<GameVersion, HostError> {
-    let allowed = config.edition.versions();
+fn resolve_game_version(game_arg: Option<&str>) -> Result<GameVersion, HostError> {
     let Some(raw) = game_arg.map(str::trim).filter(|s| !s.is_empty()) else {
-        return Ok(config.edition.primary());
+        return Ok(reforged_version());
     };
-    let parsed = parse_game_version(raw).ok_or_else(|| {
+    parse_game_version(raw).ok_or_else(|| {
         HostError::message(format!(
-            "unknown --game version {raw:?} (expected \"1.14.7\" / \"reforged\" or \"1.4.4\" / \"revived\")"
+            "unknown --game version {raw:?} (expected \"1.14.7\" / \"reforged\")"
         ))
-    })?;
-    if !allowed.contains(&parsed) {
-        return Err(HostError::message(format!(
-            "this server is configured for edition {:?}, which does not run Dauntless {parsed}",
-            config.edition.as_str()
-        )));
-    }
-    Ok(parsed)
+    })
 }
 
 fn read_admin_key(paths: &Paths) -> Result<String, HostError> {
@@ -261,18 +249,8 @@ mod tests {
     }
 
     #[test]
-    fn resolve_game_version_checks_edition() {
-        let cfg = HostConfig::from_json(&json!({
-            "mode": "private",
-            "edition": "reborn",
-            "host": "100.64.0.1",
-            "gameAddress": "100.64.0.1",
-            "name": "Reborn Only",
-            "registration": "OPEN",
-            "maxHuntServers": 4
-        }))
-        .unwrap();
-        assert!(resolve_game_version(&cfg, Some("1.14.7")).is_ok());
-        assert!(resolve_game_version(&cfg, Some("1.4.4")).is_err());
+    fn resolve_game_version_takes_1_14_7_only() {
+        assert!(resolve_game_version(Some("1.14.7")).is_ok());
+        assert!(resolve_game_version(Some("1.4.4")).is_err());
     }
 }

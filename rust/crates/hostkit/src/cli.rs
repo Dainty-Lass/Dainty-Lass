@@ -121,8 +121,6 @@ pub struct SetupArgs {
     #[arg(long)]
     pub mode: Option<String>,
     #[arg(long)]
-    pub edition: Option<String>,
-    #[arg(long)]
     pub host: Option<String>,
     #[arg(long = "game-address")]
     pub game_address: Option<String>,
@@ -130,8 +128,6 @@ pub struct SetupArgs {
     pub name: Option<String>,
     #[arg(long)]
     pub game: Option<String>,
-    #[arg(long = "legacy-game")]
-    pub legacy_game: Option<String>,
     #[arg(long)]
     pub registration: Option<String>,
     #[arg(long)]
@@ -164,8 +160,6 @@ pub struct SetupArgs {
     pub no_multipliers: bool,
     #[arg(long = "public-port")]
     pub public_port: Option<String>,
-    #[arg(long = "legacy-public-port")]
-    pub legacy_public_port: Option<String>,
     #[arg(long = "server-fps")]
     pub server_fps: Option<String>,
     #[arg(long = "idle-fps")]

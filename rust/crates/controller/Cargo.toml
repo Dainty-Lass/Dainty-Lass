@@ -25,12 +25,8 @@ network = ["gateway", "network_plugin/directory", "network_plugin/log-ship", "de
 # The game modules compiled in (DD3, DF5), none by default: each is a crate of its module repository under
 # ../modules, linked as a path dependency
 isles-1-14-7 = ["dep:isles-1-14-7"]
-isles-1-12-0 = ["dep:isles-1-12-0"]
 # rustic-rifts' server crates inside isles-1-14-7 (RF2)
 realms = ["isles-1-14-7?/realms"]
-# legacy-revived has no module crate yet (RV1): the feature is the name the bins and the release use, and links
-# nothing until it does
-revived-1-4-4 = []
 # The module-api stub, a game module for tests and for trying a build (version 0.0.1)
 stub-module = []
 
@@ -44,7 +40,6 @@ doc = false
 
 [dependencies]
 admin = { workspace = true, optional = true }
-isles-1-12-0 = { workspace = true, optional = true }
 isles-1-14-7 = { workspace = true, optional = true }
 content = { workspace = true, optional = true }
 gateway = { workspace = true, optional = true }

@@ -70,7 +70,6 @@ setup)
 	echo
 	echo "In Docker (docs/hosting-docker.md): ignore the systemd and ufw steps above; compose runs the server."
 	echo "  docker compose up -d                 starts it (COMPOSE_PROFILES=public in .env for a public server)"
-	echo "  (a legacy server: REFORGED_EDITION, COMPOSE_FILE and COMPOSE_PROFILES as .env.example shows)"
 	echo "  docker compose run --rm host invite --for \"Alex\""
 	exit 0
 	;;

@@ -111,10 +111,9 @@ pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
 pub fn up_line(config: &HostConfig) -> String {
     let port = gateway_port(config);
     format!(
-        "Server {:?} is up ({} mode, edition {}, gateway {}:{}).",
+        "Server {:?} is up ({} mode, gateway {}:{}).",
         config.name,
         config.mode.as_str(),
-        config.edition.as_str(),
         config.host,
         port
     )
@@ -129,85 +128,74 @@ pub fn service_plan(
     let mut plan = Vec::new();
     let public = config.mode == ServerMode::Public;
 
-    if config.edition.runs_reborn() {
-        if public && !external_allowlist {
-            let file = env_file(p, FrontService::Allowlist.bin_name());
-            let launch = programs.launch(FrontService::Allowlist, p, &file);
-            plan.push(Planned {
-                spec: spec_from(
-                    FrontService::Allowlist.bin_name(),
-                    launch,
-                    file,
-                    Ready::http(PORTS.allowlist, "/status"),
-                ),
-                ready_timeout: Duration::from_secs(60),
-                required: true,
-            });
-        }
-
-        if cfg!(feature = "paradox") {
-            plan.push(Planned {
-                spec: ServiceSpec {
-                    name: "backend".into(),
-                    cwd: p.backend_dir.clone(),
-                    command: programs.node.clone(),
-                    args: vec![Path::new("build").join("server.js").display().to_string()],
-                    env_file: Some(env_file(p, "backend")),
-                    extra_env: Vec::new(),
-                    ready: Some(Ready::http(PORTS.backend, "/dauntless-status")),
-                },
-                ready_timeout: Duration::from_secs(120),
-                required: true,
-            });
-            plan.push(Planned {
-                spec: ServiceSpec {
-                    name: "director".into(),
-                    cwd: p.director_dir.clone(),
-                    command: programs.node.clone(),
-                    args: vec![Path::new("dist").join("server.js").display().to_string()],
-                    env_file: Some(env_file(p, "director")),
-                    extra_env: Vec::new(),
-                    ready: Some(Ready::http(PORTS.director, "/api/instances")),
-                },
-                ready_timeout: Duration::from_secs(60),
-                required: false,
-            });
-        }
-
-        let content_file = env_file(p, FrontService::Content.bin_name());
-        let content_launch = programs.launch(FrontService::Content, p, &content_file);
+    if public && !external_allowlist {
+        let file = env_file(p, FrontService::Allowlist.bin_name());
+        let launch = programs.launch(FrontService::Allowlist, p, &file);
         plan.push(Planned {
             spec: spec_from(
-                FrontService::Content.bin_name(),
-                content_launch,
-                content_file,
-                Ready::http(PORTS.content, "/content/v1/news"),
+                FrontService::Allowlist.bin_name(),
+                launch,
+                file,
+                Ready::http(PORTS.allowlist, "/status"),
             ),
-            ready_timeout: Duration::from_secs(60),
-            required: false,
-        });
-
-        let gw_ready = match config.mode {
-            ServerMode::Public => Ready::tcp("127.0.0.1", gateway_port(config)),
-            ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
-        };
-        let gw_file = env_file(p, FrontService::Gateway.bin_name());
-        let gw_launch = programs.launch(FrontService::Gateway, p, &gw_file);
-        plan.push(Planned {
-            spec: spec_from(FrontService::Gateway.bin_name(), gw_launch, gw_file, gw_ready),
             ready_timeout: Duration::from_secs(60),
             required: true,
         });
     }
 
-    if config.edition.runs_legacy() {
-        plan.extend(crate::legacy::legacy_service_plan(
-            p,
-            config,
-            external_allowlist,
-            programs,
-        )?);
+    if cfg!(feature = "paradox") {
+        plan.push(Planned {
+            spec: ServiceSpec {
+                name: "backend".into(),
+                cwd: p.backend_dir.clone(),
+                command: programs.node.clone(),
+                args: vec![Path::new("build").join("server.js").display().to_string()],
+                env_file: Some(env_file(p, "backend")),
+                extra_env: Vec::new(),
+                ready: Some(Ready::http(PORTS.backend, "/dauntless-status")),
+            },
+            ready_timeout: Duration::from_secs(120),
+            required: true,
+        });
+        plan.push(Planned {
+            spec: ServiceSpec {
+                name: "director".into(),
+                cwd: p.director_dir.clone(),
+                command: programs.node.clone(),
+                args: vec![Path::new("dist").join("server.js").display().to_string()],
+                env_file: Some(env_file(p, "director")),
+                extra_env: Vec::new(),
+                ready: Some(Ready::http(PORTS.director, "/api/instances")),
+            },
+            ready_timeout: Duration::from_secs(60),
+            required: false,
+        });
     }
+
+    let content_file = env_file(p, FrontService::Content.bin_name());
+    let content_launch = programs.launch(FrontService::Content, p, &content_file);
+    plan.push(Planned {
+        spec: spec_from(
+            FrontService::Content.bin_name(),
+            content_launch,
+            content_file,
+            Ready::http(PORTS.content, "/content/v1/news"),
+        ),
+        ready_timeout: Duration::from_secs(60),
+        required: false,
+    });
+
+    let gw_ready = match config.mode {
+        ServerMode::Public => Ready::tcp("127.0.0.1", gateway_port(config)),
+        ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
+    };
+    let gw_file = env_file(p, FrontService::Gateway.bin_name());
+    let gw_launch = programs.launch(FrontService::Gateway, p, &gw_file);
+    plan.push(Planned {
+        spec: spec_from(FrontService::Gateway.bin_name(), gw_launch, gw_file, gw_ready),
+        ready_timeout: Duration::from_secs(60),
+        required: true,
+    });
 
     Ok(plan)
 }
@@ -322,7 +310,7 @@ pub fn preflight(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
 }
 
 pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
-    if config.edition.runs_reborn() && !cfg!(feature = "paradox") {
+    if !cfg!(feature = "paradox") {
         crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
     }
     host_checks(paths, config, external_allowlist)?;

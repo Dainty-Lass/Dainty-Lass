@@ -1,8 +1,6 @@
 //! Calls to the host, row L21: `src/main/hostapi.ts`. The backend's launcher API (`/reforged/api`, the
 //! same contract as Dauntless Revived's `/undaunted/api`) and the content server behind the gateway
-//! (`/content/v1`). With the `legacy` feature, Dauntless Revived's 1.4.4 servers are asked the same
-//! through [`REVIVED`], their own routes and header (the Electron launcher's `REVIVED_FLAVOR`); their
-//! other calls are in `legacy.rs`.
+//! (`/content/v1`).
 //!
 //! The account key is sent only in the `x-reforged-user-api-key` header, only to the invite's host (in
 //! public mode only over the TLS connection pinned to the invite's certificate fingerprint): GetUserInfo,
@@ -24,8 +22,6 @@ use crate::core::pins::CONNECT_TIMEOUT_MS;
 use crate::core::status::{STATUS_PATH, ServerStatus, parse_server_status};
 use crate::core::username::is_plausible_account_key;
 
-#[cfg(feature = "legacy")]
-pub mod legacy;
 /// The parsers, without the network: the fuzz target `launcher_net` compiles this file in
 pub mod parse;
 
@@ -48,12 +44,6 @@ pub const REFORGED: Flavor = Flavor {
     key_header: KEY_HEADER,
 };
 
-/// A Dauntless Revived server's, by DR's names: it is their server, not ours (rename dictionary aside)
-#[cfg(feature = "legacy")]
-pub const REVIVED: Flavor = Flavor {
-    api: "/undaunted/api",
-    key_header: "x-undaunted-user-api-key",
-};
 /// An older server's status route; it never gets the key
 const LEGACY_STATUS_PATH: &str = "/dauntless-status";
 

@@ -45,9 +45,6 @@ Fuzz targets in `rust/fuzz` (each drives `content::input`):
   key is one printable token.
 - `content_runtime_index`: `runtime.json` bytes. Checks that an accepted index lists exactly the two files, sorted,
   with sizes in range and lower-case SHA-256s under the one build name, and that its body reads back to itself.
-- `content_range` (legacy, drives `content::legacy`): a `Range` header gives a range inside the file or a refusal,
-  a request path never becomes a key with an empty, `.` or `..` segment, and an accepted manifest holds safe paths
-  only.
 - `content_news`: a news document. Checks the item count, order, and that titles and bodies carry no control
   characters past what is allowed.
 
@@ -166,33 +163,8 @@ Fuzz targets in `rust/fuzz` (each drives `content::input`):
 - [ ] Every answer carries `X-Content-Type-Options: nosniff`; JSON answers `Content-Type: application/json;
       charset=utf-8`; no CORS header is sent (Reforged sends none).
 
-### Legacy mode (`CONTENT_GAME=legacy`, RD5 reversed)
-
-With the `legacy` feature the server can hand out Dauntless Revived's 1.4.4 game instead of the runtime, as DR's
-content server at 24b7624 does (`src/legacy/`, `src/app/game_files.rs`). The listener, limits, slots, news and
-branding are the same code as above. Fuzz target: `content_range`, and `content_request` for the routes.
-
-- [ ] A build without the feature refuses `CONTENT_GAME=legacy` at start; any value but `reborn` or `legacy` stops it
-      too. Legacy needs `CONTENT_GAME_DIR`; reborn reads neither it nor `CONTENT_MANIFEST`, and its parity tests are
-      unchanged (`config.rs`, `parse_game`).
-- [ ] The manifest (`CONTENT_MANIFEST`, else DR's 1.4.4 list built in) is checked before anything is served: every
-      path `IsSafeManifestPath` (no empty, dot or reserved segment, no `:` or `\`, at most 400 characters), sorted,
-      no two paths equal ignoring case, SHA-256 as 64 lower-case hex, and `totalBytes` the sum (`legacy/manifest.rs`).
-- [ ] A request path is refused with 400 for encoded `/`, `\`, NUL or `.`, raw `\` or NUL, double encoding, Windows
-      special characters and empty, `.` or `..` segments (`legacy/paths.rs`), then looked up exactly in the
-      manifest; the file opened is the game folder joined with the manifest's own path, never the request's text.
-- [ ] At start every listed file is checked with `symlink_metadata` (a symlink or junction is not served) for its
-      size; none at all stops the start. A file that is missing, the wrong size, or changed (size or modification
-      time) since the start is 503 `file_unavailable` until the host runs `content verify` and restarts.
-- [ ] One range only (`legacy/range.rs`): a satisfiable range lies inside the file; several ranges, other units and
-      anything unparsable are 416 with `Content-Range: bytes */SIZE`. A stale `If-Range` sends the whole file. The
-      body is exactly the range's length (`seek`, `take`).
-- [ ] A game file needs `x-reforged-user-api-key` (DR's `x-undaunted-user-api-key`, translated as the Rust metagame
-      has it), checked at `GET <BACKEND_URL>/reforged/api/GetUserInfo` on the metagame by the same lookup, cache and
-      loopback-only rule as above. DR's untranslated header is not accepted. The manifest needs no key (DR's
-      launcher has the same list).
-- [ ] The runtime routes are 404 on a legacy server. DR's CORS headers and `CONTENT_DOWNLOAD_BASE_URL` are not
-      carried.
+- [ ] `CONTENT_GAME=legacy` (Dauntless Revived's 1.4.4, served until 2026-10-31) stops the start; any value but
+      `reborn` does too (`config.rs`, `parse_game`).
 
 ## Fuzzing
 

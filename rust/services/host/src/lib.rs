@@ -12,13 +12,6 @@ pub mod run {
     pub use hostkit::run::*;
 }
 
-// Dauntless Revived's 1.4.4 servers (RD5 reversed); without the feature, refusals with the same signatures
-#[cfg(feature = "legacy")]
-pub mod legacy;
-#[cfg(not(feature = "legacy"))]
-#[path = "legacy/off.rs"]
-pub mod legacy;
-
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
@@ -702,12 +695,7 @@ impl hooks::HostHooks for ServicesHostHooks {
             let signing_key = network_plugin::home::SigningKey::load_or_create(&key_path)
                 .map_err(|e| HostError::message(format!("network session key {}: {e}", key_path.display())))?;
             let database = hostconfig::node_database_config(config, paths)?;
-            let game = config
-                .edition
-                .versions()
-                .first()
-                .cloned()
-                .unwrap_or_else(protocol::invite::reforged_version);
+            let game = protocol::invite::reforged_version();
             let peer_log_dir = Some(paths.workspace.join("peer-logs"));
             let ship_to_peer = config
                 .history
@@ -735,7 +723,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         }
 
         #[cfg(feature = "gateway")]
-        if config.edition.runs_reborn() && in_process_gateway {
+        if in_process_gateway {
             controller.add(
                 modules::gateway(
                     &hostkit::serve::module_env(paths, "gateway")?,
@@ -812,48 +800,6 @@ impl hooks::HostHooks for ServicesHostHooks {
                 None
             }
         }
-    }
-
-    fn legacy_write_env_files(
-        &self,
-        c: &hostconfig::HostConfig,
-        s: &hostconfig::Secrets,
-        p: &paths::Paths,
-        source_commit: &str,
-        platform: hostconfig::Platform,
-    ) -> Result<Vec<PathBuf>, HostError> {
-        crate::legacy::write_env_files(c, s, p, source_commit, platform)
-    }
-
-    fn legacy_env_file_names(&self, c: &hostconfig::HostConfig) -> Vec<String> {
-        crate::legacy::env_file_names(c)
-    }
-
-    fn legacy_service_plan(
-        &self,
-        paths: &paths::Paths,
-        config: &hostconfig::HostConfig,
-        external_allowlist: bool,
-        programs: &hostkit::commands::start::binaries::Programs,
-    ) -> Result<Vec<hostkit::commands::start::Planned>, HostError> {
-        crate::legacy::legacy_service_plan(paths, config, external_allowlist, programs)
-    }
-
-    fn legacy_prepare(&self, paths: &paths::Paths, config: &hostconfig::HostConfig) -> Result<(), HostError> {
-        crate::legacy::prepare(paths, config)
-    }
-
-    fn legacy_create_invite_code(&self, paths: &paths::Paths) -> Result<String, HostError> {
-        crate::legacy::create_invite_code(paths)
-    }
-
-    fn legacy_doctor_checks(
-        &self,
-        p: &paths::Paths,
-        config: &hostconfig::HostConfig,
-        hash_exe: bool,
-    ) -> Result<Vec<hostkit::doctor::Check>, HostError> {
-        crate::legacy::doctor_checks(p, config, hash_exe)
     }
 }
 
@@ -1757,7 +1703,7 @@ mod tests {
     fn db_migrate_verify_and_export_mongo_work_with_host_toml_defaults() {
         use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
         use crate::hostconfig::{
-            DatabaseSettings, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode, save_host_config,
+            DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode, save_host_config,
         };
         use isles_db::mongo::MockMongoServer;
         use serde_json::{Map, Value, json};
@@ -1788,14 +1734,11 @@ mod tests {
         let cfg = HostConfig {
             version: 1,
             mode: ServerMode::Private,
-            edition: Edition::Reborn,
             name: "Test Server".into(),
             host: "100.64.0.1".into(),
             game_address: "100.64.0.1".into(),
             public_port: None,
-            legacy_public_port: None,
             game_dir: None,
-            legacy_game_dir: None,
             registration: Registration::Invitecode,
             share_url: None,
             max_hunt_servers: 3,
@@ -1867,7 +1810,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_runs_gateway_and_content_in_process_without_node() {
         use commands::start::binaries::{FrontService, rust_ported};
-        use hostconfig::{DEFAULT_MONGO_URI, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
+        use hostconfig::{DEFAULT_MONGO_URI, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
@@ -1875,7 +1818,6 @@ mod tests {
         let c = HostConfig {
             version: 1,
             mode: ServerMode::Private,
-            edition: Edition::Reborn,
             host: "127.0.0.1".into(),
             game_address: "127.0.0.1".into(),
             name: "Friday Hunts".into(),
@@ -1890,8 +1832,6 @@ mod tests {
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
-            legacy_game_dir: None,
-            legacy_public_port: None,
             performance: None,
             linux: None,
             database: None,
@@ -1936,7 +1876,7 @@ mod tests {
     #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo() {
-        use hostconfig::{DEFAULT_MONGO_URI, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
+        use hostconfig::{DEFAULT_MONGO_URI, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
@@ -1944,7 +1884,6 @@ mod tests {
         let c = HostConfig {
             version: 1,
             mode: ServerMode::Private,
-            edition: Edition::Reborn,
             host: "127.0.0.1".into(),
             game_address: "127.0.0.1".into(),
             name: "Friday Hunts".into(),
@@ -1959,8 +1898,6 @@ mod tests {
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
-            legacy_game_dir: None,
-            legacy_public_port: None,
             performance: None,
             linux: None,
             database: None,
@@ -2025,10 +1962,6 @@ mod tests {
         let isles = registry.info(&"isles-1-14-7".parse().unwrap()).unwrap();
         assert_eq!(isles.state, controller::ModuleState::Ready, "{:?}", isles.detail);
         assert!(isles.autoload);
-        if let Ok(isles_112) = registry.info(&"isles-1-12-0".parse().unwrap()) {
-            assert!(!isles_112.autoload);
-            assert_eq!(isles_112.state, controller::ModuleState::NotLoaded);
-        }
 
         let reply = invite::http_request(
             "GET",

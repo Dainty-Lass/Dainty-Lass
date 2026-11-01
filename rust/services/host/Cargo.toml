@@ -9,25 +9,21 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["modules", "isles-1-14-7", "isles-1-12-0", "realms"]
+default = ["modules", "isles-1-14-7", "realms"]
 # The server's modules (`serve`): the Rust services in this process. None: a controller that serves nothing
 modules = ["gateway", "allowlist", "content", "admin"]
 gateway = ["controller/gateway", "controller/network", "controller/remote", "dep:gateway"]
 allowlist = ["controller/allowlist", "dep:gateway"]
 content = ["controller/content", "dep:content"]
 admin = ["controller/admin", "dep:admin", "hostkit/admin"]
-# The game modules compiled in (DF5): the controller's features of the same names; 1.14.7, 1.12.0 and realms
-# are on by default (RU9/RB14)
+# The game modules compiled in (DF5): the controller's features of the same names; 1.14.7 and realms are on by
+# default (RU9/RB14)
 stub-module = ["controller/stub-module"]
 isles-1-14-7 = ["controller/isles-1-14-7", "dep:isles-1-14-7", "dep:isles-db", "dep:isles-core", "dep:isles-director"]
-isles-1-12-0 = ["controller/isles-1-12-0"]
-revived-1-4-4 = ["controller/revived-1-4-4"]
 realms = ["controller/realms", "isles-1-14-7?/realms"]
 # Opt-in rollback path for one release until RB15 deletes it: Mystic Paradox's Node backend and Director
 # and MongoDB
 paradox = ["dep:isles-db", "hostkit/paradox"]
-# Dauntless Revived's 1.4.4 servers (legacy; RD5 reversed)
-legacy = ["protocol/legacy", "gateway?/legacy", "content?/legacy"]
 
 [dependencies]
 hostkit = { workspace = true, default-features = false }

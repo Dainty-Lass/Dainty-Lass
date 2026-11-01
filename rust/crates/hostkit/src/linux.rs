@@ -5,15 +5,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::HostError;
-use crate::hostconfig::{
-    Edition, HostConfig, LinuxOptions, ServerMode, game_ports, gateway_port, legacy_game_ports, legacy_gateway_port,
-};
+use crate::hostconfig::{HostConfig, LinuxOptions, ServerMode, game_ports, gateway_port};
 use crate::paths::Paths;
 use crate::run::{RunOptions, capture, run};
 
 pub const UNIT_SERVER: &str = "reforged.service";
 pub const UNIT_ALLOWLIST: &str = "reforged-allowlist.service";
-pub const UNIT_ALLOWLIST_LEGACY: &str = "reforged-allowlist-legacy.service";
 pub const CAP_NET_BIND_SERVICE: u32 = 10;
 pub const CAP_NET_ADMIN: u32 = 12;
 
@@ -387,42 +384,13 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
         );
         units.push((UNIT_ALLOWLIST.to_owned(), allowlist_unit));
         service_names.push(UNIT_ALLOWLIST);
-
-        if c.edition == Edition::Both {
-            let legacy_env = unit_path(&p.config.join("allowlist-legacy.env").to_string_lossy())?;
-            let legacy_unit = format!(
-                "[Unit]\n\
-                 Description=DaintyLass 1.4.4 UDP allowlist helper\n\
-                 After=network-online.target\n\
-                 Wants=network-online.target\n\
-                 \n\
-                 [Service]\n\
-                 Type=simple\n\
-                 User={user}\n\
-                 WorkingDirectory={repo_dir}\n\
-                 EnvironmentFile={legacy_env}\n\
-                 ExecStart={host_bin} allowlist\n\
-                 AmbientCapabilities=CAP_NET_ADMIN\n\
-                 CapabilityBoundingSet=CAP_NET_ADMIN\n\
-                 NoNewPrivileges=true\n\
-                 Restart=on-failure\n\
-                 RestartSec=2\n\
-                 \n\
-                 [Install]\n\
-                 WantedBy=multi-user.target\n"
-            );
-            units.push((UNIT_ALLOWLIST_LEGACY.to_owned(), legacy_unit));
-            service_names.push(UNIT_ALLOWLIST_LEGACY);
-        }
     }
 
     let mut after = vec!["network-online.target"];
     after.extend_from_slice(&service_names);
     let after_line = after.join(" ");
 
-    let needs_low_port = c.mode == ServerMode::Public
-        && ((c.edition.runs_reborn() && gateway_port(c) < 1024)
-            || (c.edition.runs_legacy() && legacy_gateway_port(c) < 1024));
+    let needs_low_port = c.mode == ServerMode::Public && gateway_port(c) < 1024;
     let cap_lines = if needs_low_port {
         "AmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\n"
     } else {
@@ -507,38 +475,18 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
         "set -eu".to_owned(),
     ];
 
+    let gw = gateway_port(c);
+    let (first, last) = game_ports(c);
     match c.mode {
         ServerMode::Public => {
-            if c.edition.runs_reborn() {
-                let gw = gateway_port(c);
-                let (first, last) = game_ports(c);
-                lines.push(format!("ufw allow {gw}/tcp"));
-                lines.push(format!("ufw allow {first}:{last}/udp"));
-            }
-            if c.edition.runs_legacy() {
-                let gw = legacy_gateway_port(c);
-                let (first, last) = legacy_game_ports(c);
-                lines.push(format!("ufw allow {gw}/tcp"));
-                lines.push(format!("ufw allow {first}:{last}/udp"));
-            }
+            lines.push(format!("ufw allow {gw}/tcp"));
+            lines.push(format!("ufw allow {first}:{last}/udp"));
         }
         ServerMode::Private => {
-            if c.edition.runs_reborn() {
-                let gw = gateway_port(c);
-                let (first, last) = game_ports(c);
-                lines.push(format!("ufw allow in on tailscale0 to any port {gw} proto tcp"));
-                lines.push(format!(
-                    "ufw allow in on tailscale0 to any port {first}:{last} proto udp"
-                ));
-            }
-            if c.edition.runs_legacy() {
-                let gw = legacy_gateway_port(c);
-                let (first, last) = legacy_game_ports(c);
-                lines.push(format!("ufw allow in on tailscale0 to any port {gw} proto tcp"));
-                lines.push(format!(
-                    "ufw allow in on tailscale0 to any port {first}:{last} proto udp"
-                ));
-            }
+            lines.push(format!("ufw allow in on tailscale0 to any port {gw} proto tcp"));
+            lines.push(format!(
+                "ufw allow in on tailscale0 to any port {first}:{last} proto udp"
+            ));
         }
     }
 

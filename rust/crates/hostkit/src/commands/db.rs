@@ -210,7 +210,7 @@ fn export_mongo(p: &Paths, args: &DbExportMongoArgs, out: &mut dyn FnMut(&str)) 
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::hostconfig::{DatabaseSettings, Edition, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
+    use crate::hostconfig::{DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
     #[test]
     fn defaults_source_and_target_from_host_toml_and_never_prints_passwords() {
@@ -226,14 +226,11 @@ mod tests {
         let cfg = HostConfig {
             version: 1,
             mode: ServerMode::Private,
-            edition: Edition::Reborn,
             name: "Test Server".into(),
             host: "100.64.0.1".into(),
             game_address: "100.64.0.1".into(),
             public_port: None,
-            legacy_public_port: None,
             game_dir: None,
-            legacy_game_dir: None,
             registration: Registration::Invitecode,
             share_url: None,
             max_hunt_servers: 3,

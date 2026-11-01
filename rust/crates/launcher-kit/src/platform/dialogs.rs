@@ -10,8 +10,6 @@ pub enum FolderPurpose {
     Runtime,
     Sdk,
     Workspace,
-    #[cfg(feature = "legacy")]
-    Revived,
 }
 
 /// Reason the launcher warns before closing the main window.
@@ -21,8 +19,6 @@ pub enum KeepOpen {
 }
 
 pub const DIALOG_GAME_FOLDER: &str = "dialog_game_folder";
-pub const DIALOG_LEGACY_FOLDER: &str = "dialog_legacy_folder";
-pub const DIALOG_REVIVED_FOLDER: &str = DIALOG_LEGACY_FOLDER;
 pub const DIALOG_RUNTIME_FOLDER: &str = "dialog_runtime_folder";
 pub const DIALOG_SDK_FOLDER: &str = "dialog_sdk_folder";
 pub const DIALOG_WORKSPACE_FOLDER: &str = "dialog_workspace_folder";
@@ -46,8 +42,6 @@ pub const fn folder_title(purpose: FolderPurpose) -> &'static str {
         FolderPurpose::Runtime => DIALOG_RUNTIME_FOLDER,
         FolderPurpose::Sdk => DIALOG_SDK_FOLDER,
         FolderPurpose::Workspace => DIALOG_WORKSPACE_FOLDER,
-        #[cfg(feature = "legacy")]
-        FolderPurpose::Revived => DIALOG_REVIVED_FOLDER,
     }
 }
 
@@ -61,7 +55,5 @@ mod tests {
         assert_eq!(folder_title(FolderPurpose::Runtime), "dialog_runtime_folder");
         assert_eq!(folder_title(FolderPurpose::Sdk), "dialog_sdk_folder");
         assert_eq!(folder_title(FolderPurpose::Workspace), "dialog_workspace_folder");
-        #[cfg(feature = "legacy")]
-        assert_eq!(folder_title(FolderPurpose::Revived), "dialog_legacy_folder");
     }
 }

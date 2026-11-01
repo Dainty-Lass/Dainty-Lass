@@ -134,8 +134,6 @@ pub struct Paths {
     pub workspace: PathBuf,
     pub paradox: PathBuf,
     pub isles: PathBuf,
-    pub revived: PathBuf,
-    pub old_upstream: PathBuf,
     pub backend_dir: PathBuf,
     pub director_dir: PathBuf,
     pub runtime_source: PathBuf,
@@ -181,8 +179,6 @@ impl Paths {
         let workspace = repo.join(".workspace");
         let isles = repo.join("modules").join("rustic-isles");
         let paradox = isles.join("reference").join("1.14.7");
-        let revived = repo.join("modules").join("legacy-revived");
-        let old_upstream = workspace.join("Mystic-Paradox");
         let backend_dir = paradox.join("ParadoxBackend");
         let director_dir = paradox.join("ParadoxDirector");
         let runtime_source = isles.join("native").join("runtime");
@@ -230,8 +226,6 @@ impl Paths {
             workspace,
             paradox,
             isles,
-            revived,
-            old_upstream,
             backend_dir,
             director_dir,
             runtime_source,

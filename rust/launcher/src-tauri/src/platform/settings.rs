@@ -3,9 +3,7 @@
 //! to its default, and the file is written as the Electron launcher writes it (same key order, two-space
 //! indent), so an upgraded profile reads and saves to the same bytes, but for the 1.4.4 parts (RD5,
 //! RD22): `revivedRoot` and `revivedVerified` are read and not written again, and a saved 1.4.4 server
-//! (`game: "revived"`) stays in the list, with its key, but is never the current server. With the
-//! `legacy` feature they are kept as the Electron launcher kept them, `gameEdition` (`reborn` or `legacy`)
-//! follows them, and the current server is one of the chosen edition.
+//! (`game: "revived"`) stays in the list, with its key, but is never the current server.
 //!
 //! Built on `protocol` and `serde_json` only, so the fuzz target (`rust/fuzz`, `launcher_files`) compiles
 //! this file as it is.
@@ -30,12 +28,6 @@ const MAX_TRUSTED_PER_SERVER: usize = 8;
 pub const REVIVED: &str = "revived";
 /// `game` of every other server; older settings have none
 pub const REFORGED: &str = "reforged";
-
-/// Built with the `legacy` feature. The fuzz target compiles this file without the feature declared.
-#[allow(unexpected_cfgs)]
-pub const LEGACY: bool = cfg!(feature = "legacy");
-
-const GAME_EDITIONS: [&str; 2] = ["reborn", "legacy"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
@@ -147,10 +139,6 @@ pub fn default_settings(language: Language) -> Map<String, Value> {
     out.insert("server".into(), Value::Null);
     out.insert("savedServers".into(), Value::Array(Vec::new()));
     out.insert("gameRoot".into(), Value::Null);
-    if LEGACY {
-        out.insert("revivedRoot".into(), Value::Null);
-        out.insert("revivedVerified".into(), Value::Null);
-    }
     out.insert("graphics".into(), Value::from(DEFAULT_GRAPHICS));
     out.insert("windowed".into(), Value::Bool(false));
     out.insert("streamerMode".into(), Value::Bool(false));
@@ -164,9 +152,6 @@ pub fn default_settings(language: Language) -> Map<String, Value> {
     out.insert("localRuntimeDir".into(), Value::Null);
     out.insert("hostWorkspace".into(), Value::Null);
     out.insert("dumperDll".into(), Value::Null);
-    if LEGACY {
-        out.insert("gameEdition".into(), Value::from("reborn"));
-    }
     out
 }
 
@@ -206,17 +191,8 @@ pub fn sanitize_settings(raw: &Value, language: Language, platform: Platform) ->
         }
         saved.truncate(MAX_SAVED_SERVERS);
     }
-    let edition = raw
-        .get("gameEdition")
-        .and_then(Value::as_str)
-        .filter(|edition| LEGACY && GAME_EDITIONS.contains(edition))
-        .unwrap_or("reborn");
-    // A 1.4.4 server stays in the list (shown disabled, its key kept) but is not the current one; with
-    // the legacy feature, the current server is one of the chosen edition
-    if server
-        .as_ref()
-        .is_some_and(|server| is_revived(server) != (edition == "legacy"))
-    {
+    // A 1.4.4 server stays in the list (shown disabled, its key kept) but is not the current one
+    if server.as_ref().is_some_and(is_revived) {
         server = None;
     }
     out.insert("server".into(), server.map_or(Value::Null, Value::Object));
@@ -228,12 +204,6 @@ pub fn sanitize_settings(raw: &Value, language: Language, platform: Platform) ->
         "gameRoot".into(),
         text_or_null(valid_dir(raw.get("gameRoot"), platform, 200)),
     );
-    if LEGACY {
-        for field in ["revivedRoot", "revivedVerified"] {
-            out.insert(field.into(), text_or_null(valid_dir(raw.get(field), platform, 200)));
-        }
-        out.insert("gameEdition".into(), Value::from(edition));
-    }
     // `GRAPHICS_PRESETS.includes(graphics)`: 4.0 is 4, -0 is 0
     if let Some(graphics) = raw
         .get("graphics")
@@ -404,13 +374,7 @@ mod tests {
                 Platform::Linux
             };
             let language = Language::from_code(&case.language).unwrap();
-            let mut settings = sanitize_settings(&case.input, language, platform);
-            // The legacy edition's keys: the Electron launcher's two, and the edition
-            if LEGACY {
-                for key in ["revivedRoot", "revivedVerified", "gameEdition"] {
-                    assert!(settings.shift_remove(key).is_some(), "{key}");
-                }
-            }
+            let settings = sanitize_settings(&case.input, language, platform);
             assert_eq!(settings_text(&settings), case.text, "{} {}", case.platform, case.input);
             run += 1;
         }
@@ -439,24 +403,8 @@ mod tests {
         assert_eq!(saved.len(), 2);
         assert!(is_revived(saved[0].as_object().unwrap()));
         assert_eq!(saved[1]["game"], "reforged", "no game: a Reforged server");
-        if LEGACY {
-            assert_eq!(settings["revivedRoot"], raw["revivedRoot"]);
-            assert_eq!(settings["revivedVerified"], raw["revivedVerified"]);
-            assert_eq!(settings["gameEdition"], "reborn");
-            // The legacy edition keeps it current, and drops a Reforged one
-            let legacy = |server: &Value| {
-                let mut raw = raw.clone();
-                raw["server"] = server.clone();
-                raw["gameEdition"] = json!("legacy");
-                sanitize_settings(&raw, Language::En, Platform::Windows)
-            };
-            assert_eq!(legacy(&revived)["server"]["host"], "old.example.org");
-            assert_eq!(legacy(&revived)["gameEdition"], "legacy");
-            assert_eq!(legacy(&saved[1])["server"], Value::Null);
-        } else {
-            assert!(settings.get("revivedRoot").is_none() && settings.get("revivedVerified").is_none());
-            assert!(settings.get("gameEdition").is_none());
-        }
+        assert!(settings.get("revivedRoot").is_none() && settings.get("revivedVerified").is_none());
+        assert!(settings.get("gameEdition").is_none());
     }
 
     #[test]

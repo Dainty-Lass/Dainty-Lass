@@ -26,9 +26,8 @@
 //!   same methods, the Host page refused;
 //! - `loader.rs`: the runtime loader's sessions, which PLAY checks first in every build (RD9);
 //! - `region.rs`: region ping, the joined server's nodes timed and the order reported to it (DN7);
-//! - `legacy.rs`: the legacy edition, Dauntless 1.4.4 for Dauntless Revived's servers (`legacy` feature;
-//!   `legacy_off.rs` stands in without it). It owns `State::legacy`, and this file asks it for the phase,
-//!   the snapshot's `revived` and PLAY whenever the current server is a Dauntless Revived one.
+//! - `revived.rs`: the page's Dauntless 1.4.4 calls, refused (RD5): a saved Dauntless Revived server is
+//!   listed but never played.
 
 pub mod game;
 #[cfg(feature = "server-gui")]
@@ -39,11 +38,6 @@ pub mod host;
 #[path = "host_off.rs"]
 pub mod host;
 pub mod install;
-#[cfg(feature = "legacy")]
-pub mod legacy;
-#[cfg(not(feature = "legacy"))]
-#[path = "legacy_off.rs"]
-pub mod legacy;
 mod loader;
 pub mod platform;
 #[cfg(feature = "realms")]
@@ -52,6 +46,7 @@ pub mod realms;
 #[path = "realms_off.rs"]
 pub mod realms;
 mod region;
+pub mod revived;
 pub mod runtime;
 pub mod stored;
 mod versions;
@@ -133,9 +128,6 @@ pub struct Config {
     pub status_poll: Duration,
     pub encryptor: Arc<dyn Encryptor>,
     pub legacy_encryptor: Option<Arc<dyn Encryptor>>,
-    /// Dauntless 1.4.4's resources and folders (`legacy` feature; empty without it)
-    #[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
-    pub legacy: legacy::LegacyConfig,
 }
 
 /// What the tests change about the world outside (Reforged's `Platform` test seams). The app uses the
@@ -213,9 +205,6 @@ struct State {
     /// What a Dumper-7 or CatalogExporter session placed beside the runtime loader (`host.rs`, RD9),
     /// removed when the game exits
     loader_session: Option<LoaderSession>,
-    /// The legacy edition's (`legacy.rs`)
-    #[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
-    legacy: legacy::LegacyState,
 }
 
 impl State {
@@ -254,7 +243,6 @@ impl State {
             host_server_up: false,
             dumping: false,
             loader_session: None,
-            legacy: Default::default(),
         }
     }
 
@@ -366,9 +354,6 @@ pub struct Controller {
     installs: install::Installs,
     /// The executable's hash by size and time (`userData/file-hashes.json`)
     hashes: tokio::sync::Mutex<HashCache>,
-    /// The legacy edition's file cache (`legacy.rs`)
-    #[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
-    legacy: legacy::Parts,
     state: Mutex<State>,
     /// News and art load in the background; shutdown waits for them (RD22).
     background: Mutex<Vec<JoinHandle<()>>>,
@@ -395,7 +380,6 @@ impl Controller {
                 .map(|documents| documents.join("Dauntless Reforged Revival").join("Account Keys")),
         );
         let hashes = HashCache::load(config.user_data.join("file-hashes.json"));
-        let legacy = legacy::Parts::new(&config.user_data);
         let game = GameProcess::with_spawn(seams.spawn.clone());
         let host = host::HostState::with(seams.host_probe.clone(), seams.dump_root.clone());
         let rt = tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
@@ -413,7 +397,6 @@ impl Controller {
             realms: realms::RealmsState::default(),
             installs: install::Installs::default(),
             hashes: tokio::sync::Mutex::new(hashes),
-            legacy,
             state: Mutex::new(State::new(stored)),
             background: Mutex::new(Vec::new()),
             rt,
@@ -566,7 +549,7 @@ impl Controller {
             runtime_profile: s.runtime_profile,
             streamer_mode: s.streamer_mode,
             host_tools: s.host_tools && cfg!(feature = "host"),
-            game_edition: s.game_edition,
+            game_edition: crate::bridge::types::Game::Reborn,
         }
     }
 
@@ -594,7 +577,7 @@ impl Controller {
                         host: saved.host.clone(),
                         port: saved.port,
                         name: saved.name.clone(),
-                        unsupported: saved.revived() && !cfg!(feature = "legacy"),
+                        unsupported: saved.revived(),
                     }
                 })
                 .collect(),
@@ -638,7 +621,7 @@ impl Controller {
                 platform: platform_name(self.c.host).into(),
                 host_tools_available: cfg!(feature = "host"),
                 server_gui: cfg!(feature = "server-gui"),
-                legacy_available: cfg!(feature = "legacy"),
+                legacy_available: false,
                 game_versions: protocol::invite::played_versions()
                     .iter()
                     .map(ToString::to_string)
@@ -860,7 +843,7 @@ impl Controller {
             return ActionResult::Err(self.fail(ErrorCode::EditionOther, Some(edition.as_str().into())));
         }
         match saved {
-            Some(saved) if saved.revived() && !cfg!(feature = "legacy") => ActionResult::Err(self.fail(
+            Some(saved) if saved.revived() => ActionResult::Err(self.fail(
                 ErrorCode::InviteInvalidFormat,
                 Some(InviteError::Revived.as_str().into()),
             )),
@@ -1077,7 +1060,7 @@ impl Controller {
     async fn fetch_status(&self, endpoint: &Endpoint) -> (StatusResult, bool) {
         let (generation, flavor) = {
             let st = self.st();
-            (st.status_gen, st.s().server.as_ref().map_or(REFORGED, legacy::flavor))
+            (st.status_gen, st.s().server.as_ref().map_or(REFORGED, revived::flavor))
         };
         let key = self.status_key();
         let answer = fetch_server_status_as(flavor, endpoint, key.as_deref(), None).await;
@@ -1090,7 +1073,7 @@ impl Controller {
         let key = self.keys.load(&sv.slot()).ok().flatten();
         self.st().has_key = key.is_some();
         let Some(key) = key else { return };
-        match fetch_user_info_as(legacy::flavor(&sv), &sv.endpoint(), &key).await {
+        match fetch_user_info_as(revived::flavor(&sv), &sv.endpoint(), &key).await {
             Ok(info) => {
                 self.st().key_rejected = false;
                 let id = sv.id();
@@ -1361,7 +1344,7 @@ impl Controller {
 
     async fn register_now(&self, sv: &StoredServer, username: &str) -> RegisterOutcome {
         let code = sv.code.as_deref().unwrap_or("");
-        let key = match register_account_as(legacy::flavor(sv), &sv.endpoint(), username, code).await {
+        let key = match register_account_as(revived::flavor(sv), &sv.endpoint(), username, code).await {
             RegisterResult::Ok { key } => key,
             RegisterResult::Err { error, .. } => {
                 let code = serde_json::to_value(error).unwrap_or_default();
@@ -1433,7 +1416,7 @@ impl Controller {
         let Some(sv) = self.server() else {
             return Err(err(ErrorCode::ServerUnreachable, None));
         };
-        let info = match fetch_user_info_as(legacy::flavor(&sv), &sv.endpoint(), key).await {
+        let info = match fetch_user_info_as(revived::flavor(&sv), &sv.endpoint(), key).await {
             Ok(info) => info,
             Err((code, detail)) => {
                 let error = err(code, detail);
@@ -1768,7 +1751,7 @@ impl Controller {
     }
 
     /// Starts the local relay for the current server, in both modes (the runtime reaches the backend
-    /// through it); its port. A 1.4.4 game uses it in public mode only, on DR's port (`legacy.rs`).
+    /// through it); its port.
     async fn start_relay_on(&self, sv: &StoredServer, port: u16, qos_port: Option<u16>) -> Result<u16, LauncherError> {
         self.stop_relay().await;
         if sv.public() && sv.fp.is_none() {

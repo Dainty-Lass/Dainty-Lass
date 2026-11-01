@@ -5,9 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::HostError;
-use crate::hostconfig::{
-    Edition, HostConfig, LEGACY_RULE_NAME, ServerMode, game_ports, gateway_port, legacy_game_ports, legacy_gateway_port,
-};
+use crate::hostconfig::{HostConfig, ServerMode, game_ports, gateway_port};
 use crate::paths::{Paths, game_exe_relative};
 use crate::run::{RunOptions, run};
 
@@ -41,86 +39,33 @@ pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
 
     let gw_prog = ps_quote(gateway_program);
 
+    let gw = gateway_port(config);
+    let (first, last) = game_ports(config);
     if config.mode == ServerMode::Private {
         lines.push("# Only from Tailscale addresses: nobody else can reach these.".to_owned());
-        if config.edition.runs_reborn() || config.edition == Edition::Legacy {
-            let gw = if config.edition == Edition::Legacy {
-                legacy_gateway_port(config)
-            } else {
-                gateway_port(config)
-            };
-            let (first, last) = if config.edition == Edition::Legacy {
-                legacy_game_ports(config)
-            } else {
-                game_ports(config)
-            };
-            lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway-Tailnet' 'Dauntless Reforged Revival gateway (TCP {gw}, Tailscale)' 'TCP' '{gw}' {gw_prog} '100.64.0.0/10' 'True'"
-            ));
-            lines.push(format!(
-                "Add-Rule 'ReforgedRevival-GamePorts-Tailnet' 'Dauntless Reforged Revival game ports (Tailscale)' 'UDP' '{first}-{last}' $null '100.64.0.0/10' 'True'"
-            ));
-        }
-        if config.edition == Edition::Both {
-            let gw = legacy_gateway_port(config);
-            let (first, last) = legacy_game_ports(config);
-            lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway-Legacy' 'Dauntless Reforged Revival legacy gateway (TCP {gw}, Tailscale)' 'TCP' '{gw}' {gw_prog} '100.64.0.0/10' 'True'"
-            ));
-            lines.push(format!(
-                "Add-Rule 'ReforgedRevival-GamePorts-Legacy-Tailnet' 'Dauntless Reforged Revival legacy game ports (Tailscale)' 'UDP' '{first}-{last}' $null '100.64.0.0/10' 'True'"
-            ));
-        }
+        lines.push(format!(
+            "Add-Rule 'ReforgedRevival-Gateway-Tailnet' 'Dauntless Reforged Revival gateway (TCP {gw}, Tailscale)' 'TCP' '{gw}' {gw_prog} '100.64.0.0/10' 'True'"
+        ));
+        lines.push(format!(
+            "Add-Rule 'ReforgedRevival-GamePorts-Tailnet' 'Dauntless Reforged Revival game ports (Tailscale)' 'UDP' '{first}-{last}' $null '100.64.0.0/10' 'True'"
+        ));
     } else {
-        if config.edition.runs_reborn() || config.edition == Edition::Legacy {
-            let gw = if config.edition == Edition::Legacy {
-                legacy_gateway_port(config)
-            } else {
-                gateway_port(config)
-            };
-            let (first, last) = if config.edition == Edition::Legacy {
-                legacy_game_ports(config)
-            } else {
-                game_ports(config)
-            };
-            lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway' 'Dauntless Reforged Revival gateway (TCP {gw})' 'TCP' '{gw}' {gw_prog} $null 'True'"
-            ));
-            lines.push(
-                "# The game ports start closed: the allowlist helper opens them only for players who logged in."
-                    .to_owned(),
-            );
-            lines.push(format!(
-                "Add-Rule '{ALLOWLIST_RULE_NAME}' 'Dauntless Reforged Revival game ports (allowlist)' 'UDP' '{first}-{last}' $null $null 'False'"
-            ));
-        }
-        if config.edition == Edition::Both {
-            let gw = legacy_gateway_port(config);
-            let (first, last) = legacy_game_ports(config);
-            lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway-Legacy' 'Dauntless Reforged Revival legacy gateway (TCP {gw})' 'TCP' '{gw}' {gw_prog} $null 'True'"
-            ));
-            lines.push(format!(
-                "Add-Rule '{LEGACY_RULE_NAME}' 'Dauntless Reforged Revival legacy game ports (allowlist)' 'UDP' '{first}-{last}' $null $null 'False'"
-            ));
-        }
+        lines.push(format!(
+            "Add-Rule 'ReforgedRevival-Gateway' 'Dauntless Reforged Revival gateway (TCP {gw})' 'TCP' '{gw}' {gw_prog} $null 'True'"
+        ));
+        lines.push(
+            "# The game ports start closed: the allowlist helper opens them only for players who logged in.".to_owned(),
+        );
+        lines.push(format!(
+            "Add-Rule '{ALLOWLIST_RULE_NAME}' 'Dauntless Reforged Revival game ports (allowlist)' 'UDP' '{first}-{last}' $null $null 'False'"
+        ));
     }
 
     if let Some(ref gd) = config.game_dir {
         let exe = Path::new(gd).join(game_exe_relative());
         let exe_q = ps_quote(&exe.to_string_lossy());
-        let (first, last) = game_ports(config);
         lines.push(format!(
             "Add-Rule 'ReforgedRevival-GameServer' 'Dauntless Reforged Revival game server' 'UDP' '{first}-{last}' {exe_q} $null 'True'"
-        ));
-    }
-
-    if let Some(ref lgd) = config.legacy_game_dir {
-        let exe = Path::new(lgd).join(game_exe_relative());
-        let exe_q = ps_quote(&exe.to_string_lossy());
-        let (first, last) = legacy_game_ports(config);
-        lines.push(format!(
-            "Add-Rule 'ReforgedRevival-GameServer-Legacy' 'Dauntless Reforged Revival legacy game server' 'UDP' '{first}-{last}' {exe_q} $null 'True'"
         ));
     }
 
@@ -130,31 +75,16 @@ pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
 }
 
 pub fn apply_windows_firewall_rules(config: &HostConfig, log_file: &Path) -> Result<FirewallRules, HostError> {
-    let mut rules_to_apply: Vec<(String, String, String)> = Vec::new();
-    if config.edition.runs_reborn() {
-        let gw = gateway_port(config);
-        let (first, last) = game_ports(config);
-        rules_to_apply.push((format!("Reforged Gateway TCP {gw}"), "TCP".to_owned(), gw.to_string()));
-        rules_to_apply.push((
+    let gw = gateway_port(config);
+    let (first, last) = game_ports(config);
+    let rules_to_apply = [
+        (format!("Reforged Gateway TCP {gw}"), "TCP".to_owned(), gw.to_string()),
+        (
             format!("Reforged Game UDP {first}-{last}"),
             "UDP".to_owned(),
             format!("{first}-{last}"),
-        ));
-    }
-    if config.edition.runs_legacy() {
-        let gw = legacy_gateway_port(config);
-        let (first, last) = legacy_game_ports(config);
-        rules_to_apply.push((
-            format!("Reforged Legacy Gateway TCP {gw}"),
-            "TCP".to_owned(),
-            gw.to_string(),
-        ));
-        rules_to_apply.push((
-            format!("Reforged Legacy Game UDP {first}-{last}"),
-            "UDP".to_owned(),
-            format!("{first}-{last}"),
-        ));
-    }
+        ),
+    ];
 
     let opts = RunOptions {
         cwd: log_file.parent().unwrap_or_else(|| Path::new(".")).to_path_buf(),

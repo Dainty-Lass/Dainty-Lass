@@ -80,7 +80,6 @@ admin = { path = "services/admin" }
 content = { path = "services/content" }
 epic = { path = "crates/epic" }
 # The game modules compiled into the server (DF5): Cargo features of the controller and the bins
-isles-1-12-0 = { path = "../modules/rustic-isles/modules/isles-1-12-0" }
 isles-1-14-7 = { path = "../modules/rustic-isles/modules/isles-1-14-7", default-features = false }
 isles-core = { path = "../modules/rustic-isles/crates/isles-core" }
 isles-db = { path = "../modules/rustic-isles/crates/isles-db" }

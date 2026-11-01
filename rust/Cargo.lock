@@ -1047,7 +1047,6 @@ dependencies = [
  "content",
  "gateway",
  "history-ship",
- "isles-1-12-0",
  "isles-1-14-7",
  "module-api",
  "network",
@@ -3201,17 +3200,6 @@ name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
-
-[[package]]
-name = "isles-1-12-0"
-version = "0.1.0"
-dependencies = [
- "isles-chat",
- "isles-core",
- "isles-director",
- "module-api",
- "serde_json",
-]
 
 [[package]]
 name = "isles-1-14-7"

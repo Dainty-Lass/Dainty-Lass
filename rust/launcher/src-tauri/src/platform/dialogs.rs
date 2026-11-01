@@ -13,8 +13,6 @@ use crate::core::i18n::{self, Language, translate};
 use crate::window::MAIN;
 
 pub use launcher_kit::platform::dialogs::{DIALOG_DUMPER_DLL, DIALOG_GAMEDATA_PACK, FolderPurpose, folder_title};
-#[cfg(feature = "legacy")]
-pub const DIALOG_LEGACY_FOLDER: &str = i18n::DIALOG_LEGACY_FOLDER;
 
 fn path_of(picked: Option<FilePath>) -> Option<PathBuf> {
     picked?.into_path().ok()

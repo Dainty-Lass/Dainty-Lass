@@ -16,9 +16,6 @@ fn expected() -> BTreeSet<&'static str> {
     if cfg!(feature = "isles-1-14-7") {
         ids.insert("isles-1-14-7");
     }
-    if cfg!(feature = "isles-1-12-0") {
-        ids.insert("isles-1-12-0");
-    }
     ids
 }
 
@@ -27,11 +24,6 @@ async fn the_modules_this_build_links_are_the_ones_its_features_name_and_all_of_
     let factories = controller::modules::game_modules();
     let linked: BTreeSet<String> = factories.iter().map(|f| f().manifest().id.to_string()).collect();
     assert_eq!(linked, expected().into_iter().map(str::to_owned).collect());
-    assert_eq!(
-        controller::modules::UNLINKED.contains(&"revived-1-4-4"),
-        cfg!(feature = "revived-1-4-4"),
-        "revived-1-4-4 links nothing yet (RV1)"
-    );
 
     let mut server = ServerController::new("private", Vec::new());
     let registry = ModuleRegistry::new(RegistryOptions::standalone(), server.status_registry().clone());

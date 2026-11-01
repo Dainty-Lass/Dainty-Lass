@@ -9,9 +9,6 @@
 #   docker compose up -d
 #   docker compose run --rm host invite --for "Alex"
 #
-# A legacy server (Dauntless Revived's 1.4.4) is the legacy profile with compose.legacy.yaml on top, which leaves
-# Mystic Paradox's containers out (REFORGED_EDITION=legacy in .env; docs/hosting-docker.md).
-#
 # The network profile (docs/hosting-docker.md, DN12) is a test cluster of four such servers instead, among the services
 # below. Run it by itself with `docker compose --profile network up -d --wait network`: the other services have no
 # profile, so a bare `--profile network up` would start the single server too.
@@ -29,8 +26,6 @@ x-front: &front
     context: .
     dockerfile: docker/Dockerfile
     target: front
-    args:
-      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
   network_mode: service:net
   restart: unless-stopped
   init: true
@@ -47,7 +42,6 @@ x-server: &server
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
-      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
   network_mode: service:net
   restart: unless-stopped
   volumes:
@@ -67,8 +61,6 @@ x-network-net: &network-net
     context: .
     dockerfile: docker/Dockerfile
     target: front
-    args:
-      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
   profiles: [network]
   command: ["sleep", "infinity"]
   init: true
@@ -116,7 +108,6 @@ x-network-configure: &network-configure
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
-      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
   profiles: [network]
   network_mode: none
   restart: "no"
@@ -132,8 +123,6 @@ x-network-gateway: &network-gateway
     context: .
     dockerfile: docker/Dockerfile
     target: front
-    args:
-      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
   profiles: [network]
   command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
   restart: unless-stopped
@@ -155,7 +144,6 @@ x-network-node: &network-node
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
-      REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
   profiles: [network]
   environment:
     REFORGED_NETWORK_FULL_NODE: "1"
@@ -179,8 +167,6 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: front
-      args:
-        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
     command: ["sleep", "infinity"]
     init: true
     restart: unless-stopped
@@ -320,7 +306,6 @@ services:
       target: server-rollback
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
-        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
     profiles: [rollback]
     working_dir: /opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend
     command: ["node", "--env-file=/opt/reforged/.workspace/config/backend.env", "build/server.js"]
@@ -346,7 +331,6 @@ services:
       target: server-rollback
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
-        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
     profiles: [rollback]
     environment:
       REFORGED_ROLLBACK: "1"
@@ -392,9 +376,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-      metagame:
-        condition: service_healthy
-        required: false
 
   # The admin API for the host's tools (a Discord bot): loopback in the shared namespace, never published
   # (docs/admin-api.md). It writes its timeouts next to secrets.env, so the workspace is mounted writable.
@@ -447,9 +428,6 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
-      metagame:
-        condition: service_healthy
-        required: false
       content:
         condition: service_healthy
       allowlist:
@@ -464,43 +442,6 @@ services:
     depends_on:
       gateway:
         condition: service_healthy
-
-  # The legacy profile: Dauntless Revived's metagame, in place of the backend and MongoDB (its own SQLite
-  # database in the workspace volume). compose.legacy.yaml leaves Mystic Paradox's containers out.
-  metagame:
-    <<: *server
-    profiles: [legacy]
-    command: ["reforged-legacy", "metagame"]
-    healthcheck:
-      test: ["CMD", "reforged-healthcheck", "metagame"]
-      interval: 5s
-      start_period: 120s
-      retries: 6
-    depends_on:
-      net:
-        condition: service_started
-      configure:
-        condition: service_completed_successfully
-        required: false
-
-  # DR's deploy server, in place of the Director: starts the 1.4.4 game servers as its children (Wine on a
-  # virtual display, native/internal-server beside the executable)
-  deploy:
-    <<: *server
-    profiles: [legacy]
-    command: ["reforged-legacy", "deploy"]
-    healthcheck:
-      test: ["CMD", "reforged-healthcheck", "deploy"]
-      interval: 5s
-      start_period: 120s
-      retries: 6
-    depends_on:
-      metagame:
-        condition: service_healthy
-      # A public server's game ports are closed before the first game server starts
-      allowlist:
-        condition: service_healthy
-        required: false
 
   # The host kit's commands: docker compose run --rm host setup|invite|doctor|gamedata|publish-runtime|...
   host:
@@ -531,7 +472,6 @@ services:
       target: test
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
-        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
     profiles: [test]
     restart: "no"
     # The allowlist's nftables test, in this container's own network namespace
@@ -555,7 +495,6 @@ services:
       target: server
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
-        REFORGED_EDITION: ${REFORGED_EDITION:-reborn}
     profiles: [network]
     user: "0:0"
     entrypoint: ["/usr/bin/tini", "--", "reforged-network-init"]

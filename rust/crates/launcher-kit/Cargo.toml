@@ -54,7 +54,6 @@ ts-rs.workspace = true
 default = ["host"]
 host = []
 server-gui = ["host"]
-legacy = ["protocol/legacy"]
 realms = []
 ts = ["dep:ts-rs", "protocol/ts"]
 

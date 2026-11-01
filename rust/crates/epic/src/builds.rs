@@ -1,7 +1,7 @@
 //! The Epic builds DaintyLass can install (DD22, DE4): each version's manifest pin, where its manifest is archived
 //! and the executable's SHA-256. The launcher's compiled-in client profiles and the host kit's `install-game` both
-//! read this table, so a pin is changed in one place. It is **a stand-in, to be replaced**: the 1.14.7 and 1.12
-//! modules serve their own profiles through content (DD12), and once they do this table goes.
+//! read this table, so a pin is changed in one place. It is **a stand-in, to be replaced**: the 1.14.7 module
+//! serves its own profile through content (DD12), and once it does this table goes.
 
 use crate::manifest::Sha1Digest;
 
@@ -43,31 +43,18 @@ impl Build {
     }
 }
 
-/// Newest first. 1.4.4 has no archived manifest, so it is not here (DD22).
-pub const BUILDS: [Build; 2] = [
-    Build {
-        version: "1.14.7",
-        display_name: "Rustic Isles 1.14.7",
-        build_version: "1.14.7.647472",
-        manifest_sha1: "aa70748e4c0a776a991f2bac10ad342adaa31476",
-        archive: (
-            "92e6082335b1c2234c88e9aec7fe2b704fc24494",
-            "Dauntless_1.14.7.647472.manifest",
-        ),
-        executable_sha256: "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b",
-    },
-    Build {
-        version: "1.12.0",
-        display_name: "Rustic Isles 1.12",
-        build_version: "1.12.0.392819",
-        manifest_sha1: "46b4097c070afc29ed783e77a68ffa936b6a3504",
-        archive: (
-            "2d29ce97939a3e848e68f4b26bf5e285dcc5a70b",
-            "Dauntless_1.12.0.392819.manifest",
-        ),
-        executable_sha256: "ee30d1821b4020ff1bcaa89a63fa6ef3515efb622f2969546b91bf018a379f43",
-    },
-];
+/// Newest first.
+pub const BUILDS: [Build; 1] = [Build {
+    version: "1.14.7",
+    display_name: "Rustic Isles 1.14.7",
+    build_version: "1.14.7.647472",
+    manifest_sha1: "aa70748e4c0a776a991f2bac10ad342adaa31476",
+    archive: (
+        "92e6082335b1c2234c88e9aec7fe2b704fc24494",
+        "Dauntless_1.14.7.647472.manifest",
+    ),
+    executable_sha256: "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b",
+}];
 
 /// The build for a game version, as typed (`1.14.7`).
 pub fn find(version: &str) -> Option<&'static Build> {
@@ -98,7 +85,6 @@ mod tests {
             assert!(build.manifest_source().starts_with("https://"), "{}", build.version);
         }
         assert_eq!(find("1.14.7").map(|b| b.build_version), Some("1.14.7.647472"));
-        assert_eq!(find("1.12.0").map(|b| b.build_version), Some("1.12.0.392819"));
         assert!(find("1.4.4").is_none() && find("1.14").is_none());
     }
 

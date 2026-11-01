@@ -20,8 +20,6 @@ a private server over Tailscale works too.
 | `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private; `reforged-host gateway serve`) |
 | `host` | server | Not a service: `docker compose run --rm host <command>` runs `reforged-host` |
 | `configure` | server | The `toml` profile only: runs setup from `host.toml` and exits, before the others start |
-| `metagame` | server | A legacy server only: DR's metagame, 127.0.0.1:61000, in place of `backend` |
-| `deploy` | server | A legacy server only: DR's deploy server, 127.0.0.1:61001; starts the 1.4.4 game servers through Wine |
 | `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
 | `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-rollback-profile)) |
 | `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
@@ -306,41 +304,6 @@ mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md]
   stops, revocation refusal (`403 not_a_peer`), and wire-payload inspection confirming zero secrets, account keys or
   database files cross the wire.
 
-## A legacy server (Dauntless 1.4.4)
-
-Docker runs one game per server: `--edition both` ([hosting.md](hosting.md#both-games-on-one-server)) is the host
-kit's for now, since Compose would need a second gateway, content server and allowlist container, a second
-published TCP port and UDP range.
-
-A Dauntless Revived 1.4.4 server ([hosting.md](hosting.md#legacy-servers-dauntless-144)) runs from the same
-files. In `.env`:
-
-```bash
-REFORGED_EDITION=legacy
-COMPOSE_FILE=compose.yaml:compose.legacy.yaml
-COMPOSE_PROFILES=legacy,public
-REFORGED_GAME_DIR=/srv/dauntless-1.4.4
-```
-
-`REFORGED_EDITION=legacy` builds the images with the `legacy` features and adds DR's metagame and deploy server,
-built from the legacy-revived submodule (`modules/legacy-revived`), to the server image. The `legacy` profile adds the `metagame` and `deploy`
-containers, in the shared namespace like the others, and `compose.legacy.yaml` leaves `mongo`, `backend`,
-`director` and `admin` out and has the content server and the gateway wait for the metagame. Use both: the
-profile alone would run the metagame next to the backend, on the same port. Then:
-
-```bash
-docker compose build
-docker compose run --rm host setup --mode public --edition legacy --host play.example.org --name "Old Hunts"
-docker compose up -d
-docker compose run --rm host invite
-```
-
-The `metagame` container migrates its database (in the `workspace` volume) and registers the game-server key
-before it serves. The `deploy` container starts the 1.4.4 game servers under Wine. Both read DR's own setting
-names, so their containers hand them their env files with the `METAGAME_`/`DEPLOY_` prefix taken off. Put `winmm.dll`,
-`UndauntedInternalServer.dll` and a `mystic_loader.ini` naming it beside the executable in your game folder. The `toml` profile works the same with
-`edition = "legacy"` in `host.toml` (`COMPOSE_PROFILES=legacy,public,toml`).
-
 ## Podman
 
 Not tested yet; report what you find. The compose file is plain Compose, so `podman compose` runs it with
@@ -388,8 +351,6 @@ images:
 
 `bash docker/run-tests.sh rust` runs only step 2; `SKIP_SMOKE=1` leaves out step 3. On a server,
 `docker compose run --rm test` runs step 2 with your game-data volumes mounted read-only.
-
-The smoke test runs a reborn server only: the `legacy` profile is checked as far as `docker compose config`.
 
 A fourth step, `docker/network/test.sh`, starts the `network` profile and checks the links and the region ping
 ([above](#the-network-profile-four-nodes-on-one-machine)); it is skipped, not failed, where Docker cannot add a

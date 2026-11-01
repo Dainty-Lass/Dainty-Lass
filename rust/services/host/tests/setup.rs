@@ -21,7 +21,7 @@ use host::commands::setup::paradox::Layout;
 use host::commands::setup::{SetupEnv, run_with};
 use host::error::HostError;
 use host::hostconfig::{
-    DEFAULT_PERFORMANCE, Edition, HostConfig, LinuxOptions, Multipliers, PerformanceOptions, Platform, ServerMode,
+    DEFAULT_PERFORMANCE, HostConfig, LinuxOptions, Multipliers, PerformanceOptions, Platform, ServerMode,
     host_config_text, load_host_config, read_env_file, read_host_config, write_host_config,
 };
 use host::paths::{Paths, game_exe_relative};
@@ -948,407 +948,48 @@ fn multipliers_args_default_is_nothing_asked() {
     }));
 }
 
-// ------------------------------------------------------------------ legacy servers (the legacy feature)
-
-#[cfg(not(feature = "legacy"))]
-#[test]
-fn a_build_without_the_legacy_feature_refuses_a_legacy_server() {
-    let error = from_args(&["--mode", "private", "--edition", "legacy"], None, &Mock::new()).unwrap_err();
-    assert!(
-        error.starts_with("this server runs Dauntless Revived's 1.4.4"),
-        "{error}"
-    );
-    assert!(error.contains("--features legacy"), "{error}");
-}
+// ------------------------------------------------------------------ editions: 1.4.4 is no longer served
 
 #[test]
-fn the_edition_is_reborn_unless_host_toml_or_the_option_says_legacy() {
+fn edition_is_gone_and_host_toml_may_only_say_reborn() {
     let env = Mock::new();
     let reborn = from_args(&["--mode", "private"], None, &env).unwrap();
-    assert_eq!(reborn.edition, Edition::Reborn);
-    assert!(
-        !host_config_text(&reborn).unwrap().contains("edition"),
-        "left out of host.json"
-    );
-    assert!(
-        !reborn.to_toml().unwrap().contains("\nedition"),
-        "left out of a new host.toml"
-    );
-    let error = from_args(&["--mode", "private", "--edition", "classic"], None, &env).unwrap_err();
-    assert!(error.starts_with("--edition must be reborn"), "{error}");
-    let mut toml = reborn.to_toml().unwrap();
-    toml = toml.replacen(
-        "\nmode = \"private\"\n",
-        "\nmode = \"private\"\nedition = \"classic\"\n",
-        1,
-    );
-    let error = HostConfig::from_toml(&toml).unwrap_err().to_string();
-    assert!(error.contains("edition must be reborn, legacy or both"), "{error}");
-    let explicit = toml.replacen("edition = \"classic\"", "edition = \"reborn\"", 1);
-    assert_eq!(HostConfig::from_toml(&explicit).unwrap().edition, Edition::Reborn);
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn edition_legacy_goes_into_host_toml_and_is_kept_until_setup_says_reborn() {
-    let env = Mock::new();
-    let legacy = from_args(&["--mode", "private", "--edition", "legacy"], None, &env).unwrap();
-    assert_eq!(legacy.edition, Edition::Legacy);
-    let toml = legacy.to_toml().unwrap();
-    assert!(toml.contains("\nedition = \"legacy\"\n"), "{toml}");
-    assert!(
-        toml.contains("# \"reborn\" (Dauntless 1.14.7 on Mystic Paradox), \"legacy\""),
-        "{toml}"
-    );
-    let read = HostConfig::from_toml(&toml).unwrap();
-    assert_eq!(read.edition, Edition::Legacy);
-    assert_eq!(round_trip(&read).edition, Edition::Legacy, "and in host.json");
-    let kept = from_args(&["--name", "Thursday"], Some(&read), &env).unwrap();
-    assert_eq!(kept.edition, Edition::Legacy, "kept when not given");
-    let back = from_args(&["--edition", "reborn"], Some(&read), &env)
-        .unwrap()
-        .written_over(Some(&read));
-    assert!(
-        !back.to_toml().unwrap().contains("edition ="),
-        "back to reborn: the key goes"
-    );
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn a_legacy_setup_writes_the_metagame_deploy_content_and_gateway_files() {
-    use host::legacy::{CHAT_PORT, GAME_CHANGELIST, database, gameserver_key_file};
-
-    let (_dir, p, game) = checkout();
-    let env = Mock::new();
-    let game_arg = game.to_string_lossy().into_owned();
-    let (r, lines) = setup(
-        &p,
-        &[
-            "--mode",
-            "private",
-            "--edition",
-            "legacy",
-            "--name",
-            "Old Hunts",
-            "--game",
-            &game_arg,
-        ],
-        &env,
-    );
-    assert!(r.is_ok(), "{r:?}\n{}", lines.join("\n"));
-    let text = lines.join("\n");
-    assert!(text.contains("\n1. Legacy: no Mystic Paradox"), "{text}");
-    assert!(
-        text.contains("- env files: metagame.env, deploy.env, content.env, gateway.env, gameserver.key in "),
-        "{text}"
-    );
-    assert_eq!(*env.installs.borrow(), 0, "no npm for a legacy server");
-    for gone in ["backend", "director", "admin", "allowlist"] {
-        assert!(!p.config.join(format!("{gone}.env")).exists(), "{gone}.env");
-    }
-    let secrets = read_env_file(&p.config.join("secrets.env")).unwrap();
-
-    // Every variable written, read back as the services read their files.
-    let metagame = read_env_file(&p.config.join("metagame.env")).unwrap();
-    let db = database(&p).to_string_lossy().into_owned();
-    let changelist = GAME_CHANGELIST.to_string();
-    let chat = CHAT_PORT.to_string();
-    for (key, value) in [
-        ("METAGAME_PORT", "61000"),
-        ("METAGAME_BIND_HOST", "127.0.0.1"),
-        ("METAGAME_NODE_ENV", "production"),
-        ("METAGAME_AUTH_MODE", "APIKEY"),
-        ("METAGAME_REGISTRATION_MODE", "INVITECODE"),
-        ("METAGAME_DB_FILENAME", db.as_str()),
-        ("METAGAME_MATCHMAKING_MODE", "DEPLOYSERVER"),
-        ("METAGAME_DEPLOYSERVER_URL", "127.0.0.1:61001"),
-        ("METAGAME_QOS_TARGET_URL", "http://127.0.0.1:61100/QoS"),
-        ("METAGAME_TARGET_CHANGELIST", changelist.as_str()),
-        ("METAGAME_SERVER_NAME", "Old Hunts"),
-        ("METAGAME_GIT_COMMIT", "abc123def456"),
-        ("METAGAME_CONTENT_PORT", "61002"),
-        ("METAGAME_LOG_BODIES", "0"),
-        ("METAGAME_CHAT", "1"),
-        ("METAGAME_CHAT_PORT", chat.as_str()),
-        ("METAGAME_CHAT_BIND_HOST", "127.0.0.1"),
-    ] {
-        assert_eq!(metagame.get(key), Some(value), "{key}");
-    }
-    assert_eq!(metagame.get("METAGAME_GATEWAY_SECRET"), secrets.get("GATEWAY_SECRET"));
-    assert_eq!(
-        metagame.get("METAGAME_AUTH_SIGNING_PRIVKEY_B64"),
-        secrets.get("AUTH_SIGNING_PRIVKEY_B64")
-    );
-    assert_eq!(
-        metagame.get("METAGAME_AUTH_SIGNING_PUBKEY_B64"),
-        secrets.get("AUTH_SIGNING_PUBKEY_B64")
-    );
-    assert!(
-        metagame
-            .get("METAGAME_SOURCE_URL")
-            .is_some_and(|u| u.starts_with("https://"))
-    );
-    assert!(metagame.get("METAGAME_BODY_LOG_FILE").is_some());
-    assert!(
-        metagame.iter().all(|(k, _)| k.starts_with("METAGAME_")),
-        "every metagame setting is METAGAME_ (start drops those from the shell)"
-    );
-    assert!(database(&p).parent().unwrap().is_dir());
-
-    let deploy = read_env_file(&p.config.join("deploy.env")).unwrap();
-    let exe = game.join(game_exe_relative()).to_string_lossy().into_owned();
-    for (key, value) in [
-        ("DEPLOY_NODE_ENV", "production"),
-        ("DEPLOY_PORT", "61001"),
-        ("DEPLOY_BIND_HOST", "127.0.0.1"),
-        ("DEPLOY_MY_IP", "100.101.102.103"),
-        ("DEPLOY_PORT_RANGE_BEGIN", "8770"),
-        ("DEPLOY_PORT_RANGE_END", "8777"),
-        ("DEPLOY_GAMESERVER_BINARY_PATH", exe.as_str()),
-        ("DEPLOY_SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP", "10"),
-        ("DEPLOY_RAMSGATE_POOL", "1"),
-        ("DEPLOY_ENABLE_DOJO", "0"),
-        ("DEPLOY_METAGAME_URL", "http://127.0.0.1:61000"),
-    ] {
-        assert_eq!(deploy.get(key), Some(value), "{key}");
-    }
-    assert!(
-        deploy.iter().all(|(k, _)| k.starts_with("DEPLOY_")),
-        "every deploy setting is DEPLOY_ (start drops those from the shell)"
-    );
-    assert_eq!(
-        deploy.get("DEPLOY_DRAIN_FILE"),
-        Some(p.config.join("drain.flag").to_string_lossy().as_ref())
-    );
-    assert_eq!(deploy.get("DEPLOY_METAGAME_API_KEY"), secrets.get("GAMESERVER_API_KEY"));
-    assert_eq!(
-        deploy.get("DEPLOY_GAMESERVER_LOG_DIR"),
-        Some(p.gameserver_logs.to_string_lossy().as_ref())
-    );
-    assert_eq!(
-        read(&gameserver_key_file(&p)).trim(),
-        secrets.get("GAMESERVER_API_KEY").unwrap(),
-        "the key metagame db gs-key registers"
-    );
-
-    let content = read_env_file(&p.config.join("content.env")).unwrap();
-    assert_eq!(content.get("CONTENT_GAME"), Some("legacy"));
-    assert_eq!(content.get("CONTENT_GAME_DIR"), Some(game_arg.as_str()));
-    assert_eq!(content.get("BACKEND_URL"), Some("http://127.0.0.1:61000"));
-    assert_eq!(content.get("CONTENT_RUNTIME_DIR"), None, "no Mystic Paradox runtime");
-
-    let gateway = read_env_file(&p.config.join("gateway.env")).unwrap();
-    assert_eq!(gateway.get("GATEWAY_GAME"), Some("legacy"));
-    assert_eq!(gateway.get("GATEWAY_METAGAME_URL"), Some("http://127.0.0.1:61000"));
-    assert_eq!(gateway.get("GATEWAY_WS_URL"), Some("http://127.0.0.1:61099"));
-    assert_eq!(gateway.get("GATEWAY_BIND"), Some("100.101.102.103"));
-
-    // Multipliers are Mystic Paradox's: refused, nothing rewritten.
-    let (r, _) = multipliers(&p, &["--xp-multiplier", "5"]);
-    assert!(
-        r.unwrap_err()
-            .starts_with("test multipliers are for reborn servers only")
-    );
-    assert!(!p.config.join("backend.env").exists());
-
-    // Back to reborn: the legacy files go.
-    let (r, lines) = setup(&p, &["--edition", "reborn", "--skip-install"], &env);
-    assert!(r.is_ok(), "{r:?}\n{}", lines.join("\n"));
-    assert!(p.config.join("backend.env").exists());
-    assert!(!p.config.join("metagame.env").exists() && !p.config.join("deploy.env").exists());
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn a_public_legacy_server_on_linux_runs_its_game_servers_through_drs_run_game() {
-    let (_dir, p, _game) = checkout();
-    let env = Mock {
-        platform: Platform::Linux,
-        mongod: None,
-        ..Mock::new()
+    assert!(!host_config_text(&reborn).unwrap().contains("edition"));
+    assert!(!reborn.to_toml().unwrap().contains(
+        "
+edition"
+    ));
+    let error = from_args(&["--mode", "private", "--edition", "legacy"], None, &env).unwrap_err();
+    assert!(error.contains("--edition"), "{error}");
+    let toml = reborn.to_toml().unwrap();
+    let with = |edition: &str| {
+        toml.replacen(
+            "
+mode = \"private\"
+",
+            &format!(
+                "
+mode = \"private\"
+edition = \"{edition}\"
+"
+            ),
+            1,
+        )
     };
-    let (r, lines) = setup(
-        &p,
-        &[
-            "--mode",
-            "public",
-            "--edition",
-            "legacy",
-            "--host",
-            "old.example.net",
-            "--game-address",
-            "203.0.113.7",
-            "--game",
-            "/srv/dauntless-1.4.4",
-        ],
-        &env,
-    );
-    assert!(r.is_ok(), "{r:?}\n{}", lines.join("\n"));
-    let text = lines.join("\n");
+    let explicit = HostConfig::from_toml(&with("reborn")).unwrap();
     assert!(
-        !text.contains("MongoDB"),
-        "no database notes for a legacy server: {text}"
-    );
-    let deploy = read_env_file(&p.config.join("deploy.env")).unwrap();
-    assert_eq!(
-        deploy.get("DEPLOY_GAMESERVER_BINARY_PATH"),
-        Some(host::legacy::run_game_wrapper(&p).to_string_lossy().as_ref())
-    );
-    let wrapper = read(&host::legacy::run_game_wrapper(&p));
-    assert!(wrapper.contains(" run-game \"$@\""), "{wrapper}");
-    assert!(
-        deploy
-            .get("DEPLOY_DR_GAME_EXE")
-            .is_some_and(|e| e.ends_with("Dauntless-Win64-Shipping.exe"))
-    );
-    assert_eq!(deploy.get("DEPLOY_DR_XVFB"), Some("1"));
-    assert_eq!(
-        deploy.get("DEPLOY_DR_WINEPREFIX"),
-        Some(p.wine_prefix.to_string_lossy().as_ref())
-    );
-    assert!(
-        deploy.iter().all(|(k, _)| k.starts_with("DEPLOY_")),
-        "no REFORGED_ or WINEDLLOVERRIDES: run-game sets winmm=n,b itself"
-    );
-    assert_eq!(deploy.get("DEPLOY_MY_IP"), Some("203.0.113.7"));
-    assert!(p.config.join("allowlist.env").exists(), "the allowlist as for reborn");
-    let gateway = read_env_file(&p.config.join("gateway.env")).unwrap();
-    assert_eq!(gateway.get("GATEWAY_TLS"), Some("1"));
-    assert_eq!(gateway.get("GATEWAY_GAME"), Some("legacy"));
-    let config = read_host_config(&p.host_toml).unwrap().unwrap();
-    let link = host::invite::invite_for(&config, "0123456789abcdef0123", Some(&"ab".repeat(32))).unwrap();
-    assert!(
-        link.starts_with("dauntless-revived://join?v=2&mode=public&host=old.example.net&port=443&fp="),
-        "{link}"
-    );
-}
-
-// ------------------------------------------------------------------ both games (RD26)
-
-#[cfg(feature = "legacy")]
-const BOTH: [&str; 10] = [
-    "--mode",
-    "public",
-    "--host",
-    "two.example.net",
-    "--game-address",
-    "203.0.113.7",
-    "--edition",
-    "both",
-    "--legacy-game",
-    "/games/1.4.4",
-];
-
-#[cfg(feature = "legacy")]
-#[test]
-fn edition_both_holds_the_1_4_4_folder_and_port_and_checks_them() {
-    let env = Mock::new();
-    let both = from_args(&BOTH, None, &env).unwrap();
-    assert_eq!(both.edition, Edition::Both);
-    assert!(both.legacy_game_dir.as_deref().is_some_and(|d| d.contains("1.4.4")));
-    assert_eq!(both.legacy_public_port, None, "4443 unless given");
-    let toml = both.to_toml().unwrap();
-    assert!(toml.contains("\nedition = \"both\"\n"), "{toml}");
-    assert!(toml.contains("\nlegacy_game_dir = "), "{toml}");
-    let read = HostConfig::from_toml(&toml).unwrap();
-    assert_eq!(
-        (read.edition, read.legacy_game_dir.clone()),
-        (Edition::Both, both.legacy_game_dir.clone())
-    );
-    assert_eq!(
-        round_trip(&read).legacy_game_dir,
-        both.legacy_game_dir,
-        "and in host.json"
-    );
-    let kept = from_args(&["--name", "Thursday"], Some(&read), &env).unwrap();
-    assert_eq!(kept.legacy_game_dir, both.legacy_game_dir, "kept when not given");
-
-    let with_port = [&BOTH[..], &["--legacy-public-port", "4444"]].concat();
-    assert_eq!(
-        from_args(&with_port, None, &env).unwrap().legacy_public_port,
-        Some(4444)
-    );
-    let errors = [
-        (
-            vec!["--mode", "private", "--legacy-game", "/games/1.4.4"],
-            "--legacy-game and --legacy-public-port are for --edition both",
+        !explicit.to_toml().unwrap().contains(
+            "
+edition"
         ),
-        (
-            [&BOTH[..], &["--legacy-public-port", "61010"]].concat(),
-            "legacyPublicPort 61010 is one the server uses itself",
-        ),
-        (
-            [&BOTH[..], &["--legacy-public-port", "8781"]].concat(),
-            "legacyPublicPort 8781 is one the server uses itself",
-        ),
-        (
-            [&BOTH[..], &["--public-port", "4443"]].concat(),
-            "both gateways would listen on 4443",
-        ),
-        (
-            [&BOTH[..], &["--public-port", "61012"]].concat(),
-            "is one the 1.4.4 stack uses",
-        ),
-        (
-            [&BOTH[..8], &["--legacy-game", "games"]].concat(),
-            "--legacy-game needs the full path",
-        ),
-    ];
-    for (args, wanted) in errors {
-        let error = from_args(&args, None, &env).unwrap_err();
-        assert!(error.contains(wanted), "{args:?}: {error}");
+        "dropped when written"
+    );
+    for old in ["legacy", "both"] {
+        let error = HostConfig::from_toml(&with(old)).unwrap_err().to_string();
+        assert!(error.contains("no longer runs"), "{error}");
     }
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn a_setup_for_both_games_writes_both_stacks_env_files_and_firewall_rules() {
-    let (_dir, p, _game) = checkout();
-    let env = Mock {
-        mongod: None,
-        ..Mock::new()
-    };
-    let (r, lines) = setup(&p, &BOTH, &env);
-    assert!(r.is_ok(), "{r:?}\n{}", lines.join("\n"));
-    for name in [
-        "backend",
-        "director",
-        "content",
-        "gateway",
-        "allowlist",
-        "metagame",
-        "deploy",
-        "legacy-content",
-        "legacy-gateway",
-        "legacy-allowlist",
-    ] {
-        assert!(p.config.join(format!("{name}.env")).is_file(), "{name}.env");
-    }
-    let gateway = read_env_file(&p.config.join("gateway.env")).unwrap();
-    let legacy_gateway = read_env_file(&p.config.join("legacy-gateway.env")).unwrap();
-    assert_eq!(gateway.get("GATEWAY_PORT"), Some("443"));
-    assert_eq!(legacy_gateway.get("GATEWAY_PORT"), Some("4443"));
-    assert_eq!(legacy_gateway.get("GATEWAY_GAME"), Some("legacy"));
-    assert_eq!(
-        gateway.get("GATEWAY_CERT"),
-        legacy_gateway.get("GATEWAY_CERT"),
-        "one certificate: one fp for both games' invites"
-    );
-    let allowlist = read_env_file(&p.config.join("legacy-allowlist.env")).unwrap();
-    assert_eq!(allowlist.get("ALLOWLIST_PORTS"), Some("8780-8787"));
-    assert_eq!(
-        allowlist.get("ALLOWLIST_RULE_NAME"),
-        Some(host::hostconfig::LEGACY_RULE_NAME)
-    );
-    let firewall = read(&p.config.join("firewall.ps1"));
-    assert!(firewall.contains("'ReforgedRevival-Gateway-Legacy'"), "{firewall}");
-    assert!(firewall.contains("'8780-8787'"), "{firewall}");
-    assert!(
-        lines.iter().any(|l| l.starts_with("Both games:")),
-        "{}",
-        lines.join("\n")
-    );
+    let error = HostConfig::from_toml(&with("classic")).unwrap_err().to_string();
+    assert!(error.contains("edition must be reborn"), "{error}");
 }
 
 // ------------------------------------------------------------------ M1: setup migrates old-kit MongoDB data, start/serve refuse until migrated

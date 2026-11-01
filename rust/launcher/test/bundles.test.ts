@@ -102,7 +102,7 @@ test("package.json exposes build scripts for both desktop apps and Cargo.toml li
     .split(/\r?\n/)
     .find((line) => line.trimStart().startsWith("server-gui ="));
   assert.ok(serverGuiLine, "missing server-gui feature in Cargo.toml");
-  for (const modFeature of ["isles-1-14-7", "isles-1-12-0", "revived-1-4-4"]) {
+  for (const modFeature of ["isles-1-14-7"]) {
     assert.ok(
       serverGuiLine.includes(`"${modFeature}"`),
       `server-gui feature must include ${modFeature}`,
