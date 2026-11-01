@@ -386,9 +386,66 @@ jobs:
       - name: Build the images and run the full test run
         env:
           REFORGED_COMMIT: ${{ github.sha }}
-          # The network job below runs the harness
-          SKIP_NETWORK: "1"
         run: bash docker/run-tests.sh
+
+  # Both unsigned Windows NSIS installers (the player launcher and DaintyLass Manager, DU2) built and uploaded as
+  # workflow artifacts so they can be inspected or tested directly from CI.
+  installers-windows:
+    name: Windows NSIS installers (client and manager)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.ui == 'true'
+    runs-on: windows-msvc
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Long paths for git
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: recursive
+          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+
+      - name: Install the pinned toolchain
+        working-directory: rust
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          key: installers-windows
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: ui/package.json
+
+      - name: Install launcher CLI dependencies and run bridge tests
+        working-directory: rust/launcher
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
+      - name: Build unsigned NSIS installers (DaintyLass Launcher and DaintyLass Manager)
+        working-directory: rust/launcher
+        run: |
+          npm run build:client
+          npm run build:manager
+          ls -la ../target/release/bundle/nsis/*-setup.exe
+
+      - name: Upload unsigned Windows NSIS installers
+        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: windows-nsis-installers
+          path: rust/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14
 
   # The network harness (DN12, docs/hosting-docker.md): the `network` profile's four nodes with the canary's latencies
   # between them (tc netem), every node reaching its three peers over the node link with a round trip near the injected
@@ -443,7 +500,7 @@ jobs:
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, paradox, ui, docker, network]
+    needs: [changes, rust, rust-deny, fuzz, paradox, ui, docker, installers-windows, network]
     if: always()
     runs-on: docker
     timeout-minutes: 5
