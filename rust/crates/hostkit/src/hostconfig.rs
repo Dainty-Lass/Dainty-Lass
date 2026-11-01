@@ -49,7 +49,7 @@ pub const RESERVED_PORTS: [u16; 8] = [
     61004,
 ];
 pub const LEGACY_UNSUPPORTED: &str = "this server runs Dauntless Revived's 1.4.4 (edition = \"legacy\" or \"both\"), and this reforged-host was built without it: use a build with the legacy feature (cargo build --release -p server-console --features legacy), or setup --edition reborn";
-pub const LEGACY_RULE_NAME: &str = "Dauntless Reforged Revival 1.4.4 game ports (allowlist)";
+pub const LEGACY_RULE_NAME: &str = "DaintyLass 1.4.4 game ports (allowlist)";
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 pub const SECRET_FILE: &str = "secrets.env";
 pub const SECRET_KEYS: [&str; 11] = [

@@ -196,7 +196,7 @@ mod tests {
             return;
         }
         assert!(is_elevated(), "needs an elevated prompt");
-        const NAME: &str = "Dauntless Reforged Revival allowlist test (delete me)";
+        const NAME: &str = "DaintyLass allowlist test (delete me)";
         let strings = |list: &[&str]| list.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
         let result = (|| {
             let login = plan(&strings(&["203.0.113.7", "2001:db8::1"]), "64770-64771")?;

@@ -11,7 +11,7 @@ use crate::hostconfig::{
 use crate::paths::{Paths, game_exe_relative};
 use crate::run::{RunOptions, run};
 
-pub const ALLOWLIST_RULE_NAME: &str = "ReforgedRevival-GamePorts-Allowlist";
+pub const ALLOWLIST_RULE_NAME: &str = "DaintyLass-GamePorts-Allowlist";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FirewallRules {
@@ -55,20 +55,20 @@ pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
                 game_ports(config)
             };
             lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway-Tailnet' 'Dauntless Reforged Revival gateway (TCP {gw}, Tailscale)' 'TCP' '{gw}' {gw_prog} '100.64.0.0/10' 'True'"
+                "Add-Rule 'DaintyLass-Gateway-Tailnet' 'DaintyLass gateway (TCP {gw}, Tailscale)' 'TCP' '{gw}' {gw_prog} '100.64.0.0/10' 'True'"
             ));
             lines.push(format!(
-                "Add-Rule 'ReforgedRevival-GamePorts-Tailnet' 'Dauntless Reforged Revival game ports (Tailscale)' 'UDP' '{first}-{last}' $null '100.64.0.0/10' 'True'"
+                "Add-Rule 'DaintyLass-GamePorts-Tailnet' 'DaintyLass game ports (Tailscale)' 'UDP' '{first}-{last}' $null '100.64.0.0/10' 'True'"
             ));
         }
         if config.edition == Edition::Both {
             let gw = legacy_gateway_port(config);
             let (first, last) = legacy_game_ports(config);
             lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway-Legacy' 'Dauntless Reforged Revival legacy gateway (TCP {gw}, Tailscale)' 'TCP' '{gw}' {gw_prog} '100.64.0.0/10' 'True'"
+                "Add-Rule 'DaintyLass-Gateway-Legacy' 'DaintyLass legacy gateway (TCP {gw}, Tailscale)' 'TCP' '{gw}' {gw_prog} '100.64.0.0/10' 'True'"
             ));
             lines.push(format!(
-                "Add-Rule 'ReforgedRevival-GamePorts-Legacy-Tailnet' 'Dauntless Reforged Revival legacy game ports (Tailscale)' 'UDP' '{first}-{last}' $null '100.64.0.0/10' 'True'"
+                "Add-Rule 'DaintyLass-GamePorts-Legacy-Tailnet' 'DaintyLass legacy game ports (Tailscale)' 'UDP' '{first}-{last}' $null '100.64.0.0/10' 'True'"
             ));
         }
     } else {
@@ -84,24 +84,24 @@ pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
                 game_ports(config)
             };
             lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway' 'Dauntless Reforged Revival gateway (TCP {gw})' 'TCP' '{gw}' {gw_prog} $null 'True'"
+                "Add-Rule 'DaintyLass-Gateway' 'DaintyLass gateway (TCP {gw})' 'TCP' '{gw}' {gw_prog} $null 'True'"
             ));
             lines.push(
                 "# The game ports start closed: the allowlist helper opens them only for players who logged in."
                     .to_owned(),
             );
             lines.push(format!(
-                "Add-Rule '{ALLOWLIST_RULE_NAME}' 'Dauntless Reforged Revival game ports (allowlist)' 'UDP' '{first}-{last}' $null $null 'False'"
+                "Add-Rule '{ALLOWLIST_RULE_NAME}' 'DaintyLass game ports (allowlist)' 'UDP' '{first}-{last}' $null $null 'False'"
             ));
         }
         if config.edition == Edition::Both {
             let gw = legacy_gateway_port(config);
             let (first, last) = legacy_game_ports(config);
             lines.push(format!(
-                "Add-Rule 'ReforgedRevival-Gateway-Legacy' 'Dauntless Reforged Revival legacy gateway (TCP {gw})' 'TCP' '{gw}' {gw_prog} $null 'True'"
+                "Add-Rule 'DaintyLass-Gateway-Legacy' 'DaintyLass legacy gateway (TCP {gw})' 'TCP' '{gw}' {gw_prog} $null 'True'"
             ));
             lines.push(format!(
-                "Add-Rule '{LEGACY_RULE_NAME}' 'Dauntless Reforged Revival legacy game ports (allowlist)' 'UDP' '{first}-{last}' $null $null 'False'"
+                "Add-Rule '{LEGACY_RULE_NAME}' 'DaintyLass legacy game ports (allowlist)' 'UDP' '{first}-{last}' $null $null 'False'"
             ));
         }
     }
@@ -111,7 +111,7 @@ pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
         let exe_q = ps_quote(&exe.to_string_lossy());
         let (first, last) = game_ports(config);
         lines.push(format!(
-            "Add-Rule 'ReforgedRevival-GameServer' 'Dauntless Reforged Revival game server' 'UDP' '{first}-{last}' {exe_q} $null 'True'"
+            "Add-Rule 'DaintyLass-GameServer' 'DaintyLass game server' 'UDP' '{first}-{last}' {exe_q} $null 'True'"
         ));
     }
 
@@ -120,7 +120,7 @@ pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
         let exe_q = ps_quote(&exe.to_string_lossy());
         let (first, last) = legacy_game_ports(config);
         lines.push(format!(
-            "Add-Rule 'ReforgedRevival-GameServer-Legacy' 'Dauntless Reforged Revival legacy game server' 'UDP' '{first}-{last}' {exe_q} $null 'True'"
+            "Add-Rule 'DaintyLass-GameServer-Legacy' 'DaintyLass legacy game server' 'UDP' '{first}-{last}' {exe_q} $null 'True'"
         ));
     }
 

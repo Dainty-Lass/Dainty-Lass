@@ -114,7 +114,7 @@ pub type ControllerHandle = Arc<Controller>;
 /// What the app knows before the controller starts (the fixed half of `Platform` in TypeScript).
 pub struct Config {
     pub user_data: PathBuf,
-    /// Where the automatic account key backups go (`Documents/Dauntless Reforged Revival/Account Keys`)
+    /// Where the automatic account key backups go (`Documents/DaintyLass/Account Keys`)
     pub documents: Option<PathBuf>,
     #[allow(dead_code, reason = "Reforged's; nothing reads the app's resources yet")]
     pub resources_dir: PathBuf,
@@ -383,16 +383,18 @@ impl Controller {
     }
 
     pub fn with_seams(platform: Arc<dyn Platform>, config: Config, seams: Seams) -> ControllerHandle {
+        crate::platform::paths::migrate_legacy_folders(&config.user_data, config.documents.as_deref());
         let settings = SettingsStore::load(&config.user_data, config.language, config.host);
         let stored = Stored::of(settings.get());
         let keys = KeyStore::new(
             config.user_data.join("keys"),
             config.encryptor.clone(),
             config.legacy_encryptor.clone(),
-            config
-                .documents
-                .as_ref()
-                .map(|documents| documents.join("Dauntless Reforged Revival").join("Account Keys")),
+            config.documents.as_ref().map(|documents| {
+                documents
+                    .join(crate::platform::paths::RECOVERY_FOLDER)
+                    .join("Account Keys")
+            }),
         );
         let hashes = HashCache::load(config.user_data.join("file-hashes.json"));
         let legacy = legacy::Parts::new(&config.user_data);

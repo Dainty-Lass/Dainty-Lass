@@ -217,7 +217,7 @@ mod secret_service {
         let service = SecretService::connect(EncryptionType::Dh).ok()?;
         let attributes = HashMap::from([
             ("xdg:schema", "chrome_libsecret_os_crypt_password_v2"),
-            ("application", crate::platform::paths::PRODUCT_NAME),
+            ("application", crate::platform::paths::LEGACY_PRODUCT_NAME),
         ]);
         let found = service.search_items(attributes).ok()?;
         for item in found.unlocked.iter().chain(found.locked.iter()) {

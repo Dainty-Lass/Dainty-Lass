@@ -25,7 +25,7 @@ on the game's command line (`-AUTH_PASSWORD=`), and to nothing else.
   AES-256-GCM with the key in `userData/Local State`, itself DPAPI-wrapped; Linux, never shipped: `v10`/`v11`
   AES-128-CBC). Read once, written again as `.key2`, read back, and left in place for a rollback to 1.5.x until
   3.0.0 deletes it (RD7, RA16).
-- **Plain copies:** `Documents/Dauntless Reforged Revival/Account Keys/<server id>.txt` (the same `RRK2` text, mode
+- **Plain copies:** `Documents/DaintyLass/Account Keys/<server id>.txt` (migrated automatically on first start from `Documents/Dauntless Reforged Revival/Account Keys/<server id>.txt`; the same `RRK2` text, mode
   0600 on Linux), kept so a player finds the key after reinstalling the system, as the Electron launcher does; and
   the backup file the player chooses to save.
 - **Trust:** anything running as the player can read the plain copies and rewrite every file here. The store
@@ -90,8 +90,8 @@ Node code), and `an_electron_profile_reads_back` with the harness in `rust/launc
 
 ### Files and folders
 
-- [ ] `userData` is the Electron launcher's folder (`%APPDATA%\Dauntless Reforged Revival Launcher`,
-      `~/.config/Dauntless Reforged Revival Launcher`), so an upgrade reads the old profile; `REFORGED_DEV_PROFILE`
+- [ ] `userData` is `%APPDATA%\DaintyLass Launcher` (`~/.config/DaintyLass Launcher` on Linux), migrated automatically on first start from the Electron launcher's folder (`%APPDATA%\Dauntless Reforged Revival Launcher`,
+      `~/.config/Dauntless Reforged Revival Launcher`), so an upgrade reads the old profile without losing data; `REFORGED_DEV_PROFILE`
       is honoured in debug builds only.
 - [ ] Key files are written to a `.tmp` file and renamed; a crash leaves the old file or the new one.
 - [ ] The Documents copy is written 0600 on Linux. Writing it may fail without losing the key (a warning, no key in

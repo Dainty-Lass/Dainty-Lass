@@ -120,7 +120,10 @@ fuzz_target!(|data: &[u8]| {
     // ALLOWLIST_RULE_NAME: an accepted one is one of the server's own rules, in the characters COM and
     // PowerShell read as written
     if let Ok(name) = check_rule_name(&text) {
-        assert!(name.starts_with("Dauntless Reforged Revival ") && name.len() <= 80);
+        assert!(
+            (name.starts_with("DaintyLass ") || name.starts_with("Dauntless Reforged Revival "))
+                && name.len() <= 80
+        );
         assert!(
             name.bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b" ()-._".contains(&b))

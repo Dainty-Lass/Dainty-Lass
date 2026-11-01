@@ -15,9 +15,9 @@ use crate::ip::{AllowlistCheck, check_allowlist_ip};
 /// COM knows rules by their display name, which is what the host sees in "Windows Defender Firewall
 /// with Advanced Security". A rule the Node helper made has the same display name and is taken over.
 /// `ALLOWLIST_RULE_NAME` gives a second helper its own (`config::check_rule_name`); this is the default.
-pub const RULE_NAME: &str = "ReforgedRevival-GamePorts-Allowlist";
-pub const RULE_DISPLAY_NAME: &str = "Dauntless Reforged Revival game ports (allowlist)";
-pub const RULE_GROUPING: &str = "Dauntless Reforged Revival";
+pub const RULE_NAME: &str = "DaintyLass-GamePorts-Allowlist";
+pub const RULE_DISPLAY_NAME: &str = "DaintyLass game ports (allowlist)";
+pub const RULE_GROUPING: &str = "DaintyLass";
 pub const RULE_DESCRIPTION: &str =
     "Opens the game ports to players who logged in through the gateway. Managed by the allowlist helper.";
 
@@ -258,8 +258,8 @@ mod tests {
 
     #[test]
     fn the_rule_is_named_as_the_node_helper_named_it() {
-        assert_eq!(RULE_NAME, "ReforgedRevival-GamePorts-Allowlist");
-        assert_eq!(RULE_DISPLAY_NAME, "Dauntless Reforged Revival game ports (allowlist)");
+        assert_eq!(RULE_NAME, "DaintyLass-GamePorts-Allowlist");
+        assert_eq!(RULE_DISPLAY_NAME, "DaintyLass game ports (allowlist)");
     }
 
     #[test]
@@ -305,9 +305,9 @@ mod tests {
         assert_eq!(
             windows_change(&login, RULE_DISPLAY_NAME),
             WindowsChange::Open(WindowsRule {
-                display_name: "Dauntless Reforged Revival game ports (allowlist)".into(),
+                display_name: "DaintyLass game ports (allowlist)".into(),
                 description: RULE_DESCRIPTION,
-                grouping: "Dauntless Reforged Revival",
+                grouping: "DaintyLass",
                 direction: "in",
                 action: "allow",
                 protocol: "udp",
@@ -358,7 +358,7 @@ mod tests {
         let described = windows.describe(&rule).unwrap();
         assert_eq!(described["rule"], RULE_DISPLAY_NAME);
         let mut second = config(FirewallKind::Windows);
-        second.rule_name = "Dauntless Reforged Revival 1.4.4 game ports (allowlist)".into();
+        second.rule_name = "DaintyLass 1.4.4 game ports (allowlist)".into();
         let described = Backend::dry_run(&second).describe(&rule).unwrap();
         assert_eq!(described["rule"], second.rule_name);
         assert_eq!(described["windows"]["displayName"], second.rule_name);
