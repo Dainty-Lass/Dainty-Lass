@@ -53,7 +53,9 @@ pub fn source(node: &NodeIdentity, store: Option<IslesStore>, settings: &Setting
     StoreChat {
         store,
         node: node.clone(),
-        module_id: "isles-1-14-7".parse().expect("valid default module id"),
+        module_id: "isles-1-14-7"
+            .parse()
+            .unwrap_or_else(|_| unreachable!("static module id is valid")),
         settings: chat_settings(settings),
         tokens: crate::areas::auth::tokens::GameTokens(settings.clone()),
     }
@@ -187,11 +189,14 @@ impl ChatSource for StoreChat {
         Box::pin(async move {
             let store = self.store()?;
             if let Ok((ticket, _game)) = module_api::network::SessionTicket::from_token(token) {
-                let expected: module_api::GameVersion = if self.module_id.as_str().contains("1-12") {
-                    "1.12.0".parse().expect("valid game version")
+                let version = if self.module_id.as_str().contains("1-12") {
+                    "1.12.0"
                 } else {
-                    "1.14.7".parse().expect("valid game version")
+                    "1.14.7"
                 };
+                let expected: module_api::GameVersion = version
+                    .parse()
+                    .unwrap_or_else(|_| unreachable!("static game version is valid"));
                 if let Ok(admitted) = store.home().verify_session_ticket(&ticket, &expected).await
                     && let Some(p) = self.player(&admitted).await?
                     && (admitted.to_string() == authcid || p.user_id == authcid)
