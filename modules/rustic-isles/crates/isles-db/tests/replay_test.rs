@@ -1304,3 +1304,63 @@ async fn recorded_corpus_and_live_xmpp_chat_replay_with_zero_diffs() {
     assert_eq!(report.chat_connections_replayed, 1);
     assert_eq!(report.unexplained_diffed, 0);
 }
+
+#[test]
+fn aligns_gateway_redacted_fields_without_masking_structural_or_non_secret_diffs() {
+    let headers = BTreeMap::from([("content-type".to_owned(), "application/json".to_owned())]);
+    let recorded = ReplayHttpResponse {
+        status: 200,
+        headers: headers.clone(),
+        body_text: serde_json::to_string(&json!({
+            "game": {
+                "executableSha256": "<redacted>"
+            },
+            "token_type": "<redacted>",
+            "refresh_token": "<redacted>",
+            "payload": {
+                "huntpass_id": "<redacted>",
+                "bounty_token_id": "<redacted>"
+            }
+        }))
+        .unwrap(),
+    };
+    let live = ReplayHttpResponse {
+        status: 200,
+        headers: headers.clone(),
+        body_text: serde_json::to_string(&json!({
+            "game": {
+                "executableSha256": "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b"
+            },
+            "token_type": "bearer",
+            "refresh_token": "opaque_refresh_secret_1234567890",
+            "payload": {
+                "huntpass_id": "season43",
+                "bounty_token_id": "TOKEN_BOUNTY_DRAFT"
+            }
+        }))
+        .unwrap(),
+    };
+    let mut left_norm = IdNormalizer::default();
+    let mut right_norm = IdNormalizer::default();
+    let diffs = compare_http_responses(&recorded, &live, &mut left_norm, &mut right_norm);
+    assert!(diffs.is_empty(), "expected zero diffs, got: {diffs:?}");
+
+    // Non-secret field with <redacted> must still produce a ValueDiff
+    let non_secret_recorded = ReplayHttpResponse {
+        status: 200,
+        headers: headers.clone(),
+        body_text: r#"{"displayName":"<redacted>"}"#.to_owned(),
+    };
+    let non_secret_live = ReplayHttpResponse {
+        status: 200,
+        headers,
+        body_text: r#"{"displayName":"CanarySlayer"}"#.to_owned(),
+    };
+    let diffs2 = compare_http_responses(
+        &non_secret_recorded,
+        &non_secret_live,
+        &mut IdNormalizer::default(),
+        &mut IdNormalizer::default(),
+    );
+    assert_eq!(diffs2.len(), 1, "non-secret <redacted> field must still diff");
+}

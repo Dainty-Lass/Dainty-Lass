@@ -1227,8 +1227,9 @@ pub fn compare_http_responses(
 
     match (left_json, right_json) {
         (Some(l_val), Some(r_val)) => {
-            let norm_l = left_norm.normalize_value(&l_val, None);
-            let norm_r = right_norm.normalize_value(&r_val, None);
+            let mut norm_l = left_norm.normalize_value(&l_val, None);
+            let mut norm_r = right_norm.normalize_value(&r_val, None);
+            align_gateway_redactions(&mut norm_l, &mut norm_r, None);
 
             let mut value_diffs = Vec::new();
             diff_json_values("$", &norm_l, &norm_r, &mut value_diffs);
@@ -1264,6 +1265,48 @@ pub fn compare_http_responses(
     }
 
     diffs
+}
+
+static GATEWAY_SECRET_NAME_RE: LazyLock<Option<Regex>> =
+    LazyLock::new(|| Regex::new(r"(?i)(key|token|secret|pass|auth|jwt|sig|cred|recovery|invite|cookie)").ok());
+static GATEWAY_LONG_HEX_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"[0-9a-fA-F]{40,}").ok());
+static GATEWAY_LONG_TOKEN_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(r"[A-Za-z0-9_+/=-]{100,}").ok());
+
+fn is_gateway_redacted_field(key_hint: Option<&str>, live_str: &str) -> bool {
+    if let Some(key) = key_hint
+        && GATEWAY_SECRET_NAME_RE.as_ref().is_some_and(|re| re.is_match(key))
+    {
+        return true;
+    }
+    GATEWAY_LONG_HEX_RE.as_ref().is_some_and(|re| re.is_match(live_str))
+        || GATEWAY_LONG_TOKEN_RE.as_ref().is_some_and(|re| re.is_match(live_str))
+}
+
+fn align_gateway_redactions(left: &mut Value, right: &mut Value, key_hint: Option<&str>) {
+    match (left, right) {
+        (Value::Object(lo), Value::Object(ro)) => {
+            let keys: Vec<String> = lo.keys().filter(|k| ro.contains_key(*k)).cloned().collect();
+            for k in keys {
+                if let (Some(lv), Some(rv)) = (lo.get_mut(&k), ro.get_mut(&k)) {
+                    align_gateway_redactions(lv, rv, Some(k.as_str()));
+                }
+            }
+        }
+        (Value::Array(la), Value::Array(ra)) => {
+            let len = la.len().min(ra.len());
+            for i in 0..len {
+                align_gateway_redactions(&mut la[i], &mut ra[i], key_hint);
+            }
+        }
+        (Value::String(ls), Value::String(rs)) => {
+            if ls == "<redacted>" && rs != "<redacted>" && is_gateway_redacted_field(key_hint, rs) {
+                *rs = "<redacted>".to_owned();
+            } else if rs == "<redacted>" && ls != "<redacted>" && is_gateway_redacted_field(key_hint, ls) {
+                *ls = "<redacted>".to_owned();
+            }
+        }
+        _ => {}
+    }
 }
 
 fn diff_json_values(path: &str, left: &Value, right: &Value, out: &mut Vec<DiffKind>) {
