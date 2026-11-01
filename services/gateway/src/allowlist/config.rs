@@ -137,14 +137,15 @@ impl AllowlistConfig {
 /// rule of the server's starts with, and holds letters, digits, spaces and `()-._` only (no wildcard, no
 /// character PowerShell or COM would read differently), at most 80 of them.
 pub fn check_rule_name(name: &str) -> Result<String, String> {
-    let valid = name.starts_with("Dauntless Reforged Revival ")
+    let valid_prefix = name.starts_with("DaintyLass ") || name.starts_with("Dauntless Reforged Revival ");
+    let valid = valid_prefix
         && name.len() <= 80
         && name
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b' ' | b'(' | b')' | b'-' | b'.' | b'_'));
     if !valid {
         return Err(format!(
-            "ALLOWLIST_RULE_NAME must start with \"Dauntless Reforged Revival \" and hold only letters, digits, spaces and ()-._, at most 80 (got {})",
+            "ALLOWLIST_RULE_NAME must start with \"DaintyLass \" (or legacy \"Dauntless Reforged Revival \") and hold only letters, digits, spaces and ()-._, at most 80 (got {})",
             json!(name)
         ));
     }
@@ -165,19 +166,24 @@ mod tests {
 
     #[test]
     fn names_a_rule_of_the_server_s_own_only() {
-        assert_eq!(
-            load(&[]).unwrap().rule_name,
-            "Dauntless Reforged Revival game ports (allowlist)"
-        );
-        let legacy = "Dauntless Reforged Revival 1.4.4 game ports (allowlist)";
+        assert_eq!(load(&[]).unwrap().rule_name, "DaintyLass game ports (allowlist)");
+        let legacy = "DaintyLass 1.4.4 game ports (allowlist)";
         assert_eq!(load(&[("ALLOWLIST_RULE_NAME", legacy)]).unwrap().rule_name, legacy);
+        let old_legacy = "Dauntless Reforged Revival 1.4.4 game ports (allowlist)";
+        assert_eq!(
+            load(&[("ALLOWLIST_RULE_NAME", old_legacy)]).unwrap().rule_name,
+            old_legacy
+        );
         for bad in [
             "Remote Desktop - User Mode (TCP-In)",
+            "DaintyLass",
+            "DaintyLass *",
+            "DaintyLass game ports'; Remove-NetFirewallRule -All; '",
+            "DaintyLass game\nports",
+            "DaintyLass game pörts",
+            &format!("DaintyLass {}", "x".repeat(75)),
             "Dauntless Reforged Revival",
             "Dauntless Reforged Revival *",
-            "Dauntless Reforged Revival game ports'; Remove-NetFirewallRule -All; '",
-            "Dauntless Reforged Revival game\nports",
-            "Dauntless Reforged Revival game pörts",
             &format!("Dauntless Reforged Revival {}", "x".repeat(60)),
         ] {
             assert!(
