@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
+import { currentScope, scopeIds } from "@/lib/fleet/scope";
 import { REPORT_STATUSES, type ReportStatus } from "@/lib/reports/categories";
 import { listReports, reportCounts } from "@/lib/reports/store";
 import { ReportsClient } from "./ReportsClient";
@@ -19,10 +20,11 @@ export default async function ReportsPage({
   const sp = await searchParams;
   const status: ReportStatus | "active" = REPORT_STATUSES.find((s) => s === sp.status) ?? "active";
   const mine = sp.mine === "1";
+  const ids = scopeIds(await currentScope());
   return (
     <ReportsClient
-      reports={listReports({ status, assigneeId: mine ? me.id : undefined })}
-      counts={reportCounts()}
+      reports={listReports({ status, assigneeId: mine ? me.id : undefined, controllerIds: ids })}
+      counts={reportCounts(ids)}
       status={status}
       mine={mine}
       canWrite={can(me.role, "reports:write")}

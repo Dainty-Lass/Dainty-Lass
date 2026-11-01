@@ -6,7 +6,9 @@ import { Card } from "@astryxdesign/core/Card";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Grid } from "@astryxdesign/core/Grid";
 import { Heading } from "@astryxdesign/core/Heading";
+import { Link } from "@astryxdesign/core/Link";
 import { List, ListItem } from "@astryxdesign/core/List";
+import { Pagination } from "@astryxdesign/core/Pagination";
 import { Stack } from "@astryxdesign/core/Stack";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { pixel, proportional, Table } from "@astryxdesign/core/Table";
@@ -16,24 +18,29 @@ import { Token } from "@astryxdesign/core/Token";
 import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { AuditSentence } from "@/components/AuditSentence";
+import { ControllerState, STATE_ORDER } from "@/components/ControllerState";
 import { Page } from "@/components/Page";
 import { Sparkline } from "@/components/Sparkline";
 import { StatTile } from "@/components/StatTile";
 import type { AuditEvent } from "@/lib/db/schema";
-import type { Health, ServiceState } from "@/lib/health";
-
-type Hunt = NonNullable<Health["hunts"]>["hunts"][number];
+import type { ControllerView } from "@/lib/fleet/status";
+import type { FleetHunt, Overview, ServiceState } from "@/lib/health";
 
 const DOT: Record<ServiceState, "success" | "error" | "neutral"> = {
   ok: "success",
   down: "error",
   not_configured: "neutral",
 };
+const HUNTS_PER_PAGE = 20;
+
+type ControllerRow = ControllerView & Record<string, unknown>;
+type HuntRow = FleetHunt & Record<string, unknown>;
 
 export function OverviewClient({
-  health,
+  data,
+  scopeName,
   reports,
   chat,
   hourly,
@@ -42,7 +49,9 @@ export function OverviewClient({
   filterVersion,
   denied,
 }: {
-  health: Health;
+  data: Overview;
+  /** The one controller in scope, or null for the whole fleet. */
+  scopeName: string | null;
   reports: Record<"open" | "claimed" | "resolved" | "dismissed", number>;
   chat: { total: number; flagged: number; senders: number };
   hourly: { hour: number; total: number; flagged: number }[];
@@ -52,52 +61,64 @@ export function OverviewClient({
   denied: boolean;
 }) {
   const t = useTranslations("overview");
+  const tf = useTranslations("fleet");
   const tc = useTranslations("common");
   const format = useFormatter();
   const router = useRouter();
+  const [huntPage, setHuntPage] = useState(1);
 
-  // Live enough for a moderator watching: the server data is re-read every 30 s.
+  // Status arrives every 15 s from each controller; re-reading it every 30 s keeps the page current.
   useEffect(() => {
     const id = setInterval(() => router.refresh(), 30_000);
     return () => clearInterval(id);
   }, [router]);
 
-  const s = health.server;
-  const h = health.hunts;
-  const uptime = s ? format.number(Math.floor(s.uptimeSeconds / 3600)) : null;
+  const { totals } = data;
+  const single = scopeName !== null && data.controllers.length === 1 ? data.controllers[0]! : null;
+  const fleetWide = !single;
+  const down = data.controllers.filter((c) => c.state === "offline" || c.state === "stale");
+  const shownHunts = data.hunts.slice((huntPage - 1) * HUNTS_PER_PAGE, huntPage * HUNTS_PER_PAGE);
 
-  const services: { key: string; label: string; state: ServiceState; detail?: React.ReactNode }[] =
-    [
-      {
-        key: "admin",
-        label: t("services.adminApi"),
-        state: health.adminApi,
-        detail: s
-          ? t("services.version", { version: s.version, commit: s.commit ?? "—" })
-          : undefined,
-      },
-      { key: "backend", label: t("services.backend"), state: health.backend },
-      {
-        key: "ingest",
-        label: t("services.ingest"),
-        state: health.ingest,
-        detail: health.lastChatAt ? (
-          <>
-            {t("services.lastChat")}{" "}
-            <Timestamp value={new Date(health.lastChatAt).toISOString()} format="relative_short" />
-          </>
-        ) : (
-          t("services.noChatYet")
-        ),
-      },
-      { key: "discord", label: t("services.discord"), state: health.discord },
-    ];
+  const services: { key: string; label: string; state: ServiceState; detail?: ReactNode }[] = single
+    ? [
+        {
+          key: "admin",
+          label: t("services.adminApi"),
+          state: single.status?.adminApi ?? "down",
+          detail: single.status?.server
+            ? t("services.version", {
+                version: single.status.server.version,
+                commit: single.status.server.commit ?? "—",
+              })
+            : undefined,
+        },
+        { key: "backend", label: t("services.backend"), state: single.status?.backend ?? "down" },
+      ]
+    : [];
+  services.push(
+    {
+      key: "ingest",
+      label: t("services.ingest"),
+      state: data.ingest,
+      detail: data.lastChatAt ? (
+        <>
+          {t("services.lastChat")}{" "}
+          <Timestamp value={new Date(data.lastChatAt).toISOString()} format="relative_short" />
+        </>
+      ) : (
+        t("services.noChatYet")
+      ),
+    },
+    { key: "discord", label: t("services.discord"), state: data.discord },
+  );
 
   return (
     <Page
       title={t("title")}
       description={
-        s ? t("subtitle", { name: s.name, mode: tc(`modes.${s.mode}`) }) : t("subtitleOffline")
+        scopeName
+          ? t("subtitleOne", { name: scopeName })
+          : t("subtitleFleet", { count: totals.controllers })
       }
       actions={
         <Button
@@ -108,25 +129,53 @@ export function OverviewClient({
       }
     >
       {denied && <Banner status="warning" title={t("denied")} collapsible={false} isDismissable />}
+      {fleetWide && down.length > 0 && (
+        <Banner
+          status="error"
+          title={tf("downBanner", { count: down.length })}
+          description={
+            down
+              .slice(0, 5)
+              .map((c) => c.name)
+              .join(", ") + (down.length > 5 ? "…" : "")
+          }
+          collapsible={false}
+          endContent={
+            <Button label={tf("viewControllers")} size="sm" href="/controllers?state=down" />
+          }
+        />
+      )}
 
-      <Grid columns={{ minWidth: 220, repeat: "fit" }} gap={4}>
+      <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
         <StatTile
           label={t("stats.online")}
           href="/players?online=1"
-          value={s ? format.number(s.onlineCount) : "—"}
-          hint={s ? t("stats.uptime", { hours: uptime ?? "0" }) : t("stats.serverUnreachable")}
-          status={
-            <StatusDot
-              variant={s ? "success" : "error"}
-              label={s ? tc("online") : tc("offline")}
-              isPulsing={Boolean(s)}
-            />
+          value={format.number(totals.players)}
+          hint={
+            single?.status?.server
+              ? t("stats.uptime", {
+                  hours: format.number(Math.floor(single.status.server.uptimeSeconds / 3600)),
+                })
+              : undefined
           }
         />
+        {fleetWide && (
+          <StatTile
+            label={tf("controllersOnline")}
+            href="/controllers"
+            value={`${totals.online}/${totals.controllers}`}
+            status={
+              <StatusDot
+                variant={down.length ? "error" : "success"}
+                label={down.length ? tf("someDown") : tf("allUp")}
+              />
+            }
+          />
+        )}
         <StatTile
           label={t("stats.hunts")}
-          value={h ? `${h.running}/${h.maxHuntServers}` : "—"}
-          hint={h ? t("stats.huntsFree", { free: h.free }) : undefined}
+          value={`${format.number(totals.huntsRunning)}/${format.number(totals.huntsMax)}`}
+          hint={t("stats.huntsFree", { free: Math.max(0, totals.huntsMax - totals.huntsRunning) })}
         />
         <StatTile
           label={t("stats.openReports")}
@@ -148,6 +197,67 @@ export function OverviewClient({
       </Grid>
 
       <Grid columns={{ minWidth: 380, repeat: "fit" }} gap={4}>
+        {fleetWide ? (
+          <Card padding={0}>
+            <Stack
+              direction="horizontal"
+              justify="between"
+              align="center"
+              paddingInline={4}
+              paddingBlock={3}
+            >
+              <Heading level={2}>{tf("controllers")}</Heading>
+              <Button label={tf("viewControllers")} size="sm" variant="ghost" href="/controllers" />
+            </Stack>
+            <Table<ControllerRow>
+              data={
+                [...data.controllers]
+                  .sort(
+                    (a, b) =>
+                      STATE_ORDER[a.state] - STATE_ORDER[b.state] || a.name.localeCompare(b.name),
+                  )
+                  .slice(0, 8) as ControllerRow[]
+              }
+              idKey="id"
+              density="compact"
+              columns={[
+                {
+                  key: "name",
+                  header: tf("columns.controller"),
+                  width: proportional(2),
+                  renderCell: (c) => <Link href={`/controllers/${c.id}`}>{c.name}</Link>,
+                },
+                {
+                  key: "state",
+                  header: tf("columns.state"),
+                  width: pixel(130),
+                  renderCell: (c) => <ControllerState state={c.state} />,
+                },
+                {
+                  key: "players",
+                  header: tf("columns.players"),
+                  width: pixel(90),
+                  align: "end",
+                  renderCell: (c) => format.number(c.status?.online ?? 0),
+                },
+                {
+                  key: "hunts",
+                  header: tf("columns.hunts"),
+                  width: pixel(90),
+                  align: "end",
+                  renderCell: (c) =>
+                    `${c.status?.hunts?.running ?? 0}/${c.status?.hunts?.maxHuntServers ?? 0}`,
+                },
+              ]}
+            />
+            <Stack padding={3}>
+              <Text type="supporting">
+                {t("services.filterVersion", { version: filterVersion })}
+              </Text>
+            </Stack>
+          </Card>
+        ) : null}
+
         <Card padding={4}>
           <Stack gap={3}>
             <Heading level={2}>{t("health")}</Heading>
@@ -163,14 +273,16 @@ export function OverviewClient({
                   endContent={<Text type="supporting">{t(`state.${sv.state}`)}</Text>}
                 />
               ))}
-              <ListItem
-                label={t("services.filter")}
-                description={t("services.filterVersion", { version: filterVersion })}
-                startContent={<StatusDot variant="accent" label={t("services.filter")} />}
-                endContent={
-                  <Button label={tc("open")} size="sm" variant="ghost" href="/chat-filter" />
-                }
-              />
+              {!fleetWide && (
+                <ListItem
+                  label={t("services.filter")}
+                  description={t("services.filterVersion", { version: filterVersion })}
+                  startContent={<StatusDot variant="accent" label={t("services.filter")} />}
+                  endContent={
+                    <Button label={tc("open")} size="sm" variant="ghost" href="/chat-filter" />
+                  }
+                />
+              )}
             </List>
           </Stack>
         </Card>
@@ -187,7 +299,13 @@ export function OverviewClient({
             <Sparkline
               points={hourly}
               label={t("chatActivityLabel", { total: chat.total, flagged: chat.flagged })}
-              height={96}
+              height={72}
+            />
+            <Heading level={3}>{tf("playersOverTime")}</Heading>
+            <Sparkline
+              points={data.history.map((p) => ({ total: p.online, flagged: 0 }))}
+              label={tf("playersOverTimeLabel")}
+              height={56}
             />
             <Text type="supporting">{t("last24h")}</Text>
           </Stack>
@@ -196,13 +314,20 @@ export function OverviewClient({
 
       <Card padding={0}>
         <Stack gap={0}>
-          <Stack paddingInline={4} paddingBlock={3}>
+          <Stack
+            direction="horizontal"
+            justify="between"
+            align="center"
+            paddingInline={4}
+            paddingBlock={3}
+          >
             <Heading level={2}>{t("liveHunts")}</Heading>
+            <Text type="supporting">{tf("huntCount", { count: data.hunts.length })}</Text>
           </Stack>
-          {h && h.hunts.length > 0 ? (
-            <Table<Hunt & Record<string, unknown>>
-              data={h.hunts as (Hunt & Record<string, unknown>)[]}
-              idKey="id"
+          {shownHunts.length > 0 ? (
+            <Table<HuntRow>
+              data={shownHunts as HuntRow[]}
+              idKey={(h) => `${h.controllerId}:${h.id}`}
               density="compact"
               columns={[
                 {
@@ -211,6 +336,18 @@ export function OverviewClient({
                   width: proportional(2),
                   renderCell: (x) => <Text weight="medium">{x.title}</Text>,
                 },
+                ...(fleetWide
+                  ? [
+                      {
+                        key: "controllerName",
+                        header: tf("columns.controller"),
+                        width: proportional(1),
+                        renderCell: (x: HuntRow) => (
+                          <Link href={`/controllers/${x.controllerId}`}>{x.controllerName}</Link>
+                        ),
+                      },
+                    ]
+                  : []),
                 { key: "map", header: t("hunt.map"), width: proportional(1) },
                 {
                   key: "players",
@@ -224,7 +361,9 @@ export function OverviewClient({
                           size="sm"
                           label={p.username ?? p.userId}
                           href={
-                            p.username ? `/players/${encodeURIComponent(p.username)}` : undefined
+                            p.username
+                              ? `/players/${encodeURIComponent(p.username)}?c=${x.controllerId}`
+                              : undefined
                           }
                         />
                       ))}
@@ -248,7 +387,18 @@ export function OverviewClient({
               ]}
             />
           ) : (
-            <EmptyState isCompact title={h ? t("noHunts") : t("huntsUnavailable")} />
+            <EmptyState isCompact title={totals.online ? t("noHunts") : t("huntsUnavailable")} />
+          )}
+          {data.hunts.length > HUNTS_PER_PAGE && (
+            <Stack padding={3} align="center">
+              <Pagination
+                page={huntPage}
+                totalItems={data.hunts.length}
+                pageSize={HUNTS_PER_PAGE}
+                onChange={setHuntPage}
+                size="sm"
+              />
+            </Stack>
           )}
         </Stack>
       </Card>

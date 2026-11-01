@@ -18,6 +18,7 @@ import { findMatches, verdictOf } from "./filter";
 import { compiledTerms } from "./terms";
 
 export interface ChatQuery {
+  controllerIds?: string[];
   userId?: string;
   name?: string;
   roomId?: string;
@@ -34,6 +35,7 @@ export interface ChatQuery {
 
 function where(q: ChatQuery): SQL | undefined {
   const parts: (SQL | undefined)[] = [];
+  if (q.controllerIds) parts.push(inArray(schema.chatMessages.controllerId, q.controllerIds));
   if (q.userId)
     parts.push(
       or(
@@ -70,10 +72,14 @@ export function searchChat(q: ChatQuery): { messages: ChatMessage[]; hasMore: bo
 export function chatAround(
   at: number,
   minutes: number,
-  scope: { roomId?: string; userId?: string },
+  scope: { controllerId: string; roomId?: string; userId?: string },
 ): ChatMessage[] {
   const span = minutes * 60_000;
-  const filters: SQL[] = [between(schema.chatMessages.at, at - span, at + span)];
+  // Room and account ids are each controller's own, so the same id elsewhere is someone else.
+  const filters: SQL[] = [
+    between(schema.chatMessages.at, at - span, at + span),
+    eq(schema.chatMessages.controllerId, scope.controllerId),
+  ];
   if (scope.roomId) filters.push(eq(schema.chatMessages.roomId, scope.roomId));
   else if (scope.userId) {
     filters.push(
@@ -104,7 +110,10 @@ export interface IncomingChat {
   verdict?: ChatMessage["verdict"];
 }
 
-export function ingestChat(batch: IncomingChat[]): { stored: number; duplicates: number } {
+export function ingestChat(
+  batch: IncomingChat[],
+  controllerId = "local",
+): { stored: number; duplicates: number } {
   const terms = compiledTerms();
   let stored = 0;
   for (const m of batch) {
@@ -112,6 +121,7 @@ export function ingestChat(batch: IncomingChat[]): { stored: number; duplicates:
     const result = db
       .insert(schema.chatMessages)
       .values({
+        controllerId,
         externalId: m.id ?? null,
         at: m.at,
         channel: m.channel,
@@ -132,7 +142,10 @@ export function ingestChat(batch: IncomingChat[]): { stored: number; duplicates:
   return { stored, duplicates: batch.length - stored };
 }
 
-export function chatStats(since: number): { total: number; flagged: number; senders: number } {
+export function chatStats(
+  since: number,
+  controllerIds?: string[],
+): { total: number; flagged: number; senders: number } {
   const row = db
     .select({
       total: sql<number>`count(*)`,
@@ -140,13 +153,21 @@ export function chatStats(since: number): { total: number; flagged: number; send
       senders: sql<number>`count(distinct ${schema.chatMessages.senderUserId})`,
     })
     .from(schema.chatMessages)
-    .where(gte(schema.chatMessages.at, since))
+    .where(
+      and(
+        gte(schema.chatMessages.at, since),
+        controllerIds ? inArray(schema.chatMessages.controllerId, controllerIds) : undefined,
+      ),
+    )
     .get();
   return { total: row?.total ?? 0, flagged: row?.flagged ?? 0, senders: row?.senders ?? 0 };
 }
 
 /** Hourly message counts for the overview's sparkline, oldest first, gaps filled with zero. */
-export function chatHourly(hours: number): { hour: number; total: number; flagged: number }[] {
+export function chatHourly(
+  hours: number,
+  controllerIds?: string[],
+): { hour: number; total: number; flagged: number }[] {
   const start = Math.floor((Date.now() - hours * 3_600_000) / 3_600_000) * 3_600_000;
   const rows = db
     .select({
@@ -155,7 +176,12 @@ export function chatHourly(hours: number): { hour: number; total: number; flagge
       flagged: sql<number>`sum(case when ${schema.chatMessages.verdict} != 'allowed' then 1 else 0 end)`,
     })
     .from(schema.chatMessages)
-    .where(gte(schema.chatMessages.at, start))
+    .where(
+      and(
+        gte(schema.chatMessages.at, start),
+        controllerIds ? inArray(schema.chatMessages.controllerId, controllerIds) : undefined,
+      ),
+    )
     .groupBy(sql`1`)
     .all();
   const byHour = new Map(rows.map((r) => [r.hour, r]));

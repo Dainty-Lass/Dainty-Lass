@@ -11,6 +11,7 @@ const CAPABILITIES = {
   "chat:read": "viewer",
   "reports:read": "viewer",
   "audit:read": "viewer",
+  "controllers:read": "viewer",
   "reports:write": "moderator",
   "players:moderate": "moderator",
   "chat:export": "moderator",
@@ -18,6 +19,9 @@ const CAPABILITIES = {
   "players:roles": "admin",
   "filter:write": "admin",
   "audit:revert": "admin",
+  "controllers:write": "admin",
+  // One ban on every controller: a moderator acts per server, an admin across the fleet.
+  "players:fleet": "admin",
   "staff:read": "admin",
   "staff:write": "admin",
   "settings:read": "admin",

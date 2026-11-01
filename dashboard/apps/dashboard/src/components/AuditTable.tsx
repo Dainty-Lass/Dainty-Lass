@@ -16,6 +16,7 @@ import { useState } from "react";
 import { revertAction } from "@/app/(dashboard)/audit/actions";
 import type { AuditEvent } from "@/lib/db/schema";
 import { useAuditText } from "./AuditSentence";
+import { ControllerLabel, useControllers } from "./ControllerContext";
 import { useAction } from "./useAction";
 
 type Row = AuditEvent & Record<string, unknown>;
@@ -38,6 +39,7 @@ const REVERTIBLE = new Set([
   "staff.create",
   "staff.update",
   "report.update",
+  "controller.update",
 ]);
 
 function isFlat(v: unknown): v is Record<string, unknown> {
@@ -87,8 +89,10 @@ export function AuditTable({
   emptyTitle?: string;
 }) {
   const t = useTranslations("audit");
+  const tf = useTranslations("fleet");
   const text = useAuditText();
   const { run } = useAction();
+  const { fleetWide } = useControllers();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<AuditEvent | null>(null);
   const [busy, setBusy] = useState(false);
@@ -161,13 +165,25 @@ export function AuditTable({
             width: proportional(1),
             renderCell: (e) =>
               e.targetType === "player" && e.targetLabel ? (
-                <Link href={`/players/${encodeURIComponent(e.targetLabel)}`}>{e.targetLabel}</Link>
+                <Link href={`/players/${encodeURIComponent(e.targetLabel)}?c=${e.controllerId}`}>
+                  {e.targetLabel}
+                </Link>
               ) : e.targetType === "report" && e.targetId ? (
                 <Link href={`/reports/${e.targetId}`}>{t("reportRef", { id: e.targetId })}</Link>
               ) : (
                 <Text type="supporting">{t(`targets.${e.targetType as "player"}`)}</Text>
               ),
           },
+          ...(fleetWide
+            ? [
+                {
+                  key: "controllerId",
+                  header: tf("columns.controller"),
+                  width: pixel(140),
+                  renderCell: (e: Row) => <ControllerLabel id={e.controllerId} />,
+                },
+              ]
+            : []),
           {
             key: "revert",
             header: <Text type="label">{t("columns.undo")}</Text>,

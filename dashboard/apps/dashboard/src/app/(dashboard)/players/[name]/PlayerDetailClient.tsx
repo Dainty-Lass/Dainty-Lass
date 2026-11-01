@@ -59,6 +59,8 @@ export function PlayerDetailClient({
   reasons,
   can,
   backLabel,
+  controller,
+  fleetSize,
 }: {
   name: string;
   userId: string | null;
@@ -70,8 +72,17 @@ export function PlayerDetailClient({
   reports: Report[];
   history: AuditEvent[];
   reasons: string[];
-  can: { moderate: boolean; access: boolean; roles: boolean; report: boolean; revert: boolean };
+  can: {
+    moderate: boolean;
+    access: boolean;
+    roles: boolean;
+    report: boolean;
+    revert: boolean;
+    fleet: boolean;
+  };
   backLabel: string;
+  controller: { id: string; name: string };
+  fleetSize: number;
 }) {
   const t = useTranslations("players");
   const tm = useTranslations("moderation");
@@ -102,7 +113,10 @@ export function PlayerDetailClient({
             label={tm("actions.liftTimeout")}
             icon={<Clock size={16} />}
             clickAction={async () =>
-              void (await run(() => liftTimeoutAction(name), tm("done.liftTimeout", { name })))
+              void (await run(
+                () => liftTimeoutAction(controller.id, name),
+                tm("done.liftTimeout", { name }),
+              ))
             }
           />
         ) : (
@@ -177,6 +191,11 @@ export function PlayerDetailClient({
       breadcrumbs={
         <Breadcrumbs variant="supporting">
           <BreadcrumbItem href="/players">{backLabel}</BreadcrumbItem>
+          {fleetSize > 1 && (
+            <BreadcrumbItem href={`/controllers/${controller.id}`}>
+              {controller.name}
+            </BreadcrumbItem>
+          )}
           <BreadcrumbItem>{name}</BreadcrumbItem>
         </Breadcrumbs>
       }
@@ -344,6 +363,8 @@ export function PlayerDetailClient({
 
       <ModerationDialog
         kind={dialog}
+        controllerId={controller.id}
+        canFleet={can.fleet && fleetSize > 1}
         username={name}
         reasons={reasons}
         onClose={() => setDialog(null)}
@@ -351,6 +372,7 @@ export function PlayerDetailClient({
       {account && (
         <AccessDialog
           isOpen={access}
+          controllerId={controller.id}
           account={account}
           canRoles={can.roles}
           reasons={reasons}
@@ -359,6 +381,7 @@ export function PlayerDetailClient({
       )}
       <FileReportDialog
         isOpen={reporting}
+        controllerId={controller.id}
         target={{ userId, name }}
         onClose={() => setReporting(false)}
       />

@@ -6,11 +6,14 @@ import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { NumberInput } from "@astryxdesign/core/NumberInput";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import { Stack } from "@astryxdesign/core/Stack";
+import { Switch } from "@astryxdesign/core/Switch";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ReasonField } from "@/components/ReasonField";
 import { useAction } from "@/components/useAction";
-import { banAction, kickAction, timeoutAction, unbanAction } from "../actions";
+import type { FleetOutcome } from "@/lib/players";
+import { banAction, banEverywhereAction, kickAction, timeoutAction, unbanAction } from "../actions";
 
 export type ModerationKind = "kick" | "timeout" | "ban" | "unban";
 
@@ -18,11 +21,16 @@ const DURATIONS = { "15m": 15, "1h": 60, "1d": 1440, "7d": 10_080, "30d": 43_200
 
 export function ModerationDialog({
   kind,
+  controllerId,
+  canFleet,
   username,
   reasons,
   onClose,
 }: {
   kind: ModerationKind | null;
+  controllerId: string;
+  /** Offer one ban on every controller; for admins with more than one controller. */
+  canFleet: boolean;
   username: string;
   reasons: string[];
   onClose: () => void;
@@ -33,6 +41,7 @@ export function ModerationDialog({
   const [duration, setDuration] = useState<keyof typeof DURATIONS | "custom">("1h");
   const [custom, setCustom] = useState<number>(120);
   const [busy, setBusy] = useState(false);
+  const [everywhere, setEverywhere] = useState(false);
 
   const minutes = duration === "custom" ? custom : DURATIONS[duration];
   const optional = kind === "kick" || kind === "unban";
@@ -41,15 +50,39 @@ export function ModerationDialog({
   async function submit() {
     if (!kind) return;
     setBusy(true);
+    if (kind === "ban" && everywhere) {
+      const outcomes = (await run(() => banEverywhereAction(username, reason))) as
+        | FleetOutcome[]
+        | false;
+      setBusy(false);
+      if (outcomes === false) return;
+      const done = outcomes.filter((o) => o.result === "done").length;
+      const failed = outcomes.filter((o) => o.result === "failed" || o.result === "skipped");
+      toast[failed.length ? "warning" : "success"](
+        t("fleetDone", {
+          done,
+          total: outcomes.length,
+          absent: outcomes.filter((o) => o.result === "absent").length,
+          missed: failed.length,
+        }),
+        {
+          description: failed.length ? failed.map((o) => o.name).join(", ") : undefined,
+        },
+      );
+      setReason("");
+      setEverywhere(false);
+      onClose();
+      return;
+    }
     const done = await run(
       () =>
         kind === "kick"
-          ? kickAction(username, reason)
+          ? kickAction(controllerId, username, reason)
           : kind === "timeout"
-            ? timeoutAction(username, minutes, reason)
+            ? timeoutAction(controllerId, username, minutes, reason)
             : kind === "ban"
-              ? banAction(username, reason)
-              : unbanAction(username, reason),
+              ? banAction(controllerId, username, reason)
+              : unbanAction(controllerId, username, reason),
       t(`done.${kind}`, { name: username }),
     );
     setBusy(false);
@@ -76,6 +109,14 @@ export function ModerationDialog({
           <Stack gap={4} paddingInline={4}>
             {kind === "ban" && (
               <Banner status="warning" title={t("banWarning")} collapsible={false} />
+            )}
+            {kind === "ban" && canFleet && (
+              <Switch
+                label={t("banEverywhere")}
+                description={t("banEverywhereHint")}
+                value={everywhere}
+                onChange={setEverywhere}
+              />
             )}
             {kind === "timeout" && (
               <Stack gap={2}>

@@ -3,6 +3,7 @@ import { deleteTerm, recreateTerm, updateTerm } from "@/lib/chat/terms";
 import { db, schema } from "@/lib/db";
 import type { AuditEvent, BlacklistTerm, Staff } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
+import { updateController } from "@/lib/fleet/controllers";
 import type { Restriction } from "@/lib/game/admin-api";
 import {
   banPlayer,
@@ -33,16 +34,24 @@ async function restoreRestriction(me: Staff, ev: AuditEvent) {
   const now = after?.restriction;
   if (!was || was.kind === "DISABLED") {
     // It was unrestricted: lift whatever this action added.
-    if (now?.kind === "TIMEOUT") return liftTimeout(me, name, ev.id);
-    if (now?.kind === "BAN") return unbanPlayer(me, name, "revert", ev.id);
+    if (now?.kind === "TIMEOUT") return liftTimeout(me, ev.controllerId, name, ev.id);
+    if (now?.kind === "BAN") return unbanPlayer(me, ev.controllerId, name, "revert", ev.id);
     throw new DomainError("not_revertible");
   }
-  if (was.kind === "BAN") return banPlayer(me, name, was.reason || "Restored by revert", ev.id);
+  if (was.kind === "BAN")
+    return banPlayer(me, ev.controllerId, name, was.reason || "Restored by revert", ev.id);
   if (was.kind === "TIMEOUT") {
     // A timeout that has run out since is not reinstated: there is nothing left of it to put back.
     if (!was.until || Date.parse(was.until) <= Date.now() + 60_000)
       throw new DomainError("not_revertible");
-    return timeoutPlayer(me, name, { until: was.until }, was.reason || "Restored by revert", ev.id);
+    return timeoutPlayer(
+      me,
+      ev.controllerId,
+      name,
+      { until: was.until },
+      was.reason || "Restored by revert",
+      ev.id,
+    );
   }
   throw new DomainError("not_revertible");
 }
@@ -57,11 +66,19 @@ const REVERTERS: Record<string, (me: Staff, ev: AuditEvent) => Promise<unknown> 
       status: "active" | "disabled" | "banned";
       approvalStatus: "pending" | "approved" | "rejected";
     };
-    return setPlayerAccess(me, ev.targetId!, before, `Revert of change #${ev.id}`, ev.id);
+    return setPlayerAccess(
+      me,
+      ev.controllerId,
+      ev.targetId!,
+      before,
+      `Revert of change #${ev.id}`,
+      ev.id,
+    );
   },
   "player.roles": (me, ev) =>
     setPlayerRoles(
       me,
+      ev.controllerId,
       ev.targetId!,
       (ev.before as { roles: string[] }).roles,
       `Revert of change #${ev.id}`,
@@ -95,6 +112,15 @@ const REVERTERS: Record<string, (me: Staff, ev: AuditEvent) => Promise<unknown> 
   "settings.update": (me, ev) =>
     restoreRevision((ev.before as { revisionId: number }).revisionId, me, ev.id),
   "staff.create": (me, ev) => updateStaff(me, Number(ev.targetId), { disabled: true }, ev.id),
+  "controller.update": (me, ev) => {
+    const b = ev.before as {
+      name: string;
+      region: string | null;
+      note: string | null;
+      disabled: boolean;
+    };
+    return updateController(me, ev.controllerId, b, ev.id);
+  },
   "staff.update": (me, ev) => {
     const b = ev.before as { role: Staff["role"]; disabled: boolean; note: string | null };
     return updateStaff(

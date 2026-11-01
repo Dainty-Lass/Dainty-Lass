@@ -8,15 +8,15 @@ and where the launcher and server manager pages plug into the Tauri shells.
 All of the dashboard's environment is in [`apps/dashboard/.env.example`](../apps/dashboard/.env.example).
 Everything a person tunes lives in the database instead (Settings in the dashboard).
 
-| Variable | From | What |
-| --- | --- | --- |
-| `DASHBOARD_ADMIN_API_KEY` | `secrets.env`: `REFORGED_ADMIN_API_KEY` | Bearer key for the admin service's GraphQL (`127.0.0.1:61003`) |
-| `DASHBOARD_MANAGER_OPERATOR_SECRET` | `secrets.env`: `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` | Signs calls to the backend's `/admin/v1` as the manager operator |
-| `DASHBOARD_ADMIN_API_URL`, `DASHBOARD_BACKEND_URL` | | Defaults are the host kit's loopback ports |
-| `DASHBOARD_INGEST_KEY` | new: 32+ random characters | What the backend sends with chat and reports |
-| `DASHBOARD_DISCORD_CLIENT_ID`, `_SECRET` | a Discord application | Sign-in |
-| `DASHBOARD_OWNER_DISCORD_IDS` | | Discord ids that become owners at first sign-in |
-| `DASHBOARD_BASE_URL` | | The public origin, for the OAuth redirect and Secure cookies |
+| Variable                                           | From                                                   | What                                                             |
+| -------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
+| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`                | Bearer key for the admin service's GraphQL (`127.0.0.1:61003`)   |
+| `DASHBOARD_MANAGER_OPERATOR_SECRET`                | `secrets.env`: `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` | Signs calls to the backend's `/admin/v1` as the manager operator |
+| `DASHBOARD_ADMIN_API_URL`, `DASHBOARD_BACKEND_URL` |                                                        | Defaults are the host kit's loopback ports                       |
+| `DASHBOARD_INGEST_KEY`                             | new: 32+ random characters                             | What the backend sends with chat and reports                     |
+| `DASHBOARD_DISCORD_CLIENT_ID`, `_SECRET`           | a Discord application                                  | Sign-in                                                          |
+| `DASHBOARD_OWNER_DISCORD_IDS`                      |                                                        | Discord ids that become owners at first sign-in                  |
+| `DASHBOARD_BASE_URL`                               |                                                        | The public origin, for the OAuth redirect and Secure cookies     |
 
 The backend must run with `MYSTICPARADOX_MANAGER_ADMIN=on` for the signed calls to be accepted. The host
 kit's `setup` already writes it, with the secret, for the admin service (dainty-lass `docs/admin-api.md`).
@@ -86,7 +86,9 @@ a 304. Polling every 30 seconds is plenty.
 ```json
 {
   "version": 12,
-  "terms": [{ "id": 3, "pattern": "idiot", "matchType": "word", "action": "mask", "channels": null }]
+  "terms": [
+    { "id": 3, "pattern": "idiot", "matchType": "word", "action": "mask", "channels": null }
+  ]
 }
 ```
 

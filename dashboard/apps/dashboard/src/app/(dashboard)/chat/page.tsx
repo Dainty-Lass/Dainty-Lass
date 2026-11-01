@@ -4,6 +4,7 @@ import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { present } from "@/lib/chat/present";
 import { searchChat } from "@/lib/chat/store";
+import { currentScope, scopeIds } from "@/lib/fleet/scope";
 import { chatQueryFromParams, type SearchParams } from "@/lib/query-params";
 import { ChatClient } from "./ChatClient";
 
@@ -15,7 +16,11 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
   const me = await requirePage("chat:read");
   const raw = await searchParams;
   const q = chatQueryFromParams(raw);
-  const { messages, hasMore } = searchChat({ ...q, limit: 200 });
+  const { messages, hasMore } = searchChat({
+    ...q,
+    controllerIds: scopeIds(await currentScope()),
+    limit: 200,
+  });
   const exportQuery = new URLSearchParams(
     Object.entries(raw).flatMap(([k, v]) =>
       typeof v === "string" && k !== "before" ? [[k, v]] : [],

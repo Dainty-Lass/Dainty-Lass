@@ -6,12 +6,14 @@ Project-specific guidance for AI coding agents. The README says what is here; th
 
 A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a package declares).
 
-| Path | What |
-| --- | --- |
-| `apps/dashboard` | Server app: vinext, SQLite (`bun:sqlite` + drizzle), Discord sign-in |
-| `apps/launcher`, `apps/server-manager` | Static exports for the Tauri shells; no server, no request APIs |
-| `packages/theme` | The one theme. `bun run theme:build` compiles `src/dainty.theme.ts` to `built/`, which is committed |
-| `packages/bridge` | `src/api.ts`, `src/types.ts` and `src/generated/` are copies from dainty-lass; never edit them, run `bun run bridge:sync` |
+| Path                                   | What                                                                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `apps/dashboard`                       | Server app: vinext, SQLite (`bun:sqlite` + drizzle), Discord sign-in                                                      |
+| `apps/launcher`, `apps/server-manager` | Static exports for the Tauri shells; no server, no request APIs                                                           |
+| `apps/agent`                           | Runs on each extra controller; dials the dashboard ([docs/fleet.md](docs/fleet.md))                                       |
+| `packages/fleet`                       | The game calls and the agent protocol, shared by the dashboard and the agent                                              |
+| `packages/theme`                       | The one theme. `bun run theme:build` compiles `src/dainty.theme.ts` to `built/`, which is committed                       |
+| `packages/bridge`                      | `src/api.ts`, `src/types.ts` and `src/generated/` are copies from dainty-lass; never edit them, run `bun run bridge:sync` |
 
 ## Rules that read like overcaution
 
@@ -25,6 +27,13 @@ A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a pack
   runs after the commit. Do the game calls first, then the transaction.
 - **The game answers before the dashboard records.** Moderation reaches the admin API or the backend first;
   the audit event is written only when the game accepted it.
+- **Every game call names its controller.** `adminApi(controllerId)` and `backend(controllerId)` reach the
+  local one directly and any other through its agent; rows that come from or act on a controller carry its
+  `controller_id`. A new game call is a named operation in `packages/fleet/src/ops.ts`, or the agent
+  refuses it: never widen that allowlist for convenience.
+- **Pages read status, they do not fetch it.** Controllers report every 15 s (`lib/fleet/status.ts`); a page
+  that calls every controller on render does not scale to a fleet.
+- **The dashboard is one process.** The agent registry is in memory (`lib/fleet/registry.ts`).
 - **Secrets are never shown or logged.** Settings shows whether each is set, never the value. The ingest key
   is compared by digest.
 - **A new setting is an entry in `lib/settings.ts`** (and its validation in `settings-change.ts`), not an

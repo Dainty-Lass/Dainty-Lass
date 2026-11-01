@@ -1,60 +1,57 @@
-import { desc } from "drizzle-orm";
+import type { Hunt, ServiceState } from "@dainty/fleet";
+import { desc, inArray } from "drizzle-orm";
 import { config, discordConfigured } from "@/lib/config";
 import { db, schema } from "@/lib/db";
-import { DomainError } from "@/lib/errors";
-import {
-  adminApi,
-  adminApiConfigured,
-  type HuntStatus,
-  type ServerStatus,
-} from "@/lib/game/admin-api";
-import { backend, backendConfigured } from "@/lib/game/backend";
+import { type ControllerView, type FleetTotals, fleet, history, totals } from "@/lib/fleet/status";
 
-export type ServiceState = "ok" | "down" | "not_configured";
+export type { ServiceState } from "@dainty/fleet";
 
-export interface Health {
-  adminApi: ServiceState;
-  backend: ServiceState;
+export type FleetHunt = Hunt & { controllerId: string; controllerName: string };
+
+export interface Overview {
+  controllers: ControllerView[];
+  totals: FleetTotals;
+  hunts: FleetHunt[];
+  history: { at: number; online: number; hunts: number }[];
   discord: ServiceState;
   ingest: ServiceState;
   lastChatAt: number | null;
-  server: ServerStatus | null;
-  hunts: HuntStatus | null;
-  online: { userId: string; displayName: string }[] | null;
 }
 
-const stateOf = (error: unknown): ServiceState =>
-  error instanceof DomainError && error.code === "game_not_configured" ? "not_configured" : "down";
-
-/** Everything the overview shows about the game, fetched side by side; a service that fails is a state, not an error page. */
-export async function health(operator: { id: string; name: string }): Promise<Health> {
-  const [server, hunts, online] = await Promise.allSettled([
-    adminApi.serverStatus(operator.id),
-    adminApi.huntStatus(operator.id),
-    backend.onlinePlayers(operator),
-  ]);
+/**
+ * The overview for a set of controllers, all from what they last reported: no call leaves the dashboard
+ * while the page renders, however many controllers there are.
+ */
+export function overview(controllerIds?: string[]): Overview {
+  const all = fleet();
+  const views = controllerIds ? all.filter((v) => controllerIds.includes(v.id)) : all;
+  const hunts = views
+    .filter((v) => v.state === "online" || v.state === "stale")
+    .flatMap((v) =>
+      (v.status?.hunts?.hunts ?? []).map((h) => ({
+        ...h,
+        controllerId: v.id,
+        controllerName: v.name,
+      })),
+    )
+    .sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""));
   const last = db
     .select({ at: schema.chatMessages.at })
     .from(schema.chatMessages)
+    .where(controllerIds ? inArray(schema.chatMessages.controllerId, controllerIds) : undefined)
     .orderBy(desc(schema.chatMessages.at))
     .limit(1)
     .get();
   return {
-    adminApi: !adminApiConfigured()
-      ? "not_configured"
-      : server.status === "fulfilled"
-        ? "ok"
-        : stateOf(server.reason),
-    backend: !backendConfigured()
-      ? "not_configured"
-      : online.status === "fulfilled"
-        ? "ok"
-        : stateOf(online.reason),
+    controllers: views,
+    totals: totals(views),
+    hunts,
+    history: history(
+      views.map((v) => v.id),
+      24,
+    ),
     discord: discordConfigured() ? "ok" : "not_configured",
     ingest: config.ingestKey && config.ingestKey.length >= 32 ? "ok" : "not_configured",
     lastChatAt: last?.at ?? null,
-    server: server.status === "fulfilled" ? server.value : null,
-    hunts: hunts.status === "fulfilled" ? hunts.value : null,
-    online: online.status === "fulfilled" ? online.value.players : null,
   };
 }
