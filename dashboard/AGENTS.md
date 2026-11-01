@@ -39,7 +39,7 @@ A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a pack
 - **A new setting is an entry in `lib/settings.ts`** (and its validation in `settings-change.ts`), not an
   environment variable. The environment holds only what the process needs before the database: paths,
   secrets, the public origin.
-- **No passwords.** Sign-in is Discord, Twitch, an email code or a passkey (`lib/auth/server.ts`);
+- **No passwords, no email sign-in.** Sign-in is Discord, Twitch or a passkey (`lib/auth/server.ts`);
   `emailAndPassword` stays off. Every new session goes through `signInMember`, which decides the tier.
 - **Pages and actions check capabilities, not tiers.** A page hides what `can()` refuses and the server
   does not fetch it: users never receive reports, chat or audit rows, moderators never receive audit rows.

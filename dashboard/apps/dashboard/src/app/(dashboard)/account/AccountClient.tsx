@@ -9,8 +9,7 @@ import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
-import { Token } from "@astryxdesign/core/Token";
-import { KeyRound, Mail } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
@@ -25,15 +24,11 @@ type Provider = "discord" | "twitch";
 const ICONS: Record<Provider, ReactNode> = { discord: <DiscordIcon />, twitch: <TwitchIcon /> };
 
 export function AccountClient({
-  email,
-  emailVerified,
   accounts,
   passkeys,
   providers,
   linkError,
 }: {
-  email: string | null;
-  emailVerified: boolean;
   accounts: { id: number; providerId: string; accountId: string; createdAt: number }[];
   passkeys: {
     id: string;
@@ -42,7 +37,7 @@ export function AccountClient({
     backedUp: boolean;
     createdAt: number | null;
   }[];
-  providers: { discord: boolean; twitch: boolean; email: boolean };
+  providers: { discord: boolean; twitch: boolean };
   linkError: string | null;
 }) {
   const t = useTranslations("account");
@@ -51,8 +46,7 @@ export function AccountClient({
   const [passkeyName, setPasskeyName] = useState("");
 
   // One way in must always remain, or the account could never be entered again.
-  const ways =
-    accounts.length + passkeys.length + (email && emailVerified && providers.email ? 1 : 0);
+  const ways = accounts.length + passkeys.length;
   const done = (ok: boolean, message: string) => {
     setBusy(null);
     if (ok) {
@@ -140,22 +134,6 @@ export function AccountClient({
                   </Stack>
                 );
               })}
-            <Stack direction="horizontal" gap={3} align="center" justify="between">
-              <Stack direction="horizontal" gap={2} align="center">
-                <Mail size={16} />
-                <Stack gap={0}>
-                  <Text weight="medium">{t("providers.email")}</Text>
-                  <Text type="supporting">{email ?? t("noEmail")}</Text>
-                </Stack>
-              </Stack>
-              {email && (
-                <Token
-                  size="sm"
-                  label={emailVerified ? t("verified") : t("unverified")}
-                  color={emailVerified ? "green" : "gray"}
-                />
-              )}
-            </Stack>
           </Stack>
         </Card>
 

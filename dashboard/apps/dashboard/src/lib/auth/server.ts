@@ -6,10 +6,8 @@ import { type BetterAuthPlugin, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
-import { emailOTP } from "better-auth/plugins";
-import { config, discordConfigured, emailSignInAvailable, twitchConfigured } from "@/lib/config";
+import { config, discordConfigured, twitchConfigured } from "@/lib/config";
 import { db, schema } from "@/lib/db";
-import { sendSignInCode } from "@/lib/mail";
 import { getSettings } from "@/lib/settings";
 import { devSignIn } from "./dev-sign-in";
 import {
@@ -40,7 +38,7 @@ const discordScopes = getSettings().discordGuildId
   : ["identify", "email"];
 
 /**
- * Sign-in: Discord, Twitch, a code by email, or a passkey added to an account. No passwords anywhere.
+ * Sign-in: Discord, Twitch, or a passkey added to an account. No passwords, no email sign-in.
  * Every session that starts goes through `signInMember`, which decides who the person is here.
  */
 export const auth = betterAuth({
@@ -90,19 +88,6 @@ export const auth = betterAuth({
       : {}),
   },
   plugins: [
-    ...(emailSignInAvailable()
-      ? [
-          emailOTP({
-            otpLength: 6,
-            expiresIn: 300,
-            allowedAttempts: 3,
-            storeOTP: "hashed",
-            async sendVerificationOTP({ email, otp }) {
-              await sendSignInCode(email, otp, getSettings().serverName);
-            },
-          }),
-        ]
-      : []),
     passkey({
       rpID: base.hostname,
       rpName: "Dainty Lass",

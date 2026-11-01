@@ -83,22 +83,12 @@
       "disabled": "That account has been disabled.",
       "discord_failed": "Discord sign-in did not finish. Try again in a moment.",
       "twitch_failed": "Twitch sign-in did not finish. Try again in a moment.",
-      "passkey_failed": "That passkey did not work. Add one from your account page after signing in another way.",
-      "email_failed": "The code could not be sent. Check the address and try again.",
-      "code_invalid": "That code is wrong or has expired. Ask for a new one.",
-      "rate_limited": "Too many tries. Wait a minute, then try again.",
+      "passkey_failed": "That passkey did not work. Add one from your account page after signing in with Discord or Twitch.",
       "dev_failed": "Development sign-in failed. Check the server log.",
       "unknown": "Sign-in did not finish. Try again."
     },
     "twitch": "Continue with Twitch",
     "passkey": "Sign in with a passkey",
-    "or": "or get a code by email",
-    "email": "Email address",
-    "sendCode": "Email me a code",
-    "codeSent": "We sent a 6-digit code to {email}. It works once, for five minutes.",
-    "code": "Code",
-    "verify": "Sign in",
-    "otherEmail": "Use another address",
     "anyone": "Anyone can sign in. What you see depends on your role on this server.",
     "devAs": {
       "owner": "Owner",
@@ -706,7 +696,6 @@
       "owners": "{count, plural, =0 {None} one {# owner} other {# owners}}",
       "dataDir": "Data folder",
       "twitchApp": "Twitch application",
-      "emailSignIn": "Email codes offered",
       "ownersLabel": "Owners from the environment"
     },
     "history": "Revisions",
@@ -843,22 +832,18 @@
   },
   "account": {
     "title": "Your account",
-    "description": "How you sign in. There are no passwords: use Discord, Twitch, a passkey or a code by email.",
+    "description": "How you sign in. There are no passwords: use Discord, Twitch or a passkey.",
     "signIns": "Sign-in methods",
     "signInsHint": "Link more than one, so losing one does not lock you out. Discord also lets the server's roles set what you can see.",
     "providers": {
       "discord": "Discord",
-      "twitch": "Twitch",
-      "email": "Email code"
+      "twitch": "Twitch"
     },
     "linkedSince": "Linked {date, date, medium}",
     "notLinked": "Not linked",
     "link": "Link",
     "unlink": "Unlink",
     "unlinked": "Unlinked",
-    "noEmail": "No address yet. Signing in with Discord or Twitch adds one.",
-    "verified": "Confirmed",
-    "unverified": "Not confirmed",
     "lastWay": "Your only way to sign in. Add another first.",
     "passkeys": "Passkeys",
     "passkeysHint": "A passkey signs you in with your fingerprint, face or device PIN. It is stored by your device or password manager and never leaves it.",
@@ -900,11 +885,5 @@
     "done": "You're in",
     "roleNotAdded": "You're in, but the Discord role could not be added. Ask a moderator.",
     "termsChanged": "The terms changed while you were reading. Read the new version."
-  },
-  "mail": {
-    "signInCode": {
-      "subject": "{code} is your {server} sign-in code",
-      "body": "Your {server} dashboard sign-in code is {code}.\n\nIt works once, for five minutes. If you did not ask for it, ignore this email."
-    }
   }
 }

@@ -2,39 +2,33 @@
 
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
-import { Divider } from "@astryxdesign/core/Divider";
 import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
-import { TextInput } from "@astryxdesign/core/TextInput";
-import { KeyRound, Mail } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { DiscordIcon } from "@/components/DiscordIcon";
 import { TwitchIcon } from "@/components/TwitchIcon";
 import { authClient } from "@/lib/auth/client";
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEV_TIERS = ["owner", "admin", "moderator", "user", "newcomer"] as const;
 const ERRORS = [
   "disabled",
   "discord_failed",
   "twitch_failed",
   "passkey_failed",
-  "email_failed",
-  "code_invalid",
-  "rate_limited",
   "dev_failed",
   "unknown",
 ] as const;
 type LoginError = (typeof ERRORS)[number];
 
-/** Every way in: Discord, Twitch, a passkey, or a code sent by email. There are no passwords. */
+/** Every way in: Discord, Twitch or a passkey. There are no passwords. */
 export function LoginClient({
   providers,
   dev,
   initialError,
 }: {
-  providers: { discord: boolean; twitch: boolean; email: boolean };
+  providers: { discord: boolean; twitch: boolean };
   dev: boolean;
   initialError: string | null;
 }) {
@@ -44,9 +38,6 @@ export function LoginClient({
     initialError ? (ERRORS.find((e) => e === initialError) ?? "unknown") : null,
   );
   const [busy, setBusy] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [sentTo, setSentTo] = useState<string | null>(null);
 
   const fail = (e: LoginError) => {
     setBusy(null);
@@ -68,24 +59,6 @@ export function LoginClient({
     setBusy("passkey");
     const r = await authClient.signIn.passkey();
     if (r?.error) fail(r.error.status === 403 ? "disabled" : "passkey_failed");
-    else land();
-  }
-
-  async function sendCode() {
-    setBusy("send");
-    const to = email.trim().toLowerCase();
-    const r = await authClient.emailOtp.sendVerificationOtp({ email: to, type: "sign-in" });
-    if (r.error) return fail(r.error.status === 429 ? "rate_limited" : "email_failed");
-    setBusy(null);
-    setError(null);
-    setSentTo(to);
-  }
-
-  async function verify() {
-    if (!sentTo) return;
-    setBusy("verify");
-    const r = await authClient.signIn.emailOtp({ email: sentTo, otp: code.trim() });
-    if (r.error) fail(r.error.status === 403 ? "disabled" : "code_invalid");
     else land();
   }
 
@@ -136,59 +109,6 @@ export function LoginClient({
           onClick={passkey}
         />
       </Stack>
-
-      {providers.email && (
-        <>
-          <Divider label={t("or")} />
-          {sentTo ? (
-            <Stack gap={2}>
-              <Text type="supporting">{t("codeSent", { email: sentTo })}</Text>
-              <TextInput
-                label={t("code")}
-                value={code}
-                onChange={setCode}
-                autoComplete="one-time-code"
-              />
-              <Button
-                label={t("verify")}
-                variant="primary"
-                width="100%"
-                isDisabled={!/^\d{6}$/.test(code.trim())}
-                isLoading={busy === "verify"}
-                onClick={verify}
-              />
-              <Button
-                label={t("otherEmail")}
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSentTo(null);
-                  setCode("");
-                }}
-              />
-            </Stack>
-          ) : (
-            <Stack gap={2}>
-              <TextInput
-                label={t("email")}
-                value={email}
-                onChange={setEmail}
-                type="email"
-                autoComplete="email"
-              />
-              <Button
-                label={t("sendCode")}
-                variant="secondary"
-                width="100%"
-                icon={<Mail />}
-                isDisabled={!EMAIL.test(email.trim())}
-                isLoading={busy === "send"}
-                onClick={sendCode}
-              />
-            </Stack>
-          )}
-        </>
-      )}
 
       {dev && (
         <Stack gap={1}>

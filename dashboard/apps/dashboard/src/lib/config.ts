@@ -36,11 +36,6 @@ export const config = {
     clientId: env("DASHBOARD_TWITCH_CLIENT_ID"),
     clientSecret: env("DASHBOARD_TWITCH_CLIENT_SECRET"),
   },
-  /** Where sign-in codes are sent from: smtp(s)://user:pass@host:port. Without it, no email sign-in. */
-  mail: {
-    smtpUrl: env("DASHBOARD_SMTP_URL"),
-    from: env("DASHBOARD_MAIL_FROM"),
-  },
   /** Discord ids and verified addresses that become owners on sign-in: how the first person gets in. */
   ownerDiscordIds: list("DASHBOARD_OWNER_DISCORD_IDS"),
   ownerEmails: list("DASHBOARD_OWNER_EMAILS").map((e) => e.toLowerCase()),
@@ -67,11 +62,6 @@ export function discordConfigured(): boolean {
 
 export function twitchConfigured(): boolean {
   return Boolean(config.twitch.clientId && config.twitch.clientSecret);
-}
-
-/** Email codes need somewhere to send them; a dev box without SMTP prints them instead. */
-export function emailSignInAvailable(): boolean {
-  return Boolean(config.mail.smtpUrl && config.mail.from) || config.devLogin;
 }
 
 export function secureCookies(): boolean {

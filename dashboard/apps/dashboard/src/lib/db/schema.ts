@@ -16,7 +16,7 @@ const controllerId = () => text("controller_id").notNull().default("local");
 // Better Auth's tables (lib/auth/server.ts). Keys are its field names; times are Date in milliseconds.
 const authTime = (name: string) => integer(name, { mode: "timestamp_ms" });
 
-/** A sign-in identity: one per person, whichever of Discord, Twitch, an email code or a passkey they use. */
+/** A sign-in identity: one per person, whichever of Discord, Twitch or a passkey they use. */
 export const authUsers = sqliteTable("auth_users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
@@ -70,7 +70,7 @@ export const authAccounts = sqliteTable(
   ],
 );
 
-/** Email codes and OAuth state. */
+/** OAuth state and passkey challenges. */
 export const authVerifications = sqliteTable("auth_verifications", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   identifier: text("identifier").notNull(),

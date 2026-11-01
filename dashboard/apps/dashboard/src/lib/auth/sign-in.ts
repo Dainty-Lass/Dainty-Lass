@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 import { recordAudit } from "@/lib/audit/record";
-import { emailSignInAvailable } from "@/lib/config";
 import { db, schema, tx } from "@/lib/db";
 import type { Staff } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
@@ -11,7 +10,6 @@ import { fetchGuildRoles, type GuildStanding, standingFromGuild } from "./discor
 /** How a session started, from the Better Auth endpoint that started it; kept in the audit trail. */
 export function signInMethod(path: string): string {
   if (path.startsWith("/callback/")) return path.slice("/callback/".length);
-  if (path.includes("email-otp")) return "email";
   if (path.startsWith("/passkey/")) return "passkey";
   if (path.startsWith("/dev/")) return "dev";
   return "other";
@@ -168,16 +166,9 @@ export function unlinkAccount(me: Staff, accountRowId: number): void {
   });
 }
 
-/** How many ways someone has to sign in: providers, passkeys, and an address codes can reach. */
+/** How many ways someone has to sign in: linked providers and passkeys. */
 export function waysIn(t: Pick<typeof db, "select">, userId: number): number {
   const count = (table: typeof schema.authAccounts | typeof schema.authPasskeys) =>
     t.select({ id: table.id }).from(table).where(eq(table.userId, userId)).all().length;
-  return count(schema.authAccounts) + count(schema.authPasskeys) + (emailWayIn(t, userId) ? 1 : 0);
-}
-
-/** A confirmed real address counts as a way in only where codes can be sent. */
-function emailWayIn(t: Pick<typeof db, "select">, userId: number): boolean {
-  if (!emailSignInAvailable()) return false;
-  const user = t.select().from(schema.authUsers).where(eq(schema.authUsers.id, userId)).get();
-  return Boolean(user?.emailVerified && !user.email.endsWith(".invalid"));
+  return count(schema.authAccounts) + count(schema.authPasskeys);
 }

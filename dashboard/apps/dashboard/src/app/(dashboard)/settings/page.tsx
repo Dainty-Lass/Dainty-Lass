@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
-import { config, discordConfigured, emailSignInAvailable, twitchConfigured } from "@/lib/config";
+import { config, discordConfigured, twitchConfigured } from "@/lib/config";
 import { listRevisions } from "@/lib/revisions";
 import { getSettings } from "@/lib/settings";
 import { SettingsClient } from "./SettingsClient";
@@ -31,8 +31,6 @@ export default async function SettingsPage() {
           twitch: `${config.baseUrl}/api/auth/callback/twitch`,
         },
         twitch: twitchConfigured(),
-        email: emailSignInAvailable(),
-        mail: Boolean(config.mail.smtpUrl && config.mail.from),
         botToken: Boolean(config.discord.botToken),
         ownerCount: config.ownerDiscordIds.length + config.ownerEmails.length,
         dataDir: config.dataDir,
