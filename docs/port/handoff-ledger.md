@@ -390,8 +390,15 @@ Checked against `dainty-lass` `33cf625`, `dainty-lass-ui` `8c08e8c`, `rustic-isl
     2. Added the `installers-windows` job on `windows-msvc` to `.forgejo/workflows/ci.yml` (and wired it into `ci-ok`), which runs `npm ci`, `npm test`, `npm run build:client`, and `npm run build:manager` in `rust/launcher` and uploads both unsigned NSIS installers (`DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe` and `DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe`) as the `windows-nsis-installers` workflow artifact.
     3. Updated `docs/ci-runners.md` with the `windows-nsis-installers` coverage and dry-ran the Windows job locally (see transcript below).
 - **C2 (Linux hosting outside Docker)**:
-  - **Current state**: Not yet exercised end-to-end on a plain Linux host (WSL2 with systemd) in this round.
-  - **Action required**: Run `setup`, `start`, `invite`, `doctor`, `backup`, and clean stop on WSL2 Linux, covering systemd units, `REFORGED_TEST_NFT=1` nftables allowlist as root, and Wine/Proton checks, and update `docs/hosting-linux.md`.
+  - **Current state (resolved in `fix/c2-linux-hosting-check`)**:
+    1. Exercised end-to-end on WSL2 Linux (`Ubuntu 26.04.1 LTS`, kernel `6.18.33.2-microsoft-standard-WSL2`):
+       - `REFORGED_TEST_NFT=1 cargo test -p gateway --test allowlist --locked` as root: 13 passed, 0 failed (including `the_nft_ruleset_after_a_login_and_a_logout` and `close_ports_closes_the_nftables_table_too` against the real Linux kernel `nftables` `table inet reforged_revival`).
+       - `cargo test -p host -p hostkit --locked` on Linux: all passed (`hostkit` 107 unit tests, `setup.rs` 33, `start.rs` 4, `install_game.rs` 12, `db.rs` 3, `update.rs`).
+       - Full CLI lifecycle (`gamedata --examples`, `publish-runtime`, `setup --mode public --host linux-check.example.org --game-address 203.0.113.42 --name "Linux Host Check" --game ... --public-port 28443 --firewall-interface eth0`, `doctor` with Wine and `--proton` / `--no-proton`, `reforged-host allowlist` with `CAP_NET_ADMIN` creating `table inet reforged_revival`, `REFORGED_ALLOWLIST=external reforged-host start` as ordinary user `nick`, `https://linux-check.example.org:28443/reforged/api/ServerStatus` over TLS, `invite --for "LinuxSlayer" --uses 3`, `backup`, and clean `SIGINT` stop).
+    2. Fixed three Linux discrepancies discovered during the run:
+       - `setup` on Linux now reports `.workspace/config/firewall.sh` (instead of `firewall.ps1`).
+       - `systemd/reforged.service` now includes `Environment=REFORGED_ALLOWLIST=external` in public mode, and `AllowlistPlugin::external` (`controller::modules::allowlist_external`) admits `isles-1-14-7` on the server's own `ALLOWLIST_PORTS` (`game_ports(config)`) guarded by `reforged-allowlist.service` while still refusing any module requesting UDP ports outside that range.
+       - Updated `docs/hosting-linux.md` so every path (`systemd/reforged.service`, `systemd/reforged-allowlist.service`, `systemd/install.sh`, `config/firewall.sh`) and CLI flag (`--firewall-interface eth0`) matches the binary's behavior.
 - **C3 (Canary and replay runbook — RU9, RB2, RB12)**:
   - **Current state**: Gateway capture (`CAPTURE_DIR` in `rust/services/gateway/src/capture.rs`) and `isles-db replay` (`modules/rustic-isles/crates/isles-db/src/replay.rs`) exist, but there is no replay runner script against a second Rust server, no `docs/canary.md` runbook, and no end-to-end capture-and-replay proof through the Rust gateway.
   - **Action required**: Verify gateway capture on the Rust path, add the replay script and `docs/canary.md`, and run a synthetic session through the gateway, capture it, and replay it against a fresh Rust server with zero unexplained diffs.
@@ -440,24 +447,135 @@ network harness passed
 
 > dainty-lass-launcher@2.0.0-alpha.0 build:client
 > tauri build --bundles nsis -- --features legacy,realms
-    Finished `release` profile [optimized] target(s) in 3m 06s
-    Built application at: ...\rust\target\release\dainty-lass-client.exe
+    Finished `release` profile [optimized] target(s) in 4m 16s
+       Built application at: R:\source\dauntless\dainty-lass\.claude\worktrees\git-dainty-lass-review-66e949\rust\target\release\dainty-lass-client.exe
     Finished 1 bundle at:
-        ...\rust\target\release\bundle\nsis\DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe
+        R:\source\dauntless\dainty-lass\.claude\worktrees\git-dainty-lass-review-66e949\rust\target\release\bundle\nsis\DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe
 
 > dainty-lass-launcher@2.0.0-alpha.0 build:manager
 > tauri build --bundles nsis --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui
-    Finished `release` profile [optimized] target(s) in 3m 31s
-    Built application at: ...\rust\target\release\dainty-lass-manager.exe
+    Finished `release` profile [optimized] target(s) in 11m 18s
+       Built application at: R:\source\dauntless\dainty-lass\.claude\worktrees\git-dainty-lass-review-66e949\rust\target\release\dainty-lass-manager.exe
     Finished 1 bundle at:
-        ...\rust\target\release\bundle\nsis\DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe
+        R:\source\dauntless\dainty-lass\.claude\worktrees\git-dainty-lass-review-66e949\rust\target\release\bundle\nsis\DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe (21.78 MiB)
 
-Name                                             Length LastWriteTime
-----                                             ------ -------------
-DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe 8686274 10/31/2026 10:31:09 PM
-DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe 22589186 10/31/2026 10:34:46 PM
+Name                                              Length LastWriteTime
+----                                              ------ -------------
+DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe  9096427 10/31/2026 10:32:31 PM
+DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe  22841456 10/31/2026 10:44:26 PM
 ```
 
+### Part C2 (`fix/c2-linux-hosting-check`) WSL2 Linux hosting end-to-end transcript
 
+```text
+$ sudo REFORGED_TEST_NFT=1 cargo test -p gateway --test allowlist --locked
+running 13 tests
+test a_bad_firewall_setting_is_refused ... ok
+test a_module_s_ports_join_the_rule_and_leave_it_with_the_module ... ok
+test a_restart_loads_unexpired_entries_and_closes_when_none_remain ... ok
+test allowlist_cli_accepts_env_file_and_close_ports ... ok
+test close_ports_closes_the_nftables_table_too ... ok
+test expiry_removes_the_ip_and_applies_the_empty_rule ... ok
+test helper_and_gateway_as_processes_open_the_ports_for_a_logged_in_player ... ok
+test helper_and_gateway_in_process_open_the_ports_for_a_logged_in_player ... ok
+test max_entries_evicts_the_oldest ... ok
+test the_gateway_refuses_bad_configuration_and_a_key_that_is_not_the_certificates ... ok
+test the_helper_over_http ... ok
+test the_nft_ruleset_after_a_login_and_a_logout ... ok
+test throttles_rapid_updates_into_one_apply ... ok
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.66s
 
+== 1. gamedata --examples ==
+Seeded 21 example game-data file(s).
+== 2. publish-runtime ==
+Published runtime 20261101-a233997d (changelist 647472) to /var/tmp/dainty-lass-c2-zYeDDP/.workspace/runtime:
+  MysticParadox.dll (18 bytes, sha256:48c7af0fd4d16e74)
+  winmm.dll (17 bytes, sha256:dbe5d8726c0d87f2)
+== 3. setup (public Linux server with Wine + xvfb + nftables allowlist + systemd units) ==
+
+Public server "Linux Host Check" at linux-check.example.org (game servers on 203.0.113.42)
+Game servers: 30 fps, 10 fps after 15 s without players; Training Grounds on demand, stopped after 5 min without players; quiet game logs; at most 3 hunts at once (UDP 8770-8777), a new hunt only with 2560 MB free
+
+1. Mystic Paradox (modules/rustic-isles and native/ in this project)
+- in place
+
+2. Installing and building services
+- servers 2.0.0-alpha.0 (linux-x64, 4e261ce) from the release: every file checked
+- secrets: made (kept from now on) in /var/tmp/dainty-lass-c2-zYeDDP/.workspace/config/secrets.env
+- env files: backend.env, director.env, content.env, gateway.env, admin.env, allowlist.env in /var/tmp/dainty-lass-c2-zYeDDP/.workspace/config
+- gateway certificate made in /var/tmp/dainty-lass-c2-zYeDDP/.workspace/tls/gateway-cert.pem
+- certificate fingerprint (goes into every invite): e60e429a1180bff1361cc0caa9a6e64748e376a808c96e42b4549709fdf0461d
+- firewall script written to /var/tmp/dainty-lass-c2-zYeDDP/.workspace/config/firewall.sh
+
+== 4. generated Linux files (.workspace/systemd/reforged.service, reforged-allowlist.service, install.sh, config/firewall.sh) ==
+[Unit]
+Description=DaintyLass game server (Linux Host Check)
+After=network-online.target reforged-allowlist.service
+Wants=network-online.target reforged-allowlist.service
+
+[Service]
+Type=simple
+User=nick
+WorkingDirectory=/var/tmp/dainty-lass-c2-zYeDDP
+Environment=REFORGED_ALLOWLIST=external
+ExecStart=/var/tmp/dainty-lass-c2-zYeDDP/bin/reforged-host start
+NoNewPrivileges=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+== 5. doctor (Wine/xvfb/xauth/nft/units/prefix check) ==
+linux
+  [ ok ] Wine runtime found at /usr/bin/wine64
+  [ ok ] Wine prefix ready at /var/tmp/dainty-lass-c2-zYeDDP/.workspace/wine
+  [ ok ] xvfb-run found at /usr/bin/xvfb-run
+  [ ok ] xauth found at /usr/bin/xauth
+  [ ok ] gameserver wrapper ready at /var/tmp/dainty-lass-c2-zYeDDP/.workspace/bin/reforged-gameserver
+  [ ok ] nftables found at /usr/sbin/nft
+
+== 7. start reforged-allowlist helper (CAP_NET_ADMIN / nftables) and reforged-host start ==
+nftables table created by reforged-allowlist:
+table inet reforged_revival {
+	set players4 {
+		type ipv4_addr
+	}
+	set players6 {
+		type ipv6_addr
+	}
+	chain input {
+		type filter hook input priority filter - 5; policy accept;
+		iifname "lo" accept
+		iifname "eth0" ip saddr @players4 udp dport 8770-8777 accept
+		iifname "eth0" ip6 saddr @players6 udp dport 8770-8777 accept
+		iifname "eth0" udp dport 8770-8777 drop
+	}
+}
+chat           | chat: listening on 127.0.0.1:61006 (nick check enforce)
+isles-director | Mystic Paradox DeployServer started
+isles-1-14-7   | Rustic Isles 1.14.7 listening: backend 127.0.0.1:61000, director 127.0.0.1:61001
+host           | module isles-1-14-7 loaded
+
+Server "Linux Host Check" is up (public mode, edition reborn, gateway linux-check.example.org:28443).
+Make an invite in another terminal: reforged-host invite --for "Alex"
+Ctrl+C stops everything.
+isles-director | ramsgate spawned on port 8777 (pid=68645) -> /var/tmp/dainty-lass-c2-zYeDDP/.workspace/logs/gameservers/port8777_ramsgate.log
+
+== 8. ServerStatus over TLS ==
+{"name":"Linux Host Check","online":true,"version":"0.1.0","commit":"4e261ce","sourceUrl":"https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival","registration":"INVITECODE","uptimeSeconds":0,"contentPort":null,"game":{"build":"rel-1.14.7-Archon","changelist":647472,"executableSha256":"f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b"},"gameData":"synthetic","chat":true,"playersOnline":0,"players":[],"instances":[],"limited":true}
+
+== 9. invite ==
+Invite for LinuxSlayer (3 uses):
+  reforged-revival://join?v=2&mode=public&host=linux-check.example.org&port=28443&fp=e60e429a1180bff1361cc0caa9a6e64748e376a808c96e42b4549709fdf0461d&code=XHA6-6ZNR-8RDJ&name=Linux%20Host%20Check
+
+== 10. backup ==
+Backup written: /var/tmp/dainty-lass-c2-zYeDDP/.workspace/backups/sqlite-20261031-230042.db (1511424 bytes)
+
+== 11. clean stop (SIGINT) ==
+Stopping...
+isles-1-14-7   | Rustic Isles 1.14.7 stopped
+Stopped.
+C2 end-to-end Linux hosting check passed
+```
 

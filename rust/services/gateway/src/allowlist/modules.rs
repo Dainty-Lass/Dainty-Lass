@@ -23,6 +23,7 @@ pub trait PortView: Send + Sync {
 
 pub struct AllowlistPlugin {
     guard: Option<Arc<Guard>>,
+    external_base: Option<PortRange>,
     view: Arc<dyn PortView>,
 }
 
@@ -31,13 +32,29 @@ impl AllowlistPlugin {
     pub fn new(guard: Arc<Guard>, view: Arc<dyn PortView>) -> Self {
         Self {
             guard: Some(guard),
+            external_base: None,
             view,
         }
     }
 
     /// For a server whose allowlist this process does not run: refuses every UDP port.
     pub fn absent(view: Arc<dyn PortView>) -> Self {
-        Self { guard: None, view }
+        Self {
+            guard: None,
+            external_base: None,
+            view,
+        }
+    }
+
+    /// For a public server whose allowlist runs in an external process (`reforged-allowlist.service`,
+    /// which guards `base`): admits a module whose assigned UDP ranges lie inside `base`, and refuses
+    /// any range outside `base`.
+    pub fn external(base: PortRange, view: Arc<dyn PortView>) -> Self {
+        Self {
+            guard: None,
+            external_base: Some(base),
+            view,
+        }
     }
 
     /// The ranges `registration` asks the firewall to guard, as assigned, each checked against the manifest.
@@ -79,17 +96,24 @@ impl CorePlugin for AllowlistPlugin {
         if registration.udp_ports.is_empty() {
             return Ok(());
         }
-        let Some(guard) = &self.guard else {
-            return Err(ModuleError::new(
-                ErrorKind::Unavailable,
-                "the allowlist runs outside this process and guards only the server's own game ports; \
-                 the module's UDP ports would be open to everyone",
-            ));
-        };
         let ranges = self.ranges(module, registration)?;
-        guard
-            .attach(&module.id, &ranges)
-            .map_err(|message| ModuleError::new(ErrorKind::Invalid, message))
+        if let Some(guard) = &self.guard {
+            return guard
+                .attach(&module.id, &ranges)
+                .map_err(|message| ModuleError::new(ErrorKind::Invalid, message));
+        }
+        if let Some(base) = self.external_base
+            && ranges
+                .iter()
+                .all(|r| r.is_valid() && r.first >= base.first && r.last <= base.last)
+        {
+            return Ok(());
+        }
+        Err(ModuleError::new(
+            ErrorKind::Unavailable,
+            "the allowlist runs outside this process and guards only the server's own game ports; \
+             the module's UDP ports would be open to everyone",
+        ))
     }
 
     fn detach(&self, module: &ModuleId) {
@@ -187,10 +211,44 @@ mod tests {
     #[test]
     fn a_module_without_udp_ports_costs_nothing_and_an_absent_helper_refuses_one_with() {
         let (manifest, mut registration) = stub();
-        let absent = AllowlistPlugin::absent(Arc::new(Assigned(BTreeMap::new())));
+        let absent = AllowlistPlugin::absent(Arc::new(Assigned(
+            [(
+                "game".to_owned(),
+                PortRange {
+                    first: 65010,
+                    last: 65019,
+                },
+            )]
+            .into_iter()
+            .collect(),
+        )));
         assert!(refusal(&absent, &manifest, &registration).contains("everyone"));
         registration.udp_ports.clear();
         absent.attach(&manifest, &registration).unwrap();
         absent.detach(&manifest.id);
+    }
+
+    #[test]
+    fn external_helper_admits_the_servers_own_game_ports_and_refuses_other_ranges() {
+        let (manifest, registration) = stub();
+        let base = PortRange {
+            first: 65010,
+            last: 65019,
+        };
+        let inside = AllowlistPlugin::external(
+            base,
+            Arc::new(Assigned([("game".to_owned(), base)].into_iter().collect())),
+        );
+        inside.attach(&manifest, &registration).unwrap();
+        inside.detach(&manifest.id);
+
+        let outside = AllowlistPlugin::external(
+            PortRange {
+                first: 8770,
+                last: 8777,
+            },
+            Arc::new(Assigned([("game".to_owned(), base)].into_iter().collect())),
+        );
+        assert!(refusal(&outside, &manifest, &registration).contains("everyone"));
     }
 }

@@ -1278,7 +1278,7 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError>;
    Writes `#!/bin/sh` header and `exec '<host_bin>' gameserver "$@"\n` with mode `0o755` at `.workspace/bin/reforged-gameserver`.
 3. **Systemd Units (`systemd_units`):**
    - Refuses `ctx.user == "root" || ctx.user.is_empty()`.
-   - Returns `Vec<(String, String)>` containing `reforged-allowlist.service` (in public mode), `reforged-allowlist-legacy.service` (when `edition == Both` and public), `reforged.service`, and `install.sh`.
+   - Returns `Vec<(String, String)>` containing `reforged-allowlist.service` (in public mode), `reforged-allowlist-legacy.service` (when `edition == Both` and public), `reforged.service` (setting `Environment=REFORGED_ALLOWLIST=external` in public mode so `start` delegates firewall changes to `reforged-allowlist.service`), and `install.sh`.
 4. **Linux Firewall Script (`linux_firewall_script`):**
    Generates a `#!/bin/sh` script configuring `ufw` rules for public mode (`ufw allow <port>/tcp`, `ufw allow <first>:<last>/udp`) or private mode (`ufw allow in on tailscale0 to any port 61000 proto tcp`, `ufw allow in on tailscale0 to any port <first>:<last> proto udp`).
 

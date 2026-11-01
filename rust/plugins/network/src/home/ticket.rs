@@ -525,7 +525,6 @@ impl Tickets {
     /// a database is attached (with bounded retry on transient write contention) so a restart does not
     /// reinstate banned sessions.
     pub async fn revoke(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
-        const MAX_PERSIST_ATTEMPTS: u32 = 3;
         let now = self.clock.now_ms();
         #[cfg_attr(not(feature = "directory"), allow(unused_variables))]
         let floor = {
@@ -536,6 +535,7 @@ impl Tickets {
         };
         #[cfg(feature = "directory")]
         {
+            const MAX_PERSIST_ATTEMPTS: u32 = 3;
             let db = self.db.read().unwrap_or_else(PoisonError::into_inner).clone();
             if let Some(db) = db {
                 let mut last_error: Option<String> = None;
@@ -590,7 +590,6 @@ impl Tickets {
 
     /// Clears an earlier [`Self::revoke`] for `account` (after an unban or lifted timeout).
     pub async fn allow(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
-        const MAX_PERSIST_ATTEMPTS: u32 = 3;
         #[cfg_attr(not(feature = "directory"), allow(unused_variables))]
         let previous_floor = self
             .revoked
@@ -599,6 +598,7 @@ impl Tickets {
             .remove(account);
         #[cfg(feature = "directory")]
         {
+            const MAX_PERSIST_ATTEMPTS: u32 = 3;
             let db = self.db.read().unwrap_or_else(PoisonError::into_inner).clone();
             if let Some(db) = db {
                 let mut last_error: Option<String> = None;
