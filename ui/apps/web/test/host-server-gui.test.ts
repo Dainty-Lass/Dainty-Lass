@@ -434,7 +434,7 @@ describe("DoctorPanel, StatusTab, AdminTab, and HistoryTab in en and pt-BR (T4)"
           {
             level: "problem",
             label: "runtime",
-            detail: "MysticParadox.dll is not published yet",
+            detail: "Rustic-Isles.dll is not published yet",
           },
         ],
       }
@@ -456,7 +456,7 @@ describe("DoctorPanel, StatusTab, AdminTab, and HistoryTab in en and pt-BR (T4)"
       )
       expect(html).toContain("Private server Friday Hunts configured")
       expect(html).toContain("Using synthetic example game data")
-      expect(html).toContain("MysticParadox.dll is not published yet")
+      expect(html).toContain("Rustic-Isles.dll is not published yet")
     })
 
     test(`renders StatusTab with embedded server components and restart controls in ${lang}`, () => {
