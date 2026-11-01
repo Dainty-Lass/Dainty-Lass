@@ -82,14 +82,6 @@ impl LogShipKey {
         Self(bytes)
     }
 
-    /// Deterministic test key used by [`PeerBucket::new`] when no explicit [`LogShipKey`] is supplied.
-    pub fn default_test_key() -> Self {
-        let digest = Sha256::digest(b"dainty-lass/log-ship-default-test-key/v1");
-        let mut bytes = [0u8; 32];
-        bytes.copy_from_slice(&digest);
-        Self(bytes)
-    }
-
     pub fn kid(&self) -> String {
         crate::home::keys::hex(&Sha256::digest(self.0)[..8])
     }
@@ -339,30 +331,36 @@ pub fn parse_peer_object_key(origin: &NodeId, key: &str) -> Option<(String, Stri
     None
 }
 
-/// Write-only [`Bucket`] that encrypts segments and snapshots at rest with the origin node's [`LogShipKey`]
-/// and ships them to a peer node over `Service::LogShip` (DH7).
+/// Write-only [`Bucket`] that ships segments and snapshots to a peer node over `Service::LogShip` (DH7),
+/// encrypted at rest when given a [`LogShipKey`].
 #[derive(Clone)]
 pub struct PeerBucket {
     peer: NodeId,
     link: Arc<dyn PeerLink>,
-    key: LogShipKey,
+    key: Option<LogShipKey>,
 }
 
 impl PeerBucket {
+    /// Ships plaintext: a restore after losing the node needs nothing that died with it (DH7).
     pub fn new(peer: NodeId, link: Arc<dyn PeerLink>) -> Self {
-        Self::with_key(peer, link, LogShipKey::default_test_key())
+        Self { peer, link, key: None }
     }
 
+    /// Ships ciphertext only `key` can read: whoever restores must hold a copy of `key` kept off the node.
     pub fn with_key(peer: NodeId, link: Arc<dyn PeerLink>, key: LogShipKey) -> Self {
-        Self { peer, link, key }
+        Self {
+            peer,
+            link,
+            key: Some(key),
+        }
     }
 
     pub fn peer(&self) -> &NodeId {
         &self.peer
     }
 
-    pub fn key(&self) -> &LogShipKey {
-        &self.key
+    pub fn key(&self) -> Option<&LogShipKey> {
+        self.key.as_ref()
     }
 
     /// The required `ShipSettings::prefix` for `origin` when shipping to a peer (`"<origin>/"`).
@@ -383,22 +381,24 @@ impl Bucket for PeerBucket {
         let enc_key = self.key.clone();
         let key = key.to_owned();
         async move {
-            let encrypted = if is_encrypted_object(&body) {
-                body
-            } else {
-                if let Some((origin_str, _)) = key.split_once('/')
-                    && let Ok(origin) = origin_str.parse::<NodeId>()
-                    && let Some((_, expected_sha)) = parse_peer_object_key(&origin, &key)
-                    && sha256_hex(&body) != expected_sha
-                {
-                    return Err(ShipError::Bucket(format!(
-                        "peer {peer} refused put: {}",
-                        LogShipRefusal::HashMismatch
-                    )));
+            let encrypted = match enc_key {
+                Some(enc_key) if !is_encrypted_object(&body) => {
+                    // The peer can't check a ciphertext against the key's digest, so check the plaintext here
+                    if let Some((origin_str, _)) = key.split_once('/')
+                        && let Ok(origin) = origin_str.parse::<NodeId>()
+                        && let Some((_, expected_sha)) = parse_peer_object_key(&origin, &key)
+                        && sha256_hex(&body) != expected_sha
+                    {
+                        return Err(ShipError::Bucket(format!(
+                            "peer {peer} refused put: {}",
+                            LogShipRefusal::HashMismatch
+                        )));
+                    }
+                    enc_key
+                        .encrypt(&key, &body)
+                        .map_err(|e| ShipError::Bucket(format!("peer {peer}: {e}")))?
                 }
-                enc_key
-                    .encrypt(&key, &body)
-                    .map_err(|e| ShipError::Bucket(format!("peer {peer}: {e}")))?
+                _ => body,
             };
             let request = LogShipPutRequest::new(key, content_type, &encrypted)
                 .map_err(|e| ShipError::Bucket(format!("peer {peer}: {e}")))?;

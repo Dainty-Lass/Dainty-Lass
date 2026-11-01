@@ -31,6 +31,7 @@ fn id(text: &str) -> NodeId {
 static CLOCK_1: AtomicI64 = AtomicI64::new(T0);
 static CLOCK_2: AtomicI64 = AtomicI64::new(T0);
 static CLOCK_3: AtomicI64 = AtomicI64::new(T0);
+static CLOCK_4: AtomicI64 = AtomicI64::new(T0);
 
 fn clock_1() -> i64 {
     CLOCK_1.load(Ordering::SeqCst)
@@ -42,6 +43,10 @@ fn clock_2() -> i64 {
 
 fn clock_3() -> i64 {
     CLOCK_3.load(Ordering::SeqCst)
+}
+
+fn clock_4() -> i64 {
+    CLOCK_4.load(Ordering::SeqCst)
 }
 
 fn synced_clock(cell: &AtomicI64) -> Arc<Clock> {
@@ -114,8 +119,8 @@ async fn a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_an
     );
     settings.snapshot_every = Duration::from_secs(15 * 60);
 
-    let oregon_key = LogShipKey::from_signing_key(&network::home::SigningKey::generate().unwrap());
-    let peer_bucket = PeerBucket::with_key(uk.clone(), Arc::new(net.link(&oregon)), oregon_key.clone());
+    // As the server ships: nothing the restore needs may die with Oregon
+    let peer_bucket = PeerBucket::new(uk.clone(), Arc::new(net.link(&oregon)));
     let mut shipper = Shipper::new(db.clone(), peer_bucket.clone(), settings.clone()).unwrap();
     shipper.tick().await.unwrap(); // initial snapshot + log segment
 
@@ -144,9 +149,8 @@ async fn a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_an
     let mut restore_opts = RestoreOptions::new(scratch.path());
     restore_opts.trusted_head = Some(trusted_head.clone());
 
-    let uk_restore_view = uk_store.with_decryption_key(oregon_key);
     let outcome = restore_to(
-        &uk_restore_view,
+        uk_store.as_ref(),
         &PeerBucket::prefix_for(&oregon),
         T0 + 6 * MINUTE,
         &restored_cfg,
@@ -172,7 +176,7 @@ async fn a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_an
         hash: "0".repeat(64),
     });
     let err = restore_to(
-        &uk_restore_view,
+        uk_store.as_ref(),
         &PeerBucket::prefix_for(&oregon),
         T0 + 6 * MINUTE,
         &bad_cfg,
@@ -475,8 +479,8 @@ async fn peer_shipped_segments_and_snapshots_are_encrypted_at_rest_and_reject_wr
 
     let net = InProcessNetwork::new();
     let uk_dir = tempfile::tempdir().unwrap();
-    let uk_clock = synced_clock(&CLOCK_1);
-    set_time(&CLOCK_1, T0, &uk_clock);
+    let uk_clock = synced_clock(&CLOCK_4);
+    set_time(&CLOCK_4, T0, &uk_clock);
 
     // UK is the storage peer: it holds no decryption key.
     let uk_store = Arc::new(PeerLogStore::new(
@@ -494,7 +498,7 @@ async fn peer_shipped_segments_and_snapshots_are_encrypted_at_rest_and_reject_wr
     let db = Database::open(
         &oregon_db_cfg,
         &DatabaseOptions {
-            clock: clock_1,
+            clock: clock_4,
             ..DatabaseOptions::default()
         },
         &SCHEMA,
@@ -513,7 +517,7 @@ async fn peer_shipped_segments_and_snapshots_are_encrypted_at_rest_and_reject_wr
     let mut shipper = Shipper::new(db.clone(), peer_bucket, settings).unwrap();
     shipper.tick().await.unwrap();
 
-    set_time(&CLOCK_1, T0 + MINUTE, &uk_clock);
+    set_time(&CLOCK_4, T0 + MINUTE, &uk_clock);
     write_entry(&db, "owner", "acc-secret-2", "SecretPlayerBeta", "oregon-1").await;
     shipper.ship_log().await.unwrap();
 
