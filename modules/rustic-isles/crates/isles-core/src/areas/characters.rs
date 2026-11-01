@@ -1,7 +1,6 @@
 //! RU5's `CharactersLoadouts` group: `GET`/`PUT`/`POST /character` and the five `/loadout` routes
 //! (`routes/character.ts`, `routes/loadout.ts`). RU3c: hook `no_player_policy`, table `TARGET_CHANGELIST` (and the
-//! starter manifest table the seeding reads). `/loadout/.../active/:index` is served on 1.12 too: its client calls it,
-//! and 1.12.0's Node answered 404.
+//! starter manifest table the seeding reads).
 //!
 //! The game-data work is in the submodules: [`slots`] is `loadoutSlots.ts` (in `repo::characters`), [`data`] the
 //! character-data rules, [`starter`] the starter manifest, [`controller`] the controllers over the repositories.
@@ -189,7 +188,7 @@ async fn get_character(call: Call) -> Response {
         Err(response) => return response,
     };
     // A dedicated hub asks with the gameserver key and no bearer; the hook resolves it to the configured account
-    // (1.12.0 has none, so it gets []). A server request that carries a real player's bearer keeps that player.
+    // (none configured gets []). A server request that carries a real player's bearer keeps that player.
     let mut user = auth.user_id.clone();
     if is_no_player(user.as_deref()) && auth.is_gameserver {
         let policy = call.shared.version.hooks.no_player_policy();

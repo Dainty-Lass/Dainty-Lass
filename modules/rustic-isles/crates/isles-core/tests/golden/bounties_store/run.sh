@@ -1,10 +1,10 @@
 #!/bin/sh
-# Regenerates 1.14.7.json and 1.12.0.json from Node's own routers (RU5 bounties-store). Needs Docker and network for
+# Regenerates 1.14.7.json from Node's own routers (RU5 bounties-store). Needs Docker and network for
 # `npm ci`; run from anywhere. Re-record only when the Node side changed on purpose, and say why in the commit.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../../../.." && pwd)
-for version in 1.14.7 1.12.0; do
+for version in 1.14.7; do
     docker run --rm \
         -v "$root/reference/$version/ParadoxBackend:/src:ro" \
         -v "$here:/golden:ro" \

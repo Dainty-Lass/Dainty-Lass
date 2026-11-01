@@ -1,6 +1,6 @@
 //! RU5's `BountiesStore` group: bounties, cooldowns, entitlements, the wallet, and the store with Lady Luck's and the
 //! Platinum shops. RU3c: hook `entitlements_payload`; tables `STORE_SECTIONS`, `SEASONAL_COIN`, `GAME_DATA`; the
-//! persistence switches `MYSTICPARADOX_BOUNTY_PERSISTENCE` and `_COOLDOWN_PERSISTENCE` carry 1.12.0's stubs.
+//! persistence switches `MYSTICPARADOX_BOUNTY_PERSISTENCE` and `_COOLDOWN_PERSISTENCE`.
 //!
 //! What other areas call: [`wallet`] (`get_wallet`, `add_currency`, `spend_platinum`, `merge_wallet_into_stacked`),
 //! [`challenge_rewards`], [`entitlements`] (inside their transactions) and [`economy_ledger`] (committed after), [`store`]. What the

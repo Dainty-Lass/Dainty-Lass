@@ -117,14 +117,6 @@ pub enum When {
     Rifts,
 }
 
-/// Which modules serve a route (RU3c).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Versions {
-    Both,
-    /// RU3c's `1.14.7-only`: the 1.12 module leaves it to the shared 404, as 1.12.0 did
-    Only1147,
-}
-
 /// Whose route it is (RU3c, seam 7): the game client's, answered per version, or the launcher's, operators' and
 /// probes', which are no game version's and are served from the shared code with the module's changelist.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -142,18 +134,9 @@ pub struct RouteDef {
     pub group: Group,
     pub side: Side,
     pub when: When,
-    pub versions: Versions,
 }
 
-const fn route(
-    service: Service,
-    method: Method,
-    path: &'static str,
-    group: Group,
-    side: Side,
-    when: When,
-    versions: Versions,
-) -> RouteDef {
+const fn route(service: Service, method: Method, path: &'static str, group: Group, side: Side, when: When) -> RouteDef {
     RouteDef {
         service,
         method,
@@ -161,7 +144,6 @@ const fn route(
         group,
         side,
         when,
-        versions,
     }
 }
 
@@ -197,25 +179,15 @@ pub fn all() -> &'static [RouteDef] {
     table::ROUTES
 }
 
-/// The 1.14.7 or 1.12 module's routes.
+/// The module's routes, kept as the seam a game module names (1.14.7's alone).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RouteSet {
     V1147,
-    V1120,
 }
 
 impl RouteSet {
-    pub fn serves(self, route: &RouteDef) -> bool {
-        match self {
-            Self::V1147 => true,
-            Self::V1120 => route.versions == Versions::Both,
-        }
-    }
-
     pub fn routes(self, service: Service) -> impl Iterator<Item = &'static RouteDef> {
-        all()
-            .iter()
-            .filter(move |route| route.service == service && self.serves(route))
+        all().iter().filter(move |route| route.service == service)
     }
 }
 

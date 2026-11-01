@@ -10,9 +10,7 @@
 //!   asks DF2 for.
 //! - [`headline`]: the JSON of a `party-events@` headline (`PartyOutboxDispatcher.ts`), byte for byte.
 //!
-//! Both versions answer the same (RU3c: the XMPP differences are all `same`); [`ChatVersion`] is kept so a 1.12
-//! recording (DD9) has a place to differ. Everything the rules read about the game goes through [`ChatSource`], which
-//! `isles-core` implements over its store.
+//! Everything the rules read about the game goes through [`ChatSource`], which `isles-core` implements over its store.
 
 #[cfg(test)]
 mod fake;
@@ -123,18 +121,9 @@ pub trait ChatRules: Send + Sync + 'static {
     }
 }
 
-/// Which version's rules.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ChatVersion {
-    V1147,
-    V1120,
-}
-
-/// The rules of both versions.
+/// 1.14.7's rules.
 #[derive(Debug, Clone, Copy)]
-pub struct IslesChat {
-    pub version: ChatVersion,
-}
+pub struct IslesChat;
 
 impl ChatRules for IslesChat {
     fn jid<'a>(&'a self, source: &'a dyn ChatSource, account: &'a GlobalId) -> BoxFuture<'a, Result<Jid, ModuleError>> {

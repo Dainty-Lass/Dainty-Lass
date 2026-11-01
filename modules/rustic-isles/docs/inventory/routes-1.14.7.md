@@ -1,8 +1,7 @@
 # Route inventory: 1.14.7
 
 RU3a. Every Express route that `ParadoxBackend` and `ParadoxDirector` register, as of `main` at `ce1c42e` (Mystic
-Paradox `21b9ff5` with Reforged's patches 0001 to 0039), with the listeners that aren't Express at the end. RU3c diffs
-it against 1.12.0's (RU3b); RU4 answers each route 501 and RU5 ports them, one area group per agent; RF1 takes the
+Paradox `21b9ff5` with Reforged's patches 0001 to 0039), with the listeners that aren't Express at the end. RU4 answers each route 501 and RU5 ports them, one area group per agent; RF1 takes the
 rifts rows.
 
 [`routes-1.14.7.json`](routes-1.14.7.json) is the machine-readable list: one `{service, method, path, file, group,

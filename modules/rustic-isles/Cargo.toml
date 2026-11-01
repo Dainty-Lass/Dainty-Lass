@@ -1,5 +1,5 @@
-# One Rust backend and Director for Dauntless 1.14.7 and 1.12.0 (DaintyLass plan, section 2, DD6 and DD8): the
-# shared crates under crates/, one thin game module per version under modules/. DaintyLass mounts this repository at
+# One Rust backend and Director for Dauntless 1.14.7 (DaintyLass plan, section 2, DD6 and DD8): the shared crates
+# under crates/, the thin game module under modules/. DaintyLass mounts this repository at
 # modules/rustic-isles and builds the module crates by path; its workspace [patch]es DaintyLass's and rustic-rifts'
 # crates to its own checkout (DD2, spike DF1). reference/, native/ and tools/ are not cargo packages.
 [workspace]

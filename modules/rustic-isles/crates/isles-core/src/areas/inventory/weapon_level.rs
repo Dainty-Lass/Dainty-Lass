@@ -1,6 +1,6 @@
 //! `weaponBaseLevel.ts` (Reforged patch 0036): weapons served at item level 0, because the 1.14.7 paks carry no
 //! per-level power tables. The stored level is left as it is; only what the game reads is set to 0. Whether it runs is
-//! the `weapons_at_base_level` hook (1.14.7: unless `KEEP_WEAPON_ITEM_LEVELS=true`; 1.12.0: never).
+//! the `weapons_at_base_level` hook (unless `KEEP_WEAPON_ITEM_LEVELS=true`).
 
 use serde_json::{Map, Value};
 use service_kit::jsjson;

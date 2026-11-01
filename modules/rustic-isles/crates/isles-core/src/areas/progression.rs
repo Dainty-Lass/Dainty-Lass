@@ -2,8 +2,8 @@
 //!
 //! Ported from `routes/progression.ts`, the escalation, huntpass and stub routes of `routes/system.ts`, and the
 //! controllers behind them (`progression.ts`, `masteryReport.ts`, `escalationProgress.ts`, `slayersPath.ts`,
-//! `sessionSupplies.ts`, the XP half of `testMultipliers.ts`). 1.12.0 runs the same code through the hooks and tables
-//! (DD8): the reforge rules and mastery persistence follow their switches, whose default is the version's.
+//! `sessionSupplies.ts`, the XP half of `testMultipliers.ts`). The reforge rules and mastery persistence follow their
+//! switches, whose default is the version's (DD8).
 //!
 //! The rest of the pipeline is other areas': the auth middleware puts an [`AuthData`] in the request's extensions, and
 //! the shared pipeline parses bodies (`service_kit::body::parse_bodies`) before routing. What this area takes from

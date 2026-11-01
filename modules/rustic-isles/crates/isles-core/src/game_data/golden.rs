@@ -13,7 +13,7 @@ use tokio::net::TcpStream;
 use super::season_window::pin_now_for_tests;
 use crate::game_data::GameDataRoot;
 use crate::http::{Shared, app};
-use crate::routes::{RouteSet, Service};
+use crate::routes::Service;
 use crate::settings::Settings;
 use crate::version::IslesVersion;
 
@@ -131,7 +131,6 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
             }
         }
     };
-    let gauntlet = version.routes == RouteSet::V1147;
     for (method, path) in [
         ("GET", "/survey/config"),
         ("POST", "/account/migrate"),
@@ -149,15 +148,11 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
             "/__origin/gauntlet-prod.steelyard.ca/leaderboard/get_leaderboard/x",
         ),
     ] {
-        if path.contains("gauntlet") && !gauntlet {
-            continue;
-        }
         let reply = exchange(address, method, path, &[], "").await;
         expect(&format!("{method} {path} without credentials"), reply, 401, Some(""));
         if path != "/progression/config" {
             let reply = exchange(address, method, path, &[("x-mysticparadox-gameserver-apikey", "k")], "").await;
             let status = match path {
-                "/survey/config" if !gauntlet => 400,
                 "/motd/" => 204,
                 _ => 200,
             };
@@ -176,13 +171,11 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
     }
     let token = bearer(&crate::areas::auth::tokens::test_key_settings(&[]));
     let auth = [("Authorization", token.as_str())];
-    // 1.14.7 only: a quiet 404 for a player, a game server and (after the gate) nobody
-    if gauntlet {
-        let reply = exchange(address, "GET", "/motd/trigger?event_name=test", &auth, "").await;
-        expect("motd trigger as a player", reply, 404, Some(""));
-        let reply = exchange(address, "GET", "/motd/trigger?event_name=test", &[], "").await;
-        expect("motd trigger without credentials", reply, 401, Some(""));
-    }
+    // A quiet 404 for a player, a game server and (after the gate) nobody
+    let reply = exchange(address, "GET", "/motd/trigger?event_name=test", &auth, "").await;
+    expect("motd trigger as a player", reply, 404, Some(""));
+    let reply = exchange(address, "GET", "/motd/trigger?event_name=test", &[], "").await;
+    expect("motd trigger without credentials", reply, 401, Some(""));
     // Node refuses to start without the file; here the route fails like an Express handler that throws
     let reply = exchange(address, "GET", "/progression/config", &auth, "").await;
     expect(
@@ -213,7 +206,7 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
     failures
 }
 
-/// Requests every fixture case of `label` (`"1.14.7"` or `"1.12.0"`) from `version`, with the synthetic progression
+/// Requests every fixture case of `label` (`"1.14.7"`) from `version`, with the synthetic progression
 /// config as its `progression_config.json`. The cases that differ from Node, as text.
 pub async fn check(version: IslesVersion, label: &str, fixtures: &Path) -> Vec<String> {
     let golden: Value = match std::fs::read_to_string(fixtures.join("game_data.json"))

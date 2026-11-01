@@ -36,9 +36,6 @@ impl VersionHooks for NoHooks {
     fn game_session_payload(&self, _: &str) -> Value {
         Value::Null
     }
-    fn network_encryption_keys(&self) -> bool {
-        false
-    }
     fn weapons_at_base_level(&self, _: &isles_core::Settings) -> bool {
         false
     }
@@ -257,11 +254,6 @@ async fn replay(routes: RouteSet, slayer: bool) {
 #[tokio::test(flavor = "multi_thread")]
 async fn the_114_routes_answer_as_nodes_do() {
     replay(RouteSet::V1147, true).await;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn the_112_routes_answer_as_nodes_do_and_slayer_link_is_a_404() {
-    replay(RouteSet::V1120, false).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -48,8 +48,8 @@ Each counted 1.14.7 backend request is assigned to one of three independent buck
   - `GET` and `HEAD` `/health/release-gates` when `MYSTICPARADOX_ADMIN_API` is enabled (when disabled, `/health/release-gates` is not mounted above the limiter and falls through to the counted 404 path).
 - **Pre-limiter origin validation (`app.ts` lines 167–185)**:
   - Requests with a malformed or disallowed `/__origin/<host>/` prefix are refused with empty HTTP `400 Bad Request` before reaching the limiter.
-- **Version 1.12.0 (`isles-1-12-0`) and `Service::Director`**:
-  - `reference/1.12.0/ParadoxBackend/src/app.ts` does not install `CreateRequestRateLimiter`, so `RouteSet::V1120` and `Service::Director` do not apply the per-minute request budget.
+- **`Service::Director`**:
+  - The Director does not install `CreateRequestRateLimiter`, so it does not apply the per-minute request budget.
 
 ## 4. Memory Bound and Secret Redaction
 

@@ -1,7 +1,7 @@
 //! Season-challenge reward funding (`controllers/challengeRewards.ts`): the coins a completed challenge pays are charged
 //! to exactly one claimed, uncredited challenge, and the credit is recorded on it in the same transaction as the coins.
 //! The inventory area calls these from `POST /inventory`'s currency deltas. The coin and its per-claim ceiling are the
-//! version's `SEASONAL_COIN` table: 1.12.0 has no funding rule.
+//! version's `SEASONAL_COIN` table: none is no funding rule.
 
 use super::bounty_state::{daily_challenge_reward_limited, find_fundable_season_claim, with_reward_credit};
 use super::util::{now_iso, now_ms};
@@ -108,7 +108,7 @@ mod tests {
             f64::NAN
         ));
         assert!(!is_challenge_reward_grant(Some(&COIN), "CURRENCY_NOTES", 10.0));
-        // 1.12.0 has no funding rule
+        // No SEASONAL_COIN, no funding rule
         assert!(!is_challenge_reward_grant(None, "CURRENCY_SEASONAL_COIN", 400.0));
     }
 }

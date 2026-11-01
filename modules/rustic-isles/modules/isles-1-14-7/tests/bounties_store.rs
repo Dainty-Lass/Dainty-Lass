@@ -261,7 +261,7 @@ async fn cooldowns() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn persistence_off_is_1_12s_stub() {
+async fn persistence_off_stores_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let target = DatabaseConfig::Sqlite {
         file: dir.path().join("isles.db"),

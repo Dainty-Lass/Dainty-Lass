@@ -1,4 +1,4 @@
-//! RU5's `Auth` group: Login, EOS and launcher accounts. RU3c: hooks `game_session_payload` and `network_encryption_keys` (and the auth middleware's `no_player_policy`), table `TARGET_CHANGELIST`.
+//! RU5's `Auth` group: Login, EOS and launcher accounts. RU3c: hook `game_session_payload` (and the auth middleware's `no_player_policy`), table `TARGET_CHANGELIST`.
 //!
 //! - [`middleware`]: `HasParadoxBackendAuth`, `HasLauncherAuth`, `RequireActiveAccount` and the `Caller` rifts sees; every
 //!   other area's game routes ask [`middleware::game_auth`] first.

@@ -17,11 +17,11 @@ use module_api::stub::recording_host;
 use module_api::{InProcessModule, ModuleConfig, ModuleDriver, ModuleDriverExt, NodeIdentity, PortRange};
 use serde_json::{Value, json};
 
-async fn module_starts_and_stops_game_servers(module: IslesModule, trials_new: bool) {
+async fn module_starts_and_stops_game_servers(module: IslesModule) {
     let root = tempfile::tempdir().unwrap();
     let data = root.path().join("game-data");
     std::fs::create_dir_all(&data).unwrap();
-    write_tables(&data, trials_new);
+    write_tables(&data);
     let logs = root.path().join("logs");
     let (begin, end) = free_range(5);
     let mut env = tempfile::NamedTempFile::new().unwrap();
@@ -118,10 +118,5 @@ async fn module_starts_and_stops_game_servers(module: IslesModule, trials_new: b
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_1_14_7_module_starts_and_stops_game_servers() {
-    module_starts_and_stops_game_servers(isles_1_14_7::module(), true).await;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn the_1_12_0_module_starts_and_stops_game_servers() {
-    module_starts_and_stops_game_servers(isles_1_12_0::module(), false).await;
+    module_starts_and_stops_game_servers(isles_1_14_7::module()).await;
 }

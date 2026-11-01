@@ -1,6 +1,6 @@
 //! Entitlements (`controllers/entitlements.ts`): the third grant a store SKU can carry, and how Hunt Pass Premium and the
 //! Middleman's extra slots are owned. The wire shape is the captured one (`{entitlements: [{activatedDate, duration,
-//! name}]}`, sorted by name) on 1.14.7 and 1.12.0's stub on 1.12, which is the `entitlements_payload` hook.
+//! name}]}`, sorted by name), which is the `entitlements_payload` hook.
 
 use super::util::now_iso;
 use crate::hooks::Entitlement;

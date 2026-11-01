@@ -54,29 +54,6 @@ def game_session(name, auth, extra=None, capture=None):
 
 A = "{{a.access}}"
 
-if sys.argv[1:] == ["112"]:
-    # 1.12.0's game-client routes, over a stand-in persistence layer that knows the game account "u1" (Fox)
-    T = "{{tok}}"
-    step("features", "GET", "/features/platform/win")
-    step("link epic", "GET", "/account/link/epic/ABC")
-    step("is banned", "GET", "/isbanned")
-    step("accountinfo", "GET", "/accountinfo", auth=T)
-    step("accountinfo without a token", "GET", "/accountinfo")
-    step("tags", "GET", "/tags", auth=T)
-    step("game session", "PUT", "/gamesession/epic", auth=T)
-    step("game session epiceos", "PUT", "/gamesession/epiceos", auth=T)
-    step("public accountinfo", "POST", "/accountinfo/public", {"accountId": "u1"}, auth=T)
-    step("public accountinfo, unknown", "POST", "/accountinfo/public", {"accountId": "nobody"}, auth=T)
-    step("public accountinfo, no body", "POST", "/accountinfo/public", auth=T)
-    step("login", "POST", "/login", {"email": "u1"}, auth=T)
-    step("login, another email", "POST", "/login", {"email": "u2"}, auth=T)
-    step("migration status", "GET", "/migration/status", auth=T)
-    step("key generate", "POST", "/key/generate", {"candidateId": "c1"}, auth=T)
-    step("key generate without a token", "POST", "/key/generate", {})
-    step("key consume", "POST", "/key/consume", {"candidateId": "c1"}, auth=T)
-    json.dump({"steps": steps}, sys.stdout, indent=1)
-    sys.exit(0)
-
 # ---- the game client's public routes
 step("features", "GET", "/features/platform/win")
 step("link epic", "GET", "/account/link/epic/ABC")

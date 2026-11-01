@@ -1018,19 +1018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "isles-1-12-0"
-version = "0.1.0"
-dependencies = [
- "isles-chat",
- "isles-core",
- "isles-director",
- "module-api",
- "serde_json",
- "tempfile",
- "tokio",
-]
-
-[[package]]
 name = "isles-1-14-7"
 version = "0.1.0"
 dependencies = [
@@ -1131,7 +1118,6 @@ dependencies = [
  "axum",
  "chrono",
  "futures-util",
- "isles-1-12-0",
  "isles-1-14-7",
  "isles-core",
  "libc",

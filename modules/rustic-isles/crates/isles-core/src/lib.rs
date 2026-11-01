@@ -1,7 +1,7 @@
-//! The Rust backend Rustic Isles' two game modules share (DaintyLass plan section 2, DD6, DD8): written once from
-//! Mystic Paradox's 1.14.7 Node services, with 1.12.0's differences as hooks and tables (RU3c).
+//! The Rust backend under Rustic Isles' game module (DaintyLass plan section 2, DD6, DD8): written from Mystic
+//! Paradox's 1.14.7 Node services, with what a module supplies as hooks and tables (RU3c).
 //!
-//! - [`routes`]: every route of RU3a's inventory in Express's match order, and each version's share of it.
+//! - [`routes`]: every route of RU3a's inventory in Express's match order.
 //! - [`http`]: the pipeline that serves them, 501 in the launcher envelope until an area ports a route.
 //! - [`areas`]: one handler file per RU5 area group.
 //! - [`hooks`], [`tables`], [`settings`], [`game_data`]: what differs between the versions.

@@ -1,9 +1,6 @@
-//! Where 1.12.0's code differs from 1.14.7's on the wire (DD8): RU3c's twelve hooks, one trait every area reaches
-//! through [`crate::IslesVersion`], the auth middleware included.
-//!
-//! A hook that is a payload shape is written out here per version; one whose two sides are whole code paths
-//! answers which path (a rule or a default), and the area code holds both. Every 1.12 side is unverified (DD9):
-//! it is 1.12.0's answer, the place to flip if a 1.12 recording wants the 1.14.7 behaviour.
+//! What a game module supplies on the wire (DD8): RU3c's hooks, one trait every area reaches through
+//! [`crate::IslesVersion`], the auth middleware included. The 1.14.7 module answers them; the tests' fakes answer
+//! the other side where a hook picks a code path.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,9 +10,9 @@ use crate::settings::Settings;
 /// How a game server's call that names no player is resolved (`HasParadoxBackendAuth`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NoPlayerPolicy {
-    /// 1.12.0: `INVALID` stays as it is and a bearer-less call has no user (empty data, 400 or `[]`)
+    /// `INVALID` stays as it is and a bearer-less call has no user (empty data, 400 or `[]`)
     Off,
-    /// 1.14.7: `INVALID` path segments of GET and HEAD, and the user of a bearer-less call, become the configured
+    /// `INVALID` path segments of GET and HEAD, and the user of a bearer-less call, become the configured
     /// account; an empty `characterId` or `accountId` resolves to that account's first character
     ConfiguredAccount,
 }
@@ -104,23 +101,20 @@ pub struct Destination {
 /// What `GET /progression/config` does to `progression_config.json`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgressionConfigRule {
-    /// 1.12.0: the file as it is
+    /// The file as it is
     AsIs,
     /// 1.14.7 (`seasonWindow.ts`): the active pass on a rolling 12-week window, every other pass ended by
     /// 2024-12-03, `RECENT_HUNTPASS_SEASONS` added with 2099 windows; `GAMESERVER_WIDEN_HUNTPASS_WINDOWS=0` is `AsIs`
     RollingHuntpassWindows,
 }
 
-/// RU3c's hooks. The four booleans are code paths, not settings: where Node also has a switch, the boolean is that
+/// RU3c's hooks. The three booleans are code paths, not settings: where Node also has a switch, the boolean is that
 /// switch's version default ([`crate::tables::VersionTables::switch_defaults`]).
 pub trait VersionHooks: Send + Sync + 'static {
     fn no_player_policy(&self) -> NoPlayerPolicy;
 
     /// `PUT /gamesession/epic` (and 1.14.7's `/gamesession/epiceos`).
     fn game_session_payload(&self, token: &str) -> Value;
-
-    /// `POST /key/generate` issues `{key, nonce, token}` kept for `/key/consume`; without, 400 and an empty body.
-    fn network_encryption_keys(&self) -> bool;
 
     /// Weapons served at `CurrentLevel` 0 (Reforged 0036: the 1.14.7 paks have no per-level power tables).
     fn weapons_at_base_level(&self, settings: &Settings) -> bool;

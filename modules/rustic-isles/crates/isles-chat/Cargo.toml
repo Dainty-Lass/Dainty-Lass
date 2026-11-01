@@ -1,6 +1,6 @@
 [package]
 name = "isles-chat"
-description = "The 1.14.7 and 1.12 chat rules DaintyLass's chat plugin asks a Rustic Isles module for (DD21)"
+description = "The 1.14.7 chat rules DaintyLass's chat plugin asks a Rustic Isles module for (DD21)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

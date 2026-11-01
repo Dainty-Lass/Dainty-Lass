@@ -1,5 +1,5 @@
 //! `controllers/starterManifest.ts`: what a new account is seeded with and the repair a loadout or inventory read does
-//! when a record is missing. The instanced items and the loadout are the same in both versions; the stacked list,
+//! when a record is missing. The instanced items and the loadout are fixed; the stacked list,
 //! the bootstrap version and the default quick-emoji wheel are the version's table (RU3c `STARTER_MANIFEST`).
 //! Inventory reads reuse [`ensure_in_transaction`] and [`needs_repair`].
 
@@ -129,7 +129,7 @@ fn is_empty_wheel(value: Option<&Value>) -> bool {
 }
 
 /// `WithDefaultChatWheels` ([Reforged 0017]): fills a wheel with nothing on it with the defaults on the way out. Only
-/// a version whose catalog has the emojis does it (1.12.0 has no such step).
+/// a version whose catalog has the emojis does it.
 pub fn with_default_chat_wheels(persistent: Value, tables: &VersionTables) -> Value {
     let Some(emojis) = tables.starter_manifest.quick_emojis else {
         return persistent;

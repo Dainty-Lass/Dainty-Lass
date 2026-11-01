@@ -20,7 +20,7 @@ use crate::game_data::progression_config::served;
 use crate::game_data::season_window::now_ms;
 use crate::game_data::{patchnotes, tuning};
 use crate::http::{Call, Handlers};
-use crate::routes::{Method, RouteSet, Service};
+use crate::routes::{Method, Service};
 
 fn json_reply(status: StatusCode, body: Value) -> Response {
     (status, Json(body)).into_response()
@@ -89,7 +89,7 @@ fn crash_check_report(_: Call) -> Response {
     ok(json!({}))
 }
 
-/// RU3c `survey_config`: 1.12.0 answers 400 with no body, 1.14.7 the empty trigger list.
+/// RU3c `survey_config`: the empty trigger list.
 fn survey_config(call: Call) -> Response {
     tracing::debug!("Survey config (stubbed)");
     let reply = call.shared.version.hooks.survey_config();
@@ -161,9 +161,8 @@ fn motd_trigger(_: Call) -> Response {
 
 fn player_treatments(call: Call) -> Response {
     tracing::debug!("Cohorts (stubbed)");
-    // 1.14.7: COHORT_TREATMENT_LEGACY=1 (the default) keeps the 1.12 treatment; 1.12.0 always serves it
-    let legacy = call.shared.version.routes == RouteSet::V1120
-        || call.shared.settings.raw("COHORT_TREATMENT_LEGACY").unwrap_or("1") == "1";
+    // COHORT_TREATMENT_LEGACY=1 (the default) keeps the 1.12 treatment
+    let legacy = call.shared.settings.raw("COHORT_TREATMENT_LEGACY").unwrap_or("1") == "1";
     let treatments: Vec<&str> = if legacy { vec!["CohortTreatment.Dojo.B"] } else { vec![] };
     ok(json!({ "treatments": treatments }))
 }
@@ -173,7 +172,7 @@ fn eventstats(_: Call) -> Response {
     ok(json!({ "stats": [] }))
 }
 
-/// RU3c `progression_config`: the file with its Hunt Pass windows rewritten (1.14.7), or as it is (1.12.0).
+/// RU3c `progression_config`: the file with its Hunt Pass windows rewritten, or as it is.
 fn progression_config(call: Call) -> Response {
     tracing::info!("Progression Config (stubbed)");
     let shared = &call.shared;
@@ -269,7 +268,7 @@ fn island_content_config(_: Call) -> Response {
     ok(tuning::island_content_config())
 }
 
-/// RU3c `BOUNTY_ITEM_GRANT_DATA`: the windows 1.14.7 needs to find the bounty season, none on 1.12.0.
+/// RU3c `BOUNTY_ITEM_GRANT_DATA`: the windows 1.14.7 needs to find the bounty season.
 fn bounty_game_data(call: Call) -> Response {
     tracing::debug!("Bounty game data (stubbed)");
     ok(tuning::bounty_game_data(

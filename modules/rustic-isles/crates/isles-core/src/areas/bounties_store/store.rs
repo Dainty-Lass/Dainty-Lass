@@ -4,7 +4,7 @@
 //! The offers are the host's own game data (`ladyluck_store.json`, `reward_cache_store.json`, `platinum_store.json`,
 //! the optional `fountain_daily_bundle.json`), built from the host's install and from the store captures
 //! `store-captures.json` names; nothing of them is committed. Which sections a version serves is its `STORE_SECTIONS`
-//! table: 1.12.0 has `ladyluckstore` only.
+//! table.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -535,14 +535,7 @@ impl StoreCatalog {
     /// `FindStoreSkuByIdOrCatalogId`: the exact SKU id in the first section holding it, else the one SKU a bare item
     /// catalog id belongs to. One SKU in several sections (a dye is in `webstore` and `dyes`) is not ambiguous; two
     /// different offers are, and are refused. Daily sections are excluded from the catalog-id fallback.
-    ///
-    /// `first_match` is 1.12.0's lookup, which had Lady Luck alone: an exact id, else the first SKU holding the item,
-    /// ambiguous or not.
-    pub fn find_by_id_or_catalog_id(
-        &self,
-        id_or_catalog_id: &str,
-        first_match: bool,
-    ) -> Option<(&'static str, &StoreSku)> {
+    pub fn find_by_id_or_catalog_id(&self, id_or_catalog_id: &str) -> Option<(&'static str, &StoreSku)> {
         for (tag, skus) in &self.sections {
             if let Some(exact) = skus.iter().find(|s| s.id == id_or_catalog_id) {
                 return Some((tag, exact));
@@ -559,7 +552,7 @@ impl StoreCatalog {
             })
             .collect();
         let distinct: HashSet<&str> = matches.iter().map(|(_, s)| s.id.as_str()).collect();
-        if first_match || distinct.len() == 1 {
+        if distinct.len() == 1 {
             matches.first().copied()
         } else {
             None
@@ -1000,12 +993,12 @@ mod tests {
             ("webstore", vec![dye.clone()]),
             ("dyes", vec![dye]),
         ]);
-        assert_eq!(catalog.find_by_id_or_catalog_id("b", false).unwrap().0, "ladyluckstore");
-        assert_eq!(catalog.find_by_id_or_catalog_id("WP_Y", false).unwrap().1.id, "b");
+        assert_eq!(catalog.find_by_id_or_catalog_id("b").unwrap().0, "ladyluckstore");
+        assert_eq!(catalog.find_by_id_or_catalog_id("WP_Y").unwrap().1.id, "b");
         // the same dye in two sections is one offer
-        assert_eq!(catalog.find_by_id_or_catalog_id("DYE_1", false).unwrap().1.id, "dye");
+        assert_eq!(catalog.find_by_id_or_catalog_id("DYE_1").unwrap().1.id, "dye");
         // WP_X belongs to "a" only; "nope" to nothing
-        assert!(catalog.find_by_id_or_catalog_id("nope", false).is_none());
+        assert!(catalog.find_by_id_or_catalog_id("nope").is_none());
     }
 
     #[test]
@@ -1013,9 +1006,7 @@ mod tests {
         let a = ladyluck("a", "id_currency_marks_steel", 1);
         let b = ladyluck("b", "id_currency_marks_steel", 1);
         let catalog = StoreCatalog::from_sections(vec![("ladyluckstore", vec![a, b])]);
-        assert!(catalog.find_by_id_or_catalog_id("WP_X", false).is_none());
-        // 1.12.0 took the first SKU holding the item
-        assert_eq!(catalog.find_by_id_or_catalog_id("WP_X", true).unwrap().1.id, "a");
-        assert!(catalog.find_by_id_or_catalog_id("a", false).is_some());
+        assert!(catalog.find_by_id_or_catalog_id("WP_X").is_none());
+        assert!(catalog.find_by_id_or_catalog_id("a").is_some());
     }
 }

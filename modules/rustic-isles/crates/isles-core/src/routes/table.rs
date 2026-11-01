@@ -1,11 +1,11 @@
 //! RU3a's inventory (`docs/inventory/routes-1.14.7.json`) in registration order, which is Express's match order,
-//! with RU3c's version split (`diff-1.12.0-1.14.7.json`) and each route's mount condition. `tests/inventory.rs`
-//! checks it against both files: a route added there is added here.
+//! with each route's mount condition. `tests/inventory.rs` checks it against the file: a route added there is added
+//! here.
 
-use super::{Group as G, Method as M, RouteDef, Service as S, Side as Sd, Versions as V, When as W, route};
+use super::{Group as G, Method as M, RouteDef, Service as S, Side as Sd, When as W, route};
 
 pub(super) const ROUTES: &[RouteDef] = &[
-    route(S::Backend, M::Get, r"/", G::ReforgedApi, Sd::Isles, W::Always, V::Both),
+    route(S::Backend, M::Get, r"/", G::ReforgedApi, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -13,7 +13,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -22,7 +21,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -31,7 +29,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -40,7 +37,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -49,7 +45,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -58,28 +53,11 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(S::Backend, M::Post, r"/login", G::Auth, Sd::Isles, W::Always, V::Both),
-    route(
-        S::Backend,
-        M::Get,
-        r"/accountinfo",
-        G::Auth,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
-    route(S::Backend, M::Get, r"/tags", G::Auth, Sd::Isles, W::Always, V::Both),
-    route(
-        S::Backend,
-        M::Put,
-        r"/gamesession/epic",
-        G::Auth,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Post, r"/login", G::Auth, Sd::Isles, W::Always),
+    route(S::Backend, M::Get, r"/accountinfo", G::Auth, Sd::Isles, W::Always),
+    route(S::Backend, M::Get, r"/tags", G::Auth, Sd::Isles, W::Always),
+    route(S::Backend, M::Put, r"/gamesession/epic", G::Auth, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Put,
@@ -87,7 +65,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -96,7 +73,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -105,18 +81,9 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/migration/status",
-        G::Auth,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
-    route(S::Backend, M::Get, r"/isbanned", G::Auth, Sd::Isles, W::Always, V::Both),
+    route(S::Backend, M::Get, r"/migration/status", G::Auth, Sd::Isles, W::Always),
+    route(S::Backend, M::Get, r"/isbanned", G::Auth, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Post,
@@ -124,7 +91,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -133,7 +99,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -142,7 +107,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -151,7 +115,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -160,7 +123,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -169,7 +131,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -178,7 +139,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -187,7 +147,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -196,26 +155,9 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Post,
-        r"/heartbeat",
-        G::GameData,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
-    route(
-        S::Backend,
-        M::Post,
-        r"/event",
-        G::GameData,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Post, r"/heartbeat", G::GameData, Sd::Isles, W::Always),
+    route(S::Backend, M::Post, r"/event", G::GameData, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -223,7 +165,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -232,17 +173,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/survey/config",
-        G::GameData,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/survey/config", G::GameData, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Post,
@@ -250,7 +182,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -259,7 +190,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -268,7 +198,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -277,35 +206,10 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/vivox/login",
-        G::Chat,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
-    route(
-        S::Backend,
-        M::Post,
-        r"/motd/",
-        G::GameData,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/motd/trigger",
-        G::GameData,
-        Sd::Isles,
-        W::Always,
-        V::Only1147,
-    ),
+    route(S::Backend, M::Get, r"/vivox/login", G::Chat, Sd::Isles, W::Always),
+    route(S::Backend, M::Post, r"/motd/", G::GameData, Sd::Isles, W::Always),
+    route(S::Backend, M::Get, r"/motd/trigger", G::GameData, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -313,7 +217,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -322,7 +225,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -331,7 +233,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -340,7 +241,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -349,7 +249,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -358,7 +257,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -367,17 +265,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/eventstats/",
-        G::GameData,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/eventstats/", G::GameData, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -385,17 +274,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/config",
-        G::GameData,
-        Sd::Isles,
-        W::Gauntlet,
-        V::Only1147,
-    ),
+    route(S::Backend, M::Get, r"/config", G::GameData, Sd::Isles, W::Gauntlet),
     route(
         S::Backend,
         M::Get,
@@ -403,7 +283,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Gauntlet,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -412,7 +291,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Gauntlet,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -421,7 +299,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Gauntlet,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -430,7 +307,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Gauntlet,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -439,7 +315,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -448,7 +323,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -457,7 +331,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -466,7 +339,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -475,7 +347,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -484,7 +355,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -493,7 +363,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -502,7 +371,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -511,7 +379,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -520,9 +387,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
-    route(S::Backend, M::Get, r"/all/", G::GameData, Sd::Isles, W::Always, V::Both),
+    route(S::Backend, M::Get, r"/all/", G::GameData, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -530,7 +396,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -539,7 +404,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -548,7 +412,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -557,7 +420,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -566,7 +428,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -575,7 +436,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -584,7 +444,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -593,7 +452,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -602,7 +460,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -611,7 +468,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -620,7 +476,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -629,26 +484,9 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/creator",
-        G::BountiesStore,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/balance",
-        G::BountiesStore,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/creator", G::BountiesStore, Sd::Isles, W::Always),
+    route(S::Backend, M::Get, r"/balance", G::BountiesStore, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -656,7 +494,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -665,7 +502,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -674,7 +510,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::BountiesStore,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -683,9 +518,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(S::Backend, M::Get, r"/guild", G::Chat, Sd::Isles, W::Always, V::Both),
+    route(S::Backend, M::Get, r"/guild", G::Chat, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -693,7 +527,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -702,7 +535,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -711,7 +543,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -720,7 +551,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -729,7 +559,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -738,7 +567,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::GameData,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -747,7 +575,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -756,7 +583,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -765,26 +591,9 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Post,
-        r"/key/generate",
-        G::Auth,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
-    route(
-        S::Backend,
-        M::Post,
-        r"/key/consume",
-        G::Auth,
-        Sd::Isles,
-        W::Always,
-        V::Only1147,
-    ),
+    route(S::Backend, M::Post, r"/key/generate", G::Auth, Sd::Isles, W::Always),
+    route(S::Backend, M::Post, r"/key/consume", G::Auth, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -792,7 +601,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -801,7 +609,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -810,7 +617,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -819,7 +625,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -828,7 +633,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -837,7 +641,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -846,17 +649,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/QoS",
-        G::MatchmakingParties,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/QoS", G::MatchmakingParties, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Post,
@@ -864,7 +658,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -873,7 +666,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -882,7 +674,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -891,7 +682,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -900,7 +690,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -909,7 +698,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -918,7 +706,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::MatchmakingParties,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -927,7 +714,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -936,7 +722,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -945,7 +730,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -954,7 +738,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -963,7 +746,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -972,7 +754,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -981,7 +762,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -990,7 +770,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -999,7 +778,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1008,7 +786,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1017,7 +794,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1026,7 +802,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1035,7 +810,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1044,7 +818,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1053,7 +826,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1062,7 +834,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1071,7 +842,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -1080,17 +850,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/pjm",
-        G::Progression,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/pjm", G::Progression, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -1098,7 +859,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1107,7 +867,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1116,7 +875,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Progression,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -1125,7 +883,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -1134,7 +891,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::InventoryReforge,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -1143,7 +899,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1152,7 +907,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1161,7 +915,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1170,7 +923,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1179,7 +931,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::CharactersLoadouts,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1188,7 +939,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1197,7 +947,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1206,7 +955,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1215,7 +963,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1224,7 +971,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1233,7 +979,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1242,7 +987,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -1251,7 +995,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Chat,
         Sd::Isles,
         W::Always,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -1260,7 +1003,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1269,7 +1011,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1278,7 +1019,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1287,7 +1027,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1296,7 +1035,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1305,7 +1043,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1314,7 +1051,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1323,7 +1059,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1332,7 +1067,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1341,7 +1075,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1350,7 +1083,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1359,7 +1091,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1368,7 +1099,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1377,7 +1107,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1386,17 +1115,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/launcher/v1/me",
-        G::Auth,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/launcher/v1/me", G::Auth, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -1404,7 +1124,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1413,7 +1132,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1422,7 +1140,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1431,7 +1148,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1440,17 +1156,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/launcher/v1/legal",
-        G::Auth,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/launcher/v1/legal", G::Auth, Sd::Isles, W::Always),
     route(
         S::Backend,
         M::Get,
@@ -1458,7 +1165,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1467,7 +1173,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1476,7 +1181,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1485,7 +1189,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1494,7 +1197,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1503,7 +1205,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Auth,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1512,7 +1213,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1521,7 +1221,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1530,7 +1229,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1539,7 +1237,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1548,7 +1245,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1557,7 +1253,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1566,7 +1261,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1575,7 +1269,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1584,7 +1277,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1593,7 +1285,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1602,7 +1293,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1611,7 +1301,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1620,7 +1309,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1629,7 +1317,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1638,7 +1325,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1647,7 +1333,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1656,7 +1341,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1665,7 +1349,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1674,7 +1357,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1683,7 +1365,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1692,7 +1373,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1701,7 +1381,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1710,7 +1389,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1719,7 +1397,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1728,7 +1405,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1737,7 +1413,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1746,7 +1421,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1755,7 +1429,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1764,7 +1437,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1773,17 +1445,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
-    route(
-        S::Backend,
-        M::Get,
-        r"/admin/v1/me",
-        G::ReforgedApi,
-        Sd::Isles,
-        W::Admin,
-        V::Both,
-    ),
+    route(S::Backend, M::Get, r"/admin/v1/me", G::ReforgedApi, Sd::Isles, W::Admin),
     route(
         S::Backend,
         M::Get,
@@ -1791,7 +1454,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1800,7 +1462,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1809,7 +1470,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1818,7 +1478,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1827,7 +1486,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1836,7 +1494,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1845,7 +1502,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1854,7 +1510,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1863,7 +1518,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1872,7 +1526,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1881,7 +1534,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1890,7 +1542,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1899,7 +1550,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1908,7 +1558,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1917,7 +1566,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1926,7 +1574,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1935,7 +1582,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1944,7 +1590,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1953,7 +1598,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1962,7 +1606,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1971,7 +1614,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::ReforgedApi,
         Sd::Isles,
         W::Admin,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1980,7 +1622,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1989,7 +1630,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -1998,7 +1638,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Always,
-        V::Both,
     ),
     route(
         S::Backend,
@@ -2007,7 +1646,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2016,7 +1654,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2025,7 +1662,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2034,7 +1670,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2043,7 +1678,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2052,7 +1686,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2061,7 +1694,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2070,7 +1702,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2079,7 +1710,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Guard,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2088,7 +1718,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2097,7 +1726,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2106,7 +1734,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2115,7 +1742,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2124,7 +1750,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2133,7 +1758,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2142,7 +1766,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2151,7 +1774,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2160,7 +1782,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2169,7 +1790,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2178,7 +1798,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2187,7 +1806,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2196,7 +1814,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2205,7 +1822,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2214,7 +1830,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2223,7 +1838,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2232,7 +1846,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2241,7 +1854,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2250,7 +1862,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2259,7 +1870,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2268,7 +1878,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2277,7 +1886,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2286,7 +1894,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2295,7 +1902,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2304,7 +1910,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2313,7 +1918,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2322,7 +1926,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2331,7 +1934,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2340,7 +1942,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2349,7 +1950,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2358,7 +1958,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2367,7 +1966,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2376,7 +1974,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2385,7 +1982,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2394,7 +1990,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2403,7 +1998,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2412,7 +2006,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2421,7 +2014,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2430,7 +2022,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2439,7 +2030,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2448,7 +2038,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2457,7 +2046,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2466,7 +2054,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2475,7 +2062,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2484,7 +2070,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2493,7 +2078,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2502,7 +2086,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2511,7 +2094,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
     route(
         S::Backend,
@@ -2520,17 +2102,8 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Realms,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
-    route(
-        S::Director,
-        M::Get,
-        r"/health/ready",
-        G::Director,
-        Sd::Isles,
-        W::Always,
-        V::Both,
-    ),
+    route(S::Director, M::Get, r"/health/ready", G::Director, Sd::Isles, W::Always),
     route(
         S::Director,
         M::Get,
@@ -2538,7 +2111,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Director,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Director,
@@ -2547,7 +2119,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Director,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Director,
@@ -2556,7 +2127,6 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::Director,
         Sd::Isles,
         W::Always,
-        V::Both,
     ),
     route(
         S::Director,
@@ -2565,6 +2135,5 @@ pub(super) const ROUTES: &[RouteDef] = &[
         G::P2p,
         Sd::Rifts,
         W::Rifts,
-        V::Only1147,
     ),
 ];

@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-/// A setting both versions read whose default is the version's.
+/// A setting whose default is the module's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SharedSwitch {
     /// Node's variable
@@ -38,12 +38,12 @@ pub const MASTERY_PERSISTENCE: SharedSwitch = SharedSwitch {
 pub const BOUNTY_PERSISTENCE: SharedSwitch = SharedSwitch {
     env: "MYSTICPARADOX_BOUNTY_PERSISTENCE",
     key: "bounty_persistence",
-    help: "Whether bounty saves are stored (off is 1.12.0's empty stub): on or off",
+    help: "Whether bounty saves are stored: on or off",
 };
 pub const COOLDOWN_PERSISTENCE: SharedSwitch = SharedSwitch {
     env: "MYSTICPARADOX_COOLDOWN_PERSISTENCE",
     key: "cooldown_persistence",
-    help: "Whether cooldown saves are stored (off is 1.12.0's empty stub): on or off",
+    help: "Whether cooldown saves are stored: on or off",
 };
 
 pub const SWITCHES: [SharedSwitch; 5] = [

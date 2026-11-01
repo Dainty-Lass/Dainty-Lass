@@ -183,18 +183,6 @@ impl Ctx {
             .any(|off| raw.eq_ignore_ascii_case(off))
     }
 
-    /// 1.12.0 had Lady Luck alone, and found a SKU by the first match; a version with more sections refuses an
-    /// ambiguous one (RU3c's `STORE_SECTIONS`).
-    fn legacy_lookup(&self) -> bool {
-        self.shared.version.tables.store_sections == ["ladyluckstore"]
-    }
-
-    /// 1.12.0's bounty and cooldown routes are stubs that check nothing and store nothing. 1.14.7 with the switch off
-    /// still judges who may read and write; only a version whose own default is off answers the bare stub.
-    fn stub_mode(&self, switch: SharedSwitch) -> bool {
-        !self.persistence(switch) && self.shared.version.tables.switch_default(switch) == Some("off")
-    }
-
     fn catalog(&self) -> Arc<StoreCatalog> {
         catalog_for(&self.shared.game_data, self.shared.version.tables.store_sections)
     }
@@ -284,7 +272,7 @@ pub async fn entitlements_get(call: Call) -> Response {
     };
     let user_id = auth.user_id.clone().unwrap_or_else(|| NO_PLAYER.to_owned());
     tracing::debug!("Entitlements for {user_id}");
-    // 1.12.0 answers a stub whatever is stored (the hook); no database is needed to say so
+    // The hook shapes the answer; no database is needed for an empty list
     let list = if user_id.is_empty() || user_id == NO_PLAYER || ctx.shared.store.is_none() {
         Vec::new()
     } else {
@@ -335,10 +323,6 @@ pub async fn cooldown_get(call: Call) -> Response {
         Err(response) => return response,
     };
     let user_id = ctx.param("userId");
-    if ctx.stub_mode(COOLDOWN_PERSISTENCE) {
-        tracing::debug!("Cooldowns (stubbed)");
-        return envelope(200, "OK", json!({}));
-    }
     let persistence = ctx.persistence(COOLDOWN_PERSISTENCE);
     let account = match resolve_if_needed(&ctx, auth, &user_id, persistence).await {
         Ok(account) => account,
@@ -463,10 +447,6 @@ pub async fn cooldown_batch(call: Call) -> Response {
         Err(response) => return response,
     };
     let user_id = ctx.param("userId");
-    if ctx.stub_mode(COOLDOWN_PERSISTENCE) {
-        tracing::info!("Add Cooldowns (stubbed)");
-        return envelope(200, "OK", json!({}));
-    }
     // A player-host runtime may save cooldowns too, but only later than the stored date
     let is_host_write = !is_authorized_cooldown_writer(auth) && is_host_cooldown_writer(auth);
     if !is_authorized_cooldown_writer(auth) && !is_host_write {
@@ -658,7 +638,7 @@ pub async fn cooldown_start(call: Call) -> Response {
 
 // ---- bounties
 
-/// `GET /bounty/game-data`: a stub, the same on both versions.
+/// `GET /bounty/game-data`: a stub.
 pub async fn bounty_game_data(call: Call) -> Response {
     let ctx = match Ctx::read(call).await {
         Ok(ctx) => ctx,
@@ -706,10 +686,6 @@ pub async fn bounty_get(call: Call) -> Response {
         Err(response) => return response,
     };
     let user_id = ctx.param("userId");
-    if ctx.stub_mode(BOUNTY_PERSISTENCE) {
-        tracing::info!("Bounties (stubbed)");
-        return envelope(200, "OK", bounty_state_payload(None));
-    }
     let persistence = ctx.persistence(BOUNTY_PERSISTENCE);
     let account = match resolve_if_needed(&ctx, auth, &user_id, persistence).await {
         Ok(account) => account,
@@ -817,10 +793,6 @@ pub async fn bounty_post(call: Call) -> Response {
         Err(response) => return response,
     };
     let user_id = ctx.param("userId");
-    if ctx.stub_mode(BOUNTY_PERSISTENCE) {
-        tracing::info!("Set Bounties (stubbed)");
-        return envelope(200, "OK", bounty_state_payload(None));
-    }
     // A player-host runtime (a Paradox-account realm) saves bounties like a dedicated server, claims included, once the
     // host-write hooks allow it
     let is_host_write = !is_authorized_bounty_writer(auth) && is_host_bounty_writer(auth);
@@ -1339,7 +1311,7 @@ pub async fn token(call: Call) -> Response {
     };
     let catalog_id = ctx.param("catalogId");
     let catalog = ctx.catalog();
-    let Some((store_tag, sku)) = catalog.find_by_id_or_catalog_id(&catalog_id, ctx.legacy_lookup()) else {
+    let Some((store_tag, sku)) = catalog.find_by_id_or_catalog_id(&catalog_id) else {
         tracing::warn!(
             "[Store] GetPurchaseToken: unknown or ambiguous sku/catalogId '{catalog_id}' (currency={}) for {}",
             ctx.param("currency"),
@@ -1548,7 +1520,7 @@ pub async fn notification(call: Call) -> Response {
     // unambiguously; every new token is explicitly store-bound
     let store_tag = claims.store_tag.clone().or_else(|| {
         catalog
-            .find_by_id_or_catalog_id(&claims.sku_id, ctx.legacy_lookup())
+            .find_by_id_or_catalog_id(&claims.sku_id)
             .map(|(tag, _)| tag.to_owned())
     });
     let Some(store_tag) = store_tag else {

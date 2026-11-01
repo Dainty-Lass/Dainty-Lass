@@ -19,7 +19,7 @@ const MAX_TRIALS_ROTATION_MINUTES: i64 = 525_600;
 
 pub const PLAYER_TABLE: &str = "player_hunts_table.json";
 /// The matchmaker tables by name and file. The first is the main table and wins a row-name collision;
-/// the two `_new` Trials tables came with 1.14.7 (reached only through tag routing), so 1.12.0 has none.
+/// the two `_new` Trials tables are reached only through tag routing.
 pub const MATCHMAKER_TABLES: [(&str, &str); 6] = [
     ("matchmaker_hunts_table", "matchmaker_hunts_table.json"),
     ("arena_easy_matchmaker_hunts", "arena_easy_matchmaker_hunts.json"),
@@ -63,13 +63,11 @@ fn read_table(dir: &Path, file: &str) -> Result<Map<String, Value>, String> {
     }
 }
 
-/// Reads every hunt table from `dir`; an error when one is missing, as the Director always had. `trials_new` is
-/// the version's (`DirectorConfig::trials_new_tables`): whether the two `_new` Trials tables are part of it.
-pub fn load_tables(dir: &Path, trials_new: bool) -> Result<Tables, String> {
+/// Reads every hunt table from `dir`; an error when one is missing, as the Director always had.
+pub fn load_tables(dir: &Path) -> Result<Tables, String> {
     let player_rows = read_table(dir, PLAYER_TABLE)?;
     let mut matchmaker_sources = Vec::new();
-    let wanted = if trials_new { 6 } else { 4 };
-    for (name, file) in MATCHMAKER_TABLES.into_iter().take(wanted) {
+    for (name, file) in MATCHMAKER_TABLES {
         matchmaker_sources.push((name.to_owned(), read_table(dir, file)?));
     }
     Ok(Tables {

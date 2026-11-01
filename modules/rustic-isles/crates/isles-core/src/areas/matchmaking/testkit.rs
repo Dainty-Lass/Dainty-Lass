@@ -63,23 +63,8 @@ pub const TABLES: VersionTables = tables(
         value: "80",
     }],
 );
-pub const TABLES_112: VersionTables = tables(
-    392_819,
-    "1.12.0",
-    &[SwitchDefault {
-        switch: QOS_PORT,
-        value: "off",
-    }],
-);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Which {
-    V1147,
-    V1120,
-}
-
-/// The `candidate_destination` hook of each version; the rest of the hooks are not this area's.
-struct Hooks(Which);
+/// 1.14.7's `candidate_destination` hook; the rest of the hooks are not this area's.
+struct Hooks;
 
 impl VersionHooks for Hooks {
     fn no_player_policy(&self) -> NoPlayerPolicy {
@@ -87,9 +72,6 @@ impl VersionHooks for Hooks {
     }
     fn game_session_payload(&self, _: &str) -> Value {
         Value::Null
-    }
-    fn network_encryption_keys(&self) -> bool {
-        false
     }
     fn weapons_at_base_level(&self, _: &Settings) -> bool {
         false
@@ -123,9 +105,6 @@ impl VersionHooks for Hooks {
             game_mode: GameMode::Island,
             hunt_id: Some(hunt_id.to_owned()),
         };
-        if self.0 == Which::V1120 {
-            return island;
-        }
         if hunt_id == "ShatteredIsles_ReturnToRamsgate" {
             Destination {
                 game_mode: GameMode::City,
@@ -142,18 +121,11 @@ impl VersionHooks for Hooks {
     }
 }
 
-pub fn version(which: Which) -> IslesVersion {
-    match which {
-        Which::V1147 => IslesVersion {
-            hooks: Arc::new(Hooks(which)),
-            tables: TABLES,
-            routes: RouteSet::V1147,
-        },
-        Which::V1120 => IslesVersion {
-            hooks: Arc::new(Hooks(which)),
-            tables: TABLES_112,
-            routes: RouteSet::V1120,
-        },
+pub fn version() -> IslesVersion {
+    IslesVersion {
+        hooks: Arc::new(Hooks),
+        tables: TABLES,
+        routes: RouteSet::V1147,
     }
 }
 
@@ -241,9 +213,9 @@ impl DedicatedServers for FakeDeploy {
     }
 }
 
-/// A module of `which`, matchmaking in `DEPLOYSERVER` mode with no Go Now delay, talking to `deploy`.
-pub fn shared(which: Which, pairs: &[(&str, &str)], deploy: Arc<dyn DedicatedServers>) -> Shared {
-    let mut shared = Shared::bare(version(which));
+/// A module matchmaking in `DEPLOYSERVER` mode with no Go Now delay, talking to `deploy`.
+pub fn shared(pairs: &[(&str, &str)], deploy: Arc<dyn DedicatedServers>) -> Shared {
+    let mut shared = Shared::bare(version());
     let mut settings = vec![
         ("MATCHMAKING_MODE", "DEPLOYSERVER"),
         ("HUNT_GO_NOW_MIN_DELAY_MS", "10000"),

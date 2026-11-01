@@ -58,8 +58,6 @@ pub struct Config {
     pub gameserver_log_dir: PathBuf,
     pub windows_hide: bool,
     pub trials_rotation_minutes: Option<String>,
-    /// Whether the version's two `_new` Trials tables are part of its hunt tables
-    pub trials_new_tables: bool,
     pub memory: crate::memory::Options,
     pub memory_problems: Vec<String>,
     /// What every game server inherits: the controller's environment and the env file
@@ -143,7 +141,6 @@ impl Config {
             ),
             windows_hide: director.hide_window(settings),
             trials_rotation_minutes: settings.raw("TRIALS_ROTATION_MINUTES").map(str::to_owned),
-            trials_new_tables: director.trials_new_tables,
             memory,
             memory_problems,
             child_env: child_env.into_iter().collect(),

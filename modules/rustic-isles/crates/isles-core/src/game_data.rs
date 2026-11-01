@@ -37,7 +37,7 @@ pub const DIRECTOR_FILES: [&str; 5] = [
     "arena_elite_matchmaker_hunts.json",
 ];
 
-/// The Director's two Trials tables 1.14.7 added (`shared/hunt-manifest`'s `HUNT_TABLE_FILES`); 1.12.0 reads only
+/// The Director's two Trials tables 1.14.7 added (`shared/hunt-manifest`'s `HUNT_TABLE_FILES`), beside
 /// [`DIRECTOR_FILES`].
 pub const DIRECTOR_TRIALS_FILES: [&str; 2] = [
     "arena_hard_matchmaker_hunts_new.json",

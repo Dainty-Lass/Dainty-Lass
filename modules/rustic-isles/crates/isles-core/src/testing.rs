@@ -96,12 +96,11 @@ pub struct Mounts {
 
 impl Mounts {
     pub fn mounted(&self, route: &RouteDef) -> bool {
-        self.set.serves(route)
-            && match route.when {
-                When::Admin => self.admin,
-                When::Rifts => self.rifts,
-                _ => true,
-            }
+        match route.when {
+            When::Admin => self.admin,
+            When::Rifts => self.rifts,
+            _ => true,
+        }
     }
 }
 

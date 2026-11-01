@@ -500,11 +500,6 @@ async fn the_status_has_a_full_and_a_limited_view_per_changelist() {
         ),
         (json!(0), json!([]), json!([]))
     );
-    // The same node's 1.12 module reports its own changelist
-    let old = server(RouteSet::V1120, &[]).await;
-    let body = get(old.address, "/reforged/api/ServerStatus", &[]).await.json();
-    assert_eq!(body["game"]["changelist"], 392_819);
-    assert_eq!(body["game"]["executableSha256"], Value::Null);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -645,17 +640,6 @@ async fn metrics_need_loopback_or_a_token() {
     )
     .await;
     assert_eq!(header.status, 200);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn the_112_module_serves_the_node_scope_routes_too() {
-    let s = server(RouteSet::V1120, &[]).await;
-    assert_eq!(
-        get(s.address, "/reforged/api/RegistrationStatus", &[]).await.text(),
-        r#"{"mode":"OPEN"}"#
-    );
-    assert_eq!(get(s.address, "/health/live", &[]).await.status, 200);
-    assert_eq!(register(&s, "Fox_9", None).await.status, 200);
 }
 
 #[tokio::test(flavor = "multi_thread")]

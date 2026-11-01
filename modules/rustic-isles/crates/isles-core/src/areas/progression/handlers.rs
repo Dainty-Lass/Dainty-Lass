@@ -50,7 +50,7 @@ macro_rules! tried {
 // ---------------------------------------------------------------------------------------------------------------
 // /huntpass
 
-/// `GET /huntpass/:userId`: `huntpass_payload` is the version's (a bare string on 1.12.0).
+/// `GET /huntpass/:userId`: `huntpass_payload` is the version's.
 pub async fn huntpass(call: Call, ports: Ports) -> Response {
     let req = prepare!(call, ports);
     let id = served_huntpass_id(&req.shared);

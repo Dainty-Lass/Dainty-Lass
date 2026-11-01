@@ -1,6 +1,6 @@
 //! `GET /progression/config` and the rolling Hunt Pass windows of 1.14.7 (`routes/system.ts`'s
 //! `WidenHuntPassWindows`, 2026-10-03 and 2026-10-08): the client picks the active pass by date, so the served file's
-//! windows are rewritten at every read. 1.12.0 serves the file as it is (`ProgressionConfigRule::AsIs`).
+//! windows are rewritten at every read; `ProgressionConfigRule::AsIs` serves the file as it is.
 
 use std::collections::HashSet;
 

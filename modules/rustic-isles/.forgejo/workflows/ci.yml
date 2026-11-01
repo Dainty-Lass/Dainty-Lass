@@ -29,8 +29,6 @@ jobs:
           - ParadoxDirector
           - reference/1.14.7/ParadoxBackend
           - reference/1.14.7/ParadoxDirector
-          - reference/1.12.0/ParadoxBackend
-          - reference/1.12.0/ParadoxDirector
     defaults:
       run:
         shell: bash
@@ -54,6 +52,5 @@ jobs:
           fi
           cd "$DIR"
           npm ci --no-audit --no-fund
-          # 1.12.0's Director has no tests
           npm run test --if-present
           npm run build
