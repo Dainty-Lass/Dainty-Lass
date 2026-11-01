@@ -2,7 +2,7 @@
 
 Project-specific guidance for AI coding agents.
 
-This branch is mid-migration: the Node projects are being ported to one Rust codebase, Mystic Paradox
+This branch is mid-migration: the Node projects are being ported to one Rust codebase, Rustic Isles
 included. [`MIGRATION_PLAN.md`](MIGRATION_PLAN.md) is the source of truth for what is done, what is next and
 why. Read its "What's left" table and the decisions (RD rows) before starting anything, and the row you were
 given in full, with the DR rows and the `docs/port/` delta file it names.
@@ -30,8 +30,8 @@ the Reforged Revival Node kit) are imported by `dainty-legacy`, an external plug
 here. On the default path (since the RU9 code cutover, maintainer decision 2026-10-28), `host::serve` runs the
 compiled-in Rust `isles-1-14-7` backend (port 61000) and in-process `isles-director` (port 61001) on `store` (SQLite
 by default, or Postgres), with `isles-1-14-7` and realms linked in by the server binaries' `all-modules` feature
-(DF5). For one release after the cutover (until RB15), the opt-in `paradox` Cargo feature on `host` retains Mystic
-Paradox's Node backend and Director from `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
+(DF5). For one release after the cutover (until RB15), the opt-in `paradox` Cargo feature on `host` retains Rustic
+Isles's Node backend and Director from `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 
 The server is one executable (RD26). Every service is a module of `crates/controller`, behind its own Cargo
 feature (`modules.rs`), composed by `host::serve` from the files `setup` writes, and still runnable alone as a

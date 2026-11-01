@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::HostError;
 
-pub const RUNTIME_FILE_NAMES: [&str; 2] = ["MysticParadox.dll", "winmm.dll"];
+pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
 pub const GAME_CHANGELIST: u32 = 647472;
 pub const GAME_VERSION_TEXT: &str = "dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472";
 pub const PINNED_EXE_SHA256: &str = "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b";
@@ -183,7 +183,7 @@ impl Paths {
         let runtime_source = isles.join("native").join("runtime");
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
-        let runtime_dll = runtime_source.join("x64").join("Release").join("MysticParadox.dll");
+        let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
         let loader_dir = repo.join("native").join("runtime-loader");
         let loader_dll = loader_dir
             .join("target")

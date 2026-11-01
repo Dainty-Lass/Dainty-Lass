@@ -4,7 +4,7 @@ Draft, 2026-10-24. **Superseded where it differs by RD26** in [MIGRATION_PLAN.md
 (2026-10-25): this is the design the `feat/app-structure` merge (`c57f157`) was built from, kept for its reasoning.
 What shipped differs: two server binaries and the launcher's two, not twelve crates; `protocol::Game` and the
 `legacy` feature, not Refined and Reforged editions; the host kit's `secrets.env` and env files, not secrets the
-controller makes; the backend and Director as Mystic Paradox's Node processes, not Rust listeners; and each service
+controller makes; the backend and Director as Rustic Isles's Node processes, not Rust listeners; and each service
 still runnable alone as a `reforged-host` subcommand.
 
 This document specifies the architectural conversion of the DaintyLass Rust codebase into:

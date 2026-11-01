@@ -114,11 +114,11 @@ write(at("pack", "pack.json"), zlib.gunzipSync(fs.readFileSync(pack.file)));
 write(at("pack", "result.json"), JSON.stringify({ included: pack.included, left: pack.left }, null, 2) + "\n");
 
 // ---------------------------------------------------------------- runtime
-const runtimeSources = { "MysticParadox.dll": at("runtime", "build", "MysticParadox.dll"), "winmm.dll": at("runtime", "build", "winmm.dll") };
-write(runtimeSources["MysticParadox.dll"], Buffer.alloc(6000, 3));
+const runtimeSources = { "Rustic-Isles.dll": at("runtime", "build", "Rustic-Isles.dll"), "winmm.dll": at("runtime", "build", "winmm.dll") };
+write(runtimeSources["Rustic-Isles.dll"], Buffer.alloc(6000, 3));
 write(runtimeSources["winmm.dll"], Buffer.alloc(2000, 4));
 publishRuntime({ runtimePublish: at("runtime", "published") }, new Date("2026-10-15T00:00:00Z"), runtimeSources);
-for (const name of ["MysticParadox.dll", "winmm.dll"]) fs.rmSync(at("runtime", "published", name));
+for (const name of ["Rustic-Isles.dll", "winmm.dll"]) fs.rmSync(at("runtime", "published", name));
 fs.rmSync(at("runtime", "build"), { recursive: true });
 
 fs.rmSync(tmp, { recursive: true, force: true });

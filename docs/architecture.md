@@ -25,7 +25,7 @@ under [security/](security) go through each trust boundary line by line.
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
 `/launcher`, `/internal`, `/health`, and `/__node/*` without a valid cluster client certificate) and headers
-(`x-mysticparadox-gameserver-apikey`, `x-reforged-admin-key`, `x-mysticparadox-metrics-token`) before anything
+(`x-rustic-isles-gameserver-apikey`, `x-reforged-admin-key`, `x-rustic-isles-metrics-token`, and their `x-mysticparadox-` forms) before anything
 reaches an upstream. The game servers' UDP ports are opened per player address by the allowlist only after that
 player logs in. When realms are enabled on 1.14.7, `turn-rs` (or `coturn`) listens on UDP/TCP 3478 (and optional
 TLS 5349 plus its UDP relay port range) because STUN/TURN traffic cannot sit behind an HTTP gateway
@@ -68,14 +68,14 @@ DaintyLass separates **core plugins** from **game modules** ([`rust/crates/modul
 3. **Status and identity.** `GET /reforged/api/ServerStatus` (with the key, the full view: players and
    instances; without it, the limited one) and `GET /reforged/api/GetUserInfo` (the account's id and name, or
    a ban with its reason).
-4. **The runtime.** The content server lists the host's build of `MysticParadox.dll` and `winmm.dll` with sizes
+4. **The runtime.** The content server lists the host's build of `Rustic-Isles.dll` and `winmm.dll` with sizes
    and SHA-256s (`/content/v1/runtime/manifest`). The launcher shows them, the player accepts them once, and
    every launch checks the files again. The launcher never injects: the DLL reaches the game only through the
    loader's `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or an unknown DLL sits beside
    the loader.
 5. **Play.** The launcher starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<key>` and `REFORGED_BACKEND_URL`
    pointing at its relay. The relay carries the game's HTTP and chat to the gateway and answers the game's
-   region ping (`/QoS`) locally; the game only ever sees `127.0.0.1:61100`. The backend runs Mystic Paradox
+   region ping (`/QoS`) locally; the game only ever sees `127.0.0.1:61100`. The backend runs Rustic Isles
    with `AUTH_MODE=APIKEY`, so the key is the game's login.
 
 ## The launcher API
@@ -106,7 +106,7 @@ added there without a policy decision fails CI.
 - **The gateway trusts its policy and nothing in a request.** Hop-by-hop headers are stripped, the host-only
   ones dropped, rate limits applied per class, and only `POST /heartbeat` feeds the allowlist.
 - **The content server trusts the backend's answer about a key**, cached briefly, and its own folders.
-- **The backend trusts the game servers' key** (`x-mysticparadox-gameserver-apikey`, loopback only) and the
+- **The backend trusts the game servers' key** (`x-rustic-isles-gameserver-apikey`, loopback only) and the
   admin key on loopback. It stores account keys only as HMACs.
 - **The host kit trusts `host.toml` and `secrets.env`** in `.workspace/config`, which it wrote. Every service
   reads one env file and nothing from its working directory; `start` clears the environment of anything that

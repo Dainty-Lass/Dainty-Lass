@@ -88,7 +88,7 @@ Defines static port assignments, pinned game build constants for Dauntless 1.14.
 #### Constants & Types
 
 ```rust
-pub const RUNTIME_FILE_NAMES: [&str; 2] = ["MysticParadox.dll", "winmm.dll"];
+pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
 pub const GAME_CHANGELIST: u32 = 647472;
 pub const GAME_VERSION_TEXT: &str = "dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472";
 pub const PINNED_EXE_SHA256: &str = "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b";
@@ -178,7 +178,7 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - `runtime_source`: `<repo>/modules/rustic-isles/native/runtime`
   - `sdk_header`: `<repo>/modules/rustic-isles/native/runtime/SDK.hpp`
   - `sdk_dir`: `<repo>/modules/rustic-isles/native/runtime/SDK`
-  - `runtime_dll`: `<repo>/modules/rustic-isles/native/runtime/x64/Release/MysticParadox.dll`
+  - `runtime_dll`: `<repo>/modules/rustic-isles/native/runtime/x64/Release/Rustic-Isles.dll`
   - `loader_dir`: `<repo>/native/runtime-loader`
   - `loader_dll`: `<repo>/native/runtime-loader/target/x86_64-pc-windows-msvc/release/winmm.dll`
   - `exporter_dir`: `<repo>/modules/rustic-isles/native/catalog-exporter`
@@ -327,11 +327,11 @@ pub const SECRET_KEYS: [&str; 11] = [
     "REFORGED_ADMIN_KEY",
     "GAMESERVER_API_KEY",
     "API_KEY_HASH_SECRET",
-    "MYSTICPARADOX_METRICS_TOKEN",
+    "RUSTIC_ISLES_METRICS_TOKEN",
     "AUTH_SIGNING_PRIVKEY_B64",
     "AUTH_SIGNING_PUBKEY_B64",
     "REFORGED_ADMIN_API_KEY",
-    "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
+    "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
     "REFORGED_DB_PASSWORD",
 ];
 pub const NODE_CERT_FILE: &str = "node-cert.pem";
@@ -483,20 +483,20 @@ pub const LEGACY_ENV_FILES: [&str; 2] = ["metagame", "deploy"];
    - `guard`, `switches`, `modules`, `network`, `history`: validated via their respective `validate` / `from_json` methods; if `network.nodes` is non-empty and `mode != "public"`, fails with `"network.nodes needs mode = \"public\": node links run over the gateway's TLS port"`; if `history.shipToPeer` is set, requires `network` with `peer != network.node` and `peer` listed in `network.nodes`.
 2. **`build_env_files(c, s, p, source_commit, platform)` Exact Entries:**
    - **`backend`:**
-     - `NODE_ENV=production`, `MYSTICPARADOX_SERVICE_ROLE=api`, `MYSTICPARADOX_METRICS_TOKEN=<s.metrics_token>`, `PORT=61000`, `BIND_HOST=127.0.0.1`, `REFORGED_HTTP_ONLY=true`, `QOS_PORT=0`, `QOS_TARGET_URL=http://127.0.0.1:61100/QoS`, `AUTH_MODE=APIKEY`, `ALLOW_NO_AUTH_DEV_MODE=false`, `AUTH_SIGNING_PRIVKEY_B64=<s.jwt_private_key_b64>`, `AUTH_SIGNING_PUBKEY_B64=<s.jwt_public_key_b64>`, `API_KEY_HASH_SECRET=<s.api_key_hash_secret>`, `GAMESERVER_API_KEYS=<s.gameserver_key>`.
+     - `NODE_ENV=production`, `RUSTIC_ISLES_SERVICE_ROLE=api`, `RUSTIC_ISLES_METRICS_TOKEN=<s.metrics_token>`, `PORT=61000`, `BIND_HOST=127.0.0.1`, `REFORGED_HTTP_ONLY=true`, `QOS_PORT=0`, `QOS_TARGET_URL=http://127.0.0.1:61100/QoS`, `AUTH_MODE=APIKEY`, `ALLOW_NO_AUTH_DEV_MODE=false`, `AUTH_SIGNING_PRIVKEY_B64=<s.jwt_private_key_b64>`, `AUTH_SIGNING_PUBKEY_B64=<s.jwt_public_key_b64>`, `API_KEY_HASH_SECRET=<s.api_key_hash_secret>`, `GAMESERVER_API_KEYS=<s.gameserver_key>`.
      - When `cfg!(feature = "paradox")`: `MONGODB_URI=<c.mongo.uri>`, `MONGODB_DB=reforged`, `MONGODB_APP_NAME=reforged-backend`, `MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS=15000`.
-     - `TARGET_CHANGELIST=647472`, `APPROVED_EXECUTABLE_SHA256=<PINNED_EXE_SHA256>`, `MATCHMAKING_MODE=DEPLOYSERVER`, `DEPLOYSERVER_URL=127.0.0.1:61001`, `HUNT_GO_NOW_MIN_DELAY_MS=1`, `HUNT_GO_NOW_MAX_DELAY_MS=1000`, `REALTIME_XMPP_ENABLED=true`, `REALTIME_XMPP_CAPTURE=false`, `REALTIME_XMPP_ALLOWED_HOSTS=<c.host>`, `REALTIME_XMPP_DEV_CITY_MUC=false`, `REGISTRATION_MODE=<c.registration>`, `REFORGED_ADMIN_KEY=<s.admin_key>`, `MYSTICPARADOX_MANAGER_ADMIN=on`, `MYSTICPARADOX_MANAGER_OPERATOR_SECRET=<s.operator_secret>`, `REFORGED_SERVER_NAME=<c.name>`, `REFORGED_SERVER_VERSION=0.1.0`, `REFORGED_SOURCE_URL=https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival`, `REFORGED_SOURCE_COMMIT=<source_commit>`, `REFORGED_SERVER_MODE=<c.mode>`, `REFORGED_SERVER_HOST=<c.host>`.
+     - `TARGET_CHANGELIST=647472`, `APPROVED_EXECUTABLE_SHA256=<PINNED_EXE_SHA256>`, `MATCHMAKING_MODE=DEPLOYSERVER`, `DEPLOYSERVER_URL=127.0.0.1:61001`, `HUNT_GO_NOW_MIN_DELAY_MS=1`, `HUNT_GO_NOW_MAX_DELAY_MS=1000`, `REALTIME_XMPP_ENABLED=true`, `REALTIME_XMPP_CAPTURE=false`, `REALTIME_XMPP_ALLOWED_HOSTS=<c.host>`, `REALTIME_XMPP_DEV_CITY_MUC=false`, `REGISTRATION_MODE=<c.registration>`, `REFORGED_ADMIN_KEY=<s.admin_key>`, `RUSTIC_ISLES_MANAGER_ADMIN=on`, `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET=<s.operator_secret>`, `REFORGED_SERVER_NAME=<c.name>`, `REFORGED_SERVER_VERSION=0.1.0`, `REFORGED_SOURCE_URL=https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival`, `REFORGED_SOURCE_COMMIT=<source_commit>`, `REFORGED_SERVER_MODE=<c.mode>`, `REFORGED_SERVER_HOST=<c.host>`.
      - If `multipliers_on(c)`: `REFORGED_XP_MULTIPLIER=<jsjson::number(m.xp)>`, `REFORGED_REWARD_MULTIPLIER=<jsjson::number(m.rewards)>`.
      - Switch env entries from `c.modules` (`isles-1-14-7` `switches` section) overlaid by `c.switches.env()`.
      - `REFORGED_SESSION_SUPPLIES_FILE=<p.config/session-supplies.json>`, `LOG_LEVEL=info`.
    - **`director`:**
      - `NODE_ENV=production`, `PORT=61001`, `BIND_HOST=127.0.0.1`, `MY_IP=<c.game_address>`, `PORT_RANGE_BEGIN=<first>`, `PORT_RANGE_END=<last>`, `GAMESERVER_BINARY_PATH=<linux: p.gameserver_wrapper ; else exe_text>`.
      - If `linux`: `REFORGED_GAME_EXE=<exe_text>`, optional `REFORGED_WINE`, optional `REFORGED_PROTON`, `REFORGED_WINEPREFIX=<p.wine_prefix>`, `REFORGED_PROTON_DATA=<p.proton_data>`, `REFORGED_XVFB=<"1"|"0">`.
-     - `METAGAME_API_KEY=<s.gameserver_key>`, `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=3`, `GAMESERVER_READY_TIMEOUT_MS=<"90000" if linux else "30000">`, `MAX_CONCURRENT_HUNT_SERVERS=<c.max_hunt_servers>`, `TRAINING_ON_DEMAND=<"1"|"0">`, `TRAINING_IDLE_STOP_MINUTES=<perf.training_idle_minutes if training_on_demand else 0>`, optional `GAMESERVER_RUNTIME_LOG_DIR=<exe.parent()>` (when `c.game_dir` is `Some`), `GAMESERVER_MEMORY_GUARD=<"1"|"0">`, `GAMESERVER_MIN_FREE_MB=<perf.min_free_memory_mb>`, `GAMESERVER_HUNT_MEMORY_MB=<perf.hunt_memory_mb>`, `REFORGED_SERVER_MAX_FPS=<perf.server_fps>`, `REFORGED_SERVER_IDLE_FPS=<perf.idle_fps>`, optional `GAMESERVER_LOG_CMDS=<QUIET_GAME_LOG_CMDS>` (when `!perf.verbose_game_logs`), `SERVER_RUNTIME_AUTO_UPDATE=false`, `SERVER_RUNTIME_UPDATE_REQUIRED=false`, `GAMESERVER_LOG_DIR=<p.gameserver_logs>`, `REFORGED_BACKEND_URL=http://127.0.0.1:61000`, `MYSTICPARADOX_RUNTIME_PROFILE=production`, `LOG_LEVEL=info`.
+     - `METAGAME_API_KEY=<s.gameserver_key>`, `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP=3`, `GAMESERVER_READY_TIMEOUT_MS=<"90000" if linux else "30000">`, `MAX_CONCURRENT_HUNT_SERVERS=<c.max_hunt_servers>`, `TRAINING_ON_DEMAND=<"1"|"0">`, `TRAINING_IDLE_STOP_MINUTES=<perf.training_idle_minutes if training_on_demand else 0>`, optional `GAMESERVER_RUNTIME_LOG_DIR=<exe.parent()>` (when `c.game_dir` is `Some`), `GAMESERVER_MEMORY_GUARD=<"1"|"0">`, `GAMESERVER_MIN_FREE_MB=<perf.min_free_memory_mb>`, `GAMESERVER_HUNT_MEMORY_MB=<perf.hunt_memory_mb>`, `REFORGED_SERVER_MAX_FPS=<perf.server_fps>`, `REFORGED_SERVER_IDLE_FPS=<perf.idle_fps>`, optional `GAMESERVER_LOG_CMDS=<QUIET_GAME_LOG_CMDS>` (when `!perf.verbose_game_logs`), `SERVER_RUNTIME_AUTO_UPDATE=false`, `SERVER_RUNTIME_UPDATE_REQUIRED=false`, `GAMESERVER_LOG_DIR=<p.gameserver_logs>`, `REFORGED_BACKEND_URL=http://127.0.0.1:61000`, `RUSTIC_ISLES_RUNTIME_PROFILE=production`, `LOG_LEVEL=info`.
    - **`content`:**
      - `PORT=61002`, `BIND_HOST=127.0.0.1`, `BACKEND_URL=http://127.0.0.1:61000`, `CONTENT_RUNTIME_DIR=<p.runtime_publish>`, `CONTENT_BRANDING_DIR=<p.branding>`, `CONTENT_NEWS_FILE=<p.news_file>`.
    - **`admin`:**
-     - `PORT=61003`, `BIND_HOST=127.0.0.1`, `BACKEND_URL=http://127.0.0.1:61000`, `REFORGED_DIRECTOR_URL=http://127.0.0.1:61001`, `REFORGED_ADMIN_API_KEY=<s.admin_api_key>`, `REFORGED_ADMIN_KEY=<s.admin_key>`, `MYSTICPARADOX_MANAGER_OPERATOR_SECRET=<s.operator_secret>`, `REFORGED_ADMIN_API_TIMEOUTS_FILE=<p.config/admin-timeouts.json>`, `REFORGED_MAX_HUNT_SERVERS=<c.max_hunt_servers>`, `REFORGED_SERVER_MODE=<c.mode>`, followed by database environment variables (`REFORGED_DB_ENGINE=sqlite`, `REFORGED_DB_FILE=<p.config/dainty-lass.db>` or `REFORGED_DB_ENGINE=postgres`, `REFORGED_DB_HOST`, `REFORGED_DB_PORT`, `REFORGED_DB_USER`, `REFORGED_DB_NAME`, `REFORGED_DB_PASSWORD`, optional `REFORGED_DB_ALLOW_REMOTE=1`) and `c.guard.env()`.
+     - `PORT=61003`, `BIND_HOST=127.0.0.1`, `BACKEND_URL=http://127.0.0.1:61000`, `REFORGED_DIRECTOR_URL=http://127.0.0.1:61001`, `REFORGED_ADMIN_API_KEY=<s.admin_api_key>`, `REFORGED_ADMIN_KEY=<s.admin_key>`, `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET=<s.operator_secret>`, `REFORGED_ADMIN_API_TIMEOUTS_FILE=<p.config/admin-timeouts.json>`, `REFORGED_MAX_HUNT_SERVERS=<c.max_hunt_servers>`, `REFORGED_SERVER_MODE=<c.mode>`, followed by database environment variables (`REFORGED_DB_ENGINE=sqlite`, `REFORGED_DB_FILE=<p.config/dainty-lass.db>` or `REFORGED_DB_ENGINE=postgres`, `REFORGED_DB_HOST`, `REFORGED_DB_PORT`, `REFORGED_DB_USER`, `REFORGED_DB_NAME`, `REFORGED_DB_PASSWORD`, optional `REFORGED_DB_ALLOW_REMOTE=1`) and `c.guard.env()`.
    - **`gateway` & `allowlist`:**
      - Common gateway entries: `GATEWAY_SECRET=<s.gateway_secret>`, `GATEWAY_BACKEND_URL=http://127.0.0.1:61000`, `GATEWAY_CONTENT_URL=http://127.0.0.1:61002`, `GATEWAY_WS_URL=http://127.0.0.1:61000`.
      - In `Public` mode:
@@ -634,7 +634,7 @@ pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostE
 ### 2.7 Module 8: `doctor`
 
 #### Responsibility
-Runs comprehensive diagnostic checks across tools, configuration, Mystic Paradox sources/builds, game data, published runtime, game installation, performance/RAM, Linux/Wine/systemd/firewall, network/TLS certificates, database state, and running services.
+Runs comprehensive diagnostic checks across tools, configuration, Rustic Isles sources/builds, game data, published runtime, game installation, performance/RAM, Linux/Wine/systemd/firewall, network/TLS certificates, database state, and running services.
 
 #### Public Types & Functions
 
@@ -1161,7 +1161,7 @@ pub fn write_progression_source(exports_dir: &Path, source_file: &Path) -> Resul
 ### 2.14 Module 16: `publish`
 
 #### Responsibility
-Publishes `MysticParadox.dll` and `winmm.dll` into `.workspace/runtime/`, writes `.workspace/runtime/runtime.json`, installs the DLLs beside the server's own `Dauntless-Win64-Shipping.exe` (safely moving locked DLLs aside on Windows), and creates required server flag files (`CALL_HUNTPASS_QUERY.flag`).
+Publishes `Rustic-Isles.dll` and `winmm.dll` into `.workspace/runtime/`, writes `.workspace/runtime/runtime.json`, installs the DLLs beside the server's own `Dauntless-Win64-Shipping.exe` (safely moving locked DLLs aside on Windows), and creates required server flag files (`CALL_HUNTPASS_QUERY.flag`).
 
 #### Constants, Types & Functions
 
@@ -1215,7 +1215,7 @@ pub fn ensure_server_flags(win64_dir: &Path) -> Result<Vec<String>, HostError>;
 1. **Runtime Version Format (`runtime_version(now, hashes)`):**
    `<YYYYMMDD>-<first 8 hex of SHA-256(hashes.join(":"))>` (e.g. `20260417-a1b2c3d4`), and `PublishedRuntime::to_json` formats `{"version": ..., "build": {"changelist": 647472}, "files": [{"name", "size", "sha256"}]}` with `stringify_pretty` + `"\n"`.
 2. **Publishing (`publish_runtime`):**
-   - Verifies both source files (`MysticParadox.dll` and `winmm.dll`) exist; if missing, returns `Err("<name> is not built yet (<path>)")`.
+   - Verifies both source files (`Rustic-Isles.dll` and `winmm.dll`) exist; if missing, returns `Err("<name> is not built yet (<path>)")`.
    - Copies both files into `.workspace/runtime/`, computes their sizes and lowercase hex SHA-256 digests, and atomically writes `.workspace/runtime/runtime.json` last.
 3. **Locked DLL Replacement (`replace_loaded_file`, `install_server_runtime`):**
    - Sweeps any stale `<name>.rr-old-*` files in `win64_dir` first.

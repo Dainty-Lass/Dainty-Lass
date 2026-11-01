@@ -340,7 +340,7 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
                 "Read from an installed Dauntless {} client for interoperability: identifiers and tuning values (item catalogue, store, progression and hunt tables), no game assets.",
                 game_tag()
             ),
-            "Sources: CatalogExporter's export from the running game, converted by Mystic Paradox's game-data generators and the host kit (npm run gamedata).".to_owned(),
+            "Sources: CatalogExporter's export from the running game, converted by Rustic Isles's game-data generators and the host kit (npm run gamedata).".to_owned(),
             exe_line,
             "Lady Luck's Store and the platinum store are not in it: npm run gamedata builds them on each server from the live store captures (paradox/backend/store-captures.json).".to_owned(),
             "A host's own generated game data takes precedence over this preset. Regenerate it with npm run preset -- --create; do not edit the files by hand.".to_owned(),

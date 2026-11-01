@@ -7,7 +7,7 @@ proposed a registry, capabilities, a loopback module API and a sidecar superviso
 form. This version keeps what exists, cuts what duplicates it, and lists only the additions.
 
 **One game.** Dauntless 1.14.7 on rustic-isles (`isles-1-14-7`, from `modules/rustic-isles`) and nothing else. No
-Dauntless Revived 1.4.4 or Mystic Paradox 1.12 modules, so nothing here is per edition.
+Dauntless Revived 1.4.4 or Rustic Isles 1.12 modules, so nothing here is per edition.
 
 **Words.** A *server* is one DaintyLass install: a `ServerController` (`crates/controller/src/controller.rs`) with its
 `ModuleRegistry` (`crates/controller/src/registry.rs`). The *fleet controller* is the install with

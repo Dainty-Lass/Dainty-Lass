@@ -109,7 +109,7 @@ fn manifest() -> Value {
         "build": { "name": "rel-1.14.7-Archon", "changelist": 647472 },
         "files": [
             { "name": "winmm.dll", "size": 40001, "sha256": hash('b') },
-            { "name": "MysticParadox.dll", "size": 200001, "sha256": hash('a') },
+            { "name": "Rustic-Isles.dll", "size": 200001, "sha256": hash('a') },
         ],
     })
 }
@@ -124,7 +124,7 @@ fn runtime_manifests_name_the_two_files_only() {
             changelist: Some(647472),
             files: vec![
                 RuntimeFileInfo {
-                    name: "MysticParadox.dll".into(),
+                    name: "Rustic-Isles.dll".into(),
                     size: 200001,
                     sha256: hash('a')
                 },
@@ -142,6 +142,20 @@ fn runtime_manifests_name_the_two_files_only() {
         edit(&mut raw);
         parse_runtime_manifest(Some(&raw))
     };
+    // A host that still publishes the runtime under its name from before the rename (DX4)
+    assert_eq!(
+        with(&|raw| raw["files"][1]["name"] = "MysticParadox.dll".into())
+            .unwrap()
+            .files[0]
+            .name,
+        "MysticParadox.dll"
+    );
+    assert_eq!(
+        with(
+            &|raw| raw["files"][0] = serde_json::json!({ "name": "MysticParadox.dll", "size": 1, "sha256": hash('a') })
+        ),
+        None
+    );
     // Kept, with the build read loosely
     assert_eq!(with(&|raw| raw["build"] = Value::Null).unwrap().changelist, None);
     assert_eq!(
@@ -172,7 +186,7 @@ fn runtime_manifests_name_the_two_files_only() {
     let refused: [&dyn Fn(&mut Value); 14] = [
         &|raw| raw["files"][0]["name"] = "evil.dll".into(),
         &|raw| raw["files"][0]["name"] = "..\\winmm.dll".into(),
-        &|raw| raw["files"][0]["name"] = "MysticParadox.dll".into(),
+        &|raw| raw["files"][0]["name"] = "Rustic-Isles.dll".into(),
         &|raw| raw["files"][0]["sha256"] = hash('B').into(),
         &|raw| raw["files"][0]["sha256"] = "ab".into(),
         &|raw| raw["files"][0]["size"] = 0.into(),

@@ -31,7 +31,7 @@ pub use parse::{
     vswhere_msbuild,
 };
 
-pub const RUNTIME_FILE_NAMES: [&str; 2] = ["MysticParadox.dll", "winmm.dll"];
+pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
 
 pub const BACKEND_GAME_DATA: [&str; 7] = [
     "progression_config.json",
@@ -165,8 +165,8 @@ impl WorkspacePaths {
 
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
-        let runtime_solution = runtime_source.join("MysticParadox.sln");
-        let runtime_dll = runtime_source.join("x64").join("Release").join("MysticParadox.dll");
+        let runtime_solution = runtime_source.join("Rustic-Isles.sln");
+        let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
         let exporter_project = exporter_dir.join("CatalogExporter.vcxproj");
         let exporter_dll = exporter_dir.join("x64").join("Release").join("CatalogExporter.dll");
         let exports = paradox.join("Items_Analysis");

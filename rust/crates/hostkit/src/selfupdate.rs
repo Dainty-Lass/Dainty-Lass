@@ -1060,10 +1060,13 @@ fn is_runtime_manifest_path(path: &str) -> bool {
     let norm = path.replace('\\', "/");
     norm.starts_with("modules/rustic-isles/native/runtime/")
         || norm.starts_with("native/runtime/")
-        || norm.ends_with("/MysticParadox.dll")
+        || norm.ends_with("/Rustic-Isles.dll")
         || norm.ends_with("/winmm.dll")
-        || norm == "MysticParadox.dll"
+        || norm == "Rustic-Isles.dll"
         || norm == "winmm.dll"
+        // An older release's manifest lists the runtime under its name from before the Rustic Isles rename
+        || norm.ends_with("/MysticParadox.dll")
+        || norm == "MysticParadox.dll"
 }
 
 pub fn runtime_changed(previous: &Manifest, next: &Manifest) -> bool {

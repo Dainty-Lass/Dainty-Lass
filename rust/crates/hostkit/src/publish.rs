@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 
 use crate::error::HostError;
 use crate::paths::{GAME_CHANGELIST, Paths, RUNTIME_FILE_NAMES};
+use protocol::manifest::{LEGACY_RUNTIME_DLL, RUNTIME_DLL};
 
 pub const ASIDE_MARK: &str = ".rr-old-";
 pub const SERVER_RUNTIME_FLAGS: [&str; 1] = ["CALL_HUNTPASS_QUERY.flag"];
@@ -117,7 +118,7 @@ pub fn replace_loaded_file(tmp: &Path, target: &Path) -> Result<Replaced, HostEr
 
 pub fn default_sources(p: &Paths) -> [(&'static str, PathBuf); 2] {
     [
-        ("MysticParadox.dll", p.runtime_dll.clone()),
+        (RUNTIME_DLL, p.runtime_dll.clone()),
         ("winmm.dll", p.loader_dll.clone()),
     ]
 }
@@ -167,6 +168,8 @@ pub fn publish_runtime(
     let manifest_dest = p.runtime_publish.join("runtime.json");
     std::fs::write(&manifest_tmp, published.to_json()).map_err(|e| HostError::io(&manifest_tmp, e))?;
     let _ = replace_loaded_file(&manifest_tmp, &manifest_dest)?;
+    // The runtime under its name from before the Rustic Isles rename, published by an older kit (DX4)
+    let _ = std::fs::remove_file(p.runtime_publish.join(LEGACY_RUNTIME_DLL));
 
     Ok(published)
 }
@@ -212,6 +215,10 @@ pub fn install_server_runtime(p: &Paths, win64_dir: &Path) -> InstalledRuntime {
         if let Err(e) = std::fs::copy(&src, &tmp) {
             out.failed.push((name.to_owned(), e.to_string()));
             continue;
+        }
+        if name == RUNTIME_DLL {
+            // An older kit's copy under the old name would be loaded instead if it were ever the newer file (DX4)
+            let _ = std::fs::remove_file(win64_dir.join(LEGACY_RUNTIME_DLL));
         }
         match replace_loaded_file(&tmp, &target) {
             Ok(Replaced::Replaced) => {
@@ -262,7 +269,10 @@ mod tests {
 
         let now = Utc.with_ymd_and_hms(2026, 4, 17, 12, 0, 0).unwrap();
         let sources = default_sources(&paths);
+        std::fs::create_dir_all(&paths.runtime_publish).unwrap();
+        std::fs::write(paths.runtime_publish.join("MysticParadox.dll"), b"an older kit's").unwrap();
         let published = publish_runtime(&paths, now, &sources).unwrap();
+        assert!(!paths.runtime_publish.join("MysticParadox.dll").exists());
         assert!(published.version.starts_with("20260417-"));
         assert_eq!(published.changelist, GAME_CHANGELIST);
         assert_eq!(published.files.len(), 2);
@@ -270,20 +280,22 @@ mod tests {
 
         let win64 = tmp.path().join("Win64");
         std::fs::create_dir_all(&win64).unwrap();
-        std::fs::write(win64.join("MysticParadox.dll.rr-old-123"), b"stale").unwrap();
+        std::fs::write(win64.join("Rustic-Isles.dll.rr-old-123"), b"stale").unwrap();
+        std::fs::write(win64.join("MysticParadox.dll"), b"an older kit's").unwrap();
 
         let installed = install_server_runtime(&paths, &win64);
         assert_eq!(
             installed.installed,
-            vec!["MysticParadox.dll".to_owned(), "winmm.dll".to_owned()]
+            vec!["Rustic-Isles.dll".to_owned(), "winmm.dll".to_owned()]
         );
         assert!(installed.failed.is_empty());
-        assert!(!win64.join("MysticParadox.dll.rr-old-123").exists());
+        assert!(!win64.join("Rustic-Isles.dll.rr-old-123").exists());
+        assert!(!win64.join("MysticParadox.dll").exists());
 
         let installed_again = install_server_runtime(&paths, &win64);
         assert_eq!(
             installed_again.unchanged,
-            vec!["MysticParadox.dll".to_owned(), "winmm.dll".to_owned()]
+            vec!["Rustic-Isles.dll".to_owned(), "winmm.dll".to_owned()]
         );
         assert!(installed_again.installed.is_empty());
 

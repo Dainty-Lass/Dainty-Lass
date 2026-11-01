@@ -13,7 +13,7 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 ## What it is and where the boundary is
 
 The gateway is the server's only public port. Everything a player's game, runtime and launcher send comes through
-it; everything behind it (the Mystic Paradox backend, its chat listener, the content server, the allowlist helper)
+it; everything behind it (the Rustic Isles backend, its chat listener, the content server, the allowlist helper)
 listens on loopback and trusts that the gateway already refused what must not reach it.
 
 - **In, public mode:** TLS on `GATEWAY_BIND:GATEWAY_PORT` (default `0.0.0.0:443`) with the server's self-signed
@@ -78,9 +78,13 @@ Fuzz targets in `rust/fuzz`:
       key and even as an upgrade. The test reads every route from `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, so a
       route added there is covered (`policy.rs` and `tests/gateway.rs`, `only_the_public_reforged_routes_*`).
 - [ ] `/admin`, `/launcher`, `/internal` and `/health`, and everything under them, are 403 `host_only_route`
-      (Mystic Paradox's admin API, its own launcher API, metrics and readiness probes).
-- [ ] A request with `x-mysticparadox-gameserver-apikey`, `x-reforged-admin-key` or
-      `x-mysticparadox-metrics-token` is 403, whatever its value or route.
+      (Rustic Isles's admin API, its own launcher API, metrics and readiness probes).
+- [ ] A request with `x-rustic-isles-gameserver-apikey`, `x-rustic-isles-gameserver-key`, `x-reforged-admin-key` or
+      `x-rustic-isles-metrics-token` is 403, whatever its value, letter case or route. So is each one's
+      `x-mysticparadox-` form: the backend still reads those for one release after the Rustic Isles rename (DX4),
+      so a player must not reach it with either (`HOST_ONLY_HEADERS`, `GAMESERVER_KEY_HEADERS`;
+      `refuses_the_admin_key_and_the_metrics_token_headers`, `the_game_server_key_header_is_always_refused`,
+      `tests/gateway.rs`). The capture shows any of the game server key's names as `<gskey>` and the rest redacted.
 - [ ] `/content` goes to the content server only when it was not behind `/__origin`.
 - [ ] Only GET, HEAD, POST, PUT, DELETE, PATCH and OPTIONS pass (405 otherwise). An upgrade must be a `GET` with
       `Upgrade: websocket`.

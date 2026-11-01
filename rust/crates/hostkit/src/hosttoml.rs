@@ -522,33 +522,33 @@ fn comment(path: &str) -> &'static str {
             "A peer node id in [[network.nodes]] that receives this node's change log and snapshots over Service::LogShip (DH7)."
         }
         "switches" => "Backend persistence and rule switches (left out: each version's own defaults).",
-        "switches.reforge" => "Weapon reforge rules (MYSTICPARADOX_REFORGE): \"on\", \"log\" or \"off\".",
+        "switches.reforge" => "Weapon reforge rules (RUSTIC_ISLES_REFORGE): \"on\", \"log\" or \"off\".",
         "switches.mastery_persistence" => {
-            "Whether a game server's mastery report is saved (MYSTICPARADOX_MASTERY_PERSISTENCE): \"on\" or \"off\"."
+            "Whether a game server's mastery report is saved (RUSTIC_ISLES_MASTERY_PERSISTENCE): \"on\" or \"off\"."
         }
         "switches.bounty_persistence" => {
-            "Whether bounty saves are stored (MYSTICPARADOX_BOUNTY_PERSISTENCE): \"on\" or \"off\"."
+            "Whether bounty saves are stored (RUSTIC_ISLES_BOUNTY_PERSISTENCE): \"on\" or \"off\"."
         }
         "switches.cooldown_persistence" => {
-            "Whether cooldown saves are stored (MYSTICPARADOX_COOLDOWN_PERSISTENCE): \"on\" or \"off\"."
+            "Whether cooldown saves are stored (RUSTIC_ISLES_COOLDOWN_PERSISTENCE): \"on\" or \"off\"."
         }
         "switches.account_erasure" => {
-            "Whether the background sweep erases accounts past their deletion grace period (MYSTICPARADOX_ACCOUNT_ERASURE): \"on\" or \"off\"."
+            "Whether the background sweep erases accounts past their deletion grace period (RUSTIC_ISLES_ACCOUNT_ERASURE): \"on\" or \"off\"."
         }
         "switches.log_purge" => {
-            "Whether the background sweep purges expired verification codes and activity logs (MYSTICPARADOX_LOG_PURGE): \"on\" or \"off\"."
+            "Whether the background sweep purges expired verification codes and activity logs (RUSTIC_ISLES_LOG_PURGE): \"on\" or \"off\"."
         }
         "switches.rate_limit" => {
-            "Whether the 1.14.7 per-minute HTTP request budget is active (MYSTICPARADOX_RATE_LIMIT): \"on\" or \"off\"."
+            "Whether the 1.14.7 per-minute HTTP request budget is active (RUSTIC_ISLES_RATE_LIMIT): \"on\" or \"off\"."
         }
         "switches.rate_limit_per_minute" => {
-            "Per-minute HTTP request budget for a client address (MYSTICPARADOX_RATE_LIMIT_PER_MINUTE, 600 when left out)."
+            "Per-minute HTTP request budget for a client address (RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE, 600 when left out)."
         }
         "switches.gameserver_rate_limit_per_minute" => {
-            "Per-minute HTTP request budget for a dedicated game server address (MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE, 6000 when left out)."
+            "Per-minute HTTP request budget for a dedicated game server address (RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE, 6000 when left out)."
         }
         "switches.host_rate_limit_per_minute" => {
-            "Per-minute HTTP request budget for a player-hosted hunt capability (MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE, 6000 when left out)."
+            "Per-minute HTTP request budget for a player-hosted hunt capability (RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE, 6000 when left out)."
         }
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",

@@ -74,7 +74,7 @@ Code: `rust/services/host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `pro
 
 ### Runtime publishing
 
-- [ ] `publish-runtime` copies exactly `MysticParadox.dll` and `winmm.dll`, from the checkout's builds or the
+- [ ] `publish-runtime` copies exactly `Rustic-Isles.dll` and `winmm.dll`, from the checkout's builds or the
   `--from` folder the host names, and writes `runtime.json` last (after a `.tmp` and a rename), so the content server
   never lists a file that is not in place.
 - [ ] `runtime.json`'s hashes are of the copied files, not the sources. Its format is the Node kit's, byte for byte

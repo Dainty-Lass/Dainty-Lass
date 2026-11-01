@@ -458,15 +458,15 @@ pub fn performance_checks(
             out.push(Check {
                 area,
                 level: Level::Ok,
-                text: "MysticParadox.dll includes patches 0019 (CPU fixes) and 0020 (frame cap)".to_owned(),
+                text: "Rustic-Isles.dll includes patches 0019 (CPU fixes) and 0020 (frame cap)".to_owned(),
                 fix: None,
             });
         } else {
             out.push(Check {
                 area,
                 level: Level::Warn,
-                text: "MysticParadox.dll is missing patches 0019 (CPU fixes) and 0020 (frame cap)".to_owned(),
-                fix: Some("rebuild and publish MysticParadox.dll".to_owned()),
+                text: "Rustic-Isles.dll is missing patches 0019 (CPU fixes) and 0020 (frame cap)".to_owned(),
+                fix: Some("rebuild and publish Rustic-Isles.dll".to_owned()),
             });
         }
     }
@@ -895,7 +895,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
 
     checks.extend(game_checks(config.game_dir.as_deref(), opts.hash_exe)?);
 
-    let published_dll = p.runtime_publish.join("MysticParadox.dll");
+    let published_dll = p.runtime_publish.join("Rustic-Isles.dll");
     let dll_to_check = if published_dll.is_file() {
         Some(published_dll.as_path())
     } else if p.runtime_dll.is_file() {
@@ -1005,7 +1005,7 @@ mod tests {
     #[test]
     fn runtime_cpu_patches_detects_utf16le_and_ascii_markers() {
         let tmp = TempDir::new().unwrap();
-        let dll = tmp.path().join("MysticParadox.dll");
+        let dll = tmp.path().join("Rustic-Isles.dll");
         let mut bytes = Vec::new();
         bytes.extend_from_slice(b"header");
         for unit in "LEGACY_EXPECTED_PLAYER_WALK.flag".encode_utf16() {

@@ -225,10 +225,12 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
 
 ### What changed on the backend's side
 
-- [ ] `MYSTICPARADOX_MANAGER_ADMIN=on` in `backend.env` makes `/admin/v1/*` accept the signed credential: from
+- [ ] `RUSTIC_ISLES_MANAGER_ADMIN=on` in `backend.env` makes `/admin/v1/*` accept the signed credential: from
       loopback only, with no forwarding header, a timestamp within 60 s, and a signature not seen in 120 s. The
       gateway already refuses `/admin` (`rust/services/gateway/src/policy.rs`).
-- [ ] `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` is in `secrets.env` (owner-only), `backend.env` and `admin.env`. The
+- [ ] `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` is in `secrets.env` (owner-only), `backend.env` and `admin.env`;
+      `setup` moves it from `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` with the same value, and the admin API reads
+      the old name for one release. The
       env files are owner-only too (`write_secret_file`).
 - [ ] `POST /reforged/api/Kick` sits behind `HasAdminKey` (the admin key, a loopback peer, no gateway or
       `X-Forwarded-For` header). The gateway refuses it like every `/reforged/api` route not on its public list

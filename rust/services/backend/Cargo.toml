@@ -1,6 +1,6 @@
 [package]
 name = "backend"
-description = "The game backend, Mystic Paradox's API in Rust (MIGRATION_PLAN.md RB rows)"
+description = "The game backend, Rustic Isles's API in Rust (MIGRATION_PLAN.md RB rows)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

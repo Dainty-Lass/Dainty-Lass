@@ -1303,11 +1303,11 @@ fn publishing_writes_the_files_and_a_runtime_json_then_installs_them_for_the_gam
     let win64 = game.path();
     assert_eq!(
         install_server_runtime(&p, win64).installed,
-        ["MysticParadox.dll", "winmm.dll"]
+        ["Rustic-Isles.dll", "winmm.dll"]
     );
     assert_eq!(
         install_server_runtime(&p, win64).unchanged,
-        ["MysticParadox.dll", "winmm.dll"]
+        ["Rustic-Isles.dll", "winmm.dll"]
     );
     assert_eq!(
         ensure_server_flags(win64).unwrap(),
@@ -1330,11 +1330,11 @@ fn clears_old_runtime_files_a_previous_install_had_to_move_aside() {
     publish_runtime(&p, Utc::now(), &default_sources(&p)).unwrap();
     let game = TempDir::new().unwrap();
     let win64 = game.path();
-    write(&win64.join("MysticParadox.dll.rr-old-123"), "old");
+    write(&win64.join("Rustic-Isles.dll.rr-old-123"), "old");
     let r = install_server_runtime(&p, win64);
     assert!(r.in_use.is_empty());
-    assert!(!win64.join("MysticParadox.dll.rr-old-123").exists());
-    assert!(!win64.join("MysticParadox.dll.tmp").exists());
+    assert!(!win64.join("Rustic-Isles.dll.rr-old-123").exists());
+    assert!(!win64.join("Rustic-Isles.dll.tmp").exists());
 }
 
 #[test]

@@ -18,8 +18,8 @@ What it needs, all written by setup:
 | Variable | In | What |
 | --- | --- | --- |
 | `REFORGED_ADMIN_API_KEY` | `secrets.env`, `admin.env` | The key callers send as `Authorization: Bearer <key>` |
-| `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` | `secrets.env`, `admin.env`, `backend.env` | Signs the API's calls to the backend's `/admin/v1` routes |
-| `MYSTICPARADOX_MANAGER_ADMIN=on` | `backend.env` | Lets the backend accept those signed calls |
+| `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `secrets.env`, `admin.env`, `backend.env` | Signs the API's calls to the backend's `/admin/v1` routes |
+| `RUSTIC_ISLES_MANAGER_ADMIN=on` | `backend.env` | Lets the backend accept those signed calls |
 | `REFORGED_ADMIN_KEY` | `secrets.env`, `admin.env`, `backend.env` | The backend's existing admin key, for the kick |
 | `PORT`, `BIND_HOST` | `admin.env` | 61003, 127.0.0.1. Any non-loopback address stops the start |
 | `BACKEND_URL`, `REFORGED_DIRECTOR_URL` | `admin.env` | `http://127.0.0.1:61000` and `:61001`. Loopback only |

@@ -22,7 +22,7 @@ chat = ["controller/chat"]
 stub-module = ["controller/stub-module"]
 isles-1-14-7 = ["controller/isles-1-14-7", "dep:isles-1-14-7", "dep:isles-db", "dep:isles-core", "dep:isles-director"]
 realms = ["controller/realms", "isles-1-14-7?/realms"]
-# Opt-in rollback path for one release until RB15 deletes it: Mystic Paradox's Node backend and Director
+# Opt-in rollback path for one release until RB15 deletes it: Rustic Isles's Node backend and Director
 # and MongoDB
 paradox = ["dep:isles-db", "hostkit/paradox"]
 

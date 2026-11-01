@@ -607,7 +607,7 @@ fn checkout() -> (tempfile::TempDir, Paths, PathBuf) {
     for file in [
         l.backend_dir.join("package.json"),
         l.director_dir.join("package.json"),
-        l.runtime_source.join("MysticParadox.vcxproj"),
+        l.runtime_source.join("Rustic-Isles.vcxproj"),
         l.loader_dir.join("Cargo.toml"),
         l.exporter_dir.join("CatalogExporter.vcxproj"),
     ] {
@@ -648,7 +648,7 @@ fn a_fresh_private_setup_then_again() {
         "{text}"
     );
     assert!(
-        text.contains("\n1. Mystic Paradox (modules/rustic-isles and native/ in this project)\n- in place"),
+        text.contains("\n1. Rustic Isles (modules/rustic-isles and native/ in this project)\n- in place"),
         "{text}"
     );
     assert!(text.contains("- backend: npm ci (mocked)"));

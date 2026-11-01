@@ -57,12 +57,21 @@ pub const SECRET_KEYS: [&str; 11] = [
     "REFORGED_ADMIN_KEY",
     "GAMESERVER_API_KEY",
     "API_KEY_HASH_SECRET",
-    "MYSTICPARADOX_METRICS_TOKEN",
+    "RUSTIC_ISLES_METRICS_TOKEN",
     "AUTH_SIGNING_PRIVKEY_B64",
     "AUTH_SIGNING_PUBKEY_B64",
     "REFORGED_ADMIN_API_KEY",
-    "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
+    "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
     "REFORGED_DB_PASSWORD",
+];
+/// Secrets under their names from before the Rustic Isles rename: `setup` moves each to its new name with the same value,
+/// never a fresh one, since a changed secret breaks every signed call (DX4)
+pub const RENAMED_SECRET_KEYS: [(&str, &str); 2] = [
+    ("MYSTICPARADOX_METRICS_TOKEN", "RUSTIC_ISLES_METRICS_TOKEN"),
+    (
+        "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
+        "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
+    ),
 ];
 pub const NODE_CERT_FILE: &str = "node-cert.pem";
 pub const NODE_KEY_FILE: &str = "node-key.pem";
@@ -267,50 +276,50 @@ impl Default for PerformanceOptions {
 }
 
 const SWITCH_STRINGS: [(&str, &str, &str, &[&str]); 7] = [
-    ("reforge", "reforge", "MYSTICPARADOX_REFORGE", &["on", "log", "off"]),
+    ("reforge", "reforge", "RUSTIC_ISLES_REFORGE", &["on", "log", "off"]),
     (
         "masteryPersistence",
         "mastery_persistence",
-        "MYSTICPARADOX_MASTERY_PERSISTENCE",
+        "RUSTIC_ISLES_MASTERY_PERSISTENCE",
         &["on", "off"],
     ),
     (
         "bountyPersistence",
         "bounty_persistence",
-        "MYSTICPARADOX_BOUNTY_PERSISTENCE",
+        "RUSTIC_ISLES_BOUNTY_PERSISTENCE",
         &["on", "off"],
     ),
     (
         "cooldownPersistence",
         "cooldown_persistence",
-        "MYSTICPARADOX_COOLDOWN_PERSISTENCE",
+        "RUSTIC_ISLES_COOLDOWN_PERSISTENCE",
         &["on", "off"],
     ),
     (
         "accountErasure",
         "account_erasure",
-        "MYSTICPARADOX_ACCOUNT_ERASURE",
+        "RUSTIC_ISLES_ACCOUNT_ERASURE",
         &["on", "off"],
     ),
-    ("logPurge", "log_purge", "MYSTICPARADOX_LOG_PURGE", &["on", "off"]),
-    ("rateLimit", "rate_limit", "MYSTICPARADOX_RATE_LIMIT", &["on", "off"]),
+    ("logPurge", "log_purge", "RUSTIC_ISLES_LOG_PURGE", &["on", "off"]),
+    ("rateLimit", "rate_limit", "RUSTIC_ISLES_RATE_LIMIT", &["on", "off"]),
 ];
 
 const SWITCH_NUMBERS: [(&str, &str, &str); 3] = [
     (
         "rateLimitPerMinute",
         "rate_limit_per_minute",
-        "MYSTICPARADOX_RATE_LIMIT_PER_MINUTE",
+        "RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE",
     ),
     (
         "gameserverRateLimitPerMinute",
         "gameserver_rate_limit_per_minute",
-        "MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE",
+        "RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE",
     ),
     (
         "hostRateLimitPerMinute",
         "host_rate_limit_per_minute",
-        "MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE",
+        "RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE",
     ),
 ];
 
@@ -2194,11 +2203,11 @@ pub fn load_or_create_secrets(
             ("REFORGED_ADMIN_KEY", s.admin_key.as_str()),
             ("GAMESERVER_API_KEY", s.gameserver_key.as_str()),
             ("API_KEY_HASH_SECRET", s.api_key_hash_secret.as_str()),
-            ("MYSTICPARADOX_METRICS_TOKEN", s.metrics_token.as_str()),
+            ("RUSTIC_ISLES_METRICS_TOKEN", s.metrics_token.as_str()),
             ("AUTH_SIGNING_PRIVKEY_B64", s.jwt_private_key_b64.as_str()),
             ("AUTH_SIGNING_PUBKEY_B64", s.jwt_public_key_b64.as_str()),
             ("REFORGED_ADMIN_API_KEY", s.admin_api_key.as_str()),
-            ("MYSTICPARADOX_MANAGER_OPERATOR_SECRET", s.operator_secret.as_str()),
+            ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", s.operator_secret.as_str()),
             ("REFORGED_DB_PASSWORD", s.database_password.as_str()),
         ];
         let header = [
@@ -2212,10 +2221,14 @@ pub fn load_or_create_secrets(
 
     let raw = std::fs::read_to_string(&file).map_err(|e| HostError::io(&file, e))?;
     let mut doc = EnvDocument::parse(&raw);
+    let renamed = rename_secrets(&mut doc)?;
     let existing = doc.values();
     let missing = SECRET_KEYS
         .iter()
         .any(|k| existing.get(k).is_none_or(|v| v.trim().is_empty()));
+    if renamed && !missing {
+        write_secret_file(&file, &doc.to_text())?;
+    }
     if missing {
         let fresh = make()?;
         let fresh_pairs = [
@@ -2224,11 +2237,11 @@ pub fn load_or_create_secrets(
             ("REFORGED_ADMIN_KEY", fresh.admin_key.as_str()),
             ("GAMESERVER_API_KEY", fresh.gameserver_key.as_str()),
             ("API_KEY_HASH_SECRET", fresh.api_key_hash_secret.as_str()),
-            ("MYSTICPARADOX_METRICS_TOKEN", fresh.metrics_token.as_str()),
+            ("RUSTIC_ISLES_METRICS_TOKEN", fresh.metrics_token.as_str()),
             ("AUTH_SIGNING_PRIVKEY_B64", fresh.jwt_private_key_b64.as_str()),
             ("AUTH_SIGNING_PUBKEY_B64", fresh.jwt_public_key_b64.as_str()),
             ("REFORGED_ADMIN_API_KEY", fresh.admin_api_key.as_str()),
-            ("MYSTICPARADOX_MANAGER_OPERATOR_SECRET", fresh.operator_secret.as_str()),
+            ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", fresh.operator_secret.as_str()),
             ("REFORGED_DB_PASSWORD", fresh.database_password.as_str()),
         ];
         for (k, v) in fresh_pairs {
@@ -2247,15 +2260,32 @@ pub fn load_or_create_secrets(
             admin_key: get("REFORGED_ADMIN_KEY"),
             gameserver_key: get("GAMESERVER_API_KEY"),
             api_key_hash_secret: get("API_KEY_HASH_SECRET"),
-            metrics_token: get("MYSTICPARADOX_METRICS_TOKEN"),
+            metrics_token: get("RUSTIC_ISLES_METRICS_TOKEN"),
             jwt_private_key_b64: get("AUTH_SIGNING_PRIVKEY_B64"),
             jwt_public_key_b64: get("AUTH_SIGNING_PUBKEY_B64"),
             admin_api_key: get("REFORGED_ADMIN_API_KEY"),
-            operator_secret: get("MYSTICPARADOX_MANAGER_OPERATOR_SECRET"),
+            operator_secret: get("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET"),
             database_password: get("REFORGED_DB_PASSWORD"),
         },
         missing,
     ))
+}
+
+/// Moves each of [`RENAMED_SECRET_KEYS`] the file has only under its old name to the new one; whether any moved.
+fn rename_secrets(doc: &mut EnvDocument) -> Result<bool, HostError> {
+    let mut renamed = false;
+    for (old, new) in RENAMED_SECRET_KEYS {
+        let present = |key: &str| doc.get(key).filter(|v| !v.trim().is_empty());
+        if present(new).is_some() {
+            continue;
+        }
+        if let Some(value) = present(old) {
+            doc.set(new, &value)?;
+            doc.remove(old);
+            renamed = true;
+        }
+    }
+    Ok(renamed)
 }
 
 fn database_env(c: &HostConfig, s: &Secrets, p: &Paths) -> Vec<(String, String)> {
@@ -2330,8 +2360,8 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     // 1. backend
     let mut backend = EnvEntries::new();
     push(&mut backend, "NODE_ENV", "production");
-    push(&mut backend, "MYSTICPARADOX_SERVICE_ROLE", "api");
-    push(&mut backend, "MYSTICPARADOX_METRICS_TOKEN", &s.metrics_token);
+    push(&mut backend, "RUSTIC_ISLES_SERVICE_ROLE", "api");
+    push(&mut backend, "RUSTIC_ISLES_METRICS_TOKEN", &s.metrics_token);
     push(&mut backend, "PORT", PORTS.backend.to_string());
     push(&mut backend, "BIND_HOST", "127.0.0.1");
     push(&mut backend, "REFORGED_HTTP_ONLY", "true");
@@ -2369,12 +2399,8 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut backend, "REALTIME_XMPP_DEV_CITY_MUC", "false");
     push(&mut backend, "REGISTRATION_MODE", c.registration.as_str());
     push(&mut backend, "REFORGED_ADMIN_KEY", &s.admin_key);
-    push(&mut backend, "MYSTICPARADOX_MANAGER_ADMIN", "on");
-    push(
-        &mut backend,
-        "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
-        &s.operator_secret,
-    );
+    push(&mut backend, "RUSTIC_ISLES_MANAGER_ADMIN", "on");
+    push(&mut backend, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", &s.operator_secret);
     push(&mut backend, "REFORGED_SERVER_NAME", &c.name);
     push(&mut backend, "REFORGED_SERVER_VERSION", "0.1.0");
     push(
@@ -2493,7 +2519,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         "REFORGED_BACKEND_URL",
         format!("http://127.0.0.1:{}", PORTS.backend),
     );
-    push(&mut director, "MYSTICPARADOX_RUNTIME_PROFILE", "production");
+    push(&mut director, "RUSTIC_ISLES_RUNTIME_PROFILE", "production");
     push(&mut director, "LOG_LEVEL", "info");
 
     // 3. content
@@ -2521,7 +2547,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     );
     push(&mut admin, "REFORGED_ADMIN_API_KEY", &s.admin_api_key);
     push(&mut admin, "REFORGED_ADMIN_KEY", &s.admin_key);
-    push(&mut admin, "MYSTICPARADOX_MANAGER_OPERATOR_SECRET", &s.operator_secret);
+    push(&mut admin, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", &s.operator_secret);
     push(
         &mut admin,
         "REFORGED_ADMIN_API_TIMEOUTS_FILE",

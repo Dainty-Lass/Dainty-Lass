@@ -166,7 +166,7 @@ Carry over (Reforged behavior the Rust copy does not have):
   never into a non-empty folder); workspace and Dumper-7 DLL pickers; game data pack import; `hostOpen` folders;
   jobs and notices (`setJob`, `finishJob`); `ensureUpstream` (`npm run upstream`); SDK import; `hostAction`'s eleven
   actions; the Dumper-7 session (`startDump`: loader renamed to `winmm.dll.rr-off`, game started with `-NoEAC
-  -EpicPortal -DisableEOS` and no `REFORGED_`/`MYSTICPARADOX_` variables, DLL injected by PID); CatalogExporter
+  -EpicPortal -DisableEOS` and no `REFORGED_`/`RUSTIC_ISLES_` variables, DLL injected by PID); CatalogExporter
   injection into the running game with `export_flags.txt`. RH removes `npm`, `upstream` and the git update; RA12
   rewires these calls to `reforged-host` (RD3).
 - **Shutdown (2353–2360).** Stops the Host page's server first, then polling, the task, the relay, and saves the hash
@@ -292,7 +292,7 @@ Behavior changes:
 | `Language`, `LANGUAGES` (10–11) | `"en" \| "pt-BR"`, a literal list. DR derives nine from the `i18n` registry, with Portuguese as `pt`. A stored `pt-BR` must keep reading back (section 6 of the plan: both languages word for word) |
 | `DEFAULT_GRAPHICS` (16) | `-1` (leave graphics to the game). DR `4` |
 | `ExposureMode`, `EXPOSURE_MODES` | DR only; dropped |
-| `RuntimeProfile`, `RUNTIME_PROFILES` (22–25) | New: `production`, `development` (`MYSTICPARADOX_RUNTIME_PROFILE`) |
+| `RuntimeProfile`, `RUNTIME_PROFILES` (22–25) | New: `production`, `development` (`RUSTIC_ISLES_RUNTIME_PROFILE`) |
 | `Phase` (27–36) | `locate` and `runtime` replace `install` and `update` |
 | `ConnectProblem` (38–43) | Same values; `bad_answer` means "not a Reforged server" |
 | `GameProblem` (46–51), `RuntimeState` (54–60) | New |

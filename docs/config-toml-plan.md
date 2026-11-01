@@ -17,7 +17,7 @@ host's own comments survive setup. MIGRATION_PLAN.md decision RD24 records this 
 | `.workspace/config/{backend,director,content,gateway,allowlist}.env` | `buildEnvFiles()` in `hostconfig.ts`, from host.json + secrets.env | the services, through `services.ts` | No ("Run setup again instead of editing") |
 | `.workspace/config/secrets.env` | `loadOrCreateSecrets()`, once | ReforgedHost | No |
 | `.workspace/config/news.json` | the host | ReforgedContent (`CONTENT_NEWS_FILE`) | Yes |
-| `.workspace/config/session-supplies.json` | the host | Mystic Paradox backend (patch 0023) | Yes |
+| `.workspace/config/session-supplies.json` | the host | Rustic Isles backend (patch 0023) | Yes |
 | `.workspace/config/allowlist-state.json` | the allowlist helper | the allowlist helper | No (state) |
 | launcher `userData/settings.json` | the launcher | the launcher | No (app state) |
 | `preset/**/*.json`, `upstream/*.json`, `brand/palette.json` | generators and pin tools | build and host kit | No (generated data, checksummed) |
@@ -30,7 +30,7 @@ Two things limit what a host can tune today:
 ## Principles
 
 - **TOML is for files people write.** Generated data, checksummed preset files, machine state and tool manifests (`package.json`, `tsconfig.json`) stay JSON.
-- **Env stays the wire format to the services.** The Mystic Paradox backend and the Director are upstream code that reads env, and our own services (Gateway, Content, allowlist helper) are also run and tested standalone with env. ReforgedHost renders the TOML into the same `.env` files it writes today. The services themselves don't change.
+- **Env stays the wire format to the services.** The Rustic Isles backend and the Director are upstream code that reads env, and our own services (Gateway, Content, allowlist helper) are also run and tested standalone with env. ReforgedHost renders the TOML into the same `.env` files it writes today. The services themselves don't change.
 - **host.toml is the single source of truth.** Anything a host may tune goes in host.toml and is rendered into env. Nobody edits a `.env` file.
 - **Migrate silently, never break an existing server.** Old files are read, converted once and kept as a `.bak` file.
 

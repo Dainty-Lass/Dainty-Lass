@@ -27,7 +27,7 @@ How to read the tables:
 | --- | --- | --- | --- |
 | [Dauntless Revived](https://github.com/mixutin/dauntless-revived) (mixutin) | `plan` at `e1c5fec` | Node services for Dauntless 1.4.4 (`UndauntedGateway`, `UndauntedContent`, `UndauntedMetagame`, `UndauntedDeployServer`, `UndauntedDiscordBot`), an Electron launcher, and a half-finished Rust port of all of them (`rust/`, the Tauri launcher in `src-tauri`) | One snapshot copy of its Rust code (RD6: commit `5281638` for `rust/`, `c9f9d6a` for the gateway and content server, `a6e1870` for the launcher), fitted to Reforged. Nothing flows from DR afterwards |
 | Reforged's own Node (Freeza's line, [`main`](https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival)) | `main` at `77fb622` for the deltas; merged into `plan` since | `ReforgedGateway`, `ReforgedContent`, `ReforgedHost`, `ReforgedLauncher`: DR's Node code modified for 1.14.7, plus the host kit, which has no DR counterpart | Moved to `legacy/` (RR2, `b67966b`). What it changed against DR is in the delta lists (RX1) and was carried onto the DR Rust copy; what changes after the copy goes on the catch-up lists (RX2) |
-| [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande) | Base `00d3be8`, now `21b9ff5` | The 1.14.7 port: Node backend and Director, the C++ game runtime (`MysticParadox.dll`), its loader (`winmm.dll`, Rust) and the CatalogExporter | Forked with its history through [SilentSpud/Mystic-Paradox](https://github.com/SilentSpud/Mystic-Paradox) (`reforged` branch at `24e60c8`) and merged as a subtree into `paradox/` and `native/` (RD1, `e34cf60`). Updated to `21b9ff5` by replaying the Reforged patches (`ab1830a`) |
+| [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande) | Base `00d3be8`, now `21b9ff5` | The 1.14.7 port: Node backend and Director, the C++ game runtime (`MysticParadox.dll`, `Rustic-Isles.dll` since DX4), its loader (`winmm.dll`, Rust) and the CatalogExporter | Forked with its history through [SilentSpud/Mystic-Paradox](https://github.com/SilentSpud/Mystic-Paradox) (`reforged` branch at `24e60c8`) and merged as a subtree into `paradox/` and `native/` (RD1, `e34cf60`). Updated to `21b9ff5` by replaying the Reforged patches (`ab1830a`) |
 | Freeza's patches 0001–0039 | `upstream/patches/` on `main` | The Reforged changes to Mystic Paradox, kept as `git diff` files applied by the Node host kit | One commit each in the fork's `reforged` branch (0001–0033), then ordinary commits to `paradox/` and `native/` (0034–0039). [`docs/paradox-patches.md`](../paradox-patches.md) says what each one did and what is left of it after `21b9ff5` |
 | [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog) | — | The project both DR and Mystic Paradox are modified versions of | Nothing taken directly; it is in both lines' history. Attribution in [`NOTICE.md`](../../NOTICE.md) |
 
@@ -105,7 +105,7 @@ file, and what Reforged changed. The per-line detail is in [`delta-servers.md`](
 
 | Reforged Node (`legacy/ReforgedContent/src/`) | DR Node (`legacy/UndauntedContent/src/`) | Rust (`services/content/src/`) | Reforged's changes carried |
 | --- | --- | --- | --- |
-| `runtime.ts` | — | `runtime.rs` (type in `protocol::manifest`) | New: the two-file runtime (`MysticParadox.dll`, `winmm.dll`), `runtime.json`, states `ok`/`none`/`invalid`, the 10 s re-check, the manifest written byte for byte for a stable ETag |
+| `runtime.ts` | — | `runtime.rs` (type in `protocol::manifest`) | New: the two-file runtime (`Rustic-Isles.dll`, `winmm.dll`), `runtime.json`, states `ok`/`none`/`invalid`, the 10 s re-check, the manifest written byte for byte for a stable ETag |
 | `app.ts` | `app.ts` | `app.rs`, `input.rs` | `GET /content/v1/runtime/manifest` and `/runtime/files/<name>` in place of DR's game manifest and files; no HTTP ranges; `x-reforged-user-api-key`; no CORS headers; 256 KiB chunks |
 | `auth.ts` | `auth.ts` | `auth.rs`, `client.rs` | Key lookup at `GET /reforged/api/GetUserInfo` |
 | `config.ts` | `config.ts` | `config.rs` | Loopback binds only; `BACKEND_URL` (loopback `http:`); `CONTENT_RUNTIME_DIR`; `CONTENT_GAME_DIR`, `CONTENT_MANIFEST`, `CONTENT_DOWNLOAD_BASE_URL`, `CONTENT_ALLOW_ANY_BIND` gone; 4 streams per account |
@@ -249,7 +249,7 @@ What a DR name became, so a DR commit or a DR Rust module reads straight across.
 | `metagame` (the upstream, the config key) | `backend` | gateway `policy.rs`, `config.rs`; content `config.rs` |
 | `/undaunted/api/...` | `/reforged/api/...` | gateway policy, content auth, launcher `net/hostapi.rs`, `protocol` |
 | `x-undaunted-user-api-key` | `x-reforged-user-api-key` | content `input.rs`, gateway, launcher |
-| `x-undaunted-gameserver-apikey` | `x-mysticparadox-gameserver-apikey` | gateway policy (host-only header) |
+| `x-undaunted-gameserver-apikey` | `x-rustic-isles-gameserver-apikey` (`x-mysticparadox-gameserver-apikey` before DX4, still refused) | gateway policy (host-only header) |
 | `x-dauntless-gateway` | `x-reforged-gateway` | gateway `gateway.rs` |
 | `GATEWAY_METAGAME_URL`, `METAGAME_URL` | `GATEWAY_BACKEND_URL`, `BACKEND_URL` | gateway and content `config.rs` |
 | `GATEWAY_WS_URL` to port 61099 | the backend's own listener (61000) | gateway `config.rs` |

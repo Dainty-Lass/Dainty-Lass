@@ -19,10 +19,10 @@ internet, or in Docker.
 
 The launcher on a player's PC talks to the host's **gateway**, the one thing the server exposes: TLS on 443 with a
 pinned certificate for a public server, plain HTTP inside the tailnet for a private one. Behind it sit the
-**backend** (Mystic Paradox's 1.14.7 backend and launcher API, ported to Rust in `modules/rustic-isles` on SQLite or
+**backend** (Rustic Isles's 1.14.7 backend and launcher API, ported to Rust in `modules/rustic-isles` on SQLite or
 Postgres), the **content server** (the game runtime, news and art) and the
 **allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director** (`isles-director`)
-starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's runtime (`MysticParadox.dll`
+starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's runtime (`Rustic-Isles.dll`
 through `winmm.dll`) and reaches the backend through a relay the launcher runs on `127.0.0.1:61100`.
 [docs/architecture.md](docs/architecture.md) has the trust boundaries.
 
