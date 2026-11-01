@@ -58,17 +58,18 @@ bin/reforged-host doctor
 
 | File | What |
 | --- | --- |
-| `reforged.service` | The server (`reforged-host start`), as your user, at boot |
-| `reforged-allowlist.service` | Public: the allowlist helper with `CAP_NET_ADMIN` only, for its nftables table `reforged_revival` |
-| `firewall.sh` | Lets a host firewall (ufw) pass TCP 443 and the game's UDP ports |
-| `install-units.sh` | Installs and starts the units (needs root once) |
+| `systemd/reforged.service` | The server (`reforged-host start` with `Environment=REFORGED_ALLOWLIST=external`), as your user, at boot |
+| `systemd/reforged-allowlist.service` | Public: the allowlist helper (`reforged-host allowlist`) with `CAP_NET_ADMIN` only, for its nftables table `reforged_revival` |
+| `systemd/install.sh` | Installs and starts the units (needs root once) |
+| `config/firewall.sh` | Lets a host firewall (ufw) pass TCP 443 and the game's UDP ports |
 
-Run `sudo .workspace/install-units.sh`, then `systemctl status reforged`. Without systemd, `bin/reforged-host
-start` runs it in the foreground like on Windows.
+Run `sudo .workspace/systemd/install.sh`, then `systemctl status reforged`. Without systemd, start the allowlist helper
+with `CAP_NET_ADMIN` (for example under `sudo` with `.workspace/config/allowlist.env`) and run
+`REFORGED_ALLOWLIST=external bin/reforged-host start` in the foreground as your user.
 
 Linux options of `setup`: `--wine <path>` or `--proton <script>` (a Proton or GE-Proton script instead of
-Wine; `--no-proton` goes back), `--xvfb` (the default) or `--no-xvfb`, and `--interface eth0` to make the
-allowlist filter one interface only.
+Wine; `--no-proton` goes back), `--xvfb` (the default) or `--no-xvfb`, and `--firewall-interface eth0`
+(`--no-firewall-interface` clears it) to make the allowlist filter one interface only.
 
 A server in a network of servers lists its peers under `[[network.nodes]]` and keeps its node certificate in
 `.workspace/tls` ([hosting.md](hosting.md#a-network-of-servers)); the nodes meet on the gateway's TLS port, so no
