@@ -1326,7 +1326,7 @@ impl Controller {
                             _ => i += 1,
                         }
                     }
-                    if !paths.backend_dir.exists() && !paths.host_toml.exists() && !paths.host_json.exists() {
+                    if !paths.backend_dir.exists() && !paths.host_toml.exists() {
                         let _ = host::gamedata::seed_embedded_examples(&paths);
                     }
                     host::commands::gamedata::run_with(&paths, &gd_args, &mut emit)
@@ -1602,10 +1602,24 @@ impl Controller {
                 }
             };
             let paths = host::paths::Paths::new(ws);
-            let config = host::hostconfig::load_host_config(&paths)
+            host::hostconfig::load_host_config(&paths)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "not_configured".to_owned())?;
-            match host::commands::update::migrate_existing_mongo_data(&paths, &config, &log_clone, &mut emit) {
+            // As a host would by hand: verify writes the marker start waits for, and only with no difference
+            let run = |command| host::cli::DbArgs { command };
+            let res = host::commands::db::run_with(
+                &paths,
+                &run(host::cli::DbCommand::Migrate(host::cli::DbMigrateArgs::default())),
+                &mut emit,
+            )
+            .and_then(|_| {
+                host::commands::db::run_with(
+                    &paths,
+                    &run(host::cli::DbCommand::Verify(host::cli::DbVerifyArgs::default())),
+                    &mut emit,
+                )
+            });
+            match res {
                 Ok(_) => Ok(lines.last().cloned()),
                 Err(error) => {
                     emit(&format!("Error: {error}"));
@@ -2020,19 +2034,8 @@ fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConf
             source: Some(source),
             detail: None,
         },
-        MongoMigrationStatus::Unreachable { uri, detail } => MongoMigrationView {
-            state: MongoMigrationState::Unreachable,
-            source: Some(uri),
-            detail: Some(detail),
-        },
     };
-    let config_file = if paths.host_toml.is_file() {
-        Some(path_text(&paths.host_toml))
-    } else if paths.host_json.is_file() {
-        Some(path_text(&paths.host_json))
-    } else {
-        None
-    };
+    let config_file = paths.host_toml.is_file().then(|| path_text(&paths.host_toml));
     let Some(c) = config else {
         return Ok(ServerConfigView {
             configured: false,

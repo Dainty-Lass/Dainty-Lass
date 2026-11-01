@@ -80,6 +80,7 @@ with the `server-gui` feature) runs the same server in-process from its Host pag
 | `history` | What changed in the server's data, by whom and when (`--actor`, `--account`, `--since`, `--until`); `history verify` checks the log's hash chain. See [Undoing a change](#undoing-a-change) |
 | `revert` | Undo what an actor, an account or a time range changed: a dry run first, then `--apply <plan id>` |
 | `db` | Migrate or verify between MongoDB and the SQLite/Postgres store (`migrate`, `verify`), or export the store back to MongoDB for one-release rollback (`export-mongo`) |
+| `legacy` | `legacy import <revived\|offline-save\|reforged> [args]` runs [dainty-legacy](https://git.silentspud.com/silentspud/dainty-legacy)'s importer for an old install: the `legacy` module `[[modules.external]]` pins in `host.toml`, or `--program <path>` before the first setup. In the console, `legacy import` runs it as `module run legacy import-<kind>` |
 
 
 ## Getting the game from Epic
@@ -161,13 +162,13 @@ servers' key) lives only in `secrets.env`.
 | `--game` | `game_dir` | The Dauntless folder |
 | `--registration INVITECODE\|OPEN\|NONE` | `registration` | Who may register |
 | `--share` | `share_url` | A Tailscale share link put in private invites |
-| `--mongo-uri` | `[mongo]` `uri` | Existing MongoDB URI to migrate pre-cutover player data from on `setup` / `update` (or for a `--features paradox` rollback build; the default server uses `[database]`) |
+| `--mongo-uri` | `[mongo]` `uri` | Existing MongoDB URI `db migrate`, `db verify` and `db export-mongo` default to (and a `--features paradox` rollback build's; the default server uses `[database]`) |
 | `--max-hunts 1-10` | `max_hunt_servers` | Hunts at once; the UDP range widens below 8770 past six |
 | `--xp`, `--rewards`, `--no-multipliers` | `[multipliers]` | Private test servers only |
 | `--public-port` | `public_port` | Another port than 443 |
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
-| `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database without migrating existing MongoDB data (MongoDB is never modified, and removing `fresh_start` from `host.toml` and running `setup` again clears the opt-out marker and runs the migration) |
+| `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database although `.workspace\mongodb` still holds unmigrated data (MongoDB is never modified) |
 | (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
 | (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`MYSTICPARADOX_REFORGE`, `MYSTICPARADOX_MASTERY_PERSISTENCE`, `MYSTICPARADOX_BOUNTY_PERSISTENCE`, `MYSTICPARADOX_COOLDOWN_PERSISTENCE`, `MYSTICPARADOX_ACCOUNT_ERASURE`, `MYSTICPARADOX_LOG_PURGE`, `MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
@@ -431,15 +432,16 @@ bin\reforged-host update --check            # is there a newer server release?
 bin\reforged-host update                    # install it and run setup again
 ```
 
-`update` keeps `.workspace` and runs `setup` from your `host.toml`. On a server that ran the Node backend and has
-existing MongoDB data, both `update` and the new release's own `setup` migrate and verify the MongoDB data into the
-configured store (`.workspace\config\dainty-lass.db` on SQLite, or Postgres when `[database]` sets
-`engine = "postgres"`), writing `.workspace\config\.mongo-migrated` once verified: if `verify` reports any difference,
-`setup` and `update` refuse to switch and leave the server on its previous setup, and they never delete or modify the
-MongoDB data. `start` and `serve` refuse to run the Rust backend while unmigrated MongoDB data exists (unless the host
-explicitly opts into an empty database with `reforged-host setup --fresh-start` or `fresh_start = true` under
-`[database]` in `host.toml`; removing `fresh_start` later and running `setup` clears the opt-out marker and runs the
-migration). When `native\` changed, `update` says so: rebuild the runtime and publish it again.
+`update` keeps `.workspace` and runs `setup` from your `host.toml`. Neither moves a Node backend's MongoDB data any
+more: [dainty-legacy](https://git.silentspud.com/silentspud/dainty-legacy)'s `import reforged` upgrades an old Node
+kit (its `host.json`, layout and MongoDB), and on a server already on `host.toml`, `bin\reforged-host db migrate`
+followed by `bin\reforged-host db verify` moves the data into the configured store (`.workspace\config\dainty-lass.db`
+on SQLite, or Postgres when `[database]` sets `engine = "postgres"`). `verify` writes `.workspace\config\.mongo-migrated`
+once it finds no difference; MongoDB is never modified. `start` and `serve` refuse to run the Rust backend while
+`.workspace\mongodb` holds data without that marker (unless the host opts into an empty database with
+`reforged-host setup --fresh-start` or `fresh_start = true` under `[database]` in `host.toml`). A `host.json` with no
+`host.toml` is refused until dainty-legacy has imported it. When `native\` changed, `update` says so: rebuild the
+runtime and publish it again.
 Players' launchers notice the new hashes and ask once more.
 
 ### Live server cutover checklist (backup, update, smoke, rollback)
@@ -449,9 +451,9 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
 1. **Backup.** Stop the server (or take a snapshot first), run `bin\reforged-host backup` so `.workspace\backups\`
    holds a fresh database dump, and copy `.workspace\config` (`host.toml`, `secrets.env`) and `.workspace\tls`
    (`gateway-cert.pem`, `gateway-key.pem`) to safe off-server storage.
-2. **Update and migrate.** Ensure `mongod` is running if the server has existing MongoDB data so `update` can read it,
-   then run `bin\reforged-host update`. Confirm the output reports `MongoDB migration verified (... 0 differences;
-   MongoDB data kept intact)` and finishes `setup`.
+2. **Update and migrate.** Run `bin\reforged-host update`. If the server has existing MongoDB data, start `mongod`
+   and run `bin\reforged-host db migrate` then `bin\reforged-host db verify`, and confirm `verify` reports no
+   difference.
 3. **Smoke check.** Run `bin\reforged-host doctor`, start the server with `bin\reforged-host start`, verify that
    `/dauntless-status`, `/reforged/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
    1.14.7 client and launcher that an existing account can sign in, enter Ramsgate with its characters, inventory and
