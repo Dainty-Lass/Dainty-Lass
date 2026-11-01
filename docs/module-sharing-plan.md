@@ -2,501 +2,410 @@
 
 # Plan: modules that share information, configuration and dependencies
 
-Draft, 2026-10-31. Target: the controller (`rust/crates/controller`), `service-kit`, the host kit, and the two
-consumers that need it first: a Discord bot and dainty-dashboard's fleet agent.
+Draft, 2026-11-01, reworked against `plan` (`8ea66dd`). The first draft (`8e4d192`) was written against `main` and
+proposed a registry, capabilities, a loopback module API and a sidecar supervisor that `plan` already has in another
+form. This version keeps what exists, cuts what duplicates it, and lists only the additions.
 
-**One game.** This plan covers Dauntless 1.14.7 on rustic-isles (Mystic Paradox's implementation for the latest
-version) and nothing else. Dauntless Revived's 1.4.4 stack and Mystic Paradox's 1.12 port are not modules here, and
-the controller's second edition (`Refined`, which `protocol` maps to the 1.4.4 game) has no place in it.
+**One game.** Dauntless 1.14.7 on rustic-isles (`isles-1-14-7`, from `modules/rustic-isles`) and nothing else. No
+Dauntless Revived 1.4.4 or Mystic Paradox 1.12 modules, so nothing here is per edition.
 
-## The problem
+**Words.** A *server* is one DaintyLass install: a `ServerController` (`crates/controller/src/controller.rs`) with its
+`ModuleRegistry` (`crates/controller/src/registry.rs`). The *fleet controller* is the install with
+`[remote] role = "controller"` (DD27, `docs/remote-management.md`). dainty-dashboard calls a server a "controller";
+this doc doesn't.
 
-Every part the controller runs today is wired to the others by hand, and nothing outside the controller can see
-what it is running.
+## The two motivating cases
 
-| Symptom | Where |
-| --- | --- |
-| The start order is a fixed list: `director` → `backend` → `content` → `admin` → `allowlist` → `gateway` | `ServerController::start_all` |
-| Every `spawn_*` builds the backend's and director's addresses itself from the config (`primary_backend_url`, `primary_director_url`, `backend_port`) | `spawn_admin`, `spawn_content`, `spawn_gateway` |
-| The gateway reaches the allowlist through a closure over a `Mutex<Option<…>>` slot that the allowlist fills once it starts | `spawn_gateway`, `allowlist_slot` |
-| The fleet agent finds admin and the backend through hard-coded loopback ports, and the host copies two secrets out of `secrets.env` into `agent.env` by hand | dainty-dashboard `docs/fleet.md` |
-| A Discord bot can ask admin's `serverStatus`, which says the backend answers, not whether a game server can take a player | `docs/admin-api.md` |
-| Nothing lists the game servers a controller runs. `ServerSnapshot` has `active_hunts` and `max_hunts` as two numbers | `service-kit/src/context.rs` |
-| `StatusRegistry` knows a component's phase, not what it offers or needs | `service-kit/src/context.rs` |
+1. **The Discord bot must know the server is up before it issues a key.** "Up" means the hub game server is running.
+   `/key` replies with the dashboard's signup link when the dashboard allows signups, otherwise with a single-use login
+   URI, and only the member who asked sees either.
+2. **The dashboard must list every game server of every server**, so it can show and query them all.
 
-The two motivating cases:
+## What `plan` already has
 
-1. **The Discord bot must know a game server is up before it issues a key** (a signup link or an invite). Issuing
-   one to a player who then can't play is the failure to prevent.
-2. **The dashboard must know every game server tied to a controller**, so it can query them all, and the same for
-   every controller in the fleet.
+| Need | Already there | Where |
+| --- | --- | --- |
+| A module, its identity and what it needs | `GameModule` (game or plugin, keyed by `GameVersion`), `ModuleManifest`, `Registrar` / `Registration` (routes, UDP ports, content, commands, emitted and subscribed events, admin actions, config sections) | `crates/module-api/src/module.rs`, `manifest.rs`, `registrar.rs` |
+| Built-in services as parts of one process | `Module` started in order, stopped in reverse, phase in `StatusRegistry`; gateway, allowlist, content, admin, chat, network, remote are constructors | `crates/controller/src/controller.rs`, `modules.rs` |
+| A registry of loaded modules | `ModuleRegistry`: `list`, `info`, `load`, `unload`, `restart`, `command`, `admin(version, call)`, `for_invite` | `crates/controller/src/registry.rs` |
+| Compiled-in plugins that serve modules | `CorePlugin` with `CoreCapability` (routes, UDP ports, content, commands, events, admin actions, config, chat, network) | `module-api/src/module.rs` |
+| Events | One `broadcast` bus on the registry: `HostCall::Emit` from a module, `ModuleRegistry::emit` from the host (`server.ready`), delivered to subscribers through `GameModule::event`, readable by anyone through `subscribe_events` | `registry.rs` (`publish`), `module.rs` (`Event`, `EventName`) |
+| Out-of-process modules ("sidecars") | `[[modules.external]]` in `host.toml`; `ChildModule` checks the SHA-256, runs the executable with only `system_environment`, speaks length-prefixed JSON frames (`Hello`/`Welcome`, `ModuleCall`/`ModuleAnswer`), kills its process tree on unload, and the registry shows a dead child as `Failed` | `module-api/src/host.rs`, `frame.rs`, `child.rs`; `crates/hostkit/src/hostconfig/modules.rs`; `docs/security/module-host.md` |
+| Per-module configuration | `[modules.<id>.<section>]` laid over registered defaults into `ModuleConfig.sections`; `ModuleRegistry::update_settings`; ports placed by `PortBook` into `ModuleConfig.ports` | `registry.rs`, `ports.rs`, `hostconfig/modules.rs` |
+| Secrets for built-in services | Each built-in reads its own env file that `setup` writes from `host.toml` and `secrets.env` (`SECRET_KEYS`) | `crates/hostkit/src/hostconfig.rs`, `controller/src/modules.rs` |
+| Moderation across modules | `AdminRequest` (kick, ban, unban, lift timeout, lookup) routed to the player's game; admin GraphQL `modules`, `loadModule`, `unloadModule`, `restartModule` | `services/admin/src/modules.rs`, `module_control.rs`, `schema.graphql` |
+| The hub's readiness | `DedicatedServers::hub_status()` → `LiveHubStatus { ramsgate: Option<LiveHub { ready, host, port }>, .. }` from the Director's `GET /api/hub-status` | rustic-isles `crates/isles-core/src/areas/matchmaking/deploy.rs` |
+| Every game server on one server | The Director's `GET /api/instances`: city (hub), hunt, dojo, tutorial, with players. Admin parses it (`input::Instance`, `InstanceKind`) but `huntStatus` keeps only hunts | `services/admin/src/upstream.rs` (`instances`), `input.rs` |
+| Invites | Host-only `POST /reforged/api/CreateInvite` in the game module (uses, infinite, note; no expiry) | rustic-isles `crates/isles-core/src/areas/reforged_api/host_routes.rs` |
+| Many servers, one place | `crates/remote` (DD27, MIT): enrollment, mTLS `POST /__node/remote`, 15 s `Sync` with `InstallReport` (counts of players, hunts, hubs, realms; component health; doctor; history), queued `RemoteCommand`s with roles and `DH6` approval, `SharedConfigBundle` revisions | `crates/remote/src/wire.rs`, `state.rs`, `transport.rs` |
+| Game servers across a network | `InstanceRecord` and the ring (DN6, DN8, DN9), the directory (DD17) | `plugins/network/src/ring.rs`, `directory.rs`; `module-api/src/network.rs` |
+| History of every database write | `store`'s hash-chained change log (DD23, DH1–DH5), on SQLite (default) or Postgres (DD15) | `crates/store/src/history.rs`, `engine.rs` |
+| Server identity | `ServerSnapshot.invite_url`, `cert_fingerprint` via `ServerController::set_invite_info`; `protocol::invite::format_invite` | `service-kit/src/context.rs`, `crates/protocol/src/invite.rs` |
 
-Both are the same missing piece: a place where a module says what it is, what it offers and what it needs, and where
-other modules read it without knowing ports, secrets or start order.
+## What the first draft proposed, and what happens to it
 
-## What a module is
+| First draft | Now | Why |
+| --- | --- | --- |
+| `crates/modules`: manifests, `Need`, a capability registry replacing `StatusRegistry` | **Cut** | `module-api` is that crate; `ModuleRegistry` is the registry, and `StatusRegistry` stays as it is under it |
+| Capabilities (`game.servers@1`, `game.availability@1`, `accounts.invites@1`, ...) as `watch` and request handles | **Cut**, replaced by one typed call family, `GameCall` (A1) | `module-api` already shares between modules by typed calls routed by the registry (`AdminCall`, `ChatQuery`, `HomeCall`); one more family fits that, crosses the frame protocol for free, and needs no new mechanism |
+| `service.endpoints`, `firewall.allow`, the topological start order | **Cut** | Ports are placed by `PortBook` and handed in `ModuleConfig`; the allowlist is a `CorePlugin` (UDP ports); the start order is the host kit's composition in `serve.rs`. None of this blocks either case |
+| `accounts.verifyKey`, `players.lookup` | **Cut** | Content and admin already reach the game module; admin's lookup is `AdminRequest::Lookup` |
+| Module API on `127.0.0.1:61007`, per-module bearer tokens, scopes, SSE | **Cut** | Out-of-process modules already have a channel, the frame protocol over the child's pipes, with no listener to protect |
+| Sidecar supervisor (spawn, env, process tree, heartbeats, log capture) | **Mostly there**: `ChildModule`. **Kept**: restart with backoff (A2) | A dead child stays `Failed` today; "the controller starts sidecars" also means it brings them back |
+| Fleet agent as a sidecar reading the module API | **Superseded by `crates/remote`**, pending D1 | Both dial out, report every 15 s and run an allowlist of commands; remote already does it over mTLS with roles and audit inside DaintyLass |
+| `dashboard.signup` provided by the agent | **Replaced**: the bot reads a public dashboard endpoint (A8), pending D3 | The signup link is public anyway; no agent needed to carry it |
+| Postgres-only `modules.events`, waiting for RB3 and RB14 | **Replaced**: an events database in `store`, on whichever engine `[database]` picks (A5), pending D2 | `store` runs SQLite by default and Postgres when chosen (DD15); there is nothing to wait for |
+| Discord bot as a built-in Rust module | **Kept**: a built-in service like chat (A7) | Built-ins get secrets through their env file; a `GameModule` has no secret channel |
+| "Up" = the hub game server is running | **Kept**, defined once in the game module (A3) | The Director already answers it |
 
-| Kind | Examples | Runs | Talks to the registry through |
-| --- | --- | --- | --- |
-| **Built-in** | gateway, allowlist, content, admin, backend, director, the Discord bot (Rust, section 10) | in the controller's process | Rust handles (in-process) |
-| **Sidecar** | fleet agent (Bun), the Node Paradox backend and Director until the port | its own process on the same host, **started and supervised by the controller** (section 9) | the **local module API** (loopback HTTP) |
-| **Remote** | another controller in the fleet | another host | its own agent, which reads its local module API and reports to the dashboard |
+## Additions
 
-A module is identified by a stable **module id** (`director-reforged`, `discord-bot`, `fleet-agent`). The built-in
-ids are the component names `start_component` already takes, so the console's `restart content` and the GUI's
-status page keep working.
+Each is the smallest change that closes a gap. "Proposed" marks a file or type that doesn't exist yet.
 
-## Design in one picture
+### A1. `module-api`: game calls (proposed `module_api::game`)
 
-```text
-                       ┌──────────────────────── controller process ─────────────────────────┐
-                       │                                                                     │
-                       │   ModuleRegistry (crates/modules)                                   │
-                       │   ├─ manifests      what each module is, provides, requires         │
-                       │   ├─ status         phase per module (today's StatusRegistry)       │
-                       │   ├─ state          watch channels:  game.servers, game.availability│
-                       │   ├─ commands       request handles: accounts.invites, ...          │
-                       │   └─ events         broadcast:       GameServerUp/Down, ...         │
-                       │        ▲          ▲            ▲                                    │
-                       │  director    backend    admin, content, gateway, discord-bot         │
-                       │                                                                     │
-                       │   module-api  127.0.0.1:61007  (bearer token per module, scoped)    │
-                       │   sidecar supervisor: spawns, heartbeats, restarts, captures logs   │
-                       └──────────────────────────────▲──────────────────────────────────────┘
-                                                      │ loopback only            events ──▶ Postgres
-                          ┌───────────────────────────┼─────────────────────────┐            (modules.events)
-               Node backend / Director        fleet-agent ──outbound──▶ dashboard
-               (sidecars until the port)     (sidecar)
-```
-
-Three channels, each for one kind of sharing:
-
-- **State** (what is true now): a `tokio::sync::watch` value per capability. Providers publish, consumers read the
-  latest and can wait for a change. The game-server directory and availability are state.
-- **Commands** (do something, get an answer): a typed request handle per capability (`mpsc` with a `oneshot`
-  reply). Issuing an invite is a command.
-- **Events** (something happened): one `tokio::sync::broadcast` bus with typed topics. A game server going down
-  is an event.
-
-Configuration and secrets are not a fourth channel at runtime: they are resolved once, at start, and handed to each
-module (section 5).
-
-## 1. The manifest
-
-Every module has a manifest. Built-in modules declare theirs in code; sidecars get theirs from the host's
-configuration, **never from the sidecar itself**, because what a module may read is the host's decision.
+A typed call family for what a game module knows about its game, beside `admin` and `chat`:
 
 ```rust
-pub struct Manifest {
-    pub id: ModuleId,                  // "director-reforged"
-    pub kind: ModuleKind,              // BuiltIn | Sidecar | Remote
-    pub provides: Vec<CapabilityRef>,  // "game.servers@1"
-    pub requires: Vec<Requirement>,    // { cap: "game.availability@1", need: Need::Ready }
-    pub config_section: Option<&'static str>, // "[modules.discord-bot]"
-    pub secrets: Vec<&'static str>,    // names in secrets.env it is given, nothing else
+pub enum GameCall {
+    Availability,
+    Servers,
+    /// Refused with `Unavailable` when `require_up` and the hub isn't ready: the recheck is the guarantee
+    CreateInvite { uses: u32, expires_in_secs: Option<u32>, note: Option<String>, require_up: bool },
+    RevokeInvite { code: String },
 }
 
-pub enum Need {
-    Ready,    // start only after a provider is Ready; stop if every provider goes away
-    Present,  // a provider must exist, it may still be starting
-    Optional, // use it when there, degrade without it
+pub enum GameAnswer {
+    Availability(Availability),
+    Servers(Vec<GameServer>),
+    Invite { code: String },
+    Done,
+}
+
+pub struct Availability {
+    pub up: bool,
+    /// A code the reader translates, never a sentence
+    pub reason: Option<UnavailableReason>, // director_unreachable, no_hub, hub_not_ready, module_not_ready
+    pub hub: Option<GameServer>,
+    /// Informational; never gates `up`
+    pub free_hunts: Option<u32>,
+}
+
+pub struct GameServer {
+    pub id: String,
+    pub kind: GameServerKind, // hub, hunt, dojo, tutorial: the Director's InstanceKind
+    pub title: String,
+    pub map: String,
+    pub host: String,
+    pub port: u16,
+    pub players: u32,
+    pub max_players: u32,
+    pub ready: bool,
+    pub started_at: Option<String>,
 }
 ```
 
-A **capability** is a named, versioned contract (`game.servers@1`). The version is the contract's, not the
-crate's: a field added in a compatible way keeps `@1`; a field removed or changed in meaning is `@2`, and the
-provider serves both until no consumer asks for `@1`.
+- `GameModule::game(&self, ctx, call) -> BoxFuture<Result<GameAnswer, ModuleError>>`, defaulting to `Unsupported`,
+  as `admin` and `chat` do; `ModuleCall::Game` / `ModuleAnswer::Game` in `frame.rs`; `ModuleDriverExt::game`.
+- `Registrar::game_call(GameCallKind)` and `Registration.game_calls`, so the host knows which calls a module answers,
+  as `admin_actions` does.
+- Event names as constants: `game.server.up`, `game.server.down`, `game.availability.changed`. A module declares them
+  with `registrar.emits` and sends them with `ctx.emit`; the bus already exists.
+- `API_VERSION` moves (`version.rs`): `ModuleCall` is `deny_unknown_fields`, so an older child refuses the new frame.
+- `GameServer` is not `InstanceRecord`: that one is a network ring entry (owner node, queue, shard); this is what one
+  server's Director runs. A networked node can derive one from the other.
 
-## 2. The registry
+### A2. Controller
 
-`ModuleRegistry` replaces `StatusRegistry` and keeps its whole API: `service_context`, `subscribe`, `snapshot`
-and `ServerSnapshot` stay, so the console REPL, the TUI and the GUI status page change nothing. What it adds:
+- `ModuleRegistry::game(version, call)`, the twin of `admin(version, call)`, and `game_servers()` over every loaded
+  game module.
+- Restart for external modules: `[[modules.external]] restart = true` (proposed key, default `false`, today's
+  behaviour). A child that dies is started again after 1 s doubling to 60 s, reset after 10 minutes up; five failures
+  in 10 minutes leave it `Failed` with the last reason in `detail`. Each attempt is a `module.restarted` event.
+  `hostconfig/modules.rs` and `hosttoml.rs` get the key; `docs/hosting.md` the row.
 
-- `register(manifest)` and `manifests()`.
-- `provide::<C>(handle)` / `get::<C>() -> Option<C::Handle>`: a typed slot per capability, keyed by the capability
-  type. A built-in module receives the handles for its `requires` in its `ServiceContext`, so it never looks one up
-  by name.
-- `events() -> broadcast::Receiver<Event>`.
+### A3. rustic-isles: the game module answers game calls
 
-No `dyn` async traits: a capability's handle is a concrete, cloneable struct wrapping a `watch::Receiver` or a
-request sender. That keeps it free of `async_trait`, cheap to clone into a request handler, and testable with a
-handle a test builds itself.
+In `modules/rustic-isles` (its own repository, pinned as a submodule):
 
-The types live in a **new crate, `crates/modules`**, so the bot, the agent's Rust successor or a game module can
-depend on the contract without the controller. It ports nothing from DR or Paradox, so it is **MIT**, like
-`controller` and `admin`. Adding it to `[workspace]` and `[workspace.dependencies]` is a seam change for the
-integration pass.
+- `Availability`: `hub_status()`; `up` when `ramsgate` is `Some` with `ready`. Unreachable Director →
+  `director_unreachable`; no Ramsgate → `no_hub`; present but not ready → `hub_not_ready`.
+- `Servers`: the Director's `/api/instances` with the hub's readiness from `hub_status()`.
+- `CreateInvite` / `RevokeInvite`: the same store write as `create_invite` in `host_routes.rs`, with `require_up`
+  checked inside it. **Invites have no expiry today** (`InviteRecord` has uses, infinite, note, created time): either
+  an `expires_at` column (a migration in both `postgres/` and `sqlite/`, and the login path refusing an expired code),
+  or the bot revokes its code after 30 minutes. See D4.
+- A hub-status watch (every 10 s, the Director's answer) that emits the three events on a change.
 
-## 3. Capabilities, version 1
+### A4. Admin API
 
-| Capability | Kind | Provider | Consumers | What it holds |
-| --- | --- | --- | --- | --- |
-| `game.servers@1` | state | director | admin, fleet agent, dashboard, bot | Every game server: `id`, `kind` (hub, hunt, training), `address`, `udpPort`, `phase` (starting, ready, draining, down), `players`, `capacity`, `title`, `lastHeartbeatMs` |
-| `game.availability@1` | state | the controller, derived | bot, admin | `accepting: bool`, `reason` code when not (`backend_down`, `director_down`, `no_game_server`, `maintenance`), `freeSlots` (hunt slots, informational) |
-| `service.endpoints@1` | state | the controller | admin, content, gateway, backend | The loopback URLs of the backend, director, content and admin. Replaces each `spawn_*` working them out from the config |
-| `accounts.invites@1` | command | backend | bot, admin | `create(uses, expires) -> code`, `revoke(code)`; the same calls as `CreateInvite` and `DELETE …/InviteCode/:code` |
-| `accounts.verifyKey@1` | command | backend | content | What content's `GetUserInfo` call answers today: the account behind a key, or its ban. Content keeps its short cache |
-| `firewall.allow@1` | command | allowlist | gateway | Open the game ports to a player's address after login. Replaces the `InProcessSink` closure over a mutex slot |
-| `players.lookup@1` | command | backend | admin, bot | What admin's `player(username)` resolves today |
-| `server.identity@1` | state | the controller | everyone | Server name, mode, public host, game version (1.14.7), invite URL, certificate fingerprint. Never a secret |
-| `dashboard.signup@1` | state | the fleet agent (a sidecar provider), from the dashboard's settings | Discord bot | `enabled: bool`, `url` of the dashboard's account creation page, `updatedAtMs`. Absent or older than its TTL reads as disabled |
+- `gameServers(game: String): [GameServer!]!` and `availability(game: String): Availability!`, through
+  `ModuleRegistry::game` (admin already holds the registry). Additions only; `huntStatus` and `serverStatus` keep their
+  answers. `schema.graphql` regenerated, `docs/admin-api.md`.
+- `events(after: Int, names: [String!], limit: Int): [EventEntry!]!` over A5's table, for the dashboard.
 
-**"Up" is defined once, in `game.availability`.** The server is accepting when the backend and director are
-`Ready` and the hub game server has a heartbeat younger than its TTL: a player who logs in lands somewhere. Free
-hunt slots don't gate it; `freeSlots` is reported beside it so a reader can say "up, but every hunt is taken". A
-game server whose heartbeat is older than the TTL is `down` in `game.servers` even if the director never said so.
-Every consumer reads the same answer instead of reinventing it.
+### A5. Kept events (proposed `controller` event recorder)
 
-Reasons are **codes, not sentences**: the bot and the dashboard translate them (the launcher's catalog rule applies
-to anything a player reads).
-
-## 4. Events
-
-One bus, typed topics, **kept in Postgres**:
-
-| Event | Emitted by | Used for |
-| --- | --- | --- |
-| `ModulePhaseChanged { id, from, to }` | registry | status pages, the agent's report, restarts of dependents |
-| `GameServerUp` / `GameServerDown { id, reason }` | director, the TTL sweep | the bot announcing outages, the dashboard's live hunt list |
-| `AvailabilityChanged { accepting, reason }` | controller | the bot holding or releasing queued key requests |
-| `InviteIssued { by }` / `InviteRevoked` | backend | audit in the dashboard (no code in the event) |
-| `PlayerJoined` / `PlayerLeft { userId, gameServer }` | backend | counts in `ServerSnapshot`, the dashboard |
-| `DiscordKeyRequested { discordId, outcome }` | Discord bot | audit: who asked, and whether they got a signup link, a login URI or a reason (never the code) |
-
-**Storage.** Events go in the backend's Postgres (RD15), in their own schema so the backend's tables stay its own.
-Neither exists yet: `store` is still SQLite until RB3 moves it to `PgConnection`, and the host kit sets up only
-MongoDB until RB14 adds the managed Postgres. **The event store waits for both**; there is no interim SQLite table to
-migrate later. Until then the bus runs in memory only, and nothing that needs history ships to hosts.
+A subscriber to `ModuleRegistry::subscribe_events` that writes every event, then nothing else changes for the bus:
 
 ```sql
-create schema modules;
-create table modules.events (
-  seq        bigint generated always as identity primary key,
-  at         timestamptz not null default now(),
-  topic      text not null,            -- 'game.server.down'
-  source     text not null,            -- module id
-  payload    jsonb not null,           -- the typed event, serde; never a secret or a code
-  dedupe_key text,                     -- set by providers that may retry
-  unique (source, topic, dedupe_key)
+create table events (
+  seq     integer primary key,  -- bigint generated always as identity on Postgres
+  at_ms   bigint  not null,
+  name    text    not null,     -- 'game.server.down'
+  source  text,                 -- the module id; null for the host
+  payload text    not null      -- the event's JSON; never a secret or an invite code
 );
-create index on modules.events (topic, seq);
-create index on modules.events (at);
+create index events_name_seq on events (name, seq);
 ```
 
-- **Write first, then publish.** The registry inserts the event (on `store`'s blocking pool), takes `seq`, and only
-  then sends it on the in-process `broadcast`. A receiver that lags or restarts catches up from the table, so the
-  bus can stay lossy in memory without losing anything.
-- **`seq` is the event id** everywhere: the SSE stream's `id:`, `Last-Event-ID` resume, and the agent's cursor. Resume
-  reads `where seq > $1 and topic = any($2) order by seq`, so there is no "too old" case inside the retention.
-- **Retention** is a `host.toml` setting (`modules.event_retention_days`, default 90), enforced by a daily delete
-  by `at`. Audit events (`InviteIssued`, `DiscordKeyRequested`) can get a longer one of their own.
-- The migration is `store`'s, so it goes through the store seam's owner (section 5.1 of the plan), not this row.
-- State is still the source of truth for "what is true now": a consumer reads the state capability on start, then
-  follows events from the `seq` it read it at.
+- **Where:** its own `store` database, on the engine `[database]` picks: `events.db` beside the game's on SQLite, the
+  server's Postgres database otherwise, as admin's `history::sources` lays out admin's and chat's.
+- **Order:** the bus is lossy (`broadcast`, 256 deep). The recorder subscribes before modules load and records a
+  `events.lagged` row with the count when it falls behind, so a gap is visible rather than silent. Write-before-publish
+  would mean a store write inside `HostCall::Emit`; not worth it for the two cases here.
+- **Change log:** every `store` table is change-logged (DH1), so an append-only events table writes each row twice.
+  D2 decides whether that is acceptable or `store` grows an opt-out for append-only tables.
+- **Retention:** `[events] retention_days` (proposed, default 90), a daily delete by `at_ms`.
+- The schema goes through `store`'s owner (section 5.1 of the plan).
 
-## 5. Configuration and secrets
+### A6. `remote`: game servers in the fleet
 
-**Configuration** stays on the path it has: one file the host writes, rendered for each module.
+- `InstallReport` gains `game_servers: Vec<GameServer>` and `availability: Option<Availability>` (`#[serde(default)]`),
+  filled from A2. `InstallReport` is `deny_unknown_fields`, so **the fleet controller is upgraded before its managed
+  installs**; the row says so in `docs/remote-management.md`.
+- The fleet controller keeps the last report per node (`state.rs`), as it does for counts.
+- On the fleet controller, admin GraphQL `installs: [Install!]!` (node, region, label, state, last report time,
+  availability, game servers) and a `node` argument on the moderation mutations that queues a
+  `RemoteCommand::AdminAction`. The dashboard then reads the whole fleet from one loopback admin API (D1).
 
-- A module's own settings are a section in the controller's config, `[modules.<id>]`, and in `host.toml` for the
-  host kit (a field in `HostConfig`, a snake_case key in `hosttoml.rs`'s table, a `setup` option where a host should
-  choose it), per AGENTS.md's rule for new settings.
-- What every module may know (`server.identity`) is a capability, not a copy pasted into each section.
-- A built-in module gets its section deserialized into its own config struct, as `spawn_*` does today.
-- A sidecar gets an env file rendered by setup, as every service does (`--env-file`), holding its section, the
-  module API's URL and its token. **`DAINTY_` joins `SERVER_PREFIXES`** in `services/host/src/services.rs` so a
-  stale shell variable never reaches it.
+### A7. The Discord bot (proposed `plugins/discord`)
 
-**Secrets** go only where a manifest names them.
+A built-in service in Rust, `controller::modules::discord(env, registry)` (proposed), started after admin when
+`[discord] enabled = true` (proposed section).
 
-- A module's `secrets` list is the only way to receive one; the controller passes those names and nothing else.
-- **The module API never returns a secret.** A sidecar that needs one (the fleet agent's admin key) gets it in its
-  rendered env file, which ends the hand copy in `fleet.md` without putting a key on the wire.
-- Each sidecar's module token is a new `secrets.env` entry (`MODULE_TOKEN_<ID>`), made once, never logged, rotated
-  by `reforged-host module rotate <id>`.
+- **Settings:** `[discord]` in `host.toml`: `application_id`, `guild_ids`, `moderator_role_ids`, `dashboard_url`.
+  Through `HostConfig`, `hosttoml.rs`'s key table and `setup` options, into the bot's own env file.
+- **Secret:** `DISCORD_BOT_TOKEN` in `secrets.env` (`SECRET_KEYS`), set by `setup --discord-bot-token` reading stdin.
+  Never in `host.toml`, never logged. Its name follows AGENTS.md's prefix rule for server variables; the row checks
+  where that list lives now (`hostkit/src/services.rs` no longer has `SERVER_PREFIXES`).
+- **Library:** `twilight` (gateway, http, model), added to `[workspace.dependencies]` by the integration pass.
+- **Text:** a catalog in `en` and `pt-BR`, chosen by the interaction's `locale`, with `{placeholders}`. Each
+  `UnavailableReason` maps to a key.
+- **Licensing:** MIT if written fresh; AGPL with a NOTICE line if any command is rewritten from DR's
+  `UndauntedDiscordBot` (the `/status`, `/player`, `/hunts` sketch in `docs/admin-api.md` follows it).
 
-## 6. Dependencies and start order
+`/key`, every reply ephemeral (Discord's flag: only the member who ran it sees it):
 
-The controller sorts manifests topologically on `requires` and starts in that order, which reproduces today's
-order for the built-in set (a test pins it). A cycle, or a `Ready`/`Present` requirement nothing provides, stops the
-start with the module ids named.
+1. `registry.game(1.14.7, Availability)`. Not `up` → the translated reason, record `discord.key.requested` with
+   outcome `unavailable`, stop.
+2. Signup state from the dashboard (A8). **Enabled** → the signup link and the catalog's short instructions; outcome
+   `signup_link`; no invite is made.
+3. **Disabled, unreachable or stale** → `CreateInvite { uses: 1, expires_in_secs: 1800, require_up: true }` and the
+   login URI: the server's `ServerSnapshot.invite_url` parsed and given the new code, then `format_invite`. An
+   `Unavailable` answer (the hub went down since step 1) replies as step 1. Outcome `login_uri`.
+4. Per Discord id: one live code at a time (a repeat inside the expiry returns the same URI, still ephemeral), at most
+   five requests per 15 minutes.
 
-At runtime:
+The code and the URI never reach a channel, a log line or an event; the event records the outcome only.
 
-- A module whose `Ready` requirement loses its last provider moves to `Starting` with a detail naming what it waits
-  for, instead of failing requests one by one. It returns to `Ready` when a provider does.
-- `restart <module>` restarts dependents only when the restarted module's handles cannot be reused (a command
-  handle's channel closed). State handles survive a provider restart, since the controller owns the `watch` sender
-  and gives it to the next instance.
-- Shutdown stays reverse start order.
+### A8. dainty-dashboard
 
-## 7. The local module API (sidecars)
-
-A built-in module, `module-api`, on `127.0.0.1:61007` (the next free port after 61005 and before the agent's ingest
-relay on 61009; confirm against the host kit's port table). JSON as the other services write it, camelCase.
-
-| Route | Scope needed | Answer |
-| --- | --- | --- |
-| `GET /modules/v1/self` | any token | The caller's manifest, its granted capabilities, and its config section |
-| `GET /modules/v1/registry` | `registry.read` | Every module's id, kind, phase and what it provides. No configuration |
-| `GET /modules/v1/state/{capability}` | that capability | The current value |
-| `GET /modules/v1/events?topics=&after=` | each topic's capability | Server-sent events from Postgres, then live; resumable by `Last-Event-ID` (the `seq`) |
-| `POST /modules/v1/call/{capability}/{operation}` | that capability | One command. Operations are a fixed list per capability, as the fleet agent's `ops.ts` is for GraphQL |
-| `PUT /modules/v1/state/{capability}` | `provide:{capability}` | A sidecar **provides** a state capability (the agent's `dashboard.signup`). Validated against the capability's type; the controller owns the `watch` sender |
-| `POST /modules/v1/self/heartbeat` | any token | The sidecar's liveness, which section 9 turns into its phase |
-
-- **Bearer token per module**, compared in constant time (`subtle`). The scopes are the host-configured
-  `requires`; a token without a scope gets 403, an unknown token 401.
-- **Loopback only.** Any non-loopback bind stops the start, as admin's does. The gateway never forwards to it, and
-  `/modules` joins `HOST_ONLY_PREFIXES` in `services/gateway/src/policy.rs` with a test, so a later routing change
-  can't expose it by accident.
-- Rate limited per token, bodies capped, SSE connections per token capped.
-- It is a trust-boundary component (RX3): its fuzz target in `rust/fuzz/` (the route and query parser, the call
-  body) and `docs/security/module-api.md` land with its code.
-
-## 8. Across controllers
-
-The fleet keeps its shape (`dainty-dashboard/docs/fleet.md`): the agent dials out, nothing dials in, each
-controller's secrets stay on it. What changes:
-
-- The agent is a sidecar with the scopes `registry.read`, `game.servers@1`, `game.availability@1` and
-  `provide:dashboard.signup`. It reads its controller's module API instead of hard-coded ports.
-- The dashboard sends its account-creation setting (enabled, and the page's URL) down the agent's existing event
-  stream whenever it changes and on every connect; the agent `PUT`s it as `dashboard.signup`.
-- Its 15-second report gains `registry` (modules and phases) and `gameServers` (the `game.servers` value). Both are
-  new fields in `@dainty/fleet`'s protocol, optional so an older agent still reports.
-- The dashboard's own controller runs the same agent code path in-process, so "every game server tied to the
-  controller" is one query whether the controller is local or remote.
-- Commands from the dashboard stay the agent's allowlist; the module API's operation list is the second gate on
-  the controller itself.
-
-No federation between controllers' registries: the dashboard is the only place the fleet is put together, as now.
-
-## 9. Sidecars are started by the controller
-
-Every sidecar is a child of the controller, so the controller is the one place a host sees what runs.
-
-- `[modules.<id>]` names the program and its arguments (`command = ["bun", "apps/agent/src/main.ts"]`, or a
-  binary path), its working directory, and `enabled`. A sidecar listed without `command` is a configuration error,
-  not an external process the controller trusts on sight.
-- Started after the built-in modules it requires are `Ready` (section 6), with the host kit's process contract: the
-  environment cleared of anything in `SERVER_PREFIXES`, its rendered env file passed (`--env-file` or the
-  equivalent the program takes), in the controller's process tree (the Windows job object, the Linux process group),
-  so nothing survives the controller.
-- **Phase:** `Starting` from spawn until its first authenticated `heartbeat`; `Ready` while heartbeats arrive
-  (every 10 s, three missed is `Failed`); `Stopped` on a clean exit.
-- **Restarts** with backoff (1 s doubling to 60 s, reset after 10 minutes up), counted in `ComponentStatus.restarts`,
-  each one a `ModulePhaseChanged` event. Five failures inside 10 minutes stop retrying and leave it `Failed` with the
-  last exit code and stderr line in `detail`.
-- **Logs:** stdout and stderr are read line by line into `tracing` under the module's span, through the same
-  redaction, so they show in the table, the TUI and the GUI like a built-in's.
-- **Stop:** a polite signal (Ctrl+Break on Windows, `SIGTERM` on Linux), 10 s, then kill; in reverse start order with
-  the rest.
-- `restart <id>`, `stop <id>`, `start <id>` in the REPL and the GUI work for sidecars as for built-ins.
-
-## 10. The Discord bot
-
-A built-in module in Rust: `services/discord-bot`, a library crate the controller runs in-process when
-`[modules.discord-bot] enabled = true`. Being built-in, it uses the handles directly and needs no module token.
-
-- **Library:** `twilight` (gateway, http, model; no cache needed for slash commands), added to
-  `[workspace.dependencies]` by the integration pass. `serenity` is the alternative if a framework is wanted later.
-- **Settings:** `[modules.discord-bot]` in `host.toml`: `application_id`, `guild_ids`, `moderator_role_ids`. The bot
-  token is a secret (`DISCORD_BOT_TOKEN` in `secrets.env`, `SECRET_KEYS`), set by
-  `reforged-host setup --discord-bot-token` reading stdin, never a `host.toml` field and never logged.
-- **Text:** every reply comes from a catalog with `en` and `pt-BR`, chosen by the interaction's `locale`, with
-  `{placeholders}` for names and URLs. Reason codes from `game.availability` map to catalog keys.
-- **Licensing:** MIT only if nothing is rewritten from DR's `UndauntedDiscordBot`. If its commands port DR's (the
-  `/status`, `/player`, `/hunts` sketch in `docs/admin-api.md` follows it), the crate is AGPL with a NOTICE line.
-
-### `/key`: a key only when the server can take the player
-
-The bot requires `game.availability@1` (Ready), `accounts.invites@1` (Ready), `server.identity@1` (Ready) and
-`dashboard.signup@1` (Optional). Every reply is **ephemeral** (Discord's ephemeral flag: only the member who ran
-the command sees it).
-
-1. Read `game.availability`. **Not accepting** → reply with the translated reason ("No game server is up right now,
-   try again later"), record `DiscordKeyRequested { outcome: "unavailable" }`, stop.
-2. Read `dashboard.signup`.
-   - **Account creation enabled on the dashboard** → reply with the link to its account creation page and the
-     short instructions from the catalog (create the account there, install the launcher, sign in). Outcome
-     `signup_link`. No invite is made here: the dashboard handles registration.
-   - **Disabled, absent or stale** → call `accounts.invites.create(uses: 1, expires: 30 min)` and reply with the
-     login URI built from `server.identity` and the new code
-     (`reforged-revival://join?v=2&mode=public&host=..&port=..&fp=..&code=..&name=..`, or the `v=1` private form).
-     Outcome `login_uri`.
-3. **The availability check is repeated inside `create`.** The backend's provider reads `game.availability` before
-   it makes the code and answers `Unavailable(no_game_server)` when the state changed since step 1; the bot then
-   replies as in step 1. The bot's read picks the message; the command's check is the guarantee.
-4. Per Discord id: one live code at a time (a second `/key` inside the expiry returns the same URI, still
-   ephemeral), and at most five requests per 15 minutes.
-
-The invite code and the URI never go to a channel, a log line or an event; the event records only the outcome.
+- An account-creation setting (on or off, and the page's URL) in Settings, and a public `GET /api/public/signup`
+  answering `{ "enabled": bool, "url": string | null }`. The bot reads it with a 60 s cache; any failure reads as
+  disabled, so the fallback is the login URI.
+- Game-server views: the Overview and each server's page list `gameServers` and `availability`, from admin (A4) for its
+  own server and from `installs` (A6) for the fleet (D1).
+- If D1 keeps the agent instead: the agent's report gains `gameServers` and `availability` from the same admin queries,
+  optional fields in `@dainty/fleet`'s protocol.
 
 ## 11. How the standard modules interact
-
-Every interaction between the standard modules, with the channel each should use.
 
 ```mermaid
 flowchart LR
     classDef ext fill:#eef,stroke:#88a
     classDef core fill:#efe,stroke:#8a8
     classDef store fill:#fee,stroke:#a88
+    classDef new stroke-dasharray: 5 5
 
     Launcher["Launcher\n(player's PC)"]:::ext
-    Dashboard["Dashboard\n(remote)"]:::ext
-    HostKit["Host kit\nsetup: host.toml → env files"]:::ext
+    Discord["Discord"]:::ext
+    Dashboard["dainty-dashboard"]:::ext
+    HostKit["Host kit\nsetup: host.toml + secrets.env → env files"]:::ext
 
-    subgraph Controller["Controller process"]
-        Registry["Registry\nmanifests · status · state · events"]:::core
-        Supervisor["Sidecar supervisor"]:::core
-        ModuleAPI["module-api\n127.0.0.1:61007"]:::core
+    subgraph Server["Server process (ServerController)"]
+        Registry["ModuleRegistry\nlist · load · command · admin · game · event bus"]:::core
         Gateway["gateway"]
         Allowlist["allowlist"]
         Content["content"]
-        Admin["admin"]
-        Bot["discord-bot"]
-        Backend["backend"]
-        Director["director"]
+        Admin["admin API"]
+        Chat["chat"]
+        Network["network plugin"]
+        Remote["remote"]
+        Bot["discord bot (A7)"]:::new
+        Recorder["event recorder (A5)"]:::new
+        Isles["isles-1-14-7\nbackend + Director"]
     end
 
+    Child["external module\n(child process)"]
     GameServers["Game servers\nhub · hunts"]
-    Agent["fleet-agent\n(sidecar)"]:::ext
-    Events[("Postgres\nmodules.events")]:::store
+    GameDb[("store: game db")]:::store
+    EventsDb[("store: events (A5)")]:::store
+    Fleet["fleet controller\n(another install)"]:::ext
 
-    Launcher -->|"1 D: HTTPS + WS, pinned TLS"| Gateway
-    Gateway -->|"2 D: /reforged/api, game HTTP, chat"| Backend
-    Gateway -->|"3 D: /content/v1"| Content
-    Gateway ==>|"4 C: firewall.allow"| Allowlist
-    GameServers -->|"5 D: game-server API"| Backend
-    Backend ==>|"6 C: start / stop a hunt"| Director
-    Director -->|"7 D: spawn, UDP ports"| GameServers
-    Director -.->|"8 S: game.servers"| Registry
-    Registry -.->|"9 S: availability, endpoints, identity"| Admin
-    Content ==>|"10 C: accounts.verifyKey"| Backend
-    Admin ==>|"11 C: lookup, kick, timeout, ban"| Backend
-    Bot ==>|"12 C: accounts.invites"| Backend
-    Registry -.->|"13 S: availability, identity, signup"| Bot
-    Agent -.->|"14 S: read registry, servers; provide signup"| ModuleAPI
-    Agent ==>|"15 C: allowlisted GraphQL ops"| Admin
-    Agent -->|"16 D: outbound report + commands"| Dashboard
-    Backend -->|"17 D: chat + reports ingest"| Agent
-    Registry --o|"18 E: write, then publish"| Events
-    ModuleAPI --o|"19 E: SSE, resume by seq"| Agent
-    HostKit -.->|"20 config + secrets at start"| Controller
-    Supervisor ==>|"21 start, heartbeat, restart"| Agent
-    ModuleAPI -.- Registry
+    Launcher -->|"1 HTTPS + WS, pinned TLS"| Gateway
+    Gateway -->|"2 routes the module registered"| Isles
+    Gateway -->|"3 /content"| Content
+    Gateway -->|"4 admit after login"| Allowlist
+    Registry ==>|"5 attach registration"| Gateway
+    Registry ==>|"5"| Allowlist
+    Registry ==>|"5"| Content
+    Isles -->|"6 spawn, UDP"| GameServers
+    GameServers -->|"7 game-server API"| Isles
+    Isles -->|"8 Database::write"| GameDb
+    Admin ==>|"9 admin(version, call); game(version, call) A1"| Registry
+    Registry ==>|"10 ModuleCall over the driver"| Isles
+    Registry ==>|"11 frames over stdin/stdout"| Child
+    Isles --o|"12 emit game.* A3"| Registry
+    Registry --o|"13 subscribe_events"| Recorder
+    Recorder -->|"14 write"| EventsDb
+    Bot ==>|"15 game: Availability, CreateInvite"| Registry
+    Bot -->|"16 slash commands, ephemeral replies"| Discord
+    Bot -->|"17 GET /api/public/signup A8"| Dashboard
+    Dashboard -->|"18 GraphQL: gameServers, installs, events"| Admin
+    Remote -->|"19 Sync: InstallReport + game servers A6"| Fleet
+    Fleet -->|"20 RemoteCommand, SharedConfigBundle"| Remote
+    Network -->|"21 node links: directory, ring, home"| Fleet
+    Chat --o|"22 presence, headlines"| Registry
+    HostKit -.->|"23 env files, [modules.*], [[modules.external]]"| Server
 ```
 
-`D` data plane (`-->`), `S` state (`-.->`), `C` command (`==>`), `E` event (`--o`).
+`-->` a direct call or socket, `==>` a typed call through the registry, `--o` an event, `-.->` configuration at
+start. Dashed boxes are additions.
 
 ### Which channel for which kind of interaction
 
 | Kind | Use | Why |
 | --- | --- | --- |
-| Player and game traffic | **Direct sockets.** The registry hands out addresses at start (`service.endpoints`) and is never on the path | Latency, the existing wire contracts, and the gateway's policy are all per request; a broker in between adds a hop and a failure mode for nothing |
-| A fact other modules need now | **State**: a `watch` in process, `GET /state/...` for a sidecar | Readers get the latest value without asking its owner, the value survives the owner's restart, and no one polls |
-| An action that needs an answer | **Command**: a request handle in process, `POST /call/...` for a sidecar. The provider rechecks its own preconditions | One owner decides; the recheck closes the gap between a reader's look and the action |
-| Something happened, or history | **Event**, written to Postgres, then published | Audit and catch-up after a restart; nothing waits on a consumer |
-| Configuration and secrets | **At start only**: the rendered env file, or the module's section in `ServiceContext` | No runtime API can leak a secret it never holds; a change is a restart, as today |
-| Lifecycle | **Registry and supervisor**: phase in `ServiceContext`, heartbeats for sidecars | One place shows and controls everything that runs |
-| An upstream contract (Paradox's HTTP, the game-server API, the dashboard's ingest API) | **Stays HTTP**, wrapped as a capability provider where a Rust module consumes it | The contract keeps its byte-for-byte shape; the backend port swaps the provider, and no consumer changes |
+| Player and game traffic | **Direct sockets**, the routes and UDP ports a module registered | The gateway's policy and the wire contracts are per request; the registry is never on that path |
+| A question with an answer, or an action | **A typed call through the registry**: `admin`, `chat`, `game` (A1), `command` for the console | One owner answers and rechecks its own preconditions; the same call crosses the frame protocol unchanged |
+| Something happened | **An event** on the registry's bus, recorded by A5 | Nothing waits on a subscriber; history survives a restart |
+| Configuration | **At load**: `ModuleConfig` (ports, `[modules.<id>.*]`) or the built-in's env file | A change is `update_settings` and a reload, as today |
+| Secrets | **Only a built-in's env file**, from `secrets.env` | A `GameModule`, in process or not, is never handed one (D5) |
+| Another server | **`remote`** over mTLS node links, and the network plugin for a network | One trust model for every cross-host call |
+| A contract outside DaintyLass (Paradox's HTTP, the dashboard's ingest API, Discord) | **Stays HTTP** at its edge | Its shape is fixed elsewhere |
 
 ### Each interaction, today and in the plan
 
 | # | From → to | What | Today | Plan |
 | --- | --- | --- | --- | --- |
-| 1 | launcher → gateway | Everything a player sends | Pinned TLS (public) or Tailscale HTTP | Unchanged |
-| 2 | gateway → backend | Launcher API, game HTTP, chat WebSocket | Proxy; address worked out in `spawn_gateway` | Proxy; address from `service.endpoints` |
-| 3 | gateway → content | Runtime manifest and files, branding, news | Proxy | Unchanged; address from `service.endpoints` |
-| 4 | gateway → allowlist | Open the game ports after login | `InProcessSink` closure over a `Mutex<Option<…>>` slot | `firewall.allow@1` handle in `ServiceContext` |
-| 5 | game servers → backend | Game-server API, its key, loopback | HTTP | Unchanged (a game contract) |
-| 6 | backend → director | Start and stop hunts | HTTP, `director_url` in the backend's config | HTTP kept (Paradox's contract), URL from `service.endpoints` |
-| 7 | director → game servers | Processes and UDP ports | Spawns | Unchanged |
-| 8 | director → registry | Which game servers run, their heartbeats | Two counters in `ServerSnapshot` | `game.servers@1` state, TTL sweep in the controller |
-| 9 | registry → admin | Availability, endpoints, identity | Admin's config holds the backend and director URLs and the hunt limit | State |
-| 10 | content → backend | Is this key an account, is it banned | HTTP `GetUserInfo`, cached | `accounts.verifyKey@1`; an HTTP adapter until the Rust backend |
-| 11 | admin → backend | Lookups and moderation | Signed `/admin/v1` HTTP | Same calls; commands after the backend port |
-| 12 | bot → backend | Single-use invite | — | `accounts.invites@1`, rechecks availability |
-| 13 | registry → bot | Availability, identity, dashboard signup | — | State |
-| 14 | agent → module API | Registry, game servers, availability; provides `dashboard.signup` | Hard-coded loopback ports | `GET` / `PUT /modules/v1/state/...` with its token |
-| 15 | agent → admin | Allowlisted GraphQL operations | Admin key copied into `agent.env` by hand | Unchanged calls; key rendered into its env file by setup |
-| 16 | agent → dashboard | Status report every 15 s, commands down | Outbound SSE and POSTs | Unchanged; report gains `registry` and `gameServers` |
-| 17 | backend → agent | Chat and reports | Ingest relay on 61009 | Unchanged (the dashboard's contract) |
-| 18 | every module → event store | What happened | — | Written to `modules.events`, then broadcast |
-| 19 | module API → agent | Event stream | — | SSE, resumable by `seq` |
-| 20 | host kit → controller | Settings and secrets | `host.toml` and `secrets.env` rendered to env files | Unchanged, plus `[modules.*]` and module tokens |
-| 21 | supervisor → agent | Run it | The host runs it by hand | Started, watched and restarted by the controller |
+| 1 | launcher → gateway | Everything a player sends | Pinned TLS (public) or Tailscale | Unchanged |
+| 2 | gateway → isles | Backend routes, host-only routes refused | `Registrar::route`, `host_only_route` | Unchanged |
+| 3 | gateway → content | Runtime, files, branding, news | Proxy | Unchanged |
+| 4 | gateway → allowlist | Open the game ports after login | `InProcessAllowlistSink` over `allowlist_slot` | Unchanged |
+| 5 | registry → core plugins | A module's routes, ports, files | `CorePlugin::attach` / `detach` | Unchanged |
+| 6 | isles → game servers | Processes and UDP ports | The Director spawns | Unchanged |
+| 7 | game servers → isles | Game-server API | HTTP, its key, loopback | Unchanged |
+| 8 | isles → game db | Accounts, invites, everything | `store::Database::write`, change-logged | Invites gain an expiry (D4) |
+| 9 | admin → registry | Moderation; module list, load, unload | `admin(version, call)`, `ModuleControl` | Plus `game(version, call)`: `gameServers`, `availability` |
+| 10 | registry → isles | Every call | `InProcessModule` | Plus `ModuleCall::Game` |
+| 11 | registry → external module | Every call | `ChildModule`; dead child stays `Failed` | Plus restart with backoff (A2) |
+| 12 | isles → bus | What happened | `isles.listening`, chat headlines | Plus `game.server.up/down`, `game.availability.changed` |
+| 13 | bus → recorder | Every event | — | A5 |
+| 14 | recorder → events db | Kept events | — | `events` table, retention |
+| 15 | bot → registry | Is it up; make an invite | — | `game` calls, `require_up` rechecked |
+| 16 | bot → Discord | `/key`, `/status` | — | Ephemeral replies, `en` / `pt-BR` |
+| 17 | bot → dashboard | Signups on, and the link | — | Public endpoint, 60 s cache, failure = off |
+| 18 | dashboard → admin | Staff views and moderation | GraphQL with the admin key | Plus `gameServers`, `availability`, `events`, `installs` |
+| 19 | remote → fleet controller | Health and counts | `Sync` with `InstallReport` every 15 s | Plus `game_servers`, `availability` |
+| 20 | fleet controller → remote | Commands, shared settings | `RemoteCommand`, `SharedConfigBundle` | Unchanged; moderation by `node` from admin |
+| 21 | network ↔ peers | Directory, ring, home, log shipping | `Service::*` over node links | Unchanged |
+| 22 | chat → bus | Presence, headlines | Events | Unchanged |
+| 23 | host kit → server | Settings and secrets | Env files, `[modules]`, `[[modules.external]]` | Plus `[discord]`, `[events]`, `restart` on an external module |
 
-The rule underneath: **the registry carries facts, decisions and history; it never carries a player's packets
-or a secret.**
+The rule underneath: **the registry carries calls and events; it never carries a player's packets or a secret.**
 
 ## Walkthroughs
 
-### The dashboard lists every game server of every controller
+### The dashboard lists every game server of every server
 
-1. Each agent reads `GET /modules/v1/state/game.servers` and includes it in its report.
-2. The dashboard stores the last report per controller, as it does with status today, and the Overview and a
-   controller's page read it. A page view still costs nothing on the controllers.
-3. To query one game server, the dashboard sends a command naming its `id`; the agent resolves the id through the
-   same value.
-4. Admin's GraphQL gains `gameServers` and `availability` (new fields, existing ones untouched), read from the
-   registry instead of asked of the director.
+1. Each managed install's `remote` fills `game_servers` and `availability` from `ModuleRegistry::game_servers()` and
+   sends them with its 15 s `Sync`.
+2. The fleet controller keeps the last report per node. Its admin API answers `installs`.
+3. The dashboard, on the fleet controller's host, reads `installs` (and `gameServers` for its own server). A page view
+   costs nothing on the managed installs.
+4. A command for one game server goes as a `RemoteCommand` to its node; the node resolves the id against its own list.
+
+### `/key`
+
+As A7: availability through the registry, the signup state from the dashboard, then either the link or an invite made
+with the hub rechecked inside the game module.
 
 ## Things that must not change
 
-- The gateway is the only listener off loopback. The module API is loopback only and host-only at the gateway.
-- `/reforged/api`, admin's existing GraphQL fields and their answers, invites and the certificate `fp` are
-  untouched. New admin fields are additions.
-- Every service still reads one env file; the host kit still writes them all. No setting becomes a variable the host
-  is told to export.
-- `start_component` names, `ServerSnapshot` and its JSON stay as they are; the status page, REPL and TUI keep
-  working unchanged.
-- Secrets are never logged and never answered by an API.
+- The gateway is the only listener off loopback. Nothing here adds a listener.
+- `/reforged/api`, the host-only invite routes, admin's existing GraphQL fields and answers, invites and the
+  certificate `fp` are untouched. New admin fields are additions.
+- Every service still reads one env file that the host kit writes. A child module still gets only
+  `system_environment`.
+- `start_component` names, `ServerSnapshot` and its JSON, `huntStatus` and `serverStatus` stay as they are.
+- Secrets are never logged, never in an event and never in a `RemoteRequest` (`InstallReport::validate` refuses them).
 
 ## Rows
 
-Each row is one agent, one worktree and branch, as RD18 describes. MS1 is the seam and lands first.
+One agent, one worktree and branch each (RD18). MS1 is a seam and lands first.
 
 | Row | What | Owns | Needs |
 | --- | --- | --- | --- |
-| **MS1** | `crates/modules`: `ModuleId`, `Manifest`, `CapabilityRef`, `Need`, the v1 capability value types, `Event`, `ModuleRegistry` (wrapping today's `StatusRegistry`), with every v1 capability registered as a stub. Seam changes reported to the integration pass: the workspace members and dependency | `crates/modules` | — |
-| **MS2** | Controller: manifests for the built-in modules, the topological start replacing the fixed list (a test pins today's order), `service.endpoints`, `server.identity` and `firewall.allow`, `ServiceContext` carrying required handles | `crates/controller` | MS1 |
-| **MS3** | The director publishes `game.servers` with heartbeats; the controller's TTL sweep and `game.availability`; the events for both | `services/director`, `crates/controller` (availability module only) | MS2. If director rows are still gated (RD17), an adapter over the director's status endpoint instead |
-| **MS4** | Admin: endpoints from `service.endpoints`, `gameServers` and `availability` fields, `schema.graphql` regenerated, `docs/admin-api.md` | `services/admin` | MS3 |
-| **MS5** | `module-api` service: routes, tokens, scopes, SSE with resume, limits; `/modules` in the gateway's host-only list with its test; fuzz target; `docs/security/module-api.md` | new `services/module-api`, one line in `gateway/src/policy.rs` (reported, gateway owner merges) | MS2 |
-| **MS6** | Host kit: `[modules.*]` in `host.toml` and `hosttoml.rs`, sidecar env rendering, `MODULE_TOKEN_*` in `SECRET_KEYS`, `DAINTY_` in `SERVER_PREFIXES`, `module rotate`, settings rows in `docs/hosting.md`, `hosting-linux.md`, `hosting-docker.md`; a Compose service template for a sidecar | `services/host`, `docker/` | MS5 |
-| **MS7** | `accounts.invites`, `accounts.verifyKey` and `players.lookup` providers in the backend, with the availability check inside `create` | `services/backend` | MS3. Gated by RD17 like the rest of the backend; until then a sidecar adapter over the Node backend's host-only routes |
-| **MS8** | dainty-dashboard: the agent as a sidecar, `registry` and `gameServers` in `@dainty/fleet`'s report, the account-creation setting pushed to agents and provided as `dashboard.signup`, the dashboard's game-server views, `fleet.md` | dainty-dashboard repo | MS5, MS6, MS12 |
-| **MS9** | Discord bot as a built-in Rust module (section 10): `/key`, `/status`; its catalog in `en` and `pt-BR`; the token in `secrets.env` and its `setup` option; replaces the sketch in `docs/admin-api.md`. `twilight` reported for `[workspace.dependencies]` | new `services/discord-bot` | MS3, MS6, MS7, MS11 |
-| **MS11** | `modules.events` in Postgres: the migration (through the `store` owner), write-then-publish in the registry, resume by `seq`, retention | `crates/modules` (event store), one migration reported to the `store` owner | MS1, **RB3** (`store` on Postgres), **RB14** (the host kit's managed Postgres) |
-| **MS12** | Sidecar supervision (section 9): spawn, env, process tree, heartbeats, backoff, log capture, REPL and GUI commands | `crates/controller` (sidecar module only) | MS5, MS6 |
+| **MS1** | `module_api::game` (A1): `GameCall`, `GameAnswer`, `Availability`, `UnavailableReason`, `GameServer`, `GameServerKind`, the event-name constants; `GameModule::game`; `ModuleCall::Game` / `ModuleAnswer::Game`; `Registrar::game_call`; `API_VERSION`; the stub module answers it; the `module_frame` fuzz target covers the new frames; `docs/writing-a-module.md` and `docs/security/module-host.md` | `crates/module-api` (seam: through the integration pass) | — |
+| **MS2** | Controller (A2): `ModuleRegistry::game`, `game_servers`; restart with backoff for external modules; `restart` in `hostconfig/modules.rs` and `hosttoml.rs`; `docs/hosting.md` row | `crates/controller`, `crates/hostkit/src/hostconfig/modules.rs` | MS1 |
+| **MS3** | rustic-isles (A3): `game()` on the isles module, the hub-status watch and its events, invite expiry per D4 | `modules/rustic-isles` (its repository), then the submodule bump here | MS1 |
+| **MS4** | Admin (A4): `gameServers`, `availability`, `events`; `schema.graphql`; `docs/admin-api.md` | `services/admin` | MS2, MS5 for `events` |
+| **MS5** | Event recorder (A5): subscriber, table, `events.lagged`, retention, `[events]` in host.toml; the schema reported to `store`'s owner | `crates/controller` (recorder only), `crates/hostkit` (`[events]`) | MS2; D2 |
+| **MS6** | Remote (A6): `InstallReport` fields, last report per node, admin `installs` and `node` on moderation; upgrade order in `docs/remote-management.md`; `remote_wire` fuzz target | `crates/remote`, `services/admin` (fleet fields only, after MS4) | MS2, MS4; D1 |
+| **MS7** | Discord bot (A7): `plugins/discord`, `controller::modules::discord`, `[discord]` and the token through `setup`, `/key` and `/status`, catalog in `en` and `pt-BR`, `docs/security/discord.md` and a fuzz target for interaction parsing, the hosting docs | new `plugins/discord`; `crates/hostkit` (`[discord]`, secret) | MS2, MS3; MS5 for its audit (D6) |
+| **MS8** | dainty-dashboard (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs` (or, per D1, the agent's report gains `gameServers`) | dainty-dashboard repository | MS4, MS6; D1, D3 |
 
-MS4, MS5 and MS3's follow-ups can run side by side once MS2 is merged. Nothing here edits `MIGRATION_PLAN.md`; the
-integration pass adds the rows and the decisions below.
+MS3, MS4 and MS5 can run side by side once MS2 is merged. Nothing here edits `MIGRATION_PLAN.md`; the integration
+pass adds the rows and the decisions.
 
 ## Decisions to record
 
-- Capabilities are concrete handles over `watch`, request channels and `broadcast`, not `dyn` traits.
-- A sidecar's manifest and scopes come from the host's configuration, never from the sidecar.
-- The module API never returns a secret; secrets reach a sidecar only in its rendered env file.
-- "Up" is `game.availability`, computed once by the controller, and a command that depends on it checks it again
-  itself.
+- Modules share through typed calls the registry routes (`admin`, `chat`, `game`) and the registry's event bus. No
+  capability registry, no module API listener, no per-module tokens.
+- "Up" is `GameCall::Availability`, answered by the game module from the Director's hub status; `CreateInvite` with
+  `require_up` checks it again itself. Free hunt slots are reported, never required.
 - Unavailability reasons are codes; the reader translates them.
-- `crates/modules` is MIT.
-- 2026-10-31: the Discord bot is Rust, a built-in module. `/key` sends the dashboard's account creation link when
-  the dashboard has account creation on, otherwise a single-use login URI, ephemerally, to the member who asked.
-- 2026-10-31: the controller starts and supervises every sidecar.
-- 2026-10-31: events are kept, in Postgres (`modules.events`), written before they are published.
-- 2026-10-31: the server is up when its hub game server is running. Free hunt slots are reported, not required.
-- 2026-10-31: the event store waits for Postgres (RB3, RB14); no interim SQLite store.
-- 2026-10-31: the Discord bot waits for the event store (MS11), so it ships with its audit, after the backend
-  cutover.
-- 2026-10-31: one game, 1.14.7 on rustic-isles. No Dauntless Revived 1.4.4 modules and no Mystic Paradox 1.12
-  modules, so nothing here is per edition. Importing and converting a legacy database is kept, outside this plan.
+- Sidecars are `[[modules.external]]` children the controller starts, and restarts when the host asks for it.
+- The Discord bot is Rust, a built-in service in the server process, with its token in `secrets.env`.
+- 2026-10-31: `/key` sends the dashboard's signup link when signups are on, otherwise a single-use login URI, both
+  visible only to the member who asked.
+- 2026-10-31: one game, 1.14.7 on rustic-isles.
+
+## For the maintainer
+
+- **D1. Does `crates/remote` replace dainty-dashboard's agent?** They overlap: outbound connection, a 15 s report, an
+  allowlist of commands, a one-time pairing code. Remote does it inside DaintyLass over mTLS with roles, `DH6` and
+  audit; the agent is a second path with its own token and the admin key copied into `agent.env` by hand.
+  *Recommended:* yes. The dashboard runs beside the fleet controller and reads the fleet from its admin API (A6), and
+  the agent is retired once MS8 lands. If not, MS8 takes the agent branch and the two stay side by side.
+- **D2. Events in `store` now, not after Postgres.** Your earlier choice was Postgres-only, waiting for RB3 and RB14.
+  `store` runs SQLite by default and Postgres when `[database]` says so (DD15), and the game module already ships both
+  migration sets, so waiting buys nothing. *Recommended:* record on either engine now (A5). And: may the events table
+  be change-logged like every other (each event written twice, inside the hash chain), or should `store` get an
+  opt-out for append-only tables?
+- **D3. Where the bot learns that signups are on.** *Recommended:* a public dashboard endpoint (A8); the link is public
+  anyway, and a failure falls back to the login URI. The alternative is an admin mutation the dashboard calls to push
+  the setting to every server, which keeps the bot off the network but adds a write path.
+- **D4. Invite expiry.** Invites have none. *Recommended:* an `expires_at` column in rustic-isles, so a code can't
+  outlive a bot restart. The alternative is the bot revoking its own codes on a timer.
+- **D5. Secrets for out-of-process modules.** None of this needs one, and today a child never gets one. Keep it that
+  way until a module needs it?
+- **D6. Does the bot wait for kept events?** The first draft held it until the event store shipped so it ships with
+  its audit. With D2 that wait is short; keep it?
 
 ## Open questions
 
 1. **A hub started on demand.** If the Director starts the hub only when the first player connects, "the hub is
-   running" becomes "the Director is ready to start one". MS3 checks how the Director behaves before fixing the rule
-   in code.
+   running" becomes "the Director is ready to start one". MS3 checks how the Director behaves before fixing
+   `Availability` in code.
