@@ -1,6 +1,6 @@
 //! Invite parsing (row L11): `protocol::invite` (RS1), which reads `src/shared/invite.ts`'s two invite
-//! shapes answer for answer under `dauntless://` and its per-game aliases, and refuses a legacy invite
-//! without the `legacy` feature (RD5). The host, port and
+//! shapes answer for answer under `dauntless://` and its per-game aliases, and refuses a 1.4.4 invite
+//! (RD5). The host, port and
 //! fingerprint decide where the account key is sent later, so the launcher has no copy of its own: the
 //! rules here are the servers' rules, and both sides run the same table
 //! (`crates/protocol/tests/cases/invite.json`).
@@ -48,13 +48,6 @@ mod tests {
             assert_eq!(parse_invite(&case.input), Ok(case.invite), "{:?}", case.input);
         }
         for case in cases.reject {
-            // The legacy edition reads them (protocol's table test checks how)
-            if cfg!(feature = "legacy") && case.error == "revived" {
-                assert!(
-                    parse_invite(&case.input).is_ok_and(|invite| invite.version == protocol::invite::revived_version())
-                );
-                continue;
-            }
             assert_eq!(
                 parse_invite(&case.input).map_err(InviteError::as_str),
                 Err(case.error.as_str()),
@@ -81,7 +74,6 @@ mod tests {
         assert_eq!(parse_invite(&link), Ok(invite));
     }
 
-    #[cfg(not(feature = "legacy"))]
     #[test]
     fn dauntless_revived_invites_are_refused() {
         let link = format!(

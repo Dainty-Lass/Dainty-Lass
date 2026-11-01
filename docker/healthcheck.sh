@@ -4,7 +4,7 @@
 # process environment first, then its env file (written by reforged-host setup). The host kit's `start`
 # waits the same way (rust/services/host/src/services.rs, Ready).
 set -u
-name="${1:?usage: reforged-healthcheck gateway|content|admin|allowlist|backend|director|metagame|deploy}"
+name="${1:?usage: reforged-healthcheck gateway|content|admin|allowlist|backend|director}"
 file="/opt/reforged/.workspace/config/$name.env"
 
 setting() {
@@ -24,8 +24,6 @@ case "$name" in
 	admin) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61003)" ;;
 	backend) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61000)" ;;
 	director) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61001)" ;;
-	metagame) host="$(setting METAGAME_BIND_HOST 127.0.0.1)" port="$(setting METAGAME_PORT 61000)" ;;
-	deploy) host="$(setting DEPLOY_BIND_HOST 127.0.0.1)" port="$(setting DEPLOY_PORT 61001)" ;;
 	*) echo "unknown service $name" >&2; exit 2 ;;
 esac
 [ "$host" = 0.0.0.0 ] && host=127.0.0.1

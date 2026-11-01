@@ -38,25 +38,6 @@ pub fn prepare_game(config: &Config) -> Result<AppState, String> {
 
 /// [`prepare_game`], serving what the controller attaches to `modules` (DF4b).
 pub fn prepare_game_with(config: &Config, modules: Arc<ContentModules>) -> Result<AppState, String> {
-    #[cfg(feature = "legacy")]
-    if let (true, Some(game_dir)) = (config.version == protocol::invite::revived_version(), &config.game_dir) {
-        let game = crate::legacy::LegacyGame::prepare(game_dir, config.manifest_path.as_deref())?;
-        let clock: crate::auth::Clock = Arc::new(crate::now_ms);
-        return Ok(App::legacy_with_modules(
-            Deps {
-                runtime: Arc::new(RuntimeStore::new(None, clock.clone())),
-                auth: AuthCache::new(
-                    backend_lookup(&config.backend_url, Duration::from_secs(5)),
-                    Duration::from_secs(config.auth_cache_seconds),
-                ),
-                limiter: StreamLimiter::new(config.max_streams_per_account, config.max_streams_total),
-                branding: Branding::new(config.branding_dir.clone(), clock.clone()),
-                news: Arc::new(News::new(config.news_file.clone(), config.news_url.clone(), clock)),
-            },
-            game,
-            modules,
-        ));
-    }
     Ok(prepare_with(config, modules))
 }
 
@@ -223,7 +204,7 @@ pub async fn run_with_modules(
         servers.push(tokio::spawn(serve(listener, app.clone(), stop_rx.clone())));
     }
     ctx.status().report_ready(Some(config.port), "listening");
-    let mut ready = json!({
+    let ready = json!({
         "listen": config.bind_hosts.iter().map(|h| format!("{h}:{}", config.port)).collect::<Vec<_>>(),
         "backend": config.backend_url,
         "runtime": config.runtime_dir.as_ref().map(|d| d.display().to_string()),
@@ -232,29 +213,6 @@ pub async fn run_with_modules(
         "maxStreamsPerAccount": config.max_streams_per_account,
         "maxStreamsTotal": config.max_streams_total,
     });
-    if let (false, Some(fields)) = (
-        config.version == protocol::invite::reforged_version(),
-        ready.as_object_mut(),
-    ) {
-        fields.remove("runtime");
-        if let Some(metagame) = fields.remove("backend") {
-            fields.insert("metagame".into(), metagame);
-        }
-        fields.insert("game".into(), json!(config.version.to_string()));
-        fields.insert(
-            "gameDir".into(),
-            json!(config.game_dir.as_ref().map(|d| d.display().to_string())),
-        );
-        fields.insert(
-            "manifest".into(),
-            json!(
-                config
-                    .manifest_path
-                    .as_ref()
-                    .map_or_else(|| "built-in".to_owned(), |p| p.display().to_string())
-            ),
-        );
-    }
     log::info("content server ready", ready);
     ctx.wait_stop().await;
     ctx.status().report_stopping("stopping");

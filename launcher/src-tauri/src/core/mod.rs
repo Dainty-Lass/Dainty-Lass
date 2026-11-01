@@ -5,10 +5,6 @@
 pub mod game_language;
 pub mod i18n;
 pub mod invite;
-#[cfg(feature = "legacy")]
-pub mod legacy_pins;
-#[cfg(feature = "legacy")]
-pub mod manifest;
 #[allow(dead_code, reason = "the platform layer uses the rest of the pins")]
 pub mod pins;
 pub mod text;

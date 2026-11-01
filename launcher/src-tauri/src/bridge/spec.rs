@@ -2,8 +2,7 @@
 //! that the backend serves, with the shape of its arguments. Three layers read
 //! it: the isolation hook in the page (`isolation/commands.js`, generated from this list), the capability
 //! that grants exactly these commands (`build.rs`), and the commands themselves, which check the same
-//! limits again. The `revived*` methods (1.4.4) are served in every build and answer only with the
-//! `legacy` feature; the window controls are Tauri's own. After `subscribe_progress` come DaintyLass's own
+//! limits again. The `revived*` methods (1.4.4) are served and always refused (RD5); the window controls are Tauri's own. After `subscribe_progress` come DaintyLass's own
 //! commands (DF8), stubs until their rows fill them (`PLANNED`).
 #![cfg_attr(
     not(test),

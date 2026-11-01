@@ -9,17 +9,11 @@ use http::HeaderMap;
 use protocol::GameVersion;
 use service_kit::js;
 
-#[cfg(feature = "legacy")]
-pub mod legacy;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Upstream {
     Backend,
     Content,
     Ws,
-    /// Dauntless Revived's metagame, in legacy mode
-    #[cfg(feature = "legacy")]
-    Metagame,
 }
 
 impl Upstream {
@@ -28,8 +22,6 @@ impl Upstream {
             Self::Backend => "backend",
             Self::Content => "content",
             Self::Ws => "ws",
-            #[cfg(feature = "legacy")]
-            Self::Metagame => "metagame",
         }
     }
 }
@@ -289,12 +281,7 @@ pub fn classify_for(
     headers: &HeaderMap,
     is_upgrade: bool,
 ) -> Decision {
-    #[cfg(feature = "legacy")]
-    if *version == protocol::invite::revived_version() {
-        return legacy::classify(method, raw_url, headers, is_upgrade);
-    }
     // Without the feature `Config` refuses legacy, so only reborn gets here
-    #[cfg(not(feature = "legacy"))]
     let _ = version;
     classify(method, raw_url, headers, is_upgrade)
 }
