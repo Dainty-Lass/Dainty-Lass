@@ -252,7 +252,7 @@ pub fn compose(
     };
 
     #[cfg(feature = "paradox")]
-    if reborn {
+    {
         controller.add(mongod_module(paths, config, printer.clone()));
     }
 
@@ -271,7 +271,7 @@ pub fn compose(
     }
 
     #[cfg(feature = "paradox")]
-    if reborn {
+    {
         let node = |name: &str, dir: &Path, script: &[&str], ready: Ready| ServiceSpec {
             name: name.into(),
             cwd: dir.to_path_buf(),
