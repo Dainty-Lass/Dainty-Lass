@@ -1242,6 +1242,16 @@ impl Controller {
                                 setup_args.game = Some(arg_vec[i + 1].clone());
                                 i += 2;
                             }
+                            "--modules" | "--module" if i + 1 < arg_vec.len() => {
+                                setup_args.modules = Some(
+                                    arg_vec[i + 1]
+                                        .split(',')
+                                        .map(|s| s.trim().to_owned())
+                                        .filter(|s| !s.is_empty())
+                                        .collect(),
+                                );
+                                i += 2;
+                            }
                             "--fresh-start" => {
                                 setup_args.fresh_start = true;
                                 i += 1;
@@ -1498,6 +1508,7 @@ impl Controller {
         &self,
         registration: String,
         database: String,
+        reborn_module: Option<String>,
         max_hubs: u32,
         max_hunts: u32,
         fresh_start: bool,
@@ -1522,6 +1533,9 @@ impl Controller {
             let db = config.database.get_or_insert_with(Default::default);
             db.engine = Some(database);
             db.fresh_start = if fresh_start { Some(true) } else { None };
+            if let Some(reborn_mod) = reborn_module {
+                apply_reborn_module_selection(&mut config, &reborn_mod)?;
+            }
             let _ = max_hubs;
             host::hostconfig::save_host_config(&paths, &config).map_err(|e| e.to_string())?;
             if fresh_start {
@@ -2041,6 +2055,7 @@ fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConf
             public_host: None,
             registration: "INVITECODE".into(),
             database: "sqlite".into(),
+            reborn_module: "isles-1-14-7".into(),
             max_hubs: 1,
             max_hunts: 3,
             fresh_start: false,
@@ -2058,6 +2073,16 @@ fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConf
         .as_ref()
         .and_then(|d| d.engine.clone())
         .unwrap_or_else(|| "sqlite".into());
+    let reborn_module = c
+        .modules
+        .as_ref()
+        .and_then(|m| m.compiled.as_ref())
+        .and_then(|list| {
+            list.iter()
+                .find(|id| id.as_str() == "isles-1-12-0")
+                .map(|_| "isles-1-12-0".to_owned())
+        })
+        .unwrap_or_else(|| "isles-1-14-7".to_owned());
     let fresh_start = c.database.as_ref().and_then(|d| d.fresh_start).unwrap_or(false)
         || matches!(mongo_migration.state, MongoMigrationState::Skipped);
     Ok(ServerConfigView {
@@ -2067,12 +2092,44 @@ fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConf
         public_host,
         registration: c.registration.as_str().to_owned(),
         database,
+        reborn_module,
         max_hubs: 1,
         max_hunts: c.max_hunt_servers,
         fresh_start,
         mongo_migration,
         config_file,
     })
+}
+
+#[cfg(feature = "server-gui")]
+fn apply_reborn_module_selection(config: &mut host::hostconfig::HostConfig, reborn_mod: &str) -> Result<(), String> {
+    let mod_id: module_api::ModuleId = match reborn_mod {
+        "isles-1-14-7" | "isles-1-12-0" => reborn_mod.parse().map_err(|e| format!("{e}"))?,
+        _ => return Err("reborn_module".to_owned()),
+    };
+    if reborn_mod == "isles-1-12-0" {
+        let modules = config.modules.get_or_insert_with(Default::default);
+        let mut compiled = modules.compiled.take().unwrap_or_default();
+        compiled.retain(|id| id.as_str() != "isles-1-14-7" && id.as_str() != "isles-1-12-0");
+        compiled.push(mod_id);
+        modules.compiled = Some(compiled);
+    } else if let Some(modules) = config.modules.as_mut() {
+        if let Some(mut compiled) = modules.compiled.take() {
+            compiled.retain(|id| id.as_str() != "isles-1-12-0");
+            if compiled.is_empty() || compiled.iter().all(|id| id.as_str() == "isles-1-14-7") {
+                modules.compiled = None;
+            } else {
+                if !compiled.contains(&mod_id) {
+                    compiled.push(mod_id);
+                }
+                modules.compiled = Some(compiled);
+            }
+        }
+        if modules.compiled.is_none() && modules.external.is_empty() && modules.settings.is_empty() {
+            config.modules = None;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(feature = "server-gui")]
