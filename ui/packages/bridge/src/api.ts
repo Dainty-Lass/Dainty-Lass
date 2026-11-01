@@ -98,6 +98,7 @@ export interface AdminRequest {
 export interface ServerConfigPatch {
   registration: "OPEN" | "INVITECODE" | "NONE" | "INVITE"
   database: "sqlite" | "postgres"
+  rebornModule?: "isles-1-14-7" | "isles-1-12-0" | null
   maxHubs: number
   maxHunts: number
   freshStart: boolean
@@ -537,6 +538,7 @@ export const api: LauncherApi = {
         config: {
           registration: String(config.registration),
           database: String(config.database),
+          rebornModule: optionalText(config.rebornModule),
           maxHubs: Math.floor(Number(config.maxHubs)),
           maxHunts: Math.floor(Number(config.maxHunts)),
           freshStart: config.freshStart === true,
