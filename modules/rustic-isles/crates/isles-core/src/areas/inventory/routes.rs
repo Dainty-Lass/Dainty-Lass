@@ -16,7 +16,6 @@ use service_kit::{js, jsjson};
 
 use super::body;
 use super::items::number_value;
-use super::multipliers::{multiply_reward_items, reward_multiplier};
 use super::ports::{AuthData, AuthRequest, Authentication, Ports};
 use super::reforge::{
     GrantFailure, ResetOutcome, RestoreGrant, grant_banked_restore, is_prestige_gated_reward, plan_purchase_restore,
@@ -31,6 +30,7 @@ use super::validation::{
     inventory_body_has_grant_or_spend, validate_instanced_item_update_body, validate_inventory_transaction_body,
 };
 use super::weapon_level::serve_weapons_at_base_level;
+use crate::areas::matchmaking::multipliers::{multiply_reward_items, read_test_multipliers};
 use crate::areas::progression::reforge::{ReforgePlan, reforge_mode};
 use crate::areas::progression::tracks::{MAX_PROGRESSION_GRANT_AMOUNT, is_reforgeable_track};
 use crate::db::IslesStore;
@@ -588,10 +588,10 @@ pub async fn post_transaction(call: Call, ports: Ports) -> Response {
     let effective_add_stacked = if is_dedicated_server && add_stacked.is_array() {
         let excluded = |id: &str, quantity: f64| is_prestige_gated_reward(&shared, id) || challenge_grant(id, quantity);
         multiply_reward_items(
-            reward_multiplier(settings),
             body.get("source"),
             items_of(&add_stacked),
             &excluded,
+            &read_test_multipliers(settings),
         )
         .map(Value::Array)
     } else {

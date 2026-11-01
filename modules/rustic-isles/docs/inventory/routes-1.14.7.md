@@ -428,7 +428,8 @@ group where it can, so one agent ports it; the exceptions and the calls that cou
   /progression/:userId/:progressionId/:amount`, `POST /progression/:userId`, patch 0005) with the rest of
   `progression.ts`. "The game servers' posts" in the `matchmaking-parties` group is read as the posts in
   `matchmaking.ts`, `/candidate/player/register` and `/candidate/player/alive`. Multipliers (0007) have no route of
-  their own: they apply inside `POST /inventory` (`MultiplyRewardItems`) and the XP route (`MultiplyXpGrant`).
+  their own: they apply inside `POST /inventory` (`MultiplyRewardItems`) and the XP route (`MultiplyXpGrant`). RU5 ports
+  `testMultipliers.ts` once, in `areas/matchmaking/multipliers.rs`, which both routes call, and logs its start-up line.
 - **`bounties-store`** takes the cooldowns (`/cooldown/*`, the bounty and daily-patrol gates of `cooldownState.ts`) and
   the entitlements (`/entitlementsv2`, `/entitlementv2/:userId`).
 - **`chat`** takes friends, Slayer link and guild (all of `friends.ts` and `guild.ts`, most of them stubs) and the
@@ -483,7 +484,7 @@ HTTP surface in its interface, so it adds no route.
 | backend | HTTP, `PORT` (3000), every interface unless `BIND_HOST` | `reference/1.14.7/ParadoxBackend/src/server.ts` | | | The Express app. The Director and the game servers call it here, over plain HTTP with their API keys |
 | backend | HTTPS, `HTTPS_PORT` (3443) | `reference/1.14.7/ParadoxBackend/src/server.ts` | | | The same app with the `paradox` certificate (`PARADOX_CERT_PEM_PATH`, `PARADOX_KEY_PEM_PATH`, `PARADOX_KEY_PASSPHRASE`); not opened when `RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY=on` |
 | backend | XMPP over WebSocket, upgrade on the HTTPS listener (on the HTTP one behind a proxy) | `reference/1.14.7/ParadoxBackend/src/realtime/RealtimeGateway.ts`, `realtime/index.ts` | isles | chat | Only with `REALTIME_XMPP_ENABLED=true` (503 otherwise). Paths `//`, `/` and `/__ws/xmpp` (`REALTIME_WS_PATHS`; `REALTIME_XMPP_WS_PATHS` replaces them; 404 for any other), subprotocol `xmpp` echoed when offered. 403 for a host outside `REALTIME_XMPP_ALLOWED_HOSTS`, 503 at the global connection cap, 429 at the per-IP cap or after failed auth |
-| backend | HTTP, `QOS_PORT` (80; `off` for none) | `reference/1.14.7/ParadoxBackend/src/server.ts` | isles | matchmaking-parties | Answers every method and path `200 <!DOCTYPE html><html><body>pong</body></html>`: the client's region ping for each `/candidate/regions` URL. A bind failure is logged and leaves readiness alone |
+| backend | HTTP, `QOS_PORT` (80; `off` for none) | `reference/1.14.7/ParadoxBackend/src/server.ts` | isles | matchmaking-parties | Answers every method and path `200 <!DOCTYPE html><html><body>pong</body></html>`: the client's region ping for each `/candidate/regions` URL. A bind failure is logged and leaves readiness alone. RU5: `areas/matchmaking/qos.rs` answers the same bytes on 127.0.0.1 only, on the manifest's `qos` port (61010 by default), and opens nothing public: publishing `QOS_PORT` waits on a decision ([`docs/security/qos.md`](../security/qos.md)). The host kit writes `QOS_PORT=0`, so it starts only when a host sets a port |
 | director | HTTP, `PORT`, `BIND_HOST` (127.0.0.1) | `reference/1.14.7/ParadoxDirector/src/server.ts` | | | The Express app above |
 
 Neither service opens a UDP socket or a raw TCP server. The game servers' own ports, which the Director allocates and

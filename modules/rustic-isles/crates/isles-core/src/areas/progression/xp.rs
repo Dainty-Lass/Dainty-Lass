@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use service_kit::js;
 
 use crate::AccountId;
+use crate::areas::matchmaking::multipliers::{multiply_xp_grant, read_test_multipliers};
 use crate::http::Call;
 use crate::repo::progression::{ProgressionGrantRecord, ProgressionTrackRecord, now_iso};
 use crate::repo::{RepoError, RepoResult};
@@ -24,9 +25,15 @@ use super::tracks::{
     HostGrantRefusal, MAX_PROGRESSION_GRANT_AMOUNT, NO_PLAYER, PROGRESSION_ID_MAX_LENGTH, active_huntpass_id,
     check_host_track_total, check_host_xp_grant, curves, describe_host_refusal, describe_unapproved_xp_track,
     experience_track_for_prestige, grant_request_hash, host_limit_denial, host_track_total_cap, is_approved_xp_track,
-    is_huntpass_xp_track, is_reforgeable_track, is_valid_grant_id, multiply_xp_grant, test_multipliers,
+    is_huntpass_xp_track, is_reforgeable_track, is_valid_grant_id,
 };
 use super::util::{as_integer, bad_request, conflict, forbidden, js_number, log_safe, ok, reply};
+
+/// `MultiplyXpGrant(Amount, MAX_XP_GRANT_AMOUNT)`: a private test server's XP multiplier, capped at the route's maximum.
+fn test_xp_grant(shared: &crate::http::Shared, amount: i64) -> i64 {
+    let multipliers = read_test_multipliers(&shared.settings);
+    multiply_xp_grant(amount as f64, MAX_PROGRESSION_GRANT_AMOUNT as f64, &multipliers) as i64
+}
 
 /// `MasteryPersistence`: `RUSTIC_ISLES_MASTERY_PERSISTENCE` (the env file, then the version's default switch).
 pub fn mastery_persistence(shared: &crate::http::Shared) -> bool {
@@ -234,7 +241,7 @@ pub async fn grant(call: Call, ports: Ports) -> Response {
     if req.auth.is_gameserver
         && let Some(foreign_account) = crate::areas::matchmaking::resolve_foreign_account(&shared, &user_id).await
     {
-        let granted_amount = multiply_xp_grant(amount, MAX_PROGRESSION_GRANT_AMOUNT, test_multipliers(&shared));
+        let granted_amount = test_xp_grant(&shared, amount);
         let instance_id = req
             .header("x-reforged-instance-id")
             .and_then(|s| s.parse::<module_api::GlobalId>().ok())
@@ -317,7 +324,7 @@ pub async fn grant(call: Call, ports: Ports) -> Response {
     }
 
     // A private test server's XP multiplier, capped at the route's maximum
-    let granted_amount = multiply_xp_grant(amount, MAX_PROGRESSION_GRANT_AMOUNT, test_multipliers(&shared));
+    let granted_amount = test_xp_grant(&shared, amount);
     if granted_amount != amount {
         tracing::info!(
             "[TestMultiplier] XP grant {amount} -> {granted_amount} (user={user_id}, track={progression_id})"

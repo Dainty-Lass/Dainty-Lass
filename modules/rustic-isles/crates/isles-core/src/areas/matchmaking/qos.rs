@@ -3,11 +3,11 @@
 //! `<!DOCTYPE html><html><body>pong</body></html>` on every path. Nothing listening there leaves every region
 //! "9999ms Invalid" and the client travelling with no region at all.
 //!
-//! The ping goes to the *public* `QOS_PORT` (80 by default on 1.14.7), and a game module opens no public listener
-//! (DD3, AGENTS.md). So the module only answers on loopback, on a port of its own, and announces both in
-//! `isles.listening` (`qos` and `qos_public_port`); the gateway, the one listener off loopback, publishes the public
-//! port and forwards it. `QOS_PORT=0` or `off` starts nothing, which is what the host kit writes when the launcher's
-//! relay answers the pings.
+//! Node opens it on every interface at `QOS_PORT` (80). A game module opens no public listener (DD3, AGENTS.md), so
+//! this binds 127.0.0.1 on the manifest's `qos` port and announces it in `isles.listening` (`qos`, with the public
+//! port asked for in `qos_public_port`). Nothing publishes it yet: that needs a decision (`docs/security/qos.md`).
+//! Under DaintyLass the host kit writes `QOS_PORT=0` and points `QOS_TARGET_URL` at the launcher's relay, which
+//! answers the pings on the player's own machine, so no listener starts.
 
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -94,15 +94,15 @@ pub fn app() -> Router {
 /// A running pong listener on loopback.
 pub struct PongListener {
     pub address: SocketAddr,
-    /// The port the gateway publishes it on
+    /// The public port `QOS_PORT` asked for, which only the gateway could open
     pub public_port: u16,
     pub stop: oneshot::Sender<()>,
     pub task: JoinHandle<()>,
 }
 
-/// Binds the loopback side, on an ephemeral port. A failure is logged and changes nothing else: the game is
+/// Binds the loopback side on `bind_port` (0 for any). A failure is logged and changes nothing else: the game is
 /// playable without a latency measurement, so a busy QoS port never takes the API down.
-pub async fn start(settings: &Settings, tables: &VersionTables) -> Option<PongListener> {
+pub async fn start(settings: &Settings, tables: &VersionTables, bind_port: u16) -> Option<PongListener> {
     let plan = plan(settings, tables);
     let Some(public_port) = plan.port else {
         match plan.problem {
@@ -113,7 +113,7 @@ pub async fn start(settings: &Settings, tables: &VersionTables) -> Option<PongLi
         }
         return None;
     };
-    let listener = match tokio::net::TcpListener::bind(("127.0.0.1", 0)).await {
+    let listener = match tokio::net::TcpListener::bind(("127.0.0.1", bind_port)).await {
         Ok(listener) => listener,
         Err(error) => {
             tracing::warn!("QoS listener could not start: {error}");
@@ -194,6 +194,7 @@ mod tests {
         let listener = start(
             &Settings::from_pairs([("QOS_PORT", "8081")]),
             &crate::areas::matchmaking::testkit::TABLES,
+            0,
         )
         .await
         .unwrap();
@@ -210,7 +211,8 @@ mod tests {
         assert!(
             start(
                 &Settings::from_pairs([("QOS_PORT", "off")]),
-                &crate::areas::matchmaking::testkit::TABLES
+                &crate::areas::matchmaking::testkit::TABLES,
+                0
             )
             .await
             .is_none()

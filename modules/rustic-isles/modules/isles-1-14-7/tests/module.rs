@@ -37,6 +37,8 @@ fn the_manifest_is_ddfours() {
     assert_eq!(manifest.capabilities.realms, cfg!(feature = "realms"));
     assert!(manifest.capabilities.network);
     assert!(!manifest.unverified);
+    // The QoS pong's loopback side, so the controller assigns it and moves a clash (DD4)
+    assert!(manifest.port("qos").is_some_and(|port| port.range.first == 61010));
 }
 
 #[tokio::test(flavor = "multi_thread")]

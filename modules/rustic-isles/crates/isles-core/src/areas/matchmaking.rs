@@ -1,6 +1,6 @@
 //! RU5's `MatchmakingParties` group: multipliers, matchmaking, parties and the game servers' posts. RU3c: hook
 //! `candidate_destination`; tables `TARGET_CHANGELIST` and `GAME_VERSION` (the `buildId`, `VersionTables::build_id`);
-//! `QOS_PORT`'s listener is a public one, so the module answers on loopback and the gateway publishes it ([`qos`]).
+//! `QOS_PORT`'s listener is a public one in Node; the module answers it on loopback only ([`qos`]).
 //!
 //! Matchmaking tickets, candidates and presence stay in memory (DD15, [`state`]); parties are on `store` under global
 //! ids (DD18, `repo::parties`). The Director is reached through [`deploy::DedicatedServers`] (RU6 supplies the
