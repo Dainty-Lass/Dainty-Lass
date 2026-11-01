@@ -1481,6 +1481,12 @@ impl Admin {
         request_key: Option<&str>,
     ) -> async_graphql::Result<KickResult> {
         let result = self.kick_local_quiet(caller, name, game).await?;
+        if let (Some(account), _) = self.directory_target(name).await {
+            self.relay
+                .revoke_tickets(&account)
+                .await
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
+        }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         self.audit_full(
             &caller.key,
@@ -1661,6 +1667,12 @@ impl Admin {
         request_key: Option<&str>,
     ) -> async_graphql::Result<Player> {
         let player = self.ban_local_quiet(caller, name, reason, game).await?;
+        if let (Some(account), _) = self.directory_target(name).await {
+            self.relay
+                .revoke_tickets(&account)
+                .await
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
+        }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         self.audit_full(
             &caller.key,
@@ -1868,6 +1880,12 @@ impl Admin {
         request_key: Option<&str>,
     ) -> async_graphql::Result<Player> {
         let player = self.timeout_local_quiet(caller, name, end, reason, game).await?;
+        if let (Some(account), _) = self.directory_target(name).await {
+            self.relay
+                .revoke_tickets(&account)
+                .await
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
+        }
         let full_reason = timeout_reason(end, reason);
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         self.audit_full(
@@ -1995,6 +2013,12 @@ impl Admin {
         request_key: Option<&str>,
     ) -> async_graphql::Result<Player> {
         let player = self.unban_local_quiet(caller, name, reason, game).await?;
+        if let (Some(account), _) = self.directory_target(name).await {
+            self.relay
+                .allow_tickets(&account)
+                .await
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
+        }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         self.audit_full(
             &caller.key,
@@ -2108,6 +2132,12 @@ impl Admin {
         request_key: Option<&str>,
     ) -> async_graphql::Result<Player> {
         let player = self.lift_timeout_local_quiet(caller, name, game).await?;
+        if let (Some(account), _) = self.directory_target(name).await {
+            self.relay
+                .allow_tickets(&account)
+                .await
+                .map_err(|error| fail(Code::StateNotSaved, error))?;
+        }
         let approved_by = APPROVED_BY.try_with(Clone::clone).ok().flatten();
         self.audit_full(
             &caller.key,

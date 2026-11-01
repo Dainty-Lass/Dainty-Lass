@@ -522,8 +522,10 @@ impl Tickets {
 
     /// Ends every session of `account` that began at or before now: tickets issued so far stop working here,
     /// and can't be renewed. A login after this gets new ones. Persisted in `network_ticket_revocations` when
-    /// a database is attached so a restart does not reinstate banned sessions.
+    /// a database is attached (with bounded retry on transient write contention) so a restart does not
+    /// reinstate banned sessions.
     pub async fn revoke(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
+        const MAX_PERSIST_ATTEMPTS: u32 = 3;
         let now = self.clock.now_ms();
         #[cfg_attr(not(feature = "directory"), allow(unused_variables))]
         let floor = {
@@ -536,28 +538,43 @@ impl Tickets {
         {
             let db = self.db.read().unwrap_or_else(PoisonError::into_inner).clone();
             if let Some(db) = db {
-                let account_str = account.to_string();
-                let write_res: Result<(), store::Error> = db
-                    .write(store::Actor::System("ticket-revocation".into()), move |tx| {
-                        use diesel::prelude::*;
-                        use diesel::sql_types::{BigInt, Text};
-                        let sql = store::portable::upsert(
-                            "network_ticket_revocations",
-                            &["account", "revoked_at"],
-                            &["account"],
-                            &["revoked_at"],
-                        );
-                        diesel::sql_query(sql)
-                            .bind::<Text, _>(account_str)
-                            .bind::<BigInt, _>(floor)
-                            .execute(tx.conn())?;
-                        Ok(())
-                    })
-                    .await;
-                if let Err(error) = write_res {
-                    let reason = error.to_string();
+                let mut last_error: Option<String> = None;
+                for attempt in 1..=MAX_PERSIST_ATTEMPTS {
+                    let account_str = account.to_string();
+                    let write_res: Result<(), store::Error> = db
+                        .write(store::Actor::System("ticket-revocation".into()), move |tx| {
+                            use diesel::prelude::*;
+                            use diesel::sql_types::{BigInt, Text};
+                            let sql = store::portable::upsert(
+                                "network_ticket_revocations",
+                                &["account", "revoked_at"],
+                                &["account"],
+                                &["revoked_at"],
+                            );
+                            diesel::sql_query(sql)
+                                .bind::<Text, _>(account_str)
+                                .bind::<BigInt, _>(floor)
+                                .execute(tx.conn())?;
+                            Ok(())
+                        })
+                        .await;
+                    match write_res {
+                        Ok(()) => {
+                            last_error = None;
+                            break;
+                        }
+                        Err(error) => {
+                            last_error = Some(error.to_string());
+                            if attempt < MAX_PERSIST_ATTEMPTS {
+                                tokio::time::sleep(Duration::from_millis(25 * u64::from(attempt))).await;
+                            }
+                        }
+                    }
+                }
+                if let Some(reason) = last_error {
                     tracing::error!(
                         account = %account,
+                        attempts = MAX_PERSIST_ATTEMPTS,
                         error = %reason,
                         "could not persist ticket revocation floor"
                     );
@@ -573,7 +590,10 @@ impl Tickets {
 
     /// Clears an earlier [`Self::revoke`] for `account` (after an unban or lifted timeout).
     pub async fn allow(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
-        self.revoked
+        const MAX_PERSIST_ATTEMPTS: u32 = 3;
+        #[cfg_attr(not(feature = "directory"), allow(unused_variables))]
+        let previous_floor = self
+            .revoked
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .remove(account);
@@ -581,21 +601,41 @@ impl Tickets {
         {
             let db = self.db.read().unwrap_or_else(PoisonError::into_inner).clone();
             if let Some(db) = db {
-                let account_str = account.to_string();
-                let write_res: Result<(), store::Error> = db
-                    .write(store::Actor::System("ticket-revocation".into()), move |tx| {
-                        use diesel::prelude::*;
-                        use diesel::sql_types::Text;
-                        diesel::sql_query("DELETE FROM network_ticket_revocations WHERE account = $1")
-                            .bind::<Text, _>(account_str)
-                            .execute(tx.conn())?;
-                        Ok(())
-                    })
-                    .await;
-                if let Err(error) = write_res {
-                    let reason = error.to_string();
+                let mut last_error: Option<String> = None;
+                for attempt in 1..=MAX_PERSIST_ATTEMPTS {
+                    let account_str = account.to_string();
+                    let write_res: Result<(), store::Error> = db
+                        .write(store::Actor::System("ticket-revocation".into()), move |tx| {
+                            use diesel::prelude::*;
+                            use diesel::sql_types::Text;
+                            diesel::sql_query("DELETE FROM network_ticket_revocations WHERE account = $1")
+                                .bind::<Text, _>(account_str)
+                                .execute(tx.conn())?;
+                            Ok(())
+                        })
+                        .await;
+                    match write_res {
+                        Ok(()) => {
+                            last_error = None;
+                            break;
+                        }
+                        Err(error) => {
+                            last_error = Some(error.to_string());
+                            if attempt < MAX_PERSIST_ATTEMPTS {
+                                tokio::time::sleep(Duration::from_millis(25 * u64::from(attempt))).await;
+                            }
+                        }
+                    }
+                }
+                if let Some(reason) = last_error {
+                    if let Some(prev) = previous_floor {
+                        let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
+                        let entry = revoked.entry(account.clone()).or_insert(prev);
+                        *entry = (*entry).max(prev);
+                    }
                     tracing::error!(
                         account = %account,
+                        attempts = MAX_PERSIST_ATTEMPTS,
                         error = %reason,
                         "could not clear persisted ticket revocation floor"
                     );
@@ -958,5 +998,54 @@ mod tests {
         assert!(!text.to_ascii_lowercase().contains("rrk_"));
         let shown = format!("{:?}", s.home);
         assert!(shown.contains("germany-1") && !shown.contains(s.home.public_keys()[0].kid()));
+    }
+
+    #[cfg(feature = "directory")]
+    #[tokio::test]
+    async fn revocation_persistence_failure_is_returned_and_fails_closed() {
+        let s = setup();
+        let dir = tempfile::tempdir().unwrap();
+        let db = store::Database::open(
+            &store::DatabaseConfig::Sqlite {
+                file: dir.path().join("tickets.db"),
+            },
+            &store::DatabaseOptions::default(),
+            &crate::directory::SCHEMA,
+        )
+        .unwrap();
+        s.home.attach_database(db.clone()).await.unwrap();
+
+        let ticket_iat = s.clock.now_ms();
+        let ticket = s.ticket();
+        s.home.revoke(&s.account).await.unwrap();
+        assert!(s.home.is_revoked_at(&s.account, ticket_iat));
+
+        // Drop the network_ticket_revocations table to simulate a database write failure.
+        db.write(store::Actor::System("test".into()), |tx| {
+            use diesel::connection::SimpleConnection as _;
+            tx.conn().batch_execute("DROP TABLE network_ticket_revocations")?;
+            Ok::<_, store::Error>(())
+        })
+        .await
+        .unwrap();
+
+        // `allow` fails visibly after bounded retries and keeps the account revoked in memory (fail closed).
+        let err = s.home.allow(&s.account).await.unwrap_err();
+        assert_eq!(err.account, s.account);
+        assert!(s.home.is_revoked_at(&s.account, ticket_iat));
+        let at_home = Expect {
+            issuer: s.home.node(),
+            audience: s.audience.node(),
+            game: Some(&s.game),
+            account: Some(&s.account),
+        };
+        assert_eq!(s.home.verify(&ticket, &at_home), Err(TicketError::Revoked));
+
+        // `revoke` on another account also fails visibly after retries while revoking in memory.
+        let other = GlobalId::new(IdKind::Account, s.home.node());
+        let before_other_revoke = s.clock.now_ms();
+        let err = s.home.revoke(&other).await.unwrap_err();
+        assert_eq!(err.account, other);
+        assert!(s.home.is_revoked_at(&other, before_other_revoke));
     }
 }
