@@ -18,7 +18,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 # admission_ticket, admission_control: MPT2 tickets and MPC1 control frames (RF4)
 rifts-admission = { path = "../crates/rifts-admission" }
-# guard_evidence: Hunt Guard evidence batches and completions (RF6)
+# guard_evidence, guard_grants: Hunt Guard evidence batches and completions, host inventory grants (RF6)
 rifts-guard = { path = "../crates/rifts-guard" }
 # relay_signal: ICE signal bodies and the relay-only filter (RF4)
 rifts-relay = { path = "../crates/rifts-relay" }
@@ -31,6 +31,13 @@ members = ["."]
 [[bin]]
 name = "guard_evidence"
 path = "fuzz_targets/guard_evidence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "guard_grants"
+path = "fuzz_targets/guard_grants.rs"
 test = false
 doc = false
 bench = false

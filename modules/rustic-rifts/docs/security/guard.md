@@ -3,7 +3,7 @@
 # Security checklist: Guard in observe mode (RX3)
 
 The checklist for `crates/rifts-guard` (DaintyLass plan RF6, DD14, DX2): the Hunt Guard evidence chain intake, host
-writes and the native inventory fence, the host policy mode, the Guard traffic limits, the host route census and
+writes and the native inventory fence, the host grant policy and the draft token cap, the host policy mode, the Guard traffic limits, the host route census and
 Guard's two admin operations routes. Launcher Guard and the Guard manifests are isles' (RF1, decision 1) and have
 their own page there.
 
@@ -21,22 +21,29 @@ the transport, and the host can change both.
 - **In, host runtime:** `POST /mystic/v1/hunts/:sessionId/event-batches` and `/completion`, with a host capability
   that isles (`RequireHostCapability`) has already checked; the body is raw bytes Guard parses itself (72 KiB,
   strict). The host's game server's own writes reach Guard through the hooks (`authorize_host_write`,
-  `record_host_write`, `authorize_inventory`) with a checked `RuntimeAuth`.
+  `record_host_write`, `authorize_inventory`) with a checked `RuntimeAuth`; `authorize_inventory` carries the
+  `POST /inventory` body, whose item lists Guard reads itself.
 - **In, launcher:** `GET /mystic/v1/hunts/:sessionId/reward/self` with an account isles authenticated.
 - **In, anyone:** `POST /internal/v1/hunt-guard/shadow-comparisons`. The key header is never read.
 - **In, admin:** `PATCH /admin/v1/operations/reward-rollout` and `/alerts/:alertId/ack`, behind isles' admin gate.
 - **In, every request:** `rate_limit_bucket` hashes the `x-mystic-host-capability` header to give a live capability
   its own request budget.
 - **Out:** the store (`GuardStore`), realms' hunt records (`HuntSessions`, read only), isles' operations policy and
-  admin audit (`OperationsPolicyPort`), the step-up check (`IslesCore::verify_operations_step_up`) and log lines.
+  admin audit (`OperationsPolicyPort`), the step-up check (`IslesCore::verify_operations_step_up`), the game data
+  and inventory reads of the grant policy (`IslesCore::host_grant_catalog`, `stacked_items`,
+  `accepted_inventory_replay`, and `TransactionReads` inside the transaction) and log lines.
 
 Code: `evidence.rs` (batch and completion readers, the chain), `json.rs` (the P2P body parser, `JSON.stringify`
 text), `routes.rs` (the six routes, the budget and traffic order of `Handle()`), `writes.rs` (who may write),
-`traffic.rs` (the windows and the budget), `lib.rs` (the hooks), `operations.rs`, `census.rs`, `config.rs`.
+`traffic.rs` (the windows and the budget), `grants.rs` (the grant classes and the draft token decision), `lib.rs`
+(the hooks), `operations.rs`, `census.rs`, `config.rs`.
 
 Fuzz target: `guard_evidence` in `fuzz/` (the P2P parser, the batch and completion readers and the chain update).
 It checks that an accepted batch is bounded, gap-free, monotonic, hashed deterministically, and moves the chain to
-exactly its own sequence and hash, and that every refusal is a `GUARD_*` code.
+exactly its own sequence and hash, and that every refusal is a `GUARD_*` code. `guard_grants` feeds the same parser's
+output to the grant policy and the draft token decision, and the raw bytes to the stored-balance reader: it checks
+that the token allowance only ever drops the one token, that a denial lists exactly the violations it found, and
+that an allowed token never ends above the cap.
 
 ## Checklist
 
@@ -92,6 +99,30 @@ exactly its own sequence and hash, and that every refusal is a `GUARD_*` code.
       and the commit is refused. Test: `inventory_is_fenced_again_inside_the_transaction`.
 - [ ] The realm and hub tags on a host write come from the stored session, never from the request.
 
+### Host grant policy and the draft token cap
+
+- [ ] A host may never grant Platinum or other premium currency, Hunt Pass items, cosmetics or entitlements, nor
+      remove premium currency (other than a stacked Platinum spend) or an entitlement. The exceptions are exact
+      shapes: a claim-funded season coin (1 to 1000), a prestige-gated HUNT_PASS reward, the 13 starter cosmetics
+      one each, and one whole draft token the decision allowed. Tests: the `grants.rs` tests from
+      `hostGrantPolicy.test.ts`.
+- [ ] A hosted Training hunt (`NO_COMPLETION`, not a realm hub) grants and spends nothing; a realm's hubs grant as
+      a hunt does. Test: `a_no_reward_session_is_refused_in_enforce_and_only_logged_in_observe`.
+- [ ] In enforce mode a denied body is refused whole (`P2P_HOST_GRANT_DENIED`, with its classes) and logged as
+      `[HostGrantDeny]`; in observe it is logged as `[HostPolicyObserve] would refuse grant` and goes through. Who may
+      write is checked first, in both modes. Test:
+      `a_host_grant_class_is_refused_in_enforce_and_only_logged_in_observe`.
+- [ ] The draft token is allowed only while the character's balance after the transaction stays at or below 1. It
+      is decided before the transaction and again from the transaction's own reads (`on_grant_in`), which is the
+      decision that counts; a refusal there is `P2P_LOOT_GRANT_DRAFT_PREMIUM_<reason>`. Tests:
+      `a_draft_token_over_the_cap_is_refused_in_enforce_and_only_logged_in_observe`,
+      `the_draft_token_is_decided_again_from_the_transactions_reads`.
+- [ ] A balance that cannot be read, or a read that fails, is `BALANCE_UNREADABLE`, never zero. An accepted replay
+      (same transaction id, same body) is not decided again. Tests:
+      `an_unreadable_balance_is_refused_in_enforce_and_only_logged_in_observe`, `an_accepted_replay_is_not_decided_again`.
+- [ ] Without game data (`host_grant_catalog` `None`) only the id rules apply, as Node's `DefaultHostGrantCatalog`
+      does with the files missing. Test: `without_game_data_only_the_id_rules_apply`.
+
 ### Traffic
 
 - [ ] Event batches, completions and shadow calls with a capability take a slot of the in-flight budget (64
@@ -123,11 +154,13 @@ exactly its own sequence and hash, and that every refusal is a `GUARD_*` code.
 
 These do not block RF6 but must be settled, or accepted in writing, before the cutover:
 
-- **Grant classes and the draft token cap.** The seam's `authorize_inventory` carries no body and isles' catalog is
-  not reachable, so `hostGrantPolicy.ts` and `hostDraftPremium.ts` are not ported. In observe mode that changes
-  nothing a player sees (the refusals were only logged), but the `[HostPolicyObserve] would refuse grant` lines are
-  missing, and `MYSTICPARADOX_HOST_POLICY=enforce` does not refuse those grants (a startup warning says so). Needs
-  the body and the catalog through the seam (RU4).
+- **Isles' side of the grant policy.** The three `IslesCore` reads and `InventoryFence::on_grant_in` have defaults,
+  so an isles that does not implement them still builds, but then: the catalogue is the id rules only (storage-policy
+  tags, prestige rewards and game-data entitlement names are not seen, and no prestige-gated reward is exempt); every
+  draft token is `BALANCE_UNREADABLE`, so enforce refuses it (fail closed: Node notes that a refused hub transaction
+  during an inventory load sends the player to the menu) and observe logs it; no transaction is a replay; and the
+  early decision stands inside the transaction, so two racing grants can both pass. Enforce mode should not be
+  turned on before isles supplies them (RU4).
 - **The ledger annotator and the emergency stop fence.** `InventoryFence::on_grant` returns no annotator, so the
   `p2pMonitor` ledger tag is not written, and `FenceP2PEmergencyStop` is realms' and isles' (RF5, RU4).
 - **The census hook.** `GuardHooks::census` sees the request before it is answered; counting needs the method, the

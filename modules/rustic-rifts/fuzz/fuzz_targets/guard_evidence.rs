@@ -30,7 +30,10 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(pair[1].sequence, pair[0].sequence + 1);
         assert!(pair[1].monotonic_ms >= pair[0].monotonic_ms);
     }
-    assert_eq!(parse_batch(body.as_ref()).map(|again| again.batch_hash), Ok(batch.batch_hash.clone()));
+    assert_eq!(
+        parse_batch(body.as_ref()).map(|again| again.batch_hash),
+        Ok(batch.batch_hash.clone())
+    );
 
     let Ok(session) = "01ARZ3NDEKTSV4RRFFQ69G5FAV@fuzz".parse::<SessionId>() else {
         return;
@@ -46,7 +49,10 @@ fuzz_target!(|data: &[u8]| {
             assert_eq!(update.chain.revision, chain.revision + 1);
             assert_eq!(update.chain.event_count, count);
             assert_eq!(update.chain.finding_count, update.findings.len() as u64);
-            assert_eq!(update.chain.disposition == Disposition::ObserveFlagged, !update.findings.is_empty());
+            assert_eq!(
+                update.chain.disposition == Disposition::ObserveFlagged,
+                !update.findings.is_empty()
+            );
             if let Ok(request) = completion {
                 let _ = apply_completion(&update.chain, &request, UnixMillis(1));
             }

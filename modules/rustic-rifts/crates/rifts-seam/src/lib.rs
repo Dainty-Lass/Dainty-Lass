@@ -14,14 +14,14 @@ mod http;
 mod id;
 mod store;
 
-pub use crate::core::{GuardMode, IslesCore, NoCore, Party};
+pub use crate::core::{GuardMode, HostGrantCatalog, IslesCore, NoCore, Party};
 pub use dedicated::{DedicatedOnly, Rifts, RiftsParts, p2p_module_enabled};
 pub use error::{Component, Refusal, SeamError, Unimplemented};
 pub use hooks::{
     AuthOutcome, Candidate, CandidateLeave, CandidateLeaveOutcome, GuardHooks, HostRouteSample, HostWrite,
     HostWriteKind, HostWriteOptions, HubKind, HuntRouteContext, HuntRouteOutcome, InventoryDecision, InventoryFence,
     InventoryTransaction, Lifecycle, OperationsOverview, RealmEntry, RealmsEntry, RealmsHooks, ReleaseGate, Settings,
-    TransactionPhase,
+    TransactionPhase, TransactionReads,
 };
 pub use http::{
     BoxFuture, Caller, CapabilityScope, HOST_CAPABILITY_HEADER, Json, Method, Mount, Reply, RequestInfo, Route,

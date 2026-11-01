@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use module_api::NodeId;
+use rifts_guard::CompletionMode;
 use rifts_guard::block_on_store;
 use rifts_guard::ports::{CapabilityView, HuntSessions, HuntView, RosterEntry};
 use rifts_seam::{AccountId, CapabilityScope, Refusal, RuntimeAuth, Secret, SessionId, StoreError, UnixMillis};
@@ -464,6 +465,7 @@ fn hunt_session_to_view(hunt: HuntSession, fallback_session: &SessionId, node: &
         })
         .collect();
     let frozen_characters = extract_frozen_characters(&hunt.extra);
+    let completion_mode = hunt.guard_completion_mode.as_deref().and_then(CompletionMode::parse);
     HuntView {
         session,
         generation,
@@ -474,6 +476,7 @@ fn hunt_session_to_view(hunt: HuntSession, fallback_session: &SessionId, node: &
         hub,
         roster,
         frozen_characters,
+        completion_mode,
     }
 }
 

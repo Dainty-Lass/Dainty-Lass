@@ -5,8 +5,9 @@ use std::sync::Arc;
 
 use rifts_seam::{
     Actor, Caller, Component, GuardHooks, HostWrite, HostWriteKind, HostWriteOptions, HubKind, InventoryDecision,
-    InventoryTransaction, Json, Lifecycle, Method, Refusal, Reply, RequestInfo, Route, RouteCall, RouteHandler,
-    SeamError, Secret, StoreError, TransactionPhase, Unimplemented, UnixMillis, poll_once,
+    InventoryFence, InventoryTransaction, Json, Lifecycle, Method, Refusal, Reply, RequestInfo, Route, RouteCall,
+    RouteHandler, SeamError, Secret, StoreError, TransactionPhase, TransactionReads, Unimplemented, UnixMillis,
+    poll_once,
 };
 use serde_json::{Value, json};
 
@@ -651,6 +652,308 @@ fn inventory_is_fenced_again_inside_the_transaction() {
     assert!(reply.body.0.contains("P2P_LOOT_GRANT_DENIED"));
 }
 
+const DRAFT: &str = "TOKEN_DAILY_CHALLENGE_DRAFT_PREMIUM";
+
+fn grant(kit: &Kit, user: &str, character: &str, body: Value) -> InventoryDecision {
+    let transaction = InventoryTransaction {
+        user: account(user),
+        character_id: character.to_owned(),
+        transaction_id: "tx-grant".to_owned(),
+        body: Some(Json(body.to_string())),
+    };
+    poll_once(kit.guard.authorize_inventory(runtime(), transaction))
+        .unwrap()
+        .unwrap()
+}
+
+fn refused_with(decision: InventoryDecision) -> Reply {
+    match decision {
+        InventoryDecision::Refused(reply) => reply,
+        InventoryDecision::Authorized(_) => panic!("expected a refusal"),
+    }
+}
+
+fn fence_of(decision: InventoryDecision) -> Box<dyn InventoryFence> {
+    match decision {
+        InventoryDecision::Authorized(fence) => fence,
+        InventoryDecision::Refused(reply) => panic!("expected an authorization, got {}", reply.body.0),
+    }
+}
+
+fn holding(kit: &Kit, tokens: u32) {
+    *lock(&kit.core.stacked_items) = Ok(Some(format!(r#"[{{"catalogId":"{DRAFT}","quantity":{tokens}}}]"#)));
+}
+
+fn lines_starting(kit: &Kit, prefix: &str) -> Vec<String> {
+    kit.log
+        .lines()
+        .into_iter()
+        .filter(|line| line.starts_with(prefix))
+        .collect()
+}
+
+/// `onGrant`'s reads inside the transaction.
+struct Reads(Option<String>);
+
+impl TransactionReads for Reads {
+    fn stacked_items(&self, character_id: &str) -> Result<Option<Json>, SeamError> {
+        assert_eq!(character_id, "char-1");
+        Ok(self.0.clone().map(Json))
+    }
+}
+
+fn reads_holding(tokens: u32) -> Reads {
+    Reads(Some(format!(r#"[{{"catalogId":"{DRAFT}","quantity":{tokens}}}]"#)))
+}
+
+fn draft_token() -> Value {
+    json!({"addStackedItems": [{"catalogId": DRAFT, "quantity": 1}]})
+}
+
+// hostPolicyObserve.gamedata.test.ts: "observe: a Ramsgate hub's Platinum, Hunt Pass token and cosmetic grant is
+// authorized and logged with its classes"; p2pInventoryAuthorization.test.ts: "Platinum is refused in a Ramsgate hub
+// by the grant rule, as in a hunt"
+#[test]
+fn a_host_grant_class_is_refused_in_enforce_and_only_logged_in_observe() {
+    let body = json!({
+        "addStackedItems": [{"catalogId": "CURRENCY_PLATINUM", "quantity": 100}, {"catalogId": "TOKEN_HUNTPASS_X", "quantity": 1},
+            {"catalogId": "CURRENCY_NOTES", "quantity": 5}],
+        "addInstancedItems": [{"catalogId": "DYE_BABYBLUE_DURABLE", "instanceId": "d"}]
+    });
+    let observe = kit(&[]);
+    present_friend(&observe, HubKind::Ramsgate);
+    let fence = fence_of(grant(&observe, "friend", "char-1", body.clone()));
+    assert_eq!(fence.on_grant(&Json(body.to_string())), Ok(()));
+    let observed = lines_starting(&observe, "warn [HostPolicyObserve] would refuse grant");
+    assert_eq!(observed.len(), 1, "{:?}", observe.log.lines());
+    assert_eq!(
+        observed[0],
+        format!(
+            "warn [HostPolicyObserve] would refuse grant account=friend session={} generation=2 transaction=tx-grant \
+             classes=PREMIUM_CURRENCY,HUNT_PASS,COSMETIC denied=CURRENCY_PLATINUM(PREMIUM_CURRENCY,addStackedItems),\
+             TOKEN_HUNTPASS_X(HUNT_PASS,addStackedItems),DYE_BABYBLUE_DURABLE(COSMETIC,addInstancedItems) hub=RAMSGATE",
+            session()
+        )
+    );
+    assert!(lines_starting(&observe, "warn [HostGrantDeny]").is_empty());
+
+    let enforce = kit(&[("MYSTICPARADOX_HOST_POLICY", "enforce")]);
+    present_friend(&enforce, HubKind::Ramsgate);
+    let reply = refused_with(grant(&enforce, "friend", "char-1", body));
+    assert_eq!(reply.status, 403);
+    assert_eq!(
+        reply.body.0,
+        concat!(
+            r#"{"code":"P2P_HOST_GRANT_DENIED","message":"A player host may not grant this item class.","#,
+            r#""payload":{"classes":["PREMIUM_CURRENCY","HUNT_PASS","COSMETIC"]}}"#
+        )
+    );
+    let denied = lines_starting(&enforce, "warn [HostGrantDeny] account=friend");
+    assert_eq!(denied.len(), 1);
+    assert!(denied[0].ends_with(" hub=RAMSGATE"));
+    assert!(lines_starting(&enforce, "warn [HostPolicyObserve]").is_empty());
+
+    // Loot alone passes in both, quietly
+    let loot = json!({"addStackedItems": [{"catalogId": "CURRENCY_NOTES", "quantity": 5}]});
+    fence_of(grant(&enforce, "friend", "char-1", loot));
+    assert_eq!(lines_starting(&enforce, "warn ").len(), 1);
+}
+
+// hostPolicyObserve.gamedata.test.ts: "observe: a hosted Training hunt's Platinum spend (a no-reward session) is
+// authorized and logged"
+#[test]
+fn a_no_reward_session_is_refused_in_enforce_and_only_logged_in_observe() {
+    let spend = json!({"removeStackedItems": [{"catalogId": "CURRENCY_PLATINUM", "quantity": 40}]});
+    let training = HuntView {
+        completion_mode: Some(CompletionMode::NoCompletion),
+        ..hunt()
+    };
+    let observe = kit(&[]);
+    observe.hunts.put(training.clone());
+    fence_of(grant(&observe, "friend", "char-friend", spend.clone()));
+    let observed = lines_starting(&observe, "warn [HostPolicyObserve] would refuse grant");
+    assert_eq!(observed.len(), 1);
+    assert!(observed[0].contains("classes=NO_REWARD_SESSION denied=any grant or spend"));
+
+    let enforce = kit(&[("MYSTICPARADOX_HOST_POLICY", "enforce")]);
+    enforce.hunts.put(training);
+    let reply = refused_with(grant(&enforce, "friend", "char-friend", spend.clone()));
+    assert!(
+        reply
+            .body
+            .0
+            .ends_with(r#""payload":{"classes":["NO_REWARD_SESSION"]}}"#)
+    );
+    // The same spend in a hunt that completes is a Platinum spend, not a grant
+    enforce.hunts.put(hunt());
+    fence_of(grant(&enforce, "friend", "char-friend", spend));
+    // A realm hub carries NO_COMPLETION too, but grants as a hunt does
+    present_friend(&enforce, HubKind::Training);
+    fence_of(grant(
+        &enforce,
+        "friend",
+        "char-1",
+        json!({"addStackedItems": [{"catalogId": "CURRENCY_NOTES", "quantity": 100}]}),
+    ));
+}
+
+// hostPolicyObserve.gamedata.test.ts: "observe: a draft premium token over the cap is granted, and the cap is logged
+// before and inside the transaction"; hostDraftPremium.gamedata.test.ts: "a member who already holds an unspent token
+// is refused before the transaction"
+#[test]
+fn a_draft_token_over_the_cap_is_refused_in_enforce_and_only_logged_in_observe() {
+    let observe = kit(&[]);
+    present_friend(&observe, HubKind::Ramsgate);
+    holding(&observe, 1);
+    let fence = fence_of(grant(&observe, "friend", "char-1", draft_token()));
+    let early = lines_starting(&observe, "warn [HostPolicyObserve] would refuse grant");
+    assert_eq!(early.len(), 1);
+    assert!(
+        early[0].contains("classes=HUNT_PASS denied=TOKEN_DAILY_CHALLENGE_DRAFT_PREMIUM(HUNT_PASS,addStackedItems)")
+    );
+    assert!(
+        early[0].ends_with(" draftPremium=OVER_BALANCE_CAP hub=RAMSGATE"),
+        "{}",
+        early[0]
+    );
+    assert_eq!(
+        fence.on_grant_in(&Json(draft_token().to_string()), &reads_holding(1)),
+        Ok(())
+    );
+    let inside = lines_starting(&observe, "warn [HostPolicyObserve] would refuse draft premium");
+    assert_eq!(inside.len(), 1);
+    assert!(
+        inside[0].ends_with(&format!(
+            "transaction=tx-grant realm={} hub=RAMSGATE item={DRAFT} reason=OVER_BALANCE_CAP at=transaction \
+             balance=1->2 cap=1",
+            hub(HubKind::Ramsgate).realm.unwrap()
+        )),
+        "{}",
+        inside[0]
+    );
+    fence.report(TransactionPhase::Accepted);
+    assert!(lines_starting(&observe, "info [HostGrantAllow]").is_empty());
+
+    let enforce = kit(&[("MYSTICPARADOX_HOST_POLICY", "enforce")]);
+    present_friend(&enforce, HubKind::Ramsgate);
+    holding(&enforce, 1);
+    let reply = refused_with(grant(&enforce, "friend", "char-1", draft_token()));
+    assert!(reply.body.0.contains(r#""code":"P2P_HOST_GRANT_DENIED""#));
+    let denied = lines_starting(&enforce, "warn [HostGrantDeny]");
+    assert_eq!(denied.len(), 1);
+    assert!(denied[0].contains(" draftPremium=OVER_BALANCE_CAP"));
+}
+
+// hostDraftPremium.gamedata.test.ts: "a realm hub grants the daily premium token to a member who ... has none
+// unspent; the accepted grant is logged" and "the balance is read again inside the transaction: a token that arrived
+// after the early check is refused there, with 403"
+#[test]
+fn the_draft_token_is_decided_again_from_the_transactions_reads() {
+    let enforce = kit(&[("MYSTICPARADOX_HOST_POLICY", "enforce")]);
+    present_friend(&enforce, HubKind::Ramsgate);
+    let fence = fence_of(grant(&enforce, "friend", "char-1", draft_token()));
+    let token = Json(draft_token().to_string());
+    let refusal = fence.on_grant_in(&token, &reads_holding(1)).unwrap_err();
+    assert_eq!(refusal.status, 403);
+    assert_eq!(
+        refusal.body.0,
+        concat!(
+            r#"{"code":"P2P_LOOT_GRANT_DRAFT_PREMIUM_OVER_BALANCE_CAP","#,
+            r#""message":"Player-hosted hunt loot grant is not authorized.","payload":null}"#
+        )
+    );
+    assert_eq!(
+        lines_starting(&enforce, "warn [HostGrantDeny]"),
+        [format!(
+            "warn [HostGrantDeny] account=friend session={} generation=2 transaction=tx-grant item={DRAFT} quantity=1 \
+             reason=OVER_BALANCE_CAP at=transaction",
+            session()
+        )]
+    );
+    assert_eq!(
+        lines_starting(&enforce, "warn [P2PInventory] transaction denied").len(),
+        1
+    );
+
+    // Within the cap: granted, and the grant is logged once the transaction is accepted
+    assert_eq!(fence.on_grant_in(&token, &Reads(None)), Ok(()));
+    fence.report(TransactionPhase::Accepted);
+    let day: String = iso_time(enforce.clock.now()).chars().take(10).collect();
+    assert_eq!(
+        lines_starting(&enforce, "info [HostGrantAllow]"),
+        [format!(
+            "info [HostGrantAllow] account=friend session={} generation=2 transaction=tx-grant item={DRAFT} quantity=1 \
+             reason=WITHIN_BALANCE_CAP day={day} balance=0->1 cap=1",
+            session()
+        )]
+    );
+
+    // Without the transaction's reads the early decision stands
+    let fence = fence_of(grant(&enforce, "friend", "char-1", draft_token()));
+    assert_eq!(fence.on_grant(&token), Ok(()));
+}
+
+// hostDraftPremium.test.ts: "an unreadable balance is refused, never taken as zero"
+#[test]
+fn an_unreadable_balance_is_refused_in_enforce_and_only_logged_in_observe() {
+    for (stored, settings) in [
+        (Err(()), &[][..]),
+        (Ok(Some("not json".to_owned())), &[][..]),
+        (Err(()), &[("MYSTICPARADOX_HOST_POLICY", "enforce")][..]),
+    ] {
+        let kit = kit(settings);
+        present_friend(&kit, HubKind::Ramsgate);
+        *lock(&kit.core.stacked_items) = stored;
+        let decision = grant(&kit, "friend", "char-1", draft_token());
+        let line = if settings.is_empty() {
+            fence_of(decision);
+            "warn [HostPolicyObserve] would refuse grant"
+        } else {
+            refused_with(decision);
+            "warn [HostGrantDeny]"
+        };
+        assert!(lines_starting(&kit, line)[0].contains(" draftPremium=BALANCE_UNREADABLE"));
+    }
+}
+
+// hostDraftPremiumDaily.gamedata.test.ts: "an accepted transaction replayed while the token is still held succeeds,
+// grants nothing more, and logs no second grant"
+#[test]
+fn an_accepted_replay_is_not_decided_again() {
+    let kit = kit(&[("MYSTICPARADOX_HOST_POLICY", "enforce")]);
+    present_friend(&kit, HubKind::Ramsgate);
+    holding(&kit, 1);
+    *lock(&kit.core.replay) = true;
+    let fence = fence_of(grant(&kit, "friend", "char-1", draft_token()));
+    assert_eq!(
+        fence.on_grant_in(&Json(draft_token().to_string()), &reads_holding(1)),
+        Ok(())
+    );
+    fence.report(TransactionPhase::Accepted);
+    assert!(lines_starting(&kit, "info [HostGrantAllow]").is_empty());
+    assert!(lines_starting(&kit, "warn ").is_empty());
+    // The replay only exempts its own token: a second token in the body is no replay of one grant
+    let two = json!({"addStackedItems": [{"catalogId": DRAFT, "quantity": 1}, {"catalogId": DRAFT, "quantity": 1}]});
+    refused_with(grant(&kit, "friend", "char-1", two));
+}
+
+// hostDraftPremium.gamedata.test.ts: "the token next to another Hunt Pass item, or as an instanced add, is refused as
+// a whole"
+#[test]
+fn the_draft_token_next_to_another_hunt_pass_item_is_refused_as_a_whole() {
+    let kit = kit(&[("MYSTICPARADOX_HOST_POLICY", "enforce")]);
+    present_friend(&kit, HubKind::Ramsgate);
+    let body = json!({"addStackedItems": [{"catalogId": DRAFT, "quantity": 1}, {"catalogId": "CURRENCY_REWARDCACHE", "quantity": 1}]});
+    let reply = refused_with(grant(&kit, "friend", "char-1", body));
+    assert!(reply.body.0.ends_with(r#""payload":{"classes":["HUNT_PASS"]}}"#));
+    assert!(
+        lines_starting(&kit, "warn [HostGrantDeny]")[0]
+            .contains("denied=CURRENCY_REWARDCACHE(HUNT_PASS,addStackedItems)")
+    );
+    let instanced = json!({"addInstancedItems": [{"catalogId": DRAFT, "instanceId": "i"}]});
+    refused_with(grant(&kit, "friend", "char-1", instanced));
+}
+
 fn admin(handler: &str, body: Value, alert: &str) -> RouteCall {
     let mut call = call(
         handler,
@@ -801,7 +1104,8 @@ fn lifecycle() {
     let lines = kit.log.lines();
     assert!(lines[0].starts_with("info [Startup] MYSTICPARADOX_HOST_POLICY=enforce"));
     assert!(lines[1].starts_with("info [Startup] MYSTICPARADOX_HUNT_EVIDENCE not set"));
-    assert!(lines[2].contains("not checked by rifts-guard yet"));
+    // Every host policy refusal enforces, so nothing warns that one does not
+    assert_eq!(lines.len(), 2, "{lines:?}");
     poll_once(kit.guard.stop()).unwrap().unwrap();
 }
 

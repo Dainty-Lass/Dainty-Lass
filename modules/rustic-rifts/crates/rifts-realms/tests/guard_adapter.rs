@@ -130,6 +130,7 @@ async fn hunt_maps_hunt_and_hub_sessions_to_hunt_view() {
                     (AccountId("host-1".to_owned()), "char-host".to_owned()),
                     (AccountId("friend-1".to_owned()), "char-friend".to_owned()),
                 ],
+                completion_mode: None,
             }
         );
 
