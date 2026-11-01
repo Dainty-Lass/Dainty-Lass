@@ -191,7 +191,7 @@ pub async fn drive(
         Err(error) => return vec![format!("register: {error}")],
     };
     let mut config = ModuleConfig::defaults(driver.manifest(), &registration);
-    for port in ["backend", "director"] {
+    for port in ["backend", "director", "qos"] {
         config.ports.insert(port.to_owned(), PortRange::single(0));
     }
     if let Some(backend) = config.sections.get_mut("backend") {
@@ -204,6 +204,12 @@ pub async fn drive(
     match addresses.get("backend") {
         Some(address) => failures.extend(sweep(Service::Backend, *address, mounts).await),
         None => failures.push(format!("no backend address in {addresses:?}")),
+    }
+    let pong = Some(crate::areas::matchmaking::qos::PONG);
+    if let Some(qos) = addresses.get("qos")
+        && (!qos.ip().is_loopback() || request(*qos, "GET", "/").await.map(|r| r.2).ok().as_deref() != pong)
+    {
+        failures.push(format!("qos: {qos} is not a loopback pong"));
     }
     // The Director answers for real (RU6): with no game server configured it is not ready and lists no instance.
     match addresses.get("director") {

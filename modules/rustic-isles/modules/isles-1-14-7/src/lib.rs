@@ -672,6 +672,7 @@ pub fn spec() -> ModuleSpec {
         ports: DefaultPorts {
             backend: 61000,
             director: 61001,
+            qos: 61010,
             game: PortRange {
                 first: 8770,
                 last: 8777,

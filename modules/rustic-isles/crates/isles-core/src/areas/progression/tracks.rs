@@ -433,70 +433,6 @@ pub fn is_mastery_track(id: &str) -> bool {
     id.starts_with("MasteryTrack_")
 }
 
-/// The test multipliers (`testMultipliers.ts`): XP only, rewards are `POST /inventory`'s.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct TestMultipliers {
-    pub xp: f64,
-    pub rewards: f64,
-}
-
-const MAX_TEST_MULTIPLIER: f64 = 100.0;
-
-fn parse_multiplier(raw: Option<&str>) -> Option<f64> {
-    let Some(raw) = raw.filter(|r| !service_kit::js::trim(r).is_empty()) else {
-        return Some(1.0);
-    };
-    let value = super::util::js_number(raw);
-    (value.is_finite() && (1.0..=MAX_TEST_MULTIPLIER).contains(&value)).then_some(value)
-}
-
-/// `IsTailscaleHost`: a Tailscale IPv4 (100.64.0.0/10) or a `*.ts.net` name.
-pub fn is_tailscale_host(host: &str) -> bool {
-    let host = host.trim().to_ascii_lowercase();
-    if let Ok(address) = host.parse::<std::net::Ipv4Addr>() {
-        let [a, b, ..] = address.octets();
-        return a == 100 && (64..=127).contains(&b);
-    }
-    host.ends_with(".ts.net")
-        && host.len() > ".ts.net".len()
-        && host.split('.').all(|label| {
-            !label.is_empty()
-                && label
-                    .bytes()
-                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-        })
-}
-
-/// `ReadTestMultipliers`: off unless the host kit set up a private server on a Tailscale address.
-pub fn test_multipliers(shared: &Shared) -> TestMultipliers {
-    let off = TestMultipliers { xp: 1.0, rewards: 1.0 };
-    let (Some(xp), Some(rewards)) = (
-        parse_multiplier(shared.settings.raw("REFORGED_XP_MULTIPLIER")),
-        parse_multiplier(shared.settings.raw("REFORGED_REWARD_MULTIPLIER")),
-    ) else {
-        return off;
-    };
-    if xp == 1.0 && rewards == 1.0 {
-        return off;
-    }
-    if shared.settings.raw("REFORGED_SERVER_MODE") != Some("private") {
-        return off;
-    }
-    if !is_tailscale_host(shared.settings.raw("REFORGED_SERVER_HOST").unwrap_or_default()) {
-        return off;
-    }
-    TestMultipliers { xp, rewards }
-}
-
-/// `MultiplyXpGrant`.
-pub fn multiply_xp_grant(amount: i64, max_amount: i64, multipliers: TestMultipliers) -> i64 {
-    if multipliers.xp == 1.0 {
-        return amount;
-    }
-    let multiplied = (amount as f64 * multipliers.xp).floor() as i64;
-    max_amount.min(amount.max(multiplied))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -520,32 +456,6 @@ mod tests {
         assert_eq!(experience_track_for_prestige("PrestigeTrack_Weapon_Bow"), None);
         assert!(is_reforgeable_track("ExperienceTrack_Weapon_Sword"));
         assert!(!is_reforgeable_track("ExperienceTrack_PlayerLevel"));
-    }
-
-    #[test]
-    fn tailscale_hosts() {
-        assert!(is_tailscale_host("100.64.0.1"));
-        assert!(is_tailscale_host("100.127.255.254"));
-        assert!(!is_tailscale_host("100.128.0.1"));
-        assert!(!is_tailscale_host("192.168.0.1"));
-        assert!(is_tailscale_host("box.tail1234.ts.net"));
-        assert!(!is_tailscale_host(".ts.net"));
-        assert!(!is_tailscale_host("evil.example"));
-    }
-
-    #[test]
-    fn xp_multiplier_is_capped_at_the_route_maximum() {
-        let on = TestMultipliers { xp: 3.0, rewards: 1.0 };
-        assert_eq!(multiply_xp_grant(100, 100_000, on), 300);
-        assert_eq!(multiply_xp_grant(50_000, 100_000, on), 100_000);
-        assert_eq!(
-            multiply_xp_grant(100, 100_000, TestMultipliers { xp: 1.0, rewards: 1.0 }),
-            100
-        );
-        assert_eq!(
-            multiply_xp_grant(7, 100_000, TestMultipliers { xp: 1.5, rewards: 1.0 }),
-            10
-        );
     }
 
     #[test]

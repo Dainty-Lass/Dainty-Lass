@@ -85,6 +85,8 @@ impl PortService for BackendService {
 pub struct DefaultPorts {
     pub backend: u16,
     pub director: u16,
+    /// The QoS pong's loopback side; the public `QOS_PORT` is not the module's to open (areas/matchmaking/qos.rs)
+    pub qos: u16,
     /// The game servers' UDP range, which the allowlist opens to admitted players
     pub game: PortRange,
 }
@@ -309,6 +311,12 @@ impl IslesModule {
             crate::areas::chat::rules::source(ctx.node(), store.clone(), &shared.settings)
                 .with_module_id(ctx.module_id().clone()),
         );
+        let multipliers = crate::areas::matchmaking::multipliers::read_test_multipliers(&shared.settings);
+        if multipliers.reason.is_none() {
+            tracing::warn!("{}", multipliers.startup_line());
+        } else {
+            tracing::info!("{}", multipliers.startup_line());
+        }
         let background = crate::areas::auth::start(&shared).await.map_err(failed)?;
         let mut servers = Vec::new();
         let mut addresses = serde_json::Map::new();
@@ -337,8 +345,9 @@ impl IslesModule {
             });
             servers.push((stop, task));
         }
-        // The QoS pong answers on loopback; the gateway publishes it on the public QOS_PORT (areas/matchmaking/qos.rs)
-        if let Some(pong) = qos::start(&shared.settings, &self.spec.version.tables).await {
+        // The QoS pong answers on loopback only (areas/matchmaking/qos.rs)
+        let qos_port = config.ports.get("qos").map_or(self.spec.ports.qos, |range| range.first);
+        if let Some(pong) = qos::start(&shared.settings, &self.spec.version.tables, qos_port).await {
             addresses.insert("qos".to_owned(), json!(pong.address.to_string()));
             addresses.insert("qos_public_port".to_owned(), json!(pong.public_port.to_string()));
             servers.push((pong.stop, pong.task));
@@ -412,6 +421,7 @@ impl GameModule for IslesModule {
             ports: vec![
                 tcp("backend", spec.ports.backend),
                 tcp("director", spec.ports.director),
+                tcp("qos", spec.ports.qos),
                 PortDefault {
                     name: "game".to_owned(),
                     transport: Transport::Udp,

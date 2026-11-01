@@ -1,6 +1,6 @@
-//! `testMultipliers.ts` ([Dauntless Reforged Revival]): XP and reward multipliers for test servers. No route of its
-//! own: progression's grant route calls [`multiply_xp_grant`] and the inventory's reward transaction calls
-//! [`multiply_reward_items`].
+//! `testMultipliers.ts` ([Dauntless Reforged Revival]): XP and reward multipliers for test servers, the one port of
+//! it. No route of its own: progression's grant routes call [`multiply_xp_grant`], `POST /inventory`'s reward
+//! transaction calls [`multiply_reward_items`] (as `inventory.ts` does), and the module logs [`TestMultipliers::startup_line`].
 //!
 //! A private server (friends over Tailscale) can multiply the XP and the loot its game servers grant. They are off
 //! unless the host kit turns them on, and they never act on a public server: the host kit only writes them for
@@ -14,9 +14,11 @@
 
 use std::net::Ipv4Addr;
 
-use serde_json::{Map, Value};
+use serde_json::Value;
+use service_kit::js;
 
 use super::util::js_number;
+use crate::areas::inventory::items::number_value;
 use crate::settings::Settings;
 
 pub const MAX_TEST_MULTIPLIER: f64 = 100.0;
@@ -66,7 +68,7 @@ impl TestMultipliers {
 
 /// `IsTailscaleHost`: a Tailscale IPv4 (100.64.0.0/10) or a `*.ts.net` name.
 pub fn is_tailscale_host(host: &str) -> bool {
-    let host = host.trim().to_lowercase();
+    let host = js::trim(host).to_lowercase();
     if let Ok(ip) = host.parse::<Ipv4Addr>() {
         let [a, b, ..] = ip.octets();
         return a == 100 && (64..=127).contains(&b);
@@ -83,7 +85,7 @@ pub fn is_tailscale_host(host: &str) -> bool {
 }
 
 fn parse_multiplier(raw: Option<&str>) -> Option<f64> {
-    let Some(raw) = raw.filter(|r| !r.trim().is_empty()) else {
+    let Some(raw) = raw.filter(|r| !js::trim(r).is_empty()) else {
         return Some(1.0);
     };
     let value = js_number(raw);
@@ -121,69 +123,74 @@ pub fn multiply_xp_grant(amount: f64, max_amount: f64, multipliers: &TestMultipl
     max_amount.min(amount.max((amount * multipliers.xp).floor()))
 }
 
-/// `IsRewardSource`.
-pub fn is_reward_source(source: Option<&str>) -> bool {
-    source.is_some_and(|source| {
-        REWARD_SOURCES.contains(&source) || REWARD_SOURCE_PREFIXES.iter().any(|prefix| source.starts_with(prefix))
-    })
+/// `IsRewardSource`: `typeof source === "string"` and one of the game's reward sources.
+pub fn is_reward_source(source: Option<&Value>) -> bool {
+    matches!(source, Some(Value::String(source))
+        if REWARD_SOURCES.contains(&source.as_str()) || REWARD_SOURCE_PREFIXES.iter().any(|p| source.starts_with(p)))
 }
 
 /// `IsMultipliedRewardItem`.
-pub fn is_multiplied_reward_item(catalog_id: Option<&str>) -> bool {
-    catalog_id.is_some_and(|id| MULTIPLIED_ITEM_PREFIXES.iter().any(|prefix| id.starts_with(prefix)))
+pub fn is_multiplied_reward_item(catalog_id: Option<&Value>) -> bool {
+    matches!(catalog_id, Some(Value::String(id)) if MULTIPLIED_ITEM_PREFIXES.iter().any(|p| id.starts_with(p)))
 }
 
 /// `MultiplyRewardItems`: the stacked items to add with the reward multiplier applied, or `None` when nothing
 /// changes. `exclude` says no for an item that must keep its quantity whatever its prefix (prestige-gated,
 /// challenge-funded). Each changed item keeps its other fields and their order.
 pub fn multiply_reward_items(
-    source: Option<&str>,
-    stacked_items_to_add: &Value,
-    exclude: impl Fn(&str, i64) -> bool,
+    source: Option<&Value>,
+    stacked_items_to_add: &[Value],
+    exclude: &dyn Fn(&str, f64) -> bool,
     multipliers: &TestMultipliers,
-) -> Option<Value> {
-    let items = stacked_items_to_add.as_array();
+) -> Option<Vec<Value>> {
     if multipliers.rewards == 1.0 || !is_reward_source(source) {
         return None;
     }
-    let items = items?;
     let mut changed = false;
-    let out: Vec<Value> = items
+    let out = stacked_items_to_add
         .iter()
         .map(|item| {
-            let catalog_id = item.get("catalogId").and_then(Value::as_str);
-            let quantity = item.get("quantity").and_then(integer);
-            match (catalog_id, quantity) {
-                (Some(id), Some(quantity))
-                    if is_multiplied_reward_item(Some(id)) && quantity > 0 && !exclude(id, quantity) =>
-                {
-                    changed = true;
-                    let mut object: Map<String, Value> = item.as_object().cloned().unwrap_or_default();
-                    let scaled = (quantity as f64 * multipliers.rewards).floor();
-                    object.insert("quantity".into(), Value::from(scaled as i64));
-                    Value::Object(object)
-                }
-                _ => item.clone(),
+            // `Number(Item?.quantity)`, so a numeric string counts as Node counts it
+            let quantity = js::number(item.get("quantity"));
+            let catalog_id = item.get("catalogId");
+            let keep = !is_multiplied_reward_item(catalog_id)
+                || !(quantity.is_finite() && quantity.fract() == 0.0)
+                || quantity <= 0.0
+                || catalog_id
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| exclude(id, quantity));
+            if keep {
+                return item.clone();
             }
+            changed = true;
+            let mut multiplied = item.clone();
+            if let Value::Object(fields) = &mut multiplied {
+                fields.insert(
+                    "quantity".into(),
+                    number_value((quantity * multipliers.rewards).floor()),
+                );
+            }
+            multiplied
         })
         .collect();
-    changed.then(|| Value::Array(out))
-}
-
-/// `Number.isInteger(Number(value))` for a JSON quantity (a number, or a numeric string as `Number("3")` reads it).
-fn integer(value: &Value) -> Option<i64> {
-    let number = match value {
-        Value::Number(n) => n.as_f64()?,
-        Value::String(text) => js_number(text),
-        _ => return None,
-    };
-    (number.is_finite() && number.fract() == 0.0 && number.abs() < 9e15).then_some(number as i64)
+    changed.then_some(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// The JavaScript call: a string source, and an array or not (Node leaves a non-array as it is).
+    fn multiply(
+        source: Option<&str>,
+        items: &Value,
+        exclude: &dyn Fn(&str, f64) -> bool,
+        multipliers: &TestMultipliers,
+    ) -> Option<Value> {
+        let source = source.map(|s| json!(s));
+        multiply_reward_items(source.as_ref(), items.as_array()?, exclude, multipliers).map(Value::Array)
+    }
 
     fn private() -> Settings {
         Settings::from_pairs([
@@ -278,7 +285,7 @@ mod tests {
 
     #[test]
     fn only_currencies_and_materials_of_a_reward_transaction_are_multiplied() {
-        let never = |_: &str, _: i64| false;
+        let never = |_: &str, _: f64| false;
         let multipliers = on(1.0, 3.0);
         let loot = json!([
             { "catalogId": "TOKEN_KILL_COUNT_LERAWR_BETA", "quantity": 1 },
@@ -288,7 +295,7 @@ mod tests {
             { "catalogId": "GATHER_COMMON_01", "quantity": 1 },
         ]);
         assert_eq!(
-            multiply_reward_items(Some("PlayerLoot"), &loot, never, &multipliers),
+            multiply(Some("PlayerLoot"), &loot, &never, &multipliers),
             Some(json!([
                 { "catalogId": "TOKEN_KILL_COUNT_LERAWR_BETA", "quantity": 1 },
                 { "catalogId": "CURRENCY_NOTES", "quantity": 300 },
@@ -298,21 +305,21 @@ mod tests {
             ]))
         );
         assert_eq!(
-            multiply_reward_items(
+            multiply(
                 Some("BUNDLE_GATHER_COMMON_01"),
                 &json!([{ "catalogId": "GATHER_COMMON_01", "quantity": 1 }]),
-                never,
+                &never,
                 &multipliers
             ),
             Some(json!([{ "catalogId": "GATHER_COMMON_01", "quantity": 3 }]))
         );
         let quest = json!([{ "catalogId": "TOKEN_UNLOCK_WEAPON_AXE", "quantity": 1 }, { "catalogId": "DYE_PURPLE06_DURABLE", "quantity": 1 }]);
-        assert_eq!(multiply_reward_items(Some("quest"), &quest, never, &multipliers), None);
+        assert_eq!(multiply(Some("quest"), &quest, &never, &multipliers), None);
     }
 
     #[test]
     fn crafting_purchases_excluded_items_and_an_x1_server_keep_their_quantities() {
-        let never = |_: &str, _: i64| false;
+        let never = |_: &str, _: f64| false;
         let multipliers = on(1.0, 3.0);
         let notes = json!([{ "catalogId": "CURRENCY_NOTES", "quantity": 100 }]);
         for source in [
@@ -322,28 +329,57 @@ mod tests {
             Some("default"),
             None,
         ] {
-            assert_eq!(
-                multiply_reward_items(source, &notes, never, &multipliers),
-                None,
-                "{source:?}"
-            );
+            assert_eq!(multiply(source, &notes, &never, &multipliers), None, "{source:?}");
         }
-        assert_eq!(
-            multiply_reward_items(Some("PlayerLoot"), &notes, never, &on(1.0, 1.0)),
-            None
-        );
+        assert_eq!(multiply(Some("PlayerLoot"), &notes, &never, &on(1.0, 1.0)), None);
         let prestige = json!([{ "catalogId": "CURRENCY_PJM_PRESTIGE_EMPTY", "quantity": 5 }]);
         assert_eq!(
-            multiply_reward_items(
+            multiply(
                 Some("patrol_chest"),
                 &prestige,
-                |id, _| id == "CURRENCY_PJM_PRESTIGE_EMPTY",
+                &|id: &str, _: f64| id == "CURRENCY_PJM_PRESTIGE_EMPTY",
                 &multipliers
             ),
             None
         );
         assert_eq!(
-            multiply_reward_items(Some("quest"), &json!("not a list"), never, &multipliers),
+            multiply(Some("quest"), &json!("not a list"), &never, &multipliers),
+            None
+        );
+    }
+
+    #[test]
+    fn hosts_and_quantities_read_as_node_reads_them() {
+        assert!(is_tailscale_host(" 100.127.255.255 "));
+        assert!(!is_tailscale_host("100.063.0.1"));
+        assert!(is_tailscale_host("MY-BOX.tail1234.TS.NET"));
+        assert!(!is_tailscale_host("ts.net"));
+        assert!(!is_tailscale_host("evil.ts.net.example.com"));
+        assert!(!is_tailscale_host(""));
+        let multipliers = on(1.0, 1.5);
+        // `Number("4")` is 4; other fields keep their place; a fraction or a non-number keeps its quantity
+        let items = json!([
+            { "catalogId": "GATHER_ORE", "quantity": "4", "extra": 1 },
+            { "catalogId": "CURRENCY_NOTES", "quantity": 2.5 },
+            { "catalogId": "BREAK_X", "quantity": "lots" },
+            { "catalogId": "CURRENCY_NOTES", "quantity": 7 },
+        ]);
+        assert_eq!(
+            multiply(Some("MISC"), &items, &|_: &str, _: f64| false, &multipliers),
+            Some(json!([
+                { "catalogId": "GATHER_ORE", "quantity": 6, "extra": 1 },
+                { "catalogId": "CURRENCY_NOTES", "quantity": 2.5 },
+                { "catalogId": "BREAK_X", "quantity": "lots" },
+                { "catalogId": "CURRENCY_NOTES", "quantity": 10 },
+            ]))
+        );
+        assert_eq!(
+            multiply_reward_items(
+                Some(&json!(7)),
+                &[json!({ "catalogId": "CURRENCY_NOTES", "quantity": 1 })],
+                &|_: &str, _: f64| false,
+                &on(1.0, 3.0)
+            ),
             None
         );
     }
