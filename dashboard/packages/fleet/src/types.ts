@@ -73,6 +73,10 @@ export interface BackendAccount {
   approvalUpdatedAt?: string;
   approvalUpdatedBy?: string;
   approvalReason?: string;
+  /** While a timeout is in force: when it ends (ISO), when it was set and why. The account can sign in, not play. */
+  timeoutUntil?: string;
+  timeoutSince?: string;
+  timeoutReason?: string;
 }
 
 export interface Operator {
