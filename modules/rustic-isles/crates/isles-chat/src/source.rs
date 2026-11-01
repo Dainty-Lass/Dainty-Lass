@@ -48,6 +48,20 @@ pub trait ChatSource: Send + Sync {
     /// The account a `userId` names, `None` unless it exists and may sign in (`IsAccountEligible`).
     fn player_by_user<'a>(&'a self, user_id: &'a str) -> BoxFuture<'a, Result<Option<Player>, ModuleError>>;
 
+    /// Resolves a JID local part (`userId` or display name) to a local player's account on this node.
+    fn account_of<'a>(&'a self, local: &'a str) -> BoxFuture<'a, Result<Option<GlobalId>, ModuleError>> {
+        Box::pin(async move { Ok(self.player_by_user(local).await?.map(|p| p.account)) })
+    }
+
+    /// Fallback for cross-node SASL login (when a player homed on another node connects here).
+    fn foreign_login<'a>(
+        &'a self,
+        _authcid: &'a str,
+        _token: &'a str,
+    ) -> BoxFuture<'a, Result<Option<Player>, ModuleError>> {
+        Box::pin(async { Ok(None) })
+    }
+
     /// The party the account is in (`GetPartyForPlayer(..).partyId`), as the party area writes the id.
     fn party_of<'a>(&'a self, account: &'a GlobalId) -> BoxFuture<'a, Result<Option<String>, ModuleError>>;
 

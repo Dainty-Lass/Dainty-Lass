@@ -305,11 +305,10 @@ impl IslesModule {
             admin_api,
             auth: crate::areas::auth::AuthRuntime::default(),
         });
-        let chat: Arc<dyn ChatSource> = Arc::new(crate::areas::chat::rules::source(
-            ctx.node(),
-            store.clone(),
-            &shared.settings,
-        ));
+        let chat: Arc<dyn ChatSource> = Arc::new(
+            crate::areas::chat::rules::source(ctx.node(), store.clone(), &shared.settings)
+                .with_module_id(ctx.module_id().clone()),
+        );
         let background = crate::areas::auth::start(&shared).await.map_err(failed)?;
         let mut servers = Vec::new();
         let mut addresses = serde_json::Map::new();
@@ -966,6 +965,55 @@ async fn handle_home_invocation(
             "account": invocation.account.to_string(),
             "operation": invocation.operation.as_str(),
         })),
+        "chat.login" => {
+            let authcid = invocation
+                .body
+                .get("authcid")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let token = invocation.body.get("token").and_then(Value::as_str).unwrap_or_default();
+            let chat_source = crate::areas::chat::rules::source(&shared.node, Some(store.clone()), &shared.settings);
+            let verifier = crate::areas::auth::tokens::GameTokens(shared.settings.clone());
+            let player = isles_chat::login::authenticate(authcid, token, &verifier, &chat_source)
+                .await
+                .map_err(|refusal| ModuleError::new(ErrorKind::Invalid, refusal.as_str()))?;
+            if player.account != invocation.account {
+                return Err(ModuleError::new(
+                    ErrorKind::Invalid,
+                    "token account does not match target account",
+                ));
+            }
+            Ok(json!({
+                "account": player.account.to_string(),
+                "user_id": player.user_id,
+                "name": player.name,
+            }))
+        }
+        "chat.player" => {
+            let target = account_id.clone();
+            let rec = store
+                .read(move |conn, repos| repos.accounts.find(conn, &target))
+                .await
+                .map_err(failed)?;
+            match rec {
+                Some(rec) => Ok(json!({
+                    "account": rec.id.global().to_string(),
+                    "user_id": rec.user_id.0,
+                    "name": rec.name,
+                })),
+                None => Ok(json!({ "player": Value::Null })),
+            }
+        }
+        "chat.party" => {
+            let target = account_id.clone();
+            let party = store
+                .read(move |conn, repos| repos.parties.find_by_member(conn, &target))
+                .await
+                .map_err(failed)?;
+            Ok(json!({
+                "party_id": party.map(|p| p.party_id),
+            }))
+        }
         other => Err(ModuleError::new(
             ErrorKind::NotFound,
             format!("unknown home operation {other}"),

@@ -2,7 +2,9 @@
 //! asked `GetRepositories()` and `GetPartyForPlayer` the same).
 
 use isles_chat::{ChatSettings, ChatSource, Player};
-use module_api::{BoxFuture, ErrorKind, GlobalId, ModuleError, NodeIdentity};
+use module_api::network::{HomeForward, OperationName};
+use module_api::{Actor, ActorContext, BoxFuture, ErrorKind, GlobalId, ModuleError, ModuleId, NodeIdentity};
+use serde_json::{Value, json};
 
 use crate::db::IslesStore;
 use crate::ids::{AccountId, UserId};
@@ -42,6 +44,7 @@ fn player(record: AccountRecord) -> Player {
 pub struct StoreChat {
     store: Option<IslesStore>,
     node: NodeIdentity,
+    module_id: ModuleId,
     settings: ChatSettings,
     tokens: crate::areas::auth::tokens::GameTokens,
 }
@@ -50,12 +53,19 @@ pub fn source(node: &NodeIdentity, store: Option<IslesStore>, settings: &Setting
     StoreChat {
         store,
         node: node.clone(),
+        module_id: "isles-1-14-7".parse().expect("valid default module id"),
         settings: chat_settings(settings),
         tokens: crate::areas::auth::tokens::GameTokens(settings.clone()),
     }
 }
 
 impl StoreChat {
+    #[must_use]
+    pub fn with_module_id(mut self, module_id: ModuleId) -> Self {
+        self.module_id = module_id;
+        self
+    }
+
     fn store(&self) -> Result<&IslesStore, ModuleError> {
         self.store
             .as_ref()
@@ -87,7 +97,34 @@ impl ChatSource for StoreChat {
                 .read(move |conn, repos| repos.accounts.find(conn, &id))
                 .await
                 .map_err(unavailable)?;
-            Ok(found.map(player))
+            if let Some(record) = found {
+                return Ok(Some(player(record)));
+            }
+            if account.owner() != &self.node.node
+                && let Ok(op) = "chat.player".parse::<OperationName>()
+                && let Ok(val) = store
+                    .home()
+                    .forward(&HomeForward {
+                        module: self.module_id.clone(),
+                        account: account.clone(),
+                        actor: ActorContext::new(Actor::System),
+                        operation: op,
+                        body: json!({}),
+                        key: None,
+                    })
+                    .await
+                && let (Some(user_id), Some(name)) = (
+                    val.get("user_id").and_then(Value::as_str),
+                    val.get("name").and_then(Value::as_str),
+                )
+            {
+                return Ok(Some(Player {
+                    account: account.clone(),
+                    user_id: user_id.to_owned(),
+                    name: name.to_owned(),
+                }));
+            }
+            Ok(None)
         })
     }
 
@@ -113,6 +150,89 @@ impl ChatSource for StoreChat {
         })
     }
 
+    fn account_of<'a>(&'a self, local: &'a str) -> BoxFuture<'a, Result<Option<GlobalId>, ModuleError>> {
+        Box::pin(async move {
+            if let Some(p) = self.player_by_user(local).await? {
+                return Ok(Some(p.account));
+            }
+            let store = self.store()?;
+            let normalized = local.trim().to_ascii_lowercase();
+            if normalized.is_empty() {
+                return Ok(None);
+            }
+            let found = store
+                .read(move |conn, repos| {
+                    let Some(launcher) = repos
+                        .launcher_accounts
+                        .find_by_display_name_normalized(conn, &normalized)?
+                    else {
+                        return Ok(None);
+                    };
+                    if !crate::areas::auth::policy::is_account_eligible(&launcher) {
+                        return Ok(None);
+                    }
+                    Ok(Some(launcher.account.global().clone()))
+                })
+                .await
+                .map_err(unavailable)?;
+            Ok(found)
+        })
+    }
+
+    fn foreign_login<'a>(
+        &'a self,
+        authcid: &'a str,
+        token: &'a str,
+    ) -> BoxFuture<'a, Result<Option<Player>, ModuleError>> {
+        Box::pin(async move {
+            let store = self.store()?;
+            if let Ok((ticket, _game)) = module_api::network::SessionTicket::from_token(token) {
+                let expected: module_api::GameVersion = if self.module_id.as_str().contains("1-12") {
+                    "1.12.0".parse().expect("valid game version")
+                } else {
+                    "1.14.7".parse().expect("valid game version")
+                };
+                if let Ok(admitted) = store.home().verify_session_ticket(&ticket, &expected).await
+                    && let Some(p) = self.player(&admitted).await?
+                    && (admitted.to_string() == authcid || p.user_id == authcid)
+                {
+                    return Ok(Some(p));
+                }
+            }
+            if let Ok(account) = authcid.parse::<GlobalId>()
+                && account.owner() != &self.node.node
+                && let Ok(op) = "chat.login".parse::<OperationName>()
+                && let Ok(val) = store
+                    .home()
+                    .forward(&HomeForward {
+                        module: self.module_id.clone(),
+                        account: account.clone(),
+                        actor: ActorContext::new(Actor::Player {
+                            account: account.clone(),
+                        }),
+                        operation: op,
+                        body: json!({
+                            "authcid": authcid,
+                            "token": token,
+                        }),
+                        key: None,
+                    })
+                    .await
+                && let (Some(user_id), Some(name)) = (
+                    val.get("user_id").and_then(Value::as_str),
+                    val.get("name").and_then(Value::as_str),
+                )
+            {
+                return Ok(Some(Player {
+                    account,
+                    user_id: user_id.to_owned(),
+                    name: name.to_owned(),
+                }));
+            }
+            Ok(None)
+        })
+    }
+
     fn party_of<'a>(&'a self, account: &'a GlobalId) -> BoxFuture<'a, Result<Option<String>, ModuleError>> {
         Box::pin(async move {
             let (store, id) = (self.store()?, account_id(account)?);
@@ -120,7 +240,26 @@ impl ChatSource for StoreChat {
                 .read(move |conn, repos| repos.parties.find_by_member(conn, &id))
                 .await
                 .map_err(unavailable)?;
-            Ok(party.map(|party| party.party_id))
+            if let Some(party) = party {
+                return Ok(Some(party.party_id));
+            }
+            if account.owner() != &self.node.node
+                && let Ok(op) = "chat.party".parse::<OperationName>()
+                && let Ok(val) = store
+                    .home()
+                    .forward(&HomeForward {
+                        module: self.module_id.clone(),
+                        account: account.clone(),
+                        actor: ActorContext::new(Actor::System),
+                        operation: op,
+                        body: json!({}),
+                        key: None,
+                    })
+                    .await
+            {
+                return Ok(val.get("party_id").and_then(Value::as_str).map(str::to_owned));
+            }
+            Ok(None)
         })
     }
 
