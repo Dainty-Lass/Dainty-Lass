@@ -9,7 +9,8 @@ only ([ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)). This file records where the p
 This repository (`silentspud/dainty-legacy` on `git.silentspud.com`) is the legacy-import plugin of
 [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass). It contains code and data ported from Dauntless
 Revived, through its DaintyLass fork [legacy-revived](https://git.silentspud.com/silentspud/legacy-revived), and the
-account schema of Mystic Paradox's 1.14.7 port, through [rustic-isles](https://git.silentspud.com/silentspud/rustic-isles).
+account schema of Mystic Paradox's 1.14.7 port, through its DaintyLass fork Rustic Isles
+([rustic-isles](https://git.silentspud.com/silentspud/rustic-isles)).
 It is **not** an official release of Dauntless Revived, Undaunted, Mystic Paradox or any other project named below,
 and none of them endorses it. Every change is recorded in the commit history. It started on 31 October 2026.
 
