@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { avatarUrl } from "@/lib/auth/discord";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { listRevisions } from "@/lib/revisions";
@@ -14,17 +13,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function StaffPage() {
   const me = await requirePage("staff:read");
-  const { discordGuildId } = getSettings();
+  const { discordGuildId, requireApproval } = getSettings();
   return (
     <StaffClient
       staff={listStaff().map((s) => ({
         ...s,
-        avatarUrl: avatarUrl(s.discordId, s.avatar) ?? null,
+        avatarUrl: s.avatar,
       }))}
       me={{ id: me.id, role: me.role }}
       canWrite={can(me.role, "staff:write")}
       canRestore={can(me.role, "audit:revert")}
       guildSync={Boolean(discordGuildId)}
+      requireApproval={requireApproval}
       revisions={listRevisions("staff", 20).map(({ snapshot, ...r }) => r)}
     />
   );

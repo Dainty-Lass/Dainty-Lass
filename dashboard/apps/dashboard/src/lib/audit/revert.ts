@@ -15,7 +15,7 @@ import {
 } from "@/lib/players";
 import { updateReport } from "@/lib/reports/store";
 import { restoreRevision } from "@/lib/revisions";
-import { updateStaff } from "@/lib/staff";
+import { type MemberChange, updateStaff } from "@/lib/staff";
 import { getAuditEvent } from "./query";
 
 /**
@@ -122,13 +122,9 @@ const REVERTERS: Record<string, (me: Staff, ev: AuditEvent) => Promise<unknown> 
     return updateController(me, ev.controllerId, b, ev.id);
   },
   "staff.update": (me, ev) => {
-    const b = ev.before as { role: Staff["role"]; disabled: boolean; note: string | null };
-    return updateStaff(
-      me,
-      Number(ev.targetId),
-      { role: b.role, disabled: b.disabled, note: b.note },
-      ev.id,
-    );
+    // Older events carry only role, disabled and note; what they lack stays as it is.
+    const b = ev.before as MemberChange;
+    return updateStaff(me, Number(ev.targetId), b, ev.id);
   },
   "report.update": (me, ev) => {
     const b = ev.before as Pick<AuditEvent, never> & {

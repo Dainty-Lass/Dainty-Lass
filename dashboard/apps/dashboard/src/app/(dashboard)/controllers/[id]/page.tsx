@@ -41,8 +41,10 @@ export default async function ControllerPage({ params }: { params: Promise<{ id:
         const at = Math.floor(Date.now() / 3_600_000) * 3_600_000 - (167 - i) * 3_600_000;
         return { at, ...(hourly.get(at) ?? { online: 0, hunts: 0 }) };
       })}
-      reports={reportCounts([id])}
-      audit={queryAudit({ controllerIds: [id], pageSize: 25 }).events}
+      reports={can(me.role, "reports:read") ? reportCounts([id]) : null}
+      audit={
+        can(me.role, "audit:read") ? queryAudit({ controllerIds: [id], pageSize: 25 }).events : null
+      }
       inScope={scope.kind === "one" && scope.id === id}
       canWrite={can(me.role, "controllers:write")}
       canRevert={can(me.role, "audit:revert")}

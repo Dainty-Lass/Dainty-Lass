@@ -58,8 +58,9 @@ export function ControllerDetailClient({
 }: {
   controller: ControllerView;
   history: { at: number; online: number; hunts: number }[];
-  reports: Record<"open" | "claimed" | "resolved" | "dismissed", number>;
-  audit: AuditEvent[];
+  // Null where the reader's role may not see them.
+  reports: Record<"open" | "claimed" | "resolved" | "dismissed", number> | null;
+  audit: AuditEvent[] | null;
   inScope: boolean;
   canWrite: boolean;
   canRevert: boolean;
@@ -189,14 +190,18 @@ export function ControllerDetailClient({
             hue: "purple",
             note: s?.hunts ? to("stats.huntsFree", { free: s.hunts.free }) : undefined,
           },
-          {
-            id: "reports",
-            label: to("stats.openReports"),
-            href: "/reports",
-            value: format.number(reports.open),
-            hue: reports.open ? "orange" : "gray",
-            note: to("stats.claimed", { count: reports.claimed }),
-          },
+          ...(reports
+            ? [
+                {
+                  id: "reports",
+                  label: to("stats.openReports"),
+                  href: "/reports",
+                  value: format.number(reports.open),
+                  hue: reports.open ? ("orange" as const) : ("gray" as const),
+                  note: to("stats.claimed", { count: reports.claimed }),
+                },
+              ]
+            : []),
         ]}
       />
 
@@ -342,12 +347,14 @@ export function ControllerDetailClient({
         )}
       </Card>
 
-      <Card padding={0}>
-        <Stack paddingInline={4} paddingBlock={3}>
-          <Heading level={2}>{t("activity")}</Heading>
-        </Stack>
-        <AuditTable events={audit} canRevert={canRevert} />
-      </Card>
+      {audit && (
+        <Card padding={0}>
+          <Stack paddingInline={4} paddingBlock={3}>
+            <Heading level={2}>{t("activity")}</Heading>
+          </Stack>
+          <AuditTable events={audit} canRevert={canRevert} />
+        </Card>
+      )}
 
       <Dialog isOpen={editing} onOpenChange={setEditing} purpose="form" width={480}>
         <Stack gap={4}>

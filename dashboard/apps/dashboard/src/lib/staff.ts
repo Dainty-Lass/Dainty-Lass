@@ -5,7 +5,7 @@ import { db, schema, tx } from "@/lib/db";
 import type { Staff } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
 import { ensureBaseline, writeRevision } from "@/lib/revisions";
-import type { DiscordUser } from "./auth/discord";
+import type { GuildStanding } from "./auth/discord";
 import { canAssign, type Role } from "./auth/permissions";
 
 export function listStaff(): Staff[] {
@@ -36,39 +36,67 @@ function enabledOwners(t: Pick<Tx, "select">, except?: number): number {
     .all().length;
 }
 
-export type SignInOutcome =
-  | { ok: true; staff: Staff }
-  | { ok: false; reason: "not_staff" | "disabled" };
+export type SignInOutcome = { ok: true; staff: Staff } | { ok: false; reason: "disabled" };
+
+/** A sign-in identity as Better Auth holds it, with the Discord account linked to it, if any. */
+export interface SignInIdentity {
+  userId: number;
+  name: string;
+  image: string | null;
+  /** Only a confirmed address: it can make an owner. */
+  email: string | null;
+  discordId: string | null;
+}
 
 /**
- * Decides who a Discord account is here. An owner listed in the environment always gets in; someone
- * added by hand keeps their role; someone whose access came from a guild role is re-read every time,
- * so taking the role away in Discord takes the dashboard away at their next sign-in.
+ * Decides who a sign-in identity is here. Anyone may sign in; only a disabled account is refused. The tier:
+ * an owner listed in the environment is an owner; a role set by hand here is kept; otherwise the highest
+ * role the guild maps, re-read every time, so a role taken away in Discord takes the tier with it; and
+ * with no such role, a plain user. `guild` undefined means it could not be read, and the last tier stands.
+ * Holding the guild's approved role approves the account.
  */
 export function resolveSignIn(
-  user: DiscordUser,
-  guildRole: Role | null | undefined,
+  user: SignInIdentity,
+  guild: GuildStanding | null | undefined,
 ): SignInOutcome {
   return tx((t) => {
-    const existing = t.select().from(schema.staff).where(eq(schema.staff.discordId, user.id)).get();
-    const profile = { username: user.username, globalName: user.global_name, avatar: user.avatar };
-    const envOwner = config.ownerDiscordIds.includes(user.id);
+    const existing = t
+      .select()
+      .from(schema.staff)
+      .where(eq(schema.staff.userId, user.userId))
+      .get();
+    if (existing?.disabled) return { ok: false, reason: "disabled" };
+    const profile = {
+      userId: user.userId,
+      username: user.name.slice(0, 64),
+      avatar: user.image,
+      ...(user.discordId ? { discordId: user.discordId } : {}),
+    };
+    const envOwner =
+      (user.discordId !== null && config.ownerDiscordIds.includes(user.discordId)) ||
+      (user.email !== null && config.ownerEmails.includes(user.email));
+
+    const fromGuild: { role: Role; roleSource: "guild" | "default" } = guild?.role
+      ? { role: guild.role, roleSource: "guild" }
+      : { role: "user", roleSource: "default" };
+    const tier: { role: Role; roleSource: Staff["roleSource"] } = envOwner
+      ? { role: "owner", roleSource: "manual" }
+      : existing?.roleSource === "manual" || (existing && guild === undefined)
+        ? { role: existing.role, roleSource: existing.roleSource }
+        : fromGuild;
+    const approval =
+      guild?.approved && !existing?.approvedAt
+        ? { approvedAt: Date.now(), approvedVia: "guild" as const }
+        : {};
 
     if (existing) {
-      if (existing.disabled) return { ok: false, reason: "disabled" };
-      let role = existing.role;
-      if (envOwner) role = "owner";
-      else if (existing.roleSource === "guild") {
-        if (!guildRole) return { ok: false, reason: "not_staff" };
-        role = guildRole;
-      }
       const staff = t
         .update(schema.staff)
-        .set({ ...profile, role })
+        .set({ ...profile, ...tier, ...approval })
         .where(eq(schema.staff.id, existing.id))
         .returning()
         .get();
-      if (role !== existing.role) {
+      if (tier.role !== existing.role) {
         ensureBaseline("staff", t);
         writeRevision("staff", `role:${staff.username}`, "system", t);
         recordAudit(
@@ -79,7 +107,7 @@ export function resolveSignIn(
             targetId: staff.id,
             targetLabel: staff.username,
             before: { role: existing.role },
-            after: { role },
+            after: { role: tier.role },
             reason: envOwner ? "owner_env" : "guild_role",
           },
           t,
@@ -88,12 +116,10 @@ export function resolveSignIn(
       return { ok: true, staff };
     }
 
-    const role: Role | null = envOwner ? "owner" : (guildRole ?? null);
-    if (!role) return { ok: false, reason: "not_staff" };
     ensureBaseline("staff", t);
     const staff = t
       .insert(schema.staff)
-      .values({ discordId: user.id, ...profile, role, roleSource: envOwner ? "manual" : "guild" })
+      .values({ ...profile, ...tier, ...approval })
       .returning()
       .get();
     writeRevision("staff", `add:${staff.username}`, "system", t);
@@ -104,8 +130,16 @@ export function resolveSignIn(
         targetType: "staff",
         targetId: staff.id,
         targetLabel: staff.username,
-        after: { role, roleSource: staff.roleSource },
-        reason: envOwner ? "owner_env" : "guild_role",
+        after: {
+          role: staff.role,
+          roleSource: staff.roleSource,
+          approved: Boolean(staff.approvedAt),
+        },
+        reason: envOwner
+          ? "owner_env"
+          : staff.roleSource === "guild"
+            ? "guild_role"
+            : "first_sign_in",
       },
       t,
     );
@@ -122,12 +156,49 @@ export function addStaff(
   return tx((t) => {
     if (t.select().from(schema.staff).where(eq(schema.staff.discordId, input.discordId)).get())
       throw new DomainError("conflict");
+    if (
+      t
+        .select()
+        .from(schema.authAccounts)
+        .where(
+          and(
+            eq(schema.authAccounts.providerId, "discord"),
+            eq(schema.authAccounts.accountId, input.discordId),
+          ),
+        )
+        .get()
+    )
+      throw new DomainError("conflict");
     ensureBaseline("staff", t);
+    const username = input.username.trim().slice(0, 32) || input.discordId;
+    // A sign-in identity with their Discord linked, so their first Discord sign-in lands on this row. The
+    // address is a placeholder until Discord hands over the real one.
+    const now = new Date();
+    const user = t
+      .insert(schema.authUsers)
+      .values({
+        name: username,
+        email: `discord-${input.discordId}@users.invalid`,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning()
+      .get();
+    t.insert(schema.authAccounts)
+      .values({
+        userId: user.id,
+        providerId: "discord",
+        accountId: input.discordId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
     const staff = t
       .insert(schema.staff)
       .values({
+        userId: user.id,
         discordId: input.discordId,
-        username: input.username.trim().slice(0, 32) || input.discordId,
+        username,
         role: input.role,
         note: input.note?.trim() || null,
       })
@@ -150,10 +221,29 @@ export function addStaff(
   });
 }
 
+/** What an admin may change on an account, and what a revert puts back. */
+export interface MemberChange {
+  role?: Role;
+  roleSource?: Staff["roleSource"];
+  disabled?: boolean;
+  note?: string | null;
+  approvedAt?: number | null;
+  approvedVia?: Staff["approvedVia"];
+}
+
+const pick = (s: Staff): Required<MemberChange> => ({
+  role: s.role,
+  roleSource: s.roleSource,
+  disabled: s.disabled,
+  note: s.note,
+  approvedAt: s.approvedAt,
+  approvedVia: s.approvedVia,
+});
+
 export function updateStaff(
   actor: (Actor & Staff) | Actor,
   id: number,
-  change: { role?: Role; disabled?: boolean; note?: string | null },
+  change: MemberChange,
   revertOfId?: number,
 ): Staff {
   return tx((t) => {
@@ -174,11 +264,16 @@ export function updateStaff(
     ensureBaseline("staff", t);
     const after = t
       .update(schema.staff)
-      .set({ ...change, ...(change.role ? { roleSource: "manual" as const } : {}) })
+      // A role set here sticks; one left to Discord is re-read at the next sign-in.
+      .set({
+        ...change,
+        ...(change.role && !change.roleSource ? { roleSource: "manual" as const } : {}),
+      })
       .where(eq(schema.staff.id, id))
       .returning()
       .get();
-    if (after.disabled) t.delete(schema.sessions).where(eq(schema.sessions.staffId, id)).run();
+    if (after.disabled)
+      t.delete(schema.authSessions).where(eq(schema.authSessions.userId, after.userId)).run();
     writeRevision("staff", `edit:${after.username}`, actor, t);
     recordAudit(
       actor,
@@ -187,8 +282,8 @@ export function updateStaff(
         targetType: "staff",
         targetId: id,
         targetLabel: after.username,
-        before: { role: before.role, disabled: before.disabled, note: before.note },
-        after: { role: after.role, disabled: after.disabled, note: after.note },
+        before: pick(before),
+        after: pick(after),
         revertible: true,
         revertOfId,
       },

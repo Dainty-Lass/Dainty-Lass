@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { auditSince, recentAudit } from "@/lib/audit/query";
 import { requirePage } from "@/lib/auth/guard";
+import { can } from "@/lib/auth/permissions";
 import { chatHourly, chatStats } from "@/lib/chat/store";
 import { filterVersion } from "@/lib/chat/terms";
 import { getController } from "@/lib/fleet/controllers";
@@ -19,7 +20,7 @@ export default async function OverviewPage({
 }: {
   searchParams: Promise<{ denied?: string }>;
 }) {
-  await requirePage("overview:read");
+  const me = await requirePage("overview:read");
   const [scope, { denied }] = await Promise.all([currentScope(), searchParams]);
   const ids = scopeIds(scope);
   const day = Date.now() - 86_400_000;
@@ -27,11 +28,11 @@ export default async function OverviewPage({
     <OverviewClient
       data={overview(ids)}
       scopeName={scope.kind === "one" ? (getController(scope.id)?.name ?? null) : null}
-      reports={reportCounts(ids)}
-      chat={chatStats(day, ids)}
-      hourly={chatHourly(24, ids)}
-      changesToday={auditSince(day, ids)}
-      recent={recentAudit(10, ids)}
+      reports={can(me.role, "reports:read") ? reportCounts(ids) : null}
+      chat={can(me.role, "chat:read") ? chatStats(day, ids) : null}
+      hourly={can(me.role, "chat:read") ? chatHourly(24, ids) : null}
+      changesToday={can(me.role, "audit:read") ? auditSince(day, ids) : null}
+      recent={can(me.role, "audit:read") ? recentAudit(10, ids) : null}
       filterVersion={filterVersion()}
       denied={denied === "1"}
     />

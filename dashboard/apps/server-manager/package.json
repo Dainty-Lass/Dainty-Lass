@@ -1,7 +1,7 @@
 {
   "name": "@dainty/server-manager",
   "version": "0.1.0",
-  "description": "The DaintyLass server manager page: the host kit and the embedded server, served by the Tauri server GUI",
+  "description": "The Dainty Lass server manager page: the host kit and the embedded server, served by the Tauri server GUI",
   "type": "module",
   "private": true,
   "license": "AGPL-3.0-only",

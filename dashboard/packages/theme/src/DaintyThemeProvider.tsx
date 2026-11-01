@@ -54,7 +54,7 @@ function persist(mode: ThemeMode, where: ThemePersistence) {
 }
 
 /**
- * The one theme wrapper for every DaintyLass app. `initialMode` comes from what the server read, so the
+ * The one theme wrapper for every Dainty Lass app. `initialMode` comes from what the server read, so the
  * first client render matches `<html data-theme>`; static pages pass nothing and read local storage.
  */
 export function DaintyThemeProvider({

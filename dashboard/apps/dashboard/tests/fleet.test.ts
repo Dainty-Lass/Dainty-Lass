@@ -16,17 +16,12 @@ import { attach, isConnected, sendCommand, settle } from "@/lib/fleet/registry";
 import { recordStatus, totals, viewOf } from "@/lib/fleet/status";
 import { game } from "@/lib/fleet/transport";
 import { createReport, listReports } from "@/lib/reports/store";
-import { resolveSignIn } from "@/lib/staff";
+import { identity, signedIn } from "./helpers";
 
 let owner: Staff;
 
 beforeAll(() => {
-  const outcome = resolveSignIn(
-    { id: "100000000000000001", username: "owner", global_name: null, avatar: null },
-    null,
-  );
-  if (!outcome.ok) throw new Error("owner sign-in refused");
-  owner = outcome.staff;
+  owner = signedIn(identity({ name: "owner", discordId: "100000000000000001" }));
 });
 
 const bearer = (token: string) =>

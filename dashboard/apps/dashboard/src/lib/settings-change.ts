@@ -25,11 +25,23 @@ export function sanitize(patch: Partial<Settings>): Partial<Settings> {
     if (g && !/^\d{17,20}$/.test(g)) throw new DomainError("invalid_input", "discordGuildId");
     out.discordGuildId = g;
   }
+  if (patch.discordApprovedRoleId !== undefined) {
+    const r = String(patch.discordApprovedRoleId).trim();
+    if (r && !/^\d{17,20}$/.test(r))
+      throw new DomainError("invalid_input", "discordApprovedRoleId");
+    out.discordApprovedRoleId = r;
+  }
+  if (patch.requireApproval !== undefined) out.requireApproval = patch.requireApproval === true;
+  if (patch.tosText !== undefined) {
+    const text = String(patch.tosText).replace(/\r\n/g, "\n").trim();
+    if (text.length > 20_000) throw new DomainError("invalid_input", "tosText");
+    out.tosText = text;
+  }
   if (patch.discordRoleMap !== undefined) {
     out.discordRoleMap = {
       admin: ids(patch.discordRoleMap.admin),
       moderator: ids(patch.discordRoleMap.moderator),
-      viewer: ids(patch.discordRoleMap.viewer),
+      user: ids(patch.discordRoleMap.user),
     };
   }
   if (patch.chatRetentionDays !== undefined) {
@@ -69,6 +81,9 @@ export function updateSettings(actor: Actor, patch: Partial<Settings>): Settings
   return tx((t) => {
     const replaced = ensureBaseline("settings", t);
     const before = getSettings();
+    // New terms mean a new version: everyone who accepted an older one is asked again.
+    if (clean.tosText !== undefined && clean.tosText !== before.tosText)
+      clean.tosVersion = before.tosVersion + 1;
     writeSettings(clean, t);
     const after = { ...before, ...clean };
     const changed = (Object.keys(clean) as (keyof Settings)[]).filter(

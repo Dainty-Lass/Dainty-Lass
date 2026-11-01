@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Heading } from "@astryxdesign/core/Heading";
@@ -8,6 +9,7 @@ import { MetadataList, MetadataListItem } from "@astryxdesign/core/MetadataList"
 import { NumberInput } from "@astryxdesign/core/NumberInput";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import { Stack } from "@astryxdesign/core/Stack";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Text } from "@astryxdesign/core/Text";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
@@ -63,7 +65,11 @@ export function SettingsClient({
     operatorSecret: boolean;
     ingestKey: boolean;
     discord: boolean;
-    redirectUri: string;
+    twitch: boolean;
+    email: boolean;
+    mail: boolean;
+    botToken: boolean;
+    redirectUris: { discord: string; twitch: string };
     ownerCount: number;
     dataDir: string;
   };
@@ -76,7 +82,7 @@ export function SettingsClient({
   const [roleText, setRoleText] = useState({
     admin: ids(settings.discordRoleMap.admin),
     moderator: ids(settings.discordRoleMap.moderator),
-    viewer: ids(settings.discordRoleMap.viewer),
+    user: ids(settings.discordRoleMap.user),
   });
   const [reasons, setReasons] = useState(settings.moderationReasons.join("\n"));
 
@@ -129,7 +135,7 @@ export function SettingsClient({
           onChange={(v) => set("discordGuildId", v.trim())}
           isReadOnly={ro}
         />
-        {(["admin", "moderator", "viewer"] as const).map((r) => (
+        {(["admin", "moderator", "user"] as const).map((r) => (
           <TextInput
             key={r}
             label={t("roleIds", { role: tc(`roles.${r}`) })}
@@ -139,6 +145,13 @@ export function SettingsClient({
             placeholder={t("roleIdsPlaceholder")}
           />
         ))}
+        <TextInput
+          label={t("approvedRoleId")}
+          description={t("approvedRoleIdHint")}
+          value={draft.discordApprovedRoleId}
+          onChange={(v) => set("discordApprovedRoleId", v.trim())}
+          isReadOnly={ro || !draft.discordGuildId}
+        />
         {canWrite && (
           <Stack direction="horizontal" justify="end">
             <Button
@@ -150,8 +163,44 @@ export function SettingsClient({
                   discordRoleMap: {
                     admin: parseIds(roleText.admin),
                     moderator: parseIds(roleText.moderator),
-                    viewer: parseIds(roleText.viewer),
+                    user: parseIds(roleText.user),
                   },
+                  discordApprovedRoleId: draft.discordApprovedRoleId,
+                }))
+              }
+            />
+          </Stack>
+        )}
+      </Section>
+
+      <Section title={t("onboarding")} description={t("onboardingHint")}>
+        <Switch
+          label={t("requireApproval")}
+          description={t("requireApprovalHint")}
+          value={draft.requireApproval}
+          onChange={(v) => set("requireApproval", v)}
+          isDisabled={ro}
+        />
+        <TextArea
+          label={t("tos")}
+          description={t("tosHint", { version: settings.tosVersion })}
+          value={draft.tosText}
+          onChange={(v) => set("tosText", v)}
+          rows={10}
+          isReadOnly={ro}
+        />
+        {draft.requireApproval && draft.discordApprovedRoleId && !connections.botToken && (
+          <Banner status="warning" title={t("botMissing")} collapsible={false} />
+        )}
+        {canWrite && (
+          <Stack direction="horizontal" justify="end">
+            <Button
+              label={tc("save")}
+              variant="primary"
+              clickAction={async () =>
+                void (await save({
+                  requireApproval: draft.requireApproval,
+                  tosText: draft.tosText,
                 }))
               }
             />
@@ -239,10 +288,21 @@ export function SettingsClient({
           <MetadataListItem label={t("conn.discordApp")}>
             {yes(connections.discord)}
           </MetadataListItem>
-          <MetadataListItem label={t("conn.redirect")}>
-            <Text type="code">{connections.redirectUri}</Text>
+          <MetadataListItem label={t("conn.redirect", { provider: "Discord" })}>
+            <Text type="code">{connections.redirectUris.discord}</Text>
           </MetadataListItem>
-          <MetadataListItem label="DASHBOARD_OWNER_DISCORD_IDS">
+          <MetadataListItem label="DASHBOARD_DISCORD_BOT_TOKEN">
+            {yes(connections.botToken)}
+          </MetadataListItem>
+          <MetadataListItem label={t("conn.twitchApp")}>{yes(connections.twitch)}</MetadataListItem>
+          <MetadataListItem label={t("conn.redirect", { provider: "Twitch" })}>
+            <Text type="code">{connections.redirectUris.twitch}</Text>
+          </MetadataListItem>
+          <MetadataListItem label="DASHBOARD_SMTP_URL">{yes(connections.mail)}</MetadataListItem>
+          <MetadataListItem label={t("conn.emailSignIn")}>
+            {yes(connections.email)}
+          </MetadataListItem>
+          <MetadataListItem label={t("conn.ownersLabel")}>
             {t("conn.owners", { count: connections.ownerCount })}
           </MetadataListItem>
           <MetadataListItem label={t("conn.dataDir")}>
