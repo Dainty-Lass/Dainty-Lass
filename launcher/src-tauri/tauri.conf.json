@@ -80,7 +80,9 @@
   "plugins": {
     "updater": {
       "pubkey": "",
-      "endpoints": [],
+      "endpoints": [
+        "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/releases/download/launcher-updates/latest.json"
+      ],
       "windows": {
         "installMode": "passive"
       }
