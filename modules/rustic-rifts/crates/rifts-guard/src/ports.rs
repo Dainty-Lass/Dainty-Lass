@@ -15,6 +15,7 @@ use rifts_seam::{
 use std::sync::Arc;
 
 use crate::operations::RewardRollout;
+use crate::store::CompletionMode;
 
 /// Guard's log lines; isles routes them to its logger. Nothing logged carries a secret: capability values and the
 /// shadow key never reach a line.
@@ -198,6 +199,8 @@ pub struct HuntView {
     pub roster: Vec<RosterEntry>,
     /// `frozenLoadouts`: the character frozen for each member.
     pub frozen_characters: Vec<(AccountId, String)>,
+    /// `guardCompletionMode`.
+    pub completion_mode: Option<CompletionMode>,
 }
 
 impl HuntView {

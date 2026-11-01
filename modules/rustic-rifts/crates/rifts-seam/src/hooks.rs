@@ -217,10 +217,21 @@ pub enum TransactionPhase {
     Failed,
 }
 
+/// What a fence reads through isles' inventory transaction (`onGrant`'s `repos` and `session`).
+pub trait TransactionReads {
+    /// The character's `stackedItems` as stored; `Ok(None)` when it has no inventory.
+    fn stacked_items(&self, character_id: &str) -> Result<Option<Json>, SeamError>;
+}
+
 /// `ExtensionInventoryTransaction`: the grant fence isles runs inside its inventory transaction.
 pub trait InventoryFence: Send + Sync {
     /// `options.onGrant` with `errorResponse`: `Err` refuses the grant with that reply.
     fn on_grant(&self, grant: &Json) -> Result<(), Reply>;
+    /// `on_grant` with the transaction's own reads, which isles calls when it has them.
+    fn on_grant_in(&self, grant: &Json, reads: &dyn TransactionReads) -> Result<(), Reply> {
+        let _ = reads;
+        self.on_grant(grant)
+    }
     fn report(&self, phase: TransactionPhase);
 }
 

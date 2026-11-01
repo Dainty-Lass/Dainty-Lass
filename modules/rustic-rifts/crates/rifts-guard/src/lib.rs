@@ -1,7 +1,8 @@
 //! Guard (RF6): observe mode on stubs, since Mystic's anticheat module is private (DD14).
 //!
 //! Ported from `p2p/antiCheat.ts` (the stub side), `p2p/security/hostWrites.ts`, `hubAuthorization.ts`,
-//! `p2pInventoryTransactions.ts`, `hostPolicyMode.ts`, `guardTraffic*.ts`, `config/huntEvidence.ts`, the host route
+//! `p2pInventoryTransactions.ts`, `p2pInventoryAuthorization.ts`, `hostGrantPolicy.ts`, `hostDraftPremium.ts`,
+//! `hostPolicyMode.ts`, `guardTraffic*.ts`, `config/huntEvidence.ts`, the host route
 //! census and the operations alerts (RF1). [`Guard`] answers [`rifts_seam::GuardHooks`] and the six routes; [`Stub`]
 //! still answers [`rifts_seam::Unimplemented`] everywhere for builds that leave Guard out.
 //!
@@ -18,6 +19,7 @@ mod config;
 mod digest;
 mod errors;
 pub mod evidence;
+pub mod grants;
 pub mod json;
 mod operations;
 pub mod ports;
@@ -60,14 +62,18 @@ pub use traffic::{
 
 use rifts_seam::{
     AccountId, Actor, BoxFuture, Component, DeletionAction, DeletionStep, GuardHooks, HOST_CAPABILITY_HEADER,
-    HostWrite, HostWriteKind, HostWriteOptions, InventoryDecision, InventoryFence, InventoryTransaction, IslesCore,
-    Json, Lifecycle, Reply, RequestInfo, RuntimeAuth, SeamError, Secret, SessionId, Settings, TableSpec,
-    TransactionPhase, stub,
+    HostGrantCatalog, HostWrite, HostWriteKind, HostWriteOptions, InventoryDecision, InventoryFence,
+    InventoryTransaction, IslesCore, Json, Lifecycle, Reply, RequestInfo, RuntimeAuth, SeamError, Secret, SessionId,
+    Settings, TableSpec, TransactionPhase, TransactionReads, stub,
 };
 use serde_json::Value;
 
 use crate::errors::{fenced, not_collected, store_to_seam};
-use crate::json::js_slice;
+use crate::grants::{
+    Allowances, DraftPremiumDecision, GrantSession, HOST_DRAFT_PREMIUM_ID, NoGameData, body_adds_host_draft_premium,
+    decide_draft_premium, grant_denial, stacked_balance_of,
+};
+use crate::json::{js_slice, js_string};
 use crate::ports::lock;
 pub use writes::{host_write_denial, inventory_body_denial, inventory_denial, kind_name, loot_refusal, write_refusal};
 
@@ -651,23 +657,25 @@ impl Guard {
         Ok(())
     }
 
-    fn authorize_inventory_now(
+    /// `AuthorizeP2PInventoryTransaction`: who may write first (always enforced), then the host grant policy, which
+    /// refuses only in enforce mode.
+    async fn authorize_inventory_now(
         &self,
-        runtime: &RuntimeAuth,
-        transaction: &InventoryTransaction,
+        runtime: RuntimeAuth,
+        transaction: InventoryTransaction,
     ) -> Result<InventoryDecision, SeamError> {
         let hunt = self.hunts.hunt(&runtime.session).map_err(store_to_seam)?;
         let presence = match &hunt {
             Some(view) => self.hub_presence(view)?,
             None => None,
         };
-        let parsed_body = transaction.body.as_ref().and_then(parse_json_text);
+        let body = transaction.body.as_ref().and_then(parse_json_text);
         if let Some(denial) = inventory_body_denial(
-            runtime,
+            &runtime,
             hunt.as_ref(),
             &transaction.user,
             &transaction.character_id,
-            parsed_body.as_ref(),
+            body.as_ref(),
             presence.as_deref(),
         ) {
             self.log.warn(&format!(
@@ -675,6 +683,55 @@ impl Guard {
                 transaction.user, runtime.session, runtime.generation
             ));
             return Ok(InventoryDecision::Refused(loot_refusal("P2P_LOOT_GRANT_DENIED")));
+        }
+        // An accepted transaction replayed never reaches the decision: the ledger returns its stored result
+        let adds_draft_premium = body.as_ref().is_some_and(body_adds_host_draft_premium);
+        let mut draft_replay = false;
+        let mut draft_precheck = None;
+        if let (true, Some(body)) = (adds_draft_premium, &body) {
+            draft_replay = self
+                .core
+                .accepted_inventory_replay(transaction.clone())
+                .await
+                .unwrap_or(false);
+            if !draft_replay {
+                let stored = self.core.stacked_items(transaction.character_id.clone()).await;
+                draft_precheck = decide_draft_premium(body, draft_balance(stored));
+            }
+        }
+        if let Some(body) = &body {
+            let session = GrantSession {
+                no_completion: hunt
+                    .as_ref()
+                    .is_some_and(|hunt| hunt.completion_mode == Some(CompletionMode::NoCompletion)),
+                realm_hub: hunt.as_ref().is_some_and(HuntView::is_hub),
+            };
+            let allowances = Allowances {
+                draft_premium: draft_replay || draft_precheck.is_some_and(|decision| decision.allowed),
+            };
+            if let Some(denial) = grant_denial(session, body, self.grant_catalog().as_ref(), allowances) {
+                let tags = format!(
+                    "account={} session={} generation={} transaction={} classes={} denied={}{}{}",
+                    transaction.user,
+                    runtime.session,
+                    runtime.generation,
+                    transaction.transaction_id,
+                    denial.classes.join(","),
+                    denial.summary,
+                    draft_precheck
+                        .filter(|decision| !decision.allowed)
+                        .map_or_else(String::new, |decision| format!(" draftPremium={}", decision.reason)),
+                    hunt.as_ref()
+                        .and_then(HuntView::hub_kind)
+                        .map_or_else(String::new, |hub| format!(" hub={hub}"))
+                );
+                if !self.config.host_policy_refuses() {
+                    self.note_would_refuse_now("grant", &tags);
+                } else {
+                    self.log.warn(&format!("[HostGrantDeny] {tags}"));
+                    return Ok(InventoryDecision::Refused(host_grant_refusal(&denial.classes)));
+                }
+            }
         }
         let mut tags = format!(
             "account={} character={} session={} generation={} transaction={}",
@@ -688,68 +745,175 @@ impl Guard {
                 tags.push_str(&format!(" hub={hub}"));
             }
         }
+        let draft_premium = (adds_draft_premium && !draft_replay).then(|| DraftPremium {
+            precheck: draft_precheck,
+            granted: Mutex::new(None),
+        });
         Ok(InventoryDecision::Authorized(Box::new(HuntFence {
             hunts: Arc::clone(&self.hunts),
             log: Arc::clone(&self.log),
-            runtime: runtime.clone(),
-            transaction: transaction.clone(),
+            clock: Arc::clone(&self.clock),
+            refuses: self.config.host_policy_refuses(),
+            runtime,
+            transaction,
+            body,
+            draft_premium,
             tags,
         })))
     }
+
+    fn grant_catalog(&self) -> Arc<dyn HostGrantCatalog> {
+        self.core.host_grant_catalog().unwrap_or_else(|| Arc::new(NoGameData))
+    }
+}
+
+const HOST_GRANT_DENIED: &str = "A player host may not grant this item class.";
+const DRAFT_PREMIUM_DENIAL_PREFIX: &str = "P2P_LOOT_GRANT_DRAFT_PREMIUM_";
+
+fn host_grant_refusal(classes: &[&str]) -> Reply {
+    let classes: Vec<String> = classes.iter().map(|class| js_string(class)).collect();
+    Reply {
+        status: 403,
+        body: Json(format!(
+            r#"{{"code":"P2P_HOST_GRANT_DENIED","message":{},"payload":{{"classes":[{}]}}}}"#,
+            js_string(HOST_GRANT_DENIED),
+            classes.join(",")
+        )),
+    }
+}
+
+/// A balance that could not be read, for any reason, is refused, never taken as zero.
+fn draft_balance(stored: Result<Option<Json>, SeamError>) -> Option<i128> {
+    match stored {
+        Ok(stored) => stacked_balance_of(stored.as_ref().map(|json| json.0.as_str()), HOST_DRAFT_PREMIUM_ID),
+        Err(_) => None,
+    }
+}
+
+/// The daily premium draft token of one transaction: decided before it, and again from its own reads inside it.
+struct DraftPremium {
+    precheck: Option<DraftPremiumDecision>,
+    /// The decision the transaction applied and its UTC day, for the `[HostGrantAllow]` line.
+    granted: Mutex<Option<(DraftPremiumDecision, String)>>,
 }
 
 /// The checks repeated inside the inventory transaction: a member who left between the first check and the commit
-/// is seen.
+/// is seen, and the draft premium token is decided again from the transaction's own reads.
 struct HuntFence {
     hunts: Arc<dyn HuntSessions>,
     log: Arc<dyn GuardLog>,
+    clock: Arc<dyn Clock>,
+    refuses: bool,
     runtime: RuntimeAuth,
     transaction: InventoryTransaction,
+    body: Option<Value>,
+    /// Set when the body adds the token and is not a replay.
+    draft_premium: Option<DraftPremium>,
     tags: String,
 }
 
-impl InventoryFence for HuntFence {
-    fn on_grant(&self, grant: &Json) -> Result<(), Reply> {
-        let refuse = |code: &str| {
-            self.log
-                .warn(&format!("[P2PInventory] transaction denied code={code} {}", self.tags));
-            Err(loot_refusal(code))
-        };
+impl HuntFence {
+    fn refuse(&self, code: &str) -> Result<(), Reply> {
+        self.log
+            .warn(&format!("[P2PInventory] transaction denied code={code} {}", self.tags));
+        if let Some(reason) = code.strip_prefix(DRAFT_PREMIUM_DENIAL_PREFIX) {
+            self.log.warn(&format!(
+                "[HostGrantDeny] account={} session={} generation={} transaction={} item={HOST_DRAFT_PREMIUM_ID} \
+                 quantity=1 reason={reason} at=transaction",
+                self.transaction.user, self.runtime.session, self.runtime.generation, self.transaction.transaction_id
+            ));
+        }
+        Err(loot_refusal(code))
+    }
+
+    fn check(&self, grant: &Json, reads: Option<&dyn TransactionReads>) -> Result<(), Reply> {
         let Ok(hunt) = self.hunts.hunt(&self.runtime.session) else {
-            return refuse("P2P_LOOT_GRANT_DENIED");
+            return self.refuse("P2P_LOOT_GRANT_DENIED");
         };
         let presence = match &hunt {
             Some(view) if view.is_hub() => match self.hunts.hub_present_accounts(&view.session, view.generation) {
                 Ok(present) => Some(present),
-                Err(_) => return refuse("P2P_LOOT_GRANT_DENIED"),
+                Err(_) => return self.refuse("P2P_LOOT_GRANT_DENIED"),
             },
             _ => None,
         };
-        let parsed_body = self
-            .transaction
-            .body
-            .as_ref()
-            .and_then(parse_json_text)
-            .or_else(|| parse_json_text(grant));
-        match inventory_body_denial(
+        let grant_body = parse_json_text(grant);
+        let body = self.body.as_ref().or(grant_body.as_ref());
+        if let Some(denial) = inventory_body_denial(
             &self.runtime,
             hunt.as_ref(),
             &self.transaction.user,
             &self.transaction.character_id,
-            parsed_body.as_ref(),
+            body,
             presence.as_deref(),
         ) {
-            Some(denial) => refuse(&format!("P2P_LOOT_GRANT_{denial}")),
-            None => Ok(()),
+            return self.refuse(&format!("P2P_LOOT_GRANT_{denial}"));
         }
+        let (Some(draft), Some(body)) = (&self.draft_premium, body) else {
+            return Ok(());
+        };
+        // Without the transaction's reads the early decision stands (RF6 open point)
+        let decision = match reads {
+            Some(reads) => {
+                decide_draft_premium(body, draft_balance(reads.stacked_items(&self.transaction.character_id)))
+            }
+            None => draft.precheck,
+        };
+        match decision {
+            Some(decision) if decision.allowed => {
+                let day = iso_time(self.clock.now()).chars().take(10).collect();
+                *lock(&draft.granted) = Some((decision, day));
+                Ok(())
+            }
+            _ => {
+                let reason = decision.map_or("NOT_A_GRANT", |decision| decision.reason);
+                if self.refuses {
+                    return self.refuse(&format!("{DRAFT_PREMIUM_DENIAL_PREFIX}{reason}"));
+                }
+                self.log.warn(&format!(
+                    "[HostPolicyObserve] would refuse draft premium {} item={HOST_DRAFT_PREMIUM_ID} reason={reason} \
+                     at=transaction{}",
+                    self.tags,
+                    decision.map_or_else(String::new, |decision| decision.balance_tags())
+                ));
+                Ok(())
+            }
+        }
+    }
+}
+
+impl InventoryFence for HuntFence {
+    fn on_grant(&self, grant: &Json) -> Result<(), Reply> {
+        self.check(grant, None)
+    }
+
+    fn on_grant_in(&self, grant: &Json, reads: &dyn TransactionReads) -> Result<(), Reply> {
+        self.check(grant, Some(reads))
     }
 
     fn report(&self, phase: TransactionPhase) {
         match phase {
             TransactionPhase::Applying => self.log.info(&format!("[P2PInventory] applying {}", self.tags)),
-            TransactionPhase::Accepted => self
-                .log
-                .info(&format!("[P2PInventory] transaction accepted {}", self.tags)),
+            TransactionPhase::Accepted => {
+                self.log
+                    .info(&format!("[P2PInventory] transaction accepted {}", self.tags));
+                let granted = self
+                    .draft_premium
+                    .as_ref()
+                    .and_then(|draft| lock(&draft.granted).take());
+                if let Some((decision, day)) = granted {
+                    self.log.info(&format!(
+                        "[HostGrantAllow] account={} session={} generation={} transaction={} \
+                         item={HOST_DRAFT_PREMIUM_ID} quantity=1 reason={} day={day}{}",
+                        self.transaction.user,
+                        self.runtime.session,
+                        self.runtime.generation,
+                        self.transaction.transaction_id,
+                        decision.reason,
+                        decision.balance_tags()
+                    ));
+                }
+            }
             TransactionPhase::Failed => self
                 .log
                 .error(&format!("[P2PInventory] transaction failed {}", self.tags)),
@@ -783,13 +947,6 @@ impl Lifecycle for Guard {
     fn start(&self, _: &str) -> Result<(), SeamError> {
         log_host_policy(&self.config.host_policy, self.log.as_ref());
         log_hunt_evidence(&self.config.hunt_evidence, self.log.as_ref());
-        if self.config.host_policy_refuses() {
-            // RF6 gap: the seam's inventory hook carries no body, so the grant-class and draft-token rules wait on RU4
-            self.log.warn(
-                "[Startup] WARNING: MYSTICPARADOX_HOST_POLICY=enforce refuses host write kinds only; host grant \
-                 classes and the draft token cap are not checked by rifts-guard yet",
-            );
-        }
         Ok(())
     }
 
@@ -847,7 +1004,7 @@ impl GuardHooks for Guard {
         runtime: RuntimeAuth,
         transaction: InventoryTransaction,
     ) -> BoxFuture<'_, Result<InventoryDecision, SeamError>> {
-        ready(self.authorize_inventory_now(&runtime, &transaction))
+        Box::pin(self.authorize_inventory_now(runtime, transaction))
     }
     fn authorize_host_write(
         &self,

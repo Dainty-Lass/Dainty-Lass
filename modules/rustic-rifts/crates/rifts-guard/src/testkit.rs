@@ -48,8 +48,12 @@ impl HuntSessions for FakeHunts {
     }
 }
 
-/// An isles that verifies one step-up code.
-pub struct StepUpCore;
+/// An isles that verifies one step-up code and holds one character's inventory.
+pub struct StepUpCore {
+    /// The stored `stackedItems`; `Err` is a read that failed.
+    pub stacked_items: Mutex<Result<Option<String>, ()>>,
+    pub replay: Mutex<bool>,
+}
 
 impl rifts_seam::IslesCore for StepUpCore {
     fn display_name(&self, account: AccountId) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
@@ -101,12 +105,25 @@ impl rifts_seam::IslesCore for StepUpCore {
     fn verify_operations_step_up(&self, _: String, step_up: String) -> BoxFuture<'_, Result<bool, SeamError>> {
         Box::pin(async move { Ok(step_up == "123456") })
     }
+    fn stacked_items(&self, _: String) -> BoxFuture<'_, Result<Option<rifts_seam::Json>, SeamError>> {
+        let stored = lock(&self.stacked_items).clone();
+        Box::pin(async move {
+            stored
+                .map(|text| text.map(rifts_seam::Json))
+                .map_err(|()| SeamError::unimplemented(Component::Isles, "stacked_items"))
+        })
+    }
+    fn accepted_inventory_replay(&self, _: rifts_seam::InventoryTransaction) -> BoxFuture<'_, Result<bool, SeamError>> {
+        let replay = *lock(&self.replay);
+        Box::pin(async move { Ok(replay) })
+    }
 }
 
 pub struct Kit {
     pub guard: Arc<Guard>,
     pub store: Arc<MemoryGuardStore>,
     pub hunts: Arc<FakeHunts>,
+    pub core: Arc<StepUpCore>,
     pub operations: Arc<MemoryOperations>,
     pub clock: Arc<ManualClock>,
     pub log: Arc<MemoryLog>,
@@ -122,12 +139,16 @@ pub fn kit(settings: &[(&str, &str)]) -> Kit {
     let operations = Arc::new(MemoryOperations::default());
     let clock = Arc::new(ManualClock::at(UnixMillis(1_792_000_000_000)));
     let log = Arc::new(MemoryLog::default());
+    let core = Arc::new(StepUpCore {
+        stacked_items: Mutex::new(Ok(None)),
+        replay: Mutex::new(false),
+    });
     let guard = Arc::new(Guard::new(GuardParts {
         config: GuardConfig::from_settings(&settings),
         store: store.clone(),
         hunts: hunts.clone(),
         operations: operations.clone(),
-        core: Arc::new(StepUpCore),
+        core: core.clone(),
         clock: clock.clone(),
         log: log.clone(),
     }));
@@ -135,6 +156,7 @@ pub fn kit(settings: &[(&str, &str)]) -> Kit {
         guard,
         store,
         hunts,
+        core,
         operations,
         clock,
         log,

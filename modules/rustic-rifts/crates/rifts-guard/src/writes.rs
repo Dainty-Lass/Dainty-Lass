@@ -239,6 +239,7 @@ pub fn inventory_body_denial(
 pub(crate) mod tests {
     use super::*;
     use crate::ports::RosterEntry;
+    use crate::store::CompletionMode;
     use rifts_seam::{CapabilityScope, SessionId};
 
     pub(crate) fn account(name: &str) -> AccountId {
@@ -273,6 +274,7 @@ pub(crate) mod tests {
                 },
             ],
             frozen_characters: vec![(account("friend"), "char-friend".to_owned())],
+            completion_mode: Some(CompletionMode::FirstDefeat),
         }
     }
 
@@ -282,6 +284,7 @@ pub(crate) mod tests {
             roster: Vec::new(),
             frozen_characters: Vec::new(),
             realm: Some("01ARZ3NDEKTSV4RRFFQ69G5FAW@local".parse().unwrap()),
+            completion_mode: Some(CompletionMode::NoCompletion),
             ..hunt()
         }
     }

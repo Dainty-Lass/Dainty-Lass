@@ -5,8 +5,10 @@
 //! traits; metrics and logs are `tracing`; the Director is reached through the module framework (DF2). Each joins
 //! this trait, or replaces a method in it, as those rows land.
 
+use std::sync::Arc;
+
 use crate::error::{Component, SeamError};
-use crate::hooks::Candidate;
+use crate::hooks::{Candidate, InventoryTransaction};
 use crate::http::{BoxFuture, Json};
 use crate::id::{AccountId, PartyId, SessionId};
 
@@ -35,6 +37,18 @@ impl GuardMode {
             Self::Enforce
         }
     }
+}
+
+/// What `hostGrantPolicy.ts`'s `HostGrantCatalog` reads from game data (`DefaultHostGrantCatalog`).
+pub trait HostGrantCatalog: Send + Sync {
+    /// The id's tags in `inventory_storage_policy.json`.
+    fn tags_of(&self, catalog_id: &str) -> Option<Vec<String>>;
+    /// A prestige reward currency of `progression_config.json` (free and premium rewards).
+    fn is_prestige_reward(&self, catalog_id: &str) -> bool;
+    /// `IsPrestigeGatedReward`: the wallet's own rule, never a copy.
+    fn is_prestige_gated(&self, catalog_id: &str) -> bool;
+    /// An entitlement name game data grants or gates on; `name` is lower case.
+    fn is_entitlement_name(&self, name: &str) -> bool;
 }
 
 pub trait IslesCore: Send + Sync {
@@ -71,6 +85,20 @@ pub trait IslesCore: Send + Sync {
     fn operations_policy(&self) -> BoxFuture<'_, Result<Json, SeamError>>;
     /// `VerifyOperationsStepUp` for the admin operations routes.
     fn verify_operations_step_up(&self, key_id: String, step_up: String) -> BoxFuture<'_, Result<bool, SeamError>>;
+
+    // Inventory, for Guard's host grant policy (RF6). The defaults are Node's without game data or the reads.
+    /// `DefaultHostGrantCatalog`; `None` leaves only the id rules.
+    fn host_grant_catalog(&self) -> Option<Arc<dyn HostGrantCatalog>> {
+        None
+    }
+    /// `inventories.findByCharacterId(...).stackedItems` as stored; `Ok(None)` when the character has no inventory.
+    fn stacked_items(&self, _character_id: String) -> BoxFuture<'_, Result<Option<Json>, SeamError>> {
+        absent("stacked_items")
+    }
+    /// `IsAcceptedReplay`: a completed ledger row for this transaction id with the body's request hash.
+    fn accepted_inventory_replay(&self, _transaction: InventoryTransaction) -> BoxFuture<'_, Result<bool, SeamError>> {
+        absent("accepted_inventory_replay")
+    }
 }
 
 /// An isles that answers nothing: lets the rifts crates' tests run without a core.
