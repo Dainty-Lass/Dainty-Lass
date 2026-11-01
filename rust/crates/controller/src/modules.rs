@@ -318,7 +318,6 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
         ))
         .map_err(|e| format!("network peer link: {e}"))?,
     );
-    let log_ship_key = network_plugin::logship::LogShipKey::from_signing_key(&options.signing_key);
     let tickets = Arc::new(network_plugin::home::Tickets::new(
         &options.node,
         options.signing_key,
@@ -355,7 +354,6 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 allowlist,
                 link,
                 tickets,
-                log_ship_key,
                 router,
                 director,
                 peer_log_dir,
@@ -371,7 +369,6 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 allowlist.clone(),
                 link.clone(),
                 tickets.clone(),
-                log_ship_key.clone(),
                 router.clone(),
                 director.clone(),
                 peer_log_dir.clone(),
@@ -490,8 +487,9 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     );
                     settings.interval = interval;
                     settings.segment_bytes = 512 * 1024;
-                    let bucket =
-                        network_plugin::logship::PeerBucket::with_key(target_peer.clone(), link.clone(), log_ship_key);
+                    // Plaintext until a key kept off the node is decided: one derived from the node's own signing
+                    // key dies with the node, and the peer's copies with it (DH7)
+                    let bucket = network_plugin::logship::PeerBucket::new(target_peer.clone(), link.clone());
                     let mut shipper = history_ship::Shipper::new(db, bucket, settings)
                         .map_err(|e| format!("network peer log shipper: {e}"))?;
                     Some(tokio::spawn(async move {

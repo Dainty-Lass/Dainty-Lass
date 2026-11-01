@@ -299,12 +299,13 @@ target: `network_logship` (`rust/fuzz/fuzz_targets/network_logship.rs`).
       deleted through `Service::LogShip` (a repeat of the identical content-addressed key returns `Stored { created:
       false }` with the original `received_at`), and `.meta.json` records `received_at` from the receiving peer's own
       `Clock`, which `BucketRead::list` exposes as `ObjectInfo::last_modified` for `RestoreOptions::trust_window`.
-- [x] Segments and full database snapshots shipped via `PeerBucket` are encrypted before leaving the origin node with a
-      node-owned AES-256-GCM key (`LogShipKey::from_signing_key(&signing_key)`, stored with a `DLENC1\0` header, 12-byte
-      random nonce, and AAD bound to the object key) so the receiving storage peer stores only ciphertext at rest in
-      `.workspace/peer-logs/<origin>/` and cannot read player IP addresses, Discord user IDs, usernames, or account keys.
-      On restore, the origin operator supplies `PeerLogStore::with_decryption_key(key)` so `BucketRead::get` decrypts and
-      verifies the AAD before `history_ship::restore_to` verifies the inner plaintext SHA-256 and hash chain.
+- [x] The server ships segments and snapshots to the peer in plaintext (`PeerBucket::new`), so restoring a lost node
+      needs nothing that was lost with it. The peer's operator can read them: player IP addresses, Discord user IDs,
+      usernames and hashed account keys.
+- [ ] Encryption at rest is built but not turned on: `PeerBucket::with_key` encrypts with AES-256-GCM (`DLENC1\0` header,
+      random nonce, AAD bound to the object key) and `PeerLogStore::with_decryption_key` reads it back. It needs a key
+      the host keeps off the node. A key derived from the node's own signing key would die with the node and make
+      every copy unreadable, which defeats DH7. Which key, and where hosts back it up, is the maintainer's decision.
 - [x] Tests in `rust/plugins/network/tests/logship.rs`:
       `a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_and_trusted_head_verified`,
       `a_tampered_segment_is_named_and_peer_enforces_prefix_and_append_only`,
