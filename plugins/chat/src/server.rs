@@ -327,6 +327,7 @@ pub struct Chat {
     observe: Option<Observer>,
     /// The most unsent output held for one session (`LargestBacklog`)
     pub largest_backlog: Arc<AtomicUsize>,
+    pub(crate) moderation: crate::Moderation,
 }
 
 /// What a test may change.
@@ -337,6 +338,8 @@ pub struct Options {
     /// Ticks every second (false: only when asked)
     pub auto_tick: bool,
     pub observe: Option<Observer>,
+    /// The staff dashboard's filter, chat log and reports (off by default)
+    pub moderation: crate::Moderation,
 }
 
 impl Default for Options {
@@ -346,6 +349,7 @@ impl Default for Options {
             output_limit: OUTPUT_LIMIT,
             auto_tick: true,
             observe: None,
+            moderation: crate::Moderation::off(),
         }
     }
 }
@@ -396,6 +400,7 @@ impl Chat {
             auto_tick: options.auto_tick,
             observe: options.observe,
             largest_backlog: Arc::default(),
+            moderation: options.moderation,
         }
     }
 
@@ -1448,12 +1453,18 @@ impl Chat {
             return;
         }
         let muted = session.is_muted(now);
+        let name = session.name_at_login.clone().unwrap_or_else(|| uid.clone());
+        let domain = session.domain.clone();
         let Some(sender) = session.account.clone() else {
             return;
         };
         let sender_module = session.module.clone();
         if length == 0 || length > BODY_LIMIT {
             refused("size");
+            return;
+        }
+        if let Some(command) = crate::moderation::parse_report(&body) {
+            self.report_command(id, command, None, "chat", &domain);
             return;
         }
         if target == uid {
@@ -1479,6 +1490,30 @@ impl Chat {
             refused("blocked");
             return;
         }
+        let mid = format!("dm-{}", random_hex(16));
+        let rated = self.moderation.rate(&body, crate::moderation::Channel::Direct);
+        self.moderation.record(crate::moderation::Line {
+            id: mid.clone(),
+            at: now,
+            channel: crate::moderation::Channel::Direct.as_str(),
+            room_id: None,
+            sender: crate::moderation::Person {
+                user_id: uid.clone(),
+                name,
+            },
+            recipient: Some(crate::moderation::Person {
+                user_id: target.to_owned(),
+                name: target.to_owned(),
+            }),
+            body: body.clone(),
+            verdict: rated.verdict,
+        });
+        if rated.verdict == crate::moderation::Verdict::Blocked {
+            // A refused whisper sends nothing back either (DR), so blocked looks sent
+            refused("filter");
+            return;
+        }
+        let body = rated.shown;
         let sessions: Vec<u64> = self
             .sessions_of(target)
             .into_iter()
@@ -1497,7 +1532,6 @@ impl Chat {
             .map(|i| format!(" id=\"{}\"", escape(i)))
             .unwrap_or_default();
         let delivered = !recipients.is_empty();
-        let mid = format!("dm-{}", random_hex(16));
         if delivered {
             self.remember_mid(&mid);
         }
@@ -1552,6 +1586,75 @@ impl Chat {
             delivered,
         })
         .await;
+    }
+
+    /// `/report <player> [category] <text>` in any chat: filed with the dashboard, never delivered. The answer
+    /// goes to the sender alone, from `from` (the room, or the chat domain for a whisper).
+    pub(crate) fn report_command(
+        &mut self,
+        id: u64,
+        command: Result<(String, &'static str, String), ()>,
+        room: Option<String>,
+        kind: &str,
+        from: &str,
+    ) {
+        let now = self.now();
+        let Some(session) = self.sessions.get(&id) else {
+            return;
+        };
+        let uid = session.uid.clone().unwrap_or_default();
+        let reporter = crate::moderation::Person {
+            user_id: uid.clone(),
+            name: session.name_at_login.clone().unwrap_or_else(|| uid.clone()),
+        };
+        // Server text, not launcher text: the game shows chat bodies as they come
+        let answer = match command {
+            Err(()) => "Usage: /report <player> [category] <what happened>",
+            Ok(_) if !self.moderation.is_on() => "Reports are not set up on this server.",
+            Ok(_) if !self.log_once(&format!("report|{uid}"), Some(30 * 1000)) => {
+                "Please wait a little before sending another report."
+            }
+            Ok((target, category, description)) => {
+                let target_uid = self
+                    .sessions
+                    .values()
+                    .find(|s| {
+                        s.uid.as_deref() == Some(target.as_str())
+                            || s.name_at_login
+                                .as_deref()
+                                .is_some_and(|n| n.eq_ignore_ascii_case(&target))
+                    })
+                    .and_then(|s| s.uid.clone());
+                let filed = self.moderation.report(crate::moderation::Report {
+                    id: format!("report-{}", random_hex(16)),
+                    source: "game",
+                    reporter,
+                    target: crate::moderation::TargetPerson {
+                        user_id: target_uid,
+                        name: target,
+                    },
+                    category,
+                    description,
+                    context: crate::moderation::ReportContext { room_id: room, at: now },
+                });
+                tracing::info!("chat: report from={uid} category={category} queued={filed}");
+                if filed {
+                    "Report sent. Thank you."
+                } else {
+                    "The report could not be sent. Please try again later."
+                }
+            }
+        };
+        let to = self.sessions.get(&id).map(Session::full_jid).unwrap_or_default();
+        self.send(
+            id,
+            &format!(
+                "<message xmlns=\"{NS_CLIENT}\" type=\"{kind}\" from=\"{}\" to=\"{}\"><body>{}</body></message>",
+                escape(from),
+                escape(&to),
+                escape(answer)
+            ),
+        );
     }
 
     async fn remote_direct(&mut self, message: crate::federation::DirectWire) -> bool {
