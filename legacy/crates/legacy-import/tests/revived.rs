@@ -88,8 +88,9 @@ fn file_bytes(file: &Path) -> Vec<u8> {
 
 fn check_first_import(report: &Report, isles: &Path) {
     assert_eq!(report.imported("accounts"), 5, "{}", report.text());
-    assert_eq!(report.imported("bans"), 2);
-    assert_eq!(report.imported("temporary bans made permanent"), 1);
+    assert_eq!(report.imported("bans"), 1);
+    assert_eq!(report.imported("timeouts"), 1);
+    assert_eq!(report.imported("temporary bans made permanent"), 0);
     assert_eq!(report.imported("1.4.4 admins imported as players"), 1);
     assert_eq!(report.imported("discord links"), 1);
     assert_eq!(report.imported("invites"), 2);
@@ -97,7 +98,16 @@ fn check_first_import(report: &Report, isles: &Path) {
     assert_eq!(report.dropped.get("characters"), Some(&3));
 
     assert_eq!(count(isles, "accounts", "user_id LIKE 'UID-%'"), 5);
-    assert_eq!(count(isles, "launcher_accounts", "status = 'banned'"), 2);
+    assert_eq!(count(isles, "launcher_accounts", "status = 'banned'"), 1);
+    // The timed ban is a timeout: active, kept out of play until its end
+    assert_eq!(
+        count(
+            isles,
+            "launcher_accounts",
+            "display_name_normalized = 'timeout' AND status = 'active' AND timeout_until = '2026-10-26T08:33:20.000Z'              AND timeout_reason = 'griefing'"
+        ),
+        1
+    );
     assert_eq!(
         count(
             isles,
@@ -148,6 +158,20 @@ async fn a_drizzle_server_is_imported_once() {
     assert!(again.imported.is_empty(), "{}", again.text());
     assert_eq!(again.unchanged.get("accounts"), Some(&5));
     assert_eq!(again.unchanged.get("invites"), Some(&2));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_target_without_timeouts_gets_a_ban_and_a_note() {
+    let f = fixture(drizzle_full);
+    std::fs::remove_file(&f.isles).unwrap();
+    legacy_import::testing::isles_database_before_timeouts(&f.isles);
+    let report = revived::import_server(&f.source, &target(&f.isles), options(false))
+        .await
+        .unwrap();
+    assert_eq!(report.imported("bans"), 2, "{}", report.text());
+    assert_eq!(report.imported("temporary bans made permanent"), 1);
+    assert!(report.notes.iter().any(|n| n.contains("0610")), "{:?}", report.notes);
+    assert_eq!(count(&f.isles, "launcher_accounts", "status = 'banned'"), 2);
 }
 
 #[tokio::test(flavor = "multi_thread")]

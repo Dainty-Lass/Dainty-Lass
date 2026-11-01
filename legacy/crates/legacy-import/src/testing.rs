@@ -26,8 +26,21 @@ fn run(conn: &mut Connection, sql: &str) {
     conn.batch_execute(sql).expect("fixture SQL runs");
 }
 
-/// A 1.14.7 server's database with the account tables and isles' migration history.
+/// A 1.14.7 server's database with the account tables and isles' migration history, timeouts (0610) included.
 pub fn isles_database(file: &Path) {
+    isles_database_before_timeouts(file);
+    let mut conn = open(file);
+    run(
+        &mut conn,
+        "ALTER TABLE launcher_accounts ADD COLUMN timeout_until TEXT;
+         ALTER TABLE launcher_accounts ADD COLUMN timeout_since TEXT;
+         ALTER TABLE launcher_accounts ADD COLUMN timeout_reason TEXT;
+         INSERT INTO __diesel_schema_migrations (version) VALUES ('0610');",
+    );
+}
+
+/// The same, as rustic-isles made it before it kept timeouts.
+pub fn isles_database_before_timeouts(file: &Path) {
     let mut conn = open(file);
     run(&mut conn, include_str!("testing/isles-1-14-7.sql"));
     // The other soft-deleted tables, which `store` puts triggers on: stand-ins with a key and `deleted_at`

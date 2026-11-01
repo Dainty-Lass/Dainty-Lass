@@ -6,7 +6,7 @@ left of everything older:
 
 | Import | From | What carries |
 | --- | --- | --- |
-| `revived` | A Dauntless Revived 1.4.4 server's metagame database (SQLite, made by the Node or the Rust metagame) | Accounts, active bans, Discord links, invite codes |
+| `revived` | A Dauntless Revived 1.4.4 server's metagame database (SQLite, made by the Node or the Rust metagame) | Accounts, active bans and timeouts, Discord links, invite codes |
 | `offline-save` | A player's 1.4.4 offline save: a `.drsave` file or the bare offline database | That player's account and Discord link |
 | `reforged` | A Dauntless Reforged Revival Node-kit server: `host.json`, `secrets.env`, the old `.workspace` layout, MongoDB | The whole install, upgraded in place |
 

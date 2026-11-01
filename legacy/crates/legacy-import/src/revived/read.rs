@@ -49,6 +49,8 @@ struct BanRow {
     account_id: String,
     #[diesel(sql_type = Nullable<BigInt>)]
     expires_at: Option<i64>,
+    #[diesel(sql_type = Text)]
+    reason: String,
 }
 
 #[derive(QueryableByName)]
@@ -99,7 +101,7 @@ fn rfc3339_or(text: &str, now: &str) -> String {
 pub fn batch(conn: &mut Connection, now_ms: i64, now: &str, with_invites: bool) -> Result<Batch> {
     let mut bans: BTreeMap<String, Ban> = BTreeMap::new();
     let rows = diesel::sql_query(
-        "SELECT account_id, expires_at FROM account_bans WHERE active <> 0 AND (expires_at IS NULL OR expires_at > ?)",
+        "SELECT account_id, expires_at, reason FROM account_bans WHERE active <> 0 AND (expires_at IS NULL OR expires_at > ?)",
     )
     .bind::<BigInt, _>(now_ms)
     .load::<BanRow>(conn)?;
@@ -108,6 +110,7 @@ pub fn batch(conn: &mut Connection, now_ms: i64, now: &str, with_invites: bool) 
             row.account_id,
             Ban {
                 expires_at: row.expires_at,
+                reason: row.reason,
             },
         );
     }
