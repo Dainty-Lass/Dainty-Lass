@@ -176,6 +176,7 @@ impl GameModule for NodeGame {
                         account: Some(found.account.clone()),
                         name: found.name.clone(),
                         online: found.online,
+                        restriction: None,
                     };
                     drop(players);
                     self.calls.lock().unwrap().push(call);
