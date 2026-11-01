@@ -4,7 +4,6 @@
 use crate::net::http::{Endpoint, check_endpoint};
 
 pub const KEY_HEADER: &str = "x-reforged-user-api-key";
-pub const REVIVED_KEY_HEADER: &str = "x-user-api-key";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Flavor {
@@ -24,17 +23,6 @@ pub const REFORGED: Flavor = Flavor {
     status_path: "/api/launcher/status",
     register_path: "/api/launcher/register",
     account_path: "/api/launcher/account",
-    versions_path: "/content/v1/versions",
-    runtime_manifest_path: "/api/launcher/runtime-files",
-    region_ping_path: "/network/v1/nodes",
-};
-
-pub const REVIVED: Flavor = Flavor {
-    id: "revived",
-    key_header: REVIVED_KEY_HEADER,
-    status_path: "/api/status",
-    register_path: "/api/register",
-    account_path: "/api/account",
     versions_path: "/content/v1/versions",
     runtime_manifest_path: "/api/launcher/runtime-files",
     region_ping_path: "/network/v1/nodes",

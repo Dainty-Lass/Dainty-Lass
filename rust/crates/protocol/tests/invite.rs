@@ -374,7 +374,6 @@ fn host_and_fingerprint_rules() {
     assert!(!is_valid_fingerprint(""));
 }
 
-#[cfg(not(feature = "legacy"))]
 #[test]
 fn dauntless_revived_invites_are_refused_as_1_4_4_servers() {
     let fp = "ab".repeat(32);
@@ -411,46 +410,4 @@ fn dauntless_revived_invites_are_refused_as_1_4_4_servers() {
         None,
     );
     assert!(format_invite(&inv).unwrap().starts_with("reforged-revival://join?"));
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn dauntless_revived_invites_are_legacy_servers_read_by_the_same_rules() {
-    use protocol::invite::revived_version;
-    let fp = "ab".repeat(32);
-    let private =
-        parse_invite("dauntless-revived://join?v=1&host=100.88.12.40&port=61000&code=ABCD-1234&name=Revived%20Fridays")
-            .unwrap();
-    assert_eq!(
-        (private.version, private.mode, private.port),
-        (revived_version(), ServerMode::Private, 61000)
-    );
-    let public = parse_invite(&format!(
-        "dauntless-revived://join?v=2&mode=public&host=revived.example.net&port=443&fp={fp}&code=XYZ-99&name=Open"
-    ))
-    .unwrap();
-    assert_eq!(
-        (&public.version, public.fp.as_deref()),
-        (&revived_version(), Some(fp.as_str()))
-    );
-    // v1 still only reaches into the tailnet, and nothing unknown gets through
-    assert_eq!(
-        parse_invite("dauntless-revived://join?v=1&host=203.0.113.7&port=61000&code=ABCD-1234&name=X"),
-        Err(InviteError::Host)
-    );
-    assert_eq!(
-        parse_invite(
-            "  DAUNTLESS-REVIVED://join/?v=9
-"
-        ),
-        Err(InviteError::Version)
-    );
-    assert_eq!(
-        parse_invite("dauntless-revived://register?v=1"),
-        Err(InviteError::NotInvite)
-    );
-    assert_eq!(
-        format_invite(&public).unwrap().split_once("://").unwrap().0,
-        "dauntless-revived"
-    );
 }

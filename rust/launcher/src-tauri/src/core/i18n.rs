@@ -25,8 +25,6 @@ pub const DIALOG_WORKSPACE_FOLDER: &str = "dialog_workspace_folder";
 pub const DIALOG_SDK_FOLDER: &str = "dialog_sdk_folder";
 pub const DIALOG_DUMPER_DLL: &str = "dialog_dumper_dll";
 pub const DIALOG_GAMEDATA_PACK: &str = "dialog_gamedata_pack";
-/// The 1.4.4 folder's (legacy edition); in every build's language files
-pub const DIALOG_LEGACY_FOLDER: &str = "dialog_legacy_folder";
 /// The Epic sign-in window's title (DE2)
 pub const EPIC_SIGN_IN_TITLE: &str = "epic_sign_in_title";
 
@@ -43,7 +41,6 @@ const USED: &[&str] = &[
     DIALOG_SDK_FOLDER,
     DIALOG_DUMPER_DLL,
     DIALOG_GAMEDATA_PACK,
-    DIALOG_LEGACY_FOLDER,
     EPIC_SIGN_IN_TITLE,
 ];
 

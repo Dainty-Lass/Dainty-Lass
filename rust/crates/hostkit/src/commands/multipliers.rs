@@ -50,10 +50,6 @@ pub fn run_with(
     let mut config =
         load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
 
-    if !config.edition.runs_reborn() {
-        return Err(HostError::message("test multipliers are for reborn servers only"));
-    }
-
     if !asked(args) {
         if let Some(m) = config.multipliers.filter(|_| multipliers_on(&config)) {
             out(&format!(

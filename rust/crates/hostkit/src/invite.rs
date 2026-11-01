@@ -19,7 +19,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::error::HostError;
-use crate::hostconfig::{HostConfig, ServerMode, gateway_port, legacy_gateway_port};
+use crate::hostconfig::{HostConfig, ServerMode, gateway_port};
 
 pub use protocol::GameVersion;
 pub use protocol::invite::{
@@ -27,13 +27,13 @@ pub use protocol::invite::{
     ServerMode as InviteServerMode, UNIFIED_INVITE_SCHEME, clean_server_name, format_invite, invite_schemes,
     is_loopback_host, is_magic_dns_name, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint, is_valid_host,
     is_valid_invite_code, is_valid_ipv4, is_valid_port, is_valid_share_url, named_version, parse_invite,
-    parse_invite_for, played_versions, reforged_version, revived_version, version_alias,
+    parse_invite_for, played_versions, reforged_version, version_alias,
 };
 
 /// Default game version string for standard 1.14.7 invites.
 pub const DEFAULT_GAME_VERSION: &str = "1.14.7";
 
-/// Parses a game version string or known alias (`"1.14.7"`, `"reforged"`, `"1.4.4"`, `"revived"`).
+/// Parses a game version string or known alias (`"1.14.7"`, `"reforged"`) this server plays.
 #[must_use]
 pub fn parse_game_version(text: &str) -> Option<GameVersion> {
     let trimmed = service_kit::js::trim(text);
@@ -93,8 +93,6 @@ pub fn format_invite_parts(parts: &InviteParts) -> Result<String, HostError> {
 pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<String, HostError> {
     let scheme = if *game == reforged_version() {
         INVITE_SCHEME
-    } else if *game == revived_version() {
-        REVIVED_INVITE_SCHEME
     } else {
         UNIFIED_INVITE_SCHEME
     };
@@ -140,10 +138,9 @@ pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<Str
     Ok(url)
 }
 
-/// Formats an invite URL for `config` on the primary game version (`1.14.7` unless `edition` is `legacy`).
+/// Formats an invite URL for `config` on 1.14.7.
 pub fn invite_for(config: &HostConfig, code: &str, cert_fingerprint: Option<&str>) -> Result<String, HostError> {
-    let game = config.edition.primary();
-    invite_for_game(config, code, cert_fingerprint, &game)
+    invite_for_game(config, code, cert_fingerprint, &reforged_version())
 }
 
 /// Formats an invite URL for `config` and an explicit [`GameVersion`].
@@ -153,15 +150,10 @@ pub fn invite_for_game(
     cert_fingerprint: Option<&str>,
     game: &GameVersion,
 ) -> Result<String, HostError> {
-    let port = if *game == revived_version() {
-        legacy_gateway_port(config)
-    } else {
-        gateway_port(config)
-    };
     let parts = InviteParts {
         mode: config.mode,
         host: config.host.clone(),
-        port,
+        port: gateway_port(config),
         code: code.to_owned(),
         name: config.name.clone(),
         fp: cert_fingerprint.map(str::to_owned),

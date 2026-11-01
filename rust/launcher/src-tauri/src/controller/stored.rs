@@ -19,7 +19,7 @@ fn reforged() -> String {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoredServer {
-    /// `reforged`, or `revived` for a Dauntless 1.4.4 server, played only with the `legacy` feature (RD5)
+    /// `reforged`, or `revived` for a Dauntless 1.4.4 server, which is never played (RD5)
     #[serde(default = "reforged")]
     pub game: String,
     pub mode: ServerMode,
@@ -50,15 +50,9 @@ impl StoredServer {
         }
     }
 
-    /// A Dauntless Revived server: shown disabled, never joined, without the `legacy` feature (RD22)
+    /// A Dauntless Revived server: shown disabled, never joined (RD22)
     pub fn revived(&self) -> bool {
         self.game == REVIVED
-    }
-
-    /// The edition that plays it
-    #[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
-    pub fn edition(&self) -> Game {
-        if self.revived() { Game::Legacy } else { Game::Reborn }
     }
 
     pub fn server_game(&self) -> ServerGame {
@@ -119,16 +113,6 @@ pub struct Stored {
     pub host_workspace: Option<String>,
     #[allow(dead_code, reason = "the Host page (RA12) reads them")]
     pub dumper_dll: Option<String>,
-    /// Dauntless 1.4.4's folder (`legacy` feature), and the one whose every file was last checked
-    #[serde(default)]
-    #[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
-    pub revived_root: Option<String>,
-    #[serde(default)]
-    #[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
-    pub revived_verified: Option<String>,
-    /// Always `reborn` without the `legacy` feature (settings.json has no such key then)
-    #[serde(default)]
-    pub game_edition: Game,
 }
 
 impl Stored {
@@ -157,9 +141,6 @@ impl Default for Stored {
             local_runtime_dir: None,
             host_workspace: None,
             dumper_dll: None,
-            revived_root: None,
-            revived_verified: None,
-            game_edition: Game::Reborn,
         }
     }
 }

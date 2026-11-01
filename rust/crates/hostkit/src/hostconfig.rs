@@ -10,13 +10,12 @@ pub use modules::{ExternalModuleEntry, ModulesConfig, NetworkConfig};
 
 use std::path::{Path, PathBuf};
 
-use module_api::version::GameVersion;
 use serde_json::{Map, Number, Value};
 use service_kit::{js, jsjson};
 
 use crate::envfile::{EnvDocument, EnvMap, format_env, parse_env};
 use crate::error::HostError;
-use crate::paths::{BOTH_LEGACY_PORTS, MAX_HUNTS, PINNED_EXE_SHA256, PORTS, Paths, game_exe_relative, game_port_range};
+use crate::paths::{MAX_HUNTS, PINNED_EXE_SHA256, PORTS, Paths, game_exe_relative, game_port_range};
 
 pub const DATABASE_FILE: &str = "dainty-lass.db";
 pub const DEFAULT_LINUX: LinuxOptions = LinuxOptions {
@@ -48,8 +47,8 @@ pub const RESERVED_PORTS: [u16; 8] = [
     61003,
     61004,
 ];
-pub const LEGACY_UNSUPPORTED: &str = "this server runs Dauntless Revived's 1.4.4 (edition = \"legacy\" or \"both\"), and this reforged-host was built without it: use a build with the legacy feature (cargo build --release -p server-console --features legacy), or setup --edition reborn";
-pub const LEGACY_RULE_NAME: &str = "DaintyLass 1.4.4 game ports (allowlist)";
+/// `edition` is read only to refuse the 1.4.4 ones; `reborn` is dropped when the file is next written
+pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from host.toml (an old 1.4.4 server's accounts import with reforged-host legacy import revived)";
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 pub const SECRET_FILE: &str = "secrets.env";
 pub const SECRET_KEYS: [&str; 11] = [
@@ -73,7 +72,6 @@ pub const ENV_FILE_HEADER: [&str; 2] = [
     "Written by ReforgedHost (`npm run setup`) from host.json and secrets.env. SECRET: never share or commit.",
     "Run setup again instead of editing: it rewrites this file.",
 ];
-pub const LEGACY_ENV_FILES: [&str; 2] = ["metagame", "deploy"];
 
 pub(crate) fn bad(text: impl Into<String>) -> HostError {
     HostError::message(text)
@@ -265,82 +263,6 @@ pub struct PerformanceOptions {
 impl Default for PerformanceOptions {
     fn default() -> Self {
         DEFAULT_PERFORMANCE
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum Edition {
-    #[default]
-    Reborn,
-    Legacy,
-    Both,
-}
-
-impl Edition {
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Reborn => "reborn",
-            Self::Legacy => "legacy",
-            Self::Both => "both",
-        }
-    }
-
-    #[must_use]
-    pub fn parse(text: &str) -> Option<Self> {
-        match text {
-            "reborn" => Some(Self::Reborn),
-            "legacy" => Some(Self::Legacy),
-            "both" => Some(Self::Both),
-            _ => None,
-        }
-    }
-
-    #[must_use]
-    pub fn versions(self) -> Vec<GameVersion> {
-        match self {
-            Self::Reborn => vec![protocol::invite::reforged_version()],
-            Self::Legacy => vec![protocol::invite::revived_version()],
-            Self::Both => vec![
-                protocol::invite::reforged_version(),
-                protocol::invite::revived_version(),
-            ],
-        }
-    }
-
-    #[must_use]
-    pub fn runs(self, version: &GameVersion) -> bool {
-        self.versions().contains(version)
-    }
-
-    #[must_use]
-    pub fn runs_reborn(self) -> bool {
-        matches!(self, Self::Reborn | Self::Both)
-    }
-
-    #[must_use]
-    pub fn runs_legacy(self) -> bool {
-        matches!(self, Self::Legacy | Self::Both)
-    }
-
-    #[must_use]
-    pub fn supported(self) -> bool {
-        let played = protocol::invite::played_versions();
-        self.versions().iter().all(|v| played.contains(v))
-    }
-
-    #[must_use]
-    pub fn primary(self) -> GameVersion {
-        match self {
-            Self::Reborn | Self::Both => protocol::invite::reforged_version(),
-            Self::Legacy => protocol::invite::revived_version(),
-        }
-    }
-}
-
-impl std::fmt::Display for Edition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
     }
 }
 
@@ -814,7 +736,6 @@ pub struct FileForm {
 pub struct HostConfig {
     pub version: u32,
     pub mode: ServerMode,
-    pub edition: Edition,
     pub host: String,
     pub game_address: String,
     pub name: String,
@@ -825,8 +746,6 @@ pub struct HostConfig {
     pub max_hunt_servers: u32,
     pub multipliers: Option<Multipliers>,
     pub public_port: Option<u16>,
-    pub legacy_game_dir: Option<String>,
-    pub legacy_public_port: Option<u16>,
     pub performance: Option<PerformanceOptions>,
     pub linux: Option<LinuxOptions>,
     pub database: Option<DatabaseSettings>,
@@ -864,11 +783,6 @@ impl HostConfig {
             .and_then(Value::as_str)
             .and_then(ServerMode::parse)
             .unwrap_or(ServerMode::Private);
-        let edition = obj
-            .get("edition")
-            .and_then(Value::as_str)
-            .and_then(Edition::parse)
-            .unwrap_or(Edition::Reborn);
         let host = obj.get("host").and_then(Value::as_str).unwrap_or_default().to_owned();
         let game_address = obj
             .get("gameAddress")
@@ -907,8 +821,6 @@ impl HostConfig {
             })
         });
         let public_port = obj.get("publicPort").and_then(Value::as_u64).map(|n| n as u16);
-        let legacy_game_dir = obj.get("legacyGameDir").and_then(Value::as_str).map(str::to_owned);
-        let legacy_public_port = obj.get("legacyPublicPort").and_then(Value::as_u64).map(|n| n as u16);
         let performance = obj
             .get("performance")
             .and_then(Value::as_object)
@@ -985,7 +897,6 @@ impl HostConfig {
         Ok(Self {
             version,
             mode,
-            edition,
             host,
             game_address,
             name,
@@ -996,8 +907,6 @@ impl HostConfig {
             max_hunt_servers,
             multipliers,
             public_port,
-            legacy_game_dir,
-            legacy_public_port,
             performance,
             linux,
             database,
@@ -1054,9 +963,6 @@ impl HostConfig {
         let mut canonical = Map::new();
         canonical.insert("version".into(), Value::from(self.version));
         canonical.insert("mode".into(), Value::String(self.mode.as_str().to_owned()));
-        if self.edition != Edition::Reborn || self.file.document.contains_key("edition") {
-            canonical.insert("edition".into(), Value::String(self.edition.as_str().to_owned()));
-        }
         canonical.insert("host".into(), Value::String(self.host.clone()));
         canonical.insert("gameAddress".into(), Value::String(self.game_address.clone()));
         canonical.insert("name".into(), Value::String(self.name.clone()));
@@ -1064,12 +970,6 @@ impl HostConfig {
             "gameDir".into(),
             self.game_dir.clone().map_or(Value::Null, Value::String),
         );
-        if self.legacy_game_dir.is_some() || self.file.document.contains_key("legacyGameDir") {
-            canonical.insert(
-                "legacyGameDir".into(),
-                self.legacy_game_dir.clone().map_or(Value::Null, Value::String),
-            );
-        }
         canonical.insert(
             "registration".into(),
             Value::String(self.registration.as_str().to_owned()),
@@ -1095,9 +995,6 @@ impl HostConfig {
         canonical.insert("maxHuntServers".into(), Value::from(self.max_hunt_servers));
         if let Some(port) = self.public_port {
             canonical.insert("publicPort".into(), Value::from(port));
-        }
-        if let Some(port) = self.legacy_public_port {
-            canonical.insert("legacyPublicPort".into(), Value::from(port));
         }
         if let Some(m) = self.multipliers {
             let mut mult = Map::new();
@@ -1222,7 +1119,7 @@ impl HostConfig {
             .ok_or_else(|| bad("host.toml must hold a table"))?;
         let mut merged = obj.clone();
         // Preserve nullable fields that are None as Null so hosttoml::patch removes them if they were set before
-        for k in ["gameDir", "legacyGameDir", "shareUrl"] {
+        for k in ["gameDir", "shareUrl"] {
             if !merged.contains_key(k) {
                 merged.insert(k.to_owned(), Value::Null);
             }
@@ -1311,14 +1208,6 @@ pub fn is_local_database_host(host: &str) -> bool {
     trimmed.eq_ignore_ascii_case("localhost") || trimmed == "127.0.0.1" || trimmed == "::1"
 }
 
-pub fn check_edition(c: &HostConfig) -> Result<(), HostError> {
-    if c.edition.supported() {
-        Ok(())
-    } else {
-        Err(bad(LEGACY_UNSUPPORTED))
-    }
-}
-
 #[must_use]
 pub fn performance_options(c: &HostConfig) -> PerformanceOptions {
     c.performance.unwrap_or(DEFAULT_PERFORMANCE)
@@ -1355,24 +1244,6 @@ pub fn gateway_port(c: &HostConfig) -> u16 {
     match c.mode {
         ServerMode::Public => c.public_port.unwrap_or(PORTS.public_gateway),
         ServerMode::Private => PORTS.private_gateway,
-    }
-}
-
-#[must_use]
-pub fn legacy_gateway_port(c: &HostConfig) -> u16 {
-    match (c.mode, c.edition) {
-        (ServerMode::Public, Edition::Both) => c.legacy_public_port.unwrap_or(4443),
-        (ServerMode::Public, _) => gateway_port(c),
-        (ServerMode::Private, Edition::Both) => BOTH_LEGACY_PORTS.private_gateway,
-        (ServerMode::Private, _) => PORTS.private_gateway,
-    }
-}
-
-#[must_use]
-pub fn legacy_game_ports(c: &HostConfig) -> (u16, u16) {
-    match c.edition {
-        Edition::Both => (BOTH_LEGACY_PORTS.game_first, BOTH_LEGACY_PORTS.game_last),
-        _ => game_ports(c),
     }
 }
 
@@ -1524,19 +1395,6 @@ fn is_reserved_or_game_port(port: u16) -> bool {
     RESERVED_PORTS.contains(&port) || (PORTS.game_lowest..=PORTS.game_last).contains(&port)
 }
 
-fn is_legacy_stack_port(port: u16) -> bool {
-    [
-        BOTH_LEGACY_PORTS.metagame,
-        BOTH_LEGACY_PORTS.deploy,
-        BOTH_LEGACY_PORTS.content,
-        BOTH_LEGACY_PORTS.allowlist,
-        BOTH_LEGACY_PORTS.private_gateway,
-        BOTH_LEGACY_PORTS.chat,
-    ]
-    .contains(&port)
-        || (BOTH_LEGACY_PORTS.game_first..=BOTH_LEGACY_PORTS.game_last).contains(&port)
-}
-
 pub fn validate(document: &Value) -> Result<Value, HostError> {
     let Some(obj) = document.as_object() else {
         return Err(bad("host.json must hold a JSON object"));
@@ -1547,14 +1405,12 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         .ok_or_else(|| bad("mode must be private or public"))?;
     let mode = ServerMode::parse(mode_str).ok_or_else(|| bad("mode must be private or public"))?;
 
-    let edition = match obj.get("edition") {
-        None | Some(Value::Null) => Edition::Reborn,
-        Some(v) => v
-            .as_str()
-            .and_then(Edition::parse)
-            .ok_or_else(|| bad("edition must be reborn, legacy or both"))?,
-    };
-    let both = edition == Edition::Both;
+    match obj.get("edition") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(s)) if s == "reborn" => {}
+        Some(Value::String(s)) if s == "legacy" || s == "both" => return Err(bad(EDITION_REMOVED)),
+        Some(_) => return Err(bad("edition must be reborn")),
+    }
 
     let raw_host = obj
         .get("host")
@@ -1742,66 +1598,6 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             Some(port)
         }
     };
-
-    let reborn_port = public_port.unwrap_or(PORTS.public_gateway);
-    if both && mode == ServerMode::Public && is_legacy_stack_port(reborn_port) {
-        return Err(bad(format!(
-            "publicPort {reborn_port} is one the 1.4.4 stack uses on a server running both games: pick another"
-        )));
-    }
-
-    let legacy_game_dir = match obj.get("legacyGameDir") {
-        None | Some(Value::Null) => None,
-        Some(Value::String(s)) => {
-            let trimmed = js::trim(s);
-            if trimmed.is_empty() {
-                None
-            } else if !both {
-                return Err(bad("legacyGameDir is for a server running both games (edition both)"));
-            } else {
-                Some(trimmed.to_owned())
-            }
-        }
-        Some(other) => {
-            return Err(bad(format!(
-                "legacyGameDir must be a folder, not {}",
-                shown(Some(other))
-            )));
-        }
-    };
-
-    let legacy_public_port = match obj.get("legacyPublicPort") {
-        None | Some(Value::Null) => None,
-        Some(v) => {
-            if !both || mode != ServerMode::Public {
-                return Err(bad(
-                    "legacyPublicPort is for a public server running both games (edition both)",
-                ));
-            }
-            let Some(n) = integer(Some(v)).filter(|&n| (1.0..=65535.0).contains(&n)) else {
-                return Err(bad(format!(
-                    "legacyPublicPort must be a TCP port from 1 to 65535, not {}",
-                    shown(Some(v))
-                )));
-            };
-            let port = n as u16;
-            if is_reserved_or_game_port(port) || is_legacy_stack_port(port) {
-                return Err(bad(format!(
-                    "legacyPublicPort {port} is one the server uses itself: pick another (4443, for example)"
-                )));
-            }
-            Some(port)
-        }
-    };
-
-    if both && mode == ServerMode::Public {
-        let leg_port = legacy_public_port.unwrap_or(4443);
-        if leg_port == reborn_port {
-            return Err(bad(format!(
-                "both gateways would listen on {reborn_port}: give the 1.4.4 one another port (legacyPublicPort)"
-            )));
-        }
-    }
 
     let performance = match obj.get("performance") {
         None | Some(Value::Null) => None,
@@ -2108,19 +1904,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     let mut canonical = Map::new();
     canonical.insert("version".into(), Value::from(1));
     canonical.insert("mode".into(), Value::String(mode.as_str().to_owned()));
-    if edition != Edition::Reborn || obj.contains_key("edition") {
-        canonical.insert("edition".into(), Value::String(edition.as_str().to_owned()));
-    }
     canonical.insert("host".into(), Value::String(host));
     canonical.insert("gameAddress".into(), Value::String(game_address));
     canonical.insert("name".into(), Value::String(name));
     canonical.insert("gameDir".into(), game_dir.map_or(Value::Null, Value::String));
-    if legacy_game_dir.is_some() || obj.contains_key("legacyGameDir") {
-        canonical.insert(
-            "legacyGameDir".into(),
-            legacy_game_dir.map_or(Value::Null, Value::String),
-        );
-    }
     canonical.insert("registration".into(), Value::String(registration.as_str().to_owned()));
     canonical.insert("shareUrl".into(), share_url.map_or(Value::Null, Value::String));
     let mut mongo_out = obj.get("mongo").and_then(Value::as_object).cloned().unwrap_or_default();
@@ -2131,9 +1918,6 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     canonical.insert("maxHuntServers".into(), Value::from(max_hunt_servers));
     if let Some(port) = public_port {
         canonical.insert("publicPort".into(), Value::from(port));
-    }
-    if let Some(port) = legacy_public_port {
-        canonical.insert("legacyPublicPort".into(), Value::from(port));
     }
     if let Some(m) = multipliers {
         let mut mult_out = Map::new();
@@ -2217,9 +2001,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
     }
     const OPTIONAL_KEYS: &[&str] = &[
         "edition",
-        "legacyGameDir",
         "publicPort",
-        "legacyPublicPort",
         "multipliers",
         "performance",
         "linux",

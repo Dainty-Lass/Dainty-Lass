@@ -18,8 +18,8 @@ use crate::doctor::tailscale_ipv4;
 use crate::error::HostError;
 use crate::gamedata::{GenerateOptions, generate_game_data, seed_embedded_examples};
 use crate::hostconfig::{
-    Edition, Platform, ServerMode, build_env_files, check_edition, linux_options, load_host_config,
-    load_or_create_secrets, save_host_config, write_env_files,
+    Platform, ServerMode, build_env_files, linux_options, load_host_config, load_or_create_secrets, save_host_config,
+    write_env_files,
 };
 use crate::invite::certificate_fingerprint;
 use crate::linux::{ensure_wine_prefix, is_root, write_gameserver_wrapper, write_systemd_units};
@@ -33,7 +33,7 @@ use self::database::database_notes;
 use self::firewall::{apply_windows_firewall_rules, write_firewall_script};
 use self::install::{ServiceSource, install_from_release, install_service, service_source, services_to_install};
 use self::options::{host_config_from_args, performance_summary};
-use self::paradox::{Layout, migrate_old_workspace, missing_paradox};
+use self::paradox::{Layout, missing_paradox};
 
 pub const NOT_AS_ROOT: &str =
     "reforged-host setup should not be run as root (or with sudo): run it as the user that owns this folder";
@@ -174,18 +174,12 @@ pub fn run_with(
     }
 
     let layout = Layout::new(p);
-    let moved = migrate_old_workspace(&layout, &p.repo)?;
-    for item in moved {
-        out(&format!("- migrated legacy folder: {item}"));
-    }
-
     let had_host_json = p.host_json.is_file() && !p.host_toml.is_file();
     let existing = load_host_config(p)?;
     let mut config = host_config_from_args(args, existing.as_ref(), env)?;
-    check_edition(&config)?;
 
     let is_release = crate::selfupdate::read_manifest(&p.repo)?.is_some();
-    if config.edition.runs_reborn() && !is_release && !args.skip_install && env.require_checkout_sources() {
+    if !is_release && !args.skip_install && env.require_checkout_sources() {
         let missing = missing_paradox(&layout);
         if let Some(first) = missing.first() {
             return Err(HostError::message(format!(
@@ -201,7 +195,7 @@ pub fn run_with(
 
     // Run MongoDB migration BEFORE switching host.json -> host.toml or overwriting backend.env so
     // any verification or connection failure leaves the previous setup untouched.
-    if config.edition.runs_reborn() && !cfg!(feature = "paradox") {
+    if !cfg!(feature = "paradox") {
         crate::commands::update::migrate_existing_mongo_data(p, &config, &setup_log, out)?;
     }
 
@@ -215,20 +209,13 @@ pub fn run_with(
             config.name, config.host, config.game_address
         )),
     }
-    if config.edition == Edition::Both {
-        out("Both games: Dauntless 1.14.7 (Reborn) and Dauntless 1.4.4 (Legacy)");
-    }
     out(&performance_summary(&config));
 
-    if config.edition == Edition::Legacy {
-        out("\n1. Legacy: no Mystic Paradox");
-    } else {
-        out("\n1. Mystic Paradox (modules/rustic-isles and native/ in this project)\n- in place");
-    }
+    out("\n1. Mystic Paradox (modules/rustic-isles and native/ in this project)\n- in place");
 
     if args.skip_install {
         out("\n2. Skipped installing and building (--skip-install)");
-    } else if config.edition.runs_reborn() {
+    } else {
         out("\n2. Installing and building services");
         env.install_services(&layout, &setup_log, out)?;
     }
@@ -236,7 +223,7 @@ pub fn run_with(
     if args.fresh_start {
         config.database.get_or_insert_with(Default::default).fresh_start = Some(true);
     }
-    if config.edition.runs_reborn() && !cfg!(feature = "paradox") {
+    if !cfg!(feature = "paradox") {
         crate::commands::update::migrate_existing_mongo_data_for_setup(p, &config, &setup_log, out)?;
     }
 
@@ -268,57 +255,34 @@ pub fn run_with(
     let commit = env.source_commit(&p.repo)?;
 
     let mut written_env_names: Vec<String> = Vec::new();
-    if config.edition.runs_reborn() {
-        for dir in [
-            &p.runtime_publish,
-            &p.branding,
-            &p.gameserver_logs,
-            &p.mongo_data,
-            &p.raw_game_data,
-        ] {
-            std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
-        }
-        if !p.news_file.is_file() {
-            std::fs::write(&p.news_file, "{\n  \"items\": []\n}\n").map_err(|e| HostError::io(&p.news_file, e))?;
-        }
-        let env_files = build_env_files(&config, &sec, p, &commit, platform);
-        write_env_files(p, &env_files)?;
-        for (name, entries) in env_files.files() {
-            if entries.is_some() {
-                written_env_names.push(format!("{name}.env"));
-            }
-        }
-        for stale in [
-            "metagame.env",
-            "deploy.env",
-            "legacy-content.env",
-            "legacy-gateway.env",
-            "legacy-allowlist.env",
-        ] {
-            if !config.edition.runs_legacy() {
-                let _ = std::fs::remove_file(p.config.join(stale));
-            }
-        }
-    } else {
-        for stale in [
-            "backend.env",
-            "director.env",
-            "content.env",
-            "gateway.env",
-            "admin.env",
-            "allowlist.env",
-        ] {
-            let _ = std::fs::remove_file(p.config.join(stale));
+    for dir in [
+        &p.runtime_publish,
+        &p.branding,
+        &p.gameserver_logs,
+        &p.mongo_data,
+        &p.raw_game_data,
+    ] {
+        std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
+    }
+    if !p.news_file.is_file() {
+        std::fs::write(&p.news_file, "{\n  \"items\": []\n}\n").map_err(|e| HostError::io(&p.news_file, e))?;
+    }
+    let env_files = build_env_files(&config, &sec, p, &commit, platform);
+    write_env_files(p, &env_files)?;
+    for (name, entries) in env_files.files() {
+        if entries.is_some() {
+            written_env_names.push(format!("{name}.env"));
         }
     }
-
-    if config.edition.runs_legacy() {
-        let _ = crate::legacy::write_env_files(&config, &sec, p, &commit, platform)?;
-        for name in crate::legacy::env_file_names(&config) {
-            if !written_env_names.contains(&name) {
-                written_env_names.push(name);
-            }
-        }
+    // What a server that also ran Dauntless Revived's 1.4.4 had beside them
+    for stale in [
+        "metagame.env",
+        "deploy.env",
+        "legacy-content.env",
+        "legacy-gateway.env",
+        "legacy-allowlist.env",
+    ] {
+        let _ = std::fs::remove_file(p.config.join(stale));
     }
     out(&format!(
         "- env files: {} in {}",
@@ -344,35 +308,33 @@ pub fn run_with(
         let _ = crate::hooks::get().ensure_gateway_cert(p, &config);
     }
 
-    if config.edition.runs_reborn() {
-        let sources = default_sources(p);
-        if sources.iter().all(|(_, path)| path.is_file()) {
-            let _ = publish_runtime(p, Utc::now(), &sources)?;
-        }
-
-        let preset_applied = env.apply_preset(p)?;
-        let _ = seed_embedded_examples(p)?;
-        if preset_applied.is_none() && p.exports.is_dir() {
-            let _ = generate_game_data(
-                p,
-                &GenerateOptions {
-                    examples_for_missing: true,
-                    log_file: setup_log.clone(),
-                    only: None,
-                },
-                &mut |_| {},
-            );
-        }
-
-        if let Some(ref game_dir) = config.game_dir {
-            let exe = Path::new(game_dir).join(game_exe_relative());
-            if let Some(win64_dir) = exe.parent().filter(|d| d.is_dir()) {
-                let _ = install_server_runtime(p, win64_dir);
-                let _ = ensure_server_flags(win64_dir);
-            }
-        }
-        let _ = crate::hooks::get().install_director_runner(p);
+    let sources = default_sources(p);
+    if sources.iter().all(|(_, path)| path.is_file()) {
+        let _ = publish_runtime(p, Utc::now(), &sources)?;
     }
+
+    let preset_applied = env.apply_preset(p)?;
+    let _ = seed_embedded_examples(p)?;
+    if preset_applied.is_none() && p.exports.is_dir() {
+        let _ = generate_game_data(
+            p,
+            &GenerateOptions {
+                examples_for_missing: true,
+                log_file: setup_log.clone(),
+                only: None,
+            },
+            &mut |_| {},
+        );
+    }
+
+    if let Some(ref game_dir) = config.game_dir {
+        let exe = Path::new(game_dir).join(game_exe_relative());
+        if let Some(win64_dir) = exe.parent().filter(|d| d.is_dir()) {
+            let _ = install_server_runtime(p, win64_dir);
+            let _ = ensure_server_flags(win64_dir);
+        }
+    }
+    let _ = crate::hooks::get().install_director_runner(p);
 
     if platform == Platform::Linux {
         let _ = write_gameserver_wrapper(p);

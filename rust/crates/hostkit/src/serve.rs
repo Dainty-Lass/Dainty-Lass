@@ -226,12 +226,11 @@ pub fn compose(
     use start_cmd::binaries::{FrontService, Programs, rust_ported};
 
     let public = config.mode == ServerMode::Public;
-    let reborn = config.edition.runs_reborn();
-    let node_runs = cfg!(feature = "paradox") && reborn;
-    if reborn && !node_runs {
+    let node_runs = cfg!(feature = "paradox");
+    if !node_runs {
         crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
     }
-    let games = config.edition.versions().iter().map(ToString::to_string).collect();
+    let games = vec![protocol::invite::reforged_version().to_string()];
     let mut controller = ServerController::new(config.mode.as_str(), games);
     // Made first, so the admin API can hold it; its modules are listed after the services
     let registry = new_registry(config, &controller);
@@ -259,7 +258,7 @@ pub fn compose(
 
     let mut slot: Option<crate::hooks::AnySlot> = None;
     let mut guarded = false;
-    if reborn && public && !external_allowlist {
+    if public && !external_allowlist {
         if in_process(FrontService::Allowlist) {
             slot = crate::hooks::get().compose_in_process_allowlist(&mut controller, paths, &registry)?;
             guarded = slot.is_some();
@@ -309,8 +308,7 @@ pub fn compose(
         );
     }
 
-    if !reborn {
-    } else if in_process(FrontService::Content) {
+    if in_process(FrontService::Content) {
         crate::hooks::get().compose_in_process_content(&mut controller, paths, &registry)?;
     } else if node_runs {
         controller.add(front_process(FrontService::Content, Ready::http(PORTS.content, "/content/v1/news")).optional());
@@ -318,12 +316,12 @@ pub fn compose(
 
     // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
     #[cfg(feature = "admin")]
-    if reborn && start_cmd::env_file(paths, "admin").is_file() {
+    if start_cmd::env_file(paths, "admin").is_file() {
         controller
             .add(modules::admin(&module_env(paths, "admin")?, Some(registry.clone())).map_err(HostError::message)?);
     }
 
-    let in_process_gw = reborn && in_process(FrontService::Gateway);
+    let in_process_gw = in_process(FrontService::Gateway);
     crate::hooks::get().compose_in_process_network_and_gateway(
         &mut controller,
         paths,
@@ -334,7 +332,7 @@ pub fn compose(
         public,
         guarded,
     )?;
-    if reborn && !in_process_gw && node_runs {
+    if !in_process_gw && node_runs {
         let ready = match config.mode {
             ServerMode::Public => Ready::tcp("127.0.0.1", hostconfig::gateway_port(config)),
             ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
@@ -342,16 +340,6 @@ pub fn compose(
         controller.add(front_process(FrontService::Gateway, ready));
     }
     crate::commands::remote::compose_remote_module(paths, config, &registry, &mut controller)?;
-
-    // The 1.4.4 stack (alone, or beside reborn on its own ports, RD26): every service a supervised
-    // process, the metagame and the deploy server being binaries of their own
-    if config.edition.runs_legacy() {
-        for planned in crate::legacy::legacy_service_plan(paths, config, external_allowlist, &programs)? {
-            let module = process_module(planned.spec, planned.ready_timeout, printer.clone(), paths.logs.clone())
-                .for_edition(protocol::invite::revived_version().to_string());
-            controller.add(if planned.required { module } else { module.optional() });
-        }
-    }
 
     list_modules(paths, config, &registry, crate::hooks::get().game_modules())?;
     controller.set_registry(registry);
@@ -394,15 +382,11 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
     if !cfg!(feature = "paradox") {
         tcp.retain(|port| *port != crate::paths::PORTS.backend && *port != crate::paths::PORTS.director);
     }
-    let mut udp = if cfg!(feature = "paradox") {
+    let udp = if cfg!(feature = "paradox") {
         vec![hostconfig::game_ports(config)]
     } else {
         Vec::new()
     };
-    if config.edition.runs_legacy() {
-        tcp.push(hostconfig::legacy_gateway_port(config));
-        udp.push(hostconfig::legacy_game_ports(config));
-    }
     options.reserved_ports = tcp
         .into_iter()
         .map(|port| (Transport::Tcp, PortRange::single(port)))
@@ -411,19 +395,14 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
                 .map(|(first, last)| (Transport::Udp, PortRange { first, last })),
         )
         .collect();
-    options.taken_versions = config
-        .edition
-        .versions()
-        .into_iter()
-        .filter(|version| cfg!(feature = "paradox") || *version != protocol::invite::reforged_version())
-        .map(|version| {
-            let by = format!(
-                "this server's own {version} stack (edition = \"{}\")",
-                config.edition.as_str()
-            );
-            (version, by)
-        })
-        .collect();
+    // The Node backend, when it runs, holds 1.14.7 itself
+    options.taken_versions = if cfg!(feature = "paradox") {
+        let version = protocol::invite::reforged_version();
+        let by = format!("this server's own {version} stack");
+        vec![(version, by)]
+    } else {
+        Vec::new()
+    };
     ModuleRegistry::new(options, controller.status_registry().clone())
 }
 
@@ -435,17 +414,12 @@ pub fn list_modules(
     registry: &ModuleRegistry,
     compiled: Vec<controller::ModuleFactory>,
 ) -> Result<(), HostError> {
-    for feature in controller::modules::UNLINKED {
-        say(&format!(
-            "- built with {feature}, whose module crate is not linked yet: it has nothing to load"
-        ));
-    }
     let modules = config.modules.clone().unwrap_or_default();
     let explicit_compiled = modules.compiled.is_some();
     let mut settings = modules.settings.clone();
     let mut entry = |id: module_api::ModuleId, source: ModuleSource, autoload: bool| {
         let mut mod_settings = settings.remove(&id).unwrap_or_default();
-        if matches!(id.as_str(), "isles-1-14-7" | "isles-1-12-0") {
+        if id.as_str() == "isles-1-14-7" {
             let backend_env = start_cmd::env_file(paths, "backend");
             if backend_env.is_file() {
                 mod_settings
@@ -502,9 +476,7 @@ pub fn list_modules(
             true
         } else {
             match id.as_str() {
-                "isles-1-14-7" => config.edition.runs_reborn() && !cfg!(feature = "paradox"),
-                // 1.12.0 shares 1.14.7's ports and routes, so it loads only when [modules] compiled names it.
-                "isles-1-12-0" => false,
+                "isles-1-14-7" => !cfg!(feature = "paradox"),
                 _ => true,
             }
         };
@@ -574,7 +546,7 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
     let missing = |names: &[String]| names.iter().any(|name| !start_cmd::env_file(paths, name).is_file());
     let reborn_files = ["backend", "director", "content", "gateway"].map(str::to_owned);
     let mut written = Vec::new();
-    if config.edition.runs_reborn() && missing(&reborn_files) {
+    if missing(&reborn_files) {
         for dir in [
             &paths.runtime_publish,
             &paths.branding,
@@ -592,16 +564,6 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
         );
         written = hostconfig::write_env_files(paths, &files)?;
         say(&format!("- env files written in {}", paths.config.display()));
-    }
-    if config.edition.runs_legacy() && missing(&crate::legacy::env_file_names(config)) {
-        written.extend(crate::legacy::write_env_files(
-            config,
-            &secrets,
-            paths,
-            &source_commit(&paths.repo),
-            Platform::current(),
-        )?);
-        say(&format!("- 1.4.4 env files written in {}", paths.config.display()));
     }
     if config.mode == ServerMode::Public && !paths.cert_file.exists() {
         crate::hooks::get().ensure_gateway_cert(paths, config)?;
@@ -664,19 +626,9 @@ fn prepare(
     external: bool,
     printer: Printer,
 ) -> Result<ServerController, HostError> {
-    hostconfig::check_edition(config)?;
-    if config.edition.runs_reborn() {
-        crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
-    }
+    crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
     ensure_server_files(paths, config)?;
-    if config.edition.runs_reborn() {
-        start_cmd::preflight_with(paths, config, external)?;
-    } else {
-        start_cmd::host_checks(paths, config, external)?;
-    }
-    if config.edition.runs_legacy() {
-        crate::legacy::prepare(paths, config)?;
-    }
+    start_cmd::preflight_with(paths, config, external)?;
     compose(paths, config, external, printer)
 }
 
@@ -857,7 +809,6 @@ mod tests {
         HostConfig {
             version: 1,
             mode,
-            edition: hostconfig::Edition::Reborn,
             host: "100.101.102.103".into(),
             game_address: "100.101.102.103".into(),
             name: "Friday Hunts".into(),
@@ -872,8 +823,6 @@ mod tests {
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
-            legacy_game_dir: None,
-            legacy_public_port: None,
             performance: None,
             linux: None,
             database: None,

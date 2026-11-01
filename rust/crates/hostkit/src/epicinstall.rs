@@ -187,9 +187,6 @@ impl Plan {
     pub fn for_version(version: &str) -> Result<Self, HostError> {
         match builds::find(version) {
             Some(build) => Self::for_build(build),
-            None if version == "1.4.4" => Err(HostError::message(
-                "Dauntless 1.4.4 cannot be installed from Epic (no archived manifest): use your own 1.4.4 folder with setup --legacy-game",
-            )),
             None => Err(HostError::message(format!(
                 "cannot install version {version} from Epic: {}",
                 available()
@@ -606,10 +603,8 @@ mod tests {
 
     #[test]
     fn a_version_epic_cannot_give_is_refused_with_a_way_forward() {
-        assert!(Plan::for_version("1.14.7").is_ok() && Plan::for_version("1.12.0").is_ok());
-        let revived = Plan::for_version("1.4.4").unwrap_err().to_string();
-        assert!(revived.contains("--legacy-game"), "{revived}");
+        assert!(Plan::for_version("1.14.7").is_ok() && Plan::for_version("1.12.0").is_err());
         let other = Plan::for_version("2.0.0").unwrap_err().to_string();
-        assert!(other.contains("1.14.7 and 1.12.0"), "{other}");
+        assert!(other.contains("1.14.7"), "{other}");
     }
 }

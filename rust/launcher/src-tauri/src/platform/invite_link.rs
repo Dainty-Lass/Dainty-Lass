@@ -5,8 +5,7 @@
 //! The first launcher listens on a per-user channel (a named pipe on Windows, a socket in
 //! `$XDG_RUNTIME_DIR` on Linux); a second one sends it its arguments and exits, and the first focuses its
 //! window and takes the invite link from them. In a packaged build every invite scheme the build opens
-//! (`protocol::invite::invite_schemes`: `dauntless:`, `reforged-revival:`, and `dauntless-revived:` with the
-//! `legacy` feature) points at this launcher (the current user's registry on Windows, a desktop entry for the AppImage on Linux;
+//! (`protocol::invite::invite_schemes`: `dauntless:` and `reforged-revival:`) points at this launcher (the current user's registry on Windows, a desktop entry for the AppImage on Linux;
 //! deb and rpm install their own).
 
 use std::future::Future;
@@ -20,7 +19,7 @@ use crate::core::invite::parse_invite;
 use crate::core::text::js_trim;
 use crate::platform::log;
 
-use protocol::invite::{INVITE_SCHEME, REVIVED_INVITE_SCHEME, invite_schemes};
+use protocol::invite::{INVITE_SCHEME, invite_schemes};
 
 /// The invite link among a launcher's arguments, if it is a valid one.
 pub fn invite_from_args<S: AsRef<str>>(args: &[S]) -> Option<String> {
@@ -218,7 +217,6 @@ pub async fn claim(name: &str, args: &[String], on_args: OnArgs) -> Claim {
 fn scheme_label(scheme: &str) -> &'static str {
     match scheme {
         INVITE_SCHEME => "URL:DaintyLass invite",
-        REVIVED_INVITE_SCHEME => "URL:Dauntless Revived invite",
         _ => "URL:Dauntless invite",
     }
 }
@@ -403,10 +401,9 @@ mod tests {
             Some(unified.as_str())
         );
         let revived = LINK.replacen("reforged-revival", "dauntless-revived", 1);
-        assert_eq!(
-            invite_from_args(&["launcher.exe", &revived]).is_some(),
-            cfg!(feature = "legacy"),
-            "1.4.4 invites only with the legacy feature"
+        assert!(
+            invite_from_args(&["launcher.exe", &revived]).is_none(),
+            "a 1.4.4 invite is no link of ours"
         );
     }
 

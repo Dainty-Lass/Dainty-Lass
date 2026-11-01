@@ -318,13 +318,12 @@ mod tests {
 
     #[test]
     fn the_compiled_in_profiles_name_what_an_install_needs() {
-        for version in ["1.14.7", "1.12.0"] {
-            let profile = known_profile(version).unwrap();
-            let epic = profile.client.epic.as_ref().unwrap();
-            assert!(!epic.manifest_sources.is_empty());
-            assert!(InstallPath::new(&profile.client.executable).is_ok());
-            assert!(InstallPath::new(version).is_ok(), "a version names a folder");
-        }
+        let version = "1.14.7";
+        let profile = known_profile(version).unwrap();
+        let epic = profile.client.epic.as_ref().unwrap();
+        assert!(!epic.manifest_sources.is_empty());
+        assert!(InstallPath::new(&profile.client.executable).is_ok());
+        assert!(InstallPath::new(version).is_ok(), "a version names a folder");
         // The executable the install checks is the one the launcher checks before PLAY
         let current = known_profile("1.14.7").unwrap();
         assert_eq!(

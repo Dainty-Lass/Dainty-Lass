@@ -10,7 +10,3 @@
 	path = modules/rustic-rifts
 	url = ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git
 	branch = main
-[submodule "modules/legacy-revived"]
-	path = modules/legacy-revived
-	url = ssh://git@git.silentspud.com:222/silentspud/legacy-revived.git
-	branch = main

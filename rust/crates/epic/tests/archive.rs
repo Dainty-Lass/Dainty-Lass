@@ -1,6 +1,6 @@
 //! The archived manifests and Epic's CDN, both opt-in, since they reach the network.
 //!
-//! - `REFORGED_TEST_EPIC_MANIFEST=1` fetches the 1.14.7 and 1.12.0 manifests from the community archive by pinned
+//! - `REFORGED_TEST_EPIC_MANIFEST=1` fetches the 1.14.7 manifest from the community archive by pinned
 //!   commit and SHA-1 and checks what DE5 relies on. They are Epic's files, so they are fetched, not committed.
 //! - `REFORGED_TEST_EPIC_CDN=1` is the maintainer's DE1 step (`docs/port/spike-de1-epic.md`): it fetches a few of
 //!   1.14.7's chunks from each CDN host, checks them against the manifest and assembles `Version.txt` from them.
@@ -31,15 +31,6 @@ fn manifest_1_14_7() -> Pinned {
             "{ARCHIVE}/92e6082335b1c2234c88e9aec7fe2b704fc24494/manifests/Windows/Dauntless_1.14.7.647472.manifest"
         ),
         sha1: "aa70748e4c0a776a991f2bac10ad342adaa31476",
-    }
-}
-
-fn manifest_1_12_0() -> Pinned {
-    Pinned {
-        url: format!(
-            "{ARCHIVE}/2d29ce97939a3e848e68f4b26bf5e285dcc5a70b/manifests/Windows/Dauntless_1.12.0.392819.manifest"
-        ),
-        sha1: "46b4097c070afc29ed783e77a68ffa936b6a3504",
     }
 }
 
@@ -92,10 +83,7 @@ async fn fetch_manifest(pinned: &Pinned) -> Result<Manifest, String> {
 
 #[test]
 fn the_archived_manifests_parse_as_the_archive_describes_them() {
-    if !opted_in(
-        "REFORGED_TEST_EPIC_MANIFEST",
-        "fetch the archived 1.14.7 and 1.12.0 manifests",
-    ) {
+    if !opted_in("REFORGED_TEST_EPIC_MANIFEST", "fetch the archived 1.14.7 manifest") {
         return;
     }
     block_on(async {
@@ -117,12 +105,6 @@ fn the_archived_manifests_parse_as_the_archive_describes_them() {
             assert_eq!(file.size, file.parts.iter().map(|p| u64::from(p.size)).sum::<u64>());
             assert!(file.parts.iter().all(|p| m.chunk(&p.guid).is_some()));
         }
-
-        let m = fetch_manifest(&manifest_1_12_0()).await.unwrap();
-        assert_eq!(m.app_name, "Jackal");
-        assert!(m.build_version.starts_with("1.12.0."), "{}", m.build_version);
-        assert_eq!(m.files().len(), 609);
-        assert!(m.file("Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe").is_some());
     });
 }
 

@@ -38,8 +38,6 @@ Fuzz targets in `rust/fuzz`:
 - `gateway_policy`: a method, target and headers from the network give a decision, never a panic, and nothing
   proxied carries a host-only header or reaches a host-only prefix or a non-public `/reforged` route, whatever the
   spelling or the `/__origin` wrapping.
-- `gateway_policy_legacy`: the same for legacy mode: nothing proxied carries a host-only header or reaches a
-  host-only prefix or a non-public `/reforged` route of the metagame, and nothing goes to the reborn backend.
 - `gateway_modules`: a module's routes of any shape attach or are refused, never panic, and no request reaches a
   module through one of its host-only routes, the node-link group or a host-only prefix, or anything off loopback.
 - `gateway_capture`: the capture's redaction of bodies, headers, targets and chat frames never panics and never
@@ -115,7 +113,7 @@ first, and content and chat stay the gateway's own upstreams, so a module's rout
 - [ ] A path with no route is 404 `no_route`, a version with no module 503 `no_module`, a module the registry has no
       port for 503 `module_unavailable`. An endpoint the registry gives off loopback is 502 `upstream_not_loopback`,
       so the secret header never leaves the machine whatever the registry says.
-- [ ] The access log's `route` is still the policy's (`backend`, `metagame`, `content`, `ws`), not the module's.
+- [ ] The access log's `route` is still the policy's (`backend`, `content`, `ws`), not the module's.
 
 ### Limits
 
@@ -166,31 +164,8 @@ first, and content and chat stay the gateway's own upstreams, so a module's rout
 - [ ] What is written is still personal data (account ids, addresses, play history): the capture runs only for RB2 on
       the canary, with the players told.
 
-### Legacy mode (`GATEWAY_GAME=legacy`, RD5 reversed)
-
-With the `legacy` feature the gateway can front a Dauntless Revived 1.4.4 server: DR's metagame on
-`GATEWAY_METAGAME_URL` and its chat listener on `GATEWAY_WS_URL` (61099 by default), both loopback only. The rules
-are DR's at 24b7624 (`policy/legacy.rs`) with DR's names translated as `services/metagame` has them (migration
-guide section 3): `/undaunted/api` is `/reforged/api`, the game servers' header `x-mysticparadox-gameserver-apikey`,
-the shared secret `x-reforged-gateway`. TLS, the secret header, limits, the access log, the capture and the feed's
-backoff are the same code as above. Fuzz target: `gateway_policy_legacy`.
-
-- [ ] A build without the feature refuses `GATEWAY_GAME=legacy` at start; any value but `reborn` or `legacy` stops it
-      too (`config.rs`, `parse_game`). Reborn mode reads neither `GATEWAY_METAGAME_URL` nor DR's names, and its
-      parity tests are unchanged (`tests/parity`).
-- [ ] The 1.4.4 client never wraps its calls, so there is no `/__origin` unwrapping: such a path goes to the metagame
-      as it came, and every rule looks at it as written.
-- [ ] Under `/reforged`, only `POST register`, `GET`/`HEAD getuserinfo`, `serverstatus` and `registrationstatus`,
-      `GET`/`HEAD`/`POST huntregion` and `POST devicesignals` under `/reforged/api/` pass (DR's
-      `PUBLIC_UNDAUNTED_API`); everything else (invites, renames, rollbacks, entitlements, JWTs for any account,
-      `BackendHealth`) is 403 `admin_route`, even as an upgrade.
-- [ ] The host-only prefixes and headers are reborn's lists: `/internal` (the metagame's backup and key-recovery
-      routes, which it also refuses through a proxy; not in DR) and `x-mysticparadox-gameserver-apikey` are the ones
-      the metagame has; the rest do not exist there and are refused all the same.
-- [ ] `/content` goes to the content server; everything else to the metagame.
-- [ ] The allowlist hears of a peer after a 2xx to `POST /account/api/oauth/token`, or to `POST /heartbeat` or
-      `POST /game/login` with a bearer token. DR's metagame checks the bearer on both before it answers 2xx, so the
-      Paradox weakness above does not apply to a legacy server; `has_bearer` stays as a second check.
+- [ ] `GATEWAY_GAME=legacy` (Dauntless Revived's 1.4.4, served until 2026-10-31) stops the start; any value but
+      `reborn` does too (`config.rs`, `parse_game`).
 
 ## Sign-off
 

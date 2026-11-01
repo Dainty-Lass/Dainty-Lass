@@ -71,7 +71,7 @@ with the `server-gui` feature) runs the same server in-process from its Host pag
 | `doctor` | Check the game, the SDK, the builds, the network, the tools and the services |
 | `gamedata` | Generate the game data from your export (`--examples` for a start-up test only); `--export` and `--import` move it as a pack |
 | `publish-runtime` | Publish the runtime for players (`--from <folder>` for DLLs built elsewhere) |
-| `install-game` | Install Dauntless 1.14.7 (or 1.12.0) from your own Epic library for the game servers (`--version`, `--dir`, `--code-file`; `--sign-out`) |
+| `install-game` | Install Dauntless 1.14.7 from your own Epic library for the game servers (`--version`, `--dir`, `--code-file`; `--sign-out`) |
 | `preset` | Keep your game data as a preset (`--create`), or apply one (`--apply`) |
 | `multipliers` | XP and loot multipliers for a private test server (`--xp 5 --rewards 5`, `--off`) |
 | `update` | Install a newer server release and run `setup` again (`--check` only compares) |
@@ -90,7 +90,6 @@ the launcher does for players (DaintyLass never hosts or mirrors game files):
 ```powershell
 bin\reforged-host install-game                       # 1.14.7, into .workspace\game\1.14.7
 bin\reforged-host install-game --dir D:\Games\Dauntless   # into D:\Games\Dauntless\1.14.7
-bin\reforged-host install-game --version 1.12.0
 ```
 
 It prints Epic's login address. Open it in a browser on any computer, sign in, and Epic shows a page of text with an
@@ -105,11 +104,9 @@ SHA-1 before it is read, every file against the manifest, and the executable aga
 lands is the Epic build and nothing else. A run that is stopped (Ctrl+C, a lost connection, a reboot) continues
 where it left off when you run the same command again. 1.14.7 is about 15 GB.
 
-Each version gets a folder of its own under `--dir` (`.workspace\game` unless given), so several sit side by side.
-Installing **1.14.7** also sets `game_dir` in `host.toml` to its folder and rewrites the env files, so the
+It goes into a folder of its own under `--dir` (`.workspace\game` unless given). Installing also sets `game_dir` in `host.toml` to its folder and rewrites the env files, so the
 Director's game servers run from it: restart the server for that to take effect. Without a `host.toml` yet, it
-tells you the `--game` to give `setup`. 1.12.0 is only installed (`game_dir` is 1.14.7's). **1.4.4 cannot be
-installed from Epic** (there is no archived manifest): use your own folder with `setup --legacy-game`.
+tells you the `--game` to give `setup`.
 
 ## Undoing a change
 
@@ -158,7 +155,6 @@ servers' key) lives only in `secrets.env`.
 | Option | `host.toml` | What |
 | --- | --- | --- |
 | `--mode private\|public` | `mode` | Friends over Tailscale, or the internet |
-| `--edition reborn\|legacy` | `edition` | Dauntless 1.14.7 (the default), or a Dauntless Revived 1.4.4 server |
 | `--host` | `host` | The Tailscale IP, or the public IPv4 or DNS name |
 | `--game-address` | `game_address` | The IPv4 the game servers announce (needed on a DNS name) |
 | `--name` | `name` | The server's name, as players see it |
@@ -174,8 +170,8 @@ servers' key) lives only in `secrets.env`.
 | `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database without migrating existing MongoDB data (MongoDB is never modified, and removing `fresh_start` from `host.toml` and running `setup` again clears the opt-out marker and runs the migration) |
 | (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
-| (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`MYSTICPARADOX_REFORGE`, `MYSTICPARADOX_MASTERY_PERSISTENCE`, `MYSTICPARADOX_BOUNTY_PERSISTENCE`, `MYSTICPARADOX_COOLDOWN_PERSISTENCE`, `MYSTICPARADOX_ACCOUNT_ERASURE`, `MYSTICPARADOX_LOG_PURGE`, `MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`/`isles-1-12-0` `[switches]`. Left out: each version's own defaults |
-| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one except `isles-1-12-0` (list `"isles-1-12-0"` in `compiled` to load 1.12.0) |
+| (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`MYSTICPARADOX_REFORGE`, `MYSTICPARADOX_MASTERY_PERSISTENCE`, `MYSTICPARADOX_BOUNTY_PERSISTENCE`, `MYSTICPARADOX_COOLDOWN_PERSISTENCE`, `MYSTICPARADOX_ACCOUNT_ERASURE`, `MYSTICPARADOX_LOG_PURGE`, `MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
+| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one |
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader` | This server's name, region and optional directory leader in a network. Left out: a server on its own |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
 
@@ -211,8 +207,7 @@ Postgres is yours to run: make a role and a database for it, with the role's pas
 encrypted, so `setup` refuses a Postgres server on another machine unless `allow_remote = true`, which is only for a
 network you trust.
 
-Every Rust service and module repository (`isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`, `admin`, `network`,
-`chat`) runs on `store`'s `MultiConnection` over SQLite or Postgres with identical behaviour and portable
+Every Rust service and module repository (`isles-1-14-7`, `admin`, `network`, `chat`) runs on `store`'s `MultiConnection` over SQLite or Postgres with identical behaviour and portable
 migrations. When a host switches from SQLite to Postgres (or back), `store db move` copies every table and the
 hash-chained change log (`change_log`) across engines and verifies that row counts and contents match.
 
@@ -276,16 +271,13 @@ lists what waits. A rule on `"approval"` on a server with one owner key waits fo
 ### Game modules and plugins
 
 A game module serves one exact game version; a plugin extends the module of its version. A module compiled into
-`reforged-host` is loaded unless `compiled` leaves it out (`isles-1-12-0` shares 1.14.7's ports `61000`/`61001` and
-`8770–8777` and its routes, so `isles-1-12-0` is opt-in: pass `reforged-host setup --modules isles-1-12-0`, select
-`Dauntless 1.12.0 (isles-1-12-0, opt-in)` in **DaintyLass Manager**'s Server Configuration card, or set
-`compiled = ["isles-1-12-0"]` in `[modules]`); any other is an executable you list with its SHA-256, and nothing else
-is ever started. Its path is taken from the server folder (the one that holds `.workspace`), and that folder must be
-writable by the server's account only.
+`reforged-host` is loaded unless `compiled` leaves it out; any other is an
+executable you list with its SHA-256, and nothing else is ever started. Its path is taken from the server folder (the
+one that holds `.workspace`), and that folder must be writable by the server's account only.
 
 ```toml
 [modules]
-# compiled = ["isles-1-14-7"]   # left out: every compiled-in module except isles-1-12-0
+# compiled = ["isles-1-14-7"]   # left out: every compiled-in module
 
 [[modules.external]]
 id = "rustic-freeza"
@@ -296,15 +288,15 @@ sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
 [modules.rustic-freeza.tuning]  # a module's own settings: the ones it says it reads
 ```
 
-For `isles-1-14-7` and `isles-1-12-0` (`modules/rustic-isles`), the `[modules.<id>.switches]` section (or the top-level `[switches]` table, which `setup` also writes to `backend.env`) overrides each version's switch defaults (`crates/isles-core/src/settings.rs`):
+For `isles-1-14-7` (`modules/rustic-isles`), the `[modules.<id>.switches]` section (or the top-level `[switches]` table, which `setup` also writes to `backend.env`) overrides the module's switch defaults (`crates/isles-core/src/settings.rs`):
 
 | `[switches]` / `[modules.<id>.switches]` key | `backend.env` variable | Values | Default |
 | --- | --- | --- | --- |
-| `qos_port` (`[modules.<id>.switches]` only) | `QOS_PORT` | UDP port (`1`–`65535`) or `"0"`/`"off"` | `80` on 1.14.7 (`0` in `backend.env` when the launcher's relay answers QoS), `off` on 1.12.0 |
-| `reforge` | `MYSTICPARADOX_REFORGE` | `"on"`, `"log"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 |
-| `mastery_persistence` | `MYSTICPARADOX_MASTERY_PERSISTENCE` | `"on"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 |
-| `bounty_persistence` | `MYSTICPARADOX_BOUNTY_PERSISTENCE` | `"on"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 (`"off"` serves 1.12.0's empty stub) |
-| `cooldown_persistence` | `MYSTICPARADOX_COOLDOWN_PERSISTENCE` | `"on"`, `"off"` | `"on"` on 1.14.7, `"off"` on 1.12.0 (`"off"` serves 1.12.0's empty stub) |
+| `qos_port` (`[modules.<id>.switches]` only) | `QOS_PORT` | UDP port (`1`–`65535`) or `"0"`/`"off"` | `80` (`0` in `backend.env` when the launcher's relay answers QoS) |
+| `reforge` | `MYSTICPARADOX_REFORGE` | `"on"`, `"log"`, `"off"` | `"on"` |
+| `mastery_persistence` | `MYSTICPARADOX_MASTERY_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
+| `bounty_persistence` | `MYSTICPARADOX_BOUNTY_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
+| `cooldown_persistence` | `MYSTICPARADOX_COOLDOWN_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
 | `account_erasure` | `MYSTICPARADOX_ACCOUNT_ERASURE` | `"on"`, `"off"` | `"on"` (background sweep erases accounts past their deletion grace period) |
 | `log_purge` | `MYSTICPARADOX_LOG_PURGE` | `"on"`, `"off"` | `"on"` (background sweep purges expired email verification codes and activity logs) |
 | `rate_limit` | `MYSTICPARADOX_RATE_LIMIT` | `"on"`, `"off"` | `"on"` (1.14.7 app-wide per-minute HTTP request budget; `429` with `draft-8` `RateLimit` and `RateLimit-Policy` headers) |
@@ -312,8 +304,7 @@ For `isles-1-14-7` and `isles-1-12-0` (`modules/rustic-isles`), the `[modules.<i
 | `gameserver_rate_limit_per_minute` | `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE` | positive integer | `6000` (dedicated game server requests per minute per address on 1.14.7) |
 | `host_rate_limit_per_minute` | `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE` | positive integer | `6000` (player-hosted hunt requests per minute per validated capability on 1.14.7) |
 
-Two game modules for one version are refused, whichever loads first, and so is one for a version this server's
-own stack serves (`edition`). A port a module asks for that something already holds is moved up past it. In the
+Two game modules for one version are refused, whichever loads first. A port a module asks for that something already holds is moved up past it. In the
 console (`serve`), `modules` lists them; `module load|unload|restart|status <id>` and `module run <id> <command>`
 act on one, and `start`, `stop` and `restart` take a module's id too. The admin API has `modules`, `loadModule`,
 `unloadModule` and `restartModule`. A module whose process dies shows as failed until it is loaded again; an

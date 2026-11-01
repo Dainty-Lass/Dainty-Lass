@@ -15,9 +15,6 @@
 //! The runtime routes take the version as `?version=`, `?game=` or `?edition=` on the manifest and
 //! `files/<version>/<name>`; without one they serve the server's own runtime, 1.14.7.
 //!
-//! A legacy server (`CONTENT_GAME=legacy`) serves DR's 1.4.4 game files instead of the runtime
-//! (`app/game_files.rs`).
-//!
 //! Anything else is 404; there is no directory listing anywhere. Every request is logged once its
 //! answer is done (or the client went away), downloads with how many bytes went out.
 
@@ -49,9 +46,6 @@ use crate::modules::{ContentModules, EpicManifestError};
 use crate::news::News;
 use crate::runtime::{RuntimeStatus, RuntimeStore, sha256_hex};
 
-#[cfg(feature = "legacy")]
-mod game_files;
-
 const READ_CHUNK: usize = 256 * 1024;
 
 pub struct Deps {
@@ -68,9 +62,6 @@ pub struct App {
     deps: Deps,
     /// What loaded modules registered, by game version (DF4b)
     modules: Arc<ContentModules>,
-    /// The 1.4.4 game in place of the runtime
-    #[cfg(feature = "legacy")]
-    legacy: Option<crate::legacy::LegacyGame>,
 }
 
 impl App {
@@ -80,34 +71,10 @@ impl App {
 
     /// An app serving what the controller attaches to `modules` (DF3 holds the same `Arc` as a `CorePlugin`).
     pub fn with_modules(deps: Deps, modules: Arc<ContentModules>) -> AppState {
-        Arc::new(Self {
-            deps,
-            modules,
-            #[cfg(feature = "legacy")]
-            legacy: None,
-        })
-    }
-
-    /// A legacy server: `game`'s files and manifest instead of the runtime (`deps.runtime` unused).
-    #[cfg(feature = "legacy")]
-    pub fn legacy(deps: Deps, game: crate::legacy::LegacyGame) -> AppState {
-        Self::legacy_with_modules(deps, game, Arc::default())
-    }
-
-    #[cfg(feature = "legacy")]
-    pub fn legacy_with_modules(deps: Deps, game: crate::legacy::LegacyGame, modules: Arc<ContentModules>) -> AppState {
-        Arc::new(Self {
-            deps,
-            modules,
-            legacy: Some(game),
-        })
+        Arc::new(Self { deps, modules })
     }
 
     fn route<'a>(&self, path_only: &'a str) -> Route<'a> {
-        #[cfg(feature = "legacy")]
-        if self.legacy.is_some() {
-            return Route::of_legacy(path_only);
-        }
         Route::of(path_only)
     }
 
@@ -147,8 +114,6 @@ struct Info {
     reason: Option<String>,
     account: Option<String>,
     user: Option<String>,
-    /// The Range header of a legacy game file request
-    range: Option<String>,
     /// Bytes sent and expected, for a download
     bytes: Option<(Arc<AtomicU64>, u64)>,
 }
@@ -215,7 +180,6 @@ impl Drop for Logged {
             ("reason", &self.info.reason),
             ("account", &self.info.account),
             ("user", &self.info.user),
-            ("range", &self.info.range),
         ] {
             if let Some(value) = value {
                 fields.insert(name.into(), json!(value));
@@ -354,20 +318,6 @@ async fn handle(State(app): State<AppState>, ConnectInfo(peer): ConnectInfo<Sock
             Route::EpicManifest(version) => {
                 info.route = "epic-manifest";
                 slot = epic_manifest(&app, &headers, head, version, &mut reply, &mut info).await;
-            }
-            #[cfg(feature = "legacy")]
-            Route::GameManifest => {
-                info.route = "manifest";
-                if let Some(game) = &app.legacy {
-                    game_files::game_manifest(game, &headers, head, &mut reply);
-                }
-            }
-            #[cfg(feature = "legacy")]
-            Route::GameFile => {
-                info.route = "files";
-                if let Some(game) = &app.legacy {
-                    slot = game_files::game_file(&app, game, &headers, head, &target, &mut reply, &mut info).await;
-                }
             }
             Route::Unknown => {}
         }

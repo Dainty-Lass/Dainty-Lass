@@ -41,17 +41,6 @@ fn invites() {
         assert_eq!(parse_invite(&case.input), Ok(case.invite), "{:?}", case.input);
     }
     for case in cases.reject {
-        // With the legacy feature a dauntless-revived:// invite answers as the same reforged-revival:// one
-        #[cfg(feature = "legacy")]
-        if case.error == "revived" {
-            let reborn = reborn_spelling(&case.input);
-            let expected = parse_invite(&reborn).map(|invite| Invite {
-                version: protocol::invite::revived_version(),
-                ..invite
-            });
-            assert_eq!(parse_invite(&case.input), expected, "{:?}", case.input);
-            continue;
-        }
         assert_eq!(
             parse_invite(&case.input).map_err(|error| error.as_str()),
             Err(case.error.as_str()),
@@ -74,7 +63,6 @@ fn with_version(input: &str, version: &str) -> String {
 
 #[test]
 fn reforged_revival_invites_are_dauntless_ones_with_version_1_14_7() {
-    use protocol::invite::revived_version;
     let cases: Invites = table("invite.json");
     let mut checked = 0;
     for case in &cases.accept {
@@ -96,18 +84,10 @@ fn reforged_revival_invites_are_dauntless_ones_with_version_1_14_7() {
             "{:?}",
             case.input
         );
-        let legacy = parse_invite(&with_version(&unified, "1.4.4"));
-        if cfg!(feature = "legacy") {
-            assert_eq!(
-                legacy,
-                Ok(Invite {
-                    version: revived_version(),
-                    ..case.invite.clone()
-                })
-            );
-        } else {
-            assert_eq!(legacy.map_err(|e| e.as_str()), Err("revived"));
-        }
+        assert_eq!(
+            parse_invite(&with_version(&unified, "1.4.4")).map_err(|e| e.as_str()),
+            Err("revived")
+        );
         // A version's alias reads as the version
         assert_eq!(
             parse_invite(&with_version(&unified, "reforged")),
@@ -146,12 +126,6 @@ fn reforged_revival_invites_are_dauntless_ones_with_version_1_14_7() {
         checked += 1;
     }
     assert!(checked > 150);
-}
-
-/// The input with Dauntless Revived's scheme (any case) replaced by Reforged's.
-#[cfg(feature = "legacy")]
-fn reborn_spelling(input: &str) -> String {
-    respell(input, "dauntless-revived", "reforged-revival").unwrap()
 }
 
 #[derive(Deserialize)]
