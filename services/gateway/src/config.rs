@@ -74,7 +74,7 @@ pub struct Allowlist {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
-    /// `GATEWAY_GAME`: the game this gateway fronts, 1.14.7 on Mystic Paradox or Dauntless Revived's 1.4.4
+    /// `GATEWAY_GAME`: the game this gateway fronts, 1.14.7 on Rustic Isles or Dauntless Revived's 1.4.4
     pub version: GameVersion,
     pub bind_host: String,
     pub port: u16,
@@ -85,7 +85,7 @@ pub struct Config {
     pub cert_file: PathBuf,
     pub key_file: PathBuf,
     pub secret: String,
-    /// The Mystic Paradox backend, or DR's metagame in legacy mode (`GATEWAY_METAGAME_URL`)
+    /// The Rustic Isles backend, or DR's metagame in legacy mode (`GATEWAY_METAGAME_URL`)
     pub backend: Endpoint,
     pub content: Endpoint,
     pub ws: Endpoint,
@@ -100,7 +100,7 @@ pub struct Config {
 }
 
 /// Dauntless Revived's limits, sized from real 1.4.4 sessions (its README has the numbers). The
-/// Mystic Paradox backend parses JSON bodies with Express's default 100 KB limit, which fits under
+/// Rustic Isles backend parses JSON bodies with Express's default 100 KB limit, which fits under
 /// the 128 KiB body cap.
 pub const DEFAULT_LIMITS: Limits = Limits {
     max_body_bytes: 128 * 1024,

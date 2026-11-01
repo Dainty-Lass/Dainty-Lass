@@ -61,13 +61,13 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
       a leftover ini names, a DLL an unfinished session placed, a set-aside runtime, or a DLL with the host's tool
       names is beside the loader (`a_session_refuses_leftovers_clashes_and_own_names_and_needs_the_loader`).
 - [ ] The picked DLL is copied under its own file name only; a name that is not `*.dll`, or is `winmm.dll`,
-      `MysticParadox.dll` or `MystPaxInternalServer.dll` in any case, is refused; a file of the same name already
+      `Rustic-Isles.dll`, `MysticParadox.dll` or `MystPaxInternalServer.dll` in any case, is refused; a file of the same name already
       there is never overwritten (and so never removed later).
 - [ ] The ini names exactly that one file, by plain name (no path), so the loader resolves it beside itself
       (`a_dump_session_places_the_dll_and_ini_without_the_runtime_and_removes_them`).
-- [ ] A Dumper-7 session sets `MysticParadox.dll` and `MystPaxInternalServer.dll` aside (`*.rr-dump-off`) before
-      the game starts, so the loader loads Dumper-7 alone; the game starts without `REFORGED_*` and
-      `MYSTICPARADOX_*` variables and without the relay (`a_dumper_7_session_loads_through_the_loader_list_and_cleans_up`).
+- [ ] A Dumper-7 session sets `Rustic-Isles.dll`, `MysticParadox.dll` and `MystPaxInternalServer.dll` aside
+      (`*.rr-dump-off`) before the game starts, so the loader loads Dumper-7 alone; the game starts without
+      `REFORGED_*`, `RUSTIC_ISLES_*` and `MYSTICPARADOX_*` variables and without the relay (`a_dumper_7_session_loads_through_the_loader_list_and_cleans_up`).
 - [ ] A CatalogExporter session starts the game exactly as PLAY does (the hash check, the runtime check, the relay
       and its owner check) and only then adds the exporter to the list, after the runtime
       (`a_catalog_exporter_session_plays_with_the_exporter_on_the_loader_list`).

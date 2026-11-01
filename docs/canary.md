@@ -36,7 +36,7 @@ The gateway writes one file per UTC day named `gateway-YYYY-MM-DD.jsonl` inside 
 
 - **Session tokens (`JWT`)**: Never written in cleartext. Any JWT (`eyJ...`) in headers, bodies, or query strings is replaced with `<token:UID-...>` (preserving only the unverified `userId` / `sub` claim so the replay runner can mint a fresh token for the target server) or `<token>` when no subject claim is present.
 - **Launcher account keys (`RRK_...` / `UUK_...`)**: Replaced with `<key:<sha256-hex>>` (the lowercase 64-character SHA-256 digest of the raw key).
-- **Game-server API keys (`x-mysticparadox-gameserver-apikey`)**: Replaced with `<gskey>`.
+- **Game-server API keys (`x-rustic-isles-gameserver-apikey`)**: Replaced with `<gskey>`.
 - **XMPP SASL `PLAIN` frames (`<auth ...>...</auth>`)**: Replaced with `<plain:UID-...>` so the replay runner can synthesize a valid base64 `\0<userId>\0<fresh-jwt>` frame for the target server.
 - **Other secret-named fields and long hex/token strings**: Any JSON or form field whose name matches `(?i)(key|token|secret|pass|auth|jwt|sig|cred|recovery|invite|cookie)` (unless already converted to `<token:...>` or `<key:...>`) and any 40+ character hex string or 100+ character token string is replaced with `<redacted>`.
 - **Cookies and internal headers**: `cookie`, `set-cookie`, and `x-reforged-gateway` headers are stripped before writing.

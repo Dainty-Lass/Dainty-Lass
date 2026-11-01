@@ -56,7 +56,7 @@ fn pattern(n: usize, seed: usize) -> Vec<u8> {
 /// `makeRuntime`
 fn make_runtime(seed: usize) -> Vec<(&'static str, Vec<u8>)> {
     vec![
-        ("MysticParadox.dll", pattern(200_000 + seed, seed)),
+        ("Rustic-Isles.dll", pattern(200_000 + seed, seed)),
         ("winmm.dll", pattern(40_000 + seed, seed + 50)),
     ]
 }
@@ -665,7 +665,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
         "the player is asked before any native code is installed"
     );
     let names: Vec<&str> = s.runtime.files.iter().map(|f| f.name.as_str()).collect();
-    assert_eq!(names, ["MysticParadox.dll", "winmm.dll"]);
+    assert_eq!(names, ["Rustic-Isles.dll", "winmm.dll"]);
     let downloaded = |gw: &Shared| {
         gw.lock()
             .unwrap()
@@ -721,7 +721,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
     let relay_url = OsString::from(format!("http://127.0.0.1:{}", hx.relay_port));
     assert_eq!(env_of(&env, "REFORGED_BACKEND_URL"), [&relay_url]);
     assert_eq!(
-        env_of(&env, "MYSTICPARADOX_RUNTIME_PROFILE"),
+        env_of(&env, "RUSTIC_ISLES_RUNTIME_PROFILE"),
         [&OsString::from("production")]
     );
     assert_eq!(env_of(&env, "PATH"), [&OsString::from("/usr/bin")]);
@@ -815,7 +815,7 @@ async fn private_mode_open_registration_a_server_without_a_runtime_waits_for_its
         hx.c.choose_local_runtime().await,
         ActionResult::Err(LauncherError::with_detail(
             ErrorCode::LocalRuntimeInvalid,
-            "MysticParadox.dll, winmm.dll"
+            "Rustic-Isles.dll, winmm.dll"
         ))
     );
     for (name, data) in make_runtime(9) {
@@ -826,7 +826,7 @@ async fn private_mode_open_registration_a_server_without_a_runtime_waits_for_its
     assert_eq!(hx.last().phase, Phase::Ready);
     assert_eq!(hx.c.play().await, ActionResult::Ok);
     let (dir, _, _) = hx.spawns.lock().unwrap().last().cloned().unwrap();
-    assert!(dir.join("MysticParadox.dll").exists());
+    assert!(dir.join("Rustic-Isles.dll").exists());
     hx.exit(0).await;
     assert_eq!(hx.c.clear_local_runtime().await, ActionResult::Ok);
     assert_eq!(hx.last().runtime.local_dir, None);
@@ -1422,7 +1422,7 @@ async fn import_sdk_takes_the_newest_dump_and_multipliers_are_private_only() {
         host_error("game data is missing: reforged-host gamedata")
     );
 
-    // Mystic Paradox's source is in the checkout (RD1)
+    // Rustic Isles's source is in the checkout (RD1)
     let source = crate::platform::hostkit::WorkspacePaths::new(&ws).runtime_source;
     std::fs::create_dir_all(&source).unwrap();
     std::fs::write(source.join("dllmain.cpp"), b"//").unwrap();
@@ -1513,17 +1513,17 @@ async fn play_refuses_a_leftover_ini_or_host_tools_dll_beside_the_loader() {
     )
     .unwrap();
     drop(session);
-    assert!(!win64.join("MysticParadox.dll").exists());
+    assert!(!win64.join("Rustic-Isles.dll").exists());
     assert_eq!(
         hx.c.play().await,
         ActionResult::Err(LauncherError::with_detail(
             ErrorCode::LoaderLeftovers,
-            "Dumper-7.dll, mystic_loader.ini, MysticParadox.dll.rr-dump-off",
+            "Dumper-7.dll, mystic_loader.ini, Rustic-Isles.dll.rr-dump-off",
         ))
     );
     hx.c.init().await;
     assert!(!win64.join(LOADER_INI).exists() && !win64.join("Dumper-7.dll").exists());
-    assert!(win64.join("MysticParadox.dll").exists(), "the runtime is back");
+    assert!(win64.join("Rustic-Isles.dll").exists(), "the runtime is back");
     assert_eq!(hx.c.play().await, ActionResult::Ok);
     hx.exit(0).await;
     hx.c.shutdown().await;
@@ -1556,18 +1556,12 @@ async fn a_dumper_7_session_loads_through_the_loader_list_and_cleans_up() {
     let (dir, args, env) = hx.spawns.lock().unwrap().last().cloned().unwrap();
     assert_eq!(dir, win64);
     assert_eq!(args, ["-NoEAC", "-EpicPortal", "-DisableEOS"]);
-    assert!(env.iter().all(|(k, _)| {
-        let k = k.to_string_lossy().to_ascii_uppercase();
-        !k.starts_with("REFORGED_") && !k.starts_with("MYSTICPARADOX_")
-    }));
+    assert!(env.iter().all(|(k, _)| !crate::platform::launch::is_runtime_env(k)));
     assert_eq!(env_of(&env, "PATH").len(), 1);
     let ini = std::fs::read_to_string(win64.join(LOADER_INI)).unwrap();
     assert_eq!(ini_entries(&ini), ["Dumper-7.dll"]);
     assert_eq!(std::fs::read(win64.join("Dumper-7.dll")).unwrap(), b"dumper");
-    assert!(
-        !win64.join("MysticParadox.dll").exists(),
-        "no runtime in a dump session"
-    );
+    assert!(!win64.join("Rustic-Isles.dll").exists(), "no runtime in a dump session");
     assert!(win64.join("winmm.dll").exists(), "the loader stays");
     assert_eq!(
         hx.c.host_action(HostAction::InjectDumper).await,
@@ -1577,7 +1571,7 @@ async fn a_dumper_7_session_loads_through_the_loader_list_and_cleans_up() {
 
     // Dumper-7's console ends the game with a code of its own
     hx.c.game.ended(Some(1));
-    until(|| !win64.join(LOADER_INI).exists() && win64.join("MysticParadox.dll").exists()).await;
+    until(|| !win64.join(LOADER_INI).exists() && win64.join("Rustic-Isles.dll").exists()).await;
     assert!(!win64.join("Dumper-7.dll").exists());
     assert!(hx.c.loader_leftovers(&win64).is_empty());
     assert_eq!(hx.c.snapshot().last_error, None);
@@ -1624,7 +1618,7 @@ async fn a_catalog_exporter_session_plays_with_the_exporter_on_the_loader_list()
     assert_ne!(args, ["-NoEAC", "-EpicPortal", "-DisableEOS"]);
     let ini = std::fs::read_to_string(win64.join(LOADER_INI)).unwrap();
     assert_eq!(ini_entries(&ini), ["CatalogExporter.dll"]);
-    assert!(win64.join("MysticParadox.dll").exists(), "the runtime loads first");
+    assert!(win64.join("Rustic-Isles.dll").exists(), "the runtime loads first");
     assert!(win64.join("export_flags.txt").exists());
 
     hx.exit(0).await;

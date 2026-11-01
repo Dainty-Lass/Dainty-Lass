@@ -12,7 +12,7 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 
 ## What it is and where the boundary is
 
-The content server hands the host-built game runtime (`MysticParadox.dll` and `winmm.dll`) to registered players,
+The content server hands the host-built game runtime (`Rustic-Isles.dll` and `winmm.dll`) to registered players,
 plus the host's news and art pack. The launcher loads that DLL into the game, so a server that could be made to
 serve another file, or a list that does not match the bytes, would put someone else's code in every player's game.
 The launcher checks every byte against the list again, and the player accepts a runtime per server.
@@ -69,7 +69,8 @@ Fuzz targets in `rust/fuzz` (each drives `content::input`):
       `versions/<version>/epic/manifest` (`input.rs`, `Route::of`). Anything else is 404, a known path with another
       method 405. There is no directory listing. None of the parity scripts' paths is a version route, so their
       answers are unchanged.
-- [ ] A runtime file name must be exactly `MysticParadox.dll` or `winmm.dll`, letter case included, with no
+- [ ] A runtime file name must be exactly `Rustic-Isles.dll` or `winmm.dll` (or `MysticParadox.dll`, the runtime's
+      name before the Rustic Isles rename, served for one release as whichever name the host published), letter case included, with no
       decoding; `..`, `%2e`, `/`, `\`, `runtime.json` and lookalikes are 404 (`is_runtime_file_name`;
       `tests/app.rs`, the parity scripts). The one `/` allowed is `runtime/files/<version>/<name>`, where
       `<version>` resolves to a known game version (a loaded module's version or invite alias, else `1.14.7`,

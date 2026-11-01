@@ -7,7 +7,7 @@
 
 use content::input::parse_runtime_json;
 use libfuzzer_sys::fuzz_target;
-use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_FILE_NAMES, RuntimeManifest};
+use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_FILE_NAMES, RuntimeManifest, runtime_file_slot};
 
 fuzz_target!(|data: &[u8]| {
     let Ok(manifest) = parse_runtime_json(data) else {
@@ -16,7 +16,7 @@ fuzz_target!(|data: &[u8]| {
     assert_eq!(manifest.build.name, RUNTIME_BUILD_NAME);
     assert!(manifest.build.changelist > 0 && manifest.build.changelist <= 9_007_199_254_740_991);
     assert!((1..=48).contains(&manifest.version.len()));
-    let names: Vec<&str> = manifest.files.iter().map(|f| f.name.as_str()).collect();
+    let names: Vec<&str> = manifest.files.iter().filter_map(|f| runtime_file_slot(&f.name)).collect();
     assert_eq!(names, RUNTIME_FILE_NAMES);
     for file in &manifest.files {
         assert!((1..=MAX_RUNTIME_FILE_BYTES).contains(&file.size));

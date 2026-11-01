@@ -253,7 +253,7 @@ impl Controller {
         outcome
     }
 
-    /// Host or developer option: a folder with `MysticParadox.dll` and `winmm.dll` built on this PC, used
+    /// Host or developer option: a folder with `Rustic-Isles.dll` and `winmm.dll` built on this PC, used
     /// instead of what the server offers until cleared.
     pub async fn choose_local_runtime(&self) -> ActionResult {
         if self.st().is_busy() || self.game.running() {

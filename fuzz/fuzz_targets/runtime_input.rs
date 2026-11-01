@@ -5,7 +5,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES};
+use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
 use serde_json::Value;
 
 #[path = "../../crates/launcher-kit/src/net/runtime_files/manifest.rs"]
@@ -20,7 +20,7 @@ fuzz_target!(|data: &[u8]| {
         if let Some(parsed) = manifest::parse_runtime_manifest(&value) {
             // Only the two runtime names, each once and sorted, so nothing else is ever written next to
             // the game; a plain hash and a size within the cap
-            let names: Vec<&str> = parsed.files.iter().map(|file| file.name.as_str()).collect();
+            let names: Vec<&str> = parsed.files.iter().filter_map(|file| runtime_file_slot(&file.name)).collect();
             assert_eq!(names, RUNTIME_FILE_NAMES);
             for file in &parsed.files {
                 assert!((1..=MAX_RUNTIME_FILE_BYTES).contains(&file.size));
