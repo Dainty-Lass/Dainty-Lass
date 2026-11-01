@@ -65,7 +65,7 @@ the nftables script or the Windows rule.
       characters from `[A-Za-z0-9_.@-]`, starting with a letter or digit. Neither can close a quote or a brace in the
       script.
 - [ ] `ALLOWLIST_RULE_NAME` (the Windows Firewall rule the helper finds and changes; a second helper on a server
-      running both games names its own) starts with `Dauntless Reforged Revival `, holds only letters, digits,
+      running both games names its own) starts with `DaintyLass ` (or legacy `Dauntless Reforged Revival `), holds only letters, digits,
       spaces and `()-._`, and is at most 80 characters (`config.rs`, `check_rule_name`; the `allowlist_input` fuzz
       target). The helper can never be pointed at a rule that is not the server's own.
 - [ ] At most `ALLOWLIST_MAX_ENTRIES` addresses (default 256, at most 1000); past that, `/allow` answers 503 and
@@ -117,8 +117,7 @@ The set is held in `guard.rs`, outside the helper, so a restarted allowlist modu
 
 ### Windows Firewall
 
-- [ ] The helper touches only rules whose display name is `Dauntless Reforged Revival game ports (allowlist)`, the
-      Node helper's. The first one is set to the plan and any other is disabled, so exactly one is in effect; a
+- [ ] The helper touches only rules whose display name is `DaintyLass game ports (allowlist)` (or the configured `ALLOWLIST_RULE_NAME`). The first one is set to the plan and any other is disabled, so exactly one is in effect; a
       Node-made rule is taken over, not duplicated.
 - [ ] The rule is inbound, Allow, UDP, the game ports only, remote addresses exactly the plan's, every profile
       (`windows_change`, pinned by a unit test). An empty plan disables it, so Windows drops the game ports' traffic
@@ -180,7 +179,7 @@ Windows, in an elevated prompt:
 cd rust
 $env:REFORGED_TEST_WINDOWS_FIREWALL = "1"
 cargo test -p gateway --lib windows_firewall_for_real -- --nocapture
-Get-NetFirewallRule -DisplayName "Dauntless Reforged Revival allowlist test (delete me)" -ErrorAction SilentlyContinue
+Get-NetFirewallRule -DisplayName "DaintyLass allowlist test (delete me)" -ErrorAction SilentlyContinue
 ```
 
 The last command must print nothing.
@@ -188,7 +187,7 @@ The last command must print nothing.
 ## Changes from the Node helper
 
 - Windows Firewall goes through COM instead of PowerShell (DR). A rule the COM code creates has a generated id
-  instead of the Node helper's `Name` (`ReforgedRevival-GamePorts-Allowlist`); rules are found by display name, which
+  instead of the `firewall.ps1` `Name` (`DaintyLass-GamePorts-Allowlist`); rules are found by display name, which
   both keep.
 - nft reads the script on stdin first, and only falls back to the Node helper's private file (RD20).
 - A dry run logs the exact nft script for nftables (as Node did) and the rule's settings for Windows Firewall
