@@ -478,7 +478,18 @@ impl Moderation {
         if let Some(out) = &self.out
             && out.try_send(Outgoing::Line(line)).is_err()
         {
-            tracing::warn!("chat: dashboard queue full, a chat line was not sent");
+            static DROPPED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let dropped = DROPPED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            service_kit::metrics::count(
+                "dainty_chat_dashboard_dropped_total",
+                "Chat lines dropped because the dashboard queue was full",
+                &[],
+                1,
+            );
+            // Logged at 1, 2, 4, 8...: a dashboard down for hours must not write a line per chat message
+            if dropped.is_power_of_two() {
+                tracing::warn!("chat: dashboard queue full, {dropped} chat lines not sent so far");
+            }
         }
     }
 
