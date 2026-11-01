@@ -52,7 +52,9 @@ trap cleanup EXIT
 
 if [ "${NETWORK_NO_BUILD:-0}" != 1 ]; then
 	step build
-	compose build net-oregon configure-oregon netem-oregon
+	for svc in net-oregon configure-oregon netem-oregon; do
+		compose build "$svc"
+	done
 fi
 
 step "NET_ADMIN and netem"
@@ -157,13 +159,35 @@ node_gs_key() {
 
 node_backend_post() {
 	local region="$1" path="$2" gs_key="$3" body="${4:-}"
-	compose exec -T "gateway-$region" bash -c '
-		path="$1"; gs_key="$2"; body="$3"; len="${#body}"
+	printf '%s' "$body" | compose exec -T "gateway-$region" bash -c '
+		path="$1"; gs_key="$2"; body="$(cat)"; len="${#body}"
 		exec 3<>/dev/tcp/127.0.0.1/61000
 		printf "POST %s HTTP/1.1\r\nHost: 127.0.0.1:61000\r\nx-mysticparadox-gameserver-apikey: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" \
 			"$path" "$gs_key" "$len" "$body" >&3
 		cat <&3
-	' _ "$path" "$gs_key" "$body"
+	' _ "$path" "$gs_key"
+}
+
+node_chat_post() {
+	local region="$1" path="$2" body="${3-}"
+	[ -n "$body" ] || body='{}'
+	compose exec -T "gateway-$region" bash -c '
+		path="$1"; body="$2"; len="${#body}"
+		exec 3<>/dev/tcp/127.0.0.1/61006
+		printf "POST %s HTTP/1.1\r\nHost: 127.0.0.1:61006\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" \
+			"$path" "$len" "$body" >&3
+		cat <&3
+	' _ "$path" "$body" | tr -d '\r' | tail -n 1
+}
+
+node_chat_get() {
+	local region="$1" path="$2"
+	compose exec -T "gateway-$region" bash -c '
+		path="$1"
+		exec 3<>/dev/tcp/127.0.0.1/61006
+		printf "GET %s HTTP/1.1\r\nHost: 127.0.0.1:61006\r\nConnection: close\r\n\r\n" "$path" >&3
+		cat <&3
+	' _ "$path" | tr -d '\r' | tail -n 1
 }
 
 oregon_url="$(node_url oregon)"
@@ -448,5 +472,160 @@ done
 echo "city candidate (oregon nearest): $cand_city_or"
 printf '%s' "$cand_city_or" | grep -q '"host":"203.0.113.11"' \
 	|| fail "expected Oregon Ramsgate hub (203.0.113.11), got: $cand_city_or"
+
+step "DN10b: chat federation across nodes (DMs, offline delivery on foreign login, room fanout, mutes)"
+ws_upgrade="$(curl -sk -i --http1.1 --max-time 2 "$oregon_url//" \
+	-H "Connection: Upgrade" \
+	-H "Upgrade: websocket" \
+	-H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+	-H "Sec-WebSocket-Version: 13" \
+	-H "Sec-WebSocket-Protocol: xmpp" || true)"
+echo "gateway WebSocket upgrade header:"
+echo "$ws_upgrade" | head -n 6
+printf '%s' "$ws_upgrade" | grep -q "101 Switching Protocols" || fail "gateway did not upgrade WebSocket to chat plugin: $ws_upgrade"
+printf '%s' "$ws_upgrade" | grep -iq "sec-websocket-protocol: xmpp" || fail "chat plugin did not negotiate xmpp subprotocol: $ws_upgrade"
+
+# 1. Player A logs into chat on oregon-1 and Player B logs into chat on germany-1; A whispers B
+chat_login_a="$(node_chat_post oregon "/__chat/client/login" "{\"handle\":\"ada\",\"authcid\":\"$uid_a\",\"token\":\"$tok_a\"}")"
+echo "chat login Player A on oregon-1: $chat_login_a"
+printf '%s' "$chat_login_a" | grep -q '"ok":true' || fail "Player A chat login on oregon-1 failed: $chat_login_a"
+
+chat_login_b="$(node_chat_post germany "/__chat/client/login" "{\"handle\":\"bo\",\"authcid\":\"$uid_b\",\"token\":\"$tok_b\"}")"
+echo "chat login Player B on germany-1: $chat_login_b"
+printf '%s' "$chat_login_b" | grep -q '"ok":true' || fail "Player B chat login on germany-1 failed: $chat_login_b"
+
+dm_send="$(node_chat_post oregon "/__chat/client/send" "{\"handle\":\"ada\",\"whisper_to\":\"$uid_b\",\"body\":\"hello across the atlantic\"}")"
+echo "oregon whisper send: $dm_send"
+dm_recv="$(node_chat_get germany "/__chat/client/drain?handle=bo&expect=hello%20across%20the%20atlantic&timeout_ms=6000")"
+echo "germany whisper recv: $dm_recv"
+printf '%s' "$dm_recv" | grep -q '"matched":true' || fail "Player B on germany-1 did not receive whisper from oregon-1: $dm_recv"
+printf '%s' "$dm_recv" | grep -q 'hello across the atlantic' || fail "missing whisper body on germany-1: $dm_recv"
+
+dm_extra="$(node_chat_get germany "/__chat/client/drain?handle=bo&wait_ms=300")"
+if printf '%s' "$dm_extra" | grep -q 'hello across the atlantic'; then
+	fail "whisper arrived more than once on germany-1: $dm_extra"
+fi
+
+hist_or="$(node_chat_get oregon "/__chat/history/direct?a=$acct_a&b=$acct_b")"
+hist_de="$(node_chat_get germany "/__chat/history/direct?a=$acct_a&b=$acct_b")"
+echo "oregon direct history:  $hist_or"
+echo "germany direct history: $hist_de"
+printf '%s' "$hist_or" | grep -q 'hello across the atlantic' || fail "oregon-1 history missing direct message: $hist_or"
+printf '%s' "$hist_de" | grep -q 'hello across the atlantic' || fail "germany-1 history missing direct message: $hist_de"
+
+# 2. Player B goes offline; Player A on oregon-1 whispers offline Player B (homed on germany-1);
+#    Player B joins a hunt on a third node (uk-1), logs into chat on uk-1 with the home-signed session
+#    ticket, and receives the waiting DM once with <delay/>
+node_chat_post germany "/__chat/client/close" '{"handle":"bo"}' >/dev/null
+sleep 0.5
+
+off_send="$(node_chat_post oregon "/__chat/client/send" "{\"handle\":\"ada\",\"whisper_to\":\"$uid_b\",\"body\":\"waiting while offline\"}")"
+echo "oregon offline whisper send: $off_send"
+sleep 0.5
+
+waiting_de="$(node_chat_get germany "/__chat/history/waiting?account=$acct_b")"
+echo "germany waiting queue before uk-1 login: $waiting_de"
+printf '%s' "$waiting_de" | grep -q 'waiting while offline' || fail "offline whisper not queued at germany-1: $waiting_de"
+
+uk_url="$(node_url uk)"
+reg_c="$(curl -sk -X POST "$uk_url/reforged/api/Register" \
+	-H 'Content-Type: application/json' \
+	-d '{"Username":"SlayerUK"}')"
+key_c="$(printf '%s' "$reg_c" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
+[ -n "$key_c" ] || fail "failed to register Player C on uk-1: $reg_c"
+tok_c_json="$(curl -sk -X POST "$uk_url/account/api/oauth/token" \
+	-H 'Content-Type: application/x-www-form-urlencoded' \
+	-d "grant_type=exchange_code&exchange_code=$key_c")"
+tok_c="$(printf '%s' "$tok_c_json" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
+[ -n "$tok_c" ] || fail "failed to obtain access token for Player C: $tok_c_json"
+
+curl -sk -X POST "$uk_url/candidate/join" \
+	-H "Authorization: Bearer $tok_c" \
+	-H 'Content-Type: application/json' \
+	-d '{"gameMode":"ISLAND","playerHuntId":"Example_Hunt_Easy"}' >/dev/null
+uk_inst=""
+for _ in $(seq 1 20); do
+	cand_uk="$(curl -sk "$uk_url/candidate/status" -H "Authorization: Bearer $tok_c")"
+	if printf '%s' "$cand_uk" | grep -q '"status":"IN_PROGRESS"'; then
+		uk_inst="$(printf '%s' "$cand_uk" | sed -n 's/.*"gameSessionId":"\([^"]*\)".*/\1/p')"
+		break
+	fi
+	sleep 0.5
+done
+[ -n "$uk_inst" ] || fail "failed to launch immediate instance on uk-1"
+sleep 1
+
+redir_uk="$(curl -sk -i -X POST "$germany_url/candidate/join" \
+	-H "Authorization: Bearer $tok_b" \
+	-H 'Content-Type: application/json' \
+	-d "{\"gameMode\":\"ISLAND\",\"instanceId\":\"$uk_inst\"}")"
+uk_ticket="$(printf '%s' "$redir_uk" | tr -d '\r' | sed -n 's/^[xX]-reforged-session-ticket: *//p' | head -n 1)"
+[ -n "$uk_ticket" ] || fail "missing session ticket for uk-1 redirect: $redir_uk"
+
+chat_login_b_uk="$(node_chat_post uk "/__chat/client/login" "{\"handle\":\"bo_uk\",\"authcid\":\"$uid_b\",\"token\":\"$uk_ticket\"}")"
+echo "chat login Player B on uk-1 (foreign node): $chat_login_b_uk"
+printf '%s' "$chat_login_b_uk" | grep -q '"ok":true' || fail "Player B cross-node chat login on uk-1 failed: $chat_login_b_uk"
+if ! printf '%s' "$chat_login_b_uk" | grep -q 'waiting while offline'; then
+	uk_delayed="$(node_chat_get uk "/__chat/client/drain?handle=bo_uk&expect=waiting%20while%20offline&timeout_ms=6000")"
+	echo "uk-1 delayed drain: $uk_delayed"
+	printf '%s' "$uk_delayed" | grep -q 'waiting while offline' || fail "Player B on uk-1 did not receive offline DM: $uk_delayed"
+	printf '%s' "$uk_delayed" | grep -q 'urn:xmpp:delay' || fail "offline DM on uk-1 missing <delay/>: $uk_delayed"
+else
+	printf '%s' "$chat_login_b_uk" | grep -q 'urn:xmpp:delay' || fail "offline DM on uk-1 missing <delay/>: $chat_login_b_uk"
+fi
+
+waiting_de_after="$(node_chat_get germany "/__chat/history/waiting?account=$acct_b")"
+echo "germany waiting queue after uk-1 login: $waiting_de_after"
+if printf '%s' "$waiting_de_after" | grep -q 'waiting while offline'; then
+	fail "germany-1 waiting queue was not cleared after delivery on uk-1: $waiting_de_after"
+fi
+
+# 3. Cross-node room fanout: Player A on oregon-1 and Player B on uk-1 join the same Hunt room and talk
+hunt_room="Hunt-01J9Z3N5C8Q0V2X4Y6W8T0R2P4.oregon-1"
+join_a="$(node_chat_post oregon "/__chat/client/send" "{\"handle\":\"ada\",\"join_room\":\"$hunt_room\",\"name\":\"SlayerOregon\",\"wait_ms\":400}")"
+echo "Player A join $hunt_room on oregon-1: $join_a"
+printf '%s' "$join_a" | grep -q '110' || fail "Player A failed to join $hunt_room: $join_a"
+
+join_b="$(node_chat_post uk "/__chat/client/send" "{\"handle\":\"bo_uk\",\"join_room\":\"$hunt_room\",\"name\":\"SlayerGermany\",\"wait_ms\":600}")"
+echo "Player B join $hunt_room on uk-1: $join_b"
+if ! printf '%s' "$join_b" | grep -q '110'; then
+	join_b_more="$(node_chat_get uk "/__chat/client/drain?handle=bo_uk&expect=110&timeout_ms=5000")"
+	printf '%s' "$join_b_more" | grep -q '110' || fail "Player B failed to join $hunt_room on uk-1: $join_b / $join_b_more"
+fi
+
+room_say_a="$(node_chat_post oregon "/__chat/client/send" "{\"handle\":\"ada\",\"say_room\":\"$hunt_room\",\"body\":\"flare up from oregon\"}")"
+room_heard_b="$(node_chat_get uk "/__chat/client/drain?handle=bo_uk&expect=flare%20up%20from%20oregon&timeout_ms=6000")"
+echo "Player B on uk-1 heard room message: $room_heard_b"
+printf '%s' "$room_heard_b" | grep -q '"matched":true' || fail "room message from oregon-1 did not fan out to uk-1: $room_heard_b"
+
+# 4. Mute applied at Player B's home (germany-1) propagates to uk-1 and blocks Player B from speaking; unmute restores it
+mute_resp="$(node_chat_post germany "/__chat/mute" "{\"account\":\"$acct_b\",\"reason\":\"federated mute test\",\"actor\":\"mod\"}")"
+echo "mute Player B on germany-1: $mute_resp"
+printf '%s' "$mute_resp" | grep -q '"ok":true' || fail "mute on germany-1 failed: $mute_resp"
+sleep 0.5
+
+muted_say="$(node_chat_post uk "/__chat/client/send" "{\"handle\":\"bo_uk\",\"say_room\":\"$hunt_room\",\"body\":\"should be blocked\",\"wait_ms\":400}")"
+echo "muted Player B room attempt on uk-1: $muted_say"
+if ! printf '%s' "$muted_say" | grep -q '<forbidden'; then
+	muted_err="$(node_chat_get uk "/__chat/client/drain?handle=bo_uk&expect=forbidden&timeout_ms=5000")"
+	printf '%s' "$muted_err" | grep -q '<forbidden' || fail "expected <forbidden for muted player on uk-1, got: $muted_say / $muted_err"
+fi
+ada_drain="$(node_chat_get oregon "/__chat/client/drain?handle=ada&wait_ms=400")"
+if printf '%s' "$ada_drain" | grep -q 'should be blocked'; then
+	fail "muted player's message reached oregon-1: $ada_drain"
+fi
+
+unmute_resp="$(node_chat_post germany "/__chat/unmute" "{\"account\":\"$acct_b\",\"actor\":\"mod\"}")"
+echo "unmute Player B on germany-1: $unmute_resp"
+printf '%s' "$unmute_resp" | grep -q '"ok":true' || fail "unmute on germany-1 failed: $unmute_resp"
+sleep 0.5
+
+unmuted_say="$(node_chat_post uk "/__chat/client/send" "{\"handle\":\"bo_uk\",\"say_room\":\"$hunt_room\",\"body\":\"unmuted from uk\"}")"
+ada_heard_unmuted="$(node_chat_get oregon "/__chat/client/drain?handle=ada&expect=unmuted%20from%20uk&timeout_ms=6000")"
+echo "Player A on oregon-1 heard unmuted Player B on uk-1: $ada_heard_unmuted"
+printf '%s' "$ada_heard_unmuted" | grep -q '"matched":true' || fail "unmuted room message from uk-1 did not reach oregon-1: $ada_heard_unmuted"
+
+node_chat_post oregon "/__chat/client/close" '{"handle":"ada"}' >/dev/null
+node_chat_post uk "/__chat/client/close" '{"handle":"bo_uk"}' >/dev/null
 
 echo "network harness passed"
