@@ -554,18 +554,6 @@ fn host_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_
         configure(&paths, folder, Platform::Linux, &commit).unwrap(),
         Configured::Unchanged
     );
-
-    // A legacy server runs 1.4.4: untouched
-    let legacy = config(json!({ "edition": "legacy", "gameDir": "/old/Revived" }));
-    write_host_config(&paths.host_toml, &legacy).unwrap();
-    assert_eq!(
-        configure(&paths, folder, Platform::Linux, &commit).unwrap(),
-        Configured::Legacy
-    );
-    assert_eq!(
-        read_host_config(&paths.host_toml).unwrap().unwrap().game_dir.as_deref(),
-        Some("/old/Revived")
-    );
 }
 
 #[test]
@@ -615,18 +603,12 @@ async fn the_command_refuses_what_it_cannot_do_before_asking_for_anything() {
             .to_string()
         }
     };
-    let revived = go(InstallGameArgs {
-        version: Some("1.4.4".into()),
-        ..InstallGameArgs::default()
-    })
-    .await;
-    assert!(revived.contains("--legacy-game"), "{revived}");
     let unknown = go(InstallGameArgs {
         version: Some("9.9.9".into()),
         ..InstallGameArgs::default()
     })
     .await;
-    assert!(unknown.contains("1.14.7 and 1.12.0"), "{unknown}");
+    assert!(unknown.contains("the versions are 1.14.7"), "{unknown}");
     let relative = go(InstallGameArgs {
         dir: Some("games".into()),
         ..InstallGameArgs::default()
