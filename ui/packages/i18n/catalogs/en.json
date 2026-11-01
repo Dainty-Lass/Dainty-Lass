@@ -1181,8 +1181,5 @@
   "hrem_act_backup": "Backup",
   "hrem_act_revoke": "Revoke",
   "hrem_leave": "Disable remote management",
-  "hrem_queued": "Queued {action} on {node} ({id})",
-  "hsrv_cfg_reborn_module": "Game module (Reborn)",
-  "hsrv_cfg_mod_1147": "Dauntless 1.14.7 (isles-1-14-7, default)",
-  "hsrv_cfg_mod_1120": "Dauntless 1.12.0 (isles-1-12-0, opt-in)"
+  "hrem_queued": "Queued {action} on {node} ({id})"
 }
