@@ -171,7 +171,7 @@ fn server(store_of: Option<&TestServer>, extra: &BTreeMap<String, String>, updat
         ("AUTH_MODE", "LAUNCHER"),
         ("APPROVED_EXECUTABLE_SHA256", EXECUTABLE),
         ("LAUNCHER_UPDATE_ROOT", updates),
-        ("MYSTICPARADOX_OFFICIAL_PLAY", "on"),
+        ("RUSTIC_ISLES_OFFICIAL_PLAY", "on"),
         ("GAMESERVER_API_KEYS", "gs-key-1"),
     ];
     settings.extend(extra.iter().map(|(k, v)| (k.as_str(), v.as_str())));

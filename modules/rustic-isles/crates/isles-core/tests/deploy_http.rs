@@ -61,7 +61,7 @@ async fn a_launch_posts_nodes_body_with_the_request_id_and_reads_the_host_and_po
         sent.starts_with("POST /api/matchmaker/handle-matchmaking-for-player HTTP/1.1\r\n"),
         "{sent}"
     );
-    assert!(sent.contains("x-mysticparadox-request-id: req-12345678\r\n"));
+    assert!(sent.contains("x-rustic-isles-request-id: req-12345678\r\n"));
     assert!(sent.contains("Content-Type: application/json\r\n"));
     assert!(
         sent.ends_with(

@@ -19,18 +19,18 @@ function plain(authzid: string, authcid: string, password: string): string {
 }
 
 test("parseSaslPlain: valid PLAIN (no authzid) extracts authcid + password", () => {
-    const r = parseSaslPlain("PLAIN", plain("", "mysticparadox", "the-jwt"));
+    const r = parseSaslPlain("PLAIN", plain("", "rusticisles", "the-jwt"));
     assert.equal(r.ok, true);
     if (r.ok) {
-        assert.equal(r.authcid, "mysticparadox");
+        assert.equal(r.authcid, "rusticisles");
         assert.equal(r.password, "the-jwt");
     }
 });
 
 test("parseSaslPlain: authzid present is still 3 fields; authcid is the middle field", () => {
-    const r = parseSaslPlain("PLAIN", plain("authz", "mysticparadox", "pw"));
+    const r = parseSaslPlain("PLAIN", plain("authz", "rusticisles", "pw"));
     assert.equal(r.ok, true);
-    if (r.ok) assert.equal(r.authcid, "mysticparadox");
+    if (r.ok) assert.equal(r.authcid, "rusticisles");
 });
 
 test("parseSaslPlain: non-PLAIN mechanism rejected", () => {
@@ -41,7 +41,7 @@ test("parseSaslPlain: non-PLAIN mechanism rejected", () => {
 
 test("parseSaslPlain: wrong NUL field count rejected", () => {
     // Only two fields (missing a NUL) — malformed PLAIN layout.
-    const twoFields = Buffer.from("mysticparadox\u0000pw", "utf8").toString("base64");
+    const twoFields = Buffer.from("rusticisles\u0000pw", "utf8").toString("base64");
     const r = parseSaslPlain("PLAIN", twoFields);
     assert.equal(r.ok, false);
     if (!r.ok) assert.equal(r.reason, "malformed PLAIN layout");

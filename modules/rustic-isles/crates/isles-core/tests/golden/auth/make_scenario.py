@@ -10,9 +10,9 @@ P = "correct horse battery"
 EXE = "a" * 64
 RT_MAIN = "b" * 64
 RT_PROXY = "c" * 64
-ARTIFACTS = [{"name": "MysticParadox.dll", "sha256": RT_MAIN}, {"name": "winmm.dll", "sha256": RT_PROXY}]
+ARTIFACTS = [{"name": "Rustic-Isles.dll", "sha256": RT_MAIN}, {"name": "winmm.dll", "sha256": RT_PROXY}]
 steps = []
-GS = {"x-mysticparadox-gameserver-apikey": "gs-key-1"}
+GS = {"x-rustic-isles-gameserver-apikey": "gs-key-1"}
 
 
 def step(name, method, path, json_=None, auth=None, headers=None, raw=None, content_type=None, capture=None,
@@ -182,7 +182,7 @@ game_session("game session, wrong build", A, {"buildChangelist": 1})
 game_session("game session, unapproved executable", A, {"executableSha256": "d" * 64})
 game_session("game session, stale manifest version", A, {"runtimeManifestVersion": "0.1.77"})
 game_session("game session, a changed runtime", A, {"runtimeArtifacts": [
-    {"name": "MysticParadox.dll", "sha256": "e" * 64}, {"name": "winmm.dll", "sha256": RT_PROXY}]})
+    {"name": "Rustic-Isles.dll", "sha256": "e" * 64}, {"name": "winmm.dll", "sha256": RT_PROXY}]})
 game_session("game session, an unknown file", A, {"runtimeArtifacts": ARTIFACTS + [
     {"name": "inject.dll", "sha256": "e" * 64}]})
 game_session("game session, a realm with realms off", A, {"realm": {"name": "friends"}})
@@ -231,7 +231,7 @@ step("game login, odd scheme", "POST", "/login", {"email": "{{a.userId}}"},
      headers={"authorization": "BeArEr {{a.game}}"})
 step("game server login", "POST", "/login", {"email": "{{a.userId}}"}, headers=GS)
 step("game server key refused", "POST", "/login", {"email": "x"},
-     headers={"x-mysticparadox-gameserver-apikey": "wrong"})
+     headers={"x-rustic-isles-gameserver-apikey": "wrong"})
 step("game server key and a good token", "POST", "/login", {"email": "{{a.userId}}"}, auth="{{a.game}}", headers=GS)
 step("game server key and a bad token", "POST", "/login", {"email": "x"}, auth="garbage", headers=GS)
 step("accountinfo", "GET", "/accountinfo", auth="{{a.game}}")
@@ -317,8 +317,8 @@ step("origin on a game route", "GET", "/isbanned", headers={"origin": "https://e
 step("resend without mail", "POST", "/launcher/v1/auth/email/resend", {"email": "slayer1@example.test"})
 step("forgot without mail", "POST", "/launcher/v1/auth/password/forgot", {"email": "slayer1@example.test"})
 env("mail on, verification required", {
-    "MYSTICPARADOX_EMAIL_VERIFICATION": "required", "MYSTICPARADOX_SMTP_HOST": "smtp.example.test",
-    "MYSTICPARADOX_SMTP_USER": "postmaster", "MYSTICPARADOX_SMTP_PASSWORD": "fixture-password"})
+    "RUSTIC_ISLES_EMAIL_VERIFICATION": "required", "RUSTIC_ISLES_SMTP_HOST": "smtp.example.test",
+    "RUSTIC_ISLES_SMTP_USER": "postmaster", "RUSTIC_ISLES_SMTP_PASSWORD": "fixture-password"})
 step("register under verification", "POST", "/launcher/v1/auth/register",
      {"displayName": "Slayer4", "email": "Slayer4@example.test", "password": P}, capture={"c.userId": "account.userId"})
 step("login before verification", "POST", "/launcher/v1/auth/login", {"email": "slayer4@example.test", "password": P})

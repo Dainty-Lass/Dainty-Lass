@@ -6,9 +6,9 @@
 //! ```text
 //! [PlatMon] credit user= amount= balanceAfter= source= ref=
 //! [PlatMon] spend  user= amount= balanceAfter= source= for= session= host= ref=
-//! [PlatMon] FLAG   a day's credited or spent Platinum crossed MYSTICPARADOX_PLAT_DAILY_FLAG / _SPEND_FLAG
+//! [PlatMon] FLAG   a day's credited or spent Platinum crossed RUSTIC_ISLES_PLAT_DAILY_FLAG / _SPEND_FLAG
 //! [HuntPassMon] reward user= item= amount= source= ref=
-//! [HuntPassMon] FLAG a day's CURRENCY_SEASONAL_COIN crossed MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG
+//! [HuntPassMon] FLAG a day's CURRENCY_SEASONAL_COIN crossed RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG
 //! ```
 
 use std::collections::HashSet;
@@ -110,11 +110,11 @@ impl EconomyMonitorSettings {
         };
         let d = Self::DEFAULTS;
         Self {
-            enabled: settings.on_unless_off("MYSTICPARADOX_ECONOMY_MONITOR"),
-            platinum_daily_credit_flag: threshold("MYSTICPARADOX_PLAT_DAILY_FLAG", d.platinum_daily_credit_flag),
-            platinum_daily_spend_flag: threshold("MYSTICPARADOX_PLAT_DAILY_SPEND_FLAG", d.platinum_daily_spend_flag),
-            seasonal_coin_daily_flag: threshold("MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG", d.seasonal_coin_daily_flag),
-            xp_per_minute_flag: threshold("MYSTICPARADOX_XP_PER_MINUTE_FLAG", d.xp_per_minute_flag),
+            enabled: settings.on_unless_off("RUSTIC_ISLES_ECONOMY_MONITOR"),
+            platinum_daily_credit_flag: threshold("RUSTIC_ISLES_PLAT_DAILY_FLAG", d.platinum_daily_credit_flag),
+            platinum_daily_spend_flag: threshold("RUSTIC_ISLES_PLAT_DAILY_SPEND_FLAG", d.platinum_daily_spend_flag),
+            seasonal_coin_daily_flag: threshold("RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG", d.seasonal_coin_daily_flag),
+            xp_per_minute_flag: threshold("RUSTIC_ISLES_XP_PER_MINUTE_FLAG", d.xp_per_minute_flag),
         }
     }
 }
@@ -652,15 +652,15 @@ mod tests {
         assert_eq!(EconomyMonitorSettings::read(&Settings::default()), settings());
         for off in ["off", "OFF", "0", "false", "no"] {
             assert!(
-                !EconomyMonitorSettings::read(&Settings::from_pairs([("MYSTICPARADOX_ECONOMY_MONITOR", off)])).enabled
+                !EconomyMonitorSettings::read(&Settings::from_pairs([("RUSTIC_ISLES_ECONOMY_MONITOR", off)])).enabled
             );
         }
-        assert!(EconomyMonitorSettings::read(&Settings::from_pairs([("MYSTICPARADOX_ECONOMY_MONITOR", "on")])).enabled);
+        assert!(EconomyMonitorSettings::read(&Settings::from_pairs([("RUSTIC_ISLES_ECONOMY_MONITOR", "on")])).enabled);
         let custom = EconomyMonitorSettings::read(&Settings::from_pairs([
-            ("MYSTICPARADOX_PLAT_DAILY_FLAG", "120"),
-            ("MYSTICPARADOX_PLAT_DAILY_SPEND_FLAG", "340"),
-            ("MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG", "0"),
-            ("MYSTICPARADOX_XP_PER_MINUTE_FLAG", "900"),
+            ("RUSTIC_ISLES_PLAT_DAILY_FLAG", "120"),
+            ("RUSTIC_ISLES_PLAT_DAILY_SPEND_FLAG", "340"),
+            ("RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG", "0"),
+            ("RUSTIC_ISLES_XP_PER_MINUTE_FLAG", "900"),
         ]));
         assert_eq!(
             custom,
@@ -673,7 +673,7 @@ mod tests {
             }
         );
         for bad in ["lots", "-3"] {
-            let read = EconomyMonitorSettings::read(&Settings::from_pairs([("MYSTICPARADOX_PLAT_DAILY_FLAG", bad)]));
+            let read = EconomyMonitorSettings::read(&Settings::from_pairs([("RUSTIC_ISLES_PLAT_DAILY_FLAG", bad)]));
             assert_eq!(read.platinum_daily_credit_flag, 5000.0);
         }
     }

@@ -56,9 +56,9 @@ type CoreLauncherErrorCode =
     | "GUARD_SESSION_INVALID"
     | "GUARD_SIGNATURE_INVALID"
     | "GUARD_SEQUENCE_CONFLICT"
-    // [2026-10-15] A launch with no realm while MYSTICPARADOX_OFFICIAL_PLAY is off (config/officialPlay.ts).
+    // [2026-10-15] A launch with no realm while RUSTIC_ISLES_OFFICIAL_PLAY is off (config/officialPlay.ts).
     | "OFFICIAL_PLAY_UNAVAILABLE"
-    // [2026-10-16] Play from an unofficial launcher build while MYSTICPARADOX_UNOFFICIAL_LAUNCHER=refuse (security/unofficialLauncherPolicy.ts).
+    // [2026-10-16] Play from an unofficial launcher build while RUSTIC_ISLES_UNOFFICIAL_LAUNCHER=refuse (security/unofficialLauncherPolicy.ts).
     | "LAUNCHER_UNOFFICIAL"
     // [2026-10-15] Launcher notices (controllers/launcherNotices.ts): a manager save that is refused (400), and one whose expectedVersion
     // is stale (409, the answer carries the current document).

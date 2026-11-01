@@ -60,7 +60,7 @@ const FileTarget = {
 const UnderTestRunner = process.env.NODE_TEST_CONTEXT !== undefined;
 
 // [2026-10-14] Privacy Policy section 5: at the start of a server run the previous log is archived when it is from an earlier UTC day or
-// over 100 MB, and archives older than MYSTICPARADOX_LOG_RETENTION_DAYS (default 90) are deleted. This runs before the file transport
+// over 100 MB, and archives older than RUSTIC_ISLES_LOG_RETENTION_DAYS (default 90) are deleted. This runs before the file transport
 // below opens the log, and only in the server entry (never in tests or scripts, which append and never rotate).
 if (IsServerEntry && !UnderTestRunner) {
   try {

@@ -229,7 +229,7 @@ export interface BountyDeleteRequest {
 }
 
 /**
- * True when a delete body names no bounty at all (no body, or none of the fields ParseBountyDelete reads). Mystic Paradox reads
+ * True when a delete body names no bounty at all (no body, or none of the fields ParseBountyDelete reads). Rustic Isles reads
  * this call as the game's ResetBounties, which sends no body, and answers it with 200 and no change; such a call is answered
  * that way here too.
  */

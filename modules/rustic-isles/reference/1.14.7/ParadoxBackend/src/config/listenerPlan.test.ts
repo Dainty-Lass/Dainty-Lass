@@ -6,7 +6,7 @@
  * Additional terms under AGPLv3 Section 7 apply. See ADDITIONAL_TERMS.md.
  */
 
-// [2026-10-14 M2] The listener plan of the proxy mode (MYSTICPARADOX_TLS_TERMINATED_BY_PROXY, BIND_HOST, QOS_PORT) and what
+// [2026-10-14 M2] The listener plan of the proxy mode (RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY, BIND_HOST, QOS_PORT) and what
 // production startup requires with and without it.
 
 import assert from "node:assert/strict";
@@ -19,8 +19,8 @@ const PRODUCTION = {
     NODE_ENV: "production",
     AUTH_MODE: "APIKEY",
     REALTIME_XMPP_DEV_CITY_MUC: "false",
-    MYSTICPARADOX_SERVICE_ROLE: "api",
-    MYSTICPARADOX_METRICS_TOKEN: "metrics-test-token",
+    RUSTIC_ISLES_SERVICE_ROLE: "api",
+    RUSTIC_ISLES_METRICS_TOKEN: "metrics-test-token",
     MONGODB_URI: "mongodb://guardit.example.test/?replicaSet=guardit"
 };
 
@@ -36,7 +36,7 @@ test("with the switch off the listeners are the ones Metagame has always opened"
 });
 
 test("behind a proxy: no HTTPS listener, the WebSocket gateway on the HTTP listener, the bind address and QoS as configured", () => {
-    assert.deepEqual(ResolveListenerPlan({ MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "on", BIND_HOST: " 127.0.0.1 ", QOS_PORT: "off" }), {
+    assert.deepEqual(ResolveListenerPlan({ RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "on", BIND_HOST: " 127.0.0.1 ", QOS_PORT: "off" }), {
         tlsTerminatedByProxy: true,
         httpBindHost: "127.0.0.1",
         httpsListener: false,
@@ -44,16 +44,16 @@ test("behind a proxy: no HTTPS listener, the WebSocket gateway on the HTTP liste
         qosPort: undefined,
         qosProblem: undefined
     });
-    assert.equal(ResolveListenerPlan({ MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "on" }).qosPort, 80, "QoS stays on unless it is switched off");
+    assert.equal(ResolveListenerPlan({ RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "on" }).qosPort, 80, "QoS stays on unless it is switched off");
     assert.equal(ResolveListenerPlan({ BIND_HOST: "   " }).httpBindHost, undefined, "a blank bind address is no bind address");
 });
 
 test("the proxy switch takes on/off spellings and refuses anything else (a typo must not keep the HTTPS listener quietly)", () => {
-    for (const value of ["on", "ON", "1", "true", "yes", " on "]) assert.equal(ReadTlsTerminatedByProxy({ MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: value }), true, value);
-    for (const value of ["", "off", "0", "false", "no"]) assert.equal(ReadTlsTerminatedByProxy({ MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: value }), false, value);
+    for (const value of ["on", "ON", "1", "true", "yes", " on "]) assert.equal(ReadTlsTerminatedByProxy({ RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: value }), true, value);
+    for (const value of ["", "off", "0", "false", "no"]) assert.equal(ReadTlsTerminatedByProxy({ RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: value }), false, value);
     assert.equal(ReadTlsTerminatedByProxy({}), false);
-    assert.throws(() => ReadTlsTerminatedByProxy({ MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "onn" }),
-        { message: "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off (got 'onn')" });
+    assert.throws(() => ReadTlsTerminatedByProxy({ RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "onn" }),
+        { message: "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off (got 'onn')" });
 });
 
 test("QOS_PORT: unset is 80, off starts none, a port number is that port; anything else is reported, not started", () => {
@@ -68,15 +68,15 @@ test("QOS_PORT: unset is 80, off starts none, a port number is that port; anythi
 
 test("production needs a certificate and an HTTPS port only when the HTTPS listener runs", () => {
     assert.doesNotThrow(() => AssertRuntimeSafety({ ...PRODUCTION }));
-    assert.doesNotThrow(() => AssertRuntimeSafety({ ...PRODUCTION, MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "on", HTTPS_PORT: "99999" }),
+    assert.doesNotThrow(() => AssertRuntimeSafety({ ...PRODUCTION, RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "on", HTTPS_PORT: "99999" }),
         "behind a proxy the HTTPS port is not used, so it is not checked");
     assert.throws(() => AssertRuntimeSafety({ ...PRODUCTION, HTTPS_PORT: "99999" }), /HTTPS_PORT must be a valid production port/);
-    assert.throws(() => AssertRuntimeSafety({ ...PRODUCTION, MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "maybe" }),
-        /MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off/);
+    assert.throws(() => AssertRuntimeSafety({ ...PRODUCTION, RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "maybe" }),
+        /RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off/);
 });
 
 test("[DaintyLass] REFORGED_HTTP_ONLY stands in for the proxy switch when that is unset", () => {
     assert.equal(ReadTlsTerminatedByProxy({ REFORGED_HTTP_ONLY: "1" }), true);
     assert.equal(ReadTlsTerminatedByProxy({ REFORGED_HTTP_ONLY: "0" }), false);
-    assert.equal(ReadTlsTerminatedByProxy({ REFORGED_HTTP_ONLY: "1", MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: "off" }), false);
+    assert.equal(ReadTlsTerminatedByProxy({ REFORGED_HTTP_ONLY: "1", RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: "off" }), false);
 });

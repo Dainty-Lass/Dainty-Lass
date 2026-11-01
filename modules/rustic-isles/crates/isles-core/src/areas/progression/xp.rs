@@ -28,7 +28,7 @@ use super::tracks::{
 };
 use super::util::{as_integer, bad_request, conflict, forbidden, js_number, log_safe, ok, reply};
 
-/// `MasteryPersistence`: `MYSTICPARADOX_MASTERY_PERSISTENCE` (the env file, then the version's default switch).
+/// `MasteryPersistence`: `RUSTIC_ISLES_MASTERY_PERSISTENCE` (the env file, then the version's default switch).
 pub fn mastery_persistence(shared: &crate::http::Shared) -> bool {
     match shared.settings.raw(crate::settings::MASTERY_PERSISTENCE.env) {
         Some(_) => shared.settings.on_unless_off(crate::settings::MASTERY_PERSISTENCE.env),
@@ -46,9 +46,9 @@ fn nullish_chain<'a>(values: &[Option<&'a Value>]) -> Option<&'a Value> {
         .or_else(|| values.last().copied().flatten())
 }
 
-/// `req.get("x-mysticparadox-grant-id") ?? req.get("idempotency-key")`.
+/// `req.get("x-rustic-isles-grant-id") ?? req.get("idempotency-key")`.
 fn header_grant_id(req: &Req) -> Option<String> {
-    req.header("x-mysticparadox-grant-id")
+    req.header("x-rustic-isles-grant-id")
         .or_else(|| req.header("idempotency-key"))
         .map(str::to_owned)
 }
@@ -419,7 +419,7 @@ fn monitor_huntpass_grant(
     replayed: bool,
     grant_id: &str,
 ) {
-    if !shared.settings.on_unless_off("MYSTICPARADOX_ECONOMY_MONITOR") {
+    if !shared.settings.on_unless_off("RUSTIC_ISLES_ECONOMY_MONITOR") {
         return;
     }
     let curves = curves(shared);

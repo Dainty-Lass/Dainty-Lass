@@ -335,7 +335,7 @@ test("a rate over its threshold raises one review flag per account, kind and day
 });
 
 test("with the monitor switched off nothing is counted, queued or written", async () => {
-    UseActivitySettingsForTest({ ...ReadActivitySettings({ MYSTICPARADOX_ACTIVITY_MONITOR: "off" }) });
+    UseActivitySettingsForTest({ ...ReadActivitySettings({ RUSTIC_ISLES_ACTIVITY_MONITOR: "off" }) });
     const Store = new FakeActivityStore();
     Monitor(Store);
     TouchGameSession("u-off-1", T0);
@@ -401,7 +401,7 @@ test("an unofficial launcher build raises UNOFFICIAL_LAUNCHER once a day; offici
 });
 
 test("with the monitor switched off a launcher build is not looked at", async () => {
-    UseActivitySettingsForTest({ ...ReadActivitySettings({ MYSTICPARADOX_ACTIVITY_MONITOR: "off" }) });
+    UseActivitySettingsForTest({ ...ReadActivitySettings({ RUSTIC_ISLES_ACTIVITY_MONITOR: "off" }) });
     const Store = new FakeActivityStore();
     Monitor(Store);
     let Asked = 0;
@@ -434,7 +434,7 @@ test("a game that reported in within the window counts as running, with the moni
     assert.equal(IsGameRecentlyActive("u-never-seen", 75 * 1000, T0), false);
     await WaitForActivityWrites();   // the monitor-on touch queued a session count
 
-    UseActivitySettingsForTest({ ...ReadActivitySettings({ MYSTICPARADOX_ACTIVITY_MONITOR: "off" }) });
+    UseActivitySettingsForTest({ ...ReadActivitySettings({ RUSTIC_ISLES_ACTIVITY_MONITOR: "off" }) });
     TouchGameSession("u-party-off", T0);
     assert.equal(IsGameRecentlyActive("u-party-off", 75 * 1000, T0 + 10 * 1000), true, "the monitor's switch does not hide a running game");
     assert.ok(RecentlyActiveAccountIds(75 * 1000, T0 + 10 * 1000).includes("u-party-off"), "nor from the release gate");

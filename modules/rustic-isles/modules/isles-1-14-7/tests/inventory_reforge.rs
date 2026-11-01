@@ -1,4 +1,4 @@
-//! The inventory and reforge routes against what Mystic Paradox's Node backend answered to the same requests
+//! The inventory and reforge routes against what Rustic Isles' Node backend answered to the same requests
 //! (`crates/isles-core/tests/golden/inventory/record.cjs`): every status, content type and body, byte for byte, with
 //! timestamps, UUIDs and minted ids masked. SQLite always, Postgres when `REFORGED_TEST_POSTGRES_URL` is set. Then the
 //! parts the recording can't reach: a rolled-back transaction, and a realm host's runtime through rustic-rifts' hooks.

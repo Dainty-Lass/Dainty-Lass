@@ -85,15 +85,15 @@ test("a host cannot reuse a grant id for a different request, nor skip the id, n
 const REFUSED = (Reason: string) => (Error: unknown) => Error instanceof HostGrantLimitError && Error.refusal.reason === Reason;
 
 // [2026-10-17] Dedicated parity: in the host policy's observe mode (the default) the ceilings and the full track only log
-// (HostLimitOnlyLogs); the enforce-mode refusals are pinned below with MYSTICPARADOX_HOST_POLICY=enforce.
+// (HostLimitOnlyLogs); the enforce-mode refusals are pinned below with RUSTIC_ISLES_HOST_POLICY=enforce.
 async function WithHostPolicy(mode: "observe" | "enforce", body: () => Promise<void>): Promise<void> {
-    const Previous = process.env.MYSTICPARADOX_HOST_POLICY;
-    process.env.MYSTICPARADOX_HOST_POLICY = mode;
+    const Previous = process.env.RUSTIC_ISLES_HOST_POLICY;
+    process.env.RUSTIC_ISLES_HOST_POLICY = mode;
     try {
         await body();
     } finally {
-        if (Previous === undefined) delete process.env.MYSTICPARADOX_HOST_POLICY;
-        else process.env.MYSTICPARADOX_HOST_POLICY = Previous;
+        if (Previous === undefined) delete process.env.RUSTIC_ISLES_HOST_POLICY;
+        else process.env.RUSTIC_ISLES_HOST_POLICY = Previous;
     }
 }
 

@@ -244,7 +244,7 @@ export async function CreateRealmHubSession(accountId: string, body: unknown, no
     }
     logger.info({ event: "realm_hub_created", sessionId, realmId: realm.realmId, hubKind: parsed.hubKind, maxPeers: parsed.maxPlayers },
         `[RealmHub] ${parsed.hubKind} hub session ${sessionId} created for realm ${realm.realmId}`);
-    IncrementMetric("mysticparadox_p2p_realm_hub_transitions_total", 1, { to: "HOST_OFFERED", kind: parsed.hubKind });
+    IncrementMetric("rustic_isles_p2p_realm_hub_transitions_total", 1, { to: "HOST_OFFERED", kind: parsed.hubKind });
     await MirrorWithCount(realms, hub, "STARTING");
     return { sessionId, generation: 1, hubKind: parsed.hubKind, state: "HOST_OFFERED" };
 }
@@ -347,7 +347,7 @@ export async function EndRealmHub(sessionId: string, generation: number, reason:
     const { record, hub } = ended;
     logger.info({ event: "realm_hub_ended", sessionId, generation, realmId: hub.realmId, hubKind: hub.hubKind, state: record.state, reason,
         presentAtEnd: ended.rows.length }, `[RealmHub] ${hub.hubKind} hub ${sessionId} ended state=${record.state} reason=${reason} members=${ended.rows.length}`);
-    IncrementMetric("mysticparadox_p2p_realm_hub_transitions_total", 1, { to: record.state, kind: hub.hubKind ?? "UNKNOWN" });
+    IncrementMetric("rustic_isles_p2p_realm_hub_transitions_total", 1, { to: record.state, kind: hub.hubKind ?? "UNKNOWN" });
     if (options.realmReleased !== true && hub.realmId != undefined) {
         const realms = GetRealmsPort();
         await MirrorWithCount(realms, record, "NONE");
@@ -494,7 +494,7 @@ export async function FinishHubRouteReady(outcome: HubRouteReadyOutcome): Promis
     if (!outcome.becameRunning) return;
     logger.info({ event: "realm_hub_running", sessionId: outcome.hub.sessionId, realmId: outcome.hub.realmId, hubKind: outcome.hub.hubKind },
         `[RealmHub] ${outcome.hub.hubKind} hub ${outcome.hub.sessionId} is RUNNING`);
-    IncrementMetric("mysticparadox_p2p_realm_hub_transitions_total", 1, { to: "RUNNING", kind: outcome.hub.hubKind ?? "UNKNOWN" });
+    IncrementMetric("rustic_isles_p2p_realm_hub_transitions_total", 1, { to: "RUNNING", kind: outcome.hub.hubKind ?? "UNKNOWN" });
     await MirrorWithCount(GetRealmsPort(), outcome.hub, "RUNNING");
     try {
         await AnnounceWaitingMembers(outcome.hub);

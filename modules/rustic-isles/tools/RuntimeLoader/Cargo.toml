@@ -2,7 +2,7 @@
 name = "paradox-runtime-loader"
 version = "0.1.0"
 edition = "2024"
-description = "winmm proxy that loads the Mystic Paradox runtime"
+description = "winmm proxy that loads the Rustic Isles runtime"
 license = "Apache-2.0"
 repository = "https://github.com/pranav158/Mystic-Paradox"
 

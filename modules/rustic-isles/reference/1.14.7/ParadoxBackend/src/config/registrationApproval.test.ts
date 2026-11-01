@@ -17,7 +17,7 @@ import { LauncherApiError } from "../security/launcherErrors";
 import { PRIVACY_VERSION, TERMS_VERSION } from "../legal/legalPolicy";
 import { LogRegistrationApprovalPolicy, ResolveRegistrationApproval } from "./registrationApproval";
 
-// [2026-10-14] MYSTICPARADOX_REGISTRATION_APPROVAL=required|off, one switch on both providers. The pure parsing and the startup
+// [2026-10-14] RUSTIC_ISLES_REGISTRATION_APPROVAL=required|off, one switch on both providers. The pure parsing and the startup
 // lines first; then launcher sign-up and Discord sign-up, run through the real controllers on a SQLite realm and on a stubbed MongoDB
 // database (the Mongo repositories themselves run, against a fake collection that records inserts; no server is needed).
 
@@ -57,53 +57,53 @@ function Lines() {
 
 test("unset, blank or whitespace: the default off, new accounts approved at once", () => {
     for (const value of [undefined, "", "   "]) {
-        const policy = ResolveRegistrationApproval(value === undefined ? {} : { MYSTICPARADOX_REGISTRATION_APPROVAL: value });
+        const policy = ResolveRegistrationApproval(value === undefined ? {} : { RUSTIC_ISLES_REGISTRATION_APPROVAL: value });
         assert.deepEqual(policy, { mode: "off", approvalStatus: "approved", isDefault: true }, `value ${JSON.stringify(value)}`);
     }
 });
 
 test("off is read case-insensitively and trimmed; it is not the default", () => {
     for (const value of ["off", "OFF", " Off "]) {
-        const policy = ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_APPROVAL: value });
+        const policy = ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_APPROVAL: value });
         assert.deepEqual(policy, { mode: "off", approvalStatus: "approved", isDefault: false }, value);
     }
 });
 
 test("required is read case-insensitively and trimmed: new accounts stay pending", () => {
     for (const value of ["required", "REQUIRED", " Required "]) {
-        const policy = ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_APPROVAL: value });
+        const policy = ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_APPROVAL: value });
         assert.deepEqual(policy, { mode: "required", approvalStatus: "pending", isDefault: false }, value);
     }
 });
 
 test("an unrecognised value fails closed: required, pending, with a refusal naming the value", () => {
     for (const value of ["on", "true", "1", "yes", "maybe", "off please", "requried"]) {
-        const policy = ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_APPROVAL: value });
+        const policy = ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_APPROVAL: value });
         assert.equal(policy.mode, "required", value);
         assert.equal(policy.approvalStatus, "pending", value);
         assert.match(policy.refusal ?? "", /must be required or off/, value);
     }
 });
 
-test("the replaced MYSTICPARADOX_REGISTRATION_AUTO_APPROVE is read only to warn: it changes nothing", () => {
-    const legacyOnly = ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_AUTO_APPROVE: "on" });
-    assert.equal(legacyOnly.approvalStatus, "approved", "unset MYSTICPARADOX_REGISTRATION_APPROVAL is the off default");
-    assert.match(legacyOnly.legacyWarning ?? "", /MYSTICPARADOX_REGISTRATION_AUTO_APPROVE is replaced by MYSTICPARADOX_REGISTRATION_APPROVAL/);
+test("the replaced RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE is read only to warn: it changes nothing", () => {
+    const legacyOnly = ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE: "on" });
+    assert.equal(legacyOnly.approvalStatus, "approved", "unset RUSTIC_ISLES_REGISTRATION_APPROVAL is the off default");
+    assert.match(legacyOnly.legacyWarning ?? "", /RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE is replaced by RUSTIC_ISLES_REGISTRATION_APPROVAL/);
 
     const legacyWithRequired = ResolveRegistrationApproval({
-        MYSTICPARADOX_REGISTRATION_APPROVAL: "required", MYSTICPARADOX_REGISTRATION_AUTO_APPROVE: "on"
+        RUSTIC_ISLES_REGISTRATION_APPROVAL: "required", RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE: "on"
     });
     assert.equal(legacyWithRequired.approvalStatus, "pending", "the old key never approves anyone under required");
     assert.ok(legacyWithRequired.legacyWarning);
 
-    const legacyBlank = ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_AUTO_APPROVE: "  " });
+    const legacyBlank = ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE: "  " });
     assert.equal(legacyBlank.legacyWarning, undefined, "a blank old key is not worth a warning");
 });
 
 test("the decision does not depend on the persistence provider (mongodb, sqlite or unset)", () => {
-    const expected = ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_APPROVAL: "required" });
+    const expected = ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "required" });
     for (const provider of [undefined, "mongodb", "sqlite"]) {
-        const environment: NodeJS.ProcessEnv = { MYSTICPARADOX_REGISTRATION_APPROVAL: "required" };
+        const environment: NodeJS.ProcessEnv = { RUSTIC_ISLES_REGISTRATION_APPROVAL: "required" };
         if (provider !== undefined) environment.PERSISTENCE_PROVIDER = provider;
         assert.deepEqual(ResolveRegistrationApproval(environment), expected, String(provider));
     }
@@ -113,14 +113,14 @@ test("the decision does not depend on the persistence provider (mongodb, sqlite 
 
 test("startup: one info line with the active mode; warnings only for an unrecognised value or the replaced switch", () => {
     const Required = Lines();
-    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_APPROVAL: "required" }), Required.sink);
+    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "required" }), Required.sink);
     assert.deepEqual(Required.Recorded.map((line) => line.level), ["info"]);
-    assert.match(Required.Recorded[0]!.message, /MYSTICPARADOX_REGISTRATION_APPROVAL=required: new accounts need approval/);
+    assert.match(Required.Recorded[0]!.message, /RUSTIC_ISLES_REGISTRATION_APPROVAL=required: new accounts need approval/);
 
     const Off = Lines();
-    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_APPROVAL: "off" }), Off.sink);
+    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "off" }), Off.sink);
     assert.deepEqual(Off.Recorded.map((line) => line.level), ["info"]);
-    assert.match(Off.Recorded[0]!.message, /MYSTICPARADOX_REGISTRATION_APPROVAL=off: new accounts are approved at once/);
+    assert.match(Off.Recorded[0]!.message, /RUSTIC_ISLES_REGISTRATION_APPROVAL=off: new accounts are approved at once/);
 
     const Default = Lines();
     LogRegistrationApprovalPolicy(ResolveRegistrationApproval({}), Default.sink);
@@ -128,13 +128,13 @@ test("startup: one info line with the active mode; warnings only for an unrecogn
     assert.match(Default.Recorded[0]!.message, /not set \(default off\): new accounts are approved at once/);
 
     const Bad = Lines();
-    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_APPROVAL: "on" }), Bad.sink);
+    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "on" }), Bad.sink);
     assert.deepEqual(Bad.Recorded.map((line) => line.level), ["warn", "info"]);
-    assert.match(Bad.Recorded[0]!.message, /WARNING: MYSTICPARADOX_REGISTRATION_APPROVAL must be required or off/);
+    assert.match(Bad.Recorded[0]!.message, /WARNING: RUSTIC_ISLES_REGISTRATION_APPROVAL must be required or off/);
     assert.match(Bad.Recorded[1]!.message, /new accounts need approval/, "an unrecognised value is logged as required");
 
     const Legacy = Lines();
-    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ MYSTICPARADOX_REGISTRATION_AUTO_APPROVE: "on" }), Legacy.sink);
+    LogRegistrationApprovalPolicy(ResolveRegistrationApproval({ RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE: "on" }), Legacy.sink);
     assert.deepEqual(Legacy.Recorded.map((line) => line.level), ["warn", "info"]);
     assert.match(Legacy.Recorded[0]!.message, /has no effect now/);
 });
@@ -185,7 +185,7 @@ function InstallFakeMongo(): { Inserted: MongoInsert[] } {
 
 /** The environment a Mongo test runs under: the provider, a URI (never contacted: connect is faked) and the approval mode. */
 function MongoEnvironment(mode: string | undefined): Record<string, string | undefined> {
-    return { PERSISTENCE_PROVIDER: "mongodb", MONGODB_URI: "mongodb://127.0.0.1:1/registration-approval-test", MYSTICPARADOX_REGISTRATION_APPROVAL: mode };
+    return { PERSISTENCE_PROVIDER: "mongodb", MONGODB_URI: "mongodb://127.0.0.1:1/registration-approval-test", RUSTIC_ISLES_REGISTRATION_APPROVAL: mode };
 }
 
 function SqliteProvider(label: string): TestRealm {
@@ -203,7 +203,7 @@ async function RegisterWith(mode: Record<string, string | undefined>, label: str
 
 test("sqlite, default (unset): launcher sign-up approves at once and the stored account is admitted", async () => {
     const Realm = SqliteProvider("regapproval-default");
-    const Result = await RegisterWith({ PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_REGISTRATION_APPROVAL: undefined }, "Default");
+    const Result = await RegisterWith({ PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_REGISTRATION_APPROVAL: undefined }, "Default");
     assert.equal(Result.approvalRequired, false);
     assert.equal(Result.account.approvalStatus, "approved");
     const Stored = await Realm.repos.launcherAccounts.findByUserId(Result.account.userId) as LauncherAccountRecord;
@@ -213,7 +213,7 @@ test("sqlite, default (unset): launcher sign-up approves at once and the stored 
 
 test("sqlite, required: launcher sign-up stays pending and the account is refused until approved (today's behaviour)", async () => {
     const Realm = SqliteProvider("regapproval-required");
-    const Result = await RegisterWith({ PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_REGISTRATION_APPROVAL: "required" }, "Required");
+    const Result = await RegisterWith({ PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_REGISTRATION_APPROVAL: "required" }, "Required");
     assert.equal(Result.approvalRequired, true);
     assert.equal(Result.account.approvalStatus, "pending");
     const Stored = await Realm.repos.launcherAccounts.findByUserId(Result.account.userId) as LauncherAccountRecord;
@@ -224,7 +224,7 @@ test("sqlite, required: launcher sign-up stays pending and the account is refuse
 
 test("sqlite, off: launcher sign-up approves at once", async () => {
     const Realm = SqliteProvider("regapproval-off");
-    const Result = await RegisterWith({ PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_REGISTRATION_APPROVAL: "off" }, "Off");
+    const Result = await RegisterWith({ PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_REGISTRATION_APPROVAL: "off" }, "Off");
     assert.equal(Result.approvalRequired, false);
     const Stored = await Realm.repos.launcherAccounts.findByUserId(Result.account.userId) as LauncherAccountRecord;
     assert.equal(Stored.approvalStatus, "approved");
@@ -233,7 +233,7 @@ test("sqlite, off: launcher sign-up approves at once", async () => {
 test("sqlite: the replaced AUTO_APPROVE switch set to on under required keeps the account pending", async () => {
     const Realm = SqliteProvider("regapproval-legacy");
     const Result = await RegisterWith({
-        PERSISTENCE_PROVIDER: "sqlite", MYSTICPARADOX_REGISTRATION_APPROVAL: "required", MYSTICPARADOX_REGISTRATION_AUTO_APPROVE: "on"
+        PERSISTENCE_PROVIDER: "sqlite", RUSTIC_ISLES_REGISTRATION_APPROVAL: "required", RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE: "on"
     }, "Legacy");
     assert.equal(Result.approvalRequired, true);
     const Stored = await Realm.repos.launcherAccounts.findByUserId(Result.account.userId) as LauncherAccountRecord;
@@ -271,7 +271,7 @@ function DiscordUser(id: string) {
 test("sqlite: an unlinked Discord user is refused under either switch, and no account or identity is created", async () => {
     const Realm = SqliteProvider("discord-no-create");
     for (const mode of ["off", "required"]) {
-        await WithEnvironment({ MYSTICPARADOX_REGISTRATION_APPROVAL: mode, PERSISTENCE_PROVIDER: "sqlite" }, async () => {
+        await WithEnvironment({ RUSTIC_ISLES_REGISTRATION_APPROVAL: mode, PERSISTENCE_PROVIDER: "sqlite" }, async () => {
             const Id = mode === "off" ? "100000000000000001" : "100000000000000002";
             await assert.rejects(ResolveOrCreateAccountForDiscordUser(DiscordUser(Id)), (error: unknown) =>
                 error instanceof LauncherApiError && error.code === "AUTH_DISCORD_NOT_LINKED");
@@ -293,7 +293,7 @@ test("sqlite: a linked Discord user resolves to its account, and the account kee
     await Realm.repos.authIdentities.create({
         provider: "discord", providerSubject: "100000000000000003", userId: Account.userId, providerUsername: "linked", linkedAt: CreatedAt
     });
-    await WithEnvironment({ MYSTICPARADOX_REGISTRATION_APPROVAL: "off", PERSISTENCE_PROVIDER: "sqlite" }, async () => {
+    await WithEnvironment({ RUSTIC_ISLES_REGISTRATION_APPROVAL: "off", PERSISTENCE_PROVIDER: "sqlite" }, async () => {
         assert.equal(await ResolveOrCreateAccountForDiscordUser(DiscordUser("100000000000000003")), Account.userId);
     });
     const Stored = await Realm.repos.launcherAccounts.findByUserId(Account.userId) as LauncherAccountRecord;

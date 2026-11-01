@@ -296,9 +296,9 @@ test("a hub is full at maxPeers, but never for a member already in it", () => {
     assert.equal(HubIsFull(1, 1), true);
 });
 
-test("MYSTICPARADOX_REALMS_HOSTING and the realm hub thresholds", () => {
-    for (const on of ["on", "ON", "true", "1", " on "]) assert.equal(IsRealmHostingEnabled({ MYSTICPARADOX_REALMS_HOSTING: on }), true, on);
-    for (const off of [undefined, "", "off", "false", "0", "yes", "enabled"]) assert.equal(IsRealmHostingEnabled({ MYSTICPARADOX_REALMS_HOSTING: off }), false, String(off));
+test("RUSTIC_ISLES_REALMS_HOSTING and the realm hub thresholds", () => {
+    for (const on of ["on", "ON", "true", "1", " on "]) assert.equal(IsRealmHostingEnabled({ RUSTIC_ISLES_REALMS_HOSTING: on }), true, on);
+    for (const off of [undefined, "", "off", "false", "0", "yes", "enabled"]) assert.equal(IsRealmHostingEnabled({ RUSTIC_ISLES_REALMS_HOSTING: off }), false, String(off));
     const defaults = ReadRealmHubPolicy({});
     assert.equal(defaults.capabilityTtlMs, 24 * 3_600_000);
     assert.equal(defaults.minimumFreeMemoryMiB, 3072);

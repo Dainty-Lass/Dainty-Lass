@@ -9,7 +9,7 @@
 #pragma once
 
 // [2026-10-13 realms S1] Pure parser for the backend address the launcher hands to the game process in the
-// environment variable MYSTICPARADOX_BACKEND_URL. Header-only and free of Windows/engine types so the edge cases can
+// environment variable RUSTIC_ISLES_BACKEND_URL. Header-only and free of Windows/engine types so the edge cases can
 // be exercised by a throwaway console build; dllmain.cpp owns the environment read, the one-time resolution and the log.
 //
 // Accepted form, exactly:   scheme://host[:port]

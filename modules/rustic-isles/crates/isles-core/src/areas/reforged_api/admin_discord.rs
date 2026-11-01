@@ -32,7 +32,9 @@ const ADMIN_SESSION_TTL_MS: i64 = 8 * 60 * 60 * 1000;
 const OAUTH_RATE_WINDOW_MS: i64 = 15 * 60 * 1000;
 const DISCORD_STATE_NONCE_BYTES: usize = 24;
 const DISCORD_BROWSER_BINDING_BYTES: usize = 32;
-pub const ADMIN_DISCORD_BINDING_COOKIE_NAME: &str = "mysticparadox_admin_oauth";
+pub const ADMIN_DISCORD_BINDING_COOKIE_NAME: &str = "rustic_isles_admin_oauth";
+/// An OAuth flow begun before an update's restart (crate::legacy)
+const LEGACY_ADMIN_DISCORD_BINDING_COOKIE_NAME: &str = "mysticparadox_admin_oauth";
 const ADMIN_OAUTH_ACTOR: &str = "system:admin-discord-oauth";
 
 #[derive(Debug, Clone)]
@@ -603,7 +605,8 @@ async fn callback_handler(ctx: Ctx) -> Response {
             return redirect_with_err(Some("discord_failed"), None);
         }
     };
-    let browser_binding = read_cookie(ctx.req.header("cookie"), ADMIN_DISCORD_BINDING_COOKIE_NAME);
+    let browser_binding = read_cookie(ctx.req.header("cookie"), ADMIN_DISCORD_BINDING_COOKIE_NAME)
+        .or_else(|| read_cookie(ctx.req.header("cookie"), LEGACY_ADMIN_DISCORD_BINDING_COOKIE_NAME));
     if !verify_bound_admin_discord_state(&state, browser_binding.as_deref()) {
         tracing::warn!("[ADMIN] rejected Discord OAuth state without its browser binding ip={ip}");
         return redirect_with_err(Some("discord_state_mismatch"), None);

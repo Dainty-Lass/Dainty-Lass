@@ -66,7 +66,7 @@ namespace Networking {
         return IsReadablePointer(Data, static_cast<size_t>(Num) * sizeof(void*));
     }
 
-    // Same file as dllmain's MpLog ("<exedir>\mysticparadox_dll_port<port>.log") so [TickNetLoop]
+    // Same file as dllmain's MpLog ("<exedir>\rustic_isles_dll_port<port>.log") so [TickNetLoop]
     // and [NetTickTrace] lines interleave in one per-port log. (The exe directory is resolved by dllmain's MpLogDir; the
     // local NetLogDir copy went with the per-line std::ofstream on 11 Oct.)
     static void NetLog(int Port, const std::string& Msg) {
@@ -699,8 +699,10 @@ namespace Networking {
         }
 
         char LaunchId[128]{};
-        const DWORD LaunchIdLength = GetEnvironmentVariableA("MYSTICPARADOX_GAMESERVER_LAUNCH_ID", LaunchId, sizeof(LaunchId));
+        const DWORD LaunchIdLength = GetEnvironmentVariableA("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", LaunchId, sizeof(LaunchId));
         if (LaunchIdLength > 0 && LaunchIdLength < sizeof(LaunchId)) {
+            std::cout << "RUSTIC_ISLES_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
+            // A Director from before the Rustic Isles rename waits for the old marker; a newer one takes the first
             std::cout << "MYSTICPARADOX_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
             NetLog(Port, std::string("[Networking::Listen] Ready marker emitted launchId=") + LaunchId);
         }
@@ -708,7 +710,7 @@ namespace Networking {
     }
 
     // [1.14.7 2026-10-03] See Networking.h. Reuses the identical marker and the same
-    // MYSTICPARADOX_GAMESERVER_LAUNCH_ID contract as the manual path, so the DeployServer cannot tell the
+    // RUSTIC_ISLES_GAMESERVER_LAUNCH_ID contract as the manual path, so the DeployServer cannot tell the
     // difference and the harness check stays valid.
     void AnnounceEngineReady(int Port) {
         if (P2PHooks::ReportsReadiness()) {
@@ -723,8 +725,10 @@ namespace Networking {
         }
 
         char LaunchId[128]{};
-        const DWORD LaunchIdLength = GetEnvironmentVariableA("MYSTICPARADOX_GAMESERVER_LAUNCH_ID", LaunchId, sizeof(LaunchId));
+        const DWORD LaunchIdLength = GetEnvironmentVariableA("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", LaunchId, sizeof(LaunchId));
         if (LaunchIdLength > 0 && LaunchIdLength < sizeof(LaunchId)) {
+            std::cout << "RUSTIC_ISLES_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
+            // A Director from before the Rustic Isles rename waits for the old marker; a newer one takes the first
             std::cout << "MYSTICPARADOX_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
             NetLog(Port, std::string("[EngineListen] Ready marker emitted launchId=") + LaunchId);
         }

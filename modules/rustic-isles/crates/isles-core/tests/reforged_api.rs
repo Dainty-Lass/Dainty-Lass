@@ -24,7 +24,7 @@ fn settings() -> Vec<(&'static str, &'static str)> {
         ("REFORGED_SERVER_NAME", "  Fox\u{7}hold  "),
         ("REFORGED_SERVER_VERSION", "1.2.3"),
         ("REFORGED_SOURCE_URL", "https://Example.COM/src"),
-        ("MYSTICPARADOX_ADMIN_API", "on"),
+        ("RUSTIC_ISLES_ADMIN_API", "on"),
     ]
 }
 
@@ -518,7 +518,7 @@ async fn the_probes_answer_as_app_ts_does() {
         ready.text(),
         r#"{"ok":true,"service":"paradox-backend","role":"combined","reason":"READY","persistence":"ready"}"#
     );
-    let api = server(RouteSet::V1147, &[("MYSTICPARADOX_SERVICE_ROLE", " API ")]).await;
+    let api = server(RouteSet::V1147, &[("RUSTIC_ISLES_SERVICE_ROLE", " API ")]).await;
     assert_eq!(get(api.address, "/health/live", &[]).await.json()["role"], "api");
 
     let maintenance = get(s.address, "/maintenance/status", &[]).await;
@@ -530,7 +530,7 @@ async fn the_probes_answer_as_app_ts_does() {
 
     // The Reforged route of this path is shadowed by Paradox's, so the client gets the welcome text
     let status = get(s.address, "/dauntless-status", &[]).await;
-    let welcome = "Welcome to Mystic Paradox!";
+    let welcome = "Welcome to Rustic Isles!";
     assert_eq!(
         status.text(),
         format!(
@@ -578,14 +578,14 @@ async fn the_release_gates_are_for_the_local_manager() {
     }
     let held = server(
         RouteSet::V1147,
-        &[("MYSTPAX_OLD", "1"), ("MYSTICPARADOX_GUARD_MODE", "sometimes")],
+        &[("MYSTPAX_OLD", "1"), ("RUSTIC_ISLES_GUARD_MODE", "sometimes")],
     )
     .await;
     let answer = get(held.address, "/health/release-gates", &[]).await;
     assert_eq!(answer.status, 503);
     assert_eq!(answer.json()["ok"], false);
     // With the admin API off the route isn't mounted at all
-    let off = server(RouteSet::V1147, &[("MYSTICPARADOX_ADMIN_API", "off")]).await;
+    let off = server(RouteSet::V1147, &[("RUSTIC_ISLES_ADMIN_API", "off")]).await;
     assert_eq!(get(off.address, "/health/release-gates", &[]).await.status, 404);
 }
 
@@ -599,11 +599,11 @@ async fn metrics_need_loopback_or_a_token() {
         Some("text/plain; charset=utf-8; version=0.0.4")
     );
     assert_eq!(ok.header("cache-control"), Some("no-store"));
-    assert!(ok.text().contains("mysticparadox_service_ready 1\n"));
+    assert!(ok.text().contains("rustic_isles_service_ready 1\n"));
     assert!(
         ok.text()
-            .contains("mysticparadox_http_requests_total{class=\"launcher\",method=\"GET\"}")
-            || ok.text().contains("mysticparadox_http_requests_total")
+            .contains("rustic_isles_http_requests_total{class=\"launcher\",method=\"GET\"}")
+            || ok.text().contains("rustic_isles_http_requests_total")
     );
 
     let production = server(RouteSet::V1147, &[("NODE_ENV", "production")]).await;
@@ -614,7 +614,7 @@ async fn metrics_need_loopback_or_a_token() {
     );
     assert_eq!(refused.header("content-type"), Some("text/plain; charset=utf-8"));
 
-    let token = server(RouteSet::V1147, &[("MYSTICPARADOX_METRICS_TOKEN", "route-test-token")]).await;
+    let token = server(RouteSet::V1147, &[("RUSTIC_ISLES_METRICS_TOKEN", "route-test-token")]).await;
     assert_eq!(get(token.address, "/internal/v1/metrics", &[]).await.status, 401);
     assert_eq!(
         get(
@@ -632,14 +632,25 @@ async fn metrics_need_loopback_or_a_token() {
         &[("authorization", "Bearer route-test-token")],
     )
     .await;
-    assert!(bearer.status == 200 && bearer.text().contains("mysticparadox_service_ready"));
+    assert!(bearer.status == 200 && bearer.text().contains("rustic_isles_service_ready"));
     let header = get(
         token.address,
+        "/internal/v1/metrics",
+        &[("x-rustic-isles-metrics-token", "route-test-token")],
+    )
+    .await;
+    assert_eq!(header.status, 200);
+
+    // The names from before the Rustic Isles rename still work for one release
+    let legacy = server(RouteSet::V1147, &[("MYSTICPARADOX_METRICS_TOKEN", "route-test-token")]).await;
+    assert_eq!(get(legacy.address, "/internal/v1/metrics", &[]).await.status, 401);
+    let old_header = get(
+        legacy.address,
         "/internal/v1/metrics",
         &[("x-mysticparadox-metrics-token", "route-test-token")],
     )
     .await;
-    assert_eq!(header.status, 200);
+    assert_eq!(old_header.status, 200);
 }
 
 #[tokio::test(flavor = "multi_thread")]

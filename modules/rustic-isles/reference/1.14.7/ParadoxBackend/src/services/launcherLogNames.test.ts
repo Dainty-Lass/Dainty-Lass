@@ -13,10 +13,10 @@ import test from "node:test";
 import { isAllowedLauncherLogFileName, isSafeSegment, LAUNCHER_LOG_SESSION_ID_PATTERN } from "./launcherLogNames";
 
 test("the launcher's own file names are allowed, and the upload marker and other names are not", () => {
-    for (const name of ["metadata.json", "launcher.log", "runtime-mysticparadox_dll_port0.log", "runtime-mysticparadox_dll_port8790.log"]) {
+    for (const name of ["metadata.json", "launcher.log", "runtime-rustic_isles_dll_port0.log", "runtime-rustic_isles_dll_port8790.log"]) {
         assert.equal(isAllowedLauncherLogFileName(name), true, name);
     }
-    for (const name of [".uploaded-at.json", "metadata.json.bak", "runtime-mysticparadox_dll_port.log", "runtime-other_dll_port1.log", "../launcher.log", "launcher.log/x"]) {
+    for (const name of [".uploaded-at.json", "metadata.json.bak", "runtime-rustic_isles_dll_port.log", "runtime-other_dll_port1.log", "../launcher.log", "launcher.log/x"]) {
         assert.equal(isAllowedLauncherLogFileName(name), false, name);
     }
 });

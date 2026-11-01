@@ -6,16 +6,16 @@ import {
     RestoreJourneyNodesShownLocked
 } from "./slayersPath";
 
-// [2026-10-16] Gauntlet stays shown but disabled until MYSTICPARADOX_GAUNTLET=on: every journey answer serves Gauntlet_Unlock Locked,
+// [2026-10-16] Gauntlet stays shown but disabled until RUSTIC_ISLES_GAUNTLET=on: every journey answer serves Gauntlet_Unlock Locked,
 // and a save that brings the masked status back keeps the stored unlock (no re-lock, no host-write warning, nothing lost).
 
 const node = (id: string, status: number) => ({ node_id: id, node_status: status, objectives: [] });
 const GRAPH = BuildSlayersPathGraph({ "Slayer_11": { childNodes: ["Prestige.Unlock"] }, "Prestige.Unlock": { childNodes: [GAUNTLET_UNLOCK_NODE] } });
 
-test("[2026-10-16] Gauntlet_Unlock is shown Locked unless MYSTICPARADOX_GAUNTLET=on", () => {
+test("[2026-10-16] Gauntlet_Unlock is shown Locked unless RUSTIC_ISLES_GAUNTLET=on", () => {
     assert.deepEqual(JourneyNodesShownLocked({}), [GAUNTLET_UNLOCK_NODE]);
-    assert.deepEqual(JourneyNodesShownLocked({ MYSTICPARADOX_GAUNTLET: "off" }), [GAUNTLET_UNLOCK_NODE]);
-    assert.deepEqual(JourneyNodesShownLocked({ MYSTICPARADOX_GAUNTLET: " ON " }), []);
+    assert.deepEqual(JourneyNodesShownLocked({ RUSTIC_ISLES_GAUNTLET: "off" }), [GAUNTLET_UNLOCK_NODE]);
+    assert.deepEqual(JourneyNodesShownLocked({ RUSTIC_ISLES_GAUNTLET: " ON " }), []);
 });
 
 test("[2026-10-16] the answer is a masked copy: the unlocked node reads 0, everything else and the stored map are unchanged", () => {

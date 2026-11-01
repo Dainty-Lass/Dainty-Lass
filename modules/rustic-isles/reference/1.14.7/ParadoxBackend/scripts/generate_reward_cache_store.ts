@@ -2,7 +2,7 @@
  * Generates the reconstructed Reward Cache rotation (first built for 1.12 Season 19; 1.14.7 since 2026-10-08).
  *
  * Source of truth:
- *   - Items_Analysis/catalog_1_14_7.jsonl (MYSTICPARADOX_CATALOG_PATH overrides) for item existence, display text,
+ *   - Items_Analysis/catalog_1_14_7.jsonl (RUSTIC_ISLES_CATALOG_PATH overrides) for item existence, display text,
  *     rarity and storage shape.
  *   - Progress/30_REWARD_CACHE_STORE.md for the runtime-captured category tags.
  *
@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 const ScriptDir = path.dirname(fileURLToPath(import.meta.url));
 const MetagameRoot = path.resolve(ScriptDir, "..");
 const ProjectRoot = path.resolve(MetagameRoot, "..");
-const CatalogOverride = process.env.MYSTICPARADOX_CATALOG_PATH ?? process.env.MYSTICPARADOX_CATALOG_1_12_PATH;
+const CatalogOverride = process.env.RUSTIC_ISLES_CATALOG_PATH ?? process.env.RUSTIC_ISLES_CATALOG_1_12_PATH;
 const CatalogPath = CatalogOverride
     ? path.resolve(CatalogOverride)
     : path.join(ProjectRoot, "Items_Analysis", "catalog_1_14_7.jsonl");

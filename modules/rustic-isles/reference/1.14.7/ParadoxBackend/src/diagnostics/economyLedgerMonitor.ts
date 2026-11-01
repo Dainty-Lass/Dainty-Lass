@@ -16,13 +16,13 @@ import { IsPlatinumCatalogId, PLATINUM_AGGREGATE_ID } from "../platinumWallet";
  * [diagnostics 2026-10-14] Economy ledger monitor: every Platinum credit and spend, and every Hunt Pass reward, per source.
  * Monitoring only. Nothing here refuses, limits or changes a grant: the lines are written after the grant's transaction has
  * committed, and the daily rollup is a fire-and-forget write whose failure is only logged (SteamDocs/PARADOX_REALMS_PLAN_2026_10_13.md
- * section 9, decision 5). MYSTICPARADOX_ECONOMY_MONITOR=off silences all of it (read once at startup).
+ * section 9, decision 5). RUSTIC_ISLES_ECONOMY_MONITOR=off silences all of it (read once at startup).
  *
  *   [PlatMon] credit  user= amount= balanceAfter= source= ref=       one per Platinum credit (any bucket; balance = all buckets)
  *   [PlatMon] spend   user= amount= balanceAfter= source= for= session= host= ref=   one per transaction that spends Platinum
- *   [PlatMon] FLAG    ...      a day's credited or spent Platinum crossed MYSTICPARADOX_PLAT_DAILY_FLAG / _SPEND_FLAG
+ *   [PlatMon] FLAG    ...      a day's credited or spent Platinum crossed RUSTIC_ISLES_PLAT_DAILY_FLAG / _SPEND_FLAG
  *   [HuntPassMon] reward user= item= amount= source= ref=          one per Hunt Pass reward that is not Platinum
- *   [HuntPassMon] FLAG ...   a day's CURRENCY_SEASONAL_COIN crossed MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG
+ *   [HuntPassMon] FLAG ...   a day's CURRENCY_SEASONAL_COIN crossed RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG
  *
  * Source: the caller says where a transaction came from (EconomyScope). A Hunt Pass reward is classed HUNT_PASS whatever
  * transaction carried it, except a challenge-funded coin (QUEST) and a store or operator grant, because the game sends its
@@ -78,11 +78,11 @@ function ReadThreshold(env: NodeJS.ProcessEnv, name: string, fallback: number): 
 /** The monitor's settings from the environment (pure: tests pass their own map). */
 export function ReadEconomyMonitorSettings(env: NodeJS.ProcessEnv = process.env): EconomyMonitorSettings {
     return {
-        enabled: !/^(0|false|off|no)$/i.test(env.MYSTICPARADOX_ECONOMY_MONITOR ?? ""),
-        platinumDailyCreditFlag: ReadThreshold(env, "MYSTICPARADOX_PLAT_DAILY_FLAG", FLAG_DEFAULTS.platinumDailyCreditFlag),
-        platinumDailySpendFlag: ReadThreshold(env, "MYSTICPARADOX_PLAT_DAILY_SPEND_FLAG", FLAG_DEFAULTS.platinumDailySpendFlag),
-        seasonalCoinDailyFlag: ReadThreshold(env, "MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG", FLAG_DEFAULTS.seasonalCoinDailyFlag),
-        xpPerMinuteFlag: ReadThreshold(env, "MYSTICPARADOX_XP_PER_MINUTE_FLAG", FLAG_DEFAULTS.xpPerMinuteFlag),
+        enabled: !/^(0|false|off|no)$/i.test(env.RUSTIC_ISLES_ECONOMY_MONITOR ?? ""),
+        platinumDailyCreditFlag: ReadThreshold(env, "RUSTIC_ISLES_PLAT_DAILY_FLAG", FLAG_DEFAULTS.platinumDailyCreditFlag),
+        platinumDailySpendFlag: ReadThreshold(env, "RUSTIC_ISLES_PLAT_DAILY_SPEND_FLAG", FLAG_DEFAULTS.platinumDailySpendFlag),
+        seasonalCoinDailyFlag: ReadThreshold(env, "RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG", FLAG_DEFAULTS.seasonalCoinDailyFlag),
+        xpPerMinuteFlag: ReadThreshold(env, "RUSTIC_ISLES_XP_PER_MINUTE_FLAG", FLAG_DEFAULTS.xpPerMinuteFlag),
     };
 }
 

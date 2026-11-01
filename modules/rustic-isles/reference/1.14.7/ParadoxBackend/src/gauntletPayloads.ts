@@ -12,7 +12,7 @@ import { ActiveSeasonWindow } from "./seasonWindow";
 // FOnlineGauntletPhoenix::On*Complete result type's Serialize; the reader's slots tell the value types). Only a high-level account
 // (player level 20) runs the Gauntlet flow, and the old stubs (an object everywhere, a season with no dates) sent such a player back
 // to the login screen ~1 s after Ramsgate (SteamDocs/RAMSGATE_KICK_AFTER_TESTER_MAX_2026_10_16.md). Gauntlet itself stays off
-// (MYSTICPARADOX_GAUNTLET): these answer "a current season, nothing earned, no access".
+// (RUSTIC_ISLES_GAUNTLET): these answer "a current season, nothing earned, no access".
 
 /** The season id the client then asks progression and rewards for. */
 export const GAUNTLET_SEASON_ID = "ESC_SEASON_1";

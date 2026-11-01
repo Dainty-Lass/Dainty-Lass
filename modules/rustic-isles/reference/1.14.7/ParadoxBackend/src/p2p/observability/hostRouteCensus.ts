@@ -15,7 +15,7 @@ import { IncrementMetric } from "../../observability/metrics";
 // runtime authentication accepted (req.AuthData.IsPlayerHostRuntime, set in security/hostRuntimeAuth.ts), by method, Express route
 // pattern (with the router's mount path), status class and the session's kind when known. One `[HostRoute] summary {...}` line
 // per window when there was traffic. Route patterns come from the code: never a raw URL, an id or a header value.
-// Switch: MYSTICPARADOX_HOST_ROUTE_CENSUS=off (default on).
+// Switch: RUSTIC_ISLES_HOST_ROUTE_CENSUS=off (default on).
 
 export const HOST_ROUTE_CENSUS_WINDOW_MS = 60_000;
 export const HOST_ROUTE_CENSUS_MAX_ROWS = 200;
@@ -184,7 +184,7 @@ export class HostRouteCensus {
         if (!this.options.enabled) return;
         AddSample(this.counts, sample);
         const normalized = NormalizeHostRouteSample(sample);
-        IncrementMetric("mysticparadox_host_route_requests_total", 1, { method: normalized.method, status: normalized.status });
+        IncrementMetric("rustic_isles_host_route_requests_total", 1, { method: normalized.method, status: normalized.status });
         this.timer ??= this.startFlushTimer();
     }
 
@@ -215,9 +215,9 @@ export class HostRouteCensus {
     }
 }
 
-/** MYSTICPARADOX_HOST_ROUTE_CENSUS: on unless it is off, 0, false or no. */
+/** RUSTIC_ISLES_HOST_ROUTE_CENSUS: on unless it is off, 0, false or no. */
 export function ReadHostRouteCensusEnabled(environment: NodeJS.ProcessEnv): boolean {
-    return !/^(0|false|off|no)$/i.test((environment.MYSTICPARADOX_HOST_ROUTE_CENSUS ?? "").trim());
+    return !/^(0|false|off|no)$/i.test((environment.RUSTIC_ISLES_HOST_ROUTE_CENSUS ?? "").trim());
 }
 
 export const hostRouteCensus = new HostRouteCensus({ enabled: ReadHostRouteCensusEnabled(process.env) });

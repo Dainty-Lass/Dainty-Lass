@@ -7,7 +7,7 @@
 //! Aetherheart and the rank confirm. The game guards none of that against a duplicate RPC, so the backend does: the
 //! reset stores a reforge record on the weapon's ExperienceTrack row, and the +1 and the banked restore are each
 //! accepted once against it, marked inside the grant's own transaction. A repeated DELETE while the record is open
-//! replays without resetting again. `MYSTICPARADOX_REFORGE=off` answers the DELETE 409 and `=log` does the same and
+//! replays without resetting again. `RUSTIC_ISLES_REFORGE=off` answers the DELETE 409 and `=log` does the same and
 //! logs the request; the `reforge_rules` hook turns all of it off.
 //!
 //! The classification, the mark and the stale repair are the progression area's (`areas::progression::reforge`), which
@@ -92,7 +92,7 @@ pub async fn reforge_reset(
 ) -> Result<ResetResult, TxError> {
     let mode = reforge_mode(ctx.shared);
     if mode != ReforgeMode::On {
-        tracing::warn!("[Reforge] DELETE-REQ user={account} track={track} refused: MYSTICPARADOX_REFORGE={mode:?}");
+        tracing::warn!("[Reforge] DELETE-REQ user={account} track={track} refused: RUSTIC_ISLES_REFORGE={mode:?}");
         return Ok(refused(ResetOutcome::Disabled, None));
     }
     let cap = track_cap_xp(ctx.shared, track)

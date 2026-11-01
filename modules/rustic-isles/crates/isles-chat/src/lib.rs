@@ -1,6 +1,6 @@
 //! Rustic Isles' chat rules (DD21): RU5's chat area is the rules DaintyLass's chat plugin (DN10a) asks a game module
 //! for, not a chat of its own. The plugin owns the XMPP connections, rooms, whispers and presence; this crate says
-//! what Mystic Paradox's `realtime/` decided that the plugin cannot know:
+//! what Rustic Isles' `realtime/` decided that the plugin cannot know:
 //!
 //! - [`jid`](ChatRules::jid): a player's JID is their `userId` on the captured domain (`XMPPAuth.ts`: the SASL authcid
 //!   must be the token's `userId`, so the plugin checks the JID's local part against it).

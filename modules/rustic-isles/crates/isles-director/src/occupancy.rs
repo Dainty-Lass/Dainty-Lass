@@ -2,7 +2,7 @@
 //! (`src/controllers/hubOccupancy.ts`, Director patch 0033).
 //!
 //! The runtime writes every change of its remote-client count to its own log beside the game
-//! executable, `mysticparadox_dll_port<port>.log`:
+//! executable, `rustic_isles_dll_port<port>.log`:
 //!     [12:00:01.234] pid=292 [NetConnEdge] tick=1234 connCount 0 -> 1 connMax=... NetDriver=...
 //! [`RuntimeLogOccupancy`] follows that file from where it ended when the hub was started, so only the
 //! current process's lines count (under Wine the pid in the log is not the one the Director knows).
@@ -16,6 +16,10 @@ const MAX_READ_BYTES: u64 = 4 * 1024 * 1024;
 
 pub struct RuntimeLogOccupancy {
     pub file: PathBuf,
+    /// What a runtime from before the rename writes, `mysticparadox_dll_port<port>.log`: followed while `file` is
+    /// absent (isles_core::legacy)
+    legacy: Option<PathBuf>,
+    reading: PathBuf,
     position: u64,
     partial: String,
     count: Option<i64>,
@@ -24,27 +28,49 @@ pub struct RuntimeLogOccupancy {
 impl RuntimeLogOccupancy {
     pub fn new(file: PathBuf) -> Self {
         Self {
+            reading: file.clone(),
             file,
+            legacy: None,
             position: 0,
             partial: String::new(),
             count: None,
         }
     }
 
+    pub fn with_legacy(mut self, legacy: PathBuf) -> Self {
+        self.legacy = Some(legacy);
+        self
+    }
+
+    fn current(&self) -> PathBuf {
+        match &self.legacy {
+            Some(legacy) if !self.file.exists() && legacy.exists() => legacy.clone(),
+            _ => self.file.clone(),
+        }
+    }
+
     /// Called just before the hub's process starts: everything the log holds now belongs to earlier runs.
     pub fn begin(&mut self) {
+        self.reading = self.current();
         self.position = self.size();
         self.partial.clear();
         self.count = None;
     }
 
     fn size(&self) -> u64 {
-        std::fs::metadata(&self.file).map(|m| m.len()).unwrap_or(0)
+        std::fs::metadata(&self.reading).map(|m| m.len()).unwrap_or(0)
     }
 
     /// Reads what the log gained since the last call: the newest connection count, or `None` before the
     /// first edge.
     pub fn poll(&mut self) -> Option<i64> {
+        let current = self.current();
+        if current != self.reading {
+            // The runtime was updated to the new name: its file is all this run's
+            self.reading = current;
+            self.position = 0;
+            self.partial.clear();
+        }
         let size = self.size();
         if size < self.position {
             // Truncated or replaced: start over from its beginning.
@@ -59,7 +85,7 @@ impl RuntimeLogOccupancy {
             start = size - MAX_READ_BYTES;
             self.partial.clear();
         }
-        let Ok(bytes) = read_range(&self.file, start, size - start) else {
+        let Ok(bytes) = read_range(&self.reading, start, size - start) else {
             return self.count;
         };
         self.position = start + bytes.len() as u64;

@@ -109,8 +109,8 @@ pub struct PurchaseTokenClaims {
     pub store_tag: Option<String>,
 }
 
-/// `SignStorePurchaseToken` and `ValidateStorePurchaseToken` (auth's key store: RS256, issuer `mysticparadox-store`,
-/// audience `mysticparadox-store-purchase`, 10 minutes).
+/// `SignStorePurchaseToken` and `ValidateStorePurchaseToken` (auth's key store: RS256, issuer `rustic-isles-store`,
+/// audience `rustic-isles-store-purchase`, 10 minutes).
 pub trait PurchaseTokens: Send + Sync {
     fn sign(&self, claims: &PurchaseTokenClaims) -> Result<String, String>;
     /// `Err` for a bad signature, an expired token or the wrong issuer or audience

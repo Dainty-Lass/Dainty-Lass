@@ -75,11 +75,11 @@ export class OperationsAlertDispatcher {
 
     start(): void {
         if (this.timer != undefined || this.sink == undefined) {
-            SetMetric("mysticparadox_operations_alert_dispatcher_enabled", this.sink == undefined ? 0 : 1);
+            SetMetric("rustic_isles_operations_alert_dispatcher_enabled", this.sink == undefined ? 0 : 1);
             return;
         }
         this.stopping = false;
-        SetMetric("mysticparadox_operations_alert_dispatcher_enabled", 1);
+        SetMetric("rustic_isles_operations_alert_dispatcher_enabled", 1);
         const run = () => {
             if (this.stopping || this.activeTick != undefined) return;
             const pending = this.tick();
@@ -120,17 +120,17 @@ export class OperationsAlertDispatcher {
                 const claim = await this.getRepository().claimForDelivery(this.workerId,
                     now.toISOString(), new Date(now.getTime() + this.claimLeaseMs).toISOString());
                 if (claim == undefined) break;
-                IncrementMetric("mysticparadox_operations_alert_delivery_attempts_total");
+                IncrementMetric("rustic_isles_operations_alert_delivery_attempts_total");
                 try {
                     await this.sink.deliver(claim.record);
                     await this.getRepository().markDeliverySucceeded(claim.record.alertId, claim.leaseId,
                         this.now().toISOString());
-                    IncrementMetric("mysticparadox_operations_alert_delivery_success_total");
+                    IncrementMetric("rustic_isles_operations_alert_delivery_success_total");
                 } catch (error) {
                     const delay = RetryDelay(claim.attempt, this.baseRetryMs, this.maxRetryMs);
                     await this.getRepository().markDeliveryRetry(claim.record.alertId, claim.leaseId,
                         this.now().toISOString(), new Date(this.now().getTime() + delay).toISOString(), ErrorCode(error));
-                    IncrementMetric("mysticparadox_operations_alert_delivery_retry_total");
+                    IncrementMetric("rustic_isles_operations_alert_delivery_retry_total");
                     this.logError(`[OperationsAlert] sink delivery failed alert=${claim.record.alertId} attempt=${claim.attempt} retryMs=${delay} code=${ErrorCode(error)}`);
                 }
             }

@@ -26,7 +26,7 @@ const HASH_B = "b".repeat(64);
 const HASH_C = "c".repeat(64);
 
 const CORE_ARTIFACTS = [
-    { name: "MysticParadox.dll", sha256: HASH_A },
+    { name: "Rustic-Isles.dll", sha256: HASH_A },
     { name: "winmm.dll", sha256: HASH_B }
 ];
 
@@ -35,7 +35,7 @@ function expectLauncherError(action: () => unknown, code: string): void {
 }
 
 function withManifest(channel: "stable" | "beta" | "dev", hash: string, action: (root: string) => void): void {
-    const Root = fs.mkdtempSync(path.join(os.tmpdir(), "mysticparadox-runtime-auth-"));
+    const Root = fs.mkdtempSync(path.join(os.tmpdir(), "rustic-isles-runtime-auth-"));
     const PreviousTarget = process.env.TARGET_CHANGELIST;
     process.env.TARGET_CHANGELIST = "392819";
     try {
@@ -98,7 +98,7 @@ test("complete signed-manifest runtime set is accepted", () => {
         assert.equal(approved.version, "0.1.78");
         assert.equal(approved.runtimeSha256, HASH_A);
         assert.match(approved.artifactSetSha256, /^[a-f0-9]{64}$/);
-        assert.deepEqual(approved.artifacts.map((entry) => entry.name).sort(), ["MysticParadox.dll", "winmm.dll"]);
+        assert.deepEqual(approved.artifacts.map((entry) => entry.name).sort(), ["Rustic-Isles.dll", "winmm.dll"]);
     });
 });
 
@@ -138,7 +138,7 @@ test("stale runtime version and incomplete published manifest fail closed", () =
     });
 });
 test("missing or wrong-build runtime manifest fails closed", () => {
-    const Root = fs.mkdtempSync(path.join(os.tmpdir(), "mysticparadox-runtime-auth-missing-"));
+    const Root = fs.mkdtempSync(path.join(os.tmpdir(), "rustic-isles-runtime-auth-missing-"));
     const PreviousTarget = process.env.TARGET_CHANGELIST;
     process.env.TARGET_CHANGELIST = "392819";
     try {

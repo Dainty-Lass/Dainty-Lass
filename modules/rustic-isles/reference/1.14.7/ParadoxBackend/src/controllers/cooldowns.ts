@@ -80,7 +80,7 @@ export const COOLDOWN_BATCH_SEGMENT = "batch";
 const COOLDOWN_ID_PATTERN = /^[A-Za-z0-9_.:-]{1,200}$/;
 
 export interface StartCooldownOptions {
-    persistence: boolean;              // MYSTICPARADOX_COOLDOWN_PERSISTENCE
+    persistence: boolean;              // RUSTIC_ISLES_COOLDOWN_PERSISTENCE
     noPlayerUserId: string;            // the path sentinel a server sends for a player without an id
     now?: () => string;                // tests
     save?: (userId: string, body: unknown, saveOptions?: CooldownSaveOptions) => Promise<{ payload: Record<string, string>; record: CooldownStateRecord; changes?: HostCooldownChanges }>;

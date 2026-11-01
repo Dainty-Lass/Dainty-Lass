@@ -18,7 +18,7 @@ import type { HostWriteRow } from "../security/hostWrites";
  * that imports it is loaded, and TypeScript imports would load them first.
  */
 
-delete process.env.MYSTICPARADOX_P2P_MODULE;
+delete process.env.RUSTIC_ISLES_P2P_MODULE;
 
 const Quiet = () => undefined;
 function Fake(modulePath: string, exports: Record<string, unknown>): void {
@@ -329,7 +329,7 @@ test("a dedicated gameserver resets and restores a weapon reforge exactly as bef
 
 const PRESTIGE_SWORD = "PrestigeTrack_Weapon_Sword";
 const GrantPath = (userId: string, track: string, amount: number) => `/progression/${userId}/${track}/${amount}`;
-const WithGrantId = (headers: Record<string, string>, grantId: string) => ({ ...headers, "x-mysticparadox-grant-id": grantId });
+const WithGrantId = (headers: Record<string, string>, grantId: string) => ({ ...headers, "x-rustic-isles-grant-id": grantId });
 const ConfirmPath = (userId: string, track: string, rank: number) => `/progression/${userId}/${track}/${rank}/confirm/public`;
 
 /** A weapon reforge already open on the member's sword (as the reset leaves it), for a session that cannot open one itself. */
@@ -416,12 +416,12 @@ test("a hub's host may grant Hunt Pass XP on the active season track, tagged HUN
     });
 });
 
-// [2026-10-16] MYSTICPARADOX_HOST_POLICY observe (the live default; the hub test kit sets enforce): the XP route still tries
+// [2026-10-16] RUSTIC_ISLES_HOST_POLICY observe (the live default; the hub test kit sets enforce): the XP route still tries
 // its kinds quietly first, so the Hunt Pass grant keeps its HUNT_PASS_XP tag, and a weapon grant the hub does not take goes through as
 // XP (logged by the module as [HostPolicyObserve]) instead of 403.
 test("observe: a hub's weapon XP grant is accepted and tagged XP, and the Hunt Pass grant keeps its HUNT_PASS_XP tag", async () => {
-    const Saved = process.env.MYSTICPARADOX_HOST_POLICY;
-    delete process.env.MYSTICPARADOX_HOST_POLICY;
+    const Saved = process.env.RUSTIC_ISLES_HOST_POLICY;
+    delete process.env.RUSTIC_ISLES_HOST_POLICY;
     try {
         await WithRealm("RAMSGATE", async ({ hub, rows }) => {
             const HuntPass = await Send("POST", GrantPath(Kit_.MEMBER, "season43", 5), WithGrantId(HostHeaders(hub, Kit_.MEMBER), "observe-hp-xp-1"));
@@ -433,8 +433,8 @@ test("observe: a hub's weapon XP grant is accepted and tagged XP, and the Hunt P
             assert.deepEqual(rows.map((Row) => Row.kind), ["HUNT_PASS_XP", "XP"]);
         });
     } finally {
-        if (Saved === undefined) delete process.env.MYSTICPARADOX_HOST_POLICY;
-        else process.env.MYSTICPARADOX_HOST_POLICY = Saved;
+        if (Saved === undefined) delete process.env.RUSTIC_ISLES_HOST_POLICY;
+        else process.env.RUSTIC_ISLES_HOST_POLICY = Saved;
     }
 });
 

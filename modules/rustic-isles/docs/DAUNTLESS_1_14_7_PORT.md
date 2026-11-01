@@ -85,7 +85,7 @@ servers.
 - **Launcher.** The launcher verifies the 1.14.7 install and the signed runtime at Play, and its Launcher
   Guard is an observer only: it reports the signed file list, process identity and loaded-module digest and
   never ends a game. Self-hosted builds set their runtime feed and signing key at build time.
-- **Client branding.** A Mystic Paradox login background, credits section and press-start text. Each
+- **Client branding.** A Rustic Isles login background, credits section and press-start text. Each
   one reverts with a `DISABLE_LOGIN_BRANDING.flag`, `DISABLE_CREDITS_BRANDING.flag` or
   `DISABLE_PRESS_START_BRANDING.flag` beside the game executable.
 

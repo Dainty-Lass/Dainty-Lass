@@ -10,14 +10,14 @@ function rawLoopback(req: Request): boolean {
 }
 
 function configuredToken(): string | undefined {
-    const token = process.env.MYSTICPARADOX_METRICS_TOKEN?.trim();
+    const token = process.env.RUSTIC_ISLES_METRICS_TOKEN?.trim();
     return token == undefined || token.length === 0 ? undefined : token;
 }
 
 function suppliedToken(req: Request): string | undefined {
     const authorization = req.header("authorization");
     if (authorization?.toLowerCase().startsWith("bearer ")) return authorization.slice(7).trim();
-    const header = req.header("x-mysticparadox-metrics-token");
+    const header = req.header("x-rustic-isles-metrics-token");
     return header?.trim() || undefined;
 }
 
@@ -33,7 +33,7 @@ function authorized(req: Request): boolean {
 
 metricsRouter.get("/internal/v1/metrics", (req, res) => {
     if (!authorized(req)) {
-        res.status(process.env.MYSTICPARADOX_METRICS_TOKEN ? 401 : 503).type("text/plain").send("metrics unavailable\n");
+        res.status(process.env.RUSTIC_ISLES_METRICS_TOKEN ? 401 : 503).type("text/plain").send("metrics unavailable\n");
         return;
     }
     res.setHeader("Cache-Control", "no-store");

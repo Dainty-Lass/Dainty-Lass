@@ -273,7 +273,7 @@ export function PlanHostPlayerJourney(storedNodes: any, mergedNodes: any, graph:
     };
 }
 
-// [2026-10-16] Gauntlet stays shown but disabled until MYSTICPARADOX_GAUNTLET=on (owner's decision: mark it disabled, do not remove it).
+// [2026-10-16] Gauntlet stays shown but disabled until RUSTIC_ISLES_GAUNTLET=on (owner's decision: mark it disabled, do not remove it).
 // The game's hunt map enables Gauntlet from the Slayer's Path node Gauntlet_Unlock (a Blueprint check on the journey data, not in the
 // executable): on 16 Oct the owner's account held it at 2 and a hunt's map offered Gauntlet. So while Gauntlet is off the backend serves
 // that node as Locked (0) on every journey answer and never changes what is stored: a save that brings the masked status back keeps the
@@ -281,7 +281,7 @@ export function PlanHostPlayerJourney(storedNodes: any, mergedNodes: any, graph:
 // (matchmakingHuntPolicy.ts).
 export const GAUNTLET_UNLOCK_NODE = "Gauntlet_Unlock";
 
-/** The journey nodes served as Locked: Gauntlet_Unlock while MYSTICPARADOX_GAUNTLET is not on, else none. */
+/** The journey nodes served as Locked: Gauntlet_Unlock while RUSTIC_ISLES_GAUNTLET is not on, else none. */
 export function JourneyNodesShownLocked(environment: NodeJS.ProcessEnv = process.env): readonly string[] {
     return GauntletMatchmakingEnabled(environment) ? [] : [GAUNTLET_UNLOCK_NODE];
 }

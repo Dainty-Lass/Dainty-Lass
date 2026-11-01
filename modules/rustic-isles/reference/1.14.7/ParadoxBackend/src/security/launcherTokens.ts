@@ -18,7 +18,7 @@ import crypto from "crypto";
 // claim is exactly what stops a launcher token from being replayed as a game
 // token, per spec section "Token policy"), and keeping this file self-contained
 // means the game backend's auth.ts is never touched by launcher work.
-const LAUNCHER_AUDIENCE = "mysticparadox-launcher";
+const LAUNCHER_AUDIENCE = "rustic-isles-launcher";
 const ISSUER = "paradox-backend";
 const ACCESS_TOKEN_TTL = "12m";
 
@@ -50,7 +50,8 @@ export function ValidateLauncherAccessToken(token: string): LauncherAccessTokenP
     const Payload = jwt.verify(token, GetPublicKey(), {
         algorithms: ["RS256"],
         issuer: ISSUER,
-        audience: LAUNCHER_AUDIENCE
+        // A token signed before the Rustic Isles rename, for one release
+        audience: [LAUNCHER_AUDIENCE, "mysticparadox-launcher"]
     }) as JwtPayload;
 
     return { userId: Payload.userId, sid: Payload.sid };

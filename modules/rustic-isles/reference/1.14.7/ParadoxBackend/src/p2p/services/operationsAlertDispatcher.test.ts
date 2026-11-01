@@ -29,14 +29,14 @@ test("alert sink configuration fails closed for unsafe production URLs", () => {
     assert.equal(ReadOperationsAlertSinkConfig({}), undefined);
     assert.throws(() => ReadOperationsAlertSinkConfig({
         NODE_ENV: "production",
-        MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_URL: "http://alerts.example.test/hook",
-        MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_TOKEN: "0123456789012345"
+        RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_URL: "http://alerts.example.test/hook",
+        RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_TOKEN: "0123456789012345"
     }), /must use HTTPS/);
     assert.doesNotThrow(() => ReadOperationsAlertSinkConfig({
         NODE_ENV: "development",
-        MYSTICPARADOX_ALLOW_LOCAL_ALERT_SINK: "true",
-        MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_URL: "http://127.0.0.1:39001/hook",
-        MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_TOKEN: "0123456789012345"
+        RUSTIC_ISLES_ALLOW_LOCAL_ALERT_SINK: "true",
+        RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_URL: "http://127.0.0.1:39001/hook",
+        RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_TOKEN: "0123456789012345"
     }));
 });
 

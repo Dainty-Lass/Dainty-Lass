@@ -35,33 +35,33 @@ export interface OperationsAlertSinkConfig {
  * Production requires HTTPS; loopback HTTP is available only for isolated local tests.
  */
 export function ReadOperationsAlertSinkConfig(environment: NodeJS.ProcessEnv = process.env): OperationsAlertSinkConfig | undefined {
-    const rawUrl = (environment.MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_URL ?? "").trim();
-    const rawToken = (environment.MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_TOKEN ?? "").trim();
+    const rawUrl = (environment.RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_URL ?? "").trim();
+    const rawToken = (environment.RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_TOKEN ?? "").trim();
     if (rawUrl.length === 0 && rawToken.length === 0) return undefined;
     if (rawUrl.length === 0 || rawToken.length === 0) {
-        throw new Error("MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_URL and MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_TOKEN must be configured together");
+        throw new Error("RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_URL and RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_TOKEN must be configured together");
     }
     if (rawToken.length < 16 || rawToken.length > 4096) {
-        throw new Error("MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_TOKEN must be between 16 and 4096 characters");
+        throw new Error("RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_TOKEN must be between 16 and 4096 characters");
     }
     let parsed: URL;
     try {
         parsed = new URL(rawUrl);
     } catch {
-        throw new Error("MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_URL must be a valid URL");
+        throw new Error("RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_URL must be a valid URL");
     }
     if (!['https:', 'http:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) {
-        throw new Error("MYSTICPARADOX_OPERATIONS_ALERT_WEBHOOK_URL must be an http(s) URL without credentials, query or fragment");
+        throw new Error("RUSTIC_ISLES_OPERATIONS_ALERT_WEBHOOK_URL must be an http(s) URL without credentials, query or fragment");
     }
     const localHost = parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" || parsed.hostname === "[::1]";
-    const localHttpAllowed = (environment.MYSTICPARADOX_ALLOW_LOCAL_ALERT_SINK ?? "").trim().toLowerCase() === "true";
+    const localHttpAllowed = (environment.RUSTIC_ISLES_ALLOW_LOCAL_ALERT_SINK ?? "").trim().toLowerCase() === "true";
     if (environment.NODE_ENV === "production" && parsed.protocol !== "https:") {
         throw new Error("Production operations alert sink must use HTTPS");
     }
     if (parsed.protocol === "http:" && (!localHost || !localHttpAllowed)) {
-        throw new Error("HTTP operations alert sinks require a loopback URL and MYSTICPARADOX_ALLOW_LOCAL_ALERT_SINK=true");
+        throw new Error("HTTP operations alert sinks require a loopback URL and RUSTIC_ISLES_ALLOW_LOCAL_ALERT_SINK=true");
     }
-    const parsedTimeout = Number(environment.MYSTICPARADOX_OPERATIONS_ALERT_TIMEOUT_MS ?? "5000");
+    const parsedTimeout = Number(environment.RUSTIC_ISLES_OPERATIONS_ALERT_TIMEOUT_MS ?? "5000");
     const timeoutMs = Number.isSafeInteger(parsedTimeout) && parsedTimeout >= 100 && parsedTimeout <= 30_000
         ? parsedTimeout : 5000;
     return { url: parsed.toString(), token: rawToken, timeoutMs };
@@ -112,7 +112,7 @@ export class HttpOperationsAlertSink implements OperationsAlertSink {
                     "content-type": "application/json",
                     "authorization": `Bearer ${this.config.token}`,
                     "idempotency-key": record.alertId,
-                    "x-mysticparadox-alert-schema": "1"
+                    "x-rustic-isles-alert-schema": "1"
                 },
                 body: JSON.stringify(BuildOperationsAlertPayload(record)),
                 signal: controller.signal

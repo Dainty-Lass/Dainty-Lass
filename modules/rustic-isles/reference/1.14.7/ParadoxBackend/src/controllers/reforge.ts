@@ -19,7 +19,7 @@
  * The game guards none of 4/5 against a duplicate reforge RPC, so the backend does: the reset stores a reforge record on
  * the weapon's ExperienceTrack row, and the +1 and the banked restore are each accepted once against it, marked inside
  * the grant's own transaction. A repeated DELETE while the record is open replays without resetting again.
- * MYSTICPARADOX_REFORGE=off answers the DELETE 409 (the game stops after paying its cost - as before this route
+ * RUSTIC_ISLES_REFORGE=off answers the DELETE 409 (the game stops after paying its cost - as before this route
  * existed), =log does the same and logs the request; default on.
  */
 
@@ -31,7 +31,7 @@ import { GetRepositories, ProgressionTrackRecord, RepositoryProvider, WeaponRefo
 import { TrackCapXp } from "./progression";
 
 export const REFORGE_MODE: "on" | "log" | "off" = (() => {
-    const Value = (process.env.MYSTICPARADOX_REFORGE ?? "on").trim().toLowerCase();
+    const Value = (process.env.RUSTIC_ISLES_REFORGE ?? "on").trim().toLowerCase();
     return Value === "off" || Value === "log" ? Value : "on";
 })();
 
@@ -133,7 +133,7 @@ export type ReforgeResetResult =
  */
 export async function ReforgeReset(userId: string, experienceTrack: string, nowMs = Date.now()): Promise<ReforgeResetResult> {
     if (REFORGE_MODE !== "on") {
-        logger.warn(`[Reforge] DELETE-REQ user=${userId} track=${experienceTrack} refused: MYSTICPARADOX_REFORGE=${REFORGE_MODE}`);
+        logger.warn(`[Reforge] DELETE-REQ user=${userId} track=${experienceTrack} refused: RUSTIC_ISLES_REFORGE=${REFORGE_MODE}`);
         return { status: 409, outcome: "disabled" };
     }
     const Tracks = GetRepositories().progressionTracks;

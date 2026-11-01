@@ -270,8 +270,8 @@ async fn persistence_off_stores_nothing() {
         &target,
         dir.path(),
         &[
-            ("MYSTICPARADOX_BOUNTY_PERSISTENCE", "off"),
-            ("MYSTICPARADOX_COOLDOWN_PERSISTENCE", "OFF"),
+            ("RUSTIC_ISLES_BOUNTY_PERSISTENCE", "off"),
+            ("RUSTIC_ISLES_COOLDOWN_PERSISTENCE", "OFF"),
         ],
     )
     .await;

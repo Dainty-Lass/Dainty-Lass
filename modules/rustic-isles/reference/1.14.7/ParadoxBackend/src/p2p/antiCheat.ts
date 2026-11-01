@@ -4,7 +4,7 @@
 // rewards (the reward policy is never ready, so a Tier 1 hunt routes to a dedicated server). When an
 // `anticheat` folder is present next to `p2p`, GetAntiCheatExtension() loads it once and uses its hooks
 // instead: Hunt Guard evidence and verdicts, central reward receipts and the reward worker.
-// MYSTICPARADOX_ANTICHEAT_MODULE=off keeps the defaults even when the folder exists.
+// RUSTIC_ISLES_ANTICHEAT_MODULE=off keeps the defaults even when the folder exists.
 //
 // P2P code never imports the module directly; it calls these hooks only.
 
@@ -42,7 +42,7 @@ export interface EvidenceBatchSummary {
 export interface AntiCheatExtension {
     readonly loaded: boolean;
     server: {
-        /** Extra MYSTICPARADOX_SERVICE_ROLE values that have their own entry point. */
+        /** Extra RUSTIC_ISLES_SERVICE_ROLE values that have their own entry point. */
         serviceRoles: readonly string[];
         /** Returns the settings that make a production configuration unsafe. */
         runtimeSafetyIssues(environment: NodeJS.ProcessEnv): string[];
@@ -109,8 +109,8 @@ const NO_ANTICHEAT: AntiCheatExtension = {
 let Extension: AntiCheatExtension | undefined;
 
 function LoadAntiCheatExtension(): AntiCheatExtension {
-    if (/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_ANTICHEAT_MODULE?.trim() ?? "")) {
-        logger.info("[AntiCheat] module disabled by MYSTICPARADOX_ANTICHEAT_MODULE; player-hosted hunts are unmonitored and earn no rewards");
+    if (/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_ANTICHEAT_MODULE?.trim() ?? "")) {
+        logger.info("[AntiCheat] module disabled by RUSTIC_ISLES_ANTICHEAT_MODULE; player-hosted hunts are unmonitored and earn no rewards");
         return NO_ANTICHEAT;
     }
     const modulePath = path.join(__dirname, "..", "anticheat");

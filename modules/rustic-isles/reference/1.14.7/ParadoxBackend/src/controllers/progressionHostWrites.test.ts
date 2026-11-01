@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 // The public build, and this test of it, run without the P2P module: its hostWrites hooks must refuse every write.
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 
 import type { HostWriteKind } from "../extensions/p2p";
 import {

@@ -153,7 +153,7 @@ export type HubTickAction =
 export interface HubTickInput {
     nowMs: number;
     emergencyStop: boolean;
-    /** MYSTICPARADOX_REALMS_HOSTING and P2P_HUNTS_ENABLED are both on. */
+    /** RUSTIC_ISLES_REALMS_HOSTING and P2P_HUNTS_ENABLED are both on. */
     hostingEnabled: boolean;
 }
 

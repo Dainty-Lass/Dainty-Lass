@@ -297,7 +297,7 @@ impl PortService for DirectorService {
                 }
             }
         }));
-        log::info("Mystic Paradox DeployServer started");
+        log::info("Rustic Isles DeployServer started");
         log::info("Clear Skies, Slayer.");
     }
 

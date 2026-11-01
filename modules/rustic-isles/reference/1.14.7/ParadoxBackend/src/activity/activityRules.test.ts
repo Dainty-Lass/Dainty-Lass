@@ -193,12 +193,12 @@ test("settings from the environment: on by default, off only for an explicit off
     assert.equal(Default.xpPerMinuteFlag, 2000);
 
     for (const Value of ["off", "0", "false", "NO"]) {
-        assert.equal(ReadActivitySettings({ MYSTICPARADOX_ACTIVITY_MONITOR: Value }).enabled, false, Value);
+        assert.equal(ReadActivitySettings({ RUSTIC_ISLES_ACTIVITY_MONITOR: Value }).enabled, false, Value);
     }
-    assert.equal(ReadActivitySettings({ MYSTICPARADOX_ACTIVITY_MONITOR: "on" }).enabled, true);
+    assert.equal(ReadActivitySettings({ RUSTIC_ISLES_ACTIVITY_MONITOR: "on" }).enabled, true);
 
-    const Tuned = ReadActivitySettings({ MYSTICPARADOX_KILLS_PER_HOUR_FLAG: "30", MYSTICPARADOX_PLAT_DAILY_FLAG: "123",
-        MYSTICPARADOX_REWARDS_PER_HOUR_FLAG: "not-a-number" });
+    const Tuned = ReadActivitySettings({ RUSTIC_ISLES_KILLS_PER_HOUR_FLAG: "30", RUSTIC_ISLES_PLAT_DAILY_FLAG: "123",
+        RUSTIC_ISLES_REWARDS_PER_HOUR_FLAG: "not-a-number" });
     assert.equal(Tuned.killsPerHourFlag, 30);
     assert.equal(Tuned.platinumDailyCreditFlag, 123);
     assert.equal(Tuned.rewardsPerHourFlag, 600, "a bad value keeps the default");

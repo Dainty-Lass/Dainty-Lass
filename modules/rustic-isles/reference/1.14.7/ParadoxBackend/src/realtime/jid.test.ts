@@ -15,9 +15,9 @@ import { test } from "node:test";
 import { bareJid, fullJid, parseJid, sameBareJid } from "./jid";
 
 test("parseJid: full JID with Epic-style resource containing ':' and '/'", () => {
-    const jid = parseJid("mysticparadox@prod.ol.epicgames.com/V2:Jackal:WIN::abc/def");
+    const jid = parseJid("rusticisles@prod.ol.epicgames.com/V2:Jackal:WIN::abc/def");
     assert.ok(jid);
-    assert.equal(jid.local, "mysticparadox");
+    assert.equal(jid.local, "rusticisles");
     assert.equal(jid.domain, "prod.ol.epicgames.com");
     // Split on the FIRST '/' only — the resource keeps its own slashes verbatim.
     assert.equal(jid.resource, "V2:Jackal:WIN::abc/def");

@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, Utc};
 use futures_util::FutureExt;
+use isles_core::legacy::legacy_env;
 use serde_json::{Map, Value, json};
 use service_kit::{js, jsjson};
 use tokio::time::Instant;
@@ -274,10 +275,10 @@ impl Director {
             };
             let occupancy =
                 (!config.training_hub_at_boot && idle_ms > 0 && !config.runtime_log_dir.is_empty()).then(|| {
-                    RuntimeLogOccupancy::new(
-                        std::path::Path::new(&config.runtime_log_dir)
-                            .join(format!("mysticparadox_dll_port{}.log", end.saturating_sub(1))),
-                    )
+                    let dir = std::path::Path::new(&config.runtime_log_dir);
+                    let port = end.saturating_sub(1);
+                    RuntimeLogOccupancy::new(dir.join(format!("rustic_isles_dll_port{port}.log")))
+                        .with_legacy(dir.join(format!("mysticparadox_dll_port{port}.log")))
                 });
             if !config.training_hub_at_boot && idle_ms > 0 && occupancy.is_none() {
                 log::warn(
@@ -528,10 +529,22 @@ impl Director {
 
         // An arena hunt keeps the week it was launched for; the hubs follow the rotating schedule.
         let mut env = self.config.child_env.clone();
-        env.retain(|(k, _)| k != "MYSTICPARADOX_GAMESERVER_LAUNCH_ID" && k != "MYSTICPARADOX_TRIALS_WEEK");
-        env.push(("MYSTICPARADOX_GAMESERVER_LAUNCH_ID".into(), id.clone()));
+        let launch_env = ["RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", "RUSTIC_ISLES_TRIALS_WEEK"];
+        env.retain(|(k, _)| {
+            !launch_env
+                .iter()
+                .any(|name| *k == *name || legacy_env(name).as_deref() == Some(k))
+        });
+        let mut launch = vec![("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", id.clone())];
         if let Some(week) = arena_week(matchmaker_hunt_id.as_deref()) {
-            env.push(("MYSTICPARADOX_TRIALS_WEEK".into(), week));
+            launch.push(("RUSTIC_ISLES_TRIALS_WEEK", week));
+        }
+        for (name, value) in launch {
+            // A runtime from before the rename reads only the old name
+            if let Some(old) = legacy_env(name) {
+                env.push((old, value.clone()));
+            }
+            env.push((name.into(), value));
         }
         let (Some(program), Some(key)) = (
             self.config.gameserver_binary.clone(),

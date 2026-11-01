@@ -9,7 +9,7 @@
 // Hook points for the optional player-hosted (P2P) hunt module.
 //
 // DeployServer is complete without it: the defaults add nothing. When a `p2p` folder is present next to
-// this one, GetP2PExtension() loads it once and uses its hooks instead. MYSTICPARADOX_P2P_MODULE=off keeps
+// this one, GetP2PExtension() loads it once and uses its hooks instead. RUSTIC_ISLES_P2P_MODULE=off keeps
 // the defaults even when the folder exists. Shared code never imports the module directly.
 
 import fs from "node:fs";
@@ -31,8 +31,8 @@ const DEDICATED_ONLY: P2PExtension = {
 let Extension: P2PExtension | undefined;
 
 function LoadP2PExtension(): P2PExtension {
-    if (/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_P2P_MODULE?.trim() ?? "")) {
-        logger.info("[P2P] module disabled by MYSTICPARADOX_P2P_MODULE; dedicated hunts only");
+    if (/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_P2P_MODULE?.trim() ?? "")) {
+        logger.info("[P2P] module disabled by RUSTIC_ISLES_P2P_MODULE; dedicated hunts only");
         return DEDICATED_ONLY;
     }
     const modulePath = path.join(__dirname, "..", "p2p");

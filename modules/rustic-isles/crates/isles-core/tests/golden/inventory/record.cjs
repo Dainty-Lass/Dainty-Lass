@@ -1,5 +1,5 @@
 /*
- * Records what Mystic Paradox's Node backend (reference/1.14.7/ParadoxBackend) answers to scenarios.json, for the Rust
+ * Records what Rustic Isles' Node backend (reference/1.14.7/ParadoxBackend) answers to scenarios.json, for the Rust
  * golden test (tests/inventory_golden.rs): the real inventory and progression routers and controllers over the real
  * SQLite persistence provider, in memory. Only three things are replaced: the authentication middleware (the scenario
  * names the AuthData instead of a token or API key), the starter bootstrap (the characters area's) and the game data
@@ -16,11 +16,11 @@ const Module = require("node:module");
 const BACKEND = process.cwd();
 process.env.NODE_ENV = "production"; // Express answers errors with the production page
 process.env.PERSISTENCE_PROVIDER = "sqlite";
-process.env.MYSTICPARADOX_SQLITE_PATH = ":memory:";
+process.env.RUSTIC_ISLES_SQLITE_PATH = ":memory:";
 process.env.PARADOX_GAME_DATA_DIR = path.join(BACKEND, "game-data-golden");
 process.env.GAMESERVER_NO_PLAYER_USER_ID = "u1";
 delete process.env.DEV_USER_ID;
-delete process.env.MYSTICPARADOX_REFORGE;
+delete process.env.RUSTIC_ISLES_REFORGE;
 delete process.env.KEEP_WEAPON_ITEM_LEVELS;
 
 const { seed, scenarios } = JSON.parse(fs.readFileSync(path.join(BACKEND, "scenarios.json"), "utf8"));

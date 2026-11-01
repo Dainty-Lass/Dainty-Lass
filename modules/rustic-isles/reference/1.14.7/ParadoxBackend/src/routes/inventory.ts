@@ -192,9 +192,9 @@ inventoryRouter.post("/inventory", HasParadoxBackendAuth, async (req: any, res) 
     const StackedItemsToRemove = req.body.removeStackedItems;
     const InstancedItemsToSave = req.body.saveInstancedItems;
 
-    // [diagnostics] Structured capture of the raw transaction intent (gated by MYSTICPARADOX_INV_CAPTURE).
+    // [diagnostics] Structured capture of the raw transaction intent (gated by RUSTIC_ISLES_INV_CAPTURE).
     // Emitted BEFORE the sentinel/validation/grant-gate checks so rejected attempts are captured too.
-    const GsKeyPresent = req.headers["x-mysticparadox-gameserver-apikey"] != undefined;
+    const GsKeyPresent = req.headers["x-rustic-isles-gameserver-apikey"] != undefined;
     CaptureInventoryTransaction({
         phase: "request",
         userId: UserId,
@@ -458,7 +458,7 @@ inventoryRouter.post("/inventory/instanceditem", HasParadoxBackendAuth, async (r
         return;
     }
 
-    // [diagnostics] Capture single-item saves (gated by MYSTICPARADOX_INV_CAPTURE). itemData carries
+    // [diagnostics] Capture single-item saves (gated by RUSTIC_ISLES_INV_CAPTURE). itemData carries
     // EquippedCells for cell-equip flows, so this doubles as a cell-equip trace.
     CaptureEvent("ITEM-UPDATE", {
         userId: UserId,

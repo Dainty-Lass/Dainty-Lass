@@ -87,20 +87,20 @@ fn clean_build_token(value: Option<&str>, max_len: usize) -> Option<String> {
 
 pub fn read_activity_settings(settings: &Settings) -> ActivitySettings {
     let raw = settings
-        .raw("MYSTICPARADOX_ACTIVITY_MONITOR")
+        .raw("RUSTIC_ISLES_ACTIVITY_MONITOR")
         .map(str::trim)
         .unwrap_or_default();
     let enabled = !matches!(raw.to_ascii_lowercase().as_str(), "0" | "false" | "off" | "no");
     ActivitySettings {
         enabled,
-        kills_per_hour_flag: read_non_negative(settings, "MYSTICPARADOX_KILLS_PER_HOUR_FLAG", 90.0),
-        rewards_per_hour_flag: read_non_negative(settings, "MYSTICPARADOX_REWARDS_PER_HOUR_FLAG", 600.0),
-        platinum_daily_credit_flag: read_non_negative(settings, "MYSTICPARADOX_PLAT_DAILY_FLAG", 5_000.0),
-        platinum_daily_spend_flag: read_non_negative(settings, "MYSTICPARADOX_PLAT_SPEND_FLAG", 10_000.0),
-        seasonal_coin_daily_flag: read_non_negative(settings, "MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG", 20_000.0),
-        xp_per_minute_flag: read_non_negative(settings, "MYSTICPARADOX_XP_PER_MINUTE_FLAG", 2_500.0),
-        expected_launcher_version: clean_build_token(settings.raw("MYSTICPARADOX_EXPECTED_LAUNCHER_VERSION"), 64),
-        expected_launcher_build_id: clean_build_token(settings.raw("MYSTICPARADOX_EXPECTED_LAUNCHER_BUILD_ID"), 96),
+        kills_per_hour_flag: read_non_negative(settings, "RUSTIC_ISLES_KILLS_PER_HOUR_FLAG", 90.0),
+        rewards_per_hour_flag: read_non_negative(settings, "RUSTIC_ISLES_REWARDS_PER_HOUR_FLAG", 600.0),
+        platinum_daily_credit_flag: read_non_negative(settings, "RUSTIC_ISLES_PLAT_DAILY_FLAG", 5_000.0),
+        platinum_daily_spend_flag: read_non_negative(settings, "RUSTIC_ISLES_PLAT_SPEND_FLAG", 10_000.0),
+        seasonal_coin_daily_flag: read_non_negative(settings, "RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG", 20_000.0),
+        xp_per_minute_flag: read_non_negative(settings, "RUSTIC_ISLES_XP_PER_MINUTE_FLAG", 2_500.0),
+        expected_launcher_version: clean_build_token(settings.raw("RUSTIC_ISLES_EXPECTED_LAUNCHER_VERSION"), 64),
+        expected_launcher_build_id: clean_build_token(settings.raw("RUSTIC_ISLES_EXPECTED_LAUNCHER_BUILD_ID"), 96),
     }
 }
 

@@ -17,7 +17,7 @@ const gauges = new Map<string, { key: MetricKey; value: number }>();
 const histograms = new Map<string, { key: MetricKey; value: HistogramValue }>();
 
 function safeName(name: string): string {
-    return /^[a-z_:][a-z0-9_:]{0,127}$/.test(name) ? name : "mysticparadox_invalid_metric";
+    return /^[a-z_:][a-z0-9_:]{0,127}$/.test(name) ? name : "rustic_isles_invalid_metric";
 }
 
 function safeLabels(labels: Labels): Labels {
@@ -103,15 +103,15 @@ export function RenderMetrics(now = Date.now()): string {
     const readiness = GetServiceReadiness();
     const role = ReadMetagameServiceRole();
     const lastChanged = Date.parse(readiness.changedAt);
-    lines.push("# HELP mysticparadox_info Process identity and configured role.");
-    lines.push("# TYPE mysticparadox_info gauge");
-    lines.push(metricLine("mysticparadox_info", { service: "metagame", role }, 1));
-    lines.push("# HELP mysticparadox_service_ready Whether the service has completed its role startup.");
-    lines.push("# TYPE mysticparadox_service_ready gauge");
-    lines.push(metricLine("mysticparadox_service_ready", {}, readiness.ready ? 1 : 0));
-    lines.push("# HELP mysticparadox_service_readiness_changed_timestamp_seconds Unix time of the last readiness transition.");
-    lines.push("# TYPE mysticparadox_service_readiness_changed_timestamp_seconds gauge");
-    lines.push(metricLine("mysticparadox_service_readiness_changed_timestamp_seconds", {}, Number.isFinite(lastChanged) ? lastChanged / 1000 : 0));
+    lines.push("# HELP rustic_isles_info Process identity and configured role.");
+    lines.push("# TYPE rustic_isles_info gauge");
+    lines.push(metricLine("rustic_isles_info", { service: "metagame", role }, 1));
+    lines.push("# HELP rustic_isles_service_ready Whether the service has completed its role startup.");
+    lines.push("# TYPE rustic_isles_service_ready gauge");
+    lines.push(metricLine("rustic_isles_service_ready", {}, readiness.ready ? 1 : 0));
+    lines.push("# HELP rustic_isles_service_readiness_changed_timestamp_seconds Unix time of the last readiness transition.");
+    lines.push("# TYPE rustic_isles_service_readiness_changed_timestamp_seconds gauge");
+    lines.push(metricLine("rustic_isles_service_readiness_changed_timestamp_seconds", {}, Number.isFinite(lastChanged) ? lastChanged / 1000 : 0));
     const readGauge = (name: string) => gauges.get(key(name, {}).encoded)?.value;
     for (const section of sections) {
         for (const metric of section.render(now, readGauge)) {
@@ -124,7 +124,7 @@ export function RenderMetrics(now = Date.now()): string {
     const counterNames = new Set<string>();
     for (const { key: metric } of counters.values()) counterNames.add(metric.name);
     for (const name of [...counterNames].sort()) {
-        lines.push(`# HELP ${name} Mystic Paradox counter.`);
+        lines.push(`# HELP ${name} Rustic Isles counter.`);
         lines.push(`# TYPE ${name} counter`);
     }
     for (const { key: metric, value } of [...counters.values()].sort((a, b) => a.key.encoded.localeCompare(b.key.encoded))) {
@@ -132,12 +132,12 @@ export function RenderMetrics(now = Date.now()): string {
     }
     for (const { key: metric, value } of [...gauges.values()].sort((a, b) => a.key.encoded.localeCompare(b.key.encoded))) {
         if (sections.some((section) => section.hiddenGauges.includes(metric.name))) continue;
-        lines.push(`# HELP ${metric.name} Mystic Paradox gauge.`);
+        lines.push(`# HELP ${metric.name} Rustic Isles gauge.`);
         lines.push(`# TYPE ${metric.name} gauge`);
         lines.push(metricLine(metric.name, metric.labels, value));
     }
     for (const { key: metric, value } of [...histograms.values()].sort((a, b) => a.key.encoded.localeCompare(b.key.encoded))) {
-        lines.push(`# HELP ${metric.name} Mystic Paradox request latency histogram.`);
+        lines.push(`# HELP ${metric.name} Rustic Isles request latency histogram.`);
         lines.push(`# TYPE ${metric.name} histogram`);
         for (let index = 0; index < HISTOGRAM_BUCKETS.length; index++) {
             const upperBound = HISTOGRAM_BUCKETS[index] === Number.POSITIVE_INFINITY ? "+Inf" : String(HISTOGRAM_BUCKETS[index]);

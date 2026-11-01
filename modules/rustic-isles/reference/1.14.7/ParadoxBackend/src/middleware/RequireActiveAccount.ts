@@ -13,11 +13,11 @@ import { AssertAccountNotDeactivated, AssertConsentCurrentWhenEnforced } from ".
 import { LauncherApiError, SendLauncherError } from "../security/launcherErrors";
 
 // [2026-10-14] Runs after HasLauncherAuth on the routes that host or join (realm and P2P hosting, realm joins, P2P host and join
-// bootstraps): a deactivated account is refused with ACCOUNT_DEACTIVATED, and with `consent` set, MYSTICPARADOX_CONSENT_ENFORCE
+// bootstraps): a deactivated account is refused with ACCOUNT_DEACTIVATED, and with `consent` set, RUSTIC_ISLES_CONSENT_ENFORCE
 // refuses an account without a current consent. Only the answer changes: the handler is not called.
 
 export interface ActiveAccountGuardOptions {
-    /** Also apply the consent check (MYSTICPARADOX_CONSENT_ENFORCE). Realm hosting sets it; joins and P2P bootstraps do not. */
+    /** Also apply the consent check (RUSTIC_ISLES_CONSENT_ENFORCE). Realm hosting sets it; joins and P2P bootstraps do not. */
     consent: boolean;
 }
 

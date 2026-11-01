@@ -9,7 +9,7 @@
 # (SHA256SUMS, the updater signature, the provenance) and added it to the update feed.
 # Check a download yourself:
 #   sha256sum -c SHA256SUMS
-#   gh attestation verify MysticParadoxLauncher_<version>_x64-setup.exe --repo pranav158/Mystic-Paradox
+#   gh attestation verify RusticIslesLauncher_<version>_x64-setup.exe --repo pranav158/Mystic-Paradox
 name: Release launcher
 
 on:
@@ -70,7 +70,7 @@ jobs:
 
       - run: npm ci
 
-      # The launcher source names no server: a plain build of it never talks to the Mystic Paradox servers. This official
+      # The launcher source names no server: a plain build of it never talks to the Rustic Isles servers. This official
       # release applies build-profiles/official.json on purpose - its build variables (server, runtime feed and key, compiled
       # in) and its Tauri overlay (update server and key, allowed connections) - merged with this job's own setting.
       - name: Build the installer (unsigned here; the publish job signs it)
@@ -86,7 +86,7 @@ jobs:
         run: |
           $product = (Get-Content -Raw src-tauri/tauri.conf.json | ConvertFrom-Json).productName
           $built = "src-tauri\target\release\bundle\nsis\${product}_$($env:VERSION)_x64-setup.exe"
-          $name = "MysticParadoxLauncher_$($env:VERSION)_x64-setup.exe"
+          $name = "RusticIslesLauncher_$($env:VERSION)_x64-setup.exe"
           New-Item -ItemType Directory -Force out | Out-Null
           Copy-Item -LiteralPath $built "out\$name"
           $sha = (Get-FileHash "out\$name").Hash.ToLower()
@@ -97,7 +97,7 @@ jobs:
 
       # The launcher.exe the installer installs (Tauri marks the packed copy, so it differs from the build folder's): its hash
       # goes into the release as INSTALLED-SHA256SUMS, and its provenance is recorded too, so a player can check the file on disk
-      # (gh attestation verify "%LOCALAPPDATA%\Mystic Paradox Launcher\launcher.exe" --repo <this repository>).
+      # (gh attestation verify "%LOCALAPPDATA%\Rustic Isles Launcher\launcher.exe" --repo <this repository>).
       - name: Extract and hash the installed launcher.exe
         id: installed
         env:
@@ -115,7 +115,7 @@ jobs:
       # before provenance and before the publish job.
       - name: Check the installed launcher names the official server
         run: |
-          $server = (Get-Content -Raw build-profiles/official.json | ConvertFrom-Json).env.MYSTICPARADOX_API_BASE_URL
+          $server = (Get-Content -Raw build-profiles/official.json | ConvertFrom-Json).env.RUSTIC_ISLES_API_BASE_URL
           $latin1 = [Text.Encoding]::GetEncoding(28591)
           if (-not $latin1.GetString([IO.File]::ReadAllBytes("$PWD\installed\launcher.exe")).Contains($server)) {
             throw "installed launcher.exe does not name $server"
@@ -202,7 +202,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > notes.md <<EOF
-          Mystic Paradox launcher ${VERSION}, built from tag \`${TAG}\` by this repository's release workflow.
+          Rustic Isles launcher ${VERSION}, built from tag \`${TAG}\` by this repository's release workflow.
 
           Players receive it through the launcher's own update check once the official server offers it.
 
@@ -210,7 +210,7 @@ jobs:
           - \`sha256sum -c SHA256SUMS\`
           - \`gh attestation verify ${INSTALLER} --repo ${GITHUB_REPOSITORY}\` (build provenance)
           - \`INSTALLED-SHA256SUMS\` is the hash of the launcher.exe this installer installs; check the installed file with
-            \`gh attestation verify "%LOCALAPPDATA%\\Mystic Paradox Launcher\\launcher.exe" --repo ${GITHUB_REPOSITORY}\`
+            \`gh attestation verify "%LOCALAPPDATA%\\Rustic Isles Launcher\\launcher.exe" --repo ${GITHUB_REPOSITORY}\`
             or the launcher's About page ("Check against GitHub").
           - \`${INSTALLER}.sig\` is the updater signature (minisign key 30ADC58308BDAEAD; public key in \`ParadoxLauncher/build-profiles/official.json\`).
           EOF

@@ -15,7 +15,7 @@ param(
 
     [string]$TlsPrivateKeyPassphrase = "",
     [string]$MongoDbUri = "mongodb://127.0.0.1:27017",
-    [string]$MongoDbName = "mysticparadox",
+    [string]$MongoDbName = "rusticisles",
     [string]$GameServerPublicAddress = "127.0.0.1",
     [int]$BackendHttpPort = 3000,
     [int]$BackendHttpsPort = 443,
@@ -220,10 +220,10 @@ New-Item -ItemType Directory -Force -Path $SelfHostRoot | Out-Null
 $BuildEnvironment = [string]::Join([Environment]::NewLine, @(
     "# Dot-source this file before building or running the self-host launcher:",
     "#   . .\.selfhost\build-env.ps1",
-    '$env:MYSTICPARADOX_API_BASE_URL = "__BASE_URL__"',
-    '$env:MYSTICPARADOX_RUNTIME_ENDPOINT = "__BASE_URL__/launcher/v1/runtime"',
-    '$env:MYSTICPARADOX_RUNTIME_PUBLIC_KEY_B64 = "__RUNTIME_PUBLIC_KEY__"',
-    'Write-Host "Mystic Paradox self-host launcher environment loaded for __PUBLIC_HOST__"',
+    '$env:RUSTIC_ISLES_API_BASE_URL = "__BASE_URL__"',
+    '$env:RUSTIC_ISLES_RUNTIME_ENDPOINT = "__BASE_URL__/launcher/v1/runtime"',
+    '$env:RUSTIC_ISLES_RUNTIME_PUBLIC_KEY_B64 = "__RUNTIME_PUBLIC_KEY__"',
+    'Write-Host "Rustic Isles self-host launcher environment loaded for __PUBLIC_HOST__"',
     ""
 ))
 $BuildEnvironment = $BuildEnvironment.Replace("__BASE_URL__", $BaseUrl)

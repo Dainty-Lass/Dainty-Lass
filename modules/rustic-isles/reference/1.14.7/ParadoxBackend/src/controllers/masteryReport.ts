@@ -22,7 +22,7 @@
  * each capped at what the report itself claimed for that track. Everything runs in one Mongo transaction, so a retry, a
  * re-sent arrival report or a concurrent hub/hunt report finds the objective already completed and credits nothing.
  * Achievement objectives are stored the same way and credit nothing. Experience/Hunt Pass XP never comes from here (it
- * uses the authoritative grant route). MYSTICPARADOX_MASTERY_PERSISTENCE=off keeps the report diagnostics-only.
+ * uses the authoritative grant route). RUSTIC_ISLES_MASTERY_PERSISTENCE=off keeps the report diagnostics-only.
  *
  * [2026-10-13 realms S3] A player-hosted server's report is applied by the same code (routes/progression.ts, after the
  * hostWrites check) and its plan is tagged (SummarizeMasteryPlan). Mastery can only rise there: objectives merge with $max,
@@ -41,7 +41,7 @@ import { ClientSession } from "mongodb";
 import { GetUnitOfWork, ProgressionObjectiveRecord, ProgressionTrackRecord, RepositoryProvider, UnitOfWork } from "../persistence";
 import { MASTERY_CREDIT_PER_OBJECTIVE, TrackCapXp } from "./progression";
 
-export const MASTERY_PERSISTENCE = !/^(0|false|off|no)$/i.test(process.env.MYSTICPARADOX_MASTERY_PERSISTENCE ?? "");
+export const MASTERY_PERSISTENCE = !/^(0|false|off|no)$/i.test(process.env.RUSTIC_ISLES_MASTERY_PERSISTENCE ?? "");
 
 export const MASTERY_PLAYER_TRACK = "MasteryTrack_PlayerLevel";
 const MASTERY_BEHEMOTH_TRACK = "MasteryTrack_Behemoth";

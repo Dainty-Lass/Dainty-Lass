@@ -1,6 +1,6 @@
 # Generating game data
 
-Mystic Paradox does not distribute Phoenix Labs game data. Extract the required material from your
+Rustic Isles does not distribute Phoenix Labs game data. Extract the required material from your
 own lawful Dauntless 1.14.7 installation and generate the service payloads locally.
 
 > [!NOTE]
@@ -43,7 +43,7 @@ missing Slayer's Path definitions only log an error and grant no node rewards).
 
 Build native/catalog-exporter against the complete SDK described in
 [GENERATING_SDK.md](GENERATING_SDK.md). The generators read `Items_Analysis` in `reference/1.14.7`,
-so copy the exporter's `Items_Analysis` folder there afterwards (`MYSTICPARADOX_EXPORT_ROOT` in
+so copy the exporter's `Items_Analysis` folder there afterwards (`RUSTIC_ISLES_EXPORT_ROOT` in
 native/catalog-exporter/ExportPaths.local.h, see the SDK guide, gathers the exports in one folder first).
 
 Copy export_flags.example.txt to export_flags.txt and enable these modes:
@@ -97,7 +97,7 @@ copied first. The definitions generator writes the rewards and costs of each nod
     npm run reward-cache:generate
 
 This writes reward_cache_store.json from the catalog and then rebuilds the storage policy. It stops
-with an error if an item it needs is missing from your catalog. Set MYSTICPARADOX_CATALOG_PATH to read
+with an error if an item it needs is missing from your catalog. Set RUSTIC_ISLES_CATALOG_PATH to read
 a catalog from another location.
 
 ## 5. Progression config and Lady Luck store

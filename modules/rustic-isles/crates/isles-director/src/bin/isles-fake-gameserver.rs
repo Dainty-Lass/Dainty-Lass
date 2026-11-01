@@ -81,13 +81,13 @@ fn main() -> ExitCode {
         eprintln!("usage: <key> <port> <map> <behemoth> <mm hunt> <players> <address> [switches]");
         return ExitCode::from(2);
     };
-    let launch = std::env::var("MYSTICPARADOX_GAMESERVER_LAUNCH_ID").unwrap_or_default();
+    let launch = std::env::var("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID").unwrap_or_default();
     println!(
         "FAKE_ARGS {}",
         serde_json::json!({
             "args": args,
             "launchId": launch,
-            "trialsWeek": std::env::var("MYSTICPARADOX_TRIALS_WEEK").ok(),
+            "trialsWeek": std::env::var("RUSTIC_ISLES_TRIALS_WEEK").ok(),
             "inherited": std::env::var("REFORGED_SERVER_MAX_FPS").ok(),
         })
     );
@@ -117,8 +117,8 @@ fn main() -> ExitCode {
     if map != "/Game/Maps/silent" {
         println!("LogNet: listening");
         // Another launch's marker is ignored
-        println!("MYSTICPARADOX_GAMESERVER_READY launchId=00000000-0000-4000-8000-000000000000 port={port}");
-        println!("MYSTICPARADOX_GAMESERVER_READY launchId={launch} port={port}");
+        println!("RUSTIC_ISLES_GAMESERVER_READY launchId=00000000-0000-4000-8000-000000000000 port={port}");
+        println!("RUSTIC_ISLES_GAMESERVER_READY launchId={launch} port={port}");
         std::io::stdout().flush().unwrap();
     }
     if map == "/Game/Maps/chatty" {

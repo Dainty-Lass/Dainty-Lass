@@ -40,25 +40,25 @@ export function IsRateLimited(key: string, maxAttempts: number, windowMs: number
 // address: gameserver-keyed calls, because every hub and hunt on one host shares its address, and everything else
 // (game clients, launchers, the dashboard). The header only picks the bucket - HasParadoxBackendAuth still checks
 // the key. Measured on the local stack 11 Oct: one player's login burst peaks at ~130 requests a minute, the hub
-// serving that player at ~70. MYSTICPARADOX_RATE_LIMIT=off disables the budget;
-// MYSTICPARADOX_RATE_LIMIT_PER_MINUTE and MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE change it.
+// serving that player at ~70. RUSTIC_ISLES_RATE_LIMIT=off disables the budget;
+// RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE and RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE change it.
 export const DEFAULT_REQUESTS_PER_MINUTE = 600;
 export const DEFAULT_GAMESERVER_REQUESTS_PER_MINUTE = 6000;
 // [2026-10-11 P2P, plan 39_ §13.1 B4] A third bucket: a runtime credential an optional module validated (a player
 // host's capability, src/extensions/p2p.ts rateLimitBucket) gets its own budget, keyed by that credential. A player
 // host's game server, its bridge's lease/admission calls and its Guard evidence all came from the host's address and
 // shared its 600/min client bucket with the host's own game client and launcher. An unvalidated credential keeps the
-// per-address client bucket. MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE changes the budget (default as for gameservers).
+// per-address client bucket. RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE changes the budget (default as for gameservers).
 export const DEFAULT_HOST_REQUESTS_PER_MINUTE = 6000;
 
 export type HostRateLimitBucketResolver = (req: Request) => Promise<string | undefined>;
 
 const ResolveModuleBucket: HostRateLimitBucketResolver = (req) => GetP2PExtension().http.rateLimitBucket(req);
-const HostBucketFlag = Symbol("MysticParadoxHostRateLimitBucket");
-const CountedFlag = Symbol("MysticParadoxRequestRateLimited");
+const HostBucketFlag = Symbol("RusticIslesHostRateLimitBucket");
+const CountedFlag = Symbol("RusticIslesRequestRateLimited");
 
 function IsGameserverRequest(req: Request): boolean {
-    return req.headers["x-mysticparadox-gameserver-apikey"] !== undefined;
+    return req.headers["x-rustic-isles-gameserver-apikey"] !== undefined;
 }
 
 function PositiveInteger(value: string | undefined, fallback: number): number {
@@ -70,11 +70,11 @@ export function RequestRateLimitOptions(
     environment: NodeJS.ProcessEnv = process.env,
     resolveHostBucket: HostRateLimitBucketResolver = ResolveModuleBucket
 ): Partial<Options> {
-    const Disabled = /^(0|off|false|no)$/i.test(environment.MYSTICPARADOX_RATE_LIMIT?.trim() ?? "");
-    const PerMinute = PositiveInteger(environment.MYSTICPARADOX_RATE_LIMIT_PER_MINUTE, DEFAULT_REQUESTS_PER_MINUTE);
+    const Disabled = /^(0|off|false|no)$/i.test(environment.RUSTIC_ISLES_RATE_LIMIT?.trim() ?? "");
+    const PerMinute = PositiveInteger(environment.RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE, DEFAULT_REQUESTS_PER_MINUTE);
     const GameserverPerMinute = PositiveInteger(
-        environment.MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE, DEFAULT_GAMESERVER_REQUESTS_PER_MINUTE);
-    const HostPerMinute = PositiveInteger(environment.MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE, DEFAULT_HOST_REQUESTS_PER_MINUTE);
+        environment.RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE, DEFAULT_GAMESERVER_REQUESTS_PER_MINUTE);
+    const HostPerMinute = PositiveInteger(environment.RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE, DEFAULT_HOST_REQUESTS_PER_MINUTE);
     return {
         windowMs: 60_000,
         // express-rate-limit computes the key before the limit, so the key generator records the bucket it chose.

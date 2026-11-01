@@ -112,7 +112,7 @@ export async function AuthorizeP2PInventoryTransaction(req: Request, context: In
     // [2026-10-11 B9, decision 1 of 39_ §13] Hard deny list (hostGrantPolicy.ts): Platinum and premium currency, Hunt
     // Pass items, cosmetics and entitlements never come from a host, and a no-reward session (Training, B7) grants and
     // spends nothing. The whole transaction is refused - a legitimate hunt never sends these, so a transaction that does
-    // is not trusted with the rest of its contents either. [2026-10-16] Only in enforce mode (MYSTICPARADOX_HOST_POLICY): in
+    // is not trusted with the rest of its contents either. [2026-10-16] Only in enforce mode (RUSTIC_ISLES_HOST_POLICY): in
     // observe, the default, the refusal is logged as [HostPolicyObserve] and the transaction proceeds (hostPolicyMode.ts). Who may
     // write (the denial above, the character check below, the emergency stop) is enforced in both modes.
     // [2026-10-13 realms S3] The one Hunt Pass item let through is the claim-funded season-challenge coin grant
@@ -130,7 +130,7 @@ export async function AuthorizeP2PInventoryTransaction(req: Request, context: In
             `transaction=${context.transactionId} classes=${grantDenial.classes.join(",")} denied=${grantDenial.summary}` +
             (DraftPremiumPrecheck !== undefined && !DraftPremiumPrecheck.allowed ? ` draftPremium=${DraftPremiumPrecheck.reason}` : "") +
             (hunt?.hubKind != undefined ? ` hub=${hunt.hubKind}` : "");
-        // [2026-10-16] Observe mode (MYSTICPARADOX_HOST_POLICY, the default): the
+        // [2026-10-16] Observe mode (RUSTIC_ISLES_HOST_POLICY, the default): the
         // class deny list and the no-reward session are logged and the transaction proceeds; the ledger row and [GrantMon] record it.
         if (!HostPolicyRefuses()) {
             NoteHostPolicyWouldRefuse("grant", grantTags);

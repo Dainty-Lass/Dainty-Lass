@@ -23,7 +23,7 @@ const HASH_D = "d".repeat(64);
 const HASH_E = "e".repeat(64);
 
 const COMPLETE_ARTIFACTS = [
-    { name: "MysticParadox.dll", sha256: HASH_A },
+    { name: "Rustic-Isles.dll", sha256: HASH_A },
     { name: "winmm.dll", sha256: HASH_B },
     { name: "coop-transport.dll", sha256: HASH_C },
     { name: "coop-runtime.dll", sha256: HASH_D },
@@ -35,7 +35,7 @@ function expectLauncherError(action: () => unknown, code: string): void {
 }
 
 function withManifest(action: (root: string) => void): void {
-    const Root = fs.mkdtempSync(path.join(os.tmpdir(), "mysticparadox-runtime-auth-optional-"));
+    const Root = fs.mkdtempSync(path.join(os.tmpdir(), "rustic-isles-runtime-auth-optional-"));
     const PreviousTarget = process.env.TARGET_CHANGELIST;
     process.env.TARGET_CHANGELIST = "392819";
     try {

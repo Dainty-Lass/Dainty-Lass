@@ -9,7 +9,7 @@
 import { logger } from "../logger";
 import { DedicatedServersConfigured } from "./dedicatedServers";
 
-export const OFFICIAL_PLAY_ENV = "MYSTICPARADOX_OFFICIAL_PLAY";
+export const OFFICIAL_PLAY_ENV = "RUSTIC_ISLES_OFFICIAL_PLAY";
 /** What the launcher shows when official play is off (the status route and the refused game session both say it). */
 export const OFFICIAL_PLAY_UNAVAILABLE_MESSAGE = "The official server is currently unavailable. Join or host a realm.";
 
@@ -27,10 +27,10 @@ function Unavailable(): OfficialPlayStatus {
 }
 
 /**
- * [2026-10-15] MYSTICPARADOX_OFFICIAL_PLAY=on|off: whether official play (a launch with no realm) is offered. Unset or blank is the
+ * [2026-10-15] RUSTIC_ISLES_OFFICIAL_PLAY=on|off: whether official play (a launch with no realm) is offered. Unset or blank is the
  * default: on when DEPLOYSERVER_URL is set, otherwise off, because official hunts and hubs need a DeployServer. Only on and off are
  * recognised, case-insensitively and trimmed. Any other value fails closed to off, with one warning, as
- * MYSTICPARADOX_REGISTRATION_APPROVAL does. Realm play is not affected by this switch.
+ * RUSTIC_ISLES_REGISTRATION_APPROVAL does. Realm play is not affected by this switch.
  */
 export function ReadOfficialPlay(environment: NodeJS.ProcessEnv = process.env): OfficialPlayStatus {
     const raw = (environment[OFFICIAL_PLAY_ENV] ?? "").trim().toLowerCase();

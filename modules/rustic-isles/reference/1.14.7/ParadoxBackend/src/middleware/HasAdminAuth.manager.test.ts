@@ -65,11 +65,11 @@ function SignedHeaders(method: string, target: string, body: Buffer | undefined,
 
 async function WithServer(run: (port: number) => Promise<void>): Promise<void> {
     const Previous = {
-        switch: process.env.MYSTICPARADOX_MANAGER_ADMIN,
-        secret: process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET
+        switch: process.env.RUSTIC_ISLES_MANAGER_ADMIN,
+        secret: process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET
     };
-    process.env.MYSTICPARADOX_MANAGER_ADMIN = "on";
-    process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET = SECRET;
+    process.env.RUSTIC_ISLES_MANAGER_ADMIN = "on";
+    process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET = SECRET;
     const server = ProbeApp().listen(0, "127.0.0.1");
     await new Promise<void>((resolve, reject) => {
         server.once("listening", () => resolve());
@@ -80,8 +80,8 @@ async function WithServer(run: (port: number) => Promise<void>): Promise<void> {
         await run(Port);
     } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
-        if (Previous.switch == undefined) delete process.env.MYSTICPARADOX_MANAGER_ADMIN; else process.env.MYSTICPARADOX_MANAGER_ADMIN = Previous.switch;
-        if (Previous.secret == undefined) delete process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET; else process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET = Previous.secret;
+        if (Previous.switch == undefined) delete process.env.RUSTIC_ISLES_MANAGER_ADMIN; else process.env.RUSTIC_ISLES_MANAGER_ADMIN = Previous.switch;
+        if (Previous.secret == undefined) delete process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET; else process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET = Previous.secret;
     }
 }
 
@@ -163,10 +163,10 @@ test("a body sent as text (not captured as JSON) is refused with 400 rather than
 });
 
 test("with the switch off, operator headers are ignored and the cookie session decides (401, no cookie)", async () => {
-    const Previous = process.env.MYSTICPARADOX_MANAGER_ADMIN;
-    const PreviousSecret = process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET;
-    process.env.MYSTICPARADOX_MANAGER_ADMIN = "off";
-    process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET = SECRET;
+    const Previous = process.env.RUSTIC_ISLES_MANAGER_ADMIN;
+    const PreviousSecret = process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET;
+    process.env.RUSTIC_ISLES_MANAGER_ADMIN = "off";
+    process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET = SECRET;
     try {
         const server = ProbeApp().listen(0, "127.0.0.1");
         await new Promise<void>((resolve) => server.once("listening", () => resolve()));
@@ -180,8 +180,8 @@ test("with the switch off, operator headers are ignored and the cookie session d
             await new Promise<void>((resolve) => server.close(() => resolve()));
         }
     } finally {
-        if (Previous == undefined) delete process.env.MYSTICPARADOX_MANAGER_ADMIN; else process.env.MYSTICPARADOX_MANAGER_ADMIN = Previous;
-        if (PreviousSecret == undefined) delete process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET; else process.env.MYSTICPARADOX_MANAGER_OPERATOR_SECRET = PreviousSecret;
+        if (Previous == undefined) delete process.env.RUSTIC_ISLES_MANAGER_ADMIN; else process.env.RUSTIC_ISLES_MANAGER_ADMIN = Previous;
+        if (PreviousSecret == undefined) delete process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET; else process.env.RUSTIC_ISLES_MANAGER_OPERATOR_SECRET = PreviousSecret;
     }
 });
 

@@ -25,23 +25,23 @@ pub const QOS_PORT: SharedSwitch = SharedSwitch {
     help: "The region-ping listener's port, or off",
 };
 pub const REFORGE: SharedSwitch = SharedSwitch {
-    env: "MYSTICPARADOX_REFORGE",
+    env: "RUSTIC_ISLES_REFORGE",
     key: "reforge",
     help: "Weapon reforge rules: on, log or off",
 };
 pub const MASTERY_PERSISTENCE: SharedSwitch = SharedSwitch {
-    env: "MYSTICPARADOX_MASTERY_PERSISTENCE",
+    env: "RUSTIC_ISLES_MASTERY_PERSISTENCE",
     key: "mastery_persistence",
     help: "Whether a game server's mastery report is saved: on or off",
 };
 
 pub const BOUNTY_PERSISTENCE: SharedSwitch = SharedSwitch {
-    env: "MYSTICPARADOX_BOUNTY_PERSISTENCE",
+    env: "RUSTIC_ISLES_BOUNTY_PERSISTENCE",
     key: "bounty_persistence",
     help: "Whether bounty saves are stored: on or off",
 };
 pub const COOLDOWN_PERSISTENCE: SharedSwitch = SharedSwitch {
-    env: "MYSTICPARADOX_COOLDOWN_PERSISTENCE",
+    env: "RUSTIC_ISLES_COOLDOWN_PERSISTENCE",
     key: "cooldown_persistence",
     help: "Whether cooldown saves are stored: on or off",
 };
@@ -56,15 +56,15 @@ pub const SWITCHES: [SharedSwitch; 5] = [
 
 /// Additional `[switches]` keys in `host.toml` whose defaults are not version-table overrides.
 pub const OPTIONAL_SWITCHES: [(&str, &str); 6] = [
-    ("account_erasure", "MYSTICPARADOX_ACCOUNT_ERASURE"),
-    ("log_purge", "MYSTICPARADOX_LOG_PURGE"),
-    ("rate_limit", "MYSTICPARADOX_RATE_LIMIT"),
-    ("rate_limit_per_minute", "MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"),
+    ("account_erasure", "RUSTIC_ISLES_ACCOUNT_ERASURE"),
+    ("log_purge", "RUSTIC_ISLES_LOG_PURGE"),
+    ("rate_limit", "RUSTIC_ISLES_RATE_LIMIT"),
+    ("rate_limit_per_minute", "RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE"),
     (
         "gameserver_rate_limit_per_minute",
-        "MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE",
+        "RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE",
     ),
-    ("host_rate_limit_per_minute", "MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"),
+    ("host_rate_limit_per_minute", "RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE"),
 ];
 
 fn parse_positive_int(raw: Option<&str>, fallback: u32) -> u32 {
@@ -96,6 +96,8 @@ pub struct Settings {
 impl Settings {
     /// `env` from the env file; `switches` the `[switches]` section as config text.
     pub fn new(env: BTreeMap<String, String>, switches: BTreeMap<String, String>) -> Self {
+        let mut env = env;
+        crate::legacy::accept_legacy_env(&mut env);
         Self {
             env,
             switches,
@@ -104,8 +106,10 @@ impl Settings {
     }
 
     pub fn from_pairs<'a>(pairs: impl IntoIterator<Item = (&'a str, &'a str)>) -> Self {
+        let mut env = pairs.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
+        crate::legacy::accept_legacy_env(&mut env);
         Self {
-            env: pairs.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
+            env,
             switches: BTreeMap::new(),
             forced: BTreeMap::new(),
         }
@@ -193,33 +197,33 @@ impl Settings {
             .any(|off| value.eq_ignore_ascii_case(off))
     }
 
-    /// `MYSTICPARADOX_RATE_LIMIT` (`security/rateLimit.ts`): on unless `0`, `off`, `false` or `no` (trimmed, any case).
+    /// `RUSTIC_ISLES_RATE_LIMIT` (`security/rateLimit.ts`): on unless `0`, `off`, `false` or `no` (trimmed, any case).
     pub fn rate_limit_enabled(&self) -> bool {
-        let raw = self.raw("MYSTICPARADOX_RATE_LIMIT").unwrap_or("on").trim();
+        let raw = self.raw("RUSTIC_ISLES_RATE_LIMIT").unwrap_or("on").trim();
         !["0", "off", "false", "no"]
             .iter()
             .any(|off| raw.eq_ignore_ascii_case(off))
     }
 
-    /// `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 600.
+    /// `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 600.
     pub fn rate_limit_per_minute(&self) -> u32 {
-        parse_positive_int(self.raw("MYSTICPARADOX_RATE_LIMIT_PER_MINUTE"), 600)
+        parse_positive_int(self.raw("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE"), 600)
     }
 
-    /// `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 6000.
+    /// `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 6000.
     pub fn gameserver_rate_limit_per_minute(&self) -> u32 {
-        parse_positive_int(self.raw("MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE"), 6000)
+        parse_positive_int(self.raw("RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE"), 6000)
     }
 
-    /// `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 6000.
+    /// `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE` (`security/rateLimit.ts`), default 6000.
     pub fn host_rate_limit_per_minute(&self) -> u32 {
-        parse_positive_int(self.raw("MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE"), 6000)
+        parse_positive_int(self.raw("RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE"), 6000)
     }
 
-    /// `MYSTICPARADOX_ADMIN_API` (`config/adminApi.ts`): `on`, `off`, or blank to follow the manager bridge.
+    /// `RUSTIC_ISLES_ADMIN_API` (`config/adminApi.ts`): `on`, `off`, or blank to follow the manager bridge.
     pub fn admin_api(&self) -> Result<bool, SettingsError> {
         let raw = self
-            .raw("MYSTICPARADOX_ADMIN_API")
+            .raw("RUSTIC_ISLES_ADMIN_API")
             .unwrap_or_default()
             .trim()
             .to_lowercase();
@@ -229,7 +233,7 @@ impl Settings {
             "" => {
                 // ReadManagerOperatorSwitch (security/managerOperator.ts)
                 let manager = self
-                    .raw("MYSTICPARADOX_MANAGER_ADMIN")
+                    .raw("RUSTIC_ISLES_MANAGER_ADMIN")
                     .unwrap_or_default()
                     .trim()
                     .to_lowercase();
@@ -237,14 +241,14 @@ impl Settings {
                     "" | "off" => Ok(false),
                     "on" => Ok(true),
                     _ => Err(SettingsError::Value {
-                        name: "MYSTICPARADOX_MANAGER_ADMIN".into(),
+                        name: "RUSTIC_ISLES_MANAGER_ADMIN".into(),
                         message: "must be on or off (blank means off)".into(),
                     }),
                 }
             }
             _ => Err(SettingsError::Value {
-                name: "MYSTICPARADOX_ADMIN_API".into(),
-                message: "must be on or off (blank follows MYSTICPARADOX_MANAGER_ADMIN)".into(),
+                name: "RUSTIC_ISLES_ADMIN_API".into(),
+                message: "must be on or off (blank follows RUSTIC_ISLES_MANAGER_ADMIN)".into(),
             }),
         }
     }
@@ -266,11 +270,11 @@ mod tests {
         let section = BTreeMap::from([("qos_port".to_owned(), json!(80)), ("reforge".to_owned(), json!("off"))]);
         let switches = Settings::switches_from_config(Some(&section));
         assert_eq!(switches.get("QOS_PORT").map(String::as_str), Some("80"));
-        let env = BTreeMap::from([("MYSTICPARADOX_REFORGE".to_owned(), "log".to_owned())]);
+        let env = BTreeMap::from([("RUSTIC_ISLES_REFORGE".to_owned(), "log".to_owned())]);
         let settings = Settings::new(env, switches);
-        assert_eq!(settings.get("MYSTICPARADOX_REFORGE"), Some("log"));
+        assert_eq!(settings.get("RUSTIC_ISLES_REFORGE"), Some("log"));
         assert_eq!(settings.get("QOS_PORT"), Some("80"));
-        assert_eq!(settings.get("MYSTICPARADOX_MASTERY_PERSISTENCE"), None);
+        assert_eq!(settings.get("RUSTIC_ISLES_MASTERY_PERSISTENCE"), None);
     }
 
     #[test]
@@ -279,17 +283,17 @@ mod tests {
         assert!(!Settings::from_pairs([("X", "OFF")]).on_unless_off("X"));
         assert!(!Settings::default().admin_api().unwrap());
         assert!(
-            Settings::from_pairs([("MYSTICPARADOX_ADMIN_API", " On ")])
+            Settings::from_pairs([("RUSTIC_ISLES_ADMIN_API", " On ")])
                 .admin_api()
                 .unwrap()
         );
         assert!(
-            Settings::from_pairs([("MYSTICPARADOX_MANAGER_ADMIN", "on")])
+            Settings::from_pairs([("RUSTIC_ISLES_MANAGER_ADMIN", "on")])
                 .admin_api()
                 .unwrap()
         );
         assert!(
-            Settings::from_pairs([("MYSTICPARADOX_ADMIN_API", "yes")])
+            Settings::from_pairs([("RUSTIC_ISLES_ADMIN_API", "yes")])
                 .admin_api()
                 .is_err()
         );

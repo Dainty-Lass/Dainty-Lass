@@ -64,7 +64,7 @@ async fn replay(case: &Value, routes: RouteSet) -> Vec<String> {
             "LAUNCHER_LOG_STORAGE_DIR".into(),
             dir.path().join("logs").display().to_string(),
         ),
-        ("MYSTICPARADOX_ADMIN_API".into(), "on".into()),
+        ("RUSTIC_ISLES_ADMIN_API".into(), "on".into()),
         (
             "API_KEY_HASH_SECRET".into(),
             "a-test-secret-of-at-least-32-characters".into(),

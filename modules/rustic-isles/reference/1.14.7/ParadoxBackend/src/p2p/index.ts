@@ -52,8 +52,8 @@ function LiteralTrue(value: string | undefined): boolean {
 export function P2PRuntimeSafetyIssues(environment: NodeJS.ProcessEnv): string[] {
     const production = environment.NODE_ENV === "production";
     const p2pEnabled = LiteralTrue(environment.P2P_HUNTS_ENABLED);
-    if (p2pEnabled && !production && !LiteralTrue(environment.MYSTICPARADOX_ALLOW_LOCAL_P2P_DEV)) {
-        throw new Error("P2P_HUNTS_ENABLED requires NODE_ENV=production (or the explicit local-only MYSTICPARADOX_ALLOW_LOCAL_P2P_DEV=true override)");
+    if (p2pEnabled && !production && !LiteralTrue(environment.RUSTIC_ISLES_ALLOW_LOCAL_P2P_DEV)) {
+        throw new Error("P2P_HUNTS_ENABLED requires NODE_ENV=production (or the explicit local-only RUSTIC_ISLES_ALLOW_LOCAL_P2P_DEV=true override)");
     }
     const unsafe: string[] = [];
     if (p2pEnabled && !LiteralTrue(environment.P2P_DISTRIBUTED_TRAFFIC_LIMITER)) {
@@ -100,11 +100,11 @@ export function CreateP2PExtension(): P2PExtension {
                 ...Policy().P2PPolicySummary(Policy().ReadP2PPolicy()),
                 // [2026-10-13] ICE co-op transport: whether STUN/TURN, the quota and the pair-key secret are set.
                 ...IcePolicy().P2PIceSummary(IcePolicy().ReadP2PIceConfig()),
-                // [2026-10-13 realms S1] MYSTICPARADOX_REALMS_HOSTING: realm hubs on players' PCs (needs the ICE switches above).
+                // [2026-10-13 realms S1] RUSTIC_ISLES_REALMS_HOSTING: realm hubs on players' PCs (needs the ICE switches above).
                 realmHostingEnabled: RealmHubPolicy().IsRealmHostingEnabled(),
-                // [2026-10-16] MYSTICPARADOX_HOST_POLICY: observe (default) lets host grant classes, the draft token cap and write kinds through.
+                // [2026-10-16] RUSTIC_ISLES_HOST_POLICY: observe (default) lets host grant classes, the draft token cap and write kinds through.
                 hostPolicy: HostPolicyMode().ResolveHostPolicyMode().mode,
-                // [2026-10-17] MYSTICPARADOX_HUNT_EVIDENCE: hosted hunts send Hunt Guard evidence (off by default at tier 0).
+                // [2026-10-17] RUSTIC_ISLES_HUNT_EVIDENCE: hosted hunts send Hunt Guard evidence (off by default at tier 0).
                 huntEvidence: HuntEvidence().HuntEvidenceEnabled()
             }),
             ensureDatabase: (db) => Indexes().EnsureP2PDatabase(db),
@@ -126,7 +126,7 @@ export function CreateP2PExtension(): P2PExtension {
                 RegisterMetricsSection(P2PMetricsSection);
                 Lifecycle().p2pHuntLifecycleMonitor.start();
                 // [2026-10-14 M1] One line: which source resolves player-hosted hunt manifests, and how many hunts the local tables resolve.
-                // An invalid MYSTICPARADOX_HUNT_MANIFEST_SOURCE stops startup here.
+                // An invalid RUSTIC_ISLES_HUNT_MANIFEST_SOURCE stops startup here.
                 HuntManifest().LogHuntManifestSource();
                 // [2026-10-13 realms S1] The realms module tells the hubs about kicks, bans and a released realm (its event sink).
                 if (RealmHubPolicy().IsRealmHostingEnabled()) {
@@ -150,7 +150,7 @@ export function CreateP2PExtension(): P2PExtension {
         http: {
             // The hunts router carries its own route-specific JSON limit for Guard batches.
             mountEarlyRoutes: (app) => {
-                // [2026-10-14 realms wave 2] Observe-only census of the routes a player-host runtime calls (MYSTICPARADOX_HOST_ROUTE_CENSUS=off
+                // [2026-10-14 realms wave 2] Observe-only census of the routes a player-host runtime calls (RUSTIC_ISLES_HOST_ROUTE_CENSUS=off
                 // unmounts it). Mounted before every router so it sees each answered request.
                 const census = HostRouteCensus().hostRouteCensus;
                 if (census.enabled) app.use(census.middleware());

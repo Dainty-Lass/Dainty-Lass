@@ -420,14 +420,14 @@ test("a realm host with no client submits host-only presence: accepted only with
         const Body = PresenceBody({
             realmHostSessions: 1, guardRequiredRoles: ["host"], guardSessions: [{ role: "host", guardSessionId: hostGuard }]
         });
-        const Previous = process.env.MYSTICPARADOX_GUARD_MODE;
-        process.env.MYSTICPARADOX_GUARD_MODE = "enforce";
+        const Previous = process.env.RUSTIC_ISLES_GUARD_MODE;
+        process.env.RUSTIC_ISLES_GUARD_MODE = "enforce";
         try {
             await assert.rejects(() => SubmitHostPresence(HOST, Body), (error: unknown) =>
                 error instanceof LauncherApiError && error.code === "GUARD_REQUIRED");
         } finally {
-            if (Previous === undefined) delete process.env.MYSTICPARADOX_GUARD_MODE;
-            else process.env.MYSTICPARADOX_GUARD_MODE = Previous;
+            if (Previous === undefined) delete process.env.RUSTIC_ISLES_GUARD_MODE;
+            else process.env.RUSTIC_ISLES_GUARD_MODE = Previous;
         }
         // The default (observe): the same report is accepted; the refusal it would make is logged, not applied.
         const observed = await SubmitHostPresence(HOST, Body);
@@ -447,7 +447,7 @@ test("a realm hunt is created with its manifest from the local hunt tables, and 
         throw new Error("DeployServer is unreachable in this test");
     }) as typeof fetch;
     try {
-        await WithEnvironment({ PARADOX_HUNT_DATA_DIR: Dir, DEPLOYSERVER_URL: "127.0.0.1:9", MYSTICPARADOX_HUNT_MANIFEST_SOURCE: undefined }, async () => {
+        await WithEnvironment({ PARADOX_HUNT_DATA_DIR: Dir, DEPLOYSERVER_URL: "127.0.0.1:9", RUSTIC_ISLES_HUNT_MANIFEST_SOURCE: undefined }, async () => {
             await WithKit(async (kit) => {
                 SetHuntManifestResolverForTest(undefined); // the kit installs a stub; this is the real request path
                 const { hunt } = await RealmHunt(kit, "party-local-manifest", [MEMBER, FRIEND], SYNTHETIC_HUNT_ID);

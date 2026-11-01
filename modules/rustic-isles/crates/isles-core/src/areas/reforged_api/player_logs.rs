@@ -622,7 +622,7 @@ mod tests {
                 dir.path(),
                 "u1",
                 SESSION,
-                "runtime-mysticparadox_dll_port1.log"
+                "runtime-rustic_isles_dll_port1.log"
             )),
             "PLAYER_LOG_NOT_FOUND"
         );

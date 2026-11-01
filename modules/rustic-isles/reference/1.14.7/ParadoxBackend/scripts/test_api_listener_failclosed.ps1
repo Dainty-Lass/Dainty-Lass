@@ -60,7 +60,7 @@ $runRoot = Join-Path $outputBase ("run-" + [DateTime]::UtcNow.ToString("yyyyMMdd
 New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 $dbPath = Join-Path $runRoot "mongo"
 New-Item -ItemType Directory -Path $dbPath -Force | Out-Null
-$dbName = "mysticparadox_listener_" + ([Guid]::NewGuid().ToString("N").Substring(0, 10))
+$dbName = "rustic_isles_listener_" + ([Guid]::NewGuid().ToString("N").Substring(0, 10))
 $replicaSet = "listenerTest"
 $mongoUri = "mongodb://127.0.0.1:$MongoPort/$($dbName)?replicaSet=$replicaSet"
 $mongoDirectUri = "mongodb://127.0.0.1:$MongoPort/admin?directConnection=true"
@@ -130,8 +130,8 @@ fs.writeFileSync(output, JSON.stringify({
         "AUTH_SIGNING_PRIVKEY_B64=$($auth.privateKeyB64)",
         "AUTH_SIGNING_PUBKEY_B64=$($auth.publicKeyB64)",
         "REALTIME_XMPP_DEV_CITY_MUC=false",
-        "MYSTICPARADOX_SERVICE_ROLE=api",
-        "MYSTICPARADOX_METRICS_TOKEN=listener-failclosed-test-token",
+        "RUSTIC_ISLES_SERVICE_ROLE=api",
+        "RUSTIC_ISLES_METRICS_TOKEN=listener-failclosed-test-token",
         "MONGODB_URI=$mongoUri",
         "MONGODB_DB=$dbName",
         "MONGODB_APP_NAME=listener-failclosed-test",

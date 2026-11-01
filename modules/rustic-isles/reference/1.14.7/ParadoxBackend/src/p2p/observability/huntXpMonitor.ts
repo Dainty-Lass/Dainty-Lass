@@ -23,10 +23,10 @@ import { P2PCollections } from "../persistence/mongo/collections";
  * [diagnostics 2026-10-14] Per-hunt XP monitor ([XpMon]). When a player-hosted hunt reaches a terminal state, the XP the host
  * wrote for its members (p2pHostWrites rows of kind XP, tagged by controllers/progression.ts TagHostWrite) is summed per member
  * and track family. One line per member; a FLAG when weapon + player XP per minute of the hunt exceeds
- * MYSTICPARADOX_XP_PER_MINUTE_FLAG; one summary row per member (p2pHuntXpSummaries). Monitoring only: per-hunt XP has no limit
+ * RUSTIC_ISLES_XP_PER_MINUTE_FLAG; one summary row per member (p2pHuntXpSummaries). Monitoring only: per-hunt XP has no limit
  * (owner decision, 14 Oct: re-killing respawning Behemoths is intended play), so a flag is for review, never a refusal.
  * It runs after the terminal transition has committed (ScheduleHuntXpMonitor) and never blocks the hunt's end.
- * Realm hubs have no XP and are skipped. MYSTICPARADOX_ECONOMY_MONITOR=off disables it with the other economy monitors.
+ * Realm hubs have no XP and are skipped. RUSTIC_ISLES_ECONOMY_MONITOR=off disables it with the other economy monitors.
  */
 
 export type XpFamily = "weapon" | "player" | "huntPass" | "prestige" | "other";

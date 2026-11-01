@@ -47,10 +47,11 @@ import { MountRealmsModule } from "./realms";
 import { TRUST_PROXY_SETTING } from "./config/proxyTrust";
 import { CaptureAdminRawBody } from "./security/managerOperator";
 import { reforgedApiRouter } from "./routes/reforgedApi";
+import { AcceptLegacyHeaders } from "./legacyNames";
 
 // Optional player-hosted hunt module (dedicated-only defaults when it is absent).
 const Extension = GetP2PExtension();
-// [2026-10-15] MYSTICPARADOX_ADMIN_API (config/adminApi.ts): off unless set, or unless the manager bridge is on. An invalid value
+// [2026-10-15] RUSTIC_ISLES_ADMIN_API (config/adminApi.ts): off unless set, or unless the manager bridge is on. An invalid value
 // throws here, so startup stops.
 export const AdminApi = ReadAdminApiPolicy();
 
@@ -74,13 +75,14 @@ function isAllowedOriginHost(host: string): boolean {
 export const app = express();
 
 // req.ip / X-Forwarded-For trust. With the in-process HTTPS listener the game connects straight to this
-// server. [2026-10-14 M2] Behind nginx (MYSTICPARADOX_TLS_TERMINATED_BY_PROXY=on) the peer is the loopback
+// server. [2026-10-14 M2] Behind nginx (RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY=on) the peer is the loopback
 // proxy, so req.ip is the client the proxy forwarded (per-IP rate limiting, security/rateLimit.ts); any other
 // peer is its own address, whatever X-Forwarded-For says (config/proxyTrust.ts, tested).
 app.set("trust proxy", TRUST_PROXY_SETTING);
 
 // Install the request context before parsers and routers so every downstream async log,
 // including the DeployServer fetch, carries one safe correlation identifier.
+app.use(AcceptLegacyHeaders);
 app.use(RequestContextMiddleware);
 
 // [1.12.0 in-process HTTPS redirect] The injected DLL hooks FCurlHttpRequest::SetURL
@@ -122,8 +124,8 @@ app.use((req, res, next) => {
 // /__origin requests. The hub logs "Json Value of type 'String' used as a 'Object'" three times at
 // tick 2 while loading player data, and every candidate endpoint's shape has been checked by hand -
 // this records what the client really received so the offending payload can be identified instead of
-// guessed. Off unless MYSTICPARADOX_LOG_ORIGIN_BODIES=1.
-if ((process.env.MYSTICPARADOX_LOG_ORIGIN_BODIES ?? "0") === "1") {
+// guessed. Off unless RUSTIC_ISLES_LOG_ORIGIN_BODIES=1.
+if ((process.env.RUSTIC_ISLES_LOG_ORIGIN_BODIES ?? "0") === "1") {
     app.use((req, res, next) => {
         if ((req as OriginTaggedRequest).originHost === undefined) { next(); return; }
         const originalJson = res.json.bind(res);
@@ -146,17 +148,17 @@ const RequestLimiter = CreateRequestRateLimiter();
 // completion) used to bypass it, so a refused completion or lease never appeared in the backend log.
 // Log every incoming request BEFORE any router so we can definitively answer:
 //   1. Does this request reach the metagame at all?
-//   2. Does it carry the x-mysticparadox-gameserver-apikey header? (→ IsGameserver path)
+//   2. Does it carry the x-rustic-isles-gameserver-apikey header? (→ IsGameserver path)
 //   3. What status did it return, and how long did it take?
 //
 // Kept minimal to avoid log noise: method + host + sanitized path/query + gsKey presence +
 // status/timing. Sensitive query values are replaced before logging; headers and bodies are omitted.
 // [BODY-CAPTURE] Toggle: dump request bodies for progression/store/currency POST paths to learn the client
-// contract (Slayer's Path unlocks, currency spends). OFF by default; enable with env MYSTICPARADOX_BODY_CAPTURE=1
+// contract (Slayer's Path unlocks, currency spends). OFF by default; enable with env RUSTIC_ISLES_BODY_CAPTURE=1
 // (accepts 1/true/on/yes). Kept behind a flag so it can be re-enabled for future contract debugging.
 /** [2026-10-16] The player-host lease and Guard evidence routes (see the request log below). */
 const HIGH_FREQUENCY_HOST_ROUTE = /^\/mystic\/v1\/hunts\/[^/]+\/(lease|event-batches)$/;
-const BODY_CAPTURE_ENABLED = /^(1|true|on|yes)$/i.test(process.env.MYSTICPARADOX_BODY_CAPTURE ?? "");
+const BODY_CAPTURE_ENABLED = /^(1|true|on|yes)$/i.test(process.env.RUSTIC_ISLES_BODY_CAPTURE ?? "");
 
 app.use((req, res, next) => {
     const started = Date.now();
@@ -164,10 +166,10 @@ app.use((req, res, next) => {
         (req.path.startsWith("/admin/") ? "admin" :
             req.path.startsWith("/health/") ? "health" :
                 req.path.startsWith("/launcher/") ? "launcher" : "game");
-    IncrementMetric("mysticparadox_http_requests_total", 1, { class: metricClass, method: req.method });
-    AdjustMetric("mysticparadox_http_inflight", 1);
+    IncrementMetric("rustic_isles_http_requests_total", 1, { class: metricClass, method: req.method });
+    AdjustMetric("rustic_isles_http_inflight", 1);
     const requestId = GetRequestId() ?? "missing";
-    const gsKey = req.headers["x-mysticparadox-gameserver-apikey"] ? "Y" : "N";
+    const gsKey = req.headers["x-rustic-isles-gameserver-apikey"] ? "Y" : "N";
     const authBearer = typeof req.headers.authorization === "string" && req.headers.authorization.toLowerCase().startsWith("bearer ") ? "Y" : "N";
     const originHost = (req as OriginTaggedRequest).originHost;
     const loggedUrl = sanitizeUrlForLog(req.originalUrl);
@@ -177,9 +179,9 @@ app.use((req, res, next) => {
     const quietWhenOk = HIGH_FREQUENCY_HOST_ROUTE.test(req.path);
     if (!quietWhenOk) logger.info(requestLine);
     res.on("finish", () => {
-        AdjustMetric("mysticparadox_http_inflight", -1);
-        IncrementMetric("mysticparadox_http_responses_total", 1, { class: metricClass, status: `${Math.floor(res.statusCode / 100)}xx` });
-        ObserveMetric("mysticparadox_http_request_duration_ms", Date.now() - started, { class: metricClass });
+        AdjustMetric("rustic_isles_http_inflight", -1);
+        IncrementMetric("rustic_isles_http_responses_total", 1, { class: metricClass, status: `${Math.floor(res.statusCode / 100)}xx` });
+        ObserveMetric("rustic_isles_http_request_duration_ms", Date.now() - started, { class: metricClass });
         // Authentication may add safe ` key=value` tags (for example an optional module's runtime identity).
         const responseTags = typeof res.locals.responseLogTags === "string" ? res.locals.responseLogTags : "";
         if (quietWhenOk && res.statusCode < 400) return;
@@ -279,7 +281,7 @@ if (AdminApi.enabled) {
     app.use("/", adminRouter);
 }
 // [2026-10-13 realms S2] Paradox realms directory (src/realms), /launcher/v1/realms with its own launcher auth. Mounted only
-// when MYSTICPARADOX_REALMS_MODULE is on|true|1; off by default.
+// when RUSTIC_ISLES_REALMS_MODULE is on|true|1; off by default.
 MountRealmsModule(app);
 Extension.http.mountRoutes(app);
 app.use("/", launcherGuardRouter);

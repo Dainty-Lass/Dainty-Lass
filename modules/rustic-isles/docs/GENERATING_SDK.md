@@ -71,7 +71,7 @@ Changing the hostname requires rebuilding the runtime.
 ## Build ParadoxRuntime
 
 The projects select platform toolset v145 (Visual Studio with the Desktop development with C++
-workload). Visual Studio 2022 users can retarget native/runtime/MysticParadox.vcxproj to v143 locally.
+workload). Visual Studio 2022 users can retarget native/runtime/Rustic-Isles.vcxproj to v143 locally.
 
 From a normal PowerShell or Developer Command Prompt:
 
@@ -81,11 +81,11 @@ From a normal PowerShell or Developer Command Prompt:
 The helper finds MSBuild with vswhere, builds Release x64 and returns the real build exit code. The
 equivalent command is:
 
-    msbuild MysticParadox.sln /p:Configuration=Release /p:Platform=x64
+    msbuild Rustic-Isles.sln /p:Configuration=Release /p:Platform=x64
 
 Expected output:
 
-    native\runtime\x64\Release\MysticParadox.dll
+    native\runtime\x64\Release\Rustic-Isles.dll
 
 One DLL serves both the player client and the dedicated servers: it detects `-server` at startup. It
 links the C/C++ runtime statically (/MT), because the game folder ships an older msvcp140.dll that the
@@ -106,10 +106,10 @@ By default the exporter writes to `Items_Analysis` in the injected game's workin
 `export_flags.txt` from there. To send every export to your repository instead, create the ignored
 file native/catalog-exporter/ExportPaths.local.h before building:
 
-    #define MYSTICPARADOX_EXPORT_ROOT L"D:\\MysticParadox"
+    #define RUSTIC_ISLES_EXPORT_ROOT L"D:\\RusticIsles"
 
-Exports then land in `D:\MysticParadox\Items_Analysis` and the flags file is read from
-`D:\MysticParadox\native\catalog-exporter\export_flags.txt`. The game-data generators read
+Exports then land in `D:\RusticIsles\Items_Analysis` and the flags file is read from
+`D:\RusticIsles\native\catalog-exporter\export_flags.txt`. The game-data generators read
 `reference\1.14.7\Items_Analysis`, so move the exports there before running them.
 
 Copy export_flags.example.txt to export_flags.txt, enable only the required modes, and inject the

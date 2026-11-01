@@ -10,7 +10,7 @@ import crypto from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { NextFunction, Request, Response } from "express";
 
-export const REQUEST_ID_HEADER = "x-mysticparadox-request-id";
+export const REQUEST_ID_HEADER = "x-rustic-isles-request-id";
 const MAX_REQUEST_ID_LENGTH = 96;
 const SAFE_REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
 

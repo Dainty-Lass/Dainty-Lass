@@ -18,7 +18,7 @@ import { CooldownStateRecord } from "../persistence/mapping/domainTypes";
 
 // The default hostWrites hooks come from the P2P extension; the dedicated-only build (no p2p module) refuses every host
 // write. Pin that build here so the default-hooks test below does not depend on whether src/p2p exists.
-process.env.MYSTICPARADOX_P2P_MODULE = "off";
+process.env.RUSTIC_ISLES_P2P_MODULE = "off";
 
 /*
  * PUT /cooldown/:userId/:cooldownId (StartCooldownEndpoint) over HTTP, with the real handler chain from

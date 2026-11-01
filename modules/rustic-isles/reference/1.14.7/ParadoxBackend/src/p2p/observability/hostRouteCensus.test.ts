@@ -165,14 +165,14 @@ test("peek reads the window without clearing it", () => {
 
 // ----- the switch -----
 
-test("MYSTICPARADOX_HOST_ROUTE_CENSUS: on unless it is off, 0, false or no", () => {
+test("RUSTIC_ISLES_HOST_ROUTE_CENSUS: on unless it is off, 0, false or no", () => {
     assert.equal(ReadHostRouteCensusEnabled({}), true);
-    assert.equal(ReadHostRouteCensusEnabled({ MYSTICPARADOX_HOST_ROUTE_CENSUS: "on" }), true);
-    assert.equal(ReadHostRouteCensusEnabled({ MYSTICPARADOX_HOST_ROUTE_CENSUS: "off" }), false);
-    assert.equal(ReadHostRouteCensusEnabled({ MYSTICPARADOX_HOST_ROUTE_CENSUS: " OFF " }), false);
-    assert.equal(ReadHostRouteCensusEnabled({ MYSTICPARADOX_HOST_ROUTE_CENSUS: "0" }), false);
-    assert.equal(ReadHostRouteCensusEnabled({ MYSTICPARADOX_HOST_ROUTE_CENSUS: "false" }), false);
-    assert.equal(ReadHostRouteCensusEnabled({ MYSTICPARADOX_HOST_ROUTE_CENSUS: "no" }), false);
+    assert.equal(ReadHostRouteCensusEnabled({ RUSTIC_ISLES_HOST_ROUTE_CENSUS: "on" }), true);
+    assert.equal(ReadHostRouteCensusEnabled({ RUSTIC_ISLES_HOST_ROUTE_CENSUS: "off" }), false);
+    assert.equal(ReadHostRouteCensusEnabled({ RUSTIC_ISLES_HOST_ROUTE_CENSUS: " OFF " }), false);
+    assert.equal(ReadHostRouteCensusEnabled({ RUSTIC_ISLES_HOST_ROUTE_CENSUS: "0" }), false);
+    assert.equal(ReadHostRouteCensusEnabled({ RUSTIC_ISLES_HOST_ROUTE_CENSUS: "false" }), false);
+    assert.equal(ReadHostRouteCensusEnabled({ RUSTIC_ISLES_HOST_ROUTE_CENSUS: "no" }), false);
 });
 
 test("disabled: nothing is counted or logged, no timer starts, and the middleware attaches no listener", () => {
@@ -234,7 +234,7 @@ test("the middleware counts only the host runtime's answered requests, by route 
     for (const secret of ["account-abc-123", "account-plain", "capability-value", "nowhere", "PrestigeTrack"]) {
         assert.equal(text.includes(secret), false, `the summary carries no ${secret}`);
     }
-    assert.match(RenderMetrics(), /mysticparadox_host_route_requests_total\{method="GET",status="2xx"\} 2/);
+    assert.match(RenderMetrics(), /rustic_isles_host_route_requests_total\{method="GET",status="2xx"\} 2/);
     assert.equal(lines.length, 0, "the window has not closed");
     census.flush();
     assert.equal(lines.length, 1);

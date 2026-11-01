@@ -32,7 +32,7 @@ export interface RealmHostingRouterDeps {
     auth?: RequestHandler;
     /**
      * [2026-10-14] Account guards (middleware/RequireActiveAccount.ts). `hosting` refuses a hub start (a deactivated account, or one
-     * without the current consent when MYSTICPARADOX_CONSENT_ENFORCE is on); `active` refuses a deactivated account's peer list.
+     * without the current consent when RUSTIC_ISLES_CONSENT_ENFORCE is on); `active` refuses a deactivated account's peer list.
      * Stopping a hub and reading the status stay open: a host can always end what runs on its PC. Tests substitute pass-throughs.
      */
     guards?: { hosting?: RequestHandler; active?: RequestHandler };
@@ -45,17 +45,17 @@ function AccountIdOf(req: Request): string {
 }
 
 async function Handle(res: Response, operation: string, action: () => Promise<unknown>): Promise<void> {
-    IncrementMetric("mysticparadox_p2p_requests_total", 1, { operation });
+    IncrementMetric("rustic_isles_p2p_requests_total", 1, { operation });
     try {
         res.setHeader("Cache-Control", "no-store");
         res.status(200).json(await action());
     } catch (error) {
         if (error instanceof LauncherApiError) {
-            IncrementMetric("mysticparadox_p2p_errors_total", 1, { code: error.code });
+            IncrementMetric("rustic_isles_p2p_errors_total", 1, { code: error.code });
             SendDetailedLauncherError(res, error);
             return;
         }
-        IncrementMetric("mysticparadox_p2p_errors_total", 1, { code: "INTERNAL" });
+        IncrementMetric("rustic_isles_p2p_errors_total", 1, { code: "INTERNAL" });
         logger.error(`Unhandled realm hosting error requestId=${GetRequestId() ?? "missing"}: ${error}`);
         SendDetailedLauncherError(res, new LauncherApiError("INTERNAL", "The realm hosting request failed."));
     }

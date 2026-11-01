@@ -23,7 +23,7 @@ function Edge(before: number, after: number, pid = 292): string {
 }
 
 function TempLog(): string {
-    return path.join(fs.mkdtempSync(path.join(os.tmpdir(), "occupancy-")), "mysticparadox_dll_port8776.log");
+    return path.join(fs.mkdtempSync(path.join(os.tmpdir(), "occupancy-")), "rustic_isles_dll_port8776.log");
 }
 
 test("follows the runtime's connection edges, from where the log ended when the hub started", () => {
@@ -70,4 +70,17 @@ test("stops only after the idle time, counted from the last of empty, ready and 
     assert.equal(Policy.shouldStop(31 * Minute, 0, 0, 0), false, "empty again: the clock starts now");
     assert.equal(Policy.shouldStop(36 * Minute, 0, 0, 0), true);
     assert.equal(new IdleStopPolicy(0).shouldStop(1e9, 0, 0, 0), false, "0 never stops");
+});
+
+test("a runtime from before the Rustic Isles rename is followed under its old log name until the new one appears", () => {
+    const Dir = fs.mkdtempSync(path.join(os.tmpdir(), "occupancy-"));
+    const File = path.join(Dir, "rustic_isles_dll_port8776.log");
+    const Legacy = path.join(Dir, "mysticparadox_dll_port8776.log");
+    fs.writeFileSync(Legacy, Edge(0, 3, 100));
+    const Occupancy = new RuntimeLogOccupancy(File, Legacy);
+    Occupancy.begin();
+    fs.appendFileSync(Legacy, Edge(-2, 1));
+    assert.equal(Occupancy.poll(), 1);
+    fs.writeFileSync(File, Edge(-2, 2));
+    assert.equal(Occupancy.poll(), 2, "the new file is read from its start");
 });

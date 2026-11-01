@@ -193,7 +193,7 @@ pub const TABLES: VersionTables = VersionTables {
     }),
     masked_journey_nodes: &[MaskedJourneyNode {
         node: "Gauntlet_Unlock",
-        unless: "MYSTICPARADOX_GAUNTLET",
+        unless: "RUSTIC_ISLES_GAUNTLET",
     }],
     starter_manifest: StarterManifest {
         bootstrap_version: "starter-1.12-v5",
@@ -240,7 +240,7 @@ pub const DIRECTOR: DirectorConfig = DirectorConfig {
     },
 };
 
-/// rustic-rifts' crates, stubbed until RF4-RF6, as `MYSTICPARADOX_P2P_MODULE` allows (RF2).
+/// rustic-rifts' crates, stubbed until RF4-RF6, as `RUSTIC_ISLES_P2P_MODULE` allows (RF2).
 #[cfg(feature = "realms")]
 pub fn rifts(settings: &Settings) -> Rifts {
     rifts_with_core(settings, Arc::new(rifts_seam::NoCore))
@@ -343,7 +343,7 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
         let realms_clock: Arc<dyn rifts_realms::ports::Clock> = Arc::new(RealmsClock);
         let realms_enabled = realms_enabled_or_default(settings);
         let mut policy = HostingPolicy::from_settings(settings);
-        if rifts_seam::Settings::get(settings, "MYSTICPARADOX_P2P_HOSTING").is_none() {
+        if rifts_seam::Settings::get(settings, "RUSTIC_ISLES_P2P_HOSTING").is_none() {
             policy.enabled = realms_enabled;
         }
         let service_node = node.unwrap_or_else(|| {
@@ -383,10 +383,10 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
             let capabilities = Arc::new(HostCapabilities::new(db.clone()));
 
             let mut hosting_settings = HostingSettings::from_settings(settings);
-            if rifts_seam::Settings::get(settings, "MYSTICPARADOX_REALMS_HOSTING").is_none() {
+            if rifts_seam::Settings::get(settings, "RUSTIC_ISLES_REALMS_HOSTING").is_none() {
                 hosting_settings.realm_hosting = realms_enabled;
             }
-            if rifts_seam::Settings::get(settings, "MYSTICPARADOX_P2P_HOSTING").is_none() {
+            if rifts_seam::Settings::get(settings, "RUSTIC_ISLES_P2P_HOSTING").is_none() {
                 hosting_settings.policy.enabled = realms_enabled;
             }
             if rifts_seam::Settings::get(settings, "P2P_ALLOW_ALL_ACCOUNTS").is_none()

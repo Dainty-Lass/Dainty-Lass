@@ -17,10 +17,14 @@ use crate::settings::Settings;
 const GAME_AUDIENCE: &str = "paradox-backend";
 const GAME_ISSUER: &str = "paradox-backend";
 const GAME_TTL_SECS: i64 = 24 * 60 * 60;
-const LAUNCHER_AUDIENCE: &str = "mysticparadox-launcher";
+const LAUNCHER_AUDIENCE: &str = "rustic-isles-launcher";
 const LAUNCHER_TTL_SECS: i64 = 12 * 60;
-const STORE_ISSUER: &str = "mysticparadox-store";
-const STORE_AUDIENCE: &str = "mysticparadox-store-purchase";
+const STORE_ISSUER: &str = "rustic-isles-store";
+const STORE_AUDIENCE: &str = "rustic-isles-store-purchase";
+// Signed before the rename and still within their TTL at an update's restart (crate::legacy)
+const LEGACY_LAUNCHER_AUDIENCE: &str = "mysticparadox-launcher";
+const LEGACY_STORE_ISSUER: &str = "mysticparadox-store";
+const LEGACY_STORE_AUDIENCE: &str = "mysticparadox-store-purchase";
 const STORE_TTL_SECS: i64 = 10 * 60;
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -56,10 +60,10 @@ impl TokenKeys {
     }
 
     /// Signature, algorithm, issuer, audience and expiry, with no leeway (jsonwebtoken's default for Node).
-    fn verify(&self, token: &str, issuer: &str, audience: &str) -> Result<Map<String, Value>, TokenError> {
+    fn verify(&self, token: &str, issuers: &[&str], audiences: &[&str]) -> Result<Map<String, Value>, TokenError> {
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.set_issuer(&[issuer]);
-        validation.set_audience(&[audience]);
+        validation.set_issuer(issuers);
+        validation.set_audience(audiences);
         validation.leeway = 0;
         validation.validate_nbf = true;
         jsonwebtoken::decode::<Map<String, Value>>(token, &self.decoding, &validation)
@@ -110,7 +114,7 @@ pub fn sign_game_token(settings: &Settings, user_id: &str) -> Result<String, Tok
 
 /// `ValidateMetagameJWTAndGetPayload`: every claim of a good token, as Node's `AuthData` carries them.
 pub fn validate_game_token(settings: &Settings, token: &str) -> Result<Map<String, Value>, TokenError> {
-    keys(settings)?.verify(token, GAME_ISSUER, GAME_AUDIENCE)
+    keys(settings)?.verify(token, &[GAME_ISSUER], &[GAME_AUDIENCE])
 }
 
 #[derive(Serialize)]
@@ -146,7 +150,7 @@ pub struct LauncherAccessToken {
 /// `ValidateLauncherAccessToken`. Node returns the two claims as they are, so a token without them reaches the
 /// account lookup with `undefined`, which finds nothing: here that is `Invalid` at once.
 pub fn validate_launcher_access_token(settings: &Settings, token: &str) -> Result<LauncherAccessToken, TokenError> {
-    let claims = keys(settings)?.verify(token, GAME_ISSUER, LAUNCHER_AUDIENCE)?;
+    let claims = keys(settings)?.verify(token, &[GAME_ISSUER], &[LAUNCHER_AUDIENCE, LEGACY_LAUNCHER_AUDIENCE])?;
     let text = |name: &str| claims.get(name).and_then(Value::as_str).map(str::to_owned);
     match (text("userId"), text("sid")) {
         (Some(user_id), Some(sid)) => Ok(LauncherAccessToken { user_id, sid }),
@@ -192,7 +196,11 @@ pub fn sign_store_purchase_token(settings: &Settings, payload: &StorePurchaseTok
 
 /// `ValidateStorePurchaseToken`.
 pub fn validate_store_purchase_token(settings: &Settings, token: &str) -> Result<StorePurchaseToken, TokenError> {
-    let claims = keys(settings)?.verify(token, STORE_ISSUER, STORE_AUDIENCE)?;
+    let claims = keys(settings)?.verify(
+        token,
+        &[STORE_ISSUER, LEGACY_STORE_ISSUER],
+        &[STORE_AUDIENCE, LEGACY_STORE_AUDIENCE],
+    )?;
     serde_json::from_value(Value::Object(claims)).map_err(|_| TokenError::Invalid)
 }
 
@@ -312,6 +320,30 @@ mod tests {
         assert!(validate_game_token(&settings, &launcher).is_err());
         assert!(validate_launcher_access_token(&settings, &game).is_err());
         assert!(validate_game_token(&settings, "garbage").is_err());
+    }
+
+    #[test]
+    fn tokens_signed_before_the_rename_still_validate() {
+        let settings = test_key_settings(&[]);
+        let keys = keys(&settings).unwrap();
+        let iat = now_ms().div_euclid(1000);
+        let launcher = keys
+            .sign(
+                &serde_json::json!({ "userId": "u", "sid": "s", "iat": iat, "exp": iat + 60,
+                "aud": "mysticparadox-launcher", "iss": GAME_ISSUER }),
+            )
+            .unwrap();
+        assert_eq!(
+            validate_launcher_access_token(&settings, &launcher).unwrap().user_id,
+            "u"
+        );
+        let store = keys
+            .sign(
+                &serde_json::json!({ "userId": "u", "characterId": "c", "skuId": "k", "iat": iat, "exp": iat + 60,
+                "aud": "mysticparadox-store-purchase", "iss": "mysticparadox-store" }),
+            )
+            .unwrap();
+        assert_eq!(validate_store_purchase_token(&settings, &store).unwrap().sku_id, "k");
     }
 
     #[test]

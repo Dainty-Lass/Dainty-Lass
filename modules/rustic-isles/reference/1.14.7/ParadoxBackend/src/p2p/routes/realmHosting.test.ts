@@ -275,10 +275,10 @@ test("hubs/start counts the servers the realm already runs against the host's ow
 
 test("hubs/start is gated by realm hosting, the P2P switch, the emergency stop and the ICE transport", async () => {
     await WithKit(async (kit) => {
-        const hosting = process.env.MYSTICPARADOX_REALMS_HOSTING;
-        process.env.MYSTICPARADOX_REALMS_HOSTING = "off";
+        const hosting = process.env.RUSTIC_ISLES_REALMS_HOSTING;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = "off";
         ExpectError(await Call("POST", START, HOST, { hubKind: "RAMSGATE" }), 503, "P2P_DISABLED");
-        process.env.MYSTICPARADOX_REALMS_HOSTING = hosting;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = hosting;
 
         const p2p = process.env.P2P_HUNTS_ENABLED;
         process.env.P2P_HUNTS_ENABLED = "false";
@@ -391,10 +391,10 @@ test("hubs/stop is for the realm's host and needs a valid kind; it needs no swit
         ExpectError(await Call("POST", STOP, HOST, { hubKind: "CITY" }), 400, "REALM_VALIDATION_FAILED");
         assert.equal([...kit.hunts.hunts.values()][0].state, "RUNNING");
         // Cleanup works with realm hosting switched off.
-        const hosting = process.env.MYSTICPARADOX_REALMS_HOSTING;
-        process.env.MYSTICPARADOX_REALMS_HOSTING = "off";
+        const hosting = process.env.RUSTIC_ISLES_REALMS_HOSTING;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = "off";
         const reply = await Call("POST", STOP, HOST, { hubKind: "RAMSGATE" });
-        process.env.MYSTICPARADOX_REALMS_HOSTING = hosting;
+        process.env.RUSTIC_ISLES_REALMS_HOSTING = hosting;
         assert.equal(reply.json.stopped, true);
     });
 });

@@ -439,7 +439,7 @@ export async function CreateCharacterForUid(userId: string, characterName: strin
     // ONE atomic Mongo transaction, tagged with starterManifest.ts's BOOTSTRAP_VERSION. Previously
     // inventory/loadout/wallet were each lazily created independently on first GET/access - never
     // atomically, never guaranteed to happen together, and (for inventory/loadout) using SHARED
-    // MYSTICPARADOX_STARTER_* instance IDs reused across every account instead of unique per-player IDs.
+    // RUSTIC_ISLES_STARTER_* instance IDs reused across every account instead of unique per-player IDs.
     let NewCharacter = await GetUnitOfWork().withTransaction(async (Repos, Session) => {
         const Character = await Repos.characters.create({
             characterId: CharacterUUID,

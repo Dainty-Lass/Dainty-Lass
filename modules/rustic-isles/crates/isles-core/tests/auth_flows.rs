@@ -557,7 +557,7 @@ async fn the_active_account_guard_refuses_the_unknown_the_deactivated_and_the_un
             .is_ok(),
         "enforcement off by default"
     );
-    let enforcing = TestServer::with_store_of(&server, &[("MYSTICPARADOX_CONSENT_ENFORCE", "on")]);
+    let enforcing = TestServer::with_store_of(&server, &[("RUSTIC_ISLES_CONSENT_ENFORCE", "on")]);
     let hosting = require_active_account(&enforcing.shared, plain.user_id.as_str(), true)
         .await
         .unwrap_err();
@@ -596,7 +596,7 @@ async fn registration_approval_decides_what_a_new_account_starts_with() {
     let default = register(&server, "Default").await.json();
     assert_eq!(default["approvalRequired"], json!(false));
     assert_eq!(default["account"]["approvalStatus"], json!("approved"));
-    let required_server = TestServer::with_store_of(&server, &[("MYSTICPARADOX_REGISTRATION_APPROVAL", "required")]);
+    let required_server = TestServer::with_store_of(&server, &[("RUSTIC_ISLES_REGISTRATION_APPROVAL", "required")]);
     let required = register(&required_server, "Required").await.json();
     assert_eq!(required["approvalRequired"], json!(true));
     assert_eq!(required["account"]["approvalStatus"], json!("pending"));
@@ -612,12 +612,12 @@ async fn registration_approval_decides_what_a_new_account_starts_with() {
         (login.status, login.json()["error"]["code"].clone()),
         (403, json!("AUTH_APPROVAL_PENDING"))
     );
-    let off_server = TestServer::with_store_of(&server, &[("MYSTICPARADOX_REGISTRATION_APPROVAL", " OFF ")]);
+    let off_server = TestServer::with_store_of(&server, &[("RUSTIC_ISLES_REGISTRATION_APPROVAL", " OFF ")]);
     assert_eq!(
         register(&off_server, "Off").await.json()["approvalRequired"],
         json!(false)
     );
-    let typo = TestServer::with_store_of(&server, &[("MYSTICPARADOX_REGISTRATION_APPROVAL", "requried")]);
+    let typo = TestServer::with_store_of(&server, &[("RUSTIC_ISLES_REGISTRATION_APPROVAL", "requried")]);
     assert_eq!(
         register(&typo, "Typo").await.json()["account"]["approvalStatus"],
         json!("pending"),
@@ -662,7 +662,7 @@ async fn a_game_servers_read_of_the_invalid_sentinel_is_re_pointed() {
             &server,
             "GET",
             "/loadout/INVALID//all?x=1",
-            &[("x-mysticparadox-gameserver-apikey", "gs-key")],
+            &[("x-rustic-isles-gameserver-apikey", "gs-key")],
         );
         game_auth(&mut read).await.unwrap();
         assert_eq!(read.request.uri().to_string(), format!("{want}?x=1"), "{extra:?}");
@@ -671,7 +671,7 @@ async fn a_game_servers_read_of_the_invalid_sentinel_is_re_pointed() {
             &server,
             "POST",
             "/loadout/INVALID//all",
-            &[("x-mysticparadox-gameserver-apikey", "gs-key")],
+            &[("x-rustic-isles-gameserver-apikey", "gs-key")],
         );
         game_auth(&mut write).await.unwrap();
         assert_eq!(write.request.uri().path(), "/loadout/INVALID//all");
@@ -680,7 +680,7 @@ async fn a_game_servers_read_of_the_invalid_sentinel_is_re_pointed() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_bearer_less_game_server_call_is_attributed_to_the_configured_account() {
-    let key = [("x-mysticparadox-gameserver-apikey", "gs-key")];
+    let key = [("x-rustic-isles-gameserver-apikey", "gs-key")];
     let server = TestServer::new(&[("GAMESERVER_NO_PLAYER_USER_ID", "configured")]);
     server.gameserver_key("gs-key").await;
     let auth = game_auth(&mut call(&server, "GET", "/tags", &key)).await.unwrap();
@@ -707,7 +707,7 @@ async fn a_bearer_less_game_server_call_is_attributed_to_the_configured_account(
         &none,
         "GET",
         "/tags",
-        &[("x-mysticparadox-gameserver-apikey", "nope")],
+        &[("x-rustic-isles-gameserver-apikey", "nope")],
     ))
     .await
     .unwrap_err();

@@ -17,7 +17,7 @@ const RUNTIME_TARGET: &str = "client";
 const RUNTIME_PLATFORM: &str = "windows-x86_64";
 
 /// Every launcher installs and reports these: the runtime and the winmm proxy that loads it.
-const CORE_INSTALLED_ARTIFACTS: [&str; 2] = ["MysticParadox.dll", "winmm.dll"];
+const CORE_INSTALLED_ARTIFACTS: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeArtifactHash {
@@ -218,10 +218,10 @@ pub fn approved_runtime_attestation(
         return Err(unsupported("The published runtime manifest is incomplete."));
     };
     let mut artifacts = vec![RuntimeArtifactHash {
-        name: "MysticParadox.dll".into(),
+        name: "Rustic-Isles.dll".into(),
         sha256: main_hash.clone(),
     }];
-    let mut seen = BTreeSet::from(["mysticparadox.dll".to_owned()]);
+    let mut seen = BTreeSet::from(["rustic-isles.dll".to_owned()]);
     for raw in extra_files {
         let name = raw.get("name").and_then(Value::as_str).unwrap_or_default();
         if !is_safe_artifact_name(name) || seen.contains(&name.to_lowercase()) {
@@ -271,6 +271,12 @@ fn normalize_artifact_set(
     let mut normalized = Vec::new();
     for raw in items {
         let name = raw.get("name").and_then(Value::as_str).unwrap_or_default();
+        // A launcher from before the rename reports the runtime under its old name
+        let name = if crate::legacy::is_runtime_dll(name) {
+            crate::legacy::RUNTIME_DLL
+        } else {
+            name
+        };
         if !is_safe_artifact_name(name) || seen.contains(&name.to_lowercase()) || !known.contains(&name.to_lowercase())
         {
             return Err(validation("The runtime artifact set is malformed."));
@@ -378,7 +384,7 @@ mod tests {
     }
 
     fn core() -> Value {
-        artifacts(&[("MysticParadox.dll", 'a'), ("winmm.dll", 'b')])
+        artifacts(&[("Rustic-Isles.dll", 'a'), ("winmm.dll", 'b')])
     }
 
     fn manifest(channel: RuntimeChannel, extra: Value, changelist: u32) -> tempfile::TempDir {
@@ -499,7 +505,7 @@ mod tests {
         assert_eq!(approved.artifact_set_sha256.len(), 64);
         let mut names: Vec<_> = approved.artifacts.iter().map(|e| e.name.clone()).collect();
         names.sort();
-        assert_eq!(names, ["MysticParadox.dll", "winmm.dll"]);
+        assert_eq!(names, ["Rustic-Isles.dll", "winmm.dll"]);
     }
 
     fn check(root: &Path, version: &str, reported: &Value) -> Result<ApprovedRuntimeAttestation, LauncherApiError> {
@@ -515,14 +521,14 @@ mod tests {
     #[test]
     fn every_mutation_omission_or_unknown_file_is_rejected() {
         let root = manifest(RuntimeChannel::Stable, artifacts(&[("winmm.dll", 'b')]), CHANGELIST);
-        let bad_proxy = artifacts(&[("MysticParadox.dll", 'a'), ("winmm.dll", 'f')]);
+        let bad_proxy = artifacts(&[("Rustic-Isles.dll", 'a'), ("winmm.dll", 'f')]);
         assert_eq!(
             code(check(root.path(), "0.1.78", &bad_proxy)),
             "RUNTIME_BUILD_UNSUPPORTED"
         );
-        let omitted = artifacts(&[("MysticParadox.dll", 'a')]);
+        let omitted = artifacts(&[("Rustic-Isles.dll", 'a')]);
         assert_eq!(code(check(root.path(), "0.1.78", &omitted)), "AUTH_VALIDATION_FAILED");
-        let extra = artifacts(&[("MysticParadox.dll", 'a'), ("winmm.dll", 'b'), ("inject.dll", 'c')]);
+        let extra = artifacts(&[("Rustic-Isles.dll", 'a'), ("winmm.dll", 'b'), ("inject.dll", 'c')]);
         assert_eq!(code(check(root.path(), "0.1.78", &extra)), "AUTH_VALIDATION_FAILED");
         assert_eq!(code(check(root.path(), "0.1.77", &core())), "RUNTIME_BUILD_UNSUPPORTED");
         assert_eq!(
@@ -532,13 +538,31 @@ mod tests {
     }
 
     #[test]
+    fn a_launcher_from_before_the_rename_reports_the_runtime_under_its_old_name() {
+        let root = manifest(RuntimeChannel::Stable, artifacts(&[("winmm.dll", 'b')]), CHANGELIST);
+        let old = check(
+            root.path(),
+            "0.1.78",
+            &artifacts(&[("MysticParadox.dll", 'a'), ("winmm.dll", 'b')]),
+        )
+        .unwrap();
+        assert_eq!(old, check(root.path(), "0.1.78", &core()).unwrap());
+        let both = artifacts(&[
+            ("MysticParadox.dll", 'a'),
+            ("Rustic-Isles.dll", 'a'),
+            ("winmm.dll", 'b'),
+        ]);
+        assert_eq!(code(check(root.path(), "0.1.78", &both)), "AUTH_VALIDATION_FAILED");
+    }
+
+    #[test]
     fn an_incomplete_published_manifest_fails_closed() {
         let root = manifest(RuntimeChannel::Stable, json!([]), CHANGELIST);
         assert_eq!(code(check(root.path(), "0.1.78", &core())), "RUNTIME_BUILD_UNSUPPORTED");
     }
 
     const OPTIONAL: [(&str, char); 5] = [
-        ("MysticParadox.dll", 'a'),
+        ("Rustic-Isles.dll", 'a'),
         ("winmm.dll", 'b'),
         ("coop-transport.dll", 'c'),
         ("coop-runtime.dll", 'd'),

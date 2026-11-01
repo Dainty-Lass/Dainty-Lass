@@ -25,7 +25,7 @@ import { UsePlayerLogsRootForTest } from "./adminPlayerLogs";
 
 const SECRET = "player-logs-manager-secret-0123456789abcdef";
 const OPERATOR = "555444333222111000";
-const ENV_KEYS = ["MYSTICPARADOX_MANAGER_ADMIN", "MYSTICPARADOX_MANAGER_OPERATOR_SECRET"] as const;
+const ENV_KEYS = ["RUSTIC_ISLES_MANAGER_ADMIN", "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET"] as const;
 const SAVED_ENV = new Map<string, string | undefined>();
 
 const ACCOUNT = "4f6a2d1e-0000-4000-8000-000000000001";
@@ -120,7 +120,7 @@ function WriteSession(userId: string, sessionId: string, lastUploadedAt: string,
 }
 
 before(async () => {
-    SetEnv({ MYSTICPARADOX_MANAGER_ADMIN: "on", MYSTICPARADOX_MANAGER_OPERATOR_SECRET: SECRET });
+    SetEnv({ RUSTIC_ISLES_MANAGER_ADMIN: "on", RUSTIC_ISLES_MANAGER_OPERATOR_SECRET: SECRET });
     Realm = OpenTestRealm("player-logs-routes");
     UsePersistenceForTest({ repos: Realm.repos, uow: Realm.uow });
     Root = NewTestDirectory("player-logs-routes-root");
@@ -155,7 +155,7 @@ beforeEach(() => {
     fs.mkdirSync(Root, { recursive: true });
     WriteSession(ACCOUNT, OLD, "2026-06-01T10:00:00.000Z", { "launcher.log": "old line\n", "metadata.json": "{\"v\":1}" });
     WriteSession(ACCOUNT, NEW, "2026-10-10T10:00:00.000Z", { "launcher.log": "new line\n" });
-    WriteSession(OTHER, OTHER_SESSION, "2026-09-01T10:00:00.000Z", { "runtime-mysticparadox_dll_port8790.log": "runtime\n" });
+    WriteSession(OTHER, OTHER_SESSION, "2026-09-01T10:00:00.000Z", { "runtime-rustic_isles_dll_port8790.log": "runtime\n" });
 });
 
 // ---- list ----

@@ -249,26 +249,26 @@ test("without a configured secret the credential answers 503 and never verifies"
 
 test("the switch is off by default and only on/off are accepted", () => {
     assert.equal(ReadManagerOperatorSwitch({}), false);
-    assert.equal(ReadManagerOperatorSwitch({ MYSTICPARADOX_MANAGER_ADMIN: "" }), false);
-    assert.equal(ReadManagerOperatorSwitch({ MYSTICPARADOX_MANAGER_ADMIN: "off" }), false);
-    assert.equal(ReadManagerOperatorSwitch({ MYSTICPARADOX_MANAGER_ADMIN: "on" }), true);
-    assert.equal(ReadManagerOperatorSwitch({ MYSTICPARADOX_MANAGER_ADMIN: " ON " }), true);
-    assert.throws(() => ReadManagerOperatorSwitch({ MYSTICPARADOX_MANAGER_ADMIN: "true" }), /must be on or off/);
+    assert.equal(ReadManagerOperatorSwitch({ RUSTIC_ISLES_MANAGER_ADMIN: "" }), false);
+    assert.equal(ReadManagerOperatorSwitch({ RUSTIC_ISLES_MANAGER_ADMIN: "off" }), false);
+    assert.equal(ReadManagerOperatorSwitch({ RUSTIC_ISLES_MANAGER_ADMIN: "on" }), true);
+    assert.equal(ReadManagerOperatorSwitch({ RUSTIC_ISLES_MANAGER_ADMIN: " ON " }), true);
+    assert.throws(() => ReadManagerOperatorSwitch({ RUSTIC_ISLES_MANAGER_ADMIN: "true" }), /must be on or off/);
     // Request-time read never throws: an invalid value counts as off.
-    assert.equal(ManagerOperatorEnabled({ MYSTICPARADOX_MANAGER_ADMIN: "true" }), false);
+    assert.equal(ManagerOperatorEnabled({ RUSTIC_ISLES_MANAGER_ADMIN: "true" }), false);
 });
 
 test("startup refuses the switch on without a 32-character secret, and allows switch off without one", () => {
     assert.doesNotThrow(() => AssertManagerOperatorConfig({}));
-    assert.doesNotThrow(() => AssertManagerOperatorConfig({ MYSTICPARADOX_MANAGER_ADMIN: "off" }));
-    assert.throws(() => AssertManagerOperatorConfig({ MYSTICPARADOX_MANAGER_ADMIN: "on" }), /at least 32 characters/);
+    assert.doesNotThrow(() => AssertManagerOperatorConfig({ RUSTIC_ISLES_MANAGER_ADMIN: "off" }));
+    assert.throws(() => AssertManagerOperatorConfig({ RUSTIC_ISLES_MANAGER_ADMIN: "on" }), /at least 32 characters/);
     assert.throws(
-        () => AssertManagerOperatorConfig({ MYSTICPARADOX_MANAGER_ADMIN: "on", MYSTICPARADOX_MANAGER_OPERATOR_SECRET: "x".repeat(31) }),
+        () => AssertManagerOperatorConfig({ RUSTIC_ISLES_MANAGER_ADMIN: "on", RUSTIC_ISLES_MANAGER_OPERATOR_SECRET: "x".repeat(31) }),
         /at least 32 characters/
     );
     assert.doesNotThrow(() => AssertManagerOperatorConfig({
-        MYSTICPARADOX_MANAGER_ADMIN: "on",
-        MYSTICPARADOX_MANAGER_OPERATOR_SECRET: "x".repeat(32)
+        RUSTIC_ISLES_MANAGER_ADMIN: "on",
+        RUSTIC_ISLES_MANAGER_OPERATOR_SECRET: "x".repeat(32)
     }));
 });
 

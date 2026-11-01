@@ -9,7 +9,7 @@
 // [2026-10-14 M2] Which listeners the Metagame opens, read from the environment. Pure: no sockets, no logger, so the switch is
 // testable. server.ts applies the plan.
 //
-// MYSTICPARADOX_TLS_TERMINATED_BY_PROXY=on (default off): nginx terminates TLS on 443 and forwards to PORT on loopback. Then
+// RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY=on (default off): nginx terminates TLS on 443 and forwards to PORT on loopback. Then
 // there is no HTTPS listener and no certificate is needed (also in production), the XMPP WebSocket gateway attaches to the HTTP
 // listener, and BIND_HOST should be 127.0.0.1 so the plain listener is reachable only from the proxy. Off keeps the in-process
 // HTTPS listener exactly as before.
@@ -35,13 +35,13 @@ export interface ListenerPlan {
     qosProblem: string | undefined;
 }
 
-/** MYSTICPARADOX_TLS_TERMINATED_BY_PROXY: on/off (1, true, yes / 0, false, no). Anything else stops startup. */
+/** RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY: on/off (1, true, yes / 0, false, no). Anything else stops startup. */
 export function ReadTlsTerminatedByProxy(environment: NodeJS.ProcessEnv = process.env): boolean {
-    let Raw = (environment.MYSTICPARADOX_TLS_TERMINATED_BY_PROXY ?? "").trim().toLowerCase();
+    let Raw = (environment.RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY ?? "").trim().toLowerCase();
     if (Raw === "" && /^(1|true|yes|on)$/i.test((environment.REFORGED_HTTP_ONLY ?? "").trim())) Raw = "on";
     if (Raw === "" || /^(0|off|false|no)$/.test(Raw)) return false;
     if (/^(1|on|true|yes)$/.test(Raw)) return true;
-    throw new Error(`MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off (got '${Raw}')`);
+    throw new Error(`RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off (got '${Raw}')`);
 }
 
 /** QOS_PORT: unset or blank = 80; "off" = no listener; a port number = that port. Anything else is reported, not fatal (as before). */

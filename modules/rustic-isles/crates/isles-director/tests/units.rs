@@ -239,7 +239,7 @@ fn append(file: &std::path::Path, text: &str) {
 #[test]
 fn follows_the_connection_edges_from_where_the_log_ended_at_start() {
     let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("mysticparadox_dll_port8776.log");
+    let file = dir.path().join("rustic_isles_dll_port8776.log");
     std::fs::write(&file, edge(-2, 0, 100) + &edge(0, 3, 100)).unwrap();
     let mut occupancy = RuntimeLogOccupancy::new(file.clone());
     occupancy.begin();
@@ -264,7 +264,7 @@ fn follows_the_connection_edges_from_where_the_log_ended_at_start() {
 #[test]
 fn a_missing_log_is_unknown_and_a_truncated_one_is_read_from_its_start() {
     let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("mysticparadox_dll_port8776.log");
+    let file = dir.path().join("rustic_isles_dll_port8776.log");
     let mut occupancy = RuntimeLogOccupancy::new(file.clone());
     occupancy.begin();
     assert_eq!(occupancy.poll(), None);
@@ -718,4 +718,37 @@ async fn a_released_hub_is_not_restarted_and_the_next_request_starts_it_at_once(
     );
     assert_eq!(h.starts(), 2);
     assert!(!h.supervisor.release(&hub, "idle"), "an old hub is not the current one");
+}
+
+#[test]
+fn a_runtime_from_before_the_rename_is_still_heard() {
+    use isles_director::process::readiness;
+    let id = "6f1c2d3e-0000-4000-8000-000000000001";
+    assert_eq!(
+        readiness(
+            &format!("MYSTICPARADOX_GAMESERVER_READY launchId={id} port=7777"),
+            id,
+            7777
+        ),
+        Some(true)
+    );
+    assert_eq!(
+        readiness(
+            &format!("RUSTIC_ISLES_GAMESERVER_READY launchId={id} port=7777"),
+            id,
+            7777
+        ),
+        Some(true)
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("rustic_isles_dll_port8776.log");
+    let legacy = dir.path().join("mysticparadox_dll_port8776.log");
+    std::fs::write(&legacy, edge(0, 3, 100)).unwrap();
+    let mut occupancy = RuntimeLogOccupancy::new(file.clone()).with_legacy(legacy.clone());
+    occupancy.begin();
+    append(&legacy, &edge(-2, 1, 292));
+    assert_eq!(occupancy.poll(), Some(1));
+    std::fs::write(&file, edge(-2, 2, 292)).unwrap();
+    assert_eq!(occupancy.poll(), Some(2), "the new file is read from its start");
 }

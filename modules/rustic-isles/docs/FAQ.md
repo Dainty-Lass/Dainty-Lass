@@ -1,6 +1,6 @@
 # Frequently asked questions
 
-Answers to the questions I receive most often about Mystic Paradox.
+Answers to the questions I receive most often about Rustic Isles.
 
 ## Can you add the game files and generated SDK files to the repository?
 

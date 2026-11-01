@@ -287,7 +287,7 @@ loadoutRouter.post("/loadout/:userId/:characterId/:index", HasParadoxBackendAuth
     }
 
     // [Omnicell investigation, 2026-07-21] Loadout writes had NO diagnostic capture at all - unlike
-    // POST /inventory (MYSTICPARADOX_INV_CAPTURE). Whole-slot writes (replaceSlotIfRevisionMatches /
+    // POST /inventory (RUSTIC_ISLES_INV_CAPTURE). Whole-slot writes (replaceSlotIfRevisionMatches /
     // updatePersistentIfRevisionMatches, see controllers/loadout.ts) are a REPLACE, not a merge - if
     // the client ever issues two logically-separate loadout saves (e.g. a weapon/armor equip and an
     // Omnicell/ability equip) from two different local snapshots, the later write can silently erase
@@ -295,7 +295,7 @@ loadoutRouter.post("/loadout/:userId/:characterId/:index", HasParadoxBackendAuth
     // (SavePlayerJourney's stale-overwrite, see 21_SLAYERS_PATH.md). We don't yet know the field name
     // Omnicell equip data uses (EUIMoveAttackType::OmnicellAbility in the SDK proves it's a distinct
     // activatable-ability slot, not a passive EquippedCells/EquippedCellsv2 entry - but not where it's
-    // stored). Reusing the existing MYSTICPARADOX_INV_CAPTURE flag/[INV-CAP] convention rather than a new
+    // stored). Reusing the existing RUSTIC_ISLES_INV_CAPTURE flag/[INV-CAP] convention rather than a new
     // one. Logs the top-level keys of the written blob (reveals the real field name on the very next
     // equip attempt) and a byte-length before/after so a same-request truncation is visible too.
     if(InventoryCaptureEnabled()){
@@ -308,7 +308,7 @@ loadoutRouter.post("/loadout/:userId/:characterId/:index", HasParadoxBackendAuth
             userId: RequestorAccountId,
             characterId: CharacterId,
             index: Index,
-            gsKey: req.headers["x-mysticparadox-gameserver-apikey"] != undefined,
+            gsKey: req.headers["x-rustic-isles-gameserver-apikey"] != undefined,
             isGameserver: req.AuthData?.IsGameserver === true,
             bytes: typeof Data === "string" ? Data.length : -1,
             topLevelKeys: TopLevelKeys,

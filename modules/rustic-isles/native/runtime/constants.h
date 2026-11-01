@@ -11,4 +11,4 @@
 
 #pragma once
 
-static const std::string MYSTICPARADOX_INTERNAL_VERSION = "0.0.3";
+static const std::string RUSTIC_ISLES_INTERNAL_VERSION = "0.0.3";

@@ -8,7 +8,7 @@
 import { logger } from "../logger";
 import type { LauncherBuildReport, LauncherBuildVerdict } from "../activity/activityRules";
 
-// [2026-10-16] MYSTICPARADOX_UNOFFICIAL_LAUNCHER=observe|refuse - one narrow switch, apart from Guard's MYSTICPARADOX_GUARD_MODE (which
+// [2026-10-16] RUSTIC_ISLES_UNOFFICIAL_LAUNCHER=observe|refuse - one narrow switch, apart from Guard's RUSTIC_ISLES_GUARD_MODE (which
 // governs every Guard verdict: hosting, host selection, hub start, admission and play). At Play the launcher reports its version and the
 // SHA-256 of its own launcher.exe (activity/activityRules.ts ClassifyLauncherBuild): official = the hash Guard pins, outdated = an older
 // official version (it updates itself), unofficial = another hash on the served version or newer, unknown = no report. With refuse, Play is
@@ -16,16 +16,15 @@ import type { LauncherBuildReport, LauncherBuildVerdict } from "../activity/acti
 // observe (the default, blank, or any other value - a typo never locks players out) refuses nothing; the UNOFFICIAL_LAUNCHER activity flag
 // is raised either way. The report is the launcher's own word, so this fences off self-built and repackaged launchers, not a launcher
 // modified to lie.
-// Exempt even with refuse: hashes in MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES (comma or space separated SHA-256, for local test builds), and
-// accounts with the admin role unless MYSTICPARADOX_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT=off (the tester role was exempt too until 16 Oct;
+// Exempt even with refuse: hashes in RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES (comma or space separated SHA-256, for local test builds), and
+// accounts with the admin role unless RUSTIC_ISLES_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT=off (the tester role was exempt too until 16 Oct;
 // it now unlocks the log upload only, security/testerFeatures.ts).
 
-export const UNOFFICIAL_LAUNCHER_ENV = "MYSTICPARADOX_UNOFFICIAL_LAUNCHER";
-export const LAUNCHER_ALLOWED_HASHES_ENV = "MYSTICPARADOX_LAUNCHER_ALLOWED_HASHES";
-export const UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT_ENV = "MYSTICPARADOX_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT";
+export const UNOFFICIAL_LAUNCHER_ENV = "RUSTIC_ISLES_UNOFFICIAL_LAUNCHER";
+export const LAUNCHER_ALLOWED_HASHES_ENV = "RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES";
+export const UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT_ENV = "RUSTIC_ISLES_UNOFFICIAL_LAUNCHER_TESTERS_EXEMPT";
 
-export const UNOFFICIAL_LAUNCHER_MESSAGE = "This launcher isn't an official Mystic Paradox build. Install the official launcher " +
-    "(github.com/pranav158/Mystic-Paradox/releases) to play on Mystic Paradox.";
+export const UNOFFICIAL_LAUNCHER_MESSAGE = "This launcher isn't an official Rustic Isles build. Install the official launcher to play on Rustic Isles.";
 
 export type UnofficialLauncherMode = "observe" | "refuse";
 

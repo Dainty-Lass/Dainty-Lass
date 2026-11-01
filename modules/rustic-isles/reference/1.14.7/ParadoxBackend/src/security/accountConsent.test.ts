@@ -46,16 +46,16 @@ test("CONSENT_REQUIRED defaults on with MongoDB, off with SQLite, and an explici
     assert.equal(ConsentRequiredAtSignUp(MONGO), true);
     assert.equal(ConsentRequiredAtSignUp({} as NodeJS.ProcessEnv), true, "unset provider is MongoDB");
     assert.equal(ConsentRequiredAtSignUp(SQLITE), false, "a local server defaults to its own rules");
-    assert.equal(ConsentRequiredAtSignUp({ ...SQLITE, MYSTICPARADOX_CONSENT_REQUIRED: "on" } as NodeJS.ProcessEnv), true);
-    assert.equal(ConsentRequiredAtSignUp({ ...MONGO, MYSTICPARADOX_CONSENT_REQUIRED: "off" } as NodeJS.ProcessEnv), false);
-    assert.equal(ConsentRequiredAtSignUp({ ...SQLITE, MYSTICPARADOX_CONSENT_REQUIRED: "false" } as NodeJS.ProcessEnv), false);
-    assert.equal(ConsentRequiredAtSignUp({ ...SQLITE, MYSTICPARADOX_CONSENT_REQUIRED: "   " } as NodeJS.ProcessEnv), false, "a blank value is unset");
+    assert.equal(ConsentRequiredAtSignUp({ ...SQLITE, RUSTIC_ISLES_CONSENT_REQUIRED: "on" } as NodeJS.ProcessEnv), true);
+    assert.equal(ConsentRequiredAtSignUp({ ...MONGO, RUSTIC_ISLES_CONSENT_REQUIRED: "off" } as NodeJS.ProcessEnv), false);
+    assert.equal(ConsentRequiredAtSignUp({ ...SQLITE, RUSTIC_ISLES_CONSENT_REQUIRED: "false" } as NodeJS.ProcessEnv), false);
+    assert.equal(ConsentRequiredAtSignUp({ ...SQLITE, RUSTIC_ISLES_CONSENT_REQUIRED: "   " } as NodeJS.ProcessEnv), false, "a blank value is unset");
 });
 
-test("MYSTICPARADOX_CONSENT_ENFORCE is off unless set to on", () => {
+test("RUSTIC_ISLES_CONSENT_ENFORCE is off unless set to on", () => {
     assert.equal(ConsentEnforced({} as NodeJS.ProcessEnv), false);
-    assert.equal(ConsentEnforced({ MYSTICPARADOX_CONSENT_ENFORCE: "off" } as NodeJS.ProcessEnv), false);
-    assert.equal(ConsentEnforced({ MYSTICPARADOX_CONSENT_ENFORCE: "ON" } as NodeJS.ProcessEnv), true);
+    assert.equal(ConsentEnforced({ RUSTIC_ISLES_CONSENT_ENFORCE: "off" } as NodeJS.ProcessEnv), false);
+    assert.equal(ConsentEnforced({ RUSTIC_ISLES_CONSENT_ENFORCE: "ON" } as NodeJS.ProcessEnv), true);
 });
 
 test("a consent is current only for the current versions with the age confirmed", () => {
@@ -94,8 +94,8 @@ test("a deactivated account is refused with ACCOUNT_DEACTIVATED and the schedule
     assert.deepEqual(Refused.details, { scheduledFor: "2026-11-13T12:00:00.000Z" });
 });
 
-test("with MYSTICPARADOX_CONSENT_ENFORCE on, an account without a current consent gets 403 CONSENT_REQUIRED", () => {
-    const Enforced = { ...MONGO, MYSTICPARADOX_CONSENT_ENFORCE: "on" } as NodeJS.ProcessEnv;
+test("with RUSTIC_ISLES_CONSENT_ENFORCE on, an account without a current consent gets 403 CONSENT_REQUIRED", () => {
+    const Enforced = { ...MONGO, RUSTIC_ISLES_CONSENT_ENFORCE: "on" } as NodeJS.ProcessEnv;
     assert.doesNotThrow(() => AssertConsentCurrentWhenEnforced(Account(), MONGO), "off by default");
     const Refused = RefusalOf(() => AssertConsentCurrentWhenEnforced(Account(), Enforced));
     assert.equal(Refused.code, "CONSENT_REQUIRED");

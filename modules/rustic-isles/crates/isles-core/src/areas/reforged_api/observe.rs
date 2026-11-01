@@ -1,5 +1,5 @@
 //! The request log and request metrics `app.ts` installs before any router: `[REQ]`/`[RES]` lines with the URL
-//! sanitised (`security/logRedaction.ts`), the `mysticparadox_http_*` series. `http::dispatch` calls
+//! sanitised (`security/logRedaction.ts`), the `rustic_isles_http_*` series. `http::dispatch` calls
 //! [`begin`] and [`Observation::finish`].
 
 use std::sync::OnceLock;
@@ -84,13 +84,13 @@ pub fn begin(request: &Request, request_id: &str) -> Observation {
     let class = metric_class(path);
     let method = request.method().as_str().to_owned();
     metrics::increment(
-        "mysticparadox_http_requests_total",
+        "rustic_isles_http_requests_total",
         1.0,
         &[("class", class), ("method", &method)],
     );
-    metrics::adjust("mysticparadox_http_inflight", 1.0, &[]);
+    metrics::adjust("rustic_isles_http_inflight", 1.0, &[]);
     let headers = request.headers();
-    let gs_key = if headers.contains_key("x-mysticparadox-gameserver-apikey") {
+    let gs_key = if headers.contains_key("x-rustic-isles-gameserver-apikey") {
         "Y"
     } else {
         "N"
@@ -129,15 +129,15 @@ impl Observation {
     /// Counts the answer and logs `[RES]`.
     pub fn finish(self, status: u16) {
         let elapsed = self.started.elapsed().as_millis();
-        metrics::adjust("mysticparadox_http_inflight", -1.0, &[]);
+        metrics::adjust("rustic_isles_http_inflight", -1.0, &[]);
         let class_of_status = format!("{}xx", status / 100);
         metrics::increment(
-            "mysticparadox_http_responses_total",
+            "rustic_isles_http_responses_total",
             1.0,
             &[("class", self.class), ("status", &class_of_status)],
         );
         metrics::observe(
-            "mysticparadox_http_request_duration_ms",
+            "rustic_isles_http_request_duration_ms",
             elapsed as f64,
             &[("class", self.class)],
         );

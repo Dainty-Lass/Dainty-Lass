@@ -73,7 +73,7 @@ async function request(url: URL): Promise<Response> {
   return fetch(url, {
     redirect: "error",
     signal: AbortSignal.timeout(30_000),
-    headers: { "User-Agent": "MysticParadox-DeployServer/0.0.3" },
+    headers: { "User-Agent": "RusticIsles-DeployServer/0.0.3" },
   });
 }
 
@@ -132,7 +132,7 @@ export async function EnsureServerRuntimeUpdated(): Promise<void> {
   if (!binaryPath) throw new Error("GAMESERVER_BINARY_PATH is required for server runtime updates");
   const dllPath = path.resolve(
     process.env.GAMESERVER_RUNTIME_DLL_PATH?.trim() ||
-      path.join(path.dirname(path.resolve(binaryPath)), "MysticParadox.dll"),
+      path.join(path.dirname(path.resolve(binaryPath)), "Rustic-Isles.dll"),
   );
   const manifestUrl = new URL(process.env.SERVER_RUNTIME_MANIFEST_URL?.trim() || DEFAULT_MANIFEST_URL);
   validateTransport(manifestUrl);

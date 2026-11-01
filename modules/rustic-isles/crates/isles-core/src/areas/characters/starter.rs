@@ -723,10 +723,10 @@ mod tests {
         assert!(repaired.changed);
         // A placeholder that isn't a 26-character id is never propagated
         let mut placeholder = manifest.loadout_slot.clone();
-        placeholder["weapon"]["instance_id"] = json!("MYSTICPARADOX_STARTER_WEAPON");
+        placeholder["weapon"]["instance_id"] = json!("RUSTIC_ISLES_STARTER_WEAPON");
         assert_ne!(
             repair_instanced_items(&[], Some(&placeholder)).ids["WP_EB_BEGINNER"],
-            "MYSTICPARADOX_STARTER_WEAPON"
+            "RUSTIC_ISLES_STARTER_WEAPON"
         );
     }
 

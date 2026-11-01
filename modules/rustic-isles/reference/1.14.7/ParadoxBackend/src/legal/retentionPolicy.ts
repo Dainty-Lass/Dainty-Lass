@@ -23,7 +23,7 @@ export const GUARD_FINDING_RETENTION_DAYS = 90;
 /** Uploaded launcher log sessions (PUT /launcher/v1/logs/sessions/...) are kept this many days after their last upload. */
 export const UPLOADED_LAUNCHER_LOG_RETENTION_DAYS = 90;
 
-/** Each server start archives the previous run's log; archives are kept MYSTICPARADOX_LOG_RETENTION_DAYS (this many by default). */
+/** Each server start archives the previous run's log; archives are kept RUSTIC_ISLES_LOG_RETENTION_DAYS (this many by default). */
 export const SERVER_LOG_DEFAULT_RETENTION_DAYS = 90;
 
 /** The instant `days` after `iso`, as a Date for a Mongo TTL index (storage cleanup only; business checks compare the ISO text). */

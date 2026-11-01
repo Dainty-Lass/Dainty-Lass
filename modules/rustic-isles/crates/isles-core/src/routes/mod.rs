@@ -108,7 +108,7 @@ impl Side {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum When {
     Always,
-    /// `MYSTICPARADOX_ADMIN_API` on (`AdminApi.enabled`)
+    /// `RUSTIC_ISLES_ADMIN_API` on (`AdminApi.enabled`)
     Admin,
     /// Answers only for an `/__origin/` host containing `gauntlet`; Node's handler calls `next()` for any other
     Gauntlet,

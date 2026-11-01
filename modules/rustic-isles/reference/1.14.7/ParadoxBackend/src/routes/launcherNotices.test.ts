@@ -25,7 +25,7 @@ import { adminRouter } from "./admin";
 
 const SECRET = "launcher-notices-manager-secret-0123456789";
 const OPERATOR = "555444333222111000";
-const ENV_KEYS = ["MYSTICPARADOX_MANAGER_ADMIN", "MYSTICPARADOX_MANAGER_OPERATOR_SECRET"] as const;
+const ENV_KEYS = ["RUSTIC_ISLES_MANAGER_ADMIN", "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET"] as const;
 const SAVED_ENV = new Map<string, string | undefined>();
 
 let Realm: TestRealm;
@@ -108,7 +108,7 @@ function SetEnv(values: Record<string, string>): void {
 }
 
 before(async () => {
-    SetEnv({ MYSTICPARADOX_MANAGER_ADMIN: "on", MYSTICPARADOX_MANAGER_OPERATOR_SECRET: SECRET });
+    SetEnv({ RUSTIC_ISLES_MANAGER_ADMIN: "on", RUSTIC_ISLES_MANAGER_OPERATOR_SECRET: SECRET });
     Realm = OpenTestRealm("launcher-notices-routes");
     UsePersistenceForTest({ repos: Realm.repos, uow: Realm.uow });
     const App = express();

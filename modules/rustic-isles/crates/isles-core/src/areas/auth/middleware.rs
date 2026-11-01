@@ -28,8 +28,8 @@ use crate::http::{Call, Shared};
 use crate::repo::AccountId;
 use crate::repo::auth::LauncherAccountRecord;
 
-pub const GAMESERVER_KEY_HEADER: &str = "x-mysticparadox-gameserver-apikey";
-pub const GAMESERVER_KEY_ALT_HEADER: &str = "x-mysticparadox-gameserver-key";
+pub const GAMESERVER_KEY_HEADER: &str = "x-rustic-isles-gameserver-apikey";
+pub const GAMESERVER_KEY_ALT_HEADER: &str = "x-rustic-isles-gameserver-key";
 
 /// Node's `req.AuthData`: the verified token's claims, plus what the caller is.
 #[derive(Debug, Clone, Default)]
@@ -288,7 +288,7 @@ async fn authenticate_game(call: &mut Call) -> Result<AuthData, Response> {
 
     let Some(authorization) = authorization.filter(|a| has_bearer_prefix(a)) else {
         tracing::error!(
-            "Unauthenticated {} to {} which needs Mystic Paradox Metagame auth!",
+            "Unauthenticated {} to {} which needs Rustic Isles Metagame auth!",
             call.request.method(),
             call.request.uri().path()
         );
@@ -297,7 +297,7 @@ async fn authenticate_game(call: &mut Call) -> Result<AuthData, Response> {
     let claims = match validate_game_token(&shared.settings, bearer_token(&authorization)) {
         Ok(claims) => claims,
         Err(_) => {
-            tracing::warn!("Request with bad Mystic Paradox Metagame auth!");
+            tracing::warn!("Request with bad Rustic Isles Metagame auth!");
             return Err(empty(401));
         }
     };
@@ -311,7 +311,7 @@ async fn authenticate_game(call: &mut Call) -> Result<AuthData, Response> {
         }),
         Ok(false) => Err(empty(403)),
         Err(_) => {
-            tracing::warn!("Request with bad Mystic Paradox Metagame auth!");
+            tracing::warn!("Request with bad Rustic Isles Metagame auth!");
             Err(empty(401))
         }
     }
@@ -429,7 +429,7 @@ pub async fn launcher_auth_account(
 }
 
 /// `RequireActiveAccount({consent})`: a deactivated account is refused, and with `consent` an account without a current
-/// consent while `MYSTICPARADOX_CONSENT_ENFORCE` is on.
+/// consent while `RUSTIC_ISLES_CONSENT_ENFORCE` is on.
 pub async fn require_active_account(shared: &Shared, user_id: &str, consent: bool) -> Result<(), LauncherApiError> {
     let account = match launcher_by_user(shared, user_id).await {
         Ok(Some(account)) => account,

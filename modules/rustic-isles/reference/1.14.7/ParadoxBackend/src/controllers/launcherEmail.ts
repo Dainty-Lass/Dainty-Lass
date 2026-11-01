@@ -149,7 +149,7 @@ export async function ResetPasswordWithCode(email: unknown, code: unknown, newPa
 }
 
 /**
- * Removes the launcher accounts registered under MYSTICPARADOX_EMAIL_VERIFICATION=required that were not verified within 48 h, with their
+ * Removes the launcher accounts registered under RUSTIC_ISLES_EMAIL_VERIFICATION=required that were not verified within 48 h, with their
  * codes and sessions. It removes nothing else: existing accounts carry no pending mark, and an account verified meanwhile is kept by the
  * conditional delete. Returns how many accounts were removed.
  */

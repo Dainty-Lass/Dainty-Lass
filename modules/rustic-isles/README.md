@@ -10,50 +10,26 @@
 > Karande. See NOTICE.md for contribution and provenance information."
 >
 > The Rust workspace (`crates/isles-core`, `crates/isles-director`, `crates/isles-chat`, `crates/isles-db`,
-> `modules/isles-1-14-7`) ports Mystic Paradox's 1.14.7 backend and Director to Rust
-> on `store` (SQLite and Postgres). Everything below is Mystic Paradox's upstream documentation, kept with its credits
-> to MysticFox / Pranav Karande and Undaunted.
+> `modules/isles-1-14-7`) is ported from Mystic Paradox's 1.14.7 backend and Director, on `store` (SQLite and
+> Postgres). The Node reference under `reference/1.14.7` is the code it was ported from.
+
+<h1 align="center">Rustic Isles</h1>
 
 <p align="center">
-  <img src="docs/assets/banner.webp" alt="Mystic Paradox — open-source Dauntless server project" width="100%">
+  <b>Open-source private server for Dauntless 1.14.7</b> — backend, game-server orchestration and runtime
+  compatibility layer, run as a game module of DaintyLass.
 </p>
-
-<h1 align="center">Mystic Paradox</h1>
-
-<p align="center">
-  <b>Open-source private server for Dauntless</b> — backend, game-server orchestration, launcher and runtime
-  compatibility layer, so you can run the game on a server of your own.
-</p>
-
-<br>
-
-> [!WARNING]
-> **🔒 The launcher on the [Releases](https://github.com/pranav158/Mystic-Paradox/releases) page is a closed beta test.**
->
-> It connects to the official Mystic Paradox server, which is open to invited testers only. A new account stays
-> **pending until it is approved**, and a pending account cannot sign in or play.
->
-> **To request access, [join our Discord server](https://discord.gg/e3HuAZGdU3) and ask there.**
-> Please create **one** account and wait for it: creating more accounts does not get you approved any sooner.
-
-<br>
-
-<p align="center"><a href="https://discord.gg/e3HuAZGdU3"><b>Join our Discord Server</b></a></p>
 
 <p align="center">
   <a href="LICENSE"><img alt="License: AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-blue"></a>
   <a href="docs/DAUNTLESS_1_14_7_PORT.md"><img alt="Dauntless: 1.14.7" src="https://img.shields.io/badge/Dauntless-1.14.7-orange"></a>
-  <a href="https://github.com/pranav158/Mystic-Paradox/releases"><img alt="Launcher: closed beta" src="https://img.shields.io/badge/launcher-closed%20beta-red"></a>
-  <a href="https://github.com/pranav158/Mystic-Paradox/tree/dauntless-1.12.0"><img alt="Dauntless 1.12.0: legacy tag" src="https://img.shields.io/badge/Dauntless%201.12.0-legacy%20tag-lightgrey"></a>
   <img alt="Platform: Windows x64" src="https://img.shields.io/badge/platform-Windows%20x64-lightgrey">
-  <a href="https://discord.gg/e3HuAZGdU3"><img alt="Discord: join the server" src="https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white"></a>
 </p>
 
 <p align="center">
   <a href="#-get-started">Get started</a> ·
   <a href="#-documentation">Docs</a> ·
   <a href="docs/FAQ.md">FAQ</a> ·
-  <a href="#-community-and-help">Community</a> ·
   <a href="docs/DAUNTLESS_1_14_7_PORT.md">1.14.7 progress</a>
 </p>
 
@@ -64,21 +40,14 @@
 
 ## 📊 Status
 
-| Game version | State |
-|---|---|
-| **Dauntless 1.14.7** (CL `647472`) | 🧪 **Closed beta** on the official server; `main` targets 1.14.7. Ramsgate, the Training Grounds, hunts, parties and saved progress (loot, XP, weapon levels, reforge, mastery, bounties) work. The official server runs everything as **Paradox realms**: hubs and hunts hosted on a player's PC, connected through Mystic Relay. A self-hosted server can also run dedicated hubs and hunts — [progress notes](docs/DAUNTLESS_1_14_7_PORT.md) · [co-op and realms](docs/SELF_HOSTING.md#co-op-hunts-and-paradox-realms) |
-| **Dauntless 1.12.0** (CL `392819`) | 🗄️ Legacy alpha, no longer updated — build it from the [`dauntless-1.12.0`](https://github.com/pranav158/Mystic-Paradox/tree/dauntless-1.12.0) tag |
+**Dauntless 1.14.7** (CL `647472`): Ramsgate, the Training Grounds, hunts, parties and saved progress (loot, XP,
+weapon levels, reforge, mastery, bounties) work. Hubs and hunts run on dedicated servers or as **Paradox realms**
+hosted on a player's PC — [progress notes](docs/DAUNTLESS_1_14_7_PORT.md) ·
+[co-op and realms](docs/SELF_HOSTING.md#co-op-hunts-and-paradox-realms).
 
 Expect active development, not production-grade uptime. The Gauntlet is not available yet.
 
-> [!NOTE]
-> `main` and the guides below target Dauntless 1.14.7. For a 1.12.0 setup, check out the
-> `dauntless-1.12.0` tag; the self-hosting guide also covers upgrading from it.
-
 ## 🚀 Get started
-
-**Just want to play?** The official launcher is in a closed beta: [request access on Discord](https://discord.gg/e3HuAZGdU3)
-before you sign up (see the note at the top). The steps below are for running a server of your own.
 
 1. **Read the [FAQ](docs/FAQ.md)** — what the project is, what it isn't, and where to get help.
 2. **Install Dauntless 1.14.7** from Epic with your own account — [Installing Dauntless](docs/INSTALLING_DAUNTLESS.md).
@@ -104,24 +73,22 @@ before you sign up (see the note at the top). The steps below are for running a 
 
 | Folder | What it is |
 |---|---|
-| [`reference/1.14.7/ParadoxBackend`](reference/1.14.7/ParadoxBackend) | Account and metagame backend (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) — Node/TypeScript + MongoDB (or SQLite for a local realm) |
-| [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | Starts and supervises the dedicated game servers for hubs and hunts |
-| [`native/runtime`](native/runtime) | C++ DLL injected into the client and servers to adapt them to the private backend (MSVC + MinHook) |
+| [`crates`](crates), [`modules/isles-1-14-7`](modules/isles-1-14-7) | The Rust backend, Director, chat and database tools, and the game module DaintyLass loads |
+| [`reference/1.14.7/ParadoxBackend`](reference/1.14.7/ParadoxBackend) | The Node account and metagame backend the Rust port came from (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) |
+| [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | The Node Director: starts and supervises the dedicated game servers for hubs and hunts |
+| [`native/runtime`](native/runtime) | `Rustic-Isles.dll`, the C++ runtime loaded into the client and servers to adapt them to the private backend (MSVC + MinHook) |
 | [`reference/1.14.7/shared/hunt-manifest`](reference/1.14.7/shared/hunt-manifest) | Hunt manifest resolution shared by the backend and the Director |
 | [`tools/RuntimeLoader`](tools/RuntimeLoader) | `winmm.dll` proxy that loads the runtime at startup |
 | [`native/catalog-exporter`](native/catalog-exporter) | Exports compatibility data from your own installation |
 
 ## 💬 Community and help
 
-- 🐛 **Bugs, feature requests and testing feedback:** open a [GitHub issue](../../issues). Include the
-  component, commit, configuration with secrets removed, reproduction steps and logs.
-- 💬 **Discord:** [join our server](https://discord.gg/e3HuAZGdU3) for beta access, announcements and
-  help. You can also add the maintainer, **`uwumystic`**; please include a short note with your friend
-  request explaining why you're reaching out, so project requests don't get lost among unrelated ones.
+- 🐛 **Bugs and feature requests:** open an issue on the
+  [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass) tracker. Include the component, commit,
+  configuration with secrets removed, reproduction steps and logs.
 - 🔒 **Security problems:** report them privately — see [SECURITY.md](SECURITY.md).
 
-Pull requests are welcome. Never submit game files, leaked source or secrets. Project support is not
-provided on Reddit.
+Never submit game files, leaked source or secrets.
 
 ## 📜 License and credits
 
@@ -136,5 +103,3 @@ not an official Mystic Paradox release.
   by **Mystic / Pranav Karande**.
 
 Full provenance in [NOTICE.md](NOTICE.md).
-
-<p align="center"><sub>Made by the community, for the Slayers who aren't ready to say goodbye. 🗡️</sub></p>

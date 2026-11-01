@@ -299,7 +299,7 @@ export async function SubmitHostPresence(accountId: string, body: any) {
         .map((item) => item.guard!);
     const healthyByRole = new Map(healthyGuards.map((entry) => [entry.role, entry]));
     const guardVerified = guardRequiredRoles.length > 0 && guardRequiredRoles.every((role) => healthyByRole.has(role));
-    // [2026-10-14] MYSTICPARADOX_GUARD_MODE: in observe (the default) the verdict refuses nothing; the refusal it would make is logged.
+    // [2026-10-14] RUSTIC_ISLES_GUARD_MODE: in observe (the default) the verdict refuses nothing; the refusal it would make is logged.
     if (GuardRuleRequires(operationsPolicy.guardEnforcement) && guardRequiredRoles.length > 0 && !guardVerified) {
         if (!GuardVerdictRefuses(operationsPolicy.guardEnforcement)) {
             NoteGuardWouldRefuse(await GuardSessionDetail("hosting", accountId, guardSessions,
@@ -401,7 +401,7 @@ interface RankedHost {
 export async function RankHosts(hunt: P2PHuntSessionRecord): Promise<RankedHost[]> {
     const policy = ReadP2PHostEligibilityPolicy();
     const operationsPolicy = await GetP2POperationsPolicy();
-    // [2026-10-14] Observe mode (MYSTICPARADOX_GUARD_MODE): no candidate is excluded for its Guard; the exclusion is logged.
+    // [2026-10-14] Observe mode (RUSTIC_ISLES_GUARD_MODE): no candidate is excluded for its Guard; the exclusion is logged.
     const guardRequired = GuardVerdictRefuses(operationsPolicy.guardEnforcement);
     const guardRule = GuardRuleRequires(operationsPolicy.guardEnforcement);
     const observedAfter = new Date(Date.now() - policy.presenceMaximumAgeMs).toISOString();

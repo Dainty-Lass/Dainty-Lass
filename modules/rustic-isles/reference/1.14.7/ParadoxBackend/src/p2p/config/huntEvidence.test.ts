@@ -35,8 +35,8 @@ test("hunt evidence: one startup line, plus the warning for an unrecognised valu
     LogHuntEvidence(ResolveHuntEvidence({ [HUNT_EVIDENCE_ENV]: "on" }), Sink);
     LogHuntEvidence(ResolveHuntEvidence({ [HUNT_EVIDENCE_ENV]: "maybe" }), Sink);
     assert.equal(Lines.length, 4);
-    assert.match(Lines[0], /^info \[Startup\] MYSTICPARADOX_HUNT_EVIDENCE not set .*send no Hunt Guard evidence/);
-    assert.match(Lines[1], /^info \[Startup\] MYSTICPARADOX_HUNT_EVIDENCE=on: hosted hunts send Hunt Guard evidence/);
-    assert.match(Lines[2], /^warn \[Startup\] WARNING: MYSTICPARADOX_HUNT_EVIDENCE must be on or off/);
+    assert.match(Lines[0], /^info \[Startup\] RUSTIC_ISLES_HUNT_EVIDENCE not set .*send no Hunt Guard evidence/);
+    assert.match(Lines[1], /^info \[Startup\] RUSTIC_ISLES_HUNT_EVIDENCE=on: hosted hunts send Hunt Guard evidence/);
+    assert.match(Lines[2], /^warn \[Startup\] WARNING: RUSTIC_ISLES_HUNT_EVIDENCE must be on or off/);
     assert.match(Lines[3], /send no Hunt Guard evidence/);
 });

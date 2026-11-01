@@ -58,7 +58,7 @@
       "name": "gameserver bucket allowed at t=15000ms while client bucket is exhausted",
       "nowMs": 1700000015000,
       "headers": {
-        "x-mysticparadox-gameserver-apikey": "any"
+        "x-rustic-isles-gameserver-apikey": "any"
       },
       "response": {
         "status": 200,

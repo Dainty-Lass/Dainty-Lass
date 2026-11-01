@@ -3,7 +3,7 @@
 # recorded, published as a GitHub release with SHA256SUMS. No secrets: these files are signed later, when the official
 # server's operator publishes them with a runtime version (the runtime feed signs every file it serves, and the launcher
 # checks that signature before installing).
-# The main runtime DLL (MysticParadox.dll) is not built here: it needs files that are not in this repository.
+# The main runtime DLL (Rustic-Isles.dll) is not built here: it needs files that are not in this repository.
 # Check a download yourself:
 #   sha256sum -c SHA256SUMS
 #   gh attestation verify winmm.dll --repo pranav158/Mystic-Paradox

@@ -13,5 +13,5 @@ test("production logging clamps verbose, silent, and malformed environment value
 test("development diagnostics default to debug and permit an explicit trace level", () => {
     assert.equal(ResolveOperationalLogLevel("DEVELOPMENT", {}), "debug");
     assert.equal(ResolveOperationalLogLevel("DEVELOPMENT",
-        { MYSTICPARADOX_DEVELOPMENT_LOG_LEVEL: "trace" }), "trace");
+        { RUSTIC_ISLES_DEVELOPMENT_LOG_LEVEL: "trace" }), "trace");
 });

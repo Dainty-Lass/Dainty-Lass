@@ -28,7 +28,7 @@ pub fn deep_link_scheme(shared: &Shared) -> String {
     shared
         .settings
         .raw("LAUNCHER_DEEPLINK_SCHEME")
-        .unwrap_or("mysticparadox")
+        .unwrap_or("rusticisles")
         .to_owned()
 }
 
@@ -169,7 +169,7 @@ async fn resolve_account_for_discord_user(
     identity.map(|identity| identity.account).ok_or_else(|| {
         LauncherApiError::new(
             "AUTH_DISCORD_NOT_LINKED",
-            "Your Discord isn't linked to a Mystic Paradox account. Register with your email, then link Discord on the Account page.",
+            "Your Discord isn't linked to a Rustic Isles account. Register with your email, then link Discord on the Account page.",
         )
     })
 }
@@ -206,7 +206,7 @@ async fn link_discord_identity(
     let already_linked = || {
         LauncherApiError::new(
             "AUTH_DISCORD_ALREADY_LINKED",
-            "That Discord account is linked to another Mystic Paradox account.",
+            "That Discord account is linked to another Rustic Isles account.",
         )
     };
     if by_subject.is_some() {

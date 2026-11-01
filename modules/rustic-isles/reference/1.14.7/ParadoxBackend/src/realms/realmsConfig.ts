@@ -6,18 +6,18 @@
  * Additional terms under AGPLv3 Section 7 apply. See ADDITIONAL_TERMS.md.
  */
 
-// [2026-10-13 realms S2] The realms module is off unless MYSTICPARADOX_REALMS_MODULE is on, true or 1, so nothing
+// [2026-10-13 realms S2] The realms module is off unless RUSTIC_ISLES_REALMS_MODULE is on, true or 1, so nothing
 // about it (routes, collections, indexes) exists on a server that has not asked for it.
 
 export function IsRealmsModuleEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    return /^(on|true|1)$/i.test((env.MYSTICPARADOX_REALMS_MODULE ?? "").trim());
+    return /^(on|true|1)$/i.test((env.RUSTIC_ISLES_REALMS_MODULE ?? "").trim());
 }
 
 export interface RealmLimits {
     /**
      * Technical backstops, not policy: the plan sets no realm-size cap ("the host knows what their PC can carry"), but a
      * realm is one MongoDB document with its members and bans embedded, so both lists are bounded well above any
-     * real friend group. MYSTICPARADOX_REALMS_MAX_MEMBERS / _MAX_BANS change them.
+     * real friend group. RUSTIC_ISLES_REALMS_MAX_MEMBERS / _MAX_BANS change them.
      */
     maxMembers: number;
     maxBans: number;
@@ -49,8 +49,8 @@ function ReadBoundedInt(raw: string | undefined, fallback: number, min: number, 
 
 export function ReadRealmLimits(env: NodeJS.ProcessEnv = process.env): RealmLimits {
     return {
-        maxMembers: ReadBoundedInt(env.MYSTICPARADOX_REALMS_MAX_MEMBERS, DEFAULT_REALM_LIMITS.maxMembers, 2, 5000),
-        maxBans: ReadBoundedInt(env.MYSTICPARADOX_REALMS_MAX_BANS, DEFAULT_REALM_LIMITS.maxBans, 1, 5000),
+        maxMembers: ReadBoundedInt(env.RUSTIC_ISLES_REALMS_MAX_MEMBERS, DEFAULT_REALM_LIMITS.maxMembers, 2, 5000),
+        maxBans: ReadBoundedInt(env.RUSTIC_ISLES_REALMS_MAX_BANS, DEFAULT_REALM_LIMITS.maxBans, 1, 5000),
         maxActiveInvites: DEFAULT_REALM_LIMITS.maxActiveInvites,
         maxJoinRequests: DEFAULT_REALM_LIMITS.maxJoinRequests,
         maxPlayerInvites: DEFAULT_REALM_LIMITS.maxPlayerInvites

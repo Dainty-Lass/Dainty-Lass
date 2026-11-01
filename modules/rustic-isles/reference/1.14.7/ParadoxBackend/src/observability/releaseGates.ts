@@ -52,7 +52,7 @@ export function BuildReleaseGatesBody(gates: readonly ReleaseGate[]): ReleaseGat
     return { ok: gates.length > 0 && gates.every((gate) => gate.ok), gates: [...gates] };
 }
 
-/** guard_mode: an unrecognised MYSTICPARADOX_GUARD_MODE value is not ok (the code treats it as enforce, with a warning). */
+/** guard_mode: an unrecognised RUSTIC_ISLES_GUARD_MODE value is not ok (the code treats it as enforce, with a warning). */
 export function GuardModeReleaseGate(environment: NodeJS.ProcessEnv): ReleaseGate {
     const Policy = ResolveGuardMode(environment);
     if (Policy.refusal !== undefined) {
@@ -63,7 +63,7 @@ export function GuardModeReleaseGate(environment: NodeJS.ProcessEnv): ReleaseGat
 
 /**
  * registration_approval_mode: ok when the effective value parses. A legacy switch that has no effect is reported in the detail
- * but does not fail the gate (the value that counts is MYSTICPARADOX_REGISTRATION_APPROVAL).
+ * but does not fail the gate (the value that counts is RUSTIC_ISLES_REGISTRATION_APPROVAL).
  */
 export function RegistrationApprovalReleaseGate(environment: NodeJS.ProcessEnv): ReleaseGate {
     const Policy = ResolveRegistrationApproval(environment);
@@ -85,7 +85,7 @@ export function TlsProxyReleaseGate(environment: NodeJS.ProcessEnv): ReleaseGate
     try {
         proxyOn = ReadTlsTerminatedByProxy(environment);
     } catch {
-        return { name: "tls_proxy_consistency", ok: false, detail: "MYSTICPARADOX_TLS_TERMINATED_BY_PROXY must be on or off" };
+        return { name: "tls_proxy_consistency", ok: false, detail: "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off" };
     }
     if (!proxyOn) return { name: "tls_proxy_consistency", ok: true, detail: "proxy mode off (in-process HTTPS)" };
     const BindHost = (environment.BIND_HOST ?? "").trim().toLowerCase();

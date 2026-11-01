@@ -19,8 +19,8 @@ import { launcherAuthRouter } from "./launcherAuth";
 
 const CURRENT = CurrentLegalRequirements();
 const CURRENT_CONSENT = { termsVersion: CURRENT.termsVersion, privacyVersion: CURRENT.privacyVersion, ageConfirmed: true };
-const ENV_KEYS = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64", "PERSISTENCE_PROVIDER", "MYSTICPARADOX_CONSENT_REQUIRED",
-    "MYSTICPARADOX_CONSENT_ENFORCE", "DEPLOYSERVER_URL", "MYSTICPARADOX_OFFICIAL_PLAY"] as const;
+const ENV_KEYS = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64", "PERSISTENCE_PROVIDER", "RUSTIC_ISLES_CONSENT_REQUIRED",
+    "RUSTIC_ISLES_CONSENT_ENFORCE", "DEPLOYSERVER_URL", "RUSTIC_ISLES_OFFICIAL_PLAY"] as const;
 const SAVED_ENV = new Map<string, string | undefined>();
 
 let Realm: TestRealm;
@@ -111,8 +111,8 @@ before(async () => {
     process.env.AUTH_SIGNING_PUBKEY_B64 = Buffer.from(Keys.publicKey).toString("base64");
     // The official backend's defaults (consent required on MongoDB); the realm below is SQLite, which only the repositories see.
     process.env.PERSISTENCE_PROVIDER = "mongodb";
-    delete process.env.MYSTICPARADOX_CONSENT_REQUIRED;
-    delete process.env.MYSTICPARADOX_CONSENT_ENFORCE;
+    delete process.env.RUSTIC_ISLES_CONSENT_REQUIRED;
+    delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE;
 
     Realm = OpenTestRealm("launcher-account");
     UsePersistenceForTest({ repos: Realm.repos, uow: Realm.uow });
@@ -250,9 +250,9 @@ test("restoring during the hold clears the request; after the hold the restore i
     assert.ok((await Realm.repos.launcherAccounts.findByUserId(Ended.userId))?.deletion, "the expired request stays for the erasure");
 });
 
-test("with MYSTICPARADOX_CONSENT_ENFORCE on, a game session needs the current consent (403 CONSENT_REQUIRED)", async () => {
+test("with RUSTIC_ISLES_CONSENT_ENFORCE on, a game session needs the current consent (403 CONSENT_REQUIRED)", async () => {
     const Body = { buildChangelist: 1, executableSha256: "b".repeat(64), runtimeChannel: "stable" };
-    process.env.MYSTICPARADOX_CONSENT_ENFORCE = "on";
+    process.env.RUSTIC_ISLES_CONSENT_ENFORCE = "on";
     try {
         const Without = await NewAccount();
         const Refused = await Call("POST", "/launcher/v1/game-sessions", Without.token, Body);
@@ -262,7 +262,7 @@ test("with MYSTICPARADOX_CONSENT_ENFORCE on, a game session needs the current co
         const Passed = await Call("POST", "/launcher/v1/game-sessions", With.token, Body);
         assert.notEqual(Passed.json?.error?.code, "CONSENT_REQUIRED", "a current consent is not refused for consent");
     } finally {
-        delete process.env.MYSTICPARADOX_CONSENT_ENFORCE;
+        delete process.env.RUSTIC_ISLES_CONSENT_ENFORCE;
     }
 
     const Off = await NewAccount();
@@ -297,7 +297,7 @@ test("the erasure's list returns the accounts whose hold has ended, oldest first
     assert.ok(Due.every((account) => (account.deletion?.scheduledFor ?? "") <= "2026-10-14T12:00:00.000Z"));
 });
 
-// [2026-10-15] Official play (MYSTICPARADOX_OFFICIAL_PLAY, config/officialPlay.ts) over HTTP: the status answer, and the refusal of a launch
+// [2026-10-15] Official play (RUSTIC_ISLES_OFFICIAL_PLAY, config/officialPlay.ts) over HTTP: the status answer, and the refusal of a launch
 // with no realm. A realm launch is not refused by the switch; the checks after it decide that launch.
 const OFFICIAL_PLAY_MESSAGE = "The official server is currently unavailable. Join or host a realm.";
 
@@ -317,7 +317,7 @@ function SetEnvironment(values: Record<string, string | undefined>): () => void 
 }
 
 test("GET /launcher/v1/status says whether official play is offered, with the message when it is not (2026-10-15)", async () => {
-    const restore = SetEnvironment({ DEPLOYSERVER_URL: undefined, MYSTICPARADOX_OFFICIAL_PLAY: undefined });
+    const restore = SetEnvironment({ DEPLOYSERVER_URL: undefined, RUSTIC_ISLES_OFFICIAL_PLAY: undefined });
     try {
         const Unset = await Call("GET", "/launcher/v1/status", undefined);
         assert.equal(Unset.status, 200, JSON.stringify(Unset.json));
@@ -326,7 +326,7 @@ test("GET /launcher/v1/status says whether official play is offered, with the me
         process.env.DEPLOYSERVER_URL = "deployserver.invalid:8080";
         const Configured = await Call("GET", "/launcher/v1/status", undefined);
         assert.deepEqual(Configured.json.officialPlay, { available: true }, "a DeployServer: on by default, and no message");
-        process.env.MYSTICPARADOX_OFFICIAL_PLAY = "off";
+        process.env.RUSTIC_ISLES_OFFICIAL_PLAY = "off";
         const Off = await Call("GET", "/launcher/v1/status", undefined);
         assert.deepEqual(Off.json.officialPlay, { available: false, message: OFFICIAL_PLAY_MESSAGE });
     } finally {
@@ -335,7 +335,7 @@ test("GET /launcher/v1/status says whether official play is offered, with the me
 });
 
 test("a launch with no realm is refused with 503 OFFICIAL_PLAY_UNAVAILABLE while official play is off; a realm launch is not refused by it (2026-10-15)", async () => {
-    const restore = SetEnvironment({ DEPLOYSERVER_URL: undefined, MYSTICPARADOX_OFFICIAL_PLAY: undefined });
+    const restore = SetEnvironment({ DEPLOYSERVER_URL: undefined, RUSTIC_ISLES_OFFICIAL_PLAY: undefined });
     try {
         const Account = await NewAccount();
         const Body = { buildChangelist: 647472, executableSha256: "a".repeat(64), runtimeChannel: "stable", runtimeManifestVersion: 1,
@@ -349,7 +349,7 @@ test("a launch with no realm is refused with 503 OFFICIAL_PLAY_UNAVAILABLE while
         assert.notEqual(RealmLaunch.json?.error?.code, "OFFICIAL_PLAY_UNAVAILABLE", JSON.stringify(RealmLaunch.json));
 
         // Turned on, an official launch is not refused by the switch either.
-        process.env.MYSTICPARADOX_OFFICIAL_PLAY = "on";
+        process.env.RUSTIC_ISLES_OFFICIAL_PLAY = "on";
         const Allowed = await Call("POST", "/launcher/v1/game-sessions", Account.token, Body);
         assert.notEqual(Allowed.json?.error?.code, "OFFICIAL_PLAY_UNAVAILABLE", JSON.stringify(Allowed.json));
     } finally {

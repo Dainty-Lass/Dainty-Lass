@@ -30,7 +30,7 @@ export type CreateTransportFunction = typeof createTransport;
 
 /**
  * The SMTP transport for the settings. Port 587 starts plain and must upgrade (requireTLS), so the login never goes out in clear;
- * port 465 (MYSTICPARADOX_SMTP_SECURE=tls) speaks TLS from the first byte. The factory is a parameter so tests can see the options
+ * port 465 (RUSTIC_ISLES_SMTP_SECURE=tls) speaks TLS from the first byte. The factory is a parameter so tests can see the options
  * without a connection.
  */
 export function CreateSmtpTransport(settings: SmtpSettings, factory: CreateTransportFunction = createTransport): MailTransport {

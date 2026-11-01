@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 // Each test file runs in its own process, so the switch below fixes this file's extension to the defaults.
-process.env.MYSTICPARADOX_ANTICHEAT_MODULE = "off";
+process.env.RUSTIC_ISLES_ANTICHEAT_MODULE = "off";
 
 test("without the anti-cheat module hunts collect no evidence and earn no rewards", async () => {
     const { GetAntiCheatExtension } = await import("./antiCheat");
     const antiCheat = GetAntiCheatExtension();
     assert.equal(antiCheat.loaded, false);
     assert.deepEqual(antiCheat.server.serviceRoles, []);
-    assert.deepEqual(antiCheat.server.runtimeSafetyIssues({ MYSTICPARADOX_SERVICE_ROLE: "reward-worker" }), []);
+    assert.deepEqual(antiCheat.server.runtimeSafetyIssues({ RUSTIC_ISLES_SERVICE_ROLE: "reward-worker" }), []);
     assert.deepEqual(antiCheat.rewards.policyStatus("hunt", "v1"), { ready: false, reason: "ANTICHEAT_MODULE_ABSENT" });
 
     const capability = {} as Parameters<typeof antiCheat.hunts.submitEvidence>[0];

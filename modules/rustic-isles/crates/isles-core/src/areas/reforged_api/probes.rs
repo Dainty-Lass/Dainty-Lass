@@ -42,11 +42,11 @@ fn readiness() -> (bool, String, i64) {
     (state.ready, state.reason.clone(), state.changed_at)
 }
 
-/// `MYSTICPARADOX_SERVICE_ROLE`: combined or api; anything else is a start-up error in Node, and here the default.
+/// `RUSTIC_ISLES_SERVICE_ROLE`: combined or api; anything else is a start-up error in Node, and here the default.
 pub fn service_role(shared: &Shared) -> &'static str {
     match shared
         .settings
-        .raw("MYSTICPARADOX_SERVICE_ROLE")
+        .raw("RUSTIC_ISLES_SERVICE_ROLE")
         .unwrap_or_default()
         .trim()
         .to_lowercase()
@@ -132,7 +132,7 @@ async fn release_gates(call: Call) -> Response {
 fn metrics_authorized(shared: &Shared, req: &Req) -> bool {
     let token = shared
         .settings
-        .raw("MYSTICPARADOX_METRICS_TOKEN")
+        .raw("RUSTIC_ISLES_METRICS_TOKEN")
         .map(str::trim)
         .filter(|t| !t.is_empty());
     let Some(expected) = token else {
@@ -144,7 +144,7 @@ fn metrics_authorized(shared: &Shared, req: &Req) -> bool {
         .filter(|a| a.to_lowercase().starts_with("bearer "))
         .map(|a| a[7..].trim().to_owned())
         .or_else(|| {
-            req.header("x-mysticparadox-metrics-token")
+            req.header("x-rustic-isles-metrics-token")
                 .map(|t| t.trim().to_owned())
                 .filter(|t| !t.is_empty())
         });
@@ -159,7 +159,7 @@ async fn metrics_route(call: Call) -> Response {
     if !metrics_authorized(&shared, &req) {
         let status = if shared
             .settings
-            .raw("MYSTICPARADOX_METRICS_TOKEN")
+            .raw("RUSTIC_ISLES_METRICS_TOKEN")
             .is_some_and(|t| !t.is_empty())
         {
             401
@@ -182,7 +182,7 @@ async fn metrics_route(call: Call) -> Response {
 
 /// The welcome text `system.ts` answers (the Reforged route of this path never does).
 pub fn dauntless_status() -> Value {
-    let welcome = "Welcome to Mystic Paradox!";
+    let welcome = "Welcome to Rustic Isles!";
     json!({
         "show-status": true,
         "en": welcome,

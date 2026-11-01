@@ -151,7 +151,7 @@ pub async fn check_edges(version: IslesVersion) -> Vec<String> {
         let reply = exchange(address, method, path, &[], "").await;
         expect(&format!("{method} {path} without credentials"), reply, 401, Some(""));
         if path != "/progression/config" {
-            let reply = exchange(address, method, path, &[("x-mysticparadox-gameserver-apikey", "k")], "").await;
+            let reply = exchange(address, method, path, &[("x-rustic-isles-gameserver-apikey", "k")], "").await;
             let status = match path {
                 "/motd/" => 204,
                 _ => 200,

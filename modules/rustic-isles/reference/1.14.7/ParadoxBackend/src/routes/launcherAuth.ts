@@ -170,7 +170,7 @@ launcherAuthRouter.post("/launcher/v1/auth/logout-all", HasLauncherAuth, (req, r
 launcherAuthRouter.post("/launcher/v1/auth/discord/start", (req, res) => Handle(req, res, () => StartDiscordAuth()));
 
 launcherAuthRouter.get("/launcher/v1/auth/discord/callback", async (req, res) => {
-    const Scheme = process.env.LAUNCHER_DEEPLINK_SCHEME ?? "mysticparadox";
+    const Scheme = process.env.LAUNCHER_DEEPLINK_SCHEME ?? "rusticisles";
 
     try {
         const RedirectUrl = await HandleDiscordCallback(req.query.code as string | undefined, req.query.state as string | undefined);
@@ -220,7 +220,7 @@ launcherAuthRouter.post("/launcher/v1/auth/password/reset", (req, res) =>
     })
 );
 
-// [2026-10-15] Link Discord to the signed-in account in Settings (the OAuth comes back to mysticparadox://link/done or link/error). Unlinking
+// [2026-10-15] Link Discord to the signed-in account in Settings (the OAuth comes back to rusticisles://link/done or link/error). Unlinking
 // is two steps: the start mails a code (purpose "unlink"), and the confirm checks it and unlinks. The one-click DELETE is gone.
 launcherAuthRouter.post("/launcher/v1/account/discord/link/start", HasLauncherAuth, (req, res) =>
     Handle(req, res, () => StartDiscordLink((req as any).LauncherAuthData.userId))

@@ -1,14 +1,14 @@
-# Self-hosting Mystic Paradox: source to Ramsgate
+# Self-hosting Rustic Isles: source to Ramsgate
 
 > [!NOTE]
 > This guide is for Dauntless 1.14.7, which `main` targets. For 1.12.0 (legacy), follow the guide on the
 > [`dauntless-1.12.0`](https://github.com/pranav158/Mystic-Paradox/tree/dauntless-1.12.0) tag. Upgrading an
 > existing 1.12.0 deployment? See [Upgrading from 1.12.0](#upgrading-from-1120).
 
-This handbook covers a complete Windows x64 deployment of Mystic Paradox for Dauntless 1.14.7,
+This handbook covers a complete Windows x64 deployment of Rustic Isles for Dauntless 1.14.7,
 from a clean source checkout through the first successful Ramsgate session.
 
-Mystic Paradox is an unofficial preservation project. It does not distribute the game, generated
+Rustic Isles is an unofficial preservation project. It does not distribute the game, generated
 Unreal SDK files, or extracted game data. Use only a lawful installation that you control.
 
 > [!IMPORTANT]
@@ -36,7 +36,7 @@ changelist.
 |---|---|---|
 | ParadoxBackend | Accounts, persistence, game APIs, matchmaking coordination, XMPP presence, runtime manifests | Backend host |
 | ParadoxDirector | Starts and supervises Ramsgate, Training Dojo, and hunt processes | Windows game-server host |
-| ParadoxRuntime | MysticParadox.dll compatibility/runtime layer | Beside every game executable |
+| ParadoxRuntime | Rustic-Isles.dll compatibility/runtime layer | Beside every game executable |
 | RuntimeLoader | winmm.dll proxy that loads the runtime at process startup | Beside every game executable |
 | ParadoxLauncher | Account UI, executable verification, signed runtime repair, session exchange, game launch | Every player PC |
 | MongoDB | Persistent service data | Private database host |
@@ -218,7 +218,7 @@ parties, and progression.
 
 From the repository root:
 
-    powershell -ExecutionPolicy Bypass -File scripts\configure-selfhost.ps1 -PublicHost paradox.example.net -GameServerBinaryPath 'D:\Dauntless\Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe' -TlsCertificatePath 'D:\MysticParadoxData\certs\fullchain.pem' -TlsPrivateKeyPath 'D:\MysticParadoxData\certs\privkey.pem' -GameServerPublicAddress 203.0.113.20 -InstallDependencies
+    powershell -ExecutionPolicy Bypass -File scripts\configure-selfhost.ps1 -PublicHost paradox.example.net -GameServerBinaryPath 'D:\Dauntless\Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe' -TlsCertificatePath 'D:\RusticIslesData\certs\fullchain.pem' -TlsPrivateKeyPath 'D:\RusticIslesData\certs\privkey.pem' -GameServerPublicAddress 203.0.113.20 -InstallDependencies
 
 The helper requires HTTPS port 443 and at least three game ports. It creates:
 
@@ -268,14 +268,14 @@ Backend essentials:
 | GAMESERVER_API_KEYS | The raw gameserver key(s); when non-empty this is the complete key set |
 
 The configurator does not set NODE_ENV. If you run the backend with NODE_ENV=production, it also
-requires MYSTICPARADOX_SERVICE_ROLE=api and a MYSTICPARADOX_METRICS_TOKEN, and refuses to start
+requires RUSTIC_ISLES_SERVICE_ROLE=api and a RUSTIC_ISLES_METRICS_TOKEN, and refuses to start
 without them.
 
 Every backend route has a per-address request budget: 600 requests a minute, and 6000 for calls
 that carry the gameserver key, because all hubs and hunts on one host share its address. A client
-over budget gets HTTP 429. Raise the budgets with MYSTICPARADOX_RATE_LIMIT_PER_MINUTE and
-MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE (for example when many players share one address),
-or turn them off with MYSTICPARADOX_RATE_LIMIT=off. The stricter limits on login, registration,
+over budget gets HTTP 429. Raise the budgets with RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE and
+RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE (for example when many players share one address),
+or turn them off with RUSTIC_ISLES_RATE_LIMIT=off. The stricter limits on login, registration,
 update downloads and log uploads always apply.
 
 Director essentials:
@@ -296,12 +296,12 @@ worlds: set SERVER_RUNTIME_MANIFEST_URL to your own backend and publish a `--tar
 Set stable absolute locations as well:
 
     # ParadoxBackend\.env
-    PARADOX_GAME_DATA_DIR=D:\MysticParadoxData\backend-game-data
-    LAUNCHER_UPDATE_ROOT=D:\MysticParadoxData\updates
+    PARADOX_GAME_DATA_DIR=D:\RusticIslesData\backend-game-data
+    LAUNCHER_UPDATE_ROOT=D:\RusticIslesData\updates
 
     # ParadoxDirector\.env
-    PARADOX_GAME_DATA_DIR=D:\MysticParadoxData\director-game-data
-    GAMESERVER_LOG_DIR=D:\MysticParadoxData\gameserver-logs
+    PARADOX_GAME_DATA_DIR=D:\RusticIslesData\director-game-data
+    GAMESERVER_LOG_DIR=D:\RusticIslesData\gameserver-logs
 
 Copy the final data files into those directories if you override the defaults.
 
@@ -330,7 +330,7 @@ Director does not rebuild on start: run `npm run build` there again after every 
 Do not run npm run test:bootstrap against the real database. That integration suite is destructive
 and requires a separate MONGODB_TEST_DB plus an explicit opt-in.
 
-## 9. Build MysticParadox.dll and winmm.dll
+## 9. Build Rustic-Isles.dll and winmm.dll
 
 Build the runtime:
 
@@ -339,7 +339,7 @@ Build the runtime:
 
 Expected output:
 
-    native\runtime\x64\Release\MysticParadox.dll
+    native\runtime\x64\Release\Rustic-Isles.dll
 
 Build the loader:
 
@@ -354,20 +354,20 @@ Place both beside the exact game executable used by Director:
 
     D:\Dauntless\Archon\Binaries\Win64\
       Dauntless-Win64-Shipping.exe
-      MysticParadox.dll
+      Rustic-Isles.dll
       winmm.dll
 
 The loader forwards legitimate winmm exports to the Windows system library and loads
-MysticParadox.dll. It falls back to a legacy MystPaxInternalServer.dll only when that copy is newer,
+Rustic-Isles.dll. It falls back to a legacy MystPaxInternalServer.dll only when that copy is newer,
 so delete any old copy left from a 1.12.0 install. Do not add untrusted DLLs to mystic_loader.ini.
 
 ## 10. Publish the signed client runtime
 
-The launcher repairs the runtime from a signed manifest. Publish MysticParadox.dll and winmm.dll
+The launcher repairs the runtime from a signed manifest. Publish Rustic-Isles.dll and winmm.dll
 into the Backend update root before installing a client:
 
     Set-Location ParadoxLauncher
-    node scripts/publish-runtime-update.mjs --dll ..\ParadoxRuntime\x64\Release\MysticParadox.dll --extra ..\tools\RuntimeLoader\target\release\winmm.dll --target client --version 0.1.0 --changelist 647472 --channel stable --output D:\MysticParadoxData\updates --base-url https://paradox.example.net --key .secrets\selfhost-runtime-update.private.pem
+    node scripts/publish-runtime-update.mjs --dll ..\ParadoxRuntime\x64\Release\Rustic-Isles.dll --extra ..\tools\RuntimeLoader\target\release\winmm.dll --target client --version 0.1.0 --changelist 647472 --channel stable --output D:\RusticIslesData\updates --base-url https://paradox.example.net --key .secrets\selfhost-runtime-update.private.pem
 
 Use a new semantic version whenever bytes change. Protect and back up the private signing key.
 Losing it means existing launchers cannot trust a replacement without being rebuilt.
@@ -401,7 +401,7 @@ Do not move on while HTTPS or the runtime manifest fails.
 
 ## 12. Start Director and verify persistent worlds
 
-Confirm MysticParadox.dll and winmm.dll are beside GAMESERVER_BINARY_PATH, then:
+Confirm Rustic-Isles.dll and winmm.dll are beside GAMESERVER_BINARY_PATH, then:
 
     Set-Location reference\1.14.7\ParadoxDirector
     npm start
@@ -411,7 +411,7 @@ with defaults, Training Dojo uses 8789 and Ramsgate uses 8790.
 
 A process existing is not enough. Wait for the exact runtime readiness marker:
 
-    MYSTICPARADOX_GAMESERVER_READY launchId=<uuid> port=<port>
+    RUSTIC_ISLES_GAMESERVER_READY launchId=<uuid> port=<port>
 
 Director should then log messages equivalent to:
 
@@ -421,7 +421,7 @@ Director should then log messages equivalent to:
 If Director logs a startup failure but remains listening on port 3001, the deployment is not ready.
 Fix the child failure before launching a player.
 
-Runtime logs appear beside the game executable as mysticparadox_dll_port*.log. Director-managed
+Runtime logs appear beside the game executable as rustic_isles_dll_port*.log. Director-managed
 process logs use GAMESERVER_LOG_DIR when configured.
 
 ## 13. Build and run the self-host launcher
@@ -481,7 +481,7 @@ directly does not obtain that code and is not the supported login path.
 
 Launcher session logs are collected under:
 
-    %LOCALAPPDATA%\MysticParadox\Logs\Sessions\<session-id>\
+    %LOCALAPPDATA%\RusticIsles\Logs\Sessions\<session-id>\
 
 Each session includes launcher.log, metadata.json, and copies of available runtime logs.
 
@@ -495,7 +495,7 @@ The first supported milestone is complete only when all of these are true:
 - Director reports Training Dojo and Ramsgate ready.
 - UDP 8790 is reachable from the player network.
 - The launcher creates or signs into an account and accepts the executable hash.
-- Repair installs matching winmm.dll and MysticParadox.dll.
+- Repair installs matching winmm.dll and Rustic-Isles.dll.
 - Play launches with a one-time exchange code.
 - Character login completes.
 - The player enters Ramsgate without an immediate disconnect.
@@ -523,7 +523,7 @@ These are off by default. A backend started from the steps above runs without an
 
 ### Admin API
 
-`MYSTICPARADOX_ADMIN_API` decides whether the backend serves its admin API under `/admin`. That covers players, bans,
+`RUSTIC_ISLES_ADMIN_API` decides whether the backend serves its admin API under `/admin`. That covers players, bans,
 registration approvals, activity, Guard findings, co-op operations and launcher logs.
 
 - It is off by default: every `/admin` path answers 404.
@@ -537,7 +537,7 @@ The backend also runs on Linux behind a reverse proxy. nginx terminates TLS and 
 1. In `.env` set:
 
    ```
-   MYSTICPARADOX_TLS_TERMINATED_BY_PROXY=on
+   RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY=on
    BIND_HOST=127.0.0.1
    PORT=3000
    QOS_PORT=off
@@ -615,7 +615,7 @@ with -Force merely to renew a certificate.
 
 ### Runtime update
 
-Build MysticParadox.dll and winmm.dll, publish a new semantic version with the same protected
+Build Rustic-Isles.dll and winmm.dll, publish a new semantic version with the same protected
 runtime-signing key, verify the manifest endpoint, then test Repair and Play on one client.
 
 ### Backend or Director update
@@ -623,6 +623,10 @@ runtime-signing key, verify the manifest endpoint, then test Repair and Play on 
 Back up MongoDB and ignored configuration, review source changes, run builds/tests, and restart
 Backend before Director unless release notes say otherwise. The backend rebuilds a stale build on
 `npm start`; the Director does not, so run `npm run build` there first.
+
+The settings were renamed from `MYSTICPARADOX_*` to `RUSTIC_ISLES_*`, the headers from `x-mysticparadox-*` to
+`x-rustic-isles-*` and the runtime from `MysticParadox.dll` to `Rustic-Isles.dll`. The old names still work for one
+release, with a warning naming the new one at startup; rename them in your `.env` files before the next.
 
 ### Backups
 
@@ -658,9 +662,9 @@ a known-good binary change and restart Backend.
 
 ### Director runs but Ramsgate is unavailable
 
-Look for MYSTICPARADOX_GAMESERVER_READY and the ramsgate ready log, not merely an open Director port.
+Look for RUSTIC_ISLES_GAMESERVER_READY and the ramsgate ready log, not merely an open Director port.
 Check GAMESERVER_BINARY_PATH, both DLLs, UDP forwarding, data files, GAMESERVER_LOG_DIR, and
-mysticparadox_dll_port*.log.
+rustic_isles_dll_port*.log.
 
 ### Gameservers receive HTTP 401
 
@@ -688,15 +692,15 @@ runtime hashes. The runtime never lets one connection receive another player's P
 
 Read the first error. Common causes: API_KEY_HASH_SECRET missing or shorter than 32 characters; a
 missing or invalid game-data file (the message names it); an environment key still using the old
-MYSTPAX_ prefix (rename it to MYSTICPARADOX_); NODE_ENV=production without
-MYSTICPARADOX_SERVICE_ROLE and MYSTICPARADOX_METRICS_TOKEN.
+MYSTPAX_ prefix (rename it to RUSTIC_ISLES_); NODE_ENV=production without
+RUSTIC_ISLES_SERVICE_ROLE and RUSTIC_ISLES_METRICS_TOKEN.
 
 ### Useful logs
 
 | Log | Location |
 |---|---|
-| Launcher session | %LOCALAPPDATA%\MysticParadox\Logs\Sessions\<session-id> |
-| Runtime | Beside game executable, mysticparadox_dll_port*.log |
+| Launcher session | %LOCALAPPDATA%\RusticIsles\Logs\Sessions\<session-id> |
+| Runtime | Beside game executable, rustic_isles_dll_port*.log |
 | Director child processes | GAMESERVER_LOG_DIR |
 | Backend and Director | Console output or service-wrapper logs |
 
@@ -714,7 +718,7 @@ A 1.12.0 deployment from the `dauntless-1.12.0` tag needs, in this order:
 3. TARGET_CHANGELIST=647472 and APPROVED_EXECUTABLE_SHA256 of the 1.14.7 executable in the backend
    .env; an API_KEY_HASH_SECRET if you have none, then every API key registered again under it (for
    example in GAMESERVER_API_KEYS), because key records stored as plain SHA-256 no longer match; any
-   MYSTPAX_ environment key renamed to MYSTICPARADOX_, including the launcher build variables in
+   MYSTPAX_ environment key renamed to RUSTIC_ISLES_, including the launcher build variables in
    .selfhost/build-env.ps1.
 4. A rebuilt runtime, loader and launcher, a new runtime version published with
    `--changelist 647472`, and the new launcher on every player PC.

@@ -32,7 +32,7 @@ import type { LauncherBuildReport, LauncherBuildVerdict } from "./activityRules"
  * nothing here refuses, limits or changes a grant, a hunt or a session, and a failure here never fails the request it observes: every
  * public recorder catches its own errors and logs one line. Daily counters are batched in memory and written every few seconds as
  * $inc upserts (one per account and day), so a request costs no database round trip. A batch that fails to write is kept for the
- * next flush. MYSTICPARADOX_ACTIVITY_MONITOR=off stops every write (the admin reads still answer with what exists).
+ * next flush. RUSTIC_ISLES_ACTIVITY_MONITOR=off stops every write (the admin reads still answer with what exists).
  *
  *   [ActivityMon] FLAG <kind> user= day= severity= ...   a flag was raised (review them at /admin/v1/activity/flags)
  *   [ActivityMon] <label> not recorded user= ...          a write failed (the grant or request went on)
@@ -493,7 +493,7 @@ const DefaultLauncherBuildSources: LauncherBuildSources = {
 
 /**
  * [2026-10-16] The verdict for a Play's launcher report on `channel`, against the served Guard pin and launcher version - the same one
- * RecordLauncherBuild flags with. Used by the MYSTICPARADOX_UNOFFICIAL_LAUNCHER refusal (security/unofficialLauncherPolicy.ts). Never
+ * RecordLauncherBuild flags with. Used by the RUSTIC_ISLES_UNOFFICIAL_LAUNCHER refusal (security/unofficialLauncherPolicy.ts). Never
  * throws: a feed that cannot be read gives "unknown".
  */
 export function ClassifyReportedLauncherBuild(channel: string, report: LauncherBuildReport | undefined,
@@ -510,7 +510,7 @@ export function ClassifyReportedLauncherBuild(channel: string, report: LauncherB
 /**
  * The launcher build a Play reported (POST /launcher/v1/game-sessions). A build that is not the one Guard pins, on the served
  * version or newer, raises UNOFFICIAL_LAUNCHER (once per account and day); an older official build updates itself and is not
- * flagged. Self-reported, so a monitor only: nothing is refused here (MYSTICPARADOX_UNOFFICIAL_LAUNCHER=refuse refuses in the Play
+ * flagged. Self-reported, so a monitor only: nothing is refused here (RUSTIC_ISLES_UNOFFICIAL_LAUNCHER=refuse refuses in the Play
  * handler, security/unofficialLauncherPolicy.ts). Returns the verdict; never throws.
  */
 export async function RecordLauncherBuild(userId: string, channel: string, report: LauncherBuildReport | undefined,

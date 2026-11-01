@@ -48,7 +48,7 @@ export function RemoveTestDirectory(dir: string): void {
 }
 
 export function TestConfig(databasePath: string, overrides: Partial<SqliteRuntimeConfig> = {}): SqliteRuntimeConfig {
-    return { ...ReadSqliteRuntimeConfig({ MYSTICPARADOX_SQLITE_PATH: databasePath }), ...overrides };
+    return { ...ReadSqliteRuntimeConfig({ RUSTIC_ISLES_SQLITE_PATH: databasePath }), ...overrides };
 }
 
 export function OpenTestRealm(label: string, overrides: Partial<SqliteRuntimeConfig> = {}): TestRealm {

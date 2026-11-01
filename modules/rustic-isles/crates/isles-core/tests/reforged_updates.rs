@@ -60,7 +60,7 @@ fn settings<'a>(env: &'a Env, extra: &[(&'a str, &'a str)]) -> Vec<(String, Stri
             "UPDATE_PUBLIC_BASE_URL".to_owned(),
             "https://updates.example.test/".to_owned(),
         ),
-        ("MYSTICPARADOX_ADMIN_API".to_owned(), "on".to_owned()),
+        ("RUSTIC_ISLES_ADMIN_API".to_owned(), "on".to_owned()),
         ("LAUNCHER_LOG_SYNC_TOKEN".to_owned(), "sync-token".to_owned()),
     ];
     pairs.retain(|(name, _)| !extra.iter().any(|(n, _)| n == name));
@@ -971,7 +971,7 @@ async fn testers_upload_launcher_logs_and_the_sync_script_reads_them() {
     set_authenticator(None);
 
     // With the admin API off the sync routes are the shared 404
-    let off = server(&env, RouteSet::V1147, &[("MYSTICPARADOX_ADMIN_API", "off")]).await;
+    let off = server(&env, RouteSet::V1147, &[("RUSTIC_ISLES_ADMIN_API", "off")]).await;
     assert_eq!(
         get(off, "/admin/v1/launcher-logs", &[("x-sync-token", "sync-token")])
             .await

@@ -64,20 +64,20 @@ async function CaptureLogs(body: () => Promise<void> | void): Promise<{ info: st
 test("the monitor reads its switch and thresholds from the environment, with the owner's defaults", async () => {
     assert.deepEqual(ReadEconomyMonitorSettings({}), SETTINGS);
     for (const Off of ["off", "OFF", "0", "false", "no"]) {
-        assert.equal(ReadEconomyMonitorSettings({ MYSTICPARADOX_ECONOMY_MONITOR: Off }).enabled, false, Off);
+        assert.equal(ReadEconomyMonitorSettings({ RUSTIC_ISLES_ECONOMY_MONITOR: Off }).enabled, false, Off);
     }
-    assert.equal(ReadEconomyMonitorSettings({ MYSTICPARADOX_ECONOMY_MONITOR: "on" }).enabled, true);
+    assert.equal(ReadEconomyMonitorSettings({ RUSTIC_ISLES_ECONOMY_MONITOR: "on" }).enabled, true);
     const Custom = ReadEconomyMonitorSettings({
-        MYSTICPARADOX_PLAT_DAILY_FLAG: "120",
-        MYSTICPARADOX_PLAT_DAILY_SPEND_FLAG: "340",
-        MYSTICPARADOX_SEASONAL_COIN_DAILY_FLAG: "0",
-        MYSTICPARADOX_XP_PER_MINUTE_FLAG: "900",
+        RUSTIC_ISLES_PLAT_DAILY_FLAG: "120",
+        RUSTIC_ISLES_PLAT_DAILY_SPEND_FLAG: "340",
+        RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG: "0",
+        RUSTIC_ISLES_XP_PER_MINUTE_FLAG: "900",
     });
     assert.deepEqual(Custom, { enabled: true, platinumDailyCreditFlag: 120, platinumDailySpendFlag: 340, seasonalCoinDailyFlag: 0, xpPerMinuteFlag: 900 });
     // A value that is not a non-negative number falls back to its default (and says so once, at startup).
     const Bad = await CaptureLogs(() => {
-        assert.equal(ReadEconomyMonitorSettings({ MYSTICPARADOX_PLAT_DAILY_FLAG: "lots" }).platinumDailyCreditFlag, 5000);
-        assert.equal(ReadEconomyMonitorSettings({ MYSTICPARADOX_PLAT_DAILY_FLAG: "-3" }).platinumDailyCreditFlag, 5000);
+        assert.equal(ReadEconomyMonitorSettings({ RUSTIC_ISLES_PLAT_DAILY_FLAG: "lots" }).platinumDailyCreditFlag, 5000);
+        assert.equal(ReadEconomyMonitorSettings({ RUSTIC_ISLES_PLAT_DAILY_FLAG: "-3" }).platinumDailyCreditFlag, 5000);
     });
     assert.equal(Bad.warn.length, 2);
 });

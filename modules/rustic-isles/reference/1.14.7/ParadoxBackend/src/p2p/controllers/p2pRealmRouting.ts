@@ -35,7 +35,7 @@ import { CloseRecoveredSessionForParty, NoteHubReturn } from "./p2pHostLifecycle
 /** A Training hub that is not running this long after it was asked for is refused (REALM_HUB_START_TIMEOUT). */
 export const REALM_HUB_START_TIMEOUT_MS = 90_000;
 // [2026-10-14] Every hunt class routes as a realm hunt (owner decision; design section 12 D2 is superseded). Gauntlet is refused
-// before this route by RouteP2PHunt (MYSTICPARADOX_GAUNTLET), and FTUE stays refused (IsKnownRuntimeIncompatible).
+// before this route by RouteP2PHunt (RUSTIC_ISLES_GAUNTLET), and FTUE stays refused (IsKnownRuntimeIncompatible).
 const CONTROL_MESSAGE_LIFETIME_MS = 10 * 60_000;
 const HOST_LOOPBACK = "127.0.0.1";
 

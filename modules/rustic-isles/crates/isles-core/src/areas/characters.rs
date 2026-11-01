@@ -74,8 +74,8 @@ async fn authenticate(call: &Ctx, request: &mut Request) -> Result<AuthData, Res
         return Ok(auth);
     }
     if !request.headers().contains_key("authorization")
-        && !request.headers().contains_key("x-mysticparadox-gameserver-apikey")
-        && !request.headers().contains_key("x-mysticparadox-gameserver-key")
+        && !request.headers().contains_key("x-rustic-isles-gameserver-apikey")
+        && !request.headers().contains_key("x-rustic-isles-gameserver-key")
     {
         return Err(not_implemented(call.route, &call.request_id));
     }
