@@ -17,13 +17,12 @@ what it is running.
 | Admin's `max_hunt_servers` comes from the Reforged edition only, whatever is enabled | `spawn_admin` |
 | The fleet agent finds admin and the backend through hard-coded loopback ports, and the host copies two secrets out of `secrets.env` into `agent.env` by hand | dainty-dashboard `docs/fleet.md` |
 | A Discord bot can ask admin's `serverStatus`, which says the backend answers, not whether a game server can take a player | `docs/admin-api.md` |
-| Nothing lists the game servers a controller runs. `ServerSnapshot` has `active_hunts` and `max_hunts` as two numbers, and the legacy deploy server's 1.4.4 game servers are outside the controller entirely | `service-kit/src/context.rs` |
+| Nothing lists the game servers a controller runs. `ServerSnapshot` has `active_hunts` and `max_hunts` as two numbers | `service-kit/src/context.rs` |
 | `StatusRegistry` knows a component's phase, not what it offers or needs | `service-kit/src/context.rs` |
 
 The two motivating cases:
 
-1. **The Discord bot must know a game server is up before it issues a key** (an invite, or a recovered account
-   key through DR's key recovery). Issuing one to a player who then can't play is the failure to prevent.
+1. **The Discord bot must know a game server is up before it issues a key** (a signup link or an invite). Issuing one to a player who then can't play is the failure to prevent.
 2. **The dashboard must know every game server tied to a controller**, across editions, so it can query them all,
    and the same for every controller in the fleet.
 
@@ -35,7 +34,7 @@ other modules read it without knowing ports, secrets or start order.
 | Kind | Examples | Runs | Talks to the registry through |
 | --- | --- | --- | --- |
 | **Built-in** | gateway, allowlist, content, admin, `backend-<edition>`, `director-<edition>`, the Discord bot (Rust, section 10) | in the controller's process | Rust handles (in-process) |
-| **Sidecar** | fleet agent (Bun), the Node Paradox backend and Director until the port, DR's deploy server and metagame, a game module from its own repository | its own process on the same host, **started and supervised by the controller** (section 9) | the **local module API** (loopback HTTP) |
+| **Sidecar** | fleet agent (Bun), the Node Paradox backend and Director until the port, a game module from its own repository | its own process on the same host, **started and supervised by the controller** (section 9) | the **local module API** (loopback HTTP) |
 | **Remote** | another controller in the fleet | another host | its own agent, which reads its local module API and reports to the dashboard |
 
 A module is identified by a stable **module id** (`director-reforged`, `discord-bot`, `fleet-agent`). The built-in
@@ -61,8 +60,8 @@ status page keep working.
                        └──────────────────────────────▲──────────────────────────────────────┘
                                                       │ loopback only            events ──▶ Postgres
                           ┌───────────────────────────┼─────────────────────────┐            (modules.events)
-                   legacy deploy / metagame      fleet-agent ──outbound──▶ dashboard
-                         (sidecar)               (sidecar)
+               Node backend / Director        fleet-agent ──outbound──▶ dashboard
+               (sidecars until the port)     (sidecar)
 ```
 
 Three channels, each for one kind of sharing:
@@ -128,11 +127,12 @@ integration pass.
 
 | Capability | Kind | Provider | Consumers | What it holds |
 | --- | --- | --- | --- | --- |
-| `game.servers@1` | state | each `director-<edition>`; later the deploy server for `revived` | admin, fleet agent, dashboard, bot | Every game server: `id`, `edition`, `kind` (hub, hunt, training, legacy), `director` (module id), `address`, `udpPort`, `phase` (starting, ready, draining, down), `players`, `capacity`, `title`, `lastHeartbeatMs` |
+| `game.servers@1` | state | each `director-<edition>` | admin, fleet agent, dashboard, bot | Every game server: `id`, `edition`, `kind` (hub, hunt, training), `director` (module id), `address`, `udpPort`, `phase` (starting, ready, draining, down), `players`, `capacity`, `title`, `lastHeartbeatMs` |
 | `game.availability@1` | state | the controller, derived | bot, launcher-facing status, admin | Per edition: `accepting: bool`, `reason` code when not (`backend_down`, `director_down`, `no_game_server`, `maintenance`), `freeSlots` (hunt slots, informational) |
 | `edition.endpoints@1` | state | the controller | admin, content, gateway | Per enabled edition: backend and director loopback URLs. Replaces `primary_backend_url` |
 | `accounts.invites@1` | command | `backend-<edition>` | bot, admin | `create(edition, uses, expires) -> code`, `revoke(code)`; the same calls as `CreateInvite` and `DELETE …/InviteCode/:code` |
-| `accounts.keyRecovery@1` | command | metagame (legacy) | bot | DR's `/internal/key-recovery/:action` (`link`, `begin`, `confirm`) |
+| `accounts.verifyKey@1` | command | `backend-<edition>` | content | What content's `GetUserInfo` call answers today: the account behind a key, or its ban. Content keeps its short cache |
+| `firewall.allow@1` | command | allowlist | gateway | Open the game ports to a player's address after login. Replaces the `InProcessSink` closure over a mutex slot |
 | `players.lookup@1` | command | `backend-<edition>` | admin, bot | What admin's `player(username)` resolves today, per edition |
 | `server.identity@1` | state | the controller | everyone | Server name, mode, public host, invite URL, certificate fingerprint, enabled editions. Never a secret |
 | `dashboard.signup@1` | state | the fleet agent (a sidecar provider), from the dashboard's settings | Discord bot | `enabled: bool`, `url` of the dashboard's account creation page, `updatedAtMs`. Absent or older than its TTL reads as disabled |
@@ -229,7 +229,7 @@ At runtime:
 
 ## 7. The local module API (sidecars)
 
-A built-in module, `module-api`, on `127.0.0.1:61007` (the next free port after the metagame's 61005 and before the
+A built-in module, `module-api`, on `127.0.0.1:61007` (the next free port after 61005 and before the
 agent's ingest relay on 61009; confirm against the host kit's port table). JSON as the other services write it,
 camelCase.
 
@@ -330,18 +330,116 @@ the command sees it).
    it makes the code and answers `Unavailable(no_game_server)` when the state changed since step 1; the bot then
    replies as in step 1. The bot's read picks the message; the command's check is the guarantee.
 4. Per Discord id: one live code at a time (a second `/key` inside the expiry returns the same URI, still
-   ephemeral), and at most five requests per 15 minutes, as DR's key recovery limits recovery.
+   ephemeral), and at most five requests per 15 minutes.
 
 The invite code and the URI never go to a channel, a log line or an event; the event records only the outcome.
 
-On a legacy (`revived`) edition the same flow uses `accounts.keyRecovery@1` instead of invites.
+## 11. How the standard modules interact
+
+Every interaction between the standard modules, with the channel each should use. Per edition, `backend`,
+`director` and the game servers exist once for Reforged and once for Refined; the edges are the same for both.
+
+```mermaid
+flowchart LR
+    classDef ext fill:#eef,stroke:#88a
+    classDef core fill:#efe,stroke:#8a8
+    classDef store fill:#fee,stroke:#a88
+
+    Launcher["Launcher\n(player's PC)"]:::ext
+    Dashboard["Dashboard\n(remote)"]:::ext
+    HostKit["Host kit\nsetup: host.toml → env files"]:::ext
+
+    subgraph Controller["Controller process"]
+        Registry["Registry\nmanifests · status · state · events"]:::core
+        Supervisor["Sidecar supervisor"]:::core
+        ModuleAPI["module-api\n127.0.0.1:61007"]:::core
+        Gateway["gateway"]
+        Allowlist["allowlist"]
+        Content["content"]
+        Admin["admin"]
+        Bot["discord-bot"]
+        subgraph Edition["per edition"]
+            Backend["backend"]
+            Director["director"]
+        end
+    end
+
+    GameServers["Game servers\nhub · hunts"]
+    Agent["fleet-agent\n(sidecar)"]:::ext
+    Events[("Postgres\nmodules.events")]:::store
+
+    Launcher -->|"1 D: HTTPS + WS, pinned TLS"| Gateway
+    Gateway -->|"2 D: /reforged/api, game HTTP, chat"| Backend
+    Gateway -->|"3 D: /content/v1"| Content
+    Gateway ==>|"4 C: firewall.allow"| Allowlist
+    GameServers -->|"5 D: game-server API"| Backend
+    Backend ==>|"6 C: start / stop a hunt"| Director
+    Director -->|"7 D: spawn, UDP ports"| GameServers
+    Director -.->|"8 S: game.servers"| Registry
+    Registry -.->|"9 S: availability, endpoints, identity"| Admin
+    Content ==>|"10 C: accounts.verifyKey"| Backend
+    Admin ==>|"11 C: lookup, kick, timeout, ban"| Backend
+    Bot ==>|"12 C: accounts.invites"| Backend
+    Registry -.->|"13 S: availability, identity, signup"| Bot
+    Agent -.->|"14 S: read registry, servers; provide signup"| ModuleAPI
+    Agent ==>|"15 C: allowlisted GraphQL ops"| Admin
+    Agent -->|"16 D: outbound report + commands"| Dashboard
+    Backend -->|"17 D: chat + reports ingest"| Agent
+    Registry --o|"18 E: write, then publish"| Events
+    ModuleAPI --o|"19 E: SSE, resume by seq"| Agent
+    HostKit -.->|"20 config + secrets at start"| Controller
+    Supervisor ==>|"21 start, heartbeat, restart"| Agent
+    ModuleAPI -.- Registry
+```
+
+`D` data plane (`-->`), `S` state (`-.->`), `C` command (`==>`), `E` event (`--o`).
+
+### Which channel for which kind of interaction
+
+| Kind | Use | Why |
+| --- | --- | --- |
+| Player and game traffic | **Direct sockets.** The registry hands out addresses at start (`edition.endpoints`) and is never on the path | Latency, the existing wire contracts, and the gateway's policy are all per request; a broker in between adds a hop and a failure mode for nothing |
+| A fact other modules need now | **State**: a `watch` in process, `GET /state/...` for a sidecar | Readers get the latest value without asking its owner, the value survives the owner's restart, and no one polls |
+| An action that needs an answer | **Command**: a request handle in process, `POST /call/...` for a sidecar. The provider rechecks its own preconditions | One owner decides; the recheck closes the gap between a reader's look and the action |
+| Something happened, or history | **Event**, written to Postgres, then published | Audit and catch-up after a restart; nothing waits on a consumer |
+| Configuration and secrets | **At start only**: the rendered env file, or the module's section in `ServiceContext` | No runtime API can leak a secret it never holds; a change is a restart, as today |
+| Lifecycle | **Registry and supervisor**: phase in `ServiceContext`, heartbeats for sidecars | One place shows and controls everything that runs |
+| An upstream contract (Paradox's HTTP, the game-server API, the dashboard's ingest API) | **Stays HTTP**, wrapped as a capability provider where a Rust module consumes it | The contract keeps its byte-for-byte shape; the backend port swaps the provider, and no consumer changes |
+
+### Each interaction, today and in the plan
+
+| # | From → to | What | Today | Plan |
+| --- | --- | --- | --- | --- |
+| 1 | launcher → gateway | Everything a player sends | Pinned TLS (public) or Tailscale HTTP | Unchanged |
+| 2 | gateway → backend | Launcher API, game HTTP, chat WebSocket | Proxy to the first edition's backend only | Proxy per edition, addresses from `edition.endpoints` |
+| 3 | gateway → content | Runtime manifest and files, branding, news | Proxy | Unchanged; address from `edition.endpoints` |
+| 4 | gateway → allowlist | Open the game ports after login | `InProcessSink` closure over a `Mutex<Option<…>>` slot | `firewall.allow@1` handle in `ServiceContext` |
+| 5 | game servers → backend | Game-server API, its key, loopback | HTTP | Unchanged (a game contract) |
+| 6 | backend → director | Start and stop hunts | HTTP, `director_url` in the backend's config | HTTP kept (Paradox's contract), URL from `edition.endpoints` |
+| 7 | director → game servers | Processes and UDP ports | Spawns | Unchanged |
+| 8 | director → registry | Which game servers run, their heartbeats | Two counters in `ServerSnapshot` | `game.servers@1` state, TTL sweep in the controller |
+| 9 | registry → admin | Availability, endpoints, identity | Admin's config holds one backend and Reforged's hunt limit | State; admin fans out across editions |
+| 10 | content → backend | Is this key an account, is it banned | HTTP `GetUserInfo` to the first backend, cached | `accounts.verifyKey@1`; an HTTP adapter until the Rust backend |
+| 11 | admin → backend | Lookups and moderation | Signed `/admin/v1` HTTP to the first backend | Same calls per edition; commands after the backend port |
+| 12 | bot → backend | Single-use invite | — | `accounts.invites@1`, rechecks availability |
+| 13 | registry → bot | Availability, identity, dashboard signup | — | State |
+| 14 | agent → module API | Registry, game servers, availability; provides `dashboard.signup` | Hard-coded loopback ports | `GET` / `PUT /modules/v1/state/...` with its token |
+| 15 | agent → admin | Allowlisted GraphQL operations | Admin key copied into `agent.env` by hand | Unchanged calls; key rendered into its env file by setup |
+| 16 | agent → dashboard | Status report every 15 s, commands down | Outbound SSE and POSTs | Unchanged; report gains `registry` and `gameServers` |
+| 17 | backend → agent | Chat and reports | Ingest relay on 61009 | Unchanged (the dashboard's contract) |
+| 18 | every module → event store | What happened | — | Written to `modules.events`, then broadcast |
+| 19 | module API → agent | Event stream | — | SSE, resumable by `seq` |
+| 20 | host kit → controller | Settings and secrets | `host.toml` and `secrets.env` rendered to env files | Unchanged, plus `[modules.*]` and module tokens |
+| 21 | supervisor → agent | Run it | The host runs it by hand | Started, watched and restarted by the controller |
+
+The rule underneath: **the registry carries facts, decisions and history; it never carries a player's packets
+or a secret.**
 
 ## Walkthroughs
 
 ### The dashboard lists every game server of every controller
 
-1. Each agent reads `GET /modules/v1/state/game.servers` (both editions, and `revived` once the deploy server
-   provides it) and includes it in its report.
+1. Each agent reads `GET /modules/v1/state/game.servers` (both editions) and includes it in its report.
 2. The dashboard stores the last report per controller, as it does with status today, and the Overview and a
    controller's page read it. A page view still costs nothing on the controllers.
 3. To query one game server, the dashboard sends a command naming its `id`; the agent resolves the id to its
@@ -378,7 +476,6 @@ Each row is one agent, one worktree and branch, as RD18 describes. MS1 is the se
 | **MS9** | Discord bot as a built-in Rust module (section 10): `/key`, `/status`; its catalog in `en` and `pt-BR`; the token in `secrets.env` and its `setup` option; replaces the sketch in `docs/admin-api.md`. `twilight` reported for `[workspace.dependencies]` | new `services/discord-bot` | MS3, MS6, MS7, MS11 |
 | **MS11** | `modules.events` in Postgres: the migration (through the `store` owner), write-then-publish in the registry, resume by `seq`, retention | `crates/modules` (event store), one migration reported to the `store` owner | MS1, **RB3** (`store` on Postgres), **RB14** (the host kit's managed Postgres) |
 | **MS12** | Sidecar supervision (section 9): spawn, env, process tree, heartbeats, backoff, log capture, REPL and GUI commands | `crates/controller` (sidecar module only) | MS5, MS6 |
-| **MS10** | Legacy: the deploy server provides `game.servers` for `revived`, the metagame provides `accounts.keyRecovery` | `services/deploy`, `services/metagame` | MS5 |
 
 MS4, MS5 and MS3's follow-ups can run side by side once MS2 is merged. Nothing here edits `MIGRATION_PLAN.md`; the
 integration pass adds the rows and the decisions below.
@@ -400,6 +497,8 @@ integration pass adds the rows and the decisions below.
 - 2026-10-31: the event store waits for Postgres (RB3, RB14); no interim SQLite store.
 - 2026-10-31: the Discord bot waits for the event store (MS11), so it ships with its audit, after the backend
   cutover.
+- 2026-10-31: no legacy (Dauntless Revived 1.4.4) modules. The metagame and deploy server provide nothing here;
+  importing and converting a legacy database is kept, outside this plan.
 
 ## Open questions
 
