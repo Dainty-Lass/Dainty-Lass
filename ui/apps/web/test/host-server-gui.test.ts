@@ -177,6 +177,7 @@ function sampleConfig(over: Partial<ServerConfigView> = {}): ServerConfigView {
     publicHost: null,
     registration: "INVITECODE",
     database: "sqlite",
+    rebornModule: "isles-1-14-7",
     maxHubs: 1,
     maxHunts: 3,
     freshStart: false,
@@ -362,7 +363,23 @@ describe("MongoDB migration card states, confirmation, and non-modification guar
         htmlEscape(translate(lang, "hsrv_mongo_migrated_title"))
       )
       expect(html).toContain(htmlEscape(translate(lang, "hsrv_mongo_migrated")))
+      expect(html).toContain(
+        htmlEscape(translate(lang, "hsrv_cfg_reborn_module"))
+      )
+      expect(html).toContain(htmlEscape(translate(lang, "hsrv_cfg_mod_1147")))
       expect(html).not.toContain('data-action="mongo-migrate"')
+
+      const html1120 = renderInLanguage(
+        lang,
+        createElement(ServerConfigSection, {
+          kit: sampleKit(),
+          server: sampleServer({ state: "stopped" }),
+          initialConfig: sampleConfig({ rebornModule: "isles-1-12-0" }),
+        })
+      )
+      expect(html1120).toContain(
+        htmlEscape(translate(lang, "hsrv_cfg_mod_1120"))
+      )
     })
 
     test(`renders fresh-start (skipped) state and states that MongoDB was never modified in ${lang}`, () => {

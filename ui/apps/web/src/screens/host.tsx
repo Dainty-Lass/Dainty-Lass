@@ -730,6 +730,13 @@ export function ServerConfigSection({
   const [database, setDatabase] = useState<"sqlite" | "postgres">(
     initialConfig?.database === "postgres" ? "postgres" : "sqlite"
   )
+  const [rebornModule, setRebornModule] = useState<
+    "isles-1-14-7" | "isles-1-12-0"
+  >(
+    initialConfig?.rebornModule === "isles-1-12-0"
+      ? "isles-1-12-0"
+      : "isles-1-14-7"
+  )
   const [maxHubs, setMaxHubs] = useState(String(initialConfig?.maxHubs ?? 1))
   const [maxHunts, setMaxHunts] = useState(String(initialConfig?.maxHunts ?? 3))
   const [freshStart, setFreshStart] = useState(
@@ -749,6 +756,9 @@ export function ServerConfigSection({
         : "INVITECODE"
     setRegistration(reg)
     setDatabase(view.database === "postgres" ? "postgres" : "sqlite")
+    setRebornModule(
+      view.rebornModule === "isles-1-12-0" ? "isles-1-12-0" : "isles-1-14-7"
+    )
     setMaxHubs(String(view.maxHubs))
     setMaxHunts(String(view.maxHunts))
     setFreshStart(view.freshStart)
@@ -792,6 +802,7 @@ export function ServerConfigSection({
       const out = await api.serverConfigSave({
         registration,
         database,
+        rebornModule,
         maxHubs: hubsNum,
         maxHunts: huntsNum,
         freshStart,
@@ -930,6 +941,20 @@ export function ServerConfigSection({
                 { value: "postgres", label: t("hsrv_cfg_db_postgres") },
               ]}
               onChange={setDatabase}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="cfg-reborn-module">
+              {t("hsrv_cfg_reborn_module")}
+            </Label>
+            <Choice<"isles-1-14-7" | "isles-1-12-0">
+              id="cfg-reborn-module"
+              value={rebornModule}
+              options={[
+                { value: "isles-1-14-7", label: t("hsrv_cfg_mod_1147") },
+                { value: "isles-1-12-0", label: t("hsrv_cfg_mod_1120") },
+              ]}
+              onChange={setRebornModule}
             />
           </div>
           <div className="flex flex-wrap gap-4">
