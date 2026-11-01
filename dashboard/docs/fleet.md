@@ -32,6 +32,36 @@ staff ─TLS─▶│ dashboard ──loopback──▶ admin API, backend      
   a page. Commands (a player lookup, a ban) are the only calls that wait on a controller, and they time out
   after 20 s.
 
+## The agent protocol
+
+[`protocol.ts`](../packages/fleet/src/protocol.ts) has the types. Every call but pairing carries the
+agent's token.
+
+| Call                                    | Carries                                                                          |
+| --------------------------------------- | -------------------------------------------------------------------------------- |
+| `POST /api/agent/v1/pair`               | the pairing code, once; answers the token                                        |
+| `GET /api/agent/v1/stream`              | an event stream of commands (`command`) and keep-alives (`ping`)                 |
+| `POST /api/agent/v1/result`             | a command's answer                                                               |
+| `POST /api/agent/v1/status`             | the status every 15 s: services, server, hunts, players, and the metrics summary |
+| `/api/agent/v1/ingest/*`, `chat-filter` | the ingest API, relayed and tagged with the controller                           |
+
+### Metrics
+
+With each status the agent reads its host's `/metrics` (the admin service, beside its GraphQL, on the same
+key: dainty-lass `docs/admin-api.md`) and sends a summary of it as `metrics`
+([`metrics.ts`](../packages/fleet/src/metrics.ts)): each component's phase, uptime and restarts; CPU,
+memory and uptime of the controller process and every process it started; players on each game server;
+requests and the latency histogram per service and route; chat lines by verdict. The dashboard makes the
+same summary for its own controller on the same clock. Counters are sent as they are, never as rates: the
+dashboard keeps an hour of summaries per controller in memory (`lib/fleet/metrics.ts`) and works out
+request rates, 5xx share, p50 and p95 over the last 5 minutes, and a point a minute for the charts. A
+restart of the dashboard starts that hour again; the last summary is kept with the status.
+
+The field is optional, so the protocol version stays 1: an agent that predates it reports
+`capabilities` without `"metrics"` and its controller shows "No metrics yet", and an older dashboard
+ignores the field. The dashboard checks and caps the summary before keeping it, and stamps it with its
+own clock, as it does the status.
+
 ## Adding a controller
 
 1. **Controllers → Add controller.** Give it a name and, optionally, a region. You get a pairing code,
@@ -91,7 +121,14 @@ that host or not; only the URL and key differ. Every controller gets the same ch
 - **Overview** across the fleet: players online, controllers up, hunts running out of capacity, the
   controllers that are down first, players over time, and every live hunt with its controller.
 - **Controllers** lists them all, with what is down first, and filters by state, region and name. A
-  controller's page has its services, a week of player counts, its hunts, and every change made on it.
+  controller's page has its services, a week of player counts, its hunts, its performance, and every
+  change made on it.
+- **Performance**, on the overview and each controller's page: requests, CPU and memory over the last
+  hour; for one controller its components (phase, uptime, restarts, and CPU and memory where a process
+  has the component's name), its game servers (players of the cap) and the processes it started, and
+  for the fleet a row per controller. Below, requests by upstream (rate, 5xx, p50, p95) and, for
+  moderators and up, chat lines by verdict. The metrics name no game server's process, so the
+  processes are listed beside the game servers rather than matched to them.
 - **Players** across the fleet asks each controller and merges the answers, with a controller column. Each
   controller has its own accounts, so a player page is always for one controller (`?c=` in the URL).
 - **Ban on every controller**: admins get a switch in the ban dialog that bans the name on every reachable

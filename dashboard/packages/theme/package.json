@@ -18,7 +18,7 @@
     "build": "astryx theme build src/dainty.theme.ts -o built/dainty.theme.css",
     "check": "astryx theme build src/dainty.theme.ts -o built/dainty.theme.css --check",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test"
+    "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
     "@astryxdesign/core": "^0.7.2",

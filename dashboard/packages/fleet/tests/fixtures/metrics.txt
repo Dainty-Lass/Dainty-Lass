@@ -1,0 +1,142 @@
+# HELP dainty_chat_dashboard_posts_total Posts to the staff dashboard, by path and result
+# TYPE dainty_chat_dashboard_posts_total counter
+dainty_chat_dashboard_posts_total{path="/api/ingest/chat",result="ok"} 412
+dainty_chat_dashboard_posts_total{path="/api/ingest/chat",result="failed"} 3
+dainty_chat_dashboard_posts_total{path="/api/ingest/reports",result="refused"} 1
+# HELP dainty_chat_messages_total Room lines and whispers sent, by channel and the filter's verdict
+# TYPE dainty_chat_messages_total counter
+dainty_chat_messages_total{channel="city",verdict="allowed"} 1200
+dainty_chat_messages_total{channel="party",verdict="allowed"} 300
+dainty_chat_messages_total{channel="city",verdict="flagged"} 7
+dainty_chat_messages_total{channel="direct",verdict="masked"} 4
+dainty_chat_messages_total{channel="city",verdict="blocked"} 2
+# HELP dainty_component_phase 1 for the phase each component is in (stopped, starting, ready, stopping, failed, disabled)
+# TYPE dainty_component_phase gauge
+dainty_component_phase{component="backend",phase="stopped"} 0
+dainty_component_phase{component="backend",phase="starting"} 0
+dainty_component_phase{component="backend",phase="ready"} 1
+dainty_component_phase{component="backend",phase="stopping"} 0
+dainty_component_phase{component="backend",phase="failed"} 0
+dainty_component_phase{component="backend",phase="disabled"} 0
+dainty_component_phase{component="director",phase="stopped"} 0
+dainty_component_phase{component="director",phase="starting"} 0
+dainty_component_phase{component="director",phase="ready"} 1
+dainty_component_phase{component="director",phase="stopping"} 0
+dainty_component_phase{component="director",phase="failed"} 0
+dainty_component_phase{component="director",phase="disabled"} 0
+dainty_component_phase{component="gateway",phase="stopped"} 0
+dainty_component_phase{component="gateway",phase="starting"} 0
+dainty_component_phase{component="gateway",phase="ready"} 1
+dainty_component_phase{component="gateway",phase="stopping"} 0
+dainty_component_phase{component="gateway",phase="failed"} 0
+dainty_component_phase{component="gateway",phase="disabled"} 0
+dainty_component_phase{component="mongod",phase="stopped"} 0
+dainty_component_phase{component="mongod",phase="starting"} 0
+dainty_component_phase{component="mongod",phase="ready"} 0
+dainty_component_phase{component="mongod",phase="stopping"} 0
+dainty_component_phase{component="mongod",phase="failed"} 1
+dainty_component_phase{component="mongod",phase="disabled"} 0
+# HELP dainty_component_restarts Times a component was restarted
+# TYPE dainty_component_restarts gauge
+dainty_component_restarts{component="backend"} 0
+dainty_component_restarts{component="director"} 1
+dainty_component_restarts{component="gateway"} 0
+dainty_component_restarts{component="mongod"} 4
+# HELP dainty_component_uptime_seconds Seconds since a component last became ready
+# TYPE dainty_component_uptime_seconds gauge
+dainty_component_uptime_seconds{component="backend"} 86400
+dainty_component_uptime_seconds{component="director"} 3600
+dainty_component_uptime_seconds{component="gateway"} 86410
+dainty_component_uptime_seconds{component="mongod"} 0
+# HELP dainty_director_up Whether the Director answered
+# TYPE dainty_director_up gauge
+dainty_director_up 1
+# HELP dainty_game_server_max_players A game server's player cap
+# TYPE dainty_game_server_max_players gauge
+dainty_game_server_max_players{instance="hub-1",kind="city"} 50
+dainty_game_server_max_players{instance="hunt-7f3a",kind="hunt"} 4
+# HELP dainty_game_server_players Players on a running game server
+# TYPE dainty_game_server_players gauge
+dainty_game_server_players{instance="hub-1",kind="city"} 12
+dainty_game_server_players{instance="hunt-7f3a",kind="hunt"} 3
+# HELP dainty_http_request_duration_ms Time to the response head in milliseconds, by service and route class
+# TYPE dainty_http_request_duration_ms histogram
+dainty_http_request_duration_ms_bucket{le="5",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="10",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="25",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="50",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="100",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="250",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="500",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="1000",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="2500",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="5000",route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="+Inf",route="all",service="admin"} 10
+dainty_http_request_duration_ms_sum{route="all",service="admin"} 31.5
+dainty_http_request_duration_ms_count{route="all",service="admin"} 10
+dainty_http_request_duration_ms_bucket{le="5",route="backend",service="gateway"} 100
+dainty_http_request_duration_ms_bucket{le="10",route="backend",service="gateway"} 400
+dainty_http_request_duration_ms_bucket{le="25",route="backend",service="gateway"} 800
+dainty_http_request_duration_ms_bucket{le="50",route="backend",service="gateway"} 900
+dainty_http_request_duration_ms_bucket{le="100",route="backend",service="gateway"} 950
+dainty_http_request_duration_ms_bucket{le="250",route="backend",service="gateway"} 990
+dainty_http_request_duration_ms_bucket{le="500",route="backend",service="gateway"} 1000
+dainty_http_request_duration_ms_bucket{le="1000",route="backend",service="gateway"} 1000
+dainty_http_request_duration_ms_bucket{le="2500",route="backend",service="gateway"} 1000
+dainty_http_request_duration_ms_bucket{le="5000",route="backend",service="gateway"} 1000
+dainty_http_request_duration_ms_bucket{le="+Inf",route="backend",service="gateway"} 1000
+dainty_http_request_duration_ms_sum{route="backend",service="gateway"} 21234.75
+dainty_http_request_duration_ms_count{route="backend",service="gateway"} 1000
+dainty_http_request_duration_ms_bucket{le="5",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="10",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="25",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="50",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="100",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="250",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="500",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="1000",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="2500",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="5000",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_bucket{le="+Inf",route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_sum{route="refused",service="gateway"} 0
+dainty_http_request_duration_ms_count{route="refused",service="gateway"} 0
+# HELP dainty_http_requests_total HTTP requests answered, by service, route class, method and status class
+# TYPE dainty_http_requests_total counter
+dainty_http_requests_total{method="GET",route="all",service="admin",status="2xx"} 10
+dainty_http_requests_total{method="GET",route="backend",service="gateway",status="2xx"} 900
+dainty_http_requests_total{method="POST",route="backend",service="gateway",status="4xx"} 80
+dainty_http_requests_total{method="POST",route="backend",service="gateway",status="5xx"} 20
+# HELP dainty_hunts_active Hunts running
+# TYPE dainty_hunts_active gauge
+dainty_hunts_active 1
+# HELP dainty_hunts_max Hunts allowed at once
+# TYPE dainty_hunts_max gauge
+dainty_hunts_max 8
+# HELP dainty_players_online Players the server counts as online
+# TYPE dainty_players_online gauge
+dainty_players_online 15
+# HELP dainty_process_cpu_percent CPU use of the host and every process it started, in percent of one core
+# TYPE dainty_process_cpu_percent gauge
+dainty_process_cpu_percent{name="controller",pid="4120",role="host"} 2.5
+dainty_process_cpu_percent{name="DauntlessServer-Win64-Shipping.exe",pid="5532",role="child"} 87.25
+dainty_process_cpu_percent{name="mongod",pid="4200",role="child"} 1.5
+# HELP dainty_process_memory_bytes Resident memory of the host and every process it started
+# TYPE dainty_process_memory_bytes gauge
+dainty_process_memory_bytes{name="controller",pid="4120",role="host"} 52428800
+dainty_process_memory_bytes{name="DauntlessServer-Win64-Shipping.exe",pid="5532",role="child"} 2147483648
+dainty_process_memory_bytes{name="mongod",pid="4200",role="child"} 268435456
+# HELP dainty_process_uptime_seconds Seconds each process has run
+# TYPE dainty_process_uptime_seconds gauge
+dainty_process_uptime_seconds{name="controller",pid="4120",role="host"} 86420
+dainty_process_uptime_seconds{name="DauntlessServer-Win64-Shipping.exe",pid="5532",role="child"} 600
+dainty_process_uptime_seconds{name="mongod",pid="4200",role="child"} 86400
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 1.23456789e+08
+# HELP rustic_isles_http_requests_total Requests by route
+# TYPE rustic_isles_http_requests_total counter
+rustic_isles_http_requests_total{route="/launcher/v1/me",note="say \"hi\"\\ok\nbye"} 42 1793500000000
+nodejs_eventloop_lag_seconds NaN
+# HELP dainty_backend_metrics_up Whether the backend's metrics answered
+# TYPE dainty_backend_metrics_up gauge
+dainty_backend_metrics_up 1

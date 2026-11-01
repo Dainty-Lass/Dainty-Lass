@@ -10,7 +10,7 @@ Everything a person tunes lives in the database instead (Settings in the dashboa
 
 | Variable                                           | From                                                  | What                                                             |
 | -------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`               | Bearer key for the admin service's GraphQL (`127.0.0.1:61003`)   |
+| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`               | Bearer key for the admin service's GraphQL and `/metrics`         |
 | `DASHBOARD_MANAGER_OPERATOR_SECRET`                | `secrets.env`: `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | Signs calls to the backend's `/admin/v1` as the manager operator |
 | `DASHBOARD_ADMIN_API_URL`, `DASHBOARD_BACKEND_URL` |                                                       | Defaults are the host kit's loopback ports                       |
 | `DASHBOARD_INGEST_KEY`                             | new: 32+ random characters                            | What the backend sends with chat and reports                     |
@@ -21,6 +21,10 @@ Everything a person tunes lives in the database instead (Settings in the dashboa
 | `DASHBOARD_AUTH_SECRET`                            | new: 32+ random characters, or generated              | Signs sessions, encrypts stored provider tokens                  |
 | `DASHBOARD_OWNER_DISCORD_IDS`, `_EMAILS`           |                                                       | Who is an owner at sign-in                                       |
 | `DASHBOARD_BASE_URL`                               |                                                       | The public origin, for the OAuth redirect and Secure cookies     |
+
+The performance section reads `/metrics` on the admin API's origin (`DASHBOARD_ADMIN_API_URL` with its
+path replaced), with the same key, every 15 s. It needs a dainty-lass that serves it
+(docs/admin-api.md, "Metrics"); without one the section says there are no metrics yet.
 
 The backend must run with `RUSTIC_ISLES_MANAGER_ADMIN=on` for the signed calls to be accepted. The host
 kit's `setup` already writes it, with the secret, for the admin service (dainty-lass `docs/admin-api.md`).
