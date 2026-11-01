@@ -17,6 +17,7 @@ Everything a person tunes lives in the database instead (Settings in the dashboa
 | `DASHBOARD_DISCORD_CLIENT_ID`, `_SECRET`           | a Discord application                                  | Sign-in ([access.md](access.md))                                 |
 | `DASHBOARD_DISCORD_BOT_TOKEN`                      | that application's bot, with Manage Roles              | Adds the approved role when someone accepts the terms            |
 | `DASHBOARD_TWITCH_CLIENT_ID`, `_SECRET`            | a Twitch application                                   | Sign-in                                                          |
+| `DASHBOARD_SMTP_URL`, `DASHBOARD_MAIL_FROM`        | any SMTP relay                                         | Email sign-in codes                                              |
 | `DASHBOARD_AUTH_SECRET`                            | new: 32+ random characters, or generated               | Signs sessions, encrypts stored provider tokens                  |
 | `DASHBOARD_OWNER_DISCORD_IDS`, `_EMAILS`           |                                                        | Who is an owner at sign-in                                       |
 | `DASHBOARD_BASE_URL`                               |                                                        | The public origin, for the OAuth redirect and Secure cookies     |

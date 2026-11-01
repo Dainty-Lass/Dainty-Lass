@@ -117,6 +117,7 @@ describe("onboarding", () => {
 describe("sign-in methods", () => {
   test("names how a session started", () => {
     expect(signInMethod("/callback/discord")).toBe("discord");
+    expect(signInMethod("/sign-in/email-otp")).toBe("email");
     expect(signInMethod("/passkey/verify-authentication")).toBe("passkey");
   });
 

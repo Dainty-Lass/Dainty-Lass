@@ -8,17 +8,18 @@ newcomers to accept its terms first.
 [Better Auth](https://www.better-auth.com) handles every way in (`apps/dashboard/src/lib/auth/server.ts`).
 There are no passwords:
 
-| Way in  | Needs                                    | Notes                                                    |
-| ------- | ---------------------------------------- | -------------------------------------------------------- |
-| Discord | `DASHBOARD_DISCORD_CLIENT_ID`, `_SECRET` | The only one that lets guild roles set a tier            |
-| Twitch  | `DASHBOARD_TWITCH_CLIENT_ID`, `_SECRET`  |                                                          |
-| Passkey | nothing                                  | Added from **Your account** after signing in another way |
+| Way in     | Needs                                       | Notes                                                    |
+| ---------- | ------------------------------------------- | -------------------------------------------------------- |
+| Discord    | `DASHBOARD_DISCORD_CLIENT_ID`, `_SECRET`    | The only one that lets guild roles set a tier            |
+| Twitch     | `DASHBOARD_TWITCH_CLIENT_ID`, `_SECRET`     |                                                          |
+| Email code | `DASHBOARD_SMTP_URL`, `DASHBOARD_MAIL_FROM` | Six digits, five minutes, three tries, stored hashed     |
+| Passkey    | nothing                                     | Added from **Your account** after signing in another way |
 
 Register `<DASHBOARD_BASE_URL>/api/auth/callback/discord` and `.../callback/twitch` as the redirects.
 Passkeys are bound to the hostname of `DASHBOARD_BASE_URL`, so changing the public hostname invalidates
 them.
 
-A Discord or Twitch account with the same confirmed address as an existing one joins it. There is no email sign-in. On **Your
+A Discord or Twitch account with the same confirmed address as an existing one joins it. On **Your
 account**, people link more providers and add passkeys; the last way in cannot be removed.
 
 `DASHBOARD_AUTH_SECRET` signs session cookies and encrypts the provider tokens stored for guild checks.

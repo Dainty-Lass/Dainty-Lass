@@ -66,6 +66,8 @@ export function SettingsClient({
     ingestKey: boolean;
     discord: boolean;
     twitch: boolean;
+    email: boolean;
+    mail: boolean;
     botToken: boolean;
     redirectUris: { discord: string; twitch: string };
     ownerCount: number;
@@ -295,6 +297,10 @@ export function SettingsClient({
           <MetadataListItem label={t("conn.twitchApp")}>{yes(connections.twitch)}</MetadataListItem>
           <MetadataListItem label={t("conn.redirect", { provider: "Twitch" })}>
             <Text type="code">{connections.redirectUris.twitch}</Text>
+          </MetadataListItem>
+          <MetadataListItem label="DASHBOARD_SMTP_URL">{yes(connections.mail)}</MetadataListItem>
+          <MetadataListItem label={t("conn.emailSignIn")}>
+            {yes(connections.email)}
           </MetadataListItem>
           <MetadataListItem label={t("conn.ownersLabel")}>
             {t("conn.owners", { count: connections.ownerCount })}

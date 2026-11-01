@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { requirePage } from "@/lib/auth/guard";
-import { discordConfigured, twitchConfigured } from "@/lib/config";
+import { discordConfigured, emailSignInAvailable, twitchConfigured } from "@/lib/config";
 import { db, schema } from "@/lib/db";
 import { AccountClient } from "./AccountClient";
 
@@ -18,6 +18,7 @@ export default async function AccountPage({
 }) {
   const me = await requirePage("overview:read");
   const { error } = await searchParams;
+  const user = db.select().from(schema.authUsers).where(eq(schema.authUsers.id, me.userId)).get();
   const accounts = db
     .select({
       id: schema.authAccounts.id,
@@ -39,8 +40,12 @@ export default async function AccountPage({
     .from(schema.authPasskeys)
     .where(eq(schema.authPasskeys.userId, me.userId))
     .all();
+  // The placeholder a Discord-only account gets is not an address anyone can receive a code at.
+  const email = user && !user.email.endsWith(".invalid") ? user.email : null;
   return (
     <AccountClient
+      email={email}
+      emailVerified={Boolean(user?.emailVerified)}
       accounts={accounts.map((a) => ({ ...a, createdAt: a.createdAt.getTime() }))}
       passkeys={passkeys.map((p) => ({
         ...p,
@@ -50,6 +55,7 @@ export default async function AccountPage({
       providers={{
         discord: discordConfigured(),
         twitch: twitchConfigured(),
+        email: emailSignInAvailable(),
       }}
       linkError={error ?? null}
     />

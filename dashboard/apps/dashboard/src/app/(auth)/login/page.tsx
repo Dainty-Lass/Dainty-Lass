@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { currentStaff } from "@/lib/auth/session";
-import { config, discordConfigured, twitchConfigured } from "@/lib/config";
+import { config, discordConfigured, emailSignInAvailable, twitchConfigured } from "@/lib/config";
 import { getSettings } from "@/lib/settings";
 import { LoginClient } from "./LoginClient";
 
@@ -45,6 +45,7 @@ export default async function LoginPage({
               providers={{
                 discord: discordConfigured(),
                 twitch: twitchConfigured(),
+                email: emailSignInAvailable(),
               }}
               dev={config.devLogin}
               initialError={error ? error.toLowerCase() : null}

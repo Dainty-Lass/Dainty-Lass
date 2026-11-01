@@ -51,7 +51,7 @@ A kick cannot be undone, and neither can a timeout that has already run out.
 
 ### Sign-in
 
-Discord, Twitch or a passkey; never a password. Anyone can sign in, and their tier
+Discord, Twitch, a code by email, or a passkey; never a password. Anyone can sign in, and their tier
 decides what they see: users get the overview, players and controllers; moderators add reports and chat;
 admins add the audit log, members and settings; owners can change settings. Tiers come from the
 Members page, from Discord roles, or from `DASHBOARD_OWNER_DISCORD_IDS` / `DASHBOARD_OWNER_EMAILS`
