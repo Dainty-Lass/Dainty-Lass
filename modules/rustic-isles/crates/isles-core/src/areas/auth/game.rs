@@ -164,13 +164,14 @@ pub async fn game_session(mut call: Call) -> Response {
         return response;
     }
     // `AuthHeader.slice(...)` on a missing header throws
-    let Some(authorization) = header(call.request.headers(), "authorization")
-        .or_else(|| header(call.request.headers(), "x-reforged-session-ticket"))
-    else {
+    let token = if let Some(authorization) = header(call.request.headers(), "authorization") {
+        bearer_token(&authorization).to_owned()
+    } else if let Some(ticket) = header(call.request.headers(), "x-reforged-session-ticket") {
+        ticket.trim().to_owned()
+    } else {
         return server_error();
     };
-    let token = bearer_token(&authorization);
-    let payload = call.shared.version.hooks.game_session_payload(token);
+    let payload = call.shared.version.hooks.game_session_payload(&token);
     json_reply(json!({"code": null, "message": "OK", "payload": payload}))
 }
 

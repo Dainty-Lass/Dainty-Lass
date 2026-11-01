@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use module_api::network::{
-    HomeError, HuntRewards, InstanceRecord, JoinDecision, PublishedTicket, SessionTicket, TicketState,
+    HomeError, HomeForward, HuntRewards, InstanceRecord, JoinDecision, PublishedTicket, SessionTicket, TicketState,
 };
 use module_api::{Actor, ActorContext, BoxFuture, GlobalId, HomeApi, ModuleContext, NodeId, NodeIdentity};
 use store::{AnyConnection, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Tx};
@@ -172,6 +172,21 @@ impl HomeApi for ContextHome {
         Box::pin(async move {
             self.0
                 .session_ticket(account, audience)
+                .await
+                .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
+        })
+    }
+
+    fn forward<'a>(&'a self, call: &'a HomeForward) -> BoxFuture<'a, Result<serde_json::Value, HomeError>> {
+        Box::pin(async move {
+            self.0
+                .forward_home(
+                    &call.account,
+                    &call.actor,
+                    &call.operation,
+                    call.body.clone(),
+                    call.key.clone(),
+                )
                 .await
                 .unwrap_or_else(|error| Err(HomeError::Unreachable(error.to_string())))
         })

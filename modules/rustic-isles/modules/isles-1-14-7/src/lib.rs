@@ -337,7 +337,9 @@ pub fn rifts_with_core(settings: &Settings, core: Arc<dyn rifts_seam::IslesCore>
                 (Ok(config), Some(node_id)) => {
                     let options = DatabaseOptions::default();
                     let _ = Database::open(&config, &options, &rifts_guard::SCHEMA);
-                    RealmsDb::open(&config, &options, node_id).ok()
+                    let db = RealmsDb::open(&config, &options, node_id).ok();
+                    let _ = Database::open(&config, &options, &isles_core::db::SCHEMA);
+                    db
                 }
                 _ => None,
             }

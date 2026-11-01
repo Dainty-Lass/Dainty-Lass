@@ -62,7 +62,12 @@ pub trait ChatRules: Send + Sync + 'static {
                     ErrorKind::Unavailable,
                     login::Refusal::Unavailable.as_str(),
                 )),
-                Err(refusal) => Err(ModuleError::new(ErrorKind::Invalid, refusal.as_str())),
+                Err(refusal) => {
+                    if let Ok(Some(player)) = source.foreign_login(authcid, token).await {
+                        return Ok(player);
+                    }
+                    Err(ModuleError::new(ErrorKind::Invalid, refusal.as_str()))
+                }
             }
         })
     }
@@ -118,6 +123,7 @@ pub trait ChatRules: Send + Sync + 'static {
                     self.may_whisper(source, from, to).await.map(ChatAnswer::MayWhisper)
                 }
                 ChatQuery::RoomOf { name } => self.room_of(source, name).await.map(ChatAnswer::RoomOf),
+                ChatQuery::AccountOf { local } => source.account_of(local).await.map(ChatAnswer::AccountOf),
             }
         })
     }
