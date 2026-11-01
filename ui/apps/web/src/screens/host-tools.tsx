@@ -223,7 +223,7 @@ export function BuildTab({ kit, snap }: { kit: HostKit; snap: Snapshot }) {
   }[] = [
     {
       action: "build_runtime",
-      file: "MysticParadox.dll",
+      file: "Rustic-Isles.dll",
       done: kit.builds.runtime,
       key: "host_build_runtime",
     },
