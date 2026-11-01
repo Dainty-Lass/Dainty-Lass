@@ -126,7 +126,7 @@ jobs:
         with:
           node-version: 22
 
-      # Every dependency, dev ones included: gamedata runs Mystic Paradox's generators, some of them with tsx.
+      # Every dependency, dev ones included: gamedata runs Rustic Isles's generators, some of them with tsx.
       # node_modules is installed on each platform, for the packages with a native build (@node-rs/argon2).
       - name: Build the Node rollback bundle (kept for one release until RB15)
         run: |

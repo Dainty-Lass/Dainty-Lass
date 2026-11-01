@@ -1,7 +1,7 @@
 //! What the gateway does with one request (`src/policy.ts`), decided from the method, the request
 //! target and the headers only, before any body is read. Pure functions, so every rule has a test.
 //!
-//! The routes are the Mystic Paradox backend's: the 1.14.7 runtime sends the game's calls as
+//! The routes are the Rustic Isles backend's: the 1.14.7 runtime sends the game's calls as
 //! `/__origin/<official host>/<path>`, which the backend unwraps before routing, so every rule here
 //! looks at that inner path.
 
@@ -124,8 +124,8 @@ pub const PUBLIC_REFORGED_API: [(&str, &[&str]); 4] = [
 ];
 
 /// Path prefixes of the backend that are for the host only, never for players:
-/// - `/admin`: Mystic Paradox's admin dashboard API
-/// - `/launcher`: Mystic Paradox's own launcher API (email and Discord accounts, game sessions, its
+/// - `/admin`: Rustic Isles's admin dashboard API
+/// - `/launcher`: Rustic Isles's own launcher API (email and Discord accounts, game sessions, its
 ///   update channel and guard); a Reforged server registers players through invites only
 /// - `/internal`: the metrics endpoint
 /// - `/health`: the readiness probes
@@ -133,10 +133,22 @@ pub const HOST_ONLY_PREFIXES: [&str; 5] = ["/admin", "/launcher", "/internal", "
 
 /// Headers only the host's own processes send: the dedicated game servers (they run on the server
 /// and talk to the backend directly), the admin tools and the metrics scraper.
-pub const GAMESERVER_KEY_HEADER: &str = "x-mysticparadox-gameserver-apikey";
-pub const HOST_ONLY_HEADERS: [&str; 3] = [
+/// Every name the backend takes the game server key under; the `x-mysticparadox-` ones are from before the
+/// Rustic Isles rename, which it still reads for one release (DX4).
+pub const GAMESERVER_KEY_HEADER: &str = "x-rustic-isles-gameserver-apikey";
+pub const GAMESERVER_KEY_HEADERS: [&str; 4] = [
     GAMESERVER_KEY_HEADER,
+    "x-rustic-isles-gameserver-key",
+    "x-mysticparadox-gameserver-apikey",
+    "x-mysticparadox-gameserver-key",
+];
+pub const HOST_ONLY_HEADERS: [&str; 7] = [
+    GAMESERVER_KEY_HEADERS[0],
+    GAMESERVER_KEY_HEADERS[1],
+    GAMESERVER_KEY_HEADERS[2],
+    GAMESERVER_KEY_HEADERS[3],
     "x-reforged-admin-key",
+    "x-rustic-isles-metrics-token",
     "x-mysticparadox-metrics-token",
 ];
 
@@ -321,7 +333,7 @@ pub fn classify(method: &str, raw_url: &str, headers: &HeaderMap, is_upgrade: bo
     }
     for name in HOST_ONLY_HEADERS {
         if headers.contains_key(name) {
-            let reason = if name == GAMESERVER_KEY_HEADER {
+            let reason = if GAMESERVER_KEY_HEADERS.contains(&name) {
                 "gameserver_key_header"
             } else {
                 "host_only_header"
@@ -710,7 +722,11 @@ mod tests {
 
     #[test]
     fn refuses_the_admin_key_and_the_metrics_token_headers() {
-        for name in ["x-reforged-admin-key", "x-mysticparadox-metrics-token"] {
+        for name in [
+            "x-reforged-admin-key",
+            "x-rustic-isles-metrics-token",
+            "x-mysticparadox-metrics-token",
+        ] {
             let choice = classify("GET", "/reforged/api/ServerStatus", &headers(&[(name, "x")]), false);
             assert_eq!(reason(&choice), Some("host_only_header"), "{name}");
         }
@@ -771,8 +787,11 @@ mod tests {
             "/reforged/api/Register",
             "/progression/UID-1",
         ] {
-            for value in ["", "x", long.as_str()] {
-                let choice = classify("POST", path, &headers(&[(GAMESERVER_KEY_HEADER, value)]), false);
+            for (name, value) in GAMESERVER_KEY_HEADERS
+                .iter()
+                .flat_map(|name| ["", "x", long.as_str()].map(|value| (*name, value)))
+            {
+                let choice = classify("POST", path, &headers(&[(name, value)]), false);
                 assert!(matches!(
                     choice,
                     Decision::Reject {

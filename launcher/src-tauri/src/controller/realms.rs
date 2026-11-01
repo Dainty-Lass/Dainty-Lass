@@ -437,7 +437,7 @@ impl ServerHostBackend {
         let wire_session = wire_session_id(&spec.common.session_id);
         let cap_header = [
             ("x-mystic-host-capability", spec.capability.expose()),
-            ("x-mysticparadox-host-capability", spec.capability.expose()),
+            ("x-rustic-isles-host-capability", spec.capability.expose()),
         ];
         let ready_body = json!({
             "lobbyId": "ICE",
@@ -453,8 +453,8 @@ impl ServerHostBackend {
             let req_id = format!("host-local-{}", spec.common.generation);
             let consume_headers = [
                 ("x-mystic-host-capability", spec.capability.expose()),
-                ("x-mysticparadox-host-capability", spec.capability.expose()),
-                ("x-mysticparadox-request-id", req_id.as_str()),
+                ("x-rustic-isles-host-capability", spec.capability.expose()),
+                ("x-rustic-isles-request-id", req_id.as_str()),
             ];
             let consume_body = json!({
                 "ticket": ticket.expose(),

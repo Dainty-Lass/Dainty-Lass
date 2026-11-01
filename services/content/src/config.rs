@@ -15,7 +15,7 @@ pub struct Config {
     pub version: GameVersion,
     pub port: u16,
     pub bind_hosts: Vec<String>,
-    /// The Mystic Paradox backend: the account-key lookup
+    /// The Rustic Isles backend: the account-key lookup
     pub backend_url: String,
     /// `CONTENT_RUNTIME_DIR`: unset means no runtime is offered, which is not a start error
     pub runtime_dir: Option<PathBuf>,

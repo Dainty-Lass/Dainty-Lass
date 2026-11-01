@@ -48,7 +48,7 @@ Then the SDK, the runtime and the game data ([sdk-and-game-data.md](sdk-and-game
 
 ```powershell
 bin\reforged-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
-bin\reforged-host publish-runtime           # the MysticParadox.dll and winmm.dll you built
+bin\reforged-host publish-runtime           # the Rustic-Isles.dll and winmm.dll you built
 bin\reforged-host doctor                    # what is still missing or wrong
 ```
 
@@ -171,7 +171,7 @@ servers' key) lives only in `secrets.env`.
 | `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database although `.workspace\mongodb` still holds unmigrated data (MongoDB is never modified) |
 | (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
-| (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`MYSTICPARADOX_REFORGE`, `MYSTICPARADOX_MASTERY_PERSISTENCE`, `MYSTICPARADOX_BOUNTY_PERSISTENCE`, `MYSTICPARADOX_COOLDOWN_PERSISTENCE`, `MYSTICPARADOX_ACCOUNT_ERASURE`, `MYSTICPARADOX_LOG_PURGE`, `MYSTICPARADOX_RATE_LIMIT`, `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
+| (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`RUSTIC_ISLES_REFORGE`, `RUSTIC_ISLES_MASTERY_PERSISTENCE`, `RUSTIC_ISLES_BOUNTY_PERSISTENCE`, `RUSTIC_ISLES_COOLDOWN_PERSISTENCE`, `RUSTIC_ISLES_ACCOUNT_ERASURE`, `RUSTIC_ISLES_LOG_PURGE`, `RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
 | (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one |
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader` | This server's name, region and optional directory leader in a network. Left out: a server on its own |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
@@ -187,11 +187,15 @@ servers' key) lives only in `secrets.env`.
 | `REFORGED_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/reforged/api/*` admin key |
 | `GAMESERVER_API_KEY` | `backend.env` (`GAMESERVER_API_KEYS`), `director.env` (`METAGAME_API_KEY`) | Shared key between the game servers and the backend |
 | `API_KEY_HASH_SECRET` | `backend.env` | HMAC secret for hashing account API keys at rest |
-| `MYSTICPARADOX_METRICS_TOKEN` | `backend.env` | Bearer token for the backend's `/metrics` endpoint |
+| `RUSTIC_ISLES_METRICS_TOKEN` | `backend.env` | Bearer token for the backend's `/metrics` endpoint |
 | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` | `backend.env` | 4096-bit RSA keypair (PKCS#8 private key and SPKI public key, base64-encoded PEM) that signs and verifies the auth service's RS256 access tokens |
 | `REFORGED_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](admin-api.md)) |
-| `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
+| `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
 | `REFORGED_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
+
+The `RUSTIC_ISLES_*` names were `MYSTICPARADOX_*` before the Rustic Isles rename. `setup` moves the two secrets to
+their new names in `secrets.env` with the same values, and writes only the new names into the env files; the backend,
+the Director and the admin API still read an old name for one release, with a warning.
 
 ### The database engine
 
@@ -294,16 +298,16 @@ For `isles-1-14-7` (`modules/rustic-isles`), the `[modules.<id>.switches]` secti
 | `[switches]` / `[modules.<id>.switches]` key | `backend.env` variable | Values | Default |
 | --- | --- | --- | --- |
 | `qos_port` (`[modules.<id>.switches]` only) | `QOS_PORT` | UDP port (`1`–`65535`) or `"0"`/`"off"` | `80` (`0` in `backend.env` when the launcher's relay answers QoS) |
-| `reforge` | `MYSTICPARADOX_REFORGE` | `"on"`, `"log"`, `"off"` | `"on"` |
-| `mastery_persistence` | `MYSTICPARADOX_MASTERY_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
-| `bounty_persistence` | `MYSTICPARADOX_BOUNTY_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
-| `cooldown_persistence` | `MYSTICPARADOX_COOLDOWN_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
-| `account_erasure` | `MYSTICPARADOX_ACCOUNT_ERASURE` | `"on"`, `"off"` | `"on"` (background sweep erases accounts past their deletion grace period) |
-| `log_purge` | `MYSTICPARADOX_LOG_PURGE` | `"on"`, `"off"` | `"on"` (background sweep purges expired email verification codes and activity logs) |
-| `rate_limit` | `MYSTICPARADOX_RATE_LIMIT` | `"on"`, `"off"` | `"on"` (1.14.7 app-wide per-minute HTTP request budget; `429` with `draft-8` `RateLimit` and `RateLimit-Policy` headers) |
-| `rate_limit_per_minute` | `MYSTICPARADOX_RATE_LIMIT_PER_MINUTE` | positive integer | `600` (client requests per minute per address or `/56` IPv6 subnet on 1.14.7) |
-| `gameserver_rate_limit_per_minute` | `MYSTICPARADOX_GAMESERVER_RATE_LIMIT_PER_MINUTE` | positive integer | `6000` (dedicated game server requests per minute per address on 1.14.7) |
-| `host_rate_limit_per_minute` | `MYSTICPARADOX_HOST_RATE_LIMIT_PER_MINUTE` | positive integer | `6000` (player-hosted hunt requests per minute per validated capability on 1.14.7) |
+| `reforge` | `RUSTIC_ISLES_REFORGE` | `"on"`, `"log"`, `"off"` | `"on"` |
+| `mastery_persistence` | `RUSTIC_ISLES_MASTERY_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
+| `bounty_persistence` | `RUSTIC_ISLES_BOUNTY_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
+| `cooldown_persistence` | `RUSTIC_ISLES_COOLDOWN_PERSISTENCE` | `"on"`, `"off"` | `"on"` |
+| `account_erasure` | `RUSTIC_ISLES_ACCOUNT_ERASURE` | `"on"`, `"off"` | `"on"` (background sweep erases accounts past their deletion grace period) |
+| `log_purge` | `RUSTIC_ISLES_LOG_PURGE` | `"on"`, `"off"` | `"on"` (background sweep purges expired email verification codes and activity logs) |
+| `rate_limit` | `RUSTIC_ISLES_RATE_LIMIT` | `"on"`, `"off"` | `"on"` (1.14.7 app-wide per-minute HTTP request budget; `429` with `draft-8` `RateLimit` and `RateLimit-Policy` headers) |
+| `rate_limit_per_minute` | `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE` | positive integer | `600` (client requests per minute per address or `/56` IPv6 subnet on 1.14.7) |
+| `gameserver_rate_limit_per_minute` | `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE` | positive integer | `6000` (dedicated game server requests per minute per address on 1.14.7) |
+| `host_rate_limit_per_minute` | `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE` | positive integer | `6000` (player-hosted hunt requests per minute per validated capability on 1.14.7) |
 
 Two game modules for one version are refused, whichever loads first. A port a module asks for that something already holds is moved up past it. In the
 console (`serve`), `modules` lists them; `module load|unload|restart|status <id>` and `module run <id> <command>`

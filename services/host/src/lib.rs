@@ -1267,7 +1267,7 @@ fn run_network_full_node(p: &paths::Paths, hc: &hostconfig::HostConfig) -> ExitC
     if let Some(parent) = p.gameserver_wrapper.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let wrapper_script = "#!/bin/sh\necho \"MYSTICPARADOX_GAMESERVER_READY launchId=${MYSTICPARADOX_GAMESERVER_LAUNCH_ID} port=$2\"\nexec sleep 3600\n";
+    let wrapper_script = "#!/bin/sh\necho \"RUSTIC_ISLES_GAMESERVER_READY launchId=${RUSTIC_ISLES_GAMESERVER_LAUNCH_ID} port=$2\"\nexec sleep 3600\n";
     let _ = std::fs::write(&p.gameserver_wrapper, wrapper_script);
     #[cfg(unix)]
     {

@@ -107,7 +107,7 @@ pub enum GameLanguage {
     RuRu,
 }
 
-/// The game runtime's log profile (`MYSTICPARADOX_RUNTIME_PROFILE`). "development" also honours the
+/// The game runtime's log profile (`RUSTIC_ISLES_RUNTIME_PROFILE`). "development" also honours the
 /// runtime's diagnostic .flag files next to the game executable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]

@@ -5,7 +5,8 @@
 
 use http::HeaderMap;
 use protocol::manifest::{
-    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, RUNTIME_MANIFEST_PATH, RuntimeFile, RuntimeManifest,
+    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, RUNTIME_MANIFEST_PATH, RuntimeFile,
+    RuntimeManifest, runtime_file_slot,
 };
 use serde_json::{Value, json};
 use service_kit::linelog as log;
@@ -106,9 +107,9 @@ pub fn version_query(query: Option<&str>) -> Option<(VersionKey, String)> {
 }
 
 /// A runtime file name: exactly one of the two, letter case included (no decoding, no folders, no
-/// lookalikes).
+/// lookalikes), or the runtime's name from before the Rustic Isles rename (DX4).
 pub fn is_runtime_file_name(name: &str) -> bool {
-    RUNTIME_FILE_NAMES.contains(&name)
+    runtime_file_slot(name).is_some()
 }
 
 /// A header as Node's `req.headers` gives it: repeated lines joined with ", ", each byte a Latin-1
@@ -181,7 +182,7 @@ pub fn parse_runtime_index(raw: &Value) -> Result<RuntimeManifest, String> {
     for entry in entries {
         let entry = entry.as_object().unwrap_or(&empty);
         let name = match entry.get("name") {
-            Some(Value::String(name)) if RUNTIME_FILE_NAMES.contains(&name.as_str()) => name.clone(),
+            Some(Value::String(name)) if is_runtime_file_name(name) => name.clone(),
             other => {
                 return Err(format!(
                     "unknown file {} (only {})",
@@ -190,7 +191,10 @@ pub fn parse_runtime_index(raw: &Value) -> Result<RuntimeManifest, String> {
                 ));
             }
         };
-        if files.iter().any(|other| other.name == name) {
+        if files
+            .iter()
+            .any(|other| runtime_file_slot(&other.name) == runtime_file_slot(&name))
+        {
             return Err(format!("{name} is listed twice"));
         }
         let size = match service_kit::js::safe_integer(entry.get("size")) {
@@ -204,7 +208,7 @@ pub fn parse_runtime_index(raw: &Value) -> Result<RuntimeManifest, String> {
         files.push(RuntimeFile { name, size, sha256 });
     }
     for name in RUNTIME_FILE_NAMES {
-        if !files.iter().any(|f| f.name == name) {
+        if !files.iter().any(|f| runtime_file_slot(&f.name) == Some(name)) {
             return Err(format!("{name} is missing from the list"));
         }
     }

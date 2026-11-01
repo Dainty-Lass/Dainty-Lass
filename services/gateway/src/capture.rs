@@ -31,7 +31,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use crate::cert::iso;
 use crate::feed::Clock;
-use crate::policy::GAMESERVER_KEY_HEADER;
+use crate::policy::GAMESERVER_KEY_HEADERS;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureOptions {
@@ -205,13 +205,14 @@ pub fn redact_capture_headers(headers: &HeaderMap) -> Value {
             .map(|v| v.as_bytes().iter().map(|b| char::from(*b)).collect::<String>())
             .collect::<Vec<_>>()
             .join(", ");
-        let value = if name == GAMESERVER_KEY_HEADER {
+        let value = if GAMESERVER_KEY_HEADERS.contains(&name) {
             "<gskey>".to_owned()
         } else if name == "authorization" {
             redact_capture_text(&text)
         } else {
             let short = name
                 .strip_prefix("x-reforged-")
+                .or_else(|| name.strip_prefix("x-rustic-isles-"))
                 .or_else(|| name.strip_prefix("x-mysticparadox-"))
                 .unwrap_or(name);
             redact_named(short, &text)
@@ -700,6 +701,7 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for ChatTap<S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::policy::GAMESERVER_KEY_HEADER;
 
     fn jwt(claims: Value) -> String {
         let part = |value: &Value| {
@@ -770,6 +772,8 @@ mod tests {
             ("x-reforged-user-api-key", KEY.to_owned()),
             (GAMESERVER_KEY_HEADER, GS_KEY.to_owned()),
             ("x-reforged-admin-key", "admin-key-0123".to_owned()),
+            ("x-rustic-isles-metrics-token", "m".repeat(20)),
+            ("x-mysticparadox-gameserver-key", GS_KEY.to_owned()),
             ("x-mysticparadox-metrics-token", "m".repeat(20)),
             ("cookie", "a=b".to_owned()),
             ("x-reforged-gateway", "secret".to_owned()),
@@ -785,6 +789,8 @@ mod tests {
                 "x-reforged-user-api-key": format!("<key:{}>", key_hash()),
                 GAMESERVER_KEY_HEADER: "<gskey>",
                 "x-reforged-admin-key": "<redacted>",
+                "x-rustic-isles-metrics-token": "<redacted>",
+                "x-mysticparadox-gameserver-key": "<gskey>",
                 "x-mysticparadox-metrics-token": "<redacted>",
                 "user-agent": "Dauntless/1.14.7",
                 "content-type": "application/json",

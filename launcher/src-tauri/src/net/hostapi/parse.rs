@@ -2,7 +2,7 @@
 //! code and a JSON body, so the fuzz target `launcher_net` compiles them in without the network stack.
 //! Every value comes from the network: anything unexpected is refused or dropped, never trusted.
 
-use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES};
+use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
 use protocol::status::{clean_text, iso_date};
 use protocol::text::{is_unsafe_char, js_length, js_trim};
 use serde_json::{Map, Value};
@@ -125,7 +125,7 @@ fn is_sha256_hex(text: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-/// `parseRuntimeManifest`: only the two known runtime files, each once, with a plain SHA-256 and a size
+/// `parseRuntimeManifest`: only the two known runtime files (the runtime under either name, DX4), each once, with a plain SHA-256 and a size
 /// from 1 byte to 64 MiB; anything else refuses the whole manifest. The launcher never writes a file the
 /// server names freely.
 pub fn parse_runtime_manifest(raw: Option<&Value>) -> Option<RuntimeManifest> {
@@ -136,7 +136,8 @@ pub fn parse_runtime_manifest(raw: Option<&Value>) -> Option<RuntimeManifest> {
     for file in list {
         let file = file.as_object()?;
         let name = file.get("name")?.as_str()?;
-        if !RUNTIME_FILE_NAMES.contains(&name) || files.iter().any(|seen| seen.name == name) {
+        let slot = runtime_file_slot(name)?;
+        if files.iter().any(|seen| runtime_file_slot(&seen.name) == Some(slot)) {
             return None;
         }
         let sha256 = file.get("sha256")?.as_str().filter(|hash| is_sha256_hex(hash))?;

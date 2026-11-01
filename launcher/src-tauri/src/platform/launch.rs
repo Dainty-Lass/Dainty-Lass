@@ -4,13 +4,13 @@
 //! logged (`mask_args`).
 //!
 //! The runtime learns where the backend is from the environment: `REFORGED_BACKEND_URL` names the
-//! launcher's local relay, `MYSTICPARADOX_RUNTIME_PROFILE` picks the runtime's log profile.
+//! launcher's local relay, `RUSTIC_ISLES_RUNTIME_PROFILE` picks the runtime's log profile.
 //!
 //! On Linux the game runs through DR's `LaunchRuntime` (Proton or Wine before the exe) and the running
 //! clients are found with `pgrep`; their values (the prefix, `WINEDLLOVERRIDES` for the runtime's
 //! `winmm.dll`) are RA10's.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -116,9 +116,18 @@ pub fn runtime_profile_name(profile: RuntimeProfile) -> &'static str {
     }
 }
 
+/// The prefixes of the variables that point a runtime somewhere; `MYSTICPARADOX_` is a runtime's from before the
+/// Rustic Isles rename, read for one release (DX4)
+pub const RUNTIME_ENV_PREFIXES: [&str; 3] = ["REFORGED_", "RUSTIC_ISLES_", "MYSTICPARADOX_"];
+
+/// Whether the game must not inherit `name` (any case)
+pub fn is_runtime_env(name: &OsStr) -> bool {
+    let name = name.to_string_lossy().to_ascii_uppercase();
+    RUNTIME_ENV_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
+}
+
 /// The game's whole environment: `base` without anything a value left from elsewhere could redirect the
-/// game with (every `REFORGED_` and `MYSTICPARADOX_` variable, in any case), then the relay and the
-/// runtime's profile.
+/// game with ([`RUNTIME_ENV_PREFIXES`]), then the relay and the runtime's profile.
 pub fn launch_environment(
     base: impl IntoIterator<Item = (OsString, OsString)>,
     backend_url: &str,
@@ -127,16 +136,12 @@ pub fn launch_environment(
     if !is_relay_url(backend_url) {
         return Err("the backend URL must be the local relay");
     }
-    let owned = |name: &OsString| {
-        let name = name.to_string_lossy().to_ascii_uppercase();
-        name.starts_with("REFORGED_") || name.starts_with("MYSTICPARADOX_")
-    };
-    let mut env: Vec<(OsString, OsString)> = base.into_iter().filter(|(name, _)| !owned(name)).collect();
+    let mut env: Vec<(OsString, OsString)> = base.into_iter().filter(|(name, _)| !is_runtime_env(name)).collect();
     env.push(("REFORGED_BACKEND_URL".into(), backend_url.into()));
-    env.push((
-        "MYSTICPARADOX_RUNTIME_PROFILE".into(),
-        runtime_profile_name(profile).into(),
-    ));
+    // Both names: a host may still publish a runtime from before the rename (DX4)
+    for name in ["RUSTIC_ISLES_RUNTIME_PROFILE", "MYSTICPARADOX_RUNTIME_PROFILE"] {
+        env.push((name.into(), runtime_profile_name(profile).into()));
+    }
     Ok(env)
 }
 
@@ -480,7 +485,9 @@ mod tests {
             env(&[
                 ("PATH", "x"),
                 ("REFORGED_BACKEND_URL", "https://evil.example"),
+                ("RUSTIC_ISLES_LOG", "1"),
                 ("MYSTICPARADOX_LOG", "1"),
+                ("mysticparadox_backend_url", "https://evil.example"),
                 ("reforged_other", "y"),
             ]),
             "http://127.0.0.1:61100",
@@ -488,11 +495,14 @@ mod tests {
         )
         .unwrap();
         assert_eq!(get(&out, "REFORGED_BACKEND_URL"), Some("http://127.0.0.1:61100"));
+        assert_eq!(get(&out, "RUSTIC_ISLES_RUNTIME_PROFILE"), Some("development"));
         assert_eq!(get(&out, "MYSTICPARADOX_RUNTIME_PROFILE"), Some("development"));
         assert_eq!(get(&out, "PATH"), Some("x"));
+        assert_eq!(get(&out, "RUSTIC_ISLES_LOG"), None);
         assert_eq!(get(&out, "MYSTICPARADOX_LOG"), None);
+        assert_eq!(get(&out, "mysticparadox_backend_url"), None);
         assert_eq!(get(&out, "reforged_other"), None);
-        assert_eq!(out.len(), 3, "the inherited REFORGED_BACKEND_URL is gone, not doubled");
+        assert_eq!(out.len(), 4, "the inherited REFORGED_BACKEND_URL is gone, not doubled");
         for bad in [
             "http://192.168.1.2:61100",
             "https://127.0.0.1:61100",
@@ -510,7 +520,7 @@ mod tests {
         assert_eq!(
             get(
                 &launch_environment(env(&[]), "http://127.0.0.1:1", RuntimeProfile::Production).unwrap(),
-                "MYSTICPARADOX_RUNTIME_PROFILE"
+                "RUSTIC_ISLES_RUNTIME_PROFILE"
             ),
             Some("production")
         );
