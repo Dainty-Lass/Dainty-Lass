@@ -745,6 +745,37 @@ impl hooks::HostHooks for ServicesHostHooks {
                 .map_err(HostError::message)?,
             );
         }
+        #[cfg(all(feature = "chat", not(feature = "paradox")))]
+        if config.edition.runs_reborn() && in_process_gateway {
+            let node = config
+                .network
+                .as_ref()
+                .map(|n| module_api::NodeIdentity {
+                    node: n.node.clone(),
+                    region: n.region.clone(),
+                })
+                .unwrap_or_else(module_api::NodeIdentity::standalone);
+            let database = hostconfig::node_database_config(config, paths)?;
+            let network =
+                config
+                    .network
+                    .as_ref()
+                    .filter(|n| !n.nodes.is_empty())
+                    .map(|n| modules::ChatNetworkOptions {
+                        leader: n.effective_leader(),
+                        peers: n.nodes.iter().map(|p| (p.id.clone(), p.region.clone())).collect(),
+                    });
+            controller.add(
+                modules::chat(modules::ChatOptions {
+                    env: hostkit::serve::module_env(paths, "gateway")?,
+                    node,
+                    database,
+                    registry: registry.clone(),
+                    network,
+                })
+                .map_err(HostError::message)?,
+            );
+        }
         #[cfg(not(feature = "gateway"))]
         let _ = (controller, paths, config, in_process_gateway);
 
@@ -2018,7 +2049,7 @@ mod tests {
         std::fs::write(&gateway_env, gateway_text).unwrap();
 
         let mut controller = serve::compose(&paths, &c, false, serve::table_printer()).unwrap();
-        assert_eq!(controller.module_names(), ["content", "admin", "gateway"]);
+        assert_eq!(controller.module_names(), ["content", "admin", "gateway", "chat"]);
         controller.start_all().await.unwrap();
 
         let registry = controller.registry().unwrap();

@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Text};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
+use serde::{Deserialize, Serialize};
 use store::{Actor, AnyConnection, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Error, portable};
 
 const SQLITE: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
@@ -83,7 +84,7 @@ diesel::table! {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Queryable)]
+#[derive(Debug, Clone, PartialEq, Eq, Queryable, Serialize, Deserialize)]
 pub struct RoomMessage {
     pub id: i64,
     /// `naming::room_key`
@@ -111,7 +112,7 @@ pub struct NewRoom {
     pub at: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Queryable)]
+#[derive(Debug, Clone, PartialEq, Eq, Queryable, Serialize, Deserialize)]
 pub struct DirectMessage {
     pub id: i64,
     pub sender: String,
@@ -151,7 +152,7 @@ pub struct OutboxRow {
     pub created_at: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Queryable)]
+#[derive(Debug, Clone, PartialEq, Eq, Queryable, Serialize, Deserialize)]
 pub struct Mute {
     pub account: String,
     /// Unix milliseconds; none is until lifted
