@@ -25,8 +25,8 @@ rifts-host = { path = "crates/rifts-host", version = "0.1.0", registry = "silent
 
 # DaintyLass's crates by git until the silentspud registry has them (spike DF1's fallback); then
 # `{ version = "0.1.0", registry = "silentspud" }`. The rev is DaintyLass's plan with DF2 and DF7.
-store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864", version = "0.0.0" }
-module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "95dbec137ca7ccee0a8fa23be65065c65253d864", version = "0.1.0" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218", version = "0.0.0" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218", version = "0.1.0" }
 
 # Same versions as DaintyLass's workspace, so one copy of each lands in its tree
 diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35"] }
