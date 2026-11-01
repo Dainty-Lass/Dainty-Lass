@@ -11,8 +11,22 @@ export const THEME_MODES: readonly ThemeMode[] = ["system", "light", "dark"];
 export const THEME_COOKIE = "dainty-theme";
 export const THEME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-export const ACCENTS = ["periwinkle", "gold", "green", "pink", "purple"] as const;
+/**
+ * The accents an app can take, each one of Astryx's hues (Caddy Proxy Manager's list). Yellow and gray
+ * are left out: neither holds the contrast an accent's text and controls need.
+ */
+export const ACCENTS = [
+  "pink",
+  "purple",
+  "blue",
+  "cyan",
+  "teal",
+  "green",
+  "orange",
+  "red",
+] as const;
 export type Accent = (typeof ACCENTS)[number];
+export const DEFAULT_ACCENT: Accent = "pink";
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return value === "light" || value === "dark" || value === "system";
@@ -23,7 +37,7 @@ export function parseThemeMode(value: string | undefined | null): ThemeMode {
 }
 
 export function parseAccent(value: string | undefined | null): Accent {
-  return (ACCENTS as readonly string[]).includes(value ?? "") ? (value as Accent) : "periwinkle";
+  return (ACCENTS as readonly string[]).includes(value ?? "") ? (value as Accent) : DEFAULT_ACCENT;
 }
 
 /** The `data-theme` value for `<html>`, or undefined so the OS decides. */
@@ -31,8 +45,8 @@ export function themeAttr(mode: ThemeMode): "light" | "dark" | undefined {
   return mode === "system" ? undefined : mode;
 }
 
-/** `--color-background-body` in each mode, for `<meta name="theme-color">`; keep in step with dainty.theme.ts. */
-export const BODY_COLOR = { light: "#eef1f6", dark: "#10151c" } as const;
+/** `--color-background-body` in each mode, for `<meta name="theme-color">`; keep in step with variants.css. */
+export const BODY_COLOR = { light: "#f1f1f1", dark: "#000000" } as const;
 
 export function themeColor(mode: ThemeMode): string | { media: string; color: string }[] {
   if (mode !== "system") return BODY_COLOR[mode];

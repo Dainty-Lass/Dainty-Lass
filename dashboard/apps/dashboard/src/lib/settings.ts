@@ -1,3 +1,4 @@
+import { type Accent, DEFAULT_ACCENT, parseAccent } from "@dainty/theme/mode";
 import { eq } from "drizzle-orm";
 import type { Role } from "@/lib/auth/permissions";
 import { db, schema } from "@/lib/db";
@@ -17,7 +18,7 @@ export interface Settings {
   reportContextMinutes: number;
   /** Shown on the sign-in page and in the browser tab. */
   serverName: string;
-  accent: "periwinkle" | "gold" | "green" | "pink" | "purple";
+  accent: Accent;
   /** Reasons offered when timing out or banning, so moderators pick rather than type. */
   moderationReasons: string[];
 }
@@ -28,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chatRetentionDays: 90,
   reportContextMinutes: 10,
   serverName: "DaintyLass",
-  accent: "periwinkle",
+  accent: DEFAULT_ACCENT,
   moderationReasons: [
     "Harassment",
     "Hate speech",
@@ -42,7 +43,9 @@ export const DEFAULT_SETTINGS: Settings = {
 export function getSettings(): Settings {
   const rows = db.select().from(schema.settings).all();
   const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return { ...DEFAULT_SETTINGS, ...(stored as Partial<Settings>) };
+  const merged = { ...DEFAULT_SETTINGS, ...(stored as Partial<Settings>) };
+  // An accent saved before the palette changed falls back to the default rather than to nothing.
+  return { ...merged, accent: parseAccent(merged.accent) };
 }
 
 export function getSetting<K extends keyof Settings>(key: K): Settings[K] {

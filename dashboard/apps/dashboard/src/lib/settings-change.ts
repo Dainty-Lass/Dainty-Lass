@@ -1,10 +1,10 @@
+import { ACCENTS } from "@dainty/theme/mode";
 import { type Actor, recordAudit } from "@/lib/audit/record";
 import { tx } from "@/lib/db";
 import { DomainError } from "@/lib/errors";
 import { ensureBaseline, writeRevision } from "@/lib/revisions";
 import { getSettings, type Settings, writeSettings } from "@/lib/settings";
 
-const ACCENTS = ["periwinkle", "gold", "green", "pink", "purple"];
 const ids = (list: unknown) =>
   Array.isArray(list)
     ? [
@@ -48,7 +48,8 @@ export function sanitize(patch: Partial<Settings>): Partial<Settings> {
     out.serverName = n;
   }
   if (patch.accent !== undefined) {
-    if (!ACCENTS.includes(patch.accent)) throw new DomainError("invalid_input", "accent");
+    if (!(ACCENTS as readonly string[]).includes(patch.accent))
+      throw new DomainError("invalid_input", "accent");
     out.accent = patch.accent;
   }
   if (patch.moderationReasons !== undefined) {

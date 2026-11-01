@@ -21,6 +21,7 @@ import { TextInput } from "@astryxdesign/core/TextInput";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
 import type { Hunt } from "@dainty/fleet";
+import { StatTiles } from "@dainty/theme";
 import { Crosshair } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -29,7 +30,7 @@ import { AuditTable } from "@/components/AuditTable";
 import { ControllerState } from "@/components/ControllerState";
 import { Page } from "@/components/Page";
 import { Sparkline } from "@/components/Sparkline";
-import { StatTile } from "@/components/StatTile";
+
 import { useAction } from "@/components/useAction";
 import type { AuditEvent } from "@/lib/db/schema";
 import type { ControllerView } from "@/lib/fleet/status";
@@ -168,30 +169,36 @@ export function ControllerDetailClient({
         <Banner status="warning" title={t("localNotConfigured")} collapsible={false} />
       )}
 
-      <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
-        <StatTile
-          label={to("stats.online")}
-          value={format.number(s?.online ?? 0)}
-          hint={
-            s?.server
+      <StatTiles
+        tiles={[
+          {
+            id: "players",
+            label: to("stats.online"),
+            value: format.number(s?.online ?? 0),
+            hue: "green",
+            note: s?.server
               ? to("stats.uptime", {
                   hours: format.number(Math.floor(s.server.uptimeSeconds / 3600)),
                 })
-              : undefined
-          }
-        />
-        <StatTile
-          label={to("stats.hunts")}
-          value={`${s?.hunts?.running ?? 0}/${s?.hunts?.maxHuntServers ?? 0}`}
-          hint={s?.hunts ? to("stats.huntsFree", { free: s.hunts.free }) : undefined}
-        />
-        <StatTile
-          label={to("stats.openReports")}
-          href="/reports"
-          value={format.number(reports.open)}
-          hint={to("stats.claimed", { count: reports.claimed })}
-        />
-      </Grid>
+              : undefined,
+          },
+          {
+            id: "hunts",
+            label: to("stats.hunts"),
+            value: `${s?.hunts?.running ?? 0}/${s?.hunts?.maxHuntServers ?? 0}`,
+            hue: "purple",
+            note: s?.hunts ? to("stats.huntsFree", { free: s.hunts.free }) : undefined,
+          },
+          {
+            id: "reports",
+            label: to("stats.openReports"),
+            href: "/reports",
+            value: format.number(reports.open),
+            hue: reports.open ? "orange" : "gray",
+            note: to("stats.claimed", { count: reports.claimed }),
+          },
+        ]}
+      />
 
       <Grid columns={{ minWidth: 340, repeat: "fit" }} gap={4}>
         <Card padding={4}>

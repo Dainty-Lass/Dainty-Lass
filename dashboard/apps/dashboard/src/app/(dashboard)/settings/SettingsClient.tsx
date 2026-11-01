@@ -11,6 +11,7 @@ import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
+import { ACCENTS } from "@dainty/theme/mode";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -20,7 +21,6 @@ import { useAction } from "@/components/useAction";
 import type { Settings } from "@/lib/settings";
 import { pruneChatAction, saveSettingsAction } from "./actions";
 
-const ACCENTS = ["periwinkle", "gold", "green", "pink", "purple"] as const;
 const ids = (list: string[]) => list.join(", ");
 const parseIds = (text: string) => text.split(/[\s,]+/).filter(Boolean);
 

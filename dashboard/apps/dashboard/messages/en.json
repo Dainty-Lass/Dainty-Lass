@@ -625,11 +625,14 @@
     "serverNameHint": "Shown on the sign-in page and in browser tabs.",
     "accent": "Accent",
     "accents": {
-      "periwinkle": "Periwinkle",
-      "gold": "Gold",
-      "green": "Green",
       "pink": "Pink",
-      "purple": "Purple"
+      "purple": "Purple",
+      "blue": "Blue",
+      "cyan": "Cyan",
+      "teal": "Teal",
+      "green": "Green",
+      "orange": "Orange",
+      "red": "Red"
     },
     "discord": "Discord sign-in",
     "discordHint": "Optionally let roles in your Discord server grant dashboard access, instead of adding everyone here.",
