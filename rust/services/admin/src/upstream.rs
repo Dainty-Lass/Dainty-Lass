@@ -366,6 +366,18 @@ impl Upstream {
         let value: Value = decode(&self.plain(Method::GET, url.clone(), false, None).await?, &url)?;
         Ok(input::parse_instances(&value))
     }
+
+    /// The backend's own Prometheus text (`/internal/v1/metrics`), behind `RUSTIC_ISLES_METRICS_TOKEN`.
+    pub async fn backend_metrics(&self, token: &str) -> Result<Bytes, UpstreamError> {
+        let url = format!("{}/internal/v1/metrics", self.backend);
+        let request = Request::builder()
+            .method(Method::GET)
+            .uri(&url)
+            .header("authorization", format!("Bearer {token}"))
+            .body(Full::new(Bytes::new()))
+            .map_err(|e| UpstreamError::Unavailable(e.to_string()))?;
+        self.send(request, &url).await
+    }
 }
 
 #[cfg(test)]

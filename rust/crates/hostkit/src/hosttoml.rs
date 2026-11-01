@@ -36,6 +36,7 @@ const TOP: &[Field] = &[
     ("maxHuntServers", "max_hunt_servers", false),
     ("multipliers", "multipliers", false),
     ("publicPort", "public_port", false),
+    ("dashboardUrl", "dashboard_url", false),
     ("performance", "performance", false),
     ("linux", "linux", false),
     ("database", "database", false),
@@ -462,6 +463,10 @@ fn comment(path: &str) -> &'static str {
         "share_url" => "Private: the Tailscale share link that goes into invites.",
         "max_hunt_servers" => "How many hunts may run at once, 1 to 10: each one is a game server.",
         "public_port" => "Public: the gateway's TCP port when 443 is taken. It goes into every invite.",
+        "dashboard_url" => {
+            "The staff dashboard's address: chat sends it its log and reports and takes its chat filter, with\n\
+             DASHBOARD_INGEST_KEY from secrets.env (the dashboard's own DASHBOARD_INGEST_KEY)."
+        }
         "mongo" => "The database.",
         "mongo.manage" => "true: reforged-host starts mongod itself.",
         "mongo.mongod" => "The mongod program when reforged-host starts it.",

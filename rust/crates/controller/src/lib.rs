@@ -15,6 +15,7 @@
 //! unloaded before them, with their ports placed by [`ports`].
 
 pub mod controller;
+pub mod metrics;
 pub mod modules;
 pub mod node_services;
 pub mod ports;

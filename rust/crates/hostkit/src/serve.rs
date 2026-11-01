@@ -823,6 +823,7 @@ mod tests {
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
+            dashboard_url: None,
             performance: None,
             linux: None,
             database: None,
@@ -834,6 +835,27 @@ mod tests {
             switches: Default::default(),
             file: FileForm::default(),
         }
+    }
+
+    #[test]
+    fn chat_gets_the_dashboard_only_when_host_toml_names_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        ensure_server_files(&paths, &config(ServerMode::Private)).unwrap();
+        let env = module_env(&paths, "gateway").unwrap();
+        assert_eq!(env.get("CHAT_DASHBOARD_URL"), None);
+
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let mut c = config(ServerMode::Private);
+        c.dashboard_url = Some("https://dash.example".into());
+        ensure_server_files(&paths, &c).unwrap();
+        let env = module_env(&paths, "gateway").unwrap();
+        assert_eq!(env.get("CHAT_DASHBOARD_URL"), Some("https://dash.example"));
+        let secrets = std::fs::read_to_string(paths.config.join(hostconfig::SECRET_FILE)).unwrap();
+        let key = env.get("CHAT_DASHBOARD_INGEST_KEY").unwrap();
+        assert_eq!(key.len(), 64);
+        assert!(secrets.contains(&format!("DASHBOARD_INGEST_KEY={key}")));
     }
 
     #[test]

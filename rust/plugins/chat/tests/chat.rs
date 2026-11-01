@@ -87,6 +87,10 @@ struct Server {
 }
 
 async fn start(host: TestHost, plugin: &ChatPlugin) -> Server {
+    start_with(host, plugin, chat::Moderation::off()).await
+}
+
+async fn start_with(host: TestHost, plugin: &ChatPlugin, moderation: chat::Moderation) -> Server {
     let dir = tempfile::tempdir().unwrap();
     let config = History::beside(&store::DatabaseConfig::Sqlite {
         file: dir.path().join("game.db"),
@@ -109,6 +113,7 @@ async fn start(host: TestHost, plugin: &ChatPlugin) -> Server {
             history,
             Options {
                 auto_tick: false,
+                moderation,
                 ..Options::default()
             },
         )
@@ -546,4 +551,173 @@ fn the_plugin_serves_chat() {
     let plugin = ChatPlugin::new();
     assert_eq!(plugin.name(), "chat");
     assert_eq!(plugin.serves(), &[module_api::CoreCapability::Chat]);
+}
+
+// ---- The staff dashboard ----
+
+#[derive(Default)]
+struct Dashboard {
+    chat: std::sync::Mutex<Vec<serde_json::Value>>,
+    reports: std::sync::Mutex<Vec<serde_json::Value>>,
+}
+
+/// A dashboard on 127.0.0.1:0 that masks "idiot", blocks "buy gold" and keeps what it is sent.
+async fn dashboard(key: &str) -> (String, Arc<Dashboard>) {
+    use axum::http::{HeaderMap, StatusCode};
+    let seen = Arc::new(Dashboard::default());
+    let auth = format!("Bearer {key}");
+    let authorized = move |headers: &HeaderMap| headers.get("authorization").is_some_and(|v| *v == *auth);
+    let (a, b, c) = (authorized.clone(), authorized.clone(), authorized);
+    let (chat_seen, report_seen) = (seen.clone(), seen.clone());
+    let router = axum::Router::new()
+        .route(
+            "/api/ingest/chat-filter",
+            axum::routing::get(move |headers: HeaderMap| async move {
+                if !a(&headers) {
+                    return (StatusCode::UNAUTHORIZED, String::new());
+                }
+                let terms = r#"{"version":2,"terms":[
+                    {"id":1,"pattern":"idiot","matchType":"word","action":"mask","channels":null},
+                    {"id":2,"pattern":"buy\\s+gold","matchType":"regex","action":"block","channels":null}]}"#;
+                (StatusCode::OK, terms.to_owned())
+            }),
+        )
+        .route(
+            "/api/ingest/chat",
+            axum::routing::post(move |headers: HeaderMap, body: String| async move {
+                if !b(&headers) {
+                    return StatusCode::UNAUTHORIZED;
+                }
+                let batch: serde_json::Value = serde_json::from_str(&body).unwrap();
+                let lines = batch["messages"].as_array().unwrap().clone();
+                chat_seen.chat.lock().unwrap().extend(lines);
+                StatusCode::OK
+            }),
+        )
+        .route(
+            "/api/ingest/reports",
+            axum::routing::post(move |headers: HeaderMap, body: String| async move {
+                if !c(&headers) {
+                    return StatusCode::UNAUTHORIZED;
+                }
+                report_seen
+                    .reports
+                    .lock()
+                    .unwrap()
+                    .push(serde_json::from_str(&body).unwrap());
+                StatusCode::CREATED
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, router).await });
+    (url, seen)
+}
+
+async fn until(what: impl Fn() -> bool) {
+    for _ in 0..50 {
+        if what() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("timed out");
+}
+
+#[tokio::test]
+async fn the_dashboards_filter_applies_and_chat_and_reports_reach_it() {
+    let key = "k".repeat(40);
+    let (url, seen) = dashboard(&key).await;
+    let moderation = chat::Moderation::start(chat::DashboardSettings { url, key });
+    let plugin = ChatPlugin::new();
+    let server = start_with(host(), &plugin, moderation).await;
+    let port = server.running.port;
+    // The first poll is at start
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let mut ada = login(port, "ada").await;
+    let mut bo = login(port, "bo").await;
+    ada.join("City-a", "Ada").await;
+    ada.expect("status code=\"110\"").await;
+    bo.join("City-b", "Bo").await;
+    bo.expect("status code=\"110\"").await;
+    ada.drain().await;
+
+    // Masked: recipients read asterisks, spaces kept
+    ada.say("City-a", "you i d 1 o t").await;
+    let heard = bo.expect("type=\"groupchat\"").await;
+    assert!(heard.contains("<body>you * * * * *</body>"), "{heard}");
+
+    // Blocked: the sender's echo only
+    ada.say("City-a", "BUY  GOLD cheap").await;
+    let echo = ada.expect("BUY  GOLD").await;
+    assert!(echo.contains("type=\"groupchat\""), "{echo}");
+    assert!(!bo.drain().await.iter().any(|f| f.contains("GOLD")));
+
+    // Whispers are rated too, and a blocked one is not delivered
+    ada.whisper("bo", "idiot").await;
+    let whisper = bo.expect("type=\"chat\"").await;
+    assert!(whisper.contains("<body>*****</body>"), "{whisper}");
+    ada.whisper("bo", "buy gold").await;
+    assert!(!bo.drain().await.iter().any(|f| f.contains("gold")));
+
+    // The dashboard gets the original text and the verdict
+    until(|| seen.chat.lock().unwrap().len() >= 4).await;
+    let lines = seen.chat.lock().unwrap().clone();
+    let pairs: Vec<(String, String, String)> = lines
+        .iter()
+        .map(|l| {
+            (
+                l["channel"].as_str().unwrap().to_owned(),
+                l["body"].as_str().unwrap().to_owned(),
+                l["verdict"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        pairs,
+        [
+            ("city", "you i d 1 o t", "masked"),
+            ("city", "BUY  GOLD cheap", "blocked"),
+            ("direct", "idiot", "masked"),
+            ("direct", "buy gold", "blocked"),
+        ]
+        .map(|(a, b, c)| (a.to_owned(), b.to_owned(), c.to_owned()))
+    );
+    assert_eq!(lines[0]["sender"]["name"], "Ada");
+    assert_eq!(lines[2]["recipient"]["userId"], "bo");
+
+    // /report is filed, answered to the sender alone, and never delivered
+    ada.say("City-a", "/report Bo harassment kept following me").await;
+    let answer = ada.expect("Report sent").await;
+    assert!(answer.contains(&format!("from=\"City-a@muc.{DOMAIN}\"")), "{answer}");
+    assert!(!bo.drain().await.iter().any(|f| f.contains("following")));
+    until(|| !seen.reports.lock().unwrap().is_empty()).await;
+    let report = seen.reports.lock().unwrap()[0].clone();
+    assert_eq!(report["target"]["name"], "Bo");
+    assert_eq!(report["target"]["userId"], "bo");
+    assert_eq!(report["category"], "harassment");
+    assert_eq!(report["description"], "kept following me");
+    assert_eq!(report["source"], "game");
+    // One a while
+    ada.say("City-a", "/report Bo spam again").await;
+    ada.expect("Please wait").await;
+    server.running.stop().await;
+}
+
+#[tokio::test]
+async fn without_a_dashboard_reports_say_so_and_chat_is_untouched() {
+    let plugin = ChatPlugin::new();
+    let server = start(host(), &plugin).await;
+    let port = server.running.port;
+    let mut ada = login(port, "ada").await;
+    let mut bo = login(port, "bo").await;
+    ada.whisper("bo", "idiot").await;
+    assert!(bo.expect("type=\"chat\"").await.contains("<body>idiot</body>"));
+    ada.whisper("bo", "/report").await;
+    ada.expect("Usage: /report").await;
+    ada.whisper("bo", "/report Bo spam").await;
+    ada.expect("not set up").await;
+    assert!(!bo.drain().await.iter().any(|f| f.contains("report")));
+    server.running.stop().await;
 }

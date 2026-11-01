@@ -89,8 +89,10 @@ pub struct ServerController {
 
 impl ServerController {
     pub fn new(mode: impl Into<String>, editions: Vec<String>) -> Self {
+        let status_registry = StatusRegistry::new(mode, editions);
+        crate::metrics::install(status_registry.clone());
         Self {
-            status_registry: StatusRegistry::new(mode, editions),
+            status_registry,
             modules: Vec::new(),
             running: BTreeMap::new(),
             startup_order: Vec::new(),

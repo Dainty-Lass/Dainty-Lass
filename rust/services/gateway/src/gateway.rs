@@ -1000,17 +1000,38 @@ impl Gateway {
         phases: Phases,
         caller: Option<Arc<NodeCaller>>,
     ) -> Reply {
+        let started = std::time::Instant::now();
+        let method = request.method().as_str().to_owned();
+        let mut route = "refused";
+        let reply = self.route_request(request, ip, conn, phases, caller, &mut route).await;
+        service_kit::metrics::http_request("gateway", route, &method, reply.status().as_u16(), started);
+        reply
+    }
+
+    /// `route` is set to what took the request: an upstream, `ws`, `node`, `enroll`, `network`, or `refused`.
+    async fn route_request(
+        self: &Arc<Self>,
+        request: Request<Incoming>,
+        ip: String,
+        conn: ConnectionId,
+        phases: Phases,
+        caller: Option<Arc<NodeCaller>>,
+        route: &mut &'static str,
+    ) -> Reply {
         phases.request_started();
         if let Some(caller) = caller {
+            *route = "node";
             return self.node_request(request, ip, &caller, phases).await;
         }
         if is_upgrade(request.headers()) {
-            return self.upgrade(request, ip, conn, phases).await;
+            *route = "ws";
+            return self.clone().upgrade(request, ip, conn, phases).await;
         }
         if request.method() == "POST"
             && request.uri().path() == network::ENROLL_PATH
             && let Some(handler) = self.node_links.as_ref().and_then(|l| l.enroll_handler())
         {
+            *route = "enroll";
             return self.handle_enroll(request, ip, conn, phases, handler).await;
         }
         let access = self.access(&request, &ip, &conn);
@@ -1034,9 +1055,15 @@ impl Gateway {
             Decision::Reject {
                 status, error, reason, ..
             } => return self.refuse(request.headers(), access, phases, status, error, reason.into(), &[]),
-            Decision::Network { route, .. } => return self.network(request, access, phases, route).await,
+            Decision::Network {
+                route: network_route, ..
+            } => {
+                *route = "network";
+                return self.network(request, access, phases, network_route).await;
+            }
             Decision::Proxy { upstream, feed, .. } => (upstream, feed),
         };
+        *route = upstream.as_str();
         let Some(endpoint) = self.endpoint(upstream, endpoint) else {
             return self.refuse(
                 request.headers(),

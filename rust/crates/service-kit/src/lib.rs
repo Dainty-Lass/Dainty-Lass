@@ -12,6 +12,7 @@ pub mod jsjson;
 pub mod json;
 pub mod linelog;
 pub mod log;
+pub mod metrics;
 pub mod ratelimit;
 pub mod routing;
 pub mod serve;

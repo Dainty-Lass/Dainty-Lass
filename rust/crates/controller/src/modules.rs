@@ -1217,6 +1217,7 @@ pub fn chat(options: ChatOptions) -> Result<Module, String> {
     if !problems.is_empty() {
         return Err(format!("chat settings: {}", problems.join("; ")));
     }
+    let dashboard = dashboard_settings(&options.env)?;
     let plugin = Arc::new(chat::ChatPlugin::new());
     let drivers = Arc::new(chat::Drivers::default());
     options.registry.add_plugin(plugin.clone());
@@ -1230,7 +1231,8 @@ pub fn chat(options: ChatOptions) -> Result<Module, String> {
     Ok(Module::new(
         "chat",
         Arc::new(move |mut ctx| {
-            let (settings, plugin, drivers, node, database, registry, network) = (
+            let (dashboard, settings, plugin, drivers, node, database, registry, network) = (
+                dashboard.clone(),
                 settings.clone(),
                 plugin.clone(),
                 drivers.clone(),
@@ -1277,8 +1279,12 @@ pub fn chat(options: ChatOptions) -> Result<Module, String> {
                     registry: registry.downgrade(),
                     federation: federation.clone(),
                 });
+                let options = chat::Options {
+                    moderation: dashboard.map_or_else(chat::Moderation::off, chat::Moderation::start),
+                    ..chat::Options::default()
+                };
                 let running = plugin
-                    .start(&settings, node, host, federation, history, chat::Options::default())
+                    .start(&settings, node, host, federation, history, options)
                     .await
                     .map_err(|e| e.to_string())?;
                 ctx.status.ready(Some(format!("127.0.0.1:{}", running.port)), None);
@@ -1293,4 +1299,23 @@ pub fn chat(options: ChatOptions) -> Result<Module, String> {
     )
     .optional()
     .ready_within(std::time::Duration::from_secs(30)))
+}
+
+/// The staff dashboard chat reports to (`CHAT_DASHBOARD_URL`, `CHAT_DASHBOARD_INGEST_KEY`); none without a URL.
+#[cfg(feature = "chat")]
+fn dashboard_settings(env: &Env) -> Result<Option<chat::DashboardSettings>, String> {
+    let get = |key: &str| env.get(key).map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned);
+    let Some(url) = get("CHAT_DASHBOARD_URL") else {
+        return Ok(None);
+    };
+    let dashboard = chat::DashboardSettings {
+        url,
+        key: get("CHAT_DASHBOARD_INGEST_KEY").unwrap_or_default(),
+    };
+    let problems = dashboard.problems();
+    if problems.is_empty() {
+        Ok(Some(dashboard))
+    } else {
+        Err(format!("chat settings: {}", problems.join("; ")))
+    }
 }

@@ -124,6 +124,8 @@ percent-encoding = "2"
 # Bundled libpq without OpenSSL: no system libpq, no Perl on Windows, openssl-sys stays banned (D10, DF7 spike).
 pq-sys = { version = "0.7", default-features = false, features = ["bundled_without_openssl"] }
 regex = "1"
+# Process CPU and memory for /metrics (service-kit's registry, controller's collector)
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 rusqlite = { version = "0.40", features = ["backup"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }

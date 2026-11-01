@@ -20,6 +20,9 @@ use crate::schema::AdminSchema;
 pub struct AppState {
     pub schema: AdminSchema,
     pub keys: Keys,
+    pub admin: std::sync::Arc<crate::schema::Admin>,
+    /// `RUSTIC_ISLES_METRICS_TOKEN`: the backend's own metrics are added to `/metrics` with it
+    pub metrics_token: Option<String>,
 }
 
 fn json_reply(status: StatusCode, body: serde_json::Value) -> Response {
@@ -103,6 +106,76 @@ async fn graphql(
     }
 }
 
+/// Every component's metrics in Prometheus' text format, for any admin key: this process's registry (the
+/// services, chat, the processes it started), the game servers' players from the Director, and the
+/// backend's own `/internal/v1/metrics`.
+async fn metrics(
+    State(state): State<AppState>,
+    ConnectInfo(info): ConnectInfo<ConnectionInfo>,
+    headers: HeaderMap,
+) -> Response {
+    if !info.peer.ip().is_loopback() {
+        return refuse(Refusal::Forwarded);
+    }
+    let given = match input::bearer(&headers) {
+        Ok(given) => given,
+        Err(refusal) => return refuse(refusal),
+    };
+    if state.keys.authenticate(given).await.is_err() {
+        return refuse(Refusal::Unauthenticated);
+    }
+    use service_kit::metrics as m;
+    const PLAYERS: &str = "dainty_game_server_players";
+    const MAX: &str = "dainty_game_server_max_players";
+    m::clear(PLAYERS);
+    m::clear(MAX);
+    match state.admin.upstream.instances().await {
+        Ok(instances) => {
+            m::gauge("dainty_director_up", "Whether the Director answered", &[], 1.0);
+            for i in &instances {
+                let kind = match i.kind {
+                    input::InstanceKind::City => "city",
+                    input::InstanceKind::Hunt => "hunt",
+                    input::InstanceKind::Dojo => "dojo",
+                    input::InstanceKind::Tutorial => "tutorial",
+                };
+                let labels = [("instance", i.id.as_str()), ("kind", kind)];
+                m::gauge(
+                    PLAYERS,
+                    "Players on a running game server",
+                    &labels,
+                    f64::from(i.players),
+                );
+                m::gauge(MAX, "A game server's player cap", &labels, f64::from(i.max_players));
+            }
+        }
+        Err(_) => m::gauge("dainty_director_up", "Whether the Director answered", &[], 0.0),
+    }
+    let mut text = m::render();
+    if let Some(token) = &state.metrics_token {
+        let up = match state.admin.upstream.backend_metrics(token).await {
+            Ok(body) => {
+                text.push_str(&String::from_utf8_lossy(&body));
+                1
+            }
+            Err(_) => 0,
+        };
+        text.push_str(&format!(
+            "# HELP dainty_backend_metrics_up Whether the backend's metrics answered\n\
+             # TYPE dainty_backend_metrics_up gauge\ndainty_backend_metrics_up {up}\n"
+        ));
+    }
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        text,
+    )
+        .into_response()
+}
+
 async fn health() -> Response {
     json_reply(StatusCode::OK, json!({"ok": true}))
 }
@@ -115,6 +188,11 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/graphql", post(graphql))
         .route("/health", get(health))
+        .route("/metrics", get(metrics))
         .fallback(not_found)
+        .layer(axum::middleware::from_fn_with_state(
+            "admin",
+            service_kit::metrics::track,
+        ))
         .with_state(state)
 }

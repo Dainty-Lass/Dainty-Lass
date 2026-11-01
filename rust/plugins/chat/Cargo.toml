@@ -15,11 +15,17 @@ chrono.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
 futures-util.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
 # By path: the workspace entry names the silentspud registry, which a checkout without its config can't load
 module-api = { path = "../../crates/module-api" }
 network = { path = "../network" }
 protocol.workspace = true
 rand.workspace = true
+regex.workspace = true
+rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 service-kit.workspace = true

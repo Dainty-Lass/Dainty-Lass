@@ -78,6 +78,8 @@ pub fn prepare_with_network(
     let state = AppState {
         schema: build_with_control(admin.clone(), control),
         keys,
+        admin: admin.clone(),
+        metrics_token: config.metrics_token.clone(),
     };
     Ok((state, admin))
 }

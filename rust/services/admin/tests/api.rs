@@ -275,6 +275,7 @@ async fn world_with_guard(options: Options, guard: admin::guard::GuardSettings) 
             file: timeouts_file.with_file_name("dainty-lass.db"),
         },
         guard,
+        metrics_token: None,
     };
     let clock = Arc::new(AtomicI64::new(START));
     let reading = clock.clone();
@@ -1673,4 +1674,45 @@ mod history {
             assert_eq!(code(&body), "BAD_INPUT", "{body}");
         }
     }
+}
+
+#[tokio::test]
+async fn metrics_need_a_key_and_show_the_game_servers() {
+    let world = world().await;
+    let get = |key: Option<&'static str>| {
+        let url = format!("{}/metrics", world.url);
+        async move {
+            let client: Client<HttpConnector, Full<Bytes>> =
+                Client::builder(TokioExecutor::new()).build(HttpConnector::new());
+            let mut request = hyper::Request::get(url);
+            if let Some(key) = key {
+                request = request.header("authorization", format!("Bearer {key}"));
+            }
+            let response = client
+                .request(request.body(Full::new(Bytes::new())).unwrap())
+                .await
+                .unwrap();
+            let status = response.status().as_u16();
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            (status, String::from_utf8(bytes.to_vec()).unwrap())
+        }
+    };
+    assert_eq!(get(None).await.0, 401);
+    assert_eq!(get(Some("not-the-key-not-the-key-not-the-k")).await.0, 401);
+    let (status, text) = get(Some(API_KEY)).await;
+    assert_eq!(status, 200);
+    assert!(text.contains("dainty_director_up 1\n"), "{text}");
+    assert!(
+        text.contains("dainty_game_server_players{instance=\"hunt-8770\",kind=\"hunt\"} 2\n"),
+        "{text}"
+    );
+    assert!(
+        text.contains("dainty_game_server_max_players{instance=\"hunt-8770\",kind=\"hunt\"} 4\n"),
+        "{text}"
+    );
+    // The scrape before this one was counted by the admin service's own layer
+    assert!(
+        text.contains("dainty_http_requests_total{method=\"GET\",route=\"all\",service=\"admin\",status=\"4xx\"}"),
+        "{text}"
+    );
 }

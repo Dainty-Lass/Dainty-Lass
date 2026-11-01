@@ -166,6 +166,7 @@ servers' key) lives only in `secrets.env`.
 | `--max-hunts 1-10` | `max_hunt_servers` | Hunts at once; the UDP range widens below 8770 past six |
 | `--xp`, `--rewards`, `--no-multipliers` | `[multipliers]` | Private test servers only |
 | `--public-port` | `public_port` | Another port than 443 |
+| (edit `host.toml`) | `dashboard_url` | The staff dashboard ([dainty-dashboard](https://git.silentspud.com/silentspud/dainty-dashboard)), written to `gateway.env` as `CHAT_DASHBOARD_URL` with `DASHBOARD_INGEST_KEY`. Chat takes its filter every 30 s and applies it before delivery (flag, mask, or block, which the sender sees as sent), sends it every room line and whisper with the verdict, and files `/report <player> [category] <what happened>` with it. Left out: chat as before, and `/report` answers that reports are not set up |
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
 | `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database although `.workspace\mongodb` still holds unmigrated data (MongoDB is never modified) |
@@ -192,6 +193,7 @@ servers' key) lives only in `secrets.env`.
 | `REFORGED_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](admin-api.md)) |
 | `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
 | `REFORGED_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
+| `DASHBOARD_INGEST_KEY` | `gateway.env` (`CHAT_DASHBOARD_INGEST_KEY`, when `dashboard_url` is set) | What chat sends the staff dashboard with: set the dashboard's own `DASHBOARD_INGEST_KEY` to the same value |
 
 The `RUSTIC_ISLES_*` names were `MYSTICPARADOX_*` before the Rustic Isles rename. `setup` moves the two secrets to
 their new names in `secrets.env` with the same values, and writes only the new names into the env files; the backend,

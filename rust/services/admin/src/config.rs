@@ -40,6 +40,8 @@ pub struct Config {
     pub database: store::DatabaseConfig,
     /// `REFORGED_GUARD_*`: when a destructive or bulk action waits (DH6). Nothing set: the defaults.
     pub guard: GuardSettings,
+    /// `RUSTIC_ISLES_METRICS_TOKEN`: `/metrics` adds the backend's own with it. Not set: left out.
+    pub metrics_token: Option<String>,
 }
 
 fn optional(env: &Env, name: &str) -> Option<String> {
@@ -198,6 +200,7 @@ impl Config {
             server_mode,
             database,
             guard: guard_settings(env)?,
+            metrics_token: optional(env, "RUSTIC_ISLES_METRICS_TOKEN"),
         })
     }
 
