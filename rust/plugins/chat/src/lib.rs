@@ -103,15 +103,32 @@ impl ChatPlugin {
             modules: self.modules.clone(),
         };
         let (events, receiver) = mpsc::unbounded_channel();
-        federation.attach(events.clone(), history.clone(), host, options.clock.clone());
+        federation.attach(events.clone(), history.clone(), host.clone(), options.clock.clone());
         let chat = Chat::new(backends, settings, options);
         let largest_backlog = chat.largest_backlog.clone();
         let task = tokio::spawn(server::run(chat, receiver));
         let router = axum::Router::new()
+            .route("/__chat/mute", axum::routing::post(connection::mute_account))
+            .route("/__chat/unmute", axum::routing::post(connection::unmute_account))
+            .route("/__chat/history/direct", axum::routing::get(connection::direct_history))
+            .route(
+                "/__chat/history/waiting",
+                axum::routing::get(connection::waiting_history),
+            )
+            .route("/__chat/tick", axum::routing::post(connection::tick_chat))
+            .route("/__chat/client/login", axum::routing::post(connection::client_login))
+            .route("/__chat/client/send", axum::routing::post(connection::client_send))
+            .route("/__chat/client/drain", axum::routing::get(connection::client_drain))
+            .route("/__chat/client/close", axum::routing::post(connection::client_close))
             .fallback(connection::upgrade)
             .with_state(connection::Listener {
+                port,
                 events: events.clone(),
                 gateway_secret: settings.gateway_secret.as_deref().map(Arc::from),
+                history: history.clone(),
+                federation: federation.clone(),
+                host,
+                clients: Arc::default(),
             });
         let (stop_listening, stopped) = oneshot::channel::<()>();
         let server = tokio::spawn(async move {

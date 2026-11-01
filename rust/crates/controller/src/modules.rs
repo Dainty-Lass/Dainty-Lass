@@ -5,13 +5,31 @@
 //! wrote for it (`hostconfig.rs`), through its own `Config::from_env`, so a service in this process
 //! sees exactly what it saw as a process of its own.
 
-#[cfg(any(feature = "gateway", feature = "allowlist", feature = "content", feature = "admin"))]
+#[cfg(any(
+    feature = "gateway",
+    feature = "allowlist",
+    feature = "content",
+    feature = "admin",
+    feature = "chat"
+))]
 use std::sync::Arc;
 
-#[cfg(any(feature = "gateway", feature = "allowlist", feature = "content", feature = "admin"))]
+#[cfg(any(
+    feature = "gateway",
+    feature = "allowlist",
+    feature = "content",
+    feature = "admin",
+    feature = "chat"
+))]
 use service_kit::env::Env;
 
-#[cfg(any(feature = "gateway", feature = "allowlist", feature = "content", feature = "admin"))]
+#[cfg(any(
+    feature = "gateway",
+    feature = "allowlist",
+    feature = "content",
+    feature = "admin",
+    feature = "chat"
+))]
 use crate::Module;
 
 /// The modules built into this binary, for the message an empty build prints.
@@ -123,7 +141,12 @@ pub fn gateway(
     registry: Option<crate::ModuleRegistry>,
 ) -> Result<Module, String> {
     use gateway::config::Config;
-    let config = Config::from_env(env)?;
+    #[allow(unused_mut)]
+    let mut config = Config::from_env(env)?;
+    #[cfg(feature = "chat")]
+    if registry.is_some() && config.ws.port == config.backend.port {
+        config.ws.port = chat::settings::DEFAULT_PORT;
+    }
     let node_links = registry.as_ref().map(|r| r.node_services().gateway_slot());
     #[cfg(feature = "network")]
     let region_handler = registry.as_ref().map(|r| r.node_services().region_report_handler());
@@ -958,6 +981,317 @@ pub fn remote_managed(options: RemoteManagedOptions) -> Result<crate::Module, St
                 ctx.status.stopping();
                 sync_task.abort();
                 services.detach(network_plugin::Service::Remote);
+                ctx.status.stopped();
+                Ok(())
+            })
+        }),
+    )
+    .optional()
+    .ready_within(std::time::Duration::from_secs(30)))
+}
+
+/// Network peer configuration for [`chat`] when running in a multi-node cluster (DN10b).
+#[cfg(feature = "chat")]
+#[derive(Clone)]
+pub struct ChatNetworkOptions {
+    pub leader: module_api::network::NodeId,
+    pub peers: Vec<(module_api::network::NodeId, module_api::network::Region)>,
+}
+
+/// Configuration for the `"chat"` module (DD21, DN10a, DN10b).
+#[cfg(feature = "chat")]
+pub struct ChatOptions {
+    pub env: Env,
+    pub node: module_api::NodeIdentity,
+    pub database: store::DatabaseConfig,
+    pub registry: crate::ModuleRegistry,
+    pub network: Option<ChatNetworkOptions>,
+}
+
+#[cfg(feature = "chat")]
+struct ChatDriversHook {
+    drivers: Arc<chat::Drivers>,
+}
+
+#[cfg(feature = "chat")]
+impl crate::registry::LoadHook for ChatDriversHook {
+    fn loaded(&self, manifest: &module_api::ModuleManifest, driver: Arc<dyn module_api::ModuleDriver>) {
+        if manifest.capabilities.chat {
+            self.drivers.insert(driver);
+        }
+    }
+
+    fn unloaded(&self, module: &module_api::ModuleId) {
+        self.drivers.remove(module);
+    }
+}
+
+#[cfg(feature = "chat")]
+struct ControllerChatHost {
+    node: module_api::NodeIdentity,
+    drivers: Arc<chat::Drivers>,
+    plugin: Arc<chat::ChatPlugin>,
+    registry: crate::WeakRegistry,
+    federation: Arc<dyn chat::Federation>,
+}
+
+#[cfg(feature = "chat")]
+impl ControllerChatHost {
+    fn active_modules(&self) -> Vec<module_api::ModuleId> {
+        let attached: Vec<module_api::ModuleId> = self.plugin.modules().into_iter().collect();
+        if !attached.is_empty() {
+            attached
+        } else {
+            self.drivers.module_ids()
+        }
+    }
+}
+
+#[cfg(feature = "chat")]
+impl chat::ChatHost for ControllerChatHost {
+    fn login<'a>(
+        &'a self,
+        login: chat::Login<'a>,
+    ) -> module_api::BoxFuture<'a, Result<chat::Player, chat::LoginRefusal>> {
+        let authcid = login.authcid.to_owned();
+        let token = login.token.to_owned();
+        Box::pin(async move {
+            let modules = self.active_modules();
+            if modules.is_empty() {
+                return Err(chat::LoginRefusal::Unavailable);
+            }
+            let mut saw_unavailable = false;
+            for module in &modules {
+                let query = module_api::chat::ChatQuery::Login {
+                    authcid: authcid.clone(),
+                    token: token.clone(),
+                };
+                match self.drivers.ask(module, query).await {
+                    Ok(module_api::chat::ChatAnswer::Login { account, name }) => {
+                        return Ok(chat::Player {
+                            account,
+                            module: module.clone(),
+                            name,
+                        });
+                    }
+                    Ok(_) => {}
+                    Err(err) if err.kind == module_api::ErrorKind::Unavailable => {
+                        saw_unavailable = true;
+                    }
+                    Err(_) => {}
+                }
+            }
+            if let Some(account) = self.federation.resolve(&authcid).await
+                && account.owner() != &self.node.node
+                && let Some(reg) = self.registry.upgrade()
+                && let Ok(operation) = "chat.login".parse::<module_api::network::OperationName>()
+            {
+                let home = reg.home();
+                for module in &modules {
+                    let forward = module_api::network::HomeForward {
+                        module: module.clone(),
+                        account: account.clone(),
+                        actor: module_api::ActorContext::new(module_api::Actor::System),
+                        operation: operation.clone(),
+                        body: serde_json::json!({
+                            "authcid": authcid,
+                            "token": token,
+                        }),
+                        key: None,
+                    };
+                    if let Ok(val) = home.forward(&forward).await
+                        && let Some(name) = val.get("name").and_then(serde_json::Value::as_str)
+                    {
+                        return Ok(chat::Player {
+                            account,
+                            module: module.clone(),
+                            name: name.to_owned(),
+                        });
+                    }
+                }
+            }
+            if saw_unavailable {
+                Err(chat::LoginRefusal::Unavailable)
+            } else {
+                Err(chat::LoginRefusal::BadToken)
+            }
+        })
+    }
+
+    fn ask<'a>(
+        &'a self,
+        module: &'a module_api::ModuleId,
+        query: module_api::chat::ChatQuery,
+    ) -> module_api::BoxFuture<'a, Result<module_api::chat::ChatAnswer, module_api::ModuleError>> {
+        Box::pin(async move { self.drivers.ask(module, query).await })
+    }
+
+    fn blocked<'a>(
+        &'a self,
+        sender: &'a module_api::GlobalId,
+        recipient: &'a module_api::GlobalId,
+    ) -> module_api::BoxFuture<'a, bool> {
+        Box::pin(async move {
+            for module in self.active_modules() {
+                let query = module_api::chat::ChatQuery::MayWhisper {
+                    from: sender.clone(),
+                    to: recipient.clone(),
+                };
+                if let Ok(module_api::chat::ChatAnswer::MayWhisper(allowed)) = self.drivers.ask(&module, query).await {
+                    return !allowed;
+                }
+            }
+            false
+        })
+    }
+
+    fn account_of<'a>(&'a self, local: &'a str) -> module_api::BoxFuture<'a, Option<module_api::GlobalId>> {
+        let local = local.to_owned();
+        Box::pin(async move {
+            for module in self.active_modules() {
+                let query = module_api::chat::ChatQuery::AccountOf { local: local.clone() };
+                if let Ok(module_api::chat::ChatAnswer::AccountOf(Some(account))) =
+                    self.drivers.ask(&module, query).await
+                {
+                    return Some(account);
+                }
+            }
+            if let Some(reg) = self.registry.upgrade()
+                && let Some(dir) = reg.node_services().directory()
+                && let Ok(Some(record)) = dir.find(&local).await
+            {
+                return Some(record.account);
+            }
+            None
+        })
+    }
+
+    fn presence<'a>(
+        &'a self,
+        account: &'a module_api::GlobalId,
+        local: &'a str,
+        online: bool,
+    ) -> module_api::BoxFuture<'a, ()> {
+        let account = account.clone();
+        let local = local.to_owned();
+        Box::pin(async move {
+            if let Some(reg) = self.registry.upgrade()
+                && let Ok(name) = module_api::chat::PRESENCE_EVENT.parse()
+                && let Ok(payload) = serde_json::to_value(module_api::chat::PresenceEvent {
+                    account,
+                    user_id: local,
+                    online,
+                })
+            {
+                reg.emit(module_api::Event { name, payload });
+            }
+        })
+    }
+}
+
+/// The chat core plugin (`chat.db` beside the node database, listening on loopback `CHAT_PORT` / `61006`
+/// behind the gateway, and attached to `Service::Chat` when in a network; DD21, DN10a, DN10b).
+#[cfg(feature = "chat")]
+pub fn chat(options: ChatOptions) -> Result<Module, String> {
+    let mut settings = chat::Settings::default();
+    if let Some(secret) = options
+        .env
+        .get("GATEWAY_SECRET")
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        settings.gateway_secret = Some(secret.to_owned());
+    }
+    if let Some(port) = options.env.get("CHAT_PORT").and_then(|s| s.trim().parse::<u16>().ok()) {
+        settings.port = port;
+    }
+    if options
+        .env
+        .get("CHAT_NICK_CHECK")
+        .is_some_and(|s| s.trim().eq_ignore_ascii_case("log"))
+    {
+        settings.nick_check = chat::NickCheck::Log;
+    }
+    if options
+        .env
+        .get("CHAT_TRACE")
+        .is_some_and(|s| matches!(s.trim(), "1" | "true" | "TRUE"))
+    {
+        settings.trace = true;
+    }
+    let problems = settings.problems();
+    if !problems.is_empty() {
+        return Err(format!("chat settings: {}", problems.join("; ")));
+    }
+    let plugin = Arc::new(chat::ChatPlugin::new());
+    let drivers = Arc::new(chat::Drivers::default());
+    options.registry.add_plugin(plugin.clone());
+    options.registry.add_hook(Arc::new(ChatDriversHook {
+        drivers: drivers.clone(),
+    }));
+    let node = options.node;
+    let database = options.database;
+    let registry = options.registry;
+    let network = options.network;
+    Ok(Module::new(
+        "chat",
+        Arc::new(move |mut ctx| {
+            let (settings, plugin, drivers, node, database, registry, network) = (
+                settings.clone(),
+                plugin.clone(),
+                drivers.clone(),
+                node.clone(),
+                database.clone(),
+                registry.clone(),
+                network.clone(),
+            );
+            Box::pin(async move {
+                if let store::DatabaseConfig::Sqlite { file } = &database
+                    && let Some(parent) = file.parent()
+                {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let chat_db = chat::History::beside(&database);
+                let history = chat::History::open(&chat_db).map_err(|e| format!("chat history database: {e}"))?;
+                let federation: Arc<dyn chat::Federation> = if let Some(net) = network {
+                    let link = {
+                        let mut tries = 0u32;
+                        loop {
+                            if let Some(link) = registry.node_services().peer_link() {
+                                break link;
+                            }
+                            tries += 1;
+                            if tries > 200 {
+                                return Err("chat federation: network peer link did not become ready".into());
+                            }
+                            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                        }
+                    };
+                    let fed_config = chat::ChatFederationConfig::new(node.clone(), net.peers).with_leader(net.leader);
+                    let fed = Arc::new(chat::ChatFederation::new(fed_config, link));
+                    registry
+                        .node_services()
+                        .attach(network_plugin::Service::Chat, fed.clone());
+                    fed
+                } else {
+                    Arc::new(chat::LocalOnly)
+                };
+                let host: Arc<dyn chat::ChatHost> = Arc::new(ControllerChatHost {
+                    node: node.clone(),
+                    drivers,
+                    plugin: plugin.clone(),
+                    registry: registry.downgrade(),
+                    federation: federation.clone(),
+                });
+                let running = plugin
+                    .start(&settings, node, host, federation, history, chat::Options::default())
+                    .await
+                    .map_err(|e| e.to_string())?;
+                ctx.status.ready(Some(format!("127.0.0.1:{}", running.port)), None);
+                ctx.wait_stop().await;
+                ctx.status.stopping();
+                registry.node_services().detach(network_plugin::Service::Chat);
+                running.stop().await;
                 ctx.status.stopped();
                 Ok(())
             })

@@ -165,6 +165,8 @@ pub enum ChatQuery {
     MayWhisper { from: GlobalId, to: GlobalId },
     /// Parses a module-specific MUC room localpart (such as `Party-<id>` or `City-<id>`) into a [`RoomKind`]
     RoomOf { name: String },
+    /// Resolves a JID localpart (`userId` or display name) to a local player's account id on this node
+    AccountOf { local: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,6 +178,7 @@ pub enum ChatAnswer {
     Friends(Vec<GlobalId>),
     MayWhisper(bool),
     RoomOf(Option<RoomKind>),
+    AccountOf(Option<GlobalId>),
 }
 
 #[cfg(test)]
@@ -216,6 +219,9 @@ mod tests {
             ChatQuery::RoomOf {
                 name: String::from("Party-01J00000000000000000000000"),
             },
+            ChatQuery::AccountOf {
+                local: String::from("user-1"),
+            },
         ] {
             let json = serde_json::to_string(&query).unwrap();
             assert_eq!(serde_json::from_str::<ChatQuery>(&json).unwrap(), query);
@@ -228,6 +234,7 @@ mod tests {
             ChatAnswer::Friends(vec![other.clone()]),
             ChatAnswer::MayWhisper(true),
             ChatAnswer::RoomOf(Some(RoomKind::Network)),
+            ChatAnswer::AccountOf(Some(account.clone())),
         ] {
             let json = serde_json::to_string(&answer).unwrap();
             assert_eq!(serde_json::from_str::<ChatAnswer>(&json).unwrap(), answer);

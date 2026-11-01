@@ -12,12 +12,13 @@ publish.workspace = true
 # Each module is the Rust service built into the binary; by default only MIT services (`admin`) are enabled so
 # `controller` has zero normal AGPL dependencies (`services/host` enables `gateway`, `allowlist`, `content`, `network`)
 default = ["admin", "remote"]
-services = ["gateway", "allowlist", "content", "admin", "network", "remote"]
+services = ["gateway", "allowlist", "content", "admin", "network", "remote", "chat"]
 gateway = ["dep:gateway"]
 allowlist = ["dep:gateway"]
 content = ["dep:content"]
 admin = ["dep:admin"]
 remote = ["dep:remote"]
+chat = ["dep:chat", "dep:store", "network_plugin/directory"]
 # The node's network side (DD16): the directory, the home API, tickets, and peer log shipping (DH7), attached to the
 # gateway's node links. It needs the gateway in this process, and a database for the directory
 network = ["gateway", "network_plugin/directory", "network_plugin/log-ship", "dep:store", "dep:history-ship"]
@@ -44,6 +45,7 @@ doc = false
 
 [dependencies]
 admin = { workspace = true, optional = true }
+chat = { workspace = true, optional = true }
 isles-1-12-0 = { workspace = true, optional = true }
 isles-1-14-7 = { workspace = true, optional = true }
 content = { workspace = true, optional = true }
