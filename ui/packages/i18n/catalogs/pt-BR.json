@@ -1181,8 +1181,5 @@
   "hrem_act_backup": "Backup",
   "hrem_act_revoke": "Revogar",
   "hrem_leave": "Desativar gerenciamento remoto",
-  "hrem_queued": "Ação {action} enfileirada em {node} ({id})",
-  "hsrv_cfg_reborn_module": "Módulo de jogo (Reborn)",
-  "hsrv_cfg_mod_1147": "Dauntless 1.14.7 (isles-1-14-7, padrão)",
-  "hsrv_cfg_mod_1120": "Dauntless 1.12.0 (isles-1-12-0, opcional)"
+  "hrem_queued": "Ação {action} enfileirada em {node} ({id})"
 }
