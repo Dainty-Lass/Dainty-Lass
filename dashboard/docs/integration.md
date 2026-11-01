@@ -8,21 +8,21 @@ and where the launcher and server manager pages plug into the Tauri shells.
 All of the dashboard's environment is in [`apps/dashboard/.env.example`](../apps/dashboard/.env.example).
 Everything a person tunes lives in the database instead (Settings in the dashboard).
 
-| Variable                                           | From                                                   | What                                                             |
-| -------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
-| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`                | Bearer key for the admin service's GraphQL (`127.0.0.1:61003`)   |
-| `DASHBOARD_MANAGER_OPERATOR_SECRET`                | `secrets.env`: `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` | Signs calls to the backend's `/admin/v1` as the manager operator |
-| `DASHBOARD_ADMIN_API_URL`, `DASHBOARD_BACKEND_URL` |                                                        | Defaults are the host kit's loopback ports                       |
-| `DASHBOARD_INGEST_KEY`                             | new: 32+ random characters                             | What the backend sends with chat and reports                     |
-| `DASHBOARD_DISCORD_CLIENT_ID`, `_SECRET`           | a Discord application                                  | Sign-in ([access.md](access.md))                                 |
-| `DASHBOARD_DISCORD_BOT_TOKEN`                      | that application's bot, with Manage Roles              | Adds the approved role when someone accepts the terms            |
-| `DASHBOARD_TWITCH_CLIENT_ID`, `_SECRET`            | a Twitch application                                   | Sign-in                                                          |
-| `DASHBOARD_SMTP_URL`, `DASHBOARD_MAIL_FROM`        | any SMTP relay                                         | Email sign-in codes                                              |
-| `DASHBOARD_AUTH_SECRET`                            | new: 32+ random characters, or generated               | Signs sessions, encrypts stored provider tokens                  |
-| `DASHBOARD_OWNER_DISCORD_IDS`, `_EMAILS`           |                                                        | Who is an owner at sign-in                                       |
-| `DASHBOARD_BASE_URL`                               |                                                        | The public origin, for the OAuth redirect and Secure cookies     |
+| Variable                                           | From                                                  | What                                                             |
+| -------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`               | Bearer key for the admin service's GraphQL (`127.0.0.1:61003`)   |
+| `DASHBOARD_MANAGER_OPERATOR_SECRET`                | `secrets.env`: `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | Signs calls to the backend's `/admin/v1` as the manager operator |
+| `DASHBOARD_ADMIN_API_URL`, `DASHBOARD_BACKEND_URL` |                                                       | Defaults are the host kit's loopback ports                       |
+| `DASHBOARD_INGEST_KEY`                             | new: 32+ random characters                            | What the backend sends with chat and reports                     |
+| `DASHBOARD_DISCORD_CLIENT_ID`, `_SECRET`           | a Discord application                                 | Sign-in ([access.md](access.md))                                 |
+| `DASHBOARD_DISCORD_BOT_TOKEN`                      | that application's bot, with Manage Roles             | Adds the approved role when someone accepts the terms            |
+| `DASHBOARD_TWITCH_CLIENT_ID`, `_SECRET`            | a Twitch application                                  | Sign-in                                                          |
+| `DASHBOARD_SMTP_URL`, `DASHBOARD_MAIL_FROM`        | any SMTP relay                                        | Email sign-in codes                                              |
+| `DASHBOARD_AUTH_SECRET`                            | new: 32+ random characters, or generated              | Signs sessions, encrypts stored provider tokens                  |
+| `DASHBOARD_OWNER_DISCORD_IDS`, `_EMAILS`           |                                                       | Who is an owner at sign-in                                       |
+| `DASHBOARD_BASE_URL`                               |                                                       | The public origin, for the OAuth redirect and Secure cookies     |
 
-The backend must run with `MYSTICPARADOX_MANAGER_ADMIN=on` for the signed calls to be accepted. The host
+The backend must run with `RUSTIC_ISLES_MANAGER_ADMIN=on` for the signed calls to be accepted. The host
 kit's `setup` already writes it, with the secret, for the admin service (dainty-lass `docs/admin-api.md`).
 
 Every staff action reaches the game as that staff member: the admin API gets their Discord id in
