@@ -17,6 +17,21 @@
         "installMode": "currentUser",
         "installerIcon": "icons/server/icon.ico"
       }
+    },
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/manager.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/manager.desktop"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/releases/download/launcher-updates/latest-manager.json"
+      ]
     }
   }
 }

@@ -3558,7 +3558,7 @@ dependencies = [
 
 [[package]]
 name = "launcher"
-version = "2.0.0-alpha.0"
+version = "2.0.0-beta"
 dependencies = [
  "admin",
  "aes 0.9.3",
@@ -3588,7 +3588,6 @@ dependencies = [
  "rand 0.10.3",
  "rcgen",
  "regex",
- "reqwest",
  "rifts-host",
  "rifts-seam",
  "rustls",
