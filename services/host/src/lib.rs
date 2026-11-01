@@ -588,40 +588,6 @@ impl hooks::HostHooks for ServicesHostHooks {
         }
     }
 
-    fn mongo_has_documents(&self, uri: &str) -> Result<bool, String> {
-        #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
-        {
-            let mut client = isles_db::mongo::MongoClient::connect(uri).map_err(|e| e.to_string())?;
-            let primary = [
-                "accounts",
-                "characters",
-                "inventories",
-                "loadouts",
-                "reforgedInvites",
-                "wallets",
-            ];
-            for col in primary {
-                if client.collection_has_documents(col).unwrap_or(false) {
-                    return Ok(true);
-                }
-            }
-            let all_areas: std::collections::BTreeSet<isles_db::MigrateArea> =
-                isles_db::MigrateArea::ALL.into_iter().collect();
-            let empty_state = isles_db::migrate::TargetState::default();
-            for col in isles_db::state_to_mongo_collections(&empty_state, &all_areas).into_keys() {
-                if !primary.contains(&col.as_str()) && client.collection_has_documents(&col).unwrap_or(false) {
-                    return Ok(true);
-                }
-            }
-            Ok(false)
-        }
-        #[cfg(not(any(feature = "isles-1-14-7", feature = "paradox")))]
-        {
-            let _ = uri;
-            Err("MongoDB support is not compiled in".to_owned())
-        }
-    }
-
     fn db_migrate(
         &self,
         source_uri: &str,
@@ -1446,10 +1412,10 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
                 return ExitCode::FAILURE;
             }
         } else if !p.config.join(hostkit::commands::update::MONGO_MIGRATED_MARKER).exists()
-            && hostkit::commands::update::has_managed_mongo_data(p)
+            && hostkit::commands::update::has_unmigrated_mongo_dir(p)
         {
             eprintln!(
-                "Unmigrated MongoDB data found in {}. Run `reforged-host setup` to migrate existing player data before starting the server, or pass `reforged-host setup --fresh-start` (or `fresh_start = true` under `[database]` in host.toml) to start with an empty database without modifying MongoDB.",
+                "Unmigrated MongoDB data found in {}: move it with `reforged-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass `reforged-host setup --fresh-start` to start with an empty database without modifying MongoDB.",
                 p.mongo_data.display()
             );
             return ExitCode::FAILURE;
@@ -1767,26 +1733,6 @@ pub mod commands {
         ) -> Result<std::process::ExitCode, crate::HostError> {
             crate::ensure_hooks();
             hostkit::commands::update::run_with(p, args, env, out)
-        }
-
-        pub fn migrate_existing_mongo_data(
-            p: &crate::paths::Paths,
-            config: &crate::hostconfig::HostConfig,
-            log_file: &std::path::Path,
-            out: &mut dyn FnMut(&str),
-        ) -> Result<bool, crate::HostError> {
-            crate::ensure_hooks();
-            hostkit::commands::update::migrate_existing_mongo_data(p, config, log_file, out)
-        }
-
-        pub fn migrate_existing_mongo_data_for_setup(
-            p: &crate::paths::Paths,
-            config: &crate::hostconfig::HostConfig,
-            log_file: &std::path::Path,
-            out: &mut dyn FnMut(&str),
-        ) -> Result<bool, crate::HostError> {
-            crate::ensure_hooks();
-            hostkit::commands::update::migrate_existing_mongo_data_for_setup(p, config, log_file, out)
         }
 
         pub fn check_unmigrated_mongo_data(

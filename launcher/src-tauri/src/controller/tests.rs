@@ -1212,13 +1212,13 @@ fn host_workspace(root: &Path) -> PathBuf {
     root.to_path_buf()
 }
 
-/// `host.json` and both game data sets, so the server may start.
+/// `host.toml` and both game data sets, so the server may start.
 #[cfg(feature = "host")]
 fn configure_workspace(ws: &Path) {
     use crate::platform::hostkit::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, WorkspacePaths};
     let w = WorkspacePaths::new(ws);
-    std::fs::create_dir_all(w.host_json.parent().unwrap()).unwrap();
-    std::fs::write(&w.host_json, r#"{"mode":"private","name":"Friday Hunts"}"#).unwrap();
+    std::fs::create_dir_all(w.host_toml.parent().unwrap()).unwrap();
+    std::fs::write(&w.host_toml, "mode = \"private\"\nname = \"Friday Hunts\"\n").unwrap();
     for (dir, files) in [
         (&w.backend_game_data, &BACKEND_GAME_DATA[..]),
         (&w.director_game_data, &DIRECTOR_GAME_DATA[..]),
@@ -1318,7 +1318,7 @@ async fn the_host_page_drives_reforged_host_setup_server_invite_and_stop() {
     assert_eq!(hx.c.host_open(HostFolder::Workspace), ActionResult::Ok);
     assert_eq!(hx.c.host_open(HostFolder::HostLogs), host_error("folder"));
 
-    // The server needs host.json and the game data
+    // The server needs host.toml and the game data
     assert_eq!(hx.c.host_server_start().await, host_error("not_configured"));
     // The fake host kit fails setup with an Error: line: that line is the page's detail, and the job failed
     let setup = HostSetupRequest {
@@ -1438,8 +1438,8 @@ async fn import_sdk_takes_the_newest_dump_and_multipliers_are_private_only() {
     assert_eq!(hx.c.host_set_multipliers(None).await, host_error("not_configured"));
     configure_workspace(&ws);
     std::fs::write(
-        crate::platform::hostkit::WorkspacePaths::new(&ws).host_json,
-        r#"{"mode":"public","name":"x"}"#,
+        crate::platform::hostkit::WorkspacePaths::new(&ws).host_toml,
+        "mode = \"public\"\nname = \"x\"\n",
     )
     .unwrap();
     assert_eq!(hx.c.host_set_multipliers(None).await, host_error("multipliers_public"));
