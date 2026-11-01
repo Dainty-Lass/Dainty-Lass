@@ -1,27 +1,10 @@
-//! A build without the `legacy` feature: `legacy.rs`'s names, with nothing to play. A Dauntless Revived
-//! server is listed but never current (`settings.rs`), so the page's 1.4.4 calls are refused as before
-//! (RD5, RD22).
-
-use std::path::Path;
+//! The page's Dauntless 1.4.4 calls (the bridge still names them), refused: a Dauntless Revived server is
+//! listed but never current (`settings.rs`), so nothing here plays (RD5, RD22).
 
 use super::stored::StoredServer;
 use super::{Controller, Outcome, State, err};
 use crate::bridge::types::{ActionResult, ErrorCode, Game, InstallMode, Phase, RevivedInfo};
 use crate::net::hostapi::{Flavor, REFORGED};
-
-#[derive(Clone, Default)]
-pub struct LegacyConfig;
-
-#[derive(Default)]
-pub struct LegacyState;
-
-pub struct Parts;
-
-impl Parts {
-    pub fn new(_user_data: &Path) -> Self {
-        Self
-    }
-}
 
 pub(super) fn flavor(_sv: &StoredServer) -> Flavor {
     REFORGED

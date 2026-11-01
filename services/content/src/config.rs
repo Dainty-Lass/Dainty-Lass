@@ -5,24 +5,20 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
 use protocol::GameVersion;
-use protocol::invite::{played_versions, reforged_version, revived_version};
+use protocol::invite::reforged_version;
 use serde_json::json;
 use service_kit::env::Env;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
-    /// `CONTENT_GAME`: the 1.14.7 runtime, or Dauntless Revived's 1.4.4 game files (legacy)
+    /// `CONTENT_GAME`: the 1.14.7 runtime
     pub version: GameVersion,
     pub port: u16,
     pub bind_hosts: Vec<String>,
-    /// The Mystic Paradox backend, or DR's metagame on a legacy server: the account-key lookup
+    /// The Mystic Paradox backend: the account-key lookup
     pub backend_url: String,
     /// `CONTENT_RUNTIME_DIR`: unset means no runtime is offered, which is not a start error
     pub runtime_dir: Option<PathBuf>,
-    /// `CONTENT_GAME_DIR`, the folder that contains `Archon\`: required on a legacy server only
-    pub game_dir: Option<PathBuf>,
-    /// `CONTENT_MANIFEST`, or `None` for DR's 1.4.4 manifest built into the binary (legacy only)
-    pub manifest_path: Option<PathBuf>,
     pub branding_dir: Option<PathBuf>,
     pub news_file: Option<PathBuf>,
     pub news_url: Option<String>,
@@ -68,23 +64,16 @@ pub fn is_loopback_bind_host(host: &str) -> bool {
     host == "::1"
 }
 
-/// `CONTENT_GAME`: `reborn` (the default, 1.14.7) or `legacy` (1.4.4), the latter only in a build that
-/// carries it.
+/// `CONTENT_GAME`: `reborn` (the default, 1.14.7). `legacy` was Dauntless Revived's 1.4.4, which is no longer served.
 pub fn parse_game(raw: Option<&str>) -> Result<GameVersion, String> {
-    let game = match raw.map(|r| r.trim().to_ascii_lowercase()).as_deref() {
-        None | Some("") | Some("reborn") => reforged_version(),
-        Some("legacy") => revived_version(),
-        Some(_) => {
-            return Err(format!(
-                "CONTENT_GAME must be reborn or legacy (got {})",
-                service_kit::jsjson::stringify(&json!(raw.unwrap_or_default()))
-            ));
-        }
-    };
-    if !played_versions().contains(&game) {
-        return Err("CONTENT_GAME=legacy (Dauntless Revived's 1.4.4) needs a content server built with the `legacy` feature; this one serves reborn only".into());
+    match raw.map(|r| r.trim().to_ascii_lowercase()).as_deref() {
+        None | Some("") | Some("reborn") => Ok(reforged_version()),
+        Some("legacy") => Err("CONTENT_GAME=legacy (Dauntless Revived's 1.4.4) is no longer served; this content server serves reborn only".into()),
+        Some(_) => Err(format!(
+            "CONTENT_GAME must be reborn (got {})",
+            service_kit::jsjson::stringify(&json!(raw.unwrap_or_default()))
+        )),
     }
-    Ok(game)
 }
 
 impl Config {
@@ -122,27 +111,12 @@ impl Config {
         // Validated here rather than in the news module's constructor (as Node does): the start
         // fails the same way, with a `Configuration:` error
         let news_url = crate::news::github_news_url(optional(env, "CONTENT_NEWS_URL").as_deref())?;
-        // Read only on a legacy server, where the game folder is DR's only required setting
-        let (game_dir, manifest_path) = match version == revived_version() {
-            false => (None, None),
-            true => {
-                let Some(game_dir) = optional(env, "CONTENT_GAME_DIR") else {
-                    return Err("CONTENT_GAME_DIR is not set (the folder that contains Archon\\)".into());
-                };
-                (
-                    Some(resolve(&game_dir)),
-                    optional(env, "CONTENT_MANIFEST").map(|p| resolve(&p)),
-                )
-            }
-        };
         Ok(Self {
             version,
             port,
             bind_hosts,
             backend_url,
             runtime_dir: optional(env, "CONTENT_RUNTIME_DIR").map(|p| resolve(&p)),
-            game_dir,
-            manifest_path,
             branding_dir: optional(env, "CONTENT_BRANDING_DIR").map(|p| resolve(&p)),
             news_file: optional(env, "CONTENT_NEWS_FILE").map(|p| resolve(&p)),
             news_url,
@@ -224,13 +198,9 @@ mod tests {
     }
 
     #[test]
-    fn the_game_is_reborn_unless_a_legacy_build_is_told_otherwise() {
+    fn the_game_is_reborn() {
         let c = load(&[("CONTENT_GAME_DIR", "game"), ("CONTENT_MANIFEST", "m.json")]).unwrap();
-        // A reborn server never reads the game folder
-        assert_eq!(
-            (c.version, c.game_dir, c.manifest_path),
-            (reforged_version(), None, None)
-        );
+        assert_eq!(c.version, reforged_version());
         assert_eq!(
             load(&[("CONTENT_GAME", " REBORN ")]).unwrap().version,
             reforged_version()
@@ -238,31 +208,13 @@ mod tests {
         assert!(
             load(&[("CONTENT_GAME", "1.4.4")])
                 .unwrap_err()
-                .contains("reborn or legacy")
+                .contains("CONTENT_GAME must be reborn")
         );
-        let legacy = load(&[("CONTENT_GAME", "legacy"), ("CONTENT_GAME_DIR", "game")]);
-        if cfg!(feature = "legacy") {
-            let legacy = legacy.unwrap();
-            assert_eq!(legacy.version, revived_version());
-            assert!(legacy.game_dir.unwrap().is_absolute());
-            assert_eq!(legacy.manifest_path, None);
-            assert!(
-                load(&[("CONTENT_GAME", "legacy")])
-                    .unwrap_err()
-                    .contains("CONTENT_GAME_DIR is not set")
-            );
-            let manifest = load(&[
-                ("CONTENT_GAME", "legacy"),
-                ("CONTENT_GAME_DIR", "game"),
-                ("CONTENT_MANIFEST", " m.json "),
-            ])
-            .unwrap()
-            .manifest_path
-            .unwrap();
-            assert!(manifest.is_absolute() && manifest.ends_with("m.json"));
-        } else {
-            assert!(legacy.unwrap_err().contains("`legacy` feature"));
-        }
+        assert!(
+            load(&[("CONTENT_GAME", "legacy")])
+                .unwrap_err()
+                .contains("no longer served")
+        );
     }
 
     #[test]

@@ -1,7 +1,0 @@
-{
-  "bundle": {
-    "resources": {
-      "../../../modules/legacy-revived/client-mods/": "client-mods/"
-    }
-  }
-}

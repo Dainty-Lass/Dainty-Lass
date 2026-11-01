@@ -2,8 +2,7 @@
 //! that the backend serves, with the shape of its arguments. Three layers read
 //! it: the isolation hook in the page (`isolation/commands.js`, generated from this list), the capability
 //! that grants exactly these commands (`build.rs`), and the commands themselves, which check the same
-//! limits again. The `revived*` methods (1.4.4) are served in every build and answer only with the
-//! `legacy` feature; the window controls are Tauri's own. After `subscribe_progress` come DaintyLass's own
+//! limits again. The `revived*` methods (1.4.4) are served and always refused (RD5); the window controls are Tauri's own. After `subscribe_progress` come DaintyLass's own
 //! commands (DF8), stubs until their rows fill them (`PLANNED`).
 #![cfg_attr(
     not(test),
@@ -255,8 +254,6 @@ const ADMIN_REQUEST: Arg = Arg::Object {
 /// `host.toml` settings edited from the server GUI (`server_config_save`).
 pub const REGISTRATION_MODES: &[&str] = &["OPEN", "INVITECODE", "NONE", "INVITE"];
 pub const DATABASE_ENGINES: &[&str] = &["sqlite", "postgres"];
-#[cfg(feature = "server-gui")]
-pub const REBORN_MODULES: &[&str] = &["isles-1-14-7", "isles-1-12-0"];
 
 const SERVER_CONFIG_PATCH: Arg = Arg::Object {
     fields: &[
@@ -272,7 +269,6 @@ const SERVER_CONFIG_PATCH: Arg = Arg::Object {
                 names: DATABASE_ENGINES,
             },
         ),
-        ("rebornModule", Arg::OptionalText { max: MODULE_ID_MAX }),
         ("maxHubs", Arg::Index { max: 64 }),
         ("maxHunts", Arg::Index { max: 128 }),
         ("freshStart", Arg::Flag),

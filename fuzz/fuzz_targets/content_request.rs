@@ -3,7 +3,7 @@
 //! headers it reads, the account key and If-None-Match, repeated lines included. None of it may
 //! panic; a path that names a runtime file names exactly one of the two, so nothing else on disk is
 //! reachable; a key that passes the shape check is one printable token, so it cannot add a header to
-//! the backend request. A legacy server's routes (`Route::of_legacy`) never name a runtime file.
+//! the backend request.
 #![no_main]
 
 use content::input::{
@@ -39,12 +39,6 @@ fuzz_target!(|request: Request<'_>| {
             assert!(!version.contains(['/', '\\', '%']));
         }
         Route::Unknown | Route::RuntimeManifest | Route::Branding | Route::News | Route::Versions => {}
-        Route::GameManifest | Route::GameFile => panic!("a legacy route on a reborn server: {path_only:?}"),
-    }
-    match Route::of_legacy(path_only) {
-        Route::RuntimeManifest | Route::RuntimeFile(_) => panic!("a runtime route on a legacy server: {path_only:?}"),
-        Route::GameFile => assert!(path_only.starts_with("/content/v1/files/")),
-        _ => {}
     }
     // The version query never panics; its value is only ever looked up, never joined to a path
     let _ = version_query(request.target.split_once('?').map(|(_, query)| query));

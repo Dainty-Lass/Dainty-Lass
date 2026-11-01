@@ -62,7 +62,6 @@ fn make_runtime(seed: usize) -> Vec<(&'static str, Vec<u8>)> {
 }
 
 /// DR's content manifest for these 1.4.4 files.
-#[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
 fn game_manifest_json(files: &[(String, Vec<u8>)]) -> Value {
     json!({
         "build": "dauntless_rel-1.4.4_Shipping_2020-10-28_20-11-15_239827",
@@ -85,8 +84,6 @@ fn runtime_manifest(files: &[(&'static str, Vec<u8>)]) -> Value {
     })
 }
 
-#[cfg(feature = "legacy")]
-mod legacy;
 #[cfg(feature = "realms")]
 mod realms;
 
@@ -113,7 +110,6 @@ struct Host {
     /// The news answer waits for this (the shutdown test)
     news_gate: Option<Arc<tokio::sync::Notify>>,
     /// A Dauntless Revived server's 1.4.4 files (`/content/v1/manifest`, `/content/v1/files/*`)
-    #[cfg_attr(not(feature = "legacy"), allow(dead_code, reason = "the legacy edition's"))]
     game_files: Option<Vec<(String, Vec<u8>)>>,
 }
 
@@ -377,8 +373,6 @@ fn purpose_name(purpose: FolderPurpose) -> &'static str {
         FolderPurpose::Runtime => "runtime",
         FolderPurpose::Sdk => "sdk",
         FolderPurpose::Workspace => "workspace",
-        #[cfg(feature = "legacy")]
-        FolderPurpose::Revived => "revived",
     }
 }
 
@@ -466,11 +460,6 @@ impl Harness {
     }
 
     fn with_user(user: tempfile::TempDir) -> Self {
-        Self::with_legacy(user, Default::default())
-    }
-
-    /// With the legacy edition's folders and resources (`tests/legacy.rs`)
-    fn with_legacy(user: tempfile::TempDir, legacy: super::legacy::LegacyConfig) -> Self {
         let config = tempfile::tempdir().unwrap();
         let fake = Arc::new(Fake::default());
         let spawns: Arc<Mutex<Vec<Spawned>>> = Arc::default();
@@ -493,7 +482,6 @@ impl Harness {
                 status_poll: Duration::from_secs(60),
                 encryptor: Arc::new(Plain),
                 legacy_encryptor: None,
-                legacy,
             },
             Seams {
                 // Requests the test sends through the relay stand in for the game, so the game is this
@@ -1074,8 +1062,6 @@ async fn shutdown_waits_for_the_news_and_refuses_play() {
     assert_eq!(hx.c.news().len(), 1, "the news that was loading arrived");
 }
 
-/// Without the legacy edition; `tests/legacy.rs` has it with
-#[cfg(not(feature = "legacy"))]
 #[tokio::test(flavor = "multi_thread")]
 async fn a_saved_1_4_4_server_is_shown_disabled_and_never_joined() {
     let hx = Harness::new();
@@ -1187,16 +1173,10 @@ async fn settings_take_reforgeds_seven_keys() {
     let stored: Value = serde_json::from_slice(&std::fs::read(hx.user.path().join("settings.json")).unwrap()).unwrap();
     assert_eq!(stored["runtimeProfile"], "development");
     assert_eq!(stored["language"], "pt-BR");
-    // Only a build with the legacy edition takes it, and only it writes the key
-    let legacy = cfg!(feature = "legacy");
-    let edition = if legacy {
-        crate::bridge::types::Game::Legacy
-    } else {
-        crate::bridge::types::Game::Reborn
-    };
-    assert_eq!(settings.game_edition, edition);
-    assert_eq!(hx.c.snapshot().app.legacy_available, legacy);
-    assert_eq!(stored.get("gameEdition").is_some(), legacy);
+    // The edition is always reborn, and settings.json has no key for it
+    assert_eq!(settings.game_edition, crate::bridge::types::Game::Reborn);
+    assert!(!hx.c.snapshot().app.legacy_available);
+    assert!(stored.get("gameEdition").is_none());
     // An empty patch changes nothing
     assert_eq!(hx.c.set_settings(SettingsPatch::default()).await, settings);
 }
@@ -1279,7 +1259,6 @@ fn host_harness() -> Harness {
             status_poll: Duration::from_secs(60),
             encryptor: Arc::new(Plain),
             legacy_encryptor: None,
-            legacy: Default::default(),
         },
         Seams {
             spawn: {
@@ -1702,30 +1681,18 @@ async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_proc
     assert_eq!(cfg.mode, HostServerMode::Private);
     assert_eq!(cfg.registration, "INVITECODE");
     assert_eq!(cfg.database, "sqlite");
-    assert_eq!(cfg.reborn_module, "isles-1-14-7");
 
     let saved = match hx
         .c
-        .server_config_save("OPEN".into(), "sqlite".into(), Some("isles-1-12-0".into()), 1, 5, false)
+        .server_config_save("OPEN".into(), "sqlite".into(), 1, 5, false)
         .await
     {
         ServerConfigOutcome::Ok(view) => view,
         ServerConfigOutcome::Err(e) => panic!("server_config_save failed: {e:?}"),
     };
     assert_eq!(saved.registration, "OPEN");
-    assert_eq!(saved.reborn_module, "isles-1-12-0");
     assert_eq!(saved.max_hunts, 5);
     assert!(!saved.fresh_start);
-
-    let saved = match hx
-        .c
-        .server_config_save("OPEN".into(), "sqlite".into(), Some("isles-1-14-7".into()), 1, 5, false)
-        .await
-    {
-        ServerConfigOutcome::Ok(view) => view,
-        ServerConfigOutcome::Err(e) => panic!("server_config_save failed: {e:?}"),
-    };
-    assert_eq!(saved.reborn_module, "isles-1-14-7");
 
     let confirmed = match hx.c.server_confirm_fresh_start().await {
         ServerConfigOutcome::Ok(view) => view,
@@ -1786,16 +1753,12 @@ async fn server_gui_and_client_end_to_end_start_invite_join_ban_history_and_stop
     assert_eq!(view.state, HostServerState::Running, "server view: {view:?}");
     assert!(!view.components.is_empty());
     for comp in &view.components {
-        if comp.name == "isles-1-12-0" {
-            assert_eq!(comp.phase, HostComponentPhase::Stopped);
-        } else {
-            assert!(
-                matches!(comp.phase, HostComponentPhase::Ready | HostComponentPhase::Disabled),
-                "component {} not ready: {:?}",
-                comp.name,
-                comp
-            );
-        }
+        assert!(
+            matches!(comp.phase, HostComponentPhase::Ready | HostComponentPhase::Disabled),
+            "component {} not ready: {:?}",
+            comp.name,
+            comp
+        );
     }
 
     // 3. Server GUI creates an invite code and lists active invites

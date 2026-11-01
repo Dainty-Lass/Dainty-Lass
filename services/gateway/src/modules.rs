@@ -17,7 +17,7 @@ use module_api::{
     Registrar, Registration,
 };
 use protocol::GameVersion;
-use protocol::invite::{revived_version, version_alias};
+use protocol::invite::version_alias;
 
 use crate::config::{Config, Endpoint, is_loopback_host};
 use crate::policy::{
@@ -87,11 +87,7 @@ impl RegistryView for ConfigPorts {
 /// The module a gateway without a controller fronts, as the game's module will register itself (RU4,
 /// RV1): one TCP port and every path to it.
 pub fn stand_in(version: &GameVersion) -> Result<(ModuleManifest, Registration), String> {
-    let (id, display_name, port) = if *version == revived_version() {
-        ("revived-1-4-4", "Dauntless Revived", "metagame")
-    } else {
-        ("isles-1-14-7", "Rustic Isles 1.14.7", "backend")
-    };
+    let (id, display_name, port) = ("isles-1-14-7", "Rustic Isles 1.14.7", "backend");
     let manifest = ModuleManifest {
         id: id.parse().map_err(|e| format!("{e}"))?,
         kind: ModuleKind::Game,
@@ -192,13 +188,8 @@ impl ModuleRoutes {
     /// A gateway without a controller: the stand-in for `GATEWAY_GAME` at the configured backend.
     pub fn standalone(config: &Config) -> Result<Self, String> {
         let (manifest, registration) = stand_in(&config.version)?;
-        let port = if config.version == revived_version() {
-            "metagame"
-        } else {
-            "backend"
-        };
         let routes = Self::new(Arc::new(ConfigPorts {
-            port,
+            port: "backend",
             endpoint: config.backend.clone(),
         }));
         routes.attach(&manifest, &registration).map_err(|e| e.to_string())?;
@@ -240,11 +231,7 @@ impl ModuleRoutes {
         let Some((path, _)) = split_target(raw_url).filter(|(path, _)| check_path(path)) else {
             return reject(400, "bad_path", "bad_path", limit_class);
         };
-        let inner = if *game != revived_version() {
-            unwrap_origin(path).and_then(|unwrapped| canonical_path(&unwrapped.path))
-        } else {
-            canonical_path(path)
-        };
+        let inner = unwrap_origin(path).and_then(|unwrapped| canonical_path(&unwrapped.path));
         let (Some(raw), Some(inner)) = (canonical_path(path), inner) else {
             return reject(400, "bad_path", "bad_percent_encoding", limit_class);
         };
@@ -260,25 +247,11 @@ impl ModuleRoutes {
             };
         }
         let modules = self.read();
-        let select_module = |pred: &dyn Fn(&Attached) -> bool| -> Option<&Attached> {
-            if let Some(m) = modules
-                .values()
-                .find(|m| !m.stand_in && m.manifest.answers_invite(version) && pred(m))
-            {
-                return Some(m);
-            }
-            let non_stand_in: Vec<&Attached> = modules.values().filter(|m| !m.stand_in && pred(m)).collect();
-            if non_stand_in.len() == 1
-                && modules
-                    .values()
-                    .any(|m| m.stand_in && m.manifest.answers_invite(version))
-            {
-                return Some(non_stand_in[0]);
-            }
-            modules.values().find(|m| m.manifest.answers_invite(version) && pred(m))
-        };
         if matches!(upstream, Upstream::Ws) {
-            let Some(module) = select_module(&|m| !m.websocket.is_empty()) else {
+            let Some(module) = modules
+                .values()
+                .find(|m| m.manifest.answers_invite(version) && !m.websocket.is_empty())
+            else {
                 return Routed {
                     decision,
                     endpoint: None,
@@ -303,7 +276,7 @@ impl ModuleRoutes {
                 endpoint: Some(endpoint),
             };
         }
-        let Some(module) = select_module(&|_| true) else {
+        let Some(module) = modules.values().find(|m| m.manifest.answers_invite(version)) else {
             return reject(503, "unavailable", "no_module", limit_class);
         };
         // Host-only wins over a longer public route below it
@@ -512,13 +485,12 @@ mod tests {
 
     #[test]
     fn the_stand_ins_are_what_the_modules_will_register() {
-        for game in [reforged_version(), revived_version()] {
-            let (manifest, registration) = stand_in(&game).unwrap();
-            manifest.validate().unwrap();
-            let alias = version_alias(&game).unwrap();
-            assert!(manifest.answers_invite(&game.to_string()) && manifest.answers_invite(alias));
-            assert_eq!(registration.routes.len(), 1);
-        }
+        let game = reforged_version();
+        let (manifest, registration) = stand_in(&game).unwrap();
+        manifest.validate().unwrap();
+        let alias = version_alias(&game).unwrap();
+        assert!(manifest.answers_invite(&game.to_string()) && manifest.answers_invite(alias));
+        assert_eq!(registration.routes.len(), 1);
     }
 
     #[test]
@@ -564,22 +536,6 @@ mod tests {
         // The alias names the same module; another version none
         assert_eq!(port(&get(&routes, "reforged", "/party")), Some(7001));
         assert_eq!(reason(&get(&routes, "1.4.4", "/party")), Some("no_module"));
-    }
-
-    #[cfg(feature = "legacy")]
-    #[test]
-    fn a_standalone_legacy_gateway_sends_the_game_to_its_metagame() {
-        let routes = standalone(&revived_version());
-        let routed = routes.route("1.4.4", &revived_version(), "POST", "/game/login", &none(), false);
-        assert_eq!(port(&routed), Some(7001));
-        assert!(matches!(
-            routed.decision,
-            Decision::Proxy {
-                upstream: Upstream::Metagame,
-                ..
-            }
-        ));
-        assert_eq!(routes.modules(), vec!["revived-1-4-4".parse::<ModuleId>().unwrap()]);
     }
 
     #[test]
@@ -739,9 +695,9 @@ mod tests {
             headers.insert("upgrade", HeaderValue::from_static("websocket"));
             headers
         };
-        let upgraded = routes.route("0.0.1", &revived_version(), "GET", "/ws", &ws, true);
+        let upgraded = routes.route("0.0.1", &manifest.game_version, "GET", "/ws", &ws, true);
         assert_eq!(port(&upgraded), Some(61099));
-        let missed = routes.route("0.0.1", &revived_version(), "GET", "/other", &ws, true);
+        let missed = routes.route("0.0.1", &manifest.game_version, "GET", "/other", &ws, true);
         assert_eq!(reason(&missed), Some("no_route"));
     }
 }
