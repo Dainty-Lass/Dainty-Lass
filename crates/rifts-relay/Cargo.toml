@@ -1,0 +1,23 @@
+[package]
+name = "rifts-relay"
+description = "Rustic Rifts' relay side: ICE servers and TURN credentials, pair keys, the ICE signal relay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+hmac.workspace = true
+# The system random source (rand's SysRng is getrandom's), for signal and request ids
+rand.workspace = true
+rifts-seam.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

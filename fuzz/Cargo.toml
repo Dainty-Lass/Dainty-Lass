@@ -43,6 +43,8 @@ network = { path = "../crates/network", features = ["log-ship"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 protocol = { path = "../crates/protocol" }
 remote = { path = "../crates/remote" }
+# relay_signal: the ICE signals the relay carries and its relay-only filter (RD27)
+rifts-relay = { path = "../crates/rifts-relay" }
 serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
@@ -252,6 +254,13 @@ bench = false
 [[bin]]
 name = "chat_federation"
 path = "fuzz_targets/chat_federation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "relay_signal"
+path = "fuzz_targets/relay_signal.rs"
 test = false
 doc = false
 bench = false

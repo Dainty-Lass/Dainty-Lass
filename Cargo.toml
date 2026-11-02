@@ -36,6 +36,7 @@ content = { path = "crates/content" }
 epic = { path = "crates/epic" }
 chat = { path = "crates/chat" }
 rifts-seam = { path = "crates/rifts-seam" }
+rifts-relay = { path = "crates/rifts-relay" }
 hmac = "0.13"
 
 crossterm = "0.29"
