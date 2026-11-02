@@ -21,6 +21,7 @@ pub mod policy;
 pub mod ratelimit;
 pub mod redact;
 pub mod server;
+pub mod service;
 
 /// Milliseconds since the epoch (`Date.now()`).
 pub fn now_ms() -> i64 {

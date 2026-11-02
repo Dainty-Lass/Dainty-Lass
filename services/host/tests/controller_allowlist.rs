@@ -1,6 +1,8 @@
-//! The allowlist as a core plugin on the registry (DF4d): a game module's UDP ranges join the firewall rule when it
-//! loads and leave it when it unloads, a server with no module guards exactly its own game ports, and a public
-//! server whose allowlist runs elsewhere refuses a module that wants UDP ports. Every helper here is a dry run.
+//! The allowlist as a core plugin on the registry (DF4d), inside the gateway service: a game module's UDP ranges join
+//! the firewall rule when it loads and leave it when it unloads, a server with no module guards exactly its own game
+//! ports, and a public server whose allowlist runs elsewhere refuses a module that wants UDP ports. Every helper here
+//! is a dry run, and every script runs with the gateway compiled in and loaded as a library (RD27):
+//! `cargo build -p gateway-plugin` first.
 #![cfg(feature = "allowlist")]
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
@@ -10,6 +12,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use controller::service_library::gateway::{AllowlistMode, GatewayHandle};
 use controller::{
     ModuleEntry, ModuleRegistry, ModuleSource, ModuleState, RegistryError, RegistryOptions, ServerController,
 };
@@ -74,20 +77,76 @@ async fn eventually(what: &str, mut check: impl FnMut() -> bool) {
     panic!("{what} did not happen within 10 s");
 }
 
-async fn server(dir: &Path, options: RegistryOptions) -> (ServerController, ModuleRegistry) {
+/// How the gateway is built into the core: from its library or compiled in.
+#[derive(Clone, Copy, Debug)]
+enum Built {
+    Library,
+    CompiledIn,
+}
+
+const BOTH: [Built; 2] = [Built::CompiledIn, Built::Library];
+
+fn gateway_env() -> Env {
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+        .to_string();
+    let secret = "s".repeat(64);
+    Env::from_pairs([
+        ("GATEWAY_BIND", "127.0.0.1"),
+        ("GATEWAY_TLS", "0"),
+        ("GATEWAY_PORT", port.as_str()),
+        ("GATEWAY_SECRET", secret.as_str()),
+        ("GATEWAY_ALLOWLIST", "0"),
+    ])
+}
+
+/// The gateway with `allowlist`, as `host` composes it, not yet added to a controller.
+async fn gateway(
+    built: Built,
+    allowlist: AllowlistMode,
+    registry: &ModuleRegistry,
+) -> (controller::Module, GatewayHandle) {
+    match built {
+        Built::CompiledIn => modules::gateway(&gateway_env(), allowlist, Some(registry.clone())).unwrap(),
+        Built::Library => modules::gateway_library(
+            gateway_library().await,
+            &gateway_env(),
+            allowlist,
+            Some(registry.clone()),
+        )
+        .unwrap(),
+    }
+}
+
+/// A public server whose gateway runs the allowlist in `dir`, as `serve` composes it.
+async fn server(
+    dir: &Path,
+    options: RegistryOptions,
+    built: Built,
+) -> (ServerController, ModuleRegistry, GatewayHandle) {
     let mut controller = ServerController::new("public", Vec::new());
     let registry = ModuleRegistry::new(options, controller.status_registry().clone());
-    let slot = modules::allowlist_slot();
-    controller.add(modules::allowlist(&allowlist_env(dir), slot, Some(registry.clone())).unwrap());
+    let allowlist = modules::allowlist(&allowlist_env(dir)).unwrap();
+    let (module, handle) = gateway(built, allowlist, &registry).await;
+    controller.add(module);
     controller.set_registry(registry.clone());
     controller.start_all().await.unwrap();
-    (controller, registry)
+    (controller, registry, handle)
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_loaded_module_s_udp_range_is_guarded_and_taken_back_on_unload() {
+    for built in BOTH {
+        guarded_and_taken_back(built).await;
+    }
+}
+
+async fn guarded_and_taken_back(built: Built) {
     let dir = tempfile::tempdir().unwrap();
-    let (mut controller, registry) = server(dir.path(), RegistryOptions::standalone()).await;
+    let (mut controller, registry, _) = server(dir.path(), RegistryOptions::standalone(), built).await;
     registry.add_entry(stub_entry()).unwrap();
 
     // No module loaded: today's range, exactly
@@ -120,6 +179,12 @@ async fn a_loaded_module_s_udp_range_is_guarded_and_taken_back_on_unload() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_range_the_controller_moved_to_is_the_one_guarded() {
+    for built in BOTH {
+        moved_range_guarded(built).await;
+    }
+}
+
+async fn moved_range_guarded(built: Built) {
     let dir = tempfile::tempdir().unwrap();
     let mut options = RegistryOptions::standalone();
     options.reserved_ports = vec![(
@@ -129,7 +194,7 @@ async fn the_range_the_controller_moved_to_is_the_one_guarded() {
             last: 65019,
         },
     )];
-    let (mut controller, registry) = server(dir.path(), options).await;
+    let (mut controller, registry, _) = server(dir.path(), options, built).await;
     registry.add_entry(stub_entry()).unwrap();
     let info = registry.load(&stub_id()).await.unwrap();
     assert_eq!(
@@ -150,9 +215,15 @@ async fn the_range_the_controller_moved_to_is_the_one_guarded() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_range_inside_the_server_s_own_game_ports_is_refused_and_leaves_the_rule_alone() {
+    for built in BOTH {
+        own_game_ports_refused(built).await;
+    }
+}
+
+async fn own_game_ports_refused(built: Built) {
     let dir = tempfile::tempdir().unwrap();
     // The controller is told none of the server's ports, so only the allowlist stands in the way
-    let (mut controller, registry) = server(dir.path(), RegistryOptions::standalone()).await;
+    let (mut controller, registry, _) = server(dir.path(), RegistryOptions::standalone(), built).await;
     let mut entry = stub_entry();
     entry.source = ModuleSource::CompiledIn(Arc::new(|| {
         Arc::new(OnGamePorts(StubModule::new())) as Arc<dyn GameModule>
@@ -160,7 +231,8 @@ async fn a_range_inside_the_server_s_own_game_ports_is_refused_and_leaves_the_ru
     registry.add_entry(entry).unwrap();
     let error = registry.load(&stub_id()).await.unwrap_err();
     assert!(matches!(error, RegistryError::Refused { .. }), "{error}");
-    assert!(error.to_string().contains("allowlist"), "{error}");
+    // The gateway service is the plugin that refuses it, the allowlist inside it the reason
+    assert!(error.to_string().contains("the server's own game ports"), "{error}");
     assert_eq!(registry.info(&stub_id()).unwrap().state, ModuleState::Failed);
     eventually("the first rule", || applied(dir.path()) == ["8770-8777"]).await;
     tokio::time::sleep(Duration::from_millis(500)).await;
@@ -208,18 +280,39 @@ impl GameModule for OnGamePorts {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_public_server_whose_allowlist_runs_elsewhere_refuses_udp_ports() {
-    let controller = ServerController::new("public", Vec::new());
-    let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
-    modules::allowlist_absent(&registry);
-    registry.add_entry(stub_entry()).unwrap();
-    let error = registry.load(&stub_id()).await.unwrap_err().to_string();
-    assert!(error.contains("outside this process"), "{error}");
-    registry.unload_all().await;
+    for built in BOTH {
+        let mut controller = ServerController::new("public", Vec::new());
+        let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
+        let (module, _) = gateway(built, AllowlistMode::Absent, &registry).await;
+        controller.add(module);
+        controller.set_registry(registry.clone());
+        controller.start_all().await.unwrap();
+        registry.add_entry(stub_entry()).unwrap();
+        let error = registry.load(&stub_id()).await.unwrap_err().to_string();
+        assert!(error.contains("outside this process"), "{built:?}: {error}");
+        controller.shutdown().await;
+    }
 }
 
-#[cfg(feature = "gateway")]
+/// The addresses the dry-run helper added, in order.
+fn added(dir: &Path) -> Vec<String> {
+    std::fs::read_to_string(dir.join("audit.log"))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|event| event["event"] == "added")
+        .filter_map(|event| event["ip"].as_str().map(str::to_owned))
+        .collect()
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_not() {
+    for built in BOTH {
+        matched_player_admitted(built).await;
+    }
+}
+
+async fn matched_player_admitted(built: Built) {
     use module_api::GameVersion;
     use module_api::network::{GlobalId, IdKind, NodeId, NodeIdentity, StandaloneHome};
     use network_plugin::Clock;
@@ -250,12 +343,7 @@ async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_n
     }
 
     let dir = tempfile::tempdir().unwrap();
-    let mut controller = ServerController::new("public", Vec::new());
-    let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
-    let slot = modules::allowlist_slot();
-    controller.add(modules::allowlist(&allowlist_env(dir.path()), slot.clone(), Some(registry.clone())).unwrap());
-    controller.set_registry(registry.clone());
-    controller.start_all().await.unwrap();
+    let (mut controller, registry, handle) = server(dir.path(), RegistryOptions::standalone(), built).await;
 
     // Load stub game module so its UDP range 65010-65019 is guarded by the allowlist helper (DF4d)
     registry.add_entry(stub_entry()).unwrap();
@@ -281,7 +369,7 @@ async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_n
         Arc::new(net.link(&node)),
         Arc::new(StandaloneHome { identity }),
         Arc::new(StubUdpDirector),
-        Arc::new(modules::InProcessAllowlistSink::new(Some(slot.clone()))),
+        handle.allowlist_sink(),
     );
 
     let game: GameVersion = "0.0.1".parse().unwrap();
@@ -293,26 +381,29 @@ async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_n
     assert_eq!(formed.len(), 1);
     assert_eq!(formed[0].server_port, 65012);
 
-    let helper = slot.lock().unwrap().as_ref().cloned().unwrap();
     // Matched player's IP is admitted on the guarded UDP port 65012
-    assert!(helper.is_admitted("203.0.113.42", 65012));
+    eventually("the matched player admitted", || added(dir.path()) == ["203.0.113.42"]).await;
+    // A port outside the guarded ranges admits no one
+    handle.allowlist_sink().admit_player(
+        &GlobalId::new(IdKind::Hunt, &node),
+        &GlobalId::new(IdKind::Account, &node),
+        "203.0.113.77",
+        59999,
+    );
+    tokio::time::sleep(Duration::from_millis(500)).await;
     // Unmatched player's IP is not admitted
-    assert!(!helper.is_admitted("203.0.113.99", 65012));
-    // Port outside the guarded ranges is not admitted even for the matched IP
-    assert!(!helper.is_admitted("203.0.113.42", 59999));
+    assert_eq!(added(dir.path()), ["203.0.113.42"]);
 
     controller.shutdown().await;
 }
 
-#[cfg(feature = "gateway")]
-#[test]
-fn refused_udp_admission_logs_warn_with_instance_and_port_without_panicking() {
+#[tokio::test]
+async fn refused_udp_admission_logs_warn_with_instance_and_port_without_panicking() {
     use std::fmt;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use module_api::network::{GlobalId, IdKind, NodeId};
-    use network_plugin::ring::AllowlistSink;
     use tracing::field::{Field, Visit};
     use tracing::{Event, Level, Metadata, Subscriber, span};
 
@@ -360,7 +451,11 @@ fn refused_udp_admission_logs_warn_with_instance_and_port_without_panicking() {
     let node: NodeId = "oregon-1".parse().unwrap();
     let instance = GlobalId::new(IdKind::Hunt, &node);
     let account = GlobalId::new(IdKind::Account, &node);
-    let sink = modules::InProcessAllowlistSink::new(None);
+    // A gateway that isn't running admits no one
+    let controller = ServerController::new("public", Vec::new());
+    let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
+    let (_, handle) = gateway(Built::CompiledIn, AllowlistMode::Off, &registry).await;
+    let sink = handle.allowlist_sink();
     let subscriber = Arc::new(CapturedWarns::default());
 
     tracing::subscriber::with_default(subscriber.clone(), || {
@@ -379,7 +474,6 @@ fn refused_udp_admission_logs_warn_with_instance_and_port_without_panicking() {
 }
 
 /// The gateway library cargo built beside this test (target/<profile>/): `cargo build -p gateway-plugin` first.
-#[cfg(feature = "gateway")]
 async fn gateway_library() -> controller::ServiceLibrary {
     let exe = std::env::current_exe().unwrap();
     let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();
@@ -399,53 +493,4 @@ async fn gateway_library() -> controller::ServiceLibrary {
         path,
         serves: &[module_api::CoreCapability::Routes, module_api::CoreCapability::UdpPorts],
     }
-}
-
-/// The first test again, with the allowlist in the gateway library the core loads (RD27).
-#[cfg(feature = "gateway")]
-#[tokio::test(flavor = "multi_thread")]
-async fn through_the_gateway_library_a_module_s_udp_range_is_guarded_and_taken_back() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut controller = ServerController::new("public", Vec::new());
-    let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-        .to_string();
-    let secret = "s".repeat(64);
-    let gateway_env = Env::from_pairs([
-        ("GATEWAY_BIND", "127.0.0.1"),
-        ("GATEWAY_TLS", "0"),
-        ("GATEWAY_PORT", port.as_str()),
-        ("GATEWAY_SECRET", secret.as_str()),
-        ("GATEWAY_ALLOWLIST", "0"),
-    ]);
-    let (gateway, _) = modules::gateway_library(
-        gateway_library().await,
-        &gateway_env,
-        modules::allowlist_in_library(&allowlist_env(dir.path())),
-        Some(registry.clone()),
-    )
-    .unwrap();
-    controller.add(gateway);
-    controller.set_registry(registry.clone());
-    controller.start_all().await.unwrap();
-    registry.add_entry(stub_entry()).unwrap();
-
-    eventually("the first rule", || applied(dir.path()) == ["8770-8777"]).await;
-    registry.load(&stub_id()).await.unwrap();
-    eventually("the module's range in the rule", || {
-        applied(dir.path())
-            .last()
-            .is_some_and(|ports| ports == "8770-8777,65010-65019")
-    })
-    .await;
-    registry.unload(&stub_id()).await.unwrap();
-    eventually("the range out of the rule", || {
-        applied(dir.path()).last().is_some_and(|ports| ports == "8770-8777")
-    })
-    .await;
-    controller.shutdown().await;
 }

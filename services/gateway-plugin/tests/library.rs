@@ -1,7 +1,8 @@
-//! The gateway library end to end, as the core runs it (RD27): a peer's node-link call is admitted by the library's
+//! The gateway service end to end, as the core runs it (RD27): a peer's node-link call is admitted by the service's
 //! endpoint and answered by the core's node services, a body over one frame goes both ways, a peer the core adds is
 //! let in, the core's enroll handler answers `POST /__node/enroll`, a loaded module's UDP range joins the in-process
-//! allowlist's rule, and a player the ring admits is let through it. `cargo build -p gateway-plugin` first.
+//! allowlist's rule, and a player the ring admits is let through it. The script runs compiled in and loaded as a
+//! library alike. `cargo build -p gateway-plugin` first.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
 #[path = "../../gateway/tests/common/mod.rs"]
@@ -13,7 +14,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use controller::service_library::gateway::{AllowlistMode, GatewayOptions, gateway_library};
+use controller::service_library::gateway::{AllowlistMode, GatewayOptions, gateway_compiled_in, gateway_library};
 use controller::{ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions};
 use module_api::network::{GlobalId, IdKind, NodeId, NodeIdentity};
 use module_api::stub::StubModule;
@@ -118,6 +119,16 @@ async fn enroll(port: u16, body: &str) -> (u16, String) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn node_links_enrollment_and_allowlist_admits_cross_the_library() {
+    node_links_enrollment_and_allowlist_admits(true).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_same_compiled_in() {
+    node_links_enrollment_and_allowlist_admits(false).await;
+}
+
+/// The whole script, through the library or compiled in: both must pass it unchanged.
+async fn node_links_enrollment_and_allowlist_admits(through_library: bool) {
     let dir = tempfile::tempdir().unwrap();
     let ca = ClusterCa::create(30).unwrap();
     let oregon = issue(&ca, dir.path(), "oregon-1", "oregon");
@@ -173,7 +184,16 @@ async fn node_links_enrollment_and_allowlist_admits_cross_the_library() {
         },
         ws_port: None,
     };
-    let (module, handle) = gateway_library(support::library().await, env, Some(&registry), gateway_options);
+    let (module, handle) = if through_library {
+        gateway_library(support::library().await, env, Some(&registry), gateway_options)
+    } else {
+        gateway_compiled_in(
+            gateway::service::GatewayService::default,
+            env,
+            Some(&registry),
+            gateway_options,
+        )
+    };
     let (ctx, stop) = status.service_context("gateway");
     let running = tokio::spawn((module.start)(ctx));
     support::ready(&status, "gateway").await;
@@ -184,7 +204,7 @@ async fn node_links_enrollment_and_allowlist_admits_cross_the_library() {
     })
     .await;
 
-    // A listed peer's call: admitted by the library's endpoint, answered by the core's node services
+    // A listed peer's call: admitted by the service's endpoint, answered by the core's node services
     let oregon_peer = Peer {
         id: id("oregon-1"),
         region: "oregon".parse().unwrap(),
@@ -203,7 +223,7 @@ async fn node_links_enrollment_and_allowlist_admits_cross_the_library() {
                 answer = Some(body);
                 break;
             }
-            // Until the core bound its node services to the library's links
+            // Until the core bound its node services to the service's links
             Err(LinkError::NoService { .. }) => tokio::time::sleep(Duration::from_millis(100)).await,
             Err(error) => panic!("{error}"),
         }
@@ -266,7 +286,7 @@ async fn node_links_enrollment_and_allowlist_admits_cross_the_library() {
     })
     .await;
 
-    // The ring admits a player on the module's port: through to the library's allowlist
+    // The ring admits a player on the module's port: through to the service's allowlist
     let node = id("oregon-1");
     let (instance, account) = (
         GlobalId::new(IdKind::Account, &node),

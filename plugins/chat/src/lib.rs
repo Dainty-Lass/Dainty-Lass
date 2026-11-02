@@ -22,6 +22,7 @@ pub mod naming;
 pub mod nick;
 pub mod redact;
 pub mod server;
+pub mod service;
 pub mod settings;
 pub mod xmpp;
 

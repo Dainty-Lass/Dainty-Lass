@@ -725,18 +725,13 @@ impl hooks::HostHooks for ServicesHostHooks {
         paths: &paths::Paths,
         registry: &controller::ModuleRegistry,
     ) -> Result<Option<hooks::AnySlot>, HostError> {
+        // It runs inside the gateway service (compose_in_process_network_and_gateway), as in the gateway library
         #[cfg(feature = "allowlist")]
         {
-            let helper = modules::allowlist_slot();
-            controller.add(
-                modules::allowlist(
-                    &hostkit::serve::module_env(paths, "allowlist")?,
-                    helper.clone(),
-                    Some(registry.clone()),
-                )
-                .map_err(HostError::message)?,
-            );
-            Ok(Some(Box::new(helper)))
+            let _ = (controller, registry);
+            let mode =
+                modules::allowlist(&hostkit::serve::module_env(paths, "allowlist")?).map_err(HostError::message)?;
+            Ok(Some(Box::new(mode)))
         }
         #[cfg(not(feature = "allowlist"))]
         {
@@ -774,11 +769,42 @@ impl hooks::HostHooks for ServicesHostHooks {
         public: bool,
         guarded: bool,
     ) -> Result<(), HostError> {
-        #[cfg(any(feature = "gateway", feature = "allowlist"))]
-        let slot: Option<modules::AllowlistSlot> =
-            slot.and_then(|s| s.downcast::<modules::AllowlistSlot>().ok().map(|b| *b));
-        #[cfg(not(any(feature = "gateway", feature = "allowlist")))]
-        let _ = slot;
+        // A service host.toml loads as a library is hostkit's to compose (compose_service_library)
+        let gateway_library = hostkit::serve::library_configured(config, "gateway");
+        let chat_library = hostkit::serve::library_configured(config, "chat");
+
+        #[cfg(feature = "gateway")]
+        let gateway = if in_process_gateway && !gateway_library {
+            use controller::service_library::gateway::AllowlistMode;
+            let in_process = slot.and_then(|s| s.downcast::<AllowlistMode>().ok().map(|b| *b));
+            let allowlist = match in_process {
+                Some(mode) => mode,
+                // Nothing here guards UDP ranges: they are refused, or held to the external helper's (DF4d)
+                None if public && !guarded && cfg!(feature = "allowlist") => {
+                    if cfg!(feature = "paradox") {
+                        AllowlistMode::Absent
+                    } else {
+                        let (first, last) = hostconfig::game_ports(config);
+                        AllowlistMode::External {
+                            base: module_api::PortRange { first, last },
+                        }
+                    }
+                }
+                None => AllowlistMode::Off,
+            };
+            Some(
+                modules::gateway(
+                    &hostkit::serve::module_env(paths, "gateway")?,
+                    allowlist,
+                    Some(registry.clone()),
+                )
+                .map_err(HostError::message)?,
+            )
+        } else {
+            None
+        };
+        #[cfg(not(feature = "gateway"))]
+        let _ = (slot, public, guarded, gateway_library);
 
         #[cfg(feature = "gateway")]
         if let Some(network) = &config.network
@@ -822,7 +848,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                     database,
                     game,
                     registry: registry.clone(),
-                    allowlist: slot.clone(),
+                    allowlist: gateway.as_ref().map(|(_, handle)| handle.clone()),
                     replication_interval: Duration::from_secs(5),
                     peer_log_dir,
                     ship_to_peer,
@@ -832,20 +858,9 @@ impl hooks::HostHooks for ServicesHostHooks {
             );
         }
 
-        // A service host.toml loads as a library is hostkit's to compose (compose_service_library)
-        let gateway_library = hostkit::serve::library_configured(config, "gateway");
-        let chat_library = hostkit::serve::library_configured(config, "chat");
-
         #[cfg(feature = "gateway")]
-        if in_process_gateway && !gateway_library {
-            controller.add(
-                modules::gateway(
-                    &hostkit::serve::module_env(paths, "gateway")?,
-                    slot.clone(),
-                    Some(registry.clone()),
-                )
-                .map_err(HostError::message)?,
-            );
+        if let Some((module, _)) = gateway {
+            controller.add(module);
         }
         #[cfg(all(feature = "chat", not(feature = "paradox")))]
         if in_process_gateway && !chat_library {
@@ -883,22 +898,8 @@ impl hooks::HostHooks for ServicesHostHooks {
         #[cfg(not(all(feature = "chat", not(feature = "paradox"))))]
         let _ = chat_library;
 
-        #[cfg(any(feature = "gateway", feature = "allowlist"))]
-        let _ = &slot;
-        // A gateway library serves the UdpPorts itself
-        #[cfg(feature = "allowlist")]
-        if public && !guarded && !gateway_library {
-            if !cfg!(feature = "paradox") {
-                let (first, last) = hostconfig::game_ports(config);
-                modules::allowlist_external(registry, module_api::PortRange { first, last });
-            } else {
-                modules::allowlist_absent(registry);
-            }
-        }
-        #[cfg(not(feature = "allowlist"))]
-        let _ = (registry, public, guarded);
-        #[cfg(not(any(feature = "gateway", feature = "allowlist")))]
-        let _ = gateway_library;
+        #[cfg(not(feature = "gateway"))]
+        let _ = registry;
         Ok(())
     }
 

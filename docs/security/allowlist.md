@@ -97,9 +97,9 @@ The set is held in `guard.rs`, outside the helper, so a restarted allowlist modu
 
 ### In the gateway library (RD27)
 
-With the gateway as a library the core loads (`services/gateway-plugin`, [gateway.md](gateway.md)), the allowlist
-runs in the same library on `allowlist.env` (`AllowlistMode::InProcess`), so the gateway's player admits reach the
-helper directly as the shared slot did, and the core's ring admits a player with an `AdmitUdp` message. The helper
+The allowlist runs inside the gateway service (`gateway::service`, [gateway.md](gateway.md)), compiled in or in the
+library `services/gateway-plugin` exports, on `allowlist.env` (`AllowlistMode::InProcess`), so the gateway's player
+admits reach the helper directly, and the core's ring admits a player with an `AdmitUdp` message. The helper
 runs in the core's process, as the in-process allowlist module did: that process holds its rights.
 
 - [ ] The helper is ready before the gateway listens, within the library's start; it failing to start fails the
@@ -111,7 +111,7 @@ runs in the core's process, as the in-process allowlist module did: that process
       `ALLOWLIST_PORTS`, narrower than before, never wider.
 - [ ] `AdmitUdp` admits only an address the helper's checks accept on a port the guard covers (`Helper::admit_udp`);
       any other is refused with a warning and the port stays closed. The external and absent modes refuse or admit
-      ranges exactly as `allowlist_external` and `allowlist_absent` did.
+      ranges as the plugin's `external` and `absent` answer them.
 - [ ] Bad `allowlist.env` settings refuse every UDP range (the plugin answers as `absent`) and fail the start.
 
 ### nftables (Linux)

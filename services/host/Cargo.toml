@@ -15,7 +15,8 @@ default = ["modules", "isles-1-14-7", "realms"]
 modules = ["gateway", "allowlist", "content", "admin", "chat"]
 # The gateway brings the node's network side (DD16) and remote management: they attach to its node links
 gateway = ["controller/network", "controller/remote", "network_plugin/log-ship", "dep:gateway", "dep:history-ship"]
-allowlist = ["dep:gateway"]
+# The allowlist runs inside the gateway service, compiled in as in its library (RD27)
+allowlist = ["gateway"]
 content = ["dep:content"]
 admin = ["controller/admin", "dep:admin", "hostkit/admin"]
 chat = ["dep:chat"]

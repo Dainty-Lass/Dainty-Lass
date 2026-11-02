@@ -1,7 +1,7 @@
 #![cfg(feature = "gateway")]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-//! End-to-end wiring of [`host::compose::network`] and [`host::compose::gateway`] across two
+//! End-to-end wiring of [`host::compose::network`] and [`host::compose::gateway`] (compiled in) across two
 //! [`controller::ServerController`] nodes over loopback mTLS (`/__node/<service>`):
 //! - `NodeServices` is bound to each gateway's `/__node/*` endpoint
 //! - `Directory` replicates registrations from the leader (`oregon-1`) to a replica (`uk-1`)
@@ -9,8 +9,8 @@
 //! - `NetworkedHome` (`registry.home()`) resolves an account's home, issues and admits session tickets, and
 //!   executes a module's home operation on the remote home node
 //!
-//! The same again with the gateway as the library the core loads ([`host::compose::gateway_library`], RD27):
-//! `cargo build -p gateway-plugin` first.
+//! The same again with the same gateway service as the library the core loads ([`host::compose::gateway_library`],
+//! RD27): `cargo build -p gateway-plugin` first.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -137,6 +137,11 @@ fn build_node(
     let peer_log_dir = dir.path().join("peer-logs");
     let ship_state = dir.path().join("history-peer-state.json");
     let ship_to_peer = peers.first().map(|p| (p.id.clone(), ship_state));
+    let allowlist = controller::service_library::gateway::AllowlistMode::Off;
+    let (gateway, handle) = match library {
+        None => modules::gateway(&gw_env, allowlist, Some(registry.clone())).unwrap(),
+        Some(library) => modules::gateway_library(library, &gw_env, allowlist, Some(registry.clone())).unwrap(),
+    };
     let options = NetworkOptions {
         node: identity,
         leader: leader.parse().unwrap(),
@@ -146,29 +151,14 @@ fn build_node(
         database,
         game: "0.0.1".parse().unwrap(),
         registry: registry.clone(),
-        allowlist: None,
+        allowlist: Some(handle),
         replication_interval: Duration::from_millis(100),
         peer_log_dir: Some(peer_log_dir),
         ship_to_peer,
         wrong_node_policy: None,
     };
-    match library {
-        None => {
-            controller.add(modules::network(options).unwrap());
-            controller.add(modules::gateway(&gw_env, None, Some(registry.clone())).unwrap());
-        }
-        Some(library) => {
-            let (gateway, handle) = modules::gateway_library(
-                library,
-                &gw_env,
-                controller::service_library::gateway::AllowlistMode::Off,
-                Some(registry.clone()),
-            )
-            .unwrap();
-            controller.add(modules::network_with_sink(options, handle.allowlist_sink()).unwrap());
-            controller.add(gateway);
-        }
-    }
+    controller.add(modules::network(options).unwrap());
+    controller.add(gateway);
 
     TestNode {
         controller,

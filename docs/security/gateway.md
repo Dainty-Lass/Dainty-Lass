@@ -31,9 +31,9 @@ listens on loopback and trusts that the gateway already refused what must not re
   on, the capture folder (`CAPTURE_DIR`, written).
 
 Code: `services/gateway/src/` (`policy.rs`, `modules.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
-`feed.rs`, `capture.rs`, `cert.rs`, `config.rs`, `server.rs`, `main.rs`), and as a library the core loads,
-`services/gateway-plugin/src/lib.rs` with dainty-lass's `crates/service-plugin/src/gateway.rs` and
-`crates/controller/src/service_library/gateway.rs` (RD27).
+`feed.rs`, `capture.rs`, `cert.rs`, `config.rs`, `server.rs`, `main.rs`), and as a service of the core, compiled in
+or as the library `services/gateway-plugin` exports, `service.rs` with dainty-lass's
+`crates/service-plugin/src/gateway.rs` and `crates/controller/src/service_library/gateway.rs` (RD27).
 
 Fuzz targets in `fuzz`:
 
@@ -123,15 +123,17 @@ first, and content and chat stay the gateway's own upstreams, so a module's rout
 
 ### The library's boundary (RD27)
 
-The gateway and the allowlist can run as one library the core loads (`services/gateway-plugin`, a cdylib, through
-`controller::service_library::gateway` and `plugin-host`, which loads it only at the SHA-256 `host.toml` pins;
-dainty-lass's `docs/security/plugin-host.md`). The library is the gateway: the listener, TLS and the
+The gateway and the allowlist run as one service of the core (`gateway::service`, RD27): compiled in, or as the
+library `services/gateway-plugin` exports (a cdylib, which `plugin-host` loads only at the SHA-256 `host.toml` pins;
+dainty-lass's `docs/security/plugin-host.md`), through `controller::service_library::gateway` either way. Compiled in,
+the same messages cross in-memory streams, and the service has a runtime of its own as a library's instance does. The library is the gateway: the listener, TLS and the
 certificate, the policy, the proxying to backends, the node-link endpoint's admission and the capture all stay in
 it, and every item above holds there unchanged. Only control traffic crosses, as `service_plugin::gateway` messages
 in DD5's frames, and the library is in the core's process, so what crosses is a question of shape, not of trust.
 
 - [ ] The data plane never crosses: no request, answer or header of a player goes to the core. The parity tests pass
-      against the library (`services/gateway-plugin/tests/parity.rs`, the same harness as `tests/parity.rs`).
+      against the service compiled in and loaded as a library (`services/gateway-plugin/tests/parity.rs`, the same
+      harness as `tests/parity.rs`).
 - [ ] A peer's call reaches the core (`NodeCall`) only after the library's endpoint admitted it: a listed or added
       peer, by its verified certificate, on a node link's route and method, the clocks agreeing and the body within
       `MAX_MESSAGE`. The caller sent is the one the certificate named; the core's answer over `MAX_MESSAGE` is

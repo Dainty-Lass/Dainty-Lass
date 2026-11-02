@@ -1,6 +1,6 @@
-//! The core loads the built chat library and players chat through it as they did through the compiled-in plugin
-//! (`plugins/chat/tests/chat.rs`): their logins come from a game module of the core's, and the library's history
-//! keeps a whisper for someone offline (RD27).
+//! The core runs the chat service, loaded as the built library or compiled in, and players chat through it as they do
+//! through the plugin alone (`plugins/chat/tests/chat.rs`): their logins come from a game module of the core's, and
+//! the service's history keeps a whisper for someone offline (RD27). The script runs both ways.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
 use std::collections::BTreeMap;
@@ -224,6 +224,16 @@ async fn players_chat_through_the_library_the_core_loads() {
         "{} is missing: run `cargo build -p chat-plugin` before the tests (CI does)",
         path.display()
     );
+    players_chat(Some(path)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn players_chat_through_the_same_service_compiled_in() {
+    players_chat(None).await;
+}
+
+/// The whole script, through the library at `path` or compiled in: both must pass it unchanged.
+async fn players_chat(path: Option<PathBuf>) {
     let dir = tempfile::tempdir().unwrap();
     let database = dir.path().join("dainty.db");
     let env = Env::from_pairs([
@@ -235,19 +245,25 @@ async fn players_chat_through_the_library_the_core_loads() {
     let mut controller = ServerController::new("private", Vec::new());
     let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
     let mut events = registry.subscribe_events();
-    let library = ServiceLibrary {
-        name: "chat",
-        sha256: file_sha256(&path).await.unwrap(),
-        path,
-        serves: &[],
-    };
     let setup = ChatSetup {
         node: NodeIdentity::standalone(),
         network: None,
     };
-    controller.add(controller::service_library::chat_library(
-        library, env, &registry, setup,
-    ));
+    let module = match path {
+        Some(path) => {
+            let library = ServiceLibrary {
+                name: "chat",
+                sha256: file_sha256(&path).await.unwrap(),
+                path,
+                serves: &[],
+            };
+            controller::service_library::chat_library(library, env, &registry, setup)
+        }
+        None => {
+            controller::service_library::chat_compiled_in(chat::service::ChatService::default, env, &registry, setup)
+        }
+    };
+    controller.add(module);
     registry
         .add_entry(ModuleEntry {
             id: "stub".parse().unwrap(),
@@ -324,10 +340,10 @@ async fn players_chat_through_the_library_the_core_loads() {
     .await;
     let heard = bo.expect("type=\"groupchat\"").await;
     assert!(heard.contains("<body>hello</body>"), "{heard}");
-    // The history is the library's own, beside the node database
+    // The history is the service's own, beside the node database
     assert!(dir.path().join("chat.db").is_file());
 
-    // A restart is a new instance of the library, given the loaded modules again
+    // A restart is a new instance of the service, given the loaded modules again
     controller.restart_component("chat").await.unwrap();
     let port = ready_port(&status, Some(port)).await;
     let mut cy = login(port, "cy").await;

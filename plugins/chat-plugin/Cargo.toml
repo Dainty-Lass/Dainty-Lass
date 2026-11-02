@@ -15,17 +15,13 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chat.workspace = true
+# export_service! names it
 module-api.workspace = true
-network.workspace = true
-serde_json.workspace = true
-service-kit.workspace = true
 service-plugin.workspace = true
-store.workspace = true
-tokio = { workspace = true, features = ["rt", "time"] }
-tracing.workspace = true
 
 [dev-dependencies]
 controller = { workspace = true, default-features = false }
+service-kit.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tokio-tungstenite.workspace = true
