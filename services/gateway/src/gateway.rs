@@ -868,10 +868,7 @@ impl Gateway {
             gateway: self.clone(),
             conn: conn.clone(),
             method: req.method().as_str().to_owned(),
-            target: req
-                .uri()
-                .path_and_query()
-                .map_or_else(|| req.uri().to_string(), |p| p.as_str().to_owned()),
+            target: raw_target(req.uri()),
             route: "gateway",
             metric: "refused",
             status: 0,
@@ -963,7 +960,7 @@ impl Gateway {
             return self.upgrade(req, conn, started).await;
         }
         if req.method() == Method::POST
-            && req.uri().path() == "/__node/enroll"
+            && raw_target(req.uri()) == "/__node/enroll"
             && let Some(handler) = self.node_links().and_then(|l| l.enroll_handler())
         {
             return self.enroll(req, conn, started, handler).await;
@@ -1395,9 +1392,53 @@ impl Gateway {
     }
 }
 
+/// The request target as sent: hyper's path drops an absolute form's scheme and host, which policy must refuse
+/// (section 4.3 step 1) and the access log must show.
+fn raw_target(uri: &http::Uri) -> String {
+    match uri.path_and_query() {
+        Some(p) if uri.scheme().is_none() && uri.authority().is_none() => p.as_str().to_owned(),
+        _ => uri.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn targets_are_judged_as_sent() {
+        for (sent, logged) in [
+            ("/reforged/api/Register?x=1", "/reforged/api/Register?x=1"),
+            ("//", "//"),
+            ("*", "*"),
+            (
+                "http://evil.example/reforged/api/CreateInvite",
+                "http://evil.example/reforged/api/CreateInvite",
+            ),
+            (
+                "https://evil.example:443/__node/enroll",
+                "https://evil.example:443/__node/enroll",
+            ),
+            ("evil.example:443", "evil.example:443"),
+        ] {
+            let uri: http::Uri = sent.parse().unwrap();
+            let target = raw_target(&uri);
+            assert_eq!(target, logged);
+            let refused = !sent.starts_with('/');
+            let decision = crate::policy::classify("GET", &target, &HeaderMap::new(), false);
+            assert_eq!(
+                matches!(
+                    decision,
+                    Decision::Reject {
+                        reason: "target_not_origin_form",
+                        ..
+                    }
+                ),
+                refused,
+                "{sent}"
+            );
+        }
+    }
 
     #[test]
     fn forwarded_headers_drop_claims_and_set_ours() {

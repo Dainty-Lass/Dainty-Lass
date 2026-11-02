@@ -291,3 +291,21 @@ On Windows, with `CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=line-tables-only` 
 - `cargo check --manifest-path fuzz/Cargo.toml`: the five gateway targets build; the fuzz workspace fails on
   `launcher_host` (`parse::server_config` is not in `launcher-kit`), which this branch does not touch.
 - Not verified: the Windows Firewall COM path elevated, the real nftables test, anything against the game client.
+
+### 7.7 Fix: the target is judged as sent (front §4.3 step 1)
+
+A clean-room session fixed the one parity difference §7.6 left. `gateway.rs` now takes the request target through
+`raw_target`: hyper's `path_and_query` for an origin-form target, else the whole URI as sent, so an absolute-form
+target (`http://evil.example/reforged/api/CreateInvite`), an authority-form one (`evil.example:443`) and `*` all reach
+`classify` unchanged and are refused at step 1, 400 `bad_request` `target_not_origin_form`, logged with the target as
+sent (§14). The `POST /__node/enroll` check (§6 step 3) reads the same raw target, so an absolute-form enroll falls to
+the policy's refusal. A unit test, `targets_are_judged_as_sent`, covers the three shapes and two origin-form ones.
+
+Isolation: the session worked only in its own worktree of dainty-lass at `f28d557`, from `spec-rd27-gateway-front.md`
+§4, §6 and §14, `spec-rd27-gateway.md`, the MIT code on the branch and the parity fixtures. It opened, listed, searched
+and `git show`ed nothing in dainty-restricted, the `both*` worktrees, `legacy-revived`, `rustic-*` or `dainty-legacy`,
+read no earlier version of the gateway in any repository, and made no web search.
+
+Verification, same settings as §7.6: `cargo fmt --all --check` and clippy clean; `cargo test -p gateway -p
+gateway-plugin --locked --no-fail-fast` all pass (90 unit, the integration suites as in §7.6), and both parity tests
+pass with 58 of 58 entries matching in each of the three ways.
