@@ -1,0 +1,50 @@
+[package]
+name = "chat"
+description = "The chat core plugin (DD21, DN10a): XMPP over WebSocket on loopback behind the gateway, rooms, direct messages with offline delivery, history and mutes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite of the DR-derived files (RD27, docs/port/clean-room/chat.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum.workspace = true
+base64.workspace = true
+chrono.workspace = true
+diesel.workspace = true
+diesel_migrations.workspace = true
+futures-util.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+module-api.workspace = true
+network = { path = "../network", default-features = false }
+protocol.workspace = true
+rand.workspace = true
+regex.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+service-kit.workspace = true
+sha2.workspace = true
+store.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "rt", "sync", "time", "macros", "io-util"] }
+tracing.workspace = true
+ulid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+# The node-link listener the mutual-TLS federation test serves (the gateway's job, spec-rd27-chat §6.3)
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+tokio-tungstenite.workspace = true
+# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the history tests
+url.workspace = true
+
+[lints]
+workspace = true

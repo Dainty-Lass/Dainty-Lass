@@ -318,6 +318,25 @@ for (const [oldRel, newRel] of pairs) {
 | `crates/launcher-kit/src/platform/requirements.rs` | 324 | 311 | 55 | **17.7%** |
 | `crates/launcher-kit/src/platform/system.rs` | 171 | 142 | 14 | **9.9%** |
 
+### 2.7 `plugins/chat` (8 Category B files vs restricted `849f45e` and DR `cfcad3eb`, RD27)
+
+Measured on the files after integration. The old side is the restricted namesake in `plugins/chat/src/`; the DR column
+is the best single file of DR's metagame chat (`rust/services/metagame/src/chat/*.rs` and the shared `redact.rs`,
+`moderation.rs`, `config.rs`, `limits.rs`, `server.rs`, `db.rs`). The provenance record
+(`docs/port/clean-room/chat.md` §6) has the union columns and the per-run reading.
+
+| File | Old Lines (`849f45e`) | New Lines | Matched (3+-line runs) | Similarity | Best DR file: matched | DR similarity |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| `plugins/chat/src/xmpp.rs` | 482 | 524 | 166 | **31.7%** | `chat/xmpp.rs`: 164 | 31.3% |
+| `plugins/chat/src/nick.rs` | 125 | 137 | 56 | **40.9%** | `chat/nick.rs`: 56 | 40.9% |
+| `plugins/chat/src/redact.rs` | 132 | 130 | 26 | **20.0%** | `redact.rs`: 26 | 20.0% |
+| `plugins/chat/src/settings.rs` | 80 | 91 | 58 | **63.7%** | `chat/mod.rs`: 24 | 26.4% |
+| `plugins/chat/src/server.rs` | 1659 | 1676 | 423 | **25.2%** | `chat/mod.rs`: 296 | 17.7% |
+| `plugins/chat/src/muc.rs` | 749 | 723 | 113 | **15.6%** | `chat/muc.rs`: 66 | 9.1% |
+| `plugins/chat/src/connection.rs` | 848 | 757 | 85 | **11.2%** | `chat/connection.rs`: 33 | 4.4% |
+| `plugins/chat/src/lib.rs` | 219 | 180 | 110 | **61.1%** | `chat/xmpp.rs`: 3 | 1.7% |
+| `plugins/chat/tests/clean_room.rs` (vs `tests/chat.rs`) | 629 | 380 | 39 | **10.3%** | `chat/connection.rs`: 3 | 0.8% |
+
 ### 2.8 `services/gateway` (31 Category B files vs restricted `92c5e5b` and DR `24b7624`, RD27)
 
 Measured on the files after integration (branch `feat/rd27-gateway-mit-int`). The old side is the restricted namesake
@@ -476,6 +495,21 @@ Every file at or above 25.0% is listed below with its matching 3+-line runs and 
 - **Run 5–10 (37 lines):** `pub struct Toolchain`, `Toolchain::view()`, `pub enum SdkError` + `SdkError::detail()`, `pub struct Logged`, `find_host_binary`, and `find_dumps`.
 - **Run 11–17 (35 lines):** Fixed `vswhere.exe` CLI flag arrays (`-latest`, `-products`, `*`, `-requires`, `Microsoft.VisualStudio.Component.VC.Tools.x86.x64`, `-format`, `json`, `-utf8`).
 - **Run 18–28 (78 lines):** Default/empty `HostKit` struct literal field initializers (`workspace_ok: false`, `upstream: HostUpstream { present: false, patched: false }`, etc.).
+
+### 3.24 `chat/src/settings.rs` (63.7% — 58 / 91 lines)
+- **Run 1 (48 lines):** `DEFAULT_PORT = 61006`, `WS_PATHS`, `NickCheck` with `as_str`, and `Settings` with its seven fields and `Default`, in the order and with the values `spec-rd27-chat.md` §2.1-§2.2 give. **Run 2 (10 lines):** the tail of `problems` and the head of the `chat_stays_on_loopback` test (§5.2). `problems`' checks differ.
+
+### 3.25 `chat/src/lib.rs` (61.1% — 110 / 180 lines)
+- **Runs 1-7:** the 13 `pub mod` lines, the root re-exports, `StartError` with its two error texts, the `ChatPlugin` and `Running` signatures, and the `CorePlugin` impl, all §2.1's table. The bodies of `start` and `stop` don't match.
+
+### 3.26 `chat/src/nick.rs` (40.9% — 56 / 137 lines)
+- **Run 1 (22 lines):** `FALLBACK_NAME` and `NickReason` with `as_str` (§2.1). **Runs 2-3 (8 lines each):** the percent-encoding helpers' byte loops, which §2.14 specifies byte by byte; the rest is the head of the test §5.2 names.
+
+### 3.27 `chat/src/xmpp.rs` (31.7% — 166 / 524 lines)
+- **Runs over 8 lines:** the namespace constants, `Node`, `Element`, `Jid`, `Bucket` and the end of `Bucket::take` (§2.1, §2.16), and the trace-redaction cases (§2.17). The parser's one run (6 lines) is its locals, in §2.15's order; its state machine has no run over 5 lines.
+
+### 3.28 `chat/src/server.rs` (25.2% — 423 / 1676 lines)
+- **90 runs, almost all 3-9 lines.** The longest (27) is `EndReason` with its ten texts in §2.7's order; then `Options` and its `Default` (§2.1), the required `Event` variants, the base64 alphabet (§2.8.3), the full JID's `undefined` (§2.0), the `/report` answers (§4) and the `NewDirect` literals `history.rs` fixes. The rest are session-map guards (`let Some(session) = self.sessions.get_mut(&id) else { return; };`). Verdict for chat: no file is similar beyond what the spec fixes (`docs/port/clean-room/chat.md` §6).
 
 ### 3.29 `gateway/src/allowlist/mod.rs` (100% — 12 / 12 lines)
 - The ten `pub mod` lines and `#[cfg(windows)] pub mod windows;`: the module tree `spec-rd27-gateway.md` §4 fixes.

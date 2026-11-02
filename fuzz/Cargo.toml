@@ -22,6 +22,8 @@ admin = { path = "../services/admin" }
 async-graphql = { version = "7", default-features = false }
 libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
+# chat_stanza: the chat plugin's stanza parser, JIDs and room names (DN10a); chat_federation: node-link chat messages (DN10b)
+chat = { path = "../plugins/chat" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # content_request, content_runtime_index, content_news: what the content server reads from players and the host
 content = { path = "../services/content" }
@@ -236,6 +238,20 @@ bench = false
 [[bin]]
 name = "content_news"
 path = "fuzz_targets/content_news.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "chat_stanza"
+path = "fuzz_targets/chat_stanza.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "chat_federation"
+path = "fuzz_targets/chat_federation.rs"
 test = false
 doc = false
 bench = false

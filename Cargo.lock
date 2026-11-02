@@ -501,6 +501,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "chat"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "module-api",
+ "network",
+ "protocol",
+ "rand 0.10.3",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "store",
+ "subtle",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tracing",
+ "ulid",
+ "url",
+]
+
+[[package]]
+name = "chat-plugin"
+version = "0.0.0"
+dependencies = [
+ "chat",
+ "controller",
+ "futures-util",
+ "module-api",
+ "network",
+ "serde_json",
+ "service-kit",
+ "service-plugin",
+ "store",
+ "tempfile",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
