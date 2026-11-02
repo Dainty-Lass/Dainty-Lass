@@ -17,7 +17,7 @@ use module_api::manifest::ModuleManifest;
 use module_api::plugin::LibraryWriter as CoreWriter;
 use module_api::plugin::{ChannelReader, SERVICE_ENTRY};
 use module_api::registrar::Registration;
-use module_api::{CoreCapability, CorePlugin, ErrorKind, ModuleError, ModuleId, Sha256Hex};
+use module_api::{BoxFuture, CoreCapability, CorePlugin, ErrorKind, ModuleError, ModuleId, Sha256Hex};
 use plugin_host::LibraryStream;
 use service_kit::context::{ComponentPhase, ComponentStatus, ServiceContext, StatusReporter};
 use service_kit::env::Env;
@@ -29,7 +29,7 @@ use crate::{Module, ModuleRegistry, WeakRegistry};
 
 mod chat;
 pub mod gateway;
-pub use chat::chat_library;
+pub use chat::{chat_compiled_in, chat_library};
 
 /// How long the library has to say hello, to answer an attach, and to end after Stop.
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
@@ -64,15 +64,7 @@ pub fn service_library_with(
         sha256,
         serves,
     } = library;
-    service_module(
-        name,
-        serves,
-        Source::Library { path, sha256 },
-        env,
-        registry,
-        extension,
-        None,
-    )
+    service_module(name, serves, Source::Library { path, sha256 }, env, registry, extension)
 }
 
 /// The same service compiled into this binary: the [`Service`] its library exports, run over the same protocol on
@@ -95,18 +87,25 @@ pub fn service_compiled_in_with<S: Service>(
     let probe = make();
     let (name, serves) = (probe.name(), probe.serves());
     let open = Arc::new(move || service_plugin::in_process(Arc::new(make())));
-    service_module(name, serves, Source::CompiledIn(open), env, registry, extension, None)
+    service_module(name, serves, Source::CompiledIn(open), env, registry, extension)
 }
 
-/// What a service's own messages need of the core (`gateway`): told of each run, it says what goes before its
-/// Start and before each Attach, and takes the service's messages the base protocol doesn't.
+/// What a service's own messages need of the core (`gateway`, `chat`): told of each run, it says what goes before
+/// its Start and before each Attach, and takes the service's messages the base protocol doesn't.
 pub trait Extension: Send + Sync {
     /// A run opened: what to send before Start.
     fn opened(&self, run: RunLink) -> Vec<ToService>;
+    /// After [`Extension::opened`], before Start: what has to wait on the core first. An error ends the run.
+    fn prepare<'a>(&'a self, _run: &'a RunLink) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(async { Ok(()) })
+    }
     fn closed(&self);
-    fn before_attach(&self, module: &ModuleManifest) -> Vec<ToService>;
-    /// Called on the run's reader thread: hand anything slow to a runtime of the core's.
-    fn message(&self, message: FromService);
+    fn before_attach(&self, _module: &ModuleManifest) -> Vec<ToService> {
+        Vec::new()
+    }
+    /// Called on the run's reader thread: hand anything slow to a runtime of the core's. An error breaks the
+    /// protocol and ends the run.
+    fn message(&self, message: FromService) -> Result<(), String>;
 }
 
 /// A way to the open instance, for an [`Extension`].
@@ -119,30 +118,6 @@ impl RunLink {
     }
 }
 
-/// The chat library's module ([`chat::chat_library`]): its own messages go to `chat`.
-fn module(
-    library: ServiceLibrary,
-    env: Env,
-    registry: Option<&ModuleRegistry>,
-    chat: Option<Arc<chat::ChatCore>>,
-) -> Module {
-    let ServiceLibrary {
-        name,
-        path,
-        sha256,
-        serves,
-    } = library;
-    service_module(
-        name,
-        serves,
-        Source::Library { path, sha256 },
-        env,
-        registry,
-        None,
-        chat,
-    )
-}
-
 fn service_module(
     name: &'static str,
     serves: &'static [CoreCapability],
@@ -150,7 +125,6 @@ fn service_module(
     env: Env,
     registry: Option<&ModuleRegistry>,
     extension: Option<Arc<dyn Extension>>,
-    chat: Option<Arc<chat::ChatCore>>,
 ) -> Module {
     let shared = Arc::new(Shared {
         name,
@@ -159,7 +133,6 @@ fn service_module(
         registry: registry.map(ModuleRegistry::downgrade),
         state: Mutex::default(),
         extension,
-        chat,
     });
     if let Some(registry) = registry
         && !serves.is_empty()
@@ -178,7 +151,7 @@ fn service_module(
 /// Where a service's code is; everything after opening it is the same for both.
 enum Source {
     Library { path: PathBuf, sha256: Sha256Hex },
-    CompiledIn(Arc<dyn Fn() -> service_plugin::InProcess + Send + Sync>),
+    CompiledIn(Arc<dyn Fn() -> Result<service_plugin::InProcess, String> + Send + Sync>),
 }
 
 impl Source {
@@ -212,8 +185,6 @@ struct Shared {
     registry: Option<WeakRegistry>,
     state: Mutex<State>,
     extension: Option<Arc<dyn Extension>>,
-    /// The chat library's own messages; none for any other service
-    chat: Option<Arc<chat::ChatCore>>,
 }
 
 #[derive(Default)]
@@ -329,7 +300,7 @@ async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<
             (reader, writer, Closer::Library(closer))
         }
         Source::CompiledIn(open) => {
-            let (reader, writer, closer) = open().split();
+            let (reader, writer, closer) = open()?.split();
             (reader, writer, Closer::CompiledIn(closer))
         }
     };
@@ -343,21 +314,17 @@ async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<
     let (ended_tx, mut ended_rx) = oneshot::channel();
     let reading = {
         let (run, reporter, name) = (run.clone(), ctx.status().clone(), shared.name);
-        let chat = shared.chat.clone();
         std::thread::spawn(move || {
             let Ok(runtime) = tokio::runtime::Builder::new_current_thread().build() else {
                 return;
             };
-            runtime.block_on(read_loop(reader, run, reporter, name, hello_tx, ended_tx, chat));
+            runtime.block_on(read_loop(reader, run, reporter, name, hello_tx, ended_tx));
         })
     };
     let result = drive(&shared, &run, env, ctx, hello_rx, &mut ended_rx).await;
     shared.state().run = None;
     if let Some(extension) = &shared.extension {
         extension.closed();
-    }
-    if let Some(chat) = &shared.chat {
-        chat.ended();
     }
     closer.close().await;
     _ = tokio::task::spawn_blocking(move || reading.join()).await;
@@ -396,11 +363,12 @@ async fn drive(
     if serves != expected {
         return Err(format!("it serves {serves:?}, this core expects {expected:?}"));
     }
-    for message in shared.extension.iter().flat_map(|e| e.opened(RunLink(run.clone()))) {
-        run.send(&message);
-    }
-    if let Some(chat) = &shared.chat {
-        chat.before_start(run).await?;
+    if let Some(extension) = &shared.extension {
+        let link = RunLink(run.clone());
+        for message in extension.opened(link.clone()) {
+            run.send(&message);
+        }
+        extension.prepare(&link).await?;
     }
     run.send(&ToService::Start {
         protocol: PROTOCOL_VERSION,
@@ -452,7 +420,6 @@ async fn read_loop(
     name: &'static str,
     hello: oneshot::Sender<(u32, String, Vec<CoreCapability>)>,
     ended: oneshot::Sender<Result<(), String>>,
-    chat: Option<Arc<chat::ChatCore>>,
 ) {
     let mut reader = BufReader::new(reader);
     let mut hello = Some(hello);
@@ -481,17 +448,13 @@ async fn read_loop(
                     _ = tx.send(result);
                 }
             }
-            message @ FromService::Gateway { .. } => match &run.extension {
-                Some(extension) => extension.message(message),
-                None => break Err(String::from("a message this service may not send")),
-            },
-            FromService::Chat(message) => match &chat {
-                Some(chat) => {
-                    if let Err(error) = chat.message(&run, message) {
+            message @ (FromService::Gateway { .. } | FromService::Chat(_)) => match &run.extension {
+                Some(extension) => {
+                    if let Err(error) = extension.message(message) {
                         break Err(error);
                     }
                 }
-                None => break Err(String::from("a chat message from a service that isn't chat")),
+                None => break Err(String::from("a message this service may not send")),
             },
         }
     };

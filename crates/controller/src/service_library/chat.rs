@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The core's side of the chat library ([`service_plugin::chat`]): what `ControllerChatHost` and the chat drivers
-//! hook did in-process. The game modules' drivers, the home API, the directory, the event bus and the node link
-//! stay here; chat asks for them by message and the core answers, at most [`MAX_PENDING`] at once.
+//! The core's side of the chat service ([`service_plugin::chat`]), loaded as a library or compiled in: what
+//! `ControllerChatHost` and the chat drivers hook did in-process. The game modules' drivers, the home API, the
+//! directory, the event bus and the node link stay here; chat asks for them by message and the core answers, at most
+//! [`MAX_PENDING`] at once.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -18,11 +19,12 @@ use module_api::{
 };
 use network_plugin::{LinkError, NodeService, Service};
 use service_kit::env::Env;
-use service_plugin::ToService;
 use service_plugin::chat::{ChatSetup, FromChat, MAX_PENDING, PeerError, REPLY_TIMEOUT, ToChat};
 use tokio::sync::{Semaphore, oneshot};
 
-use super::{Run, ServiceLibrary};
+use service_plugin::{FromService, ToService};
+
+use super::{Extension, RunLink, ServiceLibrary, service_compiled_in_with, service_library_with};
 use crate::{LoadHook, Module, ModuleRegistry, WeakRegistry};
 
 /// How long chat waits for the node link before it federates, as it did in-process.
@@ -32,6 +34,28 @@ const PEER_LINK_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
 /// which game modules answer chat. `setup` is what `ChatOptions` gave in-process; the database comes in `env`.
 pub fn chat_library(mut library: ServiceLibrary, env: Env, registry: &ModuleRegistry, setup: ChatSetup) -> Module {
     library.serves = &[CoreCapability::Chat];
+    let extension = extension(registry, setup);
+    supervised(service_library_with(library, env, Some(registry), Some(extension)))
+}
+
+/// [`chat_library`] for the same service compiled in: `make` builds what the library exports, and it runs over the
+/// same protocol with the same core side (RD27).
+pub fn chat_compiled_in<S: service_plugin::Service>(
+    make: impl Fn() -> S + Send + Sync + 'static,
+    env: Env,
+    registry: &ModuleRegistry,
+    setup: ChatSetup,
+) -> Module {
+    let extension = extension(registry, setup);
+    supervised(service_compiled_in_with(make, env, Some(registry), Some(extension)))
+}
+
+/// As compose.rs composed chat in-process: a server runs without it, and its database may be slow to open.
+fn supervised(module: Module) -> Module {
+    module.optional().ready_within(std::time::Duration::from_secs(30))
+}
+
+fn extension(registry: &ModuleRegistry, setup: ChatSetup) -> Arc<dyn Extension> {
     let core = Arc::new(ChatCore {
         setup,
         registry: registry.downgrade(),
@@ -44,19 +68,16 @@ pub fn chat_library(mut library: ServiceLibrary, env: Env, registry: &ModuleRegi
         attached: AtomicBool::new(false),
     });
     registry.add_hook(Arc::new(Hook(core.clone())));
-    // As compose.rs composed chat in-process: a server runs without it, and its database may be slow to open
-    super::module(library, env, Some(registry), Some(core))
-        .optional()
-        .ready_within(std::time::Duration::from_secs(30))
+    Arc::new(Ext(core))
 }
 
-pub(super) struct ChatCore {
+struct ChatCore {
     setup: ChatSetup,
     registry: WeakRegistry,
     /// The loaded game modules with the chat capability; held while their comings and goings are sent, so the
     /// replay into a new run and a hook never cross
     drivers: Mutex<BTreeMap<ModuleId, Arc<dyn ModuleDriver>>>,
-    run: Mutex<Option<Arc<Run>>>,
+    run: Mutex<Option<RunLink>>,
     /// The controller's runtime, where chat's requests are answered (the read loop has a thread of its own)
     runtime: Mutex<Option<tokio::runtime::Handle>>,
     /// Peers' calls chat has yet to answer
@@ -70,9 +91,33 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// The core's [`Extension`] for chat.
+struct Ext(Arc<ChatCore>);
+
+impl Extension for Ext {
+    fn opened(&self, _run: RunLink) -> Vec<ToService> {
+        Vec::new()
+    }
+
+    fn prepare<'a>(&'a self, run: &'a RunLink) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(self.0.before_start(run))
+    }
+
+    fn closed(&self) {
+        self.0.ended();
+    }
+
+    fn message(&self, message: FromService) -> Result<(), String> {
+        match message {
+            FromService::Chat(message) => self.0.message(message),
+            _ => Err(String::from("a message this service may not send")),
+        }
+    }
+}
+
 impl ChatCore {
     /// Before `Start`: the setup and the loaded modules, then the node link's `Service::Chat` in a network.
-    pub(super) async fn before_start(self: &Arc<Self>, run: &Arc<Run>) -> Result<(), String> {
+    async fn before_start(self: &Arc<Self>, run: &RunLink) -> Result<(), String> {
         *lock(&self.runtime) = Some(tokio::runtime::Handle::current());
         let registry = self.registry.upgrade().ok_or("the registry is gone")?;
         if self.setup.network.is_some() {
@@ -105,7 +150,7 @@ impl ChatCore {
     }
 
     /// The run ended: peers' calls in flight fail, and the node link stops routing to it.
-    pub(super) fn ended(&self) {
+    fn ended(&self) {
         lock(&self.run).take();
         lock(&self.serving).clear();
         if self.attached.swap(false, Ordering::Relaxed)
@@ -115,8 +160,8 @@ impl ChatCore {
         }
     }
 
-    /// A message from the library, on its read loop's thread: answered on the controller's runtime.
-    pub(super) fn message(self: &Arc<Self>, run: &Arc<Run>, message: FromChat) -> Result<(), String> {
+    /// A message from the service, on its read loop's thread: answered on the controller's runtime.
+    fn message(self: &Arc<Self>, message: FromChat) -> Result<(), String> {
         if !message.in_bounds() {
             return Err(String::from("a chat message over its bounds"));
         }
@@ -128,16 +173,16 @@ impl ChatCore {
             }
             FromChat::Presence { event } => self.presence(event),
             request => {
-                let Some(runtime) = lock(&self.runtime).clone() else {
+                let (Some(runtime), Some(run)) = (lock(&self.runtime).clone(), lock(&self.run).clone()) else {
                     return Err(String::from("a chat request before its start"));
                 };
                 let Ok(permit) = self.in_flight.clone().try_acquire_owned() else {
                     if let Some(answer) = refused(request) {
-                        reply(run, answer);
+                        reply(&run, answer);
                     }
                     return Ok(());
                 };
-                let (core, run) = (self.clone(), run.clone());
+                let core = self.clone();
                 runtime.spawn(async move {
                     if let Some(answer) = core.answer(request).await {
                         reply(&run, answer);
@@ -252,8 +297,8 @@ fn refused(request: FromChat) -> Option<ToChat> {
     })
 }
 
-/// An answer to the library; one too large for a frame goes as `TooLarge` (a peer's answer is the one that can be).
-fn reply(run: &Run, answer: ToChat) {
+/// An answer to the service; one too large for a frame goes as `TooLarge` (a peer's answer is the one that can be).
+fn reply(run: &RunLink, answer: ToChat) {
     let message = ToService::Chat(answer);
     if encode(&message, MAX_FRAME).is_ok() {
         run.send(&message);
@@ -304,7 +349,7 @@ fn to_link_error(error: PeerError, node: &NodeId) -> LinkError {
     }
 }
 
-/// `Service::Chat` on the node link, answered by the library.
+/// `Service::Chat` on the node link, answered by the service.
 struct PeerProxy(Arc<ChatCore>);
 
 impl NodeService for PeerProxy {

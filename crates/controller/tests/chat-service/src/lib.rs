@@ -1,5 +1,5 @@
-//! A chat service library that sends each chat message once and writes what came back to `CHAT_FILE`, for
-//! controller's tests (RD27).
+//! A chat service that sends each chat message once and writes what came back to `CHAT_FILE`, for controller's tests
+//! (RD27): built as a library here, and compiled into the test itself through `#[path]`.
 
 use std::io::Write as _;
 use std::path::PathBuf;
@@ -14,7 +14,7 @@ use service_kit::env::Env;
 use service_plugin::chat::{ChatLink, PeerError, PeerServer};
 
 #[derive(Default)]
-struct Chat {
+pub struct Chat {
     link: Mutex<Option<ChatLink>>,
 }
 
