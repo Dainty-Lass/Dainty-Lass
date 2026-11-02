@@ -832,8 +832,12 @@ impl hooks::HostHooks for ServicesHostHooks {
             );
         }
 
+        // A service host.toml loads as a library is hostkit's to compose (compose_service_library)
+        let gateway_library = hostkit::serve::library_configured(config, "gateway");
+        let chat_library = hostkit::serve::library_configured(config, "chat");
+
         #[cfg(feature = "gateway")]
-        if in_process_gateway {
+        if in_process_gateway && !gateway_library {
             controller.add(
                 modules::gateway(
                     &hostkit::serve::module_env(paths, "gateway")?,
@@ -844,7 +848,7 @@ impl hooks::HostHooks for ServicesHostHooks {
             );
         }
         #[cfg(all(feature = "chat", not(feature = "paradox")))]
-        if in_process_gateway {
+        if in_process_gateway && !chat_library {
             let node = config
                 .network
                 .as_ref()
@@ -876,11 +880,14 @@ impl hooks::HostHooks for ServicesHostHooks {
         }
         #[cfg(not(feature = "gateway"))]
         let _ = (controller, paths, config, in_process_gateway);
+        #[cfg(not(all(feature = "chat", not(feature = "paradox"))))]
+        let _ = chat_library;
 
         #[cfg(any(feature = "gateway", feature = "allowlist"))]
         let _ = &slot;
+        // A gateway library serves the UdpPorts itself
         #[cfg(feature = "allowlist")]
-        if public && !guarded {
+        if public && !guarded && !gateway_library {
             if !cfg!(feature = "paradox") {
                 let (first, last) = hostconfig::game_ports(config);
                 modules::allowlist_external(registry, module_api::PortRange { first, last });
@@ -890,7 +897,24 @@ impl hooks::HostHooks for ServicesHostHooks {
         }
         #[cfg(not(feature = "allowlist"))]
         let _ = (registry, public, guarded);
+        #[cfg(not(any(feature = "gateway", feature = "allowlist")))]
+        let _ = gateway_library;
         Ok(())
+    }
+
+    fn compose_service_library(
+        &self,
+        controller: &mut controller::ServerController,
+        paths: &paths::Paths,
+        config: &hostconfig::HostConfig,
+        registry: &controller::ModuleRegistry,
+        library: controller::ServiceLibrary,
+    ) -> Result<(), HostError> {
+        let _ = config;
+        // The services' own compose functions go here as they land (RD27): content_library, chat_library (its node,
+        // database and network options, as modules::chat takes them) and gateway_library (the allowlist slot), each
+        // matched by library.name. Until then a library runs on its env file alone, as the MIT core runs it.
+        hostkit::serve::add_service_library(controller, paths, registry, library)
     }
 
     fn ensure_gateway_cert(&self, paths: &paths::Paths, config: &hostconfig::HostConfig) -> Result<(), HostError> {
@@ -1885,6 +1909,7 @@ mod tests {
             history: None,
             switches: None,
             modules: None,
+            services: None,
             network: None,
             remote: None,
             file: FileForm::default(),
@@ -1966,6 +1991,7 @@ mod tests {
             guard: None,
             history: None,
             modules: None,
+            services: None,
             network: None,
             remote: None,
             switches: Default::default(),
@@ -1998,6 +2024,25 @@ mod tests {
         controller.start_component("gateway").await.unwrap();
         assert!(rust_ported(FrontService::Gateway));
         assert!(rust_ported(FrontService::Content));
+        controller.shutdown().await;
+
+        // [services.<name>] takes a service out of the binary: the library runs in its place, pinned by its SHA-256
+        let digest = "ab".repeat(32);
+        let doc = hostkit::hosttoml::document(&format!(
+            "[services.content]\nlibrary = \"plugins/content_plugin.dll\"\nsha256 = \"{digest}\"\n\
+             [services.gateway]\nlibrary = \"plugins/gateway_plugin.dll\"\nsha256 = \"{digest}\"\n\
+             [services.chat]\nlibrary = \"plugins/chat_plugin.dll\"\nsha256 = \"{digest}\"\n"
+        ))
+        .unwrap();
+        let mut libraries = c.clone();
+        libraries.services = Some(hostconfig::services::from_json(&doc["services"]).unwrap());
+        let mut controller = serve::compose(&paths, &libraries, false, serve::table_printer()).unwrap();
+        let names = controller.module_names();
+        for name in ["content", "gateway", "chat"] {
+            assert_eq!(names.iter().filter(|n| *n == name).count(), 1, "{names:?}");
+        }
+        let refused = controller.start_component("content").await.unwrap_err().to_string();
+        assert!(refused.contains("content_plugin.dll"), "{refused}");
         controller.shutdown().await;
     }
 
@@ -2033,6 +2078,7 @@ mod tests {
             guard: None,
             history: None,
             modules: None,
+            services: None,
             network: None,
             remote: None,
             switches: Default::default(),

@@ -8,6 +8,8 @@
 #                        game-server wrapper run), and dainty-lass-server-minimal. The 1.14.7 Rust backend and
 #                        Director (isles-1-14-7), gateway, allowlist, content server, admin API and database
 #                        migration/rollback commands (`reforged-host db migrate|verify|export-mongo`) are inside it
+#      plugins/          the libraries host.toml can pin (RD27): the 1.14.7 module ([[modules.external]]) and, once
+#                        their crates land, the content, chat and gateway services ([services.<name>])
 #      modules/rustic-isles/reference/1.14.7/ParadoxBackend and ParadoxDirector, built with their node_modules
 #                        (kept for one release only as the documented RB13/RU9 rollback artefact until RB15)
 #      release.json      the version, commit, platform and repository, and every file of the release with its SHA-256
@@ -122,6 +124,16 @@ jobs:
       - name: Build the release binaries
         run: cargo build --release --locked --target "$TARGET" -p server-console -p server-minimal --features server-console/all-modules,server-minimal/all-modules --bins
 
+      # The libraries the core loads (RD27); a service's crate joins the list by being in the workspace
+      - name: Build the libraries
+        run: |
+          set -euo pipefail
+          packages=()
+          for pkg in isles-1-14-7-plugin content-plugin chat-plugin gateway-plugin; do
+            if cargo pkgid --locked -p "$pkg" > /dev/null 2>&1; then packages+=(-p "$pkg"); fi
+          done
+          cargo build --release --locked --target "$TARGET" "${packages[@]}" --lib
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
@@ -151,6 +163,14 @@ jobs:
           for bin in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do
             cp "target/$TARGET/release/$bin$ext" "$out/bin/"
           done
+          # The libraries beside them, under the names host.toml's paths give (RD27)
+          mkdir -p "$out/plugins"
+          if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
+          for lib in isles_1_14_7_plugin content_plugin chat_plugin gateway_plugin; do
+            file="target/$TARGET/release/$prefix$lib$suffix"
+            if [ -f "$file" ]; then cp "$file" "$out/plugins/"; fi
+          done
+          [ -f "$out/plugins/${prefix}isles_1_14_7_plugin$suffix" ] || { echo "::error::the 1.14.7 library was not built"; exit 1; }
           # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
           isles=modules/rustic-isles/reference/1.14.7
           cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"

@@ -10,8 +10,9 @@
 # /opt/reforged, so every path reforged-host writes into the env files is the same in every container:
 #   front   the internet-facing Rust services on Debian slim: gateway, allowlist (with nftables), content,
 #           admin API, each a container running `reforged-host <service>` from the one server binary (RD26)
-#   server  reforged-host (with the Rust 1.14.7 backend and Director compiled in, RU9/RB14) and Wine for the
-#           game servers on Debian slim; also the image the host kit's commands run in
+#   server  reforged-host (with the Rust 1.14.7 backend and Director compiled in, RU9/RB14), the libraries
+#           host.toml can pin in plugins/ (RD27), and Wine for the game servers on Debian slim; also the image the
+#           host kit's commands run in
 #   netem   iproute2 alone, for the `network` profile's injected latency (DN12)
 #
 # `server-rollback` keeps the Node backend and Director and MongoDB's dump tools for the `rollback` Compose profile
@@ -35,6 +36,7 @@ COPY launcher/ /src/launcher/
 COPY ui/ /src/ui/
 COPY modules/rustic-isles/crates/ /src/modules/rustic-isles/crates/
 COPY modules/rustic-isles/modules/ /src/modules/rustic-isles/modules/
+COPY modules/rustic-isles/plugins/ /src/modules/rustic-isles/plugins/
 COPY modules/rustic-isles/docs/ /src/modules/rustic-isles/docs/
 COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ /src/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
 COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json /src/modules/rustic-isles/reference/1.14.7/ParadoxBackend/
@@ -69,6 +71,22 @@ RUN --mount=type=ssh \
  && cargo build --release --locked -p server-console "$@" --bins \
  && mkdir -p /out/bin \
  && cp target/release/reforged-host /out/bin/
+# The libraries host.toml can pin (RD27), as the release ships them in plugins/; a service's crate joins the list by
+# being in the workspace
+RUN --mount=type=ssh \
+    --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=reforged-cargo-git,target=/usr/local/cargo/git \
+    --mount=type=cache,id=reforged-cargo-target,target=/src/target \
+    set -- \
+ && for pkg in isles-1-14-7-plugin content-plugin chat-plugin gateway-plugin; do \
+      if cargo pkgid --locked -p "$pkg" > /dev/null 2>&1; then set -- "$@" -p "$pkg"; fi; \
+    done \
+ && cargo build --release --locked "$@" --lib \
+ && mkdir -p /out/plugins \
+ && for lib in isles_1_14_7_plugin content_plugin chat_plugin gateway_plugin; do \
+      if [ -f "target/release/lib$lib.so" ]; then cp "target/release/lib$lib.so" /out/plugins/; fi; \
+    done \
+ && test -f /out/plugins/libisles_1_14_7_plugin.so
 
 # ------------------------------------------------------------------ front: gateway, allowlist, content, admin API
 FROM ${DEBIAN_IMAGE} AS front
@@ -115,6 +133,7 @@ COPY --chown=reforged:reforged ${ISLES}/ParadoxBackend/game-data/ ${ISLES}/Parad
 COPY --chown=reforged:reforged ${ISLES}/ParadoxBackend/store-captures.json ${ISLES}/ParadoxBackend/
 COPY --chown=reforged:reforged ${ISLES}/ParadoxDirector/game-data/ ${ISLES}/ParadoxDirector/game-data/
 COPY --from=rust-build /out/bin/ bin/
+COPY --from=rust-build /out/plugins/ plugins/
 COPY --chmod=0755 docker/director-entrypoint.sh bin/reforged-director
 COPY --chmod=0755 docker/host-entrypoint.sh bin/reforged-host-docker
 COPY --chmod=0755 docker/healthcheck.sh bin/reforged-healthcheck

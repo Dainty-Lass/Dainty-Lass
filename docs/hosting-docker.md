@@ -83,6 +83,9 @@ Rust crates, which cargo reads even for a build without them) and no network acc
 Git dependencies resolve to those folders ([server-modules.md](server-modules.md)). The server binary is built with
 `all-modules`, as the release is; to build without any game module, set the build argument
 `REFORGED_MODULES=` (`docker build -f docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
+The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/reforged/plugins`, so a
+`[[modules.external]]` or `[services.<name>]` path there reads `plugins/libisles_1_14_7_plugin.so` and the like
+([hosting.md](hosting.md#game-modules-and-plugins)).
 
 `setup` takes every option it takes on a Linux host (`--max-hunts`, `--public-port`, `--registration` …;
 `docker compose run --rm host setup --help`). In the container it also gets `--skip-install` (the services are

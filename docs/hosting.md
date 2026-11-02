@@ -174,6 +174,7 @@ servers' key) lives only in `secrets.env`.
 | (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
 | (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`RUSTIC_ISLES_REFORGE`, `RUSTIC_ISLES_MASTERY_PERSISTENCE`, `RUSTIC_ISLES_BOUNTY_PERSISTENCE`, `RUSTIC_ISLES_COOLDOWN_PERSISTENCE`, `RUSTIC_ISLES_ACCOUNT_ERASURE`, `RUSTIC_ISLES_LOG_PURGE`, `RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
 | (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one |
+| (edit `host.toml`) | `[services.<name>]` `library`, `sha256` (and `serves` for a name the server doesn't know) | A service loaded as a library in place of the one built into the binary: `content`, `chat` or `gateway`, from the release's `plugins/` folder, pinned by its SHA-256 (below). It runs on its own env file (`chat` on `gateway.env`), and a `gateway` library takes the allowlist's place too. Left out: every service built in, as before |
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader` | This server's name, region and optional directory leader in a network. Left out: a server on its own |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). Left out: no peers, and the server works as one outside a network |
 
@@ -293,6 +294,17 @@ sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
 # autoload = false              # listed, but loaded from the console only
 
 [modules.rustic-freeza.tuning]  # a module's own settings: the ones it says it reads
+```
+
+The 1.14.7 module ships as a library too, in the release's `plugins/` folder (`isles_1_14_7_plugin.dll`, or
+`libisles_1_14_7_plugin.so` on Linux): list it under `[[modules.external]]` with that path and its SHA-256, and leave
+it out of `compiled`. A service can be a library the same way (RD27), in place of the one compiled in; a library
+whose SHA-256 is not the one written here is never loaded:
+
+```toml
+[services.content]
+library = "plugins/content_plugin.dll"
+sha256 = "<the file's SHA-256>"
 ```
 
 For `isles-1-14-7` (`modules/rustic-isles`), the `[modules.<id>.switches]` section (or the top-level `[switches]` table, which `setup` also writes to `backend.env`) overrides the module's switch defaults (`crates/isles-core/src/settings.rs`):
