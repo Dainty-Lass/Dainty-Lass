@@ -1,0 +1,38 @@
+# CLEAN-ROOM PLACEHOLDER (RD27): the Category A manifest from dainty-restricted replaces this one at integration,
+# with its three edits (spec-rd27-chat §1.2). The dependencies below are what the rewrite and its stubs use.
+[package]
+name = "chat"
+description = "The chat core plugin: XMPP over WebSocket for the game's client, rooms, whispers and history (DN10)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum.workspace = true
+base64.workspace = true
+chrono.workspace = true
+futures-util.workspace = true
+module-api.workspace = true
+network = { path = "../network", default-features = false }
+protocol.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+service-kit.workspace = true
+service-plugin.workspace = true
+sha2.workspace = true
+store.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "rt", "sync", "time", "macros", "io-util"] }
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio-tungstenite.workspace = true
+
+[lints]
+workspace = true

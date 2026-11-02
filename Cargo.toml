@@ -25,6 +25,8 @@ members = [
     "services/admin",
     # The network core plugin: node links, the directory (DD16-DD18)
     "plugins/network",
+    # The chat core plugin: XMPP for the game's client (DN10, RD27 clean-room rewrite)
+    "plugins/chat",
     # The MIT core server: admin and remote built in, the other services libraries (RD27)
     "bins/dainty-lass-server",
 ]
@@ -57,6 +59,7 @@ service-plugin = { path = "crates/service-plugin" }
 proxy = { path = "crates/proxy" }
 admin = { path = "services/admin" }
 epic = { path = "crates/epic" }
+chat = { path = "plugins/chat" }
 hmac = "0.13"
 
 crossterm = "0.29"
