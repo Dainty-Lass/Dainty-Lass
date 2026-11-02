@@ -21,6 +21,19 @@ pub type RemoteEnrollCallback = Arc<dyn Fn(Vec<u8>) -> BoxFuture<'static, (u16, 
 pub trait GatewayLinks: Send + Sync {
     fn endpoint(&self) -> &network_plugin::NodeEndpoint;
     fn set_enroll_handler(&self, handler: Option<RemoteEnrollCallback>);
+
+    /// The endpoint's, unless the endpoint is across a library's protocol (`service_library::gateway`).
+    fn attach(&self, services: Arc<dyn NodeService>) {
+        self.endpoint().attach(services);
+    }
+
+    fn add_peer(&self, node: NodeId) {
+        self.endpoint().add_peer(node);
+    }
+
+    fn remove_peer(&self, node: &NodeId) {
+        self.endpoint().remove_peer(node);
+    }
 }
 
 struct Inner {
@@ -158,7 +171,7 @@ impl NodeServices {
             .unwrap_or_else(PoisonError::into_inner)
             .insert(node.clone());
         if let Some(links) = self.gateway() {
-            links.endpoint().add_peer(node);
+            links.add_peer(node);
         }
     }
 
@@ -169,7 +182,7 @@ impl NodeServices {
             .unwrap_or_else(PoisonError::into_inner)
             .remove(node);
         if let Some(links) = self.gateway() {
-            links.endpoint().remove_peer(node);
+            links.remove_peer(node);
         }
     }
 
@@ -199,7 +212,7 @@ impl NodeServices {
     /// Plugs [`NodeServices`] into the gateway's `/_rr/node/*` endpoint once [`Self::set_gateway`] has its links.
     fn bind_gateway(&self) {
         if let Some(links) = self.gateway() {
-            links.endpoint().attach(Arc::new(self.clone()));
+            links.attach(Arc::new(self.clone()));
             let peers: Vec<NodeId> = self
                 .inner
                 .dynamic_peers
@@ -209,7 +222,7 @@ impl NodeServices {
                 .cloned()
                 .collect();
             for p in peers {
-                links.endpoint().add_peer(p);
+                links.add_peer(p);
             }
             if let Some(cb) = self.enroll_handler() {
                 links.set_enroll_handler(Some(cb));
