@@ -1,6 +1,6 @@
 # Running many controllers from one dashboard
 
-One dashboard can manage any number of controllers: the hosts that run a Dainty Lass server and its game
+One dashboard can manage any number of controllers: the hosts that run a DaintyLass server and its game
 servers. It runs on one of them (the **local** controller, which it calls directly, as before). Each of
 the others runs the **agent** (`apps/agent`), which connects to the dashboard.
 

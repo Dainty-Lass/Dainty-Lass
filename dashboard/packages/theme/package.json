@@ -1,7 +1,7 @@
 {
   "name": "@dainty/theme",
   "version": "0.1.0",
-  "description": "Dainty Lass's one theme: the Astryx theme, the CSS stack and the colour-mode provider every app uses",
+  "description": "DaintyLass's one theme: the Astryx theme, the CSS stack and the colour-mode provider every app uses",
   "type": "module",
   "private": true,
   "license": "AGPL-3.0-only",

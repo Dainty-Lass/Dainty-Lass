@@ -1,6 +1,6 @@
 {
   "shell": {
-    "product": "Dainty Lass",
+    "product": "DaintyLass",
     "navigation": "Launcher",
     "play": "Jogar",
     "servers": "Servidores",
@@ -68,7 +68,7 @@
     "problems": {
       "tailscale_missing": "O Tailscale não está instalado",
       "unreachable": "O servidor não está respondendo",
-      "bad_answer": "Isso não é um servidor Dainty Lass",
+      "bad_answer": "Isso não é um servidor DaintyLass",
       "cert_mismatch": "O certificado não confere com o convite"
     },
     "hints": {

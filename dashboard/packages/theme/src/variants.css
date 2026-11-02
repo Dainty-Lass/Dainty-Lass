@@ -1,6 +1,6 @@
 /**
  * Caddy Proxy Manager's colouring over the built theme (apps/controller/src/app/astryx-variants.css
- * there), for every Dainty Lass app. By hand, not `defineTheme({extends})`: an extended theme is
+ * there), for every DaintyLass app. By hand, not `defineTheme({extends})`: an extended theme is
  * unbuilt, and <Theme> would inject that CSS from a client effect, so a page would paint unstyled
  * first. Layer and @scope match what `astryx theme build` emits. Each variant also needs its name in
  * src/astryx.d.ts.

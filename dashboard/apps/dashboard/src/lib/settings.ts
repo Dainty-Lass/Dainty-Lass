@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tosVersion: 1,
   chatRetentionDays: 90,
   reportContextMinutes: 10,
-  serverName: "Dainty Lass",
+  serverName: "DaintyLass",
   accent: DEFAULT_ACCENT,
   moderationReasons: [
     "Harassment",

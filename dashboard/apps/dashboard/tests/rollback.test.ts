@@ -82,7 +82,7 @@ describe("settings and staff rollback", () => {
     updateSettings(owner, { serverName: "Renamed" });
     expect(getSettings().serverName).toBe("Renamed");
     await revertEvent(owner, lastEvent().id);
-    expect(getSettings().serverName).toBe("Dainty Lass");
+    expect(getSettings().serverName).toBe("DaintyLass");
   });
 
   test("the last owner cannot be demoted or disabled, and nobody demotes themselves", () => {

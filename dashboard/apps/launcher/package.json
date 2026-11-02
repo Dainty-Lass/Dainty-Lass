@@ -1,7 +1,7 @@
 {
   "name": "@dainty/launcher",
   "version": "0.1.0",
-  "description": "The Dainty Lass launcher page for players, served by the Tauri shell",
+  "description": "The DaintyLass launcher page for players, served by the Tauri shell",
   "type": "module",
   "private": true,
   "license": "AGPL-3.0-only",

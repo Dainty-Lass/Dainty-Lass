@@ -44,7 +44,7 @@ const discordScopes = getSettings().discordGuildId
  * Every session that starts goes through `signInMember`, which decides who the person is here.
  */
 export const auth = betterAuth({
-  appName: "Dainty Lass",
+  appName: "DaintyLass",
   baseURL: config.baseUrl,
   basePath: "/api/auth",
   secret: authSecret(),
@@ -105,7 +105,7 @@ export const auth = betterAuth({
       : []),
     passkey({
       rpID: base.hostname,
-      rpName: "Dainty Lass",
+      rpName: "DaintyLass",
       origin: base.origin,
       // Discoverable and verified: the passkey alone names the account and stands for both factors.
       authenticatorSelection: { residentKey: "required", userVerification: "required" },
