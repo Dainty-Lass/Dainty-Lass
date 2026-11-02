@@ -20,6 +20,7 @@ pub mod modules;
 pub mod node_services;
 pub mod ports;
 pub mod registry;
+pub mod service_library;
 
 pub use controller::{Module, ModuleFuture, ModuleStart, START_TIMEOUT, STOP_GRACE, ServerController};
 pub use node_services::NodeServices;
@@ -27,3 +28,4 @@ pub use registry::{
     LoadHook, ModuleEntry, ModuleFactory, ModuleInfo, ModuleRegistry, ModuleSource, ModuleState, RegistryError,
     RegistryOptions, WeakRegistry,
 };
+pub use service_library::{ServiceLibrary, service_library};

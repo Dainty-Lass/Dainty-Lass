@@ -622,6 +622,7 @@ dependencies = [
  "serde",
  "serde_json",
  "service-kit",
+ "service-plugin",
  "store",
  "sysinfo",
  "tempfile",
@@ -3448,6 +3449,19 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-log",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "service-plugin"
+version = "0.0.0"
+dependencies = [
+ "module-api",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "tokio",
+ "tracing",
  "tracing-subscriber",
 ]
 

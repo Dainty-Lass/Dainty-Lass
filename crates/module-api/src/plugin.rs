@@ -8,6 +8,7 @@
 #![allow(unsafe_code)]
 
 use std::ffi::c_void;
+use std::future::Future;
 use std::io;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::pin::Pin;
@@ -24,8 +25,11 @@ use crate::module::GameModule;
 /// Raised when [`PluginV1`] changes shape; the core refuses a library with any other.
 pub const ABI_VERSION: u32 = 1;
 
-/// The symbol every library exports, NUL-terminated as the loader wants it.
+/// The symbol a game module's library exports, NUL-terminated as the loader wants it.
 pub const ENTRY: &[u8] = b"dainty_plugin_v1\0";
+
+/// The symbol a service's library exports (crate `service-plugin`): the same vtable, another protocol on it.
+pub const SERVICE_ENTRY: &[u8] = b"dainty_service_v1\0";
 
 /// How long a closing library waits for its module to finish before its runtime is shut down.
 const CLOSE_GRACE: Duration = Duration::from_secs(2);
@@ -99,6 +103,11 @@ impl<F: Fn(&[u8]) + Send + Unpin> CallWriter<F> {
     pub fn new(send: F) -> Self {
         Self(send)
     }
+
+    /// Hands `bytes` over at once, from code that isn't async; they are copied before this returns.
+    pub fn send(&self, bytes: &[u8]) {
+        (self.0)(bytes);
+    }
 }
 
 impl<F: Fn(&[u8]) + Send + Unpin> AsyncWrite for CallWriter<F> {
@@ -142,19 +151,43 @@ struct Instance {
     serving: tokio::task::JoinHandle<()>,
 }
 
+/// What a library writes to the core with.
+pub type LibraryWriter = CallWriter<Box<dyn Fn(&[u8]) + Send + Sync>>;
+
 /// [`PluginV1::open`] for the module `make` builds; [`export_plugin!`] calls it.
 pub fn open<M: GameModule>(make: impl FnOnce() -> M, sink: HostSink) -> *mut c_void {
+    open_with(
+        move |reader, writer| {
+            let module = Arc::new(make());
+            async move {
+                if let Err(error) = child::serve(module, reader, writer).await {
+                    // The library's own tracing has no subscriber: stderr is the core's
+                    eprintln!("module library: {error}");
+                }
+            }
+        },
+        sink,
+    )
+}
+
+/// [`PluginV1::open`] for any protocol: `serve` runs on the library's own runtime over the core's bytes until the
+/// core closes them.
+pub fn open_with<F, Fut>(serve: F, sink: HostSink) -> *mut c_void
+where
+    F: FnOnce(ChannelReader, LibraryWriter) -> Fut,
+    Fut: Future<Output = ()> + Send + 'static,
+{
     let opened = catch_unwind(AssertUnwindSafe(|| {
         let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().ok()?;
         let (to_module, from_host) = mpsc::unbounded_channel();
         let sink = Sink(sink);
-        let writer = CallWriter::new(move |bytes: &[u8]| sink.send(bytes));
-        let module = Arc::new(make());
+        let writer: LibraryWriter = CallWriter::new(Box::new(move |bytes: &[u8]| sink.send(bytes)));
+        let served = {
+            let _entered = runtime.enter();
+            serve(ChannelReader::new(from_host), writer)
+        };
         let serving = runtime.spawn(async move {
-            if let Err(error) = child::serve(module, ChannelReader::new(from_host), writer).await {
-                // The library's own tracing has no subscriber: stderr is the core's
-                eprintln!("module library: {error}");
-            }
+            served.await;
             sink.closed();
         });
         Some(Box::new(Instance {

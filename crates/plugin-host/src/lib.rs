@@ -33,7 +33,7 @@ struct Library {
     vtable: &'static PluginV1,
 }
 
-type Loaded = Mutex<HashMap<(PathBuf, Sha256Hex), Arc<Library>>>;
+type Loaded = Mutex<HashMap<(PathBuf, Sha256Hex, &'static [u8]), Arc<Library>>>;
 
 /// Every library loaded, by path and digest. None is unloaded until the core exits: a runtime thread of a closed
 /// module can outlive its grace, and code that is unmapped under it crashes the process.
@@ -58,7 +58,7 @@ fn refused(path: &Path, why: impl Into<String>) -> LoadError {
 
 /// Checks the file against its pinned SHA-256 and loads it from the same handle; nothing in a file that doesn't match
 /// runs, not even its initialisers.
-fn load(path: &Path, expected: Sha256Hex) -> Result<Arc<Library>, LoadError> {
+fn load(path: &Path, expected: Sha256Hex, entry: &'static [u8]) -> Result<Arc<Library>, LoadError> {
     let mut file = open_pinned(path).map_err(read_error(path))?;
     let found = hash_file(&mut file).map_err(read_error(path))?;
     if found != expected {
@@ -68,7 +68,7 @@ fn load(path: &Path, expected: Sha256Hex) -> Result<Arc<Library>, LoadError> {
             found,
         });
     }
-    let key = (path.to_owned(), found);
+    let key = (path.to_owned(), found, entry);
     let mut libraries = loaded().lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(library) = libraries.get(&key) {
         return Ok(library.clone());
@@ -78,9 +78,9 @@ fn load(path: &Path, expected: Sha256Hex) -> Result<Arc<Library>, LoadError> {
     let lib = unsafe { libloading::Library::new(program(path, &file)) }.map_err(|e| refused(path, e.to_string()))?;
     drop(file);
     let entry = {
-        // SAFETY: ENTRY is the symbol export_plugin! defines, with this type
-        let symbol = unsafe { lib.get::<extern "C" fn() -> *const PluginV1>(ENTRY) }
-            .map_err(|e| refused(path, format!("not a module library: {e}")))?;
+        // SAFETY: ENTRY and SERVICE_ENTRY are the symbols export_plugin! and export_service! define, with this type
+        let symbol = unsafe { lib.get::<extern "C" fn() -> *const PluginV1>(entry) }
+            .map_err(|e| refused(path, format!("not a library of this kind: {e}")))?;
         *symbol
     };
     // A panic can't cross an extern "C" function: it aborts there, in the library, as the ABI says
@@ -163,10 +163,73 @@ impl Drop for Open {
     }
 }
 
+/// What the core writes to an open library with.
+pub type CoreWriter = CallWriter<Box<dyn Fn(&[u8]) + Send + Sync>>;
+
+/// One open instance of a library, as two byte streams; [`Closer::close`] ends it.
+pub struct LibraryStream {
+    pub reader: ChannelReader,
+    pub writer: CoreWriter,
+    pub closer: Closer,
+}
+
+/// Ends an open instance, once, off the async threads (the library waits for its runtime there).
+#[derive(Clone)]
+pub struct Closer(Arc<Mutex<Option<Open>>>);
+
+impl Closer {
+    pub async fn close(&self) {
+        let taken = self.0.lock().unwrap_or_else(PoisonError::into_inner).take();
+        if let Some(taken) = taken {
+            _ = tokio::task::spawn_blocking(move || drop(taken)).await;
+        }
+    }
+}
+
+/// Checks the library at `path` against its pinned SHA-256, loads it (once per file) and opens one instance through
+/// the vtable its `entry` symbol returns: [`ENTRY`] for a game module, [`module_api::plugin::SERVICE_ENTRY`] for a
+/// service. What runs on the streams is the caller's protocol.
+pub async fn open_library(path: &Path, sha256: Sha256Hex, entry: &'static [u8]) -> Result<LibraryStream, LoadError> {
+    let owned = path.to_owned();
+    let library = tokio::task::spawn_blocking(move || load(&owned, sha256, entry))
+        .await
+        .map_err(|e| refused(path, e.to_string()))??;
+    let (to_core, from_library) = mpsc::unbounded_channel();
+    let sink = Box::into_raw(Box::new(Sink {
+        to_core: Mutex::new(Some(to_core)),
+    }));
+    let host_sink = HostSink {
+        ctx: sink.cast(),
+        send: sink_send,
+        closed: sink_closed,
+    };
+    // SAFETY: the vtable stays valid (the library is never unloaded); the sink lives until `Open` drops
+    let handle = unsafe { (library.vtable.open)(host_sink) };
+    if handle.is_null() {
+        // SAFETY: the library refused it and holds no pointer to it
+        drop(unsafe { Box::from_raw(sink) });
+        return Err(refused(path, "it did not start"));
+    }
+    let open = Arc::new(Mutex::new(Some(Open { library, handle, sink })));
+    let writer: CoreWriter = CallWriter::new(Box::new({
+        let open = open.clone();
+        move |bytes: &[u8]| {
+            if let Some(open) = open.lock().unwrap_or_else(PoisonError::into_inner).as_ref() {
+                open.send(bytes);
+            }
+        }
+    }));
+    Ok(LibraryStream {
+        reader: ChannelReader::new(from_library),
+        writer,
+        closer: Closer(open),
+    })
+}
+
 /// A module running from a library in this process, behind the frame protocol.
 pub struct DylibModule {
     inner: ChildModule,
-    open: Arc<Mutex<Option<Open>>>,
+    closer: Closer,
 }
 
 impl DylibModule {
@@ -177,40 +240,11 @@ impl DylibModule {
         link: Arc<dyn HostLink>,
         options: ChildOptions,
     ) -> Result<Self, LoadError> {
-        let (path, sha256) = (module.path.clone(), module.sha256);
-        let library = tokio::task::spawn_blocking(move || load(&path, sha256))
-            .await
-            .map_err(|e| refused(&module.path, e.to_string()))??;
-        let (to_core, from_library) = mpsc::unbounded_channel();
-        let sink = Box::into_raw(Box::new(Sink {
-            to_core: Mutex::new(Some(to_core)),
-        }));
-        let host_sink = HostSink {
-            ctx: sink.cast(),
-            send: sink_send,
-            closed: sink_closed,
-        };
-        // SAFETY: the vtable stays valid (the library is never unloaded); the sink lives until `Open` drops
-        let handle = unsafe { (library.vtable.open)(host_sink) };
-        if handle.is_null() {
-            // SAFETY: the library refused it and holds no pointer to it
-            drop(unsafe { Box::from_raw(sink) });
-            return Err(refused(&module.path, "its module did not start"));
-        }
-        let open = Arc::new(Mutex::new(Some(Open { library, handle, sink })));
-        let writer = CallWriter::new({
-            let open = open.clone();
-            move |bytes: &[u8]| {
-                if let Some(open) = open.lock().unwrap_or_else(PoisonError::into_inner).as_ref() {
-                    open.send(bytes);
-                }
-            }
-        });
-        let reader = ChannelReader::new(from_library);
+        let LibraryStream { reader, writer, closer } = open_library(&module.path, module.sha256, ENTRY).await?;
         match ChildModule::connect(reader, writer, node, link, options, module.expected.as_ref()).await {
-            Ok(inner) => Ok(Self { inner, open }),
+            Ok(inner) => Ok(Self { inner, closer }),
             Err(error) => {
-                close(open).await;
+                closer.close().await;
                 Err(error)
             }
         }
@@ -219,14 +253,6 @@ impl DylibModule {
     /// Why the module is gone, if it is: its library's side ended or broke the protocol.
     pub fn failure(&self) -> Option<String> {
         self.inner.failure()
-    }
-}
-
-/// Closes the module off the async threads: the library waits for its runtime there.
-async fn close(open: Arc<Mutex<Option<Open>>>) {
-    let taken = open.lock().unwrap_or_else(PoisonError::into_inner).take();
-    if let Some(taken) = taken {
-        _ = tokio::task::spawn_blocking(move || drop(taken)).await;
     }
 }
 
@@ -242,7 +268,7 @@ impl ModuleDriver for DylibModule {
     fn unload(&self) -> BoxFuture<'_, Result<(), ModuleError>> {
         Box::pin(async move {
             let stopped = self.inner.unload().await;
-            close(self.open.clone()).await;
+            self.closer.close().await;
             stopped
         })
     }

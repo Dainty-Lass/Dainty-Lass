@@ -17,6 +17,8 @@ members = [
     "crates/proxy",
     "crates/remote",
     "crates/service-kit",
+    # Services as libraries the core loads (RD27)
+    "crates/service-plugin",
     "crates/store",
     "services/backend",
     "services/director",
@@ -49,6 +51,7 @@ remote = { path = "crates/remote" }
 store = { path = "crates/store" }
 history-ship = { path = "crates/history-ship" }
 service-kit = { path = "crates/service-kit" }
+service-plugin = { path = "crates/service-plugin" }
 proxy = { path = "crates/proxy" }
 admin = { path = "services/admin" }
 epic = { path = "crates/epic" }

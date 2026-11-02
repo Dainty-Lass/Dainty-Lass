@@ -40,6 +40,8 @@ store = { workspace = true, optional = true }
 # Game modules and plugins, compiled in, as their own process (DF3) or as a library (RD27)
 module-api.workspace = true
 plugin-host.workspace = true
+# Services as libraries (RD27): their protocol
+service-plugin.workspace = true
 protocol.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -1,0 +1,342 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+//! A service built as a library (RD27, crate `service-plugin`), run as a module of this controller and, when it takes
+//! modules' registrations, as a core plugin of the registry. Each start of the module opens the library anew; the
+//! plugin outlives the runs and replays the registrations it holds into each one. The library is pinned by its
+//! SHA-256 and loaded by `plugin-host` (docs/security/plugin-host.md).
+
+use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
+
+use module_api::frame::{MAX_FRAME, encode, read_frame};
+use module_api::manifest::ModuleManifest;
+use module_api::plugin::{ChannelReader, SERVICE_ENTRY};
+use module_api::registrar::Registration;
+use module_api::{CoreCapability, CorePlugin, ErrorKind, ModuleError, ModuleId, Sha256Hex};
+use plugin_host::{CoreWriter, LibraryStream};
+use service_kit::context::{ComponentPhase, ComponentStatus, ServiceContext, StatusReporter};
+use service_kit::env::Env;
+use service_plugin::{FromService, LogLevel, PROTOCOL_VERSION, ToService};
+use tokio::io::BufReader;
+use tokio::sync::oneshot;
+
+use crate::{Module, ModuleRegistry, WeakRegistry};
+
+/// How long the library has to say hello, to answer an attach, and to end after Stop.
+const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
+const ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
+const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// A service library as `host.toml` pins it.
+#[derive(Debug, Clone)]
+pub struct ServiceLibrary {
+    pub name: &'static str,
+    pub path: PathBuf,
+    pub sha256: Sha256Hex,
+    /// What it serves as a core plugin, checked against its hello; empty for a service that takes no registration
+    pub serves: &'static [CoreCapability],
+}
+
+/// The module that runs the library on `env`, and registers it with `registry` as a core plugin when it serves one.
+pub fn service_library(library: ServiceLibrary, env: Env, registry: Option<&ModuleRegistry>) -> Module {
+    let shared = Arc::new(Shared {
+        library,
+        registry: registry.map(ModuleRegistry::downgrade),
+        state: Mutex::default(),
+    });
+    if let Some(registry) = registry
+        && !shared.library.serves.is_empty()
+    {
+        registry.add_plugin(Arc::new(Plugin(shared.clone())));
+    }
+    let name = shared.library.name;
+    Module::new(
+        name,
+        Arc::new(move |ctx| {
+            let (shared, env) = (shared.clone(), env.clone());
+            Box::pin(async move { run_once(shared, env, ctx).await })
+        }),
+    )
+}
+
+struct Shared {
+    library: ServiceLibrary,
+    registry: Option<WeakRegistry>,
+    state: Mutex<State>,
+}
+
+#[derive(Default)]
+struct State {
+    /// What the registry attached, replayed into every run
+    attached: BTreeMap<ModuleId, (ModuleManifest, Registration)>,
+    run: Option<Arc<Run>>,
+}
+
+impl Shared {
+    fn state(&self) -> std::sync::MutexGuard<'_, State> {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn module_dir(&self, module: &ModuleId) -> Option<PathBuf> {
+        self.registry.as_ref()?.upgrade()?.module_dir(module)
+    }
+}
+
+/// One open instance of the library.
+struct Run {
+    writer: CoreWriter,
+    pending: Mutex<HashMap<u64, std::sync::mpsc::Sender<Result<(), ModuleError>>>>,
+    next: AtomicU64,
+}
+
+impl Run {
+    fn send(&self, message: &ToService) {
+        match encode(message, MAX_FRAME) {
+            Ok(bytes) => self.writer.send(&bytes),
+            Err(error) => tracing::warn!(target: "host", "service library: a message not sent: {error}"),
+        }
+    }
+
+    /// Attaches and waits for the answer. Blocking, as `CorePlugin::attach` is; the answer is read on the run's own
+    /// thread (`read_loop`), so this never waits on the runtime it is called from.
+    fn attach(
+        &self,
+        module: &ModuleManifest,
+        registration: &Registration,
+        dir: Option<PathBuf>,
+    ) -> Result<(), ModuleError> {
+        let id = self.next.fetch_add(1, Ordering::Relaxed);
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(id, tx);
+        self.send(&ToService::Attach {
+            id,
+            module: Box::new(module.clone()),
+            registration: Box::new(registration.clone()),
+            dir,
+        });
+        let answer = rx.recv_timeout(ATTACH_TIMEOUT);
+        self.pending.lock().unwrap_or_else(PoisonError::into_inner).remove(&id);
+        answer.unwrap_or_else(|_| Err(ModuleError::new(ErrorKind::Unavailable, "the service did not answer")))
+    }
+}
+
+struct Plugin(Arc<Shared>);
+
+impl CorePlugin for Plugin {
+    fn name(&self) -> &'static str {
+        self.0.library.name
+    }
+
+    fn serves(&self) -> &'static [CoreCapability] {
+        self.0.library.serves
+    }
+
+    fn attach(&self, module: &ModuleManifest, registration: &Registration) -> Result<(), ModuleError> {
+        let run = {
+            let mut state = self.0.state();
+            state
+                .attached
+                .insert(module.id.clone(), (module.clone(), registration.clone()));
+            state.run.clone()
+        };
+        let Some(run) = run else {
+            // Not running: the next run takes it with the rest
+            return Ok(());
+        };
+        let result = run.attach(module, registration, self.0.module_dir(&module.id));
+        if result.is_err() {
+            self.0.state().attached.remove(&module.id);
+        }
+        result
+    }
+
+    fn detach(&self, module: &ModuleId) {
+        let run = {
+            let mut state = self.0.state();
+            state.attached.remove(module);
+            state.run.clone()
+        };
+        if let Some(run) = run {
+            run.send(&ToService::Detach { module: module.clone() });
+        }
+    }
+}
+
+async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<(), String> {
+    let library = &shared.library;
+    let LibraryStream { reader, writer, closer } =
+        plugin_host::open_library(&library.path, library.sha256, SERVICE_ENTRY)
+            .await
+            .map_err(|e| e.to_string())?;
+    let run = Arc::new(Run {
+        writer,
+        pending: Mutex::default(),
+        next: AtomicU64::new(1),
+    });
+    let (hello_tx, hello_rx) = oneshot::channel();
+    let (ended_tx, mut ended_rx) = oneshot::channel();
+    let reading = {
+        let (run, reporter, name) = (run.clone(), ctx.status().clone(), library.name);
+        std::thread::spawn(move || {
+            let Ok(runtime) = tokio::runtime::Builder::new_current_thread().build() else {
+                return;
+            };
+            runtime.block_on(read_loop(reader, run, reporter, name, hello_tx, ended_tx));
+        })
+    };
+    let result = drive(&shared, &run, env, ctx, hello_rx, &mut ended_rx).await;
+    shared.state().run = None;
+    closer.close().await;
+    _ = tokio::task::spawn_blocking(move || reading.join()).await;
+    result
+}
+
+async fn drive(
+    shared: &Arc<Shared>,
+    run: &Arc<Run>,
+    env: Env,
+    ctx: ServiceContext,
+    hello_rx: oneshot::Receiver<(u32, String, Vec<CoreCapability>)>,
+    ended_rx: &mut oneshot::Receiver<Result<(), String>>,
+) -> Result<(), String> {
+    let library = &shared.library;
+    let (protocol, name, serves) = tokio::time::timeout(HELLO_TIMEOUT, hello_rx)
+        .await
+        .map_err(|_| format!("{} did not say hello within {HELLO_TIMEOUT:?}", library.path.display()))?
+        .map_err(|_| format!("{} ended before its hello", library.path.display()))?;
+    if protocol != PROTOCOL_VERSION {
+        return Err(format!(
+            "it speaks service protocol {protocol}, this core {PROTOCOL_VERSION}"
+        ));
+    }
+    if name != library.name {
+        return Err(format!("it is the service {name}, host.toml names {}", library.name));
+    }
+    let mut serves = serves;
+    serves.sort();
+    let mut expected = library.serves.to_vec();
+    expected.sort();
+    if serves != expected {
+        return Err(format!("it serves {serves:?}, this core expects {expected:?}"));
+    }
+    run.send(&ToService::Start {
+        protocol: PROTOCOL_VERSION,
+        env: env.vars().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
+    });
+    let replay: Vec<(ModuleManifest, Registration)> = {
+        let mut state = shared.state();
+        state.run = Some(run.clone());
+        state.attached.values().cloned().collect()
+    };
+    for (module, registration) in replay {
+        let dir = shared.module_dir(&module.id);
+        let run = run.clone();
+        let id = module.id.clone();
+        let result = tokio::task::spawn_blocking(move || run.attach(&module, &registration, dir))
+            .await
+            .unwrap_or_else(|e| Err(ModuleError::new(ErrorKind::Unavailable, e.to_string())));
+        if let Err(error) = result {
+            tracing::warn!(target: "host", "{}: module {id} not taken again: {error}", library.name);
+        }
+    }
+    let mut stop = ctx.stop_receiver();
+    tokio::select! {
+        ended = &mut *ended_rx => ended.unwrap_or_else(|_| Err(String::from("the library's stream ended"))),
+        () = stopped(&mut stop) => {
+            run.send(&ToService::Stop {});
+            match tokio::time::timeout(STOP_TIMEOUT, ended_rx).await {
+                Ok(Ok(result)) => result,
+                Ok(Err(_)) => Ok(()),
+                Err(_) => Err(format!("it did not stop within {STOP_TIMEOUT:?}")),
+            }
+        }
+    }
+}
+
+async fn stopped(stop: &mut tokio::sync::watch::Receiver<bool>) {
+    while !*stop.borrow() {
+        if stop.changed().await.is_err() {
+            return;
+        }
+    }
+}
+
+/// Reads the library's messages on a thread of its own, until its stream ends.
+async fn read_loop(
+    reader: ChannelReader,
+    run: Arc<Run>,
+    reporter: StatusReporter,
+    name: &'static str,
+    hello: oneshot::Sender<(u32, String, Vec<CoreCapability>)>,
+    ended: oneshot::Sender<Result<(), String>>,
+) {
+    let mut reader = BufReader::new(reader);
+    let mut hello = Some(hello);
+    let mut ended = Some(ended);
+    let end = loop {
+        let message = match read_frame::<FromService, _>(&mut reader, MAX_FRAME).await {
+            Ok(Some(message)) => message,
+            Ok(None) => break Err(String::from("the library's stream ended")),
+            Err(error) => break Err(format!("the library broke the protocol: {error}")),
+        };
+        match message {
+            FromService::Hello { protocol, name, serves } => match hello.take() {
+                Some(tx) => _ = tx.send((protocol, name, serves)),
+                None => break Err(String::from("a second hello")),
+            },
+            _ if hello.is_some() => break Err(String::from("the first message was not a hello")),
+            FromService::Status { status } => apply(&reporter, &status),
+            FromService::Log { level, target, message } => log(name, level, &target, &message),
+            FromService::Attached { id, result } => {
+                if let Some(tx) = run.pending.lock().unwrap_or_else(PoisonError::into_inner).remove(&id) {
+                    _ = tx.send(result);
+                }
+            }
+            FromService::Ended { result } => {
+                if let Some(tx) = ended.take() {
+                    _ = tx.send(result);
+                }
+            }
+        }
+    };
+    if let Some(tx) = ended.take() {
+        _ = tx.send(end);
+    }
+    for (_, tx) in run.pending.lock().unwrap_or_else(PoisonError::into_inner).drain() {
+        _ = tx.send(Err(ModuleError::new(ErrorKind::Unavailable, "the service ended")));
+    }
+}
+
+/// The library's component status, onto the core's.
+fn apply(reporter: &StatusReporter, status: &ComponentStatus) {
+    let detail = (!status.detail.is_empty()).then(|| status.detail.clone());
+    match status.phase {
+        ComponentPhase::Starting => match detail {
+            Some(detail) => reporter.report_starting(detail),
+            None => reporter.starting(),
+        },
+        ComponentPhase::Ready => reporter.ready(status.listen_addr.clone(), detail),
+        ComponentPhase::Stopping => reporter.stopping(),
+        ComponentPhase::Stopped => reporter.stopped(),
+        ComponentPhase::Failed => reporter.failed(status.last_error.clone().unwrap_or_default()),
+        ComponentPhase::Disabled => reporter.disabled(detail.unwrap_or_default()),
+    }
+}
+
+/// A library's log line, into the core's log, under its service's name.
+fn log(service: &str, level: LogLevel, target: &str, message: &str) {
+    match level {
+        LogLevel::Error => tracing::error!(target: "service", service, source = target, "{message}"),
+        LogLevel::Warn => tracing::warn!(target: "service", service, source = target, "{message}"),
+        LogLevel::Info => tracing::info!(target: "service", service, source = target, "{message}"),
+        LogLevel::Debug => tracing::debug!(target: "service", service, source = target, "{message}"),
+        LogLevel::Trace => tracing::trace!(target: "service", service, source = target, "{message}"),
+    }
+}
