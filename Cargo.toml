@@ -14,6 +14,8 @@ members = [
     "launcher/src-tauri",
     # Core plugins (DD3): chat, XMPP over WebSocket (DD21, DN10)
     "plugins/chat",
+    # Chat as a library the core loads (RD27)
+    "plugins/chat-plugin",
     # What ships (RD26): the server in one binary (dainty-lass-server-console, and reforged-host, the name installs
     # run, DD1) and the same without a console
     "bins/server-console",

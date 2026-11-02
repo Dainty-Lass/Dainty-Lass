@@ -12,6 +12,7 @@
 //! live in a database of chat's own ([`history`]). Federation between nodes is DN10b's ([`federation`]).
 
 pub mod connection;
+pub mod env;
 pub mod federation;
 pub mod history;
 pub mod hooks;
