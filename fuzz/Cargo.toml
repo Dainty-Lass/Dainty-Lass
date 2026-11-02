@@ -47,6 +47,9 @@ remote = { path = "../crates/remote" }
 rifts-relay = { path = "../crates/rifts-relay" }
 # admission_control, admission_ticket: the control frames and join tickets transports exchange (RD27)
 rifts-admission = { path = "../crates/rifts-admission" }
+# guard_evidence, guard_grants: what a host's transport and inventory transactions hand Rustic Rifts' Guard (RD27)
+rifts-guard = { path = "../crates/rifts-guard" }
+rifts-seam = { path = "../crates/rifts-seam" }
 serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
@@ -277,6 +280,20 @@ bench = false
 [[bin]]
 name = "admission_ticket"
 path = "fuzz_targets/admission_ticket.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "guard_evidence"
+path = "fuzz_targets/guard_evidence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "guard_grants"
+path = "fuzz_targets/guard_grants.rs"
 test = false
 doc = false
 bench = false

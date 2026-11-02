@@ -815,7 +815,9 @@ dependencies = [
  "protocol",
  "remote",
  "rifts-admission",
+ "rifts-guard",
  "rifts-relay",
+ "rifts-seam",
  "rustls",
  "serde",
  "serde_json",
@@ -2967,6 +2969,20 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+]
+
+[[package]]
+name = "rifts-guard"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "rifts-seam",
+ "serde_json",
+ "sha2",
+ "store",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

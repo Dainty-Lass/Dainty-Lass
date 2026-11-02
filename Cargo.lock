@@ -3461,6 +3461,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rifts-guard"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "rifts-seam",
+ "serde_json",
+ "sha2",
+ "store",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "rifts-relay"
 version = "0.0.0"
 dependencies = [
