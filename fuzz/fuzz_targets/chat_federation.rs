@@ -8,7 +8,8 @@
 //! - Every decoded `ChatResponse` must round-trip identically through `encode_response` -> `decode_response`
 //!   and be at most `MAX_CHAT_WIRE` bytes.
 //! - Every `Envelope` accepted by `validate_envelope` must obey the stanza and body bounds (`BODY_LIMIT`,
-//!   `MAX_NICK_BYTES`, `is_authcid_shape`, no control characters in identifiers).
+//!   `MAX_NICK_BYTES`, `is_authcid_shape`, no control characters in identifiers). An envelope's `mid` may be
+//!   empty (an older node sends none) and the body is counted in chars, as chat counts it (spec-rd27-chat §7).
 
 use chat::federation::{
     CHAT_FEDERATION_VERSION, Envelope, MAX_CHAT_WIRE, decode_request, decode_response, encode_request, encode_response,
@@ -43,14 +44,14 @@ fuzz_target!(|data: &[u8]| {
             Envelope::Direct {
                 mid, from_local, body, ..
             } => {
-                assert!(!mid.is_empty() && mid.len() <= 128);
+                assert!(mid.len() <= 128);
                 assert!(is_authcid_shape(from_local));
-                assert!(body.len() <= BODY_LIMIT);
+                assert!((1..=BODY_LIMIT).contains(&body.chars().count()));
             }
             Envelope::Room { mid, nick, body, .. } => {
-                assert!(!mid.is_empty() && mid.len() <= 128);
+                assert!(mid.len() <= 128);
                 assert!(!nick.is_empty() && nick.len() <= MAX_NICK_BYTES);
-                assert!(body.len() <= BODY_LIMIT);
+                assert!((1..=BODY_LIMIT).contains(&body.chars().count()));
             }
         }
     }
