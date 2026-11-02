@@ -25,7 +25,7 @@ and nothing a node could use is sent to it. The account key goes only to the hom
 - **Launcher, out:** to each node, TLS pinned to its listed fingerprint, then `GET /network/v1/ping` with only `host`
   in the headers. To the home, the report with the account key header.
 
-Code: dainty-lass's `services/gateway/src/network.rs` (the node list's body, the report's parser), `policy.rs`
+Code: dainty-lass's `crates/gateway/src/network.rs` (the node list's body, the report's parser), `policy.rs`
 (`NetworkRoute`), `gateway.rs` (`Gateway::network`); `launcher/src-tauri/src/net/regionping.rs` (fetching,
 timing, ordering, the report) and `net/regionping/parse.rs` (the node list's reader), `controller/region.rs`.
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Writes rh3.json next to this script with the Node kit's own code (see gen.ts).
-#   sh services/host/tests/fixtures/node/rh3/run.sh
+#   sh crates/host/tests/fixtures/node/rh3/run.sh
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../../../../../../.." && pwd)

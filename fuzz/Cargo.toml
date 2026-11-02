@@ -17,37 +17,37 @@ publish = false
 cargo-fuzz = true
 
 [dependencies]
-admin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
+admin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
 # admin_request: the query parser the admin API runs
 async-graphql = { version = "7", default-features = false }
 libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # epic_manifest: Epic's download manifests and CDN chunks
-epic = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
+epic = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
 flate2 = "1"
 # history_bucket: what a restore reads back from the history bucket (DH4)
-history-ship = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
-host = { path = "../services/host", default-features = false, features = ["gateway", "content", "admin"] }
+history-ship = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
+host = { path = "../crates/host", default-features = false, features = ["gateway", "content", "admin"] }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
-module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
 http = "1"
 # network_directory: the directory's node-link messages (DN4); network_home, network_ticket: the home API's (DN5); network_admin: the admin relay's (DN11); network_logship: peer log shipping (DH7)
-network = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda", features = ["log-ship"] }
+network = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f", features = ["log-ship"] }
 # network_link: the certificate names the node link reads
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
-protocol = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
-proxy = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
-remote = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
+protocol = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
+proxy = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
+remote = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
 serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
 sha2 = "0.11"
 # launcher_host: the launcher's host.toml reader
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
-service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
+service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
 # history_record: change-log records read back during a restore (DH5)
-store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "19dde5c27bcb4395e9c480a7c0cefa1682881eda" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "7b9edff2b2e9023bbf691f29042c5bab3a19f22f" }
 url = "2"
 
 [[bin]]

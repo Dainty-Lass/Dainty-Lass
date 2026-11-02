@@ -80,10 +80,7 @@ jobs:
               - deny.toml
               - clippy.toml
               - rustfmt.toml
-              - bins/**
               - crates/**
-              - plugins/**
-              - services/**
               - launcher/src-tauri/**
               - fuzz/**
               - modules/**
@@ -108,10 +105,7 @@ jobs:
               - deny.toml
               - clippy.toml
               - rustfmt.toml
-              - bins/**
               - crates/**
-              - plugins/**
-              - services/**
               - launcher/src-tauri/**
               - fuzz/**
               - native/**
@@ -124,9 +118,9 @@ jobs:
               - .env.example
               - Cargo.toml
               - Cargo.lock
-              - plugins/network/**
-              - services/gateway-plugin/**
-              - services/host/**
+              - crates/network/**
+              - crates/gateway-plugin/**
+              - crates/host/**
               - crates/**
               - launcher/**
 

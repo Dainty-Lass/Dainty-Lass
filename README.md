@@ -34,7 +34,7 @@ git dependencies at one rev), the UI and the plan.
 
 | Folder | What |
 | --- | --- |
-| [root](.) | One cargo workspace: `services/` (`host`, and `gateway-plugin` and `content-plugin`, the libraries of dainty-lass's MIT gateway and content), `plugins/chat-plugin` (dainty-lass's chat as a library), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), `bins/`, and the game modules' crates |
+| [root](.) | One cargo workspace: `crates/` (`host`, the libraries of dainty-lass's MIT gateway, content and chat, and the server executables), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
 | [`modules/rustic-isles/`](modules/rustic-isles) | The Dauntless 1.14.7 game module (`isles-1-14-7`), `isles-core`, `isles-director`, `isles-chat`, the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | Peer-to-peer realms and the realm transport |
 | [`dashboard/`](dashboard) | The staff dashboard and the pages the launcher and DaintyLass Manager show |

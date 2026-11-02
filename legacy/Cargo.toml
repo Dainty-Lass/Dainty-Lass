@@ -1,9 +1,9 @@
 # DaintyLass's legacy plugin: imports old installs and upgrades them to DaintyLass (Dauntless 1.14.7 on rustic-isles).
-# crates/legacy-import holds the importers, modules/legacy the Plugin module DaintyLass runs out of process (DD5), so
+# crates/legacy-import holds the importers, crates/legacy the Plugin module DaintyLass runs out of process (DD5), so
 # this AGPL code never links into DaintyLass's MIT core. fuzz/ is a workspace of its own.
 [workspace]
 resolver = "3"
-members = ["crates/*", "modules/*"]
+members = ["crates/*"]
 exclude = ["fuzz"]
 
 [workspace.package]

@@ -6,7 +6,7 @@ This runbook documents the production shadow-replay workflow, the rollback switc
 
 ## 1. Turning On Gateway Traffic Capture (`RD19`, `RB2`)
 
-The Rust gateway (dainty-lass's `services/gateway`) includes a built-in traffic capture tap (`gateway::capture::CaptureWriter`). It is **off by default** and activates only when `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
+The Rust gateway (dainty-lass's `crates/gateway`) includes a built-in traffic capture tap (`gateway::capture::CaptureWriter`). It is **off by default** and activates only when `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
 
 ### 1.1 Configuration in `.workspace/config/gateway.env`
 

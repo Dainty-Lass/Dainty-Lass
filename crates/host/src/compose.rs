@@ -483,7 +483,7 @@ pub fn chat(options: ChatOptions) -> Result<Module, String> {
     ))
 }
 
-/// Chat as a library the core loads (RD27, `plugins/chat-plugin`): what [`chat`] runs compiled in.
+/// Chat as a library the core loads (RD27, `crates/chat-plugin`): what [`chat`] runs compiled in.
 pub fn chat_library(library: controller::ServiceLibrary, options: ChatOptions) -> controller::Module {
     let registry = options.registry.clone();
     let (env, setup) = chat_env_and_setup(options);

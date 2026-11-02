@@ -2,7 +2,7 @@
 
 > **Modified, unofficial version.** This repository (`silentspud/rustic-isles` on `git.silentspud.com`) is a modified,
 > unofficial version of [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (`21b9ff5` and tag
-> `dauntless-1.12.0` at `4d5dfaa`), maintained as the **Rustic Isles 1.14.7** (`modules/isles-1-14-7`) game module of
+> `dauntless-1.12.0` at `4d5dfaa`), maintained as the **Rustic Isles 1.14.7** (`crates/isles-1-14-7`) game module of
 > [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass). It is **not** an official release of the Mystic
 > Paradox project, and Mystic Paradox does not endorse it.
 >
@@ -10,7 +10,7 @@
 > Karande. See NOTICE.md for contribution and provenance information."
 >
 > The Rust workspace (`crates/isles-core`, `crates/isles-director`, `crates/isles-chat`, `crates/isles-db`,
-> `modules/isles-1-14-7`) is ported from Mystic Paradox's 1.14.7 backend and Director, on `store` (SQLite and
+> `crates/isles-1-14-7`) is ported from Mystic Paradox's 1.14.7 backend and Director, on `store` (SQLite and
 > Postgres). The Node reference under `reference/1.14.7` is the code it was ported from.
 
 <h1 align="center">Rustic Isles</h1>
@@ -73,7 +73,7 @@ Expect active development, not production-grade uptime. The Gauntlet is not avai
 
 | Folder | What it is |
 |---|---|
-| [`crates`](crates), [`modules/isles-1-14-7`](modules/isles-1-14-7) | The Rust backend, Director, chat and database tools, and the game module DaintyLass loads |
+| [`crates`](crates), [`crates/isles-1-14-7`](crates/isles-1-14-7) | The Rust backend, Director, chat and database tools, and the game module DaintyLass loads |
 | [`reference/1.14.7/ParadoxBackend`](reference/1.14.7/ParadoxBackend) | The Node account and metagame backend the Rust port came from (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) |
 | [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | The Node Director: starts and supervises the dedicated game servers for hubs and hunts |
 | [`native/runtime`](native/runtime) | `Rustic-Isles.dll`, the C++ runtime loaded into the client and servers to adapt them to the private backend (MSVC + MinHook) |

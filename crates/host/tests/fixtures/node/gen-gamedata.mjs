@@ -2,7 +2,7 @@
 // Node kit's own code: legacy/ReforgedHost/src/{progression,preset,gamepack,gamedata,captures,publish,paths,run}.ts,
 // copied to a temporary folder with their imports given the .ts extension and run by Node's type stripping.
 //
-//   node services/host/tests/fixtures/node/gen-gamedata.mjs
+//   node crates/host/tests/fixtures/node/gen-gamedata.mjs
 //
 // Everything is fixed (dates, bytes), so running it again writes the same files.
 import fs from "node:fs";

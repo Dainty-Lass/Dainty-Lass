@@ -66,7 +66,7 @@ dainty-lass removes now that this exists is [docs/dainty-lass-handover.md](docs/
 | --- | --- |
 | `crates/legacy-import` | The importers: `revived` (1.4.4 databases and saves), `reforged` (Node kits), `target` (1.14.7 accounts), `cli` |
 | `crates/legacy-import/sql`, `migrations` | Dauntless Revived's frozen Drizzle history and Diesel baseline, byte for byte |
-| `modules/legacy` | The plugin and the `dainty-legacy` executable |
+| `crates/legacy` | The plugin and the `dainty-legacy` executable |
 | `fuzz/` | `cargo fuzz` targets, a workspace of its own |
 
 ## Licence

@@ -21,8 +21,8 @@ lands in dainty-lass first, then the rev here moves, for every crate at once.
 
 | Path | What it is |
 | --- | --- |
-| root | One cargo workspace: `services/` (`host` = the AGPL shell around dainty-lass's `hostkit`, whose `compose.rs` composes the services into the controller; `gateway-plugin` and `content-plugin`, the libraries of dainty-lass's MIT `gateway` and `content`), `plugins/chat-plugin` (the library of dainty-lass's `chat`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), and the game modules' crates |
-| `modules/rustic-isles/` | The 1.14.7 game module (`modules/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of the root workspace |
+| root | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around dainty-lass's `hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of dainty-lass's MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-lass-server-console` and `dainty-lass-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
+| `modules/rustic-isles/` | The 1.14.7 game module (`crates/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of the root workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host` (the launcher's side), and `ParadoxTransport.dll` (`src/`) |
 | `dashboard/` | dainty-dashboard: the staff dashboard, and the launcher and server-manager pages the Tauri shells serve |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
@@ -40,8 +40,8 @@ opt-in `paradox` Cargo feature on `host` retains Rustic Isles's Node backend and
 `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 
 The server is one executable (RD26). Every service is a module of dainty-lass's `controller`, composed by
-`host::serve` (the AGPL ones through `services/host/src/compose.rs`) from the files `setup` writes, and still runnable
-alone as a hidden `dainty-lass-host <service>` subcommand (`services/host/src/cli.rs`), which Docker and `start` use.
+`host::serve` (the AGPL ones through `crates/host/src/compose.rs`) from the files `setup` writes, and still runnable
+alone as a hidden `dainty-lass-host <service>` subcommand (`crates/host/src/cli.rs`), which Docker and `start` use.
 RD27's phase 2 turns the AGPL services into libraries the MIT core loads at start; until then `compose.rs` links them.
 
 **Which repository a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
@@ -135,7 +135,7 @@ committed.
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
 (`service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
 **The env files are the host kit's output, not hand-written:** `reforged-host setup` writes them from
-`host.toml` and `secrets.env` (`services/host/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
+`host.toml` and `secrets.env` (`crates/host/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
 service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,
 and a line in the service's file. It is never a variable the host is told to export.
@@ -150,7 +150,7 @@ It's never a one-file change:
   today's behaviour.
 - **Use one of the server prefixes** (`REFORGED_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
   `start` clears the environment and passes on only the system's own variables plus the env file. Anything
-  matching `SERVER_PREFIXES` or `SERVER_NAMES` in `services/host/src/services.rs` is dropped from the shell,
+  matching `SERVER_PREFIXES` or `SERVER_NAMES` in `crates/host/src/services.rs` is dropped from the shell,
   so a stale setting left there never reaches a service. A name outside that list leaks in from whatever shell
   started the kit, so either pick a listed prefix or add the name to the list.
 - **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `host.toml`
@@ -270,8 +270,8 @@ Code copied from DR or Paradox keeps its attribution, and the integration pass r
 `NOTICE.md`.
 
 The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
-`service-kit`, `store`, `hostkit`, `launcher-kit`, `plugins/network`, `admin`, `bins`) set `license = "MIT"` in their
-own `Cargo.toml`; everything else (`services/host`, the `*-plugin` library crates, `launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
+`service-kit`, `store`, `hostkit`, `launcher-kit`, `crates/network`, `admin`, `bins`) set `license = "MIT"` in their
+own `Cargo.toml`; everything else (`crates/host`, the `*-plugin` library crates, `launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
 DR, Paradox or the Reforged Revival line: no file from those trees, no function rewritten from one while looking at it.
 Copying a DR or Paradox function into an MIT crate moves the crate back to `license.workspace = true` in the same
 commit, with the NOTICE line to match.

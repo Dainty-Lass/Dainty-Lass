@@ -9,7 +9,7 @@ contributions only (see `ADDITIONAL_TERMS.md`).
 
 This repository (`silentspud/rustic-isles` on `git.silentspud.com`) is a **modified, unofficial version** of Mystic
 Paradox (`github.com/pranav158/Mystic-Paradox`, up to `21b9ff5`, with tag `dauntless-1.12.0` at `4d5dfaa`), maintained as
-the Dauntless 1.14.7 (`modules/isles-1-14-7`) game module of
+the Dauntless 1.14.7 (`crates/isles-1-14-7`) game module of
 [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass). It is **not** an official release of the Mystic Paradox
 project, and Mystic Paradox does not endorse it. Every change is recorded in the commit history.
 
@@ -17,7 +17,7 @@ project, and Mystic Paradox does not endorse it. Every change is recorded in the
 > Karande. See NOTICE.md for contribution and provenance information."
 
 Every crate and file in this repository (`crates/isles-core`, `crates/isles-director`, `crates/isles-chat`,
-`crates/isles-db`, `modules/isles-1-14-7`, `reference/`, `native/` and `preset/`) is licensed
+`crates/isles-db`, `crates/isles-1-14-7`, `reference/`, `native/` and `preset/`) is licensed
 under `AGPL-3.0-only` ([LICENSE](LICENSE)) with Mystic Paradox's section 7 additional terms
 ([ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)). Mystic Paradox's own modification and provenance notices follow below.
 

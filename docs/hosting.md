@@ -180,7 +180,7 @@ servers' key) lives only in `secrets.env`.
 
 ### Secrets (`secrets.env`)
 
-`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in `services/host/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
+`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in `crates/host/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
 
 | Variable | Copied to | What |
 | --- | --- | --- |

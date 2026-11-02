@@ -2,7 +2,7 @@
 
 # Security checklist: `reforged-host start` (RX3)
 
-The checklist for `start` in `services/host` (MIGRATION_PLAN.md RH2, RD3, RD23): the supervisor that runs every
+The checklist for `start` in `crates/host` (MIGRATION_PLAN.md RH2, RD3, RD23): the supervisor that runs every
 server process. `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the host kit's cutover, copy this list into the cutover PR, check each item in the code (not

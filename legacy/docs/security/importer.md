@@ -2,7 +2,7 @@
 
 # Security checklist: the legacy importer
 
-The checklist for dainty-legacy's importers, `crates/legacy-import` and the `legacy` plugin in `modules/legacy`,
+The checklist for dainty-legacy's importers, `crates/legacy-import` and the `legacy` plugin in `crates/legacy`,
 in the shape of DaintyLass's `docs/security/*.md` (RX3).
 
 How to use it: before a release, check each item in the code (not from memory), link the code or test that shows it,
@@ -22,7 +22,7 @@ Whoever made the file chose every byte of it: a player's offline save in particu
 - **Process:** the plugin runs as its own process (DD5); stdout is the frame pipe, so it never prints there.
 
 Code: `revived/source.rs` (copy and bring forward), `revived/read.rs`, `revived/drsave.rs`, `target.rs`,
-`reforged/*.rs`, `cli.rs`, and `modules/legacy/src/lib.rs` (who may run a command).
+`reforged/*.rs`, `cli.rs`, and `crates/legacy/src/lib.rs` (who may run a command).
 
 Fuzz targets: `database_readers` (arbitrary bytes as a server database, an offline database and a `.drsave`) and
 `host_json` (arbitrary text as a host.json), in `fuzz/`.

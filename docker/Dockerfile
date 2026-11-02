@@ -29,14 +29,10 @@ ARG MONGO_IMAGE=mongo:8.0
 FROM scratch AS rust-sources
 COPY Cargo.toml Cargo.lock rust-toolchain.toml rustfmt.toml clippy.toml deny.toml /src/
 COPY .cargo/ /src/.cargo/
-COPY services/ /src/services/
-COPY plugins/ /src/plugins/
-COPY bins/ /src/bins/
+COPY crates/ /src/crates/
 COPY launcher/ /src/launcher/
 COPY ui/ /src/ui/
 COPY modules/rustic-isles/crates/ /src/modules/rustic-isles/crates/
-COPY modules/rustic-isles/modules/ /src/modules/rustic-isles/modules/
-COPY modules/rustic-isles/plugins/ /src/modules/rustic-isles/plugins/
 COPY modules/rustic-isles/docs/ /src/modules/rustic-isles/docs/
 COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ /src/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
 COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json /src/modules/rustic-isles/reference/1.14.7/ParadoxBackend/
