@@ -31,7 +31,9 @@ listens on loopback and trusts that the gateway already refused what must not re
   on, the capture folder (`CAPTURE_DIR`, written).
 
 Code: `services/gateway/src/` (`policy.rs`, `modules.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
-`feed.rs`, `capture.rs`, `cert.rs`, `config.rs`, `server.rs`, `main.rs`).
+`feed.rs`, `capture.rs`, `cert.rs`, `config.rs`, `server.rs`, `main.rs`), and as a library the core loads,
+`services/gateway-plugin/src/lib.rs` with dainty-lass's `crates/service-plugin/src/gateway.rs` and
+`crates/controller/src/service_library/gateway.rs` (RD27).
 
 Fuzz targets in `fuzz`:
 
@@ -118,6 +120,37 @@ first, and content and chat stay the gateway's own upstreams, so a module's rout
       port for 503 `module_unavailable`. An endpoint the registry gives off loopback is 502 `upstream_not_loopback`,
       so the secret header never leaves the machine whatever the registry says.
 - [ ] The access log's `route` is still the policy's (`backend`, `content`, `ws`), not the module's.
+
+### The library's boundary (RD27)
+
+The gateway and the allowlist can run as one library the core loads (`services/gateway-plugin`, a cdylib, through
+`controller::service_library::gateway` and `plugin-host`, which loads it only at the SHA-256 `host.toml` pins;
+dainty-lass's `docs/security/plugin-host.md`). The library is the gateway: the listener, TLS and the
+certificate, the policy, the proxying to backends, the node-link endpoint's admission and the capture all stay in
+it, and every item above holds there unchanged. Only control traffic crosses, as `service_plugin::gateway` messages
+in DD5's frames, and the library is in the core's process, so what crosses is a question of shape, not of trust.
+
+- [ ] The data plane never crosses: no request, answer or header of a player goes to the core. The parity tests pass
+      against the library (`services/gateway-plugin/tests/parity.rs`, the same harness as `tests/parity.rs`).
+- [ ] A peer's call reaches the core (`NodeCall`) only after the library's endpoint admitted it: a listed or added
+      peer, by its verified certificate, on a node link's route and method, the clocks agreeing and the body within
+      `MAX_MESSAGE`. The caller sent is the one the certificate named; the core's answer over `MAX_MESSAGE` is
+      refused by the endpoint as before (`tests/library.rs`).
+- [ ] A body crosses as base64 parts of 512 KiB under its call's id; one call's parts add up to 1 MiB at most and 64
+      calls at most have parts outstanding (`service_plugin::gateway::Parts`). A call over is answered `too_large`,
+      on both sides; a core that does not answer within 60 s is `failed` (502) to the peer, `unavailable` (503) to an
+      enrollment, and a refused region report (401).
+- [ ] `POST /__node/enroll` is answered by the core's handler only while the core has one (`Enroll { present }`);
+      without, the request goes through the policy and is refused as before. Region reports are shape-checked
+      (`parse_region_report`) in the library before they cross.
+- [ ] A module's endpoint comes only from the ports the core says the controller placed (`Placed`, before each
+      attach, then `running` once the module started), always on 127.0.0.1; a module not running is 503
+      `module_unavailable` as before.
+- [ ] Every message is a tagged enum that refuses unknown fields, and only the gateway library's extension takes
+      gateway messages: another library sending one breaks the protocol and is closed.
+- [ ] The library's log lines reach the core's log as frames after the library's own redaction (`linelog` to
+      `tracing` to `FromService::Log`); no secret is added to a message for it. The env the core sends at start is
+      the env file the host kit wrote, which the core read already.
 
 ### Limits
 

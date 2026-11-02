@@ -377,3 +377,75 @@ fn refused_udp_admission_logs_warn_with_instance_and_port_without_panicking() {
         "warn event must not log full client IP: {line}"
     );
 }
+
+/// The gateway library cargo built beside this test (target/<profile>/): `cargo build -p gateway-plugin` first.
+#[cfg(feature = "gateway")]
+async fn gateway_library() -> controller::ServiceLibrary {
+    let exe = std::env::current_exe().unwrap();
+    let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();
+    let path = profile.join(format!(
+        "{}gateway_plugin{}",
+        std::env::consts::DLL_PREFIX,
+        std::env::consts::DLL_SUFFIX
+    ));
+    assert!(
+        path.is_file(),
+        "{} is missing: run `cargo build -p gateway-plugin` before the tests (CI does)",
+        path.display()
+    );
+    controller::ServiceLibrary {
+        name: "gateway",
+        sha256: module_api::host::file_sha256(&path).await.unwrap(),
+        path,
+        serves: &[module_api::CoreCapability::Routes, module_api::CoreCapability::UdpPorts],
+    }
+}
+
+/// The first test again, with the allowlist in the gateway library the core loads (RD27).
+#[cfg(feature = "gateway")]
+#[tokio::test(flavor = "multi_thread")]
+async fn through_the_gateway_library_a_module_s_udp_range_is_guarded_and_taken_back() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut controller = ServerController::new("public", Vec::new());
+    let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+        .to_string();
+    let secret = "s".repeat(64);
+    let gateway_env = Env::from_pairs([
+        ("GATEWAY_BIND", "127.0.0.1"),
+        ("GATEWAY_TLS", "0"),
+        ("GATEWAY_PORT", port.as_str()),
+        ("GATEWAY_SECRET", secret.as_str()),
+        ("GATEWAY_ALLOWLIST", "0"),
+    ]);
+    let (gateway, _) = modules::gateway_library(
+        gateway_library().await,
+        &gateway_env,
+        modules::allowlist_in_library(&allowlist_env(dir.path())),
+        Some(registry.clone()),
+    )
+    .unwrap();
+    controller.add(gateway);
+    controller.set_registry(registry.clone());
+    controller.start_all().await.unwrap();
+    registry.add_entry(stub_entry()).unwrap();
+
+    eventually("the first rule", || applied(dir.path()) == ["8770-8777"]).await;
+    registry.load(&stub_id()).await.unwrap();
+    eventually("the module's range in the rule", || {
+        applied(dir.path())
+            .last()
+            .is_some_and(|ports| ports == "8770-8777,65010-65019")
+    })
+    .await;
+    registry.unload(&stub_id()).await.unwrap();
+    eventually("the range out of the rule", || {
+        applied(dir.path()).last().is_some_and(|ports| ports == "8770-8777")
+    })
+    .await;
+    controller.shutdown().await;
+}
