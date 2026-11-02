@@ -57,11 +57,8 @@ fuzz_target!(|data: &[u8]| {
         assert!(!pack.contains(['\\', '/']) && pack.chars().count() <= 120);
     }
 
-    // host.toml and a Node kit's host.json
-    for config in [parse::server_config(&text), parse::server_config_toml(&text)]
-        .into_iter()
-        .flatten()
-    {
+    // host.toml
+    if let Some(config) = parse::server_config_toml(&text) {
         if let Some((xp, rewards)) = config.multipliers {
             // What goes back to `reforged-host multipliers` as arguments
             for n in [xp, rewards] {

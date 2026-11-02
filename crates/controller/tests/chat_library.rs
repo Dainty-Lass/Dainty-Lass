@@ -19,6 +19,10 @@ use service_kit::context::ComponentPhase;
 use service_kit::env::Env;
 use service_plugin::chat::{ChatNetwork, ChatSetup};
 
+#[path = "support/watchdog.rs"]
+mod watchdog;
+use watchdog::watchdog;
+
 fn chat_library_path() -> PathBuf {
     static BUILT: OnceLock<PathBuf> = OnceLock::new();
     BUILT
@@ -111,11 +115,13 @@ fn lines(file: &Path) -> Vec<String> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_chat_library_reaches_modules_home_events_and_peers_through_the_core() {
+    let _watchdog = watchdog("the chat library run", Duration::from_secs(180));
     reaches_modules_home_events_and_peers(Some(chat_library_path())).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_same_chat_compiled_in_behaves_the_same() {
+    let _watchdog = watchdog("the compiled-in chat run", Duration::from_secs(180));
     reaches_modules_home_events_and_peers(None).await;
 }
 
@@ -218,6 +224,7 @@ async fn reaches_modules_home_events_and_peers(path: Option<PathBuf>) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_chat_library_run_outside_chat_library_gets_no_setup() {
+    let _watchdog = watchdog("the library without setup", Duration::from_secs(180));
     let path = chat_library_path();
     let library = ServiceLibrary {
         name: "chat",
@@ -230,6 +237,7 @@ async fn a_chat_library_run_outside_chat_library_gets_no_setup() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_chat_compiled_in_outside_chat_compiled_in_gets_no_setup() {
+    let _watchdog = watchdog("the compiled-in without setup", Duration::from_secs(180));
     no_setup(controller::service_compiled_in(
         chat_service::Chat::default,
         Env::from_pairs([]),

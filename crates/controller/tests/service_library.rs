@@ -50,20 +50,9 @@ fn echo_library() -> PathBuf {
         .clone()
 }
 
-/// Aborts the test binary if a test outlives `limit`: a library stuck in its process would otherwise hold CI forever.
-// Dropped at the end of the test, which ends the wait
-struct Watchdog(#[allow(dead_code)] std::sync::mpsc::Sender<()>);
-
-fn watchdog(test: &'static str, limit: Duration) -> Watchdog {
-    let (done, wait) = std::sync::mpsc::channel::<()>();
-    std::thread::spawn(move || {
-        if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) = wait.recv_timeout(limit) {
-            eprintln!("{test} ran past {limit:?}: aborting the test binary");
-            std::process::abort();
-        }
-    });
-    Watchdog(done)
-}
+#[path = "support/watchdog.rs"]
+mod watchdog;
+use watchdog::watchdog;
 
 async fn eventually(what: &str, mut check: impl FnMut() -> bool) {
     // 30 s: a freshly built library is scanned and loaded slowly on a busy machine
@@ -179,6 +168,7 @@ async fn exercise(built: Built) {
 
 #[tokio::test]
 async fn a_service_library_that_does_not_match_its_pin_never_runs() {
+    let _watchdog = watchdog("the pin check", Duration::from_secs(180));
     let path = echo_library();
     let library = ServiceLibrary {
         name: "echo",

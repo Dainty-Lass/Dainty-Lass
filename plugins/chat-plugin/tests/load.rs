@@ -227,6 +227,16 @@ async fn players_chat_through_the_library_the_core_loads() {
         "{} is missing: run `cargo build -p chat-plugin` before the tests (CI does)",
         path.display()
     );
+    exercise(Some(path)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn players_chat_the_same_with_chat_compiled_in() {
+    exercise(None).await;
+}
+
+/// The whole script, with chat from its library (`Some`) or compiled in: both must pass it unchanged.
+async fn exercise(library: Option<PathBuf>) {
     let dir = tempfile::tempdir().unwrap();
     let database = dir.path().join("dainty.db");
     let env = Env::from_pairs([
@@ -238,19 +248,25 @@ async fn players_chat_through_the_library_the_core_loads() {
     let mut controller = ServerController::new("private", Vec::new());
     let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
     let mut events = registry.subscribe_events();
-    let library = ServiceLibrary {
-        name: "chat",
-        sha256: file_sha256(&path).await.unwrap(),
-        path,
-        serves: &[],
-    };
     let setup = ChatSetup {
         node: NodeIdentity::standalone(),
         network: None,
     };
-    controller.add(controller::service_library::chat_library(
-        library, env, &registry, setup,
-    ));
+    let module = match library {
+        Some(path) => {
+            let library = ServiceLibrary {
+                name: "chat",
+                sha256: file_sha256(&path).await.unwrap(),
+                path,
+                serves: &[],
+            };
+            controller::service_library::chat_library(library, env, &registry, setup)
+        }
+        None => {
+            controller::service_library::chat_compiled_in(chat::service::ChatService::default, env, &registry, setup)
+        }
+    };
+    controller.add(module);
     registry
         .add_entry(ModuleEntry {
             id: "stub".parse().unwrap(),

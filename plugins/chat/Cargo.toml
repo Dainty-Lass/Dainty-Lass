@@ -29,6 +29,8 @@ rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 service-kit.workspace = true
+# chat::service: the same service compiled in or as chat-plugin's library (RD27)
+service-plugin.workspace = true
 sha2.workspace = true
 store.workspace = true
 subtle.workspace = true

@@ -523,6 +523,7 @@ dependencies = [
  "serde",
  "serde_json",
  "service-kit",
+ "service-plugin",
  "sha2",
  "store",
  "subtle",
@@ -544,15 +545,11 @@ dependencies = [
  "controller",
  "futures-util",
  "module-api",
- "network",
- "serde_json",
  "service-kit",
  "service-plugin",
- "store",
  "tempfile",
  "tokio",
  "tokio-tungstenite",
- "tracing",
 ]
 
 [[package]]

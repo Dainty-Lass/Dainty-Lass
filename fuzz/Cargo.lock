@@ -497,6 +497,7 @@ dependencies = [
  "serde",
  "serde_json",
  "service-kit",
+ "service-plugin",
  "sha2",
  "store",
  "subtle",
