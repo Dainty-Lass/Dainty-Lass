@@ -234,10 +234,11 @@ async fn a_modules_ports_join_and_leave_the_rule() {
     let helper = Helper::new(config.clone(), applier_for(&config)).unwrap();
     let running = helper.start().await.unwrap();
     assert!(helper.allow_ip("203.0.113.7"));
+    let realms: module_api::ModuleId = "realms".parse().unwrap();
     helper
         .guard()
         .attach(
-            "realms",
+            &realms,
             &[PortRange {
                 first: 64000,
                 last: 64009,
@@ -247,7 +248,7 @@ async fn a_modules_ports_join_and_leave_the_rule() {
     assert!(helper.sync().settled(Duration::from_secs(5)).await);
     assert!(helper.is_admitted("203.0.113.7", 64005));
     assert_eq!(helper.status()["modulePorts"], json!({"realms": ["64000-64009"]}));
-    helper.guard().detach("realms");
+    helper.guard().detach(&realms);
     assert!(helper.sync().settled(Duration::from_secs(5)).await);
     assert!(!helper.is_admitted("203.0.113.7", 64005));
     helper.close(running).await.unwrap();
@@ -277,13 +278,13 @@ async fn a_logged_in_players_ports_open_through_the_gateway() {
     let backend = upstream("backend").await;
     let env = env(None, backend.port, backend.port, None, &[]);
     let gw_config = gateway::config::Config::from_env(&env).unwrap();
-    let feed = gateway::feed::AllowlistFeed::from_in_process(Arc::new(HelperSink(Arc::downgrade(&helper))));
-    let gw = gateway::gateway::Gateway::new(gw_config, None, feed, None).unwrap();
+    let feed = gateway::feed::AllowlistFeed::from_in_process(HelperSink(Arc::downgrade(&helper)).into_sink());
+    let gw = gateway::gateway::Gateway::new(gw_config, None, Some(feed), None).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
     let serving = tokio::spawn(async move {
-        gw.serve(listener, async move {
+        gw.serve_until(listener, async move {
             _ = rx.await;
         })
         .await;

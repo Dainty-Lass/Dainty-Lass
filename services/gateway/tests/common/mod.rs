@@ -35,14 +35,17 @@ pub async fn serial() -> tokio::sync::MutexGuard<'static, ()> {
     LOCK.lock().await
 }
 
-fn log() -> &'static Mutex<Vec<String>> {
-    static LOG: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
+type Log = Arc<Mutex<Vec<(service_kit::linelog::Level, Value)>>>;
+
+fn log() -> &'static Log {
+    static LOG: OnceLock<Log> = OnceLock::new();
     LOG.get_or_init(|| {
         service_kit::linelog::set_level(service_kit::linelog::Level::Debug);
-        service_kit::linelog::set_sink(Some(Box::new(|line, _| {
-            log().lock().unwrap().push(line.to_owned());
+        service_kit::linelog::set_sink(Some(Box::new(|line, level| {
+            let line = serde_json::from_str(line).unwrap_or_else(|_| Value::String(line.to_owned()));
+            log().lock().unwrap().push((level, line));
         })));
-        Mutex::default()
+        Log::default()
     })
 }
 
@@ -50,15 +53,17 @@ pub fn log_len() -> usize {
     log().lock().unwrap().len()
 }
 
-pub fn log_lines() -> Vec<String> {
-    log().lock().unwrap().clone()
+/// This process's linelog lines with their levels, as they are written.
+pub fn log_lines() -> Log {
+    log().clone()
+}
+
+pub fn log_texts() -> Vec<String> {
+    log().lock().unwrap().iter().map(|(_, line)| line.to_string()).collect()
 }
 
 pub fn log_since(at: usize) -> Vec<Value> {
-    log().lock().unwrap()[at..]
-        .iter()
-        .map(|l| serde_json::from_str(l).unwrap())
-        .collect()
+    log().lock().unwrap()[at..].iter().map(|(_, l)| l.clone()).collect()
 }
 
 /// The access lines since `at`.
@@ -69,20 +74,20 @@ pub fn requests_since(at: usize) -> Vec<Value> {
 /// A certificate for 127.0.0.1 and localhost, and its fingerprint.
 pub struct TestCert {
     pub dir: tempfile::TempDir,
-    pub cert: PathBuf,
-    pub key: PathBuf,
+    pub cert_file: PathBuf,
+    pub key_file: PathBuf,
     pub fingerprint: String,
 }
 
 impl TestCert {
     pub fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let (cert, key) = (dir.path().join("gateway-cert.pem"), dir.path().join("gateway-key.pem"));
-        let (loaded, _) = gateway::cert::load_or_generate(&cert, &key, &[]).unwrap();
+        let (cert_file, key_file) = (dir.path().join("gateway-cert.pem"), dir.path().join("gateway-key.pem"));
+        let (loaded, _) = gateway::cert::load_or_generate(&cert_file, &key_file, &[]).unwrap();
         Self {
             dir,
-            cert,
-            key,
+            cert_file,
+            key_file,
             fingerprint: loaded.info.fingerprint,
         }
     }
@@ -100,8 +105,8 @@ pub fn env(cert: Option<&TestCert>, backend: u16, content: u16, helper: Option<u
     ];
     match cert {
         Some(c) => {
-            pairs.push(("GATEWAY_CERT".into(), c.cert.display().to_string()));
-            pairs.push(("GATEWAY_KEY".into(), c.key.display().to_string()));
+            pairs.push(("GATEWAY_CERT".into(), c.cert_file.display().to_string()));
+            pairs.push(("GATEWAY_KEY".into(), c.key_file.display().to_string()));
         }
         None => pairs.push(("GATEWAY_TLS".into(), "0".into())),
     }
@@ -121,12 +126,16 @@ pub fn env(cert: Option<&TestCert>, backend: u16, content: u16, helper: Option<u
 /// A gateway serving on a free loopback port until stopped.
 pub struct Running {
     pub port: u16,
-    pub gateway: Gateway,
+    pub gateway: Arc<Gateway>,
     stop: Option<tokio::sync::oneshot::Sender<()>>,
     task: tokio::task::JoinHandle<()>,
 }
 
 impl Running {
+    pub async fn close(self) {
+        self.stop().await;
+    }
+
     pub async fn stop(mut self) {
         if let Some(stop) = self.stop.take() {
             _ = stop.send(());
@@ -140,14 +149,14 @@ pub async fn start(env: &Env) -> Running {
     let tls = gateway::server::load_tls(&config).unwrap();
     let capture = gateway::server::load_capture(env).unwrap();
     let feed = AllowlistFeed::new(config.allowlist.as_ref());
-    let gateway = Gateway::new(config, tls, feed, capture).unwrap();
+    let gateway = Gateway::new(config, tls, Some(feed), capture).unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
     let serving = gateway.clone();
     let task = tokio::spawn(async move {
         serving
-            .serve(listener, async move {
+            .serve_until(listener, async move {
                 _ = rx.await;
             })
             .await;
@@ -381,6 +390,30 @@ pub struct Upstream {
     pub seen: Arc<Mutex<Vec<Value>>>,
 }
 
+/// One request an upstream saw.
+pub struct Seen {
+    pub url: String,
+    pub headers: std::collections::HashMap<String, String>,
+}
+
+impl Upstream {
+    pub fn count(&self) -> usize {
+        self.seen.lock().unwrap().len()
+    }
+
+    pub fn last(&self) -> Seen {
+        let last = self.seen.lock().unwrap().last().cloned().unwrap();
+        let headers = last["headers"].as_object().cloned().unwrap_or_default();
+        Seen {
+            url: last["url"].as_str().unwrap_or_default().to_owned(),
+            headers: headers
+                .into_iter()
+                .map(|(k, v)| (k, v.as_str().unwrap_or_default().to_owned()))
+                .collect(),
+        }
+    }
+}
+
 fn accept_key(key: &str) -> String {
     use sha1::Digest as _;
     let digest = sha1::Sha1::digest(format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").as_bytes());
@@ -594,3 +627,7 @@ pub async fn fake_helper(status: u16) -> (u16, Arc<Mutex<Vec<String>>>) {
     });
     (port, seen)
 }
+
+mod compat;
+#[allow(unused_imports)] // not every test calls the moved tests' helpers
+pub use compat::*;

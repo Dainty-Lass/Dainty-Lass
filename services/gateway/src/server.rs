@@ -17,7 +17,7 @@ use crate::config::Config;
 use crate::feed::{AllowlistFeed, InProcessSink};
 use crate::gateway::{Gateway, Tls};
 use crate::modules::ModuleRoutes;
-use crate::network::RegionHandler;
+use crate::network::RegionReportHandler;
 use crate::nodelink::NodeLinks;
 
 const THIRTY_DAYS_MS: i64 = 30 * 86_400_000;
@@ -111,11 +111,11 @@ fn rate(spec: crate::ratelimit::BucketSpec) -> serde_json::Value {
 pub async fn run_with_network(
     config: Config,
     capture: Option<Capture>,
-    in_process_sink: Option<Arc<dyn InProcessSink>>,
+    in_process_sink: Option<InProcessSink>,
     mut ctx: ServiceContext,
     routes: Option<Arc<ModuleRoutes>>,
     node_link_slot: Option<NodeLinkSlot>,
-    region_handler: Option<RegionHandler>,
+    region_handler: Option<RegionReportHandler>,
 ) -> Result<(), String> {
     let status = ctx.status().clone();
     status.starting();
@@ -135,19 +135,23 @@ pub async fn run_with_network(
             json!({}),
         );
     }
-    let routes = routes.unwrap_or_else(|| Arc::new(ModuleRoutes::with_stand_in(&config.version, &config.backend)));
-    let gateway = Gateway::with_routes(config.clone(), tls, feed, capture, routes).map_err(fail)?;
-    gateway.set_region_handler(region_handler);
+    let routes = match routes {
+        Some(routes) => routes,
+        None => Arc::new(ModuleRoutes::standalone(&config).map_err(fail)?),
+    };
+    let gateway = Gateway::with_routes(config.clone(), tls, Some(feed), capture, routes).map_err(fail)?;
+    if let Some(handler) = region_handler {
+        gateway.set_region_handler(handler);
+    }
     let listen = config.listen_address();
     let listener = tokio::net::TcpListener::bind(&listen)
         .await
         .map_err(|e| fail(format!("Could not listen on {listen}: {e}")))?;
-    if let Some(links) = &config.node_links {
-        let links = Arc::new(NodeLinks::load(links).map_err(fail)?);
-        let info = links.info();
+    if let (Some(link_config), Some(links)) = (&config.node_links, gateway.node_links()) {
+        let info = links.certificate();
         let fields = json!({
-            "node": links.identity().node.to_string(),
-            "region": links.identity().region.to_string(),
+            "node": link_config.identity.node.to_string(),
+            "region": link_config.identity.region.to_string(),
             "fingerprint": info.fingerprint,
             "certificateValidUntil": iso(info.not_after * 1000),
         });
@@ -158,7 +162,6 @@ pub async fn run_with_network(
                 fields,
             );
         }
-        gateway.set_node_links(Some(links.clone()));
         if let Some(slot) = &node_link_slot {
             *slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(links);
         }
@@ -205,7 +208,7 @@ pub async fn run_with_network(
     let grace_ms = config.timeouts.shutdown_grace.as_millis() as u64;
     let stopping = status.clone();
     gateway
-        .serve(listener, async move {
+        .serve_until(listener, async move {
             ctx.wait_stop().await;
             stopping.stopping();
             linelog::info("stopping", json!({ "signal": "stop", "graceMs": grace_ms }));

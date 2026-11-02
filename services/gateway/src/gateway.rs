@@ -45,7 +45,7 @@ use crate::feed::AllowlistFeed;
 use crate::guard::{Guard, Phases};
 use crate::ip::{peer_address, rate_limit_key};
 use crate::modules::ModuleRoutes;
-use crate::network::{RegionHandler, RegionReport};
+use crate::network::RegionReportHandler;
 use crate::nodelink::NodeLinks;
 use crate::policy::{Decision, FeedKind, LimitClass, NetworkRoute, Upstream, has_bearer};
 use crate::ratelimit::{RateLimiter, Take};
@@ -130,7 +130,7 @@ struct Shared {
     closing: watch::Sender<bool>,
     abort: watch::Sender<bool>,
     node_links: RwLock<Option<Arc<NodeLinks>>>,
-    region: RwLock<Option<RegionHandler>>,
+    region: RwLock<Option<RegionReportHandler>>,
     client: Client<HttpConnector, UpBody>,
     throttle: Throttle,
 }
@@ -521,20 +521,22 @@ impl Gateway {
     pub fn new(
         config: Config,
         tls: Option<Tls>,
-        feed: AllowlistFeed,
+        feed: Option<AllowlistFeed>,
         capture: Option<Capture>,
-    ) -> Result<Self, String> {
-        let routes = Arc::new(ModuleRoutes::with_stand_in(&config.version, &config.backend));
+    ) -> Result<Arc<Self>, String> {
+        let routes = Arc::new(ModuleRoutes::standalone(&config)?);
         Self::with_routes(config, tls, feed, capture, routes)
     }
 
+    /// `feed` `None` is no feed; node links are loaded when the config names them (section 9.1).
     pub fn with_routes(
         config: Config,
         tls: Option<Tls>,
-        feed: AllowlistFeed,
+        feed: Option<AllowlistFeed>,
         capture: Option<Capture>,
         routes: Arc<ModuleRoutes>,
-    ) -> Result<Self, String> {
+    ) -> Result<Arc<Self>, String> {
+        let feed = feed.unwrap_or_else(|| AllowlistFeed::new(None));
         match (config.tls, &tls) {
             (true, None) => return Err("the TLS gateway needs its certificate and key".to_owned()),
             (false, Some(_)) => {
@@ -549,7 +551,7 @@ impl Gateway {
             .pool_max_idle_per_host(64)
             .pool_idle_timeout(Duration::from_secs(30))
             .build(connector);
-        Ok(Self(Arc::new(Shared {
+        let gateway = Arc::new(Self(Arc::new(Shared {
             limiters: Limiters {
                 general: RateLimiter::new(rates.general),
                 content: RateLimiter::new(rates.content),
@@ -570,7 +572,11 @@ impl Gateway {
             region: RwLock::default(),
             client,
             throttle: Throttle::new(60_000),
-        })))
+        })));
+        if let Some(links) = &gateway.0.config.node_links {
+            gateway.set_node_links(Some(Arc::new(NodeLinks::load(links)?)));
+        }
+        Ok(gateway)
     }
 
     pub fn config(&self) -> &Config {
@@ -593,8 +599,8 @@ impl Gateway {
         &self.0.feed
     }
 
-    pub fn set_region_handler(&self, handler: Option<RegionHandler>) {
-        *self.0.region.write().unwrap_or_else(PoisonError::into_inner) = handler;
+    pub fn set_region_handler(&self, handler: RegionReportHandler) {
+        *self.0.region.write().unwrap_or_else(PoisonError::into_inner) = Some(handler);
     }
 
     pub fn node_links(&self) -> Option<Arc<NodeLinks>> {
@@ -616,8 +622,20 @@ impl Gateway {
         }
     }
 
+    /// Serves until `stop` turns true.
+    pub async fn serve(self: Arc<Self>, listener: TcpListener, mut stop: watch::Receiver<bool>) {
+        self.serve_until(listener, async move {
+            while !*stop.borrow_and_update() {
+                if stop.changed().await.is_err() {
+                    std::future::pending::<()>().await;
+                }
+            }
+        })
+        .await;
+    }
+
     /// Serves until `stop`, then shuts down gracefully within the grace, and lets the feed send what it queued.
-    pub async fn serve(&self, listener: TcpListener, stop: impl Future<Output = ()>) {
+    pub async fn serve_until(&self, listener: TcpListener, stop: impl Future<Output = ()>) {
         let sweeper = {
             let gateway = self.clone();
             tokio::spawn(async move {
@@ -728,7 +746,7 @@ impl Gateway {
                     .is_some_and(|mut names| names.any(|n| n == NODE_ALPN))
             });
             let config = match (&links, node) {
-                (Some(links), true) => links.server_config(),
+                (Some(links), true) => links.server_config().clone(),
                 _ => tls.config.clone(),
             };
             let stream = start.into_stream(config).await?;
@@ -752,7 +770,7 @@ impl Gateway {
             self.serve_http(stream, ip, key, None).await;
             return;
         }
-        let caller = stream.get_ref().1.peer_certificates().and_then(NodeLinks::caller);
+        let caller = crate::nodelink::caller(stream.get_ref().1.peer_certificates()).map(|caller| caller.node);
         match caller {
             Some(caller) => self.serve_http(stream, ip, key, Some(caller)).await,
             None => self.warn_throttled(
@@ -946,7 +964,7 @@ impl Gateway {
         }
         if req.method() == Method::POST
             && req.uri().path() == "/__node/enroll"
-            && let Some(handler) = self.node_links().and_then(|l| l.enroll())
+            && let Some(handler) = self.node_links().and_then(|l| l.enroll_handler())
         {
             return self.enroll(req, conn, started, handler).await;
         }
@@ -966,7 +984,7 @@ impl Gateway {
         let close = has_body(req.headers());
         let config = &self.0.config;
         let routed = self.0.routes.route(
-            &config.version,
+            &config.version.to_string(),
             &config.version,
             req.method().as_str(),
             &access.target,
@@ -987,7 +1005,7 @@ impl Gateway {
         };
         let endpoint = match upstream {
             Upstream::Content => Some(config.content.clone()),
-            Upstream::Chat => routed.endpoint.or_else(|| Some(config.ws.clone())),
+            Upstream::Ws => routed.endpoint.or_else(|| Some(config.ws.clone())),
             Upstream::Backend => routed.endpoint,
         };
         let Some(endpoint) = endpoint else {
@@ -1117,12 +1135,7 @@ impl Gateway {
                 };
                 let handler = self.0.region.read().unwrap_or_else(PoisonError::into_inner).clone();
                 if let Some(handler) = handler {
-                    let accepted = handler(RegionReport {
-                        api_key,
-                        ticket,
-                        regions,
-                    })
-                    .await;
+                    let accepted = handler(api_key, ticket, regions).await;
                     if !accepted {
                         let r = self.refusal(401, "unauthorized", false, None);
                         return self.answer(access, r, Some("invalid_credentials".into()));
@@ -1139,7 +1152,7 @@ impl Gateway {
         req: Request<Incoming>,
         conn: Conn,
         started: std::time::Instant,
-        handler: crate::nodelink::EnrollHandler,
+        handler: crate::network::EnrollHandler,
     ) -> Response<GwBody> {
         let mut access = self.access(&conn, &req, started);
         access.route = "enroll";
@@ -1206,7 +1219,7 @@ impl Gateway {
             access.reason = Some(wire::code::NOT_FOUND.to_owned());
             return self.json_reply(access, 404, body, None, false);
         };
-        let endpoint = links.endpoint().clone();
+        let endpoint = links.endpoint();
         let had_body = has_body(req.headers());
         let times: Vec<&HeaderValue> = req.headers().get_all(wire::TIME_HEADER).iter().collect();
         let time = match times.as_slice() {
@@ -1259,7 +1272,7 @@ impl Gateway {
         }
         let config = &self.0.config;
         let routed = self.0.routes.route(
-            &config.version,
+            &config.version.to_string(),
             &config.version,
             req.method().as_str(),
             &access.target,

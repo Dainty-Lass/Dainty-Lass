@@ -26,7 +26,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # epic_manifest: Epic's download manifests and CDN chunks
 epic = { path = "../crates/epic" }
 flate2 = "1"
-# gateway_policy, gateway_capture, allowlist_input: the policy, the capture's redaction, the helper's input (RD27)
+# gateway_policy, gateway_capture, allowlist_input, gateway_modules, gateway_network: the policy, the capture's redaction, the helper's input, the module routes, the region routes (RD27)
 gateway = { path = "../services/gateway" }
 # history_bucket: what a restore reads back from the history bucket (DH4)
 history-ship = { path = "../crates/history-ship" }
@@ -199,6 +199,20 @@ bench = false
 [[bin]]
 name = "allowlist_input"
 path = "fuzz_targets/allowlist_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "gateway_modules"
+path = "fuzz_targets/gateway_modules.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "gateway_network"
+path = "fuzz_targets/gateway_network.rs"
 test = false
 doc = false
 bench = false

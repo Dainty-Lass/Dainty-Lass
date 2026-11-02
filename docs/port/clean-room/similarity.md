@@ -318,6 +318,57 @@ for (const [oldRel, newRel] of pairs) {
 | `crates/launcher-kit/src/platform/requirements.rs` | 324 | 311 | 55 | **17.7%** |
 | `crates/launcher-kit/src/platform/system.rs` | 171 | 142 | 14 | **9.9%** |
 
+### 2.8 `services/gateway` (31 Category B files vs restricted `92c5e5b` and DR `24b7624`, RD27)
+
+Measured on the files after integration (branch `feat/rd27-gateway-mit-int`). The old side is the restricted namesake
+at `92c5e5b` (`feat/rd27-same-both-ways`), paths under `services/gateway/` and `fuzz/`; the DR column is the best single
+file of DR's gateway at legacy-revived `24b7624` and `cfcad3eb` (`rust/services/gateway/**/*.rs` and the gateway and
+allowlist fuzz targets; the two revisions differ only in `feed.rs`). "Any" counts a line matched by a 3+-line run in any
+file of that tree (restricted: `services/gateway{,-plugin}/**/*.rs` and the gateway fuzz targets). The provenance
+record (`docs/port/clean-room/gateway.md` §6) has the per-run reading.
+
+| File | Restricted namesake (old lines) | New lines | Matched (3+-line runs) | Similarity | Any restricted, % | Best DR file | DR matched | DR % | Any DR, % |
+| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| `src/lib.rs` | `src/lib.rs` (20) | 41 | 20 | **48.8** | 48.8 | `src/lib.rs@24b7624` | 10 | 24.4 | 24.4 |
+| `src/cli.rs` | `src/cli.rs` (60) | 60 | 3 | **5.0** | 15.0 | `src/bin/allowlist.rs@24b7624` | 6 | 10.0 | 15.0 |
+| `src/server.rs` | `src/server.rs` (225) | 200 | 50 | **25.0** | 25.0 | `src/server.rs@24b7624` | 24 | 12.0 | 12.0 |
+| `src/config.rs` | `src/config.rs` (514) | 516 | 129 | **25.0** | 25.6 | `src/config.rs@24b7624` | 86 | 16.7 | 17.6 |
+| `src/policy.rs` | `src/policy.rs` (870) | 595 | 209 | **35.1** | 36.3 | `src/policy.rs@24b7624` | 145 | 24.4 | 24.9 |
+| `src/gateway.rs` | `src/gateway.rs` (1489) | 1342 | 217 | **16.2** | 16.9 | `src/gateway.rs@24b7624` | 193 | 14.4 | 14.7 |
+| `src/guard.rs` | `src/guard.rs` (326) | 419 | 72 | **17.2** | 20.3 | `src/guard.rs@24b7624` | 72 | 17.2 | 20.0 |
+| `src/ip.rs` | `src/ip.rs` (433) | 329 | 51 | **15.5** | 17.9 | `src/ip.rs@24b7624` | 51 | 15.5 | 17.6 |
+| `src/ratelimit.rs` | `src/ratelimit.rs` (158) | 215 | 40 | **18.6** | 19.1 | `src/ratelimit.rs@24b7624` | 40 | 18.6 | 19.1 |
+| `src/redact.rs` | `src/redact.rs` (209) | 128 | 32 | **25.0** | 25.8 | `src/redact.rs@24b7624` | 32 | 25.0 | 25.8 |
+| `src/feed.rs` | `src/feed.rs` (370) | 234 | 35 | **15.0** | 18.4 | `src/feed.rs@24b7624` | 35 | 15.0 | 18.4 |
+| `src/capture.rs` | `src/capture.rs` (941) | 850 | 160 | **18.8** | 19.5 | `src/gateway.rs@24b7624` | 36 | 4.2 | 5.6 |
+| `src/cert.rs` | `src/cert.rs` (418) | 489 | 44 | **9.0** | 11.7 | `src/cert.rs@24b7624` | 40 | 8.2 | 10.6 |
+| `src/allowlist/mod.rs` | `src/allowlist/mod.rs` (12) | 12 | 12 | **100.0** | 100.0 | `src/allowlist/mod.rs@24b7624` | 4 | 33.3 | 33.3 |
+| `src/allowlist/cli.rs` | `src/allowlist/cli.rs` (111) | 40 | 3 | **7.5** | 15.0 | `src/allowlist/helper.rs@24b7624` | 3 | 7.5 | 15.0 |
+| `src/allowlist/config.rs` | `src/allowlist/config.rs` (283) | 201 | 46 | **22.9** | 23.9 | `src/allowlist/config.rs@24b7624` | 21 | 10.4 | 15.9 |
+| `src/allowlist/ports.rs` | `src/allowlist/ports.rs` (92) | 92 | 28 | **30.4** | 40.2 | `src/allowlist/firewall.rs@24b7624` | 10 | 10.9 | 19.6 |
+| `src/allowlist/nft.rs` | `src/allowlist/nft.rs` (585) | 312 | 85 | **27.2** | 27.9 | `src/allowlist/firewall.rs@24b7624` | 19 | 6.1 | 8.0 |
+| `src/allowlist/firewall.rs` | `src/allowlist/firewall.rs` (326) | 251 | 76 | **30.3** | 31.5 | `src/allowlist/firewall.rs@24b7624` | 36 | 14.3 | 15.9 |
+| `src/allowlist/windows.rs` | `src/allowlist/windows.rs` (193) | 175 | 22 | **12.6** | 16.0 | `src/allowlist/windows.rs@24b7624` | 22 | 12.6 | 14.3 |
+| `src/allowlist/helper.rs` | `src/allowlist/helper.rs` (635) | 666 | 118 | **17.7** | 20.3 | `src/allowlist/helper.rs@24b7624` | 94 | 14.1 | 17.0 |
+| `src/allowlist/state.rs` | `src/allowlist/state.rs` (146) | 201 | 35 | **17.4** | 21.4 | `src/allowlist/state.rs@24b7624` | 35 | 17.4 | 21.4 |
+| `src/allowlist/sync.rs` | `src/allowlist/sync.rs` (306) | 284 | 77 | **27.1** | 27.5 | `src/allowlist/sync.rs@24b7624` | 69 | 24.3 | 25.0 |
+| `tests/common/mod.rs` | `tests/common/mod.rs` (650) | 554 | 74 | **13.4** | 13.5 | `tests/common/mod.rs@24b7624` | 77 | 13.9 | 13.9 |
+| `tests/gateway.rs` | `tests/gateway.rs` (961) | 285 | 6 | **2.1** | 2.1 | `tests/allowlist.rs@24b7624` | 3 | 1.1 | 1.1 |
+| `tests/limits.rs` | `tests/limits.rs` (453) | 187 | 0 | **0.0** | 0.0 | `-` | 0 | 0.0 | 0.0 |
+| `tests/allowlist.rs` | `tests/allowlist.rs` (812) | 281 | 6 | **2.1** | 6.0 | `tests/gateway.rs@24b7624` | 14 | 5.0 | 6.0 |
+| `tests/certificate.rs` | `tests/certificate.rs` (101) | 57 | 0 | **0.0** | 5.3 | `src/allowlist/firewall.rs@24b7624` | 3 | 5.3 | 5.3 |
+| `fuzz/gateway_policy.rs` | `fuzz/gateway_policy.rs` (70) | 48 | 12 | **25.0** | 25.0 | `rust/fuzz/fuzz_targets/gateway_policy.rs@24b7624` | 3 | 6.3 | 6.3 |
+| `fuzz/gateway_capture.rs` | `fuzz/gateway_capture.rs` (58) | 48 | 4 | **8.3** | 8.3 | `-` | 0 | 0.0 | 0.0 |
+| `fuzz/allowlist_input.rs` | `fuzz/allowlist_input.rs` (143) | 60 | 3 | **5.0** | 10.0 | `tests/common/mod.rs@24b7624` | 3 | 5.0 | 5.0 |
+| The 23 `src` files | | 7652 | 1564 | **20.4** | | | 1083 | 14.2 | |
+| The 5 test files | | 1364 | 86 | **6.3** | | | 97 | 7.1 | |
+| The 3 fuzz targets | | 156 | 19 | **12.2** | | | 6 | 3.8 | |
+| All 31 | | 9172 | 1669 | **18.2** | | | 1186 | 12.9 | |
+
+At the implementer's commit `7250852` the 31 files were at 17.8 % (restricted) and 12.7 % (DR); the integration's
+renames to the real Category A names (`limit_class`, `Upstream::Ws`, `Guard`) add the difference. Three files the
+integration wrote and the rewrite's dropped `service.rs` are measured apart in the provenance record (§6.3).
+
 ---
 
 ## 3. Analysis of Files at or Above ~25% Similarity
@@ -425,6 +476,48 @@ Every file at or above 25.0% is listed below with its matching 3+-line runs and 
 - **Run 5–10 (37 lines):** `pub struct Toolchain`, `Toolchain::view()`, `pub enum SdkError` + `SdkError::detail()`, `pub struct Logged`, `find_host_binary`, and `find_dumps`.
 - **Run 11–17 (35 lines):** Fixed `vswhere.exe` CLI flag arrays (`-latest`, `-products`, `*`, `-requires`, `Microsoft.VisualStudio.Component.VC.Tools.x86.x64`, `-format`, `json`, `-utf8`).
 - **Run 18–28 (78 lines):** Default/empty `HostKit` struct literal field initializers (`workspace_ok: false`, `upstream: HostUpstream { present: false, patched: false }`, etc.).
+
+### 3.29 `gateway/src/allowlist/mod.rs` (100% — 12 / 12 lines)
+- The ten `pub mod` lines and `#[cfg(windows)] pub mod windows;`: the module tree `spec-rd27-gateway.md` §4 fixes.
+
+### 3.30 `gateway/src/lib.rs` (48.8% — 20 / 41 lines)
+- **Runs 1-2 (20 lines):** the `pub mod` list of §4 and `now_ms` (`chrono::Utc::now().timestamp_millis()`, §4's
+  "milliseconds since the epoch"). The crate-private helpers below them don't match.
+
+### 3.31 `gateway/src/policy.rs` (35.1% — 209 / 595 lines)
+- **Runs over 20 lines:** `Upstream`, `LimitClass` and `FeedKind` with their `as_str` texts, `Decision` with the field
+  names the Category A `modules.rs` destructures (§5), the policy's unit tables (front §4.3's example lists, verbatim),
+  and a 28-line run of `split_target`, `check_path` and the head of `canonical_path` that matches DR's `policy.rs` too.
+  Front §4.1 gives `check_path` as an ordered list of checks (backslash, up to U+001F, U+007F, `js::is_space`; then
+  `%2f %5c %00 %2e` case-insensitively; then `.`/`..` segments), and the code is that list in that order. Judged
+  spec-forced, but it is the closest run in the crate: the spec sentence reads as a transcription of the code.
+
+### 3.32 `gateway/src/allowlist/ports.rs` (30.4% — 28 / 92 lines)
+- **Runs 1-2:** `check_port_list`'s head with the error text allowlist §2 fixes, and the bad-input table of its test
+  (the spec's examples).
+
+### 3.33 `gateway/src/allowlist/firewall.rs` (30.3% — 76 / 251 lines)
+- **Run 1 (9 lines):** `RULE_NAME`, `RULE_DISPLAY_NAME`, `RULE_GROUPING`, `RULE_DESCRIPTION`, whose values allowlist §10
+  gives. The rest are 3-6-line runs of §4's public names (`plan`, `RulePlan`, `WindowsRule`, `WindowsChange::to_json`,
+  `Backend::DryRun`'s fields) and test inputs from the spec's tables.
+
+### 3.34 `gateway/src/allowlist/nft.rs` (27.2% — 85 / 312 lines)
+- **Run of 17 lines:** the expected nft script in the unit test, which allowlist §9 gives line for line. **Runs of 7-8
+  lines:** `nft_script`'s head (re-check the plan, the table and the interface before writing, §9), `Feed`'s three
+  variants, and the private file's creation (`reforged-nft-` folder at 0700, `rules.nft`, `create_new`, §9).
+
+### 3.35 `gateway/src/allowlist/sync.rs` (27.1% — 77 / 284 lines)
+- **Run 1 (21 lines):** `ApplyResult { ok, ips, at, ms, error }` (§8's result) and the private `State` with ten fields
+  in the order §8 lists the state ("the desired list, the applied list, when the last run started, failures in a row,
+  stopped, running, the run count, the last result, an epoch, an urgent flag"). DR's has the first eight in the same
+  order. The scheduler and `finish` share no run over 5 lines.
+
+### 3.36 `gateway/src/server.rs`, `config.rs`, `redact.rs` and `fuzz/gateway_policy.rs` (25.0% each)
+- `server.rs`: the certificate-validity error text (front §2.1) and the `mode` texts of the ready line (§16).
+- `config.rs`: `Endpoint` with `authority()`, `Rates`, `Timeouts` and `Config`'s public fields as §4 lists them, the
+  secret check's text (front §1), and the `Ok(Self { ... })` field list.
+- `redact.rs`: the key-name list and `redact_target`'s tail (front §14 gives both); no run over 7 lines.
+- `fuzz/gateway_policy.rs`: imports and 3-line assertion fragments of the invariant `spec-rd27-gateway.md` §5.4 states.
 
 ---
 

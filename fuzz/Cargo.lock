@@ -1227,10 +1227,8 @@ name = "gateway"
 version = "0.0.0"
 dependencies = [
  "aws-lc-rs",
- "base64 0.23.1",
  "bytes",
  "chrono",
- "futures-util",
  "http",
  "http-body-util",
  "hyper",
@@ -1248,7 +1246,6 @@ dependencies = [
  "service-plugin",
  "sha2",
  "tempfile",
- "thiserror",
  "time",
  "tokio",
  "tokio-rustls",

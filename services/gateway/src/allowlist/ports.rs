@@ -49,16 +49,6 @@ pub fn check_port_list(text: &str) -> Result<String, String> {
         .join(","))
 }
 
-/// The ranges of a checked list, as `(low, high)`.
-pub(crate) fn ranges(list: &str) -> Vec<(u16, u16)> {
-    list.split(',')
-        .filter_map(|item| {
-            let (low, high) = item.split_once('-').unwrap_or((item, item));
-            Some((low.parse().ok()?, high.parse().ok()?))
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,6 +103,5 @@ mod tests {
             "ALLOWLIST_PORTS holds at most 32 ranges"
         );
         assert!(check_port_list(&vec!["1"; 32].join(",")).is_ok());
-        assert_eq!(ranges("8770-8777,64000"), vec![(8770, 8777), (64000, 64000)]);
     }
 }

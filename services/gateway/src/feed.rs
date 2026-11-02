@@ -20,16 +20,8 @@ use tokio::sync::watch;
 
 use crate::config::Allowlist;
 
-/// Where an in-process helper takes an address (DN8): no HTTP, no secret.
-pub trait InProcessSink: Send + Sync {
-    fn allow(&self, ip: &str);
-}
-
-impl<F: Fn(&str) + Send + Sync> InProcessSink for F {
-    fn allow(&self, ip: &str) {
-        self(ip);
-    }
-}
+/// Where an in-process helper takes an address (DN8): no HTTP, no secret. `true` when it was admitted.
+pub type InProcessSink = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 
 /// Milliseconds, replaceable in tests.
 pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
@@ -57,7 +49,7 @@ struct Inner {
     secret: String,
     refresh_ms: i64,
     timeout: Duration,
-    sink: Option<Arc<dyn InProcessSink>>,
+    sink: Option<InProcessSink>,
     sent: AtomicU64,
     clock: Clock,
     client: Client<HttpConnector, Full<Bytes>>,
@@ -112,12 +104,12 @@ impl AllowlistFeed {
     }
 
     /// A feed with only an in-process helper.
-    pub fn from_in_process(sink: Arc<dyn InProcessSink>) -> Self {
+    pub fn from_in_process(sink: InProcessSink) -> Self {
         Self::new(None).with_in_process(sink)
     }
 
     /// Reports go to `sink` and nothing goes over HTTP.
-    pub fn with_in_process(self, sink: Arc<dyn InProcessSink>) -> Self {
+    pub fn with_in_process(self, sink: InProcessSink) -> Self {
         let inner = Arc::try_unwrap(self.0).unwrap_or_else(|shared| Inner {
             helpers: Vec::new(),
             secret: shared.secret.clone(),
@@ -152,7 +144,7 @@ impl AllowlistFeed {
             return;
         }
         if let Some(sink) = &self.0.sink {
-            sink.allow(ip);
+            _ = sink(ip);
             self.0.sent.fetch_add(1, Ordering::Relaxed);
             return;
         }
@@ -264,7 +256,10 @@ mod tests {
     async fn in_process_sink_takes_everything_but_unknown() {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let record = seen.clone();
-        let feed = AllowlistFeed::from_in_process(Arc::new(move |ip: &str| record.lock().unwrap().push(ip.to_owned())));
+        let feed = AllowlistFeed::from_in_process(Arc::new(move |ip: &str| {
+            record.lock().unwrap().push(ip.to_owned());
+            true
+        }));
         feed.report("unknown");
         feed.report("203.0.113.7");
         feed.idle().await;

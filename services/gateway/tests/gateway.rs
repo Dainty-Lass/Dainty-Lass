@@ -110,7 +110,7 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     // One access line per request, never a secret or the user's key
     let lines = requests_since(at);
     assert_eq!(lines.len(), 9, "{lines:#?}");
-    let text = log_lines().join("\n");
+    let text = log_texts().join("\n");
     assert!(!text.contains(SECRET) && !text.contains(HELPER_SECRET) && !text.contains(key));
     let refused = lines.iter().find(|l| l["status"] == 403).unwrap();
     assert_eq!(refused["route"], "gateway");
@@ -288,8 +288,8 @@ async fn bad_settings_and_a_foreign_key_are_refused() {
     let env = service_kit::env::Env::from_pairs([
         ("GATEWAY_SECRET", SECRET),
         ("GATEWAY_ALLOWLIST", "0"),
-        ("GATEWAY_CERT", cert.cert.to_str().unwrap()),
-        ("GATEWAY_KEY", other.key.to_str().unwrap()),
+        ("GATEWAY_CERT", cert.cert_file.to_str().unwrap()),
+        ("GATEWAY_KEY", other.key_file.to_str().unwrap()),
     ]);
     let config = gateway::config::Config::from_env(&env).unwrap();
     let error = gateway::server::load_tls(&config).err().unwrap();
@@ -305,10 +305,10 @@ async fn bad_settings_and_a_foreign_key_are_refused() {
     let tls = gateway::server::load_tls(&config.clone()).err();
     assert!(tls.is_some());
     assert_eq!(
-        gateway::gateway::Gateway::new(config, None, feed.clone(), None)
+        gateway::gateway::Gateway::new(config, None, Some(feed.clone()), None)
             .err()
             .unwrap(),
         "the TLS gateway needs its certificate and key"
     );
-    assert!(gateway::gateway::Gateway::new(private, None, feed, None).is_ok());
+    assert!(gateway::gateway::Gateway::new(private, None, Some(feed), None).is_ok());
 }

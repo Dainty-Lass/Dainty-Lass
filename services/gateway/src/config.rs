@@ -129,14 +129,7 @@ pub struct NodeLinkConfig {
     pub peers: Vec<Peer>,
 }
 
-/// A region the launcher pings (DN7).
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-pub struct NetworkNode {
-    pub region: String,
-    pub host: String,
-    pub port: u16,
-    pub fingerprint: String,
-}
+use crate::network::NetworkNode;
 
 const MAX_NETWORK_NODES: usize = 16;
 

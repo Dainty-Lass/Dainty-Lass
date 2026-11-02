@@ -42,6 +42,8 @@ windows = { workspace = true, features = ["Win32_Foundation", "Win32_NetworkMana
 
 [dev-dependencies]
 base64.workspace = true
+# The moved tests: the launcher's region routes (launcher_region), node links and the home API (nodelink, home)
+launcher-kit.workspace = true
 futures-util.workspace = true
 # The fake WebSocket upstream's Sec-WebSocket-Accept
 sha1.workspace = true

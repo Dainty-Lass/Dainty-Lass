@@ -4,7 +4,6 @@
 //! The helper: a loopback endpoint that takes logged-in players' addresses with a shared secret, the live set
 //! with its expiry and state file, the audit log, and the sync that brings the firewall rule to the set.
 
-use std::collections::BTreeMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -29,7 +28,7 @@ use tokio::task::JoinHandle;
 
 use super::config::{AllowlistConfig, FirewallKind};
 use super::firewall::{Backend, plan};
-use super::guard::PortGuard;
+use super::guard::Guard;
 use super::nft::{Nft, NftSettings, can_manage_nft};
 use super::state::{AllowlistState, Refresh};
 use super::sync::{Apply, ApplyResult, FirewallSync, OnResult};
@@ -190,7 +189,7 @@ pub struct Running {
 pub struct Helper {
     config: AllowlistConfig,
     backend: Arc<Backend>,
-    guard: Arc<PortGuard>,
+    guard: Arc<Guard>,
     state: Mutex<AllowlistState>,
     sync: FirewallSync,
     audit: Arc<AuditLog>,
@@ -210,12 +209,12 @@ fn digest(text: &[u8]) -> [u8; 32] {
 impl Helper {
     /// A helper on a fresh guard of `ALLOWLIST_PORTS`. Needs a runtime (the sync's scheduler starts here).
     pub fn new(config: AllowlistConfig, backend: Backend) -> Result<Arc<Self>, String> {
-        let guard = Arc::new(PortGuard::new(&config.ports)?);
+        let guard = Arc::new(Guard::new(&config.ports)?);
         Ok(Self::with_guard(config, backend, guard))
     }
 
     /// A helper on a guard shared with the core plugin.
-    pub fn with_guard(config: AllowlistConfig, backend: Backend, guard: Arc<PortGuard>) -> Arc<Self> {
+    pub fn with_guard(config: AllowlistConfig, backend: Backend, guard: Arc<Guard>) -> Arc<Self> {
         let backend = Arc::new(backend);
         let audit = Arc::new(AuditLog::new(config.audit_log.clone()));
         let apply: Apply = {
@@ -247,13 +246,16 @@ impl Helper {
         };
         let sync = FirewallSync::new(apply, on_result, config.min_interval);
         {
-            let (audit, sync) = (audit.clone(), sync.clone());
-            guard.set_on_change(Some(Arc::new(
-                move |ports: &str, modules: &BTreeMap<String, Vec<String>>| {
-                    audit.write("ports_changed", json!({ "ports": ports, "modules": modules }));
-                    sync.reapply();
-                },
-            )));
+            let (audit, sync, weak) = (audit.clone(), sync.clone(), Arc::downgrade(&guard));
+            guard.on_change(Arc::new(move || {
+                if let Some(guard) = weak.upgrade() {
+                    audit.write(
+                        "ports_changed",
+                        json!({ "ports": guard.text(), "modules": guard.modules() }),
+                    );
+                }
+                sync.reapply();
+            }));
         }
         let state = AllowlistState::new(config.ttl.as_millis() as i64, config.max_entries);
         Arc::new(Self {
@@ -278,7 +280,7 @@ impl Helper {
         &self.config
     }
 
-    pub fn guard(&self) -> &Arc<PortGuard> {
+    pub fn guard(&self) -> &Arc<Guard> {
         &self.guard
     }
 
@@ -319,7 +321,7 @@ impl Helper {
             "pending": self.sync.pending(),
             "lastApply": last,
         });
-        let modules = self.guard.module_ports();
+        let modules = self.guard.modules();
         if modules.values().any(|r| !r.is_empty())
             && let Value::Object(map) = &mut status
         {
@@ -414,12 +416,12 @@ impl Helper {
 
     /// The guard covers the port and the address is admitted (DN8, DN9).
     pub fn admit_udp(&self, ip: &str, port: u16) -> bool {
-        self.guard.covers(port) && self.allow_ip(ip)
+        self.guard.covers_port(port) && self.allow_ip(ip)
     }
 
     pub fn is_admitted(&self, ip: &str, port: u16) -> bool {
         match check_allowlist_ip(Some(ip), self.config.allow_private) {
-            AllowlistCheck::Allowed(parsed) => self.guard.covers(port) && self.lock().contains(&parsed.canonical),
+            AllowlistCheck::Allowed(parsed) => self.guard.covers_port(port) && self.lock().contains(&parsed.canonical),
             AllowlistCheck::Refused(_) => false,
         }
     }
@@ -647,11 +649,9 @@ impl Helper {
 /// The gateway's feed straight into an in-process helper (DN8).
 pub struct HelperSink(pub Weak<Helper>);
 
-impl InProcessSink for HelperSink {
-    fn allow(&self, ip: &str) {
-        if let Some(helper) = self.0.upgrade() {
-            helper.allow_ip(ip);
-        }
+impl HelperSink {
+    pub fn into_sink(self) -> InProcessSink {
+        Arc::new(move |ip: &str| self.0.upgrade().is_some_and(|helper| helper.allow_ip(ip)))
     }
 }
 
@@ -677,7 +677,7 @@ pub async fn close_ports_once(config: &AllowlistConfig) -> Result<(), String> {
 
 /// The helper under a service context, on a fresh guard from `ALLOWLIST_PORTS`.
 pub async fn run_with_context(config: AllowlistConfig, ctx: ServiceContext) -> Result<(), String> {
-    let guard = Arc::new(PortGuard::new(&config.ports)?);
+    let guard = Arc::new(Guard::new(&config.ports)?);
     run_with_guard(config, ctx, None, guard).await
 }
 
@@ -687,7 +687,7 @@ pub async fn run_with_guard(
     config: AllowlistConfig,
     mut ctx: ServiceContext,
     slot: Option<HelperSlot>,
-    guard: Arc<PortGuard>,
+    guard: Arc<Guard>,
 ) -> Result<(), String> {
     let status = ctx.status().clone();
     status.starting();

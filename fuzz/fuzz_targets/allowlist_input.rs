@@ -8,7 +8,7 @@
 #![no_main]
 
 use gateway::allowlist::firewall::{WindowsChange, plan, windows_change};
-use gateway::allowlist::guard::PortGuard;
+use gateway::allowlist::guard::Guard;
 use gateway::allowlist::helper::{allow_body, declared_length};
 use gateway::allowlist::nft::{NftSettings, check_interface, check_nft_table, nft_script};
 use gateway::allowlist::ports::{check_port_list, check_ports};
@@ -60,11 +60,11 @@ fuzz_target!(|input: (Vec<u8>, String, Vec<(u16, u16)>)| {
     for name in checked.into_iter().flatten() {
         assert!(one_token(&name), "{name:?}");
     }
-    if let Ok(guard) = PortGuard::new("8770-8777") {
+    if let (Ok(guard), Ok(module)) = (Guard::new("8770-8777"), "m".parse::<module_api::ModuleId>()) {
         let before = guard.text();
         let ranges: Vec<PortRange> = ranges.iter().map(|&(first, last)| PortRange { first, last }).collect();
-        match guard.attach("m", &ranges) {
-            Ok(()) => assert!(ranges.iter().all(|r| guard.covers(r.first) && guard.covers(r.last))),
+        match guard.attach(&module, &ranges) {
+            Ok(()) => assert!(ranges.iter().all(|r| guard.covers_port(r.first) && guard.covers_port(r.last))),
             Err(_) => assert_eq!(guard.text(), before),
         }
     }

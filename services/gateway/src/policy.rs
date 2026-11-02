@@ -46,7 +46,7 @@ pub enum Upstream {
     Backend,
     Content,
     /// The WebSocket listener the game's chat upgrades reach
-    Chat,
+    Ws,
 }
 
 impl Upstream {
@@ -55,7 +55,7 @@ impl Upstream {
         match self {
             Self::Backend => "backend",
             Self::Content => "content",
-            Self::Chat => "ws",
+            Self::Ws => "ws",
         }
     }
 }
@@ -121,23 +121,25 @@ pub enum Decision {
         status: u16,
         error: &'static str,
         reason: &'static str,
-        class: LimitClass,
+        limit_class: LimitClass,
     },
     Proxy {
         upstream: Upstream,
-        class: LimitClass,
+        limit_class: LimitClass,
         feed: Option<FeedKind>,
     },
     Network {
         route: NetworkRoute,
-        class: LimitClass,
+        limit_class: LimitClass,
     },
 }
 
 impl Decision {
     pub fn class(&self) -> LimitClass {
         match self {
-            Self::Reject { class, .. } | Self::Proxy { class, .. } | Self::Network { class, .. } => *class,
+            Self::Reject { limit_class, .. } | Self::Proxy { limit_class, .. } | Self::Network { limit_class, .. } => {
+                *limit_class
+            }
         }
     }
 
@@ -146,7 +148,7 @@ impl Decision {
             status,
             error,
             reason,
-            class,
+            limit_class: class,
         }
     }
 }
@@ -197,10 +199,6 @@ pub fn under(canonical: &str, prefix: &str) -> bool {
         .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
 }
 
-/// A wrapped path that names no usable host: 400 `bad_origin`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BadOrigin;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unwrapped {
     pub path: String,
@@ -225,23 +223,23 @@ fn is_origin_host(host: &str) -> bool {
         && !host.contains("..")
 }
 
-/// `/__origin/<host>/<path>` to `<path>` and the host; any other path as it is. `Err` is a 400 `bad_origin`.
-pub fn unwrap_origin(path: &str) -> Result<Unwrapped, BadOrigin> {
+/// `/__origin/<host>/<path>` to `<path>` and the host; any other path as it is. `None` is a 400 `bad_origin`.
+pub fn unwrap_origin(path: &str) -> Option<Unwrapped> {
     let Some(after) = is_wrapped(path) else {
-        return Ok(Unwrapped {
+        return Some(Unwrapped {
             path: path.to_owned(),
             origin: None,
         });
     };
-    let rest = after.strip_prefix('/').ok_or(BadOrigin)?;
+    let rest = after.strip_prefix('/')?;
     let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
     let (raw_host, inner) = rest.split_at(end);
     if raw_host.is_empty() {
-        return Err(BadOrigin);
+        return None;
     }
-    let host = js::decode_uri_component(raw_host).ok_or(BadOrigin)?.to_lowercase();
+    let host = js::decode_uri_component(raw_host)?.to_lowercase();
     if !is_origin_host(&host) {
-        return Err(BadOrigin);
+        return None;
     }
     let inner = match inner {
         "" => "/".to_owned(),
@@ -249,9 +247,9 @@ pub fn unwrap_origin(path: &str) -> Result<Unwrapped, BadOrigin> {
         p => format!("/{p}"),
     };
     if is_wrapped(&inner).is_some() {
-        return Err(BadOrigin);
+        return None;
     }
-    Ok(Unwrapped {
+    Some(Unwrapped {
         path: inner,
         origin: Some(host),
     })
@@ -294,7 +292,7 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
     if !check_path(path) {
         return Decision::reject(400, "bad_path", "bad_path", General);
     }
-    let Ok(unwrapped) = unwrap_origin(path) else {
+    let Some(unwrapped) = unwrap_origin(path) else {
         return Decision::reject(400, "bad_path", "bad_origin", General);
     };
     let Some(canonical) = canonical_path(&unwrapped.path) else {
@@ -331,7 +329,10 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
         if method != *wanted {
             return Decision::reject(405, "method_not_allowed", "method", class);
         }
-        return Decision::Network { route: *route, class };
+        return Decision::Network {
+            route: *route,
+            limit_class: class,
+        };
     }
     if under(&canonical, "/reforged") {
         let public = canonical
@@ -344,7 +345,7 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
         }
         return Decision::Proxy {
             upstream: Upstream::Backend,
-            class,
+            limit_class: class,
             feed: None,
         };
     }
@@ -360,15 +361,15 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
             return Decision::reject(400, "bad_request", "unsupported_upgrade", class);
         }
         return Decision::Proxy {
-            upstream: Upstream::Chat,
-            class,
+            upstream: Upstream::Ws,
+            limit_class: class,
             feed: None,
         };
     }
     if content {
         return Decision::Proxy {
             upstream: Upstream::Content,
-            class,
+            limit_class: class,
             feed: None,
         };
     }
@@ -379,7 +380,7 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
     };
     Decision::Proxy {
         upstream: Upstream::Backend,
-        class,
+        limit_class: class,
         feed,
     }
 }
@@ -472,7 +473,7 @@ mod tests {
             "/__origin/a../x",
             "/__origin/%zz/x",
         ] {
-            assert!(unwrap_origin(bad).is_err(), "{bad}");
+            assert!(unwrap_origin(bad).is_none(), "{bad}");
         }
     }
 
@@ -577,8 +578,8 @@ mod tests {
         assert_eq!(
             classify("GET", "//", &ws, true),
             Decision::Proxy {
-                upstream: Upstream::Chat,
-                class: LimitClass::Ws,
+                upstream: Upstream::Ws,
+                limit_class: LimitClass::Ws,
                 feed: None
             }
         );
@@ -602,7 +603,7 @@ mod tests {
             decide("POST", "/Heartbeat/"),
             Decision::Proxy {
                 upstream: Upstream::Backend,
-                class: LimitClass::General,
+                limit_class: LimitClass::General,
                 feed: Some(FeedKind::Heartbeat)
             }
         );
@@ -610,7 +611,7 @@ mod tests {
             decide("POST", "/account/api/oauth/token"),
             Decision::Proxy {
                 upstream: Upstream::Backend,
-                class: LimitClass::Token,
+                limit_class: LimitClass::Token,
                 feed: Some(FeedKind::Token)
             }
         );
@@ -622,7 +623,7 @@ mod tests {
             decide("GET", "/content/x"),
             Decision::Proxy {
                 upstream: Upstream::Content,
-                class: LimitClass::Content,
+                limit_class: LimitClass::Content,
                 ..
             }
         ));
@@ -638,7 +639,7 @@ mod tests {
             decide("GET", "/network/v1/nodes"),
             Decision::Network {
                 route: NetworkRoute::Nodes,
-                class: LimitClass::General
+                limit_class: LimitClass::General
             }
         );
         assert_eq!(reason(decide("POST", "/network/v1/ping")), (405, "method"));
