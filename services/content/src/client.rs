@@ -32,9 +32,10 @@ pub enum BodyError {
 
 type Https = Client<HttpsConnector<HttpConnector>, Empty<Bytes>>;
 
+/// One pool per process, built on first use.
 fn client() -> &'static Https {
-    static CLIENT: OnceLock<Https> = OnceLock::new();
-    CLIENT.get_or_init(|| {
+    static POOL: OnceLock<Https> = OnceLock::new();
+    POOL.get_or_init(|| {
         let builder = hyper_rustls::HttpsConnectorBuilder::new();
         let builder = match builder.with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider()) {
             Ok(builder) => builder,

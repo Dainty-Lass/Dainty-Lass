@@ -121,12 +121,15 @@ pub enum VersionKey {
     Edition,
 }
 
-/// The first `version`, `game` or `edition` pair of a form-encoded query; the rest is ignored.
+/// The version a request's query asks for: the first `version=`, `game=` or `edition=` pair, form-decoded.
 pub fn version_query(query: Option<&str>) -> Option<(VersionKey, String)> {
-    url::form_urlencoded::parse(query?.as_bytes()).find_map(|(key, value)| match key.as_ref() {
-        "version" | "game" => Some((VersionKey::Version, value.into_owned())),
-        "edition" => Some((VersionKey::Edition, value.into_owned())),
-        _ => None,
+    url::form_urlencoded::parse(query?.as_bytes()).find_map(|(key, value)| {
+        let kind = match &*key {
+            "version" | "game" => VersionKey::Version,
+            "edition" => VersionKey::Edition,
+            _ => return None,
+        };
+        Some((kind, value.into_owned()))
     })
 }
 
@@ -333,25 +336,23 @@ pub fn cut_utf16(text: &str, max: usize) -> String {
     out
 }
 
-/// An art pack image name: at most 100 bytes, `jpg`, `jpeg`, `png` or `webp` in any case, and a stem of
-/// dot-separated parts of letters, digits, `_` and `-` whose first part starts with a letter or digit.
-pub fn is_safe_image_name(name: &str) -> bool {
+const IMAGE_EXTENSIONS: [&str; 4] = ["jpg", "jpeg", "png", "webp"];
+
+/// An art pack file name the server will serve: up to 100 bytes, a known image extension in any case, and a stem
+/// of dot-separated words of letters, digits, `_` and `-` that opens with a letter or digit.
+pub fn is_image_file_name(name: &str) -> bool {
     if name.len() > 100 {
         return false;
     }
     let Some((stem, extension)) = name.rsplit_once('.') else {
         return false;
     };
-    if !matches!(extension.to_ascii_lowercase().as_str(), "jpg" | "jpeg" | "png" | "webp") {
-        return false;
-    }
-    let parts_ok = stem.split('.').all(|part| {
-        !part.is_empty()
-            && part
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
-    });
-    parts_ok && stem.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric())
+    let word = |w: &str| !w.is_empty() && w.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+    IMAGE_EXTENSIONS
+        .iter()
+        .any(|known| extension.eq_ignore_ascii_case(known))
+        && stem.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
+        && stem.split('.').all(word)
 }
 
 /// The media type of a safe image name, by its extension.
@@ -373,34 +374,40 @@ pub fn signature_matches(content_type: &str, head: &[u8]) -> bool {
     }
 }
 
-/// `#rgb` or `#rrggbb`, trimmed and lowercased; anything else is none.
-pub fn clean_accent(value: Option<&Value>) -> Option<String> {
+/// `branding.json`'s `accent`: `#rgb` or `#rrggbb` once trimmed, lowercased; anything else is none.
+pub fn accent_colour(value: Option<&Value>) -> Option<String> {
     let text = js::trim(value?.as_str()?);
     let digits = text.strip_prefix('#')?;
-    ((digits.len() == 3 || digits.len() == 6) && digits.bytes().all(|b| b.is_ascii_hexdigit()))
-        .then(|| text.to_ascii_lowercase())
+    let well_formed = matches!(digits.len(), 3 | 6) && digits.bytes().all(|b| b.is_ascii_hexdigit());
+    well_formed.then(|| text.to_ascii_lowercase())
 }
 
 pub const MAX_CREDIT: usize = 200;
 
-/// A credit line: control characters and whitespace runs become one space, trimmed, at most [`MAX_CREDIT`].
-pub fn clean_credit(value: Option<&Value>) -> Option<String> {
-    let text = value?.as_str()?;
-    let mut out = String::with_capacity(text.len());
-    let mut in_space = false;
-    for c in text.chars() {
+/// What JavaScript's `\s` matches: Unicode white space less U+0085, plus the BOM.
+fn is_js_space(c: char) -> bool {
+    c == '\u{feff}' || (c.is_whitespace() && c != '\u{85}')
+}
+
+/// An image's `credit`: control characters and every run of white space become one space, then trimmed and cut
+/// to [`MAX_CREDIT`]. Only a non-empty string credits anyone.
+pub fn credit_line(value: Option<&Value>) -> Option<String> {
+    let raw = value?.as_str()?;
+    let mut collapsed = String::with_capacity(raw.len());
+    let mut after_space = false;
+    for c in raw.chars() {
         let c = if c < ' ' || c == '\u{7f}' { ' ' } else { c };
-        if js::is_space(c) {
-            if !in_space {
-                out.push(' ');
+        if is_js_space(c) {
+            if !after_space {
+                collapsed.push(' ');
             }
-            in_space = true;
+            after_space = true;
         } else {
-            out.push(c);
-            in_space = false;
+            collapsed.push(c);
+            after_space = false;
         }
     }
-    let credit = cut_utf16(js::trim(&out), MAX_CREDIT);
+    let credit = cut_utf16(js::trim(&collapsed), MAX_CREDIT);
     (!credit.is_empty()).then_some(credit)
 }
 
@@ -409,36 +416,54 @@ mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
 
-    #[test]
-    fn r1_if_none_match() {
-        assert!(!if_none_match_hits(None, "\"abc\""));
-        assert!(if_none_match_hits(Some(" * "), "\"abc\""));
-        assert!(if_none_match_hits(Some("\"x\", \"abc\""), "\"abc\""));
-        assert!(if_none_match_hits(Some("W/\"abc\""), "\"abc\""));
-        assert!(!if_none_match_hits(Some("\"abcd\""), "\"abc\""));
-        assert!(!if_none_match_hits(Some("*, \"x\""), "\"abc\""));
-        assert!(if_none_match_hits(Some("\"nope\", \"abc\""), "\"abc\""));
+    const SORTED_START: &str = r#"{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"Rustic-Isles.dll","size":10,"#;
+
+    fn manifest_of(doc: Value) -> Result<RuntimeManifest, String> {
+        parse_runtime_json(doc.to_string().as_bytes())
+    }
+
+    fn sha(fill: char) -> String {
+        std::iter::repeat_n(fill, 64).collect()
+    }
+
+    fn two_files(version: Value) -> Value {
+        json!({
+            "version": version,
+            "files": [
+                {"name": "winmm.dll", "size": 3, "sha256": sha('b')},
+                {"name": "Rustic-Isles.dll", "size": 10, "sha256": sha('a')},
+            ],
+        })
     }
 
     #[test]
-    fn r2_routes_on_the_raw_path() {
+    fn conditions_match_star_lists_and_weak_tags() {
+        let tag = "\"abc\"";
+        assert!(!if_none_match_hits(None, tag));
+        assert!(if_none_match_hits(Some(" * "), tag));
+        assert!(if_none_match_hits(Some("\"x\", \"abc\""), tag));
+        assert!(if_none_match_hits(Some("W/\"abc\""), tag));
+        assert!(!if_none_match_hits(Some("\"abcd\""), tag));
+        assert!(!if_none_match_hits(Some("*, \"x\""), tag));
+    }
+
+    #[test]
+    fn paths_route_on_their_raw_bytes() {
         assert_eq!(Route::of("/content/v1/runtime/manifest"), Route::RuntimeManifest);
         assert_eq!(Route::of("/content/v1/runtime/manifest/"), Route::Unknown);
-        assert_eq!(Route::of("/content/v1/News"), Route::Unknown);
-        let traversal = Route::of("/content/v1/runtime/files/%2e%2e/runtime.json");
-        assert_eq!(traversal, Route::RuntimeFile("%2e%2e/runtime.json"));
+        assert_eq!(Route::of("/content/v1/branding"), Route::Branding);
+        assert_eq!(Route::of("/content/v1/news"), Route::News);
+        let dots = Route::of("/content/v1/runtime/files/%2e%2e/runtime.json");
+        assert_eq!(dots, Route::RuntimeFile("%2e%2e/runtime.json"));
         assert!(!is_runtime_file_name("%2e%2e/runtime.json"));
         assert_eq!(Route::of("/content/v1/branding/"), Route::BrandingImage(""));
-        assert_eq!(Route::of("/content/v1/runtime/files/"), Route::RuntimeFile(""));
         assert_eq!(Route::of("/content/v1/files/x"), Route::Unknown);
-        assert_eq!(Route::of("/content/v1/manifest"), Route::Unknown);
         assert!(!is_runtime_file_name("winmm.DLL"));
         assert!(is_runtime_file_name("winmm.dll") && is_runtime_file_name("MysticParadox.dll"));
-        assert!(!is_runtime_file_name("mysticparadox.dll"));
     }
 
     #[test]
-    fn r3_version_routes() {
+    fn version_routes_need_a_version_segment() {
         assert_eq!(Route::of("/content/v1/versions"), Route::Versions);
         assert_eq!(
             Route::of("/content/v1/versions/1.14.7/client"),
@@ -448,247 +473,231 @@ mod tests {
             Route::of("/content/v1/versions/reforged/epic/manifest"),
             Route::EpicManifest("reforged")
         );
-        for unknown in [
-            "/content/v1/versions/",
-            "/content/v1/versions/client",
-            "/content/v1/versions//client",
-            "/content/v1/versions/a/b/client",
-            "/content/v1/versions/%2e%2e/client",
-            "/content/v1/versions/1.14.7/Client",
-            "/content/v1/versions/1.14.7/client/",
-            "/content/v1/versions/1.14.7/epic",
-            "/content/v1/versions/1.14.7",
+        for tail in [
+            "",
+            "client",
+            "/client",
+            "a/b/client",
+            "%2e%2e/client",
+            "1.14.7/Client",
+            "1.14.7/client/",
+            "1.14.7/epic",
+            "1.14.7",
         ] {
-            assert_eq!(Route::of(unknown), Route::Unknown, "{unknown}");
+            let path = format!("/content/v1/versions/{tail}");
+            assert_eq!(Route::of(&path), Route::Unknown, "{path}");
         }
-        assert!(!is_version_segment(&"a".repeat(65)) && is_version_segment(&"a".repeat(64)));
+        assert!(is_version_segment(&"9".repeat(64)) && !is_version_segment(&"9".repeat(65)));
     }
 
     #[test]
-    fn r4_version_query() {
-        let v = |q| version_query(Some(q));
-        assert_eq!(v("game=revived"), Some((VersionKey::Version, "revived".into())));
-        assert_eq!(v("x=1&version=1.12.0"), Some((VersionKey::Version, "1.12.0".into())));
+    fn the_first_version_pair_of_the_query_decides() {
+        let asked = |q: &str| version_query(Some(q));
+        let version = |v: &str| Some((VersionKey::Version, v.to_owned()));
+        assert_eq!(asked("game=revived"), version("revived"));
+        assert_eq!(asked("x=1&version=1.12.0"), version("1.12.0"));
         assert_eq!(
-            v("edition=reborn&game=revived"),
-            Some((VersionKey::Edition, "reborn".into()))
+            asked("edition=reborn&game=revived"),
+            Some((VersionKey::Edition, "reborn".to_owned()))
         );
-        assert_eq!(v("game=a&game=b"), Some((VersionKey::Version, "a".into())));
-        assert_eq!(v("game=a+b%21"), Some((VersionKey::Version, "a b!".into())));
-        assert_eq!(v("x=1"), None);
+        assert_eq!(asked("game=one&game=two"), version("one"));
+        assert_eq!(asked("game=a%2Eb+c"), version("a.b c"));
+        assert_eq!(asked("x=1"), None);
         assert_eq!(version_query(None), None);
     }
 
     #[test]
-    fn r5_headers_join() {
+    fn repeated_header_lines_are_joined() {
         let mut headers = http::HeaderMap::new();
-        assert_eq!(header_text(&headers, KEY_HEADER), None);
         headers.append(KEY_HEADER, http::HeaderValue::from_static("RRK_a"));
         headers.append(KEY_HEADER, http::HeaderValue::from_static("RRK_b"));
-        assert_eq!(header_text(&headers, KEY_HEADER).as_deref(), Some("RRK_a, RRK_b"));
-        headers.insert("x-latin", http::HeaderValue::from_bytes(&[0xe4]).unwrap());
-        assert_eq!(header_text(&headers, "x-latin").as_deref(), Some("\u{e4}"));
+        let joined = header_text(&headers, KEY_HEADER).unwrap();
+        assert_eq!(joined, "RRK_a, RRK_b");
+        assert!(!is_plausible_key(&joined));
+        assert_eq!(header_text(&headers, "if-none-match"), None);
     }
 
     #[test]
-    fn keys() {
+    fn keys_are_printable_ascii_up_to_256_bytes() {
         assert!(is_plausible_key("RRK_abc") && is_plausible_key(&"k".repeat(256)));
-        for bad in ["", "a b", "a\nb", "RRK_a, RRK_b", "ä"] {
-            assert!(!is_plausible_key(bad), "{bad:?}");
+        for key in ["", "a b", "a\nb", "\u{e4}"] {
+            assert!(!is_plausible_key(key), "{key:?}");
         }
         assert!(!is_plausible_key(&"k".repeat(257)));
     }
 
-    const A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-
-    fn index(files: &str) -> String {
-        format!(r#"{{"version":"v1","files":{files}}}"#)
+    #[test]
+    fn runtime_files_are_sorted_with_the_fixed_build() {
+        let body = manifest_of(two_files(json!("v1"))).unwrap().to_json();
+        assert!(body.starts_with(SORTED_START), "{body}");
+        assert!(body.find("Rustic-Isles.dll") < body.find("winmm.dll"));
     }
 
     #[test]
-    fn t1_files_sorted_with_the_fixed_build() {
-        let text = index(&format!(
-            r#"[{{"name":"winmm.dll","size":3,"sha256":"{A}"}},{{"name":"Rustic-Isles.dll","size":10,"sha256":"{A}"}}]"#
-        ));
-        let manifest = parse_runtime_json(text.as_bytes()).unwrap();
-        let names: Vec<&str> = manifest.files.iter().map(|f| f.name.as_str()).collect();
-        assert_eq!(names, ["Rustic-Isles.dll", "winmm.dll"]);
-        assert_eq!(manifest.build.name, "rel-1.14.7-Archon");
-        assert_eq!(manifest.build.changelist, 647_472);
-    }
-
-    #[test]
-    fn t2_refusals() {
-        let file = |name: &str, size: &str, sha: &str| format!(r#"{{"name":"{name}","size":{size},"sha256":"{sha}"}}"#);
-        let two = |a: String| index(&format!("[{a},{}]", file("winmm.dll", "3", A)));
-        let rustic = |size: &str| two(file("Rustic-Isles.dll", size, A));
-        let with_build = |cl: &str| {
-            format!(
-                r#"{{"version":"v1","build":{{"changelist":{cl}}},"files":[{},{}]}}"#,
-                file("Rustic-Isles.dll", "3", A),
-                file("winmm.dll", "3", A)
-            )
-        };
-        let bad = [
-            "null".to_owned(),
-            "[]".to_owned(),
-            index("[]").replace("\"v1\"", "\"\""),
-            index("[]").replace("\"v1\"", "\"a b\""),
-            index("{}"),
-            index(&format!("[{}]", file("winmm.dll", "3", A))),
-            index(&format!(
-                "[{},{},{}]",
-                file("Rustic-Isles.dll", "3", A),
-                file("winmm.dll", "3", A),
-                file("winmm.dll", "3", A)
-            )),
-            two(file("..\\\\Rustic-Isles.dll", "3", A)),
-            two(file("dxgi.dll", "3", A)),
-            two(file("Rustic-Isles.dll", "3", &A.to_uppercase())),
-            rustic("0"),
-            rustic("1e9"),
-            with_build("-1"),
-            with_build("null"),
-            with_build("1.5"),
-            with_build("\"1\""),
-            with_build("9007199254740992"),
-        ];
-        for text in bad {
-            assert!(parse_runtime_json(text.as_bytes()).is_err(), "{text}");
-        }
-        assert!(parse_runtime_json(with_build("5").as_bytes()).is_ok());
-    }
-
-    #[test]
-    fn t3_read_as_javascript_reads_it() {
-        let text = format!(
-            "\u{feff}{{\"version\":\" v1 \",\"build\":[],\"files\":[{{\"name\":\"winmm.dll\",\"size\":5.0,\"sha256\":\"{A}\"}},{{\"name\":\"Rustic-Isles.dll\",\"size\":1e1,\"sha256\":\"{A}\"}}]}}"
-        );
+    fn runtime_json_is_read_as_javascript_reads_it() {
+        let mut doc = two_files(json!(" v1 "));
+        doc["build"] = json!([]);
+        let text = format!("\u{feff}{doc}")
+            .replace("\"size\":10", "\"size\":1e1")
+            .replace("\"size\":3", "\"size\":3.0");
         let body = parse_runtime_json(text.as_bytes()).unwrap().to_json();
-        assert!(
-            body.starts_with(
-                r#"{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"Rustic-Isles.dll","size":10,"#
-            ),
-            "{body}"
-        );
+        assert!(body.starts_with(SORTED_START), "{body}");
+        let mut named = two_files(json!("x"));
+        named["build"] = json!({"name": "ignored", "changelist": 651_234});
+        let body = manifest_of(named).unwrap().to_json();
+        assert!(body.contains("\"changelist\":651234") && !body.contains("ignored"));
     }
 
     #[test]
-    fn t4_exact_texts() {
-        let err = |text: String| parse_runtime_json(text.as_bytes()).unwrap_err();
+    fn bad_runtime_json_is_refused() {
+        let refused = |doc: Value| manifest_of(doc).is_err();
+        assert!(refused(Value::Null) && refused(json!([])));
+        assert!(refused(two_files(json!(""))) && refused(two_files(json!(" "))));
+        let mut not_a_list = two_files(json!("v1"));
+        not_a_list["files"] = json!({});
+        assert!(refused(not_a_list));
+        let with_files = |files: Value| json!({"version": "v1", "files": files});
+        let entry = |name: &str, size: Value, hash: String| json!({"name": name, "size": size, "sha256": hash});
+        let rustic = || entry("Rustic-Isles.dll", json!(1), sha('a'));
+        let winmm = || entry("winmm.dll", json!(1), sha('b'));
+        assert!(refused(with_files(json!([rustic()]))));
+        assert!(refused(with_files(json!([
+            rustic(),
+            winmm(),
+            entry("dxgi.dll", json!(1), sha('c'))
+        ]))));
+        assert!(refused(with_files(json!([
+            entry("..\\Rustic-Isles.dll", json!(1), sha('a')),
+            winmm()
+        ]))));
+        assert!(refused(with_files(json!([
+            rustic(),
+            entry("winmm.dll", json!(1), sha('B'))
+        ]))));
+        assert!(refused(with_files(json!([
+            rustic(),
+            entry("winmm.dll", json!(0), sha('b'))
+        ]))));
+        assert!(refused(with_files(json!([
+            rustic(),
+            entry("winmm.dll", json!(1e9), sha('b'))
+        ]))));
+        for changelist in [
+            json!(-1),
+            Value::Null,
+            json!(1.5),
+            json!("1"),
+            json!(9_007_199_254_740_992_u64),
+        ] {
+            let mut doc = two_files(json!("v1"));
+            doc["build"] = json!({ "changelist": changelist });
+            assert!(refused(doc), "{changelist}");
+        }
+    }
+
+    #[test]
+    fn runtime_json_errors_name_the_entry() {
+        let error = |files: Value| manifest_of(json!({"version": "v1", "files": files})).unwrap_err();
         assert_eq!(
-            err(index(r#"[{"name":null}]"#)),
+            error(json!([{"name": null}])),
             "runtime.json: unknown file null (only Rustic-Isles.dll and winmm.dll)"
         );
         assert_eq!(
-            err(index("[5]")),
+            error(json!([7])),
             "runtime.json: unknown file undefined (only Rustic-Isles.dll and winmm.dll)"
         );
+        let old = json!({"name": "MysticParadox.dll", "size": 1, "sha256": sha('a')});
+        let new = json!({"name": "Rustic-Isles.dll", "size": 1, "sha256": sha('a')});
         assert_eq!(
-            err(index(r#"[{"name":"dxgi.dll"}]"#)),
-            r#"runtime.json: unknown file "dxgi.dll" (only Rustic-Isles.dll and winmm.dll)"#
-        );
-        assert_eq!(
-            err(index(&format!(
-                r#"[{{"name":"Rustic-Isles.dll","size":1,"sha256":"{A}"}},{{"name":"MysticParadox.dll"}}]"#
-            ))),
+            error(json!([new.clone(), old])),
             "runtime.json: MysticParadox.dll is listed twice"
         );
-        assert_eq!(
-            err(index(&format!(r#"[{{"name":"winmm.dll","size":1,"sha256":"{A}"}}]"#))),
-            "runtime.json: Rustic-Isles.dll is missing from the list"
-        );
-        assert_eq!(err("[]".into()), "runtime.json: runtime.json must be an object");
-        assert!(err("{".into()).starts_with("runtime.json: "));
+        assert_eq!(error(json!([new])), "runtime.json: winmm.dll is missing from the list");
     }
 
     #[test]
-    fn recorded_manifests() {
-        for (_, input, body) in protocol::test_data::RUNTIME_MANIFESTS {
-            assert_eq!(parse_runtime_json(input.as_bytes()).unwrap().to_json(), body);
+    fn the_recorded_manifests_come_out_byte_for_byte() {
+        for (name, input, body) in protocol::test_data::RUNTIME_MANIFESTS {
+            let manifest = parse_runtime_json(input.as_bytes()).unwrap();
+            assert_eq!(manifest.to_json(), body.trim_end(), "{name}");
         }
     }
 
     #[test]
-    fn news_parse_example() {
+    fn news_is_cleaned_sorted_and_filtered() {
         let doc = json!({"items": [
-            {"date": "2026-01-01T00:00:00Z", "title": "Old", "body": "a\r\nb\rc\u{0}\u{7f}\td"},
+            {"date": "2026-01-02", "title": "Older", "body": "a\r\nb\rc\u{1}\td"},
             "not an object",
-            {"date": "2026-03-01T12:00:00.5Z", "title": "  Newest\n title ", "body": 5},
-            {"date": "someday", "title": "Bad date"},
+            {"date": "2026-03-04T05:06:07Z", "title": "  Newest\n title ", "body": 5},
+            {"date": "whenever", "title": "Bad date"},
             {"title": "No date"},
-            {"date": "2026-02-01", "title": " \u{1} "},
-            {"date": "2026-02-01T00:00:00Z", "title": "Mid", "body": " x "},
+            {"date": "2026-02-01", "title": " \u{7f} "},
         ]});
         let items = parse_news(&doc).unwrap();
+        let seen: Vec<(&str, &str, &str)> = items
+            .iter()
+            .map(|i| (i.date.as_str(), i.title.as_str(), i.body.as_str()))
+            .collect();
         assert_eq!(
-            items,
+            seen,
             [
-                NewsItem {
-                    date: "2026-03-01T12:00:00.500Z".into(),
-                    title: "Newest  title".into(),
-                    body: String::new()
-                },
-                NewsItem {
-                    date: "2026-02-01T00:00:00.000Z".into(),
-                    title: "Mid".into(),
-                    body: "x".into()
-                },
-                NewsItem {
-                    date: "2026-01-01T00:00:00.000Z".into(),
-                    title: "Old".into(),
-                    body: "a\nb\nc\td".into()
-                },
+                ("2026-03-04T05:06:07.000Z", "Newest  title", ""),
+                ("2026-01-02T00:00:00.000Z", "Older", "a\nb\nc\td"),
             ]
         );
-        assert_eq!(parse_news(&json!([])).unwrap(), []);
-        assert!(parse_news(&json!({"news": []})).is_err());
-        assert!(parse_news(&json!("x")).is_err());
-        let many: Vec<Value> = (0..60)
-            .map(|i| json!({"date": format!("2026-01-{:02}", i % 28 + 1), "title": format!("t{i}")}))
-            .collect();
-        assert_eq!(parse_news(&Value::Array(many)).unwrap().len(), 50);
-        assert_eq!(clean_title(&"é".repeat(300)).chars().count(), 200);
-        assert_eq!(cut_utf16("a\u{1f600}", 2), "a");
+        assert_eq!(
+            parse_news(&json!([{"date": "2026-01-01", "title": "x"}]))
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(parse_news(&json!({"news": []})).is_err() && parse_news(&json!("x")).is_err());
+        let many: Vec<Value> = (0..60).map(|_| json!({"date": "2026-01-01", "title": "t"})).collect();
+        assert_eq!(parse_news(&Value::Array(many)).unwrap().len(), MAX_NEWS_ITEMS);
     }
 
     #[test]
-    fn image_names_and_signatures() {
-        for good in [
-            "Harbour-Dusk_2.JPEG",
-            "bg.v2.webp",
-            "a.png",
-            &format!("{}.jpg", "a".repeat(96)),
-        ] {
-            assert!(is_safe_image_name(good), "{good}");
+    fn cuts_keep_whole_characters() {
+        assert_eq!(cut_utf16("ab\u{1f600}", 3), "ab");
+        assert_eq!(cut_utf16("ab\u{1f600}", 4), "ab\u{1f600}");
+        assert_eq!(clean_title(&"t".repeat(300)).len(), MAX_TITLE);
+    }
+
+    #[test]
+    fn image_names_types_and_signatures() {
+        for name in ["Harbour-Dusk_2.JPEG", "bg.v2.webp", "a.png", "9.jpg"] {
+            assert!(is_image_file_name(name), "{name}");
         }
-        for bad in [
+        for name in [
             ".a.jpg",
             "a..jpg",
             "a b.jpg",
             "a/b.jpg",
             "a.jpg.exe",
             "a.gif",
-            "_a.jpg",
             "jpg",
-            &format!("{}.jpg", "a".repeat(100)),
+            "_a.png",
+            "a.jpg.",
         ] {
-            assert!(!is_safe_image_name(bad), "{bad}");
+            assert!(!is_image_file_name(name), "{name}");
         }
-        assert_eq!(image_content_type("a.PNG"), "image/png");
-        assert_eq!(image_content_type("a.webp"), "image/webp");
-        assert_eq!(image_content_type("a.jpeg"), "image/jpeg");
+        let sized = |stem_len: usize| format!("{}.jpg", "n".repeat(stem_len));
+        assert!(is_image_file_name(&sized(96)) && !is_image_file_name(&sized(100)));
+        assert_eq!(image_content_type("x.PNG"), "image/png");
+        assert_eq!(image_content_type("x.webp"), "image/webp");
+        assert_eq!(image_content_type("x.jpeg"), "image/jpeg");
         assert!(signature_matches("image/jpeg", &[0xff, 0xd8, 0xff, 0]));
-        assert!(signature_matches("image/png", b"\x89PNG\r\n\x1a\n"));
-        assert!(signature_matches("image/webp", b"RIFF\0\0\0\0WEBP"));
+        assert!(signature_matches("image/png", b"\x89PNG\r\n\x1a\n...."));
+        assert!(signature_matches("image/webp", b"RIFF\0\0\0\0WEBPVP8 "));
         assert!(!signature_matches("image/webp", b"RIFF\0\0\0\0WEB"));
-        assert!(!signature_matches("image/png", b"fake"));
+        assert!(!signature_matches("image/png", &[0xff, 0xd8, 0xff]));
     }
 
     #[test]
-    fn accent_and_credit_cleaning() {
-        assert_eq!(clean_accent(Some(&json!("#C8A24A"))).as_deref(), Some("#c8a24a"));
-        assert_eq!(clean_accent(Some(&json!(" #abc "))).as_deref(), Some("#abc"));
+    fn accents_are_short_or_long_hex() {
+        let accent = |v: &Value| accent_colour(Some(v));
+        assert_eq!(accent(&json!("#C8A24A")).as_deref(), Some("#c8a24a"));
+        assert_eq!(accent(&json!(" #abc ")).as_deref(), Some("#abc"));
         for bad in [
             json!("red"),
             json!("#abcd"),
@@ -697,14 +706,22 @@ mod tests {
             json!(5),
             Value::Null,
         ] {
-            assert_eq!(clean_accent(Some(&bad)), None, "{bad}");
+            assert_eq!(accent(&bad), None, "{bad}");
         }
+        assert_eq!(accent_colour(None), None);
+    }
+
+    #[test]
+    fn credits_collapse_white_space() {
+        let credit = |v: Value| credit_line(Some(&v));
         assert_eq!(
-            clean_credit(Some(&json!("  Photo\nby   a friend "))).as_deref(),
+            credit(json!("  Photo\nby   a friend ")).as_deref(),
             Some("Photo by a friend")
         );
-        assert_eq!(clean_credit(Some(&json!(""))), None);
-        assert_eq!(clean_credit(Some(&json!(7))), None);
-        assert_eq!(clean_credit(Some(&json!("x".repeat(500)))).unwrap().len(), 200);
+        assert_eq!(credit(json!("x\u{a0}\u{3000}\u{feff}y")).as_deref(), Some("x y"));
+        assert_eq!(credit(json!("x\u{85}y")).as_deref(), Some("x\u{85}y"));
+        assert_eq!(credit(json!("")), None);
+        assert_eq!(credit(json!(7)), None);
+        assert_eq!(credit(json!("w".repeat(500))).map(|c| c.len()), Some(MAX_CREDIT));
     }
 }

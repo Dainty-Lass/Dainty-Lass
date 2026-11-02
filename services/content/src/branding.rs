@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::{Map, Value, json};
 
-use crate::input::{clean_accent, clean_credit, cut_utf16, image_content_type, is_safe_image_name, signature_matches};
+use crate::input::{accent_colour, credit_line, cut_utf16, image_content_type, is_image_file_name, signature_matches};
 use crate::{Clock, log};
 
 pub const RESCAN_MS: i64 = 10_000;
@@ -119,7 +119,7 @@ pub fn scan(dir: &Path) -> Scan {
         // BTreeSet: sorted by bytes
         _ => listing
             .iter()
-            .filter(|name| is_safe_image_name(name))
+            .filter(|name| is_image_file_name(name))
             .map(|name| (Some(Value::String(name.clone())), None))
             .collect(),
     };
@@ -130,7 +130,7 @@ pub fn scan(dir: &Path) -> Scan {
         }
         let name = match &file {
             Some(Value::String(name))
-                if is_safe_image_name(name) && listing.contains(name) && !images.iter().any(|i| &i.name == name) =>
+                if is_image_file_name(name) && listing.contains(name) && !images.iter().any(|i| &i.name == name) =>
             {
                 name.clone()
             }
@@ -145,7 +145,7 @@ pub fn scan(dir: &Path) -> Scan {
         let content_type = image_content_type(&name);
         match check_image(&dir.join(&name), content_type) {
             Ok(()) => images.push(Image {
-                credit: clean_credit(credit.as_ref()),
+                credit: credit_line(credit.as_ref()),
                 name,
                 content_type,
             }),
@@ -164,7 +164,7 @@ pub fn scan(dir: &Path) -> Scan {
         }
     }
     let accent_value = config.as_ref().and_then(|c| c.get("accent"));
-    let accent = clean_accent(accent_value);
+    let accent = accent_colour(accent_value);
     if accent_value.is_some() && accent.is_none() {
         log::warn("branding.json accent ignored: use #rgb or #rrggbb", json!({}));
     }

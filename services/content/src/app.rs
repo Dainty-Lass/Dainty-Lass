@@ -25,8 +25,8 @@ use tokio_util::io::ReaderStream;
 use crate::auth::{Account, Auth, Check};
 use crate::branding::{Branding, MAX_IMAGE_BYTES};
 use crate::input::{
-    self, KEY_HEADER, Route, VersionKey, cut_utf16, header_text, if_none_match_hits, is_runtime_file_name,
-    is_safe_image_name,
+    self, KEY_HEADER, Route, VersionKey, cut_utf16, header_text, if_none_match_hits, is_image_file_name,
+    is_runtime_file_name,
 };
 use crate::limits::{Refusal, Slot, Slots};
 use crate::log;
@@ -434,7 +434,7 @@ impl AppState {
 
     async fn branding_image(&self, name: &str, condition: Option<&str>, ctx: &mut Ctx) -> Reply {
         let not_found = || Reply::error(StatusCode::NOT_FOUND, "not_found");
-        if !is_safe_image_name(name) {
+        if !is_image_file_name(name) {
             return not_found();
         }
         let state = self.clone();

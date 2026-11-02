@@ -225,3 +225,41 @@ rules is these lines, so convergence explains much of it. It does not explain th
 the spec alone accounts for. If the maintainer wants that residue gone, it is local: rename `clean_accent`,
 `clean_credit`, `is_safe_image_name` and `remote_items`, and rewrite `version_query`, the `news.rs` result handling
 and the two `input.rs` tests in another shape. The public paths of spec 2.1 do not change.
+
+## 7. Redo of overlapping items
+
+A second implementer session, in its own worktree (`R:\source\dauntless\.wt\content-redo`, branch
+`feat/rd27-content-mit-redo` from `feat/rd27-content-mit` at `7609f9d`), replaced the items the similarity review
+flagged. It did not open dainty-restricted, legacy-revived, any other worktree, the history of `services/content`
+before `16e66e0`, sections 5–6 of this file or section 5 of `similarity.md`.
+
+**Deleted unread.** Line ranges were found with `grep -n ... | cut -d: -f1` and a brace-matching script that printed
+only line numbers, then removed with `sed -i 'A,Bd'`:
+
+- `src/input.rs`: `version_query` with its doc line, the helpers `is_safe_image_name`, `clean_accent`,
+  `clean_credit` with their doc lines, and the whole `#[cfg(test)]` module (every `#[test]` fn in the file).
+- `src/client.rs`: the line of the `static CLIENT` the client pool lived in.
+- `src/news.rs`: emptied whole. Only its `pub` signature lines were printed first (`awk` stopping at the first `{` or
+  `;`), so the public items keep their names and shapes.
+
+**Rewritten from `spec-rd27-content.md`**, with new private names and structure:
+
+- `input::version_query` (section 2.5) on `url::form_urlencoded`, first matching pair wins.
+- `input::is_image_file_name`, `accent_colour`, `credit_line` (section 2.12.1–2.12.2), callers in `app.rs` and
+  `branding.rs` renamed to match.
+- `client.rs`: the pool is a function-local `OnceLock` named `POOL`.
+- `news.rs` (section 2.13.3–2.13.4): file and GitHub state in two structs, the GitHub refresh spawned on the current
+  tokio runtime with a drop guard clearing its in-flight flag, the reply judged by its own function (304, non-2xx,
+  over 1 MiB, JSON, `parse_news`, no usable entries), the ETag read with `input::header_text`.
+- Tests: `input.rs`'s 16 tests from the vectors of section 3.3 (R1–R5, T1–T4, the recorded manifests, N, B);
+  `news.rs`'s 3 tests (the file states, GitHub once a minute with the 304/503/bad JSON/`{"items":[{}]}`/over 1 MiB/
+  transport cases, concurrent polls).
+
+**CI:** `.forgejo/workflows/ci.yml`'s Rust job builds `content-plugin` before the tests, since `cargo test` builds no
+cdylib for its own tests and content-plugin's parity test loads the library.
+
+**Checks** (`CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=line-tables-only`, `-j 2`): `cargo fmt --all --check`
+clean; `cargo clippy --workspace --all-targets --locked -- -D warnings` clean; `cargo build --locked -p content-plugin`;
+`cargo test --workspace --locked --no-fail-fast` all passed, the content lib's 53 unit tests included and the four
+recorded parity scripts (`content`, `content-none`, `content-invalid`, `content-index`) passing both in process
+(`services/content/tests/parity.rs`) and through the built library (`services/content-plugin/tests/parity.rs`).
