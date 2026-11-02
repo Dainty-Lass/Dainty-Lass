@@ -390,11 +390,8 @@ mod tests {
 
     #[test]
     fn the_body_is_the_one_node_served() {
-        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/protocol/tests/fixtures");
-        for name in ["runtime-manifest", "runtime-manifest-defaults"] {
-            let input = std::fs::read(fixtures.join(format!("{name}.input.json"))).unwrap();
-            let body = std::fs::read_to_string(fixtures.join(format!("{name}.json"))).unwrap();
-            assert_eq!(parse_runtime_json(&input).unwrap().to_json(), body, "{name}");
+        for (name, input, body) in protocol::test_data::RUNTIME_MANIFESTS {
+            assert_eq!(parse_runtime_json(input.as_bytes()).unwrap().to_json(), body, "{name}");
         }
     }
 

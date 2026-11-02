@@ -7,7 +7,8 @@
 # the Visual Studio install, VC/Tools/MSVC/<version>/bin/Hostx64/x64. A workspace of its own: cargo fuzz
 # needs nightly and its own build flags.
 [package]
-name = "dainty-lass-fuzz"
+name = "dainty-restricted-fuzz"
+license = "AGPL-3.0-only"
 version = "0.0.0"
 edition = "2024"
 publish = false
@@ -16,7 +17,7 @@ publish = false
 cargo-fuzz = true
 
 [dependencies]
-admin = { path = "../services/admin" }
+admin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
 # admin_request: the query parser the admin API runs
 async-graphql = { version = "7", default-features = false }
 libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
@@ -26,39 +27,32 @@ chat = { path = "../plugins/chat" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 content = { path = "../services/content" }
 # epic_manifest: Epic's download manifests and CDN chunks
-epic = { path = "../crates/epic" }
+epic = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
 flate2 = "1"
 gateway = { path = "../services/gateway" }
 # history_bucket: what a restore reads back from the history bucket (DH4)
-history-ship = { path = "../crates/history-ship" }
+history-ship = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
 host = { path = "../services/host", default-features = false, features = ["gateway", "content", "admin"] }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
-module-api = { path = "../crates/module-api" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
 http = "1"
 # network_directory: the directory's node-link messages (DN4); network_home, network_ticket: the home API's (DN5); network_admin: the admin relay's (DN11); network_logship: peer log shipping (DH7)
-network = { path = "../plugins/network", features = ["log-ship"] }
+network = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3", features = ["log-ship"] }
 # network_link: the certificate names the node link reads
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
-protocol = { path = "../crates/protocol" }
-proxy = { path = "../crates/proxy" }
-remote = { path = "../crates/remote" }
+protocol = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+proxy = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+remote = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
 serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
 sha2 = "0.11"
 # launcher_host: the launcher's host.toml reader
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
-service-kit = { path = "../crates/service-kit" }
+service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
 # history_record: change-log records read back during a restore (DH5)
-store = { path = "../crates/store" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
 url = "2"
-
-[[bin]]
-name = "admin_request"
-path = "fuzz_targets/admin_request.rs"
-test = false
-doc = false
-bench = false
 
 [[bin]]
 name = "allowlist_input"
@@ -103,13 +97,6 @@ doc = false
 bench = false
 
 [[bin]]
-name = "epic_manifest"
-path = "fuzz_targets/epic_manifest.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "gateway_capture"
 path = "fuzz_targets/gateway_capture.rs"
 test = false
@@ -119,20 +106,6 @@ bench = false
 [[bin]]
 name = "gateway_policy"
 path = "fuzz_targets/gateway_policy.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "history_bucket"
-path = "fuzz_targets/history_bucket.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "history_record"
-path = "fuzz_targets/history_record.rs"
 test = false
 doc = false
 bench = false
@@ -173,13 +146,6 @@ doc = false
 bench = false
 
 [[bin]]
-name = "launcher_host"
-path = "fuzz_targets/launcher_host.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "launcher_input"
 path = "fuzz_targets/launcher_input.rs"
 test = false
@@ -189,55 +155,6 @@ bench = false
 [[bin]]
 name = "launcher_net"
 path = "fuzz_targets/launcher_net.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "network_link"
-path = "fuzz_targets/network_link.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "network_directory"
-path = "fuzz_targets/network_directory.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "network_home"
-path = "fuzz_targets/network_home.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "network_ticket"
-path = "fuzz_targets/network_ticket.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "network_admin"
-path = "fuzz_targets/network_admin.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "network_logship"
-path = "fuzz_targets/network_logship.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "protocol_input"
-path = "fuzz_targets/protocol_input.rs"
 test = false
 doc = false
 bench = false
@@ -264,13 +181,6 @@ doc = false
 bench = false
 
 [[bin]]
-name = "runtime_input"
-path = "fuzz_targets/runtime_input.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "gateway_modules"
 path = "fuzz_targets/gateway_modules.rs"
 test = false
@@ -284,34 +194,7 @@ test = false
 doc = false
 bench = false
 
-[[bin]]
-name = "launcher_region"
-path = "fuzz_targets/launcher_region.rs"
-test = false
-doc = false
-bench = false
-
 [workspace]
 members = ["."]
 
 # history_input: the text a person or a bot types to filter, page and revert the change log (DH3b)
-[[bin]]
-name = "history_input"
-path = "fuzz_targets/history_input.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "network_ring"
-path = "fuzz_targets/network_ring.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "remote_wire"
-path = "fuzz_targets/remote_wire.rs"
-test = false
-doc = false
-bench = false

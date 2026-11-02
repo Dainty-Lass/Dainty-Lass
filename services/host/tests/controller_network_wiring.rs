@@ -1,7 +1,7 @@
-#![cfg(feature = "network")]
+#![cfg(feature = "gateway")]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-//! End-to-end wiring of [`controller::modules::network`] and [`controller::modules::gateway`] across two
+//! End-to-end wiring of [`host::compose::network`] and [`host::compose::gateway`] across two
 //! [`controller::ServerController`] nodes over loopback mTLS (`/__node/<service>`):
 //! - `NodeServices` is bound to each gateway's `/__node/*` endpoint
 //! - `Directory` replicates registrations from the leader (`oregon-1`) to a replica (`uk-1`)
@@ -13,8 +13,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use controller::modules::{self, NetworkOptions};
 use controller::{ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController};
+use host::compose::{self as modules, NetworkOptions};
 use module_api::network::{GlobalId, IdKind, NodeId};
 use module_api::stub::StubModule;
 use module_api::{ActorContext, GameModule, GameVersion, HomeForward, NodeIdentity};

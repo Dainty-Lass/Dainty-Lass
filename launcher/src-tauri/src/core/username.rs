@@ -1,7 +1,7 @@
 //! Usernames and pasted account keys (row L12): `protocol::account` (RS1), which reads
 //! `src/shared/username.ts` answer for answer. Reforged's registration rule, also for stored usernames
 //! (RD22); keys a Reforged server makes are `RRK_<48 hex>`. Both sides run
-//! `crates/protocol/tests/cases/username.json`.
+//! dainty-lass's `crates/protocol/tests/cases/username.json`.
 
 #[allow(unused_imports, reason = "the controller (RA13) and the keystore (RA8) use the rest")]
 pub use protocol::account::{
@@ -42,11 +42,7 @@ mod tests {
 
     #[test]
     fn the_shared_table() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../crates/protocol/tests/cases/username.json"
-        );
-        let cases: Cases = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let cases: Cases = serde_json::from_str(protocol::test_data::USERNAME_CASES).unwrap();
         for case in cases.check {
             // The page may send a non-string, which TypeScript reads as empty
             let result = case.input.as_str().map_or(UsernameCheck::Empty, check_username);

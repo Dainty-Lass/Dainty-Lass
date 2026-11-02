@@ -11,7 +11,11 @@ import type { InvokeArgs } from "@tauri-apps/api/core";
 (globalThis as unknown as { window: unknown }).window = globalThis;
 
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { api, CALL_TIMEOUT_MS } from "../../ui/packages/bridge/src/api.ts";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+// api.ts is MIT and lives in dainty-lass's ui/ (RD27): DAINTY_LASS_DIR, or dainty-lass beside this repository
+const lass = process.env.DAINTY_LASS_DIR ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../dainty-lass");
+const { api, CALL_TIMEOUT_MS } = await import(pathToFileURL(path.join(lass, "ui/packages/bridge/src/api.ts")).href);
 import { loadHook } from "./hook.ts";
 
 type Call = { cmd: string; args: InvokeArgs | undefined };

@@ -30,7 +30,7 @@ protocol.workspace = true
 # Epic sign-in, ownership and installs (DD22)
 epic.workspace = true
 # The client profiles (DE4, DD12): by path, as fuzz takes module-api; its workspace entry names the silentspud registry
-module-api = { path = "../../crates/module-api" }
+module-api.workspace = true
 serde.workspace = true
 # preserve_order: settings.json keeps its key order (L28); workspace builds unify it on anyway
 serde_json = { workspace = true, features = ["preserve_order"] }
@@ -86,7 +86,7 @@ sha1_smol = "1"
 tokio-stream = "0.1"
 tempfile.workspace = true
 rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
-protocol = { workspace = true, features = ["ts"] }
+protocol = { workspace = true, features = ["ts", "test-data"] }
 ts-rs.workspace = true
 
 [target.'cfg(windows)'.dependencies]

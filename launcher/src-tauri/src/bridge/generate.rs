@@ -317,7 +317,7 @@ fn launcher_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
-/// The dainty-lass-ui submodule (DD11)
+/// The UI's AGPL inputs, kept here for dainty-lass's ui/ to copy (RD27)
 fn ui_dir() -> PathBuf {
     launcher_dir().join("../ui")
 }
@@ -348,10 +348,10 @@ fn strings_export() -> String {
 
 #[test]
 fn generated_files_are_current() {
-    // Refused rather than skipped, and never written into an empty submodule folder
+    // Refused rather than skipped
     assert!(
-        ui_dir().join("package.json").is_file(),
-        "{} is not checked out: run `git submodule update --init ui`",
+        ui_dir().join("packages/i18n/catalogs/en.json").is_file(),
+        "{} has no language catalogs",
         ui_dir().display()
     );
     let files = [

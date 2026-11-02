@@ -64,12 +64,14 @@ jobs:
       - name: Long paths for git
         run: git config --global core.longpaths true
 
-      # CI_READ_TOKEN: a read-only token, for when the job's own token can't read the submodules' repositories
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       - name: Work folder
         run: echo "WORK=$(cygpath -u "$RUNNER_TEMP")" >> "$GITHUB_ENV"
@@ -83,7 +85,8 @@ jobs:
 
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version-file: ui/package.json
+          # dashboard/package.json's packageManager
+          bun-version: 1.4.4
 
       - name: Install the tauri CLI
         working-directory: launcher
@@ -114,7 +117,7 @@ jobs:
           fi
           node scripts/release-config.mjs "$(cygpath -w "$WORK/config")"
 
-      # No build cache in a release: every file is built from this commit alone. beforeBuildCommand builds ui/
+      # No build cache in a release: every file is built from this commit alone. beforeBuildCommand builds dashboard/'s page
       - name: Build DaintyLass Launcher and DaintyLass Manager
         working-directory: launcher
         run: |
@@ -196,8 +199,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       - name: Install rustup and the pinned toolchain
         run: |
@@ -208,7 +214,8 @@ jobs:
 
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version-file: ui/package.json
+          # dashboard/package.json's packageManager
+          bun-version: 1.4.4
 
       - name: Install the tauri CLI
         working-directory: launcher

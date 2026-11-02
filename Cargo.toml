@@ -1,0 +1,171 @@
+# The AGPL half of DaintyLass (RD27): the AGPL services, the launcher, the game modules and the server binaries,
+# in one workspace. DaintyLass's MIT crates come from dainty-lass at one rev (e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3 below); bump it in one
+# place, for every crate at once, or the game modules would build against a second copy of module-api.
+[workspace]
+resolver = "3"
+members = [
+    "services/gateway",
+    "services/content",
+    "services/host",
+    "launcher/src-tauri",
+    # Core plugins (DD3): chat, XMPP over WebSocket (DD21, DN10)
+    "plugins/chat",
+    # What ships (RD26): the server in one binary (dainty-lass-server-console, and reforged-host, the name installs
+    # run, DD1) and the same without a console
+    "bins/server-console",
+    "bins/server-minimal",
+    # The game module and its crates (DD6, DD8), and realms (DD14)
+    "modules/rustic-isles/crates/*",
+    "modules/rustic-isles/modules/*",
+    "modules/rustic-rifts/crates/*",
+]
+# Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it), the
+# runtime loader (Apache-2.0) and the launcher's host fixture
+exclude = ["fuzz", "legacy", "modules/rustic-isles/tools", "launcher/src-tauri/fixtures/host"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-only"
+repository = "https://git.silentspud.com/silentspud/dainty-restricted"
+publish = false
+
+[workspace.dependencies]
+controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+server-controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3", package = "controller" }
+hostkit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+launcher-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+# The network core plugin (DD16-DD18), by its own name (chat) and the one the gateway and host use
+network = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+network_plugin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3", package = "network", default-features = false }
+protocol = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+remote = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+history-ship = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+proxy = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+admin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+chat = { path = "plugins/chat" }
+content = { path = "services/content" }
+epic = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "e859fbfbd3be13e8c1d1d23c74e6ae952f2deed3" }
+# The game modules compiled into the server (DF5): Cargo features of the controller and the bins
+isles-1-14-7 = { path = "modules/rustic-isles/modules/isles-1-14-7", default-features = false }
+isles-core = { path = "modules/rustic-isles/crates/isles-core" }
+isles-db = { path = "modules/rustic-isles/crates/isles-db" }
+isles-director = { path = "modules/rustic-isles/crates/isles-director" }
+hmac = "0.13"
+isles-chat = { path = "modules/rustic-isles/crates/isles-chat" }
+# Realms (DD14, RF2): the seam always, the server crates behind isles-1-14-7's realms feature, rifts-host behind the
+# launcher's
+rifts-seam = { path = "modules/rustic-rifts/crates/rifts-seam" }
+rifts-admission = { path = "modules/rustic-rifts/crates/rifts-admission" }
+rifts-relay = { path = "modules/rustic-rifts/crates/rifts-relay" }
+rifts-realms = { path = "modules/rustic-rifts/crates/rifts-realms" }
+rifts-guard = { path = "modules/rustic-rifts/crates/rifts-guard" }
+rifts-host = { path = "modules/rustic-rifts/crates/rifts-host" }
+gateway = { path = "services/gateway" }
+host = { path = "services/host" }
+launcher = { path = "launcher/src-tauri" }
+
+crossterm = "0.29"
+ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
+
+# RSA token keys and CSPRNG (D10: aws-lc-rs, already in the tree through rustls and rcgen)
+aws-lc-rs = "1.18"
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
+aes-gcm = "0.11"
+# The admin API's GraphQL schema (services/admin); no web framework integration, no playground
+async-graphql = { version = "7", default-features = false }
+base64 = "0.23"
+
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+clap = { version = "4", features = ["derive"] }
+diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35", "32-column-tables"] }
+diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
+dotenvy = "0.15"
+flate2 = "1"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+gethostname = "1"
+http-body-util = "0.1"
+hyper = { version = "1", default-features = false, features = ["client", "server", "http1"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio", "service", "client-legacy", "http1"] }
+# HTTPS for the services' outgoing requests (D10: aws-lc-rs)
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "aws-lc-rs", "webpki-tokio", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+# Bundled: one SQLite, built with the options in .cargo/config.toml, shared by Diesel and rusqlite (M17).
+libsqlite3-sys = { version = "0.38", features = ["bundled"] }
+percent-encoding = "2"
+# Bundled libpq without OpenSSL: no system libpq, no Perl on Windows, openssl-sys stays banned (D10, DF7 spike).
+pq-sys = { version = "0.7", default-features = false, features = ["bundled_without_openssl"] }
+regex = "1"
+# Process CPU and memory for /metrics (service-kit's registry, controller's collector)
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
+rusqlite = { version = "0.40", features = ["backup"] }
+serde = { version = "1", features = ["derive"] }
+# Keys in insertion order, as JavaScript objects keep them (rustic-isles' JSON matches Node's)
+serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
+sha2 = "0.11"
+# Epic's manifests and chunks are pinned and checked by SHA-1 (crates/epic, DD22)
+sha1 = "0.11"
+# Epic sign-in and library only: the manifests and chunks are read by crates/epic itself (spike DE1)
+egs-api = "=0.14.0"
+thiserror = "2"
+# host.toml: read, and written back keeping the host's own comments and layout
+toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
+tokio ={ version = "1", features = ["rt", "macros"] }
+tower = { version = "0.5", features = ["util"] }
+tokio-util = { version = "0.7", features = ["io"] }
+url = "2"
+tracing = "0.1"
+tracing-log = "0.2"
+# TypeScript types from Rust types (the launcher bridge, L6)
+ts-rs = "12"
+tracing-subscriber = { version = "0.3", features = ["fmt", "registry", "std", "tracing-log"] }
+toml = "0.9"
+rand = "0.10"
+tempfile = "3"
+# Network-wide ids, tagged with the owning node (DD18, crates/module-api)
+ulid = "3"
+# The chat plugin's (plugins/chat, from DR's metagame chat): constant-time comparisons, and the WebSocket clients
+# of its parity tests (the version axum's ws uses)
+subtle = "2"
+tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake"] }
+
+# rustic-isles' and rustic-rifts' own (RU5 auth, RU6 Director, RF4 admission and relay)
+argon2 = "0.5"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+getrandom = "0.4"
+jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
+libc = "0.2.191"
+libloading = "0.7"
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "pem", "pkcs8", "std"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+uuid = { version = "1", features = ["v4"] }
+webpki-roots = "1"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_Threading"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+# A panic in a request handler is caught (CatchPanicLayer), but it still drops the request.
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+# Section 2: servers catch a panicking request instead of dying, so panics unwind.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+panic = "unwind"
+
+# Argon2 is memory-hard: an unoptimised build takes seconds per password, which the auth tests do dozens of times
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3

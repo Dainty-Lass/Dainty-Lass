@@ -1,7 +1,7 @@
 //! Live server status (`GET /reforged/api/ServerStatus`), row L12: `protocol::status` (RS1), which reads
 //! `parseServerStatus` in `src/shared/status.ts` answer for answer. The answer comes from the network, so
 //! every field is checked and cleaned before the page sees it. Both sides run
-//! `crates/protocol/tests/cases/status.json`.
+//! dainty-lass's `crates/protocol/tests/cases/status.json`.
 
 #[allow(unused_imports, reason = "the controller (RA13) uses the rest")]
 pub use protocol::status::{STATUS_PATH, ServerStatus, clean_https_url, clean_text, iso_date, parse_server_status};
@@ -22,11 +22,7 @@ mod tests {
 
     #[test]
     fn the_shared_table() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../crates/protocol/tests/cases/status.json"
-        );
-        let cases: Vec<Case> = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let cases: Vec<Case> = serde_json::from_str(protocol::test_data::STATUS_CASES).unwrap();
         assert!(cases.len() > 90);
         for case in cases {
             let parsed = parse_server_status(&case.input);

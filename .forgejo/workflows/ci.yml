@@ -1,13 +1,13 @@
 # Checks every push, by code family (MIGRATION_PLAN.md RR3): a push to a work branch runs only the jobs of the
 # families it changes, and the "CI ok" job sums them up for branch protection. It is the one required check. A
 # push to main or plan, a manual run and any change to the workflows run every family.
-#  - Rust (the root workspace, modules/): fmt, clippy and tests on Linux and Windows, each module alone, cargo-deny, a short run
-#    of every fuzz target
+#  - Rust (the workspace: the AGPL services, the launcher, the bins and the game modules): fmt, clippy and tests on
+#    Linux and Windows, cargo-deny, a short run of every fuzz target. dainty-lass's MIT crates come from git at the rev
+#    Cargo.toml pins (RD27), read over HTTPS with CI_READ_TOKEN
 #  - Paradox (ParadoxBackend, ParadoxDirector in modules/rustic-isles/reference/1.14.7): npm ci and tests
-#  - UI (ui/, dainty-lass-ui): bun install and build (DD11)
 #  - Docker (docker/, compose*.yaml and everything the images copy): the images, the suites inside them, the smoke test
-#  - Network (the network plugin, the gateway and host kit it runs in, docker/, compose*.yaml): four nodes in Docker with
-#    injected latency, their links and the launcher's region ping (docker/network/test.sh, DN12)
+#  - Network (the gateway and host kit, docker/, compose*.yaml): four nodes in Docker with injected latency, their
+#    links and the launcher's region ping (docker/network/test.sh, DN12)
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
 # windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit.
@@ -41,7 +41,7 @@ jobs:
       rust: ${{ steps.pick.outputs.rust }}
       rust-tauri: ${{ steps.pick.outputs.rust-tauri }}
       paradox: ${{ steps.pick.outputs.paradox }}
-      ui: ${{ steps.pick.outputs.ui }}
+      launcher: ${{ steps.pick.outputs.launcher }}
       docker: ${{ steps.pick.outputs.docker }}
       network: ${{ steps.pick.outputs.network }}
     steps:
@@ -90,9 +90,11 @@ jobs:
             paradox:
               - modules/rustic-isles
               - modules/rustic-isles/**
-            ui:
-              - ui
+            # The launcher bundles the UI's AGPL inputs and dashboard/'s pages
+            launcher:
+              - launcher/**
               - ui/**
+              - dashboard/**
             # The images build the Rust services, the Paradox backend and Director (rustic-isles), and copy native/
             docker:
               - docker/**
@@ -134,19 +136,15 @@ jobs:
           ALL: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/plan')) || github.event_name == 'workflow_dispatch' || steps.filter.outputs.workflow == 'true' }}
           RUST: ${{ steps.filter.outputs.rust }}
           PARADOX: ${{ steps.filter.outputs.paradox }}
-          UI: ${{ steps.filter.outputs.ui }}
+          LAUNCHER: ${{ steps.filter.outputs.launcher }}
           DOCKER: ${{ steps.filter.outputs.docker }}
           NETWORK: ${{ steps.filter.outputs.network }}
         run: |
           set -euo pipefail
-          for family in rust paradox ui docker network; do
+          for family in rust paradox launcher docker network; do
             var="${family^^}"
             value="${!var}"
             [ "$ALL" = true ] && value=true
-            # Nothing to build until DS6 adds the submodule
-            if [ "$family" = ui ] && ! git config -f .gitmodules --get-regexp '\.path$' 2>/dev/null | grep -q ' ui$'; then
-              value=false
-            fi
             echo "$family=$value" | tee -a "$GITHUB_OUTPUT"
           done
           # Tauri needs WebKitGTK and GTK3 to build on Linux
@@ -169,17 +167,19 @@ jobs:
       run:
         shell: bash
     steps:
-      # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
+      # Before the checkout: deep paths fail to clone without it (DF1)
       - name: Long paths for git
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
 
-      # CI_READ_TOKEN: a read-only token, for when the job's own token can't read the submodules' repositories
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       # The docker label's image has Node for the actions but no Rust
       - name: Install rustup
@@ -197,7 +197,7 @@ jobs:
       # The cargo registry and the target folder
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: rust
+          workspaces: .
 
       - name: Install the launcher's Linux build dependencies
         if: runner.os == 'Linux' && needs.changes.outputs.rust-tauri == 'true'
@@ -234,22 +234,6 @@ jobs:
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
 
-      # --workspace stops at the host's members; a module builds alone against the registry (DF1).
-      # CARGO_REGISTRY_TOKEN: "Bearer <token>" with package read access, while the instance needs sign-in.
-      - name: Each module alone
-        env:
-          REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          [ -z "$REGISTRY_TOKEN" ] || export CARGO_REGISTRIES_SILENTSPUD_TOKEN="$REGISTRY_TOKEN"
-          for manifest in modules/*/Cargo.toml; do
-            dir="$(dirname "$manifest")"
-            echo "::group::$dir"
-            (cd "$dir" && { rustup show active-toolchain || rustup toolchain install; } && cargo test --workspace --locked --no-fail-fast)
-            echo "::endgroup::"
-          done
-
   rust-deny:
     name: Rust licences and advisories
     needs: changes
@@ -260,8 +244,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       # The action's image ships an older cargo that rejects manifests the pinned toolchain accepts.
       - id: toolchain
@@ -291,8 +278,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       - name: Install rustup
         run: |
@@ -350,38 +340,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
       - run: npm test
 
-  # dainty-lass-ui at ui/: its Astro build, with the Bun its package.json names (DD11). Astro's CLI runs on Node.
-  ui:
-    name: UI build
-    needs: changes
-    if: needs.changes.outputs.ui == 'true'
-    runs-on: docker
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: ui
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: ui/package.json
-      - run: bun install --frozen-lockfile
-      - run: bun run build
 
   # The server's images (docs/hosting-docker.md), the full test run (docker/run-tests.sh): every server suite
   # inside the test image (the server image plus the Rust toolchain; the allowlist's nftables test for real), then
@@ -400,8 +369,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
+      # The images fetch dainty-lass's crates over SSH (RD27, docker/Dockerfile): an agent with a read-only deploy key
+      - name: SSH agent for the image build
+        env:
+          KEY: ${{ secrets.CI_SSH_KEY }}
+        run: |
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$KEY" | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
       - name: Build the images and run the full test run
         env:
           REFORGED_COMMIT: ${{ github.sha }}
@@ -412,7 +392,7 @@ jobs:
   installers-windows:
     name: Windows NSIS installers (client and manager)
     needs: changes
-    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.ui == 'true'
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.launcher == 'true'
     runs-on: windows-msvc
     timeout-minutes: 45
     defaults:
@@ -425,15 +405,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: rust
+          workspaces: .
           key: installers-windows
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -442,7 +425,16 @@ jobs:
 
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version-file: ui/package.json
+          # dashboard/package.json's packageManager
+          bun-version: 1.4.4
+
+      # The bridge tests drive dainty-lass's ui/packages/bridge/src/api.ts (MIT, RD27), at the rev Cargo.toml pins
+      - name: dainty-lass at the pinned rev
+        run: |
+          rev="$(grep -m1 -o 'dainty-lass.git", rev = "[0-9a-f]*' Cargo.toml | grep -o '[0-9a-f]\{40\}')"
+          git clone -q ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git .dainty-lass
+          git -C .dainty-lass checkout -q "$rev"
+          echo "DAINTY_LASS_DIR=$PWD/.dainty-lass" >> "$GITHUB_ENV"
 
       - name: Install launcher CLI dependencies and run bridge tests
         working-directory: launcher
@@ -480,8 +472,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       - name: Install rustup
         run: |
@@ -495,7 +490,7 @@ jobs:
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: rust
+          workspaces: .
           key: network
 
       # The launcher links Tauri (WebKitGTK, GTK3); the runner's user needs passwordless sudo once, or these installed
@@ -507,6 +502,14 @@ jobs:
           sudo -n apt-get update
           sudo -n apt-get install -y --no-install-recommends $pkgs
 
+      # The images fetch dainty-lass's crates over SSH (RD27, docker/Dockerfile): an agent with a read-only deploy key
+      - name: SSH agent for the image build
+        env:
+          KEY: ${{ secrets.CI_SSH_KEY }}
+        run: |
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$KEY" | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
       - name: Build the images and run the harness
         env:
           REFORGED_COMMIT: ${{ github.sha }}
@@ -517,7 +520,7 @@ jobs:
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, paradox, ui, docker, installers-windows, network]
+    needs: [changes, rust, rust-deny, fuzz, paradox, docker, installers-windows, network]
     if: always()
     runs-on: docker
     timeout-minutes: 5

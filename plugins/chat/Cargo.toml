@@ -20,8 +20,8 @@ hyper.workspace = true
 hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
 # By path: the workspace entry names the silentspud registry, which a checkout without its config can't load
-module-api = { path = "../../crates/module-api" }
-network = { path = "../network" }
+module-api.workspace = true
+network.workspace = true
 protocol.workspace = true
 rand.workspace = true
 regex.workspace = true

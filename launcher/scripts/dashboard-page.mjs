@@ -3,7 +3,7 @@
 // (apps/<page>/dist/client) to launcher/dist/<page>, the config's fixed frontendDist, since Tauri's config
 // can't read where the checkout is.
 //   node scripts/dashboard-page.mjs build|dev launcher|server-manager
-// The checkout is DAINTY_DASHBOARD_DIR, or dainty-dashboard next to this repository.
+// The dashboard is this repository's dashboard/, or DAINTY_DASHBOARD_DIR.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const scripts = path.dirname(fileURLToPath(import.meta.url));
 const launcher = path.resolve(scripts, "..");
-const repo = path.resolve(launcher, "../..");
+const repo = path.resolve(launcher, "..");
 // The ports devUrl names in tauri.conf.json and tauri.server-gui.conf.json
 const PAGES = { launcher: 4321, "server-manager": 4322 };
 
@@ -21,11 +21,11 @@ if (!["build", "dev"].includes(mode) || !(page in PAGES)) {
   process.exit(2);
 }
 
-const dashboard = path.resolve(process.env.DAINTY_DASHBOARD_DIR || path.join(repo, "..", "dainty-dashboard"));
+const dashboard = path.resolve(process.env.DAINTY_DASHBOARD_DIR || path.join(repo, "dashboard"));
 const app = path.join(dashboard, "apps", page);
 if (!fs.existsSync(path.join(app, "package.json"))) {
   console.error(
-    `dainty-dashboard not found at ${dashboard}: clone it next to this repository or set DAINTY_DASHBOARD_DIR`,
+    `the dashboard is not at ${dashboard}: set DAINTY_DASHBOARD_DIR`,
   );
   process.exit(1);
 }

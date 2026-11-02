@@ -62,7 +62,7 @@ fn fixtures() -> PathBuf {
 }
 
 fn repo() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("..")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
 }
 
 fn copy_tree(from: &Path, to: &Path) {
@@ -461,7 +461,6 @@ fn generates_all_seven_game_data_steps_in_rust_without_node() {
     let p = host(&dir);
 
     let repo_ref = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
         .join("..")
         .join("..")
         .join("modules")

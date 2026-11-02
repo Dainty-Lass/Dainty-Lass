@@ -84,12 +84,14 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
 
-      # CI_READ_TOKEN: a read-only token, for when the job's own token can't read the submodules' repositories
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: recursive
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       # The runner's temporary folder as bash and GNU tar take it on every runner (tar reads D: as a remote host)
       - name: Work folder
@@ -143,11 +145,8 @@ jobs:
           name="reforged-revival-server-$VERSION"
           out="$WORK/assemble/$name"
           rm -rf "$WORK/assemble" && mkdir -p "$out"
-          # The commit's source, as git has it (no .workspace, nothing git ignores)
+          # The commit's source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
           git archive --format=tar "$COMMIT" | tar -x -C "$out"
-          # git archive leaves submodules out: rustic-isles' source at the commit this one pins (DS6)
-          mkdir -p "$out/modules/rustic-isles"
-          git -C modules/rustic-isles archive --format=tar HEAD | tar -x -C "$out/modules/rustic-isles"
           mkdir -p "$out/bin"
           for bin in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do
             cp "target/$TARGET/release/$bin$ext" "$out/bin/"

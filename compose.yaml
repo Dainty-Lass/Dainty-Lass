@@ -25,6 +25,8 @@ x-front: &front
   build:
     context: .
     dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
     target: front
   network_mode: service:net
   restart: unless-stopped
@@ -39,6 +41,8 @@ x-server: &server
   build:
     context: .
     dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -60,6 +64,8 @@ x-network-net: &network-net
   build:
     context: .
     dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
     target: front
   profiles: [network]
   command: ["sleep", "infinity"]
@@ -80,6 +86,8 @@ x-network-netem: &network-netem
   build:
     context: .
     dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
     target: netem
   profiles: [network]
   init: true
@@ -105,6 +113,8 @@ x-network-configure: &network-configure
   build:
     context: .
     dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -122,6 +132,8 @@ x-network-gateway: &network-gateway
   build:
     context: .
     dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
     target: front
   profiles: [network]
   command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
@@ -141,6 +153,8 @@ x-network-node: &network-node
   build:
     context: .
     dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -166,6 +180,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
       target: front
     command: ["sleep", "infinity"]
     init: true
@@ -303,6 +319,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
       target: server-rollback
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -328,6 +346,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
       target: server-rollback
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -469,6 +489,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
       target: test
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -492,6 +514,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
       target: server
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}

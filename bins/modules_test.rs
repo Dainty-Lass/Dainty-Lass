@@ -21,7 +21,7 @@ fn expected() -> BTreeSet<&'static str> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_modules_this_build_links_are_the_ones_its_features_name_and_all_of_them_start() {
-    let factories = controller::modules::game_modules();
+    let factories = host::compose::game_modules();
     let linked: BTreeSet<String> = factories.iter().map(|f| f().manifest().id.to_string()).collect();
     assert_eq!(linked, expected().into_iter().map(str::to_owned).collect());
 

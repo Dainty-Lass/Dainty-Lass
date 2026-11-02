@@ -2,7 +2,9 @@
 #
 # DaintyLass server images (docs/hosting-docker.md). Built from the repository root:
 #   docker compose build            (compose.yaml), or
-#   docker build -f docker/Dockerfile --target server .
+#   docker build --ssh default -f docker/Dockerfile --target server .
+# The workspace takes dainty-lass's MIT crates as git dependencies over SSH (RD27): the build needs an SSH agent
+# with a key that reads git.silentspud.com (`--ssh default`; compose.yaml passes it).
 #
 # Two images, both laid out as the server release is (RD8, .forgejo/workflows/server-release.yml), under
 # /opt/reforged, so every path reforged-host writes into the env files is the same in every container:
@@ -20,41 +22,47 @@ ARG NODE_IMAGE=node:22-trixie-slim
 ARG DEBIAN_IMAGE=debian:trixie-slim
 ARG MONGO_IMAGE=mongo:8.0
 
-# ------------------------------------------------------------------ the game modules' Rust sources (DF5)
-# Cargo reads the module crates' manifests, and their workspaces', even with every module feature off, and the
-# workspace's [patch] entries point the modules' git dependencies at these paths: nothing is fetched over ssh. Only
-# what cargo reads; the Node services, native code and game data are other stages' business.
-FROM scratch AS module-sources
-COPY modules/rustic-isles/Cargo.toml modules/rustic-isles/Cargo.lock /modules/rustic-isles/
-COPY modules/rustic-isles/crates/ /modules/rustic-isles/crates/
-COPY modules/rustic-isles/modules/ /modules/rustic-isles/modules/
-COPY modules/rustic-isles/docs/ /modules/rustic-isles/docs/
-COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ /modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
-COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json /modules/rustic-isles/reference/1.14.7/ParadoxBackend/
-COPY modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/ /modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/
-COPY modules/rustic-rifts/Cargo.toml modules/rustic-rifts/Cargo.lock /modules/rustic-rifts/
-COPY modules/rustic-rifts/crates/ /modules/rustic-rifts/crates/
-COPY modules/rustic-rifts/docs/ /modules/rustic-rifts/docs/
-COPY modules/rustic-rifts/src/ /modules/rustic-rifts/src/
+# ------------------------------------------------------------------ the workspace's Rust sources
+# What cargo reads: the members (the game modules are in-tree, RD27) and the module data their builds and tests
+# read. The Node services, native code, the dashboard and the 1.4.4 importer are other stages' business.
+FROM scratch AS rust-sources
+COPY Cargo.toml Cargo.lock rust-toolchain.toml rustfmt.toml clippy.toml deny.toml /src/
+COPY .cargo/ /src/.cargo/
+COPY services/ /src/services/
+COPY plugins/ /src/plugins/
+COPY bins/ /src/bins/
+COPY launcher/ /src/launcher/
+COPY ui/ /src/ui/
+COPY modules/rustic-isles/crates/ /src/modules/rustic-isles/crates/
+COPY modules/rustic-isles/modules/ /src/modules/rustic-isles/modules/
+COPY modules/rustic-isles/docs/ /src/modules/rustic-isles/docs/
+COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ /src/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
+COPY modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json /src/modules/rustic-isles/reference/1.14.7/ParadoxBackend/
+COPY modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/ /src/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/
+COPY modules/rustic-rifts/crates/ /src/modules/rustic-rifts/crates/
+COPY modules/rustic-rifts/docs/ /src/modules/rustic-rifts/docs/
+COPY modules/rustic-rifts/src/ /src/modules/rustic-rifts/src/
 
 # ------------------------------------------------------------------ the Rust binaries
 FROM ${RUST_IMAGE} AS rust-build
 RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates \
- && rm -rf /var/lib/apt/lists/*
-WORKDIR /src/rust
+ && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates git openssh-client \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p -m 0700 /root/.ssh && ssh-keyscan -p 222 git.silentspud.com >> /root/.ssh/known_hosts
+WORKDIR /src
 # The pinned toolchain (rust-toolchain.toml), in its own layer
 COPY rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
-COPY rust/ ./
-COPY --from=module-sources /modules/ /src/modules/
+COPY --from=rust-sources /src/ ./
 # The release workflow's build: the server in one binary, reforged-host, with the gateway, allowlist, content server
 # and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
 # built (only the lock file is read).
 # REFORGED_MODULES: the server-console features that link the game modules; empty builds none, which still serves.
 ARG REFORGED_MODULES=all-modules
-RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=reforged-cargo-target,target=/src/rust/target \
+RUN --mount=type=ssh \
+    --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=reforged-cargo-git,target=/usr/local/cargo/git \
+    --mount=type=cache,id=reforged-cargo-target,target=/src/target \
     features="$REFORGED_MODULES" \
  && set -- \
  && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "server-console/$f"; done \
@@ -97,8 +105,8 @@ WORKDIR /opt/reforged
 COPY --chown=reforged:reforged LICENSE.txt NOTICE.md ADDITIONAL_TERMS.md README.md ./
 COPY --chown=reforged:reforged native/ native/
 # The host kit finds the server folder by Cargo.toml beside modules/rustic-isles (paths.rs find_repo_root)
-COPY --chown=reforged:reforged Cargo.toml rust/
-# From the rustic-isles submodule (DS6): its licence files, the runtime and CatalogExporter sources setup checks
+COPY --chown=reforged:reforged Cargo.toml ./
+# From modules/rustic-isles: its licence files, the runtime and CatalogExporter sources setup checks
 # for, and the example game data and store captures pin
 COPY --chown=reforged:reforged modules/rustic-isles/ADDITIONAL_TERMS.md modules/rustic-isles/LICENSE modules/rustic-isles/NOTICE.md modules/rustic-isles/
 COPY --chown=reforged:reforged modules/rustic-isles/native/ modules/rustic-isles/native/
@@ -152,17 +160,16 @@ COPY --from=rust-build /usr/local/rustup /usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:/opt/reforged/bin:$PATH \
     CARGO_TERM_COLOR=never
-COPY --chown=reforged:reforged rust/ rust/
-COPY --chown=reforged:reforged --from=module-sources /modules/ /opt/reforged/modules/
+COPY --chown=reforged:reforged --from=rust-sources /src/ /opt/reforged/
 COPY --chmod=0755 docker/test-in-image.sh bin/reforged-test
-RUN chown reforged:reforged rust && chmod -R a+rwX /usr/local/cargo /usr/local/rustup
+RUN chmod -R a+rwX /usr/local/cargo /usr/local/rustup
 USER reforged
 # The server crates' tests, built now so a run starts at once (the downloaded crates stay in the image: a run
 # rebuilds nothing and needs no network). The launcher (Tauri, WebKitGTK) is not a server crate and is not
 # built; the fuzz targets are a workspace of their own.
-RUN cd rust && cargo test --locked --no-run \
+RUN --mount=type=ssh,uid=1000 cargo test --locked --no-run \
       -p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
-      -p controller -p backend -p director
+      -p controller
 # gateway's route-policy tests check /reforged/api against the reference route file
 COPY --chown=reforged:reforged modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts
 ENTRYPOINT ["/usr/bin/tini", "--", "reforged-test"]
@@ -192,7 +199,7 @@ COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/bin/
 WORKDIR /opt/reforged
 COPY --chown=node:node LICENSE.txt NOTICE.md ADDITIONAL_TERMS.md README.md ./
 COPY --chown=node:node native/ native/
-COPY --chown=node:node Cargo.toml rust/
+COPY --chown=node:node Cargo.toml ./
 COPY --chown=node:node modules/rustic-isles/ADDITIONAL_TERMS.md modules/rustic-isles/LICENSE modules/rustic-isles/NOTICE.md modules/rustic-isles/
 COPY --chown=node:node modules/rustic-isles/native/ modules/rustic-isles/native/
 COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/

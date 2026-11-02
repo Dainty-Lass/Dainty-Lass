@@ -3,7 +3,7 @@
 //! (RD5). The host, port and
 //! fingerprint decide where the account key is sent later, so the launcher has no copy of its own: the
 //! rules here are the servers' rules, and both sides run the same table
-//! (`crates/protocol/tests/cases/invite.json`).
+//! (dainty-lass's `crates/protocol/tests/cases/invite.json`).
 
 #[allow(unused_imports, reason = "the controller (RA13) and the platform rows use the rest")]
 pub use protocol::invite::{
@@ -38,11 +38,7 @@ mod tests {
     /// The servers' table, through the launcher's path: what the launcher refuses is what they refuse.
     #[test]
     fn the_shared_table() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../crates/protocol/tests/cases/invite.json"
-        );
-        let cases: Cases = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let cases: Cases = serde_json::from_str(protocol::test_data::INVITE_CASES).unwrap();
         assert!(cases.accept.len() > 30 && cases.reject.len() > 150);
         for case in cases.accept {
             assert_eq!(parse_invite(&case.input), Ok(case.invite), "{:?}", case.input);

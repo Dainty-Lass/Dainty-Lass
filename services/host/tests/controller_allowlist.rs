@@ -4,13 +4,14 @@
 #![cfg(feature = "allowlist")]
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
+use host::compose as modules;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use controller::{
-    ModuleEntry, ModuleRegistry, ModuleSource, ModuleState, RegistryError, RegistryOptions, ServerController, modules,
+    ModuleEntry, ModuleRegistry, ModuleSource, ModuleState, RegistryError, RegistryOptions, ServerController,
 };
 use module_api::manifest::Transport;
 use module_api::stub::StubModule;
@@ -216,7 +217,7 @@ async fn a_public_server_whose_allowlist_runs_elsewhere_refuses_udp_ports() {
     registry.unload_all().await;
 }
 
-#[cfg(feature = "network")]
+#[cfg(feature = "gateway")]
 #[tokio::test(flavor = "multi_thread")]
 async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_not() {
     use module_api::GameVersion;
@@ -303,7 +304,7 @@ async fn matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_n
     controller.shutdown().await;
 }
 
-#[cfg(feature = "network")]
+#[cfg(feature = "gateway")]
 #[test]
 fn refused_udp_admission_logs_warn_with_instance_and_port_without_panicking() {
     use std::fmt;

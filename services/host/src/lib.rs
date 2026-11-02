@@ -8,6 +8,8 @@ pub use hostkit::{
     with_admin_env,
 };
 
+pub mod compose;
+
 pub mod run {
     pub use hostkit::run::*;
 }
@@ -16,8 +18,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
+use crate::compose as modules;
 use clap::Parser as _;
-use controller::modules;
 
 /// Which services this binary runs on its own (`reforged-host <service>`).
 pub const BUILT_IN_SERVICES: &[&str] = &[
@@ -908,7 +910,7 @@ impl hooks::HostHooks for ServicesHostHooks {
     }
 
     fn game_modules(&self) -> Vec<controller::ModuleFactory> {
-        controller::modules::game_modules()
+        crate::compose::game_modules()
     }
 
     fn run_service(&self, name: &str, args: &[String]) -> Option<ExitCode> {
@@ -2037,7 +2039,7 @@ mod tests {
             file: FileForm::default(),
         };
         serve::ensure_server_files(&paths, &c).unwrap();
-        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..").join("..");
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
         let repo_paths = paths::Paths::new(&repo);
         std::fs::create_dir_all(&paths.backend_game_data).unwrap();
         std::fs::create_dir_all(&paths.director_game_data).unwrap();
