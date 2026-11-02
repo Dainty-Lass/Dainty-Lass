@@ -1,10 +1,10 @@
-# Clean-Room Record: `service-kit` (`rust/crates/service-kit`)
+# Clean-Room Record: `service-kit` (`crates/service-kit`)
 
 ## Provenance Summary
 
 | Field | Value |
 | --- | --- |
-| Target crate | `service-kit` (`rust/crates/service-kit`) |
+| Target crate | `service-kit` (`crates/service-kit`) |
 | Licence | `MIT` (`Copyright (c) 2026 Silent Spud`) |
 | Behaviour specification | `docs/port/spec-service-kit.md` |
 | Spec commit SHA | `07a12ea` (`4d0d712`) |
@@ -15,7 +15,7 @@
 
 ## Sparse-Checkout Configuration
 
-Before the implementer subagent was invoked, the worktree was configured with `git sparse-checkout set --no-cone --stdin` and all 12 DR-derived source files and 3 integration test files of `rust/crates/service-kit` were removed from the working tree:
+Before the implementer subagent was invoked, the worktree was configured with `git sparse-checkout set --no-cone --stdin` and all 12 DR-derived source files and 3 integration test files of `crates/service-kit` were removed from the working tree:
 
 ```text
 /*
@@ -46,26 +46,26 @@ The implementer session had no access to any of the 12 replaced source files, th
 ## Scope Implemented & Retained
 
 ### Clean-Room Implemented (`MIT`)
-- `rust/crates/service-kit/Cargo.toml` (`license = "MIT"`)
-- `rust/crates/service-kit/src/lib.rs`
-- `rust/crates/service-kit/src/body.rs`
-- `rust/crates/service-kit/src/collate.rs`
-- `rust/crates/service-kit/src/env.rs`
-- `rust/crates/service-kit/src/js.rs`
-- `rust/crates/service-kit/src/jsjson.rs`
-- `rust/crates/service-kit/src/json.rs`
-- `rust/crates/service-kit/src/linelog.rs`
-- `rust/crates/service-kit/src/log.rs`
-- `rust/crates/service-kit/src/ratelimit.rs`
-- `rust/crates/service-kit/src/routing.rs`
-- `rust/crates/service-kit/src/serve.rs`
-- `rust/crates/service-kit/tests/body.rs`
-- `rust/crates/service-kit/tests/ratelimit.rs`
-- `rust/crates/service-kit/tests/routing.rs`
+- `crates/service-kit/Cargo.toml` (`license = "MIT"`)
+- `crates/service-kit/src/lib.rs`
+- `crates/service-kit/src/body.rs`
+- `crates/service-kit/src/collate.rs`
+- `crates/service-kit/src/env.rs`
+- `crates/service-kit/src/js.rs`
+- `crates/service-kit/src/jsjson.rs`
+- `crates/service-kit/src/json.rs`
+- `crates/service-kit/src/linelog.rs`
+- `crates/service-kit/src/log.rs`
+- `crates/service-kit/src/ratelimit.rs`
+- `crates/service-kit/src/routing.rs`
+- `crates/service-kit/src/serve.rs`
+- `crates/service-kit/tests/body.rs`
+- `crates/service-kit/tests/ratelimit.rs`
+- `crates/service-kit/tests/routing.rs`
 
 ### Born-Here Files Retained (`MIT`)
-- `rust/crates/service-kit/src/context.rs`
-- `rust/crates/service-kit/src/telemetry.rs`
+- `crates/service-kit/src/context.rs`
+- `crates/service-kit/src/telemetry.rs`
 
 ## Spec Questions and Clarifications During Implementation
 

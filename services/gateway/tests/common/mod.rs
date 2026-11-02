@@ -727,7 +727,7 @@ pub async fn upgrade(port: u16, target: &str, extra: &[(&str, &str)], local: Opt
 /// source in rustic-isles (ParadoxBackend/src/routes/reforgedApi.ts, patch 0002 in docs/paradox-patches.md).
 pub fn reforged_api_routes() -> Vec<(String, String)> {
     let file = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts");
+        .join("../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts");
     let source = std::fs::read_to_string(file).unwrap();
     let pattern = regex::Regex::new(r#"(?m)^\s*reforgedApiRouter\.(get|post|put|delete|patch)\(\s*"([^"]+)""#).unwrap();
     let parameter = regex::Regex::new(r":[A-Za-z]+").unwrap();

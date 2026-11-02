@@ -44,7 +44,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src/rust
 # The pinned toolchain (rust-toolchain.toml), in its own layer
-COPY rust/rust-toolchain.toml ./
+COPY rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
 COPY rust/ ./
 COPY --from=module-sources /modules/ /src/modules/
@@ -96,8 +96,8 @@ RUN apt-get update \
 WORKDIR /opt/reforged
 COPY --chown=reforged:reforged LICENSE.txt NOTICE.md ADDITIONAL_TERMS.md README.md ./
 COPY --chown=reforged:reforged native/ native/
-# The host kit finds the server folder by rust/Cargo.toml beside modules/rustic-isles (paths.rs find_repo_root)
-COPY --chown=reforged:reforged rust/Cargo.toml rust/
+# The host kit finds the server folder by Cargo.toml beside modules/rustic-isles (paths.rs find_repo_root)
+COPY --chown=reforged:reforged Cargo.toml rust/
 # From the rustic-isles submodule (DS6): its licence files, the runtime and CatalogExporter sources setup checks
 # for, and the example game data and store captures pin
 COPY --chown=reforged:reforged modules/rustic-isles/ADDITIONAL_TERMS.md modules/rustic-isles/LICENSE modules/rustic-isles/NOTICE.md modules/rustic-isles/
@@ -192,7 +192,7 @@ COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/bin/
 WORKDIR /opt/reforged
 COPY --chown=node:node LICENSE.txt NOTICE.md ADDITIONAL_TERMS.md README.md ./
 COPY --chown=node:node native/ native/
-COPY --chown=node:node rust/Cargo.toml rust/
+COPY --chown=node:node Cargo.toml rust/
 COPY --chown=node:node modules/rustic-isles/ADDITIONAL_TERMS.md modules/rustic-isles/LICENSE modules/rustic-isles/NOTICE.md modules/rustic-isles/
 COPY --chown=node:node modules/rustic-isles/native/ modules/rustic-isles/native/
 COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/

@@ -4,7 +4,7 @@
 
 This document specifies how one **DaintyLass Manager** install (or a headless controller) manages multiple **DaintyLass**
 server installs across machines, containers, and regions. All code for remote management is written fresh under the MIT
-licence (`Copyright (c) 2026 Silent Spud`) in `rust/crates/remote` with zero dependencies on AGPL crates.
+licence (`Copyright (c) 2026 Silent Spud`) in `crates/remote` with zero dependencies on AGPL crates.
 
 ---
 
@@ -263,8 +263,8 @@ restarting):
 ## 8. Licensing (`MIT` from the first line)
 
 - All remote-management protocol types, enrollment logic, sync engine, and command dispatch live in a new crate:
-  `rust/crates/remote` (`package.name = "remote"`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`).
-- `rust/crates/remote` depends only on MIT workspace crates (`module-api`, `network`, and—once `L2`/`L3` land—the MIT
+  `crates/remote` (`package.name = "remote"`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`).
+- `crates/remote` depends only on MIT workspace crates (`module-api`, `network`, and—once `L2`/`L3` land—the MIT
   `protocol`, `service-kit`, `store`, `server-controller`, `admin`, and `hostkit`) plus standard third-party MIT/Apache
   crates (`serde`, `serde_json`, `sha2`, `base64`, `rcgen`, `rustls`, `thiserror`, `tokio`, `tracing`).
 - Where `crates/remote` invokes host-kit operations (`setup`, `doctor`, `backup`, `update`, `db`, `invite`), it defines

@@ -8,7 +8,7 @@ What Reforged changed in its Node gateway, allowlist helper and content server, 
 - Reforged paths are as they are on this branch. RR2 is moving `ReforgedGateway/` and `ReforgedContent/` to
   `legacy/` at the same time, so prefix them with `legacy/` once RR2 lands.
 - DR Node paths are under `legacy/UndauntedGateway/` and `legacy/UndauntedContent/` at `e1c5fec`. DR Rust paths are
-  under `rust/services/` at `e1c5fec`.
+  under `services/` at `e1c5fec`.
 - Line ranges are in the Reforged file. "Changed lines" counts the `<` and `>` lines of a plain `diff` between
   the DR Node file and the Reforged file.
 - Some differences come from DR changing its Node code after Reforged copied it, not from Reforged. Those are
@@ -52,7 +52,7 @@ These DR files are not in Reforged. The Rust copy drops the module unless noted.
 ### `ReforgedGateway/src/policy.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/policy.ts`
-- DR Rust: `rust/services/gateway/src/policy.rs` (fuzz target `rust/fuzz/fuzz_targets/gateway_policy.rs`)
+- DR Rust: `services/gateway/src/policy.rs` (fuzz target `fuzz/fuzz_targets/gateway_policy.rs`)
 - Changed lines: 108
 - Row: RS3
 
@@ -91,7 +91,7 @@ Behavior to carry:
 ### `ReforgedGateway/src/config.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/config.ts`
-- DR Rust: `rust/services/gateway/src/config.rs`
+- DR Rust: `services/gateway/src/config.rs`
 - Changed lines: 39
 - Row: RS3
 
@@ -114,7 +114,7 @@ Behavior to carry:
 ### `ReforgedGateway/src/gateway.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/gateway.ts`
-- DR Rust: `rust/services/gateway/src/gateway.rs` and `guard.rs`
+- DR Rust: `services/gateway/src/gateway.rs` and `guard.rs`
 - Changed lines: 118 (about 80 of them are DR's later capture code, which Reforged does not have)
 - Row: RS3
 
@@ -134,7 +134,7 @@ others), added by DR M2. See "Open points".
 ### `ReforgedGateway/src/feed.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/feed.ts`
-- DR Rust: `rust/services/gateway/src/feed.rs`
+- DR Rust: `services/gateway/src/feed.rs`
 - Changed lines: 39
 - Row: RS3
 
@@ -145,7 +145,7 @@ a row the feed skips a helper that is down for 2 s, doubling to 60 s). Reforged'
 ### `ReforgedGateway/src/server.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/server.ts`
-- DR Rust: `rust/services/gateway/src/server.rs` and `main.rs`
+- DR Rust: `services/gateway/src/server.rs` and `main.rs`
 - Changed lines: 63
 - Row: RS3
 
@@ -162,7 +162,7 @@ DR-only, not to carry: the capture set-up (DR lines 49-61).
 ### `ReforgedGateway/tools/make-cert.js`
 
 - DR Node: `legacy/UndauntedGateway/tools/make-cert.js`
-- DR Rust: `rust/services/gateway/src/cert.rs` (`make_cert_main`), run as `gateway make-cert`
+- DR Rust: `services/gateway/src/cert.rs` (`make_cert_main`), run as `gateway make-cert`
 - Changed lines: 6
 - Row: RS3
 
@@ -179,7 +179,7 @@ Behavior to carry:
 ### `ReforgedGateway/src/allowlist/ports.ts`
 
 - DR Node: new (the code was `CheckPorts` in `legacy/UndauntedGateway/src/allowlist/config.ts`)
-- DR Rust: `rust/services/gateway/src/allowlist/config.rs` (`check_ports`)
+- DR Rust: `services/gateway/src/allowlist/config.rs` (`check_ports`)
 - Changed lines: 13 (new file, moved verbatim)
 - Row: RS4
 
@@ -190,7 +190,7 @@ already matches it: `ALLOWLIST_PORTS` is one port or `low-high` in 1-65535, and 
 ### `ReforgedGateway/src/allowlist/nft.ts`
 
 - DR Node: new (adapted from DR's `deploy/linux-server/allowlist.mjs`, which is not in the Node gateway)
-- DR Rust: `rust/services/gateway/src/allowlist/firewall.rs` (`NftSettings`, `nft_table_script`, `nft_set_script`,
+- DR Rust: `services/gateway/src/allowlist/firewall.rs` (`NftSettings`, `nft_table_script`, `nft_set_script`,
   `Nft`)
 - Changed lines: 139 (new file)
 - Row: RS4
@@ -230,7 +230,7 @@ DR Rust already has an nftables backend, but it differs from Reforged's. Behavio
 ### `ReforgedGateway/src/allowlist/config.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/allowlist/config.ts`
-- DR Rust: `rust/services/gateway/src/allowlist/config.rs`
+- DR Rust: `services/gateway/src/allowlist/config.rs`
 - Changed lines: 42
 - Row: RS4
 
@@ -246,7 +246,7 @@ Behavior to carry:
 ### `ReforgedGateway/src/allowlist/firewall.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/allowlist/firewall.ts`
-- DR Rust: `rust/services/gateway/src/allowlist/firewall.rs` and `windows.rs`
+- DR Rust: `services/gateway/src/allowlist/firewall.rs` and `windows.rs`
 - Changed lines: 15
 - Row: RS4
 
@@ -262,7 +262,7 @@ Behavior to carry:
 ### `ReforgedGateway/src/allowlist/helper.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/allowlist/helper.ts`
-- DR Rust: `rust/services/gateway/src/allowlist/helper.rs`
+- DR Rust: `services/gateway/src/allowlist/helper.rs`
 - Changed lines: 4
 - Row: RS4
 
@@ -272,7 +272,7 @@ Windows script (lines 8, 94).
 ### `ReforgedGateway/src/allowlist/server.ts`
 
 - DR Node: `legacy/UndauntedGateway/src/allowlist/server.ts`
-- DR Rust: `rust/services/gateway/src/bin/allowlist.rs`
+- DR Rust: `services/gateway/src/bin/allowlist.rs`
 - Changed lines: 17
 - Row: RS4
 
@@ -325,7 +325,7 @@ Behavior to carry, all new:
 ### `ReforgedContent/src/app.ts`
 
 - DR Node: `legacy/UndauntedContent/src/app.ts`
-- DR Rust: `rust/services/content/src/app.rs` (fuzz target `rust/fuzz/fuzz_targets/content_range.rs` goes with the
+- DR Rust: `services/content/src/app.rs` (fuzz target `fuzz/fuzz_targets/content_range.rs` goes with the
   ranges)
 - Changed lines: 218
 - Row: RS2
@@ -372,7 +372,7 @@ Behavior to carry:
 ### `ReforgedContent/src/auth.ts`
 
 - DR Node: `legacy/UndauntedContent/src/auth.ts`
-- DR Rust: `rust/services/content/src/auth.rs`
+- DR Rust: `services/content/src/auth.rs`
 - Changed lines: 31
 - Row: RS2
 
@@ -388,7 +388,7 @@ Behavior to carry:
 ### `ReforgedContent/src/config.ts`
 
 - DR Node: `legacy/UndauntedContent/src/config.ts`
-- DR Rust: `rust/services/content/src/config.rs`
+- DR Rust: `services/content/src/config.rs`
 - Changed lines: 82
 - Row: RS2
 
@@ -409,7 +409,7 @@ Behavior to carry:
 ### `ReforgedContent/src/server.ts`
 
 - DR Node: `legacy/UndauntedContent/src/server.ts`
-- DR Rust: `rust/services/content/src/server.rs` and `main.rs`
+- DR Rust: `services/content/src/server.rs` and `main.rs`
 - Changed lines: 63
 - Row: RS2
 

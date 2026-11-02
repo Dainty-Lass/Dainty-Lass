@@ -3,7 +3,7 @@
 
 # Clean-Room Provenance Record — `crates/launcher-kit` (`DL4b`)
 
-- **Component**: `rust/crates/launcher-kit` (`launcher-kit` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
+- **Component**: `crates/launcher-kit` (`launcher-kit` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
 - **Behaviour Specification**: `docs/port/spec-dl4-launcher.md` at commit `b987ae1` (merged on `plan` at `58ee88d`)
 - **Clean-Room Worktree**: `r:\source\dauntless\dainty-lass\.claude\worktrees\l2-launcher-kit` (branch `feat/l2-launcher-kit-mit`)
 
@@ -20,11 +20,11 @@ The clean-room worktree excluded all AGPL source trees (`/legacy/`, `/modules/`,
 !/reference/
 ```
 
-`Test-Path rust/launcher`, `Test-Path legacy`, and `Test-Path rust/services` all returned `False` before any clean-room implementer subagent was invoked.
+`Test-Path launcher`, `Test-Path legacy`, and `Test-Path services` all returned `False` before any clean-room implementer subagent was invoked.
 
 ## 2. Category A Files Moved / Decoupled (`Born-MIT`)
 
-The following Category A files were written originally for DaintyLass without external derivation (provenance documented in `docs/port/spec-dl4-launcher.md` §1.1) and were placed in `rust/crates/launcher-kit/src/` with `SPDX-License-Identifier: MIT` headers:
+The following Category A files were written originally for DaintyLass without external derivation (provenance documented in `docs/port/spec-dl4-launcher.md` §1.1) and were placed in `crates/launcher-kit/src/` with `SPDX-License-Identifier: MIT` headers:
 
 - `src/bridge/modules.rs` (`DU3` / `DD11` module panel validation and sanitisation)
 - `src/net/regionping.rs` (`DN7` / `DD19` multi-region RTT ping measurement and reporting)
@@ -46,51 +46,51 @@ Two isolated clean-room subagents implemented the Category B (`DL4 Rewrite`) mod
 - **Transcript Log**: `C:/Users/Nick/.gemini/antigravity/brain/82d733d1-33bc-4e9c-afc7-683e27848369/.system_generated/logs/transcript.jsonl`
 - **Files Read**:
   - `docs/port/spec-dl4-launcher.md`
-  - `rust/crates/protocol/src/lib.rs`, `rust/crates/protocol/src/manifest.rs`, `rust/crates/protocol/src/text.rs`, `rust/crates/protocol/src/invite.rs`, `rust/crates/protocol/src/account.rs`
-  - `rust/crates/launcher-kit/Cargo.toml` and Category A files in `rust/crates/launcher-kit/src/` (`bridge/modules.rs`, `net/regionping.rs`, `net/versions.rs`, `platform/loader_session.rs`)
-  - `rust/fuzz/fuzz_targets/runtime_input.rs`
+  - `crates/protocol/src/lib.rs`, `crates/protocol/src/manifest.rs`, `crates/protocol/src/text.rs`, `crates/protocol/src/invite.rs`, `crates/protocol/src/account.rs`
+  - `crates/launcher-kit/Cargo.toml` and Category A files in `crates/launcher-kit/src/` (`bridge/modules.rs`, `net/regionping.rs`, `net/versions.rs`, `platform/loader_session.rs`)
+  - `fuzz/fuzz_targets/runtime_input.rs`
 - **Files Written**:
-  - `rust/crates/launcher-kit/src/lib.rs`
-  - `rust/crates/launcher-kit/src/core.rs`
-  - `rust/crates/launcher-kit/src/core/pins.rs`
-  - `rust/crates/launcher-kit/src/core/text.rs`
-  - `rust/crates/launcher-kit/src/core/legacy_pins.rs`
-  - `rust/crates/launcher-kit/src/bridge.rs`
-  - `rust/crates/launcher-kit/src/bridge/types.rs`
-  - `rust/crates/launcher-kit/src/bridge/spec.rs`
-  - `rust/crates/launcher-kit/src/net.rs`
-  - `rust/crates/launcher-kit/src/net/pinned.rs`
-  - `rust/crates/launcher-kit/src/net/http.rs`
-  - `rust/crates/launcher-kit/src/net/http/to_file.rs`
-  - `rust/crates/launcher-kit/src/net/hostapi.rs`
-  - `rust/crates/launcher-kit/src/net/verify.rs`
-  - `rust/crates/launcher-kit/src/net/verify/cache_file.rs`
-  - `rust/crates/launcher-kit/src/net/runtime_files.rs`
-  - `rust/crates/launcher-kit/src/net/runtime_files/manifest.rs`
-  - `rust/crates/launcher-kit/src/net/runtime_files/tests.rs`
+  - `crates/launcher-kit/src/lib.rs`
+  - `crates/launcher-kit/src/core.rs`
+  - `crates/launcher-kit/src/core/pins.rs`
+  - `crates/launcher-kit/src/core/text.rs`
+  - `crates/launcher-kit/src/core/legacy_pins.rs`
+  - `crates/launcher-kit/src/bridge.rs`
+  - `crates/launcher-kit/src/bridge/types.rs`
+  - `crates/launcher-kit/src/bridge/spec.rs`
+  - `crates/launcher-kit/src/net.rs`
+  - `crates/launcher-kit/src/net/pinned.rs`
+  - `crates/launcher-kit/src/net/http.rs`
+  - `crates/launcher-kit/src/net/http/to_file.rs`
+  - `crates/launcher-kit/src/net/hostapi.rs`
+  - `crates/launcher-kit/src/net/verify.rs`
+  - `crates/launcher-kit/src/net/verify/cache_file.rs`
+  - `crates/launcher-kit/src/net/runtime_files.rs`
+  - `crates/launcher-kit/src/net/runtime_files/manifest.rs`
+  - `crates/launcher-kit/src/net/runtime_files/tests.rs`
 
 ### 3.2 Implementer 2 — Platform Hostkit, HostServer, Requirements, Dialogs, Linux Runtime & System
 - **Subagent Conversation ID**: `775f8bf0-eab9-48c5-b2c3-e1e66de4e72c`
 - **Transcript Log**: `C:/Users/Nick/.gemini/antigravity/brain/775f8bf0-eab9-48c5-b2c3-e1e66de4e72c/.system_generated/logs/transcript.jsonl`
 - **Files Read**:
   - `docs/port/spec-dl4-launcher.md`
-  - `rust/crates/launcher-kit/Cargo.toml` and Category A files in `rust/crates/launcher-kit/src/`
-  - `rust/fuzz/fuzz_targets/launcher_host.rs`
+  - `crates/launcher-kit/Cargo.toml` and Category A files in `crates/launcher-kit/src/`
+  - `fuzz/fuzz_targets/launcher_host.rs`
 - **Files Written**:
-  - `rust/crates/launcher-kit/src/platform.rs`
-  - `rust/crates/launcher-kit/src/platform/hostkit.rs`
-  - `rust/crates/launcher-kit/src/platform/hostkit/parse.rs`
-  - `rust/crates/launcher-kit/src/platform/hostserver.rs`
-  - `rust/crates/launcher-kit/src/platform/requirements.rs`
-  - `rust/crates/launcher-kit/src/platform/dialogs.rs`
-  - `rust/crates/launcher-kit/src/platform/linux_runtime.rs`
-  - `rust/crates/launcher-kit/src/platform/system.rs`
+  - `crates/launcher-kit/src/platform.rs`
+  - `crates/launcher-kit/src/platform/hostkit.rs`
+  - `crates/launcher-kit/src/platform/hostkit/parse.rs`
+  - `crates/launcher-kit/src/platform/hostserver.rs`
+  - `crates/launcher-kit/src/platform/requirements.rs`
+  - `crates/launcher-kit/src/platform/dialogs.rs`
+  - `crates/launcher-kit/src/platform/linux_runtime.rs`
+  - `crates/launcher-kit/src/platform/system.rs`
 
 ## 4. Verification & Dependency Tree (`cargo tree -p launcher-kit`)
 
 - `cargo test -p launcher-kit -j 2 -- --skip the_gateway_serves_these_routes --test-threads=1`: **82 passed; 0 failed**
 - `cargo clippy -p launcher-kit --all-targets -j 2 -- -D warnings`: **0 warnings**
-- Prohibited-term and RD9 no-injection grep across `rust/crates/launcher-kit/src/**/*.rs`: **0 matches**
+- Prohibited-term and RD9 no-injection grep across `crates/launcher-kit/src/**/*.rs`: **0 matches**
 - `cargo tree -p launcher-kit --depth 1`:
 
 ```text

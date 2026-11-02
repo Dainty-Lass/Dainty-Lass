@@ -25,11 +25,11 @@ and nothing a node could use is sent to it. The account key goes only to the hom
 - **Launcher, out:** to each node, TLS pinned to its listed fingerprint, then `GET /network/v1/ping` with only `host`
   in the headers. To the home, the report with the account key header.
 
-Code: `rust/services/gateway/src/network.rs` (the node list's body, the report's parser), `policy.rs`
-(`NetworkRoute`), `gateway.rs` (`Gateway::network`); `rust/launcher/src-tauri/src/net/regionping.rs` (fetching,
+Code: `services/gateway/src/network.rs` (the node list's body, the report's parser), `policy.rs`
+(`NetworkRoute`), `gateway.rs` (`Gateway::network`); `launcher/src-tauri/src/net/regionping.rs` (fetching,
 timing, ordering, the report) and `net/regionping/parse.rs` (the node list's reader), `controller/region.rs`.
 
-Fuzz targets in `rust/fuzz`: `gateway_network` (the report's parser: read whole or refused, region ids and round
+Fuzz targets in `fuzz`: `gateway_network` (the report's parser: read whole or refused, region ids and round
 trips in range, each region once) and `launcher_region` (the node list: only valid region ids, hosts, ports and
 fingerprints, each region once, at most 16). `gateway_policy` covers the routing.
 
@@ -80,7 +80,7 @@ fingerprints, each region once, at most 16). `gateway_policy` covers the routing
 
 ## Fuzzing
 
-Short runs of both targets happen on every push (CI's `fuzz` job). The runs before the canary, from `rust/fuzz`:
+Short runs of both targets happen on every push (CI's `fuzz` job). The runs before the canary, from `fuzz`:
 
 ```bash
 cargo +nightly fuzz run gateway_network -- -max_total_time=86400

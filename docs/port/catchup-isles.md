@@ -100,7 +100,7 @@ For RU1 and RZ2: `replay` holds every patch as a commit, and DD13 splits them.
   - The Director's log fix: needed. This project's own Director fix, missing from `replay`'s
     `ParadoxDirector/src/controllers/gameservers.ts` (13+, 5−). It applies cleanly on `replay` at the same place.
   - `store-captures.json` and its `.gitignore` line: needed. The host kit reads the file next to the backend
-    (`rust/services/host`, `docs/sdk-and-game-data.md`), and it stays with the backend in rustic-isles. It came from
+    (`services/host`, `docs/sdk-and-game-data.md`), and it stays with the backend in rustic-isles. It came from
     the Reforged Revival line but is not one of the gameplay patches; see "To decide" below.
   - Patches 0001–0003: in `replay` (`4948437`, `d5eab70`, `df86643`), then rewritten on `main`; under `3a756cf`.
   - Patches 0004–0033: in `replay` as commits; for rustic-freeza (RZ2), not for RU1.

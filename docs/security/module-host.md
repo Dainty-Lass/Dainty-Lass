@@ -3,7 +3,7 @@
 # Security checklist: the module host and its frame protocol (DX2)
 
 The checklist for loading game modules and plugins out of process (DD5): the frame protocol in
-`rust/crates/module-api/src/frame.rs`, the host side in `host.rs`, the module side in `child.rs`, the call plumbing
+`crates/module-api/src/frame.rs`, the host side in `host.rs`, the module side in `child.rs`, the call plumbing
 both share in `peer.rs`, and the checks on what a module declares (`manifest.rs`, `registrar.rs`). The controller
 that decides which modules to load and restarts them (DF3) keeps `controller.md`. `SECURITY_REVIEW.md` indexes it.
 
@@ -33,7 +33,7 @@ What a module never gets, in or out of process: a listener off loopback (its rou
 still refuses host-only routes from outside), a raw database connection (DD23: `store`'s write path only), the
 account key (DD17) or the admin API's keys. A registration is data the core plugins choose to serve.
 
-Fuzz target: `module_frame` in `rust/fuzz` (frames in both directions at both size limits, the hello check, a
+Fuzz target: `module_frame` in `fuzz` (frames in both directions at both size limits, the hello check, a
 registration checked against a manifest, and the names inside: game versions, module ids, global ids, JIDs, event
 names, SHA-256 digests). It checks that a length over the limit is refused before the body is read, that whatever
 decodes writes back as the same message, and that every name has exactly one spelling.
@@ -140,7 +140,7 @@ These do not block DF2 but must be settled, or accepted in writing, before exter
 ## Fuzzing
 
 A short run of `module_frame` happens on every PR (CI's `fuzz` job runs every target in `cargo fuzz list`). The run
-before external modules ship, from `rust/fuzz`:
+before external modules ship, from `fuzz`:
 
 ```bash
 cargo +nightly fuzz run module_frame -- -max_total_time=86400

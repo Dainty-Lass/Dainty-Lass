@@ -5,7 +5,7 @@
 # volumes and checks that
 #  1. every node reaches its three peers over the node link (mutual TLS) with a round trip near the injected one:
 #     `reforged-host network status` run inside each node
-#  2. the launcher's region ping, the real `region_ping` of rust/launcher (a cargo test, ignored by default), sees the
+#  2. the launcher's region ping, the real `region_ping` of launcher (a cargo test, ignored by default), sees the
 #     regions in the order the injected latencies give, from a player in NETEM_PLAYER_REGION, with each node as home
 # Then it tears everything down. Environment:
 #   NETWORK_NO_BUILD=1       the images are built already

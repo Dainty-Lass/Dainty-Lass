@@ -8,28 +8,28 @@ controller makes; the backend and Director as Rustic Isles's Node processes, not
 still runnable alone as a `reforged-host` subcommand.
 
 This document specifies the architectural conversion of the DaintyLass Rust codebase into:
-1. **Pure Library Service Crates (`rust/services/*`)** — Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).
-2. **A Unified `ServerController` (`rust/crates/controller`)** — Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
+1. **Pure Library Service Crates (`services/*`)** — Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).
+2. **A Unified `ServerController` (`crates/controller`)** — Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
 3. **A `tracing` + `tracing-subscriber` Logging Pipeline** — Unifying all components into a single span-attributed, secret-redacting logging bus with pluggable target layers (`TableStdoutLayer`, `LauncherGuiLayer`, `TuiRingBufferLayer`, `FileLogLayer`).
-4. **12 Dedicated Binary Crates (`rust/bins/*`)** — Providing `both` (default for releases), `refined`-only, and `reforged`-only binary crates across all four application profiles (`server-minimal`, `server-console`, `server-gui`, and `online-client`).
+4. **12 Dedicated Binary Crates (`bins/*`)** — Providing `both` (default for releases), `refined`-only, and `reforged`-only binary crates across all four application profiles (`server-minimal`, `server-console`, `server-gui`, and `online-client`).
 
 ---
 
 ## 1. Complete Workspace & 12-Binary Crate Topology
 
-### 1.1 Pure Library Crates (`rust/crates/*`, `rust/services/*`, `rust/launcher/src-tauri`)
-All business logic, networking, storage, and UI components live in library crates. None of `rust/services/*` or `rust/launcher/src-tauri` build standalone binaries anymore; instead, every executable is a dedicated binary crate in `rust/bins/*`:
+### 1.1 Pure Library Crates (`crates/*`, `services/*`, `launcher/src-tauri`)
+All business logic, networking, storage, and UI components live in library crates. None of `services/*` or `launcher/src-tauri` build standalone binaries anymore; instead, every executable is a dedicated binary crate in `bins/*`:
 
 ```mermaid
 flowchart TB
-    subgraph SharedCrates["Foundation Libraries (rust/crates/*)"]
+    subgraph SharedCrates["Foundation Libraries (crates/*)"]
         Protocol["protocol\n(features: edition-refined, edition-reforged)"]
         Proxy["proxy"]
         ServiceKit["service-kit\n(tracing registry, Layers, ServiceContext, StatusRegistry)"]
         Store["store\n(SQLite WAL pool, Drizzle migrations, hot backup)"]
     end
 
-    subgraph PureServiceLibs["Pure Service Libraries (rust/services/* — NO main.rs)"]
+    subgraph PureServiceLibs["Pure Service Libraries (services/* — NO main.rs)"]
         GW["gateway (lib)\n(TLS/HTTP proxy + allowlist module)"]
         CS["content (lib)\n(multi-edition runtime manifests, branding, news)"]
         AD["admin (lib)\n(GraphQL schema + TimeoutStore)"]
@@ -39,11 +39,11 @@ flowchart TB
     end
 
     subgraph CoreOrchestrators["Orchestrator & Client Libraries"]
-        Controller["rust/crates/controller (lib)\n(ServerController, TOML/YAML/JSON loader,\ncold-boot secret/cert init, concurrent editions)"]
-        LauncherLib["rust/launcher/src-tauri (lib)\n(Client core/net/platform + optional server-gui module)"]
+        Controller["crates/controller (lib)\n(ServerController, TOML/YAML/JSON loader,\ncold-boot secret/cert init, concurrent editions)"]
+        LauncherLib["launcher/src-tauri (lib)\n(Client core/net/platform + optional server-gui module)"]
     end
 
-    subgraph DedicatedBins["12 Dedicated Binary Crates (rust/bins/*)"]
+    subgraph DedicatedBins["12 Dedicated Binary Crates (bins/*)"]
         direction LR
         subgraph MinimalBins["Minimal Server Bins"]
             SM_B["server-minimal (Both)"]
@@ -78,22 +78,22 @@ flowchart TB
     OC_B & OC_R1 & OC_R2 --> LauncherLib
 ```
 
-### 1.2 Full Matrix of the 12 Dedicated Binary Crates (`rust/bins/*`)
+### 1.2 Full Matrix of the 12 Dedicated Binary Crates (`bins/*`)
 
 | # | Binary Crate Path | Binary Name | Edition Feature Set | Profile & Capabilities |
 | --- | --- | --- | --- | --- |
-| 1 | `rust/bins/server-minimal` | `reforged-server-minimal` | `edition-both` *(Release Default)* | Headless TOML/YAML/JSON runner + cold-boot secret init + `{service:<14} \| {line}` stdout table logger. Can host Refined, Reforged, or both concurrently. |
-| 2 | `rust/bins/server-minimal-refined` | `refined-server-minimal` | `edition-refined` *(Self-Build)* | Same minimal headless runner compiled strictly with Refined support. |
-| 3 | `rust/bins/server-minimal-reforged` | `reforged-only-server-minimal` | `edition-reforged` *(Self-Build)* | Same minimal headless runner compiled strictly with Reforged support. |
-| 4 | `rust/bins/server-console` | `reforged-server-console` | `edition-both` *(Release Default)* | Full CLI subcommands + interactive console REPL + optional `ratatui` `--tui`. Supports Refined, Reforged, or both concurrently. |
-| 5 | `rust/bins/server-console-refined` | `refined-server-console` | `edition-refined` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Refined support. |
-| 6 | `rust/bins/server-console-reforged` | `reforged-only-server-console` | `edition-reforged` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Reforged support. |
-| 7 | `rust/bins/server-gui` | `reforged-server-gui` | `edition-both` *(Release Default)* | Tauri launcher + embedded `ServerController` + direct `LauncherGuiLayer` log stream + live Component Status Page. Supports both editions. |
-| 8 | `rust/bins/server-gui-refined` | `refined-server-gui` | `edition-refined` *(Self-Build)* | Tauri launcher + embedded `ServerController` + Status Page compiled strictly for Refined. |
-| 9 | `rust/bins/server-gui-reforged` | `reforged-only-server-gui` | `edition-reforged` *(Self-Build)* | Tauri launcher + embedded `ServerController` + Status Page compiled strictly for Reforged. |
-| 10 | `rust/bins/online-client` | `reforged-client` | `edition-both` *(Release Default)* | Player-only Tauri launcher (zero server crates linked). Connects to both Refined and Reforged servers. |
-| 11 | `rust/bins/online-client-refined` | `refined-client` | `edition-refined` *(Self-Build)* | Player-only Tauri launcher compiled strictly for Refined servers. |
-| 12 | `rust/bins/online-client-reforged` | `reforged-only-client` | `edition-reforged` *(Self-Build)* | Player-only Tauri launcher compiled strictly for Reforged servers. |
+| 1 | `bins/server-minimal` | `reforged-server-minimal` | `edition-both` *(Release Default)* | Headless TOML/YAML/JSON runner + cold-boot secret init + `{service:<14} \| {line}` stdout table logger. Can host Refined, Reforged, or both concurrently. |
+| 2 | `bins/server-minimal-refined` | `refined-server-minimal` | `edition-refined` *(Self-Build)* | Same minimal headless runner compiled strictly with Refined support. |
+| 3 | `bins/server-minimal-reforged` | `reforged-only-server-minimal` | `edition-reforged` *(Self-Build)* | Same minimal headless runner compiled strictly with Reforged support. |
+| 4 | `bins/server-console` | `reforged-server-console` | `edition-both` *(Release Default)* | Full CLI subcommands + interactive console REPL + optional `ratatui` `--tui`. Supports Refined, Reforged, or both concurrently. |
+| 5 | `bins/server-console-refined` | `refined-server-console` | `edition-refined` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Refined support. |
+| 6 | `bins/server-console-reforged` | `reforged-only-server-console` | `edition-reforged` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Reforged support. |
+| 7 | `bins/server-gui` | `reforged-server-gui` | `edition-both` *(Release Default)* | Tauri launcher + embedded `ServerController` + direct `LauncherGuiLayer` log stream + live Component Status Page. Supports both editions. |
+| 8 | `bins/server-gui-refined` | `refined-server-gui` | `edition-refined` *(Self-Build)* | Tauri launcher + embedded `ServerController` + Status Page compiled strictly for Refined. |
+| 9 | `bins/server-gui-reforged` | `reforged-only-server-gui` | `edition-reforged` *(Self-Build)* | Tauri launcher + embedded `ServerController` + Status Page compiled strictly for Reforged. |
+| 10 | `bins/online-client` | `reforged-client` | `edition-both` *(Release Default)* | Player-only Tauri launcher (zero server crates linked). Connects to both Refined and Reforged servers. |
+| 11 | `bins/online-client-refined` | `refined-client` | `edition-refined` *(Self-Build)* | Player-only Tauri launcher compiled strictly for Refined servers. |
+| 12 | `bins/online-client-reforged` | `reforged-only-client` | `edition-reforged` *(Self-Build)* | Player-only Tauri launcher compiled strictly for Reforged servers. |
 
 ---
 
@@ -176,23 +176,23 @@ All components emit logs via `tracing` macros (`tracing::info!`, `warn!`, `error
 ## 5. Phased Implementation Plan
 
 ### Phase 1: Pure Service Libraries & `tracing` Infrastructure (`service-kit` + `services/*`)
-1. Add `tracing`, `tracing-subscriber` (`registry`, `fmt`, `env-filter`, `reload`), `tracing-log`, and `serde_yaml` to `[workspace.dependencies]` in `rust/Cargo.toml`.
-2. Implement `ServiceContext`, `ComponentPhase`, `ComponentStatus`, `StatusReporter`, `RedactingVisitor`, `TableStdoutLayer` (`{service:<14} | {line}`), and `ChannelLogLayer` in `rust/crates/service-kit`.
+1. Add `tracing`, `tracing-subscriber` (`registry`, `fmt`, `env-filter`, `reload`), `tracing-log`, and `serde_yaml` to `[workspace.dependencies]` in `Cargo.toml`.
+2. Implement `ServiceContext`, `ComponentPhase`, `ComponentStatus`, `StatusReporter`, `RedactingVisitor`, `TableStdoutLayer` (`{service:<14} | {line}`), and `ChannelLogLayer` in `crates/service-kit`.
 3. Convert `gateway` (and its `allowlist` submodule), `content`, `admin`, `backend`, `director`, and `host` into **pure library crates** (`lib.rs` only, removing `src/main.rs` and `src/bin/allowlist.rs`, and updating integration/parity tests to start the library servers directly in-process).
 4. Add `edition-refined`, `edition-reforged`, and `edition-both` Cargo features across `protocol`, `content`, `backend`, `director`, `host`, and `launcher`.
 
-### Phase 2: `rust/crates/controller` (Multi-Format Config, Cold-Boot Provisioning & Concurrent Editions)
-1. Create `rust/crates/controller` implementing:
+### Phase 2: `crates/controller` (Multi-Format Config, Cold-Boot Provisioning & Concurrent Editions)
+1. Create `crates/controller` implementing:
    - `ServerConfig::load` supporting `.toml`, `.yaml`/`.yml`, and `.json`, with single-edition or concurrent `Refined` + `Reforged` stack definitions.
    - Cold-boot auto-provisioning (`ensure_secrets`, `load_or_generate_cert`, and SQLite migration/preset seeding) so a fresh server starts from a single config file with zero prior `setup`.
    - `ServerController` managing in-process async service tasks, hybrid in-process `AllowlistSink`, `StatusRegistry` (`watch::Receiver<ServerSnapshot>`), per-component start/stop/restart, and reverse-order graceful shutdown.
 
 ### Phase 3: Server Binary Crates (`server-minimal*` & `server-console*` — 6 Crates)
-1. Create `rust/bins/server-minimal`, `rust/bins/server-minimal-refined`, and `rust/bins/server-minimal-reforged` wired to `ServerController` + `TableStdoutLayer`.
+1. Create `bins/server-minimal`, `bins/server-minimal-refined`, and `bins/server-minimal-reforged` wired to `ServerController` + `TableStdoutLayer`.
 2. Implement the interactive runtime REPL (`status`, `start/stop/restart <svc>`, `invite`, `players`, `instances`, `doctor`, `backup`, `log`, `stop`) and optional `ratatui` `--tui` dashboard in `host`.
-3. Create `rust/bins/server-console`, `rust/bins/server-console-refined`, and `rust/bins/server-console-reforged`.
+3. Create `bins/server-console`, `bins/server-console-refined`, and `bins/server-console-reforged`.
 
 ### Phase 4: Client & Server GUI Binary Crates (`online-client*` & `server-gui*` — 6 Crates)
-1. Split `rust/launcher/src-tauri` into pure library modules with `server-gui`, `edition-refined`, `edition-reforged`, and `edition-both` feature gates.
-2. Create `rust/bins/online-client`, `rust/bins/online-client-refined`, and `rust/bins/online-client-reforged` (linking zero server crates and registering only the 34 client IPC commands).
-3. Embed `ServerController` + `LauncherGuiLayer` into the launcher's `server-gui` module, add the live per-component Status Page to `bridge/types.rs` and `rust/launcher/page`, and create `rust/bins/server-gui`, `rust/bins/server-gui-refined`, and `rust/bins/server-gui-reforged`.
+1. Split `launcher/src-tauri` into pure library modules with `server-gui`, `edition-refined`, `edition-reforged`, and `edition-both` feature gates.
+2. Create `bins/online-client`, `bins/online-client-refined`, and `bins/online-client-reforged` (linking zero server crates and registering only the 34 client IPC commands).
+3. Embed `ServerController` + `LauncherGuiLayer` into the launcher's `server-gui` module, add the live per-component Status Page to `bridge/types.rs` and `launcher/page`, and create `bins/server-gui`, `bins/server-gui-refined`, and `bins/server-gui-reforged`.

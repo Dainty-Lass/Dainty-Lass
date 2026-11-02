@@ -1,5 +1,5 @@
 //! What the relay reads from a local request before anything is forwarded: the Host and Origin headers,
-//! the QoS path and the port override. Only `std` here, so `rust/fuzz` compiles this file as it is
+//! the QoS path and the port override. Only `std` here, so `fuzz` compiles this file as it is
 //! (target `relay_input`).
 
 use std::net::IpAddr;

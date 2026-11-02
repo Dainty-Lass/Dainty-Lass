@@ -33,18 +33,18 @@ on the game's command line (`-AUTH_PASSWORD=`), and to nothing else.
   (sending a key to the wrong server, logging it, handing it to the page). It does not protect against malware
   running as the player.
 
-Code: `rust/launcher/src-tauri/src/platform/keystore/` (`mod.rs`, `format.rs`, `legacy.rs`, `os.rs`),
+Code: `launcher/src-tauri/src/platform/keystore/` (`mod.rs`, `format.rs`, `legacy.rs`, `os.rs`),
 `platform/settings.rs`, `platform/log.rs`, `platform/paths.rs`.
 
-Fuzz target: `launcher_files` in `rust/fuzz`: `settings.json` (what is written reads back as itself, a 1.4.4 server
+Fuzz target: `launcher_files` in `fuzz`: `settings.json` (what is written reads back as itself, a 1.4.4 server
 is never current, a public server always has a valid fingerprint, stored usernames pass the registration rule),
 decrypted key text (`parse_stored`, which round-trips) and the Electron framing (`Local State`, the `DPAPI` tag, the
 `v10`/`v11` blobs). The AES, PBKDF2 and DPAPI calls behind the framing are RustCrypto's and Windows', not fuzzed
 here; what reaches them is length-checked first.
 
 Tests: `platform::keystore`, `platform::settings`, `platform::log` (Reforged's `keystore.test.ts` cases, the shared
-tables in `rust/launcher/test/cases` that `legacy/ReforgedLauncher/test/platform-tables.test.ts` checks against the
-Node code), and `an_electron_profile_reads_back` with the harness in `rust/launcher/test/electron-keystore`.
+tables in `launcher/test/cases` that `legacy/ReforgedLauncher/test/platform-tables.test.ts` checks against the
+Node code), and `an_electron_profile_reads_back` with the harness in `launcher/test/electron-keystore`.
 
 ## Checklist
 

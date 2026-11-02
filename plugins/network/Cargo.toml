@@ -27,7 +27,7 @@ history-ship = { workspace = true, optional = true }
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
-# By path: the workspace entry names registry = "silentspud", which rust/.cargo/config.toml doesn't define yet
+# By path: the workspace entry names registry = "silentspud", which .cargo/config.toml doesn't define yet
 module-api = { path = "../../crates/module-api" }
 protocol = { workspace = true, optional = true }
 # The cluster CA and node certificates, made as the gateway makes its own (no OpenSSL). The same versions

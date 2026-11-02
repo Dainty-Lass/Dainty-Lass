@@ -1,4 +1,4 @@
-# Clean-room Provenance Record: `proxy` (`rust/crates/proxy`)
+# Clean-room Provenance Record: `proxy` (`crates/proxy`)
 
 ## 1. Specification Version
 
@@ -10,7 +10,7 @@
 - **Implementer agent session**: [`140844ba-250f-4e4e-b917-ba5364046aa1`](conversation://140844ba-250f-4e4e-b917-ba5364046aa1) (`Clean-Room Proxy Implementer`)
 - **Isolated worktree path**: `r:\source\dauntless\dainty-lass\.claude\worktrees\l2-proxy`
 - **Branch**: `feat/l2-proxy-mit`
-- **Pre-invocation removal**: `git rm -f rust/crates/proxy/src/*.rs` was executed before the implementer session was launched so the prior AGPL `src/lib.rs` was absent from the working tree.
+- **Pre-invocation removal**: `git rm -f crates/proxy/src/*.rs` was executed before the implementer session was launched so the prior AGPL `src/lib.rs` was absent from the working tree.
 - **`git sparse-checkout list` (`--no-cone`)**:
   ```text
   /*
@@ -40,4 +40,4 @@
 - `cargo test -p proxy -j 2 -- --test-threads=1`: 3 passed, 0 failed.
 - `cargo clippy -p proxy --all-targets -j 2 -- -D warnings`: 0 warnings.
 - `cargo tree -e normal -p proxy`: depends only on `http` and `tokio` (zero AGPL dependencies).
-- Provenance grep across `rust/crates/proxy`: 0 matches for `Dauntless Revived`, `Reforged`, `Mystic Paradox`, `MIGRATION_PLAN.md`, `Freeza`, `mixutin`, or `e1c5fec`.
+- Provenance grep across `crates/proxy`: 0 matches for `Dauntless Revived`, `Reforged`, `Mystic Paradox`, `MIGRATION_PLAN.md`, `Freeza`, `mixutin`, or `e1c5fec`.

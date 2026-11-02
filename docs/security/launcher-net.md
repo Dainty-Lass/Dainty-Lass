@@ -24,16 +24,16 @@ fill in the page.
 - **Out:** HTTP/1.1 requests to the invite's host and port only. Public mode (invite v2) over TLS pinned to `fp`;
   private mode (invite v1) over plain HTTP inside the tailnet (Tailscale encrypts it) or to this PC.
 
-Code, in `rust/launcher/src-tauri/src`:
+Code, in `launcher/src-tauri/src`:
 
 - `core/invite.rs`, `core/status.rs`, `core/username.rs`: re-exports of `protocol::invite`, `protocol::status` and
-  `protocol::account` (`rust/crates/protocol`, RS1). The launcher has no parser of its own for these; it answers
+  `protocol::account` (`crates/protocol`, RS1). The launcher has no parser of its own for these; it answers
   exactly as the servers' crate does, and both run `crates/protocol/tests/cases/*.json`.
 - `net/pinned.rs`: the pinned TLS connection. `net/connector.rs`: the same, pooled, for the relay.
 - `net/http.rs`: `request`, the only way the launcher sends HTTP to a server.
 - `net/hostapi.rs`: the calls; `net/hostapi/parse.rs`: reading their answers, without the network.
 
-Fuzz targets in `rust/fuzz`: `protocol_input` (invites, statuses, usernames and keys, through `protocol`),
+Fuzz targets in `fuzz`: `protocol_input` (invites, statuses, usernames and keys, through `protocol`),
 `launcher_input` (the same, through the launcher's `core` paths) and `launcher_net` (`parse.rs`: Register and
 GetUserInfo answers, runtime manifests, news, the art pack's index, paths and image sniffing).
 

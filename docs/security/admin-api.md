@@ -2,7 +2,7 @@
 
 # Security checklist: admin API (RX3)
 
-The checklist for the admin API, `rust/services/admin` ([admin-api.md](../admin-api.md)). It is a new trust boundary:
+The checklist for the admin API, `services/admin` ([admin-api.md](../admin-api.md)). It is a new trust boundary:
 a caller holding its key can kick, time out and ban players. `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the admin API ships in a server release, copy this list into the release's review, check each
@@ -69,13 +69,13 @@ id, so a change in a module's log leads back to the request and the person who a
   row is written after the action succeeded; a write that fails is logged with all its fields rather than hiding the
   action.
 
-Code: `rust/services/admin/src/` (`input.rs` holds every check of outside input, `app.rs` the HTTP side, `schema.rs`
+Code: `services/admin/src/` (`input.rs` holds every check of outside input, `app.rs` the HTTP side, `schema.rs`
 the fields and what they call, `upstream.rs` the calls and the signature, `modules.rs` the module registry side,
 `hmac.rs`, `timeouts.rs`, `config.rs`, `server.rs`). Tests: `tests/api.rs` runs the API end to end against a fake
 backend and Director that check the signature and the admin key as the Node code does, and runs RD25's lookup, kick
 and ban cases against the Node backend, a stub 1.14.7 module and a stub 1.4.4 module (`games`).
 
-Fuzz target in `rust/fuzz`:
+Fuzz target in `fuzz`:
 
 - `admin_request`: the caller's headers and body, the query text (through async-graphql's parser), a username, a
   reason, a timeout's `minutes`/`until`, a `game`, a module's error text, and a Director answer. Checks that a
@@ -227,7 +227,7 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
 
 - [ ] `RUSTIC_ISLES_MANAGER_ADMIN=on` in `backend.env` makes `/admin/v1/*` accept the signed credential: from
       loopback only, with no forwarding header, a timestamp within 60 s, and a signature not seen in 120 s. The
-      gateway already refuses `/admin` (`rust/services/gateway/src/policy.rs`).
+      gateway already refuses `/admin` (`services/gateway/src/policy.rs`).
 - [ ] `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` is in `secrets.env` (owner-only), `backend.env` and `admin.env`;
       `setup` moves it from `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` with the same value, and the admin API reads
       the old name for one release. The
@@ -265,8 +265,8 @@ are settings.
 
 ## Fuzzing
 
-A short run of the target is in CI. The 24-hour run before a release that ships it, from `rust/fuzz` (on Windows
-the AddressSanitizer runtime must be on PATH, see `rust/fuzz/Cargo.toml`):
+A short run of the target is in CI. The 24-hour run before a release that ships it, from `fuzz` (on Windows
+the AddressSanitizer runtime must be on PATH, see `fuzz/Cargo.toml`):
 
 ```bash
 cargo +nightly fuzz run admin_request -- -max_total_time=86400

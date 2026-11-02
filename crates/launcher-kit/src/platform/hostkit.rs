@@ -251,13 +251,13 @@ pub struct Logged {
 }
 
 /// Locates `reforged-host` inside `root` (`<root>/<HOST_BINARY>`, `<root>/bin/<HOST_BINARY>`,
-/// or `<root>/rust/target/release/<HOST_BINARY>`).
+/// or `<root>/target/release/<HOST_BINARY>`).
 #[must_use]
 pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
     [
         root.join(HOST_BINARY),
         root.join("bin").join(HOST_BINARY),
-        root.join("rust").join("target").join("release").join(HOST_BINARY),
+        root.join("target").join("release").join(HOST_BINARY),
     ]
     .into_iter()
     .find(|candidate| candidate.is_file())

@@ -2,7 +2,7 @@
 
 ## 1. Purpose and Scope
 
-`protocol` (`rust/crates/protocol`) is a pure, synchronous validation and wire-contract crate shared by the launcher, host kit, controller, and module seams. It has no network, filesystem, or database side effects.
+`protocol` (`crates/protocol`) is a pure, synchronous validation and wire-contract crate shared by the launcher, host kit, controller, and module seams. It has no network, filesystem, or database side effects.
 
 - **Package name**: `protocol`
 - **Edition**: `2024`

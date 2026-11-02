@@ -5,7 +5,7 @@
 //! RD22): `revivedRoot` and `revivedVerified` are read and not written again, and a saved 1.4.4 server
 //! (`game: "revived"`) stays in the list, with its key, but is never the current server.
 //!
-//! Built on `protocol` and `serde_json` only, so the fuzz target (`rust/fuzz`, `launcher_files`) compiles
+//! Built on `protocol` and `serde_json` only, so the fuzz target (`fuzz`, `launcher_files`) compiles
 //! this file as it is.
 
 use std::path::{Path, PathBuf};

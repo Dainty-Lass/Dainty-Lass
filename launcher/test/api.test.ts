@@ -11,7 +11,7 @@ import type { InvokeArgs } from "@tauri-apps/api/core";
 (globalThis as unknown as { window: unknown }).window = globalThis;
 
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { api, CALL_TIMEOUT_MS } from "../../../ui/packages/bridge/src/api.ts";
+import { api, CALL_TIMEOUT_MS } from "../../ui/packages/bridge/src/api.ts";
 import { loadHook } from "./hook.ts";
 
 type Call = { cmd: string; args: InvokeArgs | undefined };

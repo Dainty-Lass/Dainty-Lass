@@ -1,6 +1,6 @@
 // Builds or serves one of dainty-dashboard's pages for the Tauri shells (dainty-dashboard docs/integration.md):
 // `launcher` for dainty-lass-client, `server-manager` for dainty-lass-manager. A build copies the static export
-// (apps/<page>/dist/client) to rust/launcher/dist/<page>, the config's fixed frontendDist, since Tauri's config
+// (apps/<page>/dist/client) to launcher/dist/<page>, the config's fixed frontendDist, since Tauri's config
 // can't read where the checkout is.
 //   node scripts/dashboard-page.mjs build|dev launcher|server-manager
 // The checkout is DAINTY_DASHBOARD_DIR, or dainty-dashboard next to this repository.

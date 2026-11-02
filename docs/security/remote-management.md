@@ -3,7 +3,7 @@
 # Security checklist: remote management (`crates/remote`, RX3, DD27, RM1–RM4)
 
 The checklist for remote management across a controller (`DaintyLass Manager` or `dainty-lass-host` with
-`[remote] role = "controller"`) and its enrolled managed server installs (`rust/crates/remote`,
+`[remote] role = "controller"`) and its enrolled managed server installs (`crates/remote`,
 `docs/remote-management.md`, DD27, RM1–RM4). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before enabling or modifying remote management, check each item in the code (not from memory), link the
@@ -33,12 +33,12 @@ preservation, and `DH6` two-person guarded approval.
   exception; neither the controller nor a managed install opens a separate TCP or UDP port for remote management.
 - **No player client surface:** `dainty-lass-client` has no remote-management commands or listeners (`docs/remote-management.md` §10).
 
-Code: `rust/crates/remote/src/enroll.rs` (enrollment URIs, token validation, SHA-256 fingerprint pinning),
-`rust/crates/remote/src/wire.rs` (wire envelopes, `MAX_REMOTE_WIRE`, secret-leak detector, `DH2` role and `DH6` guarded
-checks), `rust/crates/remote/src/merge.rs` (`host.toml` merger preserving per-host identity and `local_overrides`),
-`rust/crates/remote/src/state.rs` (`RemoteControllerState`, `RemoteManagedAgent`, `sign_enrolled_node_cert`).
+Code: `crates/remote/src/enroll.rs` (enrollment URIs, token validation, SHA-256 fingerprint pinning),
+`crates/remote/src/wire.rs` (wire envelopes, `MAX_REMOTE_WIRE`, secret-leak detector, `DH2` role and `DH6` guarded
+checks), `crates/remote/src/merge.rs` (`host.toml` merger preserving per-host identity and `local_overrides`),
+`crates/remote/src/state.rs` (`RemoteControllerState`, `RemoteManagedAgent`, `sign_enrolled_node_cert`).
 
-Fuzz target: `remote_wire` in `rust/fuzz/fuzz_targets/remote_wire.rs` (enrollment URIs, `EnrollRequest`, `EnrollAnswer`,
+Fuzz target: `remote_wire` in `fuzz/fuzz_targets/remote_wire.rs` (enrollment URIs, `EnrollRequest`, `EnrollAnswer`,
 `RemoteRequest`, `RemoteResponse`, secret-leak detection, and `merge_managed_host_toml`). It checks that no malformed or
 oversized frame panics, that any payload carrying a secret key (`RRK_`, `RRA_`, `secrets.env` variables, PEM private
 keys, password hashes, or SQLite database headers) is refused, and that every accepted message round-trips identically.
@@ -126,7 +126,7 @@ keys, password hashes, or SQLite database headers) is refused, and that every ac
 
 ## Fuzzing
 
-A short run of `remote_wire` happens on every PR (CI's `fuzz` job). For a 24-hour campaign from `rust/fuzz`:
+A short run of `remote_wire` happens on every PR (CI's `fuzz` job). For a 24-hour campaign from `fuzz`:
 
 ```bash
 cargo +nightly fuzz run remote_wire -- -max_total_time=86400

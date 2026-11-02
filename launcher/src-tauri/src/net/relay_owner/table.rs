@@ -1,4 +1,4 @@
-//! Reading the TCP table (`netstat -ano -p tcp`) for the owner check. Only `std` here, so `rust/fuzz`
+//! Reading the TCP table (`netstat -ano -p tcp`) for the owner check. Only `std` here, so `fuzz`
 //! compiles this file as it is (target `relay_input`).
 
 use std::net::{IpAddr, SocketAddr};

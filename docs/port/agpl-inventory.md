@@ -2,7 +2,7 @@
 
 # AGPL provenance inventory and MIT rewrite scope (L0 — DD26, DL2, DL3a, DL4a)
 
-This document inventories every crate in `dainty-lass/rust` (including `rust/fuzz`), `native/runtime-loader`, and every
+This document inventories every crate in `dainty-lass/rust` (including `fuzz`), `native/runtime-loader`, and every
 package in the `ui/` workspace (`silentspud/dainty-lass-ui`) at `plan` (`b190010` / `5dd3e28`). It records each file's
 provenance and evidence, maps the crate dependency graph (including every MIT-to-AGPL dependency edge), determines the
 effective licence of every shipped binary and Docker image today and after the rewrite, analyses the candidate crates
@@ -23,30 +23,30 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 | **DR-derived** | Copied or adapted from `Dauntless Revived` (`e1c5fec` for 1.14.7, `24b7624` for 1.4.4) in commits `5281638`, `c9f9d6a`, `a6e1870`, `e34cf60` | `AGPL-3.0-only` | `NOTICE.md`, `docs/port/migration-guide.md` §2, `docs/port/delta-*.md`, top-of-file `DR` provenance comments |
 | **Paradox-derived** | Derived from `Mystic Paradox` (`modules/rustic-isles`, `modules/rustic-rifts`, `native/runtime-loader`) | `AGPL-3.0-only` + `ADDITIONAL_TERMS.md` §§1–2 (`native/runtime-loader` declares `Apache-2.0` in `Cargo.toml` and ships an `LGPL-3.0` `LICENSE` file; see §1.4) | `NOTICE.md`, `modules/rustic-isles/NOTICE.md`, `modules/rustic-rifts/NOTICE.md`, `native/runtime-loader/Cargo.toml` |
 
-### 1.2 Summary of all 20 Rust crates, `rust/fuzz`, `native/runtime-loader`, and `ui/`
+### 1.2 Summary of all 20 Rust crates, `fuzz`, `native/runtime-loader`, and `ui/`
 
 | Path | Package name | `Cargo.toml` / `package.json` `license` | Files (`.rs` / `.ts` / `.tsx` / `.json`) | Lines | File provenance summary | Direct AGPL workspace / git dependencies |
 | --- | --- | --- | --- | --- | --- | --- |
-| `rust/crates/module-api` | `module-api` | `MIT` | 18 `.rs` | 4,895 | 100% **born here** (`DF2`, `DD3`–`DD5`, `DN2`, `DN10`, `DH1`, `DD25`) | None |
-| `rust/crates/epic` | `epic` | `MIT` | 18 `.rs` | 4,636 | 100% **born here** (`DE1`–`DE5`, `DD22`, from Legendary's documented BuildPatchServices format) | None |
-| `rust/crates/history-ship` | `history-ship` | `MIT` | 9 `.rs` | 2,583 | 100% **born here** (`DH4`, `DD23`) | `store` (`AGPL-3.0-only`) |
-| `rust/plugins/network` | `network` | `MIT` | 25 `.rs` | 11,743 | 100% **born here** (`DN3`–`DN9`, `DN11`, `DN13`, `DH7`, `DD16`–`DD20`) | Default feature `directory`: `protocol`, `store`; default feature `log-ship`: `history-ship` -> `store` |
-| `rust/services/admin` | `admin` | `MIT` | 29 `.rs` | 12,042 | 100% **born here** (`RD25`, `DF4c`, `DH2`, `DH3b`, `DH6`, `DN11`) | Normal: `protocol`, `service-kit`, `store`; dev: `gateway` |
-| `rust/crates/controller` | `server-controller` | `MIT` | 10 `.rs` | 3,629 | 100% **born here** (`RD26`, `DF3`, `DN3`–`DN9`) | Unconditional: `protocol`, `service-kit`; default features: `gateway`, `content`, `store`; optional features: `isles-1-14-7`, `isles-1-12-0` |
-| `rust/bins/server-console` | `server-console` | `MIT` | 3 `.rs` | 12 (+ 58 in `bins/modules_test.rs`) | 100% **born here** (`RD26`, `DF5`) | `host` (`AGPL-3.0-only`, with default `isles-1-14-7`, `isles-1-12-0`, `realms`) |
-| `rust/bins/server-minimal` | `server-minimal` | `MIT` | 2 `.rs` | 7 (+ 58 in `bins/modules_test.rs`) | 100% **born here** (`RD26`, `DF5`) | `host` (`AGPL-3.0-only`, with default `isles-1-14-7`, `isles-1-12-0`, `realms`) |
-| `rust/services/backend` | `backend` | `MIT` | 2 `.rs` | 15 | 100% **born here** (`RR1` / `DL1` stub) | None |
-| `rust/services/director` | `director` | `MIT` | 2 `.rs` | 15 | 100% **born here** (`RR1` / `DL1` stub) | None |
-| `rust/crates/protocol` | `protocol` | `AGPL-3.0-only` (`workspace`) | 10 `.rs` | 2,284 | **DR-derived + Reforged-derived** (`5281638` from DR `e1c5fec` row X4 + `RS1` port of `ReforgedContent` / `ReforgedLauncher` helpers) | None (`module-api` is `MIT`) |
-| `rust/crates/proxy` | `proxy` | `AGPL-3.0-only` (`workspace`) | 1 `.rs` | 193 | **DR-derived** verbatim (`5281638` from DR `e1c5fec` row X5) | None |
-| `rust/crates/service-kit` | `service-kit` | `AGPL-3.0-only` (`workspace`) | 17 `.rs` | 3,211 | **DR-derived** (15 files from DR `e1c5fec` row B1 in `5281638`) + **born here** (2 files: `context.rs`, `telemetry.rs` from `RD26`) | None |
-| `rust/crates/store` | `store` | `AGPL-3.0-only` (`workspace`) | 20 `.rs` | 6,318 | **DR-derived** (7 files from DR `e1c5fec` rows D10/D11/D21 in `5281638`) + **born here** (13 files from `DF7`, `DH1`, `DH3a`, `DH5`, `DD15`, `DD23`) | None (`module-api` is `MIT`) |
-| `rust/plugins/chat` | `chat` | `AGPL-3.0-only` (`workspace`) | 15 `.rs` | 7,438 | **DR-derived** (8 files from DR `e1c5fec` `services/metagame/src/chat/` in `DN10a`) + **born here** (7 files in `DN10a`/`DN10b`) | Normal: `protocol`, `service-kit`, `store`; dev: `gateway` |
-| `rust/services/gateway` | `gateway` | `AGPL-3.0-only` (`workspace`) | 40 `.rs` | 15,874 | **DR-derived + Reforged-derived** (31 files from DR `e1c5fec` + `ReforgedGateway` in `c9f9d6a`, `RS3`/`RS4`) + **born here** (9 files in `DF4a`, `DF4d`, `DN3`, `DN7`) | `protocol`, `proxy`, `service-kit` |
-| `rust/services/content` | `content` | `AGPL-3.0-only` (`workspace`) | 24 `.rs` | 6,118 | **DR-derived + Reforged-derived** (23 files from DR `e1c5fec`/`24b7624` + `ReforgedContent` in `c9f9d6a`, `RS2`) + **born here** (1 file: `modules.rs` in `DF4b`) | `protocol`, `service-kit` |
-| `rust/services/host` | `host` | `AGPL-3.0-only` (`workspace`) | 68 `.rs` | 30,445 | **Born here** (21 files) + **Reforged-derived** (44 files from `ReforgedHost`) + **DR-derived / AGPL shell** (3 files: `lib.rs`, `legacy/mod.rs`, `legacy/off.rs`); see `docs/port/spec-dl3-hostkit.md` | `protocol`, `service-kit`, `store`, `gateway`, `content`, `isles-1-14-7`, `isles-1-12-0`, `isles-core`, `isles-db`, `isles-director` |
-| `rust/launcher/src-tauri` | `launcher` | `AGPL-3.0-only` (`workspace`) | 109 `.rs` | 38,411 | **Born here** (31 files) + **Reforged-derived** (18 files from `ReforgedLauncher`) + **DR-derived + Reforged-modified** (60 files from DR `e1c5fec`/`24b7624` in `a6e1870`); see `docs/port/spec-dl4-launcher.md` | `protocol`, `proxy`; under `realms`: `rifts-host`, `rifts-seam`; under `server-gui`: `service-kit`, `host` (with `isles-*`, `revived-1-4-4`, `realms`) |
-| `rust/fuzz` | `reforged-fuzz` | *(none)* | 39 `.rs` | 2,238 | **DR-derived** (6 targets from DR X9) + **born here / Reforged-derived** (33 targets in `RX3`/`DX2`, several `include!`-ing `launcher/src-tauri/src/*.rs`) | `chat`, `content`, `gateway`, `host`, `protocol`, `proxy`, `service-kit`, `store` |
+| `crates/module-api` | `module-api` | `MIT` | 18 `.rs` | 4,895 | 100% **born here** (`DF2`, `DD3`–`DD5`, `DN2`, `DN10`, `DH1`, `DD25`) | None |
+| `crates/epic` | `epic` | `MIT` | 18 `.rs` | 4,636 | 100% **born here** (`DE1`–`DE5`, `DD22`, from Legendary's documented BuildPatchServices format) | None |
+| `crates/history-ship` | `history-ship` | `MIT` | 9 `.rs` | 2,583 | 100% **born here** (`DH4`, `DD23`) | `store` (`AGPL-3.0-only`) |
+| `plugins/network` | `network` | `MIT` | 25 `.rs` | 11,743 | 100% **born here** (`DN3`–`DN9`, `DN11`, `DN13`, `DH7`, `DD16`–`DD20`) | Default feature `directory`: `protocol`, `store`; default feature `log-ship`: `history-ship` -> `store` |
+| `services/admin` | `admin` | `MIT` | 29 `.rs` | 12,042 | 100% **born here** (`RD25`, `DF4c`, `DH2`, `DH3b`, `DH6`, `DN11`) | Normal: `protocol`, `service-kit`, `store`; dev: `gateway` |
+| `crates/controller` | `server-controller` | `MIT` | 10 `.rs` | 3,629 | 100% **born here** (`RD26`, `DF3`, `DN3`–`DN9`) | Unconditional: `protocol`, `service-kit`; default features: `gateway`, `content`, `store`; optional features: `isles-1-14-7`, `isles-1-12-0` |
+| `bins/server-console` | `server-console` | `MIT` | 3 `.rs` | 12 (+ 58 in `bins/modules_test.rs`) | 100% **born here** (`RD26`, `DF5`) | `host` (`AGPL-3.0-only`, with default `isles-1-14-7`, `isles-1-12-0`, `realms`) |
+| `bins/server-minimal` | `server-minimal` | `MIT` | 2 `.rs` | 7 (+ 58 in `bins/modules_test.rs`) | 100% **born here** (`RD26`, `DF5`) | `host` (`AGPL-3.0-only`, with default `isles-1-14-7`, `isles-1-12-0`, `realms`) |
+| `services/backend` | `backend` | `MIT` | 2 `.rs` | 15 | 100% **born here** (`RR1` / `DL1` stub) | None |
+| `services/director` | `director` | `MIT` | 2 `.rs` | 15 | 100% **born here** (`RR1` / `DL1` stub) | None |
+| `crates/protocol` | `protocol` | `AGPL-3.0-only` (`workspace`) | 10 `.rs` | 2,284 | **DR-derived + Reforged-derived** (`5281638` from DR `e1c5fec` row X4 + `RS1` port of `ReforgedContent` / `ReforgedLauncher` helpers) | None (`module-api` is `MIT`) |
+| `crates/proxy` | `proxy` | `AGPL-3.0-only` (`workspace`) | 1 `.rs` | 193 | **DR-derived** verbatim (`5281638` from DR `e1c5fec` row X5) | None |
+| `crates/service-kit` | `service-kit` | `AGPL-3.0-only` (`workspace`) | 17 `.rs` | 3,211 | **DR-derived** (15 files from DR `e1c5fec` row B1 in `5281638`) + **born here** (2 files: `context.rs`, `telemetry.rs` from `RD26`) | None |
+| `crates/store` | `store` | `AGPL-3.0-only` (`workspace`) | 20 `.rs` | 6,318 | **DR-derived** (7 files from DR `e1c5fec` rows D10/D11/D21 in `5281638`) + **born here** (13 files from `DF7`, `DH1`, `DH3a`, `DH5`, `DD15`, `DD23`) | None (`module-api` is `MIT`) |
+| `plugins/chat` | `chat` | `AGPL-3.0-only` (`workspace`) | 15 `.rs` | 7,438 | **DR-derived** (8 files from DR `e1c5fec` `services/metagame/src/chat/` in `DN10a`) + **born here** (7 files in `DN10a`/`DN10b`) | Normal: `protocol`, `service-kit`, `store`; dev: `gateway` |
+| `services/gateway` | `gateway` | `AGPL-3.0-only` (`workspace`) | 40 `.rs` | 15,874 | **DR-derived + Reforged-derived** (31 files from DR `e1c5fec` + `ReforgedGateway` in `c9f9d6a`, `RS3`/`RS4`) + **born here** (9 files in `DF4a`, `DF4d`, `DN3`, `DN7`) | `protocol`, `proxy`, `service-kit` |
+| `services/content` | `content` | `AGPL-3.0-only` (`workspace`) | 24 `.rs` | 6,118 | **DR-derived + Reforged-derived** (23 files from DR `e1c5fec`/`24b7624` + `ReforgedContent` in `c9f9d6a`, `RS2`) + **born here** (1 file: `modules.rs` in `DF4b`) | `protocol`, `service-kit` |
+| `services/host` | `host` | `AGPL-3.0-only` (`workspace`) | 68 `.rs` | 30,445 | **Born here** (21 files) + **Reforged-derived** (44 files from `ReforgedHost`) + **DR-derived / AGPL shell** (3 files: `lib.rs`, `legacy/mod.rs`, `legacy/off.rs`); see `docs/port/spec-dl3-hostkit.md` | `protocol`, `service-kit`, `store`, `gateway`, `content`, `isles-1-14-7`, `isles-1-12-0`, `isles-core`, `isles-db`, `isles-director` |
+| `launcher/src-tauri` | `launcher` | `AGPL-3.0-only` (`workspace`) | 109 `.rs` | 38,411 | **Born here** (31 files) + **Reforged-derived** (18 files from `ReforgedLauncher`) + **DR-derived + Reforged-modified** (60 files from DR `e1c5fec`/`24b7624` in `a6e1870`); see `docs/port/spec-dl4-launcher.md` | `protocol`, `proxy`; under `realms`: `rifts-host`, `rifts-seam`; under `server-gui`: `service-kit`, `host` (with `isles-*`, `revived-1-4-4`, `realms`) |
+| `fuzz` | `reforged-fuzz` | *(none)* | 39 `.rs` | 2,238 | **DR-derived** (6 targets from DR X9) + **born here / Reforged-derived** (33 targets in `RX3`/`DX2`, several `include!`-ing `launcher/src-tauri/src/*.rs`) | `chat`, `content`, `gateway`, `host`, `protocol`, `proxy`, `service-kit`, `store` |
 | `native/runtime-loader` | `MysticLoader` | `Apache-2.0` (`Cargo.toml`) / `LGPL-3.0` (`LICENSE`) | 3 `.rs` | 433 | **Paradox-derived + Reforged-derived** (`Mystic Paradox` `tools/RuntimeLoader/` from `coldloader-proxy`, plus Freeza's patches `0004` and `0013`) | None (`winapi` only) |
 | `ui/apps/web` | `web` | `MIT` | 38 `.ts`/`.tsx` | 7,612 | 100% **born here** (`DD11`, `DU1`–`DU5`, `DE7`, `DH3b`, `DH6`) | `@workspace/bridge`, `@workspace/i18n` |
 | `ui/packages/ui` | `@workspace/ui` | `MIT` | 15 `.tsx`/`.ts` | 1,420 | 100% **born here** (`DD11`, `DU1`, shadcn/Radix primitives) | None |
@@ -55,10 +55,10 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 
 > **Factual licence metadata discrepancies noted during audit:**
 >
-> 1. **`rust/plugins/chat`**: `AGENTS.md` line 268 parenthetically lists `plugins/chat` among MIT crates
+> 1. **`plugins/chat`**: `AGENTS.md` line 268 parenthetically lists `plugins/chat` among MIT crates
 >    (`controller, module-api, epic, history-ship, plugins/network, plugins/chat, admin, bins`), whereas `NOTICE.md`
->    line 114, `docs/dainty-lass-plan.md` `DD26` line 125 (*"AGPL for good: ... `rust/plugins/chat` (DR XMPP core)"*),
->    and `rust/plugins/chat/Cargo.toml` (`license.workspace = true` -> `AGPL-3.0-only`) all classify `plugins/chat` as
+>    line 114, `docs/dainty-lass-plan.md` `DD26` line 125 (*"AGPL for good: ... `plugins/chat` (DR XMPP core)"*),
+>    and `plugins/chat/Cargo.toml` (`license.workspace = true` -> `AGPL-3.0-only`) all classify `plugins/chat` as
 >    `AGPL-3.0-only`.
 > 2. **`native/runtime-loader`**: `native/runtime-loader/Cargo.toml` declares `license = "Apache-2.0"`, while
 >    `native/runtime-loader/LICENSE` contains the text of the GNU Lesser General Public License v3 (`LGPL-3.0`)
@@ -68,7 +68,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 
 ### 1.3 Detailed file-by-file provenance for every Rust crate
 
-#### 1.3.1 `rust/crates/module-api` (`license = "MIT"`)
+#### 1.3.1 `crates/module-api` (`license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`DF2`, `DD3`–`DD5`, `DN2`, `DN10`, `DH1`, `DD25`, Section 6.2).
 - **Files (18)**:
@@ -81,7 +81,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
   `services/content`, `services/gateway`, `services/host`, `launcher`, `fuzz`, and submodule workspaces
   `rustic-isles`, `rustic-rifts`, `legacy-revived`.
 
-#### 1.3.2 `rust/crates/epic` (`license = "MIT"`)
+#### 1.3.2 `crates/epic` (`license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`DE1`–`DE5`, `DD22`). Clean-room implementation of Epic Games Store OAuth,
   library enumeration, binary/JSON BuildPatchServices manifests, and resumable chunk download from Legendary's
@@ -95,7 +95,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
   `rustls`, `serde`, `serde_json`, `sha1`, `sha2`, `thiserror`, `tokio`, `url`, `zeroize`).
 - **Dependents**: `services/host`, `launcher`, `fuzz`.
 
-#### 1.3.3 `rust/crates/history-ship` (`license = "MIT"`)
+#### 1.3.3 `crates/history-ship` (`license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`DH4`, `DD23`).
 - **Files (9)**:
@@ -107,7 +107,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
   `aws-types`, `bytes`, `flate2`, `hex`, `serde`, `serde_json`, `sha2`, `thiserror`, `tokio`, `tracing`).
 - **Dependents**: `plugins/network` (default feature `log-ship`), `controller` (default feature `network`), `fuzz`.
 
-#### 1.3.4 `rust/plugins/network` (`license = "MIT"`)
+#### 1.3.4 `plugins/network` (`license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`DN3`–`DN9`, `DN11`, `DN13`, `DH7`, `DD16`–`DD20`).
 - **Files (25)**:
@@ -125,7 +125,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 - **Dependents**: `controller`, `services/gateway` (`default-features = false`), `services/admin`, `services/host`,
   `plugins/chat`, `fuzz`.
 
-#### 1.3.5 `rust/services/admin` (`license = "MIT"`)
+#### 1.3.5 `services/admin` (`license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`RD25`, `DF4c`, `DH2`, `DH3b`, `DH6`, `DN11`). Note: `src/upstream.rs` is a new
   Rust HTTP/HMAC client written against the `/admin/v1/*` and `/reforged/api/*` wire contract (`RD25`).
@@ -140,7 +140,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 - **Dependents**: `controller` (default feature `admin`), `services/host` (default feature `admin` + dev-dependency),
   `launcher` (feature `server-gui`), `fuzz`.
 
-#### 1.3.6 `rust/crates/controller` (`server-controller`, `license = "MIT"`)
+#### 1.3.6 `crates/controller` (`server-controller`, `license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`RD26`, `DF3`, `DN3`–`DN9`).
 - **Files (10)**:
@@ -158,28 +158,28 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 - **Dependents**: `services/host`, `launcher` (feature `server-gui`), `bins/server-console` (dev),
   `bins/server-minimal` (dev).
 
-#### 1.3.7 `rust/bins/server-console` and `rust/bins/server-minimal` (`license = "MIT"`)
+#### 1.3.7 `bins/server-console` and `bins/server-minimal` (`license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`RD26`, `DF5`).
 - **Files (5 across both crates + 1 shared test file)**:
-  - `rust/bins/server-console/src/main.rs` (`dainty-lass-server-console`),
-    `rust/bins/server-console/src/host_main.rs` (`dainty-lass-host` / `reforged-host`),
-    `rust/bins/server-console/tests/modules.rs`;
-  - `rust/bins/server-minimal/src/main.rs` (`dainty-lass-server-minimal`),
-    `rust/bins/server-minimal/tests/modules.rs`;
-  - `rust/bins/modules_test.rs`.
+  - `bins/server-console/src/main.rs` (`dainty-lass-server-console`),
+    `bins/server-console/src/host_main.rs` (`dainty-lass-host` / `reforged-host`),
+    `bins/server-console/tests/modules.rs`;
+  - `bins/server-minimal/src/main.rs` (`dainty-lass-server-minimal`),
+    `bins/server-minimal/tests/modules.rs`;
+  - `bins/modules_test.rs`.
 - **Evidence**: `NOTICE.md` lines 36, 50; `docs/port/migration-guide.md` §2 lines 113–114.
 - **Dependencies**: **`host`** (`AGPL-3.0-only`, with `features = ["modules"]` and default features
   `["isles-1-14-7", "isles-1-12-0", "realms"]`).
 
-#### 1.3.8 `rust/services/backend` and `rust/services/director` (`license = "MIT"`)
+#### 1.3.8 `services/backend` and `services/director` (`license = "MIT"`)
 
 - **Provenance**: 100% **born here** (`RR1` workspace stubs, marked `MIT` in `DL1`).
-- **Files (4)**: `rust/services/backend/src/lib.rs`, `rust/services/backend/tests/stub.rs`,
-  `rust/services/director/src/lib.rs`, `rust/services/director/tests/stub.rs`.
+- **Files (4)**: `services/backend/src/lib.rs`, `services/backend/tests/stub.rs`,
+  `services/director/src/lib.rs`, `services/director/tests/stub.rs`.
 - **Dependencies**: None. Only referenced by `docker/Dockerfile` test stage (`-p backend -p director`).
 
-#### 1.3.9 `rust/crates/protocol` (`license = "AGPL-3.0-only"`)
+#### 1.3.9 `crates/protocol` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: **DR-derived + Reforged-derived** (`5281638` from DR `e1c5fec` row X4, fitted to Reforged in `RS1`).
 - **Files (10)**:
@@ -195,7 +195,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 - **Dependents**: `controller`, `plugins/network` (feature `directory`), `plugins/chat`, `services/admin`,
   `services/content`, `services/gateway`, `services/host`, `launcher`, `fuzz`.
 
-#### 1.3.10 `rust/crates/proxy` (`license = "AGPL-3.0-only"`)
+#### 1.3.10 `crates/proxy` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: **DR-derived** verbatim (`5281638` from DR `e1c5fec` row X5).
 - **Files (1)**: `src/lib.rs` (193 lines: RFC 9110 §7.6.1 hop-by-hop header stripping and `tokio::io::copy_bidirectional`
@@ -204,7 +204,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 - **Dependencies**: `http`, `tokio`.
 - **Dependents**: `services/gateway`, `launcher`, `fuzz`.
 
-#### 1.3.11 `rust/crates/service-kit` (`license = "AGPL-3.0-only"`)
+#### 1.3.11 `crates/service-kit` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: Mixed **DR-derived** (15 files from DR `e1c5fec` row B1 in `5281638`) and **born here** (2 files from
   `RD26` `feat/app-structure` in `e34cf60`).
@@ -221,7 +221,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
   `plugins/chat`, `launcher` (feature `server-gui`), `fuzz`, and external submodules `rustic-isles` and
   `legacy-revived`.
 
-#### 1.3.12 `rust/crates/store` (`license = "AGPL-3.0-only"`)
+#### 1.3.12 `crates/store` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: Mixed **DR-derived** (7 files from DR `e1c5fec` rows D10/D11/D21 in `5281638`) and **born here** (13
   files from `DF7`, `DH1`, `DH3a`, `DH5`, `DD15`, `DD23`).
@@ -240,7 +240,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
   `plugins/chat`, `services/admin`, `services/host`, `fuzz`, and external submodules `rustic-isles`, `rustic-rifts`,
   `legacy-revived`.
 
-#### 1.3.13 `rust/plugins/chat` (`license = "AGPL-3.0-only"`)
+#### 1.3.13 `plugins/chat` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: Mixed **DR-derived** (`DR` `e1c5fec` `services/metagame/src/chat/`, rows `DN10a`/`DN10b`) and **born
   here** (`DN10a`/`DN10b`).
@@ -255,7 +255,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
   (`AGPL-3.0-only`), **`store`** (`AGPL-3.0-only`), plus dev-dependency **`gateway`** (`AGPL-3.0-only`).
 - **Dependents**: `fuzz` (not yet wired into `controller::modules`).
 
-#### 1.3.14 `rust/services/gateway` (`license = "AGPL-3.0-only"`)
+#### 1.3.14 `services/gateway` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: **DR-derived + Reforged-derived** (`c9f9d6a` from DR `e1c5fec` row B2/B9 + `ReforgedGateway` in
   `RS3`/`RS4`) and **born here** (`DF4a`, `DF4d`, `DN3`, `DN7`).
@@ -274,7 +274,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 - **Dependents**: `controller` (default features `gateway`, `allowlist`), `services/host` (default features `gateway`,
   `allowlist`), `fuzz`, and dev-dependencies of `services/admin` and `plugins/chat`.
 
-#### 1.3.15 `rust/services/content` (`license = "AGPL-3.0-only"`)
+#### 1.3.15 `services/content` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: **DR-derived + Reforged-derived** (`c9f9d6a` from DR `e1c5fec`/`24b7624` row B4 + `ReforgedContent`
   in `RS2`) and **born here** (`DF4b`).
@@ -290,7 +290,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 - **Dependencies**: `module-api` (`MIT`), **`protocol`** (`AGPL-3.0-only`), **`service-kit`** (`AGPL-3.0-only`).
 - **Dependents**: `controller` (default feature `content`), `services/host` (default feature `content`), `fuzz`.
 
-#### 1.3.16 `rust/services/host` (`license = "AGPL-3.0-only"`)
+#### 1.3.16 `services/host` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: Detailed in `docs/port/spec-dl3-hostkit.md` (`DL3a`), plus `src/commands/db.rs` added in `M3` (`b4e924b`):
   - **Category A — Born here (18 src + 3 test files)**:
@@ -328,7 +328,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
       `isles_director::server`.
 - **Dependents**: `bins/server-console`, `bins/server-minimal`, `launcher` (feature `server-gui`), `fuzz`.
 
-#### 1.3.17 `rust/launcher/src-tauri` (`license = "AGPL-3.0-only"`)
+#### 1.3.17 `launcher/src-tauri` (`license = "AGPL-3.0-only"`)
 
 - **Provenance**: Detailed in `docs/port/spec-dl4-launcher.md` (`DL4a`):
   - **Category A — Born here (31 files)**:
@@ -352,13 +352,13 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
     `src/platform/{mod,art,client_mods,clipboard,game_config,game_config_tests,game_folder,invite_link,launch,links,linux_runtime,log,paths,settings,system,updater}.rs`,
     `src/platform/keystore/{mod,format,legacy,os}.rs`,
     `src/controller/{mod,game,legacy,legacy_off,platform,stored,tests,tests/legacy}.rs`.
-  - **Non-Rust files in `rust/launcher/`**:
-    - `rust/launcher/isolation/hook.js`: DR-derived Tauri isolation script (`AGPL-3.0-only`).
-    - `rust/launcher/src-tauri/gen/dauntless-1.4.4.json`: DR-derived 1.4.4 file manifest (`AGPL-3.0-only`).
-    - `rust/launcher/src-tauri/gen/strings.json`: Generated from `ui/packages/i18n/catalogs/{en,pt-BR}.json`
+  - **Non-Rust files in `launcher/`**:
+    - `launcher/isolation/hook.js`: DR-derived Tauri isolation script (`AGPL-3.0-only`).
+    - `launcher/src-tauri/gen/dauntless-1.4.4.json`: DR-derived 1.4.4 file manifest (`AGPL-3.0-only`).
+    - `launcher/src-tauri/gen/strings.json`: Generated from `ui/packages/i18n/catalogs/{en,pt-BR}.json`
       (`AGPL-3.0-only`).
-    - `rust/launcher/test/cases/*.json`: Recorded parity test tables from DR and `ReforgedLauncher` (`AGPL-3.0-only`).
-    - `rust/launcher/test/{bundles,generated,isolation-hook}.test.ts` and `test/e2e-desktop.mjs`: Born here (`MIT`).
+    - `launcher/test/cases/*.json`: Recorded parity test tables from DR and `ReforgedLauncher` (`AGPL-3.0-only`).
+    - `launcher/test/{bundles,generated,isolation-hook}.test.ts` and `test/e2e-desktop.mjs`: Born here (`MIT`).
 - **Evidence**: `NOTICE.md` line 113; `docs/port/spec-dl4-launcher.md`; `docs/port/migration-guide.md` §2 lines 83–104;
   `docs/port/delta-launcher-*.md`.
 - **Dependencies**:
@@ -369,7 +369,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
   - Feature `server-gui`: `admin` (`MIT`), `server-controller` (`MIT`), **`service-kit`** (`AGPL-3.0-only`), **`host`**
     (`AGPL-3.0-only`, with `isles-1-14-7`, `isles-1-12-0`, `revived-1-4-4`, `realms`).
 
-#### 1.3.18 `rust/fuzz` (no `license` field in `Cargo.toml`)
+#### 1.3.18 `fuzz` (no `license` field in `Cargo.toml`)
 
 - **Provenance**: 6 targets from DR row X9 (`http_body`, `proxy_headers`, `gateway_policy`, `gateway_policy_legacy`,
   `content_range`, `launcher_input`) + 33 targets born here or ported in `RX3`/`DX2`. Eight targets (`launcher_files`,
@@ -400,7 +400,7 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 | --- | --- | --- | --- |
 | `ui/apps/web` | `MIT` | 100% **born here** (`DD11`, `DU1`–`DU5`, `DE7`, `DH3b`, `DH6`): `src/main.tsx`, `src/app/*.{ts,tsx}`, `src/screens/*.tsx`, `test/*.test.ts`. | `ui/NOTICE.md` lines 25–30 |
 | `ui/packages/ui` | `MIT` | 100% **born here** (`DD11`, `DU1`): `src/components/*.tsx`, `src/lib/utils.ts` (shadcn/Radix primitives). | `ui/NOTICE.md` lines 26, 31 |
-| `ui/packages/bridge` | `MIT AND AGPL-3.0-only` | `src/{api,call,index}.ts` are **born here** (`MIT`); `src/generated/types.ts` is generated from `rust/launcher/src-tauri/src/bridge/{types,spec}.rs` (`AGPL-3.0-only`). | `ui/NOTICE.md` lines 27, 32, 37, 50–51 |
+| `ui/packages/bridge` | `MIT AND AGPL-3.0-only` | `src/{api,call,index}.ts` are **born here** (`MIT`); `src/generated/types.ts` is generated from `launcher/src-tauri/src/bridge/{types,spec}.rs` (`AGPL-3.0-only`). | `ui/NOTICE.md` lines 27, 32, 37, 50–51 |
 | `ui/packages/i18n` | `MIT AND AGPL-3.0-only` | `src/index.ts` and `test/catalogs.test.ts` are **born here** (`MIT`); `catalogs/en.json` and `catalogs/pt-BR.json` carry DR strings (`e1c5fec`/`24b7624`), `ReforgedLauncher` strings (`src/shared/i18n.ts`), and born-here keys appended after `err_edition_other` (`AGPL-3.0-only`). | `ui/NOTICE.md` lines 28, 33, 38, 43–49; `docs/dainty-lass-plan.md` `DD26` line 127 |
 
 ---
@@ -465,10 +465,10 @@ Manager and managed installs) must be MIT and **must not depend on any AGPL crat
 
 | Binary | Built from | Cargo features in release | Effective licence today | What still makes the compiled binary AGPL after the `DL3b` + `DL4b` rewrite |
 | --- | --- | --- | --- | --- |
-| **`dainty-lass-client`** (`DaintyLass Launcher`) | `rust/launcher/src-tauri` | Default (`custom-protocol`, `realms`, `legacy`) | **`AGPL-3.0-only` with Mystic Paradox additional terms** | 1. **DR-derived launcher core** (`rust/launcher/src-tauri` Category C: 60 files including `controller/mod.rs`, `net/{pinned,http,hostapi,relay,downloader,autoregion}`, `platform/{keystore,settings,game_config,game_folder,launch,invite_link,art,clipboard,client_mods}`, `core/manifest*`, `isolation/hook.js`).<br>2. **`crates/protocol` and `crates/proxy`** (unless rewritten as MIT).<br>3. **`rifts-host` and `rifts-seam`** (`modules/rustic-rifts`, `AGPL-3.0-only` + Mystic Paradox additional terms) compiled in by `--features realms`.<br>4. **Embedded UI strings**: `ui/packages/i18n/catalogs/{en,pt-BR}.json` and `rust/launcher/src-tauri/gen/strings.json` (`AGPL-3.0-only`), plus `gen/dauntless-1.4.4.json` under `--features legacy`.<br>5. *(At runtime, not linked into the installer)*: for 1.14.7/1.12.0 servers, the client downloads `MysticParadox.dll` (`AGPL-3.0-only` + Mystic Paradox additional terms) and `winmm.dll` (`native/runtime-loader`, `Apache-2.0` / `LGPL-3.0`) from the server's content service after user consent. |
-| **`dainty-lass-manager`** (`DaintyLass Manager`) | `rust/launcher/src-tauri` | `--no-default-features --features custom-protocol,server-gui` | **`AGPL-3.0-only` with Mystic Paradox additional terms** | Everything listed for `dainty-lass-client` above, **plus**:<br>6. **`services/host` AGPL shell** (`src/lib.rs`, `src/legacy/*`) linked by `server-gui`.<br>7. **In-process server services**: `services/gateway`, `services/content`, `crates/service-kit`, `crates/store`.<br>8. **Compiled-in game modules and generators**: `server-gui` enables `"isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"`, linking `rustic-isles` (`isles-1-14-7`, `isles-1-12-0`, `isles-core`, `isles-db`, `isles-director`) and `rustic-rifts` (`AGPL-3.0-only` + Mystic Paradox additional terms) directly into the binary. |
-| **`dainty-lass-server-console`** and **`dainty-lass-host`** (`reforged-host`) | `rust/bins/server-console` | Default (`isles-1-14-7`, `isles-1-12-0`, `realms`) or `--features all-modules` in `.forgejo/workflows/server-release.yml` | **`AGPL-3.0-only` with Mystic Paradox additional terms** | 1. **Compiled-in game modules (`all-modules`)**: `isles-1-14-7`, `isles-1-12-0`, `isles-core`, `isles-db`, `isles-director` (`modules/rustic-isles`) and `rifts-*` (`modules/rustic-rifts`), which are `AGPL-3.0-only` with Mystic Paradox additional terms (plus `revived-1-4-4` if wired into `controller`).<br>2. **Direct `services/host` links to `isles-core`, `isles-db`, `isles-director`** (for `gamedata`, `db migrate|verify|export-mongo`, `backend`, `director`, and embedded `*.example.json` / `store-captures.json`).<br>3. **`services/host` AGPL shell** (`legacy/mod.rs` DR 1.4.4 supervision).<br>4. **Front-door and shared crates**: `services/gateway`, `services/content`, `crates/store`, `crates/service-kit`, `crates/protocol`, `crates/proxy` (unless rewritten or moved out of process). |
-| **`dainty-lass-server-minimal`** | `rust/bins/server-minimal` | Default (`isles-1-14-7`, `isles-1-12-0`, `realms`) or `--features all-modules` | **`AGPL-3.0-only` with Mystic Paradox additional terms** | Same as `dainty-lass-server-console` above (links `host` with `modules` and the same default/`all-modules` feature set). |
+| **`dainty-lass-client`** (`DaintyLass Launcher`) | `launcher/src-tauri` | Default (`custom-protocol`, `realms`, `legacy`) | **`AGPL-3.0-only` with Mystic Paradox additional terms** | 1. **DR-derived launcher core** (`launcher/src-tauri` Category C: 60 files including `controller/mod.rs`, `net/{pinned,http,hostapi,relay,downloader,autoregion}`, `platform/{keystore,settings,game_config,game_folder,launch,invite_link,art,clipboard,client_mods}`, `core/manifest*`, `isolation/hook.js`).<br>2. **`crates/protocol` and `crates/proxy`** (unless rewritten as MIT).<br>3. **`rifts-host` and `rifts-seam`** (`modules/rustic-rifts`, `AGPL-3.0-only` + Mystic Paradox additional terms) compiled in by `--features realms`.<br>4. **Embedded UI strings**: `ui/packages/i18n/catalogs/{en,pt-BR}.json` and `launcher/src-tauri/gen/strings.json` (`AGPL-3.0-only`), plus `gen/dauntless-1.4.4.json` under `--features legacy`.<br>5. *(At runtime, not linked into the installer)*: for 1.14.7/1.12.0 servers, the client downloads `MysticParadox.dll` (`AGPL-3.0-only` + Mystic Paradox additional terms) and `winmm.dll` (`native/runtime-loader`, `Apache-2.0` / `LGPL-3.0`) from the server's content service after user consent. |
+| **`dainty-lass-manager`** (`DaintyLass Manager`) | `launcher/src-tauri` | `--no-default-features --features custom-protocol,server-gui` | **`AGPL-3.0-only` with Mystic Paradox additional terms** | Everything listed for `dainty-lass-client` above, **plus**:<br>6. **`services/host` AGPL shell** (`src/lib.rs`, `src/legacy/*`) linked by `server-gui`.<br>7. **In-process server services**: `services/gateway`, `services/content`, `crates/service-kit`, `crates/store`.<br>8. **Compiled-in game modules and generators**: `server-gui` enables `"isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"`, linking `rustic-isles` (`isles-1-14-7`, `isles-1-12-0`, `isles-core`, `isles-db`, `isles-director`) and `rustic-rifts` (`AGPL-3.0-only` + Mystic Paradox additional terms) directly into the binary. |
+| **`dainty-lass-server-console`** and **`dainty-lass-host`** (`reforged-host`) | `bins/server-console` | Default (`isles-1-14-7`, `isles-1-12-0`, `realms`) or `--features all-modules` in `.forgejo/workflows/server-release.yml` | **`AGPL-3.0-only` with Mystic Paradox additional terms** | 1. **Compiled-in game modules (`all-modules`)**: `isles-1-14-7`, `isles-1-12-0`, `isles-core`, `isles-db`, `isles-director` (`modules/rustic-isles`) and `rifts-*` (`modules/rustic-rifts`), which are `AGPL-3.0-only` with Mystic Paradox additional terms (plus `revived-1-4-4` if wired into `controller`).<br>2. **Direct `services/host` links to `isles-core`, `isles-db`, `isles-director`** (for `gamedata`, `db migrate|verify|export-mongo`, `backend`, `director`, and embedded `*.example.json` / `store-captures.json`).<br>3. **`services/host` AGPL shell** (`legacy/mod.rs` DR 1.4.4 supervision).<br>4. **Front-door and shared crates**: `services/gateway`, `services/content`, `crates/store`, `crates/service-kit`, `crates/protocol`, `crates/proxy` (unless rewritten or moved out of process). |
+| **`dainty-lass-server-minimal`** | `bins/server-minimal` | Default (`isles-1-14-7`, `isles-1-12-0`, `realms`) or `--features all-modules` | **`AGPL-3.0-only` with Mystic Paradox additional terms** | Same as `dainty-lass-server-console` above (links `host` with `modules` and the same default/`all-modules` feature set). |
 
 ### 3.2 Docker images (`docker/Dockerfile` and `compose.yaml`)
 
@@ -487,30 +487,30 @@ Manager and managed installs) must be MIT and **must not depend on any AGPL crat
 ### 4.1 Baseline scope already specified in `DD26`, `DL3a`, and `DL4a`
 
 1. **`DL3b` — Host kit (`crates/hostkit`, `license = "MIT"`)**:
-   - **What moves**: The 18 born-here source files (Category A) move from `rust/services/host` to `rust/crates/hostkit`
+   - **What moves**: The 18 born-here source files (Category A) move from `services/host` to `crates/hostkit`
      with `git mv` (separate mechanical commit).
    - **What is rewritten clean-room**: The 22 Reforged-derived module groups (Category B, specified in
-     `docs/port/spec-dl3-hostkit.md`) are implemented fresh in `rust/crates/hostkit` by an isolated subagent in a
-     sparse-checkout worktree that excludes `rust/services/host` and all other AGPL paths.
+     `docs/port/spec-dl3-hostkit.md`) are implemented fresh in `crates/hostkit` by an isolated subagent in a
+     sparse-checkout worktree that excludes `services/host` and all other AGPL paths.
    - **Decoupling `crates/hostkit` from `rustic-isles` (`isles-core`, `isles-db`, `isles-director`)**:
      Today, `services/host` directly calls `isles_core::areas::game_data::generators`, `isles_director::hunt_tables`,
      and `isles_db::{migrate, verify, export_to_mongo, MongoClient}`, and embeds `modules/rustic-isles/reference/1.14.7/`
      JSON files. To make `crates/hostkit` 100% MIT with zero AGPL dependencies, `crates/hostkit` must define traits (or
      callbacks) for game-data generation and legacy MongoDB migration/verification/export that `services/host` (the thin
      AGPL shell) injects when `isles-1-14-7` is enabled.
-   - **What stays in `rust/services/host` (`AGPL-3.0-only`)**: The thin binary/library shell (`src/lib.rs`,
+   - **What stays in `services/host` (`AGPL-3.0-only`)**: The thin binary/library shell (`src/lib.rs`,
      `src/legacy/mod.rs`, `src/legacy/off.rs`, and the `isles-*` trait wiring).
 
 2. **`DL4b` — Launcher kit (`crates/launcher-kit`, `license = "MIT"`)**:
-   - **What moves**: The 31 born-here files (Category A) move from `rust/launcher/src-tauri` to
-     `rust/crates/launcher-kit` with `git mv` (separate mechanical commit) once decoupled from DR-derived internal
+   - **What moves**: The 31 born-here files (Category A) move from `launcher/src-tauri` to
+     `crates/launcher-kit` with `git mv` (separate mechanical commit) once decoupled from DR-derived internal
      modules.
    - **What is rewritten clean-room**: The 8 Reforged-derived module groups (Category B, specified in
      `docs/port/spec-dl4-launcher.md`: `runtime_files`, `verify` 1.14.7 `HashCache`/`ExeCheck`, `hostkit`, `hostserver`,
      `requirements`, `dialogs`, `controller/host`, `controller/runtime`) are implemented fresh in
-     `rust/crates/launcher-kit` by an isolated subagent in a sparse-checkout worktree that excludes
-     `rust/launcher/src-tauri` and all other AGPL paths.
-   - **What stays in `rust/launcher/src-tauri` (`AGPL-3.0-only` unless expanded below)**: The DR-derived Tauri shell,
+     `crates/launcher-kit` by an isolated subagent in a sparse-checkout worktree that excludes
+     `launcher/src-tauri` and all other AGPL paths.
+   - **What stays in `launcher/src-tauri` (`AGPL-3.0-only` unless expanded below)**: The DR-derived Tauri shell,
      relay, downloader, keystore, 1.4.4 verifier/legacy controller, and `rifts-host` realm wiring.
 
 ### 4.2 Candidate crates beyond `DL3` and `DL4`
@@ -528,7 +528,7 @@ inversion:
 | **Candidate 4: `crates/controller` (`server-controller`) feature inversion** | **Build / feature refactoring (~200 lines in `controller`, `host`, `bins`)** | `crates/controller` is 100% born-here (`MIT`), but its `Cargo.toml` has default features `gateway`, `allowlist`, `content`, and optional `isles-1-14-7`, `isles-1-12-0` that make `controller` depend directly on those AGPL crates. If `controller`'s default features are narrowed to MIT crates (or if `services/host` / `bins/*` register `gateway`, `content`, and `isles-*` into `controller::ModuleRegistry` from outside), `crates/controller` has **zero** normal AGPL dependencies. | Very low effort; does not require a clean-room rewrite because `controller` is already 100% born-here. **Strongly recommended.** |
 | **Candidate 5: `crates/proxy`** | **1 file, 193 lines** | Tiny RFC 9110 §7.6.1 hop-by-hop header stripper and bidirectional stream copy helper. Used by `services/gateway` and `launcher/src-tauri` (`net/relay`). | Trivial (~100 lines clean-room from RFC 9110 §7.6.1). Worth including if `gateway` or the launcher relay is rewritten. |
 | **Candidate 6: `services/gateway` (with allowlist) and `services/content`** | **54 DR/Reforged files across `gateway` (15,874 lines) and `content` (6,118 lines) — ~22,000 lines total** | `DD26` currently states: *"A clean-room `gateway` and `content` (about 18k lines, from the parity fixtures) is not planned."* Leaving them `AGPL-3.0-only` means any server binary or Docker `front` image that links `gateway` and `content` in-process is `AGPL-3.0-only` (unless `gateway` and `content` are spawned as separate out-of-process `module-api` child binaries or rewritten clean-room). | Large effort (~22k lines across TLS, ACME, nftables/netsh firewall allowlist, range requests, legacy 1.4.4 policies). Not recommended unless the maintainer wants the front-door binaries themselves to be MIT. |
-| **Candidate 7: Remaining DR-derived core of `rust/launcher/src-tauri` and `ui/packages/i18n/catalogs/*.json`** | **60 Rust files (~22,000 lines) + 2 JSON catalogs (~1,150 keys each)** | `DD26` and `DL4a` specify rewriting the Reforged-derived host/runtime modules into `crates/launcher-kit` (`MIT`) while leaving the DR-derived Tauri shell in `rust/launcher/src-tauri` (`AGPL-3.0-only`) and keeping `en.json`/`pt-BR.json` word-for-word (`AGPL-3.0-only`). Consequently, the shipped `dainty-lass-client` and `dainty-lass-manager` binaries remain `AGPL-3.0-only` unless all 60 DR-derived files and both language catalogs are also replaced clean-room (and `realms` / `server-gui` AGPL game modules are moved out of process). | Very large effort (~22k lines of Rust + full UI copy rewrite). `DD26` explicitly scoped `DL4` to `crates/launcher-kit` (`MIT`) with a thin AGPL `src-tauri` shell. |
+| **Candidate 7: Remaining DR-derived core of `launcher/src-tauri` and `ui/packages/i18n/catalogs/*.json`** | **60 Rust files (~22,000 lines) + 2 JSON catalogs (~1,150 keys each)** | `DD26` and `DL4a` specify rewriting the Reforged-derived host/runtime modules into `crates/launcher-kit` (`MIT`) while leaving the DR-derived Tauri shell in `launcher/src-tauri` (`AGPL-3.0-only`) and keeping `en.json`/`pt-BR.json` word-for-word (`AGPL-3.0-only`). Consequently, the shipped `dainty-lass-client` and `dainty-lass-manager` binaries remain `AGPL-3.0-only` unless all 60 DR-derived files and both language catalogs are also replaced clean-room (and `realms` / `server-gui` AGPL game modules are moved out of process). | Very large effort (~22k lines of Rust + full UI copy rewrite). `DD26` explicitly scoped `DL4` to `crates/launcher-kit` (`MIT`) with a thin AGPL `src-tauri` shell. |
 
 ---
 
@@ -577,12 +577,12 @@ swapped into the workspace under `license = "MIT"` (`Copyright (c) 2026 Silent S
 
 | Crate | Behaviour spec (`L1`) | Provenance record (`L2`) | Licence after `L3` | Direct normal or dev AGPL dependencies |
 | --- | --- | --- | --- | --- |
-| `rust/crates/protocol` | [`docs/port/spec-protocol.md`](spec-protocol.md) | [`docs/port/clean-room/protocol.md`](clean-room/protocol.md) | `MIT` | None |
-| `rust/crates/proxy` | [`docs/port/spec-proxy.md`](spec-proxy.md) | [`docs/port/clean-room/proxy.md`](clean-room/proxy.md) | `MIT` | None |
-| `rust/crates/store` | [`docs/port/spec-store.md`](spec-store.md) | [`docs/port/clean-room/store.md`](clean-room/store.md) | `MIT` | None |
-| `rust/crates/service-kit` | [`docs/port/spec-service-kit.md`](spec-service-kit.md) | [`docs/port/clean-room/service-kit.md`](clean-room/service-kit.md) | `MIT` | None |
-| `rust/crates/controller` | [`docs/port/clean-room/controller.md`](clean-room/controller.md) | [`docs/port/clean-room/controller.md`](clean-room/controller.md) | `MIT` | None (AGPL `gateway`, `content`, and `isles-*` injected via `CorePluginFactory`) |
-| `rust/crates/hostkit` | [`docs/port/spec-dl3-hostkit.md`](spec-dl3-hostkit.md) | [`docs/port/clean-room/hostkit.md`](clean-room/hostkit.md) | `MIT` | None (`services/host` remains the thin AGPL binary/legacy/isles adapter shell) |
-| `rust/crates/launcher-kit` | [`docs/port/spec-dl4-launcher.md`](spec-dl4-launcher.md) | [`docs/port/clean-room/launcher-kit.md`](clean-room/launcher-kit.md) | `MIT` | None (`launcher/src-tauri` remains the AGPL Tauri shell) |
+| `crates/protocol` | [`docs/port/spec-protocol.md`](spec-protocol.md) | [`docs/port/clean-room/protocol.md`](clean-room/protocol.md) | `MIT` | None |
+| `crates/proxy` | [`docs/port/spec-proxy.md`](spec-proxy.md) | [`docs/port/clean-room/proxy.md`](clean-room/proxy.md) | `MIT` | None |
+| `crates/store` | [`docs/port/spec-store.md`](spec-store.md) | [`docs/port/clean-room/store.md`](clean-room/store.md) | `MIT` | None |
+| `crates/service-kit` | [`docs/port/spec-service-kit.md`](spec-service-kit.md) | [`docs/port/clean-room/service-kit.md`](clean-room/service-kit.md) | `MIT` | None |
+| `crates/controller` | [`docs/port/clean-room/controller.md`](clean-room/controller.md) | [`docs/port/clean-room/controller.md`](clean-room/controller.md) | `MIT` | None (AGPL `gateway`, `content`, and `isles-*` injected via `CorePluginFactory`) |
+| `crates/hostkit` | [`docs/port/spec-dl3-hostkit.md`](spec-dl3-hostkit.md) | [`docs/port/clean-room/hostkit.md`](clean-room/hostkit.md) | `MIT` | None (`services/host` remains the thin AGPL binary/legacy/isles adapter shell) |
+| `crates/launcher-kit` | [`docs/port/spec-dl4-launcher.md`](spec-dl4-launcher.md) | [`docs/port/clean-room/launcher-kit.md`](clean-room/launcher-kit.md) | `MIT` | None (`launcher/src-tauri` remains the AGPL Tauri shell) |
 
 

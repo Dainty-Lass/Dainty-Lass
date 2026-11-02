@@ -73,11 +73,11 @@ Both systems gave the same result for every check.
   doesn't exist is an error (`patch location ... does not contain packages matching rifts-core`). CI and developers'
   clones use `--recurse-submodules`.
 - **Registry config in every repository.** Config is read from the working directory upward, and `modules/` sits
-  outside `rust/`, so `rust/.cargo/config.toml` doesn't reach a module built from its own folder. Each module
+  outside `rust/`, so `.cargo/config.toml` doesn't reach a module built from its own folder. Each module
   repository carries its own `.cargo/config.toml`, and its own `rust-toolchain.toml` for the same reason.
 - **`--workspace` stops at the host's members.** `cargo test --workspace`, `clippy --workspace` and `fmt --all` in
   `rust/` don't cover the modules; each module's checks run from its own folder, and need registry read access.
-- **A guard for the silent patch:** host CI fails when `rust/Cargo.lock` holds a
+- **A guard for the silent patch:** host CI fails when `Cargo.lock` holds a
   `sparse+https://git.silentspud.com/` source. That is a CI change (RR3, DX3), not this row's.
 - **Windows long paths** for git: `core.longpaths=true`, or a deep checkout under a long path fails to clone a
   submodule's objects. Cargo's own libgit2 checkout of a git dependency failed the same way under a long
@@ -87,7 +87,7 @@ Both systems gave the same result for every check.
 
 Crate names under `modules/` are illustrative; the real ones are the module rows' choice.
 
-### DaintyLass: `rust/Cargo.toml`
+### DaintyLass: `Cargo.toml`
 
 ```toml
 [workspace]
@@ -113,7 +113,7 @@ store = { path = "crates/store" }
 rifts-core = { path = "../modules/rustic-rifts/crates/rifts-core" }
 ```
 
-### DaintyLass: a published crate, `rust/crates/module-api/Cargo.toml`
+### DaintyLass: a published crate, `crates/module-api/Cargo.toml`
 
 ```toml
 [package]
@@ -135,7 +135,7 @@ protocol.workspace = true
 index = "sparse+https://git.silentspud.com/api/packages/silentspud/cargo/"
 ```
 
-In DaintyLass this goes in the existing `rust/.cargo/config.toml`.
+In DaintyLass this goes in the existing `.cargo/config.toml`.
 
 ### A module repository: `Cargo.toml` at its root
 
@@ -186,7 +186,7 @@ Not met: the registry and `[patch]` worked on both systems, so the fallback is n
 ```toml
 # module workspace
 module-api = { git = "https://git.silentspud.com/silentspud/dainty-lass", tag = "module-api-v0.1.0" }
-# DaintyLass rust/Cargo.toml
+# DaintyLass Cargo.toml
 [patch."https://git.silentspud.com/silentspud/dainty-lass"]
 module-api = { path = "crates/module-api" }
 ```

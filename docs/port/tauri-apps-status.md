@@ -7,8 +7,8 @@ Complete inventory and verification record of the two Windows Tauri desktop appl
 `dainty-lass-ui` `cd3490d`), Part B2 (clean-clone NSIS builds), Part B3 (in-process Server GUI + Client feature and UI
 completion), Part B4 (installed Windows desktop end-to-end test and `en` / `pt-BR` screenshot capture), and T1-T6.
 
-Both applications are built from `rust/launcher/src-tauri` serving the static SolidJS frontend in `ui/apps/web/dist`
-(DD11) over the typed Tauri bridge declared in `rust/launcher/src-tauri/src/bridge/spec.rs` and
+Both applications are built from `launcher/src-tauri` serving the static SolidJS frontend in `ui/apps/web/dist`
+(DD11) over the typed Tauri bridge declared in `launcher/src-tauri/src/bridge/spec.rs` and
 `ui/packages/bridge/src/api.ts`.
 
 ---
@@ -17,8 +17,8 @@ Both applications are built from `rust/launcher/src-tauri` serving the static So
 
 | Application | Binary (`mainBinaryName`) | Tauri config | Cargo features (post-B3) | B1 baseline -> current state |
 | --- | --- | --- | --- | --- |
-| **Client** (`DaintyLass Launcher`) | `dainty-lass-client` | `rust/launcher/src-tauri/tauri.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival`) | `default = ["host", "realms", "legacy"]` | **working**: `npm run build:client` (`tauri build --bundles nsis -- --features legacy,realms`) runs `beforeBuildCommand` (`bun install --cwd ../../ui --frozen-lockfile && bun run --cwd ../../ui build`) and produces `DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe`. |
-| **Server GUI** (`DaintyLass Manager`) | `dainty-lass-manager` | `rust/launcher/src-tauri/tauri.server-gui.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival.server`) | `server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"]` | **working**: `npm run build:manager` (alias `npm run build:server-gui`) builds `DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe` with distinct `icons/server/*` icons, OS window title and header `"DaintyLass Manager"`, dedicated single-instance channel (`com.daintylass.server`), and all `services/host`, `server-controller`, `admin`, and `store` operations linked in-process. The bundle `identifier` (`...server`) is intentionally preserved so existing installs update in place, and the Cargo feature `server-gui` is kept consistently across `Cargo.toml`, `#[cfg(feature = "server-gui")]`, CI, `package.json`, and tests. |
+| **Client** (`DaintyLass Launcher`) | `dainty-lass-client` | `launcher/src-tauri/tauri.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival`) | `default = ["host", "realms", "legacy"]` | **working**: `npm run build:client` (`tauri build --bundles nsis -- --features legacy,realms`) runs `beforeBuildCommand` (`bun install --cwd ../../ui --frozen-lockfile && bun run --cwd ../../ui build`) and produces `DaintyLass Launcher_2.0.0-alpha.0_x64-setup.exe`. |
+| **Server GUI** (`DaintyLass Manager`) | `dainty-lass-manager` | `launcher/src-tauri/tauri.server-gui.conf.json` (`io.github.freezamotoqueiro.dauntlessreforgedrevival.server`) | `server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "isles-1-12-0", "revived-1-4-4", "host?/realms"]` | **working**: `npm run build:manager` (alias `npm run build:server-gui`) builds `DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe` with distinct `icons/server/*` icons, OS window title and header `"DaintyLass Manager"`, dedicated single-instance channel (`com.daintylass.server`), and all `services/host`, `server-controller`, `admin`, and `store` operations linked in-process. The bundle `identifier` (`...server`) is intentionally preserved so existing installs update in place, and the Cargo feature `server-gui` is kept consistently across `Cargo.toml`, `#[cfg(feature = "server-gui")]`, CI, `package.json`, and tests. |
 
 ---
 
@@ -63,7 +63,7 @@ Inside `ui/apps/web/src/screens/host.tsx`, the Host screen has eight sub-tabs (`
 
 ## 3. Complete bridge command inventory (`spec.rs` & `ui/packages/bridge/src/api.ts`)
 
-All 92 commands declared in `rust/launcher/src-tauri/src/bridge/spec.rs` (`spec::PLANNED` is empty):
+All 92 commands declared in `launcher/src-tauri/src/bridge/spec.rs` (`spec::PLANNED` is empty):
 
 | # | Command (`spec.rs` / `api.ts`) | Called from screen(s) | State at B1 | State at B4 | Verification |
 | --- | --- | --- | --- | --- | --- |
@@ -168,12 +168,12 @@ All 92 commands declared in `rust/launcher/src-tauri/src/bridge/spec.rs` (`spec:
 
 | Location | Earlier Node / npm / MongoDB / repository assumption | Resolution (B3 & T2) |
 | --- | --- | --- |
-| `rust/launcher/src-tauri/src/platform/requirements.rs` | Checked for Windows MongoDB Community Server (`C:\Program Files\MongoDB\Server\*\bin\mongod.exe`) and reported `RequirementState::Missing` when absent | Removed MongoDB from host requirements (`DATABASE = Database::Sqlite`); only checks tools the Rust stack uses (`tailscale`, `visual_studio`, `rust`, `dumper7`, `dauntless`, `vc_redist`, `git`) |
-| `rust/launcher/src-tauri/src/bridge/spec.rs` & `platform/links.rs` | Listed `"mongodb"` in `REQUIREMENT_IDS` and `"mongodb"` / `"node"` in `EXTERNAL_URL_KEYS` | Removed `"mongodb"` from `REQUIREMENT_IDS` and `"mongodb"` / `"node"` from `EXTERNAL_URL_KEYS`; regenerated `isolation/commands.js` |
-| `rust/launcher/src-tauri/src/bridge/spec.rs` & `platform/hostserver.rs` | Listed `"mongod"` as component index 0 in `HOST_SERVER_COMPONENTS` | Removed `"mongod"` from `HOST_SERVER_COMPONENTS` (`&["backend", "director", "content", "admin", "gateway", "allowlist"]`) and `hostserver.rs` |
+| `launcher/src-tauri/src/platform/requirements.rs` | Checked for Windows MongoDB Community Server (`C:\Program Files\MongoDB\Server\*\bin\mongod.exe`) and reported `RequirementState::Missing` when absent | Removed MongoDB from host requirements (`DATABASE = Database::Sqlite`); only checks tools the Rust stack uses (`tailscale`, `visual_studio`, `rust`, `dumper7`, `dauntless`, `vc_redist`, `git`) |
+| `launcher/src-tauri/src/bridge/spec.rs` & `platform/links.rs` | Listed `"mongodb"` in `REQUIREMENT_IDS` and `"mongodb"` / `"node"` in `EXTERNAL_URL_KEYS` | Removed `"mongodb"` from `REQUIREMENT_IDS` and `"mongodb"` / `"node"` from `EXTERNAL_URL_KEYS`; regenerated `isolation/commands.js` |
+| `launcher/src-tauri/src/bridge/spec.rs` & `platform/hostserver.rs` | Listed `"mongod"` as component index 0 in `HOST_SERVER_COMPONENTS` | Removed `"mongod"` from `HOST_SERVER_COMPONENTS` (`&["backend", "director", "content", "admin", "gateway", "allowlist"]`) and `hostserver.rs` |
 | `ui/apps/web/src/app/host-model.ts` | Listed `"git"` and `"mongodb"` under `"To host a server"` on the Requirements tab | Removed `"mongodb"` completely and moved `"git"` under the optional SDK/runtime build tools group; hosting only checks `"tailscale"` |
 | `ui/apps/web/src/screens/host-tools.tsx` | Rendered `t("host_data_step_pack")` (`npm run gamedata -- --export`) | Switched to `t("host_data_step_pack_rust")` (`reforged-host gamedata --export`) |
-| `rust/launcher/src-tauri/src/controller/host.rs` (`ensure_host_workspace`, `host_choose_workspace`) | Required a pre-existing folder or `<game_parent>/Reforged` repository checkout; offered `host_download_project` (`Download it`) on the Server GUI | In `DaintyLass Manager` (`has_embedded()`), `ensure_host_workspace(true)` creates and selects `<user_data>/Server` automatically on a fresh profile, `host_choose_workspace` creates any picked folder if it does not exist yet, and `host_download_project` (`ensure_host_workspace(false)`) returns `ErrorCode::NotInThisBuild` |
+| `launcher/src-tauri/src/controller/host.rs` (`ensure_host_workspace`, `host_choose_workspace`) | Required a pre-existing folder or `<game_parent>/Reforged` repository checkout; offered `host_download_project` (`Download it`) on the Server GUI | In `DaintyLass Manager` (`has_embedded()`), `ensure_host_workspace(true)` creates and selects `<user_data>/Server` automatically on a fresh profile, `host_choose_workspace` creates any picked folder if it does not exist yet, and `host_download_project` (`ensure_host_workspace(false)`) returns `ErrorCode::NotInThisBuild` |
 | `ui/apps/web/src/screens/host.tsx` (`WorkspaceBar`, `SetupPanel`, `ServerCard`) | Showed repository checkout copy (`host_ws_text`), the `Download it` button (`host_ws_download`), Node-era setup copy (`hsetup_text`), no game-folder picker on `SetupPanel`, and `"Closing the launcher stops the server."` | In `DaintyLass Manager` (`snap.app.serverGui`), `WorkspaceBar` shows `host_ws_title_mgr` / `host_ws_text_mgr` (`Server data folder`) with no `Download it` button, `SetupPanel` includes a direct Dauntless `1.14.7` game-folder picker (`Choose folder` / `Change folder`) alongside synthetic data and `hsetup_text_mgr`, and `ServerCard` shows `hsrv_text_stopped_mgr` / `hsrv_text_running_mgr` (`Closing DaintyLass Manager stops the server.`) |
 | `ui/apps/web/src/components/chrome.tsx` & `ui/apps/web/src/app/app.tsx` | Always rendered `app_name` (`DaintyLass Launcher`) in the header bar and `document.title` | Renders `app_name_server` (`DaintyLass Manager`) when `snap.app.serverGui` is true, matching `tauri.server-gui.conf.json` (`productName: "DaintyLass Manager"`) |
 
@@ -201,20 +201,20 @@ Every occurrence in both catalogs of `"Mystic Paradox"` (as something the host d
 
 ### 4.3 `account_banned` phase behavior (verified in T5)
 
-Both Dauntless Revived's Tauri controller (`rust/launcher/src-tauri/src/controller/mod.rs` at `a6e1870`) and Node `ReforgedLauncher` (`legacy/ReforgedLauncher/src/main/controller.ts` lines 330, 670–672, and 1609–1612, and `legacy/ReforgedLauncher/test/controller.test.ts` lines 285–301 at `73d9768`) set `keyRejected = true` on `account_banned` (`ErrorCode::AccountBanned`) alongside `lastError = { code: "account_banned", detail }`:
+Both Dauntless Revived's Tauri controller (`launcher/src-tauri/src/controller/mod.rs` at `a6e1870`) and Node `ReforgedLauncher` (`legacy/ReforgedLauncher/src/main/controller.ts` lines 330, 670–672, and 1609–1612, and `legacy/ReforgedLauncher/test/controller.test.ts` lines 285–301 at `73d9768`) set `keyRejected = true` on `account_banned` (`ErrorCode::AccountBanned`) alongside `lastError = { code: "account_banned", detail }`:
 
 - In `checkAccount` (`controller.ts` lines 670–672) and `play` (`controller.ts` lines 1609–1612), an `account_banned` response from `GetUserInfo` sets `this.keyRejected = true` and `this.lastError = { code: "account_banned", detail: info.detail }`.
 - In `computePhase` (`controller.ts` line 330), `if (!this.hasKey || this.keyRejected) return "register";` returns `"register"` (`Phase::Register`), and `snapshot()` (`controller.ts` lines 370–372) sets `account.hasKey = this.hasKey && !this.keyRejected`.
 - In `legacy/ReforgedLauncher/test/controller.test.ts` (`test("a banned account is told why")`, lines 285–301), the Node test explicitly asserts `assert.equal(s.phase, "register")` and `assert.deepEqual(s.lastError, { code: "account_banned", detail: "cheating" })`.
-- The Rust controller (`rust/launcher/src-tauri/src/controller/mod.rs` lines 545–547, 579, 1102–1106, and 1656–1659) matches this behavior identically, and `controller::tests::a_banned_account_is_told_why` (`rust/launcher/src-tauri/src/controller/tests.rs`) tests both adopting a banned key (`use_existing_key`) and an already-registered player whose account is subsequently banned on the server (`connect` and `play`).
+- The Rust controller (`launcher/src-tauri/src/controller/mod.rs` lines 545–547, 579, 1102–1106, and 1656–1659) matches this behavior identically, and `controller::tests::a_banned_account_is_told_why` (`launcher/src-tauri/src/controller/tests.rs`) tests both adopting a banned key (`use_existing_key`) and an already-registered player whose account is subsequently banned on the server (`connect` and `play`).
 
 ---
 
 ## 5. Part B4 end-to-end desktop verification and screenshots
 
-### 5.1 Repeatable desktop E2E script (`rust/launcher/test/e2e-desktop.mjs`)
+### 5.1 Repeatable desktop E2E script (`launcher/test/e2e-desktop.mjs`)
 
-Run with `node test/e2e-desktop.mjs` from `rust/launcher`:
+Run with `node test/e2e-desktop.mjs` from `launcher`:
 
 ```text
 [1/8] Using temporary E2E root: C:\Users\Nick\AppData\Local\Temp\dl-e2e-desktop-1qEcCX
@@ -318,6 +318,6 @@ exercised end-to-end against live external systems on this machine:
 | Step | Scope | Status |
 | --- | --- | --- |
 | **B1** | Write and merge `docs/port/tauri-apps-status.md` inventory on `docs/tauri-apps-status` | **Done** (`f20e2df`, merged `effe5dd`) |
-| **B2** | Build both Windows installers (`dainty-lass-client` and `dainty-lass-manager` with its own product name, identifier, and icon) from a clean clone via `rust/launcher/package.json` and `tauri*.conf.json`, with `ui/` built by Bun automatically; document in `rust/launcher/README.md` and add a bundle build check | **Done** (`8b122b8`, merged `dd8a433`; renamed to `dainty-lass-manager` / `DaintyLass Manager` in T3) |
+| **B2** | Build both Windows installers (`dainty-lass-client` and `dainty-lass-manager` with its own product name, identifier, and icon) from a clean clone via `launcher/package.json` and `tauri*.conf.json`, with `ui/` built by Bun automatically; document in `launcher/README.md` and add a bundle build check | **Done** (`8b122b8`, merged `dd8a433`; renamed to `dainty-lass-manager` / `DaintyLass Manager` in T3) |
 | **B3** | Implement every stub/broken command and missing Server GUI / Client workflow (`services/host` in-process library calls, `server-gui` `all-modules` + `client` `realms` features, admin kick/timeout/ban/unban/lookup, history query/dry-run/apply + guarded actions UI, `doctor`, `backup`, `host.toml` settings editor, per-module logs, M1/M4 MongoDB migration status/migrate-with-verify/confirmed-fresh-start, and removal of obsolete Node/npm/MongoDB assumptions) | **Done** (`dainty-lass-ui` `8a69a05`, merged `0314dde`; `dainty-lass` `fix/b3-tauri-apps`) |
 | **B4** | Install both built apps, run repeatable end-to-end test script (`server GUI setup -> start -> invite -> client join -> register -> sign in -> status -> server GUI ban -> client shows ban -> server GUI clean stop`), save `en` and `pt-BR` screenshots under `docs/port/screenshots/`, and update this table | **Done** (`dainty-lass` `fix/b3-tauri-apps`) |

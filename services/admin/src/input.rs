@@ -1,6 +1,6 @@
 //! Everything the admin API reads from outside, checked here: the bot's request (headers, body and
 //! the arguments it names) and the Director's instance list. The fuzz target
-//! (`rust/fuzz/fuzz_targets/admin_request.rs`; docs/security/admin-api.md) drives these functions.
+//! (`fuzz/fuzz_targets/admin_request.rs`; docs/security/admin-api.md) drives these functions.
 
 use hyper::HeaderMap;
 use serde_json::Value;

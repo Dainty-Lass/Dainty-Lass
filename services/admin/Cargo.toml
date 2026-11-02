@@ -20,7 +20,7 @@ diesel_migrations.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
-# Kick, ban and lookup sent to the module of the player's game (DF4c). A path, as rust/fuzz has it: the
+# Kick, ban and lookup sent to the module of the player's game (DF4c). A path, as fuzz has it: the
 # workspace entry names the silentspud registry, which .cargo/config.toml doesn't configure yet
 module-api = { path = "../../crates/module-api" }
 network_plugin = { package = "network", path = "../../plugins/network" }

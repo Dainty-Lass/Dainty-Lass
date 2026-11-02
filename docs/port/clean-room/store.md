@@ -1,4 +1,4 @@
-# Clean-room Provenance Record: `store` (`rust/crates/store`)
+# Clean-room Provenance Record: `store` (`crates/store`)
 
 ## 1. Specification Version
 
@@ -67,7 +67,7 @@ To ensure the clean-room implementer had no access to `dainty-lass`'s Git object
 ## 3. Branch & Commit Trail (`feat/f5-store-clean-room-redo`)
 
 1. **Deletion commit (`67e2881`)**: Moved `pub(crate) async fn run_blocking` into the born-here MIT `src/database.rs` module and executed `git rm` on the 7 files (`src/lib.rs`, `src/adopt.rs`, `src/backup.rs`, `src/drizzle.rs`, `src/readonly.rs`, `src/snapshot.rs`, `tests/store.rs`).
-2. **Addition commit**: Copied the 7 newly authored files from `R:\source\dauntless\fresh-store-cleanroom\crates\store` into `rust/crates/store/`.
+2. **Addition commit**: Copied the 7 newly authored files from `R:\source\dauntless\fresh-store-cleanroom\crates\store` into `crates/store/`.
 
 ## 4. 3+-Line Similarity Against `b190010`
 

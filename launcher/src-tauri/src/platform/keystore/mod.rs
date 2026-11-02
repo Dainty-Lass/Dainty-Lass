@@ -562,7 +562,7 @@ mod tests {
         assert_eq!(keys.load(&private("100.64.0.1")), Err(KeyStoreError::Unavailable));
     }
 
-    /// A profile the Electron launcher's own code wrote (`rust/launcher/test/electron-keystore`, with real
+    /// A profile the Electron launcher's own code wrote (`launcher/test/electron-keystore`, with real
     /// safeStorage, as the same user on the same PC): every key reads back through `legacy.rs`, is moved to
     /// this launcher's files once, and the 1.4.4 server in its settings loads. Never a real profile.
     #[tokio::test]

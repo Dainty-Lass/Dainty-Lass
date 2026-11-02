@@ -20,7 +20,7 @@ The same names on `controller`, `host`, `server-console`, `server-minimal` and, 
 
 ## How the real crates link
 
-`rust/Cargo.toml` lists `isles-1-14-7` (default features off, `realms` is ours) in `[workspace.dependencies]` as path dependencies into the submodule; the controller takes them as optional. The module
+`Cargo.toml` lists `isles-1-14-7` (default features off, `realms` is ours) in `[workspace.dependencies]` as path dependencies into the submodule; the controller takes them as optional. The module
 repositories depend on `module-api`, `service-kit`, `store` and rustic-rifts' crates as git dependencies at a fixed
 rev (DD2, DF1's fallback). Inside this tree those would be a second copy of `module-api`, so the workspace has
 `[patch."ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git"]` and the rustic-rifts equivalent, pointing at
@@ -31,13 +31,13 @@ controller's own `GameModule`.
   module feature off: cargo reads the optional dependencies' manifests. CI and the release already check out
   `submodules: recursive`.
 - The first resolve fetches the two git sources over SSH (the `[patch]` needs their indexes).
-- Bumping a module's pin: the module repository's `Cargo.lock` is not read here; `rust/Cargo.lock` is.
+- Bumping a module's pin: the module repository's `Cargo.lock` is not read here; `Cargo.lock` is.
 
 ## Adding the next module crate
 
 For a module repository's crate that implements `GameModule` (say `<id>`, in a workspace under `modules/<repo>`):
 
-1. `rust/Cargo.toml`: `<id> = { path = "../modules/<repo>/<path to the crate>" }` in
+1. `Cargo.toml`: `<id> = { path = "../modules/<repo>/<path to the crate>" }` in
    `[workspace.dependencies]`. If its workspace names `module-api`, `protocol`, `service-kit` or `store` as git
    dependencies, add them to the `[patch]` table of that git URL; if as `registry = "silentspud"`, patch that
    registry the same way.

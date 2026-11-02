@@ -2,10 +2,10 @@
 
 # Security checklist: the server controller and its console (RX3)
 
-The checklist for the server as one process (RD26): the controller in `rust/crates/controller`, `reforged-host
-serve` in `rust/services/host/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
+The checklist for the server as one process (RD26): the controller in `crates/controller`, `reforged-host
+serve` in `services/host/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
 it loads (`hostconfig.rs`, `hostconfig/yaml.rs`) and the server GUI's embedded server
-(`rust/launcher/src-tauri/src/server_gui.rs`). `SECURITY_REVIEW.md` indexes it.
+(`launcher/src-tauri/src/server_gui.rs`). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before `serve` replaces `reforged-host start` for hosts, copy this list into the cutover PR, check
 each item in the code (not from memory), link the code or test that shows it, and sign at the end with the date and
@@ -37,7 +37,7 @@ Code: `crates/controller/src/controller.rs` (start, ready timeout, stop grace, r
 `hostconfig/yaml.rs`, `services.rs` (`pump`), `launcher/src-tauri/src/server_gui.rs` and `bridge/commands.rs`
 (`host_server_restart`).
 
-Fuzz targets: `host_config` in `rust/fuzz` (host.toml, the YAML reader and host.json, and an accepted file written
+Fuzz targets: `host_config` in `fuzz` (host.toml, the YAML reader and host.json, and an accepted file written
 back as host.toml and read again as the same settings), and `host_console` (a console line: what the parser accepts
 names only plain service names and known levels, what it answers carries no control character, and a service's line
 as `plain` prints it carries none either).
@@ -145,7 +145,7 @@ These do not block Phase 6 but must be settled, or accepted in writing, before t
 ## Fuzzing
 
 Short runs of `host_config` and `host_console` happen on every PR (CI's `fuzz` job runs every target in `cargo fuzz
-list`). The run before the cutover, from `rust/fuzz`:
+list`). The run before the cutover, from `fuzz`:
 
 ```bash
 cargo +nightly fuzz run host_config -- -max_total_time=86400

@@ -83,12 +83,8 @@ pub fn game_port_range(max_hunts: u32) -> (u16, u16) {
 }
 
 fn is_repo_root(dir: &Path) -> bool {
-    dir.join("rust")
-        .join("services")
-        .join("host")
-        .join("Cargo.toml")
-        .exists()
-        || (dir.join("rust").join("Cargo.toml").exists() && dir.join("modules").join("rustic-isles").exists())
+    dir.join("services").join("host").join("Cargo.toml").exists()
+        || (dir.join("Cargo.toml").exists() && dir.join("modules").join("rustic-isles").exists())
         || dir.join("release.json").exists()
 }
 
@@ -172,7 +168,7 @@ impl Paths {
     pub fn new(repo: impl Into<PathBuf>) -> Self {
         let repo = repo.into();
         let preset = repo.join("preset");
-        let host_kit = repo.join("rust").join("services").join("host");
+        let host_kit = repo.join("services").join("host");
         let gateway_dir = repo.join("services").join("gateway");
         let content_dir = repo.join("services").join("content");
         let workspace = repo.join(".workspace");

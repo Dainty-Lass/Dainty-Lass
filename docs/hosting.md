@@ -179,7 +179,7 @@ servers' key) lives only in `secrets.env`.
 
 ### Secrets (`secrets.env`)
 
-`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in `rust/services/host/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
+`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in `services/host/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
 
 | Variable | Copied to | What |
 | --- | --- | --- |
@@ -225,7 +225,7 @@ periodic database snapshots to an S3-compatible bucket with object lock (`histor
 Backblaze B2, MinIO, Cloudflare R2):
 
 - **Write-only server credentials.** Create the bucket with object lock enabled (`S3Bucket::create_locked` in
-  `rust/crates/history-ship`, retention mode `COMPLIANCE` or `GOVERNANCE`) using the owner's credentials off the
+  `crates/history-ship`, retention mode `COMPLIANCE` or `GOVERNANCE`) using the owner's credentials off the
   server, and give the server a write-only key (`s3:PutObject` only) in `secrets.env`. Even an attacker or rogue
   operator with root on the server cannot delete or overwrite already-shipped segments or snapshots.
 - **Restoring to a point in time.** `history_ship::restore_to` downloads the latest snapshot at or before the

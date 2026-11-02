@@ -1,6 +1,6 @@
 # Clean-Room Provenance Record — `crates/hostkit` (`DL3b`)
 
-- **Component**: `rust/crates/hostkit` (`hostkit` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
+- **Component**: `crates/hostkit` (`hostkit` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
 - **Behaviour Specification**: `docs/port/spec-dl3-hostkit.md` at commit `0802cba` (merged on `plan` at `c98b633`)
 - **Clean-Room Worktree**: `r:\source\dauntless\dainty-lass\.claude\worktrees\l2-hostkit` (branch `feat/l2-hostkit-mit`)
 
@@ -21,11 +21,11 @@ The clean-room worktree excluded all AGPL source trees (`/legacy/`, `/modules/`,
 !/reference/
 ```
 
-`Test-Path rust/services/host` returned `False` before any clean-room implementer subagent was invoked.
+`Test-Path services/host` returned `False` before any clean-room implementer subagent was invoked.
 
 ## 2. Category A Files Moved / Decoupled (`Born-MIT`)
 
-The following 20 Category A files were written originally for DaintyLass without external derivation (provenance documented in `docs/port/spec-dl3-hostkit.md` §1.1) and were placed in `rust/crates/hostkit/src/` with `SPDX-License-Identifier: MIT` headers and decoupled from AGPL crates via `crate::hooks::HostHooks`:
+The following 20 Category A files were written originally for DaintyLass without external derivation (provenance documented in `docs/port/spec-dl3-hostkit.md` §1.1) and were placed in `crates/hostkit/src/` with `SPDX-License-Identifier: MIT` headers and decoupled from AGPL crates via `crate::hooks::HostHooks`:
 
 - `src/error.rs`
 - `src/hooks.rs`
@@ -59,17 +59,17 @@ Four isolated clean-room subagents implemented the 22 Category B module groups p
 - **Files Read**:
   - `docs/port/spec-dl3-hostkit.md`
   - `docs/app-structure-plan.md`, `docs/config-toml-plan.md`, `docs/hosting.md`, `docs/hosting-linux.md`
-  - `rust/Cargo.toml`, `rust/crates/hostkit/Cargo.toml`
-  - Category A files in `rust/crates/hostkit/src/` (`lib.rs`, `error.rs`, `hooks.rs`, `legacy.rs`, `hosttoml.rs`, `hostconfig/{yaml,guard,modules}.rs`, `serve.rs`, `guarded.rs`, `repl.rs`, `tui.rs`, `epicinstall.rs`, `commands/{backup,db,history,install_game,network}.rs`, `commands/setup/{database,secrets}.rs`, `commands/start/binaries.rs`)
-  - MIT workspace crates (`rust/crates/{service-kit,protocol,controller,store,module-api}/**`, `rust/plugins/network/src/cluster.rs`, `rust/bins/server-{console,minimal}/src/main.rs`)
+  - `Cargo.toml`, `crates/hostkit/Cargo.toml`
+  - Category A files in `crates/hostkit/src/` (`lib.rs`, `error.rs`, `hooks.rs`, `legacy.rs`, `hosttoml.rs`, `hostconfig/{yaml,guard,modules}.rs`, `serve.rs`, `guarded.rs`, `repl.rs`, `tui.rs`, `epicinstall.rs`, `commands/{backup,db,history,install_game,network}.rs`, `commands/setup/{database,secrets}.rs`, `commands/start/binaries.rs`)
+  - MIT workspace crates (`crates/{service-kit,protocol,controller,store,module-api}/**`, `plugins/network/src/cluster.rs`, `bins/server-{console,minimal}/src/main.rs`)
 - **Files Written**:
-  - `rust/crates/hostkit/src/paths.rs`
-  - `rust/crates/hostkit/src/envfile.rs`
-  - `rust/crates/hostkit/src/hostconfig.rs`
-  - `rust/crates/hostkit/src/run.rs`
-  - `rust/crates/hostkit/src/services.rs`
-  - `rust/crates/hostkit/src/tls.rs`
-  - `rust/crates/hostkit/src/cli.rs`
+  - `crates/hostkit/src/paths.rs`
+  - `crates/hostkit/src/envfile.rs`
+  - `crates/hostkit/src/hostconfig.rs`
+  - `crates/hostkit/src/run.rs`
+  - `crates/hostkit/src/services.rs`
+  - `crates/hostkit/src/tls.rs`
+  - `crates/hostkit/src/cli.rs`
 
 ### 3.2 Implementer 2 — Captures, Game Data, Packs, Preset, Progression & Publish
 - **Subagent Conversation ID**: `61074018-b606-4918-b0a2-b0b1c50b12ce`
@@ -77,16 +77,16 @@ Four isolated clean-room subagents implemented the 22 Category B module groups p
 - **Files Read**:
   - `docs/port/spec-dl3-hostkit.md`
   - `docs/hosting.md`, `docs/hosting-linux.md`, `docs/sdk-and-game-data.md`, `docs/security/host-gamedata.md`, `docs/port/catchup-host.md`, `docs/port/catchup-isles.md`
-  - `rust/crates/hostkit/Cargo.toml` and Category A files in `rust/crates/hostkit/src/`
-  - `rust/crates/service-kit/src/{lib,js,jsjson}.rs`
-  - `rust/fuzz/fuzz_targets/host_gamedata_input.rs`
+  - `crates/hostkit/Cargo.toml` and Category A files in `crates/hostkit/src/`
+  - `crates/service-kit/src/{lib,js,jsjson}.rs`
+  - `fuzz/fuzz_targets/host_gamedata_input.rs`
 - **Files Written**:
-  - `rust/crates/hostkit/src/captures.rs`
-  - `rust/crates/hostkit/src/gamedata.rs`
-  - `rust/crates/hostkit/src/gamepack.rs`
-  - `rust/crates/hostkit/src/preset.rs`
-  - `rust/crates/hostkit/src/progression.rs`
-  - `rust/crates/hostkit/src/publish.rs`
+  - `crates/hostkit/src/captures.rs`
+  - `crates/hostkit/src/gamedata.rs`
+  - `crates/hostkit/src/gamepack.rs`
+  - `crates/hostkit/src/preset.rs`
+  - `crates/hostkit/src/progression.rs`
+  - `crates/hostkit/src/publish.rs`
 
 ### 3.3 Implementer 3 — Invite, Doctor, Mongo Wire, Linux, Selfupdate & Wine
 - **Subagent Conversation ID**: `a34131c9-cceb-4551-a5c5-49641efcc99a`
@@ -94,17 +94,17 @@ Four isolated clean-room subagents implemented the 22 Category B module groups p
 - **Files Read**:
   - `docs/port/spec-dl3-hostkit.md`
   - `docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`
-  - `rust/Cargo.toml`, `rust/.cargo/config.toml`, `rust/crates/hostkit/Cargo.toml`
-  - Category A files in `rust/crates/hostkit/src/`
-  - MIT workspace crates (`rust/crates/{protocol,service-kit,store}/**`)
+  - `Cargo.toml`, `.cargo/config.toml`, `crates/hostkit/Cargo.toml`
+  - Category A files in `crates/hostkit/src/`
+  - MIT workspace crates (`crates/{protocol,service-kit,store}/**`)
 - **Files Written**:
-  - `rust/crates/hostkit/src/invite.rs`
-  - `rust/crates/hostkit/src/doctor.rs`
-  - `rust/crates/hostkit/src/mongo.rs`
-  - `rust/crates/hostkit/src/mongo/wire.rs`
-  - `rust/crates/hostkit/src/linux.rs`
-  - `rust/crates/hostkit/src/selfupdate.rs`
-  - `rust/crates/hostkit/src/wine.rs`
+  - `crates/hostkit/src/invite.rs`
+  - `crates/hostkit/src/doctor.rs`
+  - `crates/hostkit/src/mongo.rs`
+  - `crates/hostkit/src/mongo/wire.rs`
+  - `crates/hostkit/src/linux.rs`
+  - `crates/hostkit/src/selfupdate.rs`
+  - `crates/hostkit/src/wine.rs`
 
 ### 3.4 Implementer 4 — Command Handlers, Setup, Start/Control & Verification
 - **Subagent Conversation ID**: `d222d98c-ceab-4763-b801-7091164ccdec`
@@ -112,24 +112,24 @@ Four isolated clean-room subagents implemented the 22 Category B module groups p
 - **Files Read**:
   - `docs/port/spec-dl3-hostkit.md` (lines 1–1648)
   - `docs/port/catchup-host.md`, `docs/port/migration-guide.md`, `docs/security/host-start.md`, `docs/security/host-gamedata.md`, `docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, `MIGRATION_PLAN.md`
-  - `rust/Cargo.toml`, `rust/crates/hostkit/Cargo.toml`, and `rust/crates/hostkit/src/**`
-  - MIT workspace crates (`rust/crates/{controller,service-kit,store}/**`, `rust/services/admin/Cargo.toml`, `rust/plugins/{chat,network}/Cargo.toml`, `rust/bins/server-{console,minimal}/src/main.rs`, `rust/fuzz/fuzz_targets/launcher_host.rs`)
+  - `Cargo.toml`, `crates/hostkit/Cargo.toml`, and `crates/hostkit/src/**`
+  - MIT workspace crates (`crates/{controller,service-kit,store}/**`, `services/admin/Cargo.toml`, `plugins/{chat,network}/Cargo.toml`, `bins/server-{console,minimal}/src/main.rs`, `fuzz/fuzz_targets/launcher_host.rs`)
 - **Files Written**:
-  - `rust/crates/hostkit/src/commands/mod.rs`
-  - `rust/crates/hostkit/src/commands/doctor.rs`
-  - `rust/crates/hostkit/src/commands/gamedata.rs`
-  - `rust/crates/hostkit/src/commands/invite.rs`
-  - `rust/crates/hostkit/src/commands/multipliers.rs`
-  - `rust/crates/hostkit/src/commands/preset.rs`
-  - `rust/crates/hostkit/src/commands/publish_runtime.rs`
-  - `rust/crates/hostkit/src/commands/setup.rs`
-  - `rust/crates/hostkit/src/commands/setup/options.rs`
-  - `rust/crates/hostkit/src/commands/setup/firewall.rs`
-  - `rust/crates/hostkit/src/commands/setup/install.rs`
-  - `rust/crates/hostkit/src/commands/setup/paradox.rs`
-  - `rust/crates/hostkit/src/commands/start/mod.rs`
-  - `rust/crates/hostkit/src/commands/start/control.rs`
-  - `rust/crates/hostkit/src/commands/update.rs`
+  - `crates/hostkit/src/commands/mod.rs`
+  - `crates/hostkit/src/commands/doctor.rs`
+  - `crates/hostkit/src/commands/gamedata.rs`
+  - `crates/hostkit/src/commands/invite.rs`
+  - `crates/hostkit/src/commands/multipliers.rs`
+  - `crates/hostkit/src/commands/preset.rs`
+  - `crates/hostkit/src/commands/publish_runtime.rs`
+  - `crates/hostkit/src/commands/setup.rs`
+  - `crates/hostkit/src/commands/setup/options.rs`
+  - `crates/hostkit/src/commands/setup/firewall.rs`
+  - `crates/hostkit/src/commands/setup/install.rs`
+  - `crates/hostkit/src/commands/setup/paradox.rs`
+  - `crates/hostkit/src/commands/start/mod.rs`
+  - `crates/hostkit/src/commands/start/control.rs`
+  - `crates/hostkit/src/commands/update.rs`
 
 ## 4. Verification & Dependency Tree (`cargo tree -e normal -p hostkit`)
 

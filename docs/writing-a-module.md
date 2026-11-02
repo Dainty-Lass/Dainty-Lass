@@ -1,7 +1,7 @@
 # Writing a game module or plugin
 
 Every game version DaintyLass serves (`1.14.7`, `1.12.0`, `1.4.4`) is packaged as a **`GameModule`** on
-[`rust/crates/module-api`](../rust/crates/module-api). The same `GameModule` implementation runs compiled into the
+[`crates/module-api`](../crates/module-api). The same `GameModule` implementation runs compiled into the
 server binaries (`server-minimal`, `server-console`, `server-gui`) or out of process as a standalone executable
 speaking length-prefixed JSON frames over stdin and stdout (`module_api::child`).
 
@@ -153,14 +153,14 @@ fn main() -> std::process::ExitCode {
 }
 ```
 
-When the controller starts the child process (`rust/crates/module-api/src/host.rs`), it performs the `Hello` /
+When the controller starts the child process (`crates/module-api/src/host.rs`), it performs the `Hello` /
 `Welcome` handshake, checks `ModuleApiVersion::CURRENT` and the manifest's `id` and `sha256`, replays `register`,
 and forwards `start`, `command`, `admin`, `status` and `stop` over length-prefixed frames (capped at `MAX_FRAME_LEN`,
 4 MiB; see [security/module-host.md](security/module-host.md)).
 
 ## 5. Loading the module in `host.toml`
 
-- **Compiled-in modules** are enabled via Cargo features on `rust/bins/{server,server-console,server-gui}` and
+- **Compiled-in modules** are enabled via Cargo features on `bins/{server,server-console,server-gui}` and
   loaded by default unless `[modules] compiled = [...]` restricts the list.
 - **External modules** are listed in `.workspace/config/host.toml` with a relative path under the server root and
   their lowercase hex SHA-256:

@@ -95,7 +95,7 @@ After every row, print: repository, branch, tip SHA, merge SHA if integrated, th
 results (counts of tests passed and failed, copied from real output), what you did NOT verify, and new problems you
 found. Append the same line to `docs/port/handoff-ledger.md` on `plan`. When you stop, leave a section "Where I left
 off" at the end of `docs/port/handoff-2026-10-27.md` with the state of every branch you touched. Delete finished
-worktrees' `rust/target` and `ui/node_modules` folders to save disk, and list any leftover scratch folders for the
+worktrees' `target` and `ui/node_modules` folders to save disk, and list any leftover scratch folders for the
 user.
 
 Begin with step 1 of "Your first actions".

@@ -16,7 +16,7 @@ Each app embeds its own page from [dainty-dashboard](https://git.silentspud.com/
 
 ## Building from a Clean Clone
 
-From `rust/launcher/`:
+From `launcher/`:
 
 ```bash
 # 1. Install Tauri CLI and test dependencies
@@ -41,7 +41,7 @@ DAINTY_DASHBOARD_DIR=/path/to/dainty-dashboard npm run build:client
 
 ### Output Paths (Windows NSIS)
 
-After building from the workspace root (`rust/target/release/`):
+After building from the workspace root (`target/release/`):
 
 - **Executables**:
   - `../target/release/dainty-lass-client.exe`

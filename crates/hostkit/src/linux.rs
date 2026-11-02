@@ -300,12 +300,6 @@ fn resolve_host_bin(paths: &Paths) -> Result<PathBuf, HostError> {
     let candidates = [
         paths.repo.join("bin").join("reforged-host"),
         paths.repo.join("reforged-host"),
-        paths
-            .repo
-            .join("rust")
-            .join("target")
-            .join("release")
-            .join("reforged-host"),
         paths.repo.join("target").join("release").join("reforged-host"),
     ];
     for c in candidates {

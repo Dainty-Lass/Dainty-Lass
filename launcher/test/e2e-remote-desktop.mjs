@@ -19,10 +19,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, "../../..")
 const SCREENSHOT_DIR = path.join(REPO_ROOT, "docs/port/screenshots")
 
-const RELEASE_MANAGER_EXE = path.join(REPO_ROOT, "rust/target/release/dainty-lass-manager.exe")
+const RELEASE_MANAGER_EXE = path.join(REPO_ROOT, "target/release/dainty-lass-manager.exe")
 const NSIS_MANAGER_INSTALLER = path.join(
   REPO_ROOT,
-  "rust/target/release/bundle/nsis/DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe"
+  "target/release/bundle/nsis/DaintyLass Manager_2.0.0-alpha.0_x64-setup.exe"
 )
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))

@@ -18,7 +18,7 @@ paradox
 **/*.pfx
 **/*.log
 # The Rust tests' fixtures hold fake env files and certificates (the test image runs them)
-!rust/**/tests/fixtures/**
+!**/tests/fixtures/**
 
 # A host's own game data and exports (rustic-isles' .gitignore): mounted as volumes, never baked in
 modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.json
@@ -38,5 +38,5 @@ modules/rustic-isles/native/catalog-exporter/x64
 ui
 
 # Not used by any image
-rust/launcher/node_modules
+launcher/node_modules
 docs

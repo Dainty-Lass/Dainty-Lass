@@ -2,7 +2,7 @@
 
 ## 1. Purpose and Scope
 
-`service-kit` (`rust/crates/service-kit`) provides shared HTTP server plumbing, Express-compatible request body parsing, ICU root collation, environment variable loading, JavaScript value/JSON semantics, Pino/line logging, IETF Draft-8 rate limiting, Express-compatible routing, and graceful server shutdown used across DaintyLass services.
+`service-kit` (`crates/service-kit`) provides shared HTTP server plumbing, Express-compatible request body parsing, ICU root collation, environment variable loading, JavaScript value/JSON semantics, Pino/line logging, IETF Draft-8 rate limiting, Express-compatible routing, and graceful server shutdown used across DaintyLass services.
 
 Two of its fourteen source files (`src/context.rs` and `src/telemetry.rs`) were authored from scratch for DaintyLass (`DR3`) and remain untouched. This specification covers the twelve remaining source files and three integration test files so the entire `service-kit` crate is licensed under MIT:
 - `src/lib.rs`

@@ -28,11 +28,11 @@ as far as the player said so, and only for the exact bytes the player accepted.
   at start).
 - **Out:** two files written into the game's `Win64` folder, under exactly the two runtime names.
 
-Code: `rust/launcher/src-tauri/src/net/runtime_files.rs` and `runtime_files/manifest.rs`, `net/http/to_file.rs`,
+Code: `launcher/src-tauri/src/net/runtime_files.rs` and `runtime_files/manifest.rs`, `net/http/to_file.rs`,
 `net/verify.rs` and `verify/cache_file.rs`. The controller that calls them is RA13's (`controller/runtime.rs`,
 `controller/game.rs`).
 
-Fuzz target: `runtime_input` in `rust/fuzz` (the runtime manifest and the hash cache file). It also checks that a
+Fuzz target: `runtime_input` in `fuzz` (the runtime manifest and the hash cache file). It also checks that a
 manifest that parses names only the two runtime files, each once, with a plain hash and a size within the cap.
 
 ## Checklist

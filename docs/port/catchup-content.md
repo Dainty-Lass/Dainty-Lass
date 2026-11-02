@@ -4,7 +4,7 @@
 
 Every Node commit that changed Reforged's content server (`ReforgedContent/`, now `legacy/ReforgedContent/`) after
 the delta list (`docs/port/delta-servers.md`, RX1) was made, and whether the Rust content server in
-`rust/services/content` on `plan` has it. RS5 ports what is left before the front-door cutover.
+`services/content` on `plan` has it. RS5 ports what is left before the front-door cutover.
 
 ## Range
 

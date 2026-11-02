@@ -1,10 +1,10 @@
-# Clean-Room Record: `protocol` (`rust/crates/protocol`)
+# Clean-Room Record: `protocol` (`crates/protocol`)
 
 ## Provenance Summary
 
 | Field | Value |
 | --- | --- |
-| Target crate | `protocol` (`rust/crates/protocol`) |
+| Target crate | `protocol` (`crates/protocol`) |
 | Licence | `MIT` (`Copyright (c) 2026 Silent Spud`) |
 | Behaviour specification | `docs/port/spec-protocol.md` |
 | Spec commit SHA | `1610b0b` (`7736fa5`) |
@@ -15,7 +15,7 @@
 
 ## Sparse-Checkout Configuration
 
-Before the implementer subagent was invoked, the worktree was configured with `git sparse-checkout set --no-cone --stdin` and all `rust/crates/protocol/src/*.rs` files were deleted from the working tree (`git rm -rf rust/crates/protocol/src`):
+Before the implementer subagent was invoked, the worktree was configured with `git sparse-checkout set --no-cone --stdin` and all `crates/protocol/src/*.rs` files were deleted from the working tree (`git rm -rf crates/protocol/src`):
 
 ```text
 /*
@@ -28,21 +28,21 @@ Before the implementer subagent was invoked, the worktree was configured with `g
 !/rust/crates/service-kit/
 ```
 
-The implementer session had no access to the prior `rust/crates/protocol/src/` implementation or any AGPL service/module/legacy tree, and did not run `git log`, `git show`, `git diff`, or `git blame` on any prior commits.
+The implementer session had no access to the prior `crates/protocol/src/` implementation or any AGPL service/module/legacy tree, and did not run `git log`, `git show`, `git diff`, or `git blame` on any prior commits.
 
 ## Scope Implemented
 
-- `rust/crates/protocol/Cargo.toml` (`license = "MIT"`)
-- `rust/crates/protocol/src/lib.rs`
-- `rust/crates/protocol/src/text.rs`
-- `rust/crates/protocol/src/account.rs`
-- `rust/crates/protocol/src/invite.rs`
-- `rust/crates/protocol/src/status.rs`
-- `rust/crates/protocol/src/manifest.rs`
-- `rust/crates/protocol/tests/invite.rs` (SPDX MIT header added to fixture-table test harness)
-- `rust/crates/protocol/tests/manifest.rs` (SPDX MIT header added to fixture-table test harness)
-- `rust/crates/protocol/tests/tables.rs` (SPDX MIT header added to fixture-table test harness)
-- `rust/crates/protocol/tests/username_status.rs` (SPDX MIT header added to fixture-table test harness)
+- `crates/protocol/Cargo.toml` (`license = "MIT"`)
+- `crates/protocol/src/lib.rs`
+- `crates/protocol/src/text.rs`
+- `crates/protocol/src/account.rs`
+- `crates/protocol/src/invite.rs`
+- `crates/protocol/src/status.rs`
+- `crates/protocol/src/manifest.rs`
+- `crates/protocol/tests/invite.rs` (SPDX MIT header added to fixture-table test harness)
+- `crates/protocol/tests/manifest.rs` (SPDX MIT header added to fixture-table test harness)
+- `crates/protocol/tests/tables.rs` (SPDX MIT header added to fixture-table test harness)
+- `crates/protocol/tests/username_status.rs` (SPDX MIT header added to fixture-table test harness)
 
 ## Spec Questions and Clarifications During Implementation
 

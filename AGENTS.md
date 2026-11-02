@@ -16,7 +16,7 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 | Path | What it is |
 | --- | --- |
 | `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `backend`, `director`, `host` = the thin AGPL shell around `hostkit`, with `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend wrapping `launcher-kit`: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
-| `rust/fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
+| `fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
 | `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
 | `modules/rustic-isles/` | Submodule: `rustic-isles`, the 1.14.7 Rust game module (`modules/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`) |
 | `modules/rustic-rifts/` | Submodule: `rustic-rifts`, peer-to-peer realms: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host` (the launcher's side), and `ParadoxTransport.dll` (`src/`) |
@@ -92,12 +92,12 @@ The page talks to Rust only through the commands in `launcher/src-tauri/src/brid
 list (`isolation/commands.js`) and the permission set (`permissions/app-commands.toml`) are generated from it
 and checked by a test. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`
 rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`; `npm test` in
-`rust/launcher` drives it through the isolation hook and fails a command no method calls. The account key
+`launcher` drives it through the isolation hook and fails a command no method calls. The account key
 never crosses the bridge.
 
 ## Security
 
-Every row that writes a trust-boundary component delivers, with its code, its fuzz target in `rust/fuzz/` and
+Every row that writes a trust-boundary component delivers, with its code, its fuzz target in `fuzz/` and
 its checklist in `docs/security/<component>.md` (RX3). Copy the structure of an existing one, such as
 `relay.md`. The components are listed in the plan's RX3 row.
 
@@ -162,7 +162,7 @@ rows that change what runs: a service added, moved or removed is a change to `do
 ## User-facing text
 
 Every string a player or host reads comes from a language catalog: dainty-lass-ui's
-`packages/i18n/catalogs/en.json` and `pt-BR.json` (DU2). `rust/launcher/src-tauri/gen/strings.json`, from which
+`packages/i18n/catalogs/en.json` and `pt-BR.json` (DU2). `launcher/src-tauri/gen/strings.json`, from which
 the Tauri backend takes its own dialogs, is generated from them (`generated` test, keys sorted).
 
 - **Both languages in the same commit**, with the same keys and the same `{placeholders}`, never an English

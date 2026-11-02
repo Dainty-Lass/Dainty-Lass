@@ -1,6 +1,6 @@
 //! What the key store reads from disk before and after decryption, with no crypto: the key file text
 //! (`RRK2`, or a bare key) and the Electron launcher's framing (`Local State`, `v10`/`v11` blobs). Built
-//! on `protocol` and `serde_json` only, so the fuzz target (`rust/fuzz`, `launcher_files`) compiles this
+//! on `protocol` and `serde_json` only, so the fuzz target (`fuzz`, `launcher_files`) compiles this
 //! file as it is. The decryption itself is in `legacy.rs` and `os.rs`.
 
 use protocol::account::is_plausible_account_key;

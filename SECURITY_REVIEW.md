@@ -1,10 +1,10 @@
 # Security Review Index
 
-Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`rust/fuzz/fuzz_targets/*.rs`) across `dainty-lass` and its module submodules.
+Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`fuzz/fuzz_targets/*.rs`) across `dainty-lass` and its module submodules.
 
 ## Checklists (`docs/security/`)
 
-| Component | Checklist | Fuzz target(s) (`rust/fuzz/fuzz_targets/`) | Row |
+| Component | Checklist | Fuzz target(s) (`fuzz/fuzz_targets/`) | Row |
 | --- | --- | --- | --- |
 | Protocol (invites, account keys, statuses, usernames) | [docs/local-contracts.md](docs/local-contracts.md) | `protocol_input.rs`, `http_body.rs`, `proxy_headers.rs` | RA1 |
 | Gateway (TLS, origin routing, rate limiting, capture, module routes, node links) | [docs/security/gateway.md](docs/security/gateway.md) | `gateway_policy.rs`, `gateway_policy_legacy.rs`, `gateway_capture.rs`, `gateway_modules.rs`, `gateway_network.rs` | RS1, DF4a, DN3 |
@@ -19,7 +19,7 @@ Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and 
 | Change log, hash chain, revert, object-locked bucket and peer log shipping | [docs/security/history.md](docs/security/history.md) | `history_input.rs`, `history_record.rs`, `history_bucket.rs`, `network_logship.rs` | DH1, DH3–DH5, DH7 |
 | TURN relay (`turn-rs` listener exception, `turn-rest` shared secret, credential lifetimes, relay-only mode, UDP relay port range) | [docs/security/turn-relay.md](docs/security/turn-relay.md) | `allowlist_input.rs`, `modules/rustic-rifts/fuzz/fuzz_targets/turn_framing.rs` | DD24, RF4, DX2 |
 | Server network (CA, mTLS node links, directory, home API, session tickets, instance registry, matchmaking ring, regional Ramsgate, cluster join) | [docs/security/network.md](docs/security/network.md) | `network_link.rs`, `network_directory.rs`, `network_home.rs`, `network_ticket.rs`, `network_admin.rs`, `network_logship.rs`, `network_ring.rs` | DN2–DN6, DN8, DN9, DN11, DN13 |
-| Chat plugin (`rust/plugins/chat`: XMPP over WebSocket, MUC, whispers, federation) | [docs/security/chat.md](docs/security/chat.md) | `chat_stanza.rs`, `chat_federation.rs` | DN10a, DN10b |
+| Chat plugin (`plugins/chat`: XMPP over WebSocket, MUC, whispers, federation) | [docs/security/chat.md](docs/security/chat.md) | `chat_stanza.rs`, `chat_federation.rs` | DN10a, DN10b |
 | Epic Games login, manifest parser and CDN chunk installer (`crates/epic`, host, launcher) | [docs/security/epic.md](docs/security/epic.md) | `epic_manifest.rs` | DE1–DE6 |
 | Launcher keystore (OS credential store + AES-256-GCM fallback, account keys, Epic tokens) | [docs/security/keystore.md](docs/security/keystore.md) | `launcher_input.rs` | RA3, DE2 |
 | Launcher network client (pinned TLS, SSRF blocks, redirects, server probe) | [docs/security/launcher-net.md](docs/security/launcher-net.md) | `launcher_net.rs`, `launcher_files.rs` | RA5, RA6 |

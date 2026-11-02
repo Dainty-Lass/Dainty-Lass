@@ -11,7 +11,7 @@ Dauntless manifest correctly, but it doesn't download chunks at all, its chunk r
 short input, and its manifest parser accepts file names that leave the install folder, swallows truncation as
 defaults and panics on one malformed field. So, as DE1 says: **`egs-api` keeps sign-in and the library** (DE2,
 DE3), and **the manifest parser and the chunk check are written here**, from the format Legendary documents. DE1
-did that: `rust/crates/epic`'s `manifest` and `chunk` modules read all nine archived manifests the same as `egs-api`
+did that: `crates/epic`'s `manifest` and `chunk` modules read all nine archived manifests the same as `egs-api`
 does and refuse everything listed under "What falls short". The chunk fetch itself is DE5's.
 
 ## Setup
@@ -101,7 +101,7 @@ doesn't, since nothing calls it yet.
 
 ## What DE1 laid down
 
-`rust/crates/epic` (`license = "MIT"`, born MIT per DD26), used by the launcher and the host kit:
+`crates/epic` (`license = "MIT"`, born MIT per DD26), used by the launcher and the host kit:
 
 - `manifest`: `Manifest::parse(bytes, &pin)` hashes the file and refuses a mismatch before reading it (DD22), then
   reads the header, the meta, chunk, file and custom-field sections within their declared sizes. It refuses file

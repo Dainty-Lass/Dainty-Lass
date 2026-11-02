@@ -74,13 +74,13 @@ with its own `NOTICE.md` and licence files (DD2, DD26, DX4):
 - By mixutin and the Dauntless Revived contributors. Repository:
   [github.com/mixutin/dauntless-revived](https://github.com/mixutin/dauntless-revived), AGPL-3.0-only.
   Dauntless Revived is itself a modified version of Undaunted.
-- `rust/services/gateway` and `rust/services/content`, the workspace files and the fuzz targets `http_body` and
+- `services/gateway` and `services/content`, the workspace files and the fuzz targets `http_body` and
   `proxy_headers` are modified versions of its `rust/` folder at commit `e1c5fec`
-  ([docs/port/migration-guide.md](docs/port/migration-guide.md) section 2 says how); `rust/launcher/src-tauri`
-  carries the DR-derived core of its launcher's Rust side alongside `rust/crates/launcher-kit`. (`rust/crates/protocol`,
+  ([docs/port/migration-guide.md](docs/port/migration-guide.md) section 2 says how); `launcher/src-tauri`
+  carries the DR-derived core of its launcher's Rust side alongside `crates/launcher-kit`. (`crates/protocol`,
   `proxy`, `service-kit` and the SQLite helpers of `store` were rewritten clean-room from behaviour specs under MIT in
   `DL3b`/`DD26`; see `docs/port/clean-room/`.)
-- `modules/legacy-revived` (`rust/services/metagame`, `rust/services/deploy`, `rust/crates/revived-1-4-4`,
+- `modules/legacy-revived` (`services/metagame`, `services/deploy`, `crates/revived-1-4-4`,
   `native/client-patches` and `native/xinput1_3-proxy`) is its 1.4.4 server and client patch set, carried in the
   `legacy-revived` submodule (AGPL-3.0-only).
 - Files and functions taken over say so in their comments.
@@ -99,31 +99,31 @@ By the DaintyLass contributors (`Copyright (c) 2026 Silent Spud`), in two groups
 
 - **MIT** ([LICENSE-MIT.txt](LICENSE-MIT.txt)), each crate's `Cargo.toml` says so (`license = "MIT"`), with zero AGPL
   normal or dev dependencies:
-  - **Born here**: `rust/crates/controller`, `rust/crates/module-api` (DF2, the module framework and frame protocol),
-    `rust/crates/epic` (DE1, written from Epic's manifest and chunk formats as Legendary documents them),
-    `rust/crates/history-ship` (DH4, shipping the change log to an object-locked bucket and restoring from it),
-    `rust/crates/remote` (DD27/RM2, remote management of enrolled server installs over pinned mTLS),
-    `rust/plugins/network` (DN4), `rust/services/admin` (including the DH2/DH3/DH6 additions `guard.rs`, `guarded.rs`,
-    `guarded_cli.rs`, `key_cli.rs`, `history.rs` and `history_text.rs`), and `rust/bins` (`server-console`,
+  - **Born here**: `crates/controller`, `crates/module-api` (DF2, the module framework and frame protocol),
+    `crates/epic` (DE1, written from Epic's manifest and chunk formats as Legendary documents them),
+    `crates/history-ship` (DH4, shipping the change log to an object-locked bucket and restoring from it),
+    `crates/remote` (DD27/RM2, remote management of enrolled server installs over pinned mTLS),
+    `plugins/network` (DN4), `services/admin` (including the DH2/DH3/DH6 additions `guard.rs`, `guarded.rs`,
+    `guarded_cli.rs`, `key_cli.rs`, `history.rs` and `history_text.rs`), and `bins` (`server-console`,
     `server-minimal`).
   - **Clean-room MIT rewrites and extracted MIT kits** (`DD26`, `DL2` answered No on 2026-10-30; behaviour specs in
-    `docs/port/spec-*.md` and clean-room provenance records in `docs/port/clean-room/*.md`): `rust/crates/protocol`,
-    `rust/crates/proxy`, `rust/crates/service-kit` (clean-room HTTP/routing/env/log/JSON helpers plus born-here
-    `context.rs` and `telemetry.rs`), `rust/crates/store` (born-here `MultiConnection` over SQLite and Postgres and
-    hash-chained change log plus clean-room SQLite helpers), `rust/crates/hostkit` (`DL3b`: the 18 born-here host-kit
+    `docs/port/spec-*.md` and clean-room provenance records in `docs/port/clean-room/*.md`): `crates/protocol`,
+    `crates/proxy`, `crates/service-kit` (clean-room HTTP/routing/env/log/JSON helpers plus born-here
+    `context.rs` and `telemetry.rs`), `crates/store` (born-here `MultiConnection` over SQLite and Postgres and
+    hash-chained change log plus clean-room SQLite helpers), `crates/hostkit` (`DL3b`: the 18 born-here host-kit
     modules plus clean-room rewrites of the 22 host-kit modules specified in `docs/port/spec-dl3-hostkit.md`), and
-    `rust/crates/launcher-kit` (`DL4b`: the born-here launcher modules plus clean-room rewrites of the 8 launcher module
+    `crates/launcher-kit` (`DL4b`: the born-here launcher modules plus clean-room rewrites of the 8 launcher module
     groups specified in `docs/port/spec-dl4-launcher.md`).
   Written here against the services' contracts and behaviour specs, from none of the AGPL projects above. A binary that
   links them to the AGPL crates is distributed under the AGPL as a whole; the MIT grant is on these crates' own source.
-- **AGPL-3.0-only**: `rust/services/host` (the thin binary and legacy 1.4.4 shell that wires `crates/hostkit` to
+- **AGPL-3.0-only**: `services/host` (the thin binary and legacy 1.4.4 shell that wires `crates/hostkit` to
   `gateway`, `content`, `isles-1-14-7`, `isles-1-12-0`, `isles-core`, `isles-db`, `isles-director`, and DR's 1.4.4
-  stack); `rust/services/gateway` and `rust/services/content`; `modules/legacy-revived/rust/crates/revived-1-4-4` (RV1,
-  wrapping DR's `metagame` and `deploy` as a `GameModule`); `rust/plugins/chat` (DN10a, a port of Dauntless Revived's
+  stack); `services/gateway` and `services/content`; `modules/legacy-revived/rust/crates/revived-1-4-4` (RV1,
+  wrapping DR's `metagame` and `deploy` as a `GameModule`); `plugins/chat` (DN10a, a port of Dauntless Revived's
   metagame chat at `e1c5fec` with behaviour, no code, from Mystic Paradox's realtime gateway); and the DR-derived Tauri
-  shell in `rust/launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's downloader structure).
+  shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's downloader structure).
   `docker/`, `docs/`, the workflows, the launcher's language catalogs (`ui/packages/i18n/catalogs`) and
-  `rust/launcher/src-tauri/gen/strings.json` carry the repository licence.
+  `launcher/src-tauri/gen/strings.json` carry the repository licence.
 
 ### Store captures
 
@@ -138,7 +138,7 @@ By the DaintyLass contributors (`Copyright (c) 2026 Silent Spud`), in two groups
 ### Other material
 
 - The services' npm dependencies are listed in each `package-lock.json`, and the Rust crates' in
-  `rust/Cargo.lock`; each keeps its own licence (`cargo deny` checks the Rust ones).
+  `Cargo.lock`; each keeps its own licence (`cargo deny` checks the Rust ones).
 - libpq, built from source by `pq-src` and linked into every binary that links `store` (DF7): PostgreSQL
   Licence. Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group; Portions Copyright (c) 1994,
   The Regents of the University of California. Permission to use, copy, modify, and distribute this software

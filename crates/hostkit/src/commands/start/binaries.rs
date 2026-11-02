@@ -92,14 +92,14 @@ impl Programs {
     }
 
     /// This binary, and the folders with other Rust binaries: next to it (the server release), then the
-    /// workspace's `rust/target/release` and `debug`. `node` is left as the bare name.
+    /// workspace's `target/release` and `debug`. `node` is left as the bare name.
     pub fn find_rust(paths: &Paths) -> Self {
         let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("reforged-host"));
         let mut rust_dirs = Vec::new();
         if let Some(dir) = exe.parent() {
             rust_dirs.push(dir.to_path_buf());
         }
-        for workspace in [paths.repo.join("rust")] {
+        for workspace in [paths.repo.clone()] {
             for profile in ["release", "debug"] {
                 let dir = workspace.join("target").join(profile);
                 if !rust_dirs.contains(&dir) {

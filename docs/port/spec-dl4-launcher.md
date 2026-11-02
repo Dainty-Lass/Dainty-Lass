@@ -1,22 +1,22 @@
-# DL4a Clean-Room Specification — Launcher MIT Crate Split & Rewrite (`rust/launcher/src-tauri`)
+# DL4a Clean-Room Specification — Launcher MIT Crate Split & Rewrite (`launcher/src-tauri`)
 
 This specification is the clean-room input for **DL4b** (`docs/dainty-lass-plan.md`, decision **DD26**). It:
 
-1. Classifies every source file under `rust/launcher/src-tauri/src/` across three provenance groups (**Born-MIT**, **DL4 Rewrite / Freeza-Consent**, and **AGPL DR Core**).
-2. Defines the crate boundary and dependency seams between the new MIT crate (`rust/crates/launcher-kit`, or equivalent workspace member with `license = "MIT"`) and the AGPL-3.0-only `rust/launcher/src-tauri` binary/Tauri shell.
+1. Classifies every source file under `launcher/src-tauri/src/` across three provenance groups (**Born-MIT**, **DL4 Rewrite / Freeza-Consent**, and **AGPL DR Core**).
+2. Defines the crate boundary and dependency seams between the new MIT crate (`crates/launcher-kit`, or equivalent workspace member with `license = "MIT"`) and the AGPL-3.0-only `launcher/src-tauri` binary/Tauri shell.
 3. Specifies the complete clean-room behaviour, public types, constants, traits, function signatures, bridge commands/events, file-system invariants, RD9 no-injection rules, and test expectations for the 8 **DL4 Rewrite** modules and the **Born-MIT / DL4** modules that interact with them.
 
 > **Clean-room rule for DL4b:** Every file placed in the MIT crate must be written from this specification (or moved intact if Born-MIT with zero external derivation) and must contain **no** source comments, identifiers, or docstrings naming external launcher repositories, commits, or TypeScript source files.
 
 ---
 
-## 1. Complete Module Classification (`rust/launcher/src-tauri/src/`)
+## 1. Complete Module Classification (`launcher/src-tauri/src/`)
 
-All 95 `.rs` files in `rust/launcher/src-tauri/src/` are classified below into three categories:
+All 95 `.rs` files in `launcher/src-tauri/src/` are classified below into three categories:
 
 - **Born-MIT**: Written originally for DaintyLass (rows RD9, DU2–DU5, DE2–DE5, DN7, DH3b, DH6, RF7, RD26) without derivation from Dauntless Revived or external launcher code. Moves into the MIT crate (or stays at the Tauri boundary if it is a `#[tauri::command]` wrapper, with its pure logic in the MIT crate).
 - **DL4 Rewrite (Freeza-Consent / Clean-Room)**: The 8 module groups specified in Section 2 (`net/runtime_files`, `net/verify`, `platform/hostkit`, `platform/hostserver`, `platform/requirements`, `platform/dialogs`, `controller/host` + `host_off`, `controller/runtime`). Rewritten from Section 2 into the MIT crate under `license = "MIT"`.
-- **AGPL DR Core**: Files derived from Dauntless Revived at `e1c5fec` / `24b7624` (or keeping its state-machine/downloader/HTTP/relay/keystore structure). These remain in `rust/launcher/src-tauri` under `AGPL-3.0-only`.
+- **AGPL DR Core**: Files derived from Dauntless Revived at `e1c5fec` / `24b7624` (or keeping its state-machine/downloader/HTTP/relay/keystore structure). These remain in `launcher/src-tauri` under `AGPL-3.0-only`.
 
 ### 1.1 Audit Note on Mixed-Provenance Files Named in DL4
 
@@ -27,7 +27,7 @@ During the file-by-file provenance audit of the files listed in row DL4, seven f
 
 ### 1.2 Full 95-File Classification Table
 
-| Path under `rust/launcher/src-tauri/src/` | Category | Feature Gate | Target Crate in DL4b | Notes |
+| Path under `launcher/src-tauri/src/` | Category | Feature Gate | Target Crate in DL4b | Notes |
 | --- | --- | --- | --- | --- |
 | `main.rs` | AGPL DR Core | `server-gui` (branch) | `launcher` (`src-tauri`) | Binary entry point (`run_server_gui` / `run_client`). |
 | `lib.rs` | AGPL DR Core | `host`, `server-gui`, `legacy` | `launcher` (`src-tauri`) | Tauri builder, URI protocols (`rr-art`), lifecycle hooks, single-instance. |
@@ -637,7 +637,7 @@ pub async fn run_logged(program: &Path, args: &[String], cwd: &Path, log_file: &
    - `server_config_toml(raw)` & `server_config(raw)`: parses `host.toml` (via `toml_edit::DocumentMut`) or `host.json` (via `serde_json`), reading `server.name` (trimmed, non-empty, `<= 80` chars, no control chars), `server.mode` (`"private"` or `"public"`), `server.public_host` (when public, trimmed, `<= 255` chars, no control chars or whitespace), and private-mode `test_multipliers` / `gameplay` (`xp` and `rewards` finite in `1.0..=100.0`, returning `Some((xp, rewards))` only when `xp > 1.0 || rewards > 1.0`).
 
 #### Test Expectations
-- Fuzz target `rust/fuzz/fuzz_targets/launcher_host.rs` compiles `hostkit/parse.rs` directly and verifies all output bounds on arbitrary byte inputs.
+- Fuzz target `fuzz/fuzz_targets/launcher_host.rs` compiles `hostkit/parse.rs` directly and verifies all output bounds on arbitrary byte inputs.
 - Unit tests verify `WorkspacePaths` detection on both submodule and flat directory trees, `detect_game_data` (`Missing` / `Synthetic` / `Real`), `import_sdk` file copying and error codes, `server_config_toml` and `server_config` parsing, and `vswhere` output parsing.
 
 ---
@@ -1138,9 +1138,9 @@ Implements **RD9** (zero process injection):
 
 - `bridge::generate` emits identical output regardless of which Cargo features (`server-gui`, `realms`, `legacy`, `host`) are enabled at build time:
   - `ui/packages/bridge/src/generated/types.ts`
-  - `rust/launcher/src-tauri/isolation/commands.js`
-  - `rust/launcher/src-tauri/permissions/app-commands.toml`
-  - `rust/launcher/src-tauri/gen/strings.json`
+  - `launcher/src-tauri/isolation/commands.js`
+  - `launcher/src-tauri/permissions/app-commands.toml`
+  - `launcher/src-tauri/gen/strings.json`
 - Every command in `spec::COMMANDS` and every wire type is always included in the generated files; commands disabled by the current binary's features return `ErrorCode::NotInThisBuild` at runtime (`*_off.rs` stubs).
 
 ### 4.4 Server GUI Bridge Commands (`admin_*` and `server_*`, `T2`–`T3`)
@@ -1165,7 +1165,7 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
 
 ### 4.6 Target Crate Split (`crates/launcher-kit` vs `launcher/src-tauri`, `DL4b`)
 
-1. **`rust/crates/launcher-kit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`)**:
+1. **`crates/launcher-kit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`)**:
    - Contains the pure, clean-room and born-here launcher modules that do not depend on `tauri::AppHandle` or DR's `controller`/`keystore`/`proxy` core:
      - `bridge/spec.rs` (command/event/arg specifications and `arg_accepts` validator)
      - `bridge/modules.rs` (module panel validation and sanitisation)
@@ -1177,7 +1177,7 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
      - `platform/linux_runtime.rs` (Linux Wine/Proton/Heroic/Legendary discovery)
      - `platform/requirements.rs` (host prerequisite checks)
    - Has **zero** normal dependencies on any AGPL crate (`launcher`, `host`, `rifts-host`, `rifts-seam`, `gateway`, `content`, `chat`, `isles-*`, `revived-1-4-4`).
-2. **`rust/launcher/src-tauri` (`license = "AGPL-3.0-only"`)**:
+2. **`launcher/src-tauri` (`license = "AGPL-3.0-only"`)**:
    - Thin Tauri shell and DR state machine (`controller`, `keystore`, `localproxy`, `singleinstance`, `game`, Tauri window/dialog/command glue) that depends on `launcher-kit` and re-exports its modules at their existing paths so all unit, integration, and fuzz targets compile and pass unchanged.
 
 ---
@@ -1185,8 +1185,8 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
 ## 5. Verification & Acceptance Checklist for DL4b
 
 1. **Zero Prohibited Provenance in `crates/launcher-kit`**:
-   - `rust/crates/launcher-kit/Cargo.toml` sets `license = "MIT"`.
-   - Grepping `rust/crates/launcher-kit` for `ReforgedLauncher`, `Dauntless-Reforged-Revival`, `dauntless-revived`, `mixutin`, `Freeza`, `e1c5fec`, `24b7624`, or `.ts` source citations returns **0 matches**.
+   - `crates/launcher-kit/Cargo.toml` sets `license = "MIT"`.
+   - Grepping `crates/launcher-kit` for `ReforgedLauncher`, `Dauntless-Reforged-Revival`, `dauntless-revived`, `mixutin`, `Freeza`, `e1c5fec`, `24b7624`, or `.ts` source citations returns **0 matches**.
    - `cargo tree -e normal -p launcher-kit` has **zero** paths to any AGPL crate.
 2. **RD9 No-Injection Check**:
    - Grepping both `crates/launcher-kit` and `src-tauri` for `OpenProcess`, `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread`, or `LoadLibrary` injection calls returns **0 matches**.
@@ -1194,4 +1194,4 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
    - `cargo test -p launcher-kit` and `cargo test -p launcher` pass all unit and integration tests across default features, `--features server-gui`, and `--no-default-features`.
    - `every_command_is_served_and_nothing_else`, `name_lists_are_the_enums`, and `generated_files_are_current` pass without diff under both default features and `--features server-gui`.
 4. **Fuzz Target Compatibility**:
-   - `rust/fuzz/fuzz_targets/launcher_host.rs` and `rust/fuzz/fuzz_targets/launcher_region.rs` compile cleanly against `launcher-kit`.
+   - `fuzz/fuzz_targets/launcher_host.rs` and `fuzz/fuzz_targets/launcher_region.rs` compile cleanly against `launcher-kit`.

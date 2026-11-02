@@ -2,7 +2,7 @@
 
 # Security checklist: installing the game from Epic (RX3)
 
-The checklist for `rust/crates/epic`, which the launcher and the host kit use to install Dauntless from the player's
+The checklist for `crates/epic`, which the launcher and the host kit use to install Dauntless from the player's
 own Epic library (docs/dainty-lass-plan.md DD22, rows DE1 to DE7, DX2). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the first release that installs from Epic, copy this list into the release notes' review,
@@ -10,7 +10,7 @@ check each item in the code (not from memory), link the code or test that shows 
 date and the commit reviewed. An item that does not hold is a bug to fix before that release, not a box to leave
 open. DE1 wrote the manifest and chunk readers, DE2 the sign-in, DE3 the ownership check, DE5 the installer
 (`download.rs` and `download/`, and the launcher's `net/epic_install.rs` and `controller/install.rs`), DE6 the host
-kit's `install-game` (`rust/services/host`: `epicinstall.rs`, `commands/install_game.rs`).
+kit's `install-game` (`services/host`: `epicinstall.rs`, `commands/install_game.rs`).
 
 ## What it is and where the boundary is
 
@@ -41,7 +41,7 @@ keeps the session in `.workspace/config/epic-session.env`, and installs one fold
 Its extra boundaries are the **stdin or `--code-file` input** (the code, as in the launcher's paste fallback) and
 the **session file**, a secret like the account key. `epic::builds` (the pins) is shared by the launcher and the host.
 
-Fuzz target: `epic_manifest` in `rust/fuzz` (a whole manifest file under its own pin, the unpacked sections behind
+Fuzz target: `epic_manifest` in `fuzz` (a whole manifest file under its own pin, the unpacked sections behind
 a valid header, a chunk checked against an entry made from its payload, and a resume file's body behind a matching
 header). It checks that nothing panics, that a wrong pin is always refused, that every accepted file name passes the
 folder rules again and stays under the root, each once, with parts inside listed chunks, that an accepted chunk is
@@ -257,7 +257,7 @@ These do not block DE1 but must be settled, or accepted in writing, before the f
 ## Fuzzing
 
 A short run of `epic_manifest` happens on every PR (CI's `fuzz` job). The run before the first release that
-installs, from `rust/fuzz`:
+installs, from `fuzz`:
 
 ```bash
 cargo +nightly fuzz run epic_manifest -- -max_total_time=86400

@@ -89,97 +89,97 @@ function gitShow(revAndPath) {
 
 const pairs = [
   // 1. store (7 rewritten files)
-  ["rust/crates/store/src/lib.rs", "rust/crates/store/src/lib.rs"],
-  ["rust/crates/store/src/adopt.rs", "rust/crates/store/src/adopt.rs"],
-  ["rust/crates/store/src/backup.rs", "rust/crates/store/src/backup.rs"],
-  ["rust/crates/store/src/drizzle.rs", "rust/crates/store/src/drizzle.rs"],
-  ["rust/crates/store/src/readonly.rs", "rust/crates/store/src/readonly.rs"],
-  ["rust/crates/store/src/snapshot.rs", "rust/crates/store/src/snapshot.rs"],
-  ["rust/crates/store/tests/store.rs", "rust/crates/store/tests/store.rs"],
+  ["crates/store/src/lib.rs", "crates/store/src/lib.rs"],
+  ["crates/store/src/adopt.rs", "crates/store/src/adopt.rs"],
+  ["crates/store/src/backup.rs", "crates/store/src/backup.rs"],
+  ["crates/store/src/drizzle.rs", "crates/store/src/drizzle.rs"],
+  ["crates/store/src/readonly.rs", "crates/store/src/readonly.rs"],
+  ["crates/store/src/snapshot.rs", "crates/store/src/snapshot.rs"],
+  ["crates/store/tests/store.rs", "crates/store/tests/store.rs"],
 
   // 2. protocol (6 rewritten source files)
-  ["rust/crates/protocol/src/lib.rs", "rust/crates/protocol/src/lib.rs"],
-  ["rust/crates/protocol/src/account.rs", "rust/crates/protocol/src/account.rs"],
-  ["rust/crates/protocol/src/invite.rs", "rust/crates/protocol/src/invite.rs"],
-  ["rust/crates/protocol/src/manifest.rs", "rust/crates/protocol/src/manifest.rs"],
-  ["rust/crates/protocol/src/status.rs", "rust/crates/protocol/src/status.rs"],
-  ["rust/crates/protocol/src/text.rs", "rust/crates/protocol/src/text.rs"],
+  ["crates/protocol/src/lib.rs", "crates/protocol/src/lib.rs"],
+  ["crates/protocol/src/account.rs", "crates/protocol/src/account.rs"],
+  ["crates/protocol/src/invite.rs", "crates/protocol/src/invite.rs"],
+  ["crates/protocol/src/manifest.rs", "crates/protocol/src/manifest.rs"],
+  ["crates/protocol/src/status.rs", "crates/protocol/src/status.rs"],
+  ["crates/protocol/src/text.rs", "crates/protocol/src/text.rs"],
 
   // 3. proxy (1 rewritten file)
-  ["rust/crates/proxy/src/lib.rs", "rust/crates/proxy/src/lib.rs"],
+  ["crates/proxy/src/lib.rs", "crates/proxy/src/lib.rs"],
 
   // 4. service-kit (12 rewritten source files + 3 rewritten test files)
-  ["rust/crates/service-kit/src/lib.rs", "rust/crates/service-kit/src/lib.rs"],
-  ["rust/crates/service-kit/src/body.rs", "rust/crates/service-kit/src/body.rs"],
-  ["rust/crates/service-kit/src/collate.rs", "rust/crates/service-kit/src/collate.rs"],
-  ["rust/crates/service-kit/src/env.rs", "rust/crates/service-kit/src/env.rs"],
-  ["rust/crates/service-kit/src/js.rs", "rust/crates/service-kit/src/js.rs"],
-  ["rust/crates/service-kit/src/jsjson.rs", "rust/crates/service-kit/src/jsjson.rs"],
-  ["rust/crates/service-kit/src/json.rs", "rust/crates/service-kit/src/json.rs"],
-  ["rust/crates/service-kit/src/linelog.rs", "rust/crates/service-kit/src/linelog.rs"],
-  ["rust/crates/service-kit/src/log.rs", "rust/crates/service-kit/src/log.rs"],
-  ["rust/crates/service-kit/src/ratelimit.rs", "rust/crates/service-kit/src/ratelimit.rs"],
-  ["rust/crates/service-kit/src/routing.rs", "rust/crates/service-kit/src/routing.rs"],
-  ["rust/crates/service-kit/src/serve.rs", "rust/crates/service-kit/src/serve.rs"],
-  ["rust/crates/service-kit/tests/body.rs", "rust/crates/service-kit/tests/body.rs"],
-  ["rust/crates/service-kit/tests/ratelimit.rs", "rust/crates/service-kit/tests/ratelimit.rs"],
-  ["rust/crates/service-kit/tests/routing.rs", "rust/crates/service-kit/tests/routing.rs"],
+  ["crates/service-kit/src/lib.rs", "crates/service-kit/src/lib.rs"],
+  ["crates/service-kit/src/body.rs", "crates/service-kit/src/body.rs"],
+  ["crates/service-kit/src/collate.rs", "crates/service-kit/src/collate.rs"],
+  ["crates/service-kit/src/env.rs", "crates/service-kit/src/env.rs"],
+  ["crates/service-kit/src/js.rs", "crates/service-kit/src/js.rs"],
+  ["crates/service-kit/src/jsjson.rs", "crates/service-kit/src/jsjson.rs"],
+  ["crates/service-kit/src/json.rs", "crates/service-kit/src/json.rs"],
+  ["crates/service-kit/src/linelog.rs", "crates/service-kit/src/linelog.rs"],
+  ["crates/service-kit/src/log.rs", "crates/service-kit/src/log.rs"],
+  ["crates/service-kit/src/ratelimit.rs", "crates/service-kit/src/ratelimit.rs"],
+  ["crates/service-kit/src/routing.rs", "crates/service-kit/src/routing.rs"],
+  ["crates/service-kit/src/serve.rs", "crates/service-kit/src/serve.rs"],
+  ["crates/service-kit/tests/body.rs", "crates/service-kit/tests/body.rs"],
+  ["crates/service-kit/tests/ratelimit.rs", "crates/service-kit/tests/ratelimit.rs"],
+  ["crates/service-kit/tests/routing.rs", "crates/service-kit/tests/routing.rs"],
 
   // 5. hostkit (33 Category B rewritten files against services/host at b190010)
-  ["rust/services/host/src/paths.rs", "rust/crates/hostkit/src/paths.rs"],
-  ["rust/services/host/src/envfile.rs", "rust/crates/hostkit/src/envfile.rs"],
-  ["rust/services/host/src/hostconfig.rs", "rust/crates/hostkit/src/hostconfig.rs"],
-  ["rust/services/host/src/run.rs", "rust/crates/hostkit/src/run.rs"],
-  ["rust/services/host/src/services.rs", "rust/crates/hostkit/src/services.rs"],
-  ["rust/services/host/src/mongo.rs", "rust/crates/hostkit/src/mongo.rs"],
-  ["rust/services/host/src/mongo/wire.rs", "rust/crates/hostkit/src/mongo/wire.rs"],
-  ["rust/services/host/src/doctor.rs", "rust/crates/hostkit/src/doctor.rs"],
-  ["rust/services/host/src/captures.rs", "rust/crates/hostkit/src/captures.rs"],
-  ["rust/services/host/src/gamedata.rs", "rust/crates/hostkit/src/gamedata.rs"],
-  ["rust/services/host/src/gamepack.rs", "rust/crates/hostkit/src/gamepack.rs"],
-  ["rust/services/host/src/invite.rs", "rust/crates/hostkit/src/invite.rs"],
-  ["rust/services/host/src/preset.rs", "rust/crates/hostkit/src/preset.rs"],
-  ["rust/services/host/src/progression.rs", "rust/crates/hostkit/src/progression.rs"],
-  ["rust/services/host/src/publish.rs", "rust/crates/hostkit/src/publish.rs"],
-  ["rust/services/host/src/linux.rs", "rust/crates/hostkit/src/linux.rs"],
-  ["rust/services/host/src/selfupdate.rs", "rust/crates/hostkit/src/selfupdate.rs"],
-  ["rust/services/host/src/wine.rs", "rust/crates/hostkit/src/wine.rs"],
-  ["rust/services/host/src/cli.rs", "rust/crates/hostkit/src/cli.rs"],
-  ["rust/services/host/src/commands/doctor.rs", "rust/crates/hostkit/src/commands/doctor.rs"],
-  ["rust/services/host/src/commands/gamedata.rs", "rust/crates/hostkit/src/commands/gamedata.rs"],
-  ["rust/services/host/src/commands/invite.rs", "rust/crates/hostkit/src/commands/invite.rs"],
-  ["rust/services/host/src/commands/multipliers.rs", "rust/crates/hostkit/src/commands/multipliers.rs"],
-  ["rust/services/host/src/commands/preset.rs", "rust/crates/hostkit/src/commands/preset.rs"],
-  ["rust/services/host/src/commands/publish_runtime.rs", "rust/crates/hostkit/src/commands/publish_runtime.rs"],
-  ["rust/services/host/src/commands/setup.rs", "rust/crates/hostkit/src/commands/setup.rs"],
-  ["rust/services/host/src/commands/setup/firewall.rs", "rust/crates/hostkit/src/commands/setup/firewall.rs"],
-  ["rust/services/host/src/commands/setup/install.rs", "rust/crates/hostkit/src/commands/setup/install.rs"],
-  ["rust/services/host/src/commands/setup/options.rs", "rust/crates/hostkit/src/commands/setup/options.rs"],
-  ["rust/services/host/src/commands/setup/paradox.rs", "rust/crates/hostkit/src/commands/setup/paradox.rs"],
-  ["rust/services/host/src/commands/start.rs", "rust/crates/hostkit/src/commands/start.rs"],
-  ["rust/services/host/src/commands/start/control.rs", "rust/crates/hostkit/src/commands/start/control.rs"],
-  ["rust/services/host/src/commands/update.rs", "rust/crates/hostkit/src/commands/update.rs"],
+  ["services/host/src/paths.rs", "crates/hostkit/src/paths.rs"],
+  ["services/host/src/envfile.rs", "crates/hostkit/src/envfile.rs"],
+  ["services/host/src/hostconfig.rs", "crates/hostkit/src/hostconfig.rs"],
+  ["services/host/src/run.rs", "crates/hostkit/src/run.rs"],
+  ["services/host/src/services.rs", "crates/hostkit/src/services.rs"],
+  ["services/host/src/mongo.rs", "crates/hostkit/src/mongo.rs"],
+  ["services/host/src/mongo/wire.rs", "crates/hostkit/src/mongo/wire.rs"],
+  ["services/host/src/doctor.rs", "crates/hostkit/src/doctor.rs"],
+  ["services/host/src/captures.rs", "crates/hostkit/src/captures.rs"],
+  ["services/host/src/gamedata.rs", "crates/hostkit/src/gamedata.rs"],
+  ["services/host/src/gamepack.rs", "crates/hostkit/src/gamepack.rs"],
+  ["services/host/src/invite.rs", "crates/hostkit/src/invite.rs"],
+  ["services/host/src/preset.rs", "crates/hostkit/src/preset.rs"],
+  ["services/host/src/progression.rs", "crates/hostkit/src/progression.rs"],
+  ["services/host/src/publish.rs", "crates/hostkit/src/publish.rs"],
+  ["services/host/src/linux.rs", "crates/hostkit/src/linux.rs"],
+  ["services/host/src/selfupdate.rs", "crates/hostkit/src/selfupdate.rs"],
+  ["services/host/src/wine.rs", "crates/hostkit/src/wine.rs"],
+  ["services/host/src/cli.rs", "crates/hostkit/src/cli.rs"],
+  ["services/host/src/commands/doctor.rs", "crates/hostkit/src/commands/doctor.rs"],
+  ["services/host/src/commands/gamedata.rs", "crates/hostkit/src/commands/gamedata.rs"],
+  ["services/host/src/commands/invite.rs", "crates/hostkit/src/commands/invite.rs"],
+  ["services/host/src/commands/multipliers.rs", "crates/hostkit/src/commands/multipliers.rs"],
+  ["services/host/src/commands/preset.rs", "crates/hostkit/src/commands/preset.rs"],
+  ["services/host/src/commands/publish_runtime.rs", "crates/hostkit/src/commands/publish_runtime.rs"],
+  ["services/host/src/commands/setup.rs", "crates/hostkit/src/commands/setup.rs"],
+  ["services/host/src/commands/setup/firewall.rs", "crates/hostkit/src/commands/setup/firewall.rs"],
+  ["services/host/src/commands/setup/install.rs", "crates/hostkit/src/commands/setup/install.rs"],
+  ["services/host/src/commands/setup/options.rs", "crates/hostkit/src/commands/setup/options.rs"],
+  ["services/host/src/commands/setup/paradox.rs", "crates/hostkit/src/commands/setup/paradox.rs"],
+  ["services/host/src/commands/start.rs", "crates/hostkit/src/commands/start.rs"],
+  ["services/host/src/commands/start/control.rs", "crates/hostkit/src/commands/start/control.rs"],
+  ["services/host/src/commands/update.rs", "crates/hostkit/src/commands/update.rs"],
 
   // 6. launcher-kit (19 Category B rewritten files against launcher/src-tauri at b190010)
-  ["rust/launcher/src-tauri/src/bridge/types.rs", "rust/crates/launcher-kit/src/bridge/types.rs"],
-  ["rust/launcher/src-tauri/src/core/pins.rs", "rust/crates/launcher-kit/src/core/pins.rs"],
-  ["rust/launcher/src-tauri/src/core/text.rs", "rust/crates/launcher-kit/src/core/text.rs"],
-  ["rust/launcher/src-tauri/src/net/hostapi.rs", "rust/crates/launcher-kit/src/net/hostapi.rs"],
-  ["rust/launcher/src-tauri/src/net/http.rs", "rust/crates/launcher-kit/src/net/http.rs"],
-  ["rust/launcher/src-tauri/src/net/http/to_file.rs", "rust/crates/launcher-kit/src/net/http/to_file.rs"],
-  ["rust/launcher/src-tauri/src/net/pinned.rs", "rust/crates/launcher-kit/src/net/pinned.rs"],
-  ["rust/launcher/src-tauri/src/net/runtime_files.rs", "rust/crates/launcher-kit/src/net/runtime_files.rs"],
-  ["rust/launcher/src-tauri/src/net/runtime_files/manifest.rs", "rust/crates/launcher-kit/src/net/runtime_files/manifest.rs"],
-  ["rust/launcher/src-tauri/src/net/runtime_files/tests.rs", "rust/crates/launcher-kit/src/net/runtime_files/tests.rs"],
-  ["rust/launcher/src-tauri/src/net/verify.rs", "rust/crates/launcher-kit/src/net/verify.rs"],
-  ["rust/launcher/src-tauri/src/net/verify/cache_file.rs", "rust/crates/launcher-kit/src/net/verify/cache_file.rs"],
-  ["rust/launcher/src-tauri/src/platform/dialogs.rs", "rust/crates/launcher-kit/src/platform/dialogs.rs"],
-  ["rust/launcher/src-tauri/src/platform/hostkit.rs", "rust/crates/launcher-kit/src/platform/hostkit.rs"],
-  ["rust/launcher/src-tauri/src/platform/hostkit/parse.rs", "rust/crates/launcher-kit/src/platform/hostkit/parse.rs"],
-  ["rust/launcher/src-tauri/src/platform/hostserver.rs", "rust/crates/launcher-kit/src/platform/hostserver.rs"],
-  ["rust/launcher/src-tauri/src/platform/linux_runtime.rs", "rust/crates/launcher-kit/src/platform/linux_runtime.rs"],
-  ["rust/launcher/src-tauri/src/platform/requirements.rs", "rust/crates/launcher-kit/src/platform/requirements.rs"],
-  ["rust/launcher/src-tauri/src/platform/system.rs", "rust/crates/launcher-kit/src/platform/system.rs"],
+  ["launcher/src-tauri/src/bridge/types.rs", "crates/launcher-kit/src/bridge/types.rs"],
+  ["launcher/src-tauri/src/core/pins.rs", "crates/launcher-kit/src/core/pins.rs"],
+  ["launcher/src-tauri/src/core/text.rs", "crates/launcher-kit/src/core/text.rs"],
+  ["launcher/src-tauri/src/net/hostapi.rs", "crates/launcher-kit/src/net/hostapi.rs"],
+  ["launcher/src-tauri/src/net/http.rs", "crates/launcher-kit/src/net/http.rs"],
+  ["launcher/src-tauri/src/net/http/to_file.rs", "crates/launcher-kit/src/net/http/to_file.rs"],
+  ["launcher/src-tauri/src/net/pinned.rs", "crates/launcher-kit/src/net/pinned.rs"],
+  ["launcher/src-tauri/src/net/runtime_files.rs", "crates/launcher-kit/src/net/runtime_files.rs"],
+  ["launcher/src-tauri/src/net/runtime_files/manifest.rs", "crates/launcher-kit/src/net/runtime_files/manifest.rs"],
+  ["launcher/src-tauri/src/net/runtime_files/tests.rs", "crates/launcher-kit/src/net/runtime_files/tests.rs"],
+  ["launcher/src-tauri/src/net/verify.rs", "crates/launcher-kit/src/net/verify.rs"],
+  ["launcher/src-tauri/src/net/verify/cache_file.rs", "crates/launcher-kit/src/net/verify/cache_file.rs"],
+  ["launcher/src-tauri/src/platform/dialogs.rs", "crates/launcher-kit/src/platform/dialogs.rs"],
+  ["launcher/src-tauri/src/platform/hostkit.rs", "crates/launcher-kit/src/platform/hostkit.rs"],
+  ["launcher/src-tauri/src/platform/hostkit/parse.rs", "crates/launcher-kit/src/platform/hostkit/parse.rs"],
+  ["launcher/src-tauri/src/platform/hostserver.rs", "crates/launcher-kit/src/platform/hostserver.rs"],
+  ["launcher/src-tauri/src/platform/linux_runtime.rs", "crates/launcher-kit/src/platform/linux_runtime.rs"],
+  ["launcher/src-tauri/src/platform/requirements.rs", "crates/launcher-kit/src/platform/requirements.rs"],
+  ["launcher/src-tauri/src/platform/system.rs", "crates/launcher-kit/src/platform/system.rs"],
 ];
 
 for (const [oldRel, newRel] of pairs) {
@@ -205,118 +205,118 @@ for (const [oldRel, newRel] of pairs) {
 
 > **Note on Category A (`Born-MIT`) files:** Files written originally for DaintyLass in Rust with no `Dauntless Revived` (`DR`) or `ReforgedHost` derivation (`store/src/{connection,database,declared,engine,history,portable,recovery,revert,transfer}.rs`, `store/tests/migrate.rs`, `service-kit/src/{context,telemetry}.rs`, the 17 Category A files in `hostkit` listed in `spec-dl3-hostkit.md` §1.1, and `launcher-kit`'s `bridge/spec.rs`, `bridge/modules.rs`, `net/regionping*`, `net/versions*`, `platform/loader_session.rs`) were already MIT-eligible and moved as-is per `spec-dl3-hostkit.md` §1.1 and `spec-dl4-launcher.md` §1.1. The table below measures all **81 rewritten files** (Category B).
 
-### 2.1 `rust/crates/store` (7 files — redone in `R:\source\dauntless\fresh-store-cleanroom`)
+### 2.1 `crates/store` (7 files — redone in `R:\source\dauntless\fresh-store-cleanroom`)
 
 | File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
 | --- | ---: | ---: | ---: | ---: |
-| `rust/crates/store/src/lib.rs` | 189 | 201 | 110 | **54.7%** |
-| `rust/crates/store/src/adopt.rs` | 84 | 97 | 26 | **26.8%** |
-| `rust/crates/store/src/backup.rs` | 53 | 89 | 11 | **12.4%** |
-| `rust/crates/store/src/drizzle.rs` | 101 | 108 | 34 | **31.5%** |
-| `rust/crates/store/src/readonly.rs` | 66 | 42 | 6 | **14.3%** |
-| `rust/crates/store/src/snapshot.rs` | 22 | 32 | 8 | **25.0%** |
-| `rust/crates/store/tests/store.rs` | 250 | 373 | 22 | **5.9%** |
+| `crates/store/src/lib.rs` | 189 | 201 | 110 | **54.7%** |
+| `crates/store/src/adopt.rs` | 84 | 97 | 26 | **26.8%** |
+| `crates/store/src/backup.rs` | 53 | 89 | 11 | **12.4%** |
+| `crates/store/src/drizzle.rs` | 101 | 108 | 34 | **31.5%** |
+| `crates/store/src/readonly.rs` | 66 | 42 | 6 | **14.3%** |
+| `crates/store/src/snapshot.rs` | 22 | 32 | 8 | **25.0%** |
+| `crates/store/tests/store.rs` | 250 | 373 | 22 | **5.9%** |
 
-### 2.2 `rust/crates/protocol` (6 rewritten source files)
-
-| File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
-| --- | ---: | ---: | ---: | ---: |
-| `rust/crates/protocol/src/lib.rs` | 6 | 6 | 5 | **83.3%** |
-| `rust/crates/protocol/src/account.rs` | 128 | 119 | 34 | **28.6%** |
-| `rust/crates/protocol/src/invite.rs` | 597 | 593 | 86 | **14.5%** |
-| `rust/crates/protocol/src/manifest.rs` | 58 | 49 | 27 | **55.1%** |
-| `rust/crates/protocol/src/status.rs` | 368 | 446 | 122 | **27.4%** |
-| `rust/crates/protocol/src/text.rs` | 53 | 104 | 10 | **9.6%** |
-
-*(Note: `rust/crates/protocol/tests/{invite,manifest,tables,username_status}.rs` are the JSON table-driven parity test harnesses over `tests/cases/*.json` and `tests/fixtures/*.json` retained to verify 100% wire parity of the rewritten `src/*.rs` modules.)*
-
-### 2.3 `rust/crates/proxy` (1 rewritten file)
+### 2.2 `crates/protocol` (6 rewritten source files)
 
 | File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
 | --- | ---: | ---: | ---: | ---: |
-| `rust/crates/proxy/src/lib.rs` | 176 | 196 | 43 | **21.9%** |
+| `crates/protocol/src/lib.rs` | 6 | 6 | 5 | **83.3%** |
+| `crates/protocol/src/account.rs` | 128 | 119 | 34 | **28.6%** |
+| `crates/protocol/src/invite.rs` | 597 | 593 | 86 | **14.5%** |
+| `crates/protocol/src/manifest.rs` | 58 | 49 | 27 | **55.1%** |
+| `crates/protocol/src/status.rs` | 368 | 446 | 122 | **27.4%** |
+| `crates/protocol/src/text.rs` | 53 | 104 | 10 | **9.6%** |
 
-### 2.4 `rust/crates/service-kit` (12 rewritten source files + 3 rewritten test files)
+*(Note: `crates/protocol/tests/{invite,manifest,tables,username_status}.rs` are the JSON table-driven parity test harnesses over `tests/cases/*.json` and `tests/fixtures/*.json` retained to verify 100% wire parity of the rewritten `src/*.rs` modules.)*
 
-| File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
-| --- | ---: | ---: | ---: | ---: |
-| `rust/crates/service-kit/src/lib.rs` | 13 | 14 | 13 | **92.9%** |
-| `rust/crates/service-kit/src/body.rs` | 227 | 251 | 73 | **29.1%** |
-| `rust/crates/service-kit/src/collate.rs` | 70 | 69 | 3 | **4.3%** |
-| `rust/crates/service-kit/src/env.rs` | 99 | 120 | 30 | **25.0%** |
-| `rust/crates/service-kit/src/js.rs` | 151 | 221 | 40 | **18.1%** |
-| `rust/crates/service-kit/src/jsjson.rs` | 184 | 243 | 45 | **18.5%** |
-| `rust/crates/service-kit/src/json.rs` | 43 | 45 | 9 | **20.0%** |
-| `rust/crates/service-kit/src/linelog.rs` | 137 | 198 | 55 | **27.8%** |
-| `rust/crates/service-kit/src/log.rs` | 201 | 209 | 44 | **21.1%** |
-| `rust/crates/service-kit/src/ratelimit.rs` | 283 | 271 | 89 | **32.8%** |
-| `rust/crates/service-kit/src/routing.rs` | 282 | 280 | 137 | **48.9%** |
-| `rust/crates/service-kit/src/serve.rs` | 106 | 115 | 37 | **32.2%** |
-| `rust/crates/service-kit/tests/body.rs` | 101 | 138 | 0 | **0.0%** |
-| `rust/crates/service-kit/tests/ratelimit.rs` | 66 | 75 | 0 | **0.0%** |
-| `rust/crates/service-kit/tests/routing.rs` | 73 | 75 | 0 | **0.0%** |
-
-### 2.5 `rust/crates/hostkit` (33 Category B rewritten files vs `rust/services/host` at `b190010`)
+### 2.3 `crates/proxy` (1 rewritten file)
 
 | File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
 | --- | ---: | ---: | ---: | ---: |
-| `rust/crates/hostkit/src/paths.rs` | 277 | 299 | 115 | **38.5%** |
-| `rust/crates/hostkit/src/envfile.rs` | 253 | 346 | 36 | **10.4%** |
-| `rust/crates/hostkit/src/hostconfig.rs` | 1798 | 2851 | 586 | **20.6%** |
-| `rust/crates/hostkit/src/run.rs` | 278 | 222 | 49 | **22.1%** |
-| `rust/crates/hostkit/src/services.rs` | 533 | 507 | 75 | **14.8%** |
-| `rust/crates/hostkit/src/mongo.rs` | 246 | 584 | 40 | **6.8%** |
-| `rust/crates/hostkit/src/mongo/wire.rs` | 305 | 582 | 47 | **8.1%** |
-| `rust/crates/hostkit/src/doctor.rs` | 1067 | 1071 | 149 | **13.9%** |
-| `rust/crates/hostkit/src/captures.rs` | 188 | 352 | 45 | **12.8%** |
-| `rust/crates/hostkit/src/gamedata.rs` | 604 | 586 | 131 | **22.4%** |
-| `rust/crates/hostkit/src/gamepack.rs` | 295 | 354 | 107 | **30.2%** |
-| `rust/crates/hostkit/src/invite.rs` | 299 | 567 | 49 | **8.6%** |
-| `rust/crates/hostkit/src/preset.rs` | 292 | 455 | 95 | **20.9%** |
-| `rust/crates/hostkit/src/progression.rs` | 286 | 496 | 63 | **12.7%** |
-| `rust/crates/hostkit/src/publish.rs` | 198 | 256 | 67 | **26.2%** |
-| `rust/crates/hostkit/src/linux.rs` | 523 | 583 | 80 | **13.7%** |
-| `rust/crates/hostkit/src/selfupdate.rs` | 970 | 1426 | 285 | **20.0%** |
-| `rust/crates/hostkit/src/wine.rs` | 376 | 397 | 50 | **12.6%** |
-| `rust/crates/hostkit/src/cli.rs` | 586 | 652 | 191 | **29.3%** |
-| `rust/crates/hostkit/src/commands/doctor.rs` | 36 | 45 | 3 | **6.7%** |
-| `rust/crates/hostkit/src/commands/gamedata.rs` | 128 | 139 | 18 | **12.9%** |
-| `rust/crates/hostkit/src/commands/invite.rs` | 206 | 253 | 14 | **5.5%** |
-| `rust/crates/hostkit/src/commands/multipliers.rs` | 88 | 149 | 9 | **6.0%** |
-| `rust/crates/hostkit/src/commands/preset.rs` | 137 | 114 | 11 | **9.6%** |
-| `rust/crates/hostkit/src/commands/publish_runtime.rs` | 82 | 69 | 9 | **13.0%** |
-| `rust/crates/hostkit/src/commands/setup.rs` | 454 | 353 | 54 | **15.3%** |
-| `rust/crates/hostkit/src/commands/setup/firewall.rs` | 77 | 201 | 3 | **1.5%** |
-| `rust/crates/hostkit/src/commands/setup/install.rs` | 159 | 143 | 9 | **6.3%** |
-| `rust/crates/hostkit/src/commands/setup/options.rs` | 580 | 646 | 48 | **7.4%** |
-| `rust/crates/hostkit/src/commands/setup/paradox.rs` | 419 | 193 | 23 | **11.9%** |
-| `rust/crates/hostkit/src/commands/start.rs` | 672 | 480 | 64 | **13.3%** |
-| `rust/crates/hostkit/src/commands/start/control.rs` | 211 | 261 | 26 | **10.0%** |
-| `rust/crates/hostkit/src/commands/update.rs` | 756 | 629 | 78 | **12.4%** |
+| `crates/proxy/src/lib.rs` | 176 | 196 | 43 | **21.9%** |
 
-### 2.6 `rust/crates/launcher-kit` (19 Category B files vs `rust/launcher/src-tauri` at `b190010`)
+### 2.4 `crates/service-kit` (12 rewritten source files + 3 rewritten test files)
 
 | File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
 | --- | ---: | ---: | ---: | ---: |
-| `rust/crates/launcher-kit/src/bridge/types.rs` | 2007 | 795 | 719 | **90.4%** |
-| `rust/crates/launcher-kit/src/core/pins.rs` | 9 | 60 | 9 | **15.0%** |
-| `rust/crates/launcher-kit/src/core/text.rs` | 88 | 170 | 5 | **2.9%** |
-| `rust/crates/launcher-kit/src/net/hostapi.rs` | 220 | 50 | 4 | **8.0%** |
-| `rust/crates/launcher-kit/src/net/http.rs` | 407 | 227 | 45 | **19.8%** |
-| `rust/crates/launcher-kit/src/net/http/to_file.rs` | 382 | 181 | 29 | **16.0%** |
-| `rust/crates/launcher-kit/src/net/pinned.rs` | 211 | 230 | 51 | **22.2%** |
-| `rust/crates/launcher-kit/src/net/runtime_files.rs` | 468 | 539 | 149 | **27.6%** |
-| `rust/crates/launcher-kit/src/net/runtime_files/manifest.rs` | 133 | 86 | 15 | **17.4%** |
-| `rust/crates/launcher-kit/src/net/runtime_files/tests.rs` | 673 | 479 | 35 | **7.3%** |
-| `rust/crates/launcher-kit/src/net/verify.rs` | 221 | 353 | 85 | **24.1%** |
-| `rust/crates/launcher-kit/src/net/verify/cache_file.rs` | 88 | 77 | 14 | **18.2%** |
-| `rust/crates/launcher-kit/src/platform/dialogs.rs` | 155 | 53 | 36 | **67.9%** |
-| `rust/crates/launcher-kit/src/platform/hostkit.rs` | 799 | 782 | 200 | **25.6%** |
-| `rust/crates/launcher-kit/src/platform/hostkit/parse.rs` | 374 | 516 | 37 | **7.2%** |
-| `rust/crates/launcher-kit/src/platform/hostserver.rs` | 754 | 841 | 141 | **16.8%** |
-| `rust/crates/launcher-kit/src/platform/linux_runtime.rs` | 666 | 528 | 32 | **6.1%** |
-| `rust/crates/launcher-kit/src/platform/requirements.rs` | 324 | 311 | 55 | **17.7%** |
-| `rust/crates/launcher-kit/src/platform/system.rs` | 171 | 142 | 14 | **9.9%** |
+| `crates/service-kit/src/lib.rs` | 13 | 14 | 13 | **92.9%** |
+| `crates/service-kit/src/body.rs` | 227 | 251 | 73 | **29.1%** |
+| `crates/service-kit/src/collate.rs` | 70 | 69 | 3 | **4.3%** |
+| `crates/service-kit/src/env.rs` | 99 | 120 | 30 | **25.0%** |
+| `crates/service-kit/src/js.rs` | 151 | 221 | 40 | **18.1%** |
+| `crates/service-kit/src/jsjson.rs` | 184 | 243 | 45 | **18.5%** |
+| `crates/service-kit/src/json.rs` | 43 | 45 | 9 | **20.0%** |
+| `crates/service-kit/src/linelog.rs` | 137 | 198 | 55 | **27.8%** |
+| `crates/service-kit/src/log.rs` | 201 | 209 | 44 | **21.1%** |
+| `crates/service-kit/src/ratelimit.rs` | 283 | 271 | 89 | **32.8%** |
+| `crates/service-kit/src/routing.rs` | 282 | 280 | 137 | **48.9%** |
+| `crates/service-kit/src/serve.rs` | 106 | 115 | 37 | **32.2%** |
+| `crates/service-kit/tests/body.rs` | 101 | 138 | 0 | **0.0%** |
+| `crates/service-kit/tests/ratelimit.rs` | 66 | 75 | 0 | **0.0%** |
+| `crates/service-kit/tests/routing.rs` | 73 | 75 | 0 | **0.0%** |
+
+### 2.5 `crates/hostkit` (33 Category B rewritten files vs `services/host` at `b190010`)
+
+| File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
+| --- | ---: | ---: | ---: | ---: |
+| `crates/hostkit/src/paths.rs` | 277 | 299 | 115 | **38.5%** |
+| `crates/hostkit/src/envfile.rs` | 253 | 346 | 36 | **10.4%** |
+| `crates/hostkit/src/hostconfig.rs` | 1798 | 2851 | 586 | **20.6%** |
+| `crates/hostkit/src/run.rs` | 278 | 222 | 49 | **22.1%** |
+| `crates/hostkit/src/services.rs` | 533 | 507 | 75 | **14.8%** |
+| `crates/hostkit/src/mongo.rs` | 246 | 584 | 40 | **6.8%** |
+| `crates/hostkit/src/mongo/wire.rs` | 305 | 582 | 47 | **8.1%** |
+| `crates/hostkit/src/doctor.rs` | 1067 | 1071 | 149 | **13.9%** |
+| `crates/hostkit/src/captures.rs` | 188 | 352 | 45 | **12.8%** |
+| `crates/hostkit/src/gamedata.rs` | 604 | 586 | 131 | **22.4%** |
+| `crates/hostkit/src/gamepack.rs` | 295 | 354 | 107 | **30.2%** |
+| `crates/hostkit/src/invite.rs` | 299 | 567 | 49 | **8.6%** |
+| `crates/hostkit/src/preset.rs` | 292 | 455 | 95 | **20.9%** |
+| `crates/hostkit/src/progression.rs` | 286 | 496 | 63 | **12.7%** |
+| `crates/hostkit/src/publish.rs` | 198 | 256 | 67 | **26.2%** |
+| `crates/hostkit/src/linux.rs` | 523 | 583 | 80 | **13.7%** |
+| `crates/hostkit/src/selfupdate.rs` | 970 | 1426 | 285 | **20.0%** |
+| `crates/hostkit/src/wine.rs` | 376 | 397 | 50 | **12.6%** |
+| `crates/hostkit/src/cli.rs` | 586 | 652 | 191 | **29.3%** |
+| `crates/hostkit/src/commands/doctor.rs` | 36 | 45 | 3 | **6.7%** |
+| `crates/hostkit/src/commands/gamedata.rs` | 128 | 139 | 18 | **12.9%** |
+| `crates/hostkit/src/commands/invite.rs` | 206 | 253 | 14 | **5.5%** |
+| `crates/hostkit/src/commands/multipliers.rs` | 88 | 149 | 9 | **6.0%** |
+| `crates/hostkit/src/commands/preset.rs` | 137 | 114 | 11 | **9.6%** |
+| `crates/hostkit/src/commands/publish_runtime.rs` | 82 | 69 | 9 | **13.0%** |
+| `crates/hostkit/src/commands/setup.rs` | 454 | 353 | 54 | **15.3%** |
+| `crates/hostkit/src/commands/setup/firewall.rs` | 77 | 201 | 3 | **1.5%** |
+| `crates/hostkit/src/commands/setup/install.rs` | 159 | 143 | 9 | **6.3%** |
+| `crates/hostkit/src/commands/setup/options.rs` | 580 | 646 | 48 | **7.4%** |
+| `crates/hostkit/src/commands/setup/paradox.rs` | 419 | 193 | 23 | **11.9%** |
+| `crates/hostkit/src/commands/start.rs` | 672 | 480 | 64 | **13.3%** |
+| `crates/hostkit/src/commands/start/control.rs` | 211 | 261 | 26 | **10.0%** |
+| `crates/hostkit/src/commands/update.rs` | 756 | 629 | 78 | **12.4%** |
+
+### 2.6 `crates/launcher-kit` (19 Category B files vs `launcher/src-tauri` at `b190010`)
+
+| File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
+| --- | ---: | ---: | ---: | ---: |
+| `crates/launcher-kit/src/bridge/types.rs` | 2007 | 795 | 719 | **90.4%** |
+| `crates/launcher-kit/src/core/pins.rs` | 9 | 60 | 9 | **15.0%** |
+| `crates/launcher-kit/src/core/text.rs` | 88 | 170 | 5 | **2.9%** |
+| `crates/launcher-kit/src/net/hostapi.rs` | 220 | 50 | 4 | **8.0%** |
+| `crates/launcher-kit/src/net/http.rs` | 407 | 227 | 45 | **19.8%** |
+| `crates/launcher-kit/src/net/http/to_file.rs` | 382 | 181 | 29 | **16.0%** |
+| `crates/launcher-kit/src/net/pinned.rs` | 211 | 230 | 51 | **22.2%** |
+| `crates/launcher-kit/src/net/runtime_files.rs` | 468 | 539 | 149 | **27.6%** |
+| `crates/launcher-kit/src/net/runtime_files/manifest.rs` | 133 | 86 | 15 | **17.4%** |
+| `crates/launcher-kit/src/net/runtime_files/tests.rs` | 673 | 479 | 35 | **7.3%** |
+| `crates/launcher-kit/src/net/verify.rs` | 221 | 353 | 85 | **24.1%** |
+| `crates/launcher-kit/src/net/verify/cache_file.rs` | 88 | 77 | 14 | **18.2%** |
+| `crates/launcher-kit/src/platform/dialogs.rs` | 155 | 53 | 36 | **67.9%** |
+| `crates/launcher-kit/src/platform/hostkit.rs` | 799 | 782 | 200 | **25.6%** |
+| `crates/launcher-kit/src/platform/hostkit/parse.rs` | 374 | 516 | 37 | **7.2%** |
+| `crates/launcher-kit/src/platform/hostserver.rs` | 754 | 841 | 141 | **16.8%** |
+| `crates/launcher-kit/src/platform/linux_runtime.rs` | 666 | 528 | 32 | **6.1%** |
+| `crates/launcher-kit/src/platform/requirements.rs` | 324 | 311 | 55 | **17.7%** |
+| `crates/launcher-kit/src/platform/system.rs` | 171 | 142 | 14 | **9.9%** |
 
 ---
 

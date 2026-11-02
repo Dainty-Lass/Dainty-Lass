@@ -30,8 +30,8 @@ through `winmm.dll`) and reaches the backend through a relay the launcher runs o
 
 | Folder | What |
 | --- | --- |
-| [`rust/`](rust) | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host`), `plugins/` (`network`, `chat`), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), `bins/` and `fuzz/` |
-| [`ui/`](ui) | [`dainty-lass-ui`](https://git.silentspud.com/silentspud/dainty-lass-ui) submodule: the DaintyLass Launcher and DaintyLass Manager front-end (SolidJS + Vite + Tailwind CSS, built with Bun into `ui/apps/web/dist` and served by `rust/launcher`) |
+| [root](.) | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host`), `plugins/` (`network`, `chat`), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), `bins/` and `fuzz/` |
+| [`ui/`](ui) | [`dainty-lass-ui`](https://git.silentspud.com/silentspud/dainty-lass-ui) submodule: the DaintyLass Launcher and DaintyLass Manager front-end (SolidJS + Vite + Tailwind CSS, built with Bun into `ui/apps/web/dist` and served by `launcher`) |
 | [`modules/rustic-isles/`](modules/rustic-isles) | [`rustic-isles`](https://git.silentspud.com/silentspud/rustic-isles) submodule: the Dauntless 1.14.7 (`isles-1-14-7`) and 1.12.0 (`isles-1-12-0`) game modules, `isles-core`, `isles-director`, `isles-chat`, `rifts-seam`, the `ParadoxRuntime` C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`, `reference/1.12.0`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | [`rustic-rifts`](https://git.silentspud.com/silentspud/rustic-rifts) submodule: peer-to-peer realms, `rifts-transport` (WebRTC over `libjuice` and `turn-rs`), `rifts-guard`, `rifts-server`, and the client hosting bridge |
 | [`modules/legacy-revived/`](modules/legacy-revived) | [`legacy-revived`](https://git.silentspud.com/silentspud/legacy-revived) submodule: the Dauntless 1.4.4 game module (`revived-1-4-4`), `metagame`, `deploy`, and the 1.4.4 client patches (`native/client-patches/`, `native/xinput1_3-proxy/`) |
@@ -63,7 +63,7 @@ The UI (`ui/`) builds with Bun (`packageManager` in `ui/package.json`):
 cd ui && bun install --frozen-lockfile && bun run build
 ```
 
-The desktop apps live in `rust/launcher` (`npm ci && npm run build:client` for `dainty-lass-client` and `npm run build:manager` for `dainty-lass-manager`, which use Bun to build the page from `ui/`). The runtime and the CatalogExporter need a host's own SDK
+The desktop apps live in `launcher` (`npm ci && npm run build:client` for `dainty-lass-client` and `npm run build:manager` for `dainty-lass-manager`, which use Bun to build the page from `ui/`). The runtime and the CatalogExporter need a host's own SDK
 ([docs/sdk-and-game-data.md](docs/sdk-and-game-data.md)). `bash docker/run-tests.sh` builds the images and runs
 every server suite inside them.
 

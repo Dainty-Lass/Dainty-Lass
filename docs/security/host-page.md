@@ -34,11 +34,11 @@ the player's account key in reach: the list and the folder it points into are th
   one DLL copy and `mystic_loader.ini` in the game's `Win64` folder, and for Dumper-7 the runtime DLLs renamed
   aside; `export_flags.txt` there for CatalogExporter.
 
-Code: `rust/launcher/src-tauri/src/controller/host.rs`, `platform/loader_session.rs`, `platform/hostkit.rs` and
+Code: `launcher/src-tauri/src/controller/host.rs`, `platform/loader_session.rs`, `platform/hostkit.rs` and
 `hostkit/parse.rs`, `platform/hostserver.rs`, `platform/requirements.rs`; the pre-launch check and the session's end
 in `controller/mod.rs` (`play_now`, `game_changed`).
 
-Fuzz target: `launcher_host` in `rust/fuzz` (`hostkit/parse.rs`: the host kit's output, the invite and update JSON,
+Fuzz target: `launcher_host` in `fuzz` (`hostkit/parse.rs`: the host kit's output, the invite and update JSON,
 `host.toml` and `host.json`, vswhere). It also checks that an invite that parses is a short `reforged-revival://` link on one line,
 and that multipliers that parse are finite, from 1 to 100, and private only.
 
@@ -48,7 +48,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
 
 - [ ] Nothing in the launcher opens another process to write into it or start a thread in it: no `OpenProcess`,
       `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread`, `NtCreateThreadEx` or `SetWindowsHookEx`
-      (`git grep` over `rust/launcher`). RA2's `platform/injector.rs` is gone and the `Platform` trait has no
+      (`git grep` over `launcher`). RA2's `platform/injector.rs` is gone and the `Platform` trait has no
       `inject`.
 - [ ] The `windows` crate features are only the clipboard's and the key store's (`Cargo.toml`: `Foundation`,
       `Security_Cryptography`, `System_DataExchange`, and `System_Memory` for the clipboard's global memory); no

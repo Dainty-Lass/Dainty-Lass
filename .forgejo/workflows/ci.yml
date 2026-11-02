@@ -1,7 +1,7 @@
 # Checks every push, by code family (MIGRATION_PLAN.md RR3): a push to a work branch runs only the jobs of the
 # families it changes, and the "CI ok" job sums them up for branch protection. It is the one required check. A
 # push to main or plan, a manual run and any change to the workflows run every family.
-#  - Rust (rust/, modules/): fmt, clippy and tests on Linux and Windows, each module alone, cargo-deny, a short run
+#  - Rust (the root workspace, modules/): fmt, clippy and tests on Linux and Windows, each module alone, cargo-deny, a short run
 #    of every fuzz target
 #  - Paradox (ParadoxBackend, ParadoxDirector in modules/rustic-isles/reference/1.14.7): npm ci and tests
 #  - UI (ui/, dainty-lass-ui): bun install and build (DD11)
@@ -73,7 +73,19 @@ jobs:
             workflow:
               - .forgejo/workflows/**
             rust:
-              - rust/**
+              - Cargo.toml
+              - Cargo.lock
+              - .cargo/**
+              - rust-toolchain.toml
+              - deny.toml
+              - clippy.toml
+              - rustfmt.toml
+              - bins/**
+              - crates/**
+              - plugins/**
+              - services/**
+              - launcher/src-tauri/**
+              - fuzz/**
               - modules/**
             paradox:
               - modules/rustic-isles
@@ -87,7 +99,19 @@ jobs:
               - compose*.yaml
               - .dockerignore
               - .env.example
-              - rust/**
+              - Cargo.toml
+              - Cargo.lock
+              - .cargo/**
+              - rust-toolchain.toml
+              - deny.toml
+              - clippy.toml
+              - rustfmt.toml
+              - bins/**
+              - crates/**
+              - plugins/**
+              - services/**
+              - launcher/src-tauri/**
+              - fuzz/**
               - native/**
               - modules/**
             # What the harness runs (the gateway and host kit in the images, the network plugin) and checks (the launcher's
@@ -96,13 +120,13 @@ jobs:
               - docker/**
               - compose*.yaml
               - .env.example
-              - rust/Cargo.toml
-              - rust/Cargo.lock
-              - rust/plugins/network/**
-              - rust/services/gateway/**
-              - rust/services/host/**
-              - rust/crates/**
-              - rust/launcher/**
+              - Cargo.toml
+              - Cargo.lock
+              - plugins/network/**
+              - services/gateway/**
+              - services/host/**
+              - crates/**
+              - launcher/**
 
       - name: Pick the families, run everything on main, plan, manual runs and workflow changes
         id: pick
@@ -127,7 +151,7 @@ jobs:
           done
           # Tauri needs WebKitGTK and GTK3 to build on Linux
           tauri=false
-          if grep -qE '^tauri[[:space:]]*=' rust/launcher/src-tauri/Cargo.toml 2>/dev/null; then tauri=true; fi
+          if grep -qE '^tauri[[:space:]]*=' launcher/src-tauri/Cargo.toml 2>/dev/null; then tauri=true; fi
           echo "rust-tauri=$tauri" | tee -a "$GITHUB_OUTPUT"
 
   rust:
@@ -144,12 +168,10 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: rust
     steps:
       # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
       - name: Long paths for git
         if: runner.os == 'Windows'
-        working-directory: .
         run: git config --global core.longpaths true
 
       # CI_READ_TOKEN: a read-only token, for when the job's own token can't read the submodules' repositories
@@ -162,14 +184,13 @@ jobs:
       # The docker label's image has Node for the actions but no Rust
       - name: Install rustup
         if: runner.os == 'Linux'
-        working-directory: .
         run: |
           if ! command -v rustup > /dev/null; then
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
             echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           fi
 
-      # rustup reads rust/rust-toolchain.toml and installs the pinned toolchain.
+      # rustup reads rust-toolchain.toml and installs the pinned toolchain.
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
@@ -189,7 +210,7 @@ jobs:
       - name: No crate from the silentspud registry in Cargo.lock
         run: |
           if grep -n 'sparse+https://git.silentspud.com/' Cargo.lock; then
-            echo "::error::rust/Cargo.lock takes a crate from the silentspud registry: a [patch] went unused (DF1)"
+            echo "::error::Cargo.lock takes a crate from the silentspud registry: a [patch] went unused (DF1)"
             exit 1
           fi
 
@@ -216,14 +237,13 @@ jobs:
       # --workspace stops at the host's members; a module builds alone against the registry (DF1).
       # CARGO_REGISTRY_TOKEN: "Bearer <token>" with package read access, while the instance needs sign-in.
       - name: Each module alone
-        working-directory: .
         env:
           REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           set -euo pipefail
           shopt -s nullglob
           [ -z "$REGISTRY_TOKEN" ] || export CARGO_REGISTRIES_SILENTSPUD_TOKEN="$REGISTRY_TOKEN"
-          for manifest in modules/*/Cargo.toml modules/*/rust/Cargo.toml; do
+          for manifest in modules/*/Cargo.toml; do
             dir="$(dirname "$manifest")"
             echo "::group::$dir"
             (cd "$dir" && { rustup show active-toolchain || rustup toolchain install; } && cargo test --workspace --locked --no-fail-fast)
@@ -245,17 +265,17 @@ jobs:
 
       # The action's image ships an older cargo that rejects manifests the pinned toolchain accepts.
       - id: toolchain
-        run: echo "channel=$(grep '^channel' rust/rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
+        run: echo "channel=$(grep '^channel' rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
 
       - uses: https://github.com/EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
-          manifest-path: rust/Cargo.toml
+          manifest-path: Cargo.toml
           command: check
           arguments: --all-features
           rust-version: ${{ steps.toolchain.outputs.channel }}
 
   # Every parser of untrusted input, fuzzed for a short time on every change (MIGRATION_PLAN.md RD10, RX3). The
-  # 24-hour run before a cutover is the one in rust/fuzz/Cargo.toml. A crash keeps its input as an artifact.
+  # 24-hour run before a cutover is the one in fuzz/Cargo.toml. A crash keeps its input as an artifact.
   fuzz:
     name: Fuzz the untrusted-input parsers
     needs: changes
@@ -266,7 +286,7 @@ jobs:
       NIGHTLY: nightly-2026-10-20
     defaults:
       run:
-        working-directory: rust/fuzz
+        working-directory: fuzz
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -275,7 +295,6 @@ jobs:
           token: ${{ secrets.CI_READ_TOKEN || github.token }}
 
       - name: Install rustup
-        working-directory: .
         run: |
           if ! command -v rustup > /dev/null; then
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
@@ -284,7 +303,7 @@ jobs:
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: rust/fuzz
+          workspaces: fuzz
           key: fuzz
 
       - name: Install the pinned nightly and cargo-fuzz
@@ -308,7 +327,7 @@ jobs:
         uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
         with:
           name: fuzz-crashes
-          path: rust/fuzz/artifacts/
+          path: fuzz/artifacts/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -410,7 +429,6 @@ jobs:
           token: ${{ secrets.CI_READ_TOKEN || github.token }}
 
       - name: Install the pinned toolchain
-        working-directory: rust
         run: rustup show active-toolchain || rustup toolchain install
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -427,13 +445,13 @@ jobs:
           bun-version-file: ui/package.json
 
       - name: Install launcher CLI dependencies and run bridge tests
-        working-directory: rust/launcher
+        working-directory: launcher
         run: |
           npm ci --no-audit --no-fund
           npm test
 
       - name: Build unsigned NSIS installers (DaintyLass Launcher and DaintyLass Manager)
-        working-directory: rust/launcher
+        working-directory: launcher
         run: |
           npm run build:client
           npm run build:manager
@@ -443,7 +461,7 @@ jobs:
         uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
         with:
           name: windows-nsis-installers
-          path: rust/target/release/bundle/nsis/*-setup.exe
+          path: target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14
 
@@ -473,7 +491,6 @@ jobs:
           fi
 
       - name: Install the pinned toolchain
-        working-directory: rust
         run: rustup show active-toolchain || rustup toolchain install
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2

@@ -2,7 +2,7 @@
 
 ## 1. Purpose and Scope
 
-`proxy` (`rust/crates/proxy`) provides RFC 9110 hop-by-hop HTTP header filtering and idle-timed bidirectional stream tunnelling shared by the server TLS gateway and the launcher local proxy.
+`proxy` (`crates/proxy`) provides RFC 9110 hop-by-hop HTTP header filtering and idle-timed bidirectional stream tunnelling shared by the server TLS gateway and the launcher local proxy.
 
 - **Package name**: `proxy`
 - **Edition**: `2024`

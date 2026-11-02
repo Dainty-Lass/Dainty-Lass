@@ -1,6 +1,6 @@
 # Clean-Room Behaviour Specification: `crates/hostkit` (DL3a)
 
-> **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `rust/crates/hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `rust/services/host` for features that link or invoke Dauntless Revived (`DR`) services.
+> **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `crates/hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `services/host` for features that link or invoke Dauntless Revived (`DR`) services.
 >
 > All types, function signatures, CLI flags, configuration schemas (`host.toml`, `host.yaml`, `host.json`, `secrets.env`, `<service>.env`), file paths, wire formats, exit codes, error strings, and test invariants are specified below from observable contracts (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, and the integration/unit test suite) without copying implementation code or referencing prior Node host-kit internals.
 
@@ -8,7 +8,7 @@
 
 ## 1. Module Provenance & Licensing Classification
 
-Every source file currently in `rust/services/host/src/` falls into one of three categories under **DD26**:
+Every source file currently in `services/host/src/` falls into one of three categories under **DD26**:
 
 ### 1.1 Category A — Original DaintyLass Modules (Already MIT-Eligible; Move or Keep as-is)
 
@@ -40,7 +40,7 @@ These modules were written originally for DaintyLass in Rust with no `ReforgedHo
 
 ### 1.2 Category B — The 22 Ported Host-Kit Modules (Subject to DL2 Relicensing or DL3b Clean-Room Reimplementation)
 
-These 22 modules were ported during rows RH1–RH5 and must be reimplemented from this clean-room specification in `rust/crates/hostkit` under `MIT` (unless re-licensed upstream under DL2):
+These 22 modules were ported during rows RH1–RH5 and must be reimplemented from this clean-room specification in `crates/hostkit` under `MIT` (unless re-licensed upstream under DL2):
 
 1. `paths` (`src/paths.rs`)
 2. `envfile` (`src/envfile.rs`)
@@ -67,9 +67,9 @@ These 22 modules were ported during rows RH1–RH5 and must be reimplemented fro
 
 ---
 
-### 1.3 Category C — AGPL-3.0-or-later Shell Modules (Cite `DR` / Link AGPL Crates; Remain in `rust/services/host`)
+### 1.3 Category C — AGPL-3.0-or-later Shell Modules (Cite `DR` / Link AGPL Crates; Remain in `services/host`)
 
-These files directly cite Dauntless Revived (`DR`) or link AGPL-3.0-or-later service crates and therefore **remain in `rust/services/host`** under `AGPL-3.0-or-later`:
+These files directly cite Dauntless Revived (`DR`) or link AGPL-3.0-or-later service crates and therefore **remain in `services/host`** under `AGPL-3.0-or-later`:
 
 | Path in `services/host/src/` | Why it Remains in the AGPL Shell (`services/host`) |
 | --- | --- |
@@ -158,7 +158,7 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - Let `hunts = max_hunts.clamp(1, MAX_HUNTS) as u16`.
   - Returns `(PORTS.game_first.min(PORTS.game_last - 1 - hunts), PORTS.game_last)` (i.e. `(8770, 8777)` for `1..=6` hunts, and `(8776 - hunts, 8777)` for `7..=10` hunts, down to `(8766, 8777)` at `10`).
 - `pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError>`:
-  Walks `start` (canonicalized if possible) and up to 8 parent directories (`0..=8`). Returns `Ok(dir)` for the first directory containing either `rust/services/host/Cargo.toml` or `release.json`. If none matches, returns `Err(HostError::message(format!("could not find the project root from {}", start.display())))`.
+  Walks `start` (canonicalized if possible) and up to 8 parent directories (`0..=8`). Returns `Ok(dir)` for the first directory containing either `services/host/Cargo.toml` or `release.json`. If none matches, returns `Err(HostError::message(format!("could not find the project root from {}", start.display())))`.
 - `pub fn locate_repo_root() -> Result<PathBuf, HostError>`:
   Tries `std::env::current_dir()` via `find_repo_root`, then `std::env::current_exe()`'s parent directory via `find_repo_root`.
 - `#[derive(Debug, Clone, PartialEq, Eq)] pub struct Paths`:
@@ -1546,7 +1546,7 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
 
 ## 3. Target Crate Architecture for DL3b (`crates/hostkit` vs `services/host`)
 
-1. **`rust/crates/hostkit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`):**
+1. **`crates/hostkit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`):**
    - Contains all Category A (MIT-eligible original modules) and Category B (clean-room reimplemented modules from Section 2 and Section 4).
    - Exposes `pub mod hooks` with `pub trait HostHooks: Send + Sync` and `set_hooks` / `get`:
      ```rust
@@ -1605,9 +1605,9 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
      }
      ```
    - Has **zero** normal or dev dependencies on `gateway`, `allowlist`, `content`, `chat`, `isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `isles-1-12-0`, `rifts-host`, `rifts-seam`, or `revived-1-4-4`.
-2. **`rust/services/host` (`license = "AGPL-3.0-only"`):**
+2. **`services/host` (`license = "AGPL-3.0-only"`):**
    - Thin binary/library shell that depends on `hostkit` and the AGPL module/service crates (`isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `gateway`, `allowlist`, `content`, `revived-1-4-4`).
-   - Implements `HostHooks`, registers it via `Once`, and re-exports `hostkit` modules so all existing integration tests in `rust/services/host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
+   - Implements `HostHooks`, registers it via `Once`, and re-exports `hostkit` modules so all existing integration tests in `services/host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
 
 ---
 
