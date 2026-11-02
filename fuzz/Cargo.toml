@@ -45,6 +45,8 @@ protocol = { path = "../crates/protocol" }
 remote = { path = "../crates/remote" }
 # relay_signal: the ICE signals the relay carries and its relay-only filter (RD27)
 rifts-relay = { path = "../crates/rifts-relay" }
+# admission_control, admission_ticket: the control frames and join tickets transports exchange (RD27)
+rifts-admission = { path = "../crates/rifts-admission" }
 serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
@@ -261,6 +263,20 @@ bench = false
 [[bin]]
 name = "relay_signal"
 path = "fuzz_targets/relay_signal.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "admission_control"
+path = "fuzz_targets/admission_control.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "admission_ticket"
+path = "fuzz_targets/admission_ticket.rs"
 test = false
 doc = false
 bench = false

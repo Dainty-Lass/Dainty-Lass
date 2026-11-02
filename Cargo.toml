@@ -37,6 +37,7 @@ epic = { path = "crates/epic" }
 chat = { path = "crates/chat" }
 rifts-seam = { path = "crates/rifts-seam" }
 rifts-relay = { path = "crates/rifts-relay" }
+rifts-admission = { path = "crates/rifts-admission" }
 hmac = "0.13"
 
 crossterm = "0.29"
@@ -46,6 +47,9 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm"]
 aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
 aes-gcm = "0.11"
+# ES256 admission tickets (rifts-admission). Its types are in that crate's public API, so dainty-restricted resolves
+# the same line
+p256 = { version = "0.14", features = ["ecdsa", "pem", "pkcs8", "std"] }
 # The admin API's GraphQL schema (crates/admin); no web framework integration, no playground
 async-graphql = { version = "7", default-features = false }
 base64 = "0.23"
