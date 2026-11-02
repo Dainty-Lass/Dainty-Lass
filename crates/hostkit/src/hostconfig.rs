@@ -3,10 +3,12 @@
 
 pub mod guard;
 pub mod modules;
+pub mod services;
 pub mod yaml;
 
 pub use guard::GuardConfig;
 pub use modules::{ExternalModuleEntry, ModulesConfig, NetworkConfig};
+pub use services::{ServiceEntry, ServicesConfig};
 
 use std::path::{Path, PathBuf};
 
@@ -765,6 +767,8 @@ pub struct HostConfig {
     pub history: Option<HistoryConfig>,
     pub switches: Option<SwitchesConfig>,
     pub modules: Option<ModulesConfig>,
+    /// `[services.<name>]`: services loaded as libraries (RD27); `None` composes the compiled-in ones
+    pub services: Option<ServicesConfig>,
     pub network: Option<NetworkConfig>,
     pub remote: Option<RemoteConfig>,
     pub file: FileForm,
@@ -899,6 +903,10 @@ impl HostConfig {
             Some(m) if !m.is_null() => Some(ModulesConfig::from_json(m)?),
             _ => None,
         };
+        let services = match obj.get("services") {
+            Some(s) if !s.is_null() => Some(services::from_json(s)?),
+            _ => None,
+        };
         let network = match obj.get("network") {
             Some(n) if !n.is_null() => Some(NetworkConfig::from_json(n)?),
             _ => None,
@@ -928,6 +936,7 @@ impl HostConfig {
             history,
             switches,
             modules,
+            services,
             network,
             remote,
             file: FileForm {
@@ -955,6 +964,9 @@ impl HostConfig {
             }
             if self.modules.is_none() {
                 self.modules = prev.modules.clone();
+            }
+            if self.services.is_none() {
+                self.services = prev.services.clone();
             }
             if self.network.is_none() {
                 self.network = prev.network.clone();
@@ -1127,6 +1139,9 @@ impl HostConfig {
         }
         if let Some(m) = &self.modules {
             canonical.insert("modules".into(), m.to_json());
+        }
+        if let Some(s) = &self.services {
+            canonical.insert("services".into(), services::to_json(s));
         }
         merge_document_order(&self.file.document, canonical)
     }
@@ -1904,6 +1919,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(m) => Some(ModulesConfig::from_json(m)?),
         None => None,
     };
+    let services_cfg = match obj.get("services").filter(|v| !v.is_null()) {
+        Some(s) => Some(services::from_json(s)?),
+        None => None,
+    };
     let network_cfg = match obj.get("network").filter(|v| !v.is_null()) {
         Some(n) => {
             let net = NetworkConfig::from_json(n)?;
@@ -2035,6 +2054,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(m) = modules_cfg {
         canonical.insert("modules".into(), m.to_json());
     }
+    if let Some(s) = services_cfg {
+        canonical.insert("services".into(), services::to_json(&s));
+    }
     Ok(Value::Object(merge_document_order(obj, canonical)))
 }
 
@@ -2056,6 +2078,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "network",
         "remote",
         "modules",
+        "services",
     ];
     let mut out = Map::new();
     for (k, orig_v) in orig {

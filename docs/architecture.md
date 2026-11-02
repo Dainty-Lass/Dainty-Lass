@@ -51,7 +51,14 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
   (`server-minimal`, `server-console`, `dainty-lass-manager` with `server-gui`) or as an external child process (`module_api::child::main`)
   speaking length-prefixed JSON frames over stdin/stdout ([writing-a-module.md](writing-a-module.md),
   [security/module-host.md](security/module-host.md)). Only external executables listed in `host.toml` with their
-  pinned SHA-256 are ever started.
+  pinned SHA-256 are ever started. A module can also be a library (`[[modules.external]]` with a `.dll` or `.so`
+  path), loaded by `crates/plugin-host` over the C ABI in `module_api::plugin` (RD27).
+- **Services as libraries (RD27).** A service `host.toml` names in `[services.<name>]` (its `library` path and
+  `sha256`) runs as a supervised module of the controller in place of the compiled-in one
+  (`controller::service_library`, `hostkit::serve::compose`); `content`, `chat` and `gateway` are known by name and
+  what they serve as core plugins. The MIT core, `bins/dainty-lass-server`, has only the admin API and remote
+  management built in and takes every other service this way; dainty-restricted's server binaries still compile
+  them in unless `host.toml` lists them.
 
 ## Joining a server
 
