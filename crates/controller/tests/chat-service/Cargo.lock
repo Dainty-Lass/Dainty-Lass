@@ -896,7 +896,6 @@ dependencies = [
 name = "service-plugin"
 version = "0.0.0"
 dependencies = [
- "base64 0.23.1",
  "module-api",
  "serde",
  "serde_json",
