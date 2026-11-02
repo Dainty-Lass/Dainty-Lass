@@ -3,8 +3,9 @@
 //! A game module (DD3, DD4) is a [`GameModule`]: a [`ModuleManifest`] keyed by an exact [`GameVersion`],
 //! a registration of what it needs from the core plugins ([`Registrar`]), and the calls the host makes.
 //! The same trait runs compiled in ([`InProcessModule`]) or as its own process (DD5): [`child::main`] wraps
-//! it as an executable, [`ChildModule`] starts and drives one over the frame protocol in [`frame`]. The
-//! host holds either as a [`ModuleDriver`]. Compiled-in plugins (gateway, content, admin API, chat,
+//! it as an executable and [`export_plugin!`] as a library the core loads ([`plugin`], RD27), and
+//! [`ChildModule`] drives either over the frame protocol in [`frame`]. The host holds any of them as a
+//! [`ModuleDriver`]. Compiled-in plugins (gateway, content, admin API, chat,
 //! network) implement [`CorePlugin`].
 //!
 //! The network ([`network`], DN2), chat ([`chat`], DN10), actor ([`actor`], DH1) and patch-set and theme
@@ -22,6 +23,7 @@ pub mod manifest;
 pub mod module;
 pub mod network;
 mod peer;
+pub mod plugin;
 pub mod registrar;
 pub mod stub;
 mod tree;

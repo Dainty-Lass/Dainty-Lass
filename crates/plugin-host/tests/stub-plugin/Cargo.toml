@@ -1,0 +1,16 @@
+# The module-api stub as a library, for plugin-host's tests: they build it into target/plugin-fixtures. A
+# workspace of its own, so `cargo test --workspace` neither builds it nor waits on it.
+[package]
+name = "stub-plugin"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+module-api = { path = "../../../module-api" }
+
+[workspace]

@@ -46,6 +46,8 @@ toml_edit = { version = "0.25", default-features = false, features = ["parse", "
 # history_record: change-log records read back during a restore (DH5)
 store = { path = "../crates/store" }
 url = "2"
+# plugin_bytes: the stream reader runs on a runtime
+tokio = { version = "1", features = ["rt", "sync", "io-util"] }
 
 [[bin]]
 name = "admin_request"
@@ -141,6 +143,14 @@ bench = false
 [[bin]]
 name = "launcher_region"
 path = "fuzz_targets/launcher_region.rs"
+test = false
+doc = false
+bench = false
+
+# plugin_bytes: what a module library hands the core, through the stream a child's stdout goes through (RD27)
+[[bin]]
+name = "plugin_bytes"
+path = "fuzz_targets/plugin_bytes.rs"
 test = false
 doc = false
 bench = false

@@ -616,6 +616,7 @@ dependencies = [
  "history-ship",
  "module-api",
  "network",
+ "plugin-host",
  "protocol",
  "remote",
  "serde",
@@ -2061,6 +2062,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
+name = "libloading"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
+dependencies = [
+ "cfg-if",
+ "winapi",
+]
+
+[[package]]
 name = "libm"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2541,6 +2552,16 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "plugin-host"
+version = "0.0.0"
+dependencies = [
+ "libloading",
+ "module-api",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "polling"

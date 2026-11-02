@@ -105,7 +105,8 @@ pub fn open_pinned(path: &Path) -> std::io::Result<std::fs::File> {
     options.open(path)
 }
 
-fn hash_file(file: &mut std::fs::File) -> std::io::Result<Sha256Hex> {
+/// The SHA-256 of an open file, read in full from its handle.
+pub fn hash_file(file: &mut std::fs::File) -> std::io::Result<Sha256Hex> {
     use std::io::Read as _;
     let mut hasher = Sha256::new();
     let mut buf = vec![0u8; 64 << 10];
@@ -135,16 +136,16 @@ pub async fn file_sha256(path: &Path) -> std::io::Result<Sha256Hex> {
     Ok(open_and_hash(path).await?.1)
 }
 
-/// What to start: the open handle itself where the OS can run one, the path elsewhere.
+/// What to start or load: the open handle itself where the OS can run one, the path elsewhere.
 #[cfg(target_os = "linux")]
-fn program(path: &Path, file: &std::fs::File) -> PathBuf {
+pub fn program(path: &Path, file: &std::fs::File) -> PathBuf {
     use std::os::fd::AsRawFd as _;
     let by_handle = PathBuf::from(format!("/proc/self/fd/{}", file.as_raw_fd()));
     if by_handle.exists() { by_handle } else { path.to_owned() }
 }
 
 #[cfg(not(target_os = "linux"))]
-fn program(path: &Path, _file: &std::fs::File) -> PathBuf {
+pub fn program(path: &Path, _file: &std::fs::File) -> PathBuf {
     path.to_owned()
 }
 

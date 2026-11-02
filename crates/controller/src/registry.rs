@@ -41,7 +41,7 @@ pub type ModuleFactory = Arc<dyn Fn() -> Arc<dyn GameModule> + Send + Sync>;
 #[derive(Clone)]
 pub enum ModuleSource {
     CompiledIn(ModuleFactory),
-    /// An executable pinned by its SHA-256 (DD5)
+    /// An executable, or a library (`.dll`, `.so`) the core loads (RD27), pinned by its SHA-256 (DD5)
     External(ExternalModule),
 }
 
@@ -193,6 +193,7 @@ pub struct ModuleInfo {
 enum Driver {
     InProcess(InProcessModule),
     Child(ChildModule),
+    Library(plugin_host::DylibModule),
 }
 
 impl ModuleDriver for Driver {
@@ -217,6 +218,7 @@ impl Driver {
         match self {
             Self::InProcess(module) => module,
             Self::Child(module) => module,
+            Self::Library(module) => module,
         }
     }
 
@@ -225,6 +227,7 @@ impl Driver {
         match self {
             Self::InProcess(_) => None,
             Self::Child(child) => child.failure(),
+            Self::Library(library) => library.failure(),
         }
     }
 }
@@ -756,11 +759,19 @@ impl Inner {
                         .filter(|p| !p.as_os_str().is_empty())
                         .map(Path::to_owned);
                 }
-                Driver::Child(
-                    ChildModule::spawn(&external, self.options.node.clone(), link, options)
-                        .await
-                        .map_err(|e| failed(e.to_string()))?,
-                )
+                if plugin_host::is_library(&external.path) {
+                    Driver::Library(
+                        plugin_host::DylibModule::load(&external, self.options.node.clone(), link, options)
+                            .await
+                            .map_err(|e| failed(e.to_string()))?,
+                    )
+                } else {
+                    Driver::Child(
+                        ChildModule::spawn(&external, self.options.node.clone(), link, options)
+                            .await
+                            .map_err(|e| failed(e.to_string()))?,
+                    )
+                }
             }
         };
         let driver = Arc::new(driver);

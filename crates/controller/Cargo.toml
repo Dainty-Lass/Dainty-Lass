@@ -37,8 +37,9 @@ history-ship = { workspace = true, optional = true }
 network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
 remote = { workspace = true, optional = true }
 store = { workspace = true, optional = true }
-# Game modules and plugins, compiled in or as their own process (DF3)
+# Game modules and plugins, compiled in, as their own process (DF3) or as a library (RD27)
 module-api.workspace = true
+plugin-host.workspace = true
 protocol.workspace = true
 serde.workspace = true
 serde_json.workspace = true
