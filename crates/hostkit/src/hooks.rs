@@ -105,11 +105,11 @@ pub trait HostHooks: Send + Sync {
         &self,
         controller: &mut controller::ServerController,
         paths: &Paths,
-        _config: &HostConfig,
+        config: &HostConfig,
         registry: &controller::ModuleRegistry,
         library: controller::ServiceLibrary,
     ) -> Result<(), HostError> {
-        crate::serve::add_service_library(controller, paths, registry, library)
+        crate::serve::add_service_library(controller, paths, config, registry, library)
     }
 
     fn ensure_gateway_cert(&self, _paths: &Paths, _config: &HostConfig) -> Result<(), HostError> {

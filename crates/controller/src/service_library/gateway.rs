@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The core's side of the gateway library (RD27, `service_plugin::gateway`): what the host handed the gateway and
-//! the allowlist in-process, as messages. Before each attach the library is told where the module's ports were
-//! placed (it can't ask the registry back while it answers the attach); its node links are bound to this registry's
-//! [`NodeServices`](crate::NodeServices) through [`GatewayLinks`]; and it asks the core for each admitted peer call,
-//! each enrollment and each region report. Only control traffic crosses: the library keeps TLS, the policy and the
-//! proxying to backends (docs/security/gateway.md in dainty-restricted).
+//! The core's side of the gateway service (RD27, `service_plugin::gateway`), loaded as a library or compiled in: what
+//! the host handed the gateway and the allowlist in-process, as messages. Before each attach the service is told
+//! where the module's ports were placed (it can't ask the registry back while it answers the attach); its node links
+//! are bound to this registry's [`NodeServices`](crate::NodeServices) through [`GatewayLinks`]; and it asks the core
+//! for each admitted peer call, each enrollment and each region report. Only control traffic crosses: the service
+//! keeps TLS, the policy and the proxying to backends (docs/security/gateway.md in dainty-restricted).
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, PoisonError, Weak};
@@ -21,11 +21,11 @@ use service_plugin::{FromService, ToService};
 
 pub use service_plugin::gateway::AllowlistMode;
 
-use super::{Extension, RunLink, ServiceLibrary, service_library_with};
+use super::{Extension, RunLink, ServiceLibrary, service_compiled_in_with, service_library_with};
 use crate::node_services::{GatewayLinks, RemoteEnrollCallback};
 use crate::{LoadHook, Module, ModuleRegistry, WeakRegistry};
 
-/// How the core composes the gateway library, sent before each start.
+/// How the core composes the gateway, sent before each start.
 #[derive(Debug, Clone)]
 pub struct GatewayOptions {
     pub allowlist: AllowlistMode,
@@ -33,9 +33,9 @@ pub struct GatewayOptions {
     pub ws_port: Option<u16>,
 }
 
-/// The gateway library's core side: the ring's allowlist sink, for the network module.
+/// The gateway's core side: the ring's allowlist sink, for the network module.
 #[derive(Clone)]
-pub struct GatewayLibrary(Arc<Core>);
+pub struct GatewayHandle(Arc<Core>);
 
 /// The module that runs the gateway library on `gateway.env`, registered with `registry` as the core plugin for
 /// routes and UDP ranges, and the handle the network module takes the allowlist from.
@@ -44,7 +44,26 @@ pub fn gateway_library(
     env: Env,
     registry: Option<&ModuleRegistry>,
     options: GatewayOptions,
-) -> (Module, GatewayLibrary) {
+) -> (Module, GatewayHandle) {
+    let core = core(registry, options);
+    let module = service_library_with(library, env, registry, Some(Arc::new(Ext(core.clone()))));
+    (module, GatewayHandle(core))
+}
+
+/// [`gateway_library`] for the same service compiled in: `make` builds what the library exports, and it runs over the
+/// same protocol with the same core side (RD27).
+pub fn gateway_compiled_in<S: service_plugin::Service>(
+    make: impl Fn() -> S + Send + Sync + 'static,
+    env: Env,
+    registry: Option<&ModuleRegistry>,
+    options: GatewayOptions,
+) -> (Module, GatewayHandle) {
+    let core = core(registry, options);
+    let module = service_compiled_in_with(make, env, registry, Some(Arc::new(Ext(core.clone()))));
+    (module, GatewayHandle(core))
+}
+
+fn core(registry: Option<&ModuleRegistry>, options: GatewayOptions) -> Arc<Core> {
     let core = Arc::new(Core {
         registry: registry.map(ModuleRegistry::downgrade),
         options,
@@ -55,12 +74,11 @@ pub fn gateway_library(
     if let Some(registry) = registry {
         registry.add_hook(Arc::new(Hook(Arc::downgrade(&core))));
     }
-    let module = service_library_with(library, env, registry, Some(Arc::new(Ext(core.clone()))));
-    (module, GatewayLibrary(core))
+    core
 }
 
-impl GatewayLibrary {
-    /// Players the ring admits go to the library's allowlist (DN8, DN9), as `InProcessAllowlistSink` did.
+impl GatewayHandle {
+    /// Players the ring admits go to the gateway's allowlist (DN8, DN9).
     pub fn allowlist_sink(&self) -> Arc<dyn network_plugin::ring::AllowlistSink> {
         Arc::new(Sink(Arc::downgrade(&self.0)))
     }
@@ -131,7 +149,7 @@ impl Core {
     }
 }
 
-/// The core's [`Extension`] for the library.
+/// The core's [`Extension`] for the gateway.
 struct Ext(Arc<Core>);
 
 impl Extension for Ext {
@@ -147,8 +165,12 @@ impl Extension for Ext {
         self.0.before_attach(module)
     }
 
-    fn message(&self, message: FromService) {
+    fn message(&self, message: FromService) -> Result<(), String> {
+        let FromService::Gateway { message } = message else {
+            return Err(String::from("a message this service may not send"));
+        };
         self.0.message(message);
+        Ok(())
     }
 }
 
@@ -185,10 +207,7 @@ impl Core {
         self.placed(module, running).into_iter().collect()
     }
 
-    fn message(self: &Arc<Self>, message: FromService) {
-        let FromService::Gateway { message } = message else {
-            return;
-        };
+    fn message(self: &Arc<Self>, message: FromGateway) {
         match message {
             FromGateway::NodeLinks { identity } => self.bind(identity),
             FromGateway::Part { id, data } => lock(&self.parts).push(id, data),
@@ -252,7 +271,7 @@ impl Core {
 }
 
 impl Core {
-    /// The library's node links are up: this registry's node services answer them.
+    /// The service's node links are up: this registry's node services answer them.
     fn bind(self: &Arc<Self>, identity: NodeIdentity) {
         let Some(services) = self.services() else {
             return;
@@ -277,8 +296,8 @@ fn failure(error: &LinkError) -> NodeFailure {
     }
 }
 
-/// The library's node links as [`NodeServices`](crate::NodeServices) binds them. The endpoint that admits peers is
-/// the library's; this one only holds the identity it reported. Calls are answered by the registry's node services
+/// The service's node links as [`NodeServices`](crate::NodeServices) binds them. The endpoint that admits peers is
+/// the service's; this one only holds the identity it reported. Calls are answered by the registry's node services
 /// whatever is attached here, so `attach` sends nothing.
 struct Links {
     core: Weak<Core>,
@@ -347,14 +366,14 @@ impl network_plugin::ring::AllowlistSink for Sink {
                 target: "host",
                 instance = %instance,
                 udp_port,
-                "no gateway library runs to admit the player's UDP; game port stays closed"
+                "no gateway runs to admit the player's UDP; game port stays closed"
             );
         }
     }
 }
 
 /// `POST /network/v1/regions` into the ring when the network module runs it, or accepted shape-checked when it
-/// doesn't (DN7, DN8): compose.rs's `region_report_handler`, on this side of the library.
+/// doesn't (DN7, DN8): compose.rs's `region_report_handler`, on this side of the service.
 #[cfg(feature = "network")]
 async fn region_report(
     services: &crate::NodeServices,

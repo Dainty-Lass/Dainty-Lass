@@ -1,5 +1,6 @@
-//! The chat library (tests/chat-service) over its own messages: it is set up, learns which modules answer chat,
-//! asks one, reaches the home API, the event bus and a peer through the core, and answers a peer's call (RD27).
+//! The chat service (tests/chat-service) over its own messages: it is set up, learns which modules answer chat,
+//! asks one, reaches the home API, the event bus and a peer through the core, and answers a peer's call (RD27). Every
+//! script runs both ways: loaded as a library and compiled in.
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
 use std::collections::BTreeMap;
@@ -7,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use controller::service_library::chat_library;
+use controller::service_library::{chat_compiled_in, chat_library};
 use controller::{ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, ServiceLibrary};
 use module_api::host::file_sha256;
 use module_api::network::{HomeApi, HomeError, HomeForward, NodeId, SessionTicket};
@@ -29,9 +30,15 @@ fn chat_library_path() -> PathBuf {
                 .arg(here.join("tests/chat-service/Cargo.toml"))
                 .arg("--target-dir")
                 .arg(&target)
-                .status()
+                // Not the outer cargo's jobserver or console, as tests/service_library.rs builds its fixture
+                .env_remove("CARGO_MAKEFLAGS")
+                .env_remove("MAKEFLAGS")
+                .env_remove("MFLAGS")
+                .stdin(std::process::Stdio::null())
+                .output()
                 .expect("cargo runs");
-            assert!(status.success(), "the chat service builds");
+            let stderr = String::from_utf8_lossy(&status.stderr);
+            assert!(status.status.success(), "the chat service builds: {stderr}");
             let name = format!(
                 "{}chat_service{}",
                 std::env::consts::DLL_PREFIX,
@@ -90,6 +97,10 @@ async fn eventually(what: &str, mut check: impl FnMut() -> bool) {
     panic!("never: {what}");
 }
 
+/// The fixture's service itself, for the compiled-in run: the same code its library exports.
+#[path = "chat-service/src/lib.rs"]
+mod chat_service;
+
 fn lines(file: &Path) -> Vec<String> {
     std::fs::read_to_string(file)
         .unwrap_or_default()
@@ -100,7 +111,16 @@ fn lines(file: &Path) -> Vec<String> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_chat_library_reaches_modules_home_events_and_peers_through_the_core() {
-    let path = chat_library_path();
+    reaches_modules_home_events_and_peers(Some(chat_library_path())).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_same_chat_compiled_in_behaves_the_same() {
+    reaches_modules_home_events_and_peers(None).await;
+}
+
+/// The whole script, from the library at `path` or compiled in: both must pass it unchanged.
+async fn reaches_modules_home_events_and_peers(path: Option<PathBuf>) {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("chat.txt");
     let env = Env::from_pairs([("CHAT_FILE", file.to_str().unwrap())]);
@@ -119,13 +139,19 @@ async fn the_chat_library_reaches_modules_home_events_and_peers_through_the_core
         }),
         node,
     };
-    let library = ServiceLibrary {
-        name: "chat",
-        sha256: file_sha256(&path).await.unwrap(),
-        path,
-        serves: &[],
+    let module = match path {
+        Some(path) => {
+            let library = ServiceLibrary {
+                name: "chat",
+                sha256: file_sha256(&path).await.unwrap(),
+                path,
+                serves: &[],
+            };
+            chat_library(library, env, &registry, setup)
+        }
+        None => chat_compiled_in(chat_service::Chat::default, env, &registry, setup),
     };
-    controller.add(chat_library(library, env, &registry, setup));
+    controller.add(module);
     registry
         .add_entry(ModuleEntry {
             id: "stub".parse().unwrap(),
@@ -199,9 +225,22 @@ async fn a_chat_library_run_outside_chat_library_gets_no_setup() {
         path,
         serves: &[CoreCapability::Chat],
     };
-    let module = controller::service_library(library, Env::from_pairs([]), None);
+    no_setup(controller::service_library(library, Env::from_pairs([]), None)).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_chat_compiled_in_outside_chat_compiled_in_gets_no_setup() {
+    no_setup(controller::service_compiled_in(
+        chat_service::Chat::default,
+        Env::from_pairs([]),
+        None,
+    ))
+    .await;
+}
+
+/// Without chat's own core side there is no setup, so the service's run ends on its own.
+async fn no_setup(module: controller::Module) {
     let ctx = service_kit::context::ServiceContext::standalone("chat");
-    // Without chat_library there is no setup, so the library's run ends on its own
     let ended = tokio::time::timeout(Duration::from_secs(10), (module.start)(ctx))
         .await
         .unwrap();

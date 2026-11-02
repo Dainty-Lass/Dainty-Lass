@@ -1,0 +1,53 @@
+[package]
+name = "gateway"
+description = "The gateway, the only listener off loopback, and the allowlist helper that opens the game ports (RD27, rewritten clean-room)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Rewritten from docs/port/spec-rd27-gateway*.md alone (docs/port/clean-room/gateway.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+aws-lc-rs.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper = { workspace = true, features = ["client", "server", "http1"] }
+hyper-util = { workspace = true, features = ["client-legacy", "http1", "tokio"] }
+module-api.workspace = true
+network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
+protocol.workspace = true
+proxy.workspace = true
+rcgen.workspace = true
+regex.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+service-kit.workspace = true
+service-plugin.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "net", "time", "sync", "io-util", "process", "fs", "signal"] }
+tokio-rustls.workspace = true
+tracing.workspace = true
+url.workspace = true
+x509-parser.workspace = true
+
+[target."cfg(windows)".dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_NetworkManagement_WindowsFirewall", "Win32_Security", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Threading", "Win32_System_Variant"] }
+
+[dev-dependencies]
+base64.workspace = true
+# The moved tests: the launcher's region routes (launcher_region), node links and the home API (nodelink, home)
+launcher-kit.workspace = true
+futures-util.workspace = true
+# The fake WebSocket upstream's Sec-WebSocket-Accept
+sha1.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true

@@ -261,15 +261,68 @@ pub fn library_env(paths: &Paths, name: &str) -> Result<Env, HostError> {
     Ok(Env::from_pairs(pairs.iter().map(|(k, v)| (k.as_str(), v.as_str()))))
 }
 
-/// A service library as a module of `controller`, on its env file (RD27).
+/// A service library as a module of `controller`, on its env file (RD27). The gateway and chat take their own core
+/// side (routes, UDP ranges and node links; chat's host calls), as their compiled-in builds do: a library of either
+/// loaded as a plain service would start without them.
 pub fn add_service_library(
     controller: &mut ServerController,
     paths: &Paths,
+    config: &HostConfig,
     registry: &ModuleRegistry,
     library: ServiceLibrary,
 ) -> Result<(), HostError> {
+    use controller::service_library::gateway::{AllowlistMode, GatewayOptions, gateway_library};
     let env = library_env(paths, library.name)?;
-    controller.add(controller::service_library(library, env, Some(registry)));
+    match library.name {
+        "gateway" => {
+            let allowlist = if config.mode != ServerMode::Public {
+                AllowlistMode::Off
+            } else if start_cmd::env_file(paths, "allowlist").is_file() {
+                let env = module_env(paths, "allowlist")?;
+                AllowlistMode::InProcess {
+                    env: env.vars().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
+                }
+            } else {
+                // A helper of its own guards the game ports: a module's UDP ranges must lie inside them (DF4d)
+                let (first, last) = hostconfig::game_ports(config);
+                AllowlistMode::External {
+                    base: module_api::PortRange { first, last },
+                }
+            };
+            let options = GatewayOptions {
+                allowlist,
+                ws_port: None,
+            };
+            controller.add(gateway_library(library, env, Some(registry), options).0);
+        }
+        "chat" => {
+            let network =
+                config
+                    .network
+                    .as_ref()
+                    .filter(|n| !n.nodes.is_empty())
+                    .map(|n| service_plugin::chat::ChatNetwork {
+                        leader: n.effective_leader(),
+                        peers: n.nodes.iter().map(|p| (p.id.clone(), p.region.clone())).collect(),
+                    });
+            let setup = service_plugin::chat::ChatSetup {
+                node: node_identity(config),
+                network,
+            };
+            // Chat keeps its tables beside the node's database and never falls back to its working folder
+            let mut pairs: Vec<(String, String)> = env
+                .vars()
+                .filter(|(key, _)| !key.starts_with("REFORGED_DB_"))
+                .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                .collect();
+            pairs.extend(database_env(&hostconfig::node_database_config(config, paths)?));
+            let env = Env::from_pairs(pairs.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+            controller.add(controller::service_library::chat_library(library, env, registry, setup));
+        }
+        _ => {
+            controller.add(controller::service_library(library, env, Some(registry)));
+        }
+    }
     Ok(())
 }
 
@@ -431,13 +484,34 @@ pub fn compose(
     Ok(controller)
 }
 
-/// The module registry (DF3): the server's own ports and the versions its own stacks serve are taken, and
-/// every child gets only the system's variables, as `start` gives its services.
-pub fn new_registry(config: &HostConfig, controller: &ServerController) -> ModuleRegistry {
-    use module_api::manifest::Transport;
-    use module_api::{NodeIdentity, PortRange};
+/// `store`'s settings as the `REFORGED_DB_*` variables a service reads them from, as setup writes them.
+fn database_env(database: &store::DatabaseConfig) -> Vec<(String, String)> {
+    match database {
+        store::DatabaseConfig::Sqlite { file } => vec![
+            ("REFORGED_DB_ENGINE".into(), "sqlite".into()),
+            ("REFORGED_DB_FILE".into(), file.to_string_lossy().into_owned()),
+        ],
+        store::DatabaseConfig::Postgres(pg) => {
+            let mut out = vec![
+                ("REFORGED_DB_ENGINE".into(), "postgres".into()),
+                ("REFORGED_DB_HOST".into(), pg.host.clone()),
+                ("REFORGED_DB_PORT".into(), pg.port.to_string()),
+                ("REFORGED_DB_USER".into(), pg.user.clone()),
+                ("REFORGED_DB_NAME".into(), pg.database.clone()),
+                ("REFORGED_DB_PASSWORD".into(), pg.password.clone()),
+            ];
+            if pg.allow_remote {
+                out.push(("REFORGED_DB_ALLOW_REMOTE".into(), "1".into()));
+            }
+            out
+        }
+    }
+}
 
-    let identity = if let Some(network) = &config.network {
+/// This node's identity: its network's, or its remote management's, or a standalone server's.
+fn node_identity(config: &HostConfig) -> module_api::NodeIdentity {
+    use module_api::NodeIdentity;
+    if let Some(network) = &config.network {
         NodeIdentity {
             node: network.node.clone(),
             region: network.region.clone(),
@@ -451,7 +525,16 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
         }
     } else {
         NodeIdentity::standalone()
-    };
+    }
+}
+
+/// The module registry (DF3): the server's own ports and the versions its own stacks serve are taken, and
+/// every child gets only the system's variables, as `start` gives its services.
+pub fn new_registry(config: &HostConfig, controller: &ServerController) -> ModuleRegistry {
+    use module_api::PortRange;
+    use module_api::manifest::Transport;
+
+    let identity = node_identity(config);
     let mut options = RegistryOptions::standalone();
     options.home = Arc::new(module_api::network::StandaloneHome {
         identity: identity.clone(),
