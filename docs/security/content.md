@@ -2,7 +2,7 @@
 
 # Security checklist: content server and runtime download (RX3)
 
-The checklist for the content server, `rust/services/content` (MIGRATION_PLAN.md RS2, RD10). It covers the
+The checklist for the content server, `services/content` (MIGRATION_PLAN.md RS2, RD10). It covers the
 "runtime download" component of RX3: what a player's launcher fetches before it installs the runtime.
 `SECURITY_REVIEW.md` indexes it.
 
@@ -33,11 +33,11 @@ The launcher checks every byte against the list again, and the player accepts a 
 - **Out:** the runtime files, their list, news and branding to players; a module's client profile and Epic
   manifest; account keys to the backend.
 
-Code: `rust/services/content/src/` (`input.rs` holds every parser of outside input, `app.rs` the routes, `runtime.rs`
+Code: `services/content/src/` (`input.rs` holds every parser of outside input, `app.rs` the routes, `runtime.rs`
 the runtime store, `modules.rs` the module table, `auth.rs` the key check, `config.rs`, `news.rs`, `branding.rs`,
 `limits.rs`, `client.rs`, `server.rs`).
 
-Fuzz targets in `rust/fuzz` (each drives `content::input`):
+Fuzz targets in `fuzz` (each drives `content::input`):
 
 - `content_request`: the request path and query, the account key and `if-none-match` headers, repeated lines
   included. Checks that a path accepted as a runtime file names exactly one of the two, that a version route's
@@ -169,8 +169,8 @@ Fuzz targets in `rust/fuzz` (each drives `content::input`):
 
 ## Fuzzing
 
-A short run of every target is in CI. The 24-hour run before the cutover, from `rust/fuzz` (on Windows the
-AddressSanitizer runtime must be on PATH, see `rust/fuzz/Cargo.toml`):
+A short run of every target is in CI. The 24-hour run before the cutover, from `fuzz` (on Windows the
+AddressSanitizer runtime must be on PATH, see `fuzz/Cargo.toml`):
 
 ```bash
 cargo +nightly fuzz run content_request -- -max_total_time=86400

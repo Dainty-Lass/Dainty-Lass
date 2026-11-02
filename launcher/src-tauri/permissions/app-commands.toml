@@ -1,4 +1,4 @@
-# Generated from the launcher backend (rust/launcher/src-tauri/src/bridge); do not edit.
+# Generated from the launcher backend (launcher/src-tauri/src/bridge); do not edit.
 # Regenerate with: RR_UPDATE_GENERATED=1 cargo test -p launcher generated
 
 [[set]]

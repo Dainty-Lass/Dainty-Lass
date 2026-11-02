@@ -2,7 +2,7 @@
 
 # Security checklist: the chat plugin (RX3)
 
-The checklist for the chat core plugin, `rust/plugins/chat` (DaintyLass plan DD21, DN10a). It covers one node;
+The checklist for the chat core plugin, `plugins/chat` (DaintyLass plan DD21, DN10a). It covers one node;
 federation between nodes is DN10b's and goes in `network.md` (DX2).
 
 How to use it: before chat is turned on for players, copy this list into the change that turns it on, check each
@@ -27,7 +27,7 @@ Code: `connection.rs` (listener, upgrade, gateway check), `server.rs` (login, bi
 limits), `muc.rs` (rooms), `naming.rs` (room names), `nick.rs`, `xmpp.rs` (the frame parser, escaping, redaction),
 `history.rs`, `hooks.rs`.
 
-Fuzz target: `chat_stanza` in `rust/fuzz` (the frame parser, JIDs, room names, authcids and nicknames). It checks
+Fuzz target: `chat_stanza` in `fuzz` (the frame parser, JIDs, room names, authcids and nicknames). It checks
 that nothing panics, that a parsed tree holds only what the input held, and that a room name maps to an instance
 room only through a JID-safe id.
 
@@ -117,7 +117,7 @@ Out, when `dashboard_url` is set: every room line and whisper with its sender (o
 
 ## Fuzzing
 
-From `rust/fuzz`:
+From `fuzz`:
 
 ```bash
 cargo +nightly fuzz run chat_stanza -- -max_total_time=86400

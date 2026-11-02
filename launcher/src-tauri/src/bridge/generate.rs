@@ -23,7 +23,7 @@ use ts_rs::{Config, TS};
 use super::spec::{Arg, COMMANDS, SETTINGS_KEYS};
 use super::types::*;
 
-const HEADER: &str = "Generated from the launcher backend (rust/launcher/src-tauri/src/bridge); do not edit.\n\
+const HEADER: &str = "Generated from the launcher backend (launcher/src-tauri/src/bridge); do not edit.\n\
 Regenerate with: RR_UPDATE_GENERATED=1 cargo test -p launcher generated";
 
 fn declarations() -> String {
@@ -319,7 +319,7 @@ fn launcher_dir() -> PathBuf {
 
 /// The dainty-lass-ui submodule (DD11)
 fn ui_dir() -> PathBuf {
-    launcher_dir().join("../../ui")
+    launcher_dir().join("../ui")
 }
 
 /// Every catalog in `ui/packages/i18n/catalogs`, `en` first (the fallback and `Language::ALL[0]`), each

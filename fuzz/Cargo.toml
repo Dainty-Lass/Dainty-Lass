@@ -1,4 +1,4 @@
-# Fuzz targets for untrusted input (MIGRATION_PLAN.md RX3; DR's M33, X9), with cargo-fuzz on nightly, from rust/fuzz:
+# Fuzz targets for untrusted input (MIGRATION_PLAN.md RX3; DR's M33, X9), with cargo-fuzz on nightly, from fuzz:
 #   cargo +nightly fuzz run <target> -- -max_total_time=86400
 # One target per parser of untrusted input, named after its component (each file in fuzz_targets/ says what
 # it feeds); each component row adds its own target and a [[bin]] here, and the integration pass keeps

@@ -2,7 +2,7 @@
 
 # Security checklist: gateway policy and TLS (RX3)
 
-The checklist for the gateway, the `gateway` binary of `rust/services/gateway` (MIGRATION_PLAN.md RS3, RD10, RD19,
+The checklist for the gateway, the `gateway` binary of `services/gateway` (MIGRATION_PLAN.md RS3, RD10, RD19,
 RD20). `SECURITY_REVIEW.md` indexes it. The allowlist helper, the crate's other service, has its own list in
 [allowlist.md](allowlist.md).
 
@@ -30,10 +30,10 @@ listens on loopback and trusts that the gateway already refused what must not re
 - **Files:** the certificate and key (read only), the `.env` the host kit writes (trusted), and when the capture is
   on, the capture folder (`CAPTURE_DIR`, written).
 
-Code: `rust/services/gateway/src/` (`policy.rs`, `modules.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
+Code: `services/gateway/src/` (`policy.rs`, `modules.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
 `feed.rs`, `capture.rs`, `cert.rs`, `config.rs`, `server.rs`, `main.rs`).
 
-Fuzz targets in `rust/fuzz`:
+Fuzz targets in `fuzz`:
 
 - `gateway_policy`: a method, target and headers from the network give a decision, never a panic, and nothing
   proxied carries a host-only header or reaches a host-only prefix or a non-public `/reforged` route, whatever the

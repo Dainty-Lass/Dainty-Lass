@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, "../../..")
-const BUNDLE_DIR = path.join(REPO_ROOT, "rust/target/release/bundle/nsis")
+const BUNDLE_DIR = path.join(REPO_ROOT, "target/release/bundle/nsis")
 const SCREENSHOT_DIR = path.join(REPO_ROOT, "docs/port/screenshots")
 
 const CLIENT_INSTALLER = path.join(

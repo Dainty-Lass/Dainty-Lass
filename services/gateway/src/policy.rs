@@ -474,7 +474,7 @@ mod tests {
     /// is covered.
     fn reforged_api_routes() -> Vec<(String, String)> {
         let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts");
+            .join("../../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts");
         let source = std::fs::read_to_string(&file).unwrap();
         let pattern =
             regex::Regex::new(r#"(?m)^\s*reforgedApiRouter\.(get|post|put|delete|patch)\(\s*"([^"]+)""#).unwrap();

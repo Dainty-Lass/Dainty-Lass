@@ -29,7 +29,7 @@ launcher-kit.workspace = true
 protocol.workspace = true
 # Epic sign-in, ownership and installs (DD22)
 epic.workspace = true
-# The client profiles (DE4, DD12): by path, as rust/fuzz takes module-api; its workspace entry names the silentspud registry
+# The client profiles (DE4, DD12): by path, as fuzz takes module-api; its workspace entry names the silentspud registry
 module-api = { path = "../../crates/module-api" }
 serde.workspace = true
 # preserve_order: settings.json keeps its key order (L28); workspace builds unify it on anyway

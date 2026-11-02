@@ -27,7 +27,7 @@ for an external module come from its own process (DD5) and are untrusted text.
 - **Out to disk:** `host.toml`'s `[modules.<id>.<section>]` tables, written by the host kit's own writer.
 - **Who acts:** whoever has the window has the server, as with the console: a command runs as `Actor::Console` (DH1).
 
-Code: `rust/launcher/src-tauri/src/bridge/modules.rs` (the checks and the views),
+Code: `launcher/src-tauri/src/bridge/modules.rs` (the checks and the views),
 `server_gui/modules.rs` (the registry behind them), `bridge/commands.rs` (`module_*`), `bridge/spec.rs`.
 
 ## Checklist

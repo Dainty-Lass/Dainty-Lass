@@ -8,7 +8,7 @@ maintainer's: the keys, the secrets and the checks on real machines are not an a
 ## What a run builds
 
 `.forgejo/workflows/launcher-release.yml`, started with Run workflow on any branch, builds both apps at the version in
-`rust/launcher/package.json` (Cargo.toml's must match):
+`launcher/package.json` (Cargo.toml's must match):
 
 | File | Built on | Installs |
 | --- | --- | --- |
@@ -18,7 +18,7 @@ maintainer's: the keys, the secrets and the checks on real machines are not an a
 | `DaintyLass{Launcher,Manager}_<v>_x86_64.rpm` | the same | Fedora |
 
 Each app serves its own page from dainty-dashboard (`apps/launcher`, `apps/server-manager`), which the build exports
-with Bun and copies into `rust/launcher/dist/` ([`rust/launcher/README.md`](../rust/launcher/README.md)). A run needs
+with Bun and copies into `launcher/dist/` ([`launcher/README.md`](../launcher/README.md)). A run needs
 that checkout beside this repository or at `DAINTY_DASHBOARD_DIR`; the workflow does not check it out yet.
 
 With the updater key set, each bundle gets a `.sig` and the run writes the two feeds, `latest.json` (the launcher)
@@ -48,14 +48,14 @@ timestamp server; the default is DigiCert's.
 
 ### The updater key, once
 
-1. On a trusted machine, from `rust/launcher` after `npm ci`:
+1. On a trusted machine, from `launcher` after `npm ci`:
 
    ```sh
    npx tauri signer generate -w ~/.tauri/dainty-lass-updater.key
    ```
 
    Give it a password. It writes the private key and `dainty-lass-updater.key.pub`.
-2. Put the `.pub` file's text in `rust/launcher/src-tauri/tauri.conf.json`, `plugins.updater.pubkey`, and commit it
+2. Put the `.pub` file's text in `launcher/src-tauri/tauri.conf.json`, `plugins.updater.pubkey`, and commit it
    (subject `RA14: the updater's public key`). It is public; the launcher and the manager both carry it.
 3. Paste the private key file's text into `LAUNCHER_UPDATER_KEY` and the password into
    `LAUNCHER_UPDATER_KEY_PASSWORD`.
@@ -72,7 +72,7 @@ launchers that can't check it.
 2. `base64 -w0 codesign.pfx` (or `[Convert]::ToBase64String([IO.File]::ReadAllBytes("codesign.pfx"))` in
    PowerShell) into `WINDOWS_CERTIFICATE`, the password into `WINDOWS_CERTIFICATE_PASSWORD`, then delete the
    exported file.
-3. The job writes the `.pfx` to the runner's temporary folder, signs through `rust/launcher/scripts/sign-windows.ps1`
+3. The job writes the `.pfx` to the runner's temporary folder, signs through `launcher/scripts/sign-windows.ps1`
    (the newest Windows SDK's `signtool`) and removes it at the end, failed or not. The runner needs a Windows 10/11
    SDK, which `docs/ci-runners.md` already asks for.
 
