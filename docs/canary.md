@@ -6,7 +6,7 @@ This runbook documents the production shadow-replay workflow, the rollback switc
 
 ## 1. Turning On Gateway Traffic Capture (`RD19`, `RB2`)
 
-The Rust gateway (`services/gateway`) includes a built-in traffic capture tap (`gateway::capture::CaptureWriter`). It is **off by default** and activates only when `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
+The Rust gateway (dainty-lass's `services/gateway`) includes a built-in traffic capture tap (`gateway::capture::CaptureWriter`). It is **off by default** and activates only when `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
 
 ### 1.1 Configuration in `.workspace/config/gateway.env`
 
@@ -27,7 +27,7 @@ CAPTURE_MAX_BODY_BYTES=262144
 Restart the server (`reforged-host start`, `reforged-host serve`, or `systemctl restart dainty-lass.service`). On startup, the gateway logs:
 
 ```text
-traffic capture is on: every request and answer is recorded, redacted, for the shadow replay (personal data; see docs/security/gateway.md)
+traffic capture is on: every request and answer is recorded, redacted, for the shadow replay (personal data; see dainty-lass's docs/security/gateway.md)
 ```
 
 ### 1.2 Output Format and Secret Redaction

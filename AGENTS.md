@@ -21,7 +21,7 @@ lands in dainty-lass first, then the rev here moves, for every crate at once.
 
 | Path | What it is |
 | --- | --- |
-| root | One cargo workspace: `services/` (`gateway` with the allowlist, `content`, `host` = the AGPL shell around dainty-lass's `hostkit`, whose `compose.rs` composes the AGPL services into the controller), `plugins/chat`, `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), and the game modules' crates |
+| root | One cargo workspace: `services/` (`host` = the AGPL shell around dainty-lass's `hostkit`, whose `compose.rs` composes the services into the controller; `gateway-plugin` and `content-plugin`, the libraries of dainty-lass's MIT `gateway` and `content`), `plugins/chat-plugin` (the library of dainty-lass's `chat`), `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), and the game modules' crates |
 | `modules/rustic-isles/` | The 1.14.7 game module (`modules/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of the root workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host` (the launcher's side), and `ParadoxTransport.dll` (`src/`) |
 | `dashboard/` | dainty-dashboard: the staff dashboard, and the launcher and server-manager pages the Tauri shells serve |
@@ -194,9 +194,8 @@ and the compose smoke test inside them.
 
 Not obvious from reading the suites:
 
-- **Parity tests are the contract, not a snapshot.** `services/gateway/tests/parity/` and
-  `services/content/tests/parity/` hold replies recorded from the Node services (`record.cjs`). When one
-  fails, fix the Rust side. Re-record only when the Node side changed on purpose, and say why in the commit.
+- **Parity tests are the contract, not a snapshot.** The gateway's and content's, with the replies recorded from
+  the Node services, are dainty-lass's since those crates went MIT (RD27). When one fails, fix the Rust side.
 - **`crates/protocol/tests/cases/*.json` are shared tables**: the launcher and the servers check the same
   invites, statuses and usernames against them. A new case goes in the table, not in one crate's test.
 - **Tests that read the shared log take `serial()`** (`tests/common`). A test that passes alone and fails in
@@ -272,8 +271,7 @@ Code copied from DR or Paradox keeps its attribution, and the integration pass r
 
 The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
 `service-kit`, `store`, `hostkit`, `launcher-kit`, `plugins/network`, `admin`, `bins`) set `license = "MIT"` in their
-own `Cargo.toml`; everything else (`services/gateway`, `services/content`, `services/host`, `plugins/chat`,
-`launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
+own `Cargo.toml`; everything else (`services/host`, the `*-plugin` library crates, `launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
 DR, Paradox or the Reforged Revival line: no file from those trees, no function rewritten from one while looking at it.
 Copying a DR or Paradox function into an MIT crate moves the crate back to `license.workspace = true` in the same
 commit, with the NOTICE line to match.

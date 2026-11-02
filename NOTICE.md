@@ -57,11 +57,10 @@ dainty-lass-ui.
 - By mixutin and the Dauntless Revived contributors. Repository:
   [github.com/mixutin/dauntless-revived](https://github.com/mixutin/dauntless-revived), AGPL-3.0-only.
   Dauntless Revived is itself a modified version of Undaunted.
-- `services/gateway` and `services/content`, the workspace files and the fuzz targets `http_body` and
-  `proxy_headers` are modified versions of its `rust/` folder at commit `e1c5fec`
+- The workspace files and the fuzz targets `http_body` and `proxy_headers` are modified versions of its `rust/` folder at commit `e1c5fec`
   ([docs/port/migration-guide.md](docs/port/migration-guide.md) section 2 says how); `launcher/src-tauri`
   carries the DR-derived core of its launcher's Rust side alongside `crates/launcher-kit`. (`crates/protocol`,
-  `proxy`, `service-kit` and the SQLite helpers of `store` were rewritten clean-room from behaviour specs under MIT in
+  `proxy`, `service-kit`, the SQLite helpers of `store`, and `gateway`, `content` and `chat` were rewritten clean-room from behaviour specs under MIT in
   `DL3b`/`DD26`; see `docs/port/clean-room/`.)
 - Files and functions taken over say so in their comments.
 
@@ -77,9 +76,8 @@ dainty-lass-ui.
 
 By the DaintyLass contributors (`Copyright (c) 2026 Silent Spud`), AGPL-3.0-only: `services/host` (the shell that wires
 dainty-lass's `hostkit` to `gateway`, `content`, `chat` and `isles-1-14-7`; its `compose.rs` is MIT code moved from
-dainty-lass's `controller::modules` and keeps its MIT header); `services/gateway` and `services/content`; `plugins/chat`
-(DN10a, a port of Dauntless Revived's metagame chat at `e1c5fec` with behaviour, no code, from Mystic Paradox's realtime
-gateway); the DR-derived Tauri shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's
+dainty-lass's `controller::modules` and keeps its MIT header); the one-line library crates `services/gateway-plugin`, `services/content-plugin` and
+`plugins/chat-plugin`, over dainty-lass's MIT `gateway`, `content` and `chat`; the DR-derived Tauri shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's
 downloader structure); `bins/`; the fuzz targets in `fuzz/` (`http_body` and `proxy_headers` from DR's `rust/`).
 `docker/`, `docs/`, the workflows, the launcher's language catalogs (`ui/packages/i18n/catalogs`) and
 `launcher/src-tauri/gen/strings.json` carry the repository licence.

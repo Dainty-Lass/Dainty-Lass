@@ -944,7 +944,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                 Some(gateway_service_main(args))
             }
             #[cfg(feature = "allowlist")]
-            "allowlist" => Some(gateway::allowlist::cli::main_from(argv)),
+            "allowlist" => Some(gateway::allowlist::cli::main_from(argv.collect())),
             #[cfg(feature = "content")]
             "content" => Some(content::cli::main_from(argv)),
             #[cfg(feature = "admin")]
@@ -1044,7 +1044,9 @@ fn parse_service_env_file(
 
 #[cfg(feature = "gateway")]
 fn gateway_service_main(args: &[String]) -> ExitCode {
-    let argv = std::iter::once("gateway".to_owned()).chain(args.iter().cloned());
+    let argv: Vec<String> = std::iter::once("gateway".to_owned())
+        .chain(args.iter().cloned())
+        .collect();
     if args.first().map(String::as_str) == Some("make-cert")
         || args
             .iter()
@@ -1202,7 +1204,7 @@ fn gateway_service_main(args: &[String]) -> ExitCode {
             links.endpoint().attach(svc);
         });
         let ctx = service_kit::context::ServiceContext::standalone("gateway");
-        gateway::server::run_with_node_links(config, capture, None, ctx, None, Some(slot)).await
+        gateway::server::run_with_network(config, capture, None, ctx, None, Some(slot), None).await
     });
     match res {
         Ok(()) => ExitCode::SUCCESS,

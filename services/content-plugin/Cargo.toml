@@ -18,17 +18,3 @@ content.workspace = true
 module-api.workspace = true
 service-plugin.workspace = true
 
-[dev-dependencies]
-# The parity harness content's own tests run (services/content/tests/parity/harness.rs)
-axum.workspace = true
-content.workspace = true
-controller.workspace = true
-module-api.workspace = true
-serde_json.workspace = true
-service-kit.workspace = true
-sha2.workspace = true
-tempfile.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "time", "sync"] }
-
-[lints]
-workspace = true

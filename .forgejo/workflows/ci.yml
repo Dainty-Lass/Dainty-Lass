@@ -125,7 +125,7 @@ jobs:
               - Cargo.toml
               - Cargo.lock
               - plugins/network/**
-              - services/gateway/**
+              - services/gateway-plugin/**
               - services/host/**
               - crates/**
               - launcher/**

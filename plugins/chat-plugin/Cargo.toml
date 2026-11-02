@@ -4,7 +4,6 @@ description = "The chat core plugin as a library the core loads (RD27)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-# AGPL, as chat is (DD26)
 license.workspace = true
 repository.workspace = true
 publish.workspace = true
@@ -19,13 +18,3 @@ chat.workspace = true
 module-api.workspace = true
 service-plugin.workspace = true
 
-[dev-dependencies]
-controller = { workspace = true, default-features = false }
-service-kit.workspace = true
-tempfile.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-tokio-tungstenite.workspace = true
-futures-util.workspace = true
-
-[lints]
-workspace = true
