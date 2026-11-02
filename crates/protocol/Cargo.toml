@@ -22,3 +22,5 @@ workspace = true
 
 [features]
 ts = ["dep:ts-rs"]
+# The shared tables and fixtures (tests/cases, tests/fixtures), for dainty-restricted's tests of the same rules (RD27)
+test-data = []
