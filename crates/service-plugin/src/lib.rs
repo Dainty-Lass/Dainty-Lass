@@ -8,6 +8,8 @@
 //! [`ToService`] or [`FromService`]. What a service needs from the core beyond them (the gateway's route table, chat's
 //! drivers) is added here as a typed message, never as a pointer.
 
+pub mod chat;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
@@ -53,6 +55,8 @@ pub enum ToService {
     Gateway {
         message: gateway::ToGateway,
     },
+    /// Chat's host calls answered, and its drivers' comings and goings ([`chat`])
+    Chat(chat::ToChat),
 }
 
 /// What a service sends the core.
@@ -86,6 +90,8 @@ pub enum FromService {
     Gateway {
         message: gateway::FromGateway,
     },
+    /// Chat's host calls ([`chat`])
+    Chat(chat::FromChat),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,6 +127,8 @@ pub trait Service: Send + Sync + 'static {
 
     /// The gateway's messages from the core; `out` reaches the core for as long as the instance is open.
     fn gateway(&self, _message: gateway::ToGateway, _out: &gateway::Outbox) {}
+    /// The instance's [`chat::ChatLink`], once, before [`ToService::Start`]; only chat keeps it.
+    fn chat_link(&self, _link: chat::ChatLink) {}
 
     /// One run, until `ctx` says stop: what the compiled-in module's start function did.
     fn run(&self, env: Env, ctx: ServiceContext) -> BoxFuture<'static, Result<(), String>>;
@@ -277,6 +285,8 @@ async fn serve_with<S: Service>(service: Arc<S>, reader: ChannelReader, mut writ
         name: service.name().to_owned(),
         serves: service.serves().to_vec(),
     });
+    let chat = chat::ChatLink::new(out.clone());
+    service.chat_link(chat.clone());
     let mut reader = BufReader::new(reader);
     let mut run: Option<(watch::Sender<bool>, tokio::task::JoinHandle<()>)> = None;
     let mut dirs: BTreeMap<ModuleId, PathBuf> = BTreeMap::new();
@@ -313,6 +323,7 @@ async fn serve_with<S: Service>(service: Arc<S>, reader: ChannelReader, mut writ
                 dirs.remove(&module);
             }
             ToService::Gateway { message } => service.gateway(message, &gateway::Outbox(out.clone())),
+            ToService::Chat(message) => chat.deliver(message),
         }
     }
     // The core closed the stream: the run stops as it would on Stop
@@ -320,6 +331,7 @@ async fn serve_with<S: Service>(service: Arc<S>, reader: ChannelReader, mut writ
         _ = stop.send(true);
         _ = tokio::time::timeout(std::time::Duration::from_secs(5), task).await;
     }
+    chat.close();
     if forward {
         // Only its own: a newer instance of the same library may have taken the sink since
         let mut sink = log_sink().lock().unwrap_or_else(PoisonError::into_inner);

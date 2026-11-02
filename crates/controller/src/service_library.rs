@@ -27,7 +27,9 @@ use tokio::sync::oneshot;
 
 use crate::{Module, ModuleRegistry, WeakRegistry};
 
+mod chat;
 pub mod gateway;
+pub use chat::chat_library;
 
 /// How long the library has to say hello, to answer an attach, and to end after Stop.
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
@@ -62,7 +64,15 @@ pub fn service_library_with(
         sha256,
         serves,
     } = library;
-    service_module(name, serves, Source::Library { path, sha256 }, env, registry, extension)
+    service_module(
+        name,
+        serves,
+        Source::Library { path, sha256 },
+        env,
+        registry,
+        extension,
+        None,
+    )
 }
 
 /// The same service compiled into this binary: the [`Service`] its library exports, run over the same protocol on
@@ -85,7 +95,7 @@ pub fn service_compiled_in_with<S: Service>(
     let probe = make();
     let (name, serves) = (probe.name(), probe.serves());
     let open = Arc::new(move || service_plugin::in_process(Arc::new(make())));
-    service_module(name, serves, Source::CompiledIn(open), env, registry, extension)
+    service_module(name, serves, Source::CompiledIn(open), env, registry, extension, None)
 }
 
 /// What a service's own messages need of the core (`gateway`): told of each run, it says what goes before its
@@ -109,6 +119,30 @@ impl RunLink {
     }
 }
 
+/// The chat library's module ([`chat::chat_library`]): its own messages go to `chat`.
+fn module(
+    library: ServiceLibrary,
+    env: Env,
+    registry: Option<&ModuleRegistry>,
+    chat: Option<Arc<chat::ChatCore>>,
+) -> Module {
+    let ServiceLibrary {
+        name,
+        path,
+        sha256,
+        serves,
+    } = library;
+    service_module(
+        name,
+        serves,
+        Source::Library { path, sha256 },
+        env,
+        registry,
+        None,
+        chat,
+    )
+}
+
 fn service_module(
     name: &'static str,
     serves: &'static [CoreCapability],
@@ -116,6 +150,7 @@ fn service_module(
     env: Env,
     registry: Option<&ModuleRegistry>,
     extension: Option<Arc<dyn Extension>>,
+    chat: Option<Arc<chat::ChatCore>>,
 ) -> Module {
     let shared = Arc::new(Shared {
         name,
@@ -124,6 +159,7 @@ fn service_module(
         registry: registry.map(ModuleRegistry::downgrade),
         state: Mutex::default(),
         extension,
+        chat,
     });
     if let Some(registry) = registry
         && !serves.is_empty()
@@ -176,6 +212,8 @@ struct Shared {
     registry: Option<WeakRegistry>,
     state: Mutex<State>,
     extension: Option<Arc<dyn Extension>>,
+    /// The chat library's own messages; none for any other service
+    chat: Option<Arc<chat::ChatCore>>,
 }
 
 #[derive(Default)]
@@ -305,17 +343,21 @@ async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<
     let (ended_tx, mut ended_rx) = oneshot::channel();
     let reading = {
         let (run, reporter, name) = (run.clone(), ctx.status().clone(), shared.name);
+        let chat = shared.chat.clone();
         std::thread::spawn(move || {
             let Ok(runtime) = tokio::runtime::Builder::new_current_thread().build() else {
                 return;
             };
-            runtime.block_on(read_loop(reader, run, reporter, name, hello_tx, ended_tx));
+            runtime.block_on(read_loop(reader, run, reporter, name, hello_tx, ended_tx, chat));
         })
     };
     let result = drive(&shared, &run, env, ctx, hello_rx, &mut ended_rx).await;
     shared.state().run = None;
     if let Some(extension) = &shared.extension {
         extension.closed();
+    }
+    if let Some(chat) = &shared.chat {
+        chat.ended();
     }
     closer.close().await;
     _ = tokio::task::spawn_blocking(move || reading.join()).await;
@@ -356,6 +398,9 @@ async fn drive(
     }
     for message in shared.extension.iter().flat_map(|e| e.opened(RunLink(run.clone()))) {
         run.send(&message);
+    }
+    if let Some(chat) = &shared.chat {
+        chat.before_start(run).await?;
     }
     run.send(&ToService::Start {
         protocol: PROTOCOL_VERSION,
@@ -407,6 +452,7 @@ async fn read_loop(
     name: &'static str,
     hello: oneshot::Sender<(u32, String, Vec<CoreCapability>)>,
     ended: oneshot::Sender<Result<(), String>>,
+    chat: Option<Arc<chat::ChatCore>>,
 ) {
     let mut reader = BufReader::new(reader);
     let mut hello = Some(hello);
@@ -438,6 +484,14 @@ async fn read_loop(
             message @ FromService::Gateway { .. } => match &run.extension {
                 Some(extension) => extension.message(message),
                 None => break Err(String::from("a message this service may not send")),
+            },
+            FromService::Chat(message) => match &chat {
+                Some(chat) => {
+                    if let Err(error) = chat.message(&run, message) {
+                        break Err(error);
+                    }
+                }
+                None => break Err(String::from("a chat message from a service that isn't chat")),
             },
         }
     };
