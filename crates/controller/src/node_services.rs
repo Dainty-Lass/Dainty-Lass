@@ -16,6 +16,13 @@ use network_plugin::{LinkError, NodeService, Service, ServiceMux};
 
 pub type RemoteEnrollCallback = Arc<dyn Fn(Vec<u8>) -> BoxFuture<'static, (u16, Vec<u8>)> + Send + Sync>;
 
+/// The gateway's `/_rr/node/*` side, as the host composing the gateway hands it over: the MIT controller never
+/// names the AGPL gateway's types (RD27).
+pub trait GatewayLinks: Send + Sync {
+    fn endpoint(&self) -> &network_plugin::NodeEndpoint;
+    fn set_enroll_handler(&self, handler: Option<RemoteEnrollCallback>);
+}
+
 struct Inner {
     node: NodeId,
     attached: RwLock<HashMap<Service, Arc<dyn NodeService>>>,
@@ -31,8 +38,7 @@ struct Inner {
     tickets: RwLock<Option<Arc<network_plugin::home::Tickets>>>,
     #[cfg(feature = "network")]
     ring: RwLock<Option<Arc<network_plugin::ring::RingNode>>>,
-    #[cfg(feature = "gateway")]
-    gateway_slot: gateway::server::NodeLinkSlot,
+    gateway: RwLock<Option<Arc<dyn GatewayLinks>>>,
 }
 
 #[derive(Clone)]
@@ -57,8 +63,7 @@ impl NodeServices {
                 tickets: RwLock::new(None),
                 #[cfg(feature = "network")]
                 ring: RwLock::new(None),
-                #[cfg(feature = "gateway")]
-                gateway_slot: Arc::new(std::sync::Mutex::new(None)),
+                gateway: RwLock::new(None),
             }),
         }
     }
@@ -135,7 +140,6 @@ impl NodeServices {
             .enroll_handler
             .write()
             .unwrap_or_else(PoisonError::into_inner) = handler;
-        #[cfg(feature = "gateway")]
         self.bind_gateway();
     }
 
@@ -153,15 +157,7 @@ impl NodeServices {
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(node.clone());
-        #[cfg(feature = "gateway")]
-        if let Some(links) = self
-            .inner
-            .gateway_slot
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .as_ref()
-            .cloned()
-        {
+        if let Some(links) = self.gateway() {
             links.endpoint().add_peer(node);
         }
     }
@@ -172,15 +168,7 @@ impl NodeServices {
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .remove(node);
-        #[cfg(feature = "gateway")]
-        if let Some(links) = self
-            .inner
-            .gateway_slot
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .as_ref()
-            .cloned()
-        {
+        if let Some(links) = self.gateway() {
             links.endpoint().remove_peer(node);
         }
     }
@@ -191,27 +179,26 @@ impl NodeServices {
         attached.insert(service, handler);
         self.rebuild(&attached);
         drop(attached);
-        #[cfg(feature = "gateway")]
         self.bind_gateway();
     }
 
-    #[cfg(feature = "gateway")]
-    pub fn gateway_slot(&self) -> gateway::server::NodeLinkSlot {
-        self.inner.gateway_slot.clone()
+    /// The gateway's node links, each time the gateway (re)starts with them; `None` when it stops.
+    pub fn set_gateway(&self, links: Option<Arc<dyn GatewayLinks>>) {
+        *self.inner.gateway.write().unwrap_or_else(PoisonError::into_inner) = links;
+        self.bind_gateway();
     }
 
-    /// Plugs [`NodeServices`] into the gateway's `/_rr/node/*` endpoint once the gateway has placed its
-    /// [`gateway::nodelink::NodeLinks`] in [`Self::gateway_slot`].
-    #[cfg(feature = "gateway")]
-    pub fn bind_gateway(&self) {
-        if let Some(links) = self
-            .inner
-            .gateway_slot
-            .lock()
+    fn gateway(&self) -> Option<Arc<dyn GatewayLinks>> {
+        self.inner
+            .gateway
+            .read()
             .unwrap_or_else(PoisonError::into_inner)
-            .as_ref()
-            .cloned()
-        {
+            .clone()
+    }
+
+    /// Plugs [`NodeServices`] into the gateway's `/_rr/node/*` endpoint once [`Self::set_gateway`] has its links.
+    fn bind_gateway(&self) {
+        if let Some(links) = self.gateway() {
             links.endpoint().attach(Arc::new(self.clone()));
             let peers: Vec<NodeId> = self
                 .inner
@@ -225,52 +212,11 @@ impl NodeServices {
                 links.endpoint().add_peer(p);
             }
             if let Some(cb) = self.enroll_handler() {
-                links.set_enroll_handler(Some(Arc::new(move |body| cb(body))));
+                links.set_enroll_handler(Some(cb));
             } else {
                 links.set_enroll_handler(None);
             }
         }
-    }
-
-    /// Builds a [`gateway::network::RegionReportHandler`] that forwards `POST /network/v1/regions` reports
-    /// to [`network_plugin::ring::RingNode::record_region_pings_authenticated`] when the network plugin is
-    /// running, or accepts standalone shape-checked reports when no network ring is active (DN7, DN8).
-    #[cfg(all(feature = "gateway", feature = "network"))]
-    pub fn region_report_handler(&self) -> gateway::network::RegionReportHandler {
-        let services = self.clone();
-        Arc::new(move |api_key, ticket_token, regions| {
-            let services = services.clone();
-            Box::pin(async move {
-                let Some(ring) = services.ring() else {
-                    return true;
-                };
-                let mut pings = Vec::with_capacity(regions.len());
-                for r in regions {
-                    let Ok(region) = r.region.parse() else {
-                        return false;
-                    };
-                    let rtt_ms = r.rtt_ms.and_then(|ms| {
-                        if ms.is_finite() && (0.0..=f64::from(u32::MAX)).contains(&ms) {
-                            Some(ms.round() as u32)
-                        } else {
-                            None
-                        }
-                    });
-                    pings.push(network_plugin::ring::RegionPing { region, rtt_ms });
-                }
-                let parsed_ticket = match ticket_token.as_deref() {
-                    Some(token) => match network_plugin::home::ticket::session_ticket_from_token(token) {
-                        Ok(pair) => Some(pair),
-                        Err(_) => return false,
-                    },
-                    None => None,
-                };
-                let ticket_ref = parsed_ticket.as_ref().map(|(t, g)| (t, g));
-                ring.record_region_pings_authenticated(api_key.as_deref(), ticket_ref, pings)
-                    .await
-                    .is_ok()
-            })
-        })
     }
 
     pub fn detach(&self, service: Service) {

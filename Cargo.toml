@@ -1,6 +1,5 @@
-# One cargo workspace for every Rust component (MIGRATION_PLAN.md, section 4.1): the shared crates, the
-# services and the launcher backend. Copied from Dauntless Revived at e1c5fec (RD6). Every planned member
-# is listed here from the start (RR1); a member that is still a stub is replaced by its skeleton row.
+# The MIT half of DaintyLass (RD27): the shared crates, the MIT services and the core plugins. The AGPL services,
+# the launcher and the game modules are dainty-restricted's, which takes these crates as git dependencies.
 [workspace]
 resolver = "3"
 members = [
@@ -17,48 +16,20 @@ members = [
     "crates/remote",
     "crates/service-kit",
     "crates/store",
-    "services/gateway",
-    "services/content",
-    "services/host",
     "services/backend",
     "services/director",
     "services/admin",
     # The network core plugin: node links, the directory (DD16-DD18)
     "plugins/network",
-    "launcher/src-tauri",
-    # Core plugins (DD3): chat, XMPP over WebSocket (DD21, DN10)
-    "plugins/chat",
-    # What ships (RD26): the server in one binary (dainty-lass-server-console, and reforged-host, the name installs
-    # run, DD1) and the same without a console. The launcher's two (dainty-lass-client, dainty-lass-manager) are
-    # launcher/src-tauri's own, as `tauri build` needs
-    "bins/server-console",
-    "bins/server-minimal",
 ]
-# The fuzz targets (cargo fuzz, nightly) are a workspace of their own, as is each module repository under
-# modules (DD2, DF1)
-exclude = ["fuzz", "modules"]
-
-# The module repositories take DaintyLass's crates and rustic-rifts' as git dependencies at fixed revs (DD2, spike
-# DF1's fallback). Inside this tree they must be these paths, or the module crates would build against a second
-# copy of module-api and the controller could not load them as GameModule
-[patch."ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git"]
-module-api = { path = "crates/module-api" }
-service-kit = { path = "crates/service-kit" }
-store = { path = "crates/store" }
-
-[patch."ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git"]
-rifts-seam = { path = "modules/rustic-rifts/crates/rifts-seam" }
-rifts-admission = { path = "modules/rustic-rifts/crates/rifts-admission" }
-rifts-relay = { path = "modules/rustic-rifts/crates/rifts-relay" }
-rifts-realms = { path = "modules/rustic-rifts/crates/rifts-realms" }
-rifts-guard = { path = "modules/rustic-rifts/crates/rifts-guard" }
-rifts-host = { path = "modules/rustic-rifts/crates/rifts-host" }
+# The fuzz targets (cargo fuzz, nightly) are a workspace of their own
+exclude = ["fuzz"]
 
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
-license = "AGPL-3.0-only"
+license = "MIT"
 repository = "https://git.silentspud.com/silentspud/dainty-lass"
 publish = false
 
@@ -77,21 +48,8 @@ history-ship = { path = "crates/history-ship" }
 service-kit = { path = "crates/service-kit" }
 proxy = { path = "crates/proxy" }
 admin = { path = "services/admin" }
-chat = { path = "plugins/chat" }
-content = { path = "services/content" }
 epic = { path = "crates/epic" }
-# The game modules compiled into the server (DF5): Cargo features of the controller and the bins
-isles-1-14-7 = { path = "modules/rustic-isles/modules/isles-1-14-7", default-features = false }
-isles-core = { path = "modules/rustic-isles/crates/isles-core" }
-isles-db = { path = "modules/rustic-isles/crates/isles-db" }
-isles-director = { path = "modules/rustic-isles/crates/isles-director" }
 hmac = "0.13"
-# The launcher's side of realms (RF7, DD12): linked behind launcher's `realms` feature
-rifts-host = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
-rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
-gateway = { path = "services/gateway" }
-host = { path = "services/host" }
-launcher = { path = "launcher/src-tauri" }
 
 crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }

@@ -9,25 +9,16 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-# Each module is the Rust service built into the binary; by default only MIT services (`admin`) are enabled so
-# `controller` has zero normal AGPL dependencies (`services/host` enables `gateway`, `allowlist`, `content`, `network`)
+# The MIT services built into the binary (`admin`, `remote`). The AGPL services are composed by dainty-restricted's
+# host until each is a library the core loads (RD27)
 default = ["admin", "remote"]
-services = ["gateway", "allowlist", "content", "admin", "network", "remote", "chat"]
-gateway = ["dep:gateway"]
-allowlist = ["dep:gateway"]
-content = ["dep:content"]
+services = ["admin", "remote"]
 admin = ["dep:admin"]
 remote = ["dep:remote"]
-chat = ["dep:chat", "dep:store", "network_plugin/directory"]
-# The node's network side (DD16): the directory, the home API, tickets, and peer log shipping (DH7), attached to the
-# gateway's node links. It needs the gateway in this process, and a database for the directory
-network = ["gateway", "network_plugin/directory", "network_plugin/log-ship", "dep:store", "dep:history-ship"]
+# The node's network side (DD16): the directory, the home API, tickets, and peer log shipping (DH7). A database
+# holds the directory; dainty-restricted's host attaches it to the gateway's node links
+network = ["network_plugin/directory", "network_plugin/log-ship", "dep:store", "dep:history-ship"]
 
-# The game modules compiled in (DD3, DF5), none by default: each is a crate of its module repository under
-# ../modules, linked as a path dependency
-isles-1-14-7 = ["dep:isles-1-14-7"]
-# rustic-rifts' server crates inside isles-1-14-7 (RF2)
-realms = ["isles-1-14-7?/realms"]
 # The module-api stub, a game module for tests and for trying a build (version 0.0.1)
 stub-module = []
 
@@ -41,10 +32,6 @@ doc = false
 
 [dependencies]
 admin = { workspace = true, optional = true }
-chat = { workspace = true, optional = true }
-isles-1-14-7 = { workspace = true, optional = true }
-content = { workspace = true, optional = true }
-gateway = { workspace = true, optional = true }
 history-ship = { workspace = true, optional = true }
 # The node-link services and their registry (DN3-DN5); `directory` is the `network` feature's. Renamed as the gateway renames it
 network_plugin = { package = "network", path = "../../plugins/network", default-features = false }

@@ -987,6 +987,6 @@ mod tests {
     #[test]
     fn an_empty_build_says_so() {
         let text = empty_build_message();
-        assert!(text.contains("gateway, allowlist, content, admin"), "{text}");
+        assert!(text.contains("admin"), "{text}");
     }
 }

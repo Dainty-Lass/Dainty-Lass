@@ -37,7 +37,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", 
 url.workspace = true
 
 [dev-dependencies]
-gateway = { path = "../gateway" }
 tempfile.workspace = true
 
 [lints]

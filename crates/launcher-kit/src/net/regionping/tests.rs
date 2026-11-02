@@ -457,28 +457,3 @@ fn medians_and_ties() {
         r#"{"regions":[{"region":"uk","rttMs":5.0},{"region":"at","rttMs":20.0}]}"#
     );
 }
-
-/// The gateway answers these routes and checks the same region ids (`network.rs`); until DN2 gives
-/// both one definition, its source is read here.
-#[test]
-fn the_gateway_serves_these_routes() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../services/gateway/src/network.rs");
-    let source = std::fs::read_to_string(path).unwrap().replace("\r\n", "\n");
-    for (name, value) in [
-        ("NODES_PATH", NODES_PATH),
-        ("PING_PATH", PING_PATH),
-        ("REGIONS_PATH", REPORT_PATH),
-    ] {
-        assert!(
-            source.contains(&format!("pub const {name}: &str = \"{value}\";")),
-            "{name}"
-        );
-    }
-    assert!(source.contains(&format!("pub const MAX_NODES: usize = {};", parse::MAX_NODES)));
-    let rule = |text: &str| {
-        let start = text.find("pub fn is_region_id").unwrap();
-        let end = start + text[start..].find("\n}\n").unwrap();
-        text[start..end].to_owned()
-    };
-    assert_eq!(rule(&source), rule(&include_str!("parse.rs").replace("\r\n", "\n")));
-}
