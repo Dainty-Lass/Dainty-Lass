@@ -36,9 +36,14 @@ async fn the_core_loads_the_library_and_it_is_the_1_14_7_module() {
         args: vec![],
         expected: Some(compiled_in.id.clone()),
     };
-    let library = DylibModule::load(&module, NodeIdentity::standalone(), recording_host(), ChildOptions::default())
-        .await
-        .unwrap();
+    let library = DylibModule::load(
+        &module,
+        NodeIdentity::standalone(),
+        recording_host(),
+        ChildOptions::default(),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         serde_json::to_value(library.manifest()).unwrap(),
         serde_json::to_value(&compiled_in).unwrap()
