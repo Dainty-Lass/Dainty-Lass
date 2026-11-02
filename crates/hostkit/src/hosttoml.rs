@@ -11,8 +11,8 @@
 //! spacing stay. A new file (setup's first run, or a host.json being moved over) is written from a
 //! template that says what each key does.
 //!
-//! `[modules]` (DF3) is the one part with lists and tables of its own (`hostconfig/modules.rs`): it is
-//! read as it is and, when it changed, written back whole.
+//! `[modules]` (DF3) and `[services]` (RD27) have lists and tables of their own (`hostconfig/modules.rs`,
+//! `hostconfig/services.rs`): they are read as they are and, when they changed, written back whole.
 
 use serde_json::{Map, Number, Value};
 use toml_edit::{DocumentMut, Item, Table, TableLike};
@@ -46,10 +46,11 @@ const TOP: &[Field] = &[
     ("network", "network", false),
     ("remote", "remote", false),
     ("modules", "modules", false),
+    ("services", "services", false),
 ];
 
-/// The top-level key whose tables and lists are read as they are (`hostconfig/modules.rs` checks them).
-const FREE_FORM: &str = "modules";
+/// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`).
+const FREE_FORM: [&str; 2] = ["modules", "services"];
 
 /// `network.nodes` is a list of tables (`[[network.nodes]]`), read as it is like `[modules]`
 const NETWORK: &[Field] = &[
@@ -202,7 +203,7 @@ fn object(table: &dyn TableLike, fields: &[Field], prefix: &str) -> Result<Map<S
     for &(json, toml, nullable) in fields {
         let path = format!("{prefix}{toml}");
         match table.get(toml) {
-            Some(item) if prefix.is_empty() && json == FREE_FORM => {
+            Some(item) if prefix.is_empty() && FREE_FORM.contains(&json) => {
                 out.insert(json.into(), free_form(item, &path)?);
             }
             Some(item) if is_peer_list(prefix, json) || is_string_list(prefix, json) => {
@@ -388,7 +389,7 @@ fn patch(
             (None | Some(Value::Null), _) => {
                 table.remove(toml);
             }
-            (Some(v), None) if top && json == FREE_FORM => {
+            (Some(v), None) if top && FREE_FORM.contains(&json) => {
                 table.remove(toml);
                 table.insert(toml, free_item(v, toml)?);
             }
@@ -588,6 +589,11 @@ fn comment(path: &str) -> &'static str {
              each [[modules.external]] is an executable with its SHA-256 (id, path, sha256, args, autoload); a\n\
              module's own settings go in [modules.<id>.<section>]. Left out: every compiled-in module, no other."
         }
+        "services" => {
+            "Services the core loads as libraries (RD27), one [services.<name>] each: library (its path, from this\n\
+             folder) and sha256. A service listed here replaces the one built into this binary; left out: the\n\
+             built-in ones. content, chat and gateway are known by name; another names what it serves (serves)."
+        }
         "database.allow_remote" => {
             "true: accept a Postgres server on another machine, over a network you trust (private, not the internet)."
         }
@@ -611,7 +617,7 @@ fn push_comment(out: &mut String, path: &str) {
 fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
     let mut out = String::from(HEADER);
     for &(json, toml, _) in TOP {
-        if table_fields(json).is_some() || json == FREE_FORM {
+        if table_fields(json).is_some() || FREE_FORM.contains(&json) {
             continue;
         }
         match fields.get(json) {
@@ -661,12 +667,14 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
             out.push_str(&doc.to_string());
         }
     }
-    if let Some(modules) = fields.get(FREE_FORM).filter(|v| !v.is_null()) {
-        let mut doc = DocumentMut::new();
-        doc.insert(FREE_FORM, free_item(modules, FREE_FORM)?);
-        out.push('\n');
-        push_comment(&mut out, FREE_FORM);
-        out.push_str(&doc.to_string());
+    for key in FREE_FORM {
+        if let Some(part) = fields.get(key).filter(|v| !v.is_null()) {
+            let mut doc = DocumentMut::new();
+            doc.insert(key, free_item(part, key)?);
+            out.push('\n');
+            push_comment(&mut out, key);
+            out.push_str(&doc.to_string());
+        }
     }
     Ok(out)
 }

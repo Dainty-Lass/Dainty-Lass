@@ -99,6 +99,19 @@ pub trait HostHooks: Send + Sync {
         Ok(())
     }
 
+    /// A service `[services.<name>]` loads as a library (RD27). A build with a compose function of its own for the
+    /// service (its env, its options) puts it in here.
+    fn compose_service_library(
+        &self,
+        controller: &mut controller::ServerController,
+        paths: &Paths,
+        _config: &HostConfig,
+        registry: &controller::ModuleRegistry,
+        library: controller::ServiceLibrary,
+    ) -> Result<(), HostError> {
+        crate::serve::add_service_library(controller, paths, registry, library)
+    }
+
     fn ensure_gateway_cert(&self, _paths: &Paths, _config: &HostConfig) -> Result<(), HostError> {
         Ok(())
     }

@@ -53,7 +53,13 @@ pub const BUILT_IN_SERVICES: &[&str] = &[
 /// Runs the parsed command line: finds the checkout, then the command. A service run alone needs
 /// no checkout (a container holds the binary and the workspace only).
 pub fn run(cli: &cli::Cli) -> Outcome {
+    run_in(cli, None)
+}
+
+/// [`run`] in the server folder `root` (the one that holds `.workspace/`), or the one found from here.
+pub fn run_in(cli: &cli::Cli, root: Option<&std::path::Path>) -> Outcome {
     use cli::Command;
+    let found = || root.map_or_else(paths::locate_repo_root, |r| Ok(r.to_path_buf()));
     if let Command::Gateway { args }
     | Command::Allowlist { args }
     | Command::Content { args }
@@ -68,10 +74,10 @@ pub fn run(cli: &cli::Cli) -> Outcome {
     }
     // The CA and node certificates are made on the owner's machine, in or out of a server's folder
     if let Command::Network(args) = &cli.command {
-        let paths = paths::locate_repo_root().ok().map(paths::Paths::new);
+        let paths = found().ok().map(paths::Paths::new);
         return commands::network::run(args, paths.as_ref());
     }
-    let root = paths::locate_repo_root()?;
+    let root = found()?;
     commands::dispatch(&cli.command, &paths::Paths::new(root))
 }
 

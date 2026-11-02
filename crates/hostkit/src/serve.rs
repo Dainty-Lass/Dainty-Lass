@@ -16,7 +16,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use controller::{Module, ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, modules};
+use controller::{
+    Module, ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, ServiceLibrary, modules,
+};
 use service_kit::env::Env;
 use tokio::sync::watch;
 
@@ -211,10 +213,71 @@ fn mongod_module(paths: &Paths, config: &HostConfig, printer: Printer) -> Module
     .ready_within(Duration::from_secs(90))
 }
 
+/// The services `[services.<name>]` loads as libraries (RD27), paths taken from the server folder.
+pub fn service_libraries(paths: &Paths, config: &HostConfig) -> Vec<ServiceLibrary> {
+    let Some(services) = &config.services else {
+        return Vec::new();
+    };
+    services
+        .iter()
+        .map(|(name, entry)| {
+            let path = PathBuf::from(&entry.library);
+            let (name, serves): (&'static str, &'static [module_api::CoreCapability]) =
+                match hostconfig::services::KNOWN.iter().find(|(known, _)| known == name) {
+                    Some((known, serves)) => (known, serves),
+                    // Made once per start, for a name only host.toml knows
+                    None => (
+                        Box::leak(name.clone().into_boxed_str()),
+                        entry.serves.clone().unwrap_or_default().leak(),
+                    ),
+                };
+            ServiceLibrary {
+                name,
+                path: if path.is_absolute() {
+                    path
+                } else {
+                    paths.repo.join(path)
+                },
+                sha256: entry.sha256,
+                serves,
+            }
+        })
+        .collect()
+}
+
+/// Whether `[services.<name>]` loads `name` as a library, in place of the compiled-in one.
+pub fn library_configured(config: &HostConfig, name: &str) -> bool {
+    config.services.as_ref().is_some_and(|s| s.contains_key(name))
+}
+
+/// The env a library runs on: chat's is the gateway's file, as the compiled-in chat's is; a service without a
+/// file of its own gets the system's variables only.
+pub fn library_env(paths: &Paths, name: &str) -> Result<Env, HostError> {
+    let file = if name == "chat" { "gateway" } else { name };
+    if start_cmd::env_file(paths, file).is_file() {
+        return module_env(paths, file);
+    }
+    let pairs = service_environment(std::env::vars(), std::iter::empty::<(&str, &str)>(), &[]);
+    Ok(Env::from_pairs(pairs.iter().map(|(k, v)| (k.as_str(), v.as_str()))))
+}
+
+/// A service library as a module of `controller`, on its env file (RD27).
+pub fn add_service_library(
+    controller: &mut ServerController,
+    paths: &Paths,
+    registry: &ModuleRegistry,
+    library: ServiceLibrary,
+) -> Result<(), HostError> {
+    let env = library_env(paths, library.name)?;
+    controller.add(controller::service_library(library, env, Some(registry)));
+    Ok(())
+}
+
 /// The server's modules in start order: the database, the allowlist (its table closes the game
 /// ports before any game server listens), the backend, the Director, the content server, the admin
 /// API, the gateway last. A front service runs in this process once [`rust_ported`] says so and this
-/// binary has it; until then its Node build runs as a supervised process.
+/// binary has it; until then its Node build runs as a supervised process. A service `[services]` lists
+/// runs as a library in its place.
 pub fn compose(
     paths: &Paths,
     config: &HostConfig,
@@ -256,9 +319,22 @@ pub fn compose(
         controller.add(mongod_module(paths, config, printer.clone()));
     }
 
+    let mut libraries = service_libraries(paths, config);
+    let mut take_library = |name: &str| {
+        libraries
+            .iter()
+            .position(|l| l.name == name)
+            .map(|at| libraries.remove(at))
+    };
+    let gateway_library = take_library("gateway");
+    let chat_library = take_library("chat");
+    let content_library = take_library("content");
+    let hooks = crate::hooks::get();
+
     let mut slot: Option<crate::hooks::AnySlot> = None;
     let mut guarded = false;
-    if public && !external_allowlist {
+    // A gateway library holds the allowlist (it serves UdpPorts)
+    if public && !external_allowlist && gateway_library.is_none() {
         if in_process(FrontService::Allowlist) {
             slot = crate::hooks::get().compose_in_process_allowlist(&mut controller, paths, &registry)?;
             guarded = slot.is_some();
@@ -308,8 +384,10 @@ pub fn compose(
         );
     }
 
-    if in_process(FrontService::Content) {
-        crate::hooks::get().compose_in_process_content(&mut controller, paths, &registry)?;
+    if let Some(library) = content_library {
+        hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;
+    } else if in_process(FrontService::Content) {
+        hooks.compose_in_process_content(&mut controller, paths, &registry)?;
     } else if node_runs {
         controller.add(front_process(FrontService::Content, Ready::http(PORTS.content, "/content/v1/news")).optional());
     }
@@ -320,9 +398,12 @@ pub fn compose(
         controller
             .add(modules::admin(&module_env(paths, "admin")?, Some(registry.clone())).map_err(HostError::message)?);
     }
+    for library in libraries {
+        hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;
+    }
 
     let in_process_gw = in_process(FrontService::Gateway);
-    crate::hooks::get().compose_in_process_network_and_gateway(
+    hooks.compose_in_process_network_and_gateway(
         &mut controller,
         paths,
         config,
@@ -332,7 +413,11 @@ pub fn compose(
         public,
         guarded,
     )?;
-    if !in_process_gw && node_runs {
+    let gateway_runs = gateway_library.is_some();
+    for library in [gateway_library, chat_library].into_iter().flatten() {
+        hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;
+    }
+    if !in_process_gw && node_runs && !gateway_runs {
         let ready = match config.mode {
             ServerMode::Public => Ready::tcp("127.0.0.1", hostconfig::gateway_port(config)),
             ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
@@ -341,7 +426,7 @@ pub fn compose(
     }
     crate::commands::remote::compose_remote_module(paths, config, &registry, &mut controller)?;
 
-    list_modules(paths, config, &registry, crate::hooks::get().game_modules())?;
+    list_modules(paths, config, &registry, hooks.game_modules())?;
     controller.set_registry(registry);
     Ok(controller)
 }
@@ -830,6 +915,7 @@ mod tests {
             guard: None,
             history: None,
             modules: None,
+            services: None,
             network: None,
             remote: None,
             switches: Default::default(),
@@ -982,6 +1068,44 @@ mod tests {
             );
             registry.unload_all().await;
         }
+    }
+
+    #[test]
+    fn service_libraries_come_from_host_toml_by_name() {
+        use module_api::CoreCapability;
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let mut c = config(ServerMode::Private);
+        assert!(service_libraries(&paths, &c).is_empty());
+        let d = "ab".repeat(32);
+        let doc = crate::hosttoml::document(&format!(
+            "[services.gateway]\nlibrary = \"plugins/gateway.dll\"\nsha256 = \"{d}\"\n\
+             [services.chat]\nlibrary = \"plugins/chat.dll\"\nsha256 = \"{d}\"\n\
+             [services.echo]\nlibrary = \"plugins/echo.dll\"\nsha256 = \"{d}\"\nserves = [\"content_files\"]\n"
+        ))
+        .unwrap();
+        c.services = Some(hostconfig::services::from_json(&doc["services"]).unwrap());
+        let libraries: Vec<(&str, PathBuf, Vec<CoreCapability>)> = service_libraries(&paths, &c)
+            .into_iter()
+            .map(|l| (l.name, l.path, l.serves.to_vec()))
+            .collect();
+        assert_eq!(
+            libraries,
+            [
+                ("chat", dir.path().join("plugins/chat.dll"), vec![CoreCapability::Chat]),
+                (
+                    "echo",
+                    dir.path().join("plugins/echo.dll"),
+                    vec![CoreCapability::ContentFiles]
+                ),
+                (
+                    "gateway",
+                    dir.path().join("plugins/gateway.dll"),
+                    vec![CoreCapability::Routes, CoreCapability::UdpPorts]
+                ),
+            ]
+        );
+        assert!(library_configured(&c, "chat") && !library_configured(&c, "content"));
     }
 
     #[test]

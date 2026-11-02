@@ -25,6 +25,8 @@ members = [
     "services/admin",
     # The network core plugin: node links, the directory (DD16-DD18)
     "plugins/network",
+    # The MIT core server: admin and remote built in, the other services libraries (RD27)
+    "bins/dainty-lass-server",
 ]
 # The fuzz targets (cargo fuzz, nightly) are a workspace of their own
 exclude = ["fuzz"]
