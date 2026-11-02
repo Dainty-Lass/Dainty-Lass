@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT
+node_modules/
+dist/
+# Generated in dainty-restricted, copied in by scripts/restricted-data.ts
+isolation/commands.js

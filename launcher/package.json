@@ -1,0 +1,22 @@
+{
+  "name": "dainty-lass-launcher",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "scripts": {
+    "restricted-data": "bun scripts/restricted-data.ts",
+    "test": "bun run restricted-data && bun test test/",
+    "typecheck": "bun run restricted-data && tsc --noEmit",
+    "build:pages": "bun scripts/dashboard-page.ts build launcher && bun scripts/dashboard-page.ts build server-manager",
+    "e2e:desktop": "bun e2e/desktop.ts",
+    "e2e:remote": "bun e2e/remote.ts"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "@types/bun": "1.4.4",
+    "playwright-core": "1.64.1",
+    "typescript": "6.0.3"
+  }
+}
