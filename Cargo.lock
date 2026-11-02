@@ -609,6 +609,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
+name = "content"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "chrono",
+ "clap",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "module-api",
+ "protocol",
+ "rustls",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "service-plugin",
+ "sha1 0.11.0",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
 name = "controller"
 version = "0.0.0"
 dependencies = [

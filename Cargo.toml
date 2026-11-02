@@ -23,6 +23,8 @@ members = [
     "services/backend",
     "services/director",
     "services/admin",
+    # The content server: the game runtime, news and art pack (RD27, clean-room MIT)
+    "services/content",
     # The network core plugin: node links, the directory (DD16-DD18)
     "plugins/network",
     # The MIT core server: admin and remote built in, the other services libraries (RD27)
@@ -56,6 +58,7 @@ service-kit = { path = "crates/service-kit" }
 service-plugin = { path = "crates/service-plugin" }
 proxy = { path = "crates/proxy" }
 admin = { path = "services/admin" }
+content = { path = "services/content" }
 epic = { path = "crates/epic" }
 hmac = "0.13"
 
@@ -69,6 +72,7 @@ aes-gcm = "0.11"
 # The admin API's GraphQL schema (services/admin); no web framework integration, no playground
 async-graphql = { version = "7", default-features = false }
 base64 = "0.23"
+bytes = "1"
 
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 clap = { version = "4", features = ["derive"] }
@@ -78,6 +82,8 @@ dotenvy = "0.15"
 flate2 = "1"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 gethostname = "1"
+http = "1"
+http-body = "1"
 http-body-util = "0.1"
 hyper = { version = "1", default-features = false, features = ["client", "server", "http1"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio", "service"] }
