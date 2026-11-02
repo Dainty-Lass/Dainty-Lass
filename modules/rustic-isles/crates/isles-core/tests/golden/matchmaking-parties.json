@@ -1,0 +1,344 @@
+[
+  {
+    "name": "register",
+    "method": "POST",
+    "path": "/candidate/player/register",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "alive",
+    "method": "POST",
+    "path": "/candidate/player/alive",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "regions",
+    "method": "GET",
+    "path": "/candidate/regions",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"code\":200,\"message\":\"success\",\"payload\":{\"maxPingingStepTime\":3,\"pingCount\":5,\"pingFrequency\":0.25,\"regionUrls\":[\"qos.example.net\"]}}"
+  },
+  {
+    "name": "qos",
+    "method": "GET",
+    "path": "/QoS",
+    "status": 200,
+    "contentType": "text/html; charset=utf-8",
+    "partyRevision": null,
+    "body": "<!DOCTYPE html><html><body>pong</body></html>"
+  },
+  {
+    "name": "unauthenticated",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 401,
+    "contentType": null,
+    "partyRevision": null,
+    "body": ""
+  },
+  {
+    "name": "status-none",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 404,
+    "contentType": null,
+    "partyRevision": null,
+    "body": ""
+  },
+  {
+    "name": "join-ramsgate",
+    "method": "POST",
+    "path": "/candidate/join",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"0ca2ee64-b811-42da-b15a-dbc7fa809c07\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"CITY\",\"huntId\":\"ShatteredIsles_ReturnToRamsgate\",\"status\":\"MATCHING\",\"statusReason\":null}"
+  },
+  {
+    "name": "status-ramsgate-matching",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"0ca2ee64-b811-42da-b15a-dbc7fa809c07\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"CITY\",\"huntId\":\"ShatteredIsles_ReturnToRamsgate\",\"playerStates\":{\"alice\":{}},\"status\":\"MATCHING\",\"statusDuration\":0,\"statusReason\":null}"
+  },
+  {
+    "name": "status-ramsgate",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"0ca2ee64-b811-42da-b15a-dbc7fa809c07\",\"candidateStatusPeriodMillis\":10000,\"gameMode\":\"CITY\",\"huntId\":null,\"playerStates\":{\"alice\":{}},\"serverInfo\":{\"buildId\":\"647472_1.14.7_shipping\",\"gameSessionId\":\"240b3f8c-56bc-4e05-b438-5fc2df97ed0c\",\"host\":\"127.0.0.1\",\"port\":7777},\"status\":\"IN_PROGRESS\",\"statusDuration\":0,\"statusReason\":null}"
+  },
+  {
+    "name": "party-create",
+    "method": "POST",
+    "path": "/party",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": "1",
+    "body": "{\"candidateId\":\"0ca2ee64-b811-42da-b15a-dbc7fa809c07\",\"candidateState\":\"QUEUED_FOR_START\",\"gauntletLevel\":null,\"leaderPlayerId\":\"alice\",\"partyId\":\"cd554fa7b8f4130fc100714afd720f26_NjQ3NDcy\",\"playerHuntId\":null,\"playerStates\":[{\"consoleSessionId\":null,\"displayName\":\"alice\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"alice\"}]}"
+  },
+  {
+    "name": "party-invite",
+    "method": "PUT",
+    "path": "/party/invite",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "party-invite-nobody",
+    "method": "PUT",
+    "path": "/party/invite",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "party-invites",
+    "method": "GET",
+    "path": "/party/invites",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"invitations\":[{\"partyId\":\"cd554fa7b8f4130fc100714afd720f26_NjQ3NDcy\",\"recipientPlayerId\":\"bob\",\"sendingDisplayName\":\"alice\",\"sendingPlatform\":\"win\",\"sendingPlayerId\":\"alice\"}]}"
+  },
+  {
+    "name": "party-accept",
+    "method": "PUT",
+    "path": "/party/invite/accept/alice",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "party-bob",
+    "method": "POST",
+    "path": "/party",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": "2",
+    "body": "{\"candidateId\":null,\"candidateState\":\"QUEUED_FOR_START\",\"gauntletLevel\":null,\"leaderPlayerId\":\"alice\",\"partyId\":\"cd554fa7b8f4130fc100714afd720f26_NjQ3NDcy\",\"playerHuntId\":null,\"playerStates\":[{\"consoleSessionId\":null,\"displayName\":\"alice\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"alice\"},{\"consoleSessionId\":null,\"displayName\":\"bob\",\"isMemberOfCandidate\":false,\"platform\":\"win\",\"playerId\":\"bob\"}]}"
+  },
+  {
+    "name": "alive-bob",
+    "method": "POST",
+    "path": "/candidate/player/alive",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "join-island-stale-party",
+    "method": "POST",
+    "path": "/candidate/join",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"7b95726a-31ac-48d1-9a9c-c837ad7fd246\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"ISLAND\",\"huntId\":\"ShatteredIsles_IslandA\",\"status\":\"MATCHING\",\"statusReason\":null}"
+  },
+  {
+    "name": "status-island-matching",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"7b95726a-31ac-48d1-9a9c-c837ad7fd246\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"ISLAND\",\"huntId\":\"ShatteredIsles_IslandA\",\"playerStates\":{\"alice\":{}},\"status\":\"MATCHING\",\"statusDuration\":0,\"statusReason\":null}"
+  },
+  {
+    "name": "leave",
+    "method": "DELETE",
+    "path": "/candidate/leave",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "status-canceled",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"7b95726a-31ac-48d1-9a9c-c837ad7fd246\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"ISLAND\",\"huntId\":null,\"playerStates\":{\"alice\":{}},\"status\":\"CANCELED\",\"statusDuration\":0,\"statusReason\":\"PLAYER_CANCELED\"}"
+  },
+  {
+    "name": "leave-post",
+    "method": "POST",
+    "path": "/candidate/leave",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "leave-put",
+    "method": "PUT",
+    "path": "/candidate/leave",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "leave-delete-candidate",
+    "method": "DELETE",
+    "path": "/candidate",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "leave-delete-id",
+    "method": "DELETE",
+    "path": "/candidate/abc",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "join-island-party",
+    "method": "POST",
+    "path": "/candidate/join",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"9ad28221-9579-41e7-a989-239ed9785c48\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"ISLAND\",\"huntId\":\"ShatteredIsles_IslandA\",\"status\":\"MATCHING\",\"statusReason\":null}"
+  },
+  {
+    "name": "status-party-alice",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"9ad28221-9579-41e7-a989-239ed9785c48\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"ISLAND\",\"huntId\":\"ShatteredIsles_IslandA\",\"playerStates\":{\"alice\":{}},\"status\":\"MATCHING\",\"statusDuration\":0,\"statusReason\":null}"
+  },
+  {
+    "name": "status-party-bob",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"f8b5c974-cef0-4b2f-8f1c-b8f7d20a6694\",\"candidateStatusPeriodMillis\":1000,\"gameMode\":\"ISLAND\",\"huntId\":\"ShatteredIsles_IslandA\",\"playerStates\":{\"bob\":{}},\"status\":\"MATCHING\",\"statusDuration\":0,\"statusReason\":null}"
+  },
+  {
+    "name": "party-bob-matching",
+    "method": "POST",
+    "path": "/party",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": "2",
+    "body": "{\"candidateId\":\"f8b5c974-cef0-4b2f-8f1c-b8f7d20a6694\",\"candidateState\":\"MATCHING\",\"gauntletLevel\":null,\"leaderPlayerId\":\"alice\",\"partyId\":\"cd554fa7b8f4130fc100714afd720f26_NjQ3NDcy\",\"playerHuntId\":\"ShatteredIsles_IslandA\",\"playerStates\":[{\"consoleSessionId\":null,\"displayName\":\"alice\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"alice\"},{\"consoleSessionId\":null,\"displayName\":\"bob\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"bob\"}]}"
+  },
+  {
+    "name": "party-bob-in-progress",
+    "method": "POST",
+    "path": "/party",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": "2",
+    "body": "{\"candidateId\":\"f8b5c974-cef0-4b2f-8f1c-b8f7d20a6694\",\"candidateState\":\"IN_PROGRESS\",\"gauntletLevel\":null,\"leaderPlayerId\":\"alice\",\"partyId\":\"cd554fa7b8f4130fc100714afd720f26_NjQ3NDcy\",\"playerHuntId\":\"ShatteredIsles_IslandA\",\"playerStates\":[{\"consoleSessionId\":null,\"displayName\":\"alice\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"alice\"},{\"consoleSessionId\":null,\"displayName\":\"bob\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"bob\"}]}"
+  },
+  {
+    "name": "status-party-bob-ready",
+    "method": "GET",
+    "path": "/candidate/status",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"f8b5c974-cef0-4b2f-8f1c-b8f7d20a6694\",\"candidateStatusPeriodMillis\":10000,\"gameMode\":\"ISLAND\",\"huntId\":\"ShatteredIsles_IslandA\",\"playerStates\":{\"bob\":{}},\"serverInfo\":{\"buildId\":\"647472_1.14.7_shipping\",\"gameSessionId\":\"06cc8a7b-c00c-4884-9de4-1f97cd99f29f\",\"host\":\"127.0.0.1\",\"port\":7777},\"status\":\"IN_PROGRESS\",\"statusDuration\":0,\"statusReason\":null}"
+  },
+  {
+    "name": "promote",
+    "method": "PUT",
+    "path": "/party/member/promote/bob",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "party-after-promote",
+    "method": "POST",
+    "path": "/party",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": "3",
+    "body": "{\"candidateId\":\"9ad28221-9579-41e7-a989-239ed9785c48\",\"candidateState\":\"IN_PROGRESS\",\"gauntletLevel\":null,\"leaderPlayerId\":\"bob\",\"partyId\":\"cd554fa7b8f4130fc100714afd720f26_NjQ3NDcy\",\"playerHuntId\":\"ShatteredIsles_IslandA\",\"playerStates\":[{\"consoleSessionId\":null,\"displayName\":\"alice\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"alice\"},{\"consoleSessionId\":null,\"displayName\":\"bob\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"bob\"}]}"
+  },
+  {
+    "name": "kick",
+    "method": "DELETE",
+    "path": "/party/member/alice",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "party-after-kick",
+    "method": "POST",
+    "path": "/party",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": "4",
+    "body": "{\"candidateId\":\"f8b5c974-cef0-4b2f-8f1c-b8f7d20a6694\",\"candidateState\":\"IN_PROGRESS\",\"gauntletLevel\":null,\"leaderPlayerId\":\"bob\",\"partyId\":\"cd554fa7b8f4130fc100714afd720f26_NjQ3NDcy\",\"playerHuntId\":\"ShatteredIsles_IslandA\",\"playerStates\":[{\"consoleSessionId\":null,\"displayName\":\"bob\",\"isMemberOfCandidate\":true,\"platform\":\"win\",\"playerId\":\"bob\"}]}"
+  },
+  {
+    "name": "leave-party",
+    "method": "DELETE",
+    "path": "/party/member",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{}"
+  },
+  {
+    "name": "join-no-body",
+    "method": "POST",
+    "path": "/candidate/join",
+    "status": 500,
+    "contentType": "text/html; charset=utf-8",
+    "partyRevision": null,
+    "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+  },
+  {
+    "name": "join-empty",
+    "method": "POST",
+    "path": "/candidate/join",
+    "status": 200,
+    "contentType": "application/json; charset=utf-8",
+    "partyRevision": null,
+    "body": "{\"candidateId\":\"4e9c7775-8e7e-4af5-b5ce-b23a2f588486\",\"candidateStatusPeriodMillis\":1000,\"huntId\":\"\",\"status\":\"MATCHING\",\"statusReason\":null}"
+  },
+  {
+    "name": "party-bad-json",
+    "method": "POST",
+    "path": "/party",
+    "status": 400,
+    "contentType": "text/html; charset=utf-8",
+    "partyRevision": null,
+    "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Bad Request</pre>\n</body>\n</html>\n"
+  }
+]

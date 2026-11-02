@@ -1,0 +1,222 @@
+{
+  "code": null,
+  "message": "OK",
+  "payload": {
+    "paths": [
+      {
+        "progression_id": "ExperienceTrack_PlayerLevel",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 100
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 200
+          },
+          {
+            "rank_id": 3,
+            "xp_required": 300
+          }
+        ],
+        "free_rewards": []
+      },
+      {
+        "progression_id": "ExperienceTrack_Weapon_Axe",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 100
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 200
+          }
+        ],
+        "free_rewards": []
+      },
+      {
+        "progression_id": "ExperienceTrack_Weapon_Sword",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 100
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 200
+          }
+        ],
+        "free_rewards": []
+      },
+      {
+        "progression_id": "PrestigeTrack_Weapon_Axe",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 0
+          }
+        ],
+        "prestige": {
+          "xp_per_level": 1
+        },
+        "free_rewards": []
+      },
+      {
+        "progression_id": "MasteryTrack_PlayerLevel",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 3,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 4,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 5,
+            "xp_required": 1
+          }
+        ],
+        "free_rewards": []
+      },
+      {
+        "progression_id": "MasteryTrack_Weapon_Sword",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 3,
+            "xp_required": 1
+          }
+        ],
+        "free_rewards": []
+      },
+      {
+        "progression_id": "MasteryTrack_Weapon_Axe",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 3,
+            "xp_required": 1
+          }
+        ],
+        "free_rewards": []
+      },
+      {
+        "progression_id": "MasteryTrack_Behemoth",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 1
+          },
+          {
+            "rank_id": 3,
+            "xp_required": 1
+          }
+        ],
+        "free_rewards": []
+      },
+      {
+        "progression_id": "season19",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 50
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 50
+          },
+          {
+            "rank_id": 3,
+            "xp_required": 50
+          }
+        ],
+        "prestige": {
+          "xp_per_level": 100
+        },
+        "start_date": "2019-01-01T00:00:00+00:00",
+        "end_date": "2099-01-01T00:00:00+00:00",
+        "free_rewards": []
+      },
+      {
+        "progression_id": "season43",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 50
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 50
+          },
+          {
+            "rank_id": 3,
+            "xp_required": 50
+          }
+        ],
+        "prestige": {
+          "xp_per_level": 100
+        },
+        "start_date": "2019-01-01T00:00:00+00:00",
+        "end_date": "2099-01-01T00:00:00+00:00",
+        "free_rewards": []
+      },
+      {
+        "progression_id": "season44",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 50
+          },
+          {
+            "rank_id": 2,
+            "xp_required": 50
+          }
+        ],
+        "prestige": {
+          "xp_per_level": 100
+        },
+        "start_date": "2019-01-01T00:00:00+00:00",
+        "end_date": "2099-01-01T00:00:00+00:00",
+        "free_rewards": []
+      },
+      {
+        "progression_id": "Linked_Slayer_Slot_1",
+        "requirements": [
+          {
+            "rank_id": 1,
+            "xp_required": 10
+          }
+        ],
+        "free_rewards": []
+      }
+    ]
+  }
+}

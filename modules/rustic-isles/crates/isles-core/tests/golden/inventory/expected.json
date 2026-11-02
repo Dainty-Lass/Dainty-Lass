@@ -1,0 +1,452 @@
+[
+ {
+  "name": "migration stub, named",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":\"NONE\",\"message\":\"\"}"
+ },
+ {
+  "name": "migration stub, empty characterId (regex)",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":\"NONE\",\"message\":\"\"}"
+ },
+ {
+  "name": "migration stub, unauthenticated",
+  "status": 401,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "read, gameserver",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c1\",\"instancedItems\":[{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0,\\\"DataVersion\\\":1}\",\"updateVersion\":3},{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"I-LANTERN\",\"itemData\":null,\"updateVersion\":0}],\"stackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":4},{\"catalogId\":\"CORE\",\"quantity\":1},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":5000},{\"catalogId\":\"CURRENCY_PJM_WEAPON\",\"quantity\":50}]}"
+ },
+ {
+  "name": "read, player",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c1\",\"instancedItems\":[{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0,\\\"DataVersion\\\":1}\",\"updateVersion\":3},{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"I-LANTERN\",\"itemData\":null,\"updateVersion\":0}],\"stackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":4},{\"catalogId\":\"CORE\",\"quantity\":1},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":5000},{\"catalogId\":\"CURRENCY_PJM_WEAPON\",\"quantity\":50}]}"
+ },
+ {
+  "name": "read, not the character of that user",
+  "status": 400,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "read, unknown character",
+  "status": 400,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "read, sentinel",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c1\",\"instancedItems\":[],\"stackedItems\":[]}"
+ },
+ {
+  "name": "read, no characterId resolves to the first character",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c1\",\"instancedItems\":[{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0,\\\"DataVersion\\\":1}\",\"updateVersion\":3},{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"I-LANTERN\",\"itemData\":null,\"updateVersion\":0}],\"stackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":4},{\"catalogId\":\"CORE\",\"quantity\":1},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":5000},{\"catalogId\":\"CURRENCY_PJM_WEAPON\",\"quantity\":50}]}"
+ },
+ {
+  "name": "read, no characterId, sentinel",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"INVALID\",\"instancedItems\":[],\"stackedItems\":[]}"
+ },
+ {
+  "name": "read, no characterId, player",
+  "status": 400,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "read, unauthenticated",
+  "status": 401,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "tx, grant stack and currency",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":7},{\"catalogId\":\"NEWSTACK\",\"quantity\":2,\"source\":\"x\"},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":5100}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, replay of the same body",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":7},{\"catalogId\":\"NEWSTACK\",\"quantity\":2,\"source\":\"x\"},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":5100}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, replay with the keys in another order",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":7},{\"catalogId\":\"NEWSTACK\",\"quantity\":2,\"source\":\"x\"},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":5100}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, same id another body",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Transaction id reused with a different request body\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, remove more than owned",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Insufficient stacked item\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, remove a whole stack and report it",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"CORE\",\"quantity\":0}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, overspend currency",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Insufficient balance\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, spend currency",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":5},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":4600}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, instanced adds with placeholder ids",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[{\"catalogId\":\"TOKEN_CELL_EXCHANGE\",\"instanceId\":\"<ID>\",\"itemData\":null,\"updateVersion\":0},{\"catalogId\":\"WP_SW_BEGINNER\",\"instanceId\":\"I-SWORD\",\"itemData\":null,\"updateVersion\":0}],\"updatedInstancedItems\":[],\"updatedStackedItems\":[],\"removedInstancedItems\":[{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"I-LANTERN\"}]}"
+ },
+ {
+  "name": "tx, save with a newer version",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0}\",\"updateVersion\":4}],\"updatedStackedItems\":[],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, save with a stale version",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, save that would change the catalogId",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, storage correction both ways",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"174B87F8EF15164E1A8B3300D8\",\"itemData\":null,\"updateVersion\":0},{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"4CB8B7D6FBBBDB390E588BC838\",\"itemData\":null,\"updateVersion\":0}],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"WP_AC_TRIALS_00\",\"quantity\":1}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, impossible quantity for a non-stackable",
+  "status": 500,
+  "contentType": "text/html; charset=utf-8",
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "tx, starter dye ids are not stored",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":5}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, player bearer cannot grant",
+  "status": 403,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Authoritative inventory mutations require gameserver authority\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, player bearer can save",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0}\",\"updateVersion\":5}],\"updatedStackedItems\":[],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, not the character of that user",
+  "status": 400,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "tx, accountId in the body names the user",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":5}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, empty characterId resolves to the first character",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":6}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, empty accountId and characterId from a bearer-less gameserver",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":7}],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "tx, a gameserver's sentinel account becomes the configured one",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid inventory request: removeInstancedItems must be an array\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, sentinel user is a no-op echo",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[{\"x\":1}],\"updatedStackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":1}],\"removedInstancedItems\":\"odd\"}"
+ },
+ {
+  "name": "tx, body is an array",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid inventory request: body must be an object\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, body is not JSON",
+  "status": 400,
+  "contentType": "text/html; charset=utf-8",
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Bad Request</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "tx, no body",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid inventory request: transactionId must be a non-empty string\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, missing transactionId",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid inventory request: transactionId must be a non-empty string\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, bad quantity",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid inventory request: addStackedItems entry has an invalid quantity\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, instanced entry without an instanceId",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid inventory request: saveInstancedItems entry has an invalid instanceId\",\"payload\":{}}"
+ },
+ {
+  "name": "tx, unauthenticated",
+  "status": 401,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "tx, form-encoded body",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"createdInstancedItems\":[],\"updatedInstancedItems\":[],\"updatedStackedItems\":[],\"removedInstancedItems\":[]}"
+ },
+ {
+  "name": "read after the transactions",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c1\",\"instancedItems\":[{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0}\",\"updateVersion\":5},{\"catalogId\":\"TOKEN_CELL_EXCHANGE\",\"instanceId\":\"<ID>\",\"itemData\":null,\"updateVersion\":0},{\"catalogId\":\"WP_SW_BEGINNER\",\"instanceId\":\"I-SWORD\",\"itemData\":null,\"updateVersion\":0},{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"174B87F8EF15164E1A8B3300D8\",\"itemData\":null,\"updateVersion\":0},{\"catalogId\":\"LT_TRIALS_00\",\"instanceId\":\"4CB8B7D6FBBBDB390E588BC838\",\"itemData\":null,\"updateVersion\":0}],\"stackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":7},{\"catalogId\":\"NEWSTACK\",\"quantity\":2,\"source\":\"x\"},{\"catalogId\":\"WP_AC_TRIALS_00\",\"quantity\":1},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":4600},{\"catalogId\":\"CURRENCY_PJM_WEAPON\",\"quantity\":50}]}"
+ },
+ {
+  "name": "read, the second user",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c2\",\"instancedItems\":[],\"stackedItems\":[{\"catalogId\":\"MAT_A\",\"quantity\":5},{\"catalogId\":\"CURRENCY_NOTES\",\"quantity\":10}]}"
+ },
+ {
+  "name": "item, newer version",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0}\",\"updateVersion\":8}"
+ },
+ {
+  "name": "item, stale version answers the stored item",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0}\",\"updateVersion\":8}"
+ },
+ {
+  "name": "item, no version",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"catalogId\":\"WP_AX_BEGINNER\",\"instanceId\":\"I-AXE\",\"itemData\":\"{\\\"CurrentLevel\\\":0}\",\"updateVersion\":8}"
+ },
+ {
+  "name": "item, unknown instance",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": ""
+ },
+ {
+  "name": "item, catalogId change refused",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": ""
+ },
+ {
+  "name": "item, not the character of that user",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": ""
+ },
+ {
+  "name": "item, sentinel echo",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c1\",\"instanceId\":\"i\",\"catalogId\":\"X\",\"itemData\":null}"
+ },
+ {
+  "name": "item, sentinel user echo",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"characterId\":\"c1\",\"instanceId\":\"i\",\"catalogId\":\"X\",\"updateVersion\":3}"
+ },
+ {
+  "name": "item, body is an array",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid item update: body must be an object\",\"payload\":{}}"
+ },
+ {
+  "name": "item, invalid body",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid item update: instanceId must be a non-empty string\",\"payload\":{}}"
+ },
+ {
+  "name": "item, invalid version",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Invalid item update: updateVersion must be a bounded non-negative integer\",\"payload\":{}}"
+ },
+ {
+  "name": "item, unauthenticated",
+  "status": 401,
+  "contentType": null,
+  "body": ""
+ },
+ {
+  "name": "reforge, reset by a player is forbidden",
+  "status": 403,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, reset of a track that is not a weapon's",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, reset of the sentinel",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, reset below the cap",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, reset of an unknown user",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, purchase before any reset",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, reset",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"u1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"<TS>\"}}"
+ },
+ {
+  "name": "reforge, a duplicate reset replays",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"u1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"<TS>\"}}"
+ },
+ {
+  "name": "reforge, purchase with the wrong amount",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, purchase by a player is forbidden",
+  "status": 403,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, purchase with a bad amount",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, purchase with a fractional amount",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, purchase over the bound",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, purchase for the sentinel",
+  "status": 400,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, purchase restores the banked XP",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"u1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":3500,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"<TS>\",\"grant_id\":\"reforge-<UUID>-banked\",\"replayed\":false}}"
+ },
+ {
+  "name": "reforge, purchase again replays",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"u1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":3500,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"<TS>\",\"grant_id\":\"reforge-<UUID>-banked\",\"replayed\":true}}"
+ },
+ {
+  "name": "reforge, purchase of a track that is not a weapon's",
+  "status": 409,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+ },
+ {
+  "name": "reforge, unauthenticated",
+  "status": 401,
+  "contentType": null,
+  "body": ""
+ }
+]

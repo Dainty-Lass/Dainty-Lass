@@ -1,0 +1,92 @@
+# One Rust backend and Director for Dauntless 1.14.7 (DaintyLass plan, section 2, DD6 and DD8): the shared crates
+# under crates/, the thin game module under modules/. DaintyLass mounts this repository at
+# modules/rustic-isles and builds the module crates by path; its workspace [patch]es DaintyLass's and rustic-rifts'
+# crates to its own checkout (DD2, spike DF1). reference/, native/ and tools/ are not cargo packages.
+[workspace]
+resolver = "3"
+members = ["crates/*", "modules/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+# DD26: everything here is ported from Mystic Paradox, so no crate is MIT
+license = "AGPL-3.0-only"
+repository = "https://git.silentspud.com/silentspud/rustic-isles"
+# The modules ship as executables and as path dependencies of DaintyLass, never from a registry
+publish = false
+
+[workspace.dependencies]
+isles-core = { path = "crates/isles-core" }
+isles-chat = { path = "crates/isles-chat" }
+isles-director = { path = "crates/isles-director" }
+isles-db = { path = "crates/isles-db" }
+
+# DaintyLass's crates, as git dependencies on plan at a fixed rev (DF1's fallback) until the silentspud registry
+# serves them; then each becomes `version = "0.1.0", registry = "silentspud"` and DaintyLass [patch]es it (DD2).
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218" }
+service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "2678d18c92fe0614cc1dc92febb4dfcbb54b8218" }
+# rustic-rifts' seam always and its server crates behind isles-1-14-7's realms feature (RF2), the same way
+rifts-seam = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-admission = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-relay = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-realms = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+rifts-guard = { git = "ssh://git@git.silentspud.com:222/silentspud/rustic-rifts.git", rev = "c0f7825be520a138b81ef6c568ca86edca06b47f" }
+
+# The versions DaintyLass's workspace asks for, so one copy of each lands in its tree
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio"] }
+diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35", "32-column-tables"] }
+diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
+base64 = "0.23"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+dotenvy = "0.15"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+libc = "0.2.191"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+percent-encoding = "2"
+regex = "1"
+sha2 = "0.11"
+serde = { version = "1", features = ["derive"] }
+# Keys in insertion order, as JavaScript objects keep them (service-kit turns this on in DaintyLass's tree anyway)
+serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
+tempfile = "3"
+thiserror = "2"
+tokio = { version = "1", features = ["rt", "macros"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+# Game servers started hidden and in a job object (the Director, RU6), as the host kit does
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_Threading"] }
+
+# RU5 auth: tokens, hashes, passwords and the two outgoing clients (Discord over HTTPS, the code mail over SMTP)
+argon2 = "0.5"
+# Test key pairs are generated at test time; a private key is never committed
+aws-lc-rs = "1.18"
+hmac = "0.13"
+http-body-util = "0.1"
+hyper = { version = "1", default-features = false, features = ["client", "http1"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "aws-lc-rs", "webpki-tokio", "tls12"] }
+hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
+jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
+rand = "0.10"
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+subtle = "2"
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+webpki-roots = "1"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+# Same as DaintyLass (AGENTS.md): a panic in a request handler still drops the request
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+# Argon2 is memory-hard: an unoptimised build takes seconds per password, which the auth tests do dozens of times
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3

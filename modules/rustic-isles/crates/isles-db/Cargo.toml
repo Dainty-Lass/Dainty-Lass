@@ -1,0 +1,46 @@
+[package]
+name = "isles-db"
+description = "RU7 + RB11 MongoDB-to-store migration and verification CLI for Rustic Isles"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "isles-db"
+path = "src/main.rs"
+
+[lib]
+name = "isles_db"
+path = "src/lib.rs"
+
+[features]
+default = ["mongo"]
+mongo = []
+
+[dependencies]
+base64.workspace = true
+chrono.workspace = true
+diesel.workspace = true
+hmac.workspace = true
+isles-core.workspace = true
+module-api.workspace = true
+percent-encoding.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+service-kit.workspace = true
+sha2.workspace = true
+store.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing.workspace = true
+
+[dev-dependencies]
+isles-core = { workspace = true, features = ["test-support"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true

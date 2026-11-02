@@ -1,0 +1,54 @@
+{
+  "code": null,
+  "message": "OK",
+  "payload": {
+    "nodes": {
+      "A": {
+        "node_id": "A",
+        "node_status": 0,
+        "objectives": []
+      },
+      "B": {
+        "node_id": "B",
+        "node_status": 0,
+        "objectives": []
+      },
+      "C": {
+        "node_id": "C",
+        "node_status": 0,
+        "objectives": []
+      },
+      "D": {
+        "node_id": "D",
+        "node_status": 0,
+        "objectives": []
+      },
+      "E": {
+        "node_id": "E",
+        "node_status": 0,
+        "objectives": []
+      },
+      "X": {
+        "node_id": "X",
+        "node_status": 0,
+        "objectives": []
+      },
+      "Slayer_11": {
+        "node_id": "Slayer_11",
+        "node_status": 0,
+        "objectives": []
+      },
+      "Prestige.Unlock": {
+        "node_id": "Prestige.Unlock",
+        "node_status": 0,
+        "objectives": []
+      },
+      "Gauntlet_Unlock": {
+        "node_id": "Gauntlet_Unlock",
+        "node_status": 0,
+        "objectives": []
+      }
+    },
+    "update_version": 1
+  }
+}

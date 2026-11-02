@@ -1,0 +1,2322 @@
+[
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/",
+    "file": "reference/1.14.7/ParadoxBackend/src/app.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/health/live",
+    "file": "reference/1.14.7/ParadoxBackend/src/app.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/health/ready",
+    "file": "reference/1.14.7/ParadoxBackend/src/app.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/health/release-gates",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/releaseGates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/internal/v1/metrics",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/metrics.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/features/platform/win",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/account/link/epic/:AccId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/login",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/accountinfo",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/tags",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/gamesession/epic",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/gamesession/epiceos",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/accountinfo/public",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/migration/trigger",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/migration/status",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/isbanned",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/login.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/account/api/oauth/token",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/account/api/oauth/verify",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/account/api/public/account/:AccId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/account/api/public/account/:AccId/externalAuths",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/account/api/public/account/displayName/:displayName",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/account/api/oauth/sessions/kill",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/account/api/oauth/sessions/kill/:AuthToken",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/account/api/public/account",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/eos.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/dauntless-status",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/heartbeat",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/event",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/crash/CrashReporter/Ping",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/crash/CrashReporter/CheckReport",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/survey/config",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/account/migrate",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/profile/update",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/trials/leaderboards/all",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/trials/leaderboards/solo/individual",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/vivox/login",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/motd/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/motd/trigger",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/entitlementsv2",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/entitlementv2/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/playertreatments",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/playertreatments/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/playertreatments/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/escalation/:escalationSeason/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/escalation/:escalationSeason/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/eventstats/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/progression/config",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/config",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/^\\/progression\\/([^/]*)\\/([^/]+)$/i",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/^\\/rewards\\/personal\\/([^/]*)\\/([^/]+)$/i",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/^\\/rewards\\/guild\\/([^/]*)\\/([^/]+)$/i",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/^\\/leaderboard\\/get_leaderboard\\//i",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/huntpass/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/cooldown/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/cooldown/batch/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/cooldown/:userId/:cooldownId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/cooldown/:userId/:cooldownId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/bounty/game-data",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/bounty/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/bounty/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/bounty/delete/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/bounty/delete/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/all/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/patchnotes/:language/:gameversion",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/system.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/maintenance/status",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/loginQueue.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/character",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/character.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/character",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/character.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/character",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/character.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/^\\/inventory\\/([^/]*)\\/(.+)$/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/inventory.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/inventory/:characterId/:changeList",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/inventory.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/inventory/:userId/:characterId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/inventory.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/inventory/:userId/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/inventory.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/inventory",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/inventory.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/inventory/instanceditem",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/inventory.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/reconcile",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/store.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/creator",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/store.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/balance",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/store.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/product/skus/public",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/store.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/token/:currency/:catalogId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/store.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/notification/:currency",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/store.ts",
+    "group": "bounties-store",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/guild/invite/player",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/guild.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/guild",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/guild.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/game_tuning/seasonal_event_schedule",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/tuning.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/game_tuning/huntpass_xp_config",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/tuning.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/game_tuning/island_content_config",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/tuning.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/game_tuning/bounty_game_data",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/tuning.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/game_tuning/bounty_game_data_daily",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/tuning.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/game_tuning/bounty_game_data_weekly",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/tuning.ts",
+    "group": "game-data",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/candidate/player/register",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/candidate/player/alive",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/candidate/regions",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/key/generate",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/key/consume",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/candidate/status",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/candidate/join",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/candidate/leave",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/candidate/leave",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/candidate/leave",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/candidate",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/candidate/:candidateId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/QoS",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/matchmaking.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/party",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/party.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/party/invite",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/party.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/party/invites",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/party.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/party/invite/accept/:inviterId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/party.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/party/member",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/party.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/party/member/:targetId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/party.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/party/member/promote/:targetId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/party.ts",
+    "group": "matchmaking-parties",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/encountered-content/:characterId/:contentType",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/encountered-content/query/:characterId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/encountered-content/query",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/encountered-content/:characterId/query",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/encountered-content/:characterId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/encountered-content",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/encountered-content/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/progression/objectives/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/breadcrumbs/",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/breadcrumbs/:characterId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/breadcrumbs/:characterId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/progression/:userId/:progressionId/:amount",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/progression/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/progression/:userId/:progressionId/:rank/confirm/public",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/progression/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/pjm/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/weapon_tracker/:userId/:itemId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/pjm/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/pjm",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/progression/tracked_objectives/:phxAccountId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/progression/tracked_objectives/:phxAccountId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/progression/:userId/:progressionId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "progression",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/progression/:userId/:progressionId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/progression/purchase/:userId/:progressionId/:amount",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/progression.ts",
+    "group": "inventory-reforge",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/loadout/:userId//all",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/loadout.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/loadout/:userId/:characterId/all",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/loadout.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/loadout/:userId/:characterId/unlock/:numSlots",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/loadout.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/loadout/:userId/:characterId/active/:index",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/loadout.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/loadout/:userId/:characterId/:index",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/loadout.ts",
+    "group": "characters-loadouts",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/friends/api/public/friends/:accountId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/friends/api/public/friends/:accountId/:friendId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/friends/api/public/friends/:accountId/:friendId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/friends/api/public/blocklist/:accountId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/friends/api/public/list/:namespace/:accountId/recentPlayers",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/friends/api/v1/:accountId/settings",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/slayerlink/availability",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/slayerlink/status_good",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/friends.ts",
+    "group": "chat",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/register",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/login",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/refresh",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/logout",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/logout-all",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/discord/start",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/auth/discord/callback",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/discord/complete",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/email/verify",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/email/resend",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/password/forgot",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/auth/password/reset",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/account/discord/link/start",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/account/discord/unlink/start",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/account/discord/unlink",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/me",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/username",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/username",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/game-sessions",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/policy",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/status",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/legal",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/notices",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/account/consent",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/account/consent",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/account/deletion",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/account/deletion",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/launcher/v1/account/deletion",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherAuth.ts",
+    "group": "auth",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/reforged/api/Register",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/reforged/api/GetUserInfo",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/reforged/api/ServerStatus",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/reforged/api/RegistrationStatus",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/reforged/api/CreateInvite",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/reforged/api/InviteCodes",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/reforged/api/InviteCode/:code",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/reforged/api/SetAccountStatus",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/reforged/api/Kick",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:target/:channel/:platform",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:channel/:platform",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:target/:channel/:platform/download",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:channel/:platform/download",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/guard-manifests/:channel/:platform",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/admin/guard-manifests/:channel/:platform",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/admin/updates/runtime/:target/:channel/:platform",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/admin/updates/runtime/:target/:channel/:platform/extra",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/runtime/:target/:channel/:platform/extra/:filename",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/admin/updates/serving",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/admin/updates/serving",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/updates/:target/:arch/download",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/updates/:target/:arch/files/:version/:file",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/updates/:target/:arch/:currentVersion",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherUpdates.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/launcher/v1/logs/sessions/:launchSessionId/:fileName",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherLogs.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/launcher-logs",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/adminLauncherLogs.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/launcher-logs/:userId/:launchSessionId/:fileName",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/adminLauncherLogs.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/admin/v1/auth/login",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/admin/v1/auth/logout",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/auth/discord/start",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/auth/discord/callback",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/me",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/online-players",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/players",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/players/:userId/access",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/players/:userId/roles",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/admin/v1/players/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/audit",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/operations/overview",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/operations/policy",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/launcher-notices",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PUT",
+    "path": "/admin/v1/launcher-notices",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/guard/sessions",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/guard/sessions/:guardSessionId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/guard/findings",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/activity/players/:userId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/activity/overview",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/activity/flags",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/activity/flags/:id",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/admin/v1/players/:userId/tester-max",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/player-logs",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/admin/v1/player-logs/:userId/:launchSessionId/:fileName",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "DELETE",
+    "path": "/admin/v1/player-logs/:userId/:launchSessionId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/admin.ts",
+    "group": "reforged-api",
+    "side": "isles"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/guard/sessions",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherGuard.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/guard/heartbeat",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherGuard.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/guard/sessions/:guardSessionId",
+    "file": "reference/1.14.7/ParadoxBackend/src/routes/launcherGuard.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/tickets/self",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/host-ready",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/event-batches",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/completion",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/abort",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/end",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/mystic/v1/hunts/:sessionId/status",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/mystic/v1/hunts/:sessionId/reward/self",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/internal/v1/hunt-guard/shadow-comparisons",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "guard",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/lease",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/tickets/consume",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/mystic/v1/hunts/:sessionId/peers/:admissionId/disconnect",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pHunts.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/operations/p2p-emergency-stop",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pAdmin.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/operations/reward-rollout",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pAdmin.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/operations/coop-transport",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pAdmin.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "PATCH",
+    "path": "/admin/v1/operations/alerts/:alertId/ack",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pAdmin.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/hunts/:sessionId/host-bootstrap",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/hunts/:sessionId/join-bootstrap",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/hunts/:sessionId/route-ready",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/hunts/:sessionId/transport-config",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/hunts/:sessionId/signal",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/p2p/control",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/control/:messageId/ack",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/host-presence",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/host-offers/:offerId/respond",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/hunts/:sessionId/observation",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/p2pLauncher.ts",
+    "group": "p2p",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realm-hosting/hubs/start",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/realmHosting.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realm-hosting/hubs/stop",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/realmHosting.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/p2p/hunts/:sessionId/peers",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/realmHosting.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realm-hosting/status",
+    "file": "reference/1.14.7/ParadoxBackend/src/p2p/routes/realmHosting.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/mine",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/listed",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/by-name/:name",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/invite/:code",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/join",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/by-name/:name/leave",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/settings",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/invites",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/mine/invites",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/invites/:code/revoke",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/members/:accountId/kick",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/members/:accountId/ban",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/members/:accountId/unban",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/heartbeat",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/release",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/mine/requests",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/requests/:accountId/approve",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/requests/:accountId/deny",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/members/add",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/player-invites",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/mine/player-invites/:accountId/cancel",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/player-invites",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/player-invites/:name/accept",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/player-invites/:name/decline",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/presence/heartbeat",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "POST",
+    "path": "/launcher/v1/realms/presence/leave",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "backend",
+    "method": "GET",
+    "path": "/launcher/v1/realms/presence",
+    "file": "reference/1.14.7/ParadoxBackend/src/realms/routes/realmsLauncher.ts",
+    "group": "realms",
+    "side": "rifts"
+  },
+  {
+    "service": "director",
+    "method": "GET",
+    "path": "/health/ready",
+    "file": "reference/1.14.7/ParadoxDirector/src/app.ts",
+    "group": "director",
+    "side": "isles"
+  },
+  {
+    "service": "director",
+    "method": "GET",
+    "path": "/api/hub-status",
+    "file": "reference/1.14.7/ParadoxDirector/src/app.ts",
+    "group": "director",
+    "side": "isles"
+  },
+  {
+    "service": "director",
+    "method": "GET",
+    "path": "/api/instances",
+    "file": "reference/1.14.7/ParadoxDirector/src/app.ts",
+    "group": "director",
+    "side": "isles"
+  },
+  {
+    "service": "director",
+    "method": "POST",
+    "path": "/api/matchmaker/handle-matchmaking-for-player",
+    "file": "reference/1.14.7/ParadoxDirector/src/routes/matchmaker.ts",
+    "group": "director",
+    "side": "isles"
+  },
+  {
+    "service": "director",
+    "method": "POST",
+    "path": "/api/matchmaker/resolve-hunt-launch-manifest",
+    "file": "reference/1.14.7/ParadoxDirector/src/p2p/index.ts",
+    "group": "p2p",
+    "side": "rifts"
+  }
+]
