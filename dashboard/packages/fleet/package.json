@@ -1,0 +1,19 @@
+{
+  "name": "@dainty/fleet",
+  "version": "0.1.0",
+  "description": "The contract between the dashboard and its controller agents: the game calls either side may make, and the wire protocol",
+  "type": "module",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "typescript": "^7.0.2"
+  }
+}

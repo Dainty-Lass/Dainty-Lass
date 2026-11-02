@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+.vinext/
+.next/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+apps/dashboard/data/
+.claude/

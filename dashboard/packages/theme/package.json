@@ -1,0 +1,40 @@
+{
+  "name": "@dainty/theme",
+  "version": "0.1.0",
+  "description": "DaintyLass's one theme: the Astryx theme, the CSS stack and the colour-mode provider every app uses",
+  "type": "module",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mode": "./src/mode.ts",
+    "./theme": "./src/dainty.theme.ts",
+    "./built": "./built/dainty.js",
+    "./theme.css": "./built/dainty.theme.css",
+    "./base.css": "./src/base.css",
+    "./brand.css": "./src/brand.css"
+  },
+  "scripts": {
+    "build": "astryx theme build src/dainty.theme.ts -o built/dainty.theme.css",
+    "check": "astryx theme build src/dainty.theme.ts -o built/dainty.theme.css --check",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "^0.7.2",
+    "@astryxdesign/theme-neutral": "^0.7.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@astryxdesign/cli": "^0.7.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.4.3",
+    "@types/react": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^4.3.3"
+  }
+}

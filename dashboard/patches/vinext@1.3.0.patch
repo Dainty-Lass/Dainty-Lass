@@ -1,0 +1,21 @@
+diff --git a/dist/server/request-pipeline.js b/dist/server/request-pipeline.js
+index be2bedf..0988703 100644
+--- a/dist/server/request-pipeline.js
++++ b/dist/server/request-pipeline.js
+@@ -387,6 +387,8 @@ function cloneRequestWithHeaders(request, headers) {
+ 	let cloned;
+ 	try {
+ 		cloned = new Request(request, { headers });
++		// Bun copies a non-native Request (srvx wraps Node requests in dev) as GET when given an init.
++		if (cloned.method !== request.method) throw new TypeError("request method lost in clone");
+ 	} catch {
+ 		const init = {
+ 			method: request.method,
+@@ -423,6 +425,7 @@ function cloneRequestWithUrl(request, url) {
+ 	let cloned;
+ 	try {
+ 		cloned = new Request(url, request);
++		if (cloned.method !== request.method) throw new TypeError("request method lost in clone");
+ 	} catch {
+ 		const init = {
+ 			method: request.method,
