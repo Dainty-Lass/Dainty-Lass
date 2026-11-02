@@ -597,6 +597,18 @@ fn content_module(
     .ready_within(std::time::Duration::from_secs(60)))
 }
 
+/// The content server as the library `library` pins (RD27), on `content.env`: what [`content`] runs compiled in,
+/// registered with `registry` as the same core plugin.
+pub fn content_library(
+    library: controller::ServiceLibrary,
+    env: &service_kit::env::Env,
+    registry: Option<controller::ModuleRegistry>,
+) -> controller::Module {
+    controller::service_library(library, env.clone(), registry.as_ref())
+        .optional()
+        .ready_within(std::time::Duration::from_secs(60))
+}
+
 /// Where a module's files are, for content (DF4b): the folder its executable is in.
 #[cfg(feature = "content")]
 struct ContentView(controller::WeakRegistry);

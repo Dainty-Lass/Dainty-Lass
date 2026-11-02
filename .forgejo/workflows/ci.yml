@@ -235,6 +235,10 @@ jobs:
       - name: The module libraries
         run: cargo build --locked -p isles-1-14-7-plugin
 
+      # content-plugin's parity tests run the library the same way
+      - name: The service libraries
+        run: cargo build --locked -p content-plugin
+
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
 
