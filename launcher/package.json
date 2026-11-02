@@ -2,31 +2,24 @@
   "name": "dainty-lass-launcher",
   "productName": "DaintyLass Launcher",
   "version": "2.0.0-beta",
-  "description": "The Tauri launcher's CLI and the tests of its bridge: dainty-lass-ui's page API (ui/packages/bridge) against the isolation hook (MIGRATION_PLAN.md section 4.6; docs/dainty-lass-plan.md, DU2).",
+  "description": "The Tauri CLI for the two desktop apps. Their scripts, isolation hook and bridge tests are MIT in dainty-lass's launcher/ (RD27), run through scripts/lass.ts.",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",
-  "engines": {
-    "node": ">=22.18"
-  },
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "tauri": "tauri",
-    "build:pages": "node scripts/dashboard-page.mjs build launcher && node scripts/dashboard-page.mjs build server-manager",
+    "build:pages": "bun scripts/lass.ts dashboard-page build launcher && bun scripts/lass.ts dashboard-page build server-manager",
     "build": "tauri build --bundles nsis -- --features realms",
     "build:client": "tauri build --bundles nsis -- --features realms",
     "build:manager": "tauri build --bundles nsis --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui",
-    "build:server-gui": "npm run build:manager",
-    "build:all": "npm run build:client && npm run build:manager",
+    "build:server-gui": "bun run build:manager",
+    "build:all": "bun run build:client && bun run build:manager",
     "dev": "tauri dev -- --features realms",
     "dev:manager": "tauri dev --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui",
-    "dev:server-gui": "npm run dev:manager",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --import ./test/resolve-ui.ts --test \"test/*.test.ts\""
+    "dev:server-gui": "bun run dev:manager"
   },
   "devDependencies": {
-    "@tauri-apps/api": "2.12.4",
-    "@tauri-apps/cli": "2.12.4",
-    "@types/node": "^24.19.2",
-    "typescript": "~6.0.3"
+    "@tauri-apps/cli": "2.12.4"
   }
 }

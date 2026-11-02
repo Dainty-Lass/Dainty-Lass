@@ -5,8 +5,8 @@
   "build": {
     "devUrl": "http://localhost:4322",
     "frontendDist": "../dist/server-manager",
-    "beforeDevCommand": "node scripts/dashboard-page.mjs dev server-manager",
-    "beforeBuildCommand": "node scripts/dashboard-page.mjs build server-manager"
+    "beforeDevCommand": "bun scripts/lass.ts dashboard-page dev server-manager",
+    "beforeBuildCommand": "bun scripts/lass.ts dashboard-page build server-manager"
   },
   "bundle": {
     "icon": [

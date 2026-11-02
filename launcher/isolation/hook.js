@@ -1,89 +1,103 @@
-// The isolation hook (MIGRATION_PLAN.md L9, D4; RA2). Tauri runs it in a sandboxed frame of its own, with
-// its own Content-Security-Policy and no network, and passes it every call the page makes before the call
-// is encrypted for the backend. It lets through only the commands in commands.js (generated from the
-// backend's list, src-tauri/src/bridge/spec.rs) and the few Tauri calls the page needs, with arguments of
-// the right shape and size. Anything else is dropped: the call never settles, so the page's api.ts times
-// it out. Keep this file free of dependencies and of anything but the list: the backend checks again.
-"use strict";
-
+// SPDX-License-Identifier: MIT
+// Tauri's isolation hook: every IPC call the page makes passes through here before it reaches the backend. A call
+// whose command or arguments the generated table doesn't describe is held forever, so the page's own deadline ends
+// it and the backend never sees it. Plain ES5: the isolation frame loads it as is.
 (function () {
-  var COMMANDS = window.__RR_COMMANDS__;
-  var SETTINGS_KEYS = window.__RR_SETTINGS_KEYS__;
-  var EVENT_MAX = 64;
+  "use strict";
 
-  // Tauri's own calls the page makes: events (listen/unlisten), the window controls and the title bar's
-  // drag region (which calls without a window label)
-  var WINDOW = { label: { kind: "optionalText", max: EVENT_MAX } };
-  var TAURI = {
-    "plugin:event|listen": { event: { kind: "text", max: EVENT_MAX }, target: { kind: "any" }, handler: { kind: "number" } },
-    "plugin:event|unlisten": { event: { kind: "text", max: EVENT_MAX }, eventId: { kind: "number" } },
-    "plugin:window|minimize": WINDOW,
-    "plugin:window|toggle_maximize": WINDOW,
-    "plugin:window|is_maximized": WINDOW,
-    "plugin:window|start_dragging": WINDOW,
-    "plugin:window|internal_toggle_maximize": WINDOW,
-    "plugin:window|close": WINDOW,
+  var commands = window.__RR_COMMANDS__ || {};
+  var settingsKeys = window.__RR_SETTINGS_KEYS__ || [];
+  var has = Object.prototype.hasOwnProperty;
+  var toString = Object.prototype.toString;
+  var CHANNEL = /^__CHANNEL__:[0-9]{1,16}$/;
+  var SETTING_TEXT_MAX = 16;
+
+  var eventName = { kind: "text", max: 64 };
+  var label = { label: { kind: "optionalText", max: 64 } };
+
+  // The calls @tauri-apps/api makes for the page itself: events and the window controls
+  var tauri = {
+    "plugin:event|listen": { event: eventName, target: { kind: "any" }, handler: { kind: "number" } },
+    "plugin:event|unlisten": { event: eventName, eventId: { kind: "number" } },
+    "plugin:window|minimize": label,
+    "plugin:window|toggle_maximize": label,
+    "plugin:window|is_maximized": label,
+    "plugin:window|start_dragging": label,
+    "plugin:window|internal_toggle_maximize": label,
+    "plugin:window|close": label
   };
 
-  var own = function (object, key) {
-    return Object.prototype.hasOwnProperty.call(object, key);
-  };
+  // One promise for every refusal: nothing is allocated per dropped call
+  var never = new Promise(function () {});
 
-  var isObject = function (value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  };
+  // Cross-realm safe: the payload may come from another frame
+  function isPlainObject(value) {
+    return typeof value === "object" && value !== null && toString.call(value) === "[object Object]";
+  }
 
-  function settingsPatch(value) {
-    if (!isObject(value)) return false;
+  function isText(value, max) {
+    return typeof value === "string" && value.length <= max;
+  }
+
+  function isFiniteNumber(value) {
+    return typeof value === "number" && isFinite(value);
+  }
+
+  function fitsFields(value, fields) {
+    if (!isPlainObject(value)) return false;
+    var keys = Object.keys(value);
+    var i;
+    for (i = 0; i < keys.length; i++) {
+      if (!has.call(fields, keys[i])) return false;
+    }
+    for (var name in fields) {
+      if (!has.call(fields, name)) continue;
+      if (!fits(has.call(value, name) ? value[name] : undefined, fields[name])) return false;
+    }
+    return true;
+  }
+
+  function fitsSettingsPatch(value) {
+    if (!isPlainObject(value)) return false;
     var keys = Object.keys(value);
     for (var i = 0; i < keys.length; i++) {
-      var field = value[keys[i]];
-      if (SETTINGS_KEYS.indexOf(keys[i]) < 0) return false;
-      if (typeof field === "string" ? field.length > 16 : typeof field !== "number" && typeof field !== "boolean") return false;
+      if (settingsKeys.indexOf(keys[i]) < 0) return false;
+      var setting = value[keys[i]];
+      if (typeof setting === "string") {
+        if (setting.length > SETTING_TEXT_MAX) return false;
+      } else if (typeof setting !== "boolean" && !isFiniteNumber(setting)) {
+        return false;
+      }
     }
     return true;
   }
 
-  // Exactly the named fields, each of the right shape
-  function fields(specs, value) {
-    if (!isObject(value)) return false;
-    var names = Object.keys(value);
-    for (var i = 0; i < names.length; i++) {
-      if (!own(specs, names[i])) return false;
-    }
-    var expected = Object.keys(specs);
-    for (var j = 0; j < expected.length; j++) {
-      if (!fits(specs[expected[j]], value[expected[j]], own(value, expected[j]))) return false;
-    }
-    return true;
-  }
-
-  function fits(spec, value, present) {
-    switch (spec.kind) {
+  function fits(value, shape) {
+    if (!isPlainObject(shape)) return false;
+    switch (shape.kind) {
       case "text":
-        return present && typeof value === "string" && value.length <= spec.max;
+        return isText(value, shape.max);
       case "optionalText":
-        return !present || value === undefined || value === null || (typeof value === "string" && value.length <= spec.max);
+        return value === undefined || value === null || isText(value, shape.max);
       case "flag":
-        return present && typeof value === "boolean";
+        return typeof value === "boolean";
       case "index":
-        return present && typeof value === "number" && Math.floor(value) === value && value >= 0 && value <= spec.max;
+        return isFiniteNumber(value) && Math.floor(value) === value && value >= 0 && value <= shape.max;
       case "name":
-        return present && typeof value === "string" && spec.names.indexOf(value) >= 0;
+        return typeof value === "string" && shape.names.indexOf(value) >= 0;
       case "number":
         return (
-          present &&
-          typeof value === "number" &&
-          isFinite(value) &&
-          (spec.min === undefined || value >= spec.min) &&
-          (spec.max === undefined || value <= spec.max)
+          isFiniteNumber(value) &&
+          (shape.min === undefined || value >= shape.min) &&
+          (shape.max === undefined || value <= shape.max)
         );
       case "object":
-        return present && ((spec.nullable && value === null) || fields(spec.fields, value));
+        if (value === null) return shape.nullable === true;
+        return fitsFields(value, shape.fields);
       case "settingsPatch":
-        return present && settingsPatch(value);
+        return fitsSettingsPatch(value);
       case "channel":
-        return present && typeof value === "string" && /^__CHANNEL__:[0-9]{1,16}$/.test(value);
+        return typeof value === "string" && CHANNEL.test(value);
       case "any":
         return true;
       default:
@@ -91,17 +105,29 @@
     }
   }
 
-  function allowed(cmd, args) {
-    if (typeof cmd !== "string") return false;
-    var specs = own(COMMANDS, cmd) ? COMMANDS[cmd] : own(TAURI, cmd) ? TAURI[cmd] : null;
-    if (specs === null) return false;
-    if (args === undefined || args === null) args = {};
-    return fields(specs, args);
+  // Own properties only, so __proto__, constructor and the like are unknown commands
+  function entryFor(cmd) {
+    if (has.call(commands, cmd)) return commands[cmd];
+    if (has.call(tauri, cmd)) return tauri[cmd];
+    return null;
   }
 
-  var never = new Promise(function () {});
+  function allowed(payload) {
+    if (typeof payload !== "object" || payload === null) return false;
+    if (typeof payload.cmd !== "string") return false;
+    var entry = entryFor(payload.cmd);
+    if (!isPlainObject(entry)) return false;
+    var args = payload.payload === undefined || payload.payload === null ? {} : payload.payload;
+    return fitsFields(args, entry);
+  }
 
   window.__TAURI_ISOLATION_HOOK__ = function (payload) {
-    return payload !== null && typeof payload === "object" && allowed(payload.cmd, payload.payload) ? payload : never;
+    var ok = false;
+    try {
+      ok = allowed(payload);
+    } catch (error) {
+      ok = false;
+    }
+    return ok ? payload : never;
   };
 })();

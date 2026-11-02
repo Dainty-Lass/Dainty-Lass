@@ -2,7 +2,8 @@
 //!
 //! - the TypeScript declarations of every type in `types.rs` and the command names, for dainty-lass-ui's
 //!   bridge package (`ui/packages/bridge/src/generated/types.ts`, DD11);
-//! - `isolation/commands.js`: the command list with each argument's shape, for the isolation hook;
+//! - `isolation/commands.js`: the command list with each argument's shape, for the isolation hook (whose
+//!   `hook.js` and `index.html` are copies of dainty-lass's, checked below);
 //! - `src-tauri/permissions/app-commands.toml`: the permission set that grants exactly those commands;
 //! - `src-tauri/gen/strings.json`: dainty-lass-ui's language catalogs (`ui/packages/i18n/catalogs`, DU2),
 //!   from which build.rs makes `Language` and the backend's own text.
@@ -382,6 +383,42 @@ fn generated_files_are_current() {
     assert!(
         stale.is_empty(),
         "stale generated files (run RR_UPDATE_GENERATED=1 cargo test -p launcher generated): {stale:?}"
+    );
+}
+
+/// The isolation hook and its page are dainty-lass's (MIT, RD27); Tauri needs them beside `commands.js` at
+/// compile time, so they're kept here as copies and checked like the generated files.
+#[test]
+fn generated_isolation_hook_is_dainty_lass_s() {
+    let lass = std::env::var_os("DAINTY_LASS_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| launcher_dir().join("../../dainty-lass"));
+    let from = lass.join("launcher/isolation");
+    if !from.join("hook.js").is_file() {
+        eprintln!(
+            "skipped: no dainty-lass checkout at {} (set DAINTY_LASS_DIR)",
+            lass.display()
+        );
+        return;
+    }
+    let update = std::env::var("RR_UPDATE_GENERATED").is_ok_and(|value| value == "1");
+    let mut stale = Vec::new();
+    for name in ["hook.js", "index.html"] {
+        let want = std::fs::read_to_string(from.join(name)).unwrap().replace("\r\n", "\n");
+        let path = launcher_dir().join("isolation").join(name);
+        if std::fs::read_to_string(&path).unwrap_or_default().replace("\r\n", "\n") == want {
+            continue;
+        }
+        if update {
+            std::fs::write(&path, want).unwrap();
+        } else {
+            stale.push(path.display().to_string());
+        }
+    }
+    assert!(
+        stale.is_empty(),
+        "isolation files differ from {} (run RR_UPDATE_GENERATED=1 cargo test -p launcher generated): {stale:?}",
+        from.display()
     );
 }
 

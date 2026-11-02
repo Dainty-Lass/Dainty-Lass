@@ -427,7 +427,7 @@ jobs:
           # dashboard/package.json's packageManager
           bun-version: 1.4.4
 
-      # The bridge tests drive dainty-lass's ui/packages/bridge/src/api.ts (MIT, RD27), at the rev Cargo.toml pins
+      # The launcher's scripts, hook and bridge tests are MIT in dainty-lass (RD27), at the rev Cargo.toml pins
       - name: dainty-lass at the pinned rev
         run: |
           rev="$(grep -m1 -o 'dainty-lass.git", rev = "[0-9a-f]*' Cargo.toml | grep -o '[0-9a-f]\{40\}')"
@@ -435,17 +435,19 @@ jobs:
           git -C .dainty-lass checkout -q "$rev"
           echo "DAINTY_LASS_DIR=$PWD/.dainty-lass" >> "$GITHUB_ENV"
 
-      - name: Install launcher CLI dependencies and run bridge tests
-        working-directory: launcher
+      # Against this checkout's generated commands.js and bridge types, so a spec.rs change meets the pinned hook
+      - name: Bridge tests
+        working-directory: .dainty-lass/launcher
         run: |
-          npm ci --no-audit --no-fund
-          npm test
+          bun install --frozen-lockfile
+          DAINTY_RESTRICTED_DIR="$GITHUB_WORKSPACE" bun run test
 
       - name: Build unsigned NSIS installers (DaintyLass Launcher and DaintyLass Manager)
         working-directory: launcher
         run: |
-          npm run build:client
-          npm run build:manager
+          bun install --frozen-lockfile
+          bun run build:client
+          bun run build:manager
           ls -la ../target/release/bundle/nsis/*-setup.exe
 
       - name: Upload unsigned Windows NSIS installers

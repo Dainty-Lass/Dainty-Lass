@@ -7,8 +7,8 @@
   "build": {
     "devUrl": "http://localhost:4321",
     "frontendDist": "../dist/launcher",
-    "beforeDevCommand": "node scripts/dashboard-page.mjs dev launcher",
-    "beforeBuildCommand": "node scripts/dashboard-page.mjs build launcher"
+    "beforeDevCommand": "bun scripts/lass.ts dashboard-page dev launcher",
+    "beforeBuildCommand": "bun scripts/lass.ts dashboard-page build launcher"
   },
   "app": {
     "windows": [],
