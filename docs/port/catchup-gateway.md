@@ -4,7 +4,7 @@
 
 Every Node commit that changed Reforged's gateway or allowlist helper (`ReforgedGateway/`, now
 `legacy/ReforgedGateway/`) after the delta list (`docs/port/delta-servers.md`, RX1) was made, and whether the Rust
-gateway in `services/gateway` on `plan` has it. RS5 ports what is left before the front-door cutover.
+gateway in `crates/gateway` on `plan` has it. RS5 ports what is left before the front-door cutover.
 
 ## Range
 
@@ -69,8 +69,8 @@ gateway in `services/gateway` on `plan` has it. RS5 ports what is left before th
 - **Behavior:** the policy tests take the list of `/reforged/api` routes from
   `paradox/backend/src/routes/reforgedApi.ts` (the source) instead of the deleted `upstream/patches/0002-*.patch`
   (no leading `+` in the pattern any more).
-- **Rust:** ported. `services/gateway/src/policy.rs:403-409` (unit test) and
-  `services/gateway/tests/common/mod.rs:727-731` (integration helper) read the same file with the same pattern.
+- **Rust:** ported. `crates/gateway/src/policy.rs:403-409` (unit test) and
+  `crates/gateway/tests/common/mod.rs:727-731` (integration helper) read the same file with the same pattern.
 
 ## Freeza's upstream
 

@@ -1,8 +1,8 @@
-# Clean-Room Behaviour Specification: `services/content` (RD27)
+# Clean-Room Behaviour Specification: `crates/content` (RD27)
 
 > **Scope & Purpose (RD27):** This is the clean-room behaviour specification for reimplementing DaintyLass's
 > content server under MIT in dainty-lass. Today the server lives in dainty-restricted (`AGPL-3.0-only`) as
-> `services/content` and its library wrapper `services/content-plugin`. Section 1 classifies every file of both
+> `crates/content` and its library wrapper `crates/content-plugin`. Section 1 classifies every file of both
 > crates; section 2 specifies everything in Category B from observable contracts (the HTTP replies recorded from the
 > Node service, the env files the host kit writes, the log lines the tests read, the APIs other crates call); section 3
 > lists the tests that define the behaviour; section 4 is the target design.
@@ -27,10 +27,10 @@
   `2296a8e` (DF4b). `content-plugin/*`, `tests/parity/harness.rs` and the rewritten `tests/parity.rs` were added by
   `ee7d90b` (RD27). Later commits (`9829d9a` removing 1.4.4, `75084b3` the DX4 rename, `eace7f5`, `62d56c6`) edited
   files without changing their origin.
-- **NOTICE.md (dainty-restricted):** "`services/gateway` and `services/content` ... are modified versions of its
+- **NOTICE.md (dainty-restricted):** "`crates/gateway` and `crates/content` ... are modified versions of its
   [Dauntless Revived's] `rust/` folder at commit `e1c5fec`".
 - **Migration guide (dainty-lass `docs/port/migration-guide.md` §2.4):** maps `ReforgedContent/src/{app,auth,config,
-  server,branding,limits,log,news,runtime}.ts` and DR's `UndauntedContent` to `services/content/src/*.rs`; `runtime.rs`
+  server,branding,limits,log,news,runtime}.ts` and DR's `UndauntedContent` to `crates/content/src/*.rs`; `runtime.rs`
   is new in Reforged (`runtime.ts`), the rest are DR's Rust port fitted to Reforged.
 - **AGPL inventory (dainty-lass `docs/port/agpl-inventory.md` §1.3.15):** "Born here (1 file): `src/modules.rs`
   (DF4b)"; everything else DR-derived or Reforged-derived.
@@ -44,18 +44,18 @@
 
 | Path (in dainty-restricted) | Origin | DR similarity | Depends on Category B |
 | --- | --- | --- | --- |
-| `services/content/src/modules.rs` | DF4b (`2296a8e`): content as a core plugin keyed by game version | 2.2% (closing braces) | `crate::log` only (a re-export of `service_kit::linelog`; replace with the MIT crate directly) |
-| `services/content-plugin/Cargo.toml` | RD27 (`ee7d90b`) | — | depends on the `content` crate |
-| `services/content-plugin/src/lib.rs` | RD27 (`ee7d90b`) | 8.3% (`use` lines, braces) | `content::config::Config::from_env`, `content::server::run_with_modules` (B); `content::modules` (A) |
-| `services/content-plugin/tests/parity.rs` | RD27 (`ee7d90b`) | 3.5% | includes `services/content/tests/parity/harness.rs` (B) by `#[path]`; reads the fixtures |
-| `services/content/tests/parity/content.requests.json` | Request script authored for the RS2 port | 11.4% (repeated JSON punctuation) | none (data) |
-| `services/content/tests/parity/content-none.requests.json` | idem | 16.7% | none (data) |
-| `services/content/tests/parity/content-invalid.requests.json` | idem | 22.1% | none (data) |
-| `services/content/tests/parity/content-index.requests.json` | idem | 20.6% | none (data) |
-| `services/content/tests/parity/content.expected.json` | Replies recorded from the Node service (`legacy/ReforgedContent`) on those scripts | (recorded output) | none (data) |
-| `services/content/tests/parity/content-none.expected.json` | idem | — | none (data) |
-| `services/content/tests/parity/content-invalid.expected.json` | idem | — | none (data) |
-| `services/content/tests/parity/content-index.expected.json` | idem | — | none (data) |
+| `crates/content/src/modules.rs` | DF4b (`2296a8e`): content as a core plugin keyed by game version | 2.2% (closing braces) | `crate::log` only (a re-export of `service_kit::linelog`; replace with the MIT crate directly) |
+| `crates/content-plugin/Cargo.toml` | RD27 (`ee7d90b`) | — | depends on the `content` crate |
+| `crates/content-plugin/src/lib.rs` | RD27 (`ee7d90b`) | 8.3% (`use` lines, braces) | `content::config::Config::from_env`, `content::server::run_with_modules` (B); `content::modules` (A) |
+| `crates/content-plugin/tests/parity.rs` | RD27 (`ee7d90b`) | 3.5% | includes `crates/content/tests/parity/harness.rs` (B) by `#[path]`; reads the fixtures |
+| `crates/content/tests/parity/content.requests.json` | Request script authored for the RS2 port | 11.4% (repeated JSON punctuation) | none (data) |
+| `crates/content/tests/parity/content-none.requests.json` | idem | 16.7% | none (data) |
+| `crates/content/tests/parity/content-invalid.requests.json` | idem | 22.1% | none (data) |
+| `crates/content/tests/parity/content-index.requests.json` | idem | 20.6% | none (data) |
+| `crates/content/tests/parity/content.expected.json` | Replies recorded from the Node service (`legacy/ReforgedContent`) on those scripts | (recorded output) | none (data) |
+| `crates/content/tests/parity/content-none.expected.json` | idem | — | none (data) |
+| `crates/content/tests/parity/content-invalid.expected.json` | idem | — | none (data) |
+| `crates/content/tests/parity/content-index.expected.json` | idem | — | none (data) |
 
 **12 files.** The eight parity JSON files are test data, not program code: the scripts were written for this port in
 the scripts' own format (described in section 3.1, so the implementer needs no code to read them), and the
@@ -67,25 +67,25 @@ kept under MIT in the protocol rewrite (`clean-room/protocol.md`). See section 5
 
 | Path (in dainty-restricted) | Derived from | DR similarity | Disposition |
 | --- | --- | --- | --- |
-| `services/content/Cargo.toml` | DR `rust/services/content/Cargo.toml` | — | Write a new manifest (section 4.4) |
-| `services/content/data/dauntless-1.4.4.json` | DR's 1.4.4 game manifest data | — | **Drop.** Nothing references it since `9829d9a` removed the 1.4.4 game download |
-| `services/content/src/lib.rs` | DR `lib.rs` | 47.4% | Rewrite |
-| `services/content/src/app.rs` | DR `app.rs` + Reforged `app.ts` | 50.9% | Rewrite (sections 2.5–2.7, 2.14) |
-| `services/content/src/auth.rs` | DR `auth.rs` + Reforged `auth.ts` | 47.7% | Rewrite (section 2.8) |
-| `services/content/src/branding.rs` | DR `branding.rs` (Node `branding.ts` identical in DR and Reforged) | 62.1% | Rewrite (section 2.12) |
-| `services/content/src/cli.rs` | DR `main.rs` | 66.7% | Rewrite (section 2.3) |
-| `services/content/src/client.rs` | DR `client.rs` | 98.3% | Rewrite (section 2.9) |
-| `services/content/src/config.rs` | DR `config.rs` + Reforged `config.ts` | 35.8% | Rewrite (section 2.2) |
-| `services/content/src/input.rs` | Functions split out of DR's `app.rs`/`news.rs` and Reforged's `runtime.ts` | 30.4% | Rewrite (sections 2.5, 2.11, 2.13) |
-| `services/content/src/limits.rs` | DR `limits.rs` | 78.5% | Rewrite (section 2.10) |
-| `services/content/src/log.rs` | DR `log.rs` (a doc line and the `linelog` re-export; the test capture helper was added later) | 0.0% (one-line file in DR) | Rewrite; trivially a re-export (section 2.1) |
-| `services/content/src/news.rs` | DR `news.rs` | 51.2% | Rewrite (section 2.13) |
-| `services/content/src/runtime.rs` | Reforged `ReforgedContent/src/runtime.ts` (AGPL, Freeza's line) | 11.3% | Rewrite (section 2.11) |
-| `services/content/src/server.rs` | DR `server.rs` + Reforged `server.ts` | 63.2% | Rewrite (section 2.4) |
-| `services/content/tests/app.rs` | Reforged `test/app.test.ts` + DR `tests/streams.rs` | 16.1% | Rewrite from the invariants of section 3.3 |
-| `services/content/tests/parity.rs` | DR `tests/parity.rs` | 26.3% | Rewrite (section 3.1) |
-| `services/content/tests/parity/harness.rs` | DR `tests/parity.rs` (split out in RD27) | 57.1% | Rewrite from the harness contract of section 3.1 |
-| `services/content/tests/parity/record.cjs` | DR `tests/parity/record.cjs` | 65.0% | **Drop.** It drives `legacy/ReforgedContent`, which was removed on 2026-10-26, so it cannot run; the fixtures are frozen |
+| `crates/content/Cargo.toml` | DR `rust/services/content/Cargo.toml` | — | Write a new manifest (section 4.4) |
+| `crates/content/data/dauntless-1.4.4.json` | DR's 1.4.4 game manifest data | — | **Drop.** Nothing references it since `9829d9a` removed the 1.4.4 game download |
+| `crates/content/src/lib.rs` | DR `lib.rs` | 47.4% | Rewrite |
+| `crates/content/src/app.rs` | DR `app.rs` + Reforged `app.ts` | 50.9% | Rewrite (sections 2.5–2.7, 2.14) |
+| `crates/content/src/auth.rs` | DR `auth.rs` + Reforged `auth.ts` | 47.7% | Rewrite (section 2.8) |
+| `crates/content/src/branding.rs` | DR `branding.rs` (Node `branding.ts` identical in DR and Reforged) | 62.1% | Rewrite (section 2.12) |
+| `crates/content/src/cli.rs` | DR `main.rs` | 66.7% | Rewrite (section 2.3) |
+| `crates/content/src/client.rs` | DR `client.rs` | 98.3% | Rewrite (section 2.9) |
+| `crates/content/src/config.rs` | DR `config.rs` + Reforged `config.ts` | 35.8% | Rewrite (section 2.2) |
+| `crates/content/src/input.rs` | Functions split out of DR's `app.rs`/`news.rs` and Reforged's `runtime.ts` | 30.4% | Rewrite (sections 2.5, 2.11, 2.13) |
+| `crates/content/src/limits.rs` | DR `limits.rs` | 78.5% | Rewrite (section 2.10) |
+| `crates/content/src/log.rs` | DR `log.rs` (a doc line and the `linelog` re-export; the test capture helper was added later) | 0.0% (one-line file in DR) | Rewrite; trivially a re-export (section 2.1) |
+| `crates/content/src/news.rs` | DR `news.rs` | 51.2% | Rewrite (section 2.13) |
+| `crates/content/src/runtime.rs` | Reforged `ReforgedContent/src/runtime.ts` (AGPL, Freeza's line) | 11.3% | Rewrite (section 2.11) |
+| `crates/content/src/server.rs` | DR `server.rs` + Reforged `server.ts` | 63.2% | Rewrite (section 2.4) |
+| `crates/content/tests/app.rs` | Reforged `test/app.test.ts` + DR `tests/streams.rs` | 16.1% | Rewrite from the invariants of section 3.3 |
+| `crates/content/tests/parity.rs` | DR `tests/parity.rs` | 26.3% | Rewrite (section 3.1) |
+| `crates/content/tests/parity/harness.rs` | DR `tests/parity.rs` (split out in RD27) | 57.1% | Rewrite from the harness contract of section 3.1 |
+| `crates/content/tests/parity/record.cjs` | DR `tests/parity/record.cjs` | 65.0% | **Drop.** It drives `legacy/ReforgedContent`, which was removed on 2026-10-26, so it cannot run; the fixtures are frozen |
 
 **19 files** (17 rewritten, 2 dropped).
 
@@ -103,8 +103,8 @@ kept under MIT in the protocol rewrite (`clean-room/protocol.md`). See section 5
 ### 1.5 Outside the two crates, for reference
 
 Not classified here, but they touch the content API and must keep compiling: dainty-restricted's
-`services/host/src/compose.rs` (`content`, `content_module`, `content_library`, `ContentView`; MIT header),
-`services/host/src/lib.rs` (the hidden `content` subcommand), and the fuzz targets `fuzz/fuzz_targets/content_request.rs`,
+`crates/host/src/compose.rs` (`content`, `content_module`, `content_library`, `ContentView`; MIT header),
+`crates/host/src/lib.rs` (the hidden `content` subcommand), and the fuzz targets `fuzz/fuzz_targets/content_request.rs`,
 `content_runtime_index.rs`, `content_news.rs`. dainty-restricted's `docs/security/content.md` is the AGPL checklist for
 today's code; the rewrite writes its own (section 4.6).
 
@@ -737,7 +737,7 @@ within 60 s, on the same `content.env`.
 
 ### 3.1 The parity fixtures (Category A data, kept)
 
-`services/content/tests/parity/<name>.requests.json` and `<name>.expected.json` for `content`, `content-none`,
+`crates/content/tests/parity/<name>.requests.json` and `<name>.expected.json` for `content`, `content-none`,
 `content-invalid` and `content-index`. The expected replies were recorded from the Node server on the same scripts; a
 failing parity test means the Rust side is wrong (AGENTS.md, "Parity tests are the contract"). They cannot be
 re-recorded any more (the Node server is gone).
@@ -770,7 +770,7 @@ re-recorded any more (the Node server is gone).
 - The whole script runs well within 10 s, so the runtime re-check of section 2.11.4 does not fire on its own between
   steps.
 
-**Harness interface kept for `content-plugin`'s test:** a module at `services/content/tests/parity/harness.rs` with
+**Harness interface kept for `content-plugin`'s test:** a module at `crates/content/tests/parity/harness.rs` with
 `pub struct Server { pub port: u16, pub stop: Pin<Box<dyn Future<Output = ()> + Send>> }` and
 `pub async fn run<F: Future<Output = Server>>(name: &str, launch: impl FnOnce(Vec<(String, String)>) -> F)`: it builds
 the fixture, calls `launch` with the env pairs, runs the steps against `port`, awaits `stop`, then compares. It finds the
@@ -804,13 +804,13 @@ fixtures at `CARGO_MANIFEST_DIR/../content/tests/parity`, so it works from eithe
 
 | Path | Repo | What it checks |
 | --- | --- | --- |
-| `services/content/tests/parity/*.requests.json`, `*.expected.json` (8 files) | moved into dainty-lass with the crate | HTTP parity, through the new harness (section 3.1) |
+| `crates/content/tests/parity/*.requests.json`, `*.expected.json` (8 files) | moved into dainty-lass with the crate | HTTP parity, through the new harness (section 3.1) |
 | `crates/protocol/tests/fixtures/runtime-manifest*.json` via `protocol::test_data::RUNTIME_MANIFESTS` | dainty-lass (MIT) | `parse_runtime_json(input).to_json()` equals the recorded body, for both pairs |
-| `services/content-plugin/tests/parity.rs` | moves with `content-plugin` (Category A) | The same four scripts through the built library and `controller::service_library` (needs `cargo build -p content-plugin` first) |
-| `services/host/src/lib.rs` tests that start, stop and restart the `content` component on a `content.env` | dainty-restricted (runs there after the switch) | The compiled-in module starts, reports ready and stops |
+| `crates/content-plugin/tests/parity.rs` | moves with `content-plugin` (Category A) | The same four scripts through the built library and `controller::service_library` (needs `cargo build -p content-plugin` first) |
+| `crates/host/src/lib.rs` tests that start, stop and restart the `content` component on a `content.env` | dainty-restricted (runs there after the switch) | The compiled-in module starts, reports ready and stops |
 | `fuzz/fuzz_targets/content_request.rs`, `content_runtime_index.rs`, `content_news.rs` | dainty-restricted | API compatibility of section 2.1 (they must still build) and the invariants of 3.3 R/N |
 
-`services/content/tests/app.rs` and the in-file unit tests of the Category B files are **not** reusable: they are
+`crates/content/tests/app.rs` and the in-file unit tests of the Category B files are **not** reusable: they are
 Category B code and call internal APIs. Rewrite them from section 3.3.
 
 ### 3.3 Invariants the rewritten tests must cover
@@ -906,24 +906,24 @@ Log (L):
 
 ### 4.1 Where it goes
 
-- **`services/content` in dainty-lass**, crate `content`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`, an
+- **`crates/content` in dainty-lass**, crate `content`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`, an
   `SPDX-License-Identifier: MIT` header on each new file. Category B files are written fresh from this spec; the
   Category A files of section 1.2 are copied in with an MIT header added.
-- **`services/content-plugin` in dainty-lass**, crate `content-plugin` (`cdylib` `content_plugin`), MIT, moved as is.
+- **`crates/content-plugin` in dainty-lass**, crate `content-plugin` (`cdylib` `content_plugin`), MIT, moved as is.
   It then ships from the MIT repository; whether the core keeps loading it as a library or links `content` in directly
   (as it does `admin`) is the maintainer's call (section 5, item 9).
-- `services/content/tests/parity/` keeps its path and the eight JSON files; `harness.rs` and `parity.rs` are new.
+- `crates/content/tests/parity/` keeps its path and the eight JSON files; `harness.rs` and `parity.rs` are new.
   `record.cjs` and `data/dauntless-1.4.4.json` are not carried.
 
 ### 4.2 Public API
 
-Exactly section 2.1. dainty-restricted's `services/host/src/compose.rs`, `services/host/src/lib.rs`, the three fuzz
+Exactly section 2.1. dainty-restricted's `crates/host/src/compose.rs`, `crates/host/src/lib.rs`, the three fuzz
 targets and `content-plugin` must build against the new crate with no source change.
 
 ### 4.3 What moves alongside
 
 - `src/modules.rs` (Category A) into the new crate, its two log calls pointed at `service_kit::linelog`.
-- `services/content-plugin/{Cargo.toml, src/lib.rs, tests/parity.rs}` (Category A).
+- `crates/content-plugin/{Cargo.toml, src/lib.rs, tests/parity.rs}` (Category A).
 - The eight parity JSON files (Category A data).
 
 ### 4.4 Dependencies
@@ -936,10 +936,10 @@ Normal: `protocol`, `module-api`, `service-kit` (all MIT in dainty-lass); `axum`
 `service-plugin` and, for its test, `controller`.
 
 **Seam changes to report, not make** (AGENTS.md: the workspace `Cargo.toml` is the integration pass's): dainty-lass's
-workspace `members` gains `services/content` and `services/content-plugin`; `[workspace.dependencies]` gains `bytes`,
+workspace `members` gains `crates/content` and `crates/content-plugin`; `[workspace.dependencies]` gains `bytes`,
 `http`, `http-body` (today pinned per crate in dainty-restricted), a `content` path entry, and the features above where
 the workspace entries lack them (`hyper-util`'s client and server features, `futures-util`). dainty-restricted's
-workspace switches `content` from `{ path = "services/content" }` to the dainty-lass git entry its other MIT crates use,
+workspace switches `content` from `{ path = "crates/content" }` to the dainty-lass git entry its other MIT crates use,
 and drops the two members; its fuzz `Cargo.toml` does the same. `NOTICE.md` in both repositories, the AGPL inventory and
 the migration guide's §2.4 are updated by the integration pass.
 
@@ -952,7 +952,7 @@ Follow `docs/port/clean-room/hostkit.md` and `similarity.md`:
 - The provenance record goes in `docs/port/clean-room/content.md`: the spec commit, the Category A files moved, each
   implementer session, the files it read and wrote, and the test and clippy results.
 - Similarity: the baseline is not in dainty-lass. Someone other than the implementer runs the `similarity.md` method
-  against dainty-restricted's `services/content` at `ee7d90b` (and, as a second baseline, DR's `rust/services/content`
+  against dainty-restricted's `crates/content` at `ee7d90b` (and, as a second baseline, DR's `rust/services/content`
   at `24b7624`) and appends the per-file table to `similarity.md`.
 
 ### 4.6 Security deliverables (RX3)

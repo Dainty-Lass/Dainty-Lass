@@ -35,7 +35,7 @@ The host half is [`spec-rd27-host.md`](spec-rd27-host.md).
   closing a documented gap, not a rewrite.
 - After the rewrite, the only AGPL parts a launcher binary still needs are the realm transport (`rifts-host`,
   `rifts-seam`, feature `realms`), the embedded server of the manager (feature `server-gui`, through
-  `services/host`), the language catalogs' text and DR's recorded test tables (§3).
+  `crates/host`), the language catalogs' text and DR's recorded test tables (§3).
 
 ---
 
@@ -1565,7 +1565,7 @@ Not a provenance question, but it decides the binaries' licence:
 
 - `controller/realms.rs` and its tests link `rifts-host` and `rifts-seam` (Rustic Rifts, AGPL with Mystic Paradox's
   additional terms). The `realms` feature, on in the release client, makes `dainty-lass-client` AGPL.
-- `server_gui.rs` and the manager's feature list link `services/host`, `isles-1-14-7` and realms. The
+- `server_gui.rs` and the manager's feature list link `crates/host`, `isles-1-14-7` and realms. The
   `server-gui` feature makes `dainty-lass-manager` AGPL until RD27 phase 2 loads those as libraries.
 - The page each shell serves is dainty-dashboard's (`scripts/dashboard-page.mjs`), which lives in dainty-restricted;
   its licence is outside this document but decides the installer's.

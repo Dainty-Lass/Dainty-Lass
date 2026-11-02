@@ -39,7 +39,7 @@ hyper.workspace = true
 hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
 module-api.workspace = true
-network_plugin = { package = "network", path = "../../plugins/network", default-features = false, features = ["directory"] }
+network_plugin = { package = "network", path = "../../crates/network", default-features = false, features = ["directory"] }
 protocol.workspace = true
 ratatui.workspace = true
 remote.workspace = true

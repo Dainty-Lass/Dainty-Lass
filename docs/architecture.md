@@ -9,18 +9,18 @@ under [security/](security) go through each trust boundary line by line.
 | --- | --- | --- | --- |
 | Launcher & Manager | each player's or host's PC | `launcher` and `crates/launcher-kit` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), page from `ui/` (`dainty-lass-ui`) | relay `127.0.0.1:61100` for the game (`dainty-lass-client`) |
 | Controller | the server | `crates/controller` over `crates/module-api` | the one process tree `start`, the console and `dainty-lass-manager` (`server-gui`) run |
-| Gateway (core plugin) | the server | `services/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
-| Allowlist helper (core plugin) | the server, public mode | `services/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
-| Content server (core plugin) | the server | `services/content` | `127.0.0.1:61002`; keys runtime manifests, client profiles and Epic manifests by `GameVersion` |
-| Admin API (core plugin) | the server | `services/admin` | loopback, host-only; per-operator role keys, guarded actions, history and revert |
-| Network (core plugin) | the server | `plugins/network` | no listener of its own; rides gateway `/__node/*` (directory, home API, session tickets, peer log shipping, remote management) |
+| Gateway (core plugin) | the server | `crates/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
+| Allowlist helper (core plugin) | the server, public mode | `crates/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
+| Content server (core plugin) | the server | `crates/content` | `127.0.0.1:61002`; keys runtime manifests, client profiles and Epic manifests by `GameVersion` |
+| Admin API (core plugin) | the server | `crates/admin` | loopback, host-only; per-operator role keys, guarded actions, history and revert |
+| Network (core plugin) | the server | `crates/network` | no listener of its own; rides gateway `/__node/*` (directory, home API, session tickets, peer log shipping, remote management) |
 | Remote management | controller & managed installs | `crates/remote` (`Service::Remote`) | no listener of its own; rides gateway `/__node/enroll` (rate-limited token redemption) and `/__node/remote` (mTLS under the controller's CA) |
-| Chat (core plugin) | the server | `plugins/chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
+| Chat (core plugin) | the server | `crates/chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
 | Store & history shipping | the server | `crates/store`, `crates/history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
 | Game modules | the server (in-process or child process) | `modules/rustic-isles` (`isles-1-14-7`) | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
 | Realms & TURN relay | the server & realm hosts' PCs | `modules/rustic-rifts` (`rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, `ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
-| Host kit | the server | `crates/hostkit` and `services/host`, bin `reforged-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
+| Host kit | the server | `crates/hostkit` and `crates/host`, bin `reforged-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
 
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
@@ -56,7 +56,7 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
 - **Services as libraries (RD27).** A service `host.toml` names in `[services.<name>]` (its `library` path and
   `sha256`) runs as a supervised module of the controller in place of the compiled-in one
   (`controller::service_library`, `hostkit::serve::compose`); `content`, `chat` and `gateway` are known by name and
-  what they serve as core plugins. The MIT core, `bins/dainty-lass-server`, has only the admin API and remote
+  what they serve as core plugins. The MIT core, `crates/dainty-lass-server`, has only the admin API and remote
   management built in and takes every other service this way; dainty-restricted's server binaries still compile
   them in unless `host.toml` lists them.
 

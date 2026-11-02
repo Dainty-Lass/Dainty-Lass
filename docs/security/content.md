@@ -2,7 +2,7 @@
 
 # Security checklist: the content server (RD27)
 
-The checklist for `services/content`, the server players download the game runtime, the server's news and its art
+The checklist for `crates/content`, the server players download the game runtime, the server's news and its art
 pack from, and the launcher reads a game module's client profile and Epic manifest from. Written with the clean-room
 MIT rewrite from `docs/port/spec-rd27-content.md`. `SECURITY_REVIEW.md` indexes it.
 

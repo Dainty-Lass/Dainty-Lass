@@ -130,7 +130,7 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
 
 ## The commands: host kit, console, launcher and admin API (DH3b)
 
-`services/admin/src/history.rs` and `history_text.rs` (the engine over a server's databases and its words), the
+`crates/admin/src/history.rs` and `history_text.rs` (the engine over a server's databases and its words), the
 host kit's `commands/history.rs` (`reforged-host history` and `revert`, the console's and dashboard's `history` and
 `revert`), the admin API's `history`, `historyCheck`, `revertPlan` and `revertApply` (`schema.rs`) and the server GUI's
 `history_query`, `history_revert_dry_run` and `history_revert_apply` (`launcher/src-tauri/src/server_history.rs`).
@@ -284,7 +284,7 @@ read it back. Anyone with root on the server has the server's key, so everything
 
 ### Shipping to a peer node (DH7)
 
-`plugins/network/src/logship.rs` (`PeerBucket`, `PeerLogStore`, `Service::LogShip` on `/__node/log_ship`). Fuzz
+`crates/network/src/logship.rs` (`PeerBucket`, `PeerLogStore`, `Service::LogShip` on `/__node/log_ship`). Fuzz
 target: `network_logship` (`fuzz/fuzz_targets/network_logship.rs`).
 
 - [x] `PeerBucket` implements `history_ship::Bucket` over `PeerLink` + `Service::LogShip`, so `history_ship::Shipper`,
@@ -306,7 +306,7 @@ target: `network_logship` (`fuzz/fuzz_targets/network_logship.rs`).
       random nonce, AAD bound to the object key) and `PeerLogStore::with_decryption_key` reads it back. It needs a key
       the host keeps off the node. A key derived from the node's own signing key would die with the node and make
       every copy unreadable, which defeats DH7. Which key, and where hosts back it up, is the maintainer's decision.
-- [x] Tests in `plugins/network/tests/logship.rs`:
+- [x] Tests in `crates/network/tests/logship.rs`:
       `a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_and_trusted_head_verified`,
       `a_tampered_segment_is_named_and_peer_enforces_prefix_and_append_only`,
       `a_down_peer_makes_lag_alert_fire_and_catch_up_works`,

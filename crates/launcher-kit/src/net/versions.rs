@@ -37,7 +37,7 @@ use crate::bridge::types::{
     EpicManifestState, EpicVersionInfo, GameVersionEntry, GameVersionInstall, GameVersionOrigin,
 };
 
-/// DF4b's routes on content (`services/content/src/modules.rs`): the versions its modules serve, and under
+/// DF4b's routes on content (`crates/content/src/modules.rs`): the versions its modules serve, and under
 /// each `<version>/client` and `<version>/epic/manifest`. A version or an alias is a path segment.
 pub const VERSIONS_PATH: &str = "/content/v1/versions";
 

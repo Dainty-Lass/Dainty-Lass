@@ -10,7 +10,7 @@ check each item in the code (not from memory), link the code or test that shows 
 date and the commit reviewed. An item that does not hold is a bug to fix before that release, not a box to leave
 open. DE1 wrote the manifest and chunk readers, DE2 the sign-in, DE3 the ownership check, DE5 the installer
 (`download.rs` and `download/`, and the launcher's `net/epic_install.rs` and `controller/install.rs`), DE6 the host
-kit's `install-game` (`services/host`: `epicinstall.rs`, `commands/install_game.rs`).
+kit's `install-game` (`crates/host`: `epicinstall.rs`, `commands/install_game.rs`).
 
 ## What it is and where the boundary is
 

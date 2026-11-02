@@ -34,7 +34,7 @@ doc = false
 admin = { workspace = true, optional = true }
 history-ship = { workspace = true, optional = true }
 # The node-link services and their registry (DN3-DN5); `directory` is the `network` feature's. Renamed as the gateway renames it
-network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
+network_plugin = { package = "network", path = "../../crates/network", default-features = false }
 remote = { workspace = true, optional = true }
 store = { workspace = true, optional = true }
 # Game modules and plugins, compiled in, as their own process (DF3) or as a library (RD27)

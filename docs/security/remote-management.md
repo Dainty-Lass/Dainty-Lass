@@ -26,7 +26,7 @@ preservation, and `DH6` two-person guarded approval.
   rate-limited at the gateway's registration bucket, carrying a one-time 32-byte token (`dainty-lass-remote://enroll`)
   and the managed install's `SubjectPublicKeyInfo` PEM (`-----BEGIN PUBLIC KEY-----`).
 - **In / Out, remote management (`POST /__node/remote`, `Service::Remote`):** mutual TLS 1.3 (`dainty-lass-node/1` ALPN)
-  over `plugins/network` node links (`network::tls::TlsPeerLink` and `network::endpoint::NodeEndpoint`), authenticated
+  over `crates/network` node links (`network::tls::TlsPeerLink` and `network::endpoint::NodeEndpoint`), authenticated
   by `ClusterCa` client and server certificates and checked for `<= 30s` clock skew (`x-node-time`) and `<= 1 MiB`
   body size (`MAX_REMOTE_WIRE`).
 - **No new public listener:** "The gateway is the only listener off loopback" (`AGENTS.md`, DD3, DD16) holds without

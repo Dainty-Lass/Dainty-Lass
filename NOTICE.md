@@ -17,8 +17,8 @@ and CI fails a package that does not.
 
 - **Born here**: `crates/controller`, `crates/module-api` (DF2, the module framework and frame protocol),
   `crates/epic` (DE1, written from Epic's manifest and chunk formats as Legendary documents them),
-  `crates/history-ship` (DH4), `crates/remote` (DD27/RM2), `plugins/network` (DN4), `services/admin`,
-  `services/backend` and `services/director` (stubs), the fuzz targets in `fuzz/`, and the UI in `ui/` (whose two
+  `crates/history-ship` (DH4), `crates/remote` (DD27/RM2), `crates/network` (DN4), `crates/admin`,
+  `crates/backend` and `crates/director` (stubs), the fuzz targets in `fuzz/`, and the UI in `ui/` (whose two
   AGPL inputs, the language catalogs and the generated bridge types, are dainty-restricted's and are copied in at
   build time).
 - **Clean-room MIT rewrites and extracted MIT kits** (`DD26`, `DL2` answered No on 2026-10-30; behaviour specs in

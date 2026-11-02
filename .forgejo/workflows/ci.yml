@@ -73,8 +73,6 @@ jobs:
               - clippy.toml
               - rustfmt.toml
               - crates/**
-              - plugins/**
-              - services/**
               - fuzz/**
             ui:
               - ui/**

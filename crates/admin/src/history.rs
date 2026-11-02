@@ -63,7 +63,7 @@ pub const NODE_ACCOUNTS: &[AccountColumn] = &[
     },
 ];
 
-/// Chat's tables (`plugins/chat/migrations`): a sender or an account is the global account id.
+/// Chat's tables (`crates/chat/migrations`): a sender or an account is the global account id.
 pub const CHAT_ACCOUNTS: &[AccountColumn] = &[
     AccountColumn {
         table: "chat_accounts",

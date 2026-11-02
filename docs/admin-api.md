@@ -3,7 +3,7 @@
 # Admin API
 
 A GraphQL API for the host's own tools, such as a Discord bot: kick, time out and ban players (and undo it), and
-look up a player, the server and its hunts. It is the `admin` service (`services/admin`). It listens on
+look up a player, the server and its hunts. It is the `admin` service (`crates/admin`). It listens on
 `127.0.0.1:61003` only, wants its key on every request, and the gateway never forwards to it, so players can't reach
 it. What it trusts and why is in [security/admin-api.md](security/admin-api.md).
 
@@ -33,7 +33,7 @@ stay as they are.
 ## The schema
 
 The full schema, with every field's description, is
-[services/admin/schema.graphql](../services/admin/schema.graphql) (`admin schema` prints it; a test keeps
+[crates/admin/schema.graphql](../crates/admin/schema.graphql) (`admin schema` prints it; a test keeps
 the file current). In short:
 
 ```graphql

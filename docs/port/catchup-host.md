@@ -3,7 +3,7 @@
 # Catch-up list: host kit (RX2)
 
 Every Node commit that changed Reforged's host kit (`ReforgedHost/`, now `legacy/ReforgedHost/`) after the delta
-lists (RX1) were made, and whether the Rust host kit in `services/host` on `plan` has it. RH5 and RH7 port what
+lists (RX1) were made, and whether the Rust host kit in `crates/host` on `plan` has it. RH5 and RH7 port what
 is left before the host kit's cutover.
 
 ## Range
@@ -53,7 +53,7 @@ below it.
   scripts fetch and run `setup-vps.sh` from `legacy/ReforgedHost/linux/`.
 - **Rust:** ported, by part:
   - `paths.ts` (`hostKit`, `gatewayDir`, `contentDir`, the root search): ported in
-    `services/host/src/paths.rs:129-131` and `services/host/src/paths.rs:178-186`.
+    `crates/host/src/paths.rs:129-131` and `crates/host/src/paths.rs:178-186`.
   - `cli.ts` (reinstall when `node_modules` is missing), `selfupdate.ts` (`hostKitDeps` paths): not applicable. The
     Rust kit has no npm dependencies of its own, and `update` from a `git` fast-forward is replaced by the server
     release (RH5, RD8).
@@ -61,7 +61,7 @@ below it.
     the Linux release, where their paths are the release's, not `legacy/`.
   - `captures.ts`, `invite.ts`, `linux.ts`, `preset.ts`, `services.ts`, README, tests: comments, strings and test
     paths only. The Rust comments already name `legacy/ReforgedHost/...` (for example
-    `services/host/src/preset.rs:153`).
+    `crates/host/src/preset.rs:153`).
 
 ### `0ba6016` RP4: the host kit builds Mystic Paradox from paradox/ and native/
 
@@ -80,24 +80,24 @@ below it.
   `paradox/backend/store-captures.json` and no longer writes a `.git/info/exclude` entry.
 - **Rust:** needs porting, by part:
   - `paths.ts` (the `paradox/` and `native/` layout, `oldUpstream`, `capturesPin`): ported in
-    `services/host/src/paths.rs:115-146` and `services/host/src/commands/setup/paradox.rs:21-54`.
+    `crates/host/src/paths.rs:115-146` and `crates/host/src/commands/setup/paradox.rs:21-54`.
   - `paradox.ts` (`missingParadox`, `oldWorkspaceItems`, `migrateOldWorkspace`): ported in
-    `services/host/src/commands/setup/paradox.rs:79`, `:107` and `:184`, called from
-    `services/host/src/commands/setup.rs:210-231`.
+    `crates/host/src/commands/setup/paradox.rs:79`, `:107` and `:184`, called from
+    `crates/host/src/commands/setup.rs:210-231`.
   - `doctor.ts` (the `paradox` check replacing `upstream`; the `native\...` fix texts): ported in
-    `services/host/src/doctor.rs:549-558`, `:361`, `:727`, `:741` and `:755`.
-  - `captures.ts` (pin in `paradox/backend`, no exclude entry): ported in `services/host/src/captures.rs:8` and
-    `services/host/src/paths.rs:146`; the Rust module never had the exclude step.
+    `crates/host/src/doctor.rs:549-558`, `:361`, `:727`, `:741` and `:755`.
+  - `captures.ts` (pin in `paradox/backend`, no exclude entry): ported in `crates/host/src/captures.rs:8` and
+    `crates/host/src/paths.rs:146`; the Rust module never had the exclude step.
   - `gamedata.ts`, `hostconfig.ts`, `preset.ts`: comments and strings; the Rust strings already match
-    (`services/host/src/preset.rs:164`, `:214`).
+    (`crates/host/src/preset.rs:164`, `:214`).
   - `cli.ts` and `upstream.ts` (the `upstream` command and `--force-upstream` removed): **needs porting.** The Rust
-    kit still has `Command::Upstream` (`services/host/src/cli.rs:46`, dispatched in
-    `services/host/src/commands/mod.rs:48` to the stub `commands/upstream.rs`), the `force_upstream` option
-    (`services/host/src/cli.rs:121-123`) and the stubbed `services/host/src/upstream.rs`. RH5 removes
-    them, as `services/host/src/upstream.rs:3-4` already says.
+    kit still has `Command::Upstream` (`crates/host/src/cli.rs:46`, dispatched in
+    `crates/host/src/commands/mod.rs:48` to the stub `commands/upstream.rs`), the `force_upstream` option
+    (`crates/host/src/cli.rs:121-123`) and the stubbed `crates/host/src/upstream.rs`. RH5 removes
+    them, as `crates/host/src/upstream.rs:3-4` already says.
   - `selfupdate.ts` (`runtimeAffected` over `native/paradox-runtime/` and `native/runtime-loader/`): **needs
-    porting** in RH5's `update` (`services/host/src/commands/update.rs:12`, a stub, and
-    `services/host/src/selfupdate.rs`). With the server release, the test becomes "did the release's runtime
+    porting** in RH5's `update` (`crates/host/src/commands/update.rs:12`, a stub, and
+    `crates/host/src/selfupdate.rs`). With the server release, the test becomes "did the release's runtime
     sources change since the installed one", and `update` tells the host to rebuild and publish the runtime.
 
 ## Freeza's upstream

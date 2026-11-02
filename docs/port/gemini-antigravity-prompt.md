@@ -55,7 +55,7 @@ one branch. Finished branches are merged `--no-ff` into each repository's `plan`
   after the full checks pass. **Never force-push `plan` or `main`.** `--force-with-lease` is allowed only on a feature
   branch you created.
 - **Stay inside your row's files.** Shared seams (workspace `Cargo.toml`, `crates/protocol`, `crates/module-api`,
-  the launcher bridge spec, `store` migrations, `services/host/src/cli.rs`, `.forgejo/`, generated files) get the
+  the launcher bridge spec, `store` migrations, `crates/host/src/cli.rs`, `.forgejo/`, generated files) get the
   smallest additive edit only, listed in the commit body. Never reformat or reorder them.
 - **Never hand-edit or hand-merge generated files** (bridge types, `gen/strings.json`, `schema.graphql`,
   `isolation/commands.js`, permission sets). Regenerate with `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`

@@ -2,7 +2,7 @@
 
 Draft, 2026-10-24. Scope: DaintyLass first; Dauntless Revived at the end.
 
-**Target: the Rust host kit on `plan`** (`services/host`, the launcher's `platform/hostkit`), not the Node
+**Target: the Rust host kit on `plan`** (`crates/host`, the launcher's `platform/hostkit`), not the Node
 projects in `legacy/`. The file and function names below come from the Node kit; the Rust port keeps the same
 ones (`hostconfig.rs`, `buildEnvFiles` → `build_env_files`, and so on).
 

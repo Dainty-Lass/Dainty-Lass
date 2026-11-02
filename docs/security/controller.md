@@ -3,7 +3,7 @@
 # Security checklist: the server controller and its console (RX3)
 
 The checklist for the server as one process (RD26): the controller in `crates/controller`, `reforged-host
-serve` in `services/host/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
+serve` in `crates/host/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
 it loads (`hostconfig.rs`, `hostconfig/yaml.rs`) and the server GUI's embedded server
 (`launcher/src-tauri/src/server_gui.rs`). `SECURITY_REVIEW.md` indexes it.
 
@@ -32,7 +32,7 @@ them, and the files it reads to compose them.
   module gets.
 
 Code: `crates/controller/src/controller.rs` (start, ready timeout, stop grace, restart, shutdown),
-`services/host/src/serve.rs` (`compose`, `prepare`, `run`, `prepare_embedded`, the printers), `repl.rs`
+`crates/host/src/serve.rs` (`compose`, `prepare`, `run`, `prepare_embedded`, the printers), `repl.rs`
 (`parse_command`, `run_command`, `plain`), `tui.rs` (`on_key`, `run_tui`), `hostconfig.rs` (`read_host_config`),
 `hostconfig/yaml.rs`, `services.rs` (`pump`), `launcher/src-tauri/src/server_gui.rs` and `bridge/commands.rs`
 (`host_server_restart`).

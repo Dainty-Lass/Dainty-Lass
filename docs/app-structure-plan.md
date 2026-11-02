@@ -82,12 +82,12 @@ flowchart TB
 
 | # | Binary Crate Path | Binary Name | Edition Feature Set | Profile & Capabilities |
 | --- | --- | --- | --- | --- |
-| 1 | `bins/server-minimal` | `reforged-server-minimal` | `edition-both` *(Release Default)* | Headless TOML/YAML/JSON runner + cold-boot secret init + `{service:<14} \| {line}` stdout table logger. Can host Refined, Reforged, or both concurrently. |
-| 2 | `bins/server-minimal-refined` | `refined-server-minimal` | `edition-refined` *(Self-Build)* | Same minimal headless runner compiled strictly with Refined support. |
-| 3 | `bins/server-minimal-reforged` | `reforged-only-server-minimal` | `edition-reforged` *(Self-Build)* | Same minimal headless runner compiled strictly with Reforged support. |
-| 4 | `bins/server-console` | `reforged-server-console` | `edition-both` *(Release Default)* | Full CLI subcommands + interactive console REPL + optional `ratatui` `--tui`. Supports Refined, Reforged, or both concurrently. |
-| 5 | `bins/server-console-refined` | `refined-server-console` | `edition-refined` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Refined support. |
-| 6 | `bins/server-console-reforged` | `reforged-only-server-console` | `edition-reforged` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Reforged support. |
+| 1 | `crates/server-minimal` | `reforged-server-minimal` | `edition-both` *(Release Default)* | Headless TOML/YAML/JSON runner + cold-boot secret init + `{service:<14} \| {line}` stdout table logger. Can host Refined, Reforged, or both concurrently. |
+| 2 | `crates/server-minimal-refined` | `refined-server-minimal` | `edition-refined` *(Self-Build)* | Same minimal headless runner compiled strictly with Refined support. |
+| 3 | `crates/server-minimal-reforged` | `reforged-only-server-minimal` | `edition-reforged` *(Self-Build)* | Same minimal headless runner compiled strictly with Reforged support. |
+| 4 | `crates/server-console` | `reforged-server-console` | `edition-both` *(Release Default)* | Full CLI subcommands + interactive console REPL + optional `ratatui` `--tui`. Supports Refined, Reforged, or both concurrently. |
+| 5 | `crates/server-console-refined` | `refined-server-console` | `edition-refined` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Refined support. |
+| 6 | `crates/server-console-reforged` | `reforged-only-server-console` | `edition-reforged` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Reforged support. |
 | 7 | `bins/server-gui` | `reforged-server-gui` | `edition-both` *(Release Default)* | Tauri launcher + embedded `ServerController` + direct `LauncherGuiLayer` log stream + live Component Status Page. Supports both editions. |
 | 8 | `bins/server-gui-refined` | `refined-server-gui` | `edition-refined` *(Self-Build)* | Tauri launcher + embedded `ServerController` + Status Page compiled strictly for Refined. |
 | 9 | `bins/server-gui-reforged` | `reforged-only-server-gui` | `edition-reforged` *(Self-Build)* | Tauri launcher + embedded `ServerController` + Status Page compiled strictly for Reforged. |
@@ -188,9 +188,9 @@ All components emit logs via `tracing` macros (`tracing::info!`, `warn!`, `error
    - `ServerController` managing in-process async service tasks, hybrid in-process `AllowlistSink`, `StatusRegistry` (`watch::Receiver<ServerSnapshot>`), per-component start/stop/restart, and reverse-order graceful shutdown.
 
 ### Phase 3: Server Binary Crates (`server-minimal*` & `server-console*` — 6 Crates)
-1. Create `bins/server-minimal`, `bins/server-minimal-refined`, and `bins/server-minimal-reforged` wired to `ServerController` + `TableStdoutLayer`.
+1. Create `crates/server-minimal`, `crates/server-minimal-refined`, and `crates/server-minimal-reforged` wired to `ServerController` + `TableStdoutLayer`.
 2. Implement the interactive runtime REPL (`status`, `start/stop/restart <svc>`, `invite`, `players`, `instances`, `doctor`, `backup`, `log`, `stop`) and optional `ratatui` `--tui` dashboard in `host`.
-3. Create `bins/server-console`, `bins/server-console-refined`, and `bins/server-console-reforged`.
+3. Create `crates/server-console`, `crates/server-console-refined`, and `crates/server-console-reforged`.
 
 ### Phase 4: Client & Server GUI Binary Crates (`online-client*` & `server-gui*` — 6 Crates)
 1. Split `launcher/src-tauri` into pure library modules with `server-gui`, `edition-refined`, `edition-reforged`, and `edition-both` feature gates.

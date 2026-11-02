@@ -2,44 +2,7 @@
 # the launcher and the game modules are dainty-restricted's, which takes these crates as git dependencies.
 [workspace]
 resolver = "3"
-members = [
-    "crates/controller",
-    # Installing the game from the player's Epic library (DD22)
-    "crates/epic",
-    # The change log and snapshots shipped to an object-locked bucket, and restore (DH4)
-    "crates/history-ship",
-    "crates/hostkit",
-    "crates/launcher-kit",
-    "crates/module-api",
-    # Modules built as libraries, loaded at start (RD27)
-    "crates/plugin-host",
-    "crates/protocol",
-    "crates/proxy",
-    "crates/remote",
-    "crates/service-kit",
-    # Services as libraries the core loads (RD27)
-    "crates/service-plugin",
-    "crates/store",
-    "services/backend",
-    "services/director",
-    "services/admin",
-    # The gateway and the allowlist helper, rewritten MIT from the RD27 clean-room spec
-    "services/gateway",
-    # The gateway library the core loads (RD27)
-    "services/gateway-plugin",
-    # The content server: the game runtime, news and art pack (RD27, clean-room MIT)
-    "services/content",
-    # The content server as a library the core loads (RD27)
-    "services/content-plugin",
-    # The network core plugin: node links, the directory (DD16-DD18)
-    "plugins/network",
-    # The chat core plugin: XMPP for the game's client (DN10, RD27 clean-room rewrite)
-    "plugins/chat",
-    # Chat as a library the core loads (RD27)
-    "plugins/chat-plugin",
-    # The MIT core server: admin and remote built in, the other services libraries (RD27)
-    "bins/dainty-lass-server",
-]
+members = ["crates/*"]
 # The fuzz targets (cargo fuzz, nightly) are a workspace of their own
 exclude = ["fuzz"]
 
@@ -67,11 +30,11 @@ history-ship = { path = "crates/history-ship" }
 service-kit = { path = "crates/service-kit" }
 service-plugin = { path = "crates/service-plugin" }
 proxy = { path = "crates/proxy" }
-admin = { path = "services/admin" }
-gateway = { path = "services/gateway" }
-content = { path = "services/content" }
+admin = { path = "crates/admin" }
+gateway = { path = "crates/gateway" }
+content = { path = "crates/content" }
 epic = { path = "crates/epic" }
-chat = { path = "plugins/chat" }
+chat = { path = "crates/chat" }
 hmac = "0.13"
 
 crossterm = "0.29"
@@ -81,7 +44,7 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm"]
 aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
 aes-gcm = "0.11"
-# The admin API's GraphQL schema (services/admin); no web framework integration, no playground
+# The admin API's GraphQL schema (crates/admin); no web framework integration, no playground
 async-graphql = { version = "7", default-features = false }
 base64 = "0.23"
 bytes = "1"
@@ -135,7 +98,7 @@ rand = "0.10"
 tempfile = "3"
 # Network-wide ids, tagged with the owning node (DD18, crates/module-api)
 ulid = "3"
-# The chat plugin's (plugins/chat): constant-time comparisons, and the WebSocket clients
+# The chat plugin's (crates/chat): constant-time comparisons, and the WebSocket clients
 # of its parity tests (the version axum's ws uses)
 subtle = "2"
 # The gateway (RD27): its certificate, the TLS listener and the certificate checks, as the network plugin pins them

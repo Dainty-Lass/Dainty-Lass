@@ -21,7 +21,7 @@ The clean-room worktree excluded all AGPL source trees (`/legacy/`, `/modules/`,
 !/reference/
 ```
 
-`Test-Path services/host` returned `False` before any clean-room implementer subagent was invoked.
+`Test-Path crates/host` returned `False` before any clean-room implementer subagent was invoked.
 
 ## 2. Category A Files Moved / Decoupled (`Born-MIT`)
 
@@ -61,7 +61,7 @@ Four isolated clean-room subagents implemented the 22 Category B module groups p
   - `docs/app-structure-plan.md`, `docs/config-toml-plan.md`, `docs/hosting.md`, `docs/hosting-linux.md`
   - `Cargo.toml`, `crates/hostkit/Cargo.toml`
   - Category A files in `crates/hostkit/src/` (`lib.rs`, `error.rs`, `hooks.rs`, `legacy.rs`, `hosttoml.rs`, `hostconfig/{yaml,guard,modules}.rs`, `serve.rs`, `guarded.rs`, `repl.rs`, `tui.rs`, `epicinstall.rs`, `commands/{backup,db,history,install_game,network}.rs`, `commands/setup/{database,secrets}.rs`, `commands/start/binaries.rs`)
-  - MIT workspace crates (`crates/{service-kit,protocol,controller,store,module-api}/**`, `plugins/network/src/cluster.rs`, `bins/server-{console,minimal}/src/main.rs`)
+  - MIT workspace crates (`crates/{service-kit,protocol,controller,store,module-api}/**`, `crates/network/src/cluster.rs`, `bins/server-{console,minimal}/src/main.rs`)
 - **Files Written**:
   - `crates/hostkit/src/paths.rs`
   - `crates/hostkit/src/envfile.rs`
@@ -113,7 +113,7 @@ Four isolated clean-room subagents implemented the 22 Category B module groups p
   - `docs/port/spec-dl3-hostkit.md` (lines 1–1648)
   - `docs/port/catchup-host.md`, `docs/port/migration-guide.md`, `docs/security/host-start.md`, `docs/security/host-gamedata.md`, `docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, `MIGRATION_PLAN.md`
   - `Cargo.toml`, `crates/hostkit/Cargo.toml`, and `crates/hostkit/src/**`
-  - MIT workspace crates (`crates/{controller,service-kit,store}/**`, `services/admin/Cargo.toml`, `plugins/{chat,network}/Cargo.toml`, `bins/server-{console,minimal}/src/main.rs`, `fuzz/fuzz_targets/launcher_host.rs`)
+  - MIT workspace crates (`crates/{controller,service-kit,store}/**`, `crates/admin/Cargo.toml`, `plugins/{chat,network}/Cargo.toml`, `bins/server-{console,minimal}/src/main.rs`, `fuzz/fuzz_targets/launcher_host.rs`)
 - **Files Written**:
   - `crates/hostkit/src/commands/mod.rs`
   - `crates/hostkit/src/commands/doctor.rs`

@@ -14,7 +14,7 @@ use super::KnownProfile;
 /// More than any server loads modules for
 pub const MAX_VERSIONS: usize = 16;
 
-/// One row of `GET /content/v1/versions` (`services/content/src/modules.rs`'s `VersionSummary`); the fields
+/// One row of `GET /content/v1/versions` (`crates/content/src/modules.rs`'s `VersionSummary`); the fields
 /// the launcher doesn't read (`module`, `invite_aliases`, `unverified`) and a newer server's extras are
 /// ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

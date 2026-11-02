@@ -6,7 +6,7 @@
 //! The home API over the real node link (DN5): two nodes on 127.0.0.1:0, each a gateway, call each other through
 //! `TlsPeerLink` over mutual TLS under one cluster CA. The home hands the player's ticket to the hunt's node, the
 //! node saves loot and XP at the home through the link, and the same refusals hold as in process
-//! (`plugins/network/tests/home.rs` has the cases; this is the end-to-end of the transport).
+//! (`crates/network/tests/home.rs` has the cases; this is the end-to-end of the transport).
 
 mod common;
 

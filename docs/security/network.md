@@ -2,7 +2,7 @@
 
 # Security checklist: the network (RX3, DX2)
 
-The checklist for the network core plugin, `plugins/network` (`docs/dainty-lass-plan.md` DD16-DD19, DN3-DN11).
+The checklist for the network core plugin, `crates/network` (`docs/dainty-lass-plan.md` DD16-DD19, DN3-DN11).
 `SECURITY_REVIEW.md` indexes it. DX2 gives it five parts: node certificates and the cluster CA, session tickets, the
 directory, the claim protocol and chat federation. Each row adds its part with its code; this page has the directory
 (DN4), the node certificates (DN3) and the session tickets and home API (DN5) so far. Region ping, which the gateway
@@ -35,9 +35,9 @@ through the leader.
 - **In, on a replica:** pages of the leader's log, in answer to its pulls.
 - **Out:** the directory holds account ids, usernames and home node names. No account key, session or address.
 
-Code: `plugins/network/src/directory.rs` (the leader's rules, the replica's pull and checks, the tables),
+Code: `crates/network/src/directory.rs` (the leader's rules, the replica's pull and checks, the tables),
 `messages.rs` (the messages and their decoder), `username.rs` (the claim's case rule), `link.rs` and `inprocess.rs`.
-Tests: `plugins/network/tests/directory.rs`, on SQLite and, with `REFORGED_TEST_POSTGRES_URL`, Postgres.
+Tests: `crates/network/tests/directory.rs`, on SQLite and, with `REFORGED_TEST_POSTGRES_URL`, Postgres.
 
 Fuzz target: `network_directory` in `fuzz` (both decoders and the username rule). It checks that a message is
 read whole or refused, that what is read holds only usernames the protocol's rule accepts and account ids of one
@@ -143,12 +143,12 @@ runs. The gateway stays the only listener off loopback.
   (`spawn_health_checks`) and every call update it. A restarted peer is reached again on the next call: idle
   connections are dropped when they close and a call retries once on a fresh one if the kept one was already closed.
 
-Code: `plugins/network/src/cluster.rs` (CA, issuing, reading names, credentials, the TLS settings),
+Code: `crates/network/src/cluster.rs` (CA, issuing, reading names, credentials, the TLS settings),
 `wire.rs` (the routes, the ping and error answers), `endpoint.rs` (admission and the service call), `tls.rs`
-(`TlsPeerLink`, health); `services/gateway/src/nodelink.rs`, `gateway.rs` (`connection`, `node_request`),
-`config.rs` (`GATEWAY_NODE_*`); `services/host/src/commands/network.rs`, `hostconfig/modules.rs`.
-Tests: `plugins/network/tests/cluster.rs` (the CA and mutual TLS in memory),
-`services/gateway/tests/nodelink.rs` (several real gateways on 127.0.0.1:0).
+(`TlsPeerLink`, health); `crates/gateway/src/nodelink.rs`, `gateway.rs` (`connection`, `node_request`),
+`config.rs` (`GATEWAY_NODE_*`); `crates/host/src/commands/network.rs`, `hostconfig/modules.rs`.
+Tests: `crates/network/tests/cluster.rs` (the CA and mutual TLS in memory),
+`crates/gateway/tests/nodelink.rs` (several real gateways on 127.0.0.1:0).
 
 Fuzz target: `network_link` in `fuzz` (the route table, the time header, a ping and an error answer, a peer as
 `host.toml` lists it, a certificate's names, and the endpoint's admission of a request head).
@@ -279,12 +279,12 @@ home decides what they mean. **The account key never crosses a node link.**
 - **Repeats:** a `run` carries a request key; the home runs one key once and answers a repeat with the first answer
   (kept for up to 1024 requests or 8 MiB), so a request whose answer was lost can be sent again without writing twice.
 
-Code: `plugins/network/src/home/` (`ticket.rs`, `keys.rs`, `protocol.rs`, `service.rs` for the home's side,
+Code: `crates/network/src/home/` (`ticket.rs`, `keys.rs`, `protocol.rs`, `service.rs` for the home's side,
 `client.rs` for `NetworkedHome`), `link.rs` (`Service::Home`, `ServiceMux`), and in
 `crates/module-api/src/network.rs` the seams (`HomeBackend`, `HomeInvocation`, `HomeForward`,
 `HomeApi::forward` and `admit`).
-Tests: `plugins/network/tests/home.rs` (three regions in process, SQLite and, with `REFORGED_TEST_POSTGRES_URL`,
-Postgres), unit tests in `home/ticket.rs`, `keys.rs` and `protocol.rs`, and `services/gateway/tests/home.rs` (two
+Tests: `crates/network/tests/home.rs` (three regions in process, SQLite and, with `REFORGED_TEST_POSTGRES_URL`,
+Postgres), unit tests in `home/ticket.rs`, `keys.rs` and `protocol.rs`, and `crates/gateway/tests/home.rs` (two
 real gateways over mutual TLS).
 
 Fuzz targets: `network_home` in `fuzz` (requests and answers: read whole or refused, no account-key-shaped value

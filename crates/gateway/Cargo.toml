@@ -18,7 +18,7 @@ http-body-util.workspace = true
 hyper = { workspace = true, features = ["client", "server", "http1"] }
 hyper-util = { workspace = true, features = ["client-legacy", "http1", "tokio"] }
 module-api.workspace = true
-network_plugin = { package = "network", path = "../../plugins/network", default-features = false }
+network_plugin = { package = "network", path = "../../crates/network", default-features = false }
 protocol.workspace = true
 proxy.workspace = true
 rcgen.workspace = true

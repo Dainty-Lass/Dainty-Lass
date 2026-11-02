@@ -673,7 +673,7 @@ impl RemoteControllerState {
     }
 }
 
-/// Trait implemented by the host runtime (`services/host` / `crates/hostkit` / `launcher`) so
+/// Trait implemented by the host runtime (`crates/host` / `crates/hostkit` / `launcher`) so
 /// `crates/remote` can execute commands and read local status without depending on AGPL crates.
 pub trait RemoteHostHandler: Send + Sync {
     fn build_report(&self, applied_revision: u64) -> Result<InstallReport, RemoteError>;

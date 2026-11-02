@@ -1,6 +1,6 @@
-# Clean-Room Provenance Record — `services/content` (RD27)
+# Clean-Room Provenance Record — `crates/content` (RD27)
 
-- **Component**: `services/content` (`content` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
+- **Component**: `crates/content` (`content` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
 - **Behaviour Specification**: `docs/port/spec-rd27-content.md` at commit `df11ac9` (branch `docs/rd27-spec-content`)
 - **Clean-Room Worktree**: `R:\source\dauntless\.wt\content-mit` (branch `feat/rd27-content-mit`, created from
   `docs/rd27-spec-content` at `df11ac9`)
@@ -18,13 +18,13 @@ The sparse checkout additionally leaves out `ui/`, which the implementation does
 
 Checks run before any code was written, from the worktree root:
 
-- `Test-Path ui`, `Test-Path services/content`, `Test-Path rust`, `Test-Path modules` all returned `False`.
-- `git ls-files | grep -E '^(services/content|rust/|modules/|legacy/|reference/)'` returned nothing.
+- `Test-Path ui`, `Test-Path crates/content`, `Test-Path rust`, `Test-Path modules` all returned `False`.
+- `git ls-files | grep -E '^(crates/content|rust/|modules/|legacy/|reference/)'` returned nothing.
 
 The implementer never opened, listed, searched or ran git commands against dainty-restricted, `legacy-revived`,
 `rustic-*`, `dainty-dashboard`, `dainty-legacy`, `dainty-lass-ui` or another worktree under `R:\source\dauntless\.wt`,
-and never looked at any historical version of `services/content`, `rust/services/content` or
-`services/content-plugin` in dainty-lass's history. No web search was made. (The session's own working directory was
+and never looked at any historical version of `crates/content`, `rust/services/content` or
+`crates/content-plugin` in dainty-lass's history. No web search was made. (The session's own working directory was
 a dainty-restricted worktree; every command used absolute paths into `content-mit` and nothing under the working
 directory was read.)
 
@@ -33,14 +33,14 @@ directory was read.)
 The Category A files of the spec's section 1.2 live in dainty-restricted, which the implementer may not open. The
 implementer left them for the integration pass (section 5), which copied them in:
 
-- `services/content/src/modules.rs` (with its two log calls pointed at `service_kit::linelog`, spec 1.4). The
+- `crates/content/src/modules.rs` (with its two log calls pointed at `service_kit::linelog`, spec 1.4). The
   implementer's branch held a **stand-in** `modules.rs` written clean-room from the spec's summary (section 2.14), so
   the crate built and its routes could be tested. It assumed `ContentModules::{new(Arc<dyn RegistryView>), none(),
   resolve, resolve_edition, versions, client_profile, runtime_folders, epic_manifest(&GameVersion) ->
   Result<EpicManifest { bytes, sha1 }, EpicManifestError>}`, the `CorePlugin` impl and
   `RegistryView::module_dir`.
-- `services/content-plugin/{Cargo.toml, src/lib.rs, tests/parity.rs}`.
-- `services/content/tests/parity/{content,content-none,content-invalid,content-index}.{requests,expected}.json`.
+- `crates/content-plugin/{Cargo.toml, src/lib.rs, tests/parity.rs}`.
+- `crates/content/tests/parity/{content,content-none,content-invalid,content-index}.{requests,expected}.json`.
   The implementer's `tests/parity.rs` skipped those four scripts with a `SKIPPED` line until they arrived;
   `spec-selftest`, a script written for this rewrite from the spec alone, ran the harness meanwhile.
 
@@ -56,20 +56,20 @@ One Claude Code subagent session (2026-11-02), launched by the maintainer's sess
   - `crates/protocol/src/{manifest,invite}.rs`, `crates/protocol/Cargo.toml`, `crates/protocol/src/lib.rs` (grep)
   - `crates/service-kit/src/{env,js,jsjson,linelog,context,serve}.rs`, `crates/service-kit/Cargo.toml`
   - `crates/controller/src/service_library.rs` (head), `crates/controller/tests/echo-service/{Cargo.toml,src/lib.rs}`
-  - `services/admin/{Cargo.toml,src/lib.rs,src/server.rs,src/upstream.rs}` (patterns for an MIT service)
+  - `crates/admin/{Cargo.toml,src/lib.rs,src/server.rs,src/upstream.rs}` (patterns for an MIT service)
   - `crates/hostkit/src/hostconfig.rs` (the `content.env` lines, by grep)
   - `fuzz/Cargo.toml`, `fuzz/fuzz_targets/runtime_input.rs`, `docs/security/plugin-host.md`
 - **Files Written**:
-  - `services/content/Cargo.toml`
-  - `services/content/src/{lib,app,auth,branding,cli,client,config,input,limits,log,modules,news,runtime,server,
+  - `crates/content/Cargo.toml`
+  - `crates/content/src/{lib,app,auth,branding,cli,client,config,input,limits,log,modules,news,runtime,server,
     service}.rs` (`modules.rs` is the stand-in of section 2)
-  - `services/content/tests/app.rs`, `services/content/tests/parity.rs`, `services/content/tests/parity/harness.rs`
-  - `services/content/tests/parity/spec-selftest.{requests,expected}.json` (expected replies derived by hand from the
+  - `crates/content/tests/app.rs`, `crates/content/tests/parity.rs`, `crates/content/tests/parity/harness.rs`
+  - `crates/content/tests/parity/spec-selftest.{requests,expected}.json` (expected replies derived by hand from the
     spec, not recorded)
   - `fuzz/fuzz_targets/{content_request,content_runtime_index,content_news}.rs` and their `[[bin]]` entries in
     `fuzz/Cargo.toml`
   - `docs/security/content.md`, this record
-  - `Cargo.toml`: the `services/content` member; `content`, `bytes`, `http`, `http-body` in
+  - `Cargo.toml`: the `crates/content` member; `content`, `bytes`, `http`, `http-body` in
     `[workspace.dependencies]`
 
 ## 4. Verification
@@ -95,15 +95,15 @@ holds the branch), its commit pushed to `feat/rd27-content-mit`.
 
 | File | From (dainty-restricted) | Change |
 | --- | --- | --- |
-| `services/content/src/modules.rs` | `ee7d90b` (unchanged through `75e0552`) | header; `use crate::log` becomes `use service_kit::linelog`, and the two `log::info` calls `linelog::info` (spec 1.4) |
-| `services/content-plugin/Cargo.toml` | `75e0552` (`feat/rd27-same-both-ways`) | header; `license.workspace = true` becomes `license = "MIT"` (the workspace's is MIT too; spelled out as the other MIT crates do) |
-| `services/content-plugin/src/lib.rs` | `75e0552` | header. The one-line `export_service!(content::service::ContentService::default())`: restricted's newer shape, which the rewrite's `content::service` already matches |
-| `services/content-plugin/tests/parity.rs` | `75e0552` | header. Runs every recorded script compiled in (`controller::service_compiled_in`) and through the library |
-| `services/content/tests/parity/{content,content-none,content-invalid,content-index}.{requests,expected}.json` | `ee7d90b` | none (checked with `cmp`) |
+| `crates/content/src/modules.rs` | `ee7d90b` (unchanged through `75e0552`) | header; `use crate::log` becomes `use service_kit::linelog`, and the two `log::info` calls `linelog::info` (spec 1.4) |
+| `crates/content-plugin/Cargo.toml` | `75e0552` (`feat/rd27-same-both-ways`) | header; `license.workspace = true` becomes `license = "MIT"` (the workspace's is MIT too; spelled out as the other MIT crates do) |
+| `crates/content-plugin/src/lib.rs` | `75e0552` | header. The one-line `export_service!(content::service::ContentService::default())`: restricted's newer shape, which the rewrite's `content::service` already matches |
+| `crates/content-plugin/tests/parity.rs` | `75e0552` | header. Runs every recorded script compiled in (`controller::service_compiled_in`) and through the library |
+| `crates/content/tests/parity/{content,content-none,content-invalid,content-index}.{requests,expected}.json` | `ee7d90b` | none (checked with `cmp`) |
 
 `75e0552` was taken over `ee7d90b` for the three `content-plugin` files because `ee7d90b`'s `lib.rs` holds its own
 `ContentService` glue, which the rewrite's `content::service::ContentService` replaces. `Cargo.toml` (workspace) gains
-the `services/content-plugin` member. `content-plugin`'s dev-dependencies are `75e0552`'s as they were; the rewritten
+the `crates/content-plugin` member. `content-plugin`'s dev-dependencies are `75e0552`'s as they were; the rewritten
 harness needs no more than they give.
 
 **Integration edits to the rewrite** (the real `modules.rs` differs from the stand-in in two places):
@@ -142,7 +142,7 @@ harness needs no more than they give.
 
 Run by the integration pass (section 5), the method of `similarity.md` section 1 (3+-line runs of trimmed, non-blank,
 non-comment lines; matched lines over the new file's lines). The new text is the implementer's commit `16e66e0`, before
-the integration edits. Two baselines: dainty-restricted's `services/content` at `ee7d90b` (its `service.rs` at
+the integration edits. Two baselines: dainty-restricted's `crates/content` at `ee7d90b` (its `service.rs` at
 `75e0552`, and `content-plugin/src/lib.rs` at `ee7d90b`, where that code lived before) and DR's
 `rust/services/content` at `24b7624`. Each file is measured against its counterpart and, to catch code moved between
 files, against the whole baseline crate concatenated ("all"; restricted's includes its three content fuzz targets).
@@ -172,7 +172,7 @@ The script is in `similarity.md` section 5.
 | `fuzz/fuzz_targets/content_news.rs` | 23 | 30 / 0 / 0.0% | 0 / 0.0% | — | 0 / 0.0% |
 | `Cargo.toml` (`#` lines are not stripped) | 41 | 41 / 16 / **39.0%** | — | 37 / 15 / 36.6% | — |
 
-Paths are under `services/content/` unless given. Over the 17 rewritten `.rs` files of the crate, 4,468 new lines
+Paths are under `crates/content/` unless given. Over the 17 rewritten `.rs` files of the crate, 4,468 new lines
 match 548 against restricted's counterparts (12.3%) and 295 against DR's (6.6%), against 47–98% for the same files
 before the rewrite (spec section 1.3).
 
@@ -230,7 +230,7 @@ and the two `input.rs` tests in another shape. The public paths of spec 2.1 do n
 
 A second implementer session, in its own worktree (`R:\source\dauntless\.wt\content-redo`, branch
 `feat/rd27-content-mit-redo` from `feat/rd27-content-mit` at `7609f9d`), replaced the items the similarity review
-flagged. It did not open dainty-restricted, legacy-revived, any other worktree, the history of `services/content`
+flagged. It did not open dainty-restricted, legacy-revived, any other worktree, the history of `crates/content`
 before `16e66e0`, sections 5–6 of this file or section 5 of `similarity.md`.
 
 **Deleted unread.** Line ranges were found with `grep -n ... | cut -d: -f1` and a brace-matching script that printed
@@ -262,4 +262,4 @@ cdylib for its own tests and content-plugin's parity test loads the library.
 clean; `cargo clippy --workspace --all-targets --locked -- -D warnings` clean; `cargo build --locked -p content-plugin`;
 `cargo test --workspace --locked --no-fail-fast` all passed, the content lib's 53 unit tests included and the four
 recorded parity scripts (`content`, `content-none`, `content-invalid`, `content-index`) passing both in process
-(`services/content/tests/parity.rs`) and through the built library (`services/content-plugin/tests/parity.rs`).
+(`crates/content/tests/parity.rs`) and through the built library (`crates/content-plugin/tests/parity.rs`).

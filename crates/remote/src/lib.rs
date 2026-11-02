@@ -3,7 +3,7 @@
 
 //! Remote management (`docs/remote-management.md`, `docs/security/remote-management.md`, DD27, RM1–RM4):
 //! one controller (`DaintyLass Manager` or `dainty-lass-host`) manages enrolled DaintyLass server installs
-//! over `plugins/network` mTLS node links (`POST /__node/remote`) and one-time enrollment codes
+//! over `crates/network` mTLS node links (`POST /__node/remote`) and one-time enrollment codes
 //! (`POST /__node/enroll`).
 
 pub mod enroll;

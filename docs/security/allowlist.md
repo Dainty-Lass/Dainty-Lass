@@ -2,7 +2,7 @@
 
 # Security checklist: allowlist helper and its IPC (RX3)
 
-The checklist for the allowlist helper of `services/gateway`, run as `reforged-host allowlist` (MIGRATION_PLAN.md RS4,
+The checklist for the allowlist helper of `crates/gateway`, run as `reforged-host allowlist` (MIGRATION_PLAN.md RS4,
 RD10, RD20). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the helper's cutover, copy this list into the cutover PR, check each item in the code (not
@@ -25,7 +25,7 @@ ports to everyone defeats the allowlist.
 - **Files:** the `.env` the host kit writes (trusted: whoever can write it chooses what runs elevated), the audit log
   and the state file (written by the helper, read back at start).
 
-Code: `services/gateway/src/allowlist/` (`config.rs`, `ports.rs`, `guard.rs`, `modules.rs`, `nft.rs`,
+Code: `crates/gateway/src/allowlist/` (`config.rs`, `ports.rs`, `guard.rs`, `modules.rs`, `nft.rs`,
 `firewall.rs`, `windows.rs`, `helper.rs`, `state.rs`, `sync.rs`), `src/ip.rs` (`check_allowlist_ip`) and `src/allowlist/cli.rs`.
 
 Fuzz target: `allowlist_input` in `fuzz` (the `/allow` body and its `Content-Length`, the state file, and the
@@ -98,7 +98,7 @@ The set is held in `guard.rs`, outside the helper, so a restarted allowlist modu
 ### In the gateway library (RD27)
 
 The allowlist runs inside the gateway service (`gateway::service`, [gateway.md](gateway.md)), compiled in or in the
-library `services/gateway-plugin` exports, on `allowlist.env` (`AllowlistMode::InProcess`), so the gateway's player
+library `crates/gateway-plugin` exports, on `allowlist.env` (`AllowlistMode::InProcess`), so the gateway's player
 admits reach the helper directly, and the core's ring admits a player with an `AdmitUdp` message. The helper
 runs in the core's process, as the in-process allowlist module did: that process holds its rights.
 

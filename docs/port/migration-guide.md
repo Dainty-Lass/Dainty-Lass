@@ -38,7 +38,7 @@ How to read the tables:
 | Upstream | Here | Note |
 | --- | --- | --- |
 | DR `rust/` (workspace files, `crates/`, `fuzz/`) | [`rust/`](../../rust) | Same layout (RD11). The workspace lists every planned member from the start, stubs included |
-| DR `services/gateway`, `services/content` | `services/gateway`, `services/content` | Fitted to Reforged; sections 2.3 and 2.4 |
+| DR `crates/gateway`, `crates/content` | `crates/gateway`, `crates/content` | Fitted to Reforged; sections 2.3 and 2.4 |
 | DR `services/metagame`, `deploy` (at its tip, `24b7624`) | Not here | Removed on 2026-10-31 with Dauntless Revived 1.4.4: importing an old 1.4.4 server's accounts is the dainty-legacy plugin module's (`silentspud/dainty-legacy`) |
 | DR `native/internal-server`, `client-mods` | Not here | Removed with Dauntless Revived 1.4.4 (2026-10-31) |
 | — | [`modules/rustic-rifts`](../../modules/rustic-rifts) | Submodule (DS6): the transport and the rifts crates (DD14); nothing here uses it yet |
@@ -69,18 +69,18 @@ How to read the tables:
 | [`crates/epic`](../../crates/epic) | none | New (DE1, DD22, MIT): Epic sign-in, library, manifest and chunk reading, and CDN download | — |
 | [`crates/history-ship`](../../crates/history-ship) | none | New (DH4, DD23, MIT): shipping change-log segments and database snapshots to an object-locked S3 bucket or peer log directory and restoring from them | — |
 | [`crates/store`](../../crates/store) | DR D10, D11, D21: synchronous Diesel on a blocking pool, embedded migrations | DF7 (DD15): `MultiConnection` over SQLite and Postgres (`connection`, `database`, `engine`, `portable`, `transfer`, `recovery`, `revert`, `declared`), plus DH1/DH3a/DH5 change log and hash chain (`history`, `history/chain.rs`, `history/record.rs`). The 6 SQLite helper modules (`lib.rs`, `adopt.rs`, `backup.rs`, `drizzle.rs`, `readonly.rs`, `snapshot.rs`) were rewritten clean-room from [`spec-store.md`](spec-store.md) as MIT (`DL3b`, [`clean-room/store.md`](clean-room/store.md)) | — |
-| [`crates/hostkit`](../../crates/hostkit) | none | New (`DL3b`, MIT, [`clean-room/hostkit.md`](clean-room/hostkit.md)): the 18 born-here host-kit modules moved from `services/host` plus the 22 host-kit module groups rewritten clean-room from [`spec-dl3-hostkit.md`](spec-dl3-hostkit.md), leaving `services/host` as a thin AGPL binary/legacy/isles adapter shell | — |
+| [`crates/hostkit`](../../crates/hostkit) | none | New (`DL3b`, MIT, [`clean-room/hostkit.md`](clean-room/hostkit.md)): the 18 born-here host-kit modules moved from `crates/host` plus the 22 host-kit module groups rewritten clean-room from [`spec-dl3-hostkit.md`](spec-dl3-hostkit.md), leaving `crates/host` as a thin AGPL binary/legacy/isles adapter shell | — |
 | [`crates/launcher-kit`](../../crates/launcher-kit) | none | New (`DL4b`, MIT, [`clean-room/launcher-kit.md`](clean-room/launcher-kit.md)): the born-here launcher modules (`bridge/modules`, `net/regionping`, `net/versions`) plus the 8 launcher module groups (`bridge/types`, `net/http`, `net/runtime_files`, `net/verify`, `platform/{hostkit,hostserver,requirements,loader_session,dialogs}`) rewritten clean-room from [`spec-dl4-launcher.md`](spec-dl4-launcher.md) | — |
-| [`plugins/network`](../../plugins/network) | none | New (DN2–DN5, DH7, MIT): node CA/certificates (`cluster`), directory (`directory`), home-server API and session tickets (`home`), replication (`replication`) and peer log shipping (`logship`) | — |
-| [`plugins/chat`](../../plugins/chat) | DR `services/metagame/src/chat/` at `e1c5fec` | Ported into a standalone `CorePlugin` (DN10a, DN10b): XMPP over WebSocket, MUC rooms, whispers, presence, and cross-node room/whisper federation over `Service::Chat` | — |
+| [`crates/network`](../../crates/network) | none | New (DN2–DN5, DH7, MIT): node CA/certificates (`cluster`), directory (`directory`), home-server API and session tickets (`home`), replication (`replication`) and peer log shipping (`logship`) | — |
+| [`crates/chat`](../../crates/chat) | DR `services/metagame/src/chat/` at `e1c5fec` | Ported into a standalone `CorePlugin` (DN10a, DN10b): XMPP over WebSocket, MUC rooms, whispers, presence, and cross-node room/whisper federation over `Service::Chat` | — |
 | [`fuzz/`](../../fuzz) | DR X9: `http_body`, `proxy_headers`, `gateway_policy`, `launcher_input` | Thirty-four Reforged and DaintyLass targets added, one per untrusted-input parser (RX3/DX2) | DR's `auth_token`, `bot_input`, `chat_frame`, `content_range` (metagame, bot and ranges) |
 
-### 2.3 Gateway and allowlist helper (`services/gateway`, rows RS3 and RS4)
+### 2.3 Gateway and allowlist helper (`crates/gateway`, rows RS3 and RS4)
 
 Three-way: the Reforged Node file, the DR Node file it was modified from, the DR Rust module that ported the DR
 file, and what Reforged changed. The per-line detail is in [`delta-servers.md`](delta-servers.md).
 
-| Reforged Node (`legacy/ReforgedGateway/src/`) | DR Node (`legacy/UndauntedGateway/src/`) | Rust (`services/gateway/src/`) | Reforged's changes carried |
+| Reforged Node (`legacy/ReforgedGateway/src/`) | DR Node (`legacy/UndauntedGateway/src/`) | Rust (`crates/gateway/src/`) | Reforged's changes carried |
 | --- | --- | --- | --- |
 | `policy.ts` | `policy.ts` | `policy.rs` | `/reforged/api` with its four public routes; `/__origin/<host>` unwrapping; host-only prefixes `/admin`, `/launcher`, `/internal`, `/health`; Paradox's host-only headers; `backend` for `metagame`; only `POST /heartbeat` feeds the allowlist (Paradox has no `/game/login`, RD20) |
 | `config.ts` | `config.ts` | `config.rs` | `GATEWAY_TLS=0` private mode on a Tailscale or loopback address; 443 or 61000 by mode; `GATEWAY_BACKEND_URL`; `GATEWAY_WS_URL` to the backend's own listener |
@@ -101,9 +101,9 @@ file, and what Reforged changed. The per-line detail is in [`delta-servers.md`](
 | — | — | `modules.rs`, `nodelink.rs`, `network.rs` | New (DF4a, DN3): module route table and `/versions`, mutual-TLS `/__node/<service>` listener and client pool, `/network` peer directory |
 | tests | — | `tests/`, `tests/parity/` (recorded from the Node gateway) | Parity fixtures are the contract |
 
-### 2.4 Content server (`services/content`, row RS2)
+### 2.4 Content server (`crates/content`, row RS2)
 
-| Reforged Node (`legacy/ReforgedContent/src/`) | DR Node (`legacy/UndauntedContent/src/`) | Rust (`services/content/src/`) | Reforged's changes carried |
+| Reforged Node (`legacy/ReforgedContent/src/`) | DR Node (`legacy/UndauntedContent/src/`) | Rust (`crates/content/src/`) | Reforged's changes carried |
 | --- | --- | --- | --- |
 | `runtime.ts` | — | `runtime.rs` (type in `protocol::manifest`) | New: the two-file runtime (`Rustic-Isles.dll`, `winmm.dll`), `runtime.json`, states `ok`/`none`/`invalid`, the 10 s re-check, the manifest written byte for byte for a stable ETag |
 | `app.ts` | `app.ts` | `app.rs`, `input.rs` | `GET /content/v1/runtime/manifest` and `/runtime/files/<name>` in place of DR's game manifest and files; no HTTP ranges; `x-reforged-user-api-key`; no CORS headers; 256 KiB chunks |
@@ -113,12 +113,12 @@ file, and what Reforged changed. The per-line detail is in [`delta-servers.md`](
 | `branding.ts`, `limits.ts`, `log.ts`, `news.ts` | identical | `branding.rs`, `limits.rs`, `log.rs`, `news.rs` | None |
 | — | `gamedir.ts`, `manifest.ts`, `paths.ts`, `verify.ts`, `range.ts`, `data/dauntless-1.4.4.json` | dropped | The 1.4.4 game download. Only `if_none_match_hits` survives, in `app.rs` |
 
-### 2.5 Host kit (`services/host`, bin `reforged-host`, rows RH1–RH6)
+### 2.5 Host kit (`crates/host`, bin `reforged-host`, rows RH1–RH6)
 
 No DR counterpart: DR's kits were PowerShell and shell scripts under `deploy/`. The Rust kit follows the Node kit's
 files one to one; its tests run against fixtures generated from the Node kit (`tests/fixtures/node/`).
 
-| Reforged Node (`legacy/ReforgedHost/src/`) | Rust (`services/host/src/`) | Note |
+| Reforged Node (`legacy/ReforgedHost/src/`) | Rust (`crates/host/src/`) | Note |
 | --- | --- | --- |
 | `cli.ts` | `cli.rs`, `main.rs`, `commands/mod.rs` | The same commands and options: `setup`, `start`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `preset`, `multipliers`, `update`, `backup`, and the Linux-only `gameserver` |
 | `hostconfig.ts` (`host.json`) | `hostconfig.rs`, `hosttoml.rs` | `host.toml` with the same fields (RD24); a Node kit's `host.json` is read until the first write |
@@ -176,7 +176,7 @@ The Rust backend is DR's Tauri launcher fitted to Reforged; the page is still Re
 | --- | --- | --- |
 | `ParadoxBackend` (Express, `ws`, `ltx`, MongoDB) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `crates/isles-core` (`repo/`, `areas/{auth,reforged_api,characters_loadouts,inventory_reforge,progression,bounties_store,matchmaking,chat,game_data}`) and the `modules/isles-1-14-7` `GameModule` crate on `store` (SQLite + Postgres, DD15) |
 | `ParadoxBackend/scripts/` (game-data generators, admin bootstrap, data migrations) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/scripts` | `crates/isles-core/src/areas/game_data/generators.rs`, `crates/isles-director/src/hunt_tables.rs`, `areas/reforged_api/admin_discord.rs`, and `crates/isles-db` (`migrate`, `verify`, `export-mongo`, `replay`, RU7/RB11/RB13) |
-| `ParadoxBackend/realtime/` (XMPP) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/realtime` | `plugins/chat` (DN10a/b) + `modules/rustic-isles/crates/isles-chat` and `crates/isles-core/src/areas/chat/rules.rs` |
+| `ParadoxBackend/realtime/` (XMPP) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/realtime` | `crates/chat` (DN10a/b) + `modules/rustic-isles/crates/isles-chat` and `crates/isles-core/src/areas/chat/rules.rs` |
 | `ParadoxDirector` | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | `modules/rustic-isles/crates/isles-director` (RU6: instance registry, hub supervisor, port leases, memory guard, hunt tables) |
 | Realms and Guard (`p2p/`, `realms/`, Guard) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `modules/rustic-rifts` (`crates/rifts-transport`, `crates/rifts-guard`, `crates/rifts-server`, `crates/rifts-host-bridge`, RF1–RF7) over `modules/rustic-isles/crates/rifts-seam` |
 
@@ -207,7 +207,7 @@ Each patch's current state (kept, reduced, dropped because upstream now does the
 
 ### 2.10 New here, with no upstream
 
-The admin service ([`services/admin`](../../services/admin), RD25); the whole host kit; the runtime manifest
+The admin service ([`crates/admin`](../../crates/admin), RD25); the whole host kit; the runtime manifest
 and download (`content/src/runtime.rs`, launcher `net/runtime_files.rs`); the Host page backend and the loader session
 (`platform/hostkit.rs`, `hostserver.rs`, `requirements.rs`, `loader_session.rs`); `protocol/src/text.rs`; the
 nftables backend as Reforged wrote it; the fuzz targets and the `docs/security/` checklists; `host.toml`;
@@ -224,17 +224,17 @@ module only calls the service's `Config::from_env` and `run_with_context`.
 
 The DaintyLass plan adds [`crates/epic`](../../crates/epic) (DE1, DD22: Epic sign-in, library, manifest and
 chunk reading, and the download for installing from the player's Epic library), [`crates/module-api`](../../crates/module-api)
-(DF2), [`crates/history-ship`](../../crates/history-ship) (DH4), [`plugins/network`](../../plugins/network)
-(DN2–DN5, DH7, DN13), and [`plugins/chat`](../../plugins/chat) (DN10a/b), documented in
+(DF2), [`crates/history-ship`](../../crates/history-ship) (DH4), [`crates/network`](../../crates/network)
+(DN2–DN5, DH7, DN13), and [`crates/chat`](../../crates/chat) (DN10a/b), documented in
 [`docs/architecture.md`](../architecture.md), [`docs/writing-a-module.md`](../writing-a-module.md), and
 [`docs/security/turn-relay.md`](../security/turn-relay.md).
 `store`'s `connection`, `database`, `engine`, `history`, `portable`, `transfer`, `recovery`, `revert` and `declared`
 modules (DF7, DD15) and its change log and hash chain (`history.rs`, `history/chain.rs`, `history/record.rs`, DH1,
 DH3a, DH5 and DD23) are new here too; `tests/db/{sqlite,postgres}` are the two-dialect test migrations. The SQLite-only
-`Store` beside them is still DR's. In `services/admin`, `guard.rs`, `guarded.rs`, `guarded_cli.rs`, `key_cli.rs`,
+`Store` beside them is still DR's. In `crates/admin`, `guard.rs`, `guarded.rs`, `guarded_cli.rs`, `key_cli.rs`,
 `history.rs` and `history_text.rs` implement per-person keys, guarded actions and history/revert (DH2, DH3b, DH6);
-`services/host` adds `guarded.rs`, `hostconfig/guard.rs`, `hostconfig/modules.rs`, `commands/history.rs`,
-`commands/network.rs`, `epicinstall.rs` and `commands/install_game.rs`; `services/gateway` adds `modules.rs`,
+`crates/host` adds `guarded.rs`, `hostconfig/guard.rs`, `hostconfig/modules.rs`, `commands/history.rs`,
+`commands/network.rs`, `epicinstall.rs` and `commands/install_game.rs`; `crates/gateway` adds `modules.rs`,
 `nodelink.rs` and `network.rs`; and `launcher/src-tauri` adds `controller/guarded.rs`, `server_history.rs`,
 `bridge/modules.rs`, `server_gui/modules.rs`, `platform/epic_{session,login,library}.rs`, `platform/keystore/epic.rs`,
 `net/regionping*`, `net/versions*`, `net/epic_install.rs` and `controller/{region,versions,install}.rs`.
@@ -307,9 +307,9 @@ still owed, and every commit on them is ported or marked not applicable before t
 6. **A trust-boundary change** (gateway policy and TLS, allowlist, relay, pinned TLS, keystore, invite parsing, runtime
    download, the loader session, the host kit's secrets, the admin API) updates its fuzz target in `fuzz/` and
    its checklist in `docs/security/<component>.md` in the same commit (RX3).
-7. **A configuration variable** is written and read in the same commit: `services/host/src/hostconfig.rs` and
+7. **A configuration variable** is written and read in the same commit: `crates/host/src/hostconfig.rs` and
    `hosttoml.rs` write it, the service's `config.rs` reads it, a test round-trips it, an older `host.toml` without it
-   keeps today's behaviour, its name carries a server prefix (`SERVER_PREFIXES` in `services/host/src/services.rs`),
+   keeps today's behaviour, its name carries a server prefix (`SERVER_PREFIXES` in `crates/host/src/services.rs`),
    a secret goes in `secrets.env`, and the host docs' tables move with it (AGENTS.md, "Configuration").
 8. **Launcher text** goes at the end of both language files with the same keys and placeholders, then
    `RR_UPDATE_GENERATED=1 npm test -- strings-export` regenerates `gen/strings.json`. A bridge command changed in

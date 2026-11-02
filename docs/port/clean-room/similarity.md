@@ -125,40 +125,40 @@ const pairs = [
   ["crates/service-kit/tests/ratelimit.rs", "crates/service-kit/tests/ratelimit.rs"],
   ["crates/service-kit/tests/routing.rs", "crates/service-kit/tests/routing.rs"],
 
-  // 5. hostkit (33 Category B rewritten files against services/host at b190010)
-  ["services/host/src/paths.rs", "crates/hostkit/src/paths.rs"],
-  ["services/host/src/envfile.rs", "crates/hostkit/src/envfile.rs"],
-  ["services/host/src/hostconfig.rs", "crates/hostkit/src/hostconfig.rs"],
-  ["services/host/src/run.rs", "crates/hostkit/src/run.rs"],
-  ["services/host/src/services.rs", "crates/hostkit/src/services.rs"],
-  ["services/host/src/mongo.rs", "crates/hostkit/src/mongo.rs"],
-  ["services/host/src/mongo/wire.rs", "crates/hostkit/src/mongo/wire.rs"],
-  ["services/host/src/doctor.rs", "crates/hostkit/src/doctor.rs"],
-  ["services/host/src/captures.rs", "crates/hostkit/src/captures.rs"],
-  ["services/host/src/gamedata.rs", "crates/hostkit/src/gamedata.rs"],
-  ["services/host/src/gamepack.rs", "crates/hostkit/src/gamepack.rs"],
-  ["services/host/src/invite.rs", "crates/hostkit/src/invite.rs"],
-  ["services/host/src/preset.rs", "crates/hostkit/src/preset.rs"],
-  ["services/host/src/progression.rs", "crates/hostkit/src/progression.rs"],
-  ["services/host/src/publish.rs", "crates/hostkit/src/publish.rs"],
-  ["services/host/src/linux.rs", "crates/hostkit/src/linux.rs"],
-  ["services/host/src/selfupdate.rs", "crates/hostkit/src/selfupdate.rs"],
-  ["services/host/src/wine.rs", "crates/hostkit/src/wine.rs"],
-  ["services/host/src/cli.rs", "crates/hostkit/src/cli.rs"],
-  ["services/host/src/commands/doctor.rs", "crates/hostkit/src/commands/doctor.rs"],
-  ["services/host/src/commands/gamedata.rs", "crates/hostkit/src/commands/gamedata.rs"],
-  ["services/host/src/commands/invite.rs", "crates/hostkit/src/commands/invite.rs"],
-  ["services/host/src/commands/multipliers.rs", "crates/hostkit/src/commands/multipliers.rs"],
-  ["services/host/src/commands/preset.rs", "crates/hostkit/src/commands/preset.rs"],
-  ["services/host/src/commands/publish_runtime.rs", "crates/hostkit/src/commands/publish_runtime.rs"],
-  ["services/host/src/commands/setup.rs", "crates/hostkit/src/commands/setup.rs"],
-  ["services/host/src/commands/setup/firewall.rs", "crates/hostkit/src/commands/setup/firewall.rs"],
-  ["services/host/src/commands/setup/install.rs", "crates/hostkit/src/commands/setup/install.rs"],
-  ["services/host/src/commands/setup/options.rs", "crates/hostkit/src/commands/setup/options.rs"],
-  ["services/host/src/commands/setup/paradox.rs", "crates/hostkit/src/commands/setup/paradox.rs"],
-  ["services/host/src/commands/start.rs", "crates/hostkit/src/commands/start.rs"],
-  ["services/host/src/commands/start/control.rs", "crates/hostkit/src/commands/start/control.rs"],
-  ["services/host/src/commands/update.rs", "crates/hostkit/src/commands/update.rs"],
+  // 5. hostkit (33 Category B rewritten files against crates/host at b190010)
+  ["crates/host/src/paths.rs", "crates/hostkit/src/paths.rs"],
+  ["crates/host/src/envfile.rs", "crates/hostkit/src/envfile.rs"],
+  ["crates/host/src/hostconfig.rs", "crates/hostkit/src/hostconfig.rs"],
+  ["crates/host/src/run.rs", "crates/hostkit/src/run.rs"],
+  ["crates/host/src/services.rs", "crates/hostkit/src/services.rs"],
+  ["crates/host/src/mongo.rs", "crates/hostkit/src/mongo.rs"],
+  ["crates/host/src/mongo/wire.rs", "crates/hostkit/src/mongo/wire.rs"],
+  ["crates/host/src/doctor.rs", "crates/hostkit/src/doctor.rs"],
+  ["crates/host/src/captures.rs", "crates/hostkit/src/captures.rs"],
+  ["crates/host/src/gamedata.rs", "crates/hostkit/src/gamedata.rs"],
+  ["crates/host/src/gamepack.rs", "crates/hostkit/src/gamepack.rs"],
+  ["crates/host/src/invite.rs", "crates/hostkit/src/invite.rs"],
+  ["crates/host/src/preset.rs", "crates/hostkit/src/preset.rs"],
+  ["crates/host/src/progression.rs", "crates/hostkit/src/progression.rs"],
+  ["crates/host/src/publish.rs", "crates/hostkit/src/publish.rs"],
+  ["crates/host/src/linux.rs", "crates/hostkit/src/linux.rs"],
+  ["crates/host/src/selfupdate.rs", "crates/hostkit/src/selfupdate.rs"],
+  ["crates/host/src/wine.rs", "crates/hostkit/src/wine.rs"],
+  ["crates/host/src/cli.rs", "crates/hostkit/src/cli.rs"],
+  ["crates/host/src/commands/doctor.rs", "crates/hostkit/src/commands/doctor.rs"],
+  ["crates/host/src/commands/gamedata.rs", "crates/hostkit/src/commands/gamedata.rs"],
+  ["crates/host/src/commands/invite.rs", "crates/hostkit/src/commands/invite.rs"],
+  ["crates/host/src/commands/multipliers.rs", "crates/hostkit/src/commands/multipliers.rs"],
+  ["crates/host/src/commands/preset.rs", "crates/hostkit/src/commands/preset.rs"],
+  ["crates/host/src/commands/publish_runtime.rs", "crates/hostkit/src/commands/publish_runtime.rs"],
+  ["crates/host/src/commands/setup.rs", "crates/hostkit/src/commands/setup.rs"],
+  ["crates/host/src/commands/setup/firewall.rs", "crates/hostkit/src/commands/setup/firewall.rs"],
+  ["crates/host/src/commands/setup/install.rs", "crates/hostkit/src/commands/setup/install.rs"],
+  ["crates/host/src/commands/setup/options.rs", "crates/hostkit/src/commands/setup/options.rs"],
+  ["crates/host/src/commands/setup/paradox.rs", "crates/hostkit/src/commands/setup/paradox.rs"],
+  ["crates/host/src/commands/start.rs", "crates/hostkit/src/commands/start.rs"],
+  ["crates/host/src/commands/start/control.rs", "crates/hostkit/src/commands/start/control.rs"],
+  ["crates/host/src/commands/update.rs", "crates/hostkit/src/commands/update.rs"],
 
   // 6. launcher-kit (19 Category B rewritten files against launcher/src-tauri at b190010)
   ["launcher/src-tauri/src/bridge/types.rs", "crates/launcher-kit/src/bridge/types.rs"],
@@ -256,7 +256,7 @@ for (const [oldRel, newRel] of pairs) {
 | `crates/service-kit/tests/ratelimit.rs` | 66 | 75 | 0 | **0.0%** |
 | `crates/service-kit/tests/routing.rs` | 73 | 75 | 0 | **0.0%** |
 
-### 2.5 `crates/hostkit` (33 Category B rewritten files vs `services/host` at `b190010`)
+### 2.5 `crates/hostkit` (33 Category B rewritten files vs `crates/host` at `b190010`)
 
 | File | Old Lines (`b190010`) | New Lines | Matched (3+-line runs) | Similarity |
 | --- | ---: | ---: | ---: | ---: |
@@ -318,32 +318,32 @@ for (const [oldRel, newRel] of pairs) {
 | `crates/launcher-kit/src/platform/requirements.rs` | 324 | 311 | 55 | **17.7%** |
 | `crates/launcher-kit/src/platform/system.rs` | 171 | 142 | 14 | **9.9%** |
 
-### 2.7 `plugins/chat` (8 Category B files vs restricted `849f45e` and DR `cfcad3eb`, RD27)
+### 2.7 `crates/chat` (8 Category B files vs restricted `849f45e` and DR `cfcad3eb`, RD27)
 
-Measured on the files after integration. The old side is the restricted namesake in `plugins/chat/src/`; the DR column
+Measured on the files after integration. The old side is the restricted namesake in `crates/chat/src/`; the DR column
 is the best single file of DR's metagame chat (`rust/services/metagame/src/chat/*.rs` and the shared `redact.rs`,
 `moderation.rs`, `config.rs`, `limits.rs`, `server.rs`, `db.rs`). The provenance record
 (`docs/port/clean-room/chat.md` §6) has the union columns and the per-run reading.
 
 | File | Old Lines (`849f45e`) | New Lines | Matched (3+-line runs) | Similarity | Best DR file: matched | DR similarity |
 | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| `plugins/chat/src/xmpp.rs` | 482 | 524 | 166 | **31.7%** | `chat/xmpp.rs`: 164 | 31.3% |
-| `plugins/chat/src/nick.rs` | 125 | 137 | 56 | **40.9%** | `chat/nick.rs`: 56 | 40.9% |
-| `plugins/chat/src/redact.rs` | 132 | 130 | 26 | **20.0%** | `redact.rs`: 26 | 20.0% |
-| `plugins/chat/src/settings.rs` | 80 | 91 | 58 | **63.7%** | `chat/mod.rs`: 24 | 26.4% |
-| `plugins/chat/src/server.rs` | 1659 | 1676 | 423 | **25.2%** | `chat/mod.rs`: 296 | 17.7% |
-| `plugins/chat/src/muc.rs` | 749 | 723 | 113 | **15.6%** | `chat/muc.rs`: 66 | 9.1% |
-| `plugins/chat/src/connection.rs` | 848 | 757 | 85 | **11.2%** | `chat/connection.rs`: 33 | 4.4% |
-| `plugins/chat/src/lib.rs` | 219 | 180 | 110 | **61.1%** | `chat/xmpp.rs`: 3 | 1.7% |
-| `plugins/chat/tests/clean_room.rs` (vs `tests/chat.rs`) | 629 | 380 | 39 | **10.3%** | `chat/connection.rs`: 3 | 0.8% |
+| `crates/chat/src/xmpp.rs` | 482 | 524 | 166 | **31.7%** | `chat/xmpp.rs`: 164 | 31.3% |
+| `crates/chat/src/nick.rs` | 125 | 137 | 56 | **40.9%** | `chat/nick.rs`: 56 | 40.9% |
+| `crates/chat/src/redact.rs` | 132 | 130 | 26 | **20.0%** | `redact.rs`: 26 | 20.0% |
+| `crates/chat/src/settings.rs` | 80 | 91 | 58 | **63.7%** | `chat/mod.rs`: 24 | 26.4% |
+| `crates/chat/src/server.rs` | 1659 | 1676 | 423 | **25.2%** | `chat/mod.rs`: 296 | 17.7% |
+| `crates/chat/src/muc.rs` | 749 | 723 | 113 | **15.6%** | `chat/muc.rs`: 66 | 9.1% |
+| `crates/chat/src/connection.rs` | 848 | 757 | 85 | **11.2%** | `chat/connection.rs`: 33 | 4.4% |
+| `crates/chat/src/lib.rs` | 219 | 180 | 110 | **61.1%** | `chat/xmpp.rs`: 3 | 1.7% |
+| `crates/chat/tests/clean_room.rs` (vs `tests/chat.rs`) | 629 | 380 | 39 | **10.3%** | `chat/connection.rs`: 3 | 0.8% |
 
-### 2.8 `services/gateway` (31 Category B files vs restricted `92c5e5b` and DR `24b7624`, RD27)
+### 2.8 `crates/gateway` (31 Category B files vs restricted `92c5e5b` and DR `24b7624`, RD27)
 
 Measured on the files after integration (branch `feat/rd27-gateway-mit-int`). The old side is the restricted namesake
-at `92c5e5b` (`feat/rd27-same-both-ways`), paths under `services/gateway/` and `fuzz/`; the DR column is the best single
+at `92c5e5b` (`feat/rd27-same-both-ways`), paths under `crates/gateway/` and `fuzz/`; the DR column is the best single
 file of DR's gateway at legacy-revived `24b7624` and `cfcad3eb` (`rust/services/gateway/**/*.rs` and the gateway and
 allowlist fuzz targets; the two revisions differ only in `feed.rs`). "Any" counts a line matched by a 3+-line run in any
-file of that tree (restricted: `services/gateway{,-plugin}/**/*.rs` and the gateway fuzz targets). The provenance
+file of that tree (restricted: `crates/gateway{,-plugin}/**/*.rs` and the gateway fuzz targets). The provenance
 record (`docs/port/clean-room/gateway.md` §6) has the per-run reading.
 
 | File | Restricted namesake (old lines) | New lines | Matched (3+-line runs) | Similarity | Any restricted, % | Best DR file | DR matched | DR % | Any DR, % |
@@ -463,7 +463,7 @@ Every file at or above 25.0% is listed below with its matching 3+-line runs and 
 ### 3.16 `hostkit/src/paths.rs` (38.5% — 115 / 299 lines)
 - **Run 1 (6 lines):** `RUNTIME_FILE_NAMES`, `GAME_CHANGELIST`, `GAME_VERSION_TEXT`, `PINNED_EXE_SHA256` (`spec-dl3-hostkit.md` §2.1).
 - **Run 2 (49 lines):** `pub struct Ports`, `pub const PORTS`, `pub struct LegacyPorts`, and `pub const BOTH_LEGACY_PORTS` (fixed TCP/UDP port numbers `61000..61100`, `27017`, `8766..8787`).
-- **Run 3–6 (60 lines):** `pub struct Paths` with all 45 public `PathBuf` fields (`repo`, `preset`, `host_kit`, `gateway_dir`, ..., `systemd`) accessed by name across every `hostkit` and `services/host` command.
+- **Run 3–6 (60 lines):** `pub struct Paths` with all 45 public `PathBuf` fields (`repo`, `preset`, `host_kit`, `gateway_dir`, ..., `systemd`) accessed by name across every `hostkit` and `crates/host` command.
 
 ### 3.17 `hostkit/src/gamepack.rs` (30.2% — 107 / 354 lines)
 - **Run 1–5 (31 lines):** `PACK_FORMAT`, `PACK_VERSION`, and public structs `PackFile`, `Pack`, `Exported`, `Imported` (`spec-dl3-hostkit.md` §2.10).
@@ -585,7 +585,7 @@ Per F6, we audited `docs/port/spec-dl3-hostkit.md`, `docs/port/spec-dl4-launcher
 1. **`docs/port/spec-dl3-hostkit.md`**:
    - **`bad`, `shown`, `integer`, `path_text` in `hostconfig.rs` (§2.3):** Kept as `pub(crate)` functions because the untouched Category A (`Born-MIT`) submodules `hostconfig/guard.rs`, `hostconfig/modules.rs`, and `hosttoml.rs` import `crate::hostconfig::{bad, shown, integer, path_text}` directly.
    - **`newest_installed`, `program_files`, `search_path` in `mongo.rs` (§2.8):** Kept as `pub` functions because the untouched Category A (`Born-MIT`) module `commands/backup.rs` calls `crate::mongo::{newest_installed, program_files, search_path}` to locate `mongodump`.
-   - **`http_request` in `invite.rs` (§2.6):** Kept as `pub` because `services/host/src/lib.rs` and integration tests call `hostkit::invite::http_request` directly.
+   - **`http_request` in `invite.rs` (§2.6):** Kept as `pub` because `crates/host/src/lib.rs` and integration tests call `hostkit::invite::http_request` directly.
 
 2. **`docs/port/spec-dl4-launcher.md`**:
    - **`arg_accepts` (`bridge/spec.rs`, §3.1) and `host_setup_request`, `host_multipliers`, `invite_for`, `realm_id`, `guarded_id` (`bridge/commands.rs`, §3.1):** Kept because `src-tauri/src/bridge/commands.rs` and its unit tests call these validators directly across module boundaries.
@@ -593,32 +593,32 @@ Per F6, we audited `docs/port/spec-dl3-hostkit.md`, `docs/port/spec-dl4-launcher
 
 ---
 
-## 5. `services/content` (RD27)
+## 5. `crates/content` (RD27)
 
 Measured by the integration pass of the content rewrite (`feat/rd27-content-mit`, new text at `16e66e0`) against two
-baselines outside dainty-lass: dainty-restricted's `services/content` at `ee7d90b` and DR's `rust/services/content` at
+baselines outside dainty-lass: dainty-restricted's `crates/content` at `ee7d90b` and DR's `rust/services/content` at
 `24b7624`, by counterpart file and against each whole baseline crate. The full table, with the "all" columns, and its
 reading are in `content.md` section 6; the counterpart figures:
 
 | File | New lines | Restricted `ee7d90b` | DR `24b7624` |
 | --- | ---: | ---: | ---: |
-| `services/content/src/lib.rs` | 44 | 29.5% | 6.8% |
-| `services/content/src/app.rs` | 626 | 4.0% | 2.1% |
-| `services/content/src/auth.rs` | 359 | 2.2% | 2.2% |
-| `services/content/src/branding.rs` | 289 | 10.4% | 10.4% |
-| `services/content/src/cli.rs` | 98 | 25.5% | 19.4% |
-| `services/content/src/client.rs` | 124 | 23.4% | 23.4% |
-| `services/content/src/config.rs` | 303 | 18.8% | 12.2% |
-| `services/content/src/input.rs` | 632 | 17.9% | 4.1% |
-| `services/content/src/limits.rs` | 96 | 19.8% | 16.7% |
-| `services/content/src/log.rs` | 1 | 0.0% | 0.0% |
-| `services/content/src/news.rs` | 332 | 16.3% | 16.3% |
-| `services/content/src/runtime.rs` | 321 | 5.3% | — |
-| `services/content/src/server.rs` | 204 | 24.5% | 18.6% |
-| `services/content/src/service.rs` | 77 | 49.4% (Category A baseline) | — |
-| `services/content/tests/app.rs` | 534 | 6.7% | 1.3% |
-| `services/content/tests/parity.rs` | 49 | 36.7% | 6.1% |
-| `services/content/tests/parity/harness.rs` | 379 | 4.2% | 3.2% |
+| `crates/content/src/lib.rs` | 44 | 29.5% | 6.8% |
+| `crates/content/src/app.rs` | 626 | 4.0% | 2.1% |
+| `crates/content/src/auth.rs` | 359 | 2.2% | 2.2% |
+| `crates/content/src/branding.rs` | 289 | 10.4% | 10.4% |
+| `crates/content/src/cli.rs` | 98 | 25.5% | 19.4% |
+| `crates/content/src/client.rs` | 124 | 23.4% | 23.4% |
+| `crates/content/src/config.rs` | 303 | 18.8% | 12.2% |
+| `crates/content/src/input.rs` | 632 | 17.9% | 4.1% |
+| `crates/content/src/limits.rs` | 96 | 19.8% | 16.7% |
+| `crates/content/src/log.rs` | 1 | 0.0% | 0.0% |
+| `crates/content/src/news.rs` | 332 | 16.3% | 16.3% |
+| `crates/content/src/runtime.rs` | 321 | 5.3% | — |
+| `crates/content/src/server.rs` | 204 | 24.5% | 18.6% |
+| `crates/content/src/service.rs` | 77 | 49.4% (Category A baseline) | — |
+| `crates/content/tests/app.rs` | 534 | 6.7% | 1.3% |
+| `crates/content/tests/parity.rs` | 49 | 36.7% | 6.1% |
+| `crates/content/tests/parity/harness.rs` | 379 | 4.2% | 3.2% |
 | `fuzz/fuzz_targets/content_request.rs` | 45 | 6.7% | — |
 | `fuzz/fuzz_targets/content_runtime_index.rs` | 21 | 52.4% | — |
 | `fuzz/fuzz_targets/content_news.rs` | 23 | 0.0% | — |
@@ -676,12 +676,12 @@ function list(repo, rev, dir) {
 }
 const concat = (repo, rev, dirs) => dirs.flatMap((d) => list(repo, rev, d)).map((p) => show(repo, rev, p) || "").join("\n");
 
-const R_ALL = concat(RESTRICTED, "ee7d90b", ["services/content", "services/content-plugin", "fuzz/fuzz_targets"])
-  + "\n" + (show(RESTRICTED, "75e0552", "services/content/src/service.rs") || "");
+const R_ALL = concat(RESTRICTED, "ee7d90b", ["crates/content", "crates/content-plugin", "fuzz/fuzz_targets"])
+  + "\n" + (show(RESTRICTED, "75e0552", "crates/content/src/service.rs") || "");
 const DR_ALL = concat(DR, "24b7624", ["rust/services/content"]);
 
 // new path -> [restricted counterpart(s) @ee7d90b, DR counterpart(s) @24b7624]
-const S = "services/content/src/", T = "services/content/tests/", F = "fuzz/fuzz_targets/";
+const S = "crates/content/src/", T = "crates/content/tests/", F = "fuzz/fuzz_targets/";
 const pairs = [
   [S + "lib.rs", [S + "lib.rs"], ["rust/services/content/src/lib.rs"]],
   [S + "app.rs", [S + "app.rs"], ["rust/services/content/src/app.rs"]],
@@ -696,14 +696,14 @@ const pairs = [
   [S + "news.rs", [S + "news.rs"], ["rust/services/content/src/news.rs"]],
   [S + "runtime.rs", [S + "runtime.rs"], []],
   [S + "server.rs", [S + "server.rs"], ["rust/services/content/src/server.rs"]],
-  [S + "service.rs", ["@75e0552:" + S + "service.rs", "services/content-plugin/src/lib.rs"], []],
+  [S + "service.rs", ["@75e0552:" + S + "service.rs", "crates/content-plugin/src/lib.rs"], []],
   [T + "app.rs", [T + "app.rs"], ["rust/services/content/tests/streams.rs"]],
   [T + "parity.rs", [T + "parity.rs"], ["rust/services/content/tests/parity.rs"]],
   [T + "parity/harness.rs", [T + "parity/harness.rs"], ["rust/services/content/tests/parity.rs"]],
   [F + "content_request.rs", [F + "content_request.rs"], []],
   [F + "content_runtime_index.rs", [F + "content_runtime_index.rs"], []],
   [F + "content_news.rs", [F + "content_news.rs"], []],
-  ["services/content/Cargo.toml", ["services/content/Cargo.toml"], ["rust/services/content/Cargo.toml"]],
+  ["crates/content/Cargo.toml", ["crates/content/Cargo.toml"], ["rust/services/content/Cargo.toml"]],
 ];
 
 const rOld = (p) => p.startsWith("@") ? show(RESTRICTED, p.slice(1, 8), p.slice(9)) : show(RESTRICTED, "ee7d90b", p);

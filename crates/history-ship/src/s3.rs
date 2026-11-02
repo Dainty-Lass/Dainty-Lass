@@ -120,7 +120,7 @@ impl S3Bucket {
         } else {
             (format!("{}.{authority}", config.bucket), String::new())
         };
-        // aws-lc-rs by name, as services/content does: with another provider compiled in there is no default
+        // aws-lc-rs by name, as crates/content does: with another provider compiled in there is no default
         let builder = hyper_rustls::HttpsConnectorBuilder::new();
         let builder = match builder.with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider()) {
             Ok(builder) => builder,

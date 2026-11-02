@@ -20,7 +20,7 @@ http-body-util.workspace = true
 hyper.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1", "tokio"] }
 module-api = { path = "../module-api" }
-network = { path = "../../plugins/network", default-features = false }
+network = { path = "../../crates/network", default-features = false }
 percent-encoding.workspace = true
 protocol.workspace = true
 rand.workspace = true

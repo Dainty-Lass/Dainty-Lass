@@ -19,15 +19,15 @@ component and the binaries that link them, and takes this repository's crates as
 
 | Path | What it is |
 | --- | --- |
-| root | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`admin`, `backend`, `director`), `plugins/network` |
+| root | One cargo workspace, every package in `crates/<package name>`: the libraries (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `plugin-host`, `protocol`, `proxy`, `remote`, `service-kit`, `service-plugin`, `store`), the services (`admin`, `backend`, `director`, `gateway`, `content`), the core plugins (`network`, `chat`), the `*-plugin` libraries and the `dainty-lass-server` binary |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
 | `ui/` | The Astro and shadcn page (DD11), MIT. Its two AGPL inputs, the language catalogs and the generated bridge types, come from dainty-restricted at build time (`bun run restricted-data`) |
 | `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, Apache-2.0, outside the workspace) |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 
-In dainty-restricted: `services/` (`gateway` with the allowlist, `content`, `host` = the AGPL shell around `hostkit`
-that composes the AGPL services in `compose.rs`), `plugins/chat`, `launcher/` (Tauri: `dainty-lass-client`,
-`dainty-lass-manager`), `bins/` (the server executables), `modules/rustic-isles` and `modules/rustic-rifts` (in-tree,
+In dainty-restricted: `crates/` (`host` = the AGPL shell around `hostkit` that composes the services in
+`compose.rs`, the `*-plugin` libraries, and the server executables `server-console` and `server-minimal`), `launcher/`
+(Tauri: `dainty-lass-client`, `dainty-lass-manager`), `modules/rustic-isles` and `modules/rustic-rifts` (in-tree,
 one workspace with the rest), `dashboard/`, `legacy/` (the 1.4.4 importer), `docker/`, and the hosting, player and
 Paradox docs.
 
@@ -131,7 +131,7 @@ committed.
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
 (`service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
 **The env files are the host kit's output, not hand-written:** `reforged-host setup` writes them from
-`host.toml` and `secrets.env` (`services/host/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
+`host.toml` and `secrets.env` (`crates/host/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
 service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,
 and a line in the service's file. It is never a variable the host is told to export.
@@ -146,7 +146,7 @@ It's never a one-file change:
   today's behaviour.
 - **Use one of the server prefixes** (`REFORGED_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
   `start` clears the environment and passes on only the system's own variables plus the env file. Anything
-  matching `SERVER_PREFIXES` or `SERVER_NAMES` in `services/host/src/services.rs` is dropped from the shell,
+  matching `SERVER_PREFIXES` or `SERVER_NAMES` in `crates/host/src/services.rs` is dropped from the shell,
   so a stale setting left there never reaches a service. A name outside that list leaks in from whatever shell
   started the kit, so either pick a listed prefix or add the name to the list.
 - **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `host.toml`
@@ -190,8 +190,8 @@ and the compose smoke test inside them.
 
 Not obvious from reading the suites:
 
-- **Parity tests are the contract, not a snapshot.** `services/gateway/tests/parity/` and
-  `services/content/tests/parity/` hold replies recorded from the Node services (`record.cjs`). When one
+- **Parity tests are the contract, not a snapshot.** `crates/gateway/tests/parity/` and
+  `crates/content/tests/parity/` hold replies recorded from the Node services (`record.cjs`). When one
   fails, fix the Rust side. Re-record only when the Node side changed on purpose, and say why in the commit.
 - **`crates/protocol/tests/cases/*.json` are shared tables**: the launcher and the servers check the same
   invites, statuses and usernames against them. A new case goes in the table, not in one crate's test.
@@ -267,8 +267,8 @@ Code copied from DR or Paradox keeps its attribution, and the integration pass r
 `NOTICE.md`.
 
 The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
-`service-kit`, `store`, `hostkit`, `launcher-kit`, `plugins/network`, `admin`, `bins`) set `license = "MIT"` in their
-own `Cargo.toml`; everything else (`services/gateway`, `services/content`, `services/host`, `plugins/chat`,
+`service-kit`, `store`, `hostkit`, `launcher-kit`, `crates/network`, `admin`, `bins`) set `license = "MIT"` in their
+own `Cargo.toml`; everything else (`crates/gateway`, `crates/content`, `crates/host`, `crates/chat`,
 `launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
 DR, Paradox or the Reforged Revival line: no file from those trees, no function rewritten from one while looking at it.
 Copying a DR or Paradox function into an MIT crate moves the crate back to `license.workspace = true` in the same

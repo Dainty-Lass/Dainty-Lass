@@ -1,6 +1,6 @@
-# Clean-Room Provenance Record — `services/gateway` (RD27)
+# Clean-Room Provenance Record — `crates/gateway` (RD27)
 
-- **Component**: `services/gateway` (`gateway` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`): the
+- **Component**: `crates/gateway` (`gateway` crate, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`): the
   gateway, the allowlist helper, and the gateway library's `service_plugin::Service` (`gateway::service`)
 - **Behaviour Specification**: `docs/port/spec-rd27-gateway.md`, `spec-rd27-gateway-front.md` and
   `spec-rd27-gateway-allowlist.md` at commit `26748dd` (branch `docs/rd27-spec-gateway`)
@@ -24,14 +24,14 @@ behaviour (the gateway catch-up list, the servers' delta file, the AGPL inventor
 
 Checks made after `git checkout` populated the worktree, before any code was written:
 
-- `test -e services/gateway` reported `services/gateway absent`.
+- `test -e crates/gateway` reported `crates/gateway absent`.
 - `test -e docs/port/catchup-gateway.md` reported it absent.
 - `git ls-tree -r --name-only HEAD | grep -iE 'gateway|allowlist'` listed only `crates/controller/src/service_library/gateway.rs`,
   `crates/service-plugin/src/gateway.rs`, `docs/port/catchup-gateway.md` (excluded above) and the three spec pages.
 
 The implementer did not open, list, grep or `git show` anything under `R:\source\dauntless\dainty-restricted`,
 `legacy-revived`, `rustic-*`, `dainty-dashboard`, `dainty-legacy`, `dainty-lass-ui`, any other `.wt\*` worktree, or
-any historical version of `services/gateway`, `rust/services/gateway`, `services/gateway-plugin` or the allowlist.
+any historical version of `crates/gateway`, `rust/services/gateway`, `crates/gateway-plugin` or the allowlist.
 No web search was made.
 
 **Disclosure.** The session that ran the implementer was started (by the harness, not by the implementer) with its
@@ -56,7 +56,7 @@ headed `PLACEHOLDER for a Category A file`. The integration pass replaces them w
 | `gateway/src/allowlist/guard.rs` | Placeholder `src/allowlist/guard.rs` |
 | `gateway/src/allowlist/modules.rs` | Placeholder `src/allowlist/modules.rs` |
 | `gateway/tests/{modules,network,nodelink,home,launcher_region}.rs` | Not present; copy in |
-| `gateway-plugin/{Cargo.toml,src/lib.rs,tests/library.rs,tests/parity.rs,tests/support/mod.rs}` | Not present; copy in as `services/gateway-plugin` |
+| `gateway-plugin/{Cargo.toml,src/lib.rs,tests/library.rs,tests/parity.rs,tests/support/mod.rs}` | Not present; copy in as `crates/gateway-plugin` |
 | `fuzz/fuzz_targets/{gateway_modules,gateway_network}.rs` | Not present; copy in |
 
 Also left in restricted for the integration pass, as data (spec 5.1): `tests/parity/gateway.requests.json`,
@@ -79,7 +79,7 @@ source, test and fuzz target.
   - `crates/service-kit/src/{env,linelog,js,jsjson,context,serve}.rs` (signatures and bodies of the helpers
     used), `crates/service-kit/Cargo.toml`
   - `crates/hostkit/src/tls.rs`, `crates/hostkit/Cargo.toml`
-  - `plugins/network/src/{endpoint,wire,link,cluster}.rs` (parts), `plugins/network/Cargo.toml`
+  - `crates/network/src/{endpoint,wire,link,cluster}.rs` (parts), `crates/network/Cargo.toml`
   - `crates/module-api/src/{registrar,module,network,manifest,ids,lib}.rs` (signatures, by grep)
   - `crates/protocol/src/{account,invite,lib}.rs` (signatures), `crates/protocol/Cargo.toml`
   - `crates/launcher-kit/src/net/regionping{.rs,/tests.rs}` (grep: the region report's body shape)
@@ -87,12 +87,12 @@ source, test and fuzz target.
   - Third-party sources in the cargo registry, for API signatures only: `rcgen` 0.14.10, `rustls` 0.23.46,
     `windows` 0.62.2 (Windows Firewall, COM, OLE, Variant, Security, Threading), `hyper-util` 0.1.21
 - **Files written**:
-  - `services/gateway/Cargo.toml`
-  - `services/gateway/src/{lib,cli,config,policy,gateway,guard,ip,ratelimit,redact,feed,capture,cert,server,service}.rs`
-  - `services/gateway/src/allowlist/{mod,cli,config,ports,nft,firewall,windows,helper,state,sync}.rs`
-  - Placeholders: `services/gateway/src/{modules,network,nodelink}.rs`,
-    `services/gateway/src/allowlist/{guard,modules}.rs`
-  - `services/gateway/tests/{common/mod,gateway,limits,allowlist,certificate}.rs`
+  - `crates/gateway/Cargo.toml`
+  - `crates/gateway/src/{lib,cli,config,policy,gateway,guard,ip,ratelimit,redact,feed,capture,cert,server,service}.rs`
+  - `crates/gateway/src/allowlist/{mod,cli,config,ports,nft,firewall,windows,helper,state,sync}.rs`
+  - Placeholders: `crates/gateway/src/{modules,network,nodelink}.rs`,
+    `crates/gateway/src/allowlist/{guard,modules}.rs`
+  - `crates/gateway/tests/{common/mod,gateway,limits,allowlist,certificate}.rs`
   - `fuzz/fuzz_targets/{gateway_policy,gateway_capture,allowlist_input}.rs`, their `[[bin]]`s in `fuzz/Cargo.toml`
   - `Cargo.toml` (workspace member and dependencies), `Cargo.lock`
   - This record
@@ -221,7 +221,7 @@ The security pages: `region-ping.md` is DN7's; `gateway.md` and `allowlist.md` w
 earlier history is in the pre-root bundle, not checked) and share no 3-line run with any markdown file of DR or
 dainty-legacy. The spec moves them (§6); the maintainer may still want them rewritten, as content's page was.
 
-`launcher-kit` joins `gateway`'s dev-dependencies (`launcher_region.rs`). `services/gateway-plugin` joins the
+`launcher-kit` joins `gateway`'s dev-dependencies (`launcher_region.rs`). `crates/gateway-plugin` joins the
 workspace `members`; the two moved fuzz targets get their `[[bin]]` entries.
 
 The branch merges `feat/rd27-library-hooks` (`d86890c`): the both-ways `gateway-plugin` tests call
@@ -246,7 +246,7 @@ No Category A file was edited to fit.
 
 The both-ways `gateway-plugin/src/lib.rs` is one line, `export_service!(gateway::service::GatewayService::library())`.
 Its glue moved from the Category A `gateway-plugin/src/lib.rs` of `0bf7226` to restricted's
-`services/gateway/src/service.rs` (`36a0d68`, RD27). The brief preferred the rewrite's service; it was not kept,
+`crates/gateway/src/service.rs` (`36a0d68`, RD27). The brief preferred the rewrite's service; it was not kept,
 because fitting it to the real Category A types needed new code, not signature fixes: a placement view implementing
 `modules::RegistryView` and `allowlist::modules::PortView` (the guessed `ModuleRoutes::placed`/`stopped` and
 `UdpPorts` held it), an `AllowlistPlugin` chosen per allowlist mode, the stand-in's own port, and a `library()`

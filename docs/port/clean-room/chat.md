@@ -1,6 +1,6 @@
-# Clean-Room Provenance Record: `plugins/chat` (RD27)
+# Clean-Room Provenance Record: `crates/chat` (RD27)
 
-- **Component**: `plugins/chat` (crate `chat`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
+- **Component**: `crates/chat` (crate `chat`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`)
 - **Behaviour specification**: `docs/port/spec-rd27-chat.md` at dainty-lass `ced0d55` (branch `docs/rd27-spec-chat`)
 - **Clean-room worktree**: `R:\source\dauntless\.wt\chat-mit` (branch `feat/rd27-chat-mit`, cut from `ced0d55`)
 - **Implementer**: one Claude Code subagent session, briefed by the RD27 coordinator with the rules below
@@ -11,7 +11,7 @@
 
 It never read, listed, grepped or `git show`ed anything under `dainty-restricted`, `legacy-revived`, `rustic-*`,
 `dainty-dashboard`, `dainty-legacy` or `dainty-lass-ui`, any other `R:\source\dauntless\.wt\*` worktree, or any
-historical version of `plugins/chat` / `rust/plugins/chat` in dainty-lass's history. It searched nothing on the web.
+historical version of `crates/chat` / `rust/plugins/chat` in dainty-lass's history. It searched nothing on the web.
 Its only inputs were the spec, the MIT code already in dainty-lass, and this folder's `hostkit.md` and
 `similarity.md` for the record's format. The session's working directory was set by its launcher to another
 worktree (`.wt\both\dainty-restricted`); no tool call read from it.
@@ -25,8 +25,8 @@ The worktree was added with `--no-checkout`, made sparse before the first checko
 !/ui/
 ```
 
-`ui/` is the `dainty-lass-ui` submodule. Before checkout, `git ls-tree -r --name-only HEAD | grep -c '^plugins/chat'`
-gave `0`: `ced0d55` carries no chat source, so there was nothing of it to exclude. `Test-Path plugins/chat` was false
+`ui/` is the `dainty-lass-ui` submodule. Before checkout, `git ls-tree -r --name-only HEAD | grep -c '^crates/chat'`
+gave `0`: `ced0d55` carries no chat source, so there was nothing of it to exclude. `Test-Path crates/chat` was false
 until the implementer created the folder. The only `git ls-tree` listings made were of the top level, `plugins/`,
 `services/`, `crates/`, `docs/port/`, `docs/port/clean-room/`, `crates/controller/tests`, `crates/service-plugin` and
 `crates/controller/src/service_library`.
@@ -36,7 +36,7 @@ until the implementer created the folder. The only `git ls-tree` listings made w
 - `docs/port/spec-rd27-chat.md` (whole), `docs/port/clean-room/hostkit.md` (§1-§4), `docs/port/clean-room/similarity.md`
   (§1)
 - `Cargo.toml`, `Cargo.lock` (versions of `rand`, `axum`, `tungstenite` only), `.forgejo/workflows/ci.yml` (the "Every
-  package is MIT" step), `crates/hostkit/Cargo.toml` (header), `plugins/network/Cargo.toml`
+  package is MIT" step), `crates/hostkit/Cargo.toml` (header), `crates/network/Cargo.toml`
 - `crates/service-plugin/src/lib.rs`, `crates/service-plugin/src/chat.rs`, `crates/service-plugin/Cargo.toml`
 - `crates/controller/src/service_library/chat.rs` (lines 1-80), `crates/controller/tests/chat-service/{Cargo.toml,
   src/lib.rs}` (the MIT test library on the same protocol)
@@ -47,9 +47,9 @@ until the implementer created the folder. The only `git ls-tree` listings made w
   (`DatabaseConfig::from_lookup`)
 - `crates/service-kit/src/{serve.rs, js.rs}`, `crates/service-kit/src/env.rs` (`Env`), `crates/service-kit/src/context.rs`
   (method names), `crates/service-kit/Cargo.toml`
-- `crates/protocol/src/account.rs` (`ACCOUNT_KEY_PREFIX`), `plugins/network/src/{lib.rs (exports), link.rs (Service,
+- `crates/protocol/src/account.rs` (`ACCOUNT_KEY_PREFIX`), `crates/network/src/{lib.rs (exports), link.rs (Service,
   LinkError, PeerLink, NodeService)}`
-- Two lines each of `crates/remote/src/enroll.rs` and `services/admin/src/guard.rs` (how `rand` 0.10 is called)
+- Two lines each of `crates/remote/src/enroll.rs` and `crates/admin/src/guard.rs` (how `rand` 0.10 is called)
 
 ## 3. Files written
 
@@ -57,23 +57,23 @@ until the implementer created the folder. The only `git ls-tree` listings made w
 
 | File | Spec |
 | --- | --- |
-| `plugins/chat/src/xmpp.rs` | §2.1 (`xmpp`), §2.15-§2.17 |
-| `plugins/chat/src/nick.rs` | §2.1 (`nick`), §2.14 |
-| `plugins/chat/src/redact.rs` | §2.18 |
-| `plugins/chat/src/settings.rs` | §2.1 (`settings`), §2.2 |
-| `plugins/chat/src/server.rs` | §2.1 (`server`), §2.6-§2.12 |
-| `plugins/chat/src/muc.rs` | §2.1 (`muc`), §2.13 |
-| `plugins/chat/src/connection.rs` | §2.1 (`connection`), §2.4, §2.5 |
-| `plugins/chat/src/lib.rs` | §2.1 (crate root), §2.3 |
+| `crates/chat/src/xmpp.rs` | §2.1 (`xmpp`), §2.15-§2.17 |
+| `crates/chat/src/nick.rs` | §2.1 (`nick`), §2.14 |
+| `crates/chat/src/redact.rs` | §2.18 |
+| `crates/chat/src/settings.rs` | §2.1 (`settings`), §2.2 |
+| `crates/chat/src/server.rs` | §2.1 (`server`), §2.6-§2.12 |
+| `crates/chat/src/muc.rs` | §2.1 (`muc`), §2.13 |
+| `crates/chat/src/connection.rs` | §2.1 (`connection`), §2.4, §2.5 |
+| `crates/chat/src/lib.rs` | §2.1 (crate root), §2.3 |
 
 ### 3.2 New, asked for by the RD27 brief
 
-- `plugins/chat/src/service.rs`: `ChatService`, chat as a `service_plugin::Service`, so the compiled-in build
+- `crates/chat/src/service.rs`: `ChatService`, chat as a `service_plugin::Service`, so the compiled-in build
   (`service_plugin::in_process`) and the library (`export_service!`) run one implementation; with `LibraryChatHost`
   (§3.4) and the node link over `ChatLink::peer_call` / `serve_peers`. Written from §3.4 and the MIT
   `service_plugin::chat` API. It overlaps `chat-plugin/src/lib.rs` (Category A): see §5. **Dropped at integration**
   (§7.3).
-- `plugins/chat/tests/clean_room.rs`: three black-box tests over real sockets (tokio-tungstenite), on the stubs. Kept
+- `crates/chat/tests/clean_room.rs`: three black-box tests over real sockets (tokio-tungstenite), on the stubs. Kept
   at integration (§7.4).
 
 ### 3.3 Stubs for Category A (replaced at integration, §7.1)
@@ -91,7 +91,7 @@ the real file.
 | `src/env.rs` | `settings(&Env) -> Result<Settings, String>`, `dashboard(&Env) -> Result<Option<DashboardSettings>, String>`, `database(&Env) -> Result<DatabaseConfig, String>` |
 | `Cargo.toml` | a placeholder manifest; the A manifest (with §1.2's three edits) replaces it, and must keep `axum`, `base64`, `chrono`, `futures-util`, `network` (no default features), `protocol`, `rand`, `service-kit`, `service-plugin`, `sha2`, `store`, `subtle`, `thiserror`, `tokio` (`net`, `io-util`, `time`, `sync`, `macros`), `tracing`, and `tokio-tungstenite` for tests |
 
-Also changed: the workspace `Cargo.toml` (`plugins/chat` in `members`, `chat` in `[workspace.dependencies]`) and
+Also changed: the workspace `Cargo.toml` (`crates/chat` in `members`, `chat` in `[workspace.dependencies]`) and
 `Cargo.lock`.
 
 ## 4. Verification
@@ -133,7 +133,7 @@ Also changed: the workspace `Cargo.toml` (`plugins/chat` in `members`, `chat` in
 ## 6. Similarity
 
 Measured by the integration pass (which may read the AGPL code) with `similarity.md` §1's method, on the files as
-committed after integration: each Category B file against its namesake in restricted `849f45e` `plugins/chat/src/`,
+committed after integration: each Category B file against its namesake in restricted `849f45e` `crates/chat/src/`,
 and against every DR file chat came from at legacy-revived `cfcad3eb` (`rust/services/metagame/src/chat/{connection,
 mod,muc,nick,presence,xmpp}.rs`, `redact.rs`, `moderation.rs`, `config.rs`, `limits.rs`, `server.rs`, `db.rs`), the
 best one named. "Any" counts a line matched by a 3+-line run in any file of that tree. The rows are also in
@@ -159,7 +159,7 @@ Category A signatures (§7.2) gives them restricted's shape (`sender: message.fr
 `category, description`), which adds a few matches.
 
 The test listener the integration added to `tests/federation.rs` (59 code lines, §7.5) matches 0 lines of restricted's
-`services/gateway/src/{nodelink,gateway}.rs`.
+`crates/gateway/src/{nodelink,gateway}.rs`.
 
 **What the matches are.** Every run of 6 lines or more was read.
 
@@ -202,15 +202,15 @@ Done by the RD27 integration pass in `R:\source\dauntless\.wt\chat-int` (detache
 From restricted `849f45e` by `git show`, byte for byte, with only `// SPDX-License-Identifier: MIT` and
 `// Copyright (c) 2026 Silent Spud` prepended to each Rust file under `plugins/` (spec §6.1): the eight migrations,
 `src/{env,federation,history,hooks,moderation,naming}.rs`, `tests/{chat,federation,history,dashboard_live}.rs`,
-`plugins/chat-plugin/{Cargo.toml,src/lib.rs,tests/load.rs}`, `fuzz/fuzz_targets/chat_{stanza,federation}.rs` (with
+`crates/chat-plugin/{Cargo.toml,src/lib.rs,tests/load.rs}`, `fuzz/fuzz_targets/chat_{stanza,federation}.rs` (with
 their `[[bin]]` entries and `chat` in `fuzz/Cargo.toml`) and `docs/security/chat.md`. Each copied Rust file, less its
 first three lines, is identical to `849f45e`, except `tests/federation.rs` (§7.5) and the fuzz target (§7.6).
 
-Manifests: `plugins/chat/Cargo.toml` is restricted's with the spec's three edits (licence `MIT`, the description
+Manifests: `crates/chat/Cargo.toml` is restricted's with the spec's three edits (licence `MIT`, the description
 without "from Dauntless Revived", no `gateway` dev-dependency), plus `base64` and tokio's `io-util` (the rewrite's
-loopback client) and a `tokio-rustls` dev-dependency (§7.5) pinned as `plugins/network` pins it.
-`plugins/chat-plugin/Cargo.toml` takes licence `MIT` and `network = { path = "../network", default-features = false }`,
-since dainty-lass has no `network` workspace entry. `plugins/chat-plugin` joins the workspace `members`.
+loopback client) and a `tokio-rustls` dev-dependency (§7.5) pinned as `crates/network` pins it.
+`crates/chat-plugin/Cargo.toml` takes licence `MIT` and `network = { path = "../network", default-features = false }`,
+since dainty-lass has no `network` workspace entry. `crates/chat-plugin` joins the workspace `members`.
 
 ### 7.2 The B callers fitted to the real signatures
 

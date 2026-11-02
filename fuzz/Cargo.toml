@@ -17,28 +17,28 @@ publish = false
 cargo-fuzz = true
 
 [dependencies]
-admin = { path = "../services/admin" }
+admin = { path = "../crates/admin" }
 # admin_request: the query parser the admin API runs
 async-graphql = { version = "7", default-features = false }
 libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
 # chat_stanza: the chat plugin's stanza parser, JIDs and room names (DN10a); chat_federation: node-link chat messages (DN10b)
-chat = { path = "../plugins/chat" }
+chat = { path = "../crates/chat" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # content_request, content_runtime_index, content_news: what the content server reads from players and the host
-content = { path = "../services/content" }
+content = { path = "../crates/content" }
 # epic_manifest: Epic's download manifests and CDN chunks
 epic = { path = "../crates/epic" }
 flate2 = "1"
 # gateway_policy, gateway_capture, allowlist_input, gateway_modules, gateway_network: the policy, the capture's redaction, the helper's input, the module routes, the region routes (RD27)
-gateway = { path = "../services/gateway" }
+gateway = { path = "../crates/gateway" }
 # history_bucket: what a restore reads back from the history bucket (DH4)
 history-ship = { path = "../crates/history-ship" }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
 module-api = { path = "../crates/module-api" }
 http = "1"
 # network_directory: the directory's node-link messages (DN4); network_home, network_ticket: the home API's (DN5); network_admin: the admin relay's (DN11); network_logship: peer log shipping (DH7)
-network = { path = "../plugins/network", features = ["log-ship"] }
+network = { path = "../crates/network", features = ["log-ship"] }
 # network_link: the certificate names the node link reads
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 protocol = { path = "../crates/protocol" }

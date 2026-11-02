@@ -1162,8 +1162,8 @@ mod tests {
         assert!(service_libraries(&paths, &c).is_empty());
         let d = "ab".repeat(32);
         let doc = crate::hosttoml::document(&format!(
-            "[services.gateway]\nlibrary = \"plugins/gateway.dll\"\nsha256 = \"{d}\"\n\
-             [services.chat]\nlibrary = \"plugins/chat.dll\"\nsha256 = \"{d}\"\n\
+            "[services.gateway]\nlibrary = \"crates/gateway.dll\"\nsha256 = \"{d}\"\n\
+             [services.chat]\nlibrary = \"crates/chat.dll\"\nsha256 = \"{d}\"\n\
              [services.echo]\nlibrary = \"plugins/echo.dll\"\nsha256 = \"{d}\"\nserves = [\"content_files\"]\n"
         ))
         .unwrap();
@@ -1175,7 +1175,7 @@ mod tests {
         assert_eq!(
             libraries,
             [
-                ("chat", dir.path().join("plugins/chat.dll"), vec![CoreCapability::Chat]),
+                ("chat", dir.path().join("crates/chat.dll"), vec![CoreCapability::Chat]),
                 (
                     "echo",
                     dir.path().join("plugins/echo.dll"),
@@ -1183,7 +1183,7 @@ mod tests {
                 ),
                 (
                     "gateway",
-                    dir.path().join("plugins/gateway.dll"),
+                    dir.path().join("crates/gateway.dll"),
                     vec![CoreCapability::Routes, CoreCapability::UdpPorts]
                 ),
             ]

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The core loads the built chat library and players chat through it as they did through the compiled-in plugin
-//! (`plugins/chat/tests/chat.rs`): their logins come from a game module of the core's, and the library's history
+//! (`crates/chat/tests/chat.rs`): their logins come from a game module of the core's, and the library's history
 //! keeps a whisper for someone offline (RD27).
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 

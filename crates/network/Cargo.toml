@@ -31,7 +31,7 @@ hyper-util.workspace = true
 module-api = { path = "../../crates/module-api" }
 protocol = { workspace = true, optional = true }
 # The cluster CA and node certificates, made as the gateway makes its own (no OpenSSL). The same versions
-# as services/gateway, until the workspace table lists them
+# as crates/gateway, until the workspace table lists them
 rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto", "x509-parser"] }
 rustls.workspace = true
 serde.workspace = true

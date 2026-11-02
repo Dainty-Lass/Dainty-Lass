@@ -21,7 +21,7 @@ module-api.workspace = true
 service-plugin.workspace = true
 
 [dev-dependencies]
-# The parity harness content's own tests run (services/content/tests/parity/harness.rs)
+# The parity harness content's own tests run (crates/content/tests/parity/harness.rs)
 axum.workspace = true
 content.workspace = true
 controller.workspace = true

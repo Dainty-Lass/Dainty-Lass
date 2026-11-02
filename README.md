@@ -35,7 +35,7 @@ launcher from both.
 
 | Folder | What |
 | --- | --- |
-| [root](.) | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`admin`, `backend`, `director`), `plugins/network` and `fuzz/` |
+| [root](.) | One cargo workspace, every package in `crates/<package name>` (libraries, services, core plugins and the `dainty-lass-server` binary), and `fuzz/` |
 | [`ui/`](ui) | The launcher's page (SolidJS + Vite + Tailwind CSS, built with Bun); its language catalogs come from dainty-restricted |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |
 | [`docs/`](docs) | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |

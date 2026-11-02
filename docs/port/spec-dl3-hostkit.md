@@ -1,6 +1,6 @@
 # Clean-Room Behaviour Specification: `crates/hostkit` (DL3a)
 
-> **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `crates/hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `services/host` for features that link or invoke Dauntless Revived (`DR`) services.
+> **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `crates/hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `crates/host` for features that link or invoke Dauntless Revived (`DR`) services.
 >
 > All types, function signatures, CLI flags, configuration schemas (`host.toml`, `host.yaml`, `host.json`, `secrets.env`, `<service>.env`), file paths, wire formats, exit codes, error strings, and test invariants are specified below from observable contracts (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, and the integration/unit test suite) without copying implementation code or referencing prior Node host-kit internals.
 
@@ -8,13 +8,13 @@
 
 ## 1. Module Provenance & Licensing Classification
 
-Every source file currently in `services/host/src/` falls into one of three categories under **DD26**:
+Every source file currently in `crates/host/src/` falls into one of three categories under **DD26**:
 
 ### 1.1 Category A — Original DaintyLass Modules (Already MIT-Eligible; Move or Keep as-is)
 
 These modules were written originally for DaintyLass in Rust with no `ReforgedHost` or `Dauntless Revived` (`DR`) derivation. They may move into `crates/hostkit` (or remain shared) without clean-room reimplementation:
 
-| Current Path in `services/host/src/` | Purpose & Provenance | Destination in DL3b |
+| Current Path in `crates/host/src/` | Purpose & Provenance | Destination in DL3b |
 | --- | --- | --- |
 | `error.rs` | `HostError` (`Message`, `Io`, `NotImplemented`) and `Result<T, HostError>` wrapper | `crates/hostkit` |
 | `hosttoml.rs` | Round-trip TOML <-> JSON structural converter (`document`, `to_toml`, `key_in_toml`, `key_to_toml`, `check_keys`) | `crates/hostkit` |
@@ -25,7 +25,7 @@ These modules were written originally for DaintyLass in Rust with no `ReforgedHo
 | `guarded.rs` | Helper checking whether the in-process allowlist guards game module UDP ports (`allowlist_guards_modules`) (DF4d) | `crates/hostkit` |
 | `repl.rs` | Interactive console parser and executor (`ConsoleCommand`, `parse_command`, `execute_command`, `run_repl`, `plain`) including `module ...` commands | `crates/hostkit` |
 | `tui.rs` | `ratatui` terminal dashboard (`TuiState`, `KeyAction`, `on_key`, `run_tui`) | `crates/hostkit` |
-| `serve.rs` | Unified in-process `ServerController` composition (`ServeOptions`, `compose`, `new_registry`, `list_modules`, `ensure_server_files`, `run`, `prepare_embedded`, `minimal_main`) — *Note: `legacy` hooks and AGPL feature-gated service constructors (`gateway`, `allowlist`, `content`, `admin`) cross the shell boundary via traits/callbacks* | Split: controller/module orchestration in `crates/hostkit`; AGPL service wiring in `services/host` |
+| `serve.rs` | Unified in-process `ServerController` composition (`ServeOptions`, `compose`, `new_registry`, `list_modules`, `ensure_server_files`, `run`, `prepare_embedded`, `minimal_main`) — *Note: `legacy` hooks and AGPL feature-gated service constructors (`gateway`, `allowlist`, `content`, `admin`) cross the shell boundary via traits/callbacks* | Split: controller/module orchestration in `crates/hostkit`; AGPL service wiring in `crates/host` |
 | `commands/backup.rs` | `backup` subcommand (`BackupEnv`, `find_mongodump_in`, `run`, `run_with`) | `crates/hostkit` |
 | `commands/history.rs` | `history` and `revert` subcommands (`Select`, `Job`, `Surface`, `Done`, `parse_console`, `run`, `run_history`, `run_revert`) (DD23 / DH3b) | `crates/hostkit` (or wired via `admin` feature) |
 | `commands/install_game.rs` | `install-game` subcommand (`Configured`, `Deps`, `run`, `run_with`, `configure`) (DE6) | `crates/hostkit` |
@@ -67,11 +67,11 @@ These 22 modules were ported during rows RH1–RH5 and must be reimplemented fro
 
 ---
 
-### 1.3 Category C — AGPL-3.0-or-later Shell Modules (Cite `DR` / Link AGPL Crates; Remain in `services/host`)
+### 1.3 Category C — AGPL-3.0-or-later Shell Modules (Cite `DR` / Link AGPL Crates; Remain in `crates/host`)
 
-These files directly cite Dauntless Revived (`DR`) or link AGPL-3.0-or-later service crates and therefore **remain in `services/host`** under `AGPL-3.0-or-later`:
+These files directly cite Dauntless Revived (`DR`) or link AGPL-3.0-or-later service crates and therefore **remain in `crates/host`** under `AGPL-3.0-or-later`:
 
-| Path in `services/host/src/` | Why it Remains in the AGPL Shell (`services/host`) |
+| Path in `crates/host/src/` | Why it Remains in the AGPL Shell (`crates/host`) |
 | --- | --- |
 | `legacy/mod.rs` & `legacy/off.rs` | Implements the Dauntless 1.4.4 (`legacy` / `both` edition) stack: generates `metagame.env` and `deploy.env` for `DR`'s `metagame` and `deploy` servers, runs `DR` SQLite migrations (`modules/legacy-revived/rust/crates/database/migrations`), inserts 1.4.4 invite codes into `metagame.sqlite`'s `invite_codes` table, checks `UndauntedInternalServer.dll` and `mystic_loader.ini`, and plans the 1.4.4 supervised processes. |
 | `lib.rs` (service entrypoints & `BUILT_IN_SERVICES`) | Links the `gateway`, `allowlist`, `content`, and `admin` service crates (`service_main`, `console_main`, `minimal_main`) and dispatches to `hostkit`. |
@@ -158,7 +158,7 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - Let `hunts = max_hunts.clamp(1, MAX_HUNTS) as u16`.
   - Returns `(PORTS.game_first.min(PORTS.game_last - 1 - hunts), PORTS.game_last)` (i.e. `(8770, 8777)` for `1..=6` hunts, and `(8776 - hunts, 8777)` for `7..=10` hunts, down to `(8766, 8777)` at `10`).
 - `pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError>`:
-  Walks `start` (canonicalized if possible) and up to 8 parent directories (`0..=8`). Returns `Ok(dir)` for the first directory containing either `services/host/Cargo.toml` or `release.json`. If none matches, returns `Err(HostError::message(format!("could not find the project root from {}", start.display())))`.
+  Walks `start` (canonicalized if possible) and up to 8 parent directories (`0..=8`). Returns `Ok(dir)` for the first directory containing either `crates/host/Cargo.toml` or `release.json`. If none matches, returns `Err(HostError::message(format!("could not find the project root from {}", start.display())))`.
 - `pub fn locate_repo_root() -> Result<PathBuf, HostError>`:
   Tries `std::env::current_dir()` via `find_repo_root`, then `std::env::current_exe()`'s parent directory via `find_repo_root`.
 - `#[derive(Debug, Clone, PartialEq, Eq)] pub struct Paths`:
@@ -166,8 +166,8 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - `repo`: `<repo>`
   - `preset`: `<repo>/preset`
   - `host_kit`: `<repo>/rust/services/host`
-  - `gateway_dir`: `<repo>/services/gateway`
-  - `content_dir`: `<repo>/services/content`
+  - `gateway_dir`: `<repo>/crates/gateway`
+  - `content_dir`: `<repo>/crates/content`
   - `workspace`: `<repo>/.workspace`
   - `paradox`: `<repo>/modules/rustic-isles/reference/1.14.7`
   - `isles`: `<repo>/modules/rustic-isles`
@@ -1544,7 +1544,7 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
 
 ---
 
-## 3. Target Crate Architecture for DL3b (`crates/hostkit` vs `services/host`)
+## 3. Target Crate Architecture for DL3b (`crates/hostkit` vs `crates/host`)
 
 1. **`crates/hostkit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`):**
    - Contains all Category A (MIT-eligible original modules) and Category B (clean-room reimplemented modules from Section 2 and Section 4).
@@ -1605,9 +1605,9 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
      }
      ```
    - Has **zero** normal or dev dependencies on `gateway`, `allowlist`, `content`, `chat`, `isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `isles-1-12-0`, `rifts-host`, `rifts-seam`, or `revived-1-4-4`.
-2. **`services/host` (`license = "AGPL-3.0-only"`):**
+2. **`crates/host` (`license = "AGPL-3.0-only"`):**
    - Thin binary/library shell that depends on `hostkit` and the AGPL module/service crates (`isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `gateway`, `allowlist`, `content`, `revived-1-4-4`).
-   - Implements `HostHooks`, registers it via `Once`, and re-exports `hostkit` modules so all existing integration tests in `services/host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
+   - Implements `HostHooks`, registers it via `Once`, and re-exports `hostkit` modules so all existing integration tests in `crates/host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
 
 ---
 

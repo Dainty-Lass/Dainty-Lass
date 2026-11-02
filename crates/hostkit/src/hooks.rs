@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Runtime hook boundary (`HostHooks`) allowing `hostkit` to remain 100% MIT with zero
-//! dependencies on AGPL service or game-module crates while `services/host` wires in the
+//! dependencies on AGPL service or game-module crates while `crates/host` wires in the
 //! compiled-in services, generators and database migration tables.
 
 use std::any::Any;
