@@ -1,5 +1,5 @@
 # The AGPL half of DaintyLass (RD27): the AGPL services, the launcher, the game modules and the server binaries,
-# in one workspace. DaintyLass's MIT crates come from dainty-lass at one rev (b1375954b6dcffc4a787904fc8e88fccc7ba9130 below); bump it in one
+# in one workspace. DaintyLass's MIT crates come from dainty-lass at one rev (below); bump it in one
 # place, for every crate at once, or the game modules would build against a second copy of module-api.
 [workspace]
 resolver = "3"
