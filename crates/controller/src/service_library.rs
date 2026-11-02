@@ -26,6 +26,9 @@ use tokio::sync::oneshot;
 
 use crate::{Module, ModuleRegistry, WeakRegistry};
 
+mod chat;
+pub use chat::chat_library;
+
 /// How long the library has to say hello, to answer an attach, and to end after Stop.
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 const ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
@@ -43,10 +46,20 @@ pub struct ServiceLibrary {
 
 /// The module that runs the library on `env`, and registers it with `registry` as a core plugin when it serves one.
 pub fn service_library(library: ServiceLibrary, env: Env, registry: Option<&ModuleRegistry>) -> Module {
+    module(library, env, registry, None)
+}
+
+fn module(
+    library: ServiceLibrary,
+    env: Env,
+    registry: Option<&ModuleRegistry>,
+    chat: Option<Arc<chat::ChatCore>>,
+) -> Module {
     let shared = Arc::new(Shared {
         library,
         registry: registry.map(ModuleRegistry::downgrade),
         state: Mutex::default(),
+        chat,
     });
     if let Some(registry) = registry
         && !shared.library.serves.is_empty()
@@ -67,6 +80,8 @@ struct Shared {
     library: ServiceLibrary,
     registry: Option<WeakRegistry>,
     state: Mutex<State>,
+    /// The chat library's own messages; none for any other service
+    chat: Option<Arc<chat::ChatCore>>,
 }
 
 #[derive(Default)]
@@ -184,15 +199,19 @@ async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<
     let (ended_tx, mut ended_rx) = oneshot::channel();
     let reading = {
         let (run, reporter, name) = (run.clone(), ctx.status().clone(), library.name);
+        let chat = shared.chat.clone();
         std::thread::spawn(move || {
             let Ok(runtime) = tokio::runtime::Builder::new_current_thread().build() else {
                 return;
             };
-            runtime.block_on(read_loop(reader, run, reporter, name, hello_tx, ended_tx));
+            runtime.block_on(read_loop(reader, run, reporter, name, hello_tx, ended_tx, chat));
         })
     };
     let result = drive(&shared, &run, env, ctx, hello_rx, &mut ended_rx).await;
     shared.state().run = None;
+    if let Some(chat) = &shared.chat {
+        chat.ended();
+    }
     closer.close().await;
     _ = tokio::task::spawn_blocking(move || reading.join()).await;
     result
@@ -225,6 +244,9 @@ async fn drive(
     expected.sort();
     if serves != expected {
         return Err(format!("it serves {serves:?}, this core expects {expected:?}"));
+    }
+    if let Some(chat) = &shared.chat {
+        chat.before_start(run).await?;
     }
     run.send(&ToService::Start {
         protocol: PROTOCOL_VERSION,
@@ -276,6 +298,7 @@ async fn read_loop(
     name: &'static str,
     hello: oneshot::Sender<(u32, String, Vec<CoreCapability>)>,
     ended: oneshot::Sender<Result<(), String>>,
+    chat: Option<Arc<chat::ChatCore>>,
 ) {
     let mut reader = BufReader::new(reader);
     let mut hello = Some(hello);
@@ -304,6 +327,14 @@ async fn read_loop(
                     _ = tx.send(result);
                 }
             }
+            FromService::Chat(message) => match &chat {
+                Some(chat) => {
+                    if let Err(error) = chat.message(&run, message) {
+                        break Err(error);
+                    }
+                }
+                None => break Err(String::from("a chat message from a service that isn't chat")),
+            },
         }
     };
     if let Some(tx) = ended.take() {
