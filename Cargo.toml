@@ -35,6 +35,7 @@ gateway = { path = "crates/gateway" }
 content = { path = "crates/content" }
 epic = { path = "crates/epic" }
 chat = { path = "crates/chat" }
+rifts-seam = { path = "crates/rifts-seam" }
 hmac = "0.13"
 
 crossterm = "0.29"

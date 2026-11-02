@@ -3245,6 +3245,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rifts-seam"
+version = "0.0.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

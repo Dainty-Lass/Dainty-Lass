@@ -1,0 +1,15 @@
+[package]
+name = "rifts-seam"
+description = "The seam between the 1.14.7 module and the Rustic Rifts crates: hooks, routes as data, ids, storage shapes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[lints]
+workspace = true
