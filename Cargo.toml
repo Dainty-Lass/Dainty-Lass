@@ -40,6 +40,17 @@ rifts-relay = { path = "crates/rifts-relay" }
 rifts-admission = { path = "crates/rifts-admission" }
 rifts-guard = { path = "crates/rifts-guard" }
 rifts-realms = { path = "crates/rifts-realms" }
+rifts-transport = { path = "crates/rifts-transport" }
+rifts-host = { path = "crates/rifts-host" }
+# The transport's ICE agent and TURN client, sans-IO (spec-rd27-rifts D2)
+rtc-ice = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
+rtc-turn = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
+# The stack's own: its addresses and interface list, and the trait the agent and client are driven through
+rtc-shared = { version = "0.21.1", default-features = false, features = ["ifaces"] }
+sansio = "1.0.1"
+# A TURN server for the transport's tests (dev only)
+turn = "0.17.2"
+webrtc-util = { version = "0.17", default-features = false, features = ["conn", "vnet"] }
 hmac = "0.13"
 
 crossterm = "0.29"
