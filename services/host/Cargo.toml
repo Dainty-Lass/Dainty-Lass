@@ -74,6 +74,8 @@ rustls.workspace = true
 # host.json in JavaScript's key order and number text (service-kit turns on preserve_order).
 serde_json.workspace = true
 service-kit.workspace = true
+# Chat as a library the core loads (RD27): its setup
+service-plugin.workspace = true
 sha2.workspace = true
 store.workspace = true
 # The Linux release is a .tar.gz, the Windows one a .zip.

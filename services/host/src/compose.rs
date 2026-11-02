@@ -653,17 +653,15 @@ fn gateway_routes(
 }
 
 /// Network peer configuration for [`chat`] when running in a multi-node cluster (DN10b).
-#[cfg(feature = "chat")]
 #[derive(Clone)]
 pub struct ChatNetworkOptions {
     pub leader: module_api::network::NodeId,
     pub peers: Vec<(module_api::network::NodeId, module_api::network::Region)>,
 }
 
-/// Configuration for the `"chat"` module (DD21, DN10a, DN10b).
-#[cfg(feature = "chat")]
+/// Configuration for the `"chat"` module (DD21, DN10a, DN10b), in-process or as a library.
 pub struct ChatOptions {
-    pub env: Env,
+    pub env: service_kit::env::Env,
     pub node: module_api::NodeIdentity,
     pub database: store::DatabaseConfig,
     pub registry: controller::ModuleRegistry,
@@ -855,37 +853,8 @@ impl chat::ChatHost for ControllerChatHost {
 /// behind the gateway, and attached to `Service::Chat` when in a network; DD21, DN10a, DN10b).
 #[cfg(feature = "chat")]
 pub fn chat(options: ChatOptions) -> Result<Module, String> {
-    let mut settings = chat::Settings::default();
-    if let Some(secret) = options
-        .env
-        .get("GATEWAY_SECRET")
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        settings.gateway_secret = Some(secret.to_owned());
-    }
-    if let Some(port) = options.env.get("CHAT_PORT").and_then(|s| s.trim().parse::<u16>().ok()) {
-        settings.port = port;
-    }
-    if options
-        .env
-        .get("CHAT_NICK_CHECK")
-        .is_some_and(|s| s.trim().eq_ignore_ascii_case("log"))
-    {
-        settings.nick_check = chat::NickCheck::Log;
-    }
-    if options
-        .env
-        .get("CHAT_TRACE")
-        .is_some_and(|s| matches!(s.trim(), "1" | "true" | "TRUE"))
-    {
-        settings.trace = true;
-    }
-    let problems = settings.problems();
-    if !problems.is_empty() {
-        return Err(format!("chat settings: {}", problems.join("; ")));
-    }
-    let dashboard = dashboard_settings(&options.env)?;
+    let settings = chat::env::settings(&options.env)?;
+    let dashboard = chat::env::dashboard(&options.env)?;
     let plugin = Arc::new(chat::ChatPlugin::new());
     let drivers = Arc::new(chat::Drivers::default());
     options.registry.add_plugin(plugin.clone());
@@ -969,21 +938,73 @@ pub fn chat(options: ChatOptions) -> Result<Module, String> {
     .ready_within(std::time::Duration::from_secs(30)))
 }
 
-/// The staff dashboard chat reports to (`CHAT_DASHBOARD_URL`, `CHAT_DASHBOARD_INGEST_KEY`); none without a URL.
-#[cfg(feature = "chat")]
-fn dashboard_settings(env: &Env) -> Result<Option<chat::DashboardSettings>, String> {
-    let get = |key: &str| env.get(key).map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned);
-    let Some(url) = get("CHAT_DASHBOARD_URL") else {
-        return Ok(None);
+/// Chat as a library the core loads (RD27, `plugins/chat-plugin`): what [`chat`] composes, with the node and network
+/// as the library's setup and the node database added to its env (`REFORGED_DB_*`, as setup writes them).
+pub fn chat_library(library: controller::ServiceLibrary, options: ChatOptions) -> controller::Module {
+    let mut env: Vec<(String, String)> = options
+        .env
+        .vars()
+        .filter(|(key, _)| !key.starts_with("REFORGED_DB_"))
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
+    env.extend(database_env(&options.database));
+    let env = service_kit::env::Env::from_pairs(env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+    let setup = service_plugin::chat::ChatSetup {
+        node: options.node,
+        network: options.network.map(|n| service_plugin::chat::ChatNetwork {
+            leader: n.leader,
+            peers: n.peers,
+        }),
     };
-    let dashboard = chat::DashboardSettings {
-        url,
-        key: get("CHAT_DASHBOARD_INGEST_KEY").unwrap_or_default(),
-    };
-    let problems = dashboard.problems();
-    if problems.is_empty() {
-        Ok(Some(dashboard))
-    } else {
-        Err(format!("chat settings: {}", problems.join("; ")))
+    controller::service_library::chat_library(library, env, &options.registry, setup)
+}
+
+/// What store's `DatabaseConfig::from_lookup` reads back as `database`.
+fn database_env(database: &store::DatabaseConfig) -> Vec<(String, String)> {
+    match database {
+        store::DatabaseConfig::Sqlite { file } => vec![
+            ("REFORGED_DB_ENGINE".into(), "sqlite".into()),
+            ("REFORGED_DB_FILE".into(), file.to_string_lossy().into_owned()),
+        ],
+        store::DatabaseConfig::Postgres(pg) => {
+            let mut out = vec![
+                ("REFORGED_DB_ENGINE".into(), "postgres".into()),
+                ("REFORGED_DB_HOST".into(), pg.host.clone()),
+                ("REFORGED_DB_PORT".into(), pg.port.to_string()),
+                ("REFORGED_DB_USER".into(), pg.user.clone()),
+                ("REFORGED_DB_NAME".into(), pg.database.clone()),
+                ("REFORGED_DB_PASSWORD".into(), pg.password.clone()),
+            ];
+            if pg.allow_remote {
+                out.push(("REFORGED_DB_ALLOW_REMOTE".into(), "1".into()));
+            }
+            out
+        }
+    }
+}
+
+#[cfg(test)]
+mod chat_library_tests {
+    use super::*;
+
+    #[test]
+    fn the_database_env_reads_back_as_the_database() {
+        let sqlite = store::DatabaseConfig::Sqlite {
+            file: std::path::PathBuf::from("/srv/dainty/dainty.db"),
+        };
+        let postgres = store::DatabaseConfig::Postgres(store::PostgresConfig {
+            host: "127.0.0.1".into(),
+            port: 5433,
+            user: "u".into(),
+            database: "d".into(),
+            password: "p".into(),
+            allow_remote: true,
+        });
+        for database in [sqlite, postgres] {
+            let env = database_env(&database);
+            let lookup = |key: &str| env.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+            let back = store::DatabaseConfig::from_lookup(lookup, std::path::PathBuf::new()).unwrap();
+            assert_eq!(back, database);
+        }
     }
 }
