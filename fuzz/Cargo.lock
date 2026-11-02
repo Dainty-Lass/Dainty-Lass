@@ -691,6 +691,7 @@ dependencies = [
  "chrono",
  "epic",
  "flate2",
+ "gateway",
  "history-ship",
  "http",
  "libfuzzer-sys",
@@ -1102,6 +1103,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
+name = "fastrand"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1213,6 +1220,42 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "gateway"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "futures-util",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "module-api",
+ "network",
+ "protocol",
+ "proxy",
+ "rcgen",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "service-plugin",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "url",
+ "windows",
+ "x509-parser",
 ]
 
 [[package]]
@@ -2318,6 +2361,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "proxy"
+version = "0.0.0"
+dependencies = [
+ "http",
+ "tokio",
+]
+
+[[package]]
 name = "psl-types"
 version = "2.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3025,6 +3076,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "service-plugin"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "module-api",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3302,6 +3367,19 @@ checksum = "8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "tempfile"
+version = "3.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
+dependencies = [
+ "fastrand",
+ "getrandom 0.4.3",
+ "once_cell",
+ "rustix",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
