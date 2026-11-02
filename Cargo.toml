@@ -39,6 +39,7 @@ rifts-seam = { path = "crates/rifts-seam" }
 rifts-relay = { path = "crates/rifts-relay" }
 rifts-admission = { path = "crates/rifts-admission" }
 rifts-guard = { path = "crates/rifts-guard" }
+rifts-realms = { path = "crates/rifts-realms" }
 hmac = "0.13"
 
 crossterm = "0.29"

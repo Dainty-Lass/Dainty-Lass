@@ -1,0 +1,35 @@
+[package]
+name = "rifts-realms"
+description = "Rustic Rifts' realms: the realm directory, realm hubs, the player-hosted hunt lifecycle and their store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+diesel.workspace = true
+diesel_migrations.workspace = true
+module-api.workspace = true
+rand.workspace = true
+rifts-admission.workspace = true
+rifts-guard.workspace = true
+rifts-relay.workspace = true
+rifts-seam.workspace = true
+serde.workspace = true
+# Hunt details, control payloads and every reply keep insertion order (spec-rd27-rifts §2 D5)
+serde_json = { workspace = true, features = ["preserve_order"] }
+sha2.workspace = true
+store.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "time"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the repository tests
+url.workspace = true
+
+[lints]
+workspace = true

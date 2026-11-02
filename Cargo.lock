@@ -3477,6 +3477,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rifts-realms"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "module-api",
+ "rand 0.10.3",
+ "rifts-admission",
+ "rifts-guard",
+ "rifts-relay",
+ "rifts-seam",
+ "serde",
+ "serde_json",
+ "sha2",
+ "store",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "rifts-relay"
 version = "0.0.0"
 dependencies = [
