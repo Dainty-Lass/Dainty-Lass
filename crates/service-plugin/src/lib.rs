@@ -200,51 +200,69 @@ pub async fn serve<S: Service>(service: Arc<S>, reader: ChannelReader, writer: L
     serve_with(service, reader, writer, true).await;
 }
 
-/// The same service compiled into the core: the same protocol, over in-memory streams, so it behaves exactly as its
-/// library does. Its tracing is the core's own.
+/// The same service compiled into the core: the same protocol, over in-memory streams, on a runtime of its own as a
+/// library's instance has (`module_api::plugin::open_with`), so it behaves exactly as its library does. Its tracing is
+/// the core's own.
 pub struct InProcess {
     pub reader: ChannelReader,
     pub writer: LibraryWriter,
-    to_service: Arc<Mutex<Option<mpsc::UnboundedSender<Vec<u8>>>>>,
-    serving: tokio::task::JoinHandle<()>,
+    closer: InProcessCloser,
 }
 
 impl InProcess {
     /// Splits it into the core's streams and what closes it.
     pub fn split(self) -> (ChannelReader, LibraryWriter, InProcessCloser) {
-        let closer = InProcessCloser {
-            to_service: self.to_service,
-            serving: Arc::new(Mutex::new(Some(self.serving))),
-        };
-        (self.reader, self.writer, closer)
+        (self.reader, self.writer, self.closer)
     }
 }
 
-/// Ends the stream to the service, as closing its library does, and waits for it a moment.
+/// Ends the stream to the service, as closing its library does: it gets a moment to finish, then its runtime goes.
 #[derive(Clone)]
-pub struct InProcessCloser {
+pub struct InProcessCloser(Arc<Mutex<Option<Running>>>);
+
+struct Running {
     to_service: Arc<Mutex<Option<mpsc::UnboundedSender<Vec<u8>>>>>,
-    serving: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    runtime: tokio::runtime::Runtime,
+    serving: tokio::task::JoinHandle<()>,
 }
+
+/// How long a closed service has to finish, and its runtime to stop: `module_api::plugin::close`'s.
+const CLOSE_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
 
 impl InProcessCloser {
     pub async fn close(&self) {
-        drop(self.to_service.lock().unwrap_or_else(PoisonError::into_inner).take());
-        let serving = self.serving.lock().unwrap_or_else(PoisonError::into_inner).take();
-        if let Some(serving) = serving {
-            _ = tokio::time::timeout(std::time::Duration::from_secs(5), serving).await;
-        }
+        let taken = self.0.lock().unwrap_or_else(PoisonError::into_inner).take();
+        let Some(Running {
+            to_service,
+            runtime,
+            serving,
+        }) = taken
+        else {
+            return;
+        };
+        // Off the async threads: a runtime can't be waited on or dropped from inside another's
+        _ = tokio::task::spawn_blocking(move || {
+            drop(to_service.lock().unwrap_or_else(PoisonError::into_inner).take());
+            _ = runtime.block_on(async { tokio::time::timeout(CLOSE_GRACE, serving).await });
+            runtime.shutdown_timeout(CLOSE_GRACE);
+        })
+        .await;
     }
 }
 
-/// Starts `service` in this process, on the current runtime, behind the protocol its library speaks.
-pub fn in_process<S: Service>(service: Arc<S>) -> InProcess {
+/// Starts `service` in this process, on a runtime of its own, behind the protocol its library speaks.
+pub fn in_process<S: Service>(service: Arc<S>) -> Result<InProcess, String> {
+    // A library's instance has its own: the core's blocking calls (an attach) never wait on the service's threads
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| format!("the compiled-in service's runtime: {e}"))?;
     let (to_core, from_service) = mpsc::unbounded_channel::<Vec<u8>>();
     let (to_service, from_core) = mpsc::unbounded_channel::<Vec<u8>>();
     let service_writer: LibraryWriter = module_api::plugin::CallWriter::new(Box::new(move |bytes: &[u8]| {
         _ = to_core.send(bytes.to_vec());
     }));
-    let serving = tokio::spawn(serve_with(
+    let serving = runtime.spawn(serve_with(
         service,
         ChannelReader::new(from_core),
         service_writer,
@@ -259,12 +277,15 @@ pub fn in_process<S: Service>(service: Arc<S>) -> InProcess {
             }
         }
     }));
-    InProcess {
+    Ok(InProcess {
         reader: ChannelReader::new(from_service),
         writer,
-        to_service,
-        serving,
-    }
+        closer: InProcessCloser(Arc::new(Mutex::new(Some(Running {
+            to_service,
+            runtime,
+            serving,
+        })))),
+    })
 }
 
 async fn serve_with<S: Service>(service: Arc<S>, reader: ChannelReader, mut writer: LibraryWriter, forward: bool) {
