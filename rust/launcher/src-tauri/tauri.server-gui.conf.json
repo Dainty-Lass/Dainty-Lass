@@ -2,6 +2,12 @@
   "productName": "DaintyLass Manager",
   "mainBinaryName": "dainty-lass-manager",
   "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival.server",
+  "build": {
+    "devUrl": "http://localhost:4322",
+    "frontendDist": "../dist/server-manager",
+    "beforeDevCommand": "node scripts/dashboard-page.mjs dev server-manager",
+    "beforeBuildCommand": "node scripts/dashboard-page.mjs build server-manager"
+  },
   "bundle": {
     "icon": [
       "icons/server/32x32.png",

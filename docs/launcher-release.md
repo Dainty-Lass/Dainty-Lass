@@ -17,6 +17,10 @@ maintainer's: the keys, the secrets and the checks on real machines are not an a
 | `DaintyLass{Launcher,Manager}_<v>_amd64.deb` | the same | Ubuntu 22.04 and newer, Debian 12 and newer |
 | `DaintyLass{Launcher,Manager}_<v>_x86_64.rpm` | the same | Fedora |
 
+Each app serves its own page from dainty-dashboard (`apps/launcher`, `apps/server-manager`), which the build exports
+with Bun and copies into `rust/launcher/dist/` ([`rust/launcher/README.md`](../rust/launcher/README.md)). A run needs
+that checkout beside this repository or at `DAINTY_DASHBOARD_DIR`; the workflow does not check it out yet.
+
 With the updater key set, each bundle gets a `.sig` and the run writes the two feeds, `latest.json` (the launcher)
 and `latest-manager.json` (the manager), which point at the bundles in the `launcher-updates` release of the URL in
 `tauri.conf.json`'s `plugins.updater.endpoints`. Everything, with `SHA256SUMS.txt`, is the artifact
