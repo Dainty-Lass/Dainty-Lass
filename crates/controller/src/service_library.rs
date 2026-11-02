@@ -14,13 +14,14 @@ use std::time::Duration;
 
 use module_api::frame::{MAX_FRAME, encode, read_frame};
 use module_api::manifest::ModuleManifest;
+use module_api::plugin::LibraryWriter as CoreWriter;
 use module_api::plugin::{ChannelReader, SERVICE_ENTRY};
 use module_api::registrar::Registration;
 use module_api::{CoreCapability, CorePlugin, ErrorKind, ModuleError, ModuleId, Sha256Hex};
-use plugin_host::{CoreWriter, LibraryStream};
+use plugin_host::LibraryStream;
 use service_kit::context::{ComponentPhase, ComponentStatus, ServiceContext, StatusReporter};
 use service_kit::env::Env;
-use service_plugin::{FromService, LogLevel, PROTOCOL_VERSION, ToService};
+use service_plugin::{FromService, LogLevel, PROTOCOL_VERSION, Service, ToService};
 use tokio::io::BufReader;
 use tokio::sync::oneshot;
 
@@ -43,17 +44,47 @@ pub struct ServiceLibrary {
 
 /// The module that runs the library on `env`, and registers it with `registry` as a core plugin when it serves one.
 pub fn service_library(library: ServiceLibrary, env: Env, registry: Option<&ModuleRegistry>) -> Module {
+    let ServiceLibrary {
+        name,
+        path,
+        sha256,
+        serves,
+    } = library;
+    service_module(name, serves, Source::Library { path, sha256 }, env, registry)
+}
+
+/// The same service compiled into this binary: the [`Service`] its library exports, run over the same protocol on
+/// in-memory streams, so a service behaves the same loaded from a library or built in (RD27).
+pub fn service_compiled_in<S: Service>(
+    make: impl Fn() -> S + Send + Sync + 'static,
+    env: Env,
+    registry: Option<&ModuleRegistry>,
+) -> Module {
+    let probe = make();
+    let (name, serves) = (probe.name(), probe.serves());
+    let open = Arc::new(move || service_plugin::in_process(Arc::new(make())));
+    service_module(name, serves, Source::CompiledIn(open), env, registry)
+}
+
+fn service_module(
+    name: &'static str,
+    serves: &'static [CoreCapability],
+    source: Source,
+    env: Env,
+    registry: Option<&ModuleRegistry>,
+) -> Module {
     let shared = Arc::new(Shared {
-        library,
+        name,
+        serves,
+        source,
         registry: registry.map(ModuleRegistry::downgrade),
         state: Mutex::default(),
     });
     if let Some(registry) = registry
-        && !shared.library.serves.is_empty()
+        && !serves.is_empty()
     {
         registry.add_plugin(Arc::new(Plugin(shared.clone())));
     }
-    let name = shared.library.name;
     Module::new(
         name,
         Arc::new(move |ctx| {
@@ -63,8 +94,40 @@ pub fn service_library(library: ServiceLibrary, env: Env, registry: Option<&Modu
     )
 }
 
+/// Where a service's code is; everything after opening it is the same for both.
+enum Source {
+    Library { path: PathBuf, sha256: Sha256Hex },
+    CompiledIn(Arc<dyn Fn() -> service_plugin::InProcess + Send + Sync>),
+}
+
+impl Source {
+    fn describe(&self) -> String {
+        match self {
+            Self::Library { path, .. } => path.display().to_string(),
+            Self::CompiledIn(_) => String::from("the compiled-in service"),
+        }
+    }
+}
+
+/// Ends an open instance, whichever source it came from.
+enum Closer {
+    Library(plugin_host::Closer),
+    CompiledIn(service_plugin::InProcessCloser),
+}
+
+impl Closer {
+    async fn close(&self) {
+        match self {
+            Self::Library(closer) => closer.close().await,
+            Self::CompiledIn(closer) => closer.close().await,
+        }
+    }
+}
+
 struct Shared {
-    library: ServiceLibrary,
+    name: &'static str,
+    serves: &'static [CoreCapability],
+    source: Source,
     registry: Option<WeakRegistry>,
     state: Mutex<State>,
 }
@@ -131,11 +194,11 @@ struct Plugin(Arc<Shared>);
 
 impl CorePlugin for Plugin {
     fn name(&self) -> &'static str {
-        self.0.library.name
+        self.0.name
     }
 
     fn serves(&self) -> &'static [CoreCapability] {
-        self.0.library.serves
+        self.0.serves
     }
 
     fn attach(&self, module: &ModuleManifest, registration: &Registration) -> Result<(), ModuleError> {
@@ -170,11 +233,18 @@ impl CorePlugin for Plugin {
 }
 
 async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<(), String> {
-    let library = &shared.library;
-    let LibraryStream { reader, writer, closer } =
-        plugin_host::open_library(&library.path, library.sha256, SERVICE_ENTRY)
-            .await
-            .map_err(|e| e.to_string())?;
+    let (reader, writer, closer) = match &shared.source {
+        Source::Library { path, sha256 } => {
+            let LibraryStream { reader, writer, closer } = plugin_host::open_library(path, *sha256, SERVICE_ENTRY)
+                .await
+                .map_err(|e| e.to_string())?;
+            (reader, writer, Closer::Library(closer))
+        }
+        Source::CompiledIn(open) => {
+            let (reader, writer, closer) = open().split();
+            (reader, writer, Closer::CompiledIn(closer))
+        }
+    };
     let run = Arc::new(Run {
         writer,
         pending: Mutex::default(),
@@ -183,7 +253,7 @@ async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<
     let (hello_tx, hello_rx) = oneshot::channel();
     let (ended_tx, mut ended_rx) = oneshot::channel();
     let reading = {
-        let (run, reporter, name) = (run.clone(), ctx.status().clone(), library.name);
+        let (run, reporter, name) = (run.clone(), ctx.status().clone(), shared.name);
         std::thread::spawn(move || {
             let Ok(runtime) = tokio::runtime::Builder::new_current_thread().build() else {
                 return;
@@ -206,22 +276,26 @@ async fn drive(
     hello_rx: oneshot::Receiver<(u32, String, Vec<CoreCapability>)>,
     ended_rx: &mut oneshot::Receiver<Result<(), String>>,
 ) -> Result<(), String> {
-    let library = &shared.library;
     let (protocol, name, serves) = tokio::time::timeout(HELLO_TIMEOUT, hello_rx)
         .await
-        .map_err(|_| format!("{} did not say hello within {HELLO_TIMEOUT:?}", library.path.display()))?
-        .map_err(|_| format!("{} ended before its hello", library.path.display()))?;
+        .map_err(|_| {
+            format!(
+                "{} did not say hello within {HELLO_TIMEOUT:?}",
+                shared.source.describe()
+            )
+        })?
+        .map_err(|_| format!("{} ended before its hello", shared.source.describe()))?;
     if protocol != PROTOCOL_VERSION {
         return Err(format!(
             "it speaks service protocol {protocol}, this core {PROTOCOL_VERSION}"
         ));
     }
-    if name != library.name {
-        return Err(format!("it is the service {name}, host.toml names {}", library.name));
+    if name != shared.name {
+        return Err(format!("it is the service {name}, host.toml names {}", shared.name));
     }
     let mut serves = serves;
     serves.sort();
-    let mut expected = library.serves.to_vec();
+    let mut expected = shared.serves.to_vec();
     expected.sort();
     if serves != expected {
         return Err(format!("it serves {serves:?}, this core expects {expected:?}"));
@@ -243,7 +317,7 @@ async fn drive(
             .await
             .unwrap_or_else(|e| Err(ModuleError::new(ErrorKind::Unavailable, e.to_string())));
         if let Err(error) = result {
-            tracing::warn!(target: "host", "{}: module {id} not taken again: {error}", library.name);
+            tracing::warn!(target: "host", "{}: module {id} not taken again: {error}", shared.name);
         }
     }
     let mut stop = ctx.stop_receiver();

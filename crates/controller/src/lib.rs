@@ -28,4 +28,4 @@ pub use registry::{
     LoadHook, ModuleEntry, ModuleFactory, ModuleInfo, ModuleRegistry, ModuleSource, ModuleState, RegistryError,
     RegistryOptions, WeakRegistry,
 };
-pub use service_library::{ServiceLibrary, service_library};
+pub use service_library::{ServiceLibrary, service_compiled_in, service_library};

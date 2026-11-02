@@ -24,9 +24,15 @@ fn stub_library() -> &'static Path {
             .arg(here.join("tests/stub-plugin/Cargo.toml"))
             .arg("--target-dir")
             .arg(&target)
-            .status()
+            // Not the outer cargo's jobserver or console: a nested build waiting on either hung the tests
+            .env_remove("CARGO_MAKEFLAGS")
+            .env_remove("MAKEFLAGS")
+            .env_remove("MFLAGS")
+            .stdin(std::process::Stdio::null())
+            .output()
             .expect("cargo runs");
-        assert!(status.success(), "the stub plugin builds");
+        let stderr = String::from_utf8_lossy(&status.stderr);
+        assert!(status.status.success(), "the stub plugin builds: {stderr}");
         let name = format!(
             "{}stub_plugin{}",
             std::env::consts::DLL_PREFIX,

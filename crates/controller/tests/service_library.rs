@@ -9,7 +9,8 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use controller::{
-    ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, ServiceLibrary, service_library,
+    ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, ServiceLibrary, service_compiled_in,
+    service_library,
 };
 use module_api::host::file_sha256;
 use module_api::stub::StubModule;
@@ -30,9 +31,15 @@ fn echo_library() -> PathBuf {
                 .arg(here.join("tests/echo-service/Cargo.toml"))
                 .arg("--target-dir")
                 .arg(&target)
-                .status()
+                // Not the outer cargo's jobserver or console: a nested build waiting on either hung the tests
+                .env_remove("CARGO_MAKEFLAGS")
+                .env_remove("MAKEFLAGS")
+                .env_remove("MFLAGS")
+                .stdin(std::process::Stdio::null())
+                .output()
                 .expect("cargo runs");
-            assert!(status.success(), "the echo service builds");
+            let stderr = String::from_utf8_lossy(&status.stderr);
+            assert!(status.status.success(), "the echo service builds: {stderr}");
             let name = format!(
                 "{}echo_service{}",
                 std::env::consts::DLL_PREFIX,
@@ -43,8 +50,24 @@ fn echo_library() -> PathBuf {
         .clone()
 }
 
+/// Aborts the test binary if a test outlives `limit`: a library stuck in its process would otherwise hold CI forever.
+// Dropped at the end of the test, which ends the wait
+struct Watchdog(#[allow(dead_code)] std::sync::mpsc::Sender<()>);
+
+fn watchdog(test: &'static str, limit: Duration) -> Watchdog {
+    let (done, wait) = std::sync::mpsc::channel::<()>();
+    std::thread::spawn(move || {
+        if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) = wait.recv_timeout(limit) {
+            eprintln!("{test} ran past {limit:?}: aborting the test binary");
+            std::process::abort();
+        }
+    });
+    Watchdog(done)
+}
+
 async fn eventually(what: &str, mut check: impl FnMut() -> bool) {
-    for _ in 0..100 {
+    // 30 s: a freshly built library is scanned and loaded slowly on a busy machine
+    for _ in 0..300 {
         if check() {
             return;
         }
@@ -61,22 +84,49 @@ fn lines(file: &Path) -> Vec<String> {
         .collect()
 }
 
+/// The fixture's service itself, for the compiled-in run: the same code its library exports.
+#[path = "echo-service/src/lib.rs"]
+mod echo;
+
+/// How the service is built into the controller: from its library or compiled in.
+enum Built {
+    Library(PathBuf),
+    CompiledIn,
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn a_service_library_runs_reports_takes_registrations_and_stops() {
-    let path = echo_library();
+    let _watchdog = watchdog("the library run", Duration::from_secs(180));
+    exercise(Built::Library(echo_library())).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_same_service_compiled_in_behaves_the_same() {
+    let _watchdog = watchdog("the compiled-in run", Duration::from_secs(180));
+    exercise(Built::CompiledIn).await;
+}
+
+/// The whole script, whichever way the service is built in: both must pass it unchanged.
+async fn exercise(built: Built) {
     let dir = tempfile::tempdir().unwrap();
     let echo_file = dir.path().join("echo.txt");
     let env = Env::from_pairs([("ECHO_FILE", echo_file.to_str().unwrap()), ("ECHO_GREETING", "hi")]);
 
     let mut controller = ServerController::new("private", Vec::new());
     let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
-    let library = ServiceLibrary {
-        name: "echo",
-        sha256: file_sha256(&path).await.unwrap(),
-        path,
-        serves: &[CoreCapability::ContentFiles],
+    let module = match built {
+        Built::Library(path) => {
+            let library = ServiceLibrary {
+                name: "echo",
+                sha256: file_sha256(&path).await.unwrap(),
+                path,
+                serves: &[CoreCapability::ContentFiles],
+            };
+            service_library(library, env, Some(&registry))
+        }
+        Built::CompiledIn => service_compiled_in(echo::Echo::default, env, Some(&registry)),
     };
-    controller.add(service_library(library, env, Some(&registry)));
+    controller.add(module);
     registry
         .add_entry(ModuleEntry {
             id: "stub".parse().unwrap(),

@@ -174,11 +174,85 @@ fn install_logging() {
     });
 }
 
-/// The library side of one open instance: answers the core's messages until it closes the stream.
-pub async fn serve<S: Service>(service: Arc<S>, reader: ChannelReader, mut writer: LibraryWriter) {
+/// The library side of one open instance: answers the core's messages until it closes the stream. Its tracing goes
+/// to the core as log lines.
+pub async fn serve<S: Service>(service: Arc<S>, reader: ChannelReader, writer: LibraryWriter) {
+    serve_with(service, reader, writer, true).await;
+}
+
+/// The same service compiled into the core: the same protocol, over in-memory streams, so it behaves exactly as its
+/// library does. Its tracing is the core's own.
+pub struct InProcess {
+    pub reader: ChannelReader,
+    pub writer: LibraryWriter,
+    to_service: Arc<Mutex<Option<mpsc::UnboundedSender<Vec<u8>>>>>,
+    serving: tokio::task::JoinHandle<()>,
+}
+
+impl InProcess {
+    /// Splits it into the core's streams and what closes it.
+    pub fn split(self) -> (ChannelReader, LibraryWriter, InProcessCloser) {
+        let closer = InProcessCloser {
+            to_service: self.to_service,
+            serving: Arc::new(Mutex::new(Some(self.serving))),
+        };
+        (self.reader, self.writer, closer)
+    }
+}
+
+/// Ends the stream to the service, as closing its library does, and waits for it a moment.
+#[derive(Clone)]
+pub struct InProcessCloser {
+    to_service: Arc<Mutex<Option<mpsc::UnboundedSender<Vec<u8>>>>>,
+    serving: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
+}
+
+impl InProcessCloser {
+    pub async fn close(&self) {
+        drop(self.to_service.lock().unwrap_or_else(PoisonError::into_inner).take());
+        let serving = self.serving.lock().unwrap_or_else(PoisonError::into_inner).take();
+        if let Some(serving) = serving {
+            _ = tokio::time::timeout(std::time::Duration::from_secs(5), serving).await;
+        }
+    }
+}
+
+/// Starts `service` in this process, on the current runtime, behind the protocol its library speaks.
+pub fn in_process<S: Service>(service: Arc<S>) -> InProcess {
+    let (to_core, from_service) = mpsc::unbounded_channel::<Vec<u8>>();
+    let (to_service, from_core) = mpsc::unbounded_channel::<Vec<u8>>();
+    let service_writer: LibraryWriter = module_api::plugin::CallWriter::new(Box::new(move |bytes: &[u8]| {
+        _ = to_core.send(bytes.to_vec());
+    }));
+    let serving = tokio::spawn(serve_with(
+        service,
+        ChannelReader::new(from_core),
+        service_writer,
+        false,
+    ));
+    let to_service = Arc::new(Mutex::new(Some(to_service)));
+    let writer: LibraryWriter = module_api::plugin::CallWriter::new(Box::new({
+        let to_service = to_service.clone();
+        move |bytes: &[u8]| {
+            if let Some(tx) = to_service.lock().unwrap_or_else(PoisonError::into_inner).as_ref() {
+                _ = tx.send(bytes.to_vec());
+            }
+        }
+    }));
+    InProcess {
+        reader: ChannelReader::new(from_service),
+        writer,
+        to_service,
+        serving,
+    }
+}
+
+async fn serve_with<S: Service>(service: Arc<S>, reader: ChannelReader, mut writer: LibraryWriter, forward: bool) {
     let (out, mut outgoing) = mpsc::unbounded_channel::<FromService>();
-    install_logging();
-    *log_sink().lock().unwrap_or_else(PoisonError::into_inner) = Some(out.clone());
+    if forward {
+        install_logging();
+        *log_sink().lock().unwrap_or_else(PoisonError::into_inner) = Some(out.clone());
+    }
     let writing = tokio::spawn(async move {
         while let Some(message) = outgoing.recv().await {
             if write_frame(&mut writer, &message, MAX_FRAME).await.is_err() {
@@ -233,7 +307,13 @@ pub async fn serve<S: Service>(service: Arc<S>, reader: ChannelReader, mut write
         _ = stop.send(true);
         _ = tokio::time::timeout(std::time::Duration::from_secs(5), task).await;
     }
-    log_sink().lock().unwrap_or_else(PoisonError::into_inner).take();
+    if forward {
+        // Only its own: a newer instance of the same library may have taken the sink since
+        let mut sink = log_sink().lock().unwrap_or_else(PoisonError::into_inner);
+        if sink.as_ref().is_some_and(|tx| tx.same_channel(&out)) {
+            sink.take();
+        }
+    }
     drop(out);
     _ = writing.await;
 }
