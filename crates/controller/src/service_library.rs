@@ -27,6 +27,8 @@ use tokio::sync::oneshot;
 
 use crate::{Module, ModuleRegistry, WeakRegistry};
 
+pub mod gateway;
+
 /// How long the library has to say hello, to answer an attach, and to end after Stop.
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 const ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
@@ -44,13 +46,23 @@ pub struct ServiceLibrary {
 
 /// The module that runs the library on `env`, and registers it with `registry` as a core plugin when it serves one.
 pub fn service_library(library: ServiceLibrary, env: Env, registry: Option<&ModuleRegistry>) -> Module {
+    service_library_with(library, env, registry, None)
+}
+
+/// [`service_library`], with `extension` for the service's own messages.
+pub fn service_library_with(
+    library: ServiceLibrary,
+    env: Env,
+    registry: Option<&ModuleRegistry>,
+    extension: Option<Arc<dyn Extension>>,
+) -> Module {
     let ServiceLibrary {
         name,
         path,
         sha256,
         serves,
     } = library;
-    service_module(name, serves, Source::Library { path, sha256 }, env, registry)
+    service_module(name, serves, Source::Library { path, sha256 }, env, registry, extension)
 }
 
 /// The same service compiled into this binary: the [`Service`] its library exports, run over the same protocol on
@@ -60,10 +72,41 @@ pub fn service_compiled_in<S: Service>(
     env: Env,
     registry: Option<&ModuleRegistry>,
 ) -> Module {
+    service_compiled_in_with(make, env, registry, None)
+}
+
+/// [`service_compiled_in`], with `extension` for the service's own messages.
+pub fn service_compiled_in_with<S: Service>(
+    make: impl Fn() -> S + Send + Sync + 'static,
+    env: Env,
+    registry: Option<&ModuleRegistry>,
+    extension: Option<Arc<dyn Extension>>,
+) -> Module {
     let probe = make();
     let (name, serves) = (probe.name(), probe.serves());
     let open = Arc::new(move || service_plugin::in_process(Arc::new(make())));
-    service_module(name, serves, Source::CompiledIn(open), env, registry)
+    service_module(name, serves, Source::CompiledIn(open), env, registry, extension)
+}
+
+/// What a service's own messages need of the core (`gateway`): told of each run, it says what goes before its
+/// Start and before each Attach, and takes the service's messages the base protocol doesn't.
+pub trait Extension: Send + Sync {
+    /// A run opened: what to send before Start.
+    fn opened(&self, run: RunLink) -> Vec<ToService>;
+    fn closed(&self);
+    fn before_attach(&self, module: &ModuleManifest) -> Vec<ToService>;
+    /// Called on the run's reader thread: hand anything slow to a runtime of the core's.
+    fn message(&self, message: FromService);
+}
+
+/// A way to the open instance, for an [`Extension`].
+#[derive(Clone)]
+pub struct RunLink(Arc<Run>);
+
+impl RunLink {
+    pub fn send(&self, message: &ToService) {
+        self.0.send(message);
+    }
 }
 
 fn service_module(
@@ -72,6 +115,7 @@ fn service_module(
     source: Source,
     env: Env,
     registry: Option<&ModuleRegistry>,
+    extension: Option<Arc<dyn Extension>>,
 ) -> Module {
     let shared = Arc::new(Shared {
         name,
@@ -79,6 +123,7 @@ fn service_module(
         source,
         registry: registry.map(ModuleRegistry::downgrade),
         state: Mutex::default(),
+        extension,
     });
     if let Some(registry) = registry
         && !serves.is_empty()
@@ -130,6 +175,7 @@ struct Shared {
     source: Source,
     registry: Option<WeakRegistry>,
     state: Mutex<State>,
+    extension: Option<Arc<dyn Extension>>,
 }
 
 #[derive(Default)]
@@ -154,6 +200,7 @@ struct Run {
     writer: CoreWriter,
     pending: Mutex<HashMap<u64, std::sync::mpsc::Sender<Result<(), ModuleError>>>>,
     next: AtomicU64,
+    extension: Option<Arc<dyn Extension>>,
 }
 
 impl Run {
@@ -178,6 +225,9 @@ impl Run {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(id, tx);
+        for message in self.extension.iter().flat_map(|e| e.before_attach(module)) {
+            self.send(&message);
+        }
         self.send(&ToService::Attach {
             id,
             module: Box::new(module.clone()),
@@ -249,6 +299,7 @@ async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<
         writer,
         pending: Mutex::default(),
         next: AtomicU64::new(1),
+        extension: shared.extension.clone(),
     });
     let (hello_tx, hello_rx) = oneshot::channel();
     let (ended_tx, mut ended_rx) = oneshot::channel();
@@ -263,6 +314,9 @@ async fn run_once(shared: Arc<Shared>, env: Env, ctx: ServiceContext) -> Result<
     };
     let result = drive(&shared, &run, env, ctx, hello_rx, &mut ended_rx).await;
     shared.state().run = None;
+    if let Some(extension) = &shared.extension {
+        extension.closed();
+    }
     closer.close().await;
     _ = tokio::task::spawn_blocking(move || reading.join()).await;
     result
@@ -299,6 +353,9 @@ async fn drive(
     expected.sort();
     if serves != expected {
         return Err(format!("it serves {serves:?}, this core expects {expected:?}"));
+    }
+    for message in shared.extension.iter().flat_map(|e| e.opened(RunLink(run.clone()))) {
+        run.send(&message);
     }
     run.send(&ToService::Start {
         protocol: PROTOCOL_VERSION,
@@ -378,6 +435,10 @@ async fn read_loop(
                     _ = tx.send(result);
                 }
             }
+            message @ FromService::Gateway { .. } => match &run.extension {
+                Some(extension) => extension.message(message),
+                None => break Err(String::from("a message this service may not send")),
+            },
         }
     };
     if let Some(tx) = ended.take() {

@@ -23,6 +23,8 @@ use service_kit::env::Env;
 use tokio::io::BufReader;
 use tokio::sync::{mpsc, watch};
 
+pub mod gateway;
+
 /// Raised when a message changes shape; the core refuses a library speaking any other.
 pub const PROTOCOL_VERSION: u32 = 1;
 
@@ -46,6 +48,10 @@ pub enum ToService {
     },
     Detach {
         module: ModuleId,
+    },
+    /// The gateway library's own (`gateway`)
+    Gateway {
+        message: gateway::ToGateway,
     },
 }
 
@@ -76,6 +82,9 @@ pub enum FromService {
     /// The run ended, on its own or after [`ToService::Stop {}`]
     Ended {
         result: Result<(), String>,
+    },
+    Gateway {
+        message: gateway::FromGateway,
     },
 }
 
@@ -109,6 +118,9 @@ pub trait Service: Send + Sync + 'static {
     }
 
     fn detach(&self, _module: &ModuleId) {}
+
+    /// The gateway's messages from the core; `out` reaches the core for as long as the instance is open.
+    fn gateway(&self, _message: gateway::ToGateway, _out: &gateway::Outbox) {}
 
     /// One run, until `ctx` says stop: what the compiled-in module's start function did.
     fn run(&self, env: Env, ctx: ServiceContext) -> BoxFuture<'static, Result<(), String>>;
@@ -300,6 +312,7 @@ async fn serve_with<S: Service>(service: Arc<S>, reader: ChannelReader, mut writ
                 service.detach(&module);
                 dirs.remove(&module);
             }
+            ToService::Gateway { message } => service.gateway(message, &gateway::Outbox(out.clone())),
         }
     }
     // The core closed the stream: the run stops as it would on Stop
