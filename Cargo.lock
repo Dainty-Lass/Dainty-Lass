@@ -638,6 +638,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "content-plugin"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "content",
+ "controller",
+ "module-api",
+ "serde_json",
+ "service-kit",
+ "service-plugin",
+ "sha2",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "controller"
 version = "0.0.0"
 dependencies = [

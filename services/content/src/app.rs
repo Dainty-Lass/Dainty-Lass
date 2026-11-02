@@ -512,8 +512,8 @@ impl AppState {
         let found = blocking(move || modules.epic_manifest(&version))
             .await
             .unwrap_or_else(|| Err(EpicManifestError::Unavailable("manifest check failed".to_owned())));
-        let manifest = match found {
-            Ok(manifest) => manifest,
+        let (bytes, sha1) = match found {
+            Ok(found) => found,
             Err(EpicManifestError::UnknownVersion) => return Reply::error(StatusCode::NOT_FOUND, "unknown_version"),
             Err(EpicManifestError::NotServed) => return Reply::error(StatusCode::NOT_FOUND, "no_epic_manifest"),
             Err(EpicManifestError::Unavailable(reason)) => {
@@ -529,11 +529,11 @@ impl AppState {
                 return error_with_reason(ctx, StatusCode::SERVICE_UNAVAILABLE, "epic_manifest_invalid", &reason);
             }
         };
-        let etag = format!("\"{}\"", manifest.sha1);
+        let etag = format!("\"{sha1}\"");
         if if_none_match_hits(condition, &etag) {
             return Reply::not_modified(&etag);
         }
-        let length = manifest.bytes.len() as u64;
+        let length = bytes.len() as u64;
         let download = |reply: Reply| {
             reply
                 .header(http::header::ETAG, etag.clone())
@@ -549,7 +549,7 @@ impl AppState {
         };
         let mut reply = download(Reply::new(StatusCode::OK))
             .header(http::header::CACHE_CONTROL, DOWNLOAD_CACHE)
-            .with(Content::Full(manifest.bytes));
+            .with(Content::Full(bytes));
         reply.slot = Some(slot);
         reply.expected = Some(length);
         reply

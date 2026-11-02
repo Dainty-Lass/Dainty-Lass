@@ -46,7 +46,7 @@ pub async fn run(config: Config) -> Result<(), String> {
 }
 
 pub async fn run_with_context(config: Config, ctx: ServiceContext) -> Result<(), String> {
-    run_with_modules(config, ctx, Arc::new(ContentModules::none())).await
+    run_with_modules(config, ctx, Arc::new(ContentModules::default())).await
 }
 
 /// Serves until `ctx` says stop, with what the controller attached to `modules`.
@@ -99,7 +99,7 @@ pub async fn run_with_modules(
 
 /// Everything up to listening, with no modules attached.
 pub fn prepare(config: &Config) -> AppState {
-    prepare_with_modules(config, Arc::new(ContentModules::none()))
+    prepare_with_modules(config, Arc::new(ContentModules::default()))
 }
 
 /// [`prepare`], serving what is attached to `modules`.

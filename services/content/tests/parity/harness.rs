@@ -48,12 +48,6 @@ pub fn fixtures() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../content/tests/parity")
 }
 
-/// Whether `name`'s script and recording are in place (the integration pass copies the recorded ones in).
-pub fn present(name: &str) -> bool {
-    let dir = fixtures();
-    dir.join(format!("{name}.requests.json")).is_file() && dir.join(format!("{name}.expected.json")).is_file()
-}
-
 fn read_json(path: &Path) -> Value {
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
     serde_json::from_str(text.trim_start_matches('\u{feff}')).unwrap_or_else(|e| panic!("{}: {e}", path.display()))

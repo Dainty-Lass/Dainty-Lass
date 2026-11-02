@@ -29,33 +29,24 @@ async fn launch(env: Vec<(String, String)>) -> Server {
     }
 }
 
-/// The recorded scripts arrive with the integration pass (spec section 1.2); until then they are skipped, loudly.
-async fn script(name: &str) {
-    if !harness::present(name) {
-        eprintln!("SKIPPED: the parity fixtures for {name} are not in tests/parity yet");
-        return;
-    }
-    harness::run(name, launch).await;
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn content() {
-    script("content").await;
+    harness::run("content", launch).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn content_none() {
-    script("content-none").await;
+    harness::run("content-none", launch).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn content_invalid() {
-    script("content-invalid").await;
+    harness::run("content-invalid", launch).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn content_index() {
-    script("content-index").await;
+    harness::run("content-index", launch).await;
 }
 
 /// A script written for this rewrite from the spec alone, so the harness itself is exercised.

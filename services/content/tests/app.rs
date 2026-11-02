@@ -188,7 +188,7 @@ async fn manifest_open_files_keyed_nothing_else() {
     std::fs::create_dir_all(&runtime).unwrap();
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", &runtime)],
-        Arc::new(ContentModules::none()),
+        Arc::new(ContentModules::default()),
     )
     .await;
     let none = get(server.port, "/content/v1/runtime/manifest").await;
@@ -199,7 +199,7 @@ async fn manifest_open_files_keyed_nothing_else() {
     std::fs::write(runtime.join("dxgi.dll"), b"x").unwrap();
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", &runtime)],
-        Arc::new(ContentModules::none()),
+        Arc::new(ContentModules::default()),
     )
     .await;
     let manifest = get(server.port, "/content/v1/runtime/manifest").await;
@@ -235,7 +235,7 @@ async fn stream_limits() {
             ("CONTENT_MAX_STREAMS_PER_ACCOUNT", "2".into()),
             ("CONTENT_MAX_STREAMS_TOTAL", "3".into()),
         ],
-        Arc::new(ContentModules::none()),
+        Arc::new(ContentModules::default()),
     )
     .await;
     let file = "/content/v1/runtime/files/Rustic-Isles.dll";
@@ -282,7 +282,7 @@ async fn a_file_changed_under_the_list() {
     publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm")]);
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
-        Arc::new(ContentModules::none()),
+        Arc::new(ContentModules::default()),
     )
     .await;
     let file = "/content/v1/runtime/files/winmm.dll";
@@ -299,7 +299,7 @@ async fn a_file_changed_under_the_list() {
     publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm")]);
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
-        Arc::new(ContentModules::none()),
+        Arc::new(ContentModules::default()),
     )
     .await;
     std::fs::write(tmp.path().join("winmm.dll"), b"winmm!").unwrap();
@@ -319,7 +319,7 @@ async fn versioned_runtimes() {
     );
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
-        Arc::new(ContentModules::none()),
+        Arc::new(ContentModules::default()),
     )
     .await;
     let own = get(server.port, "/content/v1/runtime/manifest").await;
@@ -506,7 +506,7 @@ async fn l1_the_download_line_and_no_key_anywhere() {
     publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm")]);
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
-        Arc::new(ContentModules::none()),
+        Arc::new(ContentModules::default()),
     )
     .await;
     let key = "RRK_logged-secret";
