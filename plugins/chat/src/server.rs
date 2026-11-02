@@ -511,7 +511,7 @@ impl Chat {
     }
 
     /// The task: events in order, a tick a second when asked for, until shutdown or every sender is gone.
-    pub(crate) async fn run(mut self, mut events: mpsc::Receiver<Event>) {
+    pub(crate) async fn run(mut self, mut events: mpsc::UnboundedReceiver<Event>) {
         let second = Duration::from_secs(1);
         let mut ticker = tokio::time::interval_at(tokio::time::Instant::now() + second, second);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -938,9 +938,9 @@ impl Chat {
             return self.refuse_login(id, "temporary-auth-failure", "throttled", Some(&authcid));
         }
         let login = Login {
-            authcid: authcid.clone(),
-            token,
-            domain: domain.clone(),
+            authcid: &authcid,
+            token: &token,
+            domain: &domain,
         };
         let host = self.host.clone();
         let player = match host.login(login).await {
@@ -971,7 +971,7 @@ impl Chat {
         };
         if let Err(e) = self
             .history
-            .remember_account(&authcid, &player.account, &player.module, jid.domain(), now)
+            .remember_account(&authcid, &account_text, player.module.as_str(), jid.domain(), now)
             .await
         {
             warn!("chat: could not remember the account c={id} uid={authcid}: {e}");
@@ -1298,7 +1298,8 @@ impl Chat {
             return Self::whisper_refused(&uid, shown_target, length, "blocked");
         }
         let mid = format!("dm-{}", random_hex(16));
-        let (verdict, shown) = self.options.moderation.rate(&body, Channel::Direct);
+        let rated = self.options.moderation.rate(&body, Channel::Direct);
+        let (verdict, shown) = (rated.verdict, rated.shown);
         self.options.moderation.record(Line {
             id: mid.clone(),
             at: now,
@@ -1348,9 +1349,9 @@ impl Chat {
         let elsewhere = self.federation.is_federated() && recipient.owner() != &self.node.node;
         let delivered_at = (delivered || elsewhere).then_some(now);
         let stored = NewDirect {
-            sender: sender.clone(),
+            sender: sender.to_string(),
             sender_local: uid.clone(),
-            recipient: recipient.clone(),
+            recipient: recipient.to_string(),
             body: shown.clone(),
             stanza_id: message_id.clone(),
             at: now,
@@ -1411,7 +1412,7 @@ impl Chat {
     pub(crate) async fn report(
         &mut self,
         id: u64,
-        command: Result<crate::moderation::ParsedReport, String>,
+        command: Result<(String, &'static str, String), ()>,
         kind: &str,
         from: String,
         room_key: Option<String>,
@@ -1426,40 +1427,37 @@ impl Chat {
             Ok(_) if !self.log_once.check(&format!("report|{uid}"), REPORT_WINDOW, now) => {
                 "Please wait a little before sending another report."
             }
-            Ok(parsed) => {
+            Ok((target, category, description)) => {
                 let target_uid = self
                     .sessions
                     .values()
                     .find(|s| {
-                        s.uid.as_deref() == Some(parsed.target.as_str())
-                            || s.name
-                                .as_deref()
-                                .is_some_and(|n| n.eq_ignore_ascii_case(&parsed.target))
+                        s.uid.as_deref() == Some(target.as_str())
+                            || s.name.as_deref().is_some_and(|n| n.eq_ignore_ascii_case(&target))
                     })
                     .and_then(|s| s.uid.clone());
-                let category = parsed.category.clone();
                 let report = crate::moderation::Report {
                     id: format!("report-{}", random_hex(16)),
-                    source: String::from("game"),
+                    source: "game",
                     reporter: Person {
                         user_id: uid.clone(),
                         name,
                     },
                     target: crate::moderation::TargetPerson {
                         user_id: target_uid,
-                        name: parsed.target,
+                        name: target,
                     },
-                    category: parsed.category,
-                    description: parsed.description,
+                    category,
+                    description,
                     context: crate::moderation::ReportContext {
                         room_id: room_key,
                         at: now,
                     },
                 };
-                let queued = self.options.moderation.report(report).await;
+                let queued = self.options.moderation.report(report);
                 info!(
                     "chat: report c={id} uid={uid} category={} queued={queued}",
-                    log_text(&category, 32)
+                    log_text(category, 32)
                 );
                 if queued {
                     "Report sent. Thank you."
@@ -1510,7 +1508,12 @@ impl Chat {
             session.uid_or_dash().to_owned(),
         );
         let mut total = 0;
-        match self.history.pending_for(&account, self.settings.offline_batch).await {
+        let account_text = account.to_string();
+        match self
+            .history
+            .pending_for(&account_text, self.settings.offline_batch)
+            .await
+        {
             Ok(waiting) => {
                 let mut ids = Vec::with_capacity(waiting.len());
                 for message in waiting {
@@ -1532,7 +1535,7 @@ impl Chat {
                     total += 1;
                 }
                 if !ids.is_empty()
-                    && let Err(e) = self.history.mark_delivered(&account, &ids, now).await
+                    && let Err(e) = self.history.mark_delivered(&account_text, ids, now).await
                 {
                     error!("chat: could not mark messages delivered uid={uid}: {e}");
                 }
@@ -1552,9 +1555,9 @@ impl Chat {
                     continue;
                 }
                 let stored = NewDirect {
-                    sender: message.from.clone(),
+                    sender: message.from.to_string(),
                     sender_local: message.from_local.clone(),
-                    recipient: message.to.clone(),
+                    recipient: message.to.to_string(),
                     body: message.body.clone(),
                     stanza_id: message.stanza_id.clone(),
                     at: message.at,

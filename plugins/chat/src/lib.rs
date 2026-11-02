@@ -16,7 +16,6 @@ pub mod naming;
 pub mod nick;
 pub mod redact;
 pub mod server;
-pub mod service;
 pub mod settings;
 pub mod xmpp;
 
@@ -44,8 +43,6 @@ pub use settings::{NickCheck, Settings};
 use crate::connection::Shared;
 use crate::server::{Chat, Event, Parts};
 
-/// Events waiting for the chat task
-const QUEUE: usize = 4096;
 /// How long the listener waits for its requests once told to stop
 const DRAIN: Duration = Duration::from_secs(1);
 
@@ -101,7 +98,7 @@ impl ChatPlugin {
             settings.host,
             settings.nick_check.as_str()
         );
-        let (events, receiver) = mpsc::channel(QUEUE);
+        let (events, receiver) = mpsc::unbounded_channel();
         federation.attach(events.clone(), history.clone(), host.clone(), options.clock.clone());
         let largest_backlog = Arc::new(AtomicUsize::new(0));
         let chat = Chat::new(Parts {
@@ -206,7 +203,7 @@ impl Running {
     }
 
     pub async fn stop(self) {
-        _ = self.shared.events.send(Event::Shutdown).await;
+        _ = self.shared.events.send(Event::Shutdown);
         _ = self.task.await;
         _ = self.stop.send(());
         _ = self.server.await;

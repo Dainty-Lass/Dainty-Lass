@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The clean-room rewrite's own black-box tests (RD27), over real sockets. They run on the Category A stubs
-//! (`History::memory`, the stub `naming`); the integration pass drops this file once `tests/chat.rs` moves in.
+//! The clean-room rewrite's own black-box tests (RD27), over real sockets: ghost replacement and the loopback
+//! `/__chat/*` API, which `tests/chat.rs` doesn't reach.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::HashMap;
@@ -29,9 +29,9 @@ struct Host {
 }
 
 impl ChatHost for Host {
-    fn login(&self, login: Login) -> BoxFuture<'_, Result<Player, LoginRefusal>> {
+    fn login<'a>(&'a self, login: Login<'a>) -> BoxFuture<'a, Result<Player, LoginRefusal>> {
         Box::pin(async move {
-            match self.accounts.get(&login.authcid) {
+            match self.accounts.get(login.authcid) {
                 Some((account, name)) if login.token == "good" => Ok(Player {
                     account: account.clone(),
                     module: "stub".parse().unwrap(),
@@ -55,6 +55,7 @@ impl ChatHost for Host {
 struct Server {
     running: chat::Running,
     accounts: HashMap<String, GlobalId>,
+    _dir: tempfile::TempDir,
 }
 
 async fn server() -> Server {
@@ -74,13 +75,21 @@ async fn server() -> Server {
         auto_tick: false,
         ..Options::default()
     };
+    let dir = tempfile::tempdir().unwrap();
+    let database = History::beside(&store::DatabaseConfig::Sqlite {
+        file: dir.path().join("game.db"),
+    });
+    let history = tokio::task::spawn_blocking(move || History::open(&database))
+        .await
+        .unwrap()
+        .unwrap();
     let running = ChatPlugin::new()
         .start(
             &settings,
             node,
             Arc::new(Host { accounts }),
             Arc::new(LocalOnly),
-            History::memory(),
+            history,
             options,
         )
         .await
@@ -88,6 +97,7 @@ async fn server() -> Server {
     Server {
         running,
         accounts: known,
+        _dir: dir,
     }
 }
 
@@ -330,11 +340,13 @@ async fn whispers_wait_for_the_next_login_and_mutes_hold() {
     ));
     let cy_account = &server.accounts["UID-cy"];
     let ada_account = &server.accounts["UID-ada"];
+    // The bind is marked delivered after its stanzas go out; a tick queues behind it
+    server.running.tick().await;
     assert!(
         server
             .running
             .history()
-            .pending_for(cy_account, 10)
+            .pending_for(&cy_account.to_string(), 10)
             .await
             .unwrap()
             .is_empty()
@@ -348,7 +360,7 @@ async fn whispers_wait_for_the_next_login_and_mutes_hold() {
     let both = server
         .running
         .history()
-        .direct_between(ada_account, cy_account, 10)
+        .direct_between(&ada_account.to_string(), &cy_account.to_string(), 10)
         .await
         .unwrap();
     assert_eq!(both.len(), 2);
@@ -365,7 +377,7 @@ async fn whispers_wait_for_the_next_login_and_mutes_hold() {
 
     // Party rooms keep history; a muted player is not heard
     let party = GlobalId::new(IdKind::Party, &NodeId::new("local").unwrap());
-    let room = format!("Party-{}", party.ulid());
+    let room = format!("Party-{}", chat::naming::room_id_text(&party));
     ada.send(&join(&room, &nick("Ada", "UID-ada"))).await;
     ada.expect("110").await;
     ada.send(&say(&room, "p1", "one")).await;

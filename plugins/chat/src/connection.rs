@@ -85,7 +85,7 @@ pub fn client_address(peer: SocketAddr, headers: &HeaderMap, secret: Option<&str
 
 /// What the listener's handlers share with `Running`.
 pub(crate) struct Shared {
-    pub(crate) events: mpsc::Sender<Event>,
+    pub(crate) events: mpsc::UnboundedSender<Event>,
     pub(crate) history: History,
     pub(crate) host: Arc<dyn ChatHost>,
     pub(crate) federation: Arc<dyn Federation>,
@@ -96,7 +96,7 @@ pub(crate) struct Shared {
 
 impl Shared {
     pub(crate) fn new(
-        events: mpsc::Sender<Event>,
+        events: mpsc::UnboundedSender<Event>,
         history: History,
         host: Arc<dyn ChatHost>,
         federation: Arc<dyn Federation>,
@@ -130,33 +130,27 @@ impl Shared {
             at: now_ms(),
         };
         self.history.set_mute(mute.clone(), actor.clone()).await?;
-        _ = self
-            .events
-            .send(Event::Muted {
-                account: account.clone(),
-                mute: Some(mute.clone()),
-            })
-            .await;
+        _ = self.events.send(Event::Muted {
+            account: account.clone(),
+            mute: Some(mute.clone()),
+        });
         self.federation.set_mute(account, Some(mute), actor).await;
         Ok(())
     }
 
     pub(crate) async fn unmute(&self, account: &GlobalId, actor: Actor) -> Result<bool, store::Error> {
         let had = self.history.clear_mute(&account.to_string(), actor.clone()).await?;
-        _ = self
-            .events
-            .send(Event::Muted {
-                account: account.clone(),
-                mute: None,
-            })
-            .await;
+        _ = self.events.send(Event::Muted {
+            account: account.clone(),
+            mute: None,
+        });
         self.federation.set_mute(account, None, actor).await;
         Ok(had)
     }
 
     pub(crate) async fn tick(&self) {
         let (done, wait) = oneshot::channel();
-        if self.events.send(Event::Tick { done }).await.is_ok() {
+        if self.events.send(Event::Tick { done }).is_ok() {
             _ = wait.await;
         }
     }
@@ -235,7 +229,7 @@ async fn upgrade(
     }
     let (address, via) = client_address(info.peer, &headers, shared.secret.as_deref());
     let (reply, admitted) = oneshot::channel();
-    let asked = shared.events.send(Event::Admit { address, reply }).await.is_ok();
+    let asked = shared.events.send(Event::Admit { address, reply }).is_ok();
     if !asked || !admitted.await.unwrap_or(false) {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -273,7 +267,7 @@ async fn connection(shared: Arc<Shared>, socket: WebSocket, address: IpAddr, via
         writer,
         reply,
     };
-    if shared.events.send(open).await.is_err() {
+    if shared.events.send(open).is_err() {
         end.mark_closed();
         return;
     }
@@ -301,11 +295,11 @@ async fn connection(shared: Arc<Shared>, socket: WebSocket, address: IpAddr, via
                 let gone = match message {
                     Some(Ok(Message::Text(text))) => {
                         let frame = Event::Frame { session: id, text: text.as_str().to_owned() };
-                        shared.events.send(frame).await.is_err().then_some(false)
+                        shared.events.send(frame).is_err().then_some(false)
                     }
                     Some(Ok(Message::Binary(bytes))) => {
                         let text = String::from_utf8_lossy(&bytes).into_owned();
-                        shared.events.send(Event::Frame { session: id, text }).await.is_err().then_some(false)
+                        shared.events.send(Event::Frame { session: id, text }).is_err().then_some(false)
                     }
                     Some(Ok(Message::Ping(_) | Message::Pong(_))) => None,
                     Some(Ok(Message::Close(_))) | None => Some(false),
@@ -313,7 +307,7 @@ async fn connection(shared: Arc<Shared>, socket: WebSocket, address: IpAddr, via
                 };
                 if let Some(too_large) = gone {
                     reading = false;
-                    _ = shared.events.send(Event::Gone { session: id, too_large }).await;
+                    _ = shared.events.send(Event::Gone { session: id, too_large });
                     deadline.get_or_insert_with(|| tokio::time::Instant::now() + LINGER);
                 }
             }
@@ -347,13 +341,10 @@ async fn connection(shared: Arc<Shared>, socket: WebSocket, address: IpAddr, via
         }
     }
     if reading {
-        _ = shared
-            .events
-            .send(Event::Gone {
-                session: id,
-                too_large: false,
-            })
-            .await;
+        _ = shared.events.send(Event::Gone {
+            session: id,
+            too_large: false,
+        });
     }
     _ = tokio::time::timeout(FLUSH, sink.flush()).await;
     drop(sink);
@@ -434,7 +425,11 @@ async fn history_direct(State(shared): State<Arc<Shared>>, Query(params): Params
     let Some(b) = shared.resolve(b).await else {
         return error(StatusCode::NOT_FOUND, "account b not found");
     };
-    match shared.history.direct_between(&a, &b, limit).await {
+    match shared
+        .history
+        .direct_between(&a.to_string(), &b.to_string(), limit)
+        .await
+    {
         Ok(messages) => answer(
             StatusCode::OK,
             json!({ "a": a.to_string(), "b": b.to_string(), "messages": messages }),
@@ -450,7 +445,7 @@ async fn history_waiting(State(shared): State<Arc<Shared>>, Query(params): Param
     let Some(account) = shared.resolve(key).await else {
         return error(StatusCode::NOT_FOUND, "account not found");
     };
-    match shared.history.pending_for(&account, 50).await {
+    match shared.history.pending_for(&account.to_string(), 50).await {
         Ok(messages) => answer(
             StatusCode::OK,
             json!({ "account": account.to_string(), "messages": messages }),

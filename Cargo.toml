@@ -27,6 +27,8 @@ members = [
     "plugins/network",
     # The chat core plugin: XMPP for the game's client (DN10, RD27 clean-room rewrite)
     "plugins/chat",
+    # Chat as a library the core loads (RD27)
+    "plugins/chat-plugin",
     # The MIT core server: admin and remote built in, the other services libraries (RD27)
     "bins/dainty-lass-server",
 ]

@@ -348,7 +348,7 @@ impl Chat {
                 self.remember_mid(&message.mid);
                 let stored = NewRoom {
                     room: key.clone(),
-                    sender: message.from,
+                    sender: message.from.to_string(),
                     nick: message.nick,
                     body: message.body,
                     stanza_id: message.stanza_id,
@@ -577,7 +577,8 @@ impl Chat {
         }
         let mid = format!("rm-{}", random_hex(16));
         let channel = channel_of(&kind);
-        let (verdict, shown) = self.options.moderation.rate(&body, channel);
+        let rated = self.options.moderation.rate(&body, channel);
+        let (verdict, shown) = (rated.verdict, rated.shown);
         self.options.moderation.record(Line {
             id: mid.clone(),
             at: now,
@@ -616,7 +617,7 @@ impl Chat {
         if own.rules.history {
             let stored = NewRoom {
                 room: key.clone(),
-                sender: sender.clone(),
+                sender: sender.to_string(),
                 nick: own.nick.clone(),
                 body: shown.clone(),
                 stanza_id: id.clone(),
@@ -710,7 +711,7 @@ impl Chat {
         if message.history || occupants.iter().any(|o| o.rules.history) {
             let stored = NewRoom {
                 room: room_key(&message.room),
-                sender: message.from.clone(),
+                sender: message.from.to_string(),
                 nick: message.nick.clone(),
                 body: message.body.clone(),
                 stanza_id: message.stanza_id.clone(),
