@@ -335,7 +335,7 @@ export function mockLauncher(): LauncherApi {
       },
       {
         date: "2026-10-24",
-        title: "Server moved to Dainty Lass",
+        title: "Server moved to DaintyLass",
         body: "Your account key carries over; paste the new invite once.",
       },
     ],

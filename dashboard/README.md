@@ -1,6 +1,6 @@
 # dainty-dashboard
 
-The Dainty Lass user interfaces on one theme: a **remote management dashboard** for a server's staff, the
+The DaintyLass user interfaces on one theme: a **remote management dashboard** for a server's staff, the
 **launcher** page players use, and the **server manager** page hosts use. All three are Astryx on Next.js
 (through vinext) on Bun, and share `@dainty/theme`.
 
@@ -95,4 +95,4 @@ bun run lint
 
 ## Licence
 
-AGPL-3.0-only, as the rest of Dainty Lass ([LICENSE](LICENSE)).
+AGPL-3.0-only, as the rest of DaintyLass ([LICENSE](LICENSE)).

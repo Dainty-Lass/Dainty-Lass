@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { DesktopProviders } from "@/components/DesktopProviders";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Dainty Lass" };
+export const metadata: Metadata = { title: "DaintyLass" };
 export const viewport: Viewport = { colorScheme: "light dark" };
 
 // Static: the Tauri shell serves this file, so nothing here may read a request.

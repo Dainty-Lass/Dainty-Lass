@@ -1,7 +1,7 @@
 {
   "common": {
     "appTitle": "{server} dashboard",
-    "metaDescription": "Remote management for a Dainty Lass server",
+    "metaDescription": "Remote management for a DaintyLass server",
     "refresh": "Refresh",
     "open": "Open",
     "cancel": "Cancel",
@@ -393,7 +393,7 @@
       "liftTimeout": "{name}'s timeout is lifted"
     },
     "banEverywhere": "Ban on every controller",
-    "banEverywhereHint": "Each reachable controller with an account of this name bans it, each recorded and undoable on its own.",
+    "banEverywhereHint": "Every controller that can be reached and has an account with this name bans it. Each ban is recorded and can be undone on its own.",
     "fleetDone": "{done, plural, =0 {Banned on no controller} one {Banned on # controller} other {Banned on # controllers}} of {total}.{absent, plural, =0 {} one { # has no such account.} other { # have no such account.}}{missed, plural, =0 {} one { # could not be reached or refused:} other { # could not be reached or refused:}}"
   },
   "reports": {
@@ -719,7 +719,7 @@
     "requireApproval": "Ask newcomers to accept the terms",
     "requireApprovalHint": "Users who are not approved see a welcome page first. Moderators and above never do.",
     "tos": "Server terms",
-    "tosHint": "Markdown. Currently version {version}; saving a change makes a new version, and everyone approved by accepting is asked again.",
+    "tosHint": "Markdown. Currently version {version}; saving a change makes a new version, and everyone who was approved by accepting the terms is asked again.",
     "botMissing": "DASHBOARD_DISCORD_BOT_TOKEN is not set, so accepting the terms cannot add the approved role in Discord."
   },
   "errors": {
@@ -912,7 +912,7 @@
     "title": "Performance",
     "updated": "Updated",
     "none": "No metrics yet",
-    "noneHint": "The admin service's /metrics has not answered. It needs a Dainty Lass server that serves metrics and the admin key; another controller also needs an agent recent enough to report them.",
+    "noneHint": "The admin service's /metrics has not answered. It needs a DaintyLass server that serves metrics and the admin key; another controller also needs an agent recent enough to report them.",
     "requests": "Requests",
     "requestsLabel": "Requests per minute over the last hour, with server errors in red",
     "cpu": "CPU",

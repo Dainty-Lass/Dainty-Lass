@@ -1,4 +1,4 @@
-# Wiring the dashboard and the pages into a Dainty Lass server
+# Wiring the dashboard and the pages into a DaintyLass server
 
 What the dashboard needs from the server, the API the server's backend uses to send it chat and reports,
 and where the launcher and server manager pages plug into the Tauri shells.
@@ -10,7 +10,7 @@ Everything a person tunes lives in the database instead (Settings in the dashboa
 
 | Variable                                           | From                                                  | What                                                             |
 | -------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`               | Bearer key for the admin service's GraphQL and `/metrics`         |
+| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`               | Bearer key for the admin service's GraphQL and `/metrics`        |
 | `DASHBOARD_MANAGER_OPERATOR_SECRET`                | `secrets.env`: `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | Signs calls to the backend's `/admin/v1` as the manager operator |
 | `DASHBOARD_ADMIN_API_URL`, `DASHBOARD_BACKEND_URL` |                                                       | Defaults are the host kit's loopback ports                       |
 | `DASHBOARD_INGEST_KEY`                             | new: 32+ random characters                            | What the backend sends with chat and reports                     |

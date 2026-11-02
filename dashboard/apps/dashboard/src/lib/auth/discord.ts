@@ -65,7 +65,7 @@ export async function addGuildRole(
       method: "PUT",
       headers: {
         Authorization: `Bot ${config.discord.botToken}`,
-        "X-Audit-Log-Reason": "Accepted the server terms in the Dainty Lass dashboard",
+        "X-Audit-Log-Reason": "Accepted the server terms in the DaintyLass dashboard",
       },
       signal: AbortSignal.timeout(10_000),
     },
