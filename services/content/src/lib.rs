@@ -16,6 +16,7 @@ pub mod modules;
 pub mod news;
 pub mod runtime;
 pub mod server;
+pub mod service;
 
 /// Milliseconds since 1970.
 pub fn now_ms() -> i64 {

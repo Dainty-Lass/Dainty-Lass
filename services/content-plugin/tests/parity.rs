@@ -8,7 +8,7 @@ mod harness;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use controller::{ServiceLibrary, service_library};
+use controller::{Module, ServiceLibrary, service_compiled_in, service_library};
 use harness::Server;
 use module_api::CoreCapability;
 use module_api::host::file_sha256;
@@ -27,7 +27,31 @@ fn library() -> PathBuf {
     profile.join(name)
 }
 
-async fn through_library(mut pairs: Vec<(String, String)>) -> Server {
+/// A free port for PORT, which refuses 0, and the env with it.
+fn with_port(mut pairs: Vec<(String, String)>) -> (u16, Env) {
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    pairs.push(("PORT".into(), port.to_string()));
+    (
+        port,
+        Env::from_pairs(pairs.iter().map(|(k, v)| (k.as_str(), v.as_str()))),
+    )
+}
+
+/// The same service compiled in, as `host::compose::content` runs it: every script must pass both ways.
+async fn compiled_in(pairs: Vec<(String, String)>) -> Server {
+    let (port, env) = with_port(pairs);
+    run(
+        service_compiled_in(content::service::ContentService::default, env, None),
+        port,
+    )
+    .await
+}
+
+async fn through_library(pairs: Vec<(String, String)>) -> Server {
     let path = library();
     // A cdylib is not built for its own tests, and a nested cargo would wait on this one's lock
     assert!(
@@ -35,21 +59,18 @@ async fn through_library(mut pairs: Vec<(String, String)>) -> Server {
         "{} is missing: run `cargo build -p content-plugin` before the tests (CI does)",
         path.display()
     );
-    // PORT refuses 0: a free one, found first
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port();
-    pairs.push(("PORT".into(), port.to_string()));
-    let env = Env::from_pairs(pairs.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+    let (port, env) = with_port(pairs);
     let library = ServiceLibrary {
         name: "content",
         sha256: file_sha256(&path).await.unwrap(),
         path,
         serves: &[CoreCapability::ContentFiles],
     };
-    let module = service_library(library, env, None);
+    run(service_library(library, env, None), port).await
+}
+
+/// Runs `module` until it is ready, as the controller would.
+async fn run(module: Module, port: u16) -> Server {
     let status = StatusRegistry::default();
     let (ctx, stop) = status.service_context("content");
     let running = tokio::spawn((module.start)(ctx));
@@ -80,20 +101,24 @@ async fn through_library(mut pairs: Vec<(String, String)>) -> Server {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn content() {
+    harness::run("content", compiled_in).await;
     harness::run("content", through_library).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn content_none() {
+    harness::run("content-none", compiled_in).await;
     harness::run("content-none", through_library).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn content_invalid() {
+    harness::run("content-invalid", compiled_in).await;
     harness::run("content-invalid", through_library).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn content_index() {
+    harness::run("content-index", compiled_in).await;
     harness::run("content-index", through_library).await;
 }

@@ -14,8 +14,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 content.workspace = true
+# export_service! names them
 module-api.workspace = true
-service-kit.workspace = true
 service-plugin.workspace = true
 
 [dev-dependencies]

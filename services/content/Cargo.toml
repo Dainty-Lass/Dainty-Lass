@@ -27,6 +27,8 @@ rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 service-kit.workspace = true
+# The service the core runs, compiled in or from content-plugin (RD27)
+service-plugin.workspace = true
 sha1.workspace = true
 sha2.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", "sync", "signal", "io-util"] }

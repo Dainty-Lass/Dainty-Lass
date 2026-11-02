@@ -611,31 +611,16 @@ pub fn network_with_sink(
 #[cfg(all(feature = "gateway", not(feature = "allowlist")))]
 pub type AllowlistSlot = Arc<std::sync::Mutex<Option<Arc<gateway::allowlist::helper::Helper>>>>;
 
-/// The content server (`content.env`).
+/// The content server (`content.env`), compiled in: `content::service::ContentService`, the same service
+/// `content-plugin` exports, run over the same protocol (RD27).
 #[cfg(feature = "content")]
 pub fn content(env: &Env, registry: Option<controller::ModuleRegistry>) -> Result<Module, String> {
-    let config = content::config::Config::from_env(env)?;
-    let modules = Arc::new(match &registry {
-        Some(registry) => content::modules::ContentModules::new(Arc::new(ContentView(registry.downgrade()))),
-        None => content::modules::ContentModules::default(),
-    });
-    if let Some(registry) = &registry {
-        registry.add_plugin(modules.clone());
-    }
-    content_module(config, modules)
-}
-
-#[cfg(feature = "content")]
-fn content_module(
-    config: content::config::Config,
-    modules: Arc<content::modules::ContentModules>,
-) -> Result<Module, String> {
-    Ok(Module::new(
-        "content",
-        Arc::new(move |ctx| {
-            let (config, modules) = (config.clone(), modules.clone());
-            Box::pin(async move { content::server::run_with_modules(config, ctx, modules).await })
-        }),
+    // Refused here, as before, rather than when the module starts
+    content::config::Config::from_env(env)?;
+    Ok(controller::service_compiled_in(
+        content::service::ContentService::default,
+        env.clone(),
+        registry.as_ref(),
     )
     .optional()
     .ready_within(std::time::Duration::from_secs(60)))
@@ -651,17 +636,6 @@ pub fn content_library(
     controller::service_library(library, env.clone(), registry.as_ref())
         .optional()
         .ready_within(std::time::Duration::from_secs(60))
-}
-
-/// Where a module's files are, for content (DF4b): the folder its executable is in.
-#[cfg(feature = "content")]
-struct ContentView(controller::WeakRegistry);
-
-#[cfg(feature = "content")]
-impl content::modules::RegistryView for ContentView {
-    fn module_dir(&self, module: &module_api::ModuleId) -> Option<std::path::PathBuf> {
-        self.0.upgrade()?.module_dir(module)
-    }
 }
 
 /// Where a module listens, for the gateway (DF4a): the port the controller gave it, on loopback. The
