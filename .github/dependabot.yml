@@ -1,6 +1,6 @@
 # Dependency update pull requests, kept few (MIGRATION_PLAN.md RR4, DR's policy from X6):
 #  - GitHub Actions: weekly, every update in one pull request (the actions stay pinned by commit).
-#  - npm and cargo: monthly for each package folder (for cargo, the rust/ workspace); minor and patch updates of a
+#  - npm and cargo: monthly for each package folder (for cargo, the root workspace); minor and patch updates of a
 #    folder come as one pull request. Major updates are never grouped: each one (Electron's included) is its own
 #    pull request, so it can be tested on its own.
 # A release has to be at least a week old before it is proposed. Rustic Isles's npm packages are rustic-isles'
@@ -19,7 +19,7 @@ updates:
           - "*"
 
   - package-ecosystem: cargo
-    directory: /rust
+    directory: /
     schedule:
       interval: monthly
     open-pull-requests-limit: 3

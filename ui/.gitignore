@@ -27,3 +27,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# AGPL inputs copied from dainty-restricted (scripts/restricted-data.mjs, RD27)
+packages/i18n/catalogs/
+packages/bridge/src/generated/

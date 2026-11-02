@@ -28,44 +28,35 @@ through `winmm.dll`) and reaches the backend through a relay the launcher runs o
 
 ## What is in this repository
 
+DaintyLass is two repositories (RD27): this one holds the MIT code; [dainty-restricted](https://git.silentspud.com/silentspud/dainty-restricted)
+holds the AGPL services (gateway, content, host, chat), the launcher, the game modules (Rustic Isles, Rustic Rifts),
+the staff dashboard, the 1.4.4 importer, the server binaries and the Docker images, and builds the server and the
+launcher from both.
+
 | Folder | What |
 | --- | --- |
-| [root](.) | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `host`), `plugins/` (`network`, `chat`), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), `bins/` and `fuzz/` |
-| [`ui/`](ui) | [`dainty-lass-ui`](https://git.silentspud.com/silentspud/dainty-lass-ui) submodule: the DaintyLass Launcher and DaintyLass Manager front-end (SolidJS + Vite + Tailwind CSS, built with Bun into `ui/apps/web/dist` and served by `launcher`) |
-| [`modules/rustic-isles/`](modules/rustic-isles) | [`rustic-isles`](https://git.silentspud.com/silentspud/rustic-isles) submodule: the Dauntless 1.14.7 (`isles-1-14-7`) and 1.12.0 (`isles-1-12-0`) game modules, `isles-core`, `isles-director`, `isles-chat`, `rifts-seam`, the `ParadoxRuntime` C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`, `reference/1.12.0`) |
-| [`modules/rustic-rifts/`](modules/rustic-rifts) | [`rustic-rifts`](https://git.silentspud.com/silentspud/rustic-rifts) submodule: peer-to-peer realms, `rifts-transport` (WebRTC over `libjuice` and `turn-rs`), `rifts-guard`, `rifts-server`, and the client hosting bridge |
-| [`modules/legacy-revived/`](modules/legacy-revived) | [`legacy-revived`](https://git.silentspud.com/silentspud/legacy-revived) submodule: the Dauntless 1.4.4 game module (`revived-1-4-4`), `metagame`, `deploy`, and the 1.4.4 client patches (`native/client-patches/`, `native/xinput1_3-proxy/`) |
+| [root](.) | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`admin`, `backend`, `director`), `plugins/network` and `fuzz/` |
+| [`ui/`](ui) | The launcher's page (SolidJS + Vite + Tailwind CSS, built with Bun); its language catalogs come from dainty-restricted |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |
-| [`docker/`](docker), `compose.yaml` | The server as containers |
-| [`docs/`](docs) | Guides for players and hosts, the architecture, the migration plans and the security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
+| [`docs/`](docs) | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
 
-Where it is going: [MIGRATION_PLAN.md](MIGRATION_PLAN.md) (the Rust port of the Node services) and
-[docs/dainty-lass-plan.md](docs/dainty-lass-plan.md) (the module framework, the split into game-module
-repositories, the network).
+Where it is going: [MIGRATION_PLAN.md](MIGRATION_PLAN.md) and [docs/dainty-lass-plan.md](docs/dainty-lass-plan.md).
 
 ## Building
 
-Clone with submodules (`ui/`, `modules/rustic-isles`, `modules/rustic-rifts`, `modules/legacy-revived`):
+The Rust workspace, from the root (the toolchain is pinned in `rust-toolchain.toml`):
 
 ```bash
-git clone --recurse-submodules https://git.silentspud.com/silentspud/dainty-lass.git
+cargo test --workspace --locked
 ```
 
-The Rust workspace, from `rust/` (the toolchain is pinned in `rust-toolchain.toml`):
-
-```bash
-cargo build --release -p host -p gateway -p content -p admin --bins
-```
-
-The UI (`ui/`) builds with Bun (`packageManager` in `ui/package.json`):
+The UI (`ui/`) builds with Bun and needs a dainty-restricted checkout beside this one, or `DAINTY_RESTRICTED_DIR`:
 
 ```bash
 cd ui && bun install --frozen-lockfile && bun run build
 ```
 
-The desktop apps live in `launcher` (`npm ci && npm run build:client` for `dainty-lass-client` and `npm run build:manager` for `dainty-lass-manager`, which use Bun to build the page from `ui/`). The runtime and the CatalogExporter need a host's own SDK
-([docs/sdk-and-game-data.md](docs/sdk-and-game-data.md)). `bash docker/run-tests.sh` builds the images and runs
-every server suite inside them.
+The server, the launcher and the Docker images are built from dainty-restricted.
 
 ## Credits and licence
 
@@ -75,13 +66,9 @@ Director and runtime live in `modules/rustic-isles`; on [Dauntless Revived](http
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on. [NOTICE.md](NOTICE.md) says what came from where.
 
-Free software under the GNU AGPL-3.0 (`AGPL-3.0-only`): [LICENSE.txt](LICENSE.txt). The controller, `module-api`,
-`epic`, `history-ship`, `protocol`, `proxy`, `remote`, `service-kit`, `store`, `hostkit`, `launcher-kit`, the network
-plugin, the admin service and the binaries, written or rewritten clean-room here from no other project, are also under
-the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt); [NOTICE.md](NOTICE.md) lists the crates). Additional terms apply to the
-Mystic Paradox material: [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md) and Mystic Paradox's own
-[modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md). "Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related
-modifications were developed by MysticFox / Pranav Karande. See NOTICE.md for contribution and provenance information."
+MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt)): everything here was written or rewritten clean-room from no other
+project ([NOTICE.md](NOTICE.md)). The runtime loader is Apache-2.0. The AGPL parts, and the additional terms for the
+Mystic Paradox material, are dainty-restricted's.
 
 An unofficial fan project, not affiliated with or endorsed by Phoenix Labs, Epic Games, Mystic Paradox or
 Dauntless Revived. Dauntless is a trademark of its owners.

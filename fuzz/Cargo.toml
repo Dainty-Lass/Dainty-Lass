@@ -36,7 +36,6 @@ network = { path = "../plugins/network", features = ["log-ship"] }
 # network_link: the certificate names the node link reads
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 protocol = { path = "../crates/protocol" }
-proxy = { path = "../crates/proxy" }
 remote = { path = "../crates/remote" }
 serde = "1"
 serde_json = "1"
@@ -44,7 +43,6 @@ serde_json = "1"
 sha2 = "0.11"
 # launcher_host: the launcher's host.toml reader
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
-service-kit = { path = "../crates/service-kit" }
 # history_record: change-log records read back during a restore (DH5)
 store = { path = "../crates/store" }
 url = "2"
@@ -73,13 +71,6 @@ bench = false
 [[bin]]
 name = "history_record"
 path = "fuzz_targets/history_record.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "http_body"
-path = "fuzz_targets/http_body.rs"
 test = false
 doc = false
 bench = false
@@ -136,13 +127,6 @@ bench = false
 [[bin]]
 name = "protocol_input"
 path = "fuzz_targets/protocol_input.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "proxy_headers"
-path = "fuzz_targets/proxy_headers.rs"
 test = false
 doc = false
 bench = false

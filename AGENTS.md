@@ -13,30 +13,35 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 ## Repository layout
 
+DaintyLass is two repositories since the split (RD27, 2026-11-02): **dainty-lass**, this one, holds only MIT code;
+**dainty-restricted** (beside it, `R:\source\dauntless\dainty-restricted` on the maintainer's PC) holds every AGPL
+component and the binaries that link them, and takes this repository's crates as git dependencies at one rev.
+
 | Path | What it is |
 | --- | --- |
-| `rust/` | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`gateway` with the allowlist, `content`, `admin`, `backend`, `director`, `host` = the thin AGPL shell around `hostkit`, with `serve`), `plugins/` (`network`, `chat`), `bins/` (`server-console`, which builds `dainty-lass-server-console` and `dainty-lass-host`, and `server-minimal`), `launcher/src-tauri` (the Tauri launcher backend wrapping `launcher-kit`: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature), `launcher/isolation/` and `launcher/test` (the bridge's tests) |
-| `fuzz/` | `cargo fuzz` targets, a workspace of its own (excluded from the main one) |
-| `ui/` | Submodule: `dainty-lass-ui`, the Astro and shadcn page Tauri serves (DD11). Bun builds it; the bridge types are generated into `ui/packages/bridge` |
-| `modules/rustic-isles/` | Submodule: `rustic-isles`, the 1.14.7 Rust game module (`modules/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`) |
-| `modules/rustic-rifts/` | Submodule: `rustic-rifts`, peer-to-peer realms: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host` (the launcher's side), and `ParadoxTransport.dll` (`src/`) |
-| `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, outside the workspace) |
-| `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
-| `docs/` | Player and host guides, `architecture.md`, `paradox-patches.md`, `port/` (the migration guide, delta and catch-up lists), `security/` (one checklist per trust-boundary component; indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
+| root | One cargo workspace: `crates/` (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `protocol`, `proxy`, `remote`, `service-kit`, `store`), `services/` (`admin`, `backend`, `director`), `plugins/network` |
+| `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
+| `ui/` | The Astro and shadcn page (DD11), MIT. Its two AGPL inputs, the language catalogs and the generated bridge types, come from dainty-restricted at build time (`bun run restricted-data`) |
+| `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, Apache-2.0, outside the workspace) |
+| `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 
-DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). Game-specific server and runtime code lives in the two
-module submodules (`modules/rustic-isles`, `modules/rustic-rifts`, DD1/DS6). Old installs (Dauntless Revived 1.4.4,
-the Reforged Revival Node kit) are imported by `dainty-legacy`, an external plugin `host.toml` pins, not by code
-here. On the default path (since the RU9 code cutover, maintainer decision 2026-10-28), `host::serve` runs the
-compiled-in Rust `isles-1-14-7` backend (port 61000) and in-process `isles-director` (port 61001) on `store` (SQLite
-by default, or Postgres), with `isles-1-14-7` and realms linked in by the server binaries' `all-modules` feature
-(DF5). For one release after the cutover (until RB15), the opt-in `paradox` Cargo feature on `host` retains Rustic
-Isles's Node backend and Director from `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
+In dainty-restricted: `services/` (`gateway` with the allowlist, `content`, `host` = the AGPL shell around `hostkit`
+that composes the AGPL services in `compose.rs`), `plugins/chat`, `launcher/` (Tauri: `dainty-lass-client`,
+`dainty-lass-manager`), `bins/` (the server executables), `modules/rustic-isles` and `modules/rustic-rifts` (in-tree,
+one workspace with the rest), `dashboard/`, `legacy/` (the 1.4.4 importer), `docker/`, and the hosting, player and
+Paradox docs.
 
-The server is one executable (RD26). Every service is a module of `crates/controller`, behind its own Cargo
-feature (`modules.rs`), composed by `host::serve` from the files `setup` writes, and still runnable alone as a
-hidden `dainty-lass-host <service>` subcommand (`services/host/src/cli.rs`), which Docker and `start` use. A new
-service is all three, not a binary of its own.
+**Which repository a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
+line, or linking such code, is dainty-restricted's. A new crate here is MIT and depends on nothing AGPL; CI fails a
+package that is not MIT or Apache-2.0. Until the plugin ABI lands (RD27's phase 2), restricted's host composes the
+AGPL services into the controller in-process; then the MIT core loads them as libraries.
+
+DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
+maintainer decision 2026-10-28), restricted's `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port
+61000) and in-process `isles-director` (port 61001) on `store` (SQLite by default, or Postgres).
+
+The server is one executable (RD26). Every service is a module of `crates/controller`, composed by `host::serve` from
+the files `setup` writes, and still runnable alone as a hidden `dainty-lass-host <service>` subcommand.
 
 `docs/architecture.md` is the reference for how the parts talk and what each trusts. Section 6 of the plan,
 "Things that must not change", lists what every port keeps byte for byte: read it before touching anything a
@@ -68,7 +73,7 @@ dependency order, runs the checks and strikes the rows.
 
 ## Rust
 
-From `rust/`: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,
+From the root: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,
 `cargo test --workspace --locked --no-fail-fast` (`--no-fail-fast` because one failing test binary otherwise
 hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `cargo deny check` runs in CI.
 
@@ -178,7 +183,7 @@ the Tauri backend takes its own dialogs, is generated from them (`generated` tes
 
 ## Tests
 
-From `rust/`: `cargo test --workspace --locked --no-fail-fast`. The Paradox Node reference packages in
+From the root: `cargo test --workspace --locked --no-fail-fast`. The Paradox Node reference packages in
 `modules/rustic-isles/reference/1.14.7/ParadoxBackend` and `ParadoxDirector`: `npm ci && npm test` from their
 folders, Node 22 in CI. `bash docker/run-tests.sh` from the root builds the images and runs the server suites
 and the compose smoke test inside them.

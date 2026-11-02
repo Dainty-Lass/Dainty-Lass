@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "license": "MIT AND AGPL-3.0-only",
+  "license": "MIT",
   "scripts": {
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",

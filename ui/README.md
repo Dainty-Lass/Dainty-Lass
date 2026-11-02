@@ -24,9 +24,6 @@ bun run build
 
 ## Licence
 
-Distributed as a whole under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`,
-[LICENSE-AGPL.txt](LICENSE-AGPL.txt)). All application, component, bridge and i18n lookup code written for this
-project is also licensed under the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt)), while the two language catalogs
-(`packages/i18n/catalogs/en.json` and `pt-BR.json`, derived from Dauntless Revived and the Dauntless Reforged Revival
-line) and the generated bridge types (`packages/bridge/src/generated/types.ts`) remain `AGPL-3.0-only`. See
-[NOTICE.md](NOTICE.md) for full provenance and attribution.
+MIT ([LICENSE-MIT.txt](LICENSE-MIT.txt)). The language catalogs and the generated bridge types are AGPL-3.0-only and
+come from dainty-restricted at build time (`bun run restricted-data`, run by `build`, `dev`, `typecheck` and `test`);
+see [NOTICE.md](NOTICE.md).

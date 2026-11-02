@@ -4,12 +4,13 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
+    "restricted-data": "bun scripts/restricted-data.mjs",
+    "build": "bun run restricted-data && turbo build",
+    "dev": "bun run restricted-data && turbo dev",
     "lint": "turbo lint",
     "format": "turbo format",
-    "typecheck": "turbo typecheck",
-    "test": "turbo test"
+    "typecheck": "bun run restricted-data && turbo typecheck",
+    "test": "bun run restricted-data && turbo test"
   },
   "devDependencies": {
     "prettier": "^3.9.10",
