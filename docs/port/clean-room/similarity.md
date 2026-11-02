@@ -556,3 +556,144 @@ Per F6, we audited `docs/port/spec-dl3-hostkit.md`, `docs/port/spec-dl4-launcher
 2. **`docs/port/spec-dl4-launcher.md`**:
    - **`arg_accepts` (`bridge/spec.rs`, §3.1) and `host_setup_request`, `host_multipliers`, `invite_for`, `realm_id`, `guarded_id` (`bridge/commands.rs`, §3.1):** Kept because `src-tauri/src/bridge/commands.rs` and its unit tests call these validators directly across module boundaries.
    - **`refresh_runtime_offer` and `inspect_runtime` (`controller/runtime.rs`, §2.8):** Kept as `pub(super)` controller methods because `controller/mod.rs`, `controller/servers.rs`, and `controller/host.rs` in `src-tauri` invoke them across submodules of `controller`.
+
+---
+
+## 5. `services/content` (RD27)
+
+Measured by the integration pass of the content rewrite (`feat/rd27-content-mit`, new text at `16e66e0`) against two
+baselines outside dainty-lass: dainty-restricted's `services/content` at `ee7d90b` and DR's `rust/services/content` at
+`24b7624`, by counterpart file and against each whole baseline crate. The full table, with the "all" columns, and its
+reading are in `content.md` section 6; the counterpart figures:
+
+| File | New lines | Restricted `ee7d90b` | DR `24b7624` |
+| --- | ---: | ---: | ---: |
+| `services/content/src/lib.rs` | 44 | 29.5% | 6.8% |
+| `services/content/src/app.rs` | 626 | 4.0% | 2.1% |
+| `services/content/src/auth.rs` | 359 | 2.2% | 2.2% |
+| `services/content/src/branding.rs` | 289 | 10.4% | 10.4% |
+| `services/content/src/cli.rs` | 98 | 25.5% | 19.4% |
+| `services/content/src/client.rs` | 124 | 23.4% | 23.4% |
+| `services/content/src/config.rs` | 303 | 18.8% | 12.2% |
+| `services/content/src/input.rs` | 632 | 17.9% | 4.1% |
+| `services/content/src/limits.rs` | 96 | 19.8% | 16.7% |
+| `services/content/src/log.rs` | 1 | 0.0% | 0.0% |
+| `services/content/src/news.rs` | 332 | 16.3% | 16.3% |
+| `services/content/src/runtime.rs` | 321 | 5.3% | — |
+| `services/content/src/server.rs` | 204 | 24.5% | 18.6% |
+| `services/content/src/service.rs` | 77 | 49.4% (Category A baseline) | — |
+| `services/content/tests/app.rs` | 534 | 6.7% | 1.3% |
+| `services/content/tests/parity.rs` | 49 | 36.7% | 6.1% |
+| `services/content/tests/parity/harness.rs` | 379 | 4.2% | 3.2% |
+| `fuzz/fuzz_targets/content_request.rs` | 45 | 6.7% | — |
+| `fuzz/fuzz_targets/content_runtime_index.rs` | 21 | 52.4% | — |
+| `fuzz/fuzz_targets/content_news.rs` | 23 | 0.0% | — |
+
+The script, run with Node from anywhere (paths are the maintainer's checkouts): `node measure-content.mjs 16e66e0 25`.
+
+```javascript
+// similarity.md's method (3+-line runs of trimmed non-blank, non-comment lines), for the content rewrite.
+// Old text from two baselines; new text from the clean-room commit. Also measured against each baseline's whole
+// crate concatenated, so code moved between files is not missed.
+import { execFileSync } from "node:child_process";
+
+const LASS = "R:/source/dauntless/.wt/content-int";
+const RESTRICTED = "R:/source/dauntless/dainty-restricted";
+const DR = "R:/source/dauntless/legacy-revived";
+const NEW_REV = process.argv[2] || "16e66e0";
+const SHOW = Number(process.argv[3] || "25");
+
+function codeLines(text) {
+  return text.split(/\r?\n/).map((l) => l.trim()).filter(
+    (l) => l.length > 0 && !l.startsWith("//") && !l.startsWith("/*") && !l.startsWith("*") && !l.startsWith("*/"));
+}
+
+function measure(oldText, newText) {
+  const oldLines = codeLines(oldText);
+  const newLines = codeLines(newText);
+  if (newLines.length === 0) return { oldCount: oldLines.length, newCount: 0, matched: 0, pct: 0, runs: [] };
+  const flags = new Array(newLines.length).fill(false);
+  const runs = [];
+  for (let i = 0; i < newLines.length; i++) {
+    let best = 0;
+    for (let j = 0; j < oldLines.length; j++) {
+      let k = 0;
+      while (i + k < newLines.length && j + k < oldLines.length && newLines[i + k] === oldLines[j + k]) k++;
+      if (k > best) best = k;
+    }
+    if (best >= 3) {
+      for (let k = 0; k < best; k++) flags[i + k] = true;
+      runs.push({ len: best, sample: newLines.slice(i, i + best) });
+      i += best - 1;
+    }
+  }
+  const matched = flags.filter(Boolean).length;
+  return { oldCount: oldLines.length, newCount: newLines.length, matched, pct: (matched / newLines.length) * 100, runs };
+}
+
+function show(repo, rev, path) {
+  try {
+    return execFileSync("git", ["-C", repo, "show", `${rev}:${path}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 26 });
+  } catch { return null; }
+}
+function list(repo, rev, dir) {
+  return execFileSync("git", ["-C", repo, "ls-tree", "-r", "--name-only", rev, dir], { encoding: "utf8" })
+    .split(/\n/).filter((p) => p.endsWith(".rs"));
+}
+const concat = (repo, rev, dirs) => dirs.flatMap((d) => list(repo, rev, d)).map((p) => show(repo, rev, p) || "").join("\n");
+
+const R_ALL = concat(RESTRICTED, "ee7d90b", ["services/content", "services/content-plugin", "fuzz/fuzz_targets"])
+  + "\n" + (show(RESTRICTED, "75e0552", "services/content/src/service.rs") || "");
+const DR_ALL = concat(DR, "24b7624", ["rust/services/content"]);
+
+// new path -> [restricted counterpart(s) @ee7d90b, DR counterpart(s) @24b7624]
+const S = "services/content/src/", T = "services/content/tests/", F = "fuzz/fuzz_targets/";
+const pairs = [
+  [S + "lib.rs", [S + "lib.rs"], ["rust/services/content/src/lib.rs"]],
+  [S + "app.rs", [S + "app.rs"], ["rust/services/content/src/app.rs"]],
+  [S + "auth.rs", [S + "auth.rs"], ["rust/services/content/src/auth.rs"]],
+  [S + "branding.rs", [S + "branding.rs"], ["rust/services/content/src/branding.rs"]],
+  [S + "cli.rs", [S + "cli.rs"], ["rust/services/content/src/main.rs"]],
+  [S + "client.rs", [S + "client.rs"], ["rust/services/content/src/client.rs"]],
+  [S + "config.rs", [S + "config.rs"], ["rust/services/content/src/config.rs"]],
+  [S + "input.rs", [S + "input.rs"], ["rust/services/content/src/app.rs", "rust/services/content/src/news.rs"]],
+  [S + "limits.rs", [S + "limits.rs"], ["rust/services/content/src/limits.rs"]],
+  [S + "log.rs", [S + "log.rs"], ["rust/services/content/src/log.rs"]],
+  [S + "news.rs", [S + "news.rs"], ["rust/services/content/src/news.rs"]],
+  [S + "runtime.rs", [S + "runtime.rs"], []],
+  [S + "server.rs", [S + "server.rs"], ["rust/services/content/src/server.rs"]],
+  [S + "service.rs", ["@75e0552:" + S + "service.rs", "services/content-plugin/src/lib.rs"], []],
+  [T + "app.rs", [T + "app.rs"], ["rust/services/content/tests/streams.rs"]],
+  [T + "parity.rs", [T + "parity.rs"], ["rust/services/content/tests/parity.rs"]],
+  [T + "parity/harness.rs", [T + "parity/harness.rs"], ["rust/services/content/tests/parity.rs"]],
+  [F + "content_request.rs", [F + "content_request.rs"], []],
+  [F + "content_runtime_index.rs", [F + "content_runtime_index.rs"], []],
+  [F + "content_news.rs", [F + "content_news.rs"], []],
+  ["services/content/Cargo.toml", ["services/content/Cargo.toml"], ["rust/services/content/Cargo.toml"]],
+];
+
+const rOld = (p) => p.startsWith("@") ? show(RESTRICTED, p.slice(1, 8), p.slice(9)) : show(RESTRICTED, "ee7d90b", p);
+const fmt = (r) => r ? `${String(r.oldCount).padStart(5)} ${String(r.matched).padStart(4)} ${r.pct.toFixed(1).padStart(5)}%` : "    -    -      -";
+const detail = [];
+console.log("file | new | restricted(old matched pct) | restricted-all | DR(old matched pct) | DR-all");
+for (const [np, rp, dp] of pairs) {
+  const newText = show(LASS, NEW_REV, np);
+  if (!newText) { console.log(`${np}: missing at ${NEW_REV}`); continue; }
+  const rText = rp.map(rOld).filter(Boolean).join("\n");
+  const dText = dp.map((p) => show(DR, "24b7624", p)).filter(Boolean).join("\n");
+  const r = rText ? measure(rText, newText) : null;
+  const ra = measure(R_ALL, newText);
+  const d = dText ? measure(dText, newText) : null;
+  const da = measure(DR_ALL, newText);
+  console.log(`${np.padEnd(44)} | ${String(codeLines(newText).length).padStart(4)} | ${fmt(r)} | ${ra.matched} ${ra.pct.toFixed(1)}% | ${fmt(d)} | ${da.matched} ${da.pct.toFixed(1)}%`);
+  for (const [tag, res] of [["restricted", r], ["DR", d]]) {
+    if (res && res.pct >= SHOW) detail.push(`\n## ${np} vs ${tag} (${res.pct.toFixed(1)}%)\n` + res.runs.map((x) => `  [${x.len}] ${x.sample.join("  ///  ")}`).join("\n"));
+  }
+  // long runs regardless of pct
+  for (const [tag, res] of [["restricted-all", ra], ["DR-all", da]]) {
+    const long = res.runs.filter((x) => x.len >= 8);
+    if (long.length) detail.push(`\n## ${np} long runs (>=8) vs ${tag}\n` + long.map((x) => `  [${x.len}] ${x.sample.join("  ///  ")}`).join("\n"));
+  }
+}
+console.log(detail.join("\n"));
+```

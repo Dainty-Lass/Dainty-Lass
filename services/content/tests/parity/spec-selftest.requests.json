@@ -1,0 +1,171 @@
+{
+ "env": {
+  "CONTENT_MAX_STREAMS_PER_ACCOUNT": "2"
+ },
+ "runtime": {
+  "files": {
+   "winmm.dll": {
+    "text": "winmm"
+   },
+   "Rustic-Isles.dll": {
+    "pattern": 10
+   }
+  }
+ },
+ "branding": {
+  "files": {
+   "a.png": {
+    "hex": "89504e470d0a1a0a"
+   },
+   "b.jpg": {
+    "text": "not a jpeg"
+   }
+  },
+  "json": {
+   "backgrounds": [
+    {
+     "file": "a.png",
+     "credit": " Me "
+    },
+    "b.jpg"
+   ],
+   "accent": "#ABC"
+  }
+ },
+ "news": {
+  "items": [
+   {
+    "date": "2026-01-02",
+    "title": "Hi",
+    "body": "x"
+   },
+   {
+    "date": "nope",
+    "title": "Bad"
+   }
+  ]
+ },
+ "keys": {
+  "RRK_good": {
+   "status": 200,
+   "body": {
+    "UserId": "u1",
+    "Username": "Ann"
+   }
+  },
+  "RRK_down": {
+   "status": 500,
+   "body": "{}"
+  }
+ },
+ "requests": [
+  {
+   "path": "/content/v1/nope"
+  },
+  {
+   "method": "POST",
+   "path": "/content/v1/news"
+  },
+  {
+   "path": "/content/v1/runtime/manifest"
+  },
+  {
+   "path": "/content/v1/runtime/manifest",
+   "headers": [
+    [
+     "if-none-match",
+     "$etag"
+    ]
+   ]
+  },
+  {
+   "method": "HEAD",
+   "path": "/content/v1/runtime/manifest?game=reforged"
+  },
+  {
+   "path": "/content/v1/runtime/files/winmm.dll"
+  },
+  {
+   "path": "/content/v1/runtime/files/winmm.dll?x=1",
+   "headers": [
+    [
+     "x-reforged-user-api-key",
+     "RRK_good"
+    ],
+    [
+     "range",
+     "bytes=0-1"
+    ]
+   ]
+  },
+  {
+   "path": "/content/v1/runtime/files/Rustic-Isles.dll",
+   "headers": [
+    [
+     "x-reforged-user-api-key",
+     "RRK_down"
+    ]
+   ]
+  },
+  {
+   "path": "/content/v1/runtime/files/..%2fwinmm.dll",
+   "headers": [
+    [
+     "x-reforged-user-api-key",
+     "RRK_good"
+    ]
+   ]
+  },
+  {
+   "path": "/content/v1/branding"
+  },
+  {
+   "path": "/content/v1/branding/a.png"
+  },
+  {
+   "path": "/content/v1/branding/a.png",
+   "headers": [
+    [
+     "if-none-match",
+     "\"8-18bcfe56800\""
+    ]
+   ]
+  },
+  {
+   "path": "/content/v1/branding/b.jpg"
+  },
+  {
+   "path": "/content/v1/news"
+  },
+  {
+   "path": "/content/v1/versions"
+  },
+  {
+   "path": "/content/v1/versions/1.14.7/client"
+  },
+  {
+   "path": "/content/v1/versions/1.14.7/epic/manifest"
+  },
+  {
+   "path": "/content/v1/versions/nope/epic/manifest"
+  },
+  {
+   "write": "winmm.dll",
+   "spec": {
+    "text": "winm"
+   }
+  },
+  {
+   "path": "/content/v1/runtime/files/winmm.dll",
+   "headers": [
+    [
+     "x-reforged-user-api-key",
+     "RRK_good"
+    ]
+   ]
+  },
+  {
+   "path": "/content/v1/runtime/manifest"
+  }
+ ]
+}

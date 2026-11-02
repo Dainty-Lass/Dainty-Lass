@@ -161,6 +161,10 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      # cargo test builds no cdylib for a crate's own tests; content-plugin's parity test loads the library (RD27)
+      - name: The service libraries
+        run: cargo build --locked -p content-plugin
+
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
 

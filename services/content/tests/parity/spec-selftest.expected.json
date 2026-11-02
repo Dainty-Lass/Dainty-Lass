@@ -1,0 +1,228 @@
+{
+ "results": [
+  {
+   "request": "GET /content/v1/nope",
+   "status": 404,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "21",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"not_found\"}"
+  },
+  {
+   "request": "POST /content/v1/news",
+   "status": 405,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "30",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff",
+    "allow": "GET, HEAD"
+   },
+   "body": "{\"error\":\"method_not_allowed\"}"
+  },
+  {
+   "request": "GET /content/v1/runtime/manifest",
+   "status": 200,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "318",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff",
+    "etag": "\"74370d00e2c4ff94a2e9b8d96ca9dcf7ebd86c0c2777d4a96d2fb1cafa4e6a97\""
+   },
+   "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"Rustic-Isles.dll\",\"size\":10,\"sha256\":\"aadd73eb67f4e48bdb358638d0c42f341afcf9f60d717418d863a6f69238e01f\"},{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"5123737519595d25b3caf2c5b76781750b6f681f0182e1a8adbd43ad57a3a9df\"}]}"
+  },
+  {
+   "request": "GET /content/v1/runtime/manifest",
+   "status": 304,
+   "headers": {
+    "etag": "\"74370d00e2c4ff94a2e9b8d96ca9dcf7ebd86c0c2777d4a96d2fb1cafa4e6a97\"",
+    "x-content-type-options": "nosniff"
+   },
+   "body": ""
+  },
+  {
+   "request": "HEAD /content/v1/runtime/manifest?game=reforged",
+   "status": 200,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "318",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff",
+    "etag": "\"74370d00e2c4ff94a2e9b8d96ca9dcf7ebd86c0c2777d4a96d2fb1cafa4e6a97\""
+   },
+   "body": ""
+  },
+  {
+   "request": "GET /content/v1/runtime/files/winmm.dll",
+   "status": 401,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "24",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"unauthorized\"}"
+  },
+  {
+   "request": "GET /content/v1/runtime/files/winmm.dll?x=1",
+   "status": 200,
+   "headers": {
+    "etag": "\"5123737519595d25b3caf2c5b76781750b6f681f0182e1a8adbd43ad57a3a9df\"",
+    "content-type": "application/octet-stream",
+    "content-length": "5",
+    "cache-control": "private, no-transform",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "winmm"
+  },
+  {
+   "request": "GET /content/v1/runtime/files/Rustic-Isles.dll",
+   "status": 503,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "28",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff",
+    "retry-after": "5"
+   },
+   "body": "{\"error\":\"auth_unavailable\"}"
+  },
+  {
+   "request": "GET /content/v1/runtime/files/..%2fwinmm.dll",
+   "status": 404,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "21",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"not_found\"}"
+  },
+  {
+   "request": "GET /content/v1/branding",
+   "status": 200,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "84",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"backgrounds\":[{\"url\":\"/content/v1/branding/a.png\",\"credit\":\"Me\"}],\"accent\":\"#abc\"}"
+  },
+  {
+   "request": "GET /content/v1/branding/a.png",
+   "status": 200,
+   "headers": {
+    "etag": "W/\"8-18bcfe56800\"",
+    "cache-control": "public, max-age=300",
+    "content-type": "image/png",
+    "content-length": "8",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "<8 bytes sha256 4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6>"
+  },
+  {
+   "request": "GET /content/v1/branding/a.png",
+   "status": 304,
+   "headers": {
+    "etag": "W/\"8-18bcfe56800\"",
+    "cache-control": "public, max-age=300",
+    "x-content-type-options": "nosniff"
+   },
+   "body": ""
+  },
+  {
+   "request": "GET /content/v1/branding/b.jpg",
+   "status": 404,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "21",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"not_found\"}"
+  },
+  {
+   "request": "GET /content/v1/news",
+   "status": 200,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "71",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"items\":[{\"date\":\"2026-01-02T00:00:00.000Z\",\"title\":\"Hi\",\"body\":\"x\"}]}"
+  },
+  {
+   "request": "GET /content/v1/versions",
+   "status": 200,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "42",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"default_version\":\"1.14.7\",\"versions\":[]}"
+  },
+  {
+   "request": "GET /content/v1/versions/1.14.7/client",
+   "status": 404,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "27",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"unknown_version\"}"
+  },
+  {
+   "request": "GET /content/v1/versions/1.14.7/epic/manifest",
+   "status": 401,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "24",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"unauthorized\"}"
+  },
+  {
+   "request": "GET /content/v1/versions/nope/epic/manifest",
+   "status": 404,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "27",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"unknown_version\"}"
+  },
+  {
+   "request": "GET /content/v1/runtime/files/winmm.dll",
+   "status": 503,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "28",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff",
+    "retry-after": "10"
+   },
+   "body": "{\"error\":\"file_unavailable\"}"
+  },
+  {
+   "request": "GET /content/v1/runtime/manifest",
+   "status": 503,
+   "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "27",
+    "cache-control": "no-cache",
+    "x-content-type-options": "nosniff"
+   },
+   "body": "{\"error\":\"runtime_invalid\"}"
+  }
+ ]
+}
