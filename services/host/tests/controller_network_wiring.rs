@@ -8,6 +8,9 @@
 //! - `HomeRouterHook` registers loaded game modules into `HomeRouter`
 //! - `NetworkedHome` (`registry.home()`) resolves an account's home, issues and admits session tickets, and
 //!   executes a module's home operation on the remote home node
+//!
+//! The same again with the gateway as the library the core loads ([`host::compose::gateway_library`], RD27):
+//! `cargo build -p gateway-plugin` first.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -37,7 +40,36 @@ struct TestNode {
     _dir: tempfile::TempDir,
 }
 
-fn build_node(ca: &ClusterCa, node: &str, region: &str, leader: &str, port: u16, peers: Vec<Peer>) -> TestNode {
+/// The gateway library cargo built beside this test (target/<profile>/), pinned as host.toml would.
+async fn gateway_library() -> controller::ServiceLibrary {
+    let exe = std::env::current_exe().unwrap();
+    let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();
+    let path = profile.join(format!(
+        "{}gateway_plugin{}",
+        std::env::consts::DLL_PREFIX,
+        std::env::consts::DLL_SUFFIX
+    ));
+    // A cdylib is not built for the tests, and a nested cargo would wait on this one's lock
+    assert!(
+        path.is_file(),
+        "{} is missing: run `cargo build -p gateway-plugin` before the tests (CI does)",
+        path.display()
+    );
+    controller::ServiceLibrary {
+        name: "gateway",
+        sha256: module_api::host::file_sha256(&path).await.unwrap(),
+        path,
+        serves: &[module_api::CoreCapability::Routes, module_api::CoreCapability::UdpPorts],
+    }
+}
+
+fn build_node(
+    ca: &ClusterCa,
+    (node, region, leader): (&str, &str, &str),
+    port: u16,
+    peers: Vec<Peer>,
+    library: Option<controller::ServiceLibrary>,
+) -> TestNode {
     let dir = tempfile::tempdir().unwrap();
     let node_id: NodeId = node.parse().unwrap();
     let region_id = region.parse().unwrap();
@@ -105,25 +137,38 @@ fn build_node(ca: &ClusterCa, node: &str, region: &str, leader: &str, port: u16,
     let peer_log_dir = dir.path().join("peer-logs");
     let ship_state = dir.path().join("history-peer-state.json");
     let ship_to_peer = peers.first().map(|p| (p.id.clone(), ship_state));
-    controller.add(
-        modules::network(NetworkOptions {
-            node: identity,
-            leader: leader.parse().unwrap(),
-            peers,
-            credentials,
-            signing_key,
-            database,
-            game: "0.0.1".parse().unwrap(),
-            registry: registry.clone(),
-            allowlist: None,
-            replication_interval: Duration::from_millis(100),
-            peer_log_dir: Some(peer_log_dir),
-            ship_to_peer,
-            wrong_node_policy: None,
-        })
-        .unwrap(),
-    );
-    controller.add(modules::gateway(&gw_env, None, Some(registry.clone())).unwrap());
+    let options = NetworkOptions {
+        node: identity,
+        leader: leader.parse().unwrap(),
+        peers,
+        credentials,
+        signing_key,
+        database,
+        game: "0.0.1".parse().unwrap(),
+        registry: registry.clone(),
+        allowlist: None,
+        replication_interval: Duration::from_millis(100),
+        peer_log_dir: Some(peer_log_dir),
+        ship_to_peer,
+        wrong_node_policy: None,
+    };
+    match library {
+        None => {
+            controller.add(modules::network(options).unwrap());
+            controller.add(modules::gateway(&gw_env, None, Some(registry.clone())).unwrap());
+        }
+        Some(library) => {
+            let (gateway, handle) = modules::gateway_library(
+                library,
+                &gw_env,
+                controller::service_library::gateway::AllowlistMode::Off,
+                Some(registry.clone()),
+            )
+            .unwrap();
+            controller.add(modules::network_with_sink(options, handle.allowlist_sink()).unwrap());
+            controller.add(gateway);
+        }
+    }
 
     TestNode {
         controller,
@@ -134,6 +179,20 @@ fn build_node(ca: &ClusterCa, node: &str, region: &str, leader: &str, port: u16,
 
 #[tokio::test]
 async fn two_composed_controllers_replicate_directory_and_route_home_calls() {
+    two_nodes(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_same_through_the_gateway_library() {
+    two_nodes(true).await;
+}
+
+async fn two_nodes(through_library: bool) {
+    let library = if through_library {
+        Some(gateway_library().await)
+    } else {
+        None
+    };
     let ca = ClusterCa::create(30).unwrap();
     let port1 = free_port();
     let port2 = free_port();
@@ -153,8 +212,14 @@ async fn two_composed_controllers_replicate_directory_and_route_home_calls() {
         fingerprint: None,
     };
 
-    let mut node1 = build_node(&ca, "oregon-1", "oregon", "oregon-1", port1, vec![peer2]);
-    let mut node2 = build_node(&ca, "uk-1", "uk", "oregon-1", port2, vec![peer1]);
+    let mut node1 = build_node(
+        &ca,
+        ("oregon-1", "oregon", "oregon-1"),
+        port1,
+        vec![peer2],
+        library.clone(),
+    );
+    let mut node2 = build_node(&ca, ("uk-1", "uk", "oregon-1"), port2, vec![peer1], library);
 
     node1.controller.start_all().await.unwrap();
     node2.controller.start_all().await.unwrap();

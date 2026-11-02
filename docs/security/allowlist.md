@@ -95,6 +95,25 @@ The set is held in `guard.rs`, outside the helper, so a restarted allowlist modu
 - [ ] Every change is audited as `ports_changed` with the module's ranges; `/status` shows `modulePorts` only when
       a module has any.
 
+### In the gateway library (RD27)
+
+With the gateway as a library the core loads (`services/gateway-plugin`, [gateway.md](gateway.md)), the allowlist
+runs in the same library on `allowlist.env` (`AllowlistMode::InProcess`), so the gateway's player admits reach the
+helper directly as the shared slot did, and the core's ring admits a player with an `AdmitUdp` message. The helper
+runs in the core's process, as the in-process allowlist module did: that process holds its rights.
+
+- [ ] The helper is ready before the gateway listens, within the library's start; it failing to start fails the
+      library's start, and it ending under a running gateway stops the gateway, so the controller restarts both.
+- [ ] Stopping stops the gateway first, then the helper, which closes the game ports (`tests/library.rs`).
+- [ ] A module's UDP ranges are the ones the core reports the controller assigned (`Placed`, sent before each
+      attach), checked against the manifest as before (`AllowlistPlugin`); the library cannot ask for a range.
+- [ ] A restarted library has a new guard: until the core replays the loaded modules' attaches the rule holds only
+      `ALLOWLIST_PORTS`, narrower than before, never wider.
+- [ ] `AdmitUdp` admits only an address the helper's checks accept on a port the guard covers (`Helper::admit_udp`);
+      any other is refused with a warning and the port stays closed. The external and absent modes refuse or admit
+      ranges exactly as `allowlist_external` and `allowlist_absent` did.
+- [ ] Bad `allowlist.env` settings refuse every UDP range (the plugin answers as `absent`) and fail the start.
+
 ### nftables (Linux)
 
 - [ ] nft runs at `ALLOWLIST_NFT`, which must be an absolute path, else the first of `/usr/sbin/nft` and

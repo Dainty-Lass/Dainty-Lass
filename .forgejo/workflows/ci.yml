@@ -231,9 +231,10 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      # A cdylib is not built for its own tests (RD27): isles-1-14-7-plugin's load test needs the library first
+      # A cdylib is not built for its own tests (RD27): isles-1-14-7-plugin's load test, and gateway-plugin's and
+      # host's tests of the gateway library, need the libraries first
       - name: The module libraries
-        run: cargo build --locked -p isles-1-14-7-plugin
+        run: cargo build --locked -p isles-1-14-7-plugin -p gateway-plugin
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast

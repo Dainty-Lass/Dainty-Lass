@@ -17,7 +17,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "admin"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "async-graphql",
  "axum",
@@ -189,7 +189,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -200,7 +200,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1043,7 +1043,7 @@ dependencies = [
 [[package]]
 name = "controller"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "admin",
  "history-ship",
@@ -1055,6 +1055,7 @@ dependencies = [
  "serde",
  "serde_json",
  "service-kit",
+ "service-plugin",
  "store",
  "sysinfo",
  "thiserror 2.0.21",
@@ -1689,7 +1690,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1948,7 +1949,7 @@ dependencies = [
 [[package]]
 name = "epic"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "bytes",
  "egs-api",
@@ -1992,7 +1993,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2257,6 +2258,37 @@ dependencies = [
  "url",
  "windows 0.62.2",
  "x509-parser",
+]
+
+[[package]]
+name = "gateway-plugin"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "bytes",
+ "controller",
+ "futures-util",
+ "gateway",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "module-api",
+ "network",
+ "regex",
+ "rustls",
+ "serde_json",
+ "service-kit",
+ "service-plugin",
+ "sha1 0.10.7",
+ "sha2 0.11.1",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2676,7 +2708,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "history-ship"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
@@ -2779,7 +2811,7 @@ dependencies = [
 [[package]]
 name = "hostkit"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "admin",
  "aws-lc-rs",
@@ -3635,7 +3667,7 @@ dependencies = [
 [[package]]
 name = "launcher-kit"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "base64 0.23.1",
  "bytes",
@@ -3913,7 +3945,7 @@ dependencies = [
 [[package]]
 name = "module-api"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "libc",
  "serde",
@@ -3944,7 +3976,7 @@ dependencies = [
  "png",
  "serde",
  "thiserror 2.0.21",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4003,7 +4035,7 @@ dependencies = [
 [[package]]
 name = "network"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
@@ -4073,7 +4105,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4170,7 +4202,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
- "proc-macro-crate 3.5.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -4727,7 +4759,7 @@ dependencies = [
 [[package]]
 name = "plugin-host"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "libloading",
  "module-api",
@@ -4942,7 +4974,7 @@ dependencies = [
 [[package]]
 name = "protocol"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "chrono",
  "module-api",
@@ -4956,7 +4988,7 @@ dependencies = [
 [[package]]
 name = "proxy"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "http",
  "tokio",
@@ -5050,7 +5082,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -5306,7 +5338,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 [[package]]
 name = "remote"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "base64 0.23.1",
  "bytes",
@@ -5575,7 +5607,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -5633,7 +5665,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6022,7 +6054,7 @@ dependencies = [
 [[package]]
 name = "service-kit"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -6041,6 +6073,21 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-log",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "service-plugin"
+version = "0.0.0"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
+dependencies = [
+ "base64 0.23.1",
+ "module-api",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "tokio",
+ "tracing",
  "tracing-subscriber",
 ]
 
@@ -6238,7 +6285,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6343,7 +6390,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6367,7 +6414,7 @@ checksum = "ff7589a1859b09232522bb9edf076ca7fcf14ded96685d3fa629db73023ffbb7"
 [[package]]
 name = "store"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=900421793c40a89bfe92adfd7af77aa814506397#900421793c40a89bfe92adfd7af77aa814506397"
+source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=ea582d221826bddd2ff59ed5648863571d5db720#ea582d221826bddd2ff59ed5648863571d5db720"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -6978,7 +7025,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7410,7 +7457,7 @@ dependencies = [
  "png",
  "serde",
  "thiserror 2.0.21",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7898,7 +7945,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7919,7 +7966,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-quartz-core",
  "raw-window-handle",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
  "windows-version",
 ]
 
@@ -8359,7 +8406,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d6f32a0ff4a9f6f01231eb2059cc85479330739333e0e58cadf03b6af2cca10"
 dependencies = [
  "cfg-if",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

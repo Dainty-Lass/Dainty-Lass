@@ -188,6 +188,40 @@ pub fn gateway(
     .ready_within(std::time::Duration::from_secs(60)))
 }
 
+/// The gateway and the allowlist as the library `library` pins (RD27), on `gateway.env`: what [`gateway`] and
+/// [`allowlist`] run compiled in, registered with `registry` as the core plugin for routes and UDP ranges. The
+/// handle gives the network module its allowlist sink ([`network_with_sink`]).
+#[cfg(feature = "gateway")]
+pub fn gateway_library(
+    library: controller::ServiceLibrary,
+    env: &Env,
+    allowlist: controller::service_library::gateway::AllowlistMode,
+    registry: Option<controller::ModuleRegistry>,
+) -> Result<(Module, controller::service_library::gateway::GatewayLibrary), String> {
+    #[allow(unused_mut)]
+    let mut ws_port = None;
+    #[cfg(feature = "chat")]
+    {
+        let config = gateway::config::Config::from_env(env)?;
+        if registry.is_some() && config.ws.port == config.backend.port {
+            ws_port = Some(chat::settings::DEFAULT_PORT);
+        }
+    }
+    let options = controller::service_library::gateway::GatewayOptions { allowlist, ws_port };
+    let (module, handle) =
+        controller::service_library::gateway::gateway_library(library, env.clone(), registry.as_ref(), options);
+    // The allowlist is ready before the gateway opens, within the library's start
+    Ok((module.ready_within(std::time::Duration::from_secs(120)), handle))
+}
+
+/// The in-process allowlist for [`gateway_library`], on `allowlist.env`.
+#[cfg(feature = "gateway")]
+pub fn allowlist_in_library(env: &Env) -> controller::service_library::gateway::AllowlistMode {
+    controller::service_library::gateway::AllowlistMode::InProcess {
+        env: env.vars().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
+    }
+}
+
 /// The gateway's node links, handed to [`controller::NodeServices`] as the controller's own trait (RD27).
 #[cfg(feature = "gateway")]
 struct GatewayNodeLinks(Arc<gateway::nodelink::NodeLinks>);
@@ -340,6 +374,17 @@ impl controller::LoadHook for HomeRouterHook {
 /// [`network_plugin::Service::Home`] to [`controller::NodeServices`].
 #[cfg(feature = "gateway")]
 pub fn network(options: NetworkOptions) -> Result<Module, String> {
+    let sink = Arc::new(InProcessAllowlistSink::new(options.allowlist.clone()));
+    network_with_sink(options, sink)
+}
+
+/// [`network`], with the ring's players admitted through `sink` (the gateway library's, RD27) rather than
+/// `options.allowlist`.
+#[cfg(feature = "gateway")]
+pub fn network_with_sink(
+    options: NetworkOptions,
+    sink: Arc<dyn network_plugin::ring::AllowlistSink>,
+) -> Result<Module, String> {
     let link = Arc::new(
         network_plugin::TlsPeerLink::new(network_plugin::TlsLinkConfig::new(
             options.credentials,
@@ -365,7 +410,6 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
     let database = options.database;
     let game = options.game;
     let registry = options.registry;
-    let allowlist = options.allowlist;
     let replication_interval = options.replication_interval;
     let peer_log_dir = options.peer_log_dir;
     let ship_to_peer = options.ship_to_peer;
@@ -380,7 +424,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 database,
                 game,
                 registry,
-                allowlist,
+                sink,
                 link,
                 tickets,
                 router,
@@ -395,7 +439,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 database.clone(),
                 game.clone(),
                 registry.clone(),
-                allowlist.clone(),
+                sink.clone(),
                 link.clone(),
                 tickets.clone(),
                 router.clone(),
@@ -478,7 +522,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     link.clone(),
                     networked_home.clone(),
                     director,
-                    Arc::new(InProcessAllowlistSink::new(allowlist)),
+                    sink,
                 );
                 networked_home.set_ring(&ring_node);
                 let ring_ticker = ring_node.spawn_ticker(
