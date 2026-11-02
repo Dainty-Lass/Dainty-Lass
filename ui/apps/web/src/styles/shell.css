@@ -1,0 +1,5 @@
+/* Tauri's isolation frame. Tauri hides it with an inline style, which the launcher's CSP (style-src 'self')
+   refuses, so it would sit under the page as a 300x150 box. */
+#__tauri_isolation__ {
+  display: none !important;
+}
