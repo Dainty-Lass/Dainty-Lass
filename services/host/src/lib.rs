@@ -911,11 +911,8 @@ impl hooks::HostHooks for ServicesHostHooks {
         registry: &controller::ModuleRegistry,
         library: controller::ServiceLibrary,
     ) -> Result<(), HostError> {
-        let _ = config;
-        // The services' own compose functions go here as they land (RD27): content_library, chat_library (its node,
-        // database and network options, as modules::chat takes them) and gateway_library (the allowlist slot), each
-        // matched by library.name. Until then a library runs on its env file alone, as the MIT core runs it.
-        hostkit::serve::add_service_library(controller, paths, registry, library)
+        // hostkit gives the gateway and chat libraries their own core side, as the MIT core does (RD27)
+        hostkit::serve::add_service_library(controller, paths, config, registry, library)
     }
 
     fn ensure_gateway_cert(&self, paths: &paths::Paths, config: &hostconfig::HostConfig) -> Result<(), HostError> {
