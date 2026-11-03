@@ -80,7 +80,7 @@ impl TestDb {
             "postgres://{}:{}@{}:{}/{}",
             server.user, server.password, server.host, server.port, server.database
         );
-        diesel::PgConnection::establish(&admin_url)
+        store::PgConnection::establish(&admin_url)
             .ok()?
             .batch_execute(&format!("CREATE DATABASE {name}"))
             .ok()?;
@@ -108,7 +108,7 @@ impl Drop for TestDb {
         if let Some((config, admin_url)) = &self.postgres {
             use diesel::Connection;
             use diesel::connection::SimpleConnection;
-            if let Ok(mut admin) = diesel::PgConnection::establish(admin_url) {
+            if let Ok(mut admin) = store::PgConnection::establish(admin_url) {
                 let _ = admin.batch_execute(&format!("DROP DATABASE IF EXISTS {} WITH (FORCE)", config.database));
             }
         }

@@ -66,7 +66,7 @@ impl Throwaway {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         );
-        diesel::PgConnection::establish(&server.conninfo())
+        store::PgConnection::establish(&server.conninfo())
             .expect("REFORGED_TEST_POSTGRES_URL is reachable")
             .batch_execute(&format!("CREATE DATABASE \"{name}\""))
             .unwrap();
@@ -83,7 +83,7 @@ impl Throwaway {
 
 impl Drop for Throwaway {
     fn drop(&mut self) {
-        if let Ok(mut admin) = diesel::PgConnection::establish(&self.server.conninfo()) {
+        if let Ok(mut admin) = store::PgConnection::establish(&self.server.conninfo()) {
             let _ = admin.batch_execute(&format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", self.name));
         }
     }

@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use diesel::Connection as _;
-use diesel::PgConnection;
 use diesel::connection::SimpleConnection;
 use isles_core::db::IslesStore;
 use isles_core::repo::auth::{
@@ -18,6 +17,7 @@ use isles_core::repo::auth::{
 use isles_core::{AccountId, UserId};
 use module_api::network::StandaloneHome;
 use module_api::{Actor, ActorContext, NodeIdentity};
+use store::PgConnection;
 use store::{DatabaseConfig, DatabaseOptions, PostgresConfig};
 
 const T0: &str = "2026-10-01T00:00:00.000Z";

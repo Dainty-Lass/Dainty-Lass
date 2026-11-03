@@ -3,14 +3,15 @@
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use diesel::Connection;
 use diesel::connection::SimpleConnection;
-use diesel::{Connection, PgConnection};
 use rifts_guard::{
     AlertRecord, BatchRecord, ChainRecord, ChainUpdate, CompletionMode, CompletionRecord, Disposition, EncounterState,
     FindingRecord, GENESIS_HASH, GuardStore, HostWriteRecord, SqlGuardStore, TABLES, TrafficReservation, TrafficScope,
     XP_SUMMARY_TTL_MS, XpSummaryRecord,
 };
 use rifts_seam::{AccountId, Actor, HostWriteKind, Json, RealmId, SessionId, UnixMillis};
+use store::PgConnection;
 use store::{DatabaseConfig, DatabaseOptions, PostgresConfig, portable};
 use tempfile::TempDir;
 
