@@ -130,6 +130,13 @@
     padding: var(--spacing-3);
   }
 
+  /* A console that takes the page's height (the launcher's Game log). */
+  .dainty-console[data-fill] {
+    flex: 1;
+    block-size: auto;
+    min-block-size: 240px;
+  }
+
   /* The launcher's background art, behind a scrim so text on it keeps its contrast. */
   .dainty-hero {
     position: relative;

@@ -7,7 +7,8 @@
     "settings": "Ajustes",
     "hidden": "Oculto",
     "updateReady": "Uma atualização do launcher está pronta.",
-    "restartToUpdate": "Reiniciar para atualizar"
+    "restartToUpdate": "Reiniciar para atualizar",
+    "gameLog": "Log do jogo"
   },
   "notices": {
     "keep_open": "Mantenha o launcher aberto enquanto joga.",
@@ -208,6 +209,17 @@
     "version": "Versão do launcher",
     "backupKey": "Fazer backup da chave",
     "signOut": "Sair",
-    "signOutHint": "Sair remove a chave da conta deste PC. Sem backup, a conta não pode ser recuperada."
+    "signOutHint": "Sair remove a chave da conta deste PC. Sem backup, a conta não pode ser recuperada.",
+    "showGameConsole": "Mostrar a janela de console do jogo",
+    "showGameConsoleHint": "Desligado, as linhas aparecem em Log do jogo. Vale a partir da próxima vez que o jogo abrir."
+  },
+  "gameLog": {
+    "title": "Log do jogo",
+    "description": "O que o console do jogo mostra enquanto ele roda. A chave da conta fica oculta.",
+    "running": "Jogo rodando",
+    "stopped": "Jogo parado",
+    "copy": "Copiar as linhas mais recentes",
+    "copied": "Copiado.",
+    "empty": "Nada ainda. O console do jogo aparece aqui quando o jogo abrir um."
   }
 }

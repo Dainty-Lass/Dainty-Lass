@@ -14,6 +14,8 @@ interface BridgeState {
   progress: TaskProgress | null;
   kit: HostKit | null;
   server: HostServerView | null;
+  /** The game console's lines this game (the launcher's; empty in the server manager). */
+  gameLog: string[];
 }
 
 const BridgeContext = createContext<BridgeState>({
@@ -22,7 +24,11 @@ const BridgeContext = createContext<BridgeState>({
   progress: null,
   kit: null,
   server: null,
+  gameLog: [],
 });
+
+/** As many as the launcher keeps (platform/game_console.rs). */
+const KEPT_LINES = 5000;
 
 /**
  * Holds what the backend pushes: the snapshot on every change, task progress, and for the server manager
@@ -41,16 +47,31 @@ export function BridgeProvider({
     progress: null,
     kit: null,
     server: null,
+    gameLog: [],
   });
 
   useEffect(() => {
     let live = true;
     void getLauncher().then(async (api) => {
       if (!live) return;
-      api.onSnapshot((snapshot) => setState((s) => ({ ...s, snapshot })));
+      // A new game starts a new log, as the launcher's own does
+      api.onSnapshot((snapshot) =>
+        setState((s) => ({
+          ...s,
+          snapshot,
+          gameLog: snapshot.running.game && !s.snapshot?.running.game ? [] : s.gameLog,
+        })),
+      );
       api.onProgress((progress) => setState((s) => ({ ...s, progress })));
       const snapshot = await api.getSnapshot();
       setState((s) => ({ ...s, api, snapshot }));
+      if (!host) {
+        api.onGameLog((lines) =>
+          setState((s) => ({ ...s, gameLog: [...s.gameLog, ...lines].slice(-KEPT_LINES) })),
+        );
+        const gameLog = await api.gameLogGet();
+        setState((s) => ({ ...s, gameLog }));
+      }
       if (host) {
         api.onHostKit((kit) => setState((s) => ({ ...s, kit })));
         api.onHostServer((server) => setState((s) => ({ ...s, server })));

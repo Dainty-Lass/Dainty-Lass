@@ -7,7 +7,8 @@
     "settings": "Preferences",
     "hidden": "Hidden",
     "updateReady": "A launcher update is ready.",
-    "restartToUpdate": "Restart to update"
+    "restartToUpdate": "Restart to update",
+    "gameLog": "Game log"
   },
   "notices": {
     "keep_open": "Keep the launcher open while you play.",
@@ -208,6 +209,17 @@
     "version": "Launcher version",
     "backupKey": "Back up account key",
     "signOut": "Sign out",
-    "signOutHint": "Signing out removes the account key from this PC. Without a backup the account cannot be recovered."
+    "signOutHint": "Signing out removes the account key from this PC. Without a backup the account cannot be recovered.",
+    "showGameConsole": "Show the game's console window",
+    "showGameConsoleHint": "Off, its lines appear under Game log instead. Applies from the next launch."
+  },
+  "gameLog": {
+    "title": "Game log",
+    "description": "What the game's console shows while it runs. The account key is hidden.",
+    "running": "Game running",
+    "stopped": "Game not running",
+    "copy": "Copy the newest lines",
+    "copied": "Copied.",
+    "empty": "Nothing yet. The game's console appears here once the game opens one."
   }
 }

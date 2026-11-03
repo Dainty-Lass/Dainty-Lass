@@ -163,12 +163,14 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   toggleMaximize: [],
   close: [],
   takeInviteLink: [],
+  gameLogGet: [],
   onSnapshot: [noop],
   onProgress: [noop],
   onHostKit: [noop],
   onHostServer: [noop],
   onInviteLink: [noop],
   onWindowState: [noop],
+  onGameLog: [noop],
 }
 
 // Commands the old Astro page called and dainty-dash's pages don't yet; take one off as its method lands

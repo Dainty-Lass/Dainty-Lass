@@ -132,6 +132,7 @@ export const api: LauncherApi = {
         ...(patch.gameEdition !== undefined ? { gameEdition: patch.gameEdition } : {}),
         ...(patch.minimizeToTray !== undefined ? { minimizeToTray: patch.minimizeToTray } : {}),
         ...(patch.closeToTray !== undefined ? { closeToTray: patch.closeToTray } : {}),
+        ...(patch.showGameConsole !== undefined ? { showGameConsole: patch.showGameConsole } : {}),
       },
     }),
   setStatusPolling: (on) => tell("set_status_polling", { on: on === true }),
@@ -197,6 +198,7 @@ export const api: LauncherApi = {
   },
   close: () => getCurrentWindow().close(),
   takeInviteLink: () => call<string | null>("take_invite_link"),
+  gameLogGet: () => call<string[]>("game_log_get"),
   onSnapshot: (fn) => on<Snapshot>("snapshot", fn),
   // Progress comes over a channel of its own, already throttled by the backend
   onProgress: (fn) => {
@@ -208,4 +210,8 @@ export const api: LauncherApi = {
   onHostServer: (fn) => on<HostServerView>("host-server", fn),
   onInviteLink: (fn) => on<unknown>("invite-link", () => fn()),
   onWindowState: (fn) => on<unknown>("window-state", (maximized) => fn(maximized === true)),
+  onGameLog: (fn) =>
+    on<unknown>("game-log", (lines) =>
+      fn(Array.isArray(lines) ? lines.filter((line) => typeof line === "string") : []),
+    ),
 };

@@ -16,32 +16,10 @@ import { Token } from "@astryxdesign/core/Token";
 import { useBridge } from "@dainty/bridge/react";
 import { Copy, Play, RefreshCw, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ConsoleView as Console } from "@/components/desktop/ConsoleView";
 import { ManagerShell, STATE_DOT, useAct } from "@/components/manager/ManagerShell";
-
-/** The newest output at the bottom, following it unless the host has scrolled up to read. */
-function Console({ lines, emptyText }: { lines: string[]; emptyText: string }) {
-  const ref = useRef<HTMLPreElement>(null);
-  const pinned = useRef(true);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: new lines are the trigger to scroll, not an input.
-  useEffect(() => {
-    const el = ref.current;
-    if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [lines]);
-  return (
-    <pre
-      ref={ref}
-      className="dainty-console"
-      onScroll={(e) => {
-        const el = e.currentTarget;
-        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-      }}
-    >
-      {lines.length ? lines.join("\n") : emptyText}
-    </pre>
-  );
-}
 
 export default function ServerPage() {
   const t = useTranslations("manager.server");

@@ -83,12 +83,15 @@ export interface LauncherApi {
   toggleMaximize(): Promise<boolean>;
   close(): Promise<void>;
   takeInviteLink(): Promise<string | null>;
+  /** The game console's lines so far this game, the account key masked. */
+  gameLogGet(): Promise<string[]>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;
   onHostServer(fn: (view: HostServerView) => void): void;
   onInviteLink(fn: () => void): void;
   onWindowState(fn: (maximized: boolean) => void): void;
+  onGameLog(fn: (lines: string[]) => void): void;
 }
 
 declare global {

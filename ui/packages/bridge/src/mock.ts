@@ -45,6 +45,7 @@ function initialSnapshot(): Snapshot {
       gameEdition: "reborn",
       minimizeToTray: false,
       closeToTray: false,
+      showGameConsole: false,
     },
     app: {
       version: "2.0.0-dev",
@@ -445,11 +446,18 @@ export function mockLauncher(): LauncherApi {
     toggleMaximize: async () => false,
     close: async () => {},
     takeInviteLink: async () => null,
+    gameLogGet: async () => [
+      "LogInit: Display: Running engine for game: Dauntless",
+      "LogInit: Command Line:  -NoEAC -AUTH_PASSWORD=<hidden> -epicapp=Archon",
+      "[Rustic Isles] runtime 2026.10.30 loaded",
+      "LogNet: Browse: 127.0.0.1:61000/Game/Maps/Ramsgate",
+    ],
     onSnapshot: (fn) => void snapshotListeners.add(fn),
     onProgress: (fn) => void progressListeners.add(fn),
     onHostKit: (fn) => void kitListeners.add(fn),
     onHostServer: (fn) => void serverListeners.add(fn),
     onInviteLink: () => {},
     onWindowState: () => {},
+    onGameLog: () => {},
   };
 }

@@ -64,6 +64,12 @@ export default function SettingsPage() {
             width={320}
           />
           <Switch label={t("windowed")} value={s.windowed} onChange={(v) => set({ windowed: v })} />
+          <Switch
+            label={t("showGameConsole")}
+            description={t("showGameConsoleHint")}
+            value={s.showGameConsole}
+            onChange={(v) => set({ showGameConsole: v })}
+          />
           <Selector
             label={t("gameLanguage")}
             value={s.gameLanguage}
