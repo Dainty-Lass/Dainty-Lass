@@ -13,6 +13,12 @@ import {
 import { daintyTheme } from "../built/dainty.js";
 import {
   type Accent,
+  APPEARANCE_COOKIE,
+  type Appearance,
+  appearanceAttrs,
+  DEFAULT_APPEARANCE,
+  formatAppearance,
+  parseAppearance,
   parseThemeMode,
   THEME_COOKIE,
   THEME_COOKIE_MAX_AGE,
@@ -22,6 +28,10 @@ import {
 interface ThemeModeContextValue {
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
+  appearance: Appearance;
+  setAppearance: (patch: Partial<Appearance>) => void;
+  /** The server's accent, which `accent: "auto"` follows. */
+  serverAccent: Accent | undefined;
 }
 
 const ThemeModeContext = createContext<ThemeModeContextValue | null>(null);
@@ -39,61 +49,90 @@ export function useThemeMode(): ThemeModeContextValue {
 export type ThemePersistence = "cookie" | "local";
 
 const LOCAL_KEY = "dainty-theme";
+const LOCAL_APPEARANCE_KEY = "dainty-appearance";
 
-function persist(mode: ThemeMode, where: ThemePersistence) {
+function persist(name: string, value: string, where: ThemePersistence) {
   if (where === "cookie") {
     /* biome-ignore lint/suspicious/noDocumentCookie: Cookie Store is Chromium-only and async. */
-    document.cookie = `${THEME_COOKIE}=${mode}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
+    document.cookie = `${name}=${value}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
     return;
   }
   try {
-    localStorage.setItem(LOCAL_KEY, mode);
+    localStorage.setItem(name === THEME_COOKIE ? LOCAL_KEY : LOCAL_APPEARANCE_KEY, value);
   } catch {
     // Storage refused (private mode): the choice lasts this session only.
   }
 }
 
+function setAttr(name: string, value: string | undefined) {
+  const root = document.documentElement;
+  if (value === undefined) root.removeAttribute(name);
+  else root.setAttribute(name, value);
+}
+
 /**
- * The one theme wrapper for every DaintyLass app. `initialMode` comes from what the server read, so the
- * first client render matches `<html data-theme>`; static pages pass nothing and read local storage.
+ * The one theme wrapper for every DaintyLass app. `initialMode` and `initialAppearance` come from what
+ * the server read, so the first client render matches `<html>`; static pages pass neither and read
+ * local storage. `accent` is the server's (Settings, or a server's launcher branding).
  */
 export function DaintyThemeProvider({
   initialMode,
+  initialAppearance,
   accent,
   persistence = "cookie",
   children,
 }: {
   initialMode?: ThemeMode;
-  /** Mirrored onto <html data-dainty-accent> for the pages that cannot render it from the server. */
+  initialAppearance?: Appearance;
   accent?: Accent;
   persistence?: ThemePersistence;
   children: ReactNode;
 }) {
   const [mode, setModeState] = useState<ThemeMode>(initialMode ?? "system");
+  const [appearance, setAppearanceState] = useState<Appearance>(
+    initialAppearance ?? DEFAULT_APPEARANCE,
+  );
 
   useEffect(() => {
-    if (initialMode !== undefined || persistence !== "local") return;
+    if (persistence !== "local") return;
     try {
-      setModeState(parseThemeMode(localStorage.getItem(LOCAL_KEY)));
+      if (initialMode === undefined) setModeState(parseThemeMode(localStorage.getItem(LOCAL_KEY)));
+      if (initialAppearance === undefined)
+        setAppearanceState(parseAppearance(localStorage.getItem(LOCAL_APPEARANCE_KEY)));
     } catch {
-      // No storage: follow the OS.
+      // No storage: the defaults.
     }
-  }, [initialMode, persistence]);
+  }, [initialMode, initialAppearance, persistence]);
 
+  // Mirrored onto <html>, where variants.css reads them, for every page and every change.
   useEffect(() => {
-    if (accent === undefined) return;
-    document.documentElement.dataset.daintyAccent = accent;
-  }, [accent]);
+    for (const [name, value] of Object.entries(appearanceAttrs(appearance, accent)))
+      setAttr(name, value);
+  }, [appearance, accent]);
 
   const setMode = useCallback(
     (next: ThemeMode) => {
       setModeState(next);
-      persist(next, persistence);
+      persist(THEME_COOKIE, next, persistence);
     },
     [persistence],
   );
 
-  const value = useMemo(() => ({ mode, setMode }), [mode, setMode]);
+  const setAppearance = useCallback(
+    (patch: Partial<Appearance>) => {
+      setAppearanceState((current) => {
+        const next = { ...current, ...patch };
+        persist(APPEARANCE_COOKIE, formatAppearance(next), persistence);
+        return next;
+      });
+    },
+    [persistence],
+  );
+
+  const value = useMemo(
+    () => ({ mode, setMode, appearance, setAppearance, serverAccent: accent }),
+    [mode, setMode, appearance, setAppearance, accent],
+  );
 
   return (
     <ThemeModeContext value={value}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { LinkProvider } from "@astryxdesign/core/Link";
-import { DaintyThemeProvider, type ThemeMode } from "@dainty/theme";
+import { type Accent, type Appearance, DaintyThemeProvider, type ThemeMode } from "@dainty/theme";
 import NextLink from "next/link";
 import { type AbstractIntlMessages, type Locale, NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -11,12 +11,16 @@ import { TimeZoneSync } from "@/components/TimeZoneSync";
 export default function Providers({
   children,
   initialMode,
+  initialAppearance,
+  accent,
   locale,
   messages,
   timeZone,
 }: {
   children: ReactNode;
   initialMode: ThemeMode;
+  initialAppearance: Appearance;
+  accent: Accent;
   locale: Locale;
   messages: AbstractIntlMessages;
   timeZone: string;
@@ -26,7 +30,11 @@ export default function Providers({
     // the SSR pass throws.
     <NextIntlClientProvider locale={locale} messages={messages} timeZone={timeZone}>
       <TimeZoneSync timeZone={timeZone} />
-      <DaintyThemeProvider initialMode={initialMode}>
+      <DaintyThemeProvider
+        initialMode={initialMode}
+        initialAppearance={initialAppearance}
+        accent={accent}
+      >
         {/* Every Astryx link stays a client-side navigation. */}
         <LinkProvider component={NextLink}>
           {children}

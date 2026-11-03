@@ -10,10 +10,10 @@ import { Switch } from "@astryxdesign/core/Switch";
 import { Text } from "@astryxdesign/core/Text";
 import type { GameLanguage, GraphicsPreset, Language, Settings } from "@dainty/bridge";
 import { useBridge } from "@dainty/bridge/react";
-import { ThemeModeControl } from "@dainty/theme";
 import { FolderOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { AppearanceSettings } from "@/components/AppearanceSettings";
 import { TraySettings } from "@/components/desktop/TraySettings";
 import { LauncherShell } from "@/components/launcher/LauncherShell";
 
@@ -43,7 +43,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export default function SettingsPage() {
   const t = useTranslations("launcher.settings");
-  const tc = useTranslations("launcher.theme");
+  const ta = useTranslations("appearance");
   const tt = useTranslations("tray");
   const { snapshot, api } = useBridge();
   if (!snapshot || !api) return null;
@@ -97,11 +97,6 @@ export default function SettingsPage() {
             ]}
             width={320}
           />
-          <ThemeModeControl
-            label={tc("label")}
-            labels={{ system: tc("system"), light: tc("light"), dark: tc("dark") }}
-            size="md"
-          />
           <Switch
             label={t("streamerMode")}
             description={t("streamerModeHint")}
@@ -121,6 +116,11 @@ export default function SettingsPage() {
             icon={<FolderOpen size={16} />}
             onClick={() => void api.openLogsFolder()}
           />
+        </Section>
+
+        <Section title={ta("title")}>
+          <Text type="supporting">{ta("hint")}</Text>
+          <AppearanceSettings />
         </Section>
 
         <Section title={tt("title")}>

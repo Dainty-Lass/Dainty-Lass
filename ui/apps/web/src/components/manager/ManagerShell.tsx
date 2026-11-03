@@ -9,7 +9,7 @@ import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
 import type { ActionResult, HostServerState } from "@dainty/bridge";
 import { TitleBar, useBridge } from "@dainty/bridge/react";
-import { BrandMark, ThemeModeControl } from "@dainty/theme";
+import { BrandMark, HUES, RAIL_RESIZE, ThemeModeControl } from "@dainty/theme";
 import { Hammer, ListChecks, Server, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -74,6 +74,7 @@ export function ManagerShell({
       sideNav={
         <SideNav
           collapsible
+          resizable={RAIL_RESIZE}
           header={
             <SideNavHeading
               heading={name}
@@ -101,18 +102,23 @@ export function ManagerShell({
           }
         >
           <SideNavSection title={t("navigation")} isHeaderHidden>
-            <SideNavItem href="/" label={t("server")} icon={Server} isSelected={at("/")} />
+            <SideNavItem
+              href="/"
+              label={t("server")}
+              icon={<Server className={HUES.teal.text} />}
+              isSelected={at("/")}
+            />
             <SideNavItem
               href="/setup/"
               label={t("setup")}
-              icon={ListChecks}
+              icon={<ListChecks className={HUES.purple.text} />}
               isSelected={at("/setup")}
               endContent={missing ? <Badge variant="warning" label={String(missing)} /> : undefined}
             />
             <SideNavItem
               href="/build/"
               label={t("build")}
-              icon={Hammer}
+              icon={<Hammer className={HUES.orange.text} />}
               isSelected={at("/build")}
               endContent={
                 kit?.job?.state === "running" ? (
@@ -123,7 +129,7 @@ export function ManagerShell({
             <SideNavItem
               href="/settings/"
               label={t("settings")}
-              icon={Settings}
+              icon={<Settings className={HUES.gray.text} />}
               isSelected={at("/settings")}
             />
           </SideNavSection>

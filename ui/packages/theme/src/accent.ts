@@ -35,5 +35,16 @@ export function hueAt(index: number): Hue {
   return POSITION_HUES[index % POSITION_HUES.length]!;
 }
 
+/**
+ * Every shell's rail: wider than Astryx's 260px for the larger rows (variants.css), and resizable, the
+ * width kept per app in local storage.
+ */
+export const RAIL_RESIZE = {
+  defaultWidth: 288,
+  minWidth: 220,
+  maxWidth: 420,
+  autoSaveId: "dainty-rail",
+};
+
 /** A stat card's title, between primary and secondary ink (`.dainty-card-title` in brand.css). */
 export const CARD_TITLE_CLASS = "dainty-card-title";

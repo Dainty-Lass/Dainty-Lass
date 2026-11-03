@@ -86,5 +86,40 @@
     "minimizeHint": "Minimizar esconde a janela; o ícone na bandeja a traz de volta.",
     "close": "Fechar para a bandeja",
     "closeHint": "Fechar esconde a janela, e o que ela executa continua rodando. Para fechar, use Sair no ícone da bandeja."
+  },
+  "appearance": {
+    "title": "Aparência",
+    "mode": "Modo de cor",
+    "modes": {
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Escuro"
+    },
+    "palette": "Paleta",
+    "palettes": {
+      "neutral": "Neutra",
+      "slate": "Ardósia",
+      "midnight": "Meia-noite",
+      "ember": "Brasa",
+      "forest": "Floresta"
+    },
+    "accent": "Cor de destaque",
+    "accentAuto": "A do servidor",
+    "accents": {
+      "pink": "Rosa",
+      "purple": "Roxo",
+      "blue": "Azul",
+      "cyan": "Ciano",
+      "teal": "Verde-azulado",
+      "green": "Verde",
+      "orange": "Laranja",
+      "red": "Vermelho"
+    },
+    "textSize": "Tamanho do texto",
+    "textSizes": {
+      "default": "Padrão",
+      "large": "Grande"
+    },
+    "hint": "Só neste dispositivo. Aplicado ao escolher."
   }
 }

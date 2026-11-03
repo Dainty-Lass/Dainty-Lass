@@ -215,3 +215,103 @@
     }
   }
 }
+
+/**
+ * The viewer's palette (data-dainty-palette on <html>, Appearance): the surfaces only, a tint each
+ * side of the neutral greys, so every ink keeps the contrast the theme was checked at. Neutral is the
+ * theme as it stands. Above the theme's :scope by specificity; the swatches in AppearanceControls
+ * take the same tones from data-palette. Keep the bodies in step with PALETTE_BODY in mode.ts.
+ */
+@layer astryx-theme {
+  [data-astryx-theme],
+  .dainty-palette-preview {
+    --dainty-rail: light-dark(#e0e0e0, #111111);
+  }
+
+  .dainty-palette-preview[data-palette="neutral"] {
+    --color-background-body: light-dark(#f1f1f1, #000000);
+    --color-background-card: light-dark(#ffffff, #1b1b1b);
+  }
+
+  [data-dainty-palette="slate"] [data-astryx-theme],
+  [data-dainty-palette="slate"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="slate"] {
+    --color-background-body: light-dark(#eef1f5, #0b0f14);
+    --color-background-card: light-dark(#ffffff, #161c24);
+    --color-background-popover: light-dark(#ffffff, #161c24);
+    --color-background-surface: light-dark(#ffffff, #1f2731);
+    --dainty-rail: light-dark(#dde3ea, #11171e);
+  }
+
+  [data-dainty-palette="midnight"] [data-astryx-theme],
+  [data-dainty-palette="midnight"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="midnight"] {
+    --color-background-body: light-dark(#eef0fa, #070b18);
+    --color-background-card: light-dark(#ffffff, #121a2e);
+    --color-background-popover: light-dark(#ffffff, #121a2e);
+    --color-background-surface: light-dark(#ffffff, #1a2440);
+    --dainty-rail: light-dark(#dfe3f3, #0d1426);
+  }
+
+  [data-dainty-palette="ember"] [data-astryx-theme],
+  [data-dainty-palette="ember"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="ember"] {
+    --color-background-body: light-dark(#f6f1e9, #0d0a06);
+    --color-background-card: light-dark(#fffdf9, #1c1610);
+    --color-background-popover: light-dark(#fffdf9, #1c1610);
+    --color-background-surface: light-dark(#fffdf9, #271f16);
+    --dainty-rail: light-dark(#ebe2d4, #15100b);
+  }
+
+  [data-dainty-palette="forest"] [data-astryx-theme],
+  [data-dainty-palette="forest"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="forest"] {
+    --color-background-body: light-dark(#eef3ef, #060b08);
+    --color-background-card: light-dark(#ffffff, #131c16);
+    --color-background-popover: light-dark(#ffffff, #131c16);
+    --color-background-surface: light-dark(#ffffff, #1b2720);
+    --dainty-rail: light-dark(#dde8df, #0d1510);
+  }
+}
+
+/* Large text (Appearance): the theme's own touch scale, a step up at every size. */
+@layer astryx-theme {
+  [data-dainty-text="large"] [data-astryx-theme],
+  [data-dainty-text="large"][data-astryx-theme] {
+    --font-size-4xs: 0.4375rem;
+    --font-size-3xs: 0.5rem;
+    --font-size-2xs: 0.625rem;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.1875rem;
+    --font-size-xl: 1.375rem;
+    --font-size-2xl: 1.625rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+  }
+}
+
+/**
+ * The rail at reading size, as Caddy Proxy Manager's: rows a step above body text and taller to
+ * match, icons at 20px (the shells pass them as elements in their hue, which keeps them their own
+ * colour on the selected row).
+ */
+@layer astryx-theme {
+  @scope ([data-astryx-theme="dainty"]) to ([data-astryx-theme]) {
+    .astryx-side-nav-item {
+      --size-element-md: 40px;
+      font-size: var(--font-size-lg);
+    }
+
+    .astryx-side-nav-item[data-selected="selected"] {
+      font-weight: var(--font-weight-medium);
+    }
+
+    .astryx-side-nav-item svg {
+      inline-size: 20px;
+      block-size: 20px;
+      flex: none;
+    }
+  }
+}

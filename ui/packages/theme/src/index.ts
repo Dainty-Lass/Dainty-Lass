@@ -2,6 +2,7 @@
 
 /// <reference path="./astryx.d.ts" />
 
+export { AppearanceControls, type AppearanceLabels } from "./AppearanceControls";
 export * from "./accent";
 export { BrandMark } from "./BrandMark";
 export { DaintyThemeProvider, useThemeMode } from "./DaintyThemeProvider";

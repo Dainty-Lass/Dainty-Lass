@@ -8,7 +8,7 @@ import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from "@astryxdes
 import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TitleBar, useBridge } from "@dainty/bridge/react";
-import { BrandMark } from "@dainty/theme";
+import { BrandMark, HUES, RAIL_RESIZE } from "@dainty/theme";
 import { Gamepad2, Server, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -48,6 +48,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
       sideNav={
         <SideNav
           collapsible
+          resizable={RAIL_RESIZE}
           header={
             <SideNavHeading
               heading={t("product")}
@@ -70,17 +71,22 @@ export function LauncherShell({ children }: { children: ReactNode }) {
           }
         >
           <SideNavSection title={t("navigation")} isHeaderHidden>
-            <SideNavItem href="/" label={t("play")} icon={Gamepad2} isSelected={at("/")} />
+            <SideNavItem
+              href="/"
+              label={t("play")}
+              icon={<Gamepad2 className={HUES.green.text} />}
+              isSelected={at("/")}
+            />
             <SideNavItem
               href="/servers/"
               label={t("servers")}
-              icon={Server}
+              icon={<Server className={HUES.teal.text} />}
               isSelected={at("/servers")}
             />
             <SideNavItem
               href="/settings/"
               label={t("settings")}
-              icon={Settings}
+              icon={<Settings className={HUES.gray.text} />}
               isSelected={at("/settings")}
             />
           </SideNavSection>

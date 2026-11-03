@@ -20,12 +20,6 @@
     "install_done": "Installed.",
     "repair_done": "Repaired."
   },
-  "theme": {
-    "label": "Colour mode",
-    "system": "System",
-    "light": "Light",
-    "dark": "Dark"
-  },
   "home": {
     "welcome": "Welcome",
     "online": "Online",

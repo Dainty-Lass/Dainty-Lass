@@ -8,7 +8,7 @@ import { Selector } from "@astryxdesign/core/Selector";
 import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from "@astryxdesign/core/SideNav";
 import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
-import { BrandMark, ThemeModeControl } from "@dainty/theme";
+import { BrandMark, HUES, type Hue, RAIL_RESIZE, ThemeModeControl } from "@dainty/theme";
 import {
   Flag,
   History,
@@ -71,12 +71,13 @@ export function DashboardShell({
   const at = (href: string) =>
     href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
 
-  const item = (href: string, label: string, icon: typeof Users, end?: ReactNode) => (
+  // An element in its hue (Caddy Proxy Manager's rail): a component would be drawn smaller.
+  const item = (href: string, label: string, Icon: typeof Users, hue: Hue, end?: ReactNode) => (
     <SideNavItem
       key={href}
       href={href}
       label={label}
-      icon={icon}
+      icon={<Icon className={HUES[hue].text} />}
       isSelected={at(href)}
       endContent={end}
     />
@@ -88,6 +89,7 @@ export function DashboardShell({
       sideNav={
         <SideNav
           collapsible
+          resizable={RAIL_RESIZE}
           topContent={
             controllers.length > 1 ? (
               <Selector
@@ -157,23 +159,25 @@ export function DashboardShell({
           }
         >
           <SideNavSection title={t("moderation")}>
-            {item("/", t("overview"), LayoutDashboard)}
-            {item("/players", t("players"), Users)}
+            {item("/", t("overview"), LayoutDashboard, "blue")}
+            {item("/players", t("players"), Users, "cyan")}
             {nav.reports &&
               item(
                 "/reports",
                 t("reports"),
                 Flag,
+                "red",
                 openReports > 0 ? <Badge variant="error" label={String(openReports)} /> : undefined,
               )}
-            {nav.chat && item("/chat", t("chat"), MessagesSquare)}
-            {nav.chat && item("/chat-filter", t("chatFilter"), ShieldBan)}
-            {nav.audit && item("/audit", t("audit"), History)}
+            {nav.chat && item("/chat", t("chat"), MessagesSquare, "purple")}
+            {nav.chat && item("/chat-filter", t("chatFilter"), ShieldBan, "orange")}
+            {nav.audit && item("/audit", t("audit"), History, "yellow")}
             {nav.controllers &&
               item(
                 "/controllers",
                 t("controllers"),
                 Server,
+                "teal",
                 down > 0 ? <Badge variant="error" label={String(down)} /> : undefined,
               )}
           </SideNavSection>
@@ -184,9 +188,10 @@ export function DashboardShell({
                   "/members",
                   t("members"),
                   UserCog,
+                  "pink",
                   pending > 0 ? <Badge variant="warning" label={String(pending)} /> : undefined,
                 )}
-              {nav.settings && item("/settings", t("settings"), Settings)}
+              {nav.settings && item("/settings", t("settings"), Settings, "gray")}
             </SideNavSection>
           )}
         </SideNav>

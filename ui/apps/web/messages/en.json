@@ -995,5 +995,40 @@
       "minutes": "{minutes} min",
       "seconds": "{seconds} s"
     }
+  },
+  "appearance": {
+    "title": "Appearance",
+    "mode": "Colour mode",
+    "modes": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "palette": "Palette",
+    "palettes": {
+      "neutral": "Neutral",
+      "slate": "Slate",
+      "midnight": "Midnight",
+      "ember": "Ember",
+      "forest": "Forest"
+    },
+    "accent": "Accent",
+    "accentAuto": "The server's",
+    "accents": {
+      "pink": "Pink",
+      "purple": "Purple",
+      "blue": "Blue",
+      "cyan": "Cyan",
+      "teal": "Teal",
+      "green": "Green",
+      "orange": "Orange",
+      "red": "Red"
+    },
+    "textSize": "Text size",
+    "textSizes": {
+      "default": "Default",
+      "large": "Large"
+    },
+    "hint": "Only in this browser. Applied as you pick."
   }
 }

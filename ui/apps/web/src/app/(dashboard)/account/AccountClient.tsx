@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
+import { AppearanceSettings } from "@/components/AppearanceSettings";
 import { DiscordIcon } from "@/components/DiscordIcon";
 import { Page } from "@/components/Page";
 import { TwitchIcon } from "@/components/TwitchIcon";
@@ -90,6 +91,7 @@ export function AccountClient({
     done(!r.error, t("passkeyRemoved"));
   }
 
+  const ta = useTranslations("appearance");
   const linked = (p: Provider) => accounts.find((a) => a.providerId === p);
 
   return (
@@ -211,6 +213,16 @@ export function AccountClient({
                 onClick={addPasskey}
               />
             </Stack>
+          </Stack>
+        </Card>
+
+        <Card padding={4}>
+          <Stack gap={3}>
+            <Stack gap={1}>
+              <Heading level={2}>{ta("title")}</Heading>
+              <Text type="supporting">{ta("hint")}</Text>
+            </Stack>
+            <AppearanceSettings />
           </Stack>
         </Card>
       </Stack>

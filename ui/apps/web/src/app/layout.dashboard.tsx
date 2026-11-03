@@ -1,4 +1,12 @@
-import { parseThemeMode, THEME_COOKIE, themeAttr, themeColor } from "@dainty/theme/mode";
+import {
+  APPEARANCE_COOKIE,
+  appearanceAttrs,
+  parseAppearance,
+  parseThemeMode,
+  THEME_COOKIE,
+  themeAttr,
+  themeColor,
+} from "@dainty/theme/mode";
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { getLocale, getMessages, getTimeZone, getTranslations } from "next-intl/server";
@@ -8,8 +16,11 @@ import Providers from "./providers";
 import "./globals.css";
 
 export async function generateViewport(): Promise<Viewport> {
-  const mode = parseThemeMode((await cookies()).get(THEME_COOKIE)?.value);
-  return { themeColor: themeColor(mode) };
+  const jar = await cookies();
+  const mode = parseThemeMode(jar.get(THEME_COOKIE)?.value);
+  return {
+    themeColor: themeColor(mode, parseAppearance(jar.get(APPEARANCE_COOKIE)?.value).palette),
+  };
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,7 +34,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const mode = parseThemeMode((await cookies()).get(THEME_COOKIE)?.value);
+  const jar = await cookies();
+  const mode = parseThemeMode(jar.get(THEME_COOKIE)?.value);
+  const appearance = parseAppearance(jar.get(APPEARANCE_COOKIE)?.value);
   const [locale, messages, timeZone] = await Promise.all([
     getLocale(),
     getMessages(),
@@ -31,15 +44,22 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   ]);
   const { accent } = getSettings();
   return (
-    // data-theme from the cookie so the first paint is in the right mode; omitted for "system".
+    // From the cookies, so the first paint is in the viewer's mode and look; "system" omits data-theme.
     <html
       lang={locale}
       data-theme={themeAttr(mode)}
-      data-dainty-accent={accent}
+      {...appearanceAttrs(appearance, accent)}
       suppressHydrationWarning
     >
       <body>
-        <Providers initialMode={mode} locale={locale} messages={messages} timeZone={timeZone}>
+        <Providers
+          initialMode={mode}
+          initialAppearance={appearance}
+          accent={accent}
+          locale={locale}
+          messages={messages}
+          timeZone={timeZone}
+        >
           {children}
         </Providers>
       </body>

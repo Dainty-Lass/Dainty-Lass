@@ -13,7 +13,7 @@ change there reaches all three apps, and none of them styles itself.
   not a theme build, so every app and every server share one stylesheet.
 - **Black and near-white pages.** The body is `#f1f1f1` in light mode and pure `#000` in dark mode, at
   every width, so desktop and phone read as one theme. Cards lift off it in the card colour.
-- **The rail is one step off the page:** `#e0e0e0` / `#111111`, 17 levels either way, with its footer a
+- **The rail is one step off the page:** `#e0e0e0` / `#111111` (`--dainty-rail`, which a palette tints), 17 levels either way, with its footer a
   further step darker so it reads as apart from the list scrolling above it.
 - **The current page is tonal.** The selected nav item is the accent's background with the accent's ink,
   not the theme's hover tint, which read as "the pointer is here" rather than "you are here".
@@ -22,6 +22,29 @@ change there reaches all three apps, and none of them styles itself.
 - **Phone dark mode lifts cards** to `#262626` on black and drops primary ink to `#ebebeb`, because white on
   black smears on OLED while scrolling.
 - **The launcher icon's navy, periwinkle and gold are for the brand mark only**, never for chrome.
+
+## Appearance
+
+Each viewer can change their own look, beside the colour mode (`AppearanceControls`, under Account in the
+dashboard and Settings in both shells; applied as picked, kept per device):
+
+- **Palette:** Neutral (the look above), Slate, Midnight, Ember or Forest. A palette moves only the
+  surfaces (page, card, popover, surface and rail), a tint either side of the neutral greys, so every ink
+  keeps the contrast the theme was checked at. `data-dainty-palette` on `<html>`.
+- **Accent:** the server's (the default), or any of the eight. `data-dainty-accent` is always the accent in
+  effect.
+- **Text size:** Default, or Large, the theme's touch scale a step up at every size. `data-dainty-text`.
+
+The dashboard keeps the choice in the `dainty-appearance` cookie, so its server renders the first paint in
+it; the shells keep it in local storage.
+
+## The rail
+
+- **At reading size:** rows at the large text size and 40 px tall, icons at 20 px, the current page in
+  medium weight. 288 px wide by default and resizable (220 to 420, remembered).
+- **Every icon in its hue**, as Caddy Proxy Manager's rail: passed as an element with a `HUES` class, so
+  it keeps its colour on the tonal current row. A hue matches what the page is about where a stat tile
+  already says it (players cyan, reports red, controllers teal, settings grey).
 
 ## Numbers
 
