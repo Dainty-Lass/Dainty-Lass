@@ -1,26 +1,29 @@
-// The page's way into the launcher backend. src/generated/types.ts is written by DaintyLass from
-// rust/launcher/src-tauri/src/bridge (RR_UPDATE_GENERATED=1) and stays AGPL-3.0-only with the bridge
-// types it comes from (DD26); the rest of this package is MIT.
-export type * from "./generated/types"
-export {
-  BridgeError,
-  call,
-  CALL_TIMEOUT_MS,
-  inLauncher,
-  LONG_TIMEOUT_MS,
-} from "./call"
-export {
-  api,
-  type AdminRequest,
-  type HistoryFilter,
-  type LauncherApi,
-  type ModuleInput,
-  type ModuleSettingsPatch,
-  type RemoteEnrollRequest,
-  type RemoteExecAction,
-  type RemoteExecRequest,
-  type RemoteInitRequest,
-  type RemoteInviteRequest,
-  type RevertSelection,
-  type ServerConfigPatch,
-} from "./api"
+import { mockLauncher } from "./mock";
+import type { LauncherApi } from "./types";
+
+export type * from "./generated/types";
+export { mockLauncher } from "./mock";
+export type { LauncherApi } from "./types";
+
+let cached: LauncherApi | undefined;
+
+/**
+ * The bridge inside Tauri, the stand-in anywhere else (`bun run dev` in a browser). The real one is
+ * imported lazily so a browser build never evaluates @tauri-apps/api's invoke.
+ */
+export async function getLauncher(): Promise<LauncherApi> {
+  if (cached) return cached;
+  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
+    const { api } = await import("./api");
+    // No browser context menu, as in the Electron launcher (debug builds still open devtools with F12).
+    document.addEventListener("contextmenu", (event) => event.preventDefault());
+    cached = api;
+  } else {
+    cached = mockLauncher();
+  }
+  return cached;
+}
+
+export function inTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}

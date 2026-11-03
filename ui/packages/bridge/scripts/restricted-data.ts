@@ -1,5 +1,5 @@
 // Copies the bridge types the launcher generates from spec.rs (RR_UPDATE_GENERATED=1) from a dainty-restricted
-// checkout. They are AGPL, so they stay out of this repository (RD27), as with ui/'s scripts/restricted-data.mjs.
+// checkout. They are AGPL, so they stay out of this repository (RD27).
 // The checkout is DAINTY_RESTRICTED_DIR, or dainty-restricted beside dainty-lass. Run after any bridge change:
 //   bun run restricted-data
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

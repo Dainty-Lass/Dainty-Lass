@@ -36,8 +36,7 @@ launcher from both.
 | Folder | What |
 | --- | --- |
 | [root](.) | One cargo workspace, every package in `crates/<package name>` (libraries, services, core plugins and the `dainty-lass-server` binary), and `fuzz/` |
-| [`dashboard/`](dashboard) | The staff dashboard, the launcher and server-manager pages the Tauri shells serve, and the fleet agent (Astryx on Next.js through vinext, built with Bun); its generated bridge types come from dainty-restricted |
-| [`ui/`](ui) | The launcher's page (SolidJS + Vite + Tailwind CSS, built with Bun); its language catalogs come from dainty-restricted |
+| [`ui/`](ui) | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shells serve, and the fleet agent (Astryx on Next.js through vinext, built with Bun); its generated bridge types come from dainty-restricted |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |
 | [`docs/`](docs) | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
 
@@ -54,7 +53,7 @@ cargo test --workspace --locked
 The UI (`ui/`) builds with Bun and needs a dainty-restricted checkout beside this one, or `DAINTY_RESTRICTED_DIR`:
 
 ```bash
-cd ui && bun install --frozen-lockfile && bun run build
+cd ui && bun install --frozen-lockfile && bun run restricted-data && bun run build
 ```
 
 The server, the launcher and the Docker images are built from dainty-restricted.

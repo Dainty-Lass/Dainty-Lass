@@ -3,7 +3,7 @@
 # push to main or plan, a manual run and any change to the workflows run every family.
 #  - Rust (the MIT workspace): fmt, clippy and tests on Linux and Windows, every package MIT, cargo-deny, a short
 #    run of every fuzz target
-#  - UI (ui/): bun install and build, with the AGPL catalogs from dainty-restricted (RD27)
+#  - UI (ui/, dainty-dash): bun install, typecheck, test and build, with the AGPL bridge types from dainty-restricted (RD27)
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
 # windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit.
@@ -254,7 +254,7 @@ jobs:
           retention-days: 14
 
 
-  # dainty-lass-ui at ui/: its Astro build, with the Bun its package.json names (DD11). Astro's CLI runs on Node.
+  # dainty-dash at ui/: the dashboard, the launcher and server-manager pages, and the agent
   ui:
     name: UI build
     needs: changes
@@ -268,13 +268,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version-file: ui/package.json
-      # The AGPL catalogs and bridge types (scripts/restricted-data.mjs, RD27)
+          # launcher/package.json's packageManager; ui/ names only bun in devEngines
+          bun-version: 1.4.4
+      # The AGPL bridge types (packages/bridge/scripts/restricted-data.ts, RD27)
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: silentspud/dainty-restricted
@@ -282,9 +280,11 @@ jobs:
           persist-credentials: false
           token: ${{ secrets.CI_READ_TOKEN || github.token }}
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - run: bun run typecheck
         env:
           DAINTY_RESTRICTED_DIR: ${{ github.workspace }}/.restricted
+      - run: bun run test
+      - run: bun run build
 
 
 

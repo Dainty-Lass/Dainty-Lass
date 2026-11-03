@@ -7,7 +7,7 @@ under [security/](security) go through each trust boundary line by line.
 
 | Part | Runs on | Code | Listens on |
 | --- | --- | --- | --- |
-| Launcher & Manager | each player's or host's PC | `launcher` and `crates/launcher-kit` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), page from `ui/` (`dainty-lass-ui`) | relay `127.0.0.1:61100` for the game (`dainty-lass-client`) |
+| Launcher & Manager | each player's or host's PC | `launcher` and `crates/launcher-kit` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), pages from `ui/` (dainty-dash's `apps/launcher` and `apps/server-manager`) | relay `127.0.0.1:61100` for the game (`dainty-lass-client`) |
 | Controller | the server | `crates/controller` over `crates/module-api` | the one process tree `start`, the console and `dainty-lass-manager` (`server-gui`) run |
 | Gateway (core plugin) | the server | `crates/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
 | Allowlist helper (core plugin) | the server, public mode | `crates/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |

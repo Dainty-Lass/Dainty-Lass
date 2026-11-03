@@ -26,7 +26,7 @@ function main(): void {
 
   const restricted = restrictedDir()
   // The dashboard is this repository's since RD27; the built page still lands in the restricted checkout
-  const dashboard = process.env.DAINTY_DASH_DIR || path.join(repoDir, "dashboard")
+  const dashboard = process.env.DAINTY_DASH_DIR || path.join(repoDir, "ui")
   const app = path.join(dashboard, "apps", page)
   if (!existsSync(path.join(app, "package.json"))) {
     console.error(`missing ${path.join(app, "package.json")}: set DAINTY_DASH_DIR to a dashboard checkout`)
