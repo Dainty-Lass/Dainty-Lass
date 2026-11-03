@@ -4,7 +4,7 @@ import { LinkProvider } from "@astryxdesign/core/Link";
 import bridgeEn from "@dainty/bridge/messages/en.json";
 import bridgePt from "@dainty/bridge/messages/pt-BR.json";
 import { BridgeProvider, useBridge } from "@dainty/bridge/react";
-import { DaintyThemeProvider, parseAccent } from "@dainty/theme";
+import { BootSplash, DaintyThemeProvider, parseAccent } from "@dainty/theme";
 import NextLink from "next/link";
 import { NextIntlClientProvider } from "next-intl";
 import { type ReactNode, useEffect } from "react";
@@ -34,6 +34,7 @@ function Localized({ children }: { children: ReactNode }) {
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
     >
       {children}
+      <BootSplash ready={snapshot !== null} />
     </NextIntlClientProvider>
   );
 }

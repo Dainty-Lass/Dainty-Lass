@@ -4,7 +4,7 @@ import { LinkProvider } from "@astryxdesign/core/Link";
 import bridgeEn from "@dainty/bridge/messages/en.json";
 import bridgePt from "@dainty/bridge/messages/pt-BR.json";
 import { BridgeProvider, useBridge } from "@dainty/bridge/react";
-import { DaintyThemeProvider } from "@dainty/theme";
+import { BootSplash, DaintyThemeProvider } from "@dainty/theme";
 import NextLink from "next/link";
 import { NextIntlClientProvider } from "next-intl";
 import { type ReactNode, useEffect } from "react";
@@ -15,7 +15,7 @@ import pt from "../../messages/pt-BR.json";
 const CATALOGS = { en: { ...bridgeEn, ...en }, "pt-BR": { ...bridgePt, ...pt } } as const;
 
 function Localized({ children }: { children: ReactNode }) {
-  const { snapshot } = useBridge();
+  const { snapshot, kit } = useBridge();
   const locale = snapshot?.settings.language ?? "en";
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -27,6 +27,8 @@ function Localized({ children }: { children: ReactNode }) {
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
     >
       {children}
+      {/* The manager's pages read the host kit, which the bridge loads after the snapshot */}
+      <BootSplash ready={snapshot !== null && kit !== null} />
     </NextIntlClientProvider>
   );
 }

@@ -137,4 +137,87 @@
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
+
+  /* The boot splash (SplashLoader): solid while the page waits, a blurred scrim over it as the logos
+     settle, then faded out. Its colours are the shard logo's, like the brand mark's. */
+  .dainty-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(10 14 23);
+    backdrop-filter: blur(0);
+    transition:
+      background-color 1.2s ease,
+      backdrop-filter 1.2s ease,
+      opacity 0.65s ease;
+  }
+
+  .dainty-splash[data-stage="settling"] {
+    background-color: rgb(10 14 23 / 0.45);
+    backdrop-filter: blur(6px);
+  }
+
+  .dainty-splash[data-stage="dismissed"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .dainty-splash-svg {
+    inline-size: min(65vmin, 420px);
+    block-size: min(65vmin, 420px);
+  }
+
+  .dainty-splash-top {
+    fill: var(--dainty-splash-top);
+  }
+
+  .dainty-splash-bottom {
+    fill: var(--dainty-splash-bottom);
+  }
+
+  .dainty-splash-cyan {
+    --dainty-splash-top: #00f2fe;
+    --dainty-splash-bottom: #0284c7;
+  }
+
+  .dainty-splash-orange {
+    --dainty-splash-top: #ff7e00;
+    --dainty-splash-bottom: #e11d48;
+  }
+
+  .dainty-splash-green {
+    --dainty-splash-top: #38ef7d;
+    --dainty-splash-bottom: #059669;
+  }
+
+  /* The ring's mask: each logo, grown by a stroke, cut out of it. */
+  .dainty-splash-cutout {
+    --dainty-splash-top: black;
+    --dainty-splash-bottom: black;
+    stroke: black;
+    stroke-width: 45;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .dainty-splash-ring {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+  }
+
+  .dainty-splash-stop-cyan {
+    stop-color: #00f2fe;
+  }
+
+  .dainty-splash-stop-orange {
+    stop-color: #ff512f;
+  }
+
+  .dainty-splash-stop-green {
+    stop-color: #38ef7d;
+  }
 }
