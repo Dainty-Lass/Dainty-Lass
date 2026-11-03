@@ -109,6 +109,8 @@ pub struct Stored {
     pub minimize_to_tray: bool,
     #[serde(default)]
     pub close_to_tray: bool,
+    #[serde(default)]
+    pub show_game_console: bool,
     pub usernames: HashMap<String, String>,
     pub backup_offered: HashMap<String, bool>,
     /// The runtime sets the player accepted, per server id (`runtime_set_id`)
@@ -142,6 +144,7 @@ impl Default for Stored {
             host_tools: false,
             minimize_to_tray: false,
             close_to_tray: false,
+            show_game_console: false,
             usernames: HashMap::new(),
             backup_offered: HashMap::new(),
             trusted_runtimes: HashMap::new(),

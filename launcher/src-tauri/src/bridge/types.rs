@@ -441,6 +441,8 @@ pub struct Settings {
     pub minimize_to_tray: bool,
     /// Closing hides the window to the tray; the tray's Quit closes it
     pub close_to_tray: bool,
+    /// Leave the game's console window on screen; hidden otherwise, its lines read into Game log
+    pub show_game_console: bool,
 }
 
 /// What `setSettings` may change: any of the settings, each checked; an unknown field or a wrong value
@@ -458,6 +460,7 @@ pub struct SettingsPatch {
     pub game_edition: Option<Game>,
     pub minimize_to_tray: Option<bool>,
     pub close_to_tray: Option<bool>,
+    pub show_game_console: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

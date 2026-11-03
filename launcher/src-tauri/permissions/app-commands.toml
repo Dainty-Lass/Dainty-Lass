@@ -58,6 +58,7 @@ permissions = [
   "allow-host-set-multipliers",
   "allow-copy-text",
   "allow-take-invite-link",
+  "allow-game-log-get",
   "allow-dismiss-notice",
   "allow-dismiss-error",
   "allow-subscribe-progress",

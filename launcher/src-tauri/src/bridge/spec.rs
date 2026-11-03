@@ -88,6 +88,7 @@ pub const SETTINGS_KEYS: &[&str] = &[
     "gameEdition",
     "minimizeToTray",
     "closeToTray",
+    "showGameConsole",
 ];
 
 /// `InstallMode`'s names (`revivedInstall`).
@@ -493,6 +494,7 @@ pub const COMMANDS: &[Command] = &[
     command("host_set_multipliers", &[("multipliers", HOST_MULTIPLIERS)]),
     command("copy_text", &[("text", Arg::Text { max: COPY_TEXT_MAX })]),
     command("take_invite_link", &[]),
+    command("game_log_get", &[]),
     command("dismiss_notice", &[]),
     command("dismiss_error", &[]),
     command("subscribe_progress", &[("onProgress", Arg::Channel)]),

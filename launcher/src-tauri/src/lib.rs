@@ -47,6 +47,11 @@ fn on_second_launcher(args: Vec<String>) {
         .deliver_invite_link(Some(app), invite_link::invite_from_args(&args));
 }
 
+/// This process as the game console's reader (`--read-game-console`), before anything else starts.
+pub fn game_console_helper() -> Option<std::process::ExitCode> {
+    platform::game_console::helper_main()
+}
+
 /// Builds and runs the app until the last window closes; hands over to the launcher already running.
 pub fn run() -> tauri::Result<()> {
     run_app(None)
@@ -155,6 +160,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             commands::host_set_multipliers,
             commands::copy_text,
             commands::take_invite_link,
+            commands::game_log_get,
             commands::dismiss_notice,
             commands::dismiss_error,
             commands::subscribe_progress,

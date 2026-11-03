@@ -216,7 +216,7 @@ pub fn sanitize_settings(raw: &Value, language: Language, platform: Platform) ->
         out.insert(flag.into(), Value::Bool(raw.get(flag) == Some(&Value::Bool(true))));
     }
     // DaintyLass's own, kept only when on, so a file without them stays Reforged's byte for byte
-    for flag in ["minimizeToTray", "closeToTray"] {
+    for flag in ["minimizeToTray", "closeToTray", "showGameConsole"] {
         if raw.get(flag) == Some(&Value::Bool(true)) {
             out.insert(flag.into(), Value::Bool(true));
         }

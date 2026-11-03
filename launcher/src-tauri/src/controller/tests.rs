@@ -1160,6 +1160,7 @@ async fn settings_take_reforgeds_seven_keys() {
         game_edition: Some(crate::bridge::types::Game::Legacy),
         minimize_to_tray: Some(true),
         close_to_tray: None,
+        show_game_console: None,
     };
     let settings = hx.c.set_settings(patch).await;
     assert_eq!(settings.graphics.value(), 3);

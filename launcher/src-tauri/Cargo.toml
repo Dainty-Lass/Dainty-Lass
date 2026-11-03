@@ -90,12 +90,17 @@ protocol = { workspace = true, features = ["ts", "test-data"] }
 ts-rs.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-# DataExchange and Memory: copying text to the clipboard (platform/clipboard.rs, RA11)
+# DataExchange and Memory: copying text to the clipboard (platform/clipboard.rs, RA11). Console,
+# FileSystem, Threading and WindowsAndMessaging: reading the game's console (platform/game_console.rs)
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
     "Win32_System_DataExchange",
     "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
