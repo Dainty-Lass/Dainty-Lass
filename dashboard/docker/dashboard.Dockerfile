@@ -1,5 +1,5 @@
 # The dashboard as a container. Build context: the repository root.
-#   docker build -f docker/dashboard.Dockerfile -t dainty-dashboard .
+#   docker build -f docker/dashboard.Dockerfile -t dainty-dash .
 # It reaches the admin API and backend on loopback, so run it in the server's network namespace
 # (network_mode: "service:<backend>" in Compose, or --network host) and mount /data for the database.
 FROM oven/bun:1.4.4 AS build

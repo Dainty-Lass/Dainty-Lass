@@ -66,7 +66,7 @@ own clock, as it does the status.
 
 1. **Controllers → Add controller.** Give it a name and, optionally, a region. You get a pairing code,
    valid for 30 minutes and usable once. It is stored only as a hash, so it is shown only this once.
-2. On that controller, from a dainty-dashboard checkout, write `agent.env`:
+2. On that controller, from a dainty-dash checkout, write `agent.env`:
 
    ```bash
    DAINTY_AGENT_DASHBOARD_URL=https://dashboard.example.com

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "dainty-dashboard",
+      "name": "dainty-dash",
       "devDependencies": {
         "@biomejs/biome": "^2.6.2",
         "@types/bun": "^1.4.3",

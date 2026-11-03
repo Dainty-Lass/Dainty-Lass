@@ -123,7 +123,7 @@ These are changes to the server and the Tauri shells, which this repository does
 4. **The Tauri shells load these pages.** Point `rust/launcher/src-tauri/tauri.conf.json`'s `frontendDist`
    at `apps/launcher/dist/client`, and the server GUI's at `apps/server-manager/dist/client` (today both
    bins share the launcher's `index.html`). `beforeBuildCommand` becomes
-   `bun run --cwd <dainty-dashboard>/apps/launcher build`. Tauri hashes the exported pages' inline scripts
+   `bun run --cwd <dainty-dash>/apps/launcher build`. Tauri hashes the exported pages' inline scripts
    into the CSP at build time, so `script-src 'self'` holds.
 5. **Window title and identifier.** `window.rs` still titles the window "Dauntless Reforged Revival
    Launcher"; the page now draws its own title bar, so only the OS task switcher shows it.

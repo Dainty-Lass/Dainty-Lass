@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! New here: the staff dashboard's chat filter, chat log and reports (dainty-dashboard
+//! New here: the staff dashboard's chat filter, chat log and reports (dainty-dash
 //! `docs/integration.md`, "Ingest API"). The filter is polled from the dashboard and applied before delivery;
 //! every line, with the verdict, and every `/report` go to it in the background. Without a dashboard
 //! configured all of it is off and chat behaves as before.
@@ -790,7 +790,7 @@ mod tests {
         f.matches(text, channel).len()
     }
 
-    /// dainty-dashboard `apps/dashboard/tests/filter.test.ts`, case for case.
+    /// dainty-dash `apps/dashboard/tests/filter.test.ts`, case for case.
     #[test]
     fn the_dashboards_own_filter_tests_agree() {
         let f = filter(&[term(1, "idiot", MatchType::Word, Action::Mask)]);

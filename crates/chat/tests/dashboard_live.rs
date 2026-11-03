@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Against a running dainty-dashboard (`bun run dev` in `apps/dashboard`): the filter poll, lines and a
+//! Against a running dainty-dash (`bun run dev` in `apps/dashboard`): the filter poll, lines and a
 //! report. Ignored by default; `CHAT_DASHBOARD_LIVE_URL` and `CHAT_DASHBOARD_LIVE_KEY` point it at one,
 //! and `CHAT_DASHBOARD_LIVE_ADD_TERM` is a command that adds the word term `noob` (flag, party only)
 //! through the dashboard's store, run once the first filter has arrived.
@@ -42,7 +42,7 @@ fn line(moderation: &Moderation, id: &str, channel: Channel, name: &str, body: &
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a running dainty-dashboard"]
+#[ignore = "needs a running dainty-dash"]
 async fn a_real_dashboard_takes_lines_and_reports_and_serves_its_filter() {
     let url = std::env::var("CHAT_DASHBOARD_LIVE_URL").expect("CHAT_DASHBOARD_LIVE_URL");
     let key = std::env::var("CHAT_DASHBOARD_LIVE_KEY").expect("CHAT_DASHBOARD_LIVE_KEY");

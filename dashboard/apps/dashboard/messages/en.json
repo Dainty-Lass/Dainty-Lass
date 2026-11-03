@@ -837,7 +837,7 @@
       "code": "Pairing code",
       "expires": "Expires",
       "step1": "On that host, write these into an env file. The two secrets come from its own secrets.env and never leave it.",
-      "step2": "Then start the agent from a dainty-dashboard checkout:",
+      "step2": "Then start the agent from a dainty-dash checkout:",
       "after": "The code works once. The agent stores the token it gets in exchange and reconnects with it from then on.",
       "insecure": "This dashboard's address is not HTTPS. Agents send their token with every request, so put the dashboard behind TLS before pairing hosts over the internet."
     }

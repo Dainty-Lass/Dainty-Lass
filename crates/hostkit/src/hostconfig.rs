@@ -758,7 +758,7 @@ pub struct HostConfig {
     pub max_hunt_servers: u32,
     pub multipliers: Option<Multipliers>,
     pub public_port: Option<u16>,
-    /// The staff dashboard chat sends its log and reports to, with `DASHBOARD_INGEST_KEY` (dainty-dashboard)
+    /// The staff dashboard chat sends its log and reports to, with `DASHBOARD_INGEST_KEY` (dainty-dash)
     pub dashboard_url: Option<String>,
     pub performance: Option<PerformanceOptions>,
     pub linux: Option<LinuxOptions>,

@@ -1516,7 +1516,7 @@ A clean-room path, and what it costs:
    row's.
 2. **Narrow it to the backend.** The backend shows only the 12 keys of §2.8.2. A clean backend can embed only those
    12, rewritten (12 new strings in each language: a small, visible change to the close dialog, the pickers' titles
-   and the Epic window's title), and leave the page's 1,171 others to the page. The page itself (dainty-dashboard)
+   and the Epic window's title), and leave the page's 1,171 others to the page. The page itself (dainty-dash)
    still ships the full catalogs, so the *installer* stays AGPL-bearing even then.
 3. **Load the text at run time.** The backend reads the 12 strings from a data file installed beside it instead of
    compiling them in. The executable is then free of the text; the installer is not.
@@ -1567,7 +1567,7 @@ Not a provenance question, but it decides the binaries' licence:
   additional terms). The `realms` feature, on in the release client, makes `dainty-lass-client` AGPL.
 - `server_gui.rs` and the manager's feature list link `crates/host`, `isles-1-14-7` and realms. The
   `server-gui` feature makes `dainty-lass-manager` AGPL until RD27 phase 2 loads those as libraries.
-- The page each shell serves is dainty-dashboard's (`scripts/dashboard-page.mjs`), which lives in dainty-restricted;
+- The page each shell serves is dainty-dash's (`scripts/dashboard-page.mjs`), which lives in dainty-restricted;
   its licence is outside this document but decides the installer's.
 
 ---

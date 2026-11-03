@@ -11,7 +11,7 @@ Dauntless Revived 1.4.4 or Rustic Isles 1.12 modules, so nothing here is per edi
 
 **Words.** A *server* is one DaintyLass install: a `ServerController` (`crates/controller/src/controller.rs`) with its
 `ModuleRegistry` (`crates/controller/src/registry.rs`). The *fleet controller* is the install with
-`[remote] role = "controller"` (DD27, `docs/remote-management.md`). dainty-dashboard calls a server a "controller";
+`[remote] role = "controller"` (DD27, `docs/remote-management.md`). dainty-dash calls a server a "controller";
 this doc doesn't.
 
 ## The two motivating cases
@@ -209,7 +209,7 @@ A built-in service in Rust, `controller::modules::discord(env, registry)` (propo
 
 The code and the URI never reach a channel, a log line or an event; the event records the outcome only.
 
-### A8. dainty-dashboard
+### A8. dainty-dash
 
 - An account-creation setting (on or off, and the page's URL) in Settings, and a public `GET /api/public/signup`
   answering `{ "enabled": bool, "url": string | null }`. The bot reads it with a 60 s cache; any failure reads as
@@ -230,7 +230,7 @@ flowchart LR
 
     Launcher["Launcher\n(player's PC)"]:::ext
     Discord["Discord"]:::ext
-    Dashboard["dainty-dashboard"]:::ext
+    Dashboard["dainty-dash"]:::ext
     HostKit["Host kit\nsetup: host.toml + secrets.env → env files"]:::ext
 
     subgraph Server["Server process (ServerController)"]
@@ -364,7 +364,7 @@ One agent, one worktree and branch each (RD18). MS1 is a seam and lands first.
 | **MS5** | Event recorder (A5): subscriber, table, `events.lagged`, retention, `[events]` in host.toml; the schema reported to `store`'s owner | `crates/controller` (recorder only), `crates/hostkit` (`[events]`) | MS2; D2 |
 | **MS6** | Remote (A6): `InstallReport` fields, last report per node, admin `installs` and `node` on moderation; upgrade order in `docs/remote-management.md`; `remote_wire` fuzz target | `crates/remote`, `crates/admin` (fleet fields only, after MS4) | MS2, MS4; D1 |
 | **MS7** | Discord bot (A7): `plugins/discord`, `controller::modules::discord`, `[discord]` and the token through `setup`, `/key` and `/status`, catalog in `en` and `pt-BR`, `docs/security/discord.md` and a fuzz target for interaction parsing, the hosting docs | new `plugins/discord`; `crates/hostkit` (`[discord]`, secret) | MS2, MS3; MS5 for its audit (D6) |
-| **MS8** | dainty-dashboard (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs` (or, per D1, the agent's report gains `gameServers`) | dainty-dashboard repository | MS4, MS6; D1, D3 |
+| **MS8** | dainty-dash (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs` (or, per D1, the agent's report gains `gameServers`) | dainty-dash repository | MS4, MS6; D1, D3 |
 
 MS3, MS4 and MS5 can run side by side once MS2 is merged. Nothing here edits `MIGRATION_PLAN.md`; the integration
 pass adds the rows and the decisions.
@@ -384,7 +384,7 @@ pass adds the rows and the decisions.
 
 ## For the maintainer
 
-- **D1. Does `crates/remote` replace dainty-dashboard's agent?** They overlap: outbound connection, a 15 s report, an
+- **D1. Does `crates/remote` replace dainty-dash's agent?** They overlap: outbound connection, a 15 s report, an
   allowlist of commands, a one-time pairing code. Remote does it inside DaintyLass over mTLS with roles, `DH6` and
   audit; the agent is a second path with its own token and the admin key copied into `agent.env` by hand.
   *Recommended:* yes. The dashboard runs beside the fleet controller and reads the fleet from its admin API (A6), and
