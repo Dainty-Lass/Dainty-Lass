@@ -79,5 +79,12 @@
     "minimize": "Minimizar",
     "maximize": "Maximizar",
     "close": "Fechar"
+  },
+  "tray": {
+    "title": "Janela",
+    "minimize": "Minimizar para a bandeja",
+    "minimizeHint": "Minimizar esconde a janela; o ícone na bandeja a traz de volta.",
+    "close": "Fechar para a bandeja",
+    "closeHint": "Fechar esconde a janela, e o que ela executa continua rodando. Para fechar, use Sair no ícone da bandeja."
   }
 }

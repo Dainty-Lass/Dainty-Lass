@@ -5,7 +5,7 @@ newcomers to accept its terms first.
 
 ## Signing in
 
-[Better Auth](https://www.better-auth.com) handles every way in (`apps/dashboard/src/lib/auth/server.ts`).
+[Better Auth](https://www.better-auth.com) handles every way in (`apps/web/src/lib/auth/server.ts`).
 There are no passwords:
 
 | Way in     | Needs                                       | Notes                                                    |
@@ -35,7 +35,7 @@ database.
 | admin     | Everything a moderator sees, plus the audit log and undo, Members, account access, Settings |
 | owner     | Everything, including changing Settings and making other owners                             |
 
-[`permissions.ts`](../apps/dashboard/src/lib/auth/permissions.ts) has the capability table; pages and
+[`permissions.ts`](../apps/web/src/lib/auth/permissions.ts) has the capability table; pages and
 actions check capabilities, never tiers.
 
 Where a tier comes from, re-decided at every sign-in (`resolveSignIn` in `lib/staff.ts`):

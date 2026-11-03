@@ -5,7 +5,7 @@ and where the launcher and server manager pages plug into the Tauri shells.
 
 ## Environment
 
-All of the dashboard's environment is in [`apps/dashboard/.env.example`](../apps/dashboard/.env.example).
+All of the dashboard's environment is in [`apps/web/.env.example`](../apps/web/.env.example).
 Everything a person tunes lives in the database instead (Settings in the dashboard).
 
 | Variable                                           | From                                                  | What                                                             |
@@ -104,7 +104,7 @@ a 304. Polling every 30 seconds is plenty.
 `matchType` is `word` (the word on its own), `substring` (anywhere) or `regex` (JavaScript syntax,
 case-insensitive). The first two also match look-alikes and separators: `a`→`[a@4]`, `e`→`[e3]`,
 `i`→`[i1!|]`, `o`→`[o0]`, `s`→`[s5$]`, `t`→`[t7]`, `l`→`[l1|]`, with `[\s._-]*` allowed between letters.
-[`filter.ts`](../apps/dashboard/src/lib/chat/filter.ts) is the reference implementation. `action` is `flag`
+[`filter.ts`](../apps/web/src/lib/chat/filter.ts) is the reference implementation. `action` is `flag`
 (deliver and mark), `mask` (deliver with the match replaced by asterisks) or `block` (do not deliver; the
 sender sees it as sent). `channels: null` means every channel.
 
@@ -120,10 +120,9 @@ These are changes to the server and the Tauri shells, which this repository does
    and apply it before delivery.
 3. **In-game reports.** The 1.14.7 client's report flow, or a `/report` chat command, posting to
    `/api/ingest/reports`.
-4. **The Tauri shells load these pages.** Point `rust/launcher/src-tauri/tauri.conf.json`'s `frontendDist`
-   at `apps/launcher/dist/client`, and the server GUI's at `apps/server-manager/dist/client` (today both
-   bins share the launcher's `index.html`). `beforeBuildCommand` becomes
-   `bun run --cwd <dainty-dash>/apps/launcher build`. Tauri hashes the exported pages' inline scripts
-   into the CSP at build time, so `script-src 'self'` holds.
+4. **The Tauri shells load these pages.** dainty-lass's `launcher/scripts/dashboard-page.ts` builds
+   `apps/web` with `DAINTY_MODE=launcher` or `manager` and copies `dist/client` to each shell's
+   `frontendDist`. Tauri hashes the exported pages' inline scripts into the CSP at build time, so
+   `script-src 'self'` holds.
 5. **Window title and identifier.** `window.rs` still titles the window "Dauntless Reforged Revival
    Launcher"; the page now draws its own title bar, so only the OS task switcher shows it.

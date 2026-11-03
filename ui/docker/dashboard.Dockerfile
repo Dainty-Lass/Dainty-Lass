@@ -9,13 +9,13 @@ COPY patches patches
 COPY packages packages
 COPY apps apps
 RUN bun install --frozen-lockfile
-RUN bun run theme:build && bun run --filter @dainty/dashboard build
+RUN bun run theme:build && bun run --filter @dainty/web build
 
 FROM oven/bun:1.4.4
 WORKDIR /app
 ENV NODE_ENV=production DASHBOARD_DATA_DIR=/data DASHBOARD_MIGRATIONS_DIR=/app/drizzle PORT=3000
-COPY --from=build /src/apps/dashboard/dist/standalone ./
-COPY --from=build /src/apps/dashboard/drizzle ./drizzle
+COPY --from=build /src/apps/web/dist/standalone ./
+COPY --from=build /src/apps/web/drizzle ./drizzle
 VOLUME /data
 EXPOSE 3000
 USER bun

@@ -790,7 +790,7 @@ mod tests {
         f.matches(text, channel).len()
     }
 
-    /// dainty-dash `apps/dashboard/tests/filter.test.ts`, case for case.
+    /// dainty-dash `ui/apps/web/tests/filter.test.ts`, case for case.
     #[test]
     fn the_dashboards_own_filter_tests_agree() {
         let f = filter(&[term(1, "idiot", MatchType::Word, Action::Mask)]);

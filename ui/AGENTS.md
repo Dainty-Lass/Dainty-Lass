@@ -6,19 +6,30 @@ Project-specific guidance for AI coding agents. The README says what is here; th
 
 A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a package declares).
 
-| Path                                   | What                                                                                                                         |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `apps/dashboard`                       | Server app: vinext, SQLite (`bun:sqlite` + drizzle), Better Auth sign-in ([docs/access.md](docs/access.md))                  |
-| `apps/launcher`, `apps/server-manager` | Static exports for the Tauri shells; no server, no request APIs                                                              |
-| `apps/agent`                           | Runs on each extra controller; dials the dashboard ([docs/fleet.md](docs/fleet.md))                                          |
-| `packages/fleet`                       | The game calls and the agent protocol, shared by the dashboard and the agent                                                 |
-| `packages/theme`                       | The one theme. `bun run theme:build` compiles `src/dainty.theme.ts` to `built/`, which is committed                          |
-| `packages/bridge`                      | `src/generated/` is the launcher's AGPL output, copied from dainty-restricted and never committed: `bun run restricted-data` |
+| Path              | What                                                                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`        | Every page, one source, built by `DAINTY_MODE` (below): the dashboard, the launcher and the server manager                   |
+| `apps/agent`      | Runs on each extra controller; dials the dashboard ([docs/fleet.md](docs/fleet.md))                                          |
+| `packages/fleet`  | The game calls and the agent protocol, shared by the dashboard and the agent                                                 |
+| `packages/theme`  | The one theme. `bun run theme:build` compiles `src/dainty.theme.ts` to `built/`, which is committed                          |
+| `packages/bridge` | `src/generated/` is the launcher's AGPL output, copied from dainty-restricted and never committed: `bun run restricted-data` |
+
+## One app, three modes
+
+`apps/web` builds as one of three things, picked by `DAINTY_MODE` (`mode.mjs`; `dashboard` when unset):
+`dashboard` is the Bun server, `launcher` and `manager` are static exports for the Tauri shells (no server,
+no request APIs). A file in `src/app` is a route only in the modes its extension names (`pageExtensions`):
+`page.dashboard.tsx`, `page.launcher.tsx`, `page.manager.tsx`, or `layout.desktop.tsx` for both shells.
+Anything else (components, `lib/`, client files beside a page) is shared and builds in every mode that
+imports it, so a shell's route must never import server code (`lib/db`, `lib/auth`, `next/headers`).
+`MODE` (`src/mode.ts`) is inlined at build time for code that differs by mode. Each build empties `dist/`, and vinext
+runs one dev server per app, so build or serve one mode at a time. The shells' catalogs are `messages/launcher` and `messages/manager`, loaded under
+the `launcher.` and `manager.` namespaces; the dashboard's is `messages/en.json`.
 
 ## Rules that read like overcaution
 
 - **Every change staff make is audited, with what it replaced.** A new mutation goes through a function in
-  `apps/dashboard/src/lib` that calls `recordAudit` in the same transaction (`tx`), never straight from an
+  `apps/web/src/lib` that calls `recordAudit` in the same transaction (`tx`), never straight from an
   action. If it can be undone, give it `revertible: true` and an inverse in `lib/audit/revert.ts`, and list
   the action in `components/AuditTable.tsx`'s `REVERTIBLE`.
 - **Config that rolls back as a whole writes a revision.** The chat filter, settings and staff list call
@@ -58,7 +69,7 @@ number, rows for dense data. It is written once, in `packages/theme`; an app nev
 
 Components first: no `<div>` layout, no hex or pixel values in components, tokens for everything. The
 exceptions are where Astryx has no component: `packages/theme/src/brand.css` (the colouring in `variants.css`, the brand mark, the
-console, the hero, the title bar's drag region) and `apps/dashboard/src/app/globals.css` (the sparkline). Add a rule
+console, the hero, the title bar's drag region) and `apps/web/src/app/globals.css` (the sparkline). Add a rule
 there rather than an inline `style`. Look a component up with `bunx astryx component <Name>` from
 `packages/theme`, which has the CLI installed.
 
@@ -72,7 +83,7 @@ Server actions return an error code (`lib/errors.ts`), and the catalog's `errors
 ## Checks
 
 From the root: `bun run typecheck`, `bun run test`, `bun run lint`. The dashboard's tests run on an
-in-memory database (`apps/dashboard/tests/setup.ts`).
+in-memory database (`apps/web/tests/setup.ts`).
 
 ## Commits
 

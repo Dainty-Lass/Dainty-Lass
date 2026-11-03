@@ -79,5 +79,12 @@
     "minimize": "Minimize",
     "maximize": "Maximize",
     "close": "Close"
+  },
+  "tray": {
+    "title": "Window",
+    "minimize": "Minimize to the tray",
+    "minimizeHint": "Minimizing hides the window; its icon in the tray brings it back.",
+    "close": "Close to the tray",
+    "closeHint": "Closing hides the window instead, and what it runs keeps running. Quit from the tray icon to close."
   }
 }

@@ -130,6 +130,8 @@ export const api: LauncherApi = {
         ...(patch.gameLanguage !== undefined ? { gameLanguage: patch.gameLanguage } : {}),
         ...(patch.runtimeProfile !== undefined ? { runtimeProfile: patch.runtimeProfile } : {}),
         ...(patch.gameEdition !== undefined ? { gameEdition: patch.gameEdition } : {}),
+        ...(patch.minimizeToTray !== undefined ? { minimizeToTray: patch.minimizeToTray } : {}),
+        ...(patch.closeToTray !== undefined ? { closeToTray: patch.closeToTray } : {}),
       },
     }),
   setStatusPolling: (on) => tell("set_status_polling", { on: on === true }),

@@ -43,6 +43,8 @@ function initialSnapshot(): Snapshot {
       streamerMode: false,
       hostTools: true,
       gameEdition: "reborn",
+      minimizeToTray: false,
+      closeToTray: false,
     },
     app: {
       version: "2.0.0-dev",

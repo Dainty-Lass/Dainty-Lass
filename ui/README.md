@@ -4,15 +4,13 @@ The DaintyLass user interfaces on one theme: a **remote management dashboard** f
 **launcher** page players use, and the **server manager** page hosts use. All three are Astryx on Next.js
 (through vinext) on Bun, and share `@dainty/theme`.
 
-| Path                                         | What                                                                                                                      |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/dashboard`](apps/dashboard)           | The dashboard: a server app with passwordless sign-in, a SQLite database and the game's admin APIs behind it              |
-| [`apps/launcher`](apps/launcher)             | The launcher page, exported as static files for the Tauri launcher                                                        |
-| [`apps/server-manager`](apps/server-manager) | The server manager page, exported as static files for the Tauri server GUI                                                |
-| [`apps/agent`](apps/agent)                   | The agent each extra controller runs, so one dashboard manages them all ([docs/fleet.md](docs/fleet.md))                  |
-| [`packages/theme`](packages/theme)           | `@dainty/theme`: the Astryx theme, the CSS stack, the colour-mode provider and the brand mark                             |
-| [`packages/fleet`](packages/fleet)           | `@dainty/fleet`: the game calls and the dashboard–agent protocol, shared by both sides                                    |
-| [`packages/bridge`](packages/bridge)         | `@dainty/bridge`: the launcher's Tauri bridge (types from dainty-restricted), a browser stand-in, and the desktop catalog |
+| Path                                 | What                                                                                                                                                                                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/web`](apps/web)               | All three from one source, picked by `DAINTY_MODE`: the dashboard (a server app with passwordless sign-in, a SQLite database and the game's admin APIs behind it), and the launcher and server manager pages (static exports for the Tauri shells) |
+| [`apps/agent`](apps/agent)           | The agent each extra controller runs, so one dashboard manages them all ([docs/fleet.md](docs/fleet.md))                                                                                                                                           |
+| [`packages/theme`](packages/theme)   | `@dainty/theme`: the Astryx theme, the CSS stack, the colour-mode provider and the brand mark                                                                                                                                                      |
+| [`packages/fleet`](packages/fleet)   | `@dainty/fleet`: the game calls and the dashboard–agent protocol, shared by both sides                                                                                                                                                             |
+| [`packages/bridge`](packages/bridge) | `@dainty/bridge`: the launcher's Tauri bridge (types from dainty-restricted), a browser stand-in, and the desktop catalog                                                                                                                          |
 
 ## The dashboard
 
@@ -64,7 +62,7 @@ add an "approved" role in Discord. [docs/access.md](docs/access.md) has the deta
 ```bash
 bun install
 bun run theme:build
-cp apps/dashboard/.env.example apps/dashboard/.env   # then fill it in
+cp apps/web/.env.example apps/web/.env   # then fill it in
 bun run dev                                           # http://localhost:3000
 ```
 
@@ -78,11 +76,12 @@ key, the manager-operator secret, and the ingest API the backend posts chat and 
 
 ## The launcher and the server manager
 
-Static exports (`output: "export"`) that the Tauri shells in dainty-restricted serve from their `frontendDist`.
+`apps/web` built with `DAINTY_MODE=launcher` or `manager` (`bun run build:launcher`, `bun run build:manager`):
+static exports (`output: "export"`) that the Tauri shells in dainty-restricted serve from their `frontendDist`.
 They talk to Rust only through the bridge in `packages/bridge`. Its value types are generated from the
 launcher's AGPL bridge spec, so `bun run restricted-data` copies them from a dainty-restricted checkout
 (`DAINTY_RESTRICTED_DIR`, or beside dainty-lass) instead of committing them; rerun it after the spec changes. In a plain
-browser (`bun run dev:launcher`, `bun run dev:server-manager`) the bridge is a stand-in that walks the
+browser (`bun run dev:launcher`, `bun run dev:manager`) the bridge is a stand-in that walks the
 phases with sample data. Both speak English and Brazilian Portuguese, following the launcher's language
 setting.
 

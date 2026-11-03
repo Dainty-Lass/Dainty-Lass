@@ -3,7 +3,7 @@
 # push to main or plan, a manual run and any change to the workflows run every family.
 #  - Rust (the MIT workspace): fmt, clippy and tests on Linux and Windows, every package MIT, cargo-deny, a short
 #    run of every fuzz target
-#  - UI (ui/, dainty-dash): bun install, typecheck, test and build, with the AGPL bridge types from dainty-restricted (RD27)
+#  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode, with the AGPL bridge types from dainty-restricted (RD27)
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
 # windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit.
@@ -285,6 +285,9 @@ jobs:
           DAINTY_RESTRICTED_DIR: ${{ github.workspace }}/.restricted
       - run: bun run test
       - run: bun run build
+      # apps/web's other two modes; each build empties dist/, so one at a time
+      - run: bun run build:launcher
+      - run: bun run build:manager
 
 
 
