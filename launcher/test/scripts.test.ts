@@ -133,10 +133,10 @@ describe("dashboard-page", () => {
 
   test("a missing dashboard says where it looked", () => {
     const missing = path.join(temp, "no-dashboard")
-    const result = runScript("dashboard-page.ts", ["build", "launcher"], { DAINTY_DASHBOARD_DIR: missing })
+    const result = runScript("dashboard-page.ts", ["build", "launcher"], { DAINTY_DASH_DIR: missing })
     expect(result.code).toBe(1)
     expect(result.stderr).toContain(path.join(missing, "apps", "launcher", "package.json"))
-    expect(result.stderr).toContain("DAINTY_DASHBOARD_DIR")
+    expect(result.stderr).toContain("DAINTY_DASH_DIR")
   })
 })
 

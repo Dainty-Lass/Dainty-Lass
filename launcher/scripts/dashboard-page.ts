@@ -4,7 +4,7 @@
 import { cpSync, existsSync, rmSync } from "node:fs"
 import path from "node:path"
 
-import { restrictedDir } from "./restricted-data"
+import { repoDir, restrictedDir } from "./restricted-data"
 
 const USAGE = "usage: bun scripts/dashboard-page.ts <build|dev> <launcher|server-manager>"
 
@@ -25,10 +25,11 @@ function main(): void {
   }
 
   const restricted = restrictedDir()
-  const dashboard = process.env.DAINTY_DASHBOARD_DIR || path.join(restricted, "dashboard")
+  // The dashboard is this repository's since RD27; the built page still lands in the restricted checkout
+  const dashboard = process.env.DAINTY_DASH_DIR || path.join(repoDir, "dashboard")
   const app = path.join(dashboard, "apps", page)
   if (!existsSync(path.join(app, "package.json"))) {
-    console.error(`missing ${path.join(app, "package.json")}: set DAINTY_DASHBOARD_DIR to a dashboard checkout`)
+    console.error(`missing ${path.join(app, "package.json")}: set DAINTY_DASH_DIR to a dashboard checkout`)
     process.exit(1)
   }
 
