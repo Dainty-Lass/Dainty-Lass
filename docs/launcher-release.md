@@ -48,10 +48,10 @@ timestamp server; the default is DigiCert's.
 
 ### The updater key, once
 
-1. On a trusted machine, from `launcher` after `npm ci`:
+1. On a trusted machine, from `launcher` after `bun install`:
 
    ```sh
-   npx tauri signer generate -w ~/.tauri/dainty-lass-updater.key
+   bun run tauri signer generate -w ~/.tauri/dainty-lass-updater.key
    ```
 
    Give it a password. It writes the private key and `dainty-lass-updater.key.pub`.
@@ -72,12 +72,12 @@ launchers that can't check it.
 2. `base64 -w0 codesign.pfx` (or `[Convert]::ToBase64String([IO.File]::ReadAllBytes("codesign.pfx"))` in
    PowerShell) into `WINDOWS_CERTIFICATE`, the password into `WINDOWS_CERTIFICATE_PASSWORD`, then delete the
    exported file.
-3. The job writes the `.pfx` to the runner's temporary folder, signs through `launcher/scripts/sign-windows.ps1`
+3. The job writes the `.pfx` to the runner's temporary folder, signs through dainty-lass's `launcher/scripts/sign-windows.ts`
    (the newest Windows SDK's `signtool`) and removes it at the end, failed or not. The runner needs a Windows 10/11
    SDK, which `docs/ci-runners.md` already asks for.
 
 A certificate on a hardware token or a cloud HSM (EV certificates, Azure Trusted Signing) can't be a `.pfx`: then
-`sign-windows.ps1` is the one file to change, to that vendor's signing tool.
+`sign-windows.ts` (in dainty-lass) is the one file to change, to that vendor's signing tool.
 
 ## Checks on real machines
 

@@ -99,8 +99,8 @@ The page talks to Rust only through the commands in `launcher/src-tauri/src/brid
 (`ui/packages/bridge/src/generated/types.ts` in the dainty-lass-ui submodule), the isolation hook's command
 list (`isolation/commands.js`) and the permission set (`permissions/app-commands.toml`) are generated from it
 and checked by a test. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`
-rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`; `npm test` in
-`launcher` drives it through the isolation hook and fails a command no method calls. The account key
+rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`; dainty-lass's
+`launcher` tests (`bun run test`) drive it through the isolation hook and fails a command no method calls. The account key
 never crosses the bridge.
 
 ## Security

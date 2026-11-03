@@ -32,12 +32,12 @@ jobs:
         with:
           persist-credentials: false
 
-      # The bundles take package.json's version; Cargo.toml's must agree (bundles.test.ts checks it too)
+      # The bundles take package.json's version; Cargo.toml's must agree (tests/bundles.rs checks it too)
       - name: Work out the version
         id: plan
         run: |
           set -euo pipefail
-          version="$(node -p 'require("./launcher/package.json").version')"
+          version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' launcher/package.json)"
           semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
           [[ "$version" =~ $semver ]] || { echo "::error::$version is not a version (x.y.z or x.y.z-prerelease)"; exit 1; }
           grep -qx "version = \"$version\"" launcher/src-tauri/Cargo.toml \
@@ -57,7 +57,7 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
-      # Optional: the certificate vendor's RFC 3161 server (sign-windows.ps1 defaults to DigiCert's)
+      # Optional: the certificate vendor's RFC 3161 server (sign-windows.ts defaults to DigiCert's)
       WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
     steps:
       # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
@@ -88,7 +88,7 @@ jobs:
           # dainty-lass dashboard/package.json's packageManager
           bun-version: 1.4.4
 
-      # The pages come from dainty-lass's dashboard/ (MIT, RD27), at the rev Cargo.toml pins
+      # The pages, the scripts and the isolation hook come from dainty-lass (MIT, RD27), at the rev Cargo.toml pins
       - name: dainty-lass at the pinned rev
         run: |
           rev="$(grep -m1 -o 'dainty-lass.git", rev = "[0-9a-f]*' Cargo.toml | grep -o '[0-9a-f]\{40\}')"
@@ -98,7 +98,7 @@ jobs:
 
       - name: Install the tauri CLI
         working-directory: launcher
-        run: npm ci --no-audit --no-fund
+        run: bun install --frozen-lockfile
 
       # Each secret is optional: unset, that signature is skipped and the run still builds
       - name: Signing
@@ -123,7 +123,7 @@ jobs:
             echo "WINDOWS_CERTIFICATE_PATH=$WINDOWS_CERTIFICATE_PATH" >> "$GITHUB_ENV"
             echo "WINDOWS_CERTIFICATE_PASSWORD=$CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
           fi
-          node scripts/release-config.mjs "$(cygpath -w "$WORK/config")"
+          bun scripts/lass.ts release-config "$(cygpath -w "$WORK/config")"
 
       # No build cache in a release: every file is built from this commit alone. beforeBuildCommand builds dainty-lass dashboard/'s page
       - name: Build DaintyLass Launcher and DaintyLass Manager
@@ -131,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           config="$(cygpath -w "$WORK/config")"
-          npx tauri build --ci --bundles nsis --config "$config\\client.json" -- --features realms
+          bun run tauri build --ci --bundles nsis --config "$config\\client.json" -- --features realms
           mkdir -p "$WORK/out"
           collect() {
             local name="$1" exe sig
@@ -142,7 +142,7 @@ jobs:
             rm -rf ../target/release/bundle/nsis
           }
           collect DaintyLassLauncher
-          npx tauri build --ci --bundles nsis --config "$config\\manager.json" -- --no-default-features --features server-gui
+          bun run tauri build --ci --bundles nsis --config "$config\\manager.json" -- --no-default-features --features server-gui
           collect DaintyLassManager
           ls -l "$WORK/out"
 
@@ -225,7 +225,7 @@ jobs:
           # dainty-lass dashboard/package.json's packageManager
           bun-version: 1.4.4
 
-      # The pages come from dainty-lass's dashboard/ (MIT, RD27), at the rev Cargo.toml pins
+      # The pages, the scripts and the isolation hook come from dainty-lass (MIT, RD27), at the rev Cargo.toml pins
       - name: dainty-lass at the pinned rev
         run: |
           rev="$(grep -m1 -o 'dainty-lass.git", rev = "[0-9a-f]*' Cargo.toml | grep -o '[0-9a-f]\{40\}')"
@@ -235,7 +235,7 @@ jobs:
 
       - name: Install the tauri CLI
         working-directory: launcher
-        run: npm ci --no-audit --no-fund
+        run: bun install --frozen-lockfile
 
       - name: Signing
         working-directory: launcher
@@ -249,7 +249,7 @@ jobs:
             { echo "TAURI_SIGNING_PRIVATE_KEY<<KEY_END"; echo "$UPDATER_KEY"; echo "KEY_END"; } >> "$GITHUB_ENV"
             echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PASSWORD" >> "$GITHUB_ENV"
           fi
-          node scripts/release-config.mjs "$RUNNER_TEMP/config"
+          bun scripts/lass.ts release-config "$RUNNER_TEMP/config"
 
       - name: Build DaintyLass Launcher and DaintyLass Manager
         working-directory: launcher
@@ -269,9 +269,9 @@ jobs:
             done
             rm -rf "$bundle"
           }
-          npx tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" -- --features realms
+          bun run tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" -- --features realms
           collect DaintyLassLauncher
-          npx tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/manager.json" \
+          bun run tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/manager.json" \
             -- --no-default-features --features server-gui
           collect DaintyLassManager
           ls -l "$RUNNER_TEMP/out"
