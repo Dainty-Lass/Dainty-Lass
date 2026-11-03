@@ -1,6 +1,6 @@
 # NOTICE
 
-ui/ is the page the DaintyLass launcher shows, MIT-licensed ([LICENSE-MIT.txt](LICENSE-MIT.txt)), by the DaintyLass
+ui/ is the page the DaintyLass launcher shows, MIT-licensed ([LICENSE.txt](../LICENSE.txt)), by the DaintyLass
 contributors: the screens and the app (`apps/web`), the components (`packages/ui`), the bridge's own code
 (`packages/bridge/src`) and the catalogs' lookup code (`packages/i18n/src`, `packages/i18n/test`). Written for this
 project, from none of the projects named below.

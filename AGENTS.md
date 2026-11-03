@@ -58,7 +58,7 @@ dependency order, runs the checks and strikes the rows.
   row needs a change to a seam (the workspace `Cargo.toml`, `crates/protocol`, the bridge spec, `store`
   migrations, the `clap` tree, `.forgejo/`) or to a file another row owns, stop and report it. Don't make the
   change yourself.
-- **Never edit** `MIGRATION_PLAN.md`, `README.md`, `NOTICE.md`, `SECURITY_REVIEW.md` or the `docs/` index pages
+- **Never edit** `MIGRATION_PLAN.md`, `README.md`, `LICENSE.txt`, `SECURITY_REVIEW.md` or the `docs/` index pages
   from a row. Those belong to the integration pass. A row writes only its own page under `docs/`.
 - **New launcher strings go at the end** of every language file, so the integration pass resolves only
   append-only conflicts.
@@ -265,9 +265,9 @@ explanation goes in the commit body or the `docs/security/` checklist.
 AGPL-3.0-only, with additional terms for the Mystic Paradox material (`ADDITIONAL_TERMS.md`,
 `modules/rustic-isles/ADDITIONAL_TERMS.md`). Keep Paradox's top-level files under `modules/rustic-isles/` even after its Node code is gone.
 Code copied from DR or Paradox keeps its attribution, and the integration pass records each new source in
-`NOTICE.md`.
+dainty-restricted's `NOTICE.md`.
 
-The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
+The MIT crates (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
 `service-kit`, `store`, `hostkit`, `launcher-kit`, `crates/network`, `admin`, `bins`) set `license = "MIT"` in their
 own `Cargo.toml`; everything else (`crates/gateway`, `crates/content`, `crates/host`, `crates/chat`,
 `launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from

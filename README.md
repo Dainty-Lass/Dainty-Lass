@@ -65,10 +65,10 @@ DaintyLass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Parado
 Director and runtime live in `modules/rustic-isles`; on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 (mixutin and contributors), whose Rust crates the workspace started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
-of those build on. [NOTICE.md](NOTICE.md) says what came from where.
+of those build on.
 
-MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt)): everything here was written or rewritten clean-room from no other
-project ([NOTICE.md](NOTICE.md)). The runtime loader is Apache-2.0. The AGPL parts, and the additional terms for the
+MIT License ([LICENSE.txt](LICENSE.txt), with the libpq notice): everything here was written or rewritten clean-room
+from no other project. The runtime loader is Apache-2.0. The AGPL parts, and the additional terms for the
 Mystic Paradox material, are dainty-restricted's.
 
 An unofficial fan project, not affiliated with or endorsed by Phoenix Labs, Epic Games, Mystic Paradox or

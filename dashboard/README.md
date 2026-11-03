@@ -96,4 +96,4 @@ bun run lint
 
 ## Licence
 
-MIT ([LICENSE](LICENSE)), as the rest of dainty-lass. The look is taken from Caddy Proxy Manager (MIT).
+MIT ([LICENSE](LICENSE)), as the rest of dainty-lass.

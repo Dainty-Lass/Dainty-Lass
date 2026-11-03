@@ -29,7 +29,7 @@ How to read the tables:
 | Reforged's own Node (Freeza's line, [`main`](https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival)) | `main` at `77fb622` for the deltas; merged into `plan` since | `ReforgedGateway`, `ReforgedContent`, `ReforgedHost`, `ReforgedLauncher`: DR's Node code modified for 1.14.7, plus the host kit, which has no DR counterpart | Moved to `legacy/` (RR2, `b67966b`). What it changed against DR is in the delta lists (RX1) and was carried onto the DR Rust copy; what changes after the copy goes on the catch-up lists (RX2) |
 | [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande) | Base `00d3be8`, now `21b9ff5` | The 1.14.7 port: Node backend and Director, the C++ game runtime (`MysticParadox.dll`, `Rustic-Isles.dll` since DX4), its loader (`winmm.dll`, Rust) and the CatalogExporter | Forked with its history through [SilentSpud/Mystic-Paradox](https://github.com/SilentSpud/Mystic-Paradox) (`reforged` branch at `24e60c8`) and merged as a subtree into `paradox/` and `native/` (RD1, `e34cf60`). Updated to `21b9ff5` by replaying the Reforged patches (`ab1830a`) |
 | Freeza's patches 0001–0039 | `upstream/patches/` on `main` | The Reforged changes to Mystic Paradox, kept as `git diff` files applied by the Node host kit | One commit each in the fork's `reforged` branch (0001–0033), then ordinary commits to `paradox/` and `native/` (0034–0039). [`docs/paradox-patches.md`](../paradox-patches.md) says what each one did and what is left of it after `21b9ff5` |
-| [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog) | — | The project both DR and Mystic Paradox are modified versions of | Nothing taken directly; it is in both lines' history. Attribution in [`NOTICE.md`](../../NOTICE.md) |
+| [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog) | — | The project both DR and Mystic Paradox are modified versions of | Nothing taken directly; it is in both lines' history. Attribution in `NOTICE.md` |
 
 ## 2. The map
 
@@ -372,12 +372,12 @@ under its `Rust:` line, as `catchup-host.md` does for `0ba6016`.
 - [`AGENTS.md`](../../AGENTS.md): how a row works, lints, tests, configuration, text, branches and commits.
 - [`delta-servers.md`](delta-servers.md), [`delta-launcher-platform.md`](delta-launcher-platform.md),
   [`delta-launcher-controller.md`](delta-launcher-controller.md): the file-by-file Reforged-against-DR deltas (RX1).
-- [`catchup-gateway.md`](catchup-gateway.md), [`catchup-content.md`](catchup-content.md),
+- `catchup-gateway.md`, `catchup-content.md`,
   [`catchup-host.md`](catchup-host.md): Node commits since the copy and their Rust state (RX2).
 - [`docs/paradox-patches.md`](../paradox-patches.md) and
   [`docs/paradox-runtime-patches.md`](../paradox-runtime-patches.md): how a runtime patch is applied.
 - [`docs/architecture.md`](../architecture.md): how the parts talk and what each trusts.
 - [`docs/security/`](../security): one checklist per trust-boundary component.
-- [`NOTICE.md`](../../NOTICE.md): where each part comes from, for attribution.
+- `NOTICE.md`: where each part comes from, for attribution.
 - Dauntless Revived's own plan, for the method behind the DR Rust code:
   [`MIGRATION_PLAN.md` on its `plan` branch](https://github.com/mixutin/dauntless-revived/blob/plan/MIGRATION_PLAN.md).

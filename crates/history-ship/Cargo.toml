@@ -4,7 +4,7 @@ description = "The change log and snapshots shipped off the server to an object-
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-# Born here: nothing ported from Dauntless Revived, Paradox or the Reforged Revival line (NOTICE.md)
+# Born here: nothing ported from Dauntless Revived, Paradox or the Reforged Revival line
 license = "MIT"
 repository.workspace = true
 publish.workspace = true

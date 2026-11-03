@@ -30,7 +30,7 @@ allow = [
     "MIT-0",
     "MPL-2.0",
     "OpenSSL",
-    # pq-src: the bundled libpq (DF7); its notice ships in NOTICE.md
+    # pq-src: the bundled libpq (DF7); its notice ships in LICENSE.txt
     "PostgreSQL",
     "Unicode-3.0",
     "Zlib",

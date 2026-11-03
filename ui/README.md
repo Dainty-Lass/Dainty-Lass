@@ -24,6 +24,6 @@ bun run build
 
 ## Licence
 
-MIT ([LICENSE-MIT.txt](LICENSE-MIT.txt)). The language catalogs and the generated bridge types are AGPL-3.0-only and
+MIT ([LICENSE.txt](../LICENSE.txt)). The language catalogs and the generated bridge types are AGPL-3.0-only and
 come from dainty-restricted at build time (`bun run restricted-data`, run by `build`, `dev`, `typecheck` and `test`);
 see [NOTICE.md](NOTICE.md).
