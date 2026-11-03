@@ -87,11 +87,11 @@ jobs:
             paradox:
               - modules/rustic-isles
               - modules/rustic-isles/**
-            # The launcher bundles the UI's AGPL inputs and dashboard/'s pages
+            # The launcher bundles the UI's AGPL inputs and dainty-lass dashboard/'s pages, at the rev Cargo.toml pins
             launcher:
               - launcher/**
               - ui/**
-              - dashboard/**
+              - Cargo.toml
             # The images build the Rust services, the Paradox backend and Director (rustic-isles), and copy native/
             docker:
               - docker/**
@@ -424,10 +424,11 @@ jobs:
 
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          # dashboard/package.json's packageManager
+          # dainty-lass dashboard/package.json's packageManager
           bun-version: 1.4.4
 
-      # The bridge tests drive dainty-lass's ui/packages/bridge/src/api.ts (MIT, RD27), at the rev Cargo.toml pins
+      # The bridge tests drive dainty-lass's ui/packages/bridge/src/api.ts and the build its dashboard/ pages (MIT, RD27),
+      # at the rev Cargo.toml pins
       - name: dainty-lass at the pinned rev
         run: |
           rev="$(grep -m1 -o 'dainty-lass.git", rev = "[0-9a-f]*' Cargo.toml | grep -o '[0-9a-f]\{40\}')"

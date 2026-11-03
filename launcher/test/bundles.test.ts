@@ -55,7 +55,7 @@ test("client and server-gui Tauri configurations have distinct names, identifier
   assert.notEqual(clientConf.mainBinaryName, serverConf.mainBinaryName);
   assert.notEqual(clientConf.identifier, serverConf.identifier);
 
-  // Each app serves its own dainty-dashboard page, which its build hook exports and copies into place
+  // Each app serves its own page from dainty-lass's dashboard/, which its build hook exports and copies into place
   assert.equal(clientConf.build?.frontendDist, "../dist/launcher");
   assert.equal(clientConf.build?.beforeBuildCommand, "node scripts/dashboard-page.mjs build launcher");
   assert.equal(serverConf.build?.frontendDist, "../dist/server-manager");

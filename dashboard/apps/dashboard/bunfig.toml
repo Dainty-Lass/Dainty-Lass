@@ -1,6 +1,0 @@
-[run]
-# Vite and vinext run on Bun, not Node: the database is bun:sqlite.
-bun = true
-
-[test]
-preload = ["./tests/setup.ts"]

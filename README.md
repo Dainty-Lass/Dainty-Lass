@@ -37,7 +37,6 @@ git dependencies at one rev), the UI and the plan.
 | [root](.) | One cargo workspace: `crates/` (`host`, the libraries of dainty-lass's MIT gateway, content and chat, and the server executables), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
 | [`modules/rustic-isles/`](modules/rustic-isles) | The Dauntless 1.14.7 game module (`isles-1-14-7`), `isles-core`, `isles-director`, `isles-chat`, the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | Peer-to-peer realms and the realm transport |
-| [`dashboard/`](dashboard) | The staff dashboard and the pages the launcher and DaintyLass Manager show |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |
 | [`docker/`](docker), `compose.yaml` | The server as containers |
@@ -53,8 +52,8 @@ cargo build --release -p server-console --features all-modules --bins
 ```
 
 The desktop apps live in `launcher` (`npm ci && npm run build:client` for `dainty-lass-client` and
-`npm run build:manager` for `dainty-lass-manager`, which use Bun to build the pages from `dashboard/`); its bridge
-tests (`npm test`) need a dainty-lass checkout beside this one, or `DAINTY_LASS_DIR`. The runtime and the
+`npm run build:manager` for `dainty-lass-manager`, which use Bun to build the pages from dainty-lass's `dashboard/`); those builds and its
+bridge tests (`npm test`) need a dainty-lass checkout beside this one, or `DAINTY_LASS_DIR`. The runtime and the
 CatalogExporter need a host's own SDK ([docs/sdk-and-game-data.md](../dainty-lass/docs/sdk-and-game-data.md)).
 `bash docker/run-tests.sh` builds the images (with your SSH agent) and runs every server suite inside them.
 

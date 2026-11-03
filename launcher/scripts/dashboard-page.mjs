@@ -1,9 +1,10 @@
-// Builds or serves one of dainty-dashboard's pages for the Tauri shells (dainty-dashboard docs/integration.md):
+// Builds or serves one of dainty-lass dashboard/'s pages for the Tauri shells (its docs/integration.md):
 // `launcher` for dainty-lass-client, `server-manager` for dainty-lass-manager. A build copies the static export
 // (apps/<page>/dist/client) to launcher/dist/<page>, the config's fixed frontendDist, since Tauri's config
 // can't read where the checkout is.
 //   node scripts/dashboard-page.mjs build|dev launcher|server-manager
-// The dashboard is this repository's dashboard/, or DAINTY_DASHBOARD_DIR.
+// The dashboard is DAINTY_DASHBOARD_DIR, else dainty-lass's dashboard/ (MIT, RD27): DAINTY_LASS_DIR's, as CI clones it at
+// the rev Cargo.toml pins, or the dainty-lass checkout beside this one.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,11 +22,12 @@ if (!["build", "dev"].includes(mode) || !(page in PAGES)) {
   process.exit(2);
 }
 
-const dashboard = path.resolve(process.env.DAINTY_DASHBOARD_DIR || path.join(repo, "dashboard"));
+const lass = process.env.DAINTY_LASS_DIR || path.join(repo, "..", "dainty-lass");
+const dashboard = path.resolve(process.env.DAINTY_DASHBOARD_DIR || path.join(lass, "dashboard"));
 const app = path.join(dashboard, "apps", page);
 if (!fs.existsSync(path.join(app, "package.json"))) {
   console.error(
-    `the dashboard is not at ${dashboard}: set DAINTY_DASHBOARD_DIR`,
+    `the dashboard is not at ${dashboard}: set DAINTY_LASS_DIR or DAINTY_DASHBOARD_DIR`,
   );
   process.exit(1);
 }
