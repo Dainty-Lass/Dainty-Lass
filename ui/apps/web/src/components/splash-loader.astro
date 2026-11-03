@@ -1,0 +1,428 @@
+---
+// The boot splash, in the HTML so it shows from the first frame, before React mounts. Three logos spin until
+// the first snapshot, spiral out to a glowing ring over the page, then fade; src/app/splash.ts drives it.
+---
+
+<div id="splash-overlay" class="splash-overlay" aria-hidden="true">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 1200 1150"
+    class="splash-svg"
+  >
+    <defs>
+      <g id="logo-top">
+        <path d="M 447 45 L 527 121 L 541 217 L 445 113 Z"></path>
+        <path d="M 524 52 L 737 276 L 849 360 L 944 397 L 769 421 L 803 444 L 641 487 L 535 636 L 468 541 L 493 610 L 452 706 L 413 601 L 347 495 L 188 439 L 221 417 L 57 399 L 191 330 L 263 266 L 342 305 L 294 237 L 337 198 L 409 301 L 519 366 L 373 171 L 416 134 L 572 311 L 689 381 Z"></path>
+      </g>
+      <g id="logo-bottom">
+        <path d="M 58 450 L 186 457 L 259 550 Q 312 560 341 526 L 379 581 L 365 605 Q 330 615 337 653 L 269 622 L 170 513 L 131 517 Z"></path>
+        <path d="M 192 610 L 346 671 L 367 742 L 361 800 Z"></path>
+        <path d="M 393 661 L 443 811 L 469 803 L 518 882 L 512 938 L 497 955 L 385 829 Z"></path>
+        <path d="M 493 777 L 561 754 L 597 661 L 618 742 L 613 798 L 591 859 L 571 881 C 569 855 565 835 557 830 L 511 825 Z"></path>
+        <path d="M 646 691 L 815 583 L 640 796 L 634 779 Z"></path>
+        <path d="M 605 603 L 612 559 L 653 513 L 671 528 L 677 558 C 705 552 730 546 745 539 L 805 470 L 854 472 L 927 454 L 867 514 L 837 511 L 747 601 L 655 668 C 654 642 638 616 605 603 Z"></path>
+      </g>
+
+      <g id="logo-cutout-shape" transform="translate(-165, -165) scale(0.33)">
+        <use href="#logo-top"></use>
+        <use href="#logo-bottom"></use>
+      </g>
+      <g id="logo-cyan" transform="translate(-165, -165) scale(0.33)">
+        <use href="#logo-top" fill="#00f2fe"></use>
+        <use href="#logo-bottom" fill="#0284c7"></use>
+      </g>
+      <g id="logo-orange" transform="translate(-165, -165) scale(0.33)">
+        <use href="#logo-top" fill="#ff7e00"></use>
+        <use href="#logo-bottom" fill="#e11d48"></use>
+      </g>
+      <g id="logo-green" transform="translate(-165, -165) scale(0.33)">
+        <use href="#logo-top" fill="#38ef7d"></use>
+        <use href="#logo-bottom" fill="#059669"></use>
+      </g>
+
+      <g id="ring-arcs" fill="none" stroke-linecap="round" stroke-width="12">
+        <path
+          d="M 600 240 A 380 380 0 0 0 271 810"
+          stroke="url(#grad-cyan-orange)"
+        ></path>
+        <path
+          d="M 600 240 A 380 380 0 0 1 929 810"
+          stroke="url(#grad-cyan-green)"
+        ></path>
+        <path
+          d="M 271 810 A 380 380 0 0 0 929 810"
+          stroke="url(#grad-orange-green)"
+        ></path>
+      </g>
+
+      <!-- Cut from the shard shapes themselves, so the ring stops short of each logo -->
+      <mask id="logo-cutout-mask">
+        <rect width="1200" height="1150" fill="#ffffff"></rect>
+        <g
+          fill="#000000"
+          stroke="#000000"
+          stroke-width="45"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        >
+          <use href="#logo-cutout-shape" transform="translate(600, 240)"></use>
+          <use href="#logo-cutout-shape" transform="translate(271, 810)"></use>
+          <use href="#logo-cutout-shape" transform="translate(929, 810)"></use>
+        </g>
+      </mask>
+
+      <linearGradient
+        id="grad-cyan-orange"
+        x1="600"
+        y1="240"
+        x2="271"
+        y2="810"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stop-color="#00f2fe"></stop>
+        <stop offset="100%" stop-color="#ff512f"></stop>
+      </linearGradient>
+      <linearGradient
+        id="grad-cyan-green"
+        x1="600"
+        y1="240"
+        x2="929"
+        y2="810"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stop-color="#00f2fe"></stop>
+        <stop offset="100%" stop-color="#38ef7d"></stop>
+      </linearGradient>
+      <linearGradient
+        id="grad-orange-green"
+        x1="271"
+        y1="810"
+        x2="929"
+        y2="810"
+        gradientUnits="userSpaceOnUse"
+      >
+        <stop offset="0%" stop-color="#ff512f"></stop>
+        <stop offset="100%" stop-color="#38ef7d"></stop>
+      </linearGradient>
+
+      <filter
+        id="glow"
+        x="-25%"
+        y="-25%"
+        width="150%"
+        height="150%"
+        color-interpolation-filters="sRGB"
+      >
+        <feGaussianBlur
+          in="SourceGraphic"
+          stdDeviation="8"
+          result="blur"
+        ></feGaussianBlur>
+        <feMerge>
+          <feMergeNode in="blur"></feMergeNode>
+          <feMergeNode in="SourceGraphic"></feMergeNode>
+        </feMerge>
+      </filter>
+    </defs>
+
+    <!-- The ring, hidden until the logos land -->
+    <g mask="url(#logo-cutout-mask)" opacity="0">
+      <animate
+        id="ring-fade-in"
+        attributeName="opacity"
+        from="0"
+        to="1"
+        begin="indefinite"
+        dur="0.45s"
+        fill="freeze"
+      ></animate>
+      <g filter="url(#glow)">
+        <g>
+          <animateTransform
+            id="ring-spin"
+            attributeName="transform"
+            type="rotate"
+            from="0 600 620"
+            to="360 600 620"
+            begin="indefinite"
+            dur="6s"
+            repeatCount="indefinite"
+          ></animateTransform>
+          <use href="#ring-arcs"></use>
+        </g>
+      </g>
+    </g>
+
+    <!-- Each logo: an orbit, its settle (one last decelerating turn out to the ring), and a counter-rotation
+         that keeps it upright through both -->
+    <g transform="translate(600, 620)">
+      <g>
+        <animateTransform
+          id="splash-loop"
+          attributeName="transform"
+          type="rotate"
+          from="0"
+          to="360"
+          dur="1.4s"
+          repeatCount="indefinite"
+        ></animateTransform>
+        <animateTransform
+          class="settle-anim"
+          attributeName="transform"
+          type="rotate"
+          from="0"
+          to="360"
+          begin="indefinite"
+          dur="2.5s"
+          fill="freeze"
+          calcMode="spline"
+          keyTimes="0;1"
+          keySplines="0.16 1 0.3 1"
+        ></animateTransform>
+        <g transform="translate(0, -75)">
+          <animateTransform
+            class="settle-anim"
+            attributeName="transform"
+            type="translate"
+            from="0 -75"
+            to="0 -380"
+            begin="indefinite"
+            dur="2.5s"
+            fill="freeze"
+            calcMode="spline"
+            keyTimes="0;1"
+            keySplines="0.16 1 0.3 1"
+          ></animateTransform>
+          <g>
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0"
+              to="-360"
+              dur="1.4s"
+              repeatCount="indefinite"
+            ></animateTransform>
+            <animateTransform
+              class="settle-anim"
+              attributeName="transform"
+              type="rotate"
+              from="0"
+              to="-360"
+              begin="indefinite"
+              dur="2.5s"
+              fill="freeze"
+              calcMode="spline"
+              keyTimes="0;1"
+              keySplines="0.16 1 0.3 1"
+            ></animateTransform>
+            <g transform="scale(0.65)">
+              <animateTransform
+                class="settle-anim"
+                attributeName="transform"
+                type="scale"
+                from="0.65"
+                to="1"
+                begin="indefinite"
+                dur="2.5s"
+                fill="freeze"
+                calcMode="spline"
+                keyTimes="0;1"
+                keySplines="0.16 1 0.3 1"
+              ></animateTransform>
+              <use href="#logo-cyan" filter="url(#glow)"></use>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <g>
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="240"
+          to="600"
+          dur="1.4s"
+          repeatCount="indefinite"
+        ></animateTransform>
+        <animateTransform
+          class="settle-anim"
+          attributeName="transform"
+          type="rotate"
+          from="240"
+          to="600"
+          begin="indefinite"
+          dur="2.5s"
+          fill="freeze"
+          calcMode="spline"
+          keyTimes="0;1"
+          keySplines="0.16 1 0.3 1"
+        ></animateTransform>
+        <g transform="translate(0, -75)">
+          <animateTransform
+            class="settle-anim"
+            attributeName="transform"
+            type="translate"
+            from="0 -75"
+            to="0 -380"
+            begin="indefinite"
+            dur="2.5s"
+            fill="freeze"
+            calcMode="spline"
+            keyTimes="0;1"
+            keySplines="0.16 1 0.3 1"
+          ></animateTransform>
+          <g>
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="-240"
+              to="-600"
+              dur="1.4s"
+              repeatCount="indefinite"
+            ></animateTransform>
+            <animateTransform
+              class="settle-anim"
+              attributeName="transform"
+              type="rotate"
+              from="-240"
+              to="-600"
+              begin="indefinite"
+              dur="2.5s"
+              fill="freeze"
+              calcMode="spline"
+              keyTimes="0;1"
+              keySplines="0.16 1 0.3 1"
+            ></animateTransform>
+            <g transform="scale(0.65)">
+              <animateTransform
+                class="settle-anim"
+                attributeName="transform"
+                type="scale"
+                from="0.65"
+                to="1"
+                begin="indefinite"
+                dur="2.5s"
+                fill="freeze"
+                calcMode="spline"
+                keyTimes="0;1"
+                keySplines="0.16 1 0.3 1"
+              ></animateTransform>
+              <use href="#logo-orange" filter="url(#glow)"></use>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <g>
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="120"
+          to="480"
+          dur="1.4s"
+          repeatCount="indefinite"
+        ></animateTransform>
+        <animateTransform
+          class="settle-anim"
+          attributeName="transform"
+          type="rotate"
+          from="120"
+          to="480"
+          begin="indefinite"
+          dur="2.5s"
+          fill="freeze"
+          calcMode="spline"
+          keyTimes="0;1"
+          keySplines="0.16 1 0.3 1"
+        ></animateTransform>
+        <g transform="translate(0, -75)">
+          <animateTransform
+            class="settle-anim"
+            attributeName="transform"
+            type="translate"
+            from="0 -75"
+            to="0 -380"
+            begin="indefinite"
+            dur="2.5s"
+            fill="freeze"
+            calcMode="spline"
+            keyTimes="0;1"
+            keySplines="0.16 1 0.3 1"
+          ></animateTransform>
+          <g>
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="-120"
+              to="-480"
+              dur="1.4s"
+              repeatCount="indefinite"
+            ></animateTransform>
+            <animateTransform
+              class="settle-anim"
+              attributeName="transform"
+              type="rotate"
+              from="-120"
+              to="-480"
+              begin="indefinite"
+              dur="2.5s"
+              fill="freeze"
+              calcMode="spline"
+              keyTimes="0;1"
+              keySplines="0.16 1 0.3 1"
+            ></animateTransform>
+            <g transform="scale(0.65)">
+              <animateTransform
+                class="settle-anim"
+                attributeName="transform"
+                type="scale"
+                from="0.65"
+                to="1"
+                begin="indefinite"
+                dur="2.5s"
+                fill="freeze"
+                calcMode="spline"
+                keyTimes="0;1"
+                keySplines="0.16 1 0.3 1"
+              ></animateTransform>
+              <use href="#logo-green" filter="url(#glow)"></use>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<style>
+  .splash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(10 14 23);
+    backdrop-filter: blur(0px);
+    transition:
+      background-color 1.2s ease,
+      backdrop-filter 1.2s ease,
+      opacity 0.65s ease;
+  }
+
+  /* Settling: the page shows through */
+  .splash-overlay.ui-revealing {
+    background-color: rgb(10 14 23 / 0.45);
+    backdrop-filter: blur(6px);
+  }
+
+  .splash-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .splash-svg {
+    width: min(65vmin, 420px);
+    height: min(65vmin, 420px);
+  }
+</style>
