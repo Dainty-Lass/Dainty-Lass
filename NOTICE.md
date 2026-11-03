@@ -18,7 +18,7 @@ Undaunted or any other project named here, and none of them endorses it.
 These repositories were merged in with their history (RD27) and are archived; each kept its own `NOTICE.md` and
 licence files in its folder: `modules/rustic-isles` ([NOTICE.md](modules/rustic-isles/NOTICE.md), with Mystic Paradox's
 additional terms), `modules/rustic-rifts` ([NOTICE.md](modules/rustic-rifts/NOTICE.md); libjuice is `MPL-2.0`),
-and `legacy/` (dainty-legacy). dainty-dashboard was here too until 2026-11-02, when it moved to dainty-lass's
+and `legacy/` (dainty-legacy). dainty-dash was here too until 2026-11-02, when it moved to dainty-lass's
 `dashboard/` under the MIT licence; its history up to then stays in this repository's. The UI's two AGPL inputs (`ui/`) came from
 dainty-lass-ui.
 
