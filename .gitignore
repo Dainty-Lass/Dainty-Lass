@@ -45,3 +45,6 @@ Thumbs.db
 # Session folders the desktop app makes
 .claude/
 
+
+# AI-written notes and plans, kept on the maintainer's PC only
+/.ai-docs/
