@@ -5,9 +5,10 @@
 
 use admin::guard::{GuardError, GuardSettings, Guards, Held, Kind, New, Rule, State, Who};
 use admin::keys::{Keys, Role};
+use diesel::Connection;
 use diesel::connection::SimpleConnection;
-use diesel::{Connection, PgConnection};
 use serde_json::json;
+use store::PgConnection;
 use store::{DatabaseConfig, PostgresConfig, portable};
 
 struct PgDatabase {

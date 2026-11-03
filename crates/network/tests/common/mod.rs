@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
 use network::directory::SCHEMA;
+use store::PgConnection;
 use store::{Database, DatabaseConfig, DatabaseOptions, PostgresConfig, portable};
 
 /// A throwaway Postgres database, dropped with the guard.

@@ -23,7 +23,7 @@ use diesel::sqlite::Sqlite;
 use diesel_migrations::MigrationHarness;
 use serde::{Deserialize, Serialize};
 
-use crate::connection::AnyConnection;
+use crate::connection::{AnyConnection, PgConnection};
 use crate::database::{applied_versions, now_ms, run_blocking, versions};
 use crate::history::{self, Break, CHANGE_LOG, Chain, ChangeEntry, Column, Head};
 use crate::portable::{quote_ident, quote_literal};

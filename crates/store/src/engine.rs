@@ -73,8 +73,8 @@ impl std::fmt::Debug for PostgresConfig {
 }
 
 impl PostgresConfig {
-    /// libpq's keyword/value form. `sslmode=disable`: libpq is built without TLS (DF7 spike), so say so
-    /// rather than let `prefer` fall back quietly.
+    /// libpq's keyword/value form, which tokio-postgres reads too. `sslmode=disable`: connections are made
+    /// without TLS, so say so rather than let `prefer` fall back quietly.
     pub fn conninfo(&self) -> String {
         format!(
             "host={} port={} user={} dbname={} password={} sslmode=disable connect_timeout=10 application_name=dainty-lass",

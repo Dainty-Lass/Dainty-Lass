@@ -7,8 +7,9 @@
 
 use chat::History;
 use chat::history::{Mute, NewDirect};
+use diesel::Connection;
 use diesel::connection::SimpleConnection;
-use diesel::{Connection, PgConnection};
+use store::PgConnection;
 use store::{Actor, DatabaseConfig, PostgresConfig, portable};
 
 /// A throwaway Postgres database, dropped with the guard.

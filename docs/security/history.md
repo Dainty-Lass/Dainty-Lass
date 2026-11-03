@@ -66,8 +66,8 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
 
 ### Postgres
 
-- [ ] A Postgres address off the machine is refused unless `allow_remote` is set: libpq is built without TLS (DF7
-      spike), so the password and every row would cross the network in clear. Tests:
+- [ ] A Postgres address off the machine is refused unless `allow_remote` is set: `store` connects without TLS
+      (tokio-postgres with `NoTls`), so the password and every row would cross the network in clear. Tests:
       `a_postgres_server_off_this_machine_is_refused_before_connecting`,
       `a_postgres_server_off_this_machine_needs_allow_remote`.
 - [ ] The password is `REFORGED_DB_PASSWORD` in `secrets.env`, never in `host.toml`, never logged

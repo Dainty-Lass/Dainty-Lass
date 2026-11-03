@@ -11,6 +11,7 @@ use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Integer, Text};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
+use store::PgConnection;
 use store::revert::{Conflict, RevertKind};
 use store::{
     AccountColumn, Actor, AnyConnection, Cursor, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Error,

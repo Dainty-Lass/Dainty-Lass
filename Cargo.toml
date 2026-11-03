@@ -70,7 +70,10 @@ bytes = "1"
 
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 clap = { version = "4", features = ["derive"] }
-diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35"] }
+diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres_backend", "r2d2", "returning_clauses_for_sqlite_3_35", "i-implement-a-third-party-backend-and-opt-into-breaking-changes"] }
+# Postgres without libpq: tokio-postgres behind Diesel's sync API; the third-party-backend feature lets
+# store's `PgConnection` newtype join `MultiConnection` (crates/store/src/connection.rs)
+diesel-async = { version = "0.9", default-features = false, features = ["postgres", "async-connection-wrapper", "r2d2"] }
 diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
 dotenvy = "0.15"
 flate2 = "1"
@@ -87,8 +90,6 @@ rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", 
 # Bundled: one SQLite, built with the options in .cargo/config.toml, shared by Diesel and rusqlite (M17).
 libsqlite3-sys = { version = "0.38", features = ["bundled"] }
 percent-encoding = "2"
-# Bundled libpq without OpenSSL: no system libpq, no Perl on Windows, openssl-sys stays banned (D10, DF7 spike).
-pq-sys = { version = "0.7", default-features = false, features = ["bundled_without_openssl"] }
 regex = "1"
 # Process CPU and memory for /metrics (service-kit's registry, controller's collector)
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }

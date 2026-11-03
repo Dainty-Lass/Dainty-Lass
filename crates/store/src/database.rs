@@ -23,7 +23,7 @@ use diesel::sql_types::{BigInt, Text};
 use diesel::sqlite::Sqlite;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 
-use crate::connection::{AnyConnection, MultiBackend};
+use crate::connection::{AnyConnection, MultiBackend, PgConnection};
 use crate::history::{self, Actor, ChangeEntry, DELETED_AT, Head, Verification};
 use crate::portable::quote_ident;
 use crate::revert::AccountColumn;
@@ -298,7 +298,7 @@ impl Database {
         }
         let engine = config.engine();
         // Prepared on a connection of its own: through the pool, a refused login would surface only as a
-        // checkout timeout, libpq's reason lost in r2d2's log.
+        // checkout timeout, the server's reason lost in r2d2's log.
         {
             let mut conn = Manager { config: config.clone() }.connect().map_err(|e| match e {
                 diesel::r2d2::Error::ConnectionError(e) => Error::Connection(e),

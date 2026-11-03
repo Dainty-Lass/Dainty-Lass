@@ -264,7 +264,7 @@ pub fn dump(config: &DatabaseConfig) -> Result<BTreeMap<String, Vec<serde_json::
         DatabaseConfig::Sqlite { file } => {
             AnyConnection::Sqlite(diesel::SqliteConnection::establish(&file.to_string_lossy())?)
         }
-        DatabaseConfig::Postgres(pg) => AnyConnection::Postgres(diesel::PgConnection::establish(&pg.conninfo())?),
+        DatabaseConfig::Postgres(pg) => AnyConnection::Postgres(crate::PgConnection::establish(&pg.conninfo())?),
     };
     let mut out = BTreeMap::new();
     let mut tables = history::user_tables(&mut conn)?;

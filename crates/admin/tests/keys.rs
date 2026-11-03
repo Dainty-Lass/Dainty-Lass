@@ -4,8 +4,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
 use admin::keys::{Action, AuthError, Keys, Role};
+use diesel::Connection;
 use diesel::connection::SimpleConnection;
-use diesel::{Connection, PgConnection};
+use store::PgConnection;
 use store::{Actor, DatabaseConfig, PostgresConfig, portable};
 
 struct PgDatabase {
