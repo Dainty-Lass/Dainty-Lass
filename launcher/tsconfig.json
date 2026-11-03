@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["bun"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@tauri-apps/api/*": ["./node_modules/@tauri-apps/api/*"]
+    }
+  },
+  "include": ["scripts", "test", "e2e"]
+}
