@@ -36,6 +36,7 @@ launcher from both.
 | Folder | What |
 | --- | --- |
 | [root](.) | One cargo workspace, every package in `crates/<package name>` (libraries, services, core plugins and the `dainty-lass-server` binary), and `fuzz/` |
+| [`dashboard/`](dashboard) | The staff dashboard, the launcher and server-manager pages the Tauri shells serve, and the fleet agent (Astryx on Next.js through vinext, built with Bun); its generated bridge types come from dainty-restricted |
 | [`ui/`](ui) | The launcher's page (SolidJS + Vite + Tailwind CSS, built with Bun); its language catalogs come from dainty-restricted |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |
 | [`docs/`](docs) | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |

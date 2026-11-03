@@ -1,0 +1,29 @@
+{
+  "name": "@dainty/bridge",
+  "version": "0.1.0",
+  "description": "The launcher's Tauri bridge, its generated types taken from dainty-restricted at build time, and a browser stand-in for development",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/generated/types.ts",
+    "./react": "./src/react.tsx",
+    "./messages/en.json": "./messages/en.json",
+    "./messages/pt-BR.json": "./messages/pt-BR.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "@astryxdesign/core": "^0.7.2",
+    "react": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "typescript": "^7.0.2",
+    "@types/react": "^19.3.0"
+  }
+}

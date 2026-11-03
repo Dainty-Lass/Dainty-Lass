@@ -21,6 +21,7 @@ component and the binaries that link them, and takes this repository's crates as
 | --- | --- |
 | root | One cargo workspace, every package in `crates/<package name>`: the libraries (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `plugin-host`, `protocol`, `proxy`, `remote`, `service-kit`, `service-plugin`, `store`), the services (`admin`, `backend`, `director`, `gateway`, `content`), the core plugins (`network`, `chat`), the `*-plugin` libraries and the `dainty-lass-server` binary |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
+| `dashboard/` | dainty-dashboard: the staff dashboard, the launcher and server-manager pages dainty-restricted's Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from dainty-restricted at build time (`bun run restricted-data`) |
 | `ui/` | The Astro and shadcn page (DD11), MIT. Its two AGPL inputs, the language catalogs and the generated bridge types, come from dainty-restricted at build time (`bun run restricted-data`) |
 | `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, Apache-2.0, outside the workspace) |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
@@ -28,7 +29,7 @@ component and the binaries that link them, and takes this repository's crates as
 In dainty-restricted: `crates/` (`host` = the AGPL shell around `hostkit` that composes the services in
 `compose.rs`, the `*-plugin` libraries, and the server executables `server-console` and `server-minimal`), `launcher/`
 (Tauri: `dainty-lass-client`, `dainty-lass-manager`), `modules/rustic-isles` and `modules/rustic-rifts` (in-tree,
-one workspace with the rest), `dashboard/`, `legacy/` (the 1.4.4 importer), `docker/`, and the hosting, player and
+one workspace with the rest), `legacy/` (the 1.4.4 importer), `docker/`, and the hosting, player and
 Paradox docs.
 
 **Which repository a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival

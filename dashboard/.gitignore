@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+.vinext/
+.next/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+apps/dashboard/data/
+.claude/
+# The launcher's generated bridge types, AGPL, copied from dainty-restricted (bun run restricted-data, RD27)
+packages/bridge/src/generated/

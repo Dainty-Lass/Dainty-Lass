@@ -20,7 +20,9 @@ and CI fails a package that does not.
   `crates/history-ship` (DH4), `crates/remote` (DD27/RM2), `crates/network` (DN4), `crates/admin`,
   `crates/backend` and `crates/director` (stubs), the fuzz targets in `fuzz/`, and the UI in `ui/` (whose two
   AGPL inputs, the language catalogs and the generated bridge types, are dainty-restricted's and are copied in at
-  build time).
+  build time), and `dashboard/` (dainty-dashboard: the staff dashboard, the launcher and server-manager pages and
+  the fleet agent, moved from dainty-restricted on 2026-11-02 with its few strings that matched the Revived and
+  Reforged launcher text reworded, and its generated bridge types likewise copied in at build time).
 - **Clean-room MIT rewrites and extracted MIT kits** (`DD26`, `DL2` answered No on 2026-10-30; behaviour specs in
   `docs/port/spec-*.md` and clean-room provenance records in `docs/port/clean-room/*.md`): `crates/protocol`,
   `crates/proxy`, `crates/service-kit`, `crates/store`, `crates/hostkit` (`DL3b`) and `crates/launcher-kit` (`DL4b`).
@@ -30,7 +32,9 @@ and CI fails a package that does not.
 
 ### Other material
 
-- The UI's npm dependencies are listed in `ui/bun.lock`, and the Rust crates' in `Cargo.lock`; each keeps its own
+- `dashboard/packages/theme`'s look is taken from Caddy Proxy Manager (`astryx-variants.css`, `globals.css` and
+  `components/ui`), MIT License, Copyright (c) 2025-2026 fuomag9 and contributors.
+- The UI's npm dependencies are listed in `ui/bun.lock` and `dashboard/bun.lock`, and the Rust crates' in `Cargo.lock`; each keeps its own
   licence (`cargo deny` checks the Rust ones).
 - libpq, built from source by `pq-src` and linked into every binary that links `store` (DF7): PostgreSQL
   Licence. Portions Copyright (c) 1996-2025, PostgreSQL Global Development Group; Portions Copyright (c) 1994,
