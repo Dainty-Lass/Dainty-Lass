@@ -25,27 +25,27 @@ repository = "https://git.silentspud.com/silentspud/dainty-restricted"
 publish = false
 
 [workspace.dependencies]
-controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-server-controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6", package = "controller" }
-hostkit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-launcher-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
+controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+server-controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c", package = "controller" }
+hostkit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+launcher-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
 # The network core plugin (DD16-DD18), by its own name (chat) and the one the gateway and host use
-network = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-network_plugin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6", package = "network", default-features = false }
-plugin-host = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
+network = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+network_plugin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c", package = "network", default-features = false }
+plugin-host = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
 # The protocol a service built as a library speaks (RD27)
-service-plugin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-protocol = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-remote = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-history-ship = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-proxy = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-admin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-chat = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-content = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
-epic = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
+service-plugin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+protocol = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+remote = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+history-ship = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+proxy = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+admin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+chat = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+content = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
+epic = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
 # The game modules compiled into the server (DF5): Cargo features of the controller and the bins
 isles-1-14-7 = { path = "modules/rustic-isles/crates/isles-1-14-7", default-features = false }
 isles-core = { path = "modules/rustic-isles/crates/isles-core" }
@@ -61,7 +61,7 @@ rifts-relay = { path = "modules/rustic-rifts/crates/rifts-relay" }
 rifts-realms = { path = "modules/rustic-rifts/crates/rifts-realms" }
 rifts-guard = { path = "modules/rustic-rifts/crates/rifts-guard" }
 rifts-host = { path = "modules/rustic-rifts/crates/rifts-host" }
-gateway = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "3c8bc1ad4012e3ddef9e2803af1919c36c3fa9a6" }
+gateway = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "c07b5db728d19419eb5a0de06fc0c18fd89bae7c" }
 host = { path = "crates/host" }
 launcher = { path = "launcher/src-tauri" }
 
