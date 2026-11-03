@@ -67,6 +67,8 @@ type Result = ActionResult | { ok: true; username: string }
 
 export interface Launcher {
   snap: Snapshot | null
+  // The first snapshot answered or failed (always, outside the launcher): the boot splash waits on it
+  booted: boolean
   task: TaskProgress | null
   // The Epic install's progress (kind "install"): the Game screen's, kept apart because a snapshot of any
   // phase but "installing" clears `task`
@@ -144,6 +146,7 @@ let listening = false
 
 export function LauncherProvider({ children }: { children: ReactNode }) {
   const [snap, setSnap] = useState<Snapshot | null>(null)
+  const [booted, setBooted] = useState(() => !inLauncher())
   const [task, setTask] = useState<TaskProgress | null>(null)
   const [installTask, setInstallTask] = useState<TaskProgress | null>(null)
   const [realm, setRealm] = useState<RealmOutcome | null>(null)
@@ -203,8 +206,12 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
         if (first.app.serverGui) setViewState("host")
         void api.setStatusPolling(!document.hidden)
         void checkInviteLink()
+        setBooted(true)
       },
-      (error: unknown) => console.error(error)
+      (error: unknown) => {
+        console.error(error)
+        setBooted(true)
+      }
     )
   }, [onSnapshot, checkInviteLink])
 
@@ -398,6 +405,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Launcher>(
     () => ({
       snap,
+      booted,
       task,
       installTask,
       realm,
@@ -422,6 +430,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     }),
     [
       snap,
+      booted,
       task,
       installTask,
       realm,

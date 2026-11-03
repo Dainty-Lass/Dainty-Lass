@@ -5,6 +5,7 @@ import { inLauncher } from "@workspace/bridge"
 
 import { useI18n, I18nProvider } from "@/app/i18n"
 import { LauncherProvider, useLauncher } from "@/app/launcher"
+import { dismiss, settle } from "@/app/splash"
 import { ActionBar } from "@/components/action-bar"
 import { Banners } from "@/components/banners"
 import { Rail, TitleBar } from "@/components/chrome"
@@ -49,11 +50,22 @@ function Shell() {
   )
 }
 
+// The splash spins from the first frame (index.astro) until the first snapshot, then settles over the page and
+// holds the lit ring for a beat before fading
+function Splash() {
+  const { booted } = useLauncher()
+  useEffect(() => {
+    if (booted) void settle().then(() => setTimeout(dismiss, 600))
+  }, [booted])
+  return null
+}
+
 function Localized() {
   const { snap } = useLauncher()
   return (
     <I18nProvider language={snap?.settings.language ?? null}>
       <Shell />
+      <Splash />
     </I18nProvider>
   )
 }
