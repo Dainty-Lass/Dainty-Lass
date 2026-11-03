@@ -9,16 +9,17 @@
 
 use std::collections::BTreeMap;
 
+use diesel::Connection;
 use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
 use diesel::sql_types::Text;
-use diesel::{Connection, PgConnection};
 use rifts_guard::{
     AlertRecord, BatchRecord, ChainRecord, ChainUpdate, CompletionRecord, Disposition, EncounterState, FindingRecord,
     GuardStore, HostWriteRecord, SqlGuardStore, TABLES, TrafficReservation, TrafficScope, XP_SUMMARY_TTL_MS,
     XpSummaryRecord, block_on_store,
 };
 use rifts_seam::{AccountId, Actor, HostWriteKind, Json, RealmId, SessionId, StoreError, UnixMillis};
+use store::PgConnection;
 use store::{AnyConnection, DatabaseConfig, DatabaseOptions, Engine, PostgresConfig, portable};
 
 const SESSION: &str = "01ARZ3NDEKTSV4RRFFQ69G5FAV@eu-1";

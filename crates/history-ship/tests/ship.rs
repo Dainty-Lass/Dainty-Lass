@@ -15,6 +15,7 @@ use history_ship::layout::{SegmentName, encode_segment};
 use history_ship::{
     Bucket, BucketRead, LagAlert, LagLimits, MemoryBucket, RestoreOptions, ShipSettings, Shipper, lag, restore_to,
 };
+use store::PgConnection;
 use store::history::{Head, entry_hash};
 use store::{
     Actor, ChangeEntry, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, PostgresConfig, portable, transfer,

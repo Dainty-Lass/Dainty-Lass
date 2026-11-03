@@ -14,6 +14,7 @@ use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Integer, Text};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use serde_json::Value;
+use store::PgConnection;
 use store::{
     Actor, AnyConnection, ChangeEntry, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, Engine, Error, Head,
     KeyValue, PostgresConfig, history, portable, transfer,

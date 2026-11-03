@@ -12,7 +12,7 @@ pub mod kit;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use diesel::{Connection as _, PgConnection, connection::SimpleConnection as _};
+use diesel::{Connection as _, connection::SimpleConnection as _};
 use module_api::NodeId;
 use rifts_realms::{
     db::RealmsDb,
@@ -20,6 +20,7 @@ use rifts_realms::{
     time::parse_iso,
 };
 use rifts_seam::{Actor, UnixMillis};
+use store::PgConnection;
 use store::{DatabaseConfig, DatabaseOptions, PostgresConfig, portable::quote_ident};
 
 pub const POSTGRES_URL: &str = "REFORGED_TEST_POSTGRES_URL";

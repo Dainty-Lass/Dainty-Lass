@@ -28,7 +28,7 @@ use diesel::r2d2::{ConnectionManager, CustomizeConnection, Pool};
 use diesel::sql_types::Text;
 
 pub use adopt::{DrizzleBaseline, Schema};
-pub use connection::{AnyConnection, MultiBackend};
+pub use connection::{AnyConnection, MultiBackend, PgConnection};
 pub use database::{Database, DatabaseOptions, DatabaseSchema, KeyValue, Tx};
 pub use declared::{declare_accounts, declared_accounts};
 pub use engine::{DatabaseConfig, Engine, PostgresConfig, is_local_address};
