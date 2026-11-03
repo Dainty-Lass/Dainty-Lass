@@ -122,7 +122,15 @@ hostTools: boolean,
 /**
  * Which game the launcher plays: its folder, pins and PLAY. Always `reborn` without the `legacy` feature
  */
-gameEdition: Game, };
+gameEdition: Game, 
+/**
+ * Minimising hides the window to the tray
+ */
+minimizeToTray: boolean, 
+/**
+ * Closing hides the window to the tray; the tray's Quit closes it
+ */
+closeToTray: boolean, };
 export type SnapshotConnect = { checking: boolean, problem: ConnectProblem | null, tailscaleInstalled: boolean, lastCheckedAt: string | null, };
 export type SnapshotAccount = { username: string | null, hasKey: boolean, offerBackup: boolean, };
 export type SnapshotRunning = { game: boolean, relayPort: number | null, };

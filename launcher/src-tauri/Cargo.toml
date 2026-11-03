@@ -66,7 +66,7 @@ pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
 sha1 = "0.11"
 base64.workspace = true
 tower-service = "0.3"
-tauri = { version = "2.12", features = ["isolation"] }
+tauri = { version = "2.12", features = ["isolation", "tray-icon"] }
 open = { version = "5.4", features = ["shellexecute-on-windows"] }
 tauri-plugin-dialog = "2.8"
 # Self-update of every bundle (NSIS, AppImage, deb, rpm), each signed (L46, RD7). Without `zip`: that is for

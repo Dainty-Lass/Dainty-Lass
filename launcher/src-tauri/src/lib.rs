@@ -19,6 +19,7 @@ mod platform;
 pub mod server_gui;
 #[cfg(feature = "server-gui")]
 pub mod server_history;
+mod tray;
 mod window;
 
 use bridge::backend::Backend;
@@ -41,10 +42,7 @@ static APP: OnceLock<AppHandle> = OnceLock::new();
 /// A second launcher's arguments: bring the window forward and take its invite link.
 fn on_second_launcher(args: Vec<String>) {
     let Some(app) = APP.get() else { return };
-    if let Some(window) = app.get_webview_window(window::MAIN) {
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
+    tray::restore(app);
     app.state::<Backend>()
         .deliver_invite_link(Some(app), invite_link::invite_from_args(&args));
 }

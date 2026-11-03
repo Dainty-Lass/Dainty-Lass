@@ -1181,5 +1181,7 @@
   "hrem_act_backup": "Backup",
   "hrem_act_revoke": "Revoke",
   "hrem_leave": "Disable remote management",
-  "hrem_queued": "Queued {action} on {node} ({id})"
+  "hrem_queued": "Queued {action} on {node} ({id})",
+  "tray_open": "Open",
+  "tray_quit": "Quit"
 }

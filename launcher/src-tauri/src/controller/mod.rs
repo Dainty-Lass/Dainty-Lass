@@ -476,6 +476,13 @@ impl Controller {
         self.st().s().language
     }
 
+    /// Whether minimising and closing hide the window to the tray (`window.rs`).
+    pub fn tray(&self) -> (bool, bool) {
+        let st = self.st();
+        let s = st.s();
+        (s.minimize_to_tray, s.close_to_tray)
+    }
+
     /// The game's `Win64` folder, where the runtime goes and the game starts.
     fn win64_dir_of(st: &State) -> Option<PathBuf> {
         st.game.root.as_deref().map(|root| under(root, WIN64_RELATIVE_DIR))
@@ -552,6 +559,8 @@ impl Controller {
             streamer_mode: s.streamer_mode,
             host_tools: s.host_tools && cfg!(feature = "host"),
             game_edition: crate::bridge::types::Game::Reborn,
+            minimize_to_tray: s.minimize_to_tray,
+            close_to_tray: s.close_to_tray,
         }
     }
 
@@ -1839,6 +1848,8 @@ impl Controller {
             put("windowed", patch.windowed.map(Value::Bool));
             put("streamerMode", patch.streamer_mode.map(Value::Bool));
             put("hostTools", patch.host_tools.map(Value::Bool));
+            put("minimizeToTray", patch.minimize_to_tray.map(Value::Bool));
+            put("closeToTray", patch.close_to_tray.map(Value::Bool));
             put("language", patch.language.map(|language| Value::from(language.code())));
             put(
                 "gameLanguage",

@@ -86,6 +86,8 @@ pub const SETTINGS_KEYS: &[&str] = &[
     "gameLanguage",
     "runtimeProfile",
     "gameEdition",
+    "minimizeToTray",
+    "closeToTray",
 ];
 
 /// `InstallMode`'s names (`revivedInstall`).

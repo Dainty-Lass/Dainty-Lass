@@ -104,6 +104,11 @@ pub struct Stored {
     pub game_language: GameLanguage,
     pub runtime_profile: RuntimeProfile,
     pub host_tools: bool,
+    /// Absent unless on (`sanitize_settings`)
+    #[serde(default)]
+    pub minimize_to_tray: bool,
+    #[serde(default)]
+    pub close_to_tray: bool,
     pub usernames: HashMap<String, String>,
     pub backup_offered: HashMap<String, bool>,
     /// The runtime sets the player accepted, per server id (`runtime_set_id`)
@@ -135,6 +140,8 @@ impl Default for Stored {
             game_language: GameLanguage::Auto,
             runtime_profile: RuntimeProfile::Production,
             host_tools: false,
+            minimize_to_tray: false,
+            close_to_tray: false,
             usernames: HashMap::new(),
             backup_offered: HashMap::new(),
             trusted_runtimes: HashMap::new(),

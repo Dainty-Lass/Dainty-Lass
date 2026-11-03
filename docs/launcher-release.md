@@ -17,7 +17,7 @@ maintainer's: the keys, the secrets and the checks on real machines are not an a
 | `DaintyLass{Launcher,Manager}_<v>_amd64.deb` | the same | Ubuntu 22.04 and newer, Debian 12 and newer |
 | `DaintyLass{Launcher,Manager}_<v>_x86_64.rpm` | the same | Fedora |
 
-Each app serves its own page from dainty-lass's `ui/` (dainty-dash) (`apps/launcher`, `apps/server-manager`), which the build
+Each app serves its own page from dainty-lass's `ui/apps/web` (dainty-dash, `DAINTY_MODE=launcher` or `manager`), which the build
 exports with Bun and copies into `launcher/dist/` ([`launcher/README.md`](../launcher/README.md)). The workflow clones
 dainty-lass at the rev `Cargo.toml` pins, so a page change ships once that rev is bumped.
 

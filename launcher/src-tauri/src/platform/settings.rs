@@ -215,6 +215,12 @@ pub fn sanitize_settings(raw: &Value, language: Language, platform: Platform) ->
     for flag in ["windowed", "streamerMode", "hostTools"] {
         out.insert(flag.into(), Value::Bool(raw.get(flag) == Some(&Value::Bool(true))));
     }
+    // DaintyLass's own, kept only when on, so a file without them stays Reforged's byte for byte
+    for flag in ["minimizeToTray", "closeToTray"] {
+        if raw.get(flag) == Some(&Value::Bool(true)) {
+            out.insert(flag.into(), Value::Bool(true));
+        }
+    }
     if let Some(chosen) = raw
         .get("language")
         .and_then(Value::as_str)
@@ -379,6 +385,21 @@ mod tests {
             run += 1;
         }
         assert!(run > 100);
+    }
+
+    #[test]
+    fn the_tray_settings_are_kept_only_when_on() {
+        let on = sanitize_settings(
+            &json!({ "minimizeToTray": true, "closeToTray": "yes" }),
+            Language::En,
+            Platform::Windows,
+        );
+        assert_eq!(on.get("minimizeToTray"), Some(&Value::Bool(true)));
+        assert_eq!(on.get("closeToTray"), None);
+        let stored = crate::controller::stored::Stored::of(&on);
+        assert!(stored.minimize_to_tray && !stored.close_to_tray);
+        let off = sanitize_settings(&json!({ "minimizeToTray": false }), Language::En, Platform::Windows);
+        assert_eq!(off.get("minimizeToTray"), None);
     }
 
     const FP: &str = "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1";
