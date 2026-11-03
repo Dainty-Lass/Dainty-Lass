@@ -6,11 +6,12 @@ pub mod kit;
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use diesel::Connection;
 use diesel::connection::SimpleConnection;
-use diesel::{Connection, PgConnection};
 use module_api::NodeId;
 use rifts_realms::db::RealmsDb;
 use rifts_seam::{Actor, UnixMillis};
+use store::PgConnection;
 use store::{DatabaseConfig, DatabaseOptions, PostgresConfig, portable};
 
 pub struct PgDatabase {

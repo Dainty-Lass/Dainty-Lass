@@ -391,7 +391,7 @@ pub fn postgres_target() -> Option<PgDatabase> {
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.subsec_nanos())
     );
-    diesel::PgConnection::establish(&server.conninfo())
+    store::PgConnection::establish(&server.conninfo())
         .expect("REFORGED_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE \"{name}\""))
         .unwrap();
@@ -407,7 +407,7 @@ impl Drop for PgDatabase {
         use diesel::Connection;
         use diesel::connection::SimpleConnection;
         if let (DatabaseConfig::Postgres(pg), Ok(mut admin)) =
-            (&self.config, diesel::PgConnection::establish(&self.server.conninfo()))
+            (&self.config, store::PgConnection::establish(&self.server.conninfo()))
         {
             let _ = admin.batch_execute(&format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", pg.database));
         }

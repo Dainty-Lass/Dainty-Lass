@@ -5,13 +5,14 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use diesel::Connection;
 use diesel::connection::SimpleConnection;
-use diesel::{Connection, PgConnection};
 use isles_core::db::IslesStore;
 use isles_core::repo::auth::AccountRecord;
 use isles_core::{AccountId, UserId};
 use module_api::network::StandaloneHome;
 use module_api::{Actor, ActorContext, NodeIdentity};
+use store::PgConnection;
 use store::portable::quote_ident;
 use store::{DatabaseConfig, DatabaseOptions, PostgresConfig};
 
