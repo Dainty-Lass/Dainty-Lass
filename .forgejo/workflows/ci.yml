@@ -87,7 +87,7 @@ jobs:
             paradox:
               - modules/rustic-isles
               - modules/rustic-isles/**
-            # The launcher bundles the UI's AGPL inputs and dainty-lass dashboard/'s pages, at the rev Cargo.toml pins
+            # The launcher bundles the UI's AGPL inputs and dainty-lass ui/'s pages, at the rev Cargo.toml pins
             launcher:
               - launcher/**
               - ui/**
@@ -424,10 +424,10 @@ jobs:
 
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          # dainty-lass dashboard/package.json's packageManager
+          # dainty-lass launcher/package.json's packageManager
           bun-version: 1.4.4
 
-      # The launcher's scripts, hook and bridge tests and its dashboard/ pages are MIT in dainty-lass (RD27), at the rev
+      # The launcher's scripts, hook and bridge tests and its ui/ pages are MIT in dainty-lass (RD27), at the rev
       # Cargo.toml pins
       - name: dainty-lass at the pinned rev
         run: |
