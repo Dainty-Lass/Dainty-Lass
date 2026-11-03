@@ -5,7 +5,7 @@
 
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use module_api::NodeId;
-use rifts_seam::Actor;
+use rifts_seam::{AccountId, Actor};
 use store::{AnyConnection, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema};
 
 pub const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
@@ -34,11 +34,15 @@ pub enum RepoError {
 
 /// A host runtime acts with its host's capability, so its writes are that player's to revert.
 pub fn store_actor(actor: &Actor) -> store::Actor {
+    use store::Actor as Logged;
     match actor {
-        Actor::Account(account) => store::Actor::Player(account.0.clone()),
-        Actor::HostRuntime { host, .. } => store::Actor::Player(host.0.clone()),
-        Actor::Admin { key_id } => store::Actor::Admin(key_id.clone()),
-        Actor::System(task) => store::Actor::System((*task).to_owned()),
+        Actor::Account(AccountId(player))
+        | Actor::HostRuntime {
+            host: AccountId(player),
+            ..
+        } => Logged::Player(player.clone()),
+        Actor::Admin { key_id } => Logged::Admin(key_id.clone()),
+        Actor::System(task) => Logged::System(String::from(*task)),
     }
 }
 
@@ -57,13 +61,13 @@ pub struct RealmsDb {
 impl RealmsDb {
     /// Blocking. Guard's set is applied first on its own handle, so both sets end up in the one database.
     pub fn open(config: &DatabaseConfig, options: &DatabaseOptions, node: NodeId) -> Result<RealmsDb, RepoError> {
-        drop(Database::open(config, options, &rifts_guard::SCHEMA)?);
+        Database::open(config, options, &rifts_guard::SCHEMA).map(drop)?;
         let db = Database::open(config, options, &SCHEMA)?;
-        Ok(Self { db, node })
+        Ok(Self::new(db, node))
     }
 
     pub fn new(db: Database, node: NodeId) -> RealmsDb {
-        Self { db, node }
+        RealmsDb { node, db }
     }
 
     pub fn database(&self) -> &Database {
@@ -76,67 +80,70 @@ impl RealmsDb {
     }
 
     pub fn guard_store(&self) -> rifts_guard::SqlGuardStore {
-        rifts_guard::SqlGuardStore::new(self.db.clone())
+        let shared = self.db.clone();
+        rifts_guard::SqlGuardStore::new(shared)
     }
 
-    pub(crate) async fn read<T, F>(&self, f: F) -> Result<T, RepoError>
-    where
-        F: FnOnce(&mut AnyConnection) -> Result<T, RepoError> + Send + 'static,
-        T: Send + 'static,
-    {
-        self.db.read(f).await
+    pub(crate) async fn read<T: Send + 'static>(
+        &self,
+        query: impl FnOnce(&mut AnyConnection) -> Result<T, RepoError> + Send + 'static,
+    ) -> Result<T, RepoError> {
+        self.db.read(query).await
     }
 
-    pub(crate) async fn write<T, F>(&self, actor: &Actor, f: F) -> Result<T, RepoError>
-    where
-        F: FnOnce(&mut AnyConnection) -> Result<T, RepoError> + Send + 'static,
-        T: Send + 'static,
-    {
-        self.db.write(store_actor(actor), |tx| f(tx.conn())).await
+    /// One transaction, logged under `actor`.
+    pub(crate) async fn write<T: Send + 'static>(
+        &self,
+        actor: &Actor,
+        change: impl FnOnce(&mut AnyConnection) -> Result<T, RepoError> + Send + 'static,
+    ) -> Result<T, RepoError> {
+        let logged = store_actor(actor);
+        self.db.write(logged, move |tx| change(tx.conn())).await
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr as _;
+
+    use rifts_seam::SessionId;
+
     use super::*;
-    use rifts_seam::{AccountId, SessionId};
 
     #[test]
     fn actors_map_onto_the_change_log() {
-        let session: SessionId = "01ARZ3NDEKTSV4RRFFQ69G5FAV@local".parse().unwrap();
+        let account = |id: &str| AccountId(id.to_owned());
+        let runtime = Actor::HostRuntime {
+            session: SessionId::from_str("01ARZ3NDEKTSV4RRFFQ69G5FAV@local").unwrap(),
+            host: account("host"),
+        };
         let cases = [
-            (Actor::Account(AccountId("a".into())), store::Actor::Player("a".into())),
-            (
-                Actor::HostRuntime {
-                    session,
-                    host: AccountId("host".into()),
-                },
-                store::Actor::Player("host".into()),
-            ),
+            (Actor::Account(account("a")), store::Actor::Player("a".into())),
+            (runtime, store::Actor::Player("host".into())),
             (Actor::Admin { key_id: "k".into() }, store::Actor::Admin("k".into())),
             (
                 Actor::System("realms-purge"),
                 store::Actor::System("realms-purge".into()),
             ),
         ];
-        for (actor, expected) in cases {
-            assert_eq!(store_actor(&actor), expected);
-        }
+        assert!(cases.iter().all(|(actor, logged)| store_actor(actor) == *logged));
     }
 
     #[test]
     fn error_texts() {
-        assert_eq!(
-            RepoError::Duplicate("session_id").to_string(),
-            "duplicate key: session_id"
-        );
-        assert_eq!(
-            RepoError::Corrupt("hub state \"BOGUS\"".into()).to_string(),
-            "realms table: hub state \"BOGUS\""
-        );
-        assert_eq!(
-            RepoError::from(diesel::result::Error::NotFound).to_string(),
-            "database: Record not found"
-        );
+        let cases = [
+            (RepoError::Duplicate("session_id"), "duplicate key: session_id"),
+            (
+                RepoError::Corrupt("hub state \"BOGUS\"".into()),
+                "realms table: hub state \"BOGUS\"",
+            ),
+            (
+                RepoError::from(diesel::result::Error::NotFound),
+                "database: Record not found",
+            ),
+        ];
+        for (error, text) in cases {
+            assert_eq!(error.to_string(), text);
+        }
     }
 }

@@ -10,75 +10,130 @@ use rifts_seam::{
     RouteCall, RouteHandler, RuntimeAuth, SeamError, StubRoutes,
 };
 
-use crate::errors::{GuardError, INTERNAL_CODE, INTERNAL_MESSAGE};
-use crate::evidence::TOO_LARGE;
-use crate::json::{BodyError, parse_admin_body, parse_p2p_body, stringified_len};
-use crate::operations::Operations;
-use crate::{Guard, TrafficDecision, capability_shaped, sha256_hex};
+use crate::{
+    Guard, TrafficDecision, capability_shaped,
+    errors::{GuardError, INTERNAL_CODE, INTERNAL_MESSAGE},
+    evidence::TOO_LARGE,
+    json::{BodyError, parse_admin_body, parse_p2p_body, stringified_len},
+    sha256_hex,
+};
 
-const EVENT_BATCHES: &str = "guard.event_batches";
-const COMPLETION: &str = "guard.completion";
-const REWARD_SELF: &str = "guard.reward_self";
-const SHADOW: &str = "guard.shadow_comparisons";
-const REWARD_ROLLOUT: &str = "guard.reward_rollout";
-const ALERT_ACK: &str = "guard.alert_ack";
+/// The handler ids, which are also the operation names a store-less Guard reports.
+mod handler {
+    pub const EVENT_BATCHES: &str = "guard.event_batches";
+    pub const COMPLETION: &str = "guard.completion";
+    pub const REWARD_SELF: &str = "guard.reward_self";
+    pub const SHADOW: &str = "guard.shadow_comparisons";
+    pub const REWARD_ROLLOUT: &str = "guard.reward_rollout";
+    pub const ALERT_ACK: &str = "guard.alert_ack";
+}
 
-/// `Early` routes come before the module's JSON parser: Guard bounds and parses their bodies itself.
-pub const ROUTES: &[Route] = &[
+const fn route(method: Method, mount: Mount, path: &'static str, handler: &'static str) -> Route {
     Route {
-        method: Method::Post,
-        path: "/rustic/v1/hunts/:sessionId/event-batches",
-        mount: Mount::Early,
-        handler: EVENT_BATCHES,
-    },
-    Route {
-        method: Method::Post,
-        path: "/rustic/v1/hunts/:sessionId/completion",
-        mount: Mount::Early,
-        handler: COMPLETION,
-    },
-    Route {
-        method: Method::Get,
-        path: "/rustic/v1/hunts/:sessionId/reward/self",
-        mount: Mount::Early,
-        handler: REWARD_SELF,
-    },
-    Route {
-        method: Method::Post,
-        path: "/internal/v1/hunt-guard/shadow-comparisons",
-        mount: Mount::Early,
-        handler: SHADOW,
-    },
-    Route {
-        method: Method::Patch,
-        path: "/admin/v1/operations/reward-rollout",
-        mount: Mount::Admin,
-        handler: REWARD_ROLLOUT,
-    },
-    Route {
-        method: Method::Patch,
-        path: "/admin/v1/operations/alerts/:alertId/ack",
-        mount: Mount::Admin,
-        handler: ALERT_ACK,
-    },
-];
-
-pub fn stub_routes() -> StubRoutes {
-    StubRoutes {
-        component: Component::Guard,
-        routes: ROUTES,
+        method,
+        path,
+        mount,
+        handler,
     }
 }
 
-fn unauthorized() -> GuardError {
-    GuardError::refused("AUTH_UNAUTHORIZED", "Authentication is required.")
+/// `Early` routes come before the module's JSON parser: Guard bounds and parses their bodies itself.
+pub const ROUTES: &[Route] = &[
+    route(
+        Method::Post,
+        Mount::Early,
+        "/rustic/v1/hunts/:sessionId/event-batches",
+        handler::EVENT_BATCHES,
+    ),
+    route(
+        Method::Post,
+        Mount::Early,
+        "/rustic/v1/hunts/:sessionId/completion",
+        handler::COMPLETION,
+    ),
+    route(
+        Method::Get,
+        Mount::Early,
+        "/rustic/v1/hunts/:sessionId/reward/self",
+        handler::REWARD_SELF,
+    ),
+    route(
+        Method::Post,
+        Mount::Early,
+        "/internal/v1/hunt-guard/shadow-comparisons",
+        handler::SHADOW,
+    ),
+    route(
+        Method::Patch,
+        Mount::Admin,
+        "/admin/v1/operations/reward-rollout",
+        handler::REWARD_ROLLOUT,
+    ),
+    route(
+        Method::Patch,
+        Mount::Admin,
+        "/admin/v1/operations/alerts/:alertId/ack",
+        handler::ALERT_ACK,
+    ),
+];
+
+pub fn stub_routes() -> StubRoutes {
+    let routes = ROUTES;
+    StubRoutes {
+        routes,
+        component: Component::Guard,
+    }
 }
 
+/// The refusals the hunt routes give before Guard itself is asked.
+#[derive(Clone, Copy)]
+enum Gate {
+    TooLarge,
+    NotJson,
+    NoAccount,
+    NotCollected,
+    NoCapability,
+    BudgetExhausted,
+    RateLimited,
+    TrafficUnavailable,
+}
+
+impl Gate {
+    fn refusal(self) -> GuardError {
+        let (code, text) = match self {
+            Self::TooLarge => ("GUARD_BATCH_TOO_LARGE", TOO_LARGE),
+            Self::NotJson => ("GUARD_BATCH_INVALID", "The Guard request body is not valid JSON."),
+            Self::NoAccount => ("AUTH_UNAUTHORIZED", "Authentication is required."),
+            Self::NotCollected => (
+                "HUNT_EVIDENCE_NOT_COLLECTED",
+                "This server does not collect hunt evidence.",
+            ),
+            Self::NoCapability => ("P2P_CAPABILITY_INVALID", "A valid hunt host capability is required."),
+            Self::BudgetExhausted => (
+                "GUARD_REQUEST_BUDGET_EXHAUSTED",
+                "Guard request capacity is currently exhausted; retry shortly.",
+            ),
+            Self::RateLimited => (
+                "GUARD_TRAFFIC_RATE_LIMITED",
+                "Guard traffic exceeded the bounded host or hunt-session budget; retry shortly.",
+            ),
+            Self::TrafficUnavailable => (
+                "GUARD_TRAFFIC_UNAVAILABLE",
+                "Guard traffic capacity is temporarily unavailable; retry shortly.",
+            ),
+        };
+        GuardError::refused(code, text)
+    }
+}
+
+/// An Express param by name; a missing one reads as empty.
 fn param<'a>(call: &'a RouteCall, name: &str) -> &'a str {
-    call.params
-        .iter()
-        .find(|(key, _)| key == name)
-        .map_or("", |(_, value)| value.as_str())
+    let found = call.params.iter().find(|pair| pair.0 == name);
+    found.map_or("", |pair| pair.1.as_str())
+}
+
+fn ok(body: Json) -> Reply {
+    Reply { status: 200, body }
 }
 
 #[derive(Clone)]
@@ -99,81 +154,70 @@ impl GuardRoutes {
 
     /// A capability header that names a live capability of this hunt with this scope.
     fn host_runtime(&self, call: &RouteCall, scope: CapabilityScope) -> Option<RuntimeAuth> {
-        let token = call
-            .request
-            .header(HOST_CAPABILITY_HEADER)
-            .filter(|t| capability_shaped(t))?;
-        let digest = sha256_hex(token.as_bytes());
-        self.guard
-            .hunts()
-            .resolve_capability(&digest, param(call, "sessionId"), scope, self.guard.now())
-            .ok()
-            .flatten()
+        let token = call.request.header(HOST_CAPABILITY_HEADER)?;
+        if !capability_shaped(token) {
+            return None;
+        }
+        let hunts = self.guard.hunts();
+        let found = hunts.resolve_capability(
+            &sha256_hex(token.as_bytes()),
+            param(call, "sessionId"),
+            scope,
+            self.guard.now(),
+        );
+        found.unwrap_or(None)
+    }
+
+    /// The runtime a hunt route acts for: the module's, or the capability header's when the module saw none.
+    fn runtime_for(&self, call: &RouteCall, scope: CapabilityScope) -> Option<RuntimeAuth> {
+        match &call.caller {
+            Caller::HostRuntime(runtime) => Some(runtime.clone()),
+            Caller::Anonymous => self.host_runtime(call, scope),
+            _ => None,
+        }
     }
 
     async fn hunts(&self, call: RouteCall) -> Result<Reply, GuardError> {
-        let body = match parse_p2p_body(&call.request.headers, &call.body) {
-            Ok(body) => body,
-            Err(BodyError::TooLarge) => return Err(GuardError::refused("GUARD_BATCH_TOO_LARGE", TOO_LARGE)),
-            Err(BodyError::Invalid) => {
-                return Err(GuardError::refused(
-                    "GUARD_BATCH_INVALID",
-                    "The Guard request body is not valid JSON.",
-                ));
+        let body = parse_p2p_body(&call.request.headers, &call.body).map_err(|error| match error {
+            BodyError::TooLarge => Gate::TooLarge.refusal(),
+            BodyError::Invalid => Gate::NotJson.refusal(),
+        })?;
+        let events = match call.route.handler {
+            handler::REWARD_SELF => {
+                let Caller::Launcher(account) = &call.caller else {
+                    return Err(Gate::NoAccount.refusal());
+                };
+                return self.guard.self_reward(account, param(&call, "sessionId")).map(ok);
             }
+            handler::SHADOW => return Err(Gate::NotCollected.refusal()),
+            handler::EVENT_BATCHES => true,
+            _ => false,
         };
-        let handler = call.route.handler;
-        if handler == REWARD_SELF {
-            let Caller::Launcher(account) = &call.caller else {
-                return Err(unauthorized());
-            };
-            return self.guard.self_reward(account, param(&call, "sessionId")).map(ok);
-        }
-        if handler == SHADOW {
-            return Err(GuardError::refused(
-                "HUNT_EVIDENCE_NOT_COLLECTED",
-                "This server does not collect hunt evidence.",
-            ));
-        }
-        let scope = if handler == EVENT_BATCHES {
+        let scope = if events {
             CapabilityScope::EventsWrite
         } else {
             CapabilityScope::CompleteRequest
         };
-        let runtime = match &call.caller {
-            Caller::Anonymous => self.host_runtime(&call, scope),
-            Caller::HostRuntime(runtime) => Some(runtime.clone()),
-            _ => None,
-        };
-        let Some(runtime) = runtime else {
-            return Err(GuardError::refused(
-                "P2P_CAPABILITY_INVALID",
-                "A valid hunt host capability is required.",
-            ));
-        };
+        let runtime = self
+            .runtime_for(&call, scope)
+            .ok_or_else(|| Gate::NoCapability.refusal())?;
+
         let bytes = stringified_len(body.as_ref()) as u64;
-        let Some(_permit) = self.guard.request_budget().try_acquire(bytes) else {
-            return Err(GuardError::refused(
-                "GUARD_REQUEST_BUDGET_EXHAUSTED",
-                "Guard request capacity is currently exhausted; retry shortly.",
-            ));
-        };
-        match self.guard.charge_now(&runtime.host_account, &runtime.session, bytes) {
-            TrafficDecision::Accepted => {}
-            TrafficDecision::RateLimited => {
-                return Err(GuardError::refused(
-                    "GUARD_TRAFFIC_RATE_LIMITED",
-                    "Guard traffic exceeded the bounded host or hunt-session budget; retry shortly.",
-                ));
-            }
-            TrafficDecision::Unavailable => {
-                return Err(GuardError::refused(
-                    "GUARD_TRAFFIC_UNAVAILABLE",
-                    "Guard traffic capacity is temporarily unavailable; retry shortly.",
-                ));
-            }
+        let _permit = self
+            .guard
+            .request_budget()
+            .try_acquire(bytes)
+            .ok_or_else(|| Gate::BudgetExhausted.refusal())?;
+        let traffic = self.guard.charge_now(&runtime.host_account, &runtime.session, bytes);
+        if let Some(gate) = match traffic {
+            TrafficDecision::Accepted => None,
+            TrafficDecision::RateLimited => Some(Gate::RateLimited),
+            TrafficDecision::Unavailable => Some(Gate::TrafficUnavailable),
+        } {
+            return Err(gate.refusal());
         }
-        let answer = if handler == EVENT_BATCHES {
+
+        let answer = if events {
             self.guard.submit_parsed(&runtime, body.as_ref())
         } else {
             self.guard.complete_parsed(&runtime, body.as_ref())
@@ -183,21 +227,37 @@ impl GuardRoutes {
 
     async fn admin(&self, call: RouteCall) -> Result<Reply, GuardError> {
         let Caller::Admin { key_id } = &call.caller else {
-            return Err(unauthorized());
+            return Err(Gate::NoAccount.refusal());
         };
         let body = parse_admin_body(&call.body);
         let ip = call
             .request
             .remote
-            .map_or_else(|| "unknown".to_owned(), |ip| ip.to_string());
-        let operations: Operations<'_> = self.guard.operations();
-        if call.route.handler == REWARD_ROLLOUT {
-            operations.set_reward_rollout(key_id, body.as_ref(), &ip).await
-        } else {
-            operations
-                .acknowledge_alert(key_id, param(&call, "alertId"), body.as_ref(), &ip)
-                .await
+            .map(|ip| ip.to_string())
+            .unwrap_or_else(|| "unknown".into());
+        let operations = self.guard.operations();
+        match call.route.handler {
+            handler::REWARD_ROLLOUT => operations.set_reward_rollout(key_id, body.as_ref(), &ip).await,
+            _ => {
+                operations
+                    .acknowledge_alert(key_id, param(&call, "alertId"), body.as_ref(), &ip)
+                    .await
+            }
         }
+    }
+
+    /// An internal fault is logged here with the request id and answered with the fixed refusal.
+    fn hide_internal(&self, request_id: &str, error: GuardError) -> SeamError {
+        let GuardError::Internal(detail) = error else {
+            return error.into();
+        };
+        let id = Some(request_id).filter(|id| !id.is_empty()).unwrap_or("missing");
+        let line = format!("Unhandled P2P route error requestId={id}: {detail}");
+        self.guard.log().error(&line);
+        SeamError::Refused(rifts_seam::Refusal {
+            code: INTERNAL_CODE.into(),
+            message: INTERNAL_MESSAGE.into(),
+        })
     }
 
     async fn answer(&self, call: RouteCall) -> Result<Reply, SeamError> {
@@ -205,33 +265,14 @@ impl GuardRoutes {
             return Err(SeamError::unimplemented(Component::Guard, call.route.handler));
         }
         let request_id = call.request.request_id.clone();
-        let result = if call.route.mount == Mount::Admin {
+        let admin = call.route.mount == Mount::Admin;
+        let result = if admin {
             self.admin(call).await
         } else {
             self.hunts(call).await
         };
-        result.map_err(|error| match error {
-            GuardError::Internal(detail) => {
-                let id = if request_id.is_empty() {
-                    "missing"
-                } else {
-                    request_id.as_str()
-                };
-                self.guard
-                    .log()
-                    .error(&format!("Unhandled P2P route error requestId={id}: {detail}"));
-                SeamError::Refused(rifts_seam::Refusal {
-                    code: INTERNAL_CODE.to_owned(),
-                    message: INTERNAL_MESSAGE.to_owned(),
-                })
-            }
-            other => SeamError::from(other),
-        })
+        result.map_err(|error| self.hide_internal(&request_id, error))
     }
-}
-
-fn ok(body: Json) -> Reply {
-    Reply { status: 200, body }
 }
 
 impl RouteHandler for GuardRoutes {

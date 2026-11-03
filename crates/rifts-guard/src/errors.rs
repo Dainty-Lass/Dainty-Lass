@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+use std::fmt;
+
 use rifts_seam::{Json, Refusal, Reply, SeamError, StoreError, Unimplemented};
 
-use crate::json::push_js_string;
+use crate::json::js_string;
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+/// Guard's failures: not written yet, a refusal with its code, or an internal fault whose text stays on the server.
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum GuardError {
-    #[error(transparent)]
-    Unimplemented(#[from] Unimplemented),
-    #[error(transparent)]
-    Refused(#[from] Refusal),
-    #[error("{0}")]
+    Unimplemented(Unimplemented),
+    Refused(Refusal),
     Internal(String),
 }
 
@@ -21,35 +21,60 @@ pub(crate) const INTERNAL_MESSAGE: &str = "The player-hosted hunt request failed
 
 impl GuardError {
     pub fn refused(code: &str, message: &str) -> Self {
-        Self::Refused(Refusal {
-            code: code.to_owned(),
-            message: message.to_owned(),
-        })
+        let refusal = Refusal {
+            code: code.into(),
+            message: message.into(),
+        };
+        refusal.into()
     }
 
     pub fn code(&self) -> Option<&str> {
+        let Self::Refused(refusal) = self else {
+            return None;
+        };
+        Some(refusal.code.as_str())
+    }
+}
+
+impl fmt::Display for GuardError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Refused(refusal) => Some(&refusal.code),
-            _ => None,
+            Self::Internal(detail) => f.write_str(detail),
+            Self::Refused(refusal) => fmt::Display::fmt(refusal, f),
+            Self::Unimplemented(missing) => fmt::Display::fmt(missing, f),
         }
+    }
+}
+
+impl std::error::Error for GuardError {}
+
+impl From<Unimplemented> for GuardError {
+    fn from(missing: Unimplemented) -> Self {
+        Self::Unimplemented(missing)
+    }
+}
+
+impl From<Refusal> for GuardError {
+    fn from(refusal: Refusal) -> Self {
+        Self::Refused(refusal)
     }
 }
 
 impl From<StoreError> for GuardError {
     fn from(error: StoreError) -> Self {
-        match error {
-            StoreError::Unimplemented(missing) => Self::Unimplemented(missing),
-            other => Self::Internal(other.to_string()),
+        if let StoreError::Unimplemented(missing) = error {
+            return missing.into();
         }
+        Self::Internal(error.to_string())
     }
 }
 
 impl From<SeamError> for GuardError {
     fn from(error: SeamError) -> Self {
         match error {
-            SeamError::Unimplemented(missing) => Self::Unimplemented(missing),
-            SeamError::Refused(refusal) => Self::Refused(refusal),
-            other => Self::Internal(other.to_string()),
+            SeamError::Refused(refusal) => refusal.into(),
+            SeamError::Unimplemented(missing) => missing.into(),
+            unknown => Self::Internal(unknown.to_string()),
         }
     }
 }
@@ -57,14 +82,15 @@ impl From<SeamError> for GuardError {
 /// A hook's or route's answer: the detail of an internal failure never leaves the server.
 impl From<GuardError> for SeamError {
     fn from(error: GuardError) -> Self {
-        match error {
-            GuardError::Unimplemented(missing) => Self::Unimplemented(missing),
-            GuardError::Refused(refusal) => Self::Refused(refusal),
-            GuardError::Internal(_) => Self::Refused(Refusal {
-                code: INTERNAL_CODE.to_owned(),
-                message: INTERNAL_MESSAGE.to_owned(),
-            }),
-        }
+        let refusal = match error {
+            GuardError::Unimplemented(missing) => return missing.into(),
+            GuardError::Refused(refusal) => refusal,
+            GuardError::Internal(_) => Refusal {
+                code: INTERNAL_CODE.into(),
+                message: INTERNAL_MESSAGE.into(),
+            },
+        };
+        refusal.into()
     }
 }
 
@@ -94,89 +120,90 @@ pub const ERROR_STATUSES: &[(&str, u16)] = &[
     ("HUNT_REWARDS_UNAVAILABLE", 404),
 ];
 
+/// Any code not in the table is a 500.
 pub fn status_of(code: &str) -> u16 {
-    ERROR_STATUSES
+    let known = ERROR_STATUSES
         .iter()
-        .find(|(known, _)| *known == code)
-        .map_or(500, |(_, status)| *status)
+        .find_map(|&(name, status)| (name == code).then_some(status));
+    known.unwrap_or(500)
 }
 
 /// The launcher's error envelope.
 pub fn envelope(refusal: &Refusal, request_id: &str) -> Reply {
-    let mut body = String::from(r#"{"error":{"code":"#);
-    push_js_string(&mut body, &refusal.code);
-    body.push_str(r#","message":"#);
-    push_js_string(&mut body, &refusal.message);
-    body.push_str(r#","requestId":"#);
-    push_js_string(&mut body, request_id);
-    body.push_str("}}");
+    let (code, message, id) = (
+        js_string(&refusal.code),
+        js_string(&refusal.message),
+        js_string(request_id),
+    );
+    let body = format!(r#"{{"error":{{"code":{code},"message":{message},"requestId":{id}}}}}"#);
     Reply {
-        status: status_of(&refusal.code),
         body: Json(body),
+        status: status_of(&refusal.code),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rifts_seam::Component;
+
+    use super::*;
 
     #[test]
     fn statuses() {
         assert_eq!(ERROR_STATUSES.len(), 21);
-        assert_eq!(status_of("GUARD_TRAFFIC_RATE_LIMITED"), 429);
-        assert_eq!(status_of("GUARD_BATCH_TOO_LARGE"), 413);
-        assert_eq!(status_of("P2P_CAPABILITY_INVALID"), 401);
-        assert_eq!(status_of("HUNT_REWARDS_UNAVAILABLE"), 404);
-        assert_eq!(status_of("AUTH_UNAUTHORIZED"), 500);
-        assert_eq!(status_of("INTERNAL"), 500);
-        for (code, status) in ERROR_STATUSES {
-            assert_eq!(status_of(code), *status);
+        let spot_checks = [
+            ("GUARD_TRAFFIC_RATE_LIMITED", 429),
+            ("GUARD_BATCH_TOO_LARGE", 413),
+            ("P2P_CAPABILITY_INVALID", 401),
+            ("HUNT_REWARDS_UNAVAILABLE", 404),
+            ("AUTH_UNAUTHORIZED", 500),
+            ("INTERNAL", 500),
+        ];
+        for (code, status) in spot_checks.iter().chain(ERROR_STATUSES) {
+            assert_eq!(status_of(code), *status, "{code}");
         }
     }
 
     #[test]
     fn conversions_and_internal_mapping() {
         let missing = Unimplemented::new(Component::Guard, "store.chain");
-        assert_eq!(
-            GuardError::from(StoreError::Unimplemented(missing)),
-            GuardError::Unimplemented(missing)
-        );
-        assert_eq!(
-            GuardError::from(StoreError::Database("disk".into())),
-            GuardError::Internal("disk".into())
-        );
-        let refused = GuardError::refused("GUARD_BATCH_INVALID", "No.");
-        assert_eq!(refused.code(), Some("GUARD_BATCH_INVALID"));
-        assert_eq!(refused.to_string(), "GUARD_BATCH_INVALID: No.");
+        let from_store = [
+            (StoreError::Unimplemented(missing), GuardError::Unimplemented(missing)),
+            (StoreError::Database("disk".into()), GuardError::Internal("disk".into())),
+        ];
+        for (store, guard) in from_store {
+            assert_eq!(GuardError::from(store), guard);
+        }
         assert_eq!(
             GuardError::from(SeamError::from(missing)),
             GuardError::Unimplemented(missing)
         );
+
+        let refused = GuardError::refused("GUARD_BATCH_INVALID", "No.");
         assert_eq!(
-            SeamError::from(GuardError::Internal("secret detail".into())),
-            SeamError::Refused(Refusal {
-                code: "INTERNAL".into(),
-                message: "The player-hosted hunt request failed.".into()
-            })
+            (refused.code(), refused.to_string()),
+            (Some("GUARD_BATCH_INVALID"), "GUARD_BATCH_INVALID: No.".into())
         );
-        assert_eq!(GuardError::Internal("x".into()).code(), None);
-        assert_eq!(GuardError::Internal("x".into()).to_string(), "x");
+        let internal = GuardError::Internal("x".into());
+        assert_eq!((internal.code(), internal.to_string()), (None, "x".into()));
+
+        let hidden = SeamError::from(GuardError::Internal("secret detail".into()));
+        let public = Refusal {
+            code: "INTERNAL".into(),
+            message: "The player-hosted hunt request failed.".into(),
+        };
+        assert_eq!(hidden, SeamError::Refused(public));
     }
 
     #[test]
     fn envelope_text() {
-        let reply = envelope(
-            &Refusal {
-                code: "GUARD_CHAIN_FROZEN".into(),
-                message: "Closed \"now\".".into(),
-            },
-            "req-1",
-        );
-        assert_eq!(reply.status, 409);
-        assert_eq!(
-            reply.body.0,
-            r#"{"error":{"code":"GUARD_CHAIN_FROZEN","message":"Closed \"now\".","requestId":"req-1"}}"#
-        );
+        let refusal = Refusal {
+            code: "GUARD_CHAIN_FROZEN".into(),
+            message: "Closed \"now\".".into(),
+        };
+        let Reply { status, body } = envelope(&refusal, "req-1");
+        assert_eq!(status, 409);
+        let want = r#"{"error":{"code":"GUARD_CHAIN_FROZEN","message":"Closed \"now\".","requestId":"req-1"}}"#;
+        assert_eq!(body.0, want);
     }
 }

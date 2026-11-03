@@ -297,3 +297,40 @@ Seam changes made on this branch, for the integration pass to review:
 
 Left for the integration pass or a later row: the security checklist, the migration guide's §2 line, the NOTICE line,
 and dainty-restricted's switch of its `rifts-admission` dependency by git rev with the oracle package of §6.2.
+
+## Restructure pass
+
+- **Date and session**: 2026-11-02, one Claude Code subagent session (model Claude Opus 5.5), on branch
+  `chore/rd27-rifts-restructure-admission-relay` cut from `origin/feat/rd27-rifts-mit` at `2e06bda`. Same isolation
+  rules as §1: nothing under dainty-restricted, `modules/` or any pre-split history was opened. The outside reviewer's
+  per-file shares were the only input about the replaced code; no matched lines were shown or looked for.
+- **Files changed**: `src/lib.rs`, `src/service.rs`, `src/ticket.rs`, `src/store.rs`, `src/keys.rs`,
+  `examples/generate-admission-key.rs`, `examples/mint-ticket.rs`; in `src/service/tests.rs` and `src/ticket/tests.rs`
+  only a renamed private helper and three imports the old `use super::*` used to bring in.
+- **Techniques**:
+  - Errors: `AdmissionError`, `TicketError` and `KeyError` keep their variants, order and texts, with hand-written
+    `Display`/`Error` (a text table for `TicketError`, a `From` macro and one delegating match for `AdmissionError`)
+    instead of `thiserror` attributes.
+  - Refusals: every `(code, text)` admission answers with is one entry of a `refusals!` table, checked through one
+    `ensure` helper; the gate's on/off check is one method taking the refusal for that operation.
+  - Service: issuing split into hub and participant paths; ticket rows and bindings built by destructuring; the trait
+    impls answer through one `settled` helper and the crate's private `Answer` alias (also used in the traits'
+    signatures, which expand to the same types).
+  - Ticket: the header written from one ordered table of big-endian fields, the payload read back with a cursor rather
+    than fixed offsets, the claim checks as an ordered rule list, `exact_double` from the bit span instead of a round
+    trip, token splitting by pattern.
+  - Store: `TABLES` through a `const fn`, the stub's methods from a macro, the consume decision as one `match` on the
+    status, tests table-driven with builder helpers.
+  - Keys and examples: imports nested, the key-set files written from one table, settings decoding through
+    `Option`/`Result` combinators, the examples' flag lookup by pairs.
+  - Derive lists sorted alphabetically in the files touched.
+- **Unchanged**: every public item's name, type, fields and field order, variants and signatures (parameter names in
+  trait declarations changed, which is not part of the API); the ticket payload bytes, every error code and text, JSON
+  field order, the examples' output and exit codes. `cargo clippy -p rifts-realms -p rifts-transport -p rifts-host
+  --all-targets --locked -- -D warnings`, which implement or call these traits, is clean.
+- **Tests**: `cargo test -p rifts-admission --locked --no-fail-fast`: 51 passed, 0 failed (every case kept).
+  `cargo fmt --all --check` and `cargo clippy --workspace --all-targets --locked -- -D warnings`: clean.
+- **What cannot go much lower**: `store.rs` is mostly the spec's public record structs and the `AdmissionStore`
+  trait (about 110 of its code lines are field declarations in pinned order); `ticket.rs` and `keys.rs` keep the
+  pinned public constants, the `TicketBindings`, `TicketClaims` and `Es256Tickets` fields and the public function
+  signatures. `thiserror` stays in `Cargo.toml` (now unused here) to leave `Cargo.lock` untouched.

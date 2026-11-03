@@ -28,6 +28,7 @@ pub mod time;
 mod hosting;
 mod routes;
 mod stub;
+mod wire;
 
 use rifts_seam::{Component, Refusal, TableSpec, Unimplemented};
 
@@ -41,7 +42,7 @@ pub use crate::service::{RealmsService, RealmsServiceParts, realms_enabled_or_de
 pub use crate::stub::Stub;
 pub use rifts_guard::SqlGuardStore;
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Clone, Debug, Eq, thiserror::Error, PartialEq)]
 #[non_exhaustive]
 pub enum RealmsError {
     /// The service behind the route is absent: a 501.
@@ -61,196 +62,122 @@ impl From<db::RepoError> for RealmsError {
     }
 }
 
+// Both read as the repository error they become, so the text is the same either way in.
 impl From<store::Error> for RealmsError {
     fn from(error: store::Error) -> Self {
-        Self::Database(error.to_string())
+        db::RepoError::from(error).into()
     }
 }
 
 impl From<diesel::result::Error> for RealmsError {
     fn from(error: diesel::result::Error) -> Self {
-        Self::Database(format!("database: {error}"))
+        db::RepoError::from(error).into()
     }
 }
 
-const fn table(
-    name: &'static str,
-    node_collection: &'static str,
-    keys: &'static str,
-    expires_by: Option<&'static str>,
-) -> TableSpec {
-    TableSpec {
-        name,
-        node_collection,
-        owner: Component::Realms,
-        keys,
-        expires_by,
-    }
+/// `table => collection, keys [, expires column];`, every one owned by realms.
+macro_rules! realm_tables {
+    ($($name:literal => $collection:literal, $keys:literal $(, $expires:literal)?;)+) => {
+        &[$(TableSpec {
+            owner: Component::Realms,
+            name: $name,
+            node_collection: $collection,
+            keys: $keys,
+            expires_by: realm_tables!(@expires $($expires)?),
+        }),+]
+    };
+    (@expires) => { None };
+    (@expires $column:literal) => { Some($column) };
 }
 
 /// In the migrations' `CREATE TABLE` order. Node's `realmHubGates` has no table: `store` serialises writes.
-pub const TABLES: &[TableSpec] = &[
-    table("rifts_realms", "realms", "realm; name unique; host unique", None),
-    table("rifts_realm_members", "realms.members", "realm + account", None),
-    table("rifts_realm_bans", "realms.bans", "realm + account", None),
-    table(
-        "rifts_realm_join_requests",
-        "realms.joinRequests",
-        "realm + account",
-        None,
-    ),
-    table(
-        "rifts_realm_player_invites",
-        "realms.playerInvites",
-        "realm + account",
-        None,
-    ),
-    table("rifts_realm_hub_rooms", "realms.hubRoomIds", "room unique", None),
-    table(
-        "rifts_realm_invites",
-        "realmInvites",
-        "code; realm + created_at",
-        Some("purge_at"),
-    ),
-    table(
-        "rifts_realm_presence",
-        "realmPresence",
-        "account; realm + expires_at",
-        Some("expires_at"),
-    ),
-    table(
-        "rifts_hunt_sessions",
-        "p2pHuntSessions",
-        "session; global id unique; active party key unique; state",
-        None,
-    ),
-    table("rifts_hunt_roster", "p2pHuntSessions.roster", "session + account", None),
-    table(
-        "rifts_hunt_transitions",
-        "p2pHuntTransitions",
-        "transition; session + at + state_version",
-        None,
-    ),
-    table(
-        "rifts_host_capabilities",
-        "p2pHostCapabilities",
-        "capability; secret digest unique; session + generation",
-        None,
-    ),
-    table(
-        "rifts_host_presences",
-        "p2pHostPresences",
-        "account",
-        Some("expires_at"),
-    ),
-    table(
-        "rifts_host_offers",
-        "p2pHostOffers",
-        "offer; session + generation + rank; one accepted",
-        None,
-    ),
-    table("rifts_host_reliability", "p2pHostReliability", "account", None),
-    table(
-        "rifts_participant_observations",
-        "p2pParticipantObservations",
-        "observation; session + generation + at",
-        None,
-    ),
-    table("rifts_control_sequences", "p2pControlSequences", "account", None),
-    table(
-        "rifts_control_messages",
-        "p2pControlMessages",
-        "message; account + sequence unique",
-        Some("expires_at"),
-    ),
-    table(
-        "rifts_hub_presence",
-        "realmHubPresence",
-        "session + account; account / realm + state",
-        Some("purge_at"),
-    ),
-];
+pub const TABLES: &[TableSpec] = realm_tables! {
+    "rifts_realms" => "realms", "realm; name unique; host unique";
+    "rifts_realm_members" => "realms.members", "realm + account";
+    "rifts_realm_bans" => "realms.bans", "realm + account";
+    "rifts_realm_join_requests" => "realms.joinRequests", "realm + account";
+    "rifts_realm_player_invites" => "realms.playerInvites", "realm + account";
+    "rifts_realm_hub_rooms" => "realms.hubRoomIds", "room unique";
+    "rifts_realm_invites" => "realmInvites", "code; realm + created_at", "purge_at";
+    "rifts_realm_presence" => "realmPresence", "account; realm + expires_at", "expires_at";
+    "rifts_hunt_sessions" => "p2pHuntSessions", "session; global id unique; active party key unique; state";
+    "rifts_hunt_roster" => "p2pHuntSessions.roster", "session + account";
+    "rifts_hunt_transitions" => "p2pHuntTransitions", "transition; session + at + state_version";
+    "rifts_host_capabilities" => "p2pHostCapabilities", "capability; secret digest unique; session + generation";
+    "rifts_host_presences" => "p2pHostPresences", "account", "expires_at";
+    "rifts_host_offers" => "p2pHostOffers", "offer; session + generation + rank; one accepted";
+    "rifts_host_reliability" => "p2pHostReliability", "account";
+    "rifts_participant_observations" => "p2pParticipantObservations", "observation; session + generation + at";
+    "rifts_control_sequences" => "p2pControlSequences", "account";
+    "rifts_control_messages" => "p2pControlMessages", "message; account + sequence unique", "expires_at";
+    "rifts_hub_presence" => "realmHubPresence", "session + account; account / realm + state", "purge_at";
+};
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn every_node_collection_has_a_table() {
-        for collection in [
-            "realms",
-            "realmInvites",
-            "realmPresence",
-            "p2pHuntSessions",
-            "p2pHostCapabilities",
-            "p2pControlSequences",
-            "p2pControlMessages",
-            "p2pHostPresences",
-            "p2pHostOffers",
-            "p2pHostReliability",
-            "p2pParticipantObservations",
-            "p2pHuntTransitions",
-            "realmHubPresence",
-        ] {
-            assert!(TABLES.iter().any(|t| t.node_collection == collection), "{collection}");
-        }
-        assert!(TABLES.iter().all(|t| t.owner == Component::Realms));
+    const SQLITE_UP: &str = include_str!("../migrations/sqlite/2026-10-26-000001_rifts_realms/up.sql");
+    const POSTGRES_UP: &str = include_str!("../migrations/postgres/2026-10-26-000001_rifts_realms/up.sql");
+    const SQLITE_DOWN: &str = include_str!("../migrations/sqlite/2026-10-26-000001_rifts_realms/down.sql");
+    const POSTGRES_DOWN: &str = include_str!("../migrations/postgres/2026-10-26-000001_rifts_realms/down.sql");
+
+    /// The first word after `prefix` on each line that starts with it.
+    fn named_after<'a>(sql: &'a str, prefix: &str) -> Vec<&'a str> {
+        let rest = sql.lines().filter_map(|line| line.strip_prefix(prefix));
+        rest.filter_map(|tail| tail.split([' ', ';']).next()).collect()
     }
 
-    fn created_tables(sql: &str) -> Vec<&str> {
-        sql.lines()
-            .filter_map(|line| line.strip_prefix("CREATE TABLE "))
-            .filter_map(|rest| rest.split(' ').next())
-            .collect()
+    #[test]
+    fn every_node_collection_has_a_table() {
+        let collections = "realms realmInvites realmPresence p2pHuntSessions p2pHostCapabilities p2pControlSequences \
+                           p2pControlMessages p2pHostPresences p2pHostOffers p2pHostReliability \
+                           p2pParticipantObservations p2pHuntTransitions realmHubPresence";
+        for collection in collections.split_whitespace() {
+            let found = TABLES.iter().find(|table| table.node_collection == collection);
+            assert!(found.is_some(), "{collection}");
+        }
+        assert!(TABLES.iter().all(|table| table.owner == Component::Realms));
     }
 
     #[test]
     fn both_migration_sets_create_the_tables_in_order() {
-        let names: Vec<&str> = TABLES.iter().map(|t| t.name).collect();
-        for sql in [
-            include_str!("../migrations/sqlite/2026-10-26-000001_rifts_realms/up.sql"),
-            include_str!("../migrations/postgres/2026-10-26-000001_rifts_realms/up.sql"),
-        ] {
-            assert_eq!(created_tables(sql), names);
-        }
-        let dropped: Vec<&str> = include_str!("../migrations/sqlite/2026-10-26-000001_rifts_realms/down.sql")
-            .lines()
-            .filter_map(|line| line.strip_prefix("DROP TABLE "))
-            .map(|rest| rest.trim_end_matches(';'))
-            .collect();
-        assert_eq!(dropped, names.iter().rev().copied().collect::<Vec<_>>());
-        assert_eq!(
-            include_str!("../migrations/sqlite/2026-10-26-000001_rifts_realms/down.sql"),
-            include_str!("../migrations/postgres/2026-10-26-000001_rifts_realms/down.sql")
-        );
+        let names: Vec<&str> = TABLES.iter().map(|table| table.name).collect();
+        assert_eq!(named_after(SQLITE_UP, "CREATE TABLE "), names);
+        assert_eq!(named_after(POSTGRES_UP, "CREATE TABLE "), names);
+        let mut reversed = names.clone();
+        reversed.reverse();
+        assert_eq!(named_after(SQLITE_DOWN, "DROP TABLE "), reversed);
+        assert_eq!(SQLITE_DOWN, POSTGRES_DOWN);
     }
 
     #[test]
     fn the_engines_differ_only_in_the_name_collation() {
-        let sqlite = include_str!("../migrations/sqlite/2026-10-26-000001_rifts_realms/up.sql");
-        let postgres = include_str!("../migrations/postgres/2026-10-26-000001_rifts_realms/up.sql");
-        let code = |sql: &'static str| -> Vec<&'static str> { sql.lines().filter(|l| !l.starts_with("--")).collect() };
-        let (a, b) = (code(sqlite), code(postgres));
-        assert_eq!(a.len(), b.len());
-        let differing: Vec<(&str, &str)> = a.into_iter().zip(b).filter(|(x, y)| x != y).collect();
-        assert_eq!(
-            differing,
-            [(
-                "    name TEXT NOT NULL UNIQUE,",
-                "    name TEXT COLLATE \"C\" NOT NULL UNIQUE,"
-            )]
+        let code = |sql: &'static str| sql.lines().filter(|line| !line.starts_with("--")).collect::<Vec<_>>();
+        let (sqlite, postgres) = (code(SQLITE_UP), code(POSTGRES_UP));
+        assert_eq!(sqlite.len(), postgres.len());
+        let differing: Vec<_> = sqlite.iter().zip(&postgres).filter(|(a, b)| a != b).collect();
+        let collated = (
+            &"    name TEXT NOT NULL UNIQUE,",
+            &"    name TEXT COLLATE \"C\" NOT NULL UNIQUE,",
         );
+        assert_eq!(differing, [collated]);
     }
 
     #[test]
     fn database_conversions() {
-        assert_eq!(
-            RealmsError::from(diesel::result::Error::NotFound),
-            RealmsError::Database("database: Record not found".into())
-        );
-        assert_eq!(
-            RealmsError::from(db::RepoError::Duplicate("secret_digest")),
-            RealmsError::Database("duplicate key: secret_digest".into())
-        );
+        let cases = [
+            (
+                RealmsError::from(diesel::result::Error::NotFound),
+                "database: Record not found",
+            ),
+            (
+                RealmsError::from(db::RepoError::Duplicate("secret_digest")),
+                "duplicate key: secret_digest",
+            ),
+        ];
+        for (error, text) in cases {
+            assert_eq!(error, RealmsError::Database(text.into()));
+        }
     }
 }

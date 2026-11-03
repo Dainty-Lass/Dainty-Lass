@@ -4,9 +4,9 @@
 //! The realm directory: every launcher realm operation, the entry check Play runs, realm presence and its cache, and
 //! the calls the p2p side and the sweeper make.
 
-use std::collections::{BTreeMap, HashMap};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::atomic::{AtomicU64, Ordering::SeqCst};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use rifts_seam::{AccountId, Actor, Refusal, UnixMillis};
 use serde::Serialize;
@@ -14,22 +14,19 @@ use serde_json::Value;
 
 use crate::RealmsError;
 use crate::db::RealmsDb;
-use crate::input::{
-    CreateRealmInput, EntryRealmInput, HeartbeatInput, InviteInput, JoinInput, SettingsInput, parse_entry_realm,
-};
+use crate::input::{CreateRealmInput, EntryRealmInput, HeartbeatInput, InviteInput, JoinInput, SettingsInput};
 use crate::ports::{Accounts, Clock, IdSource, RateLimiter, RealmEventSink, RealmsLog};
+use crate::realm::validate_hosting_patch;
+use crate::realm::{AccountAt, HostingPatch, JoinDenial, JoinPolicy, JoinVia, MemberRole, Patch, RealmBan, RealmEvent};
+use crate::realm::{InviteState, RealmInviteRecord, RealmLimits, RealmMember, RealmPresenceRecord, RealmRecord};
+use crate::realm::{PRESENCE_CACHE_MS, PRESENCE_TTL_MS, RemovalReason, js_trim, normalize_hub_room_id};
 use crate::realm::{
-    AccountAt, HostingPatch, JoinDenial, JoinPolicy, JoinVia, MemberRole, PRESENCE_CACHE_MS, PRESENCE_TTL_MS, Patch,
-    RealmBan, RealmEvent, RealmInviteRecord, RealmLimits, RealmMember, RealmPresenceRecord, RealmRecord, RemovalReason,
     apply_heartbeat, build_invite, decide_join, detect_ownership_change, hub_room_ids_of, invite_state,
-    is_realm_hub_ready, is_realm_name_releasable, is_realm_online, is_realm_serving, js_trim, normalize_hub_room_id,
-    presence_touch_needs_write, realm_name_for_username, realm_name_release_at, sort_newest_first,
-    validate_hosting_patch,
 };
-use crate::repo::realms::{
-    AddBanResult, AddEntryResult, AddMemberResult, InsertInviteResult, InsertRealmResult, RealmPresenceRepository,
-    RealmsRepository,
-};
+use crate::realm::{is_realm_hub_ready, is_realm_name_releasable, is_realm_online, is_realm_serving};
+use crate::realm::{presence_touch_needs_write, realm_name_for_username, realm_name_release_at, sort_newest_first};
+use crate::repo::realms::{AddBanResult, AddEntryResult, AddMemberResult, InsertInviteResult, InsertRealmResult};
+use crate::repo::realms::{RealmPresenceRepository, RealmsRepository};
 use crate::time::{Later as _, iso};
 
 pub struct DirectoryParts {
@@ -43,9 +40,12 @@ pub struct DirectoryParts {
     pub log: Arc<dyn RealmsLog>,
 }
 
+/// Past this many cached answers the stale ones go, and then all of them if that was not enough.
 const PRESENCE_CACHE_LIMIT: usize = 10_000;
+/// Past this many per-account counters they reset under a new clear epoch.
 const EPOCH_LIMIT: usize = 50_000;
 const LIST_LIMIT: u32 = 100;
+/// Tries at an unused invite code.
 const INVITE_ATTEMPTS: usize = 5;
 pub const SWEEP_LOOKBACK_MS: i64 = 600_000;
 const SWEEP_LIMIT: u32 = 100;
@@ -54,101 +54,175 @@ const HEARTBEAT_TTL_SECONDS: i64 = 90;
 const P2P_ACTOR: Actor = Actor::System("realms-p2p");
 const SWEEPER_ACTOR: Actor = Actor::System("realms-sweeper");
 
-#[derive(Debug, Clone, Copy)]
-struct Bucket {
-    name: &'static str,
-    max: u32,
-    window_ms: i64,
-}
+/// A rate-limit bucket: (name, requests, per window in ms).
+#[derive(Clone, Copy, Debug)]
+struct Bucket(&'static str, u32, i64);
 
-const READ: Bucket = Bucket {
-    name: "read",
-    max: 240,
-    window_ms: 60_000,
-};
-const WRITE: Bucket = Bucket {
-    name: "write",
-    max: 60,
-    window_ms: 60_000,
-};
-const HEARTBEAT: Bucket = Bucket {
-    name: "heartbeat",
-    max: 30,
-    window_ms: 60_000,
-};
-const CREATE: Bucket = Bucket {
-    name: "create",
-    max: 5,
-    window_ms: 3_600_000,
-};
-const INVITE: Bucket = Bucket {
-    name: "invite",
-    max: 30,
-    window_ms: 3_600_000,
-};
-const JOIN: Bucket = Bucket {
-    name: "join",
-    max: 30,
-    window_ms: 600_000,
-};
-const ENTRY: Bucket = Bucket {
-    name: "entry",
-    max: 30,
-    window_ms: 600_000,
-};
+const MINUTE: i64 = 60_000;
+const READ: Bucket = Bucket("read", 240, MINUTE);
+const WRITE: Bucket = Bucket("write", 60, MINUTE);
+const HEARTBEAT: Bucket = Bucket("heartbeat", 30, MINUTE);
+const CREATE: Bucket = Bucket("create", 5, 60 * MINUTE);
+const INVITE: Bucket = Bucket("invite", 30, 60 * MINUTE);
+const JOIN: Bucket = Bucket("join", 30, 10 * MINUTE);
+const ENTRY: Bucket = Bucket("entry", 30, 10 * MINUTE);
+
+/// A refusal's (code, text).
+type Says = (&'static str, &'static str);
+
+const RATE_LIMITED: Says = (
+    "AUTH_RATE_LIMITED",
+    "Too many realm requests. Please wait a moment and try again.",
+);
+const NOT_HOSTED: Says = ("REALM_NOT_FOUND", "You do not host a realm.");
+const INVITE_NOT_VALID: Says = ("REALM_INVITE_INVALID", "That invite code is not valid.");
+const ALREADY_HOSTS: Says = (
+    "REALM_ALREADY_EXISTS",
+    "You already host a realm. Release it before claiming another name.",
+);
+const USERNAME_REQUIRED: Says = (
+    "REALM_USERNAME_REQUIRED",
+    "Set a username before you host a realm: your realm is named after it.",
+);
+const NAME_IS_USERNAME: Says = (
+    "REALM_NAME_IS_USERNAME",
+    "That name is another player's username. A realm is named after its host.",
+);
+const NAME_TAKEN: Says = ("REALM_NAME_TAKEN", "That realm name is taken.");
+const HOST_CANNOT_LEAVE: Says = (
+    "REALM_HOST_CANNOT_LEAVE",
+    "You host this realm. Release it instead of leaving it.",
+);
+const NOT_MY_REALM: Says = ("REALM_NOT_MEMBER", "You are not a member of this realm.");
+const NOT_YOUR_MEMBER: Says = ("REALM_NOT_MEMBER", "That account is not a member of your realm.");
+const KICK_SELF: Says = (
+    "REALM_INVALID_TARGET",
+    "You cannot remove yourself from your own realm.",
+);
+const BAN_SELF: Says = ("REALM_INVALID_TARGET", "You cannot ban yourself from your own realm.");
+const INVITE_SELF: Says = ("REALM_INVALID_TARGET", "You are the host of this realm.");
+const BANS_FULL: Says = ("REALM_FULL", "The ban list is full; lift a ban first.");
+const NO_REQUEST: Says = (
+    "REALM_REQUEST_NOT_FOUND",
+    "That player has not asked to join your realm.",
+);
+const TARGET_BANNED: Says = ("REALM_BANNED", "That player is banned from your realm.");
+const TARGET_BANNED_LIFT: Says = (
+    "REALM_BANNED",
+    "That player is banned from your realm. Lift the ban first.",
+);
+const NO_PLAYER: Says = ("REALM_PLAYER_NOT_FOUND", "No player has that username.");
+const PLAYER_INVITES_FULL: Says = (
+    "REALM_PLAYER_INVITES_FULL",
+    "Too many invites are waiting for an answer. Cancel one first.",
+);
+const NO_WAITING_INVITE: Says = ("REALM_PLAYER_INVITE_NOT_FOUND", "That player has no invite waiting.");
+const NO_INVITE_HERE: Says = ("REALM_PLAYER_INVITE_NOT_FOUND", "You have no invite to this realm.");
+const REALMS_DISABLED: Says = ("REALMS_DISABLED", "Realms are not available on this server.");
+
+/// The messages of the refusals the join route and Play share.
+const ENTRY_MESSAGES: [Says; 11] = [
+    ("REALM_NOT_FOUND", "There is no realm with that name."),
+    ("REALM_OWNER_CHANGED", "This realm now belongs to a different host."),
+    ("REALM_BANNED", "You cannot join this realm."),
+    (
+        "REALM_INVITE_REQUIRED",
+        "This realm is invite-only. You need an invite code.",
+    ),
+    ("REALM_INVITE_INVALID", "That invite code is not valid for this realm."),
+    (
+        "REALM_INVITE_EXPIRED",
+        "That invite has expired, was revoked or has been used up.",
+    ),
+    ("REALM_FULL", "This realm cannot take more members."),
+    (
+        "REALM_OFFLINE",
+        "This realm is offline: its host is not running it right now.",
+    ),
+    (
+        "REALM_SOLO",
+        "This realm is in solo mode: its host is playing alone right now.",
+    ),
+    (
+        "REALM_JOIN_REQUESTED",
+        "Request sent to the host. Wait for their approval, then press Play again.",
+    ),
+    (
+        "REALM_REQUESTS_FULL",
+        "This realm has too many join requests waiting. Try again later.",
+    ),
+];
 
 /// The refusals the join route and Play share; empty for any other code.
 pub fn entry_message(code: &str) -> &'static str {
-    match code {
-        "REALM_NOT_FOUND" => "There is no realm with that name.",
-        "REALM_OWNER_CHANGED" => "This realm now belongs to a different host.",
-        "REALM_BANNED" => "You cannot join this realm.",
-        "REALM_INVITE_REQUIRED" => "This realm is invite-only. You need an invite code.",
-        "REALM_INVITE_INVALID" => "That invite code is not valid for this realm.",
-        "REALM_INVITE_EXPIRED" => "That invite has expired, was revoked or has been used up.",
-        "REALM_FULL" => "This realm cannot take more members.",
-        "REALM_OFFLINE" => "This realm is offline: its host is not running it right now.",
-        "REALM_SOLO" => "This realm is in solo mode: its host is playing alone right now.",
-        "REALM_JOIN_REQUESTED" => "Request sent to the host. Wait for their approval, then press Play again.",
-        "REALM_REQUESTS_FULL" => "This realm has too many join requests waiting. Try again later.",
-        _ => "",
-    }
+    ENTRY_MESSAGES
+        .iter()
+        .find(|(known, _)| *known == code)
+        .map_or("", |&(_, text)| text)
 }
 
-fn refused(code: &str, message: &str) -> RealmsError {
+fn refused((code, message): Says) -> RealmsError {
     RealmsError::Refused(Refusal {
-        code: code.to_owned(),
-        message: message.to_owned(),
+        code: code.into(),
+        message: message.into(),
     })
 }
 
 fn entry_error(code: &str) -> RealmsError {
-    refused(code, entry_message(code))
+    let message = entry_message(code);
+    RealmsError::Refused(Refusal {
+        code: code.into(),
+        message: message.into(),
+    })
 }
 
-fn not_hosted() -> RealmsError {
-    refused("REALM_NOT_FOUND", "You do not host a realm.")
-}
-
-fn no_such_realm() -> RealmsError {
-    refused("REALM_NOT_FOUND", "There is no realm with that name.")
-}
-
-fn invite_not_valid() -> RealmsError {
-    refused("REALM_INVITE_INVALID", "That invite code is not valid.")
+/// `Err` with `says` unless `done`.
+fn or_refuse(done: bool, says: Says) -> Result<(), RealmsError> {
+    if done { Ok(()) } else { Err(refused(says)) }
 }
 
 fn as_account(account: &str) -> Actor {
-    Actor::Account(AccountId(account.to_owned()))
+    Actor::Account(AccountId(account.into()))
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+fn joined_now(account: &str, role: MemberRole, at: UnixMillis) -> RealmMember {
+    RealmMember {
+        account_id: account.into(),
+        role,
+        joined_at: at,
+    }
+}
+
+/// The write the join paths share failed; anything else is an entry refusal.
+fn internal(code: &'static str) -> RealmsError {
+    match code {
+        "INTERNAL" => RealmsError::Database(String::from("realm directory write failed")),
+        refusal => entry_error(refusal),
+    }
+}
+
+fn status(target: &str, status: &'static str) -> StatusReply {
+    StatusReply {
+        account_id: target.into(),
+        status,
+    }
+}
+
+fn changed(target: &str, status: &'static str, changed: bool) -> ChangedReply {
+    ChangedReply {
+        account_id: target.into(),
+        status,
+        changed,
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HostName {
     pub display_name: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RealmPublicInfo {
     pub realm_id: String,
@@ -170,34 +244,7 @@ pub struct RealmPublicInfo {
     pub ownership_changed: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MemberView {
-    pub account_id: String,
-    pub display_name: Option<String>,
-    pub role: &'static str,
-    pub joined_at: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BanView {
-    pub account_id: String,
-    pub display_name: Option<String>,
-    pub reason: Option<String>,
-    pub at: String,
-}
-
-/// A join request or a player invite as the host sees it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AccountAtView {
-    pub account_id: String,
-    pub display_name: Option<String>,
-    pub at: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RealmHostView {
     #[serde(flatten)]
@@ -212,7 +259,34 @@ pub struct RealmHostView {
     pub player_invites: Vec<AccountAtView>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberView {
+    pub account_id: String,
+    pub display_name: Option<String>,
+    pub role: &'static str,
+    pub joined_at: String,
+}
+
+/// A join request or a player invite as the host sees it.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountAtView {
+    pub account_id: String,
+    pub display_name: Option<String>,
+    pub at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BanView {
+    pub account_id: String,
+    pub display_name: Option<String>,
+    pub reason: Option<String>,
+    pub at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InviteView {
     pub code: String,
@@ -224,7 +298,14 @@ pub struct InviteView {
     pub state: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresenceView {
+    pub realm: Option<PresenceRealm>,
+    pub expires_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceRealm {
     pub name: String,
@@ -233,64 +314,68 @@ pub struct PresenceRealm {
     pub host_online: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PresenceView {
-    pub realm: Option<PresenceRealm>,
-    pub expires_at: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct HostedReply {
-    pub realm: RealmHostView,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct RealmReply {
-    pub realm: RealmPublicInfo,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct RealmsReply {
-    pub realms: Vec<RealmPublicInfo>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MineReply {
     pub hosted: Option<RealmHostView>,
     pub member_of: Vec<RealmPublicInfo>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct InviteReply {
-    pub invite: InviteView,
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct HostedReply {
+    pub realm: RealmHostView,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct InvitesReply {
-    pub invites: Vec<InviteView>,
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RealmReply {
+    pub realm: RealmPublicInfo,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct JoinReply {
     pub realm: RealmPublicInfo,
     pub joined: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct LeftReply {
-    pub left: bool,
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RealmsReply {
+    pub realms: Vec<RealmPublicInfo>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct InviteReply {
+    pub invite: InviteView,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct InvitesReply {
+    pub invites: Vec<InviteView>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct PlayerInviteEntry {
+    pub realm: RealmPublicInfo,
+    pub at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct PlayerInvitesReply {
+    pub invites: Vec<PlayerInviteEntry>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RequestsReply {
+    pub requests: Vec<AccountAtView>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatusReply {
     pub account_id: String,
     pub status: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangedReply {
     pub account_id: String,
@@ -298,12 +383,7 @@ pub struct ChangedReply {
     pub changed: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct RequestsReply {
-    pub requests: Vec<AccountAtView>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddedReply {
     pub account_id: String,
@@ -311,7 +391,7 @@ pub struct AddedReply {
     pub added: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InvitedReply {
     pub account_id: String,
@@ -319,28 +399,22 @@ pub struct InvitedReply {
     pub status: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct PlayerInviteEntry {
-    pub realm: RealmPublicInfo,
-    pub at: String,
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct LeftReply {
+    pub left: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct PlayerInvitesReply {
-    pub invites: Vec<PlayerInviteEntry>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct DeclinedReply {
     pub declined: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ReleasedReply {
     pub released: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeartbeatReply {
     pub online: bool,
@@ -350,51 +424,63 @@ pub struct HeartbeatReply {
     pub version: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EntryAuthorization {
     Ok { realm_id: String, is_host: bool },
     Refused(&'static str),
 }
 
-/// (clear epoch, the account's counter).
+/// No realm presence to show.
+const NOWHERE: PresenceView = PresenceView {
+    realm: None,
+    expires_at: None,
+};
+
+/// (clear epoch, the account's counter): a cached answer is written back only if neither moved since the read.
 type Epoch = (u64, u64);
 
+/// Presence answers, `None` included, keyed by account with the time they were read.
 #[derive(Default)]
 struct PresenceCache {
-    entries: HashMap<String, (UnixMillis, Option<RealmPresenceRecord>)>,
-    counters: HashMap<String, u64>,
     clear_epoch: u64,
+    counters: HashMap<String, u64>,
+    entries: HashMap<String, (UnixMillis, Option<RealmPresenceRecord>)>,
 }
 
 impl PresenceCache {
     fn epoch(&self, account: &str) -> Epoch {
-        (self.clear_epoch, self.counters.get(account).copied().unwrap_or(0))
+        let counter = self.counters.get(account).map_or(0, |n| *n);
+        (self.clear_epoch, counter)
+    }
+
+    fn fresh(&self, account: &str, now: UnixMillis) -> Option<&Option<RealmPresenceRecord>> {
+        let (read_at, row) = self.entries.get(account)?;
+        (0..PRESENCE_CACHE_MS).contains(&(now.0 - read_at.0)).then_some(row)
     }
 
     fn store(&mut self, account: &str, now: UnixMillis, row: Option<RealmPresenceRecord>) {
         if self.entries.len() >= PRESENCE_CACHE_LIMIT {
-            self.entries
-                .retain(|_, (read_at, _)| now.0 - read_at.0 < PRESENCE_CACHE_MS);
-            if self.entries.len() >= PRESENCE_CACHE_LIMIT {
-                self.entries.clear();
-            }
+            self.entries.retain(|_, entry| now.0 - entry.0.0 < PRESENCE_CACHE_MS);
         }
-        self.entries.insert(account.to_owned(), (now, row));
+        if self.entries.len() >= PRESENCE_CACHE_LIMIT {
+            self.entries.clear();
+        }
+        self.entries.insert(account.into(), (now, row));
     }
 
     fn invalidate(&mut self, account: &str) {
-        *self.counters.entry(account.to_owned()).or_insert(0) += 1;
-        if self.counters.len() > EPOCH_LIMIT {
-            self.counters.clear();
-            self.clear_epoch += 1;
-        }
         self.entries.remove(account);
+        *self.counters.entry(account.into()).or_default() += 1;
+        if self.counters.len() > EPOCH_LIMIT {
+            self.clear_epoch += 1;
+            self.counters.clear();
+        }
     }
 
     fn clear(&mut self) {
-        self.clear_epoch += 1;
-        self.counters.clear();
         self.entries.clear();
+        self.counters.clear();
+        self.clear_epoch += 1;
     }
 }
 
@@ -412,15 +498,85 @@ pub struct RealmDirectory {
     presence_touches: AtomicU64,
 }
 
+/// What every public view of a realm is built from.
+struct ViewContext<'a> {
+    viewer: &'a str,
+    names: &'a BTreeMap<String, String>,
+    counts: &'a BTreeMap<String, i64>,
+    known_key: Option<&'a str>,
+    now: UnixMillis,
+}
+
+impl ViewContext<'_> {
+    fn name(&self, account: &str) -> Option<String> {
+        self.names.get(account).cloned()
+    }
+
+    fn info(&self, realm: &RealmRecord) -> RealmPublicInfo {
+        let viewer = self.viewer;
+        // A SOLO realm serves only its host.
+        let serves_viewer = realm.join_policy != JoinPolicy::Solo || realm.host_account_id == viewer;
+        let membership = realm
+            .members
+            .iter()
+            .find(|m| m.account_id == viewer)
+            .map(|m| m.role.as_str());
+        RealmPublicInfo {
+            host: HostName {
+                display_name: self.name(&realm.host_account_id),
+            },
+            serving: serves_viewer && is_realm_serving(realm, self.now),
+            online: is_realm_online(realm, self.now),
+            hub_ready: is_realm_hub_ready(realm),
+            player_count: self.counts.get(&realm.realm_id).map_or(0, |n| *n),
+            member_count: realm.members.len(),
+            membership,
+            requested: realm.join_requests.iter().any(|request| request.account_id == viewer),
+            invited: realm.player_invites.iter().any(|invite| invite.account_id == viewer),
+            ownership_changed: self
+                .known_key
+                .map(|key| detect_ownership_change(&realm.name, key, realm)),
+            join_policy: realm.join_policy.as_str(),
+            realm_id: realm.realm_id.clone(),
+            name: realm.name.clone(),
+            host_public_key: realm.host_public_key.clone(),
+            listed: realm.listed,
+            version: realm.version.clone(),
+        }
+    }
+
+    fn account_at(&self, entry: AccountAt) -> AccountAtView {
+        AccountAtView {
+            display_name: self.name(&entry.account_id),
+            at: iso(entry.at),
+            account_id: entry.account_id,
+        }
+    }
+}
+
+fn invite_view(invite: &RealmInviteRecord, now: UnixMillis) -> InviteView {
+    InviteView {
+        state: invite_state(invite, now).as_str(),
+        revoked_at: invite.revoked_at.map(iso),
+        expires_at: iso(invite.expires_at),
+        created_at: iso(invite.created_at),
+        code: invite.code.clone(),
+        max_uses: invite.max_uses,
+        uses: invite.uses,
+    }
+}
+
 impl RealmDirectory {
     pub fn new(parts: DirectoryParts) -> Self {
+        let realms = RealmsRepository::new(parts.db.clone());
+        let presence = RealmPresenceRepository::new(parts.db.clone());
         Self {
-            realms: RealmsRepository::new(parts.db.clone()),
-            presence: RealmPresenceRepository::new(parts.db.clone()),
+            cache: Mutex::default(),
+            presence_reads: AtomicU64::default(),
+            presence_touches: AtomicU64::default(),
+            realms,
+            presence,
             parts,
-            cache: Mutex::new(PresenceCache::default()),
-            presence_reads: AtomicU64::new(0),
-            presence_touches: AtomicU64::new(0),
         }
     }
 
@@ -428,95 +584,82 @@ impl RealmDirectory {
         self.parts.clock.now()
     }
 
-    fn cache(&self) -> std::sync::MutexGuard<'_, PresenceCache> {
+    fn cache(&self) -> MutexGuard<'_, PresenceCache> {
         self.cache.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn note(&self, line: &str) {
+        self.parts.log.info(line);
+    }
+
+    fn caution(&self, line: &str) {
+        self.parts.log.warn(line);
     }
 
     /// (presence rows read from the database, touches written).
     pub fn presence_io(&self) -> (u64, u64) {
-        (
-            self.presence_reads.load(Ordering::SeqCst),
-            self.presence_touches.load(Ordering::SeqCst),
-        )
+        let (reads, touches) = (&self.presence_reads, &self.presence_touches);
+        (reads.load(SeqCst), touches.load(SeqCst))
     }
 
-    fn throttle(&self, bucket: Bucket, account: &str) -> Result<(), RealmsError> {
-        let key = format!("realms:{}:{account}", bucket.name);
-        if self.parts.limiter.is_limited(&key, bucket.max, bucket.window_ms) {
-            return Err(refused(
-                "AUTH_RATE_LIMITED",
-                "Too many realm requests. Please wait a moment and try again.",
-            ));
-        }
-        Ok(())
+    /// One request from the account's budget in `bucket`.
+    fn spend(&self, account: &str, Bucket(name, max, window_ms): Bucket) -> Result<(), RealmsError> {
+        let limited = self
+            .parts
+            .limiter
+            .is_limited(&format!("realms:{name}:{account}"), max, window_ms);
+        or_refuse(!limited, RATE_LIMITED)
     }
 
+    /// The account's own realm, after its rate limit.
+    async fn own_realm(&self, bucket: Bucket, account: &str) -> Result<RealmRecord, RealmsError> {
+        self.spend(account, bucket)?;
+        self.hosted(account).await
+    }
+
+    async fn named_realm(&self, name: &str) -> Result<RealmRecord, RealmsError> {
+        self.realms
+            .find_by_name(name)
+            .await?
+            .ok_or_else(|| entry_error("REALM_NOT_FOUND"))
+    }
+
+    /// A failure is the sink's to log, never the request's.
     async fn emit(&self, event: RealmEvent) {
-        if let Some(sink) = &self.parts.events
-            && let Err(error) = sink.emit(event).await
-        {
-            self.parts.log.warn(&format!("[Realms] event sink failed: {error}"));
+        let Some(sink) = self.parts.events.as_ref() else {
+            return;
+        };
+        if let Err(error) = sink.emit(event).await {
+            self.caution(&format!("[Realms] event sink failed: {error}"));
         }
     }
 
+    async fn member_removed(&self, realm_id: &str, account: &str, reason: RemovalReason) {
+        self.drop_presence_in_realm(account, realm_id).await;
+        let event = RealmEvent::MemberRemoved {
+            realm_id: realm_id.into(),
+            account_id: account.into(),
+            reason,
+        };
+        self.emit(event).await;
+    }
+
+    /// Best effort: an account the lookup cannot name has no display name.
     async fn names(&self, ids: Vec<String>) -> BTreeMap<String, String> {
-        match self.parts.accounts.display_names(ids).await {
-            Ok(names) => names,
-            Err(error) => {
-                self.parts
-                    .log
-                    .warn(&format!("[Realms] display-name lookup failed: {error}"));
-                BTreeMap::new()
-            }
-        }
+        self.parts.accounts.display_names(ids).await.unwrap_or_else(|error| {
+            self.caution(&format!("[Realms] display-name lookup failed: {error}"));
+            BTreeMap::new()
+        })
     }
 
     async fn player_counts(&self, realm_ids: &[String], now: UnixMillis) -> BTreeMap<String, i64> {
-        match self.presence.count_active_by_realm(realm_ids, now).await {
-            Ok(counts) => counts,
-            Err(error) => {
-                self.parts
-                    .log
-                    .warn(&format!("[Realms] player-count lookup failed: {error}"));
+        self.presence
+            .count_active_by_realm(realm_ids, now)
+            .await
+            .unwrap_or_else(|error| {
+                self.caution(&format!("[Realms] player-count lookup failed: {error}"));
                 BTreeMap::new()
-            }
-        }
-    }
-
-    fn info_of(
-        realm: &RealmRecord,
-        viewer: &str,
-        names: &BTreeMap<String, String>,
-        counts: &BTreeMap<String, i64>,
-        known_key: Option<&str>,
-        now: UnixMillis,
-    ) -> RealmPublicInfo {
-        let serving =
-            is_realm_serving(realm, now) && (realm.join_policy != JoinPolicy::Solo || realm.host_account_id == viewer);
-        RealmPublicInfo {
-            realm_id: realm.realm_id.clone(),
-            name: realm.name.clone(),
-            host: HostName {
-                display_name: names.get(&realm.host_account_id).cloned(),
-            },
-            host_public_key: realm.host_public_key.clone(),
-            join_policy: realm.join_policy.as_str(),
-            listed: realm.listed,
-            online: is_realm_online(realm, now),
-            serving,
-            hub_ready: is_realm_hub_ready(realm),
-            player_count: counts.get(&realm.realm_id).copied().unwrap_or(0),
-            version: realm.version.clone(),
-            member_count: realm.members.len(),
-            membership: realm
-                .members
-                .iter()
-                .find(|m| m.account_id == viewer)
-                .map(|m| m.role.as_str()),
-            requested: realm.join_requests.iter().any(|r| r.account_id == viewer),
-            invited: realm.player_invites.iter().any(|i| i.account_id == viewer),
-            ownership_changed: known_key.map(|key| detect_ownership_change(&realm.name, key, realm)),
-        }
+            })
     }
 
     async fn public_infos(&self, realms: &[RealmRecord], viewer: &str) -> Vec<RealmPublicInfo> {
@@ -524,104 +667,98 @@ impl RealmDirectory {
             return Vec::new();
         }
         let now = self.now();
-        let names = self
-            .names(realms.iter().map(|r| r.host_account_id.clone()).collect())
-            .await;
-        let ids: Vec<String> = realms.iter().map(|r| r.realm_id.clone()).collect();
-        let counts = self.player_counts(&ids, now).await;
-        realms
+        let (hosts, ids): (Vec<String>, Vec<String>) = realms
             .iter()
-            .map(|realm| Self::info_of(realm, viewer, &names, &counts, None, now))
-            .collect()
+            .map(|realm| (realm.host_account_id.clone(), realm.realm_id.clone()))
+            .unzip();
+        let names = self.names(hosts).await;
+        let counts = self.player_counts(&ids, now).await;
+        let context = ViewContext {
+            viewer,
+            names: &names,
+            counts: &counts,
+            known_key: None,
+            now,
+        };
+        realms.iter().map(|realm| context.info(realm)).collect()
     }
 
     async fn public_info(&self, realm: &RealmRecord, viewer: &str, known_key: Option<&str>) -> RealmPublicInfo {
         let now = self.now();
         let names = self.names(vec![realm.host_account_id.clone()]).await;
         let counts = self.player_counts(std::slice::from_ref(&realm.realm_id), now).await;
-        Self::info_of(realm, viewer, &names, &counts, known_key, now)
+        ViewContext {
+            viewer,
+            names: &names,
+            counts: &counts,
+            known_key,
+            now,
+        }
+        .info(realm)
     }
 
     async fn host_view(&self, realm: &RealmRecord) -> RealmHostView {
         let now = self.now();
-        let mut ids = vec![realm.host_account_id.clone()];
-        ids.extend(realm.members.iter().map(|m| m.account_id.clone()));
-        ids.extend(realm.bans.iter().map(|b| b.account_id.clone()));
-        ids.extend(realm.player_invites.iter().map(|i| i.account_id.clone()));
-        ids.sort();
-        ids.dedup();
-        let names = self.names(ids).await;
+        let everyone: BTreeSet<String> = std::iter::once(&realm.host_account_id)
+            .chain(realm.members.iter().map(|m| &m.account_id))
+            .chain(realm.bans.iter().map(|b| &b.account_id))
+            .chain(realm.player_invites.iter().map(|i| &i.account_id))
+            .cloned()
+            .collect();
+        let names = self.names(everyone.into_iter().collect()).await;
         let counts = self.player_counts(std::slice::from_ref(&realm.realm_id), now).await;
-        let host = realm.host_account_id.as_str();
-        let name_of = |id: &str| names.get(id).cloned();
+        let context = ViewContext {
+            viewer: &realm.host_account_id,
+            names: &names,
+            counts: &counts,
+            known_key: None,
+            now,
+        };
+        let members = realm.members.iter().map(|m| MemberView {
+            display_name: context.name(&m.account_id),
+            account_id: m.account_id.clone(),
+            joined_at: iso(m.joined_at),
+            role: m.role.as_str(),
+        });
+        let bans = realm.bans.iter().map(|b| BanView {
+            display_name: context.name(&b.account_id),
+            account_id: b.account_id.clone(),
+            reason: b.reason.clone(),
+            at: iso(b.at),
+        });
         RealmHostView {
-            info: Self::info_of(realm, host, &names, &counts, None, now),
+            info: context.info(realm),
+            name_release_at: iso(realm_name_release_at(realm.created_at, realm.last_online_at)),
             created_at: iso(realm.created_at),
             last_online_at: realm.last_online_at.map(iso),
             online_until: realm.online_until.map(iso),
-            name_release_at: iso(realm_name_release_at(realm.created_at, realm.last_online_at)),
-            members: realm
-                .members
-                .iter()
-                .map(|m| MemberView {
-                    account_id: m.account_id.clone(),
-                    display_name: name_of(&m.account_id),
-                    role: m.role.as_str(),
-                    joined_at: iso(m.joined_at),
-                })
-                .collect(),
-            bans: realm
-                .bans
-                .iter()
-                .map(|b| BanView {
-                    account_id: b.account_id.clone(),
-                    display_name: name_of(&b.account_id),
-                    reason: b.reason.clone(),
-                    at: iso(b.at),
-                })
-                .collect(),
             join_request_count: realm.join_requests.len(),
             player_invites: sort_newest_first(&realm.player_invites)
                 .into_iter()
-                .map(|i| AccountAtView {
-                    display_name: name_of(&i.account_id),
-                    account_id: i.account_id,
-                    at: iso(i.at),
-                })
+                .map(|i| context.account_at(i))
                 .collect(),
-        }
-    }
-
-    fn invite_view(invite: &RealmInviteRecord, now: UnixMillis) -> InviteView {
-        InviteView {
-            code: invite.code.clone(),
-            created_at: iso(invite.created_at),
-            expires_at: iso(invite.expires_at),
-            max_uses: invite.max_uses,
-            uses: invite.uses,
-            revoked_at: invite.revoked_at.map(iso),
-            state: invite_state(invite, now).as_str(),
+            members: members.collect(),
+            bans: bans.collect(),
         }
     }
 
     async fn hosted(&self, account: &str) -> Result<RealmRecord, RealmsError> {
-        self.realms.find_by_host(account).await?.ok_or_else(not_hosted)
+        let found = self.realms.find_by_host(account).await?;
+        found.ok_or_else(|| refused(NOT_HOSTED))
     }
 
     async fn reload(&self, realm_id: &str) -> Result<RealmRecord, RealmsError> {
-        self.realms
-            .find_by_id(realm_id)
-            .await?
-            .ok_or_else(|| entry_error("REALM_NOT_FOUND"))
+        let found = self.realms.find_by_id(realm_id).await?;
+        found.ok_or_else(|| entry_error("REALM_NOT_FOUND"))
     }
 
     async fn drop_presence_in_realm(&self, account: &str, realm_id: &str) {
-        if let Err(error) = self
+        let removed = self
             .presence
             .remove(&as_account(account), account, Some(realm_id))
-            .await
-        {
-            self.parts.log.warn(&format!(
+            .await;
+        if let Err(error) = removed {
+            self.caution(&format!(
                 "[Realms] could not remove presence realmId={realm_id}: {error}"
             ));
         }
@@ -629,12 +766,26 @@ impl RealmDirectory {
     }
 
     async fn drop_realm_presence(&self, actor: &Actor, realm_id: &str) {
-        if let Err(error) = self.presence.remove_for_realm(actor, realm_id).await {
-            self.parts.log.warn(&format!(
+        let removed = self.presence.remove_for_realm(actor, realm_id).await;
+        if let Err(error) = removed {
+            self.caution(&format!(
                 "[Realms] could not remove presence of realmId={realm_id}: {error}"
             ));
         }
         self.cache().clear();
+    }
+
+    async fn add_as_member(
+        &self,
+        actor: &Actor,
+        realm_id: &str,
+        account: &str,
+    ) -> Result<AddMemberResult, RealmsError> {
+        let member = joined_now(account, MemberRole::Member, self.now());
+        Ok(self
+            .realms
+            .add_member(actor, realm_id, &member, self.parts.limits.max_members)
+            .await?)
     }
 
     /// Consumes an invite's use first and gives it back if the member was not added.
@@ -646,182 +797,139 @@ impl RealmDirectory {
         invite: Option<&RealmInviteRecord>,
     ) -> Result<Admitted, &'static str> {
         let actor = as_account(account);
-        let now = self.now();
-        let invite_code = match (via, invite) {
-            (JoinVia::Invite, Some(invite)) => {
-                let consumed = self
-                    .realms
-                    .consume_invite(&actor, &invite.code, now)
-                    .await
-                    .map_err(|_| "INTERNAL")?;
-                if consumed.is_none() {
+        let used = match invite.filter(|_| via == JoinVia::Invite) {
+            None => None,
+            Some(invite) => {
+                let consumed = self.realms.consume_invite(&actor, &invite.code, self.now()).await;
+                if consumed.map_err(|_| "INTERNAL")?.is_none() {
                     return Err("REALM_INVITE_EXPIRED");
                 }
-                Some(invite.code.clone())
+                Some(invite.code.as_str())
             }
-            _ => None,
         };
-        let member = RealmMember {
-            account_id: account.to_owned(),
-            role: MemberRole::Member,
-            joined_at: now,
-        };
-        let added = self
-            .realms
-            .add_member(&actor, &realm.realm_id, &member, self.parts.limits.max_members)
-            .await;
-        if !matches!(added, Ok(AddMemberResult::Added))
-            && let Some(code) = &invite_code
+        let outcome = self.add_as_member(&actor, &realm.realm_id, account).await;
+        if let Some(code) = used
+            && !matches!(outcome, Ok(AddMemberResult::Added))
         {
             let _ = self.realms.refund_invite(&actor, code).await;
         }
-        match added.map_err(|_| "INTERNAL")? {
-            AddMemberResult::Banned => Err("REALM_BANNED"),
-            AddMemberResult::Full => Err("REALM_FULL"),
-            AddMemberResult::NotFound => Err("REALM_NOT_FOUND"),
-            AddMemberResult::AlreadyMember => Ok(Admitted::AlreadyMember),
+        match outcome.map_err(|_| "INTERNAL")? {
             AddMemberResult::Added => {
-                let via = if invite_code.is_some() { "INVITE" } else { "PUBLIC" };
-                self.parts
-                    .log
-                    .info(&format!("[Realms] member joined realmId={} via={via}", realm.realm_id));
+                let source = if used.is_some() { "INVITE" } else { "PUBLIC" };
+                self.note(&format!(
+                    "[Realms] member joined realmId={} via={source}",
+                    realm.realm_id
+                ));
                 Ok(Admitted::Added)
             }
+            AddMemberResult::AlreadyMember => Ok(Admitted::AlreadyMember),
+            AddMemberResult::NotFound => Err("REALM_NOT_FOUND"),
+            AddMemberResult::Full => Err("REALM_FULL"),
+            AddMemberResult::Banned => Err("REALM_BANNED"),
         }
     }
 
     /// `Ok(true)` when the account turned out to be a member already.
     async fn request(&self, account: &str, realm: &RealmRecord) -> Result<bool, &'static str> {
-        let request = AccountAt {
-            account_id: account.to_owned(),
+        let entry = AccountAt {
+            account_id: account.into(),
             at: self.now(),
         };
-        let result = self
+        let cap = self.parts.limits.max_join_requests;
+        let added = self
             .realms
-            .add_join_request(
-                &as_account(account),
-                &realm.realm_id,
-                &request,
-                self.parts.limits.max_join_requests,
-            )
-            .await
-            .map_err(|_| "INTERNAL")?;
-        match result {
+            .add_join_request(&as_account(account), &realm.realm_id, &entry, cap)
+            .await;
+        let code = match added.map_err(|_| "INTERNAL")? {
+            AddEntryResult::AlreadyMember => return Ok(true),
             AddEntryResult::Added => {
-                self.parts
-                    .log
-                    .info(&format!("[Realms] join requested realmId={}", realm.realm_id));
-                Err("REALM_JOIN_REQUESTED")
+                self.note(&format!("[Realms] join requested realmId={}", realm.realm_id));
+                "REALM_JOIN_REQUESTED"
             }
-            AddEntryResult::Already => Err("REALM_JOIN_REQUESTED"),
-            AddEntryResult::AlreadyMember => Ok(true),
-            AddEntryResult::Banned => Err("REALM_BANNED"),
-            AddEntryResult::Full => Err("REALM_REQUESTS_FULL"),
-            AddEntryResult::NotFound => Err("REALM_NOT_FOUND"),
-        }
+            AddEntryResult::Already => "REALM_JOIN_REQUESTED",
+            AddEntryResult::Full => "REALM_REQUESTS_FULL",
+            AddEntryResult::Banned => "REALM_BANNED",
+            AddEntryResult::NotFound => "REALM_NOT_FOUND",
+        };
+        Err(code)
     }
 
     async fn accept_invite_for(&self, account: &str, realm_id: &str) -> Result<Admitted, &'static str> {
         let actor = as_account(account);
-        let member = RealmMember {
-            account_id: account.to_owned(),
-            role: MemberRole::Member,
-            joined_at: self.now(),
-        };
-        let result = self
-            .realms
-            .add_member(&actor, realm_id, &member, self.parts.limits.max_members)
+        let admitted = match self
+            .add_as_member(&actor, realm_id, account)
             .await
-            .map_err(|_| "INTERNAL")?;
-        let admitted = match result {
-            AddMemberResult::Banned => return Err("REALM_BANNED"),
-            AddMemberResult::Full => return Err("REALM_FULL"),
-            AddMemberResult::NotFound => return Err("REALM_NOT_FOUND"),
+            .map_err(|_| "INTERNAL")?
+        {
             // An `Added` drops the player invite in the same write.
+            AddMemberResult::Added => Admitted::Added,
             AddMemberResult::AlreadyMember => {
                 let _ = self.realms.remove_player_invite(&actor, realm_id, account).await;
                 Admitted::AlreadyMember
             }
-            AddMemberResult::Added => Admitted::Added,
+            AddMemberResult::NotFound => return Err("REALM_NOT_FOUND"),
+            AddMemberResult::Full => return Err("REALM_FULL"),
+            AddMemberResult::Banned => return Err("REALM_BANNED"),
         };
         let _ = self.realms.remove_join_request(&actor, realm_id, account).await;
-        if matches!(admitted, Admitted::Added) {
-            self.parts
-                .log
-                .info(&format!("[Realms] player invite accepted realmId={realm_id}"));
+        if let Admitted::Added = admitted {
+            self.note(&format!("[Realms] player invite accepted realmId={realm_id}"));
         }
         Ok(admitted)
     }
 
-    fn internal(code: &'static str) -> RealmsError {
-        if code == "INTERNAL" {
-            RealmsError::Database("realm directory write failed".to_owned())
-        } else {
-            entry_error(code)
+    /// The name the account may claim: its own username's realm name, or another that is nobody else's username.
+    async fn claimable_name(&self, account: &str, asked: Option<&String>) -> Result<String, RealmsError> {
+        let own_name = self.names(vec![account.to_owned()]).await.remove(account);
+        let own = own_name.as_deref().and_then(realm_name_for_username);
+        let Some(asked) = asked else {
+            return own.ok_or_else(|| refused(USERNAME_REQUIRED));
+        };
+        if own.as_deref() != Some(asked.as_str()) {
+            let holder = self
+                .parts
+                .accounts
+                .resolve_username(asked.clone())
+                .await
+                .map_err(RealmsError::Database)?;
+            if holder.is_some_and(|holder| holder != account) {
+                return Err(refused(NAME_IS_USERNAME));
+            }
         }
+        Ok(asked.clone())
     }
 
     pub async fn create_realm(&self, account: &str, input: &CreateRealmInput) -> Result<HostedReply, RealmsError> {
-        self.throttle(CREATE, account)?;
-        const ALREADY: &str = "You already host a realm. Release it before claiming another name.";
+        self.spend(account, CREATE)?;
         if self.realms.find_by_host(account).await?.is_some() {
-            return Err(refused("REALM_ALREADY_EXISTS", ALREADY));
+            return Err(refused(ALREADY_HOSTS));
         }
-        let own_name = self.names(vec![account.to_owned()]).await.remove(account);
-        let own = own_name.as_deref().and_then(realm_name_for_username);
-        let name = match &input.name {
-            None => own.ok_or_else(|| {
-                refused(
-                    "REALM_USERNAME_REQUIRED",
-                    "Set a username before you host a realm: your realm is named after it.",
-                )
-            })?,
-            Some(name) => {
-                if own.as_deref() != Some(name.as_str()) {
-                    let holder = self
-                        .parts
-                        .accounts
-                        .resolve_username(name.clone())
-                        .await
-                        .map_err(RealmsError::Database)?;
-                    if holder.is_some_and(|holder| holder != account) {
-                        return Err(refused(
-                            "REALM_NAME_IS_USERNAME",
-                            "That name is another player's username. A realm is named after its host.",
-                        ));
-                    }
-                }
-                name.clone()
-            }
-        };
+        let name = self.claimable_name(account, input.name.as_ref()).await?;
         let now = self.now();
         let realm_id = self.parts.ids.realm_id();
         let record = RealmRecord {
             hub_room_ids: hub_room_ids_of(&realm_id),
-            realm_id,
-            name: name.clone(),
-            host_account_id: account.to_owned(),
+            members: vec![joined_now(account, MemberRole::Host, now)],
+            host_account_id: account.into(),
             host_public_key: input.host_public_key.clone(),
             join_policy: input.join_policy,
             listed: input.listed,
-            members: vec![RealmMember {
-                account_id: account.to_owned(),
-                role: MemberRole::Host,
-                joined_at: now,
-            }],
-            bans: Vec::new(),
-            created_at: now,
-            last_online_at: None,
-            online_until: None,
             version: input.version.clone(),
-            hosting: None,
-            offline_notified_for: None,
+            name: name.clone(),
+            created_at: now,
+            realm_id,
+            bans: Vec::new(),
             join_requests: Vec::new(),
             player_invites: Vec::new(),
+            last_online_at: None,
+            online_until: None,
+            hosting: None,
+            offline_notified_for: None,
         };
         let actor = as_account(account);
-        let mut result = self.realms.insert_realm(&actor, &record).await?;
-        if result == InsertRealmResult::NameTaken
+        let mut inserted = self.realms.insert_realm(&actor, &record).await?;
+        // A name whose holder let it lapse is released to the new claim.
+        if inserted == InsertRealmResult::NameTaken
             && let Some(holder) = self.realms.find_by_name(&name).await?
             && is_realm_name_releasable(&holder, now)
             && self
@@ -829,48 +937,38 @@ impl RealmDirectory {
                 .delete_realm_if_last_online(&actor, &holder.realm_id, holder.last_online_at)
                 .await?
         {
-            self.parts.log.info(&format!(
+            self.note(&format!(
                 "[Realms] name released realmId={} name={name}",
                 holder.realm_id
             ));
             self.drop_realm_presence(&actor, &holder.realm_id).await;
-            result = self.realms.insert_realm(&actor, &record).await?;
+            inserted = self.realms.insert_realm(&actor, &record).await?;
         }
-        match result {
-            InsertRealmResult::HostHasRealm => Err(refused("REALM_ALREADY_EXISTS", ALREADY)),
-            InsertRealmResult::NameTaken => Err(refused("REALM_NAME_TAKEN", "That realm name is taken.")),
+        match inserted {
             InsertRealmResult::Inserted => {
-                self.parts.log.info(&format!(
-                    "[Realms] realm created realmId={} name={name} policy={} listed={}",
-                    record.realm_id,
-                    record.join_policy.as_str(),
-                    record.listed
+                let (id, policy, listed) = (&record.realm_id, record.join_policy.as_str(), record.listed);
+                self.note(&format!(
+                    "[Realms] realm created realmId={id} name={name} policy={policy} listed={listed}"
                 ));
-                Ok(HostedReply {
-                    realm: self.host_view(&record).await,
-                })
+                let view = self.host_view(&record).await;
+                Ok(HostedReply { realm: view })
             }
+            InsertRealmResult::NameTaken => Err(refused(NAME_TAKEN)),
+            InsertRealmResult::HostHasRealm => Err(refused(ALREADY_HOSTS)),
         }
     }
 
     pub async fn get_mine(&self, account: &str) -> Result<MineReply, RealmsError> {
-        self.throttle(READ, account)?;
-        let hosted = self.realms.find_by_host(account).await?;
-        let member_of: Vec<RealmRecord> = self
-            .realms
-            .find_by_member(account, LIST_LIMIT)
-            .await?
-            .into_iter()
-            .filter(|r| r.host_account_id != account)
-            .collect();
-        let hosted = match &hosted {
-            Some(realm) => Some(self.host_view(realm).await),
+        self.spend(account, READ)?;
+        let own = self.realms.find_by_host(account).await?;
+        let mut joined = self.realms.find_by_member(account, LIST_LIMIT).await?;
+        joined.retain(|realm| realm.host_account_id != account);
+        let hosted = match own.as_ref() {
             None => None,
+            Some(realm) => Some(self.host_view(realm).await),
         };
-        Ok(MineReply {
-            hosted,
-            member_of: self.public_infos(&member_of, account).await,
-        })
+        let member_of = self.public_infos(&joined, account).await;
+        Ok(MineReply { hosted, member_of })
     }
 
     pub async fn get_by_name(
@@ -879,198 +977,173 @@ impl RealmDirectory {
         name: &str,
         known_host_key: Option<&str>,
     ) -> Result<RealmReply, RealmsError> {
-        self.throttle(READ, account)?;
-        let realm = self.realms.find_by_name(name).await?.ok_or_else(no_such_realm)?;
-        Ok(RealmReply {
-            realm: self.public_info(&realm, account, known_host_key).await,
-        })
+        self.spend(account, READ)?;
+        let realm = self.named_realm(name).await?;
+        let info = self.public_info(&realm, account, known_host_key).await;
+        Ok(RealmReply { realm: info })
     }
 
     /// Uses nothing.
     pub async fn preview_invite(&self, account: &str, code: &str) -> Result<RealmReply, RealmsError> {
-        self.throttle(JOIN, account)?;
-        let invite = self.realms.find_invite(code).await?.ok_or_else(invite_not_valid)?;
-        if invite_state(&invite, self.now()) != crate::realm::InviteState::Usable {
-            return Err(refused(
-                "REALM_INVITE_EXPIRED",
-                "That invite has expired, was revoked or has been used up.",
-            ));
+        self.spend(account, JOIN)?;
+        let invalid = || refused(INVITE_NOT_VALID);
+        let invite = self.realms.find_invite(code).await?.ok_or_else(invalid)?;
+        if invite_state(&invite, self.now()) != InviteState::Usable {
+            return Err(entry_error("REALM_INVITE_EXPIRED"));
         }
-        let realm = self
-            .realms
-            .find_by_id(&invite.realm_id)
-            .await?
-            .ok_or_else(invite_not_valid)?;
-        if realm.bans.iter().any(|b| b.account_id == account) {
-            return Err(refused("REALM_BANNED", "You cannot join this realm."));
+        let realm = self.realms.find_by_id(&invite.realm_id).await?.ok_or_else(invalid)?;
+        if realm.bans.iter().any(|ban| ban.account_id == account) {
+            return Err(entry_error("REALM_BANNED"));
         }
-        Ok(RealmReply {
-            realm: self.public_info(&realm, account, None).await,
-        })
+        let info = self.public_info(&realm, account, None).await;
+        Ok(RealmReply { realm: info })
     }
 
     /// Online first, then by name; a SOLO realm only to its host.
     pub async fn list_listed(&self, account: &str, limit: u32, offset: u32) -> Result<RealmsReply, RealmsError> {
-        self.throttle(READ, account)?;
-        let realms: Vec<RealmRecord> = self
-            .realms
-            .list_listed(limit, offset)
-            .await?
-            .into_iter()
-            .filter(|r| r.join_policy != JoinPolicy::Solo || r.host_account_id == account)
-            .collect();
-        Ok(RealmsReply {
-            realms: self.public_infos(&realms, account).await,
-        })
+        self.spend(account, READ)?;
+        let mut realms = self.realms.list_listed(limit, offset).await?;
+        realms.retain(|realm| realm.host_account_id == account || realm.join_policy != JoinPolicy::Solo);
+        let infos = self.public_infos(&realms, account).await;
+        Ok(RealmsReply { realms: infos })
     }
 
     pub async fn update_settings(&self, account: &str, input: &SettingsInput) -> Result<HostedReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        let changed = self
+        let realm = self.own_realm(WRITE, account).await?;
+        let (policy, listed) = (input.join_policy, input.listed);
+        let set = self
             .realms
-            .set_settings(
-                &as_account(account),
-                &realm.realm_id,
-                account,
-                input.join_policy,
-                input.listed,
-            )
+            .set_settings(&as_account(account), &realm.realm_id, account, policy, listed)
             .await?;
-        if !changed {
-            return Err(not_hosted());
-        }
-        let realm = self.realms.find_by_id(&realm.realm_id).await?.ok_or_else(not_hosted)?;
-        self.parts.log.info(&format!(
-            "[Realms] settings changed realmId={} policy={} listed={}",
-            realm.realm_id,
-            realm.join_policy.as_str(),
-            realm.listed
+        or_refuse(set, NOT_HOSTED)?;
+        let updated = self
+            .realms
+            .find_by_id(&realm.realm_id)
+            .await?
+            .ok_or_else(|| refused(NOT_HOSTED))?;
+        let (id, policy, listed) = (&updated.realm_id, updated.join_policy.as_str(), updated.listed);
+        self.note(&format!(
+            "[Realms] settings changed realmId={id} policy={policy} listed={listed}"
         ));
-        Ok(HostedReply {
-            realm: self.host_view(&realm).await,
-        })
+        let view = self.host_view(&updated).await;
+        Ok(HostedReply { realm: view })
     }
 
     pub async fn create_invite(&self, account: &str, input: &InviteInput) -> Result<InviteReply, RealmsError> {
-        self.throttle(INVITE, account)?;
-        let realm = self.hosted(account).await?;
+        let realm = self.own_realm(INVITE, account).await?;
         let now = self.now();
         let limit = self.parts.limits.max_active_invites;
         if self.realms.count_active_invites(&realm.realm_id, now).await? >= i64::from(limit) {
-            return Err(refused(
-                "REALM_INVITE_LIMIT",
-                &format!("You can have at most {limit} open invites; revoke one first."),
-            ));
+            let message = format!("You can have at most {limit} open invites; revoke one first.");
+            return Err(RealmsError::Refused(Refusal {
+                code: "REALM_INVITE_LIMIT".into(),
+                message,
+            }));
         }
         let actor = as_account(account);
+        // A clash with an existing code is retried with a fresh one.
         for _ in 0..INVITE_ATTEMPTS {
-            let invite = build_invite(
-                &self.parts.ids.invite_code(),
-                &realm.realm_id,
-                account,
-                now,
-                input.max_uses,
-                input.ttl_hours,
-            );
-            if self.realms.insert_invite(&actor, &invite).await? == InsertInviteResult::Inserted {
-                self.parts.log.info(&format!(
-                    "[Realms] invite created realmId={} maxUses={} expiresAt={}",
-                    realm.realm_id,
-                    invite.max_uses,
-                    iso(invite.expires_at)
-                ));
-                return Ok(InviteReply {
-                    invite: Self::invite_view(&invite, now),
-                });
+            let code = self.parts.ids.invite_code();
+            let invite = build_invite(&code, &realm.realm_id, account, now, input.max_uses, input.ttl_hours);
+            if self.realms.insert_invite(&actor, &invite).await? != InsertInviteResult::Inserted {
+                continue;
             }
+            let (id, uses, expires) = (&realm.realm_id, invite.max_uses, iso(invite.expires_at));
+            self.note(&format!(
+                "[Realms] invite created realmId={id} maxUses={uses} expiresAt={expires}"
+            ));
+            return Ok(InviteReply {
+                invite: invite_view(&invite, now),
+            });
         }
-        Err(RealmsError::Database(
-            "Could not generate a unique invite code.".to_owned(),
-        ))
+        Err(RealmsError::Database(String::from(
+            "Could not generate a unique invite code.",
+        )))
     }
 
     pub async fn list_invites(&self, account: &str) -> Result<InvitesReply, RealmsError> {
-        self.throttle(READ, account)?;
-        let realm = self.hosted(account).await?;
+        let realm = self.own_realm(READ, account).await?;
         let now = self.now();
-        let invites = self.realms.list_invites(&realm.realm_id, LIST_LIMIT).await?;
+        let stored = self.realms.list_invites(&realm.realm_id, LIST_LIMIT).await?;
         Ok(InvitesReply {
-            invites: invites.iter().map(|i| Self::invite_view(i, now)).collect(),
+            invites: stored.iter().map(|invite| invite_view(invite, now)).collect(),
         })
     }
 
     /// Revoked once: a second revoke keeps the first time.
     pub async fn revoke_invite(&self, account: &str, code: &str) -> Result<InviteReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
+        let realm = self.own_realm(WRITE, account).await?;
         let now = self.now();
-        let invite = self
+        let revoked = self
             .realms
             .revoke_invite(&as_account(account), &realm.realm_id, code, now)
-            .await?
-            .ok_or_else(invite_not_valid)?;
-        self.parts
-            .log
-            .info(&format!("[Realms] invite revoked realmId={}", realm.realm_id));
+            .await?;
+        let invite = revoked.ok_or_else(|| refused(INVITE_NOT_VALID))?;
+        self.note(&format!("[Realms] invite revoked realmId={}", realm.realm_id));
         Ok(InviteReply {
-            invite: Self::invite_view(&invite, now),
+            invite: invite_view(&invite, now),
         })
     }
 
     pub async fn join(&self, account: &str, input: &JoinInput) -> Result<JoinReply, RealmsError> {
-        self.throttle(JOIN, account)?;
-        let invite = match &input.invite_code {
-            Some(code) => Some(self.realms.find_invite(code).await?.ok_or_else(invite_not_valid)?),
+        self.spend(account, JOIN)?;
+        let invite = match input.invite_code.as_deref() {
             None => None,
+            Some(code) => Some(
+                self.realms
+                    .find_invite(code)
+                    .await?
+                    .ok_or_else(|| refused(INVITE_NOT_VALID))?,
+            ),
         };
-        let realm = match (&input.name, &invite) {
+        // The name decides; an invite alone finds its realm.
+        let found = match (input.name.as_deref(), invite.as_ref()) {
             (Some(name), _) => self.realms.find_by_name(name).await?,
             (None, Some(invite)) => self.realms.find_by_id(&invite.realm_id).await?,
             (None, None) => None,
         };
-        let realm = realm.ok_or_else(|| entry_error("REALM_NOT_FOUND"))?;
-        if invite.as_ref().is_some_and(|i| i.realm_id != realm.realm_id) {
+        let realm = found.ok_or_else(|| entry_error("REALM_NOT_FOUND"))?;
+        if invite.as_ref().is_some_and(|invite| invite.realm_id != realm.realm_id) {
             return Err(entry_error("REALM_INVITE_INVALID"));
         }
-        if let Some(key) = &input.known_host_key
-            && detect_ownership_change(&realm.name, key, &realm)
+        if input
+            .known_host_key
+            .as_deref()
+            .is_some_and(|key| detect_ownership_change(&realm.name, key, &realm))
         {
             return Err(entry_error("REALM_OWNER_CHANGED"));
         }
-        let decision = decide_join(&realm, account, invite.as_ref(), self.now());
-        let via = match decision {
-            Err(JoinDenial::InviteRequired) if realm.player_invites.iter().any(|i| i.account_id == account) => {
+        let invited = realm.player_invites.iter().any(|entry| entry.account_id == account);
+        let via = match decide_join(&realm, account, invite.as_ref(), self.now()) {
+            Ok(via) => via,
+            // A player the host invited joins on the spot.
+            Err(JoinDenial::InviteRequired) if invited => {
                 self.accept_invite_for(account, &realm.realm_id)
                     .await
-                    .map_err(Self::internal)?;
+                    .map_err(internal)?;
                 let realm = self.reload(&realm.realm_id).await?;
+                let info = self.public_info(&realm, account, None).await;
                 return Ok(JoinReply {
-                    realm: self.public_info(&realm, account, None).await,
                     joined: true,
+                    realm: info,
                 });
             }
             Err(JoinDenial::InviteRequired) => {
-                self.request(account, &realm).await.map_err(Self::internal)?;
+                self.request(account, &realm).await.map_err(internal)?;
                 JoinVia::Member
             }
             Err(denial) => return Err(entry_error(denial.code())),
-            Ok(via) => via,
         };
-        let joined = match via {
-            JoinVia::Member => false,
-            JoinVia::Public | JoinVia::Invite => matches!(
+        let joined = via != JoinVia::Member
+            && matches!(
                 self.admit(account, &realm, via, invite.as_ref())
                     .await
-                    .map_err(Self::internal)?,
+                    .map_err(internal)?,
                 Admitted::Added
-            ),
-        };
+            );
         let realm = self.reload(&realm.realm_id).await?;
-        Ok(JoinReply {
-            realm: self.public_info(&realm, account, None).await,
-            joined,
-        })
+        let info = self.public_info(&realm, account, None).await;
+        Ok(JoinReply { joined, realm: info })
     }
 
     /// Play's realm check: refusals are returned, not thrown. The host enters its own realm even when nothing serves.
@@ -1080,572 +1153,422 @@ impl RealmDirectory {
         input: &EntryRealmInput,
     ) -> Result<EntryAuthorization, RealmsError> {
         use EntryAuthorization::Refused;
-        self.throttle(ENTRY, account)?;
-        let invite = match &input.invite_code {
-            Some(code) => match self.realms.find_invite(code).await? {
-                Some(invite) => Some(invite),
-                None => return Ok(Refused("REALM_INVITE_INVALID")),
-            },
+        self.spend(account, ENTRY)?;
+        let invite = match input.invite_code.as_deref() {
             None => None,
+            Some(code) => match self.realms.find_invite(code).await? {
+                None => return Ok(Refused("REALM_INVITE_INVALID")),
+                found => found,
+            },
         };
         let Some(realm) = self.realms.find_by_name(&input.name).await? else {
             return Ok(Refused("REALM_NOT_FOUND"));
         };
-        if invite.as_ref().is_some_and(|i| i.realm_id != realm.realm_id) {
+        if invite.as_ref().is_some_and(|invite| invite.realm_id != realm.realm_id) {
             return Ok(Refused("REALM_INVITE_INVALID"));
         }
-        if let Some(key) = &input.known_host_key
-            && detect_ownership_change(&realm.name, key, &realm)
+        if input
+            .known_host_key
+            .as_deref()
+            .is_some_and(|key| detect_ownership_change(&realm.name, key, &realm))
         {
             return Ok(Refused("REALM_OWNER_CHANGED"));
         }
+        let invited = realm.player_invites.iter().any(|entry| entry.account_id == account);
         let via = match decide_join(&realm, account, invite.as_ref(), self.now()) {
-            Err(JoinDenial::InviteRequired) if realm.player_invites.iter().any(|i| i.account_id == account) => {
-                if let Err(code) = self.accept_invite_for(account, &realm.realm_id).await {
+            Ok(via) => via,
+            Err(JoinDenial::InviteRequired) => {
+                let asked = if invited {
+                    self.accept_invite_for(account, &realm.realm_id).await.map(drop)
+                } else {
+                    self.request(account, &realm).await.map(drop)
+                };
+                if let Err(code) = asked {
                     return Ok(Refused(code));
                 }
                 JoinVia::Member
             }
-            Err(JoinDenial::InviteRequired) => match self.request(account, &realm).await {
-                Ok(_) => JoinVia::Member,
-                Err(code) => return Ok(Refused(code)),
-            },
             Err(denial) => return Ok(Refused(denial.code())),
-            Ok(via) => via,
         };
         let is_host = realm.host_account_id == account;
         // An offline refusal uses no invite and adds no member.
         if !is_host && !is_realm_serving(&realm, self.now()) {
             return Ok(Refused("REALM_OFFLINE"));
         }
-        if matches!(via, JoinVia::Public | JoinVia::Invite)
+        if via != JoinVia::Member
             && let Err(code) = self.admit(account, &realm, via, invite.as_ref()).await
         {
             return Ok(Refused(code));
         }
-        Ok(EntryAuthorization::Ok {
-            realm_id: realm.realm_id,
-            is_host,
-        })
+        let realm_id = realm.realm_id;
+        Ok(EntryAuthorization::Ok { realm_id, is_host })
     }
 
     pub async fn leave(&self, account: &str, name: &str) -> Result<LeftReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.realms.find_by_name(name).await?.ok_or_else(no_such_realm)?;
-        if realm.host_account_id == account {
-            return Err(refused(
-                "REALM_HOST_CANNOT_LEAVE",
-                "You host this realm. Release it instead of leaving it.",
-            ));
-        }
-        if !self
+        self.spend(account, WRITE)?;
+        let realm = self.named_realm(name).await?;
+        or_refuse(realm.host_account_id != account, HOST_CANNOT_LEAVE)?;
+        let removed = self
             .realms
             .remove_member(&as_account(account), &realm.realm_id, account)
-            .await?
-        {
-            return Err(refused("REALM_NOT_MEMBER", "You are not a member of this realm."));
-        }
-        self.parts
-            .log
-            .info(&format!("[Realms] member left realmId={}", realm.realm_id));
-        self.drop_presence_in_realm(account, &realm.realm_id).await;
-        self.emit(RealmEvent::MemberRemoved {
-            realm_id: realm.realm_id.clone(),
-            account_id: account.to_owned(),
-            reason: RemovalReason::Leave,
-        })
-        .await;
+            .await?;
+        or_refuse(removed, NOT_MY_REALM)?;
+        self.note(&format!("[Realms] member left realmId={}", realm.realm_id));
+        self.member_removed(&realm.realm_id, account, RemovalReason::Leave)
+            .await;
         Ok(LeftReply { left: true })
     }
 
     /// A kicked member may come back.
     pub async fn kick(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        if target == account {
-            return Err(refused(
-                "REALM_INVALID_TARGET",
-                "You cannot remove yourself from your own realm.",
-            ));
-        }
-        if !self
+        let realm = self.own_realm(WRITE, account).await?;
+        or_refuse(target != account, KICK_SELF)?;
+        let removed = self
             .realms
             .remove_member(&as_account(account), &realm.realm_id, target)
-            .await?
-        {
-            return Err(refused(
-                "REALM_NOT_MEMBER",
-                "That account is not a member of your realm.",
-            ));
-        }
-        self.parts
-            .log
-            .info(&format!("[Realms] member kicked realmId={}", realm.realm_id));
-        self.drop_presence_in_realm(target, &realm.realm_id).await;
-        self.emit(RealmEvent::MemberRemoved {
-            realm_id: realm.realm_id.clone(),
-            account_id: target.to_owned(),
-            reason: RemovalReason::Kick,
-        })
-        .await;
-        Ok(StatusReply {
-            account_id: target.to_owned(),
-            status: "KICKED",
-        })
+            .await?;
+        or_refuse(removed, NOT_YOUR_MEMBER)?;
+        self.note(&format!("[Realms] member kicked realmId={}", realm.realm_id));
+        self.member_removed(&realm.realm_id, target, RemovalReason::Kick).await;
+        Ok(status(target, "KICKED"))
     }
 
     pub async fn ban(&self, account: &str, target: &str, reason: Option<String>) -> Result<ChangedReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        if target == account {
-            return Err(refused(
-                "REALM_INVALID_TARGET",
-                "You cannot ban yourself from your own realm.",
-            ));
-        }
+        let realm = self.own_realm(WRITE, account).await?;
+        or_refuse(target != account, BAN_SELF)?;
         let ban = RealmBan {
-            account_id: target.to_owned(),
-            reason,
+            account_id: target.into(),
             at: self.now(),
+            reason,
         };
-        let result = self
+        let cap = self.parts.limits.max_bans;
+        let outcome = self
             .realms
-            .add_ban(&as_account(account), &realm.realm_id, &ban, self.parts.limits.max_bans)
+            .add_ban(&as_account(account), &realm.realm_id, &ban, cap)
             .await?;
-        match result {
-            AddBanResult::NotFound => return Err(not_hosted()),
-            AddBanResult::Full => return Err(refused("REALM_FULL", "The ban list is full; lift a ban first.")),
+        match outcome {
             AddBanResult::Banned => {
-                self.parts
-                    .log
-                    .info(&format!("[Realms] account banned realmId={}", realm.realm_id));
-                self.drop_presence_in_realm(target, &realm.realm_id).await;
-                self.emit(RealmEvent::MemberRemoved {
-                    realm_id: realm.realm_id.clone(),
-                    account_id: target.to_owned(),
-                    reason: RemovalReason::Ban,
-                })
-                .await;
+                self.note(&format!("[Realms] account banned realmId={}", realm.realm_id));
+                self.member_removed(&realm.realm_id, target, RemovalReason::Ban).await;
             }
             AddBanResult::AlreadyBanned => {}
+            AddBanResult::Full => return Err(refused(BANS_FULL)),
+            AddBanResult::NotFound => return Err(refused(NOT_HOSTED)),
         }
-        Ok(ChangedReply {
-            account_id: target.to_owned(),
-            status: "BANNED",
-            changed: result == AddBanResult::Banned,
-        })
+        Ok(changed(target, "BANNED", outcome == AddBanResult::Banned))
     }
 
     /// Never an error.
     pub async fn unban(&self, account: &str, target: &str) -> Result<ChangedReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        let changed = self
+        let realm = self.own_realm(WRITE, account).await?;
+        let lifted = self
             .realms
             .remove_ban(&as_account(account), &realm.realm_id, target)
             .await?;
-        if changed {
-            self.parts
-                .log
-                .info(&format!("[Realms] ban lifted realmId={}", realm.realm_id));
+        if lifted {
+            self.note(&format!("[Realms] ban lifted realmId={}", realm.realm_id));
         }
-        Ok(ChangedReply {
-            account_id: target.to_owned(),
-            status: "UNBANNED",
-            changed,
-        })
+        Ok(changed(target, "UNBANNED", lifted))
     }
 
     pub async fn list_join_requests(&self, account: &str) -> Result<RequestsReply, RealmsError> {
-        self.throttle(READ, account)?;
-        let realm = self.hosted(account).await?;
-        let sorted = sort_newest_first(&realm.join_requests);
-        let names = self.names(sorted.iter().map(|r| r.account_id.clone()).collect()).await;
+        let realm = self.own_realm(READ, account).await?;
+        let newest_first = sort_newest_first(&realm.join_requests);
+        let names = self
+            .names(newest_first.iter().map(|entry| entry.account_id.clone()).collect())
+            .await;
+        let none = BTreeMap::new();
+        let context = ViewContext {
+            viewer: account,
+            names: &names,
+            counts: &none,
+            known_key: None,
+            now: self.now(),
+        };
         Ok(RequestsReply {
-            requests: sorted
+            requests: newest_first
                 .into_iter()
-                .map(|r| AccountAtView {
-                    display_name: names.get(&r.account_id).cloned(),
-                    account_id: r.account_id,
-                    at: iso(r.at),
-                })
+                .map(|entry| context.account_at(entry))
                 .collect(),
         })
     }
 
     pub async fn approve_join_request(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        if !realm.join_requests.iter().any(|r| r.account_id == target) {
-            return Err(refused(
-                "REALM_REQUEST_NOT_FOUND",
-                "That player has not asked to join your realm.",
-            ));
-        }
+        let realm = self.own_realm(WRITE, account).await?;
+        or_refuse(
+            realm.join_requests.iter().any(|entry| entry.account_id == target),
+            NO_REQUEST,
+        )?;
         let actor = as_account(account);
-        let member = RealmMember {
-            account_id: target.to_owned(),
-            role: MemberRole::Member,
-            joined_at: self.now(),
-        };
-        let result = self
-            .realms
-            .add_member(&actor, &realm.realm_id, &member, self.parts.limits.max_members)
-            .await?;
-        match result {
-            AddMemberResult::NotFound => return Err(not_hosted()),
+        match self.add_as_member(&actor, &realm.realm_id, target).await? {
+            AddMemberResult::Added | AddMemberResult::AlreadyMember => {}
             AddMemberResult::Banned => {
                 self.realms.remove_join_request(&actor, &realm.realm_id, target).await?;
-                return Err(refused("REALM_BANNED", "That player is banned from your realm."));
+                return Err(refused(TARGET_BANNED));
             }
-            AddMemberResult::Full => return Err(refused("REALM_FULL", "This realm cannot take more members.")),
-            AddMemberResult::Added | AddMemberResult::AlreadyMember => {}
+            AddMemberResult::Full => return Err(entry_error("REALM_FULL")),
+            AddMemberResult::NotFound => return Err(refused(NOT_HOSTED)),
         }
         self.realms.remove_join_request(&actor, &realm.realm_id, target).await?;
-        self.parts
-            .log
-            .info(&format!("[Realms] join request approved realmId={}", realm.realm_id));
-        Ok(StatusReply {
-            account_id: target.to_owned(),
-            status: "APPROVED",
-        })
+        self.note(&format!("[Realms] join request approved realmId={}", realm.realm_id));
+        Ok(status(target, "APPROVED"))
     }
 
     /// The player may ask again.
     pub async fn deny_join_request(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        if !self
+        let realm = self.own_realm(WRITE, account).await?;
+        let removed = self
             .realms
             .remove_join_request(&as_account(account), &realm.realm_id, target)
-            .await?
-        {
-            return Err(refused(
-                "REALM_REQUEST_NOT_FOUND",
-                "That player has not asked to join your realm.",
-            ));
-        }
-        self.parts
-            .log
-            .info(&format!("[Realms] join request denied realmId={}", realm.realm_id));
-        Ok(StatusReply {
-            account_id: target.to_owned(),
-            status: "DENIED",
-        })
+            .await?;
+        or_refuse(removed, NO_REQUEST)?;
+        self.note(&format!("[Realms] join request denied realmId={}", realm.realm_id));
+        Ok(status(target, "DENIED"))
     }
 
+    /// (account, display name) of the username's player; the name typed stands in for a display name it lacks.
     async fn resolve_player(&self, username: &str) -> Result<(String, String), RealmsError> {
-        let username = js_trim(username).to_owned();
+        let typed = js_trim(username).to_owned();
         let found = self
             .parts
             .accounts
-            .resolve_username(username.clone())
+            .resolve_username(typed.clone())
             .await
             .map_err(RealmsError::Database)?;
-        let target = found.ok_or_else(|| refused("REALM_PLAYER_NOT_FOUND", "No player has that username."))?;
-        let display = self
-            .names(vec![target.clone()])
-            .await
-            .remove(&target)
-            .unwrap_or(username);
+        let Some(target) = found else {
+            return Err(refused(NO_PLAYER));
+        };
+        let display = self.names(vec![target.clone()]).await.remove(&target).unwrap_or(typed);
         Ok((target, display))
     }
 
     /// Launchers to 0.1.68 add members directly.
     pub async fn add_member_by_username(&self, account: &str, username: &str) -> Result<AddedReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        let (target, display_name) = self.resolve_player(username).await?;
+        let realm = self.own_realm(WRITE, account).await?;
+        let (account_id, display_name) = self.resolve_player(username).await?;
         let actor = as_account(account);
-        let member = RealmMember {
-            account_id: target.clone(),
-            role: MemberRole::Member,
-            joined_at: self.now(),
-        };
-        let result = self
-            .realms
-            .add_member(&actor, &realm.realm_id, &member, self.parts.limits.max_members)
-            .await?;
-        match result {
-            AddMemberResult::NotFound => return Err(not_hosted()),
-            AddMemberResult::Banned => {
-                return Err(refused(
-                    "REALM_BANNED",
-                    "That player is banned from your realm. Lift the ban first.",
-                ));
-            }
-            AddMemberResult::Full => return Err(refused("REALM_FULL", "This realm cannot take more members.")),
+        let outcome = self.add_as_member(&actor, &realm.realm_id, &account_id).await?;
+        match outcome {
             AddMemberResult::Added | AddMemberResult::AlreadyMember => {}
+            AddMemberResult::Banned => return Err(refused(TARGET_BANNED_LIFT)),
+            AddMemberResult::Full => return Err(entry_error("REALM_FULL")),
+            AddMemberResult::NotFound => return Err(refused(NOT_HOSTED)),
         }
         self.realms
-            .remove_join_request(&actor, &realm.realm_id, &target)
+            .remove_join_request(&actor, &realm.realm_id, &account_id)
             .await?;
-        let added = result == AddMemberResult::Added;
+        let added = outcome == AddMemberResult::Added;
         if added {
-            self.parts
-                .log
-                .info(&format!("[Realms] player added by the host realmId={}", realm.realm_id));
+            self.note(&format!("[Realms] player added by the host realmId={}", realm.realm_id));
         }
         Ok(AddedReply {
-            account_id: target,
+            account_id,
             display_name,
             added,
         })
     }
 
     pub async fn invite_player_by_username(&self, account: &str, username: &str) -> Result<InvitedReply, RealmsError> {
-        self.throttle(INVITE, account)?;
-        let realm = self.hosted(account).await?;
+        let realm = self.own_realm(INVITE, account).await?;
         let (target, display_name) = self.resolve_player(username).await?;
-        if target == account {
-            return Err(refused("REALM_INVALID_TARGET", "You are the host of this realm."));
-        }
-        let banned = || {
-            refused(
-                "REALM_BANNED",
-                "That player is banned from your realm. Lift the ban first.",
-            )
-        };
+        or_refuse(target != account, INVITE_SELF)?;
         let reply = |status| InvitedReply {
-            account_id: target.clone(),
-            display_name: display_name.clone(),
             status,
+            display_name: display_name.clone(),
+            account_id: target.clone(),
         };
-        if realm.join_requests.iter().any(|r| r.account_id == target) {
-            return match self.accept_invite_for(&target, &realm.realm_id).await {
+        let realm_id = realm.realm_id.as_str();
+        // A player who already asked to join is let in instead.
+        if realm.join_requests.iter().any(|entry| entry.account_id == target) {
+            return match self.accept_invite_for(&target, realm_id).await {
                 Ok(_) => {
-                    self.parts.log.info(&format!(
-                        "[Realms] invited player had asked to join; let in realmId={}",
-                        realm.realm_id
+                    self.note(&format!(
+                        "[Realms] invited player had asked to join; let in realmId={realm_id}"
                     ));
                     Ok(reply("MEMBER"))
                 }
-                Err("REALM_BANNED") => Err(banned()),
-                Err("REALM_FULL") => Err(refused("REALM_FULL", "This realm cannot take more members.")),
-                Err(_) => Err(not_hosted()),
+                Err("REALM_BANNED") => Err(refused(TARGET_BANNED_LIFT)),
+                Err("REALM_FULL") => Err(entry_error("REALM_FULL")),
+                Err(_) => Err(refused(NOT_HOSTED)),
             };
         }
         let invite = AccountAt {
-            account_id: target.clone(),
             at: self.now(),
+            account_id: target.clone(),
         };
-        let result = self
+        let cap = self.parts.limits.max_player_invites;
+        match self
             .realms
-            .add_player_invite(
-                &as_account(account),
-                &realm.realm_id,
-                &invite,
-                self.parts.limits.max_player_invites,
-            )
-            .await?;
-        match result {
-            AddEntryResult::NotFound => Err(not_hosted()),
-            AddEntryResult::Banned => Err(banned()),
-            AddEntryResult::Full => Err(refused(
-                "REALM_PLAYER_INVITES_FULL",
-                "Too many invites are waiting for an answer. Cancel one first.",
-            )),
-            AddEntryResult::AlreadyMember => Ok(reply("MEMBER")),
+            .add_player_invite(&as_account(account), realm_id, &invite, cap)
+            .await?
+        {
             AddEntryResult::Added => {
-                self.parts
-                    .log
-                    .info(&format!("[Realms] player invited realmId={}", realm.realm_id));
+                self.note(&format!("[Realms] player invited realmId={realm_id}"));
                 Ok(reply("INVITED"))
             }
             AddEntryResult::Already => Ok(reply("INVITED")),
+            AddEntryResult::AlreadyMember => Ok(reply("MEMBER")),
+            AddEntryResult::Full => Err(refused(PLAYER_INVITES_FULL)),
+            AddEntryResult::Banned => Err(refused(TARGET_BANNED_LIFT)),
+            AddEntryResult::NotFound => Err(refused(NOT_HOSTED)),
         }
     }
 
     pub async fn cancel_player_invite(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
-        if !self
+        let realm = self.own_realm(WRITE, account).await?;
+        let removed = self
             .realms
             .remove_player_invite(&as_account(account), &realm.realm_id, target)
-            .await?
-        {
-            return Err(refused(
-                "REALM_PLAYER_INVITE_NOT_FOUND",
-                "That player has no invite waiting.",
-            ));
-        }
-        self.parts
-            .log
-            .info(&format!("[Realms] player invite cancelled realmId={}", realm.realm_id));
-        Ok(StatusReply {
-            account_id: target.to_owned(),
-            status: "CANCELLED",
-        })
+            .await?;
+        or_refuse(removed, NO_WAITING_INVITE)?;
+        self.note(&format!("[Realms] player invite cancelled realmId={}", realm.realm_id));
+        Ok(status(target, "CANCELLED"))
     }
 
     pub async fn list_my_player_invites(&self, account: &str) -> Result<PlayerInvitesReply, RealmsError> {
-        self.throttle(READ, account)?;
+        self.spend(account, READ)?;
         let realms = self.realms.find_by_player_invite(account, LIST_LIMIT).await?;
         let infos = self.public_infos(&realms, account).await;
-        let mut entries: Vec<(UnixMillis, RealmPublicInfo)> = realms
-            .iter()
-            .zip(infos)
-            .map(|(realm, info)| {
-                let at = realm
-                    .player_invites
-                    .iter()
-                    .find(|i| i.account_id == account)
-                    .map_or(realm.created_at, |i| i.at);
-                (at, info)
-            })
+        // When the invite arrived; a realm without one sorts by its creation.
+        let invited_at = |realm: &RealmRecord| {
+            let mine = realm.player_invites.iter().find(|invite| invite.account_id == account);
+            mine.map_or(realm.created_at, |invite| invite.at)
+        };
+        let mut dated: Vec<(UnixMillis, RealmPublicInfo)> = realms.iter().map(invited_at).zip(infos).collect();
+        dated.sort_by_key(|&(at, _)| std::cmp::Reverse(at));
+        let invites = dated
+            .into_iter()
+            .map(|(at, realm)| PlayerInviteEntry { at: iso(at), realm })
             .collect();
-        entries.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
-        Ok(PlayerInvitesReply {
-            invites: entries
-                .into_iter()
-                .map(|(at, realm)| PlayerInviteEntry { realm, at: iso(at) })
-                .collect(),
-        })
+        Ok(PlayerInvitesReply { invites })
     }
 
     pub async fn accept_player_invite(&self, account: &str, name: &str) -> Result<JoinReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.realms.find_by_name(name).await?.ok_or_else(no_such_realm)?;
-        if !realm.player_invites.iter().any(|i| i.account_id == account) {
-            return Err(refused(
-                "REALM_PLAYER_INVITE_NOT_FOUND",
-                "You have no invite to this realm.",
-            ));
-        }
+        self.spend(account, WRITE)?;
+        let realm = self.named_realm(name).await?;
+        or_refuse(
+            realm.player_invites.iter().any(|invite| invite.account_id == account),
+            NO_INVITE_HERE,
+        )?;
         if let Err(code) = self.accept_invite_for(account, &realm.realm_id).await {
+            // A banned player's invite is no use to them.
             if code == "REALM_BANNED" {
                 let _ = self
                     .realms
                     .remove_player_invite(&as_account(account), &realm.realm_id, account)
                     .await;
             }
-            return Err(Self::internal(code));
+            return Err(internal(code));
         }
         let realm = self.reload(&realm.realm_id).await?;
+        let info = self.public_info(&realm, account, None).await;
         Ok(JoinReply {
-            realm: self.public_info(&realm, account, None).await,
             joined: true,
+            realm: info,
         })
     }
 
     pub async fn decline_player_invite(&self, account: &str, name: &str) -> Result<DeclinedReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.realms.find_by_name(name).await?.ok_or_else(no_such_realm)?;
-        if !self
+        self.spend(account, WRITE)?;
+        let realm = self.named_realm(name).await?;
+        let removed = self
             .realms
             .remove_player_invite(&as_account(account), &realm.realm_id, account)
-            .await?
-        {
-            return Err(refused(
-                "REALM_PLAYER_INVITE_NOT_FOUND",
-                "You have no invite to this realm.",
-            ));
-        }
-        self.parts
-            .log
-            .info(&format!("[Realms] player invite declined realmId={}", realm.realm_id));
+            .await?;
+        or_refuse(removed, NO_INVITE_HERE)?;
+        self.note(&format!("[Realms] player invite declined realmId={}", realm.realm_id));
         Ok(DeclinedReply { declined: true })
     }
 
     /// The hub fields are never self-reported.
     pub async fn heartbeat(&self, account: &str, input: &HeartbeatInput) -> Result<HeartbeatReply, RealmsError> {
-        self.throttle(HEARTBEAT, account)?;
-        let realm = self.hosted(account).await?;
+        let realm = self.own_realm(HEARTBEAT, account).await?;
         let now = self.now();
         let update = apply_heartbeat(now, input.online, input.version.clone());
         let actor = as_account(account);
-        if !self
+        let recorded = self
             .realms
             .record_heartbeat(&actor, &realm.realm_id, account, &update)
-            .await?
-        {
-            return Err(not_hosted());
-        }
-        if let Some(hosting) = &input.hosting {
+            .await?;
+        or_refuse(recorded, NOT_HOSTED)?;
+        if let Some(hosting) = input.hosting.as_ref() {
             let patch = HostingPatch {
-                max_servers: Some(hosting.max_servers),
-                max_players: Some(hosting.max_players),
                 afk_seconds: hosting.afk_seconds.map_or(Patch::Remove, Patch::Set),
+                max_players: Some(hosting.max_players),
+                max_servers: Some(hosting.max_servers),
                 ..HostingPatch::default()
             };
             self.realms.patch_hosting(&actor, &realm.realm_id, &patch, now).await?;
         }
         Ok(HeartbeatReply {
-            online: input.online != Some(false),
-            last_online_at: iso(update.last_online_at),
-            online_until: iso(update.online_until),
-            ttl_seconds: HEARTBEAT_TTL_SECONDS,
             version: input.version.clone().or(realm.version),
+            ttl_seconds: HEARTBEAT_TTL_SECONDS,
+            online_until: iso(update.online_until),
+            last_online_at: iso(update.last_online_at),
+            online: input.online != Some(false),
         })
     }
 
     /// The name is free at once; members and invites go with the realm.
     pub async fn release(&self, account: &str) -> Result<ReleasedReply, RealmsError> {
-        self.throttle(WRITE, account)?;
-        let realm = self.hosted(account).await?;
+        let realm = self.own_realm(WRITE, account).await?;
         let actor = as_account(account);
-        if !self
-            .realms
-            .delete_realm_of_host(&actor, &realm.realm_id, account)
-            .await?
-        {
-            return Err(not_hosted());
-        }
-        self.parts.log.info(&format!(
+        or_refuse(
+            self.realms
+                .delete_realm_of_host(&actor, &realm.realm_id, account)
+                .await?,
+            NOT_HOSTED,
+        )?;
+        self.note(&format!(
             "[Realms] realm released realmId={} name={}",
             realm.realm_id, realm.name
         ));
         self.drop_realm_presence(&actor, &realm.realm_id).await;
         self.emit(RealmEvent::RealmReleased {
-            realm_id: realm.realm_id.clone(),
-            host_account_id: account.to_owned(),
+            realm_id: realm.realm_id,
+            host_account_id: account.into(),
         })
         .await;
         Ok(ReleasedReply { released: true })
     }
 
     async fn presence_view(&self, row: Option<RealmPresenceRecord>) -> Result<PresenceView, RealmsError> {
-        let Some(row) = row else {
-            return Ok(PresenceView {
-                realm: None,
-                expires_at: None,
-            });
+        let realm = match row.as_ref() {
+            Some(row) => self.realms.find_by_id(&row.realm_id).await?,
+            None => None,
         };
-        let Some(realm) = self.realms.find_by_id(&row.realm_id).await? else {
-            return Ok(PresenceView {
-                realm: None,
-                expires_at: None,
-            });
+        let (Some(row), Some(realm)) = (row, realm) else {
+            return Ok(NOWHERE);
         };
         let now = self.now();
+        let shown = PresenceRealm {
+            host_online: is_realm_online(&realm, now),
+            hub_ready: is_realm_hub_ready(&realm),
+            serving: is_realm_serving(&realm, now),
+            name: realm.name,
+        };
         Ok(PresenceView {
-            realm: Some(PresenceRealm {
-                name: realm.name.clone(),
-                serving: is_realm_serving(&realm, now),
-                hub_ready: is_realm_hub_ready(&realm),
-                host_online: is_realm_online(&realm, now),
-            }),
+            realm: Some(shown),
             expires_at: Some(iso(row.expires_at)),
         })
     }
 
     pub async fn presence_heartbeat(&self, account: &str) -> Result<PresenceView, RealmsError> {
-        self.throttle(HEARTBEAT, account)?;
-        let row = self.touch_presence(account).await?;
-        self.presence_view(row).await
+        self.spend(account, HEARTBEAT)?;
+        let touched = self.touch_presence(account).await?;
+        self.presence_view(touched).await
     }
 
     /// Idempotent.
     pub async fn presence_leave(&self, account: &str) -> Result<LeftReply, RealmsError> {
-        self.throttle(HEARTBEAT, account)?;
-        self.leave_presence(account).await?;
-        Ok(LeftReply { left: true })
+        self.spend(account, HEARTBEAT)?;
+        self.leave_presence(account).await.map(|()| LeftReply { left: true })
     }
 
     pub async fn presence_status(&self, account: &str) -> Result<PresenceView, RealmsError> {
-        self.throttle(READ, account)?;
-        let row = self.presence_of(account).await?;
-        self.presence_view(row).await
+        self.spend(account, READ)?;
+        let current = self.presence_of(account).await?;
+        self.presence_view(current).await
     }
 
     /// On the matchmaking hot path: each answer, "none" included, is trusted for two seconds.
@@ -1653,41 +1576,36 @@ impl RealmDirectory {
         let now = self.now();
         let epoch = {
             let cache = self.cache();
-            if let Some((read_at, row)) = cache.entries.get(account)
-                && (0..PRESENCE_CACHE_MS).contains(&(now.0 - read_at.0))
-            {
+            if let Some(row) = cache.fresh(account, now) {
                 // A lapsed row is never active.
-                return Ok(row.clone().filter(|r| r.expires_at > now));
+                return Ok(row.as_ref().filter(|r| r.expires_at > now).cloned());
             }
             cache.epoch(account)
         };
-        self.presence_reads.fetch_add(1, Ordering::SeqCst);
-        let row = self.presence.find_active(account, now).await?;
-        let mut cache = self.cache();
+        self.presence_reads.fetch_add(1, SeqCst);
+        let read = self.presence.find_active(account, now).await?;
         // A write that raced the read must not be overwritten by the stale answer.
-        if cache.epoch(account) == epoch {
-            cache.store(account, now, row.clone());
+        let mut cache = self.cache();
+        if epoch == cache.epoch(account) {
+            cache.store(account, now, read.clone());
         }
-        Ok(row)
+        Ok(read)
     }
 
     pub async fn bind_presence(&self, account: &str, realm_id: Option<&str>) -> Result<(), RealmsError> {
         let actor = as_account(account);
-        match realm_id {
-            None => {
-                self.presence.remove(&actor, account, None).await?;
-            }
-            Some(realm_id) => {
-                let now = self.now();
-                let row = RealmPresenceRecord {
-                    account_id: account.to_owned(),
-                    realm_id: realm_id.to_owned(),
-                    bound_at: now,
-                    last_seen_at: now,
-                    expires_at: now.saturating_add(PRESENCE_TTL_MS),
-                };
-                self.presence.bind(&actor, &row).await?;
-            }
+        if let Some(realm_id) = realm_id {
+            let now = self.now();
+            let row = RealmPresenceRecord {
+                expires_at: now.saturating_add(PRESENCE_TTL_MS),
+                account_id: account.into(),
+                realm_id: realm_id.into(),
+                last_seen_at: now,
+                bound_at: now,
+            };
+            self.presence.bind(&actor, &row).await?;
+        } else {
+            self.presence.remove(&actor, account, None).await?;
         }
         self.cache().invalidate(account);
         Ok(())
@@ -1703,15 +1621,14 @@ impl RealmDirectory {
             return Ok(Some(current));
         }
         let epoch = self.cache().epoch(account);
-        self.presence_touches.fetch_add(1, Ordering::SeqCst);
-        let touched = self
-            .presence
-            .touch(&as_account(account), account, now, now.saturating_add(PRESENCE_TTL_MS))
-            .await?;
+        self.presence_touches.fetch_add(1, SeqCst);
+        let until = now.saturating_add(PRESENCE_TTL_MS);
+        let touched = self.presence.touch(&as_account(account), account, now, until).await?;
         let mut cache = self.cache();
-        let unmoved = cache.epoch(account) == epoch;
+        // Invalidated either way; the touched row is cached only when no other write raced this one.
+        let raced = cache.epoch(account) != epoch;
         cache.invalidate(account);
-        if unmoved {
+        if !raced {
             cache.store(account, now, touched.clone());
         }
         Ok(touched)
@@ -1730,17 +1647,20 @@ impl RealmDirectory {
         realm: Option<&Value>,
         module_enabled: bool,
     ) -> Result<Option<(String, bool)>, RealmsError> {
-        let Some(realm) = realm.filter(|r| !r.is_null()) else {
+        let Some(asked) = realm.filter(|value| !value.is_null()) else {
             return Ok(None);
         };
-        if !module_enabled {
-            return Err(refused("REALMS_DISABLED", "Realms are not available on this server."));
-        }
-        let input = parse_entry_realm(realm).map_err(|f| refused(f.code, &f.message))?;
+        or_refuse(module_enabled, REALMS_DISABLED)?;
+        let input = crate::input::parse_entry_realm(asked).map_err(|failure| {
+            RealmsError::Refused(Refusal {
+                code: failure.code.into(),
+                message: failure.message,
+            })
+        })?;
         match self.authorize_entry(account, &input).await? {
             EntryAuthorization::Refused(code) => Err(entry_error(code)),
             EntryAuthorization::Ok { realm_id, is_host } => {
-                self.parts.log.info(&format!(
+                self.note(&format!(
                     "[Realms] game session authorized realmId={realm_id} host={is_host}"
                 ));
                 Ok(Some((realm_id, is_host)))
@@ -1757,79 +1677,75 @@ impl RealmDirectory {
         if !module_enabled {
             return Ok(());
         }
-        match realm_id {
-            None => {
-                if let Err(error) = self.bind_presence(account, None).await {
-                    self.parts
-                        .log
-                        .warn(&format!("[Realms] could not reset realm presence at login: {error}"));
-                }
-                Ok(())
-            }
-            Some(realm_id) => self.bind_presence(account, Some(realm_id)).await,
+        if realm_id.is_some() {
+            return self.bind_presence(account, realm_id).await;
         }
+        // A failed reset leaves the old row to lapse; login goes on.
+        if let Err(error) = self.bind_presence(account, None).await {
+            self.caution(&format!("[Realms] could not reset realm presence at login: {error}"));
+        }
+        Ok(())
     }
 
     pub async fn set_hosting(&self, realm_id: &str, patch: &HostingPatch) -> Result<bool, RealmsError> {
         if let Some(field) = validate_hosting_patch(patch) {
             return Err(RealmsError::Database(format!("setHosting: invalid {field}")));
         }
-        Ok(self
+        let written = self
             .realms
             .patch_hosting(&P2P_ACTOR, realm_id, patch, self.now())
-            .await?)
+            .await?;
+        Ok(written)
     }
 
     /// Ends the online state now; emits nothing.
     pub async fn mark_offline(&self, realm_id: &str) -> Result<bool, RealmsError> {
-        Ok(self.realms.mark_offline(&P2P_ACTOR, realm_id, self.now()).await?)
+        let marked = self.realms.mark_offline(&P2P_ACTOR, realm_id, self.now()).await?;
+        Ok(marked)
     }
 
     pub async fn find_by_hub_room_id(&self, room: &str) -> Result<Option<RealmRecord>, RealmsError> {
-        let Some(room) = normalize_hub_room_id(room) else {
-            return Ok(None);
-        };
-        Ok(self.realms.find_by_hub_room_id(&room).await?)
+        match normalize_hub_room_id(room) {
+            Some(room) => Ok(self.realms.find_by_hub_room_id(&room).await?),
+            None => Ok(None),
+        }
     }
 
     pub async fn get_realm(&self, realm_id: &str) -> Result<Option<RealmRecord>, RealmsError> {
-        Ok(self.realms.find_by_id(realm_id).await?)
+        let found = self.realms.find_by_id(realm_id).await?;
+        Ok(found)
     }
 
     pub async fn get_realm_by_host(&self, host: &str) -> Result<Option<RealmRecord>, RealmsError> {
-        Ok(self.realms.find_by_host(host).await?)
+        let found = self.realms.find_by_host(host).await?;
+        Ok(found)
     }
 
     pub async fn is_member(&self, realm_id: &str, account: &str) -> Result<bool, RealmsError> {
-        Ok(self
-            .get_realm(realm_id)
-            .await?
-            .is_some_and(|r| r.members.iter().any(|m| m.account_id == account)))
+        let realm = self.get_realm(realm_id).await?;
+        Ok(realm.is_some_and(|found| found.members.iter().any(|member| member.account_id == account)))
     }
 
     pub async fn is_banned(&self, realm_id: &str, account: &str) -> Result<bool, RealmsError> {
-        Ok(self
-            .get_realm(realm_id)
-            .await?
-            .is_some_and(|r| r.bans.iter().any(|b| b.account_id == account)))
+        let realm = self.get_realm(realm_id).await?;
+        Ok(realm.is_some_and(|found| found.bans.iter().any(|ban| ban.account_id == account)))
     }
 
     /// Each lapse is reported once; nothing schedules this, the caller drives it.
     pub async fn sweep_lapsed_hosts(&self) -> Result<usize, RealmsError> {
         let now = self.now();
+        let since = UnixMillis(now.0 - SWEEP_LOOKBACK_MS);
         let lapsed = self
             .realms
-            .claim_lapsed_hosts(&SWEEPER_ACTOR, now, UnixMillis(now.0 - SWEEP_LOOKBACK_MS), SWEEP_LIMIT)
+            .claim_lapsed_hosts(&SWEEPER_ACTOR, now, since, SWEEP_LIMIT)
             .await?;
         for realm in &lapsed {
-            self.parts
-                .log
-                .info(&format!("[Realms] host offline realmId={}", realm.realm_id));
-            self.emit(RealmEvent::HostOffline {
+            self.note(&format!("[Realms] host offline realmId={}", realm.realm_id));
+            let event = RealmEvent::HostOffline {
                 realm_id: realm.realm_id.clone(),
                 host_account_id: realm.host_account_id.clone(),
-            })
-            .await;
+            };
+            self.emit(event).await;
         }
         Ok(lapsed.len())
     }

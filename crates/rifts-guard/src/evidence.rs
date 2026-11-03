@@ -141,60 +141,19 @@ pub fn parse_batch(body: Option<&Value>) -> Result<EvidenceBatch, BatchProblem> 
     let Value::Array(raw_events) = field("events") else {
         return invalid("events");
     };
-    if raw_events.is_empty() {
-        return invalid("no events");
+    match raw_events.len() {
+        0 => return invalid("no events"),
+        n if n > MAX_BATCH_EVENTS => return Err(BatchProblem::TooLarge),
+        _ => {}
     }
-    if raw_events.len() > MAX_BATCH_EVENTS {
-        return Err(BatchProblem::TooLarge);
-    }
-    let mut events = Vec::with_capacity(raw_events.len());
-    let mut event_bytes: u64 = 0;
+    let mut events: Vec<EvidenceEvent> = Vec::with_capacity(raw_events.len());
+    let mut event_bytes = 0_u64;
     for (index, raw) in raw_events.iter().enumerate() {
-        let Value::Object(event) = raw else {
-            return invalid("event not an object");
-        };
-        if !keys_within(event, &EVENT_KEYS) {
-            return invalid("unknown event field");
-        }
-        let get = |name: &str| event.get(name).unwrap_or(&Value::Null);
-        let sequence = non_negative(get("sequence"));
-        if sequence != first_sequence.checked_add(index as u64) {
-            return invalid("sequence");
-        }
-        let Some(monotonic_ms) = non_negative(get("monotonicMs")) else {
-            return invalid("monotonicMs");
-        };
-        if events
-            .last()
-            .is_some_and(|prev: &EvidenceEvent| monotonic_ms < prev.monotonic_ms)
-        {
-            return invalid("monotonicMs regressed");
-        }
-        let Some(kind) = token(get("type"), 64, b"_") else {
-            return invalid("type");
-        };
-        let actor = match event.get("actorAccountId") {
-            None => None,
-            Some(value) => match token(value, 96, b"._:-") {
-                Some(actor) => Some(actor),
-                None => return invalid("actorAccountId"),
-            },
-        };
-        let payload = match event.get("payload") {
-            Some(payload @ Value::Object(_)) if stringify(payload).len() <= MAX_PAYLOAD_BYTES => payload.clone(),
-            _ => return invalid("payload"),
-        };
-        if is_terminal_type(&kind) && index + 1 != raw_events.len() {
-            return invalid("terminal event not last");
-        }
+        let sequence = first_sequence.checked_add(index as u64);
+        let last = index + 1 == raw_events.len();
+        let event = parse_event(raw, sequence, events.last().map(|e| e.monotonic_ms), last)?;
         event_bytes += stringify(raw).len() as u64;
-        events.push(EvidenceEvent {
-            sequence: first_sequence + index as u64,
-            monotonic_ms,
-            kind,
-            actor,
-            payload,
-        });
+        events.push(event);
     }
     if event_bytes > MAX_BATCH_EVENT_BYTES {
         return Err(BatchProblem::TooLarge);
@@ -202,7 +161,9 @@ pub fn parse_batch(body: Option<&Value>) -> Result<EvidenceBatch, BatchProblem> 
     if events.last().map(|e| e.sequence) != Some(last_sequence) {
         return invalid("lastSequence");
     }
+    // The hash is over the whole body as parsed, keys in document order (spec-rd27-rifts §2 D5).
     let canonical = stringify(&Value::Object(object.clone()));
+    let batch_hash = hex_of_parts(&[BATCH_HASH_LABEL, canonical.as_bytes()]);
     Ok(EvidenceBatch {
         batch_id,
         first_sequence,
@@ -210,38 +171,102 @@ pub fn parse_batch(body: Option<&Value>) -> Result<EvidenceBatch, BatchProblem> 
         previous_hash,
         events,
         event_bytes,
-        batch_hash: hex_of_parts(&[BATCH_HASH_LABEL, canonical.as_bytes()]),
+        batch_hash,
+    })
+}
+
+/// One event of a batch: `sequence` is where it must sit, `floor` the previous event's clock.
+fn parse_event(
+    raw: &Value,
+    sequence: Option<u64>,
+    floor: Option<u64>,
+    last: bool,
+) -> Result<EvidenceEvent, BatchProblem> {
+    let Value::Object(event) = raw else {
+        return invalid("event not an object");
+    };
+    if !keys_within(event, &EVENT_KEYS) {
+        return invalid("unknown event field");
+    }
+    let get = |name: &str| event.get(name).unwrap_or(&Value::Null);
+    let sequence = match (non_negative(get("sequence")), sequence) {
+        (Some(given), Some(wanted)) if given == wanted => given,
+        _ => return invalid("sequence"),
+    };
+    let monotonic_ms = non_negative(get("monotonicMs")).ok_or(BatchProblem::Invalid("monotonicMs"))?;
+    if floor.is_some_and(|floor| monotonic_ms < floor) {
+        return invalid("monotonicMs regressed");
+    }
+    let kind = token(get("type"), 64, b"_").ok_or(BatchProblem::Invalid("type"))?;
+    let actor = event
+        .get("actorAccountId")
+        .map(|value| token(value, 96, b"._:-").ok_or(BatchProblem::Invalid("actorAccountId")))
+        .transpose()?;
+    let payload = event
+        .get("payload")
+        .filter(|payload| payload.is_object() && stringify(payload).len() <= MAX_PAYLOAD_BYTES)
+        .cloned()
+        .ok_or(BatchProblem::Invalid("payload"))?;
+    if is_terminal_type(&kind) && !last {
+        return invalid("terminal event not last");
+    }
+    Ok(EvidenceEvent {
+        sequence,
+        monotonic_ms,
+        kind,
+        actor,
+        payload,
     })
 }
 
 fn chain_refusal(code: &str, message: &str, finding: Option<(&str, String)>) -> ChainRefusal {
-    ChainRefusal {
-        error: GuardError::refused(code, message),
-        finding: finding.map(|(code, detail)| (code.to_owned(), detail)),
-    }
+    let error = GuardError::refused(code, message);
+    let finding = finding.map(|(code, detail)| (code.to_owned(), detail));
+    ChainRefusal { error, finding }
 }
 
-fn target_state(kind: &str) -> Option<EncounterState> {
-    match kind {
-        "SESSION_STARTED" => Some(EncounterState::SessionStarted),
-        "WORLD_READY" => Some(EncounterState::WorldReady),
-        "ENCOUNTER_STARTED" | "DAMAGE" => Some(EncounterState::EncounterActive),
-        "BEHEMOTH_DEFEATED" => Some(EncounterState::BehemothDefeated),
-        _ => None,
-    }
+/// Where an event moves the encounter; terminal events move it even backwards in the order.
+fn moved_state(kind: &str, current: EncounterState) -> EncounterState {
+    use EncounterState::*;
+    let forward = match kind {
+        "COMPLETION_REQUESTED" => return CompletionRequested,
+        "HUNT_ABORTED" => return Aborted,
+        "SESSION_STARTED" => SessionStarted,
+        "WORLD_READY" => WorldReady,
+        "ENCOUNTER_STARTED" | "DAMAGE" => EncounterActive,
+        "BEHEMOTH_DEFEATED" => BehemothDefeated,
+        _ => current,
+    };
+    forward.max(current)
 }
 
-/// The chain after `batch`, or why it may not follow.
-pub fn apply_batch(
-    chain: &ChainRecord,
-    batch: &EvidenceBatch,
-    roster: &[AccountId],
+/// Findings of one chain write, stamped with its chain and time.
+struct Findings<'a> {
+    chain: &'a ChainRecord,
     now: UnixMillis,
-) -> Result<ChainUpdate, ChainRefusal> {
+    list: Vec<FindingRecord>,
+}
+
+impl Findings<'_> {
+    fn add(&mut self, sequence: Option<u64>, code: &str, detail: String) {
+        self.list.push(FindingRecord {
+            session: self.chain.session.clone(),
+            generation: self.chain.generation,
+            sequence,
+            code: code.into(),
+            detail,
+            at: self.now,
+        });
+    }
+}
+
+/// Why `batch` may not follow `chain`, before any of it is read.
+fn batch_gate(chain: &ChainRecord, batch: &EvidenceBatch) -> Result<(), ChainRefusal> {
     if chain.completion.is_some() || chain.encounter_state.is_terminal() {
         return Err(chain_refusal("GUARD_CHAIN_FROZEN", FROZEN, None));
     }
-    if batch.previous_hash != chain.head_hash || Some(batch.first_sequence) != chain.last_sequence.checked_add(1) {
+    let expected = chain.last_sequence.checked_add(1);
+    if expected != Some(batch.first_sequence) || batch.previous_hash != chain.head_hash {
         let detail = format!(
             "expected={}:{} got={}:{}",
             chain.last_sequence.saturating_add(1),
@@ -255,10 +280,9 @@ pub fn apply_batch(
             Some(("CHAIN_CONFLICT", detail)),
         ));
     }
-    let count = batch.events.len() as u64;
-    if chain.event_count.saturating_add(count) > MAX_CHAIN_EVENTS
-        || chain.event_bytes.saturating_add(batch.event_bytes) > MAX_CHAIN_EVENT_BYTES
-    {
+    let events_over = chain.event_count.saturating_add(batch.events.len() as u64) > MAX_CHAIN_EVENTS;
+    let bytes_over = chain.event_bytes.saturating_add(batch.event_bytes) > MAX_CHAIN_EVENT_BYTES;
+    if events_over || bytes_over {
         let detail = format!("events={}", chain.event_count);
         return Err(chain_refusal(
             "GUARD_EVIDENCE_LIMIT",
@@ -266,67 +290,67 @@ pub fn apply_batch(
             Some(("EVIDENCE_LIMIT", detail)),
         ));
     }
+    Ok(())
+}
 
-    let mut next = chain.clone();
-    let mut findings = Vec::new();
-    let mut finding = |sequence: u64, code: &str, detail: String| {
-        findings.push(FindingRecord {
-            session: chain.session.clone(),
-            generation: chain.generation,
-            sequence: Some(sequence),
-            code: code.to_owned(),
-            detail,
-            at: now,
-        });
+/// The chain after `batch`, or why it may not follow.
+pub fn apply_batch(
+    chain: &ChainRecord,
+    batch: &EvidenceBatch,
+    roster: &[AccountId],
+    now: UnixMillis,
+) -> Result<ChainUpdate, ChainRefusal> {
+    batch_gate(chain, batch)?;
+    let mut findings = Findings {
+        chain,
+        now,
+        list: vec![],
     };
-    if let (Some(last), Some(first)) = (chain.last_monotonic_ms, batch.events.first())
-        && first.monotonic_ms < last
-    {
-        finding(
-            first.sequence,
+    let mut next = chain.clone();
+    let regressed = batch
+        .events
+        .first()
+        .zip(chain.last_monotonic_ms)
+        .filter(|(first, last)| first.monotonic_ms < *last);
+    if let Some((first, last)) = regressed {
+        findings.add(
+            Some(first.sequence),
             "MONOTONIC_REGRESSION",
             format!("from={last} to={}", first.monotonic_ms),
         );
     }
     let mut types = BTreeSet::new();
     for event in &batch.events {
-        *next.event_types.entry(event.kind.clone()).or_insert(0) += 1;
-        types.insert(event.kind.clone());
-        match event.kind.as_str() {
-            "COMPLETION_REQUESTED" => next.encounter_state = EncounterState::CompletionRequested,
-            "HUNT_ABORTED" => next.encounter_state = EncounterState::Aborted,
-            kind => {
-                if let Some(state) = target_state(kind)
-                    && state > next.encounter_state
-                {
-                    next.encounter_state = state;
-                }
-            }
-        }
-        if event.kind == "EVIDENCE_LOSS" {
-            finding(event.sequence, "EVIDENCE_LOSS", String::new());
+        let (kind, at) = (event.kind.as_str(), Some(event.sequence));
+        *next.event_types.entry(kind.to_owned()).or_default() += 1;
+        types.insert(kind);
+        next.encounter_state = moved_state(kind, next.encounter_state);
+        if kind == "EVIDENCE_LOSS" {
+            findings.add(at, "EVIDENCE_LOSS", String::new());
         }
         match &event.actor {
-            Some(actor) if !roster.iter().any(|member| &member.0 == actor) => {
-                finding(event.sequence, "ACTOR_NOT_ROSTERED", format!("actor={actor}"));
+            Some(actor) if roster.iter().all(|member| member.0 != *actor) => {
+                findings.add(at, "ACTOR_NOT_ROSTERED", format!("actor={actor}"));
             }
-            None if event.kind.contains("DAMAGE") && !next.has_unattributed_damage => {
+            // Only the first unattributed damage of a chain is a finding.
+            None if kind.contains("DAMAGE") && !next.has_unattributed_damage => {
                 next.has_unattributed_damage = true;
-                finding(event.sequence, "UNATTRIBUTED_DAMAGE", String::new());
+                findings.add(at, "UNATTRIBUTED_DAMAGE", String::new());
             }
             _ => {}
         }
     }
+    let count = batch.events.len() as u64;
+    let found = findings.list;
     next.revision += 1;
-    next.last_sequence = batch.last_sequence;
-    next.head_hash = batch.batch_hash.clone();
     next.batch_count += 1;
     next.event_count += count;
     next.event_bytes += batch.event_bytes;
+    next.finding_count += found.len() as u64;
+    (next.last_sequence, next.head_hash) = (batch.last_sequence, batch.batch_hash.clone());
     next.last_monotonic_ms = batch.events.last().map(|e| e.monotonic_ms);
     next.last_received_at = Some(now);
-    next.finding_count += findings.len() as u64;
-    if next.finding_count > 0 {
+    if next.finding_count != 0 {
         next.disposition = Disposition::ObserveFlagged;
     }
     let record = BatchRecord {
@@ -339,57 +363,53 @@ pub fn apply_batch(
         last_sequence: batch.last_sequence,
         event_count: count,
         event_bytes: batch.event_bytes,
-        event_types: types.into_iter().collect(),
+        event_types: types.into_iter().map(String::from).collect(),
         received_at: now,
     };
     Ok(ChainUpdate {
         chain: next,
         batch: Some(record),
-        findings,
+        findings: found,
     })
 }
 
 /// A refusal's finding as its own chain write, with no sequence and no batch.
 pub fn finding_update(chain: &ChainRecord, code: &str, detail: &str, now: UnixMillis) -> ChainUpdate {
-    let mut next = chain.clone();
-    next.revision += 1;
-    next.finding_count += 1;
-    next.disposition = Disposition::ObserveFlagged;
+    let mut findings = Findings {
+        chain,
+        now,
+        list: vec![],
+    };
+    findings.add(None, code, detail.into());
+    let next = ChainRecord {
+        revision: chain.revision + 1,
+        finding_count: chain.finding_count + 1,
+        disposition: Disposition::ObserveFlagged,
+        ..chain.clone()
+    };
     ChainUpdate {
         chain: next,
         batch: None,
-        findings: vec![FindingRecord {
-            session: chain.session.clone(),
-            generation: chain.generation,
-            sequence: None,
-            code: code.to_owned(),
-            detail: detail.to_owned(),
-            at: now,
-        }],
+        findings: findings.list,
     }
 }
 
 pub fn parse_completion(body: Option<&Value>) -> Result<CompletionRequest, GuardError> {
-    let refused = || GuardError::refused("GUARD_COMPLETION_INVALID", COMPLETION_INVALID);
-    let Some(Value::Object(object)) = body else {
-        return Err(refused());
+    let read = || {
+        let object = body?
+            .as_object()
+            .filter(|object| keys_within(object, &COMPLETION_KEYS))?;
+        let final_sequence = object.get("finalSequence").and_then(non_negative).filter(|n| *n != 0)?;
+        let final_hash = object
+            .get("finalHash")
+            .and_then(Value::as_str)
+            .filter(|hash| is_hex64(hash))?;
+        Some(CompletionRequest {
+            final_sequence,
+            final_hash: final_hash.into(),
+        })
     };
-    if !keys_within(object, &COMPLETION_KEYS) {
-        return Err(refused());
-    }
-    let final_sequence = object
-        .get("finalSequence")
-        .and_then(non_negative)
-        .filter(|n| *n >= 1)
-        .ok_or_else(refused)?;
-    let final_hash = match object.get("finalHash").and_then(Value::as_str) {
-        Some(hash) if is_hex64(hash) => hash.to_owned(),
-        _ => return Err(refused()),
-    };
-    Ok(CompletionRequest {
-        final_sequence,
-        final_hash,
-    })
+    read().ok_or_else(|| GuardError::refused("GUARD_COMPLETION_INVALID", COMPLETION_INVALID))
 }
 
 /// The chain completed, `None` when it already is with the same answer.
@@ -398,34 +418,39 @@ pub fn apply_completion(
     request: &CompletionRequest,
     now: UnixMillis,
 ) -> Result<Option<ChainUpdate>, GuardError> {
+    let matches = |sequence: u64, hash: &str| sequence == request.final_sequence && hash == request.final_hash;
     let conflict = || GuardError::refused("GUARD_COMPLETION_CONFLICT", COMPLETION_CONFLICT);
     if let Some(done) = &chain.completion {
-        return if done.final_sequence == request.final_sequence && done.final_hash == request.final_hash {
+        return if matches(done.final_sequence, &done.final_hash) {
             Ok(None)
         } else {
             Err(conflict())
         };
     }
+    let invalid = |text: &str| Err(GuardError::refused("GUARD_COMPLETION_INVALID", text));
     if chain.completion_mode == Some(CompletionMode::NoCompletion) {
-        return Err(GuardError::refused("GUARD_COMPLETION_INVALID", NO_COMPLETION));
+        return invalid(NO_COMPLETION);
     }
     if chain.encounter_state != EncounterState::CompletionRequested {
-        return Err(GuardError::refused("GUARD_COMPLETION_INVALID", NOT_REQUESTED));
+        return invalid(NOT_REQUESTED);
     }
-    if request.final_sequence != chain.last_sequence || request.final_hash != chain.head_hash {
+    if !matches(chain.last_sequence, &chain.head_hash) {
         return Err(conflict());
     }
-    let mut next = chain.clone();
-    next.revision += 1;
-    next.completion = Some(CompletionRecord {
+    let completion = CompletionRecord {
         final_sequence: request.final_sequence,
         final_hash: request.final_hash.clone(),
         at: now,
-    });
+    };
+    let next = ChainRecord {
+        revision: chain.revision + 1,
+        completion: Some(completion),
+        ..chain.clone()
+    };
     Ok(Some(ChainUpdate {
         chain: next,
         batch: None,
-        findings: Vec::new(),
+        findings: vec![],
     }))
 }
 
@@ -438,28 +463,42 @@ pub(crate) fn batch_reply(
     chain: &ChainRecord,
     duplicate: bool,
 ) -> Json {
+    let (hash, session) = (js_string(batch_hash), js_string(&session.to_string()));
+    let (state, disposition) = (chain.encounter_state.as_str(), chain.disposition.as_str());
     Json(format!(
-        r#"{{"accepted":true,"batchHash":{},"sessionId":{},"generation":{generation},"lastSequence":{last_sequence},"encounterState":"{}","disposition":"{}","duplicate":{duplicate},"observeOnly":true}}"#,
-        js_string(batch_hash),
-        js_string(&session.to_string()),
-        chain.encounter_state.as_str(),
-        chain.disposition.as_str(),
+        concat!(
+            r#"{{"accepted":true,"batchHash":{hash},"sessionId":{session},"generation":{generation},"#,
+            r#""lastSequence":{last},"encounterState":"{state}","disposition":"{disposition}","#,
+            r#""duplicate":{duplicate},"observeOnly":true}}"#
+        ),
+        hash = hash,
+        session = session,
+        generation = generation,
+        last = last_sequence,
+        state = state,
+        disposition = disposition,
+        duplicate = duplicate,
     ))
 }
 
 pub(crate) fn completion_reply(chain: &ChainRecord) -> Json {
-    let (sequence, hash) = chain
-        .completion
-        .as_ref()
-        .map_or((chain.last_sequence, chain.head_hash.as_str()), |c| {
-            (c.final_sequence, c.final_hash.as_str())
-        });
+    let (sequence, hash) = match &chain.completion {
+        Some(done) => (done.final_sequence, done.final_hash.as_str()),
+        None => (chain.last_sequence, chain.head_hash.as_str()),
+    };
+    let (session, hash) = (js_string(&chain.session.to_string()), js_string(hash));
+    let (generation, disposition, findings) = (chain.generation, chain.disposition.as_str(), chain.finding_count);
     Json(format!(
-        r#"{{"accepted":true,"sessionId":{},"generation":{},"finalSequence":{sequence},"finalHash":{},"disposition":"{}","findingCount":{},"observeOnly":true,"progressionApplied":false,"rewardsApplied":false}}"#,
-        js_string(&chain.session.to_string()),
-        chain.generation,
-        js_string(hash),
-        chain.disposition.as_str(),
-        chain.finding_count,
+        concat!(
+            r#"{{"accepted":true,"sessionId":{session},"generation":{generation},"finalSequence":{sequence},"#,
+            r#""finalHash":{hash},"disposition":"{disposition}","findingCount":{findings},"observeOnly":true,"#,
+            r#""progressionApplied":false,"rewardsApplied":false}}"#
+        ),
+        session = session,
+        generation = generation,
+        sequence = sequence,
+        hash = hash,
+        disposition = disposition,
+        findings = findings,
     ))
 }

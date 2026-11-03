@@ -4,42 +4,46 @@
 //! What admission keeps: an account's verified peer link, each issued ticket (by its jti digest, never its text) and
 //! each peer admission. The in-memory repository is the reference for the semantics a database store must keep.
 
-use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::{
+    collections::HashMap,
+    sync::{Mutex, MutexGuard, PoisonError},
+};
 
 use rifts_seam::{AccountId, Actor, Component, PeerId, StoreError, TableSpec, Unimplemented, UnixMillis};
 
+type Stored<T> = Result<T, StoreError>;
+
+const fn admission_table(name: &'static str, node_collection: &'static str, keys: &'static str) -> TableSpec {
+    TableSpec {
+        name,
+        node_collection,
+        keys,
+        owner: Component::Admission,
+        expires_by: None,
+    }
+}
+
 pub const TABLES: &[TableSpec] = &[
-    TableSpec {
-        name: "rifts_peer_links",
-        node_collection: "p2pSteamLinks",
-        owner: Component::Admission,
-        keys: "account; peer unique",
-        expires_by: None,
-    },
-    TableSpec {
-        name: "rifts_admission_tickets",
-        node_collection: "p2pAdmissionTickets",
-        owner: Component::Admission,
-        keys: "jti digest; session + generation + account",
-        expires_by: None,
-    },
-    TableSpec {
-        name: "rifts_peer_admissions",
-        node_collection: "p2pPeerAdmissions",
-        owner: Component::Admission,
-        keys: "admission; active admission key unique",
-        expires_by: None,
-    },
+    admission_table("rifts_peer_links", "p2pSteamLinks", "account; peer unique"),
+    admission_table(
+        "rifts_admission_tickets",
+        "p2pAdmissionTickets",
+        "jti digest; session + generation + account",
+    ),
+    admission_table(
+        "rifts_peer_admissions",
+        "p2pPeerAdmissions",
+        "admission; active admission key unique",
+    ),
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LinkStatus {
     Verified,
     Revoked,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PeerLinkRecord {
     pub account: AccountId,
     pub peer: PeerId,
@@ -49,14 +53,14 @@ pub struct PeerLinkRecord {
     pub verification_method: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TicketStatus {
     Issued,
     Consumed,
     Revoked,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TicketRecord {
     pub jti_digest: String,
     pub key_id: String,
@@ -76,7 +80,7 @@ pub struct TicketRecord {
     pub consumer_request_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConsumeRequest {
     pub jti_digest: String,
     pub session: String,
@@ -89,7 +93,7 @@ pub struct ConsumeRequest {
     pub now: UnixMillis,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConsumeOutcome {
     Consumed(TicketRecord),
     /// The same bridge retried the same request.
@@ -99,7 +103,7 @@ pub enum ConsumeOutcome {
     Invalid,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PeerAdmissionRecord {
     pub admission_id: String,
     /// `<wire session>:<generation>:<peer>` while live; at most one live admission holds it.
@@ -115,7 +119,7 @@ pub struct PeerAdmissionRecord {
     pub superseded_at: Option<UnixMillis>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DisconnectRequest {
     pub admission_id: String,
     pub session: String,
@@ -125,189 +129,179 @@ pub struct DisconnectRequest {
 }
 
 pub trait AdmissionStore: Send + Sync {
-    fn peer_link(&self, account: &AccountId) -> Result<Option<PeerLinkRecord>, StoreError>;
-    fn put_peer_link(&self, actor: &Actor, link: &PeerLinkRecord) -> Result<(), StoreError>;
+    fn peer_link(&self, of: &AccountId) -> Stored<Option<PeerLinkRecord>>;
+    fn put_peer_link(&self, by: &Actor, row: &PeerLinkRecord) -> Stored<()>;
     /// `false` when the digest is already stored.
-    fn insert_ticket(&self, actor: &Actor, ticket: &TicketRecord) -> Result<bool, StoreError>;
-    fn consume_ticket(&self, actor: &Actor, request: &ConsumeRequest) -> Result<ConsumeOutcome, StoreError>;
+    fn insert_ticket(&self, by: &Actor, row: &TicketRecord) -> Stored<bool>;
+    fn consume_ticket(&self, by: &Actor, attempt: &ConsumeRequest) -> Stored<ConsumeOutcome>;
     /// `false` when the id or the live active key is already held.
-    fn insert_admission(&self, actor: &Actor, admission: &PeerAdmissionRecord) -> Result<bool, StoreError>;
-    fn find_admission(&self, admission_id: &str) -> Result<Option<PeerAdmissionRecord>, StoreError>;
-    fn supersede_active(&self, actor: &Actor, active_key: &str, at: UnixMillis) -> Result<bool, StoreError>;
-    fn disconnect(&self, actor: &Actor, request: &DisconnectRequest) -> Result<bool, StoreError>;
+    fn insert_admission(&self, by: &Actor, row: &PeerAdmissionRecord) -> Stored<bool>;
+    fn find_admission(&self, id: &str) -> Stored<Option<PeerAdmissionRecord>>;
+    fn supersede_active(&self, by: &Actor, key: &str, at: UnixMillis) -> Stored<bool>;
+    fn disconnect(&self, by: &Actor, attempt: &DisconnectRequest) -> Stored<bool>;
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct StubAdmissionStore;
 
 fn missing(operation: &'static str) -> StoreError {
-    StoreError::Unimplemented(Unimplemented::new(Component::Admission, operation))
+    Unimplemented::new(Component::Admission, operation).into()
+}
+
+/// Each method of the stub fails with `store.<method>`.
+macro_rules! unwritten {
+    ($($method:ident($($arg:ty),*) -> $out:ty;)*) => {$(
+        fn $method(&self, $(_: $arg),*) -> Stored<$out> {
+            Err(missing(concat!("store.", stringify!($method))))
+        }
+    )*};
 }
 
 impl AdmissionStore for StubAdmissionStore {
-    fn peer_link(&self, _: &AccountId) -> Result<Option<PeerLinkRecord>, StoreError> {
-        Err(missing("store.peer_link"))
-    }
-
-    fn put_peer_link(&self, _: &Actor, _: &PeerLinkRecord) -> Result<(), StoreError> {
-        Err(missing("store.put_peer_link"))
-    }
-
-    fn insert_ticket(&self, _: &Actor, _: &TicketRecord) -> Result<bool, StoreError> {
-        Err(missing("store.insert_ticket"))
-    }
-
-    fn consume_ticket(&self, _: &Actor, _: &ConsumeRequest) -> Result<ConsumeOutcome, StoreError> {
-        Err(missing("store.consume_ticket"))
-    }
-
-    fn insert_admission(&self, _: &Actor, _: &PeerAdmissionRecord) -> Result<bool, StoreError> {
-        Err(missing("store.insert_admission"))
-    }
-
-    fn find_admission(&self, _: &str) -> Result<Option<PeerAdmissionRecord>, StoreError> {
-        Err(missing("store.find_admission"))
-    }
-
-    fn supersede_active(&self, _: &Actor, _: &str, _: UnixMillis) -> Result<bool, StoreError> {
-        Err(missing("store.supersede_active"))
-    }
-
-    fn disconnect(&self, _: &Actor, _: &DisconnectRequest) -> Result<bool, StoreError> {
-        Err(missing("store.disconnect"))
+    unwritten! {
+        peer_link(&AccountId) -> Option<PeerLinkRecord>;
+        put_peer_link(&Actor, &PeerLinkRecord) -> ();
+        insert_ticket(&Actor, &TicketRecord) -> bool;
+        consume_ticket(&Actor, &ConsumeRequest) -> ConsumeOutcome;
+        insert_admission(&Actor, &PeerAdmissionRecord) -> bool;
+        find_admission(&str) -> Option<PeerAdmissionRecord>;
+        supersede_active(&Actor, &str, UnixMillis) -> bool;
+        disconnect(&Actor, &DisconnectRequest) -> bool;
     }
 }
 
 #[derive(Debug, Default)]
-struct Tables {
+struct Rows {
     links: HashMap<AccountId, PeerLinkRecord>,
     tickets: HashMap<String, TicketRecord>,
     admissions: HashMap<String, PeerAdmissionRecord>,
 }
 
+impl Rows {
+    fn holder_of(&mut self, key: &str) -> Option<&mut PeerAdmissionRecord> {
+        self.admissions
+            .values_mut()
+            .find(|row| row.active_key.as_deref() == Some(key))
+    }
+}
+
 /// One process's admission rows behind one lock. The actor is not recorded.
 #[derive(Debug, Default)]
 pub struct MemoryAdmissionStore {
-    tables: Mutex<Tables>,
+    tables: Mutex<Rows>,
 }
 
 impl MemoryAdmissionStore {
-    fn lock(&self) -> MutexGuard<'_, Tables> {
+    fn rows(&self) -> MutexGuard<'_, Rows> {
         // Every write is a whole-row swap, so a panic elsewhere leaves the maps consistent.
         self.tables.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     pub fn ticket(&self, jti_digest: &str) -> Option<TicketRecord> {
-        self.lock().tickets.get(jti_digest).cloned()
+        self.rows().tickets.get(jti_digest).cloned()
+    }
+}
+
+fn settle(row: &mut TicketRecord, attempt: &ConsumeRequest) -> ConsumeOutcome {
+    let same_seat = row.session == attempt.session
+        && row.generation == attempt.generation
+        && row.joiner_peer == attempt.joiner_peer;
+    let live = row.expires_at > attempt.now;
+    match row.status {
+        TicketStatus::Issued
+            if same_seat && live && row.account == attempt.account && row.host_peer == attempt.host_peer =>
+        {
+            row.status = TicketStatus::Consumed;
+            row.consumed_at = Some(attempt.now);
+            row.consumer_bridge_instance_id = Some(attempt.bridge_instance_id.clone());
+            row.consumer_request_id = Some(attempt.request_id.clone());
+            ConsumeOutcome::Consumed(row.clone())
+        }
+        TicketStatus::Consumed => {
+            let retried = row.consumer_bridge_instance_id.as_ref() == Some(&attempt.bridge_instance_id)
+                && row.consumer_request_id.as_ref() == Some(&attempt.request_id);
+            if retried && same_seat {
+                ConsumeOutcome::Idempotent(row.clone())
+            } else {
+                ConsumeOutcome::Replay
+            }
+        }
+        _ if live => ConsumeOutcome::Invalid,
+        _ => ConsumeOutcome::Expired,
     }
 }
 
 impl AdmissionStore for MemoryAdmissionStore {
-    fn peer_link(&self, account: &AccountId) -> Result<Option<PeerLinkRecord>, StoreError> {
-        Ok(self.lock().links.get(account).cloned())
+    fn peer_link(&self, of: &AccountId) -> Stored<Option<PeerLinkRecord>> {
+        Ok(self.rows().links.get(of).cloned())
     }
 
-    fn put_peer_link(&self, _: &Actor, link: &PeerLinkRecord) -> Result<(), StoreError> {
-        self.lock().links.insert(link.account.clone(), link.clone());
+    fn put_peer_link(&self, _: &Actor, row: &PeerLinkRecord) -> Stored<()> {
+        self.rows().links.insert(row.account.clone(), row.clone());
         Ok(())
     }
 
-    fn insert_ticket(&self, _: &Actor, ticket: &TicketRecord) -> Result<bool, StoreError> {
-        let mut tables = self.lock();
-        if tables.tickets.contains_key(&ticket.jti_digest) {
-            return Ok(false);
+    fn insert_ticket(&self, _: &Actor, row: &TicketRecord) -> Stored<bool> {
+        let mut rows = self.rows();
+        let fresh = !rows.tickets.contains_key(&row.jti_digest);
+        if fresh {
+            rows.tickets.insert(row.jti_digest.clone(), row.clone());
         }
-        tables.tickets.insert(ticket.jti_digest.clone(), ticket.clone());
+        Ok(fresh)
+    }
+
+    fn consume_ticket(&self, _: &Actor, attempt: &ConsumeRequest) -> Stored<ConsumeOutcome> {
+        Ok(self
+            .rows()
+            .tickets
+            .get_mut(&attempt.jti_digest)
+            .map_or(ConsumeOutcome::Invalid, |row| settle(row, attempt)))
+    }
+
+    fn insert_admission(&self, _: &Actor, row: &PeerAdmissionRecord) -> Stored<bool> {
+        let mut rows = self.rows();
+        let key_taken = match row.active_key.as_deref() {
+            Some(key) => rows.holder_of(key).is_some(),
+            None => false,
+        };
+        let fresh = !key_taken && !rows.admissions.contains_key(&row.admission_id);
+        if fresh {
+            rows.admissions.insert(row.admission_id.clone(), row.clone());
+        }
+        Ok(fresh)
+    }
+
+    fn find_admission(&self, id: &str) -> Stored<Option<PeerAdmissionRecord>> {
+        Ok(self.rows().admissions.get(id).cloned())
+    }
+
+    fn supersede_active(&self, _: &Actor, key: &str, at: UnixMillis) -> Stored<bool> {
+        let mut rows = self.rows();
+        let Some(row) = rows.holder_of(key) else {
+            return Ok(false);
+        };
+        row.active_key = None;
+        (row.disconnected_at, row.superseded_at) = (Some(at), Some(at));
         Ok(true)
     }
 
-    fn consume_ticket(&self, _: &Actor, request: &ConsumeRequest) -> Result<ConsumeOutcome, StoreError> {
-        let mut tables = self.lock();
-        let Some(ticket) = tables.tickets.get_mut(&request.jti_digest) else {
-            return Ok(ConsumeOutcome::Invalid);
-        };
-        let matches = ticket.session == request.session
-            && ticket.generation == request.generation
-            && ticket.joiner_peer == request.joiner_peer;
-        if ticket.status == TicketStatus::Issued
-            && matches
-            && ticket.account == request.account
-            && ticket.host_peer == request.host_peer
-            && ticket.expires_at > request.now
-        {
-            ticket.status = TicketStatus::Consumed;
-            ticket.consumed_at = Some(request.now);
-            ticket.consumer_bridge_instance_id = Some(request.bridge_instance_id.clone());
-            ticket.consumer_request_id = Some(request.request_id.clone());
-            return Ok(ConsumeOutcome::Consumed(ticket.clone()));
-        }
-        if ticket.status == TicketStatus::Consumed {
-            let same_consumer = ticket.consumer_bridge_instance_id.as_deref() == Some(&request.bridge_instance_id)
-                && ticket.consumer_request_id.as_deref() == Some(&request.request_id);
-            return Ok(if same_consumer && matches {
-                ConsumeOutcome::Idempotent(ticket.clone())
-            } else {
-                ConsumeOutcome::Replay
-            });
-        }
-        Ok(if ticket.expires_at <= request.now {
-            ConsumeOutcome::Expired
-        } else {
-            ConsumeOutcome::Invalid
-        })
-    }
-
-    fn insert_admission(&self, _: &Actor, admission: &PeerAdmissionRecord) -> Result<bool, StoreError> {
-        let mut tables = self.lock();
-        let key_held = admission.active_key.as_ref().is_some_and(|key| {
-            tables
-                .admissions
-                .values()
-                .any(|stored| stored.active_key.as_ref() == Some(key))
+    fn disconnect(&self, _: &Actor, attempt: &DisconnectRequest) -> Stored<bool> {
+        let mut rows = self.rows();
+        let row = rows.admissions.get_mut(&attempt.admission_id).filter(|row| {
+            row.disconnected_at.is_none()
+                && (row.session.as_str(), row.generation, row.bridge_instance_id.as_str())
+                    == (
+                        attempt.session.as_str(),
+                        attempt.generation,
+                        attempt.bridge_instance_id.as_str(),
+                    )
         });
-        if key_held || tables.admissions.contains_key(&admission.admission_id) {
-            return Ok(false);
-        }
-        tables
-            .admissions
-            .insert(admission.admission_id.clone(), admission.clone());
-        Ok(true)
-    }
-
-    fn find_admission(&self, admission_id: &str) -> Result<Option<PeerAdmissionRecord>, StoreError> {
-        Ok(self.lock().admissions.get(admission_id).cloned())
-    }
-
-    fn supersede_active(&self, _: &Actor, active_key: &str, at: UnixMillis) -> Result<bool, StoreError> {
-        let mut tables = self.lock();
-        let holder = tables
-            .admissions
-            .values_mut()
-            .find(|stored| stored.active_key.as_deref() == Some(active_key));
-        let Some(holder) = holder else {
-            return Ok(false);
-        };
-        holder.disconnected_at = Some(at);
-        holder.superseded_at = Some(at);
-        holder.active_key = None;
-        Ok(true)
-    }
-
-    fn disconnect(&self, _: &Actor, request: &DisconnectRequest) -> Result<bool, StoreError> {
-        let mut tables = self.lock();
-        let Some(admission) = tables.admissions.get_mut(&request.admission_id) else {
-            return Ok(false);
-        };
-        if admission.session != request.session
-            || admission.generation != request.generation
-            || admission.bridge_instance_id != request.bridge_instance_id
-            || admission.disconnected_at.is_some()
-        {
-            return Ok(false);
-        }
-        admission.disconnected_at = Some(request.at);
-        admission.active_key = None;
-        Ok(true)
+        Ok(row
+            .map(|row| {
+                row.active_key = None;
+                row.disconnected_at = Some(attempt.at);
+            })
+            .is_some())
     }
 }
 
@@ -316,214 +310,221 @@ mod tests {
     use super::*;
 
     const DIGEST: &str = "d1";
+    const WIRE: &str = "wire";
+    const KEY: &str = "wire:3:11";
 
-    fn actor() -> Actor {
+    fn by() -> Actor {
         Actor::System("test")
+    }
+
+    fn joiner() -> AccountId {
+        AccountId("joiner-1".to_owned())
     }
 
     fn ticket() -> TicketRecord {
         TicketRecord {
-            jti_digest: DIGEST.to_owned(),
-            key_id: "k".to_owned(),
-            session: "wire".to_owned(),
+            status: TicketStatus::Issued,
+            issued_at: UnixMillis(1_000),
+            expires_at: UnixMillis(10_000),
+            jti_digest: DIGEST.into(),
+            key_id: "k".into(),
+            session: WIRE.into(),
             generation: 3,
-            account: AccountId("joiner-1".to_owned()),
+            account: joiner(),
             joiner_peer: PeerId(11),
             host_peer: PeerId(22),
             bridge_protocol: 1,
             virtual_port: 3,
-            issued_at: UnixMillis(1_000),
-            expires_at: UnixMillis(10_000),
-            status: TicketStatus::Issued,
             consumed_at: None,
             consumer_bridge_instance_id: None,
             consumer_request_id: None,
         }
     }
 
-    fn consume(request_id: &str, bridge: &str, now: i64) -> ConsumeRequest {
+    fn attempt(request: &str, bridge: &str, now: i64) -> ConsumeRequest {
         ConsumeRequest {
-            jti_digest: DIGEST.to_owned(),
-            session: "wire".to_owned(),
+            now: UnixMillis(now),
+            request_id: request.into(),
+            bridge_instance_id: bridge.into(),
+            jti_digest: DIGEST.into(),
+            session: WIRE.into(),
+            account: joiner(),
             generation: 3,
-            account: AccountId("joiner-1".to_owned()),
             joiner_peer: PeerId(11),
             host_peer: PeerId(22),
-            bridge_instance_id: bridge.to_owned(),
-            request_id: request_id.to_owned(),
-            now: UnixMillis(now),
         }
+    }
+
+    fn attempt_with(change: impl FnOnce(&mut ConsumeRequest)) -> ConsumeRequest {
+        let mut changed = attempt("r1", "bridge", 2_000);
+        change(&mut changed);
+        changed
     }
 
     fn admission(id: &str, key: &str) -> PeerAdmissionRecord {
         PeerAdmissionRecord {
-            admission_id: id.to_owned(),
-            active_key: Some(key.to_owned()),
-            session: "wire".to_owned(),
-            generation: 3,
-            account: AccountId("joiner-1".to_owned()),
+            active_key: Some(key.into()),
+            admission_id: id.into(),
+            account: joiner(),
+            session: WIRE.into(),
             peer: PeerId(11),
-            bridge_instance_id: "bridge".to_owned(),
-            connection_handle: "h1".to_owned(),
+            generation: 3,
+            connection_handle: "h1".into(),
+            bridge_instance_id: "bridge".into(),
             admitted_at: UnixMillis(2_000),
-            disconnected_at: None,
             superseded_at: None,
+            disconnected_at: None,
         }
     }
 
-    fn stored() -> MemoryAdmissionStore {
+    fn with_ticket(row: TicketRecord) -> MemoryAdmissionStore {
         let store = MemoryAdmissionStore::default();
-        assert!(store.insert_ticket(&actor(), &ticket()).unwrap());
+        assert!(store.insert_ticket(&by(), &row).unwrap());
+        store
+    }
+
+    fn admitted(ids: &[(&str, &str, bool)]) -> MemoryAdmissionStore {
+        let store = MemoryAdmissionStore::default();
+        for &(id, key, taken) in ids {
+            assert_eq!(
+                store.insert_admission(&by(), &admission(id, key)).unwrap(),
+                taken,
+                "{id} {key}"
+            );
+        }
         store
     }
 
     #[test]
     fn consumed_once_then_idempotent_or_replay() {
-        let store = stored();
-        assert!(!store.insert_ticket(&actor(), &ticket()).unwrap());
-        let ConsumeOutcome::Consumed(record) = store.consume_ticket(&actor(), &consume("r1", "bridge", 2_000)).unwrap()
-        else {
-            panic!("first consume");
+        let store = with_ticket(ticket());
+        assert!(!store.insert_ticket(&by(), &ticket()).unwrap());
+        let outcome = store.consume_ticket(&by(), &attempt("r1", "bridge", 2_000)).unwrap();
+        let ConsumeOutcome::Consumed(row) = outcome else {
+            panic!("first consume: {outcome:?}");
         };
-        assert_eq!(record.status, TicketStatus::Consumed);
-        assert_eq!(record.consumed_at, Some(UnixMillis(2_000)));
-        assert_eq!(record.consumer_bridge_instance_id.as_deref(), Some("bridge"));
-        assert_eq!(record.consumer_request_id.as_deref(), Some("r1"));
-        assert_eq!(store.ticket(DIGEST), Some(record.clone()));
-        assert_eq!(
-            store.consume_ticket(&actor(), &consume("r1", "bridge", 3_000)).unwrap(),
-            ConsumeOutcome::Idempotent(record)
-        );
-        assert_eq!(
-            store.consume_ticket(&actor(), &consume("r2", "bridge", 3_000)).unwrap(),
-            ConsumeOutcome::Replay
-        );
-        assert_eq!(
-            store.consume_ticket(&actor(), &consume("r1", "other", 3_000)).unwrap(),
-            ConsumeOutcome::Replay
-        );
-        let mut other_peer = consume("r1", "bridge", 3_000);
-        other_peer.joiner_peer = PeerId(12);
-        assert_eq!(
-            store.consume_ticket(&actor(), &other_peer).unwrap(),
-            ConsumeOutcome::Replay
-        );
+        let expected = TicketRecord {
+            status: TicketStatus::Consumed,
+            consumed_at: Some(UnixMillis(2_000)),
+            consumer_bridge_instance_id: Some("bridge".into()),
+            consumer_request_id: Some("r1".into()),
+            ..ticket()
+        };
+        assert_eq!(row, expected);
+        assert_eq!(store.ticket(DIGEST).as_ref(), Some(&row));
+
+        let later = [
+            (attempt("r1", "bridge", 3_000), ConsumeOutcome::Idempotent(row)),
+            (attempt("r2", "bridge", 3_000), ConsumeOutcome::Replay),
+            (attempt("r1", "other", 3_000), ConsumeOutcome::Replay),
+            (
+                attempt_with(|a| (a.joiner_peer, a.now) = (PeerId(12), UnixMillis(3_000))),
+                ConsumeOutcome::Replay,
+            ),
+        ];
+        for (retry, outcome) in later {
+            assert_eq!(store.consume_ticket(&by(), &retry).unwrap(), outcome, "{retry:?}");
+        }
     }
 
     #[test]
     fn refusals_change_nothing() {
-        let store = stored();
-        let mut unknown = consume("r1", "bridge", 2_000);
-        unknown.jti_digest = "nope".to_owned();
-        assert_eq!(
-            store.consume_ticket(&actor(), &unknown).unwrap(),
-            ConsumeOutcome::Invalid
-        );
-        assert_eq!(
-            store
-                .consume_ticket(&actor(), &consume("r1", "bridge", 10_000))
-                .unwrap(),
-            ConsumeOutcome::Expired
-        );
-        let mut other_host = consume("r1", "bridge", 2_000);
-        other_host.host_peer = PeerId(23);
-        assert_eq!(
-            store.consume_ticket(&actor(), &other_host).unwrap(),
-            ConsumeOutcome::Invalid
-        );
-        let mut other_session = consume("r1", "bridge", 2_000);
-        other_session.session = "elsewhere".to_owned();
-        assert_eq!(
-            store.consume_ticket(&actor(), &other_session).unwrap(),
-            ConsumeOutcome::Invalid
-        );
+        let store = with_ticket(ticket());
+        let refused = [
+            (attempt_with(|a| a.jti_digest = "nope".into()), ConsumeOutcome::Invalid),
+            (attempt("r1", "bridge", 10_000), ConsumeOutcome::Expired),
+            (attempt_with(|a| a.host_peer = PeerId(23)), ConsumeOutcome::Invalid),
+            (
+                attempt_with(|a| a.session = "elsewhere".into()),
+                ConsumeOutcome::Invalid,
+            ),
+        ];
+        for (request, outcome) in refused {
+            assert_eq!(store.consume_ticket(&by(), &request).unwrap(), outcome, "{request:?}");
+        }
         assert_eq!(store.ticket(DIGEST), Some(ticket()));
 
-        let revoked = MemoryAdmissionStore::default();
-        let ticket = TicketRecord {
+        let revoked = with_ticket(TicketRecord {
             status: TicketStatus::Revoked,
             ..ticket()
-        };
-        assert!(revoked.insert_ticket(&actor(), &ticket).unwrap());
+        });
         assert_eq!(
-            revoked
-                .consume_ticket(&actor(), &consume("r1", "bridge", 2_000))
-                .unwrap(),
+            revoked.consume_ticket(&by(), &attempt("r1", "bridge", 2_000)).unwrap(),
             ConsumeOutcome::Invalid
         );
     }
 
     #[test]
     fn one_live_admission_per_key() {
-        let store = MemoryAdmissionStore::default();
-        assert!(store.insert_admission(&actor(), &admission("a1", "wire:3:11")).unwrap());
-        assert!(!store.insert_admission(&actor(), &admission("a2", "wire:3:11")).unwrap());
-        assert!(!store.insert_admission(&actor(), &admission("a1", "wire:3:12")).unwrap());
-
+        let store = admitted(&[("a1", KEY, true), ("a2", KEY, false), ("a1", "wire:3:12", false)]);
         let mut request = DisconnectRequest {
-            admission_id: "a1".to_owned(),
-            session: "wire".to_owned(),
-            generation: 3,
-            bridge_instance_id: "other".to_owned(),
             at: UnixMillis(5_000),
+            admission_id: "a1".into(),
+            bridge_instance_id: "other".into(),
+            session: WIRE.into(),
+            generation: 3,
         };
-        assert!(
-            !store.disconnect(&actor(), &request).unwrap(),
-            "only the admitting bridge"
-        );
-        request.bridge_instance_id = "bridge".to_owned();
-        request.generation = 4;
-        assert!(!store.disconnect(&actor(), &request).unwrap());
-        request.generation = 3;
-        assert!(store.disconnect(&actor(), &request).unwrap());
-        assert!(!store.disconnect(&actor(), &request).unwrap(), "once");
-        request.admission_id = "missing".to_owned();
-        assert!(!store.disconnect(&actor(), &request).unwrap());
+        let mut disconnect = |change: &dyn Fn(&mut DisconnectRequest)| {
+            change(&mut request);
+            store.disconnect(&by(), &request).unwrap()
+        };
+        assert!(!disconnect(&|_| ()), "only the admitting bridge");
+        assert!(!disconnect(
+            &|r| (r.bridge_instance_id, r.generation) = ("bridge".into(), 4)
+        ));
+        assert!(disconnect(&|r| r.generation = 3));
+        assert!(!disconnect(&|_| ()), "once");
+        assert!(!disconnect(&|r| r.admission_id = "missing".into()));
 
-        let found = store.find_admission("a1").unwrap().unwrap();
-        assert_eq!(found.active_key, None);
-        assert_eq!(found.disconnected_at, Some(UnixMillis(5_000)));
-        assert_eq!(found.superseded_at, None);
-        assert!(store.insert_admission(&actor(), &admission("a2", "wire:3:11")).unwrap());
+        let row = store.find_admission("a1").unwrap().unwrap();
+        assert_eq!(
+            (row.active_key, row.disconnected_at, row.superseded_at),
+            (None, Some(UnixMillis(5_000)), None)
+        );
+        assert!(store.insert_admission(&by(), &admission("a2", KEY)).unwrap());
     }
 
     #[test]
     fn supersede_clears_the_key() {
         let store = MemoryAdmissionStore::default();
-        assert!(!store.supersede_active(&actor(), "wire:3:11", UnixMillis(1)).unwrap());
-        assert!(store.insert_admission(&actor(), &admission("a1", "wire:3:11")).unwrap());
-        assert!(store.supersede_active(&actor(), "wire:3:11", UnixMillis(9)).unwrap());
-        let found = store.find_admission("a1").unwrap().unwrap();
-        assert_eq!(found.active_key, None);
-        assert_eq!(found.superseded_at, Some(UnixMillis(9)));
-        assert_eq!(found.disconnected_at, Some(UnixMillis(9)));
-        assert!(store.insert_admission(&actor(), &admission("a2", "wire:3:11")).unwrap());
+        assert!(!store.supersede_active(&by(), KEY, UnixMillis(1)).unwrap());
+        assert!(store.insert_admission(&by(), &admission("a1", KEY)).unwrap());
+        assert!(store.supersede_active(&by(), KEY, UnixMillis(9)).unwrap());
+        let row = store.find_admission("a1").unwrap().unwrap();
+        assert_eq!(
+            (row.active_key, row.superseded_at, row.disconnected_at),
+            (None, Some(UnixMillis(9)), Some(UnixMillis(9)))
+        );
+        assert!(store.insert_admission(&by(), &admission("a2", KEY)).unwrap());
         assert_eq!(store.find_admission("zz").unwrap(), None);
     }
 
     #[test]
     fn peer_links() {
         let store = MemoryAdmissionStore::default();
-        let account = AccountId("joiner-1".to_owned());
-        assert_eq!(store.peer_link(&account).unwrap(), None);
-        let mut link = PeerLinkRecord {
-            account: account.clone(),
-            peer: PeerId(11),
-            status: LinkStatus::Verified,
-            revision: 1,
+        assert_eq!(store.peer_link(&joiner()).unwrap(), None);
+        let first = PeerLinkRecord {
+            verification_method: "steam".into(),
             verified_at: UnixMillis(1),
-            verification_method: "steam".to_owned(),
+            status: LinkStatus::Verified,
+            account: joiner(),
+            peer: PeerId(11),
+            revision: 1,
         };
-        store.put_peer_link(&actor(), &link).unwrap();
-        link.revision = 2;
-        store.put_peer_link(&actor(), &link).unwrap();
-        assert_eq!(store.peer_link(&account).unwrap(), Some(link));
+        let second = PeerLinkRecord {
+            revision: 2,
+            ..first.clone()
+        };
+        for row in [&first, &second] {
+            store.put_peer_link(&by(), row).unwrap();
+        }
+        assert_eq!(store.peer_link(&joiner()).unwrap(), Some(second));
     }
 
     #[test]
     fn stub_store_and_tables() {
         assert_eq!(
-            StubAdmissionStore.peer_link(&AccountId("a".to_owned())),
+            StubAdmissionStore.peer_link(&AccountId("a".into())),
             Err(missing("store.peer_link"))
         );
         assert_eq!(
@@ -531,13 +532,16 @@ mod tests {
             Err(missing("store.find_admission"))
         );
         assert_eq!(
-            TABLES.iter().map(|table| table.name).collect::<Vec<_>>(),
+            StubAdmissionStore.supersede_active(&by(), "k", UnixMillis(0)),
+            Err(missing("store.supersede_active"))
+        );
+        let names: Vec<&str> = TABLES.iter().map(|table| table.name).collect();
+        assert_eq!(
+            names,
             ["rifts_peer_links", "rifts_admission_tickets", "rifts_peer_admissions"]
         );
-        assert!(
-            TABLES
-                .iter()
-                .all(|table| table.owner == Component::Admission && table.expires_by.is_none())
-        );
+        for table in TABLES {
+            assert_eq!((table.owner, table.expires_by), (Component::Admission, None));
+        }
     }
 }

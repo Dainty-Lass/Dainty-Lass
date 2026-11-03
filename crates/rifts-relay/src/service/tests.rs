@@ -4,7 +4,7 @@
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use rifts_seam::{GlobalId, NodeId, Secret, Ulid, poll_once};
+use rifts_seam::{BoxFuture, GlobalId, NodeId, Secret, Ulid, poll_once};
 use serde_json::json;
 
 use super::*;

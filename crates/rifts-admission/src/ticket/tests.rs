@@ -4,7 +4,10 @@
 use p256::elliptic_curve::scalar::IsHigh as _;
 use p256::elliptic_curve::subtle::ConstantTimeEq as _;
 use p256::elliptic_curve::{Generate as _, PrimeField as _};
+use rifts_relay::wire::{format_uuid, hex};
+use sha2::Sha256;
 
+use super::B64URL as URL_SAFE_NO_PAD;
 use super::*;
 use crate::Stub;
 

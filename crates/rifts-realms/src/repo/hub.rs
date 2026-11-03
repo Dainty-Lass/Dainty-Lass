@@ -4,19 +4,17 @@
 //! Who is in a realm hub: one row per (hub session, account), written without touching the session row. Every move
 //! of a row follows the presence table in `crate::hub`.
 
-use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Nullable, Text};
 use rifts_seam::{Actor, UnixMillis};
 use store::AnyConnection;
 
-use super::{Boxed, Count, corrupt, limit, placeholders, query};
+use super::sql::{Arg, Bind, Statement, binds, marks, table_row, upsert};
 use crate::db::{RealmsDb, RepoError};
 use crate::hub::{
     EntryDecision, PresenceEvent, PresenceState, decide_entry_request, is_presence_expired, is_presence_live,
     next_presence_state,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HubPresenceRecord {
     pub session_id: String,
     pub generation: i64,
@@ -46,21 +44,21 @@ pub struct HubPresenceRecord {
     pub purge_at: Option<UnixMillis>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EntryOutcome {
     Created,
     Reused,
     Reentered,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HubEntryRequest {
     pub account_id: String,
     pub peer_id: String,
     pub candidate_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EntryAt {
     pub session_id: String,
     pub generation: i64,
@@ -69,7 +67,7 @@ pub struct EntryAt {
     pub expires_at: UnixMillis,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HubEntryBatch {
     /// (account id, row, outcome), in request order.
     Placed(Vec<(String, HubPresenceRecord, EntryOutcome)>),
@@ -77,162 +75,124 @@ pub enum HubEntryBatch {
     Full { live: i64, max_peers: i64 },
 }
 
-const COLUMNS: [&str; 20] = [
-    "session_id",
-    "account_id",
-    "generation",
-    "realm_id",
-    "peer_id",
-    "state",
-    "candidate_id",
-    "entry_epoch",
-    "local_bridge_port",
-    "local_bridge_ready_at",
-    "admission_id",
-    "route",
-    "requested_at",
-    "ticketed_at",
-    "admitted_at",
-    "lost_at",
-    "left_at",
-    "left_reason",
-    "expires_at",
-    "purge_at",
-];
+const TABLE: &str = "rifts_hub_presence";
 
-#[derive(QueryableByName)]
-struct Row {
-    #[diesel(sql_type = Text)]
+// Keyed by the first two columns.
+table_row!(PresenceRow for HubPresenceRecord {
     session_id: String,
-    #[diesel(sql_type = Text)]
     account_id: String,
-    #[diesel(sql_type = BigInt)]
     generation: i64,
-    #[diesel(sql_type = Text)]
     realm_id: String,
-    #[diesel(sql_type = Text)]
     peer_id: String,
-    #[diesel(sql_type = Text)]
-    state: String,
-    #[diesel(sql_type = Text)]
+    state: PresenceState,
     candidate_id: String,
-    #[diesel(sql_type = BigInt)]
     entry_epoch: i64,
-    #[diesel(sql_type = Nullable<BigInt>)]
     local_bridge_port: Option<i64>,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    local_bridge_ready_at: Option<i64>,
-    #[diesel(sql_type = Nullable<Text>)]
+    local_bridge_ready_at: Option<UnixMillis>,
     admission_id: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
     route: Option<String>,
-    #[diesel(sql_type = BigInt)]
-    requested_at: i64,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    ticketed_at: Option<i64>,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    admitted_at: Option<i64>,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    lost_at: Option<i64>,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    left_at: Option<i64>,
-    #[diesel(sql_type = Nullable<Text>)]
+    requested_at: UnixMillis,
+    ticketed_at: Option<UnixMillis>,
+    admitted_at: Option<UnixMillis>,
+    lost_at: Option<UnixMillis>,
+    left_at: Option<UnixMillis>,
     left_reason: Option<String>,
-    #[diesel(sql_type = BigInt)]
-    expires_at: i64,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    purge_at: Option<i64>,
-}
+    expires_at: UnixMillis,
+    purge_at: Option<UnixMillis>,
+});
 
-impl Row {
-    fn into_record(self) -> Result<HubPresenceRecord, RepoError> {
-        Ok(HubPresenceRecord {
-            state: PresenceState::parse(&self.state).ok_or_else(|| corrupt("hub presence state", &self.state))?,
-            session_id: self.session_id,
-            generation: self.generation,
-            realm_id: self.realm_id,
-            account_id: self.account_id,
-            peer_id: self.peer_id,
-            candidate_id: self.candidate_id,
-            entry_epoch: self.entry_epoch,
-            local_bridge_port: self.local_bridge_port,
-            local_bridge_ready_at: self.local_bridge_ready_at.map(UnixMillis),
-            admission_id: self.admission_id,
-            route: self.route,
-            requested_at: UnixMillis(self.requested_at),
-            ticketed_at: self.ticketed_at.map(UnixMillis),
-            admitted_at: self.admitted_at.map(UnixMillis),
-            lost_at: self.lost_at.map(UnixMillis),
-            left_at: self.left_at.map(UnixMillis),
-            left_reason: self.left_reason,
-            expires_at: UnixMillis(self.expires_at),
-            purge_at: self.purge_at.map(UnixMillis),
-        })
-    }
-}
-
-fn select(
-    conn: &mut AnyConnection,
-    tail: &str,
-    bind: impl FnOnce(Boxed) -> Boxed,
-) -> Result<Vec<HubPresenceRecord>, RepoError> {
-    let rows = bind(query(&format!(
-        "SELECT {} FROM rifts_hub_presence {tail}",
-        COLUMNS.join(", ")
-    ))?)
-    .load::<Row>(conn)?;
-    rows.into_iter().map(Row::into_record).collect()
+/// The rows `tail` selects.
+fn rows_where(conn: &mut AnyConnection, tail: &str, args: Vec<Arg>) -> Result<Vec<HubPresenceRecord>, RepoError> {
+    let text = format!("SELECT {} FROM {TABLE} {tail}", PresenceRow::COLUMNS.join(", "));
+    let rows: Vec<PresenceRow> = Statement::new(&text, args)?.rows(conn)?;
+    rows.into_iter().map(PresenceRow::record).collect()
 }
 
 fn find(conn: &mut AnyConnection, session_id: &str, account_id: &str) -> Result<Option<HubPresenceRecord>, RepoError> {
-    let (session, account) = (session_id.to_owned(), account_id.to_owned());
-    Ok(select(conn, "WHERE session_id = ? AND account_id = ?", |q| {
-        q.bind::<Text, _>(session).bind::<Text, _>(account)
-    })?
-    .into_iter()
-    .next())
+    let found = rows_where(
+        conn,
+        "WHERE session_id = ? AND account_id = ?",
+        binds![session_id, account_id],
+    )?;
+    Ok(found.into_iter().next())
 }
 
 /// The whole row, upserted on its key.
 fn put(conn: &mut AnyConnection, row: &HubPresenceRecord) -> Result<(), RepoError> {
-    let text = store::portable::upsert("rifts_hub_presence", &COLUMNS, &COLUMNS[..2], &COLUMNS[2..]);
-    diesel::sql_query(text)
-        .into_boxed::<store::MultiBackend>()
-        .bind::<Text, _>(row.session_id.clone())
-        .bind::<Text, _>(row.account_id.clone())
-        .bind::<BigInt, _>(row.generation)
-        .bind::<Text, _>(row.realm_id.clone())
-        .bind::<Text, _>(row.peer_id.clone())
-        .bind::<Text, _>(row.state.as_str())
-        .bind::<Text, _>(row.candidate_id.clone())
-        .bind::<BigInt, _>(row.entry_epoch)
-        .bind::<Nullable<BigInt>, _>(row.local_bridge_port)
-        .bind::<Nullable<BigInt>, _>(row.local_bridge_ready_at.map(|at| at.0))
-        .bind::<Nullable<Text>, _>(row.admission_id.clone())
-        .bind::<Nullable<Text>, _>(row.route.clone())
-        .bind::<BigInt, _>(row.requested_at.0)
-        .bind::<Nullable<BigInt>, _>(row.ticketed_at.map(|at| at.0))
-        .bind::<Nullable<BigInt>, _>(row.admitted_at.map(|at| at.0))
-        .bind::<Nullable<BigInt>, _>(row.lost_at.map(|at| at.0))
-        .bind::<Nullable<BigInt>, _>(row.left_at.map(|at| at.0))
-        .bind::<Nullable<Text>, _>(row.left_reason.clone())
-        .bind::<BigInt, _>(row.expires_at.0)
-        .bind::<Nullable<BigInt>, _>(row.purge_at.map(|at| at.0))
-        .execute(conn)?;
-    Ok(())
+    let columns = PresenceRow::COLUMNS;
+    upsert(conn, TABLE, (columns, &columns[..2], &[]), PresenceRow::values(row))
+}
+
+/// `state IN (..)` and its values.
+fn in_states(states: &[PresenceState]) -> (String, Vec<Arg>) {
+    let clause = format!("state IN ({})", marks(states.len()));
+    (clause, states.iter().map(Bind::arg).collect())
+}
+
+/// A row no entry has touched yet: nothing connected, nothing ended.
+fn blank(session_id: &str, account_id: &str, now: UnixMillis) -> HubPresenceRecord {
+    HubPresenceRecord {
+        session_id: session_id.to_owned(),
+        account_id: account_id.to_owned(),
+        requested_at: now,
+        expires_at: now,
+        state: PresenceState::Pending,
+        entry_epoch: 0,
+        generation: 0,
+        realm_id: String::new(),
+        peer_id: String::new(),
+        candidate_id: String::new(),
+        purge_at: None,
+        left_reason: None,
+        left_at: None,
+        lost_at: None,
+        admitted_at: None,
+        ticketed_at: None,
+        route: None,
+        admission_id: None,
+        local_bridge_ready_at: None,
+        local_bridge_port: None,
+    }
 }
 
 fn clear_connection(row: &mut HubPresenceRecord) {
-    row.local_bridge_port = None;
-    row.local_bridge_ready_at = None;
-    row.admission_id = None;
-    row.route = None;
-    row.ticketed_at = None;
-    row.admitted_at = None;
-    row.lost_at = None;
-    row.left_at = None;
-    row.left_reason = None;
-    row.purge_at = None;
+    let HubPresenceRecord {
+        local_bridge_port,
+        local_bridge_ready_at,
+        admission_id,
+        route,
+        ticketed_at,
+        admitted_at,
+        lost_at,
+        left_at,
+        left_reason,
+        purge_at,
+        ..
+    } = row;
+    (*local_bridge_port, *admission_id, *route, *left_reason) = (None, None, None, None);
+    for stamp in [
+        local_bridge_ready_at,
+        ticketed_at,
+        admitted_at,
+        lost_at,
+        left_at,
+        purge_at,
+    ] {
+        *stamp = None;
+    }
+}
+
+/// A fresh entry over `row`: pending again from `at`, one epoch on.
+fn begin_entry(row: &mut HubPresenceRecord, at: &EntryAt, request: &HubEntryRequest) {
+    clear_connection(row);
+    row.state = PresenceState::Pending;
+    row.entry_epoch += 1;
+    row.generation = at.generation;
+    row.realm_id.clone_from(&at.realm_id);
+    row.requested_at = at.now;
+    row.expires_at = at.expires_at;
+    row.peer_id.clone_from(&request.peer_id);
+    row.candidate_id.clone_from(&request.candidate_id);
 }
 
 /// One entry under the domain's entry decision; writes only what changed.
@@ -243,66 +203,25 @@ fn enter(
     existing: Option<HubPresenceRecord>,
 ) -> Result<(HubPresenceRecord, EntryOutcome), RepoError> {
     let decision = decide_entry_request(existing.as_ref().map(|row| (row.state, row.expires_at)), at.now);
-    let (row, outcome) = match (decision, existing) {
+    let (mut row, outcome) = match (decision, existing) {
         (EntryDecision::Reuse, Some(mut row)) => {
             // Expiry only grows.
-            if at.expires_at > row.expires_at {
+            if row.expires_at < at.expires_at {
                 row.expires_at = at.expires_at;
                 put(conn, &row)?;
             }
             return Ok((row, EntryOutcome::Reused));
         }
-        (EntryDecision::Reenter, Some(mut row)) => {
-            row.generation = at.generation;
-            row.realm_id = at.realm_id.clone();
-            row.peer_id = request.peer_id.clone();
-            row.candidate_id = request.candidate_id.clone();
-            row.state = PresenceState::Pending;
-            row.requested_at = at.now;
-            row.expires_at = at.expires_at;
-            row.entry_epoch += 1;
-            clear_connection(&mut row);
-            (row, EntryOutcome::Reentered)
-        }
+        (EntryDecision::Reenter, Some(row)) => (row, EntryOutcome::Reentered),
+        // A first entry is a re-entry from epoch 0.
         _ => (
-            HubPresenceRecord {
-                session_id: at.session_id.clone(),
-                generation: at.generation,
-                realm_id: at.realm_id.clone(),
-                account_id: request.account_id.clone(),
-                peer_id: request.peer_id.clone(),
-                state: PresenceState::Pending,
-                candidate_id: request.candidate_id.clone(),
-                entry_epoch: 1,
-                local_bridge_port: None,
-                local_bridge_ready_at: None,
-                admission_id: None,
-                route: None,
-                requested_at: at.now,
-                ticketed_at: None,
-                admitted_at: None,
-                lost_at: None,
-                left_at: None,
-                left_reason: None,
-                expires_at: at.expires_at,
-                purge_at: None,
-            },
+            blank(&at.session_id, &request.account_id, at.now),
             EntryOutcome::Created,
         ),
     };
+    begin_entry(&mut row, at, request);
     put(conn, &row)?;
     Ok((row, outcome))
-}
-
-fn states_clause(states: &[PresenceState]) -> String {
-    format!("state IN ({})", placeholders(states.len()))
-}
-
-fn bind_states(mut q: Boxed, states: &[PresenceState]) -> Boxed {
-    for state in states {
-        q = q.bind::<Text, _>(state.as_str());
-    }
-    q
 }
 
 /// Moves each selected row that has a move for `event`; answers the moved rows as they were before.
@@ -312,18 +231,17 @@ fn bulk(
     event: PresenceEvent,
     change: impl Fn(&mut HubPresenceRecord),
 ) -> Result<Vec<HubPresenceRecord>, RepoError> {
-    let mut moved = Vec::new();
+    let mut before = Vec::new();
     for row in rows {
-        let Some(next) = next_presence_state(row.state, event) else {
-            continue;
-        };
-        let mut changed = row.clone();
-        changed.state = next;
-        change(&mut changed);
-        put(conn, &changed)?;
-        moved.push(row);
+        if let Some(next) = next_presence_state(row.state, event) {
+            let mut moved = row.clone();
+            moved.state = next;
+            change(&mut moved);
+            put(conn, &moved)?;
+            before.push(row);
+        }
     }
-    Ok(moved)
+    Ok(before)
 }
 
 pub(crate) fn end_generation(
@@ -333,16 +251,15 @@ pub(crate) fn end_generation(
     at: UnixMillis,
     purge_at: UnixMillis,
 ) -> Result<Vec<HubPresenceRecord>, RepoError> {
-    let session = session_id.to_owned();
-    let rows = select(
-        conn,
-        "WHERE session_id = ? AND generation = ? ORDER BY account_id",
-        |q| q.bind::<Text, _>(session).bind::<BigInt, _>(generation),
-    )?;
+    let tail = "WHERE session_id = ? AND generation = ? ORDER BY account_id";
+    let rows = rows_where(conn, tail, binds![session_id, generation])?;
     bulk(conn, rows, PresenceEvent::SessionEnded, |row| {
-        row.lost_at = Some(at);
-        row.purge_at = Some(purge_at);
+        (row.lost_at, row.purge_at) = (Some(at), Some(purge_at));
     })
+}
+
+fn count(n: usize) -> i64 {
+    i64::try_from(n).unwrap_or(i64::MAX)
 }
 
 /// The hub presence rows of every realm hub.
@@ -383,36 +300,31 @@ impl RealmHubRepository {
         // An account listed twice keeps its first place and its last value.
         let mut requests: Vec<HubEntryRequest> = Vec::with_capacity(entries.len());
         for entry in entries {
-            match requests.iter_mut().find(|r| r.account_id == entry.account_id) {
-                Some(slot) => *slot = entry.clone(),
+            let earlier = requests.iter().position(|r| r.account_id == entry.account_id);
+            match earlier {
+                Some(index) => requests[index] = entry.clone(),
                 None => requests.push(entry.clone()),
             }
         }
         let at = at.clone();
         self.db
             .write(actor, move |conn| {
-                let session = at.session_id.clone();
-                let generation_rows = select(conn, "WHERE session_id = ? AND generation = ?", |q| {
-                    q.bind::<Text, _>(session).bind::<BigInt, _>(at.generation)
-                })?;
-                let live = generation_rows
+                let live_now = |row: &HubPresenceRecord| is_presence_live(row.state, row.expires_at, at.now);
+                let generation_rows = rows_where(
+                    conn,
+                    "WHERE session_id = ? AND generation = ?",
+                    binds![at.session_id, at.generation],
+                )?;
+                let existing = requests
                     .iter()
-                    .filter(|row| is_presence_live(row.state, row.expires_at, at.now))
-                    .count();
-                let mut existing = Vec::with_capacity(requests.len());
-                for request in &requests {
-                    existing.push(find(conn, &at.session_id, &request.account_id)?);
-                }
-                let newcomers = existing
-                    .iter()
-                    .filter(|row| {
-                        !row.as_ref()
-                            .is_some_and(|r| is_presence_live(r.state, r.expires_at, at.now))
-                    })
-                    .count();
-                let (live, newcomers) = (
-                    i64::try_from(live).unwrap_or(i64::MAX),
-                    i64::try_from(newcomers).unwrap_or(i64::MAX),
+                    .map(|request| find(conn, &at.session_id, &request.account_id))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let live = count(generation_rows.iter().filter(|row| live_now(row)).count());
+                let newcomers = count(
+                    existing
+                        .iter()
+                        .filter(|row| !row.as_ref().is_some_and(live_now))
+                        .count(),
                 );
                 if newcomers > 0 && live.saturating_add(newcomers) > max_peers {
                     return Ok(HubEntryBatch::Full { live, max_peers });
@@ -448,39 +360,18 @@ impl RealmHubRepository {
         );
         self.db
             .write(actor, move |conn| {
-                let existing = find(conn, &session_id, &account_id)?;
-                let epoch = existing.as_ref().map_or(0, |row| row.entry_epoch);
-                let mut row = existing.unwrap_or_else(|| HubPresenceRecord {
-                    session_id: session_id.clone(),
-                    generation,
-                    realm_id: realm_id.clone(),
-                    account_id: account_id.clone(),
-                    peer_id: peer_id.clone(),
-                    state: PresenceState::Admitted,
-                    candidate_id: format!("host:{session_id}"),
-                    entry_epoch: 0,
-                    local_bridge_port: None,
-                    local_bridge_ready_at: None,
-                    admission_id: None,
-                    route: None,
-                    requested_at: now,
-                    ticketed_at: None,
-                    admitted_at: None,
-                    lost_at: None,
-                    left_at: None,
-                    left_reason: None,
-                    expires_at: now,
-                    purge_at: None,
+                let mut row = find(conn, &session_id, &account_id)?.unwrap_or_else(|| {
+                    let mut fresh = blank(&session_id, &account_id, now);
+                    fresh.candidate_id = format!("host:{session_id}");
+                    fresh
                 });
                 clear_connection(&mut row);
-                row.generation = generation;
-                row.realm_id = realm_id;
-                row.peer_id = peer_id;
                 row.state = PresenceState::Admitted;
+                row.entry_epoch += 1;
+                row.generation = generation;
+                (row.realm_id, row.peer_id) = (realm_id, peer_id);
                 row.local_bridge_port = Some(local_bridge_port);
-                row.local_bridge_ready_at = Some(now);
-                row.admitted_at = Some(now);
-                row.entry_epoch = epoch + 1;
+                (row.local_bridge_ready_at, row.admitted_at) = (Some(now), Some(now));
                 put(conn, &row)?;
                 Ok(row)
             })
@@ -502,20 +393,12 @@ impl RealmHubRepository {
         account_id: &str,
         states: Option<&[PresenceState]>,
     ) -> Result<Option<HubPresenceRecord>, RepoError> {
-        let account = account_id.to_owned();
-        let states = states.unwrap_or(&PresenceState::LIVE).to_vec();
+        let (clause, state_args) = in_states(states.unwrap_or(&PresenceState::LIVE));
+        let tail = format!("WHERE account_id = ? AND {clause} ORDER BY requested_at DESC, session_id LIMIT 1");
+        let mut args = binds![account_id];
+        args.extend(state_args);
         self.db
-            .read(move |conn| {
-                let tail = format!(
-                    "WHERE account_id = ? AND {} ORDER BY requested_at DESC, session_id LIMIT 1",
-                    states_clause(&states)
-                );
-                Ok(
-                    select(conn, &tail, |q| bind_states(q.bind::<Text, _>(account), &states))?
-                        .into_iter()
-                        .next(),
-                )
-            })
+            .read(move |conn| Ok(rows_where(conn, &tail, args)?.into_iter().next()))
             .await
     }
 
@@ -527,19 +410,13 @@ impl RealmHubRepository {
         states: &[PresenceState],
         max: u32,
     ) -> Result<Vec<HubPresenceRecord>, RepoError> {
-        let (session, states) = (session_id.to_owned(), states.to_vec());
-        self.db
-            .read(move |conn| {
-                let tail = format!(
-                    "WHERE session_id = ? AND generation = ? AND {} ORDER BY requested_at, account_id LIMIT ?",
-                    states_clause(&states)
-                );
-                select(conn, &tail, |q| {
-                    bind_states(q.bind::<Text, _>(session).bind::<BigInt, _>(generation), &states)
-                        .bind::<BigInt, _>(limit(max))
-                })
-            })
-            .await
+        let (clause, state_args) = in_states(states);
+        let tail =
+            format!("WHERE session_id = ? AND generation = ? AND {clause} ORDER BY requested_at, account_id LIMIT ?");
+        let mut args = binds![session_id, generation];
+        args.extend(state_args);
+        args.extend(binds![i64::from(max)]);
+        self.db.read(move |conn| rows_where(conn, &tail, args)).await
     }
 
     pub async fn count_by_state(
@@ -548,19 +425,12 @@ impl RealmHubRepository {
         generation: i64,
         states: &[PresenceState],
     ) -> Result<i64, RepoError> {
-        let (session, states) = (session_id.to_owned(), states.to_vec());
+        let (clause, state_args) = in_states(states);
+        let text = format!("SELECT COUNT(*) AS n FROM {TABLE} WHERE session_id = ? AND generation = ? AND {clause}");
+        let mut args = binds![session_id, generation];
+        args.extend(state_args);
         self.db
-            .read(move |conn| {
-                let text = format!(
-                    "SELECT COUNT(*) AS n FROM rifts_hub_presence WHERE session_id = ? AND generation = ? AND {}",
-                    states_clause(&states)
-                );
-                let q = bind_states(
-                    query(&text)?.bind::<Text, _>(session).bind::<BigInt, _>(generation),
-                    &states,
-                );
-                Ok(q.load::<Count>(conn)?.into_iter().next().map_or(0, |c| c.n))
-            })
+            .read(move |conn| Statement::new(&text, args)?.number(conn))
             .await
     }
 
@@ -576,18 +446,13 @@ impl RealmHubRepository {
         let (session_id, generation, account_id) = (key.0.to_owned(), key.1, key.2.to_owned());
         self.db
             .write(actor, move |conn| {
-                let Some(mut row) = find(conn, &session_id, &account_id)? else {
+                let movable = find(conn, &session_id, &account_id)?
+                    .filter(|row| row.generation == generation)
+                    .and_then(|row| next_presence_state(row.state, event).map(|next| (row, next)))
+                    .filter(|(row, _)| guard(row));
+                let Some((mut row, next)) = movable else {
                     return Ok(None);
                 };
-                if row.generation != generation {
-                    return Ok(None);
-                }
-                let Some(next) = next_presence_state(row.state, event) else {
-                    return Ok(None);
-                };
-                if !guard(&row) {
-                    return Ok(None);
-                }
                 change(&mut row, next);
                 put(conn, &row)?;
                 Ok(Some(row))
@@ -605,16 +470,18 @@ impl RealmHubRepository {
         now: UnixMillis,
         ticket_expires_at: UnixMillis,
     ) -> Result<Option<HubPresenceRecord>, RepoError> {
+        let unexpired = move |row: &HubPresenceRecord| !is_presence_expired(row.state, row.expires_at, now);
+        let ticket = move |row: &mut HubPresenceRecord, next| {
+            row.state = next;
+            row.ticketed_at = Some(now);
+            row.expires_at = ticket_expires_at.max(row.expires_at);
+        };
         self.transition(
             actor,
             (session_id, generation, account_id),
             PresenceEvent::TicketIssued,
-            move |row| !is_presence_expired(row.state, row.expires_at, now),
-            move |row, next| {
-                row.state = next;
-                row.ticketed_at = Some(now);
-                row.expires_at = row.expires_at.max(ticket_expires_at);
-            },
+            unexpired,
+            ticket,
         )
         .await
     }
@@ -631,15 +498,16 @@ impl RealmHubRepository {
         ready_at: UnixMillis,
         now: UnixMillis,
     ) -> Result<Option<HubPresenceRecord>, RepoError> {
+        let unexpired = move |row: &HubPresenceRecord| !is_presence_expired(row.state, row.expires_at, now);
+        let ready = move |row: &mut HubPresenceRecord, _: PresenceState| {
+            (row.local_bridge_port, row.local_bridge_ready_at) = (Some(local_bridge_port), Some(ready_at));
+        };
         self.transition(
             actor,
             (session_id, generation, account_id),
             PresenceEvent::Admitted,
-            move |row| !is_presence_expired(row.state, row.expires_at, now),
-            move |row, _| {
-                row.local_bridge_port = Some(local_bridge_port);
-                row.local_bridge_ready_at = Some(ready_at);
-            },
+            unexpired,
+            ready,
         )
         .await
     }
@@ -657,23 +525,21 @@ impl RealmHubRepository {
         route: Option<&str>,
     ) -> Result<Option<HubPresenceRecord>, RepoError> {
         let (admission_id, route) = (admission_id.to_owned(), route.map(str::to_owned));
+        let unexpired = move |row: &HubPresenceRecord| !is_presence_expired(row.state, row.expires_at, now);
+        let admit = move |row: &mut HubPresenceRecord, next| {
+            row.state = next;
+            row.admission_id = Some(admission_id);
+            row.admitted_at = Some(admitted_at);
+            // A report without a route keeps the one already known.
+            row.route = route.or(row.route.take());
+            (row.lost_at, row.left_at, row.left_reason, row.purge_at) = (None, None, None, None);
+        };
         self.transition(
             actor,
             (session_id, generation, account_id),
             PresenceEvent::Admitted,
-            move |row| !is_presence_expired(row.state, row.expires_at, now),
-            move |row, next| {
-                row.state = next;
-                row.admission_id = Some(admission_id);
-                row.admitted_at = Some(admitted_at);
-                if route.is_some() {
-                    row.route = route;
-                }
-                row.lost_at = None;
-                row.left_at = None;
-                row.left_reason = None;
-                row.purge_at = None;
-            },
+            unexpired,
+            admit,
         )
         .await
     }
@@ -691,16 +557,21 @@ impl RealmHubRepository {
         purge_at: UnixMillis,
     ) -> Result<Option<HubPresenceRecord>, RepoError> {
         let admission_id = admission_id.map(str::to_owned);
+        let current = move |row: &HubPresenceRecord| {
+            admission_id
+                .as_ref()
+                .is_none_or(|id| row.admission_id.as_ref() == Some(id))
+        };
+        let lose = move |row: &mut HubPresenceRecord, next| {
+            row.state = next;
+            (row.lost_at, row.purge_at) = (Some(lost_at), Some(purge_at));
+        };
         self.transition(
             actor,
             (session_id, generation, account_id),
             PresenceEvent::Disconnected,
-            move |row| admission_id.is_none() || admission_id == row.admission_id,
-            move |row, next| {
-                row.state = next;
-                row.lost_at = Some(lost_at);
-                row.purge_at = Some(purge_at);
-            },
+            current,
+            lose,
         )
         .await
     }
@@ -718,17 +589,17 @@ impl RealmHubRepository {
         purge_at: UnixMillis,
     ) -> Result<Option<HubPresenceRecord>, RepoError> {
         let reason = reason.to_owned();
+        let leave = move |row: &mut HubPresenceRecord, next| {
+            row.state = next;
+            row.left_reason = Some(reason);
+            (row.left_at, row.purge_at) = (Some(left_at), Some(purge_at));
+        };
         self.transition(
             actor,
             (session_id, generation, account_id),
             PresenceEvent::Travelled,
             |_| true,
-            move |row, next| {
-                row.state = next;
-                row.left_at = Some(left_at);
-                row.left_reason = Some(reason);
-                row.purge_at = Some(purge_at);
-            },
+            leave,
         )
         .await
     }
@@ -736,19 +607,17 @@ impl RealmHubRepository {
     async fn remove_where(
         &self,
         actor: &Actor,
-        tail: String,
-        bind: impl FnOnce(Boxed) -> Boxed + Send + 'static,
+        (tail, args): (&'static str, Vec<Arg>),
         reason: &'static str,
         at: UnixMillis,
         purge_at: UnixMillis,
     ) -> Result<Vec<HubPresenceRecord>, RepoError> {
         self.db
             .write(actor, move |conn| {
-                let rows = select(conn, &tail, bind)?;
+                let rows = rows_where(conn, tail, args)?;
                 bulk(conn, rows, PresenceEvent::Removed, |row| {
-                    row.left_at = Some(at);
                     row.left_reason = Some(reason.to_owned());
-                    row.purge_at = Some(purge_at);
+                    (row.left_at, row.purge_at) = (Some(at), Some(purge_at));
                 })
             })
             .await
@@ -763,16 +632,9 @@ impl RealmHubRepository {
         at: UnixMillis,
         purge_at: UnixMillis,
     ) -> Result<Vec<HubPresenceRecord>, RepoError> {
-        let (realm, account) = (realm_id.to_owned(), account_id.to_owned());
-        self.remove_where(
-            actor,
-            "WHERE realm_id = ? AND account_id = ? ORDER BY session_id, account_id".to_owned(),
-            move |q| q.bind::<Text, _>(realm).bind::<Text, _>(account),
-            "REMOVED",
-            at,
-            purge_at,
-        )
-        .await
+        let tail = "WHERE realm_id = ? AND account_id = ? ORDER BY session_id, account_id";
+        let selected = (tail, binds![realm_id, account_id]);
+        self.remove_where(actor, selected, "REMOVED", at, purge_at).await
     }
 
     pub async fn remove_realm(
@@ -782,16 +644,8 @@ impl RealmHubRepository {
         at: UnixMillis,
         purge_at: UnixMillis,
     ) -> Result<Vec<HubPresenceRecord>, RepoError> {
-        let realm = realm_id.to_owned();
-        self.remove_where(
-            actor,
-            "WHERE realm_id = ? ORDER BY session_id, account_id".to_owned(),
-            move |q| q.bind::<Text, _>(realm),
-            "REALM_RELEASED",
-            at,
-            purge_at,
-        )
-        .await
+        let selected = ("WHERE realm_id = ? ORDER BY session_id, account_id", binds![realm_id]);
+        self.remove_where(actor, selected, "REALM_RELEASED", at, purge_at).await
     }
 
     /// Waiting rows past their time; connected rows have no move and stay.
@@ -802,19 +656,16 @@ impl RealmHubRepository {
         now: UnixMillis,
         purge_at: UnixMillis,
     ) -> Result<Vec<HubPresenceRecord>, RepoError> {
-        let session = session_id.map(str::to_owned);
+        let (tail, args) = match session_id {
+            Some(session) => (
+                "WHERE session_id = ? AND expires_at <= ? ORDER BY session_id, account_id",
+                binds![session, now],
+            ),
+            None => ("WHERE expires_at <= ? ORDER BY session_id, account_id", binds![now]),
+        };
         self.db
             .write(actor, move |conn| {
-                let rows = match session {
-                    Some(session) => select(
-                        conn,
-                        "WHERE session_id = ? AND expires_at <= ? ORDER BY session_id, account_id",
-                        |q| q.bind::<Text, _>(session).bind::<BigInt, _>(now.0),
-                    )?,
-                    None => select(conn, "WHERE expires_at <= ? ORDER BY session_id, account_id", |q| {
-                        q.bind::<BigInt, _>(now.0)
-                    })?,
-                };
+                let rows = rows_where(conn, tail, args)?;
                 bulk(conn, rows, PresenceEvent::Expired, |row| row.purge_at = Some(purge_at))
             })
             .await
@@ -841,11 +692,8 @@ impl RealmHubRepository {
     pub async fn purge(&self, now: UnixMillis) -> Result<usize, RepoError> {
         self.db
             .write(&Actor::System("realms-purge"), move |conn| {
-                Ok(
-                    query("DELETE FROM rifts_hub_presence WHERE purge_at IS NOT NULL AND purge_at <= ?")?
-                        .bind::<BigInt, _>(now.0)
-                        .execute(conn)?,
-                )
+                let text = "DELETE FROM rifts_hub_presence WHERE purge_at IS NOT NULL AND purge_at <= ?";
+                Statement::new(text, binds![now])?.run(conn)
             })
             .await
     }

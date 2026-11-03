@@ -6,44 +6,52 @@
 use std::sync::Arc;
 
 use rifts_seam::{
-    AccountId, BoxFuture, Caller, Component, GlobalId, Method, Mount, NodeId, Refusal, Reply, Route, RouteCall,
+    AccountId, BoxFuture, Caller, Component, GlobalId, Json, Method, Mount, NodeId, Refusal, Reply, Route, RouteCall,
     RouteHandler, SeamError, SessionId, StubRoutes, Ulid, Unimplemented,
 };
 use serde_json::{Map, Value};
 
-use crate::wire::MAX_SAFE_INTEGER;
-use crate::{IceService, RelayError};
+use crate::{IceService, RelayError, wire::is_safe_integer};
 
 // Umbrella spec D3: neutral handler ids. They name the operation in a 501 answer.
 const UPDATE_COOP_TRANSPORT: &str = "relay.update_coop_transport";
 const CREATE_ICE_TRANSPORT_CONFIG: &str = "relay.create_ice_transport_config";
 const SUBMIT_ICE_SIGNAL: &str = "relay.submit_ice_signal";
 
+const fn route(method: Method, mount: Mount, path: &'static str, handler: &'static str) -> Route {
+    Route {
+        method,
+        path,
+        mount,
+        handler,
+    }
+}
+
 pub const ROUTES: &[Route] = &[
-    Route {
-        method: Method::Patch,
-        path: "/admin/v1/operations/coop-transport",
-        mount: Mount::Admin,
-        handler: UPDATE_COOP_TRANSPORT,
-    },
-    Route {
-        method: Method::Post,
-        path: "/launcher/v1/p2p/hunts/:sessionId/transport-config",
-        mount: Mount::Normal,
-        handler: CREATE_ICE_TRANSPORT_CONFIG,
-    },
-    Route {
-        method: Method::Post,
-        path: "/launcher/v1/p2p/hunts/:sessionId/signal",
-        mount: Mount::Normal,
-        handler: SUBMIT_ICE_SIGNAL,
-    },
+    route(
+        Method::Patch,
+        Mount::Admin,
+        "/admin/v1/operations/coop-transport",
+        UPDATE_COOP_TRANSPORT,
+    ),
+    route(
+        Method::Post,
+        Mount::Normal,
+        "/launcher/v1/p2p/hunts/:sessionId/transport-config",
+        CREATE_ICE_TRANSPORT_CONFIG,
+    ),
+    route(
+        Method::Post,
+        Mount::Normal,
+        "/launcher/v1/p2p/hunts/:sessionId/signal",
+        SUBMIT_ICE_SIGNAL,
+    ),
 ];
 
 pub fn stub_routes() -> StubRoutes {
     StubRoutes {
-        component: Component::Relay,
         routes: ROUTES,
+        component: Component::Relay,
     }
 }
 
@@ -53,66 +61,95 @@ pub struct RelayRoutes {
     node: NodeId,
 }
 
+fn refused(code: &str, message: &str) -> SeamError {
+    Refusal {
+        code: code.into(),
+        message: message.into(),
+    }
+    .into()
+}
+
+/// What a relay error looks like to the router: refusals and 501s pass through, anything else is `INTERNAL`.
+fn seam_error(error: RelayError) -> SeamError {
+    match error {
+        RelayError::Refused(refusal) => refusal.into(),
+        RelayError::Unimplemented(missing) => missing.into(),
+        other => refused("INTERNAL", &other.to_string()),
+    }
+}
+
+fn ok(body: Json) -> Reply {
+    Reply { status: 200, body }
+}
+
 impl RelayRoutes {
     pub fn new(service: Arc<dyn IceService>, node: NodeId) -> Self {
-        Self { service, node }
+        Self { node, service }
     }
 
     /// The session from the `sessionId` param: a global id, or a lower-case UUID read as a ULID on this node. Any
     /// other text becomes ULID 0, which no session has.
     fn session(&self, call: &RouteCall) -> SessionId {
-        let raw = param(call, "sessionId");
-        let text = raw.split_once(':').map_or(raw, |(_, rest)| rest);
-        if let Ok(session) = text.parse::<SessionId>() {
-            return session;
-        }
-        SessionId(GlobalId {
-            ulid: Ulid(uuid_value(text).unwrap_or(0)),
-            node: self.node.clone(),
+        let raw = call
+            .params
+            .iter()
+            .find_map(|(name, value)| (name == "sessionId").then_some(value.as_str()))
+            .unwrap_or_default();
+        let text = match raw.split_once(':') {
+            Some((_, after)) => after,
+            None => raw,
+        };
+        text.parse().unwrap_or_else(|_| {
+            SessionId(GlobalId {
+                node: self.node.clone(),
+                ulid: Ulid(lower_uuid(text).unwrap_or_default()),
+            })
         })
     }
 
     async fn dispatch(&self, call: RouteCall) -> Result<Reply, SeamError> {
+        let service = &*self.service;
         match call.route.handler {
             UPDATE_COOP_TRANSPORT => {
-                let key_id = match &call.caller {
+                let admin = match &call.caller {
                     Caller::Admin { key_id } => key_id.clone(),
-                    _ => "admin".to_owned(),
+                    _ => String::from("admin"),
                 };
-                let body = serde_json::from_slice::<Value>(&call.body).unwrap_or_else(|_| Value::Object(Map::new()));
-                self.service.set_coop_transport(key_id, body).await.map_err(seam_error)
+                // Not an object is left for the service's validation to refuse.
+                let body = serde_json::from_slice(&call.body).unwrap_or_else(|_| Value::Object(Map::new()));
+                service.set_coop_transport(admin, body).await.map_err(seam_error)
             }
             CREATE_ICE_TRANSPORT_CONFIG => {
-                let account = launcher(&call)?;
-                let session = self.session(&call);
-                let body = object_body(&call)?;
+                let (who, hunt, body) = self.launcher_call(&call)?;
                 let generation = body.get("generation").and_then(generation_of);
-                let json = self
-                    .service
-                    .transport_config(account, session, generation)
+                service
+                    .transport_config(who, hunt, generation)
                     .await
-                    .map_err(seam_error)?;
-                Ok(Reply {
-                    status: 200,
-                    body: json,
-                })
+                    .map(ok)
+                    .map_err(seam_error)
             }
             SUBMIT_ICE_SIGNAL => {
-                let account = launcher(&call)?;
-                let session = self.session(&call);
-                let body = object_body(&call)?;
-                let json = self
-                    .service
-                    .submit_signal(account, session, body)
-                    .await
-                    .map_err(seam_error)?;
-                Ok(Reply {
-                    status: 200,
-                    body: json,
-                })
+                let (who, hunt, body) = self.launcher_call(&call)?;
+                service.submit_signal(who, hunt, body).await.map(ok).map_err(seam_error)
             }
-            handler => Err(Unimplemented::new(Component::Relay, handler).into()),
+            other => Err(Unimplemented::new(Component::Relay, other).into()),
         }
+    }
+
+    /// A signed-in launcher's account, the session and the body, which must be a JSON object (or empty).
+    fn launcher_call(&self, call: &RouteCall) -> Result<(AccountId, SessionId, Value), SeamError> {
+        let Caller::Launcher(who) = &call.caller else {
+            return Err(refused("AUTH_UNAUTHORIZED", "Sign in required."));
+        };
+        let hunt = self.session(call);
+        let body = match call.body.as_slice() {
+            [] => Value::Object(Map::new()),
+            bytes => match serde_json::from_slice(bytes) {
+                Ok(object @ Value::Object(_)) => object,
+                _ => return Err(refused("P2P_TICKET_INVALID", "The request body must be a JSON object.")),
+            },
+        };
+        Ok((who.clone(), hunt, body))
     }
 }
 
@@ -126,80 +163,28 @@ impl RouteHandler for RelayRoutes {
     }
 }
 
-fn param<'a>(call: &'a RouteCall, name: &str) -> &'a str {
-    call.params
-        .iter()
-        .find(|(key, _)| key == name)
-        .map_or("", |(_, value)| value.as_str())
-}
-
-fn uuid_value(text: &str) -> Option<u128> {
-    let bytes = text.as_bytes();
-    if bytes.len() != 36 {
+/// A UUID in lower-case hex with its four dashes, as one number.
+fn lower_uuid(text: &str) -> Option<u128> {
+    let groups: Vec<&str> = text.split('-').collect();
+    if !groups.iter().map(|group| group.len()).eq([8, 4, 4, 4, 12]) {
         return None;
     }
-    let mut value = 0_u128;
-    for (at, byte) in bytes.iter().enumerate() {
-        if matches!(at, 8 | 13 | 18 | 23) {
-            if *byte != b'-' {
-                return None;
-            }
-            continue;
-        }
-        let digit = match byte {
-            b'0'..=b'9' => byte - b'0',
-            b'a'..=b'f' => byte - b'a' + 10,
-            _ => return None,
-        };
-        value = (value << 4) | u128::from(digit);
-    }
-    Some(value)
-}
-
-fn refused(code: &str, message: &str) -> SeamError {
-    SeamError::Refused(Refusal {
-        code: code.to_owned(),
-        message: message.to_owned(),
-    })
-}
-
-fn launcher(call: &RouteCall) -> Result<AccountId, SeamError> {
-    match &call.caller {
-        Caller::Launcher(account) => Ok(account.clone()),
-        _ => Err(refused("AUTH_UNAUTHORIZED", "Sign in required.")),
-    }
-}
-
-fn object_body(call: &RouteCall) -> Result<Value, SeamError> {
-    if call.body.is_empty() {
-        return Ok(Value::Object(Map::new()));
-    }
-    match serde_json::from_slice::<Value>(&call.body) {
-        Ok(body @ Value::Object(_)) => Ok(body),
-        _ => Err(refused("P2P_TICKET_INVALID", "The request body must be a JSON object.")),
-    }
+    let digits = groups.concat();
+    let lower_hex = digits.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'));
+    lower_hex.then(|| u128::from_str_radix(&digits, 16).ok()).flatten()
 }
 
 /// Any JSON integer that fits i64; a float only when it has no fraction and is a safe integer.
 fn generation_of(value: &Value) -> Option<i64> {
     let number = value.as_number()?;
-    if let Some(integer) = number.as_i64() {
-        return Some(integer);
-    }
-    if number.is_u64() {
-        return None;
-    }
-    let float = number.as_f64()?;
-    // Bounded by MAX_SAFE_INTEGER, so the cast is exact.
-    #[allow(clippy::cast_possible_truncation)]
-    (float.is_finite() && float.fract() == 0.0 && float.abs() <= MAX_SAFE_INTEGER).then_some(float as i64)
-}
-
-fn seam_error(error: RelayError) -> SeamError {
-    match error {
-        RelayError::Unimplemented(unimplemented) => SeamError::Unimplemented(unimplemented),
-        RelayError::Refused(refusal) => SeamError::Refused(refusal),
-        other => refused("INTERNAL", &other.to_string()),
+    match (number.as_i64(), number.is_u64()) {
+        (Some(integer), _) => Some(integer),
+        (None, true) => None,
+        // A safe integer, so the cast is exact.
+        (None, false) => number
+            .as_f64()
+            .filter(|&float| is_safe_integer(float))
+            .map(|float| float as i64),
     }
 }
 

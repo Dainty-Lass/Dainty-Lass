@@ -4,169 +4,192 @@
 //! The files the host PC keeps: hub limits per server and control cursors per account, each one JSON file written
 //! atomically, a damaged one set aside as `.bad` before it is replaced.
 
-use std::collections::BTreeMap;
-use std::fs;
-use std::io::{ErrorKind, Write as _};
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::{self, Write as _},
+    ops::RangeInclusive,
+    path::{Path, PathBuf},
+    sync::{Mutex, MutexGuard, PoisonError},
+};
 
-use rifts_seam::AccountId;
 use serde::{Deserialize, Serialize};
 
-use crate::HostError;
-use crate::session::HubLimits;
+use crate::{HostError, session::HubLimits};
+
+// In the launcher's config folder.
+pub const HUB_LIMITS_FILE: &str = "realm-host-limits.json";
+pub const HOST_SETTINGS_FILE: &str = "p2p-host-settings.json";
 
 /// In the session folder, in the order they are written.
 pub const SESSION_FILES: [&str; 4] = ["bridge.conf", "transport.secret", "capability.secret", "ticket.secret"];
-/// In the game folder (Guard role `ADMISSION_KEY`).
+
+// In the game folder.
+/// Guard role `ADMISSION_KEY`.
 pub const ADMISSION_PUBLIC_KEY_FILE: &str = "p2p-admission-public.xy";
+pub const DISABLE_COOP_FLAG_FILE: &str = "DISABLE_COOP_TRANSPORT.flag";
 /// The file name the launcher still pins a digest for; nothing loads it since the transport is linked in (D1).
 pub const TRANSPORT_DLL: &str = "RusticTransport.dll";
-pub const HOST_SETTINGS_FILE: &str = "p2p-host-settings.json";
-pub const HUB_LIMITS_FILE: &str = "realm-host-limits.json";
-pub const DISABLE_COOP_FLAG_FILE: &str = "DISABLE_COOP_TRANSPORT.flag";
 
-const MAX_SERVER_ID: usize = 64;
-const MAX_ACCOUNT_ID: usize = 128;
+const SERVER_ID_LENGTHS: RangeInclusive<usize> = 1..=64;
+const ACCOUNT_ID_LENGTHS: RangeInclusive<usize> = 1..=128;
 
 pub fn validate_hub_limits(limits: &HubLimits) -> Result<(), HostError> {
-    let refuse = |text: &str| Err(HostError::InvalidInput(text.to_owned()));
-    if !(1..=64).contains(&limits.max_players) {
-        return refuse("the player limit must be from 1 to 64");
-    }
-    if !(1..=8).contains(&limits.max_servers) {
-        return refuse("the server limit must be from 1 to 8");
-    }
-    if limits.afk_seconds > 7200 {
-        return refuse("the AFK limit must be from 0 to 7200 seconds");
-    }
-    Ok(())
+    let players = (1..=64).contains(&limits.max_players);
+    let servers = (1..=8).contains(&limits.max_servers);
+    let afk = limits.afk_seconds <= 7200;
+    let refusal = [
+        (players, "the player limit must be from 1 to 64"),
+        (servers, "the server limit must be from 1 to 8"),
+        (afk, "the AFK limit must be from 0 to 7200 seconds"),
+    ]
+    .into_iter()
+    .find_map(|(fine, text)| (!fine).then_some(text));
+    refusal.map_or(Ok(()), |text| Err(HostError::InvalidInput(text.to_owned())))
 }
 
 pub trait HostState: Send + Sync {
     fn hub_limits(&self) -> Result<Option<HubLimits>, HostError>;
     fn save_hub_limits(&self, limits: &HubLimits) -> Result<(), HostError>;
-    fn control_cursor(&self, account: &AccountId) -> Result<Option<u64>, HostError>;
-    fn set_control_cursor(&self, account: &AccountId, sequence: u64) -> Result<(), HostError>;
+    fn control_cursor(&self, account: &rifts_seam::AccountId) -> Result<Option<u64>, HostError>;
+    fn set_control_cursor(&self, account: &rifts_seam::AccountId, sequence: u64) -> Result<(), HostError>;
 }
 
+/// The two files in one folder, for one server id; one lock serialises every read-modify-write.
 #[derive(Debug)]
 pub struct FileHostState {
-    config_dir: PathBuf,
-    server_id: String,
-    lock: Mutex<()>,
+    folder: PathBuf,
+    server: String,
+    busy: Mutex<()>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// One server's limits as stored; a file from before the AFK limit has none.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct StoredLimits {
-    max_players: u8,
-    max_servers: u8,
-    #[serde(default)]
-    afk_seconds: u32,
+    #[serde(rename = "maxPlayers")]
+    players: u8,
+    #[serde(rename = "maxServers")]
+    servers: u8,
+    #[serde(rename = "afkSeconds", default)]
+    afk: u32,
 }
 
 impl From<StoredLimits> for HubLimits {
-    fn from(s: StoredLimits) -> Self {
+    fn from(stored: StoredLimits) -> Self {
         Self {
-            max_players: s.max_players,
-            max_servers: s.max_servers,
-            afk_seconds: s.afk_seconds,
+            max_players: stored.players,
+            max_servers: stored.servers,
+            afk_seconds: stored.afk,
         }
     }
 }
 
-impl From<&HubLimits> for StoredLimits {
-    fn from(l: &HubLimits) -> Self {
+impl StoredLimits {
+    fn of(limits: &HubLimits) -> Self {
         Self {
-            max_players: l.max_players,
-            max_servers: l.max_servers,
-            afk_seconds: l.afk_seconds,
+            players: limits.max_players,
+            servers: limits.max_servers,
+            afk: limits.afk_seconds,
         }
+    }
+
+    fn valid(self) -> bool {
+        validate_hub_limits(&self.into()).is_ok()
     }
 }
 
-// Unknown keys are refused so the older single-object layout is not taken for an empty map.
-#[derive(Deserialize)]
+type ServerLimits = BTreeMap<String, StoredLimits>;
+type Cursors = BTreeMap<String, u64>;
+
+/// `realm-host-limits.json`, read as `<Option<u64>, Option<map>>` and written as `<u32, &map>`. Unknown keys are
+/// refused so the older single-object layout is not taken for an empty map.
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct LimitsFileIn {
+struct LimitsFile<V, S> {
     #[serde(default)]
-    #[allow(dead_code)]
-    version: Option<u64>,
+    version: V,
     #[serde(default)]
-    servers: Option<BTreeMap<String, StoredLimits>>,
+    servers: S,
 }
 
-#[derive(Serialize)]
-struct LimitsFileOut<'a> {
-    version: u32,
-    servers: &'a BTreeMap<String, StoredLimits>,
-}
-
-#[derive(Deserialize)]
-struct SettingsIn {
+/// `p2p-host-settings.json`; the snake_case key is read from older files.
+#[derive(Deserialize, Serialize)]
+struct SettingsFile<C> {
     #[serde(default, alias = "control_cursors", rename = "controlCursors")]
-    control_cursors: BTreeMap<String, u64>,
+    cursors: C,
 }
 
-#[derive(Serialize)]
-struct SettingsOut<'a> {
-    #[serde(rename = "controlCursors")]
-    control_cursors: &'a BTreeMap<String, u64>,
-}
-
-struct Read<T> {
+/// A file's content, and whether it was damaged and must be set aside before the next write.
+struct Loaded<T> {
     value: T,
     damaged: bool,
 }
 
-fn valid_server_id(id: &str) -> bool {
-    (1..=MAX_SERVER_ID).contains(&id.len())
+impl<T: Default> Loaded<T> {
+    fn intact(value: T) -> Self {
+        Self { value, damaged: false }
+    }
+
+    fn unreadable() -> Self {
+        Self {
+            value: T::default(),
+            damaged: true,
+        }
+    }
+}
+
+fn io_failure(action: &str, path: &Path) -> impl FnOnce(io::Error) -> HostError {
+    let what = format!("could not {action} {}", path.display());
+    move |e| HostError::Io(format!("{what}: {e}"))
 }
 
 /// `None` when the file is absent.
-fn read_text(path: &Path) -> Result<Option<String>, HostError> {
+fn text_of(path: &Path) -> Result<Option<String>, HostError> {
     match fs::read(path) {
-        Ok(bytes) => Ok(Some(String::from_utf8_lossy(&bytes).into_owned())),
-        Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(HostError::Io(format!("could not read {}: {e}", path.display()))),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        read => read
+            .map(|bytes| Some(String::from_utf8_lossy(&bytes).into_owned()))
+            .map_err(io_failure("read", path)),
     }
 }
 
 /// `realm-host-limits.json.bad` from `realm-host-limits.json`.
-fn sibling(path: &Path, extension: &str) -> PathBuf {
-    path.with_extension(format!("json.{extension}"))
+fn beside(path: &Path, suffix: &str) -> PathBuf {
+    path.with_extension(["json", suffix].join("."))
 }
 
-fn atomic_write(path: &Path, damaged: bool, contents: &[u8]) -> Result<(), HostError> {
-    if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir).map_err(|e| HostError::Io(format!("could not create {}: {e}", dir.display())))?;
+/// Staged in `.tmp` and renamed over the file, after moving a damaged one to `.bad`.
+fn replace_file(path: &Path, damaged: bool, contents: &[u8]) -> Result<(), HostError> {
+    if let Some(folder) = path.parent() {
+        fs::create_dir_all(folder).map_err(io_failure("create", folder))?;
     }
     if damaged && path.exists() {
-        fs::rename(path, sibling(path, "bad"))
-            .map_err(|e| HostError::Io(format!("could not set aside damaged {}: {e}", path.display())))?;
+        fs::rename(path, beside(path, "bad")).map_err(io_failure("set aside damaged", path))?;
     }
-    let tmp = sibling(path, "tmp");
-    let _ = fs::remove_file(&tmp);
-    let mut file =
-        create_private(&tmp).map_err(|e| HostError::Io(format!("could not create {}: {e}", tmp.display())))?;
-    file.write_all(contents)
-        .and_then(|()| file.sync_all())
-        .map_err(|e| HostError::Io(format!("could not write {}: {e}", tmp.display())))?;
+    let staging = beside(path, "tmp");
+    let _ = fs::remove_file(&staging);
+    let mut file = create_private(&staging).map_err(io_failure("create", &staging))?;
+    let written = file.write_all(contents).and_then(|()| file.sync_all());
+    written.map_err(io_failure("write", &staging))?;
     drop(file);
-    fs::rename(&tmp, path).map_err(|e| HostError::Io(format!("could not commit {}: {e}", path.display())))
+    fs::rename(&staging, path).map_err(io_failure("commit", path))
 }
 
 /// A new file, owner-only on Unix; on Windows it inherits the folder's ACL.
-pub(crate) fn create_private(path: &Path) -> std::io::Result<fs::File> {
+pub(crate) fn create_private(path: &Path) -> io::Result<fs::File> {
     let mut options = fs::OpenOptions::new();
-    options.write(true).create_new(true);
+    options.create_new(true).write(true);
     #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt as _;
-        options.mode(0o600);
-    }
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
     options.open(path)
+}
+
+fn pretty<T: Serialize>(value: &T, what: &str) -> Result<String, HostError> {
+    serde_json::to_string_pretty(value).map_err(|e| HostError::Io(format!("could not encode {what}: {e}")))
+}
+
+fn invalid(text: &str) -> HostError {
+    HostError::InvalidInput(text.to_owned())
 }
 
 impl FileHostState {
@@ -175,139 +198,108 @@ impl FileHostState {
     }
 
     pub fn for_server(config_dir: impl Into<PathBuf>, server_id: impl Into<String>) -> Self {
+        let (folder, server) = (config_dir.into(), server_id.into());
         Self {
-            config_dir: config_dir.into(),
-            server_id: server_id.into(),
-            lock: Mutex::new(()),
+            folder,
+            server,
+            busy: Mutex::default(),
         }
     }
 
     pub fn config_dir(&self) -> &Path {
-        &self.config_dir
+        self.folder.as_path()
     }
 
     pub fn server_id(&self) -> &str {
-        &self.server_id
+        self.server.as_str()
     }
 
-    fn locked(&self) -> MutexGuard<'_, ()> {
-        self.lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn hold(&self) -> MutexGuard<'_, ()> {
+        self.busy.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn limits_path(&self) -> PathBuf {
-        self.config_dir.join(HUB_LIMITS_FILE)
-    }
-
-    fn settings_path(&self) -> PathBuf {
-        self.config_dir.join(HOST_SETTINGS_FILE)
-    }
-
-    fn read_limits(&self) -> Result<Read<BTreeMap<String, StoredLimits>>, HostError> {
-        let Some(text) = read_text(&self.limits_path())? else {
-            return Ok(Read {
-                value: BTreeMap::new(),
-                damaged: false,
-            });
+    /// The per-server map; an older single-object file counts as this server's entry.
+    fn load_limits(&self) -> Result<Loaded<ServerLimits>, HostError> {
+        let Some(text) = text_of(&self.folder.join(HUB_LIMITS_FILE))? else {
+            return Ok(Loaded::intact(ServerLimits::new()));
         };
-        if let Ok(file) = serde_json::from_str::<LimitsFileIn>(&text) {
-            let all = file.servers.unwrap_or_default();
-            let total = all.len();
-            let kept: BTreeMap<String, StoredLimits> = all
-                .into_iter()
-                .filter(|(id, l)| valid_server_id(id) && validate_hub_limits(&HubLimits::from(*l)).is_ok())
-                .collect();
-            let damaged = kept.is_empty() && total > 0;
-            return Ok(Read { value: kept, damaged });
-        }
-        if let Ok(single) = serde_json::from_str::<StoredLimits>(&text)
-            && validate_hub_limits(&single.into()).is_ok()
-        {
-            return Ok(Read {
-                value: BTreeMap::from([(self.server_id.clone(), single)]),
-                damaged: false,
+        if let Ok(file) = serde_json::from_str::<LimitsFile<Option<u64>, Option<ServerLimits>>>(&text) {
+            let mut servers = file.servers.unwrap_or_default();
+            let had_entries = !servers.is_empty();
+            servers.retain(|id, limits| SERVER_ID_LENGTHS.contains(&id.len()) && limits.valid());
+            // Entries that were all bad make the file damaged; an empty map does not.
+            let damaged = had_entries && servers.is_empty();
+            return Ok(Loaded {
+                value: servers,
+                damaged,
             });
         }
-        Ok(Read {
-            value: BTreeMap::new(),
-            damaged: true,
+        Ok(match serde_json::from_str::<StoredLimits>(&text) {
+            Ok(single) if single.valid() => Loaded::intact(ServerLimits::from([(self.server.clone(), single)])),
+            _ => Loaded::unreadable(),
         })
     }
 
-    fn read_settings(&self) -> Result<Read<BTreeMap<String, u64>>, HostError> {
-        let Some(text) = read_text(&self.settings_path())? else {
-            return Ok(Read {
-                value: BTreeMap::new(),
-                damaged: false,
-            });
+    fn load_cursors(&self) -> Result<Loaded<Cursors>, HostError> {
+        let Some(text) = text_of(&self.folder.join(HOST_SETTINGS_FILE))? else {
+            return Ok(Loaded::intact(Cursors::new()));
         };
-        Ok(match serde_json::from_str::<SettingsIn>(&text) {
-            Ok(settings) => Read {
-                value: settings.control_cursors,
-                damaged: false,
-            },
-            Err(_) => Read {
-                value: BTreeMap::new(),
-                damaged: true,
-            },
-        })
+        let parsed = serde_json::from_str::<SettingsFile<Cursors>>(&text);
+        Ok(parsed.map_or_else(|_| Loaded::unreadable(), |file| Loaded::intact(file.cursors)))
     }
 }
 
 impl HostState for FileHostState {
     fn hub_limits(&self) -> Result<Option<HubLimits>, HostError> {
-        let _guard = self.locked();
-        Ok(self
-            .read_limits()?
-            .value
-            .get(&self.server_id)
-            .map(|l| HubLimits::from(*l)))
+        let _held = self.hold();
+        let servers = self.load_limits()?.value;
+        Ok(servers.get(&self.server).map(|stored| (*stored).into()))
     }
 
     fn save_hub_limits(&self, limits: &HubLimits) -> Result<(), HostError> {
         validate_hub_limits(limits)?;
-        if !valid_server_id(&self.server_id) {
-            return Err(HostError::InvalidInput("invalid server id".to_owned()));
+        if !SERVER_ID_LENGTHS.contains(&self.server.len()) {
+            return Err(invalid("invalid server id"));
         }
-        let _guard = self.locked();
-        let Read { mut value, damaged } = self.read_limits()?;
-        let wanted = StoredLimits::from(limits);
-        if !damaged && value.get(&self.server_id) == Some(&wanted) {
+        let _held = self.hold();
+        let mut loaded = self.load_limits()?;
+        let wanted = StoredLimits::of(limits);
+        if !loaded.damaged && loaded.value.get(&self.server) == Some(&wanted) {
             return Ok(());
         }
-        value.insert(self.server_id.clone(), wanted);
-        let text = serde_json::to_string_pretty(&LimitsFileOut {
-            version: 1,
-            servers: &value,
-        })
-        .map_err(|e| HostError::Io(format!("could not encode hub limits: {e}")))?;
-        atomic_write(&self.limits_path(), damaged, text.as_bytes())
+        loaded.value.insert(self.server.clone(), wanted);
+        let file = LimitsFile {
+            version: 1_u32,
+            servers: &loaded.value,
+        };
+        let text = pretty(&file, "hub limits")?;
+        replace_file(&self.folder.join(HUB_LIMITS_FILE), loaded.damaged, text.as_bytes())
     }
 
-    fn control_cursor(&self, account: &AccountId) -> Result<Option<u64>, HostError> {
-        if account.0.is_empty() {
-            return Err(HostError::InvalidInput("account id must not be empty".to_owned()));
+    fn control_cursor(&self, account: &rifts_seam::AccountId) -> Result<Option<u64>, HostError> {
+        let id = account.0.as_str();
+        if id.is_empty() {
+            return Err(invalid("account id must not be empty"));
         }
-        let _guard = self.locked();
-        Ok(self.read_settings()?.value.get(&account.0).copied())
+        let _held = self.hold();
+        Ok(self.load_cursors()?.value.get(id).copied())
     }
 
-    fn set_control_cursor(&self, account: &AccountId, sequence: u64) -> Result<(), HostError> {
-        if !(1..=MAX_ACCOUNT_ID).contains(&account.0.len()) {
-            return Err(HostError::InvalidInput("invalid account id".to_owned()));
+    fn set_control_cursor(&self, account: &rifts_seam::AccountId, sequence: u64) -> Result<(), HostError> {
+        let id = account.0.as_str();
+        if !ACCOUNT_ID_LENGTHS.contains(&id.len()) {
+            return Err(invalid("invalid account id"));
         }
-        let _guard = self.locked();
-        let Read { mut value, damaged } = self.read_settings()?;
-        let stored = value.get(&account.0).copied();
+        let _held = self.hold();
+        let mut loaded = self.load_cursors()?;
+        let stored = loaded.value.get(id).copied();
         // A cursor only moves forward: a late or replayed ack never re-delivers what was acked.
-        let next = stored.map_or(sequence, |s| s.max(sequence));
-        if !damaged && stored == Some(next) {
+        let next = stored.map_or(sequence, |kept| kept.max(sequence));
+        if !loaded.damaged && stored == Some(next) {
             return Ok(());
         }
-        value.insert(account.0.clone(), next);
-        let text = serde_json::to_string_pretty(&SettingsOut {
-            control_cursors: &value,
-        })
-        .map_err(|e| HostError::Io(format!("could not encode host settings: {e}")))?;
-        atomic_write(&self.settings_path(), damaged, text.as_bytes())
+        loaded.value.insert(id.to_owned(), next);
+        let text = pretty(&SettingsFile { cursors: &loaded.value }, "host settings")?;
+        replace_file(&self.folder.join(HOST_SETTINGS_FILE), loaded.damaged, text.as_bytes())
     }
 }

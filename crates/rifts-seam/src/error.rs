@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-use std::fmt;
+use std::{error::Error, fmt};
 
 /// Which part of rifts (or the module itself) an answer comes from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Component {
     Admission,
     Relay,
@@ -14,22 +14,28 @@ pub enum Component {
     Isles,
 }
 
-impl fmt::Display for Component {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
+impl Component {
+    // The name a refusal shows: the crate's, or the module's for `Isles`.
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Isles => "isles",
             Self::Admission => "rifts-admission",
-            Self::Relay => "rifts-relay",
-            Self::Realms => "rifts-realms",
             Self::Guard => "rifts-guard",
             Self::Host => "rifts-host",
-            Self::Isles => "isles",
-        })
+            Self::Realms => "rifts-realms",
+            Self::Relay => "rifts-relay",
+        }
+    }
+}
+
+impl fmt::Display for Component {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
     }
 }
 
 /// An operation with no implementation yet; clients see it as a 501.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("{component}: {operation} is not implemented yet")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Unimplemented {
     pub component: Component,
     pub operation: &'static str,
@@ -41,21 +47,36 @@ impl Unimplemented {
     }
 }
 
+impl fmt::Display for Unimplemented {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { component, operation } = self;
+        write!(f, "{component}: {operation} is not implemented yet")
+    }
+}
+
+impl Error for Unimplemented {}
+
 /// A refusal with the code the module's status table maps to an HTTP status.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("{code}: {message}")]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Refusal {
     pub code: String,
     pub message: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+impl fmt::Display for Refusal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.code, self.message)
+    }
+}
+
+impl Error for Refusal {}
+
+/// Either kind of answer a hook gives instead of a value; shows and sources as the one it holds.
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SeamError {
-    #[error(transparent)]
-    Unimplemented(#[from] Unimplemented),
-    #[error(transparent)]
-    Refused(#[from] Refusal),
+    Unimplemented(Unimplemented),
+    Refused(Refusal),
 }
 
 impl SeamError {
@@ -66,6 +87,37 @@ impl SeamError {
     pub fn is_unimplemented(&self) -> bool {
         matches!(self, Self::Unimplemented(_))
     }
+
+    fn inner(&self) -> &(dyn Error + 'static) {
+        match self {
+            Self::Unimplemented(missing) => missing,
+            Self::Refused(refusal) => refusal,
+        }
+    }
+}
+
+impl fmt::Display for SeamError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self.inner(), f)
+    }
+}
+
+impl Error for SeamError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.inner().source()
+    }
+}
+
+impl From<Unimplemented> for SeamError {
+    fn from(missing: Unimplemented) -> Self {
+        Self::Unimplemented(missing)
+    }
+}
+
+impl From<Refusal> for SeamError {
+    fn from(refusal: Refusal) -> Self {
+        Self::Refused(refusal)
+    }
 }
 
 #[cfg(test)]
@@ -74,38 +126,32 @@ mod tests {
 
     #[test]
     fn display_texts() {
-        let names: Vec<String> = [
-            Component::Admission,
-            Component::Relay,
-            Component::Realms,
-            Component::Guard,
-            Component::Host,
-            Component::Isles,
-        ]
-        .iter()
-        .map(ToString::to_string)
-        .collect();
-        assert_eq!(
-            names,
-            [
-                "rifts-admission",
-                "rifts-relay",
-                "rifts-realms",
-                "rifts-guard",
-                "rifts-host",
-                "isles"
-            ]
-        );
+        let expected = [
+            (Component::Admission, "rifts-admission"),
+            (Component::Relay, "rifts-relay"),
+            (Component::Realms, "rifts-realms"),
+            (Component::Guard, "rifts-guard"),
+            (Component::Host, "rifts-host"),
+            (Component::Isles, "isles"),
+        ];
+        for (component, text) in expected {
+            assert_eq!(component.to_string(), text);
+        }
 
         let missing = SeamError::unimplemented(Component::Realms, "realms.join");
-        assert!(missing.is_unimplemented());
-        assert_eq!(missing.to_string(), "rifts-realms: realms.join is not implemented yet");
-
-        let refused = SeamError::from(Refusal {
+        let refused: SeamError = Refusal {
             code: "REALMS_DISABLED".into(),
             message: "No.".into(),
-        });
-        assert!(!refused.is_unimplemented());
-        assert_eq!(refused.to_string(), "REALMS_DISABLED: No.");
+        }
+        .into();
+        let cases = [
+            (&missing, true, "rifts-realms: realms.join is not implemented yet"),
+            (&refused, false, "REALMS_DISABLED: No."),
+        ];
+        for (error, unimplemented, text) in cases {
+            assert_eq!(error.is_unimplemented(), unimplemented);
+            assert_eq!(error.to_string(), text);
+            assert!(error.source().is_none());
+        }
     }
 }

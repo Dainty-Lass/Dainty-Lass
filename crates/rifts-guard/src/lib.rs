@@ -30,8 +30,10 @@ mod testkit;
 #[cfg(test)]
 mod tests;
 
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex, MutexGuard, PoisonError},
+};
 
 use rifts_seam::{
     AccountId, Actor, BoxFuture, Component, DeletionAction, DeletionStep, GuardHooks, HOST_CAPABILITY_HEADER,
@@ -41,61 +43,109 @@ use rifts_seam::{
 };
 use serde_json::Value;
 
-pub use crate::census::{HostRouteCensus, HostRouteRow, HostRouteSummary};
-pub use crate::config::{
-    GuardConfig, HostPolicyMode, HostPolicySetting, HuntEvidenceSetting, Tier1Policy, TrustTier, log_host_policy,
-    log_hunt_evidence, resolve_host_policy, resolve_hunt_evidence,
-};
-pub use crate::digest::sha256_hex;
-pub use crate::errors::{ERROR_STATUSES, GuardError, envelope, status_of};
-pub use crate::operations::{DEFAULT_REWARD_ROLLOUT, RewardRollout};
-pub use crate::ports::{
-    AuditEntry, CapabilityView, Clock, CoreOperationsPolicy, GuardLog, HuntSessions, HuntView, ManualClock, MemoryLog,
-    MemoryOperations, NoHuntSessions, OperationsPolicyPort, PolicySnapshot, RosterEntry, StderrLog, SystemClock,
-    iso_time,
-};
-pub use crate::routes::{GuardRoutes, ROUTES, stub_routes};
-pub use crate::sql::{POSTGRES_MIGRATIONS, SCHEMA, SQLITE_MIGRATIONS, SqlGuardStore, block_on_store, store_actor};
-pub use crate::store::{
-    AlertRecord, BatchRecord, ChainRecord, ChainUpdate, CompletionMode, CompletionRecord, Disposition, EncounterState,
-    FindingRecord, GENESIS_HASH, GuardStore, HostWriteRecord, MemoryGuardStore, StubGuardStore, TABLES,
-    TrafficReservation, TrafficScope, TrafficWindowRecord, XP_SUMMARY_TTL_MS, XpSummaryRecord,
-};
-pub use crate::traffic::{
-    BudgetPermit, HUNT_GUARD_HOST_TRAFFIC_LIMIT, HUNT_GUARD_REQUEST_BUDGET, HUNT_GUARD_SESSION_TRAFFIC_LIMIT,
-    HuntOperation, LocalTrafficLimiter, RequestBudget, RequestBudgetLimit, TrafficLimit,
-};
-pub use crate::writes::{
-    WriteDenial, host_write_denial, inventory_body_denial, inventory_denial, kind_name, loot_refusal, write_refusal,
+pub use crate::{
+    census::{HostRouteCensus, HostRouteRow, HostRouteSummary},
+    config::{
+        GuardConfig, HostPolicyMode, HostPolicySetting, HuntEvidenceSetting, Tier1Policy, TrustTier, log_host_policy,
+        log_hunt_evidence, resolve_host_policy, resolve_hunt_evidence,
+    },
+    digest::sha256_hex,
+    errors::{ERROR_STATUSES, GuardError, envelope, status_of},
+    operations::{DEFAULT_REWARD_ROLLOUT, RewardRollout},
+    ports::{
+        AuditEntry, CapabilityView, Clock, CoreOperationsPolicy, GuardLog, HuntSessions, HuntView, ManualClock,
+        MemoryLog, MemoryOperations, NoHuntSessions, OperationsPolicyPort, PolicySnapshot, RosterEntry, StderrLog,
+        SystemClock, iso_time,
+    },
+    routes::{GuardRoutes, ROUTES, stub_routes},
+    sql::{POSTGRES_MIGRATIONS, SCHEMA, SQLITE_MIGRATIONS, SqlGuardStore, block_on_store, store_actor},
+    store::{
+        AlertRecord, BatchRecord, ChainRecord, ChainUpdate, CompletionMode, CompletionRecord, Disposition,
+        EncounterState, FindingRecord, GENESIS_HASH, GuardStore, HostWriteRecord, MemoryGuardStore, StubGuardStore,
+        TABLES, TrafficReservation, TrafficScope, TrafficWindowRecord, XP_SUMMARY_TTL_MS, XpSummaryRecord,
+    },
+    traffic::{
+        BudgetPermit, HUNT_GUARD_HOST_TRAFFIC_LIMIT, HUNT_GUARD_REQUEST_BUDGET, HUNT_GUARD_SESSION_TRAFFIC_LIMIT,
+        HuntOperation, LocalTrafficLimiter, RequestBudget, RequestBudgetLimit, TrafficLimit,
+    },
+    writes::{
+        WriteDenial, host_write_denial, inventory_body_denial, inventory_denial, kind_name, loot_refusal, write_refusal,
+    },
 };
 pub use rifts_seam::HostRouteSample;
 
-use crate::evidence::{
-    BatchProblem, CONFLICT, NOT_REQUESTED, apply_batch, apply_completion, batch_reply, completion_reply,
-    finding_update, parse_batch, parse_completion,
+use crate::{
+    evidence::{
+        BatchProblem, CONFLICT, EvidenceBatch, NOT_REQUESTED, apply_batch, apply_completion, batch_reply,
+        completion_reply, finding_update, parse_batch, parse_completion,
+    },
+    fence::GuardFence,
+    grants::{
+        Allowances, DraftPremiumDecision, GrantSession, NoGameData, body_adds_host_draft_premium, decide_draft_premium,
+        grant_denial, stacked_balance_of,
+    },
+    json::js_slice,
+    operations::Operations,
+    traffic::{host_key, reservation, session_key},
 };
-use crate::fence::GuardFence;
-use crate::grants::{
-    Allowances, DraftPremiumDecision, GrantSession, NoGameData, body_adds_host_draft_premium, decide_draft_premium,
-    grant_denial, stacked_balance_of,
-};
-use crate::json::js_slice;
-use crate::operations::Operations;
-use crate::traffic::{host_key, reservation, session_key};
 
 /// The runtime files a Guard manifest names.
 pub const GUARD_MANIFEST_ROLES: &[&str] = &["TRANSPORT_MODULE", "TRANSPORT_RUNTIME", "ADMISSION_KEY"];
 
-const NOT_COLLECTED: &str = "This server does not collect hunt evidence.";
-const FENCED: &str = "The hunt generation no longer belongs to this host.";
-const REPLAY: &str = "This Guard batch id was already used for other evidence.";
-const BUSY: &str = "The Guard completion is busy; retry shortly.";
+/// Guard's own writes: chains it opens and traffic it charges.
+const GUARD_ACTOR: Actor = Actor::System("guard");
+/// Store races a chain write retries before giving up.
 const ATTEMPTS: usize = 3;
+/// The rate-limit bucket cache: entries kept, and how long one answers.
 const BUCKET_CACHE_ENTRIES: usize = 1024;
 const BUCKET_CACHE_MS: i64 = 10_000;
 
+/// Guard's own refusals, beside the route gates and the evidence module's.
+#[derive(Clone, Copy)]
+enum Refuse {
+    NotCollected,
+    Fenced,
+    Replay,
+    Busy,
+    Conflict,
+    NotRequested,
+    NoReceipt,
+    NoRewards,
+}
+
+impl Refuse {
+    fn error(self) -> GuardError {
+        let (code, text) = match self {
+            Self::NotCollected => (
+                "HUNT_EVIDENCE_NOT_COLLECTED",
+                "This server does not collect hunt evidence.",
+            ),
+            Self::Fenced => (
+                "P2P_GENERATION_FENCED",
+                "The hunt generation no longer belongs to this host.",
+            ),
+            Self::Replay => (
+                "GUARD_BATCH_REPLAY",
+                "This Guard batch id was already used for other evidence.",
+            ),
+            Self::Busy => (
+                "GUARD_FINALIZATION_BUSY",
+                "The Guard completion is busy; retry shortly.",
+            ),
+            Self::Conflict => ("GUARD_CHAIN_CONFLICT", CONFLICT),
+            Self::NotRequested => ("GUARD_COMPLETION_INVALID", NOT_REQUESTED),
+            Self::NoReceipt => ("P2P_SESSION_NOT_FOUND", "Hunt reward receipt not found."),
+            Self::NoRewards => (
+                "HUNT_REWARDS_UNAVAILABLE",
+                "This server grants no player-hosted hunt rewards.",
+            ),
+        };
+        GuardError::refused(code, text)
+    }
+}
+
 /// What Guard says a completed hunt earned: in observe mode, nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HuntVerdict {
     pub progression_applied: bool,
     pub rewards_applied: bool,
@@ -108,14 +158,17 @@ impl HuntVerdict {
     };
 
     pub fn to_json(&self) -> Json {
+        let Self {
+            progression_applied: progression,
+            rewards_applied: rewards,
+        } = self;
         Json(format!(
-            r#"{{"progressionApplied":{},"rewardsApplied":{}}}"#,
-            self.progression_applied, self.rewards_applied
+            r#"{{"progressionApplied":{progression},"rewardsApplied":{rewards}}}"#
         ))
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RewardPolicyStatus {
     Ready { version: String, digest: String },
     NotReady { reason: &'static str },
@@ -134,7 +187,7 @@ pub trait EvidenceIntake: Send + Sync {
     fn record_shadow_comparison(&self, key: Option<Secret>, body: Json) -> BoxFuture<'_, Result<Json, GuardError>>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrafficDecision {
     Accepted,
     RateLimited,
@@ -166,6 +219,7 @@ pub trait GuardOperations: Send + Sync {
     ) -> BoxFuture<'_, Result<Reply, GuardError>>;
 }
 
+/// What Guard is built from.
 pub struct GuardParts {
     pub config: GuardConfig,
     pub store: Arc<dyn GuardStore>,
@@ -184,55 +238,40 @@ struct Bucket {
 }
 
 pub struct Guard {
-    config: GuardConfig,
-    store: Arc<dyn GuardStore>,
-    hunts: Arc<dyn HuntSessions>,
-    operations: Arc<dyn OperationsPolicyPort>,
-    core: Arc<dyn IslesCore>,
-    clock: Arc<dyn Clock>,
-    log: Arc<dyn GuardLog>,
+    parts: GuardParts,
     census: HostRouteCensus,
     budget: RequestBudget,
     local: Mutex<LocalTrafficLimiter>,
     buckets: Mutex<VecDeque<Bucket>>,
 }
 
-fn refused(code: &str, message: &str) -> GuardError {
-    GuardError::refused(code, message)
-}
-
 /// 43 characters of base64url: the hosted runtime's capability token.
 pub(crate) fn capability_shaped(value: &str) -> bool {
-    value.len() == 43
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    let base64url = |b: u8| b.is_ascii_alphanumeric() || b"-_".contains(&b);
+    value.len() == 43 && value.bytes().all(base64url)
 }
 
 fn seam(error: StoreError) -> SeamError {
-    SeamError::from(GuardError::from(error))
+    GuardError::from(error).into()
+}
+
+fn held<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
+    lock.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 impl Guard {
     pub fn new(parts: GuardParts) -> Self {
-        let census = HostRouteCensus::new(parts.config.census);
         Self {
-            config: parts.config,
-            store: parts.store,
-            hunts: parts.hunts,
-            operations: parts.operations,
-            core: parts.core,
-            clock: parts.clock,
-            log: parts.log,
-            census,
+            census: HostRouteCensus::new(parts.config.census),
             budget: RequestBudget::new(HUNT_GUARD_REQUEST_BUDGET),
-            local: Mutex::new(LocalTrafficLimiter::default()),
-            buckets: Mutex::new(VecDeque::new()),
+            local: Mutex::default(),
+            buckets: Mutex::default(),
+            parts,
         }
     }
 
     pub fn config(&self) -> &GuardConfig {
-        &self.config
+        &self.parts.config
     }
 
     pub fn request_budget(&self) -> &RequestBudget {
@@ -240,15 +279,23 @@ impl Guard {
     }
 
     pub(crate) fn log(&self) -> &dyn GuardLog {
-        self.log.as_ref()
+        &*self.parts.log
     }
 
     pub(crate) fn hunts(&self) -> &dyn HuntSessions {
-        self.hunts.as_ref()
+        &*self.parts.hunts
     }
 
     pub(crate) fn now(&self) -> UnixMillis {
-        self.clock.now()
+        self.parts.clock.now()
+    }
+
+    fn store(&self) -> &dyn GuardStore {
+        &*self.parts.store
+    }
+
+    fn refuses(&self) -> bool {
+        self.parts.config.host_policy_refuses()
     }
 
     pub fn record_census(&self, sample: &HostRouteSample) {
@@ -256,11 +303,13 @@ impl Guard {
     }
 
     pub fn flush_census(&self) {
-        if let Some(line) = self.census.flush() {
-            self.log.info(&line);
-        }
+        let Some(line) = self.census.flush() else {
+            return;
+        };
+        self.log().info(&line);
     }
 
+    /// No reward module is loaded, so no hunt has a reward policy.
     pub fn reward_policy_status(&self, hunt_id: &str, expected_version: Option<&str>) -> RewardPolicyStatus {
         let _ = (hunt_id, expected_version);
         RewardPolicyStatus::NotReady {
@@ -275,116 +324,129 @@ impl Guard {
         generation: u64,
         completion_mode: Option<&str>,
     ) -> Result<(), GuardError> {
-        if self.store.chain(&session, generation)?.is_some() {
-            return Ok(());
+        if self.store().chain(&session, generation)?.is_none() {
+            let mode = completion_mode.and_then(CompletionMode::parse);
+            let fresh = ChainUpdate {
+                chain: ChainRecord {
+                    revision: 1,
+                    ..ChainRecord::new(session, generation, mode)
+                },
+                batch: None,
+                findings: vec![],
+            };
+            self.store().apply_chain(&GUARD_ACTOR, &fresh, 0)?;
         }
-        let mut chain = ChainRecord::new(session, generation, completion_mode.and_then(CompletionMode::parse));
-        chain.revision = 1;
-        let update = ChainUpdate {
-            chain,
-            batch: None,
-            findings: Vec::new(),
-        };
-        self.store.apply_chain(&Actor::System("guard"), &update, 0)?;
         Ok(())
     }
 
     pub fn chain_status(&self, session: &SessionId, generation: u64) -> Result<Option<ChainRecord>, GuardError> {
-        Ok(self.store.chain(session, generation)?)
+        self.store().chain(session, generation).map_err(GuardError::from)
     }
 
-    /// The hunt the runtime may post evidence for.
+    /// The hunt the runtime may post evidence for: this generation, this host, and not a hub.
     fn evidence_gate(&self, runtime: &RuntimeAuth) -> Result<HuntView, GuardError> {
-        if !self.config.hunt_evidence.enabled {
-            return Err(refused("HUNT_EVIDENCE_NOT_COLLECTED", NOT_COLLECTED));
+        if !self.parts.config.hunt_evidence.enabled {
+            return Err(Refuse::NotCollected.error());
         }
-        let hunt = self
-            .hunts
-            .hunt(&runtime.session)?
-            .filter(|h| h.generation == runtime.generation && h.host.as_ref() == Some(&runtime.host_account))
-            .ok_or_else(|| refused("P2P_GENERATION_FENCED", FENCED))?;
-        if hunt.is_hub() {
-            return Err(refused("HUNT_EVIDENCE_NOT_COLLECTED", NOT_COLLECTED));
+        let ours = |hunt: &HuntView| {
+            hunt.generation == runtime.generation && hunt.host.as_ref() == Some(&runtime.host_account)
+        };
+        match self.hunts().hunt(&runtime.session)?.filter(ours) {
+            None => Err(Refuse::Fenced.error()),
+            Some(hunt) if hunt.is_hub() => Err(Refuse::NotCollected.error()),
+            Some(hunt) => Ok(hunt),
         }
-        Ok(hunt)
     }
 
     fn runtime_actor(runtime: &RuntimeAuth) -> Actor {
-        Actor::HostRuntime {
-            session: runtime.session.clone(),
-            host: runtime.host_account.clone(),
+        let (session, host) = (runtime.session.clone(), runtime.host_account.clone());
+        Actor::HostRuntime { session, host }
+    }
+
+    fn log_findings(&self, findings: &[FindingRecord]) {
+        for finding in findings {
+            let sequence = finding.sequence.map(|s| s.to_string()).unwrap_or_else(|| "-".into());
+            let detail = if finding.detail.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", finding.detail)
+            };
+            let (code, session, generation) = (&finding.code, &finding.session, finding.generation);
+            self.log().warn(&format!(
+                "[HuntGuardObserve] would refuse {code} session={session} generation={generation} \
+                 sequence={sequence}{detail}"
+            ));
         }
     }
 
-    fn log_finding(&self, finding: &FindingRecord) {
-        let sequence = finding.sequence.map_or_else(|| "-".to_owned(), |s| s.to_string());
-        let detail = if finding.detail.is_empty() {
-            String::new()
-        } else {
-            format!(" {}", finding.detail)
-        };
-        self.log.warn(&format!(
-            "[HuntGuardObserve] would refuse {} session={} generation={} sequence={sequence}{detail}",
-            finding.code, finding.session, finding.generation
-        ));
-    }
-
-    pub fn submit_parsed(&self, runtime: &RuntimeAuth, body: Option<&Value>) -> Result<Json, GuardError> {
-        let hunt = self.evidence_gate(runtime)?;
-        let batch = parse_batch(body).map_err(BatchProblem::into_error)?;
-        let roster: Vec<AccountId> = hunt.roster.iter().map(|entry| entry.account.clone()).collect();
-        let actor = Self::runtime_actor(runtime);
+    /// One try at moving the chain by `batch`; `None` when another writer moved it first.
+    fn try_batch(
+        &self,
+        actor: &Actor,
+        runtime: &RuntimeAuth,
+        batch: &EvidenceBatch,
+        roster: &[AccountId],
+    ) -> Result<Option<Json>, GuardError> {
         let (session, generation) = (&runtime.session, runtime.generation);
-        for _ in 0..ATTEMPTS {
-            let chain = self
-                .store
-                .chain(session, generation)?
-                .unwrap_or_else(|| ChainRecord::new(session.clone(), generation, None));
-            if let Some(stored) = self.store.batch(session, generation, &batch.batch_id)? {
-                if stored.batch_hash != batch.batch_hash {
-                    return Err(refused("GUARD_BATCH_REPLAY", REPLAY));
-                }
-                return Ok(batch_reply(
+        let chain = match self.store().chain(session, generation)? {
+            Some(chain) => chain,
+            None => ChainRecord::new(session.clone(), generation, None),
+        };
+        // A batch id seen before answers as it did, if it carries the same evidence.
+        if let Some(stored) = self.store().batch(session, generation, &batch.batch_id)? {
+            return if stored.batch_hash == batch.batch_hash {
+                let reply = batch_reply(
                     session,
                     generation,
                     &stored.batch_hash,
                     stored.last_sequence,
                     &chain,
                     true,
-                ));
+                );
+                Ok(Some(reply))
+            } else {
+                Err(Refuse::Replay.error())
+            };
+        }
+        let now = self.now();
+        let refusal = match apply_batch(&chain, batch, roster, now) {
+            Ok(update) => {
+                if !self.store().apply_chain(actor, &update, chain.revision)? {
+                    return Ok(None);
+                }
+                self.log_findings(&update.findings);
+                let next = &update.chain;
+                return Ok(Some(batch_reply(
+                    session,
+                    generation,
+                    &next.head_hash,
+                    next.last_sequence,
+                    next,
+                    false,
+                )));
             }
-            let now = self.clock.now();
-            match apply_batch(&chain, &batch, &roster, now) {
-                Ok(update) => {
-                    if self.store.apply_chain(&actor, &update, chain.revision)? {
-                        for finding in &update.findings {
-                            self.log_finding(finding);
-                        }
-                        let next = &update.chain;
-                        return Ok(batch_reply(
-                            session,
-                            generation,
-                            &next.head_hash,
-                            next.last_sequence,
-                            next,
-                            false,
-                        ));
-                    }
-                }
-                Err(refusal) => {
-                    if let Some((code, detail)) = &refusal.finding {
-                        let update = finding_update(&chain, code, detail, now);
-                        if self.store.apply_chain(&actor, &update, chain.revision)? {
-                            for finding in &update.findings {
-                                self.log_finding(finding);
-                            }
-                        }
-                    }
-                    return Err(refusal.error);
-                }
+            Err(refusal) => refusal,
+        };
+        if let Some((code, detail)) = &refusal.finding {
+            let noted = finding_update(&chain, code, detail, now);
+            if self.store().apply_chain(actor, &noted, chain.revision)? {
+                self.log_findings(&noted.findings);
             }
         }
-        Err(refused("GUARD_CHAIN_CONFLICT", CONFLICT))
+        Err(refusal.error)
+    }
+
+    pub fn submit_parsed(&self, runtime: &RuntimeAuth, body: Option<&Value>) -> Result<Json, GuardError> {
+        let hunt = self.evidence_gate(runtime)?;
+        let batch = parse_batch(body).map_err(BatchProblem::into_error)?;
+        let roster: Vec<AccountId> = hunt.roster.into_iter().map(|entry| entry.account).collect();
+        let actor = Self::runtime_actor(runtime);
+        for _ in 0..ATTEMPTS {
+            if let Some(reply) = self.try_batch(&actor, runtime, &batch, &roster)? {
+                return Ok(reply);
+            }
+        }
+        Err(Refuse::Conflict.error())
     }
 
     pub fn complete_parsed(&self, runtime: &RuntimeAuth, body: Option<&Value>) -> Result<Json, GuardError> {
@@ -392,132 +454,141 @@ impl Guard {
         let request = parse_completion(body)?;
         let actor = Self::runtime_actor(runtime);
         for _ in 0..ATTEMPTS {
-            let Some(chain) = self.store.chain(&runtime.session, runtime.generation)? else {
-                return Err(refused("GUARD_COMPLETION_INVALID", NOT_REQUESTED));
-            };
-            let Some(update) = apply_completion(&chain, &request, self.clock.now())? else {
+            let chain = self
+                .store()
+                .chain(&runtime.session, runtime.generation)?
+                .ok_or_else(|| Refuse::NotRequested.error())?;
+            let Some(update) = apply_completion(&chain, &request, self.now())? else {
                 return Ok(completion_reply(&chain));
             };
-            if self.store.apply_chain(&actor, &update, chain.revision)? {
-                let done = &update.chain;
-                self.log.info(&format!(
-                    "[HuntGuardObserve] completion session={} generation={} lastSequence={} findings={} disposition={}",
-                    done.session,
-                    done.generation,
-                    done.last_sequence,
-                    done.finding_count,
-                    done.disposition.as_str()
-                ));
-                return Ok(completion_reply(done));
+            if !self.store().apply_chain(&actor, &update, chain.revision)? {
+                continue;
             }
+            let done = &update.chain;
+            let line = format!(
+                "[HuntGuardObserve] completion session={} generation={} lastSequence={} findings={} disposition={}",
+                done.session,
+                done.generation,
+                done.last_sequence,
+                done.finding_count,
+                done.disposition.as_str()
+            );
+            self.log().info(&line);
+            return Ok(completion_reply(done));
         }
-        Err(refused("GUARD_FINALIZATION_BUSY", BUSY))
+        Err(Refuse::Busy.error())
     }
 
     /// The launcher's own reward for a hunt: Guard grants none, but only a member learns that.
     pub fn self_reward(&self, account: &AccountId, session: &str) -> Result<Json, GuardError> {
-        let not_found = || refused("P2P_SESSION_NOT_FOUND", "Hunt reward receipt not found.");
-        let Ok(session) = session.parse::<SessionId>() else {
-            return Err(not_found());
-        };
-        let hunt = self.hunts.hunt(&session)?.ok_or_else(not_found)?;
-        if !hunt.roster.iter().any(|entry| &entry.account == account) {
-            return Err(not_found());
-        }
-        Err(refused(
-            "HUNT_REWARDS_UNAVAILABLE",
-            "This server grants no player-hosted hunt rewards.",
-        ))
+        let session: SessionId = session.parse().map_err(|_| Refuse::NoReceipt.error())?;
+        let member = self
+            .hunts()
+            .hunt(&session)?
+            .is_some_and(|hunt| hunt.roster.iter().any(|e| e.account == *account));
+        Err(if member { Refuse::NoRewards } else { Refuse::NoReceipt }.error())
     }
 
     fn verdict_now(&self, session: &SessionId, generation: u64) -> Result<Option<HuntVerdict>, GuardError> {
-        Ok(self
-            .store
-            .chain(session, generation)?
-            .filter(|chain| chain.completion.is_some())
-            .map(|_| HuntVerdict::OBSERVED))
+        let chain = self.store().chain(session, generation)?;
+        let completed = chain.is_some_and(|chain| chain.completion.is_some());
+        Ok(completed.then_some(HuntVerdict::OBSERVED))
+    }
+
+    /// Both keys in this process's windows; a session refusal keeps the host's charge (spec-rd27-rifts-guard risk 6).
+    fn charge_local(&self, host_key: &str, session_key: &str, bytes: u64, now: UnixMillis) -> TrafficDecision {
+        let mut local = held(&self.local);
+        let host_ok = local.consume(host_key, bytes, HUNT_GUARD_HOST_TRAFFIC_LIMIT, now);
+        if host_ok && local.consume(session_key, bytes, HUNT_GUARD_SESSION_TRAFFIC_LIMIT, now) {
+            TrafficDecision::Accepted
+        } else {
+            TrafficDecision::RateLimited
+        }
+    }
+
+    /// Both keys in the store's windows, charged together or not at all.
+    fn charge_shared(&self, host_key: &str, session_key: &str, bytes: u64, now: UnixMillis) -> TrafficDecision {
+        let windows = (
+            reservation(TrafficScope::Host, host_key, bytes, HUNT_GUARD_HOST_TRAFFIC_LIMIT, now),
+            reservation(
+                TrafficScope::Session,
+                session_key,
+                bytes,
+                HUNT_GUARD_SESSION_TRAFFIC_LIMIT,
+                now,
+            ),
+        );
+        let (Some(host), Some(session)) = windows else {
+            return TrafficDecision::RateLimited;
+        };
+        match self.store().reserve_traffic(&GUARD_ACTOR, &host, &session) {
+            Err(_) => TrafficDecision::Unavailable,
+            Ok(false) => TrafficDecision::RateLimited,
+            Ok(true) => TrafficDecision::Accepted,
+        }
     }
 
     pub(crate) fn charge_now(&self, host: &AccountId, session: &SessionId, bytes: u64) -> TrafficDecision {
-        let now = self.clock.now();
-        let (host_key, session_key) = (host_key(&host.0), session_key(&session.to_string()));
-        if !self.config.distributed_traffic {
-            let mut local = self.local.lock().unwrap_or_else(PoisonError::into_inner);
-            // a session refusal keeps the host's charge (spec-rd27-rifts-guard risk 6)
-            let accepted = local.consume(&host_key, bytes, HUNT_GUARD_HOST_TRAFFIC_LIMIT, now)
-                && local.consume(&session_key, bytes, HUNT_GUARD_SESSION_TRAFFIC_LIMIT, now);
-            return if accepted {
-                TrafficDecision::Accepted
-            } else {
-                TrafficDecision::RateLimited
-            };
-        }
-        let host_window = reservation(TrafficScope::Host, &host_key, bytes, HUNT_GUARD_HOST_TRAFFIC_LIMIT, now);
-        let session_window = reservation(
-            TrafficScope::Session,
-            &session_key,
-            bytes,
-            HUNT_GUARD_SESSION_TRAFFIC_LIMIT,
-            now,
-        );
-        let (Some(host_window), Some(session_window)) = (host_window, session_window) else {
-            return TrafficDecision::RateLimited;
-        };
-        match self
-            .store
-            .reserve_traffic(&Actor::System("guard"), &host_window, &session_window)
-        {
-            Ok(true) => TrafficDecision::Accepted,
-            Ok(false) => TrafficDecision::RateLimited,
-            Err(_) => TrafficDecision::Unavailable,
+        let now = self.now();
+        let keys = (host_key(&host.0), session_key(&session.to_string()));
+        if self.parts.config.distributed_traffic {
+            self.charge_shared(&keys.0, &keys.1, bytes, now)
+        } else {
+            self.charge_local(&keys.0, &keys.1, bytes, now)
         }
     }
 
+    fn cached_bucket(&self, digest: &str, now: UnixMillis) -> Option<Option<String>> {
+        let fresh = |bucket: &&Bucket| bucket.digest == digest && now.0.saturating_sub(bucket.at.0) < BUCKET_CACHE_MS;
+        held(&self.buckets)
+            .iter()
+            .find(fresh)
+            .map(|bucket| bucket.answer.clone())
+    }
+
+    fn remember_bucket(&self, digest: String, now: UnixMillis, answer: Option<String>) {
+        let mut buckets = held(&self.buckets);
+        match buckets.iter_mut().find(|bucket| bucket.digest == digest) {
+            Some(known) => (known.at, known.answer) = (now, answer),
+            None => {
+                if buckets.len() >= BUCKET_CACHE_ENTRIES {
+                    buckets.pop_front();
+                }
+                buckets.push_back(Bucket {
+                    digest,
+                    at: now,
+                    answer,
+                });
+            }
+        }
+    }
+
+    /// `host:<capability id>` for a live capability, cached briefly by the token's digest.
     fn bucket_now(&self, request: &RequestInfo) -> Option<String> {
-        let value = request
+        let token = request
             .header(HOST_CAPABILITY_HEADER)
-            .filter(|v| capability_shaped(v))?;
-        let digest = sha256_hex(value.as_bytes());
-        let now = self.clock.now();
-        {
-            let buckets = self.buckets.lock().unwrap_or_else(PoisonError::into_inner);
-            if let Some(hit) = buckets
-                .iter()
-                .find(|b| b.digest == digest && now.0.saturating_sub(b.at.0) < BUCKET_CACHE_MS)
-            {
-                return hit.answer.clone();
-            }
+            .filter(|t| capability_shaped(t))?;
+        let digest = sha256_hex(token.as_bytes());
+        let now = self.now();
+        if let Some(answer) = self.cached_bucket(&digest, now) {
+            return answer;
         }
-        let answer = match self.hunts.capability_by_digest(&digest) {
-            Ok(Some(capability)) if !capability.revoked && capability.expires_at > now => {
-                Some(format!("host:{}", capability.capability_id))
-            }
-            _ => None,
-        };
-        let mut buckets = self.buckets.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(existing) = buckets.iter_mut().find(|b| b.digest == digest) {
-            existing.at = now;
-            existing.answer = answer.clone();
-        } else {
-            if buckets.len() >= BUCKET_CACHE_ENTRIES {
-                buckets.pop_front();
-            }
-            buckets.push_back(Bucket {
-                digest,
-                at: now,
-                answer: answer.clone(),
-            });
-        }
+        let live = self.hunts().capability_by_digest(&digest).ok().flatten();
+        let answer = live
+            .filter(|capability| !capability.revoked && capability.expires_at > now)
+            .map(|capability| format!("host:{}", capability.capability_id));
+        self.remember_bucket(digest, now, answer.clone());
         answer
     }
 
-    fn hub_presence(&self, hunt: &HuntView) -> Result<Option<Vec<AccountId>>, StoreError> {
-        if hunt.is_hub() {
-            self.hunts
-                .hub_present_accounts(&hunt.session, hunt.generation)
-                .map(Some)
-        } else {
-            Ok(None)
+    /// Who is in a hub now; a hunt has no presence list.
+    fn hub_presence(&self, hunt: Option<&HuntView>) -> Result<Option<Vec<AccountId>>, SeamError> {
+        match hunt {
+            Some(hub) if hub.is_hub() => {
+                let present = self.hunts().hub_present_accounts(&hub.session, hub.generation);
+                present.map(Some).map_err(seam)
+            }
+            _ => Ok(None),
         }
     }
 
@@ -529,27 +600,25 @@ impl Guard {
         options: HostWriteOptions,
     ) -> Result<Option<Reply>, SeamError> {
         const STATE: &str = "This host may not write this player's state.";
+        let HostWriteOptions { probe, parity } = options;
         let name = kind_name(kind);
-        if !self.config.host_writes {
-            if !options.probe && !options.parity {
-                self.log.warn(&format!(
+        if !self.parts.config.host_writes {
+            if !(probe || parity) {
+                self.log().warn(&format!(
                     "[HostWrite] refused kind={name} target={target} reason=HOST_WRITES_OFF"
                 ));
             }
             return Ok(Some(write_refusal("Host writes are switched off.")));
         }
-        let enforce = self.config.host_policy_refuses();
-        if options.parity && enforce {
+        let enforce = self.refuses();
+        if parity && enforce {
             return Ok(Some(write_refusal(
                 "This host may not do a dedicated server's work here.",
             )));
         }
-        let hunt = self.hunts.hunt(&runtime.session).map_err(seam)?;
-        let presence = match &hunt {
-            Some(h) => self.hub_presence(h).map_err(seam)?,
-            None => None,
-        };
-        let denial = |check_kind| {
+        let hunt = self.hunts().hunt(&runtime.session).map_err(seam)?;
+        let presence = self.hub_presence(hunt.as_ref())?;
+        let denial = |check_kind: bool| {
             host_write_denial(
                 runtime,
                 hunt.as_ref(),
@@ -559,79 +628,136 @@ impl Guard {
                 check_kind,
             )
         };
-        if options.parity {
+        if parity {
             return Ok(denial(false).map(|_| write_refusal(STATE)));
         }
         let hub_tag = hunt.as_ref().map(HuntView::hub_tag).unwrap_or_default();
+        let session = &runtime.session;
         let mut reason = denial(true);
-        if let Some(policy) = reason.filter(|r| r.is_policy())
-            && !options.probe
-            && !enforce
-        {
+        // Observing, a refusal by kind alone is logged and let through.
+        let observed = reason.filter(|r| r.is_policy() && !probe && !enforce);
+        if let Some(policy) = observed {
             reason = denial(false);
             if reason.is_none() {
-                self.log.warn(&format!(
-                    "[HostPolicyObserve] would refuse write kind={name} target={target} session={} reason={}{hub_tag}",
-                    runtime.session,
-                    policy.as_str()
+                let policy = policy.as_str();
+                self.log().warn(&format!(
+                    "[HostPolicyObserve] would refuse write kind={name} target={target} session={session} \
+                     reason={policy}{hub_tag}"
                 ));
             }
         }
         let Some(reason) = reason else {
             return Ok(None);
         };
-        if !options.probe {
-            self.log.warn(&format!(
-                "[HostWrite] refused kind={name} target={target} session={} reason={}{hub_tag}",
-                runtime.session,
-                reason.as_str()
+        if !probe {
+            let reason = reason.as_str();
+            self.log().warn(&format!(
+                "[HostWrite] refused kind={name} target={target} session={session} reason={reason}{hub_tag}"
             ));
         }
         Ok(Some(write_refusal(STATE)))
     }
 
     fn record_write_now(&self, runtime: &RuntimeAuth, write: &HostWrite) -> Result<(), SeamError> {
-        let name = kind_name(write.kind);
-        let target = &write.target;
-        let Some(hunt) = self
-            .hunts
-            .hunt(&runtime.session)
-            .map_err(seam)?
-            .filter(|h| h.generation == runtime.generation)
-        else {
-            self.log.warn(&format!(
+        let (name, target) = (kind_name(write.kind), &write.target);
+        let hunt = self.hunts().hunt(&runtime.session).map_err(seam)?;
+        let Some(hunt) = hunt.filter(|hunt| hunt.generation == runtime.generation) else {
+            self.log().warn(&format!(
                 "[HostWrite] record without authorize kind={name} target={target}"
             ));
             return Ok(());
         };
-        let host = hunt.host.clone().unwrap_or_else(|| AccountId(String::new()));
+        let host = hunt.host.clone().unwrap_or(AccountId(String::new()));
+        let (realm_tag, hub_tag) = (hunt.realm_tag(), hunt.hub_tag());
         let summary = js_slice(&write.summary.0, 400);
-        self.log.info(&format!(
-            "[HostWrite] kind={name} target={target} host={host} session={} generation={}{}{} summary={summary}",
-            hunt.session,
-            hunt.generation,
-            hunt.realm_tag(),
-            hunt.hub_tag()
+        self.log().info(&format!(
+            "[HostWrite] kind={name} target={target} host={host} session={} generation={}{realm_tag}{hub_tag} \
+             summary={summary}",
+            hunt.session, hunt.generation
         ));
         let record = HostWriteRecord {
+            session_kind: hunt.session_kind().map(String::from),
+            hub_kind: hunt.hub_kind().map(String::from),
             kind: write.kind,
             target: target.clone(),
             host,
-            session: hunt.session.clone(),
+            session: hunt.session,
             generation: hunt.generation,
-            realm: hunt.realm.clone(),
-            session_kind: hunt.session_kind().map(str::to_owned),
-            hub_kind: hunt.hub_kind().map(str::to_owned),
+            realm: hunt.realm,
             summary: write.summary.clone(),
-            at: self.clock.now(),
+            at: self.now(),
         };
-        if let Err(error) = self.store.record_host_write(&Self::runtime_actor(runtime), &record) {
-            self.log.error(&format!(
-                "[HostWrite] tag not stored kind={name} target={target} session={}: {error}",
-                runtime.session
+        let stored = self.store().record_host_write(&Self::runtime_actor(runtime), &record);
+        if let Err(error) = stored {
+            let session = &runtime.session;
+            self.log().error(&format!(
+                "[HostWrite] tag not stored kind={name} target={target} session={session}: {error}"
             ));
         }
         Ok(())
+    }
+
+    /// The draft token: whether this is an accepted replay, and the decision read before the transaction.
+    async fn draft_premium(
+        &self,
+        transaction: &InventoryTransaction,
+        body: Option<&Value>,
+    ) -> (bool, Option<DraftPremiumDecision>) {
+        let core = &self.parts.core;
+        if core
+            .accepted_inventory_replay(transaction.clone())
+            .await
+            .unwrap_or(false)
+        {
+            return (true, None);
+        }
+        let stored = core.stacked_items(transaction.character_id.clone()).await;
+        let balance = stored
+            .ok()
+            .and_then(|items| stacked_balance_of(items.as_ref().map(|j| j.0.as_str()), grants::HOST_DRAFT_PREMIUM_ID));
+        (false, body.and_then(|body| decide_draft_premium(body, balance)))
+    }
+
+    /// The item classes a host may not grant; observing, they are logged and let through.
+    fn grant_check(
+        &self,
+        hunt: Option<&HuntView>,
+        body: &Value,
+        allowances: Allowances,
+        early: Option<DraftPremiumDecision>,
+        tags: impl FnOnce(&str) -> String,
+    ) -> Option<Reply> {
+        let session = GrantSession {
+            no_completion: hunt.is_some_and(|h| h.completion_mode == Some(CompletionMode::NoCompletion)),
+            realm_hub: hunt.is_some_and(HuntView::is_hub),
+        };
+        let catalog = self.parts.core.host_grant_catalog();
+        let catalog: &dyn rifts_seam::HostGrantCatalog = catalog.as_deref().unwrap_or(&NoGameData);
+        let denial = grant_denial(session, body, catalog, allowances)?;
+        let draft = match early {
+            Some(decision) if !decision.allowed => format!(" draftPremium={}", decision.reason),
+            _ => String::new(),
+        };
+        let tags = tags(&format!(
+            "classes={} denied={}{draft}",
+            denial.classes.join(","),
+            denial.summary
+        ));
+        if !self.refuses() {
+            self.log()
+                .warn(&format!("[HostPolicyObserve] would refuse grant {tags}"));
+            return None;
+        }
+        self.log().warn(&format!("[HostGrantDeny] {tags}"));
+        let classes: Vec<String> = denial.classes.iter().map(|class| json::js_string(class)).collect();
+        let body = format!(
+            r#"{{"code":"P2P_HOST_GRANT_DENIED","message":"A player host may not grant this item class.","payload":{{"classes":[{}]}}}}"#,
+            classes.join(",")
+        );
+        Some(Reply {
+            status: 403,
+            body: Json(body),
+        })
     }
 
     async fn authorize_inventory_now(
@@ -639,120 +765,83 @@ impl Guard {
         runtime: RuntimeAuth,
         transaction: InventoryTransaction,
     ) -> Result<InventoryDecision, SeamError> {
-        let hunt = self.hunts.hunt(&runtime.session).map_err(seam)?;
-        let presence = match &hunt {
-            Some(h) => self.hub_presence(h).map_err(seam)?,
-            None => None,
-        };
-        let body: Option<Value> = transaction
-            .body
-            .as_ref()
-            .and_then(|json| serde_json::from_str(&json.0).ok());
+        let hunt = self.hunts().hunt(&runtime.session).map_err(seam)?;
+        let presence = self.hub_presence(hunt.as_ref())?;
+        let body = transaction.body.as_ref().and_then(parse_json);
         let user = &transaction.user;
-        if let Some(reason) = inventory_body_denial(
+        let (session, generation) = (&runtime.session, runtime.generation);
+        let refused_body = inventory_body_denial(
             &runtime,
             hunt.as_ref(),
             user,
             &transaction.character_id,
             body.as_ref(),
             presence.as_deref(),
-        ) {
-            self.log.warn(&format!(
-                "[P2PInventory] rejected code={reason} account={user} session={} generation={}",
-                runtime.session, runtime.generation
+        );
+        if let Some(reason) = refused_body {
+            self.log().warn(&format!(
+                "[P2PInventory] rejected code={reason} account={user} session={session} generation={generation}"
             ));
             return Ok(InventoryDecision::Refused(loot_refusal("P2P_LOOT_GRANT_DENIED")));
         }
+
         let hub_tag = hunt.as_ref().map(HuntView::hub_tag).unwrap_or_default();
         let adds_draft = body.as_ref().is_some_and(body_adds_host_draft_premium);
-        let mut replay = false;
-        let mut early: Option<DraftPremiumDecision> = None;
-        if adds_draft {
-            replay = self
-                .core
-                .accepted_inventory_replay(transaction.clone())
-                .await
-                .unwrap_or(false);
-            if !replay {
-                let balance = match self.core.stacked_items(transaction.character_id.clone()).await {
-                    Ok(stored) => {
-                        stacked_balance_of(stored.as_ref().map(|j| j.0.as_str()), grants::HOST_DRAFT_PREMIUM_ID)
-                    }
-                    Err(_) => None,
-                };
-                early = body.as_ref().and_then(|b| decide_draft_premium(b, balance));
-            }
-        }
+        let (replay, early) = if adds_draft {
+            self.draft_premium(&transaction, body.as_ref()).await
+        } else {
+            (false, None)
+        };
         if let Some(body) = &body {
-            let session = GrantSession {
-                no_completion: hunt
-                    .as_ref()
-                    .is_some_and(|h| h.completion_mode == Some(CompletionMode::NoCompletion)),
-                realm_hub: hunt.as_ref().is_some_and(HuntView::is_hub),
-            };
-            let catalog = self.core.host_grant_catalog();
-            let catalog: &dyn rifts_seam::HostGrantCatalog = match &catalog {
-                Some(catalog) => catalog.as_ref(),
-                None => &NoGameData,
-            };
             let allowances = Allowances {
                 draft_premium: replay || early.is_some_and(|d| d.allowed),
             };
-            if let Some(denial) = grant_denial(session, body, catalog, allowances) {
-                let draft = early
-                    .filter(|d| !d.allowed)
-                    .map(|d| format!(" draftPremium={}", d.reason))
-                    .unwrap_or_default();
-                let tags = format!(
-                    "account={user} session={} generation={} transaction={} classes={} denied={}{draft}{hub_tag}",
-                    runtime.session,
-                    runtime.generation,
-                    transaction.transaction_id,
-                    denial.classes.join(","),
-                    denial.summary
-                );
-                if !self.config.host_policy_refuses() {
-                    self.log.warn(&format!("[HostPolicyObserve] would refuse grant {tags}"));
-                } else {
-                    self.log.warn(&format!("[HostGrantDeny] {tags}"));
-                    let classes: Vec<String> = denial.classes.iter().map(|c| json::js_string(c)).collect();
-                    return Ok(InventoryDecision::Refused(Reply {
-                        status: 403,
-                        body: Json(format!(
-                            r#"{{"code":"P2P_HOST_GRANT_DENIED","message":"A player host may not grant this item class.","payload":{{"classes":[{}]}}}}"#,
-                            classes.join(",")
-                        )),
-                    }));
-                }
+            let transaction_id = &transaction.transaction_id;
+            let tags = |denied: &str| {
+                format!(
+                    "account={user} session={session} generation={generation} transaction={transaction_id} \
+                     {denied}{hub_tag}"
+                )
+            };
+            if let Some(reply) = self.grant_check(hunt.as_ref(), body, allowances, early, tags) {
+                return Ok(InventoryDecision::Refused(reply));
             }
         }
+
         let realm_tag = hunt.as_ref().map(HuntView::realm_tag).unwrap_or_default();
         let tags = format!(
-            "account={user} character={} session={} generation={} transaction={}{realm_tag}{hub_tag}",
-            transaction.character_id, runtime.session, runtime.generation, transaction.transaction_id
+            "account={user} character={} session={session} generation={generation} transaction={}{realm_tag}{hub_tag}",
+            transaction.character_id, transaction.transaction_id
         );
         let fence = GuardFence {
-            hunts: self.hunts.clone(),
-            log: self.log.clone(),
-            clock: self.clock.clone(),
-            enforce: self.config.host_policy_refuses(),
-            runtime,
+            hunts: Arc::clone(&self.parts.hunts),
+            log: Arc::clone(&self.parts.log),
+            clock: Arc::clone(&self.parts.clock),
+            enforce: self.refuses(),
             carries_draft: adds_draft && !replay,
             early,
             body,
-            transaction,
             tags,
+            runtime,
+            transaction,
             allowed: Mutex::new(None),
         };
         Ok(InventoryDecision::Authorized(Box::new(fence)))
     }
 
     fn operations(&self) -> Operations<'_> {
+        let GuardParts {
+            operations,
+            core,
+            store,
+            clock,
+            ..
+        } = &self.parts;
         Operations {
-            policy: self.operations.as_ref(),
-            core: self.core.as_ref(),
-            store: self.store.as_ref(),
-            clock: self.clock.as_ref(),
+            policy: &**operations,
+            core: &**core,
+            store: &**store,
+            clock: &**clock,
         }
     }
 }
@@ -761,29 +850,43 @@ fn parse_json(body: &Json) -> Option<Value> {
     serde_json::from_str(&body.0).ok()
 }
 
+fn ready<'a, T: Send + 'a, E: Send + 'a>(answer: Result<T, E>) -> BoxFuture<'a, Result<T, E>> {
+    Box::pin(std::future::ready(answer))
+}
+
+/// Runs `work` when first polled, as an `async` block would.
+fn deferred<'a, T: Send + 'a>(work: impl FnOnce() -> T + Send + 'a) -> BoxFuture<'a, T> {
+    Box::pin(async move { work() })
+}
+
 impl Lifecycle for Guard {
-    fn runtime_safety_issues(&self, _settings: &dyn Settings) -> Result<Vec<String>, SeamError> {
-        Ok(Vec::new())
+    fn runtime_safety_issues(&self, _: &dyn Settings) -> Result<Vec<String>, SeamError> {
+        Ok(vec![])
     }
 
-    fn startup_summary(&self, _role: &str) -> Result<Option<Json>, SeamError> {
-        Ok(Some(Json(format!(
-            r#"{{"antiCheatLoaded":false,"hostPolicy":"{}","huntEvidence":{},"trustTier":{}}}"#,
-            self.config.host_policy.mode.as_str(),
-            self.config.hunt_evidence.enabled,
-            self.config.trust_tier.number()
-        ))))
+    fn startup_summary(&self, _: &str) -> Result<Option<Json>, SeamError> {
+        let config = &self.parts.config;
+        let (policy, evidence, tier) = (
+            config.host_policy.mode.as_str(),
+            config.hunt_evidence.enabled,
+            config.trust_tier.number(),
+        );
+        let summary = format!(
+            r#"{{"antiCheatLoaded":false,"hostPolicy":"{policy}","huntEvidence":{evidence},"trustTier":{tier}}}"#
+        );
+        Ok(Some(Json(summary)))
     }
 
-    fn start(&self, _role: &str) -> Result<(), SeamError> {
-        log_host_policy(&self.config.host_policy, self.log.as_ref());
-        log_hunt_evidence(&self.config.hunt_evidence, self.log.as_ref());
+    fn start(&self, _: &str) -> Result<(), SeamError> {
+        let config = &self.parts.config;
+        log_host_policy(&config.host_policy, self.log());
+        log_hunt_evidence(&config.hunt_evidence, self.log());
         Ok(())
     }
 
     fn stop(&self) -> BoxFuture<'_, Result<(), SeamError>> {
         self.flush_census();
-        Box::pin(async { Ok(()) })
+        ready(Ok(()))
     }
 
     fn tables(&self) -> &'static [TableSpec] {
@@ -791,18 +894,17 @@ impl Lifecycle for Guard {
     }
 
     fn account_deletion_steps(&self) -> Vec<DeletionStep> {
-        [
+        const ACCOUNT_COLUMNS: [(&str, &str); 3] = [
             ("rifts_host_writes", "target"),
             ("rifts_host_writes", "host"),
             ("rifts_hunt_xp_summaries", "member"),
-        ]
-        .into_iter()
-        .map(|(table, account_column)| DeletionStep {
+        ];
+        let delete = |(table, account_column): (&'static str, &'static str)| DeletionStep {
             table,
             account_column,
             action: DeletionAction::Delete,
-        })
-        .collect()
+        };
+        ACCOUNT_COLUMNS.into_iter().map(delete).collect()
     }
 }
 
@@ -821,7 +923,7 @@ impl GuardHooks for Guard {
     }
 
     fn rate_limit_bucket(&self, request: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
-        Box::pin(async move { Ok(self.bucket_now(&request)) })
+        deferred(move || Ok(self.bucket_now(&request)))
     }
 
     fn authorize_inventory(
@@ -839,19 +941,19 @@ impl GuardHooks for Guard {
         target: AccountId,
         options: HostWriteOptions,
     ) -> BoxFuture<'_, Result<Option<Reply>, SeamError>> {
-        Box::pin(async move { self.authorize_write_now(&runtime, kind, &target, options) })
+        deferred(move || self.authorize_write_now(&runtime, kind, &target, options))
     }
 
     fn record_host_write(&self, runtime: RuntimeAuth, write: HostWrite) -> BoxFuture<'_, Result<(), SeamError>> {
-        Box::pin(async move { self.record_write_now(&runtime, &write) })
+        deferred(move || self.record_write_now(&runtime, &write))
     }
 
     fn host_policy_refuses(&self) -> Result<bool, SeamError> {
-        Ok(self.config.host_policy_refuses())
+        Ok(self.refuses())
     }
 
     fn note_would_refuse(&self, what: &str, detail: &str) -> Result<(), SeamError> {
-        self.log
+        self.log()
             .warn(&format!("[HostPolicyObserve] would refuse {what} {detail}"));
         Ok(())
     }
@@ -859,29 +961,24 @@ impl GuardHooks for Guard {
 
 impl EvidenceIntake for Guard {
     fn submit_evidence(&self, runtime: RuntimeAuth, body: Json) -> BoxFuture<'_, Result<Json, GuardError>> {
-        Box::pin(async move { self.submit_parsed(&runtime, parse_json(&body).as_ref()) })
+        deferred(move || self.submit_parsed(&runtime, parse_json(&body).as_ref()))
     }
 
     fn complete(&self, runtime: RuntimeAuth, body: Json) -> BoxFuture<'_, Result<Json, GuardError>> {
-        Box::pin(async move { self.complete_parsed(&runtime, parse_json(&body).as_ref()) })
+        deferred(move || self.complete_parsed(&runtime, parse_json(&body).as_ref()))
     }
 
     fn verdict(&self, session: SessionId, generation: u64) -> BoxFuture<'_, Result<Option<HuntVerdict>, GuardError>> {
-        Box::pin(async move { self.verdict_now(&session, generation) })
+        deferred(move || self.verdict_now(&session, generation))
     }
 
-    fn reward_receipt(
-        &self,
-        _session: SessionId,
-        _generation: u64,
-        _account: AccountId,
-    ) -> BoxFuture<'_, Result<Option<Json>, GuardError>> {
-        Box::pin(async { Ok(None) })
+    fn reward_receipt(&self, _: SessionId, _: u64, _: AccountId) -> BoxFuture<'_, Result<Option<Json>, GuardError>> {
+        ready(Ok(None))
     }
 
     /// The shadow key is never read or logged: nothing here compares.
-    fn record_shadow_comparison(&self, _key: Option<Secret>, _body: Json) -> BoxFuture<'_, Result<Json, GuardError>> {
-        Box::pin(async { Err(refused("HUNT_EVIDENCE_NOT_COLLECTED", NOT_COLLECTED)) })
+    fn record_shadow_comparison(&self, _: Option<Secret>, _: Json) -> BoxFuture<'_, Result<Json, GuardError>> {
+        ready(Err(Refuse::NotCollected.error()))
     }
 }
 
@@ -892,7 +989,7 @@ impl TrafficLimits for Guard {
         session: SessionId,
         bytes: u64,
     ) -> BoxFuture<'_, Result<TrafficDecision, GuardError>> {
-        Box::pin(async move { Ok(self.charge_now(&host, &session, bytes)) })
+        deferred(move || Ok(self.charge_now(&host, &session, bytes)))
     }
 }
 
@@ -918,7 +1015,8 @@ impl GuardOperations for Guard {
         ip: String,
     ) -> BoxFuture<'_, Result<Reply, GuardError>> {
         Box::pin(async move {
-            self.operations()
+            let operations = self.operations();
+            operations
                 .acknowledge_alert(&admin_key, &alert_id, body.as_ref(), &ip)
                 .await
         })
@@ -926,36 +1024,33 @@ impl GuardOperations for Guard {
 }
 
 /// Guard with nothing behind it: every operation is `Unimplemented` under its method name.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Stub;
 
-fn missing(operation: &'static str) -> Unimplemented {
-    Unimplemented::new(Component::Guard, operation)
-}
-
-fn seam_stub<T: Send + 'static>(operation: &'static str) -> BoxFuture<'static, Result<T, SeamError>> {
-    rifts_seam::stub(Component::Guard, operation)
-}
-
-fn guard_stub<T: Send + 'static>(operation: &'static str) -> BoxFuture<'static, Result<T, GuardError>> {
-    rifts_seam::stub(Component::Guard, operation)
+// Each listed method answers `Unimplemented` under its own name, at once or as a ready future, with the error type
+// its trait uses.
+macro_rules! unwritten {
+    (now $error:ty: $($name:ident($($arg:ty),*) -> $out:ty;)*) => {$(
+        fn $name(&self, $(_: $arg),*) -> Result<$out, $error> {
+            Err(Unimplemented::new(Component::Guard, stringify!($name)).into())
+        }
+    )*};
+    (later $error:ty: $($name:ident($($arg:ty),*) -> $out:ty;)*) => {$(
+        fn $name(&self, $(_: $arg),*) -> BoxFuture<'_, Result<$out, $error>> {
+            rifts_seam::stub(Component::Guard, stringify!($name))
+        }
+    )*};
 }
 
 impl Lifecycle for Stub {
-    fn runtime_safety_issues(&self, _settings: &dyn Settings) -> Result<Vec<String>, SeamError> {
-        Err(missing("runtime_safety_issues").into())
+    unwritten! { now SeamError:
+        runtime_safety_issues(&dyn Settings) -> Vec<String>;
+        startup_summary(&str) -> Option<Json>;
+        start(&str) -> ();
     }
 
-    fn startup_summary(&self, _role: &str) -> Result<Option<Json>, SeamError> {
-        Err(missing("startup_summary").into())
-    }
-
-    fn start(&self, _role: &str) -> Result<(), SeamError> {
-        Err(missing("start").into())
-    }
-
-    fn stop(&self) -> BoxFuture<'_, Result<(), SeamError>> {
-        seam_stub("stop")
+    unwritten! { later SeamError:
+        stop() -> ();
     }
 
     fn tables(&self) -> &'static [TableSpec] {
@@ -963,11 +1058,24 @@ impl Lifecycle for Stub {
     }
 
     fn account_deletion_steps(&self) -> Vec<DeletionStep> {
-        Vec::new()
+        vec![]
     }
 }
 
 impl GuardHooks for Stub {
+    unwritten! { now SeamError:
+        census(&HostRouteSample) -> ();
+        host_policy_refuses() -> bool;
+        note_would_refuse(&str, &str) -> ();
+    }
+
+    unwritten! { later SeamError:
+        rate_limit_bucket(RequestInfo) -> Option<String>;
+        authorize_inventory(RuntimeAuth, InventoryTransaction) -> InventoryDecision;
+        authorize_host_write(RuntimeAuth, HostWriteKind, AccountId, HostWriteOptions) -> Option<Reply>;
+        record_host_write(RuntimeAuth, HostWrite) -> ();
+    }
+
     fn service_roles(&self) -> &'static [&'static str] {
         &[]
     }
@@ -975,101 +1083,27 @@ impl GuardHooks for Stub {
     fn guard_manifest_roles(&self) -> &'static [&'static str] {
         GUARD_MANIFEST_ROLES
     }
-
-    fn census(&self, _sample: &HostRouteSample) -> Result<(), SeamError> {
-        Err(missing("census").into())
-    }
-
-    fn rate_limit_bucket(&self, _request: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
-        seam_stub("rate_limit_bucket")
-    }
-
-    fn authorize_inventory(
-        &self,
-        _runtime: RuntimeAuth,
-        _transaction: InventoryTransaction,
-    ) -> BoxFuture<'_, Result<InventoryDecision, SeamError>> {
-        seam_stub("authorize_inventory")
-    }
-
-    fn authorize_host_write(
-        &self,
-        _runtime: RuntimeAuth,
-        _kind: HostWriteKind,
-        _target: AccountId,
-        _options: HostWriteOptions,
-    ) -> BoxFuture<'_, Result<Option<Reply>, SeamError>> {
-        seam_stub("authorize_host_write")
-    }
-
-    fn record_host_write(&self, _runtime: RuntimeAuth, _write: HostWrite) -> BoxFuture<'_, Result<(), SeamError>> {
-        seam_stub("record_host_write")
-    }
-
-    fn host_policy_refuses(&self) -> Result<bool, SeamError> {
-        Err(missing("host_policy_refuses").into())
-    }
-
-    fn note_would_refuse(&self, _what: &str, _detail: &str) -> Result<(), SeamError> {
-        Err(missing("note_would_refuse").into())
-    }
 }
 
 impl EvidenceIntake for Stub {
-    fn submit_evidence(&self, _runtime: RuntimeAuth, _body: Json) -> BoxFuture<'_, Result<Json, GuardError>> {
-        guard_stub("submit_evidence")
-    }
-
-    fn complete(&self, _runtime: RuntimeAuth, _body: Json) -> BoxFuture<'_, Result<Json, GuardError>> {
-        guard_stub("complete")
-    }
-
-    fn verdict(&self, _session: SessionId, _generation: u64) -> BoxFuture<'_, Result<Option<HuntVerdict>, GuardError>> {
-        guard_stub("verdict")
-    }
-
-    fn reward_receipt(
-        &self,
-        _session: SessionId,
-        _generation: u64,
-        _account: AccountId,
-    ) -> BoxFuture<'_, Result<Option<Json>, GuardError>> {
-        guard_stub("reward_receipt")
-    }
-
-    fn record_shadow_comparison(&self, _key: Option<Secret>, _body: Json) -> BoxFuture<'_, Result<Json, GuardError>> {
-        guard_stub("record_shadow_comparison")
+    unwritten! { later GuardError:
+        submit_evidence(RuntimeAuth, Json) -> Json;
+        complete(RuntimeAuth, Json) -> Json;
+        verdict(SessionId, u64) -> Option<HuntVerdict>;
+        reward_receipt(SessionId, u64, AccountId) -> Option<Json>;
+        record_shadow_comparison(Option<Secret>, Json) -> Json;
     }
 }
 
 impl TrafficLimits for Stub {
-    fn charge(
-        &self,
-        _host: AccountId,
-        _session: SessionId,
-        _bytes: u64,
-    ) -> BoxFuture<'_, Result<TrafficDecision, GuardError>> {
-        guard_stub("charge")
+    unwritten! { later GuardError:
+        charge(AccountId, SessionId, u64) -> TrafficDecision;
     }
 }
 
 impl GuardOperations for Stub {
-    fn set_reward_rollout(
-        &self,
-        _admin_key: String,
-        _body: Option<Value>,
-        _ip: String,
-    ) -> BoxFuture<'_, Result<Reply, GuardError>> {
-        guard_stub("set_reward_rollout")
-    }
-
-    fn acknowledge_alert(
-        &self,
-        _admin_key: String,
-        _alert_id: String,
-        _body: Option<Value>,
-        _ip: String,
-    ) -> BoxFuture<'_, Result<Reply, GuardError>> {
-        guard_stub("acknowledge_alert")
+    unwritten! { later GuardError:
+        set_reward_rollout(String, Option<Value>, String) -> Reply;
+        acknowledge_alert(String, String, Option<Value>, String) -> Reply;
     }
 }

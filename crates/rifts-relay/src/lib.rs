@@ -5,49 +5,125 @@
 //! keys that bind a joiner to its host, the ICE signal relay and the admin `coop-transport` switch. It listens on
 //! nothing; the module supplies HTTPS to the relay provider through [`ProviderHttp`].
 
+use std::error::Error as StdError;
+use std::fmt;
+
+use rifts_seam as seam;
+use seam::{AccountId, Json, Reply, Secret, SessionId, UnixMillis};
+use serde_json::Value;
+
+/// An enum whose variants travel as fixed words: one table gives the variants, `as_str` and, when asked for,
+/// `parse`. Defined before the modules so each of them can use it.
+macro_rules! wire_enum {
+    ($(#[$meta:meta])* $name:ident { $($variant:ident = $word:literal,)+ }) => {
+        $(#[$meta])*
+        pub enum $name {
+            $($variant,)+
+        }
+
+        impl $name {
+            pub const fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $word,)+
+                }
+            }
+        }
+    };
+    ($(#[$meta:meta])* $name:ident, read by $reader:vis parse { $($variant:ident = $word:literal,)+ }) => {
+        wire_enum!($(#[$meta])* $name { $($variant = $word,)+ });
+
+        impl $name {
+            $reader fn parse(text: &str) -> Option<Self> {
+                [$(Self::$variant,)+].into_iter().find(|known| known.as_str() == text)
+            }
+        }
+    };
+}
+
+pub mod rules;
+pub mod wire;
+
 mod config;
 mod credentials;
 mod routes;
-pub mod rules;
 mod service;
-pub mod wire;
 
-use rifts_seam::{
-    AccountId, BoxFuture, Component, Json, Refusal, Reply, Secret, SessionId, StoreError, Unimplemented, UnixMillis,
-    stub,
+pub use crate::{
+    config::{
+        CloudflareAnalytics, CloudflareTurn, RelayConfig, SECRET_SETTINGS, TurnProvider, TurnRelayPorts, TurnRest,
+        is_stun_url, is_turn_url,
+    },
+    credentials::{
+        CLOUDFLARE_GRAPHQL_API, CLOUDFLARE_RTC_API, CloudflareIssuer, HourlyCounter, IceServer, IssuedCredential,
+        PROVIDER_TIMEOUT_MS, ProviderAnswer, ProviderFailure, ProviderHttp, ProviderIceServers, ProviderRequest,
+        ProviderUnreachable, RelayDenied, RelayGrant, RelayGrants, RelayStatus, RelayUsageCache, TurnRestIssuer,
+        mint_cloudflare, mint_turn_rest, month_window, normalize_provider_ice_servers, read_monthly_relay_egress_bytes,
+        relay_account_tag, relay_ttl_seconds,
+    },
+    routes::{ROUTES, RelayRoutes, stub_routes},
+    rules::{CoopTransport, HuntSnapshot, derive_pair_key},
+    service::{ControlMessage, CoopTransportOutcome, Ice, IceHunts, OperationsPolicy, P2PGate, refusal},
 };
 
-pub use crate::config::{
-    CloudflareAnalytics, CloudflareTurn, RelayConfig, SECRET_SETTINGS, TurnProvider, TurnRelayPorts, TurnRest,
-    is_stun_url, is_turn_url,
-};
-pub use crate::credentials::{
-    CLOUDFLARE_GRAPHQL_API, CLOUDFLARE_RTC_API, CloudflareIssuer, HourlyCounter, IceServer, IssuedCredential,
-    PROVIDER_TIMEOUT_MS, ProviderAnswer, ProviderFailure, ProviderHttp, ProviderIceServers, ProviderRequest,
-    ProviderUnreachable, RelayDenied, RelayGrant, RelayGrants, RelayStatus, RelayUsageCache, TurnRestIssuer,
-    mint_cloudflare, mint_turn_rest, month_window, normalize_provider_ice_servers, read_monthly_relay_egress_bytes,
-    relay_account_tag, relay_ttl_seconds,
-};
-pub use crate::routes::{ROUTES, RelayRoutes, stub_routes};
-pub use crate::rules::{CoopTransport, HuntSnapshot, derive_pair_key};
-pub use crate::service::{ControlMessage, CoopTransportOutcome, Ice, IceHunts, OperationsPolicy, P2PGate, refusal};
+/// What every relay operation resolves to.
+type Answer<'a, T> = seam::BoxFuture<'a, Result<T, RelayError>>;
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum RelayError {
-    #[error(transparent)]
-    Unimplemented(#[from] Unimplemented),
-    #[error(transparent)]
-    Refused(#[from] Refusal),
-    #[error(transparent)]
-    Provider(#[from] ProviderFailure),
-    #[error(transparent)]
-    Store(#[from] StoreError),
-    #[error("the system random source failed")]
+    Unimplemented(seam::Unimplemented),
+    Refused(seam::Refusal),
+    Provider(ProviderFailure),
+    Store(seam::StoreError),
     Random,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl RelayError {
+    /// The wrapped error every variant but `Random` shows through unchanged.
+    fn wrapped(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(match self {
+            Self::Unimplemented(inner) => inner,
+            Self::Refused(inner) => inner,
+            Self::Provider(inner) => inner,
+            Self::Store(inner) => inner,
+            Self::Random => return None,
+        })
+    }
+}
+
+impl fmt::Display for RelayError {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.wrapped() {
+            Some(inner) => fmt::Display::fmt(inner, out),
+            None => out.write_str("the system random source failed"),
+        }
+    }
+}
+
+impl StdError for RelayError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        self.wrapped()?.source()
+    }
+}
+
+macro_rules! relay_error_from {
+    ($($variant:ident <- $inner:ty),* $(,)?) => {$(
+        impl From<$inner> for RelayError {
+            fn from(inner: $inner) -> Self {
+                Self::$variant(inner)
+            }
+        }
+    )*};
+}
+
+relay_error_from! {
+    Unimplemented <- seam::Unimplemented,
+    Refused <- seam::Refusal,
+    Provider <- ProviderFailure,
+    Store <- seam::StoreError,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelayCredential {
     pub username: String,
     pub credential: Secret,
@@ -57,18 +133,13 @@ pub struct RelayCredential {
 
 pub trait CredentialIssuer: Send + Sync {
     fn provider(&self) -> TurnProvider;
-    fn issue(
-        &self,
-        account: AccountId,
-        ttl_seconds: u32,
-        now: UnixMillis,
-    ) -> BoxFuture<'_, Result<IssuedCredential, RelayError>>;
+    fn issue(&self, to: AccountId, ttl_seconds: u32, at: UnixMillis) -> Answer<'_, IssuedCredential>;
 }
 
 pub trait PairKeys: Send + Sync {
     fn pair_key(
         &self,
-        wire_session: &str,
+        session: &str,
         generation: u64,
         host: &AccountId,
         joiner: &AccountId,
@@ -76,142 +147,128 @@ pub trait PairKeys: Send + Sync {
 }
 
 /// The transport key secret, when the server has one (`P2P_TRANSPORT_KEY_SECRET`).
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct TransportKeys(pub Option<Secret>);
-
-const ICE_UNAVAILABLE: (&str, &str) = (
-    "P2P_ICE_UNAVAILABLE",
-    "The co-op transport is not configured on this server.",
-);
 
 impl PairKeys for TransportKeys {
     fn pair_key(
         &self,
-        wire_session: &str,
+        session: &str,
         generation: u64,
         host: &AccountId,
         joiner: &AccountId,
     ) -> Result<Secret, RelayError> {
-        let secret = self
-            .0
-            .as_ref()
-            .ok_or_else(|| refusal(ICE_UNAVAILABLE.0, ICE_UNAVAILABLE.1))?;
-        Ok(derive_pair_key(secret, wire_session, generation, host, joiner))
+        match &self.0 {
+            Some(secret) => Ok(derive_pair_key(secret, session, generation, host, joiner)),
+            None => Err(refusal(
+                "P2P_ICE_UNAVAILABLE",
+                "The co-op transport is not configured on this server.",
+            )),
+        }
     }
 }
 
 pub trait IceService: Send + Sync {
-    fn transport_config(
-        &self,
-        account: AccountId,
-        session: SessionId,
-        generation: Option<i64>,
-    ) -> BoxFuture<'_, Result<Json, RelayError>>;
-    fn submit_signal(
-        &self,
-        account: AccountId,
-        session: SessionId,
-        body: serde_json::Value,
-    ) -> BoxFuture<'_, Result<Json, RelayError>>;
-    fn set_coop_transport(
-        &self,
-        admin_key_id: String,
-        body: serde_json::Value,
-    ) -> BoxFuture<'_, Result<Reply, RelayError>>;
+    fn transport_config(&self, who: AccountId, hunt: SessionId, generation: Option<i64>) -> Answer<'_, Json>;
+    fn submit_signal(&self, who: AccountId, hunt: SessionId, body: Value) -> Answer<'_, Json>;
+    fn set_coop_transport(&self, admin: String, body: Value) -> Answer<'_, Reply>;
 }
 
 /// Answers every operation as not written yet.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Stub;
+
+fn not_yet<'a, T: Send + 'static>(operation: &'static str) -> Answer<'a, T> {
+    seam::stub(seam::Component::Relay, operation)
+}
 
 impl CredentialIssuer for Stub {
     fn provider(&self) -> TurnProvider {
         TurnProvider::None
     }
 
-    fn issue(&self, _: AccountId, _: u32, _: UnixMillis) -> BoxFuture<'_, Result<IssuedCredential, RelayError>> {
-        stub(Component::Relay, "issue")
+    fn issue(&self, _: AccountId, _: u32, _: UnixMillis) -> Answer<'_, IssuedCredential> {
+        not_yet("issue")
     }
 }
 
 impl PairKeys for Stub {
     fn pair_key(&self, _: &str, _: u64, _: &AccountId, _: &AccountId) -> Result<Secret, RelayError> {
-        Err(Unimplemented::new(Component::Relay, "pair_key").into())
+        Err(seam::Unimplemented::new(seam::Component::Relay, "pair_key").into())
     }
 }
 
 impl IceService for Stub {
-    fn transport_config(&self, _: AccountId, _: SessionId, _: Option<i64>) -> BoxFuture<'_, Result<Json, RelayError>> {
-        stub(Component::Relay, "transport_config")
+    fn transport_config(&self, _: AccountId, _: SessionId, _: Option<i64>) -> Answer<'_, Json> {
+        not_yet("transport_config")
     }
 
-    fn submit_signal(
-        &self,
-        _: AccountId,
-        _: SessionId,
-        _: serde_json::Value,
-    ) -> BoxFuture<'_, Result<Json, RelayError>> {
-        stub(Component::Relay, "submit_signal")
+    fn submit_signal(&self, _: AccountId, _: SessionId, _: Value) -> Answer<'_, Json> {
+        not_yet("submit_signal")
     }
 
-    fn set_coop_transport(&self, _: String, _: serde_json::Value) -> BoxFuture<'_, Result<Reply, RelayError>> {
-        stub(Component::Relay, "set_coop_transport")
+    fn set_coop_transport(&self, _: String, _: Value) -> Answer<'_, Reply> {
+        not_yet("set_coop_transport")
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use rifts_seam::{GlobalId, NodeId, Ulid, poll_once};
+    use seam::{GlobalId, NodeId, Ulid, poll_once};
 
     use super::*;
 
-    fn unimplemented(operation: &'static str) -> RelayError {
-        RelayError::Unimplemented(Unimplemented::new(Component::Relay, operation))
+    fn account(name: &str) -> AccountId {
+        AccountId(name.to_owned())
     }
 
     #[test]
     fn stubs_answer_unimplemented() {
-        let account = AccountId("account-0001".to_owned());
-        let session = SessionId(GlobalId {
-            ulid: Ulid(1),
+        let who = account("account-0001");
+        let hunt = SessionId(GlobalId {
             node: NodeId::new("node").unwrap(),
+            ulid: Ulid(1),
         });
         assert_eq!(CredentialIssuer::provider(&Stub), TurnProvider::None);
-        assert_eq!(
-            poll_once(Stub.issue(account.clone(), 1, UnixMillis(0))).unwrap(),
-            Err(unimplemented("issue"))
-        );
-        assert_eq!(
-            Stub.pair_key("w", 1, &account, &account),
-            Err(unimplemented("pair_key"))
-        );
-        assert_eq!(
-            poll_once(Stub.transport_config(account.clone(), session.clone(), None)).unwrap(),
-            Err(unimplemented("transport_config"))
-        );
-        assert_eq!(
-            poll_once(Stub.submit_signal(account, session, serde_json::Value::Null)).unwrap(),
-            Err(unimplemented("submit_signal"))
-        );
-        assert_eq!(
-            poll_once(Stub.set_coop_transport("k".to_owned(), serde_json::Value::Null)).unwrap(),
-            Err(unimplemented("set_coop_transport"))
-        );
+        let answers = [
+            (
+                "issue",
+                poll_once(Stub.issue(who.clone(), 1, UnixMillis(0))).unwrap().map(drop),
+            ),
+            ("pair_key", Stub.pair_key("w", 1, &who, &who).map(drop)),
+            (
+                "transport_config",
+                poll_once(Stub.transport_config(who.clone(), hunt.clone(), None))
+                    .unwrap()
+                    .map(drop),
+            ),
+            (
+                "submit_signal",
+                poll_once(Stub.submit_signal(who, hunt, Value::Null)).unwrap().map(drop),
+            ),
+            (
+                "set_coop_transport",
+                poll_once(Stub.set_coop_transport("k".to_owned(), Value::Null))
+                    .unwrap()
+                    .map(drop),
+            ),
+        ];
+        for (operation, answer) in answers {
+            let expected = RelayError::Unimplemented(seam::Unimplemented::new(seam::Component::Relay, operation));
+            assert_eq!(answer, Err(expected), "{operation}");
+        }
     }
 
     #[test]
     fn transport_keys() {
-        let host = AccountId("host-0001".to_owned());
-        let joiner = AccountId("joiner-01".to_owned());
-        let refused = TransportKeys(None).pair_key("w", 1, &host, &joiner).unwrap_err();
+        let (host, joiner) = (account("host-0001"), account("joiner-01"));
+        let missing = TransportKeys(None).pair_key("w", 1, &host, &joiner).unwrap_err();
         assert_eq!(
-            refused.to_string(),
+            missing.to_string(),
             "P2P_ICE_UNAVAILABLE: The co-op transport is not configured on this server."
         );
-        let key = TransportKeys(Some(Secret::new("k".repeat(32))))
-            .pair_key("w", 1, &host, &joiner)
-            .unwrap();
-        assert_eq!(key.expose().len(), 43);
+        let keys = TransportKeys(Some(Secret::new("k".repeat(32))));
+        assert_eq!(keys.pair_key("w", 1, &host, &joiner).unwrap().expose().len(), 43);
         assert_eq!(RelayError::Random.to_string(), "the system random source failed");
     }
 }

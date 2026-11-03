@@ -4,173 +4,192 @@
 //! The pure rules: id and value checks, the ICE files, ready and peer lines, the roster, the hosted server's launch,
 //! and the timers and limits of the hosting panel.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::Path;
-use std::time::{Duration, Instant};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    ops::RangeInclusive,
+    path::Path,
+    time::{Duration, Instant},
+};
 
 use rifts_seam::{Secret, SessionId};
 
-use super::{
-    CLEARED_VARIABLES, CapacityDecision, DIRECTOR_SERVER_SWITCHES, FilesFor, GAME_LEFT_IDLE, GameTrafficWatch,
-    HOST_COMMIT_FLOOR_MIB, HUNT_JOIN_LEAVE_MAX, HostedRole, IceFiles, LAUNCH_VARIABLES, LaunchEnvironmentSpec,
-    MAX_HUB_PEERS, PeerDiff, PeerEvent, PeerListEntry, PeerLive, RELAY_EARLY_REFRESH_SECONDS,
-    RELAY_EARLY_REFRESH_SPACING, RELAY_REFRESH_MARGIN_SECONDS, SessionLive, TransportConfig, WantedPeer,
-};
+use super::*;
 use crate::HostError;
+
+// ---- ids and values -------------------------------------------------------------------------------------------
 
 /// The ULID's 128 bits as a dashed 8-4-4-4-12 hex id; the node is not part of it.
 pub fn wire_session_id(session: &SessionId) -> String {
-    let hex = format!("{:032x}", session.0.ulid.0);
-    format!(
-        "{}-{}-{}-{}-{}",
-        &hex[..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..]
-    )
+    let mut out = String::with_capacity(36);
+    for (at, digit) in format!("{:032x}", session.0.ulid.0).chars().enumerate() {
+        if matches!(at, 8 | 12 | 16 | 20) {
+            out.push('-');
+        }
+        out.push(digit);
+    }
+    out
 }
 
 pub fn safe_config_value(value: &str, maximum: usize) -> Result<&str, HostError> {
-    let fine = !value.is_empty() && value.len() <= maximum && !value.contains(['\r', '\n', '\0']);
-    if fine {
-        Ok(value)
-    } else {
-        Err(HostError::InvalidInput(
-            "the backend returned unsafe player-host bootstrap data".to_owned(),
-        ))
-    }
+    let one_line = !value.contains(['\r', '\n', '\0']);
+    ((1..=maximum).contains(&value.len()) && one_line)
+        .then_some(value)
+        .ok_or_else(|| HostError::InvalidInput("the backend returned unsafe player-host bootstrap data".to_owned()))
 }
 
-pub fn safe_account(text: &str) -> bool {
-    (1..=64).contains(&text.len())
-        && text
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b':'))
-}
-
-pub fn safe_peer_id(text: &str) -> bool {
-    (1..=20).contains(&text.len())
-        && text.bytes().all(|b| b.is_ascii_digit())
-        && !text.starts_with('0')
-        && text.parse::<u64>().is_ok()
-}
-
-pub fn safe_key(text: &str) -> bool {
-    text.len() == 43
-        && text
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+/// Length in `lengths` and every byte passing `byte`.
+fn shaped(text: &str, lengths: RangeInclusive<usize>, byte: impl Fn(u8) -> bool) -> bool {
+    lengths.contains(&text.len()) && text.bytes().all(byte)
 }
 
 fn printable(text: &str) -> bool {
-    text.bytes().all(|b| (0x21..=0x7e).contains(&b))
+    text.bytes().all(|b| b.is_ascii_graphic())
+}
+
+pub fn safe_account(text: &str) -> bool {
+    shaped(text, 1..=64, |b| b.is_ascii_alphanumeric() || b"-_:".contains(&b))
+}
+
+pub fn safe_peer_id(text: &str) -> bool {
+    // Decimal with no leading zero that still fits a u64.
+    shaped(text, 1..=20, |b| b.is_ascii_digit()) && !text.starts_with('0') && text.parse::<u64>().is_ok()
+}
+
+pub fn safe_key(text: &str) -> bool {
+    shaped(text, 43..=43, |b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
 }
 
 pub fn safe_url(text: &str) -> bool {
-    text.len() <= 256
-        && ["stun:", "turn:", "turns:"].iter().any(|p| text.starts_with(p))
-        && printable(text)
-        && !text.contains(',')
+    let scheme_ok = text.starts_with("stun:") || text.starts_with("turn:") || text.starts_with("turns:");
+    scheme_ok && text.len() <= 256 && printable(text) && !text.contains(',')
 }
 
 pub fn safe_credential(text: &str) -> bool {
     (1..=512).contains(&text.len()) && printable(text)
 }
 
-pub fn ice_files(config: &TransportConfig, files_for: FilesFor, host_peer_id: &str) -> Result<IceFiles, HostError> {
-    let unsafe_config =
-        || HostError::InvalidInput("the backend returned an unsafe co-op transport configuration".to_owned());
-    let joiner = files_for == FilesFor::Joiner;
-    let hub = files_for == FilesFor::HubHost;
-    let ids_ok = safe_account(&config.local_account_id)
-        && safe_account(&config.host_account_id)
-        && safe_peer_id(&config.local_peer_id)
-        && safe_peer_id(&config.host_peer_id)
-        && config.host_peer_id == host_peer_id;
-    if !ids_ok {
-        return Err(unsafe_config());
-    }
+// ---- ICE files ------------------------------------------------------------------------------------------------
 
-    let mut stun: Vec<&str> = Vec::new();
-    let mut turn: Vec<&str> = Vec::new();
-    let mut credential: Option<(&str, &str)> = None;
-    for server in &config.ice_servers {
-        if !server.urls.iter().all(|u| safe_url(u)) {
-            return Err(unsafe_config());
-        }
-        match (server.username.as_deref(), server.credential.as_deref()) {
-            (Some(user), Some(secret)) => {
-                if !safe_credential(user) || !safe_credential(secret) {
-                    return Err(unsafe_config());
-                }
-                if credential.is_none() {
-                    credential = Some((user, secret));
-                    turn.extend(server.urls.iter().filter(|u| u.starts_with("turn")).map(String::as_str));
-                }
+fn unsafe_transport_config() -> HostError {
+    HostError::InvalidInput("the backend returned an unsafe co-op transport configuration".to_owned())
+}
+
+/// The STUN and TURN URLs to write and the one TURN credential, from the first server that has one.
+#[derive(Default)]
+struct IceUrls<'a> {
+    stun: Vec<&'a str>,
+    turn: Vec<&'a str>,
+    credential: Option<(&'a str, &'a str)>,
+}
+
+impl<'a> IceUrls<'a> {
+    fn gather(servers: &'a [IceServerEntry]) -> Result<Self, HostError> {
+        let mut urls = Self::default();
+        for server in servers {
+            if server.urls.iter().any(|u| !safe_url(u)) {
+                return Err(unsafe_transport_config());
             }
-            _ => stun.extend(
+            let with = |prefix: &'a str| {
                 server
                     .urls
                     .iter()
-                    .filter(|u| u.starts_with("stun:"))
-                    .map(String::as_str),
-            ),
+                    .map(String::as_str)
+                    .filter(move |u| u.starts_with(prefix))
+            };
+            let Some(pair) = server.username.as_deref().zip(server.credential.as_deref()) else {
+                urls.stun.extend(with("stun:"));
+                continue;
+            };
+            if !(safe_credential(pair.0) && safe_credential(pair.1)) {
+                return Err(unsafe_transport_config());
+            }
+            if urls.credential.is_none() {
+                urls.credential = Some(pair);
+                urls.turn.extend(with("turn"));
+            }
         }
+        Ok(urls)
     }
+}
 
-    if !hub {
-        let entries_ok = config
-            .peers
-            .iter()
-            .all(|p| safe_account(&p.account_id) && safe_peer_id(&p.peer_id) && safe_key(&p.transport_key));
-        let shape_ok = match files_for {
+/// The peer list's shape for who the files are for; a hub host takes its peers later, so any list fits.
+fn peers_fit(config: &TransportConfig, files_for: FilesFor) -> bool {
+    let peers = &config.peers;
+    let entries_ok = peers
+        .iter()
+        .all(|p| safe_account(&p.account_id) && safe_peer_id(&p.peer_id) && safe_key(&p.transport_key));
+    let none_local = || peers.iter().all(|p| p.account_id != config.local_account_id);
+    entries_ok
+        && match files_for {
             FilesFor::Joiner => {
-                matches!(config.peers.as_slice(), [only] if only.account_id == config.host_account_id
-                    && only.peer_id == config.host_peer_id)
+                peers.len() == 1
+                    && peers[0].account_id == config.host_account_id
+                    && peers[0].peer_id == config.host_peer_id
             }
-            FilesFor::HuntHost | FilesFor::AwayHuntHost => {
-                let most = if files_for == FilesFor::HuntHost { 3 } else { 4 };
-                config.peers.len() <= most && config.peers.iter().all(|p| p.account_id != config.local_account_id)
-            }
+            FilesFor::HuntHost => peers.len() <= 3 && none_local(),
+            FilesFor::AwayHuntHost => peers.len() <= 4 && none_local(),
             FilesFor::HubHost => true,
-        };
-        if !entries_ok || !shape_ok {
-            return Err(unsafe_config());
         }
+}
+
+fn push_line(out: &mut String, key: &str, value: &str) {
+    out.push_str(key);
+    out.push('=');
+    out.push_str(value);
+    out.push('\n');
+}
+
+pub fn ice_files(config: &TransportConfig, files_for: FilesFor, host_peer_id: &str) -> Result<IceFiles, HostError> {
+    let accounts_ok = safe_account(&config.local_account_id) && safe_account(&config.host_account_id);
+    let peers_ok = safe_peer_id(&config.local_peer_id) && safe_peer_id(&config.host_peer_id);
+    if !(accounts_ok && peers_ok && config.host_peer_id == host_peer_id) {
+        return Err(unsafe_transport_config());
+    }
+    let urls = IceUrls::gather(&config.ice_servers)?;
+    let hub = files_for == FilesFor::HubHost;
+    if !hub && !peers_fit(config, files_for) {
+        return Err(unsafe_transport_config());
     }
 
-    let mut text = String::new();
-    if !stun.is_empty() {
-        text.push_str(&format!("ice_stun_urls={}\n", stun.join(",")));
+    let mut public = String::new();
+    for (key, list) in [("ice_stun_urls", &urls.stun), ("ice_turn_urls", &urls.turn)] {
+        if !list.is_empty() {
+            push_line(&mut public, key, &list.join(","));
+        }
     }
-    if !turn.is_empty() {
-        text.push_str(&format!("ice_turn_urls={}\n", turn.join(",")));
-    }
-    text.push_str(&format!("local_account_id={}\n", config.local_account_id));
-    if joiner {
-        text.push_str(&format!(
-            "local_peer_id={}\nhost_account_id={}\n",
-            config.local_peer_id, config.host_account_id
-        ));
+    push_line(&mut public, "local_account_id", &config.local_account_id);
+    if files_for == FilesFor::Joiner {
+        push_line(&mut public, "local_peer_id", &config.local_peer_id);
+        push_line(&mut public, "host_account_id", &config.host_account_id);
     }
 
-    let mut secrets = String::new();
-    if let Some((user, secret)) = credential.filter(|_| !turn.is_empty()) {
-        secrets.push_str(&format!("turn_username={user}\nturn_credential={secret}\n"));
+    let mut secret = String::new();
+    if let (Some((user, credential)), false) = (urls.credential, urls.turn.is_empty()) {
+        push_line(&mut secret, "turn_username", user);
+        push_line(&mut secret, "turn_credential", credential);
     }
-    if !hub {
-        for peer in &config.peers {
-            secrets.push_str(&format!(
-                "peer={},{},{}\n",
-                peer.account_id, peer.peer_id, peer.transport_key
-            ));
-        }
+    for peer in config.peers.iter().filter(|_| !hub) {
+        let entry = [peer.account_id.as_str(), &peer.peer_id, &peer.transport_key].join(",");
+        push_line(&mut secret, "peer", &entry);
     }
     Ok(IceFiles {
-        config: text,
-        secrets: Secret::new(secrets),
+        config: public,
+        secrets: Secret::new(secret),
     })
+}
+
+// ---- transport lines ------------------------------------------------------------------------------------------
+
+/// `key=value` tokens; `None` on an empty side or a key given twice.
+fn route_fields<'a>(tokens: impl Iterator<Item = &'a str>) -> Option<HashMap<&'a str, &'a str>> {
+    let mut fields = HashMap::new();
+    for token in tokens {
+        let (key, value) = token.split_once('=')?;
+        if key.is_empty() || value.is_empty() || fields.insert(key, value).is_some() {
+            return None;
+        }
+    }
+    Some(fields)
 }
 
 /// The local port from a `HOST_READY` or `ROUTE_READY` line, after checking it is the loopback ICE route asked for.
@@ -180,155 +199,142 @@ pub fn parse_ice_ready(
     force_relay: bool,
     local_client: bool,
 ) -> Result<u16, HostError> {
-    let fail = |text: &str| Err(HostError::Transport(text.to_owned()));
+    let refused = |text: &str| HostError::Transport(format!("the co-op transport module {text}"));
     let mut tokens = line.split_whitespace();
     if tokens.next() != Some(expected_state) {
-        return fail("the co-op transport module returned an unexpected readiness state");
+        return Err(refused("returned an unexpected readiness state"));
     }
-    let mut fields: HashMap<&str, &str> = HashMap::new();
-    for token in tokens {
-        let pair = token.split_once('=').filter(|(k, v)| !k.is_empty() && !v.is_empty());
-        let Some((key, value)) = pair else {
-            return fail("the co-op transport module returned a malformed local route");
-        };
-        if fields.insert(key, value).is_some() {
-            return fail("the co-op transport module returned a malformed local route");
-        }
+    let fields = route_fields(tokens).ok_or_else(|| refused("returned a malformed local route"))?;
+    let is = |key: &str, wanted: &str| fields.get(key) == Some(&wanted);
+    if !(is("localHost", "127.0.0.1") && is("transport", "ice")) {
+        return Err(refused("did not return a verified loopback route"));
     }
-    if fields.get("localHost") != Some(&"127.0.0.1") || fields.get("transport") != Some(&"ice") {
-        return fail("the co-op transport module did not return a verified loopback route");
+    let policy_ok = is("routePolicy", if force_relay { "RELAY_ONLY" } else { "AUTOMATIC" });
+    let relayed_when_forced = !force_relay || expected_state != "ROUTE_READY" || is("route", "relay");
+    if !(policy_ok && relayed_when_forced) {
+        return Err(refused("returned a route outside the requested transport policy"));
     }
-    let policy = if force_relay { "RELAY_ONLY" } else { "AUTOMATIC" };
-    let relay_route_ok = !(force_relay && expected_state == "ROUTE_READY") || fields.get("route") == Some(&"relay");
-    if fields.get("routePolicy") != Some(&policy) || !relay_route_ok {
-        return fail("the co-op transport module returned a route outside the requested transport policy");
-    }
-    match fields.get("localPort").and_then(|p| p.parse::<u16>().ok()) {
-        Some(port) if (port != 0) == local_client => Ok(port),
-        _ => fail("the co-op transport module returned an invalid local route"),
-    }
+    // The port is 0 exactly when no local client is to connect.
+    fields
+        .get("localPort")
+        .and_then(|p| p.parse::<u16>().ok())
+        .filter(|port| (*port != 0) == local_client)
+        .ok_or_else(|| refused("returned an invalid local route"))
 }
 
 pub fn parse_peer_event(line: &str) -> Option<PeerEvent> {
     let mut tokens = line.split_whitespace();
     let kind = tokens.next()?;
-    let mut fields: HashMap<&str, &str> = HashMap::new();
-    for (key, value) in tokens.filter_map(|t| t.split_once('=')) {
-        fields.insert(key, value);
+    let fields: HashMap<&str, &str> = tokens.filter_map(|t| t.split_once('=')).collect();
+    let owned = |key: &str| fields.get(key).map(|v| (*v).to_owned());
+    let account = owned("account")?;
+    let (route, reason) = (owned("route"), owned("reason"));
+    let admitted = fields.get("admitted") == Some(&"1");
+    match kind {
+        "PEER_CONNECTED" => Some(PeerEvent::Connected { account, route }),
+        "PEER_ADMITTED" => Some(PeerEvent::Admitted { account, route }),
+        "PEER_LOST" => Some(PeerEvent::Lost { account, reason }),
+        "PEER_REMOVED" => Some(PeerEvent::Removed {
+            account,
+            reason,
+            admitted,
+        }),
+        "PEER_ADD_REJECTED" => Some(PeerEvent::AddRejected { account, reason }),
+        _ => None,
     }
-    let account = (*fields.get("account")?).to_owned();
-    let field = |key: &str| fields.get(key).map(|v| (*v).to_owned());
-    Some(match kind {
-        "PEER_CONNECTED" => PeerEvent::Connected {
-            account,
-            route: field("route"),
-        },
-        "PEER_ADMITTED" => PeerEvent::Admitted {
-            account,
-            route: field("route"),
-        },
-        "PEER_LOST" => PeerEvent::Lost {
-            account,
-            reason: field("reason"),
-        },
-        "PEER_REMOVED" => PeerEvent::Removed {
-            account,
-            reason: field("reason"),
-            admitted: fields.get("admitted") == Some(&"1"),
-        },
-        "PEER_ADD_REJECTED" => PeerEvent::AddRejected {
-            account,
-            reason: field("reason"),
-        },
-        _ => return None,
-    })
 }
 
 pub fn is_local_admission(line: &str) -> bool {
     let mut tokens = line.split_whitespace();
-    tokens.next() == Some("ADMISSION_ACCEPTED") && {
-        let rest: Vec<&str> = tokens.collect();
-        rest.contains(&"role=host") && rest.contains(&"source=local")
+    if tokens.next() != Some("ADMISSION_ACCEPTED") {
+        return false;
     }
+    let (mut as_host, mut from_local) = (false, false);
+    for token in tokens {
+        as_host |= token == "role=host";
+        from_local |= token == "source=local";
+    }
+    as_host && from_local
 }
 
 pub fn apply_peer_event(live: &mut SessionLive, event: &PeerEvent, now_iso: &str) {
-    match event {
-        PeerEvent::Admitted { account, route } => {
-            live.peers.insert(
-                account.clone(),
-                PeerLive {
-                    route: route.clone(),
-                    since: now_iso.to_owned(),
-                },
-            );
-        }
-        PeerEvent::Lost { account, .. } | PeerEvent::Removed { account, .. } => {
-            live.peers.remove(account);
-        }
-        PeerEvent::Connected { .. } | PeerEvent::AddRejected { .. } => {}
+    if let PeerEvent::Admitted { account, route } = event {
+        let entry = PeerLive {
+            route: route.clone(),
+            since: now_iso.to_owned(),
+        };
+        live.peers.insert(account.clone(), entry);
+    } else if let PeerEvent::Lost { account, .. } | PeerEvent::Removed { account, .. } = event {
+        live.peers.remove(account);
     }
 }
 
 pub fn apply_peer_line(live: &mut SessionLive, line: &str, now_iso: &str) {
     if is_local_admission(line) {
         live.local_since = Some(now_iso.to_owned());
-    } else if let Some(event) = parse_peer_event(line) {
+        return;
+    }
+    if let Some(event) = parse_peer_event(line) {
         apply_peer_event(live, &event, now_iso);
     }
 }
 
+// ---- roster ---------------------------------------------------------------------------------------------------
+
+fn checked_peer(entry: &PeerListEntry, host_account_id: Option<&str>) -> Option<WantedPeer> {
+    let not_host = host_account_id != Some(entry.account_id.as_str());
+    let fields_ok = safe_account(&entry.account_id) && safe_key(&entry.transport_key) && safe_peer_id(&entry.peer_id);
+    if !(fields_ok && not_host) {
+        return None;
+    }
+    Some(WantedPeer {
+        account_id: entry.account_id.clone(),
+        peer_id: entry.peer_id.parse().ok()?,
+        transport_key: entry.transport_key.clone(),
+    })
+}
+
 /// The peers worth linking, in order, and how many entries were refused.
 pub fn wanted_peers(entries: &[PeerListEntry], host_account_id: Option<&str>) -> (Vec<WantedPeer>, usize) {
-    let mut wanted: Vec<WantedPeer> = Vec::new();
-    let mut taken: HashSet<&str> = HashSet::new();
     let mut refused = 0;
-    for entry in entries.iter().take(MAX_HUB_PEERS) {
-        let peer_id = entry
-            .peer_id
-            .parse::<u64>()
-            .ok()
-            .filter(|_| safe_peer_id(&entry.peer_id));
-        let fine = safe_account(&entry.account_id)
-            && safe_key(&entry.transport_key)
-            && host_account_id != Some(entry.account_id.as_str());
-        let (Some(peer_id), true) = (peer_id, fine) else {
-            refused += 1;
-            continue;
-        };
-        if !taken.insert(entry.account_id.as_str()) {
-            continue;
-        }
-        wanted.push(WantedPeer {
-            account_id: entry.account_id.clone(),
-            peer_id,
-            transport_key: entry.transport_key.clone(),
-        });
-    }
+    let mut seen = HashSet::new();
+    let wanted = entries
+        .iter()
+        .take(MAX_HUB_PEERS)
+        .filter_map(|entry| match checked_peer(entry, host_account_id) {
+            // A repeat of an account already taken is dropped, not counted.
+            Some(peer) => seen.insert(peer.account_id.clone()).then_some(peer),
+            None => {
+                refused += 1;
+                None
+            }
+        })
+        .collect();
     (wanted, refused)
 }
 
 pub fn peer_diff(linked: &HashSet<String>, wanted: &[WantedPeer]) -> PeerDiff {
-    let add = wanted
-        .iter()
-        .filter(|w| !linked.contains(&w.account_id))
-        .cloned()
-        .collect();
-    let mut remove: Vec<String> = linked
-        .iter()
-        .filter(|a| !wanted.iter().any(|w| &w.account_id == *a))
-        .cloned()
-        .collect();
-    remove.sort();
-    PeerDiff { add, remove }
+    let wanted_ids: HashSet<&str> = wanted.iter().map(|w| w.account_id.as_str()).collect();
+    let remove: BTreeSet<&String> = linked.iter().filter(|a| !wanted_ids.contains(a.as_str())).collect();
+    PeerDiff {
+        add: wanted
+            .iter()
+            .filter(|w| !linked.contains(&w.account_id))
+            .cloned()
+            .collect(),
+        remove: remove.into_iter().cloned().collect(),
+    }
 }
+
+// ---- the hosted server's launch -------------------------------------------------------------------------------
 
 /// The week of a Trials matchmaker hunt id, `Arena_MatchmakerHunt_<Easy|Hard|Elite>_<three digits>`.
 pub fn trials_week(matchmaker_hunt_id: &str) -> Option<&str> {
     let rest = matchmaker_hunt_id.strip_prefix("Arena_MatchmakerHunt_")?;
-    let (tier, week) = rest.split_once('_')?;
-    let tier_ok = matches!(tier, "Easy" | "Hard" | "Elite");
-    (tier_ok && week.len() == 3 && week.bytes().all(|b| b.is_ascii_digit())).then_some(week)
+    let week = ["Easy_", "Hard_", "Elite_"]
+        .iter()
+        .find_map(|tier| rest.strip_prefix(tier))?;
+    shaped(week, 3..=3, |b| b.is_ascii_digit()).then_some(week)
 }
 
 /// The hosted server's command line; the runtime checks the leading `-` and the loopback multihome.
@@ -339,22 +345,47 @@ pub fn host_server_arguments(
     matchmaker_hunt_id: &str,
     expected_players: &str,
 ) -> Vec<String> {
-    let mut arguments = vec![
-        "-".to_owned(),
-        server_udp_port.to_string(),
-        map_path.to_owned(),
-        behemoth_path.to_owned(),
-        matchmaker_hunt_id.to_owned(),
-        expected_players.to_owned(),
-        format!("127.0.0.1:{server_udp_port}"),
+    let port = server_udp_port.to_string();
+    let loopback = format!("127.0.0.1:{port}");
+    let positional = [
+        "-",
+        &port,
+        map_path,
+        behemoth_path,
+        matchmaker_hunt_id,
+        expected_players,
+        &loopback,
     ];
-    arguments.extend(DIRECTOR_SERVER_SWITCHES.iter().map(|s| (*s).to_owned()));
-    arguments.push("-MULTIHOME=127.0.0.1".to_owned());
-    arguments
+    positional
+        .into_iter()
+        .chain(DIRECTOR_SERVER_SWITCHES)
+        .chain(["-MULTIHOME=127.0.0.1"])
+        .map(str::to_owned)
+        .collect()
 }
 
-fn push_backslashes(out: &mut String, count: usize) {
-    out.extend(std::iter::repeat_n('\\', count));
+/// One argument as the Microsoft C runtime reads it back: backslashes double only before a quote.
+fn push_quoted(out: &mut String, argument: &str) {
+    let wrap = argument.is_empty() || argument.contains([' ', '\t']);
+    let mut pending = 0_usize;
+    let flush = |out: &mut String, count: usize| out.extend(std::iter::repeat_n('\\', count));
+    if wrap {
+        out.push('"');
+    }
+    for c in argument.chars() {
+        if c == '\\' {
+            pending += 1;
+            continue;
+        }
+        let quote = c == '"';
+        flush(out, if quote { 2 * pending + 1 } else { pending });
+        out.push(c);
+        pending = 0;
+    }
+    flush(out, if wrap { 2 * pending } else { pending });
+    if wrap {
+        out.push('"');
+    }
 }
 
 /// Quotes as the Microsoft C runtime splits (`CommandLineToArgvW`'s inverse).
@@ -362,86 +393,72 @@ pub fn windows_command_line(program: &Path, arguments: &[String]) -> String {
     let mut out = format!("\"{}\"", program.to_string_lossy());
     for argument in arguments {
         out.push(' ');
-        let quoted = argument.is_empty() || argument.contains([' ', '\t']);
-        if quoted {
-            out.push('"');
-        }
-        let mut backslashes = 0;
-        for c in argument.chars() {
-            match c {
-                '\\' => backslashes += 1,
-                '"' => {
-                    push_backslashes(&mut out, backslashes * 2 + 1);
-                    out.push('"');
-                    backslashes = 0;
-                }
-                other => {
-                    push_backslashes(&mut out, backslashes);
-                    out.push(other);
-                    backslashes = 0;
-                }
-            }
-        }
-        if quoted {
-            push_backslashes(&mut out, backslashes * 2);
-            out.push('"');
-        } else {
-            push_backslashes(&mut out, backslashes);
-        }
+        push_quoted(&mut out, argument);
     }
     out
+}
+
+type LaunchValue = fn(&LaunchEnvironmentSpec) -> Option<String>;
+
+fn hub_only<T: ToString>(spec: &LaunchEnvironmentSpec, value: Option<T>) -> Option<String> {
+    value
+        .filter(|_| matches!(spec.role, HostedRole::Hub(_)))
+        .map(|v| v.to_string())
+}
+
+// Each launch variable and its value; `None` leaves it unset. Also the order of `LAUNCH_VARIABLES`.
+const LAUNCH: [(&str, LaunchValue); 17] = [
+    (rifts_var!("AUTH_MODE"), |_| Some("HUNT_CAPABILITY".to_owned())),
+    (rifts_var!("BIND_ADDRESS"), |_| Some("127.0.0.1".to_owned())),
+    (rifts_var!("HOST_RUNTIME_CAPABILITY"), |s| {
+        Some(s.capability.expose().to_owned())
+    }),
+    (rifts_var!("HOSTED_ROLE"), |s| Some(s.role.wire_role().to_owned())),
+    (rifts_var!("SESSION_ID"), |s| Some(wire_session_id(&s.session_id))),
+    (rifts_var!("SESSION_GENERATION"), |s| Some(s.generation.to_string())),
+    (rifts_var!("GAMESERVER_LAUNCH_ID"), |s| Some(s.launch_id.clone())),
+    (rifts_var!("READY_PIPE"), |s| Some(s.ready_pipe.clone())),
+    (rifts_var!("CONTROL_PIPE"), |s| Some(s.control_pipe.clone())),
+    (rifts_var!("GUARD_PIPE"), |s| Some(s.guard_pipe.clone())),
+    (rifts_var!("HUNT_GUARD_EVENTS"), |s| {
+        Some(u8::from(s.hunt_evidence).to_string())
+    }),
+    (rifts_var!("HUNT_GUARD_COMPLETION_MODE"), |s| {
+        Some(s.guard_completion_mode.clone())
+    }),
+    (rifts_var!("RUNTIME_PROFILE"), |s| Some(s.runtime_profile.clone())),
+    (rifts_var!("LAUNCHER_PID"), |s| Some(s.launcher_pid.to_string())),
+    (rifts_var!("MAX_PLAYERS"), |s| hub_only(s, s.max_players)),
+    (rifts_var!("HUB_AFK_SECONDS"), |s| hub_only(s, s.hub_afk_seconds)),
+    (rifts_var!("TRIALS_WEEK"), |s| s.trials_week.clone()),
+];
+
+pub(super) const fn launch_variable_names() -> [&'static str; 17] {
+    let mut names = [""; 17];
+    let mut at = 0;
+    while at < LAUNCH.len() {
+        names[at] = LAUNCH[at].0;
+        at += 1;
+    }
+    names
 }
 
 pub fn build_launch_environment(
     spec: &LaunchEnvironmentSpec,
     inherited: impl IntoIterator<Item = (String, String)>,
 ) -> BTreeMap<String, String> {
+    // Windows names are case-insensitive, so a differently cased copy of ours is dropped too.
     let ours = |key: &str| {
-        CLEARED_VARIABLES
-            .iter()
-            .chain(LAUNCH_VARIABLES.iter())
-            .any(|name| name.eq_ignore_ascii_case(key))
+        let mut names = CLEARED_VARIABLES.iter().chain(&LAUNCH_VARIABLES);
+        names.any(|name| name.eq_ignore_ascii_case(key))
     };
-    let mut environment: BTreeMap<String, String> = inherited.into_iter().filter(|(k, _)| !ours(k)).collect();
-    let mut set = |key: &str, value: String| {
-        environment.insert(key.to_owned(), value);
-    };
-    set("RUSTIC_RIFTS_AUTH_MODE", "HUNT_CAPABILITY".to_owned());
-    set("RUSTIC_RIFTS_BIND_ADDRESS", "127.0.0.1".to_owned());
-    set(
-        "RUSTIC_RIFTS_HOST_RUNTIME_CAPABILITY",
-        spec.capability.expose().to_owned(),
-    );
-    set("RUSTIC_RIFTS_HOSTED_ROLE", spec.role.wire_role().to_owned());
-    set("RUSTIC_RIFTS_SESSION_ID", wire_session_id(&spec.session_id));
-    set("RUSTIC_RIFTS_SESSION_GENERATION", spec.generation.to_string());
-    set("RUSTIC_RIFTS_GAMESERVER_LAUNCH_ID", spec.launch_id.clone());
-    set("RUSTIC_RIFTS_READY_PIPE", spec.ready_pipe.clone());
-    set("RUSTIC_RIFTS_CONTROL_PIPE", spec.control_pipe.clone());
-    set("RUSTIC_RIFTS_GUARD_PIPE", spec.guard_pipe.clone());
-    set(
-        "RUSTIC_RIFTS_HUNT_GUARD_EVENTS",
-        if spec.hunt_evidence { "1" } else { "0" }.to_owned(),
-    );
-    set(
-        "RUSTIC_RIFTS_HUNT_GUARD_COMPLETION_MODE",
-        spec.guard_completion_mode.clone(),
-    );
-    set("RUSTIC_RIFTS_RUNTIME_PROFILE", spec.runtime_profile.clone());
-    set("RUSTIC_RIFTS_LAUNCHER_PID", spec.launcher_pid.to_string());
-    if matches!(spec.role, HostedRole::Hub(_)) {
-        if let Some(players) = spec.max_players {
-            set("RUSTIC_RIFTS_MAX_PLAYERS", players.to_string());
-        }
-        if let Some(afk) = spec.hub_afk_seconds {
-            set("RUSTIC_RIFTS_HUB_AFK_SECONDS", afk.to_string());
-        }
-    }
-    if let Some(week) = &spec.trials_week {
-        set("RUSTIC_RIFTS_TRIALS_WEEK", week.clone());
-    }
-    environment
+    let set = LAUNCH
+        .iter()
+        .filter_map(|(name, value)| value(spec).map(|v| ((*name).to_owned(), v)));
+    inherited.into_iter().filter(|(key, _)| !ours(key)).chain(set).collect()
 }
+
+// ---- the central log ------------------------------------------------------------------------------------------
 
 const LOG_LINE_MAX: usize = 2048;
 const SECRET_WORDS: [&str; 8] = [
@@ -455,41 +472,36 @@ const SECRET_WORDS: [&str; 8] = [
     "auth_password",
 ];
 
+fn redacted(token: &str) -> String {
+    let lower = token.to_ascii_lowercase();
+    if !SECRET_WORDS.iter().any(|word| lower.contains(word)) {
+        return token.to_owned();
+    }
+    token
+        .split_once('=')
+        .map_or_else(|| "[redacted]".to_owned(), |(key, _)| format!("{key}=[redacted]"))
+}
+
 /// A transport line made safe for the central log: any token naming a secret loses its value.
 pub fn sanitize_central_log_line(line: &str) -> String {
     let mut out = String::new();
-    for token in line.split_whitespace() {
-        if !out.is_empty() {
+    for (at, token) in line.split_whitespace().enumerate() {
+        if at > 0 {
             out.push(' ');
         }
-        let lower = token.to_ascii_lowercase();
-        if SECRET_WORDS.iter().any(|w| lower.contains(w)) {
-            match token.split_once('=') {
-                Some((key, _)) => {
-                    out.push_str(key);
-                    out.push_str("=[redacted]");
-                }
-                None => out.push_str("[redacted]"),
-            }
-        } else {
-            out.push_str(token);
-        }
+        out += &redacted(token);
         if out.len() >= LOG_LINE_MAX {
-            out = out.chars().take(LOG_LINE_MAX).collect();
-            break;
+            return out.chars().take(LOG_LINE_MAX).collect();
         }
     }
     out
 }
 
+// ---- traffic, relay and the hosting panel's timers ------------------------------------------------------------
+
 pub fn udp_stats_local_rx(line: &str) -> Option<u64> {
-    if !line.contains("UDP_STATS") {
-        return None;
-    }
-    line.split_whitespace()
-        .find_map(|t| t.strip_prefix("localRx="))?
-        .parse()
-        .ok()
+    let reading = line.split_whitespace().find_map(|t| t.strip_prefix("localRx="));
+    reading.filter(|_| line.contains("UDP_STATS"))?.parse().ok()
 }
 
 impl GameTrafficWatch {
@@ -501,13 +513,13 @@ impl GameTrafficWatch {
     }
 
     pub fn observe(&mut self, line: &str, now: Instant) {
-        let Some(reading) = udp_stats_local_rx(line) else {
-            return;
-        };
-        if self.reading.is_none_or(|previous| reading > previous) {
-            self.changed = now;
+        if let Some(reading) = udp_stats_local_rx(line) {
+            let grew = self.reading.is_none_or(|previous| reading > previous);
+            self.reading = Some(reading);
+            if grew {
+                self.restart(now);
+            }
         }
-        self.reading = Some(reading);
     }
 
     pub fn restart(&mut self, now: Instant) {
@@ -520,58 +532,57 @@ impl GameTrafficWatch {
 }
 
 pub fn hunt_join_leave_outcome(asked_at: Instant, traffic: &GameTrafficWatch, now: Instant) -> Option<&'static str> {
-    if traffic.idle(now) >= GAME_LEFT_IDLE {
-        Some("game_left")
-    } else if now.saturating_duration_since(asked_at) >= HUNT_JOIN_LEAVE_MAX {
-        Some("timeout")
-    } else {
-        None
-    }
+    let waited = now.saturating_duration_since(asked_at);
+    [
+        (traffic.idle(now) >= GAME_LEFT_IDLE, "game_left"),
+        (waited >= HUNT_JOIN_LEAVE_MAX, "timeout"),
+    ]
+    .into_iter()
+    .find_map(|(due, outcome)| due.then_some(outcome))
 }
 
 pub fn relay_refresh_due(seconds_left: Option<i64>, since_last: Option<Duration>) -> bool {
-    let Some(left) = seconds_left else {
-        return false;
-    };
-    left <= RELAY_REFRESH_MARGIN_SECONDS
-        || (left <= RELAY_EARLY_REFRESH_SECONDS && since_last.is_none_or(|s| s >= RELAY_EARLY_REFRESH_SPACING))
+    seconds_left.is_some_and(|left| {
+        let spaced = since_last.is_none_or(|s| s >= RELAY_EARLY_REFRESH_SPACING);
+        left <= RELAY_REFRESH_MARGIN_SECONDS || (spaced && left <= RELAY_EARLY_REFRESH_SECONDS)
+    })
 }
 
 pub fn relay_restart_due(seconds_left: Option<i64>) -> bool {
-    seconds_left.is_some_and(|left| left <= 300)
+    matches!(seconds_left, Some(left) if left <= 300)
 }
 
 pub fn default_max_servers(physical_gb: u64) -> u8 {
-    if physical_gb < 4 {
-        return 1;
-    }
-    let servers = (2 * (physical_gb - 4) / 3).clamp(1, 6);
+    // Two servers per 3 GB above the first 4, from 1 to 6.
+    let spare = physical_gb.saturating_sub(4);
+    let servers = if physical_gb < 4 {
+        1
+    } else {
+        (spare * 2 / 3).clamp(1, 6)
+    };
     u8::try_from(servers).unwrap_or(6)
 }
 
 pub fn capacity_decision(commit_mib: u64, active_servers: u8, max_servers: u8) -> CapacityDecision {
-    if commit_mib < HOST_COMMIT_FLOOR_MIB || active_servers >= max_servers {
-        CapacityDecision::Refuse { reason: "HOST_BUSY" }
-    } else {
+    let room = commit_mib >= HOST_COMMIT_FLOOR_MIB && active_servers < max_servers;
+    if room {
         CapacityDecision::Accept
+    } else {
+        CapacityDecision::Refuse { reason: "HOST_BUSY" }
     }
 }
 
+const RESTART_WINDOW: Duration = Duration::from_secs(600);
+const BACKOFF_SECONDS: [u64; 3] = [5, 15, 60];
+
 pub fn restart_backoff(attempts_in_window: usize) -> Duration {
-    Duration::from_secs(match attempts_in_window {
-        0 => 5,
-        1 => 15,
-        _ => 60,
-    })
+    let step = attempts_in_window.min(BACKOFF_SECONDS.len() - 1);
+    Duration::from_secs(BACKOFF_SECONDS[step])
 }
 
-const RESTART_WINDOW: Duration = Duration::from_secs(600);
-
 pub fn attempts_in_window(attempts: &[Instant], now: Instant) -> usize {
-    attempts
-        .iter()
-        .filter(|a| now.saturating_duration_since(**a) < RESTART_WINDOW)
-        .count()
+    let recent = |at: &&Instant| now.saturating_duration_since(**at) < RESTART_WINDOW;
+    attempts.iter().filter(recent).count()
 }
 
 pub fn restart_allowed(attempts: &[Instant], now: Instant) -> bool {
@@ -579,17 +590,15 @@ pub fn restart_allowed(attempts: &[Instant], now: Instant) -> bool {
 }
 
 pub fn next_idle_since(previous: Option<Instant>, present: usize, now: Instant) -> Option<Instant> {
-    if present > 0 {
-        None
-    } else {
-        Some(previous.unwrap_or(now))
-    }
+    (present == 0).then(|| previous.unwrap_or(now))
 }
 
 pub fn training_should_stop(idle_since: Option<Instant>, now: Instant) -> bool {
-    idle_since.is_some_and(|since| now.saturating_duration_since(since) >= Duration::from_secs(300))
+    const TRAINING_IDLE: Duration = Duration::from_secs(5 * 60);
+    matches!(idle_since, Some(since) if now.saturating_duration_since(since) >= TRAINING_IDLE)
 }
 
 pub fn scheduled_restart_due(uptime: Duration, present: bool) -> bool {
-    !present && uptime > Duration::from_secs(72_000)
+    const SCHEDULED_UPTIME: Duration = Duration::from_secs(20 * 60 * 60);
+    uptime > SCHEDULED_UPTIME && !present
 }

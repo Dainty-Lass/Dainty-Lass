@@ -3,24 +3,26 @@
 
 //! `GuardStore` on `store` (DD15): SQLite or Postgres, every write in the change log under its actor.
 
-use std::collections::BTreeMap;
-use std::future::Future;
-use std::str::FromStr;
-use std::sync::OnceLock;
+use std::{collections::BTreeMap, future::Future, str::FromStr, sync::OnceLock};
 
-use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Integer, Nullable, Text};
+use diesel::{
+    prelude::*,
+    query_builder::{BoxedSqlQuery, SqlQuery},
+    sql_types::{BigInt, Integer, Nullable, Text},
+};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 use rifts_seam::{AccountId, Actor, Json, RealmId, SessionId, StoreError, UnixMillis};
 use store::{AnyConnection, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema, MultiBackend, portable};
 use tokio::runtime::{Handle, Runtime, RuntimeFlavor};
 
-use crate::store::{
-    AlertRecord, BatchRecord, ChainRecord, ChainUpdate, CompletionMode, CompletionRecord, Disposition, EncounterState,
-    FindingRecord, GuardStore, HostWriteRecord, TrafficReservation, TrafficScope, TrafficWindowRecord,
-    XP_SUMMARY_TTL_MS, XpSummaryRecord, actor_name, charged,
+use crate::{
+    store::{
+        AlertRecord, BatchRecord, ChainRecord, ChainUpdate, CompletionMode, CompletionRecord, Disposition,
+        EncounterState, FindingRecord, GuardStore, HostWriteRecord, TrafficReservation, TrafficScope,
+        TrafficWindowRecord, XP_SUMMARY_TTL_MS, XpSummaryRecord, actor_name, charged,
+    },
+    writes::{kind_name, parse_kind},
 };
-use crate::writes::{kind_name, parse_kind};
 
 pub const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
 pub const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
@@ -34,26 +36,21 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
 /// A host runtime acts with its host's capability, so its writes are that player's to revert.
 pub fn store_actor(actor: &Actor) -> store::Actor {
     match actor {
-        Actor::Account(account) => store::Actor::Player(account.0.clone()),
-        Actor::HostRuntime { host, .. } => store::Actor::Player(host.0.clone()),
         Actor::Admin { key_id } => store::Actor::Admin(key_id.clone()),
-        Actor::System(task) => store::Actor::System((*task).to_owned()),
+        Actor::System(task) => store::Actor::System(String::from(*task)),
+        Actor::Account(player) | Actor::HostRuntime { host: player, .. } => store::Actor::Player(player.0.clone()),
     }
 }
 
+/// Two workers for callers on no runtime or on a current-thread one, made once.
 fn fallback_runtime() -> Result<&'static Runtime, StoreError> {
     static RUNTIME: OnceLock<Result<Runtime, String>> = OnceLock::new();
-    RUNTIME
-        .get_or_init(|| {
-            tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(2)
-                .thread_name("rifts-guard-store")
-                .enable_all()
-                .build()
-                .map_err(|e| e.to_string())
-        })
-        .as_ref()
-        .map_err(|e| StoreError::Database(e.clone()))
+    let made = RUNTIME.get_or_init(|| {
+        let mut builder = tokio::runtime::Builder::new_multi_thread();
+        builder.worker_threads(2).thread_name("rifts-guard-store").enable_all();
+        builder.build().map_err(|e| e.to_string())
+    });
+    made.as_ref().map_err(|e| StoreError::Database(e.clone()))
 }
 
 /// Runs a store future to its end from sync code, whatever runtime (if any) the caller is on.
@@ -62,22 +59,20 @@ where
     F: Future<Output = Result<T, StoreError>> + Send,
     T: Send,
 {
-    match Handle::try_current() {
-        Ok(handle) if handle.runtime_flavor() == RuntimeFlavor::MultiThread => {
-            tokio::task::block_in_place(|| handle.block_on(future))
-        }
-        // a current-thread runtime cannot block in place: its one thread is ours
-        Ok(_) => {
-            let runtime = fallback_runtime()?;
-            std::thread::scope(|scope| {
-                scope
-                    .spawn(|| runtime.block_on(future))
-                    .join()
-                    .unwrap_or_else(|_| Err(StoreError::Database("store worker thread panicked".to_owned())))
-            })
-        }
-        Err(_) => fallback_runtime()?.block_on(future),
+    let Ok(handle) = Handle::try_current() else {
+        return fallback_runtime()?.block_on(future);
+    };
+    if handle.runtime_flavor() == RuntimeFlavor::MultiThread {
+        return tokio::task::block_in_place(|| handle.block_on(future));
     }
+    // A current-thread runtime cannot block in place: its one thread is ours.
+    let runtime = fallback_runtime()?;
+    std::thread::scope(|scope| {
+        let worker = scope.spawn(|| runtime.block_on(future));
+        worker
+            .join()
+            .unwrap_or_else(|_| Err(StoreError::Database("store worker thread panicked".into())))
+    })
 }
 
 /// A database failure or a row that does not map back; both become `StoreError::Database`.
@@ -92,134 +87,268 @@ impl From<store::Error> for Fail {
 
 impl From<diesel::result::Error> for Fail {
     fn from(error: diesel::result::Error) -> Self {
-        Self(store::Error::Query(error).to_string())
+        store::Error::Query(error).into()
     }
 }
 
 impl From<Fail> for StoreError {
-    fn from(fail: Fail) -> Self {
-        Self::Database(fail.0)
+    fn from(Fail(text): Fail) -> Self {
+        Self::Database(text)
     }
 }
 
-fn sql(text: &str) -> Result<String, Fail> {
-    portable::numbered(text).map_err(Fail)
-}
+// ---- values in and out ----------------------------------------------------------------------------------------
 
 fn signed(value: u64, what: &str) -> Result<i64, Fail> {
-    i64::try_from(value).map_err(|_| Fail(format!("{what} {value} is out of range")))
+    value
+        .try_into()
+        .map_err(|_| Fail(format!("{what} {value} is out of range")))
 }
 
 fn unsigned(value: i64, what: &str) -> Result<u64, Fail> {
-    u64::try_from(value).map_err(|_| Fail(format!("{what} {value} is negative")))
+    value
+        .try_into()
+        .map_err(|_| Fail(format!("{what} {value} is negative")))
 }
 
 fn parsed<T: FromStr>(text: &str, what: &str) -> Result<T, Fail> {
-    text.parse()
-        .map_err(|_| Fail(format!("{what} {text:?} does not parse")))
+    T::from_str(text).map_err(|_| Fail(format!("{what} {text:?} does not parse")))
 }
 
 fn known<T>(value: Option<T>, text: &str, what: &str) -> Result<T, Fail> {
-    value.ok_or_else(|| Fail(format!("unknown {what} {text:?}")))
+    match value {
+        Some(value) => Ok(value),
+        None => Err(Fail(format!("unknown {what} {text:?}"))),
+    }
+}
+
+fn realm_of(text: Option<String>) -> Result<Option<RealmId>, Fail> {
+    text.map(|realm| parsed(&realm, "realm")).transpose()
 }
 
 fn json_text(text: &str, what: &str) -> Result<serde_json::Value, Fail> {
     serde_json::from_str(text).map_err(|_| Fail(format!("{what} is not valid JSON")))
 }
 
+fn encoded(text: serde_json::Result<String>) -> Result<String, Fail> {
+    text.map_err(|e| Fail(format!("event_types: {e}")))
+}
+
 /// A chain's `{"TYPE":count}` object.
 fn type_counts(text: &str) -> Result<BTreeMap<String, u64>, Fail> {
-    let bad = || Fail("event_types is not an object of counts".to_owned());
     let value = json_text(text, "event_types")?;
-    let object = value.as_object().ok_or_else(bad)?;
-    object
-        .iter()
-        .map(|(kind, count)| Ok((kind.clone(), count.as_u64().ok_or_else(bad)?)))
-        .collect()
+    let counts = value.as_object().and_then(|object| {
+        object
+            .iter()
+            .map(|(kind, count)| Some((kind.clone(), count.as_u64()?)))
+            .collect::<Option<_>>()
+    });
+    counts.ok_or_else(|| Fail("event_types is not an object of counts".into()))
 }
 
 /// A batch's `["TYPE",…]` array.
 fn type_names(text: &str) -> Result<Vec<String>, Fail> {
-    let bad = || Fail("event_types is not an array of names".to_owned());
     let value = json_text(text, "event_types")?;
-    value
+    let names = value
         .as_array()
-        .ok_or_else(bad)?
-        .iter()
-        .map(|name| name.as_str().map(str::to_owned).ok_or_else(bad))
-        .collect()
+        .and_then(|items| items.iter().map(|n| n.as_str().map(String::from)).collect());
+    names.ok_or_else(|| Fail("event_types is not an array of names".into()))
 }
 
-#[derive(QueryableByName)]
-struct ChainRow {
-    #[diesel(sql_type = Text)]
-    session: String,
-    #[diesel(sql_type = BigInt)]
-    generation: i64,
-    #[diesel(sql_type = BigInt)]
-    revision: i64,
-    #[diesel(sql_type = Nullable<Text>)]
-    completion_mode: Option<String>,
-    #[diesel(sql_type = BigInt)]
-    last_sequence: i64,
-    #[diesel(sql_type = Text)]
-    head_hash: String,
-    #[diesel(sql_type = Text)]
-    encounter_state: String,
-    #[diesel(sql_type = Text)]
-    disposition: String,
-    #[diesel(sql_type = BigInt)]
-    finding_count: i64,
-    #[diesel(sql_type = BigInt)]
-    batch_count: i64,
-    #[diesel(sql_type = BigInt)]
-    event_count: i64,
-    #[diesel(sql_type = BigInt)]
-    event_bytes: i64,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    last_monotonic_ms: Option<i64>,
-    #[diesel(sql_type = Text)]
-    event_types: String,
-    #[diesel(sql_type = Integer)]
-    has_unattributed_damage: i32,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    last_received_at: Option<i64>,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    final_sequence: Option<i64>,
-    #[diesel(sql_type = Nullable<Text>)]
-    final_hash: Option<String>,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    completed_at: Option<i64>,
+/// One bind, in its column's SQL type.
+enum Param {
+    Text(String),
+    MaybeText(Option<String>),
+    Big(i64),
+    MaybeBig(Option<i64>),
+    Int(i32),
+}
+
+impl From<&str> for Param {
+    fn from(text: &str) -> Self {
+        Self::Text(text.to_owned())
+    }
+}
+
+impl From<String> for Param {
+    fn from(text: String) -> Self {
+        Self::Text(text)
+    }
+}
+
+impl From<i64> for Param {
+    fn from(number: i64) -> Self {
+        Self::Big(number)
+    }
+}
+
+type Query = BoxedSqlQuery<'static, MultiBackend, SqlQuery>;
+
+/// `text` with `params` bound in order; `text` is already numbered for the backend.
+fn query(text: String, params: Vec<Param>) -> Query {
+    let start = diesel::sql_query(text).into_boxed::<MultiBackend>();
+    params.into_iter().fold(start, |query, param| match param {
+        Param::Text(value) => query.bind::<Text, _>(value),
+        Param::MaybeText(value) => query.bind::<Nullable<Text>, _>(value),
+        Param::Big(value) => query.bind::<BigInt, _>(value),
+        Param::MaybeBig(value) => query.bind::<Nullable<BigInt>, _>(value),
+        Param::Int(value) => query.bind::<Integer, _>(value),
+    })
+}
+
+/// Portable `?` placeholders numbered for the backend.
+fn sql(text: &str) -> Result<String, Fail> {
+    portable::numbered(text).map_err(Fail)
+}
+
+/// `INSERT INTO <table> (<columns>) VALUES (?, …)<tail>`.
+fn insert_sql(table: &str, columns: &[&str], tail: &str) -> Result<String, Fail> {
+    let marks = vec!["?"; columns.len()].join(", ");
+    sql(&format!(
+        "INSERT INTO {table} ({}) VALUES ({marks}){tail}",
+        columns.join(", ")
+    ))
+}
+
+// ---- rows -----------------------------------------------------------------------------------------------------
+
+type MaybeText = Nullable<Text>;
+type MaybeBig = Nullable<BigInt>;
+
+// A row read back by name: each field with its SQL type.
+macro_rules! rows {
+    ($($row:ident { $($field:ident: $sql:ty => $rust:ty,)+ })+) => {$(
+        #[derive(QueryableByName)]
+        struct $row {
+            $(#[diesel(sql_type = $sql)] $field: $rust,)+
+        }
+    )+};
+}
+
+rows! {
+    ChainRow {
+        session: Text => String,
+        generation: BigInt => i64,
+        revision: BigInt => i64,
+        completion_mode: MaybeText => Option<String>,
+        last_sequence: BigInt => i64,
+        head_hash: Text => String,
+        encounter_state: Text => String,
+        disposition: Text => String,
+        finding_count: BigInt => i64,
+        batch_count: BigInt => i64,
+        event_count: BigInt => i64,
+        event_bytes: BigInt => i64,
+        last_monotonic_ms: MaybeBig => Option<i64>,
+        event_types: Text => String,
+        has_unattributed_damage: Integer => i32,
+        last_received_at: MaybeBig => Option<i64>,
+        final_sequence: MaybeBig => Option<i64>,
+        final_hash: MaybeText => Option<String>,
+        completed_at: MaybeBig => Option<i64>,
+    }
+    BatchRow {
+        session: Text => String,
+        generation: BigInt => i64,
+        batch_id: Text => String,
+        previous_hash: Text => String,
+        batch_hash: Text => String,
+        first_sequence: BigInt => i64,
+        last_sequence: BigInt => i64,
+        event_count: BigInt => i64,
+        event_bytes: BigInt => i64,
+        event_types: Text => String,
+        received_at: BigInt => i64,
+    }
+    FindingRow {
+        session: Text => String,
+        generation: BigInt => i64,
+        sequence: MaybeBig => Option<i64>,
+        code: Text => String,
+        detail: Text => String,
+        at: BigInt => i64,
+    }
+    WriteRow {
+        kind: Text => String,
+        target: Text => String,
+        host: Text => String,
+        session: Text => String,
+        generation: BigInt => i64,
+        realm: MaybeText => Option<String>,
+        session_kind: MaybeText => Option<String>,
+        hub_kind: MaybeText => Option<String>,
+        summary: Text => String,
+        at: BigInt => i64,
+    }
+    WindowRow {
+        window_id: Text => String,
+        scope: Text => String,
+        window_start: BigInt => i64,
+        requests: BigInt => i64,
+        bytes: BigInt => i64,
+        expires_at: BigInt => i64,
+    }
+    SummaryRow {
+        session: Text => String,
+        member: Text => String,
+        host: Text => String,
+        realm: MaybeText => Option<String>,
+        minutes: BigInt => i64,
+        grants: Text => String,
+        flagged: Integer => i32,
+        created_at: BigInt => i64,
+    }
+    AlertRow {
+        alert_id: Text => String,
+        code: Text => String,
+        severity: Text => String,
+        message: Text => String,
+        details: Text => String,
+        created_at: BigInt => i64,
+        acknowledged_at: MaybeBig => Option<i64>,
+        acknowledged_by: MaybeText => Option<String>,
+    }
+    Revision {
+        revision: BigInt => i64,
+    }
+    Counts {
+        requests: BigInt => i64,
+        bytes: BigInt => i64,
+    }
 }
 
 impl ChainRow {
-    fn into_record(self) -> Result<ChainRecord, Fail> {
-        let completion_mode = match self.completion_mode {
-            None => None,
-            Some(text) => Some(known(CompletionMode::parse(&text), &text, "completion mode")?),
-        };
-        let event_types = type_counts(&self.event_types)?;
-        let completion = match (self.final_sequence, self.final_hash, self.completed_at) {
-            (None, None, None) => None,
-            (Some(sequence), Some(hash), Some(at)) => Some(CompletionRecord {
+    fn completion(
+        final_sequence: Option<i64>,
+        final_hash: Option<String>,
+        at: Option<i64>,
+    ) -> Result<Option<CompletionRecord>, Fail> {
+        match (final_sequence, final_hash, at) {
+            (Some(sequence), Some(hash), Some(at)) => Ok(Some(CompletionRecord {
                 final_sequence: unsigned(sequence, "final_sequence")?,
                 final_hash: hash,
                 at: UnixMillis(at),
-            }),
-            _ => return Err(Fail("a completion with some of its columns null".to_owned())),
+            })),
+            (None, None, None) => Ok(None),
+            _ => Err(Fail("a completion with some of its columns null".into())),
+        }
+    }
+
+    fn into_record(self) -> Result<ChainRecord, Fail> {
+        let completion_mode = match self.completion_mode {
+            Some(text) => Some(known(CompletionMode::parse(&text), &text, "completion mode")?),
+            None => None,
         };
+        let event_types = type_counts(&self.event_types)?;
+        let completion = Self::completion(self.final_sequence, self.final_hash, self.completed_at)?;
+        let state = &self.encounter_state;
         Ok(ChainRecord {
             session: parsed(&self.session, "session")?,
             generation: unsigned(self.generation, "generation")?,
             revision: unsigned(self.revision, "revision")?,
             completion_mode,
             last_sequence: unsigned(self.last_sequence, "last_sequence")?,
-            head_hash: self.head_hash,
-            encounter_state: known(
-                EncounterState::parse(&self.encounter_state),
-                &self.encounter_state,
-                "encounter state",
-            )?,
+            encounter_state: known(EncounterState::parse(state), state, "encounter state")?,
             disposition: known(Disposition::parse(&self.disposition), &self.disposition, "disposition")?,
             finding_count: unsigned(self.finding_count, "finding_count")?,
             batch_count: unsigned(self.batch_count, "batch_count")?,
@@ -232,35 +361,10 @@ impl ChainRow {
             event_types,
             has_unattributed_damage: self.has_unattributed_damage != 0,
             last_received_at: self.last_received_at.map(UnixMillis),
+            head_hash: self.head_hash,
             completion,
         })
     }
-}
-
-#[derive(QueryableByName)]
-struct BatchRow {
-    #[diesel(sql_type = Text)]
-    session: String,
-    #[diesel(sql_type = BigInt)]
-    generation: i64,
-    #[diesel(sql_type = Text)]
-    batch_id: String,
-    #[diesel(sql_type = Text)]
-    previous_hash: String,
-    #[diesel(sql_type = Text)]
-    batch_hash: String,
-    #[diesel(sql_type = BigInt)]
-    first_sequence: i64,
-    #[diesel(sql_type = BigInt)]
-    last_sequence: i64,
-    #[diesel(sql_type = BigInt)]
-    event_count: i64,
-    #[diesel(sql_type = BigInt)]
-    event_bytes: i64,
-    #[diesel(sql_type = Text)]
-    event_types: String,
-    #[diesel(sql_type = BigInt)]
-    received_at: i64,
 }
 
 impl BatchRow {
@@ -268,305 +372,320 @@ impl BatchRow {
         Ok(BatchRecord {
             session: parsed(&self.session, "session")?,
             generation: unsigned(self.generation, "generation")?,
-            batch_id: self.batch_id,
-            previous_hash: self.previous_hash,
-            batch_hash: self.batch_hash,
             first_sequence: unsigned(self.first_sequence, "first_sequence")?,
             last_sequence: unsigned(self.last_sequence, "last_sequence")?,
             event_count: unsigned(self.event_count, "event_count")?,
             event_bytes: unsigned(self.event_bytes, "event_bytes")?,
             event_types: type_names(&self.event_types)?,
             received_at: UnixMillis(self.received_at),
+            batch_id: self.batch_id,
+            previous_hash: self.previous_hash,
+            batch_hash: self.batch_hash,
         })
     }
 }
 
-#[derive(QueryableByName)]
-struct FindingRow {
-    #[diesel(sql_type = Text)]
-    session: String,
-    #[diesel(sql_type = BigInt)]
-    generation: i64,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    sequence: Option<i64>,
-    #[diesel(sql_type = Text)]
-    code: String,
-    #[diesel(sql_type = Text)]
-    detail: String,
-    #[diesel(sql_type = BigInt)]
-    at: i64,
+impl FindingRow {
+    fn into_record(self) -> Result<FindingRecord, Fail> {
+        Ok(FindingRecord {
+            session: parsed(&self.session, "session")?,
+            generation: unsigned(self.generation, "generation")?,
+            sequence: self.sequence.map(|s| unsigned(s, "sequence")).transpose()?,
+            at: UnixMillis(self.at),
+            code: self.code,
+            detail: self.detail,
+        })
+    }
 }
 
-#[derive(QueryableByName)]
-struct WriteRow {
-    #[diesel(sql_type = Text)]
-    kind: String,
-    #[diesel(sql_type = Text)]
-    target: String,
-    #[diesel(sql_type = Text)]
-    host: String,
-    #[diesel(sql_type = Text)]
-    session: String,
-    #[diesel(sql_type = BigInt)]
-    generation: i64,
-    #[diesel(sql_type = Nullable<Text>)]
-    realm: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    session_kind: Option<String>,
-    #[diesel(sql_type = Nullable<Text>)]
-    hub_kind: Option<String>,
-    #[diesel(sql_type = Text)]
-    summary: String,
-    #[diesel(sql_type = BigInt)]
-    at: i64,
-}
-
-#[derive(QueryableByName)]
-struct WindowRow {
-    #[diesel(sql_type = Text)]
-    window_id: String,
-    #[diesel(sql_type = Text)]
-    scope: String,
-    #[diesel(sql_type = BigInt)]
-    window_start: i64,
-    #[diesel(sql_type = BigInt)]
-    requests: i64,
-    #[diesel(sql_type = BigInt)]
-    bytes: i64,
-    #[diesel(sql_type = BigInt)]
-    expires_at: i64,
+impl WriteRow {
+    fn into_record(self) -> Result<HostWriteRecord, Fail> {
+        Ok(HostWriteRecord {
+            kind: known(parse_kind(&self.kind), &self.kind, "write kind")?,
+            session: parsed(&self.session, "session")?,
+            generation: unsigned(self.generation, "generation")?,
+            realm: realm_of(self.realm)?,
+            target: AccountId(self.target),
+            host: AccountId(self.host),
+            session_kind: self.session_kind,
+            hub_kind: self.hub_kind,
+            summary: Json(self.summary),
+            at: UnixMillis(self.at),
+        })
+    }
 }
 
 impl WindowRow {
     fn into_record(self) -> Result<TrafficWindowRecord, Fail> {
         Ok(TrafficWindowRecord {
             scope: known(TrafficScope::parse(&self.scope), &self.scope, "scope")?,
-            window_id: self.window_id,
-            window_start: UnixMillis(self.window_start),
             requests: unsigned(self.requests, "requests")?,
             bytes: unsigned(self.bytes, "bytes")?,
+            window_id: self.window_id,
+            window_start: UnixMillis(self.window_start),
             expires_at: UnixMillis(self.expires_at),
         })
     }
 }
 
-#[derive(QueryableByName)]
-struct SummaryRow {
-    #[diesel(sql_type = Text)]
-    session: String,
-    #[diesel(sql_type = Text)]
-    member: String,
-    #[diesel(sql_type = Text)]
-    host: String,
-    #[diesel(sql_type = Nullable<Text>)]
-    realm: Option<String>,
-    #[diesel(sql_type = BigInt)]
-    minutes: i64,
-    #[diesel(sql_type = Text)]
-    grants: String,
-    #[diesel(sql_type = Integer)]
-    flagged: i32,
-    #[diesel(sql_type = BigInt)]
-    created_at: i64,
+impl SummaryRow {
+    fn into_record(self) -> Result<XpSummaryRecord, Fail> {
+        let out_of_range = |minutes: i64| Fail(format!("minutes {minutes} is out of range"));
+        Ok(XpSummaryRecord {
+            session: parsed(&self.session, "session")?,
+            realm: realm_of(self.realm)?,
+            minutes: u32::try_from(self.minutes).map_err(|_| out_of_range(self.minutes))?,
+            member: AccountId(self.member),
+            host: AccountId(self.host),
+            grants: Json(self.grants),
+            flagged: self.flagged != 0,
+            created_at: UnixMillis(self.created_at),
+        })
+    }
 }
 
-#[derive(QueryableByName)]
-struct AlertRow {
-    #[diesel(sql_type = Text)]
-    alert_id: String,
-    #[diesel(sql_type = Text)]
-    code: String,
-    #[diesel(sql_type = Text)]
-    severity: String,
-    #[diesel(sql_type = Text)]
-    message: String,
-    #[diesel(sql_type = Text)]
-    details: String,
-    #[diesel(sql_type = BigInt)]
-    created_at: i64,
-    #[diesel(sql_type = Nullable<BigInt>)]
-    acknowledged_at: Option<i64>,
-    #[diesel(sql_type = Nullable<Text>)]
-    acknowledged_by: Option<String>,
+impl From<AlertRow> for AlertRecord {
+    fn from(row: AlertRow) -> Self {
+        Self {
+            details: Json(row.details),
+            created_at: UnixMillis(row.created_at),
+            acknowledged_at: row.acknowledged_at.map(UnixMillis),
+            alert_id: row.alert_id,
+            code: row.code,
+            severity: row.severity,
+            message: row.message,
+            acknowledged_by: row.acknowledged_by,
+        }
+    }
 }
 
-#[derive(QueryableByName)]
-struct Revision {
-    #[diesel(sql_type = BigInt)]
-    revision: i64,
+// ---- tables ---------------------------------------------------------------------------------------------------
+
+/// `rifts_hunt_guard`: the key, then the columns a write sets, in bind order.
+const CHAIN_KEY: [&str; 2] = ["session", "generation"];
+const CHAIN_VALUES: [&str; 17] = [
+    "revision",
+    "completion_mode",
+    "last_sequence",
+    "head_hash",
+    "encounter_state",
+    "disposition",
+    "finding_count",
+    "batch_count",
+    "event_count",
+    "event_bytes",
+    "last_monotonic_ms",
+    "event_types",
+    "has_unattributed_damage",
+    "last_received_at",
+    "final_sequence",
+    "final_hash",
+    "completed_at",
+];
+const BATCH_COLUMNS: [&str; 11] = [
+    "session",
+    "generation",
+    "batch_id",
+    "previous_hash",
+    "batch_hash",
+    "first_sequence",
+    "last_sequence",
+    "event_count",
+    "event_bytes",
+    "event_types",
+    "received_at",
+];
+const FINDING_COLUMNS: [&str; 6] = ["session", "generation", "sequence", "code", "detail", "at"];
+const WRITE_COLUMNS: [&str; 10] = [
+    "kind",
+    "target",
+    "host",
+    "session",
+    "generation",
+    "realm",
+    "session_kind",
+    "hub_kind",
+    "summary",
+    "at",
+];
+const WINDOW_COLUMNS: [&str; 6] = ["window_id", "scope", "window_start", "requests", "bytes", "expires_at"];
+const SUMMARY_COLUMNS: [&str; 9] = [
+    "session",
+    "member",
+    "host",
+    "realm",
+    "minutes",
+    "grants",
+    "flagged",
+    "created_at",
+    "ttl_at",
+];
+const ALERT_COLUMNS: [&str; 8] = [
+    "alert_id",
+    "code",
+    "severity",
+    "message",
+    "details",
+    "created_at",
+    "acknowledged_at",
+    "acknowledged_by",
+];
+
+fn chain_columns() -> Vec<&'static str> {
+    CHAIN_KEY.iter().chain(&CHAIN_VALUES).copied().collect()
 }
 
-#[derive(QueryableByName)]
-struct Counts {
-    #[diesel(sql_type = BigInt)]
-    requests: i64,
-    #[diesel(sql_type = BigInt)]
-    bytes: i64,
-}
-
-const CHAIN_COLUMNS: &str = "session, generation, revision, completion_mode, last_sequence, head_hash, \
-     encounter_state, disposition, finding_count, batch_count, event_count, event_bytes, last_monotonic_ms, \
-     event_types, has_unattributed_damage, last_received_at, final_sequence, final_hash, completed_at";
-
-const BATCH_COLUMNS: &str = "session, generation, batch_id, previous_hash, batch_hash, first_sequence, \
-     last_sequence, event_count, event_bytes, event_types, received_at";
-
-fn read_chain(conn: &mut AnyConnection, session: &str, generation: i64) -> Result<Option<ChainRecord>, Fail> {
-    let query = sql(&format!(
-        "SELECT {CHAIN_COLUMNS} FROM rifts_hunt_guard WHERE session = ? AND generation = ?"
-    ))?;
-    diesel::sql_query(query)
-        .bind::<Text, _>(session)
-        .bind::<BigInt, _>(generation)
-        .load::<ChainRow>(conn)?
-        .into_iter()
-        .next()
-        .map(ChainRow::into_record)
-        .transpose()
-}
-
-fn batch_exists(conn: &mut AnyConnection, session: &str, generation: i64, batch_id: &str) -> Result<bool, Fail> {
-    let query = sql(
-        "SELECT CAST(1 AS BIGINT) AS revision FROM rifts_guard_batches WHERE session = ? AND generation = ? AND batch_id = ?",
-    )?;
-    Ok(!diesel::sql_query(query)
-        .bind::<Text, _>(session)
-        .bind::<BigInt, _>(generation)
-        .bind::<Text, _>(batch_id)
-        .load::<Revision>(conn)?
-        .is_empty())
-}
-
-/// The chain's values in `CHAIN_COLUMNS`' order after the key.
-fn bind_chain(
-    query: diesel::query_builder::BoxedSqlQuery<'static, MultiBackend, diesel::query_builder::SqlQuery>,
-    chain: &ChainRecord,
-) -> Result<diesel::query_builder::BoxedSqlQuery<'static, MultiBackend, diesel::query_builder::SqlQuery>, Fail> {
-    let event_types = serde_json::to_string(&chain.event_types).map_err(|e| Fail(format!("event_types: {e}")))?;
-    let completion = chain.completion.as_ref();
-    Ok(query
-        .bind::<BigInt, _>(signed(chain.revision, "revision")?)
-        .bind::<Nullable<Text>, _>(chain.completion_mode.map(|m| m.as_str().to_owned()))
-        .bind::<BigInt, _>(signed(chain.last_sequence, "last_sequence")?)
-        .bind::<Text, _>(chain.head_hash.clone())
-        .bind::<Text, _>(chain.encounter_state.as_str().to_owned())
-        .bind::<Text, _>(chain.disposition.as_str().to_owned())
-        .bind::<BigInt, _>(signed(chain.finding_count, "finding_count")?)
-        .bind::<BigInt, _>(signed(chain.batch_count, "batch_count")?)
-        .bind::<BigInt, _>(signed(chain.event_count, "event_count")?)
-        .bind::<BigInt, _>(signed(chain.event_bytes, "event_bytes")?)
-        .bind::<Nullable<BigInt>, _>(
+/// The chain's values in `CHAIN_VALUES`' order.
+fn chain_values(chain: &ChainRecord) -> Result<Vec<Param>, Fail> {
+    let done = chain.completion.as_ref();
+    let counted = |value: u64, what: &str| signed(value, what).map(Param::Big);
+    Ok(vec![
+        counted(chain.revision, "revision")?,
+        Param::MaybeText(chain.completion_mode.map(|mode| mode.as_str().into())),
+        counted(chain.last_sequence, "last_sequence")?,
+        chain.head_hash.as_str().into(),
+        chain.encounter_state.as_str().into(),
+        chain.disposition.as_str().into(),
+        counted(chain.finding_count, "finding_count")?,
+        counted(chain.batch_count, "batch_count")?,
+        counted(chain.event_count, "event_count")?,
+        counted(chain.event_bytes, "event_bytes")?,
+        Param::MaybeBig(
             chain
                 .last_monotonic_ms
                 .map(|ms| signed(ms, "last_monotonic_ms"))
                 .transpose()?,
-        )
-        .bind::<Text, _>(event_types)
-        .bind::<Integer, _>(i32::from(chain.has_unattributed_damage))
-        .bind::<Nullable<BigInt>, _>(chain.last_received_at.map(|at| at.0))
-        .bind::<Nullable<BigInt>, _>(
-            completion
-                .map(|c| signed(c.final_sequence, "final_sequence"))
-                .transpose()?,
-        )
-        .bind::<Nullable<Text>, _>(completion.map(|c| c.final_hash.clone()))
-        .bind::<Nullable<BigInt>, _>(completion.map(|c| c.at.0)))
+        ),
+        encoded(serde_json::to_string(&chain.event_types))?.into(),
+        Param::Int(chain.has_unattributed_damage.into()),
+        Param::MaybeBig(chain.last_received_at.map(|at| at.0)),
+        Param::MaybeBig(done.map(|c| signed(c.final_sequence, "final_sequence")).transpose()?),
+        Param::MaybeText(done.map(|c| c.final_hash.clone())),
+        Param::MaybeBig(done.map(|c| c.at.0)),
+    ])
 }
 
+fn chain_key(session: &str, generation: i64) -> Vec<Param> {
+    vec![session.into(), generation.into()]
+}
+
+fn first_row<R, T>(rows: Vec<R>, into: impl FnOnce(R) -> Result<T, Fail>) -> Result<Option<T>, Fail> {
+    rows.into_iter().next().map(into).transpose()
+}
+
+fn read_chain(conn: &mut AnyConnection, session: &str, generation: i64) -> Result<Option<ChainRecord>, Fail> {
+    let text = format!(
+        "SELECT {} FROM rifts_hunt_guard WHERE session = ? AND generation = ?",
+        chain_columns().join(", ")
+    );
+    let rows = query(sql(&text)?, chain_key(session, generation)).load::<ChainRow>(conn)?;
+    first_row(rows, ChainRow::into_record)
+}
+
+fn stored_revision(conn: &mut AnyConnection, session: &str, generation: i64) -> Result<i64, Fail> {
+    let text = sql("SELECT revision FROM rifts_hunt_guard WHERE session = ? AND generation = ?")?;
+    let rows = query(text, chain_key(session, generation)).load::<Revision>(conn)?;
+    Ok(rows.first().map_or(0, |row| row.revision))
+}
+
+fn batch_exists(conn: &mut AnyConnection, batch: &BatchRecord) -> Result<bool, Fail> {
+    let text = sql(
+        "SELECT CAST(1 AS BIGINT) AS revision FROM rifts_guard_batches WHERE session = ? AND generation = ? AND batch_id = ?",
+    )?;
+    let mut key = chain_key(&batch.session.to_string(), signed(batch.generation, "generation")?);
+    key.push(batch.batch_id.as_str().into());
+    Ok(!query(text, key).load::<Revision>(conn)?.is_empty())
+}
+
+/// A fresh chain is inserted (a racing insert wins); a later one moves only from the expected revision.
 fn write_chain(conn: &mut AnyConnection, chain: &ChainRecord, expected: u64) -> Result<bool, Fail> {
-    let session = chain.session.to_string();
-    let generation = signed(chain.generation, "generation")?;
+    let key = chain_key(&chain.session.to_string(), signed(chain.generation, "generation")?);
+    let values = chain_values(chain)?;
     let changed = if expected == 0 {
-        let query = sql(&format!(
-            "INSERT INTO rifts_hunt_guard ({CHAIN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
-             ON CONFLICT DO NOTHING"
-        ))?;
-        let query = diesel::sql_query(query)
-            .into_boxed::<MultiBackend>()
-            .bind::<Text, _>(session)
-            .bind::<BigInt, _>(generation);
-        bind_chain(query, chain)?.execute(conn)?
+        let text = insert_sql("rifts_hunt_guard", &chain_columns(), " ON CONFLICT DO NOTHING")?;
+        query(text, key.into_iter().chain(values).collect()).execute(conn)?
     } else {
-        let query = sql(
-            "UPDATE rifts_hunt_guard SET revision = ?, completion_mode = ?, last_sequence = ?, head_hash = ?, \
-             encounter_state = ?, disposition = ?, finding_count = ?, batch_count = ?, event_count = ?, \
-             event_bytes = ?, last_monotonic_ms = ?, event_types = ?, has_unattributed_damage = ?, \
-             last_received_at = ?, final_sequence = ?, final_hash = ?, completed_at = ? \
-             WHERE session = ? AND generation = ? AND revision = ?",
-        )?;
-        let query = diesel::sql_query(query).into_boxed::<MultiBackend>();
-        bind_chain(query, chain)?
-            .bind::<Text, _>(session)
-            .bind::<BigInt, _>(generation)
-            .bind::<BigInt, _>(signed(expected, "revision")?)
-            .execute(conn)?
+        let sets: Vec<String> = CHAIN_VALUES.iter().map(|column| format!("{column} = ?")).collect();
+        let text = sql(&format!(
+            "UPDATE rifts_hunt_guard SET {} WHERE session = ? AND generation = ? AND revision = ?",
+            sets.join(", ")
+        ))?;
+        let mut params = values;
+        params.extend(key);
+        params.push(signed(expected, "revision")?.into());
+        query(text, params).execute(conn)?
     };
     Ok(changed == 1)
 }
 
 fn insert_batch(conn: &mut AnyConnection, batch: &BatchRecord) -> Result<(), Fail> {
-    let query = sql(&format!(
-        "INSERT INTO rifts_guard_batches ({BATCH_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ))?;
-    let types = serde_json::to_string(&batch.event_types).map_err(|e| Fail(format!("event_types: {e}")))?;
-    diesel::sql_query(query)
-        .bind::<Text, _>(batch.session.to_string())
-        .bind::<BigInt, _>(signed(batch.generation, "generation")?)
-        .bind::<Text, _>(&batch.batch_id)
-        .bind::<Text, _>(&batch.previous_hash)
-        .bind::<Text, _>(&batch.batch_hash)
-        .bind::<BigInt, _>(signed(batch.first_sequence, "first_sequence")?)
-        .bind::<BigInt, _>(signed(batch.last_sequence, "last_sequence")?)
-        .bind::<BigInt, _>(signed(batch.event_count, "event_count")?)
-        .bind::<BigInt, _>(signed(batch.event_bytes, "event_bytes")?)
-        .bind::<Text, _>(types)
-        .bind::<BigInt, _>(batch.received_at.0)
-        .execute(conn)?;
+    let text = insert_sql("rifts_guard_batches", &BATCH_COLUMNS, "")?;
+    let params = vec![
+        batch.session.to_string().into(),
+        signed(batch.generation, "generation")?.into(),
+        batch.batch_id.as_str().into(),
+        batch.previous_hash.as_str().into(),
+        batch.batch_hash.as_str().into(),
+        signed(batch.first_sequence, "first_sequence")?.into(),
+        signed(batch.last_sequence, "last_sequence")?.into(),
+        signed(batch.event_count, "event_count")?.into(),
+        signed(batch.event_bytes, "event_bytes")?.into(),
+        encoded(serde_json::to_string(&batch.event_types))?.into(),
+        batch.received_at.0.into(),
+    ];
+    query(text, params).execute(conn)?;
     Ok(())
 }
 
 fn insert_finding(conn: &mut AnyConnection, finding: &FindingRecord) -> Result<(), Fail> {
-    let query = sql(
-        "INSERT INTO rifts_guard_findings (session, generation, sequence, code, detail, at) VALUES (?, ?, ?, ?, ?, ?)",
-    )?;
-    diesel::sql_query(query)
-        .bind::<Text, _>(finding.session.to_string())
-        .bind::<BigInt, _>(signed(finding.generation, "generation")?)
-        .bind::<Nullable<BigInt>, _>(finding.sequence.map(|s| signed(s, "sequence")).transpose()?)
-        .bind::<Text, _>(&finding.code)
-        .bind::<Text, _>(&finding.detail)
-        .bind::<BigInt, _>(finding.at.0)
-        .execute(conn)?;
+    let text = insert_sql("rifts_guard_findings", &FINDING_COLUMNS, "")?;
+    let params = vec![
+        finding.session.to_string().into(),
+        signed(finding.generation, "generation")?.into(),
+        Param::MaybeBig(finding.sequence.map(|s| signed(s, "sequence")).transpose()?),
+        finding.code.as_str().into(),
+        finding.detail.as_str().into(),
+        finding.at.0.into(),
+    ];
+    query(text, params).execute(conn)?;
     Ok(())
 }
 
-fn window_counts(conn: &mut AnyConnection, window_id: &str) -> Result<Option<(u64, u64)>, Fail> {
-    let query = sql("SELECT requests, bytes FROM rifts_traffic_windows WHERE window_id = ?")?;
-    diesel::sql_query(query)
-        .bind::<Text, _>(window_id)
-        .load::<Counts>(conn)?
-        .into_iter()
-        .next()
-        .map(|c| Ok((unsigned(c.requests, "requests")?, unsigned(c.bytes, "bytes")?)))
-        .transpose()
+fn window_counts(conn: &mut AnyConnection, window_id: &str) -> Result<(u64, u64), Fail> {
+    let text = sql("SELECT requests, bytes FROM rifts_traffic_windows WHERE window_id = ?")?;
+    let rows = query(text, vec![window_id.into()]).load::<Counts>(conn)?;
+    let counts = first_row(rows, |c| {
+        Ok((unsigned(c.requests, "requests")?, unsigned(c.bytes, "bytes")?))
+    })?;
+    Ok(counts.unwrap_or_default())
 }
 
-fn put_window(conn: &mut AnyConnection, reservation: &TrafficReservation, counts: (u64, u64)) -> Result<(), Fail> {
-    let query = portable::upsert(
+fn put_window(
+    conn: &mut AnyConnection,
+    reservation: &TrafficReservation,
+    (requests, bytes): (u64, u64),
+) -> Result<(), Fail> {
+    let text = portable::upsert(
         "rifts_traffic_windows",
-        &["window_id", "scope", "window_start", "requests", "bytes", "expires_at"],
+        &WINDOW_COLUMNS,
         &["window_id"],
         &["requests", "bytes"],
     );
-    diesel::sql_query(query)
-        .bind::<Text, _>(&reservation.window_id)
-        .bind::<Text, _>(reservation.scope.as_str())
-        .bind::<BigInt, _>(reservation.window_start.0)
-        .bind::<BigInt, _>(signed(counts.0, "requests")?)
-        .bind::<BigInt, _>(signed(counts.1, "bytes")?)
-        .bind::<BigInt, _>(reservation.expires_at.0)
-        .execute(conn)?;
+    let params = vec![
+        reservation.window_id.as_str().into(),
+        reservation.scope.as_str().into(),
+        reservation.window_start.0.into(),
+        signed(requests, "requests")?.into(),
+        signed(bytes, "bytes")?.into(),
+        reservation.expires_at.0.into(),
+    ];
+    query(text, params).execute(conn)?;
     Ok(())
+}
+
+fn drop_windows_through(conn: &mut AnyConnection, at: UnixMillis) -> Result<usize, Fail> {
+    let text = sql("DELETE FROM rifts_traffic_windows WHERE expires_at <= ?")?;
+    Ok(query(text, vec![at.0.into()]).execute(conn)?)
 }
 
 /// Guard's tables on a `store::Database`; cloning shares the pools.
@@ -578,7 +697,8 @@ pub struct SqlGuardStore {
 impl SqlGuardStore {
     /// Opens (or creates) the database with Guard's migrations. Blocking.
     pub fn open(config: &DatabaseConfig, options: &DatabaseOptions) -> Result<Self, store::Error> {
-        Database::open(config, options, &SCHEMA).map(Self::new)
+        let db = Database::open(config, options, &SCHEMA)?;
+        Ok(Self::new(db))
     }
 
     pub fn new(db: Database) -> Self {
@@ -594,7 +714,7 @@ impl SqlGuardStore {
         F: FnOnce(&mut AnyConnection) -> Result<T, Fail> + Send + 'static,
         T: Send + 'static,
     {
-        block_on_store(async { self.db.read(f).await.map_err(StoreError::from) })
+        block_on_store(async { Ok(self.db.read(f).await?) })
     }
 
     fn write<T, F>(&self, actor: &Actor, f: F) -> Result<T, StoreError>
@@ -603,144 +723,123 @@ impl SqlGuardStore {
         T: Send + 'static,
     {
         let actor = store_actor(actor);
-        block_on_store(async {
-            self.db
-                .write(actor, move |tx| f(tx.conn()))
-                .await
-                .map_err(StoreError::from)
-        })
+        block_on_store(async { Ok(self.db.write(actor, move |tx| f(tx.conn())).await?) })
     }
 
     /// Every recorded host write, oldest first.
     pub fn host_writes(&self) -> Result<Vec<HostWriteRecord>, StoreError> {
         self.read(|conn| {
-            let rows = diesel::sql_query(
-                "SELECT kind, target, host, session, generation, realm, session_kind, hub_kind, summary, at \
-                 FROM rifts_host_writes ORDER BY id",
-            )
-            .load::<WriteRow>(conn)?;
-            rows.into_iter()
-                .map(|row| {
-                    Ok(HostWriteRecord {
-                        kind: known(parse_kind(&row.kind), &row.kind, "write kind")?,
-                        target: AccountId(row.target),
-                        host: AccountId(row.host),
-                        session: parsed(&row.session, "session")?,
-                        generation: unsigned(row.generation, "generation")?,
-                        realm: row.realm.map(|r| parsed::<RealmId>(&r, "realm")).transpose()?,
-                        session_kind: row.session_kind,
-                        hub_kind: row.hub_kind,
-                        summary: Json(row.summary),
-                        at: UnixMillis(row.at),
-                    })
-                })
-                .collect()
+            let text = format!("SELECT {} FROM rifts_host_writes ORDER BY id", WRITE_COLUMNS.join(", "));
+            let rows = diesel::sql_query(text).load::<WriteRow>(conn)?;
+            rows.into_iter().map(WriteRow::into_record).collect()
         })
     }
 
     pub fn windows(&self) -> Result<Vec<TrafficWindowRecord>, StoreError> {
         self.read(|conn| {
-            diesel::sql_query(
-                "SELECT window_id, scope, window_start, requests, bytes, expires_at FROM rifts_traffic_windows \
-                 ORDER BY window_id",
-            )
-            .load::<WindowRow>(conn)?
-            .into_iter()
-            .map(WindowRow::into_record)
-            .collect()
+            let text = format!(
+                "SELECT {} FROM rifts_traffic_windows ORDER BY window_id",
+                WINDOW_COLUMNS.join(", ")
+            );
+            let rows = diesel::sql_query(text).load::<WindowRow>(conn)?;
+            rows.into_iter().map(WindowRow::into_record).collect()
         })
     }
 
     pub fn alert(&self, alert_id: &str) -> Result<Option<AlertRecord>, StoreError> {
-        let alert_id = alert_id.to_owned();
+        let id = Param::from(alert_id);
         self.read(move |conn| {
-            let query = sql(
-                "SELECT alert_id, code, severity, message, details, created_at, acknowledged_at, acknowledged_by \
-                 FROM rifts_operations_alerts WHERE alert_id = ?",
-            )?;
-            Ok(diesel::sql_query(query)
-                .bind::<Text, _>(alert_id)
-                .load::<AlertRow>(conn)?
-                .into_iter()
-                .next()
-                .map(|row| AlertRecord {
-                    alert_id: row.alert_id,
-                    code: row.code,
-                    severity: row.severity,
-                    message: row.message,
-                    details: Json(row.details),
-                    created_at: UnixMillis(row.created_at),
-                    acknowledged_at: row.acknowledged_at.map(UnixMillis),
-                    acknowledged_by: row.acknowledged_by,
-                }))
+            let text = format!(
+                "SELECT {} FROM rifts_operations_alerts WHERE alert_id = ?",
+                ALERT_COLUMNS.join(", ")
+            );
+            let rows = query(sql(&text)?, vec![id]).load::<AlertRow>(conn)?;
+            first_row(rows, |row| Ok(row.into()))
         })
     }
 
     pub fn xp_summary(&self, session: &SessionId, member: &AccountId) -> Result<Option<XpSummaryRecord>, StoreError> {
-        let (session, member) = (session.to_string(), member.0.clone());
+        let key = vec![Param::Text(session.to_string()), Param::Text(member.0.clone())];
         self.read(move |conn| {
-            let query = sql(
-                "SELECT session, member, host, realm, minutes, grants, flagged, created_at \
-                 FROM rifts_hunt_xp_summaries WHERE session = ? AND member = ?",
-            )?;
-            diesel::sql_query(query)
-                .bind::<Text, _>(session)
-                .bind::<Text, _>(member)
-                .load::<SummaryRow>(conn)?
-                .into_iter()
-                .next()
-                .map(|row| {
-                    Ok(XpSummaryRecord {
-                        session: parsed(&row.session, "session")?,
-                        member: AccountId(row.member),
-                        host: AccountId(row.host),
-                        realm: row.realm.map(|r| parsed::<RealmId>(&r, "realm")).transpose()?,
-                        minutes: u32::try_from(row.minutes)
-                            .map_err(|_| Fail(format!("minutes {} is out of range", row.minutes)))?,
-                        grants: Json(row.grants),
-                        flagged: row.flagged != 0,
-                        created_at: UnixMillis(row.created_at),
-                    })
-                })
-                .transpose()
+            let read = &SUMMARY_COLUMNS[..SUMMARY_COLUMNS.len() - 1];
+            let text = format!(
+                "SELECT {} FROM rifts_hunt_xp_summaries WHERE session = ? AND member = ?",
+                read.join(", ")
+            );
+            let rows = query(sql(&text)?, key).load::<SummaryRow>(conn)?;
+            first_row(rows, SummaryRow::into_record)
         })
     }
 
     /// Drops lapsed traffic windows and summaries; how many rows went.
     pub fn purge_expired(&self, now: UnixMillis) -> Result<u64, StoreError> {
         self.write(&Actor::System("rifts-guard-purge"), move |conn| {
-            let windows = diesel::sql_query(sql("DELETE FROM rifts_traffic_windows WHERE expires_at <= ?")?)
-                .bind::<BigInt, _>(now.0)
-                .execute(conn)?;
-            let summaries = diesel::sql_query(sql("DELETE FROM rifts_hunt_xp_summaries WHERE ttl_at <= ?")?)
-                .bind::<BigInt, _>(now.0)
-                .execute(conn)?;
+            let windows = drop_windows_through(conn, now)?;
+            let text = sql("DELETE FROM rifts_hunt_xp_summaries WHERE ttl_at <= ?")?;
+            let summaries = query(text, vec![now.0.into()]).execute(conn)?;
             Ok((windows + summaries) as u64)
         })
     }
 }
 
 impl GuardStore for SqlGuardStore {
-    fn record_host_write(&self, actor: &Actor, write: &HostWriteRecord) -> Result<(), StoreError> {
-        let write = write.clone();
+    fn chain(&self, session: &SessionId, generation: u64) -> Result<Option<ChainRecord>, StoreError> {
+        let (session, generation) = (session.to_string(), signed(generation, "generation")?);
+        self.read(move |conn| read_chain(conn, &session, generation))
+    }
+
+    fn apply_chain(&self, actor: &Actor, update: &ChainUpdate, expected_revision: u64) -> Result<bool, StoreError> {
+        let update = update.clone();
         self.write(actor, move |conn| {
-            let query = sql(
-                "INSERT INTO rifts_host_writes (kind, target, host, session, generation, realm, session_kind, \
-                 hub_kind, summary, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            let chain = &update.chain;
+            let stored = stored_revision(
+                conn,
+                &chain.session.to_string(),
+                signed(chain.generation, "generation")?,
             )?;
-            diesel::sql_query(query)
-                .bind::<Text, _>(kind_name(write.kind))
-                .bind::<Text, _>(write.target.0)
-                .bind::<Text, _>(write.host.0)
-                .bind::<Text, _>(write.session.to_string())
-                .bind::<BigInt, _>(signed(write.generation, "generation")?)
-                .bind::<Nullable<Text>, _>(write.realm.map(|r| r.to_string()))
-                .bind::<Nullable<Text>, _>(write.session_kind)
-                .bind::<Nullable<Text>, _>(write.hub_kind)
-                .bind::<Text, _>(write.summary.0)
-                .bind::<BigInt, _>(write.at.0)
-                .execute(conn)?;
-            Ok(())
+            if stored != signed(expected_revision, "revision")? {
+                return Ok(false);
+            }
+            // A batch id already stored, or a revision moved under us, writes nothing.
+            if let Some(batch) = &update.batch
+                && batch_exists(conn, batch)?
+            {
+                return Ok(false);
+            }
+            if !write_chain(conn, chain, expected_revision)? {
+                return Ok(false);
+            }
+            update.batch.iter().try_for_each(|batch| insert_batch(conn, batch))?;
+            update
+                .findings
+                .iter()
+                .try_for_each(|finding| insert_finding(conn, finding))?;
+            Ok(true)
+        })
+    }
+
+    fn batch(&self, session: &SessionId, generation: u64, batch_id: &str) -> Result<Option<BatchRecord>, StoreError> {
+        let mut key = chain_key(&session.to_string(), signed(generation, "generation")?);
+        key.push(batch_id.into());
+        self.read(move |conn| {
+            let text = format!(
+                "SELECT {} FROM rifts_guard_batches WHERE session = ? AND generation = ? AND batch_id = ?",
+                BATCH_COLUMNS.join(", ")
+            );
+            let rows = query(sql(&text)?, key).load::<BatchRow>(conn)?;
+            first_row(rows, BatchRow::into_record)
+        })
+    }
+
+    fn findings(&self, session: &SessionId, generation: u64) -> Result<Vec<FindingRecord>, StoreError> {
+        let key = chain_key(&session.to_string(), signed(generation, "generation")?);
+        self.read(move |conn| {
+            let text = format!(
+                "SELECT {} FROM rifts_guard_findings WHERE session = ? AND generation = ? ORDER BY id",
+                FINDING_COLUMNS.join(", ")
+            );
+            let rows = query(sql(&text)?, key).load::<FindingRow>(conn)?;
+            rows.into_iter().map(FindingRow::into_record).collect()
         })
     }
 
@@ -752,19 +851,18 @@ impl GuardStore for SqlGuardStore {
     ) -> Result<bool, StoreError> {
         let (host, session) = (host.clone(), session.clone());
         self.write(actor, move |conn| {
-            diesel::sql_query(sql("DELETE FROM rifts_traffic_windows WHERE expires_at <= ?")?)
-                .bind::<BigInt, _>(host.window_start.0)
-                .execute(conn)?;
-            let host_before = window_counts(conn, &host.window_id)?.unwrap_or((0, 0));
-            let Some(host_after) = charged(host_before.0, host_before.1, &host) else {
+            drop_windows_through(conn, host.window_start)?;
+            let (requests, bytes) = window_counts(conn, &host.window_id)?;
+            let Some(host_after) = charged(requests, bytes, &host) else {
                 return Ok(false);
             };
-            let session_before = if session.window_id == host.window_id {
+            // One window for both scopes sees the host's charge first.
+            let (requests, bytes) = if session.window_id == host.window_id {
                 host_after
             } else {
-                window_counts(conn, &session.window_id)?.unwrap_or((0, 0))
+                window_counts(conn, &session.window_id)?
             };
-            let Some(session_after) = charged(session_before.0, session_before.1, &session) else {
+            let Some(session_after) = charged(requests, bytes, &session) else {
                 return Ok(false);
             };
             put_window(conn, &host, host_after)?;
@@ -773,128 +871,49 @@ impl GuardStore for SqlGuardStore {
         })
     }
 
-    fn chain(&self, session: &SessionId, generation: u64) -> Result<Option<ChainRecord>, StoreError> {
-        let session = session.to_string();
-        let generation = signed(generation, "generation")?;
-        self.read(move |conn| read_chain(conn, &session, generation))
-    }
-
-    fn apply_chain(&self, actor: &Actor, update: &ChainUpdate, expected_revision: u64) -> Result<bool, StoreError> {
-        let update = update.clone();
+    fn record_host_write(&self, actor: &Actor, write: &HostWriteRecord) -> Result<(), StoreError> {
+        let write = write.clone();
         self.write(actor, move |conn| {
-            let chain = &update.chain;
-            let session = chain.session.to_string();
-            let generation = signed(chain.generation, "generation")?;
-            let query = sql("SELECT revision FROM rifts_hunt_guard WHERE session = ? AND generation = ?")?;
-            let stored = diesel::sql_query(query)
-                .bind::<Text, _>(&session)
-                .bind::<BigInt, _>(generation)
-                .load::<Revision>(conn)?
-                .first()
-                .map_or(0, |row| row.revision);
-            if stored != signed(expected_revision, "revision")? {
-                return Ok(false);
-            }
-            if let Some(batch) = &update.batch
-                && batch_exists(
-                    conn,
-                    &batch.session.to_string(),
-                    signed(batch.generation, "generation")?,
-                    &batch.batch_id,
-                )?
-            {
-                return Ok(false);
-            }
-            if !write_chain(conn, chain, expected_revision)? {
-                return Ok(false);
-            }
-            if let Some(batch) = &update.batch {
-                insert_batch(conn, batch)?;
-            }
-            for finding in &update.findings {
-                insert_finding(conn, finding)?;
-            }
-            Ok(true)
-        })
-    }
-
-    fn batch(&self, session: &SessionId, generation: u64, batch_id: &str) -> Result<Option<BatchRecord>, StoreError> {
-        let (session, batch_id) = (session.to_string(), batch_id.to_owned());
-        let generation = signed(generation, "generation")?;
-        self.read(move |conn| {
-            let query = sql(&format!(
-                "SELECT {BATCH_COLUMNS} FROM rifts_guard_batches WHERE session = ? AND generation = ? AND batch_id = ?"
-            ))?;
-            diesel::sql_query(query)
-                .bind::<Text, _>(session)
-                .bind::<BigInt, _>(generation)
-                .bind::<Text, _>(batch_id)
-                .load::<BatchRow>(conn)?
-                .into_iter()
-                .next()
-                .map(BatchRow::into_record)
-                .transpose()
-        })
-    }
-
-    fn findings(&self, session: &SessionId, generation: u64) -> Result<Vec<FindingRecord>, StoreError> {
-        let session = session.to_string();
-        let generation = signed(generation, "generation")?;
-        self.read(move |conn| {
-            let query = sql(
-                "SELECT session, generation, sequence, code, detail, at FROM rifts_guard_findings \
-                 WHERE session = ? AND generation = ? ORDER BY id",
-            )?;
-            diesel::sql_query(query)
-                .bind::<Text, _>(session)
-                .bind::<BigInt, _>(generation)
-                .load::<FindingRow>(conn)?
-                .into_iter()
-                .map(|row| {
-                    Ok(FindingRecord {
-                        session: parsed(&row.session, "session")?,
-                        generation: unsigned(row.generation, "generation")?,
-                        sequence: row.sequence.map(|s| unsigned(s, "sequence")).transpose()?,
-                        code: row.code,
-                        detail: row.detail,
-                        at: UnixMillis(row.at),
-                    })
-                })
-                .collect()
+            let text = insert_sql("rifts_host_writes", &WRITE_COLUMNS, "")?;
+            let params = vec![
+                kind_name(write.kind).into(),
+                write.target.0.into(),
+                write.host.0.into(),
+                write.session.to_string().into(),
+                signed(write.generation, "generation")?.into(),
+                Param::MaybeText(write.realm.map(|realm| realm.to_string())),
+                Param::MaybeText(write.session_kind),
+                Param::MaybeText(write.hub_kind),
+                write.summary.0.into(),
+                write.at.0.into(),
+            ];
+            query(text, params).execute(conn)?;
+            Ok(())
         })
     }
 
     fn put_xp_summary(&self, actor: &Actor, summary: &XpSummaryRecord) -> Result<(), StoreError> {
         let summary = summary.clone();
         self.write(actor, move |conn| {
-            let ttl = summary.created_at.0.saturating_add_unsigned(XP_SUMMARY_TTL_MS);
-            let query = portable::upsert(
+            let text = portable::upsert(
                 "rifts_hunt_xp_summaries",
-                &[
-                    "session",
-                    "member",
-                    "host",
-                    "realm",
-                    "minutes",
-                    "grants",
-                    "flagged",
-                    "created_at",
-                    "ttl_at",
-                ],
+                &SUMMARY_COLUMNS,
                 &["session", "member"],
-                &["host", "realm", "minutes", "grants", "flagged", "created_at", "ttl_at"],
+                &SUMMARY_COLUMNS[2..],
             );
-            diesel::sql_query(query)
-                .bind::<Text, _>(summary.session.to_string())
-                .bind::<Text, _>(summary.member.0)
-                .bind::<Text, _>(summary.host.0)
-                .bind::<Nullable<Text>, _>(summary.realm.map(|r| r.to_string()))
-                .bind::<BigInt, _>(i64::from(summary.minutes))
-                .bind::<Text, _>(summary.grants.0)
-                .bind::<Integer, _>(i32::from(summary.flagged))
-                .bind::<BigInt, _>(summary.created_at.0)
-                .bind::<BigInt, _>(ttl)
-                .execute(conn)?;
+            let expires = summary.created_at.0.saturating_add_unsigned(XP_SUMMARY_TTL_MS);
+            let params = vec![
+                summary.session.to_string().into(),
+                summary.member.0.into(),
+                summary.host.0.into(),
+                Param::MaybeText(summary.realm.map(|realm| realm.to_string())),
+                i64::from(summary.minutes).into(),
+                summary.grants.0.into(),
+                Param::Int(summary.flagged.into()),
+                summary.created_at.0.into(),
+                expires.into(),
+            ];
+            query(text, params).execute(conn)?;
             Ok(())
         })
     }
@@ -902,46 +921,30 @@ impl GuardStore for SqlGuardStore {
     fn insert_alert(&self, actor: &Actor, alert: &AlertRecord) -> Result<(), StoreError> {
         let alert = alert.clone();
         self.write(actor, move |conn| {
-            let query = portable::insert_ignore(
-                "rifts_operations_alerts",
-                &[
-                    "alert_id",
-                    "code",
-                    "severity",
-                    "message",
-                    "details",
-                    "created_at",
-                    "acknowledged_at",
-                    "acknowledged_by",
-                ],
-            );
-            diesel::sql_query(query)
-                .bind::<Text, _>(alert.alert_id)
-                .bind::<Text, _>(alert.code)
-                .bind::<Text, _>(alert.severity)
-                .bind::<Text, _>(alert.message)
-                .bind::<Text, _>(alert.details.0)
-                .bind::<BigInt, _>(alert.created_at.0)
-                .bind::<Nullable<BigInt>, _>(alert.acknowledged_at.map(|at| at.0))
-                .bind::<Nullable<Text>, _>(alert.acknowledged_by)
-                .execute(conn)?;
+            let text = portable::insert_ignore("rifts_operations_alerts", &ALERT_COLUMNS);
+            let params = vec![
+                alert.alert_id.into(),
+                alert.code.into(),
+                alert.severity.into(),
+                alert.message.into(),
+                alert.details.0.into(),
+                alert.created_at.0.into(),
+                Param::MaybeBig(alert.acknowledged_at.map(|at| at.0)),
+                Param::MaybeText(alert.acknowledged_by),
+            ];
+            query(text, params).execute(conn)?;
             Ok(())
         })
     }
 
     fn acknowledge_alert(&self, actor: &Actor, alert_id: &str, at: UnixMillis) -> Result<bool, StoreError> {
-        let (alert_id, by) = (alert_id.to_owned(), actor_name(actor));
+        let params = vec![at.0.into(), actor_name(actor).into(), alert_id.into()];
         self.write(actor, move |conn| {
-            let query = sql(
+            let text = sql(
                 "UPDATE rifts_operations_alerts SET acknowledged_at = ?, acknowledged_by = ? \
                  WHERE alert_id = ? AND acknowledged_at IS NULL",
             )?;
-            let changed = diesel::sql_query(query)
-                .bind::<BigInt, _>(at.0)
-                .bind::<Text, _>(by)
-                .bind::<Text, _>(alert_id)
-                .execute(conn)?;
-            Ok(changed == 1)
+            Ok(query(text, params).execute(conn)? == 1)
         })
     }
 }

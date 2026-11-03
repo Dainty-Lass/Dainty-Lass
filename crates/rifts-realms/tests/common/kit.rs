@@ -29,7 +29,7 @@ pub const T0: i64 = 1_791_892_800_000;
 pub struct NoLimit;
 
 impl RateLimiter for NoLimit {
-    fn is_limited(&self, _key: &str, _max: u32, _window_ms: i64) -> bool {
+    fn is_limited(&self, _: &str, _: u32, _: i64) -> bool {
         false
     }
 }
@@ -42,9 +42,10 @@ pub struct KeyLimiter {
 }
 
 impl RateLimiter for KeyLimiter {
-    fn is_limited(&self, key: &str, _max: u32, _window_ms: i64) -> bool {
-        self.keys.lock().unwrap().push(key.to_owned());
-        self.limited.lock().unwrap().iter().any(|k| k == key)
+    fn is_limited(&self, key: &str, _: u32, _: i64) -> bool {
+        let mut seen = self.keys.lock().unwrap();
+        seen.push(key.into());
+        self.limited.lock().unwrap().contains(&key.to_owned())
     }
 }
 
@@ -56,19 +57,22 @@ pub struct CountingIds {
 }
 
 pub fn code_number(n: u64) -> String {
-    let symbol = |i: u64| char::from(INVITE_ALPHABET[usize::try_from(i % 32).unwrap()]);
-    let start = 8 * 32 + 9; // "JK"
-    let value = start + n;
-    format!("ABCDEFGH{}{}", symbol(value / 32), symbol(value))
+    // Two base-32 digits counted from "JK" (8, 9).
+    let value = n + 8 * 32 + 9;
+    let digit = |place: u64| INVITE_ALPHABET[usize::try_from(place % 32).unwrap()] as char;
+    let tail: String = [digit(value / 32), digit(value)].iter().collect();
+    format!("ABCDEFGH{tail}")
 }
 
 impl IdSource for CountingIds {
     fn realm_id(&self) -> String {
-        format!("realm-{}", self.realms.fetch_add(1, Ordering::SeqCst) + 1)
+        let issued = 1 + self.realms.fetch_add(1, Ordering::SeqCst);
+        format!("realm-{issued}")
     }
 
     fn invite_code(&self) -> String {
-        code_number(self.codes.fetch_add(1, Ordering::SeqCst))
+        let issued = self.codes.fetch_add(1, Ordering::SeqCst);
+        code_number(issued)
     }
 }
 
@@ -84,23 +88,24 @@ impl IdSource for ListedCodes {
     }
 
     fn invite_code(&self) -> String {
-        self.codes
-            .lock()
-            .unwrap()
-            .pop_front()
-            .unwrap_or_else(|| "ZZZZZZZZZZ".to_owned())
+        let next = self.codes.lock().unwrap().pop_front();
+        next.unwrap_or_else(|| "Z".repeat(10))
     }
 }
 
 pub struct FailingNames;
 
+fn ready<T: Send + 'static>(value: T) -> BoxFuture<'static, T> {
+    Box::pin(std::future::ready(value))
+}
+
 impl Accounts for FailingNames {
-    fn display_names(&self, _ids: Vec<String>) -> BoxFuture<'_, Result<BTreeMap<String, String>, String>> {
-        Box::pin(std::future::ready(Err("names are down".to_owned())))
+    fn display_names(&self, _: Vec<String>) -> BoxFuture<'_, Result<BTreeMap<String, String>, String>> {
+        ready(Err(String::from("names are down")))
     }
 
-    fn resolve_username(&self, _username: String) -> BoxFuture<'_, Result<Option<String>, String>> {
-        Box::pin(std::future::ready(Ok(None)))
+    fn resolve_username(&self, _: String) -> BoxFuture<'_, Result<Option<String>, String>> {
+        ready(Ok(None))
     }
 }
 
@@ -110,25 +115,22 @@ pub struct FailingSink {
 }
 
 impl RealmEventSink for FailingSink {
-    fn emit(&self, _event: RealmEvent) -> BoxFuture<'_, Result<(), String>> {
+    fn emit(&self, _: RealmEvent) -> BoxFuture<'_, Result<(), String>> {
         self.calls.store(true, Ordering::SeqCst);
-        Box::pin(std::future::ready(Err("sink is down".to_owned())))
+        ready(Err(String::from("sink is down")))
     }
 }
 
+/// `a=b;c=d` as a map.
+fn pairs(list: &str) -> BTreeMap<String, String> {
+    let split = list.split(';').filter_map(|pair| pair.split_once('='));
+    split.map(|(key, value)| (key.into(), value.into())).collect()
+}
+
 pub fn accounts() -> FixedAccounts {
-    let pairs = |list: &[(&str, &str)]| -> BTreeMap<String, String> {
-        list.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect()
-    };
-    FixedAccounts {
-        names: pairs(&[
-            ("host-1", "Hosty"),
-            ("host-2", "Hosty Two"),
-            ("friend-1", "Friendly"),
-            ("friend-2", "Pal"),
-        ]),
-        usernames: pairs(&[("pal", "friend-2"), ("friendly", "friend-1"), ("hosty", "host-1")]),
-    }
+    let names = pairs("host-1=Hosty;host-2=Hosty Two;friend-1=Friendly;friend-2=Pal");
+    let usernames = pairs("pal=friend-2;friendly=friend-1;hosty=host-1");
+    FixedAccounts { names, usernames }
 }
 
 pub struct Options {
@@ -142,11 +144,11 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            accounts: Arc::new(accounts()),
-            events: None,
-            limiter: Arc::new(NoLimit),
-            ids: Arc::new(CountingIds::default()),
             limits: DEFAULT_REALM_LIMITS,
+            ids: Arc::<CountingIds>::default(),
+            limiter: Arc::new(NoLimit),
+            events: None,
+            accounts: Arc::new(accounts()),
         }
     }
 }
@@ -163,24 +165,32 @@ pub fn kit(target: Target) -> Kit {
 }
 
 pub fn kit_with(target: Target, options: Options) -> Kit {
+    let Options {
+        accounts,
+        events: sink,
+        limiter,
+        ids,
+        limits,
+    } = options;
     let clock = Arc::new(ManualClock::at(UnixMillis(T0)));
-    let events = Arc::new(RecordedEvents::default());
-    let sink: Arc<dyn RealmEventSink> = options.events.unwrap_or_else(|| events.clone());
-    let directory = RealmDirectory::new(DirectoryParts {
-        db: target.db.clone(),
-        accounts: options.accounts,
-        events: Some(sink),
-        clock: clock.clone(),
-        limiter: options.limiter,
-        ids: options.ids,
-        limits: options.limits,
+    let events = Arc::<RecordedEvents>::default();
+    let recorded: Arc<dyn RealmEventSink> = events.clone();
+    let parts = DirectoryParts {
         log: Arc::new(QuietLog),
-    });
+        events: Some(sink.unwrap_or(recorded)),
+        clock: clock.clone(),
+        db: target.db.clone(),
+        accounts,
+        limiter,
+        ids,
+        limits,
+    };
+    let directory = RealmDirectory::new(parts);
     Kit {
-        target,
-        clock,
-        events,
         directory,
+        events,
+        clock,
+        target,
     }
 }
 
@@ -191,26 +201,30 @@ impl Kit {
 
     /// The host heartbeats and its Ramsgate hub runs, as session `hub-<realm>`.
     pub async fn serve(&self, host: &str, realm_id: &str) {
-        let beat = HeartbeatInput {
-            online: Some(true),
-            version: None,
+        let online = HeartbeatInput {
             hosting: None,
+            version: None,
+            online: Some(true),
         };
-        self.directory.heartbeat(host, &beat).await.unwrap();
-        let patch = HostingPatch {
-            hub_state: Some(HubState::Running),
+        self.directory.heartbeat(host, &online).await.unwrap();
+        let running = HostingPatch {
             hub_session_id: Patch::Set(format!("hub-{realm_id}")),
-            ..HostingPatch::default()
+            hub_state: Some(HubState::Running),
+            ..Default::default()
         };
-        assert!(self.directory.set_hosting(realm_id, &patch).await.unwrap());
+        let applied = self.directory.set_hosting(realm_id, &running).await.unwrap();
+        assert!(applied);
     }
 }
 
 /// The refusal code, or `ok`.
 pub fn code<T>(result: &Result<T, RealmsError>) -> String {
-    match result {
-        Ok(_) => "ok".to_owned(),
-        Err(RealmsError::Refused(refusal)) => refusal.code.clone(),
-        Err(other) => format!("{other:?}"),
+    let Err(error) = result else {
+        return String::from("ok");
+    };
+    if let RealmsError::Refused(refusal) = error {
+        refusal.code.clone()
+    } else {
+        format!("{error:?}")
     }
 }

@@ -4,46 +4,44 @@
 //! The two ports a hosting flow calls out through: the backend (the launcher's HTTP client, which holds the account
 //! key) and the spawner that starts the hosted game server.
 
-use std::collections::{BTreeMap, HashMap};
-use std::path::Path;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+    sync::{Mutex, MutexGuard, PoisonError},
+};
 
 use rifts_seam::{AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
 
-use super::rules::wire_session_id;
 use super::{
     CommonBootstrapConfig, HostBootstrapSpec, HostedRole, HubLimits, IcePeerEntry, IceServerEntry, JoinBootstrapSpec,
-    PeerListEntry, RelayGrant, TransportConfig,
+    PeerListEntry, RelayGrant, TransportConfig, rules::wire_session_id,
 };
-use crate::HostError;
-use crate::files::validate_hub_limits as validate_limits;
-use crate::transport::Signal;
+use crate::{HostError, files::validate_hub_limits, transport::Signal};
+
+type Hosted = (HostBootstrapSpec, TransportConfig);
 
 /// Synchronous; the launcher's implementation blocks on its own runtime.
+///
+/// Signalling is optional: a backend without it keeps the defaults, which list no peers and drop every signal.
 pub trait HostBackend: Send + Sync {
-    fn host_bootstrap(
-        &self,
-        account: &AccountId,
-        session: &SessionId,
-    ) -> Result<(HostBootstrapSpec, TransportConfig), HostError>;
+    fn host_bootstrap(&self, account: &AccountId, session: &SessionId) -> Result<Hosted, HostError>;
+
     fn join_bootstrap(
         &self,
         account: &AccountId,
         session: &SessionId,
     ) -> Result<(JoinBootstrapSpec, TransportConfig), HostError>;
-    fn start_hub(
-        &self,
-        account: &AccountId,
-        kind: HubKind,
-        limits: &HubLimits,
-    ) -> Result<(HostBootstrapSpec, TransportConfig), HostError>;
+
+    fn start_hub(&self, account: &AccountId, kind: HubKind, limits: &HubLimits) -> Result<Hosted, HostError>;
+
     fn stop_hub(&self, account: &AccountId, kind: HubKind) -> Result<Option<SessionId>, HostError>;
+
     fn route_ready(
         &self,
         account: &AccountId,
         session: &SessionId,
         generation: u64,
-        local_port: u16,
+        port: u16,
     ) -> Result<(), HostError>;
 
     fn supports_signalling(&self) -> bool {
@@ -52,167 +50,207 @@ pub trait HostBackend: Send + Sync {
 
     fn poll_peers(
         &self,
-        _account: &AccountId,
-        _session: &SessionId,
-        _generation: u64,
-        _role: HostedRole,
+        account: &AccountId,
+        session: &SessionId,
+        generation: u64,
+        role: HostedRole,
     ) -> Result<Vec<PeerListEntry>, HostError> {
-        Ok(Vec::new())
+        let _ = (account, session, generation, role);
+        Ok(vec![])
     }
 
     fn send_signal(
         &self,
-        _account: &AccountId,
-        _session: &SessionId,
-        _generation: u64,
-        _signal: &Signal,
+        account: &AccountId,
+        session: &SessionId,
+        generation: u64,
+        signal: &Signal,
     ) -> Result<(), HostError> {
+        let _ = (account, session, generation, signal);
         Ok(())
     }
 
     /// Incoming signals with the sender; their `to_account` is not read.
     fn poll_signals(
         &self,
-        _account: &AccountId,
-        _session: &SessionId,
-        _generation: u64,
+        account: &AccountId,
+        session: &SessionId,
+        generation: u64,
     ) -> Result<Vec<(AccountId, Signal)>, HostError> {
-        Ok(Vec::new())
+        let _ = (account, session, generation);
+        Ok(vec![])
     }
 }
 
-fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+/// A poisoned lock still holds consistent maps: every critical section is one insert or remove.
+fn held<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
+    lock.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 /// A deterministic local backend: the launcher's fallback with no server configured, and its tests'.
 #[derive(Debug, Default)]
 pub struct DefaultHostBackend {
-    hubs: Mutex<HashMap<(AccountId, HubKind), SessionId>>,
-    routes: Mutex<HashMap<SessionId, u16>>,
+    hub_sessions: Mutex<HashMap<(AccountId, HubKind), SessionId>>,
+    ready_ports: Mutex<HashMap<SessionId, u16>>,
 }
 
-const LOCAL_HOST_PEER: &str = "100001";
-const LOCAL_JOIN_PEER: &str = "200002";
-const LOCAL_HOST_ACCOUNT: &str = "host-account-1";
-const LOCAL_BACKEND_URL: &str = "https://127.0.0.1:8443";
-// 2026-10-14, so every hub id the local backend makes sorts together.
-const HUB_ID_MILLIS: u64 = 1_792_000_000_000;
-
-fn a_run(prefix: &str, count: usize) -> String {
-    format!("{prefix}{}", "A".repeat(count))
+mod local {
+    pub const HOST_PEER: &str = "100001";
+    pub const JOIN_PEER: &str = "200002";
+    pub const HOST_ACCOUNT: &str = "host-account-1";
+    pub const BACKEND_URL: &str = "https://127.0.0.1:8443";
+    // 2026-10-14, so every hub id the local backend makes sorts together.
+    pub const HUB_ID_MILLIS: u64 = 1_792_000_000_000;
 }
 
-impl DefaultHostBackend {
-    pub fn new() -> Self {
-        Self::default()
-    }
+/// What differs between the local backend's hunt and hub hosts.
+struct HostTemplate {
+    hunt_definition_id: &'static str,
+    completion: &'static str,
+    capability_prefix: &'static str,
+    capability_run: usize,
+    host_ticket: &'static str,
+    server_udp_port: u16,
+    matchmaker_hunt_id: &'static str,
+    map_path: &'static str,
+    behemoth_path: &'static str,
+}
 
-    pub fn recorded_route(&self, session: &SessionId) -> Option<u16> {
-        locked(&self.routes).get(session).copied()
-    }
+const HUNT_HOST: HostTemplate = HostTemplate {
+    hunt_definition_id: "Hunt_Default",
+    completion: "FIRST_DEFEAT",
+    capability_prefix: "cap_",
+    capability_run: 39,
+    host_ticket: "rpt1.ticket.signature",
+    server_udp_port: 8791,
+    matchmaker_hunt_id: "Arena_MatchmakerHunt_Easy_001",
+    map_path: "/Game/Maps/HuntMap",
+    behemoth_path: "Behemoth_Gnasher",
+};
 
-    fn common(session: &SessionId, hunt_definition_id: &str, completion: &str) -> CommonBootstrapConfig {
+const HUB_HOST: HostTemplate = HostTemplate {
+    hunt_definition_id: "ShatteredIsles_ReturnToRamsgate",
+    completion: "NO_COMPLETION",
+    capability_prefix: "cap_HUB_",
+    capability_run: 35,
+    host_ticket: "rpt1.hub_host_ticket.signature",
+    server_udp_port: 8792,
+    matchmaker_hunt_id: "ShatteredIsles_ReturnToRamsgate",
+    map_path: "/Game/Maps/Ramsgate",
+    behemoth_path: "None",
+};
+
+impl HostTemplate {
+    fn common(&self, session: &SessionId) -> CommonBootstrapConfig {
         let wire = wire_session_id(session);
         CommonBootstrapConfig {
-            key_id: "local-key-1".to_owned(),
+            key_id: "local-key-1".into(),
             session_id: session.clone(),
             party_id: format!("party-{wire}"),
             party_revision: 1,
-            hunt_definition_id: hunt_definition_id.to_owned(),
+            hunt_definition_id: self.hunt_definition_id.into(),
             generation: 1,
             build: 647_472,
             bridge_protocol: 1,
             virtual_port: 1,
-            host_peer_id: LOCAL_HOST_PEER.to_owned(),
+            host_peer_id: local::HOST_PEER.into(),
             bridge_instance_id: format!("bridge-{wire}"),
-            metadata_nonce: "0123456789abcdef0123456789abcdef".to_owned(),
+            metadata_nonce: "0123456789abcdef".repeat(2),
             force_relay: false,
-            guard_completion_mode: completion.to_owned(),
+            guard_completion_mode: self.completion.into(),
         }
     }
 
-    fn transport_config(account: &AccountId, joiner: bool) -> TransportConfig {
-        TransportConfig {
-            generation: 1,
-            local_account_id: account.0.clone(),
-            local_peer_id: if joiner { LOCAL_JOIN_PEER } else { LOCAL_HOST_PEER }.to_owned(),
-            host_account_id: if joiner {
-                LOCAL_HOST_ACCOUNT.to_owned()
-            } else {
-                account.0.clone()
-            },
-            host_peer_id: LOCAL_HOST_PEER.to_owned(),
-            ice_servers: vec![
-                IceServerEntry {
-                    urls: vec!["stun:stun.cloudflare.com:3478".to_owned()],
-                    username: None,
-                    credential: None,
-                },
-                IceServerEntry {
-                    urls: vec!["turn:127.0.0.1:3478?transport=udp".to_owned()],
-                    username: Some("1700000000:local".to_owned()),
-                    credential: Some("local-turn-secret".to_owned()),
-                },
-            ],
-            peers: if joiner {
-                vec![IcePeerEntry {
-                    account_id: LOCAL_HOST_ACCOUNT.to_owned(),
-                    peer_id: LOCAL_HOST_PEER.to_owned(),
-                    transport_key: "A".repeat(43),
-                }]
-            } else {
-                Vec::new()
-            },
-            relay: Some(RelayGrant {
-                allowed: true,
-                expires_at: Some("2026-10-28T00:00:00Z".to_owned()),
-            }),
+    /// A hunt host when `hub` is `None`; a hub host sizes itself from the limits.
+    fn host(&self, session: &SessionId, hub: Option<(HubKind, &HubLimits)>) -> HostBootstrapSpec {
+        let players = hub.map(|(_, limits)| limits.max_players);
+        HostBootstrapSpec {
+            common: self.common(session),
+            role: hub.map_or(HostedRole::Hunt, |(kind, _)| HostedRole::Hub(kind)),
+            capability: Secret::new(self.capability_prefix.to_owned() + &"A".repeat(self.capability_run)),
+            host_ticket: Some(Secret::new(self.host_ticket.into())),
+            backend_url: local::BACKEND_URL.into(),
+            server_udp_port: self.server_udp_port,
+            maximum_peers: players.unwrap_or(4),
+            local_client: true,
+            hunt_evidence: false,
+            matchmaker_hunt_id: self.matchmaker_hunt_id.into(),
+            map_path: self.map_path.into(),
+            behemoth_path: self.behemoth_path.into(),
+            expected_players: players.unwrap_or(1).to_string(),
+            runtime_profile: "production".into(),
+            max_players: players,
+            hub_afk_seconds: hub.map(|(_, limits)| limits.afk_seconds),
         }
     }
+}
 
-    fn hub_session(account: &AccountId, kind: HubKind) -> Result<SessionId, HostError> {
-        let k: u128 = match kind {
-            HubKind::Ramsgate => 1,
-            HubKind::Training => 2,
-        };
-        let h = account
-            .0
-            .bytes()
-            .fold(0_u64, |h, b| h.wrapping_mul(131).wrapping_add(u64::from(b)));
-        let node = NodeId::new("local").map_err(|e| HostError::InvalidInput(e.to_string()))?;
-        Ok(SessionId(GlobalId {
-            ulid: Ulid::from_parts(HUB_ID_MILLIS, (k << 64) | u128::from(h)),
-            node,
-        }))
+fn ice_server(url: &str, turn: Option<(&str, &str)>) -> IceServerEntry {
+    IceServerEntry {
+        urls: vec![url.into()],
+        username: turn.map(|(user, _)| user.into()),
+        credential: turn.map(|(_, secret)| secret.into()),
+    }
+}
+
+/// The joiner links to the host alone; a host starts with nobody.
+fn local_transport_config(account: &AccountId, joiner: bool) -> TransportConfig {
+    let host_account = if joiner {
+        local::HOST_ACCOUNT.to_owned()
+    } else {
+        account.0.clone()
+    };
+    let peers = joiner.then(|| IcePeerEntry {
+        account_id: local::HOST_ACCOUNT.into(),
+        peer_id: local::HOST_PEER.into(),
+        transport_key: "A".repeat(43),
+    });
+    TransportConfig {
+        generation: 1,
+        local_account_id: account.0.clone(),
+        local_peer_id: (if joiner { local::JOIN_PEER } else { local::HOST_PEER }).into(),
+        host_account_id: host_account,
+        host_peer_id: local::HOST_PEER.into(),
+        ice_servers: vec![
+            ice_server("stun:stun.cloudflare.com:3478", None),
+            ice_server(
+                "turn:127.0.0.1:3478?transport=udp",
+                Some(("1700000000:local", "local-turn-secret")),
+            ),
+        ],
+        peers: peers.into_iter().collect(),
+        relay: Some(RelayGrant {
+            allowed: true,
+            expires_at: Some("2026-10-28T00:00:00Z".into()),
+        }),
+    }
+}
+
+/// The same account and kind always get the same hub id.
+fn local_hub_session(account: &AccountId, kind: HubKind) -> Result<SessionId, HostError> {
+    let kind_bits: u128 = if kind == HubKind::Training { 2 } else { 1 };
+    let mut hash = 0_u64;
+    for byte in account.0.bytes() {
+        hash = hash.wrapping_mul(131).wrapping_add(byte.into());
+    }
+    let ulid = Ulid::from_parts(local::HUB_ID_MILLIS, kind_bits << 64 | u128::from(hash));
+    let node = NodeId::new("local").map_err(|e| HostError::InvalidInput(e.to_string()))?;
+    Ok(SessionId(GlobalId { ulid, node }))
+}
+
+impl DefaultHostBackend {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn recorded_route(&self, session: &SessionId) -> Option<u16> {
+        held(&self.ready_ports).get(session).copied()
     }
 }
 
 impl HostBackend for DefaultHostBackend {
-    fn host_bootstrap(
-        &self,
-        account: &AccountId,
-        session: &SessionId,
-    ) -> Result<(HostBootstrapSpec, TransportConfig), HostError> {
-        let spec = HostBootstrapSpec {
-            common: Self::common(session, "Hunt_Default", "FIRST_DEFEAT"),
-            role: HostedRole::Hunt,
-            capability: Secret::new(a_run("cap_", 39)),
-            host_ticket: Some(Secret::new("rpt1.ticket.signature".to_owned())),
-            backend_url: LOCAL_BACKEND_URL.to_owned(),
-            server_udp_port: 8791,
-            maximum_peers: 4,
-            local_client: true,
-            hunt_evidence: false,
-            matchmaker_hunt_id: "Arena_MatchmakerHunt_Easy_001".to_owned(),
-            map_path: "/Game/Maps/HuntMap".to_owned(),
-            behemoth_path: "Behemoth_Gnasher".to_owned(),
-            expected_players: "1".to_owned(),
-            runtime_profile: "production".to_owned(),
-            max_players: None,
-            hub_afk_seconds: None,
-        };
-        Ok((spec, Self::transport_config(account, false)))
+    fn host_bootstrap(&self, account: &AccountId, session: &SessionId) -> Result<Hosted, HostError> {
+        Ok((HUNT_HOST.host(session, None), local_transport_config(account, false)))
     }
 
     fn join_bootstrap(
@@ -220,56 +258,29 @@ impl HostBackend for DefaultHostBackend {
         account: &AccountId,
         session: &SessionId,
     ) -> Result<(JoinBootstrapSpec, TransportConfig), HostError> {
-        let spec = JoinBootstrapSpec {
-            common: Self::common(session, "Hunt_Default", "FIRST_DEFEAT"),
+        let join = JoinBootstrapSpec {
+            common: HUNT_HOST.common(session),
             role: HostedRole::Hunt,
-            ticket: Secret::new("rpt1.joiner_ticket.signature".to_owned()),
+            ticket: Secret::new("rpt1.joiner_ticket.signature".into()),
         };
-        Ok((spec, Self::transport_config(account, true)))
+        Ok((join, local_transport_config(account, true)))
     }
 
-    fn start_hub(
-        &self,
-        account: &AccountId,
-        kind: HubKind,
-        limits: &HubLimits,
-    ) -> Result<(HostBootstrapSpec, TransportConfig), HostError> {
-        validate_limits(limits)?;
-        let session = Self::hub_session(account, kind)?;
-        locked(&self.hubs).insert((account.clone(), kind), session.clone());
-        let spec = HostBootstrapSpec {
-            common: Self::common(&session, "ShatteredIsles_ReturnToRamsgate", "NO_COMPLETION"),
-            role: HostedRole::Hub(kind),
-            capability: Secret::new(a_run("cap_HUB_", 35)),
-            host_ticket: Some(Secret::new("rpt1.hub_host_ticket.signature".to_owned())),
-            backend_url: LOCAL_BACKEND_URL.to_owned(),
-            server_udp_port: 8792,
-            maximum_peers: limits.max_players,
-            local_client: true,
-            hunt_evidence: false,
-            matchmaker_hunt_id: "ShatteredIsles_ReturnToRamsgate".to_owned(),
-            map_path: "/Game/Maps/Ramsgate".to_owned(),
-            behemoth_path: "None".to_owned(),
-            expected_players: limits.max_players.to_string(),
-            runtime_profile: "production".to_owned(),
-            max_players: Some(limits.max_players),
-            hub_afk_seconds: Some(limits.afk_seconds),
-        };
-        Ok((spec, Self::transport_config(account, false)))
+    fn start_hub(&self, account: &AccountId, kind: HubKind, limits: &HubLimits) -> Result<Hosted, HostError> {
+        validate_hub_limits(limits)?;
+        let session = local_hub_session(account, kind)?;
+        let spec = HUB_HOST.host(&session, Some((kind, limits)));
+        held(&self.hub_sessions).insert((account.clone(), kind), session);
+        Ok((spec, local_transport_config(account, false)))
     }
 
     fn stop_hub(&self, account: &AccountId, kind: HubKind) -> Result<Option<SessionId>, HostError> {
-        Ok(locked(&self.hubs).remove(&(account.clone(), kind)))
+        let key = (account.clone(), kind);
+        Ok(held(&self.hub_sessions).remove(&key))
     }
 
-    fn route_ready(
-        &self,
-        _account: &AccountId,
-        session: &SessionId,
-        _generation: u64,
-        local_port: u16,
-    ) -> Result<(), HostError> {
-        locked(&self.routes).insert(session.clone(), local_port);
+    fn route_ready(&self, _: &AccountId, session: &SessionId, _: u64, port: u16) -> Result<(), HostError> {
+        held(&self.ready_ports).insert(session.clone(), port);
         Ok(())
     }
 }
@@ -283,10 +294,9 @@ pub trait ServerSpawner: Send + Sync {
         working_dir: &Path,
         environment: &BTreeMap<String, String>,
     ) -> Result<u32, HostError>;
+
     fn stop(&self, pid: u32);
 }
-
-type Launch = (Vec<String>, BTreeMap<String, String>);
 
 /// Records the launch and starts nothing; what the launcher ships until hosted servers run for real.
 #[derive(Debug, Default)]
@@ -294,33 +304,44 @@ pub struct NoopServerSpawner {
     last: Mutex<Option<Launch>>,
 }
 
-const NOOP_PID: u32 = 4242;
+#[derive(Clone, Debug)]
+struct Launch {
+    arguments: Vec<String>,
+    environment: BTreeMap<String, String>,
+}
 
 impl NoopServerSpawner {
+    // The pid every pretend launch reports.
+    const PID: u32 = 4242;
+
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn last_environment(&self) -> Option<BTreeMap<String, String>> {
-        locked(&self.last).as_ref().map(|(_, environment)| environment.clone())
+        held(&self.last).clone().map(|launch| launch.environment)
     }
 
     pub fn last_arguments(&self) -> Option<Vec<String>> {
-        locked(&self.last).as_ref().map(|(arguments, _)| arguments.clone())
+        held(&self.last).clone().map(|launch| launch.arguments)
     }
 }
 
 impl ServerSpawner for NoopServerSpawner {
     fn spawn(
         &self,
-        _program: &Path,
+        _: &Path,
         arguments: &[String],
-        _working_dir: &Path,
-        environment: &BTreeMap<String, String>,
+        _: &Path,
+        env: &BTreeMap<String, String>,
     ) -> Result<u32, HostError> {
-        *locked(&self.last) = Some((arguments.to_vec(), environment.clone()));
-        Ok(NOOP_PID)
+        let launch = Launch {
+            arguments: arguments.to_vec(),
+            environment: env.clone(),
+        };
+        held(&self.last).replace(launch);
+        Ok(Self::PID)
     }
 
-    fn stop(&self, _pid: u32) {}
+    fn stop(&self, _: u32) {}
 }

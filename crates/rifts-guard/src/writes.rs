@@ -6,47 +6,48 @@
 use rifts_seam::{AccountId, HostWriteKind, HubKind, Json, Reply, RuntimeAuth};
 use serde_json::Value;
 
-use crate::json::js_string;
-use crate::ports::HuntView;
+use crate::{json::js_string, ports::HuntView};
 
-pub fn kind_name(kind: HostWriteKind) -> &'static str {
-    match kind {
-        HostWriteKind::Xp => "XP",
-        HostWriteKind::Mastery => "MASTERY",
-        HostWriteKind::Objectives => "OBJECTIVES",
-        HostWriteKind::Escalation => "ESCALATION",
-        HostWriteKind::Cooldown => "COOLDOWN",
-        HostWriteKind::Bounty => "BOUNTY",
-        HostWriteKind::SlayersPath => "SLAYERS_PATH",
-        HostWriteKind::Reforge => "REFORGE",
-        HostWriteKind::RankConfirm => "RANK_CONFIRM",
-        HostWriteKind::LoadoutUnlock => "LOADOUT_UNLOCK",
-        HostWriteKind::HuntPassXp => "HUNT_PASS_XP",
-        HostWriteKind::ItemSave => "ITEM_SAVE",
-    }
-}
-
-pub(crate) const ALL_KINDS: [HostWriteKind; 12] = [
-    HostWriteKind::Xp,
-    HostWriteKind::Mastery,
-    HostWriteKind::Objectives,
-    HostWriteKind::Escalation,
-    HostWriteKind::Cooldown,
-    HostWriteKind::Bounty,
-    HostWriteKind::SlayersPath,
-    HostWriteKind::Reforge,
-    HostWriteKind::RankConfirm,
-    HostWriteKind::LoadoutUnlock,
-    HostWriteKind::HuntPassXp,
-    HostWriteKind::ItemSave,
+/// Every write kind with its stored and logged name.
+const KIND_NAMES: [(HostWriteKind, &str); 12] = [
+    (HostWriteKind::Xp, "XP"),
+    (HostWriteKind::Mastery, "MASTERY"),
+    (HostWriteKind::Objectives, "OBJECTIVES"),
+    (HostWriteKind::Escalation, "ESCALATION"),
+    (HostWriteKind::Cooldown, "COOLDOWN"),
+    (HostWriteKind::Bounty, "BOUNTY"),
+    (HostWriteKind::SlayersPath, "SLAYERS_PATH"),
+    (HostWriteKind::Reforge, "REFORGE"),
+    (HostWriteKind::RankConfirm, "RANK_CONFIRM"),
+    (HostWriteKind::LoadoutUnlock, "LOADOUT_UNLOCK"),
+    (HostWriteKind::HuntPassXp, "HUNT_PASS_XP"),
+    (HostWriteKind::ItemSave, "ITEM_SAVE"),
 ];
 
+#[cfg(test)]
+pub(crate) const ALL_KINDS: [HostWriteKind; 12] = {
+    let mut kinds = [HostWriteKind::Xp; 12];
+    let mut at = 0;
+    while at < KIND_NAMES.len() {
+        kinds[at] = KIND_NAMES[at].0;
+        at += 1;
+    }
+    kinds
+};
+
+pub fn kind_name(kind: HostWriteKind) -> &'static str {
+    KIND_NAMES
+        .iter()
+        .find(|(known, _)| *known == kind)
+        .map_or("", |(_, name)| name)
+}
+
 pub(crate) fn parse_kind(text: &str) -> Option<HostWriteKind> {
-    ALL_KINDS.into_iter().find(|kind| kind_name(*kind) == text)
+    KIND_NAMES.iter().find(|(_, name)| *name == text).map(|(kind, _)| *kind)
 }
 
 /// Why a write is refused.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WriteDenial {
     HuntNotFound,
     HuntNotRunning,
@@ -59,41 +60,58 @@ pub enum WriteDenial {
 
 impl WriteDenial {
     pub fn as_str(self) -> &'static str {
+        use WriteDenial::*;
         match self {
-            Self::HuntNotFound => "HUNT_NOT_FOUND",
-            Self::HuntNotRunning => "HUNT_NOT_RUNNING",
-            Self::WriteKindNotAllowedInHub => "WRITE_KIND_NOT_ALLOWED_IN_HUB",
-            Self::MemberNotPresent => "MEMBER_NOT_PRESENT",
-            Self::WriteKindNotAllowed => "WRITE_KIND_NOT_ALLOWED",
-            Self::NotAMember => "NOT_A_MEMBER",
-            Self::MemberNotAdmitted => "MEMBER_NOT_ADMITTED",
+            HuntNotFound => "HUNT_NOT_FOUND",
+            HuntNotRunning => "HUNT_NOT_RUNNING",
+            WriteKindNotAllowedInHub => "WRITE_KIND_NOT_ALLOWED_IN_HUB",
+            MemberNotPresent => "MEMBER_NOT_PRESENT",
+            WriteKindNotAllowed => "WRITE_KIND_NOT_ALLOWED",
+            NotAMember => "NOT_A_MEMBER",
+            MemberNotAdmitted => "MEMBER_NOT_ADMITTED",
         }
     }
 
     /// The write kind's own refusals, which observe mode only logs.
     pub fn is_policy(self) -> bool {
-        matches!(self, Self::WriteKindNotAllowedInHub | Self::WriteKindNotAllowed)
+        self == Self::WriteKindNotAllowed || self == Self::WriteKindNotAllowedInHub
     }
 }
 
 /// A hunt never reforges; hubs grant no hunt XP, and the Training hub no reforge either.
 fn kind_allowed(hub: Option<HubKind>, kind: Option<HostWriteKind>) -> bool {
-    match (hub, kind) {
-        (None, kind) => kind != Some(HostWriteKind::Reforge),
-        (Some(_), None) => false,
-        (Some(HubKind::Ramsgate), Some(kind)) => kind != HostWriteKind::Xp,
-        (Some(HubKind::Training), Some(kind)) => !matches!(kind, HostWriteKind::Xp | HostWriteKind::Reforge),
+    let barred: &[HostWriteKind] = match hub {
+        None => &[HostWriteKind::Reforge],
+        Some(HubKind::Ramsgate) => &[HostWriteKind::Xp],
+        Some(HubKind::Training) => &[HostWriteKind::Xp, HostWriteKind::Reforge],
+    };
+    // A hub write must name its kind; a hunt's identity check may leave it out.
+    match kind {
+        Some(kind) => !barred.contains(&kind),
+        None => hub.is_none(),
     }
 }
 
 /// A suspect hunt that was running still takes host writes (inventory does not).
 fn is_running(hunt: &HuntView) -> bool {
-    matches!(hunt.state.as_str(), "RUNNING" | "DRAINING")
-        || (hunt.state == "SUSPECT" && hunt.pre_suspect_state.as_deref() == Some("RUNNING"))
+    match hunt.state.as_str() {
+        "RUNNING" | "DRAINING" => true,
+        "SUSPECT" => hunt.pre_suspect_state.as_deref() == Some("RUNNING"),
+        _ => false,
+    }
 }
 
 fn is_host(hunt: &HuntView, account: &AccountId) -> bool {
-    hunt.host.as_ref() == Some(account)
+    hunt.host.as_ref().is_some_and(|host| host == account)
+}
+
+/// The host, or an account the hub says is present.
+fn in_hub(hunt: &HuntView, account: &AccountId, presence: Option<&[AccountId]>) -> bool {
+    is_host(hunt, account) || presence.is_some_and(|present| present.contains(account))
+}
+
+fn this_generation<'a>(hunt: Option<&'a HuntView>, runtime: &RuntimeAuth) -> Option<&'a HuntView> {
+    hunt.filter(|h| h.generation == runtime.generation && h.session == runtime.session)
 }
 
 pub fn host_write_denial(
@@ -104,42 +122,42 @@ pub fn host_write_denial(
     presence: Option<&[AccountId]>,
     check_kind: bool,
 ) -> Option<WriteDenial> {
-    let Some(hunt) = hunt.filter(|h| h.session == runtime.session && h.generation == runtime.generation) else {
-        return Some(WriteDenial::HuntNotFound);
+    use WriteDenial::*;
+    let Some(hunt) = this_generation(hunt, runtime) else {
+        return Some(HuntNotFound);
     };
     if !is_running(hunt) {
-        return Some(WriteDenial::HuntNotRunning);
+        return Some(HuntNotRunning);
     }
+    let kind_refused = check_kind && !kind_allowed(hunt.hub, kind);
     if hunt.is_hub() {
-        if check_kind && !kind_allowed(hunt.hub, kind) {
-            return Some(WriteDenial::WriteKindNotAllowedInHub);
-        }
-        let present = presence.unwrap_or(&[]);
-        if !is_host(hunt, target) && !present.contains(target) {
-            return Some(WriteDenial::MemberNotPresent);
-        }
-        return None;
+        return match (kind_refused, in_hub(hunt, target, presence)) {
+            (true, _) => Some(WriteKindNotAllowedInHub),
+            (false, false) => Some(MemberNotPresent),
+            (false, true) => None,
+        };
     }
-    if check_kind && !kind_allowed(None, kind) {
-        return Some(WriteDenial::WriteKindNotAllowed);
+    if kind_refused {
+        return Some(WriteKindNotAllowed);
     }
-    let Some(entry) = hunt.roster.iter().find(|entry| &entry.account == target) else {
-        return Some(WriteDenial::NotAMember);
-    };
-    if !is_host(hunt, target) && !entry.admitted {
-        return Some(WriteDenial::MemberNotAdmitted);
+    match hunt.roster.iter().find(|entry| entry.account == *target) {
+        None => Some(NotAMember),
+        Some(entry) if !entry.admitted && !is_host(hunt, target) => Some(MemberNotAdmitted),
+        Some(_) => None,
     }
-    None
+}
+
+/// A 403 in the module's `{code, message, payload}` envelope.
+fn forbidden(code_json: &str, message_json: &str) -> Reply {
+    let body = format!(r#"{{"code":{code_json},"message":{message_json},"payload":null}}"#);
+    Reply {
+        status: 403,
+        body: Json(body),
+    }
 }
 
 pub fn write_refusal(message: &str) -> Reply {
-    Reply {
-        status: 403,
-        body: Json(format!(
-            r#"{{"code":"P2P_HOST_WRITE_DENIED","message":{},"payload":null}}"#,
-            js_string(message)
-        )),
-    }
+    forbidden(r#""P2P_HOST_WRITE_DENIED""#, &js_string(message))
 }
 
 /// Why an inventory transaction for `account` is refused; a suspect hunt is refused here, unlike a write.
@@ -151,41 +169,34 @@ pub fn inventory_body_denial(
     body: Option<&Value>,
     presence: Option<&[AccountId]>,
 ) -> Option<&'static str> {
-    let Some(hunt) = hunt.filter(|h| {
-        h.session == runtime.session
-            && h.generation == runtime.generation
-            && matches!(h.state.as_str(), "RUNNING" | "DRAINING")
-    }) else {
+    let running = this_generation(hunt, runtime).filter(|h| h.state == "RUNNING" || h.state == "DRAINING");
+    let Some(hunt) = running else {
         return Some("HUNT_NOT_RUNNING");
     };
-    let account_mismatch = body
-        .and_then(|b| b.get("accountId"))
-        .is_some_and(|id| !id.is_null() && id.as_str() != Some(account.0.as_str()));
-    if hunt.is_hub() {
-        if !is_host(hunt, account) && !presence.unwrap_or(&[]).contains(account) {
-            return Some("PARTICIPANT_NOT_ADMITTED");
-        }
-        return account_mismatch.then_some("ACCOUNT_MISMATCH");
-    }
-    if !hunt
-        .roster
-        .iter()
-        .any(|entry| &entry.account == account && entry.admitted)
-    {
+    // A body may name the account; `null` names none.
+    let named = body.and_then(|b| b.get("accountId")).filter(|id| !id.is_null());
+    let mismatch = named.is_some_and(|id| id.as_str() != Some(account.0.as_str()));
+    let admitted = if hunt.is_hub() {
+        in_hub(hunt, account, presence)
+    } else {
+        hunt.roster
+            .iter()
+            .any(|entry| entry.admitted && entry.account == *account)
+    };
+    if !admitted {
         return Some("PARTICIPANT_NOT_ADMITTED");
     }
-    if account_mismatch {
+    if mismatch {
         return Some("ACCOUNT_MISMATCH");
+    }
+    if hunt.is_hub() {
+        return None;
     }
     let frozen = hunt
         .frozen_characters
         .iter()
-        .find(|(member, _)| member == account)
-        .map(|(_, character)| character.as_str());
-    if frozen != Some(character_id) {
-        return Some("CHARACTER_MISMATCH");
-    }
-    None
+        .find_map(|(member, character)| (member == account).then_some(character));
+    (frozen.map(String::as_str) != Some(character_id)).then_some("CHARACTER_MISMATCH")
 }
 
 pub fn inventory_denial(
@@ -199,162 +210,166 @@ pub fn inventory_denial(
 }
 
 pub fn loot_refusal(code: &str) -> Reply {
-    Reply {
-        status: 403,
-        body: Json(format!(
-            r#"{{"code":{},"message":"Player-hosted hunt loot grant is not authorized.","payload":null}}"#,
-            js_string(code)
-        )),
-    }
+    forbidden(
+        &js_string(code),
+        r#""Player-hosted hunt loot grant is not authorized.""#,
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::testkit::{account, hub, hunt, runtime};
     use serde_json::json;
 
+    use super::*;
+    use crate::testkit::{account, hub, hunt, runtime};
+
+    fn accounts(names: &[&str]) -> Vec<AccountId> {
+        names.iter().map(|name| account(name)).collect()
+    }
+
     fn deny(hunt: &HuntView, target: &str, kind: HostWriteKind, presence: &[&str]) -> Option<&'static str> {
-        let presence: Vec<AccountId> = presence.iter().map(|a| account(a)).collect();
-        host_write_denial(
+        let present = accounts(presence);
+        let denial = host_write_denial(
             &runtime(),
             Some(hunt),
             &account(target),
             Some(kind),
-            Some(&presence),
+            Some(&present),
             true,
-        )
-        .map(WriteDenial::as_str)
+        );
+        denial.map(WriteDenial::as_str)
     }
 
     #[test]
     fn hunt_writes() {
+        use HostWriteKind::*;
         let mut running = hunt();
-        assert_eq!(deny(&running, "member", HostWriteKind::Xp, &[]), None);
-        assert_eq!(deny(&running, "host", HostWriteKind::Mastery, &[]), None);
-        assert_eq!(deny(&running, "member", HostWriteKind::RankConfirm, &[]), None);
-        assert_eq!(deny(&running, "member", HostWriteKind::LoadoutUnlock, &[]), None);
-        assert_eq!(
-            deny(&running, "member", HostWriteKind::Reforge, &[]),
-            Some("WRITE_KIND_NOT_ALLOWED")
-        );
-        assert_eq!(deny(&running, "stranger", HostWriteKind::Xp, &[]), Some("NOT_A_MEMBER"));
-        assert_eq!(
-            deny(&running, "pending", HostWriteKind::Xp, &[]),
-            Some("MEMBER_NOT_ADMITTED")
-        );
+        let cases = [
+            ("member", Xp, None),
+            ("host", Mastery, None),
+            ("member", RankConfirm, None),
+            ("member", LoadoutUnlock, None),
+            ("member", Reforge, Some("WRITE_KIND_NOT_ALLOWED")),
+            ("stranger", Xp, Some("NOT_A_MEMBER")),
+            ("pending", Xp, Some("MEMBER_NOT_ADMITTED")),
+        ];
+        for (target, kind, denial) in cases {
+            assert_eq!(deny(&running, target, kind, &[]), denial, "{target} {kind:?}");
+        }
         assert!(host_write_denial(&runtime(), Some(&running), &account("member"), None, None, true).is_none());
-        running.state = "DRAINING".into();
-        assert_eq!(deny(&running, "member", HostWriteKind::Xp, &[]), None);
-        running.state = "SUSPECT".into();
-        running.pre_suspect_state = Some("RUNNING".into());
-        assert_eq!(deny(&running, "member", HostWriteKind::Xp, &[]), None);
-        running.pre_suspect_state = Some("STARTING".into());
-        assert_eq!(
-            deny(&running, "member", HostWriteKind::Xp, &[]),
-            Some("HUNT_NOT_RUNNING")
-        );
-        running.state = "ENDED".into();
-        assert_eq!(
-            deny(&running, "member", HostWriteKind::Xp, &[]),
-            Some("HUNT_NOT_RUNNING")
-        );
-        let mut fenced = hunt();
-        fenced.generation = 2;
-        assert_eq!(deny(&fenced, "member", HostWriteKind::Xp, &[]), Some("HUNT_NOT_FOUND"));
-        assert_eq!(
-            host_write_denial(&runtime(), None, &account("member"), None, None, true).map(WriteDenial::as_str),
-            Some("HUNT_NOT_FOUND")
-        );
+
+        let states = [
+            ("DRAINING", None, None),
+            ("SUSPECT", Some("RUNNING"), None),
+            ("SUSPECT", Some("STARTING"), Some("HUNT_NOT_RUNNING")),
+            ("ENDED", Some("STARTING"), Some("HUNT_NOT_RUNNING")),
+        ];
+        for (state, before, denial) in states {
+            running.state = state.into();
+            running.pre_suspect_state = before.map(String::from);
+            assert_eq!(deny(&running, "member", Xp, &[]), denial, "{state}");
+        }
+
+        let fenced = HuntView {
+            generation: 2,
+            ..hunt()
+        };
+        assert_eq!(deny(&fenced, "member", Xp, &[]), Some("HUNT_NOT_FOUND"));
+        let missing = host_write_denial(&runtime(), None, &account("member"), None, None, true);
+        assert_eq!(missing, Some(WriteDenial::HuntNotFound));
     }
 
     #[test]
     fn hub_writes() {
+        use HostWriteKind::*;
         let ramsgate = hub(HubKind::Ramsgate);
-        assert_eq!(deny(&ramsgate, "guest", HostWriteKind::Mastery, &["guest"]), None);
-        assert_eq!(deny(&ramsgate, "guest", HostWriteKind::Reforge, &["guest"]), None);
-        assert_eq!(
-            deny(&ramsgate, "guest", HostWriteKind::Xp, &["guest"]),
-            Some("WRITE_KIND_NOT_ALLOWED_IN_HUB")
-        );
-        assert_eq!(
-            deny(&ramsgate, "guest", HostWriteKind::Mastery, &[]),
-            Some("MEMBER_NOT_PRESENT")
-        );
-        assert_eq!(deny(&ramsgate, "host", HostWriteKind::Mastery, &[]), None);
-        assert!(
-            host_write_denial(&runtime(), Some(&ramsgate), &account("host"), None, None, true)
-                .is_some_and(WriteDenial::is_policy)
-        );
         let training = hub(HubKind::Training);
-        assert_eq!(
-            deny(&training, "guest", HostWriteKind::Reforge, &["guest"]),
-            Some("WRITE_KIND_NOT_ALLOWED_IN_HUB")
-        );
-        assert_eq!(deny(&training, "guest", HostWriteKind::ItemSave, &["guest"]), None);
-        // the identity check alone ignores the kind
-        assert!(
-            host_write_denial(
-                &runtime(),
-                Some(&training),
-                &account("host"),
-                Some(HostWriteKind::Xp),
-                None,
-                false
-            )
-            .is_none()
-        );
+        let cases = [
+            (&ramsgate, "guest", Mastery, &["guest"][..], None),
+            (&ramsgate, "guest", Reforge, &["guest"][..], None),
+            (
+                &ramsgate,
+                "guest",
+                Xp,
+                &["guest"][..],
+                Some("WRITE_KIND_NOT_ALLOWED_IN_HUB"),
+            ),
+            (&ramsgate, "guest", Mastery, &[][..], Some("MEMBER_NOT_PRESENT")),
+            (&ramsgate, "host", Mastery, &[][..], None),
+            (
+                &training,
+                "guest",
+                Reforge,
+                &["guest"][..],
+                Some("WRITE_KIND_NOT_ALLOWED_IN_HUB"),
+            ),
+            (&training, "guest", ItemSave, &["guest"][..], None),
+        ];
+        for (hub, target, kind, presence, denial) in cases {
+            assert_eq!(
+                deny(hub, target, kind, presence),
+                denial,
+                "{:?} {target} {kind:?}",
+                hub.hub
+            );
+        }
+        let unnamed = host_write_denial(&runtime(), Some(&ramsgate), &account("host"), None, None, true);
+        assert!(unnamed.is_some_and(WriteDenial::is_policy));
+        // The identity check alone ignores the kind.
+        let identity = host_write_denial(&runtime(), Some(&training), &account("host"), Some(Xp), None, false);
+        assert!(identity.is_none());
         assert!(!WriteDenial::MemberNotPresent.is_policy());
     }
 
     #[test]
     fn inventory_denials() {
         let rt = runtime();
-        let running = hunt();
         let check = |hunt: &HuntView, who: &str, character: &str, body: Option<Value>, presence: &[&str]| {
-            let presence: Vec<AccountId> = presence.iter().map(|a| account(a)).collect();
-            inventory_body_denial(
-                &rt,
-                Some(hunt),
-                &account(who),
-                character,
-                body.as_ref(),
-                Some(&presence),
-            )
+            let present = accounts(presence);
+            inventory_body_denial(&rt, Some(hunt), &account(who), character, body.as_ref(), Some(&present))
         };
-        assert_eq!(check(&running, "member", "char-m", None, &[]), None);
-        assert_eq!(
-            check(&running, "member", "char-x", None, &[]),
-            Some("CHARACTER_MISMATCH")
-        );
-        assert_eq!(check(&running, "host", "char-h", None, &[]), Some("CHARACTER_MISMATCH"));
-        assert_eq!(
-            check(&running, "pending", "char-p", None, &[]),
-            Some("PARTICIPANT_NOT_ADMITTED")
-        );
-        assert_eq!(
-            check(&running, "member", "char-m", Some(json!({"accountId": "other"})), &[]),
-            Some("ACCOUNT_MISMATCH")
-        );
-        assert_eq!(
-            check(&running, "member", "char-m", Some(json!({"accountId": null})), &[]),
-            None
-        );
-        assert_eq!(
-            check(&running, "member", "char-m", Some(json!({"accountId": 5})), &[]),
-            Some("ACCOUNT_MISMATCH")
-        );
-        let mut suspect = hunt();
-        suspect.state = "SUSPECT".into();
-        suspect.pre_suspect_state = Some("RUNNING".into());
+        let running = hunt();
+        let cases = [
+            ("member", "char-m", None, None),
+            ("member", "char-x", None, Some("CHARACTER_MISMATCH")),
+            ("host", "char-h", None, Some("CHARACTER_MISMATCH")),
+            ("pending", "char-p", None, Some("PARTICIPANT_NOT_ADMITTED")),
+            (
+                "member",
+                "char-m",
+                Some(json!({"accountId": "other"})),
+                Some("ACCOUNT_MISMATCH"),
+            ),
+            ("member", "char-m", Some(json!({"accountId": null})), None),
+            (
+                "member",
+                "char-m",
+                Some(json!({"accountId": 5})),
+                Some("ACCOUNT_MISMATCH"),
+            ),
+        ];
+        for (who, character, body, denial) in cases {
+            assert_eq!(
+                check(&running, who, character, body.clone(), &[]),
+                denial,
+                "{who} {character} {body:?}"
+            );
+        }
+        let suspect = HuntView {
+            state: "SUSPECT".into(),
+            pre_suspect_state: Some("RUNNING".into()),
+            ..hunt()
+        };
         assert_eq!(check(&suspect, "member", "char-m", None, &[]), Some("HUNT_NOT_RUNNING"));
         let ramsgate = hub(HubKind::Ramsgate);
-        assert_eq!(check(&ramsgate, "guest", "any", None, &["guest"]), None);
-        assert_eq!(
-            check(&ramsgate, "guest", "any", None, &[]),
-            Some("PARTICIPANT_NOT_ADMITTED")
-        );
-        assert_eq!(check(&ramsgate, "host", "any", None, &[]), None);
+        let hub_cases = [
+            ("guest", &["guest"][..], None),
+            ("guest", &[][..], Some("PARTICIPANT_NOT_ADMITTED")),
+            ("host", &[][..], None),
+        ];
+        for (who, presence, denial) in hub_cases {
+            assert_eq!(check(&ramsgate, who, "any", None, presence), denial, "{who}");
+        }
         assert_eq!(
             inventory_denial(&rt, None, &account("member"), "char-m", None),
             Some("HUNT_NOT_RUNNING")
@@ -363,35 +378,38 @@ mod tests {
 
     #[test]
     fn refusal_bodies() {
-        assert_eq!(
-            write_refusal("This host may not write this player's state.").body.0,
-            r#"{"code":"P2P_HOST_WRITE_DENIED","message":"This host may not write this player's state.","payload":null}"#
+        let write = write_refusal("This host may not write this player's state.");
+        let want = concat!(
+            r#"{"code":"P2P_HOST_WRITE_DENIED","#,
+            r#""message":"This host may not write this player's state.","payload":null}"#
         );
+        assert_eq!(write.body.0, want);
         let loot = loot_refusal("P2P_LOOT_GRANT_DENIED");
         assert_eq!(loot.status, 403);
-        assert_eq!(
-            loot.body.0,
-            r#"{"code":"P2P_LOOT_GRANT_DENIED","message":"Player-hosted hunt loot grant is not authorized.","payload":null}"#
+        let want = concat!(
+            r#"{"code":"P2P_LOOT_GRANT_DENIED","#,
+            r#""message":"Player-hosted hunt loot grant is not authorized.","payload":null}"#
         );
-        let names: Vec<&str> = ALL_KINDS.map(kind_name).to_vec();
-        assert_eq!(
-            names,
-            [
-                "XP",
-                "MASTERY",
-                "OBJECTIVES",
-                "ESCALATION",
-                "COOLDOWN",
-                "BOUNTY",
-                "SLAYERS_PATH",
-                "REFORGE",
-                "RANK_CONFIRM",
-                "LOADOUT_UNLOCK",
-                "HUNT_PASS_XP",
-                "ITEM_SAVE"
-            ]
-        );
-        assert_eq!(parse_kind("SLAYERS_PATH"), Some(HostWriteKind::SlayersPath));
+        assert_eq!(loot.body.0, want);
+        let names = ALL_KINDS.map(kind_name);
+        let want = [
+            "XP",
+            "MASTERY",
+            "OBJECTIVES",
+            "ESCALATION",
+            "COOLDOWN",
+            "BOUNTY",
+            "SLAYERS_PATH",
+            "REFORGE",
+            "RANK_CONFIRM",
+            "LOADOUT_UNLOCK",
+            "HUNT_PASS_XP",
+            "ITEM_SAVE",
+        ];
+        assert_eq!(names, want);
+        for (kind, name) in ALL_KINDS.into_iter().zip(want) {
+            assert_eq!(parse_kind(name), Some(kind));
+        }
         assert_eq!(parse_kind("xp"), None);
     }
 }

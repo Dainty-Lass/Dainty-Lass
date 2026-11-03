@@ -21,37 +21,32 @@ pub enum BodyError {
 fn header<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a str> {
     headers
         .iter()
-        .find(|(key, _)| key == name)
-        .map(|(_, value)| value.as_str())
+        .find_map(|(key, value)| (key == name).then_some(value.as_str()))
 }
 
 /// The hunt routes' strict JSON body: `None` when the request carries no JSON body at all.
 pub fn parse_p2p_body(headers: &[(String, String)], body: &[u8]) -> Result<Option<Value>, BodyError> {
-    let is_json = header(headers, "content-type").is_some_and(|value| {
-        let media = value.split(';').next().unwrap_or("").trim();
-        media.eq_ignore_ascii_case("application/json")
-    });
-    if !is_json {
+    let media = header(headers, "content-type").map(|value| value.split(';').next().unwrap_or_default().trim());
+    if !media.is_some_and(|media| media.eq_ignore_ascii_case("application/json")) {
         return Ok(None);
     }
-    let declared = header(headers, "transfer-encoding").is_some()
-        || header(headers, "content-length").is_some_and(|value| value.trim().parse::<u64>().is_ok());
-    if !declared && body.is_empty() {
-        return Ok(None);
+    // Express reads a body only when the request says it has one.
+    let length_given = header(headers, "content-length").is_some_and(|value| value.trim().parse::<u64>().is_ok());
+    let has_body = !body.is_empty() || length_given || header(headers, "transfer-encoding").is_some();
+    match body.len() {
+        _ if !has_body => Ok(None),
+        n if n > P2P_MAX_HTTP_BODY_BYTES => Err(BodyError::TooLarge),
+        0 => Ok(Some(Value::Object(serde_json::Map::new()))),
+        _ => {
+            let text = String::from_utf8_lossy(body);
+            // Strict: only an object or an array is a body.
+            let opening = text.trim_start_matches([' ', '\t', '\n', '\r']).bytes().next();
+            if !matches!(opening, Some(b'{' | b'[')) {
+                return Err(BodyError::Invalid);
+            }
+            serde_json::from_str(&text).map(Some).map_err(|_| BodyError::Invalid)
+        }
     }
-    if body.len() > P2P_MAX_HTTP_BODY_BYTES {
-        return Err(BodyError::TooLarge);
-    }
-    if body.is_empty() {
-        return Ok(Some(Value::Object(serde_json::Map::new())));
-    }
-    let text = String::from_utf8_lossy(body);
-    // strict: only an object or an array is a body
-    match text.trim_start_matches([' ', '\t', '\n', '\r']).chars().next() {
-        Some('{' | '[') => {}
-        _ => return Err(BodyError::Invalid),
-    }
-    serde_json::from_str(&text).map(Some).map_err(|_| BodyError::Invalid)
 }
 
 /// The admin routes take any body leniently: nothing usable is no body.
@@ -72,18 +67,21 @@ pub fn js_string(text: &str) -> String {
 pub(crate) fn push_js_string(out: &mut String, text: &str) {
     out.push('"');
     for c in text.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\u{8}' => out.push_str("\\b"),
-            '\u{c}' => out.push_str("\\f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if u32::from(c) < 0x20 => {
-                let _ = write!(out, "\\u{:04x}", u32::from(c));
-            }
-            c => out.push(c),
+        let short = match c {
+            '"' | '\\' => Some(c),
+            '\u{8}' => Some('b'),
+            '\u{c}' => Some('f'),
+            '\n' => Some('n'),
+            '\r' => Some('r'),
+            '\t' => Some('t'),
+            _ => None,
+        };
+        if let Some(letter) = short {
+            out.extend(['\\', letter]);
+        } else if c < ' ' {
+            let _ = write!(out, "\\u{:04x}", u32::from(c));
+        } else {
+            out.push(c);
         }
     }
     out.push('"');
@@ -92,42 +90,42 @@ pub(crate) fn push_js_string(out: &mut String, text: &str) {
 /// ECMAScript `Number::toString`, with `null` for what JSON cannot hold.
 pub fn js_number(value: f64) -> String {
     if !value.is_finite() {
-        return "null".to_owned();
+        return "null".into();
     }
     if value == 0.0 {
-        return "0".to_owned();
+        return "0".into();
     }
     // `{:e}` gives the shortest round-trip digits; only the layout differs from JavaScript's.
-    let scientific = format!("{:e}", value.abs());
-    let (mantissa, exponent) = scientific.split_once('e').unwrap_or((scientific.as_str(), "0"));
-    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    let exponent: i64 = exponent.parse().unwrap_or(0);
-    let k = digits.len() as i64;
-    let n = exponent + 1;
-    let mut out = String::new();
-    if value < 0.0 {
-        out.push('-');
-    }
-    if k <= n && n <= 21 {
-        out.push_str(&digits);
-        out.extend(std::iter::repeat_n('0', (n - k) as usize));
-    } else if 0 < n && n <= 21 {
-        out.push_str(&digits[..n as usize]);
-        out.push('.');
-        out.push_str(&digits[n as usize..]);
-    } else if -6 < n && n <= 0 {
-        out.push_str("0.");
-        out.extend(std::iter::repeat_n('0', (-n) as usize));
-        out.push_str(&digits);
+    let shortest = format!("{:e}", value.abs());
+    let (mantissa, power) = shortest.split_once('e').unwrap_or((&shortest, "0"));
+    let digits = mantissa.replace('.', "");
+    let count = digits.len() as i64;
+    // The decimal point sits after `point` digits.
+    let point = power.parse::<i64>().unwrap_or(0) + 1;
+    let sign = if value < 0.0 { "-" } else { "" };
+    let zeros = |n: i64| "0".repeat(n.max(0) as usize);
+    let body = if (count..=21).contains(&point) {
+        format!("{digits}{}", zeros(point - count))
+    } else if (1..=21).contains(&point) {
+        let (whole, fraction) = digits.split_at(point as usize);
+        format!("{whole}.{fraction}")
+    } else if (-5..=0).contains(&point) {
+        format!("0.{}{digits}", zeros(-point))
     } else {
-        out.push_str(&digits[..1]);
-        if k > 1 {
-            out.push('.');
-            out.push_str(&digits[1..]);
-        }
-        let _ = write!(out, "e{}{}", if n - 1 < 0 { '-' } else { '+' }, (n - 1).abs());
-    }
-    out
+        let (first, rest) = digits.split_at(1);
+        let fraction = if rest.is_empty() {
+            String::new()
+        } else {
+            format!(".{rest}")
+        };
+        let exponent = point - 1;
+        format!(
+            "{first}{fraction}e{}{}",
+            if exponent < 0 { '-' } else { '+' },
+            exponent.abs()
+        )
+    };
+    [sign, &body].concat()
 }
 
 /// `JSON.stringify` of a parsed value: keys in document order, every number through its `f64`.
@@ -138,33 +136,34 @@ pub fn stringify(value: &Value) -> String {
 }
 
 fn write_value(out: &mut String, value: &Value) {
+    // Items or members between brackets, comma-separated.
+    fn list<T>(
+        out: &mut String,
+        open: char,
+        close: char,
+        items: impl Iterator<Item = T>,
+        mut each: impl FnMut(&mut String, T),
+    ) {
+        out.push(open);
+        for (at, item) in items.enumerate() {
+            if at != 0 {
+                out.push(',');
+            }
+            each(out, item);
+        }
+        out.push(close);
+    }
     match value {
         Value::Null => out.push_str("null"),
-        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
-        Value::Number(n) => out.push_str(&js_number(n.as_f64().unwrap_or(f64::NAN))),
-        Value::String(s) => push_js_string(out, s),
-        Value::Array(items) => {
-            out.push('[');
-            for (i, item) in items.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                write_value(out, item);
-            }
-            out.push(']');
-        }
-        Value::Object(map) => {
-            out.push('{');
-            for (i, (key, item)) in map.iter().enumerate() {
-                if i > 0 {
-                    out.push(',');
-                }
-                push_js_string(out, key);
-                out.push(':');
-                write_value(out, item);
-            }
-            out.push('}');
-        }
+        Value::Bool(flag) => out.push_str(if *flag { "true" } else { "false" }),
+        Value::Number(number) => out.push_str(&js_number(number.as_f64().unwrap_or(f64::NAN))),
+        Value::String(text) => push_js_string(out, text),
+        Value::Array(items) => list(out, '[', ']', items.iter(), write_value),
+        Value::Object(members) => list(out, '{', '}', members.iter(), |out, (key, item)| {
+            push_js_string(out, key);
+            out.push(':');
+            write_value(out, item);
+        }),
     }
 }
 
@@ -195,14 +194,17 @@ pub fn js_length(text: &str) -> usize {
 
 /// At most the first `units` UTF-16 units, never splitting a character.
 pub fn js_slice(text: &str, units: usize) -> &str {
-    let mut used = 0;
-    for (at, c) in text.char_indices() {
-        used += c.len_utf16();
-        if used > units {
-            return &text[..at];
-        }
-    }
-    text
+    let mut budget = units;
+    let cut = text
+        .char_indices()
+        .find(|(_, c)| match budget.checked_sub(c.len_utf16()) {
+            Some(left) => {
+                budget = left;
+                false
+            }
+            None => true,
+        });
+    cut.map_or(text, |(at, _)| &text[..at])
 }
 
 // ECMAScript's WhiteSpace and LineTerminator: Rust's `is_whitespace` would also take U+0085.
@@ -234,54 +236,56 @@ pub fn js_to_number(value: &Value) -> f64 {
 /// `String(value)` for what `Number` of an array goes through.
 fn js_to_text(value: &Value) -> String {
     match value {
-        Value::Null => "null".to_owned(),
-        Value::Bool(b) => b.to_string(),
-        Value::Number(n) => js_number(n.as_f64().unwrap_or(f64::NAN)),
-        Value::String(s) => s.clone(),
-        // Array.prototype.join writes null elements as empty
-        Value::Array(items) => items
-            .iter()
-            .map(|item| {
-                if item.is_null() {
-                    String::new()
-                } else {
-                    js_to_text(item)
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(","),
-        Value::Object(_) => "[object Object]".to_owned(),
+        Value::String(text) => text.clone(),
+        Value::Number(number) => js_number(number.as_f64().unwrap_or(f64::NAN)),
+        Value::Bool(flag) => flag.to_string(),
+        Value::Null => "null".into(),
+        Value::Object(_) => "[object Object]".into(),
+        // Array.prototype.join writes null elements as empty.
+        Value::Array(items) => {
+            let parts: Vec<String> = items
+                .iter()
+                .map(|item| {
+                    if item.is_null() {
+                        String::new()
+                    } else {
+                        js_to_text(item)
+                    }
+                })
+                .collect();
+            parts.join(",")
+        }
     }
 }
 
 fn string_to_number(text: &str) -> f64 {
+    const RADIX_PREFIXES: [(&str, u32); 6] = [("0x", 16), ("0X", 16), ("0o", 8), ("0O", 8), ("0b", 2), ("0B", 2)];
     let text = js_trim(text);
     if text.is_empty() {
         return 0.0;
     }
-    for (prefix, radix) in [("0x", 16), ("0X", 16), ("0o", 8), ("0O", 8), ("0b", 2), ("0B", 2)] {
-        if let Some(digits) = text.strip_prefix(prefix) {
-            if digits.is_empty() || !digits.chars().all(|c| c.is_digit(radix)) {
-                return f64::NAN;
-            }
-            return digits.chars().fold(0.0, |acc, c| {
-                acc * f64::from(radix) + f64::from(c.to_digit(radix).unwrap_or(0))
-            });
-        }
+    if let Some((digits, radix)) = RADIX_PREFIXES
+        .iter()
+        .find_map(|(p, r)| text.strip_prefix(p).map(|d| (d, *r)))
+    {
+        let values: Option<Vec<u32>> = digits.chars().map(|c| c.to_digit(radix)).collect();
+        return match values {
+            Some(values) if !values.is_empty() => values
+                .into_iter()
+                .fold(0.0, |acc, d| acc * f64::from(radix) + f64::from(d)),
+            _ => f64::NAN,
+        };
     }
-    let (negative, unsigned) = match text.as_bytes()[0] {
-        b'-' => (true, &text[1..]),
-        b'+' => (false, &text[1..]),
-        _ => (false, text),
+    let (sign, unsigned) = match text.strip_prefix('-') {
+        Some(rest) => (-1.0, rest),
+        None => (1.0, text.strip_prefix('+').unwrap_or(text)),
     };
-    let magnitude = if unsigned == "Infinity" {
-        f64::INFINITY
-    } else if decimal_literal(unsigned) {
-        unsigned.parse::<f64>().unwrap_or(f64::NAN)
-    } else {
-        f64::NAN
+    let magnitude = match unsigned {
+        "Infinity" => f64::INFINITY,
+        literal if decimal_literal(literal) => literal.parse().unwrap_or(f64::NAN),
+        _ => f64::NAN,
     };
-    if negative { -magnitude } else { magnitude }
+    sign * magnitude
 }
 
 /// `StrUnsignedDecimalLiteral`: digits with at most one point and an optional exponent.

@@ -3727,7 +3727,6 @@ dependencies = [
  "sha2",
  "store",
  "tempfile",
- "thiserror 2.0.21",
  "tokio",
  "url",
 ]
@@ -3745,7 +3744,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
- "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -3787,9 +3785,6 @@ dependencies = [
 [[package]]
 name = "rifts-seam"
 version = "0.0.0"
-dependencies = [
- "thiserror 2.0.21",
-]
 
 [[package]]
 name = "rifts-transport"

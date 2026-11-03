@@ -168,3 +168,33 @@ Seam changes made on this branch, for the integration pass to review:
 Left for the integration pass: the migration guide's §2 line for the crate, the NOTICE line, the `SECURITY_REVIEW.md`
 index entry for `docs/security/rifts-guard.md`, hostkit's `RUSTIC_RIFTS_` server prefix and the `MYSTICPARADOX_*`
 moves (umbrella D3), and dainty-restricted's switch of its `rifts-guard` dependency to this repository by git rev.
+
+## 8. Restructure pass
+
+2026-11-02, one Claude Code subagent session (model Claude Opus 5.5) under the isolation of section 1, on branch
+`chore/rd27-rifts-restructure-seam-guard-host` cut from `origin/feat/rd27-rifts-mit`. No AGPL tree was read; the
+only comparison run was of the crate against its own previous revision on this branch, as a proxy.
+
+| File | What changed |
+| --- | --- |
+| `src/lib.rs` | `Guard` keeps its `GuardParts`; Guard's own refusals in one `Refuse` table; the batch loop split into `try_batch`, the traffic charge into `charge_local` and `charge_shared`, the bucket cache into lookup and store helpers, the inventory check into `draft_premium` and `grant_check`; hook futures still run on first poll; the `Stub` impls from one `unwritten!` macro over the method lists |
+| `src/errors.rs` | `Display`, `Error` and `From` by hand (same texts); `thiserror` is no longer a dependency |
+| `src/digest.rs` | Hex from a nibble table; test vectors as a table |
+| `src/routes.rs` | Routes built by one `const fn`; the route refusals as a `Gate` table; internal faults hidden in one helper |
+| `src/store.rs` | Each stored enum's text both ways from one `stored_as!` list; tables listed through `table` and `swept`; the memory store's windows and batches through helpers; `StubGuardStore` from one `no_database!` macro |
+| `src/ports.rs` | UUID bits set on a `u128`; `iso_time` by 400-year cycles and month lengths instead of the days-to-civil formula; both logs from one `levelled_log!` macro; the policy snapshot as a method |
+| `src/config.rs` | Each resolver as a default plus one change; startup lines from (source, effect) pairs; tier 1 gates as an ordered list |
+| `src/writes.rs` | Write kind names from one table; the hub kind bars as lists; shared membership helpers; one envelope builder |
+| `src/evidence.rs` | Event parsing in `parse_event`; the chain gate in `batch_gate`; findings through a `Findings` collector; the encounter move as one function; replies from `concat!` templates. The canonical text and the batch hash are computed as before (the pinned-hash test passes unchanged) |
+| `src/fence.rs` | The draft token's tags, the presence read and the remembered decision in helpers |
+| `src/sql.rs` | One `Param` bind list and one `query` builder replace the hand-spelled `.bind` chains; every table's column list drives its INSERT, UPDATE and SELECT text, which is byte-identical to before; the row structs from one `rows!` macro |
+| `src/census.rs`, `src/json.rs`, `src/traffic.rs`, `src/grants.rs` | JSON written from field lists; status classes from a table; `js_number`'s layout, the escaper and the number parser rewritten; in-flight counters as a struct; classification and exemptions as ordered rules |
+
+Public API and behaviour: no public item's name, type, fields, field order, variants or signature changed (trait
+methods of `GuardStore` are listed in a different order). Wire bytes, the SQL text sent to the database, JSON field
+order, error codes and texts and log lines are unchanged. `cargo test -p rifts-guard --locked --no-fail-fast`: 111
+passed (105 unit, 6 SQLite store), as before; the Postgres half still needs `REFORGED_TEST_POSTGRES_URL`.
+
+What cannot go lower: the public records and enums of `store.rs`, `ports.rs`, `config.rs` and `lib.rs`, the
+`ERROR_STATUSES` table and the item id lists in `grants.rs` are fixed by the spec, so their lines stay as they were.
+

@@ -3,9 +3,9 @@
 
 //! The per-session folder of config and secret files the transport opens.
 
-use std::fs;
-use std::io::Write as _;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 use rand::TryRng as _;
 use rifts_seam::SessionId;
@@ -14,12 +14,33 @@ use super::rules::{safe_config_value, wire_session_id};
 use crate::HostError;
 use crate::files::{SESSION_FILES, create_private};
 
+/// `N` random bytes as lowercase hex.
 pub(crate) fn random_hex<const N: usize>() -> Result<String, HostError> {
     let mut bytes = [0_u8; N];
-    rand::rngs::SysRng
-        .try_fill_bytes(&mut bytes)
-        .map_err(|_| HostError::Io("could not generate session randomness".to_owned()))?;
-    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+    if rand::rngs::SysRng.try_fill_bytes(&mut bytes).is_err() {
+        return Err(HostError::Io("could not generate session randomness".to_owned()));
+    }
+    let mut hex = String::with_capacity(2 * N);
+    for byte in bytes {
+        let _ = write!(hex, "{byte:02x}");
+    }
+    Ok(hex)
+}
+
+fn io_failure(action: &str, path: &Path) -> impl FnOnce(io::Error) -> HostError {
+    let what = format!("could not {action} {}", path.display());
+    move |e| HostError::Io(format!("{what}: {e}"))
+}
+
+#[cfg(unix)]
+fn make_private_dir(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt as _;
+    fs::DirBuilder::new().mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn make_private_dir(path: &Path) -> io::Result<()> {
+    fs::DirBuilder::new().create(path)
 }
 
 /// `<app_local_data>/p2p-sessions/<wire>-<generation>-<16 hex>`, new, owner-only on Unix.
@@ -30,33 +51,25 @@ pub fn create_session_directory(
 ) -> Result<PathBuf, HostError> {
     let wire = wire_session_id(session_id);
     safe_config_value(&wire, 64)?;
-    let parent = app_local_data.join("p2p-sessions");
-    fs::create_dir_all(&parent).map_err(|e| HostError::Io(format!("could not create {}: {e}", parent.display())))?;
-    let path = parent.join(format!("{wire}-{generation}-{}", random_hex::<8>()?));
-    #[cfg(unix)]
-    let created = {
-        use std::os::unix::fs::DirBuilderExt as _;
-        fs::DirBuilder::new().mode(0o700).create(&path)
-    };
-    #[cfg(not(unix))]
-    let created = fs::DirBuilder::new().create(&path);
-    created.map_err(|e| HostError::Io(format!("could not create {}: {e}", path.display())))?;
-    Ok(path)
+    let sessions = app_local_data.join("p2p-sessions");
+    fs::create_dir_all(&sessions).map_err(io_failure("create", &sessions))?;
+    let folder = sessions.join(format!("{wire}-{generation}-{}", random_hex::<8>()?));
+    make_private_dir(&folder).map_err(io_failure("create", &folder))?;
+    Ok(folder)
 }
 
 /// Exclusive create, `0600` on Unix; on Windows the folder's inherited ACL applies.
 pub fn write_session_file_0600(path: &Path, contents: &[u8]) -> Result<(), HostError> {
-    let mut file =
-        create_private(path).map_err(|e| HostError::Io(format!("could not create {}: {e}", path.display())))?;
-    file.write_all(contents)
-        .and_then(|()| file.sync_all())
-        .map_err(|e| HostError::Io(format!("could not write {}: {e}", path.display())))
+    use std::io::Write as _;
+    let mut file = create_private(path).map_err(io_failure("create", path))?;
+    let written = file.write_all(contents).and_then(|()| file.sync_all());
+    written.map_err(io_failure("write", path))
 }
 
 /// Removes the session files and then the folder if nothing else is in it; errors are ignored.
 pub fn cleanup_directory(path: &Path) {
-    for name in SESSION_FILES {
-        let _ = fs::remove_file(path.join(name));
-    }
-    let _ = fs::remove_dir(path);
+    SESSION_FILES
+        .iter()
+        .for_each(|name| drop(fs::remove_file(path.join(name))));
+    drop(fs::remove_dir(path));
 }

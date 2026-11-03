@@ -3,14 +3,16 @@
 
 use std::fmt;
 
-use crate::error::{Component, Unimplemented};
-use crate::id::{AccountId, SessionId};
+use crate::{
+    error::{Component, Unimplemented},
+    id::{AccountId, SessionId},
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct UnixMillis(pub i64);
 
 /// A value that must never reach a log, so its Debug hides it.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Secret(String);
 
 impl Secret {
@@ -19,7 +21,7 @@ impl Secret {
     }
 
     pub fn expose(&self) -> &str {
-        &self.0
+        self.0.as_str()
     }
 }
 
@@ -30,7 +32,7 @@ impl fmt::Debug for Secret {
 }
 
 /// Who made a stored change.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Actor {
     Account(AccountId),
     HostRuntime { session: SessionId, host: AccountId },
@@ -38,7 +40,8 @@ pub enum Actor {
     System(&'static str),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// One table a component owns, as its schema check and the operators' docs list it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TableSpec {
     pub name: &'static str,
     /// The collection the table stands for in the original Node service; documentation only.
@@ -48,27 +51,44 @@ pub struct TableSpec {
     pub expires_by: Option<&'static str>,
 }
 
-/// What account deletion does to a row: remove it, or clear the account from it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DeletionAction {
-    Delete,
-    Detach,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// One step of account deletion: which table, which column names the account, and what happens to the row.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DeletionStep {
     pub table: &'static str,
     pub account_column: &'static str,
     pub action: DeletionAction,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+/// Remove the row, or clear the account from it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeletionAction {
+    Delete,
+    Detach,
+}
+
+/// A store's failure: a backend not written yet, or the database's own text.
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum StoreError {
-    #[error(transparent)]
-    Unimplemented(#[from] Unimplemented),
-    #[error("{0}")]
+    Unimplemented(Unimplemented),
     Database(String),
+}
+
+impl fmt::Display for StoreError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Database(text) => f.write_str(text),
+            Self::Unimplemented(missing) => fmt::Display::fmt(missing, f),
+        }
+    }
+}
+
+impl std::error::Error for StoreError {}
+
+impl From<Unimplemented> for StoreError {
+    fn from(missing: Unimplemented) -> Self {
+        Self::Unimplemented(missing)
+    }
 }
 
 #[cfg(test)]
@@ -77,16 +97,27 @@ mod tests {
 
     #[test]
     fn secret_debug_is_redacted() {
-        let secret = Secret::new("hunter2".to_owned());
-        assert_eq!(format!("{secret:?}"), "Secret(<redacted>)");
-        assert_eq!(format!("{:?}", Some(secret.clone())), "Some(Secret(<redacted>))");
-        assert_eq!(secret.expose(), "hunter2");
+        let hidden = Secret::new(String::from("hunter2"));
+        assert_eq!(hidden.expose(), "hunter2");
+        for (shown, want) in [
+            (format!("{hidden:?}"), "Secret(<redacted>)"),
+            (format!("{:?}", Some(hidden.clone())), "Some(Secret(<redacted>))"),
+        ] {
+            assert_eq!(shown, want);
+        }
     }
 
     #[test]
     fn store_error_texts() {
-        assert_eq!(StoreError::Database("disk full".into()).to_string(), "disk full");
-        let missing = StoreError::from(Unimplemented::new(Component::Guard, "store.flush"));
-        assert_eq!(missing.to_string(), "rifts-guard: store.flush is not implemented yet");
+        let cases = [
+            (StoreError::Database("disk full".into()), "disk full"),
+            (
+                Unimplemented::new(Component::Guard, "store.flush").into(),
+                "rifts-guard: store.flush is not implemented yet",
+            ),
+        ];
+        for (error, text) in cases {
+            assert_eq!(error.to_string(), text);
+        }
     }
 }

@@ -7,7 +7,7 @@
 
 mod common;
 
-use common::{actor, t, targets};
+use common::{Target, actor, t, targets};
 use rifts_realms::realm::{
     AccountAt, HeartbeatUpdate, HostingPatch, HubState, JoinPolicy, MemberRole, Patch, RealmBan, RealmHosting,
     RealmInviteRecord, RealmMember, RealmPresenceRecord, RealmRecord, default_hosting, hub_room_ids_of,
@@ -20,83 +20,107 @@ use rifts_seam::UnixMillis;
 
 const T0: i64 = 1_791_892_800_000;
 
+/// Each engine with a realms repository over it.
+fn engines() -> Vec<(Target, RealmsRepository)> {
+    let pair = |target: Target| {
+        let repo = RealmsRepository::new(target.db.clone());
+        (target, repo)
+    };
+    targets().into_iter().map(pair).collect()
+}
+
+/// Each engine with a presence repository over it.
+fn presence_engines() -> Vec<(Target, RealmPresenceRepository)> {
+    let with_repo = |target: Target| (RealmPresenceRepository::new(target.db.clone()), target);
+    targets()
+        .into_iter()
+        .map(with_repo)
+        .map(|(repo, target)| (target, repo))
+        .collect()
+}
+
+fn at(millis: i64) -> UnixMillis {
+    UnixMillis(millis)
+}
+
+/// Invite-only and unlisted, the host its only member, never online.
 fn realm(id: &str, name: &str, host: &str) -> RealmRecord {
+    let founder = RealmMember {
+        role: MemberRole::Host,
+        joined_at: at(T0),
+        account_id: host.into(),
+    };
     RealmRecord {
-        realm_id: id.to_owned(),
-        name: name.to_owned(),
-        host_account_id: host.to_owned(),
+        hub_room_ids: hub_room_ids_of(id),
         host_public_key: format!("key-{host}"),
+        members: vec![founder],
+        created_at: at(T0),
         join_policy: JoinPolicy::InviteOnly,
         listed: false,
-        members: vec![RealmMember {
-            account_id: host.to_owned(),
-            role: MemberRole::Host,
-            joined_at: UnixMillis(T0),
-        }],
-        bans: Vec::new(),
-        created_at: UnixMillis(T0),
-        last_online_at: None,
-        online_until: None,
-        version: None,
-        hosting: None,
-        hub_room_ids: hub_room_ids_of(id),
-        offline_notified_for: None,
-        join_requests: Vec::new(),
+        realm_id: id.into(),
+        name: name.into(),
+        host_account_id: host.into(),
         player_invites: Vec::new(),
+        join_requests: Vec::new(),
+        bans: Vec::new(),
+        offline_notified_for: None,
+        hosting: None,
+        version: None,
+        online_until: None,
+        last_online_at: None,
     }
 }
 
 fn member(account: &str) -> RealmMember {
     RealmMember {
-        account_id: account.to_owned(),
+        joined_at: at(T0 + 1),
         role: MemberRole::Member,
-        joined_at: UnixMillis(T0 + 1),
+        account_id: account.into(),
     }
 }
 
-fn entry(account: &str, at: i64) -> AccountAt {
+fn entry(account: &str, when: i64) -> AccountAt {
     AccountAt {
-        account_id: account.to_owned(),
-        at: UnixMillis(at),
+        at: at(when),
+        account_id: account.into(),
     }
 }
 
+/// Made by `host-1`, unused, an hour long.
 fn invite(code: &str, realm_id: &str, created_at: i64, max_uses: i64) -> RealmInviteRecord {
     RealmInviteRecord {
-        code: code.to_owned(),
-        realm_id: realm_id.to_owned(),
-        created_by: "host-1".to_owned(),
-        created_at: UnixMillis(created_at),
-        expires_at: UnixMillis(created_at + 3_600_000),
-        max_uses,
-        uses: 0,
+        expires_at: at(created_at + 3_600_000),
+        created_at: at(created_at),
         revoked_at: None,
+        uses: 0,
+        max_uses,
+        created_by: "host-1".into(),
+        realm_id: realm_id.into(),
+        code: code.into(),
     }
 }
 
 fn presence(account: &str, realm_id: &str, expires_at: i64) -> RealmPresenceRecord {
     RealmPresenceRecord {
-        account_id: account.to_owned(),
-        realm_id: realm_id.to_owned(),
-        bound_at: UnixMillis(T0),
-        last_seen_at: UnixMillis(T0),
-        expires_at: UnixMillis(expires_at),
+        expires_at: at(expires_at),
+        last_seen_at: at(T0),
+        bound_at: at(T0),
+        realm_id: realm_id.into(),
+        account_id: account.into(),
     }
 }
 
+/// `alpha` (`realm-1`), hosted by `host-1`.
 async fn seeded(repo: &RealmsRepository) -> RealmRecord {
-    let record = realm("realm-1", "alpha", "host-1");
-    assert_eq!(
-        repo.insert_realm(&actor(), &record).await.unwrap(),
-        InsertRealmResult::Inserted
-    );
-    record
+    let alpha = realm("realm-1", "alpha", "host-1");
+    let inserted = repo.insert_realm(&actor(), &alpha).await.unwrap();
+    assert_eq!(inserted, InsertRealmResult::Inserted);
+    alpha
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn round_trip_keeps_optional_fields_absent_until_written() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (target, repo) in engines() {
         let record = seeded(&repo).await;
         assert_eq!(repo.find_by_id("realm-1").await.unwrap(), Some(record.clone()));
         assert_eq!(repo.find_by_name("alpha").await.unwrap(), Some(record.clone()));
@@ -134,8 +158,7 @@ async fn round_trip_keeps_optional_fields_absent_until_written() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn name_and_host_are_each_unique_name_first() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let insert = |r: RealmRecord| {
             let repo = repo.clone();
@@ -162,8 +185,7 @@ async fn name_and_host_are_each_unique_name_first() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn racing_name_claims_make_one_realm() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         let tasks: Vec<_> = (0..8)
             .map(|i| {
                 let repo = repo.clone();
@@ -192,8 +214,7 @@ async fn racing_name_claims_make_one_realm() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn settings_and_heartbeats_only_on_the_hosts_own_realm() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         assert!(
             repo.set_settings(&actor(), "missing", "nobody", None, None)
@@ -244,8 +265,7 @@ async fn settings_and_heartbeats_only_on_the_hosts_own_realm() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn members_are_added_once_never_past_the_ceiling_never_when_banned() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let add = |account: &'static str, max: u32| {
             let repo = repo.clone();
@@ -289,8 +309,7 @@ async fn members_are_added_once_never_past_the_ceiling_never_when_banned() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn racing_joins_never_overfill_and_a_double_join_adds_once() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let mut tasks = Vec::new();
         for i in 0..10 {
@@ -320,8 +339,7 @@ async fn racing_joins_never_overfill_and_a_double_join_adds_once() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn removing_a_member_never_removes_the_host() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.add_member(&actor(), "realm-1", &member("friend-1"), 10)
             .await
@@ -335,8 +353,7 @@ async fn removing_a_member_never_removes_the_host() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_ban_removes_the_member_once_has_a_ceiling_and_can_be_lifted() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.add_member(&actor(), "realm-1", &member("friend-1"), 10)
             .await
@@ -384,8 +401,7 @@ async fn a_ban_removes_the_member_once_has_a_ceiling_and_can_be_lifted() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn find_by_member_and_the_listing_order() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         for (id, name, host) in [
             ("r-a", "charlie", "h-a"),
             ("r-b", "alpha", "h-b"),
@@ -435,8 +451,7 @@ async fn find_by_member_and_the_listing_order() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn name_release_only_when_not_online_since_read_with_its_invites() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.insert_invite(&actor(), &invite("ABCDEFGHJK", "realm-1", T0, 5))
             .await
@@ -479,8 +494,7 @@ async fn name_release_only_when_not_online_since_read_with_its_invites() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_host_releases_its_own_realm_and_nobody_else_can() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.add_member(&actor(), "realm-1", &member("friend-1"), 10)
             .await
@@ -509,8 +523,7 @@ async fn the_host_releases_its_own_realm_and_nobody_else_can() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn invites_round_trip_with_a_unique_code_newest_first() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let first = invite("AAAAAAAAAA", "realm-1", T0, 5);
         assert_eq!(
@@ -545,8 +558,7 @@ async fn invites_round_trip_with_a_unique_code_newest_first() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn consumption_until_used_up_expired_or_revoked_and_refunds() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.insert_invite(&actor(), &invite("AAAAAAAAAA", "realm-1", T0, 2))
             .await
@@ -585,8 +597,7 @@ async fn consumption_until_used_up_expired_or_revoked_and_refunds() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn racing_joins_never_over_use_an_invite() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.insert_invite(&actor(), &invite("AAAAAAAAAA", "realm-1", T0, 3))
             .await
@@ -612,8 +623,7 @@ async fn racing_joins_never_over_use_an_invite() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn revoke_once_first_time_kept_only_for_its_realm() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.insert_invite(&actor(), &invite("AAAAAAAAAA", "realm-1", T0, 3))
             .await
@@ -647,8 +657,7 @@ async fn revoke_once_first_time_kept_only_for_its_realm() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn open_invites_are_counted_at_a_time() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.insert_invite(&actor(), &invite("AAAAAAAAAA", "realm-1", T0, 1))
             .await
@@ -686,8 +695,7 @@ async fn open_invites_are_counted_at_a_time() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn patch_hosting_creates_with_defaults_merges_removes_and_leaves_the_rest() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let patch = HostingPatch {
             max_players: Some(8),
@@ -738,8 +746,7 @@ async fn patch_hosting_creates_with_defaults_merges_removes_and_leaves_the_rest(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn racing_disjoint_patches_all_land() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let patches = [
             HostingPatch {
@@ -783,8 +790,7 @@ async fn racing_disjoint_patches_all_land() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn mark_offline_once_and_only_when_online() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         assert!(
             !repo.mark_offline(&actor(), "realm-1", UnixMillis(T0)).await.unwrap(),
@@ -826,8 +832,7 @@ async fn mark_offline_once_and_only_when_online() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn claim_lapsed_hosts_returns_each_recent_lapse_once_within_its_limit() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         for (i, until) in [(1, T0 + 10), (2, T0 + 20), (3, T0 + 30), (4, T0 + 500), (5, T0 - 5)] {
             let id = format!("realm-{i}");
             let host = format!("host-{i}");
@@ -885,8 +890,7 @@ async fn claim_lapsed_hosts_returns_each_recent_lapse_once_within_its_limit() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn find_by_either_hub_room_id_exact_only() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         let record = seeded(&repo).await;
         for room in &record.hub_room_ids {
             assert_eq!(
@@ -901,8 +905,7 @@ async fn find_by_either_hub_room_id_exact_only() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn join_requests_once_refused_in_order_and_bounded() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         repo.add_member(&actor(), "realm-1", &member("friend-1"), 10)
             .await
@@ -946,8 +949,7 @@ async fn join_requests_once_refused_in_order_and_bounded() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_ban_withdraws_only_the_banned_accounts_request() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         for account in ["a", "b"] {
             repo.add_join_request(&actor(), "realm-1", &entry(account, T0), 10)
@@ -973,8 +975,7 @@ async fn a_ban_withdraws_only_the_banned_accounts_request() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn racing_requests_never_exceed_the_bound() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let tasks: Vec<_> = (0..10)
             .map(|i| {
@@ -998,8 +999,7 @@ async fn racing_requests_never_exceed_the_bound() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn player_invites_once_refused_in_order_and_withdrawn_by_membership_or_ban() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (_engine, repo) in engines() {
         seeded(&repo).await;
         let invite_player = |account: &'static str| {
             let repo = repo.clone();
@@ -1044,8 +1044,7 @@ async fn player_invites_once_refused_in_order_and_withdrawn_by_membership_or_ban
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn purge_drops_invites_a_week_past_expiry_and_expired_presence() {
-    for target in targets() {
-        let repo = RealmsRepository::new(target.db.clone());
+    for (target, repo) in engines() {
         let presence_repo = RealmPresenceRepository::new(target.db.clone());
         seeded(&repo).await;
         repo.insert_invite(&actor(), &invite("AAAAAAAAAA", "realm-1", T0, 3))
@@ -1064,8 +1063,7 @@ async fn purge_drops_invites_a_week_past_expiry_and_expired_presence() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn presence_round_trip_replacing_bind_active_strictly_before_expiry() {
-    for target in targets() {
-        let repo = RealmPresenceRepository::new(target.db.clone());
+    for (_engine, repo) in presence_engines() {
         let row = presence("p", "realm-1", T0 + 120_000);
         repo.bind(&actor(), &row).await.unwrap();
         assert_eq!(repo.find_active("p", UnixMillis(T0)).await.unwrap(), Some(row.clone()));
@@ -1086,8 +1084,7 @@ async fn presence_round_trip_replacing_bind_active_strictly_before_expiry() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn touch_extends_and_never_revives() {
-    for target in targets() {
-        let repo = RealmPresenceRepository::new(target.db.clone());
+    for (_engine, repo) in presence_engines() {
         repo.bind(&actor(), &presence("p", "realm-1", T0 + 100)).await.unwrap();
         let touched = repo
             .touch(&actor(), "p", UnixMillis(T0 + 50), UnixMillis(T0 + 500))
@@ -1122,8 +1119,7 @@ async fn touch_extends_and_never_revives() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn remove_with_and_without_a_realm_and_for_a_realm() {
-    for target in targets() {
-        let repo = RealmPresenceRepository::new(target.db.clone());
+    for (_engine, repo) in presence_engines() {
         for (account, realm_id) in [("a", "realm-1"), ("b", "realm-1"), ("c", "realm-2")] {
             repo.bind(&actor(), &presence(account, realm_id, T0 + 100))
                 .await
@@ -1141,8 +1137,7 @@ async fn remove_with_and_without_a_realm_and_for_a_realm() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn active_counts_per_realm_at_a_time() {
-    for target in targets() {
-        let repo = RealmPresenceRepository::new(target.db.clone());
+    for (_engine, repo) in presence_engines() {
         for (account, realm_id, expires) in [
             ("a", "realm-1", T0 + 100),
             ("b", "realm-1", T0 + 50),
@@ -1175,8 +1170,7 @@ async fn active_counts_per_realm_at_a_time() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn racing_binds_leave_one_row() {
-    for target in targets() {
-        let repo = RealmPresenceRepository::new(target.db.clone());
+    for (_engine, repo) in presence_engines() {
         let tasks: Vec<_> = (0..8)
             .map(|i| {
                 let repo = repo.clone();

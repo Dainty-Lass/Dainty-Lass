@@ -3,27 +3,26 @@
 
 //! The launcher's ICE operations (transport config, signal relay) and the admin co-op transport switch.
 
-use std::sync::Arc;
+use std::{future::ready, sync::Arc};
 
-use rifts_seam::{AccountId, BoxFuture, Json, PeerId, Refusal, Reply, SessionId, UnixMillis};
+use rifts_seam::{AccountId, Json, PeerId, Reply, SessionId, UnixMillis};
 use serde_json::Value;
 
-use crate::credentials::{HourlyCounter, RelayGrants, relay_ttl_seconds};
-use crate::rules::{
-    CoopTransport, HuntSnapshot, MAXIMUM_HUB_PEERS, PresenceRow, filter_relay_only, ice_peers_for, parse_ice_signal,
-    peer_id_of, resolve_role, signal_route_allowed,
+use crate::{
+    Answer, IceService, RelayError,
+    credentials::{HourlyCounter, RelayGrants, relay_ttl_seconds},
+    rules::{self, CoopTransport, HuntSnapshot, MAXIMUM_HUB_PEERS, PresenceRow},
+    wire::{self, JsonObject},
 };
-use crate::wire::{JsonObject, is_safe_integer, js_number_value, js_trim, json_array, random_uuid};
-use crate::{IceService, RelayError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct P2PGate {
     pub enabled: bool,
     pub emergency_stop: bool,
 }
 
 /// A message queued for one account's launcher.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ControlMessage {
     pub account: AccountId,
     pub message_type: &'static str,
@@ -34,7 +33,7 @@ pub struct ControlMessage {
     pub expires_at: UnixMillis,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CoopTransportOutcome {
     Updated(Json),
     /// The policy's version moved on; carries the current policy.
@@ -42,38 +41,88 @@ pub enum CoopTransportOutcome {
 }
 
 pub fn refusal(code: &str, message: &str) -> RelayError {
-    RelayError::Refused(Refusal {
-        code: code.to_owned(),
-        message: message.to_owned(),
-    })
+    rifts_seam::Refusal {
+        code: code.into(),
+        message: message.into(),
+    }
+    .into()
 }
+
+type Outcome<T> = Result<T, RelayError>;
 
 /// What the relay needs from the realms side.
 pub trait IceHunts: Send + Sync {
-    fn gate(&self) -> Result<P2PGate, RelayError>;
-    fn find_hunt(&self, session: &SessionId) -> Result<Option<HuntSnapshot>, RelayError>;
-    fn hub_presence(&self, hunt: &HuntSnapshot, limit: usize) -> Result<Vec<PresenceRow>, RelayError>;
-    fn enqueue(&self, message: ControlMessage) -> Result<(), RelayError>;
+    fn gate(&self) -> Outcome<P2PGate>;
+    fn find_hunt(&self, id: &SessionId) -> Outcome<Option<HuntSnapshot>>;
+    fn hub_presence(&self, of: &HuntSnapshot, most: usize) -> Outcome<Vec<PresenceRow>>;
+    fn enqueue(&self, queued: ControlMessage) -> Outcome<()>;
 }
 
 pub trait OperationsPolicy: Send + Sync {
     fn set_coop_transport(
         &self,
-        admin_key_id: &str,
-        transport: CoopTransport,
+        admin: &str,
+        to: CoopTransport,
         expected_version: u64,
         reason: &str,
-        request_id: &str,
-    ) -> Result<CoopTransportOutcome, RelayError>;
+        request: &str,
+    ) -> Outcome<CoopTransportOutcome>;
 }
 
-const CONFIGS_PER_HOUR_IN_REALMS: u32 = 120;
+/// A refusal the relay answers with: its code, then its text.
+#[derive(Clone, Copy)]
+struct No(&'static str, &'static str);
+
+impl From<No> for RelayError {
+    fn from(No(code, text): No) -> Self {
+        refusal(code, text)
+    }
+}
+
+/// `Err(no)` unless `holds`.
+fn ensure(holds: bool, no: No) -> Outcome<()> {
+    if holds { Ok(()) } else { Err(no.into()) }
+}
+
+const OFF: No = No("P2P_DISABLED", "Player-hosted hunts are disabled.");
+const STOPPED: No = No(
+    "P2P_EMERGENCY_STOP",
+    "Player-hosted hunts are currently stopped by operations policy.",
+);
+const NO_GENERATION: No = No("P2P_TICKET_INVALID", "The hunt generation is missing.");
+const NO_HUNT: No = No("P2P_SESSION_NOT_FOUND", "Hunt session not found.");
+const NOT_ICE: No = No(
+    "P2P_TRANSPORT_MISMATCH",
+    "This hunt does not use the ICE co-op transport.",
+);
+const STALE: No = No(
+    "P2P_GENERATION_FENCED",
+    "This request belongs to a stale hunt generation.",
+);
+const IDLE: No = No("P2P_SESSION_NOT_READY", "The hunt is not running.");
+const NO_TRANSPORT: No = No(
+    "P2P_ICE_UNAVAILABLE",
+    "The co-op transport is not configured on this server.",
+);
+const OUTSIDER: No = No("P2P_NOT_ROSTERED", "This account is not part of the hunt.");
+const TOO_MANY_CONFIGS: No = No(
+    "P2P_RELAY_RATE_LIMITED",
+    "Too many co-op transport requests; try again later.",
+);
+const BAD_SIGNAL: No = No("P2P_SIGNAL_INVALID", "The ICE signal is malformed or too large.");
+const WRONG_ROUTE: No = No(
+    "P2P_NOT_ROSTERED",
+    "Signals go only between the host and a joiner of this hunt.",
+);
+const TOO_MANY_SIGNALS: No = No("P2P_SIGNAL_LIMIT", "Too many ICE signals for this hunt.");
+
+/// Hourly limits; a realm's members reconnect more often, and a hub host signals up to 64 members.
+const REALM_CONFIGS_FLOOR: u32 = 120;
 const SIGNALS_PER_HOUR: u32 = 300;
-// A hub host signals every member, up to 64 of them.
 const HUB_HOST_SIGNALS_PER_HOUR: u32 = 3000;
 const SIGNAL_LIFETIME_MS: i64 = 120_000;
-const REASON_MAX_UNITS: usize = 500;
-const REASON_MIN_UNITS: usize = 8;
+/// The audit reason, in UTF-16 units: at least this many after trimming, cut to the longer one.
+const REASON_UNITS: (usize, usize) = (8, 500);
 
 const ADMIN_VALIDATION: &str = r#"{"error":{"code":"ADMIN_VALIDATION","message":"coopTransport (ICE or STEAM_EXPERIMENTAL), expectedVersion, and an audit reason of at least 8 characters are required."}}"#;
 const ADMIN_CONFLICT: &str =
@@ -84,8 +133,24 @@ pub struct Ice {
     pub grants: RelayGrants,
     pub policy: Arc<dyn OperationsPolicy>,
     pub clock: Arc<dyn Fn() -> UnixMillis + Send + Sync>,
-    configs: HourlyCounter,
-    signals: HourlyCounter,
+    config_calls: HourlyCounter,
+    signal_calls: HourlyCounter,
+}
+
+/// A hunt as one request sees it: the snapshot and, for a hub, its presence rows.
+struct Seen {
+    hunt: HuntSnapshot,
+    presence: Option<Vec<PresenceRow>>,
+}
+
+impl Seen {
+    fn rows(&self) -> Option<&[PresenceRow]> {
+        self.presence.as_deref()
+    }
+
+    fn peer_text(&self, account: &AccountId) -> String {
+        rules::peer_id_of(&self.hunt, account, self.rows()).map_or_else(String::new, |PeerId(id)| id.to_string())
+    }
 }
 
 impl Ice {
@@ -95,109 +160,72 @@ impl Ice {
         policy: Arc<dyn OperationsPolicy>,
         clock: Arc<dyn Fn() -> UnixMillis + Send + Sync>,
     ) -> Self {
+        let (config_calls, signal_calls) = Default::default();
         Self {
-            hunts,
-            grants,
-            policy,
             clock,
-            configs: HourlyCounter::default(),
-            signals: HourlyCounter::default(),
+            policy,
+            grants,
+            hunts,
+            config_calls,
+            signal_calls,
         }
     }
 
-    fn running_gate(&self) -> Result<(), RelayError> {
-        let gate = self.hunts.gate()?;
-        if !gate.enabled {
-            return Err(refusal("P2P_DISABLED", "Player-hosted hunts are disabled."));
-        }
-        if gate.emergency_stop {
-            return Err(refusal(
-                "P2P_EMERGENCY_STOP",
-                "Player-hosted hunts are currently stopped by operations policy.",
-            ));
-        }
-        Ok(())
+    fn now(&self) -> UnixMillis {
+        (self.clock)()
     }
 
-    fn active_ice_hunt(&self, session: &SessionId, generation: Option<i64>) -> Result<HuntSnapshot, RelayError> {
-        let generation = generation.ok_or_else(|| refusal("P2P_TICKET_INVALID", "The hunt generation is missing."))?;
-        let hunt = self
-            .hunts
-            .find_hunt(session)?
-            .ok_or_else(|| refusal("P2P_SESSION_NOT_FOUND", "Hunt session not found."))?;
-        if hunt.coop_transport != CoopTransport::Ice {
-            return Err(refusal(
-                "P2P_TRANSPORT_MISMATCH",
-                "This hunt does not use the ICE co-op transport.",
-            ));
-        }
-        if i128::from(hunt.generation) != i128::from(generation) {
-            return Err(refusal(
-                "P2P_GENERATION_FENCED",
-                "This request belongs to a stale hunt generation.",
-            ));
-        }
-        if !hunt.state.is_ice_active() {
-            return Err(refusal("P2P_SESSION_NOT_READY", "The hunt is not running."));
-        }
-        Ok(hunt)
+    fn hosting_running(&self) -> Outcome<()> {
+        let P2PGate {
+            enabled,
+            emergency_stop,
+        } = self.hunts.gate()?;
+        ensure(enabled, OFF)?;
+        ensure(!emergency_stop, STOPPED)
     }
 
-    fn presence(&self, hunt: &HuntSnapshot) -> Result<Option<Vec<PresenceRow>>, RelayError> {
-        if hunt.is_hub() {
-            self.hunts.hub_presence(hunt, MAXIMUM_HUB_PEERS + 1).map(Some)
-        } else {
-            Ok(None)
-        }
+    /// The hunt behind `id` at `generation`, while its transports may connect, with its presence when a hub.
+    fn live_ice_hunt(&self, id: &SessionId, generation: Option<i64>) -> Outcome<Seen> {
+        let asked = generation.ok_or(NO_GENERATION)?;
+        let hunt = self.hunts.find_hunt(id)?.ok_or(NO_HUNT)?;
+        ensure(hunt.coop_transport == CoopTransport::Ice, NOT_ICE)?;
+        ensure(i64::try_from(hunt.generation) == Ok(asked), STALE)?;
+        ensure(hunt.state.is_ice_active(), IDLE)?;
+        let presence = match hunt.is_hub() {
+            true => Some(self.hunts.hub_presence(&hunt, MAXIMUM_HUB_PEERS + 1)?),
+            false => None,
+        };
+        Ok(Seen { hunt, presence })
     }
 
-    async fn config_for(
-        &self,
-        account: AccountId,
-        session: SessionId,
-        generation: Option<i64>,
-    ) -> Result<Json, RelayError> {
-        self.running_gate()?;
+    async fn config_for(&self, account: AccountId, session: SessionId, generation: Option<i64>) -> Outcome<Json> {
+        self.hosting_running()?;
         let config = Arc::clone(&self.grants.config);
-        let secret = config.transport_key_secret.clone().ok_or_else(|| {
-            refusal(
-                "P2P_ICE_UNAVAILABLE",
-                "The co-op transport is not configured on this server.",
-            )
-        })?;
-        let hunt = self.active_ice_hunt(&session, generation)?;
-        let presence = self.presence(&hunt)?;
-        let presence = presence.as_deref();
-        let role = resolve_role(&hunt, &account, presence)
-            .ok_or_else(|| refusal("P2P_NOT_ROSTERED", "This account is not part of the hunt."))?;
-        let now = (self.clock)();
-        let limit = if hunt.is_realm_session() {
-            config.configs_per_hour.max(CONFIGS_PER_HOUR_IN_REALMS)
-        } else {
-            config.configs_per_hour
+        let secret = config.transport_key_secret.clone().ok_or(NO_TRANSPORT)?;
+        let seen = self.live_ice_hunt(&session, generation)?;
+        let hunt = &seen.hunt;
+        let role = rules::resolve_role(hunt, &account, seen.rows()).ok_or(OUTSIDER)?;
+        let at = self.now();
+        let hourly = match hunt.is_realm_session() {
+            true => config.configs_per_hour.max(REALM_CONFIGS_FLOOR),
+            false => config.configs_per_hour,
         };
-        if !self.configs.allow(&account.0, limit, now) {
-            return Err(refusal(
-                "P2P_RELAY_RATE_LIMITED",
-                "Too many co-op transport requests; try again later.",
-            ));
-        }
-        let cap = if hunt.is_hub() {
-            config.hub_credential_ttl_seconds
-        } else {
-            config.credential_ttl_seconds
+        ensure(self.config_calls.allow(&account.0, hourly, at), TOO_MANY_CONFIGS)?;
+        let cap = match hunt.is_hub() {
+            true => config.hub_credential_ttl_seconds,
+            false => config.credential_ttl_seconds,
         };
-        let ttl = relay_ttl_seconds(hunt.expires_at, now, cap);
-        let grant = self.grants.grant(&account, ttl, now).await;
-        let peers = ice_peers_for(&hunt, &account, role, &secret, presence);
-
-        let peer_text = |peer: Option<PeerId>| peer.map(|peer| peer.0.to_string()).unwrap_or_default();
-        let peers_json = json_array(peers.iter().map(|peer| {
+        let grant = self
+            .grants
+            .grant(&account, relay_ttl_seconds(hunt.expires_at, at, cap), at)
+            .await;
+        let peers = rules::ice_peers_for(hunt, &account, role, &secret, seen.rows());
+        let peers = wire::json_array(peers.iter().map(|peer| {
             JsonObject::new()
                 .string("accountId", &peer.account.0)
                 .string("role", peer.role.as_str())
                 .string("transportKey", peer.transport_key.expose())
-                .string("peerId", &peer_text(peer_id_of(&hunt, &peer.account, presence)))
+                .string("peerId", &seen.peer_text(&peer.account))
                 .finish()
         }));
         let body = JsonObject::new()
@@ -205,167 +233,162 @@ impl Ice {
             .number("generation", hunt.generation)
             .string("role", role.as_str())
             .string("localAccountId", &account.0)
-            .string("localPeerId", &peer_text(peer_id_of(&hunt, &account, presence)))
+            .string("localPeerId", &seen.peer_text(&account))
             .string("hostAccountId", &hunt.host_account.0)
             .string("hostPeerId", &hunt.host_peer.0.to_string())
             .boolean("forceRelay", config.force_relay)
             .raw("iceServers", &grant.ice_servers_json())
             .raw("relay", &grant.relay_json())
-            .raw("peers", &peers_json)
-            .finish();
-        Ok(Json(body))
+            .raw("peers", &peers);
+        Ok(Json(body.finish()))
     }
 
-    fn signal(&self, account: &AccountId, session: &SessionId, body: &Value) -> Result<Json, RelayError> {
-        self.running_gate()?;
-        let signal = parse_ice_signal(body)
-            .ok_or_else(|| refusal("P2P_SIGNAL_INVALID", "The ICE signal is malformed or too large."))?;
-        let hunt = self.active_ice_hunt(session, Some(signal.generation))?;
-        let presence = self.presence(&hunt)?;
-        let presence = presence.as_deref();
-        if !signal_route_allowed(&hunt, account, &signal.to, presence) {
-            return Err(refusal(
-                "P2P_NOT_ROSTERED",
-                "Signals go only between the host and a joiner of this hunt.",
-            ));
-        }
-        let now = (self.clock)();
-        let limit = if hunt.is_hub() && account == &hunt.host_account {
+    fn signal(&self, from: &AccountId, session: &SessionId, body: &Value) -> Outcome<Json> {
+        self.hosting_running()?;
+        let signal = rules::parse_ice_signal(body).ok_or(BAD_SIGNAL)?;
+        let seen = self.live_ice_hunt(session, Some(signal.generation))?;
+        let hunt = &seen.hunt;
+        ensure(
+            rules::signal_route_allowed(hunt, from, &signal.to, seen.rows()),
+            WRONG_ROUTE,
+        )?;
+        let at = self.now();
+        let hub_host = hunt.is_hub() && *from == hunt.host_account;
+        let hourly = if hub_host {
             HUB_HOST_SIGNALS_PER_HOUR
         } else {
             SIGNALS_PER_HOUR
         };
-        let key = format!("{}:{}:{}", hunt.wire_session, hunt.generation, account.0);
-        if !self.signals.allow(&key, limit, now) {
-            return Err(refusal("P2P_SIGNAL_LIMIT", "Too many ICE signals for this hunt."));
-        }
-        let data = if self.grants.config.force_relay {
-            match filter_relay_only(signal.kind, &signal.data) {
-                Some(data) => data,
-                // Still counted against the limit above.
-                None => {
-                    let reply = JsonObject::new()
-                        .boolean("delivered", false)
-                        .string("reason", "FILTERED_RELAY_ONLY")
-                        .finish();
-                    return Ok(Json(reply));
-                }
-            }
-        } else {
-            signal.data
+        let budget_key = [hunt.wire_session.as_str(), &hunt.generation.to_string(), &from.0].join(":");
+        ensure(self.signal_calls.allow(&budget_key, hourly, at), TOO_MANY_SIGNALS)?;
+        let forwarded = match self.grants.config.force_relay {
+            false => Some(signal.data.clone()),
+            true => rules::filter_relay_only(signal.kind, &signal.data),
         };
-        let signal_id = random_uuid().map_err(|_| RelayError::Random)?;
+        // A filtered signal still counted against the limit above.
+        let Some(data) = forwarded else {
+            let reply = JsonObject::new()
+                .boolean("delivered", false)
+                .string("reason", "FILTERED_RELAY_ONLY");
+            return Ok(Json(reply.finish()));
+        };
+        let signal_id = wire::random_uuid().map_err(|_| RelayError::Random)?;
+        let sender_role = rules::resolve_role(hunt, from, seen.rows()).map(|role| role.as_str());
         let payload = JsonObject::new()
             .string("sessionId", &hunt.wire_session)
             .number("generation", hunt.generation)
             .string("signalId", &signal_id)
-            .string("fromAccountId", &account.0)
-            .optional_string(
-                "fromRole",
-                resolve_role(&hunt, account, presence).map(|role| role.as_str()),
-            )
+            .string("fromAccountId", &from.0)
+            .optional_string("fromRole", sender_role)
             .string("kind", signal.kind.as_str())
-            .string("data", &data)
-            .finish();
+            .string("data", &data);
         self.hunts.enqueue(ControlMessage {
-            account: signal.to,
             message_type: "ICE_SIGNAL",
+            payload: Json(payload.finish()),
+            account: signal.to,
             wire_session: hunt.wire_session.clone(),
             generation: hunt.generation,
-            payload: Json(payload),
-            created_at: now,
-            expires_at: UnixMillis(hunt.expires_at.0.min(now.0 + SIGNAL_LIFETIME_MS)),
+            created_at: at,
+            expires_at: UnixMillis((at.0 + SIGNAL_LIFETIME_MS).min(hunt.expires_at.0)),
         })?;
-        Ok(Json(
-            JsonObject::new()
-                .boolean("delivered", true)
-                .string("signalId", &signal_id)
-                .finish(),
-        ))
+        let delivered = JsonObject::new()
+            .boolean("delivered", true)
+            .string("signalId", &signal_id);
+        Ok(Json(delivered.finish()))
     }
 
-    fn coop_transport(&self, admin_key_id: &str, body: &Value) -> Result<Reply, RelayError> {
-        let Some((transport, expected, reason)) = validate_coop_transport(body) else {
-            return Ok(Reply {
-                status: 400,
-                body: Json(ADMIN_VALIDATION.to_owned()),
-            });
+    fn coop_transport(&self, admin: &str, body: &Value) -> Outcome<Reply> {
+        let Some(change) = CoopTransportChange::read(body) else {
+            return Ok(reply(400, ADMIN_VALIDATION.to_owned()));
         };
-        let request_id = random_uuid().map_err(|_| RelayError::Random)?;
-        match self
-            .policy
-            .set_coop_transport(admin_key_id, transport, expected, &reason, &request_id)?
-        {
-            CoopTransportOutcome::Updated(policy) => Ok(Reply {
-                status: 200,
-                body: Json(
-                    JsonObject::new()
-                        .raw("policy", &policy.0)
-                        .string("requestId", &request_id)
-                        .finish(),
-                ),
-            }),
-            CoopTransportOutcome::Conflict(policy) => Ok(Reply {
-                status: 409,
-                body: Json(
-                    JsonObject::new()
-                        .raw("error", ADMIN_CONFLICT)
-                        .raw("policy", &policy.0)
-                        .finish(),
-                ),
-            }),
-        }
+        let request_id = wire::random_uuid().map_err(|_| RelayError::Random)?;
+        let outcome = self.policy.set_coop_transport(
+            admin,
+            change.transport,
+            change.expected_version,
+            &change.reason,
+            &request_id,
+        )?;
+        Ok(match outcome {
+            CoopTransportOutcome::Updated(Json(policy)) => reply(
+                200,
+                JsonObject::new()
+                    .raw("policy", &policy)
+                    .string("requestId", &request_id)
+                    .finish(),
+            ),
+            CoopTransportOutcome::Conflict(Json(policy)) => reply(
+                409,
+                JsonObject::new()
+                    .raw("error", ADMIN_CONFLICT)
+                    .raw("policy", &policy)
+                    .finish(),
+            ),
+        })
     }
 }
 
-/// (transport, expected version, audit reason), or `None` for the 400 answer.
-fn validate_coop_transport(body: &Value) -> Option<(CoopTransport, u64, String)> {
-    let transport = CoopTransport::parse(body.get("coopTransport")?.as_str()?)?;
-    let expected = js_number_value(body.get("expectedVersion")?);
-    if !is_safe_integer(expected) || expected < 0.0 {
-        return None;
+fn reply(status: u16, body: String) -> Reply {
+    Reply {
+        status,
+        body: Json(body),
     }
-    // A non-negative safe integer, so the cast is exact.
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let expected = expected as u64;
-    let reason = js_trim(body.get("reason").and_then(Value::as_str).unwrap_or(""));
-    let reason = first_utf16_units(reason, REASON_MAX_UNITS);
-    (reason.encode_utf16().count() >= REASON_MIN_UNITS).then(|| (transport, expected, reason.to_owned()))
+}
+
+/// The admin switch's body, once it passed every check.
+struct CoopTransportChange {
+    transport: CoopTransport,
+    expected_version: u64,
+    reason: String,
+}
+
+impl CoopTransportChange {
+    /// `None` is the 400 answer.
+    fn read(body: &Value) -> Option<Self> {
+        let transport = body
+            .get("coopTransport")
+            .and_then(Value::as_str)
+            .and_then(CoopTransport::parse)?;
+        let version = wire::js_number_value(body.get("expectedVersion")?);
+        if version < 0.0 || !wire::is_safe_integer(version) {
+            return None;
+        }
+        let trimmed = wire::js_trim(body.get("reason").and_then(Value::as_str).unwrap_or_default());
+        let (shortest, longest) = REASON_UNITS;
+        let reason = first_utf16_units(trimmed, longest);
+        (reason.encode_utf16().count() >= shortest).then(|| Self {
+            transport,
+            // A non-negative safe integer, so the cast is exact.
+            expected_version: version as u64,
+            reason: reason.to_owned(),
+        })
+    }
 }
 
 /// The longest prefix of at most `limit` UTF-16 units that does not split a character.
 fn first_utf16_units(text: &str, limit: usize) -> &str {
-    let mut units = 0;
-    for (at, c) in text.char_indices() {
-        units += c.len_utf16();
-        if units > limit {
-            return &text[..at];
-        }
-    }
-    text
+    let mut used = 0;
+    let end = text
+        .char_indices()
+        .find(|&(_, c)| {
+            used += c.len_utf16();
+            used > limit
+        })
+        .map_or(text.len(), |(at, _)| at);
+    &text[..end]
 }
 
 impl IceService for Ice {
-    fn transport_config(
-        &self,
-        account: AccountId,
-        session: SessionId,
-        generation: Option<i64>,
-    ) -> BoxFuture<'_, Result<Json, RelayError>> {
-        Box::pin(self.config_for(account, session, generation))
+    fn transport_config(&self, who: AccountId, hunt: SessionId, generation: Option<i64>) -> Answer<'_, Json> {
+        Box::pin(self.config_for(who, hunt, generation))
     }
 
-    fn submit_signal(
-        &self,
-        account: AccountId,
-        session: SessionId,
-        body: Value,
-    ) -> BoxFuture<'_, Result<Json, RelayError>> {
-        Box::pin(std::future::ready(self.signal(&account, &session, &body)))
+    fn submit_signal(&self, who: AccountId, hunt: SessionId, body: Value) -> Answer<'_, Json> {
+        Box::pin(ready(self.signal(&who, &hunt, &body)))
     }
 
-    fn set_coop_transport(&self, admin_key_id: String, body: Value) -> BoxFuture<'_, Result<Reply, RelayError>> {
-        Box::pin(std::future::ready(self.coop_transport(&admin_key_id, &body)))
+    fn set_coop_transport(&self, admin: String, body: Value) -> Answer<'_, Reply> {
+        Box::pin(ready(self.coop_transport(&admin, &body)))
     }
 }
 

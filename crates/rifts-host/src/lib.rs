@@ -10,175 +10,163 @@ mod loader;
 pub mod session;
 pub mod transport;
 
-use std::path::Path;
+use std::fmt;
 
-use rifts_seam::{AccountId, BoxFuture, Component, HubKind, PeerId, Secret, SessionId, Unimplemented};
+use rifts_seam::{BoxFuture, Component, Unimplemented};
 
+// The host PC's files.
 pub use crate::files::{
     ADMISSION_PUBLIC_KEY_FILE, DISABLE_COOP_FLAG_FILE, FileHostState, HOST_SETTINGS_FILE, HUB_LIMITS_FILE, HostState,
     SESSION_FILES, TRANSPORT_DLL, validate_hub_limits,
 };
+// Loading the transport.
 #[cfg(feature = "in-process")]
 pub use crate::loader::in_process::InProcessTransport;
 pub use crate::loader::{NativeTransportLoader, sha256_file};
+// Ports, flows and the records they pass.
 pub use crate::session::{
-    CLEARED_VARIABLES, CapacityDecision, CommonBootstrapConfig, DIRECTOR_SERVER_SWITCHES, DefaultHostBackend, FilesFor,
-    GAME_LEFT_IDLE, GameTrafficWatch, HOST_COMMIT_FLOOR_MIB, HOST_MEMORY_FLOOR_MIB, HostBackend, HostBootstrapSpec,
-    HostedRole, HubLimits, IceFiles, IcePeerEntry, IceServerEntry, JoinBootstrapSpec, LAUNCH_VARIABLES,
-    LaunchEnvironmentSpec, LocalRealmHosting, LocalSession, LocalState, MAX_HUB_PEERS, MAX_HUNT_PEERS,
-    NoopServerSpawner, PeerDiff, PeerEvent, PeerListEntry, PeerLive, RealmHosting, RelayGrant, ServerSpawner,
-    SessionLive, TransportConfig, WantedPeer, apply_peer_event, apply_peer_line, attempts_in_window,
-    build_launch_environment, capacity_decision, cleanup_directory, create_session_directory, default_max_servers,
-    host_server_arguments, hunt_join_leave_outcome, ice_files, is_local_admission, next_idle_since, parse_ice_ready,
-    parse_peer_event, peer_diff, relay_refresh_due, relay_restart_due, restart_allowed, restart_backoff, safe_account,
-    safe_config_value, safe_credential, safe_key, safe_peer_id, safe_url, sanitize_central_log_line,
-    scheduled_restart_due, training_should_stop, trials_week, udp_stats_local_rx, wanted_peers, windows_command_line,
-    wire_session_id, write_session_file_0600,
+    CapacityDecision, CommonBootstrapConfig, DefaultHostBackend, FilesFor, GameTrafficWatch, HostBackend,
+    HostBootstrapSpec, HostedRole, HubLimits, IceFiles, IcePeerEntry, IceServerEntry, JoinBootstrapSpec,
+    LaunchEnvironmentSpec, LocalRealmHosting, LocalSession, LocalState, NoopServerSpawner, PeerDiff, PeerEvent,
+    PeerListEntry, PeerLive, RealmHosting, RelayGrant, ServerSpawner, SessionLive, TransportConfig, WantedPeer,
+};
+// Limits and names the launcher shows or passes on.
+pub use crate::session::{
+    CLEARED_VARIABLES, DIRECTOR_SERVER_SWITCHES, GAME_LEFT_IDLE, HOST_COMMIT_FLOOR_MIB, HOST_MEMORY_FLOOR_MIB,
+    LAUNCH_VARIABLES, MAX_HUB_PEERS, MAX_HUNT_PEERS,
+};
+// The pure rules and the session folder.
+pub use crate::session::{
+    apply_peer_event, apply_peer_line, attempts_in_window, build_launch_environment, capacity_decision,
+    cleanup_directory, create_session_directory, default_max_servers, host_server_arguments, hunt_join_leave_outcome,
+    ice_files, is_local_admission, next_idle_since, parse_ice_ready, parse_peer_event, peer_diff, relay_refresh_due,
+    relay_restart_due, restart_allowed, restart_backoff, safe_account, safe_config_value, safe_credential, safe_key,
+    safe_peer_id, safe_url, sanitize_central_log_line, scheduled_restart_due, training_should_stop, trials_week,
+    udp_stats_local_rx, wanted_peers, windows_command_line, wire_session_id, write_session_file_0600,
 };
 pub use crate::transport::{
     ABI_VERSION, Handle, HostOpen, JoinOpen, ReadyState, SessionResult, Signal, TransportAbi, TransportLoader,
 };
 
 /// The only error type of the crate. The launcher matches the variants, so names and payloads are API.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum HostError {
-    #[error(transparent)]
-    Unimplemented(#[from] Unimplemented),
-    #[error("{0}")]
+    Unimplemented(Unimplemented),
     Io(String),
     /// Kept for the launcher's error mapping; the in-process transport has no file to check (D1).
-    #[error("transport SHA-256 mismatch")]
-    HashMismatch { expected: [u8; 32], actual: [u8; 32] },
-    #[error("transport is missing export {0}")]
+    HashMismatch {
+        expected: [u8; 32],
+        actual: [u8; 32],
+    },
     MissingExport(&'static str),
-    #[error("transport speaks ABI version {0}; expected 3")]
     UnsupportedAbi(u32),
-    #[error("{0}")]
     InvalidInput(String),
-    #[error("{0}")]
     Transport(String),
-    #[error("{0}")]
     NotFound(String),
-    #[error("{0}")]
     Busy(String),
 }
 
+impl fmt::Display for HostError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unimplemented(inner) => fmt::Display::fmt(inner, f),
+            Self::HashMismatch { .. } => f.write_str("transport SHA-256 mismatch"),
+            Self::MissingExport(name) => write!(f, "transport is missing export {name}"),
+            Self::UnsupportedAbi(found) => write!(f, "transport speaks ABI version {found}; expected 3"),
+            Self::Io(text)
+            | Self::InvalidInput(text)
+            | Self::Transport(text)
+            | Self::NotFound(text)
+            | Self::Busy(text) => f.write_str(text),
+        }
+    }
+}
+
+impl std::error::Error for HostError {
+    // Transparent for the stub refusal, as before: its own source, if any.
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Unimplemented(inner) => std::error::Error::source(inner),
+            _ => None,
+        }
+    }
+}
+
+impl From<Unimplemented> for HostError {
+    fn from(inner: Unimplemented) -> Self {
+        Self::Unimplemented(inner)
+    }
+}
+
 /// Refuses everything, as the seam's other stubs do.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Stub;
 
-fn refuse<T>(operation: &'static str) -> Result<T, HostError> {
-    Err(Unimplemented::new(Component::Host, operation).into())
+fn refusal(operation: &'static str) -> HostError {
+    Unimplemented::new(Component::Host, operation).into()
+}
+
+// Each stub method refuses with `<prefix><method name>`, at once or as a ready future.
+macro_rules! refusing {
+    (now $prefix:literal: $($name:ident($($arg:ty),*) -> $out:ty;)*) => {$(
+        fn $name(&self, $(_: $arg),*) -> Result<$out, HostError> {
+            Err(refusal(concat!($prefix, stringify!($name))))
+        }
+    )*};
+    (later: $($name:ident($($arg:ty),*) -> $out:ty;)*) => {$(
+        fn $name(&self, $(_: $arg),*) -> BoxFuture<'_, Result<$out, HostError>> {
+            rifts_seam::stub(Component::Host, stringify!($name))
+        }
+    )*};
 }
 
 impl TransportLoader for Stub {
-    fn load(&self, _dll: &Path, _expected_sha256: [u8; 32]) -> Result<Box<dyn TransportAbi>, HostError> {
-        refuse("transport.load")
+    refusing! { now "transport.":
+        load(&std::path::Path, [u8; 32]) -> Box<dyn TransportAbi>;
     }
 }
 
 impl TransportAbi for Stub {
-    fn abi_version(&self) -> Result<u32, HostError> {
-        refuse("transport.abi_version")
+    refusing! { now "transport.":
+        abi_version() -> u32;
+        initialize() -> ();
+        shutdown() -> ();
+        peer_id() -> rifts_seam::PeerId;
+        networking_ready() -> bool;
+        host_open(&HostOpen) -> Handle;
+        join_open(&JoinOpen) -> Handle;
+        wait_ready(Handle, u32) -> ReadyState;
+        session_running(Handle) -> bool;
+        stop_session(Handle) -> ();
+        last_session_result(Handle) -> SessionResult;
+        read_signal(Handle) -> Option<Signal>;
+        submit_signal(Handle, &rifts_seam::AccountId, &str, &str) -> ();
+        read_peer_event(Handle) -> Option<String>;
+        read_diagnostic(Handle) -> Option<String>;
+        add_peer(Handle, &rifts_seam::AccountId, rifts_seam::PeerId, &rifts_seam::Secret) -> ();
+        remove_peer(Handle, &rifts_seam::AccountId, &str) -> ();
+        update_relay_credential(Handle, &str, &rifts_seam::Secret) -> ();
     }
-    fn initialize(&self) -> Result<(), HostError> {
-        refuse("transport.initialize")
-    }
-    fn shutdown(&self) -> Result<(), HostError> {
-        refuse("transport.shutdown")
-    }
-    fn peer_id(&self) -> Result<PeerId, HostError> {
-        refuse("transport.peer_id")
-    }
-    fn networking_ready(&self) -> Result<bool, HostError> {
-        refuse("transport.networking_ready")
-    }
-    fn host_open(&self, _open: &HostOpen) -> Result<Handle, HostError> {
-        refuse("transport.host_open")
-    }
-    fn join_open(&self, _open: &JoinOpen) -> Result<Handle, HostError> {
-        refuse("transport.join_open")
-    }
-    fn wait_ready(&self, _handle: Handle, _timeout_ms: u32) -> Result<ReadyState, HostError> {
-        refuse("transport.wait_ready")
-    }
-    fn session_running(&self, _handle: Handle) -> Result<bool, HostError> {
-        refuse("transport.session_running")
-    }
-    fn stop_session(&self, _handle: Handle) -> Result<(), HostError> {
-        refuse("transport.stop_session")
-    }
-    fn last_session_result(&self, _handle: Handle) -> Result<SessionResult, HostError> {
-        refuse("transport.last_session_result")
-    }
-    fn read_signal(&self, _handle: Handle) -> Result<Option<Signal>, HostError> {
-        refuse("transport.read_signal")
-    }
-    fn submit_signal(&self, _handle: Handle, _from: &AccountId, _kind: &str, _data: &str) -> Result<(), HostError> {
-        refuse("transport.submit_signal")
-    }
-    fn read_peer_event(&self, _handle: Handle) -> Result<Option<String>, HostError> {
-        refuse("transport.read_peer_event")
-    }
-    fn read_diagnostic(&self, _handle: Handle) -> Result<Option<String>, HostError> {
-        refuse("transport.read_diagnostic")
-    }
-    fn add_peer(&self, _handle: Handle, _account: &AccountId, _peer: PeerId, _key: &Secret) -> Result<(), HostError> {
-        refuse("transport.add_peer")
-    }
-    fn remove_peer(&self, _handle: Handle, _account: &AccountId, _reason: &str) -> Result<(), HostError> {
-        refuse("transport.remove_peer")
-    }
-    fn update_relay_credential(&self, _handle: Handle, _user: &str, _credential: &Secret) -> Result<(), HostError> {
-        refuse("transport.update_relay_credential")
-    }
-}
-
-fn refuse_later<T: Send + 'static>(operation: &'static str) -> BoxFuture<'static, Result<T, HostError>> {
-    rifts_seam::stub(Component::Host, operation)
 }
 
 impl RealmHosting for Stub {
-    fn coop_available(&self) -> BoxFuture<'_, Result<bool, HostError>> {
-        refuse_later("coop_available")
-    }
-    fn host_hunt(&self, _account: AccountId, _session: SessionId) -> BoxFuture<'_, Result<LocalSession, HostError>> {
-        refuse_later("host_hunt")
-    }
-    fn join_hunt(&self, _account: AccountId, _session: SessionId) -> BoxFuture<'_, Result<LocalSession, HostError>> {
-        refuse_later("join_hunt")
-    }
-    fn start_hub(
-        &self,
-        _account: AccountId,
-        _kind: HubKind,
-        _limits: HubLimits,
-    ) -> BoxFuture<'_, Result<LocalSession, HostError>> {
-        refuse_later("start_hub")
-    }
-    fn stop_hub(&self, _account: AccountId, _kind: HubKind) -> BoxFuture<'_, Result<(), HostError>> {
-        refuse_later("stop_hub")
-    }
-    fn stop(&self, _session: SessionId) -> BoxFuture<'_, Result<(), HostError>> {
-        refuse_later("stop")
-    }
-    fn sessions(&self) -> BoxFuture<'_, Result<Vec<LocalSession>, HostError>> {
-        refuse_later("sessions")
+    refusing! { later:
+        coop_available() -> bool;
+        host_hunt(rifts_seam::AccountId, rifts_seam::SessionId) -> LocalSession;
+        join_hunt(rifts_seam::AccountId, rifts_seam::SessionId) -> LocalSession;
+        start_hub(rifts_seam::AccountId, rifts_seam::HubKind, HubLimits) -> LocalSession;
+        stop_hub(rifts_seam::AccountId, rifts_seam::HubKind) -> ();
+        stop(rifts_seam::SessionId) -> ();
+        sessions() -> Vec<LocalSession>;
     }
 }
 
 impl HostState for Stub {
-    fn hub_limits(&self) -> Result<Option<HubLimits>, HostError> {
-        refuse("state.hub_limits")
-    }
-    fn save_hub_limits(&self, _limits: &HubLimits) -> Result<(), HostError> {
-        refuse("state.save_hub_limits")
-    }
-    fn control_cursor(&self, _account: &AccountId) -> Result<Option<u64>, HostError> {
-        refuse("state.control_cursor")
-    }
-    fn set_control_cursor(&self, _account: &AccountId, _sequence: u64) -> Result<(), HostError> {
-        refuse("state.set_control_cursor")
+    refusing! { now "state.":
+        hub_limits() -> Option<HubLimits>;
+        save_hub_limits(&HubLimits) -> ();
+        control_cursor(&rifts_seam::AccountId) -> Option<u64>;
+        set_control_cursor(&rifts_seam::AccountId, u64) -> ();
     }
 }

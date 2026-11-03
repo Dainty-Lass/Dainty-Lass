@@ -3,49 +3,70 @@
 
 //! Network-wide ids: a ULID tagged with the node that minted it (DD18).
 
-use std::fmt;
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IdError {
-    #[error("a ULID is 26 Crockford base32 characters")]
     BadUlid,
-    #[error("a node id is 1 to 32 of a-z, 0-9 and '-', not starting or ending with '-'")]
     BadNode,
-    #[error("a global id is <ULID>@<node>")]
     BadGlobal,
 }
 
-const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const ULID_LEN: usize = 26;
-const RANDOM_BITS: u32 = 80;
-const RANDOM_MASK: u128 = (1 << RANDOM_BITS) - 1;
-const MILLIS_MASK: u64 = (1 << 48) - 1;
+impl fmt::Display for IdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::BadGlobal => "a global id is <ULID>@<node>",
+            Self::BadNode => "a node id is 1 to 32 of a-z, 0-9 and '-', not starting or ending with '-'",
+            Self::BadUlid => "a ULID is 26 Crockford base32 characters",
+        })
+    }
+}
+
+impl std::error::Error for IdError {}
+
+/// Crockford's base32: no I, L, O or U.
+const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const DIGITS: usize = 26;
+const TIME_SHIFT: u32 = 80;
+
+/// Each ASCII byte's digit value (either case), or `NONE`.
+const NONE: u8 = 0xff;
+const DIGIT_OF: [u8; 128] = {
+    let mut table = [NONE; 128];
+    let mut value = 0;
+    while value < ALPHABET.len() {
+        let upper = ALPHABET[value];
+        table[upper as usize] = value as u8;
+        table[upper.to_ascii_lowercase() as usize] = value as u8;
+        value += 1;
+    }
+    table
+};
 
 /// 48 bits of Unix milliseconds over 80 random bits.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Ulid(pub u128);
 
 impl Ulid {
+    /// Bits beyond 48 of `unix_millis` or 80 of `random` are dropped.
     pub const fn from_parts(unix_millis: u64, random: u128) -> Self {
-        Self((((unix_millis & MILLIS_MASK) as u128) << RANDOM_BITS) | (random & RANDOM_MASK))
+        let time = (unix_millis as u128) << TIME_SHIFT;
+        let random = random << (128 - TIME_SHIFT) >> (128 - TIME_SHIFT);
+        Self(time | random)
     }
 
     pub const fn unix_millis(self) -> u64 {
-        (self.0 >> RANDOM_BITS) as u64
+        (self.0 >> TIME_SHIFT) as u64
     }
 }
 
 impl fmt::Display for Ulid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut text = [0u8; ULID_LEN];
-        let mut rest = self.0;
-        for slot in text.iter_mut().rev() {
-            *slot = CROCKFORD[(rest & 31) as usize];
-            rest >>= 5;
-        }
-        // Every byte comes from the ASCII alphabet.
-        f.write_str(std::str::from_utf8(&text).map_err(|_| fmt::Error)?)
+        let text: String = (0..DIGITS)
+            .rev()
+            .map(|place| char::from(ALPHABET[((self.0 >> (5 * place)) & 0x1f) as usize]))
+            .collect();
+        f.write_str(&text)
     }
 }
 
@@ -53,93 +74,95 @@ impl FromStr for Ulid {
     type Err = IdError;
 
     fn from_str(text: &str) -> Result<Self, IdError> {
-        let bytes = text.as_bytes();
         // 26 digits hold 130 bits, so the first may only carry the top 3 of the 128.
-        if bytes.len() != ULID_LEN || !(b'0'..=b'7').contains(&bytes[0]) {
+        let leading_ok = matches!(text.as_bytes().first(), Some(b'0'..=b'7'));
+        if text.len() != DIGITS || !leading_ok {
             return Err(IdError::BadUlid);
         }
-        let mut value: u128 = 0;
-        for byte in bytes {
-            let upper = byte.to_ascii_uppercase();
-            let digit = CROCKFORD.iter().position(|&c| c == upper).ok_or(IdError::BadUlid)?;
-            value = (value << 5) | digit as u128;
-        }
-        Ok(Self(value))
+        text.bytes().try_fold(Self(0), |Self(acc), byte| {
+            let digit = DIGIT_OF.get(usize::from(byte)).copied().filter(|d| *d != NONE);
+            digit.map(|d| Self(acc << 5 | u128::from(d))).ok_or(IdError::BadUlid)
+        })
     }
 }
 
 /// The name of a node in the network.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct NodeId(String);
 
 impl NodeId {
     pub fn new(name: &str) -> Result<Self, IdError> {
-        let bytes = name.as_bytes();
-        let allowed = |b: &u8| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-';
-        let valid = (1..=32).contains(&bytes.len())
-            && bytes.iter().all(allowed)
-            && !name.starts_with('-')
-            && !name.ends_with('-');
-        if valid {
-            Ok(Self(name.to_owned()))
-        } else {
-            Err(IdError::BadNode)
+        let charset = name.bytes().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-'));
+        let edges = !(name.starts_with('-') || name.ends_with('-'));
+        match name.len() {
+            1..=32 if charset && edges => Ok(Self(name.into())),
+            _ => Err(IdError::BadNode),
         }
     }
 
     pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for NodeId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        self.0.as_str()
     }
 }
 
 /// `<ULID>@<node>`.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct GlobalId {
     pub ulid: Ulid,
     pub node: NodeId,
-}
-
-impl fmt::Display for GlobalId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}@{}", self.ulid, self.node)
-    }
 }
 
 impl FromStr for GlobalId {
     type Err = IdError;
 
     fn from_str(text: &str) -> Result<Self, IdError> {
-        let (ulid, node) = text.split_once('@').ok_or(IdError::BadGlobal)?;
-        Ok(Self {
-            ulid: ulid.parse()?,
-            node: NodeId::new(node)?,
-        })
+        let Some((ulid, node)) = text.split_once('@') else {
+            return Err(IdError::BadGlobal);
+        };
+        let ulid = Ulid::from_str(ulid)?;
+        NodeId::new(node).map(|node| Self { ulid, node })
     }
+}
+
+/// A transport peer id.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct PeerId(pub u64);
+
+/// An account as the module names it; no format is imposed here.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct AccountId(pub String);
+
+// Ids shown as their text; the ULID-backed ones also parse back.
+macro_rules! shown_as {
+    ($($name:ty => |$it:ident| $text:expr;)*) => {$(
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let $it = self;
+                fmt::Display::fmt($text, f)
+            }
+        }
+    )*};
+}
+
+shown_as! {
+    NodeId => |id| id.as_str();
+    AccountId => |id| id.0.as_str();
+    GlobalId => |id| &format_args!("{}@{}", id.ulid, id.node);
 }
 
 macro_rules! global_newtype {
     ($($(#[$meta:meta])* $name:ident),* $(,)?) => {$(
         $(#[$meta])*
-        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
         pub struct $name(pub GlobalId);
 
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.0.fmt(f)
-            }
-        }
+        shown_as! { $name => |id| &id.0; }
 
         impl FromStr for $name {
             type Err = IdError;
 
             fn from_str(text: &str) -> Result<Self, IdError> {
-                text.parse().map(Self)
+                GlobalId::from_str(text).map(Self)
             }
         }
     )*};
@@ -156,117 +179,101 @@ global_newtype!(
     AdmissionId,
 );
 
-/// An account as the module names it; no format is imposed here.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct AccountId(pub String);
-
-impl fmt::Display for AccountId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-/// A transport peer id.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PeerId(pub u64);
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const SAMPLE: &str = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
 
     #[test]
     fn ulid_text_round_trip() {
         let ulid = Ulid::from_parts(1_793_000_000_123, 0x1234_5678_9abc_def0_1234);
         assert_eq!(ulid.unix_millis(), 1_793_000_000_123);
-        assert_eq!(ulid.0 & RANDOM_MASK, 0x1234_5678_9abc_def0_1234);
+        assert_eq!(ulid.0 & ((1 << 80) - 1), 0x1234_5678_9abc_def0_1234);
         let text = ulid.to_string();
         assert_eq!(text.len(), 26);
-        assert_eq!(text.parse::<Ulid>(), Ok(ulid));
-        assert_eq!(text.to_ascii_lowercase().parse::<Ulid>(), Ok(ulid));
-        assert_eq!(Ulid(0).to_string(), "00000000000000000000000000");
-        assert_eq!(Ulid(u128::MAX).to_string(), "7ZZZZZZZZZZZZZZZZZZZZZZZZZ");
-        assert_eq!("7ZZZZZZZZZZZZZZZZZZZZZZZZZ".parse::<Ulid>(), Ok(Ulid(u128::MAX)));
+        for spelling in [text.clone(), text.to_ascii_lowercase()] {
+            assert_eq!(spelling.parse::<Ulid>(), Ok(ulid));
+        }
+        let extremes = [
+            (Ulid(0), "0".repeat(26)),
+            (Ulid(u128::MAX), format!("7{}", "Z".repeat(25))),
+        ];
+        for (value, shown) in extremes {
+            assert_eq!(value.to_string(), shown);
+            assert_eq!(shown.parse::<Ulid>(), Ok(value));
+        }
     }
 
     #[test]
     fn from_parts_drops_bits_out_of_range() {
-        let ulid = Ulid::from_parts(u64::MAX, u128::MAX);
-        assert_eq!(ulid, Ulid(u128::MAX));
-        assert_eq!(ulid.unix_millis(), (1 << 48) - 1);
+        let full = Ulid::from_parts(u64::MAX, u128::MAX);
+        assert_eq!((full, full.unix_millis()), (Ulid(u128::MAX), (1 << 48) - 1));
         assert_eq!(Ulid::from_parts(1, 0), Ulid(1 << 80));
     }
 
     #[test]
     fn ulid_refusals() {
-        for bad in [
-            "8ZZZZZZZZZZZZZZZZZZZZZZZZZ",
-            "01ARZ3NDEKTSV4RRFFQ69G5FAU",
-            "01ARZ3NDEKTSV4RRFFQ69G5FA",
-            "01ARZ3NDEKTSV4RRFFQ69G5FAVV",
-            "01ARZ3NDEKTSV4RRFFQ69G5FAI",
-            "01ARZ3NDEKTSV4RRFFQ69G5FAL",
-            "01ARZ3NDEKTSV4RRFFQ69G5FAO",
-            "",
-        ] {
-            assert_eq!(bad.parse::<Ulid>(), Err(IdError::BadUlid), "{bad}");
+        let stem = &SAMPLE[..25];
+        let bad = [
+            "8ZZZZZZZZZZZZZZZZZZZZZZZZZ".to_owned(),
+            format!("{stem}U"),
+            stem.to_owned(),
+            format!("{SAMPLE}V"),
+            format!("{stem}I"),
+            format!("{stem}L"),
+            format!("{stem}O"),
+            String::new(),
+        ];
+        for text in &bad {
+            assert_eq!(text.parse::<Ulid>(), Err(IdError::BadUlid), "{text}");
         }
-        assert!("01ARZ3NDEKTSV4RRFFQ69G5FAV".parse::<Ulid>().is_ok());
+        assert!(SAMPLE.parse::<Ulid>().is_ok());
     }
 
     #[test]
     fn node_ids() {
-        for good in ["a", "node-1", "0", "abcdefghijklmnopqrstuvwxyz012345"] {
-            assert_eq!(NodeId::new(good).map(|n| n.as_str().to_owned()), Ok(good.to_owned()));
+        let longest = "abcdefghijklmnopqrstuvwxyz012345";
+        for good in ["a", "node-1", "0", longest] {
+            assert_eq!(NodeId::new(good).map(|n| n.to_string()), Ok(good.to_owned()));
         }
-        for bad in [
-            "",
-            "-x",
-            "x-",
-            "New-York",
-            "a_b",
-            "a.b",
-            "abcdefghijklmnopqrstuvwxyz0123456",
-        ] {
+        let too_long = format!("{longest}6");
+        for bad in ["", "-x", "x-", "New-York", "a_b", "a.b", too_long.as_str()] {
             assert_eq!(NodeId::new(bad), Err(IdError::BadNode), "{bad}");
         }
     }
 
     #[test]
     fn global_ids() {
-        let text = "01ARZ3NDEKTSV4RRFFQ69G5FAV@eu-1";
+        let text = format!("{SAMPLE}@eu-1");
         let id: GlobalId = text.parse().unwrap();
-        assert_eq!(id.node.as_str(), "eu-1");
-        assert_eq!(id.to_string(), text);
+        assert_eq!((id.node.as_str(), id.to_string()), ("eu-1", text.clone()));
         let session: SessionId = text.parse().unwrap();
-        assert_eq!(session.0, id);
-        assert_eq!(session.to_string(), text);
+        assert_eq!((&session.0, session.to_string()), (&id, text));
+
+        assert_eq!(SAMPLE.parse::<GlobalId>(), Err(IdError::BadGlobal));
         assert_eq!(
-            "01ARZ3NDEKTSV4RRFFQ69G5FAV".parse::<GlobalId>(),
-            Err(IdError::BadGlobal)
+            format!("{}@eu", &SAMPLE[..25]).parse::<RealmId>(),
+            Err(IdError::BadUlid)
         );
-        assert_eq!("01ARZ3NDEKTSV4RRFFQ69G5FA@eu".parse::<RealmId>(), Err(IdError::BadUlid));
-        assert_eq!(
-            "01ARZ3NDEKTSV4RRFFQ69G5FAV@-x".parse::<PartyId>(),
-            Err(IdError::BadNode)
-        );
-        assert_eq!(
-            "01ARZ3NDEKTSV4RRFFQ69G5FAV@New-York".parse::<TicketId>(),
-            Err(IdError::BadNode)
-        );
-        assert_eq!(
-            "01ARZ3NDEKTSV4RRFFQ69G5FAV@a@b".parse::<AdmissionId>(),
-            Err(IdError::BadNode)
-        );
+        assert_eq!(format!("{SAMPLE}@-x").parse::<PartyId>(), Err(IdError::BadNode));
+        assert_eq!(format!("{SAMPLE}@New-York").parse::<TicketId>(), Err(IdError::BadNode));
+        assert_eq!(format!("{SAMPLE}@a@b").parse::<AdmissionId>(), Err(IdError::BadNode));
     }
 
     #[test]
     fn error_texts() {
-        assert_eq!(IdError::BadUlid.to_string(), "a ULID is 26 Crockford base32 characters");
-        assert_eq!(
-            IdError::BadNode.to_string(),
-            "a node id is 1 to 32 of a-z, 0-9 and '-', not starting or ending with '-'"
-        );
-        assert_eq!(IdError::BadGlobal.to_string(), "a global id is <ULID>@<node>");
+        let texts = [
+            (IdError::BadUlid, "a ULID is 26 Crockford base32 characters"),
+            (
+                IdError::BadNode,
+                "a node id is 1 to 32 of a-z, 0-9 and '-', not starting or ending with '-'",
+            ),
+            (IdError::BadGlobal, "a global id is <ULID>@<node>"),
+        ];
+        for (error, text) in texts {
+            assert_eq!(error.to_string(), text);
+        }
         assert_eq!(AccountId("acct-1".into()).to_string(), "acct-1");
     }
 }

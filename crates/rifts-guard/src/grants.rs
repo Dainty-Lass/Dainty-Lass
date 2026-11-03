@@ -95,7 +95,7 @@ const COSMETIC_TAGS: [&str; 13] = [
 ];
 const ENTITLEMENT_HEADS: [&str; 5] = ["ent", "pass", "eventpass", "minipass", "exchange_slot"];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum DenyClass {
     PremiumCurrency,
     HuntPass,
@@ -105,16 +105,17 @@ pub enum DenyClass {
 
 impl DenyClass {
     pub fn as_str(self) -> &'static str {
-        match self {
-            Self::PremiumCurrency => "PREMIUM_CURRENCY",
-            Self::HuntPass => "HUNT_PASS",
-            Self::Cosmetic => "COSMETIC",
-            Self::Entitlement => "ENTITLEMENT",
-        }
+        const NAMES: [&str; 4] = ["PREMIUM_CURRENCY", "HUNT_PASS", "COSMETIC", "ENTITLEMENT"];
+        NAMES[self as usize]
+    }
+
+    /// Taking such an item away is refused too: it costs money or unlocks content.
+    fn guards_removal(self) -> bool {
+        self == Self::PremiumCurrency || self == Self::Entitlement
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GrantField {
     AddStackedItems,
     AddInstancedItems,
@@ -130,68 +131,70 @@ impl GrantField {
         Self::RemoveInstancedItems,
     ];
 
+    /// The body's key for the list.
     pub fn as_str(self) -> &'static str {
-        match self {
-            Self::AddStackedItems => "addStackedItems",
-            Self::AddInstancedItems => "addInstancedItems",
-            Self::RemoveStackedItems => "removeStackedItems",
-            Self::RemoveInstancedItems => "removeInstancedItems",
-        }
+        const KEYS: [&str; 4] = [
+            "addStackedItems",
+            "addInstancedItems",
+            "removeStackedItems",
+            "removeInstancedItems",
+        ];
+        KEYS[self as usize]
     }
 
     fn is_add(self) -> bool {
-        matches!(self, Self::AddStackedItems | Self::AddInstancedItems)
+        self.as_str().starts_with("add")
     }
 }
 
 /// A catalogue that knows nothing: no tags, nothing prestige, no entitlement names.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct NoGameData;
 
 impl HostGrantCatalog for NoGameData {
-    fn tags_of(&self, _catalog_id: &str) -> Option<Vec<String>> {
+    fn tags_of(&self, _: &str) -> Option<Vec<String>> {
         None
     }
 
-    fn is_prestige_reward(&self, _catalog_id: &str) -> bool {
+    fn is_prestige_reward(&self, _: &str) -> bool {
         false
     }
 
-    fn is_prestige_gated(&self, _catalog_id: &str) -> bool {
+    fn is_prestige_gated(&self, _: &str) -> bool {
         false
     }
 
-    fn is_entitlement_name(&self, _name: &str) -> bool {
+    fn is_entitlement_name(&self, _: &str) -> bool {
         false
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Violation {
     pub catalog_id: String,
     pub denied_class: DenyClass,
     pub field: GrantField,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GrantDenial {
     pub classes: Vec<&'static str>,
     pub violations: Vec<Violation>,
     pub summary: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct GrantSession {
     pub no_completion: bool,
     pub realm_hub: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Allowances {
     pub draft_premium: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DraftPremiumDecision {
     pub allowed: bool,
     pub reason: &'static str,
@@ -201,25 +204,34 @@ pub struct DraftPremiumDecision {
 
 impl DraftPremiumDecision {
     pub fn balance_tags(&self) -> String {
-        self.balance
-            .map(|(before, after)| format!(" balance={before}->{after} cap={HOST_DRAFT_PREMIUM_BALANCE_CAP}"))
-            .unwrap_or_default()
+        let Some((before, after)) = self.balance else {
+            return String::new();
+        };
+        format!(" balance={before}->{after} cap={HOST_DRAFT_PREMIUM_BALANCE_CAP}")
+    }
+
+    fn refused(reason: &'static str) -> Self {
+        Self {
+            allowed: false,
+            reason,
+            balance: None,
+        }
     }
 }
 
+/// `text` begins with `prefix`, ASCII case aside.
 fn starts_with_ignore_case(text: &str, prefix: &str) -> bool {
-    text.len() >= prefix.len()
-        && text.is_char_boundary(prefix.len())
-        && text[..prefix.len()].eq_ignore_ascii_case(prefix)
+    text.get(..prefix.len())
+        .is_some_and(|head| head.eq_ignore_ascii_case(prefix))
 }
 
 /// `id_currency_x` is the same item as `CURRENCY_X`.
 fn canonical_id(catalog_id: &str) -> String {
+    const ALIAS: &str = "id_currency_";
     let id = js_trim(catalog_id);
-    if starts_with_ignore_case(id, "id_currency_") {
-        format!("CURRENCY_{}", &id["id_currency_".len()..]).to_uppercase()
-    } else {
-        id.to_owned()
+    match starts_with_ignore_case(id, ALIAS) {
+        true => ["CURRENCY_", &id[ALIAS.len()..]].concat().to_uppercase(),
+        false => id.to_owned(),
     }
 }
 
@@ -228,24 +240,20 @@ fn is_season_currency(up: &str) -> bool {
     let Some(rest) = up.strip_prefix("CURRENCY_S") else {
         return false;
     };
-    let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
-    digits > 0 && matches!(&rest[digits..], "_COIN" | "_DAILY")
+    let suffix = rest.trim_start_matches(|c: char| c.is_ascii_digit());
+    suffix.len() < rest.len() && (suffix == "_COIN" || suffix == "_DAILY")
 }
 
 fn entitlement_tail(tail: &str) -> bool {
-    !tail.is_empty()
-        && tail
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'.' | b'-'))
+    let allowed = |b: u8| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'_' | b'.' | b'-');
+    !tail.is_empty() && tail.bytes().all(allowed)
 }
 
+/// `<head>_<tail>` for a known head, or `<tail>_premium`.
 fn is_entitlement_id(id: &str) -> bool {
-    let headed = ENTITLEMENT_HEADS.iter().any(|head| {
-        id.strip_prefix(head)
-            .and_then(|rest| rest.strip_prefix('_'))
-            .is_some_and(entitlement_tail)
-    });
-    headed || id.strip_suffix("_premium").is_some_and(entitlement_tail)
+    let after_head = |head: &&str| id.strip_prefix(*head).and_then(|rest| rest.strip_prefix('_'));
+    ENTITLEMENT_HEADS.iter().filter_map(after_head).any(entitlement_tail)
+        || id.strip_suffix("_premium").is_some_and(entitlement_tail)
 }
 
 pub fn classify(catalog_id: &str, catalog: &dyn HostGrantCatalog) -> Option<DenyClass> {
@@ -256,48 +264,47 @@ pub fn classify(catalog_id: &str, catalog: &dyn HostGrantCatalog) -> Option<Deny
     let up = id.to_uppercase();
     let tags: Vec<String> = catalog
         .tags_of(&id)
-        .unwrap_or_default()
-        .iter()
+        .into_iter()
+        .flatten()
         .map(|tag| tag.to_lowercase())
         .collect();
-    let tagged = |names: &[&str]| tags.iter().any(|tag| names.contains(&tag.as_str()));
+    let tagged = |names: &[&str]| tags.iter().any(|tag| names.iter().any(|name| name == tag));
+    let begins = |prefixes: &[&str]| prefixes.iter().any(|prefix| up.starts_with(prefix));
 
-    if up.starts_with("CURRENCY_PLATINUM")
-        || up.starts_with("DEBUG_")
-        || PLATINUM_IDS.contains(&id.as_str())
-        || tagged(&["platinum"])
-    {
-        return Some(DenyClass::PremiumCurrency);
-    }
-    if HUNT_PASS_IDS.contains(&up.as_str())
-        || is_season_currency(&up)
-        || HUNT_PASS_PREFIXES.iter().any(|p| up.starts_with(p))
-        || up.ends_with("_DRAFT_PREMIUM")
-        || catalog.is_prestige_reward(&id)
-        || tagged(&["seasonal_currency"])
-    {
-        return Some(DenyClass::HuntPass);
-    }
-    if COSMETIC_IDS.contains(&up.as_str())
-        || COSMETIC_PREFIXES.iter().any(|p| up.starts_with(p))
-        || tagged(&COSMETIC_TAGS)
-    {
-        return Some(DenyClass::Cosmetic);
-    }
-    if catalog.is_entitlement_name(&id.to_lowercase()) || is_entitlement_id(&id) {
-        return Some(DenyClass::Entitlement);
-    }
-    None
+    // In order: the first class an item falls in is its class.
+    let rules: [(DenyClass, &dyn Fn() -> bool); 4] = [
+        (DenyClass::PremiumCurrency, &|| {
+            begins(&["CURRENCY_PLATINUM", "DEBUG_"]) || PLATINUM_IDS.contains(&id.as_str()) || tagged(&["platinum"])
+        }),
+        (DenyClass::HuntPass, &|| {
+            HUNT_PASS_IDS.contains(&up.as_str())
+                || is_season_currency(&up)
+                || begins(&HUNT_PASS_PREFIXES)
+                || up.ends_with("_DRAFT_PREMIUM")
+                || catalog.is_prestige_reward(&id)
+                || tagged(&["seasonal_currency"])
+        }),
+        (DenyClass::Cosmetic, &|| {
+            COSMETIC_IDS.contains(&up.as_str()) || begins(&COSMETIC_PREFIXES) || tagged(&COSMETIC_TAGS)
+        }),
+        (DenyClass::Entitlement, &|| {
+            catalog.is_entitlement_name(&id.to_lowercase()) || is_entitlement_id(&id)
+        }),
+    ];
+    rules
+        .into_iter()
+        .find_map(|(class, applies)| applies().then_some(class))
 }
 
 fn items(body: &Value, field: GrantField) -> &[Value] {
-    body.get(field.as_str())
-        .and_then(Value::as_array)
-        .map_or(&[], Vec::as_slice)
+    match body.get(field.as_str()) {
+        Some(Value::Array(list)) => list,
+        _ => &[],
+    }
 }
 
 fn catalog_id(item: &Value) -> Option<&str> {
-    item.get("catalogId").and_then(Value::as_str)
+    item.get("catalogId")?.as_str()
 }
 
 /// `quantity` only when it is a JSON number.
@@ -305,94 +312,93 @@ fn quantity(item: &Value) -> Option<&Value> {
     item.get("quantity").filter(|q| q.is_number())
 }
 
+fn whole_quantity(item: &Value) -> Option<i64> {
+    quantity(item).and_then(safe_integer)
+}
+
+/// Exactly one unit, as a number.
+fn single(item: &Value) -> bool {
+    quantity(item).and_then(Value::as_f64) == Some(1.0)
+}
+
 pub fn is_claim_funded_coin_grant(item: &Value) -> bool {
-    catalog_id(item).is_some_and(|id| CHALLENGE_REWARD_CURRENCIES.contains(&id))
-        && quantity(item)
-            .and_then(safe_integer)
-            .is_some_and(|q| (1..=MAX_CHALLENGE_REWARD_PER_CLAIM).contains(&q))
+    let coin = catalog_id(item).is_some_and(|id| CHALLENGE_REWARD_CURRENCIES.contains(&id));
+    coin && whole_quantity(item).is_some_and(|q| (1..=MAX_CHALLENGE_REWARD_PER_CLAIM).contains(&q))
 }
 
 pub fn is_prestige_funded_grant(item: &Value, catalog: &dyn HostGrantCatalog) -> bool {
-    let Some(id) = catalog_id(item) else {
-        return false;
-    };
-    catalog.is_prestige_gated(id)
-        && quantity(item).and_then(safe_integer).is_some_and(|q| q > 0)
-        && classify(id, catalog) == Some(DenyClass::HuntPass)
+    catalog_id(item).is_some_and(|id| {
+        catalog.is_prestige_gated(id)
+            && whole_quantity(item).is_some_and(|q| q > 0)
+            && classify(id, catalog) == Some(DenyClass::HuntPass)
+    })
 }
 
 pub fn is_host_starter_cosmetic_add(item: &Value) -> bool {
-    catalog_id(item).is_some_and(|id| HOST_STARTER_COSMETIC_IDS.contains(&id))
-        && quantity(item).is_none_or(|q| q.as_f64() == Some(1.0))
+    let starter = catalog_id(item).is_some_and(|id| HOST_STARTER_COSMETIC_IDS.contains(&id));
+    starter && (quantity(item).is_none() || single(item))
 }
 
 pub fn is_host_draft_premium_add(item: &Value) -> bool {
-    catalog_id(item) == Some(HOST_DRAFT_PREMIUM_ID)
+    matches!(catalog_id(item), Some(HOST_DRAFT_PREMIUM_ID))
 }
 
 pub fn body_adds_host_draft_premium(body: &Value) -> bool {
-    items(body, GrantField::AddStackedItems)
-        .iter()
-        .any(is_host_draft_premium_add)
+    let added = items(body, GrantField::AddStackedItems);
+    added.iter().any(is_host_draft_premium_add)
 }
 
 pub fn is_platinum_spend_item(item: &Value) -> bool {
-    catalog_id(item).is_some_and(|id| {
-        let id = canonical_id(id);
-        PLATINUM_IDS.contains(&id.as_str())
-    })
+    let Some(id) = catalog_id(item) else {
+        return false;
+    };
+    PLATINUM_IDS.contains(&canonical_id(id).as_str())
 }
 
 /// Any item list with an entry in it.
 pub fn body_has_grant_or_spend(body: &Value) -> bool {
-    body.is_object() && GrantField::ALL.iter().any(|field| !items(body, *field).is_empty())
+    let lists = GrantField::ALL.map(|field| items(body, field));
+    body.is_object() && lists.iter().any(|list| !list.is_empty())
 }
 
 fn is_exempt(item: &Value, field: GrantField, body: &Value, catalog: &dyn HostGrantCatalog, allow: Allowances) -> bool {
-    if field == GrantField::AddStackedItems {
-        if is_claim_funded_coin_grant(item) || is_prestige_funded_grant(item, catalog) {
-            return true;
-        }
-        let draft_adds = items(body, field)
+    use GrantField::*;
+    let draft_token = || {
+        let adds = items(body, field)
             .iter()
-            .filter(|i| is_host_draft_premium_add(i))
+            .filter(|other| is_host_draft_premium_add(other))
             .count();
-        if allow.draft_premium
-            && draft_adds == 1
-            && is_host_draft_premium_add(item)
-            && quantity(item).and_then(Value::as_f64) == Some(1.0)
-        {
-            return true;
-        }
+        allow.draft_premium && adds == 1 && is_host_draft_premium_add(item) && single(item)
+    };
+    let funded = || is_claim_funded_coin_grant(item) || is_prestige_funded_grant(item, catalog);
+    match field {
+        AddStackedItems if funded() || draft_token() => true,
+        RemoveStackedItems if is_platinum_spend_item(item) => true,
+        _ => field.is_add() && is_host_starter_cosmetic_add(item),
     }
-    if field == GrantField::RemoveStackedItems && is_platinum_spend_item(item) {
-        return true;
-    }
-    field.is_add() && is_host_starter_cosmetic_add(item)
 }
 
 pub fn violations(body: &Value, catalog: &dyn HostGrantCatalog, allowances: Allowances) -> Vec<Violation> {
-    let mut found = Vec::new();
-    for field in GrantField::ALL {
-        for item in items(body, field) {
-            let Some(id) = catalog_id(item) else { continue };
-            if is_exempt(item, field, body, catalog, allowances) {
-                continue;
-            }
-            let Some(class) = classify(id, catalog) else { continue };
-            // taking items away only matters for what costs money or unlocks content
-            if !field.is_add() && !matches!(class, DenyClass::PremiumCurrency | DenyClass::Entitlement) {
-                continue;
-            }
-            found.push(Violation {
-                catalog_id: id.to_owned(),
-                denied_class: class,
-                field,
-            });
+    let listed = GrantField::ALL
+        .into_iter()
+        .flat_map(|field| items(body, field).iter().map(move |item| (field, item)));
+    let violation = |(field, item): (GrantField, &Value)| {
+        let id = catalog_id(item)?;
+        if is_exempt(item, field, body, catalog, allowances) {
+            return None;
         }
-    }
-    found
+        let class = classify(id, catalog).filter(|class| field.is_add() || class.guards_removal())?;
+        Some(Violation {
+            catalog_id: id.into(),
+            denied_class: class,
+            field,
+        })
+    };
+    listed.filter_map(violation).collect()
 }
+
+/// At most this many violations are named in a summary; the rest are counted.
+const SUMMARY_NAMES: usize = 16;
 
 pub fn grant_denial(
     session: GrantSession,
@@ -400,37 +406,36 @@ pub fn grant_denial(
     catalog: &dyn HostGrantCatalog,
     allowances: Allowances,
 ) -> Option<GrantDenial> {
+    // A session that pays no rewards refuses every grant and spend, whatever the item.
     if session.no_completion && !session.realm_hub && body_has_grant_or_spend(body) {
         return Some(GrantDenial {
             classes: vec!["NO_REWARD_SESSION"],
-            violations: Vec::new(),
-            summary: "any grant or spend".to_owned(),
+            violations: vec![],
+            summary: "any grant or spend".into(),
         });
     }
     let violations = violations(body, catalog, allowances);
     if violations.is_empty() {
         return None;
     }
-    let mut classes: Vec<&'static str> = Vec::new();
-    for violation in &violations {
-        let name = violation.denied_class.as_str();
+    let mut classes = Vec::new();
+    for name in violations.iter().map(|v| v.denied_class.as_str()) {
         if !classes.contains(&name) {
             classes.push(name);
         }
     }
-    let mut summary = violations
+    let mut named: Vec<String> = violations
         .iter()
-        .take(16)
+        .take(SUMMARY_NAMES)
         .map(|v| format!("{}({},{})", v.catalog_id, v.denied_class.as_str(), v.field.as_str()))
-        .collect::<Vec<_>>()
-        .join(",");
-    if violations.len() > 16 {
-        summary.push_str(&format!(",+{}", violations.len() - 16));
+        .collect();
+    if let Some(more) = violations.len().checked_sub(SUMMARY_NAMES).filter(|n| *n > 0) {
+        named.push(format!("+{more}"));
     }
     Some(GrantDenial {
+        summary: named.join(","),
         classes,
         violations,
-        summary,
     })
 }
 
@@ -439,48 +444,47 @@ pub fn stacked_balance_of(stored: Option<&str>, id: &str) -> Option<i128> {
     let Some(text) = stored else {
         return Some(0);
     };
-    let Ok(Value::Array(entries)) = serde_json::from_str::<Value>(text) else {
-        return None;
+    let entries = match serde_json::from_str::<Value>(text) {
+        Ok(Value::Array(entries)) => entries,
+        _ => return None,
     };
-    let mut total: i128 = 0;
-    for entry in &entries {
-        if catalog_id(entry) != Some(id) {
-            continue;
-        }
-        let quantity = entry.get("quantity").and_then(safe_integer).filter(|q| *q >= 0)?;
-        total += i128::from(quantity);
-    }
-    Some(total)
+    // One entry with a missing or negative quantity makes the whole balance unreadable.
+    entries
+        .iter()
+        .filter(|entry| catalog_id(entry) == Some(id))
+        .try_fold(0_i128, |total, entry| {
+            let held = entry
+                .get("quantity")
+                .and_then(safe_integer)
+                .filter(|q| !q.is_negative())?;
+            Some(total + i128::from(held))
+        })
 }
 
 pub fn decide_draft_premium(body: &Value, balance_before: Option<i128>) -> Option<DraftPremiumDecision> {
-    let adds: Vec<&Value> = items(body, GrantField::AddStackedItems)
+    let mut adds = items(body, GrantField::AddStackedItems)
         .iter()
-        .filter(|item| is_host_draft_premium_add(item))
-        .collect();
-    let refused = |reason, balance| DraftPremiumDecision {
-        allowed: false,
-        reason,
-        balance,
-    };
-    match adds.as_slice() {
-        [] => return None,
-        [one] if quantity(one).and_then(Value::as_f64) == Some(1.0) => {}
-        _ => return Some(refused("ONE_WHOLE_TOKEN_PER_TRANSACTION", None)),
+        .filter(|item| is_host_draft_premium_add(item));
+    let first = adds.next()?;
+    if adds.next().is_some() || !single(first) {
+        return Some(DraftPremiumDecision::refused("ONE_WHOLE_TOKEN_PER_TRANSACTION"));
     }
     let Some(before) = balance_before else {
-        return Some(refused("BALANCE_UNREADABLE", None));
+        return Some(DraftPremiumDecision::refused("BALANCE_UNREADABLE"));
     };
-    let spent: i128 = items(body, GrantField::RemoveStackedItems)
+    let removed = items(body, GrantField::RemoveStackedItems)
         .iter()
-        .filter(|item| is_host_draft_premium_add(item))
-        .filter_map(|item| quantity(item).and_then(safe_integer).filter(|q| *q > 0))
+        .filter(|item| is_host_draft_premium_add(item));
+    let spent: i128 = removed
+        .filter_map(whole_quantity)
+        .filter(|q| *q > 0)
         .map(i128::from)
         .sum();
     let after = before - spent + 1;
+    let allowed = after <= HOST_DRAFT_PREMIUM_BALANCE_CAP;
     Some(DraftPremiumDecision {
-        allowed: after <= HOST_DRAFT_PREMIUM_BALANCE_CAP,
-        reason: if after <= HOST_DRAFT_PREMIUM_BALANCE_CAP {
+        allowed,
+        reason: if allowed {
             "WITHIN_BALANCE_CAP"
         } else {
             "OVER_BALANCE_CAP"

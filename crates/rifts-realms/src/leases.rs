@@ -16,42 +16,53 @@ use crate::RealmsError;
 use crate::capabilities::HostCapabilities;
 use crate::db::RealmsDb;
 use crate::host_policy::EligibilityPolicy;
-use crate::hub::{
-    HubTick, RealmHubPolicy, decide_hub_tick, hub_end_counts_as_host_failure, is_hub_live, presence_purge_at,
-    realm_hosting_enabled,
-};
-use crate::hunt::{
-    ArtifactHashes, HostCapabilityRecord, HuntSession, HuntState, ObservationRecord, ReliabilityIncrements,
-    TransitionActor, hub_kind_name,
-};
-use crate::ids::{random_uuid, seam_session_id};
+use crate::hub::{HubTick, RealmHubPolicy, decide_hub_tick, hub_end_counts_as_host_failure, is_hub_live};
+use crate::hub::{presence_purge_at, realm_hosting_enabled};
+use crate::hunt::{ArtifactHashes, HostCapabilityRecord, HuntSession, HuntState, ObservationRecord};
+use crate::hunt::{TransitionActor, hub_kind_name};
 use crate::input::whole_number;
-use crate::lifecycle::{
-    CONTROL_LIFE_MS, DRAIN_COMPLETION_REASON, HOST_END_STATES, LIFECYCLE_STATES, Recovery, end_session, expire_offer,
-    host_loss_is_clean_end, is_pre_active_operator_stop_state, mark_suspect, queue, recover_from_suspect,
-    retry_pre_active_host, transition,
-};
+use crate::lifecycle::transition;
+use crate::lifecycle::{CONTROL_LIFE_MS, DRAIN_COMPLETION_REASON, HOST_END_STATES, LIFECYCLE_STATES, Recovery};
+use crate::lifecycle::{bump, clear_live_fields, end_session, expire_offer, host_loss_is_clean_end, one, queue};
+use crate::lifecycle::{is_pre_active_operator_stop_state, mark_suspect, recover_from_suspect, retry_pre_active_host};
 use crate::ports::{Clock, GuardSessions, OperationsView, RealmsLog};
 use crate::realm::{HostingPatch, HubState, Patch};
-use crate::repo::hub::RealmHubRepository;
-use crate::repo::hunts::{HuntRepository, LeaseRenewal};
 use crate::repo::realms::RealmsRepository;
+use crate::repo::{hub::RealmHubRepository, hunts::HuntRepository, hunts::HuntTx, hunts::LeaseRenewal};
 use crate::tiers::HostingPolicy;
 use crate::time::{Later as _, iso, parse_iso};
 
 use HuntState as H;
 
+/// Sessions read per sweep.
 const MONITOR_BATCH: u32 = 100;
+/// An observation's own clock may be this far from ours, and a recent one is this young.
 const OBSERVATION_WINDOW_MS: i64 = 15_000;
 const HUNT_MAX_PEERS: i64 = 4;
 const HUB_MAX_PEERS: i64 = 64;
-const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+/// `Number.MAX_SAFE_INTEGER`.
+const LARGEST_SEQUENCE: i64 = (1 << 53) - 1;
+/// The realm mirror's active server count stops here.
 const ACTIVE_SERVERS_CAP: i64 = 32;
+
+const FENCED: &str = "P2P_GENERATION_FENCED";
+const STOPPED: (&str, &str) = (
+    "P2P_EMERGENCY_STOP",
+    "Player-hosted hunt operations are temporarily stopped.",
+);
+const STALE_OBSERVATION: (&str, &str) = (
+    "P2P_TICKET_INVALID",
+    "The participant observation is malformed or stale.",
+);
+const OFF_HUB: (&str, &str) = (FENCED, "The observation is not bound to the active hub generation.");
+
+/// What a lifecycle step reports to the sweep.
+type Step = Result<Option<SweepStep>, RealmsError>;
 
 pub(crate) const LIFECYCLE_ACTOR: Actor = Actor::System("realms-lifecycle");
 
 /// What hosting reads from settings; isles may change `policy` and `realm_hosting` after reading it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct HostingSettings {
     pub policy: HostingPolicy,
     pub eligibility: EligibilityPolicy,
@@ -61,11 +72,15 @@ pub struct HostingSettings {
 
 impl HostingSettings {
     pub fn from_settings(settings: &dyn Settings) -> Self {
+        let realm_hosting = realm_hosting_enabled(settings);
+        let realm_hub = RealmHubPolicy::from_settings(settings);
+        let eligibility = EligibilityPolicy::from_settings(settings);
+        let policy = HostingPolicy::from_settings(settings);
         Self {
-            policy: HostingPolicy::from_settings(settings),
-            eligibility: EligibilityPolicy::from_settings(settings),
-            realm_hub: RealmHubPolicy::from_settings(settings),
-            realm_hosting: realm_hosting_enabled(settings),
+            policy,
+            eligibility,
+            realm_hub,
+            realm_hosting,
         }
     }
 }
@@ -94,7 +109,7 @@ pub struct HostingParts {
     pub log: Arc<dyn RealmsLog>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SweepStep {
     Suspect { reason: String },
     Recovered,
@@ -107,7 +122,7 @@ pub enum SweepStep {
     HubEntriesExpired(usize),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LeaseReply {
     pub renewed: bool,
@@ -117,7 +132,7 @@ pub struct LeaseReply {
     pub state: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ObservationReply {
     pub accepted: bool,
@@ -137,50 +152,206 @@ pub struct Hosting {
 }
 
 pub(crate) fn refused(code: &str, message: &str) -> RealmsError {
-    RealmsError::Refused(Refusal {
-        code: code.to_owned(),
-        message: message.to_owned(),
-    })
+    let refusal = Refusal {
+        code: String::from(code),
+        message: String::from(message),
+    };
+    RealmsError::Refused(refusal)
 }
 
 pub(crate) fn as_account(account: &str) -> Actor {
-    Actor::Account(AccountId(account.to_owned()))
+    Actor::Account(AccountId(String::from(account)))
 }
 
 /// A JSON number, finite and within range.
 pub(crate) fn number_in(value: Option<&Value>, min: f64, max: f64) -> Option<f64> {
-    value?.as_f64().filter(|n| n.is_finite() && (min..=max).contains(n))
+    let number = value?.as_f64()?;
+    (number.is_finite() && number >= min && number <= max).then_some(number)
 }
 
 /// That, and a whole value.
 pub(crate) fn integer_in(value: Option<&Value>, min: i64, max: i64) -> Option<i64> {
-    whole_number(value?).filter(|n| (min..=max).contains(n))
+    let whole = whole_number(value?)?;
+    (min..=max).contains(&whole).then_some(whole)
 }
 
 /// A string of 1 to `max` UTF-16 units without NUL.
 pub(crate) fn short_text(value: Option<&Value>, max: usize) -> Option<&str> {
     let text = value?.as_str()?;
-    let units = text.encode_utf16().count();
-    ((1..=max).contains(&units) && !text.contains('\0')).then_some(text)
+    if text.is_empty() || text.contains('\0') || text.encode_utf16().count() > max {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+/// The reliability change a hub's end makes to its host, if any.
+fn hub_end_charge(terminal: HuntState, reason: &str) -> Option<crate::hunt::ReliabilityIncrements> {
+    if terminal == H::Completed {
+        Some(one(|r| &mut r.clean_completions))
+    } else if !hub_end_counts_as_host_failure(reason) {
+        None
+    } else if reason == "HUB_STARTUP_TIMEOUT" {
+        Some(one(|r| &mut r.starts_failed))
+    } else {
+        Some(one(|r| &mut r.unexpected_failures))
+    }
+}
+
+/// Who ends a hub, and how.
+struct HubEnd {
+    id: String,
+    generation: i64,
+    reason: String,
+    terminal: HuntState,
+    by: TransitionActor,
+    by_account: Option<String>,
+    now: UnixMillis,
+}
+
+/// The hub generation's end in one transaction: its presence rows close, every guest is told to leave and its host
+/// is fenced.
+fn close_hub(tx: &mut HuntTx<'_>, end: HubEnd) -> Result<Option<HuntSession>, RealmsError> {
+    let HubEnd {
+        id,
+        generation,
+        reason,
+        terminal,
+        by,
+        by_account,
+        now,
+    } = end;
+    let live = |h: &HuntSession| h.is_realm_hub() && h.generation == generation && is_hub_live(h.state);
+    let Some(hub) = tx.find_hunt(&id)?.filter(live) else {
+        return Ok(None);
+    };
+    tx.revoke_generation(&id, generation, now)?;
+    let close = |h: &mut HuntSession| {
+        clear_live_fields(h);
+        if terminal == H::Aborted {
+            h.failure_reason = Some(reason.clone());
+        }
+        h.completion_reason = Some(reason.clone());
+        (h.state, h.terminal_at) = (terminal, Some(now));
+    };
+    let Some(ended) = tx.compare_and_set(&id, generation, &[hub.state], hub.state_version, close)? else {
+        return Ok(None);
+    };
+    transition(tx, hub.state, &ended, &reason, by, by_account.as_deref(), now)?;
+    let host = ended.host_account_id.as_str();
+    let guests = tx.end_hub_presence(&id, generation, now, presence_purge_at(now))?;
+    let leave = json!({
+        "sessionId": ended.session_id,
+        "generation": ended.generation,
+        "reason": reason,
+        "hubKind": ended.hub_kind.map(hub_kind_name),
+        "realmId": ended.realm_id,
+    });
+    let ttl = CONTROL_LIFE_MS;
+    for guest in guests.iter().filter(|row| row.account_id != host) {
+        queue(
+            tx,
+            &guest.account_id,
+            "REALM_SESSION_LEAVE",
+            &ended,
+            leave.clone(),
+            now,
+            ttl,
+        )?;
+    }
+    if !host.is_empty() {
+        let fence = json!({ "reason": reason, "recoveryAction": "NONE", "cleanEnd": terminal == H::Completed });
+        queue(tx, host, "FENCE_NOW", &ended, fence, now, ttl)?;
+        if let Some(charge) = hub_end_charge(terminal, &reason) {
+            bump(tx, host, charge, now)?;
+        }
+    }
+    Ok(Some(ended))
+}
+
+/// A participant's observation as the report states it; the steam id is the roster's, filled in later.
+fn read_observation(
+    body: &Map<String, Value>,
+    hunt: &HuntSession,
+    account: &str,
+    now: UnixMillis,
+) -> Result<ObservationRecord, RealmsError> {
+    let malformed = || refused(STALE_OBSERVATION.0, STALE_OBSERVATION.1);
+    let stamp = short_text(body.get("observedAt"), 40).and_then(parse_iso);
+    let observed_at = stamp.ok_or_else(malformed)?;
+    let flag = |key: &str| body.get(key).and_then(Value::as_bool).ok_or_else(malformed);
+    let host_reachable = flag("hostReachable")?;
+    let local_bridge_alive = flag("localBridgeAlive")?;
+    let metrics_available = flag("metricsAvailable")?;
+    if (observed_at.0 - now.0).abs() > OBSERVATION_WINDOW_MS {
+        return Err(malformed());
+    }
+    // A missing route kind reads as empty, which no kind matches.
+    let route_kind = match body.get("routeKind").map(Value::as_str) {
+        None => "",
+        Some(Some(kind)) => kind,
+        Some(None) => return Err(malformed()),
+    };
+    if !["DIRECT", "RELAY", "CONNECTING", "UNKNOWN"].contains(&route_kind) {
+        return Err(malformed());
+    }
+    let unknown = route_kind == "UNKNOWN";
+    let mut record = ObservationRecord {
+        observed_at,
+        metrics_available,
+        local_bridge_alive,
+        host_reachable,
+        route_kind: route_kind.into(),
+        account_id: account.into(),
+        generation: hunt.generation,
+        session_id: hunt.session_id.clone(),
+        observation_id: crate::ids::random_uuid(),
+        steam_id: String::new(),
+        packet_loss_percent: None,
+        jitter_ms: None,
+        ping_ms: None,
+        last_packet_age_ms: None,
+    };
+    if !metrics_available {
+        // Without metrics the route is unknown and no metric is sent.
+        let quiet = ["lastPacketAgeMs", "pingMs", "jitterMs", "packetLossPercent"]
+            .iter()
+            .all(|key| body.get(*key).is_none_or(Value::is_null));
+        return if unknown && quiet { Ok(record) } else { Err(malformed()) };
+    }
+    if unknown {
+        return Err(malformed());
+    }
+    let millis = |key: &str| {
+        number_in(body.get(key), 0.0, 60_000.0)
+            .map(|n| n.round() as i64)
+            .ok_or_else(malformed)
+    };
+    record.last_packet_age_ms = Some(integer_in(body.get("lastPacketAgeMs"), 0, 600_000).ok_or_else(malformed)?);
+    record.ping_ms = Some(millis("pingMs")?);
+    record.jitter_ms = Some(millis("jitterMs")?);
+    record.packet_loss_percent = Some(number_in(body.get("packetLossPercent"), 0.0, 100.0).ok_or_else(malformed)?);
+    Ok(record)
 }
 
 impl Hosting {
     pub fn new(parts: HostingParts) -> Hosting {
+        let realms = RealmsRepository::new(parts.db.clone());
+        let hub = RealmHubRepository::new(parts.db.clone());
+        let hunts = HuntRepository::new(parts.db.clone());
         Hosting {
-            hunts: HuntRepository::new(parts.db.clone()),
-            hub: RealmHubRepository::new(parts.db.clone()),
-            realms: RealmsRepository::new(parts.db.clone()),
-            parts,
+            realms,
+            hub,
+            hunts,
             runtime: None,
+            parts,
         }
     }
 
     #[must_use]
-    pub fn with_runtime(self, runtime: HostingRuntime) -> Self {
-        Self {
-            runtime: Some(runtime),
-            ..self
-        }
+    pub fn with_runtime(mut self, runtime: HostingRuntime) -> Self {
+        self.runtime.replace(runtime);
+        self
     }
 
     pub(crate) fn now(&self) -> UnixMillis {
@@ -192,11 +363,8 @@ impl Hosting {
     }
 
     pub(crate) async fn emergency_stop(&self) -> Result<bool, RealmsError> {
-        self.parts
-            .operations
-            .emergency_stop()
-            .await
-            .map_err(RealmsError::Database)
+        let stopped = self.parts.operations.emergency_stop().await;
+        stopped.map_err(RealmsError::Database)
     }
 
     pub(crate) fn node(&self) -> &NodeId {
@@ -205,41 +373,48 @@ impl Hosting {
 
     /// Drop everything up to the first `:`; a seam id is read as its wire form. Looked up by that, then the raw text.
     pub(crate) async fn find_by_path(&self, raw: &str) -> Result<Option<HuntSession>, RealmsError> {
-        let rest = raw.split_once(':').map_or(raw, |(_, rest)| rest);
-        let wire = rest
-            .parse::<rifts_seam::SessionId>()
-            .map_or_else(|_| rest.to_owned(), |seam| crate::ids::wire_session_id(&seam));
-        if let Some(hunt) = self.hunts.find_hunt(&wire).await? {
-            return Ok(Some(hunt));
+        let rest = match raw.split_once(':') {
+            Some((_, after)) => after,
+            None => raw,
+        };
+        let wire = match rest.parse::<rifts_seam::SessionId>() {
+            Ok(seam) => crate::ids::wire_session_id(&seam),
+            Err(_) => rest.to_owned(),
+        };
+        let found = self.hunts.find_hunt(&wire).await?;
+        if found.is_some() || wire == raw {
+            return Ok(found);
         }
-        if wire != raw {
-            return Ok(self.hunts.find_hunt(raw).await?);
-        }
-        Ok(None)
+        Ok(self.hunts.find_hunt(raw).await?)
     }
 
+    /// Under both spellings of the session.
     pub(crate) fn invalidate_hub(&self, session_id: &str) {
-        if let Some(runtime) = &self.runtime {
-            let cache = runtime.capabilities.hub_presence();
-            cache.invalidate(session_id);
-            if let Some(seam) = seam_session_id(session_id, self.node()) {
-                cache.invalidate(&seam.to_string());
-            }
+        let Some(runtime) = self.runtime.as_ref() else {
+            return;
+        };
+        let cache = runtime.capabilities.hub_presence();
+        cache.invalidate(session_id);
+        if let Some(seam) = seam_spelling(session_id, self.node()) {
+            cache.invalidate(&seam);
         }
     }
 
     /// The account's link to a peer id, verified; the result is ignored.
     pub(crate) fn ensure_verified_link(&self, account: &str, peer: &str, revision: u64, method: &str) {
-        let (Some(runtime), Ok(peer)) = (&self.runtime, peer.parse::<u64>()) else {
+        let Some(runtime) = self.runtime.as_ref() else {
+            return;
+        };
+        let Ok(peer) = peer.parse::<u64>().map(PeerId) else {
             return;
         };
         let link = PeerLinkRecord {
-            account: AccountId(account.to_owned()),
-            peer: PeerId(peer),
-            status: LinkStatus::Verified,
-            revision,
             verified_at: self.now(),
-            verification_method: method.to_owned(),
+            verification_method: method.into(),
+            status: LinkStatus::Verified,
+            account: AccountId(account.into()),
+            revision,
+            peer,
         };
         let _ = runtime.admission_store.put_peer_link(&as_account(account), &link);
     }
@@ -251,121 +426,96 @@ impl Hosting {
         body: &Map<String, Value>,
     ) -> Result<LeaseReply, RealmsError> {
         let malformed = || refused("P2P_TICKET_INVALID", "The host heartbeat is malformed.");
-        let sequence = integer_in(body.get("leaseSequence"), 1, MAX_SAFE_INTEGER as i64).ok_or_else(malformed)?;
-        let bridge_alive = body.get("bridgeAlive").and_then(Value::as_bool).ok_or_else(malformed)?;
-        let server_ready = body.get("serverReady").and_then(Value::as_bool).ok_or_else(malformed)?;
-        let peers = integer_in(body.get("admittedPeerCount"), 0, HUB_MAX_PEERS).ok_or_else(malformed)?;
-        integer_in(body.get("queuePressure"), 0, 100).ok_or_else(malformed)?;
+        let whole = |key: &str, min: i64, max: i64| integer_in(body.get(key), min, max).ok_or_else(malformed);
+        let flag = |key: &str| body.get(key).and_then(Value::as_bool).ok_or_else(malformed);
+        let sequence = whole("leaseSequence", 1, LARGEST_SEQUENCE)?;
+        let (bridge_alive, server_ready) = (flag("bridgeAlive")?, flag("serverReady")?);
+        let peers = whole("admittedPeerCount", 0, HUB_MAX_PEERS)?;
+        // Checked, not used.
+        whole("queuePressure", 0, 100)?;
         let hunt = self.hunts.find_hunt(&capability.session_id).await?;
-        let hub = hunt.as_ref().is_some_and(HuntSession::is_realm_hub);
-        if peers > HUNT_MAX_PEERS && !hub {
+        // Only a hub takes more than a hunt's party.
+        if peers > HUNT_MAX_PEERS && !hunt.as_ref().is_some_and(HuntSession::is_realm_hub) {
             return Err(malformed());
         }
-        if !bridge_alive || !server_ready {
+        if !(bridge_alive && server_ready) {
             if let Some(hunt) = hunt {
                 self.host_process_down(capability, hunt).await?;
             }
-            return Err(refused(
-                "P2P_GENERATION_FENCED",
-                "The host process reported a fatal failure.",
-            ));
+            return Err(refused(FENCED, "The host process reported a fatal failure."));
         }
         if self.emergency_stop().await? {
-            return Err(refused(
-                "P2P_EMERGENCY_STOP",
-                "Player-hosted hunt operations are temporarily stopped.",
-            ));
+            return Err(refused(STOPPED.0, STOPPED.1));
         }
-        let now = self.now();
+        let (now, lease_sequence) = (self.now(), sequence);
+        let lease_expires_at = now.saturating_add(self.settings().eligibility.lease_lifetime_ms);
+        let HostCapabilityRecord {
+            session_id,
+            generation,
+            host_steam_id,
+            bridge_instance_id,
+            ..
+        } = capability.clone();
         let renewal = LeaseRenewal {
-            session_id: capability.session_id.clone(),
-            generation: capability.generation,
-            host_steam_id: capability.host_steam_id.clone(),
-            bridge_instance_id: capability.bridge_instance_id.clone(),
-            lease_sequence: sequence,
             heartbeat_at: now,
-            lease_expires_at: now.saturating_add(self.settings().eligibility.lease_lifetime_ms),
+            lease_expires_at,
+            lease_sequence,
+            bridge_instance_id,
+            host_steam_id,
+            generation,
+            session_id,
         };
         let capability_id = capability.capability_id.clone();
+        let host = as_account(&capability.host_account_id);
         let renewed = self
             .hunts
-            .transaction(&as_account(&capability.host_account_id), move |tx| {
-                if !tx.advance_capability_sequence(&capability_id, sequence)? {
-                    return Err(refused("P2P_GENERATION_FENCED", "The lease sequence is stale."));
+            .transaction(&host, move |tx| {
+                // A replayed or reordered heartbeat is refused before it touches the lease.
+                match tx.advance_capability_sequence(&capability_id, sequence)? {
+                    false => Err(refused(FENCED, "The lease sequence is stale.")),
+                    true => tx
+                        .renew_host_lease(&renewal)?
+                        .ok_or_else(|| refused(FENCED, "The hunt generation no longer accepts heartbeats.")),
                 }
-                tx.renew_host_lease(&renewal)?.ok_or_else(|| {
-                    refused(
-                        "P2P_GENERATION_FENCED",
-                        "The hunt generation no longer accepts heartbeats.",
-                    )
-                })
             })
             .await?;
+        let expires = renewed.lease_expires_at.unwrap_or(now);
         Ok(LeaseReply {
             renewed: true,
-            session_id: renewed.session_id.clone(),
-            generation: renewed.generation,
-            lease_expires_at: iso(renewed.lease_expires_at.unwrap_or(now)),
+            lease_expires_at: iso(expires),
             state: renewed.state.as_str(),
+            generation: renewed.generation,
+            session_id: renewed.session_id,
         })
     }
 
     async fn host_process_down(&self, capability: &HostCapabilityRecord, hunt: HuntSession) -> Result<(), RealmsError> {
-        let host = capability.host_account_id.clone();
+        const UNHEALTHY: &str = "HOST_PROCESS_UNHEALTHY";
+        let host = capability.host_account_id.as_str();
+        let by = TransitionActor::Host;
+        let (id, held) = (hunt.session_id.as_str(), capability.generation);
         if hunt.is_realm_hub() {
-            self.end_hub(
-                &hunt.session_id,
-                capability.generation,
-                "HOST_PROCESS_UNHEALTHY",
-                H::Aborted,
-                TransitionActor::Host,
-                Some(&host),
-            )
-            .await?;
+            self.end_hub(id, held, UNHEALTHY, H::Aborted, by, Some(host)).await?;
             return Ok(());
         }
-        let same_generation = hunt.generation == capability.generation;
-        if same_generation && hunt.state == H::Draining {
-            let reason = hunt
-                .completion_reason
-                .clone()
-                .unwrap_or_else(|| DRAIN_COMPLETION_REASON.to_owned());
-            let actor = as_account(&host);
-            self.end_hunt(
-                &actor,
-                &hunt,
-                &reason,
-                &[H::Draining],
-                TransitionActor::Host,
-                Some(&host),
-                true,
-            )
-            .await?;
-            return Ok(());
-        }
-        if same_generation && let Some(clean) = host_loss_is_clean_end(&hunt) {
-            let actor = as_account(&host);
-            let reason = format!("{clean}_HOST_STOPPED");
-            self.end_hunt(
-                &actor,
-                &hunt,
-                &reason,
-                &HOST_END_STATES,
-                TransitionActor::Host,
-                Some(&host),
-                true,
-            )
-            .await?;
-            return Ok(());
+        let actor = as_account(host);
+        if hunt.generation == held {
+            // A draining hunt ends as it was going to; a clean host loss ends cleanly.
+            let clean_end = if hunt.state == H::Draining {
+                let reason = hunt.completion_reason.as_deref().unwrap_or(DRAIN_COMPLETION_REASON);
+                Some((reason.to_owned(), &[H::Draining][..]))
+            } else {
+                host_loss_is_clean_end(&hunt).map(|clean| (format!("{clean}_HOST_STOPPED"), &HOST_END_STATES[..]))
+            };
+            if let Some((reason, allowed)) = clean_end {
+                self.end_hunt(&actor, &hunt, &reason, allowed, by, Some(host), true)
+                    .await?;
+                return Ok(());
+            }
         }
         self.parts
             .recovery
-            .prepare(
-                hunt.session_id.clone(),
-                capability.generation,
-                "HOST_PROCESS_UNHEALTHY".to_owned(),
-                false,
-            )
+            .prepare(id.to_owned(), held, UNHEALTHY.into(), false)
             .await
     }
 
@@ -381,30 +531,18 @@ impl Hosting {
         fence: bool,
     ) -> Result<Option<HuntSession>, RealmsError> {
         let now = self.now();
-        let (id, generation) = (hunt.session_id.clone(), hunt.generation);
-        let (reason_owned, allowed, account) = (reason.to_owned(), allowed.to_vec(), account.map(str::to_owned));
-        let ended = self
-            .hunts
-            .transaction(actor, move |tx| -> Result<Option<HuntSession>, RealmsError> {
-                Ok(end_session(
-                    tx,
-                    &id,
-                    generation,
-                    &reason_owned,
-                    &allowed,
-                    transition_actor,
-                    account.as_deref(),
-                    fence,
-                    now,
-                )?)
-            })
-            .await?;
-        if let Some(ended) = &ended {
+        let (id, generation, why) = (hunt.session_id.clone(), hunt.generation, reason.to_owned());
+        let (states, by_account) = (allowed.to_vec(), account.map(String::from));
+        let work = move |tx: &mut HuntTx<'_>| {
+            let by = by_account.as_deref();
+            let ended = end_session(tx, &id, generation, &why, &states, transition_actor, by, fence, now)?;
+            Ok::<_, RealmsError>(ended)
+        };
+        let ended = self.hunts.transaction(actor, work).await?;
+        if let Some(done) = ended.as_ref() {
+            let (session, number, state) = (&done.session_id, done.generation, done.state.as_str());
             self.parts.log.info(&format!(
-                "[P2P] session {} generation={} ended cleanly state={} reason={reason}",
-                ended.session_id,
-                ended.generation,
-                ended.state.as_str()
+                "[P2P] session {session} generation={number} ended cleanly state={state} reason={reason}"
             ));
         }
         Ok(ended)
@@ -421,148 +559,60 @@ impl Hosting {
         actor_account: Option<&str>,
     ) -> Result<Option<HuntSession>, RealmsError> {
         let now = self.now();
-        let actor = actor_account.map_or(LIFECYCLE_ACTOR, as_account);
-        let (id, reason_owned, account) = (
-            session_id.to_owned(),
-            reason.to_owned(),
-            actor_account.map(str::to_owned),
-        );
-        let ended = self
-            .hunts
-            .transaction(&actor, move |tx| -> Result<Option<HuntSession>, RealmsError> {
-                let reason = reason_owned;
-                let Some(hub) = tx.find_hunt(&id)? else {
-                    return Ok(None);
-                };
-                if !hub.is_realm_hub() || hub.generation != generation || !is_hub_live(hub.state) {
-                    return Ok(None);
-                }
-                tx.revoke_generation(&id, generation, now)?;
-                let ended = tx.compare_and_set(&id, generation, &[hub.state], hub.state_version, |h| {
-                    h.state = terminal;
-                    h.terminal_at = Some(now);
-                    h.completion_reason = Some(reason.clone());
-                    if terminal == H::Aborted {
-                        h.failure_reason = Some(reason.clone());
-                    }
-                    h.active_party_key = None;
-                    h.lease_expires_at = None;
-                    h.suspect_since = None;
-                    h.suspect_deadline = None;
-                    h.pre_suspect_state = None;
-                    h.offer_expires_at = None;
-                    h.startup_deadline = None;
-                })?;
-                let Some(ended) = ended else {
-                    return Ok(None);
-                };
-                transition(tx, hub.state, &ended, &reason, actor_type, account.as_deref(), now)?;
-                let rows = tx.end_hub_presence(&id, generation, now, presence_purge_at(now))?;
-                let kind = ended.hub_kind.map(hub_kind_name);
-                for row in rows.iter().filter(|row| row.account_id != ended.host_account_id) {
-                    let payload = json!({
-                        "sessionId": ended.session_id,
-                        "generation": ended.generation,
-                        "reason": reason,
-                        "hubKind": kind,
-                        "realmId": ended.realm_id,
-                    });
-                    queue(
-                        tx,
-                        &row.account_id,
-                        "REALM_SESSION_LEAVE",
-                        &ended,
-                        payload,
-                        now,
-                        CONTROL_LIFE_MS,
-                    )?;
-                }
-                let host = ended.host_account_id.clone();
-                if !host.is_empty() {
-                    let payload = json!({
-                        "reason": reason,
-                        "recoveryAction": "NONE",
-                        "cleanEnd": terminal == H::Completed,
-                    });
-                    queue(tx, &host, "FENCE_NOW", &ended, payload, now, CONTROL_LIFE_MS)?;
-                    let add = if terminal == H::Completed {
-                        Some(ReliabilityIncrements {
-                            clean_completions: 1,
-                            ..ReliabilityIncrements::default()
-                        })
-                    } else if hub_end_counts_as_host_failure(&reason) {
-                        Some(if reason == "HUB_STARTUP_TIMEOUT" {
-                            ReliabilityIncrements {
-                                starts_failed: 1,
-                                ..ReliabilityIncrements::default()
-                            }
-                        } else {
-                            ReliabilityIncrements {
-                                unexpected_failures: 1,
-                                ..ReliabilityIncrements::default()
-                            }
-                        })
-                    } else {
-                        None
-                    };
-                    if let Some(add) = add {
-                        tx.increment_reliability(&host, add, now, None)?;
-                    }
-                }
-                Ok(Some(ended))
-            })
-            .await?;
-        if let Some(hub) = &ended {
-            self.parts.log.info(&format!(
-                "[RealmHub] hub {} ended state={} reason={reason}",
-                hub.session_id,
-                hub.state.as_str()
-            ));
-            self.invalidate_hub(&hub.session_id);
-            self.mirror_hub(hub, HubState::None).await;
-            if hub.hub_kind == Some(HubKind::Ramsgate)
-                && let Some(realm) = &hub.realm_id
-                && let Err(error) = self.realms.mark_offline(&LIFECYCLE_ACTOR, realm, now).await
-            {
-                self.parts
-                    .log
-                    .warn(&format!("[RealmHub] could not mark realm {realm} offline: {error}"));
-            }
+        let actor = match actor_account {
+            Some(account) => as_account(account),
+            None => LIFECYCLE_ACTOR,
+        };
+        let end = HubEnd {
+            id: session_id.to_owned(),
+            generation,
+            reason: reason.to_owned(),
+            terminal,
+            by: actor_type,
+            by_account: actor_account.map(String::from),
+            now,
+        };
+        let ended = self.hunts.transaction(&actor, move |tx| close_hub(tx, end)).await?;
+        let Some(hub) = ended.as_ref() else {
+            return Ok(ended);
+        };
+        let (id, state, log) = (&hub.session_id, hub.state.as_str(), &self.parts.log);
+        log.info(&format!("[RealmHub] hub {id} ended state={state} reason={reason}"));
+        self.invalidate_hub(id);
+        self.mirror_hub(hub, HubState::None).await;
+        // The realm is offline once its Ramsgate hub is gone.
+        if let (Some(HubKind::Ramsgate), Some(realm)) = (hub.hub_kind, hub.realm_id.as_deref())
+            && let Err(error) = self.realms.mark_offline(&LIFECYCLE_ACTOR, realm, now).await
+        {
+            log.warn(&format!("[RealmHub] could not mark realm {realm} offline: {error}"));
         }
         Ok(ended)
     }
 
     /// The hub's state, and the realm's live server count, as its realm shows them.
     pub(crate) async fn mirror_hub(&self, hub: &HuntSession, state: HubState) {
-        let Some(realm) = &hub.realm_id else {
+        let Some(realm) = hub.realm_id.as_deref() else {
             return;
         };
-        let active = self
-            .hunts
-            .count_active_realm_servers(realm)
-            .await
-            .ok()
-            .map(|n| n.min(ACTIVE_SERVERS_CAP));
+        let counted = self.hunts.count_active_realm_servers(realm).await;
         let mut patch = HostingPatch {
-            active_servers: active,
-            ..HostingPatch::default()
+            active_servers: counted.ok().map(|n| n.min(ACTIVE_SERVERS_CAP)),
+            ..Default::default()
         };
-        if hub.hub_kind == Some(HubKind::Training) {
-            patch.training_state = Some(state);
-        } else {
-            patch.hub_state = Some(state);
-            patch.hub_session_id = if state == HubState::None {
-                Patch::Remove
-            } else {
-                Patch::Set(hub.session_id.clone())
-            };
+        match hub.hub_kind {
+            Some(HubKind::Training) => patch.training_state = Some(state),
+            _ => {
+                patch.hub_state = Some(state);
+                // A stopped hub no longer names its session.
+                patch.hub_session_id = match state {
+                    HubState::None => Patch::Remove,
+                    _ => Patch::Set(hub.session_id.clone()),
+                };
+            }
         }
-        if let Err(error) = self
-            .realms
-            .patch_hosting(&LIFECYCLE_ACTOR, realm, &patch, self.now())
-            .await
-        {
-            self.parts.log.warn(&format!(
+        let (now, log) = (self.now(), &self.parts.log);
+        if let Err(error) = self.realms.patch_hosting(&LIFECYCLE_ACTOR, realm, &patch, now).await {
+            log.warn(&format!(
                 "[RealmHub] could not mirror hub state into realm {realm}: {error}"
             ));
         }
@@ -575,296 +625,173 @@ impl Hosting {
         session_id: &str,
         body: &Map<String, Value>,
     ) -> Result<ObservationReply, RealmsError> {
-        let roster_refusal = || {
-            refused(
-                "P2P_GENERATION_FENCED",
-                "The observation is not bound to the active roster generation.",
-            )
+        let off_roster = || refused(FENCED, "The observation is not bound to the active roster generation.");
+        let Some(hunt) = self.find_by_path(session_id).await? else {
+            return Err(off_roster());
         };
-        let hunt = self.find_by_path(session_id).await?.ok_or_else(roster_refusal)?;
-        let generation = body.get("generation").and_then(Value::as_i64);
+        let bound = body.get("generation").and_then(Value::as_i64) == Some(hunt.generation);
         let reply = |stored| ObservationReply {
-            accepted: true,
-            session_id: hunt.session_id.clone(),
-            generation: hunt.generation,
             stored,
             state: hunt.state.as_str(),
+            generation: hunt.generation,
+            session_id: hunt.session_id.clone(),
+            accepted: true,
         };
         if hunt.is_realm_hub() {
             let present =
                 hunt.host_account_id == account || self.hub.find_presence(&hunt.session_id, account).await?.is_some();
-            if !present || generation != Some(hunt.generation) {
-                return Err(refused(
-                    "P2P_GENERATION_FENCED",
-                    "The observation is not bound to the active hub generation.",
-                ));
+            if present && bound {
+                // A hub's health is its host's lease.
+                return Ok(reply(Some(false)));
             }
-            // A hub's health is its host's lease.
+            return Err(refused(OFF_HUB.0, OFF_HUB.1));
+        }
+        if !bound || hunt.participant(account).is_none() {
+            return Err(off_roster());
+        }
+        if [H::Completed, H::Aborted, H::Draining].contains(&hunt.state) {
             return Ok(reply(Some(false)));
         }
-        let rostered = hunt.participant(account).is_some();
-        if generation != Some(hunt.generation) || !rostered {
-            return Err(roster_refusal());
-        }
-        if matches!(hunt.state, H::Completed | H::Aborted | H::Draining) {
-            return Ok(reply(Some(false)));
-        }
-        let record = self.observation_record(account, &hunt, body)?;
+        let record = read_observation(body, &hunt, account, self.now())?;
         if self.emergency_stop().await? {
-            return Err(refused(
-                "P2P_EMERGENCY_STOP",
-                "Player-hosted hunt operations are temporarily stopped.",
-            ));
+            return Err(refused(STOPPED.0, STOPPED.1));
         }
         let (id, generation, who) = (hunt.session_id.clone(), hunt.generation, account.to_owned());
-        self.hunts
-            .transaction(&as_account(account), move |tx| -> Result<(), RealmsError> {
-                let current = tx.find_hunt(&id)?.ok_or_else(roster_refusal)?;
-                let Some(participant) = current.participant(&who).filter(|_| current.generation == generation) else {
-                    return Err(roster_refusal());
-                };
-                let record = ObservationRecord {
-                    steam_id: participant.steam_id.clone(),
-                    ..record
-                };
-                tx.record_observation(&record)?;
-                Ok(())
-            })
-            .await?;
+        let work = move |tx: &mut HuntTx<'_>| {
+            let current = tx.find_hunt(&id)?.filter(|current| current.generation == generation);
+            let steam_id = current
+                .as_ref()
+                .and_then(|current| current.participant(&who))
+                .map(|p| p.steam_id.clone());
+            let Some(steam_id) = steam_id else {
+                return Err(off_roster());
+            };
+            tx.record_observation(&ObservationRecord { steam_id, ..record })?;
+            Ok(())
+        };
+        self.hunts.transaction(&as_account(account), work).await?;
         Ok(reply(None))
-    }
-
-    fn observation_record(
-        &self,
-        account: &str,
-        hunt: &HuntSession,
-        body: &Map<String, Value>,
-    ) -> Result<ObservationRecord, RealmsError> {
-        let malformed = || {
-            refused(
-                "P2P_TICKET_INVALID",
-                "The participant observation is malformed or stale.",
-            )
-        };
-        let observed_at = short_text(body.get("observedAt"), 40)
-            .and_then(parse_iso)
-            .ok_or_else(malformed)?
-            .0;
-        let flag = |name: &str| body.get(name).and_then(Value::as_bool).ok_or_else(malformed);
-        let (host_reachable, local_bridge_alive, metrics) = (
-            flag("hostReachable")?,
-            flag("localBridgeAlive")?,
-            flag("metricsAvailable")?,
-        );
-        if (observed_at - self.now().0).abs() > OBSERVATION_WINDOW_MS {
-            return Err(malformed());
-        }
-        let route = match body.get("routeKind") {
-            None => "",
-            Some(value) => value.as_str().ok_or_else(malformed)?,
-        };
-        if !matches!(route, "DIRECT" | "RELAY" | "CONNECTING" | "UNKNOWN") {
-            return Err(malformed());
-        }
-        let metric_keys = ["lastPacketAgeMs", "pingMs", "jitterMs", "packetLossPercent"];
-        let (age, ping, jitter, loss) = if metrics {
-            if route == "UNKNOWN" {
-                return Err(malformed());
-            }
-            let age = integer_in(body.get("lastPacketAgeMs"), 0, 600_000).ok_or_else(malformed)?;
-            let ping = number_in(body.get("pingMs"), 0.0, 60_000.0).ok_or_else(malformed)?;
-            let jitter = number_in(body.get("jitterMs"), 0.0, 60_000.0).ok_or_else(malformed)?;
-            let loss = number_in(body.get("packetLossPercent"), 0.0, 100.0).ok_or_else(malformed)?;
-            (
-                Some(age),
-                Some(ping.round() as i64),
-                Some(jitter.round() as i64),
-                Some(loss),
-            )
-        } else {
-            let absent = metric_keys.iter().all(|key| body.get(*key).is_none_or(Value::is_null));
-            if route != "UNKNOWN" || !absent {
-                return Err(malformed());
-            }
-            (None, None, None, None)
-        };
-        Ok(ObservationRecord {
-            observation_id: random_uuid(),
-            session_id: hunt.session_id.clone(),
-            generation: hunt.generation,
-            account_id: account.to_owned(),
-            steam_id: String::new(),
-            host_reachable,
-            local_bridge_alive,
-            metrics_available: metrics,
-            last_packet_age_ms: age,
-            route_kind: route.to_owned(),
-            ping_ms: ping,
-            jitter_ms: jitter,
-            packet_loss_percent: loss,
-            observed_at: UnixMillis(observed_at),
-        })
     }
 
     /// Node's `P2PHuntLifecycleMonitor.tick`: one failing session never stops the others.
     pub async fn sweep(&self) -> Result<Vec<(String, SweepStep)>, RealmsError> {
-        let sessions = self
-            .hunts
-            .list_lifecycle_hunts(&LIFECYCLE_STATES, MONITOR_BATCH)
-            .await?;
+        let (states, log) = (&LIFECYCLE_STATES, &self.parts.log);
+        let due = self.hunts.list_lifecycle_hunts(states, MONITOR_BATCH).await?;
         let stop = self.emergency_stop().await?;
-        let mut steps = Vec::new();
-        for session in sessions {
-            let id = session.session_id.clone();
-            match self.tick(session, stop).await {
-                Ok(Some(step)) => steps.push((id, step)),
+        let mut steps = Vec::with_capacity(due.len());
+        for hunt in due {
+            let id = hunt.session_id.clone();
+            match self.tick(hunt, stop).await {
                 Ok(None) => {}
-                Err(error) => self
-                    .parts
-                    .log
-                    .warn(&format!("[P2P Lifecycle] session {id} tick failed: {error}")),
+                Ok(Some(step)) => steps.push((id, step)),
+                Err(error) => log.warn(&format!("[P2P Lifecycle] session {id} tick failed: {error}")),
             }
         }
         Ok(steps)
     }
 
-    async fn retry(&self, hunt: &HuntSession, reason: &str) -> Result<Option<SweepStep>, RealmsError> {
+    /// Runs one lifecycle step in its own transaction.
+    async fn step<T, F>(&self, work: F) -> Result<T, RealmsError>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut HuntTx<'_>) -> Result<T, crate::db::RepoError> + Send + 'static,
+    {
+        self.hunts
+            .transaction(&LIFECYCLE_ACTOR, move |tx| Ok::<_, RealmsError>(work(tx)?))
+            .await
+    }
+
+    async fn retry(&self, hunt: &HuntSession, reason: &str) -> Step {
         let now = self.now();
-        let (hunt_owned, reason_owned) = (hunt.clone(), reason.to_owned());
+        let (snapshot, why) = (hunt.clone(), reason.to_owned());
         let retried = self
-            .hunts
-            .transaction(
-                &LIFECYCLE_ACTOR,
-                move |tx| -> Result<Option<HuntSession>, RealmsError> {
-                    Ok(retry_pre_active_host(tx, &hunt_owned, &reason_owned, now)?)
-                },
-            )
+            .step(move |tx| retry_pre_active_host(tx, &snapshot, &why, now))
             .await?;
         if retried.is_none() {
             return Ok(None);
         }
         self.begin_host_selection(&hunt.session_id).await?;
-        Ok(Some(SweepStep::RetriedHost {
-            reason: reason.to_owned(),
-        }))
+        Ok(Some(SweepStep::RetriedHost { reason: reason.into() }))
     }
 
-    async fn suspect(&self, hunt: &HuntSession, reason: &'static str) -> Result<Option<SweepStep>, RealmsError> {
-        let now = self.now();
+    async fn suspect(&self, hunt: &HuntSession, reason: &'static str) -> Step {
         let lifetime = self.settings().eligibility.suspect_lifetime_ms;
-        let hunt_owned = hunt.clone();
+        let (now, snapshot) = (self.now(), hunt.clone());
         let marked = self
-            .hunts
-            .transaction(
-                &LIFECYCLE_ACTOR,
-                move |tx| -> Result<Option<HuntSession>, RealmsError> {
-                    Ok(mark_suspect(tx, &hunt_owned, reason, lifetime, now)?)
-                },
-            )
+            .step(move |tx| mark_suspect(tx, &snapshot, reason, lifetime, now))
             .await?;
-        Ok(marked.map(|_| SweepStep::Suspect {
-            reason: reason.to_owned(),
-        }))
+        Ok(marked.and(Some(SweepStep::Suspect { reason: reason.into() })))
     }
 
-    async fn recover(&self, hunt: &HuntSession, with_transition: bool) -> Result<Option<SweepStep>, RealmsError> {
-        let now = self.now();
-        let hunt_owned = hunt.clone();
+    /// Only the hub tick records the recovery as a transition (`with_transition`).
+    async fn recover(&self, hunt: &HuntSession, with_transition: bool) -> Step {
+        let (now, snapshot) = (self.now(), hunt.clone());
         let recovered = self
-            .hunts
-            .transaction(
-                &LIFECYCLE_ACTOR,
-                move |tx| -> Result<Option<HuntSession>, RealmsError> {
-                    let recovered = recover_from_suspect(tx, &hunt_owned)?;
-                    if with_transition && let Some(back) = &recovered {
-                        transition(
-                            tx,
-                            H::Suspect,
-                            back,
-                            "LEASE_RECOVERED",
-                            TransitionActor::System,
-                            None,
-                            now,
-                        )?;
-                    }
-                    Ok(recovered)
-                },
-            )
+            .step(move |tx| {
+                let back = recover_from_suspect(tx, &snapshot)?;
+                if with_transition && let Some(after) = back.as_ref() {
+                    transition(
+                        tx,
+                        H::Suspect,
+                        after,
+                        "LEASE_RECOVERED",
+                        TransitionActor::System,
+                        None,
+                        now,
+                    )?;
+                }
+                Ok(back)
+            })
             .await?;
-        Ok(recovered.map(|_| SweepStep::Recovered))
+        Ok(recovered.and(Some(SweepStep::Recovered)))
     }
 
-    async fn prepare(
-        &self,
-        hunt: &HuntSession,
-        reason: &str,
-        before_active: bool,
-    ) -> Result<Option<SweepStep>, RealmsError> {
+    async fn prepare(&self, hunt: &HuntSession, reason: &str, before_active: bool) -> Step {
+        let (id, generation) = (hunt.session_id.clone(), hunt.generation);
         self.parts
             .recovery
-            .prepare(
-                hunt.session_id.clone(),
-                hunt.generation,
-                reason.to_owned(),
-                before_active,
-            )
+            .prepare(id, generation, reason.to_owned(), before_active)
             .await?;
         Ok(Some(SweepStep::Recovery {
-            reason: reason.to_owned(),
+            reason: reason.into(),
             before_active,
         }))
     }
 
-    async fn ended(
-        &self,
-        hunt: &HuntSession,
-        reason: &str,
-        allowed: &[HuntState],
-        fence: bool,
-    ) -> Result<Option<SweepStep>, RealmsError> {
+    async fn ended(&self, hunt: &HuntSession, reason: &str, allowed: &[HuntState], fence: bool) -> Step {
+        let by = TransitionActor::System;
         let ended = self
-            .end_hunt(
-                &LIFECYCLE_ACTOR,
-                hunt,
-                reason,
-                allowed,
-                TransitionActor::System,
-                None,
-                fence,
-            )
+            .end_hunt(&LIFECYCLE_ACTOR, hunt, reason, allowed, by, None, fence)
             .await?;
-        Ok(ended.map(|ended| SweepStep::Ended {
-            reason: reason.to_owned(),
-            state: ended.state,
+        Ok(ended.map(|done| SweepStep::Ended {
+            reason: reason.into(),
+            state: done.state,
         }))
     }
 
-    async fn tick_hub(&self, hub: &HuntSession, stop: bool, now: UnixMillis) -> Result<Option<SweepStep>, RealmsError> {
+    async fn tick_hub(&self, hub: &HuntSession, stop: bool, now: UnixMillis) -> Step {
         let settings = self.settings();
-        let hosting_enabled = settings.realm_hosting && settings.policy.enabled;
-        match decide_hub_tick(hub, now, stop, hosting_enabled) {
-            HubTick::End { reason } => {
-                let ended = self
-                    .end_hub(
-                        &hub.session_id,
-                        hub.generation,
-                        reason,
-                        H::Aborted,
-                        TransitionActor::System,
-                        None,
-                    )
-                    .await?;
-                Ok(ended.map(|ended| SweepStep::Ended {
-                    reason: reason.to_owned(),
-                    state: ended.state,
-                }))
-            }
+        let hosting_enabled = settings.policy.enabled && settings.realm_hosting;
+        let decision = decide_hub_tick(hub, now, stop, hosting_enabled);
+        if let HubTick::End { reason } = decision {
+            let by = TransitionActor::System;
+            let ended = self
+                .end_hub(&hub.session_id, hub.generation, reason, H::Aborted, by, None)
+                .await?;
+            return Ok(ended.map(|done| SweepStep::Ended {
+                reason: reason.into(),
+                state: done.state,
+            }));
+        }
+        match decision {
             HubTick::Suspect { reason } => self.suspect(hub, reason).await,
             HubTick::Recover => self.recover(hub, true).await,
+            // A running hub drops the entries that waited too long.
             HubTick::None if hub.state == H::Running => {
+                let purge = presence_purge_at(now);
                 let expired = self
                     .hub
-                    .expire_stale(&LIFECYCLE_ACTOR, Some(&hub.session_id), now, presence_purge_at(now))
+                    .expire_stale(&LIFECYCLE_ACTOR, Some(&hub.session_id), now, purge)
                     .await?;
                 if expired.is_empty() {
                     return Ok(None);
@@ -872,123 +799,127 @@ impl Hosting {
                 self.invalidate_hub(&hub.session_id);
                 Ok(Some(SweepStep::HubEntriesExpired(expired.len())))
             }
-            HubTick::None => Ok(None),
+            _ => Ok(None),
         }
     }
 
+    /// Distinct participants whose recent observation says the host or their bridge is down.
     async fn failing_observers(&self, hunt: &HuntSession, now: UnixMillis) -> Result<usize, RealmsError> {
+        let since = UnixMillis(now.0 - OBSERVATION_WINDOW_MS);
         let recent = self
             .hunts
-            .list_recent_participant_observations(
-                &hunt.session_id,
-                hunt.generation,
-                UnixMillis(now.0 - OBSERVATION_WINDOW_MS),
-            )
+            .list_recent_participant_observations(&hunt.session_id, hunt.generation, since)
             .await?;
-        let mut failing: Vec<String> = recent
+        let failing: std::collections::BTreeSet<String> = recent
             .into_iter()
-            .filter(|o| !o.host_reachable || !o.local_bridge_alive)
-            .map(|o| o.account_id)
+            .filter(|seen| !(seen.host_reachable && seen.local_bridge_alive))
+            .map(|seen| seen.account_id)
             .collect();
-        failing.sort();
-        failing.dedup();
         Ok(failing.len())
     }
 
-    async fn tick(&self, hunt: HuntSession, stop: bool) -> Result<Option<SweepStep>, RealmsError> {
+    async fn tick(&self, hunt: HuntSession, stop: bool) -> Step {
         let now = self.now();
         if hunt.is_realm_hub() {
             return self.tick_hub(&hunt, stop, now).await;
         }
-        let lapsed_at = |deadline: Option<UnixMillis>| deadline.is_some_and(|at| at <= now);
+        let passed = |deadline: Option<UnixMillis>| matches!(deadline, Some(at) if at <= now);
         if hunt.state == H::Draining {
-            let reason = hunt
-                .completion_reason
-                .clone()
-                .unwrap_or_else(|| DRAIN_COMPLETION_REASON.to_owned());
-            let lifetime = self.settings().eligibility.suspect_lifetime_ms;
-            let lapsed = hunt
-                .lease_expires_at
-                .is_none_or(|lease| lease.saturating_add(lifetime) <= now);
-            if lapsed && !stop {
-                return self.ended(&hunt, &reason, &[H::Draining], false).await;
-            }
-            if stop || lapsed_at(hunt.drain_deadline) {
-                return self.ended(&hunt, &reason, &[H::Draining], true).await;
-            }
-            return Ok(None);
+            let reason = hunt.completion_reason.as_deref().unwrap_or(DRAIN_COMPLETION_REASON);
+            let grace = self.settings().eligibility.suspect_lifetime_ms;
+            // A host that stopped renewing is gone: nothing left to fence.
+            let host_gone = match hunt.lease_expires_at {
+                None => true,
+                Some(lease) => lease.saturating_add(grace) <= now,
+            };
+            return match (host_gone, stop || passed(hunt.drain_deadline)) {
+                (true, _) if !stop => self.ended(&hunt, reason, &[H::Draining], false).await,
+                (_, true) => self.ended(&hunt, reason, &[H::Draining], true).await,
+                _ => Ok(None),
+            };
         }
-        if stop && !matches!(hunt.state, H::Aborting | H::Recovering) {
-            let before_active = is_pre_active_operator_stop_state(hunt.state);
-            return self.prepare(&hunt, "OPERATOR_P2P_STOP", before_active).await;
+        if stop && hunt.state != H::Aborting && hunt.state != H::Recovering {
+            return self
+                .prepare(
+                    &hunt,
+                    "OPERATOR_P2P_STOP",
+                    is_pre_active_operator_stop_state(hunt.state),
+                )
+                .await;
         }
         match hunt.state {
             H::HostSelecting => {
                 self.begin_host_selection(&hunt.session_id).await?;
                 Ok(Some(SweepStep::Selected))
             }
-            H::HostOffered if lapsed_at(hunt.offer_expires_at) => {
-                let hunt_owned = hunt.clone();
-                let moved = self
-                    .hunts
-                    .transaction(
-                        &LIFECYCLE_ACTOR,
-                        move |tx| -> Result<Option<HuntSession>, RealmsError> {
-                            Ok(expire_offer(tx, &hunt_owned, now)?)
-                        },
-                    )
-                    .await?;
-                if moved.is_none() {
+            H::HostOffered if passed(hunt.offer_expires_at) => {
+                let snapshot = hunt.clone();
+                if self.step(move |tx| expire_offer(tx, &snapshot, now)).await?.is_none() {
                     return Ok(None);
                 }
                 self.begin_host_selection(&hunt.session_id).await?;
                 Ok(Some(SweepStep::OfferExpired))
             }
-            H::Starting if lapsed_at(hunt.startup_deadline) => self.retry(&hunt, "HOST_STARTUP_TIMEOUT").await,
+            H::Starting if passed(hunt.startup_deadline) => self.retry(&hunt, "HOST_STARTUP_TIMEOUT").await,
             H::HostReady | H::Admitting | H::Running => {
-                let lapsed = lapsed_at(hunt.lease_expires_at);
-                if lapsed && let Some(clean) = host_loss_is_clean_end(&hunt) {
-                    let reason = format!("{clean}_LEASE_RELEASED");
-                    return self.ended(&hunt, &reason, &HOST_END_STATES, true).await;
-                }
-                let failing = self.failing_observers(&hunt, now).await?;
-                // An empty roster meets the quorum at once (kept as found).
-                if lapsed || failing >= hunt.roster.len().min(2) {
-                    let reason = if failing >= 2 {
-                        "PARTICIPANT_FAILURE_QUORUM"
-                    } else {
-                        "HOST_LEASE_MISSED"
-                    };
-                    return self.suspect(&hunt, reason).await;
-                }
-                Ok(None)
+                self.tick_started(&hunt, passed(hunt.lease_expires_at), now).await
             }
-            H::Suspect => {
-                if hunt.lease_expires_at.is_some_and(|at| at > now) && hunt.pre_suspect_state.is_some() {
-                    return self.recover(&hunt, false).await;
-                }
-                if !lapsed_at(hunt.suspect_deadline) {
-                    return Ok(None);
-                }
-                if let Some(clean) = host_loss_is_clean_end(&hunt) {
-                    let reason = format!("{clean}_LEASE_RELEASED");
-                    return self.ended(&hunt, &reason, &HOST_END_STATES, true).await;
-                }
-                if hunt.pre_suspect_state == Some(H::HostReady) {
-                    return self.retry(&hunt, "HOST_FAILED_BEFORE_RELEASE").await;
-                }
-                let reason = hunt.failure_reason.clone().unwrap_or_else(|| "HOST_FAILED".to_owned());
-                self.prepare(&hunt, &reason, false).await
-            }
-            H::Recovering if lapsed_at(hunt.recovery_deadline) => {
-                self.parts.recovery.advance(hunt).await?;
-                Ok(Some(SweepStep::RecoveryAdvanced))
-            }
-            H::Aborting if hunt.recovery_retry_at.is_none_or(|at| at <= now) => {
-                self.parts.recovery.advance(hunt).await?;
-                Ok(Some(SweepStep::RecoveryAdvanced))
-            }
+            H::Suspect => self.tick_suspect(&hunt, passed(hunt.suspect_deadline), now).await,
+            H::Recovering if passed(hunt.recovery_deadline) => self.advance_recovery(hunt).await,
+            H::Aborting if hunt.recovery_retry_at.is_none_or(|at| at <= now) => self.advance_recovery(hunt).await,
             _ => Ok(None),
         }
     }
+
+    /// A started hunt: a lapsed lease ends it cleanly when it can, else a lapse or a failing quorum makes it suspect.
+    async fn tick_started(&self, hunt: &HuntSession, lease_lapsed: bool, now: UnixMillis) -> Step {
+        if lease_lapsed && let Some(clean) = host_loss_is_clean_end(hunt) {
+            return self
+                .ended(hunt, &format!("{clean}_LEASE_RELEASED"), &HOST_END_STATES, true)
+                .await;
+        }
+        let failing = self.failing_observers(hunt, now).await?;
+        // An empty roster meets the quorum at once (kept as found).
+        let quorum = hunt.roster.len().min(2);
+        if !lease_lapsed && failing < quorum {
+            return Ok(None);
+        }
+        let reason = if failing < 2 {
+            "HOST_LEASE_MISSED"
+        } else {
+            "PARTICIPANT_FAILURE_QUORUM"
+        };
+        self.suspect(hunt, reason).await
+    }
+
+    /// A suspect hunt recovers on a fresh lease; once its window ends it ends cleanly, retries or is recovered.
+    async fn tick_suspect(&self, hunt: &HuntSession, window_over: bool, now: UnixMillis) -> Step {
+        let lease_back = matches!(hunt.lease_expires_at, Some(at) if at > now);
+        if lease_back && hunt.pre_suspect_state.is_some() {
+            return self.recover(hunt, false).await;
+        }
+        if !window_over {
+            return Ok(None);
+        }
+        if let Some(clean) = host_loss_is_clean_end(hunt) {
+            return self
+                .ended(hunt, &format!("{clean}_LEASE_RELEASED"), &HOST_END_STATES, true)
+                .await;
+        }
+        if hunt.pre_suspect_state == Some(H::HostReady) {
+            return self.retry(hunt, "HOST_FAILED_BEFORE_RELEASE").await;
+        }
+        let reason = hunt.failure_reason.as_deref().unwrap_or("HOST_FAILED");
+        self.prepare(hunt, reason, false).await
+    }
+
+    async fn advance_recovery(&self, hunt: HuntSession) -> Step {
+        self.parts.recovery.advance(hunt).await?;
+        Ok(Some(SweepStep::RecoveryAdvanced))
+    }
+}
+
+/// The seam's spelling of a stored session id, when it has one.
+fn seam_spelling(session_id: &str, node: &NodeId) -> Option<String> {
+    crate::ids::seam_session_id(session_id, node).map(|seam| seam.to_string())
 }

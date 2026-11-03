@@ -10,76 +10,76 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use rifts_seam::{
-    AccountId, Caller, Component, Reply, RequestInfo, Rifts, RiftsParts, RouteCall, RouteHandler, SeamError, poll_once,
+    AccountId, Caller, Component, Reply, RequestInfo, Rifts, RiftsParts, RouteCall, RouteHandler, SeamError,
+    Unimplemented, poll_once,
 };
 
-fn rifts() -> Rifts {
+/// The four crates' stub route tables over the two stub hooks.
+fn stubbed() -> Rifts {
     let routes: Vec<Arc<dyn RouteHandler>> = vec![
         Arc::new(rifts_admission::stub_routes()),
         Arc::new(rifts_relay::stub_routes()),
         Arc::new(rifts_realms::stub_routes()),
         Arc::new(rifts_guard::stub_routes()),
     ];
+    let (realms, entry) = (Arc::new(rifts_realms::Stub), Arc::new(rifts_realms::Stub));
+    let guard = Arc::new(rifts_guard::Stub);
     Rifts::new(RiftsParts {
-        realms: Arc::new(rifts_realms::Stub),
-        entry: Arc::new(rifts_realms::Stub),
-        guard: Arc::new(rifts_guard::Stub),
         routes,
+        guard,
+        entry,
+        realms,
     })
+}
+
+/// A body-less anonymous call of `route`.
+fn bare_call(route: rifts_seam::Route) -> RouteCall {
+    RouteCall {
+        body: Vec::new(),
+        caller: Caller::Anonymous,
+        request: RequestInfo::default(),
+        query: String::new(),
+        params: Vec::new(),
+        route,
+    }
 }
 
 #[test]
 fn sixty_routes_each_mounted_once_and_answering_501() {
-    let rifts = rifts();
+    let rifts = stubbed();
     assert!(rifts.loaded());
     let mounted: Vec<_> = rifts.routes().collect();
-    assert_eq!(mounted.len(), 60);
-    let unique: HashSet<(&str, &str)> = mounted.iter().map(|(r, _)| (r.method.as_str(), r.path)).collect();
-    assert_eq!(unique.len(), 60);
+    let distinct: HashSet<_> = mounted.iter().map(|(r, _)| (r.method.as_str(), r.path)).collect();
+    assert_eq!((mounted.len(), distinct.len()), (60, 60));
     for (route, handler) in mounted {
-        let call = RouteCall {
-            route: *route,
-            params: Vec::new(),
-            query: String::new(),
-            request: RequestInfo::default(),
-            caller: Caller::Anonymous,
-            body: Vec::new(),
-        };
-        let Some(Err(SeamError::Unimplemented(missing))) = poll_once(handler.handle(call)) else {
+        let answer = poll_once(handler.handle(bare_call(*route)));
+        let Some(Err(SeamError::Unimplemented(missing))) = answer else {
             panic!("{} answered", route.path);
         };
         assert_eq!(missing.operation, route.handler);
         let reply = Reply::not_implemented(&missing, "req-1");
         assert_eq!(reply.status, 501);
-        assert!(
-            reply
-                .body
-                .0
-                .starts_with(r#"{"error":{"code":"NOT_IMPLEMENTED","message":"rifts-"#)
-        );
+        let prefix = r#"{"error":{"code":"NOT_IMPLEMENTED","message":"rifts-"#;
+        assert!(reply.body.0.starts_with(prefix), "{}", reply.body.0);
     }
-    let realms: Vec<_> = rifts_realms::ROUTES.iter().map(|r| r.handler).collect();
-    assert_eq!(realms.len(), 46);
-    let reply = Reply::not_implemented(
-        &rifts_seam::Unimplemented::new(Component::Realms, "realms.join"),
-        "r\"1",
+    assert_eq!(rifts_realms::ROUTES.len(), 46);
+    let join = Unimplemented::new(Component::Realms, "realms.join");
+    let quoted = Reply::not_implemented(&join, "r\"1");
+    let expected = concat!(
+        r#"{"error":{"code":"NOT_IMPLEMENTED","#,
+        r#""message":"rifts-realms: realms.join is not implemented yet","requestId":"r\"1"}}"#,
     );
-    assert_eq!(
-        reply.body.0,
-        r#"{"error":{"code":"NOT_IMPLEMENTED","message":"rifts-realms: realms.join is not implemented yet","requestId":"r\"1"}}"#
-    );
+    assert_eq!(quoted.body.0, expected);
 }
 
 #[test]
 fn the_hooks_answer_unimplemented() {
-    let rifts = rifts();
-    let realms = poll_once(rifts.realms().authenticate(RequestInfo::default())).unwrap();
-    assert_eq!(realms, Err(SeamError::unimplemented(Component::Realms, "authenticate")));
-    let touch = poll_once(rifts.entry().touch_presence(AccountId("a".into()))).unwrap();
-    assert_eq!(
-        touch,
-        Err(SeamError::unimplemented(Component::Realms, "touch_presence"))
-    );
-    let guard = poll_once(rifts.guard().rate_limit_bucket(RequestInfo::default())).unwrap();
-    assert!(matches!(guard, Err(SeamError::Unimplemented(u)) if u.component == Component::Guard));
+    let rifts = stubbed();
+    let missing = |operation| SeamError::unimplemented(Component::Realms, operation);
+    let authenticated = poll_once(rifts.realms().authenticate(RequestInfo::default())).unwrap();
+    assert_eq!(authenticated.unwrap_err(), missing("authenticate"));
+    let touched = poll_once(rifts.entry().touch_presence(AccountId("a".into()))).unwrap();
+    assert_eq!(touched.unwrap_err(), missing("touch_presence"));
+    let bucket = poll_once(rifts.guard().rate_limit_bucket(RequestInfo::default())).unwrap();
+    assert!(matches!(bucket, Err(SeamError::Unimplemented(u)) if u.component == Component::Guard));
 }

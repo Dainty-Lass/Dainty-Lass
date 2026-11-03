@@ -203,3 +203,45 @@ Seam changes made on this branch, for the integration pass to review:
 Left for the integration pass or a later row: the security checklist `docs/security/rifts-relay.md` (umbrella §4.5;
 not in this row's brief), the migration guide's §2 line, the NOTICE line, and dainty-restricted's switch of its
 `rifts-relay` dependency by git rev with the oracle package of §6.2.
+
+## Restructure pass
+
+- **Date and session**: 2026-11-02, one Claude Code subagent session (model Claude Opus 5.5), on branch
+  `chore/rd27-rifts-restructure-admission-relay` cut from `origin/feat/rd27-rifts-mit` at `2e06bda`, after the
+  admission pass. Same isolation rules as §1: nothing under dainty-restricted, `modules/` or any pre-split history was
+  opened; the outside reviewer's per-file shares were the only input about the replaced code.
+- **Files changed**: `src/lib.rs`, `src/service.rs`, `src/rules.rs`, `src/credentials.rs`, `src/config.rs`,
+  `src/wire.rs`, `src/routes.rs` (its production half; the tests, with the route table as a literal list, are as
+  they were), `examples/mint-relay-file.rs`; in `src/service/tests.rs` only the `BoxFuture` import the old
+  `use super::*` used to bring in.
+- **Techniques**:
+  - One `wire_enum!` table (in `lib.rs`, ahead of the modules) declares `CoopTransport`, `PresenceState`, `IceRole`,
+    `SignalKind` and `RelayDenied` with their wire words and generates `as_str` and, where the API has one, `parse`.
+  - Errors: `RelayError`, `ProviderFailure` and `ProviderUnreachable` keep their variants and texts, with hand-written
+    `Display`/`Error` and a `From` macro instead of `thiserror` attributes.
+  - Service: every refusal a named `(code, text)` constant checked through one `ensure`; the gate, the live-hunt
+    checks and the hub presence folded into one lookup returning the hunt with its presence; the admin body read
+    into a small struct; the trait impls through the crate's private `Answer` alias.
+  - Rules: role, joiner and peer lookups through shared `seated`/`live_rows` iterators; routing as a match on the
+    pair of roles; the relay-only filter as one loop with named line predicates; the pair key and TURN REST
+    credential through `Mac::chain_update`.
+  - Credentials: the quota check split out of `grant`; Cloudflare's tagged and untagged requests from one closure;
+    the hourly counter on the map's entry; tests table-driven with a `granted` helper.
+  - Config: the four bounded numbers as one table of (setting, fallback, range) shared by `Default` and
+    `from_settings`; a small settings reader for trimmed text, URL lists, ids with tokens and secrets.
+  - Wire: escapes from a table, the object builder through one `field` method, the civil date by whole 400/100/4/1
+    year spans instead of the shifted-era formula (checked equal to the old one for every day from about year -220
+    to 10,000 by a temporary test, then removed), the decimal-literal check by splitting rather than a cursor.
+  - Routes: the table through a `const fn route`, the launcher's three checks in one `launcher_call`.
+  - Derive lists sorted alphabetically.
+- **Unchanged**: every public item's name, type, fields and field order, variants and signatures (parameter names in
+  trait declarations changed, which is not part of the API); wire bytes, JSON field order, every error code and text,
+  the provider request bodies and the analytics query text, the example's output and exit codes. Dependents
+  (`rifts-admission`, `rifts-realms`, `rifts-transport`, `rifts-host`) build and pass their tests.
+- **Tests**: `cargo test -p rifts-relay --locked --no-fail-fast`: 53 passed, 0 failed (every case kept).
+  `cargo fmt --all --check` and `cargo clippy --workspace --all-targets --locked -- -D warnings`: clean.
+- **What cannot go much lower**: `rules.rs` (the `HuntState`, `RosterEntry`, `PresenceRow`, `HuntSnapshot`, `IcePeer`
+  and `IceSignal` declarations and the pinned function signatures), `credentials.rs` (eleven public structs and
+  enums plus the provider functions' signatures and the analytics query text) and `config.rs` (`RelayConfig`'s
+  eleven fields, the provider structs and `SECRET_SETTINGS`) are bounded by what the spec pins. `thiserror` stays
+  in `Cargo.toml` (now unused here) to leave `Cargo.lock` untouched.

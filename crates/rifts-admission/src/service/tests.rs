@@ -536,7 +536,7 @@ fn consume_refusals_in_order() {
     let unrecorded = fixture
         .tickets
         .mint(
-            hunt(SessionKind::Hunt).bindings(&joiner(), JOINER_PEER).unwrap(),
+            hunt(SessionKind::Hunt).ticket_bindings(&joiner(), JOINER_PEER).unwrap(),
             (START / 1000) as u64,
             None,
         )

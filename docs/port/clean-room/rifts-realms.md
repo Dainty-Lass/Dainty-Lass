@@ -298,3 +298,115 @@ None beyond part 1's.
 - `cargo test -p rifts-realms --locked --no-fail-fast` (SQLite): lib 42 and the same 15 suites as part 2, per suite
   unchanged: **165 passed, 0 failed**. Postgres was not run (`REFORGED_TEST_POSTGRES_URL` unset).
 - No dependency or seam change.
+
+## Restructure pass: records, repositories, control channel
+
+Session: 2026-11-02, Claude Opus 5.5, as a clean-room implementer. Read only this crate, `crates/store`,
+`crates/rifts-seam` and the two briefs; no restricted tree, no Mystic Paradox tree, no pre-split history. A second
+pass over the crate's other files runs in parallel on its own branch and records its own section.
+
+### Files changed
+
+`src/hunt.rs`, `src/realm.rs`, `src/control.rs`, `src/db.rs`, `src/lib.rs`, `src/repo/mod.rs`, `src/repo/realms.rs`,
+`src/repo/hunts.rs`, `src/repo/hub.rs`, `tests/common/mod.rs`, `tests/common/kit.rs`, `tests/stubbed.rs`,
+`tests/realms_repository.rs`. New private modules: `src/wire.rs` and `src/repo/sql.rs`.
+
+### Techniques
+
+- **Wire enums from one table** (`wire::wire_text!`): each enum's texts are listed once and give its text method,
+  its parser where it has one, and `HuntState::ALL`; the foreign `HubKind` and `CapabilityScope` get their free
+  functions (`hub_kind_name`, `parse_hub_kind`, `scope_name`, `parse_scope`) the same way. `hub_kind_name` became a
+  `const fn`, which every existing caller still compiles against.
+- **Statements as text plus values** (`repo::sql`): a `Statement` holds the `?` text and an ordered `Vec<Arg>` built
+  by `binds![..]` from a `Bind` trait, instead of `.bind::<T, _>(..)` chains. Every value binds as its nullable SQL
+  type, the same parameter on both engines. `upsert` wraps `store::portable::upsert`.
+- **Rows declared once** (`table_row!`): a (column, type) list gives the `QueryableByName` struct, its `COLUMNS`
+  (which build the `SELECT`/`INSERT` column lists) and, for a table that mirrors a record, `record()` and `values()`.
+  The `Cell` trait maps each record type to its stored form (times as `BIGINT`, enums as their wire text with the
+  existing Corrupt text, scopes as `,`-joined names, JSON as text). Columns are checked in column order, the order
+  the old conversions reported a bad value in.
+- Repositories: realm child tables through one `Child` helper (has, count, delete, append after the last `seq`);
+  hub presence rows built from one `blank` row, a first entry being a re-entry from epoch 0; refusal ladders as one
+  `if`/`else` chain per method; `HostReliabilityRecord::add` (crate-private) for the counters.
+- Control channel: refusals as (code, message) constants; query parsing and the UUID shape check as helpers.
+- `lib.rs`: `TABLES` from a `realm_tables!` list; `RealmsError` from `store` and `diesel` errors goes through
+  `RepoError`, which writes the same text. Record literals reordered or built by destructuring; derives listed
+  alphabetically; test fixtures built from detail JSON (`HuntSession`, `HostPresenceRecord`) or helpers; repository
+  tests iterate `engines()`.
+
+### What did not change
+
+Every public item's name, type, fields and their order, variants and signatures; wire bytes, JSON field order,
+error codes and texts. The SQL the database receives was checked directly: with a temporary trace in `db::sql` and
+`store::portable::upsert` (removed afterwards), the whole test suite sent the same 117 distinct statement texts and
+upsert shapes before and after the pass.
+
+### What cannot go much lower
+
+`hunt.rs` and `realm.rs` are mostly the public records the spec pins (`HuntSession`'s serde fields,
+`HostPresenceRecord`, the realm records, `RESERVED_REALM_NAMES`): their field lines and order are the API. What was
+free there (enum tables, attributes, derives, constructors, rules, tests) was restructured. The public structs at
+the top of `repo/hunts.rs` and `repo/hub.rs` (`HostStartup`, `LeaseRenewal`, `HubPresenceRecord`...) are the same
+case.
+
+## Restructure pass: the domain and service files
+
+Session 2026-11-02, Claude Opus 5.5, clean-room implementer, second pass. Read only this worktree (the umbrella
+spec, the `crates/` sources being restructured and their tests, `AGENTS.md`) and the two pass briefs; nothing under
+`dainty-restricted`, `modules/`, or any history before the split. The reviewer's measure was not re-run against the
+AGPL code; as a proxy each file was compared with its own previous MIT version (3+-line runs of identical trimmed
+non-comment lines), which can only overstate the share against code it was never derived from.
+
+### Files changed
+
+`src/directory.rs`, `src/hub.rs`, `src/tiers.rs`, `src/ports.rs`, `src/lifecycle.rs`, `src/leases.rs`,
+`src/selection.rs`, `src/hosting.rs`, `src/capabilities.rs`, `src/host_policy.rs`, `src/service.rs`. No other file,
+no new module, no seam change; `hunt.rs`, `control.rs`, `realm.rs`, `repo/*`, `db.rs`, `lib.rs` and the tests were
+left to the other restructure branch.
+
+### Techniques
+
+- Declarations beside their data: `HostingPolicy` and `EligibilityPolicy` are declared by a local `macro_rules!`
+  that pairs each field with the setting, default and range it is read from, so the struct and `from_settings` come
+  from one list; `RouteReason`, `PresenceState`, `HubEvent`, `PresenceEvent` and `HubTicketDenial` come from tables
+  that give the variants and their wire codes, transitions or (code, text) refusals together.
+- Ordered rule tables instead of `if` ladders: the hunt route gates (`tiers::GATES`), the host eligibility checks,
+  the hub tick ends, the hub ticket checks and realm capacity.
+- Refusals as named `(code, text)` constants (`directory`, `hosting`, `leases`), the shared entry messages as one
+  table.
+- Transaction bodies moved out of the closures into named functions taking a small plan struct (`offer_host`,
+  `answer_offer`, `close_hub`, `fence_and_abort`, `record_host_ready`, `hub_host_route_ready`,
+  `admit_participant`); repeated compare-and-set edits folded into helpers (`advance`, `clear_live_fields`,
+  `clear_offered_host`, `one`).
+- One blank `HuntSession` builder for the routed hunt and the realm hub; one candidate builder for hunts and hubs;
+  JSON replies built by an ordered `object` helper in the order the spec gives.
+- Delegations to `DedicatedOnly` declared by signature through a local macro; repository wrappers
+  (`on_directory`, `hosted`) in `service.rs`; private type aliases (`Port`, `Step`, `Says`, `Key`).
+- Trait-impl methods, derives and private items reordered; crate-private helpers (`lifecycle::transition`,
+  `queue`, `bump`) renamed parameters only.
+
+### Kept as they were
+
+Every public item's name, type, fields and their order, variants and signatures; wire bytes, JSON key order, SQL
+(no repository call changed), error codes and texts, log lines, and the order of every store write, port call and log.
+Floating-point expressions in `score_host` keep their operation order. One test was added
+(`capabilities::secrets_are_unpadded_base64url`) for the rewritten encoder.
+
+### What cannot go lower
+
+The remaining shared lines are mostly declarations the spec pins: the reply structs in `directory.rs` (about 250
+lines of fields in JSON order), the public structs and trait signatures in `ports.rs`, `hosting.rs`
+(`AdmissionHunts`, `IceHunts`, `HuntLifecycle`) and `leases.rs`, the multi-line public signatures in `lifecycle.rs`,
+and its state lists (`LIFECYCLE_STATES`, `SUPERSEDE_STATES`), whose order is public. Proxy share after the pass:
+`directory` 33%, `lifecycle` 33%, `leases` 30%, `hosting` 30%, `capabilities` 29%, `hub` 27%, `ports` 27%,
+`service` 27%, `selection` 24%, `tiers` 23%, `host_policy` 13%.
+
+### Verification
+
+- `cargo fmt --all --check`: clean. `cargo clippy --workspace --all-targets --locked -- -D warnings`: clean.
+- `cargo test -p rifts-realms --locked --no-fail-fast` (SQLite): lib 42 and the same 15 suites, per suite unchanged:
+  **165 passed, 0 failed**. Postgres was not run (`REFORGED_TEST_POSTGRES_URL` unset).
+- No dependency or seam change.
+
+- `cargo test -p rifts-realms --locked --no-fail-fast` (SQLite): lib 43 and the same 15 suites, **166 passed, 0
+  failed** (165 before, plus the encoder test). Postgres was not run.

@@ -8,7 +8,10 @@ use rifts_seam::{CapabilityScope, HubKind, UnixMillis};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+use crate::time::{millis, opt_millis};
+use crate::wire::wire_text;
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum HuntState {
     Requested,
@@ -28,49 +31,24 @@ pub enum HuntState {
     Aborted,
 }
 
-impl HuntState {
-    pub const ALL: [HuntState; 14] = [
-        Self::Requested,
-        Self::HostSelecting,
-        Self::HostOffered,
-        Self::Starting,
-        Self::HostReady,
-        Self::Admitting,
-        Self::Running,
-        Self::Draining,
-        Self::Suspect,
-        Self::Fenced,
-        Self::Aborting,
-        Self::Recovering,
-        Self::Completed,
-        Self::Aborted,
-    ];
+wire_text!(impl HuntState { as_str, parse; ALL }
+    Requested => "REQUESTED",
+    HostSelecting => "HOST_SELECTING",
+    HostOffered => "HOST_OFFERED",
+    Starting => "STARTING",
+    HostReady => "HOST_READY",
+    Admitting => "ADMITTING",
+    Running => "RUNNING",
+    Draining => "DRAINING",
+    Suspect => "SUSPECT",
+    Fenced => "FENCED",
+    Aborting => "ABORTING",
+    Recovering => "RECOVERING",
+    Completed => "COMPLETED",
+    Aborted => "ABORTED",
+);
 
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Requested => "REQUESTED",
-            Self::HostSelecting => "HOST_SELECTING",
-            Self::HostOffered => "HOST_OFFERED",
-            Self::Starting => "STARTING",
-            Self::HostReady => "HOST_READY",
-            Self::Admitting => "ADMITTING",
-            Self::Running => "RUNNING",
-            Self::Draining => "DRAINING",
-            Self::Suspect => "SUSPECT",
-            Self::Fenced => "FENCED",
-            Self::Aborting => "ABORTING",
-            Self::Recovering => "RECOVERING",
-            Self::Completed => "COMPLETED",
-            Self::Aborted => "ABORTED",
-        }
-    }
-
-    pub fn parse(text: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|state| state.as_str() == text)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AdmissionState {
     Pending,
@@ -79,24 +57,14 @@ pub enum AdmissionState {
     Lost,
 }
 
-impl AdmissionState {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Pending => "PENDING",
-            Self::Issued => "ISSUED",
-            Self::Admitted => "ADMITTED",
-            Self::Lost => "LOST",
-        }
-    }
+wire_text!(impl AdmissionState { as_str, parse }
+    Pending => "PENDING",
+    Issued => "ISSUED",
+    Admitted => "ADMITTED",
+    Lost => "LOST",
+);
 
-    pub fn parse(text: &str) -> Option<Self> {
-        [Self::Pending, Self::Issued, Self::Admitted, Self::Lost]
-            .into_iter()
-            .find(|state| state.as_str() == text)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Participant {
     pub account_id: String,
@@ -105,83 +73,75 @@ pub struct Participant {
     pub candidate_id: String,
     pub reconnect_epoch: i64,
     pub admission_state: AdmissionState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub local_bridge_instance_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub local_bridge_port: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub local_bridge_ready_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub admitted_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub disconnected_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub rejoin_deadline: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub returned_to_hub_at: Option<UnixMillis>,
 }
 
 impl Participant {
     pub fn pending(account_id: &str, steam_id: &str, candidate_id: &str) -> Self {
         Self {
-            account_id: account_id.to_owned(),
-            steam_id: steam_id.to_owned(),
-            candidate_id: candidate_id.to_owned(),
-            reconnect_epoch: 0,
             admission_state: AdmissionState::Pending,
-            local_bridge_instance_id: None,
-            local_bridge_port: None,
-            local_bridge_ready_at: None,
-            admitted_at: None,
-            disconnected_at: None,
-            rejoin_deadline: None,
+            reconnect_epoch: 0,
+            account_id: account_id.into(),
+            candidate_id: candidate_id.into(),
+            steam_id: steam_id.into(),
             returned_to_hub_at: None,
+            rejoin_deadline: None,
+            disconnected_at: None,
+            admitted_at: None,
+            local_bridge_ready_at: None,
+            local_bridge_port: None,
+            local_bridge_instance_id: None,
         }
     }
 }
 
-pub fn hub_kind_name(kind: HubKind) -> &'static str {
-    match kind {
-        HubKind::Ramsgate => "RAMSGATE",
-        HubKind::Training => "TRAINING",
-    }
-}
-
-pub fn parse_hub_kind(text: &str) -> Option<HubKind> {
-    match text {
-        "RAMSGATE" => Some(HubKind::Ramsgate),
-        "TRAINING" => Some(HubKind::Training),
-        _ => None,
-    }
-}
+wire_text!(fn HubKind { hub_kind_name, parse_hub_kind }
+    Ramsgate => "RAMSGATE",
+    Training => "TRAINING",
+);
 
 /// `hubKind` as its text; an unknown text fails the whole record.
 mod hub_kind_text {
     use rifts_seam::HubKind;
+    use serde::de::Error as _;
     use serde::{Deserialize, Deserializer, Serializer};
+
+    use super::{hub_kind_name, parse_hub_kind};
 
     // serde's `with` hands the field by reference.
     #[allow(clippy::ref_option)]
     pub fn serialize<S: Serializer>(kind: &Option<HubKind>, out: S) -> Result<S::Ok, S::Error> {
-        match kind {
-            Some(kind) => out.serialize_str(super::hub_kind_name(*kind)),
-            None => out.serialize_none(),
-        }
+        let Some(kind) = kind else {
+            return out.serialize_none();
+        };
+        out.serialize_str(hub_kind_name(*kind))
     }
 
     pub fn deserialize<'de, D: Deserializer<'de>>(input: D) -> Result<Option<HubKind>, D::Error> {
-        match Option::<String>::deserialize(input)? {
-            None => Ok(None),
-            Some(text) => super::parse_hub_kind(&text)
-                .map(Some)
-                .ok_or_else(|| serde::de::Error::custom(format!("unknown hubKind {text:?}"))),
-        }
+        let Some(text) = Option::<String>::deserialize(input)? else {
+            return Ok(None);
+        };
+        let kind = parse_hub_kind(&text).ok_or_else(|| D::Error::custom(format!("unknown hubKind {text:?}")))?;
+        Ok(Some(kind))
     }
 }
 
 /// A session as its `detail` JSON holds it (camelCase, absent optionals omitted); the roster is stored in rows of
 /// its own. Field order is the JSON's.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HuntSession {
     pub session_id: String,
@@ -189,11 +149,11 @@ pub struct HuntSession {
     pub state: HuntState,
     pub state_version: i64,
     pub party_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub active_party_key: Option<String>,
     pub party_revision: i64,
     pub hunt_definition_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub game_mode: Option<String>,
     pub build: i64,
     pub bridge_protocol: i64,
@@ -203,71 +163,71 @@ pub struct HuntSession {
     pub bridge_instance_id: String,
     #[serde(skip)]
     pub roster: Vec<Participant>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub lobby_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub coop_transport: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub lease_expires_at: Option<UnixMillis>,
-    #[serde(with = "crate::time::millis")]
+    #[serde(with = "millis")]
     pub created_at: UnixMillis,
-    #[serde(with = "crate::time::millis")]
+    #[serde(with = "millis")]
     pub expires_at: UnixMillis,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub metadata_nonce: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "hub_kind_text")]
+    #[serde(with = "hub_kind_text", skip_serializing_if = "Option::is_none", default)]
     pub hub_kind: Option<HubKind>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub realm_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub host_participates: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub host_local_bridge_port: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub server_udp_port: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub host_local_bridge_ready_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub hub_room_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_peers: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub guard_completion_mode: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub host_offer_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub offer_expires_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub startup_deadline: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub last_heartbeat_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub last_lease_sequence: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub suspect_since: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub suspect_deadline: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub pre_suspect_state: Option<HuntState>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub failure_reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub tried_host_account_ids: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub terminal_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub recovery_deadline: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub recovery_retry_at: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub completion_reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "crate::time::opt_millis")]
+    #[serde(with = "opt_millis", skip_serializing_if = "Option::is_none", default)]
     pub drain_deadline: Option<UnixMillis>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub cancelled_by_account_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub trust_tier: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub guard_encounter_state: Option<String>,
     /// Keys this port does not name, kept so a write never drops one.
     #[serde(flatten)]
@@ -284,7 +244,7 @@ impl HuntSession {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum TransitionActor {
     System,
     Host,
@@ -292,18 +252,14 @@ pub enum TransitionActor {
     Admin,
 }
 
-impl TransitionActor {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::System => "SYSTEM",
-            Self::Host => "HOST",
-            Self::Participant => "PARTICIPANT",
-            Self::Admin => "ADMIN",
-        }
-    }
-}
+wire_text!(impl TransitionActor { as_str }
+    System => "SYSTEM",
+    Host => "HOST",
+    Participant => "PARTICIPANT",
+    Admin => "ADMIN",
+);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HuntTransition {
     /// Empty: the repository gives it one.
     pub transition_id: String,
@@ -318,33 +274,17 @@ pub struct HuntTransition {
     pub at: UnixMillis,
 }
 
-pub const fn scope_name(scope: CapabilityScope) -> &'static str {
-    match scope {
-        CapabilityScope::HostReady => "HOST_READY",
-        CapabilityScope::LeaseHeartbeat => "LEASE_HEARTBEAT",
-        CapabilityScope::PeerAdmitted => "PEER_ADMITTED",
-        CapabilityScope::GameServerRuntime => "GAME_SERVER_RUNTIME",
-        CapabilityScope::EventsWrite => "EVENTS_WRITE",
-        CapabilityScope::CompleteRequest => "COMPLETE_REQUEST",
-        CapabilityScope::Abort => "ABORT",
-    }
-}
+wire_text!(fn CapabilityScope { scope_name, parse_scope }
+    HostReady => "HOST_READY",
+    LeaseHeartbeat => "LEASE_HEARTBEAT",
+    PeerAdmitted => "PEER_ADMITTED",
+    GameServerRuntime => "GAME_SERVER_RUNTIME",
+    EventsWrite => "EVENTS_WRITE",
+    CompleteRequest => "COMPLETE_REQUEST",
+    Abort => "ABORT",
+);
 
-pub fn parse_scope(text: &str) -> Option<CapabilityScope> {
-    [
-        CapabilityScope::HostReady,
-        CapabilityScope::LeaseHeartbeat,
-        CapabilityScope::PeerAdmitted,
-        CapabilityScope::GameServerRuntime,
-        CapabilityScope::EventsWrite,
-        CapabilityScope::CompleteRequest,
-        CapabilityScope::Abort,
-    ]
-    .into_iter()
-    .find(|scope| scope_name(*scope) == text)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HostCapabilityRecord {
     pub capability_id: String,
     /// Lower-case hex SHA-256 of the secret; the secret itself is never stored.
@@ -361,7 +301,7 @@ pub struct HostCapabilityRecord {
     pub last_sequence: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArtifactHashes {
     pub game_exe: String,
@@ -373,7 +313,7 @@ pub struct ArtifactHashes {
 }
 
 /// A Launcher Guard session as a host presence stores it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GuardRole {
     /// `client` or `host`.
@@ -384,15 +324,15 @@ pub struct GuardRole {
     pub risk_score: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HostPresenceRecord {
     pub account_id: String,
     pub revision: i64,
     pub consent_to_host: bool,
-    #[serde(with = "crate::time::millis")]
+    #[serde(with = "millis")]
     pub observed_at: UnixMillis,
-    #[serde(with = "crate::time::millis")]
+    #[serde(with = "millis")]
     pub expires_at: UnixMillis,
     #[serde(rename = "freePhysicalMemoryMiB")]
     pub free_physical_memory_mib: f64,
@@ -403,7 +343,7 @@ pub struct HostPresenceRecord {
     pub power_saver: bool,
     pub runtime_supported: bool,
     pub steam_runtime_ready: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub steam_id: Option<String>,
     pub backend_rtt_ms: f64,
     pub worst_peer_rtt_ms: f64,
@@ -412,20 +352,20 @@ pub struct HostPresenceRecord {
     pub artifacts: ArtifactHashes,
     pub artifacts_verified: bool,
     pub launcher_version: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub guard_session_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub guard_risk_score: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub guard_verified: Option<bool>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub guard_roles: Vec<GuardRole>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub realm_host_sessions: Option<i64>,
 }
 
 /// Each part 0-100; lower is better.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoreBreakdown {
     pub latency_risk: f64,
@@ -437,7 +377,7 @@ pub struct ScoreBreakdown {
     pub integrity_risk: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum OfferStatus {
     Offered,
     Accepted,
@@ -446,31 +386,15 @@ pub enum OfferStatus {
     Cancelled,
 }
 
-impl OfferStatus {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Offered => "OFFERED",
-            Self::Accepted => "ACCEPTED",
-            Self::Declined => "DECLINED",
-            Self::Expired => "EXPIRED",
-            Self::Cancelled => "CANCELLED",
-        }
-    }
+wire_text!(impl OfferStatus { as_str, parse }
+    Offered => "OFFERED",
+    Accepted => "ACCEPTED",
+    Declined => "DECLINED",
+    Expired => "EXPIRED",
+    Cancelled => "CANCELLED",
+);
 
-    pub fn parse(text: &str) -> Option<Self> {
-        [
-            Self::Offered,
-            Self::Accepted,
-            Self::Declined,
-            Self::Expired,
-            Self::Cancelled,
-        ]
-        .into_iter()
-        .find(|status| status.as_str() == text)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct HostOfferRecord {
     pub offer_id: String,
     pub session_id: String,
@@ -487,7 +411,7 @@ pub struct HostOfferRecord {
     pub response_reason: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HostReliabilityRecord {
     pub account_id: String,
     pub offers_accepted: i64,
@@ -503,22 +427,47 @@ pub struct HostReliabilityRecord {
 
 impl HostReliabilityRecord {
     pub fn new(account_id: &str, at: UnixMillis) -> Self {
+        let ReliabilityIncrements {
+            offers_accepted,
+            offers_declined,
+            offers_expired,
+            starts_succeeded,
+            starts_failed,
+            clean_completions,
+            unexpected_failures,
+        } = ReliabilityIncrements::default();
         Self {
-            account_id: account_id.to_owned(),
-            offers_accepted: 0,
-            offers_declined: 0,
-            offers_expired: 0,
-            starts_succeeded: 0,
-            starts_failed: 0,
-            clean_completions: 0,
-            unexpected_failures: 0,
-            cooldown_until: None,
+            account_id: account_id.into(),
             updated_at: at,
+            cooldown_until: None,
+            offers_accepted,
+            offers_declined,
+            offers_expired,
+            starts_succeeded,
+            starts_failed,
+            clean_completions,
+            unexpected_failures,
+        }
+    }
+
+    /// Adds each counter; the cooldown and time are the caller's.
+    pub(crate) fn add(&mut self, more: ReliabilityIncrements) {
+        let counters = [
+            (&mut self.offers_accepted, more.offers_accepted),
+            (&mut self.offers_declined, more.offers_declined),
+            (&mut self.offers_expired, more.offers_expired),
+            (&mut self.starts_succeeded, more.starts_succeeded),
+            (&mut self.starts_failed, more.starts_failed),
+            (&mut self.clean_completions, more.clean_completions),
+            (&mut self.unexpected_failures, more.unexpected_failures),
+        ];
+        for (total, extra) in counters {
+            *total += extra;
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ReliabilityIncrements {
     pub offers_accepted: i64,
     pub offers_declined: i64,
@@ -529,7 +478,7 @@ pub struct ReliabilityIncrements {
     pub unexpected_failures: i64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ObservationRecord {
     pub observation_id: String,
     pub session_id: String,
@@ -548,7 +497,7 @@ pub struct ObservationRecord {
     pub observed_at: UnixMillis,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ControlMessageRecord {
     pub message_id: String,
     pub account_id: String,
@@ -564,133 +513,78 @@ pub struct ControlMessageRecord {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
+    /// Deserialized from the detail JSON, so only what the test sets is spelled.
     fn session() -> HuntSession {
-        HuntSession {
-            session_id: "s".into(),
-            generation: 1,
-            state: HuntState::Running,
-            state_version: 1,
-            party_id: "party-1".into(),
-            active_party_key: None,
-            party_revision: 0,
-            hunt_definition_id: "hunt".into(),
-            game_mode: None,
-            build: 647_472,
-            bridge_protocol: 1,
-            virtual_port: 1,
-            host_account_id: "host".into(),
-            host_steam_id: "1".into(),
-            bridge_instance_id: "bridge".into(),
-            roster: vec![Participant::pending("host", "1", "c")],
-            lobby_id: None,
-            coop_transport: None,
-            lease_expires_at: None,
-            created_at: UnixMillis(0),
-            expires_at: UnixMillis(10),
-            metadata_nonce: None,
-            hub_kind: Some(HubKind::Training),
-            realm_id: None,
-            host_participates: None,
-            host_local_bridge_port: None,
-            server_udp_port: None,
-            host_local_bridge_ready_at: None,
-            hub_room_id: None,
-            max_peers: None,
-            guard_completion_mode: None,
-            host_offer_id: None,
-            offer_expires_at: None,
-            startup_deadline: None,
-            last_heartbeat_at: None,
-            last_lease_sequence: None,
-            suspect_since: None,
-            suspect_deadline: None,
-            pre_suspect_state: Some(HuntState::HostReady),
-            failure_reason: None,
-            tried_host_account_ids: Vec::new(),
-            terminal_at: None,
-            recovery_deadline: None,
-            recovery_retry_at: None,
-            completion_reason: None,
-            drain_deadline: None,
-            cancelled_by_account_id: None,
-            trust_tier: None,
-            guard_encounter_state: None,
-            extra: Map::new(),
-        }
+        let mut hunt: HuntSession = serde_json::from_value(json!({
+            "sessionId": "s", "generation": 1, "state": "RUNNING", "stateVersion": 1, "partyId": "party-1",
+            "partyRevision": 0, "huntDefinitionId": "hunt", "build": 647_472, "bridgeProtocol": 1, "virtualPort": 1,
+            "hostAccountId": "host", "hostSteamId": "1", "bridgeInstanceId": "bridge", "createdAt": 0,
+            "expiresAt": 10, "hubKind": "TRAINING", "preSuspectState": "HOST_READY",
+        }))
+        .unwrap();
+        hunt.roster.push(Participant::pending("host", "1", "c"));
+        hunt
     }
 
     #[test]
     fn detail_json_is_camel_case_in_field_order_without_the_roster() {
         let mut hunt = session();
+        assert_eq!(hunt.hub_kind, Some(HubKind::Training));
         hunt.extra.insert("frozenLoadouts".into(), Value::Array(Vec::new()));
         let text = serde_json::to_string(&hunt).unwrap();
-        assert_eq!(
-            text,
-            r#"{"sessionId":"s","generation":1,"state":"RUNNING","stateVersion":1,"partyId":"party-1","partyRevision":0,"huntDefinitionId":"hunt","build":647472,"bridgeProtocol":1,"virtualPort":1,"hostAccountId":"host","hostSteamId":"1","bridgeInstanceId":"bridge","createdAt":0,"expiresAt":10,"hubKind":"TRAINING","preSuspectState":"HOST_READY","frozenLoadouts":[]}"#
+        let expected = concat!(
+            r#"{"sessionId":"s","generation":1,"state":"RUNNING","stateVersion":1,"partyId":"party-1","#,
+            r#""partyRevision":0,"huntDefinitionId":"hunt","build":647472,"bridgeProtocol":1,"virtualPort":1,"#,
+            r#""hostAccountId":"host","hostSteamId":"1","bridgeInstanceId":"bridge","createdAt":0,"expiresAt":10,"#,
+            r#""hubKind":"TRAINING","preSuspectState":"HOST_READY","frozenLoadouts":[]}"#,
         );
+        assert_eq!(text, expected);
         let back: HuntSession = serde_json::from_str(&text).unwrap();
         assert!(back.roster.is_empty());
-        assert_eq!(
-            back,
-            HuntSession {
-                roster: Vec::new(),
-                ..hunt
-            }
-        );
-        let bad = text.replace("TRAINING", "DOJO");
-        assert!(serde_json::from_str::<HuntSession>(&bad).is_err());
+        hunt.roster.clear();
+        assert_eq!(back, hunt);
+        assert!(serde_json::from_str::<HuntSession>(&text.replace("TRAINING", "DOJO")).is_err());
     }
 
     #[test]
     fn texts_round_trip() {
-        for state in HuntState::ALL {
-            assert_eq!(HuntState::parse(state.as_str()), Some(state));
-            assert_eq!(
-                serde_json::to_string(&state).unwrap(),
-                format!("\"{}\"", state.as_str())
-            );
-        }
-        for status in ["OFFERED", "ACCEPTED", "DECLINED", "EXPIRED", "CANCELLED"] {
-            assert_eq!(OfferStatus::parse(status).map(OfferStatus::as_str), Some(status));
-        }
-        for scope in ["HOST_READY", "ABORT", "EVENTS_WRITE"] {
-            assert_eq!(parse_scope(scope).map(scope_name), Some(scope));
-        }
-        assert_eq!(parse_scope("host_ready"), None);
+        HuntState::ALL.into_iter().for_each(|state| {
+            let text = state.as_str();
+            assert_eq!(HuntState::parse(text), Some(state));
+            assert_eq!(serde_json::to_value(state).unwrap(), Value::from(text));
+        });
+        let offers = ["OFFERED", "ACCEPTED", "DECLINED", "EXPIRED", "CANCELLED"];
+        assert!(
+            offers
+                .iter()
+                .all(|text| OfferStatus::parse(text).map(OfferStatus::as_str) == Some(*text))
+        );
+        let scopes = ["HOST_READY", "ABORT", "EVENTS_WRITE"];
+        assert!(
+            scopes
+                .iter()
+                .all(|text| parse_scope(text).map(scope_name) == Some(*text))
+        );
+        assert!(parse_scope("host_ready").is_none());
         assert_eq!(AdmissionState::parse("ISSUED"), Some(AdmissionState::Issued));
     }
 
     #[test]
     fn host_presence_spells_the_memory_keys() {
-        let presence = HostPresenceRecord {
-            account_id: "a".into(),
-            revision: 1,
-            consent_to_host: true,
-            observed_at: UnixMillis(1),
-            expires_at: UnixMillis(2),
-            free_physical_memory_mib: 1.5,
-            commit_headroom_mib: 2.0,
-            logical_cpu_count: 8.0,
-            cpu_load_percent: 0.0,
-            power_saver: false,
-            runtime_supported: true,
-            steam_runtime_ready: true,
-            steam_id: None,
-            backend_rtt_ms: 0.0,
-            worst_peer_rtt_ms: 0.0,
-            jitter_ms: 0.0,
-            packet_loss_percent: 0.0,
-            artifacts: ArtifactHashes::default(),
-            artifacts_verified: false,
-            launcher_version: "1".into(),
-            guard_session_id: None,
-            guard_risk_score: None,
-            guard_verified: None,
-            guard_roles: Vec::new(),
-            realm_host_sessions: None,
-        };
+        let presence: HostPresenceRecord = serde_json::from_value(json!({
+            "accountId": "a", "revision": 1, "consentToHost": true, "observedAt": 1, "expiresAt": 2,
+            "freePhysicalMemoryMiB": 1.5, "commitHeadroomMiB": 2.0, "logicalCpuCount": 8.0, "cpuLoadPercent": 0.0,
+            "powerSaver": false, "runtimeSupported": true, "steamRuntimeReady": true, "backendRttMs": 0.0,
+            "worstPeerRttMs": 0.0, "jitterMs": 0.0, "packetLossPercent": 0.0, "artifacts": ArtifactHashes::default(),
+            "artifactsVerified": false, "launcherVersion": "1",
+        }))
+        .unwrap();
+        assert_eq!(presence.free_physical_memory_mib, 1.5);
+        assert!(presence.guard_roles.is_empty() && presence.steam_id.is_none());
         let text = serde_json::to_string(&presence).unwrap();
         assert!(
             text.contains(r#""freePhysicalMemoryMiB":1.5,"commitHeadroomMiB":2.0"#),
