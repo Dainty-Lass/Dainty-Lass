@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use bytes::Bytes;
-use http_body_util::{BodyExt as _, Full};
+use http_body_util::{BodyExt as _, Full, Limited};
 use hyper_util::client::legacy::Client;
 use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::TokioExecutor;
@@ -189,7 +189,11 @@ impl AllowlistFeed {
         let exchange = async {
             let answer = self.0.client.request(request).await.map_err(|e| e.to_string())?;
             let status = answer.status().as_u16();
-            answer.into_body().collect().await.map_err(|e| e.to_string())?;
+            // The reply is only drained; a helper that streams without end is cut off, not buffered
+            Limited::new(answer.into_body(), 64 << 10)
+                .collect()
+                .await
+                .map_err(|e| e.to_string())?;
             Ok::<u16, String>(status)
         };
         match tokio::time::timeout(self.0.timeout, exchange).await {

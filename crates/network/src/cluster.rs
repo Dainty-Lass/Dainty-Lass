@@ -390,9 +390,14 @@ pub fn describe(der: &[u8]) -> Result<NodeCertInfo> {
             .tbs_certificate
             .raw_serial()
             .iter()
-            .map(|b| format!("{b:02x}"))
+            .flat_map(|&b| [b >> 4, b & 15])
+            .filter_map(|n| char::from_digit(u32::from(n), 16))
             .collect(),
-        fingerprint: Sha256::digest(der).iter().map(|b| format!("{b:02x}")).collect(),
+        fingerprint: Sha256::digest(der)
+            .iter()
+            .flat_map(|&b| [b >> 4, b & 15])
+            .filter_map(|n| char::from_digit(u32::from(n), 16))
+            .collect(),
         not_before: cert.validity().not_before.timestamp(),
         not_after: cert.validity().not_after.timestamp(),
     })

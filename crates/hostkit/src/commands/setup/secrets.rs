@@ -22,7 +22,11 @@ fn crypto_failed(what: &str) -> HostError {
 fn hex(rng: &SystemRandom) -> Result<String, HostError> {
     let mut bytes = [0u8; 32];
     rng.fill(&mut bytes).map_err(|_| crypto_failed("a random key"))?;
-    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+    Ok(bytes
+        .iter()
+        .flat_map(|&b| [b >> 4, b & 15])
+        .filter_map(|n| char::from_digit(u32::from(n), 16))
+        .collect())
 }
 
 /// PEM as Node's `export({ format: "pem" })` writes it: 64 base64 characters a line, a final newline.

@@ -248,7 +248,12 @@ pub fn generate_self_signed_cert_at(req: &CertRequest, validity: Validity) -> Re
 
     let mut hasher = Sha256::new();
     hasher.update(&cert_der);
-    let fingerprint: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    let fingerprint: String = hasher
+        .finalize()
+        .iter()
+        .flat_map(|&b| [b >> 4, b & 15])
+        .filter_map(|n| char::from_digit(u32::from(n), 16))
+        .collect();
 
     Ok(Cert {
         cert_pem: pem_encode("CERTIFICATE", &cert_der),

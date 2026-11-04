@@ -152,7 +152,11 @@ fn uuid_v4() -> Option<String> {
 }
 
 fn format_uuid(bytes: &[u8; 16]) -> String {
-    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    let hex: String = bytes
+        .iter()
+        .flat_map(|&b| [b >> 4, b & 15])
+        .filter_map(|n| char::from_digit(u32::from(n), 16))
+        .collect();
     format!(
         "{}-{}-{}-{}-{}",
         &hex[..8],

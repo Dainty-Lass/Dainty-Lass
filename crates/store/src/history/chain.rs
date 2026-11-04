@@ -65,7 +65,12 @@ pub fn entry_hash(prev_hash: &str, entry: &ChangeEntry) -> String {
     text(&mut hasher, &entry.op);
     optional(&mut hasher, entry.before.as_deref());
     optional(&mut hasher, entry.after.as_deref());
-    hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+    hasher
+        .finalize()
+        .iter()
+        .flat_map(|&b| [b >> 4, b & 15])
+        .filter_map(|n| char::from_digit(u32::from(n), 16))
+        .collect()
 }
 
 /// 64 lower-case hex digits, as [`entry_hash`] writes them.

@@ -252,7 +252,7 @@ pub fn begin(
         std::fs::write(dir.join(LOADER_INI), text)
     })();
     if let Err(error) = placed {
-        let _ = session.clone().end();
+        let _ = session.end();
         return Err(io(error));
     }
     Ok(session)

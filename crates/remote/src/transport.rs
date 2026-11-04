@@ -34,9 +34,13 @@ use crate::wire::{
 pub const ENROLL_PATH: &str = "/__node/enroll";
 
 fn append_wire_log(direction: &str, bytes: &[u8]) {
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
     if let Ok(path) = std::env::var("REFORGED_REMOTE_WIRE_LOG")
         && !path.is_empty()
-        && let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path)
+        && let Ok(mut file) = options.open(path)
     {
         use std::io::Write as _;
         let _ = writeln!(file, "{direction}: {}", String::from_utf8_lossy(bytes));
@@ -338,7 +342,13 @@ pub async fn enroll_with_controller(
         gateway_cert_fp,
     };
     let req_bytes = encode_enroll_request(&req)?;
-    append_wire_log("enroll_send", &req_bytes);
+    // The one-time token is a secret: the debug log gets the request without it
+    if let Ok(logged) = serde_json::to_vec(&EnrollRequest {
+        token: "[redacted]".to_owned(),
+        ..req.clone()
+    }) {
+        append_wire_log("enroll_send", &logged);
+    }
 
     let parsed =
         Url::parse(&invite.url).map_err(|e| RemoteError::InvalidInput(format!("invalid controller URL: {e}")))?;
