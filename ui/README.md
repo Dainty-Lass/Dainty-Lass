@@ -66,6 +66,13 @@ cp apps/web/.env.example apps/web/.env   # then fill it in
 bun run dev                                           # http://localhost:3000
 ```
 
+To try every page without a game server, `bun run demo` (`-- --reset` to start over) runs the whole
+dashboard on http://localhost:3030 with sample data: a stand-in game for this host and two remote
+controllers (each with its own agent), staff of every tier and a newcomer awaiting approval, a week of
+reports, chat in every filter verdict, audit history with a revert, settings revisions, and chat arriving
+live. Sign in as any tier from the sign-in page. Its data is in `apps/web/data/demo`, apart from
+`data/`; nothing in it is real, and everything listens on 127.0.0.1 only.
+
 For production, `bun run build` and then `bun run start` (or the [Dockerfile](docker/dashboard.Dockerfile)).
 The dashboard reaches the admin API and the backend on loopback, so it runs on the game server or on a
 machine with an SSH tunnel to it. Put it behind a TLS reverse proxy and set `DASHBOARD_BASE_URL` to the

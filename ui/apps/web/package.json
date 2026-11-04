@@ -15,7 +15,8 @@
     "start": "vinext start",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
-    "test": "bun test tests"
+    "test": "bun test tests",
+    "demo": "bun scripts/demo.ts"
   },
   "dependencies": {
     "@astryxdesign/core": "^0.7.2",
