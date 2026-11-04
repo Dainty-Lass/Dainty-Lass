@@ -114,9 +114,15 @@ fn parse_base(url: &str) -> Result<BaseUrl, String> {
     if !https && !loopback {
         return Err(not_https());
     }
+    // A hosts file or resolver could send `localhost` off the machine, where no certificate is checked (below).
+    let authority = if host == "localhost" {
+        authority.replacen("localhost", "127.0.0.1", 1)
+    } else {
+        authority.to_owned()
+    };
     Ok(BaseUrl {
         https,
-        authority: authority.to_owned(),
+        authority,
         host: host.to_owned(),
         path: path.trim_end_matches('/').to_owned(),
     })
@@ -592,7 +598,7 @@ mod tests {
     fn base_urls() {
         assert!(parse_base("https://api.example.com/base/").is_ok_and(|b| b.path == "/base"));
         assert!(parse_base("http://127.0.0.1:8080").is_ok());
-        assert!(parse_base("http://localhost:8080/x").is_ok());
+        assert!(parse_base("http://localhost:8080/x").is_ok_and(|b| b.authority == "127.0.0.1:8080"));
         assert_eq!(
             parse_base("http://api.example.com"),
             Err("admission backend must be an HTTPS origin without credentials, query, or fragment".to_owned())

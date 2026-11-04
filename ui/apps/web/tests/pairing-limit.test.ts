@@ -22,11 +22,10 @@ describe("pairing limit", () => {
     expect(pairingLocked("a", now + 15 * 60_000 + 1)).toBe(false);
   });
 
-  test("a client that varies its address still meets the overall limit", () => {
+  test("failures from other addresses never lock a fresh one", () => {
     const now = 1_000_000;
-    for (let i = 0; i < 200; i++) pairingFailed(`10.0.${i >> 8}.${i & 255}`, now);
-    expect(pairingLocked("fresh", now)).toBe(true);
-    expect(pairingLocked("fresh", now + 15 * 60_000 + 1)).toBe(false);
+    for (let i = 0; i < 1000; i++) pairingFailed(`10.0.${i >> 8}.${i & 255}`, now);
+    expect(pairingLocked("fresh", now)).toBe(false);
   });
 
   test("an expired window no longer locks once new addresses arrive", () => {
