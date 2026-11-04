@@ -258,15 +258,12 @@ explanation goes in the commit body or the `docs/security/` checklist.
 
 ## Licensing
 
-AGPL-3.0-only, with additional terms for the Mystic Paradox material (`ADDITIONAL_TERMS.md`,
-`modules/rustic-isles/ADDITIONAL_TERMS.md`). Keep Paradox's top-level files under `modules/rustic-isles/` even after its Node code is gone.
-Code copied from DR or Paradox keeps its attribution, and the integration pass records each new source in
-dainty-restricted's `NOTICE.md`.
+MIT ([`LICENSE.txt`](LICENSE.txt)); `ui/` carries its own copy (`ui/LICENSE`). The workspace's `license` is `"MIT"`
+and every crate in `crates/` sets `license = "MIT"` itself; `cargo deny` refuses a dependency whose licence can't
+ship in dainty-restricted's AGPL-3.0-only release.
 
-The MIT crates (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
-`service-kit`, `store`, `hostkit`, `launcher-kit`, `crates/network`, `admin`, `bins`) set `license = "MIT"` in their
-own `Cargo.toml`; everything else (`crates/gateway`, `crates/content`, `crates/host`, `crates/chat`,
-`launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
-DR, Paradox or the Reforged Revival line: no file from those trees, no function rewritten from one while looking at it.
-Copying a DR or Paradox function into an MIT crate moves the crate back to `license.workspace = true` in the same
-commit, with the NOTICE line to match.
+A crate here is MIT only while nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from
+those trees, no function rewritten from one while looking at it. Code that is ported belongs in dainty-restricted,
+which keeps its attribution and records each source in its `NOTICE.md` (and the Mystic Paradox additional terms in
+its `ADDITIONAL_TERMS.md`). Never copy such a function into a crate here; port the behaviour from a clean-room spec
+instead (RD27).
