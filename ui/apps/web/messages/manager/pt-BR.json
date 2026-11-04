@@ -1,0 +1,211 @@
+{
+  "shell": {
+    "product": "Gerenciador do servidor",
+    "windowTitle": "{name} · Gerenciador do servidor",
+    "navigation": "Gerenciador do servidor",
+    "server": "Servidor",
+    "setup": "Configuração",
+    "build": "Runtime e dados do jogo",
+    "jobRunning": "Uma tarefa está em andamento",
+    "settings": "Configurações"
+  },
+  "theme": {
+    "label": "Modo de cor",
+    "system": "Sistema",
+    "light": "Claro",
+    "dark": "Escuro"
+  },
+  "server": {
+    "title": "Servidor",
+    "description": "{name}, um servidor {mode}",
+    "notConfigured": "Ainda não configurado",
+    "start": "Ligar o servidor",
+    "stop": "Desligar o servidor",
+    "failed": "O servidor parou com um erro",
+    "external": "Um servidor iniciado fora desta janela está rodando. Pare-o onde ele foi iniciado.",
+    "setupFirst": "Configure o servidor antes de iniciá-lo.",
+    "openSetup": "Abrir configuração",
+    "states": {
+      "stopped": "Parado",
+      "starting": "Iniciando",
+      "running": "Rodando",
+      "stopping": "Parando",
+      "external": "Rodando em outro lugar",
+      "failed": "Falhou"
+    },
+    "modes": { "private": "privado", "public": "público" },
+    "name": "Nome",
+    "mode": "Modo",
+    "address": "Endereço público",
+    "gameData": "Dados do jogo",
+    "backendData": "Backend · {state}",
+    "directorData": "Director · {state}",
+    "dataStates": { "real": "reais", "synthetic": "sintéticos", "missing": "ausentes" },
+    "invites": "Convites",
+    "invitesHint": "Cada convite leva o endereço e o certificado do servidor. Envie para um jogador.",
+    "inviteFor": "Para",
+    "inviteForPlaceholder": "Um nome, para lembrar para quem foi",
+    "createInvite": "Novo convite",
+    "copy": "Copiar",
+    "copied": "Convite copiado",
+    "console": "Console",
+    "consoleEmpty": "A saída do servidor aparece aqui quando ele iniciar.",
+    "openLogs": "Abrir pasta de logs",
+    "multipliers": "Multiplicadores para testes",
+    "multipliersHint": "Aumente XP e recompensas num servidor privado, para testes.",
+    "multipliersPrivateOnly": "Multiplicadores são só para servidores privados.",
+    "boost": "Usar multiplicadores",
+    "xp": "XP ×",
+    "rewards": "Recompensas ×",
+    "apply": "Aplicar",
+    "applied": "Multiplicadores aplicados",
+    "update": "Atualizar",
+    "updateHint": "Traz o DaintyLass mais novo para o workspace e roda a configuração de novo com suas opções atuais.",
+    "checkUpdate": "Atualizar agora",
+    "stopToUpdate": "Pare o servidor primeiro",
+    "upToDate": "Atualizado em {head}",
+    "updated": "{files, plural, one {# arquivo atualizado} other {# arquivos atualizados}}, agora em {head}",
+    "runtimeChanged": "O runtime do jogo mudou: compile e publique de novo em Runtime e dados do jogo."
+  },
+  "setup": {
+    "title": "Configuração",
+    "description": "Do que o kit do host precisa, onde ele fica e como os jogadores chegam ao servidor",
+    "requirements": "Requisitos",
+    "requirementsHint": "Verificados quando esta janela abriu e depois de cada tarefa.",
+    "get": "Obter",
+    "states": { "ok": "Pronto", "missing": "Ausente", "problem": "Ação necessária" },
+    "problems": {
+      "too_old": "Instalado, mas antigo demais.",
+      "service_running": "Instalado como serviço que já está rodando; o kit inicia o próprio.",
+      "no_cpp": "Instalado sem a carga de trabalho de C++."
+    },
+    "reqs": {
+      "dauntless": "Dauntless 1.14.7",
+      "git": "Git",
+      "node": "Node.js 22",
+      "mongodb": "MongoDB",
+      "tailscale": "Tailscale",
+      "visual_studio": "Visual Studio com C++",
+      "rust": "Rust",
+      "dumper7": "Dumper-7",
+      "vc_redist": "Runtime do Visual C++"
+    },
+    "workspace": "Workspace",
+    "noWorkspace": "Nenhum workspace escolhido. Baixe o projeto ou escolha um checkout que você já tenha.",
+    "workspaceInvalid": "Essa pasta não é um checkout do DaintyLass.",
+    "chooseWorkspace": "Escolher pasta",
+    "downloadProject": "Baixar o projeto",
+    "downloadTarget": "Baixa para {path}",
+    "hiddenPath": "Pasta oculta",
+    "open": "Abrir",
+    "server": "Servidor",
+    "serverHint": "Grava as configurações e os segredos do servidor. Rodar de novo mantém os segredos e certificados existentes.",
+    "name": "Nome deste servidor",
+    "mode": "Quem pode acessar",
+    "modes": { "private": "Privado (Tailscale)", "public": "Público (internet)" },
+    "modeHints": {
+      "private": "Os jogadores entram pela sua rede Tailscale. Nada fica aberto para a internet.",
+      "public": "Os jogadores entram pela internet pela porta TLS do gateway. Redirecione essa porta no seu roteador."
+    },
+    "publicHost": "Endereço público",
+    "publicHostHint": "O endereço IPv4 ou nome DNS pelo qual os jogadores chegam a este PC.",
+    "configure": "Configurar servidor",
+    "reconfigure": "Salvar e reconfigurar",
+    "configured": "Servidor configurado"
+  },
+  "build": {
+    "title": "Runtime e dados do jogo",
+    "description": "Compilados neste PC a partir da sua própria cópia do jogo; nada do jogo é baixado",
+    "noMsbuild": "O MSBuild não foi encontrado. Instale o Visual Studio com a carga de trabalho de C++ para compilar o runtime.",
+    "openLog": "Abrir log",
+    "open": "Abrir pasta",
+    "run": "Executar",
+    "again": "Executar de novo",
+    "done": "Feito",
+    "notDone": "Não feito",
+    "jobStates": { "running": "{job}…", "done": "{job}: concluído", "failed": "{job}: falhou" },
+    "jobs": {
+      "inject": "Injetando",
+      "build_runtime": "Compilando o runtime",
+      "build_loader": "Compilando o loader",
+      "build_exporter": "Compilando o exportador de catálogo",
+      "import_sdk": "Importação do SDK em andamento",
+      "copy_exports": "Copiando as exportações",
+      "synthetic_data": "Gerando dados sintéticos",
+      "import_gamedata": "Importando dados do jogo",
+      "publish_runtime": "Publicação do runtime em andamento",
+      "setup": "Configurando",
+      "generate_gamedata": "Gerando dados do jogo",
+      "export_gamedata": "Exportando dados do jogo",
+      "create_invite": "Convite sendo criado",
+      "update": "Atualizando",
+      "multipliers": "Aplicando multiplicadores",
+      "upstream": "Preparando o código upstream",
+      "download_project": "Baixando o projeto",
+      "backup": "Fazendo backup",
+      "migrate_mongo": "Migrando do MongoDB"
+    },
+    "stages": { "sdk": "1. SDK", "runtime": "2. Runtime do jogo", "data": "3. Dados do jogo" },
+    "stageHints": {
+      "sdk": "O runtime é compilado contra um SDK extraído do seu jogo em execução.",
+      "runtime": "Rustic-Isles.dll e o loader dele, que os jogadores instalam a partir do seu servidor.",
+      "data": "Tabelas de loja, loot e progressão exportadas do seu jogo, ou substitutos sintéticos."
+    },
+    "steps": {
+      "dumper": {
+        "title": "Escolher o Dumper-7",
+        "hint": "A DLL que extrai o SDK do jogo em execução."
+      },
+      "inject_dumper": {
+        "title": "Extrair o SDK",
+        "hint": "Abra o Dauntless até o menu e então execute isto."
+      },
+      "import_sdk": {
+        "title": "Importar a extração mais nova",
+        "hint": "Copia a extração para o código do runtime."
+      },
+      "import_sdk_folder": {
+        "title": "Importar uma pasta de SDK",
+        "hint": "Se você extraiu de outro jeito."
+      },
+      "build_runtime": {
+        "title": "Compilar o runtime",
+        "hint": "Rustic-Isles.dll, com o MSBuild."
+      },
+      "build_loader": { "title": "Compilar o loader", "hint": "winmm.dll, com o Cargo." },
+      "publish_runtime": {
+        "title": "Publicação do runtime",
+        "hint": "Coloca os dois arquivos onde o servidor de conteúdo os oferece aos jogadores."
+      },
+      "build_exporter": {
+        "title": "Compilar o exportador de catálogo",
+        "hint": "CatalogExporter.dll, com o MSBuild."
+      },
+      "inject_exporter": {
+        "title": "Exportar do jogo",
+        "hint": "Abra o Dauntless até o menu e então execute isto."
+      },
+      "copy_exports": {
+        "title": "Copiar as exportações",
+        "hint": "De ao lado do jogo para o workspace."
+      },
+      "generate_gamedata": {
+        "title": "Geração dos dados do jogo",
+        "hint": "Monta as tabelas do backend e do Director a partir das exportações."
+      },
+      "export_gamedata": {
+        "title": "Exportar um pacote de dados",
+        "hint": "Para entregar a outro host com a mesma versão do jogo."
+      },
+      "import_gamedata": {
+        "title": "Importar um pacote de dados",
+        "hint": "De outro host, em vez de exportar o seu."
+      },
+      "synthetic_data": {
+        "title": "Usar dados sintéticos",
+        "hint": "Substitutos para o servidor iniciar; lojas e loot ficarão pobres."
+      }
+    }
+  },
+  "settings": { "title": "Configurações" }
+}

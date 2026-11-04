@@ -6,7 +6,7 @@ import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 
-import type { LauncherApi } from "../../ui/packages/bridge/src/api.ts"
+import type { LauncherApi } from "../../ui/packages/bridge/src/types.ts"
 import { loadHook } from "./hook"
 
 // ui's node_modules needn't be installed: the bridge's Tauri imports are pointed at this package's copy, the one
@@ -152,7 +152,6 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   hostServerGet: [],
   hostServerStart: [],
   hostServerStop: [],
-  hostServerRestart: ["gateway"],
   hostSetup: [{ name: "Hunts", mode: "public", publicHost: "hunts.example.org" }],
   hostCreateInvite: ["Slayer42"],
   hostUpdate: [],
@@ -164,56 +163,27 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   toggleMaximize: [],
   close: [],
   takeInviteLink: [],
+  gameLogGet: [],
   onSnapshot: [noop],
   onProgress: [noop],
   onHostKit: [noop],
   onHostServer: [noop],
   onInviteLink: [noop],
   onWindowState: [noop],
-  epicSignInStart: [],
-  epicSignInCode: ["code"],
-  epicGet: [],
-  epicSignOut: [],
-  epicLibraryCheck: [],
-  gameVersionList: [],
-  gameInstallStart: ["1.14.7"],
-  gameInstallPause: ["1.14.7"],
-  gameInstallResume: ["1.14.7"],
-  gameInstallCancel: ["1.14.7"],
-  gameInstallGet: ["1.14.7"],
-  regionPing: [],
-  moduleList: [],
-  moduleGet: ["rustic-isles"],
-  moduleRunCommand: ["rustic-isles", "grant", { player: "Slayer_42" }],
-  moduleSetSettings: ["rustic-isles", { rates: { xp: 2 } }],
-  moduleLoad: ["rustic-isles"],
-  moduleUnload: ["rustic-isles"],
-  realmHost: ["hunt"],
-  realmJoin: ["realm-1"],
-  realmStop: [],
-  realmGet: [],
-  historyQuery: [{ account: "a", cursor: "c" }],
-  historyRevertDryRun: [{ actor: "admin", since: "2026-11-01T00:00:00Z" }],
-  historyRevertApply: ["plan-1"],
-  guardedList: [],
-  guardedApprove: ["0123456789abcdef"],
-  guardedCancel: ["0123456789abcdef"],
-  serverDoctor: [],
-  serverBackup: [],
-  serverConfigGet: [],
-  serverConfigSave: [{ registration: "INVITE", database: "sqlite", maxHubs: 4, maxHunts: 8, freshStart: false }],
-  serverMigrateMongo: [],
-  serverConfirmFreshStart: [],
-  serverInviteList: [],
-  adminAction: [{ action: "ban", player: "Slayer_42", reason: "test" }],
-  remoteStatus: [],
-  remoteInitController: [],
-  remoteInvite: [{ node: "charlie", region: "ap-east" }],
-  remoteEnroll: [{ uri: "dainty-lass-remote://enroll?x=1" }],
-  remoteRevoke: ["bravo"],
-  remoteLeave: [],
-  remoteExec: [{ node: "alpha", action: "announce", reason: "hello" }],
+  onGameLog: [noop],
 }
+
+// Commands the old Astro page called and dainty-dash's pages don't yet; take one off as its method lands
+const NO_PAGE_METHOD = new Set([
+  "host_server_restart", "epic_sign_in_start", "epic_sign_in_code", "epic_get", "epic_sign_out", "epic_library_check",
+  "game_version_list", "game_install_start", "game_install_pause", "game_install_resume", "game_install_cancel",
+  "game_install_get", "region_ping", "module_list", "module_get", "module_run_command", "module_set_settings",
+  "module_load", "module_unload", "realm_host", "realm_join", "realm_stop", "realm_get", "history_query",
+  "history_revert_dry_run", "history_revert_apply", "guarded_list", "guarded_approve", "guarded_cancel",
+  "server_doctor", "server_backup", "server_config_get", "server_config_save", "server_migrate_mongo",
+  "server_confirm_fresh_start", "server_invite_list", "admin_action", "remote_status", "remote_init_controller",
+  "remote_invite", "remote_enroll", "remote_revoke", "remote_leave", "remote_exec",
+])
 
 function invokeMethod(name: string): unknown {
   const method = (api as unknown as Record<string, (...args: unknown[]) => unknown>)[name]
@@ -243,8 +213,10 @@ describe("every method", () => {
       }
     }
     expect(dropped).toEqual([])
-    const unreached = Object.keys(commands).filter((cmd) => !reached.has(cmd))
+    const unreached = Object.keys(commands).filter((cmd) => !reached.has(cmd) && !NO_PAGE_METHOD.has(cmd))
     expect(unreached, "commands no page method calls").toEqual([])
+    const covered = [...NO_PAGE_METHOD].filter((cmd) => reached.has(cmd) || !(cmd in commands))
+    expect(covered, "NO_PAGE_METHOD entries now called or gone").toEqual([])
   })
 })
 

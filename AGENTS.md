@@ -21,8 +21,7 @@ component and the binaries that link them, and takes this repository's crates as
 | --- | --- |
 | root | One cargo workspace, every package in `crates/<package name>`: the libraries (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `plugin-host`, `protocol`, `proxy`, `remote`, `service-kit`, `service-plugin`, `store`), the services (`admin`, `backend`, `director`, `gateway`, `content`), the core plugins (`network`, `chat`), the `*-plugin` libraries and the `dainty-lass-server` binary |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
-| `dashboard/` | dainty-dash: the staff dashboard, the launcher and server-manager pages dainty-restricted's Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from dainty-restricted at build time (`bun run restricted-data`) |
-| `ui/` | The Astro and shadcn page (DD11), MIT. Its two AGPL inputs, the language catalogs and the generated bridge types, come from dainty-restricted at build time (`bun run restricted-data`) |
+| `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages dainty-restricted's Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from dainty-restricted at build time (`bun run restricted-data`) |
 | `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, Apache-2.0, outside the workspace) |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 
@@ -94,7 +93,7 @@ hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `car
 ### Launcher bridge
 
 The page talks to Rust only through the commands in `launcher/src-tauri/src/bridge/spec.rs`. The TS types
-(`ui/packages/bridge/src/generated/types.ts` in the dainty-lass-ui submodule), the isolation hook's command
+(`ui/packages/bridge/src/generated/types.ts`, copied in by `bun run restricted-data`), the isolation hook's command
 list (`isolation/commands.js`) and the permission set (`permissions/app-commands.toml`) are generated from it
 and checked by a test. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`
 rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`; `npm test` in

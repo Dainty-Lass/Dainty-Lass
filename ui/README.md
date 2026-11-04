@@ -1,29 +1,107 @@
-# dainty-lass-ui
+# dainty-dash
 
-The front-end page served by the [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass) Tauri launcher and
-server GUI (`ui/` submodule). Built with Astro, Preact, TypeScript and Tailwind CSS in a Bun workspace.
+The DaintyLass user interfaces on one theme: a **remote management dashboard** for a server's staff, the
+**launcher** page players use, and the **server manager** page hosts use. All three are Astryx on Next.js
+(through vinext) on Bun, and share `@dainty/theme`.
 
-## Workspace layout
+| Path                                 | What                                                                                                                                                                                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/web`](apps/web)               | All three from one source, picked by `DAINTY_MODE`: the dashboard (a server app with passwordless sign-in, a SQLite database and the game's admin APIs behind it), and the launcher and server manager pages (static exports for the Tauri shells) |
+| [`apps/agent`](apps/agent)           | The agent each extra controller runs, so one dashboard manages them all ([docs/fleet.md](docs/fleet.md))                                                                                                                                           |
+| [`packages/theme`](packages/theme)   | `@dainty/theme`: the Astryx theme, the CSS stack, the colour-mode provider and the brand mark                                                                                                                                                      |
+| [`packages/fleet`](packages/fleet)   | `@dainty/fleet`: the game calls and the dashboard–agent protocol, shared by both sides                                                                                                                                                             |
+| [`packages/bridge`](packages/bridge) | `@dainty/bridge`: the launcher's Tauri bridge (types from dainty-restricted), a browser stand-in, and the desktop catalog                                                                                                                          |
 
-| Package | What |
-| --- | --- |
-| `apps/web` | Astro static application: player screens (servers, invites, PLAY, runtime acceptance, Epic library & download, realms), server GUI screens (Host, status, declarative module panels, guarded actions, change-log history & revert) |
-| `packages/bridge` | Typed Tauri bridge client and generated types (`src/generated/types.ts`) |
-| `packages/i18n` | Language lookup and string catalogs (`catalogs/en.json`, `catalogs/pt-BR.json`) |
-| `packages/ui` | Shared UI primitives |
+## The dashboard
 
-## Build and test
+What staff do on it, for one controller or a fleet of them ([docs/fleet.md](docs/fleet.md)):
+
+- **Controllers**: every host running game servers, its health, players and hunts, paired with a
+  one-time code. Each controller besides the dashboard's own runs a small agent that connects out to the
+  dashboard, so no controller opens a port and each keeps its own secrets.
+
+- **Overview**: players online, hunts running, open reports, flagged chat, the health of each service the
+  dashboard talks to, the latest changes, and performance: each component's phase, uptime, restarts, CPU
+  and memory, game servers, request rates and latency per upstream, and chat by verdict.
+- **Players**: search every account, see who is online and where, and kick, time out, ban or lift a ban.
+  Admins change an account's access and game roles. Each player page has their chat, the reports against
+  them and every staff action taken on them.
+- **Reports**: a queue from the game, Discord and staff. Claim, add notes, see the chat around the reported
+  moment, and resolve with a sanction in one step, or dismiss.
+- **Chat logs**: search by text, player, channel, room and time; flagged lines only; CSV export (audited).
+  Direct messages stay out of them: a player's or a report's page reads them, with a reason, and every
+  read is in the audit log.
+- **Chat filter**: whole-word, anywhere and regex terms that flag, mask or block, per channel, with a tester.
+  Look-alikes (`id1ot`) and spacing tricks (`i.d.i.o.t`) are caught by the non-regex kinds.
+- **Audit log**: every change, with what it replaced, filterable and exportable. Most changes have **Undo**.
+- **Members** and **Settings**: everyone who has signed in and their tier; Discord role sync; onboarding
+  and server terms; moderation reasons; retention. Both keep a revision history.
+- **Your account**: each person's own sign-in methods and passkeys.
+
+### Rollback
+
+Two kinds, both themselves audited and undoable:
+
+- **Undo one change** from the audit log: a ban becomes an unban, an edited filter term gets its old pattern
+  back, a role change is reversed, a report goes back to the state it was in. Undoing writes a new change
+  that points at the one it undid.
+- **Restore a revision** of the chat filter, the settings or the staff list: the whole document as it was,
+  written again as the newest version. Nothing newer is deleted.
+
+A kick cannot be undone, and neither can a timeout that has already run out.
+
+### Sign-in
+
+Discord, Twitch, a code by email, or a passkey; never a password. Anyone can sign in, and their tier
+decides what they see: users get the overview, players and controllers; moderators add reports and chat;
+admins add the audit log, members and settings; owners can change settings. Tiers come from the
+Members page, from Discord roles, or from `DASHBOARD_OWNER_DISCORD_IDS` / `DASHBOARD_OWNER_EMAILS`
+(how the first owner gets in). The server can also ask newcomers to accept its terms first, which can
+add an "approved" role in Discord. [docs/access.md](docs/access.md) has the details.
+
+### Running it
 
 ```bash
-bun install --frozen-lockfile
+bun install
+bun run theme:build
+cp apps/web/.env.example apps/web/.env   # then fill it in
+bun run dev                                           # http://localhost:3000
+```
+
+To try every page without a game server, `bun run demo` (`-- --reset` to start over) runs the whole
+dashboard on http://localhost:3030 with sample data: a stand-in game for this host and two remote
+controllers (each with its own agent), staff of every tier and a newcomer awaiting approval, a week of
+reports, chat in every filter verdict, audit history with a revert, settings revisions, and chat arriving
+live. Sign in as any tier from the sign-in page. Its data is in `apps/web/data/demo`, apart from
+`data/`; nothing in it is real, and everything listens on 127.0.0.1 only.
+
+For production, `bun run build` and then `bun run start` (or the [Dockerfile](docker/dashboard.Dockerfile)).
+The dashboard reaches the admin API and the backend on loopback, so it runs on the game server or on a
+machine with an SSH tunnel to it. Put it behind a TLS reverse proxy and set `DASHBOARD_BASE_URL` to the
+public origin; register `<DASHBOARD_BASE_URL>/api/auth/callback/discord` (and `/twitch`) as the redirects.
+
+[`docs/integration.md`](docs/integration.md) covers what the dashboard needs from the server: the admin API
+key, the manager-operator secret, and the ingest API the backend posts chat and reports to.
+
+## The launcher and the server manager
+
+`apps/web` built with `DAINTY_MODE=launcher` or `manager` (`bun run build:launcher`, `bun run build:manager`):
+static exports (`output: "export"`) that the Tauri shells in dainty-restricted serve from their `frontendDist`.
+They talk to Rust only through the bridge in `packages/bridge`. Its value types are generated from the
+launcher's AGPL bridge spec, so `bun run restricted-data` copies them from a dainty-restricted checkout
+(`DAINTY_RESTRICTED_DIR`, or beside dainty-lass) instead of committing them; rerun it after the spec changes. In a plain
+browser (`bun run dev:launcher`, `bun run dev:manager`) the bridge is a stand-in that walks the
+phases with sample data. Both speak English and Brazilian Portuguese, following the launcher's language
+setting.
+
+## Checks
+
+```bash
 bun run typecheck
-bun run lint
 bun run test
-bun run build
+bun run lint
 ```
 
 ## Licence
 
-MIT ([LICENSE.txt](../LICENSE.txt)). The language catalogs and the generated bridge types are AGPL-3.0-only and
-come from dainty-restricted at build time (`bun run restricted-data`, run by `build`, `dev`, `typecheck` and `test`);
-see [NOTICE.md](NOTICE.md).
+MIT ([LICENSE](LICENSE)), as the rest of dainty-lass.

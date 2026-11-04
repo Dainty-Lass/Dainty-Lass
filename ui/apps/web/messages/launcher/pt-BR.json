@@ -1,0 +1,225 @@
+{
+  "shell": {
+    "product": "DaintyLass",
+    "navigation": "Launcher",
+    "play": "Jogar",
+    "servers": "Servidores",
+    "settings": "Ajustes",
+    "hidden": "Oculto",
+    "updateReady": "Uma atualização do launcher está pronta.",
+    "restartToUpdate": "Reiniciar para atualizar",
+    "gameLog": "Log do jogo"
+  },
+  "notices": {
+    "keep_open": "Mantenha o launcher aberto enquanto joga.",
+    "backup_saved": "Backup da chave da conta salvo.",
+    "runtime_installed": "Runtime do jogo instalado.",
+    "runtime_installed_restart": "Runtime do jogo instalado. Reinicie o jogo para usá-lo.",
+    "game_verified": "Arquivos do jogo verificados.",
+    "sdk_imported": "SDK importado.",
+    "host_done": "Pronto.",
+    "install_done": "Instalado.",
+    "repair_done": "Reparado."
+  },
+  "home": {
+    "welcome": "Bem-vindo",
+    "online": "Online",
+    "offline": "Offline",
+    "serverOnline": "{count, plural, =0 {Online, ninguém jogando} one {Online, # jogando} other {Online, # jogando}}",
+    "serverOffline": "Sem resposta",
+    "noServer": "Sem servidores por enquanto",
+    "version": "Rodando {version}",
+    "build": "Jogo {build}",
+    "gameData": {
+      "real": "Dados reais do jogo",
+      "synthetic": "Dados sintéticos do jogo",
+      "missing": "Sem dados do jogo",
+      "unknown": "Dados do jogo desconhecidos"
+    },
+    "modes": { "private": "Privado", "public": "Público" },
+    "news": "Novidades",
+    "noNews": "Nenhuma novidade deste servidor.",
+    "whoIsOn": "Quem está online",
+    "limited": "Este servidor mostra quem está online só para os jogadores dele.",
+    "noStatus": "Entre num servidor para ver quem está jogando.",
+    "nobody": "Ninguém está no jogo agora."
+  },
+  "join": {
+    "title": "Entrar num servidor",
+    "description": "Cole o convite que o host enviou. Ele indica o servidor e, nos públicos, o certificado dele.",
+    "invite": "Convite",
+    "placeholder": "dainty://join/…",
+    "join": "Entrar",
+    "certChanged": "O servidor apresentou um certificado diferente",
+    "certChangedHint": "Só continue se o host avisou que mudou ou reconstruiu o servidor.",
+    "trustNew": "Aceitar o novo certificado"
+  },
+  "connect": {
+    "title": "Conectando",
+    "description": "Contatando o servidor indicado no convite.",
+    "retry": "Tentar outra vez",
+    "getTailscale": "Baixar o Tailscale",
+    "forget": "Trocar de convite",
+    "problems": {
+      "tailscale_missing": "O Tailscale não está instalado",
+      "unreachable": "O servidor não está respondendo",
+      "bad_answer": "Isso não é um servidor DaintyLass",
+      "cert_mismatch": "O certificado não confere com o convite"
+    },
+    "hints": {
+      "tailscale_missing": "Este é um servidor privado numa rede Tailscale. Instale o Tailscale e aceite o compartilhamento do host.",
+      "unreachable": "Ele pode estar offline, ou sua rede o bloqueia. Fale com o host.",
+      "bad_answer": "Algo respondeu, mas não é um servidor em que este launcher consiga entrar.",
+      "cert_mismatch": "Alguém pode estar entre você e o servidor. Pergunte ao host antes de continuar."
+    }
+  },
+  "register": {
+    "title": "Escolha um nome",
+    "description": "Seu nome neste servidor. O launcher guarda a chave da conta que prova que ela é sua.",
+    "name": "Nome do jogador",
+    "nameHint": "De 3 a 16 letras, números ou sublinhados.",
+    "nameInvalid": "Use de 3 a 16 letras, números ou sublinhados",
+    "create": "Criar conta",
+    "haveKey": "Entrar com uma chave de conta existente",
+    "key": "Chave de conta",
+    "keyHint": "Começa com RRK_. Cole somente neste launcher.",
+    "useKey": "Entrar com esta chave",
+    "importFile": "Importar arquivo de chave",
+    "newAccount": "Criar uma conta nova"
+  },
+  "locate": {
+    "title": "Encontre seu Dauntless",
+    "description": "Você precisa do seu próprio Dauntless 1.14.7. Nada é baixado nem copiado.",
+    "found": "Encontrados neste PC",
+    "use": "Usar",
+    "choose": "Escolher pasta",
+    "hiddenPath": "Pasta oculta",
+    "source": "{source}, versão {version}",
+    "sources": {
+      "epic": "Epic Games",
+      "legendary": "Legendary",
+      "heroic": "Heroic",
+      "chosen": "Escolhida",
+      "revived": "Dauntless Revived"
+    },
+    "problems": {
+      "not_set": "Nenhuma pasta do jogo escolhida ainda.",
+      "not_found": "Nenhum Dauntless foi encontrado nessa pasta.",
+      "unverified": "Os arquivos do jogo ainda não foram verificados.",
+      "wrong_version": "Essa instalação não é a versão 1.14.7."
+    }
+  },
+  "runtime": {
+    "titles": {
+      "ok": "O runtime do jogo está instalado",
+      "missing": "O runtime do jogo está faltando",
+      "outdated": "O runtime do jogo tem uma atualização",
+      "untrusted": "Confiar no runtime deste servidor?",
+      "unavailable": "Este servidor não oferece runtime",
+      "local": "Usando um runtime local"
+    },
+    "hints": {
+      "ok": "Versão {version}.",
+      "missing": "A versão {version} do servidor é o que faz o jogo falar com ele.",
+      "outdated": "O servidor agora oferece a versão {version}.",
+      "untrusted": "Estes arquivos serão carregados dentro do seu jogo. Confira se batem com o que o host publicou.",
+      "unavailable": "Peça ao host para publicar o runtime.",
+      "local": "Um runtime de uma pasta deste PC está em uso, para testes."
+    },
+    "fileSize": "{kb} KB",
+    "trust": "Confiar",
+    "install": "Instalar"
+  },
+  "task": {
+    "kinds": {
+      "verify": "Verificando os arquivos do jogo",
+      "runtime": "Instalando o runtime",
+      "download": "Baixando",
+      "dlls": "Instalando bibliotecas do jogo",
+      "install": "Instalando o jogo"
+    },
+    "files": "{done}/{total} arquivos",
+    "eta": "{seconds, plural, one {falta # segundo} other {faltam # segundos}}",
+    "cancel": "Cancelar"
+  },
+  "ready": {
+    "title": "Pronto para jogar",
+    "description": "O launcher fica aberto enquanto você joga: ele faz a ponte entre o jogo e o servidor.",
+    "play": "Jogar",
+    "playing": "Jogando",
+    "running": "O jogo está aberto",
+    "runningHint": "Ponte em 127.0.0.1:{port}. Mantenha o launcher aberto.",
+    "backupTitle": "Faça backup da sua chave de conta",
+    "backupHint": "Se este PC for perdido, a chave é o único jeito de voltar à sua conta.",
+    "backup": "Salvar backup"
+  },
+  "servers": {
+    "title": "Servidores",
+    "description": "Servidores em que você entrou. Cada um guarda a própria chave de conta.",
+    "add": "Entrar em outro servidor",
+    "empty": "Sem servidores por enquanto",
+    "emptyHint": "Cole um convite na página Jogar.",
+    "current": "Atual",
+    "unsupported": "Não nesta versão",
+    "as": "como {name}",
+    "noAccount": "Sem conta ainda",
+    "modes": { "private": "Privado", "public": "Público" },
+    "switch": "Trocar",
+    "remove": "Remover",
+    "removeTitle": "Remover {name}?",
+    "removeBody": "A chave da conta será apagada deste PC. Faça backup antes se quiser voltar."
+  },
+  "settings": {
+    "title": "Ajustes",
+    "game": "Jogo",
+    "graphics": "Gráficos",
+    "graphicsPresets": {
+      "-1": "Padrão do jogo",
+      "0": "Baixo",
+      "1": "Médio",
+      "2": "Alto",
+      "3": "Épico",
+      "4": "Ultra"
+    },
+    "windowed": "Em janela",
+    "gameLanguage": "Idioma dentro do jogo",
+    "gameLanguages": {
+      "auto": "Igual ao launcher",
+      "en-US": "English",
+      "de-DE": "Deutsch",
+      "es-ES": "Español",
+      "fr-FR": "Français",
+      "it-IT": "Italiano",
+      "ja-JP": "日本語",
+      "pt-BR": "Português (Brasil)",
+      "ru-RU": "Русский"
+    },
+    "openGameFolder": "Abrir pasta do jogo",
+    "verify": "Verificar arquivos do jogo",
+    "launcher": "Launcher",
+    "language": "Idioma",
+    "streamerMode": "Ocultar dados do servidor em transmissões",
+    "streamerModeHint": "Esconde endereços, caminhos e nomes de jogadores na tela.",
+    "hostTools": "Ferramentas para hosts",
+    "hostToolsHint": "Mostra as ferramentas do gerenciador de servidor para rodar seu próprio servidor.",
+    "openLogs": "Abrir pasta de logs",
+    "account": "Conta",
+    "username": "Nome",
+    "server": "Servidor",
+    "version": "Versão do launcher",
+    "backupKey": "Fazer backup da chave",
+    "signOut": "Sair",
+    "signOutHint": "Sair remove a chave da conta deste PC. Sem backup, a conta não pode ser recuperada.",
+    "showGameConsole": "Mostrar a janela de console do jogo",
+    "showGameConsoleHint": "Desligado, as linhas aparecem em Log do jogo. Vale a partir da próxima vez que o jogo abrir."
+  },
+  "gameLog": {
+    "title": "Log do jogo",
+    "description": "O que o console do jogo mostra enquanto ele roda. A chave da conta fica oculta.",
+    "running": "Jogo rodando",
+    "stopped": "Jogo parado",
+    "copy": "Copiar as linhas mais recentes",
+    "copied": "Copiado.",
+    "empty": "Nada ainda. O console do jogo aparece aqui quando o jogo abrir um."
+  }
+}

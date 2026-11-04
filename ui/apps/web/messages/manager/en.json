@@ -1,0 +1,208 @@
+{
+  "shell": {
+    "product": "Server manager",
+    "windowTitle": "{name} · Server manager",
+    "navigation": "Server manager",
+    "server": "Server",
+    "setup": "Setup",
+    "build": "Runtime and game data",
+    "jobRunning": "A task is running",
+    "settings": "Settings"
+  },
+  "theme": {
+    "label": "Colour mode",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "server": {
+    "title": "Server",
+    "description": "{name}, a {mode} server",
+    "notConfigured": "Not set up yet",
+    "start": "Turn the server on",
+    "stop": "Turn the server off",
+    "failed": "The server stopped with an error",
+    "external": "A server started outside this window is running. Stop it where it was started.",
+    "setupFirst": "Set the server up before starting it.",
+    "openSetup": "Open setup",
+    "states": {
+      "stopped": "Stopped",
+      "starting": "Starting",
+      "running": "Running",
+      "stopping": "Stopping",
+      "external": "Running elsewhere",
+      "failed": "Failed"
+    },
+    "modes": { "private": "private", "public": "public" },
+    "name": "Name",
+    "mode": "Mode",
+    "address": "Public address",
+    "gameData": "Game data",
+    "backendData": "Backend · {state}",
+    "directorData": "Director · {state}",
+    "dataStates": { "real": "real", "synthetic": "synthetic", "missing": "missing" },
+    "invites": "Invites",
+    "invitesHint": "Each invite carries the server's address and certificate. Send it to one player.",
+    "inviteFor": "For",
+    "inviteForPlaceholder": "A name, to remember who it was for",
+    "createInvite": "New invite",
+    "copy": "Copy",
+    "copied": "Invite copied",
+    "console": "Console",
+    "consoleEmpty": "The server's output appears here once it starts.",
+    "openLogs": "Open logs folder",
+    "multipliers": "Multipliers for testing",
+    "multipliersHint": "Raise XP and rewards on a private server, for testing.",
+    "multipliersPrivateOnly": "Multipliers are for private servers only.",
+    "boost": "Use multipliers",
+    "xp": "XP ×",
+    "rewards": "Rewards ×",
+    "apply": "Apply",
+    "applied": "Multipliers applied",
+    "update": "Update",
+    "updateHint": "Pull the newest DaintyLass into the workspace and rerun setup with your current settings.",
+    "checkUpdate": "Update now",
+    "stopToUpdate": "Stop the server first",
+    "upToDate": "Up to date at {head}",
+    "updated": "{files, plural, one {Updated # file} other {Updated # files}}, now at {head}",
+    "runtimeChanged": "The game runtime changed: build and publish it again under Runtime and game data."
+  },
+  "setup": {
+    "title": "Setup",
+    "description": "What the host kit needs, where it lives, and how players reach the server",
+    "requirements": "Requirements",
+    "requirementsHint": "Checked when this window opened and after each task.",
+    "get": "Get it",
+    "states": { "ok": "Ready", "missing": "Missing", "problem": "Action needed" },
+    "problems": {
+      "too_old": "Installed, but too old.",
+      "service_running": "Installed as a service that is already running; the kit starts its own.",
+      "no_cpp": "Installed without the C++ workload."
+    },
+    "reqs": {
+      "dauntless": "Dauntless 1.14.7",
+      "git": "Git",
+      "node": "Node.js 22",
+      "mongodb": "MongoDB",
+      "tailscale": "Tailscale",
+      "visual_studio": "Visual Studio with C++",
+      "rust": "Rust",
+      "dumper7": "Dumper-7",
+      "vc_redist": "Visual C++ runtime"
+    },
+    "workspace": "Workspace",
+    "noWorkspace": "No workspace chosen. Download the project, or choose a checkout you already have.",
+    "workspaceInvalid": "That folder is not a DaintyLass checkout.",
+    "chooseWorkspace": "Choose folder",
+    "downloadProject": "Download the project",
+    "downloadTarget": "Downloads to {path}",
+    "hiddenPath": "Folder hidden",
+    "open": "Open",
+    "server": "Server",
+    "serverHint": "Writes the server's settings and secrets. Rerunning it keeps existing secrets and certificates.",
+    "name": "This server's name",
+    "mode": "Who can reach it",
+    "modes": { "private": "Private (Tailscale)", "public": "Public (internet)" },
+    "modeHints": {
+      "private": "Players join over your Tailscale network. Nothing is opened to the internet.",
+      "public": "Players join over the internet through the gateway's TLS port. Forward that port on your router."
+    },
+    "publicHost": "Public address",
+    "publicHostHint": "The IPv4 address or DNS name players reach this PC on.",
+    "configure": "Set up server",
+    "reconfigure": "Save and reconfigure",
+    "configured": "Server set up"
+  },
+  "build": {
+    "title": "Runtime and game data",
+    "description": "Built on this PC from your own copy of the game; nothing from the game is downloaded",
+    "noMsbuild": "MSBuild was not found. Install Visual Studio with the C++ workload to build the runtime.",
+    "openLog": "Open log",
+    "open": "Open folder",
+    "run": "Run",
+    "again": "Run again",
+    "done": "Done",
+    "notDone": "Not done",
+    "jobStates": { "running": "{job}…", "done": "{job}: done", "failed": "{job}: failed" },
+    "jobs": {
+      "inject": "Injecting",
+      "build_runtime": "Building the runtime",
+      "build_loader": "Building the loader",
+      "build_exporter": "Building the catalog exporter",
+      "import_sdk": "SDK import in progress",
+      "copy_exports": "Copying exports",
+      "synthetic_data": "Making synthetic data",
+      "import_gamedata": "Importing game data",
+      "publish_runtime": "Runtime publish in progress",
+      "setup": "Setting up",
+      "generate_gamedata": "Generating game data",
+      "export_gamedata": "Exporting game data",
+      "create_invite": "Invite being created",
+      "update": "Updating",
+      "multipliers": "Applying multipliers",
+      "upstream": "Preparing the upstream source",
+      "download_project": "Downloading the project",
+      "backup": "Backing up",
+      "migrate_mongo": "Migrating from MongoDB"
+    },
+    "stages": { "sdk": "1. SDK", "runtime": "2. Game runtime", "data": "3. Game data" },
+    "stageHints": {
+      "sdk": "The runtime is compiled against an SDK dumped from your running game.",
+      "runtime": "Rustic-Isles.dll and its loader, which players install from your server.",
+      "data": "Store, loot and progression tables exported from your game, or synthetic stand-ins."
+    },
+    "steps": {
+      "dumper": {
+        "title": "Choose Dumper-7",
+        "hint": "The DLL that dumps the SDK from the running game."
+      },
+      "inject_dumper": {
+        "title": "Dump the SDK",
+        "hint": "Start Dauntless to the menu, then run this."
+      },
+      "import_sdk": {
+        "title": "Import the newest dump",
+        "hint": "Copies the dump into the runtime's source."
+      },
+      "import_sdk_folder": {
+        "title": "Import an SDK folder",
+        "hint": "If you dumped it some other way."
+      },
+      "build_runtime": { "title": "Build the runtime", "hint": "Rustic-Isles.dll, with MSBuild." },
+      "build_loader": { "title": "Build the loader", "hint": "winmm.dll, with Cargo." },
+      "publish_runtime": {
+        "title": "Runtime publish",
+        "hint": "Puts both files where the content server offers them to players."
+      },
+      "build_exporter": {
+        "title": "Build the catalog exporter",
+        "hint": "CatalogExporter.dll, with MSBuild."
+      },
+      "inject_exporter": {
+        "title": "Export from the game",
+        "hint": "Start Dauntless to the menu, then run this."
+      },
+      "copy_exports": {
+        "title": "Copy the exports",
+        "hint": "From beside the game into the workspace."
+      },
+      "generate_gamedata": {
+        "title": "Game data generation",
+        "hint": "Builds the backend's and Director's tables from the exports."
+      },
+      "export_gamedata": {
+        "title": "Export a game data pack",
+        "hint": "To hand to another host with the same game version."
+      },
+      "import_gamedata": {
+        "title": "Import a game data pack",
+        "hint": "From another host, instead of exporting your own."
+      },
+      "synthetic_data": {
+        "title": "Use synthetic data",
+        "hint": "Stand-ins so the server starts; stores and loot will be thin."
+      }
+    }
+  },
+  "settings": { "title": "Settings" }
+}

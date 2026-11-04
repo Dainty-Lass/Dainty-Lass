@@ -1,0 +1,317 @@
+/**
+ * Caddy Proxy Manager's colouring over the built theme (apps/controller/src/app/astryx-variants.css
+ * there), for every DaintyLass app. By hand, not `defineTheme({extends})`: an extended theme is
+ * unbuilt, and <Theme> would inject that CSS from a client effect, so a page would paint unstyled
+ * first. Layer and @scope match what `astryx theme build` emits. Each variant also needs its name in
+ * src/astryx.d.ts.
+ */
+
+/**
+ * The accent, set as data-dainty-accent on <html>: the dashboard's Settings, or a server's launcher
+ * branding. Declared on each theme element rather than the root: the theme defines its hues there,
+ * so a var() resolved anywhere else would read Astryx's base shades. Pink unless set.
+ */
+@layer astryx-theme {
+  [data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-pink);
+    --dainty-accent-background: var(--color-background-pink);
+    --dainty-accent-border: var(--color-border-pink);
+  }
+
+  [data-dainty-accent="purple"] [data-astryx-theme],
+  [data-dainty-accent="purple"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-purple);
+    --dainty-accent-background: var(--color-background-purple);
+    --dainty-accent-border: var(--color-border-purple);
+  }
+
+  [data-dainty-accent="blue"] [data-astryx-theme],
+  [data-dainty-accent="blue"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-blue);
+    --dainty-accent-background: var(--color-background-blue);
+    --dainty-accent-border: var(--color-border-blue);
+  }
+
+  [data-dainty-accent="cyan"] [data-astryx-theme],
+  [data-dainty-accent="cyan"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-cyan);
+    --dainty-accent-background: var(--color-background-cyan);
+    --dainty-accent-border: var(--color-border-cyan);
+  }
+
+  [data-dainty-accent="teal"] [data-astryx-theme],
+  [data-dainty-accent="teal"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-teal);
+    --dainty-accent-background: var(--color-background-teal);
+    --dainty-accent-border: var(--color-border-teal);
+  }
+
+  [data-dainty-accent="green"] [data-astryx-theme],
+  [data-dainty-accent="green"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-green);
+    --dainty-accent-background: var(--color-background-green);
+    --dainty-accent-border: var(--color-border-green);
+  }
+
+  [data-dainty-accent="orange"] [data-astryx-theme],
+  [data-dainty-accent="orange"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-orange);
+    --dainty-accent-background: var(--color-background-orange);
+    --dainty-accent-border: var(--color-border-orange);
+  }
+
+  [data-dainty-accent="red"] [data-astryx-theme],
+  [data-dainty-accent="red"][data-astryx-theme] {
+    --dainty-accent-text: var(--color-text-red);
+    --dainty-accent-background: var(--color-background-red);
+    --dainty-accent-border: var(--color-border-red);
+  }
+}
+
+@layer astryx-theme {
+  @scope ([data-astryx-theme="dainty"]) to ([data-astryx-theme]) {
+    /**
+     * The chosen accent for every control that reads the token. The theme's --color-on-accent clears
+     * 4.5:1 on each hue's text tone; --color-text-accent stays, since Link reads it and an accent
+     * does not mean accent prose.
+     */
+    :scope {
+      --color-accent: var(--dainty-accent-text);
+
+      /* Dark halves only. The theme's secondary ink read as disabled at label sizes, and its green
+         on green was dim; success follows green, being both a message's text and a badge's fill. */
+      --color-text-secondary: light-dark(#474747, #bdbdbd);
+      --color-text-green: light-dark(#00490b, #b6e8b6);
+      --color-success: light-dark(#00490b, #b6e8b6);
+
+      /* Pure black in dark mode at every width, so desktop and phone read as one theme. */
+      --color-background-body: light-dark(#f1f1f1, #000000);
+    }
+
+    /* Tonal: the theme's selected row is its hover tint, so the current page read as a row the
+       pointer was over. */
+    .astryx-side-nav-item[data-selected="selected"] {
+      background-color: var(--dainty-accent-background);
+      color: var(--dainty-accent-text);
+    }
+
+    /* Button `tonal`, built like the theme's `destructive`: overlays in its own hue, so the
+       interaction tint does not read as neutral grey. For a control that outranks `secondary` where
+       the solid accent is taken. */
+    .astryx-button[data-variant="tonal"] {
+      background-color: var(--dainty-accent-background);
+      color: var(--dainty-accent-text);
+      --color-overlay-hover: color-mix(in srgb, var(--dainty-accent-text) 5%, transparent);
+      --color-overlay-pressed: color-mix(in srgb, var(--dainty-accent-text) 10%, transparent);
+    }
+
+    .astryx-button[data-variant="tonal"]:focus-visible {
+      outline-color: var(--dainty-accent-border);
+    }
+
+    /* `pink`: `tonal` in pink whatever the accent, for the one thing a page needs done next. */
+    .astryx-button[data-variant="pink"] {
+      background-color: var(--color-background-pink);
+      color: var(--color-text-pink);
+      --color-overlay-hover: color-mix(in srgb, var(--color-text-pink) 5%, transparent);
+      --color-overlay-pressed: color-mix(in srgb, var(--color-text-pink) 10%, transparent);
+    }
+
+    .astryx-button[data-variant="pink"]:focus-visible {
+      outline-color: var(--color-border-pink);
+    }
+  }
+}
+
+/**
+ * Phone dark palette. The theme's cards match its body, so on black the fill has to separate them;
+ * primary ink drops off pure white because white on black is where OLED smears during a scroll.
+ */
+@layer astryx-theme {
+  @media (max-width: 767px) {
+    @scope ([data-astryx-theme="dainty"]) to ([data-astryx-theme]) {
+      :scope {
+        --color-background-card: light-dark(#ffffff, #262626);
+        --color-text-primary: light-dark(#000000, #ebebeb);
+      }
+    }
+  }
+}
+
+/* Touch-sized controls: the default heights never reach the 44px a fingertip needs. The theme's
+   `adaptations` as a rule, since a built theme cannot take adaptations without runtime injection. */
+@layer astryx-theme {
+  @media (pointer: coarse) {
+    @scope ([data-astryx-theme="dainty"]) to ([data-astryx-theme]) {
+      :scope {
+        --size-element-sm: 36px;
+        --size-element-md: 44px;
+        --size-element-lg: 48px;
+      }
+    }
+  }
+}
+
+/**
+ * Table values at body size, truncating rather than shrinking: cells ask for the small sizes all
+ * over, which read as fine print. The table captures the small size first for the places that still
+ * want it, since a token cannot be redefined in terms of itself.
+ */
+@layer astryx-theme {
+  @scope ([data-astryx-theme="dainty"]) to ([data-astryx-theme]) {
+    .astryx-table {
+      --dainty-table-small: var(--font-size-sm);
+    }
+
+    .astryx-table-cell {
+      --font-size-sm: var(--text-body-size);
+      --font-size-xs: var(--text-body-size);
+      --font-size-2xs: var(--text-body-size);
+      vertical-align: middle;
+    }
+
+    /* A flex item will not shrink below its content unless told, so a value would spill into the
+       next column instead of reaching the ellipsis. */
+    .astryx-table-cell .astryx-stack,
+    .astryx-table-cell .astryx-stack > :not(.astryx-icon) {
+      min-width: 0;
+    }
+
+    /* A table pulls its top and bottom edges out by its container's padding, onto the heading over it
+       in a card or a banner beside it. Bleeds sideways only. */
+    .astryx-table-scroll-wrapper {
+      --container-padding-block-start: 0px;
+      --container-padding-block-end: 0px;
+    }
+
+    /* Wider than the theme's, so neighbouring values never read as one. */
+    .astryx-table-cell,
+    .astryx-table-header-cell {
+      padding-inline: var(--spacing-4);
+    }
+
+    /* A heading is a step below the values it heads, and wraps rather than losing its end to an
+       ellipsis: "Requests, 2..." does not say what the number is. */
+    .astryx-table-header-cell {
+      --text-body-size: var(--dainty-table-small);
+      --text-label-size: var(--dainty-table-small);
+      --font-size-sm: var(--dainty-table-small);
+      white-space: normal;
+      text-overflow: clip;
+    }
+
+    /* A two-line cell's second line, sized here so every table agrees. */
+    .dainty-cell-lines > :nth-child(2) {
+      --text-body-size: var(--dainty-table-small);
+      --text-code-size: var(--dainty-table-small);
+      --font-size-sm: var(--dainty-table-small);
+      --font-size-xs: var(--dainty-table-small);
+    }
+
+    /* A toolbar's slot will not shrink below its content, so tabs in one would spill past the end slot
+       instead of scrolling as TabList does anywhere else. */
+    .astryx-toolbar > :has(> .astryx-tab-list) {
+      min-width: 0;
+    }
+  }
+}
+
+/**
+ * The viewer's palette (data-dainty-palette on <html>, Appearance): the surfaces only, a tint each
+ * side of the neutral greys, so every ink keeps the contrast the theme was checked at. Neutral is the
+ * theme as it stands. Above the theme's :scope by specificity; the swatches in AppearanceControls
+ * take the same tones from data-palette. Keep the bodies in step with PALETTE_BODY in mode.ts.
+ */
+@layer astryx-theme {
+  [data-astryx-theme],
+  .dainty-palette-preview {
+    --dainty-rail: light-dark(#e0e0e0, #111111);
+  }
+
+  .dainty-palette-preview[data-palette="neutral"] {
+    --color-background-body: light-dark(#f1f1f1, #000000);
+    --color-background-card: light-dark(#ffffff, #1b1b1b);
+  }
+
+  [data-dainty-palette="slate"] [data-astryx-theme],
+  [data-dainty-palette="slate"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="slate"] {
+    --color-background-body: light-dark(#eef1f5, #0b0f14);
+    --color-background-card: light-dark(#ffffff, #161c24);
+    --color-background-popover: light-dark(#ffffff, #161c24);
+    --color-background-surface: light-dark(#ffffff, #1f2731);
+    --dainty-rail: light-dark(#dde3ea, #11171e);
+  }
+
+  [data-dainty-palette="midnight"] [data-astryx-theme],
+  [data-dainty-palette="midnight"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="midnight"] {
+    --color-background-body: light-dark(#eef0fa, #070b18);
+    --color-background-card: light-dark(#ffffff, #121a2e);
+    --color-background-popover: light-dark(#ffffff, #121a2e);
+    --color-background-surface: light-dark(#ffffff, #1a2440);
+    --dainty-rail: light-dark(#dfe3f3, #0d1426);
+  }
+
+  [data-dainty-palette="ember"] [data-astryx-theme],
+  [data-dainty-palette="ember"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="ember"] {
+    --color-background-body: light-dark(#f6f1e9, #0d0a06);
+    --color-background-card: light-dark(#fffdf9, #1c1610);
+    --color-background-popover: light-dark(#fffdf9, #1c1610);
+    --color-background-surface: light-dark(#fffdf9, #271f16);
+    --dainty-rail: light-dark(#ebe2d4, #15100b);
+  }
+
+  [data-dainty-palette="forest"] [data-astryx-theme],
+  [data-dainty-palette="forest"][data-astryx-theme],
+  .dainty-palette-preview[data-palette="forest"] {
+    --color-background-body: light-dark(#eef3ef, #060b08);
+    --color-background-card: light-dark(#ffffff, #131c16);
+    --color-background-popover: light-dark(#ffffff, #131c16);
+    --color-background-surface: light-dark(#ffffff, #1b2720);
+    --dainty-rail: light-dark(#dde8df, #0d1510);
+  }
+}
+
+/* Large text (Appearance): the theme's own touch scale, a step up at every size. */
+@layer astryx-theme {
+  [data-dainty-text="large"] [data-astryx-theme],
+  [data-dainty-text="large"][data-astryx-theme] {
+    --font-size-4xs: 0.4375rem;
+    --font-size-3xs: 0.5rem;
+    --font-size-2xs: 0.625rem;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.1875rem;
+    --font-size-xl: 1.375rem;
+    --font-size-2xl: 1.625rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+  }
+}
+
+/**
+ * The rail at reading size, as Caddy Proxy Manager's: rows a step above body text and taller to
+ * match, icons at 20px (the shells pass them as elements in their hue, which keeps them their own
+ * colour on the selected row).
+ */
+@layer astryx-theme {
+  @scope ([data-astryx-theme="dainty"]) to ([data-astryx-theme]) {
+    .astryx-side-nav-item {
+      --size-element-md: 40px;
+      font-size: var(--font-size-lg);
+    }
+
+    .astryx-side-nav-item[data-selected="selected"] {
+      font-weight: var(--font-weight-medium);
+    }
+
+    .astryx-side-nav-item svg {
+      inline-size: 20px;
+      block-size: 20px;
+      flex: none;
+    }
+  }
+}

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copies the generated command table from a dainty-restricted checkout: the bridge it is generated from is AGPL,
-// so the table is never committed here (RD27). Also refreshes ui's restricted data, which api.test.ts imports.
+// so the table is never committed here (RD27). Also refreshes ui's bridge types, which api.test.ts imports.
 import { copyFileSync, existsSync, mkdirSync } from "node:fs"
 import path from "node:path"
 
 export const launcherDir = path.resolve(import.meta.dir, "..")
 export const repoDir = path.resolve(launcherDir, "..")
 
-// The same rule as ui/scripts/restricted-data.mjs, so both copy from one checkout
+// The same rule as ui/packages/bridge/scripts/restricted-data.ts, so both copy from one checkout
 export function restrictedDir(): string {
   return process.env.DAINTY_RESTRICTED_DIR || path.resolve(repoDir, "../dainty-restricted")
 }

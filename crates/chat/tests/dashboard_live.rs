@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Against a running dainty-dash (`bun run dev` in `apps/dashboard`): the filter poll, lines and a
+//! Against a running dainty-dash (`bun run dev` in `ui/`): the filter poll, lines and a
 //! report. Ignored by default; `CHAT_DASHBOARD_LIVE_URL` and `CHAT_DASHBOARD_LIVE_KEY` point it at one,
 //! and `CHAT_DASHBOARD_LIVE_ADD_TERM` is a command that adds the word term `noob` (flag, party only)
 //! through the dashboard's store, run once the first filter has arrived.
