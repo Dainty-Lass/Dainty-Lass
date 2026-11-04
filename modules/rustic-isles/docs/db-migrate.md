@@ -66,7 +66,7 @@ On a shipped server, `reforged-host db` defaults `--from`, `--against`, `--to`, 
 
 ---
 
-## DD18 Global IDs and Idempotency
+## DD18 global IDs and idempotency
 
 - Every Node `userId` (`accounts._id` / `userId`) is preserved in `accounts.user_id` (what the game client sees) and mapped to a DD18 `AccountId` (`account:<26-char Crockford Base32 ULID>@<node>`).
 - If the destination database already contains a row in `accounts` for `user_id`, its existing `AccountId` is reused; otherwise a deterministic ULID is derived from `SHA-256("isles-db:account:<node>:<userId>")`.

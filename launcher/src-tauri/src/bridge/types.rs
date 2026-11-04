@@ -501,9 +501,9 @@ pub struct SnapshotApp {
     pub platform: String,
     /// False in a player-only build (no `host` feature): the page offers no Host tools
     pub host_tools_available: bool,
-    /// False without the `legacy` feature: the page offers no edition setting
+    /// Always false since the legacy edition went (1.4.4, RD5): the page offers no edition setting
     pub legacy_available: bool,
-    /// The game versions an invite may name in this build (`protocol::game::supported_versions`)
+    /// The game versions an invite may name in this build (`protocol::invite::played_versions`)
     pub game_versions: Vec<String>,
     /// The server GUI (`server-gui` feature): the page shows the server screens (DU3)
     pub server_gui: bool,

@@ -1,10 +1,10 @@
-# Shadow Replay Harness & Normalizer (`isles-db replay`)
+# Shadow replay harness and normalizer (`isles-db replay`)
 
-The RU8 shadow replay harness (`isles_core::replay` / `isles_db::replay` and the `isles-db replay` CLI subcommand) replays real HTTP and XMPP chat traffic captured by the DaintyLass Rust gateway against two backend targets—or against a recorded baseline and a live backend—and verifies wire-level behavioral parity across all Rustic Isles areas (`reforged-api`, `auth`, `game-data`, `characters-loadout`, `inventory`, `progression`, `bounties-store`, `matchmaking-parties`, `chat`, and `isles-director`).
+The RU8 shadow replay harness (`isles_core::replay` / `isles_db::replay` and the `isles-db replay` CLI subcommand) replays real HTTP and XMPP chat traffic captured by the DaintyLass Rust gateway against two backend targets (or against a recorded baseline and a live backend) and verifies wire-level behavioral parity across all Rustic Isles areas (`reforged-api`, `auth`, `game-data`, `characters-loadout`, `inventory`, `progression`, `bounties-store`, `matchmaking-parties`, `chat`, and `isles-director`).
 
 ---
 
-## 1. Recording a Capture Corpus (`CAPTURE_DIR`)
+## 1. Recording a capture corpus (`CAPTURE_DIR`)
 
 The DaintyLass gateway (`crates/gateway/src/capture.rs`) records every forwarded HTTP exchange and XMPP chat frame as newline-delimited JSON (`.jsonl`) when `CAPTURE_DIR` is set in the gateway environment:
 
@@ -12,7 +12,7 @@ The DaintyLass gateway (`crates/gateway/src/capture.rs`) records every forwarded
 $env:CAPTURE_DIR = "R:\captures\session-2026-10-22"
 ```
 
-### Capture Record Format
+### Capture record format
 
 Each line in `<CAPTURE_DIR>/capture-<ms>-<pid>.jsonl` is either an HTTP record (`"kind": "http"`) or a chat frame (`"kind": "chat"`):
 
@@ -34,7 +34,7 @@ The gateway automatically scrubs credentials before writing to disk while preser
 
 ---
 
-## 2. Migrating & Verifying the Database Snapshot
+## 2. Migrating and verifying the database snapshot
 
 Before replaying a stateful capture corpus against both Node (`left`) and Rust (`right`), restore the MongoDB snapshot taken at the start of the capture session and migrate it into the Rust `store` database (`SQLite` or `PostgreSQL`) using `isles-db migrate` and `isles-db verify`:
 
@@ -58,7 +58,7 @@ cargo run -p isles-db -- verify `
 
 ## 3. Running `isles-db replay`
 
-### Target-Against-Target Replay (Node vs. Rust or Rust vs. Rust)
+### Target-against-target replay (Node against Rust, or Rust against Rust)
 
 Start the left target (e.g., the reference Node backend on `127.0.0.1:8421` and Director on `127.0.0.1:9421`) and the right target (e.g., `isles-1-14-7` on `127.0.0.1:61000` and Director on `127.0.0.1:61001`) against their respective snapshots, then run:
 
@@ -75,7 +75,7 @@ cargo run -p isles-db -- replay `
   --out "R:\captures\session-2026-10-22\replay-report.json"
 ```
 
-### Recorded Corpus vs. Live Rust Target
+### Recorded corpus against a live Rust target
 
 You can also replay a recorded `.jsonl` corpus directly against a single live Rust target without running a second server by passing `--left recorded`:
 
@@ -90,7 +90,7 @@ cargo run -p isles-db -- replay `
   --key-map "R:\captures\session-2026-10-22\keymap.json"
 ```
 
-### Key Map File Format (`--key-map`)
+### Key map file format (`--key-map`)
 
 The `--key-map` JSON file can be either a JSON array of raw `RRK_...` / `UUK_...` account keys (the harness hashes each key with SHA-256 automatically) or an explicit `{"<sha256-hex>": "RRK_..."}` map:
 
@@ -101,7 +101,7 @@ The `--key-map` JSON file can be either a JSON array of raw `RRK_...` / `UUK_...
 ]
 ```
 
-### Clock & Seed Pinning (`--pin-clock`)
+### Clock and seed pinning (`--pin-clock`)
 
 When `--pin-clock` is enabled (the default), the replay harness sends two headers on every HTTP request to live targets:
 
@@ -112,7 +112,7 @@ In addition, when a response creates a new character or item instance, `learn_id
 
 ---
 
-## 4. Normalizer Rules & Diff Classifications
+## 4. Normalizer rules and diff classes
 
 Before comparing responses from `left` and `right`, the normalizer applies the following rules:
 
@@ -122,7 +122,7 @@ Before comparing responses from `left` and `right`, the normalizer applies the f
 4. **Timestamps & Dynamic IDs**: Non-sentinel ISO-8601 timestamps (`<date>`), login timestamps (`<login-time>`), display dates (`<display-date>`), `uptimeSeconds` / `processId`, and dynamically generated UUIDs (`<uuid#N>`), 16-hex instance IDs (`<iid#N>`), party IDs (`<party#N>_<region>`), and progression grant IDs (`gs-<uuid#N>`) are numbered by first appearance per side so co-reference structure is strictly preserved.
 5. **XMPP Chat Stanzas**: Server stream IDs (`id='<stream>'`) and server-generated stanza IDs (`id='srv-<id>'`) are normalized, and asynchronous server keepalive pings (`<ping xmlns='urn:xmpp:ping'/>`) and replay barriers are filtered out before comparing outbound stanza sequences.
 
-### Diff Kinds
+### Diff kinds
 
 Every discrepancy is classified into one of five [`DiffKind`] variants:
 
@@ -132,7 +132,7 @@ Every discrepancy is classified into one of five [`DiffKind`] variants:
 - `TextDiff { left, right }`: Wire-text or JSON object key-ordering mismatch when semantic JSON values match (or on non-JSON bodies).
 - `ChatStanzaDiff { conn, index, left, right }`: Outbound XMPP stanza mismatch on connection `conn`.
 
-### Exit Codes
+### Exit codes
 
 - `0`: Replay completed with `unexplained_diffed == 0`.
 - `1`: Runtime or I/O error loading the corpus or connecting to a target.

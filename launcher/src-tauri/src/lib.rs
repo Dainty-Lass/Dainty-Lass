@@ -1,5 +1,5 @@
 //! The DaintyLass Launcher on Tauri 2 (MIGRATION_PLAN.md section 4.6), on Dauntless
-//! Revived's launcher backend (e1c5fec). The page is dainty-lass-ui's (`ui/`, DD11); everything the
+//! Revived's launcher backend (e1c5fec). The page is dainty-lass's `ui/` (dainty-dash, DD11); everything the
 //! Electron main process did moves here.
 //!
 //! RA1 and RA2 set the seams: the app's identity, the window, every command the page calls (`bridge/`)

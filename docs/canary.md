@@ -1,16 +1,16 @@
-# Canary Rollout, Shadow Replay, and Rollback Runbook (`RU9`, `RB2`, `RB12`)
+# Canary rollout, shadow replay and rollback runbook (`RU9`, `RB2`, `RB12`)
 
-This runbook documents the production shadow-replay workflow, the rollback switch to the pre-cutover Node/MongoDB stack, and the 7-day canary gate required before removing the Node reference trees (`RB15`).
+The production shadow replay, the rollback to the pre-cutover Node and MongoDB stack, and the 7-day canary gate that has to pass before the Node reference trees go (`RB15`).
 
 ---
 
-## 1. Turning On Gateway Traffic Capture (`RD19`, `RB2`)
+## 1. Turning on gateway traffic capture (`RD19`, `RB2`)
 
-The Rust gateway (dainty-lass's `crates/gateway`) includes a built-in traffic capture tap (`gateway::capture::CaptureWriter`). It is **off by default** and activates only when `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
+The Rust gateway (dainty-lass's `crates/gateway`) has a traffic capture tap (`gateway::capture::CaptureWriter`). It is off unless `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
 
 ### 1.1 Configuration in `.workspace/config/gateway.env`
 
-Add the following settings to `.workspace/config/gateway.env` on the server whose traffic you want to record:
+On the server whose traffic you want to record, add to `.workspace/config/gateway.env`:
 
 ```dotenv
 # Absolute path to the directory where daily capture JSONL files are written.
@@ -24,34 +24,34 @@ CAPTURE_RETENTION_DAYS=14
 CAPTURE_MAX_BODY_BYTES=262144
 ```
 
-Restart the server (`reforged-host start`, `reforged-host serve`, or `systemctl restart dainty-lass.service`). On startup, the gateway logs:
+Restart the server (`reforged-host start`, `reforged-host serve`, or `systemctl restart reforged.service`). At start the gateway logs:
 
 ```text
 traffic capture is on: every request and answer is recorded, redacted, for the shadow replay (personal data; see dainty-lass's docs/security/gateway.md)
 ```
 
-### 1.2 Output Format and Secret Redaction
+### 1.2 Output format and secret redaction
 
 The gateway writes one file per UTC day named `gateway-YYYY-MM-DD.jsonl` inside `CAPTURE_DIR`. Each line is a single JSON object with `"kind": "http"` (an HTTP request/response pair) or `"kind": "chat"` (an XMPP WebSocket lifecycle event or frame):
 
-- **Session tokens (`JWT`)**: Never written in cleartext. Any JWT (`eyJ...`) in headers, bodies, or query strings is replaced with `<token:UID-...>` (preserving only the unverified `userId` / `sub` claim so the replay runner can mint a fresh token for the target server) or `<token>` when no subject claim is present.
-- **Launcher account keys (`RRK_...` / `UUK_...`)**: Replaced with `<key:<sha256-hex>>` (the lowercase 64-character SHA-256 digest of the raw key).
-- **Game-server API keys (`x-rustic-isles-gameserver-apikey`)**: Replaced with `<gskey>`.
-- **XMPP SASL `PLAIN` frames (`<auth ...>...</auth>`)**: Replaced with `<plain:UID-...>` so the replay runner can synthesize a valid base64 `\0<userId>\0<fresh-jwt>` frame for the target server.
-- **Other secret-named fields and long hex/token strings**: Any JSON or form field whose name matches `(?i)(key|token|secret|pass|auth|jwt|sig|cred|recovery|invite|cookie)` (unless already converted to `<token:...>` or `<key:...>`) and any 40+ character hex string or 100+ character token string is replaced with `<redacted>`.
-- **Cookies and internal headers**: `cookie`, `set-cookie`, and `x-reforged-gateway` headers are stripped before writing.
+- Session tokens (JWTs) are never written in cleartext. Any JWT (`eyJ...`) in headers, bodies, or query strings is replaced with `<token:UID-...>` (preserving only the unverified `userId` / `sub` claim so the replay runner can mint a fresh token for the target server) or `<token>` when no subject claim is present.
+- Launcher account keys (`RRK_...`, `UUK_...`) become `<key:<sha256-hex>>` (the lowercase 64-character SHA-256 digest of the raw key).
+- Game-server API keys (`x-rustic-isles-gameserver-apikey`) become `<gskey>`.
+- XMPP SASL `PLAIN` frames (`<auth ...>...</auth>`) become `<plain:UID-...>` so the replay runner can synthesize a valid base64 `\0<userId>\0<fresh-jwt>` frame for the target server.
+- Any other JSON or form field whose name matches `(?i)(key|token|secret|pass|auth|jwt|sig|cred|recovery|invite|cookie)` (unless already converted to `<token:...>` or `<key:...>`) and any 40+ character hex string or 100+ character token string is replaced with `<redacted>`.
+- The `cookie`, `set-cookie` and `x-reforged-gateway` headers are stripped before writing.
 
-> **Privacy note:** Capture files still contain player usernames, account IDs, IP addresses, and play history. Keep `CAPTURE_DIR` on local encrypted storage with `0600` permissions, never commit real capture files to Git, and delete them once replay verification completes.
+> Capture files still contain player usernames, account IDs, IP addresses, and play history. Keep `CAPTURE_DIR` on local encrypted storage with `0600` permissions, never commit real capture files to Git, and delete them once replay verification completes.
 
 ---
 
-## 2. Replaying a Capture Against a Second Server (`RU8`, `RB2`)
+## 2. Replaying a capture against a second server (`RU8`, `RB2`)
 
-Shadow replay is built into `reforged-host db replay` (backed by `isles_db::run_replay_cli` and `isles_core::replay`) with a convenience wrapper at `scripts/replay-capture.mjs`.
+Shadow replay is built into `reforged-host db replay` (backed by `isles_db::run_replay_cli` and `isles_core::replay`) with a wrapper in dainty-lass, `scripts/replay-capture.mjs`.
 
-### 2.1 Preparing the Target Server (`--right`)
+### 2.1 Preparing the target server (`--right`)
 
-1. Start from a database snapshot (`dainty-lass.db` or PostgreSQL dump) taken **before** the captured session began so account state, character `updateVersion`, inventory instances, and progression tracks start from the same baseline.
+1. Start from a database snapshot (`dainty-lass.db` or PostgreSQL dump) taken before the captured session began, so account state, character `updateVersion`, inventory instances, and progression tracks start from the same baseline.
 2. If the captured session includes `/account/api/oauth/token` (`grant_type=exchange_code`), `/reforged/api/ServerStatus`, or `/reforged/api/GetUserInfo` calls authenticated with a launcher account key (`RRK_...` or `UUK_...`), provide a `--key-map <keymap.json>` file so `<key:<sha256>>` placeholders resolve to the raw key registered on the target server:
    - Either a JSON array of raw keys (the runner computes each key's SHA-256 automatically):
      ```json
@@ -65,7 +65,7 @@ Shadow replay is built into `reforged-host db replay` (backed by `isles_db::run_
        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": "RRK_51e9d7eb..."
      }
      ```
-3. Run `reforged-host db replay` (or `node scripts/replay-capture.mjs`) from the target server's directory (so it automatically reads `AUTH_SIGNING_PRIVKEY_B64`, `JWT_SECRET`, `GAMESERVER_API_KEY`, and `GATEWAY_SECRET` from `.workspace/config/secrets.env`), or pass the credentials explicitly on the command line:
+3. Run `reforged-host db replay` (or dainty-lass's `node scripts/replay-capture.mjs`) from the target server's directory (so it automatically reads `AUTH_SIGNING_PRIVKEY_B64`, `JWT_SECRET`, `GAMESERVER_API_KEY`, and `GATEWAY_SECRET` from `.workspace/config/secrets.env`), or pass the credentials explicitly on the command line:
 
 ```bash
 # Replay recorded gateway capture against a running local target server on port 61000:
@@ -78,7 +78,7 @@ reforged-host db replay \
   --key-map /path/to/keymap.json \
   --out /path/to/replay-report.json
 
-# Or via the Node wrapper script:
+# Or with dainty-lass's Node wrapper:
 node scripts/replay-capture.mjs \
   --corpus /path/to/capture \
   --left recorded \
@@ -87,9 +87,9 @@ node scripts/replay-capture.mjs \
   --out /path/to/replay-report.json
 ```
 
-You can also replay a capture **live against two servers simultaneously** (for example, the legacy Node backend on `--left http://127.0.0.1:62000` and the Rust backend on `--right http://127.0.0.1:61000`) to compare their live responses side-by-side.
+A capture can also be replayed live against two servers at once (for example, the legacy Node backend on `--left http://127.0.0.1:62000` and the Rust backend on `--right http://127.0.0.1:61000`) to compare their answers side by side.
 
-### 2.2 Reading the Diff Report
+### 2.2 Reading the diff report
 
 `reforged-host db replay` prints a summary line and exits with code `0` when `unexplained_diffed == 0` (`PASS`) or code `2` when any unexplained diff is found (`DIFF`):
 
@@ -109,7 +109,7 @@ Report counters and diff classifications in `--out <replay-report.json>`:
 | `exact_matched` | Entries where all placeholders resolved deterministically and normalized responses matched with zero diffs. |
 | `inexact_matched` | Entries marked `inexact` (e.g. truncated/omitted body or unmapped `<key:...>` without `--key-map`) that still matched. |
 | `inexact_diffed` | Entries marked `inexact` whose responses differed (expected when an unmapped key or omitted body prevents exact replay). |
-| `unexplained_diffed` | **Release-blocking counter:** exact entries whose normalized responses differed. Must be `0` for `PASS`. |
+| `unexplained_diffed` | Blocks the release: exact entries whose normalized responses differed. Must be `0` for `PASS`. |
 | `StatusDiff` | HTTP status code mismatch (`left` vs `right`, e.g. `200` vs `500`). |
 | `HeaderDiff` | Normalized response header mismatch (`content-type`, `ratelimit`, custom `x-reforged-*` / `x-mystic-*` headers). Volatile transport headers (`date`, `etag`, `content-length`, `connection`, `transfer-encoding`, `server`, CORS) are stripped automatically. |
 | `ValueDiff` | JSON value mismatch at a specific JSONPath (`$.payload.loadouts[0]...`) after normalizing timestamps (`<date>`, `<login-time>`, `<display-date>`), JWTs (`<jwt:UID-...>`), gateway-redacted secret fields (`<redacted>`), and first-appearance dynamic IDs (`<uuid#1>`, `<iid#1>`, `<party#1>`, `gs-<uuid#1>`). |
@@ -118,11 +118,11 @@ Report counters and diff classifications in `--out <replay-report.json>`:
 
 ---
 
-## 3. Rollback Switch to the Pre-Cutover Node + MongoDB Stack (`RB12`)
+## 3. Rolling back to the pre-cutover Node and MongoDB stack (`RB12`)
 
 Until `RB15` removes the Node reference trees after the 7-day canary window, operators can roll back to the legacy Node backend + Director + MongoDB stack without losing player progress earned on the Rust server.
 
-### 3.1 Step 1 — Export SQLite / PostgreSQL Player Data Back to MongoDB
+### 3.1 Step 1: export SQLite or PostgreSQL player data back to MongoDB
 
 Before starting the Node services, export the current SQLite (`dainty-lass.db`) or PostgreSQL store back into the MongoDB `reforged` database using `reforged-host db export-mongo`:
 
@@ -141,7 +141,7 @@ reforged-host db export-mongo \
 
 `db export-mongo` reverses the `RB11` schema transforms (`accounts`, `launcher_accounts`, `api_keys`, `characters`, `loadouts`, `inventories`, `progressions`, `huntpasses`, `escalations`, `bounties`, `quests`, `Guilds`, `moderation`, `invites`, `friendships`, `social_blocks`) idempotently into MongoDB.
 
-### 3.2 Step 2A — Docker Rollback (`--profile rollback`)
+### 3.2 Step 2A: rollback in Docker (`--profile rollback`)
 
 In `compose.yaml`, the default stack runs the Rust `backend` and `director` on SQLite with no MongoDB or Node containers. To switch to the rollback stack:
 
@@ -153,39 +153,38 @@ docker compose down
 COMPOSE_PROFILES=public,rollback docker compose up -d
 ```
 
-### 3.3 Step 2B — Native Windows / Linux Rollback (`--features paradox`)
+### 3.3 Step 2B: rollback on a native Windows or Linux host (`--features paradox`)
 
 On a native host installation:
 
 1. Build `reforged-host` with the `paradox` cargo feature enabled:
    ```bash
-   cd rust
-   cargo build --release -p host -p server-console --features paradox --locked
+   cargo build --release -p server-console --features paradox --locked
    ```
 2. Ensure MongoDB (`mongod`) and Node.js (`>= 20.19`) are installed (`reforged-host doctor` checks both when built with `--features paradox`).
-3. Run `reforged-host setup` and `reforged-host start` (or `reforged-host serve`). When compiled with `--features paradox`, `hostkit::serve::compose` supervises `mongod`, the Node `ParadoxBackend` (`build/server.js`), and the Node `ParadoxDeployServer` (`dist/server.js`) in place of the in-process Rust `isles-1-14-7` module.
+3. Run `reforged-host setup` and `reforged-host start` (or `reforged-host serve`). When compiled with `--features paradox`, `hostkit::serve::compose` supervises `mongod`, the Node `ParadoxBackend` (`build/server.js`), and the Node `ParadoxDirector` in place of the in-process Rust `isles-1-14-7` module.
 
 ---
 
-## 4. The 7-Day Canary Gate (`RU9`, `RB12`, `RB15`)
+## 4. The 7-day canary gate (`RU9`, `RB12`, `RB15`)
 
 Per `docs/dainty-lass-plan.md` (`RU9`) and `MIGRATION_PLAN.md` (`RB12`, `RB15`), the maintainer's canary gate requires:
 
-1. **Canary Deployment**: Run the default Rust `1.14.7` stack (`isles-1-14-7` + `isles-director` + `store` + `gateway` + `chat`) on the maintainer's live canary server for **7 consecutive days** with real players and `CAPTURE_DIR` enabled.
-2. **Pass Criteria During the 7-Day Window**:
+1. Run the default Rust `1.14.7` stack (`isles-1-14-7` + `isles-director` + `store` + `gateway` + `chat`) on the maintainer's live canary server for 7 days in a row with real players and `CAPTURE_DIR` enabled.
+2. During those 7 days:
    - Zero unhandled panics in server logs (`server.log`).
    - Zero account, character, inventory, loadout, progression, quest, or guild data corruption incidents.
    - Shadow replay (`reforged-host db replay`) of the captured daily `.jsonl` files reports `unexplained_diffed: 0` (`PASS`).
    - No rollback (`--features paradox` / `--profile rollback`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
-3. **Post-Canary Cleanup (`RB15`)**: Once the 7-day canary gate passes, delete the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDirector,shared}`) and remove the `--features paradox` cargo feature and `--profile rollback` Docker services.
+3. Once the gate passes, `RB15` deletes the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDirector,shared}`) and removes the `paradox` cargo feature and the `rollback` Docker profile.
 
 ---
 
-## 5. End-to-End Synthetic Capture and Shadow Replay Proof
+## 5. End-to-end synthetic capture and shadow replay proof
 
-The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspace/config/gateway.env` -> synthetic client session over the gateway covering 25 HTTP endpoints and XMPP WebSocket SASL `PLAIN` login -> redaction verification on `gateway-YYYY-MM-DD.jsonl` -> `node scripts/replay-capture.mjs` against a second live `Server B` cloned from the pre-session database snapshot) was executed and verified on `2026-11-01`.
+The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspace/config/gateway.env` -> synthetic client session over the gateway covering 25 HTTP endpoints and XMPP WebSocket SASL `PLAIN` login -> redaction verification on `gateway-YYYY-MM-DD.jsonl` -> dainty-lass's `node scripts/replay-capture.mjs` against a second live `Server B` cloned from the pre-session database snapshot) was executed and verified on `2026-11-01`.
 
-### 5.1 Captured Routes Exercised Through the Gateway
+### 5.1 Captured routes exercised through the gateway
 
 1. `GET /reforged/api/RegistrationStatus`
 2. `GET /reforged/api/ServerStatus` (with `x-reforged-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
@@ -214,7 +213,7 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 25. `GET /party/invites`
 26. `WS ws://127.0.0.1:61004/` (`Sec-WebSocket-Protocol: xmpp` -> `<open .../>`, `<auth xmlns="urn:ietf:params:xml:ns:xmpp-sasl" mechanism="PLAIN">...</auth>` redacted to `<plain:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`, `<success xmlns="urn:ietf:params:xml:ns:xmpp-sasl"/>`, clean close)
 
-### 5.2 Recorded Proof Output
+### 5.2 Recorded proof output
 
 ```text
 === 1. Running reforged-host setup in server-a ===
