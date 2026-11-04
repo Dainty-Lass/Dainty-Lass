@@ -1,13 +1,14 @@
 # Architecture
 
 What runs where, what each part trusts, and the few contracts everything depends on. The security checklists
-under [security/](security) go through each trust boundary line by line.
+under [security/](security) go through each trust boundary line by line; the AGPL components' checklists are in
+dainty-restricted's `docs/security/`. Code paths below are this repository's unless they say dainty-restricted.
 
 ## The parts
 
 | Part | Runs on | Code | Listens on |
 | --- | --- | --- | --- |
-| Launcher & Manager | each player's or host's PC | `launcher` and `crates/launcher-kit` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | relay `127.0.0.1:61100` for the game (`dainty-lass-client`) |
+| Launcher & Manager | each player's or host's PC | dainty-restricted's `launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`) over `crates/launcher-kit`, with `launcher/` (the isolation hook and scripts) and pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | relay `127.0.0.1:61100` for the game (`dainty-lass-client`) |
 | Controller | the server | `crates/controller` over `crates/module-api` | the one process tree `start`, the console and `dainty-lass-manager` (`server-gui`) run |
 | Gateway (core plugin) | the server | `crates/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
 | Allowlist helper (core plugin) | the server, public mode | `crates/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
@@ -17,10 +18,10 @@ under [security/](security) go through each trust boundary line by line.
 | Remote management | controller & managed installs | `crates/remote` (`Service::Remote`) | no listener of its own; rides gateway `/__node/enroll` (rate-limited token redemption) and `/__node/remote` (mTLS under the controller's CA) |
 | Chat (core plugin) | the server | `crates/chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
 | Store & history shipping | the server | `crates/store`, `crates/history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
-| Game modules | the server (in-process or child process) | `modules/rustic-isles` (`isles-1-14-7`) | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
-| Realms & TURN relay | the server & realm hosts' PCs | `modules/rustic-rifts` (`rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, `ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
+| Game modules | the server (in-process or child process) | dainty-restricted's `modules/rustic-isles` (`isles-1-14-7`) | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
+| Realms & TURN relay | the server & realm hosts' PCs | dainty-restricted's `modules/rustic-rifts` (`rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, `ParadoxTransport.dll`; their MIT rewrites are `crates/rifts-*` here) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
-| Host kit | the server | `crates/hostkit` and `crates/host`, bin `reforged-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
+| Host kit | the server | `crates/hostkit` and dainty-restricted's `crates/host`, bin `reforged-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
 
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
@@ -29,19 +30,20 @@ Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the ho
 reaches an upstream. The game servers' UDP ports are opened per player address by the allowlist only after that
 player logs in. When realms are enabled on 1.14.7, `turn-rs` (or `coturn`) listens on UDP/TCP 3478 (and optional
 TLS 5349 plus its UDP relay port range) because STUN/TURN traffic cannot sit behind an HTTP gateway
-([security/turn-relay.md](security/turn-relay.md)).
+(dainty-restricted's `docs/security/turn-relay.md`).
 
 ## Controller, core plugins and game modules
 
 DaintyLass separates **core plugins** from **game modules** ([`crates/module-api`](../crates/module-api)):
 
-- **Core plugins (`CorePlugin`)** live in this repository (`gateway` with `allowlist`, `content`, `admin`, `host`,
-  `network`, `chat`) and provide shared infrastructure for every game version on the host.
-- **Game modules (`GameModule`)** live in their own repositories (`modules/rustic-isles` for `"Rustic Isles 1.14.7"`
-  and `"Rustic Isles 1.12"`, `modules/legacy-revived` for `"Dauntless Revived"` 1.4.4) and declare a
-  `ModuleManifest` with an exact `GameVersion` (`1.14.7`, `1.12.0`, `1.4.4`), invite `version` aliases
-  (`reforged`, `revived`), default ports, client profile (executable SHA-256, command line, Epic manifest SHA-1)
-  and capabilities (`realms`, `network`, `chat_rules`, `patch_set`, `theme`).
+- **Core plugins (`CorePlugin`)** live in this repository (`gateway` with `allowlist`, `content`, `admin`,
+  `network`, `chat`) and provide shared infrastructure for every game version on the host; dainty-restricted's
+  `host` composes them.
+- **Game modules (`GameModule`)** live outside it. The one there is, dainty-restricted's `modules/rustic-isles`,
+  is `"Rustic Isles 1.14.7"`. A module declares a `ModuleManifest` with an exact `GameVersion` (`1.14.7`), invite
+  `version` aliases (`reforged`), default ports, client profile (executable SHA-256, command line, Epic manifest
+  SHA-1) and capabilities (`realms`, `network`, `chat_rules`, `patch_set`, `theme`). Dauntless Revived's 1.4.4 is
+  known to the invite parser only to be refused (RD5).
 - **Registration (`Registrar` and `ModuleContext`).** During `register`, a game module registers its HTTP route
   prefixes (which the gateway routes by `GameVersion`), UDP port ranges (which the allowlist unions across loaded
   modules), static and runtime content files, console/admin commands, status panels, admin actions (`kick`, `ban`,
@@ -65,9 +67,9 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
 1. **Invite.** The host makes one with `reforged-host invite`:
    `reforged-revival://join?v=1&host=<Tailscale IP>&port=61000&code=..&name=..[&share=..]` for a private
    server, `reforged-revival://join?v=2&mode=public&host=<IP or DNS>&port=443&fp=<certificate SHA-256>&code=..&name=..`
-   for a public one. The `dauntless://` scheme carries the same fields plus `version` (`reforged` for 1.14.7,
-   `revived` for a Dauntless Revived 1.4.4 server). The parser accepts nothing it does not recognise
-   (`crates/protocol`, `tests/cases/invite.json`).
+   for a public one. The `dauntless://` scheme carries the same fields plus `version` (`reforged` for 1.14.7;
+   `revived`, a Dauntless Revived 1.4.4 server, is refused with its own error). The parser accepts nothing it does
+   not recognise (`crates/protocol`, `tests/cases/invite.json`).
 2. **Registration.** The launcher posts the chosen name and the code to `POST /reforged/api/Register` and gets
    an **account key** (`RRK_` and 48 hex digits). The key is stored in the OS keystore and never shown again
    unless the player backs it up. In public mode the launcher connects only over TLS pinned to the `fp` from
@@ -88,8 +90,8 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
 ## The launcher API
 
 The backend's `/reforged/api` is the one contract between the launcher, the content server, the admin API and
-the host kit (`modules/rustic-isles/crates/isles-core/src/areas/reforged_api/`, ported from
-[modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts](../modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts)).
+the host kit (dainty-restricted's `modules/rustic-isles/crates/isles-core/src/areas/reforged_api/`, ported from
+`modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts` there).
 
 | Route | Who calls it | Through the gateway |
 | --- | --- | --- |
@@ -116,8 +118,8 @@ added there without a policy decision fails CI.
 - **The backend trusts the game servers' key** (`x-rustic-isles-gameserver-apikey`, loopback only) and the
   admin key on loopback. It stores account keys only as HMACs.
 - **The host kit trusts `host.toml` and `secrets.env`** in `.workspace/config`, which it wrote. Every service
-  reads one env file and nothing from its working directory; `start` clears the environment of anything that
-  looks like a server setting before passing the file on.
+  reads one env file and nothing from its working directory. `start` passes the shell's environment on with the
+  file on top, so a server setting the file doesn't name can still come from the shell.
 - **A managed install trusts its enrolled controller only for shared settings and remote admin actions**
   ([remote-management.md](remote-management.md), [security/remote-management.md](security/remote-management.md)).
   Enrollment redeems a single-use token over TLS pinned to the controller's SHA-256 certificate fingerprint;
@@ -129,7 +131,7 @@ added there without a policy decision fails CI.
 
 ## Where the design is going
 
-[MIGRATION_PLAN.md](../MIGRATION_PLAN.md) ports the backend and Director to Rust and replaces MongoDB with
-`store`. [dainty-lass-plan.md](dainty-lass-plan.md) turns the server into a controller with game modules (one
-per game version, in repositories of their own), moves the launcher page to `dainty-lass-ui`, and adds the
-multi-region network, installing the game from a player's Epic library, and change history with rollback.
+[MIGRATION_PLAN.md](../MIGRATION_PLAN.md)'s "What's left" table says what is still to do, among it RB15, which
+removes the Node backend and MongoDB rollback path. [dainty-lass-plan.md](dainty-lass-plan.md) is the plan behind the controller, the game
+modules, the multi-region network, installing the game from a player's Epic library, and change history with
+rollback.

@@ -11,7 +11,7 @@ on a Windows PC with the game installed:
 
 The launcher's **Host page** (a build with the host tools) has a button for each step and shows what is
 missing; `reforged-host doctor` says the same on the command line. A Linux host does these on a Windows PC and
-brings the results over ([hosting-linux.md](hosting-linux.md)).
+brings the results over (dainty-restricted's `docs/hosting-linux.md`). Every path below is in dainty-restricted.
 
 ## 1. The SDK
 
@@ -33,7 +33,7 @@ modules\rustic-isles\native\runtime\_build.bat          REM Rustic-Isles.dll, on
 cd native\runtime-loader && cargo build --release      REM winmm.dll (needs the Rust toolchain; the loader stays here, DD13)
 ```
 
-[modules/rustic-isles/native/runtime/BUILD.md](../modules/rustic-isles/native/runtime/BUILD.md) explains the build and the optional
+`modules/rustic-isles/native/runtime/BUILD.md` explains the build and the optional
 player-hosted module. The runtime reads the backend's address from the environment at run time, so one build
 serves every server and every player of yours. Publish it:
 

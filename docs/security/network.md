@@ -146,7 +146,7 @@ runs. The gateway stays the only listener off loopback.
 Code: `crates/network/src/cluster.rs` (CA, issuing, reading names, credentials, the TLS settings),
 `wire.rs` (the routes, the ping and error answers), `endpoint.rs` (admission and the service call), `tls.rs`
 (`TlsPeerLink`, health); `crates/gateway/src/nodelink.rs`, `gateway.rs` (`connection`, `node_request`),
-`config.rs` (`GATEWAY_NODE_*`); `crates/host/src/commands/network.rs`, `hostconfig/modules.rs`.
+`config.rs` (`GATEWAY_NODE_*`); `crates/hostkit/src/commands/network.rs`, `hostconfig/modules.rs`.
 Tests: `crates/network/tests/cluster.rs` (the CA and mutual TLS in memory),
 `crates/gateway/tests/nodelink.rs` (several real gateways on 127.0.0.1:0).
 
@@ -221,7 +221,7 @@ Fuzz target: `network_link` in `fuzz` (the route table, the time header, a ping 
 
 ## The Docker harness (DN12)
 
-`compose.yaml`'s `network` profile runs four nodes on one machine for tests (`docs/hosting-docker.md`,
+`compose.yaml`'s `network` profile runs four nodes on one machine for tests (dainty-restricted's `docs/hosting-docker.md`,
 `docker/network/test.sh`). It is not a deployment: its CA and every key in it are made for the test and thrown away
 with `docker compose down --volumes`. It keeps the rules above anyway, so what it proves is the real arrangement.
 

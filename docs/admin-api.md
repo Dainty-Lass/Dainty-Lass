@@ -245,7 +245,7 @@ into `admin.env` as `REFORGED_GUARD_BAN_LIMIT`, `_BAN_WINDOW_MINUTES`, `_BAN`, `
 ## History and revert
 
 The change logs (DD23) behind a server's databases, read and undone through the API; the same engine as
-`reforged-host history` and `revert` ([hosting.md](hosting.md#undoing-a-change)). Reading the logs needs the
+`reforged-host history` and `revert` (dainty-restricted's `docs/hosting.md`, "Undoing a change"). Reading the logs needs the
 `admin` role, since a row's before and after are in them; a revert needs the `owner`.
 
 ```graphql

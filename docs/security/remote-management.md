@@ -2,7 +2,7 @@
 
 # Security checklist: remote management (`crates/remote`, RX3, DD27, RM1–RM4)
 
-The checklist for remote management across a controller (`DaintyLass Manager` or `dainty-lass-host` with
+The checklist for remote management across a controller (`DaintyLass Manager` or `reforged-host` with
 `[remote] role = "controller"`) and its enrolled managed server installs (`crates/remote`,
 `docs/remote-management.md`, DD27, RM1–RM4). `SECURITY_REVIEW.md` indexes it.
 

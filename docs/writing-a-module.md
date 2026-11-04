@@ -1,16 +1,15 @@
 # Writing a game module or plugin
 
-Every game version DaintyLass serves (`1.14.7`, `1.12.0`, `1.4.4`) is packaged as a **`GameModule`** on
-[`crates/module-api`](../crates/module-api). The same `GameModule` implementation runs compiled into the
-server binaries (`server-minimal`, `server-console`, `server-gui`) or out of process as a standalone executable
-speaking length-prefixed JSON frames over stdin and stdout (`module_api::child`).
+Every game version DaintyLass serves (today `1.14.7`) is packaged as a **`GameModule`** on
+[`crates/module-api`](../crates/module-api). The same `GameModule` implementation runs compiled into
+dainty-restricted's server binaries (`server-minimal`, `server-console`, and the launcher's `server-gui`) or out of
+process as a standalone executable speaking length-prefixed JSON frames over stdin and stdout (`module_api::child`).
 
 ## 1. Crate layout
 
-A game module repository lives outside `dainty-lass`'s git history and depends on `module-api`, `protocol`,
-`service-kit` and `store` by version from Forgejo's Cargo registry (which `dainty-lass/rust/Cargo.toml`
-`[patch]`es to local paths when built inside the super-repo). Give the crate both a `[lib]` target (for
-compiled-in server builds) and a `[[bin]]` target (for out-of-process loading):
+A game module lives outside `dainty-lass`'s git history and depends on `module-api`, `protocol`, `service-kit` and
+`store` as git dependencies on dainty-lass at one rev, as dainty-restricted's `modules/rustic-isles` does. Give the
+crate both a `[lib]` target (for compiled-in server builds) and a `[[bin]]` target (for out-of-process loading):
 
 ```toml
 [package]
@@ -140,8 +139,8 @@ impl GameModule for MyModule {
 - **Database access.** Every database write must go through `store`'s write path (`store::Database`) with an actor
   from the request context so the hash-chained change log (`DH1`–`DH5`) records the before and after images. Do
   not open an untracked SQLite or Postgres connection inside a module.
-- **Declarative UI panels.** The server GUI (`dainty-lass-ui`) renders each module's commands, status fields and
-  config sections straight from its `Registrar` declarations—no module ships UI code.
+- **Declarative UI panels.** The server GUI (dainty-dash, `ui/`) renders each module's commands, status fields and
+  config sections straight from its `Registrar` declarations, so no module ships UI code.
 
 ## 4. Out-of-process binary (`src/main.rs`)
 
@@ -160,8 +159,9 @@ and forwards `start`, `command`, `admin`, `status` and `stop` over length-prefix
 
 ## 5. Loading the module in `host.toml`
 
-- **Compiled-in modules** are enabled via Cargo features on `bins/{server,server-console,server-gui}` and
-  loaded by default unless `[modules] compiled = [...]` restricts the list.
+- **Compiled-in modules** are enabled via Cargo features on dainty-restricted's `server-console`, `server-minimal`
+  and `launcher` ([server-modules.md](server-modules.md)) and loaded by default unless `[modules] compiled = [...]`
+  restricts the list.
 - **External modules** are listed in `.workspace/config/host.toml` with a relative path under the server root and
   their lowercase hex SHA-256:
 
@@ -176,5 +176,5 @@ autoload = true
 reforge = "on"
 ```
 
-Use `reforged-host module list`, `module load <id>`, `module unload <id>` or the server GUI's Modules screen to
-inspect, start, stop or reload the module at runtime.
+Use the server console's `modules`, `module load <id>` and `module unload <id>`, or the server GUI's Modules screen,
+to inspect, start, stop or reload the module at runtime.

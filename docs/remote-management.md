@@ -12,8 +12,8 @@ licence (`Copyright (c) 2026 Silent Spud`) in `crates/remote` with zero dependen
 
 | Role | What runs it | `host.toml` `[remote]` setting | Description |
 | --- | --- | --- | --- |
-| **Controller** | A `DaintyLass Manager` desktop install (or a headless `dainty-lass-host` / `dainty-lass-server-console` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
-| **Managed install** | Any DaintyLass server install enrolled with the controller: headless servers (`dainty-lass-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`), Docker containers (`reforged-revival-server`), other `DaintyLass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
+| **Controller** | A `DaintyLass Manager` desktop install (or a headless `reforged-host` / `dainty-lass-server-console` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
+| **Managed install** | Any DaintyLass server install enrolled with the controller: headless servers (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`), Docker containers (`reforged-revival-server`), other `DaintyLass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
 | **Standalone install** *(default)* | Any install that has not enabled controller mode or enrolled with a controller | `role = "standalone"` *(or `[remote]` omitted)* | Operates locally with zero network or remote-management traffic, exactly as before. |
 
 ### Can a player client (`dainty-lass-client`) also be a managed install?
@@ -282,7 +282,7 @@ restarting):
      with its label, `NodeId`, region, live state badge (`Online`, `Degraded`, `Offline`, `Revoked`), player count,
      version, and config sync badge (`Revision #N`).
    - Clicking **Enroll install** opens a dialog that mints a one-time `dainty-lass-remote://enroll?...` URI with a
-     one-click **Copy enrollment command** (`dainty-lass-host remote enroll "..."`) button and expiry countdown.
+     one-click **Copy enrollment command** (`reforged-host remote enroll "..."`) button and expiry countdown.
 2. **Per-install inspection and control (reusing existing tabs)**:
    - Selecting any enrolled install in the Manager switches the target context (`selectedInstallId`) so the existing
      **Server**, **Status**, **Modules**, **Admin**, and **History** tabs display that remote install's status,
@@ -293,7 +293,7 @@ restarting):
      all**, **Stop all**, **Restart all**, **Run doctor on all**, **Backup all**, and **Broadcast ban/unban**, showing a
      per-install outcome table as each install replies or queues the action.
 
-### 9.2 Headless CLI (`dainty-lass-host` / `reforged-host remote`)
+### 9.2 Headless CLI (`reforged-host remote`)
 
 ```text
 reforged-host remote init-controller [--listen-url <https://host:61000>]
