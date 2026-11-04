@@ -8,8 +8,9 @@ why. Read its "What's left" table and the decisions (RD rows) before starting an
 given in full, with the DR rows and the `docs/port/` delta file it names.
 [`docs/port/migration-guide.md`](docs/port/migration-guide.md) is the map: where every upstream file now lives,
 what each DR name became, where the next upstream change goes and how one change is ported and recorded. Read
-it before touching code that came from Dauntless Revived or Mystic Paradox, which is most of the repository,
-and cite its section rather than re-deriving the mapping in a brief or a commit.
+it before carrying an upstream change across, and cite its section rather than re-deriving the mapping in a brief
+or a commit. Nothing here is copied from Dauntless Revived or Mystic Paradox: what came from them was rewritten
+clean-room from the specs in `docs/port/` (RD27; the reviews are in `docs/port/clean-room/`).
 
 ## Repository layout
 
@@ -19,17 +20,19 @@ component and the binaries that link them, and takes this repository's crates as
 
 | Path | What it is |
 | --- | --- |
-| root | One cargo workspace, every package in `crates/<package name>`: the libraries (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `plugin-host`, `protocol`, `proxy`, `remote`, `service-kit`, `service-plugin`, `store`), the services (`admin`, `backend`, `director`, `gateway`, `content`), the core plugins (`network`, `chat`), the `*-plugin` libraries and the `dainty-lass-server` binary |
+| root | One cargo workspace, every package in `crates/<package name>`: the libraries (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `plugin-host`, `protocol`, `proxy`, `remote`, `service-kit`, `service-plugin`, `store`), the services (`admin`, `backend`, `director`, `gateway`, `content`), the core plugins (`network`, `chat`), the `*-plugin` libraries (`gateway-plugin`, `content-plugin`, `chat-plugin`), the realms crates (`rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-transport`, `rifts-host`) and the `dainty-lass-server` binary |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
 | `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages dainty-restricted's Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from dainty-restricted at build time (`bun run restricted-data`) |
-| `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, Rust, Apache-2.0, outside the workspace) |
+| `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`launcher/src-tauri`) is dainty-restricted's |
+| `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 
 In dainty-restricted: `crates/` (`host` = the AGPL shell around `hostkit` that composes the services in
-`compose.rs`, the `*-plugin` libraries, and the server executables `server-console` and `server-minimal`), `launcher/`
-(Tauri: `dainty-lass-client`, `dainty-lass-manager`), `modules/rustic-isles` and `modules/rustic-rifts` (in-tree,
-one workspace with the rest), `legacy/` (the 1.4.4 importer), `docker/`, and the hosting, player and
-Paradox docs.
+`compose.rs`, the `*-plugin` crates that build this repository's libraries, and the server executables
+`server-console` and `server-minimal`), `launcher/src-tauri` (Tauri: `dainty-lass-client`, `dainty-lass-manager`),
+`modules/rustic-isles` and `modules/rustic-rifts` (in-tree, one workspace with the rest), `legacy/` (the 1.4.4
+importer), `native/runtime-loader`, `docker/`, the Tauri backend's language catalogs, and the hosting, player and
+Paradox docs. Its own `AGENTS.md` covers them.
 
 **Which repository a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
 line, or linking such code, is dainty-restricted's. A new crate here is MIT and depends on nothing AGPL; CI fails a
@@ -41,7 +44,8 @@ maintainer decision 2026-10-28), restricted's `host::serve` runs the compiled-in
 61000) and in-process `isles-director` (port 61001) on `store` (SQLite by default, or Postgres).
 
 The server is one executable (RD26). Every service is a module of `crates/controller`, composed by `host::serve` from
-the files `setup` writes, and still runnable alone as a hidden `dainty-lass-host <service>` subcommand.
+the files `setup` writes, and still runnable alone as a hidden `reforged-host <service>` subcommand
+(`crates/hostkit/src/cli.rs`).
 
 `docs/architecture.md` is the reference for how the parts talk and what each trusts. Section 6 of the plan,
 "Things that must not change", lists what every port keeps byte for byte: read it before touching anything a
@@ -63,9 +67,10 @@ dependency order, runs the checks and strikes the rows.
   append-only conflicts.
 - **Hands-on work isn't an agent's job:** the canary, cutovers, spikes that need a machine with the game, signing
   and publishing, the cut-off date. Write down the steps and leave them for the maintainer.
-- `modules/rustic-isles/reference/1.14.7/` takes any change, with fixes as the baseline (RD2): keep a change small, and list a new or changed
-  route in RU3's inventory (`modules/rustic-isles/docs/inventory/`) so the Rust port carries it. The Node services this port replaced were removed on
-  2026-10-26; the catch-up lists (`docs/port/catchup-*.md`) are what is still owed from them.
+- dainty-restricted's `modules/rustic-isles/reference/1.14.7/` takes any change, with fixes as the baseline (RD2):
+  keep a change small, and list a new or changed route in RU3's inventory (`modules/rustic-isles/docs/inventory/`
+  there) so the Rust port carries it. The Node services this port replaced were removed on 2026-10-26; the
+  catch-up lists (`docs/port/catchup-*.md`) are what is still owed from them.
 - **An upstream change is placed before it is ported.** Section 4 of the migration guide says where each kind
   goes (a runtime patch, a backend patch, game data, a Mystic Paradox update);
   section 5 is the method and section 6 the catch-up entry it leaves behind. A row that adds a Rust module
@@ -85,26 +90,28 @@ hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `car
 - **Ports match Node exactly where a client can see it:** routes matched as Express matches them, JSON written
   as `JSON.stringify` does, the same status codes and field order. When the Node and Rust answers differ, the
   Rust one is the bug unless a decision row says otherwise.
-- Code copied from Dauntless Revived (DR, at `e1c5fec`) keeps its structure. Make the Reforged changes the
-  delta file lists and nothing else, so a later reader can diff it against DR. The guide's section 2 says
-  which DR file a module came from and its section 3 (the rename dictionary) translates DR names, headers,
-  routes and env variables to Reforged's; never carry a DR name across untranslated.
+- Never copy DR, Paradox or Reforged Revival code here, and never rewrite a function from one while looking at it:
+  an upstream change reaches this repository through a clean-room spec (RD27). The guide's section 3 (the rename
+  dictionary) translates DR names, headers, routes and env variables to Reforged's; never carry a DR name across
+  untranslated.
 
 ### Launcher bridge
 
-The page talks to Rust only through the commands in `launcher/src-tauri/src/bridge/spec.rs`. The TS types
-(`ui/packages/bridge/src/generated/types.ts`, copied in by `bun run restricted-data`), the isolation hook's command
-list (`isolation/commands.js`) and the permission set (`permissions/app-commands.toml`) are generated from it
-and checked by a test. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`
-rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`; `npm test` in
-`launcher` drives it through the isolation hook and fails a command no method calls. The account key
-never crosses the bridge.
+The page talks to Rust only through the commands in dainty-restricted's `launcher/src-tauri/src/bridge/spec.rs`.
+The TS types (`ui/packages/bridge/src/generated/types.ts`), the isolation hook's command list
+(`launcher/isolation/commands.js`) and the permission set (`permissions/app-commands.toml`) are generated from it
+there and checked by a test. `bun run restricted-data`, in `ui/` and in `launcher/`, copies the first two in from a
+dainty-restricted checkout (`DAINTY_RESTRICTED_DIR`, or `dainty-restricted` beside this repository); they are never
+committed here. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p launcher generated` in
+dainty-restricted rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`;
+`bun run test` in `launcher` drives it through the isolation hook and fails a command no method calls. The account
+key never crosses the bridge.
 
 ## Security
 
 Every row that writes a trust-boundary component delivers, with its code, its fuzz target in `fuzz/` and
 its checklist in `docs/security/<component>.md` (RX3). Copy the structure of an existing one, such as
-`relay.md`. The components are listed in the plan's RX3 row.
+`gateway.md`. The components are listed in the plan's RX3 row.
 
 Rules that read like overcaution:
 
@@ -122,16 +129,16 @@ Rules that read like overcaution:
 ## Nothing from the game is committed
 
 No game files, generated SDKs (`CppSDK/`, `SDK.hpp`), exported game data beyond the services' examples, or
-`.workspace/`. Lady Luck's Store and the platinum store are built on each server from
-`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`. A server preset (`dainty-lass-host preset`) is a host's own and is never
-committed.
+`.workspace/`. Lady Luck's Store and the platinum store are built on each server from dainty-restricted's
+`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`. A server preset (`reforged-host preset`)
+is a host's own and is never committed.
 
 ## Configuration
 
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
-(`service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
+(`crates/service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
 **The env files are the host kit's output, not hand-written:** `reforged-host setup` writes them from
-`host.toml` and `secrets.env` (`crates/host/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
+`host.toml` and `secrets.env` (`crates/hostkit/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
 service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,
 and a line in the service's file. It is never a variable the host is told to export.
@@ -145,33 +152,30 @@ It's never a one-file change:
   `host.toml` (or a Node kit's `host.json`), so a new field that an older file doesn't have must default to
   today's behaviour.
 - **Use one of the server prefixes** (`REFORGED_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
-  `start` clears the environment and passes on only the system's own variables plus the env file. Anything
-  matching `SERVER_PREFIXES` or `SERVER_NAMES` in `crates/host/src/services.rs` is dropped from the shell,
-  so a stale setting left there never reaches a service. A name outside that list leaks in from whatever shell
-  started the kit, so either pick a listed prefix or add the name to the list.
+  `start` hands each service the shell's environment and then its env file, and the file wins
+  (`service_environment` in `crates/hostkit/src/services.rs`). The clean-room host kit has no `SERVER_PREFIXES`
+  list, so a stale server setting left in the shell reaches a service whose file doesn't set it. Only the
+  controller's registry filters, keeping the OS's own variables for an external module (`system_environment`).
 - **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `host.toml`
   field and never an option on the command line.
-- **The docs move with it.** The settings table in `docs/hosting.md`, and `hosting-linux.md` and
-  `hosting-docker.md` wherever a host sees the option. Delete the rows when the variable goes. A stale row is
+- **The docs move with it.** The settings table in dainty-restricted's `docs/hosting.md`, and `hosting-linux.md`
+  and `hosting-docker.md` wherever a host sees the option. Delete the rows when the variable goes. A stale row is
   worse than a missing one, because it reads as supported.
 
 ### Docker
 
-`compose.yaml` and the root `.env.example` hold **only what Compose itself reads on the host**: profiles,
-mounts, published ports, image names. Server settings stay setup's
-(`docker compose run --rm host setup ...`), and every container mounts the volumes at the same paths, so the
-env files setup writes are valid in all of them. A new Compose variable goes in `.env.example` with a comment,
-and is interpolated as `${VAR:-default}` with the same default the comment gives. RX4 is kept current by the
-rows that change what runs: a service added, moved or removed is a change to `docker/` in the same row.
+Docker (`compose.yaml`, `.env.example`, `docker/`) is dainty-restricted's, and so are its rules. A service added,
+moved or removed here is a change to `docker/` there.
 
 ## User-facing text
 
-Every string a player or host reads comes from a language catalog: dainty-lass-ui's
-`packages/i18n/catalogs/en.json` and `pt-BR.json` (DU2). `launcher/src-tauri/gen/strings.json`, from which
-the Tauri backend takes its own dialogs, is generated from them (`generated` test, keys sorted).
+Every string a player or host reads comes from a language catalog in `en` and `pt-BR` (DU2). The pages' catalogs
+are `ui/apps/web/messages/<launcher|manager>/en.json` and `pt-BR.json`, checked by `ui/apps/web/tests/catalog.test.ts`.
+The Tauri backend takes its own dialogs from dainty-restricted's `ui/packages/i18n/catalogs`, through the generated
+`launcher/src-tauri/gen/strings.json` there.
 
 - **Both languages in the same commit**, with the same keys and the same `{placeholders}`, never an English
-  placeholder in `pt-BR`. The `i18n` test fails a key the backend shows that a language lacks. When you aren't
+  placeholder in `pt-BR`. The catalog tests fail a key that one language lacks. When you aren't
   sure of the Brazilian Portuguese, write your best and flag it in the commit body for the maintainer.
 - **Append new keys at the end** of each catalog (section 5.1), never in the middle.
 - **Never build a sentence by concatenation.** `` `${name} is full` `` can't be translated, because not every
@@ -183,46 +187,39 @@ the Tauri backend takes its own dialogs, is generated from them (`generated` tes
 
 ## Tests
 
-From the root: `cargo test --workspace --locked --no-fail-fast`. The Paradox Node reference packages in
-`modules/rustic-isles/reference/1.14.7/ParadoxBackend` and `ParadoxDirector`: `npm ci && npm test` from their
-folders, Node 22 in CI. `bash docker/run-tests.sh` from the root builds the images and runs the server suites
-and the compose smoke test inside them.
+From the root: `cargo test --workspace --locked --no-fail-fast`. In `ui/`: `bun run test` and `bun run lint`
+(biome). In `launcher/`: `bun run test`, which runs `bun run restricted-data` first and so needs a dainty-restricted
+checkout. The Paradox Node reference, Docker and the Tauri shell are tested in dainty-restricted.
 
 Not obvious from reading the suites:
 
 - **Parity tests are the contract, not a snapshot.** `crates/gateway/tests/parity/` and
-  `crates/content/tests/parity/` hold replies recorded from the Node services (`record.cjs`). When one
-  fails, fix the Rust side. Re-record only when the Node side changed on purpose, and say why in the commit.
+  `crates/content/tests/parity/` hold replies recorded from the Node services. When one fails, fix the Rust
+  side. Re-record only when the Node side changed on purpose, and say why in the commit.
 - **`crates/protocol/tests/cases/*.json` are shared tables**: the launcher and the servers check the same
   invites, statuses and usernames against them. A new case goes in the table, not in one crate's test.
-- **Tests that read the shared log take `serial()`** (`tests/common`). A test that passes alone and fails in
+- **Tests that read the shared log take `serial()`** (`crates/gateway/tests/common`). A test that passes alone and fails in
   the suite is usually one that doesn't.
 - **Bind test listeners to `127.0.0.1:0`.** On the maintainer's Windows PC fixed ports can fall in Windows'
   reserved range, which is why two of Content's Node tests fail there.
 - **Generated files are tested for staleness.** If a `generated` test fails, regenerate
   with `RR_UPDATE_GENERATED=1` and commit the result; don't edit the output.
 - **The real nftables test is opt-in** (`REFORGED_TEST_NFT=1`, Linux, root or `CAP_NET_ADMIN`). Otherwise it
-  skips, so `cargo test` passing says nothing about the rules. `docker/test-in-image.sh` turns it on when the
-  container has the capability. Run that after a firewall change.
+  skips, so `cargo test` passing says nothing about the rules. dainty-restricted's `docker/test-in-image.sh` turns
+  it on when the container has the capability. Run that after a firewall change.
 - Nothing here is played against the real 1.14.7 client in CI. When only the tests passed, say so; don't
   claim a gameplay change works.
 
 ## Native code
 
-A runtime patch written against Mystic Paradox's tree is applied to `modules/rustic-isles/native/` as
-`docs/paradox-runtime-patches.md` describes: paths rewritten, `git apply --3way`, LF line endings, and a
-section in `docs/paradox-patches.md`. The migration guide's sections 2.1 and 2.8 say which Paradox folder
-became which `modules/rustic-isles/native/` folder and which patches live there. The realm transport,
-`ParadoxTransport.dll`, lives in `modules/rustic-rifts/src`.
-`native/runtime-loader` is a Rust crate of its own, outside the workspace: workspace-wide `cargo` commands
-don't cover it.
+There is none here. The game runtime, CatalogExporter, the runtime loader and `ParadoxTransport.dll` are
+dainty-restricted's, and its `AGENTS.md` says how a runtime patch is applied.
 
 ## CI
 
-`.forgejo/workflows/ci.yml` runs only the families a change touches (Rust, the Tauri launcher, Paradox's
-Node reference, the UI, Docker, the network), and `CI ok` sums them up. It runs on every pushed branch. A push to
-`plan` or `main` runs every family. Workflows belong to RR3, and to RH6 and RA14 for the two release workflows; a row doesn't edit
-them.
+`.forgejo/workflows/ci.yml` runs only the families a change touches (Rust, with `cargo deny` and the fuzz
+targets, and the UI), and `CI ok` sums them up. It runs on every pushed branch. A push to `plan` or `main` runs
+every family. Workflows belong to RR3, and a row doesn't edit them. The release workflows are dainty-restricted's.
 
 ## Branches
 
