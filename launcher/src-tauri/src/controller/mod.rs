@@ -355,6 +355,8 @@ pub struct Controller {
     /// The executable's hash by size and time (`userData/file-hashes.json`)
     hashes: tokio::sync::Mutex<HashCache>,
     state: Mutex<State>,
+    /// The game console's newest lines, redacted (`platform/game_console.rs`)
+    game_log: Mutex<std::collections::VecDeque<String>>,
     /// News and art load in the background; shutdown waits for them (RD22).
     background: Mutex<Vec<JoinHandle<()>>>,
     /// Where background work runs: sync commands run on the main thread, outside any runtime
@@ -400,6 +402,7 @@ impl Controller {
             installs: install::Installs::default(),
             hashes: tokio::sync::Mutex::new(hashes),
             state: Mutex::new(State::new(stored)),
+            game_log: Mutex::new(std::collections::VecDeque::new()),
             background: Mutex::new(Vec::new()),
             rt,
             me: me.clone(),
@@ -417,6 +420,7 @@ impl Controller {
     fn game_changed(&self, running: bool, code: Option<i32>) {
         if running {
             log::info("game started");
+            self.watch_game_console();
             self.publish();
             return;
         }
@@ -472,8 +476,55 @@ impl Controller {
         self.st().relay.is_some().then_some(KeepOpen::Relay)
     }
 
+    /// Reads the new game's console into `game_log`, from empty.
+    fn watch_game_console(&self) {
+        let Some(pid) = self.game.pid() else { return };
+        self.game_log.lock().unwrap_or_else(|p| p.into_inner()).clear();
+        let hide = !self.s().show_game_console;
+        let me = self.me.clone();
+        self.p.watch_game_console(
+            pid,
+            hide,
+            Box::new(move |lines| {
+                if let Some(this) = me.upgrade() {
+                    this.take_game_log(lines);
+                }
+            }),
+        );
+    }
+
+    /// Keeps and sends lines from the game's console; the account key never leaves here (`redact`).
+    fn take_game_log(&self, lines: Vec<String>) {
+        use crate::platform::game_console::{KEPT_LINES, redact};
+        let lines: Vec<String> = lines.iter().map(|line| redact(line)).collect();
+        {
+            let mut log = self.game_log.lock().unwrap_or_else(|p| p.into_inner());
+            log.extend(lines.iter().cloned());
+            let over = log.len().saturating_sub(KEPT_LINES);
+            log.drain(..over);
+        }
+        self.p.emit_game_log(&lines);
+    }
+
+    /// `gameLogGet`: what the console has shown this game, for a page opened after it started.
+    pub fn game_log(&self) -> Vec<String> {
+        self.game_log
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .iter()
+            .cloned()
+            .collect()
+    }
+
     pub fn language(&self) -> Language {
         self.st().s().language
+    }
+
+    /// Whether minimising and closing hide the window to the tray (`window.rs`).
+    pub fn tray(&self) -> (bool, bool) {
+        let st = self.st();
+        let s = st.s();
+        (s.minimize_to_tray, s.close_to_tray)
     }
 
     /// The game's `Win64` folder, where the runtime goes and the game starts.
@@ -552,6 +603,9 @@ impl Controller {
             streamer_mode: s.streamer_mode,
             host_tools: s.host_tools && cfg!(feature = "host"),
             game_edition: crate::bridge::types::Game::Reborn,
+            minimize_to_tray: s.minimize_to_tray,
+            close_to_tray: s.close_to_tray,
+            show_game_console: s.show_game_console,
         }
     }
 
@@ -1839,6 +1893,9 @@ impl Controller {
             put("windowed", patch.windowed.map(Value::Bool));
             put("streamerMode", patch.streamer_mode.map(Value::Bool));
             put("hostTools", patch.host_tools.map(Value::Bool));
+            put("minimizeToTray", patch.minimize_to_tray.map(Value::Bool));
+            put("closeToTray", patch.close_to_tray.map(Value::Bool));
+            put("showGameConsole", patch.show_game_console.map(Value::Bool));
             put("language", patch.language.map(|language| Value::from(language.code())));
             put(
                 "gameLanguage",

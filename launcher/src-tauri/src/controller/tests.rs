@@ -1158,10 +1158,15 @@ async fn settings_take_reforgeds_seven_keys() {
         game_language: Some(GameLanguage::DeDe),
         runtime_profile: Some(RuntimeProfile::Development),
         game_edition: Some(crate::bridge::types::Game::Legacy),
+        minimize_to_tray: Some(true),
+        close_to_tray: None,
+        show_game_console: None,
     };
     let settings = hx.c.set_settings(patch).await;
     assert_eq!(settings.graphics.value(), 3);
     assert!(settings.windowed && settings.streamer_mode);
+    assert!(settings.minimize_to_tray && !settings.close_to_tray);
+    assert_eq!(hx.c.tray(), (true, false));
     // A player-only build refuses the Host tools
     assert_eq!(settings.host_tools, cfg!(feature = "host"));
     assert_eq!(hx.c.snapshot().app.host_tools_available, cfg!(feature = "host"));

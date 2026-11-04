@@ -21,6 +21,9 @@ pub struct Backend {
     invite_link: Mutex<Option<String>>,
 }
 
+/// New lines from the game's console, redacted (`onGameLog`).
+pub const GAME_LOG_EVENT: &str = "game-log";
+
 /// Tells the page an invite link is waiting (`onInviteLink`).
 pub const INVITE_LINK_EVENT: &str = "invite-link";
 

@@ -99,12 +99,25 @@ pub fn create(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let handle = window.clone();
     window.on_window_event(move |event| match event {
         WindowEvent::Resized(_) => {
+            // Minimising is a resize; there is no event of its own
+            if handle.is_minimized().unwrap_or(false) {
+                if tray_settings(&handle).0 {
+                    crate::tray::hide(&handle);
+                }
+                return;
+            }
             let maximized = handle.is_maximized().unwrap_or(false);
             let _ = handle.emit_to(MAIN, WINDOW_STATE_EVENT, maximized);
         }
         WindowEvent::CloseRequested { api, .. } => {
             let guard = handle.state::<CloseGuard>();
             if guard.closing.load(Ordering::SeqCst) {
+                return;
+            }
+            // Hidden, the window keeps the game's relay: nothing to confirm
+            if !guard.quitting.swap(false, Ordering::SeqCst) && tray_settings(&handle).1 {
+                api.prevent_close();
+                crate::tray::hide(&handle);
                 return;
             }
             let Some(reason) = guard.keep_open() else { return };
@@ -133,6 +146,13 @@ pub fn create(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     Ok(window)
 }
 
+/// (minimise to tray, close to tray); both off until the controller is up.
+fn tray_settings(window: &WebviewWindow) -> (bool, bool) {
+    window
+        .try_state::<crate::controller::ControllerHandle>()
+        .map_or((false, false), |controller| controller.tray())
+}
+
 type KeepOpenReason = Box<dyn Fn() -> Option<KeepOpen> + Send + Sync>;
 
 /// What decides whether closing the window needs the player's confirmation: the controller says whether
@@ -143,6 +163,8 @@ pub struct CloseGuard {
     reason: Mutex<Option<KeepOpenReason>>,
     on_kept: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
     closing: AtomicBool,
+    /// The tray's Quit: this close goes past close-to-tray (`tray.rs`)
+    pub quitting: AtomicBool,
 }
 
 impl CloseGuard {

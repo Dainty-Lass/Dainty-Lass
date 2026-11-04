@@ -9,6 +9,7 @@ pub mod epic_library;
 pub mod epic_login;
 pub mod epic_session;
 pub mod game_config;
+pub mod game_console;
 pub mod game_folder;
 #[cfg(feature = "host")]
 pub mod hostkit;

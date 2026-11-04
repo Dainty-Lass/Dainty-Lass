@@ -54,6 +54,7 @@ window.__RR_COMMANDS__ = {
   "host_set_multipliers": { "multipliers": { kind: "object", nullable: true, fields: { "xp": { kind: "number", min: 1, max: 100 }, "rewards": { kind: "number", min: 1, max: 100 } } } },
   "copy_text": { "text": { kind: "text", max: 4096 } },
   "take_invite_link": {},
+  "game_log_get": {},
   "dismiss_notice": {},
   "dismiss_error": {},
   "subscribe_progress": { "onProgress": { kind: "channel" } },
@@ -101,4 +102,4 @@ window.__RR_COMMANDS__ = {
   "remote_leave": {},
   "remote_exec": { "request": { kind: "object", nullable: false, fields: { "node": { kind: "text", max: 64 }, "action": { kind: "name", names: ["doctor", "backup", "invite", "ban", "unban", "kick", "announce", "guarded_approve", "guarded_cancel"] }, "target": { kind: "optionalText", max: 64 }, "reason": { kind: "optionalText", max: 500 } } } },
 };
-window.__RR_SETTINGS_KEYS__ = ["graphics", "windowed", "streamerMode", "hostTools", "language", "gameLanguage", "runtimeProfile", "gameEdition"];
+window.__RR_SETTINGS_KEYS__ = ["graphics", "windowed", "streamerMode", "hostTools", "language", "gameLanguage", "runtimeProfile", "gameEdition", "minimizeToTray", "closeToTray", "showGameConsole"];

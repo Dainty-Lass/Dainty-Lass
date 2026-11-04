@@ -52,7 +52,7 @@ cargo build --release -p server-console --features all-modules --bins
 ```
 
 The desktop apps live in `launcher` (`npm ci && npm run build:client` for `dainty-lass-client` and
-`npm run build:manager` for `dainty-lass-manager`, which use Bun to build the pages from dainty-lass's `dashboard/`); those builds and its
+`npm run build:manager` for `dainty-lass-manager`, which use Bun to build the pages from dainty-lass's `ui/` (dainty-dash)); those builds and its
 bridge tests (`npm test`) need a dainty-lass checkout beside this one, or `DAINTY_LASS_DIR`. The runtime and the
 CatalogExporter need a host's own SDK ([docs/sdk-and-game-data.md](../dainty-lass/docs/sdk-and-game-data.md)).
 `bash docker/run-tests.sh` builds the images (with your SSH agent) and runs every server suite inside them.

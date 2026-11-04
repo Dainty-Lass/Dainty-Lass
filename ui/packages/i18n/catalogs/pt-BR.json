@@ -1181,5 +1181,7 @@
   "hrem_act_backup": "Backup",
   "hrem_act_revoke": "Revogar",
   "hrem_leave": "Desativar gerenciamento remoto",
-  "hrem_queued": "Ação {action} enfileirada em {node} ({id})"
+  "hrem_queued": "Ação {action} enfileirada em {node} ({id})",
+  "tray_open": "Abrir",
+  "tray_quit": "Sair"
 }

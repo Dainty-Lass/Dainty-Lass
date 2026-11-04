@@ -452,6 +452,12 @@ pub fn take_invite_link(backend: Backed<'_>) -> Option<String> {
     backend.take_invite_link()
 }
 
+/// The game console's lines so far this game (`platform/game_console.rs`), redacted.
+#[tauri::command]
+pub fn game_log_get(app: AppHandle) -> Vec<String> {
+    controller(&app).game_log()
+}
+
 #[tauri::command]
 pub fn dismiss_notice(app: AppHandle) {
     controller(&app).set_notice(None);

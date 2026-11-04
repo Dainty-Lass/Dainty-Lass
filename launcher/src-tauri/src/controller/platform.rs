@@ -56,6 +56,10 @@ pub trait Platform: Send + Sync {
     fn prepare_game_launch(&self) -> Boxed<Prepared>;
     /// The Visual C++ and DirectX files the game needs that Windows lacks.
     fn missing_runtimes(&self) -> (Vec<String>, Vec<String>);
+    /// Reads game `pid`'s console, `hide` keeping its window off screen; `sink` gets each batch.
+    fn watch_game_console(&self, _pid: u32, _hide: bool, _sink: Box<dyn Fn(Vec<String>) + Send>) {}
+    /// New lines for the Game log page (redacted).
+    fn emit_game_log(&self, _lines: &[String]) {}
 }
 
 pub struct TauriPlatform {
@@ -159,6 +163,14 @@ impl Platform for TauriPlatform {
                 Err(_) => Prepared::Missing,
             }
         })
+    }
+
+    fn watch_game_console(&self, pid: u32, hide: bool, sink: Box<dyn Fn(Vec<String>) + Send>) {
+        crate::platform::game_console::watch(pid, hide, sink);
+    }
+
+    fn emit_game_log(&self, lines: &[String]) {
+        let _ = self.app.emit_to(MAIN, crate::bridge::backend::GAME_LOG_EVENT, lines);
     }
 
     fn missing_runtimes(&self) -> (Vec<String>, Vec<String>) {
