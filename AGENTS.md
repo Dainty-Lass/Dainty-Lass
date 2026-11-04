@@ -272,9 +272,11 @@ AGPL-3.0-only, with additional terms for the Mystic Paradox material (`ADDITIONA
 Code copied from DR or Paradox keeps its attribution, and the integration pass records each new source in
 `NOTICE.md`.
 
-The crates `NOTICE.md` lists as MIT (`controller`, `module-api`, `epic`, `history-ship`, `protocol`, `proxy`,
-`service-kit`, `store`, `hostkit`, `launcher-kit`, `crates/network`, `admin`, `bins`) set `license = "MIT"` in their
-own `Cargo.toml`; everything else (`crates/host`, the `*-plugin` library crates, `launcher/src-tauri`, `fuzz`) inherits the workspace's AGPL. A new crate is MIT only when nothing in it is ported from
-DR, Paradox or the Reforged Revival line: no file from those trees, no function rewritten from one while looking at it.
-Copying a DR or Paradox function into an MIT crate moves the crate back to `license.workspace = true` in the same
-commit, with the NOTICE line to match.
+The MIT crates (`controller`, `module-api`, `hostkit`, `gateway`, `content`, `chat`, ...) are dainty-lass's. Here,
+`crates/host`, the `*-plugin` crates, `launcher/src-tauri` and the game modules' crates inherit the workspace's AGPL
+(`license.workspace = true`); `crates/server-console` and `crates/server-minimal` set `license = "MIT"` in their
+`Cargo.toml`; `fuzz` and `legacy` set `AGPL-3.0-only` themselves, and `native/runtime-loader` is Apache-2.0. A new
+crate is MIT only when nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from those
+trees, no function rewritten from one while looking at it, and such a crate belongs in dainty-lass. Copying a DR or
+Paradox function into an MIT crate moves the crate to `license.workspace = true` in the same commit, with the NOTICE
+line to match.
