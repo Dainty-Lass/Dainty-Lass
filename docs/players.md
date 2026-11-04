@@ -11,7 +11,7 @@ and the archived 1.14.7 manifest, which only works for an account that had Daunt
 Mystic Paradox's guide has every step and check:
 [Installing Dauntless 1.14.7](https://github.com/pranav158/Mystic-Paradox/blob/main/docs/INSTALLING_DAUNTLESS.md).
 Legendary and the manifest are third-party tools; use them at your own risk. Installing from your library
-inside the launcher is planned ([dainty-lass-plan.md](dainty-lass-plan.md), DD22).
+inside the launcher is planned ([dainty-lass-plan.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/dainty-lass-plan.md), DD22).
 
 ## 2. The launcher
 

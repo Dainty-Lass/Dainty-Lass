@@ -143,14 +143,14 @@ reforged-host db export-mongo \
 
 ### 3.2 Step 2A — Docker Rollback (`--profile rollback`)
 
-In `docker/compose.yml`, the default stack runs `dainty-lass` (`server-minimal`) on SQLite with zero MongoDB or Node containers. To switch to the rollback stack:
+In `compose.yaml`, the default stack runs the Rust `backend` and `director` on SQLite with no MongoDB or Node containers. To switch to the rollback stack:
 
 ```bash
 # 1. Stop the default Rust stack:
-docker compose -f docker/compose.yml down
+docker compose down
 
-# 2. Start the rollback profile (mongo + mongo-init + Node backend + Node director + gateway + content + allowlist):
-docker compose -f docker/compose.yml --profile rollback up -d
+# 2. Start the rollback profile (mongo, the Node backend-rollback and director-rollback, with the gateway, content and allowlist):
+COMPOSE_PROFILES=public,rollback docker compose up -d
 ```
 
 ### 3.3 Step 2B — Native Windows / Linux Rollback (`--features paradox`)
@@ -177,7 +177,7 @@ Per `docs/dainty-lass-plan.md` (`RU9`) and `MIGRATION_PLAN.md` (`RB12`, `RB15`),
    - Zero account, character, inventory, loadout, progression, quest, or guild data corruption incidents.
    - Shadow replay (`reforged-host db replay`) of the captured daily `.jsonl` files reports `unexplained_diffed: 0` (`PASS`).
    - No rollback (`--features paradox` / `--profile rollback`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
-3. **Post-Canary Cleanup (`RB15`)**: Once the 7-day canary gate passes, delete the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDeployServer}`, `services/{gateway,content,allowlist}`, `packages/shared`, `host/`) and remove the `--features paradox` cargo feature and `--profile rollback` Docker services.
+3. **Post-Canary Cleanup (`RB15`)**: Once the 7-day canary gate passes, delete the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDirector,shared}`) and remove the `--features paradox` cargo feature and `--profile rollback` Docker services.
 
 ---
 

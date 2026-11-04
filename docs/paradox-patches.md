@@ -1,7 +1,7 @@
 # Changes to Mystic Paradox
 
-The rustic-isles submodule (`modules/rustic-isles`: the Node services under `reference/1.14.7`, the runtime and
-the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) and `native/runtime-loader` are
+rustic-isles (`modules/rustic-isles`, in-tree since RD27 and a submodule from DS6: the Node services under
+`reference/1.14.7`, the runtime and the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) and `native/runtime-loader` are
 Mystic Paradox at commit `21b9ff5` (`pranav158/Mystic-Paradox`, upstream `main` on 2026-10-23) with the changes
 below. Each is marked in the code with `[DaintyLass]` or, for the ones taken
 over from the Dauntless Reforged Revival line and kept as received, `[Dauntless Reforged Revival]`
@@ -67,4 +67,4 @@ policy, not fixes.
 Advance the fork's branch, replay the changes above onto the new base one by one, keep, reduce or drop each,
 and record the new commit here and in [NOTICE.md](../NOTICE.md). `ParadoxLauncher`, `ParadoxTransport` and
 Mystic's workflows stay out; the realms transport goes to `rustic-rifts`
-([dainty-lass-plan.md](dainty-lass-plan.md), DD14).
+([dainty-lass-plan.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/dainty-lass-plan.md), DD14).

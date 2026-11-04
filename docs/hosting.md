@@ -17,7 +17,7 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
   path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API are compiled into
   `reforged-host` and store player data in `.workspace\config\dainty-lass.db` (SQLite) or Postgres (`[database]`).
 - **Visual Studio 2022** with Desktop development with C++, and **Dumper-7**, to generate the SDK and build
-  the game runtime from your own game ([sdk-and-game-data.md](sdk-and-game-data.md)). Players get the runtime
+  the game runtime from your own game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)). Players get the runtime
   you build; nobody else's works with your server's build.
 - Private: **Tailscale** on your PC and your friends' PCs. Public: a public IPv4 or a DNS name, and TCP 443
   and UDP 8770-8777 open on your router and firewall.
@@ -44,7 +44,7 @@ options to change a setting, or edit `host.toml` and run `setup` with none.
 No 1.14.7 folder yet? `install-game` fetches one from your own Epic library
 ([below](#getting-the-game-from-epic)) and points `game_dir` at it.
 
-Then the SDK, the runtime and the game data ([sdk-and-game-data.md](sdk-and-game-data.md)):
+Then the SDK, the runtime and the game data ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)):
 
 ```powershell
 bin\reforged-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
@@ -112,7 +112,7 @@ tells you the `--game` to give `setup`.
 ## Undoing a change
 
 Every change to the server's data is in a change log with who made it, when, and the row before and after
-([DD23](dainty-lass-plan.md)). A partner who turns on you, a bot that deletes the wrong accounts or an admin key
+([DD23](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/dainty-lass-plan.md)). A partner who turns on you, a bot that deletes the wrong accounts or an admin key
 used by someone it wasn't issued to can be seen and undone from the host, with no key:
 
 ```powershell
@@ -145,7 +145,7 @@ bin\reforged-host history verify                                  # is the log i
   removed. It exits 1 when one is broken. The head it prints is what to keep somewhere off the server.
 
 The same commands are in the `serve` console and the dashboard (`history --actor ...`, `revert ... --apply ...`;
-a long list is cut off at 200 lines, so read a mass revert in a terminal), in **DaintyLass Manager** (`dainty-lass-manager`, History tab) and in the admin API for the owner's key ([admin-api.md](admin-api.md)). In Docker:
+a long list is cut off at 200 lines, so read a mass revert in a terminal), in **DaintyLass Manager** (`dainty-lass-manager`, History tab) and in the admin API for the owner's key ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)). In Docker:
 `docker compose run --rm host history --actor admin:58ef5419`.
 
 ## Settings
@@ -180,7 +180,7 @@ servers' key) lives only in `secrets.env`.
 
 ### Secrets (`secrets.env`)
 
-`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in `crates/host/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
+`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in dainty-lass's `crates/hostkit/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
 
 | Variable | Copied to | What |
 | --- | --- | --- |
@@ -191,7 +191,7 @@ servers' key) lives only in `secrets.env`.
 | `API_KEY_HASH_SECRET` | `backend.env` | HMAC secret for hashing account API keys at rest |
 | `RUSTIC_ISLES_METRICS_TOKEN` | `backend.env` | Bearer token for the backend's `/metrics` endpoint |
 | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` | `backend.env` | 4096-bit RSA keypair (PKCS#8 private key and SPKI public key, base64-encoded PEM) that signs and verifies the auth service's RS256 access tokens |
-| `REFORGED_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](admin-api.md)) |
+| `REFORGED_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) |
 | `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
 | `REFORGED_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
 | `DASHBOARD_INGEST_KEY` | `gateway.env` (`CHAT_DASHBOARD_INGEST_KEY`, when `dashboard_url` is set) | What chat sends the staff dashboard with: set the dashboard's own `DASHBOARD_INGEST_KEY` to the same value |
@@ -233,7 +233,7 @@ Backblaze B2, MinIO, Cloudflare R2):
   chosen `--to <RFC 3339>` timestamp, replays every shipped change-log segment up to that moment into a target
   SQLite or Postgres database, verifies every entry's SHA-256 hash chain (`history verify`) and any out-of-band
   `RestoreOptions::trusted_head`, and refuses unverified tail entries outside `trust_window`
-  ([security/history.md](security/history.md)).
+  ([security/history.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/security/history.md)).
 - **Shipping lag alerts.** Both the server status page and the admin API surface a warning whenever log shipping
   falls behind the local change log head.
 
@@ -274,7 +274,7 @@ delay_minutes = 30
 `reforged-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and **DaintyLass Manager** (`dainty-lass-manager`)
 lists what waits. A rule on `"approval"` on a server with one owner key waits for nobody and expires after
 `expire_hours`: use it once the team has a second key. How it works, and what a bot sees, is in
-[admin-api.md](admin-api.md#guarded-actions-dh6).
+[admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md#guarded-actions-dh6).
 
 ### Game modules and plugins
 
@@ -393,7 +393,7 @@ the hash chain and any off-server `trusted_head`.
 ### Managing several installs
 
 One **DaintyLass Manager** (`dainty-lass-manager`) install or headless controller can manage several enrolled server
-installs over pinned mTLS ([remote-management.md](remote-management.md), [security/remote-management.md](security/remote-management.md)).
+installs over pinned mTLS ([remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md), [security/remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/security/remote-management.md)).
 The player launcher (`dainty-lass-client`) has no remote-management surface.
 
 1. **Initialize the controller.** In **DaintyLass Manager** -> **Host** -> **Managed installs**, click **Enable
@@ -440,7 +440,7 @@ The player launcher (`dainty-lass-client`) has no remote-management surface.
   as administrator; `start` asks.
 - **Registration**: `INVITECODE` (the default) needs a code per player, `OPEN` lets anyone with the address
   register, `NONE` closes it.
-- A ban: `reforged-host` has no command for it yet; the admin API ([admin-api.md](admin-api.md)) and the
+- A ban: `reforged-host` has no command for it yet; the admin API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) and the
   backend's `SetAccountStatus` route do it.
 
 ## Updating
