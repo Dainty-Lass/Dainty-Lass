@@ -1,6 +1,6 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false } } -->
 
-# Remote management design (R0 — DD27, RM1–RM5)
+# Remote management design (R0: DD27, RM1–RM5)
 
 This document specifies how one **DaintyLass Manager** install (or a headless controller) manages multiple **DaintyLass**
 server installs across machines, containers, and regions. All code for remote management is written fresh under the MIT
@@ -264,7 +264,7 @@ restarting):
 
 - All remote-management protocol types, enrollment logic, sync engine, and command dispatch live in a new crate:
   `crates/remote` (`package.name = "remote"`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`).
-- `crates/remote` depends only on MIT workspace crates (`module-api`, `network`, and—once `L2`/`L3` land—the MIT
+- `crates/remote` depends only on MIT workspace crates (`module-api`, `network`, and, once `L2`/`L3` land, the MIT
   `protocol`, `service-kit`, `store`, `server-controller`, `admin`, and `hostkit`) plus standard third-party MIT/Apache
   crates (`serde`, `serde_json`, `sha2`, `base64`, `rcgen`, `rustls`, `thiserror`, `tokio`, `tracing`).
 - Where `crates/remote` invokes host-kit operations (`setup`, `doctor`, `backup`, `update`, `db`, `invite`), it defines
@@ -319,12 +319,12 @@ reforged-host remote leave
 
 ## 10. Resolved maintainer decisions (`R0` gate)
 
-1. **Client launcher scope**: **Confirmed (`Recommended: no remote management in client launcher`)** — remote
+1. **Client launcher scope**: **Confirmed (`Recommended: no remote management in client launcher`)**: remote
    management applies strictly to server and `DaintyLass Manager` installs; `dainty-lass-client` has no remote
    management surface.
-2. **Single controller ownership**: **Confirmed (`true`)** — each managed install has at most one active controller at a
+2. **Single controller ownership**: **Confirmed (`true`)**: each managed install has at most one active controller at a
    time (`remote leave` is required before enrolling with a different controller), while multiple human operators share
    the controller via per-person `DH2` admin keys.
-3. **Hybrid push + pull sync**: **Confirmed (`yes`)** — managed installs run a 15-second outbound mTLS heartbeat pull
+3. **Hybrid push + pull sync**: **Confirmed (`yes`)**: managed installs run a 15-second outbound mTLS heartbeat pull
    combined with immediate mTLS push when reachable, preserving per-host local overrides (`[server] host`, `ports`,
    `paths`, `database`, and `network` identity).
