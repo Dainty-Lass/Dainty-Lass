@@ -8,6 +8,7 @@ import {
   like,
   lt,
   lte,
+  ne,
   or,
   type SQL,
   sql,
@@ -31,6 +32,8 @@ export interface ChatQuery {
   /** Older than this id, for "load more". */
   before?: number;
   limit?: number;
+  /** Include direct messages: only readDirectMessages passes this, so every read of them is audited. */
+  direct?: boolean;
 }
 
 function where(q: ChatQuery): SQL | undefined {
@@ -46,6 +49,7 @@ function where(q: ChatQuery): SQL | undefined {
   if (q.name) parts.push(like(schema.chatMessages.senderName, `%${q.name.replace(/[%_]/g, "")}%`));
   if (q.roomId) parts.push(eq(schema.chatMessages.roomId, q.roomId));
   if (q.channel) parts.push(eq(schema.chatMessages.channel, q.channel));
+  if (!q.direct) parts.push(ne(schema.chatMessages.channel, "direct"));
   // LIKE is case-insensitive for ASCII in SQLite, which is what a moderator searching expects.
   if (q.text) parts.push(like(schema.chatMessages.body, `%${q.text.replace(/[%_]/g, "")}%`));
   if (q.flagged) parts.push(inArray(schema.chatMessages.verdict, ["flagged", "masked", "blocked"]));
@@ -68,7 +72,10 @@ export function searchChat(q: ChatQuery): { messages: ChatMessage[]; hasMore: bo
   return { messages: rows.slice(0, limit), hasMore: rows.length > limit };
 }
 
-/** What was said around a moment: the room's lines (or the player's) either side of it, oldest first. */
+/**
+ * What was said around a moment: the room's lines (or the player's) either side of it, oldest first.
+ * Never direct messages, which only readDirectMessages returns.
+ */
 export function chatAround(
   at: number,
   minutes: number,
@@ -79,6 +86,7 @@ export function chatAround(
   const filters: SQL[] = [
     between(schema.chatMessages.at, at - span, at + span),
     eq(schema.chatMessages.controllerId, scope.controllerId),
+    ne(schema.chatMessages.channel, "direct"),
   ];
   if (scope.roomId) filters.push(eq(schema.chatMessages.roomId, scope.roomId));
   else if (scope.userId) {

@@ -3,7 +3,8 @@
  * the pages and the server actions cannot disagree about who may do what.
  *
  *   user       anyone signed in (and approved, when the server asks): the overview, players, controllers
- *   moderator  + reports, chat logs and the chat filter, and moderating players
+ *   moderator  + reports, chat logs and the chat filter, moderating players, and a player's direct
+ *              messages (each read audited, with a reason)
  *   admin      + the audit log and undo, accounts, the filter's terms, controllers, members
  *   owner      + settings
  */
@@ -18,6 +19,7 @@ const CAPABILITIES = {
   "reports:write": "moderator",
   "chat:read": "moderator",
   "chat:export": "moderator",
+  "chat:direct": "moderator",
   "players:moderate": "moderator",
   "audit:read": "admin",
   "audit:revert": "admin",

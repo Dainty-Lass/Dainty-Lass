@@ -23,7 +23,9 @@ export function queryAudit(q: AuditQuery): { events: AuditEvent[]; total: number
   if (q.controllerIds) parts.push(inArray(schema.auditEvents.controllerId, q.controllerIds));
   if (q.targetType) parts.push(eq(schema.auditEvents.targetType, q.targetType));
   if (q.targetId) parts.push(eq(schema.auditEvents.targetId, q.targetId));
-  if (q.action) parts.push(like(schema.auditEvents.action, `${q.action.replace(/[%_]/g, "")}%`));
+  // A plain prefix compare: LIKE would need "_" stripped or escaped, and actions such as chat.direct_read have one.
+  if (q.action)
+    parts.push(sql`substr(${schema.auditEvents.action}, 1, ${q.action.length}) = ${q.action}`);
   if (q.text) {
     const t = `%${q.text.replace(/[%_]/g, "")}%`;
     parts.push(

@@ -38,6 +38,15 @@ database.
 [`permissions.ts`](../apps/web/src/lib/auth/permissions.ts) has the capability table; pages and
 actions check capabilities, never tiers.
 
+### Direct messages
+
+Direct messages are stored with the rest of chat but never shown with it: the chat logs, their CSV
+export, a report's context and a player's Chat tab all leave them out. A moderator reads them from the
+**Direct messages** tab on a player's page or a report's, by giving a reason (a report's number is filled
+in). Each read writes a `chat.direct_read` event first, with who read, whose they were, the reason and how
+many lines came back, so admins see every read in the audit log. Reads cannot be undone; the lines stay on
+the page only until it is left or closed.
+
 Where a tier comes from, re-decided at every sign-in (`resolveSignIn` in `lib/staff.ts`):
 
 1. An owner listed in `DASHBOARD_OWNER_DISCORD_IDS`, or by confirmed address in `DASHBOARD_OWNER_EMAILS`.

@@ -20,6 +20,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { AuditTable } from "@/components/AuditTable";
 import { ChatLog } from "@/components/ChatLog";
+import { DirectMessages } from "@/components/DirectMessages";
 import { Page } from "@/components/Page";
 import { useAction } from "@/components/useAction";
 import type { ChatLine } from "@/lib/chat/present";
@@ -49,9 +50,10 @@ export function ReportDetailClient({
   history: AuditEvent[];
   reasons: string[];
   me: { id: number };
-  can: { write: boolean; moderate: boolean; revert: boolean };
+  can: { write: boolean; moderate: boolean; revert: boolean; readDirect: boolean };
 }) {
   const t = useTranslations("reports");
+  const td = useTranslations("direct");
   const { run } = useAction();
   const [tab, setTab] = useState("context");
   const [note, setNote] = useState("");
@@ -179,6 +181,7 @@ export function ReportDetailClient({
               endContent={<Badge label={String(context.length)} />}
             />
             <Tab value="recent" label={t("tabs.recent", { name: report.targetName })} />
+            {can.readDirect && report.targetUserId && <Tab value="direct" label={td("tab")} />}
             <Tab
               value="related"
               label={t("tabs.related")}
@@ -200,6 +203,14 @@ export function ReportDetailClient({
           </Stack>
         )}
         {tab === "recent" && <ChatLog lines={targetRecent} emptyTitle={t("noContext")} />}
+        {tab === "direct" && report.targetUserId && (
+          <DirectMessages
+            controllerId={report.controllerId}
+            userId={report.targetUserId}
+            name={report.targetName}
+            reportId={report.id}
+          />
+        )}
         {tab === "related" && (
           <Stack gap={1} padding={4}>
             {related.length === 0 ? (

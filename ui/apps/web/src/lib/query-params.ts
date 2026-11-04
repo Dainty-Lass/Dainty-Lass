@@ -32,7 +32,8 @@ export function chatQueryFromParams(
     userId: get(p, "user"),
     name: get(p, "name"),
     roomId: get(p, "room"),
-    channel: ["city", "party", "guild", "direct", "system"].includes(channel ?? "")
+    // Direct messages are never a filter here: readDirectMessages is their only, audited, way out.
+    channel: ["city", "party", "guild", "system"].includes(channel ?? "")
       ? (channel as ChatMessage["channel"])
       : undefined,
     text: get(p, "q"),

@@ -77,7 +77,7 @@ export function ChatClient({
               hasClear
               placeholder={t("anyChannel")}
               value={filters.channel || null}
-              options={(["city", "party", "guild", "direct", "system"] as const).map((c) => ({
+              options={(["city", "party", "guild", "system"] as const).map((c) => ({
                 value: c,
                 label: tc(`channels.${c}`),
               }))}

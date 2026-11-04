@@ -62,6 +62,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         write: can(me.role, "reports:write"),
         moderate: can(me.role, "players:moderate"),
         revert: can(me.role, "audit:revert"),
+        readDirect: can(me.role, "chat:direct"),
       }}
     />
   );

@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { queryAudit } from "@/lib/audit/query";
 import { revertEvent } from "@/lib/audit/revert";
+import { readDirectMessages } from "@/lib/chat/direct";
 import { type IncomingChat, ingestChat } from "@/lib/chat/store";
 import { createTerm, updateTerm } from "@/lib/chat/terms";
 import { db, schema } from "@/lib/db";
@@ -265,12 +266,21 @@ report(
   "cheating",
   "Took no damage for the whole Shrike hunt, and the timer read 40 seconds.",
 );
-report(
+const harassment = report(
   p[7]!,
   p[2]!,
   "harassment",
-  "Kept following me around Ramsgate calling me names after I left their party.",
+  "Kept following me around Ramsgate calling me names after I left their party, then in whispers.",
 );
+// A moderator reading the target's direct messages for it: the audited read the Audit log shows
+claimReport(ash, harassment.id);
+readDirectMessages(ash, {
+  controllerId: "local",
+  userId: p[7]![0],
+  name: p[7]![1],
+  reason: `Report #${harassment.id}`,
+  reportId: harassment.id,
+});
 report(
   FRONTIER[6]!,
   null,

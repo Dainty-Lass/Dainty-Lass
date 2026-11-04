@@ -22,6 +22,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { AuditTable } from "@/components/AuditTable";
 import { ChatLog } from "@/components/ChatLog";
+import { DirectMessages } from "@/components/DirectMessages";
 import { Page } from "@/components/Page";
 import { useAction } from "@/components/useAction";
 import type { ChatLine } from "@/lib/chat/present";
@@ -81,6 +82,8 @@ export function PlayerDetailClient({
     fleet: boolean;
     // What the reader's role may see: users get neither chat, reports nor history.
     readChat: boolean;
+    // A separate tab: direct messages are read only with a reason, and each read is audited.
+    readDirect: boolean;
     readReports: boolean;
     readAudit: boolean;
   };
@@ -92,9 +95,11 @@ export function PlayerDetailClient({
   const tm = useTranslations("moderation");
   const te = useTranslations("errors");
   const tr = useTranslations("reports");
+  const td = useTranslations("direct");
   const { run } = useAction();
   const tabs = [
     can.readChat && "chat",
+    can.readDirect && userId && "direct",
     can.readReports && "reports",
     can.readAudit && "history",
   ].filter((x): x is string => Boolean(x));
@@ -302,6 +307,7 @@ export function PlayerDetailClient({
                   endContent={<Badge label={String(chat.length)} />}
                 />
               )}
+              {can.readDirect && userId && <Tab value="direct" label={td("tab")} />}
               {can.readReports && (
                 <Tab
                   value="reports"
@@ -321,6 +327,9 @@ export function PlayerDetailClient({
                 </Stack>
               )}
             </Stack>
+          )}
+          {tab === "direct" && userId && (
+            <DirectMessages controllerId={controller.id} userId={userId} name={name} />
           )}
           {tab === "reports" &&
             (reports.length === 0 ? (

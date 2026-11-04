@@ -104,6 +104,7 @@ export default async function PlayerPage({
         revert: can(me.role, "audit:revert"),
         fleet: can(me.role, "players:fleet"),
         readChat: may.chat,
+        readDirect: can(me.role, "chat:direct"),
         readReports: may.reports,
         readAudit: may.audit,
       }}

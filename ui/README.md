@@ -29,6 +29,8 @@ What staff do on it, for one controller or a fleet of them ([docs/fleet.md](docs
 - **Reports**: a queue from the game, Discord and staff. Claim, add notes, see the chat around the reported
   moment, and resolve with a sanction in one step, or dismiss.
 - **Chat logs**: search by text, player, channel, room and time; flagged lines only; CSV export (audited).
+  Direct messages stay out of them: a player's or a report's page reads them, with a reason, and every
+  read is in the audit log.
 - **Chat filter**: whole-word, anywhere and regex terms that flag, mask or block, per channel, with a tester.
   Look-alikes (`id1ot`) and spacing tricks (`i.d.i.o.t`) are caught by the non-regex kinds.
 - **Audit log**: every change, with what it replaced, filterable and exportable. Most changes have **Undo**.

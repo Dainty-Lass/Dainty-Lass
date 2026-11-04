@@ -24,7 +24,15 @@ const TARGETS = [
   "settings",
   "session",
 ] as const;
-const ACTION_GROUPS = ["player.", "report.", "filter.", "staff.", "settings.", "session."] as const;
+const ACTION_GROUPS = [
+  "player.",
+  "report.",
+  "filter.",
+  "chat.direct_read",
+  "staff.",
+  "settings.",
+  "session.",
+] as const;
 const RANGES = ["1h", "24h", "7d", "30d"] as const;
 
 export function AuditClient({
@@ -103,7 +111,7 @@ export function AuditClient({
               value={filters.action || null}
               options={ACTION_GROUPS.map((a) => ({
                 value: a,
-                label: t(`groups.${a.slice(0, -1) as "player"}`),
+                label: t(`groups.${a.replace(/\.$/, "").replace(".", "_") as "player"}`),
               }))}
               onChange={(v) => patch({ action: v })}
             />

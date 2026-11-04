@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAction } from "@/lib/auth/guard";
+import { type DirectRead, readDirectMessages } from "@/lib/chat/direct";
 import { attempt, DomainError } from "@/lib/errors";
 import {
   banEverywhere,
@@ -104,4 +105,9 @@ export async function fileReportAction(
     });
     return report.id;
   });
+}
+
+/** A player's direct messages; the read is audited with its reason before anything comes back. */
+export async function readDirectAction(read: DirectRead) {
+  return attempt(async () => readDirectMessages(await requireAction("chat:direct"), read));
 }

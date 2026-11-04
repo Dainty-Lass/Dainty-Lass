@@ -211,7 +211,8 @@
       "staff": "Staff",
       "settings": "Settings",
       "session": "Sign-ins",
-      "controller": "Controllers"
+      "controller": "Controllers",
+      "chat_direct_read": "Direct-message reads"
     },
     "actions": {
       "unknown": "{actor}: {action} on {target}",
@@ -250,7 +251,8 @@
       "account_linked": "{actor} linked a sign-in method",
       "account_unlinked": "{actor} unlinked a sign-in method",
       "passkey_added": "{actor} added a passkey",
-      "passkey_removed": "{actor} removed a passkey"
+      "passkey_removed": "{actor} removed a passkey",
+      "chat_direct_read": "{actor} read {target}'s direct messages"
     }
   },
   "players": {
@@ -490,7 +492,7 @@
   },
   "chat": {
     "title": "Chat logs",
-    "description": "City, party, guild and direct messages as the backend relays them",
+    "description": "City, party and guild chat as the backend relays it. Direct messages are read from a player's page, with a reason, and each read is audited.",
     "filters": "Chat filters",
     "searchText": "Search messages",
     "searchPlayer": "Sender name",
@@ -1030,5 +1032,17 @@
       "large": "Large"
     },
     "hint": "Only in this browser. Applied as you pick."
+  },
+  "direct": {
+    "tab": "Direct messages",
+    "title": "{name}'s direct messages",
+    "explain": "Direct messages are private, so they stay out of the chat logs and exports. Reading them records who read them, whose they were and why in the audit log, where admins see it.",
+    "reason": "Why you need to read them",
+    "reportReason": "Report #{id}",
+    "read": "Read and record",
+    "recorded": "This read is in the audit log",
+    "truncated": "Only the newest 200 are shown.",
+    "close": "Close",
+    "none": "{name} has no direct messages the dashboard has received."
   }
 }
