@@ -148,11 +148,11 @@ platform: string,
  */
 hostToolsAvailable: boolean, 
 /**
- * False without the `legacy` feature: the page offers no edition setting
+ * Always false since the legacy edition went (1.4.4, RD5): the page offers no edition setting
  */
 legacyAvailable: boolean, 
 /**
- * The game versions an invite may name in this build (`protocol::game::supported_versions`)
+ * The game versions an invite may name in this build (`protocol::invite::played_versions`)
  */
 gameVersions: Array<string>, 
 /**
