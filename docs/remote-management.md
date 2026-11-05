@@ -1,6 +1,6 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false } } -->
 
-# Remote management design (R0 — DD27, RM1–RM5)
+# Remote management design (R0: DD27, RM1–RM5)
 
 This document specifies how one **DaintyLass Manager** install (or a headless controller) manages multiple **DaintyLass**
 server installs across machines, containers, and regions. All code for remote management is written fresh under the MIT
@@ -12,8 +12,8 @@ licence (`Copyright (c) 2026 Silent Spud`) in `crates/remote` with zero dependen
 
 | Role | What runs it | `host.toml` `[remote]` setting | Description |
 | --- | --- | --- | --- |
-| **Controller** | A `DaintyLass Manager` desktop install (or a headless `dainty-lass-host` / `dainty-lass-server-console` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
-| **Managed install** | Any DaintyLass server install enrolled with the controller: headless servers (`dainty-lass-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`), Docker containers (`reforged-revival-server`), other `DaintyLass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
+| **Controller** | A `DaintyLass Manager` desktop install (or a headless `reforged-host` / `dainty-lass-server-console` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
+| **Managed install** | Any DaintyLass server install enrolled with the controller: headless servers (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`), Docker containers (`reforged-revival-server`), other `DaintyLass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
 | **Standalone install** *(default)* | Any install that has not enabled controller mode or enrolled with a controller | `role = "standalone"` *(or `[remote]` omitted)* | Operates locally with zero network or remote-management traffic, exactly as before. |
 
 ### Can a player client (`dainty-lass-client`) also be a managed install?
@@ -264,7 +264,7 @@ restarting):
 
 - All remote-management protocol types, enrollment logic, sync engine, and command dispatch live in a new crate:
   `crates/remote` (`package.name = "remote"`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`).
-- `crates/remote` depends only on MIT workspace crates (`module-api`, `network`, and—once `L2`/`L3` land—the MIT
+- `crates/remote` depends only on MIT workspace crates (`module-api`, `network`, and, once `L2`/`L3` land, the MIT
   `protocol`, `service-kit`, `store`, `server-controller`, `admin`, and `hostkit`) plus standard third-party MIT/Apache
   crates (`serde`, `serde_json`, `sha2`, `base64`, `rcgen`, `rustls`, `thiserror`, `tokio`, `tracing`).
 - Where `crates/remote` invokes host-kit operations (`setup`, `doctor`, `backup`, `update`, `db`, `invite`), it defines
@@ -282,7 +282,7 @@ restarting):
      with its label, `NodeId`, region, live state badge (`Online`, `Degraded`, `Offline`, `Revoked`), player count,
      version, and config sync badge (`Revision #N`).
    - Clicking **Enroll install** opens a dialog that mints a one-time `dainty-lass-remote://enroll?...` URI with a
-     one-click **Copy enrollment command** (`dainty-lass-host remote enroll "..."`) button and expiry countdown.
+     one-click **Copy enrollment command** (`reforged-host remote enroll "..."`) button and expiry countdown.
 2. **Per-install inspection and control (reusing existing tabs)**:
    - Selecting any enrolled install in the Manager switches the target context (`selectedInstallId`) so the existing
      **Server**, **Status**, **Modules**, **Admin**, and **History** tabs display that remote install's status,
@@ -293,7 +293,7 @@ restarting):
      all**, **Stop all**, **Restart all**, **Run doctor on all**, **Backup all**, and **Broadcast ban/unban**, showing a
      per-install outcome table as each install replies or queues the action.
 
-### 9.2 Headless CLI (`dainty-lass-host` / `reforged-host remote`)
+### 9.2 Headless CLI (`reforged-host remote`)
 
 ```text
 reforged-host remote init-controller [--listen-url <https://host:61000>]
@@ -319,12 +319,12 @@ reforged-host remote leave
 
 ## 10. Resolved maintainer decisions (`R0` gate)
 
-1. **Client launcher scope**: **Confirmed (`Recommended: no remote management in client launcher`)** — remote
+1. **Client launcher scope**: **Confirmed (`Recommended: no remote management in client launcher`)**: remote
    management applies strictly to server and `DaintyLass Manager` installs; `dainty-lass-client` has no remote
    management surface.
-2. **Single controller ownership**: **Confirmed (`true`)** — each managed install has at most one active controller at a
+2. **Single controller ownership**: **Confirmed (`true`)**: each managed install has at most one active controller at a
    time (`remote leave` is required before enrolling with a different controller), while multiple human operators share
    the controller via per-person `DH2` admin keys.
-3. **Hybrid push + pull sync**: **Confirmed (`yes`)** — managed installs run a 15-second outbound mTLS heartbeat pull
+3. **Hybrid push + pull sync**: **Confirmed (`yes`)**: managed installs run a 15-second outbound mTLS heartbeat pull
    combined with immediate mTLS push when reachable, preserving per-host local overrides (`[server] host`, `ports`,
    `paths`, `database`, and `network` identity).

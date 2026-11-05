@@ -1,4 +1,4 @@
-# Plan: Unified Server Controller, Pure Service Libraries, Concurrent Multi-Edition & 12 Dedicated Binary Crates
+# Plan: a unified server controller, pure service libraries, concurrent editions and 12 binary crates
 
 Draft, 2026-10-24. **Superseded where it differs by RD26** in [MIGRATION_PLAN.md](../MIGRATION_PLAN.md)
 (2026-10-25): this is the design the `feat/app-structure` merge (`c57f157`) was built from, kept for its reasoning.
@@ -8,16 +8,16 @@ controller makes; the backend and Director as Rustic Isles's Node processes, not
 still runnable alone as a `reforged-host` subcommand.
 
 This document specifies the architectural conversion of the DaintyLass Rust codebase into:
-1. **Pure Library Service Crates (`services/*`)** — Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).
-2. **A Unified `ServerController` (`crates/controller`)** — Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
-3. **A `tracing` + `tracing-subscriber` Logging Pipeline** — Unifying all components into a single span-attributed, secret-redacting logging bus with pluggable target layers (`TableStdoutLayer`, `LauncherGuiLayer`, `TuiRingBufferLayer`, `FileLogLayer`).
-4. **12 Dedicated Binary Crates (`bins/*`)** — Providing `both` (default for releases), `refined`-only, and `reforged`-only binary crates across all four application profiles (`server-minimal`, `server-console`, `server-gui`, and `online-client`).
+1. **Pure Library Service Crates (`services/*`)**: Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).
+2. **A Unified `ServerController` (`crates/controller`)**: Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
+3. **A `tracing` + `tracing-subscriber` Logging Pipeline**: Unifying all components into a single span-attributed, secret-redacting logging bus with pluggable target layers (`TableStdoutLayer`, `LauncherGuiLayer`, `TuiRingBufferLayer`, `FileLogLayer`).
+4. **12 Dedicated Binary Crates (`bins/*`)**: Providing `both` (default for releases), `refined`-only, and `reforged`-only binary crates across all four application profiles (`server-minimal`, `server-console`, `server-gui`, and `online-client`).
 
 ---
 
-## 1. Complete Workspace & 12-Binary Crate Topology
+## 1. The workspace and its 12 binary crates
 
-### 1.1 Pure Library Crates (`crates/*`, `services/*`, `launcher/src-tauri`)
+### 1.1 Pure library crates (`crates/*`, `services/*`, `launcher/src-tauri`)
 All business logic, networking, storage, and UI components live in library crates. None of `services/*` or `launcher/src-tauri` build standalone binaries anymore; instead, every executable is a dedicated binary crate in `bins/*`:
 
 ```mermaid
@@ -29,7 +29,7 @@ flowchart TB
         Store["store\n(SQLite WAL pool, Drizzle migrations, hot backup)"]
     end
 
-    subgraph PureServiceLibs["Pure Service Libraries (services/* — NO main.rs)"]
+    subgraph PureServiceLibs["Pure Service Libraries (services/*, no main.rs)"]
         GW["gateway (lib)\n(TLS/HTTP proxy + allowlist module)"]
         CS["content (lib)\n(multi-edition runtime manifests, branding, news)"]
         AD["admin (lib)\n(GraphQL schema + TimeoutStore)"]
@@ -78,7 +78,7 @@ flowchart TB
     OC_B & OC_R1 & OC_R2 --> LauncherLib
 ```
 
-### 1.2 Full Matrix of the 12 Dedicated Binary Crates (`bins/*`)
+### 1.2 The 12 binary crates (`bins/*`)
 
 | # | Binary Crate Path | Binary Name | Edition Feature Set | Profile & Capabilities |
 | --- | --- | --- | --- | --- |
@@ -129,7 +129,7 @@ flowchart LR
     DR_R2 & DR_R1 -.->|"Spawns UE4 Game Servers"| AL
 ```
 
-### How Each Component Handles Concurrent Editions
+### How each component handles concurrent editions
 1. **`gateway`**:
    - Can either bind one shared public listener (routing `/content/v1/*` to `content` and dispatching backend/WebSocket traffic by edition route prefix, header `x-reforged-edition: refined|reforged`, or query parameter) **or** bind two separate public/private listeners (`[editions.reforged].gateway_port = 443`, `[editions.refined].gateway_port = 8443`) sharing the same pinned TLS certificate (`fp`) so one server cert covers both editions.
 2. **`allowlist`**:
@@ -159,7 +159,7 @@ To ensure `reforged-server-minimal --config server.yaml` (as well as `server-con
 
 ---
 
-## 4. Unified `tracing` + `tracing-subscriber` Logging Pipeline
+## 4. One `tracing` + `tracing-subscriber` logging pipeline
 
 All components emit logs via `tracing` macros (`tracing::info!`, `warn!`, `error!`, `debug!`), instrumented per component by `ServerController` (`.instrument(tracing::info_span!("component", service = service_name))`):
 
@@ -173,9 +173,9 @@ All components emit logs via `tracing` macros (`tracing::info!`, `warn!`, `error
 
 ---
 
-## 5. Phased Implementation Plan
+## 5. Phases
 
-### Phase 1: Pure Service Libraries & `tracing` Infrastructure (`service-kit` + `services/*`)
+### Phase 1: pure service libraries and `tracing` (`service-kit` + `services/*`)
 1. Add `tracing`, `tracing-subscriber` (`registry`, `fmt`, `env-filter`, `reload`), `tracing-log`, and `serde_yaml` to `[workspace.dependencies]` in `Cargo.toml`.
 2. Implement `ServiceContext`, `ComponentPhase`, `ComponentStatus`, `StatusReporter`, `RedactingVisitor`, `TableStdoutLayer` (`{service:<14} | {line}`), and `ChannelLogLayer` in `crates/service-kit`.
 3. Convert `gateway` (and its `allowlist` submodule), `content`, `admin`, `backend`, `director`, and `host` into **pure library crates** (`lib.rs` only, removing `src/main.rs` and `src/bin/allowlist.rs`, and updating integration/parity tests to start the library servers directly in-process).
@@ -187,12 +187,12 @@ All components emit logs via `tracing` macros (`tracing::info!`, `warn!`, `error
    - Cold-boot auto-provisioning (`ensure_secrets`, `load_or_generate_cert`, and SQLite migration/preset seeding) so a fresh server starts from a single config file with zero prior `setup`.
    - `ServerController` managing in-process async service tasks, hybrid in-process `AllowlistSink`, `StatusRegistry` (`watch::Receiver<ServerSnapshot>`), per-component start/stop/restart, and reverse-order graceful shutdown.
 
-### Phase 3: Server Binary Crates (`server-minimal*` & `server-console*` — 6 Crates)
+### Phase 3: server binary crates (`server-minimal*` & `server-console*`, 6 crates)
 1. Create `crates/server-minimal`, `crates/server-minimal-refined`, and `crates/server-minimal-reforged` wired to `ServerController` + `TableStdoutLayer`.
 2. Implement the interactive runtime REPL (`status`, `start/stop/restart <svc>`, `invite`, `players`, `instances`, `doctor`, `backup`, `log`, `stop`) and optional `ratatui` `--tui` dashboard in `host`.
 3. Create `crates/server-console`, `crates/server-console-refined`, and `crates/server-console-reforged`.
 
-### Phase 4: Client & Server GUI Binary Crates (`online-client*` & `server-gui*` — 6 Crates)
+### Phase 4: client and server GUI binary crates (`online-client*` & `server-gui*`, 6 crates)
 1. Split `launcher/src-tauri` into pure library modules with `server-gui`, `edition-refined`, `edition-reforged`, and `edition-both` feature gates.
 2. Create `bins/online-client`, `bins/online-client-refined`, and `bins/online-client-reforged` (linking zero server crates and registering only the 34 client IPC commands).
 3. Embed `ServerController` + `LauncherGuiLayer` into the launcher's `server-gui` module, add the live per-component Status Page to `bridge/types.rs` and `launcher/page`, and create `bins/server-gui`, `bins/server-gui-refined`, and `bins/server-gui-reforged`.

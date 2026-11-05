@@ -57,7 +57,7 @@ Fuzz targets in `fuzz`:
       invite is the one the gateway serves (`tests/certificate.rs`, fixture in `tests/fixtures/node-kit`).
 - [ ] `gateway make-cert` refuses to replace an existing certificate or key without `--force`, and says that a new
       one breaks every invite (`cert.rs`, `make_cert_main`). The key is written 0600 where the file system has
-      modes. On Windows the folder's ACL is the host kit's job (`legacy/ReforgedHost`, later RH rows).
+      modes. On Windows the folder's ACL is left to the host kit, which sets none today (`crates/hostkit`).
 - [ ] TLS 1.2 and 1.3 only, aws-lc-rs, ALPN `http/1.1` only (`cert::server_config`). The handshake has its own
       timeout (`GATEWAY_HANDSHAKE_TIMEOUT_MS`, 10 s) and counts against the per-address connection rate.
 - [ ] A public config without a certificate, or a private one with one, does not start (`Gateway::new`).

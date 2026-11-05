@@ -55,7 +55,8 @@ decodes writes back as the same message, and that every name has exactly one spe
       shares reads only, so nobody can write, rename or delete the file until the child runs; on Linux the child is
       started through the handle (`/proc/self/fd/<n>`), so a file renamed over it is not the one that runs.
 - [ ] The child gets only the environment the controller gives it (`ChildOptions::env`, `env_clear`): the host kit
-      passes the system's variables without any `SERVER_PREFIXES`/`SERVER_NAMES` setting, as `start` does, and the
+      passes the shell's whole environment, as `start` does (`service_environment`: the clean-room host kit has no
+      `SERVER_PREFIXES`/`SERVER_NAMES` filter, so a server setting in the shell reaches the child), and the
       registry's own default is an allowlist of the OS's variables (`system_environment`). Test:
       `children_get_the_os_variables_and_no_server_setting`.
 - [ ] The child's whole tree is adopted at spawn (a job object with `KILL_ON_JOB_CLOSE` on Windows, its process

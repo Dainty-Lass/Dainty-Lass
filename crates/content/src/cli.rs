@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `content [serve] [--env-file <path>]`, the hidden `dainty-lass-host content` subcommand.
+//! `content [serve] [--env-file <path>]`, the hidden `reforged-host content` subcommand.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
