@@ -48,7 +48,7 @@ pub fn metric_class(path: &str) -> &'static str {
 
 /// The player-host lease and Guard evidence routes: logged only when refused.
 fn high_frequency(path: &str) -> bool {
-    let Some(rest) = path.strip_prefix("/mystic/v1/hunts/") else {
+    let Some(rest) = path.strip_prefix("/rustic/v1/hunts/") else {
         return false;
     };
     matches!(rest.split_once('/'), Some((id, "lease" | "event-batches")) if !id.is_empty())
@@ -191,6 +191,6 @@ mod tests {
         assert_eq!(metric_class("/health/live"), "health");
         assert_eq!(metric_class("/launcher/v1/updates/x"), "launcher");
         assert_eq!(metric_class("/character"), "game");
-        assert!(high_frequency("/mystic/v1/hunts/abc/lease") && !high_frequency("/mystic/v1/hunts/abc/end"));
+        assert!(high_frequency("/rustic/v1/hunts/abc/lease") && !high_frequency("/rustic/v1/hunts/abc/end"));
     }
 }

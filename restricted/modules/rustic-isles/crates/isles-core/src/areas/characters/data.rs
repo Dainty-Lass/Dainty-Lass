@@ -21,10 +21,10 @@ fn parse_object(text: &str) -> Result<Map<String, Value>, DataError> {
     }
 }
 
-const DEFAULT_CHARACTER_FLAGS: &str = "{\"Flags\":[]}";
-const NO_RECENT_PLAYERS: &str = "{\"RecentPlayers\":[],\"Version\":0}";
+pub const DEFAULT_CHARACTER_FLAGS: &str = "{\"Flags\":[]}";
+pub const NO_RECENT_PLAYERS: &str = "{\"RecentPlayers\":[],\"Version\":0}";
 
-fn default_appearance() -> Value {
+pub fn default_appearance() -> Value {
     json!({
         "CreationState": "EArchonCharacterCreationState::FaceComplete",
         "Data": [{ "SkeletalMeshComponentName": "Head Slot", "MorphData": [] }],
@@ -43,7 +43,7 @@ fn default_appearance() -> Value {
 }
 
 /// 1.12 still consults this blob for the Training Grounds destination (character.ts:48-70).
-fn dojo_series_data() -> String {
+pub fn dojo_series_data() -> String {
     jsjson::stringify(&json!({
         "ID": "Dojo",
         "Status": 0,
@@ -66,7 +66,7 @@ fn dojo_series_data() -> String {
 }
 
 /// The 17 tutorial popups the client suppresses in Ramsgate when set.
-const TUTORIAL_SLATE_FLAGS: [&str; 17] = [
+pub const TUTORIAL_SLATE_FLAGS: [&str; 17] = [
     "TutorialSlate_LanternAbility",
     "TutorialSlate_QuickAttack",
     "TutorialSlate_HeavyAttack",

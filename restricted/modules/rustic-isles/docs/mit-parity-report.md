@@ -2,8 +2,9 @@
 
 What the composed clean-room module (`rustic-isles-1-14-7` at dainty-lass `3d0a64a8`, `spec_with` and restricted's
 version data) answers to every recorded golden under `crates/isles-core/tests/golden/`, compared with the recorded
-answers after each golden's own normalisation. The replay is `tools/mit-parity` (AGPL test crate, a workspace of its
-own; see "How it runs"). Run on 2026-11-05, SQLite only.
+answers after each golden's own normalisation. The replay is `crates/isles-mit-parity` (AGPL test crate, a member of
+restricted's workspace; see "How it runs"). Run on 2026-11-05, SQLite only, and again after the move into the
+workspace with the same result.
 
 **Result: 890 steps replayed, 890 matched, 0 mismatched; 34 steps could not be driven through the composed module.**
 There are no class (a) MIT bugs to report from these goldens.
@@ -27,7 +28,7 @@ There are no class (a) MIT bugs to report from these goldens.
 | **Total** | | **890** | **890** | **0** | **34** |
 
 The answers cover every status the goldens record (200 to 503, 302 redirects, 413, 415, 429), not a run of matching
-refusals: `target/mit-parity/<suite>.json` lists each suite's actual statuses.
+refusals: `target/tmp/mit-parity/<suite>.json` lists each suite's actual statuses.
 
 ## Mismatches
 
@@ -98,23 +99,26 @@ replay.
 
 ## How it runs
 
-`tools/mit-parity` is its own Cargo workspace (it sits under the already-excluded `modules/rustic-isles/tools`). It
-can't be a member of restricted's workspace: the MIT module depends on dainty-lass's `rifts-*` crates, restricted's
-`modules/rustic-rifts` members use the same package names and versions, and one lockfile can't hold both. So it links
-no restricted crate. What it takes from restricted's harnesses (the goldens' normalisations, the version data) is
-copied into it.
+`crates/isles-mit-parity` is a member of restricted's workspace. It was a workspace of its own until restricted
+switched to dainty-lass's MIT `rifts-*` crates (RD27): before that, restricted's `modules/rustic-rifts` members had the
+same package names and versions, and one lockfile couldn't hold both. Now it links isles-core and takes restricted's
+own pieces from it: the characters normaliser (`areas::characters::golden::Normalizer`), the inventory recorder's
+`normalize` and the progression replay's `normalise`, and the character data and starter kit constants. The auth
+golden's normaliser lives in isles-core's own test file and is still a copy; so are the values isles-core writes
+inline in its normalise and bootstrap code (the series fill, the trigger node, the banner customization).
 
 Each suite is a test file. It starts the module in process, as the version crate's own composition tests do: a fresh
 SQLite file, every port 127.0.0.1:0, one env file, and the golden's game data folder. Where a step changes the
 settings, the module restarts on the same database. The suite then sends the recorded requests over HTTP and writes
-its tally to `target/mit-parity/<suite>.json`: steps, matched, mismatched and skipped, then for each mismatch the step
+its tally to `target/tmp/mit-parity/<suite>.json` (`CARGO_TARGET_TMPDIR`): steps, matched, mismatched and skipped, then for each mismatch the step
 number, method and path, and both normalised answers. A mismatch never fails the test, so every suite runs to the
 end.
 
 ```
-cd modules/rustic-isles/tools/mit-parity
-cargo test -j 6 --locked
+cargo test -p isles-mit-parity -j 6 --locked
 ```
+
+It also runs with the rest of `cargo test --workspace`.
 
 The version data is restricted's 1.14.7 character data and starter kit in `version_data.json`'s shape
 (spec-rustic-isles-1-14-7 §4.3), handed to `spec_with`. `rewardCachePlan`, `storageTokenSeeds` and `legacyStarter`

@@ -1,0 +1,32 @@
+# Rustic Isles' recorded Node goldens replayed against the clean-room MIT module (RD27), as a parity report. A member
+# since restricted builds dainty-lass's rifts-* crates, so it shares isles-core's goldens, normalisers and data.
+[package]
+name = "isles-mit-parity"
+description = "Rustic Isles' recorded goldens replayed against the composed MIT module, as a parity report"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dev-dependencies]
+# The composed MIT module and the MIT crates it builds on
+rustic-isles-1-14-7 = { workspace = true, features = ["test-support"] }
+rustic-isles = { workspace = true, features = ["test-support"] }
+rustic-isles-auth = { workspace = true, features = ["test-support"] }
+rustic-isles-store.workspace = true
+# Restricted's own: the goldens' normalisers and 1.14.7's character data and starter kit
+isles-core = { workspace = true, features = ["test-support"] }
+module-api.workspace = true
+service-kit.workspace = true
+aws-lc-rs.workspace = true
+base64.workspace = true
+regex.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
+
+[lints]
+workspace = true

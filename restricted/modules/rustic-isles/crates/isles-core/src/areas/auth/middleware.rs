@@ -501,7 +501,7 @@ fn rifts_auth(method: &str, path: &str) -> RiftsAuth {
     if path.starts_with("/launcher/v1/guard/") {
         return Launcher { active: Option::None };
     }
-    if path.starts_with("/mystic/v1/hunts/") {
+    if path.starts_with("/rustic/v1/hunts/") {
         let launcher = path.ends_with("/tickets/self") || path.ends_with("/status") || path.ends_with("/reward/self");
         return if launcher {
             Launcher { active: Option::None }
