@@ -36,7 +36,7 @@ pub use gameservers::{
     Details, Director, GameServer, RAMSGATE_MAP, RosterEntry, ServerKind, ServerStatus, StartError, StartErrorKind,
     Supervisor, TRAINING_DOJO_HUNT_ID, TRAINING_DOJO_MAP, label_for, roster_argument,
 };
-pub use launcher::{Command, Exit, Launcher, OsLauncher, Started, TreeControl};
+pub use launcher::{Command, Exit, Launcher, OrNull, OsLauncher, Started, TreeControl};
 pub use matchmaker::TravelArgs;
 pub use memory::MemoryAdmission;
 
